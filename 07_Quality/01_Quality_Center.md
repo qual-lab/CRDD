@@ -2,72 +2,71 @@
 
 状態: v0.21.0 Quality Design Ready — Reality Audit Pending（Released Baseline: v0.20.1）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-15
+最終更新日: 2026-09-19
+
+## 設計集合
+
+| 項目 | 件数 |
+|---|---:|
+| Canonical入力 | 157 |
+| Quality検証目標 | 13 |
+| Local Item数 | 110 |
 
 ## 結論
 
-### v0.21.0の現在地
+v0.21.0のQuality設計は、全Canonical入力から検証目標とLocal Itemを導出し、独立レビューを通過した。13定義、110 Local Item、Architecture詳細設計の検証単位およびSource固有条件はCanonicalな設計集合として固定済みである。実装、試験、実行結果との現実照合（Reality Audit）は開始していない。
 
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|
-| Canonical入力 | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18の計157件をMapping済み | [Quality Integration](04_Quality_Integration.md) |
-| Quality Analysis | 157件を全件Mappingし、5横断モデル・15詳細設計領域・13検証定義・Local Item集合を接続済み | 構造閉包はChecker、意味伝播とScenario十分性は独立再レビューで確認済み |
-| Quality Definitions | 13定義、Local Item 81件をレビュー中 | 全定義でUT／IT／ST／UATの適用と外部境界の到達範囲を判定し、各項目固有の試験段階、試験種別、対象／境界、事前状態／入力、操作／刺激、観測、終了後条件、実行形態を固定した。独立再レビューPass後にCanonical化する |
-| 既存実装・既存試験との照合 | 未着手 | Canonical Mappingと検証定義の固定後、Local Item単位でSource／Test／Evidenceを照合する |
-| 実行結果 | Checker静的確認、Repository全体Checker、Checker契約試験335件はPass | Quality設計固定後に必要な回帰を選び、結果はChangeまたはReleaseのEvidenceへ置く |
-| 上流全体のQuality再構築 | Mappingと構造Checkerを作成済み | 個別MDは量産せず、全件処置の確実性をMappingとCheckerで保証する |
+| Canonical入力 | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18を全件Mapping済み | [Quality Integration](04_Quality_Integration.md) |
+| Quality Analysis | 6工程の全入力を、Source固有条件付きで13検証目標へ接続し、独立レビュー済み | Reality Auditではこの設計集合を変更せず、現行実装との対応を照合する |
+| Quality Definitions | 13定義、110 Local ItemをCanonical化済み | 各項目の状態区分、試験段階、外部境界到達範囲、観測、Oracle、Evidenceおよび終了後条件を基準に照合する |
+| Architecture詳細設計 | 全詳細設計領域の43検証単位をQualityへ接続済み | Local Itemとの集合一致を維持し、未確認の実境界はReality Auditで判定する |
+| Checker | 現在候補に対する構造・関係検査を実行 | Quality固定後にChecker安定化へ進み、責務分離後に再検証する |
+| Reality Audit | Pending — Not Started | Quality独立レビュー済み。Checker安定化とSymbol Traceability基盤の完了後に開始する |
 
-`v0.20.1`は公開済み基準であり、以下の履歴表はその基準と過去Evidenceを保持する。上表の`v0.21.0`再構築状態へ読み替えない。
+## 現在の品質投影
 
-| 項目 | 現在状態 |
-|---|---|
-| 対象 | 試験体系と自動回帰、実行知、Runtime責務分離、限定分散実行と統合結果、読み取り専用Project State、localhost限定MCP HTTP |
-| 文書監査の前候補 | `8536965`。全428 MarkdownのInventoryとChecker機械閉包は成立したが、独立監査でMajor 3件、Moderate 2件が残り、不採用 |
-| 公開済みRuntime | Runtime Source `2e4a467cc1364b88d6008604f649da8d840903e7`、manifest carrier `523202123c1ffa33fd39d1ede93357028585c4af`。Release sequence `2026091104` |
-| v0.20.0の文書Gate | 全428 MarkdownのInventory、Repository全体Checker、署名前の独立文書再監査および最終Evidence反映後の一括独立監査が成立 |
-| v0.20.0の技術Gate | Runtime実行Identity `7e82dbaee1bb2dd30f8baa4ebb52ac7e5ce5edf794c6ea977de37bf38c0ed137`を署名し、正式4経路4/4とRecovery Matrix 7/7が成立 |
-| 前の署名候補 | `f76b73af81c43e25f28037caa72d71a898a2f9fb`。Release sequence `2026091102`、Runtime実行Identity `b0f81d356343e535254a12358624ca9f7f0df8f75e6f6e4dd513feafd01d6067` |
-| 前候補の結果 | 正式4経路4/4、Recovery Matrix 7/7、技術独立監査0件。現在候補のGateへ流用しない |
-| v0.20.0公開 | 2026-09-11、公式tag `v0.20.0`へ収載済み |
-| v0.20.1修正 | 公開状態の伝播漏れと再発防止Checkerを是正。Runtime実行集合は不変 |
-
-最終一括監査: Critical 0、Major 0で成立
-
-旧固定版`392bd1ee`のRecovery Matrixで検出した中立化Runtime子ProcessのPowerShell初期化条件は是正した。旧署名と旧4/4結果は最終根拠へ流用していない。v0.20.0の公開状態は公式tagで成立する。tag作成時に候補表示の機械的遷移が実行されなかったため、v0.20.1で公開状態の利用側閉包と再発防止検査を是正する。
-
-v0.19.0の公開基準は、Source A `7346a5580926d71d253ebebaa6538e41bfbdea05`、manifest-only carrier B `5929cb27a9aed9ebabf79e07e3f710f4046597ef`、Runtime実行Identity `79e8cb3a3d11b1433e088d09d8c4b875b7de9ca2193f5e57ddc272d3225064d5`およびRelease sequence `2026090504`へ固定した。署名済みRecovery Matrix、4経路4/4、公開MCPの実Provider 2経路、実Provider開始後取消、親Process消失後のexact Recoveryとfresh再入場が完了し、最終独立監査はCritical／Major／Minor 0件だった。branch、作業中Commitまたは本書だけで公開基準を作らず、公開状態と最終Commitは公式tagから確認する。
-
-v0.18.0の署名固定版`48515eb`では4経路4/4、固定Workerの復旧7シナリオ、実TaskのSIGINT取消と通常回収を確認した。[対象・時刻・再識別方法・限界](../99_Roadmap/Releases/v0.18.0/Evidence/260901_coordinator-signed-e2e.md#signed-e2e-48515eb)に記録した。v0.18.1の旧署名候補はSource A `a15b997924536dcd306c48a5924ba066627e3fdf`／Tree `ad058d8e768c598937e6cc3261db3cef5980f0ae`とmanifest-only B `371151e9713e4c7e556db883d13af532bc82b3a1`／Tree `076310d110e2ecdadd6484309131f27de0d6860f`である。Runtime実行Identity `f2243b46b8cdde4a09e60efb7bdd61b48f012c4eb418cbdf4222d75306af1aaa`に対する固定配布検証、4経路4/4およびRecovery Matrixは完了したが、署名・検証Runnerの依存閉包を含まないため最終Authority根拠へ流用しない。過去の公開前候補も不採用の履歴として[CHG-000056](../99_Roadmap/Changes/CHG-000056/change.md#8-現在状態と残件)に保持する。後継候補では、統合後確認およびRelease判断を署名対象Treeへ自己参照させず、対象タグと結合した公式Release記録で取得する計画だった。この処置は現行`v0.18.1`の公式tagで完了しており、現在のRelease残件ではない。
-
-公開前の確認では、共通Launcherの入口表から署名・4経路・Recovery Runnerの推移的依存を導出した固定候補として、Runtime実行Identity `33cca9b8…2473a`、Source A `ae35bb4`、manifest-only B `423cb51`を使用した。fresh clone／submodule一般Task、4経路4/4およびRecovery 7シナリオは完了したが、独立確認で依存抽出が正規表現に依存し、コメント、bare／absolute／URL moduleおよび選択scriptの子Process targetをFail Closedに閉じていないことを検出した。この候補と`f2243b46…f1aaa`は不採用の未公開履歴として保持し、最終Authority根拠へ流用しない。当時の追加Gateであった字句解析、literal Launcher結合、子Process／Worker target結合、再署名、E2Eおよび独立再確認は、現行Runtime実行Identity `e290df01…d9d41`と公式`v0.18.1` tagで完了している。[対象・結果・限界](../99_Roadmap/Releases/v0.18.1/Evidence/260901_coordinator-v0181-runtime-identity.md)を参照する。
-
-| 対象 | 現在状態 | 根拠・次の処置 |
+| 軸 | 現在状態 | この状態から主張しないこと |
 |---|---|---|
-| v0.20 試験体系と自動回帰 | Released | 固定改訂版`ae8efe1`で試験カタログ、変更影響型runner、段階実行、Windows実Process GateおよびPT／LTのEffect 0を確認した。決定論的回帰と独立最終レビューを完了し、Critical／Major／Moderate／Minorは0件。[検証結果](../99_Roadmap/Changes/CHG-000061/Evidence/260905_test-levels-and-automated-regression-verification.md)を参照。UAT、任意のPT／LT、実Provider、公式署名およびLinux／macOSは未実施または対象外であり、本状態から成立を推定しない |
-| v0.20 実行知 | Released | 固定改訂版`3aea329`で決定論的回帰と独立再レビューを完了し、Critical／Major／Moderate／Minorは0件。`40_Develop`配下のREADMEは0件で、利用・開発手順をWorkflowへ移管し、再作成をCheckerで拒否する。[検証結果](../99_Roadmap/Changes/CHG-000062/Evidence/260905_execution-intelligence-verification.md)を参照。実Provider、Linux／macOS、共有Store、性能・長時間試験、品質受入、運用・事業成果は未評価または未接続であり、本状態から成立を推定しない |
-| v0.20 Runtime責務分離 | Released | 保護対象の公開・署名・昇格・回復経路を限定グラフで閉じた。Release sequence `2026091104`で署名し、正式4経路4/4とRecovery Matrix 7/7を再実行した。全経路でcleanup成立、再試行0、手動回復不要、Canonical Repository変更なし。最終一括監査はCritical／Major／Moderate／Minor 0件。[固定結果](../99_Roadmap/Releases/v0.20.0/Evidence/260906_v020-public-runtime-and-bounded-integration-verification.md)を参照 |
-| v0.19 Project Runtime | Release Gate成立 | 署名済みRecovery Matrix、4経路4/4、認証済み公開MCP Clientからの実Provider 2経路、実Provider開始後取消、親Process消失後のexact Recovery、耐久Recovery段階、fresh再入場および最終資源不存在を確認した。[最終署名E2E](../99_Roadmap/Releases/v0.19.0/Evidence/260903_project-runtime-final-signed-e2e.md)と[CHG-000057](../99_Roadmap/Changes/CHG-000057/change.md#8-現在状態と次のgate)を参照。最終独立監査はCritical／Major／Minor 0件。Linux／macOS実環境、突然の電源断、任意規模・長時間負荷、由来不明退避物の清掃Authorityは未評価または後続対象 |
-| v0.18.1 Coordinator採用入口 | 公開済み。現行署名Identityの採用形態E2E、4経路4/4、固定Recovery Matrix 7シナリオ完了。検証済みDocker Desktop再起動後のTask Recovery公開引数経路は到達不能 | [現行Identityと検証結果](../99_Roadmap/Releases/v0.18.1/Evidence/260901_coordinator-v0181-runtime-identity.md)、公式tag `v0.18.1`／Commit `14872bd19c3569a4c06752545a6057b2b4aaf3ab`。過去の4/4・7シナリオは有効だが、限定的な公開Recovery不具合と区別する。現行Sourceの入口是正は、到達可能な新しい署名固定版まで公開Baselineへ適用されない |
-| 移行前の正式署名E2E | 固定版に限り完了 | [0c3e6d2の結果](../99_Roadmap/Changes/CHG-000015/Evidence/260831-1517_signed-e2e.md)。4経路4/4、復旧7/7、cleanup確認済み |
-| 実務自己適用の評価 | Project Runtimeによる限定利用成立、総合的な優位は未確定 | [最新の自己適用](../99_Roadmap/Changes/CHG-000057/Evidence/260903-0407_project-runtime-self-application.md)は、品質文書1件を126.528秒でMilestone受入・正本採用まで完了し、開始後の人間入力、再試行、再計画、手動Recoveryはなかった。人間の実作業時間、AI処理時間、Provider利用量および比較Baselineは未測定。旧Single Task Runtimeの実務結果は[CHG-000055の集約](../99_Roadmap/Changes/CHG-000055/change.md#26-実務評価と最終確認への引渡し)へ履歴として保持する |
-| 新配置の開発E2E | 対象239件合格 | [対象・条件・限界](../99_Roadmap/Changes/CHG-000017/Evidence/260831_tool-layout-development-e2e.md)。正式配布や実Providerの証明とは区別する |
-| 新配置の機械検証 | CREATE取消競合の追加是正後、Coordinator 1,503/1,503・Checker 208/208成功 | [初回失敗・是正・計測範囲](../99_Roadmap/Changes/CHG-000015/Evidence/260831_coordinator-closure-verification.md#public-task-cancellation-observation)を参照。Nativeはfresh buildで34成功・2 ignored。過去の分岐網羅率と開発E2Eを今回の新しい計測に数えない |
-| 配置移行差分の独立レビュー | Pass | 実装・安全性・試験は指摘0。文書・影響・準拠は初回Conditionalの3件を是正し、限定再レビューで解消・追加指摘0。Runtime全体の完成監査とは区別する |
-| 品質3文書の番号付き命名 | 限定確認Pass | 規則・公式・ひな型・参照・移行説明を同期。関連4/4試験と文書・試験の独立確認は指摘0。[対象と結果](../99_Roadmap/Changes/CHG-000017/Evidence/260831_tool-layout-verification.md#品質文書の固定命名の是正)。移行全体の完了とは区別する |
-| 3部品の設計補完と結果表示 | 関連開発E2E 289/289、Checker 207/207成功、限定再確認完了 | [追加確認](../99_Roadmap/Changes/CHG-000017/Evidence/260831_tool-layout-verification.md#3部品の設計補完結果表示の追加確認)。native・表示・Checker本文の限定再確認で指摘解消。旧配置移行のPassを今回差分へ自動流用していない |
-| 最新Runtime全体の独立完成監査 | 3系統の評価終了。試験／利用体験に残った端末条件も追加確認・独立確認で解消 | [完成評価と追加確認](../99_Roadmap/Changes/CHG-000015/Evidence/260901_coordinator-completion-review.md#windows-terminal-verification)。1,585／208／286試験と署名48515ebの実測を検証義務・変更範囲へ接続。追加実装不足なし。人間の採用・統合・リリース判断は代替しない |
-| UX・IA・UIと仕様の接続 | 専門確認、PowerShellとWindows Terminalの限定操作・表示確認、候補内容採用を完了 | [UIと仕様の対応](../04_UI/06_Current_Interface_Reference.md#ui-spec-mapping)を完成評価で照合。WT-SCOPE-01は追加確認で解消。読み上げと全環境への一般化は未評価のまま保持する |
-| 共通起動入口と限定結果保存 | 実装済み、契約・結合試験での確認対象 | 毎回の起動方法を組み立てず同じ配布物の共通入口から起動し、検証画面を閉じた後は保存された開始・結果・完了記録の一致を確認する。[実行手順](../19_Workflows/01_Coordinator_Runtime.md#common-launch-entry)、[外部Runtime境界](Definitions/QA-000006/quality_definition.md)および[現行実装との照合](05_Current_Implementation_Reality_Audit.md)を参照。passphrase・確認コード・Provider生出力は保存せず、開始記録だけが残る範囲は結果未確認のまま扱う。この確認だけで正式署名E2E成功や電源断耐性を主張しない |
-| v0.18.0移行後の正式署名・実Provider E2E | 固定版48515ebで4経路4/4・復旧7シナリオ・実Task取消完了 | [当時版の結果](../99_Roadmap/Releases/v0.18.0/Evidence/260901_coordinator-signed-e2e.md#signed-e2e-48515eb)。4経路は再試行・是正往復なし。取消は子CLIのexit 2と測定の`verified`を分離し、通常回収・候補未発行・対象資源不存在を確認。v0.18.1や全Provider・全取消時点の保証ではない |
-| v0.18.0公開準備時の追加差分（履歴） | 当時の開発確認と独立確認を完了。文書・Checkerの2指摘も独立再確認で解消した | [当時の開発結果と独立確認](../99_Roadmap/Changes/CHG-000015/Evidence/260901_coordinator-completion-review.md#release-preparation-verification)。Coordinator 1,588/1,588、開発E2E286/286、Checker全所有267/267、Native35成功・2 ignored。初回の制限付き実行失敗と再実行条件を分離した。v0.18.1は本表冒頭と[CHG-000056](../99_Roadmap/Changes/CHG-000056/change.md)を参照する |
-| v0.18.0統合・リリース | PR #32統合・公開済み | 過去の公開状態として保持する。後継の公開基準は本表冒頭のv0.18.1とする |
+| Designed | Canonical | Quality Ready、実装済みまたは試験可能とは主張しない |
+| Implemented | 未照合 | SourceやTestの存在をCanonical設計の実装根拠にしない |
+| Executed | 未実行 | Checker契約試験を110 Local Itemの実行結果へ数えない |
+| Passed | 未評価 | 過去版のPassをv0.21.0候補へ流用しない |
+| Evidence | 未収集 | 現在候補の対象改訂版・実行条件・結果を持つEvidenceがあるとは主張しない |
+| Reality Audit | Pending — Not Started | Source、Test、Registryとの照合を先取りしない |
 
-旧署名版45ea2acの[是正1往復](../99_Roadmap/Changes/CHG-000015/Evidence/260831-2249_remediation.md)と実務1件は、その版の結果として保持し4f10201で再実行したとは扱わない。旧版の実取消失敗と正規Recovery、4f10201でsignalが遅れて通常完了した先行試行、対象Claudeコンテナ1個の`running`観測後に取消と通常回収が成立した試行を分離する。Provider内部の準備完了・処理開始は別途観測していない。今回の公開結果にない`effectStateUnknown`を`false`へ補完せず、対象資源の不存在観測と未出力値を区別する。
+現在の停止境界は、Checker安定化とSymbol Traceability基盤が未完了であり、Reality Auditをまだ開始しないことである。Quality設計自体の独立レビューは完了しており、現時点で人間による新しい判断は必要ない。
+
+## 公開済みBaselineと参照
+
+過去版の詳細な実行条件、結果、限界および改訂版は各Release／Change Evidenceを正本とし、本書へ複製しない。
+
+| Baseline | 保持する要点 | 正本参照 |
+|---|---|---|
+| v0.20.1 | v0.20.0の公開状態伝播漏れを修正。Runtime実行集合はv0.20.0から変更していない | [CHG-000069](../99_Roadmap/Changes/CHG-000069/change.md) |
+| v0.20.0 | 正式4経路4/4、Recovery Matrix 7/7、cleanup成立。Linux／macOSや任意規模・長時間負荷へ一般化しない | [v0.20.0固定結果](../99_Roadmap/Releases/v0.20.0/Evidence/260906_v020-public-runtime-and-bounded-integration-verification.md) |
+| v0.19.0 | Project Runtime、取消、exact Recovery、fresh再入場の公開基準 | [v0.19.0最終署名E2E](../99_Roadmap/Releases/v0.19.0/Evidence/260903_project-runtime-final-signed-e2e.md) |
+| v0.18.1 | Coordinator採用入口と署名Identityの公開基準 | [v0.18.1 Runtime Identity](../99_Roadmap/Releases/v0.18.1/Evidence/260901_coordinator-v0181-runtime-identity.md) |
+
+公開前候補、不採用候補、是正往復および当時版の限定結果は、該当Change／ReleaseのEvidenceから確認する。Gitで再現できるInventoryや途中状態を、本書の永続的な第二正本にしない。
 
 ## 保持するリスクと追跡
 
-配置漏れは起動失敗だけでなく、検査対象からの脱落や署名対象の不一致を起こし得る。固定Evidenceへの旧リンクを現在のコードへ無条件に読み替えない。実Provider取消・是正など、固定Workerや試験専用adapterでは証明していない範囲を隠さない。
+- 配置漏れは、起動失敗だけでなく検査対象や署名対象からの脱落を起こし得る。
+- 固定Evidence内の旧Pathを現在のSourceへ無条件に読み替えない。
+- 実Provider、取消、Docker修復等で、fixtureや固定Workerだけでは証明できない範囲を隠さない。
+- Quality設計の固定後も、実装・試験・Evidenceの現実照合が完了するまでQuality Readyとしない。
 
-移行の担当と完了条件は[CHG-000017](../99_Roadmap/Changes/CHG-000017/change.md)、Runtime全体は[CHG-000015](../99_Roadmap/Changes/CHG-000015/change.md)、工程強化と実務評価は[CHG-000055](../99_Roadmap/Changes/CHG-000055/change.md)へ接続する。現在状態の更新だけでそれらを完了へ変更しない。
+現在の方針は[品質方針](02_Quality_Strategy.md)、検証方法は[検証設計](03_Verification_Design.md)、全入力と検証項目の関係は[Quality Integration](04_Quality_Integration.md)、今後の照合方法は[現行実装との照合](05_Current_Implementation_Reality_Audit.md)を参照する。
 
-方針は[品質方針](02_Quality_Strategy.md)、確認項目と限界は[検証設計](03_Verification_Design.md)を参照する。結果は[開発E2E](../99_Roadmap/Changes/CHG-000017/Evidence/260831_tool-layout-development-e2e.md)と[機械検証・独立レビュー](../99_Roadmap/Changes/CHG-000017/Evidence/260831_tool-layout-verification.md)から取得できる。
+## Checklist
+
+- [x] 現在の品質状態と結論を履歴より先に示した
+- [x] Canonical入力、検証目標およびLocal Itemの現在数を説明できる
+- [x] Designed、Implemented、Executed、PassedおよびEvidenceの状態を区別した
+- [x] 未成立、停止、要再確認および観測不能を正常へ畳んでいない
+- [x] Quality ReadyとReality Audit開始条件を過大表示していない
+- [x] 重大な問題、残存Riskおよび人間判断の必要性を評価した
+- [x] 現在状態から分析、定義、実行結果およびEvidenceへ辿れる
+- [x] 過去版の詳細を第二の現在正本として複製していない

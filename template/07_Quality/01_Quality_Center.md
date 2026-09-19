@@ -1,5 +1,7 @@
 # Quality Center
 
+状態: <Quality Design Under Review／Quality Design Ready — Reality Audit Pending／Quality Ready>
+
 この文書は、現在の品質状態を人間とAIが一か所で確認するための派生表示である。品質条件、検証設計、検証結果または根拠（Evidence）の正本を複製しない。
 
 状態、分母・分子、未確認範囲、影響およびRelease Gateは表を優先する。文章は結論の理由を短く補う場合だけ使用する。
@@ -11,6 +13,12 @@
 | 確認できていること | |
 | 確認できていないこと | |
 | 利用者・運用への影響 | |
+
+## 設計集合
+
+| 項目 | 件数 |
+|---|---:|
+| Local Item数 |  |
 
 ## 対象
 
@@ -101,3 +109,16 @@
 - 指摘事項:
 - 変更トレース:
 - リリース:
+
+## Checklist
+
+結果は`[x]`、未評価は`[ ]`、未完了は`OPEN: 理由`、不適合は`FAIL: 理由`、非該当は`N/A: 理由`で記録する。
+
+- [ ] 現在の品質状態と結論を履歴より先に示した
+- [ ] Canonical入力、検証目標およびLocal Itemの現在数を説明できる
+- [ ] Designed、Implemented、Executed、PassedおよびEvidenceの状態を区別した
+- [ ] 未成立、停止、要再確認および観測不能を正常へ畳んでいない
+- [ ] Quality ReadyとReality Audit開始条件を過大表示していない
+- [ ] 重大な問題、残存Riskおよび人間判断の必要性を評価した
+- [ ] 現在状態から分析、定義、実行結果およびEvidenceへ辿れる
+- [ ] 過去版の詳細を第二の現在正本として複製していない

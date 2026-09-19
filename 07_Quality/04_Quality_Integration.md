@@ -33,25 +33,53 @@
 
 ## 3. Architecture詳細設計領域の処置
 
-| 詳細設計領域 | 接続する検証目標 | Qualityで受け取る主な成立条件 |
-|---|---|---|
-| [artifact-signing](../06_Architecture/Details/artifact-signing/01_Architecture.md) | [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | 署名前検査、署名対象、鍵境界、配置後の検証 |
-| [checker](../06_Architecture/Details/checker/01_Architecture.md) | [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md)<br>[成果物の理解と工程引継ぎ](Definitions/QA-000013/quality_definition.md) | 決定論的検査、必要図とRelationの機械確認、未確認の分離、意味判断の非所有 |
-| [contract-migration](../06_Architecture/Details/contract-migration/01_Architecture.md) | [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md) | Producer、全Consumer、派生物、署名・Release経路の閉包 |
-| [coordinator](../06_Architecture/Details/coordinator/01_Architecture.md) | [Project Runtime lifecycle](Definitions/QA-000003/quality_definition.md)<br>[外部Runtime境界](Definitions/QA-000006/quality_definition.md)<br>[成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md)<br>[外部送信とTransport](Definitions/QA-000009/quality_definition.md)<br>[候補の昇格](Definitions/QA-000005/quality_definition.md) | 実行編成、Authority、外部Effect、候補、回収・回復 |
-| [cros](../06_Architecture/Details/cros/01_Architecture.md) | [投影と出所](Definitions/QA-000004/quality_definition.md)<br>[候補の昇格](Definitions/QA-000005/quality_definition.md)<br>[RepositoryとFederation](Definitions/QA-000007/quality_definition.md)<br>[外部Runtime境界](Definitions/QA-000006/quality_definition.md)<br>[外部送信とTransport](Definitions/QA-000009/quality_definition.md) | Repository横断解決、Grant、投影、外部接続、候補処置 |
-| [execution-intelligence](../06_Architecture/Details/execution-intelligence/01_Architecture.md) | [実行記録の公開と再利用](Definitions/QA-000012/quality_definition.md)<br>[投影と出所](Definitions/QA-000004/quality_definition.md) | Canonical記録、不変公開、並行Writer、実行事実、観測不能、出所と評価候補の分離 |
-| [mcp](../06_Architecture/Details/mcp/01_Architecture.md) | [投影と出所](Definitions/QA-000004/quality_definition.md)<br>[外部送信とTransport](Definitions/QA-000009/quality_definition.md)<br>[RepositoryとFederation](Definitions/QA-000007/quality_definition.md)<br>[候補の昇格](Definitions/QA-000005/quality_definition.md) | Transport変換、公開Schema、Session、結果搬送 |
-| [official-asset-governance](../06_Architecture/Details/official-asset-governance/01_Architecture.md) | [公式AssetのGovernance](Definitions/QA-000011/quality_definition.md) | 出所、権利、用途、収載・再配布Authority |
-| [platform-access](../06_Architecture/Details/platform-access/01_Architecture.md) | [Project Runtime lifecycle](Definitions/QA-000003/quality_definition.md)<br>[外部Runtime境界](Definitions/QA-000006/quality_definition.md)<br>[Runtime Data lifecycle](Definitions/QA-000008/quality_definition.md) | OS資源、Process Effect、観測、cleanup、回復 |
-| [project-operation](../06_Architecture/Details/project-operation/01_Architecture.md) | [投影と出所](Definitions/QA-000004/quality_definition.md)<br>[候補の昇格](Definitions/QA-000005/quality_definition.md) | Project運営状態、Meeting／Topic候補、正本への引渡し |
-| [project-runtime](../06_Architecture/Details/project-runtime/01_Architecture.md) | [Project Runtime lifecycle](Definitions/QA-000003/quality_definition.md)<br>[投影と出所](Definitions/QA-000004/quality_definition.md)<br>[外部送信とTransport](Definitions/QA-000009/quality_definition.md) | Objective、Task、Objective／Milestone受入判断、Task内判断、取消、回復、公開結果。読取り投影から受入判断Authorityを生成しない |
-| [quality-change-control](../06_Architecture/Details/quality-change-control/01_Architecture.md) | [変更と品質状態](Definitions/QA-000002/quality_definition.md) | 固定改訂版、指摘、是正、Evidence、現在Gateの閉包 |
-| [runtime-data](../06_Architecture/Details/runtime-data/01_Architecture.md) | [RepositoryとFederation](Definitions/QA-000007/quality_definition.md)<br>[Runtime Data lifecycle](Definitions/QA-000008/quality_definition.md)<br>[投影と出所](Definitions/QA-000004/quality_definition.md) | Repository-local／OS管理Root、用途、保持、清掃、回復 |
-| [runtime-trust](../06_Architecture/Details/runtime-trust/01_Architecture.md) | [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | 準拠、Integrity、Publisher、利用者所有Trust Policy |
-| [version-control](../06_Architecture/Details/version-control/01_Architecture.md) | [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md)<br>[RepositoryとFederation](Definitions/QA-000007/quality_definition.md)<br>[成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md)<br>[投影と出所](Definitions/QA-000004/quality_definition.md) | Repository境界、Revision、差し替え可能な履歴管理Adapter |
+| 詳細設計領域 | 検証単位 | 接続する検証目標 | Local Item | 処置状態 | 未確認／再評価条件 |
+|---|---|---|---|---|---|
+| [artifact-signing](../06_Architecture/Details/artifact-signing/01_Architecture.md) | 署名Component | [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-08` | Covered | なし |
+| [artifact-signing](../06_Architecture/Details/artifact-signing/01_Architecture.md) | 一回限りAuthorizationの並行消費 | [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-07` | Covered | なし |
+| [artifact-signing](../06_Architecture/Details/artifact-signing/01_Architecture.md) | 利用側境界 | [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-09` | Covered | Manifest配置・公開はCoordinatorの別検証単位で再評価する |
+| [checker](../06_Architecture/Details/checker/01_Architecture.md) | Generic Core | [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md)<br>[成果物の理解と工程引継ぎ](Definitions/QA-000013/quality_definition.md) | `RCM-01`、`RCM-02`、`RCM-09`、`RCM-10`、`AUH-02`、`AUH-03`、`AUH-06` | Covered | 意味妥当性は独立レビューで確認する |
+| [checker](../06_Architecture/Details/checker/01_Architecture.md) | 配布入口 | [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md) | `RCM-08` | Covered | なし |
+| [checker](../06_Architecture/Details/checker/01_Architecture.md) | 宣言集合と導出集合 | [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md) | `RCM-03`、`RCM-04` | Covered | 意味妥当性と移行採用は独立レビューで確認する |
+| [checker](../06_Architecture/Details/checker/01_Architecture.md) | 開発試験runnerのLifecycle | [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md) | `RCM-07` | Covered | 所要時間そのものを品質合否に使わない |
+| [contract-migration](../06_Architecture/Details/contract-migration/01_Architecture.md) | Consumer closure | [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md) | `RCM-03`、`RCM-04`、`RCM-05` | Covered | 意味妥当性は独立レビューで確認する |
+| [contract-migration](../06_Architecture/Details/contract-migration/01_Architecture.md) | 縦断移行 | [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md) | `RCM-03`、`RCM-05` | Covered | 外部実境界は該当IT／STで再評価する |
+| [coordinator](../06_Architecture/Details/coordinator/01_Architecture.md) | Provider選択・Home／Trust境界 | [外部Runtime境界](Definitions/QA-000006/quality_definition.md)<br>[成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `ERB-06`、`ERB-08`、`AIT-04` | Covered | 実Provider／実HomeのITで再評価する |
+| [coordinator](../06_Architecture/Details/coordinator/01_Architecture.md) | Provider実行・外部送信・候補Review | [外部Runtime境界](Definitions/QA-000006/quality_definition.md)<br>[外部送信とTransport](Definitions/QA-000009/quality_definition.md)<br>[候補の昇格](Definitions/QA-000005/quality_definition.md) | `ERB-01`、`ERB-02`、`ERB-05`、`EST-03`、`EST-05`、`CPR-01` | Covered | 実Provider双方向経路と候補Reviewで再評価する |
+| [coordinator](../06_Architecture/Details/coordinator/01_Architecture.md) | 署名済みManifest・staging promotion | [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-10` | Covered | 正式鍵を用いるRelease署名とpromotionで再評価する |
+| [coordinator](../06_Architecture/Details/coordinator/01_Architecture.md) | 取消・Task回復 | [Project Runtime lifecycle](Definitions/QA-000003/quality_definition.md) | `PRL-03`、`PRL-04` | Covered | 実Processの取消・競合完了・再入場で再評価する |
+| [coordinator](../06_Architecture/Details/coordinator/01_Architecture.md) | Docker修復・再起動・別Session／Runtime引継ぎ | [Project Runtime lifecycle](Definitions/QA-000003/quality_definition.md)<br>[外部Runtime境界](Definitions/QA-000006/quality_definition.md) | `PRL-04`、`ERB-09`、`ERB-11` | Covered | 実機停止・修復・再起動・別Runtime引継ぎで再評価する |
+| [cros](../06_Architecture/Details/cros/01_Architecture.md) | 認証・Workspace境界 | [RepositoryとFederation](Definitions/QA-000007/quality_definition.md) | `RFD-03`、`RFD-04` | Covered | 敵対的multi-tenantのHost分離は対象外 |
+| [cros](../06_Architecture/Details/cros/01_Architecture.md) | Federation | [投影と出所](Definitions/QA-000004/quality_definition.md)<br>[RepositoryとFederation](Definitions/QA-000007/quality_definition.md) | `PPR-01`、`PPR-02`、`PPR-05`、`RFD-04`、`RFD-09`、`RFD-10` | Covered | 物理保存形式はDevelopmentで選択する |
+| [cros](../06_Architecture/Details/cros/01_Architecture.md) | Handoff | [外部Runtime境界](Definitions/QA-000006/quality_definition.md)<br>[RepositoryとFederation](Definitions/QA-000007/quality_definition.md)<br>[外部送信とTransport](Definitions/QA-000009/quality_definition.md) | `ERB-10`、`RFD-11`、`EST-09` | Covered | Transport Schema確定時に再評価する |
+| [execution-intelligence](../06_Architecture/Details/execution-intelligence/01_Architecture.md) | 実行記録の読取り | [実行記録の公開と再利用](Definitions/QA-000012/quality_definition.md)<br>[投影と出所](Definitions/QA-000004/quality_definition.md) | `ERP-01`、`PPR-03` | Covered | 外部Source別の実在性をReality Auditで確認する |
+| [execution-intelligence](../06_Architecture/Details/execution-intelligence/01_Architecture.md) | 状態投影 | [投影と出所](Definitions/QA-000004/quality_definition.md) | `PPR-06` | Covered | 利用側表示の理解可能性はUATで確認する |
+| [execution-intelligence](../06_Architecture/Details/execution-intelligence/01_Architecture.md) | 時間的出所 | [投影と出所](Definitions/QA-000004/quality_definition.md) | `PPR-09`、`PPR-10` | Covered | Clock Sourceの実装と実環境差はReality Auditで再評価する |
+| [execution-intelligence](../06_Architecture/Details/execution-intelligence/01_Architecture.md) | 評価候補 | [投影と出所](Definitions/QA-000004/quality_definition.md) | `PPR-04`、`PPR-08` | Covered | 人間判断後の下流処置は候補昇格の別検証単位で確認する |
+| [execution-intelligence](../06_Architecture/Details/execution-intelligence/01_Architecture.md) | 実行記録の公開 | [実行記録の公開と再利用](Definitions/QA-000012/quality_definition.md) | `ERP-01`、`ERP-02`、`ERP-03`、`ERP-04` | Covered | 複数作成側の実境界で再評価する |
+| [mcp](../06_Architecture/Details/mcp/01_Architecture.md) | stdio Transport | [投影と出所](Definitions/QA-000004/quality_definition.md)<br>[候補の昇格](Definitions/QA-000005/quality_definition.md)<br>[外部送信とTransport](Definitions/QA-000009/quality_definition.md) | `PPR-06`、`CPR-01`、`EST-01`、`EST-02`、`EST-10` | Covered | なし |
+| [mcp](../06_Architecture/Details/mcp/01_Architecture.md) | localhost HTTP | [RepositoryとFederation](Definitions/QA-000007/quality_definition.md)<br>[外部送信とTransport](Definitions/QA-000009/quality_definition.md) | `RFD-04`、`EST-01`、`EST-02` | Covered | 実OS signalはReality Auditで確認する |
+| [official-asset-governance](../06_Architecture/Details/official-asset-governance/01_Architecture.md) | 素材判断 | [公式AssetのGovernance](Definitions/QA-000011/quality_definition.md) | `OAG-01`、`OAG-02` | Covered | 法的助言は対象外 |
+| [official-asset-governance](../06_Architecture/Details/official-asset-governance/01_Architecture.md) | 収載・公開 | [公式AssetのGovernance](Definitions/QA-000011/quality_definition.md) | `OAG-03`、`OAG-05` | Covered | 外部配布先の撤回能力はReality Auditで確認する |
+| [official-asset-governance](../06_Architecture/Details/official-asset-governance/01_Architecture.md) | 同一素材版の競合判断 | [公式AssetのGovernance](Definitions/QA-000011/quality_definition.md) | `OAG-06` | Covered | 複数判断者による競合で再評価する |
+| [platform-access](../06_Architecture/Details/platform-access/01_Architecture.md) | Process境界 | [Project Runtime lifecycle](Definitions/QA-000003/quality_definition.md)<br>[外部Runtime境界](Definitions/QA-000006/quality_definition.md) | `PRL-03`、`ERB-01`、`ERB-02` | Covered | Windows実境界で再評価する |
+| [platform-access](../06_Architecture/Details/platform-access/01_Architecture.md) | Docker修復 | [外部Runtime境界](Definitions/QA-000006/quality_definition.md)<br>[Runtime Data lifecycle](Definitions/QA-000008/quality_definition.md) | `ERB-09`、`RDL-02` | Covered | Docker Desktop実境界で再評価する |
+| [project-operation](../06_Architecture/Details/project-operation/01_Architecture.md) | Topic／Meeting lifecycle | [候補の昇格](Definitions/QA-000005/quality_definition.md) | `CPR-05` | Covered | 物理保存形式はDevelopmentで選択する |
+| [project-operation](../06_Architecture/Details/project-operation/01_Architecture.md) | Project Projection | [投影と出所](Definitions/QA-000004/quality_definition.md) | `PPR-01`、`PPR-02`、`PPR-05`、`PPR-06` | Covered | 表示構成はUI実装時に再評価する |
+| [project-runtime](../06_Architecture/Details/project-runtime/01_Architecture.md) | Task lifecycle | [Project Runtime lifecycle](Definitions/QA-000003/quality_definition.md)<br>[投影と出所](Definitions/QA-000004/quality_definition.md) | `PRL-01`、`PRL-02`、`PRL-03`、`PRL-04`、`PRL-05`、`PRL-06`、`PPR-06` | Covered | なし |
+| [project-runtime](../06_Architecture/Details/project-runtime/01_Architecture.md) | Objective／Milestone受入判断 | [Project Runtime lifecycle](Definitions/QA-000003/quality_definition.md) | `PRL-07`、`PRL-08`、`PRL-09`、`PRL-10` | Covered | 物理StoreはDevelopmentで選択する |
+| [project-runtime](../06_Architecture/Details/project-runtime/01_Architecture.md) | Public Application | [Project Runtime lifecycle](Definitions/QA-000003/quality_definition.md)<br>[外部送信とTransport](Definitions/QA-000009/quality_definition.md) | `PRL-01`、`EST-01` | Covered | なし |
+| [quality-change-control](../06_Architecture/Details/quality-change-control/01_Architecture.md) | 監査集合統合 | [変更と品質状態](Definitions/QA-000002/quality_definition.md) | `CQS-01`、`CQS-03`、`CQS-04` | Covered | 専門判断の妥当性は各監査で確認する |
+| [quality-change-control](../06_Architecture/Details/quality-change-control/01_Architecture.md) | 是正再入場 | [変更と品質状態](Definitions/QA-000002/quality_definition.md) | `CQS-01`、`CQS-04` | Covered | 人間のRisk受容が発生した時点で再評価する |
+| [runtime-data](../06_Architecture/Details/runtime-data/01_Architecture.md) | Repository-local data | [投影と出所](Definitions/QA-000004/quality_definition.md)<br>[Runtime Data lifecycle](Definitions/QA-000008/quality_definition.md) | `PPR-06`、`RDL-01`、`RDL-02`、`RDL-04` | Covered | 現行Path移行はReality Auditで確認する |
+| [runtime-data](../06_Architecture/Details/runtime-data/01_Architecture.md) | CROS runtime root | [RepositoryとFederation](Definitions/QA-000007/quality_definition.md)<br>[Runtime Data lifecycle](Definitions/QA-000008/quality_definition.md) | `RFD-03`、`RDL-01`、`RDL-03` | Covered | Linux配置はv0.22で再評価する |
+| [runtime-trust](../06_Architecture/Details/runtime-trust/01_Architecture.md) | 軸別評価 | [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-01`、`AIT-03`、`AIT-05` | Covered | 品質監査内容は別Ownerで確認する |
+| [runtime-trust](../06_Architecture/Details/runtime-trust/01_Architecture.md) | Trust Policy | [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-04` | Covered | OS Credential Store連携時に再評価する |
+| [version-control](../06_Architecture/Details/version-control/01_Architecture.md) | Root capability | [RepositoryとFederation](Definitions/QA-000007/quality_definition.md) | `RFD-01`、`RFD-02` | Covered | Windows／Linux実境界で再評価する |
+| [version-control](../06_Architecture/Details/version-control/01_Architecture.md) | Snapshot port | [投影と出所](Definitions/QA-000004/quality_definition.md)<br>[RepositoryとFederation](Definitions/QA-000007/quality_definition.md) | `PPR-09`、`RFD-08` | Covered | 代替Version Control Adapter実装時に再評価する |
+| [version-control](../06_Architecture/Details/version-control/01_Architecture.md) | Contract migration closure | [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md) | `RCM-03`、`RCM-04` | Covered | 意味妥当性と移行採用は独立レビューで確認する |
 
-各詳細設計領域のQuality引渡しにある正常、準正常、異常、観測および終了後条件を、接続先DefinitionのLocal Itemへ割り当てる。領域名の記載だけではCoverageとしない。
+各行は詳細設計のQuality引渡し表にある検証単位をそのまま保持する。`Covered`は設計上の接続が完了した意味であり、実装・実行・合格を意味しない。`OPEN`は未確認事項を既存Local Itemへ丸めず、再評価条件とともに保持する。
 
 
 ## 4. 検証項目の閉包
@@ -60,16 +88,27 @@ Source IDごとの検証義務は各工程の`Analysis/<工程>/quality_analysis
 
 | 検証目標 | Local Item集合 | 入力Coverage | Architecture入力 |
 |---|---|---|---|
-| [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md) | `RCM-01`、`RCM-02`、`RCM-03`、`RCM-04`、`RCM-05`、`RCM-06` | 6工程のAnalysis §3 | 本書§2／§3とchecker／contract-migration／version-control |
+| [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md) | `RCM-01`、`RCM-02`、`RCM-03`、`RCM-04`、`RCM-05`、`RCM-06`、`RCM-07`、`RCM-08`、`RCM-09`、`RCM-10` | 6工程のAnalysis §3 | 本書§2／§3とchecker／contract-migration／version-control |
 | [変更と品質状態](Definitions/QA-000002/quality_definition.md) | `CQS-01`、`CQS-02`、`CQS-03`、`CQS-04`、`CQS-05`、`CQS-06`、`CQS-07` | 6工程のAnalysis §3 | 本書§2／§3とquality-change-control |
 | [Project Runtime lifecycle](Definitions/QA-000003/quality_definition.md) | `PRL-01`、`PRL-02`、`PRL-03`、`PRL-04`、`PRL-05`、`PRL-06`、`PRL-07`、`PRL-08`、`PRL-09`、`PRL-10` | 6工程のAnalysis §3 | 本書§2／§3とproject-runtime／coordinator／platform-access |
-| [投影と出所](Definitions/QA-000004/quality_definition.md) | `PPR-01`、`PPR-02`、`PPR-03`、`PPR-04`、`PPR-05`、`PPR-06`、`PPR-07`、`PPR-08`、`PPR-09` | 6工程のAnalysis §3 | 本書§2／§3とcros／execution-intelligence／mcp／project-operation／project-runtime／runtime-data／version-control |
+| [投影と出所](Definitions/QA-000004/quality_definition.md) | `PPR-01`、`PPR-02`、`PPR-03`、`PPR-04`、`PPR-05`、`PPR-06`、`PPR-07`、`PPR-08`、`PPR-09`、`PPR-10` | 6工程のAnalysis §3 | 本書§2／§3とcros／execution-intelligence／mcp／project-operation／project-runtime／runtime-data／version-control |
 | [候補の昇格](Definitions/QA-000005/quality_definition.md) | `CPR-01`、`CPR-02`、`CPR-03`、`CPR-04`、`CPR-05` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／mcp／project-operation |
-| [外部Runtime境界](Definitions/QA-000006/quality_definition.md) | `ERB-01`、`ERB-02`、`ERB-03`、`ERB-04`、`ERB-05` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／platform-access |
-| [RepositoryとFederation](Definitions/QA-000007/quality_definition.md) | `RFD-01`、`RFD-02`、`RFD-03`、`RFD-04`、`RFD-05`、`RFD-06` | 6工程のAnalysis §3 | 本書§2／§3とcros／mcp／runtime-data／version-control |
-| [Runtime Data lifecycle](Definitions/QA-000008/quality_definition.md) | `RDL-01`、`RDL-02`、`RDL-03`、`RDL-04`、`RDL-05` | 6工程のAnalysis §3 | 本書§2／§3とplatform-access／runtime-data |
-| [外部送信とTransport](Definitions/QA-000009/quality_definition.md) | `EST-01`、`EST-02`、`EST-03`、`EST-04`、`EST-05`、`EST-06`、`EST-07`、`EST-08`、`EST-09` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／mcp／project-runtime |
-| [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-01`、`AIT-02`、`AIT-03`、`AIT-04`、`AIT-05`、`AIT-06` | 6工程のAnalysis §3 | 本書§2／§3とartifact-signing／coordinator／runtime-trust／version-control |
-| [公式AssetのGovernance](Definitions/QA-000011/quality_definition.md) | `OAG-01`、`OAG-02`、`OAG-03`、`OAG-04`、`OAG-05` | 6工程のAnalysis §3 | 本書§2／§3とofficial-asset-governance |
+| [外部Runtime境界](Definitions/QA-000006/quality_definition.md) | `ERB-01`、`ERB-02`、`ERB-03`、`ERB-04`、`ERB-05`、`ERB-06`、`ERB-07`、`ERB-08`、`ERB-09`、`ERB-10`、`ERB-11` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／platform-access |
+| [RepositoryとFederation](Definitions/QA-000007/quality_definition.md) | `RFD-01`、`RFD-02`、`RFD-03`、`RFD-04`、`RFD-05`、`RFD-06`、`RFD-07`、`RFD-08`、`RFD-09`、`RFD-10`、`RFD-11` | 6工程のAnalysis §3 | 本書§2／§3とcros／mcp／runtime-data／version-control |
+| [Runtime Data lifecycle](Definitions/QA-000008/quality_definition.md) | `RDL-01`、`RDL-02`、`RDL-03`、`RDL-04`、`RDL-05`、`RDL-06` | 6工程のAnalysis §3 | 本書§2／§3とplatform-access／runtime-data |
+| [外部送信とTransport](Definitions/QA-000009/quality_definition.md) | `EST-01`、`EST-02`、`EST-03`、`EST-04`、`EST-05`、`EST-06`、`EST-07`、`EST-08`、`EST-09`、`EST-10`、`EST-11` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／mcp／project-runtime |
+| [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-01`、`AIT-02`、`AIT-03`、`AIT-04`、`AIT-05`、`AIT-06`、`AIT-07`、`AIT-08`、`AIT-09`、`AIT-10` | 6工程のAnalysis §3 | 本書§2／§3とartifact-signing／coordinator／runtime-trust |
+| [公式AssetのGovernance](Definitions/QA-000011/quality_definition.md) | `OAG-01`、`OAG-02`、`OAG-03`、`OAG-04`、`OAG-05`、`OAG-06` | 6工程のAnalysis §3 | 本書§2／§3とofficial-asset-governance |
 | [実行記録の公開と再利用](Definitions/QA-000012/quality_definition.md) | `ERP-01`、`ERP-02`、`ERP-03`、`ERP-04`、`ERP-05`、`ERP-06`、`ERP-07` | 6工程のAnalysis §3 | 本書§2／§3とexecution-intelligence |
-| [成果物の理解と工程引継ぎ](Definitions/QA-000013/quality_definition.md) | `AUH-01`、`AUH-02`、`AUH-03`、`AUH-04`、`AUH-05` | 6工程のAnalysis §3 | 本書§2／§3とchecker |
+| [成果物の理解と工程引継ぎ](Definitions/QA-000013/quality_definition.md) | `AUH-01`、`AUH-02`、`AUH-03`、`AUH-04`、`AUH-05`、`AUH-06` | 6工程のAnalysis §3 | 本書§2／§3とchecker／cros |
+
+## Checklist
+
+- [x] 全Canonical IDを一件以上のQuality Analysis行で処置した
+- [x] Source固有の成功、失敗、Riskおよび未確認事項を保持した
+- [x] Source ID、検証目標、試験段階およびLocal Itemを一意に接続した
+- [x] 5横断モデルと全Architecture詳細設計領域を処置した
+- [x] Quality Integrationだけで第三の要求・設計・検証契約を作っていない
+- [x] 上流の未確認事項をUAT、OPEN義務または上流再開のいずれかへ処置した
+- [x] 検証目標とLocal Itemの重複、孤立および未接続を残していない
+- [x] 現行Source、TestまたはEvidenceからCanonical検証義務を逆算していない

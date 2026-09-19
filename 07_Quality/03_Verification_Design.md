@@ -2,7 +2,7 @@
 
 状態: v0.21.0 Canonical（Released Baseline: v0.20.1）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-15
+最終更新日: 2026-09-19
 
 ## 1. 本書の責務
 
@@ -142,3 +142,14 @@ Canonical Quality設計と現行Source／Test／Evidenceの対応は未照合で
 <a id="読取りと権限再確認の境界"></a>
 
 - 読取りとAuthorityの分離: [QA-000004](Definitions/QA-000004/quality_definition.md)／[QA-000012](Definitions/QA-000012/quality_definition.md)
+
+## Checklist
+
+- [x] 検証対象、正式入力および実行入口を区別した
+- [x] UT／IT／ST／UATの適用判断を検証義務ごとに行える
+- [x] 外部境界の直接、隣接1 block、関連2 blocks、System／E2Eおよび利用者受入の段階を扱える
+- [x] 正常、境界、失敗および観測不能を検証設計へ含めた
+- [x] 観測、Oracle、Evidenceおよび終了後条件を区別した
+- [x] 実行、停止、取消および再入場条件を示した
+- [x] RT／PT／LTの適用を評価し、PT／LTは人間の明示指定なしに実行しない
+- [x] 網羅、未評価範囲、完了条件およびReality Auditへの接続を示した

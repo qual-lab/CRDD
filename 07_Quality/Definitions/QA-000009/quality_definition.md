@@ -12,12 +12,11 @@ Quality ID: `QA-000009`
 | Source ID | 保持する固有条件 | 試験段階 | 対応Local Item |
 |---|---|---|---|
 | [REQ-000006](../../../01_Discovery/Definitions/REQ-000006/requirement.md) | stdioとlocalhost HTTPが同じ入力を同じアプリケーション契約（Application Contract）へ渡す。正常、入力不正、判断待ち、回復要求、取消を同じ結果意味で返す。通信方式終了後に実行基盤状態や外部作用（Effect）が入口差で分岐しない。どの通信方式で失敗したかと、外部作用（Effect）が発行されたかを区別して確認できる。同一依頼を両通信方式で実行し、成功、拒否、取消、回復結果と実行基盤側外部作用（Effect）を比較する | IT／ST／UAT | `EST-01`、`EST-02`、`EST-05`、`EST-07` |
-| [REQ-000010](../../../01_Discovery/Definitions/REQ-000010/requirement.md) | TS API、CLI、MCP、Workbenchの代表操作が同じ公開契約へ接続する。入口ごとに同じ決定権限、欠測、取消、結果意味を保持する。更新はWorkbench等の独自Storeでなく所有正本へ反映される。同じ正常、拒否、部分結果、取消を複数入口から実行し、構造結果と正本外部作用（Effect）を比較する | IT／UAT | `EST-01`、`EST-02`、`EST-07` |
+| [REQ-000010](../../../01_Discovery/Definitions/REQ-000010/requirement.md) | TS API、CLI、MCP、Workbenchの代表操作が同じ公開契約へ接続する。入口ごとに同じ決定権限、欠測、取消、結果意味を保持する。更新はWorkbench等の独自Storeでなく所有正本へ反映される。同じ正常、拒否、部分結果、取消を複数入口から実行し、構造結果と正本外部作用（Effect）を比較する | IT／UAT | `EST-10`、`EST-07` |
 | [REQ-000017](../../../01_Discovery/Definitions/REQ-000017/requirement.md) | 情報要素ごとに情報源、改訂版、利用範囲を保持する。許可されない、取得不能、競合する情報を推測で補完しない。Packageはタスク目的に必要な最小範囲で、中央の永続正本にならない。単一プロジェクト、複数リポジトリ、複数プロジェクト、部分アクセス、競合を与え、Package内容と欠測、根拠到達を観測する | IT／ST／UAT | `EST-03`、`EST-04`、`EST-08` |
 | [REQ-000021](../../../01_Discovery/Definitions/REQ-000021/requirement.md) | 依頼受理時に再取得可能な安定識別情報を返す。応答喪失後も同じ識別情報から現在状態と確定結果を取得する。再照会が元外部作用（Effect）を再発行せず、権限と情報開示を再検証する。要求前切断、受理後切断、外部作用（Effect）後応答喪失、再照会、別接続資格情報照会を行い、重複外部作用（Effect）と情報開示を観測する | IT／ST／UAT | `EST-05`、`EST-04`、`EST-09` |
-| [REQ-000024](../../../01_Discovery/Definitions/REQ-000024/requirement.md) | 委譲前にタスクの識別情報、対象リポジトリ、許可範囲、期待結果、帰還先を固定する。実行結果に作成側、対象改訂版、変更、根拠を結び付ける。帰還時に決定権限を再確認し、元タスクまたは所有正本以外へ反映しない。正常帰還、結果拒否、帰還先消失、改訂版競合、部分結果、再送を行い、相関と外部作用（Effect）を観測する | IT／ST／UAT | `EST-05`、`EST-04`、`EST-06` |
+| [REQ-000024](../../../01_Discovery/Definitions/REQ-000024/requirement.md) | 委譲前にタスクの識別情報、対象リポジトリ、許可範囲、期待結果、帰還先を固定する。実行結果に作成側、対象改訂版、変更、根拠を結び付ける。帰還時に決定権限を再確認し、元タスクまたは所有正本以外へ反映しない。正常帰還、結果拒否、帰還先消失、改訂版競合、部分結果、再送を行い、相関と外部作用（Effect）を観測する | ST／UAT | `EST-03`、`EST-11`、`EST-06` |
 | [REQ-000027](../../../01_Discovery/Definitions/REQ-000027/requirement.md) | 外部作用（Effect）の前に送信先、目的、操作、情報分類、許可範囲を確定する。外部内容を指示、決定権限、要求、因果へ自動昇格せず出典付き観察として戻す。新しい要求や方針変更は人間採用判断を経て所有正本へ反映する。許可／不許可情報、外部指示、矛盾情報、公開反応、依存更新を与え、外部送信による作用と内部昇格を観測する | IT／ST／UAT | `EST-04`、`EST-03`、`EST-06` |
-| [REQ-000028](../../../01_Discovery/Definitions/REQ-000028/requirement.md) | 各AI入口が同じ共通規範と対象正本へ到達できる。AI固有制約を保持しつつ共通判断を入口で再定義しない。同じ変更で入口ごとの行動差がある場合に理由を追跡できる。複数AI入口から同じ代表作業を開始し、読んだ正本、適用規則、権限境界、差分理由を比較する | IT／ST／UAT | `EST-01`、`EST-05`、`EST-07` |
 | [UX-000012](../../../02_UX/Definitions/UX-000012/ux_definition.md) | stdio MCPとlocalhost HTTPのどちらでも、同じ入力・権限・状態・結果で仕事を続けられる。失敗時は、失敗した通信方式と外部作用（Effect）が発行されたかを区別して、入口変更や再処置を判断できる。重要場面「入口を切り替えて同じ仕事を開始・継続する場面」で、避ける失敗を利用者が正常状態や完了として誤認しない。入口、実装または利用主体が変わっても、この利用者成果の意味を維持する。stdio MCPとlocalhost HTTPで入力・権限判断・状態・結果が変わること、および失敗した通信方式と外部作用の発行有無を識別できない表示を反証する | IT／ST／UAT | `EST-01`、`EST-05`、`EST-07` |
 | [UX-000019](../../../02_UX/Definitions/UX-000019/ux_definition.md) | 必要最小限の情報を出所・現行性・許可付きで渡し、相関・完全性付きの結果を同じタスクへ戻せる。重要場面「外部境界へ情報を出す直前」で、避ける失敗を利用者が正常状態や完了として誤認しない。入口、実装または利用主体が変わっても、この利用者成果の意味を維持する。全量投入、秘密情報混入、情報捏造、別タスク結果混入およびAgent完了の自動採用を反証する | ST／UAT | `EST-05`、`EST-03`、`EST-08` |
 | [UX-000021](../../../02_UX/Definitions/UX-000021/ux_definition.md) | 応答喪失後に新規実行せず、現在の利用権限で同じ依頼の状態・結果・回復義務へ戻れる。重要場面「再実行するか判断する直前」で、避ける失敗を利用者が正常状態や完了として誤認しない。入口、実装または利用主体が変わっても、この利用者成果の意味を維持する。再接続時の外部作用（Effect）の二重実行、古いセッションの決定権限および別依頼への誤結合を反証する | IT／ST／UAT | `EST-05`、`EST-04`、`EST-09` |
@@ -52,19 +51,30 @@ Quality ID: `QA-000009`
 | ST | Required | 公開入口から外部送信、結果帰還、終了後まで | System/E2E | 実Providerを含む利用経路の完成を確認するため |
 | UAT | Required | 利用者が送信範囲と結果を理解して判断する場面 | User Acceptance | 同意範囲と帰還結果を理解して送信・停止を選べる利用者成果を確認するため |
 
+### 状態区分の適用
+
+| 状態区分 | 適用 | 対応Local Item | 判断理由 |
+|---|---|---|---|
+| 正常 | Required | EST-01、EST-03、EST-10、EST-11 | 許可済み送信、入口間契約同値性および結果帰還を確認する |
+| 準正常／境界 | Required | EST-04、EST-06、EST-07、EST-08、EST-09、EST-10、EST-11 | 再接続、非開示、利用者判断、入口差および帰還競合を確認する |
+| 異常 | Required | EST-02、EST-05 | 不許可送信と境界故障を拒否する |
+| 判定不能 | Required | EST-05 | Effect発行有無や結果搬送が不明な場合に再送しない |
+
 ## 3. 検証項目
 
-| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `EST-01` | 正常 | IT | Transport Contract | CLI／MCP Adapter→Application Contract | Direct Boundary | 同義Application入力とCLI・MCP stdio・MCP HTTPの各入口 | 各Transportから同じ要求を送り結果を比較する | decode後のApplication入力とencode前の結果が同一で、Transport固有のAuthorityを発行しない | 入口ごとのProcess／streamが終了 | Automated |
-| `EST-02` | 異常 | IT | Contract／Fault | Transport stream→Adapter→Application入口 | Adjacent 1 Block | Schema差、必須field欠落、stderr混入、切断後遅延結果の各反例 | 各Transportへ反例を入力する | 意味差を拒否し、重複実行やstdout汚染を発生させない | 追加Application Effect 0 | Automated |
-| `EST-03` | 正常 | ST | External Send／Scenario | 公開入口→同意Gate→Provider→結果帰還 | System/E2E | 送信先・目的・情報分類・同意・Request Identityが明示された要求 | 許可範囲内の外部送信を一回実行する | 許可範囲の最小情報だけを送り、同じRequest Identityへ結果を戻す | 同意の使用範囲と送信結果を相関 | Automated |
-| `EST-04` | 情報境界 | IT | Security／Authorization | Application要求→Policy→Provider Adapter | Related 2 Blocks | Secret、目的外情報、失効・取消済み同意、別依頼結果の各入力 | 各入力でProvider Effectを要求する | Provider Effect前に停止し、対象の存在や内容を漏らさない | Provider／正本Effect 0 | Automated |
-| `EST-05` | 故障 | ST | Partial Failure／Recovery | 公開入口→Provider→候補・回復→利用側結果 | System/E2E | 送信受理済みRequestと、切断・部分結果・帰還失敗の注入点 | 受理後の各故障を発生させる | Effect不明、部分成功、帰還失敗を別状態で返し、生結果を自動採用しない | 候補または回復義務を保持 | Automated |
-| `EST-06` | 利用者判断 | UAT | Acceptance／Consent | 送信内容・同意Gate・帰還結果→利用者 | User Acceptance | 送信先、目的、情報分類、同意範囲、失敗・部分結果を含む依頼 | 利用者が送信・拒否・取消・結果処置を判断する | 何をどこへ送るかと結果状態を理解し、許可外送信を要求されない | 未許可Provider Effect 0 | Manual |
-| `EST-07` | 利用者判断 | UAT | Acceptance／Entry Equivalence | CLI・MCP stdio・MCP HTTP・Workbench入口→同じ仕事 | User Acceptance | 同じ依頼、入力、権限、状態、結果を扱う複数入口と、入口固有の失敗 | 利用者が入口を切り替えて同じ仕事を開始・継続する | 入口が変わっても要求・権限判断・状態・結果の意味が変わらず、失敗境界を識別できる | 重複Application／Provider Effect 0 | Manual |
-| `EST-08` | 利用者判断 | UAT | Acceptance／Context Scope | 送信する仕事用情報一式と帰還結果→利用者 | User Acceptance | 情報源、改訂版、利用範囲、欠測・競合を持つ最小情報一式と帰還結果 | 利用者が送信範囲と結果の再利用可否を判断する | 全量投入や推測補完をせず、出所・現行性・不足を理解して同じ仕事へ戻せる | 未許可情報送信・正本Effect 0 | Manual |
-| `EST-09` | 利用者判断 | UAT | Acceptance／Reconnect | 切断した依頼・同一識別情報・現在権限→利用者 | User Acceptance | 要求前切断、受理後切断、Effect後応答喪失、結果取得可能、回復必要の各状態 | 利用者が再実行・再照会・回復を選ぶ | 新規実行より同一依頼の状態確認を先に選び、別依頼や古い権限へ誤結合しない | 重複Provider Effect 0、未解消回復義務を保持 | Manual |
+| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `EST-01` | 正常 | IT | Transport Contract | CLI／MCP Adapter→Application Contract | Direct Boundary | 同義Application入力とCLI・MCP stdio・MCP HTTPの各入口 | 各Transportから同じ要求を送り結果を比較する | EST-01として、「各Transportから同じ要求を送り結果を比較する」前後のCLI／MCP Adapter→Application Contractについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | decode後のApplication入力とencode前の結果が同一で、Transport固有のAuthorityを発行しない | EST-01、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「decode後のApplication入力とencode前の結果が同一で、Transport固有のAuthorityを発行しない」および終了後条件「入口ごとのProcess／streamが終了」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 入口ごとのProcess／streamが終了 | Automated |
+| `EST-02` | 異常 | IT | Contract／Fault | Transport stream→Adapter→Application入口 | Adjacent 1 Block | Schema差、必須field欠落、stderr混入、切断後遅延結果の各反例 | 各Transportへ反例を入力する | EST-02として、「各Transportへ反例を入力する」前後のTransport stream→Adapter→Application入口について、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 意味差を拒否し、重複実行やstdout汚染を発生させない | EST-02、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「意味差を拒否し、重複実行やstdout汚染を発生させない」および終了後条件「追加Application Effect 0」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 追加Application Effect 0 | Automated |
+| `EST-03` | 正常 | ST | External Send／Scenario | 公開入口→同意Gate→Provider→結果帰還 | System/E2E | 送信先・目的・情報分類・同意・Request Identityが明示された要求 | 許可範囲内の外部送信を一回実行する | EST-03として、「許可範囲内の外部送信を一回実行する」前後の公開入口→同意Gate→Provider→結果帰還について、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 許可範囲の最小情報だけを送り、同じRequest Identityへ結果を戻す | EST-03、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「許可範囲の最小情報だけを送り、同じRequest Identityへ結果を戻す」および終了後条件「同意の使用範囲と送信結果を相関」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 同意の使用範囲と送信結果を相関 | Automated |
+| `EST-04` | 情報境界 | IT | Security／Authorization | Application要求→Policy→Provider Adapter | Related 2 Blocks | Secret、目的外情報、失効・取消済み同意、別依頼結果の各入力 | 各入力でProvider Effectを要求する | EST-04として、「各入力でProvider Effectを要求する」前後のApplication要求→Policy→Provider Adapterについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | Provider Effect前に停止し、対象の存在や内容を漏らさない | EST-04、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「Provider Effect前に停止し、対象の存在や内容を漏らさない」および終了後条件「Provider／正本Effect 0」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | Provider／正本Effect 0 | Automated |
+| `EST-05` | 故障 | ST | Partial Failure／Recovery | 公開入口→Provider→候補・回復→利用側結果 | System/E2E | 送信受理済みRequestと、切断・部分結果・帰還失敗の注入点 | 受理後の各故障を発生させる | EST-05として、「受理後の各故障を発生させる」前後の公開入口→Provider→候補・回復→利用側結果について、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | Effect不明、部分成功、帰還失敗を別状態で返し、生結果を自動採用しない | EST-05、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「Effect不明、部分成功、帰還失敗を別状態で返し、生結果を自動採用しない」および終了後条件「候補または回復義務を保持」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 候補または回復義務を保持 | Automated |
+| `EST-06` | 利用者判断 | UAT | Acceptance／Consent | 送信内容・同意Gate・帰還結果→利用者 | User Acceptance | 送信先、目的、情報分類、同意範囲、失敗・部分結果を含む依頼 | 利用者が送信・拒否・取消・結果処置を判断する | EST-06として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | 何をどこへ送るかと結果状態を理解し、許可外送信を要求されない | EST-06、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「何をどこへ送るかと結果状態を理解し、許可外送信を要求されない」および終了後条件「未許可Provider Effect 0」を保存する | 未許可Provider Effect 0 | Manual |
+| `EST-07` | 利用者判断 | UAT | Acceptance／Entry Equivalence | CLI・MCP stdio・MCP HTTP・Workbench入口→同じ仕事 | User Acceptance | 同じ依頼、入力、権限、状態、結果を扱う複数入口と、入口固有の失敗 | 利用者が入口を切り替えて同じ仕事を開始・継続する | EST-07として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | 入口が変わっても要求・権限判断・状態・結果の意味が変わらず、失敗境界を識別できる | EST-07、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「入口が変わっても要求・権限判断・状態・結果の意味が変わらず、失敗境界を識別できる」および終了後条件「重複Application／Provider Effect 0」を保存する | 重複Application／Provider Effect 0 | Manual |
+| `EST-08` | 利用者判断 | UAT | Acceptance／Context Scope | 送信する仕事用情報一式と帰還結果→利用者 | User Acceptance | 情報源、改訂版、利用範囲、欠測・競合を持つ最小情報一式と帰還結果 | 利用者が送信範囲と結果の再利用可否を判断する | EST-08として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | 全量投入や推測補完をせず、出所・現行性・不足を理解して同じ仕事へ戻せる | EST-08、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「全量投入や推測補完をせず、出所・現行性・不足を理解して同じ仕事へ戻せる」および終了後条件「未許可情報送信・正本Effect 0」を保存する | 未許可情報送信・正本Effect 0 | Manual |
+| `EST-09` | 利用者判断 | UAT | Acceptance／Reconnect | 切断した依頼・同一識別情報・現在権限→利用者 | User Acceptance | 要求前切断、受理後切断、Effect後応答喪失、結果取得可能、回復必要の各状態 | 利用者が再実行・再照会・回復を選ぶ | EST-09として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | 新規実行より同一依頼の状態確認を先に選び、別依頼や古い権限へ誤結合しない | EST-09、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「新規実行より同一依頼の状態確認を先に選び、別依頼や古い権限へ誤結合しない」および終了後条件「重複Provider Effect 0、未解消回復義務を保持」を保存する | 重複Provider Effect 0、未解消回復義務を保持 | Manual |
+| `EST-10` | 正常／境界 | IT | Surface Contract／Effect Equivalence | TS API・CLI・MCP・Workbench→同一Application Contract→正本 | Related 2 Blocks | 正常、拒否、部分結果、取消の同一固定入力と四入口 | 各入口から同じ操作を実行する | 入口Identity、Application Contract、構造結果、Authority判定、取消結果、正本差分、Effect件数を記録する | 全入口が同じ契約と共有実装を使い、結果意味と正本更新が一致し、独自Storeを作らない | EST-10、入口別契約・結果・差分・Effect比較、Oracleを保存する | 入口固有Store 0、取消後残存資源0 | Automated |
+| `EST-11` | 正常／境界 | ST | Result Return／Correlation | 委譲実行→結果搬送→元Task・所有正本 | Related 2 Blocks | 正常帰還、拒否、帰還先消失、Revision競合、部分結果、再送を含む固定Task | 各結果を帰還先へ搬送し反映可否を判定する | Task・Request Identity、作成側、対象Revision、変更集合、Evidence参照、帰還先、Authority、Effect件数を相関する | 正常時だけ作成側・Revision・変更・Evidenceを保って元Task／正本へ帰還し、競合・再送を重複反映しない | EST-11、全相関Identity、変更集合Hash、Evidence参照、判定理由、Effect件数を保存する | 拒否・競合・再送時の重複Effect 0 | Automated |
 
 ## 4. 評価とEvidence
 
@@ -77,3 +87,17 @@ Quality ID: `QA-000009`
 | RT | Required | 変更した意味と利用側から、再実行する既存Local Itemを選ぶ | Changeの通常検証範囲 | 未選択の範囲を明示し、選択した回帰の結果で評価する |
 | PT | Conditional | 対象、負荷上限、費用／Credit上限、中止条件および清掃条件を事前に固定した場合だけ設計する | Human Explicit Authorization | 未実行をPassへ読み替えず、明示的なRelease条件でない限り通常監査を停止しない |
 | LT | Conditional | 対象、継続時間、資源／費用上限、中止条件および清掃条件を事前に固定した場合だけ設計する | Human Explicit Authorization | 未実行をPassへ読み替えず、明示的なRelease条件でない限り通常監査を停止しない |
+
+
+## Checklist
+
+- [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
+- [x] UT／IT／ST／UATの適用または理由付きN/Aを記録した
+- [x] 外部境界の直接、隣接1 block、関連2 blocks、System／E2Eおよび利用者受入を適用判定した
+- [x] 正常、境界、失敗および観測不能をLocal Itemで処置した
+- [x] 各Local Itemで観測とOracleを分けた
+- [x] 各Local ItemのEvidence要件を示した
+- [x] 事前条件、刺激、終了後条件、cleanupおよびRecoveryを必要な範囲で示した
+- [x] RT／PT／LTの適用または理由付きN/Aを記録し、PT／LTは人間の明示指定なしに実行しない
+- [x] 自動化、手動確認および人間判断の境界を示した
+- [x] 現行Source、TestおよびEvidenceとの照合をReality Auditへ分離した

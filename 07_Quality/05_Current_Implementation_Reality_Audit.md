@@ -1,8 +1,14 @@
 # 現行実装との照合
 
 成果物種別: Quality現実照合
-状態: Reality Audit Ready — Not Started
+状態: Pending — Not Started
 維持責任者: Qual-Lab
+
+## 設計集合
+
+| 項目 | 件数 |
+|---|---:|
+| Local Item数 | 110 |
 
 ## 1. 目的
 
@@ -48,7 +54,7 @@
 
 | 対象 | 状態 | 理由 | 次の処置 |
 |---|---|---|---|
-| 13検証目標のLocal Item | Quality設計の独立再レビュー中 | 157件のMapping、Source ID固有条件および81 Local ItemとのRelationを固定した | レビューPass後にLocal Item単位の照合を開始する |
+| 13検証目標のLocal Item | Quality Design Ready | 157件のMapping、Source ID固有条件および110 Local ItemとのRelationを固定し、独立レビューを通過した | Checker安定化とSymbol Traceability基盤の完了後にLocal Item単位の照合を開始する |
 | 現行Source／Test | 未照合 | Canonical設計を固定し、既存資産を正解として採用せずに照合を開始できる状態になった | Local Item単位で照合する |
 | 実行結果／Evidence | 未評価 | v0.20.1の結果をv0.21の合格へ流用しない | 必要な試験を実行した後に結合する |
 
@@ -92,3 +98,14 @@ v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、�
 - 実境界を必要とする項目は段階的なITから必要なSTへ接続する。
 - PT／LTは人間が対象、環境、上限、費用、中止およびcleanupを明示した場合だけ実行する。
 - 現在の品質状態は本書の集計ではなく、Local Itemと最新EvidenceからQuality Centerへ投影する。
+
+## Checklist
+
+- OPEN: Reality Audit未開始 — Canonical Quality設計の固定後にだけReality Auditを開始した
+- [x] 基準版Capabilityと過去Evidenceを比較入力として特定した
+- [x] 現行Source、TestおよびRegistryをCanonical設計の正解として扱っていない
+- OPEN: Reality Audit未開始 — 必要な検証をCovered、Partial、Missing、LegacyまたはGapへ分類した
+- OPEN: Reality Audit未開始。固定済みVersion Control義務はReality Audit開始後に現行実装へ照合する — 未Commit状態とVersion Control Adapterの交換可能性を検証対象へ含めた
+- OPEN: Reality Audit未開始 — 照合対象のRevision、実行条件および観測限界を固定した
+- OPEN: Reality Audit未開始 — 不足Test、未実行項目およびEvidence Gapを追跡した
+- [x] PT／LTは人間の明示指定がある場合だけ実行した

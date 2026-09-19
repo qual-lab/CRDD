@@ -36,17 +36,28 @@ Sourceと詳細設計領域は、Quality Analysis Mappingに宣言した関係�
 
 `Required`には同じ試験段階のLocal Itemを一件以上持たせ、`N/A`には同じ試験段階のLocal Itemを置かない。外部境界の到達範囲は同じ試験段階で必要な最大範囲とし、Local Itemはその範囲を越えない。`N/A`も理由を必須とする。外部境界を持つ目標では、下位の直接境界を省略して最終E2Eだけを設計しない。
 
+### 状態区分の適用
+
+| 状態区分 | 適用 | 対応Local Item | 判断理由 |
+|---|---|---|---|
+| 正常 | `<Required／N/A>` | `<Local ID。N/Aならなし>` | `<理由>` |
+| 準正常／境界 | `<Required／N/A>` | `<Local ID。N/Aならなし>` | `<理由>` |
+| 異常 | `<Required／N/A>` | `<Local ID。N/Aならなし>` | `<理由>` |
+| 判定不能 | `<Required／N/A>` | `<Local ID。N/Aならなし>` | `<理由>` |
+
+四区分を全数評価する。`Required`は一件以上のLocal Itemへ接続し、`N/A`は対象の成立主張にその状態が存在しないArchitecture上の理由を記録する。異常と判定不能を同じ結果へ畳まない。
+
 ## 4. 検証項目
 
-| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |
-|---|---|---|---|---|---|---|---|---|---|---|
-| `OBJ-01` | 正常 | `<UT／IT／ST／UAT>` | `<Functional／Contract／Recovery等>` | `<対象責務・境界。N/Aなら理由>` | `<N/A／Direct Boundary／Adjacent 1 Block／Related 2 Blocks／System/E2E／User Acceptance>` | `<入力>` | `<操作>` | `<期待>` | `<終了後>` | `Automated／Manual／Hybrid` |
-| `OBJ-02` | 準正常／境界 | `<UT／IT／ST／UAT>` | `<種別>` | `<対象責務・境界>` | `<段階>` | `<入力>` | `<操作>` | `<期待>` | `<終了後>` | `Automated／Manual／Hybrid` |
-| `OBJ-03` | 異常／判定不能 | `<UT／IT／ST／UAT>` | `<種別>` | `<対象責務・境界>` | `<段階>` | `<入力>` | `<操作>` | `<期待>` | `<終了後>` | `Automated／Manual／Hybrid` |
+| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `OBJ-01` | 正常 | `<UT／IT／ST／UAT>` | `<Functional／Contract／Recovery等>` | `<対象責務・境界。N/Aなら理由>` | `<N/A／Direct Boundary／Adjacent 1 Block／Related 2 Blocks／System/E2E／User Acceptance>` | `<入力>` | `<操作>` | `<実際に取得する値・状態・Effect>` | `<合否を決める期待条件>` | `<保存する入力分類・観測値・判定・終了後条件>` | `<終了後>` | `Automated／Manual／Hybrid` |
+| `OBJ-02` | 準正常／境界 | `<UT／IT／ST／UAT>` | `<種別>` | `<対象責務・境界>` | `<段階>` | `<入力>` | `<操作>` | `<実際に取得する情報>` | `<期待条件>` | `<必要なEvidence>` | `<終了後>` | `Automated／Manual／Hybrid` |
+| `OBJ-03` | 異常／判定不能 | `<UT／IT／ST／UAT>` | `<種別>` | `<対象責務・境界>` | `<段階>` | `<入力>` | `<操作>` | `<実際に取得する情報>` | `<期待条件>` | `<必要なEvidence>` | `<終了後>` | `Automated／Manual／Hybrid` |
 
 Local IDは本Definition内でSource固有条件とEvidenceを対応させるための識別子であり、CRDD全体の安定コンテキストIDではない。
 
-11軸はすべて記載する。定型操作を持たないレビューや評価でも、対象／境界、事前状態／入力、観測と期待結果、終了後条件および実行形態を空欄にしない。一つのLocal Itemに複数段階が必要なら、段階ごとの観測境界と合格条件が独立するようLocal Itemを分ける。実行形態は`Automated`、`Manual`、`Hybrid`から選び、試験段階または担当観点を混在させない。
+13軸はすべて記載する。定型操作を持たないレビューや評価でも、対象／境界、事前状態／入力、観測、Oracle、Evidence、終了後条件および実行形態を空欄にしない。観測は実際に取得する値・状態・Effect、Oracleはその観測から合否を決める条件、Evidenceは後から同じ判断を再構成するために保存する情報である。一つのLocal Itemに複数段階が必要なら、段階ごとの観測境界と合格条件が独立するようLocal Itemを分ける。実行形態は`Automated`、`Manual`、`Hybrid`から選び、試験段階または担当観点を混在させない。
 
 ## 5. 評価
 
@@ -73,3 +84,18 @@ Local IDは本Definition内でSource固有条件とEvidenceを対応させるた
 | LT | `<Conditional／N/A>` | `<対象、継続時間、資源／費用上限、中止条件、清掃条件。N/Aなら理由>` | `<Human Explicit Authorization／N/A>` | `未実行をPassへ読み替えず、明示的なRelease条件でない限り通常監査を停止しない` |
 
 PT／LTは設計できても、利用者が対象、環境、上限、中止条件およびcleanupを明示しない限り実行しない。該当する成立条件がなければ、空欄にせず`N/A`と理由を記録する。
+
+## Checklist
+
+結果は`[x]`、未評価は`[ ]`、未完了は`OPEN: 理由`、不適合は`FAIL: 理由`、非該当は`N/A: 理由`で記録する。
+
+- [ ] Quality ID、検証目標およびSource固有条件を自己完結して示した
+- [ ] UT／IT／ST／UATの適用または理由付きN/Aを記録した
+- [ ] 外部境界の直接、隣接1 block、関連2 blocks、System／E2Eおよび利用者受入を適用判定した
+- [ ] 正常、境界、失敗および観測不能をLocal Itemで処置した
+- [ ] 各Local Itemで観測とOracleを分けた
+- [ ] 各Local ItemのEvidence要件を示した
+- [ ] 事前条件、刺激、終了後条件、cleanupおよびRecoveryを必要な範囲で示した
+- [ ] RT／PT／LTの適用または理由付きN/Aを記録し、PT／LTは人間の明示指定なしに実行しない
+- [ ] 自動化、手動確認および人間判断の境界を示した
+- [ ] 現行Source、TestおよびEvidenceとの照合をReality Auditへ分離した

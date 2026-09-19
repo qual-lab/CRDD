@@ -927,6 +927,95 @@ const architectureDetailChecklistItemTexts = [
   "Source構造をCanonical詳細設計へ逆輸入していない",
 ];
 
+const qualityCenterChecklistItemTexts = [
+  "現在の品質状態と結論を履歴より先に示した",
+  "Canonical入力、検証目標およびLocal Itemの現在数を説明できる",
+  "Designed、Implemented、Executed、PassedおよびEvidenceの状態を区別した",
+  "未成立、停止、要再確認および観測不能を正常へ畳んでいない",
+  "Quality ReadyとReality Audit開始条件を過大表示していない",
+  "重大な問題、残存Riskおよび人間判断の必要性を評価した",
+  "現在状態から分析、定義、実行結果およびEvidenceへ辿れる",
+  "過去版の詳細を第二の現在正本として複製していない",
+];
+
+const qualityStrategyChecklistItemTexts = [
+  "Productと利用者にとって守る品質を説明した",
+  "主要な品質Riskと成立主張を破る失敗を示した",
+  "各工程が所有するQuality Analysis責任を区別した",
+  "UT／IT／ST／UATをSource種別へ固定せず検証義務から選ぶ方針を示した",
+  "外部境界をlifecycle全体と段階的な結合で検証する方針を示した",
+  "RT／PT／LTの適用を評価し、PT／LTは人間の明示指定なしに実行しない",
+  "根拠、停止条件、再評価条件および完了境界を示した",
+  "例外またはRisk受容を人間の決定権限から分離していない",
+];
+
+const qualityVerificationDesignChecklistItemTexts = [
+  "検証対象、正式入力および実行入口を区別した",
+  "UT／IT／ST／UATの適用判断を検証義務ごとに行える",
+  "外部境界の直接、隣接1 block、関連2 blocks、System／E2Eおよび利用者受入の段階を扱える",
+  "正常、境界、失敗および観測不能を検証設計へ含めた",
+  "観測、Oracle、Evidenceおよび終了後条件を区別した",
+  "実行、停止、取消および再入場条件を示した",
+  "RT／PT／LTの適用を評価し、PT／LTは人間の明示指定なしに実行しない",
+  "網羅、未評価範囲、完了条件およびReality Auditへの接続を示した",
+];
+
+const qualityIntegrationChecklistItemTexts = [
+  "全Canonical IDを一件以上のQuality Analysis行で処置した",
+  "Source固有の成功、失敗、Riskおよび未確認事項を保持した",
+  "Source ID、検証目標、試験段階およびLocal Itemを一意に接続した",
+  "5横断モデルと全Architecture詳細設計領域を処置した",
+  "Quality Integrationだけで第三の要求・設計・検証契約を作っていない",
+  "上流の未確認事項をUAT、OPEN義務または上流再開のいずれかへ処置した",
+  "検証目標とLocal Itemの重複、孤立および未接続を残していない",
+  "現行Source、TestまたはEvidenceからCanonical検証義務を逆算していない",
+];
+
+const qualityRealityAuditChecklistItemTexts = [
+  "Canonical Quality設計の固定後にだけReality Auditを開始した",
+  "基準版Capabilityと過去Evidenceを比較入力として特定した",
+  "現行Source、TestおよびRegistryをCanonical設計の正解として扱っていない",
+  "必要な検証をCovered、Partial、Missing、LegacyまたはGapへ分類した",
+  "未Commit状態とVersion Control Adapterの交換可能性を検証対象へ含めた",
+  "照合対象のRevision、実行条件および観測限界を固定した",
+  "不足Test、未実行項目およびEvidence Gapを追跡した",
+  "PT／LTは人間の明示指定がある場合だけ実行した",
+];
+
+const qualityVerificationResultChecklistItemTexts = [
+  "対象改訂版と実行条件を固定した",
+  "実際の結果と期待結果を区別した",
+  "検証項目結果と検証義務評価を接続した",
+  "未確認範囲と残存Riskを示した",
+  "適用関係、無効化条件および再検証条件を示した",
+  "Quality Centerへの反映要否を評価した",
+  "保存するEvidenceと保存しない機密情報・生データを区別した",
+];
+
+const qualityAnalysisChecklistItemTexts = [
+  "対象工程の全Canonical IDを一件以上処置した",
+  "各Source固有の成功、境界、失敗、Riskおよび観測不能を分析した",
+  "表題や共通定型句ではなくSource固有の検証義務を記録した",
+  "意味の近い義務を統合してもSource固有条件を失っていない",
+  "各Sourceと検証目標、試験段階およびLocal Itemを接続した",
+  "上流の未確認事項をUAT、OPEN義務または上流再開へ処置した",
+  "現行Source、TestまたはEvidenceから検証義務を逆算していない",
+  "未解決事項、判断者および再評価契機を明示した",
+];
+
+const qualityDefinitionChecklistItemTexts = [
+  "Quality ID、検証目標およびSource固有条件を自己完結して示した",
+  "UT／IT／ST／UATの適用または理由付きN/Aを記録した",
+  "外部境界の直接、隣接1 block、関連2 blocks、System／E2Eおよび利用者受入を適用判定した",
+  "正常、境界、失敗および観測不能をLocal Itemで処置した",
+  "各Local Itemで観測とOracleを分けた",
+  "各Local ItemのEvidence要件を示した",
+  "事前条件、刺激、終了後条件、cleanupおよびRecoveryを必要な範囲で示した",
+  "RT／PT／LTの適用または理由付きN/Aを記録し、PT／LTは人間の明示指定なしに実行しない",
+  "自動化、手動確認および人間判断の境界を示した",
+  "現行Source、TestおよびEvidenceとの照合をReality Auditへ分離した",
+];
+
 function checklistItemText(line: string): string | null {
   const checked = /^- \[x\] (?<text>\S.*)$/u.exec(line);
   if (checked?.groups?.text) return checked.groups.text;
@@ -4953,18 +5042,264 @@ function checkQualityReconstruction(): void {
       );
   }
 
+  const qualityRootChecklistSpecs = [
+    ["01_Quality_Center.md", qualityCenterChecklistItemTexts],
+    ["02_Quality_Strategy.md", qualityStrategyChecklistItemTexts],
+    ["03_Verification_Design.md", qualityVerificationDesignChecklistItemTexts],
+    ["04_Quality_Integration.md", qualityIntegrationChecklistItemTexts],
+    [
+      "05_Current_Implementation_Reality_Audit.md",
+      qualityRealityAuditChecklistItemTexts,
+    ],
+  ] as const;
+  for (const [fileName, expectedItems] of qualityRootChecklistSpecs) {
+    const currentPath = path.join(qualityRoot, fileName);
+    if (lstatIfPresent(currentPath)?.isFile()) {
+      const currentError = completedVisibleChecklistError(
+        read(currentPath),
+        expectedItems,
+      );
+      if (currentError)
+        add(
+          "error",
+          "quality-visible-checklist-invalid",
+          relative(currentPath),
+          `The Quality current-profile artifact must keep one evaluated visible Checklist with the canonical item set (${currentError}).`,
+        );
+    }
+    const templatePath = path.join(templateQualityRoot, fileName);
+    if (lstatIfPresent(templatePath)?.isFile()) {
+      const templateError = templateVisibleChecklistError(
+        read(templatePath),
+        expectedItems,
+      );
+      if (templateError)
+        add(
+          "error",
+          "quality-template-visible-checklist-invalid",
+          relative(templatePath),
+          `The Quality template must keep one unevaluated visible Checklist with result guidance and the canonical item set (${templateError}).`,
+        );
+    }
+  }
+
+  const verificationResultTemplatePath = path.join(
+    templateQualityRoot,
+    "99_Verification_Result_Format.md",
+  );
+  const verificationResultTemplateError = templateVisibleChecklistError(
+    lstatIfPresent(verificationResultTemplatePath)?.isFile()
+      ? read(verificationResultTemplatePath)
+      : "",
+    qualityVerificationResultChecklistItemTexts,
+  );
+  if (verificationResultTemplateError)
+    add(
+      "error",
+      "quality-template-visible-checklist-invalid",
+      relative(verificationResultTemplatePath),
+      `The Quality verification-result template must keep one unevaluated visible Checklist with result guidance and the canonical item set (${verificationResultTemplateError}).`,
+    );
+
+  const qualityAnalysisTemplatePath = path.join(
+    templateQualityRoot,
+    "Analysis",
+    "PHASE",
+    "quality_analysis.md",
+  );
+  const qualityAnalysisTemplateError = templateVisibleChecklistError(
+    read(qualityAnalysisTemplatePath),
+    qualityAnalysisChecklistItemTexts,
+  );
+  if (qualityAnalysisTemplateError)
+    add(
+      "error",
+      "quality-template-visible-checklist-invalid",
+      relative(qualityAnalysisTemplatePath),
+      `The Quality Analysis template must keep one unevaluated visible Checklist with result guidance and the canonical item set (${qualityAnalysisTemplateError}).`,
+    );
+  for (const phaseAnalysisPath of phaseAnalysisPaths) {
+    const checklistError = completedVisibleChecklistError(
+      read(phaseAnalysisPath),
+      qualityAnalysisChecklistItemTexts,
+    );
+    if (checklistError)
+      add(
+        "error",
+        "quality-visible-checklist-invalid",
+        relative(phaseAnalysisPath),
+        `Every Quality Analysis must keep one evaluated visible Checklist with the canonical item set (${checklistError}).`,
+      );
+  }
+
+  const qualityDefinitionTemplatePath = path.join(
+    templateQualityRoot,
+    "Definitions",
+    "QA-XXXXXX",
+    "quality_definition.md",
+  );
+  const qualityDefinitionTemplateError = templateVisibleChecklistError(
+    read(qualityDefinitionTemplatePath),
+    qualityDefinitionChecklistItemTexts,
+  );
+  if (qualityDefinitionTemplateError)
+    add(
+      "error",
+      "quality-template-visible-checklist-invalid",
+      relative(qualityDefinitionTemplatePath),
+      `The Quality Definition template must keep one unevaluated visible Checklist with result guidance and the canonical item set (${qualityDefinitionTemplateError}).`,
+    );
+  const qualityDefinitionPaths = fs
+    .readdirSync(path.join(qualityRoot, "Definitions"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && /^QA-[0-9]{6}$/u.test(entry.name))
+    .map((entry) =>
+      path.join(
+        qualityRoot,
+        "Definitions",
+        entry.name,
+        "quality_definition.md",
+      ),
+    )
+    .filter((definitionPath) => lstatIfPresent(definitionPath)?.isFile());
+  for (const definitionPath of qualityDefinitionPaths) {
+    const checklistError = completedVisibleChecklistError(
+      read(definitionPath),
+      qualityDefinitionChecklistItemTexts,
+    );
+    if (checklistError)
+      add(
+        "error",
+        "quality-visible-checklist-invalid",
+        relative(definitionPath),
+        `Every Quality Definition must keep one evaluated visible Checklist with the canonical item set (${checklistError}).`,
+      );
+  }
+
+  const qualityCenterPath = path.join(qualityRoot, "01_Quality_Center.md");
+  const qualityCenter = lstatIfPresent(qualityCenterPath)?.isFile()
+    ? read(qualityCenterPath)
+    : "";
+  const qualityCenterState =
+    qualityCenter.match(/^状態:\s*(.+?)\s*$/mu)?.[1] ?? "";
+  const normalizedQualityState = qualityCenterState
+    .replace(/^v\d+\.\d+\.\d+\s+/u, "")
+    .replace(/（Released Baseline:[^）]+）$/u, "")
+    .trim();
+  const qualityStateKinds = [
+    "Quality Design Under Review — Reality Audit Blocked",
+    "Quality Design Ready — Reality Audit Pending",
+    "Quality Ready",
+  ] as const;
+  const qualityStateKnown = qualityStateKinds.some(
+    (state) => state === normalizedQualityState,
+  );
+  if (!qualityStateKnown)
+    add(
+      "error",
+      "quality-state-invalid",
+      relative(qualityCenterPath),
+      "Quality Center must declare exactly one canonical finite state: Quality Design Under Review — Reality Audit Blocked, Quality Design Ready — Reality Audit Pending, or Quality Ready.",
+    );
+  const qualityDesignReady =
+    normalizedQualityState === "Quality Design Ready — Reality Audit Pending";
+  const qualityReady = normalizedQualityState === "Quality Ready";
+  const realityAuditPath = path.join(
+    qualityRoot,
+    "05_Current_Implementation_Reality_Audit.md",
+  );
+  const realityAuditState = lstatIfPresent(realityAuditPath)?.isFile()
+    ? (read(realityAuditPath).match(/^状態:\s*(.+?)\s*$/mu)?.[1] ?? "")
+    : "";
+  const allowedRealityAuditStates = [
+    "Blocked — Quality Design Review Pending",
+    "Pending — Not Started",
+    "In Progress",
+    "Complete",
+  ] as const;
+  if (!allowedRealityAuditStates.some((state) => state === realityAuditState))
+    add(
+      "error",
+      "quality-reality-audit-state-invalid",
+      relative(realityAuditPath),
+      "Reality Audit must declare exactly one canonical finite state: Blocked — Quality Design Review Pending, Pending — Not Started, In Progress, or Complete.",
+    );
+  const realityStateAllowedForCenter =
+    (normalizedQualityState ===
+      "Quality Design Under Review — Reality Audit Blocked" &&
+      realityAuditState === "Blocked — Quality Design Review Pending") ||
+    (qualityDesignReady &&
+      ["Pending — Not Started", "In Progress"].includes(realityAuditState)) ||
+    (qualityReady && realityAuditState === "Complete");
+  if (qualityStateKnown && !realityStateAllowedForCenter)
+    add(
+      "error",
+      "quality-state-reality-audit-state-mismatch",
+      relative(qualityCenterPath),
+      "Quality Center and Reality Audit must use an allowed state pair: Under Review/Blocked, Design Ready/Pending or In Progress, or Quality Ready/Complete.",
+    );
+  if (qualityDesignReady || qualityReady) {
+    const qualityDesignRootFiles = qualityRootChecklistSpecs
+      .map(([fileName]) => fileName)
+      .filter(
+        (fileName) => fileName !== "05_Current_Implementation_Reality_Audit.md",
+      );
+    const qualityDesignPaths = [
+      ...qualityDesignRootFiles.map((fileName) =>
+        path.join(qualityRoot, fileName),
+      ),
+      ...phaseAnalysisPaths,
+      ...qualityDefinitionPaths,
+    ];
+    const qualityCurrentPaths = qualityReady
+      ? [...qualityDesignPaths, realityAuditPath]
+      : qualityDesignPaths;
+    for (const qualityCurrentPath of qualityCurrentPaths) {
+      if (!lstatIfPresent(qualityCurrentPath)?.isFile()) continue;
+      if (
+        qualityCurrentPath !== qualityCenterPath &&
+        qualityCurrentPath !== realityAuditPath
+      ) {
+        const artifactState =
+          read(qualityCurrentPath).match(/^状態:\s*(.+?)\s*$/mu)?.[1] ?? "";
+        const normalizedArtifactState = artifactState
+          .replace(/^v\d+\.\d+\.\d+\s+/u, "")
+          .replace(/（Released Baseline:[^）]+）$/u, "")
+          .trim();
+        if (normalizedArtifactState !== "Canonical")
+          add(
+            "error",
+            "quality-design-artifact-state-invalid",
+            relative(qualityCurrentPath),
+            `${qualityReady ? "Quality Ready" : "Quality Design Ready"} requires every Quality design root, Analysis, and Definition artifact to declare Canonical state.`,
+          );
+      }
+      const visible = visibleMarkdownStructure(read(qualityCurrentPath));
+      const checklist =
+        visible.match(/^## Checklist\s*$([\s\S]*)$/mu)?.[1] ?? "";
+      if (/^- (?:OPEN|FAIL):/mu.test(checklist) || /^- \[ \]/mu.test(checklist))
+        add(
+          "error",
+          "quality-ready-with-open-checklist-result",
+          relative(qualityCurrentPath),
+          `${qualityReady ? "Quality Ready" : "Quality Design Ready"} must not be declared while an applicable Quality Checklist still contains OPEN, FAIL, or an unchecked item.`,
+        );
+    }
+  }
+
   const phaseAnalyses = phaseAnalysisPaths.map((phasePath) => read(phasePath));
   const analysis = read(analysisPath);
   const mappingSections = phaseAnalyses.map(
     (phaseAnalysis) =>
-      phaseAnalysis.match(/^## 2\. 全件処置\s*$([\s\S]*?)(?=^##\s)/mu)?.[1],
+      phaseAnalysis.match(
+        /^## 2\. 全件Coverage Index\s*$([\s\S]*?)(?=^##\s)/mu,
+      )?.[1],
   );
   if (mappingSections.some((section) => !section)) {
     add(
       "error",
       "quality-canonical-mapping-section-missing",
       relative(analysisRoot),
-      "Every phase Quality analysis must expose its canonical sources in the '全件処置' section instead of satisfying coverage through IDs mentioned elsewhere.",
+      "Every phase Quality analysis must expose its canonical sources in the '全件Coverage Index' section instead of satisfying coverage through IDs mentioned elsewhere.",
     );
     return;
   }
@@ -5348,19 +5683,76 @@ function checkQualityReconstruction(): void {
     ),
   );
   const analysisDetailGoalRelations = new Set<string>();
-  const analysisDetailGoalRelationEntries: string[] = [];
+  const analysisDetailUnitGoalRelations = new Set<string>();
+  const analysisDetailUnitLocalRelations = new Set<string>();
+  const analysisDetailUnits = new Set<string>();
   for (const line of (detailSection ?? "").split(/\r?\n/u)) {
     const detailSlug = line.match(
       /^\|\s*\[([a-z0-9-]+)\]\([^)]*\/Details\/\1\/01_Architecture\.md\)\s*\|/u,
     )?.[1];
     if (!detailSlug) continue;
+    const cells = line
+      .slice(1, line.lastIndexOf("|"))
+      .split("|")
+      .map((cell) => cell.trim());
+    if (cells.length !== 6 || cells[1].length === 0) {
+      add(
+        "error",
+        "quality-architecture-detail-unit-row-invalid",
+        relative(analysisPath),
+        "Every Architecture detail verification-unit row must contain area, exact unit, objective, Local Item, disposition, and re-evaluation condition.",
+      );
+      continue;
+    }
+    const unitKey = `${detailSlug}|${cells[1]}`;
+    if (analysisDetailUnits.has(unitKey))
+      add(
+        "error",
+        "quality-architecture-detail-unit-duplicate",
+        relative(analysisPath),
+        `Architecture detail verification unit is duplicated: ${unitKey}.`,
+      );
+    analysisDetailUnits.add(unitKey);
+    if (cells[4] !== "Covered" && cells[4] !== "OPEN")
+      add(
+        "error",
+        "quality-architecture-detail-unit-disposition-invalid",
+        relative(analysisPath),
+        "Architecture detail verification-unit disposition must be Covered or OPEN.",
+      );
+    if (cells[5].length === 0)
+      add(
+        "error",
+        "quality-architecture-detail-unit-reevaluation-missing",
+        relative(analysisPath),
+        "Every Architecture detail verification unit must state no remaining condition or an explicit re-evaluation condition.",
+      );
     for (const goal of line.matchAll(
       /\[[^\]]+\]\(Definitions\/(QA-[0-9]{6})\/quality_definition\.md\)/gu,
     )) {
       const relation = `${detailSlug}|${goal[1]}`;
-      analysisDetailGoalRelationEntries.push(relation);
       analysisDetailGoalRelations.add(relation);
+      const unitGoalRelation = `${unitKey}|${goal[1]}`;
+      if (analysisDetailUnitGoalRelations.has(unitGoalRelation))
+        add(
+          "error",
+          "quality-architecture-detail-unit-goal-duplicate",
+          relative(analysisPath),
+          `Architecture detail verification-unit objective is duplicated: ${unitGoalRelation}.`,
+        );
+      analysisDetailUnitGoalRelations.add(unitGoalRelation);
     }
+    for (const localMatch of cells[3].matchAll(
+      /`([A-Z][A-Z0-9]*-[0-9]{2,})`/gu,
+    ))
+      analysisDetailUnitLocalRelations.add(`${unitKey}|${localMatch[1]}`);
+    if (!/`[A-Z][A-Z0-9]*-[0-9]{2,}`/u.test(cells[3]))
+      add(
+        "error",
+        "quality-architecture-detail-unit-local-item-missing",
+        relative(analysisPath),
+        `Architecture detail verification unit must connect to one or more Local Items: ${unitKey}.`,
+      );
   }
   if (analysisDetailGoalRelations.size === 0)
     add(
@@ -5368,16 +5760,6 @@ function checkQualityReconstruction(): void {
       "quality-architecture-detail-goal-relation-missing",
       relative(analysisPath),
       "Each Architecture detail area must connect to one or more canonical verification goals.",
-    );
-  if (
-    analysisDetailGoalRelationEntries.length !==
-    analysisDetailGoalRelations.size
-  )
-    add(
-      "error",
-      "quality-architecture-detail-goal-relation-duplicate",
-      relative(analysisPath),
-      "The Architecture detail to verification-goal relation set must be duplicate-free.",
     );
   if (
     linkedDetailPaths.size !== physicalDetailPaths.size ||
@@ -5393,6 +5775,29 @@ function checkQualityReconstruction(): void {
       "quality-architecture-detail-coverage-mismatch",
       relative(analysisPath),
       "The Quality mapping must explicitly process every current Architecture detail area without adding an unknown area.",
+    );
+  const physicalDetailUnits = new Set<string>();
+  for (const detailPath of physicalDetailPaths) {
+    const detailSlug = path.basename(path.dirname(detailPath));
+    const handoffSection = read(detailPath).match(
+      /^## Qualityへの引(?:渡し|き渡し)\s*$([\s\S]*?)(?=^##\s)/mu,
+    )?.[1];
+    for (const line of (handoffSection ?? "").split(/\r?\n/u)) {
+      const unit = line.match(/^\|\s*([^|]+?)\s*\|/u)?.[1]?.trim();
+      if (!unit || unit === "検証単位" || /^---/u.test(unit)) continue;
+      physicalDetailUnits.add(`${detailSlug}|${unit}`);
+    }
+  }
+  if (
+    physicalDetailUnits.size !== analysisDetailUnits.size ||
+    [...physicalDetailUnits].some((unit) => !analysisDetailUnits.has(unit)) ||
+    [...analysisDetailUnits].some((unit) => !physicalDetailUnits.has(unit))
+  )
+    add(
+      "error",
+      "quality-architecture-detail-unit-coverage-mismatch",
+      relative(analysisPath),
+      "The Quality integration matrix must process the exact verification-unit set handed off by every current Architecture detail area.",
     );
 
   const localItemOwners = new Map<string, string>();
@@ -5486,6 +5891,37 @@ function checkQualityReconstruction(): void {
       definitionDetailGoalRelationEntries.push(relation);
       definitionDetailGoalRelations.add(relation);
     }
+    const stateApplicabilitySection = definition.match(
+      /^### 状態区分の適用\s*$([\s\S]*?)(?=^##\s)/mu,
+    )?.[1];
+    const stateApplicability = new Map<
+      string,
+      { applicability: string; localItems: string[]; rationale: string }
+    >();
+    for (const line of (stateApplicabilitySection ?? "").split(/\r?\n/u)) {
+      const row = line.match(
+        /^\|\s*(正常|準正常／境界|異常|判定不能)\s*\|\s*(Required|N\/A)\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*$/u,
+      );
+      if (!row) continue;
+      stateApplicability.set(row[1], {
+        applicability: row[2],
+        localItems: [...row[3].matchAll(/[A-Z][A-Z0-9]*-[0-9]{2,}/gu)].map(
+          (match) => match[0],
+        ),
+        rationale: row[4].trim(),
+      });
+    }
+    if (
+      ["正常", "準正常／境界", "異常", "判定不能"].some(
+        (state) => !stateApplicability.has(state),
+      )
+    )
+      add(
+        "error",
+        "quality-verification-state-applicability-incomplete",
+        relative(definitionPath),
+        "Every Quality Definition must explicitly evaluate normal, quasi-normal/boundary, abnormal, and indeterminate states.",
+      );
     const itemSection = definition.match(
       /^## [0-9]+\. 検証項目\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/mu,
     )?.[1];
@@ -5498,7 +5934,9 @@ function checkQualityReconstruction(): void {
       "外部境界の段階",
       "事前状態／入力",
       "操作／刺激",
-      "観測と期待結果",
+      "観測",
+      "Oracle",
+      "Evidence",
       "終了後条件",
       "実行形態",
     ];
@@ -5509,6 +5947,7 @@ function checkQualityReconstruction(): void {
       level: string;
       externalBoundaryStage: string;
     }> = [];
+    const definitionLocalIds = new Set<string>();
     const itemHeaderCells = itemTableLines[0]
       ?.slice(1, itemTableLines[0].lastIndexOf("|"))
       .split("|")
@@ -5522,7 +5961,7 @@ function checkQualityReconstruction(): void {
         "error",
         "quality-verification-item-schema-invalid",
         relative(definitionPath),
-        "The verification-item table must use the exact eleven canonical axes, including test level, test type, target/boundary, and staged external-boundary reach.",
+        "The verification-item table must use the exact thirteen canonical axes, including separate observation, oracle, evidence, completion, and execution-mode fields.",
       );
     for (const itemLine of itemTableLines.slice(2)) {
       if (!/^\|\s*`[A-Z][A-Z0-9]*-[0-9]{2,}`\s*\|/u.test(itemLine)) continue;
@@ -5537,7 +5976,10 @@ function checkQualityReconstruction(): void {
         });
       if (cells.length === expectedItemColumns.length) {
         const localId = cells[0].match(/^`([A-Z][A-Z0-9]*-[0-9]{2,})`$/u)?.[1];
-        if (localId) localItemLevels.set(localId, cells[2]);
+        if (localId) {
+          localItemLevels.set(localId, cells[2]);
+          definitionLocalIds.add(localId);
+        }
       }
       if (
         cells.length !== expectedItemColumns.length ||
@@ -5547,7 +5989,7 @@ function checkQualityReconstruction(): void {
           "error",
           "quality-verification-item-axis-missing",
           relative(definitionPath),
-          "Every verification item must populate all eleven canonical axes so the intended level, boundary, failure, and completion condition can be reconstructed.",
+          "Every verification item must populate all thirteen canonical axes so the intended level, boundary, observation, oracle, evidence, and completion condition can be reconstructed.",
         );
       if (
         cells.length === expectedItemColumns.length &&
@@ -5578,13 +6020,36 @@ function checkQualityReconstruction(): void {
         );
       if (
         cells.length === expectedItemColumns.length &&
-        !["Automated", "Manual", "Hybrid"].includes(cells[10])
+        !["Automated", "Manual", "Hybrid"].includes(cells[12])
       )
         add(
           "error",
           "quality-verification-item-execution-mode-invalid",
           relative(definitionPath),
           "Verification-item execution mode must be exactly Automated, Manual, or Hybrid; test level and reviewer role belong to their own contracts.",
+        );
+    }
+    for (const [state, entry] of stateApplicability) {
+      if (entry.rationale.length === 0)
+        add(
+          "error",
+          "quality-verification-state-applicability-invalid",
+          relative(definitionPath),
+          `${state} applicability must include a rationale.`,
+        );
+      if (
+        (entry.applicability === "Required" &&
+          (entry.localItems.length === 0 ||
+            entry.localItems.some(
+              (localId) => !definitionLocalIds.has(localId),
+            ))) ||
+        (entry.applicability === "N/A" && entry.localItems.length > 0)
+      )
+        add(
+          "error",
+          "quality-verification-state-applicability-invalid",
+          relative(definitionPath),
+          `${state} applicability must agree with the Local Items defined by the same Quality Definition.`,
         );
     }
     const applicabilitySection = definition.match(
@@ -5845,7 +6310,7 @@ function checkQualityReconstruction(): void {
         "error",
         "quality-source-test-level-decomposition-mismatch",
         relative(analysisPath),
-        "Each canonical Source summary level set must equal the union of its Source-to-goal level sets.",
+        `Canonical Source ${sourceId} summary level set must equal the union of its Source-to-goal level sets.`,
       );
   }
   if (
@@ -5912,6 +6377,47 @@ function checkQualityReconstruction(): void {
       relative(analysisPath),
       "The canonical Quality mapping must list the exact Local Item set owned by all current verification definitions.",
     );
+  for (const relation of analysisDetailUnitLocalRelations) {
+    const localId = relation.slice(relation.lastIndexOf("|") + 1);
+    if (!localItemOwners.has(localId))
+      add(
+        "error",
+        "quality-architecture-detail-unit-local-item-unknown",
+        relative(analysisPath),
+        `Architecture detail verification unit references an unknown Local Item: ${localId}.`,
+      );
+  }
+  const declaredLocalItemCounts = [
+    [qualityCenterPath, qualityCenter],
+    [
+      path.join(qualityRoot, "05_Current_Implementation_Reality_Audit.md"),
+      lstatIfPresent(
+        path.join(qualityRoot, "05_Current_Implementation_Reality_Audit.md"),
+      )?.isFile()
+        ? read(
+            path.join(
+              qualityRoot,
+              "05_Current_Implementation_Reality_Audit.md",
+            ),
+          )
+        : "",
+    ],
+  ] as const;
+  for (const [declaringPath, declaringDocument] of declaredLocalItemCounts) {
+    const declaredCount = declaringDocument.match(
+      /^\|\s*Local Item数\s*\|\s*([0-9]+)\s*\|\s*$/mu,
+    )?.[1];
+    if (
+      declaredCount === undefined ||
+      Number.parseInt(declaredCount, 10) !== localItemOwners.size
+    )
+      add(
+        "error",
+        "quality-local-verification-item-count-mismatch",
+        relative(declaringPath),
+        "The declared Local Item count must exist in the canonical design-set table and equal the exact Local Item set owned by current Quality Definitions.",
+      );
+  }
   if (listedGoalLocalRelationEntries.length !== listedGoalLocalRelations.size)
     add(
       "error",

@@ -51,17 +51,26 @@ Quality ID: `QA-000002`
 | ST | Required | Release候補全体のGate統合 | System/E2E | 複数工程の結果を一つの完成表示へ誤って畳まないことを確認するため |
 | UAT | Required | 人間が残存Riskと現在Gateを判断する場面 | User Acceptance | 人間が未確認範囲と残存Riskを理解して判断できることを確認するため |
 
+### 状態区分の適用
+
+| 状態区分 | 適用 | 対応Local Item | 判断理由 |
+|---|---|---|---|
+| 正常 | Required | CQS-01 | 固定改訂版で品質状態を閉じる |
+| 準正常／境界 | Required | CQS-05、CQS-06、CQS-07 | 複数結果と人間判断・高負荷試験の境界を確認する |
+| 異常 | Required | CQS-02、CQS-04 | 不一致や未処置を完成へ畳まない |
+| 判定不能 | Required | CQS-03 | 監査集合や現在Gateが確定できない状態を保持する |
+
 ## 4. 検証項目
 
-| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `CQS-01` | 正常 | IT | Traceability／Review | Change・監査・Evidence・Quality Center。外部実行境界なし | N/A | 同一改訂版、固定済み必須確認集合、各確認結果と残存Risk | 全結果を現在Gateへ統合し、独立レビューで判断先を確認する | 結果、未確認、残存Risk、判断先が現在Gateと一致 | 未解消状態と残存Effect／資源を評価へ引き渡す | Hybrid |
-| `CQS-02` | 異常 | IT | Freshness／Regression | 現在状態Projector。外部実行境界なし | N/A | 現行改訂版の未完了結果と、別改訂版のPass結果 | 古いPassを現行結果へ混入して評価する | 古い根拠をFreshとせず、要再確認とする | 未解消状態と残存Effect／資源を評価へ引き渡す | Automated |
-| `CQS-03` | 異常 | IT | Closure／Audit | 監査集合とGate集約。外部実行境界なし | N/A | 開始済み必須監査集合と、一部だけ完了した結果 | 必須監査集合を縮小して完了判定を要求する | 完了とせず、元の母集団と未完了項目を保持 | 未解消状態と残存Effect／資源を評価へ引き渡す | Automated |
-| `CQS-04` | 異常 | IT | Revision／Regression | 改訂版別結果とGate集約。外部実行境界なし | N/A | 一部項目だけのPass、または是正前改訂版の結果 | 全体Passまたは是正後Passとして評価を要求する | 全体Passを生成せず、新しい改訂版の確認を要求 | 未解消状態と残存Effect／資源を評価へ引き渡す | Automated |
-| `CQS-05` | 組合せ | ST | Gate／System | 全工程結果→現在品質→Release候補表示 | System/E2E | Pass、未実施、非該当、失敗、停止、旧改訂版の結果を含む候補 | 候補全体の現在Gateを生成する | 必須確認が揃わない限り全体Passとせず、未完了と根拠を示す | Release Effect 0 | Automated |
-| `CQS-06` | 利用者判断 | UAT | Acceptance／Decision | 現在Gate→人間判断 | User Acceptance | 残存Risk、未確認範囲、旧根拠を含む現在品質表示 | 人間が受容・是正・保留を判断する | 判断に必要な不足と影響を理解でき、解消済み事項を再要求しない | 人間判断なしの統合・Release Effect 0 | Manual |
-| `CQS-07` | 利用者判断 | UAT | Acceptance／Test Planning | 試験段階・費用・時間・未確認範囲→利用者判断 | User Acceptance | UT／IT／ST／UATの保証範囲、未確認範囲、実行時間・費用、PT／LT候補と上限 | 利用者が追加検証とPT／LTを実行するか判断する | 一部Passを全体保証へ広げず、PT／LTは対象・上限・中止条件・清掃を明示した場合だけ選べる | 未承認のPT／LT・外部Effect 0 | Manual |
+| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `CQS-01` | 正常 | IT | Traceability／Review | Change・監査・Evidence・Quality Center。外部実行境界なし | N/A | 同一改訂版、固定済み必須確認集合、各確認結果と残存Risk | 全結果を現在Gateへ統合し、独立レビューで判断先を確認する | CQS-01として、「全結果を現在Gateへ統合し、独立レビューで判断先を確認する」前後のChange・監査・Evidence・Quality Center。外部実行境界なしについて、入力差分、判定結果、欠落・重複・不一致および理由codeを記録する | 結果、未確認、残存Risk、判断先が現在Gateと一致 | CQS-01、固定入力「同一改訂版、固定済み必須確認集合、各確認結果と残存Risk」、観測した差分と理由code、Oracle判定「結果、未確認、残存Risk、判断先が現在Gateと一致」および終了後条件「未解消状態と残存Effect／資源を評価へ引き渡す」を保存する | 未解消状態と残存Effect／資源を評価へ引き渡す | Hybrid |
+| `CQS-02` | 異常 | IT | Freshness／Regression | 現在状態Projector。外部実行境界なし | N/A | 現行改訂版の未完了結果と、別改訂版のPass結果 | 古いPassを現行結果へ混入して評価する | CQS-02として、「古いPassを現行結果へ混入して評価する」前後の現在状態Projector。外部実行境界なしについて、入力差分、判定結果、欠落・重複・不一致および理由codeを記録する | 古い根拠をFreshとせず、要再確認とする | CQS-02、固定入力「現行改訂版の未完了結果と、別改訂版のPass結果」、観測した差分と理由code、Oracle判定「古い根拠をFreshとせず、要再確認とする」および終了後条件「未解消状態と残存Effect／資源を評価へ引き渡す」を保存する | 未解消状態と残存Effect／資源を評価へ引き渡す | Automated |
+| `CQS-03` | 異常 | IT | Closure／Audit | 監査集合とGate集約。外部実行境界なし | N/A | 開始済み必須監査集合と、一部だけ完了した結果 | 必須監査集合を縮小して完了判定を要求する | CQS-03として、「必須監査集合を縮小して完了判定を要求する」前後の監査集合とGate集約。外部実行境界なしについて、入力差分、判定結果、欠落・重複・不一致および理由codeを記録する | 完了とせず、元の母集団と未完了項目を保持 | CQS-03、固定入力「開始済み必須監査集合と、一部だけ完了した結果」、観測した差分と理由code、Oracle判定「完了とせず、元の母集団と未完了項目を保持」および終了後条件「未解消状態と残存Effect／資源を評価へ引き渡す」を保存する | 未解消状態と残存Effect／資源を評価へ引き渡す | Automated |
+| `CQS-04` | 異常 | IT | Revision／Regression | 改訂版別結果とGate集約。外部実行境界なし | N/A | 一部項目だけのPass、または是正前改訂版の結果 | 全体Passまたは是正後Passとして評価を要求する | CQS-04として、「全体Passまたは是正後Passとして評価を要求する」前後の改訂版別結果とGate集約。外部実行境界なしについて、入力差分、判定結果、欠落・重複・不一致および理由codeを記録する | 全体Passを生成せず、新しい改訂版の確認を要求 | CQS-04、固定入力「一部項目だけのPass、または是正前改訂版の結果」、観測した差分と理由code、Oracle判定「全体Passを生成せず、新しい改訂版の確認を要求」および終了後条件「未解消状態と残存Effect／資源を評価へ引き渡す」を保存する | 未解消状態と残存Effect／資源を評価へ引き渡す | Automated |
+| `CQS-05` | 組合せ | ST | Gate／System | 全工程結果→現在品質→Release候補表示 | System/E2E | Pass、未実施、非該当、失敗、停止、旧改訂版の結果を含む候補 | 候補全体の現在Gateを生成する | CQS-05として、「候補全体の現在Gateを生成する」前後の全工程結果→現在品質→Release候補表示について、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 必須確認が揃わない限り全体Passとせず、未完了と根拠を示す | CQS-05、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「必須確認が揃わない限り全体Passとせず、未完了と根拠を示す」および終了後条件「Release Effect 0」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | Release Effect 0 | Automated |
+| `CQS-06` | 利用者判断 | UAT | Acceptance／Decision | 現在Gate→人間判断 | User Acceptance | 残存Risk、未確認範囲、旧根拠を含む現在品質表示 | 人間が受容・是正・保留を判断する | CQS-06として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | 判断に必要な不足と影響を理解でき、解消済み事項を再要求しない | CQS-06、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「判断に必要な不足と影響を理解でき、解消済み事項を再要求しない」および終了後条件「人間判断なしの統合・Release Effect 0」を保存する | 人間判断なしの統合・Release Effect 0 | Manual |
+| `CQS-07` | 利用者判断 | UAT | Acceptance／Test Planning | 試験段階・費用・時間・未確認範囲→利用者判断 | User Acceptance | UT／IT／ST／UATの保証範囲、未確認範囲、実行時間・費用、PT／LT候補と上限 | 利用者が追加検証とPT／LTを実行するか判断する | CQS-07として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | 一部Passを全体保証へ広げず、PT／LTは対象・上限・中止条件・清掃を明示した場合だけ選べる | CQS-07、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「一部Passを全体保証へ広げず、PT／LTは対象・上限・中止条件・清掃を明示した場合だけ選べる」および終了後条件「未承認のPT／LT・外部Effect 0」を保存する | 未承認のPT／LT・外部Effect 0 | Manual |
 
 ## 5. 評価・根拠・終了後条件
 
@@ -77,3 +86,17 @@ Quality ID: `QA-000002`
 | RT | Required | 変更した意味と利用側から、再実行する既存Local Itemを選ぶ | Changeの通常検証範囲 | 未選択の範囲を明示し、選択した回帰の結果で評価する |
 | PT | N/A | 現在のQuality Contractに性能成立条件がないため非該当 | N/A | 未実行をPassへ読み替えず、明示的なRelease条件でない限り通常監査を停止しない |
 | LT | N/A | 現在のQuality Contractに長時間成立条件がないため非該当 | N/A | 未実行をPassへ読み替えず、明示的なRelease条件でない限り通常監査を停止しない |
+
+
+## Checklist
+
+- [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
+- [x] UT／IT／ST／UATの適用または理由付きN/Aを記録した
+- [x] 外部境界の直接、隣接1 block、関連2 blocks、System／E2Eおよび利用者受入を適用判定した
+- [x] 正常、境界、失敗および観測不能をLocal Itemで処置した
+- [x] 各Local Itemで観測とOracleを分けた
+- [x] 各Local ItemのEvidence要件を示した
+- [x] 事前条件、刺激、終了後条件、cleanupおよびRecoveryを必要な範囲で示した
+- [x] RT／PT／LTの適用または理由付きN/Aを記録し、PT／LTは人間の明示指定なしに実行しない
+- [x] 自動化、手動確認および人間判断の境界を示した
+- [x] 現行Source、TestおよびEvidenceとの照合をReality Auditへ分離した

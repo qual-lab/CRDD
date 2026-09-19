@@ -54,19 +54,29 @@ Quality ID: `QA-000004`
 | ST | Required | 複数Sourceから公開Project Viewまで | System/E2E | 部分成功を完全な現在状態へ畳まないことを確認するため |
 | UAT | Required | 利用者が不完全性と根拠を理解して判断する場面 | User Acceptance | Project Viewの欠測・制限・古さ・競合を理解できる利用者成果を確認するため |
 
+### 状態区分の適用
+
+| 状態区分 | 適用 | 対応Local Item | 判断理由 |
+|---|---|---|---|
+| 正常 | Required | PPR-01 | 完全な投影を確認する |
+| 準正常／境界 | Required | PPR-02、PPR-05、PPR-06、PPR-07、PPR-08、PPR-09、PPR-10 | partial、非開示、競合、Clock差、利用者判断を保持する |
+| 異常 | Required | PPR-03 | 古い値や別Sourceの混入を拒否する |
+| 判定不能 | Required | PPR-04 | 未観測値を既知へ丸めない |
+
 ## 3. 検証項目
 
-| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `PPR-01` | 正常 | IT | Data Flow／Provenance | 複数Source Reader→Projector | Adjacent 1 Block | current・historical・observedの値とSource・Revision・Observed At | 複数Sourceから同じProject Viewを生成する | 項目ごとにSource、Revision、Observed At、現行性を返す | 未解消状態と残存Effect／資源を評価へ引き渡す | Automated |
-| `PPR-02` | 準正常 | IT | Partial State／Consistency | 部分Source→Projector | Direct Boundary | missing・restricted・stale・conflictingを含む部分的なSource集合 | 部分SourceからProject Viewを生成する | 不完全性を個別に保ち、完全なProject状態にしない | 未解消状態と残存Effect／資源を評価へ引き渡す | Automated |
-| `PPR-03` | 異常 | IT | Identity／Correlation | Event Source→Projector | Direct Boundary | 別Attempt・別ProjectのEventと観測時点不明の記録 | 対象ProjectのProjectionへ混在させる | 相関せずunknownまたは対象外とし、時点を推定しない | 未解消状態と残存Effect／資源を評価へ引き渡す | Automated |
-| `PPR-04` | 異常 | IT | Classification／Consistency | 事実Store・Candidate Store→Projector | Adjacent 1 Block | 同じ対象に関する事実Eventと未採用の評価候補 | 同一入力集合からProjectionを生成する | 事実と評価を別field／別状態で返し、候補を確定事実にしない | 未解消状態と残存Effect／資源を評価へ引き渡す | Automated |
-| `PPR-05` | 情報境界 | ST | Security／Projection | 複数Repository Source→Grant Filter→公開View | System/E2E | 利用者Grant外のrestricted Sourceを含むProjectと許可内Source | 制限付き利用者としてProjectionを要求する | 値だけでなくSourceの存在自体を漏らさない | 未解消状態と残存Effect／資源を評価へ引き渡す | Hybrid |
-| `PPR-06` | 境界 | UT | Projection Semantics／Classification | 欠測・現行性・競合・可視性の判定規則 | N/A | complete、missing、restricted、stale、conflicting、unknownの各入力 | 各状態をProject Viewの項目へ変換する | 不完全性を空値・正常値・現在値へ畳まず、出所と時点を保つ | Source読取り・正本更新Effect 0 | Automated |
-| `PPR-07` | 利用者判断 | UAT | Acceptance／Comprehension | Project View→利用者判断 | User Acceptance | complete、partial、restricted、stale、conflicting、unknownを含む単一・複数Project View | 利用者が現在地、比較可能性、次の確認先を判断する | 不完全性と根拠を理解し、欠測を正常値として判断しない | Project正本・非開示Source Effect 0 | Manual |
-| `PPR-08` | 利用者判断 | UAT | Acceptance／Observation | 実行事実・未観測・評価候補→利用者判断 | User Acceptance | 出所・観測時点付きの観測済み、未観測、不明、評価候補を含む実行記録 | 利用者が事実の比較と評価候補の採否を判断する | 未観測を0や正常へ丸めず、事実と評価候補を区別して根拠へ戻れる | 実行記録・対象Task・Provider Effect 0 | Manual |
-| `PPR-09` | 利用者判断 | UAT | Acceptance／History | 現在情報・履歴・置換済み情報→利用者判断 | User Acceptance | current、historical、superseded、unknownと、異なる発生時点・根拠を含む情報 | 利用者が現在の仕事へ使う情報と参照だけに使う履歴を選ぶ | 古い仮説や判断を現在値へ昇格せず、選択理由と根拠を説明できる | 履歴・現在正本Effect 0 | Manual |
+| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `PPR-01` | 正常 | IT | Data Flow／Provenance | 複数Source Reader→Projector | Adjacent 1 Block | current・historical・observedの値とSource・Revision・Observed At | 複数Sourceから同じProject Viewを生成する | PPR-01として、「複数Sourceから同じProject Viewを生成する」前後の複数Source Reader→Projectorについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 項目ごとにSource、Revision、Observed At、現行性を返す | PPR-01、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「項目ごとにSource、Revision、Observed At、現行性を返す」および終了後条件「未解消状態と残存Effect／資源を評価へ引き渡す」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 未解消状態と残存Effect／資源を評価へ引き渡す | Automated |
+| `PPR-02` | 準正常 | IT | Partial State／Consistency | 部分Source→Projector | Direct Boundary | missing・restricted・stale・conflictingを含む部分的なSource集合 | 部分SourceからProject Viewを生成する | PPR-02として、「部分SourceからProject Viewを生成する」前後の部分Source→Projectorについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 不完全性を個別に保ち、完全なProject状態にしない | PPR-02、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「不完全性を個別に保ち、完全なProject状態にしない」および終了後条件「未解消状態と残存Effect／資源を評価へ引き渡す」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 未解消状態と残存Effect／資源を評価へ引き渡す | Automated |
+| `PPR-03` | 異常 | IT | Identity／Correlation | Event Source→Projector | Direct Boundary | 別Attempt・別ProjectのEventと観測時点不明の記録 | 対象ProjectのProjectionへ混在させる | PPR-03として、「対象ProjectのProjectionへ混在させる」前後のEvent Source→Projectorについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 相関せずunknownまたは対象外とし、時点を推定しない | PPR-03、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「相関せずunknownまたは対象外とし、時点を推定しない」および終了後条件「未解消状態と残存Effect／資源を評価へ引き渡す」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 未解消状態と残存Effect／資源を評価へ引き渡す | Automated |
+| `PPR-04` | 異常 | IT | Classification／Consistency | 事実Store・Candidate Store→Projector | Adjacent 1 Block | 同じ対象に関する事実Eventと未採用の評価候補 | 同一入力集合からProjectionを生成する | PPR-04として、「同一入力集合からProjectionを生成する」前後の事実Store・Candidate Store→Projectorについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 事実と評価を別field／別状態で返し、候補を確定事実にしない | PPR-04、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「事実と評価を別field／別状態で返し、候補を確定事実にしない」および終了後条件「未解消状態と残存Effect／資源を評価へ引き渡す」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 未解消状態と残存Effect／資源を評価へ引き渡す | Automated |
+| `PPR-05` | 情報境界 | ST | Security／Projection | 複数Repository Source→Grant Filter→公開View | System/E2E | 利用者Grant外のrestricted Sourceを含むProjectと許可内Source | 制限付き利用者としてProjectionを要求する | PPR-05として、「制限付き利用者としてProjectionを要求する」前後の複数Repository Source→Grant Filter→公開Viewについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 値だけでなくSourceの存在自体を漏らさない | PPR-05、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「値だけでなくSourceの存在自体を漏らさない」および終了後条件「未解消状態と残存Effect／資源を評価へ引き渡す」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 未解消状態と残存Effect／資源を評価へ引き渡す | Hybrid |
+| `PPR-06` | 境界 | UT | Projection Semantics／Classification | 欠測・現行性・競合・可視性の判定規則 | N/A | complete、missing、restricted、stale、conflicting、unknownの各入力 | 各状態をProject Viewの項目へ変換する | PPR-06として、「各状態をProject Viewの項目へ変換する」前後の欠測・現行性・競合・可視性の判定規則について、入力差分、判定結果、欠落・重複・不一致および理由codeを記録する | 不完全性を空値・正常値・現在値へ畳まず、出所と時点を保つ | PPR-06、固定入力「complete、missing、restricted、stale、conflicting、unknownの各入力」、観測した差分と理由code、Oracle判定「不完全性を空値・正常値・現在値へ畳まず、出所と時点を保つ」および終了後条件「Source読取り・正本更新Effect 0」を保存する | Source読取り・正本更新Effect 0 | Automated |
+| `PPR-07` | 利用者判断 | UAT | Acceptance／Comprehension | Project View→利用者判断 | User Acceptance | complete、partial、restricted、stale、conflicting、unknownを含む単一・複数Project View | 利用者が現在地、比較可能性、次の確認先を判断する | PPR-07として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | 不完全性と根拠を理解し、欠測を正常値として判断しない | PPR-07、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「不完全性と根拠を理解し、欠測を正常値として判断しない」および終了後条件「Project正本・非開示Source Effect 0」を保存する | Project正本・非開示Source Effect 0 | Manual |
+| `PPR-08` | 利用者判断 | UAT | Acceptance／Observation | 実行事実・未観測・評価候補→利用者判断 | User Acceptance | 出所・観測時点付きの観測済み、未観測、不明、評価候補を含む実行記録 | 利用者が事実の比較と評価候補の採否を判断する | PPR-08として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | 未観測を0や正常へ丸めず、事実と評価候補を区別して根拠へ戻れる | PPR-08、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「未観測を0や正常へ丸めず、事実と評価候補を区別して根拠へ戻れる」および終了後条件「実行記録・対象Task・Provider Effect 0」を保存する | 実行記録・対象Task・Provider Effect 0 | Manual |
+| `PPR-09` | 利用者判断 | UAT | Acceptance／History | 現在情報・履歴・置換済み情報→利用者判断 | User Acceptance | current、historical、superseded、unknownと、異なる発生時点・根拠を含む情報 | 利用者が現在の仕事へ使う情報と参照だけに使う履歴を選ぶ | PPR-09として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | 古い仮説や判断を現在値へ昇格せず、選択理由と根拠を説明できる | PPR-09、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「古い仮説や判断を現在値へ昇格せず、選択理由と根拠を説明できる」および終了後条件「履歴・現在正本Effect 0」を保存する | 履歴・現在正本Effect 0 | Manual |
+| `PPR-10` | 境界 | IT | Timing／Provenance | Clock Source→実行記録→Projector | Related 2 Blocks | 同一対象・異なるSource Revisionに、進行、遅延、逆行、欠落したObserved Atを与える固定入力 | Clock差と到着順を変えて現在値・履歴・unknownを投影する | PPR-10として、Source Revision、Clock種別、Observed At、到着順、算出した現行性、理由codeおよび正本Effect件数を記録する | Clock差や到着順だけで古い記録を現在値へ昇格せず、比較不能はunknownと理由付きで返す | PPR-10、固定したClock条件・Source Revision・Observed At・到着順、投影結果、理由code、Oracle判定および終了後の正本Effect 0を保存する。Hostの絶対Pathと不要な時刻情報は保存しない | 入力記録不変、正本Effect 0 | Automated |
 
 ## 4. 評価と終了後条件
 
@@ -79,3 +89,17 @@ Passは、各項目の値とその出所／不完全性が同じ相関で返り�
 | RT | Required | 変更した意味と利用側から、再実行する既存Local Itemを選ぶ | Changeの通常検証範囲 | 未選択の範囲を明示し、選択した回帰の結果で評価する |
 | PT | N/A | 現在のQuality Contractに性能成立条件がないため非該当 | N/A | 未実行をPassへ読み替えず、明示的なRelease条件でない限り通常監査を停止しない |
 | LT | N/A | 現在のQuality Contractに長時間成立条件がないため非該当 | N/A | 未実行をPassへ読み替えず、明示的なRelease条件でない限り通常監査を停止しない |
+
+
+## Checklist
+
+- [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
+- [x] UT／IT／ST／UATの適用または理由付きN/Aを記録した
+- [x] 外部境界の直接、隣接1 block、関連2 blocks、System／E2Eおよび利用者受入を適用判定した
+- [x] 正常、境界、失敗および観測不能をLocal Itemで処置した
+- [x] 各Local Itemで観測とOracleを分けた
+- [x] 各Local ItemのEvidence要件を示した
+- [x] 事前条件、刺激、終了後条件、cleanupおよびRecoveryを必要な範囲で示した
+- [x] RT／PT／LTの適用または理由付きN/Aを記録し、PT／LTは人間の明示指定なしに実行しない
+- [x] 自動化、手動確認および人間判断の境界を示した
+- [x] 現行Source、TestおよびEvidenceとの照合をReality Auditへ分離した

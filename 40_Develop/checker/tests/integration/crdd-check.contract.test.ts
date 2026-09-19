@@ -5190,11 +5190,25 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
   ];
   for (const fileName of requiredQualityFiles)
     if (fileName !== "04_Quality_Integration.md")
-      write(path.join(root, "07_Quality", fileName), `# ${fileName}\n`);
+      write(
+        path.join(root, "07_Quality", fileName),
+        `# ${fileName}\n\n${fileName === "01_Quality_Center.md" ? "状態: Quality Design Under Review — Reality Audit Blocked\n\n" : fileName === "05_Current_Implementation_Reality_Audit.md" ? "状態: Blocked — Quality Design Review Pending\n\n" : ""}${fileName === "01_Quality_Center.md" || fileName === "05_Current_Implementation_Reality_Audit.md" ? "## 設計集合\n\n| 項目 | 件数 |\n|---|---:|\n| Local Item数 | 4 |\n\n" : ""}${evaluatedChecklist(checklistItemsFromTemplate(`template/07_Quality/${fileName}`))}\n`,
+      );
   for (const fileName of requiredTemplateQualityFiles)
     write(
       path.join(root, "template", "07_Quality", fileName),
-      `# ${fileName}\n`,
+      fs.readFileSync(
+        path.join(repositoryRoot, "template", "07_Quality", fileName),
+        "utf8",
+      ),
+    );
+  for (const relativePath of [
+    "template/07_Quality/Analysis/PHASE/quality_analysis.md",
+    "template/07_Quality/Definitions/QA-XXXXXX/quality_definition.md",
+  ])
+    write(
+      path.join(root, relativePath),
+      fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8"),
     );
   for (const fileName of [
     "test-catalog.json",
@@ -5239,9 +5253,9 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
 
 ### 4.2. Architecture詳細設計領域の処置
 
-| 詳細設計領域 | 接続する検証目標 | 成立条件 |
-|---|---|---|
-| [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | [sample](../../Definitions/QA-000001/quality_definition.md) | 境界を確認する |
+| 詳細設計領域 | 検証単位 | 接続する検証目標 | Local Item | 処置状態 | 未確認／再評価条件 |
+|---|---|---|---|---|---|
+| [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | sample | [sample](../../Definitions/QA-000001/quality_definition.md) | \`SAMPLE-01\` | Covered | なし |
 
 ### 4.3. 検証項目の閉包
 
@@ -5289,7 +5303,7 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
         [
           `# ${prefix} Quality Analysis`,
           "",
-          "## 2. 全件処置",
+          "## 2. 全件Coverage Index",
           "",
           "| Source ID | 成功の意味 | 検証義務 | 統合先の検証目標 | 試験段階 | 試験種別 | 処置状態 |",
           "|---|---|---|---|---|---|---|",
@@ -5304,6 +5318,12 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
           "## 4. 未解決事項",
           "",
           "なし",
+          "",
+          evaluatedChecklist(
+            checklistItemsFromTemplate(
+              "template/07_Quality/Analysis/PHASE/quality_analysis.md",
+            ),
+          ),
           "",
         ].join("\n"),
       );
@@ -5331,6 +5351,11 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
       detail,
       "## 4. 検証項目の閉包",
       local,
+      evaluatedChecklist(
+        checklistItemsFromTemplate(
+          "template/07_Quality/04_Quality_Integration.md",
+        ),
+      ),
     ]
       .join("\n")
       .replaceAll("../../../06_Architecture/", "../06_Architecture/")
@@ -5377,14 +5402,23 @@ Quality ID: \`QA-000001\`
 | ST | Required | System | System/E2E | 上位経路を確認する |
 | UAT | Required | 利用者受入 | User Acceptance | 利用者判断を確認する |
 
+### 状態区分の適用
+
+| 状態区分 | 適用 | 対応Local Item | 判断理由 |
+|---|---|---|---|
+| 正常 | Required | SAMPLE-01、SAMPLE-10 | 正常経路を確認する |
+| 準正常／境界 | Required | SAMPLE-12 | 境界値を確認する |
+| 異常 | Required | SAMPLE-12 | 拒否を確認する |
+| 判定不能 | Required | SAMPLE-12 | 不明を成功へ畳まない |
+
 ## 3. 検証項目
 
-| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |
-|---|---|---|---|---|---|---|---|---|---|---|
-| \`SAMPLE-01\` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |
-| \`SAMPLE-10\` | 正常 | ST | Scenario | Entry→System | System/E2E | 有効な経路 | 実行する | 完成結果を確認する | 未解消状態なし | Automated |
-| \`SAMPLE-11\` | 利用者判断 | UAT | Acceptance | Result→User | User Acceptance | 完成結果 | 判断する | 意味を理解できる | 未解消状態なし | Manual |
-| \`SAMPLE-12\` | 境界 | UT | Contract | Core | N/A | 入力値 | 判定する | 局所結果を確認する | 外部Effect 0 | Automated |
+| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| \`SAMPLE-01\` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |
+| \`SAMPLE-10\` | 正常 | ST | Scenario | Entry→System | System/E2E | 有効な経路 | 実行する | 完成状態を記録する | 完成結果を返す | 入力、観測値、判定 | 未解消状態なし | Automated |
+| \`SAMPLE-11\` | 利用者判断 | UAT | Acceptance | Result→User | User Acceptance | 完成結果 | 判断する | 利用者判断を記録する | 意味を理解できる | 判断条件、観測、結論 | 未解消状態なし | Manual |
+| \`SAMPLE-12\` | 境界 | UT | Contract | Core | N/A | 入力値 | 判定する | 局所結果を記録する | 局所契約に一致する | 入力、観測値、判定 | 外部Effect 0 | Automated |
 ## 追加試験種別の適用
 
 | 種別 | 適用 | 確認する範囲 | 実行許可 | 未実行時の扱い |
@@ -5393,6 +5427,7 @@ Quality ID: \`QA-000001\`
 | PT | N/A | 性能条件なし | N/A | 未実行をPassにしない |
 | LT | N/A | 長時間条件なし | N/A | 未実行をPassにしない |
 
+${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions/QA-XXXXXX/quality_definition.md"))}
 `;
   write(definitionPath, definition);
 
@@ -5403,6 +5438,412 @@ Quality ID: \`QA-000001\`
     ),
     `${result.stderr}\n${result.stdout}`,
   );
+
+  write(
+    definitionPath,
+    definition.replace(
+      /^### 状態区分の適用\s*$[\s\S]*?(?=^## 3\. 検証項目)/mu,
+      "",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-verification-state-applicability-incomplete",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(definitionPath, definition);
+
+  write(
+    definitionPath,
+    definition.replace(
+      "| 観測 | Oracle | Evidence |",
+      "| 観測／Oracle | Evidence |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-verification-item-schema-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(definitionPath, definition);
+
+  const qualityCenterPath = path.join(
+    root,
+    "07_Quality",
+    "01_Quality_Center.md",
+  );
+  const qualityCenter = fs.readFileSync(qualityCenterPath, "utf8");
+  write(
+    qualityCenterPath,
+    qualityCenter.replace(/^## Checklist\s*$[\s\S]*$/mu, ""),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-visible-checklist-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(qualityCenterPath, qualityCenter);
+
+  const qualityStrategyTemplatePath = path.join(
+    root,
+    "template",
+    "07_Quality",
+    "02_Quality_Strategy.md",
+  );
+  const qualityStrategyTemplate = fs.readFileSync(
+    qualityStrategyTemplatePath,
+    "utf8",
+  );
+  write(
+    qualityStrategyTemplatePath,
+    qualityStrategyTemplate.replace(
+      "- [ ] Productと利用者にとって守る品質を説明した",
+      "- [ ] Product品質を説明した",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-template-visible-checklist-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(qualityStrategyTemplatePath, qualityStrategyTemplate);
+
+  write(
+    qualityCenterPath,
+    qualityCenter
+      .replace(
+        "状態: Quality Design Under Review — Reality Audit Blocked",
+        "状態: Quality Ready",
+      )
+      .replace(
+        "- [x] 現在の品質状態と結論を履歴より先に示した",
+        "- OPEN: 現在状態の確認が残る — 現在の品質状態と結論を履歴より先に示した",
+      ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-ready-with-open-checklist-result",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(qualityCenterPath, qualityCenter);
+
+  write(qualityCenterPath, qualityCenter.replace(/^状態:.*\n/mu, ""));
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-state-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(qualityCenterPath, qualityCenter);
+
+  const qualityDesignArtifactPaths = [
+    ...[
+      "02_Quality_Strategy.md",
+      "03_Verification_Design.md",
+      "04_Quality_Integration.md",
+    ].map((fileName) => path.join(root, "07_Quality", fileName)),
+    ...["REQ", "UX", "IA", "UI", "SPEC", "ARCH"].map((phase) =>
+      path.join(root, "07_Quality", "Analysis", phase, "quality_analysis.md"),
+    ),
+    path.join(
+      root,
+      "07_Quality",
+      "Definitions",
+      "QA-000001",
+      "quality_definition.md",
+    ),
+  ];
+  for (const artifactPath of qualityDesignArtifactPaths) {
+    const artifact = fs.readFileSync(artifactPath, "utf8");
+    write(
+      artifactPath,
+      /^状態:/mu.test(artifact)
+        ? artifact.replace(/^状態:.*$/mu, "状態: Canonical")
+        : artifact.replace(/^(# .+)$/mu, "$1\n\n状態: Canonical"),
+    );
+  }
+
+  write(
+    qualityCenterPath,
+    qualityCenter.replace(
+      "状態: Quality Design Under Review — Reality Audit Blocked",
+      "状態: Quality Finished",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-state-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(qualityCenterPath, qualityCenter);
+
+  write(
+    qualityCenterPath,
+    qualityCenter
+      .replace(
+        "状態: Quality Design Under Review — Reality Audit Blocked",
+        "状態: Quality Design Ready — Reality Audit Pending",
+      )
+      .replace(
+        "- [x] 現在の品質状態と結論を履歴より先に示した",
+        "- OPEN: 設計確認が残る — 現在の品質状態と結論を履歴より先に示した",
+      ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-ready-with-open-checklist-result",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(qualityCenterPath, qualityCenter);
+
+  write(
+    qualityCenterPath,
+    qualityCenter.replace(
+      "状態: Quality Design Under Review — Reality Audit Blocked",
+      "状態: Quality Design Ready — Reality Audit Pending",
+    ),
+  );
+  const designReadyRealityAuditPath = path.join(
+    root,
+    "07_Quality",
+    "05_Current_Implementation_Reality_Audit.md",
+  );
+  const designReadyRealityAudit = fs.readFileSync(
+    designReadyRealityAuditPath,
+    "utf8",
+  );
+  write(
+    designReadyRealityAuditPath,
+    designReadyRealityAudit.replace(
+      "状態: Blocked — Quality Design Review Pending",
+      "状態: Pending — Not Started",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-state-invalid" ||
+        finding.code === "quality-design-artifact-state-invalid" ||
+        finding.code === "quality-ready-with-open-checklist-result",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  const nonCanonicalDesignArtifactPath = qualityDesignArtifactPaths[3];
+  const canonicalDesignArtifact = fs.readFileSync(
+    nonCanonicalDesignArtifactPath,
+    "utf8",
+  );
+  write(
+    nonCanonicalDesignArtifactPath,
+    canonicalDesignArtifact.replace(
+      "状態: Canonical",
+      "状態: Review Candidate",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-design-artifact-state-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(nonCanonicalDesignArtifactPath, canonicalDesignArtifact);
+
+  write(designReadyRealityAuditPath, designReadyRealityAudit);
+  write(qualityCenterPath, qualityCenter);
+
+  write(
+    qualityCenterPath,
+    qualityCenter.replace(
+      "状態: Quality Design Under Review — Reality Audit Blocked",
+      "状態: Quality Design Ready — Reality Audit Pending",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-state-reality-audit-state-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(qualityCenterPath, qualityCenter);
+
+  write(
+    designReadyRealityAuditPath,
+    designReadyRealityAudit.replace(/^状態:.*\n/mu, ""),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-reality-audit-state-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(designReadyRealityAuditPath, designReadyRealityAudit);
+
+  write(
+    designReadyRealityAuditPath,
+    designReadyRealityAudit.replace(
+      "状態: Blocked — Quality Design Review Pending",
+      "状態: Reality Audit Finished",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-reality-audit-state-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(designReadyRealityAuditPath, designReadyRealityAudit);
+
+  write(
+    qualityCenterPath,
+    qualityCenter.replace(
+      "状態: Quality Design Under Review — Reality Audit Blocked",
+      "状態: Quality Design Ready — Reality Audit Pending",
+    ),
+  );
+  write(
+    designReadyRealityAuditPath,
+    designReadyRealityAudit.replace(
+      "状態: Blocked — Quality Design Review Pending",
+      "状態: In Progress",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-state-invalid" ||
+        finding.code === "quality-state-reality-audit-state-mismatch" ||
+        finding.code === "quality-ready-with-open-checklist-result",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(designReadyRealityAuditPath, designReadyRealityAudit);
+  write(qualityCenterPath, qualityCenter);
+
+  const realityAuditPath = path.join(
+    root,
+    "07_Quality",
+    "05_Current_Implementation_Reality_Audit.md",
+  );
+  const realityAudit = fs.readFileSync(realityAuditPath, "utf8");
+  write(
+    qualityCenterPath,
+    qualityCenter.replace(
+      "状態: Quality Design Under Review — Reality Audit Blocked",
+      "状態: Quality Ready",
+    ),
+  );
+  write(
+    realityAuditPath,
+    realityAudit
+      .replace(
+        "状態: Blocked — Quality Design Review Pending",
+        "状態: Complete",
+      )
+      .replace(
+        "- [x] Canonical Quality設計の固定後にだけReality Auditを開始した",
+        "- OPEN: Reality Audit未完了 — Canonical Quality設計の固定後にだけReality Auditを開始した",
+      ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-ready-with-open-checklist-result",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(realityAuditPath, realityAudit);
+  write(qualityCenterPath, qualityCenter);
+
+  write(
+    qualityCenterPath,
+    qualityCenter.replace(
+      "状態: Quality Design Under Review — Reality Audit Blocked",
+      "状態: Quality Ready",
+    ),
+  );
+  write(
+    realityAuditPath,
+    realityAudit.replace(
+      "状態: Blocked — Quality Design Review Pending",
+      "状態: Pending — Not Started",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-state-reality-audit-state-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(realityAuditPath, realityAudit);
+  write(qualityCenterPath, qualityCenter);
+
+  write(
+    qualityCenterPath,
+    qualityCenter.replace("| Local Item数 | 4 |", "| Local Item数 | 3 |"),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-local-verification-item-count-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(qualityCenterPath, qualityCenter);
+
+  const verificationResultTemplatePath = path.join(
+    root,
+    "template",
+    "07_Quality",
+    "99_Verification_Result_Format.md",
+  );
+  const verificationResultTemplate = fs.readFileSync(
+    verificationResultTemplatePath,
+    "utf8",
+  );
+  write(
+    verificationResultTemplatePath,
+    verificationResultTemplate.replace(
+      "- [ ] 対象改訂版と実行条件を固定した",
+      "- [ ] 対象だけを固定した",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-template-visible-checklist-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(verificationResultTemplatePath, verificationResultTemplate);
 
   for (const [relativePath, expectedCode] of [
     [
@@ -5601,8 +6042,8 @@ Quality ID: \`QA-000001\`
   write(
     definitionPath,
     definition.replace(
-      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
-      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | | Automated |",
+      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
+      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | | 未解消状態なし | Automated |",
     ),
   );
   result = runChecker(root);
@@ -5617,8 +6058,8 @@ Quality ID: \`QA-000001\`
   write(
     definitionPath,
     definition.replace(
-      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
-      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | |",
+      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
+      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | |",
     ),
   );
   result = runChecker(root);
@@ -5633,8 +6074,8 @@ Quality ID: \`QA-000001\`
   write(
     definitionPath,
     definition.replace(
-      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
-      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated／ST |",
+      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
+      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated／ST |",
     ),
   );
   result = runChecker(root);
@@ -5650,8 +6091,8 @@ Quality ID: \`QA-000001\`
   write(
     definitionPath,
     definition.replace(
-      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
-      "| `SAMPLE-01` | 正常 | Component | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
+      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
+      "| `SAMPLE-01` | 正常 | Component | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
     ),
   );
   result = runChecker(root);
@@ -5666,8 +6107,8 @@ Quality ID: \`QA-000001\`
   write(
     definitionPath,
     definition.replace(
-      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
-      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Full Stack | 有効な入力 | 入力する | 結果を確認する | 未解消状態なし | Automated |",
+      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
+      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Full Stack | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
     ),
   );
   result = runChecker(root);
@@ -5830,12 +6271,21 @@ Quality ID: \`QA-000002\`
 | ST | Required | System | System/E2E | 上位経路を確認する |
 | UAT | Required | 利用者受入 | User Acceptance | 利用者判断を確認する |
 
+### 状態区分の適用
+
+| 状態区分 | 適用 | 対応Local Item | 判断理由 |
+|---|---|---|---|
+| 正常 | Required | SAMPLE-02 | 正常経路を確認する |
+| 準正常／境界 | Required | SAMPLE-03 | 利用者判断の境界を確認する |
+| 異常 | Required | SAMPLE-02 | 不一致を確認する |
+| 判定不能 | Required | SAMPLE-03 | 不明を成功へ畳まない |
+
 ## 3. 検証項目
 
-| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |
-|---|---|---|---|---|---|---|---|---|---|---|
-| \`SAMPLE-02\` | 正常 | ST | Scenario | Entry→Consumer | System/E2E | 第二の入力 | 入力する | 第二の結果を確認する | 未解消状態なし | Automated |
-| \`SAMPLE-03\` | 利用者判断 | UAT | Acceptance | Result→User | User Acceptance | 第二の結果 | 判断する | 意味を理解できる | 未解消状態なし | Manual |
+| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| \`SAMPLE-02\` | 正常 | ST | Scenario | Entry→Consumer | System/E2E | 第二の入力 | 入力する | 第二の結果を記録する | 第二の契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |
+| \`SAMPLE-03\` | 利用者判断 | UAT | Acceptance | Result→User | User Acceptance | 第二の結果 | 判断する | 利用者判断を記録する | 意味を理解できる | 判断条件、観測、結論 | 未解消状態なし | Manual |
 ## 追加試験種別の適用
 
 | 種別 | 適用 | 確認する範囲 | 実行許可 | 未実行時の扱い |
@@ -5844,8 +6294,19 @@ Quality ID: \`QA-000002\`
 | PT | N/A | 性能条件なし | N/A | 未実行をPassにしない |
 | LT | N/A | 長時間条件なし | N/A | 未実行をPassにしない |
 
+${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions/QA-XXXXXX/quality_definition.md"))}
 `;
   write(secondDefinitionPath, secondDefinition);
+  for (const countPath of [
+    path.join(root, "07_Quality", "01_Quality_Center.md"),
+    path.join(root, "07_Quality", "05_Current_Implementation_Reality_Audit.md"),
+  ])
+    write(
+      countPath,
+      fs
+        .readFileSync(countPath, "utf8")
+        .replace("| Local Item数 | 4 |", "| Local Item数 | 6 |"),
+    );
   const mappingTwoGoals = mapping
     .replace(
       "[sample](../../Definitions/QA-000001/quality_definition.md) | ST／UAT",
@@ -5860,8 +6321,8 @@ Quality ID: \`QA-000002\`
       "| sample | Required | Required | Required | Required | N/A: 配置差なし |\n| sample two | Required | Required | Required | Required | N/A: 配置差なし |",
     )
     .replace(
-      "[sample](../../Definitions/QA-000001/quality_definition.md) | 境界を確認する",
-      "[sample](../../Definitions/QA-000001/quality_definition.md)、[sample two](../../Definitions/QA-000002/quality_definition.md) | 境界を確認する",
+      "[sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-01` | Covered | なし",
+      "[sample](../../Definitions/QA-000001/quality_definition.md)<br>[sample two](../../Definitions/QA-000002/quality_definition.md) | `SAMPLE-01`、`SAMPLE-02` | Covered | なし",
     )
     .replace(
       "| [sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-01`、`SAMPLE-10`、`SAMPLE-11`、`SAMPLE-12` | §3の全入力 | §4.1と§4.2 |",
@@ -6004,7 +6465,7 @@ Quality ID: \`QA-000002\`
       "QA-999999",
       "quality_definition.md",
     ),
-    "# Orphan\n\n## 1. 試験段階と外部境界の適用\n\n| 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |\n|---|---|---|---|---|\n| UT | Required | 最小責務 | N/A | 局所判定を確認する |\n| IT | N/A | 外部境界なし | N/A | 外部境界を持たない |\n| ST | N/A | System対象なし | N/A | 上位経路を持たない |\n| UAT | N/A | 利用者受入なし | N/A | 利用者判断を含まない |\n\n## 2. 検証項目\n\n| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |\n|---|---|---|---|---|---|---|---|---|---|---|\n| `ORPHAN-01` | 正常 | UT | Functional | 局所責務 | N/A | 入力あり | 入力する | 結果を確認する | 未解消状態なし | Automated |\n",
+    "# Orphan\n\n## 1. 試験段階と外部境界の適用\n\n| 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |\n|---|---|---|---|---|\n| UT | Required | 最小責務 | N/A | 局所判定を確認する |\n| IT | N/A | 外部境界なし | N/A | 外部境界を持たない |\n| ST | N/A | System対象なし | N/A | 上位経路を持たない |\n| UAT | N/A | 利用者受入なし | N/A | 利用者判断を含まない |\n\n### 状態区分の適用\n\n| 状態区分 | 適用 | 対応Local Item | 判断理由 |\n|---|---|---|---|\n| 正常 | Required | `ORPHAN-01` | 正常成立を確認する |\n| 準正常／境界 | N/A | - | 境界値を持たない |\n| 異常 | N/A | - | このfixtureでは対象外 |\n| 判定不能 | N/A | - | 観測不能状態を持たない |\n\n## 2. 検証項目\n\n| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|\n| `ORPHAN-01` | 正常 | UT | Functional | 局所責務 | N/A | 入力あり | 入力する | 結果を記録する | 契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |\n",
   );
   result = runChecker(root);
   assert.ok(
@@ -6030,7 +6491,7 @@ Quality ID: \`QA-000002\`
   );
   write(
     definitionPath,
-    "# Verification\n\n## 1. 試験段階と外部境界の適用\n\n| 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |\n|---|---|---|---|---|\n| UT | Required | 最小責務 | N/A | 局所判定を確認する |\n| IT | N/A | 外部境界なし | N/A | 外部境界を持たない |\n| ST | N/A | System対象なし | N/A | 上位経路を持たない |\n| UAT | N/A | 利用者受入なし | N/A | 利用者判断を含まない |\n\n## 2. 検証項目\n\n| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測と期待結果 | 終了後条件 | 実行形態 |\n|---|---|---|---|---|---|---|---|---|---|---|\n| `SAMPLE-01` | 正常 | UT | Functional | 局所責務 | N/A | 入力あり | 入力する | 結果を確認する | 未解消状態なし | Automated |\n| `SAMPLE-01` | 異常 | UT | Functional | 局所責務 | N/A | 壊れた入力 | 壊す | 拒否する | Effect 0 | Automated |\n",
+    "# Verification\n\n## 1. 試験段階と外部境界の適用\n\n| 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |\n|---|---|---|---|---|\n| UT | Required | 最小責務 | N/A | 局所判定を確認する |\n| IT | N/A | 外部境界なし | N/A | 外部境界を持たない |\n| ST | N/A | System対象なし | N/A | 上位経路を持たない |\n| UAT | N/A | 利用者受入なし | N/A | 利用者判断を含まない |\n\n### 状態区分の適用\n\n| 状態区分 | 適用 | 対応Local Item | 判断理由 |\n|---|---|---|---|\n| 正常 | Required | `SAMPLE-01` | 正常成立を確認する |\n| 準正常／境界 | N/A | - | 境界値を持たない |\n| 異常 | Required | `SAMPLE-01` | 拒否を確認する |\n| 判定不能 | N/A | - | 観測不能状態を持たない |\n\n## 2. 検証項目\n\n| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|\n| `SAMPLE-01` | 正常 | UT | Functional | 局所責務 | N/A | 入力あり | 入力する | 結果を記録する | 契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |\n| `SAMPLE-01` | 異常 | UT | Functional | 局所責務 | N/A | 壊れた入力 | 壊す | 拒否結果を記録する | 拒否する | 入力、観測値、判定 | Effect 0 | Automated |\n",
   );
   result = runChecker(root);
   assert.ok(
