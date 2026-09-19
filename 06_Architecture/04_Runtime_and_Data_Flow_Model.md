@@ -218,6 +218,13 @@ Projectの入力から状態、実行、観測、投影および候補採用ま�
 
 ```text
                        ┌─────────────────────────┐
+                       │ 開始                    │
+                       │ 対象Identityを解決する  │
+                       └────────────┬────────────┘
+                                    │ Task根拠あり
+                                    │ 表示だけ／Effect 0
+                                    ▼
+                       ┌─────────────────────────┐
                        │ S20: Objective判断待ち  │
                        │ Task根拠・受入条件を確認│
                        └────────────┬────────────┘
@@ -259,6 +266,25 @@ Projectの入力から状態、実行、観測、投影および候補採用ま�
 ```
 
 判断を記録したことと受け入れたことを同一状態へ畳まない。Objective受入済みだけがMilestone判断を開始でき、Objective差戻しとObjective判断待ちは同じObjectiveの再確認または追加判断へ戻る。受入・差戻し・判断待ちの各記録は対象Identity、判断者、根拠Revisionと相関し、Task作成またはProvider Effectを発行しない。
+
+| 現在状態 | 契機 | 事前条件 | 処置 | Effect | 次状態 | 失敗時 | cleanup・Recovery | 終了後観測 |
+|---|---|---|---|---|---|---|---|---|
+| 開始 | 対象解決 | exactなObjective IdentityとTask根拠あり | 根拠と受入条件を表示 | 正本Effect 0 | Objective判断待ち | 対象不明・根拠不足は開始前拒否 | 非該当。Effect未発行 | Decision Record、Task、Provider Effect 0 |
+| Objective判断待ち | 明示判断: 受入 | exactな対象・世代・Project運営者Authority | Objective受入を一度記録 | Objective Decision Record一件 | Objective受入済み | 記録結果不明は同じIdentityで再観測 | 重複記録せず同じIdentityへ再入場 | Objective受入記録一件。Task作成／Provider Effect 0 |
+| Objective判断待ち | 明示判断: 差戻し | exactな対象・世代・Project運営者Authority | Objective差戻しを一度記録 | Objective Decision Record一件 | Objective差戻し | 記録結果不明は同じIdentityで再観測 | 重複記録せず同じIdentityへ再入場 | Objective差戻し記録一件。Milestone判断、Task作成、Provider Effect 0 |
+| Objective判断待ち | 明示判断: 判断待ち | exactな対象・世代・Project運営者Authority | Objective判断待ちを一度記録 | Objective Decision Record一件 | Objective判断待ち継続 | 記録結果不明は同じIdentityで再観測 | 重複記録せず同じIdentityへ再入場 | Objective判断待ち記録一件。Milestone判断、Task作成、Provider Effect 0 |
+| Objective差戻し | 根拠・条件の再確認 | 同じObjective Identity | 根拠と受入条件を表示 | 正本Effect 0 | Objective判断待ち | 別Identityなら差戻しを保持 | 非該当。同じIdentityを保持 | 既存差戻し記録を保持。Milestone判断Effect 0 |
+| Objective判断待ち継続 | 追加判断の開始 | 同じObjective Identity | 現在の判断待ちと必要情報を表示 | 正本Effect 0 | Objective判断待ち | 別Identityなら判断待ちを保持 | 非該当。同じIdentityを保持 | 既存判断待ち記録を保持。Milestone判断Effect 0 |
+| Objective受入済み | Milestone判断開始 | exactなObjective受入記録とMilestone Identity | Objective根拠とMilestone受入条件を表示 | 正本Effect 0 | Milestone判断待ち | 受入記録不明・不一致はObjective状態へ戻す | 非該当。Effect未発行 | Milestone Decision Record、Task、Provider Effect 0 |
+| Milestone判断待ち | 明示判断: 受入 | exactな対象・世代・Project運営者Authority | Milestone受入を一度記録 | Milestone Decision Record一件 | Milestone受入済み | 記録結果不明は同じIdentityで再観測 | 重複記録せず同じIdentityへ再入場 | Milestone受入記録一件。Task作成／Provider Effect 0 |
+| Milestone判断待ち | 明示判断: 差戻し | exactな対象・世代・Project運営者Authority | Milestone差戻しを一度記録 | Milestone Decision Record一件 | Milestone差戻し | 記録結果不明は同じIdentityで再観測 | 重複記録せず同じIdentityへ再入場 | Milestone差戻し記録一件。Task作成／Provider Effect 0 |
+| Milestone判断待ち | 明示判断: 判断待ち | exactな対象・世代・Project運営者Authority | Milestone判断待ちを一度記録 | Milestone Decision Record一件 | Milestone判断待ち継続 | 記録結果不明は同じIdentityで再観測 | 重複記録せず同じIdentityへ再入場 | Milestone判断待ち記録一件。Task作成／Provider Effect 0 |
+| Milestone差戻し | 根拠・条件の再確認 | 同じMilestone Identity | Objective根拠とMilestone受入条件を表示 | 正本Effect 0 | Milestone判断待ち | 別Identityなら差戻しを保持 | 非該当。同じIdentityを保持 | 既存差戻し記録を保持。追加Effect 0 |
+| Milestone判断待ち継続 | 追加判断の開始 | 同じMilestone Identity | 現在の判断待ちと必要情報を表示 | 正本Effect 0 | Milestone判断待ち | 別Identityなら判断待ちを保持 | 非該当。同じIdentityを保持 | 既存判断待ち記録を保持。追加Effect 0 |
+| 任意の判断状態 | 明示判断 | 別対象、古い世代、重複またはAuthority不一致 | 理由付き拒否 | Effect 0 | 現在状態を保持 | 同じ | Recovery義務を新設しない | Decision Record、Task、Provider Effect 0 |
+| Objective判断待ち | Task完了 | 明示判断なし | 自動受入を拒否 | Effect 0 | Objective判断待ち | 同じ | 非該当 | Decision Record、Milestone判断、Task作成、Provider Effect 0 |
+| Objective差戻し／判断待ち継続 | Milestone判断開始 | Objective受入記録なし | 開始を拒否 | Effect 0 | 現在状態を保持 | 同じ | 非該当 | Milestone Decision Record、Task、Provider Effect 0 |
+| Milestone判断待ち | Objective受入だけによるMilestone受入 | Project運営者の明示判断なし | 自動受入を拒否 | Effect 0 | Milestone判断待ち | 同じ | 非該当 | Milestone Decision Record、Task、Provider Effect 0 |
 
 ## 4. 概念Entity関係
 

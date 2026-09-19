@@ -79,7 +79,7 @@ Project／Portfolioの状態を根拠と不完全性付きで読む責務と、T
 | UI-000004 | Project Management Projection | UI契約はAuthorityを発行しない。利用者操作: Projectを選ぶ／Task根拠と受入条件を確認する／Objectiveを受け入れる・差し戻す・判断待ちにする／Milestoneを受け入れる・差し戻す・判断待ちにする／根拠を見る／比較する。 | UI契約はEffectを定義しない |
 | SPEC-000006 | Project Management Projection | Project情報を閲覧できる主体。投影は正本変更Authorityを持たない | 読取り投影だけを返し、Project正本を変更しない。 |
 | SPEC-000007 | Project Management Projection | 各Projectを閲覧できる主体。比較から優先順位の決定を自動発行しない | 読取り投影だけを返し、非開示Projectを探索・変更しない。 |
-| SPEC-000002 | Objective／Milestone Acceptance Decision Record | Project運営者がTask根拠からObjective受入を、Objective根拠からMilestone受入を判断する。下位完了から上位受入を推定しない | Objective／Milestoneの受入・差戻し・判断待ちだけを記録する。Task作成やProvider Effectは発行しない |
+| SPEC-000002 | Objective／Milestone Acceptance Decision Record | Project運営者がTask根拠からObjective受入を、Objective受入記録からMilestone受入を判断する。Objective差戻し／判断待ちではMilestone判断Authorityを発行せず、下位完了から上位受入を推定しない | Objective／Milestoneの受入・差戻し・判断待ちだけを記録する。Task作成やProvider Effectは発行しない |
 
 公開Interfaceは入力IDと対応する契約を保持し、別入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。SPEC-000006／SPEC-000007はProject Management Projection Portだけを使用し、Objective／Milestone Acceptance Decision Portへ到達できない。SPEC-000002の受入判断記録は、読取り投影を正本更新可能にするAuthorityではない。
 
