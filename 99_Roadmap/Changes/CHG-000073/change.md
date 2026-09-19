@@ -1215,6 +1215,8 @@ Architecture定義の再構築後、Qualityが必要とする検証単位、境�
 
 第3回独立レビューでは、入力別のArchitecture定義は改善した一方、Root Architectureに基準版のEvent Publisher／Store Writerが現在の読取り責務として残り、UI-000002の「取消す」「判断を返す」に対応するSPECが存在しないことを検出した。実行知の現行書込み能力は基準版Capability比較へ限定し、現在のCanonical Architectureを既存記録Sourceからの読取りPortへ統一した。操作不足はArchitectureで推測せず、UX-000003とIA-000002／IA-000003へ戻り、取消の終了確認をSPEC-000028、判断返却と同じTaskの再開をSPEC-000029として独立契約化した。
 
+更新後の再レビューでは、`SPEC-000002`をProject実行と上位受入判断へ分けた一方、`ARCH-000005`の全体責務が読取り専用Project Management Projectionのままで、Objective／Milestone受入判断の記録Effectと矛盾していることを検出した。Project Management Projection PortとObjective／Milestone Acceptance Decision Portを別Owner・別Authority・別Effectとして分け、`SPEC-000006`／`SPEC-000007`は読取りPortだけを使用し、`SPEC-000002`だけが受入・差戻し・判断待ちの限定記録へ到達できるようにした。受入判断PortはTask作成、Provider Effectまたは下位完了からの上位受入推定を所有せず、`SPEC-000002`の9観点分析、Root台帳、Interface、失敗境界およびQuality引渡しへ同じ境界を伝播した。
+
 ### Discovery内容の再確認
 
 Quality設計の一区切り後、工程成果物を上から一工程ずつ読み直す方針へ切り替えた。Discoveryでは28探索と36要求を全数確認し、共通の10章構成へ一括変換すると、既存の良好な因果と転換点が分断されることを確認した。
@@ -1401,7 +1403,7 @@ IA工程を閉じた後、UIとSPECを別々の専門工程として見直し、
 | IA Analysis／Definition | 32／22。全入力UXの利用場面、対象、識別、関係、状態、可視性、時間差、導線、責任、判断権限、失敗および検証意図を保持した。209 Analysis Objectと157適用対象Source Identity行を全数照合し、DefinitionがAnalysisのIdentity／Relationを後付けで再解釈できないChecker契約を追加した。不一致0件、`Merge`／`Split` 0件、3横断投影は各22 IA-IDを一意に処置し、独立再レビューでIA工程を閉じた |
 | UI Analysis／Definition | UX観点32／IA観点22／Definition 20。正式入力に残る未確認事項を全54分析と20定義へ継承し、UI固有判断と分けた。UI契約は対応レビュー入力Readyだが、Prototype／実画面評価と人間によるUI工程Exit判断はOPEN |
 | SPEC Analysis／Definition | UX観点32／IA観点22／Definition 29。正式入力に残る未確認事項を全54分析と29定義へ継承した。全UX観点分析へSource固有の境界を明示し、外部送信のEffect成立後・結果不明・同一依頼再観測を独立契約として保持した。独立再レビューCritical／Major／Moderate／Minor 0でPass |
-| Architecture Analysis／Definition／Details | UI観点20／SPEC観点29／Definition 18。第2回再レビューで、上流来歴を追加の正式入力と誤読できる表記、UI固有の失敗境界の取り落とし、`SPEC-000002`の実行受付と上位受入判断の重複、署名Authorizationの並行消費、CheckerのTiming、Coordinator詳細設計への現行状態混入、およびCheckerの表構造検査不足を検出した。49 Analysisの来歴表示と失敗境界、18 Definitionへの伝播、`ARCH-000004`／`ARCH-000005`の責務Slice、Artifact Signing／Checker／Coordinator詳細設計、Template Checkerと反証試験を是正した。現在状態はReview Candidateであり、更新後の固定候補を同じ3系統へ再レビューする |
+| Architecture Analysis／Definition／Details | UI観点20／SPEC観点29／Definition 18。再レビューで、上流来歴を追加の正式入力と誤読できる表記、UI固有の失敗境界の取り落とし、`SPEC-000002`の実行受付と上位受入判断の重複、署名Authorizationの並行消費、CheckerのTiming、Coordinator詳細設計への現行状態混入、Checkerの表構造検査不足、および`ARCH-000005`の読取り投影と受入判断記録のOwner混在を検出した。49 Analysisの来歴表示と失敗境界、18 Definitionへの伝播、`ARCH-000004`／`ARCH-000005`の責務Slice、読取りPortとAcceptance Decision Port、Artifact Signing／Checker／Coordinator詳細設計、Template Checkerと反証試験を是正した。現在状態はReview Candidateであり、更新後の固定候補を同じ3系統へ再レビューする |
 | 全体Checker | `errors: 0`、`warnings: 0` |
 | Discovery Checklist | Root 1件、探索28件、要求36件の全成果物に可視Checklistがあり、`[x]`921件、理由付き`N/A`111件、`OPEN`／`FAIL`／未評価の`[ ]`は0件。ひな型3件は可視Checklistと未評価の`[ ]`を持つ |
 | Discovery Checklist契約試験 | 非表示だけのChecklist、完成成果物の`[ ]`、理由形式のない結果、Checklist後の本文、別成果物用Checklist、単一汎用項目、およびひな型の項目を後続Sectionへ移す構造を拒否し、理由付き`OPEN`／`FAIL`／`N/A`を受理するFocused試験4／4 Pass |

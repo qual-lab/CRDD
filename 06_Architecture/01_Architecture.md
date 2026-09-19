@@ -44,7 +44,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | [契約移行と利用側閉包](Definitions/ARCH-000002/architecture_definition.md) | 責務移動時のProducer、Consumer、派生物、署名・Release経路の閉包 | UI-000014 | SPEC-000019 | 変更影響分析とConsumer Closure契約 |
 | [変更・監査・試験・品質の閉包](Definitions/ARCH-000003/architecture_definition.md) | 同じ改訂版に対する指摘、是正、Evidence、未確認範囲、現在Gateの統合 | UI-000015 | SPEC-000020 | Quality Centerと変更追跡 |
 | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Objective／Task受付、Project状態、判断待ち、取消、Recovery、再入場、結果 | UI-000002、UI-000003、UI-000012 | SPEC-000002、SPEC-000003、SPEC-000004、SPEC-000005、SPEC-000017、SPEC-000028、SPEC-000029 | Project Runtime |
-| [Project・Portfolio状態投影](Definitions/ARCH-000005/architecture_definition.md) | Project／Milestone／Objective／Task状態と複数Project比較の読取り投影 | UI-000004 | SPEC-000002、SPEC-000006、SPEC-000007 | Project Management Projection |
+| [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | Project／Milestone／Objective／Task状態と複数Project比較の読取り投影、およびObjective／Milestoneの受入・差戻し・判断待ちの限定記録 | UI-000004 | SPEC-000002、SPEC-000006、SPEC-000007 | Project Management Projection／Objective・Milestone Acceptance Decision Record |
 | [Meeting候補と正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | Meeting ItemからTopic／Decision候補を作り、出所と採否を追跡する | UI-000009 | SPEC-000013 | Project Operation Context |
 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md) | 実行記録の解決、欠測を保つ読取り集約、非Authority評価候補 | UI-000005 | SPEC-000008 | 実行記録読取りProjection |
 | [実行境界の診断](Definitions/ARCH-000008/architecture_definition.md) | 外部境界の到達、受理、開始、結果搬送、終了状態の観測 | UI-000005 | SPEC-000009 | Platform Access診断Port |

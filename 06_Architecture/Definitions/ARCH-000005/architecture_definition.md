@@ -7,14 +7,21 @@ Architecture ID: `ARCH-000005`
 
 ## 1. 責務と境界
 
-Task完了、Objective受入、Milestone受入を分け、complete／partial／restricted／stale／conflicting／unknownを項目ごとに保つ。Portfolio比較でも不足を一つの健康度へ隠さない。
+Project／Portfolioの状態を根拠と不完全性付きで読む責務と、Task根拠に基づくObjective／Milestoneの受入判断を記録する責務を分ける。読取り投影は正本変更Authorityを持たず、受入判断記録はObjective／Milestoneの受入・差戻し・判断待ちだけを扱う。Task完了、Objective受入、Milestone受入を分け、complete／partial／restricted／stale／conflicting／unknownを項目ごとに保つ。Portfolio比較でも不足を一つの健康度へ隠さない。
 
 | 区分 | 内容 |
 |---|---|
-| 状態Owner | Project Management Projection |
-| 所有する責務 | Project／Milestone／Objective／Task状態と複数Project比較の読取り投影 |
-| 所有しない責務 | 正本更新、Meeting候補採用、優先順位の自動決定 |
-| 主な外部境界 | Project正本、Quality／Roadmap等の正本、Workbench／MCP |
+| 状態Owner | 読取り投影: Project Management Projection。受入判断記録: Objective／Milestone Acceptance Decision Record |
+| 所有する責務 | Project／Milestone／Objective／Task状態と複数Project比較の読取り投影。Project運営者が行ったObjective／Milestoneの受入・差戻し・判断待ちの記録 |
+| 所有しない責務 | Task作成、Provider Effect、下位完了からの上位受入推定、Meeting候補採用、優先順位の自動決定、受入判断以外の正本更新 |
+| 主な外部境界 | Project正本、Quality／Roadmap等の正本、Objective／Milestone受入判断Port、Workbench／MCP |
+
+責務全体を一つの書込み可能なComponentとして扱わない。公開Portは次の二つに分ける。
+
+| Port | Owner | 許可する処置 | 禁止する処置 |
+|---|---|---|---|
+| Project Management Projection Port | Project Management Projection | Project／Milestone／Objective／Task状態と複数Project比較を読取り投影する | Project正本の変更、受入判断の記録、優先順位の自動決定 |
+| Objective／Milestone Acceptance Decision Port | Objective／Milestone Acceptance Decision Record | Project運営者が明示した受入・差戻し・判断待ちを対象Identityへ記録する | Task作成、Provider Effect、下位完了からの上位受入推定、SPEC-000006／SPEC-000007からの書込み |
 
 ## 2. UI観点の入力
 
@@ -39,20 +46,27 @@ Task完了、Objective受入、Milestone受入を分け、complete／partial／r
 | UI-000004 | UI | Project Management Projection | UI契約はAuthorityを発行しない。利用者操作: Projectを選ぶ／Task根拠と受入条件を確認する／Objectiveを受け入れる・差し戻す・判断待ちにする／Milestoneを受け入れる・差し戻す・判断待ちにする／根拠を見る／比較する。 | UI契約はEffectを定義しない | Task完了やObjective受入だけからMilestone受入を推定する／欠測や古い値を完全な現在値と誤認する／単一Scoreや欠測した集計で健全性を断定する | Task完了／Objective受入／Milestone受入を別にする / Milestone→目的と受入条件→Task根拠→受入判断 / ；complete／partial／開示制限（restricted）／stale／競合あり（conflicting）／不明（unknown） / プロジェクト→現在投影→不足・競合→情報源→次の判断 / ；complete／partial／開示制限（restricted）／stale／競合あり（conflicting） / Portfolio→差→対象範囲（Coverage）→Project→情報源（Source） /  |
 | SPEC-000006 | SPEC | Project Management Projection | Project情報を閲覧できる主体。投影は正本変更Authorityを持たない | 読取り投影だけを返し、Project正本を変更しない。 | 競合・欠測・開示制限を正常値で補完しない。 | [情報源解決] -> [完全／partial／stale／conflicting]  -> [根拠付きProject View] |
 | SPEC-000007 | SPEC | Project Management Projection | 各Projectを閲覧できる主体。比較から優先順位の決定を自動発行しない | 読取り投影だけを返し、非開示Projectを探索・変更しない。 | 非開示Projectの存在を漏らさず、異なるCoverageを同等と扱わない。 | [比較対象解決] -> [Project別Coverage保持] -> [比較可能／比較不能] |
-| SPEC-000002 | SPEC | Project Management Projection／受入判断 | Project運営者がTask根拠からObjective受入を、Objective根拠からMilestone受入を判断する。下位完了から上位受入を推定しない | Objective／Milestoneの受入・差戻し・判断待ちだけを記録する。Task作成やProvider Effectは発行しない | Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合はEffect 0で停止する | Task完了→Objective受入／差戻し／判断待ち→Milestone受入／差戻し／判断待ち |
+| SPEC-000002 | SPEC | Objective／Milestone Acceptance Decision Record | Project運営者がTask根拠からObjective受入を、Objective根拠からMilestone受入を判断する。下位完了から上位受入を推定しない | Objective／Milestoneの受入・差戻し・判断待ちだけを記録する。Task作成やProvider Effectは発行しない | Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合はEffect 0で停止する | Task完了→Objective受入／差戻し／判断待ち→Milestone受入／差戻し／判断待ち |
 
 ## 5. 構造と依存方向
 
 ```text
-[Architecture Responsibility]
-├─ UI-000004 (UI)
-   Task完了／Objective受入／Milestone受入を別にする / Milestone→目的と受入条件→Task根拠→受入判断 / ；complete／partial／開示制限（restricted）／stale／競合あり（conflicting）／不明（unknown） / プロジェクト→現在投影→不足・競合→情報源→次の判断 / ；complete／partial／開示制限（restricted）／stale／競合あり（conflicting） / Portfolio→差→対象範囲（Coverage）→Project→情報源（Source） / 
-├─ SPEC-000006 (SPEC)
-   [情報源解決] -> [完全／partial／stale／conflicting]  -> [根拠付きProject View]
-├─ SPEC-000007 (SPEC)
-   [比較対象解決] -> [Project別Coverage保持] -> [比較可能／比較不能]
-└─ SPEC-000002 (SPEC)
-   Task完了→Objective受入／差戻し／判断待ち→Milestone受入／差戻し／判断待ち
+                         [Project Operation Sources]
+                                   │
+                    ┌──────────────┴──────────────┐
+                    ▼                             ▼
+       [Project Management Projection]   [Acceptance Decision Port]
+       Owner: 読取り投影                  Owner: Objective／Milestone
+       Input: SPEC-000006／000007          Acceptance Decision Record
+       Effect: 正本変更なし                Input: SPEC-000002
+                    │                     Effect: 受入／差戻し／判断待ち
+                    │                             │
+                    ▼                             ▼
+       [根拠・不完全性付きView]           [対象Identityへ限定記録]
+       [Coverageを保った比較]             [Task作成／Provider Effectなし]
+
+       ※ 両PortはAuthorityを共有しない。
+       ※ Task完了→Objective受入→Milestone受入を自動推定しない。
 ```
 
 各入力はSibling contractであり、前の入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。UI契約は利用者へ認識・操作・Feedbackを提供するが、AuthorityやEffectを発行しない。
@@ -66,9 +80,9 @@ Task完了、Objective受入、Milestone受入を分け、complete／partial／r
 | UI-000004 | Project Management Projection | UI契約はAuthorityを発行しない。利用者操作: Projectを選ぶ／Task根拠と受入条件を確認する／Objectiveを受け入れる・差し戻す・判断待ちにする／Milestoneを受け入れる・差し戻す・判断待ちにする／根拠を見る／比較する。 | UI契約はEffectを定義しない |
 | SPEC-000006 | Project Management Projection | Project情報を閲覧できる主体。投影は正本変更Authorityを持たない | 読取り投影だけを返し、Project正本を変更しない。 |
 | SPEC-000007 | Project Management Projection | 各Projectを閲覧できる主体。比較から優先順位の決定を自動発行しない | 読取り投影だけを返し、非開示Projectを探索・変更しない。 |
-| SPEC-000002 | Project Management Projection／受入判断 | Project運営者がTask根拠からObjective受入を、Objective根拠からMilestone受入を判断する。下位完了から上位受入を推定しない | Objective／Milestoneの受入・差戻し・判断待ちだけを記録する。Task作成やProvider Effectは発行しない |
+| SPEC-000002 | Objective／Milestone Acceptance Decision Record | Project運営者がTask根拠からObjective受入を、Objective根拠からMilestone受入を判断する。下位完了から上位受入を推定しない | Objective／Milestoneの受入・差戻し・判断待ちだけを記録する。Task作成やProvider Effectは発行しない |
 
-公開Interfaceは入力IDと対応する契約を保持し、別入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。
+公開Interfaceは入力IDと対応する契約を保持し、別入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。SPEC-000006／SPEC-000007はProject Management Projection Portだけを使用し、Objective／Milestone Acceptance Decision Portへ到達できない。SPEC-000002の受入判断記録は、読取り投影を正本更新可能にするAuthorityではない。
 
 ## 7. 失敗・回復・観測
 
@@ -112,8 +126,9 @@ Architecture固有の追加人間判断はない。これは入力の未確認�
 
 ## 10. 実装と検証への引き渡し
 
-- 実装は「Project／Milestone／Objective／Task状態と複数Project比較の読取り投影」を所有するCoreと、外部境界を扱うPort／Adapterを分ける。
+- 実装は「Project／Milestone／Objective／Task状態と複数Project比較の読取り投影」を所有するCore、Objective／Milestoneの受入判断だけを記録するPort、および外部境界を扱うAdapterを分ける。
 - 対象解決→Source観測→項目別投影→必要時に比較→結果返却を段階的な結合試験で確認する。
+- 受入判断Portは、対象IdentityとProject運営者の明示判断を検証してから、受入・差戻し・判断待ちのいずれか一件だけを記録する。読取り投影Portからの呼出し、Task作成、Provider Effectおよび下位完了からの推定がEffect 0になることを確認する。
 - 受入段階の混同、欠測の正常化、Restricted Sourceの存在漏洩、古い値の現在値化を理由別に反証する。
 - 取消・cleanup・Recoveryは非該当。再観測は新しい読取りとして扱う。
 
