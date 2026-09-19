@@ -1,0 +1,21 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "version-control",
+  "symbols": [
+    {
+      "symbolId": "version-control.public-api",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": ["ARCH-000002", "ARCH-000009", "ARCH-000014", "ARCH-000016"]
+    },
+    {
+      "symbolId": "version-control.snapshot-integration",
+      "kind": "test-suite",
+      "path": "tests/integration/fixed-snapshot.integration.test.ts",
+      "qaIds": ["QA-000001", "QA-000004", "QA-000007"],
+      "localTestIds": ["RCM-03", "PPR-09", "RFD-08"],
+      "verifies": ["version-control.public-api"]
+    }
+  ]
+}

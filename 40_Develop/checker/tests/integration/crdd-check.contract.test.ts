@@ -9498,6 +9498,17 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     path.join(source, "template", "tools", "internal", "checker"),
     { recursive: true },
   );
+  fs.cpSync(
+    path.join(
+      repositoryRoot,
+      "template",
+      "tools",
+      "internal",
+      "reality-traceability",
+    ),
+    path.join(source, "template", "tools", "internal", "reality-traceability"),
+    { recursive: true },
+  );
   write(
     path.join(
       source,

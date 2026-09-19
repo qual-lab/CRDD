@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qual-lab.dev/crdd/schemas/reality-symbol-schema.json",
+  "title": "CRDD Reality Symbol Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "contractRevision", "subsystem", "symbols"],
+  "properties": {
+    "contract": { "const": "crdd/reality-symbol-manifest" },
+    "contractRevision": { "const": 1 },
+    "subsystem": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "symbols": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/symbol" }
+    }
+  },
+  "$defs": {
+    "symbol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["symbolId", "kind", "path"],
+      "properties": {
+        "symbolId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$"
+        },
+        "kind": {
+          "enum": [
+            "package",
+            "module",
+            "file",
+            "class",
+            "function",
+            "config",
+            "schema",
+            "migration",
+            "resource",
+            "test-suite",
+            "test-case"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?![A-Za-z]:/)(?!.*\\\\)(?!\\.{1,2}(?:/|$))(?!.*\\/\\.{1,2}(?:\\/|$))[^/]+(?:/[^/]+)*$"
+        },
+        "archIds": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^ARCH-[0-9]{6}$" },
+          "uniqueItems": true
+        },
+        "qaIds": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^QA-[0-9]{6}$" },
+          "uniqueItems": true
+        },
+        "localTestIds": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9]*-[0-9]{2,6}$" },
+          "uniqueItems": true
+        },
+        "verifies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$"
+          },
+          "uniqueItems": true
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": { "enum": ["test-suite", "test-case"] }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["qaIds", "verifies"],
+            "properties": {
+              "qaIds": { "minItems": 1 },
+              "verifies": { "minItems": 1 }
+            }
+          },
+          "else": {
+            "required": ["archIds"],
+            "properties": {
+              "archIds": { "minItems": 1 },
+              "qaIds": { "maxItems": 0 },
+              "localTestIds": { "maxItems": 0 },
+              "verifies": { "maxItems": 0 }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

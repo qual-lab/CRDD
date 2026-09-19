@@ -1,0 +1,21 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "project-runtime",
+  "symbols": [
+    {
+      "symbolId": "project-runtime.public-api",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": ["ARCH-000004", "ARCH-000005", "ARCH-000007", "ARCH-000012"]
+    },
+    {
+      "symbolId": "project-runtime.objective-intake-unit",
+      "kind": "test-suite",
+      "path": "tests/unit/objective-intake.contract.test.ts",
+      "qaIds": ["QA-000003", "QA-000004"],
+      "localTestIds": ["PRL-01", "PRL-07", "PPR-06"],
+      "verifies": ["project-runtime.public-api"]
+    }
+  ]
+}

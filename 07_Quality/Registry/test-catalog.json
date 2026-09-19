@@ -3713,6 +3713,25 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "checker:unit:symbol-graph",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/symbol-graph.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "reality",
+        "traceability",
+        "symbol-graph"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "symbol_relations_resolved_or_rejected"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "platform-access:unit:protocol",
       "owner": "platform-access",
       "path": "40_Develop/platform-access/src/protocol.rs",

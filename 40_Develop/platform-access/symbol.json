@@ -1,0 +1,21 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "platform-access",
+  "symbols": [
+    {
+      "symbolId": "platform-access.native-entry",
+      "kind": "module",
+      "path": "src/main.rs",
+      "archIds": ["ARCH-000004", "ARCH-000008", "ARCH-000011"]
+    },
+    {
+      "symbolId": "platform-access.cli-integration",
+      "kind": "test-suite",
+      "path": "tests/cli.rs",
+      "qaIds": ["QA-000006", "QA-000008"],
+      "localTestIds": ["ERB-01", "ERB-09", "RDL-02"],
+      "verifies": ["platform-access.native-entry"]
+    }
+  ]
+}

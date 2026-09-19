@@ -1,0 +1,21 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "artifact-signing",
+  "symbols": [
+    {
+      "symbolId": "artifact-signing.public-api",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": ["ARCH-000014"]
+    },
+    {
+      "symbolId": "artifact-signing.private-key-integration",
+      "kind": "test-suite",
+      "path": "tests/integration/private-key-signing.integration.test.ts",
+      "qaIds": ["QA-000010"],
+      "localTestIds": ["AIT-08"],
+      "verifies": ["artifact-signing.public-api"]
+    }
+  ]
+}

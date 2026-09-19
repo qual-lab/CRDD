@@ -1,0 +1,21 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "mcp",
+  "symbols": [
+    {
+      "symbolId": "mcp.public-api",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": ["ARCH-000005", "ARCH-000012", "ARCH-000013", "ARCH-000015"]
+    },
+    {
+      "symbolId": "mcp.transport-lifecycle-integration",
+      "kind": "test-suite",
+      "path": "tests/integration/transport-lifecycle.contract.test.ts",
+      "qaIds": ["QA-000007", "QA-000009"],
+      "localTestIds": ["RFD-04", "EST-01"],
+      "verifies": ["mcp.public-api"]
+    }
+  ]
+}

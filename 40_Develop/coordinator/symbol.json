@@ -1,0 +1,21 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "coordinator",
+  "symbols": [
+    {
+      "symbolId": "coordinator.public-api",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": ["ARCH-000004", "ARCH-000008", "ARCH-000010", "ARCH-000014", "ARCH-000015"]
+    },
+    {
+      "symbolId": "coordinator.task-process-integration",
+      "kind": "test-suite",
+      "path": "tests/integration/coordinator-task-process.integration.test.ts",
+      "qaIds": ["QA-000003", "QA-000006", "QA-000010"],
+      "localTestIds": ["PRL-03", "ERB-01", "AIT-10"],
+      "verifies": ["coordinator.public-api"]
+    }
+  ]
+}

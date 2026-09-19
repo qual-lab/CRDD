@@ -23,6 +23,7 @@ import { runCheckerPipeline } from "./internal/checker/checker-pipeline.ts";
 import { RuleRegistry } from "./internal/checker/rule-registry.ts";
 import { qualityDesignCanonicalStateRule } from "./internal/checker/rules/quality-design-state.ts";
 import { currentProfileRules } from "./internal/checker/rules/current-profile.ts";
+import { realitySymbolGraphRule } from "./internal/checker/rules/reality-symbol-graph.ts";
 
 type Finding = Readonly<{
   severity: string;
@@ -9432,6 +9433,8 @@ if (structureRoot) {
 }
 
 const currentProfileRegistry = new RuleRegistry();
+if (repositoryMode === "official")
+  currentProfileRegistry.register(realitySymbolGraphRule(root));
 for (const rule of currentProfileRules({
   workLifecycle: checkWorkLifecycleNavigation,
   discovery: checkDiscoveryIdentityLinkOwnership,

@@ -236,6 +236,45 @@ Checkerは、現在の正本・案内・ひな型・Change・Work Lifecycle Evid
 
 この表は試験への接続であり、全件の最新実行結果ではない。結果は品質記録へ分離する。意味監査、初見利用者の理解、中断時の実子Process観測は、Checkerの指摘件数から証明しない。
 
+## 8. Reality Traceability基盤
+
+Reality Traceabilityは、Canonical設計と現行Source／TestのRelationを機械可読にする。設計一致の意味判断やGap分類をCheckerへ移さない。
+
+```text
+Architecture Definition          Quality Definition
+        ARCH-ID                       QA-ID
+           │                            │
+           └──────────┬─────────────────┘
+                      ▼
+        40_Develop/<subsystem>/symbol.json
+                      │
+          ┌───────────┴───────────┐
+          ▼                       ▼
+ Implementation Symbol        Test Symbol
+          ▲                       │
+          └────── verifies ───────┘
+                      │
+                      ▼
+             Global Symbol Graph
+                      │
+          ┌───────────┼───────────┐
+          ▼           ▼           ▼
+       Checker       MCP       Workbench
+```
+
+| 所有対象 | 責務 | 所有しないこと |
+|---|---|---|
+| 共通Schema | Manifest、Symbol種別、Path、ARCH／QA／Local Test／`verifies`の構造 | ArchitectureやQualityの本文 |
+| Subsystem-local `symbol.json` | 意味のある最小Owner単位とCanonical IDのRelation | 設計一致・検証合格の主張 |
+| Symbol Discovery | `40_Develop`直下のSubsystemを列挙し、通常fileとRoot内Pathだけを受理。不正ManifestはGraphへ混入させない | Directory名の固定allowlist |
+| Repository File Observer | Test Catalog、Quality Definition、Symbol Sourceの各Path要素と実体Pathを検査し、link／junction、Root外、観測不能を拒否 | 内容の意味評価 |
+| Global Symbol Graph | ARCH→実装、QA→試験、試験→実装と各逆方向のIndex。構造Findingが1件でもあればGraphを発行しない | Reality Gapの意味分類 |
+| Quality Local Item解決 | Test SymbolのLocal Test IDが、同じSymbolに結合したQA定義の検証項目に実在することを確認 | Test実装済み・Passの主張 |
+| Test Catalog Adapter | Test SymbolのPathとOwnerがTest Catalogへexactに一度だけ登録されていることを確認 | Test CatalogをGraph Coreへ直接読ませること、試験結果の意味評価 |
+| Source Annotation | 必要な場合の局所Navigation Hint。存在時は`symbol.json`との不一致を検出 | Relationの正本、Annotationの必須化 |
+
+新Subsystemは`40_Develop/<subsystem>/symbol.json`を追加して参加する。Checker CoreへSubsystem名を追加しない。Implementation SymbolはARCH Relationだけを、Test SymbolはQA、Local Test、`verifies` Relationだけを所有し、設計と検証の責務を一つのSymbolへ混在させない。Symbol Pathは途中要素を含めてlink／junctionではない通常fileであり、実体PathもSubsystem内に留まる場合だけ受理する。Test SymbolはTest Catalog Adapterが返す登録集合へexact Pathと同一Ownerで接続する。`symbol.json`が存在しPathとIDが解決できることはRelationの構造成立だけを意味し、`Covered`、実装済み、試験済みまたは合格済みを意味しない。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した

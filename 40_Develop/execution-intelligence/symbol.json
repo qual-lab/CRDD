@@ -1,0 +1,21 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "execution-intelligence",
+  "symbols": [
+    {
+      "symbolId": "execution-intelligence.public-api",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": ["ARCH-000007", "ARCH-000016", "ARCH-000018"]
+    },
+    {
+      "symbolId": "execution-intelligence.store-integration",
+      "kind": "test-suite",
+      "path": "tests/integration/execution-intelligence-store.contract.test.ts",
+      "qaIds": ["QA-000004", "QA-000012"],
+      "localTestIds": ["PPR-03", "ERP-01"],
+      "verifies": ["execution-intelligence.public-api"]
+    }
+  ]
+}

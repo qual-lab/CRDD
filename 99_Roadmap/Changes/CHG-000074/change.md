@@ -1,7 +1,7 @@
 # Checker安定化とReality Traceability基盤
 
 変更ID: `CHG-000074`
-状態: `Implementation In Progress`
+状態: `Ready for Release Handoff`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `tool_architecture_and_traceability_change`
@@ -52,6 +52,26 @@ Reality Audit
 - [`template/tools/internal/checker/schema-validator.ts`](../../../template/tools/internal/checker/schema-validator.ts)
 - [`template/tools/internal/checker/rules/current-profile.ts`](../../../template/tools/internal/checker/rules/current-profile.ts)
 - [`template/tools/internal/checker/rules/quality-design-state.ts`](../../../template/tools/internal/checker/rules/quality-design-state.ts)
+- [`template/tools/internal/checker/rules/reality-symbol-graph.ts`](../../../template/tools/internal/checker/rules/reality-symbol-graph.ts)
+- [`template/tools/internal/checker/rules/reality-test-catalog-adapter.ts`](../../../template/tools/internal/checker/rules/reality-test-catalog-adapter.ts)
+- [`template/tools/internal/reality-traceability/symbol-discovery.ts`](../../../template/tools/internal/reality-traceability/symbol-discovery.ts)
+- [`template/tools/internal/reality-traceability/symbol-annotation.ts`](../../../template/tools/internal/reality-traceability/symbol-annotation.ts)
+- [`template/tools/internal/reality-traceability/symbol-graph.ts`](../../../template/tools/internal/reality-traceability/symbol-graph.ts)
+- [`template/tools/internal/reality-traceability/symbol-manifest-model.ts`](../../../template/tools/internal/reality-traceability/symbol-manifest-model.ts)
+- [`template/tools/internal/reality-traceability/symbol-manifest-validator.ts`](../../../template/tools/internal/reality-traceability/symbol-manifest-validator.ts)
+- [`template/tools/internal/reality-traceability/repository-regular-file-observer.ts`](../../../template/tools/internal/reality-traceability/repository-regular-file-observer.ts)
+- [`template/tools/schemas/reality-symbol-schema.json`](../../../template/tools/schemas/reality-symbol-schema.json)
+- [`40_Develop/artifact-signing/symbol.json`](../../../40_Develop/artifact-signing/symbol.json)
+- [`40_Develop/checker/symbol.json`](../../../40_Develop/checker/symbol.json)
+- [`40_Develop/coordinator/symbol.json`](../../../40_Develop/coordinator/symbol.json)
+- [`40_Develop/execution-intelligence/symbol.json`](../../../40_Develop/execution-intelligence/symbol.json)
+- [`40_Develop/mcp/symbol.json`](../../../40_Develop/mcp/symbol.json)
+- [`40_Develop/platform-access/symbol.json`](../../../40_Develop/platform-access/symbol.json)
+- [`40_Develop/project-runtime/symbol.json`](../../../40_Develop/project-runtime/symbol.json)
+- [`40_Develop/runtime-data/symbol.json`](../../../40_Develop/runtime-data/symbol.json)
+- [`40_Develop/version-control/symbol.json`](../../../40_Develop/version-control/symbol.json)
+- [`40_Develop/checker/tests/unit/symbol-graph.contract.test.ts`](../../../40_Develop/checker/tests/unit/symbol-graph.contract.test.ts)
+- [`07_Quality/Registry/test-catalog.json`](../../../07_Quality/Registry/test-catalog.json)
 - [`99_Roadmap/01_Roadmap.md`](../../01_Roadmap.md)
 - [`99_Roadmap/02_Changes.md`](../../02_Changes.md)
 - [`99_Roadmap/Changes/CHG-000074/change.md`](change.md)
@@ -74,7 +94,13 @@ Reality Audit
 - ARCH-IDとImplementation Symbolを双方向に解決できる。
 - QA-IDとTest Symbolを双方向に解決できる。
 - Test Symbolから検証対象Implementation Symbolを追跡できる。
+- Test SymbolはTest Catalogへexact Pathで一度だけ登録され、OwnerがSubsystemと一致する場合だけ受理する。
+- Symbol Pathは途中要素を含めてlink／junctionではなく、実体PathがSubsystem内に留まる場合だけ受理する。
+- Test CatalogとQuality DefinitionもRepository内の通常fileとして観測できる場合だけGraph入力に使う。
+- 構造Findingが1件でも存在する場合は、部分的に利用可能なGlobal Symbol Graphを発行しない。
 - Source Annotationは補助情報に限定し、`symbol.json`をRelationの正本とする。
+- Local Test IDは、Test Symbolに結合したQA定義の検証項目へ実在する場合だけ受理する。
+- Source Annotationが存在する場合は`symbol.json`との不一致を検出し、Annotationの不在は拒否しない。
 - 新Subsystem追加でChecker Coreを変更しない。
 
 ## 4. 検証と残るGate
@@ -82,11 +108,11 @@ Reality Audit
 | Gate | 状態 | 完了条件 |
 |---|---|---|
 | Quality設計 | Complete | 157 Canonical ID、13 QA、110 Local Item、43詳細設計検証単位がCanonicalで独立レビューPass |
-| Checker現挙動固定 | Complete | 静的入口、Repository Checker 0／0、全契約試験370／370 Pass |
+| Checker現挙動固定 | Complete | 静的入口、Repository Checker 0／0、全契約試験383／383 Pass |
 | Checker責務分割 | Complete | Pipeline、Model、Schema、Relation、Rule、Findingの局所契約2／2と実Gitサブモジュール配布Consumer縦断1／1がPass |
 | Checker独立レビュー | Complete | Critical／Major／Moderate／Minor 0 |
-| Symbol Schema／Graph | Pending | 共通Schema、Subsystem Discovery、双方向照会、`verifies`を反証試験で確認 |
-| Reality Traceability独立レビュー | Pending | Critical／Major／Moderate／Minor 0 |
+| Symbol Schema／Graph | Complete | 共通Schema、9 Subsystemの動的Discovery、ARCH／QA／実装／試験の双方向照会、全入力Finding Gate、Path実体境界、Test Catalog閉包、Local Test所有、`verifies`、任意Annotation不一致を契約試験13／13で確認 |
+| Reality Traceability独立レビュー | Complete | Critical／Major／Moderate／Minor 0 |
 | Reality Audit | Not Started | 本変更完了後に別Gateとして開始 |
 
 ## Checklist
@@ -99,14 +125,24 @@ Reality Audit
 - [x] Reality Auditを未開始として分離した
 - [x] Checker責務分割を完了した
 - [x] Checker独立レビューを完了した
-- [ ] Symbol SchemaとGlobal Symbol Graphを完了した
-- [ ] Reality Traceability独立レビューを完了した
+- [x] Symbol SchemaとGlobal Symbol Graphを完了した
+- [x] Reality Traceability独立レビューを完了した
+
+初回のReality Traceability独立レビューは、Path実体境界、無効ManifestのGraph混入、Test Catalogとの閉包、Annotationの誤認防止に不足を検出した。Pathの各要素と実体Pathを検査し、検査中に観測不能となった対象を拒否する。Validation Findingを持つManifestはGraphへ渡さず、Test SymbolはChecker Adapterが取得したTest Catalog登録集合へ閉じる。Annotationは独立したcomment行だけをHintとして認識し、実装へのQA注釈と試験へのARCH注釈を拒否する。
+
+初回是正後の再レビューでは、Graph-level Findingがあっても部分Graphを返す経路と、Test Catalog／Quality Definition読取りが同じRepository境界を通らない経路を検出した。GraphはFinding 0の場合だけ発行し、Catalog／Definition／Sourceは共通のRepository File Observerを介して読む。現在は二回目の是正後再レビュー待ちである。
+
+二回目是正後の再レビューでは、個別Builderは閉じたが、DiscoveryとCatalogのFindingを含む全入力Gate、および`40_Develop`からSubsystem／Manifestまでの上位Directory境界が不足していた。Global Graph Factoryは全入力Findingが0の場合だけGraphを発行し、`40_Develop`、Subsystem、Manifestも共通ObserverでRepository内の通常Directory／Fileとして観測する是正を行った。
+
+三回目の独立再レビューはCritical／Major／Moderate／Minor 0でPassした。全入力Finding Gate、上位Directory境界、Catalog／Definition／Sourceの通常File境界、部分Graph非発行、動的Subsystem参加、Annotation非正本、Checkerと意味監査の責務分離が一致している。Reality Auditは別Gateとして未開始であり、本変更は構造成立を`Covered`、実装済み、試験済みまたは合格済みへ昇格しない。
 
 ## 5. 実装中に検出したConsumer Closure
 
 | 検出 | 原因 | 是正 |
 |---|---|---|
 | 実Gitサブモジュール内の配布Checkerだけが起動時にmodule解決失敗 | 配布fixtureが旧来の単一`crdd-check.ts`だけを複製し、責務分割後の`internal/checker`をConsumer集合へ含めていなかった | 配布入口と内部Checker module群を同じfixtureへ配置し、実サブモジュール経路で起動する契約試験を維持する |
+| Symbol Graph試験の追加後に回帰Runner全体が試験台帳不整合で停止 | 新しい試験Sourceを追加したが、実行可能試験集合の正本であるTest Catalogへ同じ変更単位で登録していなかった | `checker:unit:symbol-graph`を登録し、実在試験、登録試験、実行Ownerのexact一致を先に確認する |
+| 実Gitサブモジュールfixture内でReality Traceability moduleだけが解決不能 | 配布Consumerの複製対象を`internal/checker`へ固定し、新しい依存moduleの閉包を同じ入口から導出していなかった | `internal/reality-traceability`も配布fixtureへ含め、実入口のmodule closureを縦断試験で確認する |
 
 この失敗はCheckerの判定差ではなく、責務移動後の配布Consumer取り残しである。単体のPipeline試験だけで完了とせず、採用Repositoryの実入口まで含む縦断契約で閉じる。
 
