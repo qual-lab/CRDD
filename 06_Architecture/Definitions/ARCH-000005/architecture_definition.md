@@ -46,7 +46,7 @@ Project／Portfolioの状態を根拠と不完全性付きで読む責務と、T
 | UI-000004 | UI | Project Management Projection | UI契約はAuthorityを発行しない。利用者操作: Projectを選ぶ／Task根拠と受入条件を確認する／Objectiveを受け入れる・差し戻す・判断待ちにする／Milestoneを受け入れる・差し戻す・判断待ちにする／根拠を見る／比較する。 | UI契約はEffectを定義しない | Task完了やObjective受入だけからMilestone受入を推定する／欠測や古い値を完全な現在値と誤認する／単一Scoreや欠測した集計で健全性を断定する | Task完了／Objective受入／Milestone受入を別にする / Milestone→目的と受入条件→Task根拠→受入判断 / ；complete／partial／開示制限（restricted）／stale／競合あり（conflicting）／不明（unknown） / プロジェクト→現在投影→不足・競合→情報源→次の判断 / ；complete／partial／開示制限（restricted）／stale／競合あり（conflicting） / Portfolio→差→対象範囲（Coverage）→Project→情報源（Source） /  |
 | SPEC-000006 | SPEC | Project Management Projection | Project情報を閲覧できる主体。投影は正本変更Authorityを持たない | 読取り投影だけを返し、Project正本を変更しない。 | 競合・欠測・開示制限を正常値で補完しない。 | [情報源解決] -> [完全／partial／stale／conflicting]  -> [根拠付きProject View] |
 | SPEC-000007 | SPEC | Project Management Projection | 各Projectを閲覧できる主体。比較から優先順位の決定を自動発行しない | 読取り投影だけを返し、非開示Projectを探索・変更しない。 | 非開示Projectの存在を漏らさず、異なるCoverageを同等と扱わない。 | [比較対象解決] -> [Project別Coverage保持] -> [比較可能／比較不能] |
-| SPEC-000002 | SPEC | Objective／Milestone Acceptance Decision Record | Project運営者がTask根拠からObjective受入を、Objective根拠からMilestone受入を判断する。下位完了から上位受入を推定しない | Objective／Milestoneの受入・差戻し・判断待ちだけを記録する。Task作成やProvider Effectは発行しない | Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合はEffect 0で停止する | Task完了→Objective受入／差戻し／判断待ち→Milestone受入／差戻し／判断待ち |
+| SPEC-000002 | SPEC | Objective／Milestone Acceptance Decision Record | Project運営者がTask根拠からObjective受入を、Objective受入記録からMilestone受入を判断する。下位完了から上位受入を推定しない | Objective／Milestoneの受入・差戻し・判断待ちだけを記録する。Task作成やProvider Effectは発行しない | Task完了からObjective受入を推定した場合、またはObjective差戻し／判断待ちからMilestone判断を開始した場合はEffect 0で停止する | Task完了→Objective受入／差戻し／判断待ち。Objective受入済みだけ→Milestone受入／差戻し／判断待ち |
 
 ## 5. 構造と依存方向
 
@@ -88,7 +88,7 @@ Project／Portfolioの状態を根拠と不完全性付きで読む責務と、T
 - UI-000004: Task完了やObjective受入だけからMilestone受入を推定する／欠測や古い値を完全な現在値と誤認する／単一Scoreや欠測した集計で健全性を断定する Effect: UI契約はEffectを定義しない
 - SPEC-000006: 競合・欠測・開示制限を正常値で補完しない。 Effect: 読取り投影だけを返し、Project正本を変更しない。
 - SPEC-000007: 非開示Projectの存在を漏らさず、異なるCoverageを同等と扱わない。 Effect: 読取り投影だけを返し、非開示Projectを探索・変更しない。
-- SPEC-000002: Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合はEffect 0で停止する Effect: Objective／Milestoneの受入・差戻し・判断待ちだけを記録する。Task作成やProvider Effectは発行しない
+- SPEC-000002: Task完了からObjective受入を推定した場合、Objective差戻し／判断待ちからMilestone判断を開始した場合、またはObjective受入だけからMilestone受入を推定した場合はEffect 0で停止する。Effect: Objective／Milestoneの受入・差戻し・判断待ちだけを記録する。Task作成やProvider Effectは発行しない。
 
 - 入力が固有Recoveryを定義しない場合、Architectureから追加しない。
 - 結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める。
@@ -100,7 +100,7 @@ Project／Portfolioの状態を根拠と不完全性付きで読む責務と、T
 | UI-000004 | Task完了やObjective受入だけからMilestone受入を推定する／欠測や古い値を完全な現在値と誤認する／単一Scoreや欠測した集計で健全性を断定する | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 | SPEC-000006 | 競合・欠測・開示制限を正常値で補完しない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 | SPEC-000007 | 非開示Projectの存在を漏らさず、異なるCoverageを同等と扱わない。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
-| SPEC-000002 | Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合はEffect 0で停止する | 三段階の受入判断と非推定を、委任受付およびTask作成から分けて確認する |
+| SPEC-000002 | Task完了からObjective受入を推定した場合、Objective差戻し／判断待ちからMilestone判断を開始した場合、またはObjective受入だけからMilestone受入を推定した場合はEffect 0で停止する | 受入・差戻し・判断待ちの分離、Objective受入済みだけがMilestone判断へ進むこと、および下位状態からの非推定を、委任受付およびTask作成から分けて確認する |
 
 共通品質を理由に、入力固有の失敗、非該当Effectまたは終了条件を一つの成功状態へまとめない。
 
@@ -127,7 +127,7 @@ Architecture固有の追加人間判断はない。これは入力の未確認�
 
 - 実装は「Project／Milestone／Objective／Task状態と複数Project比較の読取り投影」を所有するCore、Objective／Milestoneの受入判断だけを記録するPort、および外部境界を扱うAdapterを分ける。
 - 対象解決→Source観測→項目別投影→必要時に比較→結果返却を段階的な結合試験で確認する。
-- 受入判断Portは、対象IdentityとProject運営者の明示判断を検証してから、受入・差戻し・判断待ちのいずれか一件だけを記録する。読取り投影Portからの呼出し、Task作成、Provider Effectおよび下位完了からの推定がEffect 0になることを確認する。
+- 受入判断Portは、対象IdentityとProject運営者の明示判断を検証してから、受入・差戻し・判断待ちのいずれか一件だけを記録する。Objective受入済みだけがMilestone判断へ進み、Objective差戻し／判断待ちは同じObjectiveへ戻る。読取り投影Portからの呼出し、Task作成、Provider Effect、下位完了からの推定、およびObjective差戻し／判断待ちからのMilestone判断開始がEffect 0になることを確認する。
 - 受入段階の混同、欠測の正常化、Restricted Sourceの存在漏洩、古い値の現在値化を理由別に反証する。
 - 取消・cleanup・Recoveryは非該当。再観測は新しい読取りとして扱う。
 
@@ -137,6 +137,8 @@ Architecture固有の追加人間判断はない。これは入力の未確認�
 
 - [現行照合先](../../Details/project-operation/01_Architecture.md)
 - [現行照合先](../../Details/cros/01_Architecture.md)
+- [現行照合先](../../Details/project-runtime/01_Architecture.md)
+- [現行照合先](../../Details/mcp/01_Architecture.md)
 
 ## Checklist
 

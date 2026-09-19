@@ -56,7 +56,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|
 | Task lifecycle | ObjectiveとTask identity | 許可された状態遷移 | 競合、親喪失、取消、Effect不明 | state、owner、recovery ID | lease／resource 0または義務 | なし |
-| Objective／Milestone受入判断 | 対象Identity、根拠Revision、Project運営者の明示判断 | 受入・差戻し・判断待ちだけを一度記録 | ProjectionからのAuthority生成、SPEC-000006／000007からの到達、Task作成、Provider Effect、下位完了からの上位受入推定 | decision type、owner、source revision、effect count | 対象Decision Record一件またはEffect 0 | 物理StoreはDevelopmentで選択 |
+| Objective／Milestone受入判断 | 対象Identity、根拠Revision、Project運営者の明示判断 | 受入・差戻し・判断待ちを別状態で一度記録し、Objective受入済みだけがMilestone判断へ進む | ProjectionからのAuthority生成、SPEC-000006／000007からの到達、Task作成、Provider Effect、下位完了からの上位受入推定、Objective差戻し／判断待ちからのMilestone判断開始 | decision type、owner、source revision、effect count | 対象Decision Record一件またはEffect 0。Objective差戻し／判断待ちではMilestone判断Effect 0 | 物理StoreはDevelopmentで選択 |
 | Public Application | 公開DTOとPort | Transport間で同じ意味 | Schemaずれ、内部Path依存 | exact result contract | 内部Effectは所有Portだけ | なし |
 
 ## 現行実装との照合
@@ -202,8 +202,8 @@ Applicationは長時間待機中に短時間Lockを保持しない。Port呼出�
 | 統合準備 | 必要Task結果と候補が相関 | Candidate／State | Accepted Result／停止 | 個別Task成功を統合受入へしない |
 | Recovery | exact義務とfresh owner観測 | Task Recovery／Platform Observation | 再入場／手動処置 | Identityを置換せず、旧世代を再利用しない |
 | 状態投影 | 読取り専用要求 | read-only State | observed／absent／unknown | Effect 0、unknownをabsentへ畳まない |
-| Objective受入判断 | Task根拠とProject運営者の明示判断 | Acceptance Decision | 受入／差戻し／判断待ち | Task完了だけでは記録せずEffect 0。Task作成／Provider Effect 0 |
-| Milestone受入判断 | Objective根拠とProject運営者の明示判断 | Acceptance Decision | 受入／差戻し／判断待ち | Objective受入だけでは記録せずEffect 0。Task作成／Provider Effect 0 |
+| Objective受入判断 | Task根拠とProject運営者の明示判断 | Acceptance Decision | Objective受入済み／Objective差戻し／Objective判断待ち | Task完了だけでは記録せずEffect 0。差戻し／判断待ちは同じObjectiveへ戻り、Milestone判断Effect 0。Task作成／Provider Effect 0 |
+| Milestone受入判断 | Objective受入記録とProject運営者の明示判断 | Acceptance Decision | Milestone受入済み／Milestone差戻し／Milestone判断待ち | Objective受入記録がない場合はEffect 0。受入・差戻し・判断待ちを別状態で保持。Task作成／Provider Effect 0 |
 
 <a id="platform-boundary"></a>
 

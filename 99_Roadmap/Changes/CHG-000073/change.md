@@ -1219,6 +1219,8 @@ Architecture定義の再構築後、Qualityが必要とする検証単位、境�
 
 次の3系統再レビューは、Definitionだけの分離では利用側閉包にならず、Component、Boundary、Runtime／Data Flow、Failure／Recovery、Deployment、Detail AreaおよびQuality引渡しに旧い読取り専用Contractが残っていることを同じ原因として指摘した。横断Architectureと4つの利用側Detailへ二つのPortを伝播し、`ARCH-000005`のQuality引渡しを、読取り投影の`QA-000004`とAcceptance Decision記録の`QA-000003`へ分けた。これにより、投影から判断Authorityを生成しないこと、`SPEC-000006`／`SPEC-000007`から書込みPortへ到達できないこと、明示判断だけをexactな対象へ一度記録すること、判断記録からTask作成・Provider Effectを発生させないことを別々に反証できる。
 
+固定候補`265a8dbc`の再レビューは二Port分離を確認した一方、Objectiveの受入・差戻し・判断待ちを`判断記録済み`へ畳んだ状態遷移により、差戻しまたは判断待ちからMilestone判断へ進めること、およびQualityが既存Task向けLocal ItemへのRelation追加だけでAcceptance Decision経路を実行可能にしていないことを検出した。Objective判断を受入済み・差戻し・判断待ちへ分け、Milestone判断の入口をObjective受入済みだけに限定した。QualityにはAcceptance Decision専用のUT／IT／ST／UAT項目を追加し、Projection由来入力、別対象、古い世代、重複、非推定、限定Store Effect、Task作成0およびProvider Effect 0を具体的な刺激・観測・終了後条件として固定した。現行照合先もDetail Mapと一致する4領域へ閉じた。横断状態遷移とEntity関係は、遷移式の羅列ではなく、箱、縦配置、分岐、戻り経路および禁止経路を分けたテキスト図へ再構成し、厳密な条件は直後の表に保持した。
+
 ### Discovery内容の再確認
 
 Quality設計の一区切り後、工程成果物を上から一工程ずつ読み直す方針へ切り替えた。Discoveryでは28探索と36要求を全数確認し、共通の10章構成へ一括変換すると、既存の良好な因果と転換点が分断されることを確認した。

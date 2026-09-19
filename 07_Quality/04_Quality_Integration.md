@@ -62,7 +62,7 @@ Source IDごとの検証義務は各工程の`Analysis/<工程>/quality_analysis
 |---|---|---|---|
 | [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md) | `RCM-01`、`RCM-02`、`RCM-03`、`RCM-04`、`RCM-05`、`RCM-06` | 6工程のAnalysis §3 | 本書§2／§3とchecker／contract-migration／version-control |
 | [変更と品質状態](Definitions/QA-000002/quality_definition.md) | `CQS-01`、`CQS-02`、`CQS-03`、`CQS-04`、`CQS-05`、`CQS-06`、`CQS-07` | 6工程のAnalysis §3 | 本書§2／§3とquality-change-control |
-| [Project Runtime lifecycle](Definitions/QA-000003/quality_definition.md) | `PRL-01`、`PRL-02`、`PRL-03`、`PRL-04`、`PRL-05`、`PRL-06` | 6工程のAnalysis §3 | 本書§2／§3とproject-runtime／coordinator／platform-access |
+| [Project Runtime lifecycle](Definitions/QA-000003/quality_definition.md) | `PRL-01`、`PRL-02`、`PRL-03`、`PRL-04`、`PRL-05`、`PRL-06`、`PRL-07`、`PRL-08`、`PRL-09`、`PRL-10` | 6工程のAnalysis §3 | 本書§2／§3とproject-runtime／coordinator／platform-access |
 | [投影と出所](Definitions/QA-000004/quality_definition.md) | `PPR-01`、`PPR-02`、`PPR-03`、`PPR-04`、`PPR-05`、`PPR-06`、`PPR-07`、`PPR-08`、`PPR-09` | 6工程のAnalysis §3 | 本書§2／§3とcros／execution-intelligence／mcp／project-operation／project-runtime／runtime-data／version-control |
 | [候補の昇格](Definitions/QA-000005/quality_definition.md) | `CPR-01`、`CPR-02`、`CPR-03`、`CPR-04`、`CPR-05` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／mcp／project-operation |
 | [外部Runtime境界](Definitions/QA-000006/quality_definition.md) | `ERB-01`、`ERB-02`、`ERB-03`、`ERB-04`、`ERB-05` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／platform-access |
