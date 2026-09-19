@@ -4,6 +4,40 @@
   "subsystem": "coordinator",
   "symbols": [
     {
+      "symbolId": "coordinator.task-runtime",
+      "kind": "file",
+      "path": "src/security/coordinator-task-runtime.ts",
+      "archIds": ["ARCH-000004", "ARCH-000008", "ARCH-000015"],
+      "implements": [
+        "coordinator.objective-lifecycle",
+        "coordinator.external-boundary-diagnostics",
+        "coordinator.candidate-review-boundary",
+        "coordinator.recovery-obligation",
+        "coordinator.cleanup-before-result"
+      ]
+    },
+    {
+      "symbolId": "coordinator.provider-authority-runtime",
+      "kind": "file",
+      "path": "src/security/provider-authority-runtime.ts",
+      "archIds": ["ARCH-000004", "ARCH-000015"],
+      "implements": ["coordinator.provider-effect-authority"]
+    },
+    {
+      "symbolId": "coordinator.provider-model-selection-runtime",
+      "kind": "file",
+      "path": "src/security/provider-model-selection-runtime.ts",
+      "archIds": ["ARCH-000010"],
+      "implements": ["coordinator.provider-selection-boundary"]
+    },
+    {
+      "symbolId": "coordinator.native-runtime-trace",
+      "kind": "file",
+      "path": "src/security/native-runtime-trace.ts",
+      "archIds": ["ARCH-000008"],
+      "implements": ["coordinator.external-boundary-diagnostics"]
+    },
+    {
       "symbolId": "coordinator.public-api",
       "kind": "module",
       "path": "src/index.ts",
@@ -15,7 +49,7 @@
       "path": "tests/integration/coordinator-task-process.integration.test.ts",
       "qaIds": ["QA-000003", "QA-000006", "QA-000010"],
       "localTestIds": ["PRL-03", "ERB-01", "AIT-10"],
-      "verifies": ["coordinator.public-api"]
+      "verifies": ["coordinator.task-runtime"]
     }
   ]
 }

@@ -22,6 +22,7 @@ export type RealitySymbol = Readonly<{
   qaIds: readonly string[];
   localTestIds: readonly string[];
   verifies: readonly string[];
+  implements?: readonly string[];
 }>;
 
 export type RealitySymbolManifest = Readonly<{

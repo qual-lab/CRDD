@@ -50,7 +50,9 @@ Group Aは、完成済みのRuntime Data、図面、Evidence、Version Control�
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
 | v0.21 工程成果物Repository Pattern | Adopted | Implementation In Progress | [工程成果物のRepository Pattern](../03_Documentation.md#phase-repository-pattern)、[CHG-000073](Changes/CHG-000073/change.md) | 非専門家が用語集なしで理解できる表示契約へ、規則、ひな型、Checker、既存Discovery／UXを揃えて再レビューする。工程名は正式名を維持し、説明語だけを平易にする。IA以降の物理再編は各工程見直し時に判断する |
-| v0.21 Checker安定化とReality Traceability基盤 | Adopted | Implementation In Progress | [CHG-000074](Changes/CHG-000074/change.md)、[Checker詳細設計](../06_Architecture/Details/checker/01_Architecture.md) | Checkerの現行Finding・CLI・終了値を維持したままPipeline、Artifact Model、Schema、Relation、Rule Registryを分離する。独立レビュー後にSubsystem単位の`symbol.json`、共通Schema、Global Symbol Graphを成立させ、それからReality Auditへ進む |
+| v0.21 Checker安定化とReality Traceability基盤 | Adopted | Complete | [CHG-000074](Changes/CHG-000074/change.md)、[Checker詳細設計](../06_Architecture/Details/checker/01_Architecture.md) | Checker責務分割、9 Subsystemの`symbol.json`、共通Schema、Global Symbol Graphおよび独立レビューを完了した。Reality Auditは本項目から分離する |
+| v0.21 Semantic Coverage基盤 | Adopted | Complete | [CHG-000075](Changes/CHG-000075/change.md)、[Semantic Coverage基盤](../06_Architecture/Details/checker/02_Semantic_Coverage.md) | Coordinator／Project RuntimeのPilot、決定論的Semantic IR、完全修飾したQuality Relation、単一Bundle公開および独立レビューを完了した。Reality Auditは別Gateとして未開始を維持する |
+| v0.21 CRDD Domain Library責務分離 | Adopted | Planned | [Semantic Coverage基盤](../06_Architecture/Details/checker/02_Semantic_Coverage.md)、[CHG-000075](Changes/CHG-000075/change.md) | Semantic Coverage Pilot完了後に、`template/tools/internal/`をChecker固有実装、CRDD共通Domain、CLI基盤へ分類する。Reality Traceability、Semantic IR、Artifact／Relation Model等の再利用能力をChecker所有から外し、MCP／WorkbenchがChecker内部を直接importしない境界を設計する。名前だけの一括置換は行わない |
 
 既に完了したGroup Aの根拠は[CHG-000066](Changes/CHG-000066/change.md)、[CHG-000068](Changes/CHG-000068/change.md)、[CHG-000070](Changes/CHG-000070/change.md)、[CHG-000071](Changes/CHG-000071/change.md)および[CHG-000072](Changes/CHG-000072/change.md)が所有する。
 

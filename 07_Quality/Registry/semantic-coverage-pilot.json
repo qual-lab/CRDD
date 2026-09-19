@@ -1,0 +1,493 @@
+{
+  "contract": "crdd/semantic-coverage-pilot-bundle",
+  "contractRevision": 0,
+  "stability": "pilot",
+  "semanticIrs": [
+    {
+      "contract": "crdd/semantic-ir-pilot",
+      "contractRevision": 0,
+      "stability": "pilot",
+      "subsystem": "coordinator",
+      "sourceDocument": "06_Architecture/Details/coordinator/01_Architecture.md",
+      "sourceSha256": "387625c03eb04ccd60d9fc5a4bfbd41a11453ab182018b96f2af82f25a5e2fd7",
+      "meanings": [
+        {
+          "semanticKey": "coordinator.candidate-review-boundary",
+          "kind": "boundary",
+          "statement": "Providerの生結果を正本へ直接採用せず、隔離候補、Review、必要なRemediationおよびCandidate dispositionを経て利用側へ返す。",
+          "archIds": [
+            "ARCH-000015"
+          ],
+          "verification": "required",
+          "sourceSection": "## 10. Provider実行と候補",
+          "notApplicableReason": null
+        },
+        {
+          "semanticKey": "coordinator.cleanup-before-result",
+          "kind": "resource",
+          "statement": "Process、stream、Container、network、Mount、lock、候補一時領域の終了後状態を確認し、cleanup未確認のまま完了結果を公開しない。",
+          "archIds": [
+            "ARCH-000004",
+            "ARCH-000008"
+          ],
+          "verification": "required",
+          "sourceSection": "## 5. 資源所有",
+          "notApplicableReason": null
+        },
+        {
+          "semanticKey": "coordinator.external-boundary-diagnostics",
+          "kind": "observability",
+          "statement": "Provider、Docker、OS Processおよび結果搬送の要求、開始、完了、失敗、cleanupを同じOperationで相関し、観測不能を成功へ畳まない。",
+          "archIds": [
+            "ARCH-000008"
+          ],
+          "verification": "required",
+          "sourceSection": "### Provider外部境界の診断接続",
+          "notApplicableReason": null
+        },
+        {
+          "semanticKey": "coordinator.objective-lifecycle",
+          "kind": "lifecycle",
+          "statement": "Task／Attemptを要求、許可、Provider実行、Review、候補、cleanup、結果公開へ進め、途中失敗を安全な停止または同じIdentityの回復義務へ収束させる。",
+          "archIds": [
+            "ARCH-000004"
+          ],
+          "verification": "required",
+          "sourceSection": "## 3. 一般Taskの主シーケンス",
+          "notApplicableReason": null
+        },
+        {
+          "semanticKey": "coordinator.provider-effect-authority",
+          "kind": "authority",
+          "statement": "外部送信同意、Task Authority、Provider Effectおよび候補採用を別の決定権限として扱い、必要なAuthorityが揃う前にProvider Effectを開始しない。",
+          "archIds": [
+            "ARCH-000004",
+            "ARCH-000015"
+          ],
+          "verification": "required",
+          "sourceSection": "## 7. Authorityと外部送信",
+          "notApplicableReason": null
+        },
+        {
+          "semanticKey": "coordinator.provider-selection-boundary",
+          "kind": "boundary",
+          "statement": "利用可能性、Task属性、構成、PolicyおよびTrust結果からProvider／ModelをEffect前に選び、選定理由と再選定条件を固定する。",
+          "archIds": [
+            "ARCH-000010"
+          ],
+          "verification": "required",
+          "sourceSection": "## 8. Providerとモデル選定",
+          "notApplicableReason": null
+        },
+        {
+          "semanticKey": "coordinator.recovery-obligation",
+          "kind": "recovery",
+          "statement": "Effectまたはcleanupが不明な場合はexact Recovery IdentityとEvidenceを保持し、別Taskへの再発行や不明状態の正常化を行わない。",
+          "archIds": [
+            "ARCH-000004",
+            "ARCH-000008",
+            "ARCH-000015"
+          ],
+          "verification": "required",
+          "sourceSection": "## 11. 取消と回復",
+          "notApplicableReason": null
+        },
+        {
+          "semanticKey": "coordinator.runtime-trust-consumption",
+          "kind": "trust",
+          "statement": "Runtime Trust Evaluatorの独立した判断を実行Gateで消費し、署名やPublisher一要素から実行許可を生成しない。",
+          "archIds": [
+            "ARCH-000014"
+          ],
+          "verification": "required",
+          "sourceSection": "## 9. 署名済み配布物",
+          "notApplicableReason": null
+        }
+      ]
+    },
+    {
+      "contract": "crdd/semantic-ir-pilot",
+      "contractRevision": 0,
+      "stability": "pilot",
+      "subsystem": "project-runtime",
+      "sourceDocument": "06_Architecture/Details/project-runtime/02_Detailed_Design.md",
+      "sourceSha256": "b21b0db12ee23a90f8c85dafd4a4103f893888ddc2fa963eb9225e32e56b56c6",
+      "meanings": [
+        {
+          "semanticKey": "project-runtime.acceptance-decision-authority",
+          "kind": "authority",
+          "statement": "Objective／Milestoneの受入、差戻し、判断待ちをProject運営者の明示判断として記録し、下位完了やProjectionから受入Authorityを生成しない。",
+          "archIds": [
+            "ARCH-000005"
+          ],
+          "verification": "required",
+          "sourceSection": "## 6. Authority",
+          "notApplicableReason": null
+        },
+        {
+          "semanticKey": "project-runtime.durable-before-effect",
+          "kind": "persistence",
+          "statement": "Task Effectまたは判断適用の前に、Intent、Authority結合、Operation Identityおよび必要なRecovery情報を耐久化する。",
+          "archIds": [
+            "ARCH-000004"
+          ],
+          "verification": "required",
+          "sourceSection": "## 3. 永続Record",
+          "notApplicableReason": null
+        },
+        {
+          "semanticKey": "project-runtime.execution-intelligence-read-model",
+          "kind": "projection",
+          "statement": "Execution Intelligenceを読取り専用Portとして利用し、実行事実と評価候補をProjectのAuthorityや受入判断へ変換しない。",
+          "archIds": [
+            "ARCH-000007"
+          ],
+          "verification": "required",
+          "sourceSection": "## 2. Interface",
+          "notApplicableReason": null
+        },
+        {
+          "semanticKey": "project-runtime.objective-task-lifecycle",
+          "kind": "lifecycle",
+          "statement": "ObjectiveをTaskへ分解し、依存、実行、統合、受入、取消、判断待ちおよび回復をProject-levelの状態として管理する。",
+          "archIds": [
+            "ARCH-000004"
+          ],
+          "verification": "required",
+          "sourceSection": "## 8. 状態機械と遷移",
+          "notApplicableReason": null
+        },
+        {
+          "semanticKey": "project-runtime.project-state-projection",
+          "kind": "projection",
+          "statement": "Task、Queue、Decision、Recovery、ObjectiveおよびMilestoneの状態を、根拠と観測不能を保持したProject Stateへ投影する。",
+          "archIds": [
+            "ARCH-000005"
+          ],
+          "verification": "required",
+          "sourceSection": "## 10. 不変条件",
+          "notApplicableReason": null
+        },
+        {
+          "semanticKey": "project-runtime.queue-lease-lifecycle",
+          "kind": "resource",
+          "statement": "Queue、Project Operation Lease、Scheduler Slotおよび競合予約のOwnerと終了条件を固定し、cleanup不明の資源を再利用しない。",
+          "archIds": [
+            "ARCH-000004"
+          ],
+          "verification": "required",
+          "sourceSection": "## 4. 資源と終了条件",
+          "notApplicableReason": null
+        },
+        {
+          "semanticKey": "project-runtime.recovery-obligation",
+          "kind": "recovery",
+          "statement": "Effectまたはcleanupが不明なTask／Decisionをexact Recovery Identityへ結び、同じ義務の解消または人間移送まで保持する。",
+          "archIds": [
+            "ARCH-000004"
+          ],
+          "verification": "required",
+          "sourceSection": "## 11. 失敗注入",
+          "notApplicableReason": null
+        },
+        {
+          "semanticKey": "project-runtime.task-authority-narrowing",
+          "kind": "authority",
+          "statement": "Project／Milestone／Objective／Task／Attempt／Repository RevisionからTask Authorityを狭め、Coordinatorへ渡した後に拡大させない。",
+          "archIds": [
+            "ARCH-000004"
+          ],
+          "verification": "required",
+          "sourceSection": "## 6. Authority",
+          "notApplicableReason": null
+        },
+        {
+          "semanticKey": "project-runtime.transport-neutral-application-contract",
+          "kind": "boundary",
+          "statement": "CLI、MCPその他のTransportがProject Authorityや成功意味を新設せず、Core所有の公開Application Contractを同じ意味で提供する。",
+          "archIds": [
+            "ARCH-000012"
+          ],
+          "verification": "required",
+          "sourceSection": "## 2. Interface",
+          "notApplicableReason": null
+        }
+      ]
+    }
+  ],
+  "coverage": {
+    "contract": "crdd/semantic-coverage-pilot",
+    "contractRevision": 0,
+    "stability": "pilot",
+    "meanings": [
+      {
+        "semanticKey": "coordinator.candidate-review-boundary",
+        "archIds": [
+          "ARCH-000015"
+        ],
+        "implementationSymbolIds": [
+          "coordinator.task-runtime"
+        ],
+        "implementationObservation": "observed",
+        "qualityLocalIds": [
+          "QA-000005/CPR-01"
+        ],
+        "testSymbolIds": [],
+        "testObservation": "unobserved"
+      },
+      {
+        "semanticKey": "coordinator.cleanup-before-result",
+        "archIds": [
+          "ARCH-000004",
+          "ARCH-000008"
+        ],
+        "implementationSymbolIds": [
+          "coordinator.task-runtime"
+        ],
+        "implementationObservation": "observed",
+        "qualityLocalIds": [
+          "QA-000003/PRL-03"
+        ],
+        "testSymbolIds": [
+          "coordinator.task-process-integration"
+        ],
+        "testObservation": "observed"
+      },
+      {
+        "semanticKey": "coordinator.external-boundary-diagnostics",
+        "archIds": [
+          "ARCH-000008"
+        ],
+        "implementationSymbolIds": [
+          "coordinator.native-runtime-trace",
+          "coordinator.task-runtime"
+        ],
+        "implementationObservation": "observed",
+        "qualityLocalIds": [
+          "QA-000006/ERB-05"
+        ],
+        "testSymbolIds": [],
+        "testObservation": "unobserved"
+      },
+      {
+        "semanticKey": "coordinator.objective-lifecycle",
+        "archIds": [
+          "ARCH-000004"
+        ],
+        "implementationSymbolIds": [
+          "coordinator.task-runtime"
+        ],
+        "implementationObservation": "observed",
+        "qualityLocalIds": [
+          "QA-000003/PRL-01"
+        ],
+        "testSymbolIds": [],
+        "testObservation": "unobserved"
+      },
+      {
+        "semanticKey": "coordinator.provider-effect-authority",
+        "archIds": [
+          "ARCH-000004",
+          "ARCH-000015"
+        ],
+        "implementationSymbolIds": [
+          "coordinator.provider-authority-runtime"
+        ],
+        "implementationObservation": "observed",
+        "qualityLocalIds": [
+          "QA-000003/PRL-05"
+        ],
+        "testSymbolIds": [],
+        "testObservation": "unobserved"
+      },
+      {
+        "semanticKey": "coordinator.provider-selection-boundary",
+        "archIds": [
+          "ARCH-000010"
+        ],
+        "implementationSymbolIds": [
+          "coordinator.provider-model-selection-runtime"
+        ],
+        "implementationObservation": "observed",
+        "qualityLocalIds": [
+          "QA-000006/ERB-06"
+        ],
+        "testSymbolIds": [],
+        "testObservation": "unobserved"
+      },
+      {
+        "semanticKey": "coordinator.recovery-obligation",
+        "archIds": [
+          "ARCH-000004",
+          "ARCH-000008",
+          "ARCH-000015"
+        ],
+        "implementationSymbolIds": [
+          "coordinator.task-runtime"
+        ],
+        "implementationObservation": "observed",
+        "qualityLocalIds": [
+          "QA-000003/PRL-04"
+        ],
+        "testSymbolIds": [],
+        "testObservation": "unobserved"
+      },
+      {
+        "semanticKey": "coordinator.runtime-trust-consumption",
+        "archIds": [
+          "ARCH-000014"
+        ],
+        "implementationSymbolIds": [],
+        "implementationObservation": "unobserved",
+        "qualityLocalIds": [
+          "QA-000010/AIT-01"
+        ],
+        "testSymbolIds": [],
+        "testObservation": "unobserved"
+      },
+      {
+        "semanticKey": "project-runtime.acceptance-decision-authority",
+        "archIds": [
+          "ARCH-000005"
+        ],
+        "implementationSymbolIds": [
+          "project-runtime.state-core"
+        ],
+        "implementationObservation": "observed",
+        "qualityLocalIds": [
+          "QA-000003/PRL-07"
+        ],
+        "testSymbolIds": [
+          "project-runtime.objective-intake-unit"
+        ],
+        "testObservation": "observed"
+      },
+      {
+        "semanticKey": "project-runtime.durable-before-effect",
+        "archIds": [
+          "ARCH-000004"
+        ],
+        "implementationSymbolIds": [
+          "project-runtime.execution",
+          "project-runtime.objective-application"
+        ],
+        "implementationObservation": "observed",
+        "qualityLocalIds": [
+          "QA-000003/PRL-04"
+        ],
+        "testSymbolIds": [],
+        "testObservation": "unobserved"
+      },
+      {
+        "semanticKey": "project-runtime.execution-intelligence-read-model",
+        "archIds": [
+          "ARCH-000007"
+        ],
+        "implementationSymbolIds": [
+          "project-runtime.execution-observation-port"
+        ],
+        "implementationObservation": "observed",
+        "qualityLocalIds": [
+          "QA-000004/PPR-08"
+        ],
+        "testSymbolIds": [],
+        "testObservation": "unobserved"
+      },
+      {
+        "semanticKey": "project-runtime.objective-task-lifecycle",
+        "archIds": [
+          "ARCH-000004"
+        ],
+        "implementationSymbolIds": [
+          "project-runtime.objective-application",
+          "project-runtime.state-core"
+        ],
+        "implementationObservation": "observed",
+        "qualityLocalIds": [
+          "QA-000003/PRL-01"
+        ],
+        "testSymbolIds": [
+          "project-runtime.objective-intake-unit"
+        ],
+        "testObservation": "observed"
+      },
+      {
+        "semanticKey": "project-runtime.project-state-projection",
+        "archIds": [
+          "ARCH-000005"
+        ],
+        "implementationSymbolIds": [
+          "project-runtime.state-core"
+        ],
+        "implementationObservation": "observed",
+        "qualityLocalIds": [
+          "QA-000004/PPR-01"
+        ],
+        "testSymbolIds": [],
+        "testObservation": "unobserved"
+      },
+      {
+        "semanticKey": "project-runtime.queue-lease-lifecycle",
+        "archIds": [
+          "ARCH-000004"
+        ],
+        "implementationSymbolIds": [
+          "project-runtime.objective-application",
+          "project-runtime.state-core"
+        ],
+        "implementationObservation": "observed",
+        "qualityLocalIds": [
+          "QA-000003/PRL-11"
+        ],
+        "testSymbolIds": [],
+        "testObservation": "unobserved"
+      },
+      {
+        "semanticKey": "project-runtime.recovery-obligation",
+        "archIds": [
+          "ARCH-000004"
+        ],
+        "implementationSymbolIds": [
+          "project-runtime.objective-application",
+          "project-runtime.state-core"
+        ],
+        "implementationObservation": "observed",
+        "qualityLocalIds": [
+          "QA-000003/PRL-04"
+        ],
+        "testSymbolIds": [],
+        "testObservation": "unobserved"
+      },
+      {
+        "semanticKey": "project-runtime.task-authority-narrowing",
+        "archIds": [
+          "ARCH-000004"
+        ],
+        "implementationSymbolIds": [
+          "project-runtime.objective-intake"
+        ],
+        "implementationObservation": "observed",
+        "qualityLocalIds": [
+          "QA-000003/PRL-05"
+        ],
+        "testSymbolIds": [],
+        "testObservation": "unobserved"
+      },
+      {
+        "semanticKey": "project-runtime.transport-neutral-application-contract",
+        "archIds": [
+          "ARCH-000012"
+        ],
+        "implementationSymbolIds": [
+          "project-runtime.public-api"
+        ],
+        "implementationObservation": "observed",
+        "qualityLocalIds": [
+          "QA-000003/PRL-12"
+        ],
+        "testSymbolIds": [],
+        "testObservation": "unobserved"
+      }
+    ]
+  }
+}

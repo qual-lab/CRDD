@@ -73,7 +73,7 @@ Quality ID: `QA-000003`
 | 状態区分 | 適用 | 対応Local Item | 判断理由 |
 |---|---|---|---|
 | 正常 | Required | PRL-01、PRL-09 | 通常実行と受入判断を確認する |
-| 準正常／境界 | Required | PRL-02、PRL-03、PRL-06、PRL-07、PRL-10 | 待機、判断待ち、取消、再開、利用者判断を区別する |
+| 準正常／境界 | Required | PRL-02、PRL-03、PRL-06、PRL-07、PRL-10、PRL-11、PRL-12 | 待機、判断待ち、取消、再開、利用者判断、資源競合およびTransport差を区別する |
 | 異常 | Required | PRL-08 | 競合する完了通知を拒否する |
 | 判定不能 | Required | PRL-04、PRL-05 | Effectや残存状態が不明な場合に回復義務を保持する |
 
@@ -91,6 +91,22 @@ Quality ID: `QA-000003`
 | `PRL-08` | 異常 | IT | Contract／Authorization | Projection／SPEC入力→Acceptance Decision Port→Decision Store | Direct Boundary | SPEC-000006／000007、Projection由来入力、別対象、古い世代、重複判断、権限不一致と、SPEC-000002の明示判断 | 各入力でObjective／Milestone判断記録を要求する | PRL-08として、「各入力でObjective／Milestone判断記録を要求する」前後のProjection／SPEC入力→Acceptance Decision Port→Decision Storeについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | SPEC-000002のexactな対象・世代・Authorityだけを一度記録し、その他を理由別にEffect 0で拒否する | PRL-08、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「SPEC-000002のexactな対象・世代・Authorityだけを一度記録し、その他を理由別にEffect 0で拒否する」および終了後条件「成功時は対象Decision Record一件だけ。Task作成／Provider Effect 0」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 成功時は対象Decision Record一件だけ。Task作成／Provider Effect 0 | Automated |
 | `PRL-09` | 正常 | ST | Scenario／Acceptance Decision | 公開入口→Project Runtime→Acceptance Decision Store→状態投影 | System/E2E | Task根拠、受入条件、Objective／Milestone Identity、Project運営者Authority、Effect Observer | Objectiveを受け入れた後にMilestoneを受入・差戻し・判断待ちへ分岐する | PRL-09として、「Objectiveを受け入れた後にMilestoneを受入・差戻し・判断待ちへ分岐する」前後の公開入口→Project Runtime→Acceptance Decision Store→状態投影について、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 同じProject／対象Identityで各判断が一度記録され、投影は記録結果を読取るだけでAuthorityを生成しない | PRL-09、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「同じProject／対象Identityで各判断が一度記録され、投影は記録結果を読取るだけでAuthorityを生成しない」および終了後条件「Decision Record以外の正本更新、Task作成、Provider Effect 0」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | Decision Record以外の正本更新、Task作成、Provider Effect 0 | Automated |
 | `PRL-10` | 利用者判断 | UAT | Acceptance／Non-inference | Project運営者→Objective判断→Milestone判断 | User Acceptance | Task完了、Objective差戻し、Objective判断待ち、Objective受入済みの各Project View | 利用者がObjective／Milestoneの次の判断を選ぶ | PRL-10として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | Task完了だけではObjective受入にならず、Objective差戻し／判断待ちではMilestone判断へ進めず、Objective受入済みでだけMilestone判断を選べる | PRL-10、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「Task完了だけではObjective受入にならず、Objective差戻し／判断待ちではMilestone判断へ進めず、Objective受入済みでだけMilestone判断を選べる」および終了後条件「利用者の明示判断前はDecision Record、Task、Provider Effect 0」を保存する | 利用者の明示判断前はDecision Record、Task、Provider Effect 0 | Manual |
+| `PRL-11` | 境界 | IT | Resource Lifecycle／Concurrency | Queue→Project Operation Lease→Scheduler Slot→Task開始 | Related 2 Blocks | 同じProjectの競合予約、期限切れLease、cleanup不明Leaseおよび利用可能Slot | 予約、更新、解放および再利用を要求する | Queue Item、Lease、Slot、TaskのIdentity、Owner、世代、状態遷移、解放確認およびEffect件数を記録する | 同じOwner・世代だけがLeaseを更新・解放でき、cleanup不明または期限切れを安全確認なしに再利用しない | PRL-11、各資源Identity、Owner・世代、状態遷移、解放確認、競合理由、Effect件数およびOracle判定を保存する | 正常完了時はLease／Slot残存0。観測不能時は再利用せず回復義務を保持する | Automated |
+| `PRL-12` | 境界 | IT | Application Contract／Transport | CLI・MCP Adapter→Project Runtime Application Port→Core | Related 2 Blocks | 同一のProject Authority、入力、Core結果と、Authority追加・成功意味変更・field欠落を含むTransport反例 | CLIとMCPから同じApplication Operationを要求する | Adapter入力、Core入力、Authority差分、Core結果、公開結果、Effect件数および拒否理由をTransport間で比較する | TransportはAuthority、成功条件または回復意味を新設せず、同じCore Contractを保つ | PRL-12、Transport別入力・結果、Authority差分、Effect件数、拒否理由およびOracle判定を保存する | 正常時は同じCore Effect一件。反例ではCore Effect 0 | Automated |
+
+## Semantic Coverage Pilot
+
+この表はQuality Local Itemが検証する設計上の意味だけを正方向で宣言する。逆方向の一覧は生成し、本文の類似表現から推測しない。
+
+| Local ID | Semantic Key |
+|---|---|
+| `PRL-01` | `coordinator.objective-lifecycle`<br>`project-runtime.objective-task-lifecycle` |
+| `PRL-03` | `coordinator.cleanup-before-result` |
+| `PRL-04` | `coordinator.recovery-obligation`<br>`project-runtime.durable-before-effect`<br>`project-runtime.recovery-obligation` |
+| `PRL-05` | `coordinator.provider-effect-authority`<br>`project-runtime.task-authority-narrowing` |
+| `PRL-07` | `project-runtime.acceptance-decision-authority` |
+| `PRL-11` | `project-runtime.queue-lease-lifecycle` |
+| `PRL-12` | `project-runtime.transport-neutral-application-contract` |
 
 ## 5. 評価とEvidence
 

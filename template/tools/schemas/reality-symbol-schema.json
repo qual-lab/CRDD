@@ -70,6 +70,14 @@
             "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$"
           },
           "uniqueItems": true
+        },
+        "implements": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)+$"
+          },
+          "uniqueItems": true
         }
       },
       "allOf": [
@@ -92,8 +100,9 @@
             "properties": {
               "archIds": { "minItems": 1 },
               "qaIds": { "maxItems": 0 },
-              "localTestIds": { "maxItems": 0 },
-              "verifies": { "maxItems": 0 }
+            "localTestIds": { "maxItems": 0 },
+            "verifies": { "maxItems": 0 },
+            "implements": { "maxItems": 0 }
             }
           }
         }

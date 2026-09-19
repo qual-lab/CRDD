@@ -13,6 +13,8 @@ const SYMBOL_ID_PATTERN = /^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$/u;
 const ARCH_ID_PATTERN = /^ARCH-[0-9]{6}$/u;
 const QA_ID_PATTERN = /^QA-[0-9]{6}$/u;
 const LOCAL_TEST_ID_PATTERN = /^[A-Z][A-Z0-9]*-[0-9]{2,6}$/u;
+const SEMANTIC_KEY_PATTERN =
+  /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)+$/u;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -134,6 +136,7 @@ export function validateRealitySymbolManifest(
     "qaIds",
     "localTestIds",
     "verifies",
+    "implements",
   ]);
   for (const [index, rawSymbol] of rawSymbols.entries()) {
     const location = `${manifestPath}#symbols[${index}]`;
@@ -202,6 +205,13 @@ export function validateRealitySymbolManifest(
       location,
       findings,
     );
+    const implementsMeanings = readUniqueStrings(
+      rawSymbol,
+      "implements",
+      SEMANTIC_KEY_PATTERN,
+      location,
+      findings,
+    );
     const isTestSymbol = kind === "test-suite" || kind === "test-case";
     if (isTestSymbol && (qaIds.length === 0 || verifies.length === 0))
       findings.push({
@@ -226,6 +236,12 @@ export function validateRealitySymbolManifest(
         message:
           "Implementation symbols must not own qaIds, localTestIds, or verifies relations.",
       });
+    if (isTestSymbol && implementsMeanings.length > 0)
+      findings.push({
+        code: "symbol-manifest-test-meaning-relation-invalid",
+        path: location,
+        message: "Test symbols must not own implements relations.",
+      });
     if (
       SYMBOL_ID_PATTERN.test(symbolId) &&
       realitySymbolKinds.includes(kind as RealitySymbolKind) &&
@@ -239,6 +255,7 @@ export function validateRealitySymbolManifest(
         qaIds,
         localTestIds,
         verifies,
+        implements: implementsMeanings,
       });
   }
   return {

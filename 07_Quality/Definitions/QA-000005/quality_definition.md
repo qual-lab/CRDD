@@ -72,6 +72,14 @@ Quality ID: `QA-000005`
 | `CPR-04` | 異常 | IT | Security／Authority | Candidate Store→Authority Gate→正本Writer | Related 2 Blocks | 権限なし自動採用、出所不明、別依頼結果、Owner不明の各反例 | 各反例から正本反映を要求する | CPR-04として、「各反例から正本反映を要求する」前後のCandidate Store→Authority Gate→正本Writerについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 採用を拒否し、候補の隔離と原の正本を保持 | CPR-04、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「採用を拒否し、候補の隔離と原の正本を保持」および終了後条件「追加送信・正本Effect 0」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 追加送信・正本Effect 0 | Automated |
 | `CPR-05` | 正常 | ST | Scenario／Promotion | Meeting観測→候補→人間判断→所有正本 | System/E2E | 同じMeetingから抽出した既存Topic候補、新規Topic候補、不採用候補 | 各候補を作成し、採否を分けて処置する | CPR-05として、「各候補を作成し、採否を分けて処置する」前後のMeeting観測→候補→人間判断→所有正本について、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 時点記録を保ち、採用分だけ所有正本へ一度反映する | CPR-05、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「時点記録を保ち、採用分だけ所有正本へ一度反映する」および終了後条件「未採用候補と正本を混同せず、重複反映0」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 未採用候補と正本を混同せず、重複反映0 | Hybrid |
 
+## Semantic Coverage Pilot
+
+この表はQuality Local Itemが検証する設計上の意味だけを正方向で宣言する。逆方向の一覧は生成し、本文の類似表現から推測しない。
+
+| Local ID | Semantic Key |
+|---|---|
+| `CPR-01` | `coordinator.candidate-review-boundary` |
+
 ## 5. 評価とEvidence
 
 候補生成の成功を正本反映の成功にしない。Evidenceは候補の出所、人間判断、対象Owner、実際の反映範囲、却下／失敗時のEffect 0を別々に記録する。

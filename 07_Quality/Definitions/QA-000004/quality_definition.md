@@ -78,6 +78,15 @@ Quality ID: `QA-000004`
 | `PPR-09` | 利用者判断 | UAT | Acceptance／History | 現在情報・履歴・置換済み情報→利用者判断 | User Acceptance | current、historical、superseded、unknownと、異なる発生時点・根拠を含む情報 | 利用者が現在の仕事へ使う情報と参照だけに使う履歴を選ぶ | PPR-09として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | 古い仮説や判断を現在値へ昇格せず、選択理由と根拠を説明できる | PPR-09、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「古い仮説や判断を現在値へ昇格せず、選択理由と根拠を説明できる」および終了後条件「履歴・現在正本Effect 0」を保存する | 履歴・現在正本Effect 0 | Manual |
 | `PPR-10` | 境界 | IT | Timing／Provenance | Clock Source→実行記録→Projector | Related 2 Blocks | 同一対象・異なるSource Revisionに、進行、遅延、逆行、欠落したObserved Atを与える固定入力 | Clock差と到着順を変えて現在値・履歴・unknownを投影する | PPR-10として、Source Revision、Clock種別、Observed At、到着順、算出した現行性、理由codeおよび正本Effect件数を記録する | Clock差や到着順だけで古い記録を現在値へ昇格せず、比較不能はunknownと理由付きで返す | PPR-10、固定したClock条件・Source Revision・Observed At・到着順、投影結果、理由code、Oracle判定および終了後の正本Effect 0を保存する。Hostの絶対Pathと不要な時刻情報は保存しない | 入力記録不変、正本Effect 0 | Automated |
 
+## Semantic Coverage Pilot
+
+この表はQuality Local Itemが検証する設計上の意味だけを正方向で宣言する。逆方向の一覧は生成し、本文の類似表現から推測しない。
+
+| Local ID | Semantic Key |
+|---|---|
+| `PPR-01` | `project-runtime.project-state-projection` |
+| `PPR-08` | `project-runtime.execution-intelligence-read-model` |
+
 ## 4. 評価と終了後条件
 
 Passは、各項目の値とその出所／不完全性が同じ相関で返り、読取りがSourceや正本を書き換えず、利用側が欠測を現在値と誤認しない根拠がある場合とする。表示の理解性はSystem Verificationで別に確認する。

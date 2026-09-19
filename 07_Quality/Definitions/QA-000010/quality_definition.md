@@ -74,6 +74,14 @@ Quality ID: `QA-000010`
 | `AIT-09` | 境界 | IT | Result Boundary／Responsibility | Signer結果→Coordinator配置契約 | Direct Boundary | 正常Signer結果と、Manifest Path・配置・公開fieldを混入した反例 | Signer結果Schemaと利用側契約を検査する | Signer結果field集合、拒否理由、Signer／配置Effect件数を記録する | Signerは署名値・Publisher・対象Identityだけを返し、Manifest生成・配置・公開判断を所有しない | AIT-09、field集合、Schema判定、拒否理由、Effect件数を保存する | 不正field時の署名・配置Effect 0 | Automated |
 | `AIT-10` | 正常／異常 | ST | Promotion／Single Snapshot／Recovery | 単一Snapshot→署名→staging→Manifest配置→promotion→明示破棄 | System/E2E | 固定Snapshotと正常入力に加え、Distribution Root差、署名対象一件欠落、途中段階だけ別Snapshot、配置前後の各故障注入点 | 正常promotion、各反例、各配置故障、promotion後の明示破棄を個別に実行する | 各段階のSnapshot／staging／file object Identity、Distribution Root、対象集合、byte数、Hash、配置Effect、promotion後staging状態、明示破棄Effect、失敗段階、回復義務を記録する | Root差・対象漏れ・Snapshot混入は署名／配置Effect 0。正常時はstagingと最終Pathが同一file objectでbyte数・Hash一致。破棄は別Effectとして完了する | AIT-10、各Identity、Root・対象集合、byte数・Hash、段階別Effect、promotion後staging状態、明示破棄、失敗理由、回復義務を保存する | promotion完了時は二名同一objectを許可する。明示破棄完了時だけ最終Path単独。失敗時はexact回復Identityを保持する | Automated |
 
+## Semantic Coverage Pilot
+
+この表はQuality Local Itemが検証する設計上の意味だけを正方向で宣言する。逆方向の一覧は生成し、本文の類似表現から推測しない。
+
+| Local ID | Semantic Key |
+|---|---|
+| `AIT-01` | `coordinator.runtime-trust-consumption` |
+
 ## 5. 署名入口とEvidence
 
 秘密入力前に非秘密の全検査を実行し、失敗時は鍵読取り、署名、配置およびAuthority発行を行わない。Evidenceは署名値や鍵を保持せず、検証した軸、対象Identity／Hash、Policy判定、非発行または後続Gateへの引き渡しを保持する。

@@ -10,17 +10,17 @@
 |---|---:|
 | Canonical入力 | 157 |
 | Quality検証目標 | 13 |
-| Local Item数 | 110 |
+| Local Item数 | 112 |
 
 ## 結論
 
-v0.21.0のQuality設計は、全Canonical入力から検証目標とLocal Itemを導出し、独立レビューを通過した。13定義、110 Local Item、Architecture詳細設計の検証単位およびSource固有条件はCanonicalな設計集合として固定済みである。実装、試験、実行結果との現実照合（Reality Audit）は開始していない。
+v0.21.0のQuality設計は、全Canonical入力から検証目標とLocal Itemを導出し、独立レビューを通過した。13定義、112 Local Item、Architecture詳細設計の検証単位およびSource固有条件はCanonicalな設計集合として固定済みである。実装、試験、実行結果との現実照合（Reality Audit）は開始していない。
 
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|
 | Canonical入力 | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18を全件Mapping済み | [Quality Integration](04_Quality_Integration.md) |
 | Quality Analysis | 6工程の全入力を、Source固有条件付きで13検証目標へ接続し、独立レビュー済み | Reality Auditではこの設計集合を変更せず、現行実装との対応を照合する |
-| Quality Definitions | 13定義、110 Local ItemをCanonical化済み | 各項目の状態区分、試験段階、外部境界到達範囲、観測、Oracle、Evidenceおよび終了後条件を基準に照合する |
+| Quality Definitions | 13定義、112 Local ItemをCanonical化済み | 各項目の状態区分、試験段階、外部境界到達範囲、観測、Oracle、Evidenceおよび終了後条件を基準に照合する |
 | Architecture詳細設計 | 全詳細設計領域の43検証単位をQualityへ接続済み | Local Itemとの集合一致を維持し、未確認の実境界はReality Auditで判定する |
 | Checker | 現在候補に対する構造・関係検査を実行 | Quality固定後にChecker安定化へ進み、責務分離後に再検証する |
 | Reality Audit | Pending — Not Started | Quality独立レビュー済み。Checker安定化とSymbol Traceability基盤の完了後に開始する |
@@ -31,7 +31,7 @@ v0.21.0のQuality設計は、全Canonical入力から検証目標とLocal Item�
 |---|---|---|
 | Designed | Canonical | Quality Ready、実装済みまたは試験可能とは主張しない |
 | Implemented | 未照合 | SourceやTestの存在をCanonical設計の実装根拠にしない |
-| Executed | 未実行 | Checker契約試験を110 Local Itemの実行結果へ数えない |
+| Executed | 未実行 | Checker契約試験を112 Local Itemの実行結果へ数えない |
 | Passed | 未評価 | 過去版のPassをv0.21.0候補へ流用しない |
 | Evidence | 未収集 | 現在候補の対象改訂版・実行条件・結果を持つEvidenceがあるとは主張しない |
 | Reality Audit | Pending — Not Started | Source、Test、Registryとの照合を先取りしない |

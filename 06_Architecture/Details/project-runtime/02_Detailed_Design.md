@@ -388,5 +388,21 @@
 - 上位アーキテクチャ、本書、機械対応、実装および試験のIDが相互に解決できる。
 - Interface、Record、資源、Lock、Authority、Effect、状態遷移、不変条件および失敗注入点に孤立がない。
 - 実装済み、部分接続、未実装を区別し、部分成立を上位Capability完成へ読み替えない。
+
+## 14. 機械生成する意味要素
+
+次の表はSemantic IR Pilotの入力である。表から抽出できない意味を生成器やAIが補完しない。Semantic Keyと種別はPilot用であり、[Semantic Coverage基盤](../checker/02_Semantic_Coverage.md)の評価後に固定する。
+
+| Semantic Key | 種別 | 要求する意味 | Architecture定義 | 検証要否 | 根拠節 | N/A理由 |
+|---|---|---|---|---|---|---|
+| `project-runtime.objective-task-lifecycle` | `lifecycle` | ObjectiveをTaskへ分解し、依存、実行、統合、受入、取消、判断待ちおよび回復をProject-levelの状態として管理する。 | `ARCH-000004` | `Required` | `## 8. 状態機械と遷移` | — |
+| `project-runtime.project-state-projection` | `projection` | Task、Queue、Decision、Recovery、ObjectiveおよびMilestoneの状態を、根拠と観測不能を保持したProject Stateへ投影する。 | `ARCH-000005` | `Required` | `## 10. 不変条件` | — |
+| `project-runtime.acceptance-decision-authority` | `authority` | Objective／Milestoneの受入、差戻し、判断待ちをProject運営者の明示判断として記録し、下位完了やProjectionから受入Authorityを生成しない。 | `ARCH-000005` | `Required` | `## 6. Authority` | — |
+| `project-runtime.task-authority-narrowing` | `authority` | Project／Milestone／Objective／Task／Attempt／Repository RevisionからTask Authorityを狭め、Coordinatorへ渡した後に拡大させない。 | `ARCH-000004` | `Required` | `## 6. Authority` | — |
+| `project-runtime.durable-before-effect` | `persistence` | Task Effectまたは判断適用の前に、Intent、Authority結合、Operation Identityおよび必要なRecovery情報を耐久化する。 | `ARCH-000004` | `Required` | `## 3. 永続Record` | — |
+| `project-runtime.queue-lease-lifecycle` | `resource` | Queue、Project Operation Lease、Scheduler Slotおよび競合予約のOwnerと終了条件を固定し、cleanup不明の資源を再利用しない。 | `ARCH-000004` | `Required` | `## 4. 資源と終了条件` | — |
+| `project-runtime.recovery-obligation` | `recovery` | Effectまたはcleanupが不明なTask／Decisionをexact Recovery Identityへ結び、同じ義務の解消または人間移送まで保持する。 | `ARCH-000004` | `Required` | `## 11. 失敗注入` | — |
+| `project-runtime.transport-neutral-application-contract` | `boundary` | CLI、MCPその他のTransportがProject Authorityや成功意味を新設せず、Core所有の公開Application Contractを同じ意味で提供する。 | `ARCH-000012` | `Required` | `## 2. Interface` | — |
+| `project-runtime.execution-intelligence-read-model` | `projection` | Execution Intelligenceを読取り専用Portとして利用し、実行事実と評価候補をProjectのAuthorityや受入判断へ変換しない。 | `ARCH-000007` | `Required` | `## 2. Interface` | — |
 - 正常・準正常・異常および実境界の検証が、対象CapabilityのLifecycleを閉じる。
 - 現行設計の変更時は本書を更新し、旧版の別文書を現行Treeへ追加しない。

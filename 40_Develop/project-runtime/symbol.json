@@ -4,10 +4,57 @@
   "subsystem": "project-runtime",
   "symbols": [
     {
+      "symbolId": "project-runtime.objective-application",
+      "kind": "file",
+      "path": "src/application/project-runtime-objective-application.ts",
+      "archIds": ["ARCH-000004"],
+      "implements": [
+        "project-runtime.objective-task-lifecycle",
+        "project-runtime.durable-before-effect",
+        "project-runtime.queue-lease-lifecycle",
+        "project-runtime.recovery-obligation"
+      ]
+    },
+    {
+      "symbolId": "project-runtime.state-core",
+      "kind": "file",
+      "path": "src/core/project-runtime-state.ts",
+      "archIds": ["ARCH-000004", "ARCH-000005"],
+      "implements": [
+        "project-runtime.objective-task-lifecycle",
+        "project-runtime.project-state-projection",
+        "project-runtime.acceptance-decision-authority",
+        "project-runtime.queue-lease-lifecycle",
+        "project-runtime.recovery-obligation"
+      ]
+    },
+    {
+      "symbolId": "project-runtime.objective-intake",
+      "kind": "file",
+      "path": "src/application/project-runtime-objective-intake.ts",
+      "archIds": ["ARCH-000004"],
+      "implements": ["project-runtime.task-authority-narrowing"]
+    },
+    {
+      "symbolId": "project-runtime.execution",
+      "kind": "file",
+      "path": "src/application/project-runtime-execution.ts",
+      "archIds": ["ARCH-000004"],
+      "implements": ["project-runtime.durable-before-effect"]
+    },
+    {
+      "symbolId": "project-runtime.execution-observation-port",
+      "kind": "file",
+      "path": "src/ports/execution-observation-port.ts",
+      "archIds": ["ARCH-000007"],
+      "implements": ["project-runtime.execution-intelligence-read-model"]
+    },
+    {
       "symbolId": "project-runtime.public-api",
       "kind": "module",
       "path": "src/index.ts",
-      "archIds": ["ARCH-000004", "ARCH-000005", "ARCH-000007", "ARCH-000012"]
+      "archIds": ["ARCH-000004", "ARCH-000005", "ARCH-000007", "ARCH-000012"],
+      "implements": ["project-runtime.transport-neutral-application-contract"]
     },
     {
       "symbolId": "project-runtime.objective-intake-unit",
@@ -15,7 +62,10 @@
       "path": "tests/unit/objective-intake.contract.test.ts",
       "qaIds": ["QA-000003", "QA-000004"],
       "localTestIds": ["PRL-01", "PRL-07", "PPR-06"],
-      "verifies": ["project-runtime.public-api"]
+      "verifies": [
+        "project-runtime.objective-intake",
+        "project-runtime.state-core"
+      ]
     }
   ]
 }

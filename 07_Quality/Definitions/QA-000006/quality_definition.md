@@ -83,6 +83,15 @@ Quality ID: `QA-000006`
 | `ERB-10` | 正常／境界 | IT | CROS Handoff／Continuation | Source Runtime→Handoff記録→Destination Runtime | Related 2 Blocks | 正常Contextに加え、Task／Project Identity不一致、Revision不一致、必須Context欠落、Authority追加、再構成不能Contextの各固定入力 | 各ContextでHandoffを発行し別Runtimeから再入場する | Handoff Identity、Task／Project Identity、Revision、必須Context充足、Authority差分、Effect件数、拒否理由、再入場結果を両Runtimeで相関する | 正常時はIdentityとRevisionを保持する。不完全・不一致・Authority拡大時は推測補完も完了扱いもせず、同じHandoff Identityで不足を返す | ERB-10、両Runtimeの相関Identity、Revision、必須Context判定、Authority差分、Effect件数、拒否理由、再入場結果を保存する | 正常時は送信元の所有資源0・重複Effect 0。拒否時はDestination Effect 0 | Automated |
 | `ERB-11` | 正常／異常 | ST | Docker Session Handoff／Recovery | repair・restart→handoff chain→別Session／Runtime→closure | System/E2E | repair／restart／handoff Identity、Source／Destination Session Identity、Runtime Execution Identity、origin・adoption・tip・closure、Host資源観測と、別Session混入・Identity不一致・循環・分岐・番号飛び・上限超過・記録欠落・旧Effect再発行要求 | 正常chainと各反例で別Session／Runtimeへの継続を要求する | chain全要素と順序、各Identity、Effect件数、Engine／Host資源、exact回復義務、拒否理由を記録する | 正常時だけ同じ義務を順序付きで継続する。不正chainはEffect 0、旧Host Effectを再発行せず、不明時は同じIdentityで回復義務を保持する | ERB-11、chain、Identity、Effect件数、Engine／Host状態、回復義務、拒否理由、Oracleを保存する | 不正・不明時Host Effect 0。正常完了時は旧Session所有資源0 | Automated |
 
+## Semantic Coverage Pilot
+
+この表はQuality Local Itemが検証する設計上の意味だけを正方向で宣言する。逆方向の一覧は生成し、本文の類似表現から推測しない。
+
+| Local ID | Semantic Key |
+|---|---|
+| `ERB-05` | `coordinator.external-boundary-diagnostics` |
+| `ERB-06` | `coordinator.provider-selection-boundary` |
+
 ## 5. 段階的結合と評価
 
 固定Fakeによる状態遷移、実CLI／Processとの直接境界、関連1〜2 block、必要な公開入口STの順で確認する。低い層のPassを実AI Provider、実Network、課金、公開Capabilityの成立に流用しない。

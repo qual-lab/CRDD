@@ -3732,6 +3732,25 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "checker:unit:semantic-coverage-pilot",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/semantic-coverage-pilot.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "architecture",
+        "semantic-coverage",
+        "migration-inventory"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "legacy_runtime_fields_classified_without_semantic_inference"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "platform-access:unit:protocol",
       "owner": "platform-access",
       "path": "40_Develop/platform-access/src/protocol.rs",
