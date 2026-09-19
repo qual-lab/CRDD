@@ -1,4 +1,4 @@
-# Project・Portfolio状態投影のArchitecture定義
+# Project・Portfolio状態投影と受入判断記録のArchitecture定義
 
 成果物種別: Architecture定義
 Architecture ID: `ARCH-000005`
@@ -51,11 +51,10 @@ Project／Portfolioの状態を根拠と不完全性付きで読む責務と、T
 ## 5. 構造と依存方向
 
 ```text
-                         [Project Operation Sources]
-                                   │
-                    ┌──────────────┴──────────────┐
-                    ▼                             ▼
-       [Project Management Projection]   [Acceptance Decision Port]
+ [Project Operation Sources]                 [Project運営者の明示判断]
+            │ 判断根拠                                  │ Authority
+            ▼                                           ▼
+ [Project Management Projection]             [Acceptance Decision Port]
        Owner: 読取り投影                  Owner: Objective／Milestone
        Input: SPEC-000006／000007          Acceptance Decision Record
        Effect: 正本変更なし                Input: SPEC-000002
@@ -120,7 +119,7 @@ Architecture固有の追加人間判断はない。これは入力の未確認�
 
 | 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |
 |---|---|---|---|---|---|
-| 基準版なし | なし（v0.21新規） | Project Management Projection | 新規 | 実装Evidence未作成 | 物理SchemaとWorkbench実測が未接続 |
+| 基準版なし | なし（v0.21新規） | Project Management Projection／Objective・Milestone Acceptance Decision Record | 新規 | 実装Evidence未作成 | 読取り投影の物理Schema／Workbench実測と、受入判断Port／Recordの実装・試験Evidenceが未接続 |
 
 現行設計はこの比較だけに使い、UI／SPECにない望ましい意味を補わない。新規責務は基準版能力や実装Evidenceが存在するように表示しない。
 

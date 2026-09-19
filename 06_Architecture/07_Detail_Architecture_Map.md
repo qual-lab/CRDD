@@ -28,13 +28,13 @@ Quality／Development
 | [checker](Details/checker/01_Architecture.md) | ARCH-000001、ARCH-000002 | 決定論的構造検査と契約移行時の機械的集合検査 | Canonical |
 | [coordinator](Details/coordinator/01_Architecture.md) | ARCH-000004、ARCH-000008、ARCH-000010、ARCH-000014、ARCH-000015 | 実行編成、Provider境界、モデル選定、信頼済み実行、外部情報搬送 | Canonical |
 | [contract-migration](Details/contract-migration/01_Architecture.md) | ARCH-000002 | Canonical Contract変更時の全Consumer・派生物・公開／Release／Recovery経路の閉包 | Canonical |
-| [cros](Details/cros/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000009、ARCH-000010、ARCH-000013、ARCH-000015、ARCH-000016 | 複数Repositoryの利用範囲、Context投影、候補搬送、時間的出所 | Canonical |
+| [cros](Details/cros/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000009、ARCH-000010、ARCH-000013、ARCH-000015、ARCH-000016 | 複数Repositoryの利用範囲、読取り専用Context投影、候補搬送、時間的出所。受入判断書込みは所有しない | Canonical |
 | [execution-intelligence](Details/execution-intelligence/01_Architecture.md) | ARCH-000007、ARCH-000016、ARCH-000018 | 実行記録のCanonical記録、不変公開、読取りProjectionと時間的出所。書込みと読取りを別責務として接続 | Canonical |
-| [mcp](Details/mcp/01_Architecture.md) | ARCH-000005、ARCH-000012、ARCH-000013、ARCH-000015 | 公開Transport、Project投影、Workspace範囲、外部情報境界 | Canonical |
+| [mcp](Details/mcp/01_Architecture.md) | ARCH-000005、ARCH-000012、ARCH-000013、ARCH-000015 | 公開Transport、Project読取り投影、Workspace範囲、外部情報境界。受入判断Authorityを生成しない | Canonical |
 | [official-asset-governance](Details/official-asset-governance/01_Architecture.md) | ARCH-000017 | 公式素材の出所、権利、用途、判断、収載状態 | Canonical |
 | [platform-access](Details/platform-access/01_Architecture.md) | ARCH-000004、ARCH-000008、ARCH-000011 | OS／Process／Container境界、実在するEffectと資源Lifecycle | Canonical |
-| [project-operation](Details/project-operation/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000016 | Project運営情報、Meeting候補、現在と履歴の投影 | Canonical |
-| [project-runtime](Details/project-runtime/01_Architecture.md) | ARCH-000004、ARCH-000005、ARCH-000007、ARCH-000012 | Project実行、状態投影、実行事実読取り、公開Application Contract | Canonical |
+| [project-operation](Details/project-operation/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000016 | Project運営情報、Meeting候補、現在と履歴の読取り投影。受入判断書込みは所有しない | Canonical |
+| [project-runtime](Details/project-runtime/01_Architecture.md) | ARCH-000004、ARCH-000005、ARCH-000007、ARCH-000012 | Project実行、状態投影、Objective／Milestone Acceptance Decision Port／Record、実行事実読取り、公開Application Contract | Canonical |
 | [quality-change-control](Details/quality-change-control/01_Architecture.md) | ARCH-000003 | 固定改訂版に対する変更・監査・試験結果と品質状態の統合 | Canonical |
 | [runtime-data](Details/runtime-data/01_Architecture.md) | ARCH-000009、ARCH-000011、ARCH-000013、ARCH-000016 | Repository-local／OS管理領域の配置、保持、Identity、清掃 | Canonical |
 | [runtime-trust](Details/runtime-trust/01_Architecture.md) | ARCH-000014 | 準拠、完全性、Publisher、品質と利用者所有Trust Policyの独立評価 | Canonical |
@@ -48,7 +48,7 @@ Quality／Development
 | ARCH-000002 | [契約移行と利用側閉包](Definitions/ARCH-000002/architecture_definition.md) | contract-migration、checker、version-control |
 | ARCH-000003 | [変更・監査・試験・品質の閉包](Definitions/ARCH-000003/architecture_definition.md) | quality-change-control |
 | ARCH-000004 | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | project-runtime、coordinator、platform-access |
-| ARCH-000005 | [Project・Portfolio状態投影](Definitions/ARCH-000005/architecture_definition.md) | project-runtime、project-operation、cros、mcp |
+| ARCH-000005 | [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | project-runtime、project-operation、cros、mcp |
 | ARCH-000006 | [Meeting候補と正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | project-operation、cros |
 | ARCH-000007 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md) | execution-intelligence、project-runtime |
 | ARCH-000008 | [実行境界の診断](Definitions/ARCH-000008/architecture_definition.md) | coordinator、platform-access |
@@ -68,6 +68,8 @@ Architecture定義と詳細設計領域は同じIdentityではない。新しい
 ## 4. Qualityへの引渡し
 
 QualityはARCH-IDだけでなく、対応する詳細設計領域のComponent、Interface、Data／State Flow、Failure、Resource、配置および観測方法を入力にする。個別領域の`OPEN`または`FAIL`は未確認範囲として保持し、全体Passへ畳まない。
+
+ARCH-000005では、project-runtimeがObjective／Milestone Acceptance Decision Port／Recordを所有し、project-operation、cros、mcpは読取り投影だけを所有する。Qualityは、ProjectionからのAuthority生成、SPEC-000006／SPEC-000007からの判断Port到達、判断記録からのTask作成／Provider Effect、および下位完了からの上位受入推定を反証する。
 
 ## 5. Reality Audit境界
 

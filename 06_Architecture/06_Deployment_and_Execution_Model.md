@@ -21,7 +21,7 @@ Canonical責務を実行時に分離する論理単位、Resource、並行性お
                           ▼
 ┌─ Application Runtime ─────────────────────────────────────────┐
 │ Public Application Contract                                  │
-│ Project Runtime / Projection / Federation                    │
+│ Project Runtime / Projection / Acceptance Decision / Federation│
 └──────────────┬──────────────────────┬─────────────────────────┘
                ▼                      ▼
 ┌─ Execution Boundary ────────┐  ┌─ Data Boundary ──────────────┐
@@ -44,6 +44,7 @@ Canonical責務を実行時に分離する論理単位、Resource、並行性お
 | Project Task | Task state、decision wait、cancel token | Project／Task／Generation | resultまたはRecovery義務の確定 |
 | Execution Attempt | child process／provider request／container | Attempt、Provider、外部Resource | process／request終了と結果搬送 |
 | Projection Query | Source snapshot、coverage | Query／snapshot | 同じ観測時点の結果返却 |
+| Acceptance Decision Operation | 対象Identity、根拠Revision、明示判断 | Objective／Milestone／判断者 | 受入・差戻し・判断待ちの限定記録またはEffect 0 |
 | Federation Session | Credential、Session Grant、Workspace set | Session／Workspace | Grant失効、接続終了 |
 | External Information Request | consent scope、payload、returned candidate | Request Identity | 候補隔離または採否への引渡し |
 | Runtime Data Operation | lease、lock、temporary artifact | Owner／Repository Root | publish、cleanupまたはRecovery記録 |
@@ -94,6 +95,7 @@ Canonical Architectureが独立レビューで閉じた後に、次を照合す�
 
 - 実行単位ごとにResource Owner、並行性、timeout、取消、cleanup、Recoveryを確認する。
 - L1の実境界確認とL2のLifecycle結合を、最終E2E前のIntegration Testへ含める。
+- Acceptance DecisionはProjection Queryと別実行単位として、明示Authority、限定書込み、非推定、Task／Provider Effect 0をL0からL3まで段階確認する。
 - 同じProcessやstreamを複数役割で使う場合、役割ごとの所有者と終了条件を反証する。
 - OS／Runtime／外部CLIのVersion差は、危険な意味変化を検出して停止する。無関係なHash差やVersion差だけで恒久拒否しない。
 - Physical deploymentが未確定な箇所は未確認として保持し、CanonicalなProcess数や配置を捏造しない。

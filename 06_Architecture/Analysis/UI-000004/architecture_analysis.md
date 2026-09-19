@@ -227,13 +227,13 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Project・Portfolio状態投影のArchitecture定義](../../Definitions/ARCH-000005/architecture_definition.md) | Project Management Projection | UI契約はAuthorityを発行しない。利用者操作: Projectを選ぶ／Task根拠と受入条件を確認する／Objectiveを受け入れる・差し戻す・判断待ちにする／Milestoneを受け入れる・差し戻す・判断待ちにする／根拠を見る／比較する。 | UI契約はEffectを定義しない。状態・導線: Task完了／Objective受入／Milestone受入を別にする / Milestone→目的と受入条件→Task根拠→受入判断 / ；complete／partial／開示制限（restricted）／stale／競合あり（conflicting）／不明（unknown） / プロジェクト→現在投影→不足・競合→情報源→次の判断 / ；complete／partial／開示制限（restricted）／stale／競合あり（conflicting） / Portfolio→差→対象範囲（Coverage）→Project→情報源（Source） /  | Task完了やObjective受入だけからMilestone受入を推定する／欠測や古い値を完全な現在値と誤認する／単一Scoreや欠測した集計で健全性を断定する |
+| [Project・Portfolio状態投影と受入判断記録のArchitecture定義](../../Definitions/ARCH-000005/architecture_definition.md) | Project Management Projection／Objective・Milestone Acceptance Decision Record | UI契約はAuthorityを発行しない。利用者操作: Projectを選ぶ／Task根拠と受入条件を確認する／Objectiveを受け入れる・差し戻す・判断待ちにする／Milestoneを受け入れる・差し戻す・判断待ちにする／根拠を見る／比較する。 | UI契約はEffectを定義しない。状態・導線: Task完了／Objective受入／Milestone受入を別にする / Milestone→目的と受入条件→Task根拠→受入判断 / ；complete／partial／開示制限（restricted）／stale／競合あり（conflicting）／不明（unknown） / プロジェクト→現在投影→不足・競合→情報源→次の判断 / ；complete／partial／開示制限（restricted）／stale／競合あり（conflicting） / Portfolio→差→対象範囲（Coverage）→Project→情報源（Source） /  | Task完了やObjective受入だけからMilestone受入を推定する／欠測や古い値を完全な現在値と誤認する／単一Scoreや欠測した集計で健全性を断定する |
 
 ### 観点別評価
 
 | 観点 | 判定 | 根拠・引渡し |
 |---|---|---|
-| Responsibility | 評価済み | [Project・Portfolio状態投影のArchitecture定義](../../Definitions/ARCH-000005/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
+| Responsibility | 評価済み | [Project・Portfolio状態投影と受入判断記録のArchitecture定義](../../Definitions/ARCH-000005/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
 | Boundary／Component／Interface | 評価済み | 状態OwnerはProject Management Projection。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
 | Data／State Ownership | 評価済み | Project Management ProjectionをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
 | Failure／Recovery | 評価済み | Task完了やObjective受入だけからMilestone受入を推定する／欠測や古い値を完全な現在値と誤認する／単一Scoreや欠測した集計で健全性を断定する。Recoveryは入力定義にある場合だけ保持する。 |
@@ -249,7 +249,7 @@ Human Inputの判断者は「プロジェクト運営者／PMを代表する利�
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Project・Portfolio状態投影](../../Definitions/ARCH-000005/architecture_definition.md) | New | Task完了、Objective受入、Milestone受入を分け、complete／partial／restricted／stale／conflicting／unknownを項目ごとに保つ。Portfolio比較でも不足を一つの健康度へ隠さない。 |
+| [Project・Portfolio状態投影と受入判断記録](../../Definitions/ARCH-000005/architecture_definition.md) | New | Task完了、Objective受入、Milestone受入を分け、complete／partial／restricted／stale／conflicting／unknownを項目ごとに保つ。Portfolio比較でも不足を一つの健康度へ隠さない。 |
 
 ## 5. SPEC観点との統合時に確認すること
 

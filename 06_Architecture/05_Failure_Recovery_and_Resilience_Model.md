@@ -39,6 +39,7 @@ Last Updated: 2026-09-15
 | 入力・構成 | Transport、Capability Resolver | 意味契約、選択理由 | Provider Effect前に拒否 | 修正済み入力で新規受付 |
 | Repository境界 | Binding Resolver | exact Root、Identity、書込み範囲 | Effect 0 | Root再検証 |
 | 判断不足 | Project Runtime | 同じTaskとHuman Authority | 判断待ち | exact Taskへの入力または取消 |
+| 受入判断 | Acceptance Decision Port | Objective／Milestone IdentityとHuman Authority | 推定書込みをEffect 0で拒否 | 同じ対象への明示判断または判断待ち維持 |
 | 実行開始前 | Execution Port／Platform Port | Capability非発行 | 失敗理由を返す | 条件変更後に再評価 |
 | 実行Effect後 | Execution Port | 重複Effect防止 | Recovery義務を耐久化 | 同じIdentityで観測・settlement |
 | 取消 | Project Runtime／Execution Port | 終了とResource回収 | 要求受付と完了を分離 | Process終了、handle／Resource 0 |
@@ -58,6 +59,7 @@ Last Updated: 2026-09-15
 - 保存済みintent、receiptまたはpointerだけから現在Authorityを再生成しない。
 - 取消要求、Process終了、Resource回収、公開結果の確定を別の観測として扱う。
 - 部分故障で無関係なComponentを全停止にせず、利用可能範囲と未確認範囲を返す。
+- Project状態の観測、Task完了またはObjective受入から次段階の受入Authorityを生成しない。推定入力は記録を変更せず、判断待ちと根拠を保持する。
 
 ## 5. 段階的な故障確認
 
@@ -79,5 +81,6 @@ Component内部の異常
 
 - 正常系だけでなく、開始前、Effect後、取消中、回復中、cleanup不明の各状態を試験する。
 - rejectされた事実だけでなく、期待したphase／reason、Capability非発行、Effect 0、残存Resourceを確認する。
+- ProjectionからAcceptance Decision Portへ到達できないこと、SPEC-000002の明示判断だけが限定記録されること、および判断記録からTask作成・Provider Effectが発生しないことを確認する。
 - 実Docker、外部CLI、Filesystem等の実境界では、起動だけでなく停止、故障、回復、再開、清掃までLifecycle全体を確認する。
 - 長時間・高費用の負荷試験は人間の明示指示なしに実行せず、未実施を通常のArchitecture Ready阻害にしない。

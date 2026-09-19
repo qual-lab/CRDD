@@ -43,6 +43,13 @@ Projectの入力から状態、実行、観測、投影および候補採用ま�
         ▼
 <<E4: 許可された結果利用者>>
 
+受入判断経路
+ <<E7: Project運営者>> -- {authority-decision} 対象Identity＋受入／差戻し／判断待ち --> (P9: Acceptance Decision Port)
+ (P5) -- {internal} 判断根拠だけを表示 --> <<E7>>
+ (P9) -- {authorized-write} Objective／Milestone判断 --> [(D3: Acceptance Decision Record)]
+ (P5) -x (P9)  ProjectionからAuthorityを生成しない
+ (P9) -x (P2／P3)  Task作成・Provider Effectを発行しない
+
 外部情報経路
  (P6: 送信同意・最小化) -- {approved-external} Request --> <<E5: External Provider>>
  <<E5>> -- {untrusted-external} Returned Result --> (P7: 未信頼候補の隔離)
@@ -52,6 +59,8 @@ Projectの入力から状態、実行、観測、投影および候補採用ま�
 ```
 
 `P3`は実行事実SourceのWriterではない。`E2`は現在責務の外側で既に存在するSourceであり、本モデルが所有するのは`P4`以降の読取り、欠測保持および結果投影だけである。`P5`は実行事実だけからProject状態を作らず、許可されたProject／Quality／Roadmap等の正本も同じ観測条件で読む。`P8`は人間の採用判断がある場合だけ`D2`へ書き、却下・保留では正本Effect 0とする。
+
+`P9`は`E7`の明示判断だけを受け付ける。Task完了はObjective判断の根拠、Objective受入はMilestone判断の根拠にはなるが、いずれも書込みAuthorityを発行しない。`SPEC-000006`／`SPEC-000007`の読取り要求は`P5`で終了し、`P9`へ到達しない。
 
 ## 3. 横断状態遷移
 
@@ -115,6 +124,19 @@ Projectの入力から状態、実行、観測、投影および候補採用ま�
 | candidate | 採用判断 | 人間が採用 | 正本更新Authorityを別途確認 | 許可時だけ正本更新 | adopted | Authority不明ならcandidate | 候補を保持 | 採用結果と正本更新を観測 |
 | candidate | 却下判断 | 人間が却下 | 候補を処置 | 正本Effect 0 | rejected | 処置不明ならcandidate | 候補Ownerが再入場 | 正本不変と候補処置 |
 
+### Objective／Milestone受入判断
+
+```text
+[開始] -- 対象解決 [Task根拠あり] / 表示だけ --> [S20: Objective判断待ち]
+[S20] -- 明示判断 [Project運営者Authority] / 受入・差戻し・判断待ちを記録 --> [S21: Objective判断記録済み]
+[S21] -- Milestone判断開始 [Objective根拠あり] / 表示だけ --> [S22: Milestone判断待ち]
+[S22] -- 明示判断 [Project運営者Authority] / 受入・差戻し・判断待ちを記録 --> [S23: Milestone判断記録済み]
+[S20] -x Task完了だけによるObjective受入 / Effect 0
+[S22] -x Objective受入だけによるMilestone受入 / Effect 0
+```
+
+判断待ちの選択は終了状態へ畳まない。受入・差戻し・判断待ちの各記録は対象Identity、判断者、根拠Revisionと相関し、Task作成またはProvider Effectを発行しない。
+
 ## 4. 概念Entity関係
 
 ```text
@@ -131,6 +153,8 @@ Projectの入力から状態、実行、観測、投影および候補採用ま�
 [ER9] [1] -- R10: 判断待ちを持つ --> [0..*] [ER11: Decision Wait]
 [ER9] [1] -- R11: 回復義務を持つ --> [0..*] [ER12: Recovery Obligation]
 [ER9] [1] -- R12: 既存の実行事実を参照する --> [0..*] [ER13: Execution Fact]
+[ER8] [1] -- R17: Objective判断を持つ --> [0..*] [ER20: Objective Acceptance Decision]
+[ER7] [1] -- R18: Milestone判断を持つ --> [0..*] [ER21: Milestone Acceptance Decision]
 
 [ER14: Meeting] [1] -- R13: 候補を生む --> [0..*] [ER15: Candidate]
 [ER15] [0..*] -- R14: 採用時に接続する --> [0..1] [ER16: Topic／Decision]
@@ -147,6 +171,7 @@ Relationはアクセス権や採用Authorityを自動生成しない。`Project 
 | Task | Project、Objective、Task、Attempt、Generation | 別Attempt結果の混入 |
 | Recovery | 最初の残存可能性から再入場までexact Identity | 新しい／拡大Authorityへの置換 |
 | Projection | Source、Revision／Version、Observed At、Coverage | partialをcomplete、unknownを正常へ変換 |
+| Acceptance Decision | Project、Objective／Milestone、根拠Revision、判断者、判断種別 | ProjectionからのAuthority生成、Task完了からObjective受入、Objective受入からMilestone受入 |
 | External Result | Request、Consent Scope、Provider Result、Candidate | returnedをadoptedへ自動昇格 |
 | Historical Context | Source、Occurred At、Applicable Revision、Currentness | historicalをcurrentへ自動採用 |
 
@@ -156,3 +181,4 @@ Relationはアクセス権や採用Authorityを自動生成しない。`Project 
 - 多対多Relationと欠測を含むProjectionの整合性を確認する。
 - 同じIdentity系列内で別Attempt、別Repository、別Workspaceが混入しないことを反証する。
 - DataがTrust／Process／Repository／外部境界を越える箇所は、内容、Authority、保存、cleanupを結合して確認する。
+- 受入判断は根拠表示、明示Authority、限定記録、終了後観測を分け、読取りProjection、Task作成およびProvider EffectとのEffect隔離を確認する。

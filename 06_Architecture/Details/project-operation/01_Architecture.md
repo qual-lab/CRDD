@@ -8,7 +8,7 @@
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
-| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | Project／Portfolioの運営状態を複数正本から根拠付きRead Modelへ統合する。 | Covered |
+| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | Project／Portfolioの運営状態を複数正本から根拠付きRead Modelへ統合する。Objective／Milestone受入判断の書込みPortは所有しない。 | Covered |
 | [ARCH-000006](../../Definitions/ARCH-000006/architecture_definition.md) | Meeting、Topic、Decision候補と所有正本への昇格関係をRepository上で具体化する。 | Covered |
 | [ARCH-000016](../../Definitions/ARCH-000016/architecture_definition.md) | 発生時点、採用時点、観測時点、現行性を分け、過去を現在値へ上書きしない。 | Covered |
 
@@ -56,6 +56,8 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 |---|---|---|---|---|---|---|
 | Topic／Meeting lifecycle | IDと基準Revision | 候補から明示採用 | 二重正本、競合更新、媒体名誤分類 | status、source、relation | 採否後の候補処置 | 物理保存形式はDevelopmentで選択 |
 | Project Projection | 複数正本 | 根拠・欠測付きread model | restricted漏えい、staleのcurrent化 | source coverageとobserved_at | 正本Effect 0 | 表示構成はUI実装で選択 |
+
+Project ProjectionからObjective／Milestone Acceptance Decision PortのAuthorityを生成せず、SPEC-000006／SPEC-000007の読取り要求は正本Effect 0で終了する。
 
 ## 現行実装との照合
 

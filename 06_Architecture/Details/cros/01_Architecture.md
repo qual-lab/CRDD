@@ -8,7 +8,7 @@
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
-| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | 利用可能Repository集合からProject／Portfolio Projectionを組み立て、欠測とSource Coverageを保持する。 | Covered |
+| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | 利用可能Repository集合から読取り専用のProject／Portfolio Projectionを組み立て、欠測とSource Coverageを保持する。Objective／Milestone受入判断の書込みPortは所有しない。 | Covered |
 | [ARCH-000006](../../Definitions/ARCH-000006/architecture_definition.md) | Meeting由来の候補をSource relation付きで所有先へ搬送し、採否Authorityを生成しない。 | Covered |
 | [ARCH-000009](../../Definitions/ARCH-000009/architecture_definition.md) | Project ID、Repository ID、Binding IDを分け、検証済みRootだけをFederationへ渡す。 | Covered |
 | [ARCH-000010](../../Definitions/ARCH-000010/architecture_definition.md) | Repositoryが公開するCapability／Model構成を現在のWorkspace範囲で解決する。 | Partial |
@@ -61,6 +61,8 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | 認証・Workspace境界 | Bearer CredentialとWorkspace集合 | 許可されたBindingだけ解決 | 失効、Exposure外、Admin-only | Access Contextと非開示結果 | Request後Secret 0 | 敵対的multi-tenantのHost分離は対象外 |
 | Federation | 複数Repository Source | 根拠・欠測付きProjection | 競合Binding、部分取得不能 | Source Coverageとobserved_at | 正本変更0 | 物理保存形式はDevelopmentで選択 |
 | Handoff | 構造化Task Context | 同じIdentityとRevisionで再開 | 未確認Context補完、Authority昇格 | handoff stateとreason | 未許可Effect 0 | transport schemaはSPEC待ち |
+
+Federation／ProjectionはAcceptance Decision Authorityを生成しない。SPEC-000006／SPEC-000007の読取り要求から判断Portへ到達できず、CROSが受入・差戻し・判断待ちを代理決定しないことを反証する。
 
 ## 現行実装との照合
 

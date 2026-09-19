@@ -8,7 +8,7 @@
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
-| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | Project／Portfolio ProjectionをMCP DTOへ写し、欠測・制限・根拠を失わず返す。 | Partial |
+| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | 読取り専用のProject／Portfolio ProjectionをMCP DTOへ写し、欠測・制限・根拠を失わず返す。TransportはObjective／Milestone受入判断Authorityを生成しない。 | Partial |
 | [ARCH-000012](../../Definitions/ARCH-000012/architecture_definition.md) | stdioとHTTPを同じPublic Application Contractへ接続し、Transport間の意味同一性を保つ。 | Covered |
 | [ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md) | 認証済みRequest Access ContextだけをApplicationへ渡し、Workspace範囲をTransportで拡張しない。 | Partial |
 | [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | 外部情報の入力・結果をMCP wireへ運ぶが、送信許可や候補採用Authorityは所有しない。 | Partial |
@@ -57,6 +57,8 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 |---|---|---|---|---|---|---|
 | stdio Transport | JSON-RPC byte stream | framingを保った応答 | UTF-8分割、EOF、取消競合 | wire bytesとexit | listener／request 0 | なし |
 | localhost HTTP | 認証済みHTTP request | stdioと同じApplication意味 | Origin、token、payload、shutdown | HTTP statusとcontract result | server／listener／request 0 | 実OS signalは未評価 |
+
+Project状態の読取りResponse、接続情報またはTransport metadataからAcceptance Decision Authorityを生成しない。受入判断操作を搬送する場合も、Application Contractが検証したSPEC-000002の明示判断を意味変更せず運ぶだけであり、SPEC-000006／SPEC-000007を判断書込みへ変換しない。
 
 ## 現行実装との照合
 

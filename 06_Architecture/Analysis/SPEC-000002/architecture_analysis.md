@@ -160,13 +160,13 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
 | [Project実行のArchitecture定義](../../Definitions/ARCH-000004/architecture_definition.md) | 委任受付 | Project運営者が委任範囲を判断する。Runtimeは範囲を拡張しない | 受理前はEffect 0。受理後はTask作成だけを許し、Provider Effectは別状態とする | 不足・競合・未承認範囲はEffect前に停止する。明示拒否は再発行しない。受付後の結果不明は同じRequestを再観測する |
-| [Project・Portfolio状態投影のArchitecture定義](../../Definitions/ARCH-000005/architecture_definition.md) | Objective／Milestone Acceptance Decision Record | Project運営者がTask根拠からObjective受入を、Objective根拠からMilestone受入を判断する。下位完了から上位受入を推定しない | Objective／Milestoneの受入・差戻し・判断待ちだけを記録する。Task作成やProvider Effectは発行しない | Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合はEffect 0で停止する |
+| [Project・Portfolio状態投影と受入判断記録のArchitecture定義](../../Definitions/ARCH-000005/architecture_definition.md) | Objective／Milestone Acceptance Decision Record | Project運営者がTask根拠からObjective受入を、Objective根拠からMilestone受入を判断する。下位完了から上位受入を推定しない | Objective／Milestoneの受入・差戻し・判断待ちだけを記録する。Task作成やProvider Effectは発行しない | Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合はEffect 0で停止する |
 
 ### 観点別評価
 
 | 観点 | 判定 | 根拠・引渡し |
 |---|---|---|
-| Responsibility | 評価済み | 委任の提案・受付・拒否とTask作成は[Project実行のArchitecture定義](../../Definitions/ARCH-000004/architecture_definition.md)へ、Objective／Milestoneの受入・差戻し・判断待ちの記録は[Project・Portfolio状態投影のArchitecture定義](../../Definitions/ARCH-000005/architecture_definition.md)へ、入力Contractを意味変更せず渡す。 |
+| Responsibility | 評価済み | 委任の提案・受付・拒否とTask作成は[Project実行のArchitecture定義](../../Definitions/ARCH-000004/architecture_definition.md)へ、Objective／Milestoneの受入・差戻し・判断待ちの記録は[Project・Portfolio状態投影と受入判断記録のArchitecture定義](../../Definitions/ARCH-000005/architecture_definition.md)へ、入力Contractを意味変更せず渡す。 |
 | Boundary／Component／Interface | 評価済み | 委任受付Port、Task作成境界、読取り専用のProject Management Projection Port、Objective／Milestone Acceptance Decision Portを分ける。受入判断PortはTask作成やProvider Effectを発行せず、読取り投影Portは受入判断を記録しない。 |
 | Data／State Ownership | 評価済み | 委任受付、Task、読取り投影、Objective／Milestone Acceptance Decision Recordを別Ownerとし、UI表示、SPEC結果および内部状態を同一視しない。 |
 | Failure／Recovery | 評価済み | 不足・競合・未承認範囲はEffect前に停止し、暗黙に補完しない。明示拒否は失敗扱いで再発行せず、判断待ちは未完了として保持する。Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合は契約違反としてEffect 0で停止する。Recoveryは入力定義にある場合だけ保持する。 |
@@ -183,7 +183,7 @@ Human Inputの判断者は「プロジェクト運営者／PMを代表する利�
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
 | [Project実行](../../Definitions/ARCH-000004/architecture_definition.md) | Same | 委任、状態照会、再試行／回復選別、清掃、引継ぎを同じRequest／Task／Recovery Identityへ結ぶ。ただし受付、実行、Recovery、清掃は独立した状態機械と終了条件を持つ。 |
-| [Project・Portfolio状態投影](../../Definitions/ARCH-000005/architecture_definition.md) | Same | Task完了、Objective受入、Milestone受入の三段階と、Objective／Milestoneの受入・差戻し・判断待ちを専用のAcceptance Decision Portへ渡す。読取り投影、委任の提案・受付・拒否およびTask作成とは混ぜない。 |
+| [Project・Portfolio状態投影と受入判断記録](../../Definitions/ARCH-000005/architecture_definition.md) | Same | Task完了、Objective受入、Milestone受入の三段階と、Objective／Milestoneの受入・差戻し・判断待ちを専用のAcceptance Decision Portへ渡す。読取り投影、委任の提案・受付・拒否およびTask作成とは混ぜない。 |
 
 ## 5. UI観点との統合時に確認すること
 

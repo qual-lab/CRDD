@@ -9,7 +9,7 @@
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
 | [ARCH-000004](../../Definitions/ARCH-000004/architecture_definition.md) | ObjectiveをTaskへ変換し、実行、判断待ち、取消、RecoveryのProject-level lifecycleを所有する。 | Covered |
-| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | Task、Queue、Decision、Recoveryの現在状態を根拠付きProject Stateへ投影する。 | Partial |
+| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | Task、Queue、Decision、Recoveryの現在状態を根拠付きProject Stateへ投影し、Objective／Milestone Acceptance Decision Port／Recordで明示された受入・差戻し・判断待ちだけを記録する。 | Covered |
 | [ARCH-000007](../../Definitions/ARCH-000007/architecture_definition.md) | Execution IntelligenceのReader Portを呼び、読取り専用の実行事実・評価候補を返す。 | Partial |
 | [ARCH-000012](../../Definitions/ARCH-000012/architecture_definition.md) | Transport非依存のPublic Application Contractを所有し、MCP等へ同じ意味を提供する。 | Covered |
 
@@ -20,7 +20,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
 |---|---|---|---|
 | Component Model | Required | Core、Application、Port、公開契約の依存方向を分ける。 | [§3](#3-内部層) |
-| Interface Model | Required | Coordinator、State Store、実行事実SourceをPortで隔離する。 | [§4](#4-port) |
+| Interface Model | Required | Coordinator、State Store、実行事実Source、Objective／Milestone Acceptance DecisionをPortで隔離する。 | [§4](#4-port) |
 | Data Flow | Required | ObjectiveからTask状態と公開結果までの意味伝播を示す。 | [§7](#7-公開アプリケーション契約) |
 | State Model | Required | Task、Decision、Lease、RecoveryとEffect状態を分ける。 | [§6](#6-状態authority資源) |
 | Sequence | Required | 要求、状態更新、Execution Port、結果投影の順序を固定する。 | [§7](#7-公開アプリケーション契約) |
@@ -40,7 +40,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Resource Lifecycle | PASS | Task、Attempt、Lease、Queue、Decision、Recovery義務のOwnerを定義する。 | [正本節](#6-状態authority資源) |
 | External Boundary | PASS | Execution Port、State Store、実行事実SourceをPort化する。 | [正本節](#4-port) |
 | Failure／Recovery | PASS | Effectなし／済み／不明、判断待ち、取消競合、回復待ちを分ける。 | [正本節](#6-状態authority資源) |
-| State／Consistency | PASS | Task、Decision、Lease、RecoveryとEffect状態を分ける。 | [§6](#6-状態authority資源) |
+| State／Consistency | PASS | Task、Decision、Lease、Recovery、Objective／Milestone Acceptance DecisionとEffect状態を分ける。 | [§6](#6-状態authority資源) |
 | Observability | PASS | 公開入口から状態、理由、Recovery Identityを観測できるようにする。 | [§10](#10-完成境界) |
 | Security／Trust | PASS | CoreがHost AuthorityやProvider Credentialを生成しない。 | [§6](#6-状態authority資源) |
 
@@ -56,6 +56,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|
 | Task lifecycle | ObjectiveとTask identity | 許可された状態遷移 | 競合、親喪失、取消、Effect不明 | state、owner、recovery ID | lease／resource 0または義務 | なし |
+| Objective／Milestone受入判断 | 対象Identity、根拠Revision、Project運営者の明示判断 | 受入・差戻し・判断待ちだけを一度記録 | ProjectionからのAuthority生成、SPEC-000006／000007からの到達、Task作成、Provider Effect、下位完了からの上位受入推定 | decision type、owner、source revision、effect count | 対象Decision Record一件またはEffect 0 | 物理StoreはDevelopmentで選択 |
 | Public Application | 公開DTOとPort | Transport間で同じ意味 | Schemaずれ、内部Path依存 | exact result contract | 内部Effectは所有Portだけ | なし |
 
 ## 現行実装との照合
@@ -76,6 +77,8 @@ Related:
 Project Runtimeは、人間が許可したObjectiveをProject-level execution stateへ変換し、Milestone、Objective、Task、判断、統合、受入およびRecoveryのlifecycleを管理するApplication Coreである。Providerを選び実行するCoordinator、要求を搬送するMCP、OS資源を扱うPlatform Adapter、観測を保存する実行知とは責務を分ける。
 
 Project Runtimeが所有するのは意味と遷移であり、外部能力の実装ではない。必要な実行、永続化、Platform観測、候補統合、判断継続および実行知発行はPortとして要求する。
+
+Objective／Milestone Acceptance Decision PortはProject運営者の明示判断だけを受け付ける。Project Management Projection、Task完了またはObjective受入から次段階のAuthorityを生成せず、受入判断記録からTask作成やProvider Effectを発行しない。
 
 ## 2. Package境界
 
@@ -143,6 +146,7 @@ CoreはI/Oを発行しない。ApplicationはPortの閉じた結果だけを解�
 | Execution Port | narrowed Task Authorityで一つのTask Attemptを実行し、exact Identity付き結果を返す | Coordinator Adapter |
 | Execution Authorization Port | 署名済みRuntime packageを一回起動する不透明Capabilityの発行と未使用時の失効を要求する。Task Authorityとは区別する | Coordinator Adapter |
 | State Port | expected generation付きProject State／Queueの読取り・更新 | Repository-local Persistence Adapter |
+| Objective／Milestone Acceptance Decision Port | 対象Identity、根拠Revision、Project運営者の明示Authorityを検証し、受入・差戻し・判断待ちだけを一度記録する。読取りProjection、Task作成およびProvider Effectとは分離する | Repository-local Acceptance Decision Adapter |
 | Lease Port | Project Operation、State、Adoptionの取得・settlementを観測する | Platform／Persistence Adapter |
 | Candidate Port | Task候補の読取り、統合候補の構成、明示採用とrollback | Coordinator Candidate Adapter |
 | Decision Port | 一回限りCapabilityの発行、prepare、finalize、失効およびRecovery | Platform Decision Adapter |
@@ -198,6 +202,8 @@ Applicationは長時間待機中に短時間Lockを保持しない。Port呼出�
 | 統合準備 | 必要Task結果と候補が相関 | Candidate／State | Accepted Result／停止 | 個別Task成功を統合受入へしない |
 | Recovery | exact義務とfresh owner観測 | Task Recovery／Platform Observation | 再入場／手動処置 | Identityを置換せず、旧世代を再利用しない |
 | 状態投影 | 読取り専用要求 | read-only State | observed／absent／unknown | Effect 0、unknownをabsentへ畳まない |
+| Objective受入判断 | Task根拠とProject運営者の明示判断 | Acceptance Decision | 受入／差戻し／判断待ち | Task完了だけでは記録せずEffect 0。Task作成／Provider Effect 0 |
+| Milestone受入判断 | Objective根拠とProject運営者の明示判断 | Acceptance Decision | 受入／差戻し／判断待ち | Objective受入だけでは記録せずEffect 0。Task作成／Provider Effect 0 |
 
 <a id="platform-boundary"></a>
 
