@@ -63,7 +63,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 現行Sourceと既存試験は本詳細設計の正式入力ではない。本設計候補を固定した後、成立済み能力を失わないよう`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類する。
 
 担当責任者: Qual-Lab
-最終更新日: 2026-08-31
+最終更新日: 2026-09-19
 
 ## 1. 何を解く部品か
 
@@ -75,7 +75,8 @@ Checkerは、CRDD文書の構造、版、識別子、リンク、アンカー、
 
 | 部品 | 責務 | この分離の理由 |
 |---|---|---|
-| [配布本体](../../../template/tools/crdd-check.ts) | 検査・報告の単一実装。採用Repositoryにも配布する | 公式Repository専用版と配布版の検査意味を二重管理しない |
+| [配布入口](../../../template/tools/crdd-check.ts) | CLI、Repository発見、互換境界、結果報告を接続する。採用Repositoryにも配布する | 公式Repository専用版と配布版の検査意味を二重管理しない |
+| [Checker内部基盤](../../../template/tools/internal/checker/checker-pipeline.ts) | MarkdownをArtifact Modelへ変換し、Schema、Relation、登録済みRuleを固定Pipelineで実行する | Rule追加のたびにCLI入口や実行順序を変更しない |
 | [公式Repository入口](../../../40_Develop/checker/crdd-check.ts) | 配布本体をimportする | 実装工程から発見できる入口を持ち、コピーを作らない |
 | [private package](../../../40_Develop/checker/package.json) | 型・命名・静的解析・試験の開発環境 | 開発依存を採用先の必須導入物へ広げない |
 | [試験runner](../../../40_Develop/checker/test-runner.ts) | 安全に列挙した試験を子Processで実行する | 通常Checkerの検査と、fixtureを作る開発試験を分ける |
@@ -86,23 +87,43 @@ Checkerは、CRDD文書の構造、版、識別子、リンク、アンカー、
 
 ### 内部ブロック
 
-Checker本体は一つの配布Sourceであり、以下のブロックはその内部責務を示す。図に合わせて架空のpackageやフォルダへ分割したものではない。
+Checkerは一つの配布入口から開始するが、検査基盤は`internal/checker`へ分離する。現行Profileのうち、Rule登録とQuality状態検査は分離済みであり、工程別の検査本体は挙動保存を優先して配布入口から段階移行する。callbackで登録しただけの工程別検査を、責務分離完了とは扱わない。
 
 ```text
 公式Repository入口 [40_Develop/checker/crdd-check.ts]
-  ↓ import（採用先は配布本体から直接開始）
-配布本体 [template/tools/crdd-check.ts]
-  ├ 引数・モード・Rootの受付
-  ↓
-  ファイル発見・読取り境界 ─→ Git／Filesystem（読取り）
-  ↓
-  Markdown・アンカー・参照索引
-  ↓
-  対象範囲選択＋現行契約プロファイルの照合
-  ↓
-  全体検査／対象文書検査
-  ↓
-  指摘・未確認・範囲の集計 → stdout／終了値
+       │ import（採用先は配布入口から直接開始）
+       ▼
+配布入口 [template/tools/crdd-check.ts]
+       │
+       ├─ 引数・モード・Rootの受付
+       ├─ Repository発見・読取り境界 ──→ Git／Filesystem（読取り）
+       ├─ 対象範囲・互換境界
+       │
+       ▼
+┌────────────────────────────────────────────┐
+│ Checker Pipeline                           │
+│ [template/tools/internal/checker/]         │
+│                                            │
+│ Markdown Parse                             │
+│      ↓                                     │
+│ Artifact Model                             │
+│      ↓                                     │
+│ Schema Validation                          │
+│      ↓                                     │
+│ Relation Resolution                        │
+│      ↓                                     │
+│ Cross-artifact Validation                  │
+│      ↓                                     │
+│ Registered Special Rules                   │
+└───────────────────┬────────────────────────┘
+                    │ 共通Finding
+                    ▼
+       指摘・未確認・範囲の集計 → stdout／終了値
+
+現行Profile移行境界
+  ├ 分離済み: Rule Registry、Quality状態Rule
+  └ 移行中  : 工程別検査本体
+               （Registry callback経由。挙動固定後にProfile moduleへ移す）
 
 開発試験入口 [test-runner.ts]
   → 試験列挙 [test-discovery.ts]
@@ -112,23 +133,37 @@ Checker本体は一つの配布Sourceであり、以下のブロックはその�
 | 内部ブロック | Source群・関数群 | 役割 |
 |---|---|---|
 | 開発用接続部 | `40_Develop/checker/crdd-check.ts` | 配布本体へ接続し、検査実装を複製しない |
-| 発見・参照・範囲 | 配布本体の`discoverProjectFiles`、`anchorsFor*`、`resolveLocalTarget`と範囲選択部 | 確認する文書集合と参照先を構成する |
-| 規則照合・報告 | 配布本体の`check*`群と末尾の集計・出力部 | 機械的指摘と未確認範囲を返す |
+| 発見・参照・範囲 | 配布入口の`discoverProjectFiles`、`anchorsFor*`、`resolveLocalTarget`と範囲選択部 | 確認する文書集合と参照先を構成する |
+| Artifact変換 | `markdown-artifact-parser.ts`、`artifact-model.ts` | Markdown表現を検査用の意味Modelへ一度だけ変換する |
+| 構造・関係検査 | `schema-validator.ts`、`relation-engine.ts` | 単一成果物の決定論的構造と成果物間Relationを分けて検査する |
+| Rule実行 | `rule-registry.ts`、`rules/` | 固定Stage内でRule ID順に実行し、個別RuleをCoreへ埋め込まない |
+| Pipeline | `checker-pipeline.ts` | Parser、Model、Schema、Relation、Ruleを固定順序で合成する |
+| Finding | `finding-model.ts` | severity、code、path、rule、message、evidenceを共通形式へ揃える |
+| 現行Profile移行 | 配布入口の`check*`群と`rules/current-profile.ts` | 既存Findingを維持しながら工程別検査を段階的にProfile moduleへ移す |
+| 報告 | 配布入口末尾の集計・出力部 | 機械的指摘と未確認範囲をstdoutと終了値へ返す |
 | 開発検証 | `40_Develop/checker/test-*`、`tests/` | 試験発見と契約検証。通常実行の構成部ではない |
 
 専門的な意味監査、外部URLへの照会、自動文書修正は接続していない。次の順序説明と境界表が、その制約を具体化する。
 
 ```text
-引数を読む（対象Root・出力形式・限定範囲）
-  → 公式／採用先のモードとRepository境界を調べる
-  → ファイルを発見する（Git、または理由付きFilesystem探索）
-  → Markdown・アンカー・参照関係をメモリ上に索引化する
-  → 対象集合を決める
-  → 現在のCRDD構造を使う場合だけ公式Current Profileを照合する
-  → ローカルリンクを検査する
-  → 残りの全体検査と対象文書の検査を行う
-  → 指摘・範囲・未確認を集計し、stdoutと終了値へ返す
+1. Repository Discovery
+        ↓
+2. Markdown Parse
+        ↓
+3. Artifact Model Build
+        ↓
+4. Schema Validation
+        ↓
+5. Relation Resolution
+        ↓
+6. Cross-artifact Validation
+        ↓
+7. Special Rules
+        ↓
+8. Finding Report
 ```
+
+PipelineのStage順序は固定する。同一StageのRuleはRule ID順で決定論的に実行し、Rule追加のためにPipeline順序を変更しない。Markdown Parser libraryやJSON Schema validatorの採用は実装選択であり、この責務境界を満たす限り特定libraryを設計契約にしない。
 
 実装上の順序は配布本体で照合できる。引数処理、`discoverProjectFiles`、参照解決、範囲選択、報告構築を辿ると、どの集合を実際に確認したか再構成できる。単なるファイル件数では確認範囲を表さない。
 

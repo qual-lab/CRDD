@@ -8,6 +8,9 @@ import path from "node:path";
 import test, { after } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import { runCheckerPipeline } from "../../../../template/tools/internal/checker/checker-pipeline.ts";
+import { RuleRegistry } from "../../../../template/tools/internal/checker/rule-registry.ts";
+
 const testEntry = process.argv[1];
 if (testEntry === undefined) throw new Error("checker_test_entry_missing");
 const checkerRoot = path.resolve(
@@ -19,6 +22,98 @@ const checker = path.join(repositoryRoot, "template", "tools", "crdd-check.ts");
 const faultInjector = pathToFileURL(
   path.join(checkerRoot, "fault-injector.ts"),
 ).href;
+
+test("Checker PipelineはMarkdownをArtifact Modelへ変換し固定順のRuleを実行する", () => {
+  const registry = new RuleRegistry();
+  const executedRuleIds: string[] = [];
+  registry.register({
+    id: "special.z",
+    stage: "special-rules",
+    run: () => executedRuleIds.push("z"),
+  });
+  registry.register({
+    id: "special.a",
+    stage: "special-rules",
+    run: () => executedRuleIds.push("a"),
+  });
+  const result = runCheckerPipeline({
+    sources: [
+      {
+        path: "sample.md",
+        content: `# UX-000001 Sample
+
+成果物種別: UX定義
+UX ID: UX-000001
+状態: Canonical
+正式入力: REQ-000001
+
+## Goal
+
+[REQ-000001](../REQ-000001/requirement.md)
+
+\`\`\`text
+状態: Hidden
+\`\`\`
+
+<!-- 状態: Hidden -->
+
+## Checklist
+
+- [x] 意味を保持した
+- OPEN: 人間確認待ち — 実利用を確認した
+`,
+      },
+    ],
+    schemas: [
+      {
+        id: "ux-definition",
+        matches: (artifact) => artifact.artifactType === "UX定義",
+        requiredProperties: ["artifactType", "canonicalId", "status"],
+        requiredSections: ["Goal", "Checklist"],
+        allowedStatuses: ["Canonical"],
+      },
+    ],
+    registry,
+  });
+  assert.equal(result.findings.length, 0);
+  assert.deepEqual(executedRuleIds, ["a", "z"]);
+  assert.equal(result.artifacts[0]?.canonicalId, "UX-000001");
+  assert.deepEqual(result.artifacts[0]?.formalInputs, ["REQ-000001"]);
+  assert.equal(result.artifacts[0]?.status, "Canonical");
+  assert.deepEqual(
+    result.artifacts[0]?.checklist.map(
+      ({ result: checklistResult }) => checklistResult,
+    ),
+    ["passed", "open"],
+  );
+  assert.equal(
+    result.graph.artifactsById.get("UX-000001"),
+    result.artifacts[0],
+  );
+});
+
+test("Checker PipelineはSchema不整合とCanonical ID重複を共通Findingで返す", () => {
+  const source = {
+    path: "duplicate.md",
+    content: "# REQ-000001 Duplicate\n\n成果物種別: Discovery定義\n",
+  };
+  const result = runCheckerPipeline({
+    sources: [source, { ...source, path: "duplicate-2.md" }],
+    schemas: [
+      {
+        id: "requirement-definition",
+        matches: () => true,
+        requiredProperties: ["status"],
+      },
+    ],
+  });
+  assert.deepEqual(result.findings.map(({ code }) => code).sort(), [
+    "artifact-canonical-id-duplicate",
+    "artifact-schema-property-missing",
+    "artifact-schema-property-missing",
+  ]);
+  assert.ok(result.findings.every(({ rule }) => rule.length > 0));
+});
 
 test("主要工程ひな型は工程責務と構造表現を維持する", () => {
   const phaseTemplates = [
@@ -9397,6 +9492,11 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
   write(
     path.join(source, "template", "tools", "crdd-check.ts"),
     fs.readFileSync(checker, "utf8"),
+  );
+  fs.cpSync(
+    path.join(repositoryRoot, "template", "tools", "internal", "checker"),
+    path.join(source, "template", "tools", "internal", "checker"),
+    { recursive: true },
   );
   write(
     path.join(

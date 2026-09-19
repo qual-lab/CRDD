@@ -19,6 +19,10 @@ import {
   readFixedSnapshotText,
   resolveRevisionIdentity,
 } from "./internal/version-control-runtime.ts";
+import { runCheckerPipeline } from "./internal/checker/checker-pipeline.ts";
+import { RuleRegistry } from "./internal/checker/rule-registry.ts";
+import { qualityDesignCanonicalStateRule } from "./internal/checker/rules/quality-design-state.ts";
+import { currentProfileRules } from "./internal/checker/rules/current-profile.ts";
 
 type Finding = Readonly<{
   severity: string;
@@ -480,8 +484,6 @@ function checkWorkLifecycleNavigation(): void {
       "Every Release-owned Evidence file must have one exact navigation link.",
     );
 }
-
-checkWorkLifecycleNavigation();
 
 const discoveryRootChecklistItemTexts = [
   "すべての探索記録と採用要求を台帳から一意に辿れる。",
@@ -2030,8 +2032,6 @@ function checkUxRequirementAnalysis(): void {
     );
 }
 
-checkUxRequirementAnalysis();
-
 function checkIaReconstruction(): void {
   if (repositoryMode !== "official") return;
   const tableRows = (
@@ -2708,8 +2708,6 @@ function checkIaReconstruction(): void {
     );
 }
 
-checkIaReconstruction();
-
 function checkUiReconstruction(): void {
   if (repositoryMode !== "official") return;
   const uxDefinitionsRoot = path.join(root, "02_UX", "Definitions");
@@ -3156,8 +3154,6 @@ function checkUiReconstruction(): void {
       "The UI registry, separate UX-view and IA-view analyses, and integrated UI definitions must form exact duplicate-free (UX, UI) and (IA, UI) relation sets.",
     );
 }
-
-checkUiReconstruction();
 
 function checkSpecReconstruction(): void {
   if (repositoryMode !== "official") return;
@@ -3969,8 +3965,6 @@ function checkSpecReconstruction(): void {
       );
   }
 }
-
-checkSpecReconstruction();
 
 function checkArchitectureReconstruction(): void {
   if (repositoryMode !== "official") return;
@@ -4924,8 +4918,6 @@ function checkArchitectureReconstruction(): void {
     );
 }
 
-checkArchitectureReconstruction();
-
 function checkQualityReconstruction(): void {
   if (repositoryMode !== "official") return;
 
@@ -5190,19 +5182,19 @@ function checkQualityReconstruction(): void {
     "Quality Design Ready — Reality Audit Pending",
     "Quality Ready",
   ] as const;
-  const qualityStateKnown = qualityStateKinds.some(
+  const isQualityStateKnown = qualityStateKinds.some(
     (state) => state === normalizedQualityState,
   );
-  if (!qualityStateKnown)
+  if (!isQualityStateKnown)
     add(
       "error",
       "quality-state-invalid",
       relative(qualityCenterPath),
       "Quality Center must declare exactly one canonical finite state: Quality Design Under Review — Reality Audit Blocked, Quality Design Ready — Reality Audit Pending, or Quality Ready.",
     );
-  const qualityDesignReady =
+  const isQualityDesignReady =
     normalizedQualityState === "Quality Design Ready — Reality Audit Pending";
-  const qualityReady = normalizedQualityState === "Quality Ready";
+  const isQualityReady = normalizedQualityState === "Quality Ready";
   const realityAuditPath = path.join(
     qualityRoot,
     "05_Current_Implementation_Reality_Audit.md",
@@ -5223,21 +5215,21 @@ function checkQualityReconstruction(): void {
       relative(realityAuditPath),
       "Reality Audit must declare exactly one canonical finite state: Blocked — Quality Design Review Pending, Pending — Not Started, In Progress, or Complete.",
     );
-  const realityStateAllowedForCenter =
+  const isRealityStateAllowedForCenter =
     (normalizedQualityState ===
       "Quality Design Under Review — Reality Audit Blocked" &&
       realityAuditState === "Blocked — Quality Design Review Pending") ||
-    (qualityDesignReady &&
+    (isQualityDesignReady &&
       ["Pending — Not Started", "In Progress"].includes(realityAuditState)) ||
-    (qualityReady && realityAuditState === "Complete");
-  if (qualityStateKnown && !realityStateAllowedForCenter)
+    (isQualityReady && realityAuditState === "Complete");
+  if (isQualityStateKnown && !isRealityStateAllowedForCenter)
     add(
       "error",
       "quality-state-reality-audit-state-mismatch",
       relative(qualityCenterPath),
       "Quality Center and Reality Audit must use an allowed state pair: Under Review/Blocked, Design Ready/Pending or In Progress, or Quality Ready/Complete.",
     );
-  if (qualityDesignReady || qualityReady) {
+  if (isQualityDesignReady || isQualityReady) {
     const qualityDesignRootFiles = qualityRootChecklistSpecs
       .map(([fileName]) => fileName)
       .filter(
@@ -5250,29 +5242,32 @@ function checkQualityReconstruction(): void {
       ...phaseAnalysisPaths,
       ...qualityDefinitionPaths,
     ];
-    const qualityCurrentPaths = qualityReady
+    const qualityCurrentPaths = isQualityReady
       ? [...qualityDesignPaths, realityAuditPath]
       : qualityDesignPaths;
+    const qualityDesignArtifactPaths = qualityDesignPaths.filter(
+      (qualityDesignPath) => qualityDesignPath !== qualityCenterPath,
+    );
+    const qualityRuleRegistry = new RuleRegistry();
+    qualityRuleRegistry.register(
+      qualityDesignCanonicalStateRule(
+        isQualityReady ? "Quality Ready" : "Quality Design Ready",
+      ),
+    );
+    const qualityPipeline = runCheckerPipeline({
+      sources: qualityDesignArtifactPaths
+        .filter((artifactPath) => lstatIfPresent(artifactPath)?.isFile())
+        .map((artifactPath) => ({
+          path: relative(artifactPath),
+          content: read(artifactPath),
+        })),
+      registry: qualityRuleRegistry,
+    });
+    for (const finding of qualityPipeline.findings)
+      if (finding.code === "quality-design-artifact-state-invalid")
+        add(finding.severity, finding.code, finding.path, finding.message);
     for (const qualityCurrentPath of qualityCurrentPaths) {
       if (!lstatIfPresent(qualityCurrentPath)?.isFile()) continue;
-      if (
-        qualityCurrentPath !== qualityCenterPath &&
-        qualityCurrentPath !== realityAuditPath
-      ) {
-        const artifactState =
-          read(qualityCurrentPath).match(/^状態:\s*(.+?)\s*$/mu)?.[1] ?? "";
-        const normalizedArtifactState = artifactState
-          .replace(/^v\d+\.\d+\.\d+\s+/u, "")
-          .replace(/（Released Baseline:[^）]+）$/u, "")
-          .trim();
-        if (normalizedArtifactState !== "Canonical")
-          add(
-            "error",
-            "quality-design-artifact-state-invalid",
-            relative(qualityCurrentPath),
-            `${qualityReady ? "Quality Ready" : "Quality Design Ready"} requires every Quality design root, Analysis, and Definition artifact to declare Canonical state.`,
-          );
-      }
       const visible = visibleMarkdownStructure(read(qualityCurrentPath));
       const checklist =
         visible.match(/^## Checklist\s*$([\s\S]*)$/mu)?.[1] ?? "";
@@ -5281,7 +5276,7 @@ function checkQualityReconstruction(): void {
           "error",
           "quality-ready-with-open-checklist-result",
           relative(qualityCurrentPath),
-          `${qualityReady ? "Quality Ready" : "Quality Design Ready"} must not be declared while an applicable Quality Checklist still contains OPEN, FAIL, or an unchecked item.`,
+          `${isQualityReady ? "Quality Ready" : "Quality Design Ready"} must not be declared while an applicable Quality Checklist still contains OPEN, FAIL, or an unchecked item.`,
         );
     }
   }
@@ -6453,8 +6448,6 @@ function checkQualityReconstruction(): void {
         "Quality must keep result ownership with the relevant verification definition or release/change evidence owner instead of recreating a shared catch-all Evidence box.",
       );
 }
-
-checkQualityReconstruction();
 
 let workLifecycleRoots = [
   path.join(root, "99_Roadmap"),
@@ -8048,8 +8041,6 @@ function checkPhaseDiagramDispositionContracts(): void {
   }
 }
 
-checkPhaseDiagramDispositionContracts();
-
 const linkRecords: LinkRecord[] = [];
 for (const source of allMarkdownFiles) {
   for (const raw of markdownLinkTargets(read(source))) {
@@ -8605,8 +8596,6 @@ function checkDiscoveryIdentityLinkOwnership(): void {
     }
   }
 }
-
-checkDiscoveryIdentityLinkOwnership();
 
 function parseReadmeVersion(content: string): string | null {
   const markdown = parseMarkdownStructure(
@@ -9441,6 +9430,21 @@ if (structureRoot) {
     );
   }
 }
+
+const currentProfileRegistry = new RuleRegistry();
+for (const rule of currentProfileRules({
+  workLifecycle: checkWorkLifecycleNavigation,
+  discovery: checkDiscoveryIdentityLinkOwnership,
+  ux: checkUxRequirementAnalysis,
+  ia: checkIaReconstruction,
+  ui: checkUiReconstruction,
+  spec: checkSpecReconstruction,
+  architecture: checkArchitectureReconstruction,
+  quality: checkQualityReconstruction,
+  phaseDiagrams: checkPhaseDiagramDispositionContracts,
+}))
+  currentProfileRegistry.register(rule);
+runCheckerPipeline({ sources: [], registry: currentProfileRegistry });
 
 for (const name of ["Evidence", "Decision", "Decisions"]) {
   if (lstatIfPresent(path.join(root, name))) {
