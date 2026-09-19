@@ -1,14 +1,14 @@
 # CRDD参照Toolのアーキテクチャ
 
-Status: Review Candidate (v0.21.0, Released Baseline: v0.20.1)
+Status: Architecture Ready (v0.21.0, Released Baseline: v0.20.1)
 Owner: Qual-Lab
-Last Updated: 2026-09-15
+Last Updated: 2026-09-19
 
 ## 1. 目的と現在状態
 
 本書はArchitecture工程の固定入口である。CanonicalなUI／SPECから導いた18件の責務定義と、それらをQualityが検証設計へ使える形に統合した横断モデルを案内する。個別定義の内容を再定義せず、対象、網羅状態、主要判断、未解決事項および次工程への引渡しを所有する。
 
-個別責務定義、横断モデルおよび15領域の詳細設計は、前回の独立レビューを完了している。現在は、成果物別の可視Checklist、8種類のEngineering ConcernおよびTemplate／Checker契約を追加した改訂候補を再レビュー中である。現行実装との一致は、Architecture再レビュー完了後にQuality工程でReality Auditとして判定する。
+個別責務定義、横断モデルおよび15領域の詳細設計は、成果物別の可視Checklist、8種類のEngineering ConcernおよびTemplate／Checker契約を含めて独立再レビューを完了した。現行実装との一致は、Quality工程でReality Auditとして判定する。
 
 ## 2. 工程入力と再構築方法
 
@@ -63,11 +63,11 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 
 | 成果物 | 所有する内容 | Qualityへの主な引渡し | 状態 |
 |---|---|---|---|
-| [Component／責務モデル](02_Component_and_Responsibility_Model.md) | Component、責務、状態Owner、所有禁止、主要Port | UT／Component検証 | 固定候補 |
-| [境界／Interfaceモデル](03_Boundary_and_Interface_Model.md) | Component間、外部System、Platform、Trust境界と交換契約 | IT／契約／外部境界検証 | 固定候補 |
-| [Runtime／Data Flowモデル](04_Runtime_and_Data_Flow_Model.md) | Data、State、Identity、Authorityの流れと整合条件 | 状態／整合性／情報流検証 | 固定候補 |
-| [故障／回復／耐障害モデル](05_Failure_Recovery_and_Resilience_Model.md) | 故障領域、取消、Retry、Recovery、cleanup、終了条件 | 故障／回復／残存検証 | 固定候補 |
-| [配置／実行モデル](06_Deployment_and_Execution_Model.md) | Process、Runtime、配置、実行単位、並行性、Resource | 実行環境／Timing／Resource検証 | 固定候補 |
+| [Component／責務モデル](02_Component_and_Responsibility_Model.md) | Component、責務、状態Owner、所有禁止、主要Port | UT／Component検証 | Canonical |
+| [境界／Interfaceモデル](03_Boundary_and_Interface_Model.md) | Component間、外部System、Platform、Trust境界と交換契約 | IT／契約／外部境界検証 | Canonical |
+| [Runtime／Data Flowモデル](04_Runtime_and_Data_Flow_Model.md) | Data、State、Identity、Authorityの流れと整合条件 | 状態／整合性／情報流検証 | Canonical |
+| [故障／回復／耐障害モデル](05_Failure_Recovery_and_Resilience_Model.md) | 故障領域、取消、Retry、Recovery、cleanup、終了条件 | 故障／回復／残存検証 | Canonical |
+| [配置／実行モデル](06_Deployment_and_Execution_Model.md) | Process、Runtime、配置、実行単位、並行性、Resource | 実行環境／Timing／Resource検証 | Canonical |
 
 横断モデルは個別定義の代替ではない。個別責務間の関係、共同成立条件およびQualityが検証単位へ変換するための情報を所有する。
 
@@ -99,16 +99,16 @@ ARCH-IDは全体の基本設計Identityであり、詳細設計領域のIdentity
 
 | 条件 | 現在状態 | 根拠／次の処置 |
 |---|---|---|
-| UI／SPEC全数分析 | 再レビュー候補 | 20 UI、29 SPEC、未分析0。現行UI／SPEC Contractを再転記し、Source固有の観点評価と未確認事項を追加した |
-| 個別責務定義 | 再レビュー候補 | 18定義、台帳と完全一致。現行49分析からAuthority、Effect、Lifecycle、失敗および未確認事項を再統合した |
-| 5横断モデル | 前回Pass・影響再確認待ち | 前回固定版のPass履歴を保持し、現行分析／定義の変更影響を再確認する |
-| Qualityへの検証観点 | 再レビュー候補 | 15詳細領域の検証対象、反証する失敗、観測、終了後条件、未確認範囲を再照合した |
+| UI／SPEC全数分析 | Pass | 20 UI、29 SPEC、未分析0。現行UI／SPEC Contractを再転記し、Source固有の観点評価と未確認事項を追加した |
+| 個別責務定義 | Pass | 18定義、台帳と完全一致。現行49分析からAuthority、Effect、Lifecycle、失敗および未確認事項を再統合した |
+| 5横断モデル | Pass | 現行分析／定義の変更影響を再確認し、責務、境界、状態、故障および配置をCanonical化した |
+| Qualityへの検証観点 | Pass | 15詳細領域の検証対象、反証する失敗、観測、終了後条件、未確認範囲を再照合した |
 | Reality Audit境界 | 定義済み | [配置／実行モデル](06_Deployment_and_Execution_Model.md#5-reality-auditへの引渡し) |
-| 基本設計の独立レビュー | 是正後再レビュー待ち | 固定Commit `984aa466`のMajor指摘を是正し、新しい固定候補を再レビューする |
-| 詳細設計 | 再レビュー候補 | [詳細設計の対応表](07_Detail_Architecture_Map.md)を基準に、15領域のRelation、必要成果物、Engineering Concernを具体化した |
-| 詳細設計の独立レビュー | 是正後再レビュー待ち | 所有責務、Quality引渡し、結果語彙およびCanonical／Reality Audit境界の指摘を是正し、新しい固定候補を再レビューする |
+| 基本設計の独立レビュー | Pass | 固定Commit `03e16613`を再レビューし、Critical／Major／Moderate／Minor 0を確認した |
+| 詳細設計 | Pass | [詳細設計の対応表](07_Detail_Architecture_Map.md)を基準に、15領域のRelation、必要成果物、Engineering Concernを具体化した |
+| 詳細設計の独立レビュー | Pass | 固定Commit `03e16613`を再レビューし、所有責務、Quality引渡し、結果語彙およびCanonical／Reality Audit境界の不一致0件を確認した |
 
-前回固定版のArchitecture Ready履歴は保持する。現在の改訂候補は、Checklist／Engineering Concern拡張後の独立レビュー指摘を是正中であり、Architecture Readyを再確定していない。
+固定Commit `03e16613`について、契約、詳細設計および工程閉包の3系統で独立再レビューを行い、Critical／Major／Moderate／Minor 0を確認した。Architecture Analysis、Definitions、横断モデル、DetailsおよびQualityへの引渡しが同じ改訂版で閉じたため、Architecture Readyとする。
 
 ## 6. 保持する意図と対象外
 
@@ -121,4 +121,4 @@ ARCH-IDは全体の基本設計Identityであり、詳細設計領域のIdentity
 
 ## 7. 次工程への引渡し
 
-Qualityは個別ARCH定義、5つの横断モデルおよび対応する詳細設計領域を入力にする。ただし現行改訂候補の独立再レビューがPassし、Architecture Readyを再確定するまでは正式引渡しを開始しない。Ready後もUT／IT／ST等の名称を先に割り当てず、責務、境界、状態、故障、実行条件から検証単位を導く。Source、既存試験および基準版実装との照合はCanonical詳細設計が完成した後のReality Auditとして別に行う。
+Qualityは個別ARCH定義、5つの横断モデルおよび対応する詳細設計領域を正式入力にする。UT／IT／ST等の名称を先に割り当てず、責務、境界、状態、故障、実行条件から検証単位を導く。Source、既存試験および基準版実装との照合は、Canonical詳細設計と混ぜずReality Auditとして別に行う。
