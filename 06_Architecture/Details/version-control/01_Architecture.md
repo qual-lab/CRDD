@@ -151,7 +151,7 @@ dirty、untrackedまたはdetachedであることだけを不正としない。�
 |---|---|---|---|---|
 | Runtime Data | Repository RootをGit CLIから直接取得する処理 | Repository Location | 1 | Root能力をPortから取得し、旧Root Ownerと直接Git依存が0 |
 | Coordinator Repository Security | Repository Root／Layout／Operationの直接解釈 | Repository Location、Repository-local Ignore Registration | 1 | Root／Layout解釈をPortへ一本化し、Runtime Data領域作成時のignore登録を新Portへ接続 |
-| Checker Current Tree | Root、index、HEAD、historical objectの直接観測 | Repository Location、Local Change Set Observation、Fixed Snapshot Read。採用先では§8の同梱Artifactを使う | 2 | 採用先CheckerがOwner sourceから生成した自己完結Artifactだけを利用 |
+| Checker Current Tree | Root、index、HEAD、historical objectの直接観測 | Repository Location、Local Change Set Observation、Fixed Snapshot Read。採用先では§8の同一基準版Rootにある実装を使う | 2 | 開発・採用の両経路が検証済みCRDD基準版Rootの同じ公開入口だけを利用 |
 | Regression Selection | 変更集合の直接導出 | Local Change Set Observation | 2 | 変更集合の意味をPortへ一本化し、実Git境界の反証を持つ |
 | Coordinator Snapshot | Object Reader、Workspace、Candidate IntegrationによるGit内部構造の直接解釈 | Fixed Snapshot Read、Candidate Materialization | 3 | Object ReaderをAdapter内部へ隔離し、旧Owner Consumerが0 |
 | Policy／Provisioning | Policy／Provisioningによる固定Snapshotの直接解釈 | Fixed Snapshot Read | 3 | 保護対象の依存閉包をexact Port／Adapter importで固定 |
@@ -210,28 +210,22 @@ Version Control Ownerの全試験はTest Catalogへ登録し、Version Control�
 
 ## 8. Checkerへの配布
 
-`template/tools/crdd-check.ts`は採用Repositoryへ追加installなしで配布・実行できる現在契約を維持する。公式Repositoryの開発Packageへ実行時依存させず、同じVersion Control契約を自己完結した配布Artifactとして同梱する。
+v0.21の目標契約では、`template/tools/crdd-check.ts`を薄い起動入口とし、CheckerおよびVersion Control実装は同じCRDD基準版Rootの`40_Develop`に一本化する。採用Repositoryへ別Packageのinstallを要求しないが、`template/tools`だけの単独コピーはサポートしない。現行の自己完結Artifact契約は[CHG-000076](../../../99_Roadmap/Changes/CHG-000076/change.md)のConsumer Closureを通じて移行し、固定履歴を除く通常参照を同じ変更で更新する。
 
 ```text
-40_Develop/version-control/
-  Canonical source／Owner package
-             │
-             │ 決定論的な生成
-             ▼
-template/tools/internal/version-control-runtime.ts
-  Node.js標準機能だけで動く自己完結Artifact
-             │
-             ▼
-template/tools/crdd-check.ts
+<verified CRDD baseline root>/
+├ 40_Develop/version-control/   Canonical source／Owner package
+├ 40_Develop/checker/           Checker implementation
+└ template/tools/crdd-check.ts  thin launcher
 ```
 
 | Gate | 確認内容 |
 |---|---|
-| Source／Artifact一致 | Owner packageから再生成したbyteと同梱Artifactが完全一致する |
-| 生成漏れ | Canonical source変更後にArtifactが古ければ拒否する |
-| 単独配布 | `template/tools`だけを新しいFixture Repositoryへ配置してCheckerを実行できる |
-| 追加依存なし | 採用Repositoryへ`40_Develop`、package installまたはCRDD公式開発環境を要求しない |
-| 単一契約 | Checker内部へ別のGit実装を複製せず、同梱Artifactの公開入口だけを使う |
+| Root Identity | 開発時はVersion Control RootとRepository Manifest、採用時は署名済みRelease Manifestで同じ基準版Rootを検証する |
+| 実装Identity | launcherと同じ基準版Root直下の`40_Develop`だけを利用し、親Project、別Versionまたは類似配置へfallbackしない |
+| 単独launcher | `template/tools`だけを配置したFixtureはEffect 0で拒否する |
+| 追加installなし | 採用Repositoryへ別Package installまたはCRDD公式開発環境を要求しない |
+| 単一契約 | Checker内部へ別のGit実装を複製せず、Version Control公開入口だけを使う |
 
 ## 9. 基準版Capabilityの移行
 

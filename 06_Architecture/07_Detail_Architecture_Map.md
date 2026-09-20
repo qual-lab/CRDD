@@ -28,6 +28,7 @@ Quality／Development
 | [checker](Details/checker/01_Architecture.md) | ARCH-000001、ARCH-000002 | 決定論的構造検査と契約移行時の機械的集合検査 | Canonical |
 | [coordinator](Details/coordinator/01_Architecture.md) | ARCH-000004、ARCH-000008、ARCH-000010、ARCH-000014、ARCH-000015 | 実行編成、Provider境界、モデル選定、信頼済み実行、外部情報搬送 | Canonical |
 | [contract-migration](Details/contract-migration/01_Architecture.md) | ARCH-000002 | Canonical Contract変更時の全Consumer・派生物・公開／Release／Recovery経路の閉包 | Canonical |
+| [crdd-domain-library](Details/crdd-domain-library/01_Architecture.md) | ARCH-000001、ARCH-000002、ARCH-000008、ARCH-000009 | Checker固有処理、CRDD共通Domain、Repository／Version Control基盤の責務境界と公開入口 | Candidate |
 | [cros](Details/cros/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000009、ARCH-000010、ARCH-000013、ARCH-000015、ARCH-000016 | 複数Repositoryの利用範囲、読取り専用Context投影、候補搬送、時間的出所。受入判断書込みは所有しない | Canonical |
 | [execution-intelligence](Details/execution-intelligence/01_Architecture.md) | ARCH-000007、ARCH-000016、ARCH-000018 | 実行記録のCanonical記録、不変公開、読取りProjectionと時間的出所。書込みと読取りを別責務として接続 | Canonical |
 | [mcp](Details/mcp/01_Architecture.md) | ARCH-000005、ARCH-000012、ARCH-000013、ARCH-000015 | 公開Transport、Project読取り投影、Workspace範囲、外部情報境界。受入判断Authorityを生成しない | Canonical |
@@ -44,15 +45,15 @@ Quality／Development
 
 | Architecture定義 | 基本設計 | 接続する詳細設計領域 |
 |---|---|---|
-| ARCH-000001 | [機械検査と文書検査](Definitions/ARCH-000001/architecture_definition.md) | checker |
-| ARCH-000002 | [契約移行と利用側閉包](Definitions/ARCH-000002/architecture_definition.md) | contract-migration、checker、version-control |
+| ARCH-000001 | [機械検査と文書検査](Definitions/ARCH-000001/architecture_definition.md) | checker、crdd-domain-library |
+| ARCH-000002 | [契約移行と利用側閉包](Definitions/ARCH-000002/architecture_definition.md) | contract-migration、checker、version-control、crdd-domain-library |
 | ARCH-000003 | [変更・監査・試験・品質の閉包](Definitions/ARCH-000003/architecture_definition.md) | quality-change-control |
 | ARCH-000004 | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | project-runtime、coordinator、platform-access |
 | ARCH-000005 | [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | project-runtime、project-operation、cros、mcp |
 | ARCH-000006 | [Meeting候補と正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | project-operation、cros |
 | ARCH-000007 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md) | execution-intelligence、project-runtime |
-| ARCH-000008 | [実行境界の診断](Definitions/ARCH-000008/architecture_definition.md) | coordinator、platform-access |
-| ARCH-000009 | [Repository境界とBinding](Definitions/ARCH-000009/architecture_definition.md) | version-control、runtime-data、cros |
+| ARCH-000008 | [実行境界の診断](Definitions/ARCH-000008/architecture_definition.md) | coordinator、platform-access、crdd-domain-library |
+| ARCH-000009 | [Repository境界とBinding](Definitions/ARCH-000009/architecture_definition.md) | version-control、runtime-data、cros、crdd-domain-library |
 | ARCH-000010 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | coordinator、cros |
 | ARCH-000011 | [Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | runtime-data、platform-access |
 | ARCH-000012 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | mcp、project-runtime |

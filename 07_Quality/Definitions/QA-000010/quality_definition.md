@@ -26,6 +26,7 @@ Quality ID: `QA-000010`
 |---|---|
 | [artifact-signing](../../../06_Architecture/Details/artifact-signing/01_Architecture.md) | 署名前検査、署名対象、鍵境界、配置後の検証 |
 | [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復 |
+| [crdd-domain-library](../../../06_Architecture/Details/crdd-domain-library/01_Architecture.md) | launcher、署名済みRelease Manifest、実装正本およびNative Runtime Artifactを同じ配布全体Identityへ結合する境界 |
 | [runtime-trust](../../../06_Architecture/Details/runtime-trust/01_Architecture.md) | 準拠、Integrity、Publisher、利用者所有Trust Policy |
 
 ## 2. 評価軸

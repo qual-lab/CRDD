@@ -3713,6 +3713,28 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "checker:unit:launcher-binding",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/launcher-binding.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "launcher",
+        "baseline-root",
+        "distribution-identity",
+        "consumer-closure"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "baseline_root_exact",
+        "alternate_implementation_not_selected",
+        "invalid_identity_effect_absent"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "checker:unit:symbol-graph",
       "owner": "checker",
       "path": "40_Develop/checker/tests/unit/symbol-graph.contract.test.ts",

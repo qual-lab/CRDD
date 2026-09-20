@@ -1,7 +1,7 @@
 # Semantic Coverage基盤アーキテクチャ
 
 成果物種別: Architecture詳細設計
-詳細設計領域: checker（Semantic Coverage補助成果物）
+詳細設計領域: checker（現行配置）／crdd-domain-library（目標Owner）
 状態: Ready
 
 ## 基本設計との関係
@@ -12,6 +12,8 @@
 | [ARCH-000008](../../Definitions/ARCH-000008/architecture_definition.md) | 外部境界と故障境界の検証可能な意味を、実装・試験の観測点へ接続するPilot。 | Covered |
 
 本領域は既存Subsystemの設計意味を再定義しない。各SubsystemのArchitecture Detailsを入力として、機械利用可能な意味の生成とRelationの成立条件を所有する。
+
+> **移行設計:** Semantic CoverageはChecker Rule固有の能力ではない。[CRDD Domain Libraryの責務境界](../crdd-domain-library/01_Architecture.md)で共通Domainへ分類済みである。独立レビューと人間への設計提示が終わるまで現行Pathを維持し、本書の意味契約を物理移動の理由で変更しない。
 
 ## 1. 目的と責務
 

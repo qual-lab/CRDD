@@ -44,6 +44,12 @@
 | [checker](../06_Architecture/Details/checker/01_Architecture.md) | 開発試験runnerのLifecycle | [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md) | `RCM-07` | Covered | 所要時間そのものを品質合否に使わない |
 | [contract-migration](../06_Architecture/Details/contract-migration/01_Architecture.md) | Consumer closure | [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md) | `RCM-03`、`RCM-04`、`RCM-05` | Covered | 意味妥当性は独立レビューで確認する |
 | [contract-migration](../06_Architecture/Details/contract-migration/01_Architecture.md) | 縦断移行 | [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md) | `RCM-03`、`RCM-05` | Covered | 外部実境界は該当IT／STで再評価する |
+| [crdd-domain-library](../06_Architecture/Details/crdd-domain-library/01_Architecture.md) | Dependency Direction | [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md) | `RCM-09` | OPEN | 物理移動後のimport graphでChecker逆依存0を確認する |
+| [crdd-domain-library](../06_Architecture/Details/crdd-domain-library/01_Architecture.md) | Public Surface | [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md)<br>[成果物の理解と工程引継ぎ](Definitions/QA-000013/quality_definition.md) | `RCM-09`、`AUH-02` | OPEN | Capability別公開入口の実装後にexport allowlist、deep import禁止、巨大Barrel不在と利用者向け境界を確認する |
+| [crdd-domain-library](../06_Architecture/Details/crdd-domain-library/01_Architecture.md) | Consumer Closure | [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md) | `RCM-03`、`RCM-04` | OPEN | 旧deep import 0と宣言集合・自動導出集合の一致を確認する |
+| [crdd-domain-library](../06_Architecture/Details/crdd-domain-library/01_Architecture.md) | Result Boundary | [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md)<br>[成果物の理解と工程引継ぎ](Definitions/QA-000013/quality_definition.md) | `RCM-11`、`AUH-02` | OPEN | Domain Outcome／IssueとChecker Findingの型分離後に必須field、partial／unobservableおよび禁止fieldを確認する |
+| [crdd-domain-library](../06_Architecture/Details/crdd-domain-library/01_Architecture.md) | Repository Boundary | [RepositoryとFederation](Definitions/QA-000007/quality_definition.md) | `RFD-12` | OPEN | Repository観測公開後に検証済みRoot、Root外、symlink／junction、regular fileおよび終了後資源を確認する |
+| [crdd-domain-library](../06_Architecture/Details/crdd-domain-library/01_Architecture.md) | Distribution Identity | [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md)<br>[成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `RCM-08`、`RCM-09`、`AIT-10` | OPEN | 開発Root／採用側基準版Rootの両経路がlauncherから同じ公開実装へ到達することを確認する。Native Runtime ArtifactのPath移行はManifest、署名、Promotion、RecoveryおよびE2Eを同じGateで閉じる |
 | [coordinator](../06_Architecture/Details/coordinator/01_Architecture.md) | Provider選択・Home／Trust境界 | [外部Runtime境界](Definitions/QA-000006/quality_definition.md)<br>[成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `ERB-06`、`ERB-08`、`AIT-04` | Covered | 実Provider／実HomeのITで再評価する |
 | [coordinator](../06_Architecture/Details/coordinator/01_Architecture.md) | Provider実行・外部送信・候補Review | [外部Runtime境界](Definitions/QA-000006/quality_definition.md)<br>[外部送信とTransport](Definitions/QA-000009/quality_definition.md)<br>[候補の昇格](Definitions/QA-000005/quality_definition.md) | `ERB-01`、`ERB-02`、`ERB-05`、`EST-03`、`EST-05`、`CPR-01` | Covered | 実Provider双方向経路と候補Reviewで再評価する |
 | [coordinator](../06_Architecture/Details/coordinator/01_Architecture.md) | 署名済みManifest・staging promotion | [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-10` | Covered | 正式鍵を用いるRelease署名とpromotionで再評価する |
@@ -88,19 +94,19 @@ Source IDごとの検証義務は各工程の`Analysis/<工程>/quality_analysis
 
 | 検証目標 | Local Item集合 | 入力Coverage | Architecture入力 |
 |---|---|---|---|
-| [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md) | `RCM-01`、`RCM-02`、`RCM-03`、`RCM-04`、`RCM-05`、`RCM-06`、`RCM-07`、`RCM-08`、`RCM-09`、`RCM-10` | 6工程のAnalysis §3 | 本書§2／§3とchecker／contract-migration／version-control |
+| [Repositoryと契約移行](Definitions/QA-000001/quality_definition.md) | `RCM-01`、`RCM-02`、`RCM-03`、`RCM-04`、`RCM-05`、`RCM-06`、`RCM-07`、`RCM-08`、`RCM-09`、`RCM-10`、`RCM-11` | 6工程のAnalysis §3 | 本書§2／§3とchecker／contract-migration／crdd-domain-library／version-control |
 | [変更と品質状態](Definitions/QA-000002/quality_definition.md) | `CQS-01`、`CQS-02`、`CQS-03`、`CQS-04`、`CQS-05`、`CQS-06`、`CQS-07` | 6工程のAnalysis §3 | 本書§2／§3とquality-change-control |
 | [Project Runtime lifecycle](Definitions/QA-000003/quality_definition.md) | `PRL-01`、`PRL-02`、`PRL-03`、`PRL-04`、`PRL-05`、`PRL-06`、`PRL-07`、`PRL-08`、`PRL-09`、`PRL-10`、`PRL-11`、`PRL-12` | 6工程のAnalysis §3 | 本書§2／§3とproject-runtime／coordinator／platform-access |
 | [投影と出所](Definitions/QA-000004/quality_definition.md) | `PPR-01`、`PPR-02`、`PPR-03`、`PPR-04`、`PPR-05`、`PPR-06`、`PPR-07`、`PPR-08`、`PPR-09`、`PPR-10` | 6工程のAnalysis §3 | 本書§2／§3とcros／execution-intelligence／mcp／project-operation／project-runtime／runtime-data／version-control |
 | [候補の昇格](Definitions/QA-000005/quality_definition.md) | `CPR-01`、`CPR-02`、`CPR-03`、`CPR-04`、`CPR-05` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／mcp／project-operation |
 | [外部Runtime境界](Definitions/QA-000006/quality_definition.md) | `ERB-01`、`ERB-02`、`ERB-03`、`ERB-04`、`ERB-05`、`ERB-06`、`ERB-07`、`ERB-08`、`ERB-09`、`ERB-10`、`ERB-11` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／platform-access |
-| [RepositoryとFederation](Definitions/QA-000007/quality_definition.md) | `RFD-01`、`RFD-02`、`RFD-03`、`RFD-04`、`RFD-05`、`RFD-06`、`RFD-07`、`RFD-08`、`RFD-09`、`RFD-10`、`RFD-11` | 6工程のAnalysis §3 | 本書§2／§3とcros／mcp／runtime-data／version-control |
+| [RepositoryとFederation](Definitions/QA-000007/quality_definition.md) | `RFD-01`、`RFD-02`、`RFD-03`、`RFD-04`、`RFD-05`、`RFD-06`、`RFD-07`、`RFD-08`、`RFD-09`、`RFD-10`、`RFD-11`、`RFD-12` | 6工程のAnalysis §3 | 本書§2／§3とcros／crdd-domain-library／mcp／runtime-data／version-control |
 | [Runtime Data lifecycle](Definitions/QA-000008/quality_definition.md) | `RDL-01`、`RDL-02`、`RDL-03`、`RDL-04`、`RDL-05`、`RDL-06` | 6工程のAnalysis §3 | 本書§2／§3とplatform-access／runtime-data |
 | [外部送信とTransport](Definitions/QA-000009/quality_definition.md) | `EST-01`、`EST-02`、`EST-03`、`EST-04`、`EST-05`、`EST-06`、`EST-07`、`EST-08`、`EST-09`、`EST-10`、`EST-11` | 6工程のAnalysis §3 | 本書§2／§3とcoordinator／cros／mcp／project-runtime |
 | [成果物IntegrityとTrust](Definitions/QA-000010/quality_definition.md) | `AIT-01`、`AIT-02`、`AIT-03`、`AIT-04`、`AIT-05`、`AIT-06`、`AIT-07`、`AIT-08`、`AIT-09`、`AIT-10` | 6工程のAnalysis §3 | 本書§2／§3とartifact-signing／coordinator／runtime-trust |
 | [公式AssetのGovernance](Definitions/QA-000011/quality_definition.md) | `OAG-01`、`OAG-02`、`OAG-03`、`OAG-04`、`OAG-05`、`OAG-06` | 6工程のAnalysis §3 | 本書§2／§3とofficial-asset-governance |
 | [実行記録の公開と再利用](Definitions/QA-000012/quality_definition.md) | `ERP-01`、`ERP-02`、`ERP-03`、`ERP-04`、`ERP-05`、`ERP-06`、`ERP-07` | 6工程のAnalysis §3 | 本書§2／§3とexecution-intelligence |
-| [成果物の理解と工程引継ぎ](Definitions/QA-000013/quality_definition.md) | `AUH-01`、`AUH-02`、`AUH-03`、`AUH-04`、`AUH-05`、`AUH-06` | 6工程のAnalysis §3 | 本書§2／§3とchecker／cros |
+| [成果物の理解と工程引継ぎ](Definitions/QA-000013/quality_definition.md) | `AUH-01`、`AUH-02`、`AUH-03`、`AUH-04`、`AUH-05`、`AUH-06` | 6工程のAnalysis §3 | 本書§2／§3とchecker／crdd-domain-library／cros |
 
 ## Checklist
 

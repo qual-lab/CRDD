@@ -3,13 +3,13 @@
 Status: Stable (v0.20.1)
 Owner: Qual-Lab
 Last Updated: 2026-09-06
-Scope: `40_Develop/**`と、CRDDが配布正本として所有し`40_Develop/**`から参照する`template/tools/**`の実装
+Scope: `40_Develop/**`の実装と、CRDDが配布する`template/tools/**`の現行Tool本体・起動入口・設定・Schema。v0.21移行目標は本文で区別する
 
 ## 1. 目的と正本
 
 本書は、CRDD公式Repositoryが所有する内部ツールの命名、TypeScript／Rust source、試験および機械検査に適用する単一正本である。「Qual Suite準拠」のような外部参照だけでは規則を完了させず、CRDDで適用する値を本書に固定する。
 
-実装・試験・ビルド定義は`40_Develop`、本書を含む実装設計は`06_Architecture`、反復する操作手順は`19_Workflows`が所有する。採用Repositoryへ追加取得なしで届けるTool本体、固定Native成果物およびそれらの配布Identityは`template/tools`が所有する。`99_Roadmap`はWork Lifecycleの案内、Change／Release AggregateとEvidenceを所有し、採用側で実行するToolの配布先として使用しない。`template/tools`には本書が成果物種別ごとに明示した命名だけを適用し、`40_Develop`のSource配置規則を機械的に複製しない。標準工程フォルダとその正本文書はCRDD文書規則で命名し、以下の実装ファイル命名を工程フォルダ名へ拡張しない。
+実装・試験・ビルド定義は`40_Develop`、本書を含む実装設計は`06_Architecture`、反復する操作手順は`19_Workflows`が所有する。現行配布では採用Repositoryへ追加取得なしで届けるTool本体、固定Native成果物および配布Identityを`template/tools`が所有する。v0.21では[CHG-000076](../99_Roadmap/Changes/CHG-000076/change.md)により、Tool実装と固定Native成果物を各CRDD基準版の`40_Develop`へ移し、`template/tools`を薄い起動入口、設定、SchemaおよびRelease Manifestへ限定する。物理移動とConsumer Closureが完了するまでは目標状態を現行所有関係として扱わない。`99_Roadmap`はWork Lifecycleの案内、Change／Release AggregateとEvidenceを所有し、採用側で実行するToolの配布先として使用しない。`template/tools`には本書が成果物種別ごとに明示した命名だけを適用し、`40_Develop`のSource配置規則を機械的に複製しない。標準工程フォルダとその正本文書はCRDD文書規則で命名し、以下の実装ファイル命名を工程フォルダ名へ拡張しない。
 
 本書はQual Suite Commit `d7493e25f719bef6e46b8dbba7926f9a74e1165e`、Tree `62fa90f2020803609935a10944dcffe03484af34`の`06_Architecture/qual-insight/99_Coding_Standards.md`と`90_Release/qual-insight/Changes/CHG-000004_Implementation_Naming_Convention.md`を設計入力として使用した。今後のQual Suite側の変更を自動採用せず、CRDD側の変更トレースと人間の決定権限を通じて本書を更新する。
 
@@ -22,7 +22,7 @@ TypeScript／Rustの実行境界、Biome、型検査、Node.jsおよびRust tool
 - `40_Develop/**`のファイル名、フォルダ名およびTypeScript識別子（TypeScript identifier）
 - `40_Develop/platform-access/**`のRust識別子（Rust identifier）、Cargo設定および試験
 - `40_Develop/**`が所有する試験、パッケージスクリプト（package script）および設定
-- CRDDが配布正本として所有し`40_Develop/**`のprivate package entry adapterから参照する`template/tools/**`の実装ファイル名と識別子
+- `template/tools/**`の現行Tool本体・起動入口・設定・Schema・固定Native成果物と、v0.21移行後に残る薄い起動入口・設定・Schema・Release Manifestのファイル名と識別子
 - 新設または変更するCRDD所有の設定JSON key、IPC channel、activity event、DB名およびCSS class
 
 次のmachine valueは、各契約が所有するため本書を理由に改名しない。

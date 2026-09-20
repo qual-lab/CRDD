@@ -19,6 +19,7 @@
     "./tests/integration/regression-runner.contract.test.ts",
     "./tests/integration/tools-naming.contract.test.ts",
     "./tests/unit/test-catalog.contract.test.ts",
+    "./tests/unit/launcher-binding.contract.test.ts",
     "./tests/unit/symbol-graph.contract.test.ts",
     "./tests/unit/semantic-coverage-pilot.contract.test.ts",
     "./test-discovery.ts",
@@ -27,6 +28,7 @@
     "./regression-runner.ts",
     "./fault-injector.ts",
     "./compile-semantic-ir-pilot.ts",
+    "./src/launcher-binding.ts",
     "../../template/tools/crdd-check.ts"
   ]
 }

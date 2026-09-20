@@ -10,33 +10,33 @@
 |---|---:|
 | Canonical入力 | 157 |
 | Quality検証目標 | 13 |
-| Local Item数 | 112 |
+| Local Item数 | 114 |
 
 ## 結論
 
-v0.21.0のQuality設計は、全Canonical入力から検証目標とLocal Itemを導出し、独立レビューを通過した。13定義、112 Local Item、Architecture詳細設計の検証単位およびSource固有条件はCanonicalな設計集合として固定済みである。実装、試験、実行結果との現実照合（Reality Audit）は開始していない。
+v0.21.0のQuality設計は、CRDD Domain Libraryに伴って追加した`RFD-12`を含む13定義、114 Local Itemとして独立レビューを通過した。15 Canonical Architecture詳細設計領域の43検証単位は固定済みで、CRDD Domain LibraryのCandidate詳細設計6検証単位は実装・実境界未確認を示す`OPEN`として追加した。実装、試験、実行結果との現実照合（Reality Audit）は開始していない。
 
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|
 | Canonical入力 | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18を全件Mapping済み | [Quality Integration](04_Quality_Integration.md) |
-| Quality Analysis | 6工程の全入力を、Source固有条件付きで13検証目標へ接続し、独立レビュー済み | Reality Auditではこの設計集合を変更せず、現行実装との対応を照合する |
-| Quality Definitions | 13定義、112 Local ItemをCanonical化済み | 各項目の状態区分、試験段階、外部境界到達範囲、観測、Oracle、Evidenceおよび終了後条件を基準に照合する |
-| Architecture詳細設計 | 全詳細設計領域の43検証単位をQualityへ接続済み | Local Itemとの集合一致を維持し、未確認の実境界はReality Auditで判定する |
+| Quality Analysis | 6工程の全入力を、Source固有条件付きで13検証目標へ接続し独立レビュー済み | Reality Auditではこの設計集合を変更せず、現行実装との対応を照合する |
+| Quality Definitions | 13定義、114 Local ItemをCanonical化済み | 各項目の状態区分、試験段階、外部境界到達範囲、観測、Oracle、Evidenceおよび終了後条件を基準に照合する |
+| Architecture詳細設計 | 15 Canonical領域の43検証単位を接続済み。CRDD Domain Library Candidateの6検証単位は`OPEN` | Candidateの独立レビュー後も物理移動までは`OPEN`を維持し、既存43件の完成状態と分ける |
 | Checker | 現在候補に対する構造・関係検査を実行 | Quality固定後にChecker安定化へ進み、責務分離後に再検証する |
-| Reality Audit | Pending — Not Started | Quality独立レビュー済み。Checker安定化とSymbol Traceability基盤の完了後に開始する |
+| Reality Audit | Pending — Not Started | Checker安定化とSymbol Traceability基盤の完了後に開始する |
 
 ## 現在の品質投影
 
 | 軸 | 現在状態 | この状態から主張しないこと |
 |---|---|---|
-| Designed | Canonical | Quality Ready、実装済みまたは試験可能とは主張しない |
+| Designed | Canonical | 実装済みまたは試験可能とは主張しない |
 | Implemented | 未照合 | SourceやTestの存在をCanonical設計の実装根拠にしない |
-| Executed | 未実行 | Checker契約試験を112 Local Itemの実行結果へ数えない |
+| Executed | 未実行 | Checker契約試験を114 Local Itemの実行結果へ数えない |
 | Passed | 未評価 | 過去版のPassをv0.21.0候補へ流用しない |
 | Evidence | 未収集 | 現在候補の対象改訂版・実行条件・結果を持つEvidenceがあるとは主張しない |
 | Reality Audit | Pending — Not Started | Source、Test、Registryとの照合を先取りしない |
 
-現在の停止境界は、Checker安定化とSymbol Traceability基盤が未完了であり、Reality Auditをまだ開始しないことである。Quality設計自体の独立レビューは完了しており、現時点で人間による新しい判断は必要ない。
+現在の停止境界は、Checker安定化とSymbol Traceability基盤が未完了であり、Reality Auditをまだ開始しないことである。Quality設計114件の独立レビューは完了しており、現時点で人間による新しい判断は必要ない。
 
 ## 公開済みBaselineと参照
 

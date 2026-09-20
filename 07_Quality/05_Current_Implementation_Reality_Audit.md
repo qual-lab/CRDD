@@ -8,7 +8,8 @@
 
 | 項目 | 件数 |
 |---|---:|
-| Local Item数 | 112 |
+| Local Item数 | 114 |
+| 内訳 | 114 Review済み |
 
 ## 1. 目的
 
@@ -54,7 +55,7 @@
 
 | 対象 | 状態 | 理由 | 次の処置 |
 |---|---|---|---|
-| 13検証目標のLocal Item | Quality Design Ready | 157件のMapping、Source ID固有条件および112 Local ItemとのRelationを固定し、独立レビューを通過した | Checker安定化とSymbol Traceability基盤の完了後にLocal Item単位の照合を開始する |
+| 13検証目標のLocal Item | Quality Design Ready | 157件のMapping、Source ID固有条件、114 Local ItemおよびCRDD Domain Library Candidateの6検証単位とのRelationを固定した | 物理移動までは6件を`OPEN`として保持し、Reality Audit開始前にLocal Item単位の照合条件を再確認する |
 | 現行Source／Test | 未照合 | Canonical設計を固定し、既存資産を正解として採用せずに照合を開始できる状態になった | Local Item単位で照合する |
 | 実行結果／Evidence | 未評価 | v0.20.1の結果をv0.21の合格へ流用しない | 必要な試験を実行した後に結合する |
 

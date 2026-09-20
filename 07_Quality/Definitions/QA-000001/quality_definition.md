@@ -39,6 +39,7 @@ Quality ID: `QA-000001`
 |---|---|
 | [checker](../../../06_Architecture/Details/checker/01_Architecture.md) | 決定論的検査、必要図とRelationの機械確認、未確認の分離、意味判断の非所有 |
 | [contract-migration](../../../06_Architecture/Details/contract-migration/01_Architecture.md) | Producer、全Consumer、派生物、署名・Release経路の閉包 |
+| [crdd-domain-library](../../../06_Architecture/Details/crdd-domain-library/01_Architecture.md) | Capability別公開入口、禁止依存、Domain IssueとChecker Findingの分離、既知Consumerの閉包 |
 | [version-control](../../../06_Architecture/Details/version-control/01_Architecture.md) | Repository境界、Revision、差し替え可能な履歴管理Adapter |
 
 ## 2. 情報源と網羅条件
@@ -47,7 +48,7 @@ Quality ID: `QA-000001`
 |---|---|---|
 | [ARCH-000001](../../../06_Architecture/Definitions/ARCH-000001/architecture_definition.md) | 機械判定と意味判断の分離、同一入力への決定性 | `RCM-01`、`RCM-02` |
 | [ARCH-000002](../../../06_Architecture/Definitions/ARCH-000002/architecture_definition.md) | 旧／新Owner、Producer、全Consumer、派生物、公開／Release／Recovery経路の閉包 | `RCM-03`、`RCM-04`、`RCM-05` |
-| [Quality Integration](../../04_Quality_Integration.md) | 全157 Canonical定義、5横断モデル、15詳細設計領域から導いた検証範囲 | 全項目 |
+| [Quality Integration](../../04_Quality_Integration.md) | 全157 Canonical定義、5横断モデル、15 Canonical詳細設計領域と1 Candidate詳細設計領域から導いた検証範囲 | 全項目 |
 
 ## 3. 試験段階と外部境界の適用
 
@@ -68,10 +69,10 @@ Quality ID: `QA-000001`
 
 | 状態区分 | 適用 | 対応Local Item | 判断理由 |
 |---|---|---|---|
-| 正常 | Required | RCM-01、RCM-03、RCM-09、RCM-10 | 決定論的検査、移行後の閉包、依存境界およびTool登録を確認する |
-| 準正常／境界 | Required | RCM-06、RCM-08、RCM-09、RCM-10 | 利用者判断、配布入口、package境界およびTool状態差を確認する |
-| 異常 | Required | RCM-04、RCM-05、RCM-07 | 旧Consumer、再解釈、runner残存を拒否する |
-| 判定不能 | Required | RCM-02 | 読取不能や対象不明をPassへ丸めない |
+| 正常 | Required | RCM-01、RCM-03、RCM-09、RCM-10、RCM-11 | 決定論的検査、移行後の閉包、依存境界、Tool登録およびDomain結果変換を確認する |
+| 準正常／境界 | Required | RCM-06、RCM-08、RCM-09、RCM-10、RCM-11 | 利用者判断、配布入口、package境界、Tool状態差および部分結果を確認する |
+| 異常 | Required | RCM-04、RCM-05、RCM-07、RCM-11 | 旧Consumer、再解釈、runner残存および不正結果の昇格を拒否する |
+| 判定不能 | Required | RCM-02、RCM-11 | 読取不能、対象不明および観測不能をPassへ丸めない |
 
 ## 5. 検証項目
 
@@ -85,8 +86,9 @@ Quality ID: `QA-000001`
 | `RCM-06` | 利用者判断 | UAT | Acceptance／Tool Discovery | 固定改訂版のRepository→標準Tool利用者 | User Acceptance | fresh clone、submodule、版不一致、欠落実行基盤、改ざんManifestを含むRepository | 利用者が別版の手動取得や版推測をせず標準入口を発見し、起動可否を判断する | RCM-06として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | 対応するToolと実行基盤を根拠付きで選び、不一致・欠落・改ざん時は安全に停止できる | RCM-06、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「対応するToolと実行基盤を根拠付きで選び、不一致・欠落・改ざん時は安全に停止できる」および終了後条件「不一致Tool／Runtime Effect 0」を保存する | 不一致Tool／Runtime Effect 0 | Manual |
 | `RCM-07` | 異常 | IT | Runner／Resource Lifecycle | 開発試験runner→子Process→fixture | Adjacent 1 Block | 完了、timeout、取消、子Process終了遅延、fixture残存を個別注入できる固定試験 | 各終了経路で試験runnerを実行する | 親run Identity、開始した子Process Identity集合、要求した終了操作、実際のsignal、終了期限、期限後の残存Process集合、fixture分類と残存集合を記録する | 完了、timeout、取消を区別し、全子Processとfixtureの最終状態をIdentity単位で説明できる | RCM-07、親runと子Process Identity集合、要求・実signal、期限、残存Process集合、fixture分類・残存集合、Oracle判定および終了後条件を保存する。Secret、絶対Pathおよび生出力は保存しない | 全子Processの終了を確認し、残存fixtureは未確認として報告 | Automated |
 | `RCM-08` | 境界 | IT | Distribution Entry／Equivalence | Repository入口・Package入口→同一Checker Core／Profile | Direct Boundary | 同じ固定fixture、同じProfile、Repository入口と配布Package入口 | 二つの公開入口から検査を実行する | 実行した入口、Core／Profile Identity、finding集合Hashと順序、終了code、Repository Effect件数を入口別に記録する | 入口が異なっても同じCoreとProfileを用い、finding集合・順序・終了codeが一致する | RCM-08、固定fixture、両入口のCore／Profile Identity、finding集合Hash・順序、終了codeおよびRepository Effect件数を保存する | 子Process・一時成果物0、Repository Effect 0 | Automated |
-| `RCM-09` | 境界 | IT | Dependency／Package Boundary | package依存Graph→公開import→代表利用側 | Related 2 Blocks | 許可された依存方向、逆向き依存、内部Path import、package単独fixture、代表利用側 | Graph検査、公開import解決、package単独試験と代表利用側試験を実行する | package Identity、依存edge、import種別、単独試験結果、利用側結果、拒否理由を記録する | 許可方向と公開入口だけを使用し、各packageが単独成立し、逆向き依存・内部Path参照を拒否する | RCM-09、依存Graph、公開import集合、package単独・利用側結果、Oracle判定を保存する | package外Effect 0、一時成果物0 | Automated |
+| `RCM-09` | 境界 | IT | Dependency／Package Boundary | launcher→検証済みCRDD基準版Root→実装正本→package依存Graph→Capability別公開export→代表利用側 | Related 2 Blocks | 正常なCRDD開発Rootと署名済み採用基準版Root、Project自身の`40_Develop`、別Version、Manifest欠落、配布物改変、同名Directoryだけの配置、launcher単独、link介在のfixture、許可された依存方向、正本が定めるCapability別の完全export allowlist、実Sourceのexport集合、未宣言export、内部Path import、巨大Barrel、package単独fixture、代表利用側 | launcher実Pathからexact候補Rootを一つだけ導出し、開発時はVersion Control RootとRepository Manifest、採用時は署名済みRelease Manifestと配布全体Identityを検証する。代替Pathを探索せず、両正常経路の実装解決、Graph検査、公開export集合の完全一致、公開import解決、package単独試験と代表利用側試験を実行する | launcher実Path、候補Root、実行形態、Manifest契約とIdentity、Version、Content Root、解決した実装入口、package Identity、依存edge、宣言・実export集合差分、import種別、Barrel範囲、単独試験結果、利用側結果、拒否理由を記録する | 開発経路と採用経路が各Identity検証後に同じ公開APIへ到達する。Project側、別Version、Marker／Manifest欠落、改変、類似配置、launcher単独およびlink介在は代替候補へfallbackせずEffect 0で拒否する。宣言exportと実exportが完全一致し、未宣言export・逆向き依存・deep import・巨大Barrelを拒否する | RCM-09、両正常経路と全拒否fixtureのRoot解決結果、Manifest／Identity検証、fallback不在、依存Graph、宣言・実export集合と差分、Barrel範囲、package単独・利用側結果、Oracle判定を保存する | package外Effect 0、一時成果物0 | Automated |
 | `RCM-10` | 正常／境界 | IT | Tool Registry／Lifecycle | Tool登録→公開→Host可用性→許可→実行・取消・清掃 | Related 2 Blocks | 登録済み／未登録、公開／非公開、Host可用／不可、許可／不許可、取消・清掃fixture | Human CLI、MCP、Coordinatorから同じTool能力を照会し、代表実行を要求する | Tool Identity、各状態軸、共有実装Identity、入口別結果、取消結果、残存資源集合を記録する | 各状態を混同せず、許可時だけ同じ実装を使い、不許可時Effect 0、取消後資源0とする | RCM-10、状態軸、共有実装Identity、入口別結果、Effect・資源件数を保存する | 未許可Effect 0、取消・清掃後資源0 | Automated |
+| `RCM-11` | 正常／境界／異常／判定不能 | IT | Domain Result／Adapter Contract | Domain Outcome／Issue→Checker Adapter→Checker Finding | Direct Boundary | complete、partial、invalid、unobservableのOutcome、`complete + issue`の不正組合せ、全必須Issue field、未知kind、禁止fieldを含む固定fixture | Domain結果をChecker Adapterへ渡しFindingと全体状態へ変換する | Domainのstatus、result有無、issue件数、kind、targetIdentity、location、reason、detailsと、変換後code、severity、rule、message、未検査範囲、exit codeを対で記録する | Domain必須fieldを欠落させず、`complete + issue`を不正契約として拒否し、partial／invalid／unobservableをcompleteへ昇格せず、DomainへChecker固有fieldを持ち込まない | RCM-11、固定Outcome／Issue fixture、`complete + issue`拒否、変換前後field対応、未知kind拒否、禁止field不在、Oracle判定および終了後条件を保存する | Repository Effect 0、一時成果物0 | Automated |
 
 ## 6. 評価と根拠
 

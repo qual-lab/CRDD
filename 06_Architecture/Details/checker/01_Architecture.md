@@ -17,13 +17,13 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 | 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
 |---|---|---|---|
-| Component Model | Required | Core、Profile、CLI、package入口の責務を分ける。 | [§2](#2-配布本体と開発用入口) |
+| Component Model | Required | Core、Profile、CLI、package入口の責務を分ける。 | [§2](#2-実装正本と配布入口) |
 | Interface Model | Required | 入力Root、Finding、終了codeと利用側の意味を固定する。 | [§6](#6-結果の意味と利用側) |
 | Data Flow | Required | 探索、読取り、検査、集約、結果の流れを示す。 | [§3](#3-検査の順序) |
 | State Model | Required | 未開始、検査中、完了、実行不能と資源解放を区別する。 | [§5](#5-資源と終了) |
 | Sequence | Required | 構造確認後に意味別Profileを適用する順序が再現性に影響する。 | [§3](#3-検査の順序) |
 | Failure／Recovery | Required | FindingとChecker実行不能を分ける。 | [§6](#6-結果の意味と利用側) |
-| Deployment | Required | 配布本体とRepository開発入口の同一性を保つ。 | [§2](#2-配布本体と開発用入口) |
+| Deployment | Required | 実装正本と薄い配布入口の接続を保つ。 | [§2](#2-実装正本と配布入口) |
 | Observability | Required | 検査範囲、未検査範囲、所要時間、Findingを返す。 | [§6](#6-結果の意味と利用側) |
 | Security Boundary | Required | 検証済みRootだけを読み、link越境を確認済みにしない。 | [§4](#4-読取り境界) |
 
@@ -71,17 +71,19 @@ Checkerは、CRDD文書の構造、版、識別子、リンク、アンカー、
 
 利用契約は[振る舞い仕様](../../../05_SPEC/07_Current_Behavior_Reference.md#checker-contract)、操作は[Checkerの手順](../../../19_Workflows/02_Checker.md)、全体の品質状態は[品質の現在状態](../../../07_Quality/01_Quality_Center.md)を参照する。
 
-## 2. 配布本体と開発用入口
+## 2. 実装正本と配布入口
+
+> **移行設計:** 現在`template/tools`が実装本体も所有している。[CRDD Domain Libraryの責務境界](../crdd-domain-library/01_Architecture.md)で全Moduleを分類し、目標状態は`40_Develop/checker`をChecker実装正本、`template/tools`を薄い起動入口と設定配置にする。独立レビューと人間への設計提示が終わるまで現行Pathを維持する。
 
 | 部品 | 責務 | この分離の理由 |
 |---|---|---|
-| [配布入口](../../../template/tools/crdd-check.ts) | CLI、Repository発見、互換境界、結果報告を接続する。採用Repositoryにも配布する | 公式Repository専用版と配布版の検査意味を二重管理しない |
-| [Checker内部基盤](../../../template/tools/internal/checker/checker-pipeline.ts) | MarkdownをArtifact Modelへ変換し、Schema、Relation、登録済みRuleを固定Pipelineで実行する | Rule追加のたびにCLI入口や実行順序を変更しない |
-| [公式Repository入口](../../../40_Develop/checker/crdd-check.ts) | 配布本体をimportする | 実装工程から発見できる入口を持ち、コピーを作らない |
+| [配布入口](../../../template/tools/crdd-check.ts) | 安定CLI名、引数受付およびCRDD Runtime Root解決だけを行い、`40_Develop/checker`の公開入口へ接続する | 採用Repository向け入口を維持しつつ、検査意味を`template`に二重管理しない |
+| [Checker実装正本](../../../40_Develop/checker) | Checker固有Finding、Rule、Profile、Pipeline、CLIおよび結果報告を所有する | Rule追加のたびにlauncherを変更せず、共通能力をChecker専有にしない |
+| [公式Repository CLI](../../../40_Develop/checker/crdd-check.ts) | 同じChecker公開APIへ接続する | 実装工程から発見できる入口を持ち、コピーを作らない |
 | [private package](../../../40_Develop/checker/package.json) | 型・命名・静的解析・試験の開発環境 | 開発依存を採用先の必須導入物へ広げない |
 | [試験runner](../../../40_Develop/checker/test-runner.ts) | 安全に列挙した試験を子Processで実行する | 通常Checkerの検査と、fixtureを作る開発試験を分ける |
 
-`template/tools`は配布契約として残す。削除した旧ルート`tools`の互換実装ではない。Coordinatorの実行成功やProvider利用許可を、この部品が発行する経路はない。
+`template/tools`は配布契約として残すが、Checker実装本体を所有しない。起動入口だけを単独コピーした実行形態は対象外とし、公式clone／submodule内の`40_Develop`実装を解決できなければEffect 0で停止する。Coordinatorの実行成功やProvider利用許可を、この部品が発行する経路はない。
 
 ## 3. 検査の順序
 
@@ -90,19 +92,19 @@ Checkerは、CRDD文書の構造、版、識別子、リンク、アンカー、
 Checkerは一つの配布入口から開始するが、検査基盤は`internal/checker`へ分離する。現行Profileのうち、Rule登録とQuality状態検査は分離済みであり、工程別の検査本体は挙動保存を優先して配布入口から段階移行する。callbackで登録しただけの工程別検査を、責務分離完了とは扱わない。
 
 ```text
-公式Repository入口 [40_Develop/checker/crdd-check.ts]
-       │ import（採用先は配布入口から直接開始）
-       ▼
 配布入口 [template/tools/crdd-check.ts]
-       │
-       ├─ 引数・モード・Rootの受付
-       ├─ Repository発見・読取り境界 ──→ Git／Filesystem（読取り）
-       ├─ 対象範囲・互換境界
-       │
-       ▼
+       │ 安定CLI名・引数受付・Runtime Root解決のみ
+       ├─────────────────┐
+       │                                 │
+公式Repository CLI                   採用Repository入口
+[40_Develop/checker/crdd-check.ts]           [<CRDD基準版Directory>/template/tools/crdd-check.ts]
+       │                                 │
+       └─────────────────┘
+                         │ Checker公開API
+                         ▼
 ┌────────────────────────────────────────────┐
 │ Checker Pipeline                           │
-│ [template/tools/internal/checker/]         │
+│ [40_Develop/checker/src/internal/]          │
 │                                            │
 │ Markdown Parse                             │
 │      ↓                                     │
@@ -132,15 +134,15 @@ Checkerは一つの配布入口から開始するが、検査基盤は`internal/
 
 | 内部ブロック | Source群・関数群 | 役割 |
 |---|---|---|
-| 開発用接続部 | `40_Develop/checker/crdd-check.ts` | 配布本体へ接続し、検査実装を複製しない |
-| 発見・参照・範囲 | 配布入口の`discoverProjectFiles`、`anchorsFor*`、`resolveLocalTarget`と範囲選択部 | 確認する文書集合と参照先を構成する |
+| 開発用接続部 | `40_Develop/checker/crdd-check.ts` | `40_Develop/checker/src/index.ts`へ接続し、launcherへ検査実装を複製しない |
+| 発見・参照・範囲 | `40_Develop/checker/src/`のRepository発見、`anchorsFor*`、`resolveLocalTarget`と範囲選択部 | 確認する文書集合と参照先を構成する |
 | Artifact変換 | `markdown-artifact-parser.ts`、`artifact-model.ts` | Markdown表現を検査用の意味Modelへ一度だけ変換する |
 | 構造・関係検査 | `schema-validator.ts`、`relation-engine.ts` | 単一成果物の決定論的構造と成果物間Relationを分けて検査する |
 | Rule実行 | `rule-registry.ts`、`rules/` | 固定Stage内でRule ID順に実行し、個別RuleをCoreへ埋め込まない |
 | Pipeline | `checker-pipeline.ts` | Parser、Model、Schema、Relation、Ruleを固定順序で合成する |
 | Finding | `finding-model.ts` | severity、code、path、rule、message、evidenceを共通形式へ揃える |
-| 現行Profile移行 | 配布入口の`check*`群と`rules/current-profile.ts` | 既存Findingを維持しながら工程別検査を段階的にProfile moduleへ移す |
-| 報告 | 配布入口末尾の集計・出力部 | 機械的指摘と未確認範囲をstdoutと終了値へ返す |
+| 現行Profile移行 | 現行配布入口の`check*`群と`rules/current-profile.ts` | 既存Findingを維持しながら工程別検査を`40_Develop/checker/src/`のProfile moduleへ移す |
+| 報告 | `40_Develop/checker/src/`の集計・出力部 | 機械的指摘と未確認範囲をstdoutと終了値へ返す |
 | 開発検証 | `40_Develop/checker/test-*`、`tests/` | 試験発見と契約検証。通常実行の構成部ではない |
 
 専門的な意味監査、外部URLへの照会、自動文書修正は接続していない。次の順序説明と境界表が、その制約を具体化する。
@@ -165,7 +167,7 @@ Checkerは一つの配布入口から開始するが、検査基盤は`internal/
 
 PipelineのStage順序は固定する。同一StageのRuleはRule ID順で決定論的に実行し、Rule追加のためにPipeline順序を変更しない。Markdown Parser libraryやJSON Schema validatorの採用は実装選択であり、この責務境界を満たす限り特定libraryを設計契約にしない。
 
-実装上の順序は配布本体で照合できる。引数処理、`discoverProjectFiles`、参照解決、範囲選択、報告構築を辿ると、どの集合を実際に確認したか再構成できる。単なるファイル件数では確認範囲を表さない。
+実装上の順序は`40_Develop/checker`の実装正本で照合できる。引数処理、`discoverProjectFiles`、参照解決、範囲選択、報告構築を辿ると、どの集合を実際に確認したか再構成できる。単なるファイル件数では確認範囲を表さない。
 
 ### 全体確認と限定確認
 

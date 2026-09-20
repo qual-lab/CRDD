@@ -25,6 +25,7 @@ Quality ID: `QA-000013`
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
 | [checker](../../../06_Architecture/Details/checker/01_Architecture.md) | 決定論的検査、必要図とRelationの機械確認、未確認の分離、意味判断の非所有 |
+| [crdd-domain-library](../../../06_Architecture/Details/crdd-domain-library/01_Architecture.md) | Capability別公開入口と自己完結した結果契約により、利用側がChecker内部構造を理解せず共通能力を利用できること |
 
 ## 2. 事前条件
 

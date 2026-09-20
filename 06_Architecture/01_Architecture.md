@@ -8,7 +8,7 @@ Last Updated: 2026-09-19
 
 本書はArchitecture工程の固定入口である。CanonicalなUI／SPECから導いた18件の責務定義と、それらをQualityが検証設計へ使える形に統合した横断モデルを案内する。個別定義の内容を再定義せず、対象、網羅状態、主要判断、未解決事項および次工程への引渡しを所有する。
 
-個別責務定義、横断モデルおよび15領域の詳細設計は、成果物別の可視Checklist、8種類のEngineering ConcernおよびTemplate／Checker契約を含めて独立再レビューを完了した。現行実装との一致は、Quality工程でReality Auditとして判定する。
+個別責務定義、横断モデルおよび15領域のCanonical詳細設計は、成果物別の可視Checklist、8種類のEngineering ConcernおよびTemplate／Checker契約を含めて独立再レビューを完了した。加えて、CRDD Domain Libraryの責務分離をCandidate詳細設計として扱う。現行実装との一致は、Quality工程でReality Auditとして判定する。
 
 ## 2. 工程入力と再構築方法
 

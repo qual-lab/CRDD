@@ -87,7 +87,7 @@ Windows環境生成はNodeの診断レポートを使用せず、同梱Nativeの
 
 署名前検査からも利用するため、通常Runtimeの署名検証を逆参照する循環は作らない。固定Hashは初期取得部品の同一性だけを担い、Publisher Trustや実行許可の代替にはしない。
 
-[Rust crate](../../../40_Develop/platform-access/Cargo.toml)から、固定成果物`crdd-platform-access.exe`を一つだけ生成し、`template/tools/coordinator/windows-x64/`へ同梱する。
+[Rust crate](../../../40_Develop/platform-access/Cargo.toml)から、固定成果物`crdd-platform-access.exe`を一つだけ生成する。v0.21の目標Pathは`40_Develop/platform-access/artifacts/windows-x64/`とし、`template/tools`へNative実行物を置かない。現行Pathからの移行は[CHG-000076](../../../99_Roadmap/Changes/CHG-000076/change.md)でManifest、署名、Promotion、RecoveryおよびE2EのConsumer Closureと同時に閉じる。
 
 crateは`rust-toolchain.toml`、`Cargo.toml`および`Cargo.lock`でtoolchain、target、依存および版を固定する。通常Runtimeから`cargo run`、PATH上のCargo／Rust binaryまたは開発用`target/`成果物を起動しない。Release成果物は固定相対Path、target、protocol revision、Rust toolchain、byte長およびSHA-256を署名済みmanifestへ含める。言語・Buildの共通規則は[内部ツール・コーディング規約](../../99_Coding_Standards.md)、反復手順は[Coordinator RuntimeのWorkflow](../../../19_Workflows/01_Coordinator_Runtime.md)を参照する。
 

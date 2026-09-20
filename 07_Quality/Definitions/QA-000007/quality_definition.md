@@ -35,6 +35,7 @@ Quality ID: `QA-000007`
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
 | [cros](../../../06_Architecture/Details/cros/01_Architecture.md) | Repository横断解決、Grant、投影、外部接続、候補処置 |
+| [crdd-domain-library](../../../06_Architecture/Details/crdd-domain-library/01_Architecture.md) | 検証済みRoot内のregular file／directory観測、Root外・link境界の拒否、観測不能と不存在の分離 |
 | [mcp](../../../06_Architecture/Details/mcp/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
 | [runtime-data](../../../06_Architecture/Details/runtime-data/01_Architecture.md) | Repository-local／OS管理Root、用途、保持、清掃、回復 |
 | [version-control](../../../06_Architecture/Details/version-control/01_Architecture.md) | Repository境界、Revision、差し替え可能な履歴管理Adapter |
@@ -52,10 +53,10 @@ Quality ID: `QA-000007`
 
 | 状態区分 | 適用 | 対応Local Item | 判断理由 |
 |---|---|---|---|
-| 正常 | Required | RFD-01、RFD-03、RFD-08、RFD-09、RFD-10、RFD-11 | Repository解決、Session利用、単一Snapshot、手元作業、Context PackageおよびAI入口を確認する |
-| 準正常／境界 | Required | RFD-04、RFD-05、RFD-06、RFD-09、RFD-10、RFD-11 | 非開示、Adapter差替え、Identity、CROS任意性、出所および入口差を確認する |
-| 異常 | Required | RFD-02 | 偽装Pathや不正Rootを拒否する |
-| 判定不能 | Required | RFD-02 | RootやBindingを確定できない状態をEffect 0で返す |
+| 正常 | Required | RFD-01、RFD-03、RFD-08、RFD-09、RFD-10、RFD-11、RFD-12 | Repository解決、Session利用、単一Snapshot、手元作業、Context Package、AI入口およびRepository観測を確認する |
+| 準正常／境界 | Required | RFD-04、RFD-05、RFD-06、RFD-09、RFD-10、RFD-11、RFD-12 | 非開示、Adapter差替え、Identity、CROS任意性、出所、入口差およびRoot境界を確認する |
+| 異常 | Required | RFD-02、RFD-12 | 偽装Path、不正Root、link／junctionおよび読取り不能を拒否する |
+| 判定不能 | Required | RFD-02、RFD-12 | Root、BindingまたはRepository Entryを確定できない状態をEffect 0で返す |
 
 ## 3. 検証項目
 
@@ -72,6 +73,7 @@ Quality ID: `QA-000007`
 | `RFD-09` | 正常／境界 | IT | Optional CROS／Local Equivalence | Repository-local入口→任意CROS接続→同一Repository契約 | Related 2 Blocks | CROS未設定、停止、利用可能の三状態と、同一Repository・代表作業 | 各状態で同じRepository-local更新と検証を実行する | 入口、CROS状態、入力・結果Contract、Repository差分、外部依存、Effect件数を記録する | CROS未設定・停止でもlocal作業が成立し、利用可能時も操作意味とRepository結果が変わらない | RFD-09、三状態の契約・差分・依存・Effect比較を保存する | CROS停止時のCROS Effect 0、Repository外Effect 0 | Automated |
 | `RFD-10` | 正常／境界 | ST | Context Package／Provenance | Repository Projection→Context Package→Consumer | Related 2 Blocks | 単一・複数Repository／Project、部分アクセス、競合、欠測を含む固定Context | 目的限定Packageを生成しConsumerへ渡す | 要素別Source、Revision、Scope、欠測・競合、Package Identity、保持先、Consumer受領内容を記録する | 許可された最小範囲だけを含み、欠測・競合を推測補完せず、Packageを永続正本にしない | RFD-10、要素別provenance、Scope、欠測・競合、Package lifecycle、Oracleを保存する | Consumer終了後Packageを正本として残さず、元正本Effect 0 | Automated |
 | `RFD-11` | 境界 | IT | AI Entry／Canonical Resolution | AI入口→共通規範→Canonical Source→行動計画 | Related 2 Blocks | 複数AI入口、同一代表作業、入口固有制約、同一Canonical改訂版 | 各入口から作業計画と適用規則を解決する | 入口Identity、読んだ規範・Canonical Source・Revision、Authority境界、行動差と理由を記録する | 共通判断を入口で再定義せず、差は入口固有制約に根拠を持ち、同じCanonical Sourceへ到達する | RFD-11、入口別規範・Source・Revision・制約・差分理由を保存する | 未承認Effect 0、Canonical Source変更0 | Automated |
+| `RFD-12` | 正常／境界／異常／判定不能 | IT | Repository Observation／Resource Lifecycle | 検証済みRoot→Repository Observation Port→regular file／directory | Direct Boundary | Root内の通常file／directory、Root外Path、symbolic link、junction、読取り不能・観測不能を含む固定fixture | Repository相対Pathのfile／directory観測を要求する | 要求Root／相対Path、entry分類、reason、開始・終了後handle数、一時成果物数を記録する | Root内regular entryだけを観測し、Root外・link／junction／読取り不能・観測不能を区別して拒否し、観測不能を不存在へ畳まない | RFD-12、固定fixture Identity、entry分類、拒否理由、handle／一時成果物件数、Oracle判定および終了後条件を保存する。Secretと絶対Pathは保存しない | 開いたhandle 0、一時成果物0、Repository Effect 0 | Automated |
 
 ## 4. 評価とEvidence
 
