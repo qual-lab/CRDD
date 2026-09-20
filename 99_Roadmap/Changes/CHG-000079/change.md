@@ -124,13 +124,17 @@ Source File／Type／Function
 | Coordinator Docker境界 | 28 Pass、実環境依存4 Skip |
 | Repository Checker | 961 Markdown、15,954 Link、Error 0、Warning 0 |
 
+最終Commitから作成した固定配布物の署名前観測で、`docker-desktop-repair-native-process.ts`の意味グラフ識別値が旧File名由来の値のまま残っていることを検出した。Function本体のHashは不変だが、import先を含む意味グラフはFile名変更により変化する。新しい意味グラフを実測して固定値を更新し、固定配布物の観測が`platform_provisioner_distribution_observed`へ到達することを確認した。この追補は再試験、独立再レビューおよび追補Commit後に最終署名へ進める。
+
 ## 7. 独立レビュー
 
 初回固定候補`9fe6065c094b6ded2320cc3fb5d5b9f4e42024a2`はPass不可だった。指摘された変更一覧と検証記録の不一致、Symbol Headerの適用範囲、公開入口母集団、必須tag、非公開再export、namespace契約および負例不足を正本とChecker契約で是正した。
 
 第二固定候補`bc7accc163d51b71d16a89e4d6607e3b6d01a539`もPass不可だった。Path名を非公開性の根拠にしていた検査をArchitecture由来のexport元Module allowlistへ置換し、namespace名とexport元を一組で固定した。公開Effect、Filesystem・Process境界、Authorityおよび並行実行に応じたtagを補い、`@trace`をProfileが宣言するCanonical Architecture IDとexact照合する。Semantic Coverageの下位`index.ts`はCapability内部の集約であり、公開入口母集団から除外した。
 
-最終固定候補`8d21765c08c0e86bd5da670720fc7d4183ab5658`は独立レビューでPassした。`@trace`はHeader内の値集合とProfileの許可集合を完全一致で比較し、suffix付きIDと期待IDへの余剰ID併記も負例で拒否する。影響一覧48件と実差分48件は一致し、未解決のBlocking Findingはない。
+固定候補`8d21765c08c0e86bd5da670720fc7d4183ab5658`は独立レビューでPassした。`@trace`はHeader内の値集合とProfileの許可集合を完全一致で比較し、suffix付きIDと期待IDへの余剰ID併記も負例で拒否する。影響一覧48件と実差分48件は一致した。その後、Commit固定配布物の署名前観測により、File名変更に伴う意味グラフ識別値の追補漏れを検出したため、追補後の候補を改めて独立レビューする。
+
+追補固定候補`8b5f04386248a605496f363d9165e8c69a4fee3d`は独立再レビューでPassした。独立再計算でもFunction本体のHashは不変で、旧Pathでは旧意味グラフ、新Pathでは更新後の意味グラフを再現した。exact照合を迂回または削除しておらず、安全保証の弱体化と新しいBlocking Findingはない。追補Commit後の`HEAD`固定配布物に対する契約試験、再署名、signed Recovery Matrixおよびsigned four-route E2Eを完了Gateとして維持する。
 
 Coordinator RuntimeのSource Pathと配布内容が変わるため、最終Commit固定後の再署名、signed Recovery Matrixおよびsigned four-route E2Eを完了Gateとして残す。文書、Checkerまたは他PackageをCoordinator署名範囲へ追加しない。
 
@@ -144,5 +148,5 @@ Coordinator RuntimeのSource Pathと配布内容が変わるため、最終Commi
 - [x] 現行Sourceの曖昧File名と無名Barrel ExportをConsumer Closure付きで移行した。
 - [x] 公開入口ごとに重複しないPackage Headerを一つだけ配置した。
 - [x] Formatter、型、Lint、局所回帰およびRepository Checkerを完了した。
-- [x] 是正後固定候補の独立reviewを完了した。
+- [x] 意味グラフ識別値の追補後固定候補を独立reviewした。
 - [ ] OPEN: 最終CommitのCoordinator Runtimeを再署名し、Recovery Matrixとfour-route E2Eを完了する。理由: renameによりRuntime実行Identityが変化する。

@@ -2024,7 +2024,7 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "src/security/docker-desktop-repair-native-process.ts\0acquireRuntimeOwnedDockerDesktopNativeHelper",
-      "ab2c10133248652d19939052c86e0833034431d5c0671746f7a0c6c6f7685ff9",
+      "20c863df21d1ca6b13e5ab8999f6018a96ee86b1af5878e21c0ad433e631bd03",
     ],
     [
       "src/security/docker-effect-runtime.ts\0startCommand",
