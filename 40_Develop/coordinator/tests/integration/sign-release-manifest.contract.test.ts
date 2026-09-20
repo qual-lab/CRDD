@@ -232,6 +232,30 @@ function uniqueReleaseCandidate(prefix: string) {
   return value;
 }
 
+function currentSignedSourceIdentity() {
+  const manifestPath = path.join(
+    repositoryRoot,
+    "template",
+    "tools",
+    "coordinator",
+    "coordinator-package-manifest.json",
+  );
+  const envelope: unknown = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  if (typeof envelope !== "object" || envelope === null) {
+    throw new Error("test_release_manifest_envelope_invalid");
+  }
+  const payload = Reflect.get(envelope, "payload");
+  if (typeof payload !== "object" || payload === null) {
+    throw new Error("test_release_manifest_payload_invalid");
+  }
+  const crddCommit = Reflect.get(payload, "crddCommit");
+  const crddTree = Reflect.get(payload, "crddTree");
+  if (typeof crddCommit !== "string" || typeof crddTree !== "string") {
+    throw new Error("test_release_manifest_source_identity_invalid");
+  }
+  return Object.freeze({ crddCommit, crddTree });
+}
+
 function runtimeDistributionFixture(prefix: string) {
   const distributionRoot = uniqueReleaseCandidate(prefix);
   for (const component of [
@@ -1143,6 +1167,7 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
   const archive = path.join(parent, "release-tree.tar");
   const privateKeyPath = path.join(parent, "crdd-release-v1-private.pem");
   try {
+    const { crddCommit, crddTree } = currentSignedSourceIdentity();
     execFileSync(
       "git",
       [
@@ -1151,7 +1176,7 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
         "archive",
         "--format=tar",
         `--output=${archive}`,
-        "HEAD",
+        crddCommit,
       ],
       { windowsHide: true, stdio: "ignore" },
     );
@@ -1159,16 +1184,6 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
       windowsHide: true,
       stdio: "ignore",
     });
-    const crddCommit = execFileSync(
-      "git",
-      ["-C", repositoryRoot, "rev-parse", "HEAD"],
-      { encoding: "utf8", windowsHide: true },
-    ).trim();
-    const crddTree = execFileSync(
-      "git",
-      ["-C", repositoryRoot, "rev-parse", "HEAD^{tree}"],
-      { encoding: "utf8", windowsHide: true },
-    ).trim();
     const { privateKey } = generateKeyPairSync("ed25519");
     fs.writeFileSync(
       privateKeyPath,

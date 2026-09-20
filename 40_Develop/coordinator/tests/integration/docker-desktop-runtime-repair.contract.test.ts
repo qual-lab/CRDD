@@ -6,6 +6,10 @@ import path from "node:path";
 import test from "node:test";
 
 import { renderDockerRecoveryDoctorReport } from "../../src/core/docker-recovery-command-report.ts";
+import {
+  createDockerDesktopRepairContinuation,
+  persistDockerDesktopRepairContinuationIntent,
+} from "../../src/security/docker-desktop-repair-continuation-store.ts";
 import type {
   DockerDesktopRepairLedgerSnapshot,
   DockerDesktopRepairOperation,
@@ -26,8 +30,8 @@ import {
   classifyDockerDesktopRepairHistoricalAdoptionRoute,
   closeWindowsDockerDesktopRepairUsingDependencies,
   describeDockerDesktopRuntimeRepairContract,
-  observeDockerDesktopRuntimeDirectoryLockUsingDependencies,
   observeDockerDesktopEngineResult,
+  observeDockerDesktopRuntimeDirectoryLockUsingDependencies,
   type PreparedBoundary,
   type RepairDependencies,
   repairWindowsDockerDesktopRuntimeUsingDependencies,
@@ -3029,6 +3033,76 @@ test("renamed再開でEngineが既に回復済みならlauncherを二重起動�
   );
 });
 
+test("現行の非履歴operationは旧履歴用Continuationを作らない", async () => {
+  const operationDirectory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-current-repair-"),
+  );
+  try {
+    const ledger: DockerDesktopRepairLedgerSnapshot = Object.freeze({
+      processEffects: Object.freeze([
+        Object.freeze({
+          sequence: 0,
+          action: "native_termination" as const,
+          phase: "settled" as const,
+          issued: true,
+          confirmation: "confirmed" as const,
+        }),
+        Object.freeze({
+          sequence: 1,
+          action: "desktop_launch" as const,
+          phase: "settled" as const,
+          issued: true,
+          confirmation: "confirmed" as const,
+        }),
+      ]),
+      processEffectIssued: true,
+      processEffectConfirmation: "confirmed",
+      filesystemEffects: Object.freeze([]),
+      filesystemEffectIssued: false,
+      filesystemEffectConfirmation: "not_issued",
+      engineReady: false,
+      staleState: "retained",
+      hostSafety: "manual_recovery_required",
+      evidenceState: "preserved",
+      disposition: "not_applicable",
+      liveRunIdentity: null,
+    });
+    const operation: DockerDesktopRepairOperation = Object.freeze({
+      operationId: "e".repeat(32),
+      repairId: `docker-desktop-repair.${"e".repeat(32)}`,
+      operationDirectory,
+      staleName: `run.crdd-stale-${"e".repeat(32)}`,
+      staleDirectory: `C:\\local\\Docker\\run.crdd-stale-${"e".repeat(32)}`,
+      runIdentity: RUN_IDENTITY,
+      stage: "renamed",
+      sequence: 2,
+      previousRecordSha256: "8".repeat(64),
+      ledger,
+    });
+    const state = fixture({
+      acquireHelper: async () =>
+        Object.freeze({
+          status: "acquired" as const,
+          session: session({ processes: "absent" }),
+        }),
+      awaitEngine: async () => "known_unavailable" as const,
+    });
+    state.setOperation(operation);
+    const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
+      state.dependencies,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "docker_desktop_engine_restart_unconfirmed");
+    assert.equal(state.calls.includes("start"), false);
+    assert.equal(
+      fs.existsSync(path.join(operationDirectory, "runtime-continuation")),
+      false,
+    );
+  } finally {
+    fs.rmSync(operationDirectory, { recursive: true, force: true });
+  }
+});
+
 test("processes_stopped再開は既知issuedを保持してno-stale pendingへ進む", async () => {
   const ledger: DockerDesktopRepairLedgerSnapshot = Object.freeze({
     processEffects: Object.freeze([
@@ -4308,6 +4382,519 @@ test("WSL未確認とEngine再起動失敗は成功へ昇格しない", async ()
   assert.equal(engine.status, "blocked");
   assert.equal(engine.reason, "docker_desktop_engine_restart_unconfirmed");
   assert.equal(engine.manualRecoveryRequired, true);
+});
+
+test("署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engineを段階退避して回復する", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-docker-regions-"));
+  try {
+    const localAppData = path.join(root, "local");
+    const runtimeStateRoot = path.join(root, "runtime-state");
+    const operationId = "f".repeat(32);
+    const operationDirectory = path.join(
+      runtimeStateRoot,
+      `docker-desktop-repair-${operationId}`,
+    );
+    const runDirectory = path.join(localAppData, "Docker", "run");
+    const originalStale = path.join(
+      localAppData,
+      "Docker",
+      `run.crdd-stale-${operationId}`,
+    );
+    const secretsDirectory = path.join(localAppData, "docker-secrets-engine");
+    fs.mkdirSync(operationDirectory, { recursive: true });
+    fs.mkdirSync(runDirectory, { recursive: true });
+    fs.mkdirSync(originalStale, { recursive: true });
+    fs.mkdirSync(secretsDirectory, { recursive: true });
+    fs.writeFileSync(path.join(runDirectory, "sailor-ingest.sock"), "run");
+    fs.writeFileSync(path.join(originalStale, "dockerInference"), "old");
+    fs.writeFileSync(path.join(secretsDirectory, "engine.sock"), "secret");
+    const directoryIdentity = (target: string) => {
+      try {
+        const metadata = fs.lstatSync(target, { bigint: true });
+        return metadata.isDirectory() &&
+          !metadata.isSymbolicLink() &&
+          metadata.dev > 0n &&
+          metadata.ino > 0n &&
+          metadata.birthtimeNs > 0n
+          ? Object.freeze({
+              dev: String(metadata.dev),
+              ino: String(metadata.ino),
+              birthtimeNs: String(metadata.birthtimeNs),
+            })
+          : null;
+      } catch {
+        return null;
+      }
+    };
+    const originalIdentity = directoryIdentity(originalStale);
+    assert.ok(originalIdentity);
+    const currentBoundary: PreparedBoundary = Object.freeze({
+      ...boundary,
+      runtimeStateRoot,
+      localAppData,
+      runDirectory,
+      socketPath: path.join(runDirectory, "dockerInference"),
+    });
+    const ledger: DockerDesktopRepairLedgerSnapshot = Object.freeze({
+      processEffects: Object.freeze([
+        Object.freeze({
+          sequence: 0,
+          action: "official_shutdown" as const,
+          phase: "settled" as const,
+          issued: false,
+          confirmation: "not_issued" as const,
+        }),
+        Object.freeze({
+          sequence: 1,
+          action: "native_termination" as const,
+          phase: "settled" as const,
+          issued: false,
+          confirmation: "not_issued" as const,
+        }),
+        Object.freeze({
+          sequence: 2,
+          action: "wsl_termination" as const,
+          phase: "settled" as const,
+          issued: true,
+          confirmation: "confirmed" as const,
+        }),
+        Object.freeze({
+          sequence: 3,
+          action: "desktop_launch" as const,
+          phase: "settled" as const,
+          issued: true,
+          confirmation: "confirmed" as const,
+        }),
+      ]),
+      processEffectIssued: true,
+      processEffectConfirmation: "confirmed",
+      filesystemEffects: Object.freeze([
+        Object.freeze({
+          sequence: 0,
+          action: "runtime_directory_rename" as const,
+          phase: "settled" as const,
+          issued: true,
+          confirmation: "confirmed" as const,
+        }),
+      ]),
+      filesystemEffectIssued: true,
+      filesystemEffectConfirmation: "confirmed",
+      engineReady: false,
+      staleState: "retained",
+      hostSafety: "safe",
+      evidenceState: "preserved",
+      disposition: "not_applicable",
+      liveRunIdentity: null,
+    });
+    const operation: DockerDesktopRepairOperation = Object.freeze({
+      operationId,
+      repairId: `docker-desktop-repair.${operationId}`,
+      originLocalUserBindingHash: currentBoundary.localUserBindingHash,
+      operationDirectory,
+      staleName: `run.crdd-stale-${operationId}`,
+      staleDirectory: originalStale,
+      runIdentity: originalIdentity,
+      stage: "renamed",
+      sequence: 11,
+      previousRecordSha256: "8".repeat(64),
+      ledger,
+      history: Object.freeze({
+        adoptionSha256: "9".repeat(64),
+        handoffTipSha256: "9".repeat(64),
+        handoffCount: 0,
+        originLocalUserBindingHash: currentBoundary.localUserBindingHash,
+        currentLocalUserBindingHash: currentBoundary.localUserBindingHash,
+        currentSessionBound: true,
+        closed: false,
+        liveRunIdentity: null,
+        staleState: "unknown",
+      }),
+    });
+    let activeOperation = operation;
+    let restarted = false;
+    let externallyActive = false;
+    let activateAfterRunRename = false;
+    let launches = 0;
+    let closureWrites = 0;
+    const renameCalls: string[] = [];
+    const repairSession = Object.freeze({
+      ...session(),
+      inspectProcesses: async () =>
+        restarted || externallyActive
+          ? ("verified" as const)
+          : ("absent" as const),
+      launchDesktop: async () => {
+        launches += 1;
+        restarted = true;
+        fs.mkdirSync(runDirectory);
+        fs.writeFileSync(path.join(runDirectory, "dockerInference"), "new");
+        fs.mkdirSync(secretsDirectory);
+        fs.writeFileSync(path.join(secretsDirectory, "engine.sock"), "new");
+        return "started" as const;
+      },
+    });
+    const observePath = (target: string) => {
+      const observed = directoryIdentity(target);
+      return observed
+        ? Object.freeze({ state: "present" as const, identity: observed })
+        : Object.freeze({
+            state: "confirmed_absent" as const,
+            identity: null,
+          });
+    };
+    const dependencies: RepairDependencies = {
+      prepareBoundary: () => currentBoundary,
+      acquireHelper: async () =>
+        Object.freeze({ status: "acquired" as const, session: repairSession }),
+      inventory: () =>
+        Object.freeze({
+          status: "verified" as const,
+          operations: Object.freeze([activeOperation]),
+        }),
+      observeEngine: () =>
+        restarted || externallyActive ? "ready" : "known_unavailable",
+      observeKnownSocketFailure: () => null,
+      observeRuntimeDirectoryLock: (target) => directoryIdentity(target),
+      persistStage: () => assert.fail("historical chain must remain immutable"),
+      officialShutdown: () =>
+        Object.freeze({ issued: false, confirmation: "not_issued" as const }),
+      terminateDockerWsl: () =>
+        Object.freeze({ issued: false, confirmation: "not_issued" as const }),
+      renameRunDirectory: () =>
+        assert.fail("original runtime directory must not be renamed again"),
+      renameRuntimeDirectory: (source, target, expected) => {
+        renameCalls.push(source);
+        const before = directoryIdentity(source);
+        assert.deepEqual(before, expected);
+        fs.renameSync(source, target);
+        if (activateAfterRunRename && source === runDirectory)
+          externallyActive = true;
+        return Object.freeze({
+          issued: true,
+          confirmation: "confirmed" as const,
+          staleState: "retained" as const,
+        });
+      },
+      awaitEngine: async () =>
+        restarted || externallyActive ? "ready" : "known_unavailable",
+      identityAt: directoryIdentity,
+      observePath,
+      history: {
+        inspect: () => activeOperation,
+        loadOriginManifest: () => ({}),
+        loadCurrentManifest: () => ({}),
+        persistAdoption: () => assert.fail("already adopted"),
+        persistClosure: () => {
+          closureWrites += 1;
+          return null;
+        },
+      },
+    };
+    const result =
+      await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
+    assert.equal(
+      result.status,
+      "historical_recovered_pending_close",
+      JSON.stringify(result),
+    );
+    assert.equal(
+      result.reason,
+      "docker_desktop_repair_continuation_recovered_pending_close",
+    );
+    assert.equal(result.repairId, operation.repairId);
+    assert.equal(launches, 1);
+    assert.equal(fs.existsSync(originalStale), true);
+    assert.equal(
+      fs.existsSync(
+        path.join(
+          localAppData,
+          "Docker",
+          `run.crdd-stale-${operationId}-restart`,
+        ),
+      ),
+      true,
+    );
+    assert.equal(
+      fs.existsSync(
+        path.join(
+          localAppData,
+          `docker-secrets-engine.crdd-stale-${operationId}`,
+        ),
+      ),
+      true,
+    );
+    assert.equal(fs.existsSync(runDirectory), true);
+    assert.equal(fs.existsSync(secretsDirectory), true);
+    const replay =
+      await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
+    assert.equal(replay.status, "historical_recovered_pending_close");
+    assert.equal(launches, 1);
+    const hiddenSecretsDirectory = `${secretsDirectory}.missing-fixture`;
+    fs.renameSync(secretsDirectory, hiddenSecretsDirectory);
+    const missingSecretsClose =
+      await closeWindowsDockerDesktopRepairUsingDependencies(
+        operation.repairId,
+        dependencies,
+      );
+    assert.equal(missingSecretsClose.status, "blocked");
+    assert.equal(closureWrites, 0);
+    fs.renameSync(hiddenSecretsDirectory, secretsDirectory);
+    const continuationDirectory = path.join(
+      operationDirectory,
+      "runtime-continuation",
+    );
+    const hiddenContinuationDirectory = `${continuationDirectory}.missing-fixture`;
+    fs.renameSync(continuationDirectory, hiddenContinuationDirectory);
+    const missingContinuationClose =
+      await closeWindowsDockerDesktopRepairUsingDependencies(
+        operation.repairId,
+        dependencies,
+      );
+    assert.equal(missingContinuationClose.status, "blocked");
+    assert.equal(missingContinuationClose.repairId, operation.repairId);
+    assert.equal(closureWrites, 0);
+    fs.renameSync(hiddenContinuationDirectory, continuationDirectory);
+    const originalContinuationRecord = path.join(
+      operationDirectory,
+      "runtime-continuation",
+      "continuation-00-prepared.json",
+    );
+    const releaseMismatchedContinuation = JSON.parse(
+      fs.readFileSync(originalContinuationRecord, "utf8"),
+    );
+    releaseMismatchedContinuation.crddManifestHash = "f".repeat(64);
+    fs.writeFileSync(
+      originalContinuationRecord,
+      `${JSON.stringify(releaseMismatchedContinuation)}\n`,
+      "utf8",
+    );
+    const releaseMismatchedClose =
+      await closeWindowsDockerDesktopRepairUsingDependencies(
+        operation.repairId,
+        dependencies,
+      );
+    assert.equal(releaseMismatchedClose.status, "blocked");
+    assert.equal(closureWrites, 0);
+
+    const externallyActiveId = "d".repeat(32);
+    const externallyActiveDirectory = path.join(
+      runtimeStateRoot,
+      `docker-desktop-repair-${externallyActiveId}`,
+    );
+    const externallyActiveStale = path.join(
+      localAppData,
+      "Docker",
+      `run.crdd-stale-${externallyActiveId}`,
+    );
+    fs.mkdirSync(externallyActiveDirectory, { recursive: true });
+    fs.mkdirSync(externallyActiveStale);
+    fs.writeFileSync(
+      path.join(externallyActiveStale, "dockerInference"),
+      "older-active",
+    );
+    const externallyActiveOriginalIdentity = directoryIdentity(
+      externallyActiveStale,
+    );
+    const externallyActiveRunIdentity = directoryIdentity(runDirectory);
+    const externallyActiveSecretsIdentity = directoryIdentity(secretsDirectory);
+    assert.ok(externallyActiveOriginalIdentity);
+    assert.ok(externallyActiveRunIdentity);
+    assert.ok(externallyActiveSecretsIdentity);
+    const externallyActiveOperation: DockerDesktopRepairOperation =
+      Object.freeze({
+        ...operation,
+        operationId: externallyActiveId,
+        repairId: `docker-desktop-repair.${externallyActiveId}`,
+        operationDirectory: externallyActiveDirectory,
+        staleName: `run.crdd-stale-${externallyActiveId}`,
+        staleDirectory: externallyActiveStale,
+        runIdentity: externallyActiveOriginalIdentity,
+      });
+    assert.ok(
+      createDockerDesktopRepairContinuation(
+        currentBoundary,
+        externallyActiveOperation,
+        externallyActiveRunIdentity,
+        externallyActiveSecretsIdentity,
+      ),
+    );
+    activeOperation = externallyActiveOperation;
+    restarted = false;
+    externallyActive = true;
+    const renameCountBeforeActiveReentry = renameCalls.length;
+    const activeReentry =
+      await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
+    assert.equal(activeReentry.status, "blocked");
+    assert.equal(
+      activeReentry.reason,
+      "docker_desktop_repair_continuation_effect_precondition_unconfirmed",
+    );
+    assert.equal(renameCalls.length, renameCountBeforeActiveReentry);
+    const partialClose = await closeWindowsDockerDesktopRepairUsingDependencies(
+      externallyActiveOperation.repairId,
+      dependencies,
+    );
+    assert.equal(partialClose.status, "blocked");
+    assert.equal(closureWrites, 0);
+    externallyActive = false;
+
+    const effectBoundaryId = "c".repeat(32);
+    const effectBoundaryDirectory = path.join(
+      runtimeStateRoot,
+      `docker-desktop-repair-${effectBoundaryId}`,
+    );
+    const effectBoundaryStale = path.join(
+      localAppData,
+      "Docker",
+      `run.crdd-stale-${effectBoundaryId}`,
+    );
+    fs.mkdirSync(effectBoundaryDirectory, { recursive: true });
+    fs.mkdirSync(effectBoundaryStale);
+    fs.writeFileSync(
+      path.join(effectBoundaryStale, "dockerInference"),
+      "older-boundary",
+    );
+    const effectBoundaryOriginalIdentity =
+      directoryIdentity(effectBoundaryStale);
+    const effectBoundaryRunIdentity = directoryIdentity(runDirectory);
+    const effectBoundarySecretsIdentity = directoryIdentity(secretsDirectory);
+    assert.ok(effectBoundaryOriginalIdentity);
+    assert.ok(effectBoundaryRunIdentity);
+    assert.ok(effectBoundarySecretsIdentity);
+    const effectBoundaryOperation: DockerDesktopRepairOperation = Object.freeze(
+      {
+        ...operation,
+        operationId: effectBoundaryId,
+        repairId: `docker-desktop-repair.${effectBoundaryId}`,
+        operationDirectory: effectBoundaryDirectory,
+        staleName: `run.crdd-stale-${effectBoundaryId}`,
+        staleDirectory: effectBoundaryStale,
+        runIdentity: effectBoundaryOriginalIdentity,
+      },
+    );
+    assert.ok(
+      createDockerDesktopRepairContinuation(
+        currentBoundary,
+        effectBoundaryOperation,
+        effectBoundaryRunIdentity,
+        effectBoundarySecretsIdentity,
+      ),
+    );
+    activeOperation = effectBoundaryOperation;
+    activateAfterRunRename = true;
+    const effectBoundaryResult =
+      await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
+    assert.equal(effectBoundaryResult.status, "blocked");
+    assert.equal(
+      effectBoundaryResult.reason,
+      "docker_desktop_repair_continuation_effect_precondition_unconfirmed",
+    );
+    assert.equal(fs.existsSync(secretsDirectory), true);
+    assert.equal(
+      fs.existsSync(
+        path.join(
+          localAppData,
+          `docker-secrets-engine.crdd-stale-${effectBoundaryId}`,
+        ),
+      ),
+      false,
+    );
+    activateAfterRunRename = false;
+    externallyActive = false;
+    fs.mkdirSync(runDirectory);
+    fs.writeFileSync(path.join(runDirectory, "dockerInference"), "newer");
+
+    const interruptedId = "e".repeat(32);
+    const interruptedDirectory = path.join(
+      runtimeStateRoot,
+      `docker-desktop-repair-${interruptedId}`,
+    );
+    const interruptedStale = path.join(
+      localAppData,
+      "Docker",
+      `run.crdd-stale-${interruptedId}`,
+    );
+    fs.mkdirSync(interruptedDirectory, { recursive: true });
+    fs.mkdirSync(interruptedStale);
+    fs.writeFileSync(path.join(interruptedStale, "dockerInference"), "older");
+    const interruptedOriginalIdentity = directoryIdentity(interruptedStale);
+    const interruptedRunIdentity = directoryIdentity(runDirectory);
+    const interruptedSecretsIdentity = directoryIdentity(secretsDirectory);
+    assert.ok(interruptedOriginalIdentity);
+    assert.ok(interruptedRunIdentity);
+    assert.ok(interruptedSecretsIdentity);
+    const interruptedOperation: DockerDesktopRepairOperation = Object.freeze({
+      ...operation,
+      operationId: interruptedId,
+      repairId: `docker-desktop-repair.${interruptedId}`,
+      operationDirectory: interruptedDirectory,
+      staleName: `run.crdd-stale-${interruptedId}`,
+      staleDirectory: interruptedStale,
+      runIdentity: interruptedOriginalIdentity,
+    });
+    const preparedContinuation = createDockerDesktopRepairContinuation(
+      currentBoundary,
+      interruptedOperation,
+      interruptedRunIdentity,
+      interruptedSecretsIdentity,
+    );
+    assert.ok(preparedContinuation);
+    const interruptedContinuation =
+      persistDockerDesktopRepairContinuationIntent(
+        currentBoundary,
+        interruptedOperation,
+        preparedContinuation,
+        "failed_launch_run_directory_rename",
+      );
+    assert.ok(interruptedContinuation);
+    activeOperation = interruptedOperation;
+    restarted = false;
+    const renameCountBeforeInterruptedReentry = renameCalls.length;
+    const runRenameCountBeforeInterruptedReentry = renameCalls.filter(
+      (source) => source === runDirectory,
+    ).length;
+    const interruptedReentry =
+      await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
+    assert.equal(interruptedReentry.status, "blocked");
+    assert.equal(
+      interruptedReentry.reason,
+      "docker_desktop_repair_continuation_effect_unknown",
+    );
+    assert.equal(renameCalls.length, renameCountBeforeInterruptedReentry);
+
+    const interruptedFailedRunStale = path.join(
+      localAppData,
+      "Docker",
+      `run.crdd-stale-${interruptedId}-restart`,
+    );
+    fs.renameSync(runDirectory, interruptedFailedRunStale);
+    const observedEffectReentry =
+      await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
+    assert.equal(
+      observedEffectReentry.status,
+      "historical_recovered_pending_close",
+      JSON.stringify(observedEffectReentry),
+    );
+    assert.equal(observedEffectReentry.repairId, interruptedOperation.repairId);
+    assert.equal(launches, 2);
+    assert.equal(
+      renameCalls.filter((source) => source === runDirectory).length,
+      runRenameCountBeforeInterruptedReentry,
+      "意図記録後に外部Effectを観測した再入場では同じrenameを再発行しない",
+    );
+    assert.equal(fs.existsSync(interruptedFailedRunStale), true);
+    assert.equal(
+      fs.existsSync(
+        path.join(
+          localAppData,
+          `docker-secrets-engine.crdd-stale-${interruptedId}`,
+        ),
+      ),
+      true,
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("terminal再表示はstale exact identityと解放後package世代を再確認する", async () => {

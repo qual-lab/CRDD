@@ -5,9 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
-
-import { renderDockerRecoveryDoctorReport } from "../../src/core/docker-recovery-command-report.ts";
 import { dispatchDockerDesktopRepairDoctorCommand } from "../../src/core/docker-desktop-repair-doctor-dispatch.ts";
+import { renderDockerRecoveryDoctorReport } from "../../src/core/docker-recovery-command-report.ts";
 import { inspectDockerRecoveryRootSnapshotWithLock } from "../../src/security/docker-recovery-runtime-internal.ts";
 
 const recoveryId = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
@@ -182,7 +181,7 @@ test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じre
   const repairId = `docker-desktop-repair.${"b".repeat(32)}`;
   const terminal = Object.freeze({
     contract: "crdd-coordinator/docker-desktop-runtime-repair",
-    contractRevision: 5,
+    contractRevision: 6,
     status: "closed_retained",
     reason: "docker_desktop_repair_evidence_retention_closed",
     repairId,

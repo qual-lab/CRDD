@@ -374,15 +374,46 @@ Docker境界は一つのCLI呼出しとして扱わず、同じ状態、Authorit
 | `prepared`／`processes_stopped` | stale対象がなく、既知Effectまたは履歴Effect不明を分類 | `no_stale_known_effect_recovery_pending`または`no_stale_historical_effect_unknown_pending` | 推測で不存在へ畳まない |
 | `processes_stopped` | exactな`run` Directoryを同一親内へrenameし、新旧Identityを確認 | `renamed` | rename結果不明として同じ修復IDを保持 |
 | `renamed` | Desktopを起動し、Engine応答、Host安全性、Evidence保持を確認 | `recovered_pending_disposition` | 起動を盲目的に再発行せず停止 |
+| `renamed`かつ初回起動失敗 | 起動済みEffectを再発行せず、失敗起動が作った既知Runtime領域を同じ修復IDへ追記して一領域ずつ退避 | `failed_run_renamed`→`secrets_engine_renamed` | 一領域でもIdentity・lock・退避結果が不明なら同じ修復IDで停止 |
+| `secrets_engine_renamed` | 再起動意図を耐久化してDesktopを一回だけ再起動し、Engine、Process、新しいRuntime領域および退避領域をfresh観測 | `recovered_pending_disposition` | 起動結果不明なら再発行せず、同じ修復IDで停止 |
 | `recovered_pending_disposition` | 人間が残存Evidenceの保持を決定し、終了記録を耐久化 | `closed_retained` | 回復済みと表示しない |
 | `no_stale_known_effect_recovery_pending` | 既知EffectのEvidence保持を決定し終了記録を耐久化 | `closed_no_stale_known_effect_retained` | 回復義務を保持 |
 | `no_stale_historical_effect_unknown_pending` | 履歴Effect不明のEvidence保持を決定し終了記録を耐久化 | `closed_historical_effect_unknown_retained` | Effect不存在を捏造しない |
 
-未終了の旧修復履歴はこの新規修復状態へ直接継ぎ足さない。由来、現在Session、現在Engine停止、Process集合、stale対象不存在、現在の`run` Identityおよびその既知lockを確認した場合だけ、Host Effect 0で旧履歴を証拠保持終了へ閉じ、新しい修復IDの`prepared`を別Operationとして開始できる。現在の`run`が旧履歴のIdentityと異なる場合は、旧対象が既定の`run`／stale位置に存在しないことと、新世代の`run`が同じfresh観測とlockで一致することを要求し、世代交代を旧Effect不存在の証明へ読み替えない。
+未終了の旧修復履歴へ、旧Runtimeが知らなかったEffectを旧記録の改変として継ぎ足さない。由来、現在Session、現在Engine停止、Process集合、元のstale対象および現在の既知Runtime領域を確認したうえで、次のいずれかに分類する。
+
+- 旧Effectを安全に確定でき、現在の障害が独立している場合は、旧Operationを証拠保持終了へ閉じ、新しい修復IDの`prepared`を別Operationとして開始する。
+- 旧Operation自身のsettledな初回起動が新しい失敗世代を作った場合は、同じ修復IDに現在Release所有の追記専用継続記録を接続する。旧記録を変更せず、旧Effectを再発行せず、追加Effectごとに意図と結果を耐久化する。
+
+現在の`run`が旧履歴のIdentityと異なる場合も、世代交代を旧Effect不存在の証明へ読み替えない。
 
 `prepared`のProcess操作は、要求したかどうかだけでなく、freshな実状態から必要性を分類する。Engineが既知停止、修復対象の`run` Identityが一致、stale対象が不存在で、Docker Desktop Processも明示的不在なら、公式停止とNative強制停止は`known_not_needed`である。この場合はHost操作を発行せず、`issued=false`／`confirmation=not_issued`を同じ修復IDへ耐久化して次の段階へ進む。再開時は保存済みの`not_issued`だけを信用せず、同じ条件を再観測する。Processの再出現、Identity差、観測不能またはEngine状態の変化では後続Effectを発行しない。
 
-署名済みRuntimeの更新をまたぐ未完了修復は、旧RuntimeのHost操作を新Runtimeから再発行しない。旧署名と引継ぎ連鎖を検証し、全Host Effectがsettledな`not_issued`であること、現在境界、現在`run` Identityおよび旧stale対象不存在をfresh観測できる場合は、過去のHost Effect 0だけを確定して旧Operationを証拠保持終了できる。現在Dockerの故障または復旧は同時に推定せず、新しい修復Operationが現在の証拠から改めて判定する。
+署名済みRuntimeの更新をまたぐ未完了修復は、旧RuntimeのHost操作を新Runtimeから再発行しない。旧署名、引継ぎ連鎖、現在Session、元の退避対象および現在の既知Runtime領域を検証する。旧Effectを確定して終了できる場合は旧Operationを証拠保持終了する。旧Operationのsettledな起動Effectが新しい失敗世代を作った場合だけ、同じ修復IDへ現在Release所有の追記専用継続記録を接続し、未発行の追加Effectだけを進める。どちらにも分類できなければ、新しい修復IDへ逃がさず同じ修復IDで停止する。
+
+```text
+旧署名の修復記録（変更しない）
+        │
+        ├─ 旧Effectを再発行しない
+        │
+        └─ exactな由来・Session・失敗世代を検証
+                         ↓
+             同じRepair IDの継続記録
+                         │
+          ┌──────────────┴──────────────┐
+          ▼                             ▼
+  Docker\run失敗世代            docker-secrets-engine
+  意図→退避→結果                 意図→退避→結果
+          └──────────────┬──────────────┘
+                         ▼
+                 再起動意図→一回起動
+                         ▼
+       Engine・Process・新世代・退避物を再観測
+```
+
+継続記録の一部だけが成立しても修復成功にしない。各Host Effectの直前には、保存済み観測を流用せず、Engine停止、Docker Desktop Process不在、当該source Directoryとlockのexact Identity、退避先不存在、および先行退避結果をfreshに再観測する。意図の耐久化後からEffect発行前にも同じGateを再確認し、その間にDockerが再起動した、Processが再出現した、Identityが変化した、または観測不能になった場合は、そのEffectを発行せず同じ修復IDで停止する。
+
+回復済み候補と明示closeは、現在Releaseへ結合した追記専用継続記録を利用側として検証する。3 Effectがすべて`settled`／`issued=true`／`confirmation=confirmed`であり、`Docker/run`と`docker-secrets-engine`の両方について、退避した旧世代がexactに残り、別Identityの新世代が現在位置へ存在し、Engine readyとProcess安全性がfreshに成立した場合だけ回復済みへ進める。継続記録の欠落、改変、別Release結合、部分settlement、いずれかの新世代欠落または観測不能ではcloseせず、同じ修復IDの回復義務を保持する。旧形式の修復記録に継続記録が存在しない場合だけ、従来の終了条件を独立して適用する。
 
 ### 正常復帰後の検証付き再起動
 
@@ -506,7 +537,7 @@ Docker create要求の耐久化後に応答を失った状態は、Engineの空�
 
 未終了の旧修復が現在Sessionへ正しく引き継がれた後、現在Engineが既知の停止、現在のDocker Process集合の存在または不存在が確定し、旧stale対象が明示的不在、かつ現在の`Docker/run`と同じIdentityに既知のlock障害がある場合は、明示終了操作により旧履歴の不確定Effectを証拠として保持して閉じ、新しい修復Operationを許可できる。現在の`Docker/run`が旧記録から別世代へ置換済みでも、freshな二回の観測とlock対象が同じ現在世代へ一致する場合だけこの分類を使う。この処置はDockerの復旧成功も旧Effectの不存在も意味せず、`manualRecoveryRequired`を維持し、Host Effectを発行しない。新しい修復だけが現在Authorityの下で停止、`run`世代退避、再起動およびEngine確認を行う。これにより「旧履歴を閉じるには既に復旧済みであることが必要だが、復旧するには旧履歴が閉じていることが必要」という循環を作らない。
 
-既知のruntime directory lockは特定のsocket名へ固定しない。検証済みの`Docker/run`直下だけを有限件数で列挙し、子Directoryまたはlinkを拒否し、項目集合とDirectory Identityが観測前後で不変で、少なくとも一つの直下項目が既知のlock errorを返す場合だけ認定する。名前の追加だけで修復範囲を拡張せず、列挙不能、件数超過、境界変化または未知errorではEffect 0とする。修復Effectは個別項目を削除せず、信頼済みProcess停止後にexactな`run` Directory全体を同一親内へ退避する。
+既知のruntime directory lockは特定のsocket名へ固定しない。現在の既知Runtime領域は`%LOCALAPPDATA%\Docker\run`と`%LOCALAPPDATA%\docker-secrets-engine`の閉集合である。各領域を独立して有限件数で列挙し、子Directoryまたはlinkを拒否し、項目集合とDirectory Identityが観測前後で不変で、少なくとも一つの直下項目が既知のlock errorを返す場合だけ認定する。再帰探索、wildcardまたは名前の追加だけで修復範囲を拡張しない。列挙不能、件数超過、境界変化、未知errorまたは一領域だけの成立ではEffect 0または同じ修復IDでの停止とする。修復Effectは個別socketを削除せず、信頼済みProcess停止後に各exact Directory全体を同一親内へ順序付きで退避する。
 
 Runtime利用側は履歴の有無だけで処置を決めない。`不正 → 履歴なし → 終了済み → 現在Session結合済み → 旧Session結合`の順で排他的に分類する。現在Session結合はboolean表示だけでなく、履歴が返す現在Session Identityと準備済み境界のIdentityが一致した場合だけ成立する。旧Session結合ではStoreの正式な引継ぎ処理をexactに1回呼び、元Operation、元adoption、ledgerおよび履歴連鎖の不変fieldを保持したまま、handoff件数、handoff tipおよび現在Session結合だけが許可どおり変化したことを再読取りで確認する。Storeへの書込み後に返値検証または後段が失敗しても、正規記録をrollback、削除または上書きせず、同じ修復IDを保持して次回inventoryから再分類する。終了済み履歴では現在境界の認証とread-only報告に必要なhelper確認を許すが、新しいhandoff、closure、Host観測またはHost Effectを発行しない。
 

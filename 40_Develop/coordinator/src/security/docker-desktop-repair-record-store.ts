@@ -1613,6 +1613,11 @@ function readOriginalOperation(
     const nonRecords = entries.filter(
       (entry) =>
         !(entry.isDirectory() && entry.name === "docker-config") &&
+        !(
+          entry.isDirectory() &&
+          entry.name === "runtime-continuation" &&
+          !entry.isSymbolicLink()
+        ) &&
         !entry.isFile(),
     );
     if (

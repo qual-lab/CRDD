@@ -80,9 +80,22 @@ Quality ID: `QA-000006`
 | `ERB-06` | 境界 | IT | Configuration／Selection | AIモデル構成→Schema検証→利用可能性確認→選択結果 | Related 2 Blocks | 許可値、未知値、Schema違反、利用不能モデル、採用前候補、採用済み構成を含む固定入力 | 構成を検証し、選択と採用を別操作として要求する | 構成Revision、Schema判定、Provider利用可能性、実効モデル、選択理由、再選定条件、構成保存回数、Provider Effect回数を入力別に記録する | 未知・不正・利用不能を暗黙fallbackせず、実効モデル、選択理由、再選定条件を返す | ERB-06、構成Revision、Schema判定、Provider利用可能性、実効モデル、選択理由、再選定条件、保存回数、Provider Effect回数およびOracle判定を保存する。Secret、生Provider出力および絶対Pathは保存しない | 採用時だけ構成を一回保存し、選択だけではProvider Effect 0 | Automated |
 | `ERB-07` | 利用者判断 | UAT | Acceptance／Diagnosis | 外部Runtimeの状態・構成・影響範囲→利用者判断 | User Acceptance | 正常、部分故障、利用不能、未知構成を含む診断結果 | 利用者が継続、再選択、停止または回復を判断する | 表示された状態、選択理由、不完全性および利用者判断を記録する | 故障境界と影響範囲を理解し、未知状態を正常として継続せず、AIモデル構成を根拠付きで選べる | ERB-07の診断結果、利用者判断、選択根拠および終了後状態 | 判断前に新しいProvider Effect 0 | Manual |
 | `ERB-08` | 境界 | IT | Provider Home／Preflight | Provider Home設定→Directory検証→Process Gate | Direct Boundary | 正常Home、欠落、file、link／reparse、別Repository、権限不足の各fixture | Provider起動前にHomeを検証する | 入力Home分類、解決結果、検証理由、Provider Process Effect回数を記録する | 正常な所有Directoryだけを受理し、不正・不明時は理由付きで停止する | ERB-08、Home分類、検証結果・理由、Provider Process Effect回数およびOracle判定を保存する。絶対Pathは保存しない | 不正・不明時のProvider Process Effect 0 | Automated |
-| `ERB-09` | 異常 | ST | Docker Repair／Recovery | 修復Identity→stale runtime保存→Docker restart→Engine readiness | System/E2E | exact Repair ID、既知のstale socket群、停止中Docker、Engine readiness Observer | 同じRepair IDで修復・再起動・確認を継続する | Repair ID、保存対象集合、Process／Filesystem Effect、再起動試行、Engine readiness、再入場回数を記録する | 未完了Effectを再発行せず、stale runtimeを削除せず保存し、Engine ready後だけ完了する | ERB-09、Repair ID、保存対象Hash、Effect確認、Engine readiness、再入場結果、残る回復義務を保存する | native helper残存0。観測不能なら回復義務を保持する | Hybrid |
+| `ERB-09` | 異常 | ST | Docker Repair／Recovery | 修復Identity→既知Runtime領域の段階退避→Docker restart→Engine readiness | System/E2E | exact Repair ID、`Docker/run`と`docker-secrets-engine`の既知2領域、停止中Docker、初回起動失敗、Engine readiness Observer、署名版更新 | 同じRepair IDで各領域を順序付きに退避し、再起動・確認を継続する | Repair ID、領域別Identity、各Effectの意図と結果、再起動試行、Engine readiness、再入場回数を記録する | 未完了Effectを再発行せず、個別socketを削除せず、2領域の退避と新世代確認が揃いEngine readyになった後だけ完了する | ERB-09、Repair ID、領域別Identity Hash、追記記録chain、Effect確認、Engine readiness、再入場結果、残る回復義務を保存する | native helper残存0。部分退避、観測不能、intent後中断では同じRepair IDの回復義務を保持する | Hybrid |
 | `ERB-10` | 正常／境界 | IT | CROS Handoff／Continuation | Source Runtime→Handoff記録→Destination Runtime | Related 2 Blocks | 正常Contextに加え、Task／Project Identity不一致、Revision不一致、必須Context欠落、Authority追加、再構成不能Contextの各固定入力 | 各ContextでHandoffを発行し別Runtimeから再入場する | Handoff Identity、Task／Project Identity、Revision、必須Context充足、Authority差分、Effect件数、拒否理由、再入場結果を両Runtimeで相関する | 正常時はIdentityとRevisionを保持する。不完全・不一致・Authority拡大時は推測補完も完了扱いもせず、同じHandoff Identityで不足を返す | ERB-10、両Runtimeの相関Identity、Revision、必須Context判定、Authority差分、Effect件数、拒否理由、再入場結果を保存する | 正常時は送信元の所有資源0・重複Effect 0。拒否時はDestination Effect 0 | Automated |
 | `ERB-11` | 正常／異常 | ST | Docker Session Handoff／Recovery | repair・restart→handoff chain→別Session／Runtime→closure | System/E2E | repair／restart／handoff Identity、Source／Destination Session Identity、Runtime Execution Identity、origin・adoption・tip・closure、Host資源観測と、別Session混入・Identity不一致・循環・分岐・番号飛び・上限超過・記録欠落・旧Effect再発行要求 | 正常chainと各反例で別Session／Runtimeへの継続を要求する | chain全要素と順序、各Identity、Effect件数、Engine／Host資源、exact回復義務、拒否理由を記録する | 正常時だけ同じ義務を順序付きで継続する。不正chainはEffect 0、旧Host Effectを再発行せず、不明時は同じIdentityで回復義務を保持する | ERB-11、chain、Identity、Effect件数、Engine／Host状態、回復義務、拒否理由、Oracleを保存する | 不正・不明時Host Effect 0。正常完了時は旧Session所有資源0 | Automated |
+
+### ERB-09の段階的な外部境界確認
+
+| 段階 | 確認対象 | 主な反証 |
+|---|---|---|
+| 1. 領域単体 | `Docker/run`と`docker-secrets-engine`を別々に観測し、exact Identityと既知lockを確認する | 一方だけ確認、再帰探索、未知error、観測中の内容変化 |
+| 2. Effect単体 | 各退避の意図を先に耐久化し、Effect直前にもEngine停止、Process不在、source／lock Identity、target不存在をfreshに再確認してから同一親へrenameし、結果を記録する | intent後中断、rename後settlement前中断、個別socket削除、別Directory退避、観測後のDocker再起動、Identity差替え |
+| 3. 領域間結合 | 失敗起動世代とSecrets Engineを同じRepair IDで順序付きに退避し、各Effect前に先行退避結果とHost停止状態を再確認する | 一領域の成功を全体成功へ昇格、別Repair IDへの逃避、旧Effect再発行、一領域退避後のProcess再出現 |
+| 4. 再起動結合 | 両領域の退避後に再起動を一回だけ発行する | 起動結果不明時の再発行、片側未完了での起動 |
+| 5. 回復全体 | Engine、Process、新しい2領域、退避2領域、3 Effectのconfirmed settlementおよびnative helper終了を確認する | Engineだけの成功、いずれかの新旧世代欠落、部分回復、未確認Effect、資源残存 |
+| 6. 版更新・再入場 | 旧署名の原記録を変更せず、現在Releaseへexactに結合した追記記録で同じRepair IDを継続し、回復済み表示とcloseの両方で全記録を再検証する | 旧記録の上書き、別Release記録の受理、改変・部分記録でのclose、現在Authorityへの流用、intent済みEffectの二重発行 |
+
+各段階の局所試験がPassしても次段階の成立を推定しない。局所契約試験では、最初のEffect前からDockerが稼働している場合、一領域退避後にDockerが再出現する場合、Secrets Engineの新世代が欠ける場合、追記記録が改変・部分成立・別Release結合である場合も反証する。実機STでは、初回起動失敗から版更新、2領域退避、一回の再起動、終了後観測、明示closeおよび同じRepair IDへの再入場までを一つのlifecycleとして確認する。
 
 ## Semantic Coverage Pilot
 

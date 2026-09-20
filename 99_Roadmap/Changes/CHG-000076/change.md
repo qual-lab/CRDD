@@ -66,6 +66,7 @@
 - [`07_Quality/04_Quality_Integration.md`](../../../07_Quality/04_Quality_Integration.md)
 - [`07_Quality/05_Current_Implementation_Reality_Audit.md`](../../../07_Quality/05_Current_Implementation_Reality_Audit.md)
 - [`07_Quality/Definitions/QA-000001/quality_definition.md`](../../../07_Quality/Definitions/QA-000001/quality_definition.md)
+- [`07_Quality/Definitions/QA-000006/quality_definition.md`](../../../07_Quality/Definitions/QA-000006/quality_definition.md)
 - [`07_Quality/Definitions/QA-000007/quality_definition.md`](../../../07_Quality/Definitions/QA-000007/quality_definition.md)
 - [`07_Quality/Definitions/QA-000010/quality_definition.md`](../../../07_Quality/Definitions/QA-000010/quality_definition.md)
 - [`07_Quality/Definitions/QA-000013/quality_definition.md`](../../../07_Quality/Definitions/QA-000013/quality_definition.md)
@@ -130,6 +131,13 @@
 - [`40_Develop/version-control/src/index.ts`](../../../40_Develop/version-control/src/index.ts)
 - [`40_Develop/version-control/symbol.json`](../../../40_Develop/version-control/symbol.json)
 - [`40_Develop/version-control/tests/integration/consumer-closure.integration.test.ts`](../../../40_Develop/version-control/tests/integration/consumer-closure.integration.test.ts)
+- [`40_Develop/coordinator/src/security/docker-desktop-repair-continuation-store.ts`](../../../40_Develop/coordinator/src/security/docker-desktop-repair-continuation-store.ts)
+- [`40_Develop/coordinator/src/security/docker-desktop-repair-record-store.ts`](../../../40_Develop/coordinator/src/security/docker-desktop-repair-record-store.ts)
+- [`40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts`](../../../40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts)
+- [`40_Develop/coordinator/tests/integration/docker-desktop-repair-continuation-store.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-desktop-repair-continuation-store.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-desktop-runtime-repair.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-desktop-runtime-repair.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/sign-release-manifest.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/sign-release-manifest.contract.test.ts)
+- [`40_Develop/coordinator/tests/system/coordinator-docker-recovery-cli.integration.test.ts`](../../../40_Develop/coordinator/tests/system/coordinator-docker-recovery-cli.integration.test.ts)
 - `40_Develop/version-control/scripts/generate-checker-runtime.ts`（削除）
 - `40_Develop/version-control/src/distribution/checker-version-control-runtime.ts` → [`40_Develop/version-control/src/git/checker-repository-observation-adapter.ts`](../../../40_Develop/version-control/src/git/checker-repository-observation-adapter.ts)
 - `template/tools/internal/reality-traceability/repository-regular-file-observer.ts` → [`40_Develop/crdd-domain-library/src/repository-observation/filesystem-repository-observer.ts`](../../../40_Develop/crdd-domain-library/src/repository-observation/filesystem-repository-observer.ts)
@@ -361,6 +369,26 @@ Checker Package Rootに平置きされた8件も、同じSource配置規則で�
 
 Phase 6のSource配置移行と独立再レビューは完了した。Checker現行Profile本体は`profiles/current-profile.ts`へ移し、`application/checker-command.ts`を委譲だけの公開Use Case入口へ縮小した。CheckerはRepositoryを読む補助Toolであり、Provider Effect、Runtime Authorityまたは共有Effectを発行しないため、Coordinator相当の重い署名境界を追加しない。本変更にはCoordinator署名閉包内のSource変更が含まれるため、Coordinatorだけは固定Commit後の再署名・署名済みE2Eを最終Gateとして維持する。
 
+### Coordinator Runtime Gateで判明したDocker修復範囲の不足
+
+署名済み実Docker Gateでは、元の`Docker/run`を退避してDesktop起動を発行した後、失敗起動が新しい`Docker/run`と別領域の`docker-secrets-engine`を作成し、両方に既知lockを残す事象を観測した。従来設計は`Docker/run`だけを修復対象としていたため、同じ修復IDの途中状態から安全に収束できなかった。
+
+| 観点 | 観測／是正 |
+|---|---|
+| 根本原因 | 個別socket名ではなく、Docker Desktopが所有する複数Runtime領域のlifecycleを一つの修復境界として閉じていなかった |
+| 修復範囲 | `Docker/run`と`docker-secrets-engine`の既知2領域だけを閉集合として扱う。再帰探索や名前一致による拡張は行わない |
+| Identity | 既存のexact Repair IDを維持し、旧署名の原記録を変更せず、現在Release所有の追記専用継続記録を接続する |
+| Effect | 領域ごとに意図を先に耐久化し、exact Directoryを同一親へrenameした後で結果を記録する。個別socketは削除しない |
+| 再入場 | intent後中断、rename後settlement前中断、再起動結果不明ではEffectを盲目的に再発行しない |
+| 独立レビュー指摘 | 保存済みの停止観測から各Effectまでの時間差と、回復済み／closeが追記記録と2領域の新旧世代を完全に消費しない経路をMajorとして検出した |
+| Effect直前Gate | 各renameと再起動の意図記録前後で、Engine停止、Process不在、source／lock Identity、target不存在および先行Effectをfreshに再確認する |
+| 完了条件 | 3 Effectのconfirmed settlement、2領域の退避旧世代、別Identityの新世代、Engine／Processのfresh観測がすべて成立するまで回復済みまたはcloseにしない |
+| 記録Consumer | 回復済み表示と明示closeの双方が現在Releaseへ結合した継続記録を再検証し、欠落、改変、部分成立、別Release結合を拒否する |
+
+型検査、Lint、Formatter、局所契約試験130件およびRepository CheckerはPassした。開発E2Eは324件中322件がPassし、残る2件はCodex実行環境からWindows子Processの終了を観測できない既知の実Process Gateで停止した。制限Process回帰で検出した署名試験1件は、署名Manifest追加後の`HEAD`とManifest除外後の配布Treeを比較していた試験Fixtureの不整合であり、署名済みSource Identityを使う独立した配布候補へ修正した。
+
+Docker継続修復の独立レビューで検出したEffect直前Gate、close Consumer Closureおよび非履歴Operationへの過剰適用を是正した。追加反証を含む対象局所試験71/71、型検査、Lint、Formatter、各Traceability確認およびRepository Checker（errors 0／warnings 0）がPassし、最終独立再レビューはCritical／Major／Moderate／Minorすべて0でPassした。実Dockerへの適用と再署名済みE2Eは未完了であり、Gate状態は変更しない。
+
 ## Checklist
 
 - [x] CHG-000075を再開せず別の変更意図として分離した
@@ -390,6 +418,6 @@ Phase 6のSource配置移行と独立再レビューは完了した。Checker現
 - [x] Version Controlの用途限定公開入口とConsumer Closureを実装した
 - [x] Checker公開Use Caseと現行Profile本体を物理分離した
 - [x] CheckerをCoordinator署名Runtimeの対象外として責務境界を固定した
-- [ ] 実Docker境界を確認する（OPEN: Docker Engineが起動していない）
+- [ ] 既知2領域を含む実Docker修復lifecycleを確認する（OPEN: 修正版の署名・実機適用前）
 - [x] Phase 6完了候補の独立レビューを完了する
-- [ ] Coordinator署名閉包への実変更を判定し、変更がある場合だけ再署名と署名済みE2Eを行う
+- [ ] Coordinatorだけを再署名し、修復継続、Recovery Matrixおよび4経路E2Eを行う

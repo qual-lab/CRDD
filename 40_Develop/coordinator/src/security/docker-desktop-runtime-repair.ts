@@ -18,6 +18,16 @@ import {
 } from "./docker-cli-trust.ts";
 import { dockerDesktopCurrentArtifactTrustPolicySha256 } from "./docker-desktop-current-artifact-trust.ts";
 import {
+  createDockerDesktopRepairContinuation,
+  type DockerDesktopRepairContinuation,
+  type DockerDesktopRepairContinuationAction,
+  dockerDesktopRepairContinuationPaths,
+  inspectDockerDesktopRepairContinuation,
+  persistDockerDesktopRepairContinuationIntent,
+  persistDockerDesktopRepairContinuationRecovered,
+  persistDockerDesktopRepairContinuationSettlement,
+} from "./docker-desktop-repair-continuation-store.ts";
+import {
   acquireRuntimeOwnedDockerDesktopRepairNativeHelper,
   type DockerDesktopRepairNativeHelperOutcome,
   type DockerDesktopRepairNativeHelperSession,
@@ -54,7 +64,7 @@ import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "./pla
 
 export const DOCKER_DESKTOP_RUNTIME_REPAIR_CONTRACT =
   "crdd-coordinator/docker-desktop-runtime-repair";
-export const DOCKER_DESKTOP_RUNTIME_REPAIR_CONTRACT_REVISION = 5;
+export const DOCKER_DESKTOP_RUNTIME_REPAIR_CONTRACT_REVISION = 6;
 
 const DOCKER_ENGINE = "npipe:////./pipe/dockerDesktopLinuxEngine";
 const DOCKER_ENGINE_PIPE = "\\\\.\\pipe\\dockerDesktopLinuxEngine";
@@ -180,6 +190,9 @@ export type RepairDependencies = Readonly<{
   observeKnownSocketFailure: (
     boundary: PreparedBoundary,
   ) => DockerDesktopRepairDirectoryIdentity | null;
+  observeRuntimeDirectoryLock?: (
+    directory: string,
+  ) => DockerDesktopRepairDirectoryIdentity | null;
   persistStage: typeof persistDockerDesktopRepairStage;
   officialShutdown: (
     boundary: PreparedBoundary,
@@ -190,6 +203,11 @@ export type RepairDependencies = Readonly<{
   renameRunDirectory: (
     boundary: PreparedBoundary,
     operation: DockerDesktopRepairOperation,
+  ) => RenameOutcome;
+  renameRuntimeDirectory?: (
+    source: string,
+    target: string,
+    expectedIdentity: DockerDesktopRepairDirectoryIdentity,
   ) => RenameOutcome;
   awaitEngine: (
     boundary: PreparedBoundary,
@@ -819,6 +837,27 @@ function observeKnownSocketFailure(boundary: PreparedBoundary) {
   });
 }
 
+function observeRuntimeDirectoryLock(directory: string) {
+  return observeDockerDesktopRuntimeDirectoryLockUsingDependencies(
+    { runDirectory: directory } as PreparedBoundary,
+    {
+      identityAt,
+      readEntries: (targetDirectory) =>
+        fs.readdirSync(targetDirectory, { withFileTypes: true }).map((entry) =>
+          Object.freeze({
+            name: entry.name,
+            isDirectory: entry.isDirectory(),
+            isSymbolicLink: entry.isSymbolicLink(),
+          }),
+        ),
+      probeEntry: (target) => {
+        const handle = fs.openSync(target, "r");
+        fs.closeSync(handle);
+      },
+    },
+  );
+}
+
 async function officialShutdown(
   _boundary: PreparedBoundary,
   _operation: DockerDesktopRepairOperation,
@@ -902,6 +941,47 @@ function renameRunDirectory(
       after !== null &&
       sameIdentity(after, operation.runIdentity) &&
       runObservation.state === "confirmed_absent";
+    return Object.freeze({
+      issued: true,
+      confirmation: confirmed ? "confirmed" : "unknown",
+      staleState: confirmed ? ("retained" as const) : ("unknown" as const),
+    });
+  } catch {
+    return Object.freeze({
+      issued: null,
+      confirmation: "unknown",
+      staleState: "unknown" as const,
+    });
+  }
+}
+
+function renameRuntimeDirectory(
+  source: string,
+  target: string,
+  expectedIdentity: DockerDesktopRepairDirectoryIdentity,
+): RenameOutcome {
+  try {
+    const before = observePath(source);
+    const stale = observePath(target);
+    if (
+      before.state !== "present" ||
+      !before.identity ||
+      !sameIdentity(before.identity, expectedIdentity) ||
+      stale.state !== "confirmed_absent"
+    )
+      return Object.freeze({
+        issued: stale.state === "present" ? false : null,
+        confirmation: stale.state === "present" ? "not_issued" : "unknown",
+        staleState: "unknown" as const,
+      });
+    fs.renameSync(source, target);
+    const after = observePath(target);
+    const original = observePath(source);
+    const confirmed =
+      after.state === "present" &&
+      after.identity !== null &&
+      sameIdentity(after.identity, expectedIdentity) &&
+      original.state === "confirmed_absent";
     return Object.freeze({
       issued: true,
       confirmation: confirmed ? "confirmed" : "unknown",
@@ -1866,6 +1946,65 @@ async function observeHistoricalRepair(
       operation,
     };
   }
+  const continuationState = inspectDockerDesktopRepairContinuation(
+    boundary,
+    operation,
+  );
+  if (continuationState.status === "invalid") {
+    markUnknown(ledger);
+    return {
+      status: "blocked" as const,
+      reason: "docker_desktop_repair_continuation_record_invalid",
+      ledger,
+      operation,
+    };
+  }
+  if (continuationState.status === "valid") {
+    const continuation = continuationState.continuation;
+    const fresh = await observeFreshRuntimeState(
+      dependencies,
+      boundary,
+      session,
+      cancellation,
+      operation,
+    );
+    const hasExactOriginalStale =
+      fresh.stale.state === "present" &&
+      fresh.stale.identity !== null &&
+      sameIdentity(fresh.stale.identity, operation.runIdentity);
+    const currentRun = fresh.run.identity;
+    const isReady =
+      continuation.stage === "recovered" &&
+      continuationEffectsConfirmed(continuation) &&
+      fresh.boundaryState === "verified" &&
+      fresh.engine === "ready" &&
+      fresh.processes === "verified" &&
+      fresh.run.state === "present" &&
+      currentRun !== null &&
+      hasExactOriginalStale &&
+      continuationRuntimeGenerationsMatch(dependencies, boundary, continuation);
+    ledger.engineReady = fresh.engine === "ready";
+    ledger.staleState = hasExactOriginalStale ? "retained" : "unknown";
+    ledger.hostSafety = isReady ? "safe" : "manual_recovery_required";
+    ledger.evidenceState = "preserved";
+    ledger.liveRunIdentity = isReady ? currentRun : null;
+    ledger.disposition = "historical_effect_unknown_pending_human_decision";
+    if (
+      !isReady &&
+      (fresh.engine === "unknown" || fresh.processes === "unknown")
+    )
+      markUnknown(ledger);
+    return {
+      status: isReady
+        ? ("historical_recovered_pending_close" as const)
+        : ("blocked" as const),
+      reason: isReady
+        ? "docker_desktop_repair_continuation_current_state_verified"
+        : "docker_desktop_repair_continuation_current_state_unconfirmed",
+      ledger,
+      operation,
+    };
+  }
   const fresh = await observeFreshRuntimeState(
     dependencies,
     boundary,
@@ -2085,6 +2224,731 @@ export function validateDockerDesktopRepairHistoricalClosureResult(
   );
 }
 
+function continuationEffect(
+  continuation: DockerDesktopRepairContinuation,
+  action: DockerDesktopRepairContinuationAction,
+) {
+  return continuation.effects[action];
+}
+
+function exactRetainedDirectory(
+  dependencies: RepairDependencies,
+  source: string,
+  target: string,
+  identityValue: DockerDesktopRepairDirectoryIdentity,
+) {
+  const sourceObservation = observePathUsing(dependencies, source);
+  const targetObservation = observePathUsing(dependencies, target);
+  return (
+    sourceObservation.state === "confirmed_absent" &&
+    targetObservation.state === "present" &&
+    targetObservation.identity !== null &&
+    sameIdentity(targetObservation.identity, identityValue)
+  );
+}
+
+function retainedDirectoryWithReplacement(
+  dependencies: RepairDependencies,
+  source: string,
+  target: string,
+  identityValue: DockerDesktopRepairDirectoryIdentity,
+) {
+  const sourceObservation = observePathUsing(dependencies, source);
+  const targetObservation = observePathUsing(dependencies, target);
+  return (
+    sourceObservation.state === "present" &&
+    sourceObservation.identity !== null &&
+    !sameIdentity(sourceObservation.identity, identityValue) &&
+    targetObservation.state === "present" &&
+    targetObservation.identity !== null &&
+    sameIdentity(targetObservation.identity, identityValue)
+  );
+}
+
+function continuationEffectsConfirmed(
+  continuation: DockerDesktopRepairContinuation,
+) {
+  return (
+    continuationEffect(continuation, "failed_launch_run_directory_rename")
+      ?.phase === "settled" &&
+    continuationEffect(continuation, "failed_launch_run_directory_rename")
+      ?.issued === true &&
+    continuationEffect(continuation, "failed_launch_run_directory_rename")
+      ?.confirmation === "confirmed" &&
+    continuationEffect(continuation, "secrets_engine_directory_rename")
+      ?.phase === "settled" &&
+    continuationEffect(continuation, "secrets_engine_directory_rename")
+      ?.issued === true &&
+    continuationEffect(continuation, "secrets_engine_directory_rename")
+      ?.confirmation === "confirmed" &&
+    continuationEffect(continuation, "desktop_relaunch")?.phase === "settled" &&
+    continuationEffect(continuation, "desktop_relaunch")?.issued === true &&
+    continuationEffect(continuation, "desktop_relaunch")?.confirmation ===
+      "confirmed"
+  );
+}
+
+function continuationRuntimeGenerationsMatch(
+  dependencies: RepairDependencies,
+  boundary: PreparedBoundary,
+  continuation: DockerDesktopRepairContinuation,
+) {
+  const paths = dockerDesktopRepairContinuationPaths(boundary, continuation);
+  return (
+    retainedDirectoryWithReplacement(
+      dependencies,
+      paths.failedRunDirectory,
+      paths.failedRunStaleDirectory,
+      continuation.failedRunIdentity,
+    ) &&
+    retainedDirectoryWithReplacement(
+      dependencies,
+      paths.secretsEngineDirectory,
+      paths.secretsEngineStaleDirectory,
+      continuation.secretsEngineIdentity,
+    )
+  );
+}
+
+async function continuationHostQuiescence(
+  dependencies: RepairDependencies,
+  boundary: PreparedBoundary,
+  session: DockerDesktopRepairNativeHelperSession,
+  cancellation: ReturnType<typeof attachCancellation>,
+) {
+  const engine = dependencies.observeEngine(boundary);
+  const processes = await inspectProcessesWithinCancellation(
+    session,
+    cancellation,
+  );
+  if (engine === "unknown" || processes === "unknown") return "unknown";
+  return engine === "known_unavailable" && processes === "absent"
+    ? "verified"
+    : "changed";
+}
+
+async function continueFailedDockerDesktopLaunch(
+  dependencies: RepairDependencies,
+  boundary: PreparedBoundary,
+  session: DockerDesktopRepairNativeHelperSession,
+  cancellation: ReturnType<typeof attachCancellation>,
+  operation: DockerDesktopRepairOperation,
+) {
+  const ledger = ledgerFrom(operation);
+  const continuationState = inspectDockerDesktopRepairContinuation(
+    boundary,
+    operation,
+  );
+  if (continuationState.status === "invalid")
+    return {
+      status: "blocked" as const,
+      reason: "docker_desktop_repair_continuation_record_invalid",
+      ledger,
+      operation,
+    };
+  let continuation = continuationState.continuation;
+  const observeLock = dependencies.observeRuntimeDirectoryLock;
+  const renameDirectory = dependencies.renameRuntimeDirectory;
+  if (!observeLock || !renameDirectory)
+    return {
+      status: "blocked" as const,
+      reason: "docker_desktop_repair_continuation_capability_unavailable",
+      ledger,
+      operation,
+    };
+  const staleOriginal = observePathUsing(
+    dependencies,
+    operation.staleDirectory,
+  );
+  if (
+    staleOriginal.state !== "present" ||
+    !staleOriginal.identity ||
+    !sameIdentity(staleOriginal.identity, operation.runIdentity)
+  ) {
+    markUnknown(ledger);
+    return {
+      status: "blocked" as const,
+      reason: "docker_desktop_stale_runtime_identity_unknown",
+      ledger,
+      operation,
+    };
+  }
+  let engine = dependencies.observeEngine(boundary);
+  let processes = await inspectProcessesWithinCancellation(
+    session,
+    cancellation,
+  );
+  if (!continuation) {
+    const launch = operation.ledger.processEffects.find(
+      (entry) => entry.action === "desktop_launch",
+    );
+    const failedRun = observePathUsing(dependencies, boundary.runDirectory);
+    const secretsDirectory = path.win32.join(
+      boundary.localAppData,
+      "docker-secrets-engine",
+    );
+    const secrets = observePathUsing(dependencies, secretsDirectory);
+    const failedRunLock = observeLock(boundary.runDirectory);
+    const secretsLock = observeLock(secretsDirectory);
+    if (
+      operation.stage !== "renamed" ||
+      launch?.phase !== "settled" ||
+      launch.issued !== true ||
+      launch.confirmation !== "confirmed" ||
+      engine !== "known_unavailable" ||
+      processes !== "absent" ||
+      failedRun.state !== "present" ||
+      !failedRun.identity ||
+      sameIdentity(failedRun.identity, operation.runIdentity) ||
+      !failedRunLock ||
+      !sameIdentity(failedRunLock, failedRun.identity) ||
+      secrets.state !== "present" ||
+      !secrets.identity ||
+      !secretsLock ||
+      !sameIdentity(secretsLock, secrets.identity)
+    ) {
+      if (engine === "unknown" || processes === "unknown") markUnknown(ledger);
+      return {
+        status: "blocked" as const,
+        reason: "docker_desktop_repair_continuation_precondition_unconfirmed",
+        ledger,
+        operation,
+      };
+    }
+    const boundaryState = await verifyEffectBoundaryState(
+      dependencies,
+      boundary,
+      session,
+      cancellation,
+    );
+    if (boundaryState !== "verified") {
+      markUnknown(ledger);
+      return {
+        status: "blocked" as const,
+        reason: effectBoundaryFailureReason(boundaryState),
+        ledger,
+        operation,
+      };
+    }
+    continuation = createDockerDesktopRepairContinuation(
+      boundary,
+      operation,
+      failedRun.identity,
+      secrets.identity,
+    );
+    if (!continuation) {
+      markUnknown(ledger);
+      return {
+        status: "blocked" as const,
+        reason: "docker_desktop_repair_continuation_record_unavailable",
+        ledger,
+        operation,
+      };
+    }
+  }
+
+  const paths = dockerDesktopRepairContinuationPaths(boundary, continuation);
+  const renameSteps = [
+    {
+      action: "failed_launch_run_directory_rename" as const,
+      source: paths.failedRunDirectory,
+      target: paths.failedRunStaleDirectory,
+      identity: continuation.failedRunIdentity,
+    },
+    {
+      action: "secrets_engine_directory_rename" as const,
+      source: paths.secretsEngineDirectory,
+      target: paths.secretsEngineStaleDirectory,
+      identity: continuation.secretsEngineIdentity,
+    },
+  ];
+  for (const [stepIndex, step] of renameSteps.entries()) {
+    let effect = continuationEffect(continuation, step.action);
+    if (effect?.phase === "intent_recorded") {
+      if (
+        !exactRetainedDirectory(
+          dependencies,
+          step.source,
+          step.target,
+          step.identity,
+        )
+      ) {
+        markUnknown(ledger);
+        return {
+          status: "blocked" as const,
+          reason: "docker_desktop_repair_continuation_effect_unknown",
+          ledger,
+          operation,
+        };
+      }
+      continuation =
+        persistDockerDesktopRepairContinuationSettlement(
+          boundary,
+          operation,
+          continuation,
+          step.action,
+          Object.freeze({ issued: true, confirmation: "confirmed" as const }),
+        ) ?? continuation;
+      effect = continuationEffect(continuation, step.action);
+    }
+    if (!effect) {
+      const boundaryState = await verifyEffectBoundaryState(
+        dependencies,
+        boundary,
+        session,
+        cancellation,
+      );
+      const quiescence = await continuationHostQuiescence(
+        dependencies,
+        boundary,
+        session,
+        cancellation,
+      );
+      const source = observePathUsing(dependencies, step.source);
+      const target = observePathUsing(dependencies, step.target);
+      const lockedIdentity = observeLock(step.source);
+      const priorRetained = renameSteps
+        .slice(0, stepIndex)
+        .every((prior) =>
+          exactRetainedDirectory(
+            dependencies,
+            prior.source,
+            prior.target,
+            prior.identity,
+          ),
+        );
+      if (
+        boundaryState !== "verified" ||
+        quiescence !== "verified" ||
+        cancellation.shouldStop() ||
+        source.state !== "present" ||
+        source.identity === null ||
+        !sameIdentity(source.identity, step.identity) ||
+        target.state !== "confirmed_absent" ||
+        lockedIdentity === null ||
+        !sameIdentity(lockedIdentity, step.identity) ||
+        !priorRetained
+      ) {
+        markUnknown(ledger);
+        return {
+          status: "blocked" as const,
+          reason:
+            boundaryState === "verified"
+              ? cancellation.shouldStop()
+                ? "docker_desktop_repair_cancelled_before_host_effect"
+                : quiescence === "unknown"
+                  ? "docker_desktop_repair_continuation_host_state_unknown"
+                  : "docker_desktop_repair_continuation_effect_precondition_unconfirmed"
+              : effectBoundaryFailureReason(boundaryState),
+          ledger,
+          operation,
+        };
+      }
+      const intent = persistDockerDesktopRepairContinuationIntent(
+        boundary,
+        operation,
+        continuation,
+        step.action,
+      );
+      if (!intent) {
+        markUnknown(ledger);
+        return {
+          status: "blocked" as const,
+          reason: "docker_desktop_repair_continuation_record_update_failed",
+          ledger,
+          operation,
+        };
+      }
+      continuation = intent;
+      const finalBoundaryState = await verifyEffectBoundaryState(
+        dependencies,
+        boundary,
+        session,
+        cancellation,
+      );
+      const finalQuiescence = await continuationHostQuiescence(
+        dependencies,
+        boundary,
+        session,
+        cancellation,
+      );
+      const finalSource = observePathUsing(dependencies, step.source);
+      const finalTarget = observePathUsing(dependencies, step.target);
+      const finalLockedIdentity = observeLock(step.source);
+      const finalPriorRetained = renameSteps
+        .slice(0, stepIndex)
+        .every((prior) =>
+          exactRetainedDirectory(
+            dependencies,
+            prior.source,
+            prior.target,
+            prior.identity,
+          ),
+        );
+      if (
+        finalBoundaryState !== "verified" ||
+        finalQuiescence !== "verified" ||
+        cancellation.shouldStop() ||
+        finalSource.state !== "present" ||
+        finalSource.identity === null ||
+        !sameIdentity(finalSource.identity, step.identity) ||
+        finalTarget.state !== "confirmed_absent" ||
+        finalLockedIdentity === null ||
+        !sameIdentity(finalLockedIdentity, step.identity) ||
+        !finalPriorRetained
+      ) {
+        markUnknown(ledger);
+        return {
+          status: "blocked" as const,
+          reason:
+            finalBoundaryState === "verified"
+              ? finalQuiescence === "unknown"
+                ? "docker_desktop_repair_continuation_host_state_unknown"
+                : "docker_desktop_repair_continuation_effect_precondition_unconfirmed"
+              : effectBoundaryFailureReason(finalBoundaryState),
+          ledger,
+          operation,
+        };
+      }
+      const outcome = renameDirectory(step.source, step.target, step.identity);
+      const settlement = persistDockerDesktopRepairContinuationSettlement(
+        boundary,
+        operation,
+        continuation,
+        step.action,
+        Object.freeze({
+          issued: outcome.issued,
+          confirmation: outcome.confirmation,
+        }),
+      );
+      if (!settlement) {
+        markUnknown(ledger);
+        return {
+          status: "blocked" as const,
+          reason: `docker_desktop_repair_continuation_${step.action}_settlement_unknown`,
+          ledger,
+          operation,
+        };
+      }
+      continuation = settlement;
+      effect = continuationEffect(continuation, step.action);
+    }
+    const wasRelaunched =
+      continuationEffect(continuation, "desktop_relaunch")?.phase === "settled";
+    const retainedMatches = wasRelaunched
+      ? retainedDirectoryWithReplacement(
+          dependencies,
+          step.source,
+          step.target,
+          step.identity,
+        )
+      : exactRetainedDirectory(
+          dependencies,
+          step.source,
+          step.target,
+          step.identity,
+        );
+    if (
+      effect?.phase !== "settled" ||
+      effect.issued !== true ||
+      effect.confirmation !== "confirmed" ||
+      !retainedMatches
+    ) {
+      markUnknown(ledger);
+      return {
+        status: "blocked" as const,
+        reason: "docker_desktop_repair_continuation_rename_unconfirmed",
+        ledger,
+        operation,
+      };
+    }
+  }
+
+  let relaunch = continuationEffect(continuation, "desktop_relaunch");
+  if (relaunch?.phase === "intent_recorded") {
+    engine = dependencies.observeEngine(boundary);
+    processes = await inspectProcessesWithinCancellation(session, cancellation);
+    if (engine !== "ready" || processes !== "verified") {
+      markUnknown(ledger);
+      return {
+        status: "blocked" as const,
+        reason: "docker_desktop_repair_continuation_relaunch_unknown",
+        ledger,
+        operation,
+      };
+    }
+    continuation =
+      persistDockerDesktopRepairContinuationSettlement(
+        boundary,
+        operation,
+        continuation,
+        "desktop_relaunch",
+        Object.freeze({ issued: true, confirmation: "confirmed" as const }),
+      ) ?? continuation;
+    relaunch = continuationEffect(continuation, "desktop_relaunch");
+  }
+  if (!relaunch) {
+    const boundaryState = await verifyEffectBoundaryState(
+      dependencies,
+      boundary,
+      session,
+      cancellation,
+    );
+    const quiescence = await continuationHostQuiescence(
+      dependencies,
+      boundary,
+      session,
+      cancellation,
+    );
+    const renamesRetained = renameSteps.every((step) =>
+      exactRetainedDirectory(
+        dependencies,
+        step.source,
+        step.target,
+        step.identity,
+      ),
+    );
+    if (
+      boundaryState !== "verified" ||
+      quiescence !== "verified" ||
+      cancellation.shouldStop() ||
+      !renamesRetained
+    ) {
+      markUnknown(ledger);
+      return {
+        status: "blocked" as const,
+        reason:
+          boundaryState === "verified"
+            ? cancellation.shouldStop()
+              ? "docker_desktop_repair_cancelled_before_host_effect"
+              : quiescence === "unknown"
+                ? "docker_desktop_repair_continuation_host_state_unknown"
+                : "docker_desktop_repair_continuation_effect_precondition_unconfirmed"
+            : effectBoundaryFailureReason(boundaryState),
+        ledger,
+        operation,
+      };
+    }
+    const intent = persistDockerDesktopRepairContinuationIntent(
+      boundary,
+      operation,
+      continuation,
+      "desktop_relaunch",
+    );
+    if (!intent) {
+      markUnknown(ledger);
+      return {
+        status: "blocked" as const,
+        reason: "docker_desktop_repair_continuation_record_update_failed",
+        ledger,
+        operation,
+      };
+    }
+    continuation = intent;
+    const finalBoundaryState = await verifyEffectBoundaryState(
+      dependencies,
+      boundary,
+      session,
+      cancellation,
+    );
+    const finalQuiescence = await continuationHostQuiescence(
+      dependencies,
+      boundary,
+      session,
+      cancellation,
+    );
+    const finalRenamesRetained = renameSteps.every((step) =>
+      exactRetainedDirectory(
+        dependencies,
+        step.source,
+        step.target,
+        step.identity,
+      ),
+    );
+    if (
+      finalBoundaryState !== "verified" ||
+      finalQuiescence !== "verified" ||
+      cancellation.shouldStop() ||
+      !finalRenamesRetained
+    ) {
+      markUnknown(ledger);
+      return {
+        status: "blocked" as const,
+        reason:
+          finalBoundaryState === "verified"
+            ? finalQuiescence === "unknown"
+              ? "docker_desktop_repair_continuation_host_state_unknown"
+              : "docker_desktop_repair_continuation_effect_precondition_unconfirmed"
+            : effectBoundaryFailureReason(finalBoundaryState),
+        ledger,
+        operation,
+      };
+    }
+    const started = await session.launchDesktop();
+    const outcome: TaggedEffect = Object.freeze({
+      issued: started !== "not_started",
+      confirmation:
+        started === "started"
+          ? "confirmed"
+          : started === "not_started"
+            ? "not_issued"
+            : "unknown",
+    });
+    const settlement = persistDockerDesktopRepairContinuationSettlement(
+      boundary,
+      operation,
+      continuation,
+      "desktop_relaunch",
+      outcome,
+    );
+    if (!settlement) {
+      markUnknown(ledger);
+      return {
+        status: "blocked" as const,
+        reason:
+          "docker_desktop_repair_continuation_desktop_relaunch_settlement_unknown",
+        ledger,
+        operation,
+      };
+    }
+    continuation = settlement;
+    if (started !== "started") {
+      markUnknown(ledger);
+      return {
+        status: "blocked" as const,
+        reason: "docker_desktop_repair_continuation_relaunch_unconfirmed",
+        ledger,
+        operation,
+      };
+    }
+    relaunch = continuationEffect(continuation, "desktop_relaunch");
+  }
+  if (
+    relaunch?.phase !== "settled" ||
+    relaunch.issued !== true ||
+    relaunch.confirmation !== "confirmed"
+  ) {
+    markUnknown(ledger);
+    return {
+      status: "blocked" as const,
+      reason: "docker_desktop_repair_continuation_relaunch_unconfirmed",
+      ledger,
+      operation,
+    };
+  }
+  engine = await dependencies.awaitEngine(
+    boundary,
+    cancellation.shouldStop,
+    cancellation.stopDetected,
+  );
+  const fresh = await observeFreshRuntimeState(
+    dependencies,
+    boundary,
+    session,
+    cancellation,
+    operation,
+  );
+  const liveRun = fresh.run.identity;
+  if (
+    engine !== "ready" ||
+    fresh.boundaryState !== "verified" ||
+    fresh.processes !== "verified" ||
+    fresh.run.state !== "present" ||
+    !liveRun ||
+    !continuationEffectsConfirmed(continuation) ||
+    !continuationRuntimeGenerationsMatch(dependencies, boundary, continuation)
+  ) {
+    if (engine === "unknown" || fresh.boundaryState !== "verified")
+      markUnknown(ledger);
+    else ledger.hostSafety = "manual_recovery_required";
+    return {
+      status: "blocked" as const,
+      reason:
+        engine === "known_unavailable"
+          ? "docker_desktop_engine_restart_unconfirmed"
+          : "docker_desktop_engine_state_unknown",
+      ledger,
+      operation,
+    };
+  }
+  if (continuation.stage !== "recovered") {
+    const recovered = persistDockerDesktopRepairContinuationRecovered(
+      boundary,
+      operation,
+      continuation,
+    );
+    if (!recovered) {
+      markUnknown(ledger);
+      return {
+        status: "blocked" as const,
+        reason: "docker_desktop_repair_continuation_record_update_failed",
+        ledger,
+        operation,
+      };
+    }
+    continuation = recovered;
+  }
+  ledger.engineReady = true;
+  ledger.hostSafety = "safe";
+  ledger.evidenceState = "preserved";
+  ledger.liveRunIdentity = liveRun;
+  ledger.staleState = "retained";
+  ledger.disposition = operation.history
+    ? "historical_effect_unknown_pending_human_decision"
+    : "pending_human_decision";
+  if (operation.history)
+    return {
+      status: "historical_recovered_pending_close" as const,
+      reason: "docker_desktop_repair_continuation_recovered_pending_close",
+      ledger,
+      operation,
+    };
+  const pending = await persistAfterLiveBoundary(
+    dependencies,
+    boundary,
+    session,
+    cancellation,
+    operation,
+    "recovered_pending_disposition",
+    ledger,
+    (state) =>
+      state.boundaryState === "verified" &&
+      state.engine === "ready" &&
+      state.processes === "verified" &&
+      state.run.state === "present" &&
+      state.run.identity !== null &&
+      sameIdentity(state.run.identity, liveRun),
+  );
+  return pending
+    ? {
+        status: "recovered_pending_close" as const,
+        reason: "docker_desktop_repair_continuation_recovered_pending_close",
+        ledger,
+        operation: pending,
+      }
+    : {
+        status: "blocked" as const,
+        reason: "docker_desktop_repair_record_update_failed",
+        ledger,
+        operation,
+      };
+}
+
+function failedLaunchContinuationRequired(
+  operation: DockerDesktopRepairOperation,
+) {
+  return (
+    operation.stage === "renamed" &&
+    operation.ledger.processEffects.some(
+      (entry) =>
+        entry.action === "desktop_launch" &&
+        entry.phase === "settled" &&
+        entry.issued === true &&
+        entry.confirmation === "confirmed",
+    )
+  );
+}
+
 async function executeRepair(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
@@ -2106,7 +2970,25 @@ async function executeRepair(
       reason = "docker_desktop_repair_native_helper_lost";
       return { status, reason, ledger, operation };
     }
-    if (operation?.history)
+    if (operation?.history) {
+      const continuation = inspectDockerDesktopRepairContinuation(
+        boundary,
+        operation,
+      );
+      if (
+        !operation.history.closed &&
+        operation.history.currentSessionBound === true &&
+        operation.stage === "renamed" &&
+        (continuation.status !== "absent" ||
+          failedLaunchContinuationRequired(operation))
+      )
+        return continueFailedDockerDesktopLaunch(
+          dependencies,
+          boundary,
+          session,
+          cancellation,
+          operation,
+        );
       return observeHistoricalRepair(
         dependencies,
         boundary,
@@ -2114,6 +2996,7 @@ async function executeRepair(
         cancellation,
         operation,
       );
+    }
     if (!operation) {
       const firstEngine = dependencies.observeEngine(boundary);
       ledger.engineReady =
@@ -3985,10 +4868,25 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
                 cancellation,
                 operation,
               );
+          const continuationForClose = isOriginalTerminal
+            ? Object.freeze({ status: "absent" as const, continuation: null })
+            : inspectDockerDesktopRepairContinuation(boundary, operation);
+          const continuationReadyForClose =
+            (continuationForClose.status === "absent" &&
+              !failedLaunchContinuationRequired(operation)) ||
+            (continuationForClose.status === "valid" &&
+              continuationForClose.continuation.stage === "recovered" &&
+              continuationEffectsConfirmed(continuationForClose.continuation) &&
+              continuationRuntimeGenerationsMatch(
+                dependencies,
+                boundary,
+                continuationForClose.continuation,
+              ));
           if (
             !isOriginalTerminal &&
             (!fresh ||
-              !freshReadyStateMatches(fresh, expectedRun, expectedStale))
+              !freshReadyStateMatches(fresh, expectedRun, expectedStale) ||
+              !continuationReadyForClose)
           ) {
             markUnknown(ledger);
             status = "blocked";
@@ -4547,10 +5445,12 @@ const productionDependencies: RepairDependencies = Object.freeze({
   inventory: inventoryDockerDesktopRepairOperations,
   observeEngine,
   observeKnownSocketFailure,
+  observeRuntimeDirectoryLock,
   persistStage: persistDockerDesktopRepairStage,
   officialShutdown,
   terminateDockerWsl,
   renameRunDirectory,
+  renameRuntimeDirectory,
   awaitEngine,
   identityAt,
   observePath,
@@ -4608,7 +5508,10 @@ export function describeDockerDesktopRuntimeRepairContract() {
     filesystemEffects: Object.freeze([
       "bounded_protected_runtime_state_repair_records",
       "same_parent_run_directory_rename_without_deletion",
+      "failed_launch_runtime_regions_same_parent_rename_without_deletion",
     ]),
+    failedLaunchContinuation:
+      "same_repair_id_append_only_run_generation_and_secrets_engine_repair",
     recordLifecycle: Object.freeze([
       "active",
       "recovered_pending_disposition",

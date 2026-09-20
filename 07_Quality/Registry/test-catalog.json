@@ -203,11 +203,11 @@
       "id": "coordinator:docker-desktop-repair",
       "owner": "coordinator",
       "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#docker外部境界の結合単位",
-      "responsibilities": ["desktop_failure_classification", "repair_intent_and_effect", "historical_recovery_and_reentry"],
-      "externalBoundaries": ["docker_desktop_process", "docker_runtime_directory", "platform_access_native_helper"],
+      "responsibilities": ["desktop_failure_classification", "repair_intent_and_effect", "multi_region_runtime_repair", "historical_recovery_and_reentry"],
+      "externalBoundaries": ["docker_desktop_process", "docker_run_directory", "docker_secrets_engine_directory", "platform_access_native_helper"],
       "lifecycleProfile": "external_effect_operation",
-      "testIds": ["coordinator:integration:docker-desktop-native-helper", "coordinator:integration:docker-desktop-runtime-repair", "coordinator:integration:docker-desktop-repair-history-publication", "coordinator:integration:docker-restart-real-observation"],
-      "postconditions": ["repair_record_durable", "runtime_directory_identity_exact", "engine_and_process_state_reobserved"]
+      "testIds": ["coordinator:integration:docker-desktop-native-helper", "coordinator:integration:docker-desktop-repair-continuation-store", "coordinator:integration:docker-desktop-runtime-repair", "coordinator:integration:docker-desktop-repair-history-publication", "coordinator:integration:docker-restart-real-observation"],
+      "postconditions": ["repair_record_durable", "runtime_region_identities_exact", "partial_region_success_not_complete", "intent_recorded_before_each_effect", "engine_and_process_state_reobserved"]
     },
     {
       "id": "execution-intelligence:event-publication",
@@ -970,6 +970,29 @@
       "postconditions": [
         "boundary_result_observed",
         "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:docker-desktop-repair-continuation-store",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/docker-desktop-repair-continuation-store.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "docker",
+        "desktop",
+        "repair",
+        "continuation",
+        "store"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "continuation_hash_chain_exact",
+        "intent_precedes_effect_settlement",
+        "tampered_or_partial_chain_rejected"
       ],
       "mandatoryByDefault": true
     },

@@ -130,7 +130,13 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 
 ## Docker Desktopの旧復旧記録を扱うとき
 
-Docker Desktop最終復旧の起動環境と旧記録の処置は、[専用のHome・作業Directoryと検証境界](../06_Architecture/Details/coordinator/01_Architecture.md#22-docker-desktop最終復旧時の起動環境)に従う。署名配布Rootを作業Directoryとして継承させない。旧版の復旧記録は、対象IDと、その修復IDを発行した署名済み配布Rootを明示する`doctor --adopt-docker-desktop-repair <repair-id> --repair-release-root <absolute-root>`で由来を検証し、既存ID・記録・退避物を保持して引き継ぐ。これはDocker Taskの生成元Rootを指定する引数でも、過去の停止・起動・移動を再実行するコマンドでもない。現在の正常状態を確認後、既存の明示closeコマンドで履歴を保持したまま終了する。開発実装の試験と、実機の中断記録への適用・正式E2Eは別に確認する。
+Docker Desktop最終復旧の起動環境と旧記録の処置は、[専用のHome・作業Directoryと検証境界](../06_Architecture/Details/coordinator/01_Architecture.md#22-docker-desktop最終復旧時の起動環境)に従う。署名配布Rootを作業Directoryとして継承させない。旧版の復旧記録は、対象IDと、その修復IDを発行した署名済み配布Rootを明示する`doctor --adopt-docker-desktop-repair <repair-id> --repair-release-root <absolute-root>`で由来を検証し、既存ID・記録・退避物を保持して引き継ぐ。これはDocker Taskの生成元Rootを指定する引数でも、過去の停止・起動・移動を再実行するコマンドでもない。
+
+旧記録のsettledな起動Effectが新しい失敗世代を作っている場合は、現在の署名版が同じ修復IDへ追記専用の継続記録を作る。対象は`Docker/run`と`docker-secrets-engine`の既知2領域だけであり、各領域のIdentityとlockを別々に確認する。個別socketを削除せず、各Directoryを同一親へ段階退避し、両方の結果を耐久化した後にDesktopを一回だけ再起動する。
+
+各退避と再起動の直前には、Engine停止、Docker Desktop Process不在、対象Identity、lock、退避先不存在および先行Effectの結果をfreshに再確認する。意図記録後にDockerが再起動した場合もEffectを発行しない。途中で閉じた端末、intent後中断、部分退避または起動結果不明では、同じコマンドの反復でEffectを盲目的に再発行せず、同じ修復IDと停止理由を保持する。
+
+回復済み表示と明示closeでは、現在Releaseへ結合した継続記録、3 Effectのconfirmed settlement、両領域の退避済み旧世代と別Identityの新世代、Engine readyおよびProcess安全性を再確認する。一領域の新世代欠落、部分記録、改変または別Release結合ではcloseしない。すべて成立した後だけ既存の明示closeコマンドで履歴を保持したまま終了する。開発実装の試験と、実機の中断記録への適用・正式E2Eは別に確認する。
 
 Docker資源の作成要求を耐久化した後、結果を受け取る前にProcessを失ったTaskは、空のDocker一覧だけでは回復済みにしない。そのTaskより後に開始され、署名済みの元配布から由来を確認でき、Process世代を切る停止とEngine再起動を完了して明示終了したDocker Desktop復旧記録がある場合だけ、上記の専用形を使える。RuntimeはTaskと復旧の順序、同じ選択ユーザー・保護Root・Policy、終了済み復旧記録および対象名のexactな不存在を再確認し、不存在確認をTask自身の耐久記録へ残してから通常回復を続ける。これは元Taskの自動再実行、旧配布への実行Authority付与、任意のDocker再起動による義務消去または保護記録の手動削除を許可しない。
 
