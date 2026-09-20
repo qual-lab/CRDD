@@ -240,7 +240,39 @@ function currentSignedSourceIdentity() {
     "coordinator",
     "coordinator-package-manifest.json",
   );
-  const envelope: unknown = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  const manifestBytes = fs.existsSync(manifestPath)
+    ? fs.readFileSync(manifestPath, "utf8")
+    : (() => {
+        const relativeManifestPath =
+          "template/tools/coordinator/coordinator-package-manifest.json";
+        const manifestCommit = execFileSync(
+          "git",
+          [
+            "-C",
+            repositoryRoot,
+            "log",
+            "-1",
+            "--diff-filter=A",
+            "--format=%H",
+            "--",
+            relativeManifestPath,
+          ],
+          { encoding: "utf8", windowsHide: true },
+        ).trim();
+        if (!manifestCommit)
+          throw new Error("test_release_manifest_history_missing");
+        return execFileSync(
+          "git",
+          [
+            "-C",
+            repositoryRoot,
+            "show",
+            `${manifestCommit}:${relativeManifestPath}`,
+          ],
+          { encoding: "utf8", windowsHide: true },
+        );
+      })();
+  const envelope: unknown = JSON.parse(manifestBytes);
   if (typeof envelope !== "object" || envelope === null) {
     throw new Error("test_release_manifest_envelope_invalid");
   }
