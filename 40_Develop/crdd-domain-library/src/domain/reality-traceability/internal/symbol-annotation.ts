@@ -1,7 +1,6 @@
-import type {
-  RealitySymbol,
-  RealitySymbolFinding,
-} from "./symbol-manifest-model.ts";
+import type { DomainIssue } from "../../result/index.ts";
+import type { RealitySymbol } from "../symbol-manifest-model.ts";
+import { createRealityDomainIssue } from "./domain-issue.ts";
 
 export type RealitySymbolAnnotations = Readonly<{
   archIds: ReadonlySet<string>;
@@ -37,42 +36,58 @@ export function validateRealitySymbolAnnotations(
   symbol: RealitySymbol,
   source: string,
   manifestPath: string,
-): readonly RealitySymbolFinding[] {
+): readonly DomainIssue[] {
   const annotations = extractRealitySymbolAnnotations(source);
-  const findings: RealitySymbolFinding[] = [];
+  const issues: DomainIssue[] = [];
   const isTestSymbol =
     symbol.kind === "test-suite" || symbol.kind === "test-case";
   if (!isTestSymbol && annotations.qaIds.size > 0)
-    findings.push({
-      code: "reality-symbol-annotation-domain-invalid",
-      path: manifestPath,
-      message: `${symbol.symbolId} is an implementation symbol and must not use Quality annotations.`,
-    });
+    issues.push(
+      createRealityDomainIssue(
+        "annotation.relation.domain-invalid",
+        manifestPath,
+        symbol.symbolId,
+        "implementation_must_not_use_quality_annotation",
+        { symbolId: symbol.symbolId },
+      ),
+    );
   if (isTestSymbol && annotations.archIds.size > 0)
-    findings.push({
-      code: "reality-symbol-annotation-domain-invalid",
-      path: manifestPath,
-      message: `${symbol.symbolId} is a test symbol and must not use Architecture annotations.`,
-    });
+    issues.push(
+      createRealityDomainIssue(
+        "annotation.relation.domain-invalid",
+        manifestPath,
+        symbol.symbolId,
+        "test_must_not_use_architecture_annotation",
+        { symbolId: symbol.symbolId },
+      ),
+    );
   if (
     !isTestSymbol &&
     annotations.archIds.size > 0 &&
     !equalIdentitySets(annotations.archIds, symbol.archIds)
   )
-    findings.push({
-      code: "reality-symbol-annotation-architecture-mismatch",
-      path: manifestPath,
-      message: `${symbol.symbolId} has Architecture annotations that differ from symbol.json.`,
-    });
+    issues.push(
+      createRealityDomainIssue(
+        "annotation.architecture.relation-mismatch",
+        manifestPath,
+        symbol.symbolId,
+        "architecture_annotation_differs_from_manifest",
+        { symbolId: symbol.symbolId },
+      ),
+    );
   if (
     isTestSymbol &&
     annotations.qaIds.size > 0 &&
     !equalIdentitySets(annotations.qaIds, symbol.qaIds)
   )
-    findings.push({
-      code: "reality-symbol-annotation-quality-mismatch",
-      path: manifestPath,
-      message: `${symbol.symbolId} has Quality annotations that differ from symbol.json.`,
-    });
-  return findings;
+    issues.push(
+      createRealityDomainIssue(
+        "annotation.quality.relation-mismatch",
+        manifestPath,
+        symbol.symbolId,
+        "quality_annotation_differs_from_manifest",
+        { symbolId: symbol.symbolId },
+      ),
+    );
+  return issues;
 }

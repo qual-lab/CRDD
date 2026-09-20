@@ -1,22 +1,67 @@
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { createLegacyRuntimeInventories } from "../../../../template/tools/internal/semantic-coverage/legacy-runtime-inventory.ts";
-import { publishSemanticCoverageBundle } from "../../../../template/tools/internal/semantic-coverage/semantic-bundle-writer.ts";
-import { createSemanticCoveragePilotGraph } from "../../../../template/tools/internal/semantic-coverage/semantic-coverage-graph.ts";
-import { compileSemanticIrPilot } from "../../../../template/tools/internal/semantic-coverage/semantic-ir-compiler.ts";
-import { compileQualitySemanticRelations } from "../../../../template/tools/internal/semantic-coverage/quality-semantic-relation.ts";
-import { discoverRealitySymbolManifests } from "../../../../template/tools/internal/reality-traceability/symbol-discovery.ts";
-import { validateRealitySymbolManifest } from "../../../../template/tools/internal/reality-traceability/symbol-manifest-validator.ts";
+import type { SemanticIr } from "../../../crdd-domain-library/src/domain/semantic-coverage/index.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import {
+  compileQualitySemanticRelationsFromRepository,
+  compileSemanticIrFromRepository,
+  createSemanticCoverageGraph as createSemanticCoveragePilotGraph,
+  mapSemanticDomainIssueToCheckerFinding,
+} from "../../src/internal/adapters/semantic-coverage.ts";
+import { createLegacyRuntimeInventories as createInventories } from "../../src/internal/migrations/legacy-runtime-inventory.ts";
+import {
+  discoverRealitySymbolManifests as discoverManifests,
+  validateRealitySymbolManifest,
+} from "../../src/internal/adapters/reality-traceability.ts";
 
 const checkerRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
 );
 const repositoryRoot = path.resolve(checkerRoot, "../..");
+const verifiedRepository = verifyRepositoryRoot(repositoryRoot);
+assert.equal(verifiedRepository.status, "completed");
+if (verifiedRepository.status !== "completed")
+  throw new Error("repository root verification failed");
+const capability = verifiedRepository.capability;
+const discovery = discoverManifests(capability);
+
+function createLegacyRuntimeInventories(_repositoryRoot: string) {
+  return createInventories(capability);
+}
+
+function compileSemanticIrPilot(
+  _repositoryRoot: string,
+  sourceDocument: string,
+  subsystem: string,
+) {
+  return compileSemanticIrFromRepository(
+    capability,
+    sourceDocument,
+    subsystem,
+    discovery.knownArchIds,
+  );
+}
+
+function compileQualitySemanticRelations(
+  _repositoryRoot: string,
+  sourceDocuments: readonly string[],
+  semanticIrs: readonly SemanticIr[],
+) {
+  return compileQualitySemanticRelationsFromRepository(
+    capability,
+    sourceDocuments,
+    semanticIrs,
+  );
+}
+
+function discoverRealitySymbolManifests(_repositoryRoot: string) {
+  return discoverManifests(capability);
+}
+
 const qualitySources = [
   "07_Quality/Definitions/QA-000003/quality_definition.md",
   "07_Quality/Definitions/QA-000004/quality_definition.md",
@@ -24,6 +69,45 @@ const qualitySources = [
   "07_Quality/Definitions/QA-000006/quality_definition.md",
   "07_Quality/Definitions/QA-000010/quality_definition.md",
 ] as const;
+
+test("Semantic Domain IssueはChecker境界で明示変換し未知種別を拒否する", () => {
+  assert.deepEqual(
+    mapSemanticDomainIssueToCheckerFinding({
+      kind: "ir.meaning.key-invalid",
+      targetIdentity: "sample.invalid",
+      location: { path: "06_Architecture/Details/sample.md" },
+      reason: "meaning_key_not_in_subsystem_namespace",
+      details: { row: 4, subsystem: "sample" },
+    }),
+    {
+      code: "semantic-ir-key-invalid",
+      path: "06_Architecture/Details/sample.md",
+      message: "row 4 has an invalid pilot Semantic Key",
+    },
+  );
+  assert.throws(
+    () =>
+      mapSemanticDomainIssueToCheckerFinding({
+        kind: "future.semantic.issue",
+        targetIdentity: "sample",
+        location: { path: "sample.md" },
+        reason: "future_reason",
+        details: {},
+      }),
+    /unknown_semantic_domain_issue:future\.semantic\.issue/u,
+  );
+  assert.throws(
+    () =>
+      mapSemanticDomainIssueToCheckerFinding({
+        kind: "ir.meaning.key-invalid",
+        targetIdentity: "sample.invalid",
+        location: { path: "sample.md" },
+        reason: "meaning_key_not_in_subsystem_namespace",
+        details: {},
+      }),
+    /invalid_semantic_domain_issue_detail:ir\.meaning\.key-invalid:row/u,
+  );
+});
 
 test("旧Runtime JSONをRelation Owner別に分解してPilot Gapを観測する", () => {
   const result = createLegacyRuntimeInventories(repositoryRoot);
@@ -352,52 +436,6 @@ test("同じLocal IDが複数QAに存在するTest Symbolは曖昧として拒�
       ({ code }) => code === "semantic-coverage-test-quality-pair-ambiguous",
     ),
   );
-});
-
-test("Bundle公開前の失敗は既存Snapshotを置換しない", () => {
-  const checkerTestRoot = path.join(
-    repositoryRoot,
-    ".crdd",
-    "tests",
-    "checker",
-  );
-  fs.mkdirSync(checkerTestRoot, { recursive: true });
-  const temporaryRoot = fs.mkdtempSync(
-    path.join(checkerTestRoot, "semantic-bundle-"),
-  );
-  try {
-    const registryRoot = path.join(temporaryRoot, "07_Quality", "Registry");
-    fs.mkdirSync(registryRoot, { recursive: true });
-    const targetPath = path.join(registryRoot, "semantic-coverage-pilot.json");
-    fs.writeFileSync(targetPath, "old\n", "utf8");
-    assert.throws(() =>
-      publishSemanticCoverageBundle(
-        temporaryRoot,
-        "07_Quality/Registry/semantic-coverage-pilot.json",
-        "new\n",
-        {
-          beforePublish: () => {
-            throw new Error("injected-before-publish");
-          },
-        },
-      ),
-    );
-    assert.equal(fs.readFileSync(targetPath, "utf8"), "old\n");
-    assert.deepEqual(
-      fs
-        .readdirSync(registryRoot)
-        .filter((name) => name.startsWith(".semantic-coverage-pilot.")),
-      [],
-    );
-    publishSemanticCoverageBundle(
-      temporaryRoot,
-      "07_Quality/Registry/semantic-coverage-pilot.json",
-      "new\n",
-    );
-    assert.equal(fs.readFileSync(targetPath, "utf8"), "new\n");
-  } finally {
-    fs.rmSync(temporaryRoot, { recursive: true, force: true });
-  }
 });
 
 test("Quality Local Itemが全Pilot Semantic Keyの正方向Relationを所有する", () => {

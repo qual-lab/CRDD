@@ -1,7 +1,27 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { observeRepositoryDirectory } from "../reality-traceability/repository-regular-file-observer.ts";
+import {
+  resolveVerifiedRepositoryRoot,
+  type VerifiedRepositoryRoot,
+} from "../../../../version-control/src/index.ts";
+import { createFilesystemRepositoryObservationPortFromRootBinding } from "./filesystem-repository-observer.ts";
+
+export type SemanticBundlePublishRequest = Readonly<{
+  outputRelativePath: string;
+  content: string;
+}>;
+
+export type SemanticBundlePublishReceipt = Readonly<{
+  outputRelativePath: string;
+  byteLength: number;
+}>;
+
+export type SemanticBundlePublisher = Readonly<{
+  publish: (
+    request: SemanticBundlePublishRequest,
+  ) => SemanticBundlePublishReceipt;
+}>;
 
 export type SemanticBundleWriterHooks = Readonly<{
   beforePublish?: (temporaryPath: string, targetPath: string) => void;
@@ -17,15 +37,22 @@ function isContained(root: string, target: string): boolean {
   );
 }
 
-export function publishSemanticCoverageBundle(
-  repositoryRoot: string,
-  outputRelativePath: string,
-  serializedBundle: string,
+export function publishSemanticCoverageBundleWithHooks(
+  capability: VerifiedRepositoryRoot,
+  request: SemanticBundlePublishRequest,
   hooks: SemanticBundleWriterHooks = {},
-): void {
+): SemanticBundlePublishReceipt {
+  const { outputRelativePath, content: serializedBundle } = request;
+  const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
+  if (repositoryRoot === null)
+    throw new Error("Verified repository root capability is unavailable.");
+  const repository = createFilesystemRepositoryObservationPortFromRootBinding({
+    absolutePath: repositoryRoot,
+    canonicalPath: repositoryRoot,
+    pathFlavor: path.sep === "\\" ? "win32" : "posix",
+  });
   const outputDirectoryRelativePath = path.posix.dirname(outputRelativePath);
-  const outputDirectory = observeRepositoryDirectory(
-    repositoryRoot,
+  const outputDirectory = repository.observeDirectory(
     outputDirectoryRelativePath,
   );
   if (outputDirectory.status !== "resolved")
@@ -61,8 +88,21 @@ export function publishSemanticCoverageBundle(
       throw new Error("Semantic coverage staging verification failed.");
     hooks.beforePublish?.(temporaryPath, targetPath);
     fs.renameSync(temporaryPath, targetPath);
+    return {
+      outputRelativePath,
+      byteLength: Buffer.byteLength(serializedBundle, "utf8"),
+    };
   } finally {
     if (descriptor !== null) fs.closeSync(descriptor);
     if (fs.existsSync(temporaryPath)) fs.unlinkSync(temporaryPath);
   }
+}
+
+export function createFilesystemSemanticBundlePublisher(
+  capability: VerifiedRepositoryRoot,
+): SemanticBundlePublisher {
+  return {
+    publish: (request) =>
+      publishSemanticCoverageBundleWithHooks(capability, request),
+  };
 }

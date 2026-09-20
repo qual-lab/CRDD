@@ -1,12 +1,8 @@
-import type {
-  LoadedRealitySymbolManifest,
-  RealitySymbolFinding,
-} from "../reality-traceability/symbol-manifest-model.ts";
-import type {
-  SemanticIrMeaning,
-  SemanticIrPilot,
-} from "./semantic-ir-compiler.ts";
+import type { LoadedRealitySymbolManifest } from "../reality-traceability/symbol-manifest-model.ts";
+import type { SemanticIrMeaning, SemanticIr } from "./semantic-ir-compiler.ts";
+import { semanticDomainIssue } from "./semantic-ir-compiler.ts";
 import type { QualitySemanticRelation } from "./quality-semantic-relation.ts";
+import type { DomainIssue, DomainOutcome } from "../result/index.ts";
 
 export type SemanticCoverageGraph = Readonly<{
   meaningsByKey: ReadonlyMap<string, SemanticIrMeaning>;
@@ -15,7 +11,7 @@ export type SemanticCoverageGraph = Readonly<{
   testSymbolIdsByMeaningKey: ReadonlyMap<string, readonly string[]>;
 }>;
 
-export type SemanticCoveragePilotProjection = Readonly<{
+export type SemanticCoverageProjection = Readonly<{
   contract: "crdd/semantic-coverage-pilot";
   contractRevision: 0;
   stability: "pilot";
@@ -30,18 +26,20 @@ export type SemanticCoveragePilotProjection = Readonly<{
   }>[];
 }>;
 
-export type SemanticCoveragePilotBundle = Readonly<{
+export type SemanticCoverageBundle = Readonly<{
   contract: "crdd/semantic-coverage-pilot-bundle";
   contractRevision: 0;
   stability: "pilot";
-  semanticIrs: readonly SemanticIrPilot[];
-  coverage: SemanticCoveragePilotProjection;
+  semanticIrs: readonly SemanticIr[];
+  coverage: SemanticCoverageProjection;
 }>;
 
-export function createSemanticCoveragePilotBundle(
-  semanticIrs: readonly SemanticIrPilot[],
-  coverage: SemanticCoveragePilotProjection,
-): SemanticCoveragePilotBundle {
+export type SemanticBundleContent = string;
+
+export function createSemanticBundle(
+  semanticIrs: readonly SemanticIr[],
+  graph: SemanticCoverageGraph,
+): SemanticCoverageBundle {
   return {
     contract: "crdd/semantic-coverage-pilot-bundle",
     contractRevision: 0,
@@ -49,7 +47,7 @@ export function createSemanticCoveragePilotBundle(
     semanticIrs: [...semanticIrs].sort((left, right) =>
       left.subsystem.localeCompare(right.subsystem),
     ),
-    coverage,
+    coverage: projectSemanticCoverage(graph),
   };
 }
 
@@ -57,9 +55,9 @@ function sortMapValues(map: Map<string, string[]>): void {
   for (const [key, values] of map) map.set(key, [...new Set(values)].sort());
 }
 
-export function projectSemanticCoveragePilot(
+function projectSemanticCoverage(
   graph: SemanticCoverageGraph,
-): SemanticCoveragePilotProjection {
+): SemanticCoverageProjection {
   return {
     contract: "crdd/semantic-coverage-pilot",
     contractRevision: 0,
@@ -86,19 +84,16 @@ export function projectSemanticCoveragePilot(
   };
 }
 
-export function createSemanticCoveragePilotGraph(
-  semanticIrs: readonly SemanticIrPilot[],
+export function createSemanticCoverageGraph(
+  semanticIrs: readonly SemanticIr[],
   manifests: readonly LoadedRealitySymbolManifest[],
   qualityRelations: readonly QualitySemanticRelation[],
-  prerequisiteFindings: readonly RealitySymbolFinding[],
-): Readonly<{
-  graph: SemanticCoverageGraph | null;
-  findings: readonly RealitySymbolFinding[];
-}> {
-  if (prerequisiteFindings.length > 0)
-    return { graph: null, findings: prerequisiteFindings };
+  prerequisiteIssues: readonly DomainIssue[],
+): DomainOutcome<SemanticCoverageGraph> {
+  if (prerequisiteIssues.length > 0)
+    return { status: "invalid", result: null, issues: prerequisiteIssues };
 
-  const findings: RealitySymbolFinding[] = [];
+  const issues: DomainIssue[] = [];
   const meaningsByKey = new Map<string, SemanticIrMeaning>();
   const implementationIdsByMeaningKey = new Map<string, string[]>();
   const qualityLocalIdsByMeaningKey = new Map<string, string[]>();
@@ -106,11 +101,15 @@ export function createSemanticCoveragePilotGraph(
   for (const ir of semanticIrs)
     for (const meaning of ir.meanings) {
       if (meaningsByKey.has(meaning.semanticKey))
-        findings.push({
-          code: "semantic-coverage-key-duplicate",
-          path: ir.sourceDocument,
-          message: `Duplicate Semantic Key: ${meaning.semanticKey}.`,
-        });
+        issues.push(
+          semanticDomainIssue(
+            "coverage.meaning.key-duplicate",
+            ir.sourceDocument,
+            "meaning_key_not_unique",
+            { semanticKey: meaning.semanticKey },
+            meaning.semanticKey,
+          ),
+        );
       else meaningsByKey.set(meaning.semanticKey, meaning);
     }
 
@@ -119,11 +118,15 @@ export function createSemanticCoveragePilotGraph(
       if (symbol.kind === "test-suite" || symbol.kind === "test-case") continue;
       for (const semanticKey of symbol.implements ?? []) {
         if (!meaningsByKey.has(semanticKey)) {
-          findings.push({
-            code: "semantic-coverage-key-unknown",
-            path: loadedManifest.manifestPath,
-            message: `${symbol.symbolId} implements unknown Semantic Key ${semanticKey}.`,
-          });
+          issues.push(
+            semanticDomainIssue(
+              "coverage.implementation.semantic-key-unresolved",
+              loadedManifest.manifestPath,
+              "implementation_semantic_key_unresolved",
+              { symbolId: symbol.symbolId, semanticKey },
+              semanticKey,
+            ),
+          );
           continue;
         }
         const implementationIds =
@@ -136,11 +139,19 @@ export function createSemanticCoveragePilotGraph(
   const meaningKeysByQualifiedLocalId = new Map<string, string[]>();
   for (const relation of qualityRelations) {
     if (!meaningsByKey.has(relation.semanticKey)) {
-      findings.push({
-        code: "semantic-coverage-quality-key-unknown",
-        path: relation.sourceDocument,
-        message: `${relation.qaId}/${relation.localId} verifies unknown Semantic Key ${relation.semanticKey}.`,
-      });
+      issues.push(
+        semanticDomainIssue(
+          "coverage.quality.semantic-key-unresolved",
+          relation.sourceDocument,
+          "quality_semantic_key_unresolved",
+          {
+            qaId: relation.qaId,
+            localId: relation.localId,
+            semanticKey: relation.semanticKey,
+          },
+          relation.semanticKey,
+        ),
+      );
       continue;
     }
     const qualifiedLocalId = `${relation.qaId}/${relation.localId}`;
@@ -159,11 +170,15 @@ export function createSemanticCoveragePilotGraph(
       meaning.verification === "required" &&
       !qualityLocalIdsByMeaningKey.has(meaning.semanticKey)
     )
-      findings.push({
-        code: "semantic-coverage-quality-relation-missing",
-        path: "07_Quality/Definitions",
-        message: `${meaning.semanticKey} has no Quality Local Item relation.`,
-      });
+      issues.push(
+        semanticDomainIssue(
+          "coverage.quality.required-relation-missing",
+          "07_Quality/Definitions",
+          "required_semantic_key_has_no_quality_relation",
+          { semanticKey: meaning.semanticKey },
+          meaning.semanticKey,
+        ),
+      );
 
   for (const loadedManifest of manifests)
     for (const symbol of loadedManifest.manifest.symbols) {
@@ -182,11 +197,19 @@ export function createSemanticCoveragePilotGraph(
             meaningKeysByQualifiedLocalId.has(qualifiedLocalId),
           );
         if (matchingQualifiedLocalIds.length > 1) {
-          findings.push({
-            code: "semantic-coverage-test-quality-pair-ambiguous",
-            path: loadedManifest.manifestPath,
-            message: `${symbol.symbolId} cannot uniquely resolve ${localId}; candidates: ${matchingQualifiedLocalIds.join(", ")}.`,
-          });
+          issues.push(
+            semanticDomainIssue(
+              "coverage.test.quality-pair-ambiguous",
+              loadedManifest.manifestPath,
+              "test_quality_pair_not_unique",
+              {
+                symbolId: symbol.symbolId,
+                localId,
+                candidates: matchingQualifiedLocalIds.join(", "),
+              },
+              symbol.symbolId,
+            ),
+          );
           continue;
         }
         const [qualifiedLocalId] = matchingQualifiedLocalIds;
@@ -207,8 +230,9 @@ export function createSemanticCoveragePilotGraph(
   sortMapValues(testSymbolIdsByMeaningKey);
 
   return {
-    graph:
-      findings.length === 0
+    status: issues.length === 0 ? "complete" : "invalid",
+    result:
+      issues.length === 0
         ? {
             meaningsByKey,
             implementationIdsByMeaningKey,
@@ -216,6 +240,6 @@ export function createSemanticCoveragePilotGraph(
             testSymbolIdsByMeaningKey,
           }
         : null,
-    findings,
+    issues,
   };
 }

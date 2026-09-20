@@ -1,6 +1,9 @@
-import { observeRepositoryRegularFile } from "../reality-traceability/repository-regular-file-observer.ts";
-import type { RealitySymbolFinding } from "../reality-traceability/symbol-manifest-model.ts";
-import type { SemanticIrPilot } from "./semantic-ir-compiler.ts";
+import type {
+  SemanticIr,
+  SemanticSourceDocument,
+} from "./semantic-ir-compiler.ts";
+import { semanticDomainIssue } from "./semantic-ir-compiler.ts";
+import type { DomainIssue, DomainOutcome } from "../result/index.ts";
 
 export type QualitySemanticRelation = Readonly<{
   qaId: string;
@@ -20,22 +23,10 @@ function parseTableRow(line: string): string[] {
     .map((cell) => cell.trim());
 }
 
-function finding(
-  code: string,
-  path: string,
-  message: string,
-): RealitySymbolFinding {
-  return { code, path, message };
-}
-
 export function compileQualitySemanticRelations(
-  repositoryRoot: string,
-  sourceDocuments: readonly string[],
-  semanticIrs: readonly SemanticIrPilot[],
-): Readonly<{
-  relations: readonly QualitySemanticRelation[] | null;
-  findings: readonly RealitySymbolFinding[];
-}> {
+  sourceDocuments: readonly SemanticSourceDocument[],
+  semanticIrs: readonly SemanticIr[],
+): DomainOutcome<readonly QualitySemanticRelation[]> {
   const knownSemanticKeys = new Set(
     semanticIrs.flatMap(({ meanings }) =>
       meanings.map(({ semanticKey }) => semanticKey),
@@ -48,49 +39,36 @@ export function compileQualitySemanticRelations(
         .map(({ semanticKey }) => semanticKey),
     ),
   );
-  const findings: RealitySymbolFinding[] = [];
+  const issues: DomainIssue[] = [];
   const relations: QualitySemanticRelation[] = [];
   const relationKeys = new Set<string>();
 
   for (const sourceDocument of sourceDocuments) {
-    const observation = observeRepositoryRegularFile(
-      repositoryRoot,
-      sourceDocument,
-    );
-    if (observation.status !== "resolved") {
-      findings.push(
-        finding(
-          "quality-semantic-source-unobservable",
-          sourceDocument,
-          observation.reason,
-        ),
-      );
-      continue;
-    }
     const qaMatch = /(?:^|\/)(QA-[0-9]{6})\/quality_definition\.md$/u.exec(
-      sourceDocument,
+      sourceDocument.path,
     );
     if (!qaMatch?.[1]) {
-      findings.push(
-        finding(
-          "quality-semantic-qa-id-missing",
-          sourceDocument,
-          "Quality source path does not contain one QA-ID.",
+      issues.push(
+        semanticDomainIssue(
+          "quality.source.qa-id-missing",
+          sourceDocument.path,
+          "quality_identity_not_resolved_from_source_path",
         ),
       );
       continue;
     }
     const qaId = qaMatch[1];
-    const lines = observation.source.split(/\r?\n/u);
+    const lines = sourceDocument.source.split(/\r?\n/u);
     const headingIndex = lines.findIndex(
       (line) => line.trim() === "## Semantic Coverage Pilot",
     );
     if (headingIndex < 0) {
-      findings.push(
-        finding(
-          "quality-semantic-table-missing",
-          sourceDocument,
-          "Visible Semantic Coverage Pilot table is missing.",
+      issues.push(
+        semanticDomainIssue(
+          "quality.source.table-missing",
+          sourceDocument.path,
+          "quality_relation_heading_missing",
+          { missingPart: "heading" },
         ),
       );
       continue;
@@ -99,11 +77,12 @@ export function compileQualitySemanticRelations(
       (line, index) => index > headingIndex && line.trim().startsWith("|"),
     );
     if (tableStart < 0) {
-      findings.push(
-        finding(
-          "quality-semantic-table-missing",
-          sourceDocument,
-          "Semantic Coverage Pilot table is missing.",
+      issues.push(
+        semanticDomainIssue(
+          "quality.source.table-missing",
+          sourceDocument.path,
+          "quality_relation_table_missing",
+          { missingPart: "table" },
         ),
       );
       continue;
@@ -112,11 +91,11 @@ export function compileQualitySemanticRelations(
       JSON.stringify(parseTableRow(lines[tableStart] ?? "")) !==
       JSON.stringify(expectedHeaders)
     ) {
-      findings.push(
-        finding(
-          "quality-semantic-header-invalid",
-          sourceDocument,
-          "Semantic Coverage Pilot headers do not match the pilot contract.",
+      issues.push(
+        semanticDomainIssue(
+          "quality.source.header-invalid",
+          sourceDocument.path,
+          "quality_relation_header_does_not_match_contract",
         ),
       );
       continue;
@@ -126,11 +105,11 @@ export function compileQualitySemanticRelations(
       separators.length !== expectedHeaders.length ||
       separators.some((cell) => !/^:?-{3,}:?$/u.test(cell))
     ) {
-      findings.push(
-        finding(
-          "quality-semantic-separator-invalid",
-          sourceDocument,
-          "Semantic Coverage Pilot separator is invalid.",
+      issues.push(
+        semanticDomainIssue(
+          "quality.source.separator-invalid",
+          sourceDocument.path,
+          "quality_relation_separator_invalid",
         ),
       );
       continue;
@@ -141,11 +120,12 @@ export function compileQualitySemanticRelations(
       if (!line.trim().startsWith("|")) break;
       const cells = parseTableRow(line);
       if (cells.length !== expectedHeaders.length) {
-        findings.push(
-          finding(
-            "quality-semantic-row-invalid",
-            sourceDocument,
-            `Semantic relation row ${index + 1} is invalid.`,
+        issues.push(
+          semanticDomainIssue(
+            "quality.source.row-invalid",
+            sourceDocument.path,
+            "quality_relation_row_cell_count_invalid",
+            { row: index + 1, cellCount: cells.length },
           ),
         );
         continue;
@@ -153,23 +133,26 @@ export function compileQualitySemanticRelations(
       const localMatch = /^`([A-Z]{3}-[0-9]{2})`$/u.exec(cells[0] ?? "");
       const localId = localMatch?.[1];
       if (!localId) {
-        findings.push(
-          finding(
-            "quality-semantic-local-id-invalid",
-            sourceDocument,
-            `Row ${index + 1} has an invalid Local ID.`,
+        issues.push(
+          semanticDomainIssue(
+            "quality.relation.local-id-invalid",
+            sourceDocument.path,
+            "quality_local_identity_shape_invalid",
+            { row: index + 1 },
           ),
         );
         continue;
       }
       const localItemOccurrences =
-        observation.source.split(`| \`${localId}\` |`).length - 1;
+        sourceDocument.source.split(`| \`${localId}\` |`).length - 1;
       if (localItemOccurrences < 2) {
-        findings.push(
-          finding(
-            "quality-semantic-local-item-unknown",
-            sourceDocument,
-            `${localId} does not resolve to one verification item and one relation row.`,
+        issues.push(
+          semanticDomainIssue(
+            "quality.relation.local-item-unresolved",
+            sourceDocument.path,
+            "quality_local_identity_does_not_resolve_required_pair",
+            { localId },
+            localId,
           ),
         );
       }
@@ -177,37 +160,47 @@ export function compileQualitySemanticRelations(
         .map((match) => match[1])
         .filter((semanticKey): semanticKey is string => Boolean(semanticKey));
       if (semanticKeys.length === 0)
-        findings.push(
-          finding(
-            "quality-semantic-key-missing",
-            sourceDocument,
-            `Row ${index + 1} has no Semantic Key.`,
+        issues.push(
+          semanticDomainIssue(
+            "quality.relation.semantic-key-missing",
+            sourceDocument.path,
+            "semantic_key_missing_from_quality_relation",
+            { row: index + 1 },
           ),
         );
       for (const semanticKey of semanticKeys) {
         if (!knownSemanticKeys.has(semanticKey)) {
-          findings.push(
-            finding(
-              "quality-semantic-key-unknown",
-              sourceDocument,
-              `${localId} verifies unknown Semantic Key ${semanticKey}.`,
+          issues.push(
+            semanticDomainIssue(
+              "quality.relation.semantic-key-unresolved",
+              sourceDocument.path,
+              "semantic_key_unresolved_from_quality_relation",
+              { localId, semanticKey },
+              semanticKey,
             ),
           );
           continue;
         }
         const relationKey = `${qaId}:${localId}:${semanticKey}`;
         if (relationKeys.has(relationKey)) {
-          findings.push(
-            finding(
-              "quality-semantic-relation-duplicate",
-              sourceDocument,
-              `${relationKey} is duplicated.`,
+          issues.push(
+            semanticDomainIssue(
+              "quality.relation.duplicate",
+              sourceDocument.path,
+              "quality_semantic_relation_not_unique",
+              { relationKey },
+              relationKey,
             ),
           );
           continue;
         }
         relationKeys.add(relationKey);
-        relations.push({ qaId, localId, semanticKey, sourceDocument });
+        relations.push({
+          qaId,
+          localId,
+          semanticKey,
+          sourceDocument: sourceDocument.path,
+        });
       }
     }
   }
@@ -217,23 +210,26 @@ export function compileQualitySemanticRelations(
   );
   for (const semanticKey of requiredSemanticKeys)
     if (!relatedSemanticKeys.has(semanticKey))
-      findings.push(
-        finding(
-          "quality-semantic-relation-missing",
+      issues.push(
+        semanticDomainIssue(
+          "quality.relation.required-key-unmapped",
           "07_Quality/Definitions",
-          `${semanticKey} has no Quality Local Item relation.`,
+          "required_semantic_key_has_no_quality_relation",
+          { semanticKey },
+          semanticKey,
         ),
       );
 
   return {
-    relations:
-      findings.length === 0
+    status: issues.length === 0 ? "complete" : "invalid",
+    result:
+      issues.length === 0
         ? relations.sort((left, right) =>
             `${left.qaId}:${left.localId}:${left.semanticKey}`.localeCompare(
               `${right.qaId}:${right.localId}:${right.semanticKey}`,
             ),
           )
         : null,
-    findings,
+    issues,
   };
 }

@@ -13,9 +13,9 @@
 | [ARCH-000008](../../Definitions/ARCH-000008/architecture_definition.md) | Reality TraceabilityとSemantic Coverageを、Checker Ruleではなく再利用可能な観測・関係能力として公開する。 | Partial |
 | [ARCH-000009](../../Definitions/ARCH-000009/architecture_definition.md) | Repository観測とVersion Control Adapterを、Domain意味およびChecker内部から分離する。 | Partial |
 
-本設計は既存Architecture定義の意味を変更しない。現在`template/tools/internal/`に同居する能力のOwner、公開入口および依存方向を整理する。物理Pathの移動は、本設計の独立レビュー後に別Gateで行う。
+本設計は既存Architecture定義の意味を変更しない。`template/tools/internal/`に同居していた能力のOwner、公開入口および依存方向を整理し、段階移行の完了状態を記録する。
 
-Relation状態は、この領域が担当する責務断面に対する状態である。現時点は設計を固定し、Source移行を開始していないため`Partial`とする。
+Relation状態は、この領域が担当する責務断面に対する状態である。Phase 2ではCommon Result、Reality Traceability、Semantic Coverage、Repository Observation、Semantic Publisherおよび既知Consumerを`40_Develop`の公開入口へ移行し、旧deep importを0にした。Artifact／Relation、Version Control、Checker全体、launcherおよび配布Consumerは後続Phaseなので、全体状態は`Partial`を維持する。
 
 ## 詳細成果物の適用判断
 
@@ -181,7 +181,7 @@ Repository／Version Control Infrastructure
 | Reality Traceability `40_Develop/crdd-domain-library/src/domain/reality-traceability/index.ts` | `realitySymbolKinds`、`RealitySymbolKind`、`RealitySymbol`、`RealitySymbolManifest`、`LoadedRealitySymbolManifest`、`RealitySymbolNode`、`RealitySymbolGraph`、`RealitySymbolDiscoveryRequest`、`RealitySymbolDiscoveryResult`、`validateRealitySymbolManifest`、`discoverRealitySymbols`、`createRealitySymbolGraph` | Repository Portを通じた読取りのみ | Test合格、実装完成、Reality Audit判定、低水準Path観測の公開 |
 | Semantic Coverage Domain `40_Develop/crdd-domain-library/src/domain/semantic-coverage/index.ts` | `SemanticIrMeaning`、`SemanticIr`、`QualitySemanticRelation`、`SemanticCoverageGraph`、`SemanticCoverageProjection`、`SemanticCoverageBundle`、`SemanticBundleContent`、`compileSemanticIr`、`compileQualitySemanticRelations`、`createSemanticCoverageGraph`、`createSemanticBundle` | なし | Filesystem Path、temporary file、publish完了 |
 | Semantic Coverage Application `40_Develop/crdd-domain-library/src/application/semantic-coverage/index.ts` | `PublishSemanticCoverageRequest`、`PublishSemanticCoverageResult`、`publishSemanticCoverage` | Filesystem公開をPublisher Portへ要求 | Domain意味の再計算、部分公開の成功扱い |
-| Repository `40_Develop/crdd-domain-library/src/repository/index.ts` | `RepositoryEntryKind`、`RepositoryFileObservation`、`RepositoryDirectoryObservation`、`RepositoryObservationPort`、`SemanticBundlePublishRequest`、`SemanticBundlePublishReceipt`、`SemanticBundlePublisher`、`createFilesystemRepositoryObservationPort`、`createFilesystemSemanticBundlePublisher` | Filesystem読取り／明示したpublish | CRDD意味、Checker code、採用判断 |
+| Repository `40_Develop/crdd-domain-library/src/repository/index.ts` | `RepositoryEntryKind`、`RepositoryDirectoryEntry`、`RepositoryFileObservation`、`RepositoryDirectoryObservation`、`RepositoryObservationPort`、`RepositoryRootCapability`、`SemanticBundlePublishRequest`、`SemanticBundlePublishReceipt`、`SemanticBundlePublisher`、`createFilesystemRepositoryObservationPort`、`createFilesystemSemanticBundlePublisher` | Filesystem読取り／明示したpublish | CRDD意味、Checker code、採用判断 |
 | Version Control `40_Develop/version-control/src/index.ts` | `VersionControlPort`、`RepositoryEntryObservation`、`RevisionIdentity`、`FixedSnapshotReadRequest`、`createGitVersionControlPort`、`observeDeclaredNestedRepositoryPaths`、`observeRepositoryEntries`、`observeNestedRepository`、`readFixedSnapshotText`、`resolveRevisionIdentity` | Git CLI読取り | Domain意味、未Commit通常操作の拒否 |
 | Checker `40_Develop/checker/src/index.ts` | `CheckerRunRequest`、`CheckerResult`、`CheckerFinding`、`runChecker` | Repository読取りのみ | Domain Issueの改変、意味採否、外部Effect許可 |
 
@@ -317,6 +317,9 @@ MCPとWorkbenchは将来Consumer候補であり、現在接続済みとは表示
 ## 8. Security境界
 
 - Repository観測は検証済みRoot内のregular file／directoryに限定する。
+- 公開Filesystem PortはVersion Controlが発行した検証済みRepository Root Capabilityだけを受け取り、任意Path文字列からRoot Authorityを自己発行しない。
+- 完全修飾Pathは実行OSのPath形式で判定し、Windowsではdrive／通常UNCだけ、POSIXでは`/`から始まるPathだけを受理する。Windowsのroot-relative Path、device namespaceおよび異なるOS形式を受理しない。
+- File内容は、Platform境界が開いたHandleの所在を検証済みRoot配下として証明できる場合だけ同じHandleから読む。Linuxは`/proc/self/fd`から開いたHandleのPathを観測する。WindowsはRoot内のCanonical Pathと開いたHandleのFile Identityを`dev`と`ino`を含むmetadataで照合する。証明手段がないPlatform、Identity不一致または観測不能ではPathの再観測から安全を推定せず`unobservable`で停止し、Handleを閉じる。
 - symbolic link、junctionまたはRoot外Pathを、存在だけで確認済みにしない。
 - Version ControlのProcess実行、Filesystem読取りおよびBundle書込みをDomain Modelと混在させない。
 - 読取りAPIとFilesystem Effectを持つAPIを公開面で区別する。
@@ -345,7 +348,7 @@ MCPとWorkbenchは将来Consumer候補であり、現在接続済みとは表示
 | `reality-traceability/symbol-annotation.ts` | Source Annotation抽出 | `domain/reality-traceability/internal/` | 非公開 | Discovery経由だけで利用可能にする |
 | `reality-traceability/symbol-discovery.ts` | Symbol探索とSource照合 | `domain/reality-traceability/` | 公開入口から公開 | Domain探索とRepository Observationの実行編成を分け、`node:fs`直接依存を除く |
 | `reality-traceability/symbol-graph.ts` | Global Symbol Graph | `domain/reality-traceability/` | 公開入口から公開 | なし |
-| `semantic-coverage/legacy-runtime-inventory.ts` | 旧JSON移行棚卸し | `application/semantic-coverage/internal/migration/` | 非公開 | Repository ObservationとDomain分類を分け、Pilot終了後の保持要否を再評価 |
+| `semantic-coverage/legacy-runtime-inventory.ts` | 旧JSON移行棚卸し | `checker/src/internal/migrations/` | 非公開 | Domain公開契約へ含めず、Checkerが所有する一時的な移行入力としてPilot終了後の保持要否を再評価 |
 | `semantic-coverage/semantic-ir-compiler.ts` | Semantic IR生成 | `domain/semantic-coverage/` | 公開入口から公開 | Repository読取りを呼出し側へ分離し、構造化入力からの決定論的生成に限定する |
 | `semantic-coverage/quality-semantic-relation.ts` | Quality Local ItemとのRelation生成 | `domain/semantic-coverage/` | 公開入口から公開 | Repository読取りを呼出し側へ分離し、完全修飾IDを維持する |
 | `semantic-coverage/semantic-coverage-graph.ts` | Coverage Graph／Projection | `domain/semantic-coverage/` | 公開入口から公開 | 完成状態と観測状態を分ける |
@@ -384,7 +387,7 @@ Phase単位で型検査、Lint、Formatter、局所契約試験、全Catalog回�
 
 ## 11. 非目標
 
-- 本設計変更内でSourceを物理移動すること
+- 設計固定だけを根拠にSource移動を完了扱いすること
 - `internal`を`core`へ一括改名すること
 - 単一の巨大な`domain/index.ts`を作ること
 - WorkbenchまたはMCPを実装済みConsumerとして扱うこと
@@ -392,7 +395,7 @@ Phase単位で型検査、Lint、Formatter、局所契約試験、全Catalog回�
 - Git Adapterの意味をDomainへ取り込むこと
 - 公開APIから採用、Authority、Releaseまたは外部Effect許可を発行すること
 
-Architecture固有の追加人間判断はない。Source物理移動を始める前に、本設計の独立レビュー結果と完成像を人間へ提示する。
+Architecture固有の追加人間判断はない。各Phaseは、対象Consumer、局所契約試験、全回帰および独立レビューを閉じてから次Phaseへ進む。
 
 ## Checklist
 

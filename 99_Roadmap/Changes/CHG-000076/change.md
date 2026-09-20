@@ -1,7 +1,7 @@
 # CRDD Domain Library責務分離
 
 変更ID: `CHG-000076`
-状態: `Implementation In Progress — Phase 1 Binding Contract Complete`
+状態: `Implementation In Progress — Phase 2 Complete`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `tool_architecture_boundary_change`
@@ -29,7 +29,7 @@
            └──────────→ Domain／Consumer
 ```
 
-本変更では設計、全Module分類、公開入口、依存方向および段階移行を固定する。Sourceの物理移動は独立レビュー後の次Gateとする。
+本変更では設計、全Module分類、公開入口および依存方向を先に固定し、独立レビュー済みの段階移行としてSourceを移す。Phase 1の実装正本の受け皿に続き、Phase 2ではCommon Result、Reality Traceability、Semantic Coverage、Repository ObservationおよびSemantic Publisherを`40_Develop`へ移した。Domain計算とFilesystem Effectを分離し、Checkerと開発Toolを公開入口へ移行して、旧deep importを0にした。次はPhase 3としてArtifact Model、Parser、SchemaおよびRelationを分離する。
 
 ## 2. 現在状態と構造変更
 
@@ -69,11 +69,61 @@
 - [`07_Quality/Definitions/QA-000007/quality_definition.md`](../../../07_Quality/Definitions/QA-000007/quality_definition.md)
 - [`07_Quality/Definitions/QA-000010/quality_definition.md`](../../../07_Quality/Definitions/QA-000010/quality_definition.md)
 - [`07_Quality/Definitions/QA-000013/quality_definition.md`](../../../07_Quality/Definitions/QA-000013/quality_definition.md)
+- [`07_Quality/Registry/semantic-coverage-pilot.json`](../../../07_Quality/Registry/semantic-coverage-pilot.json)
 - [`07_Quality/Registry/test-catalog.json`](../../../07_Quality/Registry/test-catalog.json)
 - [`19_Workflows/01_Coordinator_Runtime.md`](../../../19_Workflows/01_Coordinator_Runtime.md)
+- [`40_Develop/checker/compile-semantic-ir-pilot.ts`](../../../40_Develop/checker/compile-semantic-ir-pilot.ts)
 - [`40_Develop/checker/src/launcher-binding.ts`](../../../40_Develop/checker/src/launcher-binding.ts)
+- [`40_Develop/checker/src/internal/adapters/reality-test-catalog.ts`](../../../40_Develop/checker/src/internal/adapters/reality-test-catalog.ts)
+- [`40_Develop/checker/src/internal/adapters/reality-traceability.ts`](../../../40_Develop/checker/src/internal/adapters/reality-traceability.ts)
+- [`40_Develop/checker/src/internal/adapters/semantic-coverage.ts`](../../../40_Develop/checker/src/internal/adapters/semantic-coverage.ts)
+- [`40_Develop/checker/src/internal/migrations/legacy-runtime-inventory.ts`](../../../40_Develop/checker/src/internal/migrations/legacy-runtime-inventory.ts)
+- [`40_Develop/checker/test-catalog.ts`](../../../40_Develop/checker/test-catalog.ts)
+- [`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](../../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)
 - [`40_Develop/checker/tests/unit/launcher-binding.contract.test.ts`](../../../40_Develop/checker/tests/unit/launcher-binding.contract.test.ts)
+- [`40_Develop/checker/tests/unit/semantic-coverage-pilot.contract.test.ts`](../../../40_Develop/checker/tests/unit/semantic-coverage-pilot.contract.test.ts)
+- [`40_Develop/checker/tests/unit/symbol-graph.contract.test.ts`](../../../40_Develop/checker/tests/unit/symbol-graph.contract.test.ts)
+- [`40_Develop/checker/tests/unit/test-catalog.contract.test.ts`](../../../40_Develop/checker/tests/unit/test-catalog.contract.test.ts)
 - [`40_Develop/checker/tsconfig.json`](../../../40_Develop/checker/tsconfig.json)
+- [`40_Develop/crdd-domain-library/package-lock.json`](../../../40_Develop/crdd-domain-library/package-lock.json)
+- [`40_Develop/crdd-domain-library/package.json`](../../../40_Develop/crdd-domain-library/package.json)
+- [`40_Develop/crdd-domain-library/src/application/semantic-coverage/index.ts`](../../../40_Develop/crdd-domain-library/src/application/semantic-coverage/index.ts)
+- [`40_Develop/crdd-domain-library/src/domain/result/index.ts`](../../../40_Develop/crdd-domain-library/src/domain/result/index.ts)
+- [`40_Develop/crdd-domain-library/src/domain/reality-traceability/index.ts`](../../../40_Develop/crdd-domain-library/src/domain/reality-traceability/index.ts)
+- [`40_Develop/crdd-domain-library/src/domain/reality-traceability/internal/domain-issue.ts`](../../../40_Develop/crdd-domain-library/src/domain/reality-traceability/internal/domain-issue.ts)
+- [`40_Develop/crdd-domain-library/src/domain/reality-traceability/internal/symbol-annotation.ts`](../../../40_Develop/crdd-domain-library/src/domain/reality-traceability/internal/symbol-annotation.ts)
+- [`40_Develop/crdd-domain-library/src/domain/reality-traceability/symbol-graph.ts`](../../../40_Develop/crdd-domain-library/src/domain/reality-traceability/symbol-graph.ts)
+- [`40_Develop/crdd-domain-library/src/domain/reality-traceability/symbol-discovery.ts`](../../../40_Develop/crdd-domain-library/src/domain/reality-traceability/symbol-discovery.ts)
+- [`40_Develop/crdd-domain-library/src/domain/reality-traceability/symbol-manifest-model.ts`](../../../40_Develop/crdd-domain-library/src/domain/reality-traceability/symbol-manifest-model.ts)
+- [`40_Develop/crdd-domain-library/src/domain/reality-traceability/symbol-manifest-validator.ts`](../../../40_Develop/crdd-domain-library/src/domain/reality-traceability/symbol-manifest-validator.ts)
+- [`40_Develop/crdd-domain-library/src/domain/semantic-coverage/index.ts`](../../../40_Develop/crdd-domain-library/src/domain/semantic-coverage/index.ts)
+- [`40_Develop/crdd-domain-library/src/domain/semantic-coverage/quality-semantic-relation.ts`](../../../40_Develop/crdd-domain-library/src/domain/semantic-coverage/quality-semantic-relation.ts)
+- [`40_Develop/crdd-domain-library/src/domain/semantic-coverage/semantic-coverage-graph.ts`](../../../40_Develop/crdd-domain-library/src/domain/semantic-coverage/semantic-coverage-graph.ts)
+- [`40_Develop/crdd-domain-library/src/domain/semantic-coverage/semantic-ir-compiler.ts`](../../../40_Develop/crdd-domain-library/src/domain/semantic-coverage/semantic-ir-compiler.ts)
+- [`40_Develop/crdd-domain-library/src/repository/index.ts`](../../../40_Develop/crdd-domain-library/src/repository/index.ts)
+- [`40_Develop/crdd-domain-library/src/repository/internal/filesystem-repository-observer.ts`](../../../40_Develop/crdd-domain-library/src/repository/internal/filesystem-repository-observer.ts)
+- [`40_Develop/crdd-domain-library/src/repository/internal/filesystem-semantic-bundle-publisher.ts`](../../../40_Develop/crdd-domain-library/src/repository/internal/filesystem-semantic-bundle-publisher.ts)
+- [`40_Develop/crdd-domain-library/symbol.json`](../../../40_Develop/crdd-domain-library/symbol.json)
+- [`40_Develop/crdd-domain-library/tests/integration/reality-repository.integration.test.ts`](../../../40_Develop/crdd-domain-library/tests/integration/reality-repository.integration.test.ts)
+- [`40_Develop/crdd-domain-library/tests/integration/semantic-bundle-publisher.integration.test.ts`](../../../40_Develop/crdd-domain-library/tests/integration/semantic-bundle-publisher.integration.test.ts)
+- [`40_Develop/crdd-domain-library/tests/unit/public-boundary.contract.test.ts`](../../../40_Develop/crdd-domain-library/tests/unit/public-boundary.contract.test.ts)
+- [`40_Develop/crdd-domain-library/tests/unit/repository-observation.contract.test.ts`](../../../40_Develop/crdd-domain-library/tests/unit/repository-observation.contract.test.ts)
+- [`40_Develop/crdd-domain-library/tsconfig.json`](../../../40_Develop/crdd-domain-library/tsconfig.json)
+- `template/tools/internal/reality-traceability/repository-regular-file-observer.ts` → [`40_Develop/crdd-domain-library/src/repository/internal/filesystem-repository-observer.ts`](../../../40_Develop/crdd-domain-library/src/repository/internal/filesystem-repository-observer.ts)
+- `template/tools/internal/reality-traceability/symbol-annotation.ts` → [`40_Develop/crdd-domain-library/src/domain/reality-traceability/internal/symbol-annotation.ts`](../../../40_Develop/crdd-domain-library/src/domain/reality-traceability/internal/symbol-annotation.ts)
+- `template/tools/internal/reality-traceability/symbol-discovery.ts` → [`40_Develop/crdd-domain-library/src/domain/reality-traceability/symbol-discovery.ts`](../../../40_Develop/crdd-domain-library/src/domain/reality-traceability/symbol-discovery.ts)
+- `template/tools/internal/reality-traceability/symbol-graph.ts` → [`40_Develop/crdd-domain-library/src/domain/reality-traceability/symbol-graph.ts`](../../../40_Develop/crdd-domain-library/src/domain/reality-traceability/symbol-graph.ts)
+- `template/tools/internal/reality-traceability/symbol-manifest-model.ts` → [`40_Develop/crdd-domain-library/src/domain/reality-traceability/symbol-manifest-model.ts`](../../../40_Develop/crdd-domain-library/src/domain/reality-traceability/symbol-manifest-model.ts)
+- `template/tools/internal/reality-traceability/symbol-manifest-validator.ts` → [`40_Develop/crdd-domain-library/src/domain/reality-traceability/symbol-manifest-validator.ts`](../../../40_Develop/crdd-domain-library/src/domain/reality-traceability/symbol-manifest-validator.ts)
+- `template/tools/internal/semantic-coverage/legacy-runtime-inventory.ts` → [`40_Develop/checker/src/internal/migrations/legacy-runtime-inventory.ts`](../../../40_Develop/checker/src/internal/migrations/legacy-runtime-inventory.ts)
+- `template/tools/internal/semantic-coverage/quality-semantic-relation.ts` → [`40_Develop/crdd-domain-library/src/domain/semantic-coverage/quality-semantic-relation.ts`](../../../40_Develop/crdd-domain-library/src/domain/semantic-coverage/quality-semantic-relation.ts)
+- `template/tools/internal/semantic-coverage/semantic-bundle-writer.ts` → [`40_Develop/crdd-domain-library/src/repository/internal/filesystem-semantic-bundle-publisher.ts`](../../../40_Develop/crdd-domain-library/src/repository/internal/filesystem-semantic-bundle-publisher.ts)
+- `template/tools/internal/semantic-coverage/semantic-coverage-graph.ts` → [`40_Develop/crdd-domain-library/src/domain/semantic-coverage/semantic-coverage-graph.ts`](../../../40_Develop/crdd-domain-library/src/domain/semantic-coverage/semantic-coverage-graph.ts)
+- `template/tools/internal/semantic-coverage/semantic-ir-compiler.ts` → [`40_Develop/crdd-domain-library/src/domain/semantic-coverage/semantic-ir-compiler.ts`](../../../40_Develop/crdd-domain-library/src/domain/semantic-coverage/semantic-ir-compiler.ts)
+- `template/tools/internal/checker/rules/reality-test-catalog-adapter.ts` → [`40_Develop/checker/src/internal/adapters/reality-test-catalog.ts`](../../../40_Develop/checker/src/internal/adapters/reality-test-catalog.ts)
+- [`template/tools/internal/checker/rules/reality-symbol-graph.ts`](../../../template/tools/internal/checker/rules/reality-symbol-graph.ts)
+- [`99_Roadmap/Changes/CHG-000074/change.md`](../CHG-000074/change.md)
+- [`99_Roadmap/Changes/CHG-000075/change.md`](../CHG-000075/change.md)
 - [`99_Roadmap/01_Roadmap.md`](../../01_Roadmap.md)
 - [`99_Roadmap/02_Changes.md`](../../02_Changes.md)
 - [`99_Roadmap/Changes/CHG-000076/change.md`](change.md)
@@ -109,7 +159,8 @@
 | 公開境界設計 | Complete | Capability別入口、依存方向、結果境界を定義した |
 | Consumer棚卸し | Complete | 現在Consumerと将来候補を分け、移行対象を記録した |
 | 独立レビュー | Complete | Critical／Major／Moderate／Minorすべて0でPassした |
-| Source物理移動準備 | Phase 1 Complete — Launcher Integration Not Started | Root Identity契約と拒否条件を契約試験で固定した。実Launcher接続とChecker本体移動は次Gate |
+| Source物理移動準備 | Phase 1 Complete — Launcher Integration Not Started | Root Identity契約と拒否条件を契約試験で固定した。実Launcher接続は後続Gate |
+| Phase 2 Reality／Semantic公開 | Complete | Reality／Semanticの公開API、Repository Observation、Semantic Publisher、Checker変換Adapter、安全境界の反証試験を固定した。Checkerと開発Toolを公開入口へ移行し、旧deep import 0、局所試験、全Catalog回帰、Repository Checkerおよび独立再レビューを完了した |
 | Reality Audit | Not Started | 本変更とは別Gateで扱う |
 
 ## 6. 検証方針
@@ -122,6 +173,8 @@
 |---|---|---|---|
 | 2026-09-20固定候補 | Pass | 現行所有者とv0.21目標の表示、開発Root／採用RootのIdentity、Quality 113件＋追加1件の状態を是正後に再レビュー | 30件全数分類、公開API allowlist、fallbackなし拒否、Source物理移動0、Reality Audit未開始 |
 | 2026-09-20 Phase 1 Root Identity契約 | Pass | Path suffix一致、POSIX大小文字、境界観測、相対Path、Win32 root-relativeを理由別に反証し、完全修飾drive／UNCとPOSIX絶対Pathだけを受理 | 実Launcher未接続、Checker本体未移動、Reality Audit未開始 |
+| 2026-09-20 Phase 2 Reality／Repository最初のSlice | Pass | DomainでChecker Findingを生成する逆依存、Repository Root／Path／Handle証明、Version Controlの非公開deep importを是正後に再レビューし、Critical／Major／Moderate／Minorすべて0を確認 | Windows Handle所在証明Adapter、Semantic移行およびConsumer Closureを次の固定候補で確認 |
+| 2026-09-20 Phase 2完了候補 | Pass | 初回レビューで検出したReality `internal`へのdeep importとSemantic Domain内のChecker形Findingを是正した。Domain kind 30件とChecker明示変換30件の完全一致、未知kind／detail欠落のfail closed、公開入口限定を再レビューし、Critical／Major／Moderate／Minorすべて0を確認した | Artifact／Relation、Version Control、Checker全体、launcher／配布およびReality Auditは後続Phase |
 
 ## 8. Phase 1検証結果
 
@@ -133,7 +186,20 @@
 | Repository Checker | Pass | errors 0、warnings 0 |
 | Checker全Catalog回帰 | Pass（400/400） | 期待値変更で逃がさず、命名規約を実装側で是正後に全件再実行 |
 
-Phase 1で成立したのはRoot Identityと拒否境界の契約までである。実Launcherへの接続、Checker本体の移動、採用Repositoryでの配布実測およびReality AuditはPhase 2以降の未完了範囲として維持する。
+Phase 1で成立したのはRoot Identityと拒否境界の契約までである。実Launcherへの接続、Checker本体の移動、採用Repositoryでの配布実測およびReality Auditは後続Phaseの未完了範囲として維持する。
+
+## 9. Phase 2完了結果
+
+| 対象 | 完了した処置 | 後続Phaseへ残す範囲 |
+|---|---|---|
+| Common Result | `DomainOutcome<T>`、`DomainIssue`、`DomainLocation`を公開契約にし、Realityの中立結果へ適用した | Artifact／Relationへの適用はPhase 3 |
+| Reality Traceability | Manifest、Discovery、GraphおよびAnnotationを公開入口へ統合し、Checker表示への変換をChecker Adapterへ分離した | Reality Audit自体は別Gate |
+| Semantic Coverage | IR、Quality Relation、Coverage GraphおよびBundle生成を純粋Domain APIへ移した | Pilot表示の解除判断と全Subsystem展開は別Change |
+| Repository Observation | 検証済みRoot Capabilityだけを受け取るPortを公開し、Directory列挙とWindows／Linuxの実File観測をHandle所在証明へ接続した | 代替Version Control AdapterはPhase 4 |
+| Semantic Publisher | Bundle計算をDomain、公開調停をApplication、atomic publish／fsync／readback／cleanupをRepositoryへ分離した | 他の公開Artifactへの一般化は必要時に別設計 |
+| Consumer Closure | Checker Rule、Adapter、開発Tool、試験およびCatalogを公開入口へ移し、旧Reality／Semantic deep importと旧実装Fileを0にした | Artifact／Relation等の旧Pathは各後続Phaseで閉じる |
+
+検証結果はDomain Package 20/20、Checker局所契約 21/21、Repository Checker errors 0／warnings 0、Checker全Catalog回帰398/398である。旧`template/tools/internal/reality-traceability`および`semantic-coverage`へのdeep importは0で、CheckerとTemplate ToolからCRDD Domain Libraryの非`index.ts`入口へのimportも0である。DomainはCheckerの診断code／表示文やFilesystem Effectを生成せず、Checker AdapterとRepository Publisherが各境界の責務を持つ。Phase 2完了は、採用Repository配布、Reality Audit、または後続Capabilityの移行完了を意味しない。
 
 ## Checklist
 
@@ -143,6 +209,8 @@ Phase 1で成立したのはRoot Identityと拒否境界の契約までである
 - [x] Checker FindingをDomain結果にしていない
 - [x] 現在Consumerと将来候補を区別した
 - [x] 段階移行とConsumer Closureを定義した
-- [x] Source物理移動を開始していない
-- [x] 独立レビューを完了した
+- [x] Reality／Semanticの公開入口とFilesystem Effect境界を実装した
+- [x] Checkerと開発Toolを公開入口へ移行し、旧deep importを0にした
+- [x] Phase 2の局所試験、全回帰およびRepository Checkerを完了した
+- [x] Phase 2完了候補の独立再レビューを完了した
 - [x] 設計を人間へ提示した

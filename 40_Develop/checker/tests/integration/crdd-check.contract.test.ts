@@ -9499,6 +9499,21 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     { recursive: true },
   );
   fs.cpSync(
+    path.join(repositoryRoot, "40_Develop", "checker", "src"),
+    path.join(source, "40_Develop", "checker", "src"),
+    { recursive: true },
+  );
+  fs.cpSync(
+    path.join(repositoryRoot, "40_Develop", "crdd-domain-library", "src"),
+    path.join(source, "40_Develop", "crdd-domain-library", "src"),
+    { recursive: true },
+  );
+  fs.cpSync(
+    path.join(repositoryRoot, "40_Develop", "version-control", "src"),
+    path.join(source, "40_Develop", "version-control", "src"),
+    { recursive: true },
+  );
+  fs.cpSync(
     path.join(
       repositoryRoot,
       "template",

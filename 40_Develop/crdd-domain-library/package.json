@@ -1,0 +1,30 @@
+{
+  "name": "@qual-lab/crdd-domain-library",
+  "version": "0.0.0-development",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./domain/result": "./src/domain/result/index.ts",
+    "./domain/reality-traceability": "./src/domain/reality-traceability/index.ts",
+    "./domain/semantic-coverage": "./src/domain/semantic-coverage/index.ts",
+    "./application/semantic-coverage": "./src/application/semantic-coverage/index.ts",
+    "./repository": "./src/repository/index.ts"
+  },
+  "scripts": {
+    "check": "npm run format:check && npm run typecheck && npm run lint",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "biome lint . --error-on-warnings",
+    "test": "npm run check && npm run test:run",
+    "test:run": "node --test ./tests/**/*.test.ts",
+    "typecheck": "tsc -p ./tsconfig.json"
+  },
+  "engines": {
+    "node": ">=24.12.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.6",
+    "@types/node": "22.18.0",
+    "typescript": "7.0.2"
+  }
+}

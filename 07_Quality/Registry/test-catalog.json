@@ -18,6 +18,7 @@
     "artifact-signing": "node_test",
     "checker": "node_test",
     "coordinator": "node_test",
+    "crdd-domain-library": "node_test",
     "execution-intelligence": "node_test",
     "mcp": "node_test",
     "project-runtime": "node_test",
@@ -26,6 +27,16 @@
     "platform-access": "cargo_test"
   },
   "integrationBlocks": [
+    {
+      "id": "crdd-domain-library:reality-and-repository-boundary",
+      "owner": "crdd-domain-library",
+      "architectureAnchor": "06_Architecture/Details/crdd-domain-library/01_Architecture.md#3-公開入口と依存方向",
+      "responsibilities": ["reality_symbol_contract", "reality_relation_graph", "repository_regular_entry_observation"],
+      "externalBoundaries": ["repository_filesystem"],
+      "lifecycleProfile": "read_only_boundary",
+      "testIds": ["crdd-domain-library:unit:public-boundary", "crdd-domain-library:unit:repository-observation", "crdd-domain-library:integration:reality-repository", "crdd-domain-library:integration:semantic-bundle-publisher"],
+      "postconditions": ["public_export_allowlist_exact", "domain_and_repository_owner_separated", "repository_outside_observation_absent", "opened_handle_location_proven_or_read_unobservable", "repository_content_unchanged"]
+    },
     {
       "id": "artifact-signing:key-to-signature",
       "owner": "artifact-signing",
@@ -249,6 +260,13 @@
   ],
   "integrationCorridors": [
     {
+      "id": "crdd-domain-library:reality-to-checker",
+      "architectureAnchor": "06_Architecture/Details/crdd-domain-library/01_Architecture.md#7-consumer-closure",
+      "blockPath": ["crdd-domain-library:reality-and-repository-boundary", "checker:repository-verification"],
+      "testIds": ["crdd-domain-library:integration:reality-repository", "checker:integration:crdd-check"],
+      "postconditions": ["compatibility_shim_connection_observed", "checker_consumer_result_preserved", "final_consumer_migration_not_claimed"]
+    },
+    {
       "id": "version-control:revision-to-signing-input",
       "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#6-段階移行",
       "blockPath": ["version-control:fixed-revision-and-ignore", "version-control:fixed-snapshot-candidate", "artifact-signing:key-to-signature"],
@@ -427,6 +445,58 @@
     }
   ],
   "tests": [
+    {
+      "id": "crdd-domain-library:unit:public-boundary",
+      "owner": "crdd-domain-library",
+      "path": "40_Develop/crdd-domain-library/tests/unit/public-boundary.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["domain", "reality", "repository", "public-boundary"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["public_export_allowlist_exact", "repository_effect_absent"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "crdd-domain-library:integration:reality-repository",
+      "owner": "crdd-domain-library",
+      "path": "40_Develop/crdd-domain-library/tests/integration/reality-repository.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["domain", "reality", "repository", "boundary"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["verified_repository_root_capability_required", "reality_graph_contract_preserved"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "crdd-domain-library:unit:repository-observation",
+      "owner": "crdd-domain-library",
+      "path": "40_Develop/crdd-domain-library/tests/unit/repository-observation.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["repository", "filesystem", "boundary", "negative-control"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["repository_outside_observation_absent", "linked_root_rejected", "native_path_flavor_enforced", "opened_handle_location_proven_before_read", "opened_handle_closed"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "crdd-domain-library:integration:semantic-bundle-publisher",
+      "owner": "crdd-domain-library",
+      "path": "40_Develop/crdd-domain-library/tests/integration/semantic-bundle-publisher.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["semantic-coverage", "repository", "filesystem", "atomic-publish"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["verified_repository_root_capability_required", "failed_publish_preserves_previous_snapshot", "temporary_file_cleaned"],
+      "mandatoryByDefault": true
+    },
     {
       "id": "version-control:integration:repository-location",
       "owner": "version-control",

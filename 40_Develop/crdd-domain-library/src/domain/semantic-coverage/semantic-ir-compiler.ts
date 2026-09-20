@@ -1,7 +1,11 @@
 import crypto from "node:crypto";
 
-import { observeRepositoryRegularFile } from "../reality-traceability/repository-regular-file-observer.ts";
-import type { LegacyRuntimeInventoryFinding } from "./legacy-runtime-inventory.ts";
+import type { DomainIssue, DomainOutcome } from "../result/index.ts";
+
+export type SemanticSourceDocument = Readonly<{
+  path: string;
+  source: string;
+}>;
 
 export type SemanticIrMeaning = Readonly<{
   semanticKey: string;
@@ -13,7 +17,7 @@ export type SemanticIrMeaning = Readonly<{
   notApplicableReason: string | null;
 }>;
 
-export type SemanticIrPilot = Readonly<{
+export type SemanticIr = Readonly<{
   contract: "crdd/semantic-ir-pilot";
   contractRevision: 0;
   stability: "pilot";
@@ -47,50 +51,41 @@ function unwrapCode(value: string): string | null {
   return match?.[1] ?? null;
 }
 
-function finding(
-  code: string,
+export function semanticDomainIssue(
+  kind: string,
   path: string,
-  message: string,
-): LegacyRuntimeInventoryFinding {
-  return { code, path, message };
+  reason: string,
+  details: DomainIssue["details"] = {},
+  targetIdentity = path,
+): DomainIssue {
+  return {
+    kind,
+    targetIdentity,
+    location: { path },
+    reason,
+    details,
+  };
 }
 
-export function compileSemanticIrPilot(
-  repositoryRoot: string,
-  sourceDocument: string,
+export function compileSemanticIr(
+  sourceDocument: SemanticSourceDocument,
   subsystem: string,
-): Readonly<{
-  ir: SemanticIrPilot | null;
-  findings: readonly LegacyRuntimeInventoryFinding[];
-}> {
-  const observation = observeRepositoryRegularFile(
-    repositoryRoot,
-    sourceDocument,
-  );
-  if (observation.status !== "resolved")
-    return {
-      ir: null,
-      findings: [
-        finding(
-          "semantic-ir-source-unobservable",
-          sourceDocument,
-          observation.reason,
-        ),
-      ],
-    };
-
-  const lines = observation.source.split(/\r?\n/u);
+  architectureDefinitionIds: ReadonlySet<string>,
+): DomainOutcome<SemanticIr> {
+  const lines = sourceDocument.source.split(/\r?\n/u);
   const headingIndex = lines.findIndex((line) =>
     /^#{2,3}\s+.*機械生成する意味要素\s*$/u.test(line),
   );
   if (headingIndex < 0)
     return {
-      ir: null,
-      findings: [
-        finding(
-          "semantic-ir-source-table-missing",
-          sourceDocument,
-          "visible semantic source table heading is missing",
+      status: "invalid",
+      result: null,
+      issues: [
+        semanticDomainIssue(
+          "ir.source.table-missing",
+          sourceDocument.path,
+          "source_heading_missing",
+          { missingPart: "heading" },
         ),
       ],
     };
@@ -100,24 +95,27 @@ export function compileSemanticIrPilot(
   );
   if (tableStart < 0)
     return {
-      ir: null,
-      findings: [
-        finding(
-          "semantic-ir-source-table-missing",
-          sourceDocument,
-          "semantic source table is missing",
+      status: "invalid",
+      result: null,
+      issues: [
+        semanticDomainIssue(
+          "ir.source.table-missing",
+          sourceDocument.path,
+          "source_table_missing",
+          { missingPart: "table" },
         ),
       ],
     };
   const headers = parseTableRow(lines[tableStart] ?? "");
   if (JSON.stringify(headers) !== JSON.stringify(expectedHeaders))
     return {
-      ir: null,
-      findings: [
-        finding(
-          "semantic-ir-source-header-invalid",
-          sourceDocument,
-          "semantic source table headers do not match the pilot contract",
+      status: "invalid",
+      result: null,
+      issues: [
+        semanticDomainIssue(
+          "ir.source.header-invalid",
+          sourceDocument.path,
+          "source_header_does_not_match_contract",
         ),
       ],
     };
@@ -128,17 +126,18 @@ export function compileSemanticIrPilot(
     separators.some((cell) => !/^:?-{3,}:?$/u.test(cell))
   )
     return {
-      ir: null,
-      findings: [
-        finding(
-          "semantic-ir-source-separator-invalid",
-          sourceDocument,
-          "semantic source table separator is invalid",
+      status: "invalid",
+      result: null,
+      issues: [
+        semanticDomainIssue(
+          "ir.source.separator-invalid",
+          sourceDocument.path,
+          "source_separator_invalid",
         ),
       ],
     };
 
-  const findings: LegacyRuntimeInventoryFinding[] = [];
+  const issues: DomainIssue[] = [];
   const meanings: SemanticIrMeaning[] = [];
   const semanticKeys = new Set<string>();
   for (let index = tableStart + 2; index < lines.length; index += 1) {
@@ -146,11 +145,12 @@ export function compileSemanticIrPilot(
     if (!line.trim().startsWith("|")) break;
     const cells = parseTableRow(line);
     if (cells.length !== expectedHeaders.length) {
-      findings.push(
-        finding(
-          "semantic-ir-source-row-invalid",
-          sourceDocument,
-          `semantic source row ${index + 1} has ${cells.length} cells`,
+      issues.push(
+        semanticDomainIssue(
+          "ir.source.row-invalid",
+          sourceDocument.path,
+          "source_row_cell_count_invalid",
+          { row: index + 1, cellCount: cells.length },
         ),
       );
       continue;
@@ -166,57 +166,61 @@ export function compileSemanticIrPilot(
     const notApplicableReason = cells[6] === "—" ? null : (cells[6] ?? null);
 
     if (!semanticKey?.startsWith(`${subsystem}.`))
-      findings.push(
-        finding(
-          "semantic-ir-key-invalid",
-          sourceDocument,
-          `row ${index + 1} has an invalid pilot Semantic Key`,
+      issues.push(
+        semanticDomainIssue(
+          "ir.meaning.key-invalid",
+          sourceDocument.path,
+          "meaning_key_not_in_subsystem_namespace",
+          { row: index + 1, subsystem },
         ),
       );
     else if (semanticKeys.has(semanticKey))
-      findings.push(
-        finding(
-          "semantic-ir-key-duplicate",
-          sourceDocument,
-          `${semanticKey} is duplicated`,
+      issues.push(
+        semanticDomainIssue(
+          "ir.meaning.key-duplicate",
+          sourceDocument.path,
+          "meaning_key_not_unique",
+          { semanticKey },
+          semanticKey,
         ),
       );
     else semanticKeys.add(semanticKey);
     if (!kind || !/^[a-z][a-z0-9-]*$/u.test(kind))
-      findings.push(
-        finding(
-          "semantic-ir-kind-invalid",
-          sourceDocument,
-          `row ${index + 1} has an invalid pilot kind`,
+      issues.push(
+        semanticDomainIssue(
+          "ir.meaning.kind-invalid",
+          sourceDocument.path,
+          "meaning_kind_shape_invalid",
+          { row: index + 1 },
         ),
       );
     if (!statement)
-      findings.push(
-        finding(
-          "semantic-ir-statement-missing",
-          sourceDocument,
-          `row ${index + 1} has no required meaning`,
+      issues.push(
+        semanticDomainIssue(
+          "ir.meaning.statement-missing",
+          sourceDocument.path,
+          "meaning_statement_missing",
+          { row: index + 1 },
         ),
       );
     if (archIds.length === 0)
-      findings.push(
-        finding(
-          "semantic-ir-architecture-id-missing",
-          sourceDocument,
-          `row ${index + 1} has no ARCH-ID`,
+      issues.push(
+        semanticDomainIssue(
+          "ir.meaning.architecture-id-missing",
+          sourceDocument.path,
+          "architecture_identity_missing",
+          { row: index + 1 },
         ),
       );
     for (const archId of archIds) {
-      const definition = observeRepositoryRegularFile(
-        repositoryRoot,
-        `06_Architecture/Definitions/${archId}/architecture_definition.md`,
-      );
-      if (definition.status !== "resolved")
-        findings.push(
-          finding(
-            "semantic-ir-architecture-id-unknown",
-            sourceDocument,
-            `${archId} does not resolve to one regular definition file`,
+      if (!architectureDefinitionIds.has(archId))
+        issues.push(
+          semanticDomainIssue(
+            "ir.meaning.architecture-id-unresolved",
+            sourceDocument.path,
+            "architecture_identity_unresolved",
+            { archId },
+            archId,
           ),
         );
     }
@@ -227,33 +231,36 @@ export function compileSemanticIrPilot(
           ? "not-applicable"
           : null;
     if (!verification)
-      findings.push(
-        finding(
-          "semantic-ir-verification-invalid",
-          sourceDocument,
-          `row ${index + 1} must use Required or N/A`,
+      issues.push(
+        semanticDomainIssue(
+          "ir.meaning.verification-invalid",
+          sourceDocument.path,
+          "verification_value_not_supported",
+          { row: index + 1 },
         ),
       );
     if (
       verification === "not-applicable" &&
       (!notApplicableReason || notApplicableReason.length === 0)
     )
-      findings.push(
-        finding(
-          "semantic-ir-not-applicable-reason-missing",
-          sourceDocument,
-          `row ${index + 1} has N/A without an architecture reason`,
+      issues.push(
+        semanticDomainIssue(
+          "ir.meaning.not-applicable-reason-missing",
+          sourceDocument.path,
+          "not_applicable_reason_missing",
+          { row: index + 1 },
         ),
       );
     if (
       !sourceSection ||
       !lines.some((candidate) => candidate.trim() === sourceSection)
     )
-      findings.push(
-        finding(
-          "semantic-ir-source-section-missing",
-          sourceDocument,
-          `row ${index + 1} does not resolve one exact source heading`,
+      issues.push(
+        semanticDomainIssue(
+          "ir.meaning.source-section-unresolved",
+          sourceDocument.path,
+          "source_section_unresolved",
+          { row: index + 1 },
         ),
       );
 
@@ -277,30 +284,31 @@ export function compileSemanticIrPilot(
   }
 
   if (meanings.length === 0)
-    findings.push(
-      finding(
-        "semantic-ir-source-empty",
-        sourceDocument,
-        "semantic source table has no meaning rows",
+    issues.push(
+      semanticDomainIssue(
+        "ir.source.meanings-empty",
+        sourceDocument.path,
+        "source_has_no_meaning_rows",
       ),
     );
-  if (findings.length > 0) return { ir: null, findings };
+  if (issues.length > 0) return { status: "invalid", result: null, issues };
 
   return {
-    ir: {
+    status: "complete",
+    result: {
       contract: "crdd/semantic-ir-pilot",
       contractRevision: 0,
       stability: "pilot",
       subsystem,
-      sourceDocument,
+      sourceDocument: sourceDocument.path,
       sourceSha256: crypto
         .createHash("sha256")
-        .update(observation.source, "utf8")
+        .update(sourceDocument.source, "utf8")
         .digest("hex"),
       meanings: meanings.sort((left, right) =>
         left.semanticKey.localeCompare(right.semanticKey),
       ),
     },
-    findings: [],
+    issues: [],
   };
 }

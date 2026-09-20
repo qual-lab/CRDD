@@ -1,17 +1,31 @@
-import { discoverRealitySymbolManifests } from "../../reality-traceability/symbol-discovery.ts";
-import { createRealitySymbolGraph } from "../../reality-traceability/symbol-graph.ts";
+import {
+  createRealitySymbolGraph,
+  discoverRealitySymbolManifests,
+} from "../../../../../40_Develop/checker/src/internal/adapters/reality-traceability.ts";
+import { readRegisteredRealityTests } from "../../../../../40_Develop/checker/src/internal/adapters/reality-test-catalog.ts";
+import { verifyRepositoryRoot } from "../../../../../40_Develop/version-control/src/index.ts";
 import type { CheckerRule } from "../rule-registry.ts";
-import { readRegisteredRealityTests } from "./reality-test-catalog-adapter.ts";
 
 export function realitySymbolGraphRule(repositoryRoot: string): CheckerRule {
   return {
     id: "current-profile.reality-symbol-graph",
     stage: "special-rules",
     run: ({ add }) => {
-      const discovery = discoverRealitySymbolManifests(repositoryRoot);
+      const verified = verifyRepositoryRoot(repositoryRoot);
+      if (verified.status !== "completed") {
+        add({
+          severity: "error",
+          code: "reality-symbol-repository-root-unverified",
+          path: ".",
+          rule: "current-profile.reality-symbol-graph",
+          message: verified.reason,
+        });
+        return;
+      }
+      const discovery = discoverRealitySymbolManifests(verified.capability);
       const testCatalog =
         discovery.manifests.length > 0
-          ? readRegisteredRealityTests(repositoryRoot)
+          ? readRegisteredRealityTests(verified.capability)
           : { testsByPath: new Map(), findings: [] };
       const built = createRealitySymbolGraph(
         discovery.manifests,

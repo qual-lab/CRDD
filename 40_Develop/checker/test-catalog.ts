@@ -36,6 +36,7 @@ export type TestCatalogEntry = Readonly<{
     | "artifact-signing"
     | "checker"
     | "coordinator"
+    | "crdd-domain-library"
     | "execution-intelligence"
     | "mcp"
     | "project-runtime"
@@ -64,6 +65,7 @@ export type TestCatalog = Readonly<{
     "artifact-signing": "node_test";
     checker: "node_test";
     coordinator: "node_test";
+    "crdd-domain-library": "node_test";
     "execution-intelligence": "node_test";
     mcp: "node_test";
     "project-runtime": "node_test";
@@ -106,6 +108,7 @@ const RUNNER_SUPPORTED_OWNERS = new Set([
   "artifact-signing",
   "checker",
   "coordinator",
+  "crdd-domain-library",
   "execution-intelligence",
   "mcp",
   "project-runtime",
@@ -117,6 +120,7 @@ const RUNNER_PROFILES = Object.freeze({
   "artifact-signing": "node_test",
   checker: "node_test",
   coordinator: "node_test",
+  "crdd-domain-library": "node_test",
   "execution-intelligence": "node_test",
   mcp: "node_test",
   "project-runtime": "node_test",
@@ -213,6 +217,7 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
     "artifact-signing",
     "checker",
     "coordinator",
+    "crdd-domain-library",
     "execution-intelligence",
     "mcp",
     "project-runtime",
@@ -244,7 +249,7 @@ function isTestLevel(value: unknown): value is TestLevel {
 
 function expectedNodeLevel(entryPath: string): string | null {
   return (
-    /^40_Develop\/(?:artifact-signing|checker|coordinator|execution-intelligence|mcp|project-runtime|runtime-data|version-control)\/tests\/([^/]+)\//u.exec(
+    /^40_Develop\/(?:artifact-signing|checker|coordinator|crdd-domain-library|execution-intelligence|mcp|project-runtime|runtime-data|version-control)\/tests\/([^/]+)\//u.exec(
       entryPath,
     )?.[1] ?? null
   );
@@ -717,6 +722,8 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
     return "artifact-signing";
   if (changedPath.startsWith("40_Develop/coordinator/")) return "coordinator";
   if (changedPath.startsWith("40_Develop/checker/")) return "checker";
+  if (changedPath.startsWith("40_Develop/crdd-domain-library/"))
+    return "crdd-domain-library";
   if (changedPath.startsWith("40_Develop/execution-intelligence/"))
     return "execution-intelligence";
   if (changedPath.startsWith("40_Develop/mcp/")) return "mcp";

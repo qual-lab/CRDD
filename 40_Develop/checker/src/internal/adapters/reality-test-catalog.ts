@@ -1,22 +1,34 @@
-import type { RealitySymbolFinding } from "../../reality-traceability/symbol-manifest-model.ts";
-import { observeRepositoryRegularFile } from "../../reality-traceability/repository-regular-file-observer.ts";
+import {
+  createFilesystemRepositoryObservationPort,
+  type RepositoryObservationPort,
+} from "../../../../crdd-domain-library/src/repository/index.ts";
+import type { VerifiedRepositoryRoot } from "../../../../version-control/src/index.ts";
+
+import type { CheckerRealityFinding } from "./reality-traceability.ts";
 
 export type RegisteredRealityTest = Readonly<{
   owner: string;
   testId: string;
 }>;
 
-export function readRegisteredRealityTests(repositoryRoot: string): Readonly<{
+export function readRegisteredRealityTests(
+  capability: VerifiedRepositoryRoot,
+): ReturnType<typeof readRegisteredRealityTestsFromRepository> {
+  return readRegisteredRealityTestsFromRepository(
+    createFilesystemRepositoryObservationPort(capability),
+  );
+}
+
+export function readRegisteredRealityTestsFromRepository(
+  repository: RepositoryObservationPort,
+): Readonly<{
   testsByPath: ReadonlyMap<string, RegisteredRealityTest> | null;
-  findings: readonly RealitySymbolFinding[];
+  findings: readonly CheckerRealityFinding[];
 }> {
   const catalogRelativePath = "07_Quality/Registry/test-catalog.json";
-  const findings: RealitySymbolFinding[] = [];
+  const findings: CheckerRealityFinding[] = [];
   const testsByPath = new Map<string, RegisteredRealityTest>();
-  const observation = observeRepositoryRegularFile(
-    repositoryRoot,
-    catalogRelativePath,
-  );
+  const observation = repository.observeFile(catalogRelativePath);
   if (observation.status !== "resolved")
     return {
       testsByPath: null,

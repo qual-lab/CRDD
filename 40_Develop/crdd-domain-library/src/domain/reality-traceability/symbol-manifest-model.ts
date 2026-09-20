@@ -32,12 +32,6 @@ export type RealitySymbolManifest = Readonly<{
   symbols: readonly RealitySymbol[];
 }>;
 
-export type RealitySymbolFinding = Readonly<{
-  code: string;
-  path: string;
-  message: string;
-}>;
-
 export type LoadedRealitySymbolManifest = Readonly<{
   manifestPath: string;
   subsystemRoot: string;

@@ -32,6 +32,7 @@ test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉�
       "artifact-signing",
       "checker",
       "coordinator",
+      "crdd-domain-library",
       "execution-intelligence",
       "mcp",
       "platform-access",

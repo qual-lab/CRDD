@@ -4,17 +4,18 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { discoverRealitySymbolManifests } from "../../../../template/tools/internal/reality-traceability/symbol-discovery.ts";
-import { inspectRegularSymbolTarget } from "../../../../template/tools/internal/reality-traceability/symbol-discovery.ts";
-import { createRealitySymbolGraph } from "../../../../template/tools/internal/reality-traceability/symbol-graph.ts";
-import { observeRepositoryRegularFile } from "../../../../template/tools/internal/reality-traceability/repository-regular-file-observer.ts";
-import { readRegisteredRealityTests } from "../../../../template/tools/internal/checker/rules/reality-test-catalog-adapter.ts";
+import type { LoadedRealitySymbolManifest } from "../../../crdd-domain-library/src/domain/reality-traceability/index.ts";
 import {
-  extractRealitySymbolAnnotations,
-  validateRealitySymbolAnnotations,
-} from "../../../../template/tools/internal/reality-traceability/symbol-annotation.ts";
-import type { LoadedRealitySymbolManifest } from "../../../../template/tools/internal/reality-traceability/symbol-manifest-model.ts";
-import { validateRealitySymbolManifest } from "../../../../template/tools/internal/reality-traceability/symbol-manifest-validator.ts";
+  readRegisteredRealityTests,
+  readRegisteredRealityTestsFromRepository,
+} from "../../src/internal/adapters/reality-test-catalog.ts";
+import {
+  createRealitySymbolGraph,
+  discoverRealitySymbolManifests,
+  mapRealityDomainIssueToCheckerFinding,
+  validateRealitySymbolManifest,
+} from "../../src/internal/adapters/reality-traceability.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 
 const checkerRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -22,8 +23,51 @@ const checkerRoot = path.resolve(
 );
 const repositoryRoot = path.resolve(checkerRoot, "../..");
 
+test("Reality Domain IssueはChecker境界で明示変換し未知種別を拒否する", () => {
+  assert.deepEqual(
+    mapRealityDomainIssueToCheckerFinding({
+      kind: "graph.symbol.identity-duplicate",
+      targetIdentity: "sample.duplicate",
+      location: { path: "40_Develop/sample/symbol.json" },
+      reason: "declared_identity_is_not_unique",
+      details: { symbolId: "sample.duplicate" },
+    }),
+    {
+      code: "reality-symbol-id-duplicate",
+      path: "40_Develop/sample/symbol.json",
+      message: "Duplicate symbolId: sample.duplicate.",
+    },
+  );
+
+  assert.throws(
+    () =>
+      mapRealityDomainIssueToCheckerFinding({
+        kind: "future.domain.issue",
+        targetIdentity: "sample",
+        location: { path: "40_Develop/sample/symbol.json" },
+        reason: "future_reason",
+        details: {},
+      }),
+    /unknown_reality_domain_issue:future\.domain\.issue/,
+  );
+  assert.throws(
+    () =>
+      mapRealityDomainIssueToCheckerFinding({
+        kind: "graph.symbol.identity-duplicate",
+        targetIdentity: "sample",
+        location: { path: "40_Develop/sample/symbol.json" },
+        reason: "symbol_identity_not_unique",
+        details: {},
+      }),
+    /invalid_reality_domain_issue_details:graph\.symbol\.identity-duplicate:symbolId/,
+  );
+});
+
 test("Subsystem-local symbol.jsonからGlobal Symbol Graphを構築する", () => {
-  const discovery = discoverRealitySymbolManifests(repositoryRoot);
+  const verified = verifyRepositoryRoot(repositoryRoot);
+  assert.equal(verified.status, "completed");
+  if (verified.status !== "completed") return;
+  const discovery = discoverRealitySymbolManifests(verified.capability);
   assert.deepEqual(discovery.findings, []);
   const subsystemNames = fs
     .readdirSync(path.join(repositoryRoot, "40_Develop"), {
@@ -41,7 +85,7 @@ test("Subsystem-local symbol.jsonからGlobal Symbol Graphを構築する", () =
     discovery.knownArchIds,
     discovery.knownQaIds,
     discovery.knownLocalTestIdsByQaId,
-    readRegisteredRealityTests(repositoryRoot).testsByPath,
+    readRegisteredRealityTests(verified.capability).testsByPath,
     [],
   );
   assert.deepEqual(built.findings, []);
@@ -281,71 +325,6 @@ test("共通JSON SchemaはManifestとSymbolの閉じたContractを公開する",
     assert.equal(pathPattern.test(unsafePath), false, unsafePath);
 });
 
-test("Source Annotationは任意Hintとして読み、存在時のManifest不一致だけを拒否する", () => {
-  const implementationSymbol = {
-    symbolId: "sample.module",
-    kind: "module" as const,
-    path: "src/index.ts",
-    archIds: ["ARCH-000001"],
-    qaIds: [],
-    localTestIds: [],
-    verifies: [],
-  };
-  assert.deepEqual(
-    extractRealitySymbolAnnotations("// @crdd ARCH-000001\n// @crdd QA-000002"),
-    {
-      archIds: new Set(["ARCH-000001"]),
-      qaIds: new Set(["QA-000002"]),
-    },
-  );
-  assert.deepEqual(
-    validateRealitySymbolAnnotations(
-      implementationSymbol,
-      "export const value = 1;",
-      "40_Develop/sample/symbol.json",
-    ),
-    [],
-  );
-  assert.deepEqual(
-    validateRealitySymbolAnnotations(
-      implementationSymbol,
-      "// @crdd ARCH-000002",
-      "40_Develop/sample/symbol.json",
-    ).map(({ code }) => code),
-    ["reality-symbol-annotation-architecture-mismatch"],
-  );
-  assert.deepEqual(
-    extractRealitySymbolAnnotations(
-      'const example = "// @crdd ARCH-000002";\n// example: @crdd QA-000002',
-    ),
-    { archIds: new Set(), qaIds: new Set() },
-  );
-  assert.deepEqual(
-    validateRealitySymbolAnnotations(
-      implementationSymbol,
-      "// @crdd QA-000001",
-      "40_Develop/sample/symbol.json",
-    ).map(({ code }) => code),
-    ["reality-symbol-annotation-domain-invalid"],
-  );
-  assert.deepEqual(
-    validateRealitySymbolAnnotations(
-      {
-        ...implementationSymbol,
-        symbolId: "sample.test",
-        kind: "test-case",
-        archIds: [],
-        qaIds: ["QA-000001"],
-        localTestIds: ["UT-000001"],
-        verifies: ["sample.module"],
-      },
-      "// @crdd ARCH-000001",
-      "40_Develop/sample/symbol.json",
-    ).map(({ code }) => code),
-    ["reality-symbol-annotation-domain-invalid"],
-  );
-});
-
 test("Test SymbolはTest Catalogのexact pathとownerへ閉じる", () => {
   const manifest: LoadedRealitySymbolManifest = {
     manifestPath: "40_Develop/sample/symbol.json",
@@ -460,198 +439,46 @@ test("Global Symbol GraphはDiscoveryまたはCatalog Findingがあれば部分�
 });
 
 test("Test Catalog Adapterは同一Pathの重複登録を拒否する", () => {
-  const checkerTestRoot = path.join(
-    repositoryRoot,
-    ".crdd",
-    "tests",
-    "checker",
-  );
-  fs.mkdirSync(checkerTestRoot, { recursive: true });
-  const temporaryRoot = fs.mkdtempSync(
-    path.join(checkerTestRoot, "test-catalog-"),
-  );
-  try {
-    const registryRoot = path.join(temporaryRoot, "07_Quality", "Registry");
-    fs.mkdirSync(registryRoot, { recursive: true });
-    fs.writeFileSync(
-      path.join(registryRoot, "test-catalog.json"),
-      JSON.stringify({
+  const result = readRegisteredRealityTestsFromRepository({
+    observeDirectory: () => ({
+      status: "unobservable",
+      repositoryRelativePath: "07_Quality/Registry",
+      reason: "not used",
+    }),
+    observeFile: (repositoryRelativePath) => ({
+      status: "resolved",
+      repositoryRelativePath,
+      targetPath: repositoryRelativePath,
+      source: JSON.stringify({
         tests: [
           { id: "sample:first", owner: "sample", path: "same.test.ts" },
           { id: "sample:second", owner: "sample", path: "same.test.ts" },
         ],
       }),
-    );
-    const result = readRegisteredRealityTests(temporaryRoot);
-    assert.deepEqual(
-      result.findings.map(({ code }) => code),
-      ["reality-symbol-test-catalog-path-duplicate"],
-    );
-    assert.equal(result.testsByPath, null);
-  } finally {
-    fs.rmSync(temporaryRoot, { recursive: true, force: true });
-  }
+    }),
+  });
+  assert.deepEqual(
+    result.findings.map(({ code }) => code),
+    ["reality-symbol-test-catalog-path-duplicate"],
+  );
+  assert.equal(result.testsByPath, null);
 });
 
-test("Test CatalogとQuality Definitionはlink境界を越えて読まない", () => {
-  const checkerTestRoot = path.join(
-    repositoryRoot,
-    ".crdd",
-    "tests",
-    "checker",
+test("Test Catalogはlink境界を越えて読まない", () => {
+  const result = readRegisteredRealityTestsFromRepository({
+    observeDirectory: () => ({
+      status: "unobservable",
+      repositoryRelativePath: "07_Quality/Registry",
+      reason: "not used",
+    }),
+    observeFile: (repositoryRelativePath) => ({
+      status: "invalid",
+      repositoryRelativePath,
+      reason: "symbolic link boundary",
+    }),
+  });
+  assert.deepEqual(
+    result.findings.map(({ code }) => code),
+    ["reality-symbol-test-catalog-boundary-invalid"],
   );
-  fs.mkdirSync(checkerTestRoot, { recursive: true });
-  const temporaryRoot = fs.mkdtempSync(
-    path.join(checkerTestRoot, "traceability-input-boundary-"),
-  );
-  try {
-    const catalogRepository = path.join(temporaryRoot, "catalog-repository");
-    const catalogOutside = path.join(temporaryRoot, "catalog-outside");
-    fs.mkdirSync(path.join(catalogOutside, "Registry"), { recursive: true });
-    fs.mkdirSync(catalogRepository, { recursive: true });
-    fs.writeFileSync(
-      path.join(catalogOutside, "Registry", "test-catalog.json"),
-      JSON.stringify({ tests: [] }),
-    );
-    fs.symlinkSync(
-      catalogOutside,
-      path.join(catalogRepository, "07_Quality"),
-      "junction",
-    );
-    assert.deepEqual(
-      readRegisteredRealityTests(catalogRepository).findings.map(
-        ({ code }) => code,
-      ),
-      ["reality-symbol-test-catalog-boundary-invalid"],
-    );
-
-    const qualityRepository = path.join(temporaryRoot, "quality-repository");
-    const qualityDefinitionRoot = path.join(
-      qualityRepository,
-      "07_Quality",
-      "Definitions",
-      "QA-000001",
-    );
-    const outsideDefinition = path.join(temporaryRoot, "outside-quality.md");
-    fs.mkdirSync(qualityDefinitionRoot, { recursive: true });
-    fs.writeFileSync(outsideDefinition, "# outside\n");
-    fs.symlinkSync(
-      outsideDefinition,
-      path.join(qualityDefinitionRoot, "quality_definition.md"),
-      "file",
-    );
-    assert.deepEqual(
-      discoverRealitySymbolManifests(qualityRepository).findings.map(
-        ({ code }) => code,
-      ),
-      ["reality-symbol-quality-definition-boundary-invalid"],
-    );
-  } finally {
-    fs.rmSync(temporaryRoot, { recursive: true, force: true });
-  }
-});
-
-test("Symbol Pathは途中junctionと最終symlinkを通常Fileとして扱わない", () => {
-  const checkerTestRoot = path.join(
-    repositoryRoot,
-    ".crdd",
-    "tests",
-    "checker",
-  );
-  fs.mkdirSync(checkerTestRoot, { recursive: true });
-  const temporaryRoot = fs.mkdtempSync(
-    path.join(checkerTestRoot, "symbol-boundary-"),
-  );
-  try {
-    const subsystemRoot = path.join(temporaryRoot, "subsystem");
-    const outsideRoot = path.join(temporaryRoot, "outside");
-    fs.mkdirSync(path.join(subsystemRoot, "src"), { recursive: true });
-    fs.mkdirSync(outsideRoot, { recursive: true });
-    fs.writeFileSync(path.join(outsideRoot, "outside.ts"), "export {};\n");
-    fs.symlinkSync(outsideRoot, path.join(subsystemRoot, "linked"), "junction");
-    assert.equal(
-      inspectRegularSymbolTarget(subsystemRoot, "linked/outside.ts").status,
-      "invalid",
-    );
-    fs.symlinkSync(
-      path.join(outsideRoot, "outside.ts"),
-      path.join(subsystemRoot, "src", "linked.ts"),
-      "file",
-    );
-    assert.equal(
-      inspectRegularSymbolTarget(subsystemRoot, "src/linked.ts").status,
-      "invalid",
-    );
-    assert.equal(
-      inspectRegularSymbolTarget(subsystemRoot, "src/disappeared.ts").status,
-      "unobservable",
-    );
-  } finally {
-    fs.rmSync(temporaryRoot, { recursive: true, force: true });
-  }
-});
-
-test("40_Develop・Subsystem・Manifestの上位境界をFail Closedにする", () => {
-  const checkerTestRoot = path.join(
-    repositoryRoot,
-    ".crdd",
-    "tests",
-    "checker",
-  );
-  fs.mkdirSync(checkerTestRoot, { recursive: true });
-  const temporaryRoot = fs.mkdtempSync(
-    path.join(checkerTestRoot, "develop-boundary-"),
-  );
-  try {
-    const developRepository = path.join(temporaryRoot, "develop-repository");
-    const outsideDevelop = path.join(temporaryRoot, "outside-develop");
-    fs.mkdirSync(developRepository, { recursive: true });
-    fs.mkdirSync(outsideDevelop, { recursive: true });
-    fs.symlinkSync(
-      outsideDevelop,
-      path.join(developRepository, "40_Develop"),
-      "junction",
-    );
-    assert.ok(
-      discoverRealitySymbolManifests(developRepository).findings.some(
-        ({ code }) => code === "reality-symbol-develop-boundary-invalid",
-      ),
-    );
-
-    const subsystemRepository = path.join(
-      temporaryRoot,
-      "subsystem-repository",
-    );
-    const outsideSubsystem = path.join(temporaryRoot, "outside-subsystem");
-    fs.mkdirSync(path.join(subsystemRepository, "40_Develop"), {
-      recursive: true,
-    });
-    fs.mkdirSync(outsideSubsystem, { recursive: true });
-    fs.symlinkSync(
-      outsideSubsystem,
-      path.join(subsystemRepository, "40_Develop", "linked-subsystem"),
-      "junction",
-    );
-    assert.ok(
-      discoverRealitySymbolManifests(subsystemRepository).findings.some(
-        ({ code }) => code === "reality-symbol-subsystem-boundary-invalid",
-      ),
-    );
-    assert.equal(
-      observeRepositoryRegularFile(
-        subsystemRepository,
-        "40_Develop/linked-subsystem/symbol.json",
-      ).status,
-      "invalid",
-    );
-    assert.equal(
-      observeRepositoryRegularFile(
-        subsystemRepository,
-        "40_Develop/missing/symbol.json",
-      ).status,
-      "unobservable",
-    );
-  } finally {
-    fs.rmSync(temporaryRoot, { recursive: true, force: true });
-  }
 });

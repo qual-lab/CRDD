@@ -1,18 +1,24 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { compileSemanticIrPilot } from "../../template/tools/internal/semantic-coverage/semantic-ir-compiler.ts";
+import { verifyRepositoryRoot } from "../version-control/src/index.ts";
+import { discoverRealitySymbolManifests } from "./src/internal/adapters/reality-traceability.ts";
+import { createSemanticBundle } from "../crdd-domain-library/src/domain/semantic-coverage/index.ts";
+import { publishSemanticCoverage } from "../crdd-domain-library/src/application/semantic-coverage/index.ts";
+import { createFilesystemSemanticBundlePublisher } from "../crdd-domain-library/src/repository/index.ts";
 import {
-  createSemanticCoveragePilotBundle,
-  createSemanticCoveragePilotGraph,
-  projectSemanticCoveragePilot,
-} from "../../template/tools/internal/semantic-coverage/semantic-coverage-graph.ts";
-import { publishSemanticCoverageBundle } from "../../template/tools/internal/semantic-coverage/semantic-bundle-writer.ts";
-import { compileQualitySemanticRelations } from "../../template/tools/internal/semantic-coverage/quality-semantic-relation.ts";
-import { discoverRealitySymbolManifests } from "../../template/tools/internal/reality-traceability/symbol-discovery.ts";
+  compileQualitySemanticRelationsFromRepository,
+  compileSemanticIrFromRepository,
+  createSemanticCoverageGraph,
+} from "./src/internal/adapters/semantic-coverage.ts";
 
 const checkerRoot = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(checkerRoot, "../..");
+const verifiedRepository = verifyRepositoryRoot(repositoryRoot);
+if (verifiedRepository.status !== "completed")
+  throw new Error(
+    `semantic_coverage_repository_root_unverified:${verifiedRepository.reason}`,
+  );
 const pilots = [
   {
     subsystem: "coordinator",
@@ -33,25 +39,28 @@ const qualitySources = [
 ] as const;
 
 const OUTPUT_RELATIVE_PATH = "07_Quality/Registry/semantic-coverage-pilot.json";
+const symbolDiscovery = discoverRealitySymbolManifests(
+  verifiedRepository.capability,
+);
 const results = pilots.map((pilot) => ({
   ...pilot,
-  result: compileSemanticIrPilot(
-    repositoryRoot,
+  result: compileSemanticIrFromRepository(
+    verifiedRepository.capability,
     pilot.sourceDocument,
     pilot.subsystem,
+    symbolDiscovery.knownArchIds,
   ),
 }));
 const findings = results.flatMap(({ result }) => result.findings);
 const semanticIrs = results
   .map(({ result }) => result.ir)
   .filter((ir) => ir !== null);
-const qualityRelations = compileQualitySemanticRelations(
-  repositoryRoot,
+const qualityRelations = compileQualitySemanticRelationsFromRepository(
+  verifiedRepository.capability,
   qualitySources,
   semanticIrs,
 );
-const symbolDiscovery = discoverRealitySymbolManifests(repositoryRoot);
-const coverage = createSemanticCoveragePilotGraph(
+const coverage = createSemanticCoverageGraph(
   semanticIrs,
   symbolDiscovery.manifests,
   qualityRelations.relations ?? [],
@@ -66,14 +75,13 @@ if (allFindings.length > 0) {
 } else if (process.argv.includes("--write")) {
   if (!coverage.graph)
     throw new Error("Semantic coverage graph is unavailable");
-  const bundle = createSemanticCoveragePilotBundle(
-    semanticIrs,
-    projectSemanticCoveragePilot(coverage.graph),
-  );
-  publishSemanticCoverageBundle(
-    repositoryRoot,
-    OUTPUT_RELATIVE_PATH,
-    `${JSON.stringify(bundle, null, 2)}\n`,
+  publishSemanticCoverage(
+    {
+      outputRelativePath: OUTPUT_RELATIVE_PATH,
+      semanticIrs,
+      coverage: coverage.graph,
+    },
+    createFilesystemSemanticBundlePublisher(verifiedRepository.capability),
   );
   process.stdout.write(
     `${JSON.stringify({ status: "created", count: results.length }, null, 2)}\n`,
@@ -84,7 +92,7 @@ if (allFindings.length > 0) {
       {
         semanticIrs: results.map(({ result }) => result.ir),
         coverage: coverage.graph
-          ? projectSemanticCoveragePilot(coverage.graph)
+          ? createSemanticBundle(semanticIrs, coverage.graph).coverage
           : null,
       },
       null,

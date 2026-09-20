@@ -1,4 +1,5 @@
-import { observeRepositoryRegularFile } from "../reality-traceability/repository-regular-file-observer.ts";
+import { createFilesystemRepositoryObservationPort } from "../../../../crdd-domain-library/src/repository/index.ts";
+import type { VerifiedRepositoryRoot } from "../../../../version-control/src/index.ts";
 
 export type LegacyFieldOwner =
   | "architecture-details"
@@ -159,16 +160,13 @@ const pilotRules: readonly PilotRule[] = [
 ];
 
 function readRepositoryFile(
-  repositoryRoot: string,
+  repository: ReturnType<typeof createFilesystemRepositoryObservationPort>,
   repositoryRelativePath: string,
 ): Readonly<
   | { status: "resolved"; source: string }
   | { status: "failed"; finding: LegacyRuntimeInventoryFinding }
 > {
-  const observation = observeRepositoryRegularFile(
-    repositoryRoot,
-    repositoryRelativePath,
-  );
+  const observation = repository.observeFile(repositoryRelativePath);
   if (observation.status === "resolved")
     return { status: "resolved", source: observation.source };
   return {
@@ -249,16 +247,17 @@ function readLegacyItems(
 }
 
 export function createLegacyRuntimeInventories(
-  repositoryRoot: string,
+  capability: VerifiedRepositoryRoot,
 ): Readonly<{
   inventories: readonly LegacyRuntimeInventory[];
   findings: readonly LegacyRuntimeInventoryFinding[];
 }> {
   const inventories: LegacyRuntimeInventory[] = [];
   const findings: LegacyRuntimeInventoryFinding[] = [];
+  const repository = createFilesystemRepositoryObservationPort(capability);
 
   for (const rule of pilotRules) {
-    const legacyFile = readRepositoryFile(repositoryRoot, rule.legacyPath);
+    const legacyFile = readRepositoryFile(repository, rule.legacyPath);
     if (legacyFile.status === "failed") {
       findings.push(legacyFile.finding);
       continue;
@@ -285,7 +284,7 @@ export function createLegacyRuntimeInventories(
     const architectureSources: string[] = [];
     let isArchitectureReadable = true;
     for (const architecturePath of rule.architecturePaths) {
-      const sourceFile = readRepositoryFile(repositoryRoot, architecturePath);
+      const sourceFile = readRepositoryFile(repository, architecturePath);
       if (sourceFile.status === "failed") {
         findings.push(sourceFile.finding);
         isArchitectureReadable = false;
