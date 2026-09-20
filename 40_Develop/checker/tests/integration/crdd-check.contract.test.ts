@@ -9566,25 +9566,6 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     path.join(source, "template", "tools", "internal", "reality-traceability"),
     { recursive: true },
   );
-  write(
-    path.join(
-      source,
-      "template",
-      "tools",
-      "internal",
-      "version-control-runtime.ts",
-    ),
-    fs.readFileSync(
-      path.join(
-        repositoryRoot,
-        "template",
-        "tools",
-        "internal",
-        "version-control-runtime.ts",
-      ),
-      "utf8",
-    ),
-  );
   assert.equal(
     spawnSync("git", ["init", "--quiet", source], { encoding: "utf8" }).status,
     0,

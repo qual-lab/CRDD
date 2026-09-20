@@ -31,6 +31,14 @@ export {
 } from "./git/fixed-snapshot-adapter.ts";
 export { gitLocalChangeSetAdapter } from "./git/local-change-set-adapter.ts";
 export {
+  observeDeclaredNestedRepositoryPaths,
+  observeNestedRepository,
+  observeRepositoryEntries,
+  readFixedSnapshotText,
+  type RepositoryEntryObservation,
+  resolveRevisionIdentity,
+} from "./git/checker-repository-observation-adapter.ts";
+export {
   describeGitRepositoryLayoutAdapterContract,
   GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT,
   GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT_REVISION,

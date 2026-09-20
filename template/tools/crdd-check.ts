@@ -18,7 +18,7 @@ import {
   observeRepositoryEntries,
   readFixedSnapshotText,
   resolveRevisionIdentity,
-} from "./internal/version-control-runtime.ts";
+} from "../../40_Develop/version-control/src/index.ts";
 import { runCheckerPipeline } from "./internal/checker/checker-pipeline.ts";
 import { RuleRegistry } from "./internal/checker/rule-registry.ts";
 import { qualityDesignCanonicalStateRule } from "./internal/checker/rules/quality-design-state.ts";

@@ -126,6 +126,25 @@ Portの公開結果ではGit固有語彙を使わない。Git Adapterだけが�
 
 Release Identity、Runtime Execution Identity、署名対象集合およびRelease GateはVersion Controlの出力ではない。Release／SigningがFixed Revision IdentityとRuntime対象集合を入力に合成する。
 
+### 3.1 現行公開Symbol
+
+`40_Develop/version-control/src/index.ts`の現行公開面は次の集合に限定する。将来候補はここへ先取りせず、公開面を変更する場合は本表と契約試験を同じ変更で更新する。
+
+| Capability | 公開Symbol |
+|---|---|
+| Fixed Revision Identity | `FIXED_REVISION_IDENTITY_CONTRACT`、`FIXED_REVISION_IDENTITY_CONTRACT_REVISION`、`FixedRevisionIdentity`、`FixedRevisionIdentityAdapter`、`observeFixedRevisionIdentity` |
+| Fixed Snapshot | `CandidateOutputCapability`、`CandidateMaterialization`、`CandidateMaterializationBlocked`、`FIXED_SNAPSHOT_CONTRACT`、`FIXED_SNAPSHOT_CONTRACT_REVISION`、`FixedSnapshotAdapter`、`FixedSnapshotContentPolicy`、`FixedSnapshotFile`、`FixedSnapshotIdentity`、`inspectFixedSnapshot`、`materializeFixedSnapshotCandidate`、`readFixedSnapshotFile`、`verifyCandidateOutputDirectory` |
+| Fixed Revision Git Adapter | `gitFixedRevisionIdentityAdapter`、`gitRepositoryFormatAdapter`、`gitRepositoryRevisionAdapter` |
+| Fixed Snapshot Git Adapter | `gitFixedSnapshotAdapter`、`inspectRepositoryFixedSnapshot` |
+| Local Change Set Git Adapter | `gitLocalChangeSetAdapter` |
+| Checker Repository Observation | `RepositoryEntryObservation`、`observeDeclaredNestedRepositoryPaths`、`observeNestedRepository`、`observeRepositoryEntries`、`readFixedSnapshotText`、`resolveRevisionIdentity` |
+| Repository Layout Git Adapter | `describeGitRepositoryLayoutAdapterContract`、`GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT`、`GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT_REVISION`、`inspectGitRepositoryLayoutCandidate` |
+| Repository-local Ignore Git Adapter | `gitRepositoryLocalIgnoreAdapter` |
+| Local Change Set | `changedPaths`、`LOCAL_CHANGE_SET_CONTRACT`、`LOCAL_CHANGE_SET_CONTRACT_REVISION`、`LocalChangeSet`、`LocalChangeSetAdapter`、`LocalChangeSetObservation`、`observeLocalChangeSet` |
+| Repository-local Ignore | `REPOSITORY_LOCAL_IGNORE_CONTRACT`、`REPOSITORY_LOCAL_IGNORE_CONTRACT_REVISION`、`RepositoryLocalIgnoreAdapter`、`RepositoryLocalIgnoreAdapterResult`、`registerRepositoryLocalIgnore` |
+| Repository Location | `describeRepositoryLocationContract`、`REPOSITORY_LOCATION_CONTRACT`、`REPOSITORY_LOCATION_CONTRACT_REVISION`、`resolveVerifiedRepositoryRoot`、`resolveVerifiedRepositoryRootFromWorkingDirectory`、`VerifiedRepositoryRoot`、`verifyRepositoryRoot`、`verifyRepositoryRootFromWorkingDirectory` |
+| Repository Revision | `inspectRepositoryFormat`、`observeRepositoryRevision`、`RepositoryFormatAdapter`、`RepositoryRevisionAdapter`、`RepositoryRevisionObservation` |
+
 ## 4. Capabilityと再確認
 
 Repository Capabilityは、構造が同じ値を利用側が作るだけでは成立しない。AdapterがRepository境界、実体Path、link／reparse、worktree形態および必要なVersion Control応答を確認した場合だけ発行する。
@@ -210,7 +229,7 @@ Version Control Ownerの全試験はTest Catalogへ登録し、Version Control�
 
 ## 8. Checkerへの配布
 
-v0.21の目標契約では、`template/tools/crdd-check.ts`を薄い起動入口とし、CheckerおよびVersion Control実装は同じCRDD基準版Rootの`40_Develop`に一本化する。採用Repositoryへ別Packageのinstallを要求しないが、`template/tools`だけの単独コピーはサポートしない。現行の自己完結Artifact契約は[CHG-000076](../../../99_Roadmap/Changes/CHG-000076/change.md)のConsumer Closureを通じて移行し、固定履歴を除く通常参照を同じ変更で更新する。
+v0.21 Phase 4では、`template/tools/crdd-check.ts`が同じCRDD基準版RootのVersion Control公開入口を直接利用し、Checker向けの生成Artifactを廃止した。採用Repositoryへ別Packageのinstallを要求せず、`template/tools`だけの単独コピーもサポートしない。Checker実装本体の`40_Develop`移行とlauncher薄型化は後続Phaseで行う。
 
 ```text
 <verified CRDD baseline root>/

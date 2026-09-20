@@ -184,8 +184,8 @@ Gitを利用する各Toolから、Git CLI、`.git`内部構造およびCommit前
 - [`40_Develop/runtime-data/tests/integration/temporary-operation-lifecycle.integration.test.ts`](<../../../40_Develop/runtime-data/tests/integration/temporary-operation-lifecycle.integration.test.ts>)
 - [`40_Develop/version-control/package-lock.json`](<../../../40_Develop/version-control/package-lock.json>)
 - [`40_Develop/version-control/package.json`](<../../../40_Develop/version-control/package.json>)
-- [`40_Develop/version-control/scripts/generate-checker-runtime.ts`](<../../../40_Develop/version-control/scripts/generate-checker-runtime.ts>)
-- [`40_Develop/version-control/src/distribution/checker-version-control-runtime.ts`](<../../../40_Develop/version-control/src/distribution/checker-version-control-runtime.ts>)
+- `40_Develop/version-control/scripts/generate-checker-runtime.ts`（削除または旧Path）
+- `40_Develop/version-control/src/distribution/checker-version-control-runtime.ts` → [`40_Develop/version-control/src/git/checker-repository-observation-adapter.ts`](<../../../40_Develop/version-control/src/git/checker-repository-observation-adapter.ts>)
 - [`40_Develop/version-control/src/fixed-revision.ts`](<../../../40_Develop/version-control/src/fixed-revision.ts>)
 - [`40_Develop/version-control/src/fixed-snapshot.ts`](<../../../40_Develop/version-control/src/fixed-snapshot.ts>)
 - [`40_Develop/version-control/src/git/fixed-revision-adapter.ts`](<../../../40_Develop/version-control/src/git/fixed-revision-adapter.ts>)
@@ -221,7 +221,7 @@ Gitを利用する各Toolから、Git CLI、`.git`内部構造およびCommit前
 - [`99_Roadmap/Changes/CHG-000072/change.md`](<../../../99_Roadmap/Changes/CHG-000072/change.md>)
 - [`template/02_UX/01_User_Experience.md`](<../../../template/02_UX/01_User_Experience.md>)
 - [`template/tools/crdd-check.ts`](<../../../template/tools/crdd-check.ts>)
-- [`template/tools/internal/version-control-runtime.ts`](<../../../template/tools/internal/version-control-runtime.ts>)
+- `template/tools/internal/version-control-runtime.ts` → [`40_Develop/version-control/src/git/checker-repository-observation-adapter.ts`](<../../../40_Develop/version-control/src/git/checker-repository-observation-adapter.ts>)
 
 </details>
 
@@ -245,7 +245,7 @@ Gitを利用する各Toolから、Git CLI、`.git`内部構造およびCommit前
 | Consumer Closure | 完了。本番Sourceの旧API、低水準Git内部実装、保護対象Runtimeのbarrel依存、全公開Portの未登録ConsumerおよびOwner試験のTest Catalog未登録を機械的に拒否する |
 | Verification | 独立再レビューはCritical／Major／Moderate 0でPass。Owner package試験、利用側回帰、実Git結合を再確認し、固定Commit上の署名契約・正式E2E待ち |
 
-Checker配布では、`40_Develop/version-control/`をCanonical sourceとし、`template/tools/internal/version-control-runtime.ts`へ追加install不要の自己完結Artifactを決定論的に生成する。Source／Artifactのbyte一致、生成漏れおよび`template/tools`単独実行をOwner packageとTemplateの契約試験で確認する。
+この変更時点のChecker配布では、`40_Develop/version-control/`をCanonical sourceとし、`template/tools/internal/version-control-runtime.ts`へ追加install不要の自己完結Artifactを決定論的に生成した。v0.21 Phase 4では、同じ基準版Rootの[Version Control公開入口](../../../40_Develop/version-control/src/index.ts)を直接利用する構造へ移行し、生成Artifactと`template/tools`単独実行契約を廃止した。
 
 基準版は`v0.20.1`へ固定する。Root、Layout／Local Ignore、Fixed Object／Object Format、CandidateおよびSigning／Releaseの各Capabilityを過去Evidence、新Port、focused確認、実境界確認および旧実装削除Gateへ対応付ける。全対応は[Version Control境界](../../../06_Architecture/Details/version-control/01_Architecture.md#9-基準版capabilityの移行)を正本とし、成立前に旧実装を削除しない。
 

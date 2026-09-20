@@ -1,7 +1,7 @@
 # CRDD Domain Library責務分離
 
 変更ID: `CHG-000076`
-状態: `Implementation In Progress — Phase 3 Complete`
+状態: `Implementation In Progress — Phase 4 Complete`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `tool_architecture_boundary_change`
@@ -29,7 +29,7 @@
            └──────────→ Domain／Consumer
 ```
 
-本変更では設計、全Module分類、公開入口および依存方向を先に固定し、独立レビュー済みの段階移行としてSourceを移す。Phase 1の実装正本の受け皿に続き、Phase 2ではCommon Result、Reality Traceability、Semantic Coverage、Repository ObservationおよびSemantic Publisherを`40_Develop`へ移した。Phase 3ではArtifact Model、Markdown Parser、Schema ValidatorおよびRelation Graphを公開Domainへ移し、Checker固有Findingとの境界を独立レビューまで完了した。
+本変更では設計、全Module分類、公開入口および依存方向を先に固定し、独立レビュー済みの段階移行としてSourceを移す。Phase 1の実装正本の受け皿に続き、Phase 2ではCommon Result、Reality Traceability、Semantic Coverage、Repository ObservationおよびSemantic Publisherを`40_Develop`へ移した。Phase 3ではArtifact Model、Markdown Parser、Schema ValidatorおよびRelation Graphを公開Domainへ移し、Checker固有Findingとの境界を独立レビューまで完了した。Phase 4ではChecker向けVersion Control生成Artifactを廃止し、同じ基準版Rootの公開AdapterへConsumerを統合して独立レビューまで完了した。
 
 ## 2. 現在状態と構造変更
 
@@ -116,6 +116,13 @@
 - [`40_Develop/crdd-domain-library/tests/unit/public-boundary.contract.test.ts`](../../../40_Develop/crdd-domain-library/tests/unit/public-boundary.contract.test.ts)
 - [`40_Develop/crdd-domain-library/tests/unit/repository-observation.contract.test.ts`](../../../40_Develop/crdd-domain-library/tests/unit/repository-observation.contract.test.ts)
 - [`40_Develop/crdd-domain-library/tsconfig.json`](../../../40_Develop/crdd-domain-library/tsconfig.json)
+- [`40_Develop/version-control/package.json`](../../../40_Develop/version-control/package.json)
+- [`40_Develop/version-control/src/git/checker-repository-observation-adapter.ts`](../../../40_Develop/version-control/src/git/checker-repository-observation-adapter.ts)
+- [`40_Develop/version-control/src/index.ts`](../../../40_Develop/version-control/src/index.ts)
+- [`40_Develop/version-control/symbol.json`](../../../40_Develop/version-control/symbol.json)
+- [`40_Develop/version-control/tests/integration/consumer-closure.integration.test.ts`](../../../40_Develop/version-control/tests/integration/consumer-closure.integration.test.ts)
+- `40_Develop/version-control/scripts/generate-checker-runtime.ts`（削除）
+- `40_Develop/version-control/src/distribution/checker-version-control-runtime.ts` → [`40_Develop/version-control/src/git/checker-repository-observation-adapter.ts`](../../../40_Develop/version-control/src/git/checker-repository-observation-adapter.ts)
 - `template/tools/internal/reality-traceability/repository-regular-file-observer.ts` → [`40_Develop/crdd-domain-library/src/repository/internal/filesystem-repository-observer.ts`](../../../40_Develop/crdd-domain-library/src/repository/internal/filesystem-repository-observer.ts)
 - `template/tools/internal/reality-traceability/symbol-annotation.ts` → [`40_Develop/crdd-domain-library/src/domain/reality-traceability/internal/symbol-annotation.ts`](../../../40_Develop/crdd-domain-library/src/domain/reality-traceability/internal/symbol-annotation.ts)
 - `template/tools/internal/reality-traceability/symbol-discovery.ts` → [`40_Develop/crdd-domain-library/src/domain/reality-traceability/symbol-discovery.ts`](../../../40_Develop/crdd-domain-library/src/domain/reality-traceability/symbol-discovery.ts)
@@ -129,12 +136,22 @@
 - `template/tools/internal/semantic-coverage/semantic-ir-compiler.ts` → [`40_Develop/crdd-domain-library/src/domain/semantic-coverage/semantic-ir-compiler.ts`](../../../40_Develop/crdd-domain-library/src/domain/semantic-coverage/semantic-ir-compiler.ts)
 - `template/tools/internal/checker/rules/reality-test-catalog-adapter.ts` → [`40_Develop/checker/src/internal/adapters/reality-test-catalog.ts`](../../../40_Develop/checker/src/internal/adapters/reality-test-catalog.ts)
 - [`template/tools/internal/checker/rules/reality-symbol-graph.ts`](../../../template/tools/internal/checker/rules/reality-symbol-graph.ts)
+- [`template/tools/crdd-check.ts`](../../../template/tools/crdd-check.ts)
+- `template/tools/internal/version-control-runtime.ts`（削除）
 - `template/tools/internal/checker/artifact-model.ts` → [`40_Develop/crdd-domain-library/src/domain/artifact/artifact-model.ts`](../../../40_Develop/crdd-domain-library/src/domain/artifact/artifact-model.ts)
 - `template/tools/internal/checker/markdown-artifact-parser.ts` → [`40_Develop/crdd-domain-library/src/domain/artifact/markdown-artifact-parser.ts`](../../../40_Develop/crdd-domain-library/src/domain/artifact/markdown-artifact-parser.ts)
 - `template/tools/internal/checker/schema-validator.ts` → [`40_Develop/crdd-domain-library/src/domain/artifact/schema-validator.ts`](../../../40_Develop/crdd-domain-library/src/domain/artifact/schema-validator.ts)
 - `template/tools/internal/checker/relation-engine.ts` → [`40_Develop/crdd-domain-library/src/domain/relation/artifact-graph.ts`](../../../40_Develop/crdd-domain-library/src/domain/relation/artifact-graph.ts)
 - [`99_Roadmap/Changes/CHG-000074/change.md`](../CHG-000074/change.md)
 - [`99_Roadmap/Changes/CHG-000075/change.md`](../CHG-000075/change.md)
+- [`99_Roadmap/Changes/CHG-000057/change.md`](../CHG-000057/change.md)
+- [`99_Roadmap/Changes/CHG-000063/change.md`](../CHG-000063/change.md)
+- [`99_Roadmap/Changes/CHG-000065/change.md`](../CHG-000065/change.md)
+- [`99_Roadmap/Changes/CHG-000066/change.md`](../CHG-000066/change.md)
+- [`99_Roadmap/Changes/CHG-000067/change.md`](../CHG-000067/change.md)
+- [`99_Roadmap/Changes/CHG-000068/change.md`](../CHG-000068/change.md)
+- [`99_Roadmap/Changes/CHG-000070/change.md`](../CHG-000070/change.md)
+- [`99_Roadmap/Changes/CHG-000071/change.md`](../CHG-000071/change.md)
 - [`99_Roadmap/01_Roadmap.md`](../../01_Roadmap.md)
 - [`99_Roadmap/02_Changes.md`](../../02_Changes.md)
 - [`99_Roadmap/Changes/CHG-000076/change.md`](change.md)
@@ -173,6 +190,7 @@
 | Source物理移動準備 | Phase 1 Complete — Launcher Integration Not Started | Root Identity契約と拒否条件を契約試験で固定した。実Launcher接続は後続Gate |
 | Phase 2 Reality／Semantic公開 | Complete | Reality／Semanticの公開API、Repository Observation、Semantic Publisher、Checker変換Adapter、安全境界の反証試験を固定した。Checkerと開発Toolを公開入口へ移行し、旧deep import 0、局所試験、全Catalog回帰、Repository Checkerおよび独立再レビューを完了した |
 | Phase 3 Artifact／Relation分離 | Complete | Artifact Model、Parser、SchemaおよびRelationを公開Domainへ移し、Checker Finding変換、Consumer Closure、局所試験、全Catalog回帰、Repository Checkerおよび独立再レビューを完了した |
+| Phase 4 Version Control公開 | Complete | Checker向け生成Artifactを廃止し、同じ基準版RootのVersion Control公開入口へConsumerを統合した。公開Symbol完全一致、局所結合試験、Checker実物契約、全Catalog回帰、Repository Checkerおよび独立レビューがPassした |
 | Reality Audit | Not Started | 本変更とは別Gateで扱う |
 
 ## 6. 検証方針
@@ -188,6 +206,7 @@
 | 2026-09-20 Phase 2 Reality／Repository最初のSlice | Pass | DomainでChecker Findingを生成する逆依存、Repository Root／Path／Handle証明、Version Controlの非公開deep importを是正後に再レビューし、Critical／Major／Moderate／Minorすべて0を確認 | Windows Handle所在証明Adapter、Semantic移行およびConsumer Closureを次の固定候補で確認 |
 | 2026-09-20 Phase 2完了候補 | Pass | 初回レビューで検出したReality `internal`へのdeep importとSemantic Domain内のChecker形Findingを是正した。Domain kind 30件とChecker明示変換30件の完全一致、未知kind／detail欠落のfail closed、公開入口限定を再レビューし、Critical／Major／Moderate／Minorすべて0を確認した | Artifact／Relation、Version Control、Checker全体、launcher／配布およびReality Auditは後続Phase |
 | 2026-09-20 Phase 3完了候補 | Pass | Artifact Model、Markdown Parser、Schema ValidatorおよびRelation Graphを公開Domainへ移し、Checker固有Finding変換をAdapterへ分離した。初回レビューで検出したArchitectureの移行前状態を示す現在形1件を是正し、Critical／Major／Moderate／Minorすべて0を確認した | Version Control、Checker全体、launcher／配布およびReality Auditは後続Phase |
+| 2026-09-20 Phase 4完了候補 | Pass | Checker向けVersion Control生成Artifactと生成Scriptを廃止し、同じ基準版Rootの公開入口へConsumerを統合した。初回Major 1件の公開Symbol正本不一致を是正し、Version Control局所結合39/39、公開Symbol 60/60の設計・実装完全一致、Checker実物契約327/327、全Catalog回帰399/399およびRepository Checker 0/0を確認した。独立再レビューはCritical／Major／Moderate／Minorすべて0でPassした | Checker全体、launcher薄型化、署名対象Artifact移行およびReality Auditは後続Phase |
 
 ## 8. Phase 1検証結果
 
@@ -225,6 +244,17 @@ Phase 1で成立したのはRoot Identityと拒否境界の契約までである
 
 検証結果はDomain Package 22/22、Checker統合契約327/327、Test Catalog／Symbol Graph局所契約30/30、Checker全Catalog回帰399/399、Repository Checker errors 0／warnings 0、型・Lint・Formatter Passである。旧4実装Pathは移行表示以外の実参照0、CheckerとTemplate ToolからArtifact／Relation Domainへのimportは公開`index.ts`だけである。独立再レビューはCritical／Major／Moderate／Minorすべて0でPassした。Phase 3完了はVersion Control、Checker全体、launcher／配布またはReality Auditの完了を意味しない。
 
+## 11. Phase 4完了結果
+
+| 対象 | 完了した処置 | 後続Phaseへ残す範囲 |
+|---|---|---|
+| Version Control Adapter | Checker固有のRepository一覧、入れ子Repository、固定SnapshotおよびRevision観測を`src/git`へ移し、公開`index.ts`から提供した | 新しいVersion Control能力は個別変更で扱う |
+| Checker Consumer | `template/tools/crdd-check.ts`を同じ基準版RootのVersion Control公開入口へ接続した | Checker全体移行とlauncher薄型化は後続Phase |
+| 配布複製 | 生成Script、配布用Sourceおよび`template/tools/internal`の複製Artifactを削除した | 署名対象Artifact移行は後続Phase |
+| Consumer Closure | 開発Rootと実Git submodule Fixtureの両方で同じ相対配置を利用し、`template/tools`単独コピーを再導入しない契約へ更新した | Reality Auditは別Gate |
+
+検証結果は、Version ControlとCheckerの型・Lint・Formatter Pass、実Gitを含む局所結合39/39、Version Control Architectureに宣言した公開Symbol 60件と`src/index.ts`の完全一致、Checker実物契約327/327、全Catalog回帰399/399およびRepository Checker errors 0／warnings 0である。Phase 2で追加されたSemantic IR生成ToolのRepository Root Consumer登録漏れ1件も実Sourceから確認して宣言集合へ追加した。独立再レビューはCritical／Major／Moderate／Minorすべて0でPassした。Phase 4完了はChecker全体、launcher薄型化、署名対象Artifact移行またはReality Auditの完了を意味しない。
+
 ## Checklist
 
 - [x] CHG-000075を再開せず別の変更意図として分離した
@@ -239,4 +269,7 @@ Phase 1で成立したのはRoot Identityと拒否境界の契約までである
 - [x] Phase 2完了候補の独立再レビューを完了した
 - [x] Phase 3の局所試験、全回帰およびRepository Checkerを完了した
 - [x] Phase 3完了候補の独立レビューを完了した
+- [x] Phase 4でVersion Control生成Artifactと生成Scriptを廃止した
+- [x] Checkerを同じ基準版RootのVersion Control公開入口へ移行した
+- [x] Phase 4の全回帰、Repository Checkerおよび独立レビューを完了した
 - [x] 設計を人間へ提示した

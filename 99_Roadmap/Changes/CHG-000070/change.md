@@ -197,8 +197,8 @@ Roadmap、Change、ReleaseおよびEvidenceの配置を、ファイル種別で�
 - [`40_Develop/runtime-data/tests/integration/temporary-operation-lifecycle.integration.test.ts`](<../../../40_Develop/runtime-data/tests/integration/temporary-operation-lifecycle.integration.test.ts>)
 - [`40_Develop/version-control/package-lock.json`](<../../../40_Develop/version-control/package-lock.json>)
 - [`40_Develop/version-control/package.json`](<../../../40_Develop/version-control/package.json>)
-- [`40_Develop/version-control/scripts/generate-checker-runtime.ts`](<../../../40_Develop/version-control/scripts/generate-checker-runtime.ts>)
-- [`40_Develop/version-control/src/distribution/checker-version-control-runtime.ts`](<../../../40_Develop/version-control/src/distribution/checker-version-control-runtime.ts>)
+- `40_Develop/version-control/scripts/generate-checker-runtime.ts`（削除または旧Path）
+- `40_Develop/version-control/src/distribution/checker-version-control-runtime.ts` → [`40_Develop/version-control/src/git/checker-repository-observation-adapter.ts`](<../../../40_Develop/version-control/src/git/checker-repository-observation-adapter.ts>)
 - [`40_Develop/version-control/src/fixed-revision.ts`](<../../../40_Develop/version-control/src/fixed-revision.ts>)
 - [`40_Develop/version-control/src/fixed-snapshot.ts`](<../../../40_Develop/version-control/src/fixed-snapshot.ts>)
 - [`40_Develop/version-control/src/git/fixed-revision-adapter.ts`](<../../../40_Develop/version-control/src/git/fixed-revision-adapter.ts>)
@@ -266,7 +266,7 @@ Roadmap、Change、ReleaseおよびEvidenceの配置を、ファイル種別で�
 - [`template/99_Roadmap/Changes/CHG-XXXXXX/change.md`](<../../../template/99_Roadmap/Changes/CHG-XXXXXX/change.md>)
 - [`template/AGENTS.md`](<../../../template/AGENTS.md>)
 - [`template/tools/crdd-check.ts`](<../../../template/tools/crdd-check.ts>)
-- [`template/tools/internal/version-control-runtime.ts`](<../../../template/tools/internal/version-control-runtime.ts>)
+- `template/tools/internal/version-control-runtime.ts` → [`40_Develop/version-control/src/git/checker-repository-observation-adapter.ts`](<../../../40_Develop/version-control/src/git/checker-repository-observation-adapter.ts>)
 
 </details>
 

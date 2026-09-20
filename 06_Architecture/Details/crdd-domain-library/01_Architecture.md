@@ -15,7 +15,7 @@
 
 本設計は既存Architecture定義の意味を変更しない。`template/tools/internal/`に同居していた能力のOwner、公開入口および依存方向を整理し、段階移行の完了状態を記録する。
 
-Relation状態は、この領域が担当する責務断面に対する状態である。Phase 2ではCommon Result、Reality Traceability、Semantic Coverage、Repository Observation、Semantic Publisherおよび既知Consumerを`40_Develop`の公開入口へ移行し、旧deep importを0にした。Phase 3ではArtifact、Markdown Parser、SchemaおよびRelation Graphを公開Domainへ移し、Checker Finding変換をChecker Adapterへ分離して独立レビューまで完了した。Version Control、Checker全体、launcherおよび配布Consumerは後続Phaseなので、全体状態は`Partial`を維持する。
+Relation状態は、この領域が担当する責務断面に対する状態である。Phase 2ではCommon Result、Reality Traceability、Semantic Coverage、Repository Observation、Semantic Publisherおよび既知Consumerを`40_Develop`の公開入口へ移行し、旧deep importを0にした。Phase 3ではArtifact、Markdown Parser、SchemaおよびRelation Graphを公開Domainへ移し、Checker Finding変換をChecker Adapterへ分離して独立レビューまで完了した。Phase 4ではVersion Controlの配布複製を廃止して同じ基準版Rootの公開入口へConsumerを統合し、検証を進めている。Checker全体、launcher薄型化および配布Consumerは後続Phaseなので、全体状態は`Partial`を維持する。
 
 ## 詳細成果物の適用判断
 
@@ -173,7 +173,7 @@ Repository／Version Control Infrastructure
 
 ### 3.3 Capability別の公開契約
 
-| Capability／公開入口 | 公開Symbolの完全集合 | Effect | 禁止Field／責務 |
+| Capability／公開入口 | 公開Symbolの完全集合／正本 | Effect | 禁止Field／責務 |
 |---|---|---|---|
 | Common Result `40_Develop/crdd-domain-library/src/domain/result/index.ts` | `DomainStatus`、`DomainIssue`、`DomainOutcome<T>`、`DomainLocation` | なし | Checker code、severity、rule、exit code |
 | Artifact `40_Develop/crdd-domain-library/src/domain/artifact/index.ts` | `SourceLocation`、`ArtifactSection`、`ArtifactRelation`、`ChecklistResult`、`ArtifactModel`、`ArtifactSource`、`ArtifactSchema`、`ArtifactSchemaValidationResult`、`parseMarkdownArtifact`、`validateArtifactSchema` | なし | Checker Finding、利用者向けmessage |
@@ -182,7 +182,7 @@ Repository／Version Control Infrastructure
 | Semantic Coverage Domain `40_Develop/crdd-domain-library/src/domain/semantic-coverage/index.ts` | `SemanticIrMeaning`、`SemanticIr`、`QualitySemanticRelation`、`SemanticCoverageGraph`、`SemanticCoverageProjection`、`SemanticCoverageBundle`、`SemanticBundleContent`、`compileSemanticIr`、`compileQualitySemanticRelations`、`createSemanticCoverageGraph`、`createSemanticBundle` | なし | Filesystem Path、temporary file、publish完了 |
 | Semantic Coverage Application `40_Develop/crdd-domain-library/src/application/semantic-coverage/index.ts` | `PublishSemanticCoverageRequest`、`PublishSemanticCoverageResult`、`publishSemanticCoverage` | Filesystem公開をPublisher Portへ要求 | Domain意味の再計算、部分公開の成功扱い |
 | Repository `40_Develop/crdd-domain-library/src/repository/index.ts` | `RepositoryEntryKind`、`RepositoryDirectoryEntry`、`RepositoryFileObservation`、`RepositoryDirectoryObservation`、`RepositoryObservationPort`、`RepositoryRootCapability`、`SemanticBundlePublishRequest`、`SemanticBundlePublishReceipt`、`SemanticBundlePublisher`、`createFilesystemRepositoryObservationPort`、`createFilesystemSemanticBundlePublisher` | Filesystem読取り／明示したpublish | CRDD意味、Checker code、採用判断 |
-| Version Control `40_Develop/version-control/src/index.ts` | `VersionControlPort`、`RepositoryEntryObservation`、`RevisionIdentity`、`FixedSnapshotReadRequest`、`createGitVersionControlPort`、`observeDeclaredNestedRepositoryPaths`、`observeRepositoryEntries`、`observeNestedRepository`、`readFixedSnapshotText`、`resolveRevisionIdentity` | Git CLI読取り | Domain意味、未Commit通常操作の拒否 |
+| Version Control `40_Develop/version-control/src/index.ts` | [Version Control現行公開Symbol](../version-control/01_Architecture.md#31-現行公開symbol)を正本とする。Phase 4追加は`RepositoryEntryObservation`、`observeDeclaredNestedRepositoryPaths`、`observeRepositoryEntries`、`observeNestedRepository`、`readFixedSnapshotText`、`resolveRevisionIdentity` | Git CLI読取り | Domain意味、未Commit通常操作の拒否 |
 | Checker `40_Develop/checker/src/index.ts` | `CheckerRunRequest`、`CheckerResult`、`CheckerFinding`、`runChecker` | Repository読取りのみ | Domain Issueの改変、意味採否、外部Effect許可 |
 
 公開Symbol名は物理移動時の実装契約であり、現行Fileの全exportを自動的に公開するallowlistではない。新しい公開Symbolは同表へ追加し、`index.ts`から明示exportする。未記載SymbolはCapability内部とする。
@@ -353,7 +353,7 @@ MCPとWorkbenchは将来Consumer候補であり、現在接続済みとは表示
 | `semantic-coverage/quality-semantic-relation.ts` | Quality Local ItemとのRelation生成 | `domain/semantic-coverage/` | 公開入口から公開 | Repository読取りを呼出し側へ分離し、完全修飾IDを維持する |
 | `semantic-coverage/semantic-coverage-graph.ts` | Coverage Graph／Projection | `domain/semantic-coverage/` | 公開入口から公開 | 完成状態と観測状態を分ける |
 | `semantic-coverage/semantic-bundle-writer.ts` | Bundleの原子的公開 | `domain/semantic-coverage/`の純粋Bundle Builderと`repository/semantic-bundle-publisher.ts`へ分割 | DomainはBuilderを公開し、Publisher PortはApplicationから利用 | atomic publish、readback、失敗時cleanupを維持し、DomainからFilesystem Effectを除く |
-| `version-control-runtime.ts` | Git Adapter／固定Snapshot読取り | `version-control/` | 公開入口から公開 | [Version Control詳細設計](../version-control/01_Architecture.md)を正本とする |
+| `version-control-runtime.ts` | Git Adapter／固定Snapshot読取り | `version-control/src/git/checker-repository-observation-adapter.ts` | 公開入口から公開 | Phase 4で配布複製を廃止し、開発・採用の両Rootから同じ公開入口を利用する |
 
 上表は`template/tools/internal/`の23 Moduleを全数分類した。`template/tools`をlauncherと設定配置に限定するため、直下および配下の7 Entryも次のように処置する。
 

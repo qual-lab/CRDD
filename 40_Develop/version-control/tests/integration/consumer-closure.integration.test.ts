@@ -8,6 +8,17 @@ import { describeRepositoryLocationContract } from "../../src/index.ts";
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 const developRoot = path.join(repositoryRoot, "40_Develop");
 
+function publicExportNames(source: string): readonly string[] {
+  const names: string[] = [];
+  for (const block of source.matchAll(/export\s*\{([\s\S]*?)\}\s*from/gu))
+    for (const raw of block[1]?.split(",") ?? []) {
+      const normalized = raw.trim().replace(/^type\s+/u, "");
+      if (normalized.length > 0)
+        names.push(normalized.split(/\s+as\s+/u).at(-1) ?? normalized);
+    }
+  return [...new Set(names)].sort();
+}
+
 function productionSources(root: string): readonly string[] {
   const found: string[] = [];
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
@@ -148,6 +159,7 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       /\b(?:verifyRepositoryRoot|verifyRepositoryRootFromWorkingDirectory|resolveVerifiedRepositoryRootFromWorkingDirectory|describeRepositoryLocationContract)\b/u,
     ),
     [
+      "40_Develop/checker/compile-semantic-ir-pilot.ts",
       "40_Develop/checker/regression-execution.ts",
       "40_Develop/coordinator/bin/coordinator.ts",
       "40_Develop/coordinator/scripts/measure-development-providers.ts",
@@ -179,27 +191,61 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
   );
 });
 
-test("Checker配布ArtifactはOwner sourceとbyte単位で一致する", () => {
+test("Checkerは同じ基準版RootのVersion Control公開入口だけを使う", () => {
+  const checkerSource = fs.readFileSync(
+    path.join(repositoryRoot, "template", "tools", "crdd-check.ts"),
+    "utf8",
+  );
+  assert.equal(
+    checkerSource.includes(
+      'from "../../40_Develop/version-control/src/index.ts"',
+    ),
+    true,
+  );
+  assert.equal(
+    fs.existsSync(
+      path.join(
+        repositoryRoot,
+        "template",
+        "tools",
+        "internal",
+        "version-control-runtime.ts",
+      ),
+    ),
+    false,
+  );
+});
+
+test("Version Controlの公開SymbolはArchitectureの現行集合と完全一致する", () => {
   const source = fs.readFileSync(
     path.join(
       repositoryRoot,
       "40_Develop",
       "version-control",
       "src",
-      "distribution",
-      "checker-version-control-runtime.ts",
+      "index.ts",
     ),
+    "utf8",
   );
-  const artifact = fs.readFileSync(
+  const architecture = fs.readFileSync(
     path.join(
       repositoryRoot,
-      "template",
-      "tools",
-      "internal",
-      "version-control-runtime.ts",
+      "06_Architecture",
+      "Details",
+      "version-control",
+      "01_Architecture.md",
     ),
+    "utf8",
   );
-  assert.deepEqual(artifact, source);
+  const section = /### 3\.1 現行公開Symbol\r?\n([\s\S]*?)\r?\n## 4\./u.exec(
+    architecture,
+  )?.[1];
+  assert.ok(section, "Version Control Architectureの公開Symbol節");
+  const declared = [...section.matchAll(/`([A-Za-z][A-Za-z0-9_]*)`/gu)]
+    .map((match) => match[1] ?? "")
+    .filter(Boolean)
+    .sort();
+  assert.deepEqual(publicExportNames(source), declared);
 });
 
 test("Local Change SetとChecker配布能力のConsumer集合が宣言と一致する", () => {
@@ -228,7 +274,7 @@ test("Local Change SetとChecker配布能力のConsumer集合が宣言と一致�
 
   const checkerRuntimeConsumers = sources
     .filter(({ source }) =>
-      source.includes('from "./internal/version-control-runtime.ts"'),
+      source.includes('from "../../40_Develop/version-control/src/index.ts"'),
     )
     .map(({ relativePath }) => relativePath)
     .sort();

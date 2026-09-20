@@ -1,6 +1,8 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 
+// Git固有の観測をCheckerが利用する中立なRepository結果へ変換するAdapter。
+
 const MAX_OUTPUT_BYTES = 16 * 1_024 * 1_024;
 
 function run(root: string, arguments_: readonly string[]) {
