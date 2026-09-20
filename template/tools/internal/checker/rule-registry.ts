@@ -1,6 +1,6 @@
-import type { ArtifactModel } from "./artifact-model.ts";
+import type { ArtifactModel } from "../../../../40_Develop/crdd-domain-library/src/domain/artifact/index.ts";
+import type { ArtifactGraph } from "../../../../40_Develop/crdd-domain-library/src/domain/relation/index.ts";
 import type { FindingSink } from "./finding-model.ts";
-import type { ArtifactGraph } from "./relation-engine.ts";
 
 export const checkerStages = [
   "repository-discovery",

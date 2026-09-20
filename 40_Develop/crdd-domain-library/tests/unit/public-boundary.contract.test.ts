@@ -5,6 +5,8 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import * as reality from "../../src/domain/reality-traceability/index.ts";
+import * as artifact from "../../src/domain/artifact/index.ts";
+import * as relation from "../../src/domain/relation/index.ts";
 import * as semantic from "../../src/domain/semantic-coverage/index.ts";
 import * as semanticApplication from "../../src/application/semantic-coverage/index.ts";
 import * as repository from "../../src/repository/index.ts";
@@ -15,12 +17,13 @@ function exportedNames(relativePath: string): readonly string[] {
     "utf8",
   );
   const names = [
-    ...[...source.matchAll(/export\s*\{([\s\S]*?)\}\s*from/gu)].flatMap(
-      (match) =>
-        (match[1] ?? "")
-          .split(",")
-          .map((entry) => entry.trim().replace(/^type\s+/u, ""))
-          .filter((entry) => entry.length > 0),
+    ...[
+      ...source.matchAll(/export\s+(?:type\s+)?\{([\s\S]*?)\}\s*from/gu),
+    ].flatMap((match) =>
+      (match[1] ?? "")
+        .split(",")
+        .map((entry) => entry.trim().replace(/^type\s+/u, ""))
+        .filter((entry) => entry.length > 0),
     ),
     ...[
       ...source.matchAll(
@@ -41,6 +44,111 @@ function typescriptFiles(root: string): readonly string[] {
   }
   return files;
 }
+
+test("ArtifactはMarkdown解析とSchema検証の公開契約だけを公開する", () => {
+  assert.deepEqual(Object.keys(artifact).sort(), [
+    "parseMarkdownArtifact",
+    "validateArtifactSchema",
+  ]);
+  assert.deepEqual(exportedNames("../../src/domain/artifact/index.ts"), [
+    "ArtifactModel",
+    "ArtifactRelation",
+    "ArtifactSchema",
+    "ArtifactSchemaValidationResult",
+    "ArtifactSection",
+    "ArtifactSource",
+    "ChecklistResult",
+    "SourceLocation",
+    "parseMarkdownArtifact",
+    "validateArtifactSchema",
+  ]);
+
+  const parsed = artifact.parseMarkdownArtifact({
+    path: "02_UX/Definitions/UX-000001/ux_definition.md",
+    content: `# UX-000001 Sample
+
+成果物種別: UX定義
+UX ID: UX-000001
+状態: Canonical
+正式入力: REQ-000001
+
+## Goal
+
+[REQ-000001](../../../01_Discovery/Definitions/REQ-000001/requirement.md)
+
+\`\`\`text
+状態: Hidden
+\`\`\`
+
+<!-- 状態: Hidden -->
+
+## Checklist
+
+- [x] 意味を保持した
+- OPEN: 人間確認待ち — 実利用を確認した
+`,
+  });
+  assert.equal(parsed.canonicalId, "UX-000001");
+  assert.deepEqual(parsed.formalInputs, ["REQ-000001"]);
+  assert.equal(parsed.status, "Canonical");
+  assert.deepEqual(
+    parsed.checklist.map(({ result }) => result),
+    ["passed", "open"],
+  );
+
+  const validation = artifact.validateArtifactSchema(parsed, {
+    id: "ux-definition",
+    matches: () => true,
+    requiredProperties: ["artifactType", "canonicalId", "status"],
+    requiredSections: ["Missing"],
+    allowedStatuses: ["Draft"],
+  });
+  assert.equal(validation.status, "invalid");
+  assert.equal(validation.result, null);
+  assert.deepEqual(validation.issues.map(({ kind }) => kind).sort(), [
+    "artifact.schema.section-missing",
+    "artifact.schema.status-invalid",
+  ]);
+  assert.equal(
+    validation.issues.some(
+      (issue) =>
+        "code" in issue || "message" in issue || "summary" in issue.details,
+    ),
+    false,
+  );
+});
+
+test("RelationはArtifact Graphと中立Issueだけを公開する", () => {
+  assert.deepEqual(Object.keys(relation).sort(), ["buildArtifactGraph"]);
+  assert.deepEqual(exportedNames("../../src/domain/relation/index.ts"), [
+    "ArtifactGraph",
+    "ArtifactGraphResult",
+    "BuildArtifactGraphRequest",
+    "buildArtifactGraph",
+  ]);
+  const source = artifact.parseMarkdownArtifact({
+    path: "one.md",
+    content: "# REQ-000001 One\n\n要求ID: REQ-000001\n",
+  });
+  const duplicate = artifact.parseMarkdownArtifact({
+    path: "two.md",
+    content: "# REQ-000001 Two\n\n要求ID: REQ-000001\n",
+  });
+  const outcome = relation.buildArtifactGraph({
+    artifacts: [source, duplicate],
+  });
+  assert.equal(outcome.status, "partial");
+  assert.equal(outcome.result?.artifactsById.get("REQ-000001"), source);
+  assert.deepEqual(outcome.issues, [
+    {
+      kind: "artifact.relation.canonical-id-duplicate",
+      targetIdentity: "REQ-000001",
+      location: { path: "two.md", line: 1 },
+      reason: "canonical_identity_not_unique",
+      details: { canonicalId: "REQ-000001" },
+    },
+  ]);
+});
 
 test("Reality Traceabilityは宣言済み公開入口だけを公開する", () => {
   assert.deepEqual(Object.keys(reality).sort(), [

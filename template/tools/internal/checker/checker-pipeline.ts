@@ -1,15 +1,20 @@
-import type { ArtifactModel, ArtifactSource } from "./artifact-model.ts";
+import {
+  type ArtifactModel,
+  type ArtifactSchema,
+  type ArtifactSource,
+  parseMarkdownArtifact,
+  validateArtifactSchema,
+} from "../../../../40_Develop/crdd-domain-library/src/domain/artifact/index.ts";
+import {
+  type ArtifactGraph,
+  buildArtifactGraph,
+} from "../../../../40_Develop/crdd-domain-library/src/domain/relation/index.ts";
+import { mapArtifactDomainIssueToCheckerFinding } from "../../../../40_Develop/checker/src/internal/adapters/artifact-relation.ts";
 import {
   createFindingCollector,
   type CheckerFinding,
 } from "./finding-model.ts";
-import { parseMarkdownArtifact } from "./markdown-artifact-parser.ts";
-import { buildArtifactGraph, type ArtifactGraph } from "./relation-engine.ts";
 import { RuleRegistry } from "./rule-registry.ts";
-import {
-  type ArtifactSchema,
-  validateArtifactSchema,
-} from "./schema-validator.ts";
 
 export type CheckerPipelineResult = Readonly<{
   artifacts: readonly ArtifactModel[];
@@ -29,8 +34,13 @@ export function runCheckerPipeline(
   for (const artifact of artifacts)
     for (const schema of input.schemas ?? [])
       if (schema.matches(artifact))
-        validateArtifactSchema(artifact, schema, collector.add);
-  const graph = buildArtifactGraph(artifacts, collector.add);
+        for (const issue of validateArtifactSchema(artifact, schema).issues)
+          collector.add(mapArtifactDomainIssueToCheckerFinding(issue));
+  const graphOutcome = buildArtifactGraph({ artifacts });
+  for (const issue of graphOutcome.issues)
+    collector.add(mapArtifactDomainIssueToCheckerFinding(issue));
+  const graph = graphOutcome.result;
+  if (!graph) throw new Error("artifact_graph_result_missing");
   const registry = input.registry ?? new RuleRegistry();
   const context = { artifacts, graph, add: collector.add };
   registry.executeStage("cross-artifact-validation", context);

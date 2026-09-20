@@ -28,7 +28,7 @@ function visibleLines(content: string): readonly Readonly<{
     }
     const opening = line.match(/^\s*(`{3,}|~{3,})/u)?.[1];
     if (opening) {
-      fence = { marker: opening[0], length: opening.length };
+      fence = { marker: opening.charAt(0), length: opening.length };
       continue;
     }
     let rendered = "";
@@ -80,9 +80,9 @@ export function parseMarkdownArtifact(source: ArtifactSource): ArtifactModel {
   const lines = visibleLines(source.content);
   const headingEntries = lines.flatMap(({ line, text }) => {
     const heading = text.match(/^(#{1,6})\s+(.+?)\s*$/u);
-    return heading
-      ? [{ level: heading[1].length, title: heading[2], line }]
-      : [];
+    const marker = heading?.[1];
+    const title = heading?.[2];
+    return marker && title ? [{ level: marker.length, title, line }] : [];
   });
   const documentEnd = (lines.at(-1)?.line ?? 0) + 1;
   const sections: ArtifactSection[] = headingEntries.map((heading, index) => {

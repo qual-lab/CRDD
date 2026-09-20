@@ -15,7 +15,7 @@
 
 本設計は既存Architecture定義の意味を変更しない。`template/tools/internal/`に同居していた能力のOwner、公開入口および依存方向を整理し、段階移行の完了状態を記録する。
 
-Relation状態は、この領域が担当する責務断面に対する状態である。Phase 2ではCommon Result、Reality Traceability、Semantic Coverage、Repository Observation、Semantic Publisherおよび既知Consumerを`40_Develop`の公開入口へ移行し、旧deep importを0にした。Artifact／Relation、Version Control、Checker全体、launcherおよび配布Consumerは後続Phaseなので、全体状態は`Partial`を維持する。
+Relation状態は、この領域が担当する責務断面に対する状態である。Phase 2ではCommon Result、Reality Traceability、Semantic Coverage、Repository Observation、Semantic Publisherおよび既知Consumerを`40_Develop`の公開入口へ移行し、旧deep importを0にした。Phase 3ではArtifact、Markdown Parser、SchemaおよびRelation Graphを公開Domainへ移し、Checker Finding変換をChecker Adapterへ分離して独立レビューまで完了した。Version Control、Checker全体、launcherおよび配布Consumerは後続Phaseなので、全体状態は`Partial`を維持する。
 
 ## 詳細成果物の適用判断
 
@@ -223,7 +223,7 @@ Repositoryからの読取りが必要な場合、Domainは`node:fs`実装では�
 | Checker Finding | Checker | CRDD現行Profile上のcode、severity、Path、利用者向けmessage |
 | Checker実行不能 | Checker CLI／Pipeline | Root不明、必要入力の読取不能、Process失敗等で検査集合を完了できない状態 |
 
-`relation-engine.ts`と`schema-validator.ts`は現在Checkerの`FindingSink`へ依存するため、そのままDomainへ移動しない。先に中立なIssue型を返すようにし、Checker側へ変換Adapterを置く。
+Phase 3では、旧`relation-engine.ts`と`schema-validator.ts`の`FindingSink`依存を除去し、中立なIssueを返すDomain APIとChecker変換Adapterへ分離した。
 
 ### 5.1 Domain Outcome
 

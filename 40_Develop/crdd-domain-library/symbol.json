@@ -10,6 +10,18 @@
       "archIds": ["ARCH-000008"]
     },
     {
+      "symbolId": "crdd-domain-library.artifact-entry",
+      "kind": "module",
+      "path": "src/domain/artifact/index.ts",
+      "archIds": ["ARCH-000001"]
+    },
+    {
+      "symbolId": "crdd-domain-library.relation-entry",
+      "kind": "module",
+      "path": "src/domain/relation/index.ts",
+      "archIds": ["ARCH-000001", "ARCH-000002"]
+    },
+    {
       "symbolId": "crdd-domain-library.reality-traceability-entry",
       "kind": "module",
       "path": "src/domain/reality-traceability/index.ts",
@@ -41,6 +53,8 @@
       "localTestIds": ["RCM-09"],
       "verifies": [
         "crdd-domain-library.common-result-entry",
+        "crdd-domain-library.artifact-entry",
+        "crdd-domain-library.relation-entry",
         "crdd-domain-library.reality-traceability-entry",
         "crdd-domain-library.semantic-coverage-entry",
         "crdd-domain-library.semantic-coverage-application-entry",

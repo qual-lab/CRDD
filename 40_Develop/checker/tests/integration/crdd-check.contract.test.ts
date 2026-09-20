@@ -10,6 +10,7 @@ import { pathToFileURL } from "node:url";
 
 import { runCheckerPipeline } from "../../../../template/tools/internal/checker/checker-pipeline.ts";
 import { RuleRegistry } from "../../../../template/tools/internal/checker/rule-registry.ts";
+import { mapArtifactDomainIssueToCheckerFinding } from "../../src/internal/adapters/artifact-relation.ts";
 
 const testEntry = process.argv[1];
 if (testEntry === undefined) throw new Error("checker_test_entry_missing");
@@ -113,6 +114,47 @@ test("Checker PipelineはSchema不整合とCanonical ID重複を共通Findingで
     "artifact-schema-property-missing",
   ]);
   assert.ok(result.findings.every(({ rule }) => rule.length > 0));
+});
+
+test("Artifact Domain IssueはChecker境界で明示変換し未知種別を拒否する", () => {
+  assert.deepEqual(
+    mapArtifactDomainIssueToCheckerFinding({
+      kind: "artifact.schema.property-missing",
+      targetIdentity: "REQ-000001",
+      location: { path: "requirement.md", line: 1 },
+      reason: "required_property_missing",
+      details: { schemaId: "requirement-definition", property: "status" },
+    }),
+    {
+      severity: "error",
+      code: "artifact-schema-property-missing",
+      path: "requirement.md",
+      rule: "requirement-definition",
+      message: "Required artifact property is missing: status.",
+    },
+  );
+  assert.throws(
+    () =>
+      mapArtifactDomainIssueToCheckerFinding({
+        kind: "artifact.future.issue",
+        targetIdentity: "REQ-000001",
+        location: { path: "requirement.md", line: 1 },
+        reason: "future_reason",
+        details: {},
+      }),
+    /unknown_artifact_domain_issue:artifact\.future\.issue/u,
+  );
+  assert.throws(
+    () =>
+      mapArtifactDomainIssueToCheckerFinding({
+        kind: "artifact.schema.property-missing",
+        targetIdentity: "REQ-000001",
+        location: { path: "requirement.md", line: 1 },
+        reason: "required_property_missing",
+        details: { schemaId: "requirement-definition" },
+      }),
+    /invalid_artifact_domain_issue_detail:artifact\.schema\.property-missing:property/u,
+  );
 });
 
 test("主要工程ひな型は工程責務と構造表現を維持する", () => {

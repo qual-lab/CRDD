@@ -451,7 +451,7 @@
       "path": "40_Develop/crdd-domain-library/tests/unit/public-boundary.contract.test.ts",
       "level": "unit",
       "kind": "contract",
-      "semanticTags": ["domain", "reality", "repository", "public-boundary"],
+      "semanticTags": ["domain", "artifact", "relation", "reality", "repository", "public-boundary"],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
