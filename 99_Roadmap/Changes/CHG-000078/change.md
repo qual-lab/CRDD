@@ -1,7 +1,7 @@
 # Canonical設計と現行実装のReality Audit
 
 変更ID: `CHG-000078`
-状態: `Pilot Classification Complete — Independent Review Pending`
+状態: `All-subsystem Initial Classification Complete — Correction and Independent Review Pending`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `quality_reality_audit`
@@ -24,16 +24,17 @@ CanonicalなArchitecture／Quality設計を、現行Source、Test Catalog、実�
 
 ## 2. 対象範囲
 
-最初のPilotはSemantic Coverage基盤で固定済みのCoordinatorとProject Runtimeだけを対象とする。17件の意味単位を全数処置し、方法と判定語彙が成立してから他Subsystemへの展開を判断する。
+CoordinatorとProject Runtimeの17意味で方法と判定語彙を固定した後、Architecture Detailsの全18領域へ初回分類を展開する。実装packageがない領域は一律に欠落とせず、実Runtimeの欠落、工程／統制Owner、分散したConsumer ClosureおよびEvidence不足を分ける。
 
 | 対象 | 含むもの | 現段階で含まないもの |
 |---|---|---|
 | Canonical | Architecture Details、Quality Definition／Local Item | 現行Sourceから推測した新しい設計意味 |
 | Reality | `symbol.json`、Source、Test Catalog、Test、対象改訂版付きEvidence | ファイル名や試験件数だけによる完成推定 |
-| Pilot | Coordinator 8意味、Project Runtime 9意味 | 他Subsystemへの一括展開 |
+| Pilot | Coordinator 8意味、Project Runtime 9意味 | Pilotで定義していない意味の推測追加 |
+| 全体展開 | 全18 Architecture詳細設計領域 | 現行SourceからのCanonical意味の逆算 |
 | 実行 | 決定論的な読取り、生成、局所試験 | PT／LT、未承認の外部Effect |
 
-対象改訂版はCommit `3f2567bd54f00fe638bfc8ff9e7f3695fd8eba66`とする。以後の是正は別の新しい固定候補として再照合し、対象改訂版を暗黙に差し替えない。
+Pilot入力の対象改訂版はCommit `3f2567bd54f00fe638bfc8ff9e7f3695fd8eba66`、全Subsystem初回分類の対象改訂版はCommit `54f248ff93ebbefdb82a76363d5bb33bd84d228e`とする。以後の是正は別の新しい固定候補として再照合し、各観測の対象改訂版を暗黙に差し替えない。
 
 ## 3. 判定契約
 
@@ -58,7 +59,8 @@ CanonicalなArchitecture／Quality設計を、現行Source、Test Catalog、実�
 | 意味と試験の照合 | Initial Execution Complete | 16意味を実試験へ接続し局所確認済み。Sandbox内のProcess取消失敗は通常ユーザー境界で2／2 Passし、実行環境差として分離した |
 | Evidence照合 | In Progress | 局所実行結果を記録済み。固定候補Commitと独立レビュー結果を結合する |
 | Pilot独立レビュー | Not Started | 判定、Gap、非目標および展開判断を独立確認する |
-| 全Subsystem展開 | Blocked by Design | Pilotの方法と判定語彙がPassするまで開始しない |
+| 全Subsystem展開 | Initial Classification Complete | 18領域を実装、Relation、試験、工程／統制OwnerおよびEvidenceで分類する |
+| 旧Traceability移行 | In Progress | 全Propertyの新Owner、全Consumer、同等性および廃止Gateを閉じる |
 
 ## 5. 初期観測
 
@@ -75,6 +77,8 @@ CanonicalなArchitecture／Quality設計を、現行Source、Test Catalog、実�
 | Test Relationなし | 14 | 試験不存在と断定せず、Catalog／Test／Annotationの不足を区別する |
 
 初回分類は`Covered 1／Partial 15／Missing 1`だった。実在するSourceと試験を確認してRelation Ownerを是正した結果、16件は実装／試験Relationへ接続された。局所実行では16件の対応試験が期待どおりPassした。Sandbox内で失敗したWindows Process取消2条件も、必要なProcess権限を持つ通常ユーザー境界では2／2 Passした。`coordinator.runtime-trust-consumption`は、Runtime Trust Policy activationとProvider launch integrationが現行Sourceで`not_implemented`と明示されている実装欠落である。
+
+全18領域の初回分類では、`Covered Candidate` 2、`Partial` 10、`Missing` 3、`Process-owned Partial` 2、`Gap` 1となった。主な横断不足は、実試験の不存在よりQuality Local ItemとTest SymbolのRelation不足である。旧2 Runtime Traceability JSONは全Subsystemへ展開せず、固有情報0、全Consumer移行、決定論的同等性、Capability保持を満たした後の廃止候補とした。
 
 ## 6. 局所検証
 
@@ -99,6 +103,9 @@ CanonicalなArchitecture／Quality設計を、現行Source、Test Catalog、実�
 - [`07_Quality/05_Current_Implementation_Reality_Audit.md`](../../../07_Quality/05_Current_Implementation_Reality_Audit.md)
 - [`07_Quality/Registry/semantic-coverage-pilot.json`](../../../07_Quality/Registry/semantic-coverage-pilot.json)
 - [`40_Develop/coordinator/symbol.json`](../../../40_Develop/coordinator/symbol.json)
+- [`40_Develop/coordinator/src/security/docker-desktop-repair-continuation-store.ts`](../../../40_Develop/coordinator/src/security/docker-desktop-repair-continuation-store.ts)
+- [`40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts`](../../../40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts)
+- [`40_Develop/coordinator/tests/integration/docker-desktop-runtime-repair.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-desktop-runtime-repair.contract.test.ts)
 - [`40_Develop/project-runtime/symbol.json`](../../../40_Develop/project-runtime/symbol.json)
 - [`40_Develop/semantic-coverage/tests/unit/semantic-coverage-pilot.contract.test.ts`](../../../40_Develop/semantic-coverage/tests/unit/semantic-coverage-pilot.contract.test.ts)
 - [`99_Roadmap/01_Roadmap.md`](../../01_Roadmap.md)
@@ -118,4 +125,7 @@ CanonicalなArchitecture／Quality設計を、現行Source、Test Catalog、実�
 - [ ] 実行結果とEvidenceを対象改訂版付きで評価する。
 - [ ] Gapを所有工程へ返し、Reality側だけで意味を補完しない。
 - [ ] Pilotの独立レビューを完了する。
-- [ ] 全Subsystemへ展開するかをPilot結果から判断する。
+- [x] 全Subsystemへ展開し、実Runtime欠落、工程／統制Owner、Relation不足およびGapを分けた。
+- [x] 旧2 Runtime Traceability JSONのProperty Ownerと廃止Gateを定義した。
+- [ ] Relation不足と命名規則不一致を是正し、更新版を再実行する。
+- [ ] 旧2 Runtime Traceability JSONの全Consumerを新しい生成入口へ移行する。

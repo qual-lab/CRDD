@@ -2,7 +2,8 @@
 
 成果物種別: Quality現実照合
 状態: In Progress
-現在範囲: Coordinator／Project Runtime Pilot
+進捗: All-subsystem Initial Classification Complete — Correction and Independent Review Pending
+現在範囲: 全18 Architecture詳細設計領域
 維持責任者: Qual-Lab
 
 ## 設計集合
@@ -57,8 +58,8 @@
 | 対象 | 状態 | 理由 | 次の処置 |
 |---|---|---|---|
 | 13検証目標のLocal Item | Quality Design Ready | 157件のMapping、Source ID固有条件、114 Local ItemおよびCRDD Domain Library Candidateの6検証単位とのRelationを固定した | Pilotの17意味に接続したLocal Itemから照合する |
-| 現行Source／Test | Pilot初回照合済み | 17意味のうち16件を実装Symbol、Quality Local Itemおよび実試験Symbolへ接続し、1件を実装欠落として分離した | 実行不一致1件と実装欠落1件を所有変更へ返す |
-| 実行結果／Evidence | Pilot局所実行済み | Semantic Coverage 14件、Project Runtime 60件がPass。Coordinator対象223件はSandbox内でPassし、Process取消2件は通常ユーザー境界で2／2 Passした | 固定候補化後にEvidenceを対象Commitへ結合する |
+| 現行Source／Test | 全Subsystem初回照合済み | 18領域を実装所有、Symbol Relation、Test Catalog、局所試験、工程／統制所有へ分けた。実装を持つ12領域の静的確認は全てPassした | `Partial`のRelation不足と実装欠落を所有変更へ返す |
+| 実行結果／Evidence | 全Subsystem局所実行済み | 11 TypeScript packageとPlatform Accessの局所試験を実行した。CoordinatorとCheckerではSandboxまたは命名規則に起因する不一致を分離した | 是正後の局所再実行と独立レビューを対象Commitへ結合する |
 
 以前のArchitecture限定Sliceで示した`Covered 4／Partial 6／Missing 1`は、17 ARCH-IDだけを入力にした暫定対応であり、現在の157件Mappingに対する品質状態ではない。現在判定へ使用しない。
 
@@ -144,13 +145,85 @@ v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、�
 
 Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Process終了を猶予内に観測できなかった。同じ2条件を通常ユーザー境界で再実行すると2／2 Passしたため、製品回帰ではなく実行環境の不一致として分類する。Process／OS境界の成立は、必要な権限を持つ本番同等境界で確認し、Sandbox内の失敗も消さずに実行条件とともに残す。
 
+## 9. 全Subsystem初回分類
+
+照合対象はCommit `54f248ff93ebbefdb82a76363d5bb33bd84d228e`で固定した。`Quality Integration`の詳細設計領域とLocal Itemを期待集合とし、`symbol.json`、Test Catalog、Sourceおよび局所試験を現実集合として照合した。`symbol.json`がないことだけで実装欠落とせず、工程・統制として人間確認を所有する領域と、実Runtimeを宣言しながら実装を持たない領域を分けた。
+
+| 詳細設計領域 | 実装Owner | 局所確認 | 初回判定 | 主な不足／次の処置 |
+|---|---|---|---|---|
+| artifact-signing | `40_Develop/artifact-signing` | 5／5 Pass | Partial | `AIT-07`、`AIT-09`と実試験のRelationを確認して接続する |
+| checker | `40_Develop/checker` | Repository検査0 error／0 warning、初回350／351 Pass、命名是正後の対象試験1／1 Pass | Partial | 既存試験と8 Local ItemのRelationが不足。初回の1件はCoordinator Sourceの命名不一致11件を正しく検出した |
+| contract-migration | checker／version-control等へ分散 | 専用Runnerなし | Gap | 独立packageを要求せず、Consumer Closureと縦断移行の実Owner／Test／Evidenceを明示する |
+| coordinator | `40_Develop/coordinator` | 静的確認Pass、通常ユーザー境界のPilot取消2／2 Pass | Partial／Missing | 7 Local ItemのRelation不足。`coordinator.runtime-trust-consumption`は実装欠落。SandboxのWindows Process Gate失敗は実行環境差として保持する |
+| crdd-domain-library | `40_Develop/crdd-domain-library` | 20／20 Pass | Partial | Phase 6実装は存在するが、8期待Local ItemのうちRelationは1件。Quality Integrationの旧`OPEN`も現実へ再評価する |
+| cros | なし | 未実行 | Missing | 認証、Workspace、Federation、Handoffを持つRuntime実装と10 Local Itemの接続がない |
+| execution-intelligence | `40_Develop/execution-intelligence` | 43／43 Pass | Partial | 成立済みStore能力は確認できるが、10期待Local ItemのうちRelationは2件 |
+| mcp | `40_Develop/mcp` | 32／32 Pass | Partial | Transport／Application試験は存在するが、6期待Local ItemのうちRelationは2件 |
+| official-asset-governance | 工程／人間判断 | 専用Runnerなし | Process-owned Partial | Runtime Component非該当。5 Local Itemを判断記録、公開・撤回Evidenceおよび競合判断へ接続する |
+| platform-access | `40_Develop/platform-access` | Rust 29 Pass、8 Explicit Ignore | Partial | Process／Docker境界試験は存在するが、`PRL-03`、`ERB-02`のRelationを確認して接続する。Ignore 8件は明示実環境試験として別扱い |
+| project-operation | なし | 未実行 | Missing | Topic／Meeting lifecycleとProject Projectionの実装Owner、保存形式、5 Local Itemの接続がない |
+| project-runtime | `40_Develop/project-runtime` | 60／60 Pass | Partial | 14期待Local ItemのうちRelationは9件。受入判断、Queue、回復等の既存試験との対応を補う |
+| quality-change-control | 保守／監査工程 | 専用Runnerなし | Process-owned Partial | 独立Runtimeは要求しない。監査集合統合、是正再入場と3 Local Itemを実レビュー／監査Evidenceへ接続する |
+| runtime-data | `40_Develop/runtime-data` | 35／35 Pass | Partial | Repository-local／CROS Rootは実装済み。6期待Local ItemのうちRelationは3件 |
+| runtime-trust | なし | 未実行 | Missing | Trust候補の部品はCoordinator側にあるが、Policy activationとProvider launch結合を持つOwnerがない |
+| semantic-coverage | `40_Develop/semantic-coverage` | 14／14 Pass | Covered Candidate | 期待Local Itemを全て接続。Pilot名称と全Subsystem対応は別の移行処置 |
+| verification-runner | `40_Develop/verification-runner` | 35／35 Pass | Covered Candidate | 期待Local Itemを全て接続。PT／LTは計画のみで、明示Authorityなしに実行していない |
+| version-control | `40_Develop/version-control` | 39／39 Pass | Partial | Adapter／Snapshot試験は存在するが、6期待Local ItemのうちRelationは3件 |
+
+`Process-owned Partial`は実装packageがないという理由での失敗ではない。各Local Itemに必要な判断、レビュー、公開記録または監査Evidenceが追跡できない状態である。`Missing`は現在宣言したRuntime能力に対する実装Ownerを確認できない状態である。
+
+## 10. 局所実行の総括
+
+| 対象 | 結果 | 扱い |
+|---|---:|---|
+| 実装を持つ12領域のformat／type／lintまたはRust build | 全てPass | 静的成立を確認 |
+| 9 TypeScript library／runtime package | 283／283 Pass | artifact-signing、domain library、execution intelligence、MCP、project runtime、runtime data、semantic coverage、verification runner、version control |
+| Platform Access | 29 Pass、8 Explicit Ignore | 8件はinstalled Docker等の明示実環境観測であり、未実行をPassへ畳まない |
+| Checker Repository検査 | 959 Markdown、15,892 links、0 error、0 warning | 現行Repository構造は成立 |
+| Checker全試験 | 初回350／351 Pass、対象試験の是正後再実行1／1 Pass | Coordinatorの命名規則違反11件を検出し、意味を変えない名称是正後に同じ検査がPassした |
+| Coordinator静的確認 | Pass | 旧2 Registryの現行契約検査もPass |
+| Coordinator Windows Process Gate | Sandbox内0／8 Pass | Process権限とDocker pipeアクセス制約。既知の通常ユーザー境界再確認と分離する |
+| Coordinator restricted-process | 1995 Pass、1 Fail、5 Explicit Skip（全2001件） | 失敗1件は`os.tmpdir()`を未検証Source checkoutとして起動する試験で、Workspace外を許可しないSandboxが先に`coordinator_task_start_failed_closed`へ閉じた。期待した`coordinator_task_release_verification_required`まで到達しておらず、製品の意味不一致ではなく実行環境差として分離する |
+
+## 11. 旧Runtime Traceability JSONの移行判定
+
+対象は次の2ファイルである。
+
+- `07_Quality/Registry/coordinator-runtime-traceability.json`
+- `07_Quality/Registry/project-runtime-design-traceability.json`
+
+結論は、**現形式を全Subsystemへ増殖させず、現時点では削除もしない**である。両ファイルは現在もCoordinatorの静的検査、契約試験、Architecture参照およびSemantic Coverage移行棚卸しの入力である。一方、現在の正本責務では複数Ownerの情報を一つに重複保持しており、恒久的な手編集正本にはしない。
+
+### 11.1 Propertyの新Owner
+
+| 旧Property | 現在のOwner | Coordinator | Project Runtime | 移行判定 |
+|---|---|---:|---:|---|
+| Resource／State／Transition／Invariant等の設計意味 | Architecture Details | 10 Resource、32 State、31 Transition、5分類、12 Invariant | 9 Interface、10 Record、14 Resource、4 Lock、7 Authority、9 Effect、7 State Machine、54 Action Binding、32 Invariant、16 Failure Injection | Project Runtimeは構造化済み。Coordinatorは一部が文章から決定論的に再生成できず、Details補強が必要 |
+| Effect観測範囲 | Architecture Detailsの状態遷移契約 | `transition_delta` | 非該当 | Coordinatorの遷移観測規則としてDetailsへ明示してから生成する |
+| Implementation Binding | `40_Develop/*/symbol.json` | 旧JSONでは独立集合なし | 9件 | Symbol側へ移行し、旧JSONへ二重記録しない |
+| Verification Binding | Quality Definition＋Test Symbol | 25件 | 23件 | Local ItemとTest Symbolへ移行する |
+| Binding別Boundary Map | 生成Global Graph | 25件 | 非該当 | Canonical入力から生成する |
+| Schema／Revision／参照先 | 生成契約のHeader | あり | あり | 生成物のIdentityとしてのみ保持する |
+
+### 11.2 廃止Gate
+
+次の全条件が揃うまで旧2 JSONを削除しない。
+
+1. 全PropertyがArchitecture Details、Semantic IR、`symbol.json`、Quality Definition／Test Symbol、Evidenceまたは生成Global Graphのいずれかへ一意に移る。
+2. 旧JSONにしか存在しないCanonicalな設計意味が0件になる。
+3. Coordinatorの2 checker script、契約試験、Architecture参照およびTest Catalogの全Consumerが新入口へ移る。
+4. 旧JSONと新しい生成投影について、集合、RelationおよびFail Closed条件の同等性を決定論的に確認する。
+5. 削除後にCoordinator／Project Runtimeの成立済みCapabilityと過去Evidenceを逆引きできる。
+
+Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生成器とConsumer移行後に先行廃止できる可能性が高い。Coordinatorは固有MeaningをDetailsへ戻すまで削除不可である。他Subsystemには旧JSONの複製を作らず、必要な機械投影を各Architecture Detailsから生成する。
+
 ## Checklist
 
 - [x] Canonical Quality設計の固定後にだけReality Auditを開始した
 - [x] 基準版Capabilityと過去Evidenceを比較入力として特定した
 - [x] 現行Source、TestおよびRegistryをCanonical設計の正解として扱っていない
 - [x] 必要な検証をCovered、Partial、Missing、LegacyまたはGapへ分類した
-- OPEN: Pilot後に展開 — 未Commit状態とVersion Control Adapterの交換可能性を検証対象へ含めた
+- [x] 未Commit状態とVersion Control Adapterの交換可能性を検証対象へ含めた
 - [x] 照合対象のRevision、実行条件および観測限界を固定した
 - [x] 不足Test、未実行項目およびEvidence Gapを追跡した
 - [x] PT／LTは人間の明示指定がある場合だけ実行した

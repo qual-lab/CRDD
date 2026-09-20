@@ -4511,21 +4511,21 @@ test("署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engine�
       }),
     });
     let activeOperation = operation;
-    let restarted = false;
+    let wasRestarted = false;
     let externallyActive = false;
-    let activateAfterRunRename = false;
+    let shouldActivateAfterRunRename = false;
     let launches = 0;
     let closureWrites = 0;
     const renameCalls: string[] = [];
     const repairSession = Object.freeze({
       ...session(),
       inspectProcesses: async () =>
-        restarted || externallyActive
+        wasRestarted || externallyActive
           ? ("verified" as const)
           : ("absent" as const),
       launchDesktop: async () => {
         launches += 1;
-        restarted = true;
+        wasRestarted = true;
         fs.mkdirSync(runDirectory);
         fs.writeFileSync(path.join(runDirectory, "dockerInference"), "new");
         fs.mkdirSync(secretsDirectory);
@@ -4552,7 +4552,7 @@ test("署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engine�
           operations: Object.freeze([activeOperation]),
         }),
       observeEngine: () =>
-        restarted || externallyActive ? "ready" : "known_unavailable",
+        wasRestarted || externallyActive ? "ready" : "known_unavailable",
       observeKnownSocketFailure: () => null,
       observeRuntimeDirectoryLock: (target) => directoryIdentity(target),
       persistStage: () => assert.fail("historical chain must remain immutable"),
@@ -4567,7 +4567,7 @@ test("署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engine�
         const before = directoryIdentity(source);
         assert.deepEqual(before, expected);
         fs.renameSync(source, target);
-        if (activateAfterRunRename && source === runDirectory)
+        if (shouldActivateAfterRunRename && source === runDirectory)
           externallyActive = true;
         return Object.freeze({
           issued: true,
@@ -4576,7 +4576,7 @@ test("署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engine�
         });
       },
       awaitEngine: async () =>
-        restarted || externallyActive ? "ready" : "known_unavailable",
+        wasRestarted || externallyActive ? "ready" : "known_unavailable",
       identityAt: directoryIdentity,
       observePath,
       history: {
@@ -4719,7 +4719,7 @@ test("署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engine�
       ),
     );
     activeOperation = externallyActiveOperation;
-    restarted = false;
+    wasRestarted = false;
     externallyActive = true;
     const renameCountBeforeActiveReentry = renameCalls.length;
     const activeReentry =
@@ -4781,7 +4781,7 @@ test("署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engine�
       ),
     );
     activeOperation = effectBoundaryOperation;
-    activateAfterRunRename = true;
+    shouldActivateAfterRunRename = true;
     const effectBoundaryResult =
       await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
     assert.equal(effectBoundaryResult.status, "blocked");
@@ -4799,7 +4799,7 @@ test("署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engine�
       ),
       false,
     );
-    activateAfterRunRename = false;
+    shouldActivateAfterRunRename = false;
     externallyActive = false;
     fs.mkdirSync(runDirectory);
     fs.writeFileSync(path.join(runDirectory, "dockerInference"), "newer");
@@ -4848,7 +4848,7 @@ test("署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engine�
       );
     assert.ok(interruptedContinuation);
     activeOperation = interruptedOperation;
-    restarted = false;
+    wasRestarted = false;
     const renameCountBeforeInterruptedReentry = renameCalls.length;
     const runRenameCountBeforeInterruptedReentry = renameCalls.filter(
       (source) => source === runDirectory,

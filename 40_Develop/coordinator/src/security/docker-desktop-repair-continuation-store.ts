@@ -90,11 +90,11 @@ function hash64(value: unknown): value is string {
   return typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
 }
 
-function exactKeys(value: object, expected: readonly string[]) {
-  const actual = Reflect.ownKeys(value);
+function exactKeys(value: object, expectedKeys: readonly string[]) {
+  const actualKeys = Reflect.ownKeys(value);
   return (
-    actual.length === expected.length &&
-    expected.every((key) => actual.includes(key))
+    actualKeys.length === expectedKeys.length &&
+    expectedKeys.every((key) => actualKeys.includes(key))
   );
 }
 
@@ -259,7 +259,7 @@ function legalTransition(
     next.secretsEngineStaleName !== previous.secretsEngineStaleName
   )
     return false;
-  const order: readonly Readonly<{
+  const transitions: readonly Readonly<{
     from: DockerDesktopRepairContinuationStage;
     to: DockerDesktopRepairContinuationStage;
     action: DockerDesktopRepairContinuationAction | null;
@@ -303,18 +303,18 @@ function legalTransition(
     },
     { from: "relaunched", to: "recovered", action: null, phase: null },
   ];
-  const expected = order.find(
+  const expected = transitions.find(
     (candidate) =>
       candidate.from === previous.stage && candidate.to === next.stage,
   );
   if (!expected) return false;
-  const changed = DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS.filter(
+  const changedActions = DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS.filter(
     (action) => !effectEquals(previous.effects[action], next.effects[action]),
   );
-  if (expected.action === null) return changed.length === 0;
+  if (expected.action === null) return changedActions.length === 0;
   return (
-    changed.length === 1 &&
-    changed[0] === expected.action &&
+    changedActions.length === 1 &&
+    changedActions[0] === expected.action &&
     next.effects[expected.action]?.phase === expected.phase
   );
 }

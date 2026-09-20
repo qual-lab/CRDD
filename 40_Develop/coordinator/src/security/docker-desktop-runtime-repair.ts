@@ -2507,7 +2507,7 @@ async function continueFailedDockerDesktopLaunch(
       const source = observePathUsing(dependencies, step.source);
       const target = observePathUsing(dependencies, step.target);
       const lockedIdentity = observeLock(step.source);
-      const priorRetained = renameSteps
+      const isPriorRenameSequenceRetained = renameSteps
         .slice(0, stepIndex)
         .every((prior) =>
           exactRetainedDirectory(
@@ -2527,7 +2527,7 @@ async function continueFailedDockerDesktopLaunch(
         target.state !== "confirmed_absent" ||
         lockedIdentity === null ||
         !sameIdentity(lockedIdentity, step.identity) ||
-        !priorRetained
+        !isPriorRenameSequenceRetained
       ) {
         markUnknown(ledger);
         return {
@@ -2575,7 +2575,7 @@ async function continueFailedDockerDesktopLaunch(
       const finalSource = observePathUsing(dependencies, step.source);
       const finalTarget = observePathUsing(dependencies, step.target);
       const finalLockedIdentity = observeLock(step.source);
-      const finalPriorRetained = renameSteps
+      const isFinalPriorRenameSequenceRetained = renameSteps
         .slice(0, stepIndex)
         .every((prior) =>
           exactRetainedDirectory(
@@ -2595,7 +2595,7 @@ async function continueFailedDockerDesktopLaunch(
         finalTarget.state !== "confirmed_absent" ||
         finalLockedIdentity === null ||
         !sameIdentity(finalLockedIdentity, step.identity) ||
-        !finalPriorRetained
+        !isFinalPriorRenameSequenceRetained
       ) {
         markUnknown(ledger);
         return {
@@ -2700,7 +2700,7 @@ async function continueFailedDockerDesktopLaunch(
       session,
       cancellation,
     );
-    const renamesRetained = renameSteps.every((step) =>
+    const isRenameSequenceRetained = renameSteps.every((step) =>
       exactRetainedDirectory(
         dependencies,
         step.source,
@@ -2712,7 +2712,7 @@ async function continueFailedDockerDesktopLaunch(
       boundaryState !== "verified" ||
       quiescence !== "verified" ||
       cancellation.shouldStop() ||
-      !renamesRetained
+      !isRenameSequenceRetained
     ) {
       markUnknown(ledger);
       return {
@@ -2757,7 +2757,7 @@ async function continueFailedDockerDesktopLaunch(
       session,
       cancellation,
     );
-    const finalRenamesRetained = renameSteps.every((step) =>
+    const isFinalRenameSequenceRetained = renameSteps.every((step) =>
       exactRetainedDirectory(
         dependencies,
         step.source,
@@ -2769,7 +2769,7 @@ async function continueFailedDockerDesktopLaunch(
       finalBoundaryState !== "verified" ||
       finalQuiescence !== "verified" ||
       cancellation.shouldStop() ||
-      !finalRenamesRetained
+      !isFinalRenameSequenceRetained
     ) {
       markUnknown(ledger);
       return {
@@ -4871,7 +4871,7 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
           const continuationForClose = isOriginalTerminal
             ? Object.freeze({ status: "absent" as const, continuation: null })
             : inspectDockerDesktopRepairContinuation(boundary, operation);
-          const continuationReadyForClose =
+          const isContinuationReadyForClose =
             (continuationForClose.status === "absent" &&
               !failedLaunchContinuationRequired(operation)) ||
             (continuationForClose.status === "valid" &&
@@ -4886,7 +4886,7 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
             !isOriginalTerminal &&
             (!fresh ||
               !freshReadyStateMatches(fresh, expectedRun, expectedStale) ||
-              !continuationReadyForClose)
+              !isContinuationReadyForClose)
           ) {
             markUnknown(ledger);
             status = "blocked";
