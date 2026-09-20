@@ -389,7 +389,7 @@ test("Reviewer decisionとfinding件数の矛盾、余分field、path traversal�
     assert.equal(result.status, "blocked");
     assert.match(
       result.reason,
-      /^provider_task_reviewer_(?:shape|finding|decision)_/u,
+      /^provider_task_reviewer_(?:shape|keys|decision|summary|findings|finding)_/u,
     );
   }
 });
@@ -469,7 +469,7 @@ test("Provider Result拒否はrawを出さず固定理由で意味分類する",
         findings: [],
         extra: true,
       }),
-      "provider_task_reviewer_shape_invalid",
+      "provider_task_reviewer_keys_invalid",
     ],
     [
       JSON.stringify({
@@ -553,7 +553,37 @@ test("Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで�
     JSON.stringify(reviewer),
   );
   assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "provider_task_reviewer_shape_invalid");
+  assert.equal(result.reason, "provider_task_reviewer_findings_invalid");
+});
+
+test("Reviewerの外形拒否は本文を出さず構造条件ごとに分類する", () => {
+  const cases = [
+    [
+      { decision: "approved|changes_requested", summary: "ok", findings: [] },
+      "provider_task_reviewer_decision_invalid",
+    ],
+    [
+      { decision: "approved", summary: "", findings: [] },
+      "provider_task_reviewer_summary_invalid",
+    ],
+    [
+      { decision: "approved", summary: "ok", findings: "none" },
+      "provider_task_reviewer_findings_invalid",
+    ],
+  ] as const;
+  for (const [value, reason] of cases) {
+    const result = normalizeFixtureTaskResult(
+      "codex",
+      "reviewer",
+      "medium",
+      JSON.stringify(value),
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, reason);
+    assert.equal(result.normalizedResult, null);
+    assert.equal(result.rawOutputReported, false);
+    assert.equal(result.untrustedProviderTextReported, false);
+  }
 });
 
 test("Claudeの実行目標と結果受理の絶対上限を分離する", () => {
@@ -801,7 +831,7 @@ test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負�
 
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
-  assert.equal(contract.contractRevision, 18);
+  assert.equal(contract.contractRevision, 19);
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.deepEqual(contract.roles, ["executor", "reviewer"]);
   assert.equal(contract.claudeResultAcceptanceMaximumTurns, 16);
@@ -822,7 +852,7 @@ test("公開契約は両Provider、両Role、上限とraw非公開を固定す�
   assert.equal(contract.untrustedProviderTextReported, false);
   assert.equal(
     contract.mismatchDiagnostics,
-    "fixed_reason_identifier_only_without_raw_provider_output",
+    "fixed_structural_reason_identifier_only_without_raw_provider_output",
   );
   assert.deepEqual(contract.claudeResultTransport, {
     executor: "provider_structured_output_then_crdd_validation",

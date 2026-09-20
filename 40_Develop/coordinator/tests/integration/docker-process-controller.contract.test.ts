@@ -2379,6 +2379,106 @@ test("Claude Envelopeの拒否理由を実Controllerから全consumerへ回収�
   }
 });
 
+test("Claude Reviewerの構造不正理由を実Controllerから安全な固定診断として渡す", async () => {
+  const cases = [
+    [
+      {
+        decision: "approved",
+        summary: "ok",
+        findings: [],
+        unexpected: true,
+      },
+      "provider_task_reviewer_keys_invalid",
+    ],
+    [
+      { decision: "unknown", summary: "ok", findings: [] },
+      "provider_task_reviewer_decision_invalid",
+    ],
+    [
+      { decision: "approved", summary: "", findings: [] },
+      "provider_task_reviewer_summary_invalid",
+    ],
+    [
+      { decision: "approved", summary: "ok", findings: {} },
+      "provider_task_reviewer_findings_invalid",
+    ],
+  ] as const;
+
+  for (const [reviewerResult, expectedReason] of cases) {
+    const cleanupOutcomes =
+      expectedReason === "provider_task_reviewer_keys_invalid"
+        ? [true, false]
+        : [true];
+    for (const cleanupConfirmed of cleanupOutcomes) {
+      const taskOutput = createProviderOutput({
+        result: JSON.stringify(reviewerResult),
+      });
+      const fixture = createFixture(
+        {
+          startCommand: (command: { purpose: string }) => ({
+            started: async () => true,
+            wait: async () => ({
+              status: 0,
+              signal: null,
+              stdout:
+                command.purpose === "start_provider_attached"
+                  ? taskOutput
+                  : command.purpose === "start_subscription_auth_probe_attached"
+                    ? createSubscriptionAuthOutput()
+                    : "",
+              stderr: "",
+              outputExceeded: false,
+            }),
+            terminateAndWait: async () => true,
+          }),
+          cleanupOwnedResources: async () => ({
+            confirmed: cleanupConfirmed,
+            processTreeTerminated: cleanupConfirmed,
+            containersAbsent: cleanupConfirmed,
+            networksAbsent: cleanupConfirmed,
+          }),
+        },
+        {
+          operationMode: "isolated_task",
+          taskRole: "reviewer",
+          taskWorkload: {
+            readPathCount: 1,
+            allowedPathCount: 1,
+            acceptanceCriterionCount: 1,
+            remediationFindingCount: 0,
+          },
+          taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
+          taskPacketHash: "c".repeat(64),
+          providerInput: "Review the exact local candidate.",
+          workspaceSourcePath: "C:\\runtime-owned\\workspace",
+          workspaceMountMode: "read_only",
+        },
+      );
+      const started = fixture.controller.start(
+        fixture.preparedCapability,
+        fixture.managementCapability,
+      );
+      assert.ok(started.completion);
+      const result = await started.completion;
+      assert.equal(result.status, "blocked");
+      assert.equal(
+        result.reason,
+        cleanupConfirmed
+          ? expectedReason
+          : "docker_process_controller_cleanup_unconfirmed",
+      );
+      assert.equal(result.cleanupConfirmed, cleanupConfirmed);
+      assert.equal(result.manualRecoveryRequired, !cleanupConfirmed);
+      assert.equal(result.normalizedResult, null);
+      assert.equal(result.rawOutputReported, false);
+      assert.equal(result.untrustedProviderTextReported, false);
+      assertCompletionAcceptedByAll(result, started.recoveryId);
+      if (cleanupConfirmed) assert.equal(result.recoveryId, null);
+      else assert.equal(result.recoveryId, started.recoveryId);
+    }
+  }
+});
+
 test("Recovery記録前と偽造production CapabilityはDocker Effectを開始しない", async () => {
   const fixture = createFixture({ beginRecovery: () => null });
   const blocked = fixture.controller.start(

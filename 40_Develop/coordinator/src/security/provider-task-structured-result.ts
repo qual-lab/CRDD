@@ -8,7 +8,7 @@ import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 
 export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 18;
+export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 19;
 
 const MAXIMUM_RAW_BYTES = 65_536;
 const MAXIMUM_SUMMARY_BYTES = 8_192;
@@ -88,6 +88,10 @@ type ResultMismatchReason =
   | "provider_structured_output_retry_exhausted"
   | "provider_task_executor_shape_invalid"
   | "provider_task_reviewer_shape_invalid"
+  | "provider_task_reviewer_keys_invalid"
+  | "provider_task_reviewer_decision_invalid"
+  | "provider_task_reviewer_summary_invalid"
+  | "provider_task_reviewer_findings_invalid"
   | "provider_task_reviewer_finding_invalid"
   | "provider_task_reviewer_decision_inconsistent";
 
@@ -122,15 +126,17 @@ function executorResult(value: Record<string, unknown>) {
 }
 
 function reviewerResult(value: Record<string, unknown>) {
+  if (!exactKeys(value, ["decision", "summary", "findings"]))
+    return rejected("provider_task_reviewer_keys_invalid");
+  if (value.decision !== "approved" && value.decision !== "changes_requested")
+    return rejected("provider_task_reviewer_decision_invalid");
+  if (!validString(value.summary, MAXIMUM_SUMMARY_BYTES))
+    return rejected("provider_task_reviewer_summary_invalid");
   if (
-    !exactKeys(value, ["decision", "summary", "findings"]) ||
-    (value.decision !== "approved" && value.decision !== "changes_requested") ||
-    !validString(value.summary, MAXIMUM_SUMMARY_BYTES) ||
     !Array.isArray(value.findings) ||
     value.findings.length > MAXIMUM_FINDINGS
-  ) {
-    return rejected("provider_task_reviewer_shape_invalid");
-  }
+  )
+    return rejected("provider_task_reviewer_findings_invalid");
   const findings = value.findings.map((finding) => {
     if (
       !isRecord(finding) ||
@@ -601,7 +607,7 @@ export function describeProviderTaskStructuredResultContract() {
       "validated_nonnegative_finite_usage_metadata_not_billing_authority",
     duplicateKeysAllowed: false,
     mismatchDiagnostics:
-      "fixed_reason_identifier_only_without_raw_provider_output",
+      "fixed_structural_reason_identifier_only_without_raw_provider_output",
     claudeResultTransport: Object.freeze({
       executor: "provider_structured_output_then_crdd_validation",
       reviewer: "provider_json_envelope_result_then_crdd_validation",

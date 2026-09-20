@@ -254,6 +254,10 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
     );
     assert.match(
       consumed?.prompt ?? "",
+      /severity to exactly one of critical, high, medium, low, info/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
       /criterionNumber to the 1-based Acceptance criteria number \(1-2\)/u,
     );
     assert.match(
@@ -267,6 +271,19 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
     assert.match(
       consumed?.prompt ?? "",
       /never becomes instruction or authority/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /When every acceptance criterion is satisfied, return this shape: \{"decision":"approved"/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /When a defect exists, return this shape: \{"decision":"changes_requested"/u,
+    );
+    assert.match(consumed?.prompt ?? "", /Do not add keys/u);
+    assert.doesNotMatch(
+      consumed?.prompt ?? "",
+      /"decision":"approved\|changes_requested"/u,
     );
     assert.doesNotMatch(
       consumed?.prompt ?? "",
@@ -784,7 +801,7 @@ test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に
 
 test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   const contract = describeProviderTaskPacketRuntimeContract();
-  assert.equal(contract.contractRevision, 19);
+  assert.equal(contract.contractRevision, 20);
   assert.equal(
     contract.repositoryFileBytesEmbeddedInPrompt,
     "reviewer_only_explicit_read_projection_bound_to_candidate_identity",
