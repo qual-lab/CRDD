@@ -1,7 +1,7 @@
 # CRDD Domain Library責務分離
 
 変更ID: `CHG-000076`
-状態: `Implementation Complete — Coordinator Runtime Gate Pending`
+状態: `Ready for Release Handoff`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `tool_architecture_boundary_change`
@@ -360,9 +360,11 @@ Checker Package Rootに平置きされた8件も、同じSource配置規則で�
 | Package／局所契約 | Pass | Domain Library 20/20、Semantic Coverage 14/14、Version Control 39/39、Verification Runner 35/35を確認した。現行Test Catalog 192件は実在試験と完全一致する |
 | Checker全Catalog回帰 | Pass | 用途限定入口、Profile分離および過剰な署名契約削除後の同一固定候補で351/351 Pass |
 | Coordinator非Docker回帰 | Pass | 実Provider Effectを発行しないIntegration／System／Unit集合がPass。Platform Provisionerの配布Filesystem契約124/124もPass |
-| Windows Process Gate | Blocked（7/8 Pass） | Docker Engine Pipeが存在せず、Codex Executor Sandboxの実Docker境界1件を実行できない。実装Assertionの失敗ではない |
+| Windows Process Gate | Pass | 既知2領域を含むDocker Desktop修復を実環境へ適用し、署名済みRecovery Matrixで異常終了、取消、親Process喪失およびfresh recovery後のcleanupを確認した |
 | Repository Checker | Pass | errors 0、warnings 0 |
-| 署名境界 | N/A | Checker、Domain Library、Semantic CoverageおよびVerification RunnerはCoordinator Runtime Authorityを発行しない。Coordinatorの署名済みRuntime閉包へ追加せず、通常のRepository境界、公開入口およびConsumer Closureで検証する |
+| 署名境界 | Pass | Checker、Domain Library、Semantic CoverageおよびVerification Runnerには重い署名を追加せず、変更を含むCoordinator Runtime閉包だけを再署名した |
+| 署名済みRecovery Matrix | Pass | 記録`bfa25994-d041-4902-875a-d02b32a55d84`。全Scenarioが期待した結果へ収束し、cleanup確認済み、手動回復不要、残存Operation Directoryなし |
+| 署名済み4経路E2E | Pass | 記録`4480ca02-e4af-4cc8-b8cb-d483fd7883e2`。forward、reverse、same-codex、same-claudeの4/4をretry 0で完了し、cleanup確認済み、Recovery IDなし、正本Repository変更なし |
 | Phase 6独立レビュー | Pass | Critical／Major／Moderate／Minorすべて0。Test Catalogの削除済み試験参照も除去し、192件の実在試験との完全一致を再確認した |
 
 長時間を要したPlatform Provisioner配布Filesystem契約は124件すべてPassした。一方、個別の異常注入ごとに配布Fixtureを再構築するため約8分33秒を要した。正しさの失敗ではないが、後続変更で試験の進捗観測と安全なFixture共有可否を検討する。速度改善を理由に異常注入範囲を削らない。
@@ -387,7 +389,7 @@ Phase 6のSource配置移行と独立再レビューは完了した。Checker現
 
 型検査、Lint、Formatter、局所契約試験130件およびRepository CheckerはPassした。開発E2Eは324件中322件がPassし、残る2件はCodex実行環境からWindows子Processの終了を観測できない既知の実Process Gateで停止した。制限Process回帰で検出した署名試験1件は、署名Manifest追加後の`HEAD`とManifest除外後の配布Treeを比較していた試験Fixtureの不整合であり、署名済みSource Identityを使う独立した配布候補へ修正した。
 
-Docker継続修復の独立レビューで検出したEffect直前Gate、close Consumer Closureおよび非履歴Operationへの過剰適用を是正した。追加反証を含む対象局所試験71/71、型検査、Lint、Formatter、各Traceability確認およびRepository Checker（errors 0／warnings 0）がPassし、最終独立再レビューはCritical／Major／Moderate／Minorすべて0でPassした。実Dockerへの適用と再署名済みE2Eは未完了であり、Gate状態は変更しない。
+Docker継続修復の独立レビューで検出したEffect直前Gate、close Consumer Closureおよび非履歴Operationへの過剰適用を是正した。追加反証を含む対象局所試験71/71、型検査、Lint、Formatter、各Traceability確認およびRepository Checker（errors 0／warnings 0）がPassし、最終独立再レビューはCritical／Major／Moderate／Minorすべて0でPassした。その後、既知2領域を含む実Docker修復、署名済みRecovery Matrixおよび署名済み4経路E2Eを完了した。最新の4経路E2EはSource Commit `e38f42af4b63c7cbbeffb20acd27f290e0568a7a`を実行対象とし、4/4完了、retry 0、cleanup確認済み、手動回復不要である。これによりPhase 6のCoordinator Runtime Gateを完了とする。
 
 ## Checklist
 
@@ -418,6 +420,6 @@ Docker継続修復の独立レビューで検出したEffect直前Gate、close C
 - [x] Version Controlの用途限定公開入口とConsumer Closureを実装した
 - [x] Checker公開Use Caseと現行Profile本体を物理分離した
 - [x] CheckerをCoordinator署名Runtimeの対象外として責務境界を固定した
-- [ ] 既知2領域を含む実Docker修復lifecycleを確認する（OPEN: 修正版の署名・実機適用前）
+- [x] 既知2領域を含む実Docker修復lifecycleを確認する
 - [x] Phase 6完了候補の独立レビューを完了する
-- [ ] Coordinatorだけを再署名し、修復継続、Recovery Matrixおよび4経路E2Eを行う
+- [x] Coordinatorだけを再署名し、修復継続、Recovery Matrixおよび4経路E2Eを行う
