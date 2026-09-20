@@ -1,5 +1,5 @@
-import type { ArtifactModel } from "../../../../40_Develop/crdd-domain-library/src/domain/artifact/index.ts";
-import type { ArtifactGraph } from "../../../../40_Develop/crdd-domain-library/src/domain/relation/index.ts";
+import type { ArtifactModel } from "../../../crdd-domain-library/src/domain/artifact/index.ts";
+import type { ArtifactGraph } from "../../../crdd-domain-library/src/domain/relation/index.ts";
 import type { FindingSink } from "./finding-model.ts";
 
 export const checkerStages = [

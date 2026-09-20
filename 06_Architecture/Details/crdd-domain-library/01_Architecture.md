@@ -15,7 +15,7 @@
 
 本設計は既存Architecture定義の意味を変更しない。`template/tools/internal/`に同居していた能力のOwner、公開入口および依存方向を整理し、段階移行の完了状態を記録する。
 
-Relation状態は、この領域が担当する責務断面に対する状態である。Phase 2ではCommon Result、Reality Traceability、Semantic Coverage、Repository Observation、Semantic Publisherおよび既知Consumerを`40_Develop`の公開入口へ移行し、旧deep importを0にした。Phase 3ではArtifact、Markdown Parser、SchemaおよびRelation Graphを公開Domainへ移し、Checker Finding変換をChecker Adapterへ分離して独立レビューまで完了した。Phase 4ではVersion Controlの配布複製を廃止して同じ基準版Rootの公開入口へConsumerを統合し、検証を進めている。Checker全体、launcher薄型化および配布Consumerは後続Phaseなので、全体状態は`Partial`を維持する。
+Relation状態は、この領域が担当する責務断面に対する状態である。Phase 2ではCommon Result、Reality Traceability、Semantic Coverage、Repository Observation、Semantic Publisherおよび既知Consumerを`40_Develop`の公開入口へ移行し、旧deep importを0にした。Phase 3ではArtifact、Markdown Parser、SchemaおよびRelation Graphを公開Domainへ移し、Checker Finding変換をChecker Adapterへ分離して独立レビューまで完了した。Phase 4ではVersion Controlの配布複製を廃止して同じ基準版Rootの公開入口へConsumerを統合し、独立レビューまで完了した。Phase 5ではChecker固有のPipeline、Finding、Rule RegistryおよびProfile Ruleを`40_Develop/checker/src/internal`へ移し、独立レビューまで完了した。launcher薄型化および配布Consumerは後続Phaseなので、全体状態は`Partial`を維持する。
 
 ## 詳細成果物の適用判断
 
@@ -64,14 +64,14 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 ## 現行実装との照合
 
-本書は現行SourceのDirectoryを目標構造として追認しない。`template/tools/internal/`の23 Moduleと、直下／配下の7 Entryの合計30件を移行対象の棚卸し入力として全数分類し、独立レビュー後の物理移動で`Covered`、`Partial`、`Legacy`または`Implementation Detail`を再評価する。実装・試験との適合判定は後続Reality Auditで行う。
+本書は移行開始時のSource Directoryを目標構造として追認しない。移行開始時の`template/tools/internal/`にあった23 Moduleと、直下／配下の7 Entryの合計30件を棚卸し入力として全数分類した。Phase 2からPhase 5でDomain、Repository、Version ControlおよびChecker固有Moduleは各Ownerへ移行済みであり、現在残るのはPhase 6のlauncher薄型化と設定配置、Phase 7以降の署名対象Artifact移行および旧Path削除である。実装・試験との適合判定は後続Reality Auditで行う。
 
-## 1. 現在の問題
+## 1. 移行開始時の問題
 
-`internal`は「公開Toolではない実装詳細」を表すために導入された。しかし現在は、Checker固有処理だけでなく、Reality Traceability、Semantic Coverage、Artifact Model、Relation Engine、Repository観測およびVersion Control Adapterを含む。
+`internal`は「公開Toolではない実装詳細」を表すために導入された。しかし移行開始時は、Checker固有処理だけでなく、Reality Traceability、Semantic Coverage、Artifact Model、Relation Engine、Repository観測およびVersion Control Adapterを含んでいた。
 
 ```text
-現在
+移行開始時
 ────────────────────────────────────────
 template/tools/internal/
   ├ checker/
@@ -91,7 +91,7 @@ template/tools/internal/
   将来Workbench ┘
 ```
 
-このままでは、将来のMCP／WorkbenchがChecker内部Fileを直接importするか、同じ能力を再実装する。`internal`を`core`へ一括改名しても、Checker固有型への逆依存は解消しない。
+この構造のままでは、将来のMCP／WorkbenchがChecker内部Fileを直接importするか、同じ能力を再実装する。`internal`を`core`へ一括改名しても、Checker固有型への逆依存は解消しない。
 
 ## 2. 目標Component
 

@@ -4,12 +4,12 @@ import {
   type ArtifactSource,
   parseMarkdownArtifact,
   validateArtifactSchema,
-} from "../../../../40_Develop/crdd-domain-library/src/domain/artifact/index.ts";
+} from "../../../crdd-domain-library/src/domain/artifact/index.ts";
 import {
   type ArtifactGraph,
   buildArtifactGraph,
-} from "../../../../40_Develop/crdd-domain-library/src/domain/relation/index.ts";
-import { mapArtifactDomainIssueToCheckerFinding } from "../../../../40_Develop/checker/src/internal/adapters/artifact-relation.ts";
+} from "../../../crdd-domain-library/src/domain/relation/index.ts";
+import { mapArtifactDomainIssueToCheckerFinding } from "./adapters/artifact-relation.ts";
 import {
   createFindingCollector,
   type CheckerFinding,

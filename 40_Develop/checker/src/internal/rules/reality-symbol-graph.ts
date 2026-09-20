@@ -1,9 +1,9 @@
 import {
   createRealitySymbolGraph,
   discoverRealitySymbolManifests,
-} from "../../../../../40_Develop/checker/src/internal/adapters/reality-traceability.ts";
-import { readRegisteredRealityTests } from "../../../../../40_Develop/checker/src/internal/adapters/reality-test-catalog.ts";
-import { verifyRepositoryRoot } from "../../../../../40_Develop/version-control/src/index.ts";
+} from "../adapters/reality-traceability.ts";
+import { readRegisteredRealityTests } from "../adapters/reality-test-catalog.ts";
+import { verifyRepositoryRoot } from "../../../../version-control/src/index.ts";
 import type { CheckerRule } from "../rule-registry.ts";
 
 export function realitySymbolGraphRule(repositoryRoot: string): CheckerRule {

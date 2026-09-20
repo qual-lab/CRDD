@@ -8,8 +8,8 @@ import path from "node:path";
 import test, { after } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { runCheckerPipeline } from "../../../../template/tools/internal/checker/checker-pipeline.ts";
-import { RuleRegistry } from "../../../../template/tools/internal/checker/rule-registry.ts";
+import { runCheckerPipeline } from "../../src/internal/checker-pipeline.ts";
+import { RuleRegistry } from "../../src/internal/rule-registry.ts";
 import { mapArtifactDomainIssueToCheckerFinding } from "../../src/internal/adapters/artifact-relation.ts";
 
 const testEntry = process.argv[1];
@@ -23,6 +23,43 @@ const checker = path.join(repositoryRoot, "template", "tools", "crdd-check.ts");
 const faultInjector = pathToFileURL(
   path.join(checkerRoot, "fault-injector.ts"),
 ).href;
+
+test("Checker固有Moduleは40_Develop/checkerだけが所有する", () => {
+  const expectedModules = [
+    "src/internal/checker-pipeline.ts",
+    "src/internal/finding-model.ts",
+    "src/internal/rule-registry.ts",
+    "src/internal/rules/current-profile.ts",
+    "src/internal/rules/quality-design-state.ts",
+    "src/internal/rules/reality-symbol-graph.ts",
+  ] as const;
+  for (const modulePath of expectedModules)
+    assert.equal(
+      fs.statSync(path.join(checkerRoot, modulePath)).isFile(),
+      true,
+      modulePath,
+    );
+  assert.equal(
+    fs.existsSync(
+      path.join(repositoryRoot, "template", "tools", "internal", "checker"),
+    ),
+    false,
+  );
+  const launcher = fs.readFileSync(checker, "utf8");
+  assert.equal(launcher.includes("./internal/checker/"), false);
+  for (const modulePath of expectedModules.filter(
+    (candidate) => candidate !== "src/internal/finding-model.ts",
+  ))
+    assert.match(
+      launcher,
+      new RegExp(
+        modulePath
+          .replace("src/", "40_Develop/checker/src/")
+          .replaceAll("/", "[/\\\\]"),
+        "u",
+      ),
+    );
+});
 
 test("Checker PipelineはMarkdownをArtifact Modelへ変換し固定順のRuleを実行する", () => {
   const registry = new RuleRegistry();
@@ -9536,11 +9573,6 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     fs.readFileSync(checker, "utf8"),
   );
   fs.cpSync(
-    path.join(repositoryRoot, "template", "tools", "internal", "checker"),
-    path.join(source, "template", "tools", "internal", "checker"),
-    { recursive: true },
-  );
-  fs.cpSync(
     path.join(repositoryRoot, "40_Develop", "checker", "src"),
     path.join(source, "40_Develop", "checker", "src"),
     { recursive: true },
@@ -9553,17 +9585,6 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
   fs.cpSync(
     path.join(repositoryRoot, "40_Develop", "version-control", "src"),
     path.join(source, "40_Develop", "version-control", "src"),
-    { recursive: true },
-  );
-  fs.cpSync(
-    path.join(
-      repositoryRoot,
-      "template",
-      "tools",
-      "internal",
-      "reality-traceability",
-    ),
-    path.join(source, "template", "tools", "internal", "reality-traceability"),
     { recursive: true },
   );
   assert.equal(

@@ -19,11 +19,11 @@ import {
   readFixedSnapshotText,
   resolveRevisionIdentity,
 } from "../../40_Develop/version-control/src/index.ts";
-import { runCheckerPipeline } from "./internal/checker/checker-pipeline.ts";
-import { RuleRegistry } from "./internal/checker/rule-registry.ts";
-import { qualityDesignCanonicalStateRule } from "./internal/checker/rules/quality-design-state.ts";
-import { currentProfileRules } from "./internal/checker/rules/current-profile.ts";
-import { realitySymbolGraphRule } from "./internal/checker/rules/reality-symbol-graph.ts";
+import { runCheckerPipeline } from "../../40_Develop/checker/src/internal/checker-pipeline.ts";
+import { RuleRegistry } from "../../40_Develop/checker/src/internal/rule-registry.ts";
+import { qualityDesignCanonicalStateRule } from "../../40_Develop/checker/src/internal/rules/quality-design-state.ts";
+import { currentProfileRules } from "../../40_Develop/checker/src/internal/rules/current-profile.ts";
+import { realitySymbolGraphRule } from "../../40_Develop/checker/src/internal/rules/reality-symbol-graph.ts";
 
 type Finding = Readonly<{
   severity: string;

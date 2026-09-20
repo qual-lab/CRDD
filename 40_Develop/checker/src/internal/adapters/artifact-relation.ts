@@ -1,5 +1,5 @@
 import type { DomainIssue } from "../../../../crdd-domain-library/src/domain/result/index.ts";
-import type { CheckerFinding } from "../../../../../template/tools/internal/checker/finding-model.ts";
+import type { CheckerFinding } from "../finding-model.ts";
 
 function stringDetail(issue: DomainIssue, name: string): string {
   const value = issue.details[name];

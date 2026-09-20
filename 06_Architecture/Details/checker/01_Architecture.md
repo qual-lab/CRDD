@@ -73,7 +73,7 @@ Checkerは、CRDD文書の構造、版、識別子、リンク、アンカー、
 
 ## 2. 実装正本と配布入口
 
-> **移行設計:** 現在`template/tools`が実装本体も所有している。[CRDD Domain Libraryの責務境界](../crdd-domain-library/01_Architecture.md)で全Moduleを分類し、目標状態は`40_Develop/checker`をChecker実装正本、`template/tools`を薄い起動入口と設定配置にする。独立レビューと人間への設計提示が終わるまで現行Pathを維持する。
+> **段階移行:** Checker固有のPipeline、Finding、Rule RegistryおよびProfile Ruleは`40_Develop/checker/src/internal`へ移行した。`template/tools/crdd-check.ts`はPhase 6まで実装本体を含む一時Consumerであり、薄い起動入口と設定配置への移行完了をまだ意味しない。
 
 | 部品 | 責務 | この分離の理由 |
 |---|---|---|
@@ -89,7 +89,7 @@ Checkerは、CRDD文書の構造、版、識別子、リンク、アンカー、
 
 ### 内部ブロック
 
-Checkerは一つの配布入口から開始するが、検査基盤は`internal/checker`へ分離する。現行Profileのうち、Rule登録とQuality状態検査は分離済みであり、工程別の検査本体は挙動保存を優先して配布入口から段階移行する。callbackで登録しただけの工程別検査を、責務分離完了とは扱わない。
+Checkerは一つの配布入口から開始するが、検査基盤は`40_Develop/checker/src/internal`へ分離する。Pipeline、Finding、Rule RegistryおよびProfile RuleはCheckerが所有する。工程別検査本体は挙動保存を優先して配布入口から段階移行する。callbackで登録しただけの工程別検査を、責務分離完了とは扱わない。
 
 ```text
 配布入口 [template/tools/crdd-check.ts]
@@ -123,8 +123,8 @@ Checkerは一つの配布入口から開始するが、検査基盤は`internal/
        指摘・未確認・範囲の集計 → stdout／終了値
 
 現行Profile移行境界
-  ├ 分離済み: Rule Registry、Quality状態Rule
-  └ 移行中  : 工程別検査本体
+  ├ Checker所有: Pipeline、Finding、Rule Registry、Profile Rule
+  └ Phase 6    : 工程別検査本体とCLI報告を配布入口から移す
                （Registry callback経由。挙動固定後にProfile moduleへ移す）
 
 開発試験入口 [test-runner.ts]
