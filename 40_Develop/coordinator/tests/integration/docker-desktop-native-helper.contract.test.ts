@@ -4,8 +4,8 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import test from "node:test";
 import { describeDockerDesktopCurrentArtifactTrustContract } from "../../src/security/docker-desktop-current-artifact-trust.ts";
-import { describeDockerDesktopRepairNativeHelperContract } from "../../src/security/docker-desktop-repair-native-helper.ts";
-import { createDockerDesktopRepairNativeHelperLifecycle } from "../../src/security/docker-desktop-repair-native-helper-lifecycle-internal.ts";
+import { describeDockerDesktopRepairNativeHelperContract } from "../../src/security/docker-desktop-repair-native-process.ts";
+import { createDockerDesktopRepairNativeHelperLifecycle } from "../../src/security/docker-desktop-repair-native-process-lifecycle.ts";
 
 for (const status of ["N", "T", "P", "X"] as const) {
   test(`restart S distinguishes command outcome ${status} from Docker completion`, async () => {
@@ -185,7 +185,7 @@ test("現在の障害修復と再起動はDocker更新を許容し操作中の�
   assert.equal(contract.sameIdentityAndHashRequiredWithinOperation, true);
   const adapter = fs.readFileSync(
     new URL(
-      "../../src/security/docker-desktop-repair-native-helper.ts",
+      "../../src/security/docker-desktop-repair-native-process.ts",
       import.meta.url,
     ),
     "utf8",

@@ -85,6 +85,203 @@ const sourceOwnershipRoots = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "version-control"),
   path.join(repositoryRoot, "template", "tools"),
 ]);
+type PublicIndexProfile = Readonly<{
+  relativePath: string;
+  expectedTrace: string;
+  requiredTags: readonly string[];
+  exportedModules: readonly string[];
+  namespaceExports?: Readonly<Record<string, string>>;
+}>;
+const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
+  {
+    relativePath: "40_Develop/artifact-signing/src/index.ts",
+    expectedTrace: "ARCH-000014",
+    requiredTags: ["boundary", "security"],
+    exportedModules: ["./private-key-signing.ts", "./terminal-secret-input.ts"],
+  },
+  {
+    relativePath: "40_Develop/checker/src/index.ts",
+    expectedTrace: "ARCH-000001",
+    requiredTags: ["boundary"],
+    exportedModules: [
+      "./application/checker-command.ts",
+      "./findings/finding-model.ts",
+    ],
+  },
+  {
+    relativePath: "40_Develop/coordinator/src/index.ts",
+    expectedTrace: "ARCH-000004",
+    requiredTags: ["boundary", "effect", "security"],
+    exportedModules: [
+      "./composition/project-runtime-public-adapter.ts",
+      "./core/node-runtime-version.ts",
+    ],
+  },
+  {
+    relativePath: "40_Develop/crdd-domain-library/src/index.ts",
+    expectedTrace: "ARCH-000008",
+    requiredTags: ["boundary"],
+    exportedModules: [
+      "./artifact/index.ts",
+      "./outcome.ts",
+      "./reality-traceability/index.ts",
+      "./repository-observation/index.ts",
+    ],
+    namespaceExports: {
+      artifact: "./artifact/index.ts",
+      realityTraceability: "./reality-traceability/index.ts",
+      repositoryObservation: "./repository-observation/index.ts",
+    },
+  },
+  {
+    relativePath: "40_Develop/crdd-domain-library/src/artifact/index.ts",
+    expectedTrace: "ARCH-000008",
+    requiredTags: [],
+    exportedModules: [
+      "./artifact-graph.ts",
+      "./artifact-model.ts",
+      "./markdown-artifact-parser.ts",
+      "./schema-validator.ts",
+    ],
+  },
+  {
+    relativePath:
+      "40_Develop/crdd-domain-library/src/reality-traceability/index.ts",
+    expectedTrace: "ARCH-000008",
+    requiredTags: [],
+    exportedModules: [
+      "./symbol-discovery.ts",
+      "./symbol-graph.ts",
+      "./symbol-manifest-model.ts",
+      "./symbol-manifest-validator.ts",
+    ],
+  },
+  {
+    relativePath:
+      "40_Develop/crdd-domain-library/src/repository-observation/index.ts",
+    expectedTrace: "ARCH-000008",
+    requiredTags: ["boundary"],
+    exportedModules: ["./reality-symbol-repository-observer.ts"],
+  },
+  {
+    relativePath: "40_Develop/execution-intelligence/src/index.ts",
+    expectedTrace: "ARCH-000007",
+    requiredTags: ["boundary", "effect"],
+    exportedModules: [
+      "./application/execution-intelligence-recorder.ts",
+      "./core/bounded-integrated-result-evaluation.ts",
+      "./core/execution-intelligence.ts",
+      "./store/execution-intelligence-store.ts",
+      "./store/verified-repository-root.ts",
+    ],
+  },
+  {
+    relativePath: "40_Develop/mcp/src/index.ts",
+    expectedTrace: "ARCH-000012",
+    requiredTags: ["boundary", "concurrency", "effect", "security"],
+    exportedModules: [
+      "./adapters/project-runtime-adapter.ts",
+      "./protocol/project-runtime-protocol.ts",
+      "./transports/process-signal-shutdown.ts",
+      "./transports/stdio-transport.ts",
+      "./transports/streamable-http-transport.ts",
+    ],
+  },
+  {
+    relativePath: "40_Develop/project-runtime/src/index.ts",
+    expectedTrace: "ARCH-000004",
+    requiredTags: ["boundary", "concurrency", "effect", "security"],
+    exportedModules: [
+      "./application/project-runtime-execution.ts",
+      "./application/project-runtime-human-decision.ts",
+      "./application/project-runtime-integration.ts",
+      "./application/project-runtime-objective-application.ts",
+      "./application/project-runtime-objective-intake.ts",
+      "./application/project-runtime-replanning.ts",
+      "./application/project-runtime-state-query.ts",
+      "./core/project-runtime-queue.ts",
+      "./core/project-runtime-state.ts",
+      "./ports/candidate-port.ts",
+      "./ports/clock-identity-port.ts",
+      "./ports/decision-capability-port.ts",
+      "./ports/decision-port.ts",
+      "./ports/execution-authorization-port.ts",
+      "./ports/execution-observation-port.ts",
+      "./ports/execution-port.ts",
+      "./ports/integration-record-port.ts",
+      "./ports/lease-port.ts",
+      "./ports/platform-contract.ts",
+      "./ports/port-result.ts",
+      "./ports/process-safety-port.ts",
+      "./ports/state-port.ts",
+      "./ports/task-recovery-port.ts",
+      "./public-contract/decision-request.ts",
+      "./public-contract/integration-result.ts",
+      "./public-contract/objective-request.ts",
+      "./public-contract/project-state-query.ts",
+      "./public-contract/runtime-result.ts",
+    ],
+  },
+  {
+    relativePath: "40_Develop/runtime-data/src/index.ts",
+    expectedTrace: "ARCH-000011",
+    requiredTags: ["boundary", "concurrency", "effect"],
+    exportedModules: [
+      "./core/runtime-data-contract.ts",
+      "./platform/runtime-data-path-resolver.ts",
+      "./store/temporary-operation-store.ts",
+    ],
+  },
+  {
+    relativePath: "40_Develop/semantic-coverage/src/index.ts",
+    expectedTrace: "ARCH-000008",
+    requiredTags: ["boundary", "concurrency", "effect", "security"],
+    exportedModules: [
+      "./application/semantic-bundle.ts",
+      "./application/semantic-coverage.ts",
+      "./compilation/index.ts",
+      "./coverage/index.ts",
+      "./infrastructure/filesystem-semantic-bundle-publisher.ts",
+    ],
+  },
+  {
+    relativePath: "40_Develop/verification-runner/src/index.ts",
+    expectedTrace: "ARCH-000003",
+    requiredTags: ["boundary", "effect"],
+    exportedModules: ["./application/regression-runner.ts"],
+  },
+  {
+    relativePath: "40_Develop/version-control/src/index.ts",
+    expectedTrace: "ARCH-000002",
+    requiredTags: ["boundary", "effect"],
+    exportedModules: [
+      "./fixed-revision.ts",
+      "./fixed-snapshot.ts",
+      "./git/checker-repository-observation-adapter.ts",
+      "./git/fixed-revision-adapter.ts",
+      "./git/fixed-snapshot-adapter.ts",
+      "./git/local-change-set-adapter.ts",
+      "./git/repository-layout-adapter.ts",
+      "./git/repository-local-ignore-adapter.ts",
+      "./local-change-set.ts",
+      "./repository-local-ignore.ts",
+      "./repository-location.ts",
+      "./repository-revision.ts",
+    ],
+  },
+  {
+    relativePath: "40_Develop/version-control/src/checker-observation/index.ts",
+    expectedTrace: "ARCH-000002",
+    requiredTags: ["boundary"],
+    exportedModules: ["../git/checker-repository-observation-adapter.ts"],
+  },
+  {
+    relativePath: "40_Develop/version-control/src/repository-identity/index.ts",
+    expectedTrace: "ARCH-000002",
+    requiredTags: ["boundary"],
+    exportedModules: ["../repository-location.ts"],
+  },
+]);
 const projectConfigs = Object.freeze([
   path.join(checkerRoot, "tsconfig.json"),
   path.join(checkerRoot, "template-tools-tsconfig.json"),
@@ -244,6 +441,8 @@ const STANDALONE_COLLECTIVE_NAME = /^evidence$/u;
 const TEST_FILE =
   /^([a-z0-9]+(?:-[a-z0-9]+)*)\.(unit|contract|integration|boundary|golden|current)\.test\.ts$/u;
 const TYPESCRIPT_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.ts$/u;
+const AMBIGUOUS_SOURCE_FILE = /(?:^|-)(?:utils?|helper|common|manager)\.ts$/u;
+const BARE_TYPES_SOURCE_FILE = /^types\.ts$/u;
 const RUST_FILE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*\.rs$/u;
 const MARKDOWN_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.md$/u;
 const JSON_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.json$/u;
@@ -355,6 +554,70 @@ function collectFiles(root: string): string[] {
     files.push(target);
   }
   return files;
+}
+
+function collectPublicIndexFiles(): readonly string[] {
+  return PUBLIC_INDEX_PROFILES.map((profile) =>
+    path.join(repositoryRoot, ...profile.relativePath.split("/")),
+  );
+}
+
+function assertPublicIndexContract(
+  file: string,
+  profile: PublicIndexProfile,
+): void {
+  const source = fs.readFileSync(file, "utf8");
+  const header = source.match(/^\/\*\*[\s\S]*?\*\//u)?.[0] ?? "";
+  assert.match(
+    header,
+    /@packageDocumentation\b/u,
+    `package documentation: ${file}`,
+  );
+  assert.match(
+    header,
+    /@responsibility\s+\S/u,
+    `package responsibility: ${file}`,
+  );
+  const traceValues = [
+    ...header.matchAll(/^\s*\*\s+@trace\s+(\S(?:.*\S)?)\s*$/gmu),
+  ].map((match) => match[1] ?? "");
+  assert.deepEqual(
+    traceValues,
+    [profile.expectedTrace],
+    `package trace contract: ${file}`,
+  );
+  for (const requiredTag of profile.requiredTags)
+    assert.match(
+      header,
+      new RegExp(`@${requiredTag}\\s+\\S`, "u"),
+      `package ${requiredTag}: ${file}`,
+    );
+  assert.doesNotMatch(
+    source,
+    /^export\s+\*\s+from\s+/gmu,
+    `public index must use an explicit export allowlist: ${file}`,
+  );
+  const exportDeclarations = [
+    ...source.matchAll(
+      /export\s+(?:type\s+)?(?:\{[\s\S]*?\}|\*\s+as\s+[A-Za-z][A-Za-z0-9]*)\s+from\s+["']([^"']+)["']/gu,
+    ),
+  ];
+  const exportedModulePaths = exportDeclarations.map((match) => match[1] ?? "");
+  assert.deepEqual(
+    [...new Set(exportedModulePaths)].sort(),
+    [...profile.exportedModules].sort(),
+    `public export module allowlist: ${file}`,
+  );
+  const namespaceExports = [
+    ...source.matchAll(
+      /^export\s+\*\s+as\s+([A-Za-z][A-Za-z0-9]*)\s+from\s+["']([^"']+)["']/gmu,
+    ),
+  ].map((match) => [match[1] ?? "", match[2] ?? ""] as const);
+  assert.deepEqual(
+    Object.fromEntries(namespaceExports),
+    profile.namespaceExports ?? {},
+    `namespace export contract: ${file}`,
+  );
 }
 
 function assertSourceDirectoryPath(directory: string): void {
@@ -474,6 +737,16 @@ function assertFileName(file: string): void {
   }
   if (name.endsWith(".ts")) {
     assert.match(name, TYPESCRIPT_FILE, `TypeScript filename: ${file}`);
+    assert.doesNotMatch(
+      name,
+      AMBIGUOUS_SOURCE_FILE,
+      `TypeScript filename must express its owned responsibility: ${file}`,
+    );
+    assert.doesNotMatch(
+      name,
+      BARE_TYPES_SOURCE_FILE,
+      `TypeScript type collection must include its responsibility: ${file}`,
+    );
     return;
   }
   if (name.endsWith(".rs")) {
@@ -1784,6 +2057,173 @@ test("40_Develop配下のREADMEを拒否し、説明の正本分離を維持す�
   assert.doesNotThrow(() =>
     assertFileName(path.join(repositoryRoot, "README.md")),
   );
+});
+
+test("Source Fileは曖昧な責務名と裸のtypesを使用しない", () => {
+  for (const validName of [
+    "runtime-state-model.ts",
+    "provider-types.ts",
+    "runtime-state-store.ts",
+    "provider-selection-policy.ts",
+    "git-adapter.ts",
+    "runtime-context-factory.ts",
+    "checker-pipeline.ts",
+    "semantic-coverage.ts",
+  ])
+    assert.doesNotThrow(() =>
+      assertFileName(
+        path.join(repositoryRoot, "40_Develop", "sample", "src", validName),
+      ),
+    );
+  for (const invalidName of [
+    "types.ts",
+    "runtime-utils.ts",
+    "runtime-helper.ts",
+    "runtime-common.ts",
+    "runtime-manager.ts",
+  ])
+    assert.throws(
+      () =>
+        assertFileName(
+          path.join(repositoryRoot, "40_Develop", "sample", "src", invalidName),
+        ),
+      /must express its owned responsibility|must include its responsibility/u,
+    );
+});
+
+test("公開indexは設計由来の説明と明示的なExport Allowlistを持つ", () => {
+  const publicIndexes = collectPublicIndexFiles()
+    .map((file) =>
+      path.relative(repositoryRoot, file).replaceAll(path.sep, "/"),
+    )
+    .sort();
+  const declaredIndexes = PUBLIC_INDEX_PROFILES.map(
+    (profile) => profile.relativePath,
+  ).sort();
+  assert.deepEqual(publicIndexes, declaredIndexes, "public index population");
+  for (const profile of PUBLIC_INDEX_PROFILES)
+    assertPublicIndexContract(
+      path.join(repositoryRoot, ...profile.relativePath.split("/")),
+      profile,
+    );
+
+  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-index-"));
+  try {
+    const invalidIndex = path.join(temporaryRoot, "index.ts");
+    fs.writeFileSync(
+      invalidIndex,
+      `/**\n * Public boundary.\n * @packageDocumentation\n * @responsibility Example boundary.\n * @trace ARCH-000001\n */\nexport * from "./implementation.ts";\n`,
+      "utf8",
+    );
+    assert.throws(
+      () =>
+        assertPublicIndexContract(invalidIndex, {
+          relativePath: "index.ts",
+          expectedTrace: "ARCH-000001",
+          requiredTags: [],
+          exportedModules: ["./implementation.ts"],
+        }),
+      /explicit export allowlist/u,
+    );
+    fs.writeFileSync(
+      invalidIndex,
+      'export { value } from "./value.ts";\n',
+      "utf8",
+    );
+    assert.throws(
+      () =>
+        assertPublicIndexContract(invalidIndex, {
+          relativePath: "index.ts",
+          expectedTrace: "ARCH-000001",
+          requiredTags: [],
+          exportedModules: ["./value.ts"],
+        }),
+      /package documentation/u,
+    );
+    fs.writeFileSync(
+      invalidIndex,
+      `/**\n * Boundary.\n * @packageDocumentation\n * @responsibility Boundary.\n * @trace ARCH-999999\n */\nexport { value } from "./value.ts";\n`,
+      "utf8",
+    );
+    assert.throws(
+      () =>
+        assertPublicIndexContract(invalidIndex, {
+          relativePath: "index.ts",
+          expectedTrace: "ARCH-000001",
+          requiredTags: [],
+          exportedModules: ["./value.ts"],
+        }),
+      /package trace/u,
+    );
+    for (const invalidTrace of [
+      "ARCH-000001-extra",
+      "ARCH-000001 ARCH-999999",
+    ]) {
+      fs.writeFileSync(
+        invalidIndex,
+        `/**\n * Boundary.\n * @packageDocumentation\n * @responsibility Boundary.\n * @trace ${invalidTrace}\n */\nexport { value } from "./value.ts";\n`,
+        "utf8",
+      );
+      assert.throws(
+        () =>
+          assertPublicIndexContract(invalidIndex, {
+            relativePath: "index.ts",
+            expectedTrace: "ARCH-000001",
+            requiredTags: [],
+            exportedModules: ["./value.ts"],
+          }),
+        /package trace contract/u,
+      );
+    }
+    fs.writeFileSync(
+      invalidIndex,
+      `/**\n * Boundary.\n * @packageDocumentation\n * @responsibility Boundary.\n * @trace ARCH-000001\n */\nexport { value } from "./security/private.ts";\n`,
+      "utf8",
+    );
+    assert.throws(
+      () =>
+        assertPublicIndexContract(invalidIndex, {
+          relativePath: "index.ts",
+          expectedTrace: "ARCH-000001",
+          requiredTags: [],
+          exportedModules: ["./value.ts"],
+        }),
+      /public export module allowlist/u,
+    );
+    fs.writeFileSync(
+      invalidIndex,
+      `/**\n * Boundary.\n * @packageDocumentation\n * @responsibility Boundary.\n * @trace ARCH-000001\n */\nexport * as hidden from "./hidden.ts";\n`,
+      "utf8",
+    );
+    assert.throws(
+      () =>
+        assertPublicIndexContract(invalidIndex, {
+          relativePath: "index.ts",
+          expectedTrace: "ARCH-000001",
+          requiredTags: [],
+          exportedModules: ["./hidden.ts"],
+          namespaceExports: { hidden: "./expected.ts" },
+        }),
+      /namespace export contract/u,
+    );
+    fs.writeFileSync(
+      invalidIndex,
+      `/**\n * Boundary.\n * @packageDocumentation\n * @responsibility Boundary.\n * @trace ARCH-000001\n */\nexport { value } from "./value.ts";\n`,
+      "utf8",
+    );
+    assert.throws(
+      () =>
+        assertPublicIndexContract(invalidIndex, {
+          relativePath: "index.ts",
+          expectedTrace: "ARCH-000001",
+          requiredTags: ["effect"],
+          exportedModules: ["./value.ts"],
+        }),
+      /package effect/u,
+    );
+  } finally {
+    fs.rmSync(temporaryRoot, { force: true, recursive: true });
+  }
 });
 
 test("src配下は責務名を使い二階層以内に保つ", () => {

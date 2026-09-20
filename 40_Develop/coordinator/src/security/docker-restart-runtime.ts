@@ -1,5 +1,5 @@
 import { executeDockerRestart } from "../core/docker-restart-execution.ts";
-import { acquireRuntimeOwnedDockerDesktopRestartNativeHelper } from "./docker-desktop-repair-native-helper.ts";
+import { acquireRuntimeOwnedDockerDesktopRestartNativeHelper } from "./docker-desktop-repair-native-process.ts";
 import {
   commitRuntimeOwnedDockerRestartHandoff,
   persistRuntimeOwnedDockerRestartPhase,

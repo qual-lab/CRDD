@@ -178,7 +178,7 @@ v0.20.0のリリース前に、CRDD Repository内の人間可読文書を全数�
 - [`40_Develop/coordinator/src/security/codex-executor-seccomp.ts`](<../../../40_Develop/coordinator/src/security/codex-executor-seccomp.ts>)
 - [`40_Develop/coordinator/src/security/coordinator-operation-creation-internal.ts`](<../../../40_Develop/coordinator/src/security/coordinator-operation-creation-internal.ts>)
 - [`40_Develop/coordinator/src/security/coordinator-task-runtime.ts`](<../../../40_Develop/coordinator/src/security/coordinator-task-runtime.ts>)
-- [`40_Develop/coordinator/src/security/docker-desktop-repair-native-helper.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-repair-native-helper.ts>)
+- [`40_Develop/coordinator/src/security/docker-desktop-repair-native-process.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-repair-native-process.ts>)
 - [`40_Develop/coordinator/src/security/docker-desktop-repair-record-store.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-repair-record-store.ts>)
 - [`40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts>)
 - [`40_Develop/coordinator/src/security/docker-effect-runtime.ts`](<../../../40_Develop/coordinator/src/security/docker-effect-runtime.ts>)

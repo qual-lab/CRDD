@@ -1,3 +1,9 @@
+/**
+ * CRDD Artifactの解析と関係Graphを扱う公開境界。
+ * @packageDocumentation
+ * @responsibility Markdown成果物を機械可読なArtifact Modelへ変換する。
+ * @trace ARCH-000008
+ */
 export type {
   ArtifactModel,
   ArtifactRelation,

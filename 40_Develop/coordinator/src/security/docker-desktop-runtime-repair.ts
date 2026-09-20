@@ -31,7 +31,7 @@ import {
   acquireRuntimeOwnedDockerDesktopRepairNativeHelper,
   type DockerDesktopRepairNativeHelperOutcome,
   type DockerDesktopRepairNativeHelperSession,
-} from "./docker-desktop-repair-native-helper.ts";
+} from "./docker-desktop-repair-native-process.ts";
 import {
   classifyCanonicalDockerDesktopRepairHistoricalOperation,
   classifyDockerDesktopRepairResume,

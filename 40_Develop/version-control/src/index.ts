@@ -1,3 +1,11 @@
+/**
+ * Version Control機能を差し替え可能にする公開境界。
+ * @packageDocumentation
+ * @responsibility Revision Identity、Snapshot、Repository観測をAdapter経由で提供する。
+ * @trace ARCH-000002
+ * @boundary Git実装とCRDD Domain利用側の境界。
+ * @effect 明示された操作ではRepository-local ignore設定を更新し得る。
+ */
 export {
   FIXED_REVISION_IDENTITY_CONTRACT,
   FIXED_REVISION_IDENTITY_CONTRACT_REVISION,

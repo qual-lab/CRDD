@@ -7,7 +7,7 @@ import {
   describeDockerDesktopCurrentArtifactTrustContract,
   dockerDesktopCurrentArtifactTrustPolicySha256,
 } from "./docker-desktop-current-artifact-trust.ts";
-import { createDockerDesktopRepairNativeHelperLifecycle } from "./docker-desktop-repair-native-helper-lifecycle-internal.ts";
+import { createDockerDesktopRepairNativeHelperLifecycle } from "./docker-desktop-repair-native-process-lifecycle.ts";
 import {
   beginPlatformAccessArtifactSigningObservation,
   observePlatformAccessReleaseArtifactCandidate,

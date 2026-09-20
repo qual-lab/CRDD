@@ -111,7 +111,7 @@ test("restart machineのWSL対象とDocker観測引数は閉集合で保持す�
 });
 
 test("Native repair/restart spawnは同じ署名観測所有者と閉じた引数集合を要求する", () => {
-  const sourcePath = "src/security/docker-desktop-repair-native-helper.ts";
+  const sourcePath = "src/security/docker-desktop-repair-native-process.ts";
   const source = fs.readFileSync(
     path.join(coordinatorRoot, sourcePath),
     "utf8",
@@ -580,7 +580,7 @@ test("非同期子Processは同期完了・所有保持・lifecycle移管のい�
         source.replace('child.once("spawn",', 'child.on("spawn",'),
     },
     {
-      path: "src/security/docker-desktop-repair-native-helper.ts",
+      path: "src/security/docker-desktop-repair-native-process.ts",
       mutate: (source: string) =>
         source.replace("const created =", "const ignored ="),
     },

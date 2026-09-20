@@ -239,8 +239,8 @@ v0.20の実Docker結合試験で、検証付き再起動が正常な停止・起
 - [`40_Develop/coordinator/src/security/coordinator-task-runtime.ts`](<../../../40_Develop/coordinator/src/security/coordinator-task-runtime.ts>)
 - [`40_Develop/coordinator/src/security/docker-cli-trust.ts`](<../../../40_Develop/coordinator/src/security/docker-cli-trust.ts>)
 - [`40_Develop/coordinator/src/security/docker-desktop-current-artifact-trust.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-current-artifact-trust.ts>)
-- [`40_Develop/coordinator/src/security/docker-desktop-repair-native-helper-lifecycle-internal.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-repair-native-helper-lifecycle-internal.ts>)
-- [`40_Develop/coordinator/src/security/docker-desktop-repair-native-helper.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-repair-native-helper.ts>)
+- [`40_Develop/coordinator/src/security/docker-desktop-repair-native-process-lifecycle.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-repair-native-process-lifecycle.ts>)
+- [`40_Develop/coordinator/src/security/docker-desktop-repair-native-process.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-repair-native-process.ts>)
 - `40_Develop/coordinator/src/security/docker-desktop-repair-policy.ts`（削除または旧Path）
 - [`40_Develop/coordinator/src/security/docker-desktop-repair-record-store.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-repair-record-store.ts>)
 - [`40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts>)

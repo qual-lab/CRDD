@@ -9,7 +9,7 @@ import {
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
 } from "./docker-cli-trust.ts";
-import type { DockerDesktopRestartNativeHelperOutcome } from "./docker-desktop-repair-native-helper.ts";
+import type { DockerDesktopRestartNativeHelperOutcome } from "./docker-desktop-repair-native-process.ts";
 import {
   type DockerWslState,
   observeDockerWslState,

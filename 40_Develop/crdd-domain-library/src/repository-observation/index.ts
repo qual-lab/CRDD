@@ -1,3 +1,10 @@
+/**
+ * Repository内容を副作用なしで観測する公開境界。
+ * @packageDocumentation
+ * @responsibility 検証済みRoot内のEntryとFile内容を構造化して返す。
+ * @trace ARCH-000008
+ * @boundary Version Control AdapterとDomain利用側の間の観測境界。
+ */
 export type RepositoryEntryKind =
   | "file"
   | "directory"

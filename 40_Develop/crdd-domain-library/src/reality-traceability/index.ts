@@ -1,3 +1,9 @@
+/**
+ * 実装・試験Symbolを発見して関係Graphへ接続する公開境界。
+ * @packageDocumentation
+ * @responsibility Canonicalな意味と現在の実装Realityを追跡可能にする。
+ * @trace ARCH-000008
+ */
 export {
   realitySymbolKinds,
   type LoadedRealitySymbolManifest,

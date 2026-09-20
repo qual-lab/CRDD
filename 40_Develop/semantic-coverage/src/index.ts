@@ -1,3 +1,13 @@
+/**
+ * Canonical設計からSemantic Coverageを生成する公開境界。
+ * @packageDocumentation
+ * @responsibility Semantic IR、Quality Relation、Coverage Graphを決定論的に生成する。
+ * @trace ARCH-000008
+ * @boundary 検証済みRepository入力と生成Bundle公開先のFilesystem境界。
+ * @effect 完全なSemantic Coverage Bundleを原子的に公開し得る。
+ * @concurrency 同一入力集合と一時Fileの公開Operationを一回の実行へ結合する。
+ * @security 検証済みRepository Root外の読取りと公開を拒否する。
+ */
 export {
   compileQualitySemanticRelations,
   compileSemanticIr,

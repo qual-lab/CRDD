@@ -1432,7 +1432,7 @@ const runtimeExternalProcessCallsites = Object.freeze(
       ["[", "-NoLogo"],
     ],
     [
-      "src/security/docker-desktop-repair-native-helper.ts",
+      "src/security/docker-desktop-repair-native-process.ts",
       "acquireRuntimeOwnedDockerDesktopNativeHelper",
       "spawn",
       ["executablePath"],
@@ -1738,7 +1738,7 @@ const exactExternalProcessCalls = Object.freeze(
     ],
     [
       "runtime",
-      "src/security/docker-desktop-repair-native-helper.ts",
+      "src/security/docker-desktop-repair-native-process.ts",
       "acquireRuntimeOwnedDockerDesktopNativeHelper",
       "spawn",
       1,
@@ -1879,7 +1879,7 @@ const exactAuditedFunctionFlows = Object.freeze(
     ],
     [
       "runtime",
-      "src/security/docker-desktop-repair-native-helper.ts",
+      "src/security/docker-desktop-repair-native-process.ts",
       "acquireRuntimeOwnedDockerDesktopNativeHelper",
       "cf76fcbdb58e59faf7b42ec759376e5763d51f19110ec12e99f1d5d4b526d334",
     ],
@@ -2023,7 +2023,7 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
       "0cb9a47490a153066b41d87d8b9393bfb6654e677b1f0b3887f3c1e897eb1013",
     ],
     [
-      "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopNativeHelper",
+      "src/security/docker-desktop-repair-native-process.ts\0acquireRuntimeOwnedDockerDesktopNativeHelper",
       "ab2c10133248652d19939052c86e0833034431d5c0671746f7a0c6c6f7685ff9",
     ],
     [
@@ -2152,7 +2152,7 @@ const exactAsyncProcessOwnership = Object.freeze(
       }),
     ],
     [
-      "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopNativeHelper",
+      "src/security/docker-desktop-repair-native-process.ts\0acquireRuntimeOwnedDockerDesktopNativeHelper",
       Object.freeze({
         classification: "lifecycle_transfer",
         proofs: Object.freeze([
@@ -2319,7 +2319,7 @@ const exactExecutableProvenance = Object.freeze(
         [["beginPlatformAccessArtifactSigningObservation", "("]],
       ],
       [
-        "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopNativeHelper",
+        "src/security/docker-desktop-repair-native-process.ts\0acquireRuntimeOwnedDockerDesktopNativeHelper",
         [["beginPlatformAccessArtifactSigningObservation", "("]],
       ],
       [
@@ -3067,9 +3067,9 @@ const internalLifecycleConsumers = Object.freeze(
       }),
     ],
     [
-      "src/security/docker-desktop-repair-native-helper-lifecycle-internal.ts",
+      "src/security/docker-desktop-repair-native-process-lifecycle.ts",
       Object.freeze({
-        leaf: "src/security/docker-desktop-repair-native-helper.ts",
+        leaf: "src/security/docker-desktop-repair-native-process.ts",
         calls: Object.freeze([
           Object.freeze({
             symbol: "createDockerDesktopRepairNativeHelperLifecycle",

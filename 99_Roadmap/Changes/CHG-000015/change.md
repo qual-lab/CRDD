@@ -307,7 +307,7 @@ Qual-Labの人間の決定権限者は、次を一つのRelease価値として�
 - [`40_Develop/coordinator/src/security/delegation-selection-grant-runtime.ts`](<../../../40_Develop/coordinator/src/security/delegation-selection-grant-runtime.ts>)
 - [`40_Develop/coordinator/src/security/development-measurement-constraints.ts`](<../../../40_Develop/coordinator/src/security/development-measurement-constraints.ts>)
 - [`40_Develop/coordinator/src/security/development-measurement-session.ts`](<../../../40_Develop/coordinator/src/security/development-measurement-session.ts>)
-- [`40_Develop/coordinator/src/security/docker-desktop-repair-native-helper.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-repair-native-helper.ts>)
+- [`40_Develop/coordinator/src/security/docker-desktop-repair-native-process.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-repair-native-process.ts>)
 - `40_Develop/coordinator/src/security/docker-desktop-repair-policy.ts`（削除または旧Path）
 - [`40_Develop/coordinator/src/security/docker-desktop-repair-record-store.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-repair-record-store.ts>)
 - [`40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts`](<../../../40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts>)
@@ -915,7 +915,7 @@ Qual-Labの人間の決定権限者は、次を一つのRelease価値として�
 - `tools/coordinator/src/security/delegation-selection-grant-runtime.ts`（削除または旧Path）
 - `tools/coordinator/src/security/development-measurement-constraints.ts`（削除または旧Path）
 - `tools/coordinator/src/security/development-measurement-session.ts`（削除または旧Path）
-- `tools/coordinator/src/security/docker-desktop-repair-native-helper.ts`（削除または旧Path）
+- `tools/coordinator/src/security/docker-desktop-repair-native-process.ts`（削除または旧Path）
 - `tools/coordinator/src/security/docker-desktop-repair-policy.ts`（削除または旧Path）
 - `tools/coordinator/src/security/docker-desktop-repair-record-store.ts`（削除または旧Path）
 - `tools/coordinator/src/security/docker-desktop-runtime-repair.ts`（削除または旧Path）

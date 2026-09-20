@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
-import { acquireRuntimeOwnedDockerDesktopRestartNativeHelper } from "../../src/security/docker-desktop-repair-native-helper.ts";
+import { acquireRuntimeOwnedDockerDesktopRestartNativeHelper } from "../../src/security/docker-desktop-repair-native-process.ts";
 import { createDockerRestartMachine } from "../../src/security/docker-restart-machine.ts";
 import { observePlatformAccessReleaseArtifactCandidate } from "../../src/security/platform-access-release.ts";
 import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/security/candidate-store-kernel-lock.ts";
