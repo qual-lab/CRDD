@@ -1,7 +1,7 @@
 # Claude Reviewer結果形式の安定化
 
 変更ID: `CHG-000077`
-状態: `Implementation In Progress — Real Boundary Verification Pending`
+状態: `Ready for Release Handoff`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `external_boundary_contract_correction`
@@ -63,6 +63,7 @@ Prompt、Validator、Controllerの結果分類、Architectureおよび変更台�
 - [`40_Develop/coordinator/tests/unit/provider-task-packet-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-task-packet-runtime.contract.test.ts)
 - [`40_Develop/coordinator/tests/unit/provider-task-structured-result.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-task-structured-result.contract.test.ts)
 - [`40_Develop/coordinator/tests/integration/docker-process-controller.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-process-controller.contract.test.ts)
+- [`template/tools/coordinator/coordinator-package-manifest.json`](../../../template/tools/coordinator/coordinator-package-manifest.json)
 - [`99_Roadmap/02_Changes.md`](../../02_Changes.md)
 - [`99_Roadmap/Changes/CHG-000077/change.md`](change.md)
 
@@ -75,8 +76,12 @@ Prompt、Validator、Controllerの結果分類、Architectureおよび変更台�
 | Formatter／型／Lint／Traceability | Pass | Coordinator `npm run check` |
 | Prompt／Validator局所契約 | Pass | 27/27 |
 | Docker Controller局所契約 | Pass | 90/90（Reviewer構造不正4種とcleanup未確認時のexact Recoveryを含む。Windows Process Gateは専用経路へ分離） |
-| Claude Reviewer局所実境界 | Pending | 更新候補で確認する |
-| 署名4経路E2E | Pending | 局所実境界完了後に実行する |
+| 開発E2E | Pass | 324/324 |
+| 独立再レビュー | Pass | Critical 0、Major 0、Moderate 0、Minor 0 |
+| Reviewer局所実境界 | Pass | 記録`750919c2-114a-4c9e-b8ec-c80dc715d9d4`。forward／reverse 2/2完了、cleanup確認、Recovery 0件 |
+| 署名4経路E2E | Pass | 記録`4480ca02-e4af-4cc8-b8cb-d483fd7883e2`。forward／reverse／same-codex／same-claude 4/4完了、再試行0、cleanup確認、Recovery 0件 |
+
+署名対象はCommit `e38f42af4b63c7cbbeffb20acd27f290e0568a7a`、Tree `30be26571388b373f5c7042a2e0a9f808a1c4ab3`である。Manifest専用Commitは`9d2a441322a658d7f48c3065665385ec0e1ae46d`、Package Content Rootは`6aa739caddb7171224b37d8b55e8349d1bc4352127d2203cd8c958a4d83a2f1c`、Runtime Execution Identityは`2890776c0d091e643baab8a0ea16fa3066b3a48d078ba414512dff25488036bc`である。
 
 ## Checklist
 
@@ -84,5 +89,5 @@ Prompt、Validator、Controllerの結果分類、Architectureおよび変更台�
 - [x] 過去に成立しなかったClaude Reviewer Schemaを復活させていない。
 - [x] 生Provider本文を診断へ出していない。
 - [x] 失敗時もcleanup、RecoveryおよびCanonical Effect境界を維持した。
-- [ ] Claude Reviewerの局所実境界で修正後の結果を確認した。
-- [ ] 更新署名候補で4経路E2Eを完了した。
+- [x] Claude Reviewerの局所実境界で修正後の結果を確認した。
+- [x] 更新署名候補で4経路E2Eを完了した。
