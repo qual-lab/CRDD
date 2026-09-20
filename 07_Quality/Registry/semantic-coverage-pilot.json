@@ -9,7 +9,7 @@
       "stability": "pilot",
       "subsystem": "coordinator",
       "sourceDocument": "06_Architecture/Details/coordinator/01_Architecture.md",
-      "sourceSha256": "8e613c6246a8861ae273fac1f01899c9a1bfa511f5c4b5e5170b3560c7f51259",
+      "sourceSha256": "06d27aa7ec83ae99d5b9ea73ea87ce948dae16dd446bf0d6f385e4c49319a180",
       "meanings": [
         {
           "semanticKey": "coordinator.candidate-review-boundary",
@@ -111,7 +111,7 @@
       "stability": "pilot",
       "subsystem": "project-runtime",
       "sourceDocument": "06_Architecture/Details/project-runtime/02_Detailed_Design.md",
-      "sourceSha256": "b21b0db12ee23a90f8c85dafd4a4103f893888ddc2fa963eb9225e32e56b56c6",
+      "sourceSha256": "3739fe46ced69453e33e9f15351ce5bb173f980d4d2f9a9937b6c35ba90101e8",
       "meanings": [
         {
           "semanticKey": "project-runtime.acceptance-decision-authority",
@@ -232,8 +232,10 @@
         "qualityLocalIds": [
           "QA-000005/CPR-01"
         ],
-        "testSymbolIds": [],
-        "testObservation": "unobserved"
+        "testSymbolIds": [
+          "coordinator.task-runtime-integration"
+        ],
+        "testObservation": "observed"
       },
       {
         "semanticKey": "coordinator.cleanup-before-result",
@@ -266,8 +268,10 @@
         "qualityLocalIds": [
           "QA-000006/ERB-05"
         ],
-        "testSymbolIds": [],
-        "testObservation": "unobserved"
+        "testSymbolIds": [
+          "coordinator.native-runtime-trace-integration"
+        ],
+        "testObservation": "observed"
       },
       {
         "semanticKey": "coordinator.objective-lifecycle",
@@ -281,8 +285,10 @@
         "qualityLocalIds": [
           "QA-000003/PRL-01"
         ],
-        "testSymbolIds": [],
-        "testObservation": "unobserved"
+        "testSymbolIds": [
+          "coordinator.task-runtime-integration"
+        ],
+        "testObservation": "observed"
       },
       {
         "semanticKey": "coordinator.provider-effect-authority",
@@ -297,8 +303,10 @@
         "qualityLocalIds": [
           "QA-000003/PRL-05"
         ],
-        "testSymbolIds": [],
-        "testObservation": "unobserved"
+        "testSymbolIds": [
+          "coordinator.provider-authority-unit"
+        ],
+        "testObservation": "observed"
       },
       {
         "semanticKey": "coordinator.provider-selection-boundary",
@@ -312,8 +320,10 @@
         "qualityLocalIds": [
           "QA-000006/ERB-06"
         ],
-        "testSymbolIds": [],
-        "testObservation": "unobserved"
+        "testSymbolIds": [
+          "coordinator.provider-selection-unit"
+        ],
+        "testObservation": "observed"
       },
       {
         "semanticKey": "coordinator.recovery-obligation",
@@ -329,8 +339,11 @@
         "qualityLocalIds": [
           "QA-000003/PRL-04"
         ],
-        "testSymbolIds": [],
-        "testObservation": "unobserved"
+        "testSymbolIds": [
+          "coordinator.signed-recovery-matrix-system",
+          "coordinator.task-runtime-integration"
+        ],
+        "testObservation": "observed"
       },
       {
         "semanticKey": "coordinator.runtime-trust-consumption",
@@ -351,6 +364,7 @@
           "ARCH-000005"
         ],
         "implementationSymbolIds": [
+          "project-runtime.human-decision-application",
           "project-runtime.state-core"
         ],
         "implementationObservation": "observed",
@@ -358,7 +372,9 @@
           "QA-000003/PRL-07"
         ],
         "testSymbolIds": [
-          "project-runtime.objective-intake-unit"
+          "project-runtime.human-decision-unit",
+          "project-runtime.objective-intake-unit",
+          "project-runtime.state-unit"
         ],
         "testObservation": "observed"
       },
@@ -375,8 +391,10 @@
         "qualityLocalIds": [
           "QA-000003/PRL-04"
         ],
-        "testSymbolIds": [],
-        "testObservation": "unobserved"
+        "testSymbolIds": [
+          "coordinator.project-runtime-durable-foundation-integration"
+        ],
+        "testObservation": "observed"
       },
       {
         "semanticKey": "project-runtime.execution-intelligence-read-model",
@@ -390,8 +408,10 @@
         "qualityLocalIds": [
           "QA-000004/PPR-08"
         ],
-        "testSymbolIds": [],
-        "testObservation": "unobserved"
+        "testSymbolIds": [
+          "project-runtime.execution-observation-unit"
+        ],
+        "testObservation": "observed"
       },
       {
         "semanticKey": "project-runtime.objective-task-lifecycle",
@@ -399,7 +419,9 @@
           "ARCH-000004"
         ],
         "implementationSymbolIds": [
+          "project-runtime.integration-application",
           "project-runtime.objective-application",
+          "project-runtime.replanning-application",
           "project-runtime.state-core"
         ],
         "implementationObservation": "observed",
@@ -407,7 +429,9 @@
           "QA-000003/PRL-01"
         ],
         "testSymbolIds": [
-          "project-runtime.objective-intake-unit"
+          "project-runtime.integration-application-unit",
+          "project-runtime.objective-intake-unit",
+          "project-runtime.state-unit"
         ],
         "testObservation": "observed"
       },
@@ -417,14 +441,18 @@
           "ARCH-000005"
         ],
         "implementationSymbolIds": [
-          "project-runtime.state-core"
+          "project-runtime.state-core",
+          "project-runtime.state-query-application"
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
           "QA-000004/PPR-01"
         ],
-        "testSymbolIds": [],
-        "testObservation": "unobserved"
+        "testSymbolIds": [
+          "project-runtime.state-query-unit",
+          "project-runtime.state-unit"
+        ],
+        "testObservation": "observed"
       },
       {
         "semanticKey": "project-runtime.queue-lease-lifecycle",
@@ -433,14 +461,17 @@
         ],
         "implementationSymbolIds": [
           "project-runtime.objective-application",
+          "project-runtime.queue-core",
           "project-runtime.state-core"
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
           "QA-000003/PRL-11"
         ],
-        "testSymbolIds": [],
-        "testObservation": "unobserved"
+        "testSymbolIds": [
+          "project-runtime.state-unit"
+        ],
+        "testObservation": "observed"
       },
       {
         "semanticKey": "project-runtime.recovery-obligation",
@@ -448,6 +479,7 @@
           "ARCH-000004"
         ],
         "implementationSymbolIds": [
+          "project-runtime.integration-application",
           "project-runtime.objective-application",
           "project-runtime.state-core"
         ],
@@ -455,8 +487,12 @@
         "qualityLocalIds": [
           "QA-000003/PRL-04"
         ],
-        "testSymbolIds": [],
-        "testObservation": "unobserved"
+        "testSymbolIds": [
+          "coordinator.project-runtime-durable-foundation-integration",
+          "project-runtime.integration-application-unit",
+          "project-runtime.state-unit"
+        ],
+        "testObservation": "observed"
       },
       {
         "semanticKey": "project-runtime.task-authority-narrowing",
@@ -470,8 +506,10 @@
         "qualityLocalIds": [
           "QA-000003/PRL-05"
         ],
-        "testSymbolIds": [],
-        "testObservation": "unobserved"
+        "testSymbolIds": [
+          "project-runtime.objective-intake-unit"
+        ],
+        "testObservation": "observed"
       },
       {
         "semanticKey": "project-runtime.transport-neutral-application-contract",
@@ -485,8 +523,10 @@
         "qualityLocalIds": [
           "QA-000003/PRL-12"
         ],
-        "testSymbolIds": [],
-        "testObservation": "unobserved"
+        "testSymbolIds": [
+          "project-runtime.public-contract-unit"
+        ],
+        "testObservation": "observed"
       }
     ]
   }

@@ -306,13 +306,17 @@ test("Pilot Semantic Keyを実装Symbol側のimplementsから解決する", () =
     built.graph.testSymbolIdsByMeaningKey.get(
       "project-runtime.objective-task-lifecycle",
     ),
-    ["project-runtime.objective-intake-unit"],
+    [
+      "project-runtime.integration-application-unit",
+      "project-runtime.objective-intake-unit",
+      "project-runtime.state-unit",
+    ],
   );
-  assert.equal(
-    built.graph.testSymbolIdsByMeaningKey.has(
+  assert.deepEqual(
+    built.graph.testSymbolIdsByMeaningKey.get(
       "project-runtime.queue-lease-lifecycle",
     ),
-    false,
+    ["project-runtime.state-unit"],
   );
 });
 

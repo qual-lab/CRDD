@@ -50,6 +50,57 @@
       "qaIds": ["QA-000003", "QA-000006", "QA-000010"],
       "localTestIds": ["PRL-03", "ERB-01", "AIT-10"],
       "verifies": ["coordinator.task-runtime"]
+    },
+    {
+      "symbolId": "coordinator.task-runtime-integration",
+      "kind": "test-suite",
+      "path": "tests/integration/coordinator-task-runtime.contract.test.ts",
+      "qaIds": ["QA-000003", "QA-000005"],
+      "localTestIds": ["PRL-01", "PRL-04", "CPR-01"],
+      "verifies": ["coordinator.task-runtime"]
+    },
+    {
+      "symbolId": "coordinator.native-runtime-trace-integration",
+      "kind": "test-suite",
+      "path": "tests/integration/native-runtime-trace.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-05"],
+      "verifies": ["coordinator.native-runtime-trace"]
+    },
+    {
+      "symbolId": "coordinator.provider-authority-unit",
+      "kind": "test-suite",
+      "path": "tests/unit/provider-authority-runtime.contract.test.ts",
+      "qaIds": ["QA-000003"],
+      "localTestIds": ["PRL-05"],
+      "verifies": ["coordinator.provider-authority-runtime"]
+    },
+    {
+      "symbolId": "coordinator.provider-selection-unit",
+      "kind": "test-suite",
+      "path": "tests/unit/provider-model-selection-runtime.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-06"],
+      "verifies": ["coordinator.provider-model-selection-runtime"]
+    },
+    {
+      "symbolId": "coordinator.signed-recovery-matrix-system",
+      "kind": "test-suite",
+      "path": "tests/system/signed-recovery-matrix-verification.contract.test.ts",
+      "qaIds": ["QA-000003"],
+      "localTestIds": ["PRL-04"],
+      "verifies": ["coordinator.task-runtime"]
+    },
+    {
+      "symbolId": "coordinator.project-runtime-durable-foundation-integration",
+      "kind": "test-suite",
+      "path": "tests/integration/project-runtime-durable-foundation.contract.test.ts",
+      "qaIds": ["QA-000003"],
+      "localTestIds": ["PRL-04"],
+      "verifies": [
+        "project-runtime.objective-application",
+        "project-runtime.execution"
+      ]
     }
   ]
 }

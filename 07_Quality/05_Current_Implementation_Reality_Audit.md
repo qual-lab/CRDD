@@ -1,7 +1,8 @@
 # 現行実装との照合
 
 成果物種別: Quality現実照合
-状態: Pending — Not Started
+状態: In Progress
+現在範囲: Coordinator／Project Runtime Pilot
 維持責任者: Qual-Lab
 
 ## 設計集合
@@ -55,9 +56,9 @@
 
 | 対象 | 状態 | 理由 | 次の処置 |
 |---|---|---|---|
-| 13検証目標のLocal Item | Quality Design Ready | 157件のMapping、Source ID固有条件、114 Local ItemおよびCRDD Domain Library Candidateの6検証単位とのRelationを固定した | 物理移動までは6件を`OPEN`として保持し、Reality Audit開始前にLocal Item単位の照合条件を再確認する |
-| 現行Source／Test | 未照合 | Canonical設計を固定し、既存資産を正解として採用せずに照合を開始できる状態になった | Local Item単位で照合する |
-| 実行結果／Evidence | 未評価 | v0.20.1の結果をv0.21の合格へ流用しない | 必要な試験を実行した後に結合する |
+| 13検証目標のLocal Item | Quality Design Ready | 157件のMapping、Source ID固有条件、114 Local ItemおよびCRDD Domain Library Candidateの6検証単位とのRelationを固定した | Pilotの17意味に接続したLocal Itemから照合する |
+| 現行Source／Test | Pilot初回照合済み | 17意味のうち16件を実装Symbol、Quality Local Itemおよび実試験Symbolへ接続し、1件を実装欠落として分離した | 実行不一致1件と実装欠落1件を所有変更へ返す |
+| 実行結果／Evidence | Pilot局所実行済み | Semantic Coverage 14件、Project Runtime 60件がPass。Coordinator対象223件はSandbox内でPassし、Process取消2件は通常ユーザー境界で2／2 Passした | 固定候補化後にEvidenceを対象Commitへ結合する |
 
 以前のArchitecture限定Sliceで示した`Covered 4／Partial 6／Missing 1`は、17 ARCH-IDだけを入力にした暫定対応であり、現在の157件Mappingに対する品質状態ではない。現在判定へ使用しない。
 
@@ -100,13 +101,56 @@ v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、�
 - PT／LTは人間が対象、環境、上限、費用、中止およびcleanupを明示した場合だけ実行する。
 - 現在の品質状態は本書の集計ではなく、Local Itemと最新EvidenceからQuality Centerへ投影する。
 
+## 8. Coordinator／Project Runtime Pilot
+
+照合開始の基準改訂版はCommit `3f2567bd54f00fe638bfc8ff9e7f3695fd8eba66`である。Canonical入力からSemantic Coverage Bundleを再生成し、開始時に古かったSource Hashを現在の入力へ揃えた。その後、現行Sourceと実試験を確認して不足していたSymbol Relationを是正した。Source実装を変更せず、生成BundleとRelationだけを現在の実体へ揃えている。
+
+| 意味単位 | 実装Relation | Test Relation | 現在判定 |
+|---|---|---|---|
+| `coordinator.candidate-review-boundary` | observed | observed | `Covered Candidate`: 対応Source、Local ItemおよびRuntime契約試験を局所実行で確認 |
+| `coordinator.cleanup-before-result` | observed | observed | `Covered Candidate`: Windows Process取消2条件を通常ユーザー境界で局所実行し、終了後不存在を確認 |
+| `coordinator.external-boundary-diagnostics` | observed | observed | `Covered Candidate`: Native Trace契約試験を局所実行で確認 |
+| `coordinator.objective-lifecycle` | observed | observed | `Covered Candidate`: Task Runtime契約試験を局所実行で確認 |
+| `coordinator.provider-effect-authority` | observed | observed | `Covered Candidate`: Authority契約試験を局所実行で確認 |
+| `coordinator.provider-selection-boundary` | observed | observed | `Covered Candidate`: Model Selection契約試験を局所実行で確認 |
+| `coordinator.recovery-obligation` | observed | observed | `Covered Candidate`: Runtime契約試験とRecovery Matrix契約試験を局所実行で確認 |
+| `coordinator.runtime-trust-consumption` | unobserved | unobserved | `Missing`: Trust候補の検証部品はあるが、Runtime Trust Policy activationとProvider launch結合が`not_implemented` |
+| `project-runtime.acceptance-decision-authority` | observed | observed | `Covered Candidate`: 判断ApplicationとState契約試験を局所実行で確認 |
+| `project-runtime.durable-before-effect` | observed | observed | `Covered Candidate`: Coordinator側のDurable Foundation実境界試験を局所実行で確認 |
+| `project-runtime.execution-intelligence-read-model` | observed | observed | `Covered Candidate`: Execution Observation Port契約試験を局所実行で確認 |
+| `project-runtime.objective-task-lifecycle` | observed | observed | `Covered Candidate`: Objective、State、Integrationの契約試験を局所実行で確認 |
+| `project-runtime.project-state-projection` | observed | observed | `Covered Candidate`: State QueryとState契約試験を局所実行で確認 |
+| `project-runtime.queue-lease-lifecycle` | observed | observed | `Covered Candidate`: State契約試験を局所実行で確認 |
+| `project-runtime.recovery-obligation` | observed | observed | `Covered Candidate`: State、IntegrationおよびDurable Foundation契約試験を局所実行で確認 |
+| `project-runtime.task-authority-narrowing` | observed | observed | `Covered Candidate`: Objective Intake契約試験を`PRL-05`へ接続し局所実行で確認 |
+| `project-runtime.transport-neutral-application-contract` | observed | observed | `Covered Candidate`: Public Contract契約試験を局所実行で確認 |
+
+`observed`はRelationの存在だけを示す。Source責務、反例、終了後条件、試験実行およびEvidenceが揃う前に`Covered`へ昇格しない。
+
+### 8.1 初回判定とRelation是正
+
+初回判定は`Covered 1／Partial 15／Missing 1`だった。15件の`Partial`の多くは試験不存在ではなく、実在試験とMeaning／Local Itemを結ぶTest Symbol Relation不足だった。Sourceと試験内容を確認してRelation Ownerへ追記した結果、16件は実装と試験の両Relationを持ち、残る未接続は`coordinator.runtime-trust-consumption`だけになった。
+
+`coordinator.runtime-trust-consumption`だけは単なるRelation漏れではない。Trust候補のLoader、VerifierおよびPackage Trust Coreは存在するが、現行Source自身がRuntime Trust Policy activationとProvider launch integrationを`not_implemented`として公開している。したがって、署名検証部品の存在や署名済みE2E成功から、このMeaningの成立を推定しない。
+
+### 8.2 局所実行結果
+
+| 対象 | 結果 | 判定 |
+|---|---:|---|
+| Semantic Coverage | 14／14 Pass | Relation生成と完全一致契約は成立 |
+| Project Runtime | 60／60 Pass | Pilotで接続したApplication／State／Portの局所契約は成立 |
+| Coordinator対象7試験ファイル | 223／225 Pass | Sandbox内でProcess取消2条件だけ`provider_cancellation_grace_exceeded` |
+| Windows Process取消2条件の通常ユーザー境界再実行 | 2／2 Pass | 子Process終了と終了後不存在を確認 |
+
+Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Process終了を猶予内に観測できなかった。同じ2条件を通常ユーザー境界で再実行すると2／2 Passしたため、製品回帰ではなく実行環境の不一致として分類する。Process／OS境界の成立は、必要な権限を持つ本番同等境界で確認し、Sandbox内の失敗も消さずに実行条件とともに残す。
+
 ## Checklist
 
-- OPEN: Reality Audit未開始 — Canonical Quality設計の固定後にだけReality Auditを開始した
+- [x] Canonical Quality設計の固定後にだけReality Auditを開始した
 - [x] 基準版Capabilityと過去Evidenceを比較入力として特定した
 - [x] 現行Source、TestおよびRegistryをCanonical設計の正解として扱っていない
-- OPEN: Reality Audit未開始 — 必要な検証をCovered、Partial、Missing、LegacyまたはGapへ分類した
-- OPEN: Reality Audit未開始。固定済みVersion Control義務はReality Audit開始後に現行実装へ照合する — 未Commit状態とVersion Control Adapterの交換可能性を検証対象へ含めた
-- OPEN: Reality Audit未開始 — 照合対象のRevision、実行条件および観測限界を固定した
-- OPEN: Reality Audit未開始 — 不足Test、未実行項目およびEvidence Gapを追跡した
+- [x] 必要な検証をCovered、Partial、Missing、LegacyまたはGapへ分類した
+- OPEN: Pilot後に展開 — 未Commit状態とVersion Control Adapterの交換可能性を検証対象へ含めた
+- [x] 照合対象のRevision、実行条件および観測限界を固定した
+- [x] 不足Test、未実行項目およびEvidence Gapを追跡した
 - [x] PT／LTは人間の明示指定がある場合だけ実行した
