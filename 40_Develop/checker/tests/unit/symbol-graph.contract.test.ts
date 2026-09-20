@@ -104,7 +104,7 @@ test("Subsystem-local symbol.jsonからGlobal Symbol Graphを構築する", () =
     built.graph.testsByImplementationId
       .get("checker.public-entry")
       ?.map(({ symbol }) => symbol.symbolId),
-    ["checker.contract-regression"],
+    ["checker.contract-regression", "checker.naming-contract"],
   );
 });
 

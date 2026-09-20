@@ -2,7 +2,7 @@
 
 成果物種別: Quality現実照合
 状態: In Progress
-進捗: All-subsystem Initial Classification Complete — Correction and Independent Review Pending
+進捗: Independent Review Pass — Confirmed Gaps Remain
 現在範囲: 全18 Architecture詳細設計領域
 維持責任者: Qual-Lab
 
@@ -152,23 +152,23 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 | 詳細設計領域 | 実装Owner | 局所確認 | 初回判定 | 主な不足／次の処置 |
 |---|---|---|---|---|
 | artifact-signing | `40_Develop/artifact-signing` | 5／5 Pass | Partial | `AIT-07`、`AIT-09`と実試験のRelationを確認して接続する |
-| checker | `40_Develop/checker` | Repository検査0 error／0 warning、初回350／351 Pass、命名是正後の対象試験1／1 Pass | Partial | 既存試験と8 Local ItemのRelationが不足。初回の1件はCoordinator Sourceの命名不一致11件を正しく検出した |
+| checker | `40_Develop/checker` | Repository検査0 error／0 warning、初回350／351 Pass、命名是正後の対象試験1／1 Pass | Partial | 11期待Local Itemのうち6件を接続。`AUH-06`、`RCM-03`、`RCM-04`、`RCM-07`、`RCM-10`は独立再構築、Consumer Closure、Runner lifecycle、Tool Registryの追加確認が必要 |
 | contract-migration | checker／version-control等へ分散 | 専用Runnerなし | Gap | 独立packageを要求せず、Consumer Closureと縦断移行の実Owner／Test／Evidenceを明示する |
-| coordinator | `40_Develop/coordinator` | 静的確認Pass、通常ユーザー境界のPilot取消2／2 Pass | Partial／Missing | 7 Local ItemのRelation不足。`coordinator.runtime-trust-consumption`は実装欠落。SandboxのWindows Process Gate失敗は実行環境差として保持する |
-| crdd-domain-library | `40_Develop/crdd-domain-library` | 20／20 Pass | Partial | Phase 6実装は存在するが、8期待Local ItemのうちRelationは1件。Quality Integrationの旧`OPEN`も現実へ再評価する |
+| coordinator | `40_Develop/coordinator` | 静的確認Pass、通常ユーザー境界のPilot取消2／2 Pass | Partial／Missing | 14期待Local Itemのうち12件を接続。`AIT-04`、`ERB-11`はTrust組合せと別Session handoff chainの追加確認が必要。`coordinator.runtime-trust-consumption`は実装欠落 |
+| crdd-domain-library | `40_Develop/crdd-domain-library` | 20／20 Pass | Partial | 8期待Local Itemのうち3件を接続。署名配布、文書理解、移行閉包は利用側を含む追加確認が必要 |
 | cros | なし | 未実行 | Missing | 認証、Workspace、Federation、Handoffを持つRuntime実装と10 Local Itemの接続がない |
-| execution-intelligence | `40_Develop/execution-intelligence` | 43／43 Pass | Partial | 成立済みStore能力は確認できるが、10期待Local ItemのうちRelationは2件 |
-| mcp | `40_Develop/mcp` | 32／32 Pass | Partial | Transport／Application試験は存在するが、6期待Local ItemのうちRelationは2件 |
+| execution-intelligence | `40_Develop/execution-intelligence` | 43／43 Pass | Partial | 10期待Local Itemのうち7件を接続。利用者判断2件とClock／現行性の結合確認が残る |
+| mcp | `40_Develop/mcp` | 32／32 Pass | Partial | 6期待Local Itemのうち4件を接続。Candidate Storeと四入口のEffect同等性が残る |
 | official-asset-governance | 工程／人間判断 | 専用Runnerなし | Process-owned Partial | Runtime Component非該当。5 Local Itemを判断記録、公開・撤回Evidenceおよび競合判断へ接続する |
 | platform-access | `40_Develop/platform-access` | Rust 29 Pass、8 Explicit Ignore | Partial | Process／Docker境界試験は存在するが、`PRL-03`、`ERB-02`のRelationを確認して接続する。Ignore 8件は明示実環境試験として別扱い |
 | project-operation | なし | 未実行 | Missing | Topic／Meeting lifecycleとProject Projectionの実装Owner、保存形式、5 Local Itemの接続がない |
-| project-runtime | `40_Develop/project-runtime` | 60／60 Pass | Partial | 14期待Local ItemのうちRelationは9件。受入判断、Queue、回復等の既存試験との対応を補う |
+| project-runtime | `40_Develop/project-runtime` | 60／60 Pass | Partial | 14期待Local Itemのうち9件を接続。Transport同等性、取消、判断待ち再開、受入Scenario／UATが残る |
 | quality-change-control | 保守／監査工程 | 専用Runnerなし | Process-owned Partial | 独立Runtimeは要求しない。監査集合統合、是正再入場と3 Local Itemを実レビュー／監査Evidenceへ接続する |
-| runtime-data | `40_Develop/runtime-data` | 35／35 Pass | Partial | Repository-local／CROS Rootは実装済み。6期待Local ItemのうちRelationは3件 |
+| runtime-data | `40_Develop/runtime-data` | 35／35 Pass | Partial | 6期待Local Itemのうち4件を接続。Project View分類とCredential→Session Grantを伴うCROS Root利用は別Ownerの成立が必要 |
 | runtime-trust | なし | 未実行 | Missing | Trust候補の部品はCoordinator側にあるが、Policy activationとProvider launch結合を持つOwnerがない |
 | semantic-coverage | `40_Develop/semantic-coverage` | 14／14 Pass | Covered Candidate | 期待Local Itemを全て接続。Pilot名称と全Subsystem対応は別の移行処置 |
 | verification-runner | `40_Develop/verification-runner` | 35／35 Pass | Covered Candidate | 期待Local Itemを全て接続。PT／LTは計画のみで、明示Authorityなしに実行していない |
-| version-control | `40_Develop/version-control` | 39／39 Pass | Partial | Adapter／Snapshot試験は存在するが、6期待Local ItemのうちRelationは3件 |
+| version-control | `40_Develop/version-control` | 39／39 Pass | Covered Candidate | 6期待Local Itemを全て既存試験へ接続。独立レビューで意味一致を確認する |
 
 `Process-owned Partial`は実装packageがないという理由での失敗ではない。各Local Itemに必要な判断、レビュー、公開記録または監査Evidenceが追跡できない状態である。`Missing`は現在宣言したRuntime能力に対する実装Ownerを確認できない状態である。
 
@@ -216,6 +216,35 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 5. 削除後にCoordinator／Project Runtimeの成立済みCapabilityと過去Evidenceを逆引きできる。
 
 Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生成器とConsumer移行後に先行廃止できる可能性が高い。Coordinatorは固有MeaningをDetailsへ戻すまで削除不可である。他Subsystemには旧JSONの複製を作らず、必要な機械投影を各Architecture Detailsから生成する。
+
+## 12. Relation是正結果
+
+Quality Integrationが各詳細設計領域へ割り当てる118個の`Subsystem × Local Item`を母集団にし、Test Symbolの正方向Relationを再照合した。初回37件から、既存試験の意味と一致する23件を追加し、60件を接続した。残る58件は既存試験へ名前だけで割り当てず、実装欠落、工程Evidence、手動UAT、外部境界または追加試験へ分離する。初回の独立レビューで、Checkerの`RCM-03`と`RCM-04`は実試験にConsumer Closureの刺激、反例およびOracleがないと確認されたため、Relationを削除して未接続に戻した。
+
+是正後の現在分類は`Covered Candidate` 3、`Partial` 9、`Missing` 3、`Process-owned Partial` 2、`Gap` 1である。Version Controlだけが、期待6 Relationの全接続により`Partial`から`Covered Candidate`へ進んだ。他領域は一部Relationを補っても残る義務または実装欠落があるため、判定を強めていない。
+
+| 領域 | 接続済み／期待 | 残るLocal Item |
+|---|---:|---|
+| artifact-signing | 1／3 | `AIT-07`、`AIT-09` |
+| checker | 6／11 | `AUH-06`、`RCM-03`、`RCM-04`、`RCM-07`、`RCM-10` |
+| contract-migration | 0／3 | `RCM-03`、`RCM-04`、`RCM-05` |
+| coordinator | 12／14 | `AIT-04`、`ERB-11` |
+| crdd-domain-library | 3／8 | `AIT-10`、`AUH-02`、`RCM-03`、`RCM-04`、`RCM-08` |
+| cros | 0／10 | `ERB-10`、`EST-09`、`PPR-01`、`PPR-02`、`PPR-05`、`RFD-03`、`RFD-04`、`RFD-09`、`RFD-10`、`RFD-11` |
+| execution-intelligence | 7／10 | `PPR-08`、`PPR-09`、`PPR-10` |
+| mcp | 4／6 | `CPR-01`、`EST-10` |
+| official-asset-governance | 0／5 | `OAG-01`、`OAG-02`、`OAG-03`、`OAG-05`、`OAG-06` |
+| platform-access | 3／5 | `ERB-02`、`PRL-03` |
+| project-operation | 0／5 | `CPR-05`、`PPR-01`、`PPR-02`、`PPR-05`、`PPR-06` |
+| project-runtime | 9／14 | `EST-01`、`PRL-02`、`PRL-03`、`PRL-09`、`PRL-10` |
+| quality-change-control | 0／3 | `CQS-01`、`CQS-03`、`CQS-04` |
+| runtime-data | 4／6 | `PPR-06`、`RFD-03` |
+| runtime-trust | 0／4 | `AIT-01`、`AIT-03`、`AIT-04`、`AIT-05` |
+| semantic-coverage | 2／2 | なし |
+| verification-runner | 3／3 | なし |
+| version-control | 6／6 | なし |
+
+同じLocal Itemが複数領域へ現れる場合は、各領域が所有する境界を別Relationとして数える。したがって60件は試験件数ではなく、設計領域と検証義務の接続数である。手動UATや工程判断を自動Test Symbolへ偽装せず、実Runtimeが存在しない領域もRelation追加だけで`Covered`へ変更しない。
 
 ## Checklist
 

@@ -14,7 +14,22 @@
       "kind": "test-suite",
       "path": "tests/integration/execution-intelligence-store.contract.test.ts",
       "qaIds": ["QA-000004", "QA-000012"],
-      "localTestIds": ["PPR-03", "ERP-01"],
+      "localTestIds": [
+        "PPR-03",
+        "PPR-04",
+        "ERP-01",
+        "ERP-02",
+        "ERP-03",
+        "ERP-04"
+      ],
+      "verifies": ["execution-intelligence.public-api"]
+    },
+    {
+      "symbolId": "execution-intelligence.contract-unit",
+      "kind": "test-suite",
+      "path": "tests/unit/execution-intelligence.contract.test.ts",
+      "qaIds": ["QA-000004"],
+      "localTestIds": ["PPR-04", "PPR-06"],
       "verifies": ["execution-intelligence.public-api"]
     }
   ]

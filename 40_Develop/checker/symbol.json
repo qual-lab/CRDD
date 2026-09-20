@@ -56,7 +56,13 @@
       "kind": "test-suite",
       "path": "tests/integration/crdd-check.contract.test.ts",
       "qaIds": ["QA-000001", "QA-000013"],
-      "localTestIds": ["RCM-01", "RCM-08", "AUH-02"],
+      "localTestIds": [
+        "RCM-01",
+        "RCM-02",
+        "RCM-08",
+        "AUH-02",
+        "AUH-03"
+      ],
       "verifies": [
         "checker.public-entry",
         "checker.artifact-relation-adapter",
@@ -66,6 +72,18 @@
         "checker.current-profile",
         "checker.quality-design-state-rule",
         "checker.reality-symbol-graph-rule"
+      ]
+    },
+    {
+      "symbolId": "checker.naming-contract",
+      "kind": "test-suite",
+      "path": "tests/integration/tools-naming.contract.test.ts",
+      "qaIds": ["QA-000001"],
+      "localTestIds": ["RCM-09"],
+      "verifies": [
+        "checker.public-entry",
+        "checker.pipeline",
+        "checker.rule-registry"
       ]
     }
   ]

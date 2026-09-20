@@ -22,6 +22,22 @@
       "qaIds": ["QA-000001", "QA-000004", "QA-000007"],
       "localTestIds": ["RCM-03", "PPR-09", "RFD-08"],
       "verifies": ["version-control.public-api"]
+    },
+    {
+      "symbolId": "version-control.repository-location-integration",
+      "kind": "test-suite",
+      "path": "tests/integration/repository-location.integration.test.ts",
+      "qaIds": ["QA-000007"],
+      "localTestIds": ["RFD-01", "RFD-02"],
+      "verifies": ["version-control.public-api"]
+    },
+    {
+      "symbolId": "version-control.consumer-closure-integration",
+      "kind": "test-suite",
+      "path": "tests/integration/consumer-closure.integration.test.ts",
+      "qaIds": ["QA-000001"],
+      "localTestIds": ["RCM-04"],
+      "verifies": ["version-control.public-api"]
     }
   ]
 }

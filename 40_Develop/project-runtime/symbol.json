@@ -110,7 +110,14 @@
       "kind": "test-suite",
       "path": "tests/unit/project-runtime-state.contract.test.ts",
       "qaIds": ["QA-000003", "QA-000004"],
-      "localTestIds": ["PRL-01", "PRL-04", "PRL-07", "PRL-11", "PPR-01"],
+      "localTestIds": [
+        "PRL-01",
+        "PRL-04",
+        "PRL-06",
+        "PRL-07",
+        "PRL-11",
+        "PPR-01"
+      ],
       "verifies": ["project-runtime.state-core", "project-runtime.queue-core"]
     },
     {
@@ -137,7 +144,7 @@
       "kind": "test-suite",
       "path": "tests/unit/human-decision-application.contract.test.ts",
       "qaIds": ["QA-000003"],
-      "localTestIds": ["PRL-07"],
+      "localTestIds": ["PRL-07", "PRL-08"],
       "verifies": ["project-runtime.human-decision-application"]
     },
     {

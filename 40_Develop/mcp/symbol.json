@@ -14,7 +14,15 @@
       "kind": "test-suite",
       "path": "tests/integration/transport-lifecycle.contract.test.ts",
       "qaIds": ["QA-000007", "QA-000009"],
-      "localTestIds": ["RFD-04", "EST-01"],
+      "localTestIds": ["RFD-04", "EST-01", "EST-02"],
+      "verifies": ["mcp.public-api"]
+    },
+    {
+      "symbolId": "mcp.project-runtime-adapter-unit",
+      "kind": "test-suite",
+      "path": "tests/unit/project-runtime-adapter.contract.test.ts",
+      "qaIds": ["QA-000004"],
+      "localTestIds": ["PPR-06"],
       "verifies": ["mcp.public-api"]
     }
   ]

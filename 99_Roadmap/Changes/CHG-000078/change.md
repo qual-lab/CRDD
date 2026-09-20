@@ -1,7 +1,7 @@
 # Canonical設計と現行実装のReality Audit
 
 変更ID: `CHG-000078`
-状態: `All-subsystem Initial Classification Complete — Correction and Independent Review Pending`
+状態: `Independent Review Pass — Confirmed Gaps Remain`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `quality_reality_audit`
@@ -34,7 +34,7 @@ CoordinatorとProject Runtimeの17意味で方法と判定語彙を固定した�
 | 全体展開 | 全18 Architecture詳細設計領域 | 現行SourceからのCanonical意味の逆算 |
 | 実行 | 決定論的な読取り、生成、局所試験 | PT／LT、未承認の外部Effect |
 
-Pilot入力の対象改訂版はCommit `3f2567bd54f00fe638bfc8ff9e7f3695fd8eba66`、全Subsystem初回分類の対象改訂版はCommit `54f248ff93ebbefdb82a76363d5bb33bd84d228e`とする。以後の是正は別の新しい固定候補として再照合し、各観測の対象改訂版を暗黙に差し替えない。
+Pilot入力の対象改訂版はCommit `3f2567bd54f00fe638bfc8ff9e7f3695fd8eba66`、全Subsystem初回分類の対象改訂版はCommit `54f248ff93ebbefdb82a76363d5bb33bd84d228e`、Relation是正開始時の基準改訂版はCommit `9064b315fae2bb2ad1614690b5c3aa79b0184a2e`とする。以後の是正は別の新しい固定候補として再照合し、未Commitの差分をCommit SHAとして扱わず、各観測の対象改訂版を暗黙に差し替えない。
 
 ## 3. 判定契約
 
@@ -58,8 +58,8 @@ Pilot入力の対象改訂版はCommit `3f2567bd54f00fe638bfc8ff9e7f3695fd8eba66
 | 意味と実装の照合 | Complete for Pilot | 16意味を実装Ownerへ接続し、Runtime Trust消費1件を実装欠落として分離した |
 | 意味と試験の照合 | Initial Execution Complete | 16意味を実試験へ接続し局所確認済み。Sandbox内のProcess取消失敗は通常ユーザー境界で2／2 Passし、実行環境差として分離した |
 | Evidence照合 | In Progress | 局所実行結果を記録済み。固定候補Commitと独立レビュー結果を結合する |
-| Pilot独立レビュー | Not Started | 判定、Gap、非目標および展開判断を独立確認する |
-| 全Subsystem展開 | Initial Classification Complete | 18領域を実装、Relation、試験、工程／統制OwnerおよびEvidenceで分類する |
+| Pilot独立レビュー | Complete | 判定、Gap、非目標、Relationの意味、全数集計および旧JSON廃止Gateを独立確認した |
+| 全Subsystem展開 | Independent Review Pass | 18領域を分類し、118 Relation中60件を既存試験へ接続する。残る58件を実装欠落、工程Evidence、手動UAT、外部境界または追加試験へ分離した |
 | 旧Traceability移行 | In Progress | 全Propertyの新Owner、全Consumer、同等性および廃止Gateを閉じる |
 
 ## 5. 初期観測
@@ -78,7 +78,7 @@ Pilot入力の対象改訂版はCommit `3f2567bd54f00fe638bfc8ff9e7f3695fd8eba66
 
 初回分類は`Covered 1／Partial 15／Missing 1`だった。実在するSourceと試験を確認してRelation Ownerを是正した結果、16件は実装／試験Relationへ接続された。局所実行では16件の対応試験が期待どおりPassした。Sandbox内で失敗したWindows Process取消2条件も、必要なProcess権限を持つ通常ユーザー境界では2／2 Passした。`coordinator.runtime-trust-consumption`は、Runtime Trust Policy activationとProvider launch integrationが現行Sourceで`not_implemented`と明示されている実装欠落である。
 
-全18領域の初回分類では、`Covered Candidate` 2、`Partial` 10、`Missing` 3、`Process-owned Partial` 2、`Gap` 1となった。主な横断不足は、実試験の不存在よりQuality Local ItemとTest SymbolのRelation不足である。旧2 Runtime Traceability JSONは全Subsystemへ展開せず、固有情報0、全Consumer移行、決定論的同等性、Capability保持を満たした後の廃止候補とした。
+全18領域の初回分類では、`Covered Candidate` 2、`Partial` 10、`Missing` 3、`Process-owned Partial` 2、`Gap` 1となった。既存試験との意味照合により、118個の`Subsystem × Local Item`のうち37件だった接続を60件へ是正した。初回独立レビューで根拠不足となったCheckerの`RCM-03`と`RCM-04`は未接続に戻し、残る58件はRelation記載漏れへ一律に畳まず、実装欠落、工程Evidence、手動UAT、外部境界または追加試験として保持する。旧2 Runtime Traceability JSONは全Subsystemへ展開せず、固有情報0、全Consumer移行、決定論的同等性、Capability保持を満たした後の廃止候補とした。
 
 ## 6. 局所検証
 
@@ -106,7 +106,14 @@ Pilot入力の対象改訂版はCommit `3f2567bd54f00fe638bfc8ff9e7f3695fd8eba66
 - [`40_Develop/coordinator/src/security/docker-desktop-repair-continuation-store.ts`](../../../40_Develop/coordinator/src/security/docker-desktop-repair-continuation-store.ts)
 - [`40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts`](../../../40_Develop/coordinator/src/security/docker-desktop-runtime-repair.ts)
 - [`40_Develop/coordinator/tests/integration/docker-desktop-runtime-repair.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-desktop-runtime-repair.contract.test.ts)
+- [`40_Develop/checker/symbol.json`](../../../40_Develop/checker/symbol.json)
+- [`40_Develop/checker/tests/unit/symbol-graph.contract.test.ts`](../../../40_Develop/checker/tests/unit/symbol-graph.contract.test.ts)
+- [`40_Develop/crdd-domain-library/symbol.json`](../../../40_Develop/crdd-domain-library/symbol.json)
+- [`40_Develop/execution-intelligence/symbol.json`](../../../40_Develop/execution-intelligence/symbol.json)
+- [`40_Develop/mcp/symbol.json`](../../../40_Develop/mcp/symbol.json)
 - [`40_Develop/project-runtime/symbol.json`](../../../40_Develop/project-runtime/symbol.json)
+- [`40_Develop/runtime-data/symbol.json`](../../../40_Develop/runtime-data/symbol.json)
+- [`40_Develop/version-control/symbol.json`](../../../40_Develop/version-control/symbol.json)
 - [`40_Develop/semantic-coverage/tests/unit/semantic-coverage-pilot.contract.test.ts`](../../../40_Develop/semantic-coverage/tests/unit/semantic-coverage-pilot.contract.test.ts)
 - [`99_Roadmap/01_Roadmap.md`](../../01_Roadmap.md)
 - [`99_Roadmap/02_Changes.md`](../../02_Changes.md)
@@ -127,5 +134,5 @@ Pilot入力の対象改訂版はCommit `3f2567bd54f00fe638bfc8ff9e7f3695fd8eba66
 - [ ] Pilotの独立レビューを完了する。
 - [x] 全Subsystemへ展開し、実Runtime欠落、工程／統制Owner、Relation不足およびGapを分けた。
 - [x] 旧2 Runtime Traceability JSONのProperty Ownerと廃止Gateを定義した。
-- [ ] Relation不足と命名規則不一致を是正し、更新版を再実行する。
+- [x] 既存試験と意味が一致するRelation不足および命名規則不一致を是正し、更新版を再実行した。
 - [ ] 旧2 Runtime Traceability JSONの全Consumerを新しい生成入口へ移行する。

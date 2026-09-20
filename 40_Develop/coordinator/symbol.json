@@ -38,6 +38,19 @@
       "implements": ["coordinator.external-boundary-diagnostics"]
     },
     {
+      "symbolId": "coordinator.provider-home-observation",
+      "kind": "file",
+      "path": "src/security/provider-home-observation.ts",
+      "archIds": ["ARCH-000010", "ARCH-000015"]
+    },
+    {
+      "symbolId": "coordinator.docker-desktop-runtime-repair",
+      "kind": "file",
+      "path": "src/security/docker-desktop-runtime-repair.ts",
+      "archIds": ["ARCH-000008", "ARCH-000015"],
+      "implements": ["coordinator.recovery-obligation"]
+    },
+    {
       "symbolId": "coordinator.public-api",
       "kind": "module",
       "path": "src/index.ts",
@@ -48,15 +61,15 @@
       "kind": "test-suite",
       "path": "tests/integration/coordinator-task-process.integration.test.ts",
       "qaIds": ["QA-000003", "QA-000006", "QA-000010"],
-      "localTestIds": ["PRL-03", "ERB-01", "AIT-10"],
+      "localTestIds": ["PRL-03", "ERB-01", "ERB-02", "AIT-10"],
       "verifies": ["coordinator.task-runtime"]
     },
     {
       "symbolId": "coordinator.task-runtime-integration",
       "kind": "test-suite",
       "path": "tests/integration/coordinator-task-runtime.contract.test.ts",
-      "qaIds": ["QA-000003", "QA-000005"],
-      "localTestIds": ["PRL-01", "PRL-04", "CPR-01"],
+      "qaIds": ["QA-000003", "QA-000005", "QA-000009"],
+      "localTestIds": ["PRL-01", "PRL-04", "CPR-01", "EST-05"],
       "verifies": ["coordinator.task-runtime"]
     },
     {
@@ -82,6 +95,30 @@
       "qaIds": ["QA-000006"],
       "localTestIds": ["ERB-06"],
       "verifies": ["coordinator.provider-model-selection-runtime"]
+    },
+    {
+      "symbolId": "coordinator.provider-home-observation-unit",
+      "kind": "test-suite",
+      "path": "tests/unit/provider-home-observation.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-08"],
+      "verifies": ["coordinator.provider-home-observation"]
+    },
+    {
+      "symbolId": "coordinator.docker-desktop-repair-integration",
+      "kind": "test-suite",
+      "path": "tests/integration/docker-desktop-runtime-repair.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-09"],
+      "verifies": ["coordinator.docker-desktop-runtime-repair"]
+    },
+    {
+      "symbolId": "coordinator.signed-general-task-system",
+      "kind": "test-suite",
+      "path": "tests/system/signed-general-task-verification.contract.test.ts",
+      "qaIds": ["QA-000009"],
+      "localTestIds": ["EST-03", "EST-05"],
+      "verifies": ["coordinator.task-runtime"]
     },
     {
       "symbolId": "coordinator.signed-recovery-matrix-system",
