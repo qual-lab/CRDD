@@ -1,4 +1,7 @@
-import { createFilesystemRepositoryObservationPort } from "../../../crdd-domain-library/src/repository-observation/index.ts";
+import {
+  createFilesystemRepositoryObservationPort,
+  type RepositoryObservationPort,
+} from "../../../crdd-domain-library/src/repository-observation/index.ts";
 import type { VerifiedRepositoryRoot } from "../../../version-control/src/repository-identity/index.ts";
 
 export type LegacyFieldOwner =
@@ -33,6 +36,7 @@ type FieldRule = Readonly<{
   field: string;
   owner: LegacyFieldOwner;
   semanticShape: "structured" | "partial" | "not-applicable";
+  valueKind: "array" | "object" | "scalar";
 }>;
 
 type PilotRule = Readonly<{
@@ -51,39 +55,70 @@ const pilotRules: readonly PilotRule[] = [
     ],
     fields: [
       {
+        field: "schema",
+        owner: "generated-projection",
+        semanticShape: "not-applicable",
+        valueKind: "scalar",
+      },
+      {
+        field: "schemaRevision",
+        owner: "generated-projection",
+        semanticShape: "not-applicable",
+        valueKind: "scalar",
+      },
+      {
+        field: "effectObservationScope",
+        owner: "architecture-details",
+        semanticShape: "partial",
+        valueKind: "scalar",
+      },
+      {
+        field: "architectureDocument",
+        owner: "generated-projection",
+        semanticShape: "not-applicable",
+        valueKind: "scalar",
+      },
+      {
         field: "resources",
         owner: "architecture-details",
         semanticShape: "partial",
+        valueKind: "array",
       },
       {
         field: "states",
         owner: "architecture-details",
         semanticShape: "partial",
+        valueKind: "array",
       },
       {
         field: "transitions",
         owner: "architecture-details",
         semanticShape: "partial",
+        valueKind: "array",
       },
       {
         field: "attemptClassifications",
         owner: "architecture-details",
         semanticShape: "partial",
+        valueKind: "array",
       },
       {
         field: "invariants",
         owner: "architecture-details",
         semanticShape: "partial",
+        valueKind: "array",
       },
       {
         field: "verificationBindings",
         owner: "quality-and-test-symbol",
         semanticShape: "not-applicable",
+        valueKind: "array",
       },
       {
         field: "verificationBoundaryByBinding",
         owner: "generated-projection",
         semanticShape: "not-applicable",
+        valueKind: "object",
       },
     ],
   },
@@ -96,64 +131,100 @@ const pilotRules: readonly PilotRule[] = [
     ],
     fields: [
       {
+        field: "schema",
+        owner: "generated-projection",
+        semanticShape: "not-applicable",
+        valueKind: "scalar",
+      },
+      {
+        field: "schemaRevision",
+        owner: "generated-projection",
+        semanticShape: "not-applicable",
+        valueKind: "scalar",
+      },
+      {
+        field: "architectureDocument",
+        owner: "generated-projection",
+        semanticShape: "not-applicable",
+        valueKind: "scalar",
+      },
+      {
+        field: "designDocument",
+        owner: "generated-projection",
+        semanticShape: "not-applicable",
+        valueKind: "scalar",
+      },
+      {
         field: "interfaces",
         owner: "architecture-details",
         semanticShape: "structured",
+        valueKind: "array",
       },
       {
         field: "persistentRecords",
         owner: "architecture-details",
         semanticShape: "structured",
+        valueKind: "array",
       },
       {
         field: "resources",
         owner: "architecture-details",
         semanticShape: "structured",
+        valueKind: "array",
       },
       {
         field: "locks",
         owner: "architecture-details",
         semanticShape: "structured",
+        valueKind: "array",
       },
       {
         field: "authorities",
         owner: "architecture-details",
         semanticShape: "structured",
+        valueKind: "array",
       },
       {
         field: "effects",
         owner: "architecture-details",
         semanticShape: "structured",
+        valueKind: "array",
       },
       {
         field: "stateMachines",
         owner: "architecture-details",
         semanticShape: "structured",
+        valueKind: "array",
       },
       {
         field: "actionBindings",
         owner: "architecture-details",
         semanticShape: "structured",
+        valueKind: "array",
       },
       {
         field: "invariants",
         owner: "architecture-details",
         semanticShape: "structured",
+        valueKind: "array",
       },
       {
         field: "failureInjections",
         owner: "architecture-details",
         semanticShape: "structured",
+        valueKind: "array",
       },
       {
         field: "implementationBindings",
         owner: "implementation-symbol",
         semanticShape: "not-applicable",
+        valueKind: "array",
       },
       {
         field: "verificationBindings",
         owner: "quality-and-test-symbol",
         semanticShape: "not-applicable",
+        valueKind: "array",
       },
     ],
   },
@@ -195,12 +266,28 @@ function collectBacktickedIds(sources: readonly string[]): ReadonlySet<string> {
 function readLegacyItems(
   value: unknown,
   path: string,
-  field: string,
+  rule: FieldRule,
 ): Readonly<
   | { status: "resolved"; ids: readonly string[]; itemCount: number }
   | { status: "failed"; finding: LegacyRuntimeInventoryFinding }
 > {
-  if (field === "verificationBoundaryByBinding") {
+  const { field, valueKind } = rule;
+  if (valueKind === "scalar") {
+    if (
+      (typeof value !== "string" || value.length === 0) &&
+      (typeof value !== "number" || !Number.isInteger(value))
+    )
+      return {
+        status: "failed",
+        finding: {
+          code: "semantic-coverage-pilot-field-invalid",
+          path,
+          message: `${field} must be one non-empty string or integer`,
+        },
+      };
+    return { status: "resolved", ids: [], itemCount: 1 };
+  }
+  if (valueKind === "object") {
     if (typeof value !== "object" || value === null || Array.isArray(value))
       return {
         status: "failed",
@@ -246,15 +333,14 @@ function readLegacyItems(
   return { status: "resolved", ids: ids.sort(), itemCount: ids.length };
 }
 
-export function createLegacyRuntimeInventories(
-  capability: VerifiedRepositoryRoot,
+export function createLegacyRuntimeInventoriesFromObservation(
+  repository: RepositoryObservationPort,
 ): Readonly<{
   inventories: readonly LegacyRuntimeInventory[];
   findings: readonly LegacyRuntimeInventoryFinding[];
 }> {
   const inventories: LegacyRuntimeInventory[] = [];
   const findings: LegacyRuntimeInventoryFinding[] = [];
-  const repository = createFilesystemRepositoryObservationPort(capability);
 
   for (const rule of pilotRules) {
     const legacyFile = readRepositoryFile(repository, rule.legacyPath);
@@ -292,6 +378,15 @@ export function createLegacyRuntimeInventories(
     }
     if (!isArchitectureReadable) continue;
     const canonicalIds = collectBacktickedIds(architectureSources);
+    const classifiedFields = new Set(rule.fields.map(({ field }) => field));
+    for (const field of Object.keys(legacy)) {
+      if (!classifiedFields.has(field))
+        findings.push({
+          code: "semantic-coverage-pilot-field-unclassified",
+          path: rule.legacyPath,
+          message: `${field} has no migration owner`,
+        });
+    }
     const fields: LegacyFieldInventory[] = [];
     for (const fieldRule of rule.fields) {
       if (!(fieldRule.field in legacy)) {
@@ -305,7 +400,7 @@ export function createLegacyRuntimeInventories(
       const legacyItems = readLegacyItems(
         legacy[fieldRule.field],
         rule.legacyPath,
-        fieldRule.field,
+        fieldRule,
       );
       if (legacyItems.status === "failed") {
         findings.push(legacyItems.finding);
@@ -320,7 +415,8 @@ export function createLegacyRuntimeInventories(
         owner: fieldRule.owner,
         itemCount: legacyItems.itemCount,
         identityCoverage:
-          fieldRule.owner !== "architecture-details"
+          fieldRule.owner !== "architecture-details" ||
+          fieldRule.valueKind !== "array"
             ? "not-applicable"
             : missingIds.length === 0
               ? "complete"
@@ -339,4 +435,15 @@ export function createLegacyRuntimeInventories(
 
   if (findings.length > 0) return { inventories: [], findings };
   return { inventories, findings: [] };
+}
+
+export function createLegacyRuntimeInventories(
+  capability: VerifiedRepositoryRoot,
+): Readonly<{
+  inventories: readonly LegacyRuntimeInventory[];
+  findings: readonly LegacyRuntimeInventoryFinding[];
+}> {
+  return createLegacyRuntimeInventoriesFromObservation(
+    createFilesystemRepositoryObservationPort(capability),
+  );
 }

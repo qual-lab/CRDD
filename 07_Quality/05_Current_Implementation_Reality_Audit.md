@@ -2,7 +2,7 @@
 
 成果物種別: Quality現実照合
 状態: In Progress
-進捗: Independent Review Pass — Confirmed Gaps Remain
+進捗: Reality Assessment Complete — Remediation Routed; Legacy Migration Required
 現在範囲: 全18 Architecture詳細設計領域
 維持責任者: Qual-Lab
 
@@ -192,7 +192,7 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 - `07_Quality/Registry/coordinator-runtime-traceability.json`
 - `07_Quality/Registry/project-runtime-design-traceability.json`
 
-結論は、**現形式を全Subsystemへ増殖させず、現時点では削除もしない**である。両ファイルは現在もCoordinatorの静的検査、契約試験、Architecture参照およびSemantic Coverage移行棚卸しの入力である。一方、現在の正本責務では複数Ownerの情報を一つに重複保持しており、恒久的な手編集正本にはしない。
+移行判定の結果は、**Retained — Migration Required**である。現形式を全Subsystemへ増殖させず、現時点では削除もしない。両ファイルは現在もCoordinatorの静的検査、契約試験、Architecture参照およびSemantic Coverage移行棚卸しの入力である。一方、現在の正本責務では複数Ownerの情報を一つに重複保持しており、恒久的な手編集正本にはしない。
 
 ### 11.1 Propertyの新Owner
 
@@ -205,7 +205,22 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 | Binding別Boundary Map | 生成Global Graph | 25件 | 非該当 | Canonical入力から生成する |
 | Schema／Revision／参照先 | 生成契約のHeader | あり | あり | 生成物のIdentityとしてのみ保持する |
 
-### 11.2 廃止Gate
+Propertyの全数はCoordinator 11件、Project Runtime 16件である。Semantic CoverageのMigration Inventoryは、上表の配列とObjectだけでなく、`schema`、`schemaRevision`、参照先および`effectObservationScope`を含むルートProperty全件にOwnerを必須化する。未分類Propertyが追加された場合はMigration Inventoryを発行しない。
+
+### 11.2 現在のConsumer
+
+| Consumer | 現在の用途 | 新Ownerへの移行先 | 現在判定 |
+|---|---|---|---|
+| Coordinatorの2つの静的検査Script | 集合、参照、反例、Fail Closed条件の検査 | Architecture Detailsから生成する投影とGlobal Symbol Graph | 未移行 |
+| Coordinatorの2つの契約試験と試験支援 | 旧JSONの構造および失敗反例の検証 | 新生成投影の同等契約試験 | 未移行 |
+| Checkerの現行ProfileとFixture | 3 Registryの必須配置 | Canonical入力と生成投影の完全性検査 | 未移行 |
+| Architectureの現行参照 | 設計と実装／試験の対応導線 | Architecture Details、Quality Definition、Global Symbol Graph | 未移行 |
+| Semantic Coverage Migration Inventory | 旧PropertyのOwnerと欠落を観測 | Migration完了後に削除する期限付きConsumer | 移行中のため維持 |
+| Test Catalog | 現行契約試験のInventory | 新契約試験のPathとIdentity | 試験移行後に再生成 |
+
+CHGや過去EvidenceのPath参照は当時の履歴であり、現行Consumer移行の対象にしない。削除後もGit履歴とEvidenceから当時の投影を再現できる。
+
+### 11.3 廃止Gate
 
 次の全条件が揃うまで旧2 JSONを削除しない。
 
@@ -245,6 +260,16 @@ Quality Integrationが各詳細設計領域へ割り当てる118個の`Subsystem
 | version-control | 6／6 | なし |
 
 同じLocal Itemが複数領域へ現れる場合は、各領域が所有する境界を別Relationとして数える。したがって60件は試験件数ではなく、設計領域と検証義務の接続数である。手動UATや工程判断を自動Test Symbolへ偽装せず、実Runtimeが存在しない領域もRelation追加だけで`Covered`へ変更しない。
+
+## 13. 未接続58件の移送先
+
+| 移送先 | 件数 | 対象領域 | 処置 |
+|---|---:|---|---|
+| 現行Subsystemの設計／試験是正 | 27 | artifact-signing、checker、contract-migration、coordinator、crdd-domain-library、execution-intelligence、platform-access、project-runtime | 各Local Itemの刺激、Oracle、終了後条件を満たす実装または追加試験として、後続CHGで個別に閉じる |
+| Group B／Cの未実装Capability | 23 | cros、mcp、project-operation、runtime-data、runtime-trust | Project Operation、Workbench、CROS、Remote MCP、Trust Policyの実装と段階結合試験で閉じる |
+| 工程／人間判断のEvidence | 8 | official-asset-governance、quality-change-control | Runtime Test Symbolを捏造せず、公開・撤回・競合判断・監査集合・是正再入場のEvidenceで評価する |
+
+合計58件はすべて所有先と再評価契機を持つ。Reality Auditは未実装Capabilityや未実行の手動評価を自分で補完せず、後続変更のQuality Mappingから再評価する。
 
 ## Checklist
 

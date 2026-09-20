@@ -11,9 +11,15 @@ import {
   createSemanticCoverageGraph as createSemanticCoveragePilotGraph,
   mapSemanticDomainIssueToDiagnostic,
 } from "../../src/application/semantic-coverage.ts";
-import { createLegacyRuntimeInventories as createInventories } from "../../src/migrations/legacy-runtime-inventory.ts";
+import {
+  createLegacyRuntimeInventories as createInventories,
+  createLegacyRuntimeInventoriesFromObservation,
+} from "../../src/migrations/legacy-runtime-inventory.ts";
 import { validateRealitySymbolManifest as validateDomainRealitySymbolManifest } from "../../../crdd-domain-library/src/reality-traceability/index.ts";
-import { observeRealitySymbolRepository } from "../../../crdd-domain-library/src/repository-observation/index.ts";
+import {
+  createFilesystemRepositoryObservationPort,
+  observeRealitySymbolRepository,
+} from "../../../crdd-domain-library/src/repository-observation/index.ts";
 
 const checkerRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -153,8 +159,32 @@ test("旧Runtime JSONをRelation Owner別に分解してPilot Gapを観測する
 
   assert.ok(
     coordinator.fields
-      .filter(({ owner }) => owner === "architecture-details")
+      .filter(
+        ({ field, owner }) =>
+          owner === "architecture-details" &&
+          field !== "effectObservationScope",
+      )
       .every(({ identityCoverage }) => identityCoverage === "complete"),
+  );
+  assert.deepEqual(
+    coordinator.fields
+      .filter(
+        ({ field, owner }) =>
+          owner === "architecture-details" &&
+          field === "effectObservationScope",
+      )
+      .map(({ field, identityCoverage, semanticShape }) => ({
+        field,
+        identityCoverage,
+        semanticShape,
+      })),
+    [
+      {
+        field: "effectObservationScope",
+        identityCoverage: "not-applicable",
+        semanticShape: "partial",
+      },
+    ],
   );
   assert.ok(
     coordinator.fields
@@ -174,6 +204,10 @@ test("旧Runtime JSONをRelation Owner別に分解してPilot Gapを観測する
       .filter(({ owner }) => owner !== "architecture-details")
       .map(({ field, owner }) => ({ field, owner })),
     [
+      { field: "schema", owner: "generated-projection" },
+      { field: "schemaRevision", owner: "generated-projection" },
+      { field: "architectureDocument", owner: "generated-projection" },
+      { field: "designDocument", owner: "generated-projection" },
       { field: "implementationBindings", owner: "implementation-symbol" },
       {
         field: "verificationBindings",
@@ -186,6 +220,9 @@ test("旧Runtime JSONをRelation Owner別に分解してPilot Gapを観測する
       .filter(({ owner }) => owner !== "architecture-details")
       .map(({ field, owner }) => ({ field, owner })),
     [
+      { field: "schema", owner: "generated-projection" },
+      { field: "schemaRevision", owner: "generated-projection" },
+      { field: "architectureDocument", owner: "generated-projection" },
       {
         field: "verificationBindings",
         owner: "quality-and-test-symbol",
@@ -196,6 +233,43 @@ test("旧Runtime JSONをRelation Owner別に分解してPilot Gapを観測する
       },
     ],
   );
+  assert.equal(coordinator.fields.length, 11);
+  assert.equal(projectRuntime.fields.length, 16);
+});
+
+test("旧Runtime JSONの未知root propertyはInventoryを発行せず拒否する", () => {
+  const filesystemRepository =
+    createFilesystemRepositoryObservationPort(capability);
+  const coordinatorPath =
+    "07_Quality/Registry/coordinator-runtime-traceability.json";
+  const repositoryWithUnknownProperty = {
+    ...filesystemRepository,
+    observeFile: (repositoryRelativePath: string) => {
+      const observation = filesystemRepository.observeFile(
+        repositoryRelativePath,
+      );
+      if (
+        repositoryRelativePath !== coordinatorPath ||
+        observation.status !== "resolved"
+      )
+        return observation;
+      const value = JSON.parse(observation.source) as Record<string, unknown>;
+      value.unclassifiedPilotProperty = true;
+      return { ...observation, source: JSON.stringify(value) };
+    },
+  };
+
+  const result = createLegacyRuntimeInventoriesFromObservation(
+    repositoryWithUnknownProperty,
+  );
+  assert.deepEqual(result.inventories, []);
+  assert.deepEqual(result.findings, [
+    {
+      code: "semantic-coverage-pilot-field-unclassified",
+      path: coordinatorPath,
+      message: "unclassifiedPilotProperty has no migration owner",
+    },
+  ]);
 });
 
 test("Pilot Inventoryは同じRepository入力から同じ結果を生成する", () => {
