@@ -1,7 +1,7 @@
 # Canonical設計と現行実装のReality Audit
 
 変更ID: `CHG-000078`
-状態: `Independent Review Pass — Confirmed Gaps Remain`
+状態: `Reality Assessment Complete — Remediation In Progress; Legacy Migration Required`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `quality_reality_audit`
@@ -57,10 +57,10 @@ Pilot入力の対象改訂版はCommit `3f2567bd54f00fe638bfc8ff9e7f3695fd8eba66
 | Projection鮮度 | Complete | 現在のCanonical入力からSemantic Coverage Bundleを再生成し、古いSource Hashを解消する |
 | 意味と実装の照合 | Complete for Pilot | 16意味を実装Ownerへ接続し、Runtime Trust消費1件を実装欠落として分離した |
 | 意味と試験の照合 | Initial Execution Complete | 16意味を実試験へ接続し局所確認済み。Sandbox内のProcess取消失敗は通常ユーザー境界で2／2 Passし、実行環境差として分離した |
-| Evidence照合 | In Progress | 局所実行結果を記録済み。固定候補Commitと独立レビュー結果を結合する |
+| Evidence照合 | Complete | [Reality Assessment完了根拠](Evidence/260921_reality-audit-closure.md)に基準Commit、機械確認、独立レビューおよび後続義務を結合した |
 | Pilot独立レビュー | Complete | 判定、Gap、非目標、Relationの意味、全数集計および旧JSON廃止Gateを独立確認した |
 | 全Subsystem展開 | Independent Review Pass | 18領域を分類し、118 Relation中60件を既存試験へ接続する。残る58件を実装欠落、工程Evidence、手動UAT、外部境界または追加試験へ分離した |
-| 旧Traceability移行 | In Progress | 全Propertyの新Owner、全Consumer、同等性および廃止Gateを閉じる |
+| 旧Traceability移行 | Decision Complete — Retained | 27ルートPropertyと全現行Consumerを棚卸した。Canonical固有情報、Consumer移行および同等性検査が残るため現物を維持し、後続移行で廃止Gateを閉じる |
 
 ## 5. 初期観測
 
@@ -101,6 +101,7 @@ Pilot入力の対象改訂版はCommit `3f2567bd54f00fe638bfc8ff9e7f3695fd8eba66
 <summary>全ファイルを表示</summary>
 
 - [`07_Quality/05_Current_Implementation_Reality_Audit.md`](../../../07_Quality/05_Current_Implementation_Reality_Audit.md)
+- [`99_Roadmap/Changes/CHG-000078/Evidence/260921_reality-audit-closure.md`](Evidence/260921_reality-audit-closure.md)
 - [`07_Quality/Registry/semantic-coverage-pilot.json`](../../../07_Quality/Registry/semantic-coverage-pilot.json)
 - [`40_Develop/coordinator/symbol.json`](../../../40_Develop/coordinator/symbol.json)
 - [`40_Develop/coordinator/src/security/docker-desktop-repair-continuation-store.ts`](../../../40_Develop/coordinator/src/security/docker-desktop-repair-continuation-store.ts)
@@ -113,8 +114,9 @@ Pilot入力の対象改訂版はCommit `3f2567bd54f00fe638bfc8ff9e7f3695fd8eba66
 - [`40_Develop/mcp/symbol.json`](../../../40_Develop/mcp/symbol.json)
 - [`40_Develop/project-runtime/symbol.json`](../../../40_Develop/project-runtime/symbol.json)
 - [`40_Develop/runtime-data/symbol.json`](../../../40_Develop/runtime-data/symbol.json)
-- [`40_Develop/version-control/symbol.json`](../../../40_Develop/version-control/symbol.json)
+- [`40_Develop/semantic-coverage/src/migrations/legacy-runtime-inventory.ts`](../../../40_Develop/semantic-coverage/src/migrations/legacy-runtime-inventory.ts)
 - [`40_Develop/semantic-coverage/tests/unit/semantic-coverage-pilot.contract.test.ts`](../../../40_Develop/semantic-coverage/tests/unit/semantic-coverage-pilot.contract.test.ts)
+- [`40_Develop/version-control/symbol.json`](../../../40_Develop/version-control/symbol.json)
 - [`99_Roadmap/01_Roadmap.md`](../../01_Roadmap.md)
 - [`99_Roadmap/02_Changes.md`](../../02_Changes.md)
 - [`99_Roadmap/Changes/CHG-000078/change.md`](change.md)
@@ -129,10 +131,10 @@ Pilot入力の対象改訂版はCommit `3f2567bd54f00fe638bfc8ff9e7f3695fd8eba66
 - [x] 生成Projectionの古さと意味差を区別した。
 - [x] 実装Relationの存在と実際の責務一致を全数確認した。
 - [x] Quality Local Item、Test Symbol、Test Catalogおよび試験内容を全数確認した。
-- [ ] 実行結果とEvidenceを対象改訂版付きで評価する。
-- [ ] Gapを所有工程へ返し、Reality側だけで意味を補完しない。
-- [ ] Pilotの独立レビューを完了する。
+- [x] 実行結果とEvidenceを対象改訂版付きで評価する。
+- [x] Gapを所有工程へ返し、Reality側だけで意味を補完しない。
+- [x] Pilotの独立レビューを完了する。
 - [x] 全Subsystemへ展開し、実Runtime欠落、工程／統制Owner、Relation不足およびGapを分けた。
 - [x] 旧2 Runtime Traceability JSONのProperty Ownerと廃止Gateを定義した。
 - [x] 既存試験と意味が一致するRelation不足および命名規則不一致を是正し、更新版を再実行した。
-- [ ] 旧2 Runtime Traceability JSONの全Consumerを新しい生成入口へ移行する。
+- [ ] OPEN: 旧2 Runtime Traceability JSONの全Consumerを新しい生成入口へ移行する。理由: Coordinator固有の詳細な状態・資源・検証caseと、Project Runtimeの同等性を保つ生成投影が未実装である。
