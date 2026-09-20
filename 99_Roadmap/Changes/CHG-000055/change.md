@@ -93,12 +93,12 @@ Qual-Planner、Qual-TopicおよびQual-MTGは独立したプロジェクト正�
 - [`29_Verification.md`](<../../../29_Verification.md>)
 - [`40_Develop/checker/.gitignore`](<../../../40_Develop/checker/.gitignore>)
 - `40_Develop/checker/crdd-check.contract.test.ts`（削除または旧Path）
-- [`40_Develop/checker/crdd-check.ts`](<../../../40_Develop/checker/crdd-check.ts>)
-- [`40_Develop/checker/fault-injector.ts`](<../../../40_Develop/checker/fault-injector.ts>)
+- [`40_Develop/checker/bin/crdd-check.ts`](<../../../40_Develop/checker/bin/crdd-check.ts>)
+- [`40_Develop/checker/tests/support/fault-injector.ts`](<../../../40_Develop/checker/tests/support/fault-injector.ts>)
 - [`40_Develop/checker/package-lock.json`](<../../../40_Develop/checker/package-lock.json>)
 - [`40_Develop/checker/package.json`](<../../../40_Develop/checker/package.json>)
-- [`40_Develop/checker/test-discovery.ts`](<../../../40_Develop/checker/test-discovery.ts>)
-- [`40_Develop/checker/test-runner.ts`](<../../../40_Develop/checker/test-runner.ts>)
+- [`40_Develop/checker/tests/support/test-discovery.ts`](<../../../40_Develop/checker/tests/support/test-discovery.ts>)
+- [`40_Develop/checker/tests/test-runner.ts`](<../../../40_Develop/checker/tests/test-runner.ts>)
 - `40_Develop/checker/tools-naming.contract.test.ts`（削除または旧Path）
 - [`40_Develop/checker/tsconfig.json`](<../../../40_Develop/checker/tsconfig.json>)
 - [`40_Develop/coordinator/.gitignore`](<../../../40_Develop/coordinator/.gitignore>)

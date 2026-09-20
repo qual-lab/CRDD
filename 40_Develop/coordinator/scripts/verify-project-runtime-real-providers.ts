@@ -179,7 +179,7 @@ async function main() {
     allowedPaths: Object.freeze([MARKER]),
     readPaths: Object.freeze([
       MARKER,
-      "06_Architecture/Details/coordinator/03_Project_Runtime_Design.md",
+      "06_Architecture/Details/project-runtime/02_Detailed_Design.md",
     ]),
     maximumConcurrency: 1,
     maximumReplans: 0,
@@ -249,7 +249,7 @@ async function main() {
     allowedPaths: Object.freeze([CANCELLATION_MARKER]),
     readPaths: Object.freeze([
       CANCELLATION_MARKER,
-      "06_Architecture/Details/coordinator/03_Project_Runtime_Design.md",
+      "06_Architecture/Details/project-runtime/02_Detailed_Design.md",
     ]),
     adoptResult: false,
   });
@@ -295,7 +295,7 @@ async function main() {
     allowedPaths: Object.freeze([CANCELLATION_MARKER]),
     readPaths: Object.freeze([
       CANCELLATION_MARKER,
-      "06_Architecture/Details/coordinator/03_Project_Runtime_Design.md",
+      "06_Architecture/Details/project-runtime/02_Detailed_Design.md",
     ]),
     adoptResult: false,
   });

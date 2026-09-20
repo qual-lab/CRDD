@@ -227,7 +227,7 @@ function violations(sources: SourceSet): string[] {
         ? source.includes("readExecutionIntelligenceWithRuntimeDataArea") &&
           source.includes("RepositoryRuntimeDataAreaBlockedError") &&
           source.includes(
-            "effectStateUnknown || !cleanupConfirmed || recoveryReference !== null",
+            "isEffectStateUnknown || !cleanupConfirmed || recoveryReference !== null",
           ) &&
           blockedMeaningFields.every((field) => source.includes(field))
         : blockedMeaningFields.every((field) => source.includes(field));

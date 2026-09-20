@@ -369,7 +369,7 @@ Until migration verification passes, keep the previous pinned release recoverabl
 
 The distributed template includes `tools/crdd-check.ts`. In normal use, the parent AI agent runs it once against a fixed revision before independent review or an audit set; users do not need to run it manually.
 
-For CRDD-standard maintenance in this repository, the checker package is located at `40_Develop/checker/`; run `node 40_Develop/checker/crdd-check.ts --json --summary`. v0.18.0 renames the distributed checker from `crdd_check.ts` to `crdd-check.ts` without a compatibility shim; adopting repositories update their copied file, AI entry instructions, CI, scripts, and documentation as one migration.
+For CRDD-standard maintenance in this repository, the checker package is located at `40_Develop/checker/`; run `node 40_Develop/checker/bin/crdd-check.ts --json --summary`. v0.18.0 renames the distributed checker from `crdd_check.ts` to `crdd-check.ts` without a compatibility shim; adopting repositories update their copied file, AI entry instructions, CI, scripts, and documentation as one migration.
 
 ```text
 node tools/crdd-check.ts
@@ -803,7 +803,7 @@ v0.5.0ではCRDD正本文書のファイル名を変更した。基本的な移�
 
 配布用ひな型には`tools/crdd-check.ts`が含まれる。通常は、独立レビューまたは監査集合の前に親AIエージェントが固定した対象改訂版へ一度実行する。利用者が手動で実行する必要はない。
 
-このRepositoryでCRDD標準を保守するときは、`40_Develop/checker/`のチェッカーpackageを使用し、`node 40_Develop/checker/crdd-check.ts --json --summary`を実行する。v0.18.0では配布チェッカーを`crdd_check.ts`から`crdd-check.ts`へ互換shimなしで変更する。採用Repositoryは、コピー済みファイル、AI入口、CI、scriptおよび文書参照を一つの移行として更新する。
+このRepositoryでCRDD標準を保守するときは、`40_Develop/checker/`のチェッカーpackageを使用し、`node 40_Develop/checker/bin/crdd-check.ts --json --summary`を実行する。v0.18.0では配布チェッカーを`crdd_check.ts`から`crdd-check.ts`へ互換shimなしで変更する。採用Repositoryは、コピー済みファイル、AI入口、CI、scriptおよび文書参照を一つの移行として更新する。
 
 ```text
 node tools/crdd-check.ts

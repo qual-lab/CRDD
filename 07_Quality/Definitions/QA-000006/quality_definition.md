@@ -34,6 +34,7 @@ Quality ID: `QA-000006`
 | [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復 |
 | [cros](../../../06_Architecture/Details/cros/01_Architecture.md) | Repository横断解決、Grant、投影、外部接続、候補処置 |
 | [platform-access](../../../06_Architecture/Details/platform-access/01_Architecture.md) | OS資源、Process Effect、観測、cleanup、回復 |
+| [verification-runner](../../../06_Architecture/Details/verification-runner/01_Architecture.md) | 外部境界試験の段階適用、子Process結果および観測不能時の停止 |
 
 ## 2. Lifecycle全体
 

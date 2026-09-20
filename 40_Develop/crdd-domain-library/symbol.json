@@ -4,45 +4,27 @@
   "subsystem": "crdd-domain-library",
   "symbols": [
     {
-      "symbolId": "crdd-domain-library.common-result-entry",
+      "symbolId": "crdd-domain-library.common-outcome-entry",
       "kind": "module",
-      "path": "src/domain/result/index.ts",
+      "path": "src/outcome.ts",
       "archIds": ["ARCH-000008"]
     },
     {
       "symbolId": "crdd-domain-library.artifact-entry",
       "kind": "module",
-      "path": "src/domain/artifact/index.ts",
+      "path": "src/artifact/index.ts",
       "archIds": ["ARCH-000001"]
-    },
-    {
-      "symbolId": "crdd-domain-library.relation-entry",
-      "kind": "module",
-      "path": "src/domain/relation/index.ts",
-      "archIds": ["ARCH-000001", "ARCH-000002"]
     },
     {
       "symbolId": "crdd-domain-library.reality-traceability-entry",
       "kind": "module",
-      "path": "src/domain/reality-traceability/index.ts",
+      "path": "src/reality-traceability/index.ts",
       "archIds": ["ARCH-000008"]
-    },
-    {
-      "symbolId": "crdd-domain-library.semantic-coverage-entry",
-      "kind": "module",
-      "path": "src/domain/semantic-coverage/index.ts",
-      "archIds": ["ARCH-000008"]
-    },
-    {
-      "symbolId": "crdd-domain-library.semantic-coverage-application-entry",
-      "kind": "module",
-      "path": "src/application/semantic-coverage/index.ts",
-      "archIds": ["ARCH-000008", "ARCH-000009"]
     },
     {
       "symbolId": "crdd-domain-library.repository-entry",
       "kind": "module",
-      "path": "src/repository/index.ts",
+      "path": "src/repository-observation/index.ts",
       "archIds": ["ARCH-000009"]
     },
     {
@@ -52,12 +34,9 @@
       "qaIds": ["QA-000001"],
       "localTestIds": ["RCM-09"],
       "verifies": [
-        "crdd-domain-library.common-result-entry",
+        "crdd-domain-library.common-outcome-entry",
         "crdd-domain-library.artifact-entry",
-        "crdd-domain-library.relation-entry",
         "crdd-domain-library.reality-traceability-entry",
-        "crdd-domain-library.semantic-coverage-entry",
-        "crdd-domain-library.semantic-coverage-application-entry",
         "crdd-domain-library.repository-entry"
       ]
     },
@@ -79,14 +58,6 @@
         "crdd-domain-library.reality-traceability-entry",
         "crdd-domain-library.repository-entry"
       ]
-    },
-    {
-      "symbolId": "crdd-domain-library.semantic-bundle-publisher-integration",
-      "kind": "test-suite",
-      "path": "tests/integration/semantic-bundle-publisher.integration.test.ts",
-      "qaIds": ["QA-000001"],
-      "localTestIds": ["RCM-09"],
-      "verifies": ["crdd-domain-library.repository-entry"]
     }
   ]
 }

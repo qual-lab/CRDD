@@ -4,12 +4,10 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import * as reality from "../../src/domain/reality-traceability/index.ts";
-import * as artifact from "../../src/domain/artifact/index.ts";
-import * as relation from "../../src/domain/relation/index.ts";
-import * as semantic from "../../src/domain/semantic-coverage/index.ts";
-import * as semanticApplication from "../../src/application/semantic-coverage/index.ts";
-import * as repository from "../../src/repository/index.ts";
+import * as domainLibrary from "../../src/index.ts";
+import * as reality from "../../src/reality-traceability/index.ts";
+import * as artifact from "../../src/artifact/index.ts";
+import * as repository from "../../src/repository-observation/index.ts";
 
 function exportedNames(relativePath: string): readonly string[] {
   const source = fs.readFileSync(
@@ -45,20 +43,57 @@ function typescriptFiles(root: string): readonly string[] {
   return files;
 }
 
-test("ArtifactはMarkdown解析とSchema検証の公開契約だけを公開する", () => {
+test("Package RootはCapability別の公開入口だけを束ねる", () => {
+  assert.deepEqual(Object.keys(domainLibrary).sort(), [
+    "artifact",
+    "realityTraceability",
+    "repositoryObservation",
+  ]);
+});
+
+test("srcのDirectoryはCapability-firstかつ二階層以内に保つ", () => {
+  const sourceRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../src",
+  );
+  const prohibitedNames = new Set(["common", "helpers", "internal", "utils"]);
+  const violations: string[] = [];
+  const visit = (directory: string): void => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const target = path.join(directory, entry.name);
+      const relativePath = path
+        .relative(sourceRoot, target)
+        .replaceAll("\\", "/");
+      const depth = relativePath.split("/").length;
+      if (depth > 2 || prohibitedNames.has(entry.name))
+        violations.push(relativePath);
+      visit(target);
+    }
+  };
+  visit(sourceRoot);
+  assert.deepEqual(violations, []);
+});
+
+test("Artifactは解析、Schema検証、関係Graphの公開契約だけを公開する", () => {
   assert.deepEqual(Object.keys(artifact).sort(), [
+    "buildArtifactGraph",
     "parseMarkdownArtifact",
     "validateArtifactSchema",
   ]);
-  assert.deepEqual(exportedNames("../../src/domain/artifact/index.ts"), [
+  assert.deepEqual(exportedNames("../../src/artifact/index.ts"), [
+    "ArtifactGraph",
+    "ArtifactGraphResult",
     "ArtifactModel",
     "ArtifactRelation",
     "ArtifactSchema",
     "ArtifactSchemaValidationResult",
     "ArtifactSection",
     "ArtifactSource",
+    "BuildArtifactGraphRequest",
     "ChecklistResult",
     "SourceLocation",
+    "buildArtifactGraph",
     "parseMarkdownArtifact",
     "validateArtifactSchema",
   ]);
@@ -119,13 +154,17 @@ UX ID: UX-000001
 });
 
 test("RelationはArtifact Graphと中立Issueだけを公開する", () => {
-  assert.deepEqual(Object.keys(relation).sort(), ["buildArtifactGraph"]);
-  assert.deepEqual(exportedNames("../../src/domain/relation/index.ts"), [
-    "ArtifactGraph",
-    "ArtifactGraphResult",
-    "BuildArtifactGraphRequest",
-    "buildArtifactGraph",
-  ]);
+  assert.deepEqual(
+    exportedNames("../../src/artifact/index.ts").filter(
+      (name) => name.includes("ArtifactGraph") || name === "buildArtifactGraph",
+    ),
+    [
+      "ArtifactGraph",
+      "ArtifactGraphResult",
+      "BuildArtifactGraphRequest",
+      "buildArtifactGraph",
+    ],
+  );
   const source = artifact.parseMarkdownArtifact({
     path: "one.md",
     content: "# REQ-000001 One\n\n要求ID: REQ-000001\n",
@@ -134,7 +173,7 @@ test("RelationはArtifact Graphと中立Issueだけを公開する", () => {
     path: "two.md",
     content: "# REQ-000001 Two\n\n要求ID: REQ-000001\n",
   });
-  const outcome = relation.buildArtifactGraph({
+  const outcome = artifact.buildArtifactGraph({
     artifacts: [source, duplicate],
   });
   assert.equal(outcome.status, "partial");
@@ -157,24 +196,21 @@ test("Reality Traceabilityは宣言済み公開入口だけを公開する", () 
     "realitySymbolKinds",
     "validateRealitySymbolManifest",
   ]);
-  assert.deepEqual(
-    exportedNames("../../src/domain/reality-traceability/index.ts"),
-    [
-      "LoadedRealitySymbolManifest",
-      "RealitySymbol",
-      "RealitySymbolDiscoveryRequest",
-      "RealitySymbolDiscoveryResult",
-      "RealitySymbolDiscoverySource",
-      "RealitySymbolGraph",
-      "RealitySymbolKind",
-      "RealitySymbolManifest",
-      "RealitySymbolNode",
-      "createRealitySymbolGraph",
-      "discoverRealitySymbols",
-      "realitySymbolKinds",
-      "validateRealitySymbolManifest",
-    ],
-  );
+  assert.deepEqual(exportedNames("../../src/reality-traceability/index.ts"), [
+    "LoadedRealitySymbolManifest",
+    "RealitySymbol",
+    "RealitySymbolDiscoveryRequest",
+    "RealitySymbolDiscoveryResult",
+    "RealitySymbolDiscoverySource",
+    "RealitySymbolGraph",
+    "RealitySymbolKind",
+    "RealitySymbolManifest",
+    "RealitySymbolNode",
+    "createRealitySymbolGraph",
+    "discoverRealitySymbols",
+    "realitySymbolKinds",
+    "validateRealitySymbolManifest",
+  ]);
 });
 
 test("Reality DiscoveryはRepository観測済みSnapshotだけからManifestを構成する", () => {
@@ -242,8 +278,8 @@ test("Reality Annotationは公開Discovery経由で検証しinternalを公開し
   ]);
 });
 
-test("Common Resultは中立なOutcomeとIssueだけを公開する", () => {
-  assert.deepEqual(exportedNames("../../src/domain/result/index.ts"), [
+test("共通Outcomeは中立な処理結果契約だけを公開する", () => {
+  assert.deepEqual(exportedNames("../../src/outcome.ts"), [
     "DomainIssue",
     "DomainLocation",
     "DomainOutcome",
@@ -251,65 +287,14 @@ test("Common Resultは中立なOutcomeとIssueだけを公開する", () => {
   ]);
 });
 
-test("Semantic Coverageは純粋計算の公開契約だけを公開する", () => {
-  assert.deepEqual(Object.keys(semantic).sort(), [
-    "compileQualitySemanticRelations",
-    "compileSemanticIr",
-    "createSemanticBundle",
-    "createSemanticCoverageGraph",
-  ]);
-  assert.deepEqual(
-    exportedNames("../../src/domain/semantic-coverage/index.ts"),
-    [
-      "QualitySemanticRelation",
-      "SemanticBundleContent",
-      "SemanticCoverageBundle",
-      "SemanticCoverageGraph",
-      "SemanticCoverageProjection",
-      "SemanticIr",
-      "SemanticIrMeaning",
-      "compileQualitySemanticRelations",
-      "compileSemanticIr",
-      "createSemanticBundle",
-      "createSemanticCoverageGraph",
-    ],
-  );
-});
-
-test("Semantic Coverage Domain IssueはChecker語彙を公開しない", () => {
-  const outcome = semantic.compileSemanticIr(
-    { path: "06_Architecture/Details/sample.md", source: "# Sample\n" },
-    "sample",
-    new Set(["ARCH-000001"]),
-  );
-  assert.equal(outcome.status, "invalid");
-  assert.equal(outcome.result, null);
-  assert.ok(outcome.issues.length > 0);
-  assert.deepEqual(outcome.issues[0], {
-    kind: "ir.source.table-missing",
-    targetIdentity: "06_Architecture/Details/sample.md",
-    location: { path: "06_Architecture/Details/sample.md" },
-    reason: "source_heading_missing",
-    details: { missingPart: "heading" },
-  });
-  assert.equal(
-    outcome.issues.some((issue) => "code" in issue || "message" in issue),
-    false,
-  );
-  assert.equal(JSON.stringify(outcome).includes("summary"), false);
-  assert.equal(
-    JSON.stringify(outcome).includes("semantic-ir-source-table-missing"),
-    false,
-  );
-});
-
-test("CheckerとTemplate ToolはDomain Libraryの公開indexだけを利用する", () => {
+test("Domain Libraryの利用側は宣言済み公開indexだけを利用する", () => {
   const repositoryRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     "../../../..",
   );
   const consumers = [
     path.join(repositoryRoot, "40_Develop", "checker"),
+    path.join(repositoryRoot, "40_Develop", "semantic-coverage"),
     path.join(repositoryRoot, "template", "tools"),
   ];
   const violations: string[] = [];
@@ -327,20 +312,6 @@ test("CheckerとTemplate ToolはDomain Libraryの公開indexだけを利用す�
       }
     }
   assert.deepEqual(violations, []);
-});
-
-test("Semantic Coverage Applicationは公開編成だけを所有する", () => {
-  assert.deepEqual(Object.keys(semanticApplication).sort(), [
-    "publishSemanticCoverage",
-  ]);
-  assert.deepEqual(
-    exportedNames("../../src/application/semantic-coverage/index.ts"),
-    [
-      "PublishSemanticCoverageRequest",
-      "PublishSemanticCoverageResult",
-      "publishSemanticCoverage",
-    ],
-  );
 });
 
 test("Reality Domain IssueはChecker語彙と絶対Pathを公開しない", () => {
@@ -386,20 +357,19 @@ test("Reality Domain IssueはChecker語彙と絶対Pathを公開しない", () =
 test("Repository観測はPort生成だけを実行入口として公開する", () => {
   assert.deepEqual(Object.keys(repository).sort(), [
     "createFilesystemRepositoryObservationPort",
-    "createFilesystemSemanticBundlePublisher",
+    "observeRealitySymbolRepository",
   ]);
-  assert.deepEqual(exportedNames("../../src/repository/index.ts"), [
+  assert.deepEqual(exportedNames("../../src/repository-observation/index.ts"), [
+    "RealityRepositoryObservationIssue",
+    "RealitySymbolRepositoryObservation",
     "RepositoryDirectoryEntry",
     "RepositoryDirectoryObservation",
     "RepositoryEntryKind",
     "RepositoryFileObservation",
     "RepositoryObservationPort",
     "RepositoryRootCapability",
-    "SemanticBundlePublishReceipt",
-    "SemanticBundlePublishRequest",
-    "SemanticBundlePublisher",
     "createFilesystemRepositoryObservationPort",
-    "createFilesystemSemanticBundlePublisher",
+    "observeRealitySymbolRepository",
   ]);
   const forgedCapability = {
     contract: "crdd-version-control/repository-location/v1",
@@ -413,16 +383,16 @@ test("Repository観測はPort生成だけを実行入口として公開する", 
   const repositoryEntrySource = fs.readFileSync(
     path.resolve(
       path.dirname(fileURLToPath(import.meta.url)),
-      "../../src/repository/index.ts",
+      "../../src/repository-observation/index.ts",
     ),
     "utf8",
   );
   assert.match(
     repositoryEntrySource,
-    /from "\.\.\/\.\.\/\.\.\/version-control\/src\/index\.ts"/u,
+    /from "\.\.\/\.\.\/\.\.\/version-control\/src\/repository-identity\/index\.ts"/u,
   );
   assert.doesNotMatch(
     repositoryEntrySource,
-    /version-control\/src\/(?!index\.ts)/u,
+    /version-control\/src\/(?!repository-identity\/index\.ts)/u,
   );
 });

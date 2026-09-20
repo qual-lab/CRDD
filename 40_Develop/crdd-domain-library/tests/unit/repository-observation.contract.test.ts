@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { createFilesystemRepositoryObservationPortWithOperations } from "../../src/repository/internal/filesystem-repository-observer.ts";
+import { createFilesystemRepositoryObservationPortWithOperations } from "../../src/repository-observation/filesystem-repository-observer.ts";
 
 const openedPaths = new Map<number, string>();
 const actualOperations = {

@@ -39,6 +39,8 @@ Quality／Development
 | [quality-change-control](Details/quality-change-control/01_Architecture.md) | ARCH-000003 | 固定改訂版に対する変更・監査・試験結果と品質状態の統合 | Canonical |
 | [runtime-data](Details/runtime-data/01_Architecture.md) | ARCH-000009、ARCH-000011、ARCH-000013、ARCH-000016 | Repository-local／OS管理領域の配置、保持、Identity、清掃 | Canonical |
 | [runtime-trust](Details/runtime-trust/01_Architecture.md) | ARCH-000014 | 準拠、完全性、Publisher、品質と利用者所有Trust Policyの独立評価 | Canonical |
+| [semantic-coverage](Details/semantic-coverage/01_Architecture.md) | ARCH-000008 | Architecture上の意味と実装・Quality・Test Symbolの決定論的な接続、Coverage生成およびBundle公開 | Canonical |
+| [verification-runner](Details/verification-runner/01_Architecture.md) | ARCH-000003 | Test Catalog、変更影響からの試験選択、段階実行、Authority確認および結果集約 | Canonical |
 | [version-control](Details/version-control/01_Architecture.md) | ARCH-000002、ARCH-000009、ARCH-000014、ARCH-000016 | Repository Root、履歴境界、Binding、完全性入力、差替可能なPort | Canonical |
 
 ## 3. Architecture定義の閉包
@@ -47,12 +49,12 @@ Quality／Development
 |---|---|---|
 | ARCH-000001 | [機械検査と文書検査](Definitions/ARCH-000001/architecture_definition.md) | checker、crdd-domain-library |
 | ARCH-000002 | [契約移行と利用側閉包](Definitions/ARCH-000002/architecture_definition.md) | contract-migration、checker、version-control、crdd-domain-library |
-| ARCH-000003 | [変更・監査・試験・品質の閉包](Definitions/ARCH-000003/architecture_definition.md) | quality-change-control |
+| ARCH-000003 | [変更・監査・試験・品質の閉包](Definitions/ARCH-000003/architecture_definition.md) | quality-change-control、verification-runner |
 | ARCH-000004 | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | project-runtime、coordinator、platform-access |
 | ARCH-000005 | [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | project-runtime、project-operation、cros、mcp |
 | ARCH-000006 | [Meeting候補と正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | project-operation、cros |
 | ARCH-000007 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md) | execution-intelligence、project-runtime |
-| ARCH-000008 | [実行境界の診断](Definitions/ARCH-000008/architecture_definition.md) | coordinator、platform-access、crdd-domain-library |
+| ARCH-000008 | [実行境界の診断](Definitions/ARCH-000008/architecture_definition.md) | coordinator、platform-access、crdd-domain-library、semantic-coverage |
 | ARCH-000009 | [Repository境界とBinding](Definitions/ARCH-000009/architecture_definition.md) | version-control、runtime-data、cros、crdd-domain-library |
 | ARCH-000010 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | coordinator、cros |
 | ARCH-000011 | [Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | runtime-data、platform-access |

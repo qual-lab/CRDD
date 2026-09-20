@@ -14,8 +14,8 @@ import {
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../internal/plain-data-snapshot.ts";
-import { repositoryPathWithin } from "../internal/repository-relative-path.ts";
+} from "../boundary/plain-data-snapshot.ts";
+import { repositoryPathWithin } from "../boundary/repository-relative-path.ts";
 
 export const PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT =
   "crdd-coordinator/project-runtime-objective-intake/v1" as const;

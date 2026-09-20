@@ -27,6 +27,7 @@ Quality ID: `QA-000008`
 |---|---|
 | [platform-access](../../../06_Architecture/Details/platform-access/01_Architecture.md) | OS資源、Process Effect、観測、cleanup、回復 |
 | [runtime-data](../../../06_Architecture/Details/runtime-data/01_Architecture.md) | Repository-local／OS管理Root、用途、保持、清掃、回復 |
+| [semantic-coverage](../../../06_Architecture/Details/semantic-coverage/01_Architecture.md) | 生成BundleのRepository-local公開、置換、失敗時の一時物回収および再観測 |
 
 ## 2. Lifecycle
 

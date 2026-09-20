@@ -2100,7 +2100,7 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "scripts/verify-project-runtime-real-providers.ts\0main",
-      "da562cb0a334fda0a0ac9fa588bf66df3f1e60f8c6d5ba486a2869d892715e55",
+      "8580c037efc3dcc61d56a696993a9abc97f0a80ea6c28177425909bb7aebda10",
     ],
   ]),
 );

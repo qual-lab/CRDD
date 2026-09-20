@@ -5,8 +5,8 @@ import path from "node:path";
 
 const MAX_OUTPUT_BYTES = 16 * 1_024 * 1_024;
 
-function run(root: string, arguments_: readonly string[]) {
-  return spawnSync("git", ["-C", root, ...arguments_], {
+function runGitCommand(root: string, commandArguments: readonly string[]) {
+  return spawnSync("git", ["-C", root, ...commandArguments], {
     encoding: "utf8",
     windowsHide: true,
     shell: false,
@@ -25,7 +25,7 @@ function samePath(left: string, right: string): boolean {
     : leftResolved === rightResolved;
 }
 
-function failureReason(result: ReturnType<typeof run>): string {
+function failureReason(result: ReturnType<typeof runGitCommand>): string {
   if (result.error && "code" in result.error && result.error.code === "ENOENT")
     return "version_control_not_installed";
   if (/not a git repository/iu.test(result.stderr || ""))
@@ -97,7 +97,7 @@ export function observeRepositoryEntries(scopeRoot: string):
       entries: readonly RepositoryEntryObservation[];
       repositoryPathReported: false;
     }> {
-  const rootResult = run(scopeRoot, ["rev-parse", "--show-toplevel"]);
+  const rootResult = runGitCommand(scopeRoot, ["rev-parse", "--show-toplevel"]);
   if (rootResult.status !== 0)
     return Object.freeze({
       status: "unavailable",
@@ -115,7 +115,7 @@ export function observeRepositoryEntries(scopeRoot: string):
       repositoryPathReported: false,
     });
   const selector = relativeScope === "" ? "." : relativeScope;
-  const files = run(repositoryRoot, [
+  const files = runGitCommand(repositoryRoot, [
     "ls-files",
     "--cached",
     "--others",
@@ -124,7 +124,7 @@ export function observeRepositoryEntries(scopeRoot: string):
     "--",
     selector,
   ]);
-  const staged = run(repositoryRoot, [
+  const staged = runGitCommand(repositoryRoot, [
     "ls-files",
     "--stage",
     "-z",
@@ -218,9 +218,9 @@ export function observeNestedRepository(
   relativePath: string,
 ) {
   const target = path.resolve(scopeRoot, relativePath);
-  const top = run(target, ["rev-parse", "--show-toplevel"]);
-  const metadata = run(target, ["rev-parse", "--absolute-git-dir"]);
-  const revision = run(target, ["rev-parse", "--verify", "HEAD"]);
+  const top = runGitCommand(target, ["rev-parse", "--show-toplevel"]);
+  const metadata = runGitCommand(target, ["rev-parse", "--absolute-git-dir"]);
+  const revision = runGitCommand(target, ["rev-parse", "--verify", "HEAD"]);
   const revisionIdentity =
     revision.status === 0 && /^[0-9a-f]{40,64}$/iu.test(revision.stdout.trim())
       ? revision.stdout.trim().toLowerCase()
@@ -248,7 +248,7 @@ export function readFixedSnapshotText(
       .some((segment) => segment === "" || segment === "." || segment === "..")
   )
     return null;
-  const result = run(repositoryRoot, [
+  const result = runGitCommand(repositoryRoot, [
     "--no-replace-objects",
     "show",
     `${revisionIdentity}:${relativePath}`,
@@ -267,7 +267,11 @@ export function resolveRevisionIdentity(
     selector.startsWith("-")
   )
     return null;
-  const result = run(repositoryRoot, ["rev-parse", "--verify", selector]);
+  const result = runGitCommand(repositoryRoot, [
+    "rev-parse",
+    "--verify",
+    selector,
+  ]);
   const value = result.status === 0 ? result.stdout.trim().toLowerCase() : "";
   return /^[0-9a-f]{40,64}$/u.test(value) ? value : null;
 }

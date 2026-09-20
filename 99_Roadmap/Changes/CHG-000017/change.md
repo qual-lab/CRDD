@@ -113,18 +113,18 @@ Stable表示への移行後、Checkerが03_Documentation本文のコード例に
 - [`29_Verification.md`](<../../../29_Verification.md>)
 - [`40_Develop/checker/.gitignore`](<../../../40_Develop/checker/.gitignore>)
 - `40_Develop/checker/crdd-check.contract.test.ts`（削除または旧Path）
-- [`40_Develop/checker/crdd-check.ts`](<../../../40_Develop/checker/crdd-check.ts>)
-- [`40_Develop/checker/fault-injector.ts`](<../../../40_Develop/checker/fault-injector.ts>)
+- [`40_Develop/checker/bin/crdd-check.ts`](<../../../40_Develop/checker/bin/crdd-check.ts>)
+- [`40_Develop/checker/tests/support/fault-injector.ts`](<../../../40_Develop/checker/tests/support/fault-injector.ts>)
 - [`40_Develop/checker/package-lock.json`](<../../../40_Develop/checker/package-lock.json>)
 - [`40_Develop/checker/package.json`](<../../../40_Develop/checker/package.json>)
-- [`40_Develop/checker/regression-runner.ts`](<../../../40_Develop/checker/regression-runner.ts>)
-- [`40_Develop/checker/test-catalog.ts`](<../../../40_Develop/checker/test-catalog.ts>)
-- [`40_Develop/checker/test-discovery.ts`](<../../../40_Develop/checker/test-discovery.ts>)
-- [`40_Develop/checker/test-runner.ts`](<../../../40_Develop/checker/test-runner.ts>)
+- [`40_Develop/verification-runner/bin/regression-runner.ts`](<../../../40_Develop/verification-runner/bin/regression-runner.ts>)
+- [`40_Develop/verification-runner/src/catalog/test-catalog.ts`](<../../../40_Develop/verification-runner/src/catalog/test-catalog.ts>)
+- [`40_Develop/checker/tests/support/test-discovery.ts`](<../../../40_Develop/checker/tests/support/test-discovery.ts>)
+- [`40_Develop/checker/tests/test-runner.ts`](<../../../40_Develop/checker/tests/test-runner.ts>)
 - [`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](<../../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts>)
-- [`40_Develop/checker/tests/integration/regression-runner.contract.test.ts`](<../../../40_Develop/checker/tests/integration/regression-runner.contract.test.ts>)
+- [`40_Develop/verification-runner/tests/integration/regression-runner.contract.test.ts`](<../../../40_Develop/verification-runner/tests/integration/regression-runner.contract.test.ts>)
 - [`40_Develop/checker/tests/integration/tools-naming.contract.test.ts`](<../../../40_Develop/checker/tests/integration/tools-naming.contract.test.ts>)
-- [`40_Develop/checker/tests/unit/test-catalog.contract.test.ts`](<../../../40_Develop/checker/tests/unit/test-catalog.contract.test.ts>)
+- [`40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts`](<../../../40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts>)
 - `40_Develop/checker/tools-naming.contract.test.ts`（削除または旧Path）
 - [`40_Develop/checker/tsconfig.json`](<../../../40_Develop/checker/tsconfig.json>)
 - [`40_Develop/coordinator/.gitignore`](<../../../40_Develop/coordinator/.gitignore>)
@@ -1284,7 +1284,7 @@ Checker全試験は208件中207件が合格し、品質命名の新試験で3つ
         },
         {
           "before": "[`tools/checker/fault-injector.ts`](../../tools/checker/fault-injector.ts)",
-          "after": "[`40_Develop/checker/fault-injector.ts`](../../../40_Develop/checker/fault-injector.ts)",
+          "after": "[`40_Develop/checker/tests/support/fault-injector.ts`](../../../40_Develop/checker/tests/support/fault-injector.ts)",
           "count": 2
         }
       ]

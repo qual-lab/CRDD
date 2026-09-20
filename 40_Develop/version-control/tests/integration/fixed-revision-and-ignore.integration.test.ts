@@ -17,8 +17,8 @@ import {
   writeRepositoryLocalExclude,
 } from "../../src/git/repository-layout.ts";
 
-function git(root: string, arguments_: readonly string[]): string {
-  return execFileSync("git", ["-C", root, ...arguments_], {
+function git(root: string, commandArguments: readonly string[]): string {
+  return execFileSync("git", ["-C", root, ...commandArguments], {
     encoding: "utf8",
     windowsHide: true,
   }).trim();
@@ -112,14 +112,14 @@ test("Repository-local ignoreは失敗段階ごとにEffectと後始末を区別
       );
       assert.equal(result.status, "blocked");
       if (result.status !== "blocked") return;
-      const afterRename =
+      const isAfterRename =
         phase === "post_rename_readback" || phase === "post_readback";
-      assert.equal(result.effectIssued, afterRename);
+      assert.equal(result.effectIssued, isAfterRename);
       assert.equal(
         result.effectConfirmation,
-        afterRename ? "unknown" : "not_issued",
+        isAfterRename ? "unknown" : "not_issued",
       );
-      assert.equal(result.effectStateUnknown, afterRename);
+      assert.equal(result.effectStateUnknown, isAfterRename);
       assert.equal(result.cleanupConfirmed, true);
     });
   }
@@ -159,7 +159,7 @@ test("Repository-local ignoreは二つの実Process競合後も内容と再入�
     import.meta.dirname,
     "../fixtures/repository-ignore-writer.ts",
   );
-  const children = [".crdd/", ".cros/"].map((entry, index) => {
+  const childProcesses = [".crdd/", ".cros/"].map((entry, index) => {
     const readyPath = path.join(exchange, `ready-${index}`);
     const resultPath = path.join(exchange, `result-${index}.json`);
     return Object.freeze({
@@ -174,13 +174,13 @@ test("Repository-local ignoreは二つの実Process競合後も内容と再入�
     });
   });
   const deadline = Date.now() + 10_000;
-  while (!children.every(({ readyPath }) => fs.existsSync(readyPath))) {
+  while (!childProcesses.every(({ readyPath }) => fs.existsSync(readyPath))) {
     if (Date.now() >= deadline) throw new Error("writer_ready_timeout");
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   fs.writeFileSync(startPath, "start\n", { flag: "wx" });
   await Promise.all(
-    children.map(
+    childProcesses.map(
       ({ child }) =>
         new Promise<void>((resolve, reject) => {
           child.once("error", reject);
@@ -192,7 +192,7 @@ test("Repository-local ignoreは二つの実Process競合後も内容と再入�
         }),
     ),
   );
-  const results = children.map(({ resultPath }) =>
+  const results = childProcesses.map(({ resultPath }) =>
     JSON.parse(fs.readFileSync(resultPath, "utf8")),
   );
   assert.equal(
@@ -207,7 +207,7 @@ test("Repository-local ignoreは二つの実Process競合後も内容と再入�
     (result) => result.status === "blocked",
   );
   assert.notEqual(blockedIndex, -1);
-  const blockedWriter = children[blockedIndex];
+  const blockedWriter = childProcesses[blockedIndex];
   if (!blockedWriter) return;
   const retry = writeRepositoryLocalExclude(
     resolveRepositoryGitLayout(root),

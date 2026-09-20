@@ -18,7 +18,7 @@ import {
   type ProjectDockerRecoveryAcknowledgement,
   type ProjectRuntimeState,
 } from "../core/project-runtime-state.ts";
-import { snapshotPlainRecord } from "../internal/plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../boundary/plain-data-snapshot.ts";
 import {
   createProjectRuntimeObjectiveResult,
   createProjectRuntimeTaskExecutionSet,

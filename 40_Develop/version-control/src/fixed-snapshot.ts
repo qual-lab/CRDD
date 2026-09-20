@@ -225,14 +225,14 @@ function resolveCandidateOutputDirectory(
 function blockedMaterialization(
   reason: CandidateMaterializationBlocked["reason"],
   effectIssued: boolean,
-  effectStateUnknown: boolean,
+  isEffectStateUnknown: boolean,
   cleanupConfirmed: boolean,
 ): CandidateMaterializationBlocked {
   return Object.freeze({
     status: "blocked",
     reason,
     effectIssued,
-    effectStateUnknown,
+    effectStateUnknown: isEffectStateUnknown,
     cleanupConfirmed,
     repositoryPathReported: false,
     workspacePathReported: false,

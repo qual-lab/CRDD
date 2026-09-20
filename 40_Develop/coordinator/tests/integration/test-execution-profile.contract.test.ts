@@ -49,8 +49,9 @@ test("制限Process用試験と実Windows Process Gateは同じ8件の閉集合�
     scripts["test:windows-process"] ?? "",
     /--test-name-pattern=\^Windows Process Gate:/,
   );
+  assert.equal(scripts.test, "npm run check && npm run test:run");
   assert.equal(
-    scripts.test,
+    scripts["test:run"],
     "npm run test:windows-process && npm run test:restricted-process",
   );
   assert.doesNotMatch(scripts.test ?? "", /test-(?:skip|name)-pattern/);

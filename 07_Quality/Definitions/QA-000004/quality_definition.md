@@ -43,6 +43,7 @@ Quality ID: `QA-000004`
 | [project-operation](../../../06_Architecture/Details/project-operation/01_Architecture.md) | Project運営状態、Meeting／Topic候補、正本への引渡し |
 | [project-runtime](../../../06_Architecture/Details/project-runtime/01_Architecture.md) | Objective、Task、判断、取消、回復、公開結果 |
 | [runtime-data](../../../06_Architecture/Details/runtime-data/01_Architecture.md) | Repository-local／OS管理Root、用途、保持、清掃、回復 |
+| [semantic-coverage](../../../06_Architecture/Details/semantic-coverage/01_Architecture.md) | Architectureの意味単位、実装Symbol、Quality Local Itemおよび試験Symbolの対応関係を決定論的に投影する |
 | [version-control](../../../06_Architecture/Details/version-control/01_Architecture.md) | Repository境界、Revision、差し替え可能な履歴管理Adapter |
 
 ## 2. 試験段階と外部境界の適用

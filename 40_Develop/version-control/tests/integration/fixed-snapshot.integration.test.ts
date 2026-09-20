@@ -15,8 +15,8 @@ import {
   verifyRepositoryRoot,
 } from "../../src/index.ts";
 
-function git(root: string, arguments_: readonly string[]): string {
-  return execFileSync("git", ["-C", root, ...arguments_], {
+function git(root: string, commandArguments: readonly string[]): string {
+  return execFileSync("git", ["-C", root, ...commandArguments], {
     encoding: "utf8",
     windowsHide: true,
   }).trim();

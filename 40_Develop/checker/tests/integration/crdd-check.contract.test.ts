@@ -8,9 +8,9 @@ import path from "node:path";
 import test, { after } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { runCheckerPipeline } from "../../src/internal/checker-pipeline.ts";
-import { RuleRegistry } from "../../src/internal/rule-registry.ts";
-import { mapArtifactDomainIssueToCheckerFinding } from "../../src/internal/adapters/artifact-relation.ts";
+import { mapArtifactDomainIssueToCheckerFinding } from "../../src/adapters/artifact-relation.ts";
+import { runCheckerPipeline } from "../../src/pipeline/checker-pipeline.ts";
+import { RuleRegistry } from "../../src/rules/rule-registry.ts";
 
 const testEntry = process.argv[1];
 if (testEntry === undefined) throw new Error("checker_test_entry_missing");
@@ -21,17 +21,17 @@ const checkerRoot = path.resolve(
 const repositoryRoot = path.resolve(checkerRoot, "../..");
 const checker = path.join(repositoryRoot, "template", "tools", "crdd-check.ts");
 const faultInjector = pathToFileURL(
-  path.join(checkerRoot, "fault-injector.ts"),
+  path.join(checkerRoot, "tests", "support", "fault-injector.ts"),
 ).href;
 
 test("Checker固有Moduleは40_Develop/checkerだけが所有する", () => {
   const expectedModules = [
-    "src/internal/checker-pipeline.ts",
-    "src/internal/finding-model.ts",
-    "src/internal/rule-registry.ts",
-    "src/internal/rules/current-profile.ts",
-    "src/internal/rules/quality-design-state.ts",
-    "src/internal/rules/reality-symbol-graph.ts",
+    "src/findings/finding-model.ts",
+    "src/pipeline/checker-pipeline.ts",
+    "src/rules/current-profile.ts",
+    "src/rules/quality-design-state.ts",
+    "src/rules/reality-symbol-graph.ts",
+    "src/rules/rule-registry.ts",
   ] as const;
   for (const modulePath of expectedModules)
     assert.equal(
@@ -47,18 +47,14 @@ test("Checker固有Moduleは40_Develop/checkerだけが所有する", () => {
   );
   const launcher = fs.readFileSync(checker, "utf8");
   assert.equal(launcher.includes("./internal/checker/"), false);
-  for (const modulePath of expectedModules.filter(
-    (candidate) => candidate !== "src/internal/finding-model.ts",
-  ))
-    assert.match(
-      launcher,
-      new RegExp(
-        modulePath
-          .replace("src/", "40_Develop/checker/src/")
-          .replaceAll("/", "[/\\\\]"),
-        "u",
-      ),
-    );
+  assert.match(launcher, /40_Develop[/\\]checker[/\\]bin[/\\]crdd-check\.ts/u);
+  assert.doesNotMatch(launcher, /40_Develop[/\\]checker[/\\]src/u);
+  const officialCli = fs.readFileSync(
+    path.join(checkerRoot, "bin", "crdd-check.ts"),
+    "utf8",
+  );
+  assert.match(officialCli, /\.\.\/src\/index\.ts/u);
+  assert.doesNotMatch(officialCli, /pipeline|rules|findings/u);
 });
 
 test("Checker PipelineはMarkdownをArtifact Modelへ変換し固定順のRuleを実行する", () => {
@@ -675,7 +671,7 @@ test("checker packageのRepository検証はRepository rootを明示する", () =
   );
   assert.equal(
     Object.getOwnPropertyDescriptor(scripts, "verify:repository")?.value,
-    "node ./crdd-check.ts --root ../.. --json --summary",
+    "node ./bin/crdd-check.ts --root ../.. --json --summary",
   );
   assert.equal(path.resolve(checkerRoot, "../.."), repositoryRoot);
 });
@@ -9575,6 +9571,11 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
   fs.cpSync(
     path.join(repositoryRoot, "40_Develop", "checker", "src"),
     path.join(source, "40_Develop", "checker", "src"),
+    { recursive: true },
+  );
+  fs.cpSync(
+    path.join(repositoryRoot, "40_Develop", "checker", "bin"),
+    path.join(source, "40_Develop", "checker", "bin"),
     { recursive: true },
   );
   fs.cpSync(

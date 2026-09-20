@@ -731,9 +731,9 @@
 - `07_Quality/04_Test_Catalog.json`（削除または旧Path）
 - [`19_Workflows/03_Execution_Intelligence.md`](<../../../19_Workflows/03_Execution_Intelligence.md>)
 - [`19_Workflows/04_MCP_Server.md`](<../../../19_Workflows/04_MCP_Server.md>)
-- [`40_Develop/checker/regression-runner.ts`](<../../../40_Develop/checker/regression-runner.ts>)
-- [`40_Develop/checker/test-catalog.ts`](<../../../40_Develop/checker/test-catalog.ts>)
-- [`40_Develop/checker/tests/unit/test-catalog.contract.test.ts`](<../../../40_Develop/checker/tests/unit/test-catalog.contract.test.ts>)
+- [`40_Develop/verification-runner/bin/regression-runner.ts`](<../../../40_Develop/verification-runner/bin/regression-runner.ts>)
+- [`40_Develop/verification-runner/src/catalog/test-catalog.ts`](<../../../40_Develop/verification-runner/src/catalog/test-catalog.ts>)
+- [`40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts`](<../../../40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts>)
 - [`40_Develop/coordinator/scripts/check-project-runtime-design-traceability.ts`](<../../../40_Develop/coordinator/scripts/check-project-runtime-design-traceability.ts>)
 - [`40_Develop/coordinator/scripts/check-runtime-traceability.ts`](<../../../40_Develop/coordinator/scripts/check-runtime-traceability.ts>)
 - [`40_Develop/coordinator/tests/integration/project-runtime-design-traceability.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/project-runtime-design-traceability.contract.test.ts>)

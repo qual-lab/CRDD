@@ -1,7 +1,7 @@
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../internal/plain-data-snapshot.ts";
+} from "../boundary/plain-data-snapshot.ts";
 import { isProjectRuntimeRecoveryIdentity } from "../core/project-runtime-state.ts";
 
 export const PROJECT_RUNTIME_INTEGRATION_CONTRACT =

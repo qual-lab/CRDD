@@ -96,7 +96,7 @@ Before submitting a pull request:
 4. For changes under `40_Develop/**` or the distribution source `template/tools/**`, follow [`06_Architecture/99_Coding_Standards.md`](06_Architecture/99_Coding_Standards.md).
 5. Update directly affected README, Overview, Related links, templates, agent instructions, audit criteria, and migration guidance as applicable.
 6. Preserve old rationale, Stable Context IDs, and historical CHANGELOG entries unless the approved change explicitly requires otherwise.
-7. Before independent review or audits, have the parent AI run `node 40_Develop/checker/crdd-check.ts` once for the fixed target revision and share the result. An equivalent deterministic check may be used, and it does not replace an audit.
+7. Before independent review or audits, have the parent AI run `node 40_Develop/checker/bin/crdd-check.ts` once for the fixed target revision and share the result. An equivalent deterministic check may be used, and it does not replace an audit.
 8. Describe unresolved impact and required maintainer decisions honestly.
 
 Use the repository pull request template. A complete pull request may still be revised or declined when Evidence, generalization, authority, compatibility, or release impact does not support adoption.
@@ -201,7 +201,7 @@ Issue、提案、投票、プルリクエストだけでCRDD規則が変更さ�
 4. `40_Develop/**`または配布正本`template/tools/**`を変更する場合は[内部ツール・コーディング規約](06_Architecture/99_Coding_Standards.md)に従う。
 5. 適用範囲に応じてREADME、概要、関連、ひな型、エージェント指示、監査基準、移行指針を追従させる。
 6. 承認済み変更で必要とされない限り、旧判断理由、安定コンテキストID、過去CHANGELOGを破壊しない。
-7. 独立レビューまたは監査の前に、親AIが固定した対象改訂版へ`node 40_Develop/checker/crdd-check.ts`を一度実行して結果を共有する。同等の決定論的確認へ置き換えられるが、監査は代替しない。
+7. 独立レビューまたは監査の前に、親AIが固定した対象改訂版へ`node 40_Develop/checker/bin/crdd-check.ts`を一度実行して結果を共有する。同等の決定論的確認へ置き換えられるが、監査は代替しない。
 8. 未解決影響と保守担当者の判断が必要な点を隠さない。
 
 リポジトリのプルリクエストひな型を使用する。十分に整理されたプルリクエストでも、根拠、一般化、決定権限、互換性、リリースへの影響が採用を支持しない場合は変更または却下されることがある。

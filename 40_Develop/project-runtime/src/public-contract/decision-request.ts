@@ -1,4 +1,4 @@
-import { snapshotPlainRecord } from "../internal/plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../boundary/plain-data-snapshot.ts";
 
 export const PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT =
   "crdd-coordinator/project-runtime-human-decision/v1" as const;

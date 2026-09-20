@@ -2342,7 +2342,18 @@ test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
     /"<signed-distribution-root>\\40_Develop\\coordinator\\scripts\\verify-signed-general-task\.ts"/u,
   );
   assert.match(readme, /--distribution-root "<absolute-staging-root>"/u);
-  assert.match(readme, /--private-key "<approved-absolute-private-key-file>"/u);
+  assert.match(
+    readme,
+    /CRDD_RELEASE_PRIVATE_KEY_PATH=C:\\absolute\\path\\to\\crdd-release-v1-private\.pem/u,
+  );
+  assert.match(
+    readme,
+    /CLIの`--private-key`と`\.env-crdd`のどちらを選んでも同じ鍵参照preflight/u,
+  );
+  assert.equal(
+    /sign-release-manifest\.ts"[^\r\n]*--private-key/u.test(readme),
+    false,
+  );
   assert.equal(
     /```powershell\r?\n& <absolute-preverified-node/u.test(readme),
     false,

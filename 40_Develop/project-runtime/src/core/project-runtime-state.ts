@@ -1,4 +1,4 @@
-import { normalizeRepositoryRelativePath } from "../internal/repository-relative-path.ts";
+import { normalizeRepositoryRelativePath } from "../boundary/repository-relative-path.ts";
 
 export const PROJECT_RUNTIME_STATE_CONTRACT =
   "crdd-coordinator/project-runtime-state/v1" as const;

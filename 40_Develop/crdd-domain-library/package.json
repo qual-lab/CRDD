@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./domain/result": "./src/domain/result/index.ts",
-    "./domain/reality-traceability": "./src/domain/reality-traceability/index.ts",
-    "./domain/semantic-coverage": "./src/domain/semantic-coverage/index.ts",
-    "./application/semantic-coverage": "./src/application/semantic-coverage/index.ts",
-    "./repository": "./src/repository/index.ts"
+    ".": "./src/index.ts",
+    "./outcome": "./src/outcome.ts",
+    "./artifact": "./src/artifact/index.ts",
+    "./reality-traceability": "./src/reality-traceability/index.ts",
+    "./repository-observation": "./src/repository-observation/index.ts"
   },
   "scripts": {
     "check": "npm run format:check && npm run typecheck && npm run lint",

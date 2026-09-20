@@ -1,5 +1,5 @@
 const TRACE_SCHEMA = "crdd-coordinator/project-runtime-design-traceability";
-const TRACE_SCHEMA_REVISION = 1;
+const TRACE_SCHEMA_REVISION = 2;
 
 type JsonRecord = Record<string, unknown>;
 type TextReader = (repositoryRelativePath: string) => string | null;
@@ -108,7 +108,7 @@ function backtickCanonicalIds(
 
 function verificationTableIds(source: string): Set<string> {
   const ids = new Set<string>();
-  const pattern = /^\|\s*(PR-[A-Z0-9-]+)\s*\|/gm;
+  const pattern = /^\|\s*`?(PR-[A-Z0-9-]+)`?\s*\|/gm;
   for (const match of source.matchAll(pattern)) {
     const id = match[1];
     if (id !== undefined) ids.add(id);
@@ -132,11 +132,7 @@ export function inspectProjectRuntimeDesignTraceability(
   if (input.schemaRevision !== TRACE_SCHEMA_REVISION)
     issues.push("trace_schema_revision_invalid");
 
-  const documentKeys = [
-    "architectureDocument",
-    "designDocument",
-    "verificationDocument",
-  ] as const;
+  const documentKeys = ["architectureDocument", "designDocument"] as const;
   const documents = new Map<string, string>();
   for (const key of documentKeys) {
     const path = input[key];
@@ -229,8 +225,7 @@ export function inspectProjectRuntimeDesignTraceability(
       if (!designIds.has(id)) issues.push(`design_document_id_missing:${id}`);
     }
   }
-  const verificationSource = documents.get("verificationDocument") ?? "";
-  const documentedVerificationIds = verificationTableIds(verificationSource);
+  const documentedVerificationIds = verificationTableIds(designSource);
   for (const id of verifications.ids) {
     if (!documentedVerificationIds.has(id))
       issues.push(`verification_document_id_missing:${id}`);

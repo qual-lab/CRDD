@@ -29,7 +29,7 @@ CRDDをサブモジュールとして採用するプロジェクトから、正�
 
 - 当時の`template/tools/crdd_check.ts`。現在の配布正本は[`template/tools/crdd-check.ts`](../../../template/tools/crdd-check.ts)
 - 当時の`tools/crdd_check.test.ts`。現在の移設先は[`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](../../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)
-- 当時の`tools/crdd_check_fault_injector.ts`。現在の移設先は[`40_Develop/checker/fault-injector.ts`](../../../40_Develop/checker/fault-injector.ts)
+- 当時の`tools/crdd_check_fault_injector.ts`。現在の移設先は[`40_Develop/checker/tests/support/fault-injector.ts`](../../../40_Develop/checker/tests/support/fault-injector.ts)
 - [`README.md`](../../../README.md)
 - [`CHANGELOG.md`](../../../CHANGELOG.md)
 - 公開版を示す24正本文書のVersion／Last Updatedヘッダー
@@ -113,7 +113,7 @@ head_matches_gitlink
 
 - 判定実装（当時）: `template/tools/crdd_check.ts`。現在の配布正本は[`template/tools/crdd-check.ts`](../../../template/tools/crdd-check.ts)
 - 回帰試験（当時）: `tools/crdd_check.test.ts`。現在の移設先は[`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](../../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)
-- 異常注入（当時）: `tools/crdd_check_fault_injector.ts`。現在の移設先は[`40_Develop/checker/fault-injector.ts`](../../../40_Develop/checker/fault-injector.ts)
+- 異常注入（当時）: `tools/crdd_check_fault_injector.ts`。現在の移設先は[`40_Develop/checker/tests/support/fault-injector.ts`](../../../40_Develop/checker/tests/support/fault-injector.ts)
 
 ## 検証
 
@@ -222,18 +222,18 @@ head_matches_gitlink
 - [`29_Verification.md`](<../../../29_Verification.md>)
 - [`40_Develop/checker/.gitignore`](<../../../40_Develop/checker/.gitignore>)
 - `40_Develop/checker/crdd-check.contract.test.ts`（削除または旧Path）
-- [`40_Develop/checker/crdd-check.ts`](<../../../40_Develop/checker/crdd-check.ts>)
-- [`40_Develop/checker/fault-injector.ts`](<../../../40_Develop/checker/fault-injector.ts>)
+- [`40_Develop/checker/bin/crdd-check.ts`](<../../../40_Develop/checker/bin/crdd-check.ts>)
+- [`40_Develop/checker/tests/support/fault-injector.ts`](<../../../40_Develop/checker/tests/support/fault-injector.ts>)
 - [`40_Develop/checker/package-lock.json`](<../../../40_Develop/checker/package-lock.json>)
 - [`40_Develop/checker/package.json`](<../../../40_Develop/checker/package.json>)
-- [`40_Develop/checker/regression-runner.ts`](<../../../40_Develop/checker/regression-runner.ts>)
-- [`40_Develop/checker/test-catalog.ts`](<../../../40_Develop/checker/test-catalog.ts>)
-- [`40_Develop/checker/test-discovery.ts`](<../../../40_Develop/checker/test-discovery.ts>)
-- [`40_Develop/checker/test-runner.ts`](<../../../40_Develop/checker/test-runner.ts>)
+- [`40_Develop/verification-runner/bin/regression-runner.ts`](<../../../40_Develop/verification-runner/bin/regression-runner.ts>)
+- [`40_Develop/verification-runner/src/catalog/test-catalog.ts`](<../../../40_Develop/verification-runner/src/catalog/test-catalog.ts>)
+- [`40_Develop/checker/tests/support/test-discovery.ts`](<../../../40_Develop/checker/tests/support/test-discovery.ts>)
+- [`40_Develop/checker/tests/test-runner.ts`](<../../../40_Develop/checker/tests/test-runner.ts>)
 - [`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](<../../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts>)
-- [`40_Develop/checker/tests/integration/regression-runner.contract.test.ts`](<../../../40_Develop/checker/tests/integration/regression-runner.contract.test.ts>)
+- [`40_Develop/verification-runner/tests/integration/regression-runner.contract.test.ts`](<../../../40_Develop/verification-runner/tests/integration/regression-runner.contract.test.ts>)
 - [`40_Develop/checker/tests/integration/tools-naming.contract.test.ts`](<../../../40_Develop/checker/tests/integration/tools-naming.contract.test.ts>)
-- [`40_Develop/checker/tests/unit/test-catalog.contract.test.ts`](<../../../40_Develop/checker/tests/unit/test-catalog.contract.test.ts>)
+- [`40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts`](<../../../40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts>)
 - `40_Develop/checker/tools-naming.contract.test.ts`（削除または旧Path）
 - [`40_Develop/checker/tsconfig.json`](<../../../40_Develop/checker/tsconfig.json>)
 - [`40_Develop/coordinator/.gitignore`](<../../../40_Develop/coordinator/.gitignore>)

@@ -15,11 +15,11 @@ import { PROJECT_RUNTIME_INTEGRATION_CONTRACT } from "../public-contract/integra
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../internal/plain-data-snapshot.ts";
+} from "../boundary/plain-data-snapshot.ts";
 import {
   normalizeRepositoryRelativePath,
   repositoryPathWithin,
-} from "../internal/repository-relative-path.ts";
+} from "../boundary/repository-relative-path.ts";
 
 type IntegrationInput = Readonly<{
   projectId: string;

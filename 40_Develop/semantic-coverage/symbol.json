@@ -1,0 +1,37 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "semantic-coverage",
+  "symbols": [
+    {
+      "symbolId": "semantic-coverage.public-entry",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": ["ARCH-000008"]
+    },
+    {
+      "symbolId": "semantic-coverage.pilot-contract-tests",
+      "kind": "test-suite",
+      "path": "tests/unit/semantic-coverage-pilot.contract.test.ts",
+      "qaIds": ["QA-000004"],
+      "localTestIds": ["PPR-04"],
+      "verifies": ["semantic-coverage.public-entry"]
+    },
+    {
+      "symbolId": "semantic-coverage.public-boundary-contract",
+      "kind": "test-suite",
+      "path": "tests/unit/public-boundary.contract.test.ts",
+      "qaIds": ["QA-000001"],
+      "localTestIds": ["RCM-09"],
+      "verifies": ["semantic-coverage.public-entry"]
+    },
+    {
+      "symbolId": "semantic-coverage.publisher-integration-tests",
+      "kind": "test-suite",
+      "path": "tests/integration/semantic-bundle-publisher.integration.test.ts",
+      "qaIds": ["QA-000008"],
+      "localTestIds": ["RDL-02"],
+      "verifies": ["semantic-coverage.public-entry"]
+    }
+  ]
+}

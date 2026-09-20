@@ -126,8 +126,8 @@ CHANGELOGは公開リリース、利用者影響、移行、規範変更等で�
 リンク、アンカー、文書版、`Related`の並び、既知のフォルダ構造等、同じ入力から決定論的に判定できる項目は、AIによる意味評価の前に確認する。CRDD公式Repositoryではprivate checker packageの入口を使用する。
 
 ```text
-node 40_Develop/checker/crdd-check.ts
-node 40_Develop/checker/crdd-check.ts --json --summary
+node 40_Develop/checker/bin/crdd-check.ts
+node 40_Develop/checker/bin/crdd-check.ts --json --summary
 ```
 
 採用Repositoryへ配布するひな型は、外部パッケージを必要としない参照実装として`tools/crdd-check.ts`を含む。採用Repositoryでは次の入口を使用する。

@@ -195,10 +195,12 @@ test("preflightは秘密鍵byteを読まず、読取り途中の失敗では確�
         throw new Error("injected_read_failure");
       };
     } else if (failurePoint === "reobserve") {
-      fs.fstatSync = ((...arguments_: Parameters<typeof fs.fstatSync>) => {
+      fs.fstatSync = ((
+        ...commandArguments: Parameters<typeof fs.fstatSync>
+      ) => {
         fstatCount += 1;
         if (fstatCount === 2) throw new Error("injected_reobserve_failure");
-        return originalFstat(...arguments_);
+        return originalFstat(...commandArguments);
       }) as typeof fs.fstatSync;
     } else {
       fs.closeSync = (descriptor) => {
@@ -240,8 +242,8 @@ test("preflightは秘密鍵byteを読まず、読取り途中の失敗では確�
 
 test("hidden inputはTTYを要求し、取消とEOFで端末状態を必ず復元する", async () => {
   function terminal(
-    inputIsTTY = true,
-    outputIsTTY = true,
+    isInputTTY = true,
+    isOutputTTY = true,
     failures: ReadonlySet<string> = new Set(),
   ) {
     let dataListener: ((chunk: string) => void) | null = null;
@@ -255,13 +257,13 @@ test("hidden inputはTTYを要求し、取消とEOFで端末状態を必ず復�
     };
     return {
       adapter: {
-        inputIsTTY,
-        outputIsTTY,
+        inputIsTTY: isInputTTY,
+        outputIsTTY: isOutputTTY,
         write: (value: string) =>
           observe(value === "\n" ? "write-newline" : "write-prompt"),
-        setRawMode: (enabled: boolean) => {
-          rawModes.push(enabled);
-          observe(enabled ? "raw-on" : "raw-off");
+        setRawMode: (isEnabled: boolean) => {
+          rawModes.push(isEnabled);
+          observe(isEnabled ? "raw-on" : "raw-off");
         },
         resume: () => observe("resume"),
         pause: () => {

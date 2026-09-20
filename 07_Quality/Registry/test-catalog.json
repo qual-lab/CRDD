@@ -23,8 +23,10 @@
     "mcp": "node_test",
     "project-runtime": "node_test",
     "runtime-data": "node_test",
+    "semantic-coverage": "node_test",
     "version-control": "node_test",
-    "platform-access": "cargo_test"
+    "platform-access": "cargo_test",
+    "verification-runner": "node_test"
   },
   "integrationBlocks": [
     {
@@ -34,8 +36,18 @@
       "responsibilities": ["reality_symbol_contract", "reality_relation_graph", "repository_regular_entry_observation"],
       "externalBoundaries": ["repository_filesystem"],
       "lifecycleProfile": "read_only_boundary",
-      "testIds": ["crdd-domain-library:unit:public-boundary", "crdd-domain-library:unit:repository-observation", "crdd-domain-library:integration:reality-repository", "crdd-domain-library:integration:semantic-bundle-publisher"],
+      "testIds": ["crdd-domain-library:unit:public-boundary", "crdd-domain-library:unit:repository-observation", "crdd-domain-library:integration:reality-repository"],
       "postconditions": ["public_export_allowlist_exact", "domain_and_repository_owner_separated", "repository_outside_observation_absent", "opened_handle_location_proven_or_read_unobservable", "repository_content_unchanged"]
+    },
+    {
+      "id": "semantic-coverage:meaning-to-bundle",
+      "owner": "semantic-coverage",
+      "architectureAnchor": "06_Architecture/Details/semantic-coverage/01_Architecture.md#4-実行の流れ",
+      "responsibilities": ["semantic_ir_compilation", "coverage_graph", "atomic_bundle_publication"],
+      "externalBoundaries": ["repository_filesystem"],
+      "lifecycleProfile": "durable_operation",
+      "testIds": ["semantic-coverage:unit:pilot", "semantic-coverage:integration:bundle-publisher"],
+      "postconditions": ["semantic_meaning_not_inferred", "failed_publish_preserves_previous_snapshot", "temporary_file_cleaned"]
     },
     {
       "id": "artifact-signing:key-to-signature",
@@ -98,13 +110,13 @@
       "postconditions": ["repository_content_unchanged", "child_process_settled", "unchecked_scope_not_hidden"]
     },
     {
-      "id": "checker:regression-runner",
-      "owner": "checker",
-      "architectureAnchor": "06_Architecture/Details/checker/01_Architecture.md#5-資源と終了",
+      "id": "verification-runner:regression-runner",
+      "owner": "verification-runner",
+      "architectureAnchor": "06_Architecture/Details/verification-runner/01_Architecture.md#4-実行の流れ",
       "responsibilities": ["test_discovery", "bounded_child_execution", "result_aggregation"],
       "externalBoundaries": ["node_child_process", "test_fixture_root", "exit_status"],
       "lifecycleProfile": "external_effect_operation",
-      "testIds": ["checker:integration:regression-runner", "checker:unit:test-catalog"],
+      "testIds": ["verification-runner:integration:regression-runner", "verification-runner:unit:test-catalog"],
       "postconditions": ["child_process_absent", "fixture_cleanup_classified", "partial_result_not_reported_complete"]
     },
     {
@@ -260,6 +272,13 @@
   ],
   "integrationCorridors": [
     {
+      "id": "semantic-coverage:repository-meaning-to-bundle",
+      "architectureAnchor": "06_Architecture/Details/semantic-coverage/01_Architecture.md#4-実行の流れ",
+      "blockPath": ["crdd-domain-library:reality-and-repository-boundary", "semantic-coverage:meaning-to-bundle"],
+      "testIds": ["crdd-domain-library:integration:reality-repository", "semantic-coverage:integration:bundle-publisher"],
+      "postconditions": ["repository_observation_preserved", "semantic_meaning_not_inferred", "failed_publish_preserves_previous_snapshot"]
+    },
+    {
       "id": "crdd-domain-library:reality-to-checker",
       "architectureAnchor": "06_Architecture/Details/crdd-domain-library/01_Architecture.md#7-consumer-closure",
       "blockPath": ["crdd-domain-library:reality-and-repository-boundary", "checker:repository-verification"],
@@ -283,8 +302,8 @@
     {
       "id": "version-control:observation-to-regression",
       "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#6-段階移行",
-      "blockPath": ["version-control:repository-observation", "checker:regression-runner"],
-      "testIds": ["version-control:integration:local-change-set", "checker:integration:regression-runner"],
+      "blockPath": ["version-control:repository-observation", "verification-runner:regression-runner"],
+      "testIds": ["version-control:integration:local-change-set", "verification-runner:integration:regression-runner"],
       "postconditions": ["canonical_change_set_preserved", "partial_observation_not_used", "selection_input_complete"]
     },
     {
@@ -297,8 +316,8 @@
     {
       "id": "checker:discovery-to-regression",
       "architectureAnchor": "06_Architecture/Details/checker/01_Architecture.md#7-設計から試験への接続",
-      "blockPath": ["checker:repository-verification", "checker:regression-runner"],
-      "testIds": ["checker:integration:crdd-check", "checker:integration:regression-runner"],
+      "blockPath": ["checker:repository-verification", "verification-runner:regression-runner"],
+      "testIds": ["checker:integration:crdd-check", "verification-runner:integration:regression-runner"],
       "postconditions": ["discovered_scope_matches_execution_plan", "all_child_processes_settled", "partial_run_not_reported_complete"]
     },
     {
@@ -485,9 +504,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "crdd-domain-library:integration:semantic-bundle-publisher",
-      "owner": "crdd-domain-library",
-      "path": "40_Develop/crdd-domain-library/tests/integration/semantic-bundle-publisher.integration.test.ts",
+      "id": "semantic-coverage:integration:bundle-publisher",
+      "owner": "semantic-coverage",
+      "path": "40_Develop/semantic-coverage/tests/integration/semantic-bundle-publisher.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": ["semantic-coverage", "repository", "filesystem", "atomic-publish"],
@@ -3743,9 +3762,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "checker:integration:regression-runner",
-      "owner": "checker",
-      "path": "40_Develop/checker/tests/integration/regression-runner.contract.test.ts",
+      "id": "verification-runner:integration:regression-runner",
+      "owner": "verification-runner",
+      "path": "40_Develop/verification-runner/tests/integration/regression-runner.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -3765,9 +3784,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "checker:unit:test-catalog",
-      "owner": "checker",
-      "path": "40_Develop/checker/tests/unit/test-catalog.contract.test.ts",
+      "id": "verification-runner:unit:test-catalog",
+      "owner": "verification-runner",
+      "path": "40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3779,28 +3798,6 @@
       "humanInput": false,
       "postconditions": [
         "repository_check_result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "checker:unit:launcher-binding",
-      "owner": "checker",
-      "path": "40_Develop/checker/tests/unit/launcher-binding.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "launcher",
-        "baseline-root",
-        "distribution-identity",
-        "consumer-closure"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "baseline_root_exact",
-        "alternate_implementation_not_selected",
-        "invalid_identity_effect_absent"
       ],
       "mandatoryByDefault": true
     },
@@ -3824,9 +3821,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "checker:unit:semantic-coverage-pilot",
-      "owner": "checker",
-      "path": "40_Develop/checker/tests/unit/semantic-coverage-pilot.contract.test.ts",
+      "id": "semantic-coverage:unit:pilot",
+      "owner": "semantic-coverage",
+      "path": "40_Develop/semantic-coverage/tests/unit/semantic-coverage-pilot.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3839,6 +3836,26 @@
       "humanInput": false,
       "postconditions": [
         "legacy_runtime_fields_classified_without_semantic_inference"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "semantic-coverage:unit:public-boundary",
+      "owner": "semantic-coverage",
+      "path": "40_Develop/semantic-coverage/tests/unit/public-boundary.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "public-boundary",
+        "semantic-coverage",
+        "consumer-closure"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "declared_public_symbols_only",
+        "surface_vocabulary_absent_from_domain_issue"
       ],
       "mandatoryByDefault": true
     },

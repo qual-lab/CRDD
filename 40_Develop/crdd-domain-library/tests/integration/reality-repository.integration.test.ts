@@ -3,13 +3,13 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/repository-identity/index.ts";
 
 import {
   createRealitySymbolGraph,
   validateRealitySymbolManifest,
-} from "../../src/domain/reality-traceability/index.ts";
-import { createFilesystemRepositoryObservationPort } from "../../src/repository/index.ts";
+} from "../../src/reality-traceability/index.ts";
+import { createFilesystemRepositoryObservationPort } from "../../src/repository-observation/index.ts";
 
 test("Repository観測をReality Symbol契約へ渡してGraphを構築する", () => {
   const root = path.resolve(

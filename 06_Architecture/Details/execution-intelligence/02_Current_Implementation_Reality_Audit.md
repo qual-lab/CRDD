@@ -111,7 +111,7 @@ RecorderがEventを作れたこととStoreが耐久公開したことを同一�
 | Recorder | `src/application/` | Repository結合、Event生成と保存の接続、結果の返却 |
 | Event・評価 | `src/core/` | 閉Schema、欠測、集約、統合結果評価、非Authority改善候補 |
 | 保存境界 | `src/store/` | Git Root検証、不変公開、排他、読戻し、失敗残存 |
-| 入力snapshot | `src/internal/` | Accessor／Proxyを評価せずplain dataを検査・固定する |
+| 入力snapshot | `src/boundary/` | Accessor／Proxyを評価せずplain dataを検査・固定する |
 
 Provider SDKの自動計測、独立した取込サーバー、ViewerおよびEvent物理削除は、この内部構成へ接続済みとは扱わない。各境界の条件と未接続範囲は以下の節が所有する。
 

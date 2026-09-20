@@ -8,7 +8,7 @@ import type { ProjectRuntimeStatePort } from "../ports/state-port.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../internal/plain-data-snapshot.ts";
+} from "../boundary/plain-data-snapshot.ts";
 
 export const PROJECT_RUNTIME_REPLANNING_CONTRACT =
   "crdd-coordinator/project-runtime-replanning/v1" as const;

@@ -4,18 +4,18 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import type { LoadedRealitySymbolManifest } from "../../../crdd-domain-library/src/domain/reality-traceability/index.ts";
+import type { LoadedRealitySymbolManifest } from "../../../crdd-domain-library/src/reality-traceability/index.ts";
 import {
   readRegisteredRealityTests,
   readRegisteredRealityTestsFromRepository,
-} from "../../src/internal/adapters/reality-test-catalog.ts";
+} from "../../src/adapters/reality-test-catalog.ts";
 import {
   createRealitySymbolGraph,
   discoverRealitySymbolManifests,
   mapRealityDomainIssueToCheckerFinding,
   validateRealitySymbolManifest,
-} from "../../src/internal/adapters/reality-traceability.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+} from "../../src/adapters/reality-traceability.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/repository-identity/index.ts";
 
 const checkerRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),

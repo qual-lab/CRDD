@@ -6,49 +6,49 @@
     {
       "symbolId": "checker.public-entry",
       "kind": "module",
-      "path": "crdd-check.ts",
+      "path": "src/index.ts",
       "archIds": ["ARCH-000001", "ARCH-000002"]
     },
     {
       "symbolId": "checker.artifact-relation-adapter",
       "kind": "module",
-      "path": "src/internal/adapters/artifact-relation.ts",
+      "path": "src/adapters/artifact-relation.ts",
       "archIds": ["ARCH-000001", "ARCH-000002"]
     },
     {
       "symbolId": "checker.pipeline",
       "kind": "module",
-      "path": "src/internal/checker-pipeline.ts",
+      "path": "src/pipeline/checker-pipeline.ts",
       "archIds": ["ARCH-000001", "ARCH-000002"]
     },
     {
       "symbolId": "checker.finding-model",
       "kind": "module",
-      "path": "src/internal/finding-model.ts",
+      "path": "src/findings/finding-model.ts",
       "archIds": ["ARCH-000001"]
     },
     {
       "symbolId": "checker.rule-registry",
       "kind": "module",
-      "path": "src/internal/rule-registry.ts",
+      "path": "src/rules/rule-registry.ts",
       "archIds": ["ARCH-000001", "ARCH-000002"]
     },
     {
       "symbolId": "checker.current-profile",
       "kind": "module",
-      "path": "src/internal/rules/current-profile.ts",
+      "path": "src/rules/current-profile.ts",
       "archIds": ["ARCH-000001"]
     },
     {
       "symbolId": "checker.quality-design-state-rule",
       "kind": "module",
-      "path": "src/internal/rules/quality-design-state.ts",
+      "path": "src/rules/quality-design-state.ts",
       "archIds": ["ARCH-000001"]
     },
     {
       "symbolId": "checker.reality-symbol-graph-rule",
       "kind": "module",
-      "path": "src/internal/rules/reality-symbol-graph.ts",
+      "path": "src/rules/reality-symbol-graph.ts",
       "archIds": ["ARCH-000001", "ARCH-000002"]
     },
     {

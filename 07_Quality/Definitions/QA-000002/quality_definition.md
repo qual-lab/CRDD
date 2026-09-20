@@ -27,6 +27,7 @@ Quality ID: `QA-000002`
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
 | [quality-change-control](../../../06_Architecture/Details/quality-change-control/01_Architecture.md) | 固定改訂版、指摘、是正、Evidence、現在Gateの閉包 |
+| [verification-runner](../../../06_Architecture/Details/verification-runner/01_Architecture.md) | Catalog closure、段階実行、資源集約試験のAuthorityおよび未実行理由の保持 |
 
 ## 2. 成立の流れ
 

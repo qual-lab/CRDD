@@ -1,8 +1,8 @@
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../internal/plain-data-snapshot.ts";
-import { normalizeRepositoryRelativePath } from "../internal/repository-relative-path.ts";
+} from "../boundary/plain-data-snapshot.ts";
+import { normalizeRepositoryRelativePath } from "../boundary/repository-relative-path.ts";
 
 export type ProjectRuntimeObjectiveRequest = Readonly<{
   requestId: string;

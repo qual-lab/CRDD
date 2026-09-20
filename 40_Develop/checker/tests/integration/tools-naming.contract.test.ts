@@ -60,7 +60,7 @@ import {
   discoverCheckerTestFiles,
   requireCheckerTestFiles,
   type TestDiscoveryOperations,
-} from "../../test-discovery.ts";
+} from "../support/test-discovery.ts";
 
 const checkerRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -72,17 +72,23 @@ const pathInspectionRoots = Object.freeze([
   path.join(repositoryRoot, "template", "tools"),
 ]);
 const sourceOwnershipRoots = Object.freeze([
+  path.join(repositoryRoot, "40_Develop", "artifact-signing"),
   path.join(repositoryRoot, "40_Develop", "checker"),
   path.join(repositoryRoot, "40_Develop", "coordinator"),
+  path.join(repositoryRoot, "40_Develop", "crdd-domain-library"),
   path.join(repositoryRoot, "40_Develop", "execution-intelligence"),
+  path.join(repositoryRoot, "40_Develop", "mcp"),
   path.join(repositoryRoot, "40_Develop", "project-runtime"),
   path.join(repositoryRoot, "40_Develop", "runtime-data"),
-  path.join(repositoryRoot, "40_Develop", "mcp"),
+  path.join(repositoryRoot, "40_Develop", "semantic-coverage"),
+  path.join(repositoryRoot, "40_Develop", "verification-runner"),
+  path.join(repositoryRoot, "40_Develop", "version-control"),
   path.join(repositoryRoot, "template", "tools"),
 ]);
 const projectConfigs = Object.freeze([
   path.join(checkerRoot, "tsconfig.json"),
   path.join(checkerRoot, "template-tools-tsconfig.json"),
+  path.join(repositoryRoot, "40_Develop", "artifact-signing", "tsconfig.json"),
   path.join(
     repositoryRoot,
     "40_Develop",
@@ -99,7 +105,79 @@ const projectConfigs = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "project-runtime", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "runtime-data", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "mcp", "tsconfig.json"),
+  path.join(
+    repositoryRoot,
+    "40_Develop",
+    "crdd-domain-library",
+    "tsconfig.json",
+  ),
+  path.join(repositoryRoot, "40_Develop", "semantic-coverage", "tsconfig.json"),
+  path.join(
+    repositoryRoot,
+    "40_Develop",
+    "verification-runner",
+    "tsconfig.json",
+  ),
+  path.join(repositoryRoot, "40_Develop", "version-control", "tsconfig.json"),
 ]);
+
+function exportedNames(relativePath: string): readonly string[] {
+  const source = fs.readFileSync(path.join(checkerRoot, relativePath), "utf8");
+  return [
+    ...[
+      ...source.matchAll(/export\s+(?:type\s+)?\{([\s\S]*?)\}\s*from/gu),
+    ].flatMap((match) =>
+      (match[1] ?? "")
+        .split(",")
+        .map((entry) => entry.trim().replace(/^type\s+/u, ""))
+        .filter((entry) => entry.length > 0),
+    ),
+    ...[
+      ...source.matchAll(
+        /export\s+(?:type|interface|const|function|class)\s+([A-Za-z][A-Za-z0-9]*)/gu,
+      ),
+    ].map((match) => match[1] ?? ""),
+  ].sort();
+}
+
+test("Checker公開入口はArchitecture宣言済みSymbolだけを公開する", () => {
+  assert.deepEqual(exportedNames("src/index.ts"), [
+    "CheckerFinding",
+    "CheckerResult",
+    "CheckerRunRequest",
+    "runChecker",
+  ]);
+});
+
+test("Checker公開Use Caseは工程別検査を所有せず現行Profileへ委譲する", () => {
+  const applicationSource = fs.readFileSync(
+    path.join(checkerRoot, "src", "application", "checker-command.ts"),
+    "utf8",
+  );
+  const profileSource = fs.readFileSync(
+    path.join(checkerRoot, "src", "profiles", "current-profile.ts"),
+    "utf8",
+  );
+  assert.match(
+    applicationSource,
+    /from "\.\.\/profiles\/current-profile\.ts"/u,
+  );
+  assert.match(
+    applicationSource,
+    /return runCurrentProfileChecker\(request\)/u,
+  );
+  assert.doesNotMatch(applicationSource, /function check[A-Z]/u);
+  for (const check of [
+    "checkWorkLifecycleNavigation",
+    "checkUxRequirementAnalysis",
+    "checkIaReconstruction",
+    "checkUiReconstruction",
+    "checkSpecReconstruction",
+    "checkArchitectureReconstruction",
+    "checkQualityReconstruction",
+  ])
+    assert.match(profileSource, new RegExp(`function ${check}\\(`, "u"));
+});
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const CAMEL_CASE = /^[a-z][A-Za-z0-9]*$/u;
 const PASCAL_CASE = /^[A-Z][A-Za-z0-9]*$/u;
@@ -220,6 +298,12 @@ const FORBIDDEN_BARE_IDENTIFIERS = new Set([
   "run",
   "util",
 ]);
+const PROHIBITED_SOURCE_DIRECTORY_NAMES = new Set([
+  "common",
+  "helpers",
+  "internal",
+  "utils",
+]);
 const FIXED_GLOBAL_INTRINSICS = new Set(["Date"]);
 const FIXED_GLOBAL_CALLS = new Set(["BigInt", "Symbol"]);
 const FIXED_GLOBAL_OBJECTS = new Set(["JSON", "Object", "String"]);
@@ -263,6 +347,7 @@ function collectFiles(root: string): string[] {
         `symbolic directory: ${target}`,
       );
       assert.match(entry.name, KEBAB_CASE, `folder name: ${target}`);
+      assertSourceDirectoryPath(target);
       files.push(...collectFiles(target));
       continue;
     }
@@ -270,6 +355,33 @@ function collectFiles(root: string): string[] {
     files.push(target);
   }
   return files;
+}
+
+function assertSourceDirectoryPath(directory: string): void {
+  const relativePath = path.relative(
+    path.join(repositoryRoot, "40_Develop"),
+    directory,
+  );
+  if (
+    relativePath === "" ||
+    relativePath === ".." ||
+    relativePath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativePath)
+  )
+    return;
+  const segments = relativePath.split(path.sep);
+  const sourceIndex = segments.indexOf("src");
+  if (sourceIndex < 1) return;
+  const sourceDepth = segments.length - sourceIndex - 1;
+  assert.ok(
+    sourceDepth <= 2,
+    `source directory depth exceeds two levels: ${directory}`,
+  );
+  assert.equal(
+    PROHIBITED_SOURCE_DIRECTORY_NAMES.has(segments.at(-1) ?? ""),
+    false,
+    `source directory must express a responsibility: ${directory}`,
+  );
 }
 
 function isPlatformAccessTarget(target: string): boolean {
@@ -1671,6 +1783,43 @@ test("40_Develop配下のREADMEを拒否し、説明の正本分離を維持す�
   );
   assert.doesNotThrow(() =>
     assertFileName(path.join(repositoryRoot, "README.md")),
+  );
+});
+
+test("src配下は責務名を使い二階層以内に保つ", () => {
+  assert.doesNotThrow(() =>
+    assertSourceDirectoryPath(
+      path.join(
+        repositoryRoot,
+        "40_Develop",
+        "sample",
+        "src",
+        "capability",
+        "detail",
+      ),
+    ),
+  );
+  assert.throws(
+    () =>
+      assertSourceDirectoryPath(
+        path.join(
+          repositoryRoot,
+          "40_Develop",
+          "sample",
+          "src",
+          "capability",
+          "detail",
+          "nested",
+        ),
+      ),
+    /source directory depth exceeds two levels/u,
+  );
+  assert.throws(
+    () =>
+      assertSourceDirectoryPath(
+        path.join(repositoryRoot, "40_Develop", "sample", "src", "internal"),
+      ),
+    /source directory must express a responsibility/u,
   );
 });
 

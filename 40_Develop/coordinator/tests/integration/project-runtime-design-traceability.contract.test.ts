@@ -56,7 +56,7 @@ describe("Project Runtime design traceability", () => {
     );
   });
 
-  it("孤立Interface、未知遷移、検証文書との不一致を一括拒否する", () => {
+  it("孤立Interface、未知遷移、詳細設計の検証接続との不一致を一括拒否する", () => {
     const trace = structuredClone(currentTrace());
     const interfaces = trace.interfaces as Record<string, unknown>[];
     interfaces.push({
@@ -121,14 +121,11 @@ describe("Project Runtime design traceability", () => {
   it("人間向け正本だけにある設計・検証IDを双方向で拒否する", () => {
     const trace = currentTrace();
     const designPath = String(trace.designDocument);
-    const verificationPath = String(trace.verificationDocument);
     const reader = (repositoryRelativePath: string): string | null => {
       const source = repositoryReader(repositoryRelativePath);
       if (source === null) return null;
       if (repositoryRelativePath === designPath)
-        return `${source}\n| \`FAIL-HUMAN-ONLY\` | 人間向け文書だけの試験ID |`;
-      if (repositoryRelativePath === verificationPath)
-        return `${source}\n| PR-A-99 | 異常 | 人間向け文書だけの検証ID | 拒否 |`;
+        return `${source}\n| \`FAIL-HUMAN-ONLY\` | 人間向け文書だけの試験ID |\n| PR-A-99 | 異常 | 人間向け文書だけの検証ID | 拒否 |`;
       return source;
     };
     const result = inspectProjectRuntimeDesignTraceability(trace, reader);

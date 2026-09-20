@@ -20,6 +20,7 @@ import {
   consumeRuntimeOwnedVerifiedCoordinatorPackageCapability,
   createIsolatedVerifiedPackageCapabilityStateCandidate,
   describePlatformProvisionerPackageFilesystemContract,
+  diagnoseRuntimeDistributionFilesystemForVerification,
   inspectBundledCoordinatorPackageFilesystemCandidate,
   inspectFixedDevelopmentCoordinatorPackageCandidate,
   inspectPlatformProvisionerPackageFilesystemCandidate,
@@ -245,6 +246,8 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
     "40_Develop/coordinator/bin",
     "40_Develop/coordinator/src",
     "40_Develop/coordinator/scripts",
+    "40_Develop/artifact-signing/package.json",
+    "40_Develop/artifact-signing/src",
     "40_Develop/mcp/package.json",
     "40_Develop/mcp/src",
     "40_Develop/project-runtime/package.json",
@@ -290,7 +293,15 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
     inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
       distributionRoot,
     );
-  assert.equal(observed.status, "candidate", JSON.stringify(observed));
+  assert.equal(
+    observed.status,
+    "candidate",
+    JSON.stringify({
+      observed,
+      diagnostic:
+        diagnoseRuntimeDistributionFilesystemForVerification(distributionRoot),
+    }),
+  );
   if (omittedEntrypoint)
     fs.unlinkSync(path.join(packageRoot, omittedEntrypoint));
   return {
@@ -810,10 +821,7 @@ test("署名入口は配布観測結果を秘密入力前の検査と署名結�
       "compilePlatformProvisionerManifestPayloadCandidate,",
       "compilePlatformProvisionerManifestPayloadCandidate as compilePayload,",
     ),
-    source.replace(
-      'signature: signature.toString("base64url"),',
-      'signature: "forged",',
-    ),
+    source.replace("signature: signature.signature,", 'signature: "forged",'),
     source.replace(
       "payload: compiled.payload,",
       "payload: { ...compiled.payload },",

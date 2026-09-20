@@ -11,7 +11,7 @@ export type GitLocalChangeSetProcessResult = Pick<
 >;
 
 export type GitLocalChangeSetCommandRunner = (
-  arguments_: readonly string[],
+  commandArguments: readonly string[],
 ) => GitLocalChangeSetProcessResult;
 
 function parsePaths(
@@ -32,10 +32,10 @@ export function createGitLocalChangeSetAdapter(
   commandRunner?: GitLocalChangeSetCommandRunner,
 ): LocalChangeSetAdapter {
   return (repositoryRoot, comparisonBase): LocalChangeSetObservation => {
-    const run =
+    const runCommand =
       commandRunner ??
-      ((arguments_: readonly string[]) =>
-        spawnSync("git", arguments_, {
+      ((commandArguments: readonly string[]) =>
+        spawnSync("git", commandArguments, {
           cwd: repositoryRoot,
           encoding: "buffer",
           windowsHide: true,
@@ -45,7 +45,7 @@ export function createGitLocalChangeSetAdapter(
         }));
     return Object.freeze({
       revisionChanges: parsePaths(
-        run([
+        runCommand([
           "diff",
           "--name-only",
           "--no-renames",
@@ -55,15 +55,22 @@ export function createGitLocalChangeSetAdapter(
         "revision_changes",
       ),
       preparedChanges: parsePaths(
-        run(["diff", "--cached", "--name-only", "--no-renames", "-z", "HEAD"]),
+        runCommand([
+          "diff",
+          "--cached",
+          "--name-only",
+          "--no-renames",
+          "-z",
+          "HEAD",
+        ]),
         "prepared_changes",
       ),
       workingChanges: parsePaths(
-        run(["diff", "--name-only", "--no-renames", "-z"]),
+        runCommand(["diff", "--name-only", "--no-renames", "-z"]),
         "working_changes",
       ),
       unregisteredPaths: parsePaths(
-        run(["ls-files", "--others", "--exclude-standard", "-z"]),
+        runCommand(["ls-files", "--others", "--exclude-standard", "-z"]),
         "unregistered_paths",
       ),
     });

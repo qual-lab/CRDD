@@ -1,7 +1,7 @@
 import {
   snapshotOpenPlainRecord,
   snapshotPlainRecord,
-} from "../internal/plain-data-snapshot.ts";
+} from "../boundary/plain-data-snapshot.ts";
 
 export const MCP_PROJECT_RUNTIME_PROTOCOL_VERSION = "2026-07-28" as const;
 export const MCP_PROJECT_RUNTIME_OBJECTIVE_TOOL = "crdd.run_objective" as const;

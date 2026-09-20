@@ -6,7 +6,7 @@ import {
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../internal/plain-data-snapshot.ts";
+} from "../boundary/plain-data-snapshot.ts";
 
 export const BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT =
   "crdd/bounded-integrated-result-evaluation-input/v1" as const;

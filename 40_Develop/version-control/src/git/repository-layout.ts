@@ -447,12 +447,12 @@ function assertConfiguredWorktreeMatchesRoot(
     ? configuredWorktree
     : path.resolve(commonDirectory.realPath, configuredWorktree);
   const actualWorktree = fs.realpathSync.native(configuredPath);
-  const matches =
+  const doesWorktreeMatch =
     process.platform === "win32"
       ? actualWorktree.toLocaleLowerCase("en-US") ===
         root.realPath.toLocaleLowerCase("en-US")
       : actualWorktree === root.realPath;
-  if (!matches) throw new Error("repository_git_worktree_mismatch");
+  if (!doesWorktreeMatch) throw new Error("repository_git_worktree_mismatch");
 }
 
 export function inspectRepositoryGitObjectFormatCandidate(

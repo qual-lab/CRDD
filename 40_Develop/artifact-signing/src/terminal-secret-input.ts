@@ -2,7 +2,7 @@ type HiddenLineTerminal = Readonly<{
   inputIsTTY: boolean;
   outputIsTTY: boolean;
   write: (value: string) => void;
-  setRawMode: (enabled: boolean) => void;
+  setRawMode: (isEnabled: boolean) => void;
   resume: () => void;
   pause: () => void;
   setEncoding: (encoding: BufferEncoding) => void;
@@ -22,26 +22,26 @@ export async function readHiddenLineFromTerminal(
   return await new Promise<string>((resolve, reject) => {
     let value = "";
     let settled = false;
-    let rawModeAttempted = false;
-    let resumeAttempted = false;
-    let dataAttachmentAttempted = false;
-    let endAttachmentAttempted = false;
+    let didAttemptRawMode = false;
+    let didAttemptResume = false;
+    let didAttachData = false;
+    let didAttachEnd = false;
     const finish = (result: string | Error) => {
       if (settled) return;
       settled = true;
       const cleanupFailures: unknown[] = [];
       for (const cleanup of [
         () => {
-          if (dataAttachmentAttempted) terminal.offData(onData);
+          if (didAttachData) terminal.offData(onData);
         },
         () => {
-          if (endAttachmentAttempted) terminal.offEnd(onEnd);
+          if (didAttachEnd) terminal.offEnd(onEnd);
         },
         () => {
-          if (rawModeAttempted) terminal.setRawMode(false);
+          if (didAttemptRawMode) terminal.setRawMode(false);
         },
         () => {
-          if (resumeAttempted) terminal.pause();
+          if (didAttemptResume) terminal.pause();
         },
       ]) {
         try {
@@ -91,14 +91,14 @@ export async function readHiddenLineFromTerminal(
     };
     try {
       terminal.write(prompt);
-      rawModeAttempted = true;
+      didAttemptRawMode = true;
       terminal.setRawMode(true);
-      resumeAttempted = true;
+      didAttemptResume = true;
       terminal.resume();
       terminal.setEncoding("utf8");
-      dataAttachmentAttempted = true;
+      didAttachData = true;
       terminal.onData(onData);
-      endAttachmentAttempted = true;
+      didAttachEnd = true;
       terminal.onceEnd(onEnd);
     } catch (error) {
       finish(
@@ -113,7 +113,7 @@ export async function readHiddenLine(prompt: string) {
     inputIsTTY: process.stdin.isTTY === true,
     outputIsTTY: process.stdout.isTTY === true,
     write: (value) => process.stdout.write(value),
-    setRawMode: (enabled) => process.stdin.setRawMode(enabled),
+    setRawMode: (isEnabled) => process.stdin.setRawMode(isEnabled),
     resume: () => process.stdin.resume(),
     pause: () => process.stdin.pause(),
     setEncoding: (encoding) => process.stdin.setEncoding(encoding),

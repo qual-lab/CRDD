@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../internal/plain-data-snapshot.ts";
+} from "../boundary/plain-data-snapshot.ts";
 
 export const EXECUTION_INTELLIGENCE_EVENT_CONTRACT =
   "crdd/execution-intelligence-event/v1" as const;

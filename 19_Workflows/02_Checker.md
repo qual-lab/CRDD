@@ -9,7 +9,7 @@
 検証済みNode.jsと対象Repositoryの絶対Pathを使う。次は公式CRDD Repositoryの例であり、採用先では配布済みの`tools/crdd-check.ts`を指定する。
 
 ```powershell
-& "C:\Program Files\nodejs\node.exe" "C:\project\CRDD\40_Develop\checker\crdd-check.ts" --root "C:\project\CRDD" --json --summary
+& "C:\Program Files\nodejs\node.exe" "C:\project\CRDD\40_Develop\checker\bin\crdd-check.ts" --root "C:\project\CRDD" --json --summary
 ```
 
 `--root`を省略すると起動Directoryが対象になる。subdirectoryからの起動をRepository全体確認と誤認しない。通常Checkerは文書を書き換えず、Providerへ送信しない。

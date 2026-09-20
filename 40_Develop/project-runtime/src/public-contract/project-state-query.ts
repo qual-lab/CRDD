@@ -1,7 +1,7 @@
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../internal/plain-data-snapshot.ts";
+} from "../boundary/plain-data-snapshot.ts";
 import {
   isProjectRuntimeProjectionSemanticallyValid,
   PROJECT_RUNTIME_MAXIMUM_OBJECTIVES,

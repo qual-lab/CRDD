@@ -1,0 +1,29 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "verification-runner",
+  "symbols": [
+    {
+      "symbolId": "verification-runner.regression-entry",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": ["ARCH-000003"]
+    },
+    {
+      "symbolId": "verification-runner.regression-contract-test",
+      "kind": "test-suite",
+      "path": "tests/integration/regression-runner.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-02", "ERB-04"],
+      "verifies": ["verification-runner.regression-entry"]
+    },
+    {
+      "symbolId": "verification-runner.test-catalog-contract-test",
+      "kind": "test-suite",
+      "path": "tests/unit/test-catalog.contract.test.ts",
+      "qaIds": ["QA-000002"],
+      "localTestIds": ["CQS-03"],
+      "verifies": ["verification-runner.regression-entry"]
+    }
+  ]
+}
