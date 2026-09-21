@@ -47,6 +47,7 @@
         "QA-000007"
       ],
       "localTestIds": [
+        "RFD-IT-005",
         "RFD-IT-008"
       ],
       "verifies": [

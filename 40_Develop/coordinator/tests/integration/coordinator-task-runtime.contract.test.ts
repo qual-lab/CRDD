@@ -5,6 +5,7 @@
  * @responsibility coordinator:integration:coordinator-task-runtimeが所有する検証責務を実行する。
  * @trace CPR-IT-001
  * @trace ERB-IT-006
+ * @trace ERB-IT-008
  * @trace PRL-IT-012
  * @level IT
  * @scope coordinator、task、runtime
@@ -664,6 +665,16 @@ function fixture(
     selectionRefreshFailureAt?: number;
     selectionRefreshMismatchAt?: number;
     selectionRefreshRevokeFailureAt?: number;
+    providerHomeObservationFailure?: Readonly<{
+      at: 1 | 2;
+      classification:
+        | "missing"
+        | "regular_file"
+        | "link_or_reparse"
+        | "foreign_identity"
+        | "insufficient_permission"
+        | "unknown";
+    }>;
     admissionRecovery?: boolean;
     admissionRecoveryReason?: string;
     admissionRecoveryIds?: readonly string[];
@@ -1158,6 +1169,16 @@ function fixture(
       selectionLifecycleEvents.push(
         `provider-home:${providerHomeObservationCount}`,
       );
+      if (
+        options.providerHomeObservationFailure?.at ===
+        providerHomeObservationCount
+      ) {
+        return Object.freeze({
+          status: "blocked",
+          reason: `fixture_provider_home_${options.providerHomeObservationFailure.classification}`,
+          observationCapability: null,
+        });
+      }
       return Object.freeze({
         status: "candidate",
         observationCapability: Object.freeze({}),
@@ -2824,6 +2845,56 @@ test("時間を要するProvider Home観測後に同一Selectionを更新して�
   ]);
   assert.equal(harness.events[0], "notice:executor");
   assert.equal(harness.processStartCount(), 2);
+});
+
+/**
+ * Provider Homeの不正・不明分類は初回観測と再観測のどちらでもProvider起動前に停止するを検証する。
+ *
+ * @responsibility Provider HomeのDirectory分類とTask RuntimeのProcess Gateを結合し、不正・不明なHomeからProvider Process Effectが発行されないことを判定する。
+ * @trace ERB-IT-008
+ * @precondition 下位Platform Accessがmissing、regular file、link／reparse、異なるIdentity、権限不足、観測不能をblockedへ分類する。
+ * @stimulus 各blocked分類を初回観測またはMount Grant発行後の再観測としてTask Runtimeへ返す。
+ * @observation Task結果理由、Provider Home観測回数、Mount Grant発行回数およびProvider Process Effect回数を観測する。
+ * @oracle 初回失敗は観測1回・Grant 0・Process 0、再観測失敗は観測2回・Grant 1・Process 0で理由付きblockedになる。
+ * @cleanup Task Runtimeが未消費SelectionおよびMount Grantを失効し、Provider Processを残さない。
+ * @boundary ERB-IT-008=Direct Boundary: Provider Home設定→Directory検証→Process Gate
+ */
+test("Provider Homeの不正・不明分類は初回観測と再観測のどちらでもProvider起動前に停止する", async () => {
+  const classifications = [
+    "missing",
+    "regular_file",
+    "link_or_reparse",
+    "foreign_identity",
+    "insufficient_permission",
+    "unknown",
+  ] as const;
+
+  for (const classification of classifications) {
+    for (const at of [1, 2] as const) {
+      const harness = fixture({
+        providerHomeObservationFailure: { at, classification },
+      });
+      const result = await harness.runtime.start(
+        request(),
+        "C:\\repository",
+        "2026-08-25T00:00:00.000Z",
+      ).completion;
+
+      assert.equal(result.status, "blocked", `${classification}:${at}`);
+      assert.equal(
+        result.reason,
+        at === 1
+          ? "coordinator_task_provider_home_observation_failed"
+          : "coordinator_task_provider_home_reobservation_failed",
+        `${classification}:${at}`,
+      );
+      assert.equal(harness.providerHomeObservationCount(), at);
+      assert.equal(harness.mountGrantIssueCount(), at === 1 ? 0 : 1);
+      assert.equal(harness.processStartCount(), 0);
+      assert.equal(result.cleanupConfirmed, true);
+      assert.equal(result.manualRecoveryRequired, false);
+    }
+  }
 });
 
 /**

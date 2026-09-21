@@ -234,6 +234,7 @@
       "localTestIds": [
         "CPR-IT-001",
         "ERB-IT-006",
+        "ERB-IT-008",
         "PRL-IT-012"
       ],
       "verifies": [
