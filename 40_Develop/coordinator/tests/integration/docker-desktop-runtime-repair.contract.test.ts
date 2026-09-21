@@ -1286,13 +1286,13 @@ test("Canonical履歴分類は全modeと非plain・余分field・疎配列・nes
  * 引継ぎ済みの全旧stageはHost操作を再発行せず、現在観測と明示終了だけへ接続するを検証する。
  *
  * @responsibility 引継ぎ済みの全旧stageはHost操作を再発行せず、現在観測と明示終了だけへ接続するの合否判定を所有する。
- * @trace ERB-IT-001
+ * @trace ERB-IT-012
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 引継ぎ済みの全旧stageはHost操作を再発行せず、現在観測と明示終了だけへ接続するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-012=Related 2 Blocks: Coordinator→Repair Record→Platform Adapter
  */
 test("引継ぎ済みの全旧stageはHost操作を再発行せず、現在観測と明示終了だけへ接続する", async () => {
   for (const stage of DOCKER_DESKTOP_REPAIR_STAGES) {
@@ -1324,13 +1324,13 @@ test("引継ぎ済みの全旧stageはHost操作を再発行せず、現在観�
      * rejectHostのTest準備責務を実行する。
      *
      * @responsibility rejectHostがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
-     * @trace ERB-IT-001
+     * @trace ERB-IT-012
      * @precondition 呼出し元Test Caseが必要な入力を渡す。
      * @stimulus rejectHostを呼び出す。
      * @observation 返却値、生成fixtureまたは観測値を取得する。
      * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
      * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-     * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+     * @boundary ERB-IT-012=Related 2 Blocks: Coordinator→Repair Record→Platform Adapter
      */
     const rejectHost = () => {
       hostCalls += 1;
