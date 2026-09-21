@@ -372,17 +372,21 @@
           "ARCH-000005"
         ],
         "implementationSymbolIds": [
-          "project-runtime.human-decision-application",
+          "coordinator.project-runtime.acceptance-authority-adapter",
+          "coordinator.project-runtime.acceptance-decision-store",
+          "project-runtime.acceptance-decision-application",
           "project-runtime.state-core"
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
+          "QA-000003/PRL-IT-008",
+          "QA-000003/PRL-ST-009",
           "QA-000003/PRL-UT-007"
         ],
         "verificationMode": "automated",
         "testSymbolIds": [
-          "project-runtime.test.unit.human-decision-application",
-          "project-runtime.test.unit.objective-intake",
+          "coordinator.test.system.project-runtime-acceptance-decision",
+          "project-runtime.test.integration.acceptance-decision-application",
           "project-runtime.test.unit.state"
         ],
         "testObservation": "observed"

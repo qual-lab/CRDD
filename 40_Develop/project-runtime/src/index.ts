@@ -9,6 +9,13 @@
  * @security 明示されたAuthorityを縮小してTaskとOperationへ結合し、生成や拡張をしない。
  */
 export {
+  PROJECT_RUNTIME_ACCEPTANCE_DECISION_CONTRACT,
+  recordProjectRuntimeAcceptanceDecision,
+  type ProjectRuntimeAcceptanceDecisionDependencies,
+  type ProjectRuntimeAcceptanceDecisionRequest,
+  type ProjectRuntimeAcceptanceDecisionResult,
+} from "./application/project-runtime-acceptance-decision.ts";
+export {
   PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
   createProjectRuntimeObjectiveResult,
   createProjectRuntimeTaskExecutionSet,
@@ -55,6 +62,7 @@ export {
   PROJECT_RUNTIME_MAXIMUM_TASKS,
   PROJECT_RUNTIME_STATE_CONTRACT,
   acknowledgeProjectDockerRecoveryObligation,
+  applyProjectRuntimeAcceptanceDecision,
   applyProjectRuntimeHumanDecision,
   applyProjectRuntimePartialReplan,
   createProjectRuntimeState,
@@ -66,8 +74,6 @@ export {
   observeProjectTaskStarted,
   prepareProjectTaskHandoff,
   projectProjectRuntimeState,
-  recordMilestoneIntegration,
-  recordObjectiveIntegration,
   recordProjectTaskOwnerLossRecoveries,
   requestProjectRuntimeHumanDecision,
   reserveProjectTaskStart,
@@ -84,6 +90,9 @@ export {
   type ProjectObjectiveRecord,
   type ProjectObjectiveState,
   type ProjectRuntimeProjection,
+  type ProjectRuntimeAcceptanceDecision,
+  type ProjectRuntimeAcceptanceDecisionInput,
+  type ProjectRuntimeAcceptanceTarget,
   type ProjectRuntimeState,
   type ProjectTaskDefinition,
   type ProjectTaskRecord,
@@ -118,6 +127,12 @@ export {
   type ProjectRuntimeSingleTaskRecoveryObligation,
   type ProjectRuntimeSingleTaskResult,
 } from "./ports/execution-port.ts";
+export type {
+  ProjectRuntimeAcceptanceDecisionAuthorityBinding,
+  ProjectRuntimeAcceptanceDecisionAuthorityPort,
+  ProjectRuntimeAcceptanceDecisionRecord,
+  ProjectRuntimeAcceptanceDecisionStore,
+} from "./ports/acceptance-decision-port.ts";
 export type {
   ProjectRuntimeExecutionAuthorizationPort,
   ProjectRuntimeExecutionAuthorizationRequest,

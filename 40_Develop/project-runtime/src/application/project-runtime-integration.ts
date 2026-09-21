@@ -5,8 +5,6 @@
  * @trace ARCH-000004
  */
 import {
-  recordMilestoneIntegration,
-  recordObjectiveIntegration,
   requestProjectRuntimeHumanDecision,
   type ProjectRuntimeState,
 } from "../core/project-runtime-state.ts";
@@ -591,23 +589,6 @@ export async function integrateProjectRuntimeOperation(
       (entry) => entry.state === "integration_pending",
     );
     if (objective) {
-      const rejected = recordObjectiveIntegration(
-        state,
-        state.generation,
-        objective.definition.id,
-        {
-          accepted: false,
-          criterionEvidenceIds:
-            candidate.objectiveEvidence[objective.definition.id] ?? [],
-        },
-      );
-      if (rejected.status === "completed") {
-        const written = dependencies.persistence.state.writeState(
-          rejected.state,
-          state.generation,
-        );
-        if (written.status === "completed") state = rejected.state;
-      }
       const decision = requestProjectRuntimeHumanDecision(
         state,
         state.generation,
@@ -803,68 +784,6 @@ export async function integrateProjectRuntimeOperation(
       });
   }
 
-  for (const objective of state.objectives.filter(
-    (entry) => entry.state === "integration_pending",
-  )) {
-    const integrated = recordObjectiveIntegration(
-      state,
-      state.generation,
-      objective.definition.id,
-      {
-        accepted: true,
-        criterionEvidenceIds:
-          candidate.objectiveEvidence[objective.definition.id] ?? [],
-      },
-    );
-    if (integrated.status !== "completed")
-      return response(input, "blocked", integrated.reason, state, {
-        candidateId: candidate.candidateId,
-        receiptId: receipt?.receiptId ?? null,
-      });
-    const written = dependencies.persistence.state.writeState(
-      integrated.state,
-      state.generation,
-    );
-    if (written.status !== "completed")
-      return response(input, "blocked", written.reason, state, {
-        candidateId: candidate.candidateId,
-        receiptId: receipt?.receiptId ?? null,
-        cleanupConfirmed: false,
-        manualRecoveryRequired: true,
-      });
-    state = integrated.state;
-  }
-  const milestone =
-    state.milestone.state === "accepted"
-      ? Object.freeze({
-          status: "completed" as const,
-          reason: "project_runtime_milestone_already_accepted",
-          state,
-          taskIds: Object.freeze([]),
-        })
-      : recordMilestoneIntegration(
-          state,
-          state.generation,
-          candidate.milestoneEvidence,
-        );
-  if (milestone.status !== "completed")
-    return response(input, "blocked", milestone.reason, state, {
-      candidateId: candidate.candidateId,
-      receiptId: receipt?.receiptId ?? null,
-    });
-  if (milestone.state.generation !== state.generation) {
-    const milestoneWrite = dependencies.persistence.state.writeState(
-      milestone.state,
-      state.generation,
-    );
-    if (milestoneWrite.status !== "completed")
-      return response(input, "blocked", milestoneWrite.reason, state, {
-        candidateId: candidate.candidateId,
-        receiptId: receipt?.receiptId ?? null,
-        cleanupConfirmed: false,
-        manualRecoveryRequired: true,
-      });
-  }
   const completedQueue = dependencies.persistence.state.updateQueue(
     input.queueId,
     queue.generation,
@@ -876,7 +795,7 @@ export async function integrateProjectRuntimeOperation(
     },
   );
   if (completedQueue.status !== "completed")
-    return response(input, "blocked", completedQueue.reason, milestone.state, {
+    return response(input, "blocked", completedQueue.reason, state, {
       candidateId: candidate.candidateId,
       receiptId: receipt?.receiptId ?? null,
       cleanupConfirmed: false,
@@ -885,8 +804,8 @@ export async function integrateProjectRuntimeOperation(
   return response(
     input,
     "completed",
-    "project_runtime_milestone_accepted",
-    milestone.state,
+    "project_runtime_acceptance_decision_required",
+    state,
     {
       candidateId: candidate.candidateId,
       receiptId: receipt?.receiptId ?? null,

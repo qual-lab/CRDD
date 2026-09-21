@@ -108,6 +108,8 @@ Quality ID: `QA-000003`
 | `PRL-ST-004` | `coordinator.recovery-obligation`<br>`project-runtime.durable-before-effect`<br>`project-runtime.recovery-obligation` |
 | `PRL-IT-005` | `coordinator.provider-effect-authority`<br>`project-runtime.task-authority-narrowing` |
 | `PRL-UT-007` | `project-runtime.acceptance-decision-authority` |
+| `PRL-IT-008` | `project-runtime.acceptance-decision-authority` |
+| `PRL-ST-009` | `project-runtime.acceptance-decision-authority` |
 | `PRL-IT-011` | `project-runtime.queue-lease-lifecycle` |
 | `PRL-IT-012` | `project-runtime.transport-neutral-application-contract` |
 

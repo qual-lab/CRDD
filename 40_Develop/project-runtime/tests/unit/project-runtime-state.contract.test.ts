@@ -13,6 +13,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   acknowledgeProjectDockerRecoveryObligation,
+  applyProjectRuntimeAcceptanceDecision,
   applyProjectRuntimePartialReplan,
   createProjectRuntimeState,
   describeProjectRuntimeStateContract,
@@ -20,8 +21,6 @@ import {
   observeProjectTaskStarted,
   prepareProjectTaskHandoff,
   projectProjectRuntimeState,
-  recordMilestoneIntegration,
-  recordObjectiveIntegration,
   recordProjectTaskOwnerLossRecoveries,
   retrySettledProjectTaskRecoveries,
   reserveProjectTaskStart,
@@ -387,13 +386,13 @@ describe("Project Runtime state contract", () => {
    * 取消済みTaskをObjectiveとMilestoneの取消へ同じ世代で投影するを検証する。
    *
    * @responsibility 取消済みTaskをObjectiveとMilestoneの取消へ同じ世代で投影するの合否判定を所有する。
-   * @trace PRL-UT-007
+   * @trace PRL-UT-006
    * @precondition Test Fileが構築するfixtureと入力を使用する。
    * @stimulus 取消済みTaskをObjectiveとMilestoneの取消へ同じ世代で投影するの対象操作を実行する。
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary PRL-UT-007=N/A: Objective／Milestone Acceptance Decision状態遷移は外部実行境界を持たない。
+   * @boundary PRL-UT-006=N/A: Task取消の上位状態投影は外部実行境界を持たない。
    */
   it("取消済みTaskをObjectiveとMilestoneの取消へ同じ世代で投影する", () => {
     let state = stateFor([task("task-a")], 1);
@@ -564,6 +563,7 @@ describe("Project Runtime state contract", () => {
         executing: 0,
         integration_pending: 1,
         accepted: 0,
+        returned: 0,
         blocked: 0,
         cancelled: 0,
       },
@@ -633,11 +633,39 @@ describe("Project Runtime state contract", () => {
       recoveryUnresolved: false,
     });
     assert.ok(settled.state);
-    const objective = recordObjectiveIntegration(
+    const waitingObjective = applyProjectRuntimeAcceptanceDecision(
       settled.state,
       settled.state.generation,
-      "objective-1",
-      { accepted: true, criterionEvidenceIds: ["evidence-objective-1"] },
+      {
+        target: "objective",
+        targetId: "objective-1",
+        decision: "wait",
+        criterionEvidenceIds: [],
+      },
+    );
+    assert.equal(waitingObjective.status, "completed");
+    assert.equal(waitingObjective.state, settled.state);
+    const returnedObjective = applyProjectRuntimeAcceptanceDecision(
+      settled.state,
+      settled.state.generation,
+      {
+        target: "objective",
+        targetId: "objective-1",
+        decision: "return",
+        criterionEvidenceIds: ["evidence-objective-return"],
+      },
+    );
+    assert.equal(returnedObjective.status, "completed");
+    assert.equal(returnedObjective.state.objectives[0]?.state, "returned");
+    const objective = applyProjectRuntimeAcceptanceDecision(
+      settled.state,
+      settled.state.generation,
+      {
+        target: "objective",
+        targetId: "objective-1",
+        decision: "accept",
+        criterionEvidenceIds: ["evidence-objective-1"],
+      },
     );
     assert.equal(objective.status, "completed");
     assert.ok(objective.state);
@@ -647,10 +675,43 @@ describe("Project Runtime state contract", () => {
       projectProjectRuntimeState(objective.state).nextAction,
       "verify_milestone_integration",
     );
-    const milestone = recordMilestoneIntegration(
+    const waitingMilestone = applyProjectRuntimeAcceptanceDecision(
       objective.state,
       objective.state.generation,
-      ["evidence-milestone-1"],
+      {
+        target: "milestone",
+        targetId: "v0.19",
+        decision: "wait",
+        criterionEvidenceIds: [],
+      },
+    );
+    assert.equal(waitingMilestone.status, "completed");
+    assert.equal(waitingMilestone.state, objective.state);
+    const returnedMilestone = applyProjectRuntimeAcceptanceDecision(
+      objective.state,
+      objective.state.generation,
+      {
+        target: "milestone",
+        targetId: "v0.19",
+        decision: "return",
+        criterionEvidenceIds: ["evidence-milestone-return"],
+      },
+    );
+    assert.equal(returnedMilestone.status, "completed");
+    assert.equal(returnedMilestone.state.milestone.state, "returned");
+    assert.equal(
+      projectProjectRuntimeState(returnedMilestone.state).nextAction,
+      "human_decision",
+    );
+    const milestone = applyProjectRuntimeAcceptanceDecision(
+      objective.state,
+      objective.state.generation,
+      {
+        target: "milestone",
+        targetId: "v0.19",
+        decision: "accept",
+        criterionEvidenceIds: ["evidence-milestone-1"],
+      },
     );
     assert.equal(milestone.status, "completed");
     assert.ok(milestone.state);
@@ -659,6 +720,65 @@ describe("Project Runtime state contract", () => {
       projectProjectRuntimeState(milestone.state).qualityState,
       "accepted",
     );
+  });
+
+  /**
+   * Task完了だけではObjective受入またはMilestone判断を許可しないことを検証する。
+   *
+   * @responsibility 下位完了から上位受入を推定しないAcceptance Decision境界の合否判定を所有する。
+   * @trace PRL-UT-007
+   * @precondition 完了Taskを持つがObjectiveの明示受入前である状態を使用する。
+   * @stimulus Objective受入前のMilestone判断と古い世代のObjective判断を要求する。
+   * @observation 理由code、状態同一性およびTask ID列を観測する。
+   * @oracle 両入力を理由付きで拒否し、状態とTask集合を変更しない。
+   * @cleanup N/A: Process内の不変値だけを使用する。
+   * @boundary PRL-UT-007=N/A: Objective／Milestone Acceptance Decision状態遷移は外部実行境界を持たない。
+   */
+  it("Task完了だけではObjective受入またはMilestone判断を許可しない", () => {
+    let state = stateFor([task("task-a")]);
+    state = start(state, "task-a");
+    const settled = settleProjectTask(state, state.generation, {
+      taskId: "task-a",
+      attemptId: "attempt-task-a",
+      operationId: "operation-task-a",
+      authorityBindingId: "authority-task-a",
+      outcome: "completed",
+      cleanupConfirmed: true,
+      recoveryObligations: [],
+      recoveryUnresolved: false,
+    });
+    assert.ok(settled.state);
+    const milestone = applyProjectRuntimeAcceptanceDecision(
+      settled.state,
+      settled.state.generation,
+      {
+        target: "milestone",
+        targetId: "v0.19",
+        decision: "accept",
+        criterionEvidenceIds: ["evidence-milestone-1"],
+      },
+    );
+    assert.equal(
+      milestone.reason,
+      "project_runtime_acceptance_decision_mismatch",
+    );
+    assert.equal(milestone.state, settled.state);
+    const staleObjective = applyProjectRuntimeAcceptanceDecision(
+      settled.state,
+      settled.state.generation - 1,
+      {
+        target: "objective",
+        targetId: "objective-1",
+        decision: "accept",
+        criterionEvidenceIds: ["evidence-objective-1"],
+      },
+    );
+    assert.equal(
+      staleObjective.reason,
+      "project_runtime_acceptance_decision_mismatch",
+    );
+    assert.equal(staleObjective.state, settled.state);
+    assert.deepEqual(staleObjective.taskIds, []);
   });
 
   /**
@@ -722,17 +842,26 @@ describe("Project Runtime state contract", () => {
       projectProjectRuntimeState(completed.state).workProgress,
       "tasks_complete",
     );
-    const objective = recordObjectiveIntegration(
+    const objective = applyProjectRuntimeAcceptanceDecision(
       completed.state,
       completed.state.generation,
-      "objective-1",
-      { accepted: true, criterionEvidenceIds: ["evidence-objective-replan"] },
+      {
+        target: "objective",
+        targetId: "objective-1",
+        decision: "accept",
+        criterionEvidenceIds: ["evidence-objective-replan"],
+      },
     );
     assert.ok(objective.state);
-    const milestone = recordMilestoneIntegration(
+    const milestone = applyProjectRuntimeAcceptanceDecision(
       objective.state,
       objective.state.generation,
-      ["evidence-milestone-replan"],
+      {
+        target: "milestone",
+        targetId: "v0.19",
+        decision: "accept",
+        criterionEvidenceIds: ["evidence-milestone-replan"],
+      },
     );
     assert.ok(milestone.state);
     const projection = projectProjectRuntimeState(milestone.state);
@@ -801,17 +930,22 @@ describe("Project Runtime state contract", () => {
   it("古い世代と統合待ち前の受入を拒否する", () => {
     const state = stateFor([task("task-a")]);
     assert.equal(
-      recordObjectiveIntegration(state, state.generation, "objective-1", {
-        accepted: true,
+      applyProjectRuntimeAcceptanceDecision(state, state.generation, {
+        target: "objective",
+        targetId: "objective-1",
+        decision: "accept",
         criterionEvidenceIds: ["evidence-objective-1"],
       }).reason,
-      "project_runtime_objective_integration_mismatch",
+      "project_runtime_acceptance_decision_mismatch",
     );
     assert.equal(
-      recordMilestoneIntegration(state, state.generation - 1, [
-        "evidence-milestone-1",
-      ]).reason,
-      "project_runtime_milestone_integration_mismatch",
+      applyProjectRuntimeAcceptanceDecision(state, state.generation - 1, {
+        target: "milestone",
+        targetId: "v0.19",
+        decision: "accept",
+        criterionEvidenceIds: ["evidence-milestone-1"],
+      }).reason,
+      "project_runtime_acceptance_decision_mismatch",
     );
   });
 
@@ -857,13 +991,17 @@ describe("Project Runtime state contract", () => {
     });
     assert.ok(settled.state);
     assert.equal(
-      recordObjectiveIntegration(
+      applyProjectRuntimeAcceptanceDecision(
         settled.state,
         settled.state.generation,
-        "objective-1",
-        { accepted: true, criterionEvidenceIds: ["evidence-only-one"] },
+        {
+          target: "objective",
+          targetId: "objective-1",
+          decision: "accept",
+          criterionEvidenceIds: ["evidence-only-one"],
+        },
       ).reason,
-      "project_runtime_objective_integration_mismatch",
+      "project_runtime_acceptance_decision_mismatch",
     );
   });
 

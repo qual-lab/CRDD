@@ -20,6 +20,7 @@ import {
   type ProjectRuntimeCandidatePort,
   type ProjectRuntimeObjectiveRequest,
   projectProjectRuntimeState,
+  recordProjectRuntimeAcceptanceDecision,
   projectRuntimeDecisionRecordId,
   queryProjectRuntimeState,
   recoverProjectRuntimeHumanDecision,
@@ -43,6 +44,8 @@ import {
   revokeRuntimeOwnedVerifiedCoordinatorPackageCapability,
 } from "../security/platform-provisioner-package-filesystem.ts";
 import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "../security/project-runtime-candidate-integration-adapter.ts";
+import { createProjectRuntimeAcceptanceAuthorityAdapter } from "../security/project-runtime-acceptance-authority-adapter.ts";
+import { createProjectRuntimeAcceptanceDecisionStore } from "../security/project-runtime-acceptance-decision-store.ts";
 import { createProjectRuntimeDecisionCapabilityAdapter } from "../security/project-runtime-decision-capability-adapter.ts";
 import { createProjectRuntimeDecisionRecoveryStore } from "../security/project-runtime-decision-recovery-store.ts";
 import {
@@ -1111,6 +1114,151 @@ export function runProjectRuntimePublicDecision(
 }
 
 /**
+ * Public Acceptance Decisionを検証済みRepository、認証Principal、耐久Storeおよび状態Storeへ接続する。
+ *
+ * @responsibility SPEC-000002の明示判断だけを公開入口からAcceptance Decision Applicationへ搬送する。
+ * @trace ARCH-000005
+ * @input rawRequest: 未信頼要求、workingDirectory: Repository内Path、authenticationContext: 認証済みPrincipal。
+ * @returns Acceptance Decision Applicationの公開結果を返す。
+ * @precondition 認証ContextはRuntime-owned認証境界で構築される。
+ * @postcondition 成功時は一つのDecision Recordと必要な状態更新だけを確定する。
+ * @effect Repository-local Acceptance Decision StoreとProject Runtime Stateだけを更新する。
+ * @failure Root、Revision、Principal、AuthorityまたはStoreを確認できない場合はEffectを拡張せず停止する。
+ * @invariant Task作成、Provider EffectおよびProjection由来Authorityを発行しない。
+ * @boundary Public Transport→Coordinator Composition→Project Runtime→Repository-local Storeの境界。
+ * @security 認証Principalをexact比較し、非公開Store Pathや秘密値を結果へ含めない。
+ * @concurrency State世代とDecision Recordの排他的世代作成で競合を拒否する。
+ */
+export function executeProjectRuntimePublicAcceptanceDecision(
+  authenticate: () =>
+    | Readonly<{ status: "completed"; principalId: string }>
+    | Readonly<{ status: "blocked"; principalId: null }>,
+  rawRequest: unknown,
+  workingDirectory = process.cwd(),
+  authenticationContext?: Readonly<{ principalId: string }>,
+) {
+  try {
+    let repositoryRoot: string;
+    try {
+      repositoryRoot =
+        resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
+    } catch {
+      return Object.freeze({
+        contract: PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
+        status: "blocked" as const,
+        reason: "project_runtime_repository_root_not_verified",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        effectState: "no_effect" as const,
+      });
+    }
+    const identity = inspectRepositoryIdentityCandidate(repositoryRoot);
+    const candidate =
+      rawRequest && typeof rawRequest === "object"
+        ? (rawRequest as Readonly<{
+            repositoryRevision?: unknown;
+            projectId?: unknown;
+            principalId?: unknown;
+          }>)
+        : null;
+    if (
+      !identity ||
+      typeof candidate?.repositoryRevision !== "string" ||
+      identity.commit !== candidate.repositoryRevision
+    )
+      return Object.freeze({
+        contract: PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
+        status: "blocked" as const,
+        reason: "project_runtime_acceptance_revision_mismatch",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        effectState: "no_effect" as const,
+      });
+    const authenticated = authenticate();
+    if (
+      authenticated.status !== "completed" ||
+      authenticationContext === undefined ||
+      authenticationContext.principalId !== authenticated.principalId ||
+      candidate.principalId !== authenticated.principalId ||
+      typeof candidate.projectId !== "string"
+    )
+      return Object.freeze({
+        contract: PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
+        status: "blocked" as const,
+        reason: "project_runtime_authenticated_principal_not_verified",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        effectState: "no_effect" as const,
+      });
+    const repositoryBindingId = stable("binding", repositoryRoot);
+    return recordProjectRuntimeAcceptanceDecision(
+      Object.freeze({
+        state: createProjectRuntimePersistencePorts(
+          repositoryRoot,
+          repositoryBindingId,
+        ).state,
+        authority: createProjectRuntimeAcceptanceAuthorityAdapter(
+          authenticated.principalId,
+        ),
+        store: createProjectRuntimeAcceptanceDecisionStore(
+          repositoryRoot,
+          repositoryBindingId,
+        ),
+      }),
+      rawRequest,
+    );
+  } catch (error) {
+    if (error instanceof RepositoryRuntimeDataAreaBlockedError)
+      return projectRuntimeDataBoundaryBlocked(error);
+    return Object.freeze({
+      contract: PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: "project_runtime_acceptance_boundary_unknown",
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      effectState: "unknown" as const,
+    });
+  }
+}
+
+/**
+ * Production認証境界を用いてPublic Acceptance Decisionを実行する。
+ *
+ * @responsibility Runtime-owned Principal観測を公開Acceptance Decision入口へ固定する。
+ * @trace ARCH-000005
+ * @input rawRequest: 未信頼要求、workingDirectory: Repository内Path、authenticationContext: 認証済みPrincipal。
+ * @returns executeProjectRuntimePublicAcceptanceDecisionの結果を返す。
+ * @precondition Runtime-owned Windows Decision StoreがLocal Principalを検証できる。
+ * @postcondition Production入口は検証済みPrincipalだけをCoreへ渡す。
+ * @effect Acceptance Decision Recordと必要なProject Runtime Stateだけを更新する。
+ * @failure 認証またはRuntime Data観測不能を理由付き停止へ変換する。
+ * @invariant Test専用認証をProduction入口へ使用しない。
+ * @boundary Local TransportとProduction Composition Rootの境界。
+ * @security Store自体を公開せずPrincipal観測結果だけをAuthorityへ渡す。
+ * @concurrency 下位Storeの世代制御を維持する。
+ */
+export function runProjectRuntimePublicAcceptanceDecision(
+  rawRequest: unknown,
+  workingDirectory = process.cwd(),
+  authenticationContext?: Readonly<{ principalId: string }>,
+) {
+  return executeProjectRuntimePublicAcceptanceDecision(
+    () => {
+      const observed = openRuntimeOwnedWindowsProjectDecisionStore();
+      return observed.status === "completed"
+        ? Object.freeze({
+            status: "completed" as const,
+            principalId: observed.principalId,
+          })
+        : Object.freeze({ status: "blocked" as const, principalId: null });
+    },
+    rawRequest,
+    workingDirectory,
+    authenticationContext,
+  );
+}
+
+/**
  * Read-only state entry shared by local transports. No mutation port is exposed.
  *
  * @responsibility Project Runtime Public 状態 Queryの実行条件、Effect範囲、終了結果の境界を所有する。
@@ -1126,7 +1274,7 @@ export function runProjectRuntimePublicDecision(
  * @security N/A: executeProjectRuntimePublicStateQueryはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: executeProjectRuntimePublicStateQueryは共有非同期状態を持たない同期処理である。
  */
-function executeProjectRuntimePublicStateQuery(
+export function executeProjectRuntimePublicStateQuery(
   openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore,
   rawRequest: unknown,
   workingDirectory = process.cwd(),

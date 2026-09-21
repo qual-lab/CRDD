@@ -183,18 +183,18 @@ function integrationDependencies(
 }
 
 /**
- * Task completion is integrated into Objective and Milestone acceptanceを検証する。
+ * Task完了と候補生成だけではObjective／Milestoneを受け入れないことを検証する。
  *
- * @responsibility Task completion is integrated into Objective and Milestone acceptanceの合否判定を所有する。
+ * @responsibility Integration Applicationが候補生成と受入判断を分ける境界の合否判定を所有する。
  * @trace PRL-IT-012
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Task completion is integrated into Objective and Milestone acceptanceの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
+ * @stimulus 完了Taskの候補生成を実行する。
+ * @observation 結果理由、Objective／Milestone状態、Queue状態および候補記録を観測する。
+ * @oracle 候補生成は完了するがObjectiveは統合待ち、Milestoneは実行中のままで、受入判断待ち理由を返す。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
-test("Task completion is integrated into Objective and Milestone acceptance", async (t) => {
+test("Task完了と候補生成だけではObjective／Milestoneを受け入れない", async (t) => {
   const { root, queueId } = await prepared(t);
   let adoptions = 0;
   const result = await integrateProjectRuntimeOperation(
@@ -222,12 +222,17 @@ test("Task completion is integrated into Objective and Milestone acceptance", as
     },
   );
   assert.equal(result.status, "completed");
+  assert.equal(result.reason, "project_runtime_acceptance_decision_required");
   assert.equal(adoptions, 0);
   const state = readProjectRuntimeState(root, "binding-a", "project-a");
   const queue = readProjectOperationQueueState(root, "binding-a", queueId);
   assert.equal(
     state.status === "completed" && state.value?.milestone.state,
-    "accepted",
+    "executing",
+  );
+  assert.equal(
+    state.status === "completed" && state.value?.objectives[0]?.state,
+    "integration_pending",
   );
   assert.equal(queue.status === "completed" && queue.value.state, "completed");
   assert.equal(

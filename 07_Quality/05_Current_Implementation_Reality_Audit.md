@@ -236,7 +236,7 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 
 ## 12. Relation是正結果
 
-現在の完了判定は、13件のQuality Definitionが所有する154個の一意なLocal Itemを母集団とする。208 Test Sourceの`symbol.json`が所有する正方向Relationと再照合した結果、99件を観測済み、55件を未観測と判定した。未観測55件は自動22件、Hybrid 14件、Manual 19件である。
+現在の完了判定は、13件のQuality Definitionが所有する154個の一意なLocal Itemを母集団とする。Test Sourceの`symbol.json`が所有する正方向Relationと再照合した結果、102件を観測済み、52件を未観測と判定した。未観測52件は自動20件、Hybrid 14件、Manual 18件である。
 
 | Quality領域 | 未観測数 | 実行形態の内訳 |
 |---|---:|---|
@@ -254,7 +254,7 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 | RDL | 1 | Manual 1 |
 | RFD | 6 | Automated 5、Manual 1 |
 
-この55件は「新しいTestが55本必要」という意味ではない。既存TestがLocal Itemの刺激、観測、Oracle、終了後条件を満たす場合はRelation不足として接続し、満たさない場合は試験不足、実装不足、工程Evidenceまたは人間受入待ちへ分類する。名前や同じQuality領域だけを根拠に接続しない。
+この52件は「新しいTestが52本必要」という意味ではない。既存TestがLocal Itemの刺激、観測、Oracle、終了後条件を満たす場合はRelation不足として接続し、満たさない場合は試験不足、実装不足、工程Evidenceまたは人間受入待ちへ分類する。名前や同じQuality領域だけを根拠に接続しない。
 
 今回の局所Closureでは、`AIT-ST-010`を実署名済み固定Snapshotの昇格・不一致拒否・候補破棄へ、`CQS-ST-013`を公開Verification入口のPT／LT Authority Gateへ、`RDL-ST-002`を公開Runtime Data APIの清掃・回復保護・最終不存在へ接続した。さらに`ERB-IT-012`は、既存のDocker Desktop修復統合試験がexact Repair Identity、旧Effect非再発行、fresh観測および同一義務の継続をすでに確認していたため、試験を複製せず正方向Relationを補った。`CQS-ST-012`は公開Verification CLIでStatic、UT、IT、ST、UATの固定計画を実行し、UATを自動Passへ畳まず人間入力待ち、全体`blocked`、Exit 2として返すSystem Testへ接続した。`RFD-IT-005`はdirtyな実Repositoryと同じPortを実装する差替Adapterで同じLocal Change Set操作を行い、Commit SHAおよびGit具象をCoreの成立条件へしない専用ITへ接続した。`ERB-IT-008`はPlatform AccessのHome分類結果をTask RuntimeのProcess Gateへ結合し、missing、regular file、link／reparse、異なるIdentity、権限不足および観測不能が初回観測・再観測のどちらで発生してもProvider Process Effect 0で停止する専用ITへ接続した。再計画中のHuman Decision試験は`PRL-IT-005`を補強するが、Objective／Milestone Acceptance Decisionを求める`PRL-IT-008`とは意味が異なるため、同項目は未観測を維持する。PT／LT実処理、全回帰および署名E2Eは実行していない。
 
@@ -277,7 +277,7 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 | official-asset-governance | 0／7 | `OAG-IT-005`、`OAG-IT-006`、`OAG-IT-007`、`OAG-ST-003`、`OAG-UAT-001`、`OAG-UAT-002`、`OAG-UT-008` |
 | platform-access | 1／6 | `ERB-IT-002`、`ERB-IT-014`、`ERB-ST-009`、`PRL-ST-003`、`RDL-ST-002` |
 | project-operation | 0／8 | `CPR-IT-006`、`CPR-ST-005`、`CPR-UAT-007`、`PPR-IT-001`、`PPR-IT-002`、`PPR-ST-005`、`PPR-UAT-015`、`PPR-UT-006` |
-| project-runtime | 8／15 | `EST-IT-001`、`PRL-IT-008`、`PRL-ST-003`、`PRL-ST-004`、`PRL-ST-009`、`PRL-UAT-002`、`PRL-UAT-010` |
+| project-runtime | 10／15 | `EST-IT-001`、`PRL-ST-003`、`PRL-ST-004`、`PRL-UAT-002`、`PRL-UAT-010` |
 | quality-change-control | 0／5 | `CQS-IT-001`、`CQS-IT-003`、`CQS-IT-004`、`CQS-IT-008`、`CQS-IT-009` |
 | runtime-data | 3／6 | `PPR-UT-006`、`RDL-ST-002`、`RFD-ST-003` |
 | runtime-trust | 0／5 | `AIT-IT-001`、`AIT-IT-003`、`AIT-IT-014`、`AIT-ST-004`、`AIT-UT-005` |
@@ -287,7 +287,7 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 
 同じLocal Itemが複数領域へ現れる場合は、各領域が所有する境界を別Relationとして数える。したがって48件は試験件数ではなく、設計領域と検証義務の初回接続数である。手動UATや工程判断を自動Test Symbolへ偽装せず、実Runtimeが存在しない領域もRelation追加だけで`Covered`へ変更しない。
 
-## 13. 未観測55件の処置
+## 13. 未観測52件の処置
 
 | 実行形態 | 件数 | 現在の処置 |
 |---|---:|---|

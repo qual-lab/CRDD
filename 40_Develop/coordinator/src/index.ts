@@ -8,6 +8,9 @@
  * @security 観測済み主体と許可されたOperationだけをRuntimeへ接続する。
  */
 export {
+  executeProjectRuntimePublicAcceptanceDecision,
+  executeProjectRuntimePublicStateQuery,
+  runProjectRuntimePublicAcceptanceDecision,
   observeRuntimeOwnedProjectClientPrincipal,
   runProjectRuntimePublicDecision,
   runProjectRuntimePublicObjective,

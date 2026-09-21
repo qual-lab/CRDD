@@ -558,6 +558,7 @@ function validProjectRuntimeState(
       "human_decision_required",
       "recovery_required",
       "accepted",
+      "returned",
       "cancelled",
     ]).has(String(value.milestone.state)) ||
     !Array.isArray(value.objectives) ||
@@ -585,6 +586,7 @@ function validProjectRuntimeState(
         "executing",
         "integration_pending",
         "accepted",
+        "returned",
         "blocked",
         "cancelled",
       ]).has(String(objective.state))

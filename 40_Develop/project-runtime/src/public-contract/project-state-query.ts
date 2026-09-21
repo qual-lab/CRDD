@@ -97,6 +97,7 @@ const OBJECTIVE_STATES = Object.freeze([
   "executing",
   "integration_pending",
   "accepted",
+  "returned",
   "blocked",
   "cancelled",
 ] as const);
@@ -296,6 +297,7 @@ export function inspectProjectRuntimeProjection(
       "human_decision_required",
       "recovery_required",
       "accepted",
+      "returned",
       "cancelled",
     ].includes(String(record.milestoneState)) ||
     !["not_started", "in_progress", "tasks_complete"].includes(

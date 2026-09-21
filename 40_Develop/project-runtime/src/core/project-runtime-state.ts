@@ -52,6 +52,7 @@ export type ProjectObjectiveState =
   | "executing"
   | "integration_pending"
   | "accepted"
+  | "returned"
   | "blocked"
   | "cancelled";
 
@@ -73,13 +74,59 @@ export type ProjectMilestoneState =
   | "human_decision_required"
   | "recovery_required"
   | "accepted"
+  | "returned"
   | "cancelled";
+
+/**
+ * Project Runtimeの受入判断対象を定義する。
+ *
+ * @responsibility Objective判断とMilestone判断を混同しない対象区分を所有する。
+ * @trace ARCH-000005
+ * @shape `objective`または`milestone`のいずれか一つを表す。
+ * @invariant Task、ProjectionまたはProviderを受入判断対象へ昇格しない。
+ * @boundary N/A: 型宣言は外部境界を開かない。
+ * @security N/A: 型宣言はAuthorityや秘密値を保持しない。
+ * @compatibility 利用側は宣言済みの二つの対象区分だけへ依存する。
+ */
+export type ProjectRuntimeAcceptanceTarget = "objective" | "milestone";
+
+/**
+ * Project Runtimeの明示的な受入判断を定義する。
+ *
+ * @responsibility 受入、差戻し、判断待ちを別の判断値として所有する。
+ * @trace ARCH-000005
+ * @shape `accept`、`return`、`wait`のいずれか一つを表す。
+ * @invariant Task完了または下位状態から判断値を推定しない。
+ * @boundary N/A: 型宣言は外部境界を開かない。
+ * @security N/A: 型宣言はAuthorityや秘密値を保持しない。
+ * @compatibility 利用側は宣言済みの三つの判断値だけへ依存する。
+ */
+export type ProjectRuntimeAcceptanceDecision = "accept" | "return" | "wait";
+
+/**
+ * Project Runtime受入判断の状態遷移入力を定義する。
+ *
+ * @responsibility exactな対象、判断および判断根拠の組を型境界として所有する。
+ * @trace ARCH-000005
+ * @shape 対象区分、対象ID、判断および根拠ID列を表す。
+ * @invariant ObjectiveとMilestoneの対象IDを同じ入力で兼用しない。
+ * @boundary N/A: 型宣言は外部境界を開かない。
+ * @security N/A: Authority検証はApplication境界が所有し、本型は秘密値を保持しない。
+ * @compatibility 利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type ProjectRuntimeAcceptanceDecisionInput = Readonly<{
+  target: ProjectRuntimeAcceptanceTarget;
+  targetId: string;
+  decision: ProjectRuntimeAcceptanceDecision;
+  criterionEvidenceIds: readonly string[];
+}>;
 
 const PROJECT_OBJECTIVE_STATES = Object.freeze([
   "planned",
   "executing",
   "integration_pending",
   "accepted",
+  "returned",
   "blocked",
   "cancelled",
 ] as const);
@@ -443,7 +490,9 @@ export function isProjectRuntimeProjectionSemanticallyValid(
     )
       return false;
     if (
-      ["integration_pending", "accepted"].includes(summary.objectiveState) &&
+      ["integration_pending", "accepted", "returned"].includes(
+        summary.objectiveState,
+      ) &&
       summary.taskCounts.completed + summary.taskCounts.superseded !==
         summaryTotal
     )
@@ -458,6 +507,8 @@ export function isProjectRuntimeProjectionSemanticallyValid(
   const recoveryRequired = projection.milestoneState === "recovery_required";
   const humanDecisionRequired =
     projection.milestoneState === "human_decision_required" ||
+    projection.milestoneState === "returned" ||
+    projection.objectiveCounts.returned > 0 ||
     projection.objectiveCounts.blocked > 0;
   const allTasksComplete =
     projection.taskCounts.completed + projection.taskCounts.superseded ===
@@ -521,6 +572,8 @@ export function isProjectRuntimeProjectionSemanticallyValid(
         projection.objectiveCounts.cancelled === 0 &&
         isAllTasksTerminalForIntegration &&
         projection.taskCounts.recovery_required === 0)) &&
+    (projection.milestoneState !== "returned" ||
+      (isAllObjectivesAccepted && isAllTasksTerminalForIntegration)) &&
     (projection.milestoneState !== "recovery_required" ||
       projection.taskCounts.recovery_required > 0) &&
     (projection.milestoneState !== "human_decision_required" ||
@@ -2496,22 +2549,22 @@ export function applyProjectRuntimeHumanDecision(
 }
 
 /**
- * record Objective Integrationを決定する。
+ * Objective受入または差戻しを状態へ適用する。
  *
- * @responsibility record Objective Integrationの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
+ * @responsibility 検証済みObjective判断を状態値へ変換する内部遷移を所有する。
+ * @trace ARCH-000005
  * @input state: ProjectRuntimeState、expectedGeneration: number、objectiveId: string、input: Readonly<{ accepted: boolean; criterionEvidenceIds: readonly string[]; }>
  * @returns StateResultを返す。
- * @precondition 「state: ProjectRuntimeState、expectedGeneration: number、objectiveId: string、input: Readonly<{ accepted: boolean; criterionEvidenceIds: readonly string[]; }>」がrecordObjectiveIntegrationの入力契約を満たす。
- * @postcondition recordObjectiveIntegrationの責務を完了した結果だけを返す。
- * @effect N/A: recordObjectiveIntegrationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: recordObjectiveIntegrationは独自の失敗分岐を所有しない。
- * @invariant recordObjectiveIntegrationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: recordObjectiveIntegrationはProcess内の同一Subsystemで完結する。
- * @security N/A: recordObjectiveIntegrationはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: recordObjectiveIntegrationは共有非同期状態を持たない同期処理である。
+ * @precondition 呼出し元が受入判断対象、Authority、世代および根拠を検証済みである。
+ * @postcondition 対象Objectiveだけを受入済みまたは差戻しへ遷移させる。
+ * @effect N/A: 入力から新しい状態値を導くだけで外部Effectを発行しない。
+ * @failure 状態、世代、対象または受入根拠が一致しない場合は元状態を保持して停止する。
+ * @invariant 他Objective、TaskおよびProvider状態を変更しない。
+ * @boundary Acceptance Decision状態機械内部のObjective遷移境界。
+ * @security Authority値を受理せず、検証済み判断だけを状態へ適用する。
+ * @concurrency expectedGenerationが一致するSnapshotだけを処置する。
  */
-export function recordObjectiveIntegration(
+function applyObjectiveAcceptance(
   state: ProjectRuntimeState,
   expectedGeneration: number,
   objectiveId: string,
@@ -2542,7 +2595,7 @@ export function recordObjectiveIntegration(
     candidate.definition.id === objectiveId
       ? Object.freeze({
           ...candidate,
-          state: input.accepted ? ("accepted" as const) : ("blocked" as const),
+          state: input.accepted ? ("accepted" as const) : ("returned" as const),
           criterionEvidenceIds: Object.freeze([...input.criterionEvidenceIds]),
         })
       : candidate,
@@ -2573,22 +2626,22 @@ export function recordObjectiveIntegration(
 }
 
 /**
- * record Milestone Integrationを決定する。
+ * Milestone受入を状態へ適用する。
  *
- * @responsibility record Milestone Integrationの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
+ * @responsibility 検証済みMilestone受入を状態値へ変換する内部遷移を所有する。
+ * @trace ARCH-000005
  * @input state: ProjectRuntimeState、expectedGeneration: number、criterionEvidenceIds: readonly string[]
  * @returns StateResultを返す。
- * @precondition 「state: ProjectRuntimeState、expectedGeneration: number、criterionEvidenceIds: readonly string[]」がrecordMilestoneIntegrationの入力契約を満たす。
- * @postcondition recordMilestoneIntegrationの責務を完了した結果だけを返す。
- * @effect N/A: recordMilestoneIntegrationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: recordMilestoneIntegrationは独自の失敗分岐を所有しない。
- * @invariant recordMilestoneIntegrationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: recordMilestoneIntegrationはProcess内の同一Subsystemで完結する。
- * @security N/A: recordMilestoneIntegrationはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: recordMilestoneIntegrationは共有非同期状態を持たない同期処理である。
+ * @precondition 呼出し元が全Objective受入、Authority、世代および根拠を検証済みである。
+ * @postcondition 対象Milestoneだけを受入済みへ遷移させる。
+ * @effect N/A: 入力から新しい状態値を導くだけで外部Effectを発行しない。
+ * @failure 状態、世代、Objectiveまたは受入根拠が一致しない場合は元状態を保持して停止する。
+ * @invariant TaskおよびProvider状態を変更せず、全Objective受入前は遷移しない。
+ * @boundary Acceptance Decision状態機械内部のMilestone遷移境界。
+ * @security Authority値を受理せず、検証済み判断だけを状態へ適用する。
+ * @concurrency expectedGenerationが一致するSnapshotだけを処置する。
  */
-export function recordMilestoneIntegration(
+function applyMilestoneAcceptance(
   state: ProjectRuntimeState,
   expectedGeneration: number,
   criterionEvidenceIds: readonly string[],
@@ -2617,6 +2670,114 @@ export function recordMilestoneIntegration(
         ...state.milestone,
         state: "accepted" as const,
         criterionEvidenceIds: Object.freeze([...criterionEvidenceIds]),
+      }),
+    }),
+    taskIds: Object.freeze(state.tasks.map((task) => task.definition.id)),
+  });
+}
+
+/**
+ * Project運営者の明示的なObjective／Milestone受入判断を状態遷移へ適用する。
+ *
+ * @responsibility 受入・差戻し・判断待ちを対象別に判定し、下位完了から上位受入を推定しない状態機械を所有する。
+ * @trace ARCH-000005
+ * @input state: ProjectRuntimeState、expectedGeneration: number、input: ProjectRuntimeAcceptanceDecisionInput
+ * @returns 許可した遷移または理由付き停止を`StateResult`として返す。
+ * @precondition 呼出し側がProject運営者Authorityを別境界で検証し、exactなProject状態と世代を渡す。
+ * @postcondition `accept`と`return`は許可した状態だけを更新し、`wait`は状態を変更しない。
+ * @effect N/A: 本関数は入力から新しい状態値を導くだけで、Store、TaskまたはProvider Effectを発行しない。
+ * @failure 対象、世代、状態、根拠または前提Objectiveが一致しない場合は元状態を保持して停止する。
+ * @invariant Task完了だけでObjectiveを受け入れず、全Objective受入前にMilestone判断へ進めない。
+ * @boundary Project Runtime Applicationと状態機械の境界。
+ * @security Authority値を受理・生成せず、検証済み判断だけを適用する。
+ * @concurrency expectedGenerationが一致する一つの状態Snapshotだけを処置する。
+ */
+export function applyProjectRuntimeAcceptanceDecision(
+  state: ProjectRuntimeState,
+  expectedGeneration: number,
+  input: ProjectRuntimeAcceptanceDecisionInput,
+): StateResult {
+  const validEvidence =
+    input.criterionEvidenceIds.every((value) => validIdentity(value)) &&
+    new Set(input.criterionEvidenceIds).size ===
+      input.criterionEvidenceIds.length;
+  if (
+    state.generation !== expectedGeneration ||
+    !validIdentity(input.targetId) ||
+    !validEvidence
+  )
+    return Object.freeze({
+      status: "blocked",
+      reason: "project_runtime_acceptance_decision_mismatch",
+      state,
+      taskIds: Object.freeze([]),
+    });
+
+  if (input.target === "objective") {
+    const objective = state.objectives.find(
+      (candidate) => candidate.definition.id === input.targetId,
+    );
+    if (
+      objective?.state !== "integration_pending" ||
+      (input.decision === "accept" &&
+        input.criterionEvidenceIds.length !==
+          objective.definition.acceptanceCriteria.length)
+    )
+      return Object.freeze({
+        status: "blocked",
+        reason: "project_runtime_acceptance_decision_mismatch",
+        state,
+        taskIds: Object.freeze([]),
+      });
+    if (input.decision === "wait")
+      return Object.freeze({
+        status: "completed",
+        reason: "project_runtime_objective_acceptance_waiting",
+        state,
+        taskIds: Object.freeze([]),
+      });
+    return applyObjectiveAcceptance(state, expectedGeneration, input.targetId, {
+      accepted: input.decision === "accept",
+      criterionEvidenceIds: input.criterionEvidenceIds,
+    });
+  }
+
+  if (
+    input.targetId !== state.milestone.id ||
+    state.milestone.state !== "integrating" ||
+    !state.objectives.every((objective) => objective.state === "accepted") ||
+    (input.decision === "accept" &&
+      input.criterionEvidenceIds.length !==
+        state.milestone.acceptanceCriteria.length)
+  )
+    return Object.freeze({
+      status: "blocked",
+      reason: "project_runtime_acceptance_decision_mismatch",
+      state,
+      taskIds: Object.freeze([]),
+    });
+  if (input.decision === "accept")
+    return applyMilestoneAcceptance(
+      state,
+      expectedGeneration,
+      input.criterionEvidenceIds,
+    );
+  if (input.decision === "wait")
+    return Object.freeze({
+      status: "completed",
+      reason: "project_runtime_milestone_acceptance_waiting",
+      state,
+      taskIds: Object.freeze([]),
+    });
+  return Object.freeze({
+    status: "completed",
+    reason: "project_runtime_milestone_acceptance_returned",
+    state: projectState({
+      ...state,
+      generation: state.generation + 1,
+      milestone: Object.freeze({
+        ...state.milestone,
+        state: "returned" as const,
       }),
     }),
     taskIds: Object.freeze(state.tasks.map((task) => task.definition.id)),
@@ -2699,6 +2860,8 @@ export function projectProjectRuntimeState(
   const recoveryRequired = state.milestone.state === "recovery_required";
   const humanDecisionRequired =
     state.milestone.state === "human_decision_required" ||
+    state.milestone.state === "returned" ||
+    objectiveCounts.returned > 0 ||
     objectiveCounts.blocked > 0;
   const allTasksComplete =
     taskCounts.completed + taskCounts.superseded === state.tasks.length;

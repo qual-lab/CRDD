@@ -4,6 +4,17 @@
   "subsystem": "project-runtime",
   "symbols": [
     {
+      "symbolId": "project-runtime.acceptance-decision-application",
+      "kind": "file",
+      "path": "src/application/project-runtime-acceptance-decision.ts",
+      "archIds": [
+        "ARCH-000005"
+      ],
+      "implements": [
+        "project-runtime.acceptance-decision-authority"
+      ]
+    },
+    {
       "symbolId": "project-runtime.objective-application",
       "kind": "file",
       "path": "src/application/project-runtime-objective-application.ts",
@@ -40,9 +51,7 @@
       "archIds": [
         "ARCH-000005"
       ],
-      "implements": [
-        "project-runtime.acceptance-decision-authority"
-      ]
+      "implements": []
     },
     {
       "symbolId": "project-runtime.integration-application",
@@ -144,11 +153,26 @@
         "QA-000003"
       ],
       "localTestIds": [
-        "PRL-UT-007"
+        "PRL-UT-006"
       ],
       "verifies": [
         "project-runtime.human-decision-application",
         "project-runtime.source.src.ports.port.result"
+      ]
+    },
+    {
+      "symbolId": "project-runtime.test.integration.acceptance-decision-application",
+      "kind": "test-suite",
+      "path": "tests/integration/acceptance-decision-application.integration.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-008"
+      ],
+      "verifies": [
+        "project-runtime.acceptance-decision-application",
+        "project-runtime.state-core"
       ]
     },
     {
@@ -189,7 +213,7 @@
       ],
       "localTestIds": [
         "PPR-UT-006",
-        "PRL-UT-007"
+        "PRL-UT-006"
       ],
       "verifies": [
         "project-runtime.objective-intake",
@@ -268,6 +292,14 @@
       "path": "src/ports/decision-port.ts",
       "archIds": [
         "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "project-runtime.source.src.ports.acceptance.decision.port",
+      "kind": "file",
+      "path": "src/ports/acceptance-decision-port.ts",
+      "archIds": [
+        "ARCH-000005"
       ]
     },
     {

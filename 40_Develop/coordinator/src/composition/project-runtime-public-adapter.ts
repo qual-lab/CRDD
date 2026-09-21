@@ -6,12 +6,18 @@
  */
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "../security/project-runtime-windows-decision-store.ts";
 import {
+  executeProjectRuntimePublicAcceptanceDecision,
+  executeProjectRuntimePublicStateQuery,
+  runProjectRuntimePublicAcceptanceDecision,
   runProjectRuntimePublicDecision,
   runProjectRuntimePublicObjective,
   runProjectRuntimePublicStateQuery,
 } from "./project-runtime-composition-root.ts";
 
 export {
+  executeProjectRuntimePublicAcceptanceDecision,
+  executeProjectRuntimePublicStateQuery,
+  runProjectRuntimePublicAcceptanceDecision,
   runProjectRuntimePublicDecision,
   runProjectRuntimePublicObjective,
   runProjectRuntimePublicStateQuery,

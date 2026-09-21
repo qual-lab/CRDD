@@ -2801,6 +2801,27 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "coordinator:system:project-runtime-acceptance-decision",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/system/project-runtime-acceptance-decision.system.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "acceptance",
+        "decision"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "public_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "project-runtime:unit:human-decision-application",
       "owner": "project-runtime",
       "path": "40_Develop/project-runtime/tests/unit/human-decision-application.contract.test.ts",

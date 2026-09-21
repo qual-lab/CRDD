@@ -3017,6 +3017,46 @@
       ]
     },
     {
+      "symbolId": "coordinator.project-runtime.acceptance-authority-adapter",
+      "kind": "file",
+      "path": "src/security/project-runtime-acceptance-authority-adapter.ts",
+      "archIds": [
+        "ARCH-000005"
+      ],
+      "implements": [
+        "project-runtime.acceptance-decision-authority"
+      ]
+    },
+    {
+      "symbolId": "coordinator.project-runtime.acceptance-decision-store",
+      "kind": "file",
+      "path": "src/security/project-runtime-acceptance-decision-store.ts",
+      "archIds": [
+        "ARCH-000005"
+      ],
+      "implements": [
+        "project-runtime.acceptance-decision-authority"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.system.project-runtime-acceptance-decision",
+      "kind": "test-suite",
+      "path": "tests/system/project-runtime-acceptance-decision.system.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-ST-009"
+      ],
+      "verifies": [
+        "coordinator.project-runtime.acceptance-authority-adapter",
+        "coordinator.project-runtime.acceptance-decision-store",
+        "coordinator.source.src.composition.project.runtime.composition.root",
+        "project-runtime.acceptance-decision-application",
+        "project-runtime.state-core"
+      ]
+    },
+    {
       "symbolId": "coordinator.source.scripts.check.provider.authority.coverage",
       "kind": "module",
       "path": "scripts/check-provider-authority-coverage.ts",
