@@ -21,6 +21,8 @@
       ],
       "localTestIds": [
         "CQS-IT-011",
+        "CQS-IT-012",
+        "CQS-IT-013",
         "RCM-IT-007"
       ],
       "verifies": [

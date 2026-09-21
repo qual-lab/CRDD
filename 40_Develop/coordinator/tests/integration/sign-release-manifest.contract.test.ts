@@ -4,9 +4,10 @@
  * @packageDocumentation
  * @responsibility coordinator:integration:sign-release-manifestが所有する検証責務を実行する。
  * @trace AIT-IT-008
+ * @trace AIT-IT-009
  * @level IT
  * @scope sign、release、manifest
- * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果 / AIT-IT-009=Adjacent 1 Block: Signer結果→Coordinator配置契約
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -36,11 +37,43 @@ import {
   verifyInstalledCoordinatorPackageCandidate,
 } from "../../src/security/platform-provisioner-package-filesystem.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../../src/security/provisioning-signature-primitives.ts";
+import { validateArtifactSignatureResult } from "../../../artifact-signing/src/index.ts";
 
 const TEST_PASSPHRASE = "test-only-release-signing-passphrase";
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 const releaseStagingRoot = path.join(repositoryRoot, ".crdd", "release");
+
+/**
+ * Signer結果が配置責務を含まない閉じた値契約であることを検証する。
+ *
+ * @responsibility Artifact SigningとCoordinatorの責務境界を余剰field反例で確認する。
+ * @trace AIT-IT-009
+ * @precondition 正常な署名結果とManifest Path、配置、公開fieldを混入した反例を用意する。
+ * @stimulus 各値をArtifact Signature Result Schemaへ入力する。
+ * @observation 受理したfield集合と拒否結果を観測する。
+ * @oracle 三つの署名fieldだけを受理し、意味固有fieldを一つでも含む値を拒否する。
+ * @cleanup N/A: 外部Effectまたは永続資源を作成しない。
+ * @boundary AIT-IT-009=Adjacent 1 Block: Signer結果→Coordinator配置契約
+ */
+test("Signer結果はManifest生成・配置・公開fieldを所有しない", () => {
+  const valid = {
+    algorithm: "Ed25519",
+    keyId: "a".repeat(64),
+    signature: "A".repeat(86),
+  } as const;
+  assert.deepEqual(validateArtifactSignatureResult(valid), valid);
+  for (const forbidden of [
+    { manifestRelativePath: "manifest.json" },
+    { placementStatus: "created" },
+    { published: false },
+  ]) {
+    assert.throws(
+      () => validateArtifactSignatureResult({ ...valid, ...forbidden }),
+      /artifact_signing_signature_result_invalid/u,
+    );
+  }
+});
 
 type ContractTestManifestOptions = Parameters<
   typeof preflightReleaseManifest

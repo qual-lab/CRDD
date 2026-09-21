@@ -48,7 +48,7 @@ Quality ID: `QA-000002`
 | 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |
 | --- | --- | --- | --- | --- |
 | UT | Conditional | 状態集約とFreshness判定の純粋規則 | N/A | 独立した判定責務がある場合に確認する |
-| IT | Required | Change、監査結果、Evidence、Quality Center間の関係とTest CatalogからOwner Runnerへの解決 | Adjacent 1 Block | Repository内の意味統合に加え、Catalogから実行Ownerへ渡す隣接境界を確認するため |
+| IT | Required | Change、監査結果、Evidence、Quality Center間の関係、Test CatalogからOwner Runnerへの解決および段階実行の結果集約 | Related 2 Blocks | 隣接境界に加え、段階実行から結果集約までの二境界を確認するため |
 | ST | Required | Release候補全体のGate統合 | System/E2E | 複数工程の結果を一つの完成表示へ誤って畳まないことを確認するため |
 | UAT | Required | 人間が残存Riskと現在Gateを判断する場面 | User Acceptance | 人間が未確認範囲と残存Riskを理解して判断できることを確認するため |
 
@@ -57,10 +57,10 @@ Quality ID: `QA-000002`
 | 条件区分 | 適用 | 対応Local Item | 判断理由 |
 |---|---|---|---|
 | 正常 | Required | CQS-IT-001 | 通常の成立経路を独立して確認する。 |
-| 境界 | Required | CQS-ST-005、CQS-UAT-006、CQS-UAT-007、CQS-ST-008、CQS-UT-010、CQS-IT-011、CQS-ST-013 | 値、Authority、情報、責務または利用者判断の境界を確認する。 |
+| 境界 | Required | CQS-ST-005、CQS-UAT-006、CQS-UAT-007、CQS-IT-008、CQS-ST-008、CQS-UT-010、CQS-IT-011、CQS-IT-013、CQS-ST-013 | 値、Authority、情報、責務または利用者判断の境界を確認する。 |
 | 準正常 | N/A | - | 継続可能な分岐または保留状態を持たない。 |
-| 異常 | Required | CQS-IT-002、CQS-IT-003、CQS-IT-004、CQS-ST-012 | 不正入力、故障または拒否経路を通常成功へ畳まない。 |
-| 回復 | Required | CQS-ST-009 | 失敗・取消後に同じIdentityと義務で安全に再入場できることを確認する。 |
+| 異常 | Required | CQS-IT-002、CQS-IT-003、CQS-IT-004、CQS-IT-012、CQS-ST-012 | 不正入力、故障または拒否経路を通常成功へ畳まない。 |
+| 回復 | Required | CQS-IT-009、CQS-ST-009 | 失敗・取消後に同じIdentityと義務で安全に再入場できることを確認する。 |
 
 ## 4. 検証項目
 
@@ -74,12 +74,16 @@ Quality ID: `QA-000002`
 | `CQS-UAT-006` | 境界 | UAT | Acceptance／Decision | 現在Gate→人間判断 | User Acceptance | 残存Risk、未確認範囲、旧根拠を含む現在品質表示 | 人間が受容・是正・保留を判断する | CQS-UAT-006として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | 判断に必要な不足と影響を理解でき、解消済み事項を再要求しない | CQS-UAT-006、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「判断に必要な不足と影響を理解でき、解消済み事項を再要求しない」および終了後条件「人間判断なしの統合・Release Effect 0」を保存する | 人間判断なしの統合・Release Effect 0 | Manual |
 | `CQS-UAT-007` | 境界 | UAT | Acceptance／Test Planning | 試験段階・費用・時間・未確認範囲→利用者判断 | User Acceptance | UT／IT／ST／UATの保証範囲、未確認範囲、実行時間・費用、PT／LT候補と上限 | 利用者が追加検証とPT／LTを実行するか判断する | CQS-UAT-007として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | 一部Passを全体保証へ広げず、PT／LTは対象・上限・中止条件・清掃を明示した場合だけ選べる | CQS-UAT-007、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「一部Passを全体保証へ広げず、PT／LTは対象・上限・中止条件・清掃を明示した場合だけ選べる」および終了後条件「未承認のPT／LT・外部Effect 0」を保存する | 未承認のPT／LT・外部Effect 0 | Manual |
 
-| `CQS-ST-008` | 境界 | ST | Audit Set／Revision Closure | Change→必須監査集合→Quality Center→Release Gate | Related 2 Blocks | 同一改訂版の全必須監査結果と、一部欠落・別改訂版・途中縮小反例 | Gateへ監査集合を統合する | 監査集合、対象改訂版、各結果、欠落とGate判定を記録する | 全必須結果が同じ改訂版に属する場合だけGateが成立する | 改訂版、監査集合、各結果、判定 | 未処置必須監査0、別改訂版混入0 | Automated |
-| `CQS-ST-009` | 回復 | ST | Remediation Re-entry | 指摘→是正→新改訂版→再レビュー | Adjacent 1 Block | 旧Pass、是正差分、新改訂版、必要監査集合 | 新改訂版を固定し必要監査を再実行する | 旧結果、新結果、改訂版、再実行集合を記録する | 旧結果を流用せず新改訂版の結果だけで解消判定する | 改訂版、再実行集合、結果、判定 | 旧結果による現行Pass 0 | Automated |
+| `CQS-IT-008` | 境界 | IT | Audit Set／Revision Closure | Change→必須監査集合→Quality Center→Release Gate | Related 2 Blocks | 同一改訂版の全必須監査結果と、一部欠落・別改訂版・途中縮小反例 | Gateへ監査集合を統合する | 監査集合、対象改訂版、各結果、欠落とGate判定を記録する | 全必須結果が同じ改訂版に属する場合だけGateが成立する | 改訂版、監査集合、各結果、判定 | 未処置必須監査0、別改訂版混入0 | Automated |
+| `CQS-ST-008` | 境界 | ST | Audit Set／Release Gate Closure | Change全体→全必須監査→Quality Center→Release Gate | System/E2E | 完了・未完了・別改訂版を含む全監査集合とRelease候補 | 同じ固定改訂版の監査集合をRelease Gateへ統合する | 全監査Identity、改訂版、現在状態、未確認範囲とGate表示を記録する | 必須監査の欠落・途中縮小・別改訂版混入が一つでもあればRelease可能と表示しない | 固定改訂版、監査集合、Gate表示と反証結果 | 未処置必須監査0、別改訂版混入0、Release Effect 0 | Automated |
+| `CQS-IT-009` | 回復 | IT | Remediation Re-entry | 指摘→是正→新改訂版→再レビュー | Adjacent 1 Block | 旧Pass、是正差分、新改訂版、必要監査集合 | 新改訂版を固定し必要監査を再実行する | 旧結果、新結果、改訂版、再実行集合を記録する | 旧結果を流用せず新改訂版の結果だけで解消判定する | 改訂版、再実行集合、結果、判定 | 旧結果による現行Pass 0 | Automated |
+| `CQS-ST-009` | 回復 | ST | Remediation Re-entry Lifecycle | 指摘→是正→新固定改訂版→必須監査再実行→現在Gate | System/E2E | 旧Pass、是正前後の改訂版、必要監査集合および再実行結果 | 是正後の新固定改訂版だけで監査集合と現在Gateを再構築する | 旧結果の隔離、新結果、未完了監査、現在GateとRelease Effectを記録する | 旧Passを流用せず、新固定改訂版の全必須監査が完了するまでRelease可能と表示しない | 旧・新改訂版、全監査結果、現在Gateと反証結果 | 旧結果による現行Pass 0、未完了時Release Effect 0 | Automated |
 | `CQS-UT-010` | 境界 | UT | Catalog Closure | Test CatalogとOwner／Path／Level | N/A | 宣言済み試験、実在試験、Owner、Path、Levelと欠落反例 | Catalogと実在集合を比較する | 宣言集合、実在集合、Owner、Level、差分を記録する | 未登録、重複、Owner／Path／Level不一致が0である | Catalog、実在集合、差分、判定 | Source／Catalog変更0 | Automated |
 | `CQS-IT-011` | 境界 | IT | Runner Catalog Boundary | Test Catalog→Owner Runner | Adjacent 1 Block | Catalog項目と対応Owner Runner、未知Owner反例 | Catalog項目をOwner Runnerへ解決する | 解決Owner、実行対象、拒否理由を記録する | 全項目が一意な実行可能Ownerへ解決される | Catalog項目、Owner、解決結果、判定 | 未解決項目0 | Automated |
-| `CQS-ST-012` | 異常 | ST | Stage Execution | Verification Runner→段階実行→結果集約 | Related 2 Blocks | 宣言順、先行失敗、部分成功、後続禁止を含む固定計画 | 計画を段階実行し全結果を集約する | 開始・終了順、各結果、未開始段階、全体判定を記録する | 先行失敗後に禁止された後続を開始せず部分成功を全体Passへ畳まない | 計画、実行順、全結果、判定 | 未許可後続Effect 0 | Automated |
-| `CQS-ST-013` | 境界 | ST | Resource-intensive Gate | 検証要求→人間許可→Runner | Direct Boundary | PT／LT候補、目的、環境、時間、回数、費用、停止・清掃条件 | 許可の有無と範囲をGateで判定する | 許可主体、範囲、上限、拒否理由、Process開始有無を記録する | 明示許可と全上限が揃う場合だけ対象Processを開始する | 許可入力、範囲、Process Effect、判定 | 未許可Process Effect 0 | Automated |
+| `CQS-IT-012` | 異常 | IT | Stage Execution | Verification Runner→段階実行→結果集約 | Related 2 Blocks | 宣言順、先行失敗、部分成功、後続禁止を含む固定計画 | 計画を段階実行し全結果を集約する | 開始・終了順、各結果、未開始段階、全体判定を記録する | 先行失敗後に禁止された後続を開始せず部分成功を全体Passへ畳まない | 計画、実行順、全結果、判定 | 未許可後続Effect 0 | Automated |
+| `CQS-ST-012` | 異常 | ST | Stage Execution Closure | 公開Verification入口→全段階Runner→統合結果 | System/E2E | Static、UT、IT、ST、UATを含む固定計画と先行失敗反例 | 公開入口から段階計画を実行し、未開始を含む全結果を取得する | 各Runnerの開始・終了、未開始理由、統合状態、公開結果と残存資源を記録する | 先行失敗後の禁止段階を開始せず、公開結果が部分成功を全体Passへ畳まない | 固定計画、全段階結果、公開結果と反証結果 | 未許可後続Effect 0、子Process・一時資源0 | Automated |
+| `CQS-IT-013` | 境界 | IT | Resource-intensive Gate | 検証要求→人間許可→Runner | Direct Boundary | PT／LT候補、目的、環境、時間、回数、費用、停止・清掃条件 | 許可の有無と範囲をGateで判定する | 許可主体、範囲、上限、拒否理由、Process開始有無を記録する | 明示許可と全上限が揃う場合だけ対象Processを開始する | 許可入力、範囲、Process Effect、判定 | 未許可Process Effect 0 | Automated |
+| `CQS-ST-013` | 境界 | ST | Resource-intensive Gate Closure | 公開Verification入口→人間許可Gate→PT／LT Runner | System/E2E | 未許可、項目不足、範囲超過を含む固定要求。実PT／LTは実行しない | 公開入口からGate判定までを実行し、Runner Effectの有無を確認する | 許可入力、拒否理由、選択段階、Process Effectと公開結果を記録する | 未許可または必須上限不足ではPT／LT Runnerを開始せず、通常回帰をPT／LT実施済みと表示しない | 固定要求、Gate判定、Process Effectと反証結果 | 未承認PT／LT Process Effect 0 | Automated |
 
 ## 5. 評価・根拠・終了後条件
 

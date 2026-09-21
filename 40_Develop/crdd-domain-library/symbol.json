@@ -36,6 +36,14 @@
       ]
     },
     {
+      "symbolId": "crdd-domain-library.quality-change-control-entry",
+      "kind": "module",
+      "path": "src/quality-change-control/index.ts",
+      "archIds": [
+        "ARCH-000003"
+      ]
+    },
+    {
       "symbolId": "crdd-domain-library.test.unit.public-boundary",
       "kind": "test-suite",
       "path": "tests/unit/public-boundary.contract.test.ts",
@@ -70,6 +78,41 @@
       ]
     },
     {
+      "symbolId": "crdd-domain-library.test.integration.quality-change-control",
+      "kind": "test-suite",
+      "path": "tests/integration/quality-change-control.contract.test.ts",
+      "qaIds": [
+        "QA-000002"
+      ],
+      "localTestIds": [
+        "CQS-IT-002",
+        "CQS-IT-003",
+        "CQS-IT-004",
+        "CQS-IT-008",
+        "CQS-IT-009"
+      ],
+      "verifies": [
+        "crdd-domain-library.source.src.quality.change.control.quality.gate"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.test.system.quality-change-control",
+      "kind": "test-suite",
+      "path": "tests/system/quality-change-control.contract.test.ts",
+      "qaIds": [
+        "QA-000002"
+      ],
+      "localTestIds": [
+        "CQS-ST-005",
+        "CQS-ST-008",
+        "CQS-ST-009"
+      ],
+      "verifies": [
+        "crdd-domain-library.quality-change-control-entry",
+        "crdd-domain-library.source.src.quality.change.control.quality.gate"
+      ]
+    },
+    {
       "symbolId": "crdd-domain-library.test.unit.repository-observation",
       "kind": "test-suite",
       "path": "tests/unit/repository-observation.contract.test.ts",
@@ -89,6 +132,14 @@
       "path": "src/index.ts",
       "archIds": [
         "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.source.src.quality.change.control.quality.gate",
+      "kind": "file",
+      "path": "src/quality-change-control/quality-gate.ts",
+      "archIds": [
+        "ARCH-000003"
       ]
     },
     {

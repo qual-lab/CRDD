@@ -679,7 +679,8 @@
         "QA-000010"
       ],
       "localTestIds": [
-        "AIT-IT-001"
+        "AIT-IT-001",
+        "AIT-IT-003"
       ],
       "verifies": [
         "coordinator.source.src.security.runtime.trust.evaluator"
@@ -1087,9 +1088,11 @@
         "QA-000010"
       ],
       "localTestIds": [
-        "AIT-IT-008"
+        "AIT-IT-008",
+        "AIT-IT-009"
       ],
       "verifies": [
+        "artifact-signing.source.src.signature.result",
         "coordinator.source.scripts.release.staging.manifest",
         "coordinator.source.scripts.sign.release.manifest",
         "coordinator.source.src.security.platform.provisioner.package.filesystem",

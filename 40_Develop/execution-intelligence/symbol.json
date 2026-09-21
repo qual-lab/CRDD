@@ -23,13 +23,46 @@
       "localTestIds": [
         "ERP-IT-001",
         "ERP-IT-002",
-        "ERP-IT-003"
+        "ERP-IT-003",
+        "ERP-IT-005"
       ],
       "verifies": [
         "execution-intelligence.source.src.application.execution.intelligence.recorder",
         "execution-intelligence.source.src.core.execution.intelligence",
         "execution-intelligence.source.src.store.execution.intelligence.store",
         "execution-intelligence.source.src.store.verified.repository.root"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.test.integration.record-projection",
+      "kind": "test-suite",
+      "path": "tests/integration/record-projection.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-IT-010",
+        "PPR-IT-012"
+      ],
+      "verifies": [
+        "execution-intelligence.source.src.application.record.projection",
+        "execution-intelligence.source.src.core.temporal.provenance"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.test.integration.record-projection-correlation",
+      "kind": "test-suite",
+      "path": "tests/integration/execution-record-projection.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-IT-003",
+        "PPR-IT-004"
+      ],
+      "verifies": [
+        "execution-intelligence.source.src.application.execution.record.projection",
+        "execution-intelligence.source.src.core.execution.intelligence"
       ]
     },
     {
@@ -48,9 +81,40 @@
       ]
     },
     {
+      "symbolId": "execution-intelligence.test.unit.temporal-provenance",
+      "kind": "test-suite",
+      "path": "tests/unit/temporal-provenance.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-UT-013"
+      ],
+      "verifies": [
+        "execution-intelligence.source.src.core.temporal.provenance"
+      ]
+    },
+    {
       "symbolId": "execution-intelligence.source.src.application.execution.intelligence.recorder",
       "kind": "file",
       "path": "src/application/execution-intelligence-recorder.ts",
+      "archIds": [
+        "ARCH-000007"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.src.application.record.projection",
+      "kind": "file",
+      "path": "src/application/record-projection.ts",
+      "archIds": [
+        "ARCH-000007",
+        "ARCH-000016"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.src.application.execution.record.projection",
+      "kind": "file",
+      "path": "src/application/execution-record-projection.ts",
       "archIds": [
         "ARCH-000007"
       ]
@@ -77,6 +141,14 @@
       "path": "src/core/execution-intelligence.ts",
       "archIds": [
         "ARCH-000007"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.src.core.temporal.provenance",
+      "kind": "file",
+      "path": "src/core/temporal-provenance.ts",
+      "archIds": [
+        "ARCH-000016"
       ]
     },
     {

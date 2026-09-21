@@ -13,6 +13,7 @@ import {
   readHiddenLine,
   readPrivateKeyReferenceFromEnvironmentFile,
   signEd25519Payload,
+  validateArtifactSignatureResult,
   type PrivateKeyReferenceAuthorization,
 } from "../../artifact-signing/src/index.ts";
 import { resolveBundledRepositoryRuntimeDataPathsForProtectedSigning } from "../../runtime-data/src/platform/runtime-data-path-resolver.ts";
@@ -541,14 +542,16 @@ export function signReleaseManifest(
   // signing-time observation has completed in full.
   try {
     const pinnedSpki = getPinnedPlatformProvisionerReleaseSignerSpkiDer();
-    const signature = signEd25519Payload({
-      authorization: authorized.privateKeyAuthorization,
-      payload: compiled.message,
-      passphrase: rawPassphrase,
-      expectedPublicKeySpki: pinnedSpki,
-      prohibitedRoot: repositoryRoot,
-      maximumPrivateKeyBytes: MAXIMUM_PRIVATE_KEY_BYTES,
-    });
+    const signature = validateArtifactSignatureResult(
+      signEd25519Payload({
+        authorization: authorized.privateKeyAuthorization,
+        payload: compiled.message,
+        passphrase: rawPassphrase,
+        expectedPublicKeySpki: pinnedSpki,
+        prohibitedRoot: repositoryRoot,
+        maximumPrivateKeyBytes: MAXIMUM_PRIVATE_KEY_BYTES,
+      }),
+    );
     const envelope = {
       contract: PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
       contractRevision: PLATFORM_PROVISIONER_MANIFEST_REVISION,

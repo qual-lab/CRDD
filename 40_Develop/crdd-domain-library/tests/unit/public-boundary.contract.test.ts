@@ -93,8 +93,10 @@ function typescriptFiles(root: string): readonly string[] {
 test("Package RootはCapability別の公開入口だけを束ねる", () => {
   assert.deepEqual(Object.keys(domainLibrary).sort(), [
     "artifact",
+    "qualityChangeControl",
     "realityTraceability",
     "repositoryObservation",
+    "validateDomainOutcome",
   ]);
 });
 
@@ -415,6 +417,7 @@ test("共通Outcomeは中立な処理結果契約だけを公開する", () => {
     "DomainLocation",
     "DomainOutcome",
     "DomainStatus",
+    "validateDomainOutcome",
   ]);
 });
 

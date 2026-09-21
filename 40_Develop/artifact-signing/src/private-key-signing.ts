@@ -13,6 +13,8 @@ import {
 import fs from "node:fs";
 import path from "node:path";
 
+import { createOneShotAuthorizationState } from "./one-shot-authorization.ts";
+
 const MAXIMUM_ENVIRONMENT_BYTES = 8 * 1024;
 const MAXIMUM_PASSPHRASE_BYTES = 1_024;
 
@@ -52,10 +54,10 @@ export type PrivateKeyReferenceAuthorization = Readonly<{
   contractRevision: 1;
 }>;
 
-const authorizations = new WeakMap<
+const authorizations = createOneShotAuthorizationState<
   PrivateKeyReferenceAuthorization,
-  Readonly<{ identity: FileIdentity; consumed: boolean }>
->();
+  FileIdentity
+>("artifact_signing_private_key_authorization_invalid");
 
 /**
  * 候補Pathが指定Rootの内側かを判定する。
@@ -361,10 +363,7 @@ export function preflightPrivateKeyReference(options: {
       "crdd-artifact-signing/private-key-reference-authorization" as const,
     contractRevision: 1 as const,
   });
-  authorizations.set(
-    authorization,
-    Object.freeze({ identity, consumed: false }),
-  );
+  authorizations.register(authorization, identity);
   return authorization;
 }
 
@@ -392,14 +391,7 @@ export function signEd25519Payload(options: {
   prohibitedRoot: string;
   maximumPrivateKeyBytes: number;
 }) {
-  const authorized = authorizations.get(options.authorization);
-  if (!authorized || authorized.consumed) {
-    throw new Error("artifact_signing_private_key_authorization_invalid");
-  }
-  authorizations.set(
-    options.authorization,
-    Object.freeze({ identity: authorized.identity, consumed: true }),
-  );
+  const authorizedIdentity = authorizations.consume(options.authorization);
   if (
     typeof options.passphrase !== "string" ||
     options.passphrase.length === 0 ||
@@ -411,7 +403,7 @@ export function signEd25519Payload(options: {
   let privateKeyBytes: Buffer | null = null;
   try {
     privateKeyBytes = readStablePrivateKey(
-      authorized.identity,
+      authorizedIdentity,
       options.prohibitedRoot,
       options.maximumPrivateKeyBytes,
     );

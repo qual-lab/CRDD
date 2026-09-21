@@ -3,10 +3,11 @@
  *
  * @packageDocumentation
  * @responsibility artifact-signing:integration:private-key-signingが所有する検証責務を実行する。
+ * @trace AIT-IT-007
  * @trace AIT-IT-008
  * @level IT
  * @scope artifact-signing、private-key-reference、secret-input、ed25519
- * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-007=Related 2 Blocks: one-time Authorization→予約→鍵読取り→署名 / AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 import assert from "node:assert/strict";
 import { createPublicKey, generateKeyPairSync, verify } from "node:crypto";
@@ -28,13 +29,14 @@ const PASSPHRASE = "artifact-signing-test-passphrase";
  * fixtureのTest準備責務を実行する。
  *
  * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-007
  * @trace AIT-IT-008
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
  * @stimulus fixtureを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-007=Related 2 Blocks: one-time Authorization→予約→鍵読取り→署名 / AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-artifact-signing-"));
@@ -111,6 +113,127 @@ test("鍵参照を秘密入力前に固定し、任意byte列だけを署名す�
       }),
     /artifact_signing_private_key_authorization_invalid/u,
   );
+});
+
+/**
+ * 競合要求と予約後失敗でAuthorizationを再利用不能にすることを検証する。
+ *
+ * @responsibility 同じAuthorizationに対する競合要求の勝者を一件に限定し、敗者と失敗後の再利用要求が鍵を読まないことを確認する。
+ * @trace AIT-IT-007
+ * @precondition 同じ未使用Authorization、固定秘密鍵、正常要求二件と不正passphrase要求を使用する。
+ * @stimulus 同じAuthorizationを二要求から消費し、別Authorizationでは予約後に署名失敗を発生させて再利用する。
+ * @observation 要求ごとの鍵読取り増分、成功・失敗件数、署名結果および再利用結果を観測する。
+ * @oracle 競合の勝者は最大一件、敗者と再利用要求は鍵read 0・署名Effect 0であり、失敗後も未使用へ戻らない。
+ * @cleanup Test終了時に秘密鍵fixtureを削除し、差し替えたreadSyncを必ず復元する。
+ * @boundary AIT-IT-007=Related 2 Blocks: one-time Authorization→予約→鍵読取り→署名
+ */
+test("競合要求と予約後失敗でAuthorizationを再利用不能にする", async (t) => {
+  const { pair, privateKeyPath, prohibitedRoot } = fixture(t);
+  const payload = Buffer.from("authorization-race-payload", "utf8");
+  const expectedPublicKeySpki = createPublicKey(pair.privateKey).export({
+    type: "spki",
+    format: "der",
+  });
+  const authorization = preflightPrivateKeyReference({
+    privateKeyPath,
+    prohibitedRoot,
+    maximumBytes: 16 * 1024,
+  });
+  const originalRead = fs.readSync;
+  let readCount = 0;
+  fs.readSync = ((...commandArguments: Parameters<typeof fs.readSync>) => {
+    readCount += 1;
+    return originalRead(...commandArguments);
+  }) as typeof fs.readSync;
+  try {
+    /**
+     * 一回の競合署名要求と鍵読取り増分を観測する。
+     *
+     * @responsibility 競合する各要求の成功・失敗と鍵読取り増分を同じ形式で返す。
+     * @trace AIT-IT-007
+     * @precondition 同じ未使用または消費済みAuthorizationを共有する。
+     * @stimulus Authorizationを使って署名を要求する。
+     * @observation 要求前後の鍵読取り回数、成功状態および失敗理由を記録する。
+     * @oracle 呼出し元Test Caseが勝者一件と敗者の鍵read 0を判定できる形で返す。
+     * @cleanup 呼出し元Test Caseが差し替えたreadSyncとfixtureを清掃する。
+     * @boundary AIT-IT-007=Related 2 Blocks: one-time Authorization→予約→鍵読取り→署名
+     */
+    const attempt = () => {
+      const before = readCount;
+      try {
+        return {
+          status: "fulfilled" as const,
+          readDelta: (() => {
+            signEd25519Payload({
+              authorization,
+              payload,
+              passphrase: PASSPHRASE,
+              expectedPublicKeySpki,
+              prohibitedRoot,
+              maximumPrivateKeyBytes: 16 * 1024,
+            });
+            return readCount - before;
+          })(),
+        };
+      } catch (error) {
+        return {
+          status: "rejected" as const,
+          readDelta: readCount - before,
+          reason: error instanceof Error ? error.message : "unknown_error",
+        };
+      }
+    };
+    const attempts = await Promise.all([
+      Promise.resolve().then(attempt),
+      Promise.resolve().then(attempt),
+    ]);
+    assert.equal(
+      attempts.filter(({ status }) => status === "fulfilled").length,
+      1,
+    );
+    assert.equal(
+      attempts.filter(({ status }) => status === "rejected").length,
+      1,
+    );
+    assert.equal(
+      attempts.find(({ status }) => status === "rejected")?.readDelta,
+      0,
+    );
+
+    const failedAuthorization = preflightPrivateKeyReference({
+      privateKeyPath,
+      prohibitedRoot,
+      maximumBytes: 16 * 1024,
+    });
+    assert.throws(
+      () =>
+        signEd25519Payload({
+          authorization: failedAuthorization,
+          payload,
+          passphrase: "incorrect-passphrase",
+          expectedPublicKeySpki,
+          prohibitedRoot,
+          maximumPrivateKeyBytes: 16 * 1024,
+        }),
+      /bad decrypt|failed to decrypt|interrupted or cancelled/u,
+    );
+    const readsAfterFailure = readCount;
+    assert.throws(
+      () =>
+        signEd25519Payload({
+          authorization: failedAuthorization,
+          payload,
+          passphrase: PASSPHRASE,
+          expectedPublicKeySpki,
+          prohibitedRoot,
+          maximumPrivateKeyBytes: 16 * 1024,
+        }),
+      /artifact_signing_private_key_authorization_invalid/u,
+    );
+    assert.equal(readCount, readsAfterFailure);
+  } finally {
+    fs.readSync = originalRead;
+  }
 });
 
 /**

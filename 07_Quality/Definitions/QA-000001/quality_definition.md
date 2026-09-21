@@ -69,8 +69,8 @@ Quality ID: `QA-000001`
 
 | 条件区分 | 適用 | 対応Local Item | 判断理由 |
 |---|---|---|---|
-| 正常 | Required | RCM-UT-001、RCM-IT-003、RCM-UT-015 | 通常の成立経路を独立して確認する。 |
-| 境界 | Required | RCM-UAT-006、RCM-IT-008、RCM-IT-009、RCM-IT-010、RCM-ST-012、RCM-UT-013、RCM-UT-014、RCM-UT-016 | 値、Authority、情報、責務または利用者判断の境界を確認する。 |
+| 正常 | Required | RCM-UT-001、RCM-IT-003、RCM-IT-015 | 通常の成立経路を独立して確認する。 |
+| 境界 | Required | RCM-UAT-006、RCM-IT-008、RCM-IT-009、RCM-IT-010、RCM-ST-012、RCM-IT-013、RCM-UT-014、RCM-UT-016 | 値、Authority、情報、責務または利用者判断の境界を確認する。 |
 | 準正常 | N/A | - | 継続可能な分岐または保留状態を持たない。 |
 | 異常 | Required | RCM-UT-002、RCM-IT-004、RCM-IT-005、RCM-IT-007、RCM-IT-011 | 不正入力、故障または拒否経路を通常成功へ畳まない。 |
 | 回復 | N/A | - | 失敗後の再入場または回復義務を持たない。 |
@@ -92,9 +92,9 @@ Quality ID: `QA-000001`
 | `RCM-IT-011` | 異常 | IT | Domain Result／Adapter Contract | Domain Outcome／Issue→Checker Adapter→Checker Finding | Direct Boundary | complete、partial、invalid、unobservableのOutcome、`complete + issue`の不正組合せ、全必須Issue field、未知kind、禁止fieldを含む固定fixture | Domain結果をChecker Adapterへ渡しFindingと全体状態へ変換する | Domainのstatus、result有無、issue件数、kind、targetIdentity、location、reason、detailsと、変換後code、severity、rule、message、未検査範囲、exit codeを対で記録する | Domain必須fieldを欠落させず、`complete + issue`を不正契約として拒否し、partial／invalid／unobservableをcompleteへ昇格せず、DomainへChecker固有fieldを持ち込まない | RCM-IT-011、固定Outcome／Issue fixture、`complete + issue`拒否、変換前後field対応、未知kind拒否、禁止field不在、Oracle判定および終了後条件を保存する | Repository Effect 0、一時成果物0 | Automated |
 
 | `RCM-ST-012` | 境界 | ST | Migration／System Closure | 変更元→全Consumer→公開・署名・Release・Recovery | System/E2E | 固定Snapshot、移行対象、宣言済みConsumer集合と旧契約反例 | 同じSnapshotで全Consumerを移行し公開入口まで実行する | Consumer集合、使用契約、公開結果、未移行対象、Snapshot Identityを記録する | 宣言集合と実観測集合が一致し、旧契約ConsumerとSnapshot混在が0である | Snapshot、Consumer集合、各入口結果、未移行件数、判定 | 旧契約利用0、未処置Consumer 0、別Snapshot混入0 | Automated |
-| `RCM-UT-013` | 境界 | UT | Dependency Direction | CRDD Domain Libraryのimport関係 | N/A | Domain、Application、Infrastructure、CheckerのSource Graph | 禁止方向のimportを含むGraphを検査する | Package間import edgeと禁止edgeを記録する | DomainからChecker／CLIへのedgeが0である | Source Graph、禁止edge、判定 | Source変更0 | Automated |
+| `RCM-IT-013` | 境界 | IT | Dependency Direction | CRDD Domain Libraryのimport関係 | N/A | Domain、Application、Infrastructure、CheckerのSource Graph | 禁止方向のimportを含むGraphを検査する | Package間import edgeと禁止edgeを記録する | DomainからChecker／CLIへのedgeが0である | Source Graph、禁止edge、判定 | Source変更0 | Automated |
 | `RCM-UT-014` | 境界 | UT | Public Surface | Packageの公開`index.ts`と利用側import | N/A | 宣言済みexport allowlist、deep importと未宣言export反例 | 公開面と利用側importを比較する | export集合、import集合、差分を記録する | 利用側が宣言済み公開面だけを使用する | export／import集合、差分、判定 | Source変更0 | Automated |
-| `RCM-UT-015` | 正常 | UT | Source Layout | Package Rootと`src`配下の責務配置 | N/A | 許可構造、Root直下Source、汎用`internal`、Owner不明配置 | Directory責務とSource配置を検査する | Directory、Source、Owner、違反理由を記録する | Sourceが責務Directoryに属し、禁止配置が0である | Directory一覧、違反Path、判定 | Source変更0 | Automated |
+| `RCM-IT-015` | 正常 | IT | Source Layout | Package Rootと`src`配下の責務配置 | N/A | 許可構造、Root直下Source、汎用`internal`、Owner不明配置 | Directory責務とSource配置を検査する | Directory、Source、Owner、違反理由を記録する | Sourceが責務Directoryに属し、禁止配置が0である | Directory一覧、違反Path、判定 | Source変更0 | Automated |
 | `RCM-UT-016` | 境界 | UT | Domain Result | Domain Outcome／IssueとSurface Adapter | N/A | complete、partial、invalid、unobservableの固定Domain結果 | 各結果をAdapterへ渡し公開結果へ変換する | Domain結果、Adapter結果、severity／code／exitのOwnerを記録する | DomainがSurface固有値を所有せず全Domain状態が欠落なく変換される | 入出力、Owner、変換結果、判定 | Source変更0 | Automated |
 
 ## 6. 評価と根拠

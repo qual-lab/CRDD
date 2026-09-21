@@ -4,9 +4,10 @@
  * @packageDocumentation
  * @responsibility 同一Artifactの軸別観測がPolicyで評価され、単一軸から信頼やAuthorityを推定しないことを検証する。
  * @trace AIT-IT-001
+ * @trace AIT-IT-003
  * @level IT
  * @scope Runtime Artifact、Trust Evaluator、Deployment Owner Policy
- * @boundary AIT-IT-001=Adjacent 1 Block: Artifact Observer→Trust Evaluator→Policy
+ * @boundary AIT-IT-001=Adjacent 1 Block: Artifact Observer→Trust Evaluator→Policy / AIT-IT-003=Direct Boundary: 検証材料Reader→Trust Evaluator
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -129,13 +130,13 @@ test("公式、組織、Fork、Local開発を同じPolicy契約で評価する",
  * 不明軸と単一軸Passをtrustedへ昇格しない。
  *
  * @responsibility 観測不能と拒否を区別し、一つの成功軸が全体保証を作らないことを検証する。
- * @trace AIT-IT-001
+ * @trace AIT-IT-003
  * @precondition Artifact IdentityとPolicyは有効だが軸の一部がunknownまたはfailである。
  * @stimulus unknownと準拠failの入力をそれぞれ評価する。
  * @observation trust、理由、軸別結果およびAuthority非発行を観測する。
  * @oracle unknownはunknown、準拠failはnot_trustedとなり、いずれもAuthorityを発行しない。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary AIT-IT-001=Adjacent 1 Block: Artifact Observer→Trust Evaluator→Policy
+ * @boundary AIT-IT-003=Direct Boundary: 検証材料Reader→Trust Evaluator
  */
 test("不明軸と単一軸Passをtrustedへ昇格しない", () => {
   const unknown = evaluateRuntimeTrust(

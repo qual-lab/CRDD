@@ -13,3 +13,7 @@ export {
   type PrivateKeyReferenceAuthorization,
 } from "./private-key-signing.ts";
 export { readHiddenLine } from "./terminal-secret-input.ts";
+export {
+  validateArtifactSignatureResult,
+  type ArtifactSignatureResult,
+} from "./signature-result.ts";

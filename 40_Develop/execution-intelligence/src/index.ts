@@ -31,6 +31,21 @@ export {
 } from "./application/execution-intelligence-recorder.ts";
 
 export {
+  projectExecutionRecords,
+  type ExecutionRecordProjectionInput,
+  type ExecutionRecordProjectionResult,
+} from "./application/execution-record-projection.ts";
+
+export {
+  projectTemporalRecords,
+  readAndProjectRecordState,
+  type RecordStateProjectionResult,
+  type TemporalClockSource,
+  type TemporalRecordProjectionInput,
+  type TemporalRecordProjectionResult,
+} from "./application/record-projection.ts";
+
+export {
   BOUNDED_INTEGRATED_RESULT_EVALUATION_CONTRACT,
   BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT,
   evaluateBoundedIntegratedResult,
@@ -38,6 +53,12 @@ export {
   type BoundedIntegratedResultEvaluation,
   type BoundedIntegratedResultEvaluationInput,
 } from "./core/bounded-integrated-result-evaluation.ts";
+
+export {
+  classifyTemporalProvenance,
+  type TemporalProvenanceInput,
+  type TemporalProvenanceResult,
+} from "./core/temporal-provenance.ts";
 
 export {
   readExecutionIntelligence,

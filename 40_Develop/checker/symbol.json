@@ -100,12 +100,30 @@
         "QA-000001"
       ],
       "localTestIds": [
-        "RCM-IT-005"
+        "RCM-IT-005",
+        "RCM-IT-013",
+        "RCM-IT-015"
       ],
       "verifies": [
         "checker.pipeline",
         "checker.public-entry",
         "checker.rule-registry"
+      ]
+    },
+    {
+      "symbolId": "checker.test.integration.domain-outcome-adapter",
+      "kind": "test-suite",
+      "path": "tests/integration/domain-outcome-adapter.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-IT-011"
+      ],
+      "verifies": [
+        "checker.domain-outcome-adapter",
+        "checker.source.src.adapters.reality.traceability",
+        "crdd-domain-library.common-outcome-entry"
       ]
     },
     {
@@ -139,6 +157,14 @@
         "checker.source.src.adapters.reality.traceability",
         "crdd-domain-library.source.src.reality.traceability.symbol.manifest.model",
         "version-control.source.src.repository.location"
+      ]
+    },
+    {
+      "symbolId": "checker.domain-outcome-adapter",
+      "kind": "file",
+      "path": "src/adapters/domain-outcome.ts",
+      "archIds": [
+        "ARCH-000001"
       ]
     },
     {

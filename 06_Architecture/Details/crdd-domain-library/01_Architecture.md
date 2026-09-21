@@ -281,9 +281,9 @@ MCPとWorkbenchは将来Consumer候補であり、現在接続済みとは表示
 
 | 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|---|---|---|
-| `crdd-domain-library.dependency-direction` | Implementation Structure | Domain、Checker、Repository基盤 | DomainからCheckerへのimportが0 | DomainがChecker型、RuleまたはCLIをimport | UT | N/A | import graph | 禁止逆依存0 | 将来Consumer接続時の再確認 |
+| `crdd-domain-library.dependency-direction` | Implementation Structure | Domain、Checker、Repository基盤 | DomainからCheckerへのimportが0 | DomainがChecker型、RuleまたはCLIをimport | IT | N/A | import graph | 禁止逆依存0 | 将来Consumer接続時の再確認 |
 | `crdd-domain-library.public-surface` | Interface／Implementation Structure | Capability別公開入口 | 利用側が宣言済み`index.ts`だけをimport | deep import、巨大Barrel、未宣言export | UT／IT | Direct Boundary | export集合とConsumer import集合 | 集合差分0 | 将来公開API追加時の再確認 |
-| `crdd-domain-library.source-layout` | Implementation Structure | CRDD所有Source | Directoryが責務を表し、Package Rootへ任意Sourceがない | 汎用`internal`、Root直下の`.ts`、Owner不明の共通置場 | UT | N/A | Source tree | 禁止Path 0 | 別Subsystem変更時の再確認 |
+| `crdd-domain-library.source-layout` | Implementation Structure | CRDD所有Source | Directoryが責務を表し、Package Rootへ任意Sourceがない | 汎用`internal`、Root直下の`.ts`、Owner不明の共通置場 | IT | N/A | import graphとSource tree | 禁止Path 0 | 別Subsystem変更時の再確認 |
 | `crdd-domain-library.consumer-closure` | Flow／Consistency | launcher、CLI、Script、試験 | 全Consumerが現在の入口を利用 | 旧Path残存、宣言漏れ、未知Consumer | IT | Related 2 Blocks | 宣言集合と自動導出集合 | 集合差分0 | 将来Consumer接続時の再確認 |
 | `crdd-domain-library.result-boundary` | Interface | Domain IssueとSurface固有結果 | 中立IssueをSurface Adapterが変換 | Domainがseverity、Checker code、exit codeを決定 | UT／IT | Direct Boundary | 型と契約試験 | DomainからChecker型への依存0 | MCP／Workbench表示Adapter |
 | `crdd-domain-library.repository-boundary` | Interface／Failure-Recovery | Repository観測と公開Effect | 検証済みRoot内のregular fileだけを観測 | Root外読取り、link先を確認済み扱い | IT | Direct Boundary | 境界反証fixture | Handleと一時物0 | 代替Version Control Adapter |

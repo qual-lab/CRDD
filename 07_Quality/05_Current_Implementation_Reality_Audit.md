@@ -10,8 +10,8 @@
 
 | 項目 | 件数 |
 |---|---:|
-| Local Item数 | 150 |
-| 内訳 | 150件をCanonical化済み。実装・Test・Evidenceとの照合は本書の各判定で分ける |
+| Local Item数 | 154 |
+| 内訳 | 154件をCanonical化済み。実装・Test・Evidenceとの照合は本書の各判定で分ける |
 
 ## 1. 目的
 
@@ -57,7 +57,7 @@
 
 | 対象 | 状態 | 理由 | 次の処置 |
 |---|---|---|---|
-| 13検証目標のLocal Item | Quality Design Ready | 157件のMapping、Source ID固有条件および150 Local ItemとのRelationを固定した | Pilotの17意味に接続したLocal Itemから照合する |
+| 13検証目標のLocal Item | Quality Design Ready | 157件のMapping、Source ID固有条件および154 Local ItemとのRelationを固定した | Pilotの17意味に接続したLocal Itemから照合する |
 | 現行Source／Test | 全Subsystem初回照合済み | 18領域を実装所有、Symbol Relation、Test Catalog、局所試験、工程／統制所有へ分けた。実装を持つ12領域の静的確認は全てPassした | `Partial`のRelation不足と実装欠落を所有変更へ返す |
 | 実行結果／Evidence | 全Subsystem局所実行済み | 11 TypeScript packageとPlatform Accessの局所試験を実行した。CoordinatorとCheckerではSandboxまたは命名規則に起因する不一致を分離した | 是正後の局所再実行と独立レビューを対象Commitへ結合する |
 
@@ -236,25 +236,25 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 
 ## 12. Relation是正結果
 
-現在の完了判定は、13件のQuality Definitionが所有する150個の一意なLocal Itemを母集団とする。197 Test Sourceの`symbol.json`が所有する正方向Relationと再照合した結果、69件を観測済み、81件を未観測と判定した。未観測81件は自動48件、Hybrid 14件、Manual 19件である。
+現在の完了判定は、13件のQuality Definitionが所有する154個の一意なLocal Itemを母集団とする。204 Test Sourceの`symbol.json`が所有する正方向Relationと再照合した結果、92件を観測済み、62件を未観測と判定した。未観測62件は自動29件、Hybrid 14件、Manual 19件である。
 
 | Quality領域 | 未観測数 | 実行形態の内訳 |
 |---|---:|---|
-| AIT | 6 | Automated 5、Manual 1 |
+| AIT | 2 | Automated 1、Manual 1 |
 | AUH | 4 | Hybrid 3、Manual 1 |
 | CPR | 6 | Automated 2、Hybrid 3、Manual 1 |
-| CQS | 11 | Automated 8、Hybrid 1、Manual 2 |
+| CQS | 5 | Automated 2、Hybrid 1、Manual 2 |
 | ERB | 8 | Automated 6、Hybrid 1、Manual 1 |
-| ERP | 2 | Automated 1、Manual 1 |
+| ERP | 1 | Manual 1 |
 | EST | 6 | Automated 2、Manual 4 |
 | OAG | 8 | Automated 4、Hybrid 4 |
-| PPR | 10 | Automated 5、Hybrid 1、Manual 4 |
+| PPR | 6 | Automated 1、Hybrid 1、Manual 4 |
 | PRL | 4 | Automated 2、Hybrid 1、Manual 1 |
-| RCM | 6 | Automated 5、Manual 1 |
-| RDL | 3 | Automated 2、Manual 1 |
+| RCM | 3 | Automated 2、Manual 1 |
+| RDL | 2 | Automated 1、Manual 1 |
 | RFD | 7 | Automated 6、Manual 1 |
 
-この81件は「新しいTestが81本必要」という意味ではない。既存TestがLocal Itemの刺激、観測、Oracle、終了後条件を満たす場合はRelation不足として接続し、満たさない場合は試験不足、実装不足、工程Evidenceまたは人間受入待ちへ分類する。名前や同じQuality領域だけを根拠に接続しない。
+この62件は「新しいTestが62本必要」という意味ではない。既存TestがLocal Itemの刺激、観測、Oracle、終了後条件を満たす場合はRelation不足として接続し、満たさない場合は試験不足、実装不足、工程Evidenceまたは人間受入待ちへ分類する。名前や同じQuality領域だけを根拠に接続しない。
 
 ### 12.1 初回のSubsystem別Snapshot
 
@@ -268,7 +268,7 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 | checker | 3／11 | `AUH-ST-006`、`RCM-IT-003`、`RCM-IT-004`、`RCM-IT-007`、`RCM-IT-009`、`RCM-IT-010`、`RCM-UT-001`、`RCM-UT-002` |
 | contract-migration | 0／4 | `RCM-IT-003`、`RCM-IT-004`、`RCM-IT-005`、`RCM-ST-012` |
 | coordinator | 12／17 | `AIT-ST-010`、`ERB-IT-008`、`ERB-IT-012`、`ERB-ST-009`、`ERB-ST-011` |
-| crdd-domain-library | 3／12 | `AIT-ST-010`、`AUH-IT-002`、`RCM-IT-003`、`RCM-IT-004`、`RCM-IT-008`、`RCM-IT-009`、`RCM-IT-011`、`RCM-UT-013`、`RCM-UT-015` |
+| crdd-domain-library | 3／12 | `AIT-ST-010`、`AUH-IT-002`、`RCM-IT-003`、`RCM-IT-004`、`RCM-IT-008`、`RCM-IT-009`、`RCM-IT-011`、`RCM-IT-013`、`RCM-IT-015` |
 | cros | 0／12 | `ERB-IT-010`、`ERB-ST-013`、`EST-UAT-009`、`PPR-IT-001`、`PPR-IT-002`、`PPR-ST-005`、`RFD-IT-009`、`RFD-IT-011`、`RFD-IT-013`、`RFD-ST-003`、`RFD-ST-004`、`RFD-ST-010` |
 | execution-intelligence | 3／14 | `ERP-ST-004`、`PPR-IT-003`、`PPR-IT-004`、`PPR-IT-010`、`PPR-IT-012`、`PPR-UAT-008`、`PPR-UAT-009`、`PPR-UT-006`、`PPR-UT-011`、`PPR-UT-013`、`PPR-UT-014` |
 | mcp | 4／7 | `CPR-IT-001`、`EST-IT-010`、`RFD-ST-004` |
@@ -276,20 +276,20 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 | platform-access | 1／6 | `ERB-IT-002`、`ERB-IT-014`、`ERB-ST-009`、`PRL-ST-003`、`RDL-ST-002` |
 | project-operation | 0／8 | `CPR-IT-006`、`CPR-ST-005`、`CPR-UAT-007`、`PPR-IT-001`、`PPR-IT-002`、`PPR-ST-005`、`PPR-UAT-015`、`PPR-UT-006` |
 | project-runtime | 8／15 | `EST-IT-001`、`PRL-IT-008`、`PRL-ST-003`、`PRL-ST-004`、`PRL-ST-009`、`PRL-UAT-002`、`PRL-UAT-010` |
-| quality-change-control | 0／5 | `CQS-IT-001`、`CQS-IT-003`、`CQS-IT-004`、`CQS-ST-008`、`CQS-ST-009` |
+| quality-change-control | 0／5 | `CQS-IT-001`、`CQS-IT-003`、`CQS-IT-004`、`CQS-IT-008`、`CQS-IT-009` |
 | runtime-data | 3／6 | `PPR-UT-006`、`RDL-ST-002`、`RFD-ST-003` |
 | runtime-trust | 0／5 | `AIT-IT-001`、`AIT-IT-003`、`AIT-IT-014`、`AIT-ST-004`、`AIT-UT-005` |
 | semantic-coverage | 3／6 | `PPR-IT-004`、`RDL-IT-007`、`RDL-ST-002` |
-| verification-runner | 2／8 | `CQS-IT-003`、`CQS-ST-012`、`CQS-ST-013`、`ERB-IT-002`、`ERB-IT-004`、`ERB-ST-015` |
+| verification-runner | 2／8 | `CQS-IT-003`、`CQS-IT-012`、`CQS-IT-013`、`ERB-IT-002`、`ERB-IT-004`、`ERB-ST-015` |
 | version-control | 5／7 | `PPR-UAT-009`、`RCM-ST-012` |
 
 同じLocal Itemが複数領域へ現れる場合は、各領域が所有する境界を別Relationとして数える。したがって48件は試験件数ではなく、設計領域と検証義務の初回接続数である。手動UATや工程判断を自動Test Symbolへ偽装せず、実Runtimeが存在しない領域もRelation追加だけで`Covered`へ変更しない。
 
-## 13. 未観測81件の処置
+## 13. 未観測62件の処置
 
 | 実行形態 | 件数 | 現在の処置 |
 |---|---:|---|
-| Automated | 48 | 既存Testの意味一致を一件ずつ確認し、成立するものは正方向Relationを追加する。不成立は実装またはTest Gapとして閉じる |
+| Automated | 29 | 既存Testの意味一致を一件ずつ確認し、成立するものは正方向Relationを追加する。不成立は実装またはTest Gapとして閉じる |
 | Hybrid | 14 | 自動部分と人間判断部分を分離し、自動部分だけのPassを全体成立へ畳まない |
 | Manual | 19 | 自動Test Symbolを捏造せず、参加条件、入力、判断、未判断範囲およびEvidenceを固定して実施する |
 

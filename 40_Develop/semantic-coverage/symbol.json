@@ -16,10 +16,12 @@
       "kind": "test-suite",
       "path": "tests/integration/semantic-bundle-publisher.integration.test.ts",
       "qaIds": [
-        "QA-000004"
+        "QA-000004",
+        "QA-000008"
       ],
       "localTestIds": [
-        "PPR-IT-018"
+        "PPR-IT-018",
+        "RDL-IT-007"
       ],
       "verifies": [
         "semantic-coverage.source.src.infrastructure.filesystem.semantic.bundle.publisher",

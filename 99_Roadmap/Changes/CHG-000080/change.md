@@ -12,10 +12,10 @@
 |---|---|
 | 現在の変更状態 | Engineering CompletenessをRule、Format、Traceability、CheckerおよびCRDD自身の現実まで閉じる途中 |
 | Phase／Gate適用判断 | `Applicable`: Architecture、実装、Quality、MigrationおよびReality Auditを一括変更せず、局所Gateで成立確認する必要がある |
-| 現在Phase | `Phase 2／4／7／8 — Production Semantic Review／Test Relation再確認／Self Migration／Reality Audit`: 全Subsystemの現実照合で判明した未観測Local Itemを、Relation不足・試験不足・実装不足・工程Evidence・人間受入待ちへ分類して閉じている。Checker Core UT 2件を追加し、現在は81件 |
+| 現在Phase | `Phase 2／4／7／8 — Production Semantic Review／Test Relation再確認／Self Migration／Reality Audit`: 全Subsystemの現実照合で判明した未観測Local Itemを、Relation不足・試験不足・実装不足・工程Evidence・人間受入待ちへ分類して閉じている。Domain Outcome Adapter IT、one-shot Authorization UT、署名競合IT、署名結果責務境界IT、Semantic Bundle原子的公開IT、時系列由来分類UT、Reader状態Projection IT、Event相関・候補分離ITならびに品質Gate統合IT／STを実装・接続し、Architectureが要求するIT／ST段階を分離した現在値は62件 |
 | 現在Gate | `Gate 0 — Passed`: Phase／Gate／途中拡張／途中見直し契約を正本、ひな型、Checkerおよび本CHGへ反映した。後続Gateの成立は示さない |
-| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 150件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 197件と2,125 Test Caseの責務別Local Item接続、Optionality Audit全数処置 |
-| 未成立 | Production Headerの独立意味確認、未観測Local Item 81件（Automated 48、Hybrid 14、Manual 19）の処置、Runtime Trustの実装・Test、独立レビュー、全回帰、署名E2E |
+| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 154件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 199件の責務別Local Item接続、Optionality Audit全数処置 |
+| 未成立 | Production Headerの独立意味確認、未観測Local Item 62件（Automated 29、Hybrid 14、Manual 19）の処置、Runtime Trustの実装・Test、独立レビュー、全回帰、署名E2E |
 | 次のGate | Gate 2／7／8の前にProduction Headerの意味妥当性、Rule／Format／Realityの未移行0件、および全Local Itemの処置を確認する。既知Gapを残したまま全回帰へ進まない |
 
 ## 1. 変更の目的
@@ -247,7 +247,7 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 | Project Runtime | `project-runtime.acceptance-decision` | `PRL-UT-007`〜`PRL-UAT-010` | 0 |
 | Project Runtime | `project-runtime.public-application` | `PRL-ST-001`、`PRL-IT-012`、`EST-IT-001` | 0 |
 
-8件の代表導出キーで変換方法を固定した後、18のArchitecture Definitionと18の詳細設計領域へ展開した。REQ 36件、UX 32件、IA 22件、UI 20件、SPEC 29件およびARCH 18件をQuality Analysisで全数処置し、150の一意なLocal Itemへ統合した。各工程の`Required - Defined`、Level不一致およびRelation不明は0件である。Architecture DetailsのLevel／外部境界段階不足もChecker上0件であり、初回に検出した試験段階不足35件・外部境界段階不足17件を期待値緩和せず解消した。
+8件の代表導出キーで変換方法を固定した後、18のArchitecture Definitionと18の詳細設計領域へ展開した。REQ 36件、UX 32件、IA 22件、UI 20件、SPEC 29件およびARCH 18件をQuality Analysisで全数処置し、154の一意なLocal Itemへ統合した。各工程の`Required - Defined`、Level不一致およびRelation不明は0件である。Architecture DetailsのLevel／外部境界段階不足もChecker上0件であり、初回に検出した試験段階不足35件・外部境界段階不足17件を期待値緩和せず解消した。
 
 ### 影響ファイル
 
@@ -497,9 +497,9 @@ ARCH-ID ──→ Quality Local Item ──→ Test Case／Helper／Fixture
 | 対象 | 正方向Relation | 現在状態 |
 |---|---|---|
 | Production Named Symbol | Summary、`@responsibility`、実在`ARCH-*`への`@trace` | Checkerの構造Gateと負例を実装済み。既存SourceをPackage単位で意味確認しながら移行中 |
-| Test File／Case／Helper／Fixture | 実在Quality Local Itemへの`@trace` | Test Catalog 197件を全12 Manifest Ownerへ接続し、2,125 Test CaseとNamed Helper／Fixtureへ必須Headerを適用した。FileはCase／Helper Relationの和集合、Caseは対応する1件、Helperは支援する1件以上を保持し、Local Item実在、Owner、試験段階および`verifies`をCheckerで照合する |
+| Test File／Case／Helper／Fixture | 実在Quality Local Itemへの`@trace` | Test Catalog 204件を全12 Manifest Ownerへ接続し、2,151 Test CaseとNamed Helper／Fixtureへ必須Headerを適用した。FileはCase／Helper Relationの和集合、Caseは対応する1件、Helperは支援する1件以上を保持し、Local Item実在、Owner、試験段階および`verifies`をCheckerで照合する |
 | Architecture Details | 7つのImplementation Structure観点 | 18領域とTemplateへ反映済み |
-| Quality Local Item | Architecture Meaning、試験段階、観測境界 | 150件へ細分化し、Required／Defined、試験段階および外部境界段階の差分0を確認済み |
+| Quality Local Item | Architecture Meaning、試験段階、観測境界 | 154件へ細分化し、Required／Defined、試験段階および外部境界段階の差分0を確認済み |
 
 Production母集団へGateを適用した初回観測では、`artifact-signing`を除く既存PackageにHeaderまたはTrace不足が残った。件数だけを減らすための定型Header一括生成は行わず、各PackageのArchitecture所有責務へ接続できるかを確認する。接続不能なSymbolはDocumentation例外ではなくArchitecture Gapとする。
 
@@ -513,6 +513,6 @@ Production母集団へGateを適用した初回観測では、`artifact-signing`
 - [x] Canonical Model ItemとImplementation StructureのTemplate差分を確定し、18領域へ適用した。
 - [x] UAT／IT導出Pilotを完了し、上流意味とArchitectureから決定論的に導出できることを確認した。
 - [x] Required ObligationとLocal Itemの集合差Gateを実装し、試験段階と外部境界段階の不足を検出可能にした。
-- [x] Test Catalog 197件と2,125 Test Caseを責務別Quality Local Itemへ接続し、File Relation和集合、Local Item実在および試験段階一致を機械確認した。
+- [x] Test Catalog 204件と2,151 Test Caseを責務別Quality Local Itemへ接続し、File Relation和集合、Local Item実在および試験段階一致を機械確認した。
 - [x] 全Unit回帰87件、安全なTypeScript結合試験86件およびRust結合試験1件を完了した。
 - [ ] OPEN: Production Headerの独立意味確認、Reality Audit、独立レビューおよび署名E2Eを完了する。理由: Phase 2／7〜9が未完了である。

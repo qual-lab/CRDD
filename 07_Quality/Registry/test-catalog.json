@@ -491,6 +491,32 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "crdd-domain-library:integration:quality-change-control",
+      "owner": "crdd-domain-library",
+      "path": "40_Develop/crdd-domain-library/tests/integration/quality-change-control.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["quality", "change", "audit-set", "revision", "remediation"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["required_check_set_preserved", "stale_result_rejected", "release_effect_absent"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "crdd-domain-library:system:quality-change-control",
+      "owner": "crdd-domain-library",
+      "path": "40_Develop/crdd-domain-library/tests/system/quality-change-control.contract.test.ts",
+      "level": "system",
+      "kind": "system",
+      "semanticTags": ["quality", "release-gate", "audit-set", "revision", "remediation"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["incomplete_gate_not_released", "audit_set_preserved", "stale_results_not_reused"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "crdd-domain-library:unit:repository-observation",
       "owner": "crdd-domain-library",
       "path": "40_Develop/crdd-domain-library/tests/unit/repository-observation.contract.test.ts",
@@ -592,6 +618,19 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": ["reference_preflight_before_secret", "replacement_rejected", "authorization_single_use", "signature_verifiable"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "artifact-signing:unit:one-shot-authorization",
+      "owner": "artifact-signing",
+      "path": "40_Develop/artifact-signing/tests/unit/one-shot-authorization.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["artifact-signing", "authorization", "one-shot", "state"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["single_consumer", "reuse_rejected", "loser_does_not_read_protected_value"],
       "mandatoryByDefault": true
     },
     {
@@ -887,6 +926,50 @@
       "postconditions": [
         "boundary_result_observed",
         "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "execution-intelligence:integration:record-projection",
+      "owner": "execution-intelligence",
+      "path": "40_Develop/execution-intelligence/tests/integration/record-projection.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "execution",
+        "intelligence",
+        "clock",
+        "reader",
+        "projection"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "projection_state_preserved",
+        "source_unchanged"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "execution-intelligence:integration:record-projection-correlation",
+      "owner": "execution-intelligence",
+      "path": "40_Develop/execution-intelligence/tests/integration/execution-record-projection.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "execution",
+        "intelligence",
+        "correlation",
+        "candidate"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "projection_state_preserved",
+        "authority_not_conferred",
+        "source_unchanged"
       ],
       "mandatoryByDefault": true
     },
@@ -3847,6 +3930,28 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "checker:integration:domain-outcome-adapter",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/integration/domain-outcome-adapter.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "domain-outcome",
+        "adapter",
+        "result-boundary"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "domain_status_preserved",
+        "invalid_correlation_rejected",
+        "unknown_issue_rejected",
+        "forbidden_fields_rejected"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "verification-runner:integration:regression-runner",
       "owner": "verification-runner",
       "path": "40_Develop/verification-runner/tests/integration/regression-runner.contract.test.ts",
@@ -4301,6 +4406,27 @@
       "postconditions": [
         "native_process_result_observed",
         "owned_handles_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "execution-intelligence:unit:temporal-provenance",
+      "owner": "execution-intelligence",
+      "path": "40_Develop/execution-intelligence/tests/unit/temporal-provenance.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "execution",
+        "intelligence",
+        "temporal-provenance",
+        "revision"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed",
+        "source_unchanged"
       ],
       "mandatoryByDefault": true
     }

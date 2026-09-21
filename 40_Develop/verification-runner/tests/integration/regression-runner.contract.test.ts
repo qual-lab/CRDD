@@ -4,10 +4,12 @@
  * @packageDocumentation
  * @responsibility verification-runner:integration:regression-runnerが所有する検証責務を実行する。
  * @trace CQS-IT-011
+ * @trace CQS-IT-012
+ * @trace CQS-IT-013
  * @trace RCM-IT-007
  * @level IT
  * @scope regression、runner、performance、longevity、authority
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner / RCM-IT-007=Adjacent 1 Block: 開発試験runner→子Process→fixture
+ * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner / CQS-IT-012=Related 2 Blocks: Verification Runner→段階実行→結果集約 / CQS-IT-013=Direct Boundary: 検証要求→人間許可→Runner / RCM-IT-007=Adjacent 1 Block: 開発試験runner→子Process→fixture
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -49,13 +51,13 @@ function invokeRunner(runnerArguments: readonly string[]) {
  * PT／LTは全Authority条件が揃う前に試験Processを開始しないを検証する。
  *
  * @responsibility PT／LTは全Authority条件が揃う前に試験Processを開始しないの合否判定を所有する。
- * @trace RCM-IT-007
+ * @trace CQS-IT-013
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus PT／LTは全Authority条件が揃う前に試験Processを開始しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-007=Adjacent 1 Block: 開発試験runner→子Process→fixture
+ * @boundary CQS-IT-013=Direct Boundary: 検証要求→人間許可→Runner
  */
 test("PT／LTは全Authority条件が揃う前に試験Processを開始しない", () => {
   const result = invokeRunner([
@@ -78,13 +80,13 @@ test("PT／LTは全Authority条件が揃う前に試験Processを開始しない
  * Credit 0を含む明示AuthorityはPTの計画だけを許可するを検証する。
  *
  * @responsibility Credit 0を含む明示AuthorityはPTの計画だけを許可するの合否判定を所有する。
- * @trace CQS-IT-011
+ * @trace CQS-IT-013
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Credit 0を含む明示AuthorityはPTの計画だけを許可するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-013=Direct Boundary: 検証要求→人間許可→Runner
  */
 test("Credit 0を含む明示AuthorityはPTの計画だけを許可する", () => {
   const result = invokeRunner([
@@ -126,13 +128,13 @@ test("Credit 0を含む明示AuthorityはPTの計画だけを許可する", () =
  * 明示AuthorityがあってもPT／LTは上限強制実装まで計画だけとするを検証する。
  *
  * @responsibility 明示AuthorityがあってもPT／LTは上限強制実装まで計画だけとするの合否判定を所有する。
- * @trace CQS-IT-011
+ * @trace CQS-IT-013
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 明示AuthorityがあってもPT／LTは上限強制実装まで計画だけとするの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-013=Direct Boundary: 検証要求→人間許可→Runner
  */
 test("明示AuthorityがあってもPT／LTは上限強制実装まで計画だけとする", () => {
   const result = invokeRunner([
@@ -474,13 +476,13 @@ const selectedRegressionEntries = [
  * executeInjectedPlanのTest準備責務を実行する。
  *
  * @responsibility executeInjectedPlanがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace CQS-IT-011
+ * @trace CQS-IT-012
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
  * @stimulus executeInjectedPlanを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-012=Related 2 Blocks: Verification Runner→段階実行→結果集約
  */
 function executeInjectedPlan(
   failedStep: string | null = null,
@@ -514,13 +516,13 @@ function executeInjectedPlan(
  * 実配線は表示した同じ計画を静的確認からWindows GateとSTまで順序実行するを検証する。
  *
  * @responsibility 実配線は表示した同じ計画を静的確認からWindows GateとSTまで順序実行するの合否判定を所有する。
- * @trace CQS-IT-011
+ * @trace CQS-IT-012
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 実配線は表示した同じ計画を静的確認からWindows GateとSTまで順序実行するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-012=Related 2 Blocks: Verification Runner→段階実行→結果集約
  */
 test("実配線は表示した同じ計画を静的確認からWindows GateとSTまで順序実行する", () => {
   const { observedSteps, plans, results } = executeInjectedPlan();
@@ -551,13 +553,13 @@ test("実配線は表示した同じ計画を静的確認からWindows GateとST
  * 同じ計画の各工程失敗は後続levelとWindows Gateを開始しないを検証する。
  *
  * @responsibility 同じ計画の各工程失敗は後続levelとWindows Gateを開始しないの合否判定を所有する。
- * @trace CQS-IT-011
+ * @trace CQS-IT-012
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 同じ計画の各工程失敗は後続levelとWindows Gateを開始しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-012=Related 2 Blocks: Verification Runner→段階実行→結果集約
  */
 test("同じ計画の各工程失敗は後続levelとWindows Gateを開始しない", () => {
   for (const failedStep of [
@@ -582,13 +584,13 @@ test("同じ計画の各工程失敗は後続levelとWindows Gateを開始しな
  * Windows Gate不要時は表示計画にも実行記録にも現れないを検証する。
  *
  * @responsibility Windows Gate不要時は表示計画にも実行記録にも現れないの合否判定を所有する。
- * @trace CQS-IT-011
+ * @trace CQS-IT-012
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Windows Gate不要時は表示計画にも実行記録にも現れないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-012=Related 2 Blocks: Verification Runner→段階実行→結果集約
  */
 test("Windows Gate不要時は表示計画にも実行記録にも現れない", () => {
   const { plans, observedSteps, results } = executeInjectedPlan(null, false);

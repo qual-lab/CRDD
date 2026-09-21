@@ -10,20 +10,20 @@
 |---|---:|
 | Canonical入力 | 157 |
 | Quality検証目標 | 13 |
-| Local Item数 | 150 |
+| Local Item数 | 154 |
 
 ## 結論
 
-v0.21.0のQuality設計は13定義、150 Local Itemまで拡張した。全SubsystemのTest Symbolと再照合した現在値は、一意なLocal Item 150件中69件が観測済み、81件が未観測である。未観測81件は自動48件、Hybrid 14件、Manual 19件であり、既存試験への正当なRelation不足、試験不足、実装不足、工程Evidenceおよび人間受入待ちをまだ分離中である。既知Gapを閉じる前に全回帰を実行しても完全性を証明しないため、全回帰と署名E2EはGap Closure後へ保留する。
+v0.21.0のQuality設計は13定義、154 Local Itemまで拡張した。全SubsystemのTest Symbolと再照合した現在値は、一意なLocal Item 154件中92件が観測済み、62件が未観測である。未観測62件は自動29件、Hybrid 14件、Manual 19件であり、既存試験への正当なRelation不足、試験不足、実装不足、工程Evidenceおよび人間受入待ちをまだ分離中である。既知Gapを閉じる前に全回帰を実行しても完全性を証明しないため、全回帰と署名E2EはGap Closure後へ保留する。
 
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|
 | Canonical入力 | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18を全件Mapping済み | [Quality Integration](04_Quality_Integration.md) |
 | Quality Analysis | 6工程の全入力を、Source固有条件付きで13検証目標へ接続し独立レビュー済み | Reality Auditではこの設計集合を変更せず、現行実装との対応を照合する |
-| Quality Definitions | 13定義、150 Local ItemをCanonical化済み | 69件観測済み、81件未観測。定義済みであることを実装済み・試験済みへ読み替えない |
+| Quality Definitions | 13定義、154 Local ItemをCanonical化済み | 92件観測済み、62件未観測。定義済みであることを実装済み・試験済みへ読み替えない |
 | Architecture詳細設計 | 18領域を適用判定済み | 実装OwnerのないCapability、現実との不一致およびTest未接続をReality Auditで処置する |
 | Checker | 現在候補に対する構造・関係検査を実行 | Quality固定後にChecker安定化へ進み、責務分離後に再検証する |
-| Reality Audit | In Progress — Blocked by Known Gaps | Coordinator／Project Runtime Pilotに加えて全Subsystemを照合し、83件の未観測Local ItemとRuntime Trustの実装不足を処置する |
+| Reality Audit | In Progress — Blocked by Known Gaps | Coordinator／Project Runtime Pilotに加えて全Subsystemを照合し、62件の未観測Local ItemとRuntime Trustの実装不足を処置する |
 
 ## 現在の品質投影
 
@@ -31,12 +31,12 @@ v0.21.0のQuality設計は13定義、150 Local Itemまで拡張した。全Subsy
 |---|---|---|
 | Designed | Canonical | 実装済みまたは試験可能とは主張しない |
 | Implemented | 部分照合 | Runtime Trust等の未実装CapabilityをRelation追加だけで成立へ変えない |
-| Executed | 部分実行 | 局所試験結果を未観測81 Local Itemの実行結果へ数えない |
+| Executed | 部分実行 | 局所試験結果を未観測62 Local Itemの実行結果へ数えない |
 | Passed | 未評価 | 過去版のPassをv0.21.0候補へ流用しない |
 | Evidence | 未収集 | 現在候補の対象改訂版・実行条件・結果を持つEvidenceがあるとは主張しない |
 | Reality Audit | In Progress | Relationの存在だけからImplemented／Passedを推定しない |
 
-Coordinator／Project Runtimeの17意味Pilotに加えて全Subsystemへ照合範囲を広げた。17意味では自動観測15件、Runtime Trustの実装・Test不足1件、手動UAT待ち1件である。全Local Itemでは69件観測済み、81件未観測であり、Quality Readyへ昇格しない。PT／LTは人間の明示許可がないため実行しない。
+Coordinator／Project Runtimeの17意味Pilotに加えて全Subsystemへ照合範囲を広げた。17意味では自動観測15件、Runtime Trustの実装・Test不足1件、手動UAT待ち1件である。全Local Itemでは92件観測済み、62件未観測であり、Quality Readyへ昇格しない。PT／LTは人間の明示許可がないため実行しない。
 
 ## 公開済みBaselineと参照
 

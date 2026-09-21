@@ -6,9 +6,10 @@
  * @trace ERP-IT-001
  * @trace ERP-IT-002
  * @trace ERP-IT-003
+ * @trace ERP-IT-005
  * @level IT
  * @scope execution、intelligence、store、immutable
- * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader / ERP-IT-002=Direct Boundary: 複数Writer→同一Store / ERP-IT-003=Adjacent 1 Block: Writer→Filesystem publish→Reader
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader / ERP-IT-002=Direct Boundary: 複数Writer→同一Store / ERP-IT-003=Adjacent 1 Block: Writer→Filesystem publish→Reader / ERP-IT-005=Adjacent 1 Block: Event入口→Policy→Store
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
@@ -534,6 +535,36 @@ test("Accessorを含むEventは永続化前に拒否してStoreを作らない",
   assert.equal(result.reason, "execution_event_invalid");
   assert.equal(result.effectState, "no_effect");
   assert.equal(getterCalls, 0);
+  assert.equal(fs.existsSync(path.join(root, ".crdd", "execution")), false);
+});
+
+/**
+ * 許可外のProvider生出力をStore Effect前に拒否する。
+ *
+ * @responsibility Execution Intelligenceへ保存できない生Provider出力を入口で拒否し、診断やStoreへ複製しない。
+ * @trace ERP-IT-005
+ * @precondition 検証済みRepository Rootと、Canonical Eventへ許可外fieldを加えた固定入力を使用する。
+ * @stimulus `rawProviderOutput`を含むEventの永続化を要求する。
+ * @observation 構造化された拒否理由、Effect状態およびRepository-local Storeの不存在を観測する。
+ * @oracle `execution_event_invalid`で拒否し、生出力を返却せずStore Effect 0となる。
+ * @cleanup Test終了時に一時Repositoryを削除する。
+ * @boundary ERP-IT-005=Adjacent 1 Block: Event入口→Policy→Store
+ */
+test("許可外のProvider生出力をStore Effect前に拒否する", (t) => {
+  const root = fixture(t);
+  const capability = verifiedRoot(root);
+  const result = writeExecutionIntelligenceEvent(capability, {
+    ...event(),
+    rawProviderOutput: "forbidden-provider-output",
+  });
+
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "execution_event_invalid");
+  assert.equal(result.effectState, "no_effect");
+  assert.equal(
+    JSON.stringify(result).includes("forbidden-provider-output"),
+    false,
+  );
   assert.equal(fs.existsSync(path.join(root, ".crdd", "execution")), false);
 });
 

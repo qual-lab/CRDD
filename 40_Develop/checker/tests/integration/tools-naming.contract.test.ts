@@ -4,6 +4,8 @@
  * @packageDocumentation
  * @responsibility checker:integration:tools-namingが所有する検証責務を実行する。
  * @trace RCM-IT-005
+ * @trace RCM-IT-013
+ * @trace RCM-IT-015
  * @level IT
  * @scope tools、naming
  * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
@@ -237,7 +239,11 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     relativePath: "40_Develop/artifact-signing/src/index.ts",
     expectedTrace: "ARCH-000014",
     requiredTags: ["boundary", "security"],
-    exportedModules: ["./private-key-signing.ts", "./terminal-secret-input.ts"],
+    exportedModules: [
+      "./private-key-signing.ts",
+      "./signature-result.ts",
+      "./terminal-secret-input.ts",
+    ],
   },
   {
     relativePath: "40_Develop/checker/src/index.ts",
@@ -264,11 +270,13 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     exportedModules: [
       "./artifact/index.ts",
       "./outcome.ts",
+      "./quality-change-control/index.ts",
       "./reality-traceability/index.ts",
       "./repository-observation/index.ts",
     ],
     namespaceExports: {
       artifact: "./artifact/index.ts",
+      qualityChangeControl: "./quality-change-control/index.ts",
       realityTraceability: "./reality-traceability/index.ts",
       repositoryObservation: "./repository-observation/index.ts",
     },
@@ -283,6 +291,13 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./markdown-artifact-parser.ts",
       "./schema-validator.ts",
     ],
+  },
+  {
+    relativePath:
+      "40_Develop/crdd-domain-library/src/quality-change-control/index.ts",
+    expectedTrace: "ARCH-000003",
+    requiredTags: ["boundary", "security"],
+    exportedModules: ["./quality-gate.ts"],
   },
   {
     relativePath:
@@ -309,8 +324,11 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     requiredTags: ["boundary", "effect"],
     exportedModules: [
       "./application/execution-intelligence-recorder.ts",
+      "./application/execution-record-projection.ts",
+      "./application/record-projection.ts",
       "./core/bounded-integrated-result-evaluation.ts",
       "./core/execution-intelligence.ts",
+      "./core/temporal-provenance.ts",
       "./store/execution-intelligence-store.ts",
       "./store/verified-repository-root.ts",
     ],
@@ -743,6 +761,47 @@ function collectFiles(root: string): string[] {
   }
   return files;
 }
+
+/**
+ * CRDD Domain LibraryからChecker／CLIへの逆依存がないことを検証する。
+ *
+ * @responsibility Domain LibraryのSource Graphを観測し、上位Consumerへの禁止依存を検出する。
+ * @trace RCM-IT-013
+ * @precondition CRDD Domain Libraryのsrc配下がRepository内に存在する。
+ * @stimulus 全TypeScript Sourceの静的import／export-from／dynamic importを列挙する。
+ * @observation Checker、CLI入口またはtemplate/toolsを参照するModule指定子を記録する。
+ * @oracle Domain Libraryから上位Consumerへ向かう禁止依存が0件である。
+ * @cleanup N/A: Repository Sourceを読取り専用で観測する。
+ * @boundary RCM-IT-013=Direct Boundary: Domain Library→Consumer Source Graph
+ */
+test("CRDD Domain LibraryはCheckerとCLIへ逆依存しない", () => {
+  const domainSourceRoot = path.join(
+    repositoryRoot,
+    "40_Develop",
+    "crdd-domain-library",
+    "src",
+  );
+  const forbiddenDependencies: string[] = [];
+  for (const file of collectFiles(domainSourceRoot).filter((candidate) =>
+    candidate.endsWith(".ts"),
+  )) {
+    const source = fs.readFileSync(file, "utf8");
+    for (const match of source.matchAll(
+      /(?:from\s+|import\s*\()(["'])([^"']+)\1/gu,
+    )) {
+      const moduleSpecifier = match[2] ?? "";
+      if (
+        moduleSpecifier.includes("/checker/") ||
+        moduleSpecifier.includes("template/tools") ||
+        moduleSpecifier.endsWith("/bin/crdd-check.ts")
+      )
+        forbiddenDependencies.push(
+          `${path.relative(repositoryRoot, file)} -> ${moduleSpecifier}`,
+        );
+    }
+  }
+  assert.deepEqual(forbiddenDependencies, []);
+});
 
 /**
  * collectPublicIndexFilesのTest準備責務を実行する。
@@ -3736,13 +3795,13 @@ test("公開indexは設計由来の説明と明示的なExport Allowlistを持�
  * src配下は責務名を使い二階層以内に保つを検証する。
  *
  * @responsibility src配下は責務名を使い二階層以内に保つの合否判定を所有する。
- * @trace RCM-IT-005
+ * @trace RCM-IT-015
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus src配下は責務名を使い二階層以内に保つの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-015=Direct Boundary: Package Source→Repository Layout Contract
  */
 test("src配下は責務名を使い二階層以内に保つ", () => {
   assert.doesNotThrow(() =>
