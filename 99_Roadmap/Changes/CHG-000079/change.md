@@ -1,7 +1,7 @@
 # Source責務命名と設計由来Documentation
 
 変更ID: `CHG-000079`
-状態: `Independent Review Passed — Signed Verification Pending`
+状態: `Completed`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `coding_standard_extension`
@@ -85,6 +85,7 @@ Source File／Type／Function
 - [`40_Develop/version-control/src/checker-observation/index.ts`](../../../40_Develop/version-control/src/checker-observation/index.ts)
 - [`40_Develop/version-control/src/index.ts`](../../../40_Develop/version-control/src/index.ts)
 - [`40_Develop/version-control/src/repository-identity/index.ts`](../../../40_Develop/version-control/src/repository-identity/index.ts)
+- [`template/tools/coordinator/coordinator-package-manifest.json`](../../../template/tools/coordinator/coordinator-package-manifest.json)
 - [`99_Roadmap/02_Changes.md`](../../02_Changes.md)
 - [`99_Roadmap/Changes/CHG-000001/change.md`](../CHG-000001/change.md)
 - [`99_Roadmap/Changes/CHG-000002/change.md`](../CHG-000002/change.md)
@@ -122,7 +123,11 @@ Source File／Type／Function
 | Runtime Data | 35 / 35 Pass |
 | Execution Intelligence | 43 / 43 Pass。初回の並行Process試験1件は単独再実行と全件再実行でPass |
 | Coordinator Docker境界 | 28 Pass、実環境依存4 Skip |
-| Repository Checker | 961 Markdown、15,954 Link、Error 0、Warning 0 |
+| 署名契約 | 17 / 17 Pass。File rename後の意味グラフ識別値とManifest除外Commitからの二段階署名を確認 |
+| Coordinator Runtime署名 | 署名前Commit `f12d6dce`、tree `a549810d`、release sequence `2026092105`、Runtime Identity `f91a18db…`で作成。Manifest-only Commitは`44949b7f` |
+| signed Recovery Matrix | `RECOVERY_MATRIX_EXIT=0`。記録`9ed009ad-54c8-46fd-9379-8186f08a96ef`、cleanup確認済み、manual recovery不要、残存Operation Directoryなし |
+| signed four-route E2E | `ROUTE_MATRIX_EXIT=0`。記録`d4febf8d-537a-44ae-bb3f-677ab33718d5`、4 / 4完了、再試行0、全経路cleanup確認済み、Repository変更・未確定Effect・Recovery義務なし |
+| Repository Checker | 961 Markdown、15,953 Link、Error 0、Warning 0 |
 
 最終Commitから作成した固定配布物の署名前観測で、`docker-desktop-repair-native-process.ts`の意味グラフ識別値が旧File名由来の値のまま残っていることを検出した。Function本体のHashは不変だが、import先を含む意味グラフはFile名変更により変化する。新しい意味グラフを実測して固定値を更新し、固定配布物の観測が`platform_provisioner_distribution_observed`へ到達することを確認した。この追補は再試験、独立再レビューおよび追補Commit後に最終署名へ進める。
 
@@ -136,7 +141,7 @@ Source File／Type／Function
 
 追補固定候補`8b5f04386248a605496f363d9165e8c69a4fee3d`は独立再レビューでPassした。独立再計算でもFunction本体のHashは不変で、旧Pathでは旧意味グラフ、新Pathでは更新後の意味グラフを再現した。exact照合を迂回または削除しておらず、安全保証の弱体化と新しいBlocking Findingはない。追補Commit後の`HEAD`固定配布物に対する契約試験、再署名、signed Recovery Matrixおよびsigned four-route E2Eを完了Gateとして維持する。
 
-Coordinator RuntimeのSource Pathと配布内容が変わるため、最終Commit固定後の再署名、signed Recovery Matrixおよびsigned four-route E2Eを完了Gateとして残す。文書、Checkerまたは他PackageをCoordinator署名範囲へ追加しない。
+Coordinator RuntimeのSource Pathと配布内容が変わるため、Manifestを除外したCommitを固定してCoordinator Runtimeだけを再署名した。signed Recovery Matrixとsigned four-route E2Eも同じ署名Identityで完了した。文書、Checkerまたは他PackageをCoordinator署名範囲へ追加していない。
 
 ## Checklist
 
@@ -149,4 +154,4 @@ Coordinator RuntimeのSource Pathと配布内容が変わるため、最終Commi
 - [x] 公開入口ごとに重複しないPackage Headerを一つだけ配置した。
 - [x] Formatter、型、Lint、局所回帰およびRepository Checkerを完了した。
 - [x] 意味グラフ識別値の追補後固定候補を独立reviewした。
-- [ ] OPEN: 最終CommitのCoordinator Runtimeを再署名し、Recovery Matrixとfour-route E2Eを完了する。理由: renameによりRuntime実行Identityが変化する。
+- [x] 最終CommitのCoordinator Runtimeを再署名し、Recovery Matrixとfour-route E2Eを完了した。
