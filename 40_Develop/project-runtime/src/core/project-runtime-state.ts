@@ -2697,14 +2697,14 @@ export function applyProjectRuntimeAcceptanceDecision(
   expectedGeneration: number,
   input: ProjectRuntimeAcceptanceDecisionInput,
 ): StateResult {
-  const validEvidence =
+  const isEvidenceValid =
     input.criterionEvidenceIds.every((value) => validIdentity(value)) &&
     new Set(input.criterionEvidenceIds).size ===
       input.criterionEvidenceIds.length;
   if (
     state.generation !== expectedGeneration ||
     !validIdentity(input.targetId) ||
-    !validEvidence
+    !isEvidenceValid
   )
     return Object.freeze({
       status: "blocked",

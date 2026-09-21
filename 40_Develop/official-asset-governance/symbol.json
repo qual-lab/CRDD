@@ -1,0 +1,40 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "official-asset-governance",
+  "symbols": [
+    {
+      "symbolId": "official-asset-governance.public-api",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": ["ARCH-000017"]
+    },
+    {
+      "symbolId": "official-asset-governance.domain.asset-decision",
+      "kind": "implementation",
+      "path": "src/official-asset-governance.ts",
+      "archIds": ["ARCH-000017"],
+      "implements": [
+        "official-asset-governance.asset-decision",
+        "official-asset-governance.asset-publication",
+        "official-asset-governance.revision-conflict"
+      ]
+    },
+    {
+      "symbolId": "official-asset-governance.test.unit.revision-conflict",
+      "kind": "test-suite",
+      "path": "tests/unit/revision-conflict.contract.test.ts",
+      "qaIds": ["QA-000011"],
+      "localTestIds": ["OAG-UT-008"],
+      "verifies": ["official-asset-governance.domain.asset-decision"]
+    },
+    {
+      "symbolId": "official-asset-governance.test.integration.asset-governance",
+      "kind": "test-suite",
+      "path": "tests/integration/asset-governance.contract.test.ts",
+      "qaIds": ["QA-000011"],
+      "localTestIds": ["OAG-IT-005", "OAG-IT-006", "OAG-IT-007"],
+      "verifies": ["official-asset-governance.domain.asset-decision"]
+    }
+  ]
+}

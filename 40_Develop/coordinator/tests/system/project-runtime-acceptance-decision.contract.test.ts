@@ -1,5 +1,5 @@
 /**
- * Public Acceptance DecisionのSystem境界を検証する。
+ * 公開Acceptance DecisionのSystem境界を検証する。
  *
  * @packageDocumentation
  * @responsibility 公開入口→Project Runtime→耐久Decision Store→状態投影のAcceptance Decision全経路を検証する。
@@ -231,8 +231,32 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
   fs.mkdirSync(decisionRoot);
   const authenticationStore =
     createProjectRuntimeWindowsDecisionStoreTestingAdapter(decisionRoot);
+  /**
+   * System試験用の認証済みPrincipalを返す。
+   *
+   * @responsibility Acceptance Decision公開入口へ固定Principalを決定論的に供給する。
+   * @trace PRL-ST-009
+   * @precondition Test Fixtureがoperator-aを判断主体として使用する。
+   * @stimulus 公開入口から認証Callbackを呼び出す。
+   * @observation completed状態とPrincipal IDを返す。
+   * @oracle Principal IDがoperator-aで固定される。
+   * @cleanup N/A: 外部資源または状態を作成しない。
+   * @boundary PRL-ST-009=System/E2E: 公開入口→認証Callback
+   */
   const authenticate = () =>
     Object.freeze({ status: "completed" as const, principalId: "operator-a" });
+  /**
+   * 状態照会用の認証済みPrincipalとDecision Storeを返す。
+   *
+   * @responsibility 状態投影へ同じPrincipalと耐久Storeを決定論的に供給する。
+   * @trace PRL-ST-009
+   * @precondition Test Fixtureが作成したauthenticationStoreを保持している。
+   * @stimulus 状態照会公開入口から認証Callbackを呼び出す。
+   * @observation completed状態、Principal IDおよびStoreを返す。
+   * @oracle 判断記録と状態投影が同じStoreを参照する。
+   * @cleanup N/A: Storeのcleanupは親Test Caseが所有する。
+   * @boundary PRL-ST-009=System/E2E: 状態照会公開入口→認証Callback→Decision Store
+   */
   const openStateQueryAuthentication = () =>
     Object.freeze({
       status: "completed" as const,

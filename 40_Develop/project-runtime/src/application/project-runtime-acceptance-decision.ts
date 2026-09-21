@@ -324,13 +324,13 @@ export function recordProjectRuntimeAcceptanceDecision(
       decision: input.decision,
       principalId: input.principalId,
     });
-  let authorized = false;
+  let isAuthorized = false;
   try {
-    authorized = dependencies.authority.verify(binding);
+    isAuthorized = dependencies.authority.verify(binding);
   } catch {
-    authorized = false;
+    isAuthorized = false;
   }
-  if (!authorized)
+  if (!isAuthorized)
     return blocked("project_runtime_acceptance_decision_authority_invalid");
   const prepared: ProjectRuntimeAcceptanceDecisionRecord =
     preparedRecord ??

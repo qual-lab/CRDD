@@ -65,8 +65,11 @@ export type TestCatalogEntry = Readonly<{
     | "checker"
     | "coordinator"
     | "crdd-domain-library"
+    | "cros"
     | "execution-intelligence"
     | "mcp"
+    | "official-asset-governance"
+    | "project-operation"
     | "project-runtime"
     | "runtime-data"
     | "semantic-coverage"
@@ -107,8 +110,11 @@ export type TestCatalog = Readonly<{
     checker: "node_test";
     coordinator: "node_test";
     "crdd-domain-library": "node_test";
+    cros: "node_test";
     "execution-intelligence": "node_test";
     mcp: "node_test";
+    "official-asset-governance": "node_test";
+    "project-operation": "node_test";
     "project-runtime": "node_test";
     "runtime-data": "node_test";
     "semantic-coverage": "node_test";
@@ -152,8 +158,11 @@ const RUNNER_SUPPORTED_OWNERS = new Set([
   "checker",
   "coordinator",
   "crdd-domain-library",
+  "cros",
   "execution-intelligence",
   "mcp",
+  "official-asset-governance",
+  "project-operation",
   "project-runtime",
   "runtime-data",
   "semantic-coverage",
@@ -166,8 +175,11 @@ const RUNNER_PROFILES = Object.freeze({
   checker: "node_test",
   coordinator: "node_test",
   "crdd-domain-library": "node_test",
+  cros: "node_test",
   "execution-intelligence": "node_test",
   mcp: "node_test",
+  "official-asset-governance": "node_test",
+  "project-operation": "node_test",
   "project-runtime": "node_test",
   "runtime-data": "node_test",
   "semantic-coverage": "node_test",
@@ -329,8 +341,11 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
     "checker",
     "coordinator",
     "crdd-domain-library",
+    "cros",
     "execution-intelligence",
     "mcp",
+    "official-asset-governance",
+    "project-operation",
     "project-runtime",
     "runtime-data",
     "semantic-coverage",
@@ -394,7 +409,7 @@ function isTestLevel(value: unknown): value is TestLevel {
  */
 function expectedNodeLevel(entryPath: string): string | null {
   return (
-    /^40_Develop\/(?:artifact-signing|checker|coordinator|crdd-domain-library|execution-intelligence|mcp|project-runtime|runtime-data|semantic-coverage|verification-runner|version-control)\/tests\/([^/]+)\//u.exec(
+    /^40_Develop\/(?:artifact-signing|checker|coordinator|crdd-domain-library|cros|execution-intelligence|mcp|official-asset-governance|project-operation|project-runtime|runtime-data|semantic-coverage|verification-runner|version-control)\/tests\/([^/]+)\//u.exec(
       entryPath,
     )?.[1] ?? null
   );
@@ -1026,9 +1041,14 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
     return "verification-runner";
   if (changedPath.startsWith("40_Develop/crdd-domain-library/"))
     return "crdd-domain-library";
+  if (changedPath.startsWith("40_Develop/cros/")) return "cros";
   if (changedPath.startsWith("40_Develop/execution-intelligence/"))
     return "execution-intelligence";
   if (changedPath.startsWith("40_Develop/mcp/")) return "mcp";
+  if (changedPath.startsWith("40_Develop/official-asset-governance/"))
+    return "official-asset-governance";
+  if (changedPath.startsWith("40_Develop/project-operation/"))
+    return "project-operation";
   if (changedPath.startsWith("40_Develop/project-runtime/"))
     return "project-runtime";
   if (changedPath.startsWith("40_Develop/runtime-data/")) return "runtime-data";

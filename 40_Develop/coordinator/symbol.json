@@ -1147,6 +1147,22 @@
       ]
     },
     {
+      "symbolId": "coordinator.test.system.docker-session-handoff",
+      "kind": "test-suite",
+      "path": "tests/system/docker-session-handoff.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-ST-011"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.docker.restart.continuation.record",
+        "coordinator.source.src.security.docker.restart.handoff.record",
+        "coordinator.source.src.security.docker.restart.record"
+      ]
+    },
+    {
       "symbolId": "coordinator.test.system.coordinator-launch",
       "kind": "test-suite",
       "path": "tests/system/coordinator-launch.contract.test.ts",
@@ -3041,7 +3057,7 @@
     {
       "symbolId": "coordinator.test.system.project-runtime-acceptance-decision",
       "kind": "test-suite",
-      "path": "tests/system/project-runtime-acceptance-decision.system.test.ts",
+      "path": "tests/system/project-runtime-acceptance-decision.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],

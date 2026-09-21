@@ -140,6 +140,7 @@ Release Identity、Runtime Execution Identity、署名対象集合およびRelea
 | Fixed Revision Git Adapter | `gitFixedRevisionIdentityAdapter`、`gitRepositoryFormatAdapter`、`gitRepositoryRevisionAdapter` |
 | Fixed Snapshot Git Adapter | `gitFixedSnapshotAdapter`、`inspectRepositoryFixedSnapshot` |
 | Local Change Set Git Adapter | `gitLocalChangeSetAdapter` |
+| Migration System Closure | `MigrationConsumerObservation`、`inspectMigrationSystemClosure` |
 | Checker Repository Observation | `RepositoryEntryObservation`、`observeDeclaredNestedRepositoryPaths`、`observeNestedRepository`、`observeRepositoryEntries`、`readFixedSnapshotText`、`resolveRevisionIdentity` |
 | Repository Layout Git Adapter | `describeGitRepositoryLayoutAdapterContract`、`GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT`、`GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT_REVISION`、`inspectGitRepositoryLayoutCandidate` |
 | Repository-local Ignore Git Adapter | `gitRepositoryLocalIgnoreAdapter` |

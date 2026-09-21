@@ -65,7 +65,7 @@
     {
       "symbolId": "verification-runner.test.acceptance.regression-plan-understanding",
       "kind": "test-suite",
-      "path": "tests/acceptance/regression-plan-understanding.acceptance.test.ts",
+      "path": "tests/acceptance/regression-plan-understanding.contract.test.ts",
       "qaIds": [
         "QA-000002"
       ],

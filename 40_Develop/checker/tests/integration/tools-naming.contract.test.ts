@@ -218,8 +218,11 @@ const sourceOwnershipRoots = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "checker"),
   path.join(repositoryRoot, "40_Develop", "coordinator"),
   path.join(repositoryRoot, "40_Develop", "crdd-domain-library"),
+  path.join(repositoryRoot, "40_Develop", "cros"),
   path.join(repositoryRoot, "40_Develop", "execution-intelligence"),
   path.join(repositoryRoot, "40_Develop", "mcp"),
+  path.join(repositoryRoot, "40_Develop", "official-asset-governance"),
+  path.join(repositoryRoot, "40_Develop", "project-operation"),
   path.join(repositoryRoot, "40_Develop", "project-runtime"),
   path.join(repositoryRoot, "40_Develop", "runtime-data"),
   path.join(repositoryRoot, "40_Develop", "semantic-coverage"),
@@ -261,6 +264,16 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     exportedModules: [
       "./composition/project-runtime-public-adapter.ts",
       "./core/node-runtime-version.ts",
+    ],
+  },
+  {
+    relativePath: "40_Develop/cros/src/index.ts",
+    expectedTrace: "ARCH-000013",
+    requiredTags: ["boundary", "effect", "security"],
+    exportedModules: [
+      "./application-contract.ts",
+      "./runtime.ts",
+      "./tool-registry.ts",
     ],
   },
   {
@@ -346,10 +359,23 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     ],
   },
   {
+    relativePath: "40_Develop/official-asset-governance/src/index.ts",
+    expectedTrace: "ARCH-000017",
+    requiredTags: ["boundary", "effect", "security"],
+    exportedModules: ["./official-asset-governance.ts"],
+  },
+  {
+    relativePath: "40_Develop/project-operation/src/index.ts",
+    expectedTrace: "ARCH-000005",
+    requiredTags: ["boundary", "effect", "security"],
+    exportedModules: ["./project-operation.ts"],
+  },
+  {
     relativePath: "40_Develop/project-runtime/src/index.ts",
     expectedTrace: "ARCH-000004",
     requiredTags: ["boundary", "concurrency", "effect", "security"],
     exportedModules: [
+      "./application/project-runtime-acceptance-decision.ts",
       "./application/project-runtime-execution.ts",
       "./application/project-runtime-human-decision.ts",
       "./application/project-runtime-integration.ts",
@@ -359,6 +385,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./application/project-runtime-state-query.ts",
       "./core/project-runtime-queue.ts",
       "./core/project-runtime-state.ts",
+      "./ports/acceptance-decision-port.ts",
       "./ports/candidate-port.ts",
       "./ports/clock-identity-port.ts",
       "./ports/decision-capability-port.ts",
@@ -422,6 +449,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./git/repository-layout-adapter.ts",
       "./git/repository-local-ignore-adapter.ts",
       "./local-change-set.ts",
+      "./migration-closure.ts",
       "./repository-local-ignore.ts",
       "./repository-location.ts",
       "./repository-revision.ts",
@@ -451,6 +479,7 @@ const projectConfigs = Object.freeze([
     "tsconfig.strict.json",
   ),
   path.join(repositoryRoot, "40_Develop", "coordinator", "tsconfig.tests.json"),
+  path.join(repositoryRoot, "40_Develop", "cros", "tsconfig.json"),
   path.join(
     repositoryRoot,
     "40_Develop",
@@ -460,6 +489,13 @@ const projectConfigs = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "project-runtime", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "runtime-data", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "mcp", "tsconfig.json"),
+  path.join(
+    repositoryRoot,
+    "40_Develop",
+    "official-asset-governance",
+    "tsconfig.json",
+  ),
+  path.join(repositoryRoot, "40_Develop", "project-operation", "tsconfig.json"),
   path.join(
     repositoryRoot,
     "40_Develop",

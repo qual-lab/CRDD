@@ -1,5 +1,5 @@
 {
-  "name": "@qual-lab/crdd-version-control",
+  "name": "@qual-lab/crdd-official-asset-governance",
   "version": "0.0.0-development",
   "private": true,
   "type": "module",
@@ -8,10 +8,11 @@
   },
   "scripts": {
     "check": "npm run format:check && npm run typecheck && npm run lint",
+    "format": "biome format --write .",
     "format:check": "biome format .",
     "lint": "biome lint . --error-on-warnings",
     "test": "npm run check && npm run test:run",
-    "test:run": "node --test --test-concurrency=1 ./tests/integration/*.test.ts ./tests/system/*.test.ts",
+    "test:run": "node --test --test-concurrency=1 ./tests/unit/*.test.ts ./tests/integration/*.test.ts",
     "typecheck": "tsc -p ./tsconfig.json"
   },
   "engines": {

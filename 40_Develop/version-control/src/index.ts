@@ -39,6 +39,10 @@ export {
 } from "./git/fixed-snapshot-adapter.ts";
 export { gitLocalChangeSetAdapter } from "./git/local-change-set-adapter.ts";
 export {
+  inspectMigrationSystemClosure,
+  type MigrationConsumerObservation,
+} from "./migration-closure.ts";
+export {
   observeDeclaredNestedRepositoryPaths,
   observeNestedRepository,
   observeRepositoryEntries,

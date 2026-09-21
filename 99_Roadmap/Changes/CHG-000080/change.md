@@ -12,10 +12,10 @@
 |---|---|
 | 現在の変更状態 | Engineering CompletenessをRule、Format、Traceability、CheckerおよびCRDD自身の現実まで閉じる途中 |
 | Phase／Gate適用判断 | `Applicable`: Architecture、実装、Quality、MigrationおよびReality Auditを一括変更せず、局所Gateで成立確認する必要がある |
-| 現在Phase | `Phase 2／4／7／8 — Production Semantic Review／Test Relation再確認／Self Migration／Reality Audit`: 全Subsystemの現実照合で判明した未観測Local Itemを、Relation不足・試験不足・実装不足・工程Evidence・人間受入待ちへ分類して閉じている。実署名済み固定Snapshotの昇格System境界、公開Verification入口のPT／LT Authority Gate、公開Runtime Data APIの清掃・回復System lifecycle、Docker Desktop修復のexact Identity・旧Effect非再発行、公開Verification入口の固定段階計画とUAT人間入力待ち、未Commit状態と差替可能なVersion Control Portの同等操作、Provider Home不正・不明分類からProcess Effect 0への結合境界を接続した。Human Decision ITとObjective／Milestone Acceptance Decision ITは別義務として再分離し、Acceptance Decisionの公開Application、耐久Store、Authority Adapter、ITおよびSTを接続した。さらに、準備Record後にState更新または確定観測で停止した場合も、同じ判断Identityだけが未適用Effectを一度だけ再開し、適用済みStateではEffectを再発行せず確定できるexact再入場を接続した。公開Verification入口が下位Gate成立時だけ次の境界へ進む既存System観測を`ERB-ST-015`へ接続した。現在値は51件 |
+| 現在Phase | `Phase 2／4／7／8 — Production Semantic Review／Test Relation再確認／Self Migration／Reality Audit`: 全Subsystemの現実照合で判明した未観測Local Itemを、Relation不足・試験不足・実装不足・工程Evidence・人間受入待ちへ分類して閉じている。実署名済み固定Snapshotの昇格System境界、公開Verification入口のPT／LT Authority Gate、公開Runtime Data APIの清掃・回復System lifecycle、Docker Desktop修復のexact Identity・旧Effect非再発行、公開Verification入口の固定段階計画とUAT人間入力待ち、未Commit状態と差替可能なVersion Control Portの同等操作、Provider Home不正・不明分類からProcess Effect 0への結合境界を接続した。Human Decision ITとObjective／Milestone Acceptance Decision ITは別義務として再分離し、Acceptance Decisionの公開Application、耐久Store、Authority Adapter、ITおよびSTを接続した。さらに、準備Record後にState更新または確定観測で停止した場合も、同じ判断Identityだけが未適用Effectを一度だけ再開し、適用済みStateではEffectを再発行せず確定できるexact再入場を接続した。公開Verification入口が下位Gate成立時だけ次の境界へ進む独立System観測を`ERB-ST-015`へ接続し、公式素材の判断完全性、Revision競合および収載Relationを専用Packageの4 Local Itemへ接続した。Project Operationの部分状態投影、restricted非開示、候補AuthorityおよびRevision競合を専用Packageの3 Local Itemへ接続した。CROSのlocal同等性、AI入口、Handoff、Tool Registry、Session Grant、非開示、Context Package、再開Scenario、四Surface共有契約および相関付き結果帰還を専用Packageへ接続した。固定Snapshot上の移行System Closureと別Runtime間のDocker recovery chainを追加し、機械化可能な未観測を0件まで閉じた。現在値は32件（Hybrid 14、Manual 18） |
 | 現在Gate | `Gate 0 — Passed`: Phase／Gate／途中拡張／途中見直し契約を正本、ひな型、Checkerおよび本CHGへ反映した。後続Gateの成立は示さない |
-| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 154件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 208件の責務別Local Item接続、Optionality Audit全数処置 |
-| 未成立 | Production Headerの独立意味確認、未観測Local Item 51件（Automated 19、Hybrid 14、Manual 18）の処置、独立レビュー、全回帰、署名E2E |
+| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 154件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 212件の責務別Local Item接続、Optionality Audit全数処置 |
+| 未成立 | Production Headerの独立意味確認、未観測Local Item 32件（Automated 0、Hybrid 14、Manual 18）のEvidence処置、独立レビュー、全回帰、署名E2E |
 | 次のGate | Gate 2／7／8の前にProduction Headerの意味妥当性、Rule／Format／Realityの未移行0件、および全Local Itemの処置を確認する。既知Gapを残したまま全回帰へ進まない |
 
 ## 1. 変更の目的
@@ -464,7 +464,7 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 - [`40_Develop/verification-runner/symbol.json`](../../../40_Develop/verification-runner/symbol.json)
 - [`40_Develop/verification-runner/src/application/regression-runner.ts`](../../../40_Develop/verification-runner/src/application/regression-runner.ts)
 - [`40_Develop/verification-runner/src/execution/regression-execution.ts`](../../../40_Develop/verification-runner/src/execution/regression-execution.ts)
-- [`40_Develop/verification-runner/tests/acceptance/regression-plan-understanding.acceptance.test.ts`](../../../40_Develop/verification-runner/tests/acceptance/regression-plan-understanding.acceptance.test.ts)
+- [`40_Develop/verification-runner/tests/acceptance/regression-plan-understanding.contract.test.ts`](../../../40_Develop/verification-runner/tests/acceptance/regression-plan-understanding.contract.test.ts)
 - [`40_Develop/verification-runner/tests/integration/regression-runner.contract.test.ts`](../../../40_Develop/verification-runner/tests/integration/regression-runner.contract.test.ts)
 - [`40_Develop/verification-runner/tests/system/resource-intensive-gate.contract.test.ts`](../../../40_Develop/verification-runner/tests/system/resource-intensive-gate.contract.test.ts)
 - [`40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts`](../../../40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts)

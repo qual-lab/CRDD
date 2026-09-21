@@ -4,9 +4,10 @@
  * @packageDocumentation
  * @responsibility coordinator:integration:docker-desktop-runtime-repairが所有する検証責務を実行する。
  * @trace ERB-IT-001
+ * @trace ERB-IT-012
  * @level IT
  * @scope docker、desktop、runtime、repair
- * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001／ERB-IT-012=Direct Boundary: Adapter→実CLI・Process・Container
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";

@@ -20,7 +20,7 @@ const runner = path.join(verificationRunnerRoot, "bin", "regression-runner.ts");
 const CHANGED_PATH =
   "40_Develop/verification-runner/src/catalog/test-catalog.ts";
 const HUMAN_ACCEPTANCE_PATH =
-  "40_Develop/verification-runner/tests/acceptance/regression-plan-understanding.acceptance.test.ts";
+  "40_Develop/verification-runner/tests/acceptance/regression-plan-understanding.contract.test.ts";
 
 /**
  * 公開Verification CLIを固定引数で起動する。
@@ -75,13 +75,12 @@ function parsePublicResults(stdout: string): Record<string, unknown>[] {
  *
  * @responsibility 公開入口がUATを自動Passへ畳まず、全段階結果と未実行理由を統合結果へ保持することを検証する。
  * @trace CQS-ST-012
- * @trace ERB-ST-015
  * @precondition 人間入力を必要とする登録済みUATだけを直接変更対象として選ぶ。
  * @stimulus Static、UT、IT、ST、UATを指定して公開Verification CLIを起動する。
  * @observation 計画、段階順、開始・終了結果、未開始理由、公開状態、終了Codeおよびstderrを観測する。
  * @oracle 自動段階は完了し、UATはnot_run_due_to_human_input、全体はblocked、Exit 2となる。
  * @cleanup 子Processは同期終了し、一時資源、PT／LTおよび外部Effectを残さない。
- * @boundary CQS-ST-012／ERB-ST-015=System/E2E: 公開Verification入口→全段階Runner→統合結果
+ * @boundary CQS-ST-012=System/E2E: 公開Verification入口→全段階Runner→統合結果
  */
 test("公開入口はUATを自動Passにせず全段階結果と人間入力待ちを返す", () => {
   const result = invoke([
@@ -122,6 +121,43 @@ test("公開入口はUATを自動Passにせず全段階結果と人間入力待�
   );
   assert.equal(outcome?.status, "blocked");
   assert.equal(outcome?.reason, "regression_human_input_required");
+});
+
+/**
+ * 公開Verification入口は下位段階の成立順序を越えて上位境界を開始しない。
+ *
+ * @responsibility StaticからUATまでの境界進行と、未成立段階以後のEffect 0を公開結果で検証する。
+ * @trace ERB-ST-015
+ * @precondition 人間入力を必要とするUATを含む固定した全段階計画を使用する。
+ * @stimulus 公開Verification CLIへStatic、UT、IT、ST、UATを順序指定して起動する。
+ * @observation 各段階の開始・終了順、未開始理由、全体状態および終了Codeを観測する。
+ * @oracle Static、UT、IT、STの完了後にUATだけが人間入力待ちとなり、未許可の上位Effectを発行しない。
+ * @cleanup 子Processは同期終了し、一時資源、PT／LTおよび外部Effectを残さない。
+ * @boundary ERB-ST-015=System/E2E: 局所Gate→直接境界→Lifecycle→公開Verification入口
+ */
+test("公開入口は下位成立順序を保ち人間入力待ちの上位境界を開始しない", () => {
+  const result = invoke([
+    "--changed",
+    HUMAN_ACCEPTANCE_PATH,
+    "--levels",
+    "unit,integration,system,acceptance",
+  ]);
+  assert.equal(result.error, undefined);
+  assert.equal(result.exitCode, 2);
+  assert.equal(result.stderr, "");
+  const [, outcome] = parsePublicResults(result.stdout);
+  const stages = outcome?.stages as Array<Record<string, unknown>> | undefined;
+  assert.deepEqual(
+    stages?.map((stage) => [stage.stage, stage.status]),
+    [
+      ["static", "completed"],
+      ["unit", "completed"],
+      ["integration", "completed"],
+      ["system", "completed"],
+      ["acceptance", "not_run_due_to_human_input"],
+    ],
+  );
+  assert.equal(outcome?.status, "blocked");
 });
 
 /**

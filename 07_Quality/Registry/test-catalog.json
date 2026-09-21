@@ -19,8 +19,11 @@
     "checker": "node_test",
     "coordinator": "node_test",
     "crdd-domain-library": "node_test",
+    "cros": "node_test",
     "execution-intelligence": "node_test",
     "mcp": "node_test",
+    "official-asset-governance": "node_test",
+    "project-operation": "node_test",
     "project-runtime": "node_test",
     "runtime-data": "node_test",
     "semantic-coverage": "node_test",
@@ -38,6 +41,16 @@
       "lifecycleProfile": "read_only_boundary",
       "testIds": ["crdd-domain-library:unit:public-boundary", "crdd-domain-library:unit:repository-observation", "crdd-domain-library:integration:reality-repository"],
       "postconditions": ["public_export_allowlist_exact", "domain_and_repository_owner_separated", "repository_outside_observation_absent", "opened_handle_location_proven_or_read_unobservable", "repository_content_unchanged"]
+    },
+    {
+      "id": "cros:workspace-federation-and-handoff",
+      "owner": "cros",
+      "architectureAnchor": "06_Architecture/Details/cros/01_Architecture.md#6-canonicalな読取り経路",
+      "responsibilities": ["workspace_access", "repository_federation", "context_handoff", "tool_registry", "surface_contract", "result_return"],
+      "externalBoundaries": ["credential_verifier", "repository_binding", "source_runtime", "destination_runtime", "tool_surface"],
+      "lifecycleProfile": "durable_operation",
+      "testIds": ["cros:integration:core", "cros:integration:surface-contract", "cros:integration:tool-registry", "cros:system:context-handoff", "cros:system:result-return", "cros:system:session-access"],
+      "postconditions": ["grant_outside_repository_not_disclosed", "closed_session_access_absent", "handoff_authority_not_expanded", "tool_cancellation_resources_absent"]
     },
     {
       "id": "semantic-coverage:meaning-to-bundle",
@@ -60,13 +73,33 @@
       "postconditions": ["key_reference_reobserved", "authorization_single_use", "secret_bytes_zeroized", "manifest_semantics_not_owned"]
     },
     {
+      "id": "official-asset-governance:decision-and-inclusion",
+      "owner": "official-asset-governance",
+      "architectureAnchor": "06_Architecture/Details/official-asset-governance/01_Architecture.md#3-lifecycle",
+      "responsibilities": ["asset_decision", "asset_inclusion_traceability", "revision_conflict"],
+      "externalBoundaries": ["decision_authority", "official_asset_store", "repository_inclusion"],
+      "lifecycleProfile": "pure_component",
+      "testIds": ["official-asset-governance:unit:revision-conflict", "official-asset-governance:integration:asset-governance"],
+      "postconditions": ["incomplete_decision_effect_zero", "conflicting_decision_effect_zero", "inclusion_returns_to_exact_decision"]
+    },
+    {
+      "id": "project-operation:projection-and-candidate",
+      "owner": "project-operation",
+      "architectureAnchor": "06_Architecture/Details/project-operation/01_Architecture.md#12-identityprojectioncandidate契約",
+      "responsibilities": ["project_projection", "candidate_decision", "owner_revision_conflict"],
+      "externalBoundaries": ["source_reader", "candidate_store", "owner_writer"],
+      "lifecycleProfile": "pure_component",
+      "testIds": ["project-operation:integration:project-projection", "project-operation:integration:candidate-adoption"],
+      "postconditions": ["partial_state_preserved", "restricted_source_not_disclosed", "invalid_authority_effect_zero", "revision_conflict_effect_zero"]
+    },
+    {
       "id": "version-control:repository-observation",
       "owner": "version-control",
       "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#3-目的別port",
-      "responsibilities": ["repository_location", "local_change_set_observation"],
+      "responsibilities": ["repository_location", "local_change_set_observation", "migration_system_closure"],
       "externalBoundaries": ["repository_filesystem", "version_control_process"],
       "lifecycleProfile": "read_only_boundary",
-      "testIds": ["version-control:integration:repository-location", "version-control:integration:local-change-set", "version-control:integration:consumer-closure"],
+      "testIds": ["version-control:integration:repository-location", "version-control:integration:local-change-set", "version-control:integration:consumer-closure", "version-control:system:migration-system-closure"],
       "postconditions": ["repository_boundary_exact", "partial_observation_not_published", "repository_content_unchanged"]
     },
     {
@@ -196,7 +229,7 @@
       "responsibilities": ["docker_task_execution", "resource_cleanup", "task_recovery_reentry"],
       "externalBoundaries": ["docker_engine", "container_network_volume", "runtime_state_store"],
       "lifecycleProfile": "external_effect_operation",
-      "testIds": ["coordinator:integration:docker-process-controller", "coordinator:integration:docker-effect-runtime", "coordinator:integration:docker-recovery-runtime", "coordinator:system:coordinator-docker-recovery-cli"],
+      "testIds": ["coordinator:integration:docker-process-controller", "coordinator:integration:docker-effect-runtime", "coordinator:integration:docker-recovery-runtime", "coordinator:system:coordinator-docker-recovery-cli", "coordinator:system:docker-session-handoff"],
       "postconditions": ["owned_resources_absent_or_recovery_exact", "cleanup_observed", "reentry_preserves_identity"]
     },
     {
@@ -286,6 +319,13 @@
       "postconditions": ["compatibility_shim_connection_observed", "checker_consumer_result_preserved", "final_consumer_migration_not_claimed"]
     },
     {
+      "id": "cros:federation-to-project-operation",
+      "architectureAnchor": "06_Architecture/Details/cros/01_Architecture.md#6-canonicalな読取り経路",
+      "blockPath": ["cros:workspace-federation-and-handoff", "project-operation:projection-and-candidate"],
+      "testIds": ["cros:system:session-access", "cros:system:context-handoff", "project-operation:integration:project-projection"],
+      "postconditions": ["authorized_repository_set_preserved", "partial_state_not_completed", "non_disclosure_preserved"]
+    },
+    {
       "id": "version-control:revision-to-signing-input",
       "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#6-段階移行",
       "blockPath": ["version-control:fixed-revision-and-ignore", "version-control:fixed-snapshot-candidate", "artifact-signing:key-to-signature"],
@@ -298,6 +338,20 @@
       "blockPath": ["artifact-signing:key-to-signature", "coordinator:release-signing"],
       "testIds": ["artifact-signing:integration:private-key-signing", "coordinator:integration:sign-release-manifest"],
       "postconditions": ["canonical_payload_not_reinterpreted", "publisher_policy_stays_with_consumer", "signature_bound_to_manifest_before_placement"]
+    },
+    {
+      "id": "official-asset-governance:decision-to-fixed-snapshot",
+      "architectureAnchor": "06_Architecture/Details/official-asset-governance/01_Architecture.md#3-lifecycle",
+      "blockPath": ["official-asset-governance:decision-and-inclusion", "version-control:fixed-snapshot-candidate"],
+      "testIds": ["official-asset-governance:integration:asset-governance", "version-control:integration:fixed-snapshot"],
+      "postconditions": ["asset_revision_and_decision_relation_preserved", "unapproved_asset_not_included", "fixed_snapshot_does_not_confer_publication_authority"]
+    },
+    {
+      "id": "project-operation:candidate-to-project-view",
+      "architectureAnchor": "06_Architecture/Details/project-operation/01_Architecture.md#12-identityprojectioncandidate契約",
+      "blockPath": ["coordinator:candidate-publication", "project-operation:projection-and-candidate"],
+      "testIds": ["coordinator:integration:project-runtime-candidate-integration-adapter", "project-operation:integration:candidate-adoption", "project-operation:integration:project-projection"],
+      "postconditions": ["candidate_identity_preserved", "adoption_authority_not_inferred", "partial_project_state_preserved"]
     },
     {
       "id": "version-control:observation-to-regression",
@@ -465,6 +519,84 @@
   ],
   "tests": [
     {
+      "id": "cros:integration:core",
+      "owner": "cros",
+      "path": "40_Develop/cros/tests/integration/cros-core.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["local-equivalence", "ai-entry", "handoff", "authority"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["repository_contract_equal", "canonical_source_equal", "handoff_mismatch_effect_zero"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "cros:integration:tool-registry",
+      "owner": "cros",
+      "path": "40_Develop/cros/tests/integration/tool-registry.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["tool-registry", "surface", "authority", "cancellation"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["shared_implementation_identity", "unauthorized_effect_zero", "cancelled_resources_absent"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "cros:integration:surface-contract",
+      "owner": "cros",
+      "path": "40_Develop/cros/tests/integration/surface-contract.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["surface", "application-contract", "effect-equivalence"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["shared_application_contract", "canonical_owner_only", "cancelled_resources_absent"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "cros:system:session-access",
+      "owner": "cros",
+      "path": "40_Develop/cros/tests/system/session-access.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": ["credential", "session", "workspace", "non-disclosure"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["closed_session_access_absent", "admin_does_not_confer_content_access", "restricted_identity_not_disclosed"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "cros:system:context-handoff",
+      "owner": "cros",
+      "path": "40_Develop/cros/tests/system/context-handoff.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": ["context-package", "provenance", "handoff", "recovery"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["scope_minimized", "package_not_source_of_truth", "source_double_execution_absent", "authority_expansion_effect_zero"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "cros:system:result-return",
+      "owner": "cros",
+      "path": "40_Develop/cros/tests/system/result-return.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": ["delegation", "result-return", "correlation", "replay"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["origin_identity_preserved", "conflict_effect_zero", "replay_effect_zero"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "crdd-domain-library:unit:public-boundary",
       "owner": "crdd-domain-library",
       "path": "40_Develop/crdd-domain-library/tests/unit/public-boundary.contract.test.ts",
@@ -543,6 +675,74 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "official-asset-governance:unit:revision-conflict",
+      "owner": "official-asset-governance",
+      "path": "40_Develop/official-asset-governance/tests/unit/revision-conflict.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "official-asset",
+        "revision",
+        "conflict"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "winning_revision_preserved",
+        "losing_decision_effect_zero"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "official-asset-governance:integration:asset-governance",
+      "owner": "official-asset-governance",
+      "path": "40_Develop/official-asset-governance/tests/integration/asset-governance.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "official-asset",
+        "decision",
+        "inclusion",
+        "traceability"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "complete_decision_applied_once",
+        "incomplete_decision_effect_zero",
+        "inclusion_relation_exact"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "project-operation:integration:project-projection",
+      "owner": "project-operation",
+      "path": "40_Develop/project-operation/tests/integration/project-projection.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["project", "projection", "partial-state", "restricted"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["partial_state_preserved", "restricted_source_not_disclosed"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "project-operation:integration:candidate-adoption",
+      "owner": "project-operation",
+      "path": "40_Develop/project-operation/tests/integration/candidate-adoption.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["candidate", "authority", "owner", "revision-conflict"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["invalid_authority_effect_zero", "revision_conflict_effect_zero", "explicit_adoption_only"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "version-control:integration:repository-location",
       "owner": "version-control",
       "path": "40_Develop/version-control/tests/integration/repository-location.integration.test.ts",
@@ -579,6 +779,19 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": ["duplicate_owner_absent", "public_contract_git_neutral"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "version-control:system:migration-system-closure",
+      "owner": "version-control",
+      "path": "40_Develop/version-control/tests/system/migration-system-closure.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": ["migration", "consumer-closure", "snapshot", "release", "recovery"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["old_contract_absent", "undeclared_consumer_absent", "mixed_snapshot_absent"],
       "mandatoryByDefault": true
     },
     {
@@ -2142,6 +2355,19 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "coordinator:system:docker-session-handoff",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/system/docker-session-handoff.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": ["docker", "session", "handoff", "recovery-chain"],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["recovery_identity_exact", "invalid_chain_effect_zero", "old_session_resources_absent"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "coordinator:system:coordinator-launch",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/system/coordinator-launch.contract.test.ts",
@@ -2803,7 +3029,7 @@
     {
       "id": "coordinator:system:project-runtime-acceptance-decision",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/system/project-runtime-acceptance-decision.system.test.ts",
+      "path": "40_Develop/coordinator/tests/system/project-runtime-acceptance-decision.contract.test.ts",
       "level": "system",
       "kind": "contract",
       "semanticTags": [
@@ -4062,7 +4288,7 @@
     {
       "id": "verification-runner:acceptance:regression-plan-understanding",
       "owner": "verification-runner",
-      "path": "40_Develop/verification-runner/tests/acceptance/regression-plan-understanding.acceptance.test.ts",
+      "path": "40_Develop/verification-runner/tests/acceptance/regression-plan-understanding.contract.test.ts",
       "level": "acceptance",
       "kind": "contract",
       "semanticTags": [

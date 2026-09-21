@@ -21,6 +21,17 @@ import {
 export const PROJECT_RUNTIME_ACCEPTANCE_DECISION_STORE_CONTRACT =
   "crdd-coordinator/project-runtime-acceptance-decision-store/v1" as const;
 
+/**
+ * Acceptance Decision Recordの耐久世代Envelopeを定義する。
+ *
+ * @responsibility Binding、Record Identity、世代、前世代HashおよびRecord本体を一つの耐久契約へ閉じる。
+ * @trace ARCH-000005
+ * @shape generation 1のprepared Recordまたはgeneration 2のfinalized Recordと、その前世代参照を表す。
+ * @invariant generation 1はpreviousHashを持たず、generation 2はgeneration 1のHashを持つ。
+ * @boundary Project Runtime Acceptance Decision StoreとRepository-local JSONの型境界。
+ * @security 秘密値、CapabilityまたはHost絶対Pathを保持しない。
+ * @compatibility contract値とgeneration意味を変更せず、利用側は宣言済みPropertyだけへ依存する。
+ */
 type Envelope = Readonly<{
   contract: typeof PROJECT_RUNTIME_ACCEPTANCE_DECISION_STORE_CONTRACT;
   repositoryBindingId: string;
@@ -278,6 +289,22 @@ export function createProjectRuntimeAcceptanceDecisionStore(
   };
 
   return Object.freeze({
+    /**
+     * prepared Acceptance Decision Recordを一度だけ作成する。
+     *
+     * @responsibility 有効なprepared Recordをgeneration 1として排他的に耐久化する。
+     * @trace ARCH-000005
+     * @input record: 初回作成するprepared Acceptance Decision Record。
+     * @returns 作成済みRecordまたは理由付きblocked結果。
+     * @precondition Recordは有効で、同じRecord IDの世代が存在しない。
+     * @postcondition 成功時はgeneration 1を再読取り確認できる。
+     * @effect Repository-local Acceptance Decision Storeへgeneration 1を一回書き込む。
+     * @failure 不正Record、重複または観測不能をblockedへ閉じる。
+     * @invariant finalized Recordを初回世代として作成しない。
+     * @boundary Project Runtime PortとRepository-local Filesystem書込みの境界。
+     * @security 検証済みRoot外へ書き込まず、秘密値を保存しない。
+     * @concurrency `wx`によって同じ世代の競合書込みを拒否する。
+     */
     create(record) {
       try {
         if (!validRecord(record) || record.disposition !== "prepared")
@@ -304,6 +331,22 @@ export function createProjectRuntimeAcceptanceDecisionStore(
         );
       }
     },
+    /**
+     * exact Record IDの最新確認済み世代を読み取る。
+     *
+     * @responsibility generation 1と2の連鎖を検証し、確定可能な最新Recordだけを返す。
+     * @trace ARCH-000005
+     * @input recordId: 読み取るAcceptance Decision Record Identity。
+     * @returns 最新Record、不存在または理由付きblocked結果。
+     * @precondition recordIdが固定Identity契約を満たす。
+     * @postcondition StoreとRecordを変更せず、観測できた値だけを返す。
+     * @effect N/A: Repository-local Storeを読み取るだけである。
+     * @failure 不正Identity、壊れた世代連鎖または観測不能をblockedへ閉じる。
+     * @invariant generation 2だけが存在する状態を成功として扱わない。
+     * @boundary Project Runtime PortとRepository-local Filesystem読取りの境界。
+     * @security 検証済みStore外を探索せず、Pathを結果へ露出しない。
+     * @concurrency 一つの呼出し内で二世代を読み、競合を成功へ推定しない。
+     */
     read(recordId) {
       try {
         if (!ID.test(recordId))
@@ -323,6 +366,22 @@ export function createProjectRuntimeAcceptanceDecisionStore(
         );
       }
     },
+    /**
+     * prepared Recordを一致確認してfinalized Recordへ比較交換する。
+     *
+     * @responsibility exactなgeneration 1を前提にgeneration 2を一度だけ作成する。
+     * @trace ARCH-000005
+     * @input expected: 既存prepared Record、next: 作成するfinalized Record。
+     * @returns 確定済みRecordまたは理由付きblocked結果。
+     * @precondition expectedとnextは同じRecord IDを持ち、許可された遷移を表す。
+     * @postcondition 成功時はgeneration 2がgeneration 1のHashへ接続される。
+     * @effect Repository-local Acceptance Decision Storeへgeneration 2を一回書き込む。
+     * @failure 世代不一致、重複、遷移不正または観測不能をblockedへ閉じる。
+     * @invariant preparedからfinalized以外の遷移を作成しない。
+     * @boundary Project Runtime PortとRepository-local Filesystem比較交換の境界。
+     * @security 検証済みStore外へ書き込まず、Record間へ秘密値を追加しない。
+     * @concurrency `wx`と前世代完全一致によって競合するfinalizeを拒否する。
+     */
     compareAndSet(expected, next) {
       try {
         if (

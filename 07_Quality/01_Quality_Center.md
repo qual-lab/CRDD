@@ -14,16 +14,16 @@
 
 ## 結論
 
-v0.21.0のQuality設計は13定義、154 Local Itemまで拡張した。全SubsystemのTest Symbolと再照合した現在値は、一意なLocal Item 154件中103件が観測済み、51件が未観測である。未観測51件は自動19件、Hybrid 14件、Manual 18件であり、既存試験への正当なRelation不足、試験不足、実装不足、工程Evidenceおよび人間受入待ちをまだ分離中である。既知Gapを閉じる前に全回帰を実行しても完全性を証明しないため、全回帰と署名E2EはGap Closure後へ保留する。
+v0.21.0のQuality設計は13定義、154 Local Itemまで拡張した。全SubsystemのTest Symbolと再照合した現在値は、一意なLocal Item 154件中122件が観測済み、32件が未観測である。機械化可能な未観測は0件まで閉じ、残る32件はHybrid 14件、Manual 18件である。自動部分だけのPassを人間判断または実境界を含むLocal Item全体の成立へ読み替えず、工程Evidenceと人間受入を分けて扱う。
 
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|
 | Canonical入力 | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18を全件Mapping済み | [Quality Integration](04_Quality_Integration.md) |
 | Quality Analysis | 6工程の全入力を、Source固有条件付きで13検証目標へ接続し独立レビュー済み | Reality Auditではこの設計集合を変更せず、現行実装との対応を照合する |
-| Quality Definitions | 13定義、154 Local ItemをCanonical化済み | 103件観測済み、51件未観測。定義済みであることを実装済み・試験済みへ読み替えない |
+| Quality Definitions | 13定義、154 Local ItemをCanonical化済み | 122件観測済み、32件未観測。機械化可能な未観測は0件。定義済みであることを実装済み・試験済みへ読み替えない |
 | Architecture詳細設計 | 18領域を適用判定済み | 実装OwnerのないCapability、現実との不一致およびTest未接続をReality Auditで処置する |
 | Checker | 現在候補に対する構造・関係検査を実行 | Quality固定後にChecker安定化へ進み、責務分離後に再検証する |
-| Reality Audit | In Progress — Blocked by Known Gaps | Coordinator／Project Runtime Pilotに加えて全Subsystemを照合し、51件の未観測Local Itemを処置する |
+| Reality Audit | In Progress — Hybrid／Manual Evidence Pending | Coordinator／Project Runtime Pilotに加えて全Subsystemを照合し、残るHybrid 14件とManual 18件を処置する |
 
 ## 現在の品質投影
 
@@ -31,12 +31,12 @@ v0.21.0のQuality設計は13定義、154 Local Itemまで拡張した。全Subsy
 |---|---|---|
 | Designed | Canonical | 実装済みまたは試験可能とは主張しない |
 | Implemented | 部分照合 | 未実装CapabilityをRelation追加だけで成立へ変えない |
-| Executed | 部分実行 | 局所試験結果を未観測51 Local Itemの実行結果へ数えない |
+| Executed | 部分実行 | 局所試験結果を未観測32 Local Itemの人間判断または実境界Evidenceへ数えない |
 | Passed | 未評価 | 過去版のPassをv0.21.0候補へ流用しない |
 | Evidence | 未収集 | 現在候補の対象改訂版・実行条件・結果を持つEvidenceがあるとは主張しない |
 | Reality Audit | In Progress | Relationの存在だけからImplemented／Passedを推定しない |
 
-Coordinator／Project Runtimeの17意味Pilotに加えて全Subsystemへ照合範囲を広げた。17意味では自動観測16件、手動UAT待ち1件である。全Local Itemでは103件観測済み、51件未観測であり、Quality Readyへ昇格しない。PT／LTは人間の明示許可がないため実行しない。
+Coordinator／Project Runtimeの17意味Pilotに加えて全Subsystemへ照合範囲を広げた。17意味では自動観測16件、手動UAT待ち1件である。全Local Itemでは122件観測済み、32件未観測であり、Quality Readyへ昇格しない。PT／LTは人間の明示許可がないため実行しない。
 
 ## 公開済みBaselineと参照
 
