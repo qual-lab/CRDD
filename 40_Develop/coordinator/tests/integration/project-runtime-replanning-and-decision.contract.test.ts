@@ -4,10 +4,9 @@
  * @packageDocumentation
  * @responsibility coordinator:integration:project-runtime-replanning-and-decisionが所有する検証責務を実行する。
  * @trace PRL-IT-005
- * @trace PRL-IT-008
  * @level IT
  * @scope project、runtime、replanning、and、decision
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime / PRL-IT-008=Direct Boundary: Projection／SPEC入力→Acceptance Decision Port→Decision Store
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -531,18 +530,18 @@ test("human decision capability is one-time, principal-bound and finalized after
 });
 
 /**
- * Acceptance Decisionは対象・Revision・世代・Authorityが一致する要求だけを一度記録する。
+ * Human Decisionは対象・Revision・世代・Authorityが一致する要求だけを一度記録する。
  *
  * @responsibility 別対象、Revision不一致、古い世代、Authority不一致および重複判断をDecision Effect 0で拒否する。
- * @trace PRL-IT-008
+ * @trace PRL-IT-005
  * @precondition 判断待ちの同一Project／Milestoneと、一回限りCapabilityを持つDecision Recordを用意する。
- * @stimulus 各不一致入力とexactに一致する入力をAcceptance Decision Portへ順に渡す。
+ * @stimulus 各不一致入力とexactに一致する入力をHuman Decision Portへ順に渡す。
  * @observation 拒否理由、Decision Record状態、Project世代および正常適用後の重複結果を観測する。
  * @oracle 不一致入力はRecordとProjectを変更せず、exact入力だけが一度完了し、再送はalready_consumedとなる。
  * @cleanup Test ContextがRepository fixtureを削除し、Decision Record以外の外部Effectを発行しない。
- * @boundary PRL-IT-008=Direct Boundary: Projection／SPEC入力→Acceptance Decision Port→Decision Store
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
-test("Acceptance Decisionは対象・Revision・世代・Authorityが一致する要求だけを一度記録する", async (t) => {
+test("Human Decisionは対象・Revision・世代・Authorityが一致する要求だけを一度記録する", async (t) => {
   const { root, input } = fixture(t);
   await failTask(root);
   resolveProjectRuntimeReplan(input, () => ({
