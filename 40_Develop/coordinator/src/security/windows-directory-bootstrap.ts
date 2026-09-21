@@ -1,3 +1,9 @@
+/**
+ * windows-directory-bootstrapに属する責務をまとめる。
+ *
+ * @responsibility observeSystemWindowsDirectoryを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,9 +22,9 @@ const distributionRoot = fileURLToPath(
 );
 
 /**
- * observeSystemWindowsDirectoryの処理を実行する。
+ * System Windows Directoryを観測する。
  *
- * @responsibility observeSystemWindowsDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility System Windows Directoryの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns observeSystemWindowsDirectoryの計算結果を返す。

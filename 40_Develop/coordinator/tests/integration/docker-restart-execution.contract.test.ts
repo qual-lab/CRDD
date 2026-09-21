@@ -6,7 +6,7 @@
  * @trace ERB-IT-014
  * @level IT
  * @scope docker、restart、execution
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -25,7 +25,7 @@ import {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("restart driver waits for pending stop before cleanup after cancellation", async () => {
   const f = fixture();
@@ -69,7 +69,7 @@ test("restart driver waits for pending stop before cleanup after cancellation", 
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 function fixture() {
   const context = Object.freeze({});
@@ -127,7 +127,7 @@ for (const phase of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+   * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
    */
   test(`restart resume from ${phase} uses observation without replaying completed effects`, async () => {
     const f = fixture();
@@ -191,7 +191,7 @@ for (const phase of [
      * @observation 結果、状態、Effectおよび終了後条件を観測する。
      * @oracle Test本文のassertionが期待条件を満たす。
      * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-     * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+     * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
      */
     test(`restart resume ${phase} observation ${failure} never issues next effect`, async () => {
       const f = fixture();
@@ -205,7 +205,7 @@ for (const phase of [
        * @observation 返却値、生成fixtureまたは観測値を取得する。
        * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
        * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-       * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+       * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
        */
       const observe = async () => {
         f.calls.push("observe");
@@ -249,7 +249,7 @@ for (const phase of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+   * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
    */
   test(`restart resume ${phase} rejects cancellation before observation`, async () => {
     const f = fixture();
@@ -286,7 +286,7 @@ for (const phase of ["settled"] as const) {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+   * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
    */
   test(`restart resume ${phase} refuses replay and retains obligation`, async () => {
     const f = fixture();
@@ -316,7 +316,7 @@ for (const phase of ["settled"] as const) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("restart resume rejects unknown or prepared persisted phases without effects", async () => {
   for (const phase of ["prepared", "unknown", null, {}, 0]) {
@@ -345,7 +345,7 @@ test("restart resume rejects unknown or prepared persisted phases without effect
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("restart driver settles restart only, persists intents and cleans before settlement", async () => {
   const f = fixture();
@@ -395,7 +395,7 @@ for (const phase of [
      * @observation 結果、状態、Effectおよび終了後条件を観測する。
      * @oracle Test本文のassertionが期待条件を満たす。
      * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-     * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+     * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
      */
     test(`restart driver retains obligation after ${phase} persistence ${failure}`, async () => {
       const f = fixture();
@@ -437,7 +437,7 @@ for (const operation of ["stop", "start"] as const) {
      * @observation 結果、状態、Effectおよび終了後条件を観測する。
      * @oracle Test本文のassertionが期待条件を満たす。
      * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-     * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+     * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
      */
     test(`restart driver does not replay ${operation} after ${failure}`, async () => {
       const f = fixture();
@@ -487,7 +487,7 @@ for (const field of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+   * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
    */
   test(`restart driver requires independent ${field} observation`, async () => {
     const f = fixture();
@@ -522,7 +522,7 @@ for (const failure of ["false", "throw", "cancel"] as const) {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+   * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
    */
   test(`restart driver never succeeds with cleanup ${failure}`, async () => {
     const f = fixture();
@@ -554,7 +554,7 @@ for (const failure of ["false", "throw", "cancel"] as const) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("restart driver rechecks boundary after await and cleans on initial rejection", async () => {
   const f = fixture();
@@ -580,7 +580,7 @@ test("restart driver rechecks boundary after await and cleans on initial rejecti
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("restart resume from start_intent blocks when boundary changes after ready observation", async () => {
   const f = fixture();

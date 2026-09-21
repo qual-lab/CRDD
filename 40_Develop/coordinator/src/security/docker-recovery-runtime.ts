@@ -1,4 +1,10 @@
 /**
+ * docker-recovery-runtimeに属する責務をまとめる。
+ *
+ * @responsibility consumeDockerRecoveryReceiptAfterProjectSettlementを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
+/**
  * Closed production facade for durable Docker recovery.
  *
  * Runtime-owned native observations are selected inside the implementation.
@@ -23,7 +29,7 @@ export type { ProjectSettledDockerRecovery };
 /**
  * Consume a Docker completion receipt only when the exact durable Project
  *
- * @responsibility consumeDockerRecoveryReceiptAfterProjectSettlementに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 Receipt After Project Settlementの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000008
  * @input rawSettlement: ProjectSettledDockerRecovery
  * @returns consumeDockerRecoveryReceiptAfterProjectSettlementの計算結果を返す。
@@ -46,9 +52,9 @@ export function consumeDockerRecoveryReceiptAfterProjectSettlement(
 }
 
 /**
- * collectDockerRecoveryAcknowledgementAfterProjectRecordの処理を実行する。
+ * Docker 回復 Acknowledgement After Project 記録を収集する。
  *
- * @responsibility collectDockerRecoveryAcknowledgementAfterProjectRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 Acknowledgement After Project 記録の収集範囲、重複排除、欠落時の結果境界を所有する。
  * @trace ARCH-000008
  * @input rawSettlement: ProjectSettledDockerRecovery & Readonly<{ acknowledgement: unknown }>
  * @returns collectDockerRecoveryAcknowledgementAfterProjectRecordの計算結果を返す。

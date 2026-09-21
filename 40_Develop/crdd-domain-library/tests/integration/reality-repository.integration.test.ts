@@ -6,7 +6,7 @@
  * @trace RFD-IT-012
  * @level IT
  * @scope domain、reality、repository、boundary
- * @boundary Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
  */
 import assert from "node:assert/strict";
 import path from "node:path";
@@ -31,7 +31,7 @@ import { createFilesystemRepositoryObservationPort } from "../../src/repository-
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
  */
 test("Repository観測をReality Symbol契約へ渡してGraphを構築する", () => {
   const root = path.resolve(

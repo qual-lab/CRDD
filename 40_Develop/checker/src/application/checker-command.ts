@@ -1,3 +1,9 @@
+/**
+ * checker-commandに属する責務をまとめる。
+ *
+ * @responsibility runCheckerを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000001
+ */
 import {
   runCurrentProfileChecker,
   type CheckerResult,
@@ -9,7 +15,7 @@ export type { CheckerResult, CheckerRunRequest };
 /**
  * Checkerの公開Use Case入口。
  *
- * @responsibility runCheckerに対応する入力処理と結果生成を所有する。
+ * @responsibility Checkerの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000001
  * @input request: CheckerRunRequest
  * @returns CheckerResultを返す。

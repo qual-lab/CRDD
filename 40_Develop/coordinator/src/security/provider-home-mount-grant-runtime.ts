@@ -1,3 +1,9 @@
+/**
+ * provider-home-mount-grant-runtimeに属する責務をまとめる。
+ *
+ * @responsibility Grantを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import { randomBytes } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
@@ -25,9 +31,9 @@ const GRANT_REFERENCE_DIGITS = 18;
 const MAXIMUM_REFERENCE_ATTEMPTS = 8;
 
 /**
- * Grantが扱う値の構造を表す。
+ * provider-home-mount-grant-runtimeで使用するGrantの値契約を定義する。
  *
- * @responsibility Grantに必要な値と制約を一つの型契約として保持する。
+ * @responsibility GrantのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape Grantが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Grantで宣言した値と責務の対応を維持する。
@@ -56,9 +62,9 @@ type Grant = Readonly<{
 }>;
 
 /**
- * AliasRoleが扱う値の構造を表す。
+ * provider-home-mount-grant-runtimeで使用するAlias Roleの値契約を定義する。
  *
- * @responsibility AliasRoleに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Alias RoleのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape AliasRoleが表すProperty、識別子およびRelationを型として固定する。
  * @invariant AliasRoleで宣言した値と責務の対応を維持する。
@@ -69,9 +75,9 @@ type Grant = Readonly<{
 type AliasRole = "control" | "use" | "mount_authorization" | "active_mount";
 
 /**
- * RuntimeGrantが扱う値の構造を表す。
+ * provider-home-mount-grant-runtimeで使用するRuntime Grantの値契約を定義する。
  *
- * @responsibility RuntimeGrantに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime GrantのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape RuntimeGrantが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeGrantで宣言した値と責務の対応を維持する。
@@ -91,9 +97,9 @@ type RuntimeGrant = {
 };
 
 /**
- * Observationが扱う値の構造を表す。
+ * provider-home-mount-grant-runtimeで使用するObservationの値契約を定義する。
  *
- * @responsibility Observationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape Observationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Observationで宣言した値と責務の対応を維持する。
@@ -106,9 +112,9 @@ type Observation = NonNullable<
 >;
 
 /**
- * RuntimeStateが扱う値の構造を表す。
+ * provider-home-mount-grant-runtimeで使用するRuntime 状態の値契約を定義する。
  *
- * @responsibility RuntimeStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape RuntimeStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeStateで宣言した値と責務の対応を維持する。
@@ -134,9 +140,9 @@ type RuntimeState = Readonly<{
 }>;
 
 /**
- * createRuntimeStateの処理を実行する。
+ * Runtime 状態を構築する。
  *
- * @responsibility createRuntimeStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 状態の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000010
  * @input dependencies: Pick< RuntimeState, | "verifyOperation" | "consumeObservation" | "consumeMountSource" | "revokeMountSource" | "wallNow" | "monotonicNow" | "randomBytes" | "production" >
  * @returns RuntimeStateを返す。
@@ -182,9 +188,9 @@ const productionState = createRuntimeState({
 });
 
 /**
- * blockedの処理を実行する。
+ * provider-home-mount-grant-runtimeを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility provider-home-mount-grant-runtimeの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000010
  * @input reason: string
  * @returns blockedの計算結果を返す。
@@ -221,9 +227,9 @@ function blocked(reason: string) {
 }
 
 /**
- * failClosedの処理を実行する。
+ * Closedを失敗として終了させる。
  *
- * @responsibility failClosedに対応する入力処理と結果生成を所有する。
+ * @responsibility Closedの失敗条件、診断情報、終了結果境界を所有する。
  * @trace ARCH-000010
  * @input reason: string、action: () => T
  * @returns failClosedの計算結果を返す。
@@ -245,9 +251,9 @@ function failClosed<T>(reason: string, action: () => T) {
 }
 
 /**
- * validProfileIdの処理を実行する。
+ * Profile Idが有効か判定する。
  *
- * @responsibility validProfileIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Profile Idの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000010
  * @input value: unknown
  * @returns value is stringを返す。
@@ -269,9 +275,9 @@ function validProfileId(value: unknown): value is string {
 }
 
 /**
- * runtimeGrantRefの処理を実行する。
+ * runtime Grant Refを決定する。
  *
- * @responsibility runtimeGrantRefに対応する入力処理と結果生成を所有する。
+ * @responsibility runtime Grant Refの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState
  * @returns runtimeGrantRefの計算結果を返す。
@@ -297,9 +303,9 @@ function runtimeGrantRef(state: RuntimeState) {
 }
 
 /**
- * createAliasの処理を実行する。
+ * Aliasを構築する。
  *
- * @responsibility createAliasに対応する入力処理と結果生成を所有する。
+ * @responsibility Aliasの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、runtimeGrant: RuntimeGrant、role: AliasRole
  * @returns createAliasの計算結果を返す。
@@ -324,9 +330,9 @@ function createAlias(
 }
 
 /**
- * aliasの処理を実行する。
+ * aliasを決定する。
  *
- * @responsibility aliasに対応する入力処理と結果生成を所有する。
+ * @responsibility aliasの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、capability: unknown、expectedRole: AliasRole
  * @returns Readonly<{ role: AliasRole; runtimeGrant: RuntimeGrant }> | nullを返す。
@@ -350,9 +356,9 @@ function alias(
 }
 
 /**
- * operationBindingの処理を実行する。
+ * operation Bindingを決定する。
  *
- * @responsibility operationBindingに対応する入力処理と結果生成を所有する。
+ * @responsibility operation Bindingの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、managementCapability: unknown
  * @returns Readonly<{ operationId: string; createdAt: string }> | nullを返す。
@@ -377,9 +383,9 @@ function operationBinding(
 }
 
 /**
- * grantRecordの処理を実行する。
+ * grant 記録を決定する。
  *
- * @responsibility grantRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility grant 記録の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input binding: Readonly<{ operationId: string }>、profileId: string、observation: Observation、grantRef: string、issuedWallClockMs: number
  * @returns Grant | nullを返す。
@@ -438,9 +444,9 @@ function grantRecord(
 }
 
 /**
- * currentRuntimeAgeの処理を実行する。
+ * current Runtime Ageを決定する。
  *
- * @responsibility currentRuntimeAgeに対応する入力処理と結果生成を所有する。
+ * @responsibility current Runtime Ageの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、runtimeGrant: RuntimeGrant
  * @returns currentRuntimeAgeの計算結果を返す。
@@ -471,9 +477,9 @@ function currentRuntimeAge(state: RuntimeState, runtimeGrant: RuntimeGrant) {
 }
 
 /**
- * sameManagementCapabilityの処理を実行する。
+ * Management Capabilityが同一かを判定する。
  *
- * @responsibility sameManagementCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Management Capabilityの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、runtimeGrant: RuntimeGrant、managementCapability: unknown
  * @returns sameManagementCapabilityの計算結果を返す。
@@ -505,9 +511,9 @@ function sameManagementCapability(
 }
 
 /**
- * removeAliasの処理を実行する。
+ * Aliasを除去する。
  *
- * @responsibility removeAliasに対応する入力処理と結果生成を所有する。
+ * @responsibility Aliasの対象Identity、除去条件、終了後状態の境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、runtimeGrant: RuntimeGrant、capability: object
  * @returns N/A: removeAliasは戻り値を返さない。
@@ -530,9 +536,9 @@ function removeAlias(
 }
 
 /**
- * revokeAllAliasesの処理を実行する。
+ * All Aliasesを失効させる。
  *
- * @responsibility revokeAllAliasesに対応する入力処理と結果生成を所有する。
+ * @responsibility All Aliasesの失効Authority、対象Identity、再利用防止境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、runtimeGrant: RuntimeGrant
  * @returns N/A: revokeAllAliasesは戻り値を返さない。
@@ -553,9 +559,9 @@ function revokeAllAliases(state: RuntimeState, runtimeGrant: RuntimeGrant) {
 }
 
 /**
- * revokeMountSourceの処理を実行する。
+ * Mount Sourceを失効させる。
  *
- * @responsibility revokeMountSourceに対応する入力処理と結果生成を所有する。
+ * @responsibility Mount Sourceの失効Authority、対象Identity、再利用防止境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、runtimeGrant: RuntimeGrant
  * @returns N/A: revokeMountSourceは戻り値を返さない。
@@ -576,9 +582,9 @@ function revokeMountSource(state: RuntimeState, runtimeGrant: RuntimeGrant) {
 }
 
 /**
- * issueの処理を実行する。
+ * provider-home-mount-grant-runtimeを発行する。
  *
- * @responsibility issueに対応する入力処理と結果生成を所有する。
+ * @responsibility provider-home-mount-grant-runtimeの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、managementCapability: unknown、observationCapability: unknown、profileId: unknown
  * @returns issueの計算結果を返す。
@@ -664,9 +670,9 @@ function issue(
 }
 
 /**
- * consumeの処理を実行する。
+ * provider-home-mount-grant-runtimeを一回限りで消費する。
  *
- * @responsibility consumeに対応する入力処理と結果生成を所有する。
+ * @responsibility provider-home-mount-grant-runtimeの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、useCapability: unknown、managementCapability: unknown、currentObservationCapability: unknown
  * @returns consumeの計算結果を返す。
@@ -760,9 +766,9 @@ function consume(
 }
 
 /**
- * activateMountの処理を実行する。
+ * Mountを有効化する。
  *
- * @responsibility activateMountに対応する入力処理と結果生成を所有する。
+ * @responsibility Mountの有効化条件、状態遷移、失敗時の非発効境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、mountAuthorizationCapability: unknown、managementCapability: unknown
  * @returns activateMountの計算結果を返す。
@@ -835,9 +841,9 @@ function activateMount(
 }
 
 /**
- * activeMountSourceの処理を実行する。
+ * Mount Sourceが有効な状態か判定する。
  *
- * @responsibility activeMountSourceに対応する入力処理と結果生成を所有する。
+ * @responsibility Mount Sourceの有効状態条件と判定結果境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、activeMountCapability: unknown、managementCapability: unknown
  * @returns activeMountSourceの計算結果を返す。
@@ -872,9 +878,9 @@ function activeMountSource(
 }
 
 /**
- * inspectActiveMountの処理を実行する。
+ * Active Mountを観測する。
  *
- * @responsibility inspectActiveMountに対応する入力処理と結果生成を所有する。
+ * @responsibility Active Mountの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、activeMountCapability: unknown、managementCapability: unknown
  * @returns inspectActiveMountの計算結果を返す。
@@ -922,9 +928,9 @@ function inspectActiveMount(
 }
 
 /**
- * completeMountの処理を実行する。
+ * Mountを完了状態へ遷移させる。
  *
- * @responsibility completeMountに対応する入力処理と結果生成を所有する。
+ * @responsibility Mountの完了条件、終了後状態、未完了境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、activeMountCapability: unknown、managementCapability: unknown
  * @returns completeMountの計算結果を返す。
@@ -976,9 +982,9 @@ function completeMount(
 }
 
 /**
- * inspectMountAuthorizationの処理を実行する。
+ * Mount Authorizationを観測する。
  *
- * @responsibility inspectMountAuthorizationに対応する入力処理と結果生成を所有する。
+ * @responsibility Mount Authorizationの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、mountAuthorizationCapability: unknown、managementCapability: unknown
  * @returns inspectMountAuthorizationの計算結果を返す。
@@ -1026,9 +1032,9 @@ function inspectMountAuthorization(
 }
 
 /**
- * revokeの処理を実行する。
+ * provider-home-mount-grant-runtimeを失効させる。
  *
- * @responsibility revokeに対応する入力処理と結果生成を所有する。
+ * @responsibility provider-home-mount-grant-runtimeの失効Authority、対象Identity、再利用防止境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、controlCapability: unknown、managementCapability: unknown
  * @returns revokeの計算結果を返す。
@@ -1088,9 +1094,9 @@ function revoke(
 }
 
 /**
- * issueRuntimeOwnedProviderHomeMountGrantの処理を実行する。
+ * Runtime 所有 Provider Home Mount Grantを発行する。
  *
- * @responsibility issueRuntimeOwnedProviderHomeMountGrantに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Provider Home Mount Grantの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000010
  * @input managementCapability: unknown、observationCapability: unknown、profileId: unknown
  * @returns issueRuntimeOwnedProviderHomeMountGrantの計算結果を返す。
@@ -1121,9 +1127,9 @@ export function issueRuntimeOwnedProviderHomeMountGrant(
 }
 
 /**
- * consumeRuntimeOwnedProviderHomeMountGrantの処理を実行する。
+ * Runtime 所有 Provider Home Mount Grantを一回限りで消費する。
  *
- * @responsibility consumeRuntimeOwnedProviderHomeMountGrantに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Provider Home Mount Grantの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000010
  * @input useCapability: unknown、managementCapability: unknown、currentObservationCapability: unknown
  * @returns consumeRuntimeOwnedProviderHomeMountGrantの計算結果を返す。
@@ -1154,9 +1160,9 @@ export function consumeRuntimeOwnedProviderHomeMountGrant(
 }
 
 /**
- * inspectRuntimeOwnedProviderHomeMountAuthorizationの処理を実行する。
+ * Runtime 所有 Provider Home Mount Authorizationを観測する。
  *
- * @responsibility inspectRuntimeOwnedProviderHomeMountAuthorizationに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Provider Home Mount Authorizationの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000010
  * @input mountAuthorizationCapability: unknown、managementCapability: unknown
  * @returns inspectRuntimeOwnedProviderHomeMountAuthorizationの計算結果を返す。
@@ -1185,9 +1191,9 @@ export function inspectRuntimeOwnedProviderHomeMountAuthorization(
 }
 
 /**
- * revokeRuntimeOwnedProviderHomeMountGrantの処理を実行する。
+ * Runtime 所有 Provider Home Mount Grantを失効させる。
  *
- * @responsibility revokeRuntimeOwnedProviderHomeMountGrantに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Provider Home Mount Grantの失効Authority、対象Identity、再利用防止境界を所有する。
  * @trace ARCH-000010
  * @input controlCapability: unknown、managementCapability: unknown
  * @returns revokeRuntimeOwnedProviderHomeMountGrantの計算結果を返す。
@@ -1211,9 +1217,9 @@ export function revokeRuntimeOwnedProviderHomeMountGrant(
 }
 
 /**
- * activateRuntimeOwnedProviderHomeMountの処理を実行する。
+ * Runtime 所有 Provider Home Mountを有効化する。
  *
- * @responsibility activateRuntimeOwnedProviderHomeMountに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Provider Home Mountの有効化条件、状態遷移、失敗時の非発効境界を所有する。
  * @trace ARCH-000010
  * @input mountAuthorizationCapability: unknown、managementCapability: unknown
  * @returns activateRuntimeOwnedProviderHomeMountの計算結果を返す。
@@ -1240,9 +1246,9 @@ export function activateRuntimeOwnedProviderHomeMount(
 }
 
 /**
- * borrowRuntimeOwnedActiveProviderHomeMountSourceの処理を実行する。
+ * Runtime 所有 Active Provider Home Mount Sourceを一時参照として取得する。
  *
- * @responsibility borrowRuntimeOwnedActiveProviderHomeMountSourceに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Active Provider Home Mount Sourceの参照条件、lifetime、所有権を移さない境界を所有する。
  * @trace ARCH-000010
  * @input activeMountCapability: unknown、managementCapability: unknown
  * @returns borrowRuntimeOwnedActiveProviderHomeMountSourceの計算結果を返す。
@@ -1271,9 +1277,9 @@ export function borrowRuntimeOwnedActiveProviderHomeMountSource(
 }
 
 /**
- * inspectRuntimeOwnedActiveProviderHomeMountの処理を実行する。
+ * Runtime 所有 Active Provider Home Mountを観測する。
  *
- * @responsibility inspectRuntimeOwnedActiveProviderHomeMountに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Active Provider Home Mountの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000010
  * @input activeMountCapability: unknown、managementCapability: unknown
  * @returns inspectRuntimeOwnedActiveProviderHomeMountの計算結果を返す。
@@ -1300,9 +1306,9 @@ export function inspectRuntimeOwnedActiveProviderHomeMount(
 }
 
 /**
- * completeRuntimeOwnedProviderHomeMountの処理を実行する。
+ * Runtime 所有 Provider Home Mountを完了状態へ遷移させる。
  *
- * @responsibility completeRuntimeOwnedProviderHomeMountに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Provider Home Mountの完了条件、終了後状態、未完了境界を所有する。
  * @trace ARCH-000010
  * @input activeMountCapability: unknown、managementCapability: unknown
  * @returns completeRuntimeOwnedProviderHomeMountの計算結果を返す。
@@ -1325,9 +1331,9 @@ export function completeRuntimeOwnedProviderHomeMount(
 }
 
 /**
- * createIsolatedProviderHomeMountGrantRuntimeCandidateの処理を実行する。
+ * Isolated Provider Home Mount Grant Runtime 候補を構築する。
  *
- * @responsibility createIsolatedProviderHomeMountGrantRuntimeCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Isolated Provider Home Mount Grant Runtime 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000010
  * @input dependencies: Readonly<{ verifyOperation: RuntimeState["verifyOperation"]; consumeObservation: RuntimeState["consumeObservation"]; consumeMountSource: RuntimeState["consumeMountSource"]; revokeMountSource: RuntimeState["revokeMountSource"]; wallNow: RuntimeState["wallNow"]; monotonicNow: RuntimeState["monotonicNow"]; randomBytes: RuntimeState["randomBytes"]; }>
  * @returns createIsolatedProviderHomeMountGrantRuntimeCandidateの計算結果を返す。
@@ -1440,9 +1446,9 @@ export function createIsolatedProviderHomeMountGrantRuntimeCandidate(
 }
 
 /**
- * describeProviderHomeMountGrantRuntimeContractの処理を実行する。
+ * Provider Home Mount Grant Runtime 契約の公開契約を記述する。
  *
- * @responsibility describeProviderHomeMountGrantRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Home Mount Grant Runtime 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000010
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProviderHomeMountGrantRuntimeContractの計算結果を返す。

@@ -1,3 +1,9 @@
+/**
+ * reality-traceabilityに属する責務をまとめる。
+ *
+ * @responsibility CheckerRealityFindingを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000001
+ */
 import type { DomainIssue } from "../../../crdd-domain-library/src/index.ts";
 import {
   createRealitySymbolGraph as createDomainRealitySymbolGraph,
@@ -9,9 +15,9 @@ import { observeRealitySymbolRepository } from "../../../crdd-domain-library/src
 import type { VerifiedRepositoryRoot } from "../../../version-control/src/repository-identity/index.ts";
 
 /**
- * CheckerRealityFindingが扱う値の構造を表す。
+ * reality-traceabilityで使用するChecker Reality Findingの値契約を定義する。
  *
- * @responsibility CheckerRealityFindingに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Checker Reality FindingのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape CheckerRealityFindingが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CheckerRealityFindingで宣言した値と責務の対応を維持する。
@@ -26,9 +32,9 @@ export type CheckerRealityFinding = Readonly<{
 }>;
 
 /**
- * mapRealityDomainIssueToCheckerFindingの処理を実行する。
+ * Reality Domain Issue To Checker Findingを対応付ける。
  *
- * @responsibility mapRealityDomainIssueToCheckerFindingに対応する入力処理と結果生成を所有する。
+ * @responsibility Reality Domain Issue To Checker Findingの入力集合、対応規則、未対応結果の境界を所有する。
  * @trace ARCH-000001
  * @input issue: DomainIssue
  * @returns CheckerRealityFindingを返す。
@@ -240,9 +246,9 @@ export function mapRealityDomainIssueToCheckerFinding(
 }
 
 /**
- * validateRealitySymbolManifestの処理を実行する。
+ * Reality Symbol Manifestの契約を検証する。
  *
- * @responsibility validateRealitySymbolManifestに対応する入力処理と結果生成を所有する。
+ * @responsibility Reality Symbol Manifestの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000001
  * @input value: unknown、manifestPath: string
  * @returns validateRealitySymbolManifestの計算結果を返す。
@@ -267,9 +273,9 @@ export function validateRealitySymbolManifest(
 }
 
 /**
- * createRealitySymbolGraphの処理を実行する。
+ * Reality Symbol Graphを構築する。
  *
- * @responsibility createRealitySymbolGraphに対応する入力処理と結果生成を所有する。
+ * @responsibility Reality Symbol Graphの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000001
  * @input loadedManifests: readonly LoadedRealitySymbolManifest[]、knownArchIds: ReadonlySet<string>、knownQaIds: ReadonlySet<string>、knownLocalTestIdsByQaId: ReadonlyMap<string, ReadonlySet<string>>、registeredTestsByPath: ReadonlyMap< string, Readonly<{ owner: string; testId: string }> > | null、prerequisiteFindings: readonly CheckerRealityFinding[]
  * @returns Readonly<{ graph: RealitySymbolGraph | null; findings: readonly CheckerRealityFinding[]; }>を返す。
@@ -313,9 +319,9 @@ export function createRealitySymbolGraph(
 }
 
 /**
- * discoverRealitySymbolManifestsの処理を実行する。
+ * Reality Symbol Manifestsを探索する。
  *
- * @responsibility discoverRealitySymbolManifestsに対応する入力処理と結果生成を所有する。
+ * @responsibility Reality Symbol Manifestsの探索Root、対象母集団、未観測境界を所有する。
  * @trace ARCH-000001
  * @input capability: VerifiedRepositoryRoot
  * @returns Readonly<{ manifests: readonly LoadedRealitySymbolManifest[]; knownArchIds: ReadonlySet<string>; knownQaIds: ReadonlySet<string>; knownLocalTestIdsByQaId: ReadonlyMap<string, ReadonlySet<string>>; findings: readonly CheckerRealityFinding[]; }>を返す。

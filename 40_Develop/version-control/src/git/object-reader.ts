@@ -1,12 +1,18 @@
+/**
+ * object-readerに属する責務をまとめる。
+ *
+ * @responsibility ContentPolicyを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000002
+ */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { inflateSync } from "node:zlib";
 
 /**
- * ContentPolicyが扱う値の構造を表す。
+ * object-readerで使用するContent Policyの値契約を定義する。
  *
- * @responsibility ContentPolicyに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Content PolicyのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape ContentPolicyが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ContentPolicyで宣言した値と責務の対応を維持する。
@@ -34,9 +40,9 @@ const RESERVED_WINDOWS_SEGMENT =
 const INVALID_WINDOWS_CHARACTER = /[<>:"|?*\\\x00-\x1f\x7f]/u;
 
 /**
- * GitObjectTypeが扱う値の構造を表す。
+ * object-readerで使用するGit Object Typeの値契約を定義する。
  *
- * @responsibility GitObjectTypeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Git Object TypeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape GitObjectTypeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant GitObjectTypeで宣言した値と責務の対応を維持する。
@@ -46,9 +52,9 @@ const INVALID_WINDOWS_CHARACTER = /[<>:"|?*\\\x00-\x1f\x7f]/u;
  */
 type GitObjectType = "commit" | "tree" | "blob" | "tag";
 /**
- * GitObjectが扱う値の構造を表す。
+ * object-readerで使用するGit Objectの値契約を定義する。
  *
- * @responsibility GitObjectに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Git ObjectのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape GitObjectが表すProperty、識別子およびRelationを型として固定する。
  * @invariant GitObjectで宣言した値と責務の対応を維持する。
@@ -58,9 +64,9 @@ type GitObjectType = "commit" | "tree" | "blob" | "tag";
  */
 type GitObject = Readonly<{ type: GitObjectType; bytes: Buffer }>;
 /**
- * PackIndexが扱う値の構造を表す。
+ * object-readerで使用するPack Indexの値契約を定義する。
  *
- * @responsibility PackIndexに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Pack IndexのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape PackIndexが表すProperty、識別子およびRelationを型として固定する。
  * @invariant PackIndexで宣言した値と責務の対応を維持する。
@@ -77,9 +83,9 @@ type PackIndex = Readonly<{
   sortedOffsets: readonly number[];
 }>;
 /**
- * WorkspaceEntryが扱う値の構造を表す。
+ * object-readerで使用するWorkspace Entryの値契約を定義する。
  *
- * @responsibility WorkspaceEntryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Workspace EntryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape WorkspaceEntryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant WorkspaceEntryで宣言した値と責務の対応を維持する。
@@ -94,9 +100,9 @@ type WorkspaceEntry = Readonly<{
 }>;
 
 /**
- * pathSelectedの処理を実行する。
+ * path Selectedを決定する。
  *
- * @responsibility pathSelectedに対応する入力処理と結果生成を所有する。
+ * @responsibility path Selectedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
  * @input relativePath: string、readPaths: readonly string[]
  * @returns pathSelectedの計算結果を返す。
@@ -118,9 +124,9 @@ function pathSelected(relativePath: string, readPaths: readonly string[]) {
 }
 
 /**
- * treeSelectedの処理を実行する。
+ * tree Selectedを決定する。
  *
- * @responsibility treeSelectedに対応する入力処理と結果生成を所有する。
+ * @responsibility tree Selectedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
  * @input relativePath: string、readPaths: readonly string[]
  * @returns treeSelectedの計算結果を返す。
@@ -148,9 +154,9 @@ function treeSelected(relativePath: string, readPaths: readonly string[]) {
 }
 
 /**
- * stableFileの処理を実行する。
+ * Fileを安定Identityへ変換する。
  *
- * @responsibility stableFileに対応する入力処理と結果生成を所有する。
+ * @responsibility Fileの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000002
  * @input target: string、maximumBytes: number
  * @returns stableFileの計算結果を返す。
@@ -217,9 +223,9 @@ function stableFile(target: string, maximumBytes: number) {
 }
 
 /**
- * sha1の処理を実行する。
+ * sha1を決定する。
  *
- * @responsibility sha1に対応する入力処理と結果生成を所有する。
+ * @responsibility sha1の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
  * @input bytes: Buffer
  * @returns sha1の計算結果を返す。
@@ -237,9 +243,9 @@ function sha1(bytes: Buffer) {
 }
 
 /**
- * verifyObjectIdentityの処理を実行する。
+ * Object Identityを検証する。
  *
- * @responsibility verifyObjectIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Object Identityの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000002
  * @input objectId: string、type: GitObjectType、bytes: Buffer
  * @returns N/A: verifyObjectIdentityは戻り値を返さない。
@@ -265,9 +271,9 @@ function verifyObjectIdentity(
 }
 
 /**
- * parseLooseObjectの処理を実行する。
+ * Loose Objectを構造化値へ解析する。
  *
- * @responsibility parseLooseObjectに対応する入力処理と結果生成を所有する。
+ * @responsibility Loose Objectの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000002
  * @input objectId: string、compressed: Buffer
  * @returns GitObjectを返す。
@@ -304,9 +310,9 @@ function parseLooseObject(objectId: string, compressed: Buffer): GitObject {
 }
 
 /**
- * parsePackIndexの処理を実行する。
+ * Pack Indexを構造化値へ解析する。
  *
- * @responsibility parsePackIndexに対応する入力処理と結果生成を所有する。
+ * @responsibility Pack Indexの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000002
  * @input indexPath: string
  * @returns PackIndexを返す。
@@ -394,9 +400,9 @@ function parsePackIndex(indexPath: string): PackIndex {
 }
 
 /**
- * readVariableIntegerの処理を実行する。
+ * Variable Integerを読み取る。
  *
- * @responsibility readVariableIntegerに対応する入力処理と結果生成を所有する。
+ * @responsibility Variable Integerの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000002
  * @input bytes: Buffer、startIndex: number
  * @returns readVariableIntegerの計算結果を返す。
@@ -428,9 +434,9 @@ function readVariableInteger(bytes: Buffer, startIndex: number) {
 }
 
 /**
- * applyDeltaの処理を実行する。
+ * Deltaを適用する。
  *
- * @responsibility applyDeltaに対応する入力処理と結果生成を所有する。
+ * @responsibility Deltaの適用条件、変更結果、拒否境界を所有する。
  * @trace ARCH-000002
  * @input base: Buffer、delta: Buffer
  * @returns applyDeltaの計算結果を返す。
@@ -498,9 +504,9 @@ function applyDelta(base: Buffer, delta: Buffer) {
 }
 
 /**
- * decodePackOffsetの処理を実行する。
+ * Pack Offsetを検証済み値へ復号する。
  *
- * @responsibility decodePackOffsetに対応する入力処理と結果生成を所有する。
+ * @responsibility Pack Offsetの入力形式、復号結果、不正byte列の拒否境界を所有する。
  * @trace ARCH-000002
  * @input bytes: Buffer、startIndex: number、objectOffset: number
  * @returns decodePackOffsetの計算結果を返す。
@@ -537,9 +543,9 @@ function decodePackOffset(
 }
 
 /**
- * safePackIndexesの処理を実行する。
+ * Pack Indexesを安全条件の下で処理する。
  *
- * @responsibility safePackIndexesに対応する入力処理と結果生成を所有する。
+ * @responsibility Pack Indexesの安全条件、拒否条件、終了結果境界を所有する。
  * @trace ARCH-000002
  * @input commonDirectory: string
  * @returns safePackIndexesの計算結果を返す。
@@ -584,9 +590,9 @@ function safePackIndexes(commonDirectory: string) {
 }
 
 /**
- * createObjectReaderの処理を実行する。
+ * Object Readerを構築する。
  *
- * @responsibility createObjectReaderに対応する入力処理と結果生成を所有する。
+ * @responsibility Object Readerの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000002
  * @input commonDirectory: string
  * @returns createObjectReaderの計算結果を返す。
@@ -606,9 +612,9 @@ function createObjectReader(commonDirectory: string) {
   const resolvingObjectIds = new Set<string>();
 
   /**
-   * packBytesの処理を実行する。
+   * pack Bytesを決定する。
    *
-   * @responsibility packBytesに対応する入力処理と結果生成を所有する。
+   * @responsibility pack Bytesの導出に必要な入力、判定規則、返却結果の境界を所有する。
    * @trace ARCH-000002
    * @input index: PackIndex
    * @returns packBytesの計算結果を返す。
@@ -644,9 +650,9 @@ function createObjectReader(commonDirectory: string) {
   }
 
   /**
-   * resolvePackObjectの処理を実行する。
+   * Pack Objectを一意に解決する。
    *
-   * @responsibility resolvePackObjectに対応する入力処理と結果生成を所有する。
+   * @responsibility Pack Objectの候補集合、解決規則、曖昧時の拒否境界を所有する。
    * @trace ARCH-000002
    * @input index: PackIndex、objectId: string、objectOffset: number、depth: number
    * @returns GitObjectを返す。
@@ -735,9 +741,9 @@ function createObjectReader(commonDirectory: string) {
   }
 
   /**
-   * readObjectの処理を実行する。
+   * Objectを読み取る。
    *
-   * @responsibility readObjectに対応する入力処理と結果生成を所有する。
+   * @responsibility Objectの読取り元、上限、読取不能時の結果境界を所有する。
    * @trace ARCH-000002
    * @input objectId: string、depth
    * @returns GitObjectを返す。
@@ -800,9 +806,9 @@ function createObjectReader(commonDirectory: string) {
 }
 
 /**
- * validSegmentの処理を実行する。
+ * Segmentが有効か判定する。
  *
- * @responsibility validSegmentに対応する入力処理と結果生成を所有する。
+ * @responsibility Segmentの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000002
  * @input segment: string
  * @returns validSegmentの計算結果を返す。
@@ -830,9 +836,9 @@ function validSegment(segment: string) {
 }
 
 /**
- * decodeTreeNameの処理を実行する。
+ * Tree Nameを検証済み値へ復号する。
  *
- * @responsibility decodeTreeNameに対応する入力処理と結果生成を所有する。
+ * @responsibility Tree Nameの入力形式、復号結果、不正byte列の拒否境界を所有する。
  * @trace ARCH-000002
  * @input bytes: Buffer
  * @returns decodeTreeNameの計算結果を返す。
@@ -852,9 +858,9 @@ function decodeTreeName(bytes: Buffer) {
 }
 
 /**
- * commitTreeの処理を実行する。
+ * Treeを確定する。
  *
- * @responsibility commitTreeに対応する入力処理と結果生成を所有する。
+ * @responsibility Treeの確定条件、不可逆Effect、失敗時の未確定境界を所有する。
  * @trace ARCH-000002
  * @input object: GitObject
  * @returns commitTreeの計算結果を返す。
@@ -887,9 +893,9 @@ function commitTree(object: GitObject) {
 }
 
 /**
- * parseTreeの処理を実行する。
+ * Treeを構造化値へ解析する。
  *
- * @responsibility parseTreeに対応する入力処理と結果生成を所有する。
+ * @responsibility Treeの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000002
  * @input readObject: (objectId: string) => GitObject、treeId: string、parentPath: string、entries: WorkspaceEntry[]、depth: number、budget: { bytes: number; files: number }、readPaths: readonly string[] | null
  * @returns N/A: parseTreeは戻り値を返さない。
@@ -986,9 +992,9 @@ function parseTree(
 }
 
 /**
- * workspaceRootの処理を実行する。
+ * workspace Rootを決定する。
  *
- * @responsibility workspaceRootに対応する入力処理と結果生成を所有する。
+ * @responsibility workspace Rootの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
  * @input target: string
  * @returns workspaceRootの計算結果を返す。
@@ -1015,9 +1021,9 @@ function workspaceRoot(target: string) {
 }
 
 /**
- * contentManifestの処理を実行する。
+ * content Manifestを決定する。
  *
- * @responsibility contentManifestに対応する入力処理と結果生成を所有する。
+ * @responsibility content Manifestの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
  * @input entries: readonly WorkspaceEntry[]
  * @returns contentManifestの計算結果を返す。
@@ -1047,9 +1053,9 @@ function contentManifest(entries: readonly WorkspaceEntry[]) {
 }
 
 /**
- * inspectGitCommitTreeCandidateの処理を実行する。
+ * Git Commit Tree 候補を観測する。
  *
- * @responsibility inspectGitCommitTreeCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Git Commit Tree 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000002
  * @input candidate: unknown
  * @returns inspectGitCommitTreeCandidateの計算結果を返す。
@@ -1103,9 +1109,9 @@ export function inspectGitCommitTreeCandidate(candidate: unknown) {
 }
 
 /**
- * materializeGitCommitTreeCandidateUsingPolicyの処理を実行する。
+ * Git Commit Tree 候補 Using PolicyをFilesystem上の候補として具体化する。
  *
- * @responsibility materializeGitCommitTreeCandidateUsingPolicyに対応する入力処理と結果生成を所有する。
+ * @responsibility Git Commit Tree 候補 Using Policyの入力Snapshot、書込み範囲、部分生成の失敗境界を所有する。
  * @trace ARCH-000002
  * @input candidate: unknown、shouldRejectContent: ContentPolicy | null
  * @returns materializeGitCommitTreeCandidateUsingPolicyの計算結果を返す。
@@ -1228,9 +1234,9 @@ function materializeGitCommitTreeCandidateUsingPolicy(
 }
 
 /**
- * materializeGitCommitTreeCandidateの処理を実行する。
+ * Git Commit Tree 候補をFilesystem上の候補として具体化する。
  *
- * @responsibility materializeGitCommitTreeCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Git Commit Tree 候補の入力Snapshot、書込み範囲、部分生成の失敗境界を所有する。
  * @trace ARCH-000002
  * @input candidate: unknown、shouldRejectContent: ContentPolicy
  * @returns materializeGitCommitTreeCandidateの計算結果を返す。
@@ -1254,9 +1260,9 @@ export function materializeGitCommitTreeCandidate(
 }
 
 /**
- * materializeGitReleaseCandidateTreeの処理を実行する。
+ * Git Release 候補 TreeをFilesystem上の候補として具体化する。
  *
- * @responsibility materializeGitReleaseCandidateTreeに対応する入力処理と結果生成を所有する。
+ * @responsibility Git Release 候補 Treeの入力Snapshot、書込み範囲、部分生成の失敗境界を所有する。
  * @trace ARCH-000002
  * @input candidate: unknown
  * @returns materializeGitReleaseCandidateTreeの計算結果を返す。
@@ -1274,9 +1280,9 @@ export function materializeGitReleaseCandidateTree(candidate: unknown) {
 }
 
 /**
- * readGitCommitFileCandidateの処理を実行する。
+ * Git Commit File 候補を読み取る。
  *
- * @responsibility readGitCommitFileCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Git Commit File 候補の読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000002
  * @input candidate: unknown
  * @returns readGitCommitFileCandidateの計算結果を返す。
@@ -1350,9 +1356,9 @@ export function readGitCommitFileCandidate(candidate: unknown) {
 }
 
 /**
- * describeGitObjectReaderContractの処理を実行する。
+ * Git Object Reader 契約の公開契約を記述する。
  *
- * @responsibility describeGitObjectReaderContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Git Object Reader 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000002
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeGitObjectReaderContractの計算結果を返す。

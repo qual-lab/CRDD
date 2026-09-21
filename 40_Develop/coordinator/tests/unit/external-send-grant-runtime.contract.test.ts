@@ -6,7 +6,7 @@
  * @trace PRL-UT-006
  * @level UT
  * @scope external、send、grant、runtime
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -36,7 +36,7 @@ const SCOPE = Object.freeze({
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 function resolveDeferredBoolean(resolver: unknown, isResolved: boolean) {
   assert.equal(typeof resolver, "function");
@@ -53,7 +53,7 @@ function resolveDeferredBoolean(resolver: unknown, isResolved: boolean) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 function resolveDeferredLine(resolver: unknown, line: string | null) {
   assert.equal(typeof resolver, "function");
@@ -70,7 +70,7 @@ function resolveDeferredLine(resolver: unknown, line: string | null) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("承認失敗は公開値を含まないbounded outcomeへ分類する", async () => {
   for (const status of [
@@ -158,7 +158,7 @@ test("承認失敗は公開値を含まないbounded outcomeへ分類する", as
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 function fixture(
   shouldConfirm:
@@ -307,7 +307,7 @@ function fixture(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("承認表示完了後だけchallengeを読み最終表示完了後だけ成功する", async () => {
   const challenge = "123456";
@@ -361,7 +361,7 @@ test("承認表示完了後だけchallengeを読み最終表示完了後だけ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("cleanup不明はProcess再起動要求だけをbounded結果へ返す", async () => {
   const current = fixture(Object.freeze({ status: "cleanup_unknown" }));
@@ -393,7 +393,7 @@ test("cleanup不明はProcess再起動要求だけをbounded結果へ返す", as
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("External Sendの7対話状態はGrant・手動回復・Recovery ID境界へ完全投影する", async () => {
   for (const status of [
@@ -443,7 +443,7 @@ test("External Sendの7対話状態はGrant・手動回復・Recovery ID境界�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("承認表示・入力・最終表示の各失敗をGrant候補へ進めない", async () => {
   const handles = Object.freeze({ input: 11, output: 12 });
@@ -503,7 +503,7 @@ test("承認表示・入力・最終表示の各失敗をGrant候補へ進めな
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("取消状態を承認表示開始から最終表示完了まで保持する", async () => {
   const handles = Object.freeze({ input: 11, output: 12 });
@@ -623,7 +623,7 @@ test("取消状態を承認表示開始から最終表示完了まで保持す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("開始前に取消済みの要求は表示とGrant発行を0にする", async () => {
   const current = fixture();
@@ -673,7 +673,7 @@ test("開始前に取消済みの要求は表示とGrant発行を0にする", as
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("Local Userの対話確認をRevision・Scope・Provider・Roleへ結合する", async () => {
   const current = fixture();
@@ -750,7 +750,7 @@ test("Local Userの対話確認をRevision・Scope・Provider・Roleへ結合す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ昇格しない", async () => {
   const denied = fixture(false);
@@ -813,7 +813,7 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("公開契約はcaller文字列ではなく短命の対話Grantを固定する", () => {
   const contract = describeExternalSendGrantRuntimeContract();
@@ -878,7 +878,7 @@ test("公開契約はcaller文字列ではなく短命の対話Grantを固定す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("同じRuntime-owned初期同意境界では対話を繰り返さず短命Operation Grantだけを発行する", async () => {
   const reused = fixture(false, "confirmed");
@@ -937,7 +937,7 @@ test("同じRuntime-owned初期同意境界では対話を繰り返さず短命O
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("Repository revisionとTask scope変更は永続同意を拡張せず各Operation Grantへ再結合する", async () => {
   const current = fixture(false, "confirmed");
@@ -978,7 +978,7 @@ test("Repository revisionとTask scope変更は永続同意を拡張せず各Ope
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("配列境界を含むScope Hashは一意で、承認表示に全送信fieldを安全に含める", async () => {
   const left = {
@@ -1032,7 +1032,7 @@ test("配列境界を含むScope Hashは一意で、承認表示に全送信fiel
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("認識済みSecretをTask scopeへ含むGrantは発行しない", async () => {
   const current = fixture();

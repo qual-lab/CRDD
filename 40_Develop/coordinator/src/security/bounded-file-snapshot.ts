@@ -1,10 +1,16 @@
+/**
+ * bounded-file-snapshotに属する責務をまとめる。
+ *
+ * @responsibility StableFileIdentityを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import fs from "node:fs";
 import path from "node:path";
 
 /**
- * StableFileIdentityが扱う値の構造を表す。
+ * bounded-file-snapshotで使用するStable File Identityの値契約を定義する。
  *
- * @responsibility StableFileIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Stable File IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape StableFileIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant StableFileIdentityで宣言した値と責務の対応を維持する。
@@ -23,9 +29,9 @@ export type StableFileIdentity = Readonly<{
 }>;
 
 /**
- * identityの処理を実行する。
+ * identityを決定する。
  *
- * @responsibility identityに対応する入力処理と結果生成を所有する。
+ * @responsibility identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input metadata: fs.BigIntStats、maximumBytes: number
  * @returns identityの計算結果を返す。
@@ -61,9 +67,9 @@ function identity(metadata: fs.BigIntStats, maximumBytes: number) {
 }
 
 /**
- * sameStableFileIdentityの処理を実行する。
+ * Stable File Identityが同一かを判定する。
  *
- * @responsibility sameStableFileIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Stable File Identityの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000014
  * @input left: StableFileIdentity、right: StableFileIdentity
  * @returns sameStableFileIdentityの計算結果を返す。
@@ -92,9 +98,9 @@ export function sameStableFileIdentity(
 }
 
 /**
- * readStableBoundedFileSnapshotの処理を実行する。
+ * Stable Bounded File Snapshotを読み取る。
  *
- * @responsibility readStableBoundedFileSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility Stable Bounded File Snapshotの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000014
  * @input file: string、maximumBytes: number
  * @returns readStableBoundedFileSnapshotの計算結果を返す。

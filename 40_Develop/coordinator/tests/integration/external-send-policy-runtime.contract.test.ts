@@ -6,7 +6,7 @@
  * @trace EST-IT-004
  * @level IT
  * @scope external、send、policy、runtime
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -45,7 +45,7 @@ const fileHash = "2".repeat(64);
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 function policy() {
   const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
@@ -67,7 +67,7 @@ function policy() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 function writeObject(commonDirectory: string, type: string, bytes: Buffer) {
   const framed = Buffer.concat([
@@ -96,7 +96,7 @@ function writeObject(commonDirectory: string, type: string, bytes: Buffer) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 function repository(
   t: TestContext,
@@ -185,7 +185,7 @@ function repository(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 function resolve(t: TestContext, root: string) {
   const owned = createOwnedOperationDirectories();
@@ -212,7 +212,7 @@ function resolve(t: TestContext, root: string) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 test("Repository所有Policyへ分類・Provider別処理境界・Candidate保持を固定する", () => {
   const compiled = compileExternalSendPolicyCandidate(
@@ -245,7 +245,7 @@ test("Repository所有Policyへ分類・Provider別処理境界・Candidate保�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 test("未知field・Provider欠落・不正保持期間・順序差をPolicyへ昇格しない", () => {
   const valid = policy() as Record<string, unknown>;
@@ -287,7 +287,7 @@ test("未知field・Provider欠落・不正保持期間・順序差をPolicyへ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 test("公開契約は開始Commitの固定Policy fileと不明時停止を保持する", () => {
   const contract = describeExternalSendPolicyRuntimeContract();
@@ -309,7 +309,7 @@ test("公開契約は開始Commitの固定Policy fileと不明時停止を保持
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 test("別RepositoryのPolicy欠落・不正・disabled・承認済みを開始Commitから区別する", (t) => {
   assert.equal(resolve(t, repository(t, null)), null);

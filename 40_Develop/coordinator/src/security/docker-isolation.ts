@@ -1,3 +1,9 @@
+/**
+ * docker-isolationに属する責務をまとめる。
+ *
+ * @responsibility EntityTypeを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import type { SpawnSyncReturns } from "node:child_process";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
@@ -33,9 +39,9 @@ const PROBE_MARKER = "crdd-coordinator-isolation-v1";
 const OWNERSHIP_LABEL = "crdd.coordinator.probe";
 const DOCKER_DESKTOP_ENGINE = "npipe:////./pipe/dockerDesktopLinuxEngine";
 /**
- * EntityTypeが扱う値の構造を表す。
+ * docker-isolationで使用するEntity Typeの値契約を定義する。
  *
- * @responsibility EntityTypeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Entity TypeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape EntityTypeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant EntityTypeで宣言した値と責務の対応を維持する。
@@ -45,9 +51,9 @@ const DOCKER_DESKTOP_ENGINE = "npipe:////./pipe/dockerDesktopLinuxEngine";
  */
 type EntityType = "file" | "directory";
 /**
- * FilesystemIdentityが扱う値の構造を表す。
+ * docker-isolationで使用するFilesystem Identityの値契約を定義する。
  *
- * @responsibility FilesystemIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Filesystem IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape FilesystemIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant FilesystemIdentityで宣言した値と責務の対応を維持する。
@@ -61,9 +67,9 @@ type FilesystemIdentity = Readonly<{
   birthtimeNs: bigint;
 }>;
 /**
- * SerializableIdentityが扱う値の構造を表す。
+ * docker-isolationで使用するSerializable Identityの値契約を定義する。
  *
- * @responsibility SerializableIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Serializable IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape SerializableIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant SerializableIdentityで宣言した値と責務の対応を維持する。
@@ -77,9 +83,9 @@ type SerializableIdentity = Readonly<{
   birthtimeNs: string;
 }>;
 /**
- * DockerMountsが扱う値の構造を表す。
+ * docker-isolationで使用するDocker Mountsの値契約を定義する。
  *
- * @responsibility DockerMountsに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker MountsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerMountsが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerMountsで宣言した値と責務の対応を維持する。
@@ -96,9 +102,9 @@ type DockerMounts = Readonly<{
   management: string;
 }>;
 /**
- * DockerEnvironmentが扱う値の構造を表す。
+ * docker-isolationで使用するDocker Environmentの値契約を定義する。
  *
- * @responsibility DockerEnvironmentに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker EnvironmentのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerEnvironmentが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerEnvironmentで宣言した値と責務の対応を維持する。
@@ -108,9 +114,9 @@ type DockerMounts = Readonly<{
  */
 type DockerEnvironment = Record<string, string>;
 /**
- * DockerExecutionが扱う値の構造を表す。
+ * docker-isolationで使用するDocker Executionの値契約を定義する。
  *
- * @responsibility DockerExecutionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker ExecutionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerExecutionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerExecutionで宣言した値と責務の対応を維持する。
@@ -125,9 +131,9 @@ type DockerExecution = Partial<
   >
 >;
 /**
- * AsyncDockerExecutionが扱う値の構造を表す。
+ * docker-isolationで使用するAsync Docker Executionの値契約を定義する。
  *
- * @responsibility AsyncDockerExecutionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Async Docker ExecutionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape AsyncDockerExecutionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant AsyncDockerExecutionで宣言した値と責務の対応を維持する。
@@ -138,9 +144,9 @@ type DockerExecution = Partial<
 type AsyncDockerExecution = DockerExecution &
   Readonly<{ outputExceeded: boolean }>;
 /**
- * ContainerIdentityが扱う値の構造を表す。
+ * docker-isolationで使用するContainer Identityの値契約を定義する。
  *
- * @responsibility ContainerIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Container IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ContainerIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ContainerIdentityで宣言した値と責務の対応を維持する。
@@ -154,9 +160,9 @@ type ContainerIdentity = Readonly<{
   source?: string;
 }>;
 /**
- * CliSnapshotが扱う値の構造を表す。
+ * docker-isolationで使用するCli Snapshotの値契約を定義する。
  *
- * @responsibility CliSnapshotに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Cli SnapshotのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape CliSnapshotが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CliSnapshotで宣言した値と責務の対応を維持する。
@@ -166,9 +172,9 @@ type ContainerIdentity = Readonly<{
  */
 type CliSnapshot = DockerCliTrustSnapshot;
 /**
- * AbsenceObservationが扱う値の構造を表す。
+ * docker-isolationで使用するAbsence Observationの値契約を定義する。
  *
- * @responsibility AbsenceObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Absence ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape AbsenceObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant AbsenceObservationで宣言した値と責務の対応を維持する。
@@ -184,9 +190,9 @@ type AbsenceObservation = Readonly<{
   cli: object;
 }>;
 /**
- * DockerProbeFailureStateが扱う値の構造を表す。
+ * docker-isolationで使用するDocker Probe 失敗 状態の値契約を定義する。
  *
- * @responsibility DockerProbeFailureStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Probe 失敗 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerProbeFailureStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerProbeFailureStateで宣言した値と責務の対応を維持する。
@@ -201,9 +207,9 @@ type DockerProbeFailureState = Readonly<{
   rollbackFailed: boolean;
 }>;
 /**
- * DockerRecoveryRecordが扱う値の構造を表す。
+ * docker-isolationで使用するDocker 回復 記録の値契約を定義する。
  *
- * @responsibility DockerRecoveryRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker 回復 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerRecoveryRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerRecoveryRecordで宣言した値と責務の対応を維持する。
@@ -225,9 +231,9 @@ type DockerRecoveryRecord = Readonly<{
   createdAt: string;
 }>;
 /**
- * LoadedDockerRecoveryが扱う値の構造を表す。
+ * docker-isolationで使用するLoaded Docker 回復の値契約を定義する。
  *
- * @responsibility LoadedDockerRecoveryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Loaded Docker 回復のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape LoadedDockerRecoveryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LoadedDockerRecoveryで宣言した値と責務の対応を維持する。
@@ -253,9 +259,9 @@ const containerIdentities = new WeakMap<object, ContainerIdentity>();
 const cliIdentities = new WeakMap<object, CliSnapshot>();
 const absenceCapabilities = new WeakMap<object, AbsenceObservation>();
 /**
- * PendingDynamicFakeProviderLifecycleが扱う値の構造を表す。
+ * docker-isolationで使用するPending Dynamic Fake Provider Lifecycleの値契約を定義する。
  *
- * @responsibility PendingDynamicFakeProviderLifecycleに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Pending Dynamic Fake Provider LifecycleのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape PendingDynamicFakeProviderLifecycleが表すProperty、識別子およびRelationを型として固定する。
  * @invariant PendingDynamicFakeProviderLifecycleで宣言した値と責務の対応を維持する。
@@ -271,9 +277,9 @@ type PendingDynamicFakeProviderLifecycle = Readonly<{
   hostRecoveryId: string;
 }>;
 /**
- * DynamicFakeProviderFinalizationが扱う値の構造を表す。
+ * docker-isolationで使用するDynamic Fake Provider Finalizationの値契約を定義する。
  *
- * @responsibility DynamicFakeProviderFinalizationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Dynamic Fake Provider FinalizationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DynamicFakeProviderFinalizationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DynamicFakeProviderFinalizationで宣言した値と責務の対応を維持する。
@@ -290,9 +296,9 @@ type DynamicFakeProviderFinalization = Readonly<{
   hostCleanupCapability: object;
 }>;
 /**
- * DynamicFakeProviderAbsenceが扱う値の構造を表す。
+ * docker-isolationで使用するDynamic Fake Provider Absenceの値契約を定義する。
  *
- * @responsibility DynamicFakeProviderAbsenceに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Dynamic Fake Provider AbsenceのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DynamicFakeProviderAbsenceが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DynamicFakeProviderAbsenceで宣言した値と責務の対応を維持する。
@@ -307,9 +313,9 @@ type DynamicFakeProviderAbsence = Readonly<{
   confirmedHostRecoveryId: string;
 }>;
 /**
- * DynamicFakeProviderHostCleanupが扱う値の構造を表す。
+ * docker-isolationで使用するDynamic Fake Provider Host 清掃の値契約を定義する。
  *
- * @responsibility DynamicFakeProviderHostCleanupに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Dynamic Fake Provider Host 清掃のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DynamicFakeProviderHostCleanupが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DynamicFakeProviderHostCleanupで宣言した値と責務の対応を維持する。
@@ -342,9 +348,9 @@ const RECOVERY_FILE = "docker-probe-recovery-v1.json";
 const OPERATION_PREFIX = "crdd-coordinator-doctor-";
 
 /**
- * DockerProbeResultが扱う値の構造を表す。
+ * docker-isolationで使用するDocker Probe 結果の値契約を定義する。
  *
- * @responsibility DockerProbeResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Probe 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerProbeResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerProbeResultで宣言した値と責務の対応を維持する。
@@ -365,9 +371,9 @@ type DockerProbeResult = Readonly<{
 }>;
 
 /**
- * DynamicFakeProviderLifecycleObservationが扱う値の構造を表す。
+ * docker-isolationで使用するDynamic Fake Provider Lifecycle Observationの値契約を定義する。
  *
- * @responsibility DynamicFakeProviderLifecycleObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Dynamic Fake Provider Lifecycle ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DynamicFakeProviderLifecycleObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DynamicFakeProviderLifecycleObservationで宣言した値と責務の対応を維持する。
@@ -404,9 +410,9 @@ type DynamicFakeProviderLifecycleObservation = Readonly<{
 }>;
 
 /**
- * DynamicFakeProviderCancellationResultが扱う値の構造を表す。
+ * docker-isolationで使用するDynamic Fake Provider Cancellation 結果の値契約を定義する。
  *
- * @responsibility DynamicFakeProviderCancellationResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Dynamic Fake Provider Cancellation 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DynamicFakeProviderCancellationResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DynamicFakeProviderCancellationResultで宣言した値と責務の対応を維持する。
@@ -444,9 +450,9 @@ export type DynamicFakeProviderCancellationResult = Readonly<{
 }>;
 
 /**
- * DynamicFakeProviderRecoverableResidueResultが扱う値の構造を表す。
+ * docker-isolationで使用するDynamic Fake Provider Recoverable Residue 結果の値契約を定義する。
  *
- * @responsibility DynamicFakeProviderRecoverableResidueResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Dynamic Fake Provider Recoverable Residue 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DynamicFakeProviderRecoverableResidueResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DynamicFakeProviderRecoverableResidueResultで宣言した値と責務の対応を維持する。
@@ -474,9 +480,9 @@ export const OWNED_ATTACH_TERMINATION_FIXTURE_SCENARIOS = Object.freeze([
   "output_overflow",
 ] as const);
 /**
- * OwnedAttachTerminationFixtureScenarioが扱う値の構造を表す。
+ * docker-isolationで使用する所有 Attach Termination Fixture Scenarioの値契約を定義する。
  *
- * @responsibility OwnedAttachTerminationFixtureScenarioに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 所有 Attach Termination Fixture ScenarioのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape OwnedAttachTerminationFixtureScenarioが表すProperty、識別子およびRelationを型として固定する。
  * @invariant OwnedAttachTerminationFixtureScenarioで宣言した値と責務の対応を維持する。
@@ -488,9 +494,9 @@ export type OwnedAttachTerminationFixtureScenario =
   (typeof OWNED_ATTACH_TERMINATION_FIXTURE_SCENARIOS)[number];
 
 /**
- * isObjectの処理を実行する。
+ * Objectかを判定する。
  *
- * @responsibility isObjectに対応する入力処理と結果生成を所有する。
+ * @responsibility Objectの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is objectを返す。
@@ -508,9 +514,9 @@ function isObject(value: unknown): value is object {
 }
 
 /**
- * ownValueの処理を実行する。
+ * own Valueを決定する。
  *
- * @responsibility ownValueに対応する入力処理と結果生成を所有する。
+ * @responsibility own Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: object、key: string
  * @returns unknownを返す。
@@ -534,9 +540,9 @@ function ownValue(value: object, key: string): unknown {
 }
 
 /**
- * ownStringの処理を実行する。
+ * own Stringを決定する。
  *
- * @responsibility ownStringに対応する入力処理と結果生成を所有する。
+ * @responsibility own Stringの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、key: string
  * @returns string | nullを返す。
@@ -555,9 +561,9 @@ function ownString(value: unknown, key: string): string | null {
 }
 
 /**
- * errorCodeの処理を実行する。
+ * error Codeを決定する。
  *
- * @responsibility errorCodeに対応する入力処理と結果生成を所有する。
+ * @responsibility error Codeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input error: unknown
  * @returns string | nullを返す。
@@ -575,9 +581,9 @@ function errorCode(error: unknown): string | null {
 }
 
 /**
- * errorMessageの処理を実行する。
+ * error Messageを決定する。
  *
- * @responsibility errorMessageに対応する入力処理と結果生成を所有する。
+ * @responsibility error Messageの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input error: unknown
  * @returns string | nullを返す。
@@ -595,9 +601,9 @@ function errorMessage(error: unknown): string | null {
 }
 
 /**
- * normalizeSerializableIdentityの処理を実行する。
+ * Serializable Identityを固定Schemaへ正規化する。
  *
- * @responsibility normalizeSerializableIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Serializable Identityの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns SerializableIdentityを返す。
@@ -621,9 +627,9 @@ function normalizeSerializableIdentity(value: unknown): SerializableIdentity {
 }
 
 /**
- * normalizeDockerRecoveryRecordの処理を実行する。
+ * Docker 回復 記録を固定Schemaへ正規化する。
  *
- * @responsibility normalizeDockerRecoveryRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 記録の入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns DockerRecoveryRecordを返す。
@@ -719,9 +725,9 @@ export const DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS = Object.freeze([
   "nonzero_exit",
 ] as const);
 /**
- * DynamicFakeProviderFailureScenarioが扱う値の構造を表す。
+ * docker-isolationで使用するDynamic Fake Provider 失敗 Scenarioの値契約を定義する。
  *
- * @responsibility DynamicFakeProviderFailureScenarioに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Dynamic Fake Provider 失敗 ScenarioのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DynamicFakeProviderFailureScenarioが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DynamicFakeProviderFailureScenarioで宣言した値と責務の対応を維持する。
@@ -786,9 +792,9 @@ const repositoryOwnedProbeSources = Object.freeze(
 );
 
 /**
- * filesystemIdentityの処理を実行する。
+ * filesystem Identityを決定する。
  *
- * @responsibility filesystemIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility filesystem Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: string、expectedType: EntityType
  * @returns FilesystemIdentityを返す。
@@ -825,9 +831,9 @@ function filesystemIdentity(
 }
 
 /**
- * serializableIdentityの処理を実行する。
+ * serializable Identityを決定する。
  *
- * @responsibility serializableIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility serializable Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: string、expectedType: EntityType
  * @returns SerializableIdentityを返す。
@@ -853,9 +859,9 @@ function serializableIdentity(
 }
 
 /**
- * identityMatchesRecordの処理を実行する。
+ * identity Matches 記録を決定する。
  *
- * @responsibility identityMatchesRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility identity Matches 記録の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: string、record: SerializableIdentity、expectedType: EntityType
  * @returns booleanを返す。
@@ -886,9 +892,9 @@ function identityMatchesRecord(
 }
 
 /**
- * createTrustedDockerCliCapabilityの処理を実行する。
+ * Trusted Docker Cli Capabilityを構築する。
  *
- * @responsibility createTrustedDockerCliCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Trusted Docker Cli Capabilityの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns Readonly<{ kind: "trusted_docker_cli"; }>を返す。
@@ -918,9 +924,9 @@ function createTrustedDockerCliCapability(): Readonly<{
 }
 
 /**
- * verifyTrustedDockerCliCapabilityの処理を実行する。
+ * Trusted Docker Cli Capabilityを検証する。
  *
- * @responsibility verifyTrustedDockerCliCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Trusted Docker Cli Capabilityの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input capability: object
  * @returns stringを返す。
@@ -944,9 +950,9 @@ function verifyTrustedDockerCliCapability(capability: object): string {
 }
 
 /**
- * bindMountの処理を実行する。
+ * MountをIdentityへ結合する。
  *
- * @responsibility bindMountに対応する入力処理と結果生成を所有する。
+ * @responsibility Mountの結合条件、相関Identity、不一致の拒否境界を所有する。
  * @trace ARCH-000008
  * @input source: string、destination: string
  * @returns stringを返す。
@@ -965,9 +971,9 @@ function bindMount(source: string, destination: string): string {
 }
 
 /**
- * containerNameの処理を実行する。
+ * container Nameを決定する。
  *
- * @responsibility containerNameに対応する入力処理と結果生成を所有する。
+ * @responsibility container Nameの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input probeId: string
  * @returns stringを返す。
@@ -985,9 +991,9 @@ function containerName(probeId: string): string {
 }
 
 /**
- * dockerCreateArgumentsの処理を実行する。
+ * docker Create Argumentsを決定する。
  *
- * @responsibility dockerCreateArgumentsに対応する入力処理と結果生成を所有する。
+ * @responsibility docker Create Argumentsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input mounts: DockerMounts、probeId: string、source: string
  * @returns string[]を返す。
@@ -1040,9 +1046,9 @@ function dockerCreateArguments(
 }
 
 /**
- * dockerCreateArgumentsForFixtureの処理を実行する。
+ * docker Create Arguments For Fixtureを決定する。
  *
- * @responsibility dockerCreateArgumentsForFixtureに対応する入力処理と結果生成を所有する。
+ * @responsibility docker Create Arguments For Fixtureの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input mounts: DockerMounts、probeId
  * @returns string[]を返す。
@@ -1063,9 +1069,9 @@ export function dockerCreateArgumentsForFixture(
 }
 
 /**
- * dockerCreateArgumentsForFailureVerificationFixtureの処理を実行する。
+ * docker Create Arguments For 失敗 Verification Fixtureを決定する。
  *
- * @responsibility dockerCreateArgumentsForFailureVerificationFixtureに対応する入力処理と結果生成を所有する。
+ * @responsibility docker Create Arguments For 失敗 Verification Fixtureの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input mounts: DockerMounts、scenario: DynamicFakeProviderFailureScenario、probeId
  * @returns string[]を返す。
@@ -1091,9 +1097,9 @@ export function dockerCreateArgumentsForFailureVerificationFixture(
 }
 
 /**
- * dockerCreateArgumentsForCancellationVerificationFixtureの処理を実行する。
+ * docker Create Arguments For Cancellation Verification Fixtureを決定する。
  *
- * @responsibility dockerCreateArgumentsForCancellationVerificationFixtureに対応する入力処理と結果生成を所有する。
+ * @responsibility docker Create Arguments For Cancellation Verification Fixtureの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input mounts: DockerMounts、probeId
  * @returns string[]を返す。
@@ -1114,9 +1120,9 @@ export function dockerCreateArgumentsForCancellationVerificationFixture(
 }
 
 /**
- * normalizeDockerIsolationResultの処理を実行する。
+ * Docker Isolation 結果を固定Schemaへ正規化する。
  *
- * @responsibility normalizeDockerIsolationResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Isolation 結果の入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000008
  * @input execution: DockerExecution
  * @returns Readonly<{ status: "confirmed" | "blocked"; reason: string }>を返す。
@@ -1196,9 +1202,9 @@ export function normalizeDockerIsolationResult(
 }
 
 /**
- * errorCodeEqualsの処理を実行する。
+ * error Code Equalsを決定する。
  *
- * @responsibility errorCodeEqualsに対応する入力処理と結果生成を所有する。
+ * @responsibility error Code Equalsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input error: unknown、expected: string
  * @returns booleanを返す。
@@ -1216,9 +1222,9 @@ function errorCodeEquals(error: unknown, expected: string): boolean {
 }
 
 /**
- * dynamicFakeLifecycleBlockedの処理を実行する。
+ * dynamic Fake Lifecycle Blockedを決定する。
  *
- * @responsibility dynamicFakeLifecycleBlockedに対応する入力処理と結果生成を所有する。
+ * @responsibility dynamic Fake Lifecycle Blockedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input reason: string
  * @returns DynamicFakeProviderLifecycleObservationを返す。
@@ -1262,9 +1268,9 @@ function dynamicFakeLifecycleBlocked(
 }
 
 /**
- * normalizeDynamicFakeProviderLifecycleForFixtureの処理を実行する。
+ * Dynamic Fake Provider Lifecycle For Fixtureを固定Schemaへ正規化する。
  *
- * @responsibility normalizeDynamicFakeProviderLifecycleForFixtureに対応する入力処理と結果生成を所有する。
+ * @responsibility Dynamic Fake Provider Lifecycle For Fixtureの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000008
  * @input execution: DockerExecution、elapsedMs: number
  * @returns DynamicFakeProviderLifecycleObservationを返す。
@@ -1337,9 +1343,9 @@ export function normalizeDynamicFakeProviderLifecycleForFixture(
 }
 
 /**
- * cancellationBlockedの処理を実行する。
+ * cancellation Blockedを決定する。
  *
- * @responsibility cancellationBlockedに対応する入力処理と結果生成を所有する。
+ * @responsibility cancellation Blockedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input reason: string
  * @returns DynamicFakeProviderCancellationResultを返す。
@@ -1386,9 +1392,9 @@ function cancellationBlocked(
 }
 
 /**
- * normalizeCancellationFailureの処理を実行する。
+ * Cancellation 失敗を固定Schemaへ正規化する。
  *
- * @responsibility normalizeCancellationFailureに対応する入力処理と結果生成を所有する。
+ * @responsibility Cancellation 失敗の入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000008
  * @input error: unknown
  * @returns stringを返す。
@@ -1423,9 +1429,9 @@ function normalizeCancellationFailure(error: unknown): string {
 }
 
 /**
- * normalizeDynamicFakeProviderCancellationForFixtureの処理を実行する。
+ * Dynamic Fake Provider Cancellation For Fixtureを固定Schemaへ正規化する。
  *
- * @responsibility normalizeDynamicFakeProviderCancellationForFixtureに対応する入力処理と結果生成を所有する。
+ * @responsibility Dynamic Fake Provider Cancellation For Fixtureの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000008
  * @input execution: DockerExecution、graceElapsedMs: number、isCancellationRequested: boolean
  * @returns DynamicFakeProviderCancellationResultを返す。
@@ -1493,9 +1499,9 @@ export function normalizeDynamicFakeProviderCancellationForFixture(
 }
 
 /**
- * createDynamicFakeProviderLifecycleCapabilityの処理を実行する。
+ * Dynamic Fake Provider Lifecycle Capabilityを構築する。
  *
- * @responsibility createDynamicFakeProviderLifecycleCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Dynamic Fake Provider Lifecycle Capabilityの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input execution: DockerExecution、elapsedMs: number、context: Readonly<{ probeId: string; containerId: string; mountCapability: object; hostRecoveryId: string; }>
  * @returns Readonly<{ kind: "dynamic_fake_provider_lifecycle" }>を返す。
@@ -1543,9 +1549,9 @@ function createDynamicFakeProviderLifecycleCapability(
 }
 
 /**
- * DynamicFakeProviderFinalizationEligibilityが扱う値の構造を表す。
+ * docker-isolationで使用するDynamic Fake Provider Finalization Eligibilityの値契約を定義する。
  *
- * @responsibility DynamicFakeProviderFinalizationEligibilityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Dynamic Fake Provider Finalization EligibilityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DynamicFakeProviderFinalizationEligibilityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DynamicFakeProviderFinalizationEligibilityで宣言した値と責務の対応を維持する。
@@ -1564,9 +1570,9 @@ type DynamicFakeProviderFinalizationEligibility = Readonly<{
 }>;
 
 /**
- * evaluateDynamicFakeProviderFinalizationの処理を実行する。
+ * Dynamic Fake Provider Finalizationを評価する。
  *
- * @responsibility evaluateDynamicFakeProviderFinalizationに対応する入力処理と結果生成を所有する。
+ * @responsibility Dynamic Fake Provider Finalizationの評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input input: DynamicFakeProviderFinalizationEligibility
  * @returns evaluateDynamicFakeProviderFinalizationの計算結果を返す。
@@ -1600,9 +1606,9 @@ function evaluateDynamicFakeProviderFinalization(
 }
 
 /**
- * evaluateDynamicFakeProviderFinalizationForFixtureの処理を実行する。
+ * Dynamic Fake Provider Finalization For Fixtureを評価する。
  *
- * @responsibility evaluateDynamicFakeProviderFinalizationForFixtureに対応する入力処理と結果生成を所有する。
+ * @responsibility Dynamic Fake Provider Finalization For Fixtureの評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input input: DynamicFakeProviderFinalizationEligibility
  * @returns evaluateDynamicFakeProviderFinalizationForFixtureの計算結果を返す。
@@ -1622,9 +1628,9 @@ export function evaluateDynamicFakeProviderFinalizationForFixture(
 }
 
 /**
- * createDynamicFakeProviderFinalizationCapabilityの処理を実行する。
+ * Dynamic Fake Provider Finalization Capabilityを構築する。
  *
- * @responsibility createDynamicFakeProviderFinalizationCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Dynamic Fake Provider Finalization Capabilityの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input pendingCapability: object、context: Omit<DynamicFakeProviderFinalization, "pendingCapability">
  * @returns Readonly<{ kind: "dynamic_fake_provider_finalization" }>を返す。
@@ -1652,9 +1658,9 @@ function createDynamicFakeProviderFinalizationCapability(
 }
 
 /**
- * invalidateDynamicFakeProviderLifecycleの処理を実行する。
+ * invalidate Dynamic Fake Provider Lifecycleを決定する。
  *
- * @responsibility invalidateDynamicFakeProviderLifecycleに対応する入力処理と結果生成を所有する。
+ * @responsibility invalidate Dynamic Fake Provider Lifecycleの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input capability: object | null
  * @returns N/A: invalidateDynamicFakeProviderLifecycleは戻り値を返さない。
@@ -1672,9 +1678,9 @@ function invalidateDynamicFakeProviderLifecycle(capability: object | null) {
 }
 
 /**
- * finalizeDynamicFakeProviderLifecycleの処理を実行する。
+ * finalize Dynamic Fake Provider Lifecycleを決定する。
  *
- * @responsibility finalizeDynamicFakeProviderLifecycleに対応する入力処理と結果生成を所有する。
+ * @responsibility finalize Dynamic Fake Provider Lifecycleの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input pendingCapability: object、finalizationCapability: object
  * @returns DynamicFakeProviderLifecycleObservationを返す。
@@ -1755,9 +1761,9 @@ function finalizeDynamicFakeProviderLifecycle(
 }
 
 /**
- * dockerEnvironmentの処理を実行する。
+ * docker Environmentを決定する。
  *
- * @responsibility dockerEnvironmentに対応する入力処理と結果生成を所有する。
+ * @responsibility docker Environmentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input management: string
  * @returns DockerEnvironmentを返す。
@@ -1784,9 +1790,9 @@ function dockerEnvironment(management: string): DockerEnvironment {
 }
 
 /**
- * formatDockerIsolationRecoveryTokenの処理を実行する。
+ * Docker Isolation 回復 Tokenを表示形式へ整形する。
  *
- * @responsibility formatDockerIsolationRecoveryTokenに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Isolation 回復 Tokenの入力値、表示規則、機密を含めない出力境界を所有する。
  * @trace ARCH-000008
  * @input rootName: string、probeId: string、nonce: string、recordHash: string
  * @returns stringを返す。
@@ -1809,9 +1815,9 @@ export function formatDockerIsolationRecoveryToken(
 }
 
 /**
- * transitionHostRecoveryStateの処理を実行する。
+ * Host 回復 状態を状態遷移させる。
  *
- * @responsibility transitionHostRecoveryStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Host 回復 状態の遷移前提、次状態、無効遷移の拒否境界を所有する。
  * @trace ARCH-000008
  * @input hostRecoveryId: string、expectedState: string、nextState: string、mountCapability: unknown
  * @returns stringを返す。
@@ -1881,9 +1887,9 @@ function transitionHostRecoveryState(
 }
 
 /**
- * beginDockerSubmissionの処理を実行する。
+ * Docker Submissionを開始する。
  *
- * @responsibility beginDockerSubmissionに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Submissionの開始条件、初期状態、開始失敗境界を所有する。
  * @trace ARCH-000008
  * @input hostRecoveryId: string、mountCapability: unknown
  * @returns stringを返す。
@@ -1909,9 +1915,9 @@ function beginDockerSubmission(
 }
 
 /**
- * cancelDockerSubmissionBeforeCreateの処理を実行する。
+ * Docker Submission Before Createを取り消す。
  *
- * @responsibility cancelDockerSubmissionBeforeCreateに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Submission Before Createの取消条件、終了状態、残存Effectの境界を所有する。
  * @trace ARCH-000008
  * @input hostRecoveryId: string、mountCapability: unknown
  * @returns stringを返す。
@@ -1937,9 +1943,9 @@ function cancelDockerSubmissionBeforeCreate(
 }
 
 /**
- * confirmDockerAbsenceの処理を実行する。
+ * Docker Absenceを確認する。
  *
- * @responsibility confirmDockerAbsenceに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Absenceの確認根拠、成立条件、観測不能境界を所有する。
  * @trace ARCH-000008
  * @input hostRecoveryId: string、mountCapability: unknown、capability: unknown、expected: Readonly<{ probeId: string; id: string; rootName: string; cli: object; }>
  * @returns Readonly<{ hostRecoveryId: string; lifecycleAbsenceCapability: object; }>を返す。
@@ -2004,9 +2010,9 @@ function confirmDockerAbsence(
 }
 
 /**
- * recoveryRecordPathの処理を実行する。
+ * recovery 記録 Pathを決定する。
  *
- * @responsibility recoveryRecordPathに対応する入力処理と結果生成を所有する。
+ * @responsibility recovery 記録 Pathの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input management: string
  * @returns stringを返す。
@@ -2024,9 +2030,9 @@ function recoveryRecordPath(management: string): string {
 }
 
 /**
- * writeRecoveryRecordの処理を実行する。
+ * 回復 記録を書き込む。
  *
- * @responsibility writeRecoveryRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 記録の書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input mounts: DockerMounts、probeId: string、nonce: string、hostRecoveryId: string、containerId: string | null
  * @returns stringを返す。
@@ -2100,9 +2106,9 @@ function writeRecoveryRecord(
 }
 
 /**
- * executeDockerの処理を実行する。
+ * Dockerを実行する。
  *
- * @responsibility executeDockerに対応する入力処理と結果生成を所有する。
+ * @responsibility Dockerの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000008
  * @input cliCapability: object、args: readonly string[]、environment: DockerEnvironment、timeout
  * @returns SpawnSyncReturns<string>を返す。
@@ -2132,9 +2138,9 @@ function executeDocker(
 }
 
 /**
- * dockerCommandの処理を実行する。
+ * docker Commandを決定する。
  *
- * @responsibility dockerCommandに対応する入力処理と結果生成を所有する。
+ * @responsibility docker Commandの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input cli: object、environment: DockerEnvironment、args: readonly string[]、timeout
  * @returns SpawnSyncReturns<string>を返す。
@@ -2162,9 +2168,9 @@ function dockerCommand(
 }
 
 /**
- * OwnedAttachedProcessが扱う値の構造を表す。
+ * docker-isolationで使用する所有 Attached Processの値契約を定義する。
  *
- * @responsibility OwnedAttachedProcessに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 所有 Attached ProcessのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape OwnedAttachedProcessが表すProperty、識別子およびRelationを型として固定する。
  * @invariant OwnedAttachedProcessで宣言した値と責務の対応を維持する。
@@ -2182,9 +2188,9 @@ type OwnedAttachedProcess = Readonly<{
 }>;
 
 /**
- * startOwnedAttachedProcessの処理を実行する。
+ * 所有 Attached Processを開始する。
  *
- * @responsibility startOwnedAttachedProcessに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Attached Processの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000008
  * @input executable: string、args: readonly string[]、environment: DockerEnvironment、readyPrefix: string
  * @returns Readonly<{ started: Promise<boolean>; ready: Promise<boolean>; completion: Promise<AsyncDockerExecution>; terminateAndWait: () => Promise<AsyncDockerExecution | null>; isClosed: () => boolean; getTerminationRequestCount: () => number; }>を返す。
@@ -2304,9 +2310,9 @@ function startOwnedAttachedProcess(
     });
   });
   /**
-   * terminateAndWaitの処理を実行する。
+   * And Waitを終了させる。
    *
-   * @responsibility terminateAndWaitに対応する入力処理と結果生成を所有する。
+   * @responsibility And Waitの終了Authority、対象Process、終了確認境界を所有する。
    * @trace ARCH-000008
    * @input N/A: 実行時引数を受け取らない。
    * @returns Promise<AsyncDockerExecution | null>を返す。
@@ -2339,9 +2345,9 @@ function startOwnedAttachedProcess(
 }
 
 /**
- * startAttachedDockerCommandの処理を実行する。
+ * Attached Docker Commandを開始する。
  *
- * @responsibility startAttachedDockerCommandに対応する入力処理と結果生成を所有する。
+ * @responsibility Attached Docker Commandの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000008
  * @input cliCapability: object、environment: DockerEnvironment、args: readonly string[]
  * @returns OwnedAttachedProcessを返す。
@@ -2369,9 +2375,9 @@ function startAttachedDockerCommand(
 }
 
 /**
- * boundedPromiseの処理を実行する。
+ * bounded Promiseを決定する。
  *
- * @responsibility boundedPromiseに対応する入力処理と結果生成を所有する。
+ * @responsibility bounded Promiseの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input promise: Promise<T>、timeoutMs: number、fallback: T
  * @returns Promise<T>を返す。
@@ -2411,9 +2417,9 @@ const OWNED_ATTACH_FIXTURE_SOURCES = Object.freeze({
 } satisfies Readonly<Record<OwnedAttachTerminationFixtureScenario, string>>);
 
 /**
- * verifyOwnedAttachTerminationForFixtureの処理を実行する。
+ * 所有 Attach Termination For Fixtureを検証する。
  *
- * @responsibility verifyOwnedAttachTerminationForFixtureに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Attach Termination For Fixtureの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input scenario: OwnedAttachTerminationFixtureScenario
  * @returns Promise< Readonly<{ status: "verified" | "blocked"; reason: string; scenario: OwnedAttachTerminationFixtureScenario; readyObserved: boolean; outputExceeded: boolean; terminationRequestCount: number; attachProcessTerminationObserved: boolean; }> >を返す。
@@ -2498,9 +2504,9 @@ export async function verifyOwnedAttachTerminationForFixture(
 }
 
 /**
- * normalizeFailureの処理を実行する。
+ * 失敗を固定Schemaへ正規化する。
  *
- * @responsibility normalizeFailureに対応する入力処理と結果生成を所有する。
+ * @responsibility 失敗の入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000008
  * @input error: unknown、fallback
  * @returns stringを返す。
@@ -2530,9 +2536,9 @@ function normalizeFailure(
 }
 
 /**
- * validContainerIdの処理を実行する。
+ * Container Idが有効か判定する。
  *
- * @responsibility validContainerIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Container Idの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is stringを返す。
@@ -2550,9 +2556,9 @@ function validContainerId(value: unknown): value is string {
 }
 
 /**
- * normalizeContainerCreationの処理を実行する。
+ * Container Creationを固定Schemaへ正規化する。
  *
- * @responsibility normalizeContainerCreationに対応する入力処理と結果生成を所有する。
+ * @responsibility Container Creationの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000008
  * @input execution: DockerExecution
  * @returns | Readonly<{ status: "confirmed"; id: string }> | Readonly<{ status: "blocked"; reason: "docker_container_identity_unknown"; }>を返す。
@@ -2582,9 +2588,9 @@ export function normalizeContainerCreation(execution: DockerExecution):
 }
 
 /**
- * normalizedIdSetの処理を実行する。
+ * Id Setを固定Schemaへ正規化する。
  *
- * @responsibility normalizedIdSetに対応する入力処理と結果生成を所有する。
+ * @responsibility Id Setの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000008
  * @input execution: DockerExecution
  * @returns Set<string> | nullを返す。
@@ -2618,9 +2624,9 @@ function normalizedIdSet(execution: DockerExecution): Set<string> | null {
 }
 
 /**
- * normalizeContainerAbsenceの処理を実行する。
+ * Container Absenceを固定Schemaへ正規化する。
  *
- * @responsibility normalizeContainerAbsenceに対応する入力処理と結果生成を所有する。
+ * @responsibility Container Absenceの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000008
  * @input idExecution: DockerExecution、nameExecution: DockerExecution、labelExecution: DockerExecution
  * @returns normalizeContainerAbsenceの計算結果を返す。
@@ -2648,9 +2654,9 @@ export function normalizeContainerAbsence(
 }
 
 /**
- * readInspectの処理を実行する。
+ * Inspectを読み取る。
  *
- * @responsibility readInspectに対応する入力処理と結果生成を所有する。
+ * @responsibility Inspectの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input execution: DockerExecution
  * @returns unknown | nullを返す。
@@ -2680,9 +2686,9 @@ function readInspect(execution: DockerExecution): unknown | null {
 }
 
 /**
- * expectedMountsの処理を実行する。
+ * expected Mountsを決定する。
  *
- * @responsibility expectedMountsに対応する入力処理と結果生成を所有する。
+ * @responsibility expected Mountsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input mounts: DockerMounts
  * @returns Map<string, string>を返す。
@@ -2704,9 +2710,9 @@ function expectedMounts(mounts: DockerMounts): Map<string, string> {
 }
 
 /**
- * validateContainerInspectの処理を実行する。
+ * Container Inspectの契約を検証する。
  *
- * @responsibility validateContainerInspectに対応する入力処理と結果生成を所有する。
+ * @responsibility Container Inspectの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input inspect: unknown、expected: ContainerIdentity & Readonly<{ mounts: DockerMounts }>
  * @returns booleanを返す。
@@ -2817,9 +2823,9 @@ export function validateContainerInspect(
 }
 
 /**
- * inspectOwnedContainerの処理を実行する。
+ * 所有 Containerを観測する。
  *
- * @responsibility inspectOwnedContainerに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Containerの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input cli: object、environment: DockerEnvironment、capability: object、mounts: DockerMounts
  * @returns unknown | nullを返す。
@@ -2852,9 +2858,9 @@ function inspectOwnedContainer(
 }
 
 /**
- * inspectedContainerIsRunningの処理を実行する。
+ * inspected Container Is Runningを決定する。
  *
- * @responsibility inspectedContainerIsRunningに対応する入力処理と結果生成を所有する。
+ * @responsibility inspected Container Is Runningの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input inspect: unknown
  * @returns booleanを返す。
@@ -2874,9 +2880,9 @@ function inspectedContainerIsRunning(inspect: unknown): boolean {
 }
 
 /**
- * observeContainerAbsenceの処理を実行する。
+ * Container Absenceを観測する。
  *
- * @responsibility observeContainerAbsenceに対応する入力処理と結果生成を所有する。
+ * @responsibility Container Absenceの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input cli: object、environment: DockerEnvironment、identity: ContainerIdentity、hostRecoveryId: string、rootName: string
  * @returns Readonly<{ kind: "docker_absence" }> | nullを返す。
@@ -2935,9 +2941,9 @@ function observeContainerAbsence(
 }
 
 /**
- * cleanupOwnedContainerの処理を実行する。
+ * 所有 Containerを清掃する。
  *
- * @responsibility cleanupOwnedContainerに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Containerの清掃対象、完了観測、残存時の失敗境界を所有する。
  * @trace ARCH-000008
  * @input cli: object、environment: DockerEnvironment、capability: object、mounts: DockerMounts、hostRecoveryId: string
  * @returns cleanupOwnedContainerの計算結果を返す。
@@ -2989,9 +2995,9 @@ function cleanupOwnedContainer(
 }
 
 /**
- * verifyLocalLinuxEngineの処理を実行する。
+ * Local Linux Engineを検証する。
  *
- * @responsibility verifyLocalLinuxEngineに対応する入力処理と結果生成を所有する。
+ * @responsibility Local Linux Engineの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input cli: object、environment: DockerEnvironment
  * @returns booleanを返す。
@@ -3021,9 +3027,9 @@ function verifyLocalLinuxEngine(
 }
 
 /**
- * blockedの処理を実行する。
+ * docker-isolationを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility docker-isolationの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000008
  * @input reason: string、probeId: string | null、shouldRetainOperationDirectories、recoveryId: string | null、isManualRecoveryRequired
  * @returns DockerProbeResultを返す。
@@ -3059,9 +3065,9 @@ function blocked(
 }
 
 /**
- * normalizeDockerProbeFailureの処理を実行する。
+ * Docker Probe 失敗を固定Schemaへ正規化する。
  *
- * @responsibility normalizeDockerProbeFailureに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Probe 失敗の入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000008
  * @input error: unknown、probeId: string、state: DockerProbeFailureState
  * @returns DockerProbeResultを返す。
@@ -3097,9 +3103,9 @@ export function normalizeDockerProbeFailure(
 }
 
 /**
- * finishHostRecoveryの処理を実行する。
+ * Host 回復を終了状態へ収束させる。
  *
- * @responsibility finishHostRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility Host 回復の終了条件、最終状態、残存義務の境界を所有する。
  * @trace ARCH-000008
  * @input hostRecoveryId: string、baseResult: DockerProbeResult、probeId: string、lifecycleAbsenceCapability: object
  * @returns Readonly<{ result: DockerProbeResult; lifecycleHostCleanupCapability: object | null; }>を返す。
@@ -3145,9 +3151,9 @@ function finishHostRecovery(
 }
 
 /**
- * normalizeHostCleanupResultの処理を実行する。
+ * Host 清掃 結果を固定Schemaへ正規化する。
  *
- * @responsibility normalizeHostCleanupResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Host 清掃 結果の入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000008
  * @input recovered: Readonly<{ status: string; reason: string }>、hostRecoveryId: string、baseResult: Partial<DockerProbeResult>、probeId: string | null
  * @returns DockerProbeResultを返す。
@@ -3189,9 +3195,9 @@ export function normalizeHostCleanupResult(
 }
 
 /**
- * finishPreSubmissionCleanupの処理を実行する。
+ * Pre Submission 清掃を終了状態へ収束させる。
  *
- * @responsibility finishPreSubmissionCleanupに対応する入力処理と結果生成を所有する。
+ * @responsibility Pre Submission 清掃の終了条件、最終状態、残存義務の境界を所有する。
  * @trace ARCH-000008
  * @input owned: unknown、hostRecoveryId: string、baseResult: DockerProbeResult、probeId: string
  * @returns DockerProbeResultを返す。
@@ -3232,9 +3238,9 @@ function finishPreSubmissionCleanup(
 }
 
 /**
- * runDockerIsolationScenarioの処理を実行する。
+ * Docker Isolation Scenarioを実行する。
  *
- * @responsibility runDockerIsolationScenarioに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Isolation Scenarioの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000008
  * @input owned: unknown、scenario: DynamicFakeProviderFailureScenario | null
  * @returns DockerProbeResultを返す。
@@ -3501,9 +3507,9 @@ function runDockerIsolationScenario(
 }
 
 /**
- * runDockerIsolationProbeの処理を実行する。
+ * Docker Isolation Probeを実行する。
  *
- * @responsibility runDockerIsolationProbeに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Isolation Probeの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000008
  * @input owned: unknown
  * @returns DockerProbeResultを返す。
@@ -3521,9 +3527,9 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
 }
 
 /**
- * runDynamicFakeProviderFailureScenarioの処理を実行する。
+ * Dynamic Fake Provider 失敗 Scenarioを実行する。
  *
- * @responsibility runDynamicFakeProviderFailureScenarioに対応する入力処理と結果生成を所有する。
+ * @responsibility Dynamic Fake Provider 失敗 Scenarioの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000008
  * @input owned: unknown、scenario: DynamicFakeProviderFailureScenario
  * @returns DockerProbeResultを返す。
@@ -3544,9 +3550,9 @@ export function runDynamicFakeProviderFailureScenario(
 }
 
 /**
- * runDynamicFakeProviderCancellationVerificationの処理を実行する。
+ * Dynamic Fake Provider Cancellation Verificationを実行する。
  *
- * @responsibility runDynamicFakeProviderCancellationVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility Dynamic Fake Provider Cancellation Verificationの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000008
  * @input owned: unknown
  * @returns Promise<DynamicFakeProviderCancellationResult>を返す。
@@ -3849,7 +3855,7 @@ export async function runDynamicFakeProviderCancellationVerification(
 /**
  * Creates one exact, recoverable verification residue for crash/recovery E2E.
  *
- * @responsibility createDynamicFakeProviderRecoverableResidueに対応する入力処理と結果生成を所有する。
+ * @responsibility Dynamic Fake Provider Recoverable Residueの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input owned: unknown
  * @returns DynamicFakeProviderRecoverableResidueResultを返す。
@@ -3974,9 +3980,9 @@ export function createDynamicFakeProviderRecoverableResidue(
 }
 
 /**
- * expectedDynamicFakeProviderFailureReasonの処理を実行する。
+ * expected Dynamic Fake Provider 失敗 Reasonを決定する。
  *
- * @responsibility expectedDynamicFakeProviderFailureReasonに対応する入力処理と結果生成を所有する。
+ * @responsibility expected Dynamic Fake Provider 失敗 Reasonの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input scenario: DynamicFakeProviderFailureScenario
  * @returns stringを返す。
@@ -3996,9 +4002,9 @@ export function expectedDynamicFakeProviderFailureReason(
 }
 
 /**
- * isDockerIsolationRecoveryIdCandidateの処理を実行する。
+ * Docker Isolation 回復 Id 候補かを判定する。
  *
- * @responsibility isDockerIsolationRecoveryIdCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Isolation 回復 Id 候補の判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is stringを返す。
@@ -4024,9 +4030,9 @@ export function isDockerIsolationRecoveryIdCandidate(
 }
 
 /**
- * parseRecoveryTokenの処理を実行する。
+ * 回復 Tokenを構造化値へ解析する。
  *
- * @responsibility parseRecoveryTokenに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 Tokenの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown
  * @returns Readonly<{ rootName: string; probeId: string; nonce: string; recordHash: string; }>を返す。
@@ -4062,9 +4068,9 @@ function parseRecoveryToken(token: unknown): Readonly<{
 }
 
 /**
- * loadRecoveryRecordの処理を実行する。
+ * 回復 記録を読み込む。
  *
- * @responsibility loadRecoveryRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 記録の読取り元、Schema検証、読取不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown
  * @returns LoadedDockerRecoveryを返す。
@@ -4124,9 +4130,9 @@ function loadRecoveryRecord(token: unknown): LoadedDockerRecovery {
 }
 
 /**
- * classifyRecoveryChildrenの処理を実行する。
+ * 回復 Childrenを分類する。
  *
- * @responsibility classifyRecoveryChildrenに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 Childrenの分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000008
  * @input root: string、childIdentities: Readonly<Record<string, SerializableIdentity>>
  * @returns classifyRecoveryChildrenの計算結果を返す。
@@ -4188,9 +4194,9 @@ export function classifyRecoveryChildren(
 }
 
 /**
- * recoveryMountsの処理を実行する。
+ * recovery Mountsを決定する。
  *
- * @responsibility recoveryMountsに対応する入力処理と結果生成を所有する。
+ * @responsibility recovery Mountsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input recovery: LoadedDockerRecovery
  * @returns DockerMountsを返す。
@@ -4212,9 +4218,9 @@ function recoveryMounts(recovery: LoadedDockerRecovery): DockerMounts {
 }
 
 /**
- * recoverDockerIsolationProbeの処理を実行する。
+ * recover Docker Isolation Probeを決定する。
  *
- * @responsibility recoverDockerIsolationProbeに対応する入力処理と結果生成を所有する。
+ * @responsibility recover Docker Isolation Probeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown
  * @returns recoverDockerIsolationProbeの計算結果を返す。

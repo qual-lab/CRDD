@@ -6,7 +6,7 @@
  * @trace ERB-IT-001
  * @level IT
  * @scope platform、access、ts、coverage
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -31,7 +31,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 function record(source: string, taken = "1") {
   return [
@@ -61,7 +61,7 @@ function record(source: string, taken = "1") {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 function exactLcov() {
   return PLATFORM_ACCESS_TS_COVERAGE_SOURCES.map((source, index) =>
@@ -79,7 +79,7 @@ function exactLcov() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("TypeScript coverageは固定sourceとtest母集団を所有する", () => {
   assert.equal(PLATFORM_ACCESS_TS_COVERAGE_SOURCES.length, 15);
@@ -157,7 +157,7 @@ test("TypeScript coverageは固定sourceとtest母集団を所有する", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("LCOV parserは分母分子と未到達branchを割合へ縮約しない", () => {
   const result = parsePlatformAccessTsCoverageLcov(exactLcov());
@@ -200,7 +200,7 @@ test("LCOV parserは分母分子と未到達branchを割合へ縮約しない", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("coverage CLI serializerはcompact JSONと末尾LF exact 1件を固定する", () => {
   const value = parsePlatformAccessTsCoverageLcov(exactLcov());
@@ -223,7 +223,7 @@ test("coverage CLI serializerはcompact JSONと末尾LF exact 1件を固定す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("LCOV parserはmissing、extra、duplicateおよびsummary不一致を拒否する", () => {
   const exact = exactLcov();
@@ -306,7 +306,7 @@ test("LCOV parserはmissing、extra、duplicateおよびsummary不一致を拒�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("LCOV parserはrecord grammar、正の行Identityおよびfunction対応をexactにする", () => {
   const exact = exactLcov();

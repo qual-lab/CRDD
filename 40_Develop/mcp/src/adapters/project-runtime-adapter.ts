@@ -1,3 +1,9 @@
+/**
+ * project-runtime-adapterに属する責務をまとめる。
+ *
+ * @responsibility McpProjectRuntimeDependenciesを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000012
+ */
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -46,9 +52,9 @@ export {
 export const MCP_PROJECT_RUNTIME_ADAPTER_CONTRACT =
   "crdd-mcp/project-runtime-adapter/v2" as const;
 /**
- * McpProjectRuntimeDependenciesが扱う値の構造を表す。
+ * project-runtime-adapterで使用するMcp Project Runtime Dependenciesの値契約を定義する。
  *
- * @responsibility McpProjectRuntimeDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Mcp Project Runtime DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000012
  * @shape McpProjectRuntimeDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant McpProjectRuntimeDependenciesで宣言した値と責務の対応を維持する。
@@ -150,9 +156,9 @@ const decisionRecoveredResultKeys = new Set([
 ] as const);
 
 /**
- * stableの処理を実行する。
+ * project-runtime-adapterを安定Identityへ変換する。
  *
- * @responsibility stableに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-adapterの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000012
  * @input value: unknown
  * @returns value is stringを返す。
@@ -172,9 +178,9 @@ function stable(value: unknown): value is string {
   );
 }
 /**
- * textの処理を実行する。
+ * project-runtime-adapterを表示文字列へ変換する。
  *
- * @responsibility textに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-adapterの入力値、文字列表現、機密を含めない結果境界を所有する。
  * @trace ARCH-000012
  * @input value: unknown、maximum: number
  * @returns value is stringを返す。
@@ -196,9 +202,9 @@ function text(value: unknown, maximum: number): value is string {
   );
 }
 /**
- * objectiveの処理を実行する。
+ * objectiveを決定する。
  *
- * @responsibility objectiveに対応する入力処理と結果生成を所有する。
+ * @responsibility objectiveの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000012
  * @input value: unknown
  * @returns Readonly<Record<string, unknown>> | nullを返す。
@@ -251,9 +257,9 @@ const projectionKeys = new Set([
 ] as const);
 
 /**
- * countSnapshotの処理を実行する。
+ * Snapshotの件数を算出する。
  *
- * @responsibility countSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility Snapshotの計数対象、集計規則、件数結果境界を所有する。
  * @trace ARCH-000012
  * @input value: unknown、keys: ReadonlySet<string>、maximumTotal: number
  * @returns countSnapshotの計算結果を返す。
@@ -290,9 +296,9 @@ function countSnapshot(
 }
 
 /**
- * projectionSnapshotの処理を実行する。
+ * projection Snapshotを決定する。
  *
- * @responsibility projectionSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility projection Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000012
  * @input value: unknown
  * @returns projectionSnapshotの計算結果を返す。
@@ -406,9 +412,9 @@ function projectionSnapshot(value: unknown) {
 }
 
 /**
- * recoverySnapshotの処理を実行する。
+ * recovery Snapshotを決定する。
  *
- * @responsibility recoverySnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility recovery Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000012
  * @input rawIds: unknown、rawObligations: unknown
  * @returns recoverySnapshotの計算結果を返す。
@@ -474,9 +480,9 @@ function recoverySnapshot(rawIds: unknown, rawObligations: unknown) {
 }
 
 /**
- * publicBlockedSnapshotの処理を実行する。
+ * public Blocked Snapshotを決定する。
  *
- * @responsibility publicBlockedSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility public Blocked Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000012
  * @input raw: unknown、expectedContracts: ReadonlySet<string>
  * @returns publicBlockedSnapshotの計算結果を返す。
@@ -514,9 +520,9 @@ function publicBlockedSnapshot(
 }
 
 /**
- * decisionSnapshotの処理を実行する。
+ * decision Snapshotを決定する。
  *
- * @responsibility decisionSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility decision Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000012
  * @input raw: unknown
  * @returns Readonly<Record<string, unknown>> | nullを返す。
@@ -617,9 +623,9 @@ function decisionSnapshot(
 }
 
 /**
- * objectiveSnapshotの処理を実行する。
+ * objective Snapshotを決定する。
  *
- * @responsibility objectiveSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility objective Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000012
  * @input raw: unknown
  * @returns Readonly<Record<string, unknown>> | nullを返す。
@@ -755,7 +761,7 @@ function objectiveSnapshot(
 /**
  * Closed public result validator shared with release E2E verification.
  *
- * @responsibility inspectMcpProjectRuntimeObjectiveResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Mcp Project Runtime Objective 結果の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000012
  * @input raw: unknown
  * @returns inspectMcpProjectRuntimeObjectiveResultの計算結果を返す。
@@ -773,9 +779,9 @@ export function inspectMcpProjectRuntimeObjectiveResult(raw: unknown) {
 }
 
 /**
- * handleMcpProjectRuntimeRequestの処理を実行する。
+ * Mcp Project Runtime Requestを処理する。
  *
- * @responsibility handleMcpProjectRuntimeRequestに対応する入力処理と結果生成を所有する。
+ * @responsibility Mcp Project Runtime Requestの受付条件、処理結果、失敗時の戻り境界を所有する。
  * @trace ARCH-000012
  * @input rawRequest: unknown、dependencies: McpProjectRuntimeDependencies、signal: AbortSignal
  * @returns Promise<McpResponse>を返す。
@@ -921,9 +927,9 @@ export async function handleMcpProjectRuntimeRequest(
 }
 
 /**
- * describeMcpProjectRuntimeAdapterContractの処理を実行する。
+ * Mcp Project Runtime Adapter 契約の公開契約を記述する。
  *
- * @responsibility describeMcpProjectRuntimeAdapterContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Mcp Project Runtime Adapter 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000012
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeMcpProjectRuntimeAdapterContractの計算結果を返す。

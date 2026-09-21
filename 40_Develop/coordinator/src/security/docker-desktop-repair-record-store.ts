@@ -1,3 +1,9 @@
+/**
+ * docker-desktop-repair-record-storeに属する責務をまとめる。
+ *
+ * @responsibility parseDockerDesktopRepairDirectoryNameを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -13,9 +19,9 @@ export const DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA =
   "crdd-coordinator/docker-desktop-repair-record/v4";
 const OPERATION_PREFIX = "docker-desktop-repair-";
 /**
- * parseDockerDesktopRepairDirectoryNameの処理を実行する。
+ * Docker Desktop Repair Directory Nameを構造化値へ解析する。
  *
- * @responsibility parseDockerDesktopRepairDirectoryNameに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Directory Nameの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns parseDockerDesktopRepairDirectoryNameの計算結果を返す。
@@ -67,9 +73,9 @@ export const DOCKER_DESKTOP_REPAIR_STAGES = Object.freeze([
   "closed_historical_effect_unknown_retained",
 ] as const);
 /**
- * DockerDesktopRepairStageが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Stageの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairStageに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair StageのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairStageが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairStageで宣言した値と責務の対応を維持する。
@@ -80,9 +86,9 @@ export const DOCKER_DESKTOP_REPAIR_STAGES = Object.freeze([
 export type DockerDesktopRepairStage =
   (typeof DOCKER_DESKTOP_REPAIR_STAGES)[number];
 /**
- * DockerDesktopRepairTriStateが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Tri 状態の値契約を定義する。
  *
- * @responsibility DockerDesktopRepairTriStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Tri 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairTriStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairTriStateで宣言した値と責務の対応を維持する。
@@ -92,9 +98,9 @@ export type DockerDesktopRepairStage =
  */
 export type DockerDesktopRepairTriState = boolean | null;
 /**
- * DockerDesktopRepairStaleStateが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Stale 状態の値契約を定義する。
  *
- * @responsibility DockerDesktopRepairStaleStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Stale 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairStaleStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairStaleStateで宣言した値と責務の対応を維持する。
@@ -104,9 +110,9 @@ export type DockerDesktopRepairTriState = boolean | null;
  */
 export type DockerDesktopRepairStaleState = "absent" | "retained" | "unknown";
 /**
- * DockerDesktopRepairHostSafetyが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Host Safetyの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairHostSafetyに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Host SafetyのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairHostSafetyが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairHostSafetyで宣言した値と責務の対応を維持する。
@@ -119,9 +125,9 @@ export type DockerDesktopRepairHostSafety =
   | "manual_recovery_required"
   | "unknown";
 /**
- * DockerDesktopRepairEvidenceStateが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Evidence 状態の値契約を定義する。
  *
- * @responsibility DockerDesktopRepairEvidenceStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Evidence 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairEvidenceStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairEvidenceStateで宣言した値と責務の対応を維持する。
@@ -134,9 +140,9 @@ export type DockerDesktopRepairEvidenceState =
   | "not_preserved"
   | "unknown";
 /**
- * DockerDesktopRepairDispositionが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Dispositionの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairDispositionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair DispositionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairDispositionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairDispositionで宣言した値と責務の対応を維持する。
@@ -153,9 +159,9 @@ export type DockerDesktopRepairDisposition =
   | "known_effect_recovery_retained_by_human_decision"
   | "historical_effect_unknown_retained_by_human_decision";
 /**
- * DockerDesktopRepairEffectConfirmationが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Effect Confirmationの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairEffectConfirmationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Effect ConfirmationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairEffectConfirmationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairEffectConfirmationで宣言した値と責務の対応を維持する。
@@ -180,9 +186,9 @@ export const DOCKER_DESKTOP_REPAIR_EFFECT_ACTIONS = Object.freeze([
   "record_write",
 ] as const);
 /**
- * DockerDesktopRepairEffectActionが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Effect Actionの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairEffectActionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Effect ActionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairEffectActionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairEffectActionで宣言した値と責務の対応を維持する。
@@ -193,9 +199,9 @@ export const DOCKER_DESKTOP_REPAIR_EFFECT_ACTIONS = Object.freeze([
 export type DockerDesktopRepairEffectAction =
   (typeof DOCKER_DESKTOP_REPAIR_EFFECT_ACTIONS)[number];
 /**
- * DockerDesktopRepairEffectPhaseが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Effect Phaseの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairEffectPhaseに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Effect PhaseのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairEffectPhaseが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairEffectPhaseで宣言した値と責務の対応を維持する。
@@ -205,9 +211,9 @@ export type DockerDesktopRepairEffectAction =
  */
 export type DockerDesktopRepairEffectPhase = "intent_recorded" | "settled";
 /**
- * DockerDesktopRepairEffectEntryが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Effect Entryの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairEffectEntryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Effect EntryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairEffectEntryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairEffectEntryで宣言した値と責務の対応を維持する。
@@ -224,9 +230,9 @@ export type DockerDesktopRepairEffectEntry = Readonly<{
 }>;
 
 /**
- * DockerDesktopRepairDirectoryIdentityが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Directory Identityの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairDirectoryIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Directory IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairDirectoryIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairDirectoryIdentityで宣言した値と責務の対応を維持する。
@@ -241,9 +247,9 @@ export type DockerDesktopRepairDirectoryIdentity = Readonly<{
 }>;
 
 /**
- * DockerDesktopRepairLedgerSnapshotが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Ledger Snapshotの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairLedgerSnapshotに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Ledger SnapshotのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairLedgerSnapshotが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairLedgerSnapshotで宣言した値と責務の対応を維持する。
@@ -267,9 +273,9 @@ export type DockerDesktopRepairLedgerSnapshot = Readonly<{
 }>;
 
 /**
- * DockerDesktopRepairOperationが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Operationの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairOperationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair OperationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairOperationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairOperationで宣言した値と責務の対応を維持する。
@@ -303,9 +309,9 @@ export type DockerDesktopRepairOperation = Readonly<{
 }>;
 
 /**
- * CanonicalDockerDesktopRepairHistoryModeが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するCanonical Docker Desktop Repair History Modeの値契約を定義する。
  *
- * @responsibility CanonicalDockerDesktopRepairHistoryModeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Canonical Docker Desktop Repair History ModeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape CanonicalDockerDesktopRepairHistoryModeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CanonicalDockerDesktopRepairHistoryModeで宣言した値と責務の対応を維持する。
@@ -321,9 +327,9 @@ export type CanonicalDockerDesktopRepairHistoryMode =
   | "closed";
 
 /**
- * DockerDesktopRepairExpectedClosureが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Expected Closureの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairExpectedClosureに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Expected ClosureのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairExpectedClosureが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairExpectedClosureで宣言した値と責務の対応を維持する。
@@ -337,9 +343,9 @@ export type DockerDesktopRepairExpectedClosure = Readonly<{
 }>;
 
 /**
- * isHistoryEntryの処理を実行する。
+ * History Entryかを判定する。
  *
- * @responsibility isHistoryEntryに対応する入力処理と結果生成を所有する。
+ * @responsibility History Entryの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input name: string
  * @returns isHistoryEntryの計算結果を返す。
@@ -361,9 +367,9 @@ function isHistoryEntry(name: string) {
 }
 
 /**
- * historyPreparationNameの処理を実行する。
+ * history Preparation Nameを決定する。
  *
- * @responsibility historyPreparationNameに対応する入力処理と結果生成を所有する。
+ * @responsibility history Preparation Nameの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input name: string
  * @returns historyPreparationNameの計算結果を返す。
@@ -381,9 +387,9 @@ function historyPreparationName(name: string) {
 }
 
 /**
- * knownHistoryTargetNamesの処理を実行する。
+ * known History Target Namesを決定する。
  *
- * @responsibility knownHistoryTargetNamesに対応する入力処理と結果生成を所有する。
+ * @responsibility known History Target Namesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns knownHistoryTargetNamesの計算結果を返す。
@@ -408,9 +414,9 @@ function knownHistoryTargetNames() {
 }
 
 /**
- * knownHistoryPreparationTargetの処理を実行する。
+ * known History Preparation Targetを決定する。
  *
- * @responsibility knownHistoryPreparationTargetに対応する入力処理と結果生成を所有する。
+ * @responsibility known History Preparation Targetの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input name: string
  * @returns knownHistoryPreparationTargetの計算結果を返す。
@@ -432,9 +438,9 @@ function knownHistoryPreparationTarget(name: string) {
 }
 
 /**
- * DockerDesktopRepairRecordBoundaryが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair 記録 Boundaryの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairRecordBoundaryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair 記録 BoundaryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairRecordBoundaryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairRecordBoundaryで宣言した値と責務の対応を維持する。
@@ -460,9 +466,9 @@ export type DockerDesktopRepairRecordBoundary = Readonly<{
 }>;
 
 /**
- * HistoricalReleaseIdentityが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するHistorical Release Identityの値契約を定義する。
  *
- * @responsibility HistoricalReleaseIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Historical Release IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape HistoricalReleaseIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HistoricalReleaseIdentityで宣言した値と責務の対応を維持する。
@@ -479,9 +485,9 @@ type HistoricalReleaseIdentity = Readonly<{
 }>;
 
 /**
- * DockerDesktopRepairHistoryVerifierが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair History Verifierの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairHistoryVerifierに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair History VerifierのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairHistoryVerifierが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairHistoryVerifierで宣言した値と責務の対応を維持する。
@@ -494,9 +500,9 @@ export type DockerDesktopRepairHistoryVerifier = (
 ) => HistoricalReleaseIdentity | null;
 
 /**
- * verifyPinnedHistoryの処理を実行する。
+ * Pinned Historyを検証する。
  *
- * @responsibility verifyPinnedHistoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Pinned Historyの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input envelope: unknown
  * @returns HistoricalReleaseIdentity | nullを返す。
@@ -531,9 +537,9 @@ function verifyPinnedHistory(
 }
 
 /**
- * StoredRecordが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するStored 記録の値契約を定義する。
  *
- * @responsibility StoredRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Stored 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape StoredRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant StoredRecordで宣言した値と責務の対応を維持する。
@@ -562,9 +568,9 @@ type StoredRecord = Readonly<{
 }>;
 
 /**
- * HistoricalV4StoredRecordが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するHistorical V4 Stored 記録の値契約を定義する。
  *
- * @responsibility HistoricalV4StoredRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Historical V4 Stored 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape HistoricalV4StoredRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HistoricalV4StoredRecordで宣言した値と責務の対応を維持する。
@@ -594,9 +600,9 @@ type HistoricalV4StoredRecord = Readonly<{
 }>;
 
 /**
- * ReadableStoredRecordが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するReadable Stored 記録の値契約を定義する。
  *
- * @responsibility ReadableStoredRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Readable Stored 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ReadableStoredRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ReadableStoredRecordで宣言した値と責務の対応を維持する。
@@ -607,9 +613,9 @@ type HistoricalV4StoredRecord = Readonly<{
 type ReadableStoredRecord = StoredRecord | HistoricalV4StoredRecord;
 
 /**
- * exactKeysの処理を実行する。
+ * Keysが完全一致するか判定する。
  *
- * @responsibility exactKeysに対応する入力処理と結果生成を所有する。
+ * @responsibility Keysの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: object、expectedItems: readonly string[]
  * @returns exactKeysの計算結果を返す。
@@ -631,9 +637,9 @@ function exactKeys(value: object, expectedItems: readonly string[]) {
 }
 
 /**
- * exactOwnDataValuesの処理を実行する。
+ * Own Data Valuesが完全一致するか判定する。
  *
- * @responsibility exactOwnDataValuesに対応する入力処理と結果生成を所有する。
+ * @responsibility Own Data Valuesの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、expectedItems: readonly string[]
  * @returns Readonly<Record<string, unknown>> | nullを返す。
@@ -672,9 +678,9 @@ function exactOwnDataValues(
 }
 
 /**
- * containsOnlyOwnDataDescriptorsの処理を実行する。
+ * Only Own Data Descriptorsを含むか判定する。
  *
- * @responsibility containsOnlyOwnDataDescriptorsに対応する入力処理と結果生成を所有する。
+ * @responsibility Only Own Data Descriptorsの探索範囲、包含条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、seen
  * @returns booleanを返す。
@@ -713,9 +719,9 @@ function containsOnlyOwnDataDescriptors(
 }
 
 /**
- * denseOwnDataArrayValuesの処理を実行する。
+ * dense Own Data Array Valuesを決定する。
  *
- * @responsibility denseOwnDataArrayValuesに対応する入力処理と結果生成を所有する。
+ * @responsibility dense Own Data Array Valuesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、maximumLength: number
  * @returns readonly unknown[] | nullを返す。
@@ -765,9 +771,9 @@ function denseOwnDataArrayValues(
 }
 
 /**
- * hash64の処理を実行する。
+ * hash64を決定する。
  *
- * @responsibility hash64に対応する入力処理と結果生成を所有する。
+ * @responsibility hash64の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is stringを返す。
@@ -785,9 +791,9 @@ function hash64(value: unknown): value is string {
 }
 
 /**
- * operationIdの処理を実行する。
+ * operation Idを決定する。
  *
- * @responsibility operationIdに対応する入力処理と結果生成を所有する。
+ * @responsibility operation Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is stringを返す。
@@ -805,9 +811,9 @@ function operationId(value: unknown): value is string {
 }
 
 /**
- * safeIntegerStringの処理を実行する。
+ * Integer Stringを安全条件の下で処理する。
  *
- * @responsibility safeIntegerStringに対応する入力処理と結果生成を所有する。
+ * @responsibility Integer Stringの安全条件、拒否条件、終了結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is stringを返す。
@@ -825,9 +831,9 @@ function safeIntegerString(value: unknown): value is string {
 }
 
 /**
- * validIdentityの処理を実行する。
+ * Identityが有効か判定する。
  *
- * @responsibility validIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Identityの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is DockerDesktopRepairDirectoryIdentityを返す。
@@ -856,9 +862,9 @@ function validIdentity(
 }
 
 /**
- * validTriStateの処理を実行する。
+ * Tri 状態が有効か判定する。
  *
- * @responsibility validTriStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Tri 状態の有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is DockerDesktopRepairTriStateを返す。
@@ -876,9 +882,9 @@ function validTriState(value: unknown): value is DockerDesktopRepairTriState {
 }
 
 /**
- * validLedgerの処理を実行する。
+ * Ledgerが有効か判定する。
  *
- * @responsibility validLedgerに対応する入力処理と結果生成を所有する。
+ * @responsibility Ledgerの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is DockerDesktopRepairLedgerSnapshotを返す。
@@ -955,9 +961,9 @@ function validLedger(
 }
 
 /**
- * validEffectEntriesの処理を実行する。
+ * Effect Entriesが有効か判定する。
  *
- * @responsibility validEffectEntriesに対応する入力処理と結果生成を所有する。
+ * @responsibility Effect Entriesの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、kind: "process" | "filesystem"
  * @returns value is readonly DockerDesktopRepairEffectEntry[]を返す。
@@ -1063,9 +1069,9 @@ function validEffectEntries(
 }
 
 /**
- * aggregateEffectEntriesの処理を実行する。
+ * Effect Entriesを集約する。
  *
- * @responsibility aggregateEffectEntriesに対応する入力処理と結果生成を所有する。
+ * @responsibility Effect Entriesの集約入力、重複処理、集約結果の境界を所有する。
  * @trace ARCH-000008
  * @input entries: readonly DockerDesktopRepairEffectEntry[]
  * @returns aggregateEffectEntriesの計算結果を返す。
@@ -1099,9 +1105,9 @@ function aggregateEffectEntries(
 }
 
 /**
- * aggregateMatchesの処理を実行する。
+ * Matchesを集約する。
  *
- * @responsibility aggregateMatchesに対応する入力処理と結果生成を所有する。
+ * @responsibility Matchesの集約入力、重複処理、集約結果の境界を所有する。
  * @trace ARCH-000008
  * @input entries: readonly DockerDesktopRepairEffectEntry[]、issued: unknown、confirmation: unknown
  * @returns aggregateMatchesの計算結果を返す。
@@ -1124,9 +1130,9 @@ function aggregateMatches(
 }
 
 /**
- * validStoredRecordの処理を実行する。
+ * Stored 記録が有効か判定する。
  *
- * @responsibility validStoredRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Stored 記録の有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、boundary: DockerDesktopRepairRecordBoundary
  * @returns value is ReadableStoredRecordを返す。
@@ -1232,9 +1238,9 @@ function validStoredRecord(
 }
 
 /**
- * confirmationCompatibleの処理を実行する。
+ * confirmation Compatibleを決定する。
  *
- * @responsibility confirmationCompatibleに対応する入力処理と結果生成を所有する。
+ * @responsibility confirmation Compatibleの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input isIssued: DockerDesktopRepairTriState、confirmation: DockerDesktopRepairEffectConfirmation
  * @returns confirmationCompatibleの計算結果を返す。
@@ -1257,9 +1263,9 @@ function confirmationCompatible(
 }
 
 /**
- * legalEffectEntriesTransitionの処理を実行する。
+ * legal Effect Entries Transitionを決定する。
  *
- * @responsibility legalEffectEntriesTransitionに対応する入力処理と結果生成を所有する。
+ * @responsibility legal Effect Entries Transitionの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input previous: readonly DockerDesktopRepairEffectEntry[]、nextItems: readonly DockerDesktopRepairEffectEntry[]
  * @returns legalEffectEntriesTransitionの計算結果を返す。
@@ -1318,9 +1324,9 @@ const OBSERVATION_ACTIONS = new Set<DockerDesktopRepairEffectAction>([
 ]);
 
 /**
- * changedEffectCountの処理を実行する。
+ * changed Effect Countを決定する。
  *
- * @responsibility changedEffectCountに対応する入力処理と結果生成を所有する。
+ * @responsibility changed Effect Countの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input previous: readonly DockerDesktopRepairEffectEntry[]、nextItems: readonly DockerDesktopRepairEffectEntry[]
  * @returns changedEffectCountの計算結果を返す。
@@ -1354,9 +1360,9 @@ function changedEffectCount(
 }
 
 /**
- * validRecordWriteDeltaの処理を実行する。
+ * 記録 Write Deltaが有効か判定する。
  *
- * @responsibility validRecordWriteDeltaに対応する入力処理と結果生成を所有する。
+ * @responsibility 記録 Write Deltaの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input previous: readonly DockerDesktopRepairEffectEntry[]、nextItems: readonly DockerDesktopRepairEffectEntry[]
  * @returns validRecordWriteDeltaの計算結果を返す。
@@ -1404,9 +1410,9 @@ function validRecordWriteDelta(
 }
 
 /**
- * legalLedgerTransitionの処理を実行する。
+ * legal Ledger Transitionを決定する。
  *
- * @responsibility legalLedgerTransitionに対応する入力処理と結果生成を所有する。
+ * @responsibility legal Ledger Transitionの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input previous: DockerDesktopRepairLedgerSnapshot | null、next: DockerDesktopRepairLedgerSnapshot
  * @returns legalLedgerTransitionの計算結果を返す。
@@ -1567,9 +1573,9 @@ function legalLedgerTransition(
 }
 
 /**
- * effectEntryの処理を実行する。
+ * effect Entryを決定する。
  *
- * @responsibility effectEntryに対応する入力処理と結果生成を所有する。
+ * @responsibility effect Entryの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input ledger: DockerDesktopRepairLedgerSnapshot、action: DockerDesktopRepairEffectAction
  * @returns effectEntryの計算結果を返す。
@@ -1592,9 +1598,9 @@ function effectEntry(
 }
 
 /**
- * isSettledの処理を実行する。
+ * Settledかを判定する。
  *
- * @responsibility isSettledに対応する入力処理と結果生成を所有する。
+ * @responsibility Settledの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input ledger: DockerDesktopRepairLedgerSnapshot、action: DockerDesktopRepairEffectAction
  * @returns isSettledの計算結果を返す。
@@ -1615,9 +1621,9 @@ function isSettled(
 }
 
 /**
- * isSettledConfirmedの処理を実行する。
+ * Settled Confirmedかを判定する。
  *
- * @responsibility isSettledConfirmedに対応する入力処理と結果生成を所有する。
+ * @responsibility Settled Confirmedの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input ledger: DockerDesktopRepairLedgerSnapshot、action: DockerDesktopRepairEffectAction
  * @returns isSettledConfirmedの計算結果を返す。
@@ -1639,9 +1645,9 @@ function isSettledConfirmed(
 }
 
 /**
- * isSettledNotIssuedの処理を実行する。
+ * Settled Not Issuedかを判定する。
  *
- * @responsibility isSettledNotIssuedに対応する入力処理と結果生成を所有する。
+ * @responsibility Settled Not Issuedの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input ledger: DockerDesktopRepairLedgerSnapshot、action: DockerDesktopRepairEffectAction
  * @returns isSettledNotIssuedの計算結果を返す。
@@ -1667,9 +1673,9 @@ function isSettledNotIssued(
 }
 
 /**
- * hasUnknownReconciliationの処理を実行する。
+ * Unknown Reconciliationが存在するかを判定する。
  *
- * @responsibility hasUnknownReconciliationに対応する入力処理と結果生成を所有する。
+ * @responsibility Unknown Reconciliationの存在条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input ledger: DockerDesktopRepairLedgerSnapshot
  * @returns hasUnknownReconciliationの計算結果を返す。
@@ -1694,9 +1700,9 @@ function hasUnknownReconciliation(ledger: DockerDesktopRepairLedgerSnapshot) {
 }
 
 /**
- * hasUnknownHostEffectの処理を実行する。
+ * Unknown Host Effectが存在するかを判定する。
  *
- * @responsibility hasUnknownHostEffectに対応する入力処理と結果生成を所有する。
+ * @responsibility Unknown Host Effectの存在条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input ledger: DockerDesktopRepairLedgerSnapshot
  * @returns hasUnknownHostEffectの計算結果を返す。
@@ -1718,9 +1724,9 @@ function hasUnknownHostEffect(ledger: DockerDesktopRepairLedgerSnapshot) {
 }
 
 /**
- * validKnownProcessPrefixの処理を実行する。
+ * Known Process Prefixが有効か判定する。
  *
- * @responsibility validKnownProcessPrefixに対応する入力処理と結果生成を所有する。
+ * @responsibility Known Process Prefixの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input ledger: DockerDesktopRepairLedgerSnapshot
  * @returns validKnownProcessPrefixの計算結果を返す。
@@ -1754,9 +1760,9 @@ function validKnownProcessPrefix(ledger: DockerDesktopRepairLedgerSnapshot) {
 }
 
 /**
- * settledStoppedPrefixの処理を実行する。
+ * settled Stopped Prefixを決定する。
  *
- * @responsibility settledStoppedPrefixに対応する入力処理と結果生成を所有する。
+ * @responsibility settled Stopped Prefixの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input ledger: DockerDesktopRepairLedgerSnapshot
  * @returns settledStoppedPrefixの計算結果を返す。
@@ -1779,9 +1785,9 @@ function settledStoppedPrefix(ledger: DockerDesktopRepairLedgerSnapshot) {
 }
 
 /**
- * stageLedgerCompatibleの処理を実行する。
+ * stage Ledger Compatibleを決定する。
  *
- * @responsibility stageLedgerCompatibleに対応する入力処理と結果生成を所有する。
+ * @responsibility stage Ledger Compatibleの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input stage: DockerDesktopRepairStage、ledger: DockerDesktopRepairLedgerSnapshot
  * @returns stageLedgerCompatibleの計算結果を返す。
@@ -1980,9 +1986,9 @@ function stageLedgerCompatible(
 }
 
 /**
- * stableBytesの処理を実行する。
+ * Bytesを安定Identityへ変換する。
  *
- * @responsibility stableBytesに対応する入力処理と結果生成を所有する。
+ * @responsibility Bytesの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input target: string
  * @returns stableBytesの計算結果を返す。
@@ -2038,9 +2044,9 @@ function stableBytes(target: string) {
 }
 
 /**
- * legalTransitionの処理を実行する。
+ * legal Transitionを決定する。
  *
- * @responsibility legalTransitionに対応する入力処理と結果生成を所有する。
+ * @responsibility legal Transitionの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input previous: DockerDesktopRepairStage | null、next: DockerDesktopRepairStage
  * @returns legalTransitionの計算結果を返す。
@@ -2092,9 +2098,9 @@ function legalTransition(
 }
 
 /**
- * changedSemanticActionsの処理を実行する。
+ * changed Semantic Actionsを決定する。
  *
- * @responsibility changedSemanticActionsに対応する入力処理と結果生成を所有する。
+ * @responsibility changed Semantic Actionsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input previous: DockerDesktopRepairLedgerSnapshot | null、next: DockerDesktopRepairLedgerSnapshot
  * @returns changedSemanticActionsの計算結果を返す。
@@ -2141,9 +2147,9 @@ function changedSemanticActions(
 }
 
 /**
- * legalRepairRecordTransitionの処理を実行する。
+ * legal Repair 記録 Transitionを決定する。
  *
- * @responsibility legalRepairRecordTransitionに対応する入力処理と結果生成を所有する。
+ * @responsibility legal Repair 記録 Transitionの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input previousStage: DockerDesktopRepairStage | null、previousLedger: DockerDesktopRepairLedgerSnapshot | null、nextStage: DockerDesktopRepairStage、nextLedger: DockerDesktopRepairLedgerSnapshot
  * @returns legalRepairRecordTransitionの計算結果を返す。
@@ -2226,9 +2232,9 @@ function legalRepairRecordTransition(
 }
 
 /**
- * toOperationの処理を実行する。
+ * to Operationを決定する。
  *
- * @responsibility toOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility to Operationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、record: ReadableStoredRecord、recordSha256: string
  * @returns DockerDesktopRepairOperationを返す。
@@ -2270,9 +2276,9 @@ function toOperation(
 }
 
 /**
- * validCanonicalRepairHistorySessionFieldsの処理を実行する。
+ * Canonical Repair History Session Fieldsが有効か判定する。
  *
- * @responsibility validCanonicalRepairHistorySessionFieldsに対応する入力処理と結果生成を所有する。
+ * @responsibility Canonical Repair History Session Fieldsの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input history: Readonly<Record<string, unknown>>、boundary: DockerDesktopRepairRecordBoundary
  * @returns validCanonicalRepairHistorySessionFieldsの計算結果を返す。
@@ -2313,9 +2319,9 @@ function validCanonicalRepairHistorySessionFields(
 }
 
 /**
- * classifyCanonicalRepairHistoryの処理を実行する。
+ * Canonical Repair Historyを分類する。
  *
- * @responsibility classifyCanonicalRepairHistoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Canonical Repair Historyの分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、boundary: DockerDesktopRepairRecordBoundary、expectedClosure: DockerDesktopRepairExpectedClosure | undefined
  * @returns Exclude< CanonicalDockerDesktopRepairHistoryMode, "invalid" | "no_history" > | nullを返す。
@@ -2401,9 +2407,9 @@ function classifyCanonicalRepairHistory(
 }
 
 /**
- * classifyCanonicalDockerDesktopRepairHistoricalOperationUncheckedの処理を実行する。
+ * Canonical Docker Desktop Repair Historical Operation Uncheckedを分類する。
  *
- * @responsibility classifyCanonicalDockerDesktopRepairHistoricalOperationUncheckedに対応する入力処理と結果生成を所有する。
+ * @responsibility Canonical Docker Desktop Repair Historical Operation Uncheckedの分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、boundary: DockerDesktopRepairRecordBoundary、expectedClosure: DockerDesktopRepairExpectedClosure
  * @returns CanonicalDockerDesktopRepairHistoryModeを返す。
@@ -2472,9 +2478,9 @@ function classifyCanonicalDockerDesktopRepairHistoricalOperationUnchecked(
 }
 
 /**
- * classifyCanonicalDockerDesktopRepairHistoricalOperationの処理を実行する。
+ * Canonical Docker Desktop Repair Historical Operationを分類する。
  *
- * @responsibility classifyCanonicalDockerDesktopRepairHistoricalOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility Canonical Docker Desktop Repair Historical Operationの分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、boundary: DockerDesktopRepairRecordBoundary、expectedClosure: DockerDesktopRepairExpectedClosure
  * @returns CanonicalDockerDesktopRepairHistoryModeを返す。
@@ -2504,9 +2510,9 @@ export function classifyCanonicalDockerDesktopRepairHistoricalOperation(
 }
 
 /**
- * readOriginalOperationの処理を実行する。
+ * Original Operationを読み取る。
  *
- * @responsibility readOriginalOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility Original Operationの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、directoryName: string、historyAllowed、logonMode: "current" | "terminal" | "closed_history"
  * @returns readOriginalOperationの計算結果を返す。
@@ -2622,9 +2628,9 @@ function readOriginalOperation(
 }
 
 /**
- * releaseMatchesBoundaryの処理を実行する。
+ * Matches Boundaryを解放する。
  *
- * @responsibility releaseMatchesBoundaryに対応する入力処理と結果生成を所有する。
+ * @responsibility Matches Boundaryの所有権、解放条件、終了後不存在の確認境界を所有する。
  * @trace ARCH-000008
  * @input release: HistoricalReleaseIdentity、boundary: DockerDesktopRepairRecordBoundary
  * @returns releaseMatchesBoundaryの計算結果を返す。
@@ -2655,9 +2661,9 @@ function releaseMatchesBoundary(
 }
 
 /**
- * releaseNotAfterBoundaryの処理を実行する。
+ * Not After Boundaryを解放する。
  *
- * @responsibility releaseNotAfterBoundaryに対応する入力処理と結果生成を所有する。
+ * @responsibility Not After Boundaryの所有権、解放条件、終了後不存在の確認境界を所有する。
  * @trace ARCH-000008
  * @input release: HistoricalReleaseIdentity、boundary: DockerDesktopRepairRecordBoundary
  * @returns releaseNotAfterBoundaryの計算結果を返す。
@@ -2681,9 +2687,9 @@ function releaseNotAfterBoundary(
 }
 
 /**
- * historicalBoundaryの処理を実行する。
+ * historical Boundaryを決定する。
  *
- * @responsibility historicalBoundaryに対応する入力処理と結果生成を所有する。
+ * @responsibility historical Boundaryの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、release: HistoricalReleaseIdentity、dockerPolicySha256
  * @returns DockerDesktopRepairRecordBoundaryを返す。
@@ -2726,9 +2732,9 @@ function historicalBoundary(
 }
 
 /**
- * originalDockerPolicySha256の処理を実行する。
+ * original Docker Policy Sha256を決定する。
  *
- * @responsibility originalDockerPolicySha256に対応する入力処理と結果生成を所有する。
+ * @responsibility original Docker Policy Sha256の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input runtimeStateRoot: string、directoryName: string
  * @returns originalDockerPolicySha256の計算結果を返す。
@@ -2763,9 +2769,9 @@ function originalDockerPolicySha256(
 }
 
 /**
- * parseHistoryBytesの処理を実行する。
+ * History Bytesを構造化値へ解析する。
  *
- * @responsibility parseHistoryBytesに対応する入力処理と結果生成を所有する。
+ * @responsibility History Bytesの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000008
  * @input bytes: Buffer | null
  * @returns Record<string, unknown> | nullを返す。
@@ -2796,9 +2802,9 @@ function parseHistoryBytes(
 }
 
 /**
- * historyFilePresentの処理を実行する。
+ * history File Presentを決定する。
  *
- * @responsibility historyFilePresentに対応する入力処理と結果生成を所有する。
+ * @responsibility history File Presentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input directory: string、name: string
  * @returns boolean | nullを返す。
@@ -2825,9 +2831,9 @@ function historyFilePresent(directory: string, name: string): boolean | null {
 }
 
 /**
- * HistoryPreparationStateが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するHistory Preparation 状態の値契約を定義する。
  *
- * @responsibility HistoryPreparationStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility History Preparation 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape HistoryPreparationStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HistoryPreparationStateで宣言した値と責務の対応を維持する。
@@ -2842,9 +2848,9 @@ type HistoryPreparationState = Readonly<{
 }>;
 
 /**
- * sameRegularFileIdentityの処理を実行する。
+ * Regular File Identityが同一かを判定する。
  *
- * @responsibility sameRegularFileIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Regular File Identityの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000008
  * @input left: string、right: string
  * @returns sameRegularFileIdentityの計算結果を返す。
@@ -2876,9 +2882,9 @@ function sameRegularFileIdentity(left: string, right: string) {
 }
 
 /**
- * classifyHistoryPreparationsの処理を実行する。
+ * History Preparationsを分類する。
  *
- * @responsibility classifyHistoryPreparationsに対応する入力処理と結果生成を所有する。
+ * @responsibility History Preparationsの分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000008
  * @input directory: string
  * @returns readonly HistoryPreparationState[] | nullを返す。
@@ -2948,9 +2954,9 @@ const historyPublicationFs = Object.freeze({
 });
 
 /**
- * historyPublicationStableBytesの処理を実行する。
+ * history Publication Stable Bytesを決定する。
  *
- * @responsibility historyPublicationStableBytesに対応する入力処理と結果生成を所有する。
+ * @responsibility history Publication Stable Bytesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: string
  * @returns historyPublicationStableBytesの計算結果を返す。
@@ -3009,9 +3015,9 @@ function historyPublicationStableBytes(target: string) {
 }
 
 /**
- * historyPublicationPresentの処理を実行する。
+ * history Publication Presentを決定する。
  *
- * @responsibility historyPublicationPresentに対応する入力処理と結果生成を所有する。
+ * @responsibility history Publication Presentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: string
  * @returns boolean | nullを返す。
@@ -3038,9 +3044,9 @@ function historyPublicationPresent(target: string): boolean | null {
 }
 
 /**
- * historyPublicationSameIdentityの処理を実行する。
+ * history Publication Same Identityを決定する。
  *
- * @responsibility historyPublicationSameIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility history Publication Same Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input left: string、right: string
  * @returns historyPublicationSameIdentityの計算結果を返す。
@@ -3074,9 +3080,9 @@ function historyPublicationSameIdentity(left: string, right: string) {
 }
 
 /**
- * historyPublicationDirectoryIdentityの処理を実行する。
+ * history Publication Directory Identityを決定する。
  *
- * @responsibility historyPublicationDirectoryIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility history Publication Directory Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input directory: string
  * @returns historyPublicationDirectoryIdentityの計算結果を返す。
@@ -3100,9 +3106,9 @@ function historyPublicationDirectoryIdentity(directory: string) {
 }
 
 /**
- * historyPublicationSameDirectoryIdentityの処理を実行する。
+ * history Publication Same Directory Identityを決定する。
  *
- * @responsibility historyPublicationSameDirectoryIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility history Publication Same Directory Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input left: unknown、right: unknown
  * @returns historyPublicationSameDirectoryIdentityの計算結果を返す。
@@ -3129,9 +3135,9 @@ function historyPublicationSameDirectoryIdentity(
 }
 
 /**
- * confirmHistoryPublicationSettlementForCurrentInvocationの処理を実行する。
+ * History Publication Settlement For Current Invocationを確認する。
  *
- * @responsibility confirmHistoryPublicationSettlementForCurrentInvocationに対応する入力処理と結果生成を所有する。
+ * @responsibility History Publication Settlement For Current Invocationの確認根拠、成立条件、観測不能境界を所有する。
  * @trace ARCH-000008
  * @input directory: string、initialDirectoryIdentity: unknown
  * @returns confirmHistoryPublicationSettlementForCurrentInvocationの計算結果を返す。
@@ -3183,9 +3189,9 @@ const productionHistoryPublicationOperations: RepairHistoryPublicationOperations
   });
 
 /**
- * readOperationの処理を実行する。
+ * Operationを読み取る。
  *
- * @responsibility readOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility Operationの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、directoryName: string、verifyHistory: DockerDesktopRepairHistoryVerifier、shouldAllowPendingSessionHandoff、shouldAllowKnownHistoryPreparation
  * @returns DockerDesktopRepairOperation | nullを返す。
@@ -3508,9 +3514,9 @@ function readOperation(
 }
 
 /**
- * inspectDockerDesktopRepairHistoricalOperationの処理を実行する。
+ * Docker Desktop Repair Historical Operationを観測する。
  *
- * @responsibility inspectDockerDesktopRepairHistoricalOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Historical Operationの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、repairId: string、originManifest: unknown、verifyHistory: DockerDesktopRepairHistoryVerifier
  * @returns DockerDesktopRepairOperation | nullを返す。
@@ -3574,9 +3580,9 @@ export function inspectDockerDesktopRepairHistoricalOperation(
 }
 
 /**
- * writeHistoryFileの処理を実行する。
+ * History Fileを書き込む。
  *
- * @responsibility writeHistoryFileに対応する入力処理と結果生成を所有する。
+ * @responsibility History Fileの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input directory: string、name: string、bytes: Buffer
  * @returns writeHistoryFileの計算結果を返す。
@@ -3603,9 +3609,9 @@ function writeHistoryFile(directory: string, name: string, bytes: Buffer) {
 }
 
 /**
- * settlePublishedHistoryResiduesの処理を実行する。
+ * Published History Residuesを終端状態へ確定する。
  *
- * @responsibility settlePublishedHistoryResiduesに対応する入力処理と結果生成を所有する。
+ * @responsibility Published History Residuesの確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000008
  * @input directory: string
  * @returns settlePublishedHistoryResiduesの計算結果を返す。
@@ -3631,9 +3637,9 @@ function settlePublishedHistoryResidues(directory: string) {
 }
 
 /**
- * persistDockerDesktopRepairHistoricalAdoptionの処理を実行する。
+ * Docker Desktop Repair Historical Adoptionを耐久保存する。
  *
- * @responsibility persistDockerDesktopRepairHistoricalAdoptionに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Historical Adoptionの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、originManifest: unknown、adoptingManifest: unknown、verifyHistory: DockerDesktopRepairHistoryVerifier
  * @returns DockerDesktopRepairOperation | nullを返す。
@@ -3777,9 +3783,9 @@ export function persistDockerDesktopRepairHistoricalAdoption(
 }
 
 /**
- * persistDockerDesktopRepairHistoricalClosureの処理を実行する。
+ * Docker Desktop Repair Historical Closureを耐久保存する。
  *
- * @responsibility persistDockerDesktopRepairHistoricalClosureに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Historical Closureの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、observation: Readonly<{ liveRunIdentity: DockerDesktopRepairDirectoryIdentity; staleState: "absent" | "retained"; }>、closingManifest: unknown、verifyHistory: DockerDesktopRepairHistoryVerifier
  * @returns DockerDesktopRepairOperation | nullを返す。
@@ -3856,9 +3862,9 @@ export function persistDockerDesktopRepairHistoricalClosure(
 }
 
 /**
- * inventoryDockerDesktopRepairOperationsの処理を実行する。
+ * inventory Docker Desktop Repair Operationsを決定する。
  *
- * @responsibility inventoryDockerDesktopRepairOperationsに対応する入力処理と結果生成を所有する。
+ * @responsibility inventory Docker Desktop Repair Operationsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、verifyHistory: DockerDesktopRepairHistoryVerifier
  * @returns inventoryDockerDesktopRepairOperationsの計算結果を返す。
@@ -3900,9 +3906,9 @@ export function inventoryDockerDesktopRepairOperations(
 }
 
 /**
- * canCreateDockerDesktopRepairOperationの処理を実行する。
+ * can Create Docker Desktop Repair Operationを決定する。
  *
- * @responsibility canCreateDockerDesktopRepairOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility can Create Docker Desktop Repair Operationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary
  * @returns canCreateDockerDesktopRepairOperationの計算結果を返す。
@@ -3926,9 +3932,9 @@ export function canCreateDockerDesktopRepairOperation(
 }
 
 /**
- * hasDockerDesktopRepairRecordCapacityの処理を実行する。
+ * Docker Desktop Repair 記録 Capacityが存在するかを判定する。
  *
- * @responsibility hasDockerDesktopRepairRecordCapacityに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair 記録 Capacityの存在条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input operation: DockerDesktopRepairOperation、requiredRecords: number
  * @returns hasDockerDesktopRepairRecordCapacityの計算結果を返す。
@@ -3953,9 +3959,9 @@ export function hasDockerDesktopRepairRecordCapacity(
 }
 
 /**
- * DockerDesktopRepairResumeClassificationが扱う値の構造を表す。
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Resume Classificationの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairResumeClassificationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Resume ClassificationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairResumeClassificationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairResumeClassificationで宣言した値と責務の対応を維持する。
@@ -3982,9 +3988,9 @@ export type DockerDesktopRepairResumeClassification = Readonly<{
 }>;
 
 /**
- * classifyDockerDesktopRepairResumeの処理を実行する。
+ * Docker Desktop Repair Resumeを分類する。
  *
- * @responsibility classifyDockerDesktopRepairResumeに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Resumeの分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000008
  * @input operation: DockerDesktopRepairOperation
  * @returns DockerDesktopRepairResumeClassificationを返す。
@@ -4080,9 +4086,9 @@ export function classifyDockerDesktopRepairResume(
 }
 
 /**
- * requiredDockerDesktopRepairRecordsThroughSafeStageの処理を実行する。
+ * required Docker Desktop Repair Records Through Safe Stageを決定する。
  *
- * @responsibility requiredDockerDesktopRepairRecordsThroughSafeStageに対応する入力処理と結果生成を所有する。
+ * @responsibility required Docker Desktop Repair Records Through Safe Stageの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input action: Extract< DockerDesktopRepairEffectAction, | "official_shutdown" | "native_termination" | "wsl_termination" | "runtime_directory_rename" | "desktop_launch" >
  * @returns requiredDockerDesktopRepairRecordsThroughSafeStageの計算結果を返す。
@@ -4124,9 +4130,9 @@ export function requiredDockerDesktopRepairRecordsThroughSafeStage(
 }
 
 /**
- * createDockerDesktopRepairOperationの処理を実行する。
+ * Docker Desktop Repair Operationを構築する。
  *
- * @responsibility createDockerDesktopRepairOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Operationの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、runIdentity: DockerDesktopRepairDirectoryIdentity、ledger: DockerDesktopRepairLedgerSnapshot
  * @returns createDockerDesktopRepairOperationの計算結果を返す。
@@ -4168,9 +4174,9 @@ export function createDockerDesktopRepairOperation(
 }
 
 /**
- * persistDockerDesktopRepairStageの処理を実行する。
+ * Docker Desktop Repair Stageを耐久保存する。
  *
- * @responsibility persistDockerDesktopRepairStageに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Stageの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、stage: DockerDesktopRepairStage、ledger: DockerDesktopRepairLedgerSnapshot
  * @returns persistDockerDesktopRepairStageの計算結果を返す。
@@ -4277,9 +4283,9 @@ export function persistDockerDesktopRepairStage(
 }
 
 /**
- * parseDockerDesktopRepairIdの処理を実行する。
+ * Docker Desktop Repair Idを構造化値へ解析する。
  *
- * @responsibility parseDockerDesktopRepairIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Idの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns parseDockerDesktopRepairIdの計算結果を返す。
@@ -4301,9 +4307,9 @@ export function parseDockerDesktopRepairId(value: unknown) {
 }
 
 /**
- * describeDockerDesktopRepairRecordStoreContractの処理を実行する。
+ * Docker Desktop Repair 記録 Store 契約の公開契約を記述する。
  *
- * @responsibility describeDockerDesktopRepairRecordStoreContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair 記録 Store 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeDockerDesktopRepairRecordStoreContractの計算結果を返す。

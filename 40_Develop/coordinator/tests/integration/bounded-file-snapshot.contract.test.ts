@@ -6,7 +6,7 @@
  * @trace RFD-IT-008
  * @level IT
  * @scope bounded、file、snapshot
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -26,7 +26,7 @@ import { readStableBoundedFileSnapshot } from "../../src/security/bounded-file-s
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 function temporaryFile(bytes: Buffer) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-bounded-file-"));
@@ -45,7 +45,7 @@ function temporaryFile(bytes: Buffer) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 test("bounded snapshotは上限exactを同一fdから読み上限+1を拒否する", () => {
   const exact = temporaryFile(Buffer.alloc(4096, 0x5a));
@@ -74,7 +74,7 @@ test("bounded snapshotは上限exactを同一fdから読み上限+1を拒否す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 test("bounded snapshotは読取り中growthとtruncateを拒否する", () => {
   for (const mutation of ["growth", "truncate"] as const) {
@@ -125,7 +125,7 @@ test("bounded snapshotは読取り中growthとtruncateを拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 test("bounded snapshotは同長leaf replacementとparent replacementを拒否する", () => {
   for (const mutation of ["leaf", "parent"] as const) {

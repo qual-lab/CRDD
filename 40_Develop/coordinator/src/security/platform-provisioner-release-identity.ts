@@ -1,3 +1,9 @@
+/**
+ * platform-provisioner-release-identityに属する責務をまとめる。
+ *
+ * @responsibility HashAlgorithmを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -18,9 +24,9 @@ const TRACKED_RUNTIME_SETTING_RELATIVE_PATHS = new Set<string>([
 ]);
 
 /**
- * HashAlgorithmが扱う値の構造を表す。
+ * platform-provisioner-release-identityで使用するHash Algorithmの値契約を定義する。
  *
- * @responsibility HashAlgorithmに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Hash AlgorithmのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape HashAlgorithmが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HashAlgorithmで宣言した値と責務の対応を維持する。
@@ -31,9 +37,9 @@ const TRACKED_RUNTIME_SETTING_RELATIVE_PATHS = new Set<string>([
 type HashAlgorithm = "sha1" | "sha256";
 
 /**
- * StableIdentityが扱う値の構造を表す。
+ * platform-provisioner-release-identityで使用するStable Identityの値契約を定義する。
  *
- * @responsibility StableIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Stable IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape StableIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant StableIdentityで宣言した値と責務の対応を維持する。
@@ -51,9 +57,9 @@ type StableIdentity = Readonly<{
 }>;
 
 /**
- * TreeEntryが扱う値の構造を表す。
+ * platform-provisioner-release-identityで使用するTree Entryの値契約を定義する。
  *
- * @responsibility TreeEntryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Tree EntryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape TreeEntryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TreeEntryで宣言した値と責務の対応を維持する。
@@ -69,9 +75,9 @@ type TreeEntry = Readonly<{
 }>;
 
 /**
- * identityの処理を実行する。
+ * identityを決定する。
  *
- * @responsibility identityに対応する入力処理と結果生成を所有する。
+ * @responsibility identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input metadata: fs.BigIntStats
  * @returns StableIdentityを返す。
@@ -96,9 +102,9 @@ function identity(metadata: fs.BigIntStats): StableIdentity {
 }
 
 /**
- * sameIdentityの処理を実行する。
+ * Identityが同一かを判定する。
  *
- * @responsibility sameIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Identityの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000014
  * @input left: StableIdentity、right: StableIdentity
  * @returns sameIdentityの計算結果を返す。
@@ -123,9 +129,9 @@ function sameIdentity(left: StableIdentity, right: StableIdentity) {
 }
 
 /**
- * hashAlgorithmの処理を実行する。
+ * hash Algorithmを決定する。
  *
- * @responsibility hashAlgorithmに対応する入力処理と結果生成を所有する。
+ * @responsibility hash Algorithmの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input expectedTree: string
  * @returns HashAlgorithm | nullを返す。
@@ -144,9 +150,9 @@ function hashAlgorithm(expectedTree: string): HashAlgorithm | null {
 }
 
 /**
- * gitObjectIdの処理を実行する。
+ * git Object Idを決定する。
  *
- * @responsibility gitObjectIdに対応する入力処理と結果生成を所有する。
+ * @responsibility git Object Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input algorithm: HashAlgorithm、type: "blob" | "tree"、bytes: Buffer
  * @returns gitObjectIdの計算結果を返す。
@@ -169,9 +175,9 @@ function gitObjectId(
 }
 
 /**
- * validEntryNameの処理を実行する。
+ * Entry Nameが有効か判定する。
  *
- * @responsibility validEntryNameに対応する入力処理と結果生成を所有する。
+ * @responsibility Entry Nameの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000014
  * @input name: string
  * @returns validEntryNameの計算結果を返す。
@@ -196,9 +202,9 @@ function validEntryName(name: string) {
 }
 
 /**
- * stableFileBytesの処理を実行する。
+ * File Bytesを安定Identityへ変換する。
  *
- * @responsibility stableFileBytesに対応する入力処理と結果生成を所有する。
+ * @responsibility File Bytesの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input target: string、remainingBytes: number
  * @returns stableFileBytesの計算結果を返す。
@@ -261,9 +267,9 @@ function stableFileBytes(target: string, remainingBytes: number) {
 }
 
 /**
- * canonicalDistributionFileBytesの処理を実行する。
+ * canonical Distribution File Bytesを決定する。
  *
- * @responsibility canonicalDistributionFileBytesに対応する入力処理と結果生成を所有する。
+ * @responsibility canonical Distribution File Bytesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、bytes: Buffer
  * @returns canonicalDistributionFileBytesの計算結果を返す。
@@ -297,9 +303,9 @@ function canonicalDistributionFileBytes(relativePath: string, bytes: Buffer) {
 }
 
 /**
- * gitSortNameの処理を実行する。
+ * git Sort Nameを決定する。
  *
- * @responsibility gitSortNameに対応する入力処理と結果生成を所有する。
+ * @responsibility git Sort Nameの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input entry: TreeEntry
  * @returns gitSortNameの計算結果を返す。
@@ -317,9 +323,9 @@ function gitSortName(entry: TreeEntry) {
 }
 
 /**
- * encodeTreeの処理を実行する。
+ * Treeを固定形式へ符号化する。
  *
- * @responsibility encodeTreeに対応する入力処理と結果生成を所有する。
+ * @responsibility Treeの入力値、符号化規則、出力byte列の境界を所有する。
  * @trace ARCH-000014
  * @input entries: readonly TreeEntry[]
  * @returns encodeTreeの計算結果を返す。
@@ -345,9 +351,9 @@ function encodeTree(entries: readonly TreeEntry[]) {
 }
 
 /**
- * isExcludedPostCheckoutArtifactの処理を実行する。
+ * Excluded Post Checkout Artifactかを判定する。
  *
- * @responsibility isExcludedPostCheckoutArtifactに対応する入力処理と結果生成を所有する。
+ * @responsibility Excluded Post Checkout Artifactの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string
  * @returns isExcludedPostCheckoutArtifactの計算結果を返す。
@@ -365,9 +371,9 @@ function isExcludedPostCheckoutArtifact(relativePath: string) {
 }
 
 /**
- * verifyRepositoryMetadataEntryの処理を実行する。
+ * Repository Metadata Entryを検証する。
  *
- * @responsibility verifyRepositoryMetadataEntryに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Metadata Entryの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input target: string
  * @returns N/A: verifyRepositoryMetadataEntryは戻り値を返さない。
@@ -392,9 +398,9 @@ function verifyRepositoryMetadataEntry(target: string) {
 }
 
 /**
- * observeDistributionTreeの処理を実行する。
+ * Distribution Treeを観測する。
  *
- * @responsibility observeDistributionTreeに対応する入力処理と結果生成を所有する。
+ * @responsibility Distribution Treeの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input distributionRoot: string、expectedTree: string
  * @returns observeDistributionTreeの計算結果を返す。
@@ -590,9 +596,9 @@ function observeDistributionTree(
 }
 
 /**
- * inspectPlatformProvisionerReleaseIdentityCandidateの処理を実行する。
+ * Platform Provisioner Release Identity 候補を観測する。
  *
- * @responsibility inspectPlatformProvisionerReleaseIdentityCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Provisioner Release Identity 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input distributionRoot: unknown、expectedCrddTree: unknown
  * @returns inspectPlatformProvisionerReleaseIdentityCandidateの計算結果を返す。
@@ -687,9 +693,9 @@ export function inspectPlatformProvisionerReleaseIdentityCandidate(
 }
 
 /**
- * describePlatformProvisionerReleaseIdentityContractの処理を実行する。
+ * Platform Provisioner Release Identity 契約の公開契約を記述する。
  *
- * @responsibility describePlatformProvisionerReleaseIdentityContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Provisioner Release Identity 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describePlatformProvisionerReleaseIdentityContractの計算結果を返す。

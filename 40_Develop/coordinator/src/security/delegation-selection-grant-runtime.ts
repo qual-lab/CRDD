@@ -1,3 +1,9 @@
+/**
+ * delegation-selection-grant-runtimeに属する責務をまとめる。
+ *
+ * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import { randomBytes } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
@@ -20,9 +26,9 @@ const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
 const EXACT_MODEL_ID = /^[a-z0-9][a-z0-9._-]{0,127}$/u;
 
 /**
- * Providerが扱う値の構造を表す。
+ * delegation-selection-grant-runtimeで使用するProviderの値契約を定義する。
  *
- * @responsibility Providerに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ProviderのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Providerで宣言した値と責務の対応を維持する。
@@ -32,9 +38,9 @@ const EXACT_MODEL_ID = /^[a-z0-9][a-z0-9._-]{0,127}$/u;
  */
 type Provider = "codex" | "claude";
 /**
- * SelectionRoleが扱う値の構造を表す。
+ * delegation-selection-grant-runtimeで使用するSelection Roleの値契約を定義する。
  *
- * @responsibility SelectionRoleに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Selection RoleのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape SelectionRoleが表すProperty、識別子およびRelationを型として固定する。
  * @invariant SelectionRoleで宣言した値と責務の対応を維持する。
@@ -48,9 +54,9 @@ type SelectionRole =
   | "independent_reviewer"
   | "result_integration";
 /**
- * CandidateRouteが扱う値の構造を表す。
+ * delegation-selection-grant-runtimeで使用する候補 Routeの値契約を定義する。
  *
- * @responsibility CandidateRouteに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 候補 RouteのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape CandidateRouteが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CandidateRouteで宣言した値と責務の対応を維持する。
@@ -63,9 +69,9 @@ type CandidateRoute = Extract<
   { status: "candidate" }
 >;
 /**
- * ResolvedModelProfileが扱う値の構造を表す。
+ * delegation-selection-grant-runtimeで使用するResolved Model Profileの値契約を定義する。
  *
- * @responsibility ResolvedModelProfileに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Resolved Model ProfileのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape ResolvedModelProfileが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ResolvedModelProfileで宣言した値と責務の対応を維持する。
@@ -85,9 +91,9 @@ type ResolvedModelProfile = Readonly<{
   compatibilityReason: string | null;
 }>;
 /**
- * ModelProfileRequestが扱う値の構造を表す。
+ * delegation-selection-grant-runtimeで使用するModel Profile Requestの値契約を定義する。
  *
- * @responsibility ModelProfileRequestに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Model Profile RequestのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape ModelProfileRequestが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ModelProfileRequestで宣言した値と責務の対応を維持する。
@@ -104,9 +110,9 @@ type ModelProfileRequest = Readonly<{
   billingMode: "subscription_oauth";
 }>;
 /**
- * SelectionRecordが扱う値の構造を表す。
+ * delegation-selection-grant-runtimeで使用するSelection 記録の値契約を定義する。
  *
- * @responsibility SelectionRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Selection 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape SelectionRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant SelectionRecordで宣言した値と責務の対応を維持する。
@@ -127,9 +133,9 @@ type SelectionRecord = {
   useCapability: object;
 };
 /**
- * RuntimeStateが扱う値の構造を表す。
+ * delegation-selection-grant-runtimeで使用するRuntime 状態の値契約を定義する。
  *
- * @responsibility RuntimeStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape RuntimeStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeStateで宣言した値と責務の対応を維持する。
@@ -154,9 +160,9 @@ type RuntimeState = Readonly<{
 }>;
 
 /**
- * createRuntimeStateの処理を実行する。
+ * Runtime 状態を構築する。
  *
- * @responsibility createRuntimeStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 状態の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000010
  * @input dependencies: Omit< RuntimeState, "records" | "controlCapabilities" | "useCapabilities" >
  * @returns RuntimeStateを返す。
@@ -201,9 +207,9 @@ const productionState = createRuntimeState({
 });
 
 /**
- * createBlockedResultの処理を実行する。
+ * Blocked 結果を構築する。
  *
- * @responsibility createBlockedResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Blocked 結果の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000010
  * @input reason: string
  * @returns createBlockedResultの計算結果を返す。
@@ -240,9 +246,9 @@ function createBlockedResult(reason: string) {
 }
 
 /**
- * isSelectionRoleの処理を実行する。
+ * Selection Roleかを判定する。
  *
- * @responsibility isSelectionRoleに対応する入力処理と結果生成を所有する。
+ * @responsibility Selection Roleの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000010
  * @input value: unknown
  * @returns value is SelectionRoleを返す。
@@ -265,9 +271,9 @@ function isSelectionRole(value: unknown): value is SelectionRole {
 }
 
 /**
- * performSafelyの処理を実行する。
+ * Safelyを安全に実行する。
  *
- * @responsibility performSafelyに対応する入力処理と結果生成を所有する。
+ * @responsibility Safelyの実行条件、Effect範囲、失敗時の終了境界を所有する。
  * @trace ARCH-000010
  * @input reason: string、action: () => T
  * @returns performSafelyの計算結果を返す。
@@ -289,9 +295,9 @@ function performSafely<T>(reason: string, action: () => T) {
 }
 
 /**
- * createSelectionRecordIdの処理を実行する。
+ * Selection 記録 Idを構築する。
  *
- * @responsibility createSelectionRecordIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Selection 記録 Idの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState
  * @returns createSelectionRecordIdの計算結果を返す。
@@ -312,9 +318,9 @@ function createSelectionRecordId(state: RuntimeState) {
 }
 
 /**
- * isResolvedProfileValidの処理を実行する。
+ * Resolved Profile Validかを判定する。
  *
- * @responsibility isResolvedProfileValidに対応する入力処理と結果生成を所有する。
+ * @responsibility Resolved Profile Validの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000010
  * @input profile: ResolvedModelProfile、route: CandidateRoute
  * @returns isResolvedProfileValidの計算結果を返す。
@@ -344,9 +350,9 @@ function isResolvedProfileValid(
 }
 
 /**
- * describeResolvedSelectionNoticeの処理を実行する。
+ * Resolved Selection Noticeの公開契約を記述する。
  *
- * @responsibility describeResolvedSelectionNoticeに対応する入力処理と結果生成を所有する。
+ * @responsibility Resolved Selection Noticeの公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000010
  * @input route: CandidateRoute、profile: ResolvedModelProfile
  * @returns describeResolvedSelectionNoticeの計算結果を返す。
@@ -373,9 +379,9 @@ function describeResolvedSelectionNotice(
 }
 
 /**
- * isSelectionFreshの処理を実行する。
+ * Selection Freshかを判定する。
  *
- * @responsibility isSelectionFreshに対応する入力処理と結果生成を所有する。
+ * @responsibility Selection Freshの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、record: SelectionRecord
  * @returns isSelectionFreshの計算結果を返す。
@@ -402,9 +408,9 @@ function isSelectionFresh(state: RuntimeState, record: SelectionRecord) {
 }
 
 /**
- * removeSelectionRecordの処理を実行する。
+ * Selection 記録を除去する。
  *
- * @responsibility removeSelectionRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Selection 記録の対象Identity、除去条件、終了後状態の境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、record: SelectionRecord
  * @returns N/A: removeSelectionRecordは戻り値を返さない。
@@ -424,9 +430,9 @@ function removeSelectionRecord(state: RuntimeState, record: SelectionRecord) {
 }
 
 /**
- * issueSelectionGrantの処理を実行する。
+ * Selection Grantを発行する。
  *
- * @responsibility issueSelectionGrantに対応する入力処理と結果生成を所有する。
+ * @responsibility Selection Grantの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、managementCapability: unknown、rawRequest: unknown
  * @returns issueSelectionGrantの計算結果を返す。
@@ -532,9 +538,9 @@ function issueSelectionGrant(
 }
 
 /**
- * findSelectionRecordの処理を実行する。
+ * Selection 記録を検索する。
  *
- * @responsibility findSelectionRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Selection 記録の検索範囲、一致条件、未検出結果の境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、capability: unknown、aliases: WeakMap<object, string>、managementCapability: unknown
  * @returns findSelectionRecordの計算結果を返す。
@@ -567,9 +573,9 @@ function findSelectionRecord(
 }
 
 /**
- * consumeSelectionGrantの処理を実行する。
+ * Selection Grantを一回限りで消費する。
  *
- * @responsibility consumeSelectionGrantに対応する入力処理と結果生成を所有する。
+ * @responsibility Selection Grantの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、useCapability: unknown、managementCapability: unknown
  * @returns consumeSelectionGrantの計算結果を返す。
@@ -616,9 +622,9 @@ function consumeSelectionGrant(
 }
 
 /**
- * revokeSelectionGrantの処理を実行する。
+ * Selection Grantを失効させる。
  *
- * @responsibility revokeSelectionGrantに対応する入力処理と結果生成を所有する。
+ * @responsibility Selection Grantの失効Authority、対象Identity、再利用防止境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、controlCapability: unknown、managementCapability: unknown
  * @returns revokeSelectionGrantの計算結果を返す。
@@ -656,9 +662,9 @@ function revokeSelectionGrant(
 }
 
 /**
- * supersedeSelectionGrantの処理を実行する。
+ * supersede Selection Grantを決定する。
  *
- * @responsibility supersedeSelectionGrantに対応する入力処理と結果生成を所有する。
+ * @responsibility supersede Selection Grantの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input state: RuntimeState、controlCapability: unknown、managementCapability: unknown、rawReplacementRequest: unknown
  * @returns supersedeSelectionGrantの計算結果を返す。
@@ -706,9 +712,9 @@ function supersedeSelectionGrant(
 }
 
 /**
- * issueRuntimeOwnedDelegationSelectionGrantの処理を実行する。
+ * Runtime 所有 Delegation Selection Grantを発行する。
  *
- * @responsibility issueRuntimeOwnedDelegationSelectionGrantに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Delegation Selection Grantの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000010
  * @input managementCapability: unknown、rawRequest: unknown
  * @returns issueRuntimeOwnedDelegationSelectionGrantの計算結果を返す。
@@ -731,9 +737,9 @@ export function issueRuntimeOwnedDelegationSelectionGrant(
 }
 
 /**
- * preflightRuntimeOwnedDelegationExecutionSlateの処理を実行する。
+ * preflight Runtime 所有 Delegation Execution Slateを決定する。
  *
- * @responsibility preflightRuntimeOwnedDelegationExecutionSlateに対応する入力処理と結果生成を所有する。
+ * @responsibility preflight Runtime 所有 Delegation Execution Slateの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input managementCapability: unknown、rawExecutorRequest: unknown
  * @returns preflightRuntimeOwnedDelegationExecutionSlateの計算結果を返す。
@@ -783,9 +789,9 @@ export function preflightRuntimeOwnedDelegationExecutionSlate(
 }
 
 /**
- * consumeRuntimeOwnedDelegationSelectionGrantの処理を実行する。
+ * Runtime 所有 Delegation Selection Grantを一回限りで消費する。
  *
- * @responsibility consumeRuntimeOwnedDelegationSelectionGrantに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Delegation Selection Grantの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000010
  * @input useCapability: unknown、managementCapability: unknown
  * @returns consumeRuntimeOwnedDelegationSelectionGrantの計算結果を返す。
@@ -814,9 +820,9 @@ export function consumeRuntimeOwnedDelegationSelectionGrant(
 }
 
 /**
- * revokeRuntimeOwnedDelegationSelectionGrantの処理を実行する。
+ * Runtime 所有 Delegation Selection Grantを失効させる。
  *
- * @responsibility revokeRuntimeOwnedDelegationSelectionGrantに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Delegation Selection Grantの失効Authority、対象Identity、再利用防止境界を所有する。
  * @trace ARCH-000010
  * @input controlCapability: unknown、managementCapability: unknown
  * @returns revokeRuntimeOwnedDelegationSelectionGrantの計算結果を返す。
@@ -843,9 +849,9 @@ export function revokeRuntimeOwnedDelegationSelectionGrant(
 }
 
 /**
- * supersedeRuntimeOwnedDelegationSelectionGrantの処理を実行する。
+ * supersede Runtime 所有 Delegation Selection Grantを決定する。
  *
- * @responsibility supersedeRuntimeOwnedDelegationSelectionGrantに対応する入力処理と結果生成を所有する。
+ * @responsibility supersede Runtime 所有 Delegation Selection Grantの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input controlCapability: unknown、managementCapability: unknown、rawReplacementRequest: unknown
  * @returns supersedeRuntimeOwnedDelegationSelectionGrantの計算結果を返す。
@@ -874,9 +880,9 @@ export function supersedeRuntimeOwnedDelegationSelectionGrant(
 }
 
 /**
- * createIsolatedDelegationSelectionGrantRuntimeCandidateの処理を実行する。
+ * Isolated Delegation Selection Grant Runtime 候補を構築する。
  *
- * @responsibility createIsolatedDelegationSelectionGrantRuntimeCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Isolated Delegation Selection Grant Runtime 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000010
  * @input dependencies: Omit< RuntimeState, "records" | "controlCapabilities" | "useCapabilities" >
  * @returns createIsolatedDelegationSelectionGrantRuntimeCandidateの計算結果を返す。
@@ -934,9 +940,9 @@ export function createIsolatedDelegationSelectionGrantRuntimeCandidate(
 }
 
 /**
- * describeDelegationSelectionGrantRuntimeContractの処理を実行する。
+ * Delegation Selection Grant Runtime 契約の公開契約を記述する。
  *
- * @responsibility describeDelegationSelectionGrantRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Delegation Selection Grant Runtime 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000010
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeDelegationSelectionGrantRuntimeContractの計算結果を返す。

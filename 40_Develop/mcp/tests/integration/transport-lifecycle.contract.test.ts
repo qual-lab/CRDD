@@ -4,9 +4,10 @@
  * @packageDocumentation
  * @responsibility mcp:integration:transport-lifecycleが所有する検証責務を実行する。
  * @trace EST-IT-001
+ * @trace EST-IT-002
  * @level IT
  * @scope mcp、transport、lifecycle、cancellation、cleanup
- * @boundary Direct Boundary: CLI／MCP Adapter→Application Contract
+ * @boundary EST-IT-001=Direct Boundary: CLI／MCP Adapter→Application Contract / EST-IT-002=Adjacent 1 Block: Transport stream→Adapter→Application入口
  */
 import assert from "node:assert/strict";
 import { request as httpRequest } from "node:http";
@@ -32,7 +33,7 @@ const TOKEN = "integration-boundary-token-0123456789abcdef";
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: CLI／MCP Adapter→Application Contract
+ * @boundary EST-IT-001=Direct Boundary: CLI／MCP Adapter→Application Contract
  */
 function dependencies(
   overrides: Partial<McpProjectRuntimeDependencies> = {},
@@ -59,7 +60,7 @@ function dependencies(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: CLI／MCP Adapter→Application Contract
+ * @boundary EST-IT-001=Direct Boundary: CLI／MCP Adapter→Application Contract
  */
 function output() {
   let content = "";
@@ -82,7 +83,7 @@ function output() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: CLI／MCP Adapter→Application Contract
+ * @boundary EST-IT-001=Direct Boundary: CLI／MCP Adapter→Application Contract
  */
 test("stdio blockはparent EOFで進行要求を取消してjoin後に終了する", async () => {
   const input = new PassThrough();
@@ -107,7 +108,7 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
            * @observation 返却値、生成fixtureまたは観測値を取得する。
            * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
            * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-           * @boundary Direct Boundary: CLI／MCP Adapter→Application Contract
+           * @boundary EST-IT-001=Direct Boundary: CLI／MCP Adapter→Application Contract
            */
           const cancel = () => {
             wasCancelled = true;
@@ -175,13 +176,13 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
  * HTTP blockはidle接続とlistenerをcloseで回収し、再接続を拒否するを検証する。
  *
  * @responsibility HTTP blockはidle接続とlistenerをcloseで回収し、再接続を拒否するの合否判定を所有する。
- * @trace EST-IT-001
+ * @trace EST-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus HTTP blockはidle接続とlistenerをcloseで回収し、再接続を拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: CLI／MCP Adapter→Application Contract
+ * @boundary EST-IT-002=Adjacent 1 Block: Transport stream→Adapter→Application入口
  */
 test("HTTP blockはidle接続とlistenerをcloseで回収し、再接続を拒否する", async () => {
   const server = await startMcpProjectRuntimeStreamableHttp(dependencies(), {

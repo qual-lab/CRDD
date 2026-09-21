@@ -6,7 +6,7 @@
  * @trace AIT-UT-005
  * @level UT
  * @scope egress、proxy、policy
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -34,7 +34,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 function rawProfile(overrides = {}) {
   return {
@@ -68,7 +68,7 @@ function rawProfile(overrides = {}) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("生Profileを内部検証してAuthority未確認のPolicy候補だけを作る", () => {
   const result = compileEgressProxyPolicyCandidate(rawProfile());
@@ -88,7 +88,7 @@ test("生Profileを内部検証してAuthority未確認のPolicy候補だけを�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("自己構築した検証結果やcaller指定HashをPolicy候補へ昇格しない", () => {
   const validation = validateProviderIsolationProfile(rawProfile());
@@ -122,7 +122,7 @@ test("自己構築した検証結果やcaller指定HashをPolicy候補へ昇格�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("不正ProfileとOriginは例外を漏らさずblockedへ閉じる", () => {
   for (const candidate of [
@@ -149,7 +149,7 @@ test("不正ProfileとOriginは例外を漏らさずblockedへ閉じる", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Profile budget超過はPolicy経路でも例外なくblockedにする", () => {
   const excessive = rawProfile();
@@ -174,7 +174,7 @@ test("Profile budget超過はPolicy経路でも例外なくblockedにする", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Profile accessorはPolicy経路でも実行しない", () => {
   let calls = 0;
@@ -200,7 +200,7 @@ test("Profile accessorはPolicy経路でも実行しない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("CONNECTはcanonical hostnameと文字列443の完全一致だけを候補にする", () => {
   const policy = compileEgressProxyPolicyCandidate(rawProfile()).policy;
@@ -251,7 +251,7 @@ test("CONNECTはcanonical hostnameと文字列443の完全一致だけを候補�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("IANA最長prefixでglobal例外とspecial範囲を区別する", () => {
   for (const address of [
@@ -309,7 +309,7 @@ test("IANA最長prefixでglobal例外とspecial範囲を区別する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("IPv6はGlobal Unicast RegistryのALLOCATED範囲だけを候補にする", () => {
   for (const address of [
@@ -351,7 +351,7 @@ test("IPv6はGlobal Unicast RegistryのALLOCATED範囲だけを候補にする",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("NAT64は圧縮・展開表記とも埋込みIPv4を再評価する", () => {
   for (const address of ["64:ff9b::8.8.8.8", "64:ff9b::808:808"]) {
@@ -386,7 +386,7 @@ test("NAT64は圧縮・展開表記とも埋込みIPv4を再評価する", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("IPv4とIPv6のspecial、mapped、compatible、zone表記を拒否する", () => {
   for (const address of [
@@ -443,7 +443,7 @@ test("IPv4とIPv6のspecial、mapped、compatible、zone表記を拒否する", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("IANA snapshot metadataと検証済みTopologyをRuntime未接続として区別する", () => {
   const registry = describeSpecialPurposeRegistrySnapshot();

@@ -1,3 +1,9 @@
+/**
+ * runtime-data-contractに属する責務をまとめる。
+ *
+ * @responsibility RepositoryManifestを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000011
+ */
 export const REPOSITORY_MANIFEST_SCHEMA =
   "crdd/repository-manifest/v1" as const;
 export const CROS_TRUST_POLICY_SCHEMA = "cros/trust-policy/v1" as const;
@@ -7,9 +13,9 @@ export const CROS_DIRECTORY_ID = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/u;
 const CAPABILITY = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
 
 /**
- * RepositoryManifestが扱う値の構造を表す。
+ * runtime-data-contractで使用するRepository Manifestの値契約を定義する。
  *
- * @responsibility RepositoryManifestに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Repository ManifestのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000011
  * @shape RepositoryManifestが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepositoryManifestで宣言した値と責務の対応を維持する。
@@ -28,9 +34,9 @@ export type RepositoryManifest = Readonly<{
 }>;
 
 /**
- * CrosTrustPolicyが扱う値の構造を表す。
+ * runtime-data-contractで使用するCros Trust Policyの値契約を定義する。
  *
- * @responsibility CrosTrustPolicyに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Cros Trust PolicyのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000011
  * @shape CrosTrustPolicyが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CrosTrustPolicyで宣言した値と責務の対応を維持する。
@@ -49,9 +55,9 @@ export type CrosTrustPolicy = Readonly<{
 }>;
 
 /**
- * plainRecordの処理を実行する。
+ * 記録をPlain Dataとして検証する。
  *
- * @responsibility plainRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility 記録の許可Property、入れ子値、拒否境界を所有する。
  * @trace ARCH-000011
  * @input value: unknown
  * @returns Readonly<Record<string, unknown>> | nullを返す。
@@ -76,9 +82,9 @@ function plainRecord(value: unknown): Readonly<Record<string, unknown>> | null {
 }
 
 /**
- * exactKeysの処理を実行する。
+ * Keysが完全一致するか判定する。
  *
- * @responsibility exactKeysに対応する入力処理と結果生成を所有する。
+ * @responsibility Keysの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000011
  * @input value: Readonly<Record<string, unknown>>、keys: string[]
  * @returns exactKeysの計算結果を返す。
@@ -100,9 +106,9 @@ function exactKeys(value: Readonly<Record<string, unknown>>, keys: string[]) {
 }
 
 /**
- * identifiersの処理を実行する。
+ * identifiersを決定する。
  *
- * @responsibility identifiersに対応する入力処理と結果生成を所有する。
+ * @responsibility identifiersの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000011
  * @input value: unknown、pattern: RegExp
  * @returns readonly string[] | nullを返す。
@@ -134,9 +140,9 @@ function identifiers(
 }
 
 /**
- * inspectRepositoryManifestの処理を実行する。
+ * Repository Manifestを観測する。
  *
- * @responsibility inspectRepositoryManifestに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Manifestの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000011
  * @input value: unknown
  * @returns RepositoryManifest | nullを返す。
@@ -195,9 +201,9 @@ export function inspectRepositoryManifest(
 }
 
 /**
- * inspectCrosTrustPolicyの処理を実行する。
+ * Cros Trust Policyを観測する。
  *
- * @responsibility inspectCrosTrustPolicyに対応する入力処理と結果生成を所有する。
+ * @responsibility Cros Trust Policyの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000011
  * @input value: unknown
  * @returns CrosTrustPolicy | nullを返す。

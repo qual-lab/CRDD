@@ -1,7 +1,13 @@
 /**
- * WslListCompletionが扱う値の構造を表す。
+ * docker-wsl-stateに属する責務をまとめる。
  *
- * @responsibility WslListCompletionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility WslListCompletionを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
+/**
+ * docker-wsl-stateで使用するWsl List Completionの値契約を定義する。
+ *
+ * @responsibility Wsl List CompletionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape WslListCompletionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant WslListCompletionで宣言した値と責務の対応を維持する。
@@ -18,9 +24,9 @@ export type WslListCompletion = Readonly<{
 }>;
 
 /**
- * DockerWslStateが扱う値の構造を表す。
+ * docker-wsl-stateで使用するDocker Wsl 状態の値契約を定義する。
  *
- * @responsibility DockerWslStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Wsl 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerWslStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerWslStateで宣言した値と責務の対応を維持する。
@@ -31,9 +37,9 @@ export type WslListCompletion = Readonly<{
 export type DockerWslState = "stopped" | "running" | "unknown";
 
 /**
- * parseDistributionListの処理を実行する。
+ * Distribution Listを構造化値へ解析する。
  *
- * @responsibility parseDistributionListに対応する入力処理と結果生成を所有する。
+ * @responsibility Distribution Listの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000008
  * @input result: WslListCompletion
  * @returns readonly string[] | nullを返す。
@@ -86,7 +92,7 @@ function parseDistributionList(
 /**
  * This is a point-in-time list observation, not a restart completion proof.
  *
- * @responsibility observeDockerWslStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Wsl 状態の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input registeredResult: WslListCompletion、runningResult: WslListCompletion
  * @returns DockerWslStateを返す。

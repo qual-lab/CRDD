@@ -1,3 +1,9 @@
+/**
+ * docker-restart-recordに属する責務をまとめる。
+ *
+ * @responsibility DockerRestartPhaseを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { createHash } from "node:crypto";
 import {
   isSha256Hex,
@@ -12,9 +18,9 @@ export const dockerRestartPhases = [
   "settled",
 ] as const;
 /**
- * DockerRestartPhaseが扱う値の構造を表す。
+ * docker-restart-recordで使用するDocker Restart Phaseの値契約を定義する。
  *
- * @responsibility DockerRestartPhaseに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Restart PhaseのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerRestartPhaseが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerRestartPhaseで宣言した値と責務の対応を維持する。
@@ -24,9 +30,9 @@ export const dockerRestartPhases = [
  */
 export type DockerRestartPhase = (typeof dockerRestartPhases)[number];
 /**
- * DockerRestartBindingが扱う値の構造を表す。
+ * docker-restart-recordで使用するDocker Restart Bindingの値契約を定義する。
  *
- * @responsibility DockerRestartBindingに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Restart BindingのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerRestartBindingが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerRestartBindingで宣言した値と責務の対応を維持する。
@@ -45,9 +51,9 @@ export type DockerRestartBinding = Readonly<{
   pendingSubmissionSha256: string;
 }>;
 /**
- * DockerRestartRecordが扱う値の構造を表す。
+ * docker-restart-recordで使用するDocker Restart 記録の値契約を定義する。
  *
- * @responsibility DockerRestartRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Restart 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerRestartRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerRestartRecordで宣言した値と責務の対応を維持する。
@@ -85,9 +91,9 @@ const digest = (bytes: Uint8Array) =>
   createHash("sha256").update(bytes).digest("hex");
 
 /**
- * validBindingの処理を実行する。
+ * Bindingが有効か判定する。
  *
- * @responsibility validBindingに対応する入力処理と結果生成を所有する。
+ * @responsibility Bindingの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: Record<string, unknown>
  * @returns booleanを返す。
@@ -112,9 +118,9 @@ function validBinding(value: Record<string, unknown>): boolean {
 }
 
 /**
- * encodeの処理を実行する。
+ * docker-restart-recordを固定形式へ符号化する。
  *
- * @responsibility encodeに対応する入力処理と結果生成を所有する。
+ * @responsibility docker-restart-recordの入力値、符号化規則、出力byte列の境界を所有する。
  * @trace ARCH-000008
  * @input record: DockerRestartRecord
  * @returns Bufferを返す。
@@ -137,7 +143,7 @@ function encode(record: DockerRestartRecord): Buffer {
 /**
  * Parses data only; acceptance does not confer restart or recovery authority.
  *
- * @responsibility parseDockerRestartRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Restart 記録の入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000008
  * @input bytes: Uint8Array
  * @returns DockerRestartRecord | nullを返す。
@@ -193,9 +199,9 @@ export function parseDockerRestartRecord(
 }
 
 /**
- * validateDockerRestartRecordChainの処理を実行する。
+ * Docker Restart 記録 Chainの契約を検証する。
  *
- * @responsibility validateDockerRestartRecordChainに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Restart 記録 Chainの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input records: readonly Uint8Array[]、expectedBinding: DockerRestartBinding
  * @returns readonly DockerRestartRecord[] | nullを返す。
@@ -233,7 +239,7 @@ export function validateDockerRestartRecordChain(
 /**
  * The caller must validate the complete persisted chain before appending.
  *
- * @responsibility createDockerRestartRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Restart 記録の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input binding: DockerRestartBinding、phase: DockerRestartPhase、previousRecordBytes: Uint8Array
  * @returns Bufferを返す。

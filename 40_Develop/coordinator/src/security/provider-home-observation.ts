@@ -1,3 +1,9 @@
+/**
+ * provider-home-observationに属する責務をまとめる。
+ *
+ * @responsibility ProviderHomeObservationProviderを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import { createHash, randomBytes } from "node:crypto";
 
 export const PROVIDER_HOME_OBSERVATION_CONTRACT =
@@ -57,9 +63,9 @@ const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
 )?.get;
 
 /**
- * ProviderHomeObservationProviderが扱う値の構造を表す。
+ * provider-home-observationで使用するProvider Home Observation Providerの値契約を定義する。
  *
- * @responsibility ProviderHomeObservationProviderに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Provider Home Observation ProviderのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape ProviderHomeObservationProviderが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProviderHomeObservationProviderで宣言した値と責務の対応を維持する。
@@ -70,9 +76,9 @@ const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
 export type ProviderHomeObservationProvider = keyof typeof PROVIDERS;
 
 /**
- * blockedの処理を実行する。
+ * provider-home-observationを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility provider-home-observationの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000010
  * @input reason: string
  * @returns blockedの計算結果を返す。
@@ -112,9 +118,9 @@ function blocked(reason: string) {
 }
 
 /**
- * snapshotBufferの処理を実行する。
+ * Bufferを所有Snapshotへ変換する。
  *
- * @responsibility snapshotBufferに対応する入力処理と結果生成を所有する。
+ * @responsibility Bufferの取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000010
  * @input value: unknown、expectedLength: number
  * @returns Buffer | nullを返す。
@@ -146,9 +152,9 @@ function snapshotBuffer(value: unknown, expectedLength: number): Buffer | null {
 }
 
 /**
- * readByteの処理を実行する。
+ * Byteを読み取る。
  *
- * @responsibility readByteに対応する入力処理と結果生成を所有する。
+ * @responsibility Byteの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000010
  * @input bytes: Buffer、offset: number
  * @returns numberを返す。
@@ -166,9 +172,9 @@ function readByte(bytes: Buffer, offset: number): number {
 }
 
 /**
- * readUInt16LittleEndianの処理を実行する。
+ * U Int16 Little Endianを読み取る。
  *
- * @responsibility readUInt16LittleEndianに対応する入力処理と結果生成を所有する。
+ * @responsibility U Int16 Little Endianの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000010
  * @input bytes: Buffer、offset: number
  * @returns numberを返す。
@@ -186,9 +192,9 @@ function readUInt16LittleEndian(bytes: Buffer, offset: number): number {
 }
 
 /**
- * readUInt32LittleEndianの処理を実行する。
+ * U Int32 Little Endianを読み取る。
  *
- * @responsibility readUInt32LittleEndianに対応する入力処理と結果生成を所有する。
+ * @responsibility U Int32 Little Endianの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000010
  * @input bytes: Buffer、offset: number
  * @returns numberを返す。
@@ -212,9 +218,9 @@ function readUInt32LittleEndian(bytes: Buffer, offset: number): number {
 }
 
 /**
- * matchesBytesの処理を実行する。
+ * matches Bytesを決定する。
  *
- * @responsibility matchesBytesに対応する入力処理と結果生成を所有する。
+ * @responsibility matches Bytesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input bytes: Buffer、offset: number、expected: Buffer
  * @returns booleanを返す。
@@ -241,9 +247,9 @@ function matchesBytes(
 }
 
 /**
- * providerValueの処理を実行する。
+ * provider Valueを決定する。
  *
- * @responsibility providerValueに対応する入力処理と結果生成を所有する。
+ * @responsibility provider Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input provider: unknown
  * @returns (typeof PROVIDERS)[ProviderHomeObservationProvider] | nullを返す。
@@ -265,9 +271,9 @@ function providerValue(
 }
 
 /**
- * providerNameの処理を実行する。
+ * provider Nameを決定する。
  *
- * @responsibility providerNameに対応する入力処理と結果生成を所有する。
+ * @responsibility provider Nameの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input value: number
  * @returns ProviderHomeObservationProvider | nullを返す。
@@ -287,9 +293,9 @@ function providerName(value: number): ProviderHomeObservationProvider | null {
 }
 
 /**
- * nonzeroHashの処理を実行する。
+ * nonzero Hashを決定する。
  *
- * @responsibility nonzeroHashに対応する入力処理と結果生成を所有する。
+ * @responsibility nonzero Hashの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input bytes: Buffer、start: number
  * @returns string | nullを返す。
@@ -308,9 +314,9 @@ function nonzeroHash(bytes: Buffer, start: number): string | null {
 }
 
 /**
- * createProviderHomeObservationRequestの処理を実行する。
+ * Provider Home Observation Requestを構築する。
  *
- * @responsibility createProviderHomeObservationRequestに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Home Observation Requestの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000010
  * @input provider: unknown、mountSourcePath: unknown、nonceSource: () => Buffer
  * @returns createProviderHomeObservationRequestの計算結果を返す。
@@ -363,9 +369,9 @@ export function createProviderHomeObservationRequest(
 }
 
 /**
- * createCandidateStoreObservationRequestの処理を実行する。
+ * 候補 Store Observation Requestを構築する。
  *
- * @responsibility createCandidateStoreObservationRequestに対応する入力処理と結果生成を所有する。
+ * @responsibility 候補 Store Observation Requestの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000010
  * @input mountSourcePath: unknown、initializeIfMissing: unknown、nonceSource: () => Buffer
  * @returns createCandidateStoreObservationRequestの計算結果を返す。
@@ -414,9 +420,9 @@ export function createCandidateStoreObservationRequest(
 }
 
 /**
- * createRuntimeStateObservationRequestの処理を実行する。
+ * Runtime 状態 Observation Requestを構築する。
  *
- * @responsibility createRuntimeStateObservationRequestに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 状態 Observation Requestの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000010
  * @input mountSourcePath: unknown、initializeIfMissing: unknown、nonceSource: () => Buffer
  * @returns createRuntimeStateObservationRequestの計算結果を返す。
@@ -465,9 +471,9 @@ export function createRuntimeStateObservationRequest(
 }
 
 /**
- * evaluateProviderHomeObservationResponseCandidateの処理を実行する。
+ * Provider Home Observation Response 候補を評価する。
  *
- * @responsibility evaluateProviderHomeObservationResponseCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Home Observation Response 候補の評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000010
  * @input rawResponse: unknown、expectedNonce: unknown、expectedProvider: unknown
  * @returns evaluateProviderHomeObservationResponseCandidateの計算結果を返す。
@@ -582,9 +588,9 @@ export function evaluateProviderHomeObservationResponseCandidate(
 }
 
 /**
- * evaluateCandidateStoreObservationResponseCandidateの処理を実行する。
+ * 候補 Store Observation Response 候補を評価する。
  *
- * @responsibility evaluateCandidateStoreObservationResponseCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility 候補 Store Observation Response 候補の評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000010
  * @input rawResponse: unknown、expectedNonce: unknown
  * @returns evaluateCandidateStoreObservationResponseCandidateの計算結果を返す。
@@ -669,9 +675,9 @@ export function evaluateCandidateStoreObservationResponseCandidate(
 }
 
 /**
- * evaluateRuntimeStateObservationResponseCandidateの処理を実行する。
+ * Runtime 状態 Observation Response 候補を評価する。
  *
- * @responsibility evaluateRuntimeStateObservationResponseCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 状態 Observation Response 候補の評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000010
  * @input rawResponse: unknown、expectedNonce: unknown
  * @returns evaluateRuntimeStateObservationResponseCandidateの計算結果を返す。
@@ -753,9 +759,9 @@ export function evaluateRuntimeStateObservationResponseCandidate(
 }
 
 /**
- * describeProviderHomeObservationContractの処理を実行する。
+ * Provider Home Observation 契約の公開契約を記述する。
  *
- * @responsibility describeProviderHomeObservationContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Home Observation 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000010
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProviderHomeObservationContractの計算結果を返す。

@@ -1,3 +1,9 @@
+/**
+ * platform-provisioner-package-gateに属する責務をまとめる。
+ *
+ * @responsibility responseを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { verifyPlatformProvisionerManifestCandidate } from "./platform-provisioner-trust-core.ts";
 
@@ -7,6 +13,7 @@ const INPUT_KEYS = new Set([
   "expectedCrddVersion",
   "expectedCrddCommit",
   "expectedCrddTree",
+  "runtimeTrustDecision",
 ]);
 const OBSERVATION_KEYS = new Set([
   "packageName",
@@ -27,11 +34,70 @@ const MANIFEST_INPUT_KEYS = new Set([
   "evaluationTime",
 ]);
 const HEX64 = /^[0-9a-f]{64}$/u;
+const TRUST_DECISION_KEYS = new Set([
+  "contract",
+  "contractRevision",
+  "artifactIdentity",
+  "observedAt",
+  "policyRevision",
+  "axes",
+  "trust",
+  "reason",
+  "effectAuthorizationIssued",
+  "runtimeAuthorityConferred",
+  "runtimeCapabilityIssued",
+]);
 
 /**
- * responseの処理を実行する。
+ * Package GateがRuntime Trust判断を消費できるか評価する。
  *
- * @responsibility responseに対応する入力処理と結果生成を所有する。
+ * @responsibility Trust Evaluatorの非Authority判断を同じArtifact Identityへ結合し、Policy不一致や拒否をEffect前に遮断する。
+ * @trace ARCH-000014
+ * @input rawDecision: unknown、artifactIdentity: string
+ * @returns accepted、reason、policyRevisionを持つ非Authorityの消費結果を返す。
+ * @precondition artifactIdentityはGateが検証したRuntime Execution Identityである。
+ * @postcondition trustedかつ同一Artifactに結合された現行Policy判断だけをacceptedにする。
+ * @effect N/A: 判断の検証だけを行い、Runtime Authority、Capabilityまたは外部Effectを発行しない。
+ * @failure 不正Schema、Identity不一致、unknown、not_trustedまたはAuthority混入を拒否する。
+ * @invariant 公式署名、Publisher名または呼出し側booleanだけではacceptedを返さない。
+ * @boundary Direct Boundary: Artifact観測→Deployment Policy→Authority Gate。
+ * @security Trust判断はArtifact IdentityとPolicy revisionへ結合し、呼出し側の固定許可で置き換えない。
+ * @concurrency N/A: 入力snapshotだけを同期評価し、共有状態を持たない。
+ */
+export function consumeRuntimeTrustDecisionForPackageGate(
+  rawDecision: unknown,
+  artifactIdentity: string,
+) {
+  const trustDecision = snapshotPlainRecord(rawDecision, TRUST_DECISION_KEYS);
+  const isAccepted =
+    trustDecision?.contract === "crdd-coordinator/runtime-trust-decision" &&
+    trustDecision.contractRevision === 1 &&
+    trustDecision.artifactIdentity === artifactIdentity &&
+    typeof trustDecision.policyRevision === "string" &&
+    trustDecision.policyRevision.length > 0 &&
+    trustDecision.trust === "trusted" &&
+    trustDecision.effectAuthorizationIssued === false &&
+    trustDecision.runtimeAuthorityConferred === false &&
+    trustDecision.runtimeCapabilityIssued === false;
+  return Object.freeze({
+    accepted: isAccepted,
+    reason: isAccepted
+      ? "runtime_trust_decision_accepted"
+      : "runtime_trust_decision_rejected",
+    policyRevision:
+      isAccepted && typeof trustDecision?.policyRevision === "string"
+        ? trustDecision.policyRevision
+        : null,
+    effectAuthorizationIssued: false,
+    runtimeAuthorityConferred: false,
+    runtimeCapabilityIssued: false,
+  });
+}
+
+/**
+ * responseを決定する。
+ *
+ * @responsibility responseの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input status: S、reason: string、fields: T
  * @returns responseの計算結果を返す。
@@ -64,9 +130,9 @@ function response<
 }
 
 /**
- * normalizeObservationの処理を実行する。
+ * Observationを固定Schemaへ正規化する。
  *
- * @responsibility normalizeObservationに対応する入力処理と結果生成を所有する。
+ * @responsibility Observationの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000014
  * @input raw: unknown
  * @returns normalizeObservationの計算結果を返す。
@@ -98,9 +164,9 @@ function normalizeObservation(raw: unknown) {
 }
 
 /**
- * evaluatePlatformProvisionerPackageGateCandidateの処理を実行する。
+ * Platform Provisioner Package Gate 候補を評価する。
  *
- * @responsibility evaluatePlatformProvisionerPackageGateCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Provisioner Package Gate 候補の評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input rawInput: unknown
  * @returns evaluatePlatformProvisionerPackageGateCandidateの計算結果を返す。
@@ -140,6 +206,17 @@ export function evaluatePlatformProvisionerPackageGateCandidate(
         {},
       );
     }
+    const trustConsumption = consumeRuntimeTrustDecisionForPackageGate(
+      input.runtimeTrustDecision,
+      String(observation.runtimeExecutionIdentitySha256),
+    );
+    if (!trustConsumption.accepted) {
+      return response(
+        "blocked",
+        "platform_provisioner_runtime_trust_not_satisfied",
+        {},
+      );
+    }
     if (
       observation.packageName !== manifest.packageName ||
       observation.packageVersion !== manifest.packageVersion ||
@@ -162,6 +239,8 @@ export function evaluatePlatformProvisionerPackageGateCandidate(
         packageVersion: manifest.packageVersion,
         manifestHash: manifest.manifestHash,
         packageTrustObservationMatch: true,
+        runtimeTrustPolicyMatch: true,
+        trustPolicyRevision: trustConsumption.policyRevision,
       },
     );
   } catch {
@@ -174,9 +253,9 @@ export function evaluatePlatformProvisionerPackageGateCandidate(
 }
 
 /**
- * describePlatformProvisionerPackageGateContractの処理を実行する。
+ * Platform Provisioner Package Gate 契約の公開契約を記述する。
  *
- * @responsibility describePlatformProvisionerPackageGateContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Provisioner Package Gate 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describePlatformProvisionerPackageGateContractの計算結果を返す。
@@ -192,7 +271,7 @@ export function evaluatePlatformProvisionerPackageGateCandidate(
 export function describePlatformProvisionerPackageGateContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-package-gate",
-    contractRevision: 1,
+    contractRevision: 2,
     distributionModel: "crdd_bundled_private_typescript_package",
     observationContract: "implemented_candidate_non_authoritative",
     manifestVerificationReuse: "implemented_candidate",
@@ -202,6 +281,8 @@ export function describePlatformProvisionerPackageGateContract() {
     runtimeOwnedCrddDistributionAdapter: "not_implemented",
     runtimeOwnedPackageFilesystemAdapter: "not_implemented",
     runtimeOwnedReleaseIdentitySelection: "not_implemented",
+    runtimeTrustDecisionConsumption:
+      "implemented_non_authoritative_policy_bound_candidate",
     effectController: "not_implemented_effective_access_required",
     callerObservationMayAuthorizeEffect: false,
     standalonePackageMayAuthorizeEffect: false,

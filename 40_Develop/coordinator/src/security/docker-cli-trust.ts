@@ -1,3 +1,9 @@
+/**
+ * docker-cli-trustに属する責務をまとめる。
+ *
+ * @responsibility DockerCliTrustSnapshotを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -17,9 +23,9 @@ const AUTHENTICODE_SUCCESS = "CRDD_DOCKER_AUTHENTICODE_OK";
 const DOCKER_PUBLISHER_ORGANIZATION = "Docker Inc";
 
 /**
- * DockerCliTrustSnapshotが扱う値の構造を表す。
+ * docker-cli-trustで使用するDocker Cli Trust Snapshotの値契約を定義する。
  *
- * @responsibility DockerCliTrustSnapshotに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Cli Trust SnapshotのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape DockerCliTrustSnapshotが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerCliTrustSnapshotで宣言した値と責務の対応を維持する。
@@ -38,9 +44,9 @@ export type DockerCliTrustSnapshot = Readonly<{
 }>;
 
 /**
- * filesystemIdentityの処理を実行する。
+ * filesystem Identityを決定する。
  *
- * @responsibility filesystemIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility filesystem Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input target: string、expected: "file" | "directory"
  * @returns filesystemIdentityの計算結果を返す。
@@ -70,9 +76,9 @@ function filesystemIdentity(target: string, expected: "file" | "directory") {
 }
 
 /**
- * inspectDockerAuthenticodeの処理を実行する。
+ * Docker Authenticodeを観測する。
  *
- * @responsibility inspectDockerAuthenticodeに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Authenticodeの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns N/A: inspectDockerAuthenticodeは戻り値を返さない。
@@ -137,9 +143,9 @@ function inspectDockerAuthenticode() {
 }
 
 /**
- * inspectDockerCliFileの処理を実行する。
+ * Docker Cli Fileを観測する。
  *
- * @responsibility inspectDockerCliFileに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Cli Fileの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns inspectDockerCliFileの計算結果を返す。
@@ -180,9 +186,9 @@ function inspectDockerCliFile() {
 }
 
 /**
- * observeTrustedDockerCliの処理を実行する。
+ * Trusted Docker Cliを観測する。
  *
- * @responsibility observeTrustedDockerCliに対応する入力処理と結果生成を所有する。
+ * @responsibility Trusted Docker Cliの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns DockerCliTrustSnapshotを返す。
@@ -218,9 +224,9 @@ export function observeTrustedDockerCli(): DockerCliTrustSnapshot {
 }
 
 /**
- * verifyTrustedDockerCliSnapshotの処理を実行する。
+ * Trusted Docker Cli Snapshotを検証する。
  *
- * @responsibility verifyTrustedDockerCliSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility Trusted Docker Cli Snapshotの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input snapshot: DockerCliTrustSnapshot
  * @returns verifyTrustedDockerCliSnapshotの計算結果を返す。
@@ -252,9 +258,9 @@ export function verifyTrustedDockerCliSnapshot(
 }
 
 /**
- * describeDockerCliTrustContractの処理を実行する。
+ * Docker Cli Trust 契約の公開契約を記述する。
  *
- * @responsibility describeDockerCliTrustContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Cli Trust 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeDockerCliTrustContractの計算結果を返す。

@@ -1,3 +1,9 @@
+/**
+ * objective-requestに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeObjectiveRequestを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -5,9 +11,9 @@ import {
 import { normalizeRepositoryRelativePath } from "../boundary/repository-relative-path.ts";
 
 /**
- * ProjectRuntimeObjectiveRequestが扱う値の構造を表す。
+ * objective-requestで使用するProject Runtime Objective Requestの値契約を定義する。
  *
- * @responsibility ProjectRuntimeObjectiveRequestに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Objective RequestのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeObjectiveRequestが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeObjectiveRequestで宣言した値と責務の対応を維持する。
@@ -36,9 +42,9 @@ export type ProjectRuntimeObjectiveRequest = Readonly<{
 }>;
 
 /**
- * validIdの処理を実行する。
+ * Idが有効か判定する。
  *
- * @responsibility validIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Idの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -61,9 +67,9 @@ function validId(value: unknown): value is string {
 }
 
 /**
- * validRevisionの処理を実行する。
+ * Revisionが有効か判定する。
  *
- * @responsibility validRevisionに対応する入力処理と結果生成を所有する。
+ * @responsibility Revisionの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -81,9 +87,9 @@ function validRevision(value: unknown): value is string {
 }
 
 /**
- * validTextの処理を実行する。
+ * Textが有効か判定する。
  *
- * @responsibility validTextに対応する入力処理と結果生成を所有する。
+ * @responsibility Textの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown、maximum: number
  * @returns value is stringを返す。
@@ -106,9 +112,9 @@ function validText(value: unknown, maximum: number): value is string {
 }
 
 /**
- * inspectStringsの処理を実行する。
+ * Stringsを観測する。
  *
- * @responsibility inspectStringsに対応する入力処理と結果生成を所有する。
+ * @responsibility Stringsの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown、maximumItems: number、maximumText: number
  * @returns readonly string[] | nullを返す。
@@ -172,9 +178,9 @@ const requestKeySets = Object.freeze(
 );
 
 /**
- * inspectProjectRuntimeObjectiveRequestの処理を実行する。
+ * Project Runtime Objective Requestを観測する。
  *
- * @responsibility inspectProjectRuntimeObjectiveRequestに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Objective Requestの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns ProjectRuntimeObjectiveRequest | nullを返す。

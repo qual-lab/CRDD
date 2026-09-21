@@ -6,7 +6,7 @@
  * @trace AIT-UT-005
  * @level UT
  * @scope platform、provisioner、trust、core
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
@@ -36,7 +36,7 @@ import { canonicalizeProvisioningJsonValueCandidate } from "../../src/security/p
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 function fixture() {
   const signer = generateKeyPairSync("ed25519");
@@ -121,7 +121,7 @@ function fixture() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("revision 5 manifestは閉じた実行集合とPlatform Access成果物を署名境界へ含める", () => {
   const result = verifyPlatformProvisionerManifestCandidate(fixture());
@@ -143,7 +143,7 @@ test("revision 5 manifestは閉じた実行集合とPlatform Access成果物を�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("旧revision 2署名は履歴由来の確認だけに受理し現在の実行Authorityへ昇格しない", () => {
   const signer = generateKeyPairSync("ed25519");
@@ -231,7 +231,7 @@ test("旧revision 2署名は履歴由来の確認だけに受理し現在の実�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("削除済みnative supervisor fieldと旧revisionを受理しない", () => {
   for (const mutate of [
@@ -267,7 +267,7 @@ test("削除済みnative supervisor fieldと旧revisionを受理しない", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("署名・package内容・有効期間の差をfail closedにする", () => {
   const mutations: Array<(value: ReturnType<typeof fixture>) => void> = [
@@ -305,7 +305,7 @@ test("署名・package内容・有効期間の差をfail closedにする", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("package内容Rootは順序をexactに検証する", () => {
   const value = fixture();
@@ -334,7 +334,7 @@ test("package内容Rootは順序をexactに検証する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Runtime Execution IdentityはRelease provenanceから独立し、Policy・Native差を検出する", () => {
   const value = fixture();
@@ -391,7 +391,7 @@ test("Runtime Execution IdentityはRelease provenanceから独立し、Policy・
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Trust Coreの説明は単一Native成果物と非権限性を示す", () => {
   const contract = describePlatformProvisionerTrustCoreContract();

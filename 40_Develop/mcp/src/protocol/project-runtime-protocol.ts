@@ -1,3 +1,9 @@
+/**
+ * project-runtime-protocolに属する責務をまとめる。
+ *
+ * @responsibility JsonRpcIdを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000012
+ */
 import {
   snapshotOpenPlainRecord,
   snapshotPlainRecord,
@@ -10,9 +16,9 @@ export const MCP_PROJECT_RUNTIME_DECISION_TOOL =
 export const MCP_PROJECT_RUNTIME_STATE_TOOL = "crdd.get_project_state" as const;
 
 /**
- * JsonRpcIdが扱う値の構造を表す。
+ * project-runtime-protocolで使用するJson Rpc Idの値契約を定義する。
  *
- * @responsibility JsonRpcIdに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Json Rpc IdのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000012
  * @shape JsonRpcIdが表すProperty、識別子およびRelationを型として固定する。
  * @invariant JsonRpcIdで宣言した値と責務の対応を維持する。
@@ -22,9 +28,9 @@ export const MCP_PROJECT_RUNTIME_STATE_TOOL = "crdd.get_project_state" as const;
  */
 export type JsonRpcId = string | number;
 /**
- * McpResponseが扱う値の構造を表す。
+ * project-runtime-protocolで使用するMcp Responseの値契約を定義する。
  *
- * @responsibility McpResponseに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Mcp ResponseのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000012
  * @shape McpResponseが表すProperty、識別子およびRelationを型として固定する。
  * @invariant McpResponseで宣言した値と責務の対応を維持する。
@@ -85,9 +91,9 @@ export const stateQueryKeys = new Set([
 ] as const);
 
 /**
- * validJsonRpcIdの処理を実行する。
+ * Json Rpc Idが有効か判定する。
  *
- * @responsibility validJsonRpcIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Json Rpc Idの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000012
  * @input value: unknown
  * @returns value is JsonRpcIdを返す。
@@ -108,9 +114,9 @@ export function validJsonRpcId(value: unknown): value is JsonRpcId {
 }
 
 /**
- * inspectMcpEnvelopeの処理を実行する。
+ * Mcp Envelopeを観測する。
  *
- * @responsibility inspectMcpEnvelopeに対応する入力処理と結果生成を所有する。
+ * @responsibility Mcp Envelopeの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000012
  * @input value: unknown
  * @returns inspectMcpEnvelopeの計算結果を返す。
@@ -151,9 +157,9 @@ export function inspectMcpEnvelope(value: unknown) {
 }
 
 /**
- * protocolErrorの処理を実行する。
+ * protocol Errorを決定する。
  *
- * @responsibility protocolErrorに対応する入力処理と結果生成を所有する。
+ * @responsibility protocol Errorの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000012
  * @input id: JsonRpcId | null、code: number、message: string
  * @returns McpResponseを返す。
@@ -179,9 +185,9 @@ export function protocolError(
 }
 
 /**
- * protocolCompleteの処理を実行する。
+ * protocol Completeを決定する。
  *
- * @responsibility protocolCompleteに対応する入力処理と結果生成を所有する。
+ * @responsibility protocol Completeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000012
  * @input id: JsonRpcId、result: Readonly<Record<string, unknown>>
  * @returns protocolCompleteの計算結果を返す。
@@ -215,9 +221,9 @@ export function protocolComplete(
 }
 
 /**
- * toolの処理を実行する。
+ * toolを決定する。
  *
- * @responsibility toolに対応する入力処理と結果生成を所有する。
+ * @responsibility toolの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000012
  * @input name: string、title: string、description: string、properties: object、requiredItems: readonly string[]
  * @returns toolの計算結果を返す。
@@ -251,9 +257,9 @@ function tool(
 }
 
 /**
- * getMcpProjectRuntimeToolDefinitionsの処理を実行する。
+ * Mcp Project Runtime Tool Definitionsを取得する。
  *
- * @responsibility getMcpProjectRuntimeToolDefinitionsに対応する入力処理と結果生成を所有する。
+ * @responsibility Mcp Project Runtime Tool Definitionsの参照条件、返却値、未検出結果の境界を所有する。
  * @trace ARCH-000012
  * @input N/A: 実行時引数を受け取らない。
  * @returns getMcpProjectRuntimeToolDefinitionsの計算結果を返す。
@@ -360,9 +366,9 @@ export function getMcpProjectRuntimeToolDefinitions() {
 }
 
 /**
- * inspectProtocolRequestの処理を実行する。
+ * Protocol Requestを観測する。
  *
- * @responsibility inspectProtocolRequestに対応する入力処理と結果生成を所有する。
+ * @responsibility Protocol Requestの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000012
  * @input value: unknown
  * @returns inspectProtocolRequestの計算結果を返す。

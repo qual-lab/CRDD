@@ -6,7 +6,7 @@
  * @trace AIT-UT-005
  * @level UT
  * @scope signed、runner、safety、observation
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -53,7 +53,7 @@ const SCHEMA = Object.freeze({
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 function exact(overrides: Readonly<Record<string, unknown>> = {}) {
   return Object.freeze({
@@ -79,7 +79,7 @@ function exact(overrides: Readonly<Record<string, unknown>> = {}) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("安全観測はexact booleanとRecovery集合だけを確定する", () => {
   const none = evaluateSignedRunnerSafetyObservation(exact(), SCHEMA);
@@ -111,7 +111,7 @@ test("安全観測はexact booleanとRecovery集合だけを確定する", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("booleanの欠落・null・文字列は安全状態不明に閉じる", () => {
   for (const field of SCHEMA.booleanFields) {
@@ -141,7 +141,7 @@ test("booleanの欠落・null・文字列は安全状態不明に閉じる", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("cleanup・manual recovery・effect unknownの相関矛盾を拒否する", () => {
   for (const candidate of [
@@ -174,7 +174,7 @@ test("cleanup・manual recovery・effect unknownの相関矛盾を拒否する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Recovery配列の疎・accessor・Proxy・重複・非文字列を拒否する", () => {
   const sparseItems = Array<string>(1);
@@ -217,7 +217,7 @@ test("Recovery配列の疎・accessor・Proxy・重複・非文字列を拒否�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Recovery pairは0件・1件・N件のcanonical関係だけを受理する", () => {
   for (const candidate of [
@@ -259,7 +259,7 @@ test("Recovery pairは0件・1件・N件のcanonical関係だけを受理する"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Recordのgetter・Proxy・独自prototypeを観測済みにしない", () => {
   const getter = { ...exact() } as Record<string, unknown>;
@@ -289,7 +289,7 @@ test("Recordのgetter・Proxy・独自prototypeを観測済みにしない", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("partial salvageはown-dataのcanonical IDだけをboundedに保持する", () => {
   const mixed = salvageSignedRunnerRecoveryPair(

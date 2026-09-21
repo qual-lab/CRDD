@@ -6,7 +6,7 @@
  * @trace ERB-IT-001
  * @level IT
  * @scope docker、desktop、repair、continuation、store
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -41,7 +41,7 @@ const identity = (value: string): DockerDesktopRepairDirectoryIdentity =>
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 function fixture() {
   const root = fs.mkdtempSync(
@@ -107,7 +107,7 @@ function fixture() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("失敗起動後の複数Runtime領域は同じ復旧IDへ追記し、Effectごとの意図と結果を保持する", () => {
   const { root, boundary, operation } = fixture();
@@ -184,7 +184,7 @@ test("失敗起動後の複数Runtime領域は同じ復旧IDへ追記し、Effec
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("継続記録の改ざん・余分な項目・途中欠落はvalidへ昇格しない", () => {
   for (const mutation of ["hash", "extra", "missing"] as const) {
@@ -230,7 +230,7 @@ test("継続記録の改ざん・余分な項目・途中欠落はvalidへ昇格
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("全Host Effectがconfirmedでなければrecoveredを記録しない", () => {
   const { root, boundary, operation } = fixture();

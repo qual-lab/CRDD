@@ -1,3 +1,9 @@
+/**
+ * reality-symbol-repository-observerに属する責務をまとめる。
+ *
+ * @responsibility RealityRepositoryObservationIssueを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import type { DomainIssue } from "../outcome.ts";
 import {
   discoverRealitySymbols,
@@ -8,9 +14,9 @@ import type { VerifiedRepositoryRoot } from "../../../version-control/src/reposi
 import { createFilesystemRepositoryObservationPort } from "./index.ts";
 
 /**
- * RealityRepositoryObservationIssueが扱う値の構造を表す。
+ * reality-symbol-repository-observerで使用するReality Repository Observation Issueの値契約を定義する。
  *
- * @responsibility RealityRepositoryObservationIssueに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Reality Repository Observation IssueのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RealityRepositoryObservationIssueが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RealityRepositoryObservationIssueで宣言した値と責務の対応を維持する。
@@ -25,9 +31,9 @@ export type RealityRepositoryObservationIssue = Readonly<{
 }>;
 
 /**
- * RealitySymbolRepositoryObservationが扱う値の構造を表す。
+ * reality-symbol-repository-observerで使用するReality Symbol Repository Observationの値契約を定義する。
  *
- * @responsibility RealitySymbolRepositoryObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Reality Symbol Repository ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RealitySymbolRepositoryObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RealitySymbolRepositoryObservationで宣言した値と責務の対応を維持する。
@@ -45,9 +51,9 @@ export type RealitySymbolRepositoryObservation = Readonly<{
 }>;
 
 /**
- * observeRealitySymbolRepositoryの処理を実行する。
+ * Reality Symbol Repositoryを観測する。
  *
- * @responsibility observeRealitySymbolRepositoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Reality Symbol Repositoryの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input capability: VerifiedRepositoryRoot
  * @returns RealitySymbolRepositoryObservationを返す。

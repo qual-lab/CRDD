@@ -1,3 +1,9 @@
+/**
+ * docker-restart-machineに属する責務をまとめる。
+ *
+ * @responsibility Sessionを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -16,9 +22,9 @@ import {
 } from "./docker-wsl-state.ts";
 
 /**
- * Sessionが扱う値の構造を表す。
+ * docker-restart-machineで使用するSessionの値契約を定義する。
  *
- * @responsibility Sessionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility SessionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape Sessionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Sessionで宣言した値と責務の対応を維持する。
@@ -28,9 +34,9 @@ import {
  */
 type Session = NonNullable<DockerDesktopRestartNativeHelperOutcome["session"]>;
 /**
- * DockerRestartEngineObservationが扱う値の構造を表す。
+ * docker-restart-machineで使用するDocker Restart Engine Observationの値契約を定義する。
  *
- * @responsibility DockerRestartEngineObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Restart Engine ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerRestartEngineObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerRestartEngineObservationで宣言した値と責務の対応を維持する。
@@ -43,9 +49,9 @@ export type DockerRestartEngineObservation =
   | "known_unavailable"
   | "unknown";
 /**
- * DockerRestartEnginePipeObservationが扱う値の構造を表す。
+ * docker-restart-machineで使用するDocker Restart Engine Pipe Observationの値契約を定義する。
  *
- * @responsibility DockerRestartEnginePipeObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Restart Engine Pipe ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerRestartEnginePipeObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerRestartEnginePipeObservationで宣言した値と責務の対応を維持する。
@@ -58,9 +64,9 @@ export type DockerRestartEnginePipeObservation =
   | "absent"
   | "unknown";
 /**
- * DockerRestartEngineObservationResultが扱う値の構造を表す。
+ * docker-restart-machineで使用するDocker Restart Engine Observation 結果の値契約を定義する。
  *
- * @responsibility DockerRestartEngineObservationResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Restart Engine Observation 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerRestartEngineObservationResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerRestartEngineObservationResultで宣言した値と責務の対応を維持する。
@@ -73,9 +79,9 @@ export type DockerRestartEngineObservationResult = Readonly<{
   cleanup: "confirmed" | "unknown";
 }>;
 /**
- * DockerRestartEnginePipeObservationResultが扱う値の構造を表す。
+ * docker-restart-machineで使用するDocker Restart Engine Pipe Observation 結果の値契約を定義する。
  *
- * @responsibility DockerRestartEnginePipeObservationResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Restart Engine Pipe Observation 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerRestartEnginePipeObservationResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerRestartEnginePipeObservationResultで宣言した値と責務の対応を維持する。
@@ -88,9 +94,9 @@ export type DockerRestartEnginePipeObservationResult = Readonly<{
   cleanup: "confirmed" | "unknown";
 }>;
 /**
- * MachinePortsが扱う値の構造を表す。
+ * docker-restart-machineで使用するMachine Portsの値契約を定義する。
  *
- * @responsibility MachinePortsに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Machine PortsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape MachinePortsが表すProperty、識別子およびRelationを型として固定する。
  * @invariant MachinePortsで宣言した値と責務の対応を維持する。
@@ -112,9 +118,9 @@ type MachinePorts = Readonly<{
 }>;
 
 /**
- * createMachineの処理を実行する。
+ * Machineを構築する。
  *
- * @responsibility createMachineに対応する入力処理と結果生成を所有する。
+ * @responsibility Machineの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input ports: MachinePorts
  * @returns createMachineの計算結果を返す。
@@ -265,9 +271,9 @@ function createMachine(ports: MachinePorts) {
 }
 
 /**
- * queryWslの処理を実行する。
+ * Wslを検索する。
  *
- * @responsibility queryWslに対応する入力処理と結果生成を所有する。
+ * @responsibility Wslの検索条件、参照範囲、未検出結果境界を所有する。
  * @trace ARCH-000008
  * @input kind: "registered" | "running"
  * @returns queryWslの計算結果を返す。
@@ -301,9 +307,9 @@ function queryWsl(kind: "registered" | "running") {
 }
 
 /**
- * observeWslの処理を実行する。
+ * Wslを観測する。
  *
- * @responsibility observeWslに対応する入力処理と結果生成を所有する。
+ * @responsibility Wslの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns DockerWslStateを返す。
@@ -325,9 +331,9 @@ function observeWsl(): DockerWslState {
 }
 
 /**
- * isDockerRestartEngineReadyの処理を実行する。
+ * Docker Restart Engine Readyかを判定する。
  *
- * @responsibility isDockerRestartEngineReadyに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Restart Engine Readyの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input result: Readonly<{ status: number | null; signal: string | null; error?: unknown; stdout: unknown; stderr: unknown; }>
  * @returns isDockerRestartEngineReadyの計算結果を返す。
@@ -357,9 +363,9 @@ export function isDockerRestartEngineReady(
 }
 
 /**
- * observeDockerRestartEnginePipeの処理を実行する。
+ * Docker Restart Engine Pipeを観測する。
  *
- * @responsibility observeDockerRestartEnginePipeに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Restart Engine Pipeの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input openPipe: () => number、closePipe: (handle: number) => void
  * @returns DockerRestartEnginePipeObservationResultを返す。
@@ -398,9 +404,9 @@ export function observeDockerRestartEnginePipe(
 }
 
 /**
- * observeDockerRestartEngineResultの処理を実行する。
+ * Docker Restart Engine 結果を観測する。
  *
- * @responsibility observeDockerRestartEngineResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Restart Engine 結果の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input result: Readonly<{ pid?: number; status: number | null; signal: string | null; error?: unknown; stdout: unknown; stderr: unknown; }>、observeEnginePipe: () => DockerRestartEnginePipeObservationResult
  * @returns DockerRestartEngineObservationResultを返す。
@@ -467,9 +473,9 @@ export function observeDockerRestartEngineResult(
 }
 
 /**
- * queryDockerEngineの処理を実行する。
+ * Docker Engineを検索する。
  *
- * @responsibility queryDockerEngineに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Engineの検索条件、参照範囲、未検出結果境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns DockerRestartEngineObservationResultを返す。
@@ -519,9 +525,9 @@ function queryDockerEngine(): DockerRestartEngineObservationResult {
 }
 
 /**
- * queryContainersAbsentの処理を実行する。
+ * Containers Absentを検索する。
  *
- * @responsibility queryContainersAbsentに対応する入力処理と結果生成を所有する。
+ * @responsibility Containers Absentの検索条件、参照範囲、未検出結果境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns queryContainersAbsentの計算結果を返す。
@@ -577,7 +583,7 @@ function queryContainersAbsent() {
 /**
  * Called only inside the signed host preparation, exclusion and durable phase boundary.
  *
- * @responsibility createDockerRestartMachineに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Restart Machineの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input session: Session、boundary: () => boolean、signal: AbortSignal
  * @returns createDockerRestartMachineの計算結果を返す。
@@ -610,7 +616,7 @@ export function createDockerRestartMachine(
 /**
  * Injected ports cannot obtain production preparation or issue production authority.
  *
- * @responsibility createDockerRestartMachineForVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Restart Machine For Verificationの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input ports: MachinePorts
  * @returns createDockerRestartMachineForVerificationの計算結果を返す。

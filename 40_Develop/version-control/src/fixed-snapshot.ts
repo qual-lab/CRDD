@@ -1,3 +1,9 @@
+/**
+ * fixed-snapshotに属する責務をまとめる。
+ *
+ * @responsibility CandidateOutputCapabilityを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000002
+ */
 import fs from "node:fs";
 import path from "node:path";
 
@@ -28,9 +34,9 @@ const candidateOutputs = new WeakMap<
 const CANDIDATE_OUTPUT_BRAND: unique symbol = Symbol("candidate-output");
 
 /**
- * CandidateOutputCapabilityが扱う値の構造を表す。
+ * fixed-snapshotで使用する候補 出力 Capabilityの値契約を定義する。
  *
- * @responsibility CandidateOutputCapabilityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 候補 出力 CapabilityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape CandidateOutputCapabilityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CandidateOutputCapabilityで宣言した値と責務の対応を維持する。
@@ -44,9 +50,9 @@ export type CandidateOutputCapability = Readonly<{
 }>;
 
 /**
- * FixedSnapshotIdentityが扱う値の構造を表す。
+ * fixed-snapshotで使用するFixed Snapshot Identityの値契約を定義する。
  *
- * @responsibility FixedSnapshotIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Fixed Snapshot IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape FixedSnapshotIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant FixedSnapshotIdentityで宣言した値と責務の対応を維持する。
@@ -66,9 +72,9 @@ export type FixedSnapshotIdentity = Readonly<{
 }>;
 
 /**
- * FixedSnapshotFileが扱う値の構造を表す。
+ * fixed-snapshotで使用するFixed Snapshot Fileの値契約を定義する。
  *
- * @responsibility FixedSnapshotFileに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Fixed Snapshot FileのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape FixedSnapshotFileが表すProperty、識別子およびRelationを型として固定する。
  * @invariant FixedSnapshotFileで宣言した値と責務の対応を維持する。
@@ -87,9 +93,9 @@ export type FixedSnapshotFile = Readonly<{
 }>;
 
 /**
- * CandidateMaterializationが扱う値の構造を表す。
+ * fixed-snapshotで使用する候補 Materializationの値契約を定義する。
  *
- * @responsibility CandidateMaterializationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 候補 MaterializationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape CandidateMaterializationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CandidateMaterializationで宣言した値と責務の対応を維持する。
@@ -109,9 +115,9 @@ export type CandidateMaterialization = Readonly<{
 }>;
 
 /**
- * CandidateMaterializationBlockedが扱う値の構造を表す。
+ * fixed-snapshotで使用する候補 Materialization Blockedの値契約を定義する。
  *
- * @responsibility CandidateMaterializationBlockedに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 候補 Materialization BlockedのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape CandidateMaterializationBlockedが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CandidateMaterializationBlockedで宣言した値と責務の対応を維持する。
@@ -134,9 +140,9 @@ export type CandidateMaterializationBlocked = Readonly<{
 }>;
 
 /**
- * FixedSnapshotContentPolicyが扱う値の構造を表す。
+ * fixed-snapshotで使用するFixed Snapshot Content Policyの値契約を定義する。
  *
- * @responsibility FixedSnapshotContentPolicyに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Fixed Snapshot Content PolicyのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape FixedSnapshotContentPolicyが表すProperty、識別子およびRelationを型として固定する。
  * @invariant FixedSnapshotContentPolicyで宣言した値と責務の対応を維持する。
@@ -150,9 +156,9 @@ export type FixedSnapshotContentPolicy = (
 ) => boolean;
 
 /**
- * FixedSnapshotAdapterが扱う値の構造を表す。
+ * fixed-snapshotで使用するFixed Snapshot Adapterの値契約を定義する。
  *
- * @responsibility FixedSnapshotAdapterに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Fixed Snapshot AdapterのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape FixedSnapshotAdapterが表すProperty、識別子およびRelationを型として固定する。
  * @invariant FixedSnapshotAdapterで宣言した値と責務の対応を維持する。
@@ -180,9 +186,9 @@ export type FixedSnapshotAdapter = Readonly<{
 }>;
 
 /**
- * samePathの処理を実行する。
+ * Pathが同一かを判定する。
  *
- * @responsibility samePathに対応する入力処理と結果生成を所有する。
+ * @responsibility Pathの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000002
  * @input left: string、right: string
  * @returns booleanを返す。
@@ -203,9 +209,9 @@ function samePath(left: string, right: string): boolean {
 }
 
 /**
- * observeCandidateOutputの処理を実行する。
+ * 候補 出力を観測する。
  *
- * @responsibility observeCandidateOutputに対応する入力処理と結果生成を所有する。
+ * @responsibility 候補 出力の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000002
  * @input candidate: unknown
  * @returns observeCandidateOutputの計算結果を返す。
@@ -246,9 +252,9 @@ function observeCandidateOutput(candidate: unknown) {
 }
 
 /**
- * verifyCandidateOutputDirectoryの処理を実行する。
+ * 候補 出力 Directoryを検証する。
  *
- * @responsibility verifyCandidateOutputDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility 候補 出力 Directoryの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000002
  * @input candidate: unknown、ownerCapability: unknown、ownerDirectory: unknown
  * @returns | Readonly<{ status: "completed"; capability: CandidateOutputCapability; pathReported: false; }> | Readonly<{ status: "blocked"; capability: null; pathReported: false; }>を返す。
@@ -320,9 +326,9 @@ export function verifyCandidateOutputDirectory(
 }
 
 /**
- * resolveCandidateOutputDirectoryの処理を実行する。
+ * 候補 出力 Directoryを一意に解決する。
  *
- * @responsibility resolveCandidateOutputDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility 候補 出力 Directoryの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000002
  * @input capability: CandidateOutputCapability、ownerCapability: object
  * @returns string | nullを返す。
@@ -364,9 +370,9 @@ function resolveCandidateOutputDirectory(
 }
 
 /**
- * blockedMaterializationの処理を実行する。
+ * Materializationを停止結果として構築する。
  *
- * @responsibility blockedMaterializationに対応する入力処理と結果生成を所有する。
+ * @responsibility Materializationの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000002
  * @input reason: CandidateMaterializationBlocked["reason"]、effectIssued: boolean、isEffectStateUnknown: boolean、cleanupConfirmed: boolean
  * @returns CandidateMaterializationBlockedを返す。
@@ -397,9 +403,9 @@ function blockedMaterialization(
 }
 
 /**
- * inspectFixedSnapshotの処理を実行する。
+ * Fixed Snapshotを観測する。
  *
- * @responsibility inspectFixedSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility Fixed Snapshotの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000002
  * @input capability: VerifiedRepositoryRoot、revision: string、adapter: FixedSnapshotAdapter
  * @returns FixedSnapshotIdentity | nullを返す。
@@ -424,9 +430,9 @@ export function inspectFixedSnapshot(
 }
 
 /**
- * readFixedSnapshotFileの処理を実行する。
+ * Fixed Snapshot Fileを読み取る。
  *
- * @responsibility readFixedSnapshotFileに対応する入力処理と結果生成を所有する。
+ * @responsibility Fixed Snapshot Fileの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000002
  * @input capability: VerifiedRepositoryRoot、revision: string、relativePath: string、adapter: FixedSnapshotAdapter
  * @returns FixedSnapshotFile | nullを返す。
@@ -452,9 +458,9 @@ export function readFixedSnapshotFile(
 }
 
 /**
- * materializeFixedSnapshotCandidateの処理を実行する。
+ * Fixed Snapshot 候補をFilesystem上の候補として具体化する。
  *
- * @responsibility materializeFixedSnapshotCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Fixed Snapshot 候補の入力Snapshot、書込み範囲、部分生成の失敗境界を所有する。
  * @trace ARCH-000002
  * @input capability: VerifiedRepositoryRoot、revision: string、ownerCapability: object、outputCapability: CandidateOutputCapability、readPaths: readonly string[] | null、contentPolicy: FixedSnapshotContentPolicy | null、adapter: FixedSnapshotAdapter
  * @returns CandidateMaterialization | CandidateMaterializationBlocked | nullを返す。

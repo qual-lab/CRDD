@@ -6,7 +6,7 @@
  * @trace PRL-IT-005
  * @level IT
  * @scope provider、authority、coverage
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -30,7 +30,7 @@ const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("Provider Authority coverageはexact 6 sourceと9 testを所有する", () => {
   assert.deepEqual(PROVIDER_AUTHORITY_COVERAGE_SOURCES, [

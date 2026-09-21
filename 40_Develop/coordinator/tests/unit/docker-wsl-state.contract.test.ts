@@ -6,7 +6,7 @@
  * @trace PRL-UT-006
  * @level UT
  * @scope docker、wsl、state
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -31,7 +31,7 @@ const completed = (stdout: Uint8Array): WslListCompletion => ({
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 const list = (value: string, encoding: BufferEncoding = "utf16le") =>
   completed(Buffer.from(value, encoding));
@@ -48,7 +48,7 @@ const empty = completed(Buffer.alloc(0));
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("observes stopped only with successful registered and running lists", () => {
   for (const encoding of ["utf16le", "utf8"] as const) {
@@ -82,7 +82,7 @@ test("observes stopped only with successful registered and running lists", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("failed or incomplete processes are never empty successful lists", () => {
   for (const change of [
@@ -113,7 +113,7 @@ test("failed or incomplete processes are never empty successful lists", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("rejects malformed encoding and unsupported lines", () => {
   const invalidSamples = [
@@ -154,7 +154,7 @@ test("rejects malformed encoding and unsupported lines", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("requires docker registration and running subset consistency", () => {
   assert.equal(observeDockerWslState(empty, empty), "unknown");

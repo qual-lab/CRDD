@@ -1,7 +1,13 @@
 /**
- * ProjectRuntimeDecisionRecordが扱う値の構造を表す。
+ * decision-portに属する責務をまとめる。
  *
- * @responsibility ProjectRuntimeDecisionRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ProjectRuntimeDecisionRecordを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
+/**
+ * decision-portで使用するProject Runtime Decision 記録の値契約を定義する。
+ *
+ * @responsibility Project Runtime Decision 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeDecisionRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeDecisionRecordで宣言した値と責務の対応を維持する。
@@ -35,9 +41,9 @@ export type ProjectRuntimeDecisionRecord = Readonly<{
 }>;
 
 /**
- * ProjectRuntimeDecisionStoreが扱う値の構造を表す。
+ * decision-portで使用するProject Runtime Decision Storeの値契約を定義する。
  *
- * @responsibility ProjectRuntimeDecisionStoreに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Decision StoreのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeDecisionStoreが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeDecisionStoreで宣言した値と責務の対応を維持する。
@@ -55,9 +61,9 @@ export type ProjectRuntimeDecisionStore = Readonly<{
 }>;
 
 /**
- * ProjectRuntimeDecisionRecoveryIntentが扱う値の構造を表す。
+ * decision-portで使用するProject Runtime Decision 回復 Intentの値契約を定義する。
  *
- * @responsibility ProjectRuntimeDecisionRecoveryIntentに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Decision 回復 IntentのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeDecisionRecoveryIntentが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeDecisionRecoveryIntentで宣言した値と責務の対応を維持する。
@@ -80,9 +86,9 @@ export type ProjectRuntimeDecisionRecoveryIntent = Readonly<{
 }>;
 
 /**
- * ProjectRuntimeDecisionRecoveryStoreが扱う値の構造を表す。
+ * decision-portで使用するProject Runtime Decision 回復 Storeの値契約を定義する。
  *
- * @responsibility ProjectRuntimeDecisionRecoveryStoreに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Decision 回復 StoreのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeDecisionRecoveryStoreが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeDecisionRecoveryStoreで宣言した値と責務の対応を維持する。
@@ -100,9 +106,9 @@ export type ProjectRuntimeDecisionRecoveryStore = Readonly<{
 }>;
 
 /**
- * ProjectRuntimeDecisionPortが扱う値の構造を表す。
+ * decision-portで使用するProject Runtime Decision Portの値契約を定義する。
  *
- * @responsibility ProjectRuntimeDecisionPortに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Decision PortのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeDecisionPortが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeDecisionPortで宣言した値と責務の対応を維持する。
@@ -138,9 +144,9 @@ const projectRuntimeDecisionRecordKeys = [
 ].sort();
 
 /**
- * isDecisionIdの処理を実行する。
+ * Decision Idかを判定する。
  *
- * @responsibility isDecisionIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Decision Idの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -160,7 +166,7 @@ function isDecisionId(value: unknown): value is string {
 /**
  * Validate the canonical record before a persistence adapter accepts it.
  *
- * @responsibility isProjectRuntimeDecisionRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Decision 記録の判定条件とtrue／false境界を所有する。
  * @trace ARCH-000004
  * @input raw: unknown
  * @returns raw is ProjectRuntimeDecisionRecordを返す。

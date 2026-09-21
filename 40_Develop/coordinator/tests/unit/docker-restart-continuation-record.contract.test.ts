@@ -6,7 +6,7 @@
  * @trace ERP-UT-006
  * @level UT
  * @scope docker、restart、continuation、record
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -43,7 +43,7 @@ const binding = {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("A to B to C preserves prior bytes and completes one mixed-generation phase chain", () => {
   const originRecords = [createDockerRestartRecord(binding, "stop_intent")];
@@ -160,7 +160,7 @@ test("A to B to C preserves prior bytes and completes one mixed-generation phase
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("migration boundary tampering and repeat migration without progress remain explicit", () => {
   const originRecords = [createDockerRestartRecord(binding, "stop_intent")];
@@ -202,7 +202,7 @@ test("migration boundary tampering and repeat migration without progress remain 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("continuation binds exact handoff and preserves phase predecessor contract", () => {
   const handoff = Buffer.from("test history bytes");

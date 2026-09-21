@@ -1,7 +1,13 @@
 /**
+ * docker-restart-stateに属する責務をまとめる。
+ *
+ * @responsibility DockerRestartPhaseを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
+/**
  * Pure progress classification only. This module neither authenticates evidence
  *
- * @responsibility DockerRestartPhaseに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Restart PhaseのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerRestartPhaseが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerRestartPhaseで宣言した値と責務の対応を維持する。
@@ -18,9 +24,9 @@ export type DockerRestartPhase =
   | "settled";
 
 /**
- * DockerRestartObservationが扱う値の構造を表す。
+ * docker-restart-stateで使用するDocker Restart Observationの値契約を定義する。
  *
- * @responsibility DockerRestartObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Restart ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerRestartObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerRestartObservationで宣言した値と責務の対応を維持する。
@@ -43,9 +49,9 @@ export type DockerRestartObservation = Readonly<{
 }>;
 
 /**
- * DockerRestartTransitionが扱う値の構造を表す。
+ * docker-restart-stateで使用するDocker Restart Transitionの値契約を定義する。
  *
- * @responsibility DockerRestartTransitionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Restart TransitionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerRestartTransitionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerRestartTransitionで宣言した値と責務の対応を維持する。
@@ -72,7 +78,7 @@ const RESTART_PHASES: readonly DockerRestartPhase[] = Object.freeze([
 /**
  * Unknown or cancelled progress never grants permission to replay an effect.
  *
- * @responsibility classifyDockerRestartProgressに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Restart Progressの分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000008
  * @input phase: DockerRestartPhase、observation: DockerRestartObservation
  * @returns DockerRestartTransitionを返す。

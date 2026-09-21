@@ -6,7 +6,7 @@
  * @trace ERB-IT-001
  * @level IT
  * @scope codex、execution、plan
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -29,7 +29,7 @@ import { resolveFixedCodexExecutorSeccompProfile } from "../../src/security/code
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("公式Codex artifactとSubscription限定のread-only計画を固定する", () => {
   const plan = planCodexReadOnlyProbe({
@@ -61,7 +61,7 @@ test("公式Codex artifactとSubscription限定のread-only計画を固定する
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("Executor計画が宣言するSeccomp identityは実配布資産と一致する", () => {
   const contract = describeCodexExecutionPlanContract();
@@ -86,7 +86,7 @@ test("Executor計画が宣言するSeccomp identityは実配布資産と一致�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("effort・Provider・shape差をEffect前に拒否する", () => {
   for (const candidate of [
@@ -114,7 +114,7 @@ test("effort・Provider・shape差をEffect前に拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("Codex Structured Output Schemaはboolean型を明示したexact形に固定する", () => {
   const schema = JSON.parse(
@@ -141,7 +141,7 @@ test("Codex Structured Output Schemaはboolean型を明示したexact形に固�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定する", () => {
   const executor = planCodexIsolatedTask({
@@ -230,7 +230,7 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("一般Task SchemaはExecutorとReviewerのexact出力を分離する", () => {
   const executor = JSON.parse(
@@ -280,7 +280,7 @@ test("一般Task SchemaはExecutorとReviewerのexact出力を分離する", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("Codex Structured Output Schemaは公式対応部分集合だけを搬送する", () => {
   const schemaPaths = [
@@ -309,7 +309,7 @@ test("Codex Structured Output Schemaは公式対応部分集合だけを搬送�
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
    */
   function assertSupportedSubset(value: unknown): void {
     if (Array.isArray(value)) {
@@ -343,7 +343,7 @@ test("Codex Structured Output Schemaは公式対応部分集合だけを搬送�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("公開契約はSigstore検証と通常速度・API課金禁止を明示する", () => {
   const contract = describeCodexExecutionPlanContract();
@@ -432,7 +432,7 @@ test("公開契約はSigstore検証と通常速度・API課金禁止を明示す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("固定Codex imageはbwrapとExecutor用の限定seccomp境界を固定する", () => {
   const contract = describeCodexExecutionPlanContract();

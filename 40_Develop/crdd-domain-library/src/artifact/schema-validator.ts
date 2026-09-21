@@ -1,10 +1,16 @@
+/**
+ * schema-validatorに属する責務をまとめる。
+ *
+ * @responsibility ArtifactSchemaを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import type { DomainIssue, DomainOutcome } from "../outcome.ts";
 import type { ArtifactModel } from "./artifact-model.ts";
 
 /**
- * ArtifactSchemaが扱う値の構造を表す。
+ * schema-validatorで使用するArtifact Schemaの値契約を定義する。
  *
- * @responsibility ArtifactSchemaに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Artifact SchemaのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ArtifactSchemaが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ArtifactSchemaで宣言した値と責務の対応を維持する。
@@ -24,9 +30,9 @@ export type ArtifactSchema = Readonly<{
 }>;
 
 /**
- * ArtifactSchemaValidationResultが扱う値の構造を表す。
+ * schema-validatorで使用するArtifact Schema Validation 結果の値契約を定義する。
  *
- * @responsibility ArtifactSchemaValidationResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Artifact Schema Validation 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ArtifactSchemaValidationResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ArtifactSchemaValidationResultで宣言した値と責務の対応を維持する。
@@ -37,9 +43,9 @@ export type ArtifactSchema = Readonly<{
 export type ArtifactSchemaValidationResult = DomainOutcome<ArtifactModel>;
 
 /**
- * schemaIssueの処理を実行する。
+ * schema Issueを決定する。
  *
- * @responsibility schemaIssueに対応する入力処理と結果生成を所有する。
+ * @responsibility schema Issueの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input artifact: ArtifactModel、schemaId: string、kind: string、reason: string、details: DomainIssue["details"]
  * @returns DomainIssueを返す。
@@ -69,9 +75,9 @@ function schemaIssue(
 }
 
 /**
- * validateArtifactSchemaの処理を実行する。
+ * Artifact Schemaの契約を検証する。
  *
- * @responsibility validateArtifactSchemaに対応する入力処理と結果生成を所有する。
+ * @responsibility Artifact Schemaの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input artifact: ArtifactModel、schema: ArtifactSchema
  * @returns ArtifactSchemaValidationResultを返す。

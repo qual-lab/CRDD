@@ -6,7 +6,7 @@
  * @trace ERB-IT-014
  * @level IT
  * @scope docker、restart、real-observation
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
@@ -37,7 +37,7 @@ import {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("中立化したRuntime子Processから実Docker CLIのPublisher Trustを確認できる", {
   skip:
@@ -91,7 +91,7 @@ test("中立化したRuntime子Processから実Docker CLIのPublisher Trustを�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("Windows environment observation completes with three runtime lock workers", {
   skip: process.env.CRDD_REAL_DOCKER_OBSERVATION !== "1",
@@ -126,7 +126,7 @@ test("Windows environment observation completes with three runtime lock workers"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("Windows directory bootstrap rejects incomplete or failed native results", {
   skip: process.platform !== "win32",
@@ -183,7 +183,7 @@ for (const hasRuntimeLock of [false, true]) {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+   * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
    */
   test(`real Native and WSL observation with runtime lock=${hasRuntimeLock}`, {
     skip: process.env.CRDD_REAL_DOCKER_OBSERVATION !== "1",

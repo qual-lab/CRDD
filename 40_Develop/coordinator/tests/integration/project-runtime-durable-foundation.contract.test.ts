@@ -6,7 +6,7 @@
  * @trace PRL-IT-012
  * @level IT
  * @scope project、runtime、durable、foundation
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
@@ -48,7 +48,7 @@ const MAX_RECORD_BYTES = 16 * 1024 * 1024;
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 function stateEnvelope(state: ProjectRuntimeState) {
   const serialized = JSON.stringify(state);
@@ -75,7 +75,7 @@ function stateEnvelope(state: ProjectRuntimeState) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 function storedEnvelopeBytes(state: ProjectRuntimeState) {
   return Buffer.byteLength(`${JSON.stringify(stateEnvelope(state))}\n`, "utf8");
@@ -91,7 +91,7 @@ function storedEnvelopeBytes(state: ProjectRuntimeState) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 function stateDirectory(root: string) {
   return path.join(root, ".crdd", "project-runtime", "state", "project-a");
@@ -107,7 +107,7 @@ function stateDirectory(root: string) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 function queueDirectory(root: string) {
   return path.join(root, ".crdd", "project-runtime", "queues", "queue-a");
@@ -123,7 +123,7 @@ function queueDirectory(root: string) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 function stateWithStoredBytes(
   template: ProjectRuntimeState,
@@ -186,7 +186,7 @@ function stateWithStoredBytes(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-project-durable-"));
@@ -225,7 +225,7 @@ function fixture(t: test.TestContext) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-D-N-01 durably creates and reads generation-bound Project State", (t) => {
   const { root, state } = fixture(t);
@@ -250,7 +250,7 @@ test("PR-D-N-01 durably creates and reads generation-bound Project State", (t) =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("Repository RootとBindingを構成時に閉じたState／Lease Portを返す", (t) => {
   const { root, state } = fixture(t);
@@ -275,7 +275,7 @@ test("Repository RootとBindingを構成時に閉じたState／Lease Portを返�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-D-A-01 rejects corrupt or semantically invalid durable state", (t) => {
   const { root, state } = fixture(t);
@@ -316,7 +316,7 @@ test("PR-D-A-01 rejects corrupt or semantically invalid durable state", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-D-A-01 rejects impossible Task state and identity tuples", (t) => {
   const cases = [
@@ -393,7 +393,7 @@ test("PR-D-A-01 rejects impossible Task state and identity tuples", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-D-A-01 rejects malformed envelopes, generation gaps, and residual inventory", (t) => {
   const cases: ReadonlyArray<{
@@ -501,7 +501,7 @@ test("PR-D-A-01 rejects malformed envelopes, generation gaps, and residual inven
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-D-A-01 rejects an unknown queue record kind on exact retry", (t) => {
   const { root } = fixture(t);
@@ -542,7 +542,7 @@ test("PR-D-A-01 rejects an unknown queue record kind on exact retry", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-D-Q-00 selects only queues owned by the requested Project binding", (t) => {
   const { root } = fixture(t);
@@ -587,7 +587,7 @@ test("PR-D-Q-00 selects only queues owned by the requested Project binding", (t)
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-D-Q-01 binds queue ownership to a live opaque lease", (t) => {
   const { root } = fixture(t);
@@ -721,7 +721,7 @@ test("PR-D-Q-01 binds queue ownership to a live opaque lease", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-D-A-01 rejects identity changes in every queue generation", (t) => {
   for (const identity of ["project", "queue"] as const) {
@@ -815,7 +815,7 @@ test("PR-D-A-01 rejects identity changes in every queue generation", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-D-Q-01 serializes operation and project-scoped adoption leases", (t) => {
   const { root } = fixture(t);
@@ -883,7 +883,7 @@ test("PR-D-Q-01 serializes operation and project-scoped adoption leases", (t) =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-D-A-01 preserves a recovery marker when lease release evidence fails", (t) => {
   const { root } = fixture(t);
@@ -931,7 +931,7 @@ test("PR-D-A-01 preserves a recovery marker when lease release evidence fails", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-A-04 reconciles an exited lease owner without starting new work", (t) => {
   const { root } = fixture(t);
@@ -1018,7 +1018,7 @@ if (queued.status !== "completed") process.exit(21);`,
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-A-04 recovers a lease acquisition interrupted before Queue ownership", (t) => {
   const { root } = fixture(t);
@@ -1134,7 +1134,7 @@ if (lease.status !== "completed") process.exit(20);`,
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-A-04 recovers canonical-adoption acquisition across Queue callers", (t) => {
   const { root } = fixture(t);
@@ -1197,7 +1197,7 @@ if (lease.status !== "completed") process.exit(20);`,
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-A-04 classifies a late contender against a live owner as unavailable", async (t) => {
   const { root } = fixture(t);
@@ -1247,7 +1247,7 @@ test("PR-A-04 classifies a late contender against a live owner as unavailable", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-A-04 keeps pre-publication contention effect-free and recovers only after owner loss", async (t) => {
   const { root } = fixture(t);
@@ -1316,7 +1316,7 @@ test("PR-A-04 keeps pre-publication contention effect-free and recovers only aft
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-A-04 returns the exact Recovery ID when acquisition Marker readback fails after publication", (t) => {
   const { root } = fixture(t);
@@ -1340,7 +1340,7 @@ test("PR-A-04 returns the exact Recovery ID when acquisition Marker readback fai
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+   * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
    */
   const faultingReadFileSync = ((...args: unknown[]) => {
     if (!isFaultInjected && String(args[0]) === marker) {
@@ -1421,7 +1421,7 @@ test("PR-A-04 returns the exact Recovery ID when acquisition Marker readback fai
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-A-04 preserves a published acquisition when temporary cleanup is unknown", (t) => {
   const { root } = fixture(t);
@@ -1441,7 +1441,7 @@ test("PR-A-04 preserves a published acquisition when temporary cleanup is unknow
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+   * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
    */
   const faultingRmSync = ((...args: unknown[]) => {
     if (
@@ -1517,7 +1517,7 @@ test("PR-A-04 preserves a published acquisition when temporary cleanup is unknow
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-A-04 reconciles release intent created before Queue ownership", (t) => {
   const { root } = fixture(t);
@@ -1597,7 +1597,7 @@ if (lease.status !== "completed") process.exit(20);`,
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-A-04 leaves mismatched acquisition and release identities unchanged", (t) => {
   const { root } = fixture(t);
@@ -1674,7 +1674,7 @@ if (lease.status !== "completed") process.exit(20);`,
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-D-A-01 preserves malformed and partial acquisition state with an exact recovery ID", (t) => {
   for (const scenario of [
@@ -1763,7 +1763,7 @@ test("PR-D-A-01 preserves malformed and partial acquisition state with an exact 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-A-04 clears Queue ownership only after exact lease release settlement", (t) => {
   const { root } = fixture(t);
@@ -1871,7 +1871,7 @@ test("PR-A-04 clears Queue ownership only after exact lease release settlement",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-A-04 preserves an exact long recovery reference in Queue terminal intent", (t) => {
   const { root } = fixture(t);
@@ -1966,7 +1966,7 @@ test("PR-A-04 preserves an exact long recovery reference in Queue terminal inten
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-A-04 reconciles a released terminal intent after owner settlement was interrupted", (t) => {
   const { root } = fixture(t);
@@ -2043,7 +2043,7 @@ test("PR-A-04 reconciles a released terminal intent after owner settlement was i
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-A-04 requires exact Queue-bound lease evidence before clearing ownership", (t) => {
   const { root } = fixture(t);
@@ -2136,7 +2136,7 @@ test("PR-A-04 requires exact Queue-bound lease evidence before clearing ownershi
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-A-04 rejects malformed pre-existing recovered evidence", (t) => {
   const { root } = fixture(t);
@@ -2212,7 +2212,7 @@ test("PR-A-04 rejects malformed pre-existing recovered evidence", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-A-04 does not steal a lease from a live or unobservable owner", (t) => {
   const { root } = fixture(t);
@@ -2275,7 +2275,7 @@ test("PR-A-04 does not steal a lease from a live or unobservable owner", (t) => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-D-A-01 rejects generic recovery resume without advancing generation", (t) => {
   const { root } = fixture(t);
@@ -2410,7 +2410,7 @@ test("PR-D-A-01 rejects generic recovery resume without advancing generation", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("PR-D-A-01 enforces the exact stored-record byte boundary", (t) => {
   for (const targetBytes of [MAX_RECORD_BYTES - 1, MAX_RECORD_BYTES]) {
@@ -2446,7 +2446,7 @@ test("PR-D-A-01 enforces the exact stored-record byte boundary", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("describes the durable foundation without claiming the upper Runtime complete", () => {
   const contract = describeProjectRuntimeDurableFoundation();

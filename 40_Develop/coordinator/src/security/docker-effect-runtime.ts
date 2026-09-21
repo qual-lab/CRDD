@@ -1,3 +1,9 @@
+/**
+ * docker-effect-runtimeに属する責務をまとめる。
+ *
+ * @responsibility Commandを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -41,9 +47,9 @@ const SAFE_IMAGE_DIGEST = /^sha256:[a-f0-9]{64}$/u;
 const SAFE_OWNERSHIP_LABEL = /^crdd\.coordinator\.runtime=[a-f0-9]{16}$/u;
 
 /**
- * Commandが扱う値の構造を表す。
+ * docker-effect-runtimeで使用するCommandの値契約を定義する。
  *
- * @responsibility Commandに必要な値と制約を一つの型契約として保持する。
+ * @responsibility CommandのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape Commandが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Commandで宣言した値と責務の対応を維持する。
@@ -53,9 +59,9 @@ const SAFE_OWNERSHIP_LABEL = /^crdd\.coordinator\.runtime=[a-f0-9]{16}$/u;
  */
 type Command = Readonly<{ purpose: string; argv: readonly string[] }>;
 /**
- * PreparedPlanが扱う値の構造を表す。
+ * docker-effect-runtimeで使用するPrepared Planの値契約を定義する。
  *
- * @responsibility PreparedPlanに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Prepared PlanのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape PreparedPlanが表すProperty、識別子およびRelationを型として固定する。
  * @invariant PreparedPlanで宣言した値と責務の対応を維持する。
@@ -99,9 +105,9 @@ type PreparedPlan = Readonly<{
   commands: readonly Command[];
 }>;
 /**
- * CliSnapshotが扱う値の構造を表す。
+ * docker-effect-runtimeで使用するCli Snapshotの値契約を定義する。
  *
- * @responsibility CliSnapshotに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Cli SnapshotのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape CliSnapshotが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CliSnapshotで宣言した値と責務の対応を維持する。
@@ -111,9 +117,9 @@ type PreparedPlan = Readonly<{
  */
 type CliSnapshot = DockerCliTrustSnapshot;
 /**
- * ExecutionContextが扱う値の構造を表す。
+ * docker-effect-runtimeで使用するExecution Contextの値契約を定義する。
  *
- * @responsibility ExecutionContextに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Execution ContextのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ExecutionContextが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ExecutionContextで宣言した値と責務の対応を維持する。
@@ -129,9 +135,9 @@ type ExecutionContext = {
   handles: Set<OwnedCommandHandle>;
 };
 /**
- * RuntimeDependenciesが扱う値の構造を表す。
+ * docker-effect-runtimeで使用するRuntime Dependenciesの値契約を定義する。
  *
- * @responsibility RuntimeDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RuntimeDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeDependenciesで宣言した値と責務の対応を維持する。
@@ -160,9 +166,9 @@ type RuntimeDependencies = Readonly<{
 }>;
 
 /**
- * filesystemIdentityの処理を実行する。
+ * filesystem Identityを決定する。
  *
- * @responsibility filesystemIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility filesystem Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: string、expected: "file" | "directory"
  * @returns filesystemIdentityの計算結果を返す。
@@ -192,9 +198,9 @@ function filesystemIdentity(target: string, expected: "file" | "directory") {
 }
 
 /**
- * readCliSnapshotの処理を実行する。
+ * Cli Snapshotを読み取る。
  *
- * @responsibility readCliSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility Cli Snapshotの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns CliSnapshotを返す。
@@ -216,9 +222,9 @@ function readCliSnapshot(): CliSnapshot {
 }
 
 /**
- * verifyCliSnapshotの処理を実行する。
+ * Cli Snapshotを検証する。
  *
- * @responsibility verifyCliSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility Cli Snapshotの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input snapshot: CliSnapshot
  * @returns N/A: verifyCliSnapshotは戻り値を返さない。
@@ -240,9 +246,9 @@ function verifyCliSnapshot(snapshot: CliSnapshot) {
 }
 
 /**
- * createConfigDirectoryの処理を実行する。
+ * Config Directoryを構築する。
  *
- * @responsibility createConfigDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Config Directoryの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input managementPath: string
  * @returns createConfigDirectoryの計算結果を返す。
@@ -268,9 +274,9 @@ function createConfigDirectory(managementPath: string) {
 }
 
 /**
- * verifyConfigDirectoryの処理を実行する。
+ * Config Directoryを検証する。
  *
- * @responsibility verifyConfigDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Config Directoryの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input directory: string、identity: string
  * @returns N/A: verifyConfigDirectoryは戻り値を返さない。
@@ -293,9 +299,9 @@ function verifyConfigDirectory(directory: string, identity: string) {
 }
 
 /**
- * exactArrayの処理を実行する。
+ * Arrayが完全一致するか判定する。
  *
- * @responsibility exactArrayに対応する入力処理と結果生成を所有する。
+ * @responsibility Arrayの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input leftItems: readonly string[]、rightItems: readonly string[]
  * @returns exactArrayの計算結果を返す。
@@ -319,9 +325,9 @@ function exactArray(
 }
 
 /**
- * expectedCommandsの処理を実行する。
+ * expected Commandsを決定する。
  *
- * @responsibility expectedCommandsに対応する入力処理と結果生成を所有する。
+ * @responsibility expected Commandsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input plan: PreparedPlan、tmpSourcePath: string
  * @returns readonly Command[] | nullを返す。
@@ -572,9 +578,9 @@ function expectedCommands(
 }
 
 /**
- * validatePlanの処理を実行する。
+ * Planの契約を検証する。
  *
- * @responsibility validatePlanに対応する入力処理と結果生成を所有する。
+ * @responsibility Planの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input plan: PreparedPlan、tmpSourcePath: string
  * @returns validatePlanの計算結果を返す。
@@ -666,9 +672,9 @@ function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
 }
 
 /**
- * planIdentityの処理を実行する。
+ * plan Identityを決定する。
  *
- * @responsibility planIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility plan Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input plan: PreparedPlan
  * @returns planIdentityの計算結果を返す。
@@ -699,9 +705,9 @@ function planIdentity(plan: PreparedPlan) {
 }
 
 /**
- * createRuntimeの処理を実行する。
+ * Runtimeを構築する。
  *
- * @responsibility createRuntimeに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtimeの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RuntimeDependencies
  * @returns createRuntimeの計算結果を返す。
@@ -718,9 +724,9 @@ function createRuntime(dependencies: RuntimeDependencies) {
   const contexts = new WeakMap<object, ExecutionContext>();
 
   /**
-   * contextForの処理を実行する。
+   * context Forを決定する。
    *
-   * @responsibility contextForに対応する入力処理と結果生成を所有する。
+   * @responsibility context Forの導出に必要な入力、判定規則、返却結果の境界を所有する。
    * @trace ARCH-000008
    * @input plan: PreparedPlan、managementCapability: object
    * @returns contextForの計算結果を返す。
@@ -765,9 +771,9 @@ function createRuntime(dependencies: RuntimeDependencies) {
   }
 
   /**
-   * startCommandの処理を実行する。
+   * Commandを開始する。
    *
-   * @responsibility startCommandに対応する入力処理と結果生成を所有する。
+   * @responsibility Commandの開始条件、Effect発行、開始失敗時の終了境界を所有する。
    * @trace ARCH-000008
    * @input command: Command、plan: PreparedPlan、managementCapability: unknown
    * @returns OwnedCommandHandleを返す。
@@ -811,9 +817,9 @@ function createRuntime(dependencies: RuntimeDependencies) {
   }
 
   /**
-   * runShortの処理を実行する。
+   * Shortを実行する。
    *
-   * @responsibility runShortに対応する入力処理と結果生成を所有する。
+   * @responsibility Shortの実行条件、Effect範囲、終了結果の境界を所有する。
    * @trace ARCH-000008
    * @input context: ExecutionContext、argv: readonly string[]
    * @returns runShortの計算結果を返す。
@@ -842,9 +848,9 @@ function createRuntime(dependencies: RuntimeDependencies) {
   }
 
   /**
-   * inspectExactResourceの処理を実行する。
+   * Exact Resourceを観測する。
    *
-   * @responsibility inspectExactResourceに対応する入力処理と結果生成を所有する。
+   * @responsibility Exact Resourceの観測対象、取得根拠、観測不能結果の境界を所有する。
    * @trace ARCH-000008
    * @input context: ExecutionContext、kind: "container" | "network"、dockerId: string、expectedName: string、ownershipLabel: string、expectedImage: string | null、shouldBeInternal: boolean | null、purpose: | "create_subscription_auth_probe" | "create_internal_network" | "create_egress_network" | "create_proxy" | "create_provider"、plan: PreparedPlan
    * @returns inspectExactResourceの計算結果を返す。
@@ -1032,9 +1038,9 @@ function createRuntime(dependencies: RuntimeDependencies) {
   }
 
   /**
-   * removeCandidateResourceByNameの処理を実行する。
+   * 候補 Resource By Nameを除去する。
    *
-   * @responsibility removeCandidateResourceByNameに対応する入力処理と結果生成を所有する。
+   * @responsibility 候補 Resource By Nameの対象Identity、除去条件、終了後状態の境界を所有する。
    * @trace ARCH-000008
    * @input context: ExecutionContext、kind: "container" | "network"、name: string、ownershipLabel: string
    * @returns removeCandidateResourceByNameの計算結果を返す。
@@ -1127,9 +1133,9 @@ function createRuntime(dependencies: RuntimeDependencies) {
   }
 
   /**
-   * exactResourceAbsentの処理を実行する。
+   * Resource Absentが完全一致するか判定する。
    *
-   * @responsibility exactResourceAbsentに対応する入力処理と結果生成を所有する。
+   * @responsibility Resource Absentの比較対象、完全一致条件、判定結果境界を所有する。
    * @trace ARCH-000008
    * @input context: ExecutionContext、kind: "container" | "network"、dockerId: string、expectedName: string
    * @returns exactResourceAbsentの計算結果を返す。
@@ -1212,9 +1218,9 @@ function createRuntime(dependencies: RuntimeDependencies) {
   }
 
   /**
-   * removeExactResourceの処理を実行する。
+   * Exact Resourceを除去する。
    *
-   * @responsibility removeExactResourceに対応する入力処理と結果生成を所有する。
+   * @responsibility Exact Resourceの対象Identity、除去条件、終了後状態の境界を所有する。
    * @trace ARCH-000008
    * @input context: ExecutionContext、kind: "container" | "network"、state: Readonly<{ submitted: boolean; dockerId: string | null }>、expectedName: string、ownershipLabel: string、expectedImage: string | null、shouldBeInternal: boolean | null、purpose: | "create_subscription_auth_probe" | "create_internal_network" | "create_egress_network" | "create_proxy" | "create_provider"、plan: PreparedPlan
    * @returns removeExactResourceの計算結果を返す。
@@ -1272,9 +1278,9 @@ function createRuntime(dependencies: RuntimeDependencies) {
   }
 
   /**
-   * cleanupOwnedResourcesの処理を実行する。
+   * 所有 Resourcesを清掃する。
    *
-   * @responsibility cleanupOwnedResourcesに対応する入力処理と結果生成を所有する。
+   * @responsibility 所有 Resourcesの清掃対象、完了観測、残存時の失敗境界を所有する。
    * @trace ARCH-000008
    * @input plan: PreparedPlan、recoveryCapability: object、managementCapability: unknown
    * @returns cleanupOwnedResourcesの計算結果を返す。
@@ -1506,9 +1512,9 @@ const productionRuntime = createRuntime(
 );
 
 /**
- * startRuntimeOwnedDockerCommandの処理を実行する。
+ * Runtime 所有 Docker Commandを開始する。
  *
- * @responsibility startRuntimeOwnedDockerCommandに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Commandの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000008
  * @input command: Command、plan: PreparedPlan、managementCapability: unknown
  * @returns startRuntimeOwnedDockerCommandの計算結果を返す。
@@ -1530,9 +1536,9 @@ export function startRuntimeOwnedDockerCommand(
 }
 
 /**
- * cleanupRuntimeOwnedDockerResourcesの処理を実行する。
+ * Runtime 所有 Docker Resourcesを清掃する。
  *
- * @responsibility cleanupRuntimeOwnedDockerResourcesに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Resourcesの清掃対象、完了観測、残存時の失敗境界を所有する。
  * @trace ARCH-000008
  * @input plan: PreparedPlan、recoveryCapability: object、managementCapability: unknown
  * @returns cleanupRuntimeOwnedDockerResourcesの計算結果を返す。
@@ -1558,9 +1564,9 @@ export function cleanupRuntimeOwnedDockerResources(
 }
 
 /**
- * createIsolatedDockerEffectRuntimeCandidateの処理を実行する。
+ * Isolated Docker Effect Runtime 候補を構築する。
  *
- * @responsibility createIsolatedDockerEffectRuntimeCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Isolated Docker Effect Runtime 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RuntimeDependencies
  * @returns createIsolatedDockerEffectRuntimeCandidateの計算結果を返す。
@@ -1585,9 +1591,9 @@ export function createIsolatedDockerEffectRuntimeCandidate(
 }
 
 /**
- * describeDockerEffectRuntimeContractの処理を実行する。
+ * Docker Effect Runtime 契約の公開契約を記述する。
  *
- * @responsibility describeDockerEffectRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Effect Runtime 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeDockerEffectRuntimeContractの計算結果を返す。

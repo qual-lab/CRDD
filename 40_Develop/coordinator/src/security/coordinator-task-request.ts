@@ -1,3 +1,9 @@
+/**
+ * coordinator-task-requestに属する責務をまとめる。
+ *
+ * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -5,9 +11,9 @@ import {
 import { containsRecognizedSecretScope } from "./secret-material-policy.ts";
 
 /**
- * Providerが扱う値の構造を表す。
+ * coordinator-task-requestで使用するProviderの値契約を定義する。
  *
- * @responsibility Providerに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ProviderのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Providerで宣言した値と責務の対応を維持する。
@@ -34,9 +40,9 @@ const REQUEST_KEYS = new Set([
   "requiresCrossContextAlignment",
 ]);
 /**
- * snapshotCoordinatorTaskRequestの処理を実行する。
+ * Coordinator Task Requestを所有Snapshotへ変換する。
  *
- * @responsibility snapshotCoordinatorTaskRequestに対応する入力処理と結果生成を所有する。
+ * @responsibility Coordinator Task Requestの取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000004
  * @input rawRequest: unknown
  * @returns snapshotCoordinatorTaskRequestの計算結果を返す。

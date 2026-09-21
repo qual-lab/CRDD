@@ -1,3 +1,9 @@
+/**
+ * docker-recovery-public-projectionに属する責務をまとめる。
+ *
+ * @responsibility publicDockerRecoveryStartReasonを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import {
   isSha256Hex,
   parseDockerTaskRecoveryId,
@@ -97,9 +103,9 @@ const BLOCKED_REASONS_WITH_INVENTORY = new Set([
 ]);
 
 /**
- * publicDockerRecoveryStartReasonの処理を実行する。
+ * public Docker 回復 Start Reasonを決定する。
  *
- * @responsibility publicDockerRecoveryStartReasonに対応する入力処理と結果生成を所有する。
+ * @responsibility public Docker 回復 Start Reasonの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input reason: unknown
  * @returns publicDockerRecoveryStartReasonの計算結果を返す。
@@ -121,9 +127,9 @@ export function publicDockerRecoveryStartReason(reason: unknown) {
 }
 
 /**
- * publicVerifiedDockerRecoveryIdの処理を実行する。
+ * public Verified Docker 回復 Idを決定する。
  *
- * @responsibility publicVerifiedDockerRecoveryIdに対応する入力処理と結果生成を所有する。
+ * @responsibility public Verified Docker 回復 Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns publicVerifiedDockerRecoveryIdの計算結果を返す。
@@ -141,9 +147,9 @@ export function publicVerifiedDockerRecoveryId(value: unknown) {
 }
 
 /**
- * projectDockerRecoveryAdmissionの処理を実行する。
+ * Docker 回復 Admissionを公開結果へ投影する。
  *
- * @responsibility projectDockerRecoveryAdmissionに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 Admissionの公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input rawObservation: unknown
  * @returns projectDockerRecoveryAdmissionの計算結果を返す。

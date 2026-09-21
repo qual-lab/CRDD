@@ -1,3 +1,9 @@
+/**
+ * authority-grant-verifierに属する責務をまとめる。
+ *
+ * @responsibility AuthorityGrantを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { createHash } from "node:crypto";
 import {
   snapshotPlainArray,
@@ -53,9 +59,9 @@ const GRANT_KEYS = new Set([
 ]);
 
 /**
- * AuthorityGrantが扱う値の構造を表す。
+ * authority-grant-verifierで使用するAuthority Grantの値契約を定義する。
  *
- * @responsibility AuthorityGrantに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Authority GrantのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape AuthorityGrantが表すProperty、識別子およびRelationを型として固定する。
  * @invariant AuthorityGrantで宣言した値と責務の対応を維持する。
@@ -86,9 +92,9 @@ type AuthorityGrant = {
 };
 
 /**
- * blockedの処理を実行する。
+ * authority-grant-verifierを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility authority-grant-verifierの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000014
  * @input reason: string
  * @returns blockedの計算結果を返す。
@@ -112,9 +118,9 @@ function blocked(reason: string) {
 }
 
 /**
- * canonicalJsonの処理を実行する。
+ * canonical Jsonを決定する。
  *
- * @responsibility canonicalJsonに対応する入力処理と結果生成を所有する。
+ * @responsibility canonical Jsonの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown
  * @returns stringを返す。
@@ -143,9 +149,9 @@ function canonicalJson(value: unknown): string {
 }
 
 /**
- * normalizedUtcの処理を実行する。
+ * Utcを固定Schemaへ正規化する。
  *
- * @responsibility normalizedUtcに対応する入力処理と結果生成を所有する。
+ * @responsibility Utcの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown
  * @returns normalizedUtcの計算結果を返す。
@@ -167,9 +173,9 @@ function normalizedUtc(value: unknown) {
 }
 
 /**
- * normalizeNowの処理を実行する。
+ * Nowを固定Schemaへ正規化する。
  *
- * @responsibility normalizeNowに対応する入力処理と結果生成を所有する。
+ * @responsibility Nowの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown
  * @returns normalizeNowの計算結果を返す。
@@ -193,9 +199,9 @@ function normalizeNow(value: unknown) {
 }
 
 /**
- * normalizeOriginsの処理を実行する。
+ * Originsを固定Schemaへ正規化する。
  *
- * @responsibility normalizeOriginsに対応する入力処理と結果生成を所有する。
+ * @responsibility Originsの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000014
  * @input origins: unknown
  * @returns normalizeOriginsの計算結果を返す。
@@ -260,9 +266,9 @@ function normalizeOrigins(origins: unknown) {
 }
 
 /**
- * normalizeGrantの処理を実行する。
+ * Grantを固定Schemaへ正規化する。
  *
- * @responsibility normalizeGrantに対応する入力処理と結果生成を所有する。
+ * @responsibility Grantの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000014
  * @input grant: unknown
  * @returns Readonly<AuthorityGrant> | nullを返す。
@@ -352,9 +358,9 @@ function normalizeGrant(grant: unknown): Readonly<AuthorityGrant> | null {
 }
 
 /**
- * validateAuthorityRegistryCandidateInternalの処理を実行する。
+ * Authority Registry 候補 Internalの契約を検証する。
  *
- * @responsibility validateAuthorityRegistryCandidateInternalに対応する入力処理と結果生成を所有する。
+ * @responsibility Authority Registry 候補 Internalの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000014
  * @input candidate: unknown
  * @returns validateAuthorityRegistryCandidateInternalの計算結果を返す。
@@ -445,9 +451,9 @@ function validateAuthorityRegistryCandidateInternal(candidate: unknown) {
 }
 
 /**
- * validateAuthorityRegistryCandidateの処理を実行する。
+ * Authority Registry 候補の契約を検証する。
  *
- * @responsibility validateAuthorityRegistryCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Authority Registry 候補の必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000014
  * @input candidate: unknown
  * @returns validateAuthorityRegistryCandidateの計算結果を返す。
@@ -469,9 +475,9 @@ export function validateAuthorityRegistryCandidate(candidate: unknown) {
 }
 
 /**
- * decodeCanonicalAuthorityRegistryBytesの処理を実行する。
+ * Canonical Authority Registry Bytesを検証済み値へ復号する。
  *
- * @responsibility decodeCanonicalAuthorityRegistryBytesに対応する入力処理と結果生成を所有する。
+ * @responsibility Canonical Authority Registry Bytesの入力形式、復号結果、不正byte列の拒否境界を所有する。
  * @trace ARCH-000014
  * @input input: unknown
  * @returns decodeCanonicalAuthorityRegistryBytesの計算結果を返す。
@@ -512,9 +518,9 @@ export function decodeCanonicalAuthorityRegistryBytes(input: unknown) {
 }
 
 /**
- * evaluateAuthorityGrantCandidateInternalの処理を実行する。
+ * Authority Grant 候補 Internalを評価する。
  *
- * @responsibility evaluateAuthorityGrantCandidateInternalに対応する入力処理と結果生成を所有する。
+ * @responsibility Authority Grant 候補 Internalの評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input rawProfile: unknown、rawRegistry: unknown、context: unknown
  * @returns evaluateAuthorityGrantCandidateInternalの計算結果を返す。
@@ -647,9 +653,9 @@ function evaluateAuthorityGrantCandidateInternal(
 }
 
 /**
- * evaluateAuthorityGrantCandidateの処理を実行する。
+ * Authority Grant 候補を評価する。
  *
- * @responsibility evaluateAuthorityGrantCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Authority Grant 候補の評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input rawProfile: unknown、rawRegistry: unknown、context: unknown
  * @returns evaluateAuthorityGrantCandidateの計算結果を返す。
@@ -679,9 +685,9 @@ export function evaluateAuthorityGrantCandidate(
 }
 
 /**
- * describeAuthorityGrantVerifierContractの処理を実行する。
+ * Authority Grant Verifier 契約の公開契約を記述する。
  *
- * @responsibility describeAuthorityGrantVerifierContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Authority Grant Verifier 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeAuthorityGrantVerifierContractの計算結果を返す。

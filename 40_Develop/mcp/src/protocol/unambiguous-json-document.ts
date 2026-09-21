@@ -1,9 +1,15 @@
+/**
+ * unambiguous-json-documentに属する責務をまとめる。
+ *
+ * @responsibility Scanを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000012
+ */
 const WHITESPACE = new Set([" ", "\t", "\r", "\n"]);
 const HEX = /^[0-9a-f]$/iu;
 /**
- * Scanが扱う値の構造を表す。
+ * unambiguous-json-documentで使用するScanの値契約を定義する。
  *
- * @responsibility Scanに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ScanのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000012
  * @shape Scanが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Scanで宣言した値と責務の対応を維持する。
@@ -14,9 +20,9 @@ const HEX = /^[0-9a-f]$/iu;
 type Scan = Readonly<{ nextIndex: number; hasDuplicateKey: boolean }>;
 
 /**
- * skipの処理を実行する。
+ * unambiguous-json-documentを読み飛ばして次位置を返す。
  *
- * @responsibility skipに対応する入力処理と結果生成を所有する。
+ * @responsibility unambiguous-json-documentの対象文字、走査上限、次位置境界を所有する。
  * @trace ARCH-000012
  * @input raw: string、start: number
  * @returns skipの計算結果を返す。
@@ -35,9 +41,9 @@ function skip(raw: string, start: number) {
   return index;
 }
 /**
- * scanStringの処理を実行する。
+ * Stringを構文単位として走査する。
  *
- * @responsibility scanStringに対応する入力処理と結果生成を所有する。
+ * @responsibility Stringの走査開始点、終了点、不正文法の拒否境界を所有する。
  * @trace ARCH-000012
  * @input raw: string、start: number
  * @returns scanStringの計算結果を返す。
@@ -78,9 +84,9 @@ function scanString(raw: string, start: number) {
   return null;
 }
 /**
- * scanArrayの処理を実行する。
+ * Arrayを構文単位として走査する。
  *
- * @responsibility scanArrayに対応する入力処理と結果生成を所有する。
+ * @responsibility Arrayの走査開始点、終了点、不正文法の拒否境界を所有する。
  * @trace ARCH-000012
  * @input raw: string、start: number
  * @returns Scan | nullを返す。
@@ -111,9 +117,9 @@ function scanArray(raw: string, start: number): Scan | null {
   return null;
 }
 /**
- * scanObjectの処理を実行する。
+ * Objectを構文単位として走査する。
  *
- * @responsibility scanObjectに対応する入力処理と結果生成を所有する。
+ * @responsibility Objectの走査開始点、終了点、不正文法の拒否境界を所有する。
  * @trace ARCH-000012
  * @input raw: string、start: number
  * @returns Scan | nullを返す。
@@ -157,9 +163,9 @@ function scanObject(raw: string, start: number): Scan | null {
   return null;
 }
 /**
- * scanValueの処理を実行する。
+ * Valueを構文単位として走査する。
  *
- * @responsibility scanValueに対応する入力処理と結果生成を所有する。
+ * @responsibility Valueの走査開始点、終了点、不正文法の拒否境界を所有する。
  * @trace ARCH-000012
  * @input raw: string、start: number
  * @returns Scan | nullを返す。
@@ -191,9 +197,9 @@ function scanValue(raw: string, start: number): Scan | null {
     : null;
 }
 /**
- * parseUnambiguousJsonDocumentの処理を実行する。
+ * Unambiguous Json Documentを構造化値へ解析する。
  *
- * @responsibility parseUnambiguousJsonDocumentに対応する入力処理と結果生成を所有する。
+ * @responsibility Unambiguous Json Documentの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000012
  * @input raw: string
  * @returns parseUnambiguousJsonDocumentの計算結果を返す。

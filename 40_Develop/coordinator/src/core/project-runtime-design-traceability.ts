@@ -1,10 +1,16 @@
+/**
+ * project-runtime-design-traceabilityに属する責務をまとめる。
+ *
+ * @responsibility JsonRecordを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000002
+ */
 const TRACE_SCHEMA = "crdd-coordinator/project-runtime-design-traceability";
 const TRACE_SCHEMA_REVISION = 2;
 
 /**
- * JsonRecordが扱う値の構造を表す。
+ * project-runtime-design-traceabilityで使用するJson 記録の値契約を定義する。
  *
- * @responsibility JsonRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Json 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape JsonRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant JsonRecordで宣言した値と責務の対応を維持する。
@@ -14,9 +20,9 @@ const TRACE_SCHEMA_REVISION = 2;
  */
 type JsonRecord = Record<string, unknown>;
 /**
- * TextReaderが扱う値の構造を表す。
+ * project-runtime-design-traceabilityで使用するText Readerの値契約を定義する。
  *
- * @responsibility TextReaderに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Text ReaderのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape TextReaderが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TextReaderで宣言した値と責務の対応を維持する。
@@ -27,9 +33,9 @@ type JsonRecord = Record<string, unknown>;
 type TextReader = (repositoryRelativePath: string) => string | null;
 
 /**
- * ProjectRuntimeDesignTraceabilityInspectionが扱う値の構造を表す。
+ * project-runtime-design-traceabilityで使用するProject Runtime Design Traceability Inspectionの値契約を定義する。
  *
- * @responsibility ProjectRuntimeDesignTraceabilityInspectionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Design Traceability InspectionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape ProjectRuntimeDesignTraceabilityInspectionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeDesignTraceabilityInspectionで宣言した値と責務の対応を維持する。
@@ -61,9 +67,9 @@ export type ProjectRuntimeDesignTraceabilityInspection =
     }>;
 
 /**
- * isRecordの処理を実行する。
+ * 記録かを判定する。
  *
- * @responsibility isRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility 記録の判定条件とtrue／false境界を所有する。
  * @trace ARCH-000002
  * @input value: unknown
  * @returns value is JsonRecordを返す。
@@ -81,9 +87,9 @@ function isRecord(value: unknown): value is JsonRecord {
 }
 
 /**
- * textの処理を実行する。
+ * project-runtime-design-traceabilityを表示文字列へ変換する。
  *
- * @responsibility textに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-design-traceabilityの入力値、文字列表現、機密を含めない結果境界を所有する。
  * @trace ARCH-000002
  * @input value: unknown
  * @returns value is stringを返す。
@@ -101,9 +107,9 @@ function text(value: unknown): value is string {
 }
 
 /**
- * stringsの処理を実行する。
+ * stringsを決定する。
  *
- * @responsibility stringsに対応する入力処理と結果生成を所有する。
+ * @responsibility stringsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
  * @input value: unknown
  * @returns value is string[]を返す。
@@ -123,9 +129,9 @@ function strings(value: unknown): value is string[] {
 }
 
 /**
- * populationの処理を実行する。
+ * populationを決定する。
  *
- * @responsibility populationに対応する入力処理と結果生成を所有する。
+ * @responsibility populationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
  * @input value: unknown、label: string、prefix: string、issues: string[]
  * @returns populationの計算結果を返す。
@@ -163,9 +169,9 @@ function population(
 }
 
 /**
- * referencesの処理を実行する。
+ * referencesを決定する。
  *
- * @responsibility referencesに対応する入力処理と結果生成を所有する。
+ * @responsibility referencesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
  * @input value: unknown、known: ReadonlySet<string>、label: string、issues: string[]
  * @returns referencesの計算結果を返す。
@@ -195,9 +201,9 @@ function references(
 }
 
 /**
- * safePathの処理を実行する。
+ * Pathを安全条件の下で処理する。
  *
- * @responsibility safePathに対応する入力処理と結果生成を所有する。
+ * @responsibility Pathの安全条件、拒否条件、終了結果境界を所有する。
  * @trace ARCH-000002
  * @input value: string
  * @returns safePathの計算結果を返す。
@@ -222,9 +228,9 @@ function safePath(value: string) {
 }
 
 /**
- * backtickCanonicalIdsの処理を実行する。
+ * backtick Canonical Idsを決定する。
  *
- * @responsibility backtickCanonicalIdsに対応する入力処理と結果生成を所有する。
+ * @responsibility backtick Canonical Idsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
  * @input source: string、prefixes: readonly string[]
  * @returns Set<string>を返す。
@@ -252,9 +258,9 @@ function backtickCanonicalIds(
 }
 
 /**
- * verificationTableIdsの処理を実行する。
+ * verification Table Idsを決定する。
  *
- * @responsibility verificationTableIdsに対応する入力処理と結果生成を所有する。
+ * @responsibility verification Table Idsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
  * @input source: string
  * @returns Set<string>を返す。
@@ -278,9 +284,9 @@ function verificationTableIds(source: string): Set<string> {
 }
 
 /**
- * inspectProjectRuntimeDesignTraceabilityの処理を実行する。
+ * Project Runtime Design Traceabilityを観測する。
  *
- * @responsibility inspectProjectRuntimeDesignTraceabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Design Traceabilityの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000002
  * @input input: unknown、readRepositoryText: TextReader
  * @returns ProjectRuntimeDesignTraceabilityInspectionを返す。

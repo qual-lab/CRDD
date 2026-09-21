@@ -1,3 +1,9 @@
+/**
+ * docker-desktop-repair-native-processに属する責務をまとめる。
+ *
+ * @responsibility DockerDesktopRepairHelperReleaseOutcomeを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,9 +22,9 @@ import {
 } from "./platform-access-release.ts";
 
 /**
- * DockerDesktopRepairHelperReleaseOutcomeが扱う値の構造を表す。
+ * docker-desktop-repair-native-processで使用するDocker Desktop Repair Helper Release Outcomeの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairHelperReleaseOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Helper Release OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairHelperReleaseOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairHelperReleaseOutcomeで宣言した値と責務の対応を維持する。
@@ -39,9 +45,9 @@ const executablePath = path.join(
 );
 
 /**
- * PlatformArtifactが扱う値の構造を表す。
+ * docker-desktop-repair-native-processで使用するPlatform Artifactの値契約を定義する。
  *
- * @responsibility PlatformArtifactに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Platform ArtifactのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape PlatformArtifactが表すProperty、識別子およびRelationを型として固定する。
  * @invariant PlatformArtifactで宣言した値と責務の対応を維持する。
@@ -59,9 +65,9 @@ type PlatformArtifact = Readonly<{
 }>;
 
 /**
- * DockerDesktopRepairNativeHelperSessionが扱う値の構造を表す。
+ * docker-desktop-repair-native-processで使用するDocker Desktop Repair Native Helper Sessionの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairNativeHelperSessionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Native Helper SessionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairNativeHelperSessionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairNativeHelperSessionで宣言した値と責務の対応を維持する。
@@ -90,9 +96,9 @@ export type DockerDesktopRepairNativeHelperSession = Readonly<{
 }>;
 
 /**
- * DockerDesktopRepairNativeHelperOutcomeが扱う値の構造を表す。
+ * docker-desktop-repair-native-processで使用するDocker Desktop Repair Native Helper Outcomeの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairNativeHelperOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Native Helper OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairNativeHelperOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairNativeHelperOutcomeで宣言した値と責務の対応を維持する。
@@ -106,9 +112,9 @@ export type DockerDesktopRepairNativeHelperOutcome = Readonly<{
 }>;
 
 /**
- * DockerDesktopRestartNativeHelperOutcomeが扱う値の構造を表す。
+ * docker-desktop-repair-native-processで使用するDocker Desktop Restart Native Helper Outcomeの値契約を定義する。
  *
- * @responsibility DockerDesktopRestartNativeHelperOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Restart Native Helper OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRestartNativeHelperOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRestartNativeHelperOutcomeで宣言した値と責務の対応を維持する。
@@ -132,9 +138,9 @@ export type DockerDesktopRestartNativeHelperOutcome = Readonly<{
 }>;
 
 /**
- * NativeChildが扱う値の構造を表す。
+ * docker-desktop-repair-native-processで使用するNative Childの値契約を定義する。
  *
- * @responsibility NativeChildに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Native ChildのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape NativeChildが表すProperty、識別子およびRelationを型として固定する。
  * @invariant NativeChildで宣言した値と責務の対応を維持する。
@@ -145,9 +151,9 @@ export type DockerDesktopRestartNativeHelperOutcome = Readonly<{
 type NativeChild = ChildProcessWithoutNullStreams;
 
 /**
- * sameArtifactの処理を実行する。
+ * Artifactが同一かを判定する。
  *
- * @responsibility sameArtifactに対応する入力処理と結果生成を所有する。
+ * @responsibility Artifactの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000008
  * @input left: unknown、right: unknown
  * @returns sameArtifactの計算結果を返す。
@@ -176,9 +182,9 @@ function sameArtifact(left: unknown, right: unknown) {
 }
 
 /**
- * acquireRuntimeOwnedDockerDesktopRepairNativeHelperの処理を実行する。
+ * Runtime 所有 Docker Desktop Repair Native Helperを取得する。
  *
- * @responsibility acquireRuntimeOwnedDockerDesktopRepairNativeHelperに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Desktop Repair Native Helperの取得条件、所有権、失敗時の非取得境界を所有する。
  * @trace ARCH-000008
  * @input expectedPlatformArtifact: unknown
  * @returns Promise<DockerDesktopRepairNativeHelperOutcome>を返す。
@@ -201,9 +207,9 @@ export async function acquireRuntimeOwnedDockerDesktopRepairNativeHelper(
 }
 
 /**
- * acquireRuntimeOwnedDockerDesktopRestartNativeHelperの処理を実行する。
+ * Runtime 所有 Docker Desktop Restart Native Helperを取得する。
  *
- * @responsibility acquireRuntimeOwnedDockerDesktopRestartNativeHelperに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Desktop Restart Native Helperの取得条件、所有権、失敗時の非取得境界を所有する。
  * @trace ARCH-000008
  * @input expectedPlatformArtifact: unknown
  * @returns Promise<DockerDesktopRestartNativeHelperOutcome>を返す。
@@ -226,9 +232,9 @@ export async function acquireRuntimeOwnedDockerDesktopRestartNativeHelper(
 }
 
 /**
- * acquireRuntimeOwnedDockerDesktopNativeHelperの処理を実行する。
+ * Runtime 所有 Docker Desktop Native Helperを取得する。
  *
- * @responsibility acquireRuntimeOwnedDockerDesktopNativeHelperに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Desktop Native Helperの取得条件、所有権、失敗時の非取得境界を所有する。
  * @trace ARCH-000008
  * @input expectedPlatformArtifact: unknown、protocol: "repair" | "restart"
  * @returns Promise<DockerDesktopRestartNativeHelperOutcome>を返す。
@@ -324,9 +330,9 @@ async function acquireRuntimeOwnedDockerDesktopNativeHelper(
 }
 
 /**
- * describeDockerDesktopRepairNativeHelperContractの処理を実行する。
+ * Docker Desktop Repair Native Helper 契約の公開契約を記述する。
  *
- * @responsibility describeDockerDesktopRepairNativeHelperContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Native Helper 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeDockerDesktopRepairNativeHelperContractの計算結果を返す。

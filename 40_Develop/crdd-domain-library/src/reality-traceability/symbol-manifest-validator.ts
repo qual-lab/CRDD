@@ -1,3 +1,9 @@
+/**
+ * symbol-manifest-validatorに属する責務をまとめる。
+ *
+ * @responsibility isRecordを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import path from "node:path";
 
 import type { DomainIssue, DomainOutcome } from "../outcome.ts";
@@ -22,9 +28,9 @@ const SEMANTIC_KEY_PATTERN =
   /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)+$/u;
 
 /**
- * isRecordの処理を実行する。
+ * 記録かを判定する。
  *
- * @responsibility isRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility 記録の判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is Record<string, unknown>を返す。
@@ -42,9 +48,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * isSafeRelativePathの処理を実行する。
+ * Safe Relative Pathかを判定する。
  *
- * @responsibility isSafeRelativePathに対応する入力処理と結果生成を所有する。
+ * @responsibility Safe Relative Pathの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input value: string
  * @returns booleanを返す。
@@ -72,9 +78,9 @@ function isSafeRelativePath(value: string): boolean {
 }
 
 /**
- * readUniqueStringsの処理を実行する。
+ * Unique Stringsを読み取る。
  *
- * @responsibility readUniqueStringsに対応する入力処理と結果生成を所有する。
+ * @responsibility Unique Stringsの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input owner: Record<string, unknown>、property: string、pattern: RegExp、location: string、issues: DomainIssue[]
  * @returns readonly string[]を返す。
@@ -136,9 +142,9 @@ function readUniqueStrings(
 }
 
 /**
- * validateRealitySymbolManifestの処理を実行する。
+ * Reality Symbol Manifestの契約を検証する。
  *
- * @responsibility validateRealitySymbolManifestに対応する入力処理と結果生成を所有する。
+ * @responsibility Reality Symbol Manifestの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、manifestPath: string
  * @returns DomainOutcome<RealitySymbolManifest>を返す。

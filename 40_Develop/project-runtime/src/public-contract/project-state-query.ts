@@ -1,3 +1,9 @@
+/**
+ * project-state-queryに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeStateQueryを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -13,9 +19,9 @@ export const PROJECT_RUNTIME_STATE_QUERY_CONTRACT =
   "crdd-coordinator/project-runtime-state-query/v1" as const;
 
 /**
- * ProjectRuntimeStateQueryが扱う値の構造を表す。
+ * project-state-queryで使用するProject Runtime 状態 Queryの値契約を定義する。
  *
- * @responsibility ProjectRuntimeStateQueryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime 状態 QueryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeStateQueryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeStateQueryで宣言した値と責務の対応を維持する。
@@ -30,9 +36,9 @@ export type ProjectRuntimeStateQuery = Readonly<{
 }>;
 
 /**
- * ProjectRuntimeStateQueryResultが扱う値の構造を表す。
+ * project-state-queryで使用するProject Runtime 状態 Query 結果の値契約を定義する。
  *
- * @responsibility ProjectRuntimeStateQueryResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime 状態 Query 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeStateQueryResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeStateQueryResultで宣言した値と責務の対応を維持する。
@@ -109,9 +115,9 @@ const TASK_STATES = Object.freeze([
 ] as const);
 
 /**
- * validIdの処理を実行する。
+ * Idが有効か判定する。
  *
- * @responsibility validIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Idの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -132,9 +138,9 @@ function validId(value: unknown): value is string {
 }
 
 /**
- * validRevisionの処理を実行する。
+ * Revisionが有効か判定する。
  *
- * @responsibility validRevisionに対応する入力処理と結果生成を所有する。
+ * @responsibility Revisionの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -152,9 +158,9 @@ function validRevision(value: unknown): value is string {
 }
 
 /**
- * validReasonの処理を実行する。
+ * Reasonが有効か判定する。
  *
- * @responsibility validReasonに対応する入力処理と結果生成を所有する。
+ * @responsibility Reasonの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -177,9 +183,9 @@ function validReason(value: unknown): value is string {
 }
 
 /**
- * countSnapshotの処理を実行する。
+ * Snapshotの件数を算出する。
  *
- * @responsibility countSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility Snapshotの計数対象、集計規則、件数結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown、states: readonly T[]、maximum: number
  * @returns Readonly<Record<T, number>> | nullを返す。
@@ -216,7 +222,7 @@ function countSnapshot<T extends string>(
 /**
  * Snapshot and validate the canonical public projection at trust boundaries.
  *
- * @responsibility inspectProjectRuntimeProjectionに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Projectionの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns ProjectRuntimeProjection | nullを返す。
@@ -331,9 +337,9 @@ export function inspectProjectRuntimeProjection(
 }
 
 /**
- * inspectProjectRuntimeStateQueryの処理を実行する。
+ * Project Runtime 状態 Queryを観測する。
  *
- * @responsibility inspectProjectRuntimeStateQueryに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime 状態 Queryの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns ProjectRuntimeStateQuery | nullを返す。
@@ -361,9 +367,9 @@ export function inspectProjectRuntimeStateQuery(
 }
 
 /**
- * inspectProjectRuntimeStateQueryResultの処理を実行する。
+ * Project Runtime 状態 Query 結果を観測する。
  *
- * @responsibility inspectProjectRuntimeStateQueryResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime 状態 Query 結果の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns ProjectRuntimeStateQueryResult | nullを返す。

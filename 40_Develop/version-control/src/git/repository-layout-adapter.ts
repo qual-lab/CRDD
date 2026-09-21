@@ -1,3 +1,9 @@
+/**
+ * repository-layout-adapterに属する責務をまとめる。
+ *
+ * @responsibility readExactRepositoryRootを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000002
+ */
 import path from "node:path";
 import { types as utilTypes } from "node:util";
 
@@ -13,9 +19,9 @@ export const GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT_REVISION = 1 as const;
 const MAX_PATH_CHARACTERS = 4096;
 
 /**
- * readExactRepositoryRootの処理を実行する。
+ * Exact Repository Rootを読み取る。
  *
- * @responsibility readExactRepositoryRootに対応する入力処理と結果生成を所有する。
+ * @responsibility Exact Repository Rootの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000002
  * @input value: unknown
  * @returns string | nullを返す。
@@ -63,9 +69,9 @@ function readExactRepositoryRoot(value: unknown): string | null {
 }
 
 /**
- * responseの処理を実行する。
+ * responseを決定する。
  *
- * @responsibility responseに対応する入力処理と結果生成を所有する。
+ * @responsibility responseの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
  * @input status: S、reason: string、layout: T | null
  * @returns responseの計算結果を返す。
@@ -94,9 +100,9 @@ function response<const S extends string, T>(
 }
 
 /**
- * inspectGitRepositoryLayoutCandidateの処理を実行する。
+ * Git Repository Layout 候補を観測する。
  *
- * @responsibility inspectGitRepositoryLayoutCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Git Repository Layout 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000002
  * @input rawInput: unknown
  * @returns inspectGitRepositoryLayoutCandidateの計算結果を返す。
@@ -140,9 +146,9 @@ export function inspectGitRepositoryLayoutCandidate(rawInput: unknown) {
 }
 
 /**
- * describeGitRepositoryLayoutAdapterContractの処理を実行する。
+ * Git Repository Layout Adapter 契約の公開契約を記述する。
  *
- * @responsibility describeGitRepositoryLayoutAdapterContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Git Repository Layout Adapter 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000002
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeGitRepositoryLayoutAdapterContractの計算結果を返す。

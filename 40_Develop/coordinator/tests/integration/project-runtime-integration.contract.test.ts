@@ -6,7 +6,7 @@
  * @trace PRL-IT-012
  * @level IT
  * @scope project、runtime
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
@@ -38,7 +38,7 @@ const revision = "a".repeat(40);
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 async function prepared(t: test.TestContext) {
   const root = fs.mkdtempSync(
@@ -134,7 +134,7 @@ async function prepared(t: test.TestContext) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 function candidate(conflicts: readonly string[] = []) {
   return {
@@ -160,7 +160,7 @@ function candidate(conflicts: readonly string[] = []) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 function integrationDependencies(
   root: string,
@@ -192,7 +192,7 @@ function integrationDependencies(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("Task completion is integrated into Objective and Milestone acceptance", async (t) => {
   const { root, queueId } = await prepared(t);
@@ -256,7 +256,7 @@ test("Task completion is integrated into Objective and Milestone acceptance", as
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("explicit adoption is serialized and requires a fresh matching repository observation", async (t) => {
   const { root, queueId } = await prepared(t);
@@ -328,7 +328,7 @@ test("explicit adoption is serialized and requires a fresh matching repository o
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("integration conflict stops before adoption and requests a human decision", async (t) => {
   const { root, queueId } = await prepared(t);
@@ -371,7 +371,7 @@ test("integration conflict stops before adoption and requests a human decision",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("revision mismatch blocks canonical adoption and releases its lease", async (t) => {
   const { root, queueId } = await prepared(t);
@@ -424,7 +424,7 @@ test("revision mismatch blocks canonical adoption and releases its lease", async
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("canonical adoption preserves malformed acquisition evidence and exposes its recovery reference", async (t) => {
   const { root, queueId } = await prepared(t);

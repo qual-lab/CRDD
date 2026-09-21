@@ -6,7 +6,7 @@
  * @trace ERP-UT-006
  * @level UT
  * @scope docker、restart、record
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -39,7 +39,7 @@ const binding: DockerRestartBinding = {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 function chain() {
   const records: Buffer[] = [];
@@ -57,7 +57,7 @@ function chain() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("canonical restart records validate every complete prefix without granting authority", () => {
   const records = chain();
@@ -82,7 +82,7 @@ test("canonical restart records validate every complete prefix without granting 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("closed record rejects malformed, noncanonical and unbounded bytes", () => {
   const first = chain()[0] as Buffer;
@@ -123,7 +123,7 @@ test("closed record rejects malformed, noncanonical and unbounded bytes", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("record rejects all changed field types and malformed hashes", () => {
   const value = JSON.parse((chain()[0] as Buffer).toString());
@@ -158,7 +158,7 @@ test("record rejects all changed field types and malformed hashes", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("chain rejects missing, duplicate, reordered, foreign and digest-modified records", () => {
   const records = chain();
@@ -212,7 +212,7 @@ test("chain rejects missing, duplicate, reordered, foreign and digest-modified r
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("generation cannot skip a phase or mix bindings", () => {
   const records = chain();

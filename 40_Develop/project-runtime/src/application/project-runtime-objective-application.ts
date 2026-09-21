@@ -1,3 +1,9 @@
+/**
+ * project-runtime-objective-applicationに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeObjectiveApplicationDependenciesを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import type { ProjectRuntimePersistencePorts } from "../ports/state-port.ts";
 import {
   runProjectRuntimeOperation,
@@ -28,9 +34,9 @@ import {
 import type { ProjectRuntimeObjectiveRequest } from "../public-contract/objective-request.ts";
 
 /**
- * ProjectRuntimeObjectiveApplicationDependenciesが扱う値の構造を表す。
+ * project-runtime-objective-applicationで使用するProject Runtime Objective Application Dependenciesの値契約を定義する。
  *
- * @responsibility ProjectRuntimeObjectiveApplicationDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Objective Application DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeObjectiveApplicationDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeObjectiveApplicationDependenciesで宣言した値と責務の対応を維持する。
@@ -64,9 +70,9 @@ export type ProjectRuntimeObjectiveApplicationDependencies = Readonly<{
 }>;
 
 /**
- * recoveryApplicationIdの処理を実行する。
+ * recovery Application Idを決定する。
  *
- * @responsibility recoveryApplicationIdに対応する入力処理と結果生成を所有する。
+ * @responsibility recovery Application Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input projectId: string、queueId: string、state: ProjectRuntimeState、clockIdentity: ProjectRuntimeClockIdentityPort
  * @returns recoveryApplicationIdの計算結果を返す。
@@ -102,9 +108,9 @@ function recoveryApplicationId(
 }
 
 /**
- * exactRecoveryCompletedの処理を実行する。
+ * 回復 Completedが完全一致するか判定する。
  *
- * @responsibility exactRecoveryCompletedに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 Completedの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns exactRecoveryCompletedの計算結果を返す。
@@ -128,9 +134,9 @@ function exactRecoveryCompleted(value: unknown) {
 }
 
 /**
- * inspectRecoveryCorrelationBindingsの処理を実行する。
+ * 回復 Correlation Bindingsを観測する。
  *
- * @responsibility inspectRecoveryCorrelationBindingsに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 Correlation Bindingsの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown、correlationIds: readonly string[]
  * @returns inspectRecoveryCorrelationBindingsの計算結果を返す。
@@ -193,9 +199,9 @@ function inspectRecoveryCorrelationBindings(
 }
 
 /**
- * validIdの処理を実行する。
+ * Idが有効か判定する。
  *
- * @responsibility validIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Idの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -218,9 +224,9 @@ function validId(value: unknown): value is string {
 }
 
 /**
- * blockedの処理を実行する。
+ * project-runtime-objective-applicationを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-objective-applicationの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000004
  * @input request: ProjectRuntimeObjectiveRequest、reason: string、options: Readonly<{ queueId?: string | null; projection?: ReturnType<typeof projectProjectRuntimeState> | null; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryObligation["kind"]; recoveryId: string; }>[]; effectState?: "no_effect" | "settled" | "unknown"; }>
  * @returns blockedの計算結果を返す。
@@ -260,7 +266,7 @@ function blocked(
 /**
  * Coordinate one validated Objective through the Project Runtime lifecycle.
  *
- * @responsibility runProjectRuntimeObjectiveApplicationに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Objective Applicationの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input dependencies: ProjectRuntimeObjectiveApplicationDependencies、request: ProjectRuntimeObjectiveRequest、cancellationSignal: AbortSignal
  * @returns runProjectRuntimeObjectiveApplicationの計算結果を返す。
@@ -1264,9 +1270,9 @@ export async function runProjectRuntimeObjectiveApplication(
 }
 
 /**
- * describeProjectRuntimeObjectiveIntakeContractの処理を実行する。
+ * Project Runtime Objective Intake 契約の公開契約を記述する。
  *
- * @responsibility describeProjectRuntimeObjectiveIntakeContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Objective Intake 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProjectRuntimeObjectiveIntakeContractの計算結果を返す。

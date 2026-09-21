@@ -1,11 +1,17 @@
+/**
+ * execution-portに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeSingleTaskAttemptInputを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 export const PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT =
   "crdd-coordinator/project-runtime-single-task-adapter" as const;
 export const PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT_REVISION = 2;
 
 /**
- * ProjectRuntimeSingleTaskAttemptInputが扱う値の構造を表す。
+ * execution-portで使用するProject Runtime Single Task Attempt 入力の値契約を定義する。
  *
- * @responsibility ProjectRuntimeSingleTaskAttemptInputに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Single Task Attempt 入力のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeSingleTaskAttemptInputが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeSingleTaskAttemptInputで宣言した値と責務の対応を維持する。
@@ -26,9 +32,9 @@ export type ProjectRuntimeSingleTaskAttemptInput = Readonly<{
 }>;
 
 /**
- * ProjectRuntimeSingleTaskRecoveryObligationが扱う値の構造を表す。
+ * execution-portで使用するProject Runtime Single Task 回復 Obligationの値契約を定義する。
  *
- * @responsibility ProjectRuntimeSingleTaskRecoveryObligationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Single Task 回復 ObligationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeSingleTaskRecoveryObligationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeSingleTaskRecoveryObligationで宣言した値と責務の対応を維持する。
@@ -42,9 +48,9 @@ export type ProjectRuntimeSingleTaskRecoveryObligation = Readonly<{
 }>;
 
 /**
- * ProjectRuntimeSingleTaskResultが扱う値の構造を表す。
+ * execution-portで使用するProject Runtime Single Task 結果の値契約を定義する。
  *
- * @responsibility ProjectRuntimeSingleTaskResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Single Task 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeSingleTaskResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeSingleTaskResultで宣言した値と責務の対応を維持する。
@@ -71,9 +77,9 @@ export type ProjectRuntimeSingleTaskResult = Readonly<{
 }>;
 
 /**
- * ProjectRuntimeExecutionPortが扱う値の構造を表す。
+ * execution-portで使用するProject Runtime Execution Portの値契約を定義する。
  *
- * @responsibility ProjectRuntimeExecutionPortに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Execution PortのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeExecutionPortが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeExecutionPortで宣言した値と責務の対応を維持する。

@@ -1,3 +1,9 @@
+/**
+ * sign-release-manifestに属する責務をまとめる。
+ *
+ * @responsibility ManifestOptionsを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -61,6 +67,17 @@ const MANIFEST_PREFLIGHT_OPTION_KEYS = Object.freeze([
   "expiresAt",
 ] as const);
 
+/**
+ * sign-release-manifestで使用するManifest Optionsの値契約を定義する。
+ *
+ * @responsibility Manifest OptionsのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ManifestOptionsが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ManifestOptionsで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ManifestOptionsの宣言は外部境界を開かない。
+ * @security N/A: ManifestOptionsはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ManifestOptionsの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ManifestOptions = Readonly<{
   distributionRoot: string;
   privateKeyPath: string;
@@ -73,13 +90,46 @@ type ManifestOptions = Readonly<{
   expiresAt: string | null;
 }>;
 
+/**
+ * sign-release-manifestで使用するManifest Preflight Optionsの値契約を定義する。
+ *
+ * @responsibility Manifest Preflight OptionsのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ManifestPreflightOptionsが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ManifestPreflightOptionsで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ManifestPreflightOptionsの宣言は外部境界を開かない。
+ * @security N/A: ManifestPreflightOptionsはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ManifestPreflightOptionsの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ManifestPreflightOptions = Omit<ManifestOptions, "passphrase">;
 
+/**
+ * sign-release-manifestで使用するRelease Manifest Preflight Authorizationの値契約を定義する。
+ *
+ * @responsibility Release Manifest Preflight AuthorizationのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ReleaseManifestPreflightAuthorizationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ReleaseManifestPreflightAuthorizationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ReleaseManifestPreflightAuthorizationの宣言は外部境界を開かない。
+ * @security N/A: ReleaseManifestPreflightAuthorizationはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ReleaseManifestPreflightAuthorizationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ReleaseManifestPreflightAuthorization = Readonly<{
   contract: "crdd-coordinator/release-manifest-preflight-authorization";
   contractRevision: 1;
 }>;
 
+/**
+ * sign-release-manifestで使用するAuthorized Release Manifest Preflightの値契約を定義する。
+ *
+ * @responsibility Authorized Release Manifest PreflightのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape AuthorizedReleaseManifestPreflightが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant AuthorizedReleaseManifestPreflightで宣言した値と責務の対応を維持する。
+ * @boundary N/A: AuthorizedReleaseManifestPreflightの宣言は外部境界を開かない。
+ * @security N/A: AuthorizedReleaseManifestPreflightはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility AuthorizedReleaseManifestPreflightの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type AuthorizedReleaseManifestPreflight = Readonly<{
   options: ManifestPreflightOptions;
   privateKeyAuthorization: PrivateKeyReferenceAuthorization;
@@ -91,6 +141,22 @@ const authorizedReleaseManifestPreflights = new WeakMap<
   AuthorizedReleaseManifestPreflight
 >();
 
+/**
+ * Manifest Preflight Optionsを所有Snapshotへ変換する。
+ *
+ * @responsibility Manifest Preflight Optionsの取得範囲、plain-data制約、拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns ManifestPreflightOptionsを返す。
+ * @precondition 「value: unknown」がsnapshotManifestPreflightOptionsの入力契約を満たす。
+ * @postcondition snapshotManifestPreflightOptionsの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotManifestPreflightOptionsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure snapshotManifestPreflightOptionsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant snapshotManifestPreflightOptionsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: snapshotManifestPreflightOptionsはProcess内の同一Subsystemで完結する。
+ * @security N/A: snapshotManifestPreflightOptionsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: snapshotManifestPreflightOptionsは共有非同期状態を持たない同期処理である。
+ */
 function snapshotManifestPreflightOptions(
   value: unknown,
 ): ManifestPreflightOptions {
@@ -128,6 +194,22 @@ function snapshotManifestPreflightOptions(
   );
 }
 
+/**
+ * repository Local Distribution Rootを決定する。
+ *
+ * @responsibility repository Local Distribution Rootの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input target: string
+ * @returns repositoryLocalDistributionRootの計算結果を返す。
+ * @precondition 「target: string」がrepositoryLocalDistributionRootの入力契約を満たす。
+ * @postcondition repositoryLocalDistributionRootの責務を完了した結果だけを返す。
+ * @effect repositoryLocalDistributionRootはFilesystemの読取りまたは書込みを実行する。
+ * @failure repositoryLocalDistributionRootは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant repositoryLocalDistributionRootは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: repositoryLocalDistributionRootはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: repositoryLocalDistributionRootは共有非同期状態を持たない同期処理である。
+ */
 function repositoryLocalDistributionRoot(target: string) {
   if (!path.isAbsolute(target) || target.includes("\0")) {
     throw new Error("release_manifest_distribution_root_invalid");
@@ -164,6 +246,22 @@ function repositoryLocalDistributionRoot(target: string) {
   }
 }
 
+/**
+ * Commit Tree Bindingを検証する。
+ *
+ * @responsibility Commit Tree Bindingの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input crddCommit: string、crddTree: string
+ * @returns N/A: verifyCommitTreeBindingは戻り値を返さない。
+ * @precondition 「crddCommit: string、crddTree: string」がverifyCommitTreeBindingの入力契約を満たす。
+ * @postcondition verifyCommitTreeBindingの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: verifyCommitTreeBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyCommitTreeBindingは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyCommitTreeBindingは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyCommitTreeBindingはProcess内の同一Subsystemで完結する。
+ * @security N/A: verifyCommitTreeBindingはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: verifyCommitTreeBindingは共有非同期状態を持たない同期処理である。
+ */
 function verifyCommitTreeBinding(crddCommit: string, crddTree: string) {
   const verified = verifyRepositoryRoot(repositoryRoot);
   if (verified.status !== "completed")
@@ -181,6 +279,22 @@ function verifyCommitTreeBinding(crddCommit: string, crddTree: string) {
   }
 }
 
+/**
+ * Supported Release Git Object Formatを表明どおりか検査する。
+ *
+ * @responsibility Supported Release Git Object Formatの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000004
+ * @input crddCommit: string、crddTree: string
+ * @returns N/A: assertSupportedReleaseGitObjectFormatは戻り値を返さない。
+ * @precondition 「crddCommit: string、crddTree: string」がassertSupportedReleaseGitObjectFormatの入力契約を満たす。
+ * @postcondition assertSupportedReleaseGitObjectFormatの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: assertSupportedReleaseGitObjectFormatは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure assertSupportedReleaseGitObjectFormatは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertSupportedReleaseGitObjectFormatは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: assertSupportedReleaseGitObjectFormatはProcess内の同一Subsystemで完結する。
+ * @security N/A: assertSupportedReleaseGitObjectFormatはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: assertSupportedReleaseGitObjectFormatは共有非同期状態を持たない同期処理である。
+ */
 function assertSupportedReleaseGitObjectFormat(
   crddCommit: string,
   crddTree: string,
@@ -193,6 +307,22 @@ function assertSupportedReleaseGitObjectFormat(
   }
 }
 
+/**
+ * Release Manifest Static Optionsを表明どおりか検査する。
+ *
+ * @responsibility Release Manifest Static Optionsの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000004
+ * @input options: ManifestPreflightOptions
+ * @returns N/A: assertReleaseManifestStaticOptionsは戻り値を返さない。
+ * @precondition 「options: ManifestPreflightOptions」がassertReleaseManifestStaticOptionsの入力契約を満たす。
+ * @postcondition assertReleaseManifestStaticOptionsの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: assertReleaseManifestStaticOptionsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure assertReleaseManifestStaticOptionsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertReleaseManifestStaticOptionsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: assertReleaseManifestStaticOptionsはProcess内の同一Subsystemで完結する。
+ * @security N/A: assertReleaseManifestStaticOptionsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: assertReleaseManifestStaticOptionsは共有非同期状態を持たない同期処理である。
+ */
 function assertReleaseManifestStaticOptions(options: ManifestPreflightOptions) {
   if (
     !path.isAbsolute(options.distributionRoot) ||
@@ -230,6 +360,22 @@ function assertReleaseManifestStaticOptions(options: ManifestPreflightOptions) {
   }
 }
 
+/**
+ * Release Manifest 候補を実行前候補として準備する。
+ *
+ * @responsibility Release Manifest 候補の準備条件、候補Identity、Effect前の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input options: ManifestPreflightOptions
+ * @returns prepareReleaseManifestCandidateの計算結果を返す。
+ * @precondition 「options: ManifestPreflightOptions」がprepareReleaseManifestCandidateの入力契約を満たす。
+ * @postcondition prepareReleaseManifestCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: prepareReleaseManifestCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure prepareReleaseManifestCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant prepareReleaseManifestCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: prepareReleaseManifestCandidateはProcess内の同一Subsystemで完結する。
+ * @security N/A: prepareReleaseManifestCandidateはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: prepareReleaseManifestCandidateは共有非同期状態を持たない同期処理である。
+ */
 function prepareReleaseManifestCandidate(options: ManifestPreflightOptions) {
   assertSupportedReleaseGitObjectFormat(options.crddCommit, options.crddTree);
   assertReleaseManifestStaticOptions(options);
@@ -302,6 +448,22 @@ function prepareReleaseManifestCandidate(options: ManifestPreflightOptions) {
   });
 }
 
+/**
+ * preflight Release Manifestを決定する。
+ *
+ * @responsibility preflight Release Manifestの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input options: ManifestPreflightOptions
+ * @returns preflightReleaseManifestの計算結果を返す。
+ * @precondition 「options: ManifestPreflightOptions」がpreflightReleaseManifestの入力契約を満たす。
+ * @postcondition preflightReleaseManifestの責務を完了した結果だけを返す。
+ * @effect N/A: preflightReleaseManifestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure preflightReleaseManifestは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant preflightReleaseManifestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: preflightReleaseManifestはProcess内の同一Subsystemで完結する。
+ * @security N/A: preflightReleaseManifestはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: preflightReleaseManifestは共有非同期状態を持たない同期処理である。
+ */
 export function preflightReleaseManifest(options: ManifestPreflightOptions) {
   const snapshot = snapshotManifestPreflightOptions(options);
   prepareReleaseManifestCandidate(snapshot);
@@ -339,6 +501,22 @@ export function preflightReleaseManifest(options: ManifestPreflightOptions) {
   });
 }
 
+/**
+ * sign Release Manifestを決定する。
+ *
+ * @responsibility sign Release Manifestの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input authorization: ReleaseManifestPreflightAuthorization、rawPassphrase: unknown
+ * @returns signReleaseManifestの計算結果を返す。
+ * @precondition 「authorization: ReleaseManifestPreflightAuthorization、rawPassphrase: unknown」がsignReleaseManifestの入力契約を満たす。
+ * @postcondition signReleaseManifestの責務を完了した結果だけを返す。
+ * @effect N/A: signReleaseManifestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure signReleaseManifestは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant signReleaseManifestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: signReleaseManifestはProcess内の同一Subsystemで完結する。
+ * @security signReleaseManifestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: signReleaseManifestは共有非同期状態を持たない同期処理である。
+ */
 export function signReleaseManifest(
   authorization: ReleaseManifestPreflightAuthorization,
   rawPassphrase: unknown,
@@ -441,6 +619,22 @@ export function signReleaseManifest(
   }
 }
 
+/**
+ * Argumentsを構造化値へ解析する。
+ *
+ * @responsibility Argumentsの入力文法、解析結果、不正文法の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input args: readonly string[]
+ * @returns parseArgumentsの計算結果を返す。
+ * @precondition 「args: readonly string[]」がparseArgumentsの入力契約を満たす。
+ * @postcondition parseArgumentsの責務を完了した結果だけを返す。
+ * @effect N/A: parseArgumentsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure parseArgumentsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant parseArgumentsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseArgumentsはProcess内の同一Subsystemで完結する。
+ * @security N/A: parseArgumentsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: parseArgumentsは共有非同期状態を持たない同期処理である。
+ */
 function parseArguments(args: readonly string[]) {
   const names = [
     "--distribution-root",
@@ -510,6 +704,22 @@ function parseArguments(args: readonly string[]) {
   });
 }
 
+/**
+ * Release Private Key Pathを一意に解決する。
+ *
+ * @responsibility Release Private Key Pathの候補集合、解決規則、曖昧時の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input explicitPrivateKeyPath: string | undefined、environmentFile: string
+ * @returns resolveReleasePrivateKeyPathの計算結果を返す。
+ * @precondition 「explicitPrivateKeyPath: string | undefined、environmentFile: string」がresolveReleasePrivateKeyPathの入力契約を満たす。
+ * @postcondition resolveReleasePrivateKeyPathの責務を完了した結果だけを返す。
+ * @effect N/A: resolveReleasePrivateKeyPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveReleasePrivateKeyPathは独自の失敗分岐を所有しない。
+ * @invariant resolveReleasePrivateKeyPathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveReleasePrivateKeyPathはProcess内の同一Subsystemで完結する。
+ * @security N/A: resolveReleasePrivateKeyPathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: resolveReleasePrivateKeyPathは共有非同期状態を持たない同期処理である。
+ */
 export function resolveReleasePrivateKeyPath(
   explicitPrivateKeyPath: string | undefined,
   environmentFile: string,
@@ -520,6 +730,22 @@ export function resolveReleasePrivateKeyPath(
   );
 }
 
+/**
+ * Release Private Key Path From Environment Fileを読み取る。
+ *
+ * @responsibility Release Private Key Path From Environment Fileの読取り元、上限、読取不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input environmentFile: string
+ * @returns readReleasePrivateKeyPathFromEnvironmentFileの計算結果を返す。
+ * @precondition 「environmentFile: string」がreadReleasePrivateKeyPathFromEnvironmentFileの入力契約を満たす。
+ * @postcondition readReleasePrivateKeyPathFromEnvironmentFileの責務を完了した結果だけを返す。
+ * @effect N/A: readReleasePrivateKeyPathFromEnvironmentFileは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure readReleasePrivateKeyPathFromEnvironmentFileは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readReleasePrivateKeyPathFromEnvironmentFileは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: readReleasePrivateKeyPathFromEnvironmentFileはProcess内の同一Subsystemで完結する。
+ * @security N/A: readReleasePrivateKeyPathFromEnvironmentFileはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readReleasePrivateKeyPathFromEnvironmentFileは共有非同期状態を持たない同期処理である。
+ */
 export function readReleasePrivateKeyPathFromEnvironmentFile(
   environmentFile: string,
 ) {
@@ -533,6 +759,22 @@ export function readReleasePrivateKeyPathFromEnvironmentFile(
   }
 }
 
+/**
+ * sign-release-manifestのCommand処理を開始する。
+ *
+ * @responsibility sign-release-manifestの引数受付、終了Code、診断出力境界を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns N/A: mainは戻り値を返さない。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がmainの入力契約を満たす。
+ * @postcondition mainの責務を完了して呼出し元へ制御を戻す。
+ * @effect mainは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: mainは独自の失敗分岐を所有しない。
+ * @invariant mainは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: mainはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency mainは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function main() {
   assertSupportedCoordinatorNodeRuntime(process.versions.node);
   const options = parseArguments(process.argv.slice(2));

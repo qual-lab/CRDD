@@ -1,3 +1,9 @@
+/**
+ * fixed-revision-adapterに属する責務をまとめる。
+ *
+ * @responsibility stableFileを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000002
+ */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -20,9 +26,9 @@ const OBJECT_ID = /^[a-f0-9]{40}$/u;
 const SAFE_REF = /^refs\/(?:heads|tags)\/[A-Za-z0-9._/-]{1,1024}$/u;
 
 /**
- * stableFileの処理を実行する。
+ * Fileを安定Identityへ変換する。
  *
- * @responsibility stableFileに対応する入力処理と結果生成を所有する。
+ * @responsibility Fileの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000002
  * @input target: string、maximumBytes: number
  * @returns Bufferを返す。
@@ -76,9 +82,9 @@ function stableFile(target: string, maximumBytes: number): Buffer {
 }
 
 /**
- * decodeControlの処理を実行する。
+ * Controlを検証済み値へ復号する。
  *
- * @responsibility decodeControlに対応する入力処理と結果生成を所有する。
+ * @responsibility Controlの入力形式、復号結果、不正byte列の拒否境界を所有する。
  * @trace ARCH-000002
  * @input bytes: Buffer
  * @returns stringを返す。
@@ -99,9 +105,9 @@ function decodeControl(bytes: Buffer): string {
 }
 
 /**
- * readPackedの処理を実行する。
+ * Packedを読み取る。
  *
- * @responsibility readPackedに対応する入力処理と結果生成を所有する。
+ * @responsibility Packedの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000002
  * @input commonDirectory: string、ref: string
  * @returns stringを返す。
@@ -131,9 +137,9 @@ function readPacked(commonDirectory: string, ref: string): string {
 }
 
 /**
- * readRevisionの処理を実行する。
+ * Revisionを読み取る。
  *
- * @responsibility readRevisionに対応する入力処理と結果生成を所有する。
+ * @responsibility Revisionの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000002
  * @input layout: RepositoryGitLayout
  * @returns stringを返す。
@@ -183,9 +189,9 @@ function readRevision(layout: RepositoryGitLayout): string {
 }
 
 /**
- * identityの処理を実行する。
+ * identityを決定する。
  *
- * @responsibility identityに対応する入力処理と結果生成を所有する。
+ * @responsibility identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
  * @input domain: string、entity: RepositoryGitLayout["root"]
  * @returns stringを返す。

@@ -1,3 +1,9 @@
+/**
+ * runtime-local-typescript-child-entrypointsに属する責務をまとめる。
+ *
+ * @responsibility RuntimeLocalTypeScriptChildRoleを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { type SpawnOptions, spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,9 +13,9 @@ const DISTRIBUTION_MODULE_PATH =
   "40_Develop/coordinator/src/core/runtime-local-typescript-child-entrypoints.ts";
 
 /**
- * RuntimeLocalTypeScriptChildRoleが扱う値の構造を表す。
+ * runtime-local-typescript-child-entrypointsで使用するRuntime Local Type Script Child Roleの値契約を定義する。
  *
- * @responsibility RuntimeLocalTypeScriptChildRoleに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime Local Type Script Child RoleのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape RuntimeLocalTypeScriptChildRoleが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeLocalTypeScriptChildRoleで宣言した値と責務の対応を維持する。
@@ -24,9 +30,9 @@ export type RuntimeLocalTypeScriptChildRole =
   | "signed_recovery_matrix_child";
 
 /**
- * RuntimeLocalTypeScriptChildKindが扱う値の構造を表す。
+ * runtime-local-typescript-child-entrypointsで使用するRuntime Local Type Script Child Kindの値契約を定義する。
  *
- * @responsibility RuntimeLocalTypeScriptChildKindに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime Local Type Script Child KindのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape RuntimeLocalTypeScriptChildKindが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeLocalTypeScriptChildKindで宣言した値と責務の対応を維持する。
@@ -37,9 +43,9 @@ export type RuntimeLocalTypeScriptChildRole =
 type RuntimeLocalTypeScriptChildKind = "worker" | "spawn";
 
 /**
- * RuntimeLocalTypeScriptChildEntrypointが扱う値の構造を表す。
+ * runtime-local-typescript-child-entrypointsで使用するRuntime Local Type Script Child Entrypointの値契約を定義する。
  *
- * @responsibility RuntimeLocalTypeScriptChildEntrypointに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime Local Type Script Child EntrypointのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape RuntimeLocalTypeScriptChildEntrypointが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeLocalTypeScriptChildEntrypointで宣言した値と責務の対応を維持する。
@@ -56,9 +62,9 @@ type RuntimeLocalTypeScriptChildEntrypoint = Readonly<{
 }>;
 
 /**
- * declareLocalTypeScriptChildEntrypointの処理を実行する。
+ * declare Local Type Script Child Entrypointを決定する。
  *
- * @responsibility declareLocalTypeScriptChildEntrypointに対応する入力処理と結果生成を所有する。
+ * @responsibility declare Local Type Script Child Entrypointの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input role: RuntimeLocalTypeScriptChildRole、kind: RuntimeLocalTypeScriptChildKind、relativePath: string、baseUrl: string
  * @returns RuntimeLocalTypeScriptChildEntrypointを返す。
@@ -130,9 +136,9 @@ for (const entrypoint of runtimeLocalTypeScriptChildEntrypoints) {
 }
 
 /**
- * entrypointForの処理を実行する。
+ * entrypoint Forを決定する。
  *
- * @responsibility entrypointForに対応する入力処理と結果生成を所有する。
+ * @responsibility entrypoint Forの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input role: RuntimeLocalTypeScriptChildRole、kind: RuntimeLocalTypeScriptChildKind
  * @returns entrypointForの計算結果を返す。
@@ -162,9 +168,9 @@ function entrypointFor(
 // Internal read projection for the package observer. The observer rejects
 // imports of this function from every other runtime consumer.
 /**
- * runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserverの処理を実行する。
+ * runtime Local Type Script Child Registry Snapshot For Package Observerを決定する。
  *
- * @responsibility runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserverに対応する入力処理と結果生成を所有する。
+ * @responsibility runtime Local Type Script Child Registry Snapshot For Package Observerの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserverの計算結果を返す。
@@ -190,9 +196,9 @@ export function runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver() 
 }
 
 /**
- * createRuntimeLocalTypeScriptWorkerの処理を実行する。
+ * Runtime Local Type Script Workerを構築する。
  *
- * @responsibility createRuntimeLocalTypeScriptWorkerに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Local Type Script Workerの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input role: RuntimeLocalTypeScriptChildRole、options: WorkerOptions
  * @returns createRuntimeLocalTypeScriptWorkerの計算結果を返す。
@@ -216,9 +222,9 @@ export function createRuntimeLocalTypeScriptWorker(
 }
 
 /**
- * spawnRuntimeLocalTypeScriptChildの処理を実行する。
+ * spawn Runtime Local Type Script Childを決定する。
  *
- * @responsibility spawnRuntimeLocalTypeScriptChildに対応する入力処理と結果生成を所有する。
+ * @responsibility spawn Runtime Local Type Script Childの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input role: RuntimeLocalTypeScriptChildRole、args: readonly string[]、options: SpawnOptions
  * @returns spawnRuntimeLocalTypeScriptChildの計算結果を返す。

@@ -6,7 +6,7 @@
  * @trace AIT-UT-005
  * @level UT
  * @scope authority、trust、loader
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -39,7 +39,7 @@ import { assertPresent, canonicalJson } from "../support/test-support.ts";
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 function profile() {
   return {
@@ -72,7 +72,7 @@ function profile() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 function registry() {
   return {
@@ -117,7 +117,7 @@ function registry() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 function fixture() {
   const validated = validateAuthorityRegistryCandidate(registry());
@@ -147,7 +147,7 @@ function fixture() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("canonical Registry byte列と完全一致Policyから信頼候補を作る", () => {
   const { bytes, policy } = fixture();
@@ -168,7 +168,7 @@ test("canonical Registry byte列と完全一致Policyから信頼候補を作る
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("非canonical、BOM、不正UTF-8およびbyte上限超過をfail closedにする", () => {
   const { bytes, policy } = fixture();
@@ -206,7 +206,7 @@ test("非canonical、BOM、不正UTF-8およびbyte上限超過をfail closedに
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Policyの状態、Registry Identity、Hashおよびshape差を拒否する", () => {
   const { bytes, policy } = fixture();
@@ -234,7 +234,7 @@ test("Policyの状態、Registry Identity、Hashおよびshape差を拒否する
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Policy accessorとProxyを実行せずblockedへ閉じる", () => {
   const { bytes, policy } = fixture();
@@ -277,7 +277,7 @@ test("Policy accessorとProxyを実行せずblockedへ閉じる", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Registry Bufferの上書きpropertyを参照せずRuntime所有copyを使う", () => {
   const { bytes, policy } = fixture();
@@ -312,7 +312,7 @@ test("Registry Bufferの上書きpropertyを参照せずRuntime所有copyを使�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Trust Policy byte列も所有copy、canonical形式および独立上限を要求する", () => {
   const { policy } = fixture();
@@ -367,7 +367,7 @@ test("Trust Policy byte列も所有copy、canonical形式および独立上限�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Loader Core候補はcaller PolicyをAuthority Capabilityへ昇格しない", () => {
   const contract = describeAuthorityTrustLoaderContract();

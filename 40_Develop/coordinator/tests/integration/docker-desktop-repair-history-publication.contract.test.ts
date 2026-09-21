@@ -6,7 +6,7 @@
  * @trace ERB-IT-001
  * @level IT
  * @scope docker、desktop、repair、history、publication
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -73,7 +73,7 @@ const executedPublicationTraceCases = new Set<string>();
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 function observePublicationCase(
   caseId: string,
@@ -93,7 +93,7 @@ function observePublicationCase(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 function relativeImports(source: string) {
   const scanner = createScanner(true, undefined, source);
@@ -131,7 +131,7 @@ function relativeImports(source: string) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 function productionDependencyClosure(entry: string) {
   const visited = new Set<string>();
@@ -164,7 +164,7 @@ function productionDependencyClosure(entry: string) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 function fixture(t: test.TestContext) {
   const directory = fs.mkdtempSync(
@@ -188,7 +188,7 @@ function fixture(t: test.TestContext) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 function sameFile(left: string, right: string) {
   const a = fs.statSync(left, { bigint: true });
@@ -206,7 +206,7 @@ function sameFile(left: string, right: string) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 function observeFinalGlobalPublication(
   value: Readonly<{ target: string; preparation: string }>,
@@ -273,7 +273,7 @@ function observeFinalGlobalPublication(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開: absent target + absent prepareはexact targetへ公開してprepareを残さない", (t) => {
   const value = fixture(t);
@@ -303,7 +303,7 @@ test("回復可能な公開: absent target + absent prepareはexact targetへ公
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開: prepare-onlyは同byteの対象限定再入場で収束する", (t) => {
   const value = fixture(t);
@@ -334,7 +334,7 @@ test("回復可能な公開: prepare-onlyは同byteの対象限定再入場で�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開: targetと同一fileのprepare residueだけを収束する", (t) => {
   const value = fixture(t);
@@ -367,7 +367,7 @@ test("回復可能な公開: targetと同一fileのprepare residueだけを収�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開: same-byte foreign prepareは双方を変更せず拒否する", (t) => {
   const value = fixture(t);
@@ -402,7 +402,7 @@ test("回復可能な公開: same-byte foreign prepareは双方を変更せず�
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 function verifyDifferentTarget(t: test.TestContext, isPrepare: boolean) {
   const value = fixture(t);
@@ -457,7 +457,7 @@ function verifyDifferentTarget(t: test.TestContext, isPrepare: boolean) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開: different-byte targetはprepare=falseでも既存実体を変更しない", (t) => {
   verifyDifferentTarget(t, false);
@@ -473,7 +473,7 @@ test("回復可能な公開: different-byte targetはprepare=falseでも既存�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開: different-byte targetはprepare=trueでも既存実体を変更しない", (t) => {
   verifyDifferentTarget(t, true);
@@ -489,7 +489,7 @@ test("回復可能な公開: different-byte targetはprepare=trueでも既存実
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開: 状態観測不能はUNKNOWNとしてEffect 0で拒否する", (t) => {
   const value = fixture(t);
@@ -527,7 +527,7 @@ test("回復可能な公開: 状態観測不能はUNKNOWNとしてEffect 0で拒
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開: 既存targetのPlatform確認中にprepareが現れた場合は成功にしない", (t) => {
   const value = fixture(t);
@@ -556,7 +556,7 @@ test("回復可能な公開: 既存targetのPlatform確認中にprepareが現れ
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開: Platform確認または最終shape観測が不明なら成功にしない", (t) => {
   const platformUnknown = fixture(t);
@@ -602,7 +602,7 @@ test("回復可能な公開: Platform確認または最終shape観測が不明�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開: 全成功分岐は共通の最終確定述語だけを通る", () => {
   const source = fs.readFileSync(
@@ -631,7 +631,7 @@ test("回復可能な公開: 全成功分岐は共通の最終確定述語だけ
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 function verifyFaultRecovery(
   t: test.TestContext,
@@ -725,7 +725,7 @@ function verifyFaultRecovery(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開: link後のPlatform確認前中断を成功にせずfresh再入場で収束する", (t) => {
   verifyFaultRecovery(t, "after_link_before_platform_confirmation");
@@ -741,7 +741,7 @@ test("回復可能な公開: link後のPlatform確認前中断を成功にせず
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開: 最初のPlatform確認後かつunlink前の中断を成功にせずfresh再入場で収束する", (t) => {
   verifyFaultRecovery(t, "after_first_platform_confirmation_before_unlink");
@@ -757,7 +757,7 @@ test("回復可能な公開: 最初のPlatform確認後かつunlink前の中断�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開: unlink要求時の中断を成功にせずfresh再入場で収束する", (t) => {
   verifyFaultRecovery(t, "at_unlink");
@@ -773,7 +773,7 @@ test("回復可能な公開: unlink要求時の中断を成功にせずfresh再�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開: unlink後のPlatform確認前中断を成功にせずfresh再入場で収束する", (t) => {
   verifyFaultRecovery(t, "after_unlink_before_platform_confirmation");
@@ -789,7 +789,7 @@ test("回復可能な公開: unlink後のPlatform確認前中断を成功にせ�
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 async function waitUntil(predicate: () => boolean, timeoutMs = 5_000) {
   const end = Date.now() + timeoutMs;
@@ -810,7 +810,7 @@ async function waitUntil(predicate: () => boolean, timeoutMs = 5_000) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 async function runRace(t: test.TestContext, contents: readonly Buffer[]) {
   const value = fixture(t);
@@ -906,7 +906,7 @@ async function runRace(t: test.TestContext, contents: readonly Buffer[]) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開: 同byteの実別Process競合は有限再入場後に同じtargetへ収束する", async (t) => {
   const value = await runRace(t, [bytesValue, bytesValue]);
@@ -940,7 +940,7 @@ test("回復可能な公開: 同byteの実別Process競合は有限再入場後�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開: 異byteの実別Process競合は局所結果と最終共有状態を分離する", async (t) => {
   const value = await runRace(t, [bytesValue, otherValue]);
@@ -1014,7 +1014,7 @@ test("回復可能な公開: 異byteの実別Process競合は局所結果と最�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開: 異byte競合後の準備file残存を最終共有状態の成立根拠にしない", (t) => {
   const value = fixture(t);
@@ -1040,7 +1040,7 @@ test("回復可能な公開: 異byte競合後の準備file残存を最終共有�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開: true側の入力と異なる最終targetをwinner成立へ流用しない", (t) => {
   const value = fixture(t);
@@ -1065,7 +1065,7 @@ test("回復可能な公開: true側の入力と異なる最終targetをwinner�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開Traceの全caseは正本・registry・実行集合が一致する", () => {
   assertRuntimeTraceExecutionCoverage(
@@ -1085,7 +1085,7 @@ test("回復可能な公開Traceの全caseは正本・registry・実行集合が
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("回復可能な公開のtesting adapterは本番entrypointから到達せず試験Rootだけを変更する", () => {
   const closure = productionDependencyClosure(

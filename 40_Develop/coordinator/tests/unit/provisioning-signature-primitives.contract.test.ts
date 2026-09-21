@@ -6,7 +6,7 @@
  * @trace AIT-UT-011
  * @level UT
  * @scope provisioning、signature、primitives
- * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ * @boundary AIT-UT-011=N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
@@ -44,7 +44,7 @@ const P256_ORDER = BigInt(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ * @boundary AIT-UT-011=N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
  */
 function lowSP256(signature: Uint8Array) {
   const result = Buffer.from(signature);
@@ -66,7 +66,7 @@ function lowSP256(signature: Uint8Array) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ * @boundary AIT-UT-011=N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
  */
 function spki() {
   return Buffer.from(`${ED25519_SPKI_PREFIX}${RFC_8032_PUBLIC_KEY}`, "hex");
@@ -82,7 +82,7 @@ function spki() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ * @boundary AIT-UT-011=N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
  */
 test("RFC 8785のprimitive、再帰sortおよびUnicode非正規化を固定する", () => {
   const result = canonicalizeProvisioningJsonValueCandidate({
@@ -132,7 +132,7 @@ test("RFC 8785のprimitive、再帰sortおよびUnicode非正規化を固定す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ * @boundary AIT-UT-011=N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
  */
 test("JCS値Coreは非plain、動的入力、循環、lone surrogate、非有限数とbudget超過を拒否する", () => {
   let getterCalls = 0;
@@ -186,7 +186,7 @@ test("JCS値Coreは非plain、動的入力、循環、lone surrogate、非有限
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ * @boundary AIT-UT-011=N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
  */
 test("JCS値Coreは循環だけを拒否し非循環の共有参照を出現ごとに展開する", () => {
   const sharedObject = Object.assign(Object.create(null), { x: 1 });
@@ -261,7 +261,7 @@ test("JCS値Coreは循環だけを拒否し非循環の共有参照を出現ご�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ * @boundary AIT-UT-011=N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
  */
 test("JCSはnodeとcanonical byteの境界を全descriptor展開と巨大token生成より前に閉じる", () => {
   const maximumObject: Record<string, null> = {};
@@ -335,7 +335,7 @@ test("JCSはnodeとcanonical byteの境界を全descriptor展開と巨大token�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ * @boundary AIT-UT-011=N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
  */
 test("RFC 8410 Ed25519 SPKIだけを受理しexact DERのdigestを候補化する", () => {
   const result = inspectProvisioningEd25519SpkiCandidate(spki());
@@ -377,7 +377,7 @@ test("RFC 8410 Ed25519 SPKIだけを受理しexact DERのdigestを候補化す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ * @boundary AIT-UT-011=N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
  */
 test("RFC 8032 vectorの個別署名一致だけをcandidateにし改変を拒否する", () => {
   const input = {
@@ -447,7 +447,7 @@ test("RFC 8032 vectorの個別署名一致だけをcandidateにし改変を拒�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ * @boundary AIT-UT-011=N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
  */
 test("RFC 4648のpaddingなしbase64url署名だけを内部復号して個別検証する", () => {
   const signatureBase64url = Buffer.from(RFC_8032_SIGNATURE, "hex").toString(
@@ -543,7 +543,7 @@ test("RFC 4648のpaddingなしbase64url署名だけを内部復号して個別�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ * @boundary AIT-UT-011=N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
  */
 test("P-256 SPKIと固定P1363署名をhardware-backed installation key候補に限定する", () => {
   const pair = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
@@ -612,7 +612,7 @@ test("P-256 SPKIと固定P1363署名をhardware-backed installation key候補に
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ * @boundary AIT-UT-011=N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
  */
 test("公開contractはprimitiveと未決の統合Trust境界を分離する", () => {
   assert.deepEqual(describeProvisioningSignaturePrimitivesContract(), {

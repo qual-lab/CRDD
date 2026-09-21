@@ -1,3 +1,9 @@
+/**
+ * execution-intelligence-storeに属する責務をまとめる。
+ *
+ * @responsibility ExecutionIntelligencePublicationResultを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000007
+ */
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -25,9 +31,9 @@ const LOCK_RETRY_MS = 10;
 const waitArray = new Int32Array(new SharedArrayBuffer(4));
 
 /**
- * ExecutionIntelligencePublicationResultが扱う値の構造を表す。
+ * execution-intelligence-storeで使用するExecution Intelligence Publication 結果の値契約を定義する。
  *
- * @responsibility ExecutionIntelligencePublicationResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Execution Intelligence Publication 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape ExecutionIntelligencePublicationResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ExecutionIntelligencePublicationResultで宣言した値と責務の対応を維持する。
@@ -63,9 +69,9 @@ export type ExecutionIntelligencePublicationResult =
     }>;
 
 /**
- * StoreLayoutが扱う値の構造を表す。
+ * execution-intelligence-storeで使用するStore Layoutの値契約を定義する。
  *
- * @responsibility StoreLayoutに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Store LayoutのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape StoreLayoutが表すProperty、識別子およびRelationを型として固定する。
  * @invariant StoreLayoutで宣言した値と責務の対応を維持する。
@@ -80,9 +86,9 @@ type StoreLayout = Readonly<{
 }>;
 
 /**
- * MutationLockが扱う値の構造を表す。
+ * execution-intelligence-storeで使用するMutation Lockの値契約を定義する。
  *
- * @responsibility MutationLockに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Mutation LockのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape MutationLockが表すProperty、識別子およびRelationを型として固定する。
  * @invariant MutationLockで宣言した値と責務の対応を維持する。
@@ -97,9 +103,9 @@ type MutationLock = Readonly<{
 }>;
 
 /**
- * RuntimeDataAreaResolverが扱う値の構造を表す。
+ * execution-intelligence-storeで使用するRuntime Data Area Resolverの値契約を定義する。
  *
- * @responsibility RuntimeDataAreaResolverに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime Data Area ResolverのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape RuntimeDataAreaResolverが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeDataAreaResolverで宣言した値と責務の対応を維持する。
@@ -134,9 +140,9 @@ class MutationBoundaryError extends Error {
 }
 
 /**
- * sha256の処理を実行する。
+ * sha256を決定する。
  *
- * @responsibility sha256に対応する入力処理と結果生成を所有する。
+ * @responsibility sha256の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000007
  * @input bytes: string | Buffer
  * @returns sha256の計算結果を返す。
@@ -154,9 +160,9 @@ function sha256(bytes: string | Buffer) {
 }
 
 /**
- * samePathの処理を実行する。
+ * Pathが同一かを判定する。
  *
- * @responsibility samePathに対応する入力処理と結果生成を所有する。
+ * @responsibility Pathの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000007
  * @input left: string、right: string
  * @returns booleanを返す。
@@ -179,9 +185,9 @@ function samePath(left: string, right: string): boolean {
 }
 
 /**
- * safeDirectoryの処理を実行する。
+ * Directoryを安全条件の下で処理する。
  *
- * @responsibility safeDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Directoryの安全条件、拒否条件、終了結果境界を所有する。
  * @trace ARCH-000007
  * @input directory: string
  * @returns booleanを返す。
@@ -204,9 +210,9 @@ function safeDirectory(directory: string): boolean {
 }
 
 /**
- * ensureDirectoryの処理を実行する。
+ * Directoryが成立する状態を確保する。
  *
- * @responsibility ensureDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Directoryの成立条件、作成または再利用、失敗時の非成立境界を所有する。
  * @trace ARCH-000007
  * @input directory: string
  * @returns N/A: ensureDirectoryは戻り値を返さない。
@@ -230,9 +236,9 @@ function ensureDirectory(directory: string): void {
 }
 
 /**
- * storeLayoutの処理を実行する。
+ * store Layoutを決定する。
  *
- * @responsibility storeLayoutに対応する入力処理と結果生成を所有する。
+ * @responsibility store Layoutの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000007
  * @input rootCapability: VerifiedExecutionRepositoryRoot、shouldCreate: boolean、operationId: string | null、resolveArea: RuntimeDataAreaResolver
  * @returns StoreLayout | nullを返す。
@@ -303,9 +309,9 @@ function storeLayout(
 }
 
 /**
- * acquireMutationLockの処理を実行する。
+ * Mutation Lockを取得する。
  *
- * @responsibility acquireMutationLockに対応する入力処理と結果生成を所有する。
+ * @responsibility Mutation Lockの取得条件、所有権、失敗時の非取得境界を所有する。
  * @trace ARCH-000007
  * @input layout: StoreLayout
  * @returns MutationLock | nullを返す。
@@ -368,9 +374,9 @@ function acquireMutationLock(layout: StoreLayout): MutationLock | null {
 }
 
 /**
- * releaseMutationLockの処理を実行する。
+ * Mutation Lockを解放する。
  *
- * @responsibility releaseMutationLockに対応する入力処理と結果生成を所有する。
+ * @responsibility Mutation Lockの所有権、解放条件、終了後不存在の確認境界を所有する。
  * @trace ARCH-000007
  * @input lock: MutationLock
  * @returns booleanを返す。
@@ -401,9 +407,9 @@ function releaseMutationLock(lock: MutationLock): boolean {
 }
 
 /**
- * blockedPublicationの処理を実行する。
+ * Publicationを停止結果として構築する。
  *
- * @responsibility blockedPublicationに対応する入力処理と結果生成を所有する。
+ * @responsibility Publicationの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000007
  * @input reason: string、effectState: "no_effect" | "settled" | "unknown"、cleanupConfirmed: boolean、residualArtifactIds: readonly string[]、retryAllowed、boundary: Readonly<{ effectIssued?: boolean; effectStateUnknown?: boolean; recoveryReference?: string | null; }>
  * @returns ExecutionIntelligencePublicationResultを返す。
@@ -447,9 +453,9 @@ function blockedPublication(
 }
 
 /**
- * existingPublicationの処理を実行する。
+ * existing Publicationを決定する。
  *
- * @responsibility existingPublicationに対応する入力処理と結果生成を所有する。
+ * @responsibility existing Publicationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000007
  * @input target: string、expected: Buffer、eventId: string
  * @returns ExecutionIntelligencePublicationResultを返す。
@@ -491,9 +497,9 @@ function existingPublication(
 }
 
 /**
- * writeExecutionIntelligenceEventWithRuntimeDataAreaの処理を実行する。
+ * Execution Intelligence Event With Runtime Data Areaを書き込む。
  *
- * @responsibility writeExecutionIntelligenceEventWithRuntimeDataAreaに対応する入力処理と結果生成を所有する。
+ * @responsibility Execution Intelligence Event With Runtime Data Areaの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000007
  * @input rootCapability: VerifiedExecutionRepositoryRoot、value: unknown、resolveArea: RuntimeDataAreaResolver
  * @returns ExecutionIntelligencePublicationResultを返す。
@@ -650,9 +656,9 @@ export function writeExecutionIntelligenceEventWithRuntimeDataArea(
 }
 
 /**
- * writeExecutionIntelligenceEventの処理を実行する。
+ * Execution Intelligence Eventを書き込む。
  *
- * @responsibility writeExecutionIntelligenceEventに対応する入力処理と結果生成を所有する。
+ * @responsibility Execution Intelligence Eventの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000007
  * @input rootCapability: VerifiedExecutionRepositoryRoot、value: unknown
  * @returns ExecutionIntelligencePublicationResultを返す。
@@ -677,9 +683,9 @@ export function writeExecutionIntelligenceEvent(
 }
 
 /**
- * readFromExecutionDirectoryの処理を実行する。
+ * From Execution Directoryを読み取る。
  *
- * @responsibility readFromExecutionDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility From Execution Directoryの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000007
  * @input directory: string
  * @returns readFromExecutionDirectoryの計算結果を返す。
@@ -746,9 +752,9 @@ function readFromExecutionDirectory(directory: string) {
 }
 
 /**
- * readExecutionIntelligenceWithRuntimeDataAreaの処理を実行する。
+ * Execution Intelligence With Runtime Data Areaを読み取る。
  *
- * @responsibility readExecutionIntelligenceWithRuntimeDataAreaに対応する入力処理と結果生成を所有する。
+ * @responsibility Execution Intelligence With Runtime Data Areaの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000007
  * @input rootCapability: VerifiedExecutionRepositoryRoot、resolveArea: RuntimeDataAreaResolver
  * @returns | ReturnType<typeof readFromExecutionDirectory> | Extract<ExecutionIntelligencePublicationResult, { status: "blocked" }>を返す。
@@ -806,9 +812,9 @@ export function readExecutionIntelligenceWithRuntimeDataArea(
 }
 
 /**
- * readExecutionIntelligenceの処理を実行する。
+ * Execution Intelligenceを読み取る。
  *
- * @responsibility readExecutionIntelligenceに対応する入力処理と結果生成を所有する。
+ * @responsibility Execution Intelligenceの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000007
  * @input rootCapability: VerifiedExecutionRepositoryRoot
  * @returns readExecutionIntelligenceの計算結果を返す。

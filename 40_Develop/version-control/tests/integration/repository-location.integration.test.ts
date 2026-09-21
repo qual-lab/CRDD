@@ -4,9 +4,10 @@
  * @packageDocumentation
  * @responsibility version-control:integration:repository-locationが所有する検証責務を実行する。
  * @trace RFD-IT-001
+ * @trace RFD-IT-002
  * @level IT
  * @scope version-control、repository-root、worktree、submodule
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest / RFD-IT-002=Related 2 Blocks: Path Observer→Version Control Adapter→Effect Gate
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -32,7 +33,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 function git(cwd: string, args: readonly string[]): string {
   return execFileSync("git", ["-C", cwd, ...args], {
@@ -52,7 +53,7 @@ function git(cwd: string, args: readonly string[]): string {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 function repository(t: test.TestContext): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-root-"));
@@ -76,7 +77,7 @@ function repository(t: test.TestContext): string {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("exact and nested repository locations issue the same scoped capability", (t) => {
   const root = repository(t);
@@ -102,7 +103,7 @@ test("exact and nested repository locations issue the same scoped capability", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("an invalid nested boundary is terminal", (t) => {
   const root = repository(t);
@@ -134,7 +135,7 @@ test("an invalid nested boundary is terminal", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("a linked worktree is a valid exact repository root", (t) => {
   const root = repository(t);
@@ -157,7 +158,7 @@ test("a linked worktree is a valid exact repository root", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("a standard submodule worktree is a distinct valid repository root", (t) => {
   const root = repository(t);
@@ -188,7 +189,7 @@ test("a standard submodule worktree is a distinct valid repository root", (t) =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("repository-local runtime writes do not invalidate repository identity", (t) => {
   const root = repository(t);
@@ -209,7 +210,7 @@ test("repository-local runtime writes do not invalidate repository identity", (t
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("a capability fails closed after its repository boundary disappears", (t) => {
   const root = repository(t);
@@ -230,7 +231,7 @@ test("a capability fails closed after its repository boundary disappears", (t) =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("arbitrary directories and forged capability values fail closed", (t) => {
   const arbitrary = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-none-"));
@@ -248,13 +249,13 @@ test("arbitrary directories and forged capability values fail closed", (t) => {
  * Windows repository identity does not depend on caller path casingを検証する。
  *
  * @responsibility Windows repository identity does not depend on caller path casingの合否判定を所有する。
- * @trace RFD-IT-001
+ * @trace RFD-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Windows repository identity does not depend on caller path casingの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-002=Related 2 Blocks: Path Observer→Version Control Adapter→Effect Gate
  */
 test("Windows repository identity does not depend on caller path casing", {
   skip: process.platform !== "win32",

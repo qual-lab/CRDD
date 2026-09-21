@@ -6,7 +6,7 @@
  * @trace AIT-UT-005
  * @level UT
  * @scope provider、eligibility、runtime
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -35,7 +35,7 @@ type Axis =
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 function createObservation(overrides: Record<string, unknown> = {}) {
   return {
@@ -58,7 +58,7 @@ function createObservation(overrides: Record<string, unknown> = {}) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 function createRequest() {
   return {
@@ -94,7 +94,7 @@ function createRequest() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("全軸をRuntimeが確認した場合だけCodexとClaudeをeligibleにする", () => {
   const runtime = createIsolatedProviderEligibilityRuntimeCandidate({
@@ -116,7 +116,7 @@ test("全軸をRuntimeが確認した場合だけCodexとClaudeをeligibleにす
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("明示的な不成立軸を経路選定用の正確な理由へ写像する", () => {
   const cases: readonly [Axis, string][] = [
@@ -144,7 +144,7 @@ test("明示的な不成立軸を経路選定用の正確な理由へ写像す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("unknownを同一Providerへの推測fallback根拠にしない", () => {
   const runtime = createIsolatedProviderEligibilityRuntimeCandidate({
@@ -175,7 +175,7 @@ test("unknownを同一Providerへの推測fallback根拠にしない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("認証preflightとquotaのbounded request確認を区別する", () => {
   const runtime = createIsolatedProviderEligibilityRuntimeCandidate({
@@ -207,7 +207,7 @@ test("認証preflightとquotaのbounded request確認を区別する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("accessor、Proxy、余分なkeyとobserver例外を実行せずfail closedにする", () => {
   let getterExecuted = false;
@@ -261,7 +261,7 @@ test("accessor、Proxy、余分なkeyとobserver例外を実行せずfail closed
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("productionはCodexとClaudeを認証preflight必須候補として公開する", () => {
   assert.deepEqual(observeRuntimeOwnedProviderEligibility(), [
@@ -288,7 +288,7 @@ test("productionはCodexとClaudeを認証preflight必須候補として公開�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("公開契約はcaller claimと有料API fallbackを認めない", () => {
   const contract = describeProviderEligibilityRuntimeContract();

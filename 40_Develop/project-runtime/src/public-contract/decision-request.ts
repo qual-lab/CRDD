@@ -1,12 +1,18 @@
+/**
+ * decision-requestに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeDecisionRequestを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { snapshotPlainRecord } from "../boundary/plain-data-snapshot.ts";
 
 export const PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT =
   "crdd-coordinator/project-runtime-human-decision/v1" as const;
 
 /**
- * ProjectRuntimeDecisionRequestが扱う値の構造を表す。
+ * decision-requestで使用するProject Runtime Decision Requestの値契約を定義する。
  *
- * @responsibility ProjectRuntimeDecisionRequestに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Decision RequestのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeDecisionRequestが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeDecisionRequestで宣言した値と責務の対応を維持する。
@@ -40,9 +46,9 @@ const decisionKeysWithComment = new Set([
 ] as const);
 
 /**
- * validIdの処理を実行する。
+ * Idが有効か判定する。
  *
- * @responsibility validIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Idの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -63,9 +69,9 @@ function validId(value: unknown): value is string {
 }
 
 /**
- * validRevisionの処理を実行する。
+ * Revisionが有効か判定する。
  *
- * @responsibility validRevisionに対応する入力処理と結果生成を所有する。
+ * @responsibility Revisionの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -83,9 +89,9 @@ function validRevision(value: unknown): value is string {
 }
 
 /**
- * validCapabilityの処理を実行する。
+ * Capabilityが有効か判定する。
  *
- * @responsibility validCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Capabilityの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -108,9 +114,9 @@ function validCapability(value: unknown): value is string {
 }
 
 /**
- * validCommentの処理を実行する。
+ * Commentが有効か判定する。
  *
- * @responsibility validCommentに対応する入力処理と結果生成を所有する。
+ * @responsibility Commentの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -132,9 +138,9 @@ function validComment(value: unknown): value is string {
 }
 
 /**
- * inspectProjectRuntimeDecisionRequestの処理を実行する。
+ * Project Runtime Decision Requestを観測する。
  *
- * @responsibility inspectProjectRuntimeDecisionRequestに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Decision Requestの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns ProjectRuntimeDecisionRequest | nullを返す。

@@ -1,3 +1,9 @@
+/**
+ * root-protection-policyに属する責務をまとめる。
+ *
+ * @responsibility responseを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { describeRootObservationContract } from "./root-observation.ts";
 
@@ -30,9 +36,9 @@ const WRITE_AUTHORITIES = new Set([
 const INPUT_TOKEN_LENGTH = 32;
 
 /**
- * responseの処理を実行する。
+ * responseを決定する。
  *
- * @responsibility responseに対応する入力処理と結果生成を所有する。
+ * @responsibility responseの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input status: S、reason: string、policy: T | null
  * @returns responseの計算結果を返す。
@@ -60,9 +66,9 @@ function response<const S extends string, T>(
 }
 
 /**
- * normalizeObservationsの処理を実行する。
+ * Observationsを固定Schemaへ正規化する。
  *
- * @responsibility normalizeObservationsに対応する入力処理と結果生成を所有する。
+ * @responsibility Observationsの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000014
  * @input rawObservations: unknown
  * @returns normalizeObservationsの計算結果を返す。
@@ -101,9 +107,9 @@ function normalizeObservations(rawObservations: unknown) {
 }
 
 /**
- * policySummaryの処理を実行する。
+ * policy Summaryを決定する。
  *
- * @responsibility policySummaryに対応する入力処理と結果生成を所有する。
+ * @responsibility policy Summaryの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input rootRole: string、platformFamily: string、filesystemClass: string、requiredWriteAuthority: string
  * @returns policySummaryの計算結果を返す。
@@ -134,9 +140,9 @@ function policySummary(
 }
 
 /**
- * evaluateRootProtectionPolicyCandidateの処理を実行する。
+ * Root Protection Policy 候補を評価する。
  *
- * @responsibility evaluateRootProtectionPolicyCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Root Protection Policy 候補の評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input rawInput: unknown
  * @returns evaluateRootProtectionPolicyCandidateの計算結果を返す。
@@ -224,9 +230,9 @@ export function evaluateRootProtectionPolicyCandidate(rawInput: unknown) {
 }
 
 /**
- * describeRootProtectionPolicyContractの処理を実行する。
+ * Root Protection Policy 契約の公開契約を記述する。
  *
- * @responsibility describeRootProtectionPolicyContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Root Protection Policy 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeRootProtectionPolicyContractの計算結果を返す。

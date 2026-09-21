@@ -1,3 +1,9 @@
+/**
+ * quality-semantic-relationに属する責務をまとめる。
+ *
+ * @responsibility QualitySemanticRelationを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import type {
   SemanticIr,
   SemanticSourceDocument,
@@ -23,6 +29,7 @@ export type QualitySemanticRelation = Readonly<{
   qaId: string;
   localId: string;
   semanticKey: string;
+  executionMode: "automated" | "manual";
   sourceDocument: string;
 }>;
 
@@ -51,6 +58,48 @@ function parseTableRow(line: string): string[] {
     .replace(/\|$/u, "")
     .split("|")
     .map((cell) => cell.trim());
+}
+
+/**
+ * Quality Definitionの検証項目表からLocal Itemの実行形態を解決する。
+ *
+ * @responsibility 手動UATを自動Test Symbol欠落へ畳まず、Quality正本の実行形態をRelationへ搬送する。
+ * @trace ARCH-000008
+ * @input source: string、localId: string
+ * @returns "automated" | "manual" | nullを返す。
+ * @precondition sourceはQuality Definition全文、localIdは同Definition内の既知候補である。
+ * @postcondition 実行形態が一意に解決できる場合だけ正規化済み値を返す。
+ * @effect N/A: 入力文字列だけを読み取り、共有状態を変更しない。
+ * @failure 表、行または実行形態が解決不能ならnullを返す。
+ * @invariant AutomatedとManualを同じ観測状態へ統合しない。
+ * @boundary N/A: Process内のMarkdown解析で完結する。
+ * @security N/A: Authority、秘密値または外部Effectを扱わない。
+ * @concurrency N/A: 共有非同期状態を持たない同期処理である。
+ */
+function resolveExecutionMode(
+  source: string,
+  localId: string,
+): "automated" | "manual" | null {
+  const lines = source.split(/\r?\n/u);
+  const headerIndex = lines.findIndex((line) => {
+    if (!line.trim().startsWith("|")) return false;
+    const cells = parseTableRow(line);
+    return cells.includes("Local ID") && cells.includes("実行形態");
+  });
+  if (headerIndex < 0) return null;
+  const headers = parseTableRow(lines[headerIndex] ?? "");
+  const localIdIndex = headers.indexOf("Local ID");
+  const executionModeIndex = headers.indexOf("実行形態");
+  for (let index = headerIndex + 2; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (!line.trim().startsWith("|")) break;
+    const cells = parseTableRow(line);
+    if (cells[localIdIndex] !== `\`${localId}\``) continue;
+    if (cells[executionModeIndex] === "Automated") return "automated";
+    if (cells[executionModeIndex] === "Manual") return "manual";
+    return null;
+  }
+  return null;
 }
 
 /**
@@ -204,6 +253,22 @@ export function compileQualitySemanticRelations(
           ),
         );
       }
+      const executionMode = resolveExecutionMode(
+        sourceDocument.source,
+        localId,
+      );
+      if (!executionMode) {
+        issues.push(
+          semanticDomainIssue(
+            "quality.relation.execution-mode-unresolved",
+            sourceDocument.path,
+            "quality_local_execution_mode_not_resolved",
+            { localId },
+            localId,
+          ),
+        );
+        continue;
+      }
       const semanticKeys = [...(cells[1] ?? "").matchAll(/`([^`]+)`/gu)]
         .map((match) => match[1])
         .filter((semanticKey): semanticKey is string => Boolean(semanticKey));
@@ -247,6 +312,7 @@ export function compileQualitySemanticRelations(
           qaId,
           localId,
           semanticKey,
+          executionMode,
           sourceDocument: sourceDocument.path,
         });
       }

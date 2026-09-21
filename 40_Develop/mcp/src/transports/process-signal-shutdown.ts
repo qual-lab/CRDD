@@ -1,7 +1,13 @@
 /**
- * McpProcessSignalSourceが扱う値の構造を表す。
+ * process-signal-shutdownに属する責務をまとめる。
  *
- * @responsibility McpProcessSignalSourceに必要な値と制約を一つの型契約として保持する。
+ * @responsibility McpProcessSignalSourceを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000012
+ */
+/**
+ * process-signal-shutdownで使用するMcp Process Signal Sourceの値契約を定義する。
+ *
+ * @responsibility Mcp Process Signal SourceのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000012
  * @shape McpProcessSignalSourceが表すProperty、識別子およびRelationを型として固定する。
  * @invariant McpProcessSignalSourceで宣言した値と責務の対応を維持する。
@@ -15,9 +21,9 @@ export type McpProcessSignalSource = Readonly<{
 }>;
 
 /**
- * McpHttpServerCloseBoundaryが扱う値の構造を表す。
+ * process-signal-shutdownで使用するMcp Http Server Close Boundaryの値契約を定義する。
  *
- * @responsibility McpHttpServerCloseBoundaryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Mcp Http Server Close BoundaryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000012
  * @shape McpHttpServerCloseBoundaryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant McpHttpServerCloseBoundaryで宣言した値と責務の対応を維持する。
@@ -32,7 +38,7 @@ export type McpHttpServerCloseBoundary = Readonly<{
 /**
  * Retain ownership of both process signals until HTTP shutdown settles.
  *
- * @responsibility closeMcpHttpOnProcessSignalに対応する入力処理と結果生成を所有する。
+ * @responsibility Mcp Http On Process Signalの終了条件、資源解放、終了不能時の境界を所有する。
  * @trace ARCH-000012
  * @input server: McpHttpServerCloseBoundary、signalSource: McpProcessSignalSource
  * @returns closeMcpHttpOnProcessSignalの計算結果を返す。

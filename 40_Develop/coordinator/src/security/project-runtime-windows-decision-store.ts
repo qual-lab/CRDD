@@ -1,3 +1,9 @@
+/**
+ * project-runtime-windows-decision-storeに属する責務をまとめる。
+ *
+ * @responsibility VerifiedRootを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -22,9 +28,9 @@ export const PROJECT_RUNTIME_WINDOWS_DECISION_STORE_CONTRACT =
 const ENTRY = /^project-decision-([0-9a-f]{40})-([0-9]{8})\.json$/u;
 
 /**
- * VerifiedRootが扱う値の構造を表す。
+ * project-runtime-windows-decision-storeで使用するVerified Rootの値契約を定義する。
  *
- * @responsibility VerifiedRootに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Verified RootのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape VerifiedRootが表すProperty、識別子およびRelationを型として固定する。
  * @invariant VerifiedRootで宣言した値と責務の対応を維持する。
@@ -36,9 +42,9 @@ type VerifiedRoot = NonNullable<
   ReturnType<typeof consumeRuntimeOwnedRuntimeStateRootCapability>
 >;
 /**
- * Envelopeが扱う値の構造を表す。
+ * project-runtime-windows-decision-storeで使用するEnvelopeの値契約を定義する。
  *
- * @responsibility Envelopeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility EnvelopeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape Envelopeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Envelopeで宣言した値と責務の対応を維持する。
@@ -55,9 +61,9 @@ type Envelope = Readonly<{
 }>;
 
 /**
- * hashの処理を実行する。
+ * hashを決定する。
  *
- * @responsibility hashに対応する入力処理と結果生成を所有する。
+ * @responsibility hashの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: string
  * @returns hashの計算結果を返す。
@@ -75,9 +81,9 @@ function hash(value: string) {
 }
 
 /**
- * sameRootの処理を実行する。
+ * Rootが同一かを判定する。
  *
- * @responsibility sameRootに対応する入力処理と結果生成を所有する。
+ * @responsibility Rootの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000004
  * @input left: VerifiedRoot、right: VerifiedRoot
  * @returns sameRootの計算結果を返す。
@@ -101,9 +107,9 @@ function sameRoot(left: VerifiedRoot, right: VerifiedRoot) {
 }
 
 /**
- * envelopeの処理を実行する。
+ * envelopeを決定する。
  *
- * @responsibility envelopeに対応する入力処理と結果生成を所有する。
+ * @responsibility envelopeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is Envelopeを返す。
@@ -136,9 +142,9 @@ function envelope(value: unknown): value is Envelope {
 }
 
 /**
- * entryNameの処理を実行する。
+ * entry Nameを決定する。
  *
- * @responsibility entryNameに対応する入力処理と結果生成を所有する。
+ * @responsibility entry Nameの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input recordId: string、generation: number
  * @returns entryNameの計算結果を返す。
@@ -156,9 +162,9 @@ function entryName(recordId: string, generation: number) {
 }
 
 /**
- * inspectRootの処理を実行する。
+ * Rootを観測する。
  *
- * @responsibility inspectRootに対応する入力処理と結果生成を所有する。
+ * @responsibility Rootの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input shouldInitialize: boolean、developmentContext: object
  * @returns inspectRootの計算結果を返す。
@@ -190,9 +196,9 @@ function inspectRoot(shouldInitialize: boolean, developmentContext?: object) {
 }
 
 /**
- * currentの処理を実行する。
+ * currentを決定する。
  *
- * @responsibility currentに対応する入力処理と結果生成を所有する。
+ * @responsibility currentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input root: VerifiedRoot、recordId: string
  * @returns currentの計算結果を返す。
@@ -247,9 +253,9 @@ function current(root: VerifiedRoot, recordId: string) {
 }
 
 /**
- * resultの処理を実行する。
+ * resultを決定する。
  *
- * @responsibility resultに対応する入力処理と結果生成を所有する。
+ * @responsibility resultの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: ProjectRuntimeDecisionRecord | null
  * @returns resultの計算結果を返す。
@@ -266,9 +272,9 @@ function result(value: ProjectRuntimeDecisionRecord | null) {
   return Object.freeze({ status: "completed" as const, value });
 }
 /**
- * unknownの処理を実行する。
+ * unknownを決定する。
  *
- * @responsibility unknownに対応する入力処理と結果生成を所有する。
+ * @responsibility unknownの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns unknownの計算結果を返す。
@@ -286,9 +292,9 @@ function unknown() {
 }
 
 /**
- * withLockの処理を実行する。
+ * with Lockを決定する。
  *
- * @responsibility withLockに対応する入力処理と結果生成を所有する。
+ * @responsibility with Lockの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input expectedRoot: VerifiedRoot、acquire: (bindingHash: string) => Readonly<{ release: () => boolean }> | null、reobserve: () => VerifiedRoot | null、operation: (root: VerifiedRoot) => T
  * @returns T | nullを返す。
@@ -328,9 +334,9 @@ function withLock<T>(
 }
 
 /**
- * createStoreの処理を実行する。
+ * Storeを構築する。
  *
- * @responsibility createStoreに対応する入力処理と結果生成を所有する。
+ * @responsibility Storeの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input root: VerifiedRoot、acquire: (bindingHash: string) => Readonly<{ release: () => boolean }> | null、reobserve: () => VerifiedRoot | null
  * @returns createStoreの計算結果を返す。
@@ -350,9 +356,9 @@ function createStore(
 ) {
   const store: ProjectRuntimeDecisionStore = Object.freeze({
     /**
-     * createの処理を実行する。
+     * project-runtime-windows-decision-storeを構築する。
      *
-     * @responsibility createに対応する入力処理と結果生成を所有する。
+     * @responsibility project-runtime-windows-decision-storeの構築入力、生成結果、不正入力の拒否境界を所有する。
      * @trace ARCH-000004
      * @input record
      * @returns createの計算結果を返す。
@@ -392,9 +398,9 @@ function createStore(
       );
     },
     /**
-     * readの処理を実行する。
+     * project-runtime-windows-decision-storeを読み取る。
      *
-     * @responsibility readに対応する入力処理と結果生成を所有する。
+     * @responsibility project-runtime-windows-decision-storeの読取り元、上限、読取不能時の結果境界を所有する。
      * @trace ARCH-000004
      * @input recordId
      * @returns readの計算結果を返す。
@@ -416,9 +422,9 @@ function createStore(
       );
     },
     /**
-     * compareAndSetの処理を実行する。
+     * And Setを比較する。
      *
-     * @responsibility compareAndSetに対応する入力処理と結果生成を所有する。
+     * @responsibility And Setの比較軸、一致条件、差分結果の境界を所有する。
      * @trace ARCH-000004
      * @input expected、next
      * @returns compareAndSetの計算結果を返す。
@@ -473,9 +479,9 @@ function createStore(
 }
 
 /**
- * openRuntimeOwnedWindowsProjectDecisionStoreの処理を実行する。
+ * Runtime 所有 Windows Project Decision Storeを開始状態で開く。
  *
- * @responsibility openRuntimeOwnedWindowsProjectDecisionStoreに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Windows Project Decision Storeの開始条件、所有Resource、開始失敗境界を所有する。
  * @trace ARCH-000004
  * @input options: Readonly<{ developmentContext?: object; initializeIfMissing?: boolean; }>
  * @returns | Readonly<{ status: "completed"; store: ProjectRuntimeDecisionStore; principalId: string; }> | Readonly<{ status: "blocked"; store: null; principalId: null }>を返す。
@@ -519,9 +525,9 @@ export function openRuntimeOwnedWindowsProjectDecisionStore(
 }
 
 /**
- * createProjectRuntimeWindowsDecisionStoreTestingAdapterの処理を実行する。
+ * Project Runtime Windows Decision Store Testing Adapterを構築する。
  *
- * @responsibility createProjectRuntimeWindowsDecisionStoreTestingAdapterに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Windows Decision Store Testing Adapterの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input directory: string
  * @returns createProjectRuntimeWindowsDecisionStoreTestingAdapterの計算結果を返す。
@@ -556,9 +562,9 @@ export function createProjectRuntimeWindowsDecisionStoreTestingAdapter(
 }
 
 /**
- * describeProjectRuntimeWindowsDecisionStoreContractの処理を実行する。
+ * Project Runtime Windows Decision Store 契約の公開契約を記述する。
  *
- * @responsibility describeProjectRuntimeWindowsDecisionStoreContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Windows Decision Store 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProjectRuntimeWindowsDecisionStoreContractの計算結果を返す。

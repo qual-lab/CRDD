@@ -1,11 +1,17 @@
+/**
+ * docker-recovery-identityに属する責務をまとめる。
+ *
+ * @responsibility isSha256Hexを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 const DOCKER_TASK_RECOVERY_ID =
   /^docker-task\.([a-f0-9]{64})\.([a-f0-9]{64})\.([a-f0-9]{64})$/u;
 const SHA256_HEX = /^[a-f0-9]{64}$/u;
 
 /**
- * isSha256Hexの処理を実行する。
+ * Sha256 Hexかを判定する。
  *
- * @responsibility isSha256Hexに対応する入力処理と結果生成を所有する。
+ * @responsibility Sha256 Hexの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is stringを返す。
@@ -23,9 +29,9 @@ export function isSha256Hex(value: unknown): value is string {
 }
 
 /**
- * parseDockerTaskRecoveryIdの処理を実行する。
+ * Docker Task 回復 Idを構造化値へ解析する。
  *
- * @responsibility parseDockerTaskRecoveryIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Task 回復 Idの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown
  * @returns parseDockerTaskRecoveryIdの計算結果を返す。

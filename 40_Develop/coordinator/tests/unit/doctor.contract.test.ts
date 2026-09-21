@@ -6,7 +6,7 @@
  * @trace PRL-UT-014
  * @level UT
  * @scope doctor
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -32,7 +32,7 @@ import {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Node基準は24.12.0以上だけを受理する", () => {
   for (const version of ["24.12.0", "24.19.0", "25.0.0"]) {
@@ -53,7 +53,7 @@ test("Node基準は24.12.0以上だけを受理する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("全必須checkがconfirmedの場合だけpure集約はReadyを返す", () => {
   const checks: DiagnosticCheck[] = REQUIRED_CHECK_IDS.map((id) => ({
@@ -78,7 +78,7 @@ test("全必須checkがconfirmedの場合だけpure集約はReadyを返す", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("欠落、重複、未知および不正なcheckをfail closedにする", () => {
   const baseItems: DiagnosticCheck[] = REQUIRED_CHECK_IDS.map((id) => ({
@@ -117,7 +117,7 @@ test("欠落、重複、未知および不正なcheckをfail closedにする", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("passive discoveryは候補名を実行せず絶対Pathを公開しない", () => {
   const result = discoverCommand("definitely-not-a-provider-command");
@@ -136,7 +136,7 @@ test("passive discoveryは候補名を実行せず絶対Pathを公開しない",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("production doctorは通常Taskに不要な永続準備状態を公開しない", () => {
   const report = runDoctor({ activeIsolation: false, cwd: process.cwd() });
@@ -170,7 +170,7 @@ test("production doctorは通常Taskに不要な永続準備状態を公開し�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("doctor optionsは余分field、accessorおよびProxyを処置前に拒否する", () => {
   assert.throws(
@@ -206,7 +206,7 @@ test("doctor optionsは余分field、accessorおよびProxyを処置前に拒否
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Doctor診断失敗は理由コードだけを公開する", () => {
   const rendered = renderDoctorCommandFailure(

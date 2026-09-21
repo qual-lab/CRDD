@@ -1,3 +1,9 @@
+/**
+ * host-recovery-recordに属する責務をまとめる。
+ *
+ * @responsibility formatHostRecoveryTokenを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -6,9 +12,9 @@ import path from "node:path";
 const HOST_RECOVERY_DIRECTORY = "crdd-coordinator-recovery-v1";
 
 /**
- * formatHostRecoveryTokenの処理を実行する。
+ * Host 回復 Tokenを表示形式へ整形する。
  *
- * @responsibility formatHostRecoveryTokenに対応する入力処理と結果生成を所有する。
+ * @responsibility Host 回復 Tokenの入力値、表示規則、機密を含めない出力境界を所有する。
  * @trace ARCH-000008
  * @input rootName: string、nonce: string、recordHash: string
  * @returns formatHostRecoveryTokenの計算結果を返す。
@@ -30,9 +36,9 @@ export function formatHostRecoveryToken(
 }
 
 /**
- * parseHostRecoveryTokenの処理を実行する。
+ * Host 回復 Tokenを構造化値へ解析する。
  *
- * @responsibility parseHostRecoveryTokenに対応する入力処理と結果生成を所有する。
+ * @responsibility Host 回復 Tokenの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown
  * @returns parseHostRecoveryTokenの計算結果を返す。
@@ -61,9 +67,9 @@ export function parseHostRecoveryToken(token: unknown) {
 }
 
 /**
- * loadHostRecoveryRecordByTokenの処理を実行する。
+ * Host 回復 記録 By Tokenを読み込む。
  *
- * @responsibility loadHostRecoveryRecordByTokenに対応する入力処理と結果生成を所有する。
+ * @responsibility Host 回復 記録 By Tokenの読取り元、Schema検証、読取不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown
  * @returns loadHostRecoveryRecordByTokenの計算結果を返す。

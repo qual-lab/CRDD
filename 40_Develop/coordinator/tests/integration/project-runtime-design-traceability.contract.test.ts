@@ -6,7 +6,7 @@
  * @trace AIT-IT-008
  * @level IT
  * @scope project、runtime、design、traceability
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -30,7 +30,7 @@ const repositoryRoot = path.resolve(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 function repositoryReader(repositoryRelativePath: string): string | null {
   try {
@@ -53,7 +53,7 @@ function repositoryReader(repositoryRelativePath: string): string | null {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 function currentTrace(): Record<string, unknown> {
   return JSON.parse(
@@ -78,7 +78,7 @@ describe("Project Runtime design traceability", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
    */
   it("Interfaceから失敗注入・実装段階・検証までを閉じる", () => {
     assert.deepEqual(
@@ -112,7 +112,7 @@ describe("Project Runtime design traceability", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
    */
   it("孤立Interface、未知遷移、詳細設計の検証接続との不一致を一括拒否する", () => {
     const trace = structuredClone(currentTrace());
@@ -167,7 +167,7 @@ describe("Project Runtime design traceability", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
    */
   it("部分実装へ接続済みのInterfaceをplanned表示へ戻せない", () => {
     const trace = structuredClone(currentTrace());
@@ -198,7 +198,7 @@ describe("Project Runtime design traceability", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
    */
   it("人間向け正本だけにある設計・検証IDを双方向で拒否する", () => {
     const trace = currentTrace();
@@ -232,7 +232,7 @@ describe("Project Runtime design traceability", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
    */
   it("状態・資源・不変条件・実在Pathの参照切れを拒否する", () => {
     const trace = structuredClone(currentTrace());
@@ -291,7 +291,7 @@ describe("Project Runtime design traceability", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
    */
   it("遷移とLock・Authority・Effectの対応切れを一括拒否する", () => {
     const trace = structuredClone(currentTrace());
@@ -342,7 +342,7 @@ describe("Project Runtime design traceability", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
    */
   it("異質な遷移の和集合化とRecord時間関係の逆転を拒否する", () => {
     const trace = structuredClone(currentTrace());
@@ -405,7 +405,7 @@ describe("Project Runtime design traceability", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
    */
   it("未解決Recoveryからの通常復帰とEffect種別の混入を拒否する", () => {
     const trace = structuredClone(currentTrace());
@@ -461,7 +461,7 @@ describe("Project Runtime design traceability", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
    */
   it("遷移IDの名称ではなく状態構造からRecovery・取消・採用Effectを判定する", () => {
     const trace = structuredClone(currentTrace());
@@ -527,7 +527,7 @@ describe("Project Runtime design traceability", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
    */
   it("判断待ちからの再開とDecision lifecycleのAuthority迂回を拒否する", () => {
     const trace = structuredClone(currentTrace());
@@ -596,7 +596,7 @@ describe("Project Runtime design traceability", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
    */
   it("判断適用の原子性と継続Capability lifecycleの欠落を拒否する", () => {
     const trace = structuredClone(currentTrace());
@@ -686,7 +686,7 @@ describe("Project Runtime design traceability", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
    */
   it("保護Record protocolの段階欠落・順序逆転・Queue観測欠落を拒否する", () => {
     const trace = structuredClone(currentTrace());
@@ -799,7 +799,7 @@ describe("Project Runtime design traceability", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
    */
   it("保護Root観測不能時の独立Recovery Store欠落と架空遷移を拒否する", () => {
     const trace = structuredClone(currentTrace());
@@ -864,7 +864,7 @@ describe("Project Runtime design traceability", () => {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
    */
   it("回復意図の三者照合と継続Record先行収束の欠落を個別に拒否する", () => {
     const cases: Array<{

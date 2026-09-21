@@ -1,3 +1,9 @@
+/**
+ * verification-result-recordに属する責務をまとめる。
+ *
+ * @responsibility ownValueを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000003
+ */
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -109,9 +115,9 @@ const recoveryPairs = [
 ] as const;
 
 /**
- * ownValueの処理を実行する。
+ * own Valueを決定する。
  *
- * @responsibility ownValueに対応する入力処理と結果生成を所有する。
+ * @responsibility own Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000003
  * @input record: unknown、key: string
  * @returns unknownを返す。
@@ -143,9 +149,9 @@ function ownValue(record: unknown, key: string): unknown {
 }
 
 /**
- * knownの処理を実行する。
+ * knownを決定する。
  *
- * @responsibility knownに対応する入力処理と結果生成を所有する。
+ * @responsibility knownの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000003
  * @input value: unknown、allowed: ReadonlySet<string>
  * @returns knownの計算結果を返す。
@@ -165,7 +171,7 @@ function known(value: unknown, allowed: ReadonlySet<string>) {
 /**
  * Non-authoritative observation only. Never serialize the original object.
  *
- * @responsibility projectVerificationResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Verification 結果の公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000003
  * @input value: unknown、shouldIncludeChildren
  * @returns projectVerificationResultの計算結果を返す。
@@ -293,9 +299,9 @@ export function projectVerificationResult(
 }
 
 /**
- * DirectoryIdentityが扱う値の構造を表す。
+ * verification-result-recordで使用するDirectory Identityの値契約を定義する。
  *
- * @responsibility DirectoryIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Directory IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000003
  * @shape DirectoryIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DirectoryIdentityで宣言した値と責務の対応を維持する。
@@ -310,9 +316,9 @@ type DirectoryIdentity = Readonly<{
   birthtimeNs: bigint;
 }>;
 /**
- * observeDirectoryの処理を実行する。
+ * Directoryを観測する。
  *
- * @responsibility observeDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Directoryの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000003
  * @input target: string
  * @returns DirectoryIdentityを返す。
@@ -341,9 +347,9 @@ function observeDirectory(target: string): DirectoryIdentity {
   };
 }
 /**
- * recheckの処理を実行する。
+ * recheckを決定する。
  *
- * @responsibility recheckに対応する入力処理と結果生成を所有する。
+ * @responsibility recheckの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000003
  * @input directories: readonly DirectoryIdentity[]
  * @returns N/A: recheckは戻り値を返さない。
@@ -368,9 +374,9 @@ function recheck(directories: readonly DirectoryIdentity[]) {
   }
 }
 /**
- * lastDirectoryの処理を実行する。
+ * last Directoryを決定する。
  *
- * @responsibility lastDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility last Directoryの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000003
  * @input directories: readonly DirectoryIdentity[]
  * @returns lastDirectoryの計算結果を返す。
@@ -389,9 +395,9 @@ function lastDirectory(directories: readonly DirectoryIdentity[]) {
   return directory.target;
 }
 /**
- * writeNewRecordの処理を実行する。
+ * New 記録を書き込む。
  *
- * @responsibility writeNewRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility New 記録の書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000003
  * @input directories: readonly DirectoryIdentity[]、name: string、value: unknown
  * @returns writeNewRecordの計算結果を返す。
@@ -454,9 +460,9 @@ function writeNewRecord(
 }
 
 /**
- * runRecordedVerificationの処理を実行する。
+ * Recorded Verificationを実行する。
  *
- * @responsibility runRecordedVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility Recorded Verificationの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000003
  * @input kind: "routes" | "recovery" | "reviewer-boundary"、workingDirectory: string、executeVerification: () => Promise<T>、onException: () => E
  * @returns runRecordedVerificationの計算結果を返す。
@@ -589,9 +595,9 @@ export async function runRecordedVerification<T, E>(
 }
 
 /**
- * displayVerificationRecordingの処理を実行する。
+ * display Verification Recordingを決定する。
  *
- * @responsibility displayVerificationRecordingに対応する入力処理と結果生成を所有する。
+ * @responsibility display Verification Recordingの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000003
  * @input outcome: Readonly<{ recordId: string | null; recordingOutcome: string }>
  * @returns N/A: displayVerificationRecordingは戻り値を返さない。

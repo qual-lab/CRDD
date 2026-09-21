@@ -6,7 +6,7 @@
  * @trace PRL-UT-014
  * @level UT
  * @scope project、runtime、windows、platform、adapter
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import path from "node:path";
@@ -38,7 +38,7 @@ const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 function rootObservation() {
   const entityCount = 3;
@@ -72,7 +72,7 @@ function rootObservation() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 function operations(boundary: string): Readonly<Record<string, unknown>> {
   const adapter = createProjectRuntimeWindowsPlatformAdapter();
@@ -93,7 +93,7 @@ function operations(boundary: string): Readonly<Record<string, unknown>> {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Windows AdapterはPlatform契約の宣言と実操作を一致させる", () => {
   const adapter = createProjectRuntimeWindowsPlatformAdapter();
@@ -150,7 +150,7 @@ test("Windows AdapterはPlatform契約の宣言と実操作を一致させる", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("現在ProcessのPlatform familyは閉じた観測として返る", () => {
   assert.deepEqual(observeProjectRuntimePlatformFamily(), {
@@ -169,7 +169,7 @@ test("現在ProcessのPlatform familyは閉じた観測として返る", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Lease owner観測は現在Process・不存在・不正入力を区別する", () => {
   const observe = operations("lock_lease").observeLeaseOwner as (
@@ -205,7 +205,7 @@ test("Lease owner観測は現在Process・不存在・不正入力を区別す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Windows Adapterは完成保証だけを解決し、部分抽出境界を対応済みにしない", () => {
   const adapter = createProjectRuntimeWindowsPlatformAdapter();
@@ -249,7 +249,7 @@ test("Windows Adapterは完成保証だけを解決し、部分抽出境界を�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Repository Root解決は既存実装と同じ受理・拒否を閉結果で返す", () => {
   const group = operations("filesystem_repository");
@@ -279,7 +279,7 @@ test("Repository Root解決は既存実装と同じ受理・拒否を閉結果�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("子Process環境の導出は既存Profileと同一の値を閉結果で返す", () => {
   const group = operations("process_cancellation");
@@ -345,7 +345,7 @@ test("子Process環境の導出は既存Profileと同一の値を閉結果で返
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Runtime Root保護観測は既存実装と同一のHash候補・拒否を返す", () => {
   const group = operations("runtime_root_recovery");
@@ -373,7 +373,7 @@ test("Runtime Root保護観測は既存実装と同一のHash候補・拒否を�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Provider Home観測は既存実装と同一の閉じた拒否を返す", () => {
   const group = operations("principal_provider_home");
@@ -402,7 +402,7 @@ test("Provider Home観測は既存実装と同一の閉じた拒否を返す", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Container Host回復状態の観測は既存実装と同じ分類を返す", () => {
   const group = operations("container_host");

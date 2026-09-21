@@ -6,7 +6,7 @@
  * @trace ERP-UT-006
  * @level UT
  * @scope execution、intelligence、observation、aggregation
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -34,7 +34,7 @@ import {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("public observation helpers preserve values, absence and non-applicability", () => {
   assert.deepEqual(observed(12, "provider_receipt"), {
@@ -62,7 +62,7 @@ test("public observation helpers preserve values, absence and non-applicability"
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 function event(
   status: "completed" | "blocked" = "completed",
@@ -123,7 +123,7 @@ function event(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("creates a closed metadata-only event and preserves missing observations", () => {
   const created = event();
@@ -154,7 +154,7 @@ test("creates a closed metadata-only event and preserves missing observations", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("accepts stable provider and role identifiers without Coordinator ownership", () => {
   const created = event();
@@ -191,7 +191,7 @@ test("accepts stable provider and role identifiers without Coordinator ownership
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("aggregates observed facts without turning missing values into zero", () => {
   const summary = summarizeExecutionIntelligence([event()]);
@@ -216,7 +216,7 @@ test("aggregates observed facts without turning missing values into zero", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("preserves partially observed AI API usage without inventing cost or cache values", () => {
   const base = event();
@@ -254,7 +254,7 @@ test("preserves partially observed AI API usage without inventing cost or cache 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("accepts an explicit cost unit and rejects invalid usage members", () => {
   const base = event();
@@ -310,7 +310,7 @@ test("accepts an explicit cost unit and rejects invalid usage members", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("returns non-authoritative improvement candidates", () => {
   const proposal = proposeExecutionImprovementCandidates([event("blocked")]);
@@ -334,7 +334,7 @@ test("returns non-authoritative improvement candidates", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("rejects an invalid member instead of silently dropping it", () => {
   assert.equal(
@@ -359,7 +359,7 @@ test("rejects an invalid member instead of silently dropping it", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("公開Event検査はAccessor・Proxyを実行せずcanonical copyだけを返す", () => {
   const base = event();
@@ -401,7 +401,7 @@ test("公開Event検査はAccessor・Proxyを実行せずcanonical copyだけを
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("Event生成は入力を一度だけsnapshotしIdentityと決定的IDを一致させる", () => {
   const base = event();
@@ -441,7 +441,7 @@ test("Event生成は入力を一度だけsnapshotしIdentityと決定的IDを一
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 function evaluationInput() {
   /**
@@ -454,7 +454,7 @@ function evaluationInput() {
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+   * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
    */
   const observedCount = (value: number) => ({
     state: "observed" as const,
@@ -498,7 +498,7 @@ function evaluationInput() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("evaluates bounded work by the integrated accepted result rather than task success", () => {
   const result = evaluateBoundedIntegratedResult(evaluationInput());
@@ -522,7 +522,7 @@ test("evaluates bounded work by the integrated accepted result rather than task 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("preserves an unobserved integrated result and missing task evidence", () => {
   const base = evaluationInput();
@@ -552,7 +552,7 @@ test("preserves an unobserved integrated result and missing task evidence", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("rejects cross-project events and unknown evaluation fields", () => {
   const base = evaluationInput();
@@ -587,7 +587,7 @@ test("rejects cross-project events and unknown evaluation fields", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("限定統合入力はProxy・Accessor・疎な配列を例外なく拒否する", () => {
   const base = evaluationInput();
@@ -630,7 +630,7 @@ test("限定統合入力はProxy・Accessor・疎な配列を例外なく拒否�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("Provider集計はprototype名を通常の観測IDとして決定論的に数える", () => {
   const base = evaluationInput();
@@ -660,7 +660,7 @@ test("Provider集計はprototype名を通常の観測IDとして決定論的に�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("観測時間の合計が安全整数を越える場合は誤った数値を返さない", () => {
   /**
@@ -673,7 +673,7 @@ test("観測時間の合計が安全整数を越える場合は誤った数値�
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+   * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
    */
   const maximumEvent = (taskId: string) => {
     const base = event("completed", taskId);

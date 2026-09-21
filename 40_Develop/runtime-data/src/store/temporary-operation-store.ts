@@ -1,3 +1,9 @@
+/**
+ * temporary-operation-storeに属する責務をまとめる。
+ *
+ * @responsibility TemporaryOperationCapabilityを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000011
+ */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -18,9 +24,9 @@ const operations = new WeakMap<object, OperationRecord>();
 const promotionReceipts = new WeakMap<object, PromotionRecord>();
 
 /**
- * TemporaryOperationCapabilityが扱う値の構造を表す。
+ * temporary-operation-storeで使用するTemporary Operation Capabilityの値契約を定義する。
  *
- * @responsibility TemporaryOperationCapabilityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Temporary Operation CapabilityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000011
  * @shape TemporaryOperationCapabilityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TemporaryOperationCapabilityで宣言した値と責務の対応を維持する。
@@ -32,9 +38,9 @@ export type TemporaryOperationCapability = Readonly<{
   contract: "crdd/runtime-data/temporary-operation-capability/v1";
 }>;
 /**
- * TemporaryEvidencePromotionReceiptが扱う値の構造を表す。
+ * temporary-operation-storeで使用するTemporary Evidence Promotion Receiptの値契約を定義する。
  *
- * @responsibility TemporaryEvidencePromotionReceiptに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Temporary Evidence Promotion ReceiptのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000011
  * @shape TemporaryEvidencePromotionReceiptが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TemporaryEvidencePromotionReceiptで宣言した値と責務の対応を維持する。
@@ -46,9 +52,9 @@ export type TemporaryEvidencePromotionReceipt = Readonly<{
   contract: "crdd/runtime-data/temporary-evidence-promotion-receipt/v1";
 }>;
 /**
- * TemporaryOperationRecoveryReferenceが扱う値の構造を表す。
+ * temporary-operation-storeで使用するTemporary Operation 回復 Referenceの値契約を定義する。
  *
- * @responsibility TemporaryOperationRecoveryReferenceに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Temporary Operation 回復 ReferenceのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000011
  * @shape TemporaryOperationRecoveryReferenceが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TemporaryOperationRecoveryReferenceで宣言した値と責務の対応を維持する。
@@ -63,9 +69,9 @@ export type TemporaryOperationRecoveryReference = Readonly<{
   generation: number;
 }>;
 /**
- * OperationRecordが扱う値の構造を表す。
+ * temporary-operation-storeで使用するOperation 記録の値契約を定義する。
  *
- * @responsibility OperationRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Operation 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000011
  * @shape OperationRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant OperationRecordで宣言した値と責務の対応を維持する。
@@ -85,9 +91,9 @@ type OperationRecord = Readonly<{
   owner: string;
 }>;
 /**
- * PromotionRecordが扱う値の構造を表す。
+ * temporary-operation-storeで使用するPromotion 記録の値契約を定義する。
  *
- * @responsibility PromotionRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Promotion 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000011
  * @shape PromotionRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant PromotionRecordで宣言した値と責務の対応を維持する。
@@ -104,9 +110,9 @@ type PromotionRecord = Readonly<{
   target: string;
 }>;
 /**
- * TemporaryOperationInputが扱う値の構造を表す。
+ * temporary-operation-storeで使用するTemporary Operation 入力の値契約を定義する。
  *
- * @responsibility TemporaryOperationInputに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Temporary Operation 入力のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000011
  * @shape TemporaryOperationInputが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TemporaryOperationInputで宣言した値と責務の対応を維持する。
@@ -123,9 +129,9 @@ type TemporaryOperationInput = Readonly<{
   evidencePromotion: "required" | "not_required";
 }>;
 /**
- * TemporaryOperationDocumentが扱う値の構造を表す。
+ * temporary-operation-storeで使用するTemporary Operation Documentの値契約を定義する。
  *
- * @responsibility TemporaryOperationDocumentに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Temporary Operation DocumentのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000011
  * @shape TemporaryOperationDocumentが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TemporaryOperationDocumentで宣言した値と責務の対応を維持する。
@@ -148,9 +154,9 @@ type TemporaryOperationDocument = Readonly<{
   evidencePromotion: "required" | "not_required";
 }>;
 /**
- * LifecycleLockが扱う値の構造を表す。
+ * temporary-operation-storeで使用するLifecycle Lockの値契約を定義する。
  *
- * @responsibility LifecycleLockに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Lifecycle LockのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000011
  * @shape LifecycleLockが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LifecycleLockで宣言した値と責務の対応を維持する。
@@ -163,9 +169,9 @@ type LifecycleLock = Readonly<{
   identity: string;
 }>;
 /**
- * LifecycleLockDocumentが扱う値の構造を表す。
+ * temporary-operation-storeで使用するLifecycle Lock Documentの値契約を定義する。
  *
- * @responsibility LifecycleLockDocumentに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Lifecycle Lock DocumentのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000011
  * @shape LifecycleLockDocumentが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LifecycleLockDocumentで宣言した値と責務の対応を維持する。
@@ -181,9 +187,9 @@ type LifecycleLockDocument = Readonly<{
 }>;
 
 /**
- * isSafeDirectoryの処理を実行する。
+ * Safe Directoryかを判定する。
  *
- * @responsibility isSafeDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Safe Directoryの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000011
  * @input target: string
  * @returns booleanを返す。
@@ -205,9 +211,9 @@ function isSafeDirectory(target: string): boolean {
   );
 }
 /**
- * ensureDirectoryの処理を実行する。
+ * Directoryが成立する状態を確保する。
  *
- * @responsibility ensureDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Directoryの成立条件、作成または再利用、失敗時の非成立境界を所有する。
  * @trace ARCH-000011
  * @input target: string
  * @returns N/A: ensureDirectoryは戻り値を返さない。
@@ -230,9 +236,9 @@ function ensureDirectory(target: string): void {
     throw new Error("temporary_operation_boundary_invalid");
 }
 /**
- * validInputの処理を実行する。
+ * 入力が有効か判定する。
  *
- * @responsibility validInputに対応する入力処理と結果生成を所有する。
+ * @responsibility 入力の有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000011
  * @input input: TemporaryOperationInput
  * @returns booleanを返す。
@@ -264,9 +270,9 @@ function validInput(input: TemporaryOperationInput): boolean {
   );
 }
 /**
- * recoveryReferenceの処理を実行する。
+ * recovery Referenceを決定する。
  *
- * @responsibility recoveryReferenceに対応する入力処理と結果生成を所有する。
+ * @responsibility recovery Referenceの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000011
  * @input record: OperationRecord
  * @returns TemporaryOperationRecoveryReferenceを返す。
@@ -290,9 +296,9 @@ function recoveryReference(
   });
 }
 /**
- * inspectDocumentの処理を実行する。
+ * Documentを観測する。
  *
- * @responsibility inspectDocumentに対応する入力処理と結果生成を所有する。
+ * @responsibility Documentの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000011
  * @input value: unknown
  * @returns TemporaryOperationDocument | nullを返す。
@@ -362,9 +368,9 @@ function inspectDocument(value: unknown): TemporaryOperationDocument | null {
   return r as TemporaryOperationDocument;
 }
 /**
- * readDocumentの処理を実行する。
+ * Documentを読み取る。
  *
- * @responsibility readDocumentに対応する入力処理と結果生成を所有する。
+ * @responsibility Documentの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000011
  * @input documentPath: string
  * @returns TemporaryOperationDocumentを返す。
@@ -388,9 +394,9 @@ function readDocument(documentPath: string): TemporaryOperationDocument {
   return document;
 }
 /**
- * writeDocumentの処理を実行する。
+ * Documentを書き込む。
  *
- * @responsibility writeDocumentに対応する入力処理と結果生成を所有する。
+ * @responsibility Documentの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000011
  * @input documentPath: string、document: TemporaryOperationDocument
  * @returns N/A: writeDocumentは戻り値を返さない。
@@ -441,9 +447,9 @@ function writeDocument(
 }
 
 /**
- * createDocumentの処理を実行する。
+ * Documentを構築する。
  *
- * @responsibility createDocumentに対応する入力処理と結果生成を所有する。
+ * @responsibility Documentの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000011
  * @input documentPath: string、document: TemporaryOperationDocument、afterStagingDocumentCreated: () => void、afterStagingDocumentWritten: () => void、afterCanonicalDocumentLinked: () => void
  * @returns N/A: createDocumentは戻り値を返さない。
@@ -497,9 +503,9 @@ function createDocument(
 }
 
 /**
- * initialDocumentStagingPathの処理を実行する。
+ * initial Document Staging Pathを決定する。
  *
- * @responsibility initialDocumentStagingPathに対応する入力処理と結果生成を所有する。
+ * @responsibility initial Document Staging Pathの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000011
  * @input documentPath: string、reference: TemporaryOperationRecoveryReference
  * @returns stringを返す。
@@ -524,9 +530,9 @@ function initialDocumentStagingPath(
 }
 
 /**
- * removeConfirmedInitialDocumentStagingAliasの処理を実行する。
+ * Confirmed Initial Document Staging Aliasを除去する。
  *
- * @responsibility removeConfirmedInitialDocumentStagingAliasに対応する入力処理と結果生成を所有する。
+ * @responsibility Confirmed Initial Document Staging Aliasの対象Identity、除去条件、終了後状態の境界を所有する。
  * @trace ARCH-000011
  * @input documentPath: string、reference: TemporaryOperationRecoveryReference
  * @returns voidを返す。
@@ -577,9 +583,9 @@ function removeConfirmedInitialDocumentStagingAlias(
 }
 
 /**
- * processIsAliveの処理を実行する。
+ * process Is Aliveを決定する。
  *
- * @responsibility processIsAliveに対応する入力処理と結果生成を所有する。
+ * @responsibility process Is Aliveの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000011
  * @input processId: number
  * @returns processIsAliveの計算結果を返す。
@@ -601,9 +607,9 @@ function processIsAlive(processId: number) {
   }
 }
 /**
- * readLockDocumentの処理を実行する。
+ * Lock Documentを読み取る。
  *
- * @responsibility readLockDocumentに対応する入力処理と結果生成を所有する。
+ * @responsibility Lock Documentの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000011
  * @input target: string
  * @returns LifecycleLockDocument | nullを返す。
@@ -641,9 +647,9 @@ function readLockDocument(target: string): LifecycleLockDocument | null {
   }
 }
 /**
- * publishLockDocumentの処理を実行する。
+ * Lock Documentを公開する。
  *
- * @responsibility publishLockDocumentに対応する入力処理と結果生成を所有する。
+ * @responsibility Lock Documentの公開条件、公開範囲、未確定内容の非公開境界を所有する。
  * @trace ARCH-000011
  * @input controlRoot: string、operationId: string、document: LifecycleLockDocument、afterStagingLockCreated: () => void、afterStagingLockWritten: () => void、afterCanonicalLockLinked: () => void
  * @returns stringを返す。
@@ -705,9 +711,9 @@ function publishLockDocument(
   return target;
 }
 /**
- * removeLockFileの処理を実行する。
+ * Lock Fileを除去する。
  *
- * @responsibility removeLockFileに対応する入力処理と結果生成を所有する。
+ * @responsibility Lock Fileの対象Identity、除去条件、終了後状態の境界を所有する。
  * @trace ARCH-000011
  * @input target: string
  * @returns N/A: removeLockFileは戻り値を返さない。
@@ -724,9 +730,9 @@ function removeLockFile(target: string): void {
   fs.rmSync(target);
 }
 /**
- * updateLockDocumentの処理を実行する。
+ * Lock Documentを更新する。
  *
- * @responsibility updateLockDocumentに対応する入力処理と結果生成を所有する。
+ * @responsibility Lock Documentの更新対象、競合条件、更新結果の境界を所有する。
  * @trace ARCH-000011
  * @input target: string、document: LifecycleLockDocument
  * @returns N/A: updateLockDocumentは戻り値を返さない。
@@ -771,9 +777,9 @@ function updateLockDocument(
   }
 }
 /**
- * acquireLockの処理を実行する。
+ * Lockを取得する。
  *
- * @responsibility acquireLockに対応する入力処理と結果生成を所有する。
+ * @responsibility Lockの取得条件、所有権、失敗時の非取得境界を所有する。
  * @trace ARCH-000011
  * @input controlRoot: string、operationId: string、identity: string、afterStagingLockCreated: () => void、afterStagingLockWritten: () => void、afterCanonicalLockLinked: () => void
  * @returns LifecycleLockを返す。
@@ -833,9 +839,9 @@ function acquireLock(
   throw new Error("temporary_operation_lifecycle_busy");
 }
 /**
- * releaseLockの処理を実行する。
+ * Lockを解放する。
  *
- * @responsibility releaseLockに対応する入力処理と結果生成を所有する。
+ * @responsibility Lockの所有権、解放条件、終了後不存在の確認境界を所有する。
  * @trace ARCH-000011
  * @input lock: LifecycleLock、remove: (target: string) => void
  * @returns booleanを返す。
@@ -872,9 +878,9 @@ function releaseLock(
   }
 }
 /**
- * issueCapabilityの処理を実行する。
+ * Capabilityを発行する。
  *
- * @responsibility issueCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Capabilityの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000011
  * @input controlRoot: string、directory: string、documentPath: string、document: TemporaryOperationDocument
  * @returns issueCapabilityの計算結果を返す。
@@ -912,9 +918,9 @@ function issueCapability(
 }
 
 /**
- * createTemporaryOperationInternalの処理を実行する。
+ * Temporary Operation Internalを構築する。
  *
- * @responsibility createTemporaryOperationInternalに対応する入力処理と結果生成を所有する。
+ * @responsibility Temporary Operation Internalの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000011
  * @input rootCapability: VerifiedRepositoryRoot、input: TemporaryOperationInput、afterStagingDocumentCreated: () => void、afterStagingDocumentWritten: () => void、afterCanonicalDocumentLinked: () => void、afterControlDocumentPublished: () => void
  * @returns createTemporaryOperationInternalの計算結果を返す。
@@ -1076,9 +1082,9 @@ function createTemporaryOperationInternal(
 }
 
 /**
- * createTemporaryOperationの処理を実行する。
+ * Temporary Operationを構築する。
  *
- * @responsibility createTemporaryOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility Temporary Operationの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000011
  * @input rootCapability: VerifiedRepositoryRoot、input: TemporaryOperationInput
  * @returns createTemporaryOperationの計算結果を返す。
@@ -1108,7 +1114,7 @@ export function createTemporaryOperation(
 /**
  * Direct-file verification seam; intentionally omitted from the public index.
  *
- * @responsibility createTemporaryOperationWithInterruptionForVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility Temporary Operation With Interruption For Verificationの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000011
  * @input rootCapability: VerifiedRepositoryRoot、input: TemporaryOperationInput、phase: | "after_staging_created" | "after_staging" | "after_staging_linked" | "after_control"、interrupt: () => void
  * @returns createTemporaryOperationWithInterruptionForVerificationの計算結果を返す。
@@ -1142,9 +1148,9 @@ export function createTemporaryOperationWithInterruptionForVerification(
 }
 
 /**
- * resumeTemporaryOperationInternalの処理を実行する。
+ * resume Temporary Operation Internalを決定する。
  *
- * @responsibility resumeTemporaryOperationInternalに対応する入力処理と結果生成を所有する。
+ * @responsibility resume Temporary Operation Internalの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000011
  * @input rootCapability: VerifiedRepositoryRoot、reference: TemporaryOperationRecoveryReference、nextIdentity: string、afterStagingLockCreated: () => void、afterStagingLockWritten: () => void、afterCanonicalLockLinked: () => void、afterNextGenerationPublished: () => void
  * @returns resumeTemporaryOperationInternalの計算結果を返す。
@@ -1352,9 +1358,9 @@ function resumeTemporaryOperationInternal(
 }
 
 /**
- * resumeTemporaryOperationの処理を実行する。
+ * resume Temporary Operationを決定する。
  *
- * @responsibility resumeTemporaryOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility resume Temporary Operationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000011
  * @input rootCapability: VerifiedRepositoryRoot、reference: TemporaryOperationRecoveryReference、nextIdentity: string
  * @returns resumeTemporaryOperationの計算結果を返す。
@@ -1386,7 +1392,7 @@ export function resumeTemporaryOperation(
 /**
  * Direct-file verification seam; intentionally omitted from the public index.
  *
- * @responsibility resumeTemporaryOperationWithInterruptionForVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility temporary-operation-storeの入力からresume Temporary Operation With Interruption For Verificationを導く規則と結果境界を所有する。
  * @trace ARCH-000011
  * @input rootCapability: VerifiedRepositoryRoot、reference: TemporaryOperationRecoveryReference、nextIdentity: string、phase: | "after_lock_staging_created" | "after_lock_staging" | "after_lock_linked" | "after_generation"、afterNextGenerationPublished: () => void
  * @returns resumeTemporaryOperationWithInterruptionForVerificationの計算結果を返す。
@@ -1424,9 +1430,9 @@ export function resumeTemporaryOperationWithInterruptionForVerification(
 }
 
 /**
- * verifyTemporaryOperationEvidencePromotionの処理を実行する。
+ * Temporary Operation Evidence Promotionを検証する。
  *
- * @responsibility verifyTemporaryOperationEvidencePromotionに対応する入力処理と結果生成を所有する。
+ * @responsibility Temporary Operation Evidence Promotionの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000011
  * @input rootCapability: VerifiedRepositoryRoot、capability: TemporaryOperationCapability、input: Readonly<{ recordId: string; artifactName: string; sha256: string }>
  * @returns verifyTemporaryOperationEvidencePromotionの計算結果を返す。
@@ -1518,9 +1524,9 @@ export function verifyTemporaryOperationEvidencePromotion(
 }
 
 /**
- * settleTemporaryOperationWithRemovalの処理を実行する。
+ * Temporary Operation With Removalを終端状態へ確定する。
  *
- * @responsibility settleTemporaryOperationWithRemovalに対応する入力処理と結果生成を所有する。
+ * @responsibility Temporary Operation With Removalの確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000011
  * @input capability: TemporaryOperationCapability、outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost"、promotionReceipt: TemporaryEvidencePromotionReceipt | null、removeDirectory: (directory: string) => void、removeLifecycleLock: (target: string) => void
  * @returns settleTemporaryOperationWithRemovalの計算結果を返す。
@@ -1675,9 +1681,9 @@ function settleTemporaryOperationWithRemoval(
 }
 
 /**
- * settleTemporaryOperationの処理を実行する。
+ * Temporary Operationを終端状態へ確定する。
  *
- * @responsibility settleTemporaryOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility Temporary Operationの確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000011
  * @input capability: TemporaryOperationCapability、outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost"、promotionReceipt: TemporaryEvidencePromotionReceipt | null
  * @returns settleTemporaryOperationの計算結果を返す。
@@ -1706,7 +1712,7 @@ export function settleTemporaryOperation(
 /**
  * Internal contract-test entry; omitted from the package public index.
  *
- * @responsibility settleTemporaryOperationWithRemovalForVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility Temporary Operation With Removal For Verificationの確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000011
  * @input capability: TemporaryOperationCapability、outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost"、promotionReceipt: TemporaryEvidencePromotionReceipt | null、removeDirectory: (directory: string) => void、removeLifecycleLock: (target: string) => void
  * @returns settleTemporaryOperationWithRemovalForVerificationの計算結果を返す。

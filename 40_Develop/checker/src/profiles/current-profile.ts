@@ -1,4 +1,10 @@
 /**
+ * current-profileに属する責務をまとめる。
+ *
+ * @responsibility Findingを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000001
+ */
+/**
  * CRDDの決定論的な文書・配置確認。
  *
  * このツールは文書監査、準拠監査、不足／影響監査、専門品質確認を
@@ -24,9 +30,9 @@ import { currentProfileRules } from "../rules/current-profile.ts";
 import { realitySymbolGraphRule } from "../rules/reality-symbol-graph.ts";
 
 /**
- * Findingが扱う値の構造を表す。
+ * current-profileで使用するFindingの値契約を定義する。
  *
- * @responsibility Findingに必要な値と制約を一つの型契約として保持する。
+ * @responsibility FindingのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape Findingが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Findingで宣言した値と責務の対応を維持する。
@@ -42,9 +48,9 @@ type Finding = Readonly<{
 }>;
 
 /**
- * BaselineSubmoduleStateが扱う値の構造を表す。
+ * current-profileで使用するBaseline Submodule 状態の値契約を定義する。
  *
- * @responsibility BaselineSubmoduleStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Baseline Submodule 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape BaselineSubmoduleStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant BaselineSubmoduleStateで宣言した値と責務の対応を維持する。
@@ -65,9 +71,9 @@ type BaselineSubmoduleState = Readonly<{
 }>;
 
 /**
- * Discoveryが扱う値の構造を表す。
+ * current-profileで使用するDiscoveryの値契約を定義する。
  *
- * @responsibility Discoveryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility DiscoveryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape Discoveryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Discoveryで宣言した値と責務の対応を維持する。
@@ -89,9 +95,9 @@ type Discovery = Readonly<{
 }>;
 
 /**
- * GitlinkEntryが扱う値の構造を表す。
+ * current-profileで使用するGitlink Entryの値契約を定義する。
  *
- * @responsibility GitlinkEntryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Gitlink EntryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape GitlinkEntryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant GitlinkEntryで宣言した値と責務の対応を維持する。
@@ -101,9 +107,9 @@ type Discovery = Readonly<{
  */
 type GitlinkEntry = Readonly<{ path: string; oid: string }>;
 /**
- * MarkdownEntryが扱う値の構造を表す。
+ * current-profileで使用するMarkdown Entryの値契約を定義する。
  *
- * @responsibility MarkdownEntryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Markdown EntryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape MarkdownEntryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant MarkdownEntryで宣言した値と責務の対応を維持する。
@@ -118,9 +124,9 @@ type MarkdownEntry = {
   fenceId: number | null;
 };
 /**
- * MarkdownFenceが扱う値の構造を表す。
+ * current-profileで使用するMarkdown Fenceの値契約を定義する。
  *
- * @responsibility MarkdownFenceに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Markdown FenceのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape MarkdownFenceが表すProperty、識別子およびRelationを型として固定する。
  * @invariant MarkdownFenceで宣言した値と責務の対応を維持する。
@@ -139,9 +145,9 @@ type MarkdownFence = {
   contents: MarkdownEntry[];
 };
 /**
- * ReleaseSectionが扱う値の構造を表す。
+ * current-profileで使用するRelease Sectionの値契約を定義する。
  *
- * @responsibility ReleaseSectionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Release SectionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape ReleaseSectionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ReleaseSectionで宣言した値と責務の対応を維持する。
@@ -155,9 +161,9 @@ type ReleaseSection = Readonly<{
   entries: MarkdownEntry[];
 }>;
 /**
- * LocalLinkResolutionが扱う値の構造を表す。
+ * current-profileで使用するLocal Link Resolutionの値契約を定義する。
  *
- * @responsibility LocalLinkResolutionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Local Link ResolutionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape LocalLinkResolutionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LocalLinkResolutionで宣言した値と責務の対応を維持する。
@@ -175,9 +181,9 @@ type LocalLinkResolution = Readonly<{
   symbolicBoundary: boolean;
 }>;
 /**
- * LinkResolutionが扱う値の構造を表す。
+ * current-profileで使用するLink Resolutionの値契約を定義する。
  *
- * @responsibility LinkResolutionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Link ResolutionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape LinkResolutionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LinkResolutionで宣言した値と責務の対応を維持する。
@@ -196,9 +202,9 @@ type LinkResolution =
       outsideRoot: false;
     }>;
 /**
- * LinkRecordが扱う値の構造を表す。
+ * current-profileで使用するLink 記録の値契約を定義する。
  *
- * @responsibility LinkRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Link 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape LinkRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LinkRecordで宣言した値と責務の対応を維持する。
@@ -216,9 +222,9 @@ type LinkRecord = LinkResolution &
   }>;
 
 /**
- * errorCodeの処理を実行する。
+ * error Codeを決定する。
  *
- * @responsibility errorCodeに対応する入力処理と結果生成を所有する。
+ * @responsibility error Codeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000001
  * @input error: unknown
  * @returns string | nullを返す。
@@ -238,9 +244,9 @@ function errorCode(error: unknown): string | null {
 }
 
 /**
- * CheckerRunRequestが扱う値の構造を表す。
+ * current-profileで使用するChecker Run Requestの値契約を定義する。
  *
- * @responsibility CheckerRunRequestに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Checker Run RequestのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape CheckerRunRequestが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CheckerRunRequestで宣言した値と責務の対応を維持する。
@@ -256,9 +262,9 @@ export type CheckerRunRequest = Readonly<{
 }>;
 
 /**
- * CheckerResultが扱う値の構造を表す。
+ * current-profileで使用するChecker 結果の値契約を定義する。
  *
- * @responsibility CheckerResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Checker 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape CheckerResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CheckerResultで宣言した値と責務の対応を維持する。
@@ -294,9 +300,9 @@ class CheckerCommandExit extends Error {
 }
 
 /**
- * runCurrentProfileCheckerの処理を実行する。
+ * Current Profile Checkerを実行する。
  *
- * @responsibility runCurrentProfileCheckerに対応する入力処理と結果生成を所有する。
+ * @responsibility Current Profile Checkerの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000001
  * @input request: CheckerRunRequest
  * @returns CheckerResultを返す。
@@ -323,9 +329,9 @@ export function runCurrentProfileChecker(
     let referencesValue: string | null = null;
 
     /**
-     * cliErrorの処理を実行する。
+     * cli Errorを決定する。
      *
-     * @responsibility cliErrorに対応する入力処理と結果生成を所有する。
+     * @responsibility cli Errorの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input message: string
      * @returns neverを返す。
@@ -378,9 +384,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * lstatIfPresentの処理を実行する。
+     * lstat If Presentを決定する。
      *
-     * @responsibility lstatIfPresentに対応する入力処理と結果生成を所有する。
+     * @responsibility lstat If Presentの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input target: string
      * @returns fs.Stats | nullを返す。
@@ -403,9 +409,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * pathContainsSymbolicLinkの処理を実行する。
+     * path Contains Symbolic Linkを決定する。
      *
-     * @responsibility pathContainsSymbolicLinkに対応する入力処理と結果生成を所有する。
+     * @responsibility path Contains Symbolic Linkの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input target: string
      * @returns booleanを返す。
@@ -433,9 +439,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * samePathの処理を実行する。
+     * Pathが同一かを判定する。
      *
-     * @responsibility samePathに対応する入力処理と結果生成を所有する。
+     * @responsibility Pathの同一性Propertyと一致／不一致境界を所有する。
      * @trace ARCH-000001
      * @input left: string、right: string
      * @returns booleanを返す。
@@ -453,9 +459,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * isInitializedBaselineWithoutGitの処理を実行する。
+     * Initialized Baseline Without Gitかを判定する。
      *
-     * @responsibility isInitializedBaselineWithoutGitに対応する入力処理と結果生成を所有する。
+     * @responsibility Initialized Baseline Without Gitの判定条件とtrue／false境界を所有する。
      * @trace ARCH-000001
      * @input baselineRoot: string
      * @returns booleanを返す。
@@ -485,9 +491,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * decodeGitConfigValueの処理を実行する。
+     * Git Config Valueを検証済み値へ復号する。
      *
-     * @responsibility decodeGitConfigValueに対応する入力処理と結果生成を所有する。
+     * @responsibility Git Config Valueの入力形式、復号結果、不正byte列の拒否境界を所有する。
      * @trace ARCH-000001
      * @input value: string
      * @returns string | nullを返す。
@@ -535,9 +541,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * fallbackDeclaredSubmodulePathsの処理を実行する。
+     * fallback Declared Submodule Pathsを決定する。
      *
-     * @responsibility fallbackDeclaredSubmodulePathsに対応する入力処理と結果生成を所有する。
+     * @responsibility fallback Declared Submodule Pathsの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input file: string
      * @returns Readonly<{ paths: string[]; readable: boolean; }>を返す。
@@ -646,9 +652,9 @@ export function runCurrentProfileChecker(
     const read = (file: string) => fs.readFileSync(file, "utf8");
 
     /**
-     * checkWorkLifecycleNavigationの処理を実行する。
+     * Work Lifecycle Navigationを検査する。
      *
-     * @responsibility checkWorkLifecycleNavigationに対応する入力処理と結果生成を所有する。
+     * @responsibility Work Lifecycle Navigationの検査条件、違反分類、検査結果境界を所有する。
      * @trace ARCH-000001
      * @input N/A: 実行時引数を受け取らない。
      * @returns voidを返す。
@@ -1544,9 +1550,9 @@ export function runCurrentProfileChecker(
     ];
 
     /**
-     * checklistItemTextの処理を実行する。
+     * checklist Item Textを決定する。
      *
-     * @responsibility checklistItemTextに対応する入力処理と結果生成を所有する。
+     * @responsibility checklist Item Textの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input line: string
      * @returns string | nullを返す。
@@ -1569,9 +1575,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * completedVisibleChecklistErrorの処理を実行する。
+     * completed Visible Checklist Errorを決定する。
      *
-     * @responsibility completedVisibleChecklistErrorに対応する入力処理と結果生成を所有する。
+     * @responsibility completed Visible Checklist Errorの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input markdown: string、expectedItems: readonly string[]
      * @returns string | nullを返す。
@@ -1620,9 +1626,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * templateVisibleChecklistErrorの処理を実行する。
+     * template Visible Checklist Errorを決定する。
      *
-     * @responsibility templateVisibleChecklistErrorに対応する入力処理と結果生成を所有する。
+     * @responsibility template Visible Checklist Errorの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input markdown: string、expectedItems: readonly string[]
      * @returns string | nullを返す。
@@ -1682,9 +1688,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * checkUxRequirementAnalysisの処理を実行する。
+     * Ux Requirement Analysisを検査する。
      *
-     * @responsibility checkUxRequirementAnalysisに対応する入力処理と結果生成を所有する。
+     * @responsibility Ux Requirement Analysisの検査条件、違反分類、検査結果境界を所有する。
      * @trace ARCH-000001
      * @input N/A: 実行時引数を受け取らない。
      * @returns voidを返す。
@@ -2673,9 +2679,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * checkIaReconstructionの処理を実行する。
+     * Ia Reconstructionを検査する。
      *
-     * @responsibility checkIaReconstructionに対応する入力処理と結果生成を所有する。
+     * @responsibility Ia Reconstructionの検査条件、違反分類、検査結果境界を所有する。
      * @trace ARCH-000001
      * @input N/A: 実行時引数を受け取らない。
      * @returns voidを返す。
@@ -3393,9 +3399,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * checkUiReconstructionの処理を実行する。
+     * Ui Reconstructionを検査する。
      *
-     * @responsibility checkUiReconstructionに対応する入力処理と結果生成を所有する。
+     * @responsibility Ui Reconstructionの検査条件、違反分類、検査結果境界を所有する。
      * @trace ARCH-000001
      * @input N/A: 実行時引数を受け取らない。
      * @returns voidを返す。
@@ -3877,9 +3883,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * checkSpecReconstructionの処理を実行する。
+     * Spec Reconstructionを検査する。
      *
-     * @responsibility checkSpecReconstructionに対応する入力処理と結果生成を所有する。
+     * @responsibility Spec Reconstructionの検査条件、違反分類、検査結果境界を所有する。
      * @trace ARCH-000001
      * @input N/A: 実行時引数を受け取らない。
      * @returns voidを返す。
@@ -4767,9 +4773,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * checkArchitectureReconstructionの処理を実行する。
+     * Architecture Reconstructionを検査する。
      *
-     * @responsibility checkArchitectureReconstructionに対応する入力処理と結果生成を所有する。
+     * @responsibility Architecture Reconstructionの検査条件、違反分類、検査結果境界を所有する。
      * @trace ARCH-000001
      * @input N/A: 実行時引数を受け取らない。
      * @returns voidを返す。
@@ -5808,9 +5814,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * checkQualityReconstructionの処理を実行する。
+     * Quality Reconstructionを検査する。
      *
-     * @responsibility checkQualityReconstructionに対応する入力処理と結果生成を所有する。
+     * @responsibility Quality Reconstructionの検査条件、違反分類、検査結果境界を所有する。
      * @trace ARCH-000001
      * @input N/A: 実行時引数を受け取らない。
      * @returns voidを返す。
@@ -7649,9 +7655,9 @@ export function runCurrentProfileChecker(
     ];
 
     /**
-     * changeTraceRootForの処理を実行する。
+     * change Trace Root Forを決定する。
      *
-     * @responsibility changeTraceRootForに対応する入力処理と結果生成を所有する。
+     * @responsibility change Trace Root Forの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input file: string
      * @returns string | nullを返す。
@@ -7682,9 +7688,9 @@ export function runCurrentProfileChecker(
       return null;
     }
     /**
-     * isEvidenceFileの処理を実行する。
+     * Evidence Fileかを判定する。
      *
-     * @responsibility isEvidenceFileに対応する入力処理と結果生成を所有する。
+     * @responsibility Evidence Fileの判定条件とtrue／false境界を所有する。
      * @trace ARCH-000001
      * @input file: string
      * @returns booleanを返す。
@@ -7706,9 +7712,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * declaredChangeTraceIdの処理を実行する。
+     * declared Change Trace Idを決定する。
      *
-     * @responsibility declaredChangeTraceIdに対応する入力処理と結果生成を所有する。
+     * @responsibility declared Change Trace Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input file: string
      * @returns string | nullを返す。
@@ -7731,9 +7737,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * hasChangeTraceDefinitionSignatureの処理を実行する。
+     * Change Trace Definition Signatureが存在するかを判定する。
      *
-     * @responsibility hasChangeTraceDefinitionSignatureに対応する入力処理と結果生成を所有する。
+     * @responsibility Change Trace Definition Signatureの存在条件とtrue／false境界を所有する。
      * @trace ARCH-000001
      * @input file: string
      * @returns booleanを返す。
@@ -7756,9 +7762,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * walkの処理を実行する。
+     * walkを決定する。
      *
-     * @responsibility walkに対応する入力処理と結果生成を所有する。
+     * @responsibility walkの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input directory: string、predicate: (file: string) => boolean、excludedDirectories: ReadonlySet<string>、excludedPaths: string[]、excludedLinks: string[]、unavailableDirectories: Set<string>、excludedDirectoryPaths: ReadonlySet<string>
      * @returns string[]を返す。
@@ -7781,9 +7787,9 @@ export function runCurrentProfileChecker(
       excludedDirectoryPaths: ReadonlySet<string> = new Set<string>(),
     ): string[] {
       /**
-       * failの処理を実行する。
+       * current-profileを失敗として終了させる。
        *
-       * @responsibility failに対応する入力処理と結果生成を所有する。
+       * @responsibility current-profileの失敗条件、診断情報、終了結果境界を所有する。
        * @trace ARCH-000001
        * @input code: string、message: string
        * @returns nullを返す。
@@ -7804,9 +7810,9 @@ export function runCurrentProfileChecker(
       }
 
       /**
-       * inspectDirectoryの処理を実行する。
+       * Directoryを観測する。
        *
-       * @responsibility inspectDirectoryに対応する入力処理と結果生成を所有する。
+       * @responsibility Directoryの観測対象、取得根拠、観測不能結果の境界を所有する。
        * @trace ARCH-000001
        * @input N/A: 実行時引数を受け取らない。
        * @returns fs.Stats | nullを返す。
@@ -7925,9 +7931,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * discoverProjectFilesの処理を実行する。
+     * Project Filesを探索する。
      *
-     * @responsibility discoverProjectFilesに対応する入力処理と結果生成を所有する。
+     * @responsibility Project Filesの探索Root、対象母集団、未観測境界を所有する。
      * @trace ARCH-000001
      * @input N/A: 実行時引数を受け取らない。
      * @returns Discoveryを返す。
@@ -8199,9 +8205,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * markdownCodePointBeforeの処理を実行する。
+     * markdown Code Point Beforeを決定する。
      *
-     * @responsibility markdownCodePointBeforeに対応する入力処理と結果生成を所有する。
+     * @responsibility markdown Code Point Beforeの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input value: string、index: number
      * @returns stringを返す。
@@ -8219,9 +8225,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * markdownCodePointAfterの処理を実行する。
+     * markdown Code Point Afterを決定する。
      *
-     * @responsibility markdownCodePointAfterに対応する入力処理と結果生成を所有する。
+     * @responsibility markdown Code Point Afterの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input value: string、index: number
      * @returns stringを返す。
@@ -8239,9 +8245,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * markdownWhitespaceの処理を実行する。
+     * markdown Whitespaceを決定する。
      *
-     * @responsibility markdownWhitespaceに対応する入力処理と結果生成を所有する。
+     * @responsibility markdown Whitespaceの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input value: string
      * @returns booleanを返す。
@@ -8259,9 +8265,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * markdownPunctuationの処理を実行する。
+     * markdown Punctuationを決定する。
      *
-     * @responsibility markdownPunctuationに対応する入力処理と結果生成を所有する。
+     * @responsibility markdown Punctuationの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input value: string
      * @returns booleanを返す。
@@ -8283,9 +8289,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * underscoreFlankingの処理を実行する。
+     * underscore Flankingを決定する。
      *
-     * @responsibility underscoreFlankingに対応する入力処理と結果生成を所有する。
+     * @responsibility underscore Flankingの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input value: string、index: number、length: number
      * @returns underscoreFlankingの計算結果を返す。
@@ -8318,9 +8324,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * underscoreCanOpenの処理を実行する。
+     * underscore Can Openを決定する。
      *
-     * @responsibility underscoreCanOpenに対応する入力処理と結果生成を所有する。
+     * @responsibility underscore Can Openの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input value: string、index: number、length: number
      * @returns booleanを返す。
@@ -8345,9 +8351,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * underscoreCanCloseの処理を実行する。
+     * underscore Can Closeを決定する。
      *
-     * @responsibility underscoreCanCloseに対応する入力処理と結果生成を所有する。
+     * @responsibility underscore Can Closeの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input value: string、index: number、length: number
      * @returns booleanを返す。
@@ -8370,9 +8376,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * delimiterRunLengthの処理を実行する。
+     * delimiter Run Lengthを決定する。
      *
-     * @responsibility delimiterRunLengthに対応する入力処理と結果生成を所有する。
+     * @responsibility delimiter Run Lengthの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input value: string、start: number、character: string
      * @returns numberを返す。
@@ -8396,9 +8402,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * closingDelimiterの処理を実行する。
+     * closing Delimiterを決定する。
      *
-     * @responsibility closingDelimiterに対応する入力処理と結果生成を所有する。
+     * @responsibility closing Delimiterの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input value: string、delimiter: string、start: number
      * @returns numberを返す。
@@ -8434,9 +8440,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * backtickRunLengthの処理を実行する。
+     * backtick Run Lengthを決定する。
      *
-     * @responsibility backtickRunLengthに対応する入力処理と結果生成を所有する。
+     * @responsibility backtick Run Lengthの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input value: string、start: number
      * @returns numberを返す。
@@ -8456,9 +8462,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * closingBackticksの処理を実行する。
+     * closing Backticksを決定する。
      *
-     * @responsibility closingBackticksに対応する入力処理と結果生成を所有する。
+     * @responsibility closing Backticksの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input value: string、start: number、length: number
      * @returns numberを返す。
@@ -8490,9 +8496,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * normalizedCodeSpanの処理を実行する。
+     * Code Spanを固定Schemaへ正規化する。
      *
-     * @responsibility normalizedCodeSpanに対応する入力処理と結果生成を所有する。
+     * @responsibility Code Spanの入力検証、正規化規則、不正値の拒否境界を所有する。
      * @trace ARCH-000001
      * @input value: string
      * @returns stringを返す。
@@ -8514,9 +8520,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * githubHeadingTextの処理を実行する。
+     * github Heading Textを決定する。
      *
-     * @responsibility githubHeadingTextに対応する入力処理と結果生成を所有する。
+     * @responsibility github Heading Textの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input value: string
      * @returns stringを返す。
@@ -8619,9 +8625,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * githubAnchorの処理を実行する。
+     * github Anchorを決定する。
      *
-     * @responsibility githubAnchorに対応する入力処理と結果生成を所有する。
+     * @responsibility github Anchorの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input value: string
      * @returns stringを返す。
@@ -8643,9 +8649,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * anchorsForの処理を実行する。
+     * anchors Forを決定する。
      *
-     * @responsibility anchorsForに対応する入力処理と結果生成を所有する。
+     * @responsibility anchors Forの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input file: string
      * @returns Set<string>を返す。
@@ -8663,9 +8669,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * anchorsForTextの処理を実行する。
+     * anchors For Textを決定する。
      *
-     * @responsibility anchorsForTextに対応する入力処理と結果生成を所有する。
+     * @responsibility anchors For Textの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input content: string
      * @returns Set<string>を返す。
@@ -8705,9 +8711,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * withoutFencedCodeの処理を実行する。
+     * without Fenced Codeを決定する。
      *
-     * @responsibility withoutFencedCodeに対応する入力処理と結果生成を所有する。
+     * @responsibility without Fenced Codeの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input text: string
      * @returns stringを返す。
@@ -8753,9 +8759,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * visibleMarkdownStructureの処理を実行する。
+     * visible Markdown Structureを決定する。
      *
-     * @responsibility visibleMarkdownStructureに対応する入力処理と結果生成を所有する。
+     * @responsibility visible Markdown Structureの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input text: string
      * @returns stringを返す。
@@ -8832,9 +8838,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * visibleMarkdownIncludingFencedCodeの処理を実行する。
+     * visible Markdown Including Fenced Codeを決定する。
      *
-     * @responsibility visibleMarkdownIncludingFencedCodeに対応する入力処理と結果生成を所有する。
+     * @responsibility visible Markdown Including Fenced Codeの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input text: string
      * @returns stringを返す。
@@ -8908,9 +8914,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * markdownLinkTargetsの処理を実行する。
+     * markdown Link Targetsを決定する。
      *
-     * @responsibility markdownLinkTargetsに対応する入力処理と結果生成を所有する。
+     * @responsibility markdown Link Targetsの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input text: string
      * @returns string[]を返す。
@@ -8951,9 +8957,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * FormalInputTargetが扱う値の構造を表す。
+     * current-profileで使用するFormal 入力 Targetの値契約を定義する。
      *
-     * @responsibility FormalInputTargetに必要な値と制約を一つの型契約として保持する。
+     * @responsibility Formal 入力 TargetのProperty、Identity、状態制約を型境界として所有する。
      * @trace ARCH-000001
      * @shape FormalInputTargetが表すProperty、識別子およびRelationを型として固定する。
      * @invariant FormalInputTargetで宣言した値と責務の対応を維持する。
@@ -8967,9 +8973,9 @@ export function runCurrentProfileChecker(
     }>;
 
     /**
-     * uxFormalInputTargetsの処理を実行する。
+     * ux Formal 入力 Targetsを決定する。
      *
-     * @responsibility uxFormalInputTargetsに対応する入力処理と結果生成を所有する。
+     * @responsibility ux Formal 入力 Targetsの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input text: string
      * @returns FormalInputTarget[]を返す。
@@ -9040,9 +9046,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * rawEntityPathCandidateの処理を実行する。
+     * raw Entity Path 候補を決定する。
      *
-     * @responsibility rawEntityPathCandidateに対応する入力処理と結果生成を所有する。
+     * @responsibility raw Entity Path 候補の導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input token: string
      * @returns Readonly<{ value: string; invalid: boolean }> | nullを返す。
@@ -9095,9 +9101,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * isDiscoveryPathCandidateの処理を実行する。
+     * Discovery Path 候補かを判定する。
      *
-     * @responsibility isDiscoveryPathCandidateに対応する入力処理と結果生成を所有する。
+     * @responsibility Discovery Path 候補の判定条件とtrue／false境界を所有する。
      * @trace ARCH-000001
      * @input raw: string、decoded: string
      * @returns booleanを返す。
@@ -9128,9 +9134,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * decodeHtmlEntitiesOnceの処理を実行する。
+     * Html Entities Onceを検証済み値へ復号する。
      *
-     * @responsibility decodeHtmlEntitiesOnceに対応する入力処理と結果生成を所有する。
+     * @responsibility Html Entities Onceの入力形式、復号結果、不正byte列の拒否境界を所有する。
      * @trace ARCH-000001
      * @input value: string
      * @returns Readonly<{ value: string; invalid: boolean }>を返す。
@@ -9195,9 +9201,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * normalizeReferenceLabelの処理を実行する。
+     * Reference Labelを固定Schemaへ正規化する。
      *
-     * @responsibility normalizeReferenceLabelに対応する入力処理と結果生成を所有する。
+     * @responsibility Reference Labelの入力検証、正規化規則、不正値の拒否境界を所有する。
      * @trace ARCH-000001
      * @input value: string
      * @returns stringを返す。
@@ -9215,9 +9221,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * markdownTableCellsの処理を実行する。
+     * markdown Table Cellsを決定する。
      *
-     * @responsibility markdownTableCellsに対応する入力処理と結果生成を所有する。
+     * @responsibility markdown Table Cellsの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input line: string
      * @returns string[] | nullを返す。
@@ -9262,9 +9268,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * markdownTableSeparatorの処理を実行する。
+     * markdown Table Separatorを決定する。
      *
-     * @responsibility markdownTableSeparatorに対応する入力処理と結果生成を所有する。
+     * @responsibility markdown Table Separatorの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input line: string、expectedCells: number
      * @returns booleanを返す。
@@ -9290,9 +9296,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * safeDecodeの処理を実行する。
+     * Decodeを安全条件の下で処理する。
      *
-     * @responsibility safeDecodeに対応する入力処理と結果生成を所有する。
+     * @responsibility Decodeの安全条件、拒否条件、終了結果境界を所有する。
      * @trace ARCH-000001
      * @input value: string
      * @returns Readonly<{ value: string; error: boolean }>を返す。
@@ -9316,9 +9322,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * splitLinkの処理を実行する。
+     * split Linkを決定する。
      *
-     * @responsibility splitLinkに対応する入力処理と結果生成を所有する。
+     * @responsibility split Linkの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input raw: string
      * @returns splitLinkの計算結果を返す。
@@ -9351,9 +9357,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * isWithinの処理を実行する。
+     * Withinかを判定する。
      *
-     * @responsibility isWithinに対応する入力処理と結果生成を所有する。
+     * @responsibility Withinの判定条件とtrue／false境界を所有する。
      * @trace ARCH-000001
      * @input parent: string、child: string
      * @returns booleanを返す。
@@ -9375,9 +9381,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * resolveLocalTargetの処理を実行する。
+     * Local Targetを一意に解決する。
      *
-     * @responsibility resolveLocalTargetに対応する入力処理と結果生成を所有する。
+     * @responsibility Local Targetの候補集合、解決規則、曖昧時の拒否境界を所有する。
      * @trace ARCH-000001
      * @input source: string、raw: string
      * @returns LinkResolutionを返す。
@@ -9456,9 +9462,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * WorkLifecycleMigrationEntryが扱う値の構造を表す。
+     * current-profileで使用するWork Lifecycle Migration Entryの値契約を定義する。
      *
-     * @responsibility WorkLifecycleMigrationEntryに必要な値と制約を一つの型契約として保持する。
+     * @responsibility Work Lifecycle Migration EntryのProperty、Identity、状態制約を型境界として所有する。
      * @trace ARCH-000001
      * @shape WorkLifecycleMigrationEntryが表すProperty、識別子およびRelationを型として固定する。
      * @invariant WorkLifecycleMigrationEntryで宣言した値と責務の対応を維持する。
@@ -9475,9 +9481,9 @@ export function runCurrentProfileChecker(
     }>;
 
     /**
-     * isCanonicalRepositoryRelativePathの処理を実行する。
+     * Canonical Repository Relative Pathかを判定する。
      *
-     * @responsibility isCanonicalRepositoryRelativePathに対応する入力処理と結果生成を所有する。
+     * @responsibility Canonical Repository Relative Pathの判定条件とtrue／false境界を所有する。
      * @trace ARCH-000001
      * @input value: string
      * @returns booleanを返す。
@@ -9505,9 +9511,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * loadFixedHistoryMigrationの処理を実行する。
+     * Fixed History Migrationを読み込む。
      *
-     * @responsibility loadFixedHistoryMigrationに対応する入力処理と結果生成を所有する。
+     * @responsibility Fixed History Migrationの読取り元、Schema検証、読取不能時の拒否境界を所有する。
      * @trace ARCH-000001
      * @input N/A: 実行時引数を受け取らない。
      * @returns Readonly<{ byCurrentPath: ReadonlyMap<string, WorkLifecycleMigrationEntry>; byHistoricalPath: ReadonlyMap<string, WorkLifecycleMigrationEntry>; sourceCommit: string | null; }>を返す。
@@ -9623,9 +9629,9 @@ export function runCurrentProfileChecker(
     const historicalContentCache = new Map<string, string | null>();
 
     /**
-     * historicalContentの処理を実行する。
+     * historical Contentを決定する。
      *
-     * @responsibility historicalContentに対応する入力処理と結果生成を所有する。
+     * @responsibility historical Contentの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input relativePath: string
      * @returns string | nullを返す。
@@ -9653,9 +9659,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * resolveLinkWithFixedHistoryの処理を実行する。
+     * Link With Fixed Historyを一意に解決する。
      *
-     * @responsibility resolveLinkWithFixedHistoryに対応する入力処理と結果生成を所有する。
+     * @responsibility Link With Fixed Historyの候補集合、解決規則、曖昧時の拒否境界を所有する。
      * @trace ARCH-000001
      * @input source: string、raw: string
      * @returns LinkRecordを返す。
@@ -9742,9 +9748,9 @@ export function runCurrentProfileChecker(
     }
     const gitlinkRoots = discovery.gitlinks;
     /**
-     * gitlinkRootForの処理を実行する。
+     * gitlink Root Forを決定する。
      *
-     * @responsibility gitlinkRootForに対応する入力処理と結果生成を所有する。
+     * @responsibility gitlink Root Forの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input target: string
      * @returns string | nullを返す。
@@ -9899,9 +9905,9 @@ export function runCurrentProfileChecker(
     ]);
 
     /**
-     * checkPhaseDiagramDispositionContractsの処理を実行する。
+     * Phase Diagram Disposition Contractsを検査する。
      *
-     * @responsibility checkPhaseDiagramDispositionContractsに対応する入力処理と結果生成を所有する。
+     * @responsibility Phase Diagram Disposition Contractsの検査条件、違反分類、検査結果境界を所有する。
      * @trace ARCH-000001
      * @input N/A: 実行時引数を受け取らない。
      * @returns voidを返す。
@@ -10197,9 +10203,9 @@ export function runCurrentProfileChecker(
       docsRoot = requestedDocsRoot;
     }
     /**
-     * parseCanonicalDocumentHeaderの処理を実行する。
+     * Canonical Document Headerを構造化値へ解析する。
      *
-     * @responsibility parseCanonicalDocumentHeaderに対応する入力処理と結果生成を所有する。
+     * @responsibility Canonical Document Headerの入力文法、解析結果、不正文法の拒否境界を所有する。
      * @trace ARCH-000001
      * @input content: string
      * @returns stringを返す。
@@ -10358,9 +10364,9 @@ export function runCurrentProfileChecker(
       ({ status }) => status === "Stable",
     );
     /**
-     * candidateVersionFromHeaderの処理を実行する。
+     * candidate Version From Headerを決定する。
      *
-     * @responsibility candidateVersionFromHeaderに対応する入力処理と結果生成を所有する。
+     * @responsibility candidate Version From Headerの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000001
      * @input header: string
      * @returns string | nullを返す。
@@ -10521,9 +10527,9 @@ export function runCurrentProfileChecker(
       }
     }
     /**
-     * parseMarkdownStructureの処理を実行する。
+     * Markdown Structureを構造化値へ解析する。
      *
-     * @responsibility parseMarkdownStructureに対応する入力処理と結果生成を所有する。
+     * @responsibility Markdown Structureの入力文法、解析結果、不正文法の拒否境界を所有する。
      * @trace ARCH-000001
      * @input lines: readonly string[]
      * @returns parseMarkdownStructureの計算結果を返す。
@@ -10595,9 +10601,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * checkDiscoveryIdentityLinkOwnershipの処理を実行する。
+     * Discovery Identity Link Ownershipを検査する。
      *
-     * @responsibility checkDiscoveryIdentityLinkOwnershipに対応する入力処理と結果生成を所有する。
+     * @responsibility Discovery Identity Link Ownershipの検査条件、違反分類、検査結果境界を所有する。
      * @trace ARCH-000001
      * @input N/A: 実行時引数を受け取らない。
      * @returns N/A: checkDiscoveryIdentityLinkOwnershipは戻り値を返さない。
@@ -10642,9 +10648,9 @@ export function runCurrentProfileChecker(
     }
 
     /**
-     * parseReadmeVersionの処理を実行する。
+     * Readme Versionを構造化値へ解析する。
      *
-     * @responsibility parseReadmeVersionに対応する入力処理と結果生成を所有する。
+     * @responsibility Readme Versionの入力文法、解析結果、不正文法の拒否境界を所有する。
      * @trace ARCH-000001
      * @input content: string
      * @returns string | nullを返す。
@@ -11152,9 +11158,9 @@ export function runCurrentProfileChecker(
       restart: ["再開条件", "Restart Condition"],
     };
     /**
-     * RemediationColumnが扱う値の構造を表す。
+     * current-profileで使用するRemediation Columnの値契約を定義する。
      *
-     * @responsibility RemediationColumnに必要な値と制約を一つの型契約として保持する。
+     * @responsibility Remediation ColumnのProperty、Identity、状態制約を型境界として所有する。
      * @trace ARCH-000001
      * @shape RemediationColumnが表すProperty、識別子およびRelationを型として固定する。
      * @invariant RemediationColumnで宣言した値と責務の対応を維持する。

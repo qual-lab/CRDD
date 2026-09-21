@@ -1,3 +1,9 @@
+/**
+ * egress-proxy-policyに属する責務をまとめる。
+ *
+ * @responsibility SpecialPurposeEntryを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000015
+ */
 import { createHash } from "node:crypto";
 import net from "node:net";
 
@@ -86,9 +92,9 @@ const REGISTRY_METADATA = Object.freeze({
 // value and is denied. Protocol-level non-unicast/legacy ranges are included
 // as conservative supplements and are identified separately.
 /**
- * SpecialPurposeEntryが扱う値の構造を表す。
+ * egress-proxy-policyで使用するSpecial Purpose Entryの値契約を定義する。
  *
- * @responsibility SpecialPurposeEntryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Special Purpose EntryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape SpecialPurposeEntryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant SpecialPurposeEntryで宣言した値と責務の対応を維持する。
@@ -104,9 +110,9 @@ type SpecialPurposeEntry = readonly [
 ];
 
 /**
- * CidrRuleが扱う値の構造を表す。
+ * egress-proxy-policyで使用するCidr Ruleの値契約を定義する。
  *
- * @responsibility CidrRuleに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Cidr RuleのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape CidrRuleが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CidrRuleで宣言した値と責務の対応を維持する。
@@ -222,9 +228,9 @@ const IPV6_ALLOCATED_ENTRIES: readonly string[] = Object.freeze([
 ]);
 
 /**
- * blockedの処理を実行する。
+ * egress-proxy-policyを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility egress-proxy-policyの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000015
  * @input reason: string
  * @returns blockedの計算結果を返す。
@@ -242,9 +248,9 @@ function blocked(reason: string) {
 }
 
 /**
- * parseIpv4の処理を実行する。
+ * Ipv4を構造化値へ解析する。
  *
- * @responsibility parseIpv4に対応する入力処理と結果生成を所有する。
+ * @responsibility Ipv4の入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000015
  * @input address: unknown
  * @returns bigint | nullを返す。
@@ -272,9 +278,9 @@ function parseIpv4(address: unknown): bigint | null {
 }
 
 /**
- * parseIpv6の処理を実行する。
+ * Ipv6を構造化値へ解析する。
  *
- * @responsibility parseIpv6に対応する入力処理と結果生成を所有する。
+ * @responsibility Ipv6の入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000015
  * @input address: unknown
  * @returns bigint | nullを返す。
@@ -327,9 +333,9 @@ function parseIpv6(address: unknown): bigint | null {
 }
 
 /**
- * parseCidrの処理を実行する。
+ * Cidrを構造化値へ解析する。
  *
- * @responsibility parseCidrに対応する入力処理と結果生成を所有する。
+ * @responsibility Cidrの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000015
  * @input family: number、cidr: string、isGloballyReachable: boolean | null、source: string
  * @returns {Readonly<CidrRule>}
@@ -396,9 +402,9 @@ const SPECIAL_PURPOSE_REGISTRY_SNAPSHOT_SHA256 = createHash("sha256")
   .digest("hex");
 
 /**
- * cidrMatchの処理を実行する。
+ * cidr Matchを決定する。
  *
- * @responsibility cidrMatchに対応する入力処理と結果生成を所有する。
+ * @responsibility cidr Matchの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input value: bigint、bits: number、rule: CidrRule
  * @returns cidrMatchの計算結果を返す。
@@ -417,9 +423,9 @@ function cidrMatch(value: bigint, bits: number, rule: CidrRule) {
 }
 
 /**
- * longestMatchの処理を実行する。
+ * longest Matchを決定する。
  *
- * @responsibility longestMatchに対応する入力処理と結果生成を所有する。
+ * @responsibility longest Matchの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input family: number、value: bigint、rules: readonly CidrRule[]
  * @returns longestMatchの計算結果を返す。
@@ -446,9 +452,9 @@ function longestMatch(
 }
 
 /**
- * globallyReachableIpv4の処理を実行する。
+ * globally Reachable Ipv4を決定する。
  *
- * @responsibility globallyReachableIpv4に対応する入力処理と結果生成を所有する。
+ * @responsibility globally Reachable Ipv4の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input value: bigint
  * @returns globallyReachableIpv4の計算結果を返す。
@@ -467,9 +473,9 @@ function globallyReachableIpv4(value: bigint) {
 }
 
 /**
- * globallyReachableIpv6の処理を実行する。
+ * globally Reachable Ipv6を決定する。
  *
- * @responsibility globallyReachableIpv6に対応する入力処理と結果生成を所有する。
+ * @responsibility globally Reachable Ipv6の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input value: bigint
  * @returns globallyReachableIpv6の計算結果を返す。
@@ -489,9 +495,9 @@ function globallyReachableIpv6(value: bigint) {
 }
 
 /**
- * classifyAddressの処理を実行する。
+ * Addressを分類する。
  *
- * @responsibility classifyAddressに対応する入力処理と結果生成を所有する。
+ * @responsibility Addressの分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000015
  * @input address: unknown
  * @returns classifyAddressの計算結果を返す。
@@ -524,9 +530,9 @@ function classifyAddress(address: unknown) {
 }
 
 /**
- * compileEgressProxyPolicyCandidateの処理を実行する。
+ * Egress Proxy Policy 候補を機械利用可能な契約へ変換する。
  *
- * @responsibility compileEgressProxyPolicyCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Egress Proxy Policy 候補の入力Schema、決定論的変換、変換不能時の拒否境界を所有する。
  * @trace ARCH-000015
  * @input rawProfile: unknown
  * @returns compileEgressProxyPolicyCandidateの計算結果を返す。
@@ -587,9 +593,9 @@ export function compileEgressProxyPolicyCandidate(rawProfile: unknown) {
 }
 
 /**
- * parseConnectAuthorityの処理を実行する。
+ * Connect Authorityを構造化値へ解析する。
  *
- * @responsibility parseConnectAuthorityに対応する入力処理と結果生成を所有する。
+ * @responsibility Connect Authorityの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000015
  * @input authority: unknown
  * @returns parseConnectAuthorityの計算結果を返す。
@@ -629,9 +635,9 @@ function parseConnectAuthority(authority: unknown) {
 }
 
 /**
- * evaluateProxyConnectForFixtureの処理を実行する。
+ * Proxy Connect For Fixtureを評価する。
  *
- * @responsibility evaluateProxyConnectForFixtureに対応する入力処理と結果生成を所有する。
+ * @responsibility Proxy Connect For Fixtureの評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000015
  * @input policy: unknown、request: unknown
  * @returns evaluateProxyConnectForFixtureの計算結果を返す。
@@ -724,9 +730,9 @@ export function evaluateProxyConnectForFixture(
 }
 
 /**
- * evaluateResolvedAddressesForFixtureの処理を実行する。
+ * Resolved Addresses For Fixtureを評価する。
  *
- * @responsibility evaluateResolvedAddressesForFixtureに対応する入力処理と結果生成を所有する。
+ * @responsibility Resolved Addresses For Fixtureの評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000015
  * @input addresses: unknown
  * @returns evaluateResolvedAddressesForFixtureの計算結果を返す。
@@ -764,9 +770,9 @@ export function evaluateResolvedAddressesForFixture(addresses: unknown) {
 }
 
 /**
- * describeSpecialPurposeRegistrySnapshotの処理を実行する。
+ * Special Purpose Registry Snapshotの公開契約を記述する。
  *
- * @responsibility describeSpecialPurposeRegistrySnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility Special Purpose Registry Snapshotの公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeSpecialPurposeRegistrySnapshotの計算結果を返す。
@@ -792,9 +798,9 @@ export function describeSpecialPurposeRegistrySnapshot() {
 }
 
 /**
- * describeEgressProxyTopologyの処理を実行する。
+ * Egress Proxy Topologyの公開契約を記述する。
  *
- * @responsibility describeEgressProxyTopologyに対応する入力処理と結果生成を所有する。
+ * @responsibility Egress Proxy Topologyの公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000015
  * @input provider: "claude" | "codex"
  * @returns describeEgressProxyTopologyの計算結果を返す。

@@ -6,7 +6,7 @@
  * @trace ERB-IT-002
  * @level IT
  * @scope docker、process、controller
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 import assert from "node:assert/strict";
 import { Writable } from "node:stream";
@@ -39,7 +39,7 @@ import { createOwnedProcessTreeFixture } from "../fixtures/docker-owned-process-
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 function createPlan(
   activeMountCapability: object,
@@ -109,7 +109,7 @@ function createPlan(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("実Controller出力のstart・handoff・completion相関をproducer所有projectionで固定する", async () => {
   const fixture = createFixture();
@@ -320,7 +320,7 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("実Controllerのclean blockedとmanual blockedをexact projectionする", () => {
   const cleanFixture = createFixture({ verifyRevision: () => false });
@@ -359,7 +359,7 @@ test("実Controllerのclean blockedとmanual blockedをexact projectionする", 
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 function createProviderOutput(overrides: Record<string, unknown> = {}) {
   return `${JSON.stringify({
@@ -383,7 +383,7 @@ function createProviderOutput(overrides: Record<string, unknown> = {}) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 function createSubscriptionAuthOutput(subscriptionType = "max") {
   return JSON.stringify({
@@ -410,7 +410,7 @@ const completionProjectors = [
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 function assertCompletionAcceptedByAll(value: unknown, recoveryId: unknown) {
   for (const projectCompletion of completionProjectors)
@@ -427,7 +427,7 @@ function assertCompletionAcceptedByAll(value: unknown, recoveryId: unknown) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 function assertCompletionRejectedByAll(value: unknown, recoveryId: unknown) {
   for (const projectCompletion of completionProjectors)
@@ -444,7 +444,7 @@ function assertCompletionRejectedByAll(value: unknown, recoveryId: unknown) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 function createFixture(
   overrides: Record<string, unknown> = {},
@@ -623,7 +623,7 @@ const providerStartObservationTaskOutput = createProviderOutput({
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Provider実ProcessのOS起動確認後だけRuntime所有の開始観測を公開する", async () => {
   const notices: unknown[] = [];
@@ -679,7 +679,7 @@ test("Provider実ProcessのOS起動確認後だけRuntime所有の開始観測�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Provider境界診断は実行構成とProcess・cleanup観測を本文なしで分離する", async () => {
   const notices: unknown[] = [];
@@ -804,7 +804,7 @@ test("Provider境界診断は実行構成とProcess・cleanup観測を本文な�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Provider境界診断の失敗はAuthority・Effect・完了結果を変更しない", async () => {
   const fixture = createFixture({
@@ -834,7 +834,7 @@ test("Provider境界診断の失敗はAuthority・Effect・完了結果を変更
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Provider commandの同期起動失敗を実Process開始として公開しない", async () => {
   const notices: unknown[] = [];
@@ -890,7 +890,7 @@ test("Provider commandの同期起動失敗を実Process開始として公開し
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Provider commandの非同期起動失敗も開始観測とProvider Effectへ昇格しない", async () => {
   const notices: unknown[] = [];
@@ -949,7 +949,7 @@ test("Provider commandの非同期起動失敗も開始観測とProvider Effect�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Lifecycle通知はbackpressureを失敗とせずwrite完了を待ち、close先着を拒否する", async () => {
   const notice = {
@@ -1004,7 +1004,7 @@ test("Lifecycle通知はbackpressureを失敗とせずwrite完了を待ち、clo
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("実Process開始観測を公開できなければ対象Processを終了して成功を返さない", async () => {
   let providerTerminationCount = 0;
@@ -1078,7 +1078,7 @@ type CreateCancellationOutcome =
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 async function runCreateCancellationRace(
   purpose: (typeof cancellationCreatePurposes)[number],
@@ -1213,7 +1213,7 @@ for (const purpose of cancellationCreatePurposes) {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+   * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
    */
   test(`CREATE取消競合は${purpose}の正常IDをcleanup前に保存する`, async () => {
     const result = await runCreateCancellationRace(purpose, "valid", true);
@@ -1230,7 +1230,7 @@ for (const purpose of cancellationCreatePurposes) {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+   * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
    */
   test(`CREATE取消競合は${purpose}のreceipt中取消でも次を発行しない`, async () => {
     const result = await runCreateCancellationRace(
@@ -1253,7 +1253,7 @@ for (const purpose of cancellationCreatePurposes) {
      * @observation 結果、状態、Effectおよび終了後条件を観測する。
      * @oracle Test本文のassertionが期待条件を満たす。
      * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-     * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+     * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
      */
     test(`CREATE取消競合は${purpose}の${outcome}を回収成功にしない`, async () => {
       const result = await runCreateCancellationRace(purpose, outcome, false);
@@ -1285,7 +1285,7 @@ for (const outcome of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+   * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
    */
   test(`CREATE取消競合は確認済みcleanupでも${outcome}の失敗理由を保持する`, async () => {
     const result = await runCreateCancellationRace(
@@ -1315,7 +1315,7 @@ for (const outcome of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+   * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
    */
   test(`CREATE取消競合は${outcome}でcleanup不明なら同じ回復義務を保持する`, async () => {
     const result = await runCreateCancellationRace(
@@ -1341,7 +1341,7 @@ for (const outcome of [
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("追加制約のtrueは既存Authorityを代替せず、不正Capabilityを起動しない", () => {
   let restrictionCalls = 0;
@@ -1356,7 +1356,7 @@ test("追加制約のtrueは既存Authorityを代替せず、不正Capabilityを
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+   * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
    */
   const restriction = () => {
     restrictionCalls += 1;
@@ -1400,7 +1400,7 @@ for (const deniedPurpose of createPlan({}, {}).commands.map(
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+   * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
    */
   test(`追加制約は${deniedPurpose}直前で停止し、既存cleanupへ戻す`, async () => {
     const fixture = createFixture();
@@ -1449,7 +1449,7 @@ for (const deniedPurpose of createPlan({}, {}).commands.map(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("追加制約は例外・非Boolean・非同期・Proxyを拒否し、例外内容を出さない", async () => {
   let proxyCalls = 0;
@@ -1522,7 +1522,7 @@ for (const stop of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+   * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
    */
   test(`実測制約をControllerへ接続し、準備待機後の${stop}を起動直前に照合する`, async () => {
     let wallTimeMs = 100;
@@ -1537,7 +1537,7 @@ for (const stop of [
      * @observation 返却値、生成fixtureまたは観測値を取得する。
      * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
      * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-     * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+     * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
      */
     const observe = () => ({
       bindingSha256,
@@ -1661,7 +1661,7 @@ for (const stop of [
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("制約内から取消が発生しても新しいcommandを起動しない", async () => {
   const fixture = createFixture();
@@ -1699,7 +1699,7 @@ test("制約内から取消が発生しても新しいcommandを起動しない"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("追加制約の拒否後もcleanup不明はRecovery必要として保持する", async () => {
   const fixture = createFixture({
@@ -1736,7 +1736,7 @@ test("追加制約の拒否後もcleanup不明はRecovery必要として保持�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("固定command planを完了後に全resource不存在とlease解放へ閉じる", async () => {
   const fixture = createFixture();
@@ -1801,7 +1801,7 @@ test("固定command planを完了後に全resource不存在とlease解放へ閉�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Docker create前の耐久submission markerを書けなければEffectを開始しない", async () => {
   let commandStarted = false;
@@ -1833,7 +1833,7 @@ test("Docker create前の耐久submission markerを書けなければEffectを�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Subscription OAuthを確認できなければProvider request前に停止する", async () => {
   let providerStarted = false;
@@ -1884,7 +1884,7 @@ test("Subscription OAuthを確認できなければProvider request前に停止�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Codex認証ProbeはDocker attachのexact stderr形だけを認証済みとして受け入れる", async () => {
   const status = "Logged in using ChatGPT";
@@ -1961,7 +1961,7 @@ test("Codex認証ProbeはDocker attachのexact stderr形だけを認証済みと
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Codex認証Probeは未知行・重複成功・制御文字をfail closedする", async () => {
   const status = "Logged in using ChatGPT";
@@ -2033,7 +2033,7 @@ test("Codex認証Probeは未知行・重複成功・制御文字をfail closed�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Claude Max以外のSubscription OfferingではProvider request前に停止する", async () => {
   let providerStarted = false;
@@ -2077,7 +2077,7 @@ test("Claude Max以外のSubscription OfferingではProvider request前に停止
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Provider非ゼロ終了は生出力を返さず既知の運用原因だけを閉集合へ分類する", async () => {
   const cases = [
@@ -2163,7 +2163,7 @@ test("Provider非ゼロ終了は生出力を返さず既知の運用原因だけ
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("搬送失敗status:nullは出力上限やtimeoutでなく既存の実行失敗へ分類する", async () => {
   for (const [failedPurpose, expectedReason] of [
@@ -2213,7 +2213,7 @@ test("搬送失敗status:nullは出力上限やtimeoutでなく既存の実行�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Provider非ゼロ分類はTask本文に似たstdoutと過長・制御文字stderrを診断へ昇格しない", async () => {
   for (const execution of [
@@ -2260,7 +2260,7 @@ test("Provider非ゼロ分類はTask本文に似たstdoutと過長・制御文�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("provider timeoutは終了要求後もcleanupを必須にする", async () => {
   let terminationCount = 0;
@@ -2311,7 +2311,7 @@ for (const dockerCleanupConfirmed of [true, false]) {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+   * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
    */
   test(`Windows Process Gate: 取消結合: 実子孫終了後の模擬Docker cleanup=${dockerCleanupConfirmed}`, {
     skip: process.platform !== "win32",
@@ -2421,7 +2421,7 @@ for (const dockerCleanupConfirmed of [true, false]) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("取消はactive processへ一度だけ伝えcleanup後にcancelledになる", async () => {
   let finishProvider: (() => void) | null = null;
@@ -2532,7 +2532,7 @@ test("取消はactive processへ一度だけ伝えcleanup後にcancelledにな�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("cleanup待機中の遅延取消はcompletedをcancelledへ再settleする", async () => {
   let notifyCleanupStarted!: () => void;
@@ -2585,7 +2585,7 @@ test("cleanup待機中の遅延取消はcompletedをcancelledへ再settleする"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("cleanup待機前にblockedなら遅延取消で失敗理由を上書きしない", async () => {
   let notifyCleanupStarted!: () => void;
@@ -2657,7 +2657,7 @@ test("cleanup待機前にblockedなら遅延取消で失敗理由を上書きし
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("cleanup不明なら成功出力を破棄しmanual Recoveryへ閉じる", async () => {
   const fixture = createFixture({
@@ -2717,7 +2717,7 @@ test("cleanup不明なら成功出力を破棄しmanual Recoveryへ閉じる", a
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Provider Result不正時もcleanupし正規化Resultを公開しない", async () => {
   const fixture = createFixture({
@@ -2780,7 +2780,7 @@ test("Provider Result不正時もcleanupし正規化Resultを公開しない", a
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("隔離TaskのRole別Resultだけをcleanup後に公開する", async () => {
   const taskOutput = JSON.stringify({
@@ -2866,7 +2866,7 @@ test("隔離TaskのRole別Resultだけをcleanup後に公開する", async () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Claude Envelopeの拒否理由を実Controllerから全consumerへ回収状態と共に渡す", async () => {
   const cases = [
@@ -2963,7 +2963,7 @@ test("Claude Envelopeの拒否理由を実Controllerから全consumerへ回収�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Claude Reviewerの構造不正理由を実Controllerから安全な固定診断として渡す", async () => {
   const cases = [
@@ -3075,7 +3075,7 @@ test("Claude Reviewerの構造不正理由を実Controllerから安全な固定�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Recovery記録前と偽造production CapabilityはDocker Effectを開始しない", async () => {
   const fixture = createFixture({ beginRecovery: () => null });
@@ -3108,7 +3108,7 @@ test("Recovery記録前と偽造production CapabilityはDocker Effectを開始�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Recovery開始成功形でもexact ID・Home binding・Capability不一致はEffect 0へ閉じる", () => {
   const cases = [
@@ -3179,7 +3179,7 @@ test("Recovery開始成功形でもexact ID・Home binding・Capability不一致
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Recovery成功unionはready exact形とopaque bindingを必須にしdurable IDを保持する", () => {
   const exactId = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
@@ -3236,7 +3236,7 @@ test("Recovery成功unionはready exact形とopaque bindingを必須にしdurabl
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Recovery初期化がexact ID付きで安全停止した場合は下位理由を公開分類してEffect 0を保つ", () => {
   const exactId = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
@@ -3275,7 +3275,7 @@ test("Recovery初期化がexact ID付きで安全停止した場合は下位理�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Recovery初期化のexact IDは現在のProvider Home bindingと一致しなければ公開理由へ採用しない", () => {
   const foreignId = `docker-task.${"a".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
@@ -3312,7 +3312,7 @@ test("Recovery初期化のexact IDは現在のProvider Home bindingと一致し�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("exact ID付き安全停止も余分field・accessor・Proxyから公開理由を採用しない", () => {
   const exactId = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
@@ -3364,7 +3364,7 @@ test("exact ID付き安全停止も余分field・accessor・Proxyから公開理
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Recovery bindingまたはabort不明はexact IDを保持してEffect 0へ閉じる", () => {
   const exactId = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
@@ -3400,7 +3400,7 @@ test("Recovery bindingまたはabort不明はexact IDを保持してEffect 0へ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Recovery開始失敗は秘密を含まない固定分類で公開する", () => {
   const cases = [
@@ -3463,7 +3463,7 @@ test("Recovery開始失敗は秘密を含まない固定分類で公開する", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("起動直前Authority不成立ならMountを返しDocker Effectを開始しない", () => {
   const fixture = createFixture({ consumeProviderAuthority: () => null });
@@ -3491,7 +3491,7 @@ test("起動直前Authority不成立ならMountを返しDocker Effectを開始�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("起動直前にRepository Revisionが一致しなければEffectを開始しない", () => {
   const fixture = createFixture({ verifyRevision: () => null });
@@ -3519,7 +3519,7 @@ test("起動直前にRepository Revisionが一致しなければEffectを開始�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("Provider完了後にRepository Revisionが変わればResultを公開しない", async () => {
   let observation = 0;
@@ -3556,7 +3556,7 @@ test("Provider完了後にRepository Revisionが変わればResultを公開し�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を固定する", () => {
   const contract = describeDockerProcessControllerContract();

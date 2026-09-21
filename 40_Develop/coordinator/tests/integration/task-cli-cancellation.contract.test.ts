@@ -6,7 +6,7 @@
  * @trace ERB-IT-003
  * @level IT
  * @scope task、cli、cancellation
- * @boundary Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -55,7 +55,7 @@ import {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
  */
 test("CLI取消latchは重複signalを同じPromiseと一つのobserverへ収束する", async () => {
   let cancelEffects = 0;
@@ -82,7 +82,7 @@ test("CLI取消latchは重複signalを同じPromiseと一つのobserverへ収束
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
  */
 test("CLI取消latchは同期throwと非同期rejectを未処理rejectionへ流さない", async () => {
   for (const requestCancellation of [
@@ -110,7 +110,7 @@ test("CLI取消latchは同期throwと非同期rejectを未処理rejectionへ流�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
  */
 test("CLI取消latchはnever receiptも重複Effectなしで保持する", () => {
   let cancelEffects = 0;
@@ -135,7 +135,7 @@ test("CLI取消latchはnever receiptも重複Effectなしで保持する", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
  */
 test("CLI signal bindingは同一listenerを両signalへ結合して冪等に解除する", () => {
   const emitter = new EventEmitter();
@@ -192,7 +192,7 @@ test("CLI signal bindingは同一listenerを両signalへ結合して冪等に解
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
  */
 test("CLI signal bindingは登録中signalも単一取消Effectへ収束する", () => {
   let cancellationEffects = 0;
@@ -231,7 +231,7 @@ test("CLI signal bindingは登録中signalも単一取消Effectへ収束する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
  */
 test("CLI signal bindingは各登録失敗を取消と登録済みlistenerのrollbackへ閉じる", () => {
   for (const failAt of [1, 2]) {
@@ -269,7 +269,7 @@ test("CLI signal bindingは各登録失敗を取消と登録済みlistenerのrol
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
  */
 test("CLI signal bindingはrollback・解除の片側失敗でも全signalを試行し非成功を保持する", () => {
   const rollbackAttempts: string[] = [];
@@ -319,7 +319,7 @@ test("CLI signal bindingはrollback・解除の片側失敗でも全signalを試
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
  */
 test("CLI signal failure投影はRuntimeの全安全観測とRecovery Evidenceを単調保持する", () => {
   const digestA = "a".repeat(64);
@@ -389,7 +389,7 @@ test("CLI signal failure投影はRuntimeの全安全観測とRecovery Evidence�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
  */
 test("CLI signal failure投影はcleanup確認済み対照へRecoveryを捏造しない", () => {
   const projected = projectTaskCliCancellationFailure(
@@ -429,7 +429,7 @@ test("CLI signal failure投影はcleanup確認済み対照へRecoveryを捏造�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
  */
 test("CLI相当のvoid取消はstrict独立Processで未処理rejectionを作らない", () => {
   const fixture = path.join(
@@ -475,7 +475,7 @@ test("CLI相当のvoid取消はstrict独立Processで未処理rejectionを作ら
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
  */
 function visitTree(root: Node, visitor: (node: Node) => void) {
   /**
@@ -488,7 +488,7 @@ function visitTree(root: Node, visitor: (node: Node) => void) {
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+   * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
    */
   const visit = (node: Node) => {
     visitor(node);
@@ -507,7 +507,7 @@ function visitTree(root: Node, visitor: (node: Node) => void) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
  */
 function namedImportIdentifier(
   sourceFile: SourceFile,
@@ -542,7 +542,7 @@ function namedImportIdentifier(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
  */
 function callPropertyName(call: CallExpression) {
   return isPropertyAccessExpression(call.expression) &&
@@ -561,7 +561,7 @@ function callPropertyName(call: CallExpression) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
  */
 function inspectTaskCliCancellationWiring(
   project: Project,
@@ -759,7 +759,7 @@ function inspectTaskCliCancellationWiring(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
  */
 function projectSourceFile(project: Project, fileName: string) {
   const normalized = path.resolve(fileName).replaceAll("\\", "/");
@@ -778,7 +778,7 @@ function projectSourceFile(project: Project, fileName: string) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
  */
 test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symbolで固定する", () => {
   const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
@@ -816,7 +816,7 @@ test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symb
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
  */
 test("CLI AST契約はshadow・二重binding・直接signal・finally外解除・guard前returnを拒否する", () => {
   const original = fs.readFileSync(

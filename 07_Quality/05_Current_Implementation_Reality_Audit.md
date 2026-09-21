@@ -11,7 +11,7 @@
 | 項目 | 件数 |
 |---|---:|
 | Local Item数 | 150 |
-| 内訳 | 114 Review済み |
+| 内訳 | 150件をCanonical化済み。実装・Test・Evidenceとの照合は本書の各判定で分ける |
 
 ## 1. 目的
 
@@ -57,7 +57,7 @@
 
 | 対象 | 状態 | 理由 | 次の処置 |
 |---|---|---|---|
-| 13検証目標のLocal Item | Quality Design Ready | 157件のMapping、Source ID固有条件、114 Local ItemおよびCRDD Domain Library Candidateの6検証単位とのRelationを固定した | Pilotの17意味に接続したLocal Itemから照合する |
+| 13検証目標のLocal Item | Quality Design Ready | 157件のMapping、Source ID固有条件および150 Local ItemとのRelationを固定した | Pilotの17意味に接続したLocal Itemから照合する |
 | 現行Source／Test | 全Subsystem初回照合済み | 18領域を実装所有、Symbol Relation、Test Catalog、局所試験、工程／統制所有へ分けた。実装を持つ12領域の静的確認は全てPassした | `Partial`のRelation不足と実装欠落を所有変更へ返す |
 | 実行結果／Evidence | 全Subsystem局所実行済み | 11 TypeScript packageとPlatform Accessの局所試験を実行した。CoordinatorとCheckerではSandboxまたは命名規則に起因する不一致を分離した | 是正後の局所再実行と独立レビューを対象Commitへ結合する |
 
@@ -104,7 +104,7 @@ v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、�
 
 ## 8. Coordinator／Project Runtime Pilot
 
-照合開始の基準改訂版はCommit `3f2567bd54f00fe638bfc8ff9e7f3695fd8eba66`である。Canonical入力からSemantic Coverage Bundleを再生成し、開始時に古かったSource Hashを現在の入力へ揃えた。その後、現行Sourceと実試験を確認して不足していたSymbol Relationを是正した。Source実装を変更せず、生成BundleとRelationだけを現在の実体へ揃えている。
+照合開始の基準改訂版はCommit `3f2567bd54f00fe638bfc8ff9e7f3695fd8eba66`であり、現在の再照合候補はCommit `1973542`以後のTest Source Contract是正を含む。Canonical入力からSemantic Coverage Bundleを再生成し、Test Fileを一つの代表Local Itemへ縮約した誤りを解消した。FileはCase／Helper Relationの和集合、Caseは対応する1件、Helperは支援する1件以上を保持し、`symbol.json`だけが正方向Relationを所有する。旧Relationをそのまま戻さず、物理試験段階、個別Test責務、実装SymbolおよびLocal Itemが同時に一致するRelationだけを観測済みとした。
 
 | 意味単位 | 実装Relation | Test Relation | 現在判定 |
 |---|---|---|---|
@@ -117,12 +117,12 @@ v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、�
 | `coordinator.recovery-obligation` | observed | observed | `Covered Candidate`: Runtime契約試験とRecovery Matrix契約試験を局所実行で確認 |
 | `coordinator.runtime-trust-consumption` | unobserved | unobserved | `Missing`: Trust候補の検証部品はあるが、Runtime Trust Policy activationとProvider launch結合が`not_implemented` |
 | `project-runtime.acceptance-decision-authority` | observed | observed | `Covered Candidate`: 判断ApplicationとState契約試験を局所実行で確認 |
-| `project-runtime.durable-before-effect` | observed | observed | `Covered Candidate`: Coordinator側のDurable Foundation実境界試験を局所実行で確認 |
-| `project-runtime.execution-intelligence-read-model` | observed | observed | `Covered Candidate`: Execution Observation Port契約試験を局所実行で確認 |
+| `project-runtime.durable-before-effect` | observed | observed | `Covered Candidate`: Project RuntimeのEffect前耐久化を`PRL-ST-004`へ接続したSystem Test Relationで確認 |
+| `project-runtime.execution-intelligence-read-model` | observed | manual_pending | `Pending`: 読取りPortの実装Relationはあるが、利用者受入を所有する`PPR-UAT-008`は未実施でありUnit TestをUATへ昇格しない |
 | `project-runtime.objective-task-lifecycle` | observed | observed | `Covered Candidate`: Objective、State、Integrationの契約試験を局所実行で確認 |
 | `project-runtime.project-state-projection` | observed | observed | `Covered Candidate`: State QueryとState契約試験を局所実行で確認 |
 | `project-runtime.queue-lease-lifecycle` | observed | observed | `Covered Candidate`: State契約試験を局所実行で確認 |
-| `project-runtime.recovery-obligation` | observed | observed | `Covered Candidate`: State、IntegrationおよびDurable Foundation契約試験を局所実行で確認 |
+| `project-runtime.recovery-obligation` | observed | observed | `Covered Candidate`: Project Runtimeの同一Identity再入場を`PRL-ST-004`へ接続したSystem Test Relationで確認 |
 | `project-runtime.task-authority-narrowing` | observed | observed | `Covered Candidate`: Objective Intake契約試験を`PRL-IT-005`へ接続し局所実行で確認 |
 | `project-runtime.transport-neutral-application-contract` | observed | observed | `Covered Candidate`: Public Contract契約試験を局所実行で確認 |
 
@@ -130,7 +130,9 @@ v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、�
 
 ### 8.1 初回判定とRelation是正
 
-初回判定は`Covered 1／Partial 15／Missing 1`だった。15件の`Partial`の多くは試験不存在ではなく、実在試験とMeaning／Local Itemを結ぶTest Symbol Relation不足だった。Sourceと試験内容を確認してRelation Ownerへ追記した結果、16件は実装と試験の両Relationを持ち、残る未接続は`coordinator.runtime-trust-consumption`だけになった。
+初回判定は`Covered 1／Partial 15／Missing 1`だった。途中のRelation是正では16件を観測済みとしたが、その後のTest Source全数移行でFile、Case、Helperを一つの代表Local Itemへ縮約し、成立済みRelationを失った。さらに旧Relationには物理Test段階とLocal Item段階の不一致が含まれていたため、旧集合をそのまま復元せず、197 Test Fileと2,125 Test Caseを責務別に再照合した。
+
+現在は17意味中15件が実装と自動Testの両Relationを持つ。`coordinator.runtime-trust-consumption`は実装自体がない`Missing`である。`project-runtime.execution-intelligence-read-model`は実装Relationを持つが、手動UATである`PPR-UAT-008`が未実施の`manual_pending`である。Unit Testまたは名前の近いTestをUAT成立へ昇格しない。
 
 `coordinator.runtime-trust-consumption`だけは単なるRelation漏れではない。Trust候補のLoader、VerifierおよびPackage Trust Coreは存在するが、現行Source自身がRuntime Trust Policy activationとProvider launch integrationを`not_implemented`として公開している。したがって、署名検証部品の存在や署名済みE2E成功から、このMeaningの成立を推定しない。
 
@@ -138,10 +140,10 @@ v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、�
 
 | 対象 | 結果 | 判定 |
 |---|---:|---|
-| Semantic Coverage | 14／14 Pass | Relation生成と完全一致契約は成立 |
-| Project Runtime | 60／60 Pass | Pilotで接続したApplication／State／Portの局所契約は成立 |
-| Coordinator対象7試験ファイル | 223／225 Pass | Sandbox内でProcess取消2条件だけ`provider_cancellation_grace_exceeded` |
-| Windows Process取消2条件の通常ユーザー境界再実行 | 2／2 Pass | 子Process終了と終了後不存在を確認 |
+| Test Source Contract | 16／16 Pass | 197 File、2,125 Case、Helper、Manifest Relation和集合、Local Item実在および試験段階一致を確認 |
+| Symbol Graph Contract | 11／11 Pass | Test Relation、未知Symbol、未知Local Item、Catalog owner／pathをFail Closedで確認 |
+| Semantic Coverage Pilot | 17意味を全数生成。実装観測16、自動Test観測15、手動確認待ち1 | Runtime Trustの実装・Test不足と手動UAT待ちを空Relationのまま保持し、旧Relationや近似Testで補完していない |
+| Repository Checker | 1,622 files、962 Markdown、16,201 links、0 error、0 warning | 現行構造とRelation更新後のRepository検査は成立 |
 
 Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Process終了を猶予内に観測できなかった。同じ2条件を通常ユーザー境界で再実行すると2／2 Passしたため、製品回帰ではなく実行環境の不一致として分類する。Process／OS境界の成立は、必要な権限を持つ本番同等境界で確認し、Sandbox内の失敗も消さずに実行条件とともに残す。
 
@@ -234,42 +236,64 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 
 ## 12. Relation是正結果
 
-Quality Integrationが各詳細設計領域へ割り当てる118個の`Subsystem × Local Item`を母集団にし、Test Symbolの正方向Relationを再照合した。初回37件から、既存試験の意味と一致する23件を追加し、60件を接続した。残る58件は既存試験へ名前だけで割り当てず、実装欠落、工程Evidence、手動UAT、外部境界または追加試験へ分離する。初回の独立レビューで、Checkerの`RCM-IT-003`と`RCM-IT-004`は実試験にConsumer Closureの刺激、反例およびOracleがないと確認されたため、Relationを削除して未接続に戻した。
+現在の完了判定は、13件のQuality Definitionが所有する150個の一意なLocal Itemを母集団とする。197 Test Sourceの`symbol.json`が所有する正方向Relationと再照合した結果、69件を観測済み、81件を未観測と判定した。未観測81件は自動48件、Hybrid 14件、Manual 19件である。
 
-是正後の現在分類は`Covered Candidate` 3、`Partial` 9、`Missing` 3、`Process-owned Partial` 2、`Gap` 1である。Version Controlだけが、期待6 Relationの全接続により`Partial`から`Covered Candidate`へ進んだ。他領域は一部Relationを補っても残る義務または実装欠落があるため、判定を強めていない。
+| Quality領域 | 未観測数 | 実行形態の内訳 |
+|---|---:|---|
+| AIT | 6 | Automated 5、Manual 1 |
+| AUH | 4 | Hybrid 3、Manual 1 |
+| CPR | 6 | Automated 2、Hybrid 3、Manual 1 |
+| CQS | 11 | Automated 8、Hybrid 1、Manual 2 |
+| ERB | 8 | Automated 6、Hybrid 1、Manual 1 |
+| ERP | 2 | Automated 1、Manual 1 |
+| EST | 6 | Automated 2、Manual 4 |
+| OAG | 8 | Automated 4、Hybrid 4 |
+| PPR | 10 | Automated 5、Hybrid 1、Manual 4 |
+| PRL | 4 | Automated 2、Hybrid 1、Manual 1 |
+| RCM | 6 | Automated 5、Manual 1 |
+| RDL | 3 | Automated 2、Manual 1 |
+| RFD | 7 | Automated 6、Manual 1 |
+
+この81件は「新しいTestが81本必要」という意味ではない。既存TestがLocal Itemの刺激、観測、Oracle、終了後条件を満たす場合はRelation不足として接続し、満たさない場合は試験不足、実装不足、工程Evidenceまたは人間受入待ちへ分類する。名前や同じQuality領域だけを根拠に接続しない。
+
+### 12.1 初回のSubsystem別Snapshot
+
+次表の48／155と未接続107件は、同じLocal Itemを複数Subsystemへ展開した初回の`Subsystem × Local Item` Snapshotである。境界Ownerの発見には使用するが、一意な検証義務の現在Coverageや完了件数には使用しない。以前の`60／118`もLocal Item細分化前かつ段階不一致Relationを含むため、現在判定へ使用しない。
+
+未接続は既存Testへ名前だけで割り当てない。Test FileはCase／Helper Relationの和集合、Test Caseは対応する一つのLocal Item、Helper／Fixtureは支援する一つ以上のLocal Itemを持つ。`symbol.json`だけが正方向Relationを所有し、逆方向Coverageは生成する。人間UAT、工程Evidence、未実装Capabilityおよび段階不足を自動Test Relationへ偽装しない。
 
 | 領域 | 接続済み／期待 | 残るLocal Item |
 |---|---:|---|
-| artifact-signing | 1／3 | `AIT-IT-007`、`AIT-IT-009` |
-| checker | 6／11 | `AUH-ST-006`、`RCM-IT-003`、`RCM-IT-004`、`RCM-IT-007`、`RCM-IT-010` |
-| contract-migration | 0／3 | `RCM-IT-003`、`RCM-IT-004`、`RCM-IT-005` |
-| coordinator | 12／14 | `AIT-ST-004`、`ERB-ST-011` |
-| crdd-domain-library | 3／8 | `AIT-ST-010`、`AUH-IT-002`、`RCM-IT-003`、`RCM-IT-004`、`RCM-IT-008` |
-| cros | 0／10 | `ERB-IT-010`、`EST-UAT-009`、`PPR-IT-001`、`PPR-IT-002`、`PPR-ST-005`、`RFD-ST-003`、`RFD-ST-004`、`RFD-IT-009`、`RFD-ST-010`、`RFD-IT-011` |
-| execution-intelligence | 7／10 | `PPR-UAT-008`、`PPR-UAT-009`、`PPR-IT-010` |
-| mcp | 4／6 | `CPR-IT-001`、`EST-IT-010` |
-| official-asset-governance | 0／5 | `OAG-UAT-001`、`OAG-UAT-002`、`OAG-ST-003`、`OAG-IT-005`、`OAG-IT-006` |
-| platform-access | 3／5 | `ERB-IT-002`、`PRL-ST-003` |
-| project-operation | 0／5 | `CPR-ST-005`、`PPR-IT-001`、`PPR-IT-002`、`PPR-ST-005`、`PPR-UT-006` |
-| project-runtime | 9／14 | `EST-IT-001`、`PRL-UAT-002`、`PRL-ST-003`、`PRL-ST-009`、`PRL-UAT-010` |
-| quality-change-control | 0／3 | `CQS-IT-001`、`CQS-IT-003`、`CQS-IT-004` |
-| runtime-data | 4／6 | `PPR-UT-006`、`RFD-ST-003` |
-| runtime-trust | 0／4 | `AIT-IT-001`、`AIT-IT-003`、`AIT-ST-004`、`AIT-UT-005` |
-| semantic-coverage | 2／2 | なし |
-| verification-runner | 3／3 | なし |
-| version-control | 6／6 | なし |
+| artifact-signing | 1／5 | `AIT-IT-007`、`AIT-IT-009`、`AIT-UT-011`、`AIT-UT-012` |
+| checker | 3／11 | `AUH-ST-006`、`RCM-IT-003`、`RCM-IT-004`、`RCM-IT-007`、`RCM-IT-009`、`RCM-IT-010`、`RCM-UT-001`、`RCM-UT-002` |
+| contract-migration | 0／4 | `RCM-IT-003`、`RCM-IT-004`、`RCM-IT-005`、`RCM-ST-012` |
+| coordinator | 12／17 | `AIT-ST-010`、`ERB-IT-008`、`ERB-IT-012`、`ERB-ST-009`、`ERB-ST-011` |
+| crdd-domain-library | 3／12 | `AIT-ST-010`、`AUH-IT-002`、`RCM-IT-003`、`RCM-IT-004`、`RCM-IT-008`、`RCM-IT-009`、`RCM-IT-011`、`RCM-UT-013`、`RCM-UT-015` |
+| cros | 0／12 | `ERB-IT-010`、`ERB-ST-013`、`EST-UAT-009`、`PPR-IT-001`、`PPR-IT-002`、`PPR-ST-005`、`RFD-IT-009`、`RFD-IT-011`、`RFD-IT-013`、`RFD-ST-003`、`RFD-ST-004`、`RFD-ST-010` |
+| execution-intelligence | 3／14 | `ERP-ST-004`、`PPR-IT-003`、`PPR-IT-004`、`PPR-IT-010`、`PPR-IT-012`、`PPR-UAT-008`、`PPR-UAT-009`、`PPR-UT-006`、`PPR-UT-011`、`PPR-UT-013`、`PPR-UT-014` |
+| mcp | 4／7 | `CPR-IT-001`、`EST-IT-010`、`RFD-ST-004` |
+| official-asset-governance | 0／7 | `OAG-IT-005`、`OAG-IT-006`、`OAG-IT-007`、`OAG-ST-003`、`OAG-UAT-001`、`OAG-UAT-002`、`OAG-UT-008` |
+| platform-access | 1／6 | `ERB-IT-002`、`ERB-IT-014`、`ERB-ST-009`、`PRL-ST-003`、`RDL-ST-002` |
+| project-operation | 0／8 | `CPR-IT-006`、`CPR-ST-005`、`CPR-UAT-007`、`PPR-IT-001`、`PPR-IT-002`、`PPR-ST-005`、`PPR-UAT-015`、`PPR-UT-006` |
+| project-runtime | 8／15 | `EST-IT-001`、`PRL-IT-008`、`PRL-ST-003`、`PRL-ST-004`、`PRL-ST-009`、`PRL-UAT-002`、`PRL-UAT-010` |
+| quality-change-control | 0／5 | `CQS-IT-001`、`CQS-IT-003`、`CQS-IT-004`、`CQS-ST-008`、`CQS-ST-009` |
+| runtime-data | 3／6 | `PPR-UT-006`、`RDL-ST-002`、`RFD-ST-003` |
+| runtime-trust | 0／5 | `AIT-IT-001`、`AIT-IT-003`、`AIT-IT-014`、`AIT-ST-004`、`AIT-UT-005` |
+| semantic-coverage | 3／6 | `PPR-IT-004`、`RDL-IT-007`、`RDL-ST-002` |
+| verification-runner | 2／8 | `CQS-IT-003`、`CQS-ST-012`、`CQS-ST-013`、`ERB-IT-002`、`ERB-IT-004`、`ERB-ST-015` |
+| version-control | 5／7 | `PPR-UAT-009`、`RCM-ST-012` |
 
-同じLocal Itemが複数領域へ現れる場合は、各領域が所有する境界を別Relationとして数える。したがって60件は試験件数ではなく、設計領域と検証義務の接続数である。手動UATや工程判断を自動Test Symbolへ偽装せず、実Runtimeが存在しない領域もRelation追加だけで`Covered`へ変更しない。
+同じLocal Itemが複数領域へ現れる場合は、各領域が所有する境界を別Relationとして数える。したがって48件は試験件数ではなく、設計領域と検証義務の初回接続数である。手動UATや工程判断を自動Test Symbolへ偽装せず、実Runtimeが存在しない領域もRelation追加だけで`Covered`へ変更しない。
 
-## 13. 未接続58件の移送先
+## 13. 未観測81件の処置
 
-| 移送先 | 件数 | 対象領域 | 処置 |
-|---|---:|---|---|
-| 現行Subsystemの設計／試験是正 | 27 | artifact-signing、checker、contract-migration、coordinator、crdd-domain-library、execution-intelligence、platform-access、project-runtime | 各Local Itemの刺激、Oracle、終了後条件を満たす実装または追加試験として、後続CHGで個別に閉じる |
-| Group B／Cの未実装Capability | 23 | cros、mcp、project-operation、runtime-data、runtime-trust | Project Operation、Workbench、CROS、Remote MCP、Trust Policyの実装と段階結合試験で閉じる |
-| 工程／人間判断のEvidence | 8 | official-asset-governance、quality-change-control | Runtime Test Symbolを捏造せず、公開・撤回・競合判断・監査集合・是正再入場のEvidenceで評価する |
+| 実行形態 | 件数 | 現在の処置 |
+|---|---:|---|
+| Automated | 48 | 既存Testの意味一致を一件ずつ確認し、成立するものは正方向Relationを追加する。不成立は実装またはTest Gapとして閉じる |
+| Hybrid | 14 | 自動部分と人間判断部分を分離し、自動部分だけのPassを全体成立へ畳まない |
+| Manual | 19 | 自動Test Symbolを捏造せず、参加条件、入力、判断、未判断範囲およびEvidenceを固定して実施する |
 
-合計58件はすべて所有先と再評価契機を持つ。Reality Auditは未実装Capabilityや未実行の手動評価を自分で補完せず、後続変更のQuality Mappingから再評価する。
+全回帰は、Automated／Hybridの実装・試験Gapを閉じ、Manual項目の実施条件と現在Releaseへの影響を固定した後に実行する。Phase 8完了前に各件の具体的Owner、処置、再評価契機および現在Releaseへの影響を固定する。Reality Auditは未実装Capabilityや未実行の手動評価を自分で補完せず、対応するQuality Mappingから再評価する。
 
 ## Checklist
 

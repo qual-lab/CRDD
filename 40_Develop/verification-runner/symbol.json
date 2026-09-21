@@ -16,13 +16,15 @@
       "kind": "test-suite",
       "path": "tests/integration/regression-runner.contract.test.ts",
       "qaIds": [
+        "QA-000001",
         "QA-000002"
       ],
       "localTestIds": [
-        "CQS-IT-011"
+        "CQS-IT-011",
+        "RCM-IT-007"
       ],
       "verifies": [
-        "verification-runner.regression-entry"
+        "verification-runner.source.src.execution.regression.execution"
       ]
     },
     {
@@ -36,7 +38,23 @@
         "CQS-UT-010"
       ],
       "verifies": [
-        "verification-runner.regression-entry"
+        "verification-runner.source.src.catalog.test.catalog"
+      ]
+    },
+    {
+      "symbolId": "verification-runner.source.src.execution.regression.execution",
+      "kind": "file",
+      "path": "src/execution/regression-execution.ts",
+      "archIds": [
+        "ARCH-000003"
+      ]
+    },
+    {
+      "symbolId": "verification-runner.source.src.catalog.test.catalog",
+      "kind": "file",
+      "path": "src/catalog/test-catalog.ts",
+      "archIds": [
+        "ARCH-000003"
       ]
     }
   ]

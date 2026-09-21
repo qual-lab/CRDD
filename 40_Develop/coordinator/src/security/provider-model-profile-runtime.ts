@@ -1,3 +1,9 @@
+/**
+ * provider-model-profile-runtimeに属する責務をまとめる。
+ *
+ * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 export const PROVIDER_MODEL_PROFILE_RUNTIME_CONTRACT =
@@ -21,9 +27,9 @@ const ROLES = new Set([
 ]);
 
 /**
- * Providerが扱う値の構造を表す。
+ * provider-model-profile-runtimeで使用するProviderの値契約を定義する。
  *
- * @responsibility Providerに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ProviderのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Providerで宣言した値と責務の対応を維持する。
@@ -34,9 +40,9 @@ const ROLES = new Set([
 type Provider = "codex" | "claude";
 
 /**
- * resolveProfileの処理を実行する。
+ * Profileを一意に解決する。
  *
- * @responsibility resolveProfileに対応する入力処理と結果生成を所有する。
+ * @responsibility Profileの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000010
  * @input provider: Provider、family: "sol" | "opus"、role: | "coordinator" | "executor" | "independent_reviewer" | "result_integration"、modelTier: "preferred" | "upper_allowed"
  * @returns resolveProfileの計算結果を返す。
@@ -100,9 +106,9 @@ function resolveProfile(
 }
 
 /**
- * resolveRuntimeOwnedProviderModelProfileの処理を実行する。
+ * Runtime 所有 Provider Model Profileを一意に解決する。
  *
- * @responsibility resolveRuntimeOwnedProviderModelProfileに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Provider Model Profileの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000010
  * @input rawRequest: unknown
  * @returns resolveRuntimeOwnedProviderModelProfileの計算結果を返す。
@@ -142,9 +148,9 @@ export function resolveRuntimeOwnedProviderModelProfile(rawRequest: unknown) {
 }
 
 /**
- * describeProviderModelProfileRuntimeContractの処理を実行する。
+ * Provider Model Profile Runtime 契約の公開契約を記述する。
  *
- * @responsibility describeProviderModelProfileRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Model Profile Runtime 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000010
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProviderModelProfileRuntimeContractの計算結果を返す。

@@ -6,7 +6,7 @@
  * @trace AIT-ST-004
  * @level ST
  * @scope signed、route、matrix、verification
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -67,7 +67,7 @@ const expectations = {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 function completed(
   profile: keyof typeof expectations,
@@ -135,7 +135,7 @@ function completed(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 function safelyRetryable(
   reason:
@@ -190,7 +190,7 @@ function safelyRetryable(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("4経路をcross-provider優先で順番に実測し全cleanup後だけ完了する", async () => {
   const seenItems: string[] = [];
@@ -232,7 +232,7 @@ test("4経路をcross-provider優先で順番に実測し全cleanup後だけ完�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("最初の未完了経路で停止し既知cleanup状態を失わない", async () => {
   const seenItems: string[] = [];
@@ -281,7 +281,7 @@ test("最初の未完了経路で停止し既知cleanup状態を失わない", a
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("全成功fieldの一つでも危険側・経路不一致なら完了判定しない", () => {
   const base = completed("forward", "interactive_initial_consent");
@@ -341,7 +341,7 @@ test("全成功fieldの一つでも危険側・経路不一致なら完了判定
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("保存済み同意は初回からreuseし残りもreuseで閉じる", async () => {
   const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
@@ -371,7 +371,7 @@ test("保存済み同意は初回からreuseし残りもreuseで閉じる", asyn
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("exact破棄と残存0を確認した閉集合理由だけ同じ経路を最大3回まで再試行する", async () => {
   const seenItems: string[] = [];
@@ -417,7 +417,7 @@ test("exact破棄と残存0を確認した閉集合理由だけ同じ経路を�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("安全再試行の全attemptを同じ作業対象Execution Revisionへ固定する", async () => {
   let attempts = 0;
@@ -455,7 +455,7 @@ test("安全再試行の全attemptを同じ作業対象Execution Revisionへ固�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("是正後の独立Reviewer拒否は同一入力を再実行せず停止する", async () => {
   const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
@@ -488,7 +488,7 @@ test("是正後の独立Reviewer拒否は同一入力を再実行せず停止す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("Candidate整合性不成立は同一入力を再実行せず停止する", async () => {
   const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
@@ -519,7 +519,7 @@ test("Candidate整合性不成立は同一入力を再実行せず停止する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("内容不一致でもCandidate未発行という矛盾した結果は再試行しない", async () => {
   const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
@@ -550,7 +550,7 @@ test("内容不一致でもCandidate未発行という矛盾した結果は再�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("Recovery曖昧・候補未破棄・汎用失敗は再試行せず初回で停止する", async () => {
   for (const mutation of [
@@ -589,7 +589,7 @@ test("Recovery曖昧・候補未破棄・汎用失敗は再試行せず初回で
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("4経路は同一Release Identityへ固定し別Releaseを集約しない", async () => {
   const mutations: Array<readonly [string, unknown]> = [
@@ -635,7 +635,7 @@ test("4経路は同一Release Identityへ固定し別Releaseを集約しない",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("4経路は同一の実行Repository Identityへ固定し別Revisionを集約しない", async () => {
   for (const [field, value] of [
@@ -680,7 +680,7 @@ test("4経路は同一の実行Repository Identityへ固定し別Revisionを集�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("route runner例外は実Processをpoisonし全guarded入口をEffect前に閉じる", () => {
   const probe = spawnSync(
@@ -729,7 +729,7 @@ test("route runner例外は実Processをpoisonし全guarded入口をEffect前に
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("非適合routeの観測field欠落またはnullは独立Processでpoisonへ収束する", () => {
   for (const field of [
@@ -779,7 +779,7 @@ test("非適合routeの観測field欠落またはnullは独立Processでpoison�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("route結果のgetter／Proxy観測不能は実Process poisonへ閉じる", () => {
   for (const scenario of ["result_getter", "result_proxy"]) {
@@ -810,7 +810,7 @@ test("route結果のgetter／Proxy観測不能は実Process poisonへ閉じる",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("route安全観測不明でも有効Recovery IDをnested／top-levelへ保持する", () => {
   const probe = spawnSync(
@@ -846,7 +846,7 @@ test("route安全観測不明でも有効Recovery IDをnested／top-levelへ保�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("route salvageは過長IDを公開せず同じfieldのvalid IDだけを保持する", () => {
   const probe = spawnSync(
@@ -874,7 +874,7 @@ test("route salvageは過長IDを公開せず同じfieldのvalid IDだけを保�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("CLI最外周は引数不正と実行中未知を別分類し観測事実を捏造しない", () => {
   const unknown = createSignedRouteMatrixCliFailureResult("runner_exception");
@@ -930,7 +930,7 @@ test("CLI最外周は引数不正と実行中未知を別分類し観測事実�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定する", () => {
   const contract = describeSignedRouteMatrixVerificationContract();

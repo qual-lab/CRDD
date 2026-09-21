@@ -6,7 +6,7 @@
  * @trace PRL-UT-006
  * @level UT
  * @scope docker、recovery、public、projection
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -26,7 +26,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 function observation(overrides: Record<string, unknown> = {}) {
   return Object.freeze({
@@ -53,7 +53,7 @@ const two = `docker-task.${"4".repeat(64)}.${"5".repeat(64)}.${"6".repeat(64)}`;
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("production Recovery inventory形状はcleanだけをTask Admissionへ通す", () => {
   assert.deepEqual(projectDockerRecoveryAdmission(observation()), {
@@ -130,7 +130,7 @@ test("production Recovery inventory形状はcleanだけをTask Admissionへ通�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("clean、inventory、hashの相関差は値非公開で拒否する", () => {
   for (const candidate of [
@@ -176,7 +176,7 @@ test("clean、inventory、hashの相関差は値非公開で拒否する", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("Recovery observation unknownと未登録理由は固定公開分類へ閉じる", () => {
   assert.equal(
@@ -220,7 +220,7 @@ test("Recovery observation unknownと未登録理由は固定公開分類へ閉�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("malformed、accessor、Proxyは値を読まずRecovery requiredへ閉じる", () => {
   const malformed = observation({ dockerRecoveryIds: ["one", "two"] });
@@ -258,7 +258,7 @@ test("malformed、accessor、Proxyは値を読まずRecovery requiredへ閉じ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("RecoveryのHome hash配列不正はID配列が正しくても拒否しgetterを呼ばない", () => {
   let getterCalls = 0;

@@ -1,3 +1,9 @@
+/**
+ * project-runtime-integration-record-adapterに属する責務をまとめる。
+ *
+ * @responsibility IntegrationRecordBindingを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000005
+ */
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -9,9 +15,9 @@ import {
 import { resolveRepositoryRuntimeDataPathsFromWorkingDirectory } from "../../../runtime-data/src/index.ts";
 
 /**
- * IntegrationRecordBindingが扱う値の構造を表す。
+ * project-runtime-integration-record-adapterで使用するIntegration 記録 Bindingの値契約を定義する。
  *
- * @responsibility IntegrationRecordBindingに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Integration 記録 BindingのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000005
  * @shape IntegrationRecordBindingが表すProperty、識別子およびRelationを型として固定する。
  * @invariant IntegrationRecordBindingで宣言した値と責務の対応を維持する。
@@ -31,9 +37,9 @@ const RECORD_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 const BINDING_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,511}$/u;
 
 /**
- * completedの処理を実行する。
+ * completedを決定する。
  *
- * @responsibility completedに対応する入力処理と結果生成を所有する。
+ * @responsibility completedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000005
  * @input N/A: 実行時引数を受け取らない。
  * @returns ProjectRuntimePortResult<Readonly<{ written: true }>>を返す。
@@ -55,9 +61,9 @@ function completed(): ProjectRuntimePortResult<Readonly<{ written: true }>> {
 }
 
 /**
- * blockedの処理を実行する。
+ * project-runtime-integration-record-adapterを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-integration-record-adapterの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000005
  * @input N/A: 実行時引数を受け取らない。
  * @returns ProjectRuntimePortResult<Readonly<{ written: true }>>を返す。
@@ -83,7 +89,7 @@ function blocked(): ProjectRuntimePortResult<Readonly<{ written: true }>> {
 /**
  * Bind Repository paths and immutable publication mechanics outside the Application Core.
  *
- * @responsibility createProjectRuntimeIntegrationRecordAdapterに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Integration 記録 Adapterの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000005
  * @input binding: IntegrationRecordBinding
  * @returns ProjectRuntimeIntegrationRecordPortを返す。

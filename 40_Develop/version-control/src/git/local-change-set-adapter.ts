@@ -1,3 +1,9 @@
+/**
+ * local-change-set-adapterに属する責務をまとめる。
+ *
+ * @responsibility GitLocalChangeSetProcessResultを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000002
+ */
 import { type SpawnSyncReturns, spawnSync } from "node:child_process";
 
 import type {
@@ -6,9 +12,9 @@ import type {
 } from "../local-change-set.ts";
 
 /**
- * GitLocalChangeSetProcessResultが扱う値の構造を表す。
+ * local-change-set-adapterで使用するGit Local Change Set Process 結果の値契約を定義する。
  *
- * @responsibility GitLocalChangeSetProcessResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Git Local Change Set Process 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape GitLocalChangeSetProcessResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant GitLocalChangeSetProcessResultで宣言した値と責務の対応を維持する。
@@ -22,9 +28,9 @@ export type GitLocalChangeSetProcessResult = Pick<
 >;
 
 /**
- * GitLocalChangeSetCommandRunnerが扱う値の構造を表す。
+ * local-change-set-adapterで使用するGit Local Change Set Command Runnerの値契約を定義する。
  *
- * @responsibility GitLocalChangeSetCommandRunnerに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Git Local Change Set Command RunnerのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape GitLocalChangeSetCommandRunnerが表すProperty、識別子およびRelationを型として固定する。
  * @invariant GitLocalChangeSetCommandRunnerで宣言した値と責務の対応を維持する。
@@ -37,9 +43,9 @@ export type GitLocalChangeSetCommandRunner = (
 ) => GitLocalChangeSetProcessResult;
 
 /**
- * parsePathsの処理を実行する。
+ * Pathsを構造化値へ解析する。
  *
- * @responsibility parsePathsに対応する入力処理と結果生成を所有する。
+ * @responsibility Pathsの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000002
  * @input result: GitLocalChangeSetProcessResult、phase: string
  * @returns readonly string[]を返す。
@@ -67,9 +73,9 @@ function parsePaths(
 }
 
 /**
- * createGitLocalChangeSetAdapterの処理を実行する。
+ * Git Local Change Set Adapterを構築する。
  *
- * @responsibility createGitLocalChangeSetAdapterに対応する入力処理と結果生成を所有する。
+ * @responsibility Git Local Change Set Adapterの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000002
  * @input commandRunner: GitLocalChangeSetCommandRunner
  * @returns LocalChangeSetAdapterを返す。

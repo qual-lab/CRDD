@@ -144,10 +144,11 @@
         "QA-000003"
       ],
       "localTestIds": [
-        "PRL-UT-006"
+        "PRL-UT-007"
       ],
       "verifies": [
-        "project-runtime.human-decision-application"
+        "project-runtime.human-decision-application",
+        "project-runtime.source.src.ports.port.result"
       ]
     },
     {
@@ -169,10 +170,10 @@
       "kind": "test-suite",
       "path": "tests/unit/execution-observation-port.contract.test.ts",
       "qaIds": [
-        "QA-000003"
+        "QA-000004"
       ],
       "localTestIds": [
-        "PRL-UT-006"
+        "PPR-UT-011"
       ],
       "verifies": [
         "project-runtime.execution-observation-port"
@@ -183,13 +184,16 @@
       "kind": "test-suite",
       "path": "tests/unit/objective-intake.contract.test.ts",
       "qaIds": [
-        "QA-000003"
+        "QA-000003",
+        "QA-000004"
       ],
       "localTestIds": [
-        "PRL-UT-006"
+        "PPR-UT-006",
+        "PRL-UT-007"
       ],
       "verifies": [
         "project-runtime.objective-intake",
+        "project-runtime.source.src.public.contract.objective.request",
         "project-runtime.state-core"
       ]
     },
@@ -201,10 +205,15 @@
         "QA-000003"
       ],
       "localTestIds": [
-        "PRL-UT-006"
+        "PRL-UT-014"
       ],
       "verifies": [
-        "project-runtime.public-api"
+        "project-runtime.source.src.ports.decision.port",
+        "project-runtime.source.src.ports.execution.port",
+        "project-runtime.source.src.public.contract.decision.request",
+        "project-runtime.source.src.public.contract.integration.result",
+        "project-runtime.source.src.public.contract.objective.request",
+        "project-runtime.source.src.public.contract.runtime.result"
       ]
     },
     {
@@ -212,14 +221,16 @@
       "kind": "test-suite",
       "path": "tests/unit/project-state-query.contract.test.ts",
       "qaIds": [
-        "QA-000003"
+        "QA-000004"
       ],
       "localTestIds": [
-        "PRL-UT-006"
+        "PPR-UT-006"
       ],
       "verifies": [
-        "project-runtime.state-query-application",
-        "project-runtime.state-core"
+        "project-runtime.source.src.ports.state.port",
+        "project-runtime.source.src.public.contract.project.state.query",
+        "project-runtime.state-core",
+        "project-runtime.state-query-application"
       ]
     },
     {
@@ -230,10 +241,10 @@
         "QA-000003"
       ],
       "localTestIds": [
-        "PRL-UT-006"
+        "PRL-UT-014"
       ],
       "verifies": [
-        "project-runtime.execution"
+        "project-runtime.source.src.ports.platform.contract"
       ]
     },
     {
@@ -244,11 +255,91 @@
         "QA-000003"
       ],
       "localTestIds": [
-        "PRL-UT-006"
+        "PRL-UT-006",
+        "PRL-UT-007"
       ],
       "verifies": [
-        "project-runtime.state-core",
-        "project-runtime.queue-core"
+        "project-runtime.state-core"
+      ]
+    },
+    {
+      "symbolId": "project-runtime.source.src.ports.decision.port",
+      "kind": "file",
+      "path": "src/ports/decision-port.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "project-runtime.source.src.ports.execution.port",
+      "kind": "file",
+      "path": "src/ports/execution-port.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "project-runtime.source.src.ports.platform.contract",
+      "kind": "file",
+      "path": "src/ports/platform-contract.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "project-runtime.source.src.ports.port.result",
+      "kind": "file",
+      "path": "src/ports/port-result.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "project-runtime.source.src.public.contract.objective.request",
+      "kind": "file",
+      "path": "src/public-contract/objective-request.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "project-runtime.source.src.public.contract.decision.request",
+      "kind": "file",
+      "path": "src/public-contract/decision-request.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "project-runtime.source.src.public.contract.integration.result",
+      "kind": "file",
+      "path": "src/public-contract/integration-result.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "project-runtime.source.src.public.contract.runtime.result",
+      "kind": "file",
+      "path": "src/public-contract/runtime-result.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "project-runtime.source.src.public.contract.project.state.query",
+      "kind": "file",
+      "path": "src/public-contract/project-state-query.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "project-runtime.source.src.ports.state.port",
+      "kind": "file",
+      "path": "src/ports/state-port.ts",
+      "archIds": [
+        "ARCH-000004"
       ]
     }
   ]

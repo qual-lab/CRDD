@@ -3,10 +3,10 @@
  *
  * @packageDocumentation
  * @responsibility coordinator:system:signed-recovery-matrix-verificationが所有する検証責務を実行する。
- * @trace AIT-ST-004
+ * @trace PRL-ST-004
  * @level ST
  * @scope signed、recovery、matrix、verification
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary PRL-ST-004=System/E2E: 公開入口→Runtime→耐久Store→回復再入場
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -23,13 +23,13 @@ import {
  * 署名Recovery Matrixは通常Task入力へFault注入面を追加しないを検証する。
  *
  * @responsibility 署名Recovery Matrixは通常Task入力へFault注入面を追加しないの合否判定を所有する。
- * @trace AIT-ST-004
+ * @trace PRL-ST-004
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 署名Recovery Matrixは通常Task入力へFault注入面を追加しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary PRL-ST-004=System/E2E: 公開入口→Runtime→耐久Store→回復再入場
  */
 test("署名Recovery Matrixは通常Task入力へFault注入面を追加しない", () => {
   const contract = describeSignedRecoveryMatrixContract();
@@ -63,13 +63,13 @@ test("署名Recovery Matrixは通常Task入力へFault注入面を追加しな�
  * 公開CLIは引数なし以外を固定JSONでEffect前に拒否するを検証する。
  *
  * @responsibility 公開CLIは引数なし以外を固定JSONでEffect前に拒否するの合否判定を所有する。
- * @trace AIT-ST-004
+ * @trace PRL-ST-004
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 公開CLIは引数なし以外を固定JSONでEffect前に拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary PRL-ST-004=System/E2E: 公開入口→Runtime→耐久Store→回復再入場
  */
 test("公開CLIは引数なし以外を固定JSONでEffect前に拒否する", () => {
   const result = spawnSync(

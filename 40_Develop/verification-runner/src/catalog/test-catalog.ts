@@ -1,3 +1,9 @@
+/**
+ * test-catalogに属する責務をまとめる。
+ *
+ * @responsibility TestLevelを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000003
+ */
 import fs from "node:fs";
 import path from "node:path";
 
@@ -11,9 +17,9 @@ export const testLevels = [
 ] as const;
 
 /**
- * TestLevelが扱う値の構造を表す。
+ * test-catalogで使用するTest Levelの値契約を定義する。
  *
- * @responsibility TestLevelに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Test LevelのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000003
  * @shape TestLevelが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TestLevelで宣言した値と責務の対応を維持する。
@@ -42,9 +48,9 @@ export const integrationLifecycleProfiles = [
 ] as const;
 
 /**
- * TestCatalogEntryが扱う値の構造を表す。
+ * test-catalogで使用するTest Catalog Entryの値契約を定義する。
  *
- * @responsibility TestCatalogEntryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Test Catalog EntryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000003
  * @shape TestCatalogEntryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TestCatalogEntryで宣言した値と責務の対応を維持する。
@@ -80,9 +86,9 @@ export type TestCatalogEntry = Readonly<{
 }>;
 
 /**
- * TestCatalogが扱う値の構造を表す。
+ * test-catalogで使用するTest Catalogの値契約を定義する。
  *
- * @responsibility TestCatalogに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Test CatalogのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000003
  * @shape TestCatalogが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TestCatalogで宣言した値と責務の対応を維持する。
@@ -228,9 +234,9 @@ const WINDOWS_PROCESS_GATE_DECLARATION =
   /\btest\s*\(\s*[`"]Windows Process Gate:/u;
 
 /**
- * ordinalの処理を実行する。
+ * ordinalを決定する。
  *
- * @responsibility ordinalに対応する入力処理と結果生成を所有する。
+ * @responsibility ordinalの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000003
  * @input left: string、right: string
  * @returns numberを返す。
@@ -248,9 +254,9 @@ function ordinal(left: string, right: string): number {
 }
 
 /**
- * repositoryPathの処理を実行する。
+ * repository Pathを決定する。
  *
- * @responsibility repositoryPathに対応する入力処理と結果生成を所有する。
+ * @responsibility repository Pathの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000003
  * @input root: string、absolutePath: string
  * @returns stringを返す。
@@ -268,9 +274,9 @@ function repositoryPath(root: string, absolutePath: string): string {
 }
 
 /**
- * walkFilesの処理を実行する。
+ * walk Filesを決定する。
  *
- * @responsibility walkFilesに対応する入力処理と結果生成を所有する。
+ * @responsibility walk Filesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000003
  * @input root: string、directory: string
  * @returns string[]を返す。
@@ -302,9 +308,9 @@ function walkFiles(root: string, directory: string): string[] {
 }
 
 /**
- * discoverRepositoryTestFilesの処理を実行する。
+ * Repository Test Filesを探索する。
  *
- * @responsibility discoverRepositoryTestFilesに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Test Filesの探索Root、対象母集団、未観測境界を所有する。
  * @trace ARCH-000003
  * @input repositoryRoot: string
  * @returns string[]を返す。
@@ -351,9 +357,9 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
 }
 
 /**
- * isTestLevelの処理を実行する。
+ * Test Levelかを判定する。
  *
- * @responsibility isTestLevelに対応する入力処理と結果生成を所有する。
+ * @responsibility Test Levelの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000003
  * @input value: unknown
  * @returns value is TestLevelを返す。
@@ -371,9 +377,9 @@ function isTestLevel(value: unknown): value is TestLevel {
 }
 
 /**
- * expectedNodeLevelの処理を実行する。
+ * expected Node Levelを決定する。
  *
- * @responsibility expectedNodeLevelに対応する入力処理と結果生成を所有する。
+ * @responsibility expected Node Levelの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000003
  * @input entryPath: string
  * @returns string | nullを返す。
@@ -395,9 +401,9 @@ function expectedNodeLevel(entryPath: string): string | null {
 }
 
 /**
- * loadTestCatalogの処理を実行する。
+ * Test Catalogを読み込む。
  *
- * @responsibility loadTestCatalogに対応する入力処理と結果生成を所有する。
+ * @responsibility Test Catalogの読取り元、Schema検証、読取不能時の拒否境界を所有する。
  * @trace ARCH-000003
  * @input catalogPath: string
  * @returns unknownを返す。
@@ -415,9 +421,9 @@ export function loadTestCatalog(catalogPath: string): unknown {
 }
 
 /**
- * isRecordの処理を実行する。
+ * 記録かを判定する。
  *
- * @responsibility isRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility 記録の判定条件とtrue／false境界を所有する。
  * @trace ARCH-000003
  * @input value: unknown
  * @returns value is Record<string, unknown>を返す。
@@ -435,9 +441,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * inspectExactKeysの処理を実行する。
+ * Exact Keysを観測する。
  *
- * @responsibility inspectExactKeysに対応する入力処理と結果生成を所有する。
+ * @responsibility Exact Keysの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000003
  * @input value: Record<string, unknown>、expected: ReadonlySet<string>、prefix: string、optional: ReadonlySet<string>
  * @returns string[]を返す。
@@ -466,9 +472,9 @@ function inspectExactKeys(
 }
 
 /**
- * isNonEmptyUniqueStringArrayの処理を実行する。
+ * Non Empty Unique String Arrayかを判定する。
  *
- * @responsibility isNonEmptyUniqueStringArrayに対応する入力処理と結果生成を所有する。
+ * @responsibility Non Empty Unique String Arrayの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000003
  * @input value: unknown
  * @returns value is string[]を返す。
@@ -491,9 +497,9 @@ function isNonEmptyUniqueStringArray(value: unknown): value is string[] {
 }
 
 /**
- * isSafeRepositoryPathの処理を実行する。
+ * Safe Repository Pathかを判定する。
  *
- * @responsibility isSafeRepositoryPathに対応する入力処理と結果生成を所有する。
+ * @responsibility Safe Repository Pathの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000003
  * @input value: string
  * @returns booleanを返す。
@@ -522,9 +528,9 @@ function isSafeRepositoryPath(value: string): boolean {
 }
 
 /**
- * markdownHeadingAnchorExistsの処理を実行する。
+ * markdown Heading Anchor Existsを決定する。
  *
- * @responsibility markdownHeadingAnchorExistsに対応する入力処理と結果生成を所有する。
+ * @responsibility markdown Heading Anchor Existsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000003
  * @input repositoryRoot: string、architectureAnchor: string
  * @returns booleanを返す。
@@ -572,9 +578,9 @@ function markdownHeadingAnchorExists(
 }
 
 /**
- * inspectTestCatalogの処理を実行する。
+ * Test Catalogを観測する。
  *
- * @responsibility inspectTestCatalogに対応する入力処理と結果生成を所有する。
+ * @responsibility Test Catalogの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000003
  * @input repositoryRoot: string、candidate: unknown
  * @returns readonly string[]を返す。
@@ -931,9 +937,9 @@ export function inspectTestCatalog(
 }
 
 /**
- * ResourceIntensiveTestAuthorityが扱う値の構造を表す。
+ * test-catalogで使用するResource Intensive Test Authorityの値契約を定義する。
  *
- * @responsibility ResourceIntensiveTestAuthorityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Resource Intensive Test AuthorityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000003
  * @shape ResourceIntensiveTestAuthorityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ResourceIntensiveTestAuthorityで宣言した値と責務の対応を維持する。
@@ -953,9 +959,9 @@ export type ResourceIntensiveTestAuthority = Readonly<{
 }>;
 
 /**
- * inspectResourceIntensiveTestAuthorityの処理を実行する。
+ * Resource Intensive Test Authorityを観測する。
  *
- * @responsibility inspectResourceIntensiveTestAuthorityに対応する入力処理と結果生成を所有する。
+ * @responsibility Resource Intensive Test Authorityの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000003
  * @input levels: ReadonlySet<TestLevel>、authority: ResourceIntensiveTestAuthority
  * @returns readonly string[]を返す。
@@ -996,9 +1002,9 @@ export function inspectResourceIntensiveTestAuthority(
 }
 
 /**
- * ownerForPathの処理を実行する。
+ * owner For Pathを決定する。
  *
- * @responsibility ownerForPathに対応する入力処理と結果生成を所有する。
+ * @responsibility owner For Pathの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000003
  * @input changedPath: string
  * @returns TestCatalogEntry["owner"] | nullを返す。
@@ -1036,9 +1042,9 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
 }
 
 /**
- * isDocumentationPathの処理を実行する。
+ * Documentation Pathかを判定する。
  *
- * @responsibility isDocumentationPathに対応する入力処理と結果生成を所有する。
+ * @responsibility Documentation Pathの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000003
  * @input changedPath: string
  * @returns booleanを返す。
@@ -1056,9 +1062,9 @@ function isDocumentationPath(changedPath: string): boolean {
 }
 
 /**
- * isSharedRuntimePathの処理を実行する。
+ * Shared Runtime Pathかを判定する。
  *
- * @responsibility isSharedRuntimePathに対応する入力処理と結果生成を所有する。
+ * @responsibility Shared Runtime Pathの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000003
  * @input changedPath: string
  * @returns booleanを返す。
@@ -1081,9 +1087,9 @@ function isSharedRuntimePath(changedPath: string): boolean {
 }
 
 /**
- * applicableConsumerBindingsの処理を実行する。
+ * applicable Consumer Bindingsを決定する。
  *
- * @responsibility applicableConsumerBindingsに対応する入力処理と結果生成を所有する。
+ * @responsibility applicable Consumer Bindingsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000003
  * @input catalog: TestCatalog、changedPath: string、producerOwner: TestCatalogEntry["owner"]
  * @returns applicableConsumerBindingsの計算結果を返す。
@@ -1117,9 +1123,9 @@ function applicableConsumerBindings(
 }
 
 /**
- * selectRegressionStaticOwnersの処理を実行する。
+ * Regression Static Ownersを選択する。
  *
- * @responsibility selectRegressionStaticOwnersに対応する入力処理と結果生成を所有する。
+ * @responsibility Regression Static Ownersの候補集合、選択理由、選択不能時の境界を所有する。
  * @trace ARCH-000003
  * @input catalog: TestCatalog、changedPaths: readonly string[]、selectedEntries: readonly TestCatalogEntry[]
  * @returns readonly TestCatalogEntry["owner"][]を返す。
@@ -1172,9 +1178,9 @@ export function selectRegressionStaticOwners(
 }
 
 /**
- * selectRegressionTestsの処理を実行する。
+ * Regression Testsを選択する。
  *
- * @responsibility selectRegressionTestsに対応する入力処理と結果生成を所有する。
+ * @responsibility Regression Testsの候補集合、選択理由、選択不能時の境界を所有する。
  * @trace ARCH-000003
  * @input catalog: TestCatalog、changedPaths: readonly string[]、levels: ReadonlySet<TestLevel>
  * @returns readonly TestCatalogEntry[]を返す。

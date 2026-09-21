@@ -6,7 +6,7 @@
  * @trace PRL-UT-014
  * @level UT
  * @scope provider、model、profile、runtime
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -26,7 +26,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 function createRequest(overrides: Record<string, unknown> = {}) {
   return {
@@ -50,7 +50,7 @@ function createRequest(overrides: Record<string, unknown> = {}) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Codex SolとClaude Opusのpreferred／upper profileを固定解決する", () => {
   assert.deepEqual(resolveRuntimeOwnedProviderModelProfile(createRequest()), {
@@ -109,7 +109,7 @@ test("Codex SolとClaude Opusのpreferred／upper profileを固定解決する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("family差、fast、API課金、未知tierと余分keyを解決しない", () => {
   for (const request of [
@@ -133,7 +133,7 @@ test("family差、fast、API課金、未知tierと余分keyを解決しない", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("accessorとProxyを実行せずProfile解決をfail closedにする", () => {
   let getterExecuted = false;
@@ -163,7 +163,7 @@ test("accessorとProxyを実行せずProfile解決をfail closedにする", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("公開契約は通常速度、Subscription、同family内effort切替だけを許す", () => {
   const contract = describeProviderModelProfileRuntimeContract();

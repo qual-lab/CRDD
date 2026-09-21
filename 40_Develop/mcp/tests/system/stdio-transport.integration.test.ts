@@ -6,7 +6,7 @@
  * @trace EST-ST-012
  * @level ST
  * @scope mcp、project、runtime、stdio
- * @boundary System/E2E: MCP stdio入口→Application→応答stream
+ * @boundary EST-ST-012=System/E2E: MCP stdio入口→Application→応答stream
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -27,7 +27,7 @@ import { runMcpProjectRuntimeStdio } from "../../src/index.ts";
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: MCP stdio入口→Application→応答stream
+ * @boundary EST-ST-012=System/E2E: MCP stdio入口→Application→応答stream
  */
 function output() {
   let content = "";
@@ -50,7 +50,7 @@ function output() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: MCP stdio入口→Application→応答stream
+ * @boundary EST-ST-012=System/E2E: MCP stdio入口→Application→応答stream
  */
 test("stdio process transports one bounded MCP request and closes on parent EOF", async () => {
   const sink = output();
@@ -94,7 +94,7 @@ test("stdio process transports one bounded MCP request and closes on parent EOF"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: MCP stdio入口→Application→応答stream
+ * @boundary EST-ST-012=System/E2E: MCP stdio入口→Application→応答stream
  */
 test("stdio process rejects trailing and oversized frames without semantic effects", async () => {
   let effects = 0;
@@ -138,7 +138,7 @@ test("stdio process rejects trailing and oversized frames without semantic effec
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: MCP stdio入口→Application→応答stream
+ * @boundary EST-ST-012=System/E2E: MCP stdio入口→Application→応答stream
  */
 test("template toolsの公開入口はbounded MCP stdio processを提供する", () => {
   const entry = fileURLToPath(
@@ -178,7 +178,7 @@ test("template toolsの公開入口はbounded MCP stdio processを提供する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: MCP stdio入口→Application→応答stream
+ * @boundary EST-ST-012=System/E2E: MCP stdio入口→Application→応答stream
  */
 test("MCP公開Launcherは未知の起動形式を意味処理前に拒否する", () => {
   const entry = fileURLToPath(
@@ -204,7 +204,7 @@ test("MCP公開Launcherは未知の起動形式を意味処理前に拒否する
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: MCP stdio入口→Application→応答stream
+ * @boundary EST-ST-012=System/E2E: MCP stdio入口→Application→応答stream
  */
 test("parent EOF aborts and joins an active semantic request before stdio closes", async () => {
   const input = new PassThrough();
@@ -228,7 +228,7 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
            * @observation 返却値、生成fixtureまたは観測値を取得する。
            * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
            * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-           * @boundary System/E2E: MCP stdio入口→Application→応答stream
+           * @boundary EST-ST-012=System/E2E: MCP stdio入口→Application→応答stream
            */
           const cancel = () => {
             isCancellationObserved = true;
@@ -304,7 +304,7 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: MCP stdio入口→Application→応答stream
+ * @boundary EST-ST-012=System/E2E: MCP stdio入口→Application→応答stream
  */
 test("stdio preserves semantic cleanup uncertainty after transport cleanup", async () => {
   const sink = output();

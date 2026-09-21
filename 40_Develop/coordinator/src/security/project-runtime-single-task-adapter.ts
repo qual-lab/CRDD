@@ -1,3 +1,9 @@
+/**
+ * project-runtime-single-task-adapterに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeSingleTaskDependenciesを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { types as utilTypes } from "node:util";
 
 import {
@@ -30,9 +36,9 @@ const preEffectRejectionSet: ReadonlySet<string> = new Set(
 );
 
 /**
- * ProjectRuntimeSingleTaskDependenciesが扱う値の構造を表す。
+ * project-runtime-single-task-adapterで使用するProject Runtime Single Task Dependenciesの値契約を定義する。
  *
- * @responsibility ProjectRuntimeSingleTaskDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Single Task DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeSingleTaskDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeSingleTaskDependenciesで宣言した値と責務の対応を維持する。
@@ -51,9 +57,9 @@ export type ProjectRuntimeSingleTaskDependencies = Readonly<{
 }>;
 
 /**
- * resultの処理を実行する。
+ * resultを決定する。
  *
- * @responsibility resultに対応する入力処理と結果生成を所有する。
+ * @responsibility resultの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input input: Readonly<{ attemptId: string | null; operationId: string | null; authorityBindingId: string | null; repositoryRevision: string | null; status: "completed" | "blocked" | "cancelled"; reason: string; effectState: "no_effect" | "settled" | "unknown"; cleanupConfirmed: boolean; manualRecoveryRequired: boolean; processRestartRequired: boolean; candidateId: string | null; recoveryIds: readonly string[]; recoveryObligations?: readonly ProjectRuntimeSingleTaskRecoveryObligation[]; executorProvider?: "codex" | "claude"; }>
  * @returns ProjectRuntimeSingleTaskResultを返す。
@@ -93,9 +99,9 @@ function result(
 }
 
 /**
- * rejectedWithoutEffectの処理を実行する。
+ * rejected Without Effectを決定する。
  *
- * @responsibility rejectedWithoutEffectに対応する入力処理と結果生成を所有する。
+ * @responsibility rejected Without Effectの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input attemptId: string | null、operationId: string | null、authorityBindingId: string | null、repositoryRevision: string | null、reason: string、processRestartRequired
  * @returns ProjectRuntimeSingleTaskResultを返す。
@@ -133,9 +139,9 @@ function rejectedWithoutEffect(
 }
 
 /**
- * failedClosedUnknownの処理を実行する。
+ * failed Closed Unknownを決定する。
  *
- * @responsibility failedClosedUnknownに対応する入力処理と結果生成を所有する。
+ * @responsibility failed Closed Unknownの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input attemptId: string | null、operationId: string | null、authorityBindingId: string | null、repositoryRevision: string | null、reason: string
  * @returns ProjectRuntimeSingleTaskResultを返す。
@@ -172,9 +178,9 @@ function failedClosedUnknown(
 }
 
 /**
- * validTextの処理を実行する。
+ * Textが有効か判定する。
  *
- * @responsibility validTextに対応する入力処理と結果生成を所有する。
+ * @responsibility Textの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown、maximum: number
  * @returns value is stringを返す。
@@ -197,9 +203,9 @@ function validText(value: unknown, maximum: number): value is string {
 }
 
 /**
- * optionalIdentityの処理を実行する。
+ * optional Identityを決定する。
  *
- * @responsibility optionalIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility optional Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is string | nullを返す。
@@ -217,9 +223,9 @@ function optionalIdentity(value: unknown): value is string | null {
 }
 
 /**
- * isOpaqueCapabilityの処理を実行する。
+ * Opaque Capabilityかを判定する。
  *
- * @responsibility isOpaqueCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Opaque Capabilityの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is objectを返す。
@@ -241,7 +247,7 @@ function isOpaqueCapability(value: unknown): value is object {
 /**
  * Read one own data property exactly once. Accessor properties, prototype
  *
- * @responsibility ownDataPropertyに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-single-task-adapterの入力からown Data Propertyを導く規則と結果境界を所有する。
  * @trace ARCH-000004
  * @input container: object、key: string
  * @returns unknownを返す。
@@ -267,9 +273,9 @@ function ownDataProperty(container: object, key: string): unknown {
 }
 
 /**
- * isPlainContainerの処理を実行する。
+ * Plain Containerかを判定する。
  *
- * @responsibility isPlainContainerに対応する入力処理と結果生成を所有する。
+ * @responsibility Plain Containerの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is objectを返す。
@@ -299,9 +305,9 @@ function isPlainContainer(value: unknown): value is object {
 }
 
 /**
- * inspectStartedTaskの処理を実行する。
+ * Started Taskを観測する。
  *
- * @responsibility inspectStartedTaskに対応する入力処理と結果生成を所有する。
+ * @responsibility Started Taskの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns Readonly<{ controlCapability: object; completion: Promise<unknown>; }> | nullを返す。
@@ -335,9 +341,9 @@ function inspectStartedTask(value: unknown): Readonly<{
 }
 
 /**
- * inspectCompletionRecordの処理を実行する。
+ * Completion 記録を観測する。
  *
- * @responsibility inspectCompletionRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Completion 記録の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns Readonly<{ status: "completed" | "blocked"; reason: string; cleanupConfirmed: boolean; manualRecoveryRequired: boolean; processRestartRequired: boolean; candidateId: string | null; recoveryIds: readonly string[]; recoveryObligations: readonly ProjectRuntimeSingleTaskRecoveryObligation[]; executorProvider?: "codex" | "claude"; }> | nullを返す。
@@ -473,7 +479,7 @@ const SETTLED_RUNTIME_CANCELLATION_REASONS = new Set([
 /**
  * IF-SINGLE-TASK adapter: run exactly one task attempt on the existing v0.18
  *
- * @responsibility runProjectRuntimeSingleTaskAttemptに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Single Task Attemptの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input dependencies: ProjectRuntimeSingleTaskDependencies、input: ProjectRuntimeSingleTaskAttemptInput
  * @returns Promise<ProjectRuntimeSingleTaskResult>を返す。
@@ -678,9 +684,9 @@ export async function runProjectRuntimeSingleTaskAttempt(
 }
 
 /**
- * describeProjectRuntimeSingleTaskAdapterContractの処理を実行する。
+ * Project Runtime Single Task Adapter 契約の公開契約を記述する。
  *
- * @responsibility describeProjectRuntimeSingleTaskAdapterContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Single Task Adapter 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProjectRuntimeSingleTaskAdapterContractの計算結果を返す。

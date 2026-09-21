@@ -1,3 +1,9 @@
+/**
+ * docker-desktop-repair-native-process-lifecycleに属する責務をまとめる。
+ *
+ * @responsibility DockerDesktopNativeHelperProtocolを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 
 const RESPONSE_BYTES = 41;
@@ -5,9 +11,9 @@ const COMMAND_TIMEOUT_MS = 60_000;
 const START_TIMEOUT_MS = 30_000;
 const RELEASE_TIMEOUT_MS = 5_000;
 /**
- * DockerDesktopNativeHelperProtocolが扱う値の構造を表す。
+ * docker-desktop-repair-native-process-lifecycleで使用するDocker Desktop Native Helper Protocolの値契約を定義する。
  *
- * @responsibility DockerDesktopNativeHelperProtocolに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Native Helper ProtocolのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopNativeHelperProtocolが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopNativeHelperProtocolで宣言した値と責務の対応を維持する。
@@ -18,9 +24,9 @@ const RELEASE_TIMEOUT_MS = 5_000;
 export type DockerDesktopNativeHelperProtocol = "repair" | "restart";
 
 /**
- * DockerDesktopRepairHelperReleaseOutcomeが扱う値の構造を表す。
+ * docker-desktop-repair-native-process-lifecycleで使用するDocker Desktop Repair Helper Release Outcomeの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairHelperReleaseOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Helper Release OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairHelperReleaseOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairHelperReleaseOutcomeで宣言した値と責務の対応を維持する。
@@ -34,9 +40,9 @@ export type DockerDesktopRepairHelperReleaseOutcome = Readonly<{
 }>;
 
 /**
- * DockerDesktopRepairNativeHelperSessionが扱う値の構造を表す。
+ * docker-desktop-repair-native-process-lifecycleで使用するDocker Desktop Repair Native Helper Sessionの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairNativeHelperSessionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Native Helper SessionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairNativeHelperSessionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairNativeHelperSessionで宣言した値と責務の対応を維持する。
@@ -69,9 +75,9 @@ export type DockerDesktopRepairNativeHelperSession = Readonly<{
 }>;
 
 /**
- * DockerDesktopRepairNativeHelperOutcomeが扱う値の構造を表す。
+ * docker-desktop-repair-native-process-lifecycleで使用するDocker Desktop Repair Native Helper Outcomeの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairNativeHelperOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Native Helper OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairNativeHelperOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairNativeHelperOutcomeで宣言した値と責務の対応を維持する。
@@ -85,9 +91,9 @@ export type DockerDesktopRepairNativeHelperOutcome = Readonly<{
 }>;
 
 /**
- * NativeChildが扱う値の構造を表す。
+ * docker-desktop-repair-native-process-lifecycleで使用するNative Childの値契約を定義する。
  *
- * @responsibility NativeChildに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Native ChildのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape NativeChildが表すProperty、識別子およびRelationを型として固定する。
  * @invariant NativeChildで宣言した値と責務の対応を維持する。
@@ -98,9 +104,9 @@ export type DockerDesktopRepairNativeHelperOutcome = Readonly<{
 type NativeChild = ChildProcessWithoutNullStreams;
 
 /**
- * validatedStatusの処理を実行する。
+ * validated Statusを決定する。
  *
- * @responsibility validatedStatusに対応する入力処理と結果生成を所有する。
+ * @responsibility validated Statusの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input frame: Buffer、expectedPolicyHash: string、protocol: DockerDesktopNativeHelperProtocol
  * @returns validatedStatusの計算結果を返す。
@@ -134,9 +140,9 @@ function validatedStatus(
 }
 
 /**
- * createDockerDesktopRepairNativeHelperLifecycleの処理を実行する。
+ * Docker Desktop Repair Native Helper Lifecycleを構築する。
  *
- * @responsibility createDockerDesktopRepairNativeHelperLifecycleに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Native Helper Lifecycleの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input child: NativeChild、expectedPolicyHash: string、protocol: DockerDesktopNativeHelperProtocol
  * @returns Readonly<{ waitForInitial: () => Promise<string | null>; waitForUnavailableExit: () => Promise<boolean>; failProtocol: () => Promise<DockerDesktopRepairHelperReleaseOutcome>; session: DockerDesktopRepairNativeHelperSession; }>を返す。

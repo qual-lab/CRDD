@@ -1,3 +1,9 @@
+/**
+ * docker-restart-executionに属する責務をまとめる。
+ *
+ * @responsibility DockerRestartContextを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import {
   classifyDockerRestartProgress,
   type DockerRestartObservation,
@@ -7,7 +13,7 @@ import {
 /**
  * Host-owned opaque context. The driver cannot authenticate or mint it.
  *
- * @responsibility DockerRestartContextに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Restart ContextのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerRestartContextが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerRestartContextで宣言した値と責務の対応を維持する。
@@ -17,9 +23,9 @@ import {
  */
 export type DockerRestartContext = object;
 /**
- * DockerRestartPortsが扱う値の構造を表す。
+ * docker-restart-executionで使用するDocker Restart Portsの値契約を定義する。
  *
- * @responsibility DockerRestartPortsに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Restart PortsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerRestartPortsが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerRestartPortsで宣言した値と責務の対応を維持する。
@@ -53,9 +59,9 @@ export type DockerRestartPorts = Readonly<{
   observeReady?: () => Promise<boolean>;
 }>;
 /**
- * DockerRestartExecutionResultが扱う値の構造を表す。
+ * docker-restart-executionで使用するDocker Restart Execution 結果の値契約を定義する。
  *
- * @responsibility DockerRestartExecutionResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Restart Execution 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerRestartExecutionResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerRestartExecutionResultで宣言した値と責務の対応を維持する。
@@ -79,7 +85,7 @@ const consumedContexts = new WeakSet<DockerRestartContext>();
 /**
  * Injected driver only; no production Native or filesystem adapter is connected.
  *
- * @responsibility executeDockerRestartに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Restartの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000008
  * @input context: DockerRestartContext、ports: DockerRestartPorts、signal: AbortSignal、resumePhase: DockerRestartPhase
  * @returns Promise<DockerRestartExecutionResult>を返す。

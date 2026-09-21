@@ -1,3 +1,9 @@
+/**
+ * candidate-store-windows-adapterに属する責務をまとめる。
+ *
+ * @responsibility Artifactを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000015
+ */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,9 +49,9 @@ const rootCapabilities = new WeakMap<
 >();
 
 /**
- * Artifactが扱う値の構造を表す。
+ * candidate-store-windows-adapterで使用するArtifactの値契約を定義する。
  *
- * @responsibility Artifactに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ArtifactのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape Artifactが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Artifactで宣言した値と責務の対応を維持する。
@@ -63,9 +69,9 @@ type Artifact = Readonly<{
 }>;
 
 /**
- * sameArtifactの処理を実行する。
+ * Artifactが同一かを判定する。
  *
- * @responsibility sameArtifactに対応する入力処理と結果生成を所有する。
+ * @responsibility Artifactの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000015
  * @input left: unknown、right: unknown
  * @returns sameArtifactの計算結果を返す。
@@ -94,9 +100,9 @@ function sameArtifact(left: unknown, right: unknown) {
 }
 
 /**
- * blockedの処理を実行する。
+ * candidate-store-windows-adapterを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility candidate-store-windows-adapterの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000015
  * @input reason: string、effects: Readonly<{ processEffectIssued?: boolean; helperExitConfirmed?: boolean; filesystemEffectIssued?: boolean; }>
  * @returns blockedの計算結果を返す。
@@ -145,9 +151,9 @@ function blocked(
 }
 
 /**
- * rootPathCandidateの処理を実行する。
+ * root Path 候補を決定する。
  *
- * @responsibility rootPathCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility root Path 候補の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input kind: "candidate_store" | "runtime_state"
  * @returns rootPathCandidateの計算結果を返す。
@@ -178,9 +184,9 @@ function rootPathCandidate(kind: "candidate_store" | "runtime_state") {
 }
 
 /**
- * inspectRuntimeOwnedWindowsProtectedRootの処理を実行する。
+ * Runtime 所有 Windows Protected Rootを観測する。
  *
- * @responsibility inspectRuntimeOwnedWindowsProtectedRootに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Windows Protected Rootの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000015
  * @input kind: "candidate_store" | "runtime_state"、initializeIfMissing: unknown、evaluationTime: unknown、developmentContext: unknown
  * @returns inspectRuntimeOwnedWindowsProtectedRootの計算結果を返す。
@@ -377,9 +383,9 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
 }
 
 /**
- * inspectRuntimeOwnedWindowsCandidateStoreの処理を実行する。
+ * Runtime 所有 Windows 候補 Storeを観測する。
  *
- * @responsibility inspectRuntimeOwnedWindowsCandidateStoreに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Windows 候補 Storeの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000015
  * @input initializeIfMissing: unknown、evaluationTime: unknown、developmentContext: unknown
  * @returns inspectRuntimeOwnedWindowsCandidateStoreの計算結果を返す。
@@ -406,9 +412,9 @@ export function inspectRuntimeOwnedWindowsCandidateStore(
 }
 
 /**
- * inspectRuntimeOwnedWindowsRuntimeStateの処理を実行する。
+ * Runtime 所有 Windows Runtime 状態を観測する。
  *
- * @responsibility inspectRuntimeOwnedWindowsRuntimeStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Windows Runtime 状態の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000015
  * @input initializeIfMissing: unknown、evaluationTime: unknown、developmentContext: unknown
  * @returns inspectRuntimeOwnedWindowsRuntimeStateの計算結果を返す。
@@ -435,9 +441,9 @@ export function inspectRuntimeOwnedWindowsRuntimeState(
 }
 
 /**
- * consumeRuntimeOwnedCandidateStoreRootCapabilityの処理を実行する。
+ * Runtime 所有 候補 Store Root Capabilityを一回限りで消費する。
  *
- * @responsibility consumeRuntimeOwnedCandidateStoreRootCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 候補 Store Root Capabilityの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000015
  * @input capability: unknown
  * @returns consumeRuntimeOwnedCandidateStoreRootCapabilityの計算結果を返す。
@@ -468,9 +474,9 @@ export function consumeRuntimeOwnedCandidateStoreRootCapability(
 }
 
 /**
- * consumeRuntimeOwnedRuntimeStateRootCapabilityの処理を実行する。
+ * Runtime 所有 Runtime 状態 Root Capabilityを一回限りで消費する。
  *
- * @responsibility consumeRuntimeOwnedRuntimeStateRootCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Runtime 状態 Root Capabilityの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000015
  * @input capability: unknown
  * @returns consumeRuntimeOwnedRuntimeStateRootCapabilityの計算結果を返す。
@@ -501,9 +507,9 @@ export function consumeRuntimeOwnedRuntimeStateRootCapability(
 }
 
 /**
- * describeCandidateStoreWindowsAdapterContractの処理を実行する。
+ * 候補 Store Windows Adapter 契約の公開契約を記述する。
  *
- * @responsibility describeCandidateStoreWindowsAdapterContractに対応する入力処理と結果生成を所有する。
+ * @responsibility 候補 Store Windows Adapter 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeCandidateStoreWindowsAdapterContractの計算結果を返す。

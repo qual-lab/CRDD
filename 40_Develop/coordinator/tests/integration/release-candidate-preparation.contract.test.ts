@@ -6,7 +6,7 @@
  * @trace CPR-IT-001
  * @level IT
  * @scope release、candidate、preparation、filesystem
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -30,7 +30,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 function fixture() {
   const root = fs.mkdtempSync(
@@ -71,7 +71,7 @@ function fixture() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 test("固定Commitをshellなしで準備Directoryから完成候補へ公開する", () => {
   const value = fixture();
@@ -115,7 +115,7 @@ test("固定Commitをshellなしで準備Directoryから完成候補へ公開す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 test("既存候補と準備残存を上書きせず不正RevisionをEffect前に拒否する", () => {
   const value = fixture();
@@ -159,7 +159,7 @@ test("既存候補と準備残存を上書きせず不正RevisionをEffect前に
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 test("CLI引数は3組のexact値だけを受理する", () => {
   const root = path.resolve("fixture");

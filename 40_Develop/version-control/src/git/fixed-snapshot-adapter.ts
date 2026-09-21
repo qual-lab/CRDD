@@ -1,3 +1,9 @@
+/**
+ * fixed-snapshot-adapterに属する責務をまとめる。
+ *
+ * @responsibility inspectを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000002
+ */
 import {
   type FixedSnapshotAdapter,
   inspectFixedSnapshot,
@@ -13,9 +19,9 @@ import { resolveRepositoryGitLayout } from "./repository-layout.ts";
 
 export const gitFixedSnapshotAdapter: FixedSnapshotAdapter = Object.freeze({
   /**
-   * inspectの処理を実行する。
+   * fixed-snapshot-adapterを観測する。
    *
-   * @responsibility inspectに対応する入力処理と結果生成を所有する。
+   * @responsibility fixed-snapshot-adapterの観測対象、取得根拠、観測不能結果の境界を所有する。
    * @trace ARCH-000002
    * @input repositoryRoot、revision
    * @returns inspectの計算結果を返す。
@@ -48,9 +54,9 @@ export const gitFixedSnapshotAdapter: FixedSnapshotAdapter = Object.freeze({
       : null;
   },
   /**
-   * readFileの処理を実行する。
+   * Fileを読み取る。
    *
-   * @responsibility readFileに対応する入力処理と結果生成を所有する。
+   * @responsibility Fileの読取り元、上限、読取不能時の結果境界を所有する。
    * @trace ARCH-000002
    * @input repositoryRoot、revision、relativePath
    * @returns readFileの計算結果を返す。
@@ -83,9 +89,9 @@ export const gitFixedSnapshotAdapter: FixedSnapshotAdapter = Object.freeze({
       : null;
   },
   /**
-   * materializeの処理を実行する。
+   * fixed-snapshot-adapterをFilesystem上の候補として具体化する。
    *
-   * @responsibility materializeに対応する入力処理と結果生成を所有する。
+   * @responsibility fixed-snapshot-adapterの入力Snapshot、書込み範囲、部分生成の失敗境界を所有する。
    * @trace ARCH-000002
    * @input repositoryRoot、revision、workspace、readPaths、contentPolicy
    * @returns materializeの計算結果を返す。
@@ -136,9 +142,9 @@ export const gitFixedSnapshotAdapter: FixedSnapshotAdapter = Object.freeze({
 });
 
 /**
- * inspectRepositoryFixedSnapshotの処理を実行する。
+ * Repository Fixed Snapshotを観測する。
  *
- * @responsibility inspectRepositoryFixedSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Fixed Snapshotの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000002
  * @input capability: VerifiedRepositoryRoot、revision: string
  * @returns inspectRepositoryFixedSnapshotの計算結果を返す。

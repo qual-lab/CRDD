@@ -1,3 +1,9 @@
+/**
+ * platform-access-adapterに属する責務をまとめる。
+ *
+ * @responsibility RootRoleを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 const responseMagic = Buffer.from("CRDDPR03", "ascii");
 const RESPONSE_BYTES = 86;
 const PROTOCOL_REVISION = 3;
@@ -43,9 +49,9 @@ const ACCESS_FLAGS = Object.freeze({
 });
 
 /**
- * RootRoleが扱う値の構造を表す。
+ * platform-access-adapterで使用するRoot Roleの値契約を定義する。
  *
- * @responsibility RootRoleに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Root RoleのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RootRoleが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RootRoleで宣言した値と責務の対応を維持する。
@@ -56,9 +62,9 @@ const ACCESS_FLAGS = Object.freeze({
 type RootRole = "runtime" | "authority";
 
 /**
- * blockedの処理を実行する。
+ * platform-access-adapterを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility platform-access-adapterの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000008
  * @input reason: string、isHelperProcessSpawned、isHelperResponseValidated
  * @returns blockedの計算結果を返す。
@@ -107,9 +113,9 @@ function blocked(
 }
 
 /**
- * snapshotBufferの処理を実行する。
+ * Bufferを所有Snapshotへ変換する。
  *
- * @responsibility snapshotBufferに対応する入力処理と結果生成を所有する。
+ * @responsibility Bufferの取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、expectedLength: number
  * @returns Buffer | nullを返す。
@@ -141,9 +147,9 @@ function snapshotBuffer(value: unknown, expectedLength: number): Buffer | null {
 }
 
 /**
- * matchesBytesの処理を実行する。
+ * matches Bytesを決定する。
  *
- * @responsibility matchesBytesに対応する入力処理と結果生成を所有する。
+ * @responsibility matches Bytesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input bytes: Buffer、offset: number、expected: Buffer
  * @returns booleanを返す。
@@ -170,9 +176,9 @@ function matchesBytes(
 }
 
 /**
- * readByteの処理を実行する。
+ * Byteを読み取る。
  *
- * @responsibility readByteに対応する入力処理と結果生成を所有する。
+ * @responsibility Byteの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input bytes: Buffer、offset: number
  * @returns numberを返す。
@@ -190,9 +196,9 @@ function readByte(bytes: Buffer, offset: number): number {
 }
 
 /**
- * readUInt16LittleEndianの処理を実行する。
+ * U Int16 Little Endianを読み取る。
  *
- * @responsibility readUInt16LittleEndianに対応する入力処理と結果生成を所有する。
+ * @responsibility U Int16 Little Endianの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input bytes: Buffer、offset: number
  * @returns numberを返す。
@@ -210,9 +216,9 @@ function readUInt16LittleEndian(bytes: Buffer, offset: number): number {
 }
 
 /**
- * readUInt32LittleEndianの処理を実行する。
+ * U Int32 Little Endianを読み取る。
  *
- * @responsibility readUInt32LittleEndianに対応する入力処理と結果生成を所有する。
+ * @responsibility U Int32 Little Endianの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input bytes: Buffer、offset: number
  * @returns numberを返す。
@@ -236,9 +242,9 @@ function readUInt32LittleEndian(bytes: Buffer, offset: number): number {
 }
 
 /**
- * roleValueの処理を実行する。
+ * role Valueを決定する。
  *
- * @responsibility roleValueに対応する入力処理と結果生成を所有する。
+ * @responsibility role Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input rootRole: RootRole
  * @returns numberを返す。
@@ -256,9 +262,9 @@ function roleValue(rootRole: RootRole): number {
 }
 
 /**
- * evaluatePlatformAccessResponseCandidateの処理を実行する。
+ * Platform Access Response 候補を評価する。
  *
- * @responsibility evaluatePlatformAccessResponseCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Access Response 候補の評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input rawResponse: unknown、expectedNonce: unknown、rootRole: unknown
  * @returns evaluatePlatformAccessResponseCandidateの計算結果を返す。
@@ -362,9 +368,9 @@ export function evaluatePlatformAccessResponseCandidate(
 }
 
 /**
- * inspectWindowsPlatformAccessCandidateの処理を実行する。
+ * Windows Platform Access 候補を観測する。
  *
- * @responsibility inspectWindowsPlatformAccessCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Windows Platform Access 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input rootPath: unknown、rootRole: unknown
  * @returns ReturnType<typeof blocked>を返す。
@@ -382,9 +388,9 @@ export function inspectWindowsPlatformAccessCandidate(
   rootRole: unknown,
 ): ReturnType<typeof blocked>;
 /**
- * inspectWindowsPlatformAccessCandidateの処理を実行する。
+ * Windows Platform Access 候補を観測する。
  *
- * @responsibility inspectWindowsPlatformAccessCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Windows Platform Access 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns ReturnType< typeof blocked >を返す。
@@ -406,9 +412,9 @@ export function inspectWindowsPlatformAccessCandidate(): ReturnType<
 }
 
 /**
- * describePlatformAccessAdapterContractの処理を実行する。
+ * Platform Access Adapter 契約の公開契約を記述する。
  *
- * @responsibility describePlatformAccessAdapterContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Access Adapter 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns describePlatformAccessAdapterContractの計算結果を返す。

@@ -6,7 +6,7 @@
  * @trace AIT-UT-005
  * @level UT
  * @scope provider、home、mount、grant、runtime
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -50,7 +50,7 @@ type Observation = Readonly<{
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 function harness() {
   const managementCapability = Object.freeze({});
@@ -73,7 +73,7 @@ function harness() {
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+   * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
    */
   function observe(overrides: Partial<Observation> = {}) {
     const capability = Object.freeze({});
@@ -180,7 +180,7 @@ function harness() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 function issue(h: ReturnType<typeof harness>) {
   const result = h.runtime.issue(
@@ -205,7 +205,7 @@ function issue(h: ReturnType<typeof harness>) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Runtime-owned Mount Grantはopaque Operationと観測を一回限りの別aliasへbindingする", () => {
   const h = harness();
@@ -244,7 +244,7 @@ test("Runtime-owned Mount Grantはopaque Operationと観測を一回限りの別
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("fresh観測でconsumeし、productionから隔離されたMount Authorizationをrevokeする", () => {
   const h = harness();
@@ -363,7 +363,7 @@ test("fresh観測でconsumeし、productionから隔離されたMount Authorizat
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("issuedのままでもcontrol aliasから全aliasを失効できる", () => {
   const h = harness();
@@ -390,7 +390,7 @@ for (const failure of ["expired", "source_removed"] as const) {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+   * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
    */
   test(`consume後activate前の${failure}はactive Mountを発行せず次のGrantを妨げない`, () => {
     const h = harness();
@@ -469,7 +469,7 @@ for (const failure of ["expired", "source_removed"] as const) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("古いGrantのrevokeは同じlogical Homeの現active ownerを解除しない", () => {
   const h = harness();
@@ -483,7 +483,7 @@ test("古いGrantのrevokeは同じlogical Homeの現active ownerを解除しな
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+   * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
    */
   const activate = (issued: ReturnType<typeof issue>) => {
     h.advance(1_000);
@@ -549,7 +549,7 @@ test("古いGrantのrevokeは同じlogical Homeの現active ownerを解除しな
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("profile、Operation、観測bindingの不一致をEffect前に拒否する", () => {
   const h = harness();
@@ -616,7 +616,7 @@ test("profile、Operation、観測bindingの不一致をEffect前に拒否する
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("wall／monotonic期限、rollback、依存例外を固定blockedへ閉じる", () => {
   for (const time of [
@@ -677,7 +677,7 @@ test("wall／monotonic期限、rollback、依存例外を固定blockedへ閉じ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("不正capability、全観測hash差分、参照衝突とproduction入口をfail closedにする", () => {
   const invalid = harness();
@@ -777,7 +777,7 @@ test("不正capability、全観測hash差分、参照衝突とproduction入口�
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+   * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
    */
   function collisionObservation() {
     const capability = Object.freeze({});
@@ -834,7 +834,7 @@ test("不正capability、全観測hash差分、参照衝突とproduction入口�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Mount Grant Runtime契約はprocess-local storeと非Effect境界を公開する", () => {
   const contract = describeProviderHomeMountGrantRuntimeContract();

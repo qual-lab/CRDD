@@ -1,3 +1,9 @@
+/**
+ * secret-material-policyに属する責務をまとめる。
+ *
+ * @responsibility textFromを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 export const SECRET_MATERIAL_POLICY_CONTRACT =
   "crdd-coordinator/secret-material-policy";
 export const SECRET_MATERIAL_POLICY_CONTRACT_REVISION = 1;
@@ -47,9 +53,9 @@ const SOURCE_CODE_EXTENSIONS = new Set([
 ]);
 
 /**
- * textFromの処理を実行する。
+ * Fromを表示文字列へ変換する。
  *
- * @responsibility textFromに対応する入力処理と結果生成を所有する。
+ * @responsibility Fromの入力値、文字列表現、機密を含めない結果境界を所有する。
  * @trace ARCH-000014
  * @input value: string | Uint8Array
  * @returns textFromの計算結果を返す。
@@ -69,9 +75,9 @@ function textFrom(value: string | Uint8Array) {
 }
 
 /**
- * secretKeyNameの処理を実行する。
+ * secret Key Nameを決定する。
  *
- * @responsibility secretKeyNameに対応する入力処理と結果生成を所有する。
+ * @responsibility secret Key Nameの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input value: string
  * @returns secretKeyNameの計算結果を返す。
@@ -93,9 +99,9 @@ function secretKeyName(value: string) {
 }
 
 /**
- * assignmentKeyの処理を実行する。
+ * assignment Keyを決定する。
  *
- * @responsibility assignmentKeyに対応する入力処理と結果生成を所有する。
+ * @responsibility assignment Keyの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input doubleQuotedKey: string | undefined、singleQuotedKey: string | undefined、target: string | undefined
  * @returns assignmentKeyの計算結果を返す。
@@ -123,9 +129,9 @@ function assignmentKey(
 }
 
 /**
- * sourceIndirectionの処理を実行する。
+ * source Indirectionを決定する。
  *
- * @responsibility sourceIndirectionに対応する入力処理と結果生成を所有する。
+ * @responsibility source Indirectionの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input value: string、isSourceFileContext: boolean
  * @returns sourceIndirectionの計算結果を返す。
@@ -159,9 +165,9 @@ function sourceIndirection(value: string, isSourceFileContext: boolean) {
 }
 
 /**
- * containsRecognizedSecretPathSegmentの処理を実行する。
+ * Recognized Secret Path Segmentを含むか判定する。
  *
- * @responsibility containsRecognizedSecretPathSegmentに対応する入力処理と結果生成を所有する。
+ * @responsibility Recognized Secret Path Segmentの探索範囲、包含条件、判定結果境界を所有する。
  * @trace ARCH-000014
  * @input segment: string
  * @returns containsRecognizedSecretPathSegmentの計算結果を返す。
@@ -189,9 +195,9 @@ function containsRecognizedSecretPathSegment(segment: string) {
 }
 
 /**
- * isPathOrNestedSuffixの処理を実行する。
+ * Path Or Nested Suffixかを判定する。
  *
- * @responsibility isPathOrNestedSuffixに対応する入力処理と結果生成を所有する。
+ * @responsibility Path Or Nested Suffixの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input normalized: string、suffix: string
  * @returns isPathOrNestedSuffixの計算結果を返す。
@@ -209,9 +215,9 @@ function isPathOrNestedSuffix(normalized: string, suffix: string) {
 }
 
 /**
- * isJavaScriptCodePositionの処理を実行する。
+ * Java Script Code Positionかを判定する。
  *
- * @responsibility isJavaScriptCodePositionに対応する入力処理と結果生成を所有する。
+ * @responsibility Java Script Code Positionの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input text: string、targetIndex: number
  * @returns isJavaScriptCodePositionの計算結果を返す。
@@ -267,9 +273,9 @@ function isJavaScriptCodePosition(text: string, targetIndex: number) {
 }
 
 /**
- * normalizeBlockCommentPayloadの処理を実行する。
+ * Block Comment Payloadを固定Schemaへ正規化する。
  *
- * @responsibility normalizeBlockCommentPayloadに対応する入力処理と結果生成を所有する。
+ * @responsibility Block Comment Payloadの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000014
  * @input value: string
  * @returns normalizeBlockCommentPayloadの計算結果を返す。
@@ -287,9 +293,9 @@ function normalizeBlockCommentPayload(value: string) {
 }
 
 /**
- * javascriptNonCodeFragmentsの処理を実行する。
+ * javascript Non Code Fragmentsを決定する。
  *
- * @responsibility javascriptNonCodeFragmentsに対応する入力処理と結果生成を所有する。
+ * @responsibility javascript Non Code Fragmentsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input text: string
  * @returns javascriptNonCodeFragmentsの計算結果を返す。
@@ -373,9 +379,9 @@ function javascriptNonCodeFragments(text: string) {
 }
 
 /**
- * literalSecretValueの処理を実行する。
+ * literal Secret Valueを決定する。
  *
- * @responsibility literalSecretValueに対応する入力処理と結果生成を所有する。
+ * @responsibility literal Secret Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input value: string、isQuoted: boolean、isSourceFileContext: boolean
  * @returns literalSecretValueの計算結果を返す。
@@ -411,9 +417,9 @@ function literalSecretValue(
 }
 
 /**
- * containsRecognizedSecretTextInContextの処理を実行する。
+ * Recognized Secret Text In Contextを含むか判定する。
  *
- * @responsibility containsRecognizedSecretTextInContextに対応する入力処理と結果生成を所有する。
+ * @responsibility Recognized Secret Text In Contextの探索範囲、包含条件、判定結果境界を所有する。
  * @trace ARCH-000014
  * @input value: string | Uint8Array、isJavascriptSourceContext: boolean
  * @returns containsRecognizedSecretTextInContextの計算結果を返す。
@@ -485,9 +491,9 @@ function containsRecognizedSecretTextInContext(
 }
 
 /**
- * containsRecognizedSecretTextの処理を実行する。
+ * Recognized Secret Textを含むか判定する。
  *
- * @responsibility containsRecognizedSecretTextに対応する入力処理と結果生成を所有する。
+ * @responsibility Recognized Secret Textの探索範囲、包含条件、判定結果境界を所有する。
  * @trace ARCH-000014
  * @input value: string | Uint8Array
  * @returns containsRecognizedSecretTextの計算結果を返す。
@@ -505,9 +511,9 @@ export function containsRecognizedSecretText(value: string | Uint8Array) {
 }
 
 /**
- * isRecognizedSourceCodePathの処理を実行する。
+ * Recognized Source Code Pathかを判定する。
  *
- * @responsibility isRecognizedSourceCodePathに対応する入力処理と結果生成を所有する。
+ * @responsibility Recognized Source Code Pathの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string
  * @returns isRecognizedSourceCodePathの計算結果を返す。
@@ -531,9 +537,9 @@ function isRecognizedSourceCodePath(relativePath: string) {
 }
 
 /**
- * isRecognizedSecretBearingPathの処理を実行する。
+ * Recognized Secret Bearing Pathかを判定する。
  *
- * @responsibility isRecognizedSecretBearingPathに対応する入力処理と結果生成を所有する。
+ * @responsibility Recognized Secret Bearing Pathの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string
  * @returns isRecognizedSecretBearingPathの計算結果を返す。
@@ -575,9 +581,9 @@ export function isRecognizedSecretBearingPath(relativePath: string) {
 }
 
 /**
- * containsRecognizedSecretScopeの処理を実行する。
+ * Recognized Secret Scopeを含むか判定する。
  *
- * @responsibility containsRecognizedSecretScopeに対応する入力処理と結果生成を所有する。
+ * @responsibility Recognized Secret Scopeの探索範囲、包含条件、判定結果境界を所有する。
  * @trace ARCH-000014
  * @input objective: string、acceptanceCriteria: readonly string[]、allowedPaths: readonly string[]、readPaths: readonly string[]
  * @returns containsRecognizedSecretScopeの計算結果を返す。
@@ -609,9 +615,9 @@ export function containsRecognizedSecretScope(
 }
 
 /**
- * containsRecognizedSecretMaterialの処理を実行する。
+ * Recognized Secret Materialを含むか判定する。
  *
- * @responsibility containsRecognizedSecretMaterialに対応する入力処理と結果生成を所有する。
+ * @responsibility Recognized Secret Materialの探索範囲、包含条件、判定結果境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string | null、value: string | Uint8Array
  * @returns containsRecognizedSecretMaterialの計算結果を返す。
@@ -643,9 +649,9 @@ export function containsRecognizedSecretMaterial(
 }
 
 /**
- * describeSecretMaterialPolicyContractの処理を実行する。
+ * Secret Material Policy 契約の公開契約を記述する。
  *
- * @responsibility describeSecretMaterialPolicyContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Secret Material Policy 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeSecretMaterialPolicyContractの計算結果を返す。

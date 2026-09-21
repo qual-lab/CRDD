@@ -1,3 +1,9 @@
+/**
+ * provider-model-selection-runtimeに属する責務をまとめる。
+ *
+ * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 export const PROVIDER_MODEL_SELECTION_RUNTIME_CONTRACT =
@@ -44,9 +50,9 @@ const HIGH_COST_REASON_CODES = new Set([
 ]);
 
 /**
- * Providerが扱う値の構造を表す。
+ * provider-model-selection-runtimeで使用するProviderの値契約を定義する。
  *
- * @responsibility Providerに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ProviderのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Providerで宣言した値と責務の対応を維持する。
@@ -56,9 +62,9 @@ const HIGH_COST_REASON_CODES = new Set([
  */
 type Provider = "codex" | "claude";
 /**
- * Effortが扱う値の構造を表す。
+ * provider-model-selection-runtimeで使用するEffortの値契約を定義する。
  *
- * @responsibility Effortに必要な値と制約を一つの型契約として保持する。
+ * @responsibility EffortのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape Effortが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Effortで宣言した値と責務の対応を維持する。
@@ -69,9 +75,9 @@ type Provider = "codex" | "claude";
 type Effort = "low" | "medium" | "high";
 
 /**
- * createBlockedResultの処理を実行する。
+ * Blocked 結果を構築する。
  *
- * @responsibility createBlockedResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Blocked 結果の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000010
  * @input reason: string
  * @returns createBlockedResultの計算結果を返す。
@@ -105,9 +111,9 @@ function createBlockedResult(reason: string) {
 }
 
 /**
- * isBooleanの処理を実行する。
+ * Booleanかを判定する。
  *
- * @responsibility isBooleanに対応する入力処理と結果生成を所有する。
+ * @responsibility Booleanの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000010
  * @input value: unknown
  * @returns value is booleanを返す。
@@ -125,9 +131,9 @@ function isBoolean(value: unknown): value is boolean {
 }
 
 /**
- * selectFamilyPreferenceの処理を実行する。
+ * Family Preferenceを選択する。
  *
- * @responsibility selectFamilyPreferenceに対応する入力処理と結果生成を所有する。
+ * @responsibility Family Preferenceの候補集合、選択理由、選択不能時の境界を所有する。
  * @trace ARCH-000010
  * @input provider: Provider
  * @returns selectFamilyPreferenceの計算結果を返す。
@@ -145,9 +151,9 @@ function selectFamilyPreference(provider: Provider) {
 }
 
 /**
- * selectRationaleCodesの処理を実行する。
+ * Rationale Codesを選択する。
  *
- * @responsibility selectRationaleCodesに対応する入力処理と結果生成を所有する。
+ * @responsibility Rationale Codesの候補集合、選択理由、選択不能時の境界を所有する。
  * @trace ARCH-000010
  * @input value: Readonly<Record<string, unknown>>
  * @returns selectRationaleCodesの計算結果を返す。
@@ -225,9 +231,9 @@ function selectRationaleCodes(value: Readonly<Record<string, unknown>>) {
 }
 
 /**
- * selectEffortの処理を実行する。
+ * Effortを選択する。
  *
- * @responsibility selectEffortに対応する入力処理と結果生成を所有する。
+ * @responsibility Effortの候補集合、選択理由、選択不能時の境界を所有する。
  * @trace ARCH-000010
  * @input rationaleCodes: readonly string[]
  * @returns Effortを返す。
@@ -246,9 +252,9 @@ function selectEffort(rationaleCodes: readonly string[]): Effort {
 }
 
 /**
- * describeSelectionNoticeの処理を実行する。
+ * Selection Noticeの公開契約を記述する。
  *
- * @responsibility describeSelectionNoticeに対応する入力処理と結果生成を所有する。
+ * @responsibility Selection Noticeの公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000010
  * @input provider: Provider、role: string、family: string、effort: Effort、rationaleCodes: readonly string[]
  * @returns describeSelectionNoticeの計算結果を返す。
@@ -277,9 +283,9 @@ function describeSelectionNotice(
 }
 
 /**
- * selectProviderModelCandidateの処理を実行する。
+ * Provider Model 候補を選択する。
  *
- * @responsibility selectProviderModelCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Model 候補の候補集合、選択理由、選択不能時の境界を所有する。
  * @trace ARCH-000010
  * @input candidate: unknown
  * @returns selectProviderModelCandidateの計算結果を返す。
@@ -372,9 +378,9 @@ export function selectProviderModelCandidate(candidate: unknown) {
 }
 
 /**
- * describeProviderModelSelectionRuntimeContractの処理を実行する。
+ * Provider Model Selection Runtime 契約の公開契約を記述する。
  *
- * @responsibility describeProviderModelSelectionRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Model Selection Runtime 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000010
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProviderModelSelectionRuntimeContractの計算結果を返す。

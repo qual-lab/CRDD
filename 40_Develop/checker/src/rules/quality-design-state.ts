@@ -1,9 +1,15 @@
+/**
+ * quality-design-stateに属する責務をまとめる。
+ *
+ * @responsibility normalizedStateを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000001
+ */
 import type { CheckerRule } from "./rule-registry.ts";
 
 /**
- * normalizedStateの処理を実行する。
+ * 状態を固定Schemaへ正規化する。
  *
- * @responsibility normalizedStateに対応する入力処理と結果生成を所有する。
+ * @responsibility 状態の入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000001
  * @input state: string
  * @returns stringを返す。
@@ -24,9 +30,9 @@ function normalizedState(state: string): string {
 }
 
 /**
- * qualityDesignCanonicalStateRuleの処理を実行する。
+ * quality Design Canonical 状態 Ruleを決定する。
  *
- * @responsibility qualityDesignCanonicalStateRuleに対応する入力処理と結果生成を所有する。
+ * @responsibility quality Design Canonical 状態 Ruleの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000001
  * @input readiness: "Quality Design Ready" | "Quality Ready"
  * @returns CheckerRuleを返す。

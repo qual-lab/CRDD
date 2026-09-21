@@ -1,3 +1,9 @@
+/**
+ * doctorに属する責務をまとめる。
+ *
+ * @responsibility DoctorOperationInitializationFailureを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import fs from "node:fs";
 import path from "node:path";
 import { types as utilTypes } from "node:util";
@@ -36,9 +42,9 @@ export const CHECK_STATUS = Object.freeze([
 ] as const);
 
 /**
- * DoctorOperationInitializationFailureが扱う値の構造を表す。
+ * doctorで使用するDoctor Operation Initialization 失敗の値契約を定義する。
  *
- * @responsibility DoctorOperationInitializationFailureに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Doctor Operation Initialization 失敗のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape DoctorOperationInitializationFailureが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DoctorOperationInitializationFailureで宣言した値と責務の対応を維持する。
@@ -57,9 +63,9 @@ const doctorOperationInitializationFailures = new WeakMap<
 >();
 
 /**
- * classifyDoctorOperationInitializationFailureの処理を実行する。
+ * Doctor Operation Initialization 失敗を分類する。
  *
- * @responsibility classifyDoctorOperationInitializationFailureに対応する入力処理と結果生成を所有する。
+ * @responsibility Doctor Operation Initialization 失敗の分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000004
  * @input error: unknown
  * @returns classifyDoctorOperationInitializationFailureの計算結果を返す。
@@ -79,9 +85,9 @@ export function classifyDoctorOperationInitializationFailure(error: unknown) {
 }
 
 /**
- * renderDoctorCommandFailureの処理を実行する。
+ * Doctor Command 失敗を人間向け表示へ整形する。
  *
- * @responsibility renderDoctorCommandFailureに対応する入力処理と結果生成を所有する。
+ * @responsibility Doctor Command 失敗の入力値、表示規則、機密を含めない出力境界を所有する。
  * @trace ARCH-000004
  * @input error: unknown
  * @returns renderDoctorCommandFailureの計算結果を返す。
@@ -115,9 +121,9 @@ export function renderDoctorCommandFailure(error: unknown) {
 }
 
 /**
- * throwDoctorOperationInitializationFailureの処理を実行する。
+ * throw Doctor Operation Initialization 失敗を決定する。
  *
- * @responsibility throwDoctorOperationInitializationFailureに対応する入力処理と結果生成を所有する。
+ * @responsibility throw Doctor Operation Initialization 失敗の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input cause: unknown、hostRecoveryId: string | null
  * @returns neverを返す。
@@ -149,9 +155,9 @@ function throwDoctorOperationInitializationFailure(
 }
 
 /**
- * projectDoctorOperationCreationFailureの処理を実行する。
+ * Doctor Operation Creation 失敗を公開結果へ投影する。
  *
- * @responsibility projectDoctorOperationCreationFailureに対応する入力処理と結果生成を所有する。
+ * @responsibility Doctor Operation Creation 失敗の公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input error: unknown
  * @returns neverを返す。
@@ -172,9 +178,9 @@ export function projectDoctorOperationCreationFailure(error: unknown): never {
 }
 
 /**
- * CheckStatusが扱う値の構造を表す。
+ * doctorで使用するCheck Statusの値契約を定義する。
  *
- * @responsibility CheckStatusに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Check StatusのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape CheckStatusが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CheckStatusで宣言した値と責務の対応を維持する。
@@ -184,9 +190,9 @@ export function projectDoctorOperationCreationFailure(error: unknown): never {
  */
 type CheckStatus = "confirmed" | "blocked" | "not_implemented" | "unknown";
 /**
- * DiagnosticCheckが扱う値の構造を表す。
+ * doctorで使用するDiagnostic Checkの値契約を定義する。
  *
- * @responsibility DiagnosticCheckに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Diagnostic CheckのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape DiagnosticCheckが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DiagnosticCheckで宣言した値と責務の対応を維持する。
@@ -201,9 +207,9 @@ export type DiagnosticCheck = {
   followUp: string | null;
 };
 /**
- * DiscoveryResultが扱う値の構造を表す。
+ * doctorで使用するDiscovery 結果の値契約を定義する。
  *
- * @responsibility DiscoveryResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Discovery 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape DiscoveryResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DiscoveryResultで宣言した値と責務の対応を維持する。
@@ -218,9 +224,9 @@ type DiscoveryResult = Readonly<{
   reason: string | null;
 }>;
 /**
- * DoctorOptionsが扱う値の構造を表す。
+ * doctorで使用するDoctor Optionsの値契約を定義する。
  *
- * @responsibility DoctorOptionsに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Doctor OptionsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape DoctorOptionsが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DoctorOptionsで宣言した値と責務の対応を維持する。
@@ -233,9 +239,9 @@ type DoctorOptions = Readonly<{
   cwd: string;
 }>;
 /**
- * DiscoveryOptionsが扱う値の構造を表す。
+ * doctorで使用するDiscovery Optionsの値契約を定義する。
  *
- * @responsibility DiscoveryOptionsに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Discovery OptionsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape DiscoveryOptionsが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DiscoveryOptionsで宣言した値と責務の対応を維持する。
@@ -250,9 +256,9 @@ type DiscoveryOptions = Readonly<{
 }>;
 
 /**
- * isObjectの処理を実行する。
+ * Objectかを判定する。
  *
- * @responsibility isObjectに対応する入力処理と結果生成を所有する。
+ * @responsibility Objectの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is objectを返す。
@@ -270,9 +276,9 @@ function isObject(value: unknown): value is object {
 }
 
 /**
- * ownValueの処理を実行する。
+ * own Valueを決定する。
  *
- * @responsibility ownValueに対応する入力処理と結果生成を所有する。
+ * @responsibility own Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: object、key: string
  * @returns unknownを返す。
@@ -296,9 +302,9 @@ function ownValue(value: object, key: string): unknown {
 }
 
 /**
- * errorCodeの処理を実行する。
+ * error Codeを決定する。
  *
- * @responsibility errorCodeに対応する入力処理と結果生成を所有する。
+ * @responsibility error Codeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input error: unknown
  * @returns string | nullを返す。
@@ -318,9 +324,9 @@ function errorCode(error: unknown): string | null {
 }
 
 /**
- * errorMessageの処理を実行する。
+ * error Messageを決定する。
  *
- * @responsibility errorMessageに対応する入力処理と結果生成を所有する。
+ * @responsibility error Messageの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input error: unknown
  * @returns string | nullを返す。
@@ -367,9 +373,9 @@ export const REQUIRED_CHECK_IDS = Object.freeze([
 ]);
 
 /**
- * checkの処理を実行する。
+ * doctorを検査する。
  *
- * @responsibility checkに対応する入力処理と結果生成を所有する。
+ * @responsibility doctorの検査条件、違反分類、検査結果境界を所有する。
  * @trace ARCH-000004
  * @input id: string、status: CheckStatus、reason: string | null、followUp: string | null
  * @returns DiagnosticCheckを返す。
@@ -392,9 +398,9 @@ function check(
 }
 
 /**
- * evaluateReadinessの処理を実行する。
+ * Readinessを評価する。
  *
- * @responsibility evaluateReadinessに対応する入力処理と結果生成を所有する。
+ * @responsibility Readinessの評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input checks: unknown
  * @returns evaluateReadinessの計算結果を返す。
@@ -463,9 +469,9 @@ export function evaluateReadiness(checks: unknown) {
 }
 
 /**
- * pathValueの処理を実行する。
+ * path Valueを決定する。
  *
- * @responsibility pathValueに対応する入力処理と結果生成を所有する。
+ * @responsibility path Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input environment: NodeJS.ProcessEnv
  * @returns stringを返す。
@@ -483,9 +489,9 @@ function pathValue(environment: NodeJS.ProcessEnv): string {
 }
 
 /**
- * candidateExtensionsの処理を実行する。
+ * candidate Extensionsを決定する。
  *
- * @responsibility candidateExtensionsに対応する入力処理と結果生成を所有する。
+ * @responsibility candidate Extensionsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input platform: NodeJS.Platform、environment: NodeJS.ProcessEnv
  * @returns string[]を返す。
@@ -511,9 +517,9 @@ function candidateExtensions(
 }
 
 /**
- * commandFormatの処理を実行する。
+ * command Formatを決定する。
  *
- * @responsibility commandFormatに対応する入力処理と結果生成を所有する。
+ * @responsibility command Formatの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input candidate: string
  * @returns stringを返す。
@@ -532,9 +538,9 @@ function commandFormat(candidate: string): string {
 }
 
 /**
- * discoverCommandの処理を実行する。
+ * Commandを探索する。
  *
- * @responsibility discoverCommandに対応する入力処理と結果生成を所有する。
+ * @responsibility Commandの探索Root、対象母集団、未観測境界を所有する。
  * @trace ARCH-000004
  * @input command: string、options: DiscoveryOptions
  * @returns DiscoveryResultを返す。
@@ -590,9 +596,9 @@ export function discoverCommand(
 }
 
 /**
- * probeGitRepositoryの処理を実行する。
+ * probe Git Repositoryを決定する。
  *
- * @responsibility probeGitRepositoryに対応する入力処理と結果生成を所有する。
+ * @responsibility probe Git Repositoryの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input cwd: string
  * @returns probeGitRepositoryの計算結果を返す。
@@ -621,9 +627,9 @@ function probeGitRepository(cwd: string) {
 export const isSupportedNodeVersion = isSupportedCoordinatorNodeRuntime;
 
 /**
- * nodeSupportedの処理を実行する。
+ * node Supportedを決定する。
  *
- * @responsibility nodeSupportedに対応する入力処理と結果生成を所有する。
+ * @responsibility node Supportedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns booleanを返す。
@@ -641,9 +647,9 @@ function nodeSupported(): boolean {
 }
 
 /**
- * providerChecksの処理を実行する。
+ * provider Checksを決定する。
  *
- * @responsibility providerChecksに対応する入力処理と結果生成を所有する。
+ * @responsibility provider Checksの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input name: string、discovery: DiscoveryResult
  * @returns DiagnosticCheck[]を返す。
@@ -711,9 +717,9 @@ function providerChecks(
 }
 
 /**
- * reportableFilesystemPolicyの処理を実行する。
+ * reportable Filesystem Policyを決定する。
  *
- * @responsibility reportableFilesystemPolicyに対応する入力処理と結果生成を所有する。
+ * @responsibility reportable Filesystem Policyの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input policy: ReturnType<typeof describeFilesystemPolicy>、root: string
  * @returns reportableFilesystemPolicyの計算結果を返す。
@@ -748,9 +754,9 @@ function reportableFilesystemPolicy(
 const DOCTOR_OPTION_KEYS = new Set(["activeIsolation", "cwd"]);
 
 /**
- * normalizeDoctorOptionsの処理を実行する。
+ * Doctor Optionsを固定Schemaへ正規化する。
  *
- * @responsibility normalizeDoctorOptionsに対応する入力処理と結果生成を所有する。
+ * @responsibility Doctor Optionsの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000004
  * @input rawOptions: unknown
  * @returns DoctorOptionsを返す。
@@ -818,9 +824,9 @@ function normalizeDoctorOptions(rawOptions: unknown): DoctorOptions {
 }
 
 /**
- * runDoctorの処理を実行する。
+ * Doctorを実行する。
  *
- * @responsibility runDoctorに対応する入力処理と結果生成を所有する。
+ * @responsibility Doctorの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input options: unknown
  * @returns runDoctorの計算結果を返す。

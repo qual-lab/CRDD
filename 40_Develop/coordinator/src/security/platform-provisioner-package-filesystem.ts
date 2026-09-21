@@ -1,3 +1,9 @@
+/**
+ * platform-provisioner-package-filesystemに属する責務をまとめる。
+ *
+ * @responsibility VerifiedPackageIdentityを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { builtinModules } from "node:module";
@@ -97,9 +103,9 @@ const CANONICAL_TEXT_FILE_SUFFIXES = Object.freeze([
 ]);
 const VERIFIED_PACKAGE_CAPABILITY_LIFETIME_MS = 5_000;
 /**
- * VerifiedPackageIdentityが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するVerified Package Identityの値契約を定義する。
  *
- * @responsibility VerifiedPackageIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Verified Package IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape VerifiedPackageIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant VerifiedPackageIdentityで宣言した値と責務の対応を維持する。
@@ -115,9 +121,9 @@ type VerifiedPackageIdentity = Readonly<{
 }>;
 
 /**
- * sameVerifiedPackageIdentityの処理を実行する。
+ * Verified Package Identityが同一かを判定する。
  *
- * @responsibility sameVerifiedPackageIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Verified Package Identityの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000014
  * @input left: VerifiedPackageIdentity、right: VerifiedPackageIdentity
  * @returns sameVerifiedPackageIdentityの計算結果を返す。
@@ -145,9 +151,9 @@ function sameVerifiedPackageIdentity(
 }
 
 /**
- * createVerifiedPackageCapabilityStateの処理を実行する。
+ * Verified Package Capability 状態を構築する。
  *
- * @responsibility createVerifiedPackageCapabilityStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Verified Package Capability 状態の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns createVerifiedPackageCapabilityStateの計算結果を返す。
@@ -201,9 +207,9 @@ function createVerifiedPackageCapabilityState() {
 const verifiedPackageCapabilityState = createVerifiedPackageCapabilityState();
 
 /**
- * createIsolatedVerifiedPackageCapabilityStateCandidateの処理を実行する。
+ * Isolated Verified Package Capability 状態 候補を構築する。
  *
- * @responsibility createIsolatedVerifiedPackageCapabilityStateCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Isolated Verified Package Capability 状態 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns createIsolatedVerifiedPackageCapabilityStateCandidateの計算結果を返す。
@@ -227,9 +233,9 @@ export function createIsolatedVerifiedPackageCapabilityStateCandidate() {
 }
 
 /**
- * EntityIdentityが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するEntity Identityの値契約を定義する。
  *
- * @responsibility EntityIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Entity IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape EntityIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant EntityIdentityで宣言した値と責務の対応を維持する。
@@ -250,9 +256,9 @@ type EntityIdentity = Readonly<{
 }>;
 
 /**
- * ObservedFileが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するObserved Fileの値契約を定義する。
  *
- * @responsibility ObservedFileに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Observed FileのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape ObservedFileが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ObservedFileで宣言した値と責務の対応を維持する。
@@ -267,9 +273,9 @@ type ObservedFile = Readonly<{
 }>;
 
 /**
- * PackageObservationが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するPackage Observationの値契約を定義する。
  *
- * @responsibility PackageObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Package ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape PackageObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant PackageObservationで宣言した値と責務の対応を維持する。
@@ -284,9 +290,9 @@ type PackageObservation = Readonly<{
 }>;
 
 /**
- * blockedの処理を実行する。
+ * platform-provisioner-package-filesystemを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility platform-provisioner-package-filesystemの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000014
  * @input reason: string
  * @returns blockedの計算結果を返す。
@@ -324,9 +330,9 @@ function blocked(reason: string) {
 }
 
 /**
- * identityの処理を実行する。
+ * identityを決定する。
  *
- * @responsibility identityに対応する入力処理と結果生成を所有する。
+ * @responsibility identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input metadata: fs.BigIntStats、expectedType: "file" | "directory"
  * @returns identityの計算結果を返す。
@@ -368,9 +374,9 @@ function identity(
 }
 
 /**
- * sameIdentityの処理を実行する。
+ * Identityが同一かを判定する。
  *
- * @responsibility sameIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Identityの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000014
  * @input left: EntityIdentity、right: EntityIdentity
  * @returns sameIdentityの計算結果を返す。
@@ -398,9 +404,9 @@ function sameIdentity(left: EntityIdentity, right: EntityIdentity) {
 }
 
 /**
- * directoryIdentityの処理を実行する。
+ * directory Identityを決定する。
  *
- * @responsibility directoryIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility directory Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input target: string
  * @returns directoryIdentityの計算結果を返す。
@@ -428,9 +434,9 @@ function directoryIdentity(target: string) {
 }
 
 /**
- * verifyDirectoryの処理を実行する。
+ * Directoryを検証する。
  *
- * @responsibility verifyDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Directoryの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input snapshot: Readonly<{ realPath: string; identity: EntityIdentity }>
  * @returns N/A: verifyDirectoryは戻り値を返さない。
@@ -459,9 +465,9 @@ function verifyDirectory(
 }
 
 /**
- * DirectoryEntrySnapshotが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するDirectory Entry Snapshotの値契約を定義する。
  *
- * @responsibility DirectoryEntrySnapshotに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Directory Entry SnapshotのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape DirectoryEntrySnapshotが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DirectoryEntrySnapshotで宣言した値と責務の対応を維持する。
@@ -475,9 +481,9 @@ type DirectoryEntrySnapshot = Readonly<{
 }>;
 
 /**
- * readDirectoryEntrySnapshotの処理を実行する。
+ * Directory Entry Snapshotを読み取る。
  *
- * @responsibility readDirectoryEntrySnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility Directory Entry Snapshotの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000014
  * @input target: string
  * @returns readDirectoryEntrySnapshotの計算結果を返す。
@@ -515,9 +521,9 @@ function readDirectoryEntrySnapshot(target: string) {
 }
 
 /**
- * sameDirectoryEntriesの処理を実行する。
+ * Directory Entriesが同一かを判定する。
  *
- * @responsibility sameDirectoryEntriesに対応する入力処理と結果生成を所有する。
+ * @responsibility Directory Entriesの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000014
  * @input leftEntries: readonly DirectoryEntrySnapshot[]、rightEntries: readonly DirectoryEntrySnapshot[]
  * @returns sameDirectoryEntriesの計算結果を返す。
@@ -545,9 +551,9 @@ function sameDirectoryEntries(
 }
 
 /**
- * readStableFileの処理を実行する。
+ * Stable Fileを読み取る。
  *
- * @responsibility readStableFileに対応する入力処理と結果生成を所有する。
+ * @responsibility Stable Fileの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000014
  * @input target: string、maximumBytes: number
  * @returns readStableFileの計算結果を返す。
@@ -610,9 +616,9 @@ function readStableFile(target: string, maximumBytes: number) {
 }
 
 /**
- * isCanonicalTextPackagePathの処理を実行する。
+ * Canonical Text Package Pathかを判定する。
  *
- * @responsibility isCanonicalTextPackagePathに対応する入力処理と結果生成を所有する。
+ * @responsibility Canonical Text Package Pathの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string
  * @returns isCanonicalTextPackagePathの計算結果を返す。
@@ -632,9 +638,9 @@ function isCanonicalTextPackagePath(relativePath: string) {
 }
 
 /**
- * canonicalPackageFileContentの処理を実行する。
+ * canonical Package File Contentを決定する。
  *
- * @responsibility canonicalPackageFileContentに対応する入力処理と結果生成を所有する。
+ * @responsibility canonical Package File Contentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、bytes: Buffer
  * @returns canonicalPackageFileContentの計算結果を返す。
@@ -665,9 +671,9 @@ function canonicalPackageFileContent(relativePath: string, bytes: Buffer) {
 }
 
 /**
- * SourceTokenが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するSource Tokenの値契約を定義する。
  *
- * @responsibility SourceTokenに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Source TokenのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape SourceTokenが表すProperty、識別子およびRelationを型として固定する。
  * @invariant SourceTokenで宣言した値と責務の対応を維持する。
@@ -696,9 +702,9 @@ const canonicalNodeModuleSpecifiers = Object.freeze(
 );
 
 /**
- * isIdentifierStartの処理を実行する。
+ * Identifier Startかを判定する。
  *
- * @responsibility isIdentifierStartに対応する入力処理と結果生成を所有する。
+ * @responsibility Identifier Startの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input character: string | undefined
  * @returns isIdentifierStartの計算結果を返す。
@@ -716,9 +722,9 @@ function isIdentifierStart(character: string | undefined) {
 }
 
 /**
- * isIdentifierPartの処理を実行する。
+ * Identifier Partかを判定する。
  *
- * @responsibility isIdentifierPartに対応する入力処理と結果生成を所有する。
+ * @responsibility Identifier Partの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input character: string | undefined
  * @returns isIdentifierPartの計算結果を返す。
@@ -736,9 +742,9 @@ function isIdentifierPart(character: string | undefined) {
 }
 
 /**
- * canStartRegularExpressionの処理を実行する。
+ * can Start Regular Expressionを決定する。
  *
- * @responsibility canStartRegularExpressionに対応する入力処理と結果生成を所有する。
+ * @responsibility can Start Regular Expressionの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input previous: SourceToken | undefined
  * @returns canStartRegularExpressionの計算結果を返す。
@@ -779,9 +785,9 @@ function canStartRegularExpression(previous: SourceToken | undefined) {
 }
 
 /**
- * decodeStaticStringLiteralの処理を実行する。
+ * Static String Literalを検証済み値へ復号する。
  *
- * @responsibility decodeStaticStringLiteralに対応する入力処理と結果生成を所有する。
+ * @responsibility Static String Literalの入力形式、復号結果、不正byte列の拒否境界を所有する。
  * @trace ARCH-000014
  * @input raw: string
  * @returns decodeStaticStringLiteralの計算結果を返す。
@@ -827,9 +833,9 @@ function decodeStaticStringLiteral(raw: string) {
 }
 
 /**
- * tokenizeTypeScriptModuleSyntaxの処理を実行する。
+ * tokenize Type Script Module Syntaxを決定する。
  *
- * @responsibility tokenizeTypeScriptModuleSyntaxに対応する入力処理と結果生成を所有する。
+ * @responsibility tokenize Type Script Module Syntaxの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input source: string
  * @returns tokenizeTypeScriptModuleSyntaxの計算結果を返す。
@@ -1044,9 +1050,9 @@ function tokenizeTypeScriptModuleSyntax(source: string) {
 }
 
 /**
- * ModuleDeclarationBindingが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するModule Declaration Bindingの値契約を定義する。
  *
- * @responsibility ModuleDeclarationBindingに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Module Declaration BindingのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape ModuleDeclarationBindingが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ModuleDeclarationBindingで宣言した値と責務の対応を維持する。
@@ -1062,9 +1068,9 @@ type ModuleDeclarationBinding = Readonly<{
 }>;
 
 /**
- * ModuleDeclarationが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するModule Declarationの値契約を定義する。
  *
- * @responsibility ModuleDeclarationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Module DeclarationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape ModuleDeclarationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ModuleDeclarationで宣言した値と責務の対応を維持する。
@@ -1087,9 +1093,9 @@ type ModuleDeclaration = Readonly<{
 }>;
 
 /**
- * matchingTokenIndexの処理を実行する。
+ * matching Token Indexを決定する。
  *
- * @responsibility matchingTokenIndexに対応する入力処理と結果生成を所有する。
+ * @responsibility matching Token Indexの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、openingIndex: number、opening: string、closing: string
  * @returns matchingTokenIndexの計算結果を返す。
@@ -1122,9 +1128,9 @@ function matchingTokenIndex(
 }
 
 /**
- * namedModuleBindingsの処理を実行する。
+ * named Module Bindingsを決定する。
  *
- * @responsibility namedModuleBindingsに対応する入力処理と結果生成を所有する。
+ * @responsibility named Module Bindingsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、openingBrace: number、closingBrace: number、isWholeTypeOnly: boolean
  * @returns namedModuleBindingsの計算結果を返す。
@@ -1177,9 +1183,9 @@ function namedModuleBindings(
 }
 
 /**
- * moduleDeclarationsFromTokensの処理を実行する。
+ * module Declarations From Tokensを決定する。
  *
- * @responsibility moduleDeclarationsFromTokensに対応する入力処理と結果生成を所有する。
+ * @responsibility module Declarations From Tokensの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]
  * @returns moduleDeclarationsFromTokensの計算結果を返す。
@@ -1346,9 +1352,9 @@ function moduleDeclarationsFromTokens(tokens: readonly SourceToken[]) {
 }
 
 /**
- * isExactRealProviderVerificationDynamicImportの処理を実行する。
+ * Exact Real Provider Verification Dynamic Importかを判定する。
  *
- * @responsibility isExactRealProviderVerificationDynamicImportに対応する入力処理と結果生成を所有する。
+ * @responsibility Exact Real Provider Verification Dynamic Importの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、tokens: readonly SourceToken[]、declaration: ModuleDeclaration
  * @returns isExactRealProviderVerificationDynamicImportの計算結果を返す。
@@ -1395,9 +1401,9 @@ function isExactRealProviderVerificationDynamicImport(
 }
 
 /**
- * assertLoaderCapabilityBoundaryの処理を実行する。
+ * Loader Capability Boundaryを表明どおりか検査する。
  *
- * @responsibility assertLoaderCapabilityBoundaryに対応する入力処理と結果生成を所有する。
+ * @responsibility Loader Capability Boundaryの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、tokens: readonly SourceToken[]、declarations: readonly ModuleDeclaration[]
  * @returns N/A: assertLoaderCapabilityBoundaryは戻り値を返さない。
@@ -1562,9 +1568,9 @@ function assertLoaderCapabilityBoundary(
 }
 
 /**
- * moduleSpecifiersFromTokensの処理を実行する。
+ * module Specifiers From Tokensを決定する。
  *
- * @responsibility moduleSpecifiersFromTokensに対応する入力処理と結果生成を所有する。
+ * @responsibility module Specifiers From Tokensの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、tokens: readonly SourceToken[]
  * @returns moduleSpecifiersFromTokensの計算結果を返す。
@@ -1611,9 +1617,9 @@ function moduleSpecifiersFromTokens(
 }
 
 /**
- * tokenSequenceMatchesの処理を実行する。
+ * token Sequence Matchesを決定する。
  *
- * @responsibility tokenSequenceMatchesに対応する入力処理と結果生成を所有する。
+ * @responsibility token Sequence Matchesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、start: number、values: readonly string[]
  * @returns tokenSequenceMatchesの計算結果を返す。
@@ -1637,9 +1643,9 @@ function tokenSequenceMatches(
 }
 
 /**
- * scriptChildTargetFromTokensの処理を実行する。
+ * script Child Target From Tokensを決定する。
  *
- * @responsibility scriptChildTargetFromTokensに対応する入力処理と結果生成を所有する。
+ * @responsibility script Child Target From Tokensの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、tokens: readonly SourceToken[]、start: number
  * @returns scriptChildTargetFromTokensの計算結果を返す。
@@ -1699,9 +1705,9 @@ function scriptChildTargetFromTokens(
 }
 
 /**
- * SelectedScriptProcessBindingsが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するSelected Script Process Bindingsの値契約を定義する。
  *
- * @responsibility SelectedScriptProcessBindingsに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Selected Script Process BindingsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape SelectedScriptProcessBindingsが表すProperty、識別子およびRelationを型として固定する。
  * @invariant SelectedScriptProcessBindingsで宣言した値と責務の対応を維持する。
@@ -1715,9 +1721,9 @@ type SelectedScriptProcessBindings = Readonly<{
 }>;
 
 /**
- * selectedScriptProcessBindingsの処理を実行する。
+ * selected Script Process Bindingsを決定する。
  *
- * @responsibility selectedScriptProcessBindingsに対応する入力処理と結果生成を所有する。
+ * @responsibility selected Script Process Bindingsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、shouldIncludeWorkerThreads
  * @returns SelectedScriptProcessBindingsを返す。
@@ -1778,9 +1784,9 @@ function selectedScriptProcessBindings(
 }
 
 /**
- * assertProtectedModuleSpecifierPositionsの処理を実行する。
+ * Protected Module Specifier Positionsを表明どおりか検査する。
  *
- * @responsibility assertProtectedModuleSpecifierPositionsに対応する入力処理と結果生成を所有する。
+ * @responsibility Protected Module Specifier Positionsの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、protectedSpecifiers: ReadonlySet<string>、canonicalSpecifier: string、reason: string
  * @returns assertProtectedModuleSpecifierPositionsの計算結果を返す。
@@ -1830,9 +1836,9 @@ function assertProtectedModuleSpecifierPositions(
 }
 
 /**
- * assertChildProcessModuleBoundaryの処理を実行する。
+ * Child Process Module Boundaryを表明どおりか検査する。
  *
- * @responsibility assertChildProcessModuleBoundaryに対応する入力処理と結果生成を所有する。
+ * @responsibility Child Process Module Boundaryの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]
  * @returns N/A: assertChildProcessModuleBoundaryは戻り値を返さない。
@@ -1855,9 +1861,9 @@ function assertChildProcessModuleBoundary(tokens: readonly SourceToken[]) {
 }
 
 /**
- * RuntimeExternalProcessCallsiteが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するRuntime External Process Callsiteの値契約を定義する。
  *
- * @responsibility RuntimeExternalProcessCallsiteに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime External Process CallsiteのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape RuntimeExternalProcessCallsiteが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeExternalProcessCallsiteで宣言した値と責務の対応を維持する。
@@ -2157,9 +2163,9 @@ const runtimeExternalProcessCallsites = Object.freeze(
 );
 
 /**
- * RuntimeCapabilityGraphKindが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するRuntime Capability Graph Kindの値契約を定義する。
  *
- * @responsibility RuntimeCapabilityGraphKindに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime Capability Graph KindのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape RuntimeCapabilityGraphKindが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeCapabilityGraphKindで宣言した値と責務の対応を維持する。
@@ -2169,9 +2175,9 @@ const runtimeExternalProcessCallsites = Object.freeze(
  */
 type RuntimeCapabilityGraphKind = "runtime" | "verification_tool";
 /**
- * ExactExternalProcessCallGraphが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するExact External Process Call Graphの値契約を定義する。
  *
- * @responsibility ExactExternalProcessCallGraphに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Exact External Process Call GraphのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape ExactExternalProcessCallGraphが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ExactExternalProcessCallGraphで宣言した値と責務の対応を維持する。
@@ -2447,9 +2453,9 @@ const exactExternalProcessCalls = Object.freeze(
 );
 
 /**
- * ExactAuditedFunctionFlowが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するExact Audited Function Flowの値契約を定義する。
  *
- * @responsibility ExactAuditedFunctionFlowに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Exact Audited Function FlowのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape ExactAuditedFunctionFlowが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ExactAuditedFunctionFlowで宣言した値と責務の対応を維持する。
@@ -2738,9 +2744,9 @@ const auditedFunctionLexicalParents = Object.freeze(
 );
 
 /**
- * AsyncProcessOwnershipが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するAsync Process Ownershipの値契約を定義する。
  *
- * @responsibility AsyncProcessOwnershipに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Async Process OwnershipのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape AsyncProcessOwnershipが表すProperty、識別子およびRelationを型として固定する。
  * @invariant AsyncProcessOwnershipで宣言した値と責務の対応を維持する。
@@ -2822,9 +2828,9 @@ const exactAsyncProcessOwnership = Object.freeze(
 );
 
 /**
- * ExecutableProvenanceが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するExecutable Provenanceの値契約を定義する。
  *
- * @responsibility ExecutableProvenanceに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Executable ProvenanceのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape ExecutableProvenanceが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ExecutableProvenanceで宣言した値と責務の対応を維持する。
@@ -3050,9 +3056,9 @@ for (const callsite of runtimeExternalProcessCallsites) {
 }
 
 /**
- * coordinatorRelativeSourcePathの処理を実行する。
+ * coordinator Relative Source Pathを決定する。
  *
- * @responsibility coordinatorRelativeSourcePathに対応する入力処理と結果生成を所有する。
+ * @responsibility coordinator Relative Source Pathの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string
  * @returns coordinatorRelativeSourcePathの計算結果を返す。
@@ -3073,9 +3079,9 @@ function coordinatorRelativeSourcePath(relativePath: string) {
 }
 
 /**
- * isFixedTaskkillInvocationの処理を実行する。
+ * Fixed Taskkill Invocationかを判定する。
  *
- * @responsibility isFixedTaskkillInvocationに対応する入力処理と結果生成を所有する。
+ * @responsibility Fixed Taskkill Invocationの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、start: number
  * @returns isFixedTaskkillInvocationの計算結果を返す。
@@ -3122,9 +3128,9 @@ function isFixedTaskkillInvocation(
 }
 
 /**
- * selectedScriptChildModuleTargetsの処理を実行する。
+ * selected Script Child Module Targetsを決定する。
  *
- * @responsibility selectedScriptChildModuleTargetsに対応する入力処理と結果生成を所有する。
+ * @responsibility selected Script Child Module Targetsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、tokens: readonly SourceToken[]
  * @returns selectedScriptChildModuleTargetsの計算結果を返す。
@@ -3223,9 +3229,9 @@ function selectedScriptChildModuleTargets(
 }
 
 /**
- * canonicalRelativeModuleTargetの処理を実行する。
+ * canonical Relative Module Targetを決定する。
  *
- * @responsibility canonicalRelativeModuleTargetに対応する入力処理と結果生成を所有する。
+ * @responsibility canonical Relative Module Targetの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、specifier: string
  * @returns canonicalRelativeModuleTargetの計算結果を返す。
@@ -3273,9 +3279,9 @@ function canonicalRelativeModuleTarget(
 }
 
 /**
- * declaredLocalTypeScriptChildTargetsの処理を実行する。
+ * declared Local Type Script Child Targetsを決定する。
  *
- * @responsibility declaredLocalTypeScriptChildTargetsに対応する入力処理と結果生成を所有する。
+ * @responsibility declared Local Type Script Child Targetsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、tokens: readonly SourceToken[]
  * @returns declaredLocalTypeScriptChildTargetsの計算結果を返す。
@@ -3374,9 +3380,9 @@ const LOCAL_TYPESCRIPT_CHILD_REGISTRY_SNAPSHOT_NAME =
   "runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver";
 
 /**
- * directCallArgumentStartsの処理を実行する。
+ * direct Call Argument Startsを決定する。
  *
- * @responsibility directCallArgumentStartsに対応する入力処理と結果生成を所有する。
+ * @responsibility direct Call Argument Startsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、openingParenthesis: number
  * @returns directCallArgumentStartsの計算結果を返す。
@@ -3418,9 +3424,9 @@ function directCallArgumentStarts(
 }
 
 /**
- * DirectCallArgumentRangeが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するDirect Call Argument Rangeの値契約を定義する。
  *
- * @responsibility DirectCallArgumentRangeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Direct Call Argument RangeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape DirectCallArgumentRangeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DirectCallArgumentRangeで宣言した値と責務の対応を維持する。
@@ -3431,9 +3437,9 @@ function directCallArgumentStarts(
 type DirectCallArgumentRange = Readonly<{ start: number; end: number }>;
 
 /**
- * directCallArgumentRangesの処理を実行する。
+ * direct Call Argument Rangesを決定する。
  *
- * @responsibility directCallArgumentRangesに対応する入力処理と結果生成を所有する。
+ * @responsibility direct Call Argument Rangesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、openingParenthesis: number
  * @returns directCallArgumentRangesの計算結果を返す。
@@ -3478,9 +3484,9 @@ function directCallArgumentRanges(
 }
 
 /**
- * exactExpressionMatchesの処理を実行する。
+ * Expression Matchesが完全一致するか判定する。
  *
- * @responsibility exactExpressionMatchesに対応する入力処理と結果生成を所有する。
+ * @responsibility Expression Matchesの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、range: DirectCallArgumentRange | undefined、expectedTokens: readonly string[]
  * @returns exactExpressionMatchesの計算結果を返す。
@@ -3506,9 +3512,9 @@ function exactExpressionMatches(
 }
 
 /**
- * expressionContainsTopLevelAlternativeの処理を実行する。
+ * expression Contains Top Level Alternativeを決定する。
  *
- * @responsibility expressionContainsTopLevelAlternativeに対応する入力処理と結果生成を所有する。
+ * @responsibility expression Contains Top Level Alternativeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、range: DirectCallArgumentRange
  * @returns expressionContainsTopLevelAlternativeの計算結果を返す。
@@ -3546,9 +3552,9 @@ function expressionContainsTopLevelAlternative(
 }
 
 /**
- * prefixedArrayExpressionMatchesの処理を実行する。
+ * prefixed Array Expression Matchesを決定する。
  *
- * @responsibility prefixedArrayExpressionMatchesに対応する入力処理と結果生成を所有する。
+ * @responsibility prefixed Array Expression Matchesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、range: DirectCallArgumentRange | undefined、expectedPrefixTokens: readonly string[]
  * @returns prefixedArrayExpressionMatchesの計算結果を返す。
@@ -3579,9 +3585,9 @@ function prefixedArrayExpressionMatches(
 }
 
 /**
- * usedLocalTypeScriptChildRoleKindsの処理を実行する。
+ * used Local Type Script Child Role Kindsを決定する。
  *
- * @responsibility usedLocalTypeScriptChildRoleKindsに対応する入力処理と結果生成を所有する。
+ * @responsibility used Local Type Script Child Role Kindsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、tokens: readonly SourceToken[]
  * @returns usedLocalTypeScriptChildRoleKindsの計算結果を返す。
@@ -3676,9 +3682,9 @@ function usedLocalTypeScriptChildRoleKinds(
 }
 
 /**
- * assertNoUndeclaredLocalTypeScriptImportMetaUrlの処理を実行する。
+ * No Undeclared Local Type Script Import Meta Urlを表明どおりか検査する。
  *
- * @responsibility assertNoUndeclaredLocalTypeScriptImportMetaUrlに対応する入力処理と結果生成を所有する。
+ * @responsibility No Undeclared Local Type Script Import Meta Urlの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、tokens: readonly SourceToken[]
  * @returns N/A: assertNoUndeclaredLocalTypeScriptImportMetaUrlは戻り値を返さない。
@@ -3774,9 +3780,9 @@ function assertNoUndeclaredLocalTypeScriptImportMetaUrl(
 }
 
 /**
- * InternalLifecycleCallが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するInternal Lifecycle Callの値契約を定義する。
  *
- * @responsibility InternalLifecycleCallに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Internal Lifecycle CallのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape InternalLifecycleCallが表すProperty、識別子およびRelationを型として固定する。
  * @invariant InternalLifecycleCallで宣言した値と責務の対応を維持する。
@@ -3945,9 +3951,9 @@ const internalLifecycleConsumers = Object.freeze(
 );
 
 /**
- * ProcessWrapperUseが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するProcess Wrapper Useの値契約を定義する。
  *
- * @responsibility ProcessWrapperUseに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Process Wrapper UseのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape ProcessWrapperUseが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProcessWrapperUseで宣言した値と責務の対応を維持する。
@@ -4079,9 +4085,9 @@ const processWrapperConsumers = Object.freeze(
 );
 
 /**
- * containingNamedFunctionの処理を実行する。
+ * containing Named Functionを決定する。
  *
- * @responsibility containingNamedFunctionに対応する入力処理と結果生成を所有する。
+ * @responsibility containing Named Functionの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、tokenIndex: number
  * @returns containingNamedFunctionの計算結果を返す。
@@ -4218,9 +4224,9 @@ function containingNamedFunction(
 }
 
 /**
- * argumentMatchesPrefixの処理を実行する。
+ * argument Matches Prefixを決定する。
  *
- * @responsibility argumentMatchesPrefixに対応する入力処理と結果生成を所有する。
+ * @responsibility argument Matches Prefixの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、argumentStart: number | undefined、prefixTokens: readonly string[]
  * @returns argumentMatchesPrefixの計算結果を返す。
@@ -4245,9 +4251,9 @@ function argumentMatchesPrefix(
 }
 
 /**
- * tokenSequenceExistsBetweenの処理を実行する。
+ * token Sequence Exists Betweenを決定する。
  *
- * @responsibility tokenSequenceExistsBetweenに対応する入力処理と結果生成を所有する。
+ * @responsibility token Sequence Exists Betweenの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、start: number、end: number、sequenceTokens: readonly string[]
  * @returns tokenSequenceExistsBetweenの計算結果を返す。
@@ -4273,9 +4279,9 @@ function tokenSequenceExistsBetween(
 }
 
 /**
- * tokenSequenceIndicesBetweenの処理を実行する。
+ * token Sequence Indices Betweenを決定する。
  *
- * @responsibility tokenSequenceIndicesBetweenに対応する入力処理と結果生成を所有する。
+ * @responsibility token Sequence Indices Betweenの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、start: number、end: number、sequenceTokens: readonly string[]
  * @returns tokenSequenceIndicesBetweenの計算結果を返す。
@@ -4303,9 +4309,9 @@ function tokenSequenceIndicesBetween(
 }
 
 /**
- * containingBlockPathの処理を実行する。
+ * containing Block Pathを決定する。
  *
- * @responsibility containingBlockPathに対応する入力処理と結果生成を所有する。
+ * @responsibility containing Block Pathの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、tokenIndex: number
  * @returns containingBlockPathの計算結果を返す。
@@ -4331,9 +4337,9 @@ function containingBlockPath(
 }
 
 /**
- * blockPathDominatesの処理を実行する。
+ * block Path Dominatesを決定する。
  *
- * @responsibility blockPathDominatesに対応する入力処理と結果生成を所有する。
+ * @responsibility block Path Dominatesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input proofPathTokens: readonly number[]、consumerPathTokens: readonly number[]
  * @returns blockPathDominatesの計算結果を返す。
@@ -4359,9 +4365,9 @@ function blockPathDominates(
 }
 
 /**
- * hasUniqueDominatingProofの処理を実行する。
+ * Unique Dominating Proofが存在するかを判定する。
  *
- * @responsibility hasUniqueDominatingProofに対応する入力処理と結果生成を所有する。
+ * @responsibility Unique Dominating Proofの存在条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、consumerIndex: number、sequenceTokens: readonly string[]
  * @returns hasUniqueDominatingProofの計算結果を返す。
@@ -4398,9 +4404,9 @@ function hasUniqueDominatingProof(
 }
 
 /**
- * hasDominatingProofの処理を実行する。
+ * Dominating Proofが存在するかを判定する。
  *
- * @responsibility hasDominatingProofに対応する入力処理と結果生成を所有する。
+ * @responsibility Dominating Proofの存在条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、consumerIndex: number、sequenceTokens: readonly string[]
  * @returns hasDominatingProofの計算結果を返す。
@@ -4436,9 +4442,9 @@ function hasDominatingProof(
 }
 
 /**
- * assertInternalLifecycleConsumerBoundaryの処理を実行する。
+ * Internal Lifecycle Consumer Boundaryを表明どおりか検査する。
  *
- * @responsibility assertInternalLifecycleConsumerBoundaryに対応する入力処理と結果生成を所有する。
+ * @responsibility Internal Lifecycle Consumer Boundaryの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、tokens: readonly SourceToken[]、shouldEnforceDeclaredGraph: boolean
  * @returns assertInternalLifecycleConsumerBoundaryの計算結果を返す。
@@ -4590,9 +4596,9 @@ function assertInternalLifecycleConsumerBoundary(
 }
 
 /**
- * assertProcessWrapperConsumerBoundaryの処理を実行する。
+ * Process Wrapper Consumer Boundaryを表明どおりか検査する。
  *
- * @responsibility assertProcessWrapperConsumerBoundaryに対応する入力処理と結果生成を所有する。
+ * @responsibility Process Wrapper Consumer Boundaryの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、tokens: readonly SourceToken[]、shouldEnforceDeclaredGraph: boolean
  * @returns assertProcessWrapperConsumerBoundaryの計算結果を返す。
@@ -4784,9 +4790,9 @@ function assertProcessWrapperConsumerBoundary(
 }
 
 /**
- * assertWorkerCreationImportBoundaryの処理を実行する。
+ * Worker Creation Import Boundaryを表明どおりか検査する。
  *
- * @responsibility assertWorkerCreationImportBoundaryに対応する入力処理と結果生成を所有する。
+ * @responsibility Worker Creation Import Boundaryの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、tokens: readonly SourceToken[]
  * @returns N/A: assertWorkerCreationImportBoundaryは戻り値を返さない。
@@ -4874,9 +4880,9 @@ function assertWorkerCreationImportBoundary(
 }
 
 /**
- * assertNoUnboundRuntimeChildProcessの処理を実行する。
+ * No Unbound Runtime Child Processを表明どおりか検査する。
  *
- * @responsibility assertNoUnboundRuntimeChildProcessに対応する入力処理と結果生成を所有する。
+ * @responsibility No Unbound Runtime Child Processの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、tokens: readonly SourceToken[]、shouldEnforceDeclaredGraph: boolean
  * @returns assertNoUnboundRuntimeChildProcessの計算結果を返す。
@@ -5110,9 +5116,9 @@ function assertNoUnboundRuntimeChildProcess(
 }
 
 /**
- * runtimeNamedFunctionGraphSnapshotForVerificationの処理を実行する。
+ * runtime Named Function Graph Snapshot For Verificationを決定する。
  *
- * @responsibility runtimeNamedFunctionGraphSnapshotForVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility runtime Named Function Graph Snapshot For Verificationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、source: string | readonly SourceToken[]、names: readonly string[]
  * @returns runtimeNamedFunctionGraphSnapshotForVerificationの計算結果を返す。
@@ -5311,9 +5317,9 @@ export function runtimeNamedFunctionGraphSnapshotForVerification(
 }
 
 /**
- * auditedFunctionSemanticGraphForVerificationの処理を実行する。
+ * audited Function Semantic Graph For Verificationを決定する。
  *
- * @responsibility auditedFunctionSemanticGraphForVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility audited Function Semantic Graph For Verificationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、source: string
  * @returns auditedFunctionSemanticGraphForVerificationの計算結果を返す。
@@ -5356,9 +5362,9 @@ const protectedPreBodyEffectSymbols = Object.freeze(
 );
 
 /**
- * assertNoAuditedPreBodyEffectsの処理を実行する。
+ * No Audited Pre Body Effectsを表明どおりか検査する。
  *
- * @responsibility assertNoAuditedPreBodyEffectsに対応する入力処理と結果生成を所有する。
+ * @responsibility No Audited Pre Body Effectsの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、functionNames: ReadonlySet<string>
  * @returns N/A: assertNoAuditedPreBodyEffectsは戻り値を返さない。
@@ -5406,9 +5412,9 @@ function assertNoAuditedPreBodyEffects(
 }
 
 /**
- * assertExactAuditedFunctionFlowsの処理を実行する。
+ * Exact Audited Function Flowsを表明どおりか検査する。
  *
- * @responsibility assertExactAuditedFunctionFlowsに対応する入力処理と結果生成を所有する。
+ * @responsibility Exact Audited Function Flowsの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、tokens: readonly SourceToken[]、shouldEnforceDeclaredGraph: boolean
  * @returns assertExactAuditedFunctionFlowsの計算結果を返す。
@@ -5459,9 +5465,9 @@ function assertExactAuditedFunctionFlows(
 }
 
 /**
- * assertExactCapabilityGraphSourceUniverseの処理を実行する。
+ * Exact Capability Graph Source Universeを表明どおりか検査する。
  *
- * @responsibility assertExactCapabilityGraphSourceUniverseに対応する入力処理と結果生成を所有する。
+ * @responsibility Exact Capability Graph Source Universeの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input graph: RuntimeCapabilityGraphKind、sources: ReadonlySet<string>
  * @returns N/A: assertExactCapabilityGraphSourceUniverseは戻り値を返さない。
@@ -5525,9 +5531,9 @@ function assertExactCapabilityGraphSourceUniverse(
 }
 
 /**
- * assertVerificationToolCapabilityGraphForVerificationの処理を実行する。
+ * Verification Tool Capability Graph For Verificationを表明どおりか検査する。
  *
- * @responsibility assertVerificationToolCapabilityGraphForVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility Verification Tool Capability Graph For Verificationの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input sources: Readonly<Record<string, string>>
  * @returns N/A: assertVerificationToolCapabilityGraphForVerificationは戻り値を返さない。
@@ -5561,9 +5567,9 @@ export function assertVerificationToolCapabilityGraphForVerification(
 }
 
 /**
- * isAllowedExecPathUseの処理を実行する。
+ * Allowed Exec Path Useかを判定する。
  *
- * @responsibility isAllowedExecPathUseに対応する入力処理と結果生成を所有する。
+ * @responsibility Allowed Exec Path Useの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、tokens: readonly SourceToken[]、index: number
  * @returns isAllowedExecPathUseの計算結果を返す。
@@ -5647,9 +5653,9 @@ function isAllowedExecPathUse(
 }
 
 /**
- * assertNoUnboundRuntimeExecPathの処理を実行する。
+ * No Unbound Runtime Exec Pathを表明どおりか検査する。
  *
- * @responsibility assertNoUnboundRuntimeExecPathに対応する入力処理と結果生成を所有する。
+ * @responsibility No Unbound Runtime Exec Pathの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、tokens: readonly SourceToken[]
  * @returns N/A: assertNoUnboundRuntimeExecPathは戻り値を返さない。
@@ -5704,9 +5710,9 @@ const runtimePackageCapabilityExports = Object.freeze(
 );
 
 /**
- * RuntimePackageCapabilityConsumerが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するRuntime Package Capability Consumerの値契約を定義する。
  *
- * @responsibility RuntimePackageCapabilityConsumerに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime Package Capability ConsumerのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape RuntimePackageCapabilityConsumerが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimePackageCapabilityConsumerで宣言した値と責務の対応を維持する。
@@ -5723,9 +5729,9 @@ type RuntimePackageCapabilityConsumer = Readonly<{
 }>;
 
 /**
- * runtimePackageCapabilityConsumersの処理を実行する。
+ * runtime Package Capability Consumersを決定する。
  *
- * @responsibility runtimePackageCapabilityConsumersに対応する入力処理と結果生成を所有する。
+ * @responsibility runtime Package Capability Consumersの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、tokens: readonly SourceToken[]
  * @returns runtimePackageCapabilityConsumersの計算結果を返す。
@@ -5806,9 +5812,9 @@ function runtimePackageCapabilityConsumers(
 }
 
 /**
- * runtimePackageCapabilityConsumerGraphForVerificationの処理を実行する。
+ * runtime Package Capability Consumer Graph For Verificationを決定する。
  *
- * @responsibility runtimePackageCapabilityConsumerGraphForVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility runtime Package Capability Consumer Graph For Verificationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input sources: Readonly<Record<string, string>>
  * @returns runtimePackageCapabilityConsumerGraphForVerificationの計算結果を返す。
@@ -6003,9 +6009,9 @@ const exactRuntimePackageCapabilityConsumers = Object.freeze(
 );
 
 /**
- * runtimePackageCapabilityConsumerIdentityの処理を実行する。
+ * runtime Package Capability Consumer Identityを決定する。
  *
- * @responsibility runtimePackageCapabilityConsumerIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility runtime Package Capability Consumer Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input consumer: RuntimePackageCapabilityConsumer
  * @returns runtimePackageCapabilityConsumerIdentityの計算結果を返す。
@@ -6025,9 +6031,9 @@ function runtimePackageCapabilityConsumerIdentity(
 }
 
 /**
- * assertRuntimePackageCapabilityHandoffClosureの処理を実行する。
+ * Runtime Package Capability Handoff Closureを表明どおりか検査する。
  *
- * @responsibility assertRuntimePackageCapabilityHandoffClosureに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Package Capability Handoff Closureの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input sources: Readonly<Record<string, string>>
  * @returns assertRuntimePackageCapabilityHandoffClosureの計算結果を返す。
@@ -6249,9 +6255,9 @@ function assertRuntimePackageCapabilityHandoffClosure(
 }
 
 /**
- * assertReleaseAssuranceConsumerClosureの処理を実行する。
+ * Release Assurance Consumer Closureを表明どおりか検査する。
  *
- * @responsibility assertReleaseAssuranceConsumerClosureに対応する入力処理と結果生成を所有する。
+ * @responsibility Release Assurance Consumer Closureの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input sources: Readonly<Record<string, string>>
  * @returns assertReleaseAssuranceConsumerClosureの計算結果を返す。
@@ -6385,9 +6391,9 @@ function assertReleaseAssuranceConsumerClosure(
 }
 
 /**
- * assertExactRuntimePackageCapabilityConsumerGraphの処理を実行する。
+ * Exact Runtime Package Capability Consumer Graphを表明どおりか検査する。
  *
- * @responsibility assertExactRuntimePackageCapabilityConsumerGraphに対応する入力処理と結果生成を所有する。
+ * @responsibility Exact Runtime Package Capability Consumer Graphの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input sources: Readonly<Record<string, string>>、scope: "repository" | "runtime_distribution"
  * @returns N/A: assertExactRuntimePackageCapabilityConsumerGraphは戻り値を返さない。
@@ -6441,9 +6447,9 @@ function assertExactRuntimePackageCapabilityConsumerGraph(
 }
 
 /**
- * runtimePackageCapabilityConsumerGraphDiagnosticForVerificationの処理を実行する。
+ * runtime Package Capability Consumer Graph Diagnostic For Verificationを決定する。
  *
- * @responsibility runtimePackageCapabilityConsumerGraphDiagnosticForVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility runtime Package Capability Consumer Graph Diagnostic For Verificationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input sources: Readonly<Record<string, string>>
  * @returns ProtectedPathDiagnosticを返す。
@@ -6482,9 +6488,9 @@ export function runtimePackageCapabilityConsumerGraphDiagnosticForVerification(
 }
 
 /**
- * assertRuntimePackageCapabilityConsumerGraphForVerificationの処理を実行する。
+ * Runtime Package Capability Consumer Graph For Verificationを表明どおりか検査する。
  *
- * @responsibility assertRuntimePackageCapabilityConsumerGraphForVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Package Capability Consumer Graph For Verificationの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input sources: Readonly<Record<string, string>>
  * @returns N/A: assertRuntimePackageCapabilityConsumerGraphForVerificationは戻り値を返さない。
@@ -6509,9 +6515,9 @@ export function assertRuntimePackageCapabilityConsumerGraphForVerification(
 }
 
 /**
- * assertPublicRuntimeObservationConsumerClosureの処理を実行する。
+ * Public Runtime Observation Consumer Closureを表明どおりか検査する。
  *
- * @responsibility assertPublicRuntimeObservationConsumerClosureに対応する入力処理と結果生成を所有する。
+ * @responsibility Public Runtime Observation Consumer Closureの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、tokens: readonly SourceToken[]、shouldEnforceDeclaredGraph: boolean
  * @returns assertPublicRuntimeObservationConsumerClosureの計算結果を返す。
@@ -6654,9 +6660,9 @@ function assertPublicRuntimeObservationConsumerClosure(
 }
 
 /**
- * ProtectedPathDiagnosticが扱う値の構造を表す。
+ * platform-provisioner-package-filesystemで使用するProtected Path Diagnosticの値契約を定義する。
  *
- * @responsibility ProtectedPathDiagnosticに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Protected Path DiagnosticのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape ProtectedPathDiagnosticが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProtectedPathDiagnosticで宣言した値と責務の対応を維持する。
@@ -6673,9 +6679,9 @@ type ProtectedPathDiagnostic = Readonly<{
 }>;
 
 /**
- * namedFunctionBodyRangeの処理を実行する。
+ * named Function Body Rangeを決定する。
  *
- * @responsibility namedFunctionBodyRangeに対応する入力処理と結果生成を所有する。
+ * @responsibility named Function Body Rangeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、functionName: string
  * @returns namedFunctionBodyRangeの計算結果を返す。
@@ -6719,9 +6725,9 @@ function namedFunctionBodyRange(
 }
 
 /**
- * directProtectedCallの処理を実行する。
+ * direct Protected Callを決定する。
  *
- * @responsibility directProtectedCallに対応する入力処理と結果生成を所有する。
+ * @responsibility direct Protected Callの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input tokens: readonly SourceToken[]、symbol: string、owner: string、prefixTokens: readonly string[]、argumentShapes: readonly (readonly string[])[]
  * @returns directProtectedCallの計算結果を返す。
@@ -6776,9 +6782,9 @@ function directProtectedCall(
 }
 
 /**
- * assertReleaseSigningProtectedPathの処理を実行する。
+ * Release Signing Protected Pathを表明どおりか検査する。
  *
- * @responsibility assertReleaseSigningProtectedPathに対応する入力処理と結果生成を所有する。
+ * @responsibility Release Signing Protected Pathの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input source: string
  * @returns assertReleaseSigningProtectedPathの計算結果を返す。
@@ -7298,9 +7304,9 @@ function assertReleaseSigningProtectedPath(source: string) {
 }
 
 /**
- * releaseSigningProtectedPathDiagnosticForVerificationの処理を実行する。
+ * Signing Protected Path Diagnostic For Verificationを解放する。
  *
- * @responsibility releaseSigningProtectedPathDiagnosticForVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility Signing Protected Path Diagnostic For Verificationの所有権、解放条件、終了後不存在の確認境界を所有する。
  * @trace ARCH-000014
  * @input source: string
  * @returns ProtectedPathDiagnosticを返す。
@@ -7340,9 +7346,9 @@ export function releaseSigningProtectedPathDiagnosticForVerification(
 }
 
 /**
- * assertReleaseSigningConsumerClosureForVerificationの処理を実行する。
+ * Release Signing Consumer Closure For Verificationを表明どおりか検査する。
  *
- * @responsibility assertReleaseSigningConsumerClosureForVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility Release Signing Consumer Closure For Verificationの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input source: string
  * @returns N/A: assertReleaseSigningConsumerClosureForVerificationは戻り値を返さない。
@@ -7367,9 +7373,9 @@ export function assertReleaseSigningConsumerClosureForVerification(
 }
 
 /**
- * staticRelativeModuleTargetsの処理を実行する。
+ * static Relative Module Targetsを決定する。
  *
- * @responsibility staticRelativeModuleTargetsに対応する入力処理と結果生成を所有する。
+ * @responsibility static Relative Module Targetsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、bytes: Buffer、shouldEnforceDeclaredGraph
  * @returns staticRelativeModuleTargetsの計算結果を返す。
@@ -7447,9 +7453,9 @@ function staticRelativeModuleTargets(
 }
 
 /**
- * assertRuntimeSourceModuleBoundaryForVerificationの処理を実行する。
+ * Runtime Source Module Boundary For Verificationを表明どおりか検査する。
  *
- * @responsibility assertRuntimeSourceModuleBoundaryForVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Source Module Boundary For Verificationの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、source: string
  * @returns N/A: assertRuntimeSourceModuleBoundaryForVerificationは戻り値を返さない。
@@ -7470,9 +7476,9 @@ export function assertRuntimeSourceModuleBoundaryForVerification(
 }
 
 /**
- * assertRuntimeSourceDeclaredGraphBoundaryForVerificationの処理を実行する。
+ * Runtime Source Declared Graph Boundary For Verificationを表明どおりか検査する。
  *
- * @responsibility assertRuntimeSourceDeclaredGraphBoundaryForVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Source Declared Graph Boundary For Verificationの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、source: string
  * @returns N/A: assertRuntimeSourceDeclaredGraphBoundaryForVerificationは戻り値を返さない。
@@ -7493,9 +7499,9 @@ export function assertRuntimeSourceDeclaredGraphBoundaryForVerification(
 }
 
 /**
- * verifyLauncherEntryBindingsの処理を実行する。
+ * Launcher Entry Bindingsを検証する。
  *
- * @responsibility verifyLauncherEntryBindingsに対応する入力処理と結果生成を所有する。
+ * @responsibility Launcher Entry Bindingsの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input packageRoot: string
  * @returns N/A: verifyLauncherEntryBindingsは戻り値を返さない。
@@ -7543,9 +7549,9 @@ function verifyLauncherEntryBindings(packageRoot: string) {
 }
 
 /**
- * isCoordinatorSiblingRuntimeTargetの処理を実行する。
+ * Coordinator Sibling Runtime Targetかを判定する。
  *
- * @responsibility isCoordinatorSiblingRuntimeTargetに対応する入力処理と結果生成を所有する。
+ * @responsibility Coordinator Sibling Runtime Targetの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input target: string
  * @returns isCoordinatorSiblingRuntimeTargetの計算結果を返す。
@@ -7566,9 +7572,9 @@ function isCoordinatorSiblingRuntimeTarget(target: string) {
 }
 
 /**
- * collectRuntimeExecutionScriptPathsの処理を実行する。
+ * Runtime Execution Script Pathsを収集する。
  *
- * @responsibility collectRuntimeExecutionScriptPathsに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Execution Script Pathsの収集範囲、重複排除、欠落時の結果境界を所有する。
  * @trace ARCH-000014
  * @input packageRoot: string、isSiblingRuntimeTargetAllowed
  * @returns collectRuntimeExecutionScriptPathsの計算結果を返す。
@@ -7676,9 +7682,9 @@ function collectRuntimeExecutionScriptPaths(
 }
 
 /**
- * verifyStaticRuntimeModuleBoundaryの処理を実行する。
+ * Static Runtime Module Boundaryを検証する。
  *
- * @responsibility verifyStaticRuntimeModuleBoundaryに対応する入力処理と結果生成を所有する。
+ * @responsibility Static Runtime Module Boundaryの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、bytes: Buffer、scriptPaths: ReadonlySet<string>、shouldEnforceDeclaredGraph: boolean
  * @returns N/A: verifyStaticRuntimeModuleBoundaryは戻り値を返さない。
@@ -7718,9 +7724,9 @@ function verifyStaticRuntimeModuleBoundary(
 }
 
 /**
- * packageEntriesの処理を実行する。
+ * package Entriesを決定する。
  *
- * @responsibility packageEntriesに対応する入力処理と結果生成を所有する。
+ * @responsibility package Entriesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input root: Readonly<{ realPath: string; identity: EntityIdentity }>、isSiblingRuntimeTargetAllowed
  * @returns packageEntriesの計算結果を返す。
@@ -7810,9 +7816,9 @@ function packageEntries(
 }
 
 /**
- * packageMetadataの処理を実行する。
+ * package Metadataを決定する。
  *
- * @responsibility packageMetadataに対応する入力処理と結果生成を所有する。
+ * @responsibility package Metadataの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input bytes: Buffer | null
  * @returns packageMetadataの計算結果を返す。
@@ -7865,9 +7871,9 @@ function packageMetadata(bytes: Buffer | null) {
 }
 
 /**
- * observePackageの処理を実行する。
+ * Packageを観測する。
  *
- * @responsibility observePackageに対応する入力処理と結果生成を所有する。
+ * @responsibility Packageの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input packageRoot: string
  * @returns observePackageの計算結果を返す。
@@ -8004,9 +8010,9 @@ const runtimeDistributionEntrypoints = Object.freeze(
 );
 
 /**
- * runtimeLocalNodeChildTargetsの処理を実行する。
+ * runtime Local Node Child Targetsを決定する。
  *
- * @responsibility runtimeLocalNodeChildTargetsに対応する入力処理と結果生成を所有する。
+ * @responsibility runtime Local Node Child Targetsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input observedFiles: ReadonlyMap< string, Readonly<{ byteLength: number; sha256: string; identity: EntityIdentity; bytes: Buffer; }> >
  * @returns runtimeLocalNodeChildTargetsの計算結果を返す。
@@ -8063,9 +8069,9 @@ function runtimeLocalNodeChildTargets(
 }
 
 /**
- * sameStringSetの処理を実行する。
+ * String Setが同一かを判定する。
  *
- * @responsibility sameStringSetに対応する入力処理と結果生成を所有する。
+ * @responsibility String Setの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000014
  * @input left: ReadonlySet<string>、right: ReadonlySet<string>
  * @returns sameStringSetの計算結果を返す。
@@ -8085,9 +8091,9 @@ function sameStringSet(left: ReadonlySet<string>, right: ReadonlySet<string>) {
 }
 
 /**
- * coordinatorPackageRelativePathの処理を実行する。
+ * coordinator Package Relative Pathを決定する。
  *
- * @responsibility coordinatorPackageRelativePathに対応する入力処理と結果生成を所有する。
+ * @responsibility coordinator Package Relative Pathの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input distributionRelativePath: string
  * @returns coordinatorPackageRelativePathの計算結果を返す。
@@ -8116,9 +8122,9 @@ function coordinatorPackageRelativePath(distributionRelativePath: string) {
 }
 
 /**
- * resolveRuntimeDistributionRequiredArtifactsの処理を実行する。
+ * Runtime Distribution Required Artifactsを一意に解決する。
  *
- * @responsibility resolveRuntimeDistributionRequiredArtifactsに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Distribution Required Artifactsの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input observedFiles: ReadonlyMap< string, Readonly<{ byteLength: number; sha256: string; identity: EntityIdentity; bytes: Buffer; }> >
  * @returns resolveRuntimeDistributionRequiredArtifactsの計算結果を返す。
@@ -8213,9 +8219,9 @@ function resolveRuntimeDistributionRequiredArtifacts(
 }
 
 /**
- * isBundledRuntimeExecutionPathの処理を実行する。
+ * Bundled Runtime Execution Pathかを判定する。
  *
- * @responsibility isBundledRuntimeExecutionPathに対応する入力処理と結果生成を所有する。
+ * @responsibility Bundled Runtime Execution Pathの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、coordinatorPaths: ReadonlySet<string>、reachedComponentMetadata: ReadonlySet<string>
  * @returns isBundledRuntimeExecutionPathの計算結果を返す。
@@ -8244,9 +8250,9 @@ function isBundledRuntimeExecutionPath(
 }
 
 /**
- * runtimeSiblingComponentForSourceの処理を実行する。
+ * runtime Sibling Component For Sourceを決定する。
  *
- * @responsibility runtimeSiblingComponentForSourceに対応する入力処理と結果生成を所有する。
+ * @responsibility runtime Sibling Component For Sourceの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string
  * @returns runtimeSiblingComponentForSourceの計算結果を返す。
@@ -8266,9 +8272,9 @@ function runtimeSiblingComponentForSource(relativePath: string) {
 }
 
 /**
- * verifyRuntimeSiblingPackageMetadataの処理を実行する。
+ * Runtime Sibling Package Metadataを検証する。
  *
- * @responsibility verifyRuntimeSiblingPackageMetadataに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Sibling Package Metadataの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input relativePath: string、bytes: Buffer
  * @returns N/A: verifyRuntimeSiblingPackageMetadataは戻り値を返さない。
@@ -8314,7 +8320,7 @@ function verifyRuntimeSiblingPackageMetadata(
 /**
  * Observe the real execution closure after Runtime responsibility separation.
  *
- * @responsibility observeRuntimeDistributionに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Distributionの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input distributionRootPath: string
  * @returns observeRuntimeDistributionの計算結果を返す。
@@ -8505,9 +8511,9 @@ function observeRuntimeDistribution(distributionRootPath: string) {
 }
 
 /**
- * publicObservationの処理を実行する。
+ * public Observationを決定する。
  *
- * @responsibility publicObservationに対応する入力処理と結果生成を所有する。
+ * @responsibility public Observationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input observed: ReturnType<typeof observePackage>、isRuntimeOwnedPackageRoot: boolean
  * @returns publicObservationの計算結果を返す。
@@ -8551,9 +8557,9 @@ function publicObservation(
 }
 
 /**
- * inspectPlatformProvisionerPackageFilesystemCandidateの処理を実行する。
+ * Platform Provisioner Package Filesystem 候補を観測する。
  *
- * @responsibility inspectPlatformProvisionerPackageFilesystemCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Provisioner Package Filesystem 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input packageRoot: unknown
  * @returns inspectPlatformProvisionerPackageFilesystemCandidateの計算結果を返す。
@@ -8580,9 +8586,9 @@ export function inspectPlatformProvisionerPackageFilesystemCandidate(
 }
 
 /**
- * inspectPlatformProvisionerRuntimeDistributionFilesystemCandidateの処理を実行する。
+ * Platform Provisioner Runtime Distribution Filesystem 候補を観測する。
  *
- * @responsibility inspectPlatformProvisionerRuntimeDistributionFilesystemCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Provisioner Runtime Distribution Filesystem 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input distributionRoot: unknown
  * @returns inspectPlatformProvisionerRuntimeDistributionFilesystemCandidateの計算結果を返す。
@@ -8619,7 +8625,7 @@ export function inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate
 /**
  * Closed diagnostic for contract tests; never returns paths or source bytes.
  *
- * @responsibility diagnoseRuntimeDistributionFilesystemForVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility platform-provisioner-package-filesystemの入力からdiagnose Runtime Distribution Filesystem For Verificationを導く規則と結果境界を所有する。
  * @trace ARCH-000014
  * @input distributionRoot: unknown
  * @returns diagnoseRuntimeDistributionFilesystemForVerificationの計算結果を返す。
@@ -8667,9 +8673,9 @@ export function diagnoseRuntimeDistributionFilesystemForVerification(
 }
 
 /**
- * inspectBundledCoordinatorPackageFilesystemCandidateの処理を実行する。
+ * Bundled Coordinator Package Filesystem 候補を観測する。
  *
- * @responsibility inspectBundledCoordinatorPackageFilesystemCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Bundled Coordinator Package Filesystem 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns inspectBundledCoordinatorPackageFilesystemCandidateの計算結果を返す。
@@ -8696,7 +8702,7 @@ export function inspectBundledCoordinatorPackageFilesystemCandidate() {
 /**
  * Read-only identity evidence; caller-supplied expectations are not authority.
  *
- * @responsibility inspectFixedDevelopmentCoordinatorPackageCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Fixed Development Coordinator Package 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input rawInput: unknown
  * @returns inspectFixedDevelopmentCoordinatorPackageCandidateの計算結果を返す。
@@ -8797,9 +8803,9 @@ export function inspectFixedDevelopmentCoordinatorPackageCandidate(
 }
 
 /**
- * verifyBundledCoordinatorPackageCandidateの処理を実行する。
+ * Bundled Coordinator Package 候補を検証する。
  *
- * @responsibility verifyBundledCoordinatorPackageCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Bundled Coordinator Package 候補の検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input rawInput: unknown
  * @returns verifyBundledCoordinatorPackageCandidateの計算結果を返す。
@@ -8859,9 +8865,9 @@ export function verifyBundledCoordinatorPackageCandidate(rawInput: unknown) {
 }
 
 /**
- * verifyOwnedBundledManifestの処理を実行する。
+ * 所有 Bundled Manifestを検証する。
  *
- * @responsibility verifyOwnedBundledManifestに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Bundled Manifestの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input manifestEnvelope: unknown、evaluationTime: unknown
  * @returns verifyOwnedBundledManifestの計算結果を返す。
@@ -8899,9 +8905,9 @@ function verifyOwnedBundledManifest(
 }
 
 /**
- * verifyBundledCoordinatorPackageFromFixedManifestCandidateの処理を実行する。
+ * Bundled Coordinator Package From Fixed Manifest 候補を検証する。
  *
- * @responsibility verifyBundledCoordinatorPackageFromFixedManifestCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Bundled Coordinator Package From Fixed Manifest 候補の検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input rawInput: unknown
  * @returns verifyBundledCoordinatorPackageFromFixedManifestCandidateの計算結果を返す。
@@ -8969,9 +8975,9 @@ export function verifyBundledCoordinatorPackageFromFixedManifestCandidate(
 }
 
 /**
- * verifiedFixedPackageRecordの処理を実行する。
+ * verified Fixed Package 記録を決定する。
  *
- * @responsibility verifiedFixedPackageRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility verified Fixed Package 記録の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input result: ReturnType< typeof verifyBundledCoordinatorPackageFromFixedManifestCandidate >
  * @returns verifiedFixedPackageRecordの計算結果を返す。
@@ -9011,9 +9017,9 @@ function verifiedFixedPackageRecord(
 }
 
 /**
- * issueRuntimeOwnedVerifiedCoordinatorPackageCapabilityの処理を実行する。
+ * Runtime 所有 Verified Coordinator Package Capabilityを発行する。
  *
- * @responsibility issueRuntimeOwnedVerifiedCoordinatorPackageCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Verified Coordinator Package Capabilityの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000014
  * @input rawInput: unknown
  * @returns issueRuntimeOwnedVerifiedCoordinatorPackageCapabilityの計算結果を返す。
@@ -9060,9 +9066,9 @@ export function issueRuntimeOwnedVerifiedCoordinatorPackageCapability(
 }
 
 /**
- * consumeRuntimeOwnedVerifiedCoordinatorPackageCapabilityの処理を実行する。
+ * Runtime 所有 Verified Coordinator Package Capabilityを一回限りで消費する。
  *
- * @responsibility consumeRuntimeOwnedVerifiedCoordinatorPackageCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Verified Coordinator Package Capabilityの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000014
  * @input capability: unknown
  * @returns consumeRuntimeOwnedVerifiedCoordinatorPackageCapabilityの計算結果を返す。
@@ -9091,9 +9097,9 @@ export function consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(
 }
 
 /**
- * revokeRuntimeOwnedVerifiedCoordinatorPackageCapabilityの処理を実行する。
+ * Runtime 所有 Verified Coordinator Package Capabilityを失効させる。
  *
- * @responsibility revokeRuntimeOwnedVerifiedCoordinatorPackageCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Verified Coordinator Package Capabilityの失効Authority、対象Identity、再利用防止境界を所有する。
  * @trace ARCH-000014
  * @input capability: unknown
  * @returns revokeRuntimeOwnedVerifiedCoordinatorPackageCapabilityの計算結果を返す。
@@ -9113,9 +9119,9 @@ export function revokeRuntimeOwnedVerifiedCoordinatorPackageCapability(
 }
 
 /**
- * verifyInstalledCoordinatorPackageCandidateの処理を実行する。
+ * Installed Coordinator Package 候補を検証する。
  *
- * @responsibility verifyInstalledCoordinatorPackageCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Installed Coordinator Package 候補の検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input rawInput: unknown
  * @returns verifyInstalledCoordinatorPackageCandidateの計算結果を返す。
@@ -9215,9 +9221,9 @@ export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {
 }
 
 /**
- * sameNativeArtifactの処理を実行する。
+ * Native Artifactが同一かを判定する。
  *
- * @responsibility sameNativeArtifactに対応する入力処理と結果生成を所有する。
+ * @responsibility Native Artifactの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000014
  * @input expected: unknown、observed: unknown、revisionKey: "protocolRevision" | "entrypointContractRevision"
  * @returns sameNativeArtifactの計算結果を返す。
@@ -9255,7 +9261,7 @@ function sameNativeArtifact(
 /**
  * Verifies a separate signed native distribution without executing it.
  *
- * @responsibility inspectVerifiedNativeDistributionCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Verified Native Distribution 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input rawInput: unknown
  * @returns inspectVerifiedNativeDistributionCandidateの計算結果を返す。
@@ -9340,9 +9346,9 @@ export function inspectVerifiedNativeDistributionCandidate(rawInput: unknown) {
 }
 
 /**
- * describePlatformProvisionerPackageFilesystemContractの処理を実行する。
+ * Platform Provisioner Package Filesystem 契約の公開契約を記述する。
  *
- * @responsibility describePlatformProvisionerPackageFilesystemContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Provisioner Package Filesystem 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describePlatformProvisionerPackageFilesystemContractの計算結果を返す。

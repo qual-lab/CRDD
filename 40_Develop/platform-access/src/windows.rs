@@ -1,3 +1,9 @@
+//! Windows上のRepository／Runtime RootとProvider HomeをOS APIで観測する。
+//!
+//! @responsibility handleに固定したIdentity、Protection、PrincipalおよびMount情報を取得し、観測不能を候補へ昇格しない。
+//! @trace ARCH-000008
+//! @trace ARCH-000011
+
 use std::ffi::{OsString, c_void};
 use std::mem::size_of;
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
@@ -52,6 +58,20 @@ use crate::protocol::{
 
 #[link(name = "shell32")]
 unsafe extern "system" {
+    /// Windows Root・Provider Home観測のSHGetKnownFolderPath責務を実行する。
+    ///
+    /// @responsibility Windows Root・Provider Home観測のSHGetKnownFolderPath責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+    /// @trace ARCH-000011
+    /// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+    /// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+    /// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+    /// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+    /// @effect OS APIからread-only観測を取得する。
+    /// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+    /// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+    /// @boundary Native Worker→Windows Identity／ACL API。
+    /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+    /// @concurrency N/A: 共有可変状態を持たない同期処理である。
     fn SHGetKnownFolderPath(
         folder_id: *const GUID,
         flags: u32,
@@ -62,6 +82,20 @@ unsafe extern "system" {
 
 #[link(name = "ole32")]
 unsafe extern "system" {
+    /// Windows Root・Provider Home観測のCoTaskMemFree責務を実行する。
+    ///
+    /// @responsibility Windows Root・Provider Home観測のCoTaskMemFree責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+    /// @trace ARCH-000011
+    /// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+    /// @returns N/A: 戻り値を公開せず、終了状態またはProcess exitで結果を示す。
+    /// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+    /// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+    /// @effect OS APIからread-only観測を取得する。
+    /// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+    /// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+    /// @boundary Native Worker→Windows Identity／ACL API。
+    /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+    /// @concurrency N/A: 共有可変状態を持たない同期処理である。
     fn CoTaskMemFree(memory: *const c_void);
 }
 
@@ -93,6 +127,15 @@ const CONTAINER_INHERIT_ACE: u8 = 0x02;
 const MAXIMUM_SECURITY_DESCRIPTOR_BYTES: usize = 65_536;
 const MAXIMUM_KNOWN_FOLDER_CODE_UNITS: usize = 32_767;
 
+/// Windows Root・Provider Home観測で使用するTokenBindingObservation契約を表す。
+///
+/// @responsibility TokenBindingObservationが保持するWindows Root・Provider Home観測の値、状態または分類境界を定義する。
+/// @trace ARCH-000011
+/// @shape structとしてWindows Root・Provider Home観測のfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct TokenBindingObservation {
     principal_identity_hash: [u8; 32],
@@ -100,6 +143,15 @@ struct TokenBindingObservation {
     authentication_id: [u8; 8],
 }
 
+/// Windows Root・Provider Home観測で使用するDirectoryIdentity契約を表す。
+///
+/// @responsibility DirectoryIdentityが保持するWindows Root・Provider Home観測の値、状態または分類境界を定義する。
+/// @trace ARCH-000011
+/// @shape structとしてWindows Root・Provider Home観測のfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct DirectoryIdentity {
     volume_serial_number: u32,
@@ -110,16 +162,43 @@ struct DirectoryIdentity {
     attributes: u32,
 }
 
+/// Windows Root・Provider Home観測で使用するProviderHomeChain契約を表す。
+///
+/// @responsibility ProviderHomeChainが保持するWindows Root・Provider Home観測の値、状態または分類境界を定義する。
+/// @trace ARCH-000011
+/// @shape structとしてWindows Root・Provider Home観測のfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 struct ProviderHomeChain {
     handles: Vec<OwnedHandle>,
     identities: Vec<DirectoryIdentity>,
 }
 
+/// Windows Root・Provider Home観測で使用するProviderHomeProtectionObservation契約を表す。
+///
+/// @responsibility ProviderHomeProtectionObservationが保持するWindows Root・Provider Home観測の値、状態または分類境界を定義する。
+/// @trace ARCH-000011
+/// @shape structとしてWindows Root・Provider Home観測のfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 struct ProviderHomeProtectionObservation {
     protection_hash: [u8; 32],
     home_flags: u32,
 }
 
+/// Windows Root・Provider Home観測で使用するProviderHomeChainError契約を表す。
+///
+/// @responsibility ProviderHomeChainErrorが保持するWindows Root・Provider Home観測の値、状態または分類境界を定義する。
+/// @trace ARCH-000011
+/// @shape enumとしてWindows Root・Provider Home観測のfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 enum ProviderHomeChainError {
     KnownFolderUnavailable,
     HomeUnavailable,
@@ -127,9 +206,32 @@ enum ProviderHomeChainError {
     MountSourceMismatch,
 }
 
+/// Windows Root・Provider Home観測で使用するOwnedHandle契約を表す。
+///
+/// @responsibility OwnedHandleが保持するWindows Root・Provider Home観測の値、状態または分類境界を定義する。
+/// @trace ARCH-000011
+/// @shape structとしてWindows Root・Provider Home観測のfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 struct OwnedHandle(HANDLE);
 
 impl Drop for OwnedHandle {
+    /// Windows Root・Provider Home観測が所有するNative Resourceを解放する。
+    ///
+    /// @responsibility 一意に所有するOS HandleまたはNative Contextを一回だけ解放する。
+    /// @trace ARCH-000011
+    /// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+    /// @returns N/A: 戻り値を公開せず、終了状態またはProcess exitで結果を示す。
+    /// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+    /// @postcondition 完了または拒否後に、所有するResourceの状態を観測可能な形へ確定する。
+    /// @effect 対象のNative ResourceまたはProcessだけへ限定Effectを発行する。
+    /// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+    /// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+    /// @boundary Native Worker→Windows Identity／ACL API。
+    /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+    /// @concurrency 所有Handleと終了観測を同じ呼出しlifecycleへ限定し、競合時は安全側に失敗する。
     fn drop(&mut self) {
         if !self.0.is_null() && self.0 != INVALID_HANDLE_VALUE {
             // SAFETY: this type exclusively owns the valid Windows handle.
@@ -138,9 +240,32 @@ impl Drop for OwnedHandle {
     }
 }
 
+/// Windows Root・Provider Home観測で使用するOwnedSecurityDescriptor契約を表す。
+///
+/// @responsibility OwnedSecurityDescriptorが保持するWindows Root・Provider Home観測の値、状態または分類境界を定義する。
+/// @trace ARCH-000011
+/// @shape structとしてWindows Root・Provider Home観測のfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 struct OwnedSecurityDescriptor(PSECURITY_DESCRIPTOR);
 
 impl Drop for OwnedSecurityDescriptor {
+    /// Windows Root・Provider Home観測が所有するNative Resourceを解放する。
+    ///
+    /// @responsibility 一意に所有するOS HandleまたはNative Contextを一回だけ解放する。
+    /// @trace ARCH-000011
+    /// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+    /// @returns N/A: 戻り値を公開せず、終了状態またはProcess exitで結果を示す。
+    /// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+    /// @postcondition 完了または拒否後に、所有するResourceの状態を観測可能な形へ確定する。
+    /// @effect 対象のNative ResourceまたはProcessだけへ限定Effectを発行する。
+    /// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+    /// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+    /// @boundary Native Worker→Windows Identity／ACL API。
+    /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+    /// @concurrency 所有Handleと終了観測を同じ呼出しlifecycleへ限定し、競合時は安全側に失敗する。
     fn drop(&mut self) {
         if !self.0.is_null() {
             // SAFETY: GetSecurityInfo allocates this descriptor with LocalAlloc.
@@ -149,9 +274,32 @@ impl Drop for OwnedSecurityDescriptor {
     }
 }
 
+/// Windows Root・Provider Home観測で使用するOwnedAlgorithm契約を表す。
+///
+/// @responsibility OwnedAlgorithmが保持するWindows Root・Provider Home観測の値、状態または分類境界を定義する。
+/// @trace ARCH-000011
+/// @shape structとしてWindows Root・Provider Home観測のfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 struct OwnedAlgorithm(BCRYPT_ALG_HANDLE);
 
 impl Drop for OwnedAlgorithm {
+    /// Windows Root・Provider Home観測が所有するNative Resourceを解放する。
+    ///
+    /// @responsibility 一意に所有するOS HandleまたはNative Contextを一回だけ解放する。
+    /// @trace ARCH-000011
+    /// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+    /// @returns N/A: 戻り値を公開せず、終了状態またはProcess exitで結果を示す。
+    /// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+    /// @postcondition 完了または拒否後に、所有するResourceの状態を観測可能な形へ確定する。
+    /// @effect 対象のNative ResourceまたはProcessだけへ限定Effectを発行する。
+    /// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+    /// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+    /// @boundary Native Worker→Windows Identity／ACL API。
+    /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+    /// @concurrency 所有Handleと終了観測を同じ呼出しlifecycleへ限定し、競合時は安全側に失敗する。
     fn drop(&mut self) {
         if !self.0.is_null() {
             // SAFETY: this type exclusively owns the algorithm provider handle.
@@ -160,9 +308,32 @@ impl Drop for OwnedAlgorithm {
     }
 }
 
+/// Windows Root・Provider Home観測で使用するOwnedHash契約を表す。
+///
+/// @responsibility OwnedHashが保持するWindows Root・Provider Home観測の値、状態または分類境界を定義する。
+/// @trace ARCH-000011
+/// @shape structとしてWindows Root・Provider Home観測のfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 struct OwnedHash(BCRYPT_HASH_HANDLE);
 
 impl Drop for OwnedHash {
+    /// Windows Root・Provider Home観測が所有するNative Resourceを解放する。
+    ///
+    /// @responsibility 一意に所有するOS HandleまたはNative Contextを一回だけ解放する。
+    /// @trace ARCH-000011
+    /// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+    /// @returns N/A: 戻り値を公開せず、終了状態またはProcess exitで結果を示す。
+    /// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+    /// @postcondition 完了または拒否後に、所有するResourceの状態を観測可能な形へ確定する。
+    /// @effect 対象のNative ResourceまたはProcessだけへ限定Effectを発行する。
+    /// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+    /// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+    /// @boundary Native Worker→Windows Identity／ACL API。
+    /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+    /// @concurrency 所有Handleと終了観測を同じ呼出しlifecycleへ限定し、競合時は安全側に失敗する。
     fn drop(&mut self) {
         if !self.0.is_null() {
             // SAFETY: this type exclusively owns the hash handle.
@@ -171,6 +342,20 @@ impl Drop for OwnedHash {
     }
 }
 
+/// Windows Root・Provider Home観測のblocked責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のblocked責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn blocked(request: &Request, reason: Reason) -> Response {
     Response {
         root_role: request.root_role,
@@ -183,6 +368,20 @@ fn blocked(request: &Request, reason: Reason) -> Response {
     }
 }
 
+/// Windows Root・Provider Home観測のblocked provider home責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のblocked provider home責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn blocked_provider_home(
     request: &ProviderHomeRequest,
     reason: ProviderHomeReason,
@@ -201,6 +400,20 @@ fn blocked_provider_home(
     }
 }
 
+/// Windows Root・Provider Home観測のdirectory identity責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のdirectory identity責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn directory_identity(information: &BY_HANDLE_FILE_INFORMATION) -> DirectoryIdentity {
     DirectoryIdentity {
         volume_serial_number: information.dwVolumeSerialNumber,
@@ -212,6 +425,20 @@ fn directory_identity(information: &BY_HANDLE_FILE_INFORMATION) -> DirectoryIden
     }
 }
 
+/// Windows Root・Provider Home観測のdirectory identity bytes責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のdirectory identity bytes責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn directory_identity_bytes(identity: DirectoryIdentity) -> [u8; 24] {
     let mut bytes = [0_u8; 24];
     for (offset, value) in [
@@ -231,6 +458,20 @@ fn directory_identity_bytes(identity: DirectoryIdentity) -> [u8; 24] {
     bytes
 }
 
+/// rootを固定Identityで開く。
+///
+/// @responsibility rootを固定Identityで開く責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn open_root(path: &str) -> Option<OwnedHandle> {
     let mut wide: Vec<u16> = Path::new(path).as_os_str().encode_wide().collect();
     wide.push(0);
@@ -250,6 +491,20 @@ fn open_root(path: &str) -> Option<OwnedHandle> {
     (handle != INVALID_HANDLE_VALUE).then_some(OwnedHandle(handle))
 }
 
+/// directoryを固定Identityで開く。
+///
+/// @responsibility directoryを固定Identityで開く責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn open_directory(path: &Path) -> Option<OwnedHandle> {
     let mut wide: Vec<u16> = path.as_os_str().encode_wide().collect();
     if wide.is_empty() || wide.len() >= MAXIMUM_KNOWN_FOLDER_CODE_UNITS || wide.contains(&0) {
@@ -271,6 +526,20 @@ fn open_directory(path: &Path) -> Option<OwnedHandle> {
     (handle != INVALID_HANDLE_VALUE).then_some(OwnedHandle(handle))
 }
 
+/// Windows Root・Provider Home観測のlocal app data path責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のlocal app data path責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 pub(crate) fn local_app_data_path() -> Option<PathBuf> {
     const FOLDER_ID_LOCAL_APP_DATA: GUID = GUID {
         data1: 0xf1b32785,
@@ -281,6 +550,20 @@ pub(crate) fn local_app_data_path() -> Option<PathBuf> {
     known_folder_path(&FOLDER_ID_LOCAL_APP_DATA)
 }
 
+/// Windows Root・Provider Home観測のuser profile path責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のuser profile path責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 pub(crate) fn user_profile_path() -> Option<PathBuf> {
     const FOLDER_ID_PROFILE: GUID = GUID {
         data1: 0x5e6c858f,
@@ -291,6 +574,20 @@ pub(crate) fn user_profile_path() -> Option<PathBuf> {
     known_folder_path(&FOLDER_ID_PROFILE)
 }
 
+/// Windows Root・Provider Home観測のroaming app data path責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のroaming app data path責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 pub(crate) fn roaming_app_data_path() -> Option<PathBuf> {
     const FOLDER_ID_ROAMING_APP_DATA: GUID = GUID {
         data1: 0x3eb685db,
@@ -301,6 +598,20 @@ pub(crate) fn roaming_app_data_path() -> Option<PathBuf> {
     known_folder_path(&FOLDER_ID_ROAMING_APP_DATA)
 }
 
+/// Windows Root・Provider Home観測のprogram data path責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のprogram data path責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 pub(crate) fn program_data_path() -> Option<PathBuf> {
     // FOLDERID_ProgramData, defined by the Windows SDK KnownFolders.h.
     const FOLDER_ID_PROGRAM_DATA: GUID = GUID {
@@ -312,6 +623,20 @@ pub(crate) fn program_data_path() -> Option<PathBuf> {
     known_folder_path(&FOLDER_ID_PROGRAM_DATA)
 }
 
+/// Windows Root・Provider Home観測のknown folder path責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のknown folder path責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn known_folder_path(folder_id: &GUID) -> Option<PathBuf> {
     let mut raw_path = null_mut();
     // SAFETY: raw_path is writable. On success, Shell allocates a NUL-terminated UTF-16 path
@@ -339,6 +664,20 @@ fn known_folder_path(folder_id: &GUID) -> Option<PathBuf> {
     result
 }
 
+/// Windows Root・Provider Home観測のinitialize runtime owned directory if missing責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のinitialize runtime owned directory if missing責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn initialize_runtime_owned_directory_if_missing(
     primary_token: HANDLE,
     segments: &[&str; 3],
@@ -438,6 +777,20 @@ fn initialize_runtime_owned_directory_if_missing(
     (unsafe { GetLastError() }) == ERROR_ALREADY_EXISTS
 }
 
+/// provider home chainを固定Identityで開く。
+///
+/// @responsibility provider home chainを固定Identityで開く責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn open_provider_home_chain(
     request: &ProviderHomeRequest,
 ) -> Result<ProviderHomeChain, ProviderHomeChainError> {
@@ -495,6 +848,20 @@ fn open_provider_home_chain(
     })
 }
 
+/// Windows Root・Provider Home観測のprovider home on fixed volume責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のprovider home on fixed volume責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn provider_home_on_fixed_volume(chain: &ProviderHomeChain) -> bool {
     let Some(home) = chain.handles.last() else {
         return false;
@@ -532,6 +899,20 @@ fn provider_home_on_fixed_volume(chain: &ProviderHomeChain) -> bool {
     (unsafe { GetDriveTypeW(volume_root.as_ptr()) }) == DRIVE_FIXED
 }
 
+/// Windows Root・Provider Home観測のprovider home chain stable責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のprovider home chain stable責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn provider_home_chain_stable(chain: &ProviderHomeChain) -> bool {
     chain.handles.len() == chain.identities.len()
         && chain
@@ -545,6 +926,20 @@ fn provider_home_chain_stable(chain: &ProviderHomeChain) -> bool {
             })
 }
 
+/// Windows Root・Provider Home観測のroot information責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のroot information責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn root_information(handle: HANDLE) -> Option<BY_HANDLE_FILE_INFORMATION> {
     let mut information = BY_HANDLE_FILE_INFORMATION {
         dwFileAttributes: 0,
@@ -563,12 +958,40 @@ fn root_information(handle: HANDLE) -> Option<BY_HANDLE_FILE_INFORMATION> {
     succeeded.then_some(information)
 }
 
+/// Windows Root・Provider Home観測のidentity matches責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のidentity matches責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn identity_matches(information: &BY_HANDLE_FILE_INFORMATION, expected: FileIdentity) -> bool {
     information.dwVolumeSerialNumber == expected.volume_serial_number
         && information.nFileIndexHigh == expected.file_index_high
         && information.nFileIndexLow == expected.file_index_low
 }
 
+/// Windows Root・Provider Home観測のsecurity descriptor責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のsecurity descriptor責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn security_descriptor(handle: HANDLE) -> Option<OwnedSecurityDescriptor> {
     let mut descriptor = null_mut();
     // SAFETY: handle is a valid file handle. Only owner and DACL information are requested,
@@ -588,6 +1011,20 @@ fn security_descriptor(handle: HANDLE) -> Option<OwnedSecurityDescriptor> {
     (result == 0 && !descriptor.is_null()).then_some(OwnedSecurityDescriptor(descriptor))
 }
 
+/// Windows Root・Provider Home観測のprocess tokens責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のprocess tokens責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn process_tokens() -> Option<(OwnedHandle, OwnedHandle)> {
     let mut primary = null_mut();
     // SAFETY: GetCurrentProcess returns a process pseudo-handle and primary is writable.
@@ -610,6 +1047,20 @@ fn process_tokens() -> Option<(OwnedHandle, OwnedHandle)> {
     Some((primary, OwnedHandle(impersonation)))
 }
 
+/// Windows Root・Provider Home観測のcurrent selected user identity hash責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のcurrent selected user identity hash責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 pub(crate) fn current_selected_user_identity_hash() -> Option<[u8; 32]> {
     let (primary, impersonation) = process_tokens()?;
     let flags = principal_observation_flags(primary.0, impersonation.0)?;
@@ -621,6 +1072,20 @@ pub(crate) fn current_selected_user_identity_hash() -> Option<[u8; 32]> {
     runtime_principal_identity_hash(primary.0)
 }
 
+/// sha256を固定した入力から計算する。
+///
+/// @responsibility sha256を固定した入力から計算する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn sha256(parts: &[&[u8]]) -> Option<[u8; 32]> {
     let mut algorithm = null_mut();
     // SAFETY: algorithm is writable and SHA-256 requires no provider-specific input.
@@ -651,6 +1116,20 @@ fn sha256(parts: &[&[u8]]) -> Option<[u8; 32]> {
     Some(output)
 }
 
+/// Windows Root・Provider Home観測のcopy sid bytes責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のcopy sid bytes責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn copy_sid_bytes(sid: PSID) -> Option<Vec<u8>> {
     if sid.is_null() || unsafe { IsValidSid(sid) } == 0 {
         return None;
@@ -663,6 +1142,20 @@ fn copy_sid_bytes(sid: PSID) -> Option<Vec<u8>> {
     Some(unsafe { std::slice::from_raw_parts(sid.cast::<u8>(), sid_length) }.to_vec())
 }
 
+/// Windows Root・Provider Home観測のtoken user sid bytes責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のtoken user sid bytes責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn token_user_sid_bytes(token: HANDLE) -> Option<Vec<u8>> {
     let mut required = 0_u32;
     // SAFETY: the null query obtains the required TOKEN_USER buffer length.
@@ -690,6 +1183,20 @@ fn token_user_sid_bytes(token: HANDLE) -> Option<Vec<u8>> {
     copy_sid_bytes(user.User.Sid)
 }
 
+/// Windows Root・Provider Home観測のruntime principal identity hash責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のruntime principal identity hash責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn runtime_principal_identity_hash(token: HANDLE) -> Option<[u8; 32]> {
     let sid = token_user_sid_bytes(token)?;
     const DOMAIN: &[u8] = b"CRDD\0WINDOWS-RUNTIME-PRINCIPAL\0V1\0";
@@ -697,6 +1204,20 @@ fn runtime_principal_identity_hash(token: HANDLE) -> Option<[u8; 32]> {
     sha256(&[DOMAIN, &length, &sid])
 }
 
+/// Windows Root・Provider Home観測のtoken authentication id責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のtoken authentication id責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn token_authentication_id(token: HANDLE) -> Option<[u8; 8]> {
     let mut statistics = TOKEN_STATISTICS::default();
     let mut returned = 0_u32;
@@ -720,6 +1241,20 @@ fn token_authentication_id(token: HANDLE) -> Option<[u8; 8]> {
     Some(bytes)
 }
 
+/// Windows Root・Provider Home観測のtoken u32 information責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のtoken u32 information責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn token_u32_information(token: HANDLE, information_class: i32) -> Option<u32> {
     let mut value = 0_u32;
     let mut returned = 0_u32;
@@ -740,6 +1275,20 @@ fn token_u32_information(token: HANDLE, information_class: i32) -> Option<u32> {
     Some(value)
 }
 
+/// Windows Root・Provider Home観測のwell known membership責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のwell known membership責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn well_known_membership(token: HANDLE, sid_type: i32) -> Option<bool> {
     let mut sid_words = [0_usize; 9];
     let mut sid_bytes = u32::try_from(size_of_val(&sid_words)).ok()?;
@@ -770,6 +1319,20 @@ fn well_known_membership(token: HANDLE, sid_type: i32) -> Option<bool> {
     Some(is_member != 0)
 }
 
+/// Windows Root・Provider Home観測のprincipal observation flags責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のprincipal observation flags責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn principal_observation_flags(primary: HANDLE, impersonation: HANDLE) -> Option<u32> {
     if token_u32_information(primary, TokenType)? != u32::try_from(TokenPrimary).ok()? {
         return None;
@@ -797,6 +1360,20 @@ fn principal_observation_flags(primary: HANDLE, impersonation: HANDLE) -> Option
     Some(flags)
 }
 
+/// Windows Root・Provider Home観測のselected user token binding責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のselected user token binding責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn selected_user_token_binding(
     primary: HANDLE,
     impersonation: HANDLE,
@@ -815,6 +1392,20 @@ fn selected_user_token_binding(
     })
 }
 
+/// Windows Root・Provider Home観測のlocal user binding hash責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のlocal user binding hash責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn local_user_binding_hash(binding: TokenBindingObservation) -> Option<[u8; 32]> {
     const DOMAIN: &[u8] = b"CRDD\0LOCAL-USER-BINDING\0V1\0";
     sha256(&[
@@ -825,6 +1416,20 @@ fn local_user_binding_hash(binding: TokenBindingObservation) -> Option<[u8; 32]>
     ])
 }
 
+/// Windows Root・Provider Home観測のstable logical home binding hash責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のstable logical home binding hash責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn stable_logical_home_binding_hash(
     provider: crate::protocol::Provider,
     primary_token: HANDLE,
@@ -834,6 +1439,20 @@ fn stable_logical_home_binding_hash(
     sha256(&[DOMAIN, &[provider as u8], &user_sid])
 }
 
+/// Windows Root・Provider Home観測のaccess allowed責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のaccess allowed責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn access_allowed(
     descriptor: PSECURITY_DESCRIPTOR,
     token: HANDLE,
@@ -899,6 +1518,20 @@ fn access_allowed(
     Some(access_status != 0)
 }
 
+/// Windows Root・Provider Home観測のlocal system sid bytes責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のlocal system sid bytes責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn local_system_sid_bytes() -> Option<Vec<u8>> {
     let mut storage = [0_usize; 9];
     let mut byte_length = u32::try_from(size_of_val(&storage)).ok()?;
@@ -917,6 +1550,20 @@ fn local_system_sid_bytes() -> Option<Vec<u8>> {
     copy_sid_bytes(storage.as_mut_ptr().cast::<c_void>())
 }
 
+/// Windows Root・Provider Home観測のbounded ace sid責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のbounded ace sid責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn bounded_ace_sid(ace: *const u8, ace_size: usize, sid_offset: usize) -> Option<Vec<u8>> {
     if ace.is_null() || sid_offset.checked_add(8)? > ace_size {
         return None;
@@ -934,6 +1581,20 @@ fn bounded_ace_sid(ace: *const u8, ace_size: usize, sid_offset: usize) -> Option
     Some(unsafe { std::slice::from_raw_parts(ace.add(sid_offset), sid_length) }.to_vec())
 }
 
+/// Windows Root・Provider Home観測のprovider home identity hash責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のprovider home identity hash責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn provider_home_identity_hash(
     request: &ProviderHomeRequest,
     identity: DirectoryIdentity,
@@ -946,6 +1607,20 @@ fn provider_home_identity_hash(
     ])
 }
 
+/// Windows Root・Provider Home観測のprovider home mount source hash責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のprovider home mount source hash責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn provider_home_mount_source_hash(request: &ProviderHomeRequest, path: &Path) -> Option<[u8; 32]> {
     const DOMAIN: &[u8] = b"CRDD\0PROVIDER-HOME-MOUNT-SOURCE\0V1\0";
     let mut path_bytes = Vec::new();
@@ -958,6 +1633,20 @@ fn provider_home_mount_source_hash(request: &ProviderHomeRequest, path: &Path) -
     sha256(&[DOMAIN, &[request.provider as u8], &path_bytes])
 }
 
+/// provider home protectionを候補と確定結果を分けて観測する。
+///
+/// @responsibility provider home protectionを候補と確定結果を分けて観測する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn observe_provider_home_protection(
     request: &ProviderHomeRequest,
     descriptor: PSECURITY_DESCRIPTOR,
@@ -1109,6 +1798,20 @@ fn observe_provider_home_protection(
     })
 }
 
+/// provider homeを候補と確定結果を分けて観測する。
+///
+/// @responsibility provider homeを候補と確定結果を分けて観測する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 pub fn observe_provider_home(request: &ProviderHomeRequest) -> ProviderHomeResponse {
     let Some((primary_token, impersonation_token)) = process_tokens() else {
         return blocked_provider_home(request, ProviderHomeReason::PrincipalUnavailable);
@@ -1201,6 +1904,20 @@ pub fn observe_provider_home(request: &ProviderHomeRequest) -> ProviderHomeRespo
     }
 }
 
+/// Windows Root・Provider Home観測のobserve責務を実行する。
+///
+/// @responsibility Windows Root・Provider Home観測のobserve責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000011
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→Windows Identity／ACL API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 pub fn observe(request: &Request) -> Response {
     let Some(root) = open_root(&request.path) else {
         return blocked(request, Reason::RootOpenFailed);

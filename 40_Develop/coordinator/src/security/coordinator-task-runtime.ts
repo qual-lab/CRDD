@@ -1,3 +1,9 @@
+/**
+ * coordinator-task-runtimeに属する責務をまとめる。
+ *
+ * @responsibility projectRuntimeOwnedDockerProcessStartForTaskを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { types as utilTypes } from "node:util";
 import {
   createDevelopmentExecutionTiming,
@@ -85,9 +91,9 @@ import {
 } from "./repository-workspace-runtime.ts";
 
 /**
- * projectRuntimeOwnedDockerProcessStartForTaskの処理を実行する。
+ * Runtime 所有 Docker Process Start For Taskを公開結果へ投影する。
  *
- * @responsibility projectRuntimeOwnedDockerProcessStartForTaskに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Process Start For Taskの公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown、recoveryId: unknown、operationId: unknown
  * @returns projectRuntimeOwnedDockerProcessStartForTaskの計算結果を返す。
@@ -113,9 +119,9 @@ export function projectRuntimeOwnedDockerProcessStartForTask(
 }
 
 /**
- * projectRuntimeOwnedDockerProcessCompletionForTaskの処理を実行する。
+ * Runtime 所有 Docker Process Completion For Taskを公開結果へ投影する。
  *
- * @responsibility projectRuntimeOwnedDockerProcessCompletionForTaskに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Process Completion For Taskの公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown、recoveryId: unknown、operationId: unknown
  * @returns projectRuntimeOwnedDockerProcessCompletionForTaskの計算結果を返す。
@@ -232,9 +238,9 @@ const INVALID_CONTROL_CANCELLATION_RESULT = Object.freeze({
 });
 
 /**
- * Providerが扱う値の構造を表す。
+ * coordinator-task-runtimeで使用するProviderの値契約を定義する。
  *
- * @responsibility Providerに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ProviderのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Providerで宣言した値と責務の対応を維持する。
@@ -244,9 +250,9 @@ const INVALID_CONTROL_CANCELLATION_RESULT = Object.freeze({
  */
 type Provider = "codex" | "claude";
 /**
- * TaskRoleが扱う値の構造を表す。
+ * coordinator-task-runtimeで使用するTask Roleの値契約を定義する。
  *
- * @responsibility TaskRoleに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Task RoleのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape TaskRoleが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TaskRoleで宣言した値と責務の対応を維持する。
@@ -256,9 +262,9 @@ type Provider = "codex" | "claude";
  */
 type TaskRole = "executor" | "reviewer";
 /**
- * RuntimeLifecycleStateが扱う値の構造を表す。
+ * coordinator-task-runtimeで使用するRuntime Lifecycle 状態の値契約を定義する。
  *
- * @responsibility RuntimeLifecycleStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime Lifecycle 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape RuntimeLifecycleStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeLifecycleStateで宣言した値と責務の対応を維持する。
@@ -286,9 +292,9 @@ type RuntimeLifecycleState =
   | "STATE-RECOVERY-REQUIRED"
   | "STATE-OPERATOR-TRANSFER-REQUIRED";
 /**
- * RuntimeRecordが扱う値の構造を表す。
+ * coordinator-task-runtimeで使用するRuntime 記録の値契約を定義する。
  *
- * @responsibility RuntimeRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape RuntimeRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeRecordで宣言した値と責務の対応を維持する。
@@ -299,9 +305,9 @@ type RuntimeLifecycleState =
 type RuntimeRecord = Readonly<Record<string, unknown>>;
 const INTERNAL_TASK_OUTCOME = Symbol("internalTaskOutcome");
 /**
- * InternalTaskOutcomeが扱う値の構造を表す。
+ * coordinator-task-runtimeで使用するInternal Task Outcomeの値契約を定義する。
  *
- * @responsibility InternalTaskOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Internal Task OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape InternalTaskOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant InternalTaskOutcomeで宣言した値と責務の対応を維持する。
@@ -315,9 +321,9 @@ type InternalTaskOutcome = Readonly<{
   dockerCleanupEligible: boolean;
 }>;
 /**
- * TaskCompletionRecordが扱う値の構造を表す。
+ * coordinator-task-runtimeで使用するTask Completion 記録の値契約を定義する。
  *
- * @responsibility TaskCompletionRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Task Completion 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape TaskCompletionRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TaskCompletionRecordで宣言した値と責務の対応を維持する。
@@ -347,9 +353,9 @@ type TaskCompletionRecord = RuntimeRecord &
     canonicalRepositoryChanged: boolean;
   }>;
 /**
- * Operationが扱う値の構造を表す。
+ * coordinator-task-runtimeで使用するOperationの値契約を定義する。
  *
- * @responsibility Operationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility OperationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape Operationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Operationで宣言した値と責務の対応を維持する。
@@ -368,9 +374,9 @@ type Operation = Readonly<{
   releaseHostGenerationDrain?: () => boolean;
 }>;
 /**
- * HostCleanupStatusが扱う値の構造を表す。
+ * coordinator-task-runtimeで使用するHost 清掃 Statusの値契約を定義する。
  *
- * @responsibility HostCleanupStatusに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Host 清掃 StatusのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape HostCleanupStatusが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HostCleanupStatusで宣言した値と責務の対応を維持する。
@@ -380,9 +386,9 @@ type Operation = Readonly<{
  */
 type HostCleanupStatus = "completed" | "protocol_failure_cleanup_confirmed";
 /**
- * ProductionOperationFailureが扱う値の構造を表す。
+ * coordinator-task-runtimeで使用するProduction Operation 失敗の値契約を定義する。
  *
- * @responsibility ProductionOperationFailureに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Production Operation 失敗のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProductionOperationFailureが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProductionOperationFailureで宣言した値と責務の対応を維持する。
@@ -402,9 +408,9 @@ const productionOperationFailures = new WeakMap<
 >();
 
 /**
- * productionOperationFailureの処理を実行する。
+ * production Operation 失敗を決定する。
  *
- * @responsibility productionOperationFailureに対応する入力処理と結果生成を所有する。
+ * @responsibility production Operation 失敗の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input error: unknown
  * @returns productionOperationFailureの計算結果を返す。
@@ -424,9 +430,9 @@ function productionOperationFailure(error: unknown) {
 }
 
 /**
- * throwProductionOperationFailureの処理を実行する。
+ * throw Production Operation 失敗を決定する。
  *
- * @responsibility throwProductionOperationFailureに対応する入力処理と結果生成を所有する。
+ * @responsibility throw Production Operation 失敗の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input details: ProductionOperationFailure
  * @returns neverを返す。
@@ -448,9 +454,9 @@ function throwProductionOperationFailure(
 }
 
 /**
- * createProductionOperationRootの処理を実行する。
+ * Production Operation Rootを構築する。
  *
- * @responsibility createProductionOperationRootに対応する入力処理と結果生成を所有する。
+ * @responsibility Production Operation Rootの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input createOperation: () => Operation、poisonAfterCleanupUnknown: () => void
  * @returns createProductionOperationRootの計算結果を返す。
@@ -491,7 +497,7 @@ function createProductionOperationRoot(
 /**
  * Test-only seam for the exact production operation-root failure wrapper.
  *
- * @responsibility createIsolatedCoordinatorTaskOperationCreationCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Isolated Coordinator Task Operation Creation 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input createOperation: () => Operation
  * @returns createIsolatedCoordinatorTaskOperationCreationCandidateの計算結果を返す。
@@ -519,9 +525,9 @@ export function createIsolatedCoordinatorTaskOperationCreationCandidate(
   });
 }
 /**
- * RuntimeDependenciesが扱う値の構造を表す。
+ * coordinator-task-runtimeで使用するRuntime Dependenciesの値契約を定義する。
  *
- * @responsibility RuntimeDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape RuntimeDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeDependenciesで宣言した値と責務の対応を維持する。
@@ -677,9 +683,9 @@ type RuntimeDependencies = Readonly<{
   isolatedCancellationAckTimeoutMs?: number;
 }>;
 /**
- * ControlRecordが扱う値の構造を表す。
+ * coordinator-task-runtimeで使用するControl 記録の値契約を定義する。
  *
- * @responsibility ControlRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Control 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ControlRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ControlRecordで宣言した値と責務の対応を維持する。
@@ -723,9 +729,9 @@ type ControlRecord = {
   recoveryCorrelationId: string | null;
 };
 /**
- * RuntimeStateが扱う値の構造を表す。
+ * coordinator-task-runtimeで使用するRuntime 状態の値契約を定義する。
  *
- * @responsibility RuntimeStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape RuntimeStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeStateで宣言した値と責務の対応を維持する。
@@ -739,9 +745,9 @@ type RuntimeState = Readonly<{
 }>;
 
 /**
- * advanceLifecycleStateの処理を実行する。
+ * Lifecycle 状態を次の状態へ進める。
  *
- * @responsibility advanceLifecycleStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Lifecycle 状態の遷移条件、次状態、無効遷移の拒否境界を所有する。
  * @trace ARCH-000004
  * @input state: RuntimeState、control: ControlRecord、next: RuntimeLifecycleState
  * @returns advanceLifecycleStateの計算結果を返す。
@@ -769,9 +775,9 @@ function advanceLifecycleState(
 }
 
 /**
- * classifyCoordinatorTaskTerminalLifecycleStateの処理を実行する。
+ * Coordinator Task Terminal Lifecycle 状態を分類する。
  *
- * @responsibility classifyCoordinatorTaskTerminalLifecycleStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Coordinator Task Terminal Lifecycle 状態の分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000004
  * @input result: TaskCompletionRecord
  * @returns RuntimeLifecycleStateを返す。
@@ -807,9 +813,9 @@ export function classifyCoordinatorTaskTerminalLifecycleState(
 }
 
 /**
- * finalProjectionFailureの処理を実行する。
+ * final Projection 失敗を決定する。
  *
- * @responsibility finalProjectionFailureに対応する入力処理と結果生成を所有する。
+ * @responsibility final Projection 失敗の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input result: TaskCompletionRecord、control: ControlRecord
  * @returns finalProjectionFailureの計算結果を返す。
@@ -847,9 +853,9 @@ function finalProjectionFailure(
 }
 
 /**
- * createBlockedの処理を実行する。
+ * Blockedを構築する。
  *
- * @responsibility createBlockedに対応する入力処理と結果生成を所有する。
+ * @responsibility Blockedの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input reason: string、manualRecoveryRequired、hostRecoveryId: string | null、dockerRecoveryId: string | null、candidateRecoveryId: string | null、isCleanupConfirmedOverride: boolean | null、candidateStoreRecoveryId: string | null、dockerRecoveryIds: readonly string[]
  * @returns createBlockedの計算結果を返す。
@@ -910,9 +916,9 @@ function createBlocked(
 const blocked = createBlocked;
 
 /**
- * objectCapabilityの処理を実行する。
+ * object Capabilityを決定する。
  *
- * @responsibility objectCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility object Capabilityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns objectCapabilityの計算結果を返す。
@@ -930,9 +936,9 @@ function objectCapability(value: unknown) {
 }
 
 /**
- * stringValueの処理を実行する。
+ * string Valueを決定する。
  *
- * @responsibility stringValueに対応する入力処理と結果生成を所有する。
+ * @responsibility string Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns stringValueの計算結果を返す。
@@ -950,9 +956,9 @@ function stringValue(value: unknown) {
 }
 
 /**
- * ownPlainDataValueの処理を実行する。
+ * own Plain Data Valueを決定する。
  *
- * @responsibility ownPlainDataValueに対応する入力処理と結果生成を所有する。
+ * @responsibility own Plain Data Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown、key: string
  * @returns ownPlainDataValueの計算結果を返す。
@@ -990,9 +996,9 @@ function ownPlainDataValue(value: unknown, key: string) {
 }
 
 /**
- * projectProviderTurnObservationの処理を実行する。
+ * Provider Turn Observationを公開結果へ投影する。
  *
- * @responsibility projectProviderTurnObservationに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Turn Observationの公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns projectProviderTurnObservationの計算結果を返す。
@@ -1045,9 +1051,9 @@ function projectProviderTurnObservation(value: unknown) {
 }
 
 /**
- * sha256Valueの処理を実行する。
+ * sha256 Valueを決定する。
  *
- * @responsibility sha256Valueに対応する入力処理と結果生成を所有する。
+ * @responsibility sha256 Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -1065,9 +1071,9 @@ function sha256Value(value: unknown): value is string {
 }
 
 /**
- * projectReviewerResultDiagnosticsの処理を実行する。
+ * Reviewer 結果 Diagnosticsを公開結果へ投影する。
  *
- * @responsibility projectReviewerResultDiagnosticsに対応する入力処理と結果生成を所有する。
+ * @responsibility Reviewer 結果 Diagnosticsの公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns projectReviewerResultDiagnosticsの計算結果を返す。
@@ -1123,9 +1129,9 @@ function projectReviewerResultDiagnostics(value: unknown) {
 }
 
 /**
- * projectExecutorResultDiagnosticsの処理を実行する。
+ * Executor 結果 Diagnosticsを公開結果へ投影する。
  *
- * @responsibility projectExecutorResultDiagnosticsに対応する入力処理と結果生成を所有する。
+ * @responsibility Executor 結果 Diagnosticsの公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns projectExecutorResultDiagnosticsの計算結果を返す。
@@ -1211,9 +1217,9 @@ function projectExecutorResultDiagnostics(value: unknown) {
 }
 
 /**
- * projectReviewerProjectionEvidenceの処理を実行する。
+ * Reviewer Projection Evidenceを公開結果へ投影する。
  *
- * @responsibility projectReviewerProjectionEvidenceに対応する入力処理と結果生成を所有する。
+ * @responsibility Reviewer Projection Evidenceの公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns projectReviewerProjectionEvidenceの計算結果を返す。
@@ -1274,9 +1280,9 @@ function projectReviewerProjectionEvidence(value: unknown) {
 }
 
 /**
- * snapshotRuntimeRecordの処理を実行する。
+ * Runtime 記録を所有Snapshotへ変換する。
  *
- * @responsibility snapshotRuntimeRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 記録の取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns RuntimeRecord | nullを返す。
@@ -1327,9 +1333,9 @@ function snapshotRuntimeRecord(value: unknown): RuntimeRecord | null {
 }
 
 /**
- * exactProcessCancellationReceiptの処理を実行する。
+ * Process Cancellation Receiptが完全一致するか判定する。
  *
- * @responsibility exactProcessCancellationReceiptに対応する入力処理と結果生成を所有する。
+ * @responsibility Process Cancellation Receiptの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns exactProcessCancellationReceiptの計算結果を返す。
@@ -1358,9 +1364,9 @@ function exactProcessCancellationReceipt(value: unknown) {
 }
 
 /**
- * requestControlCancellationの処理を実行する。
+ * Control Cancellationを要求する。
  *
- * @responsibility requestControlCancellationに対応する入力処理と結果生成を所有する。
+ * @responsibility Control Cancellationの要求条件、受理結果、Effect未成立との分離境界を所有する。
  * @trace ARCH-000004
  * @input state: RuntimeState、control: ControlRecord
  * @returns requestControlCancellationの計算結果を返す。
@@ -1438,9 +1444,9 @@ function requestControlCancellation(
 }
 
 /**
- * controlDockerRecoveryIdsの処理を実行する。
+ * control Docker 回復 Idsを決定する。
  *
- * @responsibility controlDockerRecoveryIdsに対応する入力処理と結果生成を所有する。
+ * @responsibility control Docker 回復 Idsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input control: ControlRecord
  * @returns controlDockerRecoveryIdsの計算結果を返す。
@@ -1464,9 +1470,9 @@ function controlDockerRecoveryIds(control: ControlRecord) {
 }
 
 /**
- * actionableDockerRecoveryIdsの処理を実行する。
+ * actionable Docker 回復 Idsを決定する。
  *
- * @responsibility actionableDockerRecoveryIdsに対応する入力処理と結果生成を所有する。
+ * @responsibility actionable Docker 回復 Idsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input control: ControlRecord、preferredRecoveryIds: readonly string[]
  * @returns actionableDockerRecoveryIdsの計算結果を返す。
@@ -1489,9 +1495,9 @@ function actionableDockerRecoveryIds(
 }
 
 /**
- * canRunManagedDockerCleanupの処理を実行する。
+ * can Run Managed Docker 清掃を決定する。
  *
- * @responsibility canRunManagedDockerCleanupに対応する入力処理と結果生成を所有する。
+ * @responsibility can Run Managed Docker 清掃の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input result: RuntimeRecord、control: ControlRecord
  * @returns canRunManagedDockerCleanupの計算結果を返す。
@@ -1557,9 +1563,9 @@ function canRunManagedDockerCleanup(
 }
 
 /**
- * poisonRuntimeProcessの処理を実行する。
+ * poison Runtime Processを決定する。
  *
- * @responsibility poisonRuntimeProcessに対応する入力処理と結果生成を所有する。
+ * @responsibility poison Runtime Processの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input state: RuntimeState、control: ControlRecord
  * @returns N/A: poisonRuntimeProcessは戻り値を返さない。
@@ -1578,9 +1584,9 @@ function poisonRuntimeProcess(state: RuntimeState, control: ControlRecord) {
 }
 
 /**
- * projectCurrentDockerRecoveryの処理を実行する。
+ * Current Docker 回復を公開結果へ投影する。
  *
- * @responsibility projectCurrentDockerRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility Current Docker 回復の公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input result: T、control: ControlRecord
  * @returns projectCurrentDockerRecoveryの計算結果を返す。
@@ -1646,9 +1652,9 @@ function projectCurrentDockerRecovery<T extends RuntimeRecord>(
 }
 
 /**
- * selectionRequestの処理を実行する。
+ * selection Requestを決定する。
  *
- * @responsibility selectionRequestに対応する入力処理と結果生成を所有する。
+ * @responsibility selection Requestの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input request: RuntimeRecord、operationId: string、role: "executor" | "independent_reviewer"、subjectProvider: Provider | null、requestedProvider: Provider | null、isRequiresIndependentProvider: boolean
  * @returns selectionRequestの計算結果を返す。
@@ -1701,9 +1707,9 @@ function selectionRequest(
 }
 
 /**
- * packetRequestの処理を実行する。
+ * packet Requestを決定する。
  *
- * @responsibility packetRequestに対応する入力処理と結果生成を所有する。
+ * @responsibility packet Requestの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input request: RuntimeRecord、reviewerReadProjection: RuntimeRecord | null
  * @returns packetRequestの計算結果を返す。
@@ -1730,9 +1736,9 @@ function packetRequest(
 }
 
 /**
- * externalSendScopeRequestの処理を実行する。
+ * external Send Scope Requestを決定する。
  *
- * @responsibility externalSendScopeRequestに対応する入力処理と結果生成を所有する。
+ * @responsibility external Send Scope Requestの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input request: RuntimeRecord
  * @returns externalSendScopeRequestの計算結果を返す。
@@ -1755,9 +1761,9 @@ function externalSendScopeRequest(request: RuntimeRecord) {
 }
 
 /**
- * projectProviderPreparationFailureの処理を実行する。
+ * Provider Preparation 失敗を公開結果へ投影する。
  *
- * @responsibility projectProviderPreparationFailureに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Preparation 失敗の公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input reason: unknown
  * @returns projectProviderPreparationFailureの計算結果を返す。
@@ -1789,9 +1795,9 @@ function projectProviderPreparationFailure(reason: unknown) {
 }
 
 /**
- * sameProviderSelectionの処理を実行する。
+ * Provider Selectionが同一かを判定する。
  *
- * @responsibility sameProviderSelectionに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Selectionの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000004
  * @input left: RuntimeRecord、right: RuntimeRecord
  * @returns sameProviderSelectionの計算結果を返す。
@@ -1816,9 +1822,9 @@ function sameProviderSelection(left: RuntimeRecord, right: RuntimeRecord) {
 }
 
 /**
- * samePathsの処理を実行する。
+ * Pathsが同一かを判定する。
  *
- * @responsibility samePathsに対応する入力処理と結果生成を所有する。
+ * @responsibility Pathsの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000004
  * @input left: unknown、right: unknown
  * @returns samePathsの計算結果を返す。
@@ -1852,9 +1858,9 @@ function samePaths(left: unknown, right: unknown) {
 }
 
 /**
- * executeStageの処理を実行する。
+ * Stageを実行する。
  *
- * @responsibility executeStageに対応する入力処理と結果生成を所有する。
+ * @responsibility Stageの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input args: Parameters<typeof executeStageBody>
  * @returns executeStageの計算結果を返す。
@@ -1886,9 +1892,9 @@ async function executeStage(...args: Parameters<typeof executeStageBody>) {
 }
 
 /**
- * executeStageBodyの処理を実行する。
+ * Stage Bodyを実行する。
  *
- * @responsibility executeStageBodyに対応する入力処理と結果生成を所有する。
+ * @responsibility Stage Bodyの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendGrantCapability: object、evaluationTime: unknown、role: TaskRole、taskAttempt: 0 | 1、subjectProvider: Provider | null、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction: unknown、reviewerReadProjection: RuntimeRecord | null
  * @returns executeStageBodyの計算結果を返す。
@@ -2339,9 +2345,9 @@ async function executeStageBody(
 }
 
 /**
- * runCoordinatorTaskCoreの処理を実行する。
+ * Coordinator Task Coreを実行する。
  *
- * @responsibility runCoordinatorTaskCoreに対応する入力処理と結果生成を所有する。
+ * @responsibility Coordinator Task Coreの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input state: RuntimeState、rawRequest: unknown、repositoryRoot: unknown、evaluationTime: unknown、control: ControlRecord
  * @returns runCoordinatorTaskCoreの計算結果を返す。
@@ -3007,9 +3013,9 @@ async function runCoordinatorTaskCore(
 }
 
 /**
- * runCoordinatorTaskの処理を実行する。
+ * Coordinator Taskを実行する。
  *
- * @responsibility runCoordinatorTaskに対応する入力処理と結果生成を所有する。
+ * @responsibility Coordinator Taskの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input state: RuntimeState、rawRequest: unknown、repositoryRoot: unknown、evaluationTime: unknown、control: ControlRecord
  * @returns Promise<InternalTaskOutcome>を返す。
@@ -3117,9 +3123,9 @@ async function runCoordinatorTask(
 }
 
 /**
- * createProductionOperationの処理を実行する。
+ * Production Operationを構築する。
  *
- * @responsibility createProductionOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility Production Operationの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns createProductionOperationの計算結果を返す。
@@ -3297,9 +3303,9 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
 });
 
 /**
- * retainRuntimeRecoveryStateの処理を実行する。
+ * retain Runtime 回復 状態を決定する。
  *
- * @responsibility retainRuntimeRecoveryStateに対応する入力処理と結果生成を所有する。
+ * @responsibility retain Runtime 回復 状態の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input state: RuntimeState、control: ControlRecord
  * @returns N/A: retainRuntimeRecoveryStateは戻り値を返さない。
@@ -3328,9 +3334,9 @@ async function retainRuntimeRecoveryState(
 }
 
 /**
- * createRuntimeの処理を実行する。
+ * Runtimeを構築する。
  *
- * @responsibility createRuntimeに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtimeの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input dependencies: RuntimeDependencies
  * @returns createRuntimeの計算結果を返す。
@@ -3890,9 +3896,9 @@ function createRuntime(dependencies: RuntimeDependencies) {
 const productionRuntime = createRuntime(productionDependencies);
 
 /**
- * startRuntimeOwnedCoordinatorTaskの処理を実行する。
+ * Runtime 所有 Coordinator Taskを開始する。
  *
- * @responsibility startRuntimeOwnedCoordinatorTaskに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Coordinator Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000004
  * @input rawRequest: unknown、repositoryRoot: unknown、verifiedPackageCapability: unknown、recoveryCorrelationId: unknown
  * @returns startRuntimeOwnedCoordinatorTaskの計算結果を返す。
@@ -3934,9 +3940,9 @@ export function startRuntimeOwnedCoordinatorTask(
 }
 
 /**
- * cancelRuntimeOwnedCoordinatorTaskの処理を実行する。
+ * Runtime 所有 Coordinator Taskを取り消す。
  *
- * @responsibility cancelRuntimeOwnedCoordinatorTaskに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Coordinator Taskの取消条件、終了状態、残存Effectの境界を所有する。
  * @trace ARCH-000004
  * @input controlCapability: unknown
  * @returns cancelRuntimeOwnedCoordinatorTaskの計算結果を返す。
@@ -3962,7 +3968,7 @@ const developmentProjectRuntimeCancellations = new WeakMap<
 /**
  * Testable projection used only after the outer development cleanup settles.
  *
- * @responsibility projectDevelopmentTaskResultAfterOuterCleanupに対応する入力処理と結果生成を所有する。
+ * @responsibility Development Task 結果 After Outer 清掃の公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input taskResult: Readonly<Record<string, unknown>>、cleanupConfirmed: boolean
  * @returns projectDevelopmentTaskResultAfterOuterCleanupの計算結果を返す。
@@ -4001,9 +4007,9 @@ export function projectDevelopmentTaskResultAfterOuterCleanup(
 }
 
 /**
- * startRuntimeOwnedDevelopmentTaskの処理を実行する。
+ * Runtime 所有 Development Taskを開始する。
  *
- * @responsibility startRuntimeOwnedDevelopmentTaskに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Development Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000004
  * @input rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object、candidateDisposition: "discard" | "project_runtime_owned"、recoveryCorrelationId: unknown
  * @returns startRuntimeOwnedDevelopmentTaskの計算結果を返す。
@@ -4036,9 +4042,9 @@ function startRuntimeOwnedDevelopmentTask(
     throw new Error("coordinator_task_development_permission_required");
   let managementCapability: object | undefined;
   /**
-   * guardの処理を実行する。
+   * guardを決定する。
    *
-   * @responsibility guardに対応する入力処理と結果生成を所有する。
+   * @responsibility guardの導出に必要な入力、判定規則、返却結果の境界を所有する。
    * @trace ARCH-000004
    * @input action: (...args: Args) => Result
    * @returns guardの計算結果を返す。
@@ -4187,7 +4193,7 @@ function startRuntimeOwnedDevelopmentTask(
 /**
  * Comparison-only development Tasks discard their candidates on completion.
  *
- * @responsibility startRuntimeOwnedDevelopmentCoordinatorTaskに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Development Coordinator Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000004
  * @input rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object
  * @returns startRuntimeOwnedDevelopmentCoordinatorTaskの計算結果を返す。
@@ -4217,7 +4223,7 @@ export function startRuntimeOwnedDevelopmentCoordinatorTask(
 /**
  * Project Runtime owns candidate integration and cleanup after Task completion.
  *
- * @responsibility startRuntimeOwnedDevelopmentProjectRuntimeTaskに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Development Project Runtime Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000004
  * @input rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object、recoveryCorrelationId: unknown
  * @returns startRuntimeOwnedDevelopmentProjectRuntimeTaskの計算結果を返す。
@@ -4251,9 +4257,9 @@ export function startRuntimeOwnedDevelopmentProjectRuntimeTask(
 }
 
 /**
- * cancelRuntimeOwnedDevelopmentProjectRuntimeTaskの処理を実行する。
+ * Runtime 所有 Development Project Runtime Taskを取り消す。
  *
- * @responsibility cancelRuntimeOwnedDevelopmentProjectRuntimeTaskに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Development Project Runtime Taskの取消条件、終了状態、残存Effectの境界を所有する。
  * @trace ARCH-000004
  * @input controlCapability: object
  * @returns cancelRuntimeOwnedDevelopmentProjectRuntimeTaskの計算結果を返す。
@@ -4274,9 +4280,9 @@ export function cancelRuntimeOwnedDevelopmentProjectRuntimeTask(
 }
 
 /**
- * createIsolatedCoordinatorTaskRuntimeCandidateの処理を実行する。
+ * Isolated Coordinator Task Runtime 候補を構築する。
  *
- * @responsibility createIsolatedCoordinatorTaskRuntimeCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Isolated Coordinator Task Runtime 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input dependencies: RuntimeDependencies
  * @returns createIsolatedCoordinatorTaskRuntimeCandidateの計算結果を返す。
@@ -4299,9 +4305,9 @@ export function createIsolatedCoordinatorTaskRuntimeCandidate(
 }
 
 /**
- * describeCoordinatorTaskRuntimeContractの処理を実行する。
+ * Coordinator Task Runtime 契約の公開契約を記述する。
  *
- * @responsibility describeCoordinatorTaskRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Coordinator Task Runtime 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeCoordinatorTaskRuntimeContractの計算結果を返す。

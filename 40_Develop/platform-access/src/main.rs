@@ -1,3 +1,10 @@
+//! Platform Access Native Workerの固定Protocol入口を提供する。
+//!
+//! @responsibility framed requestを分類し、許可されたWindows観測・限定操作へdispatchして構造化応答を返す。
+//! @trace ARCH-000004
+//! @trace ARCH-000008
+//! @trace ARCH-000011
+
 mod protocol;
 
 #[cfg(windows)]
@@ -27,6 +34,20 @@ use protocol::{
     write_provider_home_response_to, write_response_to,
 };
 
+/// Native Worker入口のinvalid response責務を実行する。
+///
+/// @responsibility Native Worker入口のinvalid response責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→Native Worker→Windows API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn invalid_response() -> Response {
     Response {
         root_role: RootRole::Runtime,
@@ -39,6 +60,20 @@ fn invalid_response() -> Response {
     }
 }
 
+/// Native Worker入口のinvalid provider home response責務を実行する。
+///
+/// @responsibility Native Worker入口のinvalid provider home response責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→Native Worker→Windows API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn invalid_provider_home_response() -> ProviderHomeResponse {
     ProviderHomeResponse {
         provider: Provider::Codex,
@@ -54,6 +89,20 @@ fn invalid_provider_home_response() -> ProviderHomeResponse {
     }
 }
 
+/// Native Worker入口のexecute bytes責務を実行する。
+///
+/// @responsibility Native Worker入口のexecute bytes責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→Native Worker→Windows API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn execute_bytes(request_bytes: &[u8], writer: &mut impl Write) -> i32 {
     if let Some(request) = parse_provider_home_request(request_bytes) {
         #[cfg(windows)]
@@ -107,6 +156,20 @@ fn execute_bytes(request_bytes: &[u8], writer: &mut impl Write) -> i32 {
     if response.is_candidate { 0 } else { 2 }
 }
 
+/// Native Worker入口のexecute責務を実行する。
+///
+/// @responsibility Native Worker入口のexecute責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→Native Worker→Windows API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn execute(reader: &mut impl Read, writer: &mut impl Write, framed: bool) -> i32 {
     let request_bytes = if framed {
         read_framed_request_from(reader)
@@ -122,6 +185,20 @@ fn execute(reader: &mut impl Read, writer: &mut impl Write, framed: bool) -> i32
     }
 }
 
+/// Native Worker入口のvalid appcontainer pipe name責務を実行する。
+///
+/// @responsibility Native Worker入口のvalid appcontainer pipe name責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→Native Worker→Windows API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn valid_appcontainer_pipe_name(value: &str) -> bool {
     const PREFIX: &str = r"\\.\pipe\CRDD.Coordinator.";
     let Some(suffix) = value.strip_prefix(PREFIX) else {
@@ -133,6 +210,15 @@ fn valid_appcontainer_pipe_name(value: &str) -> bool {
         && !suffix.starts_with('0')
 }
 
+/// Native Worker入口で使用するInvocationMode契約を表す。
+///
+/// @responsibility InvocationModeが保持するNative Worker入口の値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape enumとしてNative Worker入口のfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Coordinator→Native Worker→Windows API。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 enum InvocationMode {
     WindowsDirectory,
     Standard,
@@ -141,6 +227,20 @@ enum InvocationMode {
     DockerDesktopRestart,
 }
 
+/// Native Worker入口のinvocation mode責務を実行する。
+///
+/// @responsibility Native Worker入口のinvocation mode責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→Native Worker→Windows API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn invocation_mode() -> Result<InvocationMode, ()> {
     let mut arguments = std::env::args_os().skip(1);
     let Some(mode) = arguments.next() else {
@@ -179,6 +279,20 @@ fn invocation_mode() -> Result<InvocationMode, ()> {
     Ok(InvocationMode::AppContainer(pipe))
 }
 
+/// Native Worker入口の実行入口を開始する。
+///
+/// @responsibility Native Worker入口の実行入口を開始する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input N/A: 呼出し引数を持たない。
+/// @returns N/A: 戻り値を公開せず、終了状態またはProcess exitで結果を示す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→Native Worker→Windows API。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn main() {
     let exit_code = match invocation_mode() {
         Ok(InvocationMode::WindowsDirectory) => {

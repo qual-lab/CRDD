@@ -1,10 +1,16 @@
+/**
+ * artifact-relationに属する責務をまとめる。
+ *
+ * @responsibility stringDetailを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000001
+ */
 import type { DomainIssue } from "../../../crdd-domain-library/src/index.ts";
 import type { CheckerFinding } from "../findings/finding-model.ts";
 
 /**
- * stringDetailの処理を実行する。
+ * string Detailを決定する。
  *
- * @responsibility stringDetailに対応する入力処理と結果生成を所有する。
+ * @responsibility string Detailの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000001
  * @input issue: DomainIssue、name: string
  * @returns stringを返す。
@@ -27,9 +33,9 @@ function stringDetail(issue: DomainIssue, name: string): string {
 }
 
 /**
- * mapArtifactDomainIssueToCheckerFindingの処理を実行する。
+ * Artifact Domain Issue To Checker Findingを対応付ける。
  *
- * @responsibility mapArtifactDomainIssueToCheckerFindingに対応する入力処理と結果生成を所有する。
+ * @responsibility Artifact Domain Issue To Checker Findingの入力集合、対応規則、未対応結果の境界を所有する。
  * @trace ARCH-000001
  * @input issue: DomainIssue
  * @returns CheckerFindingを返す。

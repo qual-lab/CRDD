@@ -1,12 +1,18 @@
+/**
+ * repository-revisionに属する責務をまとめる。
+ *
+ * @responsibility RepositoryRevisionObservationを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000002
+ */
 import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
 } from "./repository-location.ts";
 
 /**
- * RepositoryRevisionObservationが扱う値の構造を表す。
+ * repository-revisionで使用するRepository Revision Observationの値契約を定義する。
  *
- * @responsibility RepositoryRevisionObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Repository Revision ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape RepositoryRevisionObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepositoryRevisionObservationで宣言した値と責務の対応を維持する。
@@ -25,9 +31,9 @@ export type RepositoryRevisionObservation = Readonly<{
 }>;
 
 /**
- * RepositoryRevisionAdapterが扱う値の構造を表す。
+ * repository-revisionで使用するRepository Revision Adapterの値契約を定義する。
  *
- * @responsibility RepositoryRevisionAdapterに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Repository Revision AdapterのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape RepositoryRevisionAdapterが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepositoryRevisionAdapterで宣言した値と責務の対応を維持する。
@@ -40,9 +46,9 @@ export type RepositoryRevisionAdapter = (
 ) => RepositoryRevisionObservation | null;
 
 /**
- * RepositoryFormatAdapterが扱う値の構造を表す。
+ * repository-revisionで使用するRepository Format Adapterの値契約を定義する。
  *
- * @responsibility RepositoryFormatAdapterに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Repository Format AdapterのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape RepositoryFormatAdapterが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepositoryFormatAdapterで宣言した値と責務の対応を維持する。
@@ -55,9 +61,9 @@ export type RepositoryFormatAdapter = (
 ) => Readonly<{ objectFormat: "sha1" | "sha256" }> | null;
 
 /**
- * observeRepositoryRevisionの処理を実行する。
+ * Repository Revisionを観測する。
  *
- * @responsibility observeRepositoryRevisionに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Revisionの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000002
  * @input capability: VerifiedRepositoryRoot、adapter: RepositoryRevisionAdapter
  * @returns RepositoryRevisionObservation | nullを返す。
@@ -79,9 +85,9 @@ export function observeRepositoryRevision(
 }
 
 /**
- * inspectRepositoryFormatの処理を実行する。
+ * Repository Formatを観測する。
  *
- * @responsibility inspectRepositoryFormatに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Formatの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000002
  * @input repositoryRoot: unknown、adapter: RepositoryFormatAdapter
  * @returns inspectRepositoryFormatの計算結果を返す。

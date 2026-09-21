@@ -6,7 +6,7 @@
  * @trace ERB-IT-004
  * @level IT
  * @scope native、runtime、trace
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -33,7 +33,7 @@ const OPTIONS = Object.freeze({
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 function trace(lines: readonly string[]) {
   return [
@@ -58,7 +58,7 @@ function trace(lines: readonly string[]) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 function traceStatistics(lostEvents = 0, lostBuffers = 0) {
   return `Total # Lost Buffers : ${lostBuffers}\nTotal # Lost Events  : ${lostEvents}\n`;
@@ -74,7 +74,7 @@ function traceStatistics(lostEvents = 0, lostBuffers = 0) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 test("lost event 0、System32 module集合、target通信0とpositive controlを受理する", () => {
   assert.deepEqual(
@@ -112,7 +112,7 @@ test("lost event 0、System32 module集合、target通信0とpositive controlを
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 test("対象Network event、外部Moduleおよびlost eventを個別に拒否する", () => {
   const targetNetwork = trace([
@@ -153,7 +153,7 @@ test("対象Network event、外部Moduleおよびlost eventを個別に拒否す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 test("対象・control・summaryの欠落または重複を情報不足として拒否する", () => {
   const cases = [
@@ -230,7 +230,7 @@ test("対象・control・summaryの欠落または重複を情報不足として
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 test("入力契約外はtrace判定前に拒否する", () => {
   assert.deepEqual(
@@ -259,7 +259,7 @@ test("入力契約外はtrace判定前に拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 test("Network positive controlはloopbackだけを受理する", () => {
   const externalControl = trace([]).replace("127.0.0.1:9", "203.0.113.1:443");
@@ -286,7 +286,7 @@ test("Network positive controlはloopbackだけを受理する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 test("重複Image Loadを同一Pathへ畳み、大小文字差を同じSystem32として扱う", () => {
   const candidate = trace([
@@ -311,7 +311,7 @@ test("重複Image Loadを同一Pathへ畳み、大小文字差を同じSystem32�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 test("trace確認CLIは実ファイル搬送・引数・読取り拒否を終了コードへ接続する", {
   skip: process.platform !== "win32",
@@ -360,7 +360,7 @@ test("trace確認CLIは実ファイル搬送・引数・読取り拒否を終了
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Observer→Effect Gate
+   * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
    */
   const invokeCli = (args: string[]) => {
     const result = spawnSync(process.execPath, [script, ...args], {

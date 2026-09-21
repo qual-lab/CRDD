@@ -1,3 +1,9 @@
+/**
+ * coordinator-operation-creation-internalに属する責務をまとめる。
+ *
+ * @responsibility CreationFailureを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import {
   classifyOwnedOperationDirectoryCreationFailure,
   cleanupOwnedOperationDirectories,
@@ -10,9 +16,9 @@ import {
 } from "./execution-environment.ts";
 
 /**
- * CreationFailureが扱う値の構造を表す。
+ * coordinator-operation-creation-internalで使用するCreation 失敗の値契約を定義する。
  *
- * @responsibility CreationFailureに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Creation 失敗のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape CreationFailureが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CreationFailureで宣言した値と責務の対応を維持する。
@@ -28,9 +34,9 @@ type CreationFailure = Readonly<{
 const failures = new WeakMap<object, CreationFailure>();
 
 /**
- * failの処理を実行する。
+ * coordinator-operation-creation-internalを失敗として終了させる。
  *
- * @responsibility failに対応する入力処理と結果生成を所有する。
+ * @responsibility coordinator-operation-creation-internalの失敗条件、診断情報、終了結果境界を所有する。
  * @trace ARCH-000004
  * @input cause: unknown、cleanupConfirmed: boolean、hostRecoveryId: string | null
  * @returns neverを返す。
@@ -61,9 +67,9 @@ function fail(
 }
 
 /**
- * classifyOwnedCoordinatorOperationCreationFailureの処理を実行する。
+ * 所有 Coordinator Operation Creation 失敗を分類する。
  *
- * @responsibility classifyOwnedCoordinatorOperationCreationFailureに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Coordinator Operation Creation 失敗の分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000004
  * @input error: unknown
  * @returns classifyOwnedCoordinatorOperationCreationFailureの計算結果を返す。
@@ -88,9 +94,9 @@ export function classifyOwnedCoordinatorOperationCreationFailure(
 }
 
 /**
- * Dependenciesが扱う値の構造を表す。
+ * coordinator-operation-creation-internalで使用するDependenciesの値契約を定義する。
  *
- * @responsibility Dependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape Dependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Dependenciesで宣言した値と責務の対応を維持する。
@@ -112,9 +118,9 @@ type Dependencies = Readonly<{
 }>;
 
 /**
- * createTransactionalの処理を実行する。
+ * Transactionalを構築する。
  *
- * @responsibility createTransactionalに対応する入力処理と結果生成を所有する。
+ * @responsibility Transactionalの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input dependencies: Dependencies
  * @returns createTransactionalの計算結果を返す。
@@ -169,9 +175,9 @@ const productionDependencies: Dependencies = Object.freeze({
 });
 
 /**
- * createRuntimeOwnedCoordinatorOperationの処理を実行する。
+ * Runtime 所有 Coordinator Operationを構築する。
  *
- * @responsibility createRuntimeOwnedCoordinatorOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Coordinator Operationの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns createRuntimeOwnedCoordinatorOperationの計算結果を返す。
@@ -189,9 +195,9 @@ export function createRuntimeOwnedCoordinatorOperation() {
 }
 
 /**
- * createIsolatedCoordinatorOperationCreationCandidateの処理を実行する。
+ * Isolated Coordinator Operation Creation 候補を構築する。
  *
- * @responsibility createIsolatedCoordinatorOperationCreationCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Isolated Coordinator Operation Creation 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input dependencies: Dependencies
  * @returns createIsolatedCoordinatorOperationCreationCandidateの計算結果を返す。

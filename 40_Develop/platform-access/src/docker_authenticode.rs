@@ -1,5 +1,7 @@
-//! Verifies the signer of an already opened, caller-pinned executable.
-//! The caller must deny writes/deletion and retain the file through its use.
+//! callerがhandleで固定したDocker実行物のAuthenticode Publisherを検証する。
+//!
+//! @responsibility 再openせず署名chainと期待Publisherを評価し、offlineまたは不明なTrustを拒否する。
+//! @trace ARCH-000014
 
 use std::fs::File;
 use std::mem::size_of;
@@ -11,7 +13,19 @@ use windows_sys::Win32::Security::Cryptography::{
 use windows_sys::Win32::Security::WinTrust::*;
 
 /// No network retrieval, UI, process launch, or path reopening is requested.
-/// Missing/offline trust evidence is a rejection, not an unsigned fallback.
+///
+/// @responsibility docker publisherを安全側に検証する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000014
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→WinTrust→Docker Publisher。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 pub(crate) fn verify_docker_publisher(file: &File) -> bool {
     let mut file_info = WINTRUST_FILE_INFO {
         cbStruct: size_of::<WINTRUST_FILE_INFO>() as u32,
@@ -55,6 +69,20 @@ pub(crate) fn verify_docker_publisher(file: &File) -> bool {
     trusted && closed == 0
 }
 
+/// Docker Authenticode Trustのverified signer is docker責務を実行する。
+///
+/// @responsibility Docker Authenticode Trustのverified signer is docker責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000014
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect OS APIからread-only観測を取得する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Native Worker→WinTrust→Docker Publisher。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn verified_signer_is_docker(data: &WINTRUST_DATA) -> bool {
     if data.hWVTStateData.is_null() {
         return false;

@@ -12,11 +12,11 @@
 |---|---|
 | 現在の変更状態 | Engineering CompletenessをRule、Format、Traceability、CheckerおよびCRDD自身の現実まで閉じる途中 |
 | Phase／Gate適用判断 | `Applicable`: Architecture、実装、Quality、MigrationおよびReality Auditを一括変更せず、局所Gateで成立確認する必要がある |
-| 現在Phase | `Phase 2／7 — Production Semantic Review／Self Migration`: Test Source Contractの全数移行を完了し、Production Headerの意味妥当性とCRDD自身の利用側移行を確認している |
+| 現在Phase | `Phase 2／4／7／8 — Production Semantic Review／Test Relation再確認／Self Migration／Reality Audit`: 全Subsystemの現実照合で判明した未観測Local Itemを、Relation不足・試験不足・実装不足・工程Evidence・人間受入待ちへ分類して閉じている。Checker Core UT 2件を追加し、現在は81件 |
 | 現在Gate | `Gate 0 — Passed`: Phase／Gate／途中拡張／途中見直し契約を正本、ひな型、Checkerおよび本CHGへ反映した。後続Gateの成立は示さない |
-| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 150件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 193件とTest SourceのLocal Item接続、Optionality Audit全数処置 |
-| 未成立 | Production Headerの独立意味確認、Reality Audit、独立レビュー、署名E2E |
-| 次のGate | Gate 2／7の前にProduction Headerの意味妥当性とRule／Format／Realityの未移行0件を確認する |
+| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 150件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 197件と2,125 Test Caseの責務別Local Item接続、Optionality Audit全数処置 |
+| 未成立 | Production Headerの独立意味確認、未観測Local Item 81件（Automated 48、Hybrid 14、Manual 19）の処置、Runtime Trustの実装・Test、独立レビュー、全回帰、署名E2E |
+| 次のGate | Gate 2／7／8の前にProduction Headerの意味妥当性、Rule／Format／Realityの未移行0件、および全Local Itemの処置を確認する。既知Gapを残したまま全回帰へ進まない |
 
 ## 1. 変更の目的
 
@@ -133,11 +133,11 @@ PhaseはCHGを分割する別Identityではなく、一つの変更意図を安�
 | Phase 1: Architecture Completeness | 基本・詳細設計から必要構造と検証対象を導く | Canonical Model、実装構造、Component／Boundary／State／Flow／Failure | 全詳細設計領域の適用表と導出差分 | 全18領域を適用、理由付きN/AまたはOPENへ処置する | Passed |
 | Phase 2: Implementation Contract | Production Named Symbolを設計責務へ接続する | 固定Header Schema、ARCH Trace、Source Migration | Header構造、実在Trace、Architecture所有責務 | 対象Symbol全件がHeaderと実在ARCH-IDを持つ | In Progress |
 | Phase 3: Verification Completeness | 必要な試験義務とLocal Item集合を閉じる | UT／IT／ST／UAT、条件区分、外部境界段階、集合差 | Required／Defined／Level／Boundary差分 | Required - DefinedとLevel／Boundary不足が0件 | Passed |
-| Phase 4: Test Source Contract | Test実装をQuality Local Itemへ接続する | Test Case／Named Helper／Fixture Header、QA Trace | Header構造、Local Item実在、試験段階一致 | Test Symbol全件が実在Local Itemと試験段階に一致する | Passed |
+| Phase 4: Test Source Contract | Test実装をQuality Local Itemへ接続する | Test Case／Named Helper／Fixture Header、QA Trace | Header構造、Local Item実在、試験段階一致、File Relation和集合 | FileはCase／HelperのRelation和集合、Caseは対応する1件、Helperは支援する1件以上を持ち、Test Symbol全件が実在Local Itemと試験段階に一致する | In Review |
 | Phase 5: UAT Pilot | 上流の受入意味からUAT義務を再現する | REQ／UX／IA Pilotから全Canonical Sourceへ展開 | Source別UAT ObligationとSame／New判断 | 推測なしで導出でき、重複・導出不能を処置する | Passed |
 | Phase 6: Optionality Audit | 重要評価の未記載をなくす | CRDD全体のOptional表現、Format、Checker | A〜F全数分類、理由付きN/A／OPEN、負例 | A〜F分類とC〜Fの必須評価化、理由なしN/A／OPEN 0件 | Passed |
 | Phase 7: CRDD Self Migration | 新ContractをCRDD自身へ適用する | Architecture、Source、Test、Quality、Traceability | 契約母集団と利用側母集団の全数照合 | Ruleと現実の未移行0件 | In Progress |
-| Phase 8: Reality Audit | CanonicalからEvidenceまで照合する | Design→Obligation→Local Item→Test→Execution→Evidence | 欠落、矛盾、Orphan、Freshnessを全数判定 | 欠落・矛盾・Orphanを全数処置する | Planned |
+| Phase 8: Reality Audit | CanonicalからEvidenceまで照合する | Design→Obligation→Local Item→Test→Execution→Evidence | 欠落、矛盾、Orphan、Freshnessを全数判定 | 欠落・矛盾・Orphanを全数処置する | In Progress |
 | Phase 9: Independent Review／Release Gate | 独立反証とRelease Readinessを閉じる | 必須監査、全回帰、署名E2E | 固定改訂版への独立レビュー、監査、署名E2E | Blocking Finding 0、必要な署名E2E Pass、人間のRelease判断へ引渡し可能 | Planned |
 
 ### 途中拡張の記録
@@ -156,7 +156,8 @@ PhaseはCHGを分割する別Identityではなく、一つの変更意図を安�
 | 新しいLocal Item IDをSchemaだけが受理し、Domain Validatorが旧形式を要求していた | Local Item再採番後もSymbol Graph契約はそのまま成立するという前提 | Phase 3／7のValidator移行を追加し、Gate 3は新旧二重契約解消後に判定する | Symbol Manifest Validator局所試験、Schema整合、全Symbol Graph試験 | QA-ID、Local Itemの意味、Architecture Relationは変更しない | Revised |
 | Production Header Gateが約3.8万のtag単位指摘を検出した | 一部PackageのHeader補強だけでPhase 2を閉じられるという見込み | Gate 2を未通過のまま維持し、全Production Named SymbolをPackage単位で移行する | Header母集団、実在ARCH-ID、全固定tag、Formatter／型／Lint／全回帰 | Header Schemaと「Public／privateを分けない」原則は変更しない | Revised |
 | 型宣言へFunction用の入出力・事前事後条件を要求すると、非該当説明が主となり型契約が読みにくくなった | 全Named Symbolへ単一Header Schemaを適用すれば責務を同じ精度で保存できるという前提 | Phase 2のHeaderを型契約、状態所有、実行責務の3 Schemaへ分離する | Schema別の正例・負例、全Production母集団、Formatter／型／Lint | Summary、責務、実在ARCH-IDへのTrace、必須評価原則は変更しない | Revised |
-| 既存Test Suite Relation 37件すべてで、物理配置の試験段階とLocal Item IDの段階が少なくとも1件不一致だった | 既存`symbol.json`のTest RelationをそのままHeader移行入力にできるという前提 | Phase 4でTest Catalog 193件と個別Test Case／Helper／Fixtureを再分析し、物理配置またはLocal Item Relationを正す | Test File段階、Local Item段階、実在ID、個別Test責務、全Test実行 | 既存Testの成立済み検証能力とQuality Local Itemの意味は、置換根拠なしに削除・改称しない | Revised |
+| 既存Test Suite Relation 37件すべてで、物理配置の試験段階とLocal Item IDの段階が少なくとも1件不一致だった | 既存`symbol.json`のTest RelationをそのままHeader移行入力にできるという前提 | Phase 4でTest Catalog 197件と個別Test Case／Helper／Fixtureを再分析し、物理配置またはLocal Item Relationを正す | Test File段階、Local Item段階、実在ID、個別Test責務、全Test実行 | 既存Testの成立済み検証能力とQuality Local Itemの意味は、置換根拠なしに削除・改称しない | Revised |
+| Test Fileを一つの代表Local Itemへ縮約した結果、Semantic Coverageで17意味中16件のTest観測Relationが失われた | File、Case、HelperのRelationを同一の1件へ揃えればTest Source Contractを閉じられるという前提 | Phase 4／7を再開し、FileはCase／HelperのRelation和集合、Caseは対応する1件、Helperは支援する1件以上、`symbol.json`は和集合の正方向Ownerへ改訂する | Test Header契約試験、Symbol Graph、Semantic Coverage Pilot、全Test実行、独立意味レビュー | 試験段階付きLocal Item 150件、Test本体の振る舞いおよび旧Relationを根拠なくTest成立へ昇格しない原則は変更しない | Revised |
 
 #### Production Header移行母集団
 
@@ -496,7 +497,7 @@ ARCH-ID ──→ Quality Local Item ──→ Test Case／Helper／Fixture
 | 対象 | 正方向Relation | 現在状態 |
 |---|---|---|
 | Production Named Symbol | Summary、`@responsibility`、実在`ARCH-*`への`@trace` | Checkerの構造Gateと負例を実装済み。既存SourceをPackage単位で意味確認しながら移行中 |
-| Test File／Case／Helper／Fixture | 実在Quality Local Itemへの`@trace` | Test Catalog 193件を全12 Manifest Ownerへ接続し、Test File、2,085 TypeScript Test Case、Named Helper／FixtureおよびRust Testへ必須Headerを適用した。Local Item実在、Owner、試験段階および`verifies`をCheckerで照合する |
+| Test File／Case／Helper／Fixture | 実在Quality Local Itemへの`@trace` | Test Catalog 197件を全12 Manifest Ownerへ接続し、2,125 Test CaseとNamed Helper／Fixtureへ必須Headerを適用した。FileはCase／Helper Relationの和集合、Caseは対応する1件、Helperは支援する1件以上を保持し、Local Item実在、Owner、試験段階および`verifies`をCheckerで照合する |
 | Architecture Details | 7つのImplementation Structure観点 | 18領域とTemplateへ反映済み |
 | Quality Local Item | Architecture Meaning、試験段階、観測境界 | 150件へ細分化し、Required／Defined、試験段階および外部境界段階の差分0を確認済み |
 
@@ -512,6 +513,6 @@ Production母集団へGateを適用した初回観測では、`artifact-signing`
 - [x] Canonical Model ItemとImplementation StructureのTemplate差分を確定し、18領域へ適用した。
 - [x] UAT／IT導出Pilotを完了し、上流意味とArchitectureから決定論的に導出できることを確認した。
 - [x] Required ObligationとLocal Itemの集合差Gateを実装し、試験段階と外部境界段階の不足を検出可能にした。
-- [x] Test Catalog 193件とTest SourceをQuality Local Itemへ一意に接続し、試験段階一致を確認した。
+- [x] Test Catalog 197件と2,125 Test Caseを責務別Quality Local Itemへ接続し、File Relation和集合、Local Item実在および試験段階一致を機械確認した。
 - [x] 全Unit回帰87件、安全なTypeScript結合試験86件およびRust結合試験1件を完了した。
 - [ ] OPEN: Production Headerの独立意味確認、Reality Audit、独立レビューおよび署名E2Eを完了する。理由: Phase 2／7〜9が未完了である。

@@ -6,7 +6,7 @@
  * @trace EST-IT-004
  * @level IT
  * @scope external、send、consent、runtime
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -34,7 +34,7 @@ import type { ExternalSendPolicy } from "../../src/security/external-send-policy
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 function policy(overrides: Partial<ExternalSendPolicy> = {}) {
   return Object.freeze({
@@ -65,7 +65,7 @@ function policy(overrides: Partial<ExternalSendPolicy> = {}) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 test("初期同意境界はRepository revisionでなくexact Policy byteとPolicy IDへ結合する", () => {
   const first = compileExternalSendConsentBoundaryHash(policy());
@@ -117,7 +117,7 @@ test("初期同意境界はRepository revisionでなくexact Policy byteとPolic
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 test("公開契約は選択User・保護Runtime State・Subscription境界と再承認条件を固定する", () => {
   const contract = describeExternalSendConsentRuntimeContract();
@@ -146,7 +146,7 @@ test("公開契約は選択User・保護Runtime State・Subscription境界と再
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 function isolated() {
   const rootPath = fs.mkdtempSync(
@@ -259,7 +259,7 @@ function isolated() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 test("単一Active境界はabsentから保存・再利用しA→B→Aで古い許可を復活させない", () => {
   const fixture = isolated();
@@ -303,7 +303,7 @@ test("単一Active境界はabsentから保存・再利用しA→B→Aで古い�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 test("期限切れ・選択User・Runtime identity/protection変更は再承認を要求する", () => {
   for (const replacement of ["identity", "protection", "user"] as const) {
@@ -350,7 +350,7 @@ test("期限切れ・選択User・Runtime identity/protection変更は再承認�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 test("観測不能Rootとdangling reparse residueを取消成功へ流用しない", () => {
   const unavailable = isolated();
@@ -391,7 +391,7 @@ test("観測不能Rootとdangling reparse residueを取消成功へ流用しな�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 test("部分pairと破損pairは固定Authorityを安全に失効し、明示revokeも残存0にする", () => {
   const fixture = isolated();
@@ -440,7 +440,7 @@ test("部分pairと破損pairは固定Authorityを安全に失効し、明示rev
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 test("lock競合とrelease失敗はAuthorityを発行せずrecovery requiredに閉じる", () => {
   const locked = isolated();
@@ -477,7 +477,7 @@ for (const operation of ["resolve", "persist", "revoke"] as const) {
      * @observation 結果、状態、Effectおよび終了後条件を観測する。
      * @oracle Test本文のassertionが期待条件を満たす。
      * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-     * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+     * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
      */
     test(`${operation}: lock取得後のRoot再観測${fault}は既存同意を変更せず回復要求へ閉じる`, () => {
       const fixture = isolated();
@@ -518,7 +518,7 @@ for (const operation of ["resolve", "persist", "revoke"] as const) {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+   * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
    */
   test(`${operation}: release例外を同意確認または取消完了へ昇格しない`, () => {
     const fixture = isolated();

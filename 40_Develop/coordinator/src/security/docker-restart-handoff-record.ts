@@ -1,3 +1,9 @@
+/**
+ * docker-restart-handoff-recordに属する責務をまとめる。
+ *
+ * @responsibility DockerRestartHandoffRecordを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { createHash } from "node:crypto";
 import { isSha256Hex } from "./docker-recovery-identity.ts";
 import {
@@ -8,7 +14,7 @@ import {
 /**
  * Data provenance only. No signature, filesystem, lock or effect authority.
  *
- * @responsibility DockerRestartHandoffRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Restart Handoff 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerRestartHandoffRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerRestartHandoffRecordで宣言した値と責務の対応を維持する。
@@ -48,9 +54,9 @@ const encode = (record: DockerRestartHandoffRecord) =>
   );
 
 /**
- * parseDockerRestartHandoffRecordの処理を実行する。
+ * Docker Restart Handoff 記録を構造化値へ解析する。
  *
- * @responsibility parseDockerRestartHandoffRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Restart Handoff 記録の入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000008
  * @input bytes: Uint8Array
  * @returns DockerRestartHandoffRecord | nullを返す。
@@ -117,7 +123,7 @@ export function parseDockerRestartHandoffRecord(
 /**
  * Origin binding must come from separately verified historical provenance.
  *
- * @responsibility validateDockerRestartHandoffChainに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Restart Handoff Chainの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input originRecords: readonly Uint8Array[]、originBinding: DockerRestartBinding、handoffs: readonly Uint8Array[]、currentRuntimeIdentitySha256: string
  * @returns readonly DockerRestartHandoffRecord[] | nullを返す。
@@ -181,7 +187,7 @@ export function validateDockerRestartHandoffChain(
 /**
  * Builds bytes only; caller owns exclusive append and durable re-read.
  *
- * @responsibility createDockerRestartHandoffRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Restart Handoff 記録の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input originRecords: readonly Uint8Array[]、originBinding: DockerRestartBinding、previous: readonly Uint8Array[]、currentRuntimeIdentitySha256: string
  * @returns Bufferを返す。

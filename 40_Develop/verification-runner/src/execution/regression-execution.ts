@@ -1,3 +1,9 @@
+/**
+ * regression-executionに属する責務をまとめる。
+ *
+ * @responsibility RegressionStageを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000003
+ */
 import {
   changedPaths,
   gitLocalChangeSetAdapter,
@@ -13,9 +19,9 @@ export const regressionStageOrder = [
 ] as const;
 
 /**
- * RegressionStageが扱う値の構造を表す。
+ * regression-executionで使用するRegression Stageの値契約を定義する。
  *
- * @responsibility RegressionStageに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Regression StageのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000003
  * @shape RegressionStageが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RegressionStageで宣言した値と責務の対応を維持する。
@@ -25,9 +31,9 @@ export const regressionStageOrder = [
  */
 export type RegressionStage = (typeof regressionStageOrder)[number];
 /**
- * RegressionExecutionStepが扱う値の構造を表す。
+ * regression-executionで使用するRegression Execution Stepの値契約を定義する。
  *
- * @responsibility RegressionExecutionStepに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Regression Execution StepのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000003
  * @shape RegressionExecutionStepが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RegressionExecutionStepで宣言した値と責務の対応を維持する。
@@ -39,9 +45,9 @@ export type RegressionExecutionStep =
   | RegressionStage
   | "windows_process_control";
 /**
- * RegressionStageResultが扱う値の構造を表す。
+ * regression-executionで使用するRegression Stage 結果の値契約を定義する。
  *
- * @responsibility RegressionStageResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Regression Stage 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000003
  * @shape RegressionStageResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RegressionStageResultで宣言した値と責務の対応を維持する。
@@ -59,9 +65,9 @@ export type RegressionStageResult = Readonly<{
 }>;
 
 /**
- * RegressionPlanEntryが扱う値の構造を表す。
+ * regression-executionで使用するRegression Plan Entryの値契約を定義する。
  *
- * @responsibility RegressionPlanEntryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Regression Plan EntryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000003
  * @shape RegressionPlanEntryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RegressionPlanEntryで宣言した値と責務の対応を維持する。
@@ -77,9 +83,9 @@ export type RegressionPlanEntry = Readonly<{
 }>;
 
 /**
- * RegressionStagePlanが扱う値の構造を表す。
+ * regression-executionで使用するRegression Stage Planの値契約を定義する。
  *
- * @responsibility RegressionStagePlanに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Regression Stage PlanのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000003
  * @shape RegressionStagePlanが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RegressionStagePlanで宣言した値と責務の対応を維持する。
@@ -95,9 +101,9 @@ export type RegressionStagePlan = Readonly<{
 }>;
 
 /**
- * buildRegressionStagePlanの処理を実行する。
+ * Regression Stage Planを構築する。
  *
- * @responsibility buildRegressionStagePlanに対応する入力処理と結果生成を所有する。
+ * @responsibility Regression Stage Planの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000003
  * @input selectedEntries: readonly RegressionPlanEntry[]、changedPaths: readonly string[]、windowsProcessControlRequired: boolean、staticOwners: readonly string[]
  * @returns readonly RegressionStagePlan[]を返す。
@@ -170,9 +176,9 @@ export function buildRegressionStagePlan(
 }
 
 /**
- * RegressionStageExecutorDependenciesが扱う値の構造を表す。
+ * regression-executionで使用するRegression Stage Executor Dependenciesの値契約を定義する。
  *
- * @responsibility RegressionStageExecutorDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Regression Stage Executor DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000003
  * @shape RegressionStageExecutorDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RegressionStageExecutorDependenciesで宣言した値と責務の対応を維持する。
@@ -187,9 +193,9 @@ export type RegressionStageExecutorDependencies = Readonly<{
 }>;
 
 /**
- * createRegressionStageExecutorの処理を実行する。
+ * Regression Stage Executorを構築する。
  *
- * @responsibility createRegressionStageExecutorに対応する入力処理と結果生成を所有する。
+ * @responsibility Regression Stage Executorの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000003
  * @input dependencies: RegressionStageExecutorDependencies
  * @returns (plan: RegressionStagePlan) => numberを返す。
@@ -214,9 +220,9 @@ export function createRegressionStageExecutor(
 }
 
 /**
- * executeRegressionStagesの処理を実行する。
+ * Regression Stagesを実行する。
  *
- * @responsibility executeRegressionStagesに対応する入力処理と結果生成を所有する。
+ * @responsibility Regression Stagesの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000003
  * @input plans: readonly RegressionStagePlan[]、executeStage: (plan: RegressionStagePlan) => number
  * @returns readonly RegressionStageResult[]を返す。
@@ -253,9 +259,9 @@ export function executeRegressionStages(
 }
 
 /**
- * normalizeExplicitChangedPathsの処理を実行する。
+ * Explicit Changed Pathsを固定Schemaへ正規化する。
  *
- * @responsibility normalizeExplicitChangedPathsに対応する入力処理と結果生成を所有する。
+ * @responsibility Explicit Changed Pathsの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000003
  * @input changedPaths: readonly string[]
  * @returns readonly string[]を返す。
@@ -293,9 +299,9 @@ export function normalizeExplicitChangedPaths(
 }
 
 /**
- * pathIsAbsoluteの処理を実行する。
+ * path Is Absoluteを決定する。
  *
- * @responsibility pathIsAbsoluteに対応する入力処理と結果生成を所有する。
+ * @responsibility path Is Absoluteの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000003
  * @input value: string
  * @returns booleanを返す。
@@ -313,9 +319,9 @@ function pathIsAbsolute(value: string): boolean {
 }
 
 /**
- * collectChangedPathsの処理を実行する。
+ * Changed Pathsを収集する。
  *
- * @responsibility collectChangedPathsに対応する入力処理と結果生成を所有する。
+ * @responsibility Changed Pathsの収集範囲、重複排除、欠落時の結果境界を所有する。
  * @trace ARCH-000003
  * @input repositoryRoot: string、base: string
  * @returns readonly string[]を返す。

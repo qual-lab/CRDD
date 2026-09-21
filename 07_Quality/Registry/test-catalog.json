@@ -1458,6 +1458,46 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "coordinator:integration:runtime-trust-evaluator",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/runtime-trust-evaluator.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "runtime",
+        "trust",
+        "policy"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "runtime_authority_not_issued"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:integration:runtime-trust-package-gate",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/runtime-trust-package-gate.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "runtime",
+        "trust",
+        "authority-gate"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "boundary_result_observed",
+        "runtime_authority_not_issued"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "coordinator:integration:project-runtime-candidate-integration-adapter",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/integration/project-runtime-candidate-integration-adapter.integration.test.ts",
@@ -2164,6 +2204,28 @@
       "humanInput": false,
       "postconditions": [
         "public_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:system:project-runtime-recovery",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/system/project-runtime-recovery.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": [
+        "project",
+        "runtime",
+        "recovery",
+        "durable-state"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "public_result_observed",
+        "exact_recovery_identity_settled",
         "owned_resources_settled_or_reported"
       ],
       "mandatoryByDefault": true
@@ -3821,6 +3883,27 @@
       "humanInput": false,
       "postconditions": [
         "repository_check_result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:unit:checker-core",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/checker-core.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "checker",
+        "core",
+        "determinism",
+        "finding"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
       ],
       "mandatoryByDefault": true
     },

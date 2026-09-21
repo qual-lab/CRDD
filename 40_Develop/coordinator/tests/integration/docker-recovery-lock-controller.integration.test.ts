@@ -6,7 +6,7 @@
  * @trace PRL-IT-013
  * @level IT
  * @scope docker、recovery、lock、controller
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
@@ -31,7 +31,7 @@ const ownerFixture = new URL(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 function acquireInChild(binding: string) {
   return spawnSync(
@@ -51,7 +51,7 @@ function acquireInChild(binding: string) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("長時間Effect中だけRuntimeState global lockを解放し前後で再取得する", () => {
   const binding = randomBytes(32).toString("hex");
@@ -79,7 +79,7 @@ test("長時間Effect中だけRuntimeState global lockを解放し前後で再�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("production共有lock controllerのowner process強制終了後に再取得する", async () => {
   const binding = randomBytes(32).toString("hex");

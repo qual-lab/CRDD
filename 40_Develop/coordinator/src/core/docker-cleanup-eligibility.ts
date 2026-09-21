@@ -1,7 +1,13 @@
 /**
- * DockerCleanupHandoffCandidateが扱う値の構造を表す。
+ * docker-cleanup-eligibilityに属する責務をまとめる。
  *
- * @responsibility DockerCleanupHandoffCandidateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility DockerCleanupHandoffCandidateを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
+/**
+ * docker-cleanup-eligibilityで使用するDocker 清掃 Handoff 候補の値契約を定義する。
+ *
+ * @responsibility Docker 清掃 Handoff 候補のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerCleanupHandoffCandidateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerCleanupHandoffCandidateで宣言した値と責務の対応を維持する。
@@ -16,9 +22,9 @@ export type DockerCleanupHandoffCandidate = Readonly<{
 }>;
 
 /**
- * DockerCleanupFinalizationCandidateが扱う値の構造を表す。
+ * docker-cleanup-eligibilityで使用するDocker 清掃 Finalization 候補の値契約を定義する。
  *
- * @responsibility DockerCleanupFinalizationCandidateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker 清掃 Finalization 候補のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerCleanupFinalizationCandidateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerCleanupFinalizationCandidateで宣言した値と責務の対応を維持する。
@@ -32,9 +38,9 @@ export type DockerCleanupFinalizationCandidate = Readonly<{
 }>;
 
 /**
- * RawDockerRecoveryProjectionが扱う値の構造を表す。
+ * docker-cleanup-eligibilityで使用するRaw Docker 回復 Projectionの値契約を定義する。
  *
- * @responsibility RawDockerRecoveryProjectionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Raw Docker 回復 ProjectionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RawDockerRecoveryProjectionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RawDockerRecoveryProjectionで宣言した値と責務の対応を維持する。
@@ -53,9 +59,9 @@ const MAX_RECOVERY_IDS = 128;
 const MAX_RECOVERY_ID_LENGTH = 512;
 
 /**
- * recoveryIdの処理を実行する。
+ * recovery Idを決定する。
  *
- * @responsibility recoveryIdに対応する入力処理と結果生成を所有する。
+ * @responsibility recovery Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is stringを返す。
@@ -77,9 +83,9 @@ function recoveryId(value: unknown): value is string {
 }
 
 /**
- * exactDenseStringArrayの処理を実行する。
+ * Dense String Arrayが完全一致するか判定する。
  *
- * @responsibility exactDenseStringArrayに対応する入力処理と結果生成を所有する。
+ * @responsibility Dense String Arrayの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns exactDenseStringArrayの計算結果を返す。
@@ -129,9 +135,9 @@ function exactDenseStringArray(value: unknown) {
 }
 
 /**
- * exactPlainRecordの処理を実行する。
+ * Plain 記録が完全一致するか判定する。
  *
- * @responsibility exactPlainRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Plain 記録の比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、expectedKeys: readonly string[]
  * @returns Readonly<Record<string, unknown>> | nullを返す。
@@ -181,9 +187,9 @@ function exactPlainRecord(
 }
 
 /**
- * exactPlainRecordArrayの処理を実行する。
+ * Plain 記録 Arrayが完全一致するか判定する。
  *
- * @responsibility exactPlainRecordArrayに対応する入力処理と結果生成を所有する。
+ * @responsibility Plain 記録 Arrayの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、expectedRecordKeys: readonly string[]
  * @returns exactPlainRecordArrayの計算結果を返す。
@@ -231,9 +237,9 @@ function exactPlainRecordArray(
 }
 
 /**
- * snapshotInputの処理を実行する。
+ * 入力を所有Snapshotへ変換する。
  *
- * @responsibility snapshotInputに対応する入力処理と結果生成を所有する。
+ * @responsibility 入力の取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns snapshotInputの計算結果を返す。
@@ -270,9 +276,9 @@ function snapshotInput(value: unknown) {
 }
 
 /**
- * canonicalRawIdsの処理を実行する。
+ * canonical Raw Idsを決定する。
  *
- * @responsibility canonicalRawIdsに対応する入力処理と結果生成を所有する。
+ * @responsibility canonical Raw Idsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input raw: RawDockerRecoveryProjection
  * @returns canonicalRawIdsの計算結果を返す。
@@ -303,9 +309,9 @@ function canonicalRawIds(raw: RawDockerRecoveryProjection) {
 }
 
 /**
- * evaluateの処理を実行する。
+ * docker-cleanup-eligibilityを評価する。
  *
- * @responsibility evaluateに対応する入力処理と結果生成を所有する。
+ * @responsibility docker-cleanup-eligibilityの評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input inputValue: unknown
  * @returns evaluateの計算結果を返す。
@@ -368,9 +374,9 @@ function evaluate(inputValue: unknown) {
 }
 
 /**
- * evaluateManagedDockerCleanupEligibilityの処理を実行する。
+ * Managed Docker 清掃 Eligibilityを評価する。
  *
- * @responsibility evaluateManagedDockerCleanupEligibilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Managed Docker 清掃 Eligibilityの評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input input: unknown
  * @returns evaluateManagedDockerCleanupEligibilityの計算結果を返す。

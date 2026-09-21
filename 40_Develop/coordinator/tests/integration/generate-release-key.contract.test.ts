@@ -6,7 +6,7 @@
  * @trace AIT-IT-008
  * @level IT
  * @scope generate、release、key
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 import assert from "node:assert/strict";
 import { createHash, createPrivateKey, createPublicKey } from "node:crypto";
@@ -32,7 +32,7 @@ const repositoryRoot = fileURLToPath(new URL("../../../../", import.meta.url));
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 async function createReleaseKeyDistributionFixture(t: TestContext) {
   const verifiedRoot = verifyRepositoryRoot(repositoryRoot);
@@ -98,7 +98,7 @@ async function createReleaseKeyDistributionFixture(t: TestContext) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("配布Root外へ暗号化秘密鍵とSPKI DER公開鍵だけを生成する", async (t) => {
   const { parent, distributionRoot, implementation } =
@@ -159,7 +159,7 @@ test("配布Root外へ暗号化秘密鍵とSPKI DER公開鍵だけを生成す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("Repository内Path、相対Pathおよび短いpassphraseを拒否する", async (t) => {
   assert.throws(

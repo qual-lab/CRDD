@@ -1,3 +1,9 @@
+/**
+ * candidate-store-kernel-lockに属する責務をまとめる。
+ *
+ * @responsibility HostOperationSupervisorCleanupを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000015
+ */
 import type { ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
@@ -18,9 +24,9 @@ const LOCK_RELEASE_TIMEOUT_MS = 5_000;
 const INTERACTIVE_LOCK_CLEANUP_TIMEOUT_MS = 1_000;
 const HOST_SUPERVISOR_RELEASE_TIMEOUT_MS = 1_000;
 /**
- * HostOperationSupervisorCleanupが扱う値の構造を表す。
+ * candidate-store-kernel-lockで使用するHost Operation Supervisor 清掃の値契約を定義する。
  *
- * @responsibility HostOperationSupervisorCleanupに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Host Operation Supervisor 清掃のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape HostOperationSupervisorCleanupが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HostOperationSupervisorCleanupで宣言した値と責務の対応を維持する。
@@ -33,9 +39,9 @@ type HostOperationSupervisorCleanup =
   | "cleanup_confirmed_failure"
   | "cleanup_unknown";
 /**
- * HostOperationLockSupervisorが扱う値の構造を表す。
+ * candidate-store-kernel-lockで使用するHost Operation Lock Supervisorの値契約を定義する。
  *
- * @responsibility HostOperationLockSupervisorに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Host Operation Lock SupervisorのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape HostOperationLockSupervisorが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HostOperationLockSupervisorで宣言した値と責務の対応を維持する。
@@ -54,9 +60,9 @@ export type HostOperationLockSupervisor = Readonly<{
   release: () => Promise<HostOperationSupervisorCleanup>;
 }>;
 /**
- * HostOperationSupervisorLockOutcomeが扱う値の構造を表す。
+ * candidate-store-kernel-lockで使用するHost Operation Supervisor Lock Outcomeの値契約を定義する。
  *
- * @responsibility HostOperationSupervisorLockOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Host Operation Supervisor Lock OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape HostOperationSupervisorLockOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HostOperationSupervisorLockOutcomeで宣言した値と責務の対応を維持する。
@@ -74,9 +80,9 @@ export type HostOperationSupervisorLockOutcome = Readonly<{
 }>;
 
 /**
- * InteractiveConsoleLockWorkerが扱う値の構造を表す。
+ * candidate-store-kernel-lockで使用するInteractive Console Lock Workerの値契約を定義する。
  *
- * @responsibility InteractiveConsoleLockWorkerに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Interactive Console Lock WorkerのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape InteractiveConsoleLockWorkerが表すProperty、識別子およびRelationを型として固定する。
  * @invariant InteractiveConsoleLockWorkerで宣言した値と責務の対応を維持する。
@@ -95,9 +101,9 @@ type InteractiveConsoleLockWorker = Readonly<{
 }>;
 
 /**
- * InteractiveConsoleKernelLockOutcomeが扱う値の構造を表す。
+ * candidate-store-kernel-lockで使用するInteractive Console Kernel Lock Outcomeの値契約を定義する。
  *
- * @responsibility InteractiveConsoleKernelLockOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Interactive Console Kernel Lock OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape InteractiveConsoleKernelLockOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant InteractiveConsoleKernelLockOutcomeで宣言した値と責務の対応を維持する。
@@ -113,9 +119,9 @@ export type InteractiveConsoleKernelLockOutcome = Readonly<{
 }>;
 
 /**
- * waitForStateの処理を実行する。
+ * For 状態を完了まで待機する。
  *
- * @responsibility waitForStateに対応する入力処理と結果生成を所有する。
+ * @responsibility For 状態の待機条件、完了観測、Timeout境界を所有する。
  * @trace ARCH-000015
  * @input state: Int32Array、expected: number、timeoutMs: number
  * @returns waitForStateの計算結果を返す。
@@ -139,9 +145,9 @@ function waitForState(state: Int32Array, expected: number, timeoutMs: number) {
 }
 
 /**
- * acquireNamedPipeKernelLockの処理を実行する。
+ * Named Pipe Kernel Lockを取得する。
  *
- * @responsibility acquireNamedPipeKernelLockに対応する入力処理と結果生成を所有する。
+ * @responsibility Named Pipe Kernel Lockの取得条件、所有権、失敗時の非取得境界を所有する。
  * @trace ARCH-000015
  * @input pipeName: string
  * @returns acquireNamedPipeKernelLockの計算結果を返す。
@@ -201,9 +207,9 @@ function acquireNamedPipeKernelLock(pipeName: string) {
 }
 
 /**
- * acquireRuntimeOwnedCandidateStoreKernelLockの処理を実行する。
+ * Runtime 所有 候補 Store Kernel Lockを取得する。
  *
- * @responsibility acquireRuntimeOwnedCandidateStoreKernelLockに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 候補 Store Kernel Lockの取得条件、所有権、失敗時の非取得境界を所有する。
  * @trace ARCH-000015
  * @input candidateStoreProtectionHash: unknown
  * @returns acquireRuntimeOwnedCandidateStoreKernelLockの計算結果を返す。
@@ -236,9 +242,9 @@ export function acquireRuntimeOwnedCandidateStoreKernelLock(
 }
 
 /**
- * acquireRuntimeOwnedLogicalProviderHomeKernelLockの処理を実行する。
+ * Runtime 所有 Logical Provider Home Kernel Lockを取得する。
  *
- * @responsibility acquireRuntimeOwnedLogicalProviderHomeKernelLockに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Logical Provider Home Kernel Lockの取得条件、所有権、失敗時の非取得境界を所有する。
  * @trace ARCH-000015
  * @input stableLogicalHomeBindingHash: unknown
  * @returns acquireRuntimeOwnedLogicalProviderHomeKernelLockの計算結果を返す。
@@ -271,9 +277,9 @@ export function acquireRuntimeOwnedLogicalProviderHomeKernelLock(
 }
 
 /**
- * acquireRuntimeOwnedDockerRuntimeStateKernelLockの処理を実行する。
+ * Runtime 所有 Docker Runtime 状態 Kernel Lockを取得する。
  *
- * @responsibility acquireRuntimeOwnedDockerRuntimeStateKernelLockに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Runtime 状態 Kernel Lockの取得条件、所有権、失敗時の非取得境界を所有する。
  * @trace ARCH-000015
  * @input runtimeStateBindingHash: unknown
  * @returns acquireRuntimeOwnedDockerRuntimeStateKernelLockの計算結果を返す。
@@ -305,9 +311,9 @@ export function acquireRuntimeOwnedDockerRuntimeStateKernelLock(
 }
 
 /**
- * acquireRuntimeOwnedInteractiveConsoleKernelLockOutcomeの処理を実行する。
+ * Runtime 所有 Interactive Console Kernel Lock Outcomeを取得する。
  *
- * @responsibility acquireRuntimeOwnedInteractiveConsoleKernelLockOutcomeに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Interactive Console Kernel Lock Outcomeの取得条件、所有権、失敗時の非取得境界を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
  * @returns acquireRuntimeOwnedInteractiveConsoleKernelLockOutcomeの計算結果を返す。
@@ -350,9 +356,9 @@ export function acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome() {
 }
 
 /**
- * hostOperationGenerationBindingHashの処理を実行する。
+ * host Operation Generation Binding Hashを決定する。
  *
- * @responsibility hostOperationGenerationBindingHashに対応する入力処理と結果生成を所有する。
+ * @responsibility host Operation Generation Binding Hashの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input rootName: unknown、nonce: unknown
  * @returns hostOperationGenerationBindingHashの計算結果を返す。
@@ -385,9 +391,9 @@ export function hostOperationGenerationBindingHash(
 }
 
 /**
- * acquireRuntimeOwnedHostOperationKernelLockの処理を実行する。
+ * Runtime 所有 Host Operation Kernel Lockを取得する。
  *
- * @responsibility acquireRuntimeOwnedHostOperationKernelLockに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Host Operation Kernel Lockの取得条件、所有権、失敗時の非取得境界を所有する。
  * @trace ARCH-000015
  * @input rootName: unknown、nonce: unknown
  * @returns acquireRuntimeOwnedHostOperationKernelLockの計算結果を返す。
@@ -412,9 +418,9 @@ export function acquireRuntimeOwnedHostOperationKernelLock(
 }
 
 /**
- * prepareHostOperationSupervisorLockRequestの処理を実行する。
+ * Host Operation Supervisor Lock Requestを実行前候補として準備する。
  *
- * @responsibility prepareHostOperationSupervisorLockRequestに対応する入力処理と結果生成を所有する。
+ * @responsibility Host Operation Supervisor Lock Requestの準備条件、候補Identity、Effect前の拒否境界を所有する。
  * @trace ARCH-000015
  * @input rootName: unknown、nonce: unknown、timing: Readonly<{ acquireTimeoutMs: number; releaseTimeoutMs: number; }>
  * @returns Readonly<{ pipeName: string; environment: NodeJS.ProcessEnv; timing: Readonly<{ acquireTimeoutMs: number; releaseTimeoutMs: number }>; }> | nullを返す。
@@ -460,9 +466,9 @@ export function prepareHostOperationSupervisorLockRequest(
 }
 
 /**
- * acquireRuntimeOwnedHostOperationSupervisorLockの処理を実行する。
+ * Runtime 所有 Host Operation Supervisor Lockを取得する。
  *
- * @responsibility acquireRuntimeOwnedHostOperationSupervisorLockに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Host Operation Supervisor Lockの取得条件、所有権、失敗時の非取得境界を所有する。
  * @trace ARCH-000015
  * @input rootName: unknown、nonce: unknown
  * @returns acquireRuntimeOwnedHostOperationSupervisorLockの計算結果を返す。
@@ -512,9 +518,9 @@ export function acquireRuntimeOwnedHostOperationSupervisorLock(
 }
 
 /**
- * describeCandidateStoreKernelLockContractの処理を実行する。
+ * 候補 Store Kernel Lock 契約の公開契約を記述する。
  *
- * @responsibility describeCandidateStoreKernelLockContractに対応する入力処理と結果生成を所有する。
+ * @responsibility 候補 Store Kernel Lock 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeCandidateStoreKernelLockContractの計算結果を返す。

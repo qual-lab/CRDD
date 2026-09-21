@@ -1,3 +1,9 @@
+/**
+ * check-platform-access-coverageに属する責務をまとめる。
+ *
+ * @responsibility executeCommandを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -27,6 +33,22 @@ const expectedSources = new Set(
   ].map(path.normalize),
 );
 
+/**
+ * Commandを実行する。
+ *
+ * @responsibility Commandの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input command: string、commandArguments: readonly string[]、options
+ * @returns executeCommandの計算結果を返す。
+ * @precondition 「command: string、commandArguments: readonly string[]、options」がexecuteCommandの入力契約を満たす。
+ * @postcondition executeCommandの責務を完了した結果だけを返す。
+ * @effect executeCommandは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure executeCommandは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant executeCommandは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: executeCommandはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: executeCommandは共有非同期状態を持たない同期処理である。
+ */
 function executeCommand(
   command: string,
   commandArguments: readonly string[],
@@ -47,6 +69,22 @@ function executeCommand(
   return result.stdout;
 }
 
+/**
+ * Filesを収集する。
+ *
+ * @responsibility Filesの収集範囲、重複排除、欠落時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input root: string、suffix: string
+ * @returns string[]を返す。
+ * @precondition 「root: string、suffix: string」がcollectFilesの入力契約を満たす。
+ * @postcondition collectFilesの責務を完了した結果だけを返す。
+ * @effect collectFilesはFilesystemの読取りまたは書込みを実行する。
+ * @failure collectFilesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant collectFilesは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: collectFilesはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: collectFilesは共有非同期状態を持たない同期処理である。
+ */
 function collectFiles(root: string, suffix: string): string[] {
   const files: string[] = [];
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
@@ -62,6 +100,22 @@ function collectFiles(root: string, suffix: string): string[] {
   return files;
 }
 
+/**
+ * llvm Toolを決定する。
+ *
+ * @responsibility llvm Toolの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input name: string
+ * @returns stringを返す。
+ * @precondition 「name: string」がllvmToolの入力契約を満たす。
+ * @postcondition llvmToolの責務を完了した結果だけを返す。
+ * @effect llvmToolはFilesystemの読取りまたは書込みを実行する。
+ * @failure llvmToolは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant llvmToolは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: llvmToolはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: llvmToolは共有非同期状態を持たない同期処理である。
+ */
 function llvmTool(name: string): string {
   const targetLibrary = executeCommand("rustc", [
     `+${TOOLCHAIN}`,

@@ -3,10 +3,11 @@
  *
  * @packageDocumentation
  * @responsibility version-control:integration:fixed-snapshotが所有する検証責務を実行する。
+ * @trace RCM-IT-003
  * @trace RFD-IT-008
  * @level IT
  * @scope version-control、fixed-snapshot、candidate、cleanup
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RCM-IT-003=Related 2 Blocks: Producer→Consumer→公開・署名・Release・Recovery / RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -29,13 +30,13 @@ import {
  * gitのTest準備責務を実行する。
  *
  * @responsibility gitがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace RFD-IT-008
+ * @trace RCM-IT-003
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
  * @stimulus gitを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RCM-IT-003=Related 2 Blocks: Producer→Consumer→公開・署名・Release・Recovery
  */
 function git(root: string, commandArguments: readonly string[]): string {
   return execFileSync("git", ["-C", root, ...commandArguments], {
@@ -54,7 +55,7 @@ function git(root: string, commandArguments: readonly string[]): string {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 test("固定RevisionのIdentity・本文・候補を同じSnapshotから復元する", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-snapshot-"));
@@ -125,13 +126,13 @@ test("固定RevisionのIdentity・本文・候補を同じSnapshotから復元�
  * 不明Revision・Path逸脱・内容Policy拒否をEffect前に閉じるを検証する。
  *
  * @responsibility 不明Revision・Path逸脱・内容Policy拒否をEffect前に閉じるの合否判定を所有する。
- * @trace RFD-IT-008
+ * @trace RCM-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 不明Revision・Path逸脱・内容Policy拒否をEffect前に閉じるの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RCM-IT-003=Related 2 Blocks: Producer→Consumer→公開・署名・Release・Recovery
  */
 test("不明Revision・Path逸脱・内容Policy拒否をEffect前に閉じる", (t) => {
   const root = fs.mkdtempSync(
@@ -198,7 +199,7 @@ test("不明Revision・Path逸脱・内容Policy拒否をEffect前に閉じる",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 test("Candidate出力はopaque Capabilityを要求し、部分生成を後始末する", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-output-"));
@@ -272,7 +273,7 @@ test("Candidate出力はopaque Capabilityを要求し、部分生成を後始末
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 test("Candidate出力Capabilityは発行元Owner以外へ流用できない", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-owner-root-"));
@@ -318,7 +319,7 @@ test("Candidate出力Capabilityは発行元Owner以外へ流用できない", (t
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 test("Candidate出力Capabilityは空で安定したDirectoryだけに発行する", (t) => {
   const workspace = fs.mkdtempSync(

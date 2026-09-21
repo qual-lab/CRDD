@@ -6,7 +6,7 @@
  * @trace AIT-IT-008
  * @level IT
  * @scope sign、release、manifest
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -57,7 +57,7 @@ type ContractTestManifestOptions = Parameters<
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 function signReleaseManifest(options: ContractTestManifestOptions) {
   const { passphrase, ...preflightOptions } = options;
@@ -78,7 +78,7 @@ function signReleaseManifest(options: ContractTestManifestOptions) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("署名鍵PathだけをGit管理外envから一意に解決する", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-signing-env-"));
@@ -137,7 +137,7 @@ test("署名鍵PathだけをGit管理外envから一意に解決する", (t) => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("明示した鍵Pathはenvを読まず、両入口とも後続の共通preflightへ渡す", () => {
   const explicit = path.resolve("external-release-private.pem");
@@ -165,7 +165,7 @@ test("明示した鍵Pathはenvを読まず、両入口とも後続の共通pref
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("期限なしは明示指定だけを受け、CLIの排他違反とundefinedを秘密入力前に拒否する", () => {
   const options = {
@@ -290,7 +290,7 @@ test("期限なしは明示指定だけを受け、CLIの排他違反とundefine
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 function uniqueReleaseCandidate(prefix: string) {
   fs.mkdirSync(releaseStagingRoot, { recursive: true });
@@ -312,7 +312,7 @@ function uniqueReleaseCandidate(prefix: string) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 function currentSignedSourceIdentity() {
   const manifestPath = path.join(
@@ -380,7 +380,7 @@ function currentSignedSourceIdentity() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 function runtimeDistributionFixture(prefix: string) {
   const distributionRoot = uniqueReleaseCandidate(prefix);
@@ -448,7 +448,7 @@ function runtimeDistributionFixture(prefix: string) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("production署名sourceはTrust差替え、検証skipまたはtest hookを持たない", () => {
   const forbiddenNames = [
@@ -551,7 +551,7 @@ test("production署名sourceはTrust差替え、検証skipまたはtest hookを�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("SHA-256 CRDD Release Identityはpassphrase利用とFilesystem観測より前に明示拒否する", () => {
   assert.throws(
@@ -614,7 +614,7 @@ test("SHA-256 CRDD Release Identityはpassphrase利用とFilesystem観測より�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("Release公開引数はpassphrase入力とFilesystem観測より前に完全検証する", () => {
   const base = {
@@ -705,7 +705,7 @@ test("Release公開引数はpassphrase入力とFilesystem観測より前に完�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("Release stagingの非秘密検査はpassphrase入力より前に完了する", () => {
   const cli = spawnSync(
@@ -752,7 +752,7 @@ test("Release stagingの非秘密検査はpassphrase入力より前に完了す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("Runtime依存閉包の欠落を秘密鍵読取りより前の署名preflightで拒否する", () => {
   const cases = [
@@ -859,7 +859,7 @@ test("Runtime依存閉包の欠落を秘密鍵読取りより前の署名preflig
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("実行primitive閉包の代表違反を全公開Consumerと署名CLIで秘密入力前に拒否する", async () => {
   const cases = [
@@ -1065,7 +1065,7 @@ test("実行primitive閉包の代表違反を全公開Consumerと署名CLIで秘
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("Release署名RootはRepository-localの単一candidate directoryだけを受理する", () => {
   const candidate = uniqueReleaseCandidate("contract-root");
@@ -1123,7 +1123,7 @@ test("Release署名RootはRepository-localの単一candidate directoryだけを�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("偽造または再利用したP検査能力は秘密値処理と署名Effectの前に拒否する", () => {
   const forged = Object.freeze({
@@ -1150,7 +1150,7 @@ test("偽造または再利用したP検査能力は秘密値処理と署名Effe
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 function ephemeralEnvelopeBytes() {
   const { privateKey, publicKey } = generateKeyPairSync("ed25519");
@@ -1179,7 +1179,7 @@ function ephemeralEnvelopeBytes() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 function placementFixture() {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-placement-flow-"));
@@ -1223,7 +1223,7 @@ function placementFixture() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 function withFsyncMutation(
   mutation: (descriptor: number) => void,
@@ -1251,7 +1251,7 @@ function withFsyncMutation(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 function assertStagingFailure(
   operation: () => void,
@@ -1278,7 +1278,7 @@ function assertStagingFailure(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("Platform Access成果物欠落ではRelease staging sessionを開始しない", () => {
   const parent = fs.mkdtempSync(
@@ -1304,7 +1304,7 @@ test("Platform Access成果物欠落ではRelease staging sessionを開始しな
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("署名Authorityを持たない配置helperは同一fdのcanonical byteを再確認する", () => {
   const value = placementFixture();
@@ -1350,7 +1350,7 @@ test("署名Authorityを持たない配置helperは同一fdのcanonical byteを�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("manifestの同長上書き、短縮および追記をcreatedへ流用しない", {
   concurrency: false,
@@ -1405,7 +1405,7 @@ test("manifestの同長上書き、短縮および追記をcreatedへ流用し�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("manifest Path、Release DirectoryまたはPlatform Access成果物の配置後差を拒否して自動削除しない", {
   concurrency: false,
@@ -1467,7 +1467,7 @@ test("manifest Path、Release DirectoryまたはPlatform Access成果物の配�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("偽造tokenと既存manifestをRelease staging成功へ流用しない", () => {
   const canonicalBytes = ephemeralEnvelopeBytes();
@@ -1501,7 +1501,7 @@ test("偽造tokenと既存manifestをRelease staging成功へ流用しない", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない", () => {
   const distributionRoot = uniqueReleaseCandidate("test-key-pin");

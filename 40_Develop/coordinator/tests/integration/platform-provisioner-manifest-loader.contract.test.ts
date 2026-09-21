@@ -6,7 +6,7 @@
  * @trace AIT-IT-008
  * @level IT
  * @scope platform、provisioner、manifest、loader
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -32,7 +32,7 @@ import { canonicalizeProvisioningJsonValueCandidate } from "../../src/security/p
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 function fixtureEnvelope() {
   return {
@@ -59,7 +59,7 @@ function fixtureEnvelope() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("旧revision 2 manifestは旧固定Pathからだけ履歴確認用に読込する", () => {
   const canonical = canonicalizeProvisioningJsonValueCandidate(
@@ -102,7 +102,7 @@ test("旧revision 2 manifestは旧固定Pathからだけ履歴確認用に読込
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("履歴Recoveryは新旧manifest配置のexact一方だけを受理する", () => {
   const canonical = canonicalizeProvisioningJsonValueCandidate(
@@ -147,7 +147,7 @@ test("履歴Recoveryは新旧manifest配置のexact一方だけを受理する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("履歴Recoveryの全producerは新旧配置のexact-one loaderへ接続する", () => {
   for (const relativePath of [
@@ -179,7 +179,7 @@ test("履歴Recoveryの全producerは新旧配置のexact-one loaderへ接続す
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 function withDistribution(
   bytes: Buffer,
@@ -216,7 +216,7 @@ function withDistribution(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("固定Pathのcanonical manifest bytesだけを安定読込する", () => {
   const canonical = canonicalizeProvisioningJsonValueCandidate(
@@ -246,7 +246,7 @@ test("固定Pathのcanonical manifest bytesだけを安定読込する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("非canonical JSON、BOM、相対Rootおよび欠落manifestを拒否する", () => {
   withDistribution(
@@ -293,7 +293,7 @@ test("非canonical JSON、BOM、相対Rootおよび欠落manifestを拒否する
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("manifestの読込競合はHashと権限を発行せず対象descriptorを閉じる", (t) => {
   for (const failure of [
@@ -326,7 +326,7 @@ test("manifestの読込競合はHashと権限を発行せず対象descriptorを�
        * @observation 返却値、生成fixtureまたは観測値を取得する。
        * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
        * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-       * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+       * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
        */
       const inspect = () =>
         inspectPlatformProvisionerManifestFileCandidate(root);

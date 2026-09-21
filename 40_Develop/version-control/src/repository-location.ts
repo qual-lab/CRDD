@@ -1,3 +1,9 @@
+/**
+ * repository-locationに属する責務をまとめる。
+ *
+ * @responsibility VerifiedRepositoryRootを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000002
+ */
 import fs from "node:fs";
 import path from "node:path";
 
@@ -10,9 +16,9 @@ export const REPOSITORY_LOCATION_CONTRACT_REVISION = 1 as const;
 const roots = new WeakMap<object, string>();
 
 /**
- * VerifiedRepositoryRootが扱う値の構造を表す。
+ * repository-locationで使用するVerified Repository Rootの値契約を定義する。
  *
- * @responsibility VerifiedRepositoryRootに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Verified Repository RootのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape VerifiedRepositoryRootが表すProperty、識別子およびRelationを型として固定する。
  * @invariant VerifiedRepositoryRootで宣言した値と責務の対応を維持する。
@@ -25,9 +31,9 @@ export type VerifiedRepositoryRoot = Readonly<{
 }>;
 
 /**
- * samePathの処理を実行する。
+ * Pathが同一かを判定する。
  *
- * @responsibility samePathに対応する入力処理と結果生成を所有する。
+ * @responsibility Pathの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000002
  * @input left: string、right: string
  * @returns booleanを返す。
@@ -50,9 +56,9 @@ function samePath(left: string, right: string): boolean {
 }
 
 /**
- * isMissingの処理を実行する。
+ * Missingかを判定する。
  *
- * @responsibility isMissingに対応する入力処理と結果生成を所有する。
+ * @responsibility Missingの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000002
  * @input error: unknown
  * @returns booleanを返す。
@@ -75,9 +81,9 @@ function isMissing(error: unknown): boolean {
 }
 
 /**
- * validAbsoluteDirectoryの処理を実行する。
+ * Absolute Directoryが有効か判定する。
  *
- * @responsibility validAbsoluteDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Absolute Directoryの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000002
  * @input candidate: unknown
  * @returns candidate is stringを返す。
@@ -112,9 +118,9 @@ function validAbsoluteDirectory(candidate: unknown): candidate is string {
 }
 
 /**
- * observeExactRepositoryRootの処理を実行する。
+ * Exact Repository Rootを観測する。
  *
- * @responsibility observeExactRepositoryRootに対応する入力処理と結果生成を所有する。
+ * @responsibility Exact Repository Rootの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000002
  * @input candidate: unknown
  * @returns string | nullを返す。
@@ -139,9 +145,9 @@ function observeExactRepositoryRoot(candidate: unknown): string | null {
 }
 
 /**
- * issueCapabilityの処理を実行する。
+ * Capabilityを発行する。
  *
- * @responsibility issueCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Capabilityの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000002
  * @input root: string
  * @returns VerifiedRepositoryRootを返す。
@@ -163,9 +169,9 @@ function issueCapability(root: string): VerifiedRepositoryRoot {
 }
 
 /**
- * verifyRepositoryRootの処理を実行する。
+ * Repository Rootを検証する。
  *
- * @responsibility verifyRepositoryRootに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Rootの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000002
  * @input candidate: unknown
  * @returns | Readonly<{ status: "completed"; reason: "repository_root_verified"; capability: VerifiedRepositoryRoot; }> | Readonly<{ status: "blocked"; reason: "repository_root_invalid"; capability: null; }>を返す。
@@ -206,7 +212,7 @@ export function verifyRepositoryRoot(candidate: unknown):
 /**
  * Selects the nearest enclosing repository. A present but invalid repository
  *
- * @responsibility verifyRepositoryRootFromWorkingDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Root From Working Directoryの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000002
  * @input workingDirectory: unknown
  * @returns ReturnType<typeof verifyRepositoryRoot>を返す。
@@ -232,9 +238,9 @@ export function verifyRepositoryRootFromWorkingDirectory(
 }
 
 /**
- * resolveVerifiedRepositoryRootの処理を実行する。
+ * Verified Repository Rootを一意に解決する。
  *
- * @responsibility resolveVerifiedRepositoryRootに対応する入力処理と結果生成を所有する。
+ * @responsibility Verified Repository Rootの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000002
  * @input capability: VerifiedRepositoryRoot
  * @returns string | nullを返す。
@@ -257,9 +263,9 @@ export function resolveVerifiedRepositoryRoot(
 }
 
 /**
- * resolveVerifiedRepositoryRootFromWorkingDirectoryの処理を実行する。
+ * Verified Repository Root From Working Directoryを一意に解決する。
  *
- * @responsibility resolveVerifiedRepositoryRootFromWorkingDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Verified Repository Root From Working Directoryの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000002
  * @input workingDirectory: unknown
  * @returns stringを返す。
@@ -298,9 +304,9 @@ export function resolveVerifiedRepositoryRootFromWorkingDirectory(
 }
 
 /**
- * describeRepositoryLocationContractの処理を実行する。
+ * Repository Location 契約の公開契約を記述する。
  *
- * @responsibility describeRepositoryLocationContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Location 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000002
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeRepositoryLocationContractの計算結果を返す。

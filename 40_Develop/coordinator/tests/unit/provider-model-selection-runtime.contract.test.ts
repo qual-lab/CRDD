@@ -6,7 +6,7 @@
  * @trace PRL-UT-014
  * @level UT
  * @scope provider、model、selection、runtime
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -26,7 +26,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 function createBoundedImplementation(provider: "codex" | "claude") {
   return {
@@ -53,7 +53,7 @@ function createBoundedImplementation(provider: "codex" | "claude") {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("具体化済みの局所実装は通常速度の低推論候補になる", () => {
   const selected = selectProviderModelCandidate(
@@ -82,7 +82,7 @@ test("具体化済みの局所実装は通常速度の低推論候補になる",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("高難度レビュー自己申告だけでは高推論を発行せず中推論へ抑制する", () => {
   const selected = selectProviderModelCandidate({
@@ -121,7 +121,7 @@ test("高難度レビュー自己申告だけでは高推論を発行せず中�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("通常のCoordinator方針整合は役割だけで高コスト化しない", () => {
   const selected = selectProviderModelCandidate({
@@ -149,7 +149,7 @@ test("通常のCoordinator方針整合は役割だけで高コスト化しない
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("限定診断は中推論になりProvider fallbackを発行しない", () => {
   const selected = selectProviderModelCandidate({
@@ -176,7 +176,7 @@ test("限定診断は中推論になりProvider fallbackを発行しない", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("未解決方針を含む実装を低推論へ分類しない", () => {
   const selected = selectProviderModelCandidate({
@@ -201,7 +201,7 @@ test("未解決方針を含む実装を低推論へ分類しない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("不足・余分・不正な分類情報は固定理由でfail closedになる", () => {
   const missing = { ...createBoundedImplementation("claude") } as Record<
@@ -246,7 +246,7 @@ test("不足・余分・不正な分類情報は固定理由でfail closedにな
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("公開契約は通常速度・説明可能選定・再選定境界を固定する", () => {
   const contract = describeProviderModelSelectionRuntimeContract();

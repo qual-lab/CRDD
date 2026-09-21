@@ -6,7 +6,7 @@
  * @trace ERB-IT-014
  * @level IT
  * @scope docker、restart、machine
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -27,7 +27,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 function fixture(change: string = "") {
   const events: string[] = [];
@@ -124,7 +124,7 @@ function fixture(change: string = "") {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("official stop waits for delayed process exit without reissuing stop", async () => {
   const f = fixture("delayed-exit");
@@ -145,7 +145,7 @@ for (const reason of ["delayed-timeout", "delayed-cancel", "delayed-lock"]) {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+   * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
    */
   test(`post-stop observation ${reason} remains bounded and unknown`, async () => {
     const f = fixture(reason);
@@ -179,7 +179,7 @@ for (const reason of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+   * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
    */
   test(`pre-effect refusal ${reason} does not claim unknown issued effect`, async () => {
     const f = fixture(reason);
@@ -200,7 +200,7 @@ for (const reason of ["terminate", "residual"]) {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+   * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
    */
   test(`issued stop ${reason} preserves unknown effect`, async () => {
     const f = fixture(reason);
@@ -220,7 +220,7 @@ for (const reason of ["terminate", "residual"]) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("start precondition refusal is unissued but failed readiness remains unknown", async () => {
   const f = fixture("engine");
@@ -245,7 +245,7 @@ for (const stage of ["before-kill", "before-wsl", "before-launch"] as const) {
      * @observation 結果、状態、Effectおよび終了後条件を観測する。
      * @oracle Test本文のassertionが期待条件を満たす。
      * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-     * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+     * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
      */
     test(`machine observes ${mode} after await at ${stage} before next effect`, async () => {
       const f = fixture();
@@ -259,7 +259,7 @@ for (const stage of ["before-kill", "before-wsl", "before-launch"] as const) {
        * @observation 返却値、生成fixtureまたは観測値を取得する。
        * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
        * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-       * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+       * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
        */
       const lose = () =>
         mode === "cancel" ? f.controller.abort() : f.loseBoundary();
@@ -310,7 +310,7 @@ for (const stage of ["before-kill", "before-wsl", "before-launch"] as const) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("cancellation joins Native abort once and preserves unknown cleanup", async () => {
   const f = fixture();
@@ -338,7 +338,7 @@ test("cancellation joins Native abort once and preserves unknown cleanup", async
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("restart machine stops both boundaries before launch and joins release", async () => {
   const { machine, events } = fixture();
@@ -361,7 +361,7 @@ test("restart machine stops both boundaries before launch and joins release", as
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("idle WSL with Desktop present uses official stop, not forced termination", async () => {
   const { machine, events } = fixture("idle");
@@ -380,7 +380,7 @@ test("idle WSL with Desktop present uses official stop, not forced termination",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("ready Linux Engine does not depend on the optional WSL backend state", async () => {
   const { machine, events } = fixture("non-wsl");
@@ -400,7 +400,7 @@ test("ready Linux Engine does not depend on the optional WSL backend state", asy
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("stopped state requires the Engine to be known unavailable", async () => {
   const { machine, events } = fixture("engine-still-ready");
@@ -429,7 +429,7 @@ for (const failure of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+   * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
    */
   test(`restart machine refuses unknown/unsafe state: ${failure}`, async () => {
     const { machine, events } = fixture(failure);
@@ -451,7 +451,7 @@ for (const failure of [
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("Engine unready has bounded attempts without a progressing test clock", async () => {
   const { machine } = fixture("engine");
@@ -469,7 +469,7 @@ test("Engine unready has bounded attempts without a progressing test clock", asy
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("Engine reply requires a successful Linux server result, not arbitrary JSON", () => {
   const result = {
@@ -518,7 +518,7 @@ test("Engine reply requires a successful Linux server result, not arbitrary JSON
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("Engine observation distinguishes known unavailability from unknown failure", () => {
   const unavailable = {
@@ -584,7 +584,7 @@ test("Engine observation distinguishes known unavailability from unknown failure
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("Engine pipe observation treats only explicit absence as absent", () => {
   /**
@@ -597,7 +597,7 @@ test("Engine pipe observation treats only explicit absence as absent", () => {
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+   * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
    */
   const failure = (code?: string) => {
     const error = new Error(code ?? "generic failure") as NodeJS.ErrnoException;
@@ -655,7 +655,7 @@ test("Engine pipe observation treats only explicit absence as absent", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("Engine pipe cleanup uncertainty is sticky through machine release", async () => {
   const f = fixture("engine-cleanup");

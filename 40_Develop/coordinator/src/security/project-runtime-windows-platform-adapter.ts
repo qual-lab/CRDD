@@ -1,3 +1,9 @@
+/**
+ * project-runtime-windows-platform-adapterに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeWindowsRepositoryRootResultを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import {
   PROJECT_RUNTIME_PLATFORM_CONTRACT,
   PROJECT_RUNTIME_PLATFORM_CONTRACT_REVISION,
@@ -74,9 +80,9 @@ const CHILD_ENVIRONMENT_PROFILES = new Set([
 ]);
 
 /**
- * ProjectRuntimeWindowsRepositoryRootResultが扱う値の構造を表す。
+ * project-runtime-windows-platform-adapterで使用するProject Runtime Windows Repository Root 結果の値契約を定義する。
  *
- * @responsibility ProjectRuntimeWindowsRepositoryRootResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Windows Repository Root 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeWindowsRepositoryRootResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeWindowsRepositoryRootResultで宣言した値と責務の対応を維持する。
@@ -89,9 +95,9 @@ export type ProjectRuntimeWindowsRepositoryRootResult =
   | Readonly<{ status: "blocked"; reason: string }>;
 
 /**
- * ProjectRuntimeWindowsChildEnvironmentResultが扱う値の構造を表す。
+ * project-runtime-windows-platform-adapterで使用するProject Runtime Windows Child Environment 結果の値契約を定義する。
  *
- * @responsibility ProjectRuntimeWindowsChildEnvironmentResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Windows Child Environment 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeWindowsChildEnvironmentResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeWindowsChildEnvironmentResultで宣言した値と責務の対応を維持する。
@@ -108,9 +114,9 @@ export type ProjectRuntimeWindowsChildEnvironmentResult =
   | Readonly<{ status: "blocked"; reason: string }>;
 
 /**
- * ProjectRuntimeWindowsLeaseOwnerObservationが扱う値の構造を表す。
+ * project-runtime-windows-platform-adapterで使用するProject Runtime Windows Lease 所有者 Observationの値契約を定義する。
  *
- * @responsibility ProjectRuntimeWindowsLeaseOwnerObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Windows Lease 所有者 ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeWindowsLeaseOwnerObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeWindowsLeaseOwnerObservationで宣言した値と責務の対応を維持する。
@@ -125,9 +131,9 @@ export type ProjectRuntimeWindowsLeaseOwnerObservation = Readonly<{
 }>;
 
 /**
- * observeLeaseOwnerの処理を実行する。
+ * Lease 所有者を観測する。
  *
- * @responsibility observeLeaseOwnerに対応する入力処理と結果生成を所有する。
+ * @responsibility Lease 所有者の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input rawOwner: unknown
  * @returns ProjectRuntimeWindowsLeaseOwnerObservationを返す。
@@ -193,7 +199,7 @@ function observeLeaseOwner(
 /**
  * Observe the current process platform family without exporting the raw OS
  *
- * @responsibility observeProjectRuntimePlatformFamilyに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Platform Familyの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns | Readonly<{ status: "observed"; platformFamily: string }> | Readonly<{ status: "blocked"; reason: "platform_identity_unknown" }>を返す。
@@ -221,9 +227,9 @@ export function observeProjectRuntimePlatformFamily():
 }
 
 /**
- * resolveRepositoryRootの処理を実行する。
+ * Repository Rootを一意に解決する。
  *
- * @responsibility resolveRepositoryRootに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Rootの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000004
  * @input workingDirectory: unknown
  * @returns ProjectRuntimeWindowsRepositoryRootResultを返す。
@@ -257,9 +263,9 @@ function resolveRepositoryRoot(
 }
 
 /**
- * deriveChildEnvironmentの処理を実行する。
+ * derive Child Environmentを決定する。
  *
- * @responsibility deriveChildEnvironmentに対応する入力処理と結果生成を所有する。
+ * @responsibility derive Child Environmentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input rawRequest: unknown
  * @returns ProjectRuntimeWindowsChildEnvironmentResultを返す。
@@ -327,7 +333,7 @@ function deriveChildEnvironment(
 /**
  * IF-PLATFORM Windows adapter. Every operation routes a closed request to an
  *
- * @responsibility createProjectRuntimeWindowsPlatformAdapterに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Windows Platform Adapterの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns ProjectRuntimePlatformAdapterを返す。

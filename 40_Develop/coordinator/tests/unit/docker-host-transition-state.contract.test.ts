@@ -6,7 +6,7 @@
  * @trace PRL-UT-006
  * @level UT
  * @scope docker、host、transition、state
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -27,7 +27,7 @@ const NONCE = "01234567-89ab-cdef-0123-456789abcdef";
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 function canonical(value: unknown) {
   return `${JSON.stringify(value)}\n`;
@@ -43,7 +43,7 @@ function canonical(value: unknown) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 function token(record: unknown) {
   const hash = createHash("sha256").update(canonical(record)).digest("hex");
@@ -60,7 +60,7 @@ function token(record: unknown) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 function intent() {
   const recordBefore = Object.freeze({
@@ -91,7 +91,7 @@ function intent() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("Host intentはcurrent recordから決定論的successor tokenだけを受理する", () => {
   const accepted = validateDockerHostTransitionLineage(intent(), "host_only");
@@ -117,7 +117,7 @@ test("Host intentはcurrent recordから決定論的successor tokenだけを受�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("同nonce別state、偽currentState、誤nextStateを第三状態として拒否する", () => {
   const valid = intent();

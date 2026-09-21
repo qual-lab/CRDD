@@ -1,3 +1,9 @@
+/**
+ * authority-prelaunch-verifierに属する責務をまとめる。
+ *
+ * @responsibility blockedを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { loadAuthorityFileBundleCandidate } from "./authority-file-bundle.ts";
 import { evaluateAuthorityGrantCandidate } from "./authority-grant-verifier.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
@@ -19,9 +25,9 @@ const INTRINSIC_DATE_NOW = Date.now;
 const INTRINSIC_DATE_TO_ISO = Date.prototype.toISOString;
 
 /**
- * blockedの処理を実行する。
+ * authority-prelaunch-verifierを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility authority-prelaunch-verifierの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000014
  * @input reason: string
  * @returns blockedの計算結果を返す。
@@ -44,9 +50,9 @@ function blocked(reason: string) {
 }
 
 /**
- * runtimeNowの処理を実行する。
+ * runtime Nowを決定する。
  *
- * @responsibility runtimeNowに対応する入力処理と結果生成を所有する。
+ * @responsibility runtime Nowの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns runtimeNowの計算結果を返す。
@@ -67,9 +73,9 @@ function runtimeNow() {
 }
 
 /**
- * normalizeContextの処理を実行する。
+ * Contextを固定Schemaへ正規化する。
  *
- * @responsibility normalizeContextに対応する入力処理と結果生成を所有する。
+ * @responsibility Contextの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000014
  * @input rawContext: unknown
  * @returns normalizeContextの計算結果を返す。
@@ -110,9 +116,9 @@ function normalizeContext(rawContext: unknown) {
 }
 
 /**
- * reverifyAuthorityBeforeProviderLaunchの処理を実行する。
+ * reverify Authority Before Provider Launchを決定する。
  *
- * @responsibility reverifyAuthorityBeforeProviderLaunchに対応する入力処理と結果生成を所有する。
+ * @responsibility reverify Authority Before Provider Launchの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input rawProfile: unknown、rawBundle: unknown、rawContext: unknown
  * @returns reverifyAuthorityBeforeProviderLaunchの計算結果を返す。
@@ -178,9 +184,9 @@ export function reverifyAuthorityBeforeProviderLaunch(
 }
 
 /**
- * describeAuthorityPrelaunchVerifierContractの処理を実行する。
+ * Authority Prelaunch Verifier 契約の公開契約を記述する。
  *
- * @responsibility describeAuthorityPrelaunchVerifierContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Authority Prelaunch Verifier 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeAuthorityPrelaunchVerifierContractの計算結果を返す。

@@ -1,3 +1,9 @@
+/**
+ * platform-access-releaseに属する責務をまとめる。
+ *
+ * @responsibility FileIdentityを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -10,9 +16,9 @@ export const PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH =
   "template/tools/coordinator/windows-x64/crdd-platform-access.exe";
 
 /**
- * FileIdentityが扱う値の構造を表す。
+ * platform-access-releaseで使用するFile Identityの値契約を定義する。
  *
- * @responsibility FileIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility File IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape FileIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant FileIdentityで宣言した値と責務の対応を維持する。
@@ -31,9 +37,9 @@ type FileIdentity = Readonly<{
 }>;
 
 /**
- * DirectoryIdentityが扱う値の構造を表す。
+ * platform-access-releaseで使用するDirectory Identityの値契約を定義する。
  *
- * @responsibility DirectoryIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Directory IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape DirectoryIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DirectoryIdentityで宣言した値と責務の対応を維持する。
@@ -66,9 +72,9 @@ const signingSnapshots = new WeakMap<
 >();
 
 /**
- * fileIdentityの処理を実行する。
+ * file Identityを決定する。
  *
- * @responsibility fileIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility file Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input metadata: fs.BigIntStats
  * @returns FileIdentityを返す。
@@ -105,9 +111,9 @@ function fileIdentity(metadata: fs.BigIntStats): FileIdentity {
 }
 
 /**
- * sameIdentityの処理を実行する。
+ * Identityが同一かを判定する。
  *
- * @responsibility sameIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Identityの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000014
  * @input left: FileIdentity、right: FileIdentity
  * @returns booleanを返す。
@@ -133,9 +139,9 @@ function sameIdentity(left: FileIdentity, right: FileIdentity): boolean {
 }
 
 /**
- * directoryIdentityの処理を実行する。
+ * directory Identityを決定する。
  *
- * @responsibility directoryIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility directory Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input metadata: fs.BigIntStats
  * @returns DirectoryIdentityを返す。
@@ -166,9 +172,9 @@ function directoryIdentity(metadata: fs.BigIntStats): DirectoryIdentity {
 }
 
 /**
- * sameDirectoryIdentityの処理を実行する。
+ * Directory Identityが同一かを判定する。
  *
- * @responsibility sameDirectoryIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Directory Identityの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000014
  * @input left: DirectoryIdentity、right: DirectoryIdentity
  * @returns booleanを返す。
@@ -193,9 +199,9 @@ function sameDirectoryIdentity(
 }
 
 /**
- * distributionRootSnapshotの処理を実行する。
+ * distribution Root Snapshotを決定する。
  *
- * @responsibility distributionRootSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility distribution Root Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input raw: unknown
  * @returns distributionRootSnapshotの計算結果を返す。
@@ -226,9 +232,9 @@ function distributionRootSnapshot(raw: unknown) {
 }
 
 /**
- * verifyDistributionRootSnapshotの処理を実行する。
+ * Distribution Root Snapshotを検証する。
  *
- * @responsibility verifyDistributionRootSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility Distribution Root Snapshotの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input snapshot: { root: string; identity: DirectoryIdentity; }
  * @returns verifyDistributionRootSnapshotの計算結果を返す。
@@ -255,9 +261,9 @@ function verifyDistributionRootSnapshot(snapshot: {
 }
 
 /**
- * observeArtifactSnapshotの処理を実行する。
+ * Artifact Snapshotを観測する。
  *
- * @responsibility observeArtifactSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility Artifact Snapshotの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input distributionRoot: unknown
  * @returns observeArtifactSnapshotの計算結果を返す。
@@ -331,9 +337,9 @@ function observeArtifactSnapshot(distributionRoot: unknown) {
 }
 
 /**
- * observePlatformAccessReleaseArtifactCandidateの処理を実行する。
+ * Platform Access Release Artifact 候補を観測する。
  *
- * @responsibility observePlatformAccessReleaseArtifactCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Access Release Artifact 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input distributionRoot: unknown
  * @returns observePlatformAccessReleaseArtifactCandidateの計算結果を返す。
@@ -374,9 +380,9 @@ export function observePlatformAccessReleaseArtifactCandidate(
 }
 
 /**
- * beginPlatformAccessArtifactSigningObservationの処理を実行する。
+ * Platform Access Artifact Signing Observationを開始する。
  *
- * @responsibility beginPlatformAccessArtifactSigningObservationに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Access Artifact Signing Observationの開始条件、初期状態、開始失敗境界を所有する。
  * @trace ARCH-000014
  * @input distributionRoot: unknown
  * @returns beginPlatformAccessArtifactSigningObservationの計算結果を返す。
@@ -412,9 +418,9 @@ export function beginPlatformAccessArtifactSigningObservation(
 }
 
 /**
- * verifyPlatformAccessArtifactSigningObservationの処理を実行する。
+ * Platform Access Artifact Signing Observationを検証する。
  *
- * @responsibility verifyPlatformAccessArtifactSigningObservationに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Access Artifact Signing Observationの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input token: object
  * @returns booleanを返す。
@@ -451,9 +457,9 @@ export function verifyPlatformAccessArtifactSigningObservation(
 }
 
 /**
- * describePlatformAccessReleaseContractの処理を実行する。
+ * Platform Access Release 契約の公開契約を記述する。
  *
- * @responsibility describePlatformAccessReleaseContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Access Release 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describePlatformAccessReleaseContractの計算結果を返す。

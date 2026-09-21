@@ -6,7 +6,7 @@
  * @trace AIT-IT-013
  * @level IT
  * @scope platform、provisioner、package、filesystem
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -64,7 +64,7 @@ const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("Runtime sibling component宣言は各Identityを一度だけ所有する", () => {
   const source = fs.readFileSync(
@@ -102,7 +102,7 @@ test("Runtime sibling component宣言は各Identityを一度だけ所有する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("restart machineのWSL対象とDocker観測引数は閉集合で保持する", () => {
   const sourcePath = "src/security/docker-restart-machine.ts";
@@ -154,7 +154,7 @@ test("restart machineのWSL対象とDocker観測引数は閉集合で保持す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("Native repair/restart spawnは同じ署名観測所有者と閉じた引数集合を要求する", () => {
   const sourcePath = "src/security/docker-desktop-repair-native-process.ts";
@@ -189,7 +189,7 @@ test("Native repair/restart spawnは同じ署名観測所有者と閉じた引�
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 function verificationToolSources() {
   const scriptsRoot = path.join(coordinatorRoot, "scripts");
@@ -204,7 +204,7 @@ function verificationToolSources() {
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+   * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
    */
   const visit = (root: string, relativeRoot: string) => {
     for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
@@ -232,7 +232,7 @@ function verificationToolSources() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 function runtimeTypeScriptSources() {
   const sources: Record<string, string> = {};
@@ -246,7 +246,7 @@ function runtimeTypeScriptSources() {
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+   * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
    */
   const visit = (root: string, relativeRoot: string) => {
     for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
@@ -278,7 +278,7 @@ function runtimeTypeScriptSources() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 function removeDevelopmentFixture(root: string) {
   assert.equal(path.dirname(root), path.resolve(os.tmpdir()));
@@ -301,7 +301,7 @@ after(() => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("local TypeScript子wrapperはroleとkindを実行前に検証し、targetを外へ公開しない", () => {
   assert.throws(
@@ -361,7 +361,7 @@ test("local TypeScript子wrapperはroleとkindを実行前に検証し、target�
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 function developmentFixture(omittedEntrypoint: string | null = null) {
   const root = fs.mkdtempSync(
@@ -418,7 +418,7 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+   * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
    */
   function git(...args: string[]) {
     const result = spawnSync("git", ["-C", oracleRoot, ...args], {
@@ -471,7 +471,7 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("開発版はRuntime依存閉包を実体照合し、署名・実行Authorityを発行しない", () => {
   const fixture = developmentFixture();
@@ -518,7 +518,7 @@ test("開発版はRuntime依存閉包を実体照合し、署名・実行Authori
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("実行能力を持たないchild_processのtype-only importはRuntime候補を失効させない", () => {
   const fixture = developmentFixture();
@@ -562,7 +562,7 @@ test("実行能力を持たないchild_processのtype-only importはRuntime候�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("type-only star再公開は実行能力として扱わず、value star再公開だけを拒否する", () => {
   assert.doesNotThrow(() =>
@@ -598,7 +598,7 @@ test("type-only star再公開は実行能力として扱わず、value star再�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("loader能力のnamespace・bracket取得と文字列再構成を直接の理由で拒否する", () => {
   for (const source of [
@@ -630,7 +630,7 @@ test("loader能力のnamespace・bracket取得と文字列再構成を直接の�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("宣言済みProcess利用側は実ソースのcall・scope・引数から完全一致を要求する", () => {
   const sourcePath = "src/security/candidate-store-windows-adapter.ts";
@@ -682,7 +682,7 @@ test("宣言済みProcess利用側は実ソースのcall・scope・引数から�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("検証Toolの全Sourceと実Process起動点を独立グラフとして完全一致させる", () => {
   const sources = verificationToolSources();
@@ -741,7 +741,7 @@ test("検証Toolの全Sourceと実Process起動点を独立グラフとして完
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("Process wrapper注入後のproperty callと内部lifecycle callを利用側閉包へ含める", () => {
   const dockerPath = "src/security/docker-effect-runtime.ts";
@@ -800,7 +800,7 @@ test("Process wrapper注入後のproperty callと内部lifecycle callを利用�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("非同期子Processは同期完了・所有保持・lifecycle移管のいずれかを証明する", () => {
   const cases = [
@@ -849,7 +849,7 @@ test("非同期子Processは同期完了・所有保持・lifecycle移管のい�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("配布観測から開発・署名・導入・Capability利用側までを実ソースから閉じる", () => {
   const sourcePath = "src/security/platform-provisioner-package-filesystem.ts";
@@ -904,7 +904,7 @@ test("配布観測から開発・署名・導入・Capability利用側までを�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("Runtime Package Capabilityの宣言集合と全実利用側を完全一致させる", () => {
   const sources = runtimeTypeScriptSources();
@@ -946,7 +946,7 @@ test("Runtime Package Capabilityの宣言集合と全実利用側を完全一致
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("旧修復と新再起動のRuntime Identityは所有関数ごとにCanonical検証値を要求する", () => {
   const sources = runtimeTypeScriptSources();
@@ -989,7 +989,7 @@ test("旧修復と新再起動のRuntime Identityは所有関数ごとにCanonic
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("実行能力の反証は利用側伝播の意図したphaseで拒否する", () => {
   const sources = runtimeTypeScriptSources();
@@ -1092,7 +1092,7 @@ test("実行能力の反証は利用側伝播の意図したphaseで拒否する
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("署名入口は配布観測結果を秘密入力前の検査と署名結果へ同じflowで伝播する", () => {
   const source = fs.readFileSync(
@@ -1141,7 +1141,7 @@ test("署名入口は配布観測結果を秘密入力前の検査と署名結�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("署名の保護対象flowを同名decoy・事前Effect・条件付き証明で迂回できない", () => {
   const source = fs.readFileSync(
@@ -1183,7 +1183,7 @@ test("署名の保護対象flowを同名decoy・事前Effect・条件付き証�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("署名の反証は意図した保護phaseで最初に拒否しEffect経路へ到達させない", () => {
   const source = fs.readFileSync(
@@ -1258,7 +1258,7 @@ test("署名の反証は意図した保護phaseで最初に拒否しEffect経路
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("公開結果はCanonical観測値を欠落・再解釈・混合せず投影する", () => {
   const sourcePath = "src/security/platform-provisioner-package-filesystem.ts";
@@ -1303,7 +1303,7 @@ test("公開結果はCanonical観測値を欠落・再解釈・混合せず投�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("利用者向けCoordinatorまたはMCP Launcherの欠落をRuntime候補として受理しない", () => {
   for (const launcher of ["crdd-coordinator.ts", "crdd-mcp.ts"]) {
@@ -1334,7 +1334,7 @@ test("利用者向けCoordinatorまたはMCP Launcherの欠落をRuntime候補�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("Tree一致だけで起動entrypointの不足を受理しない", () => {
   const fixture = developmentFixture("src/core/interactive-console-reader.ts");
@@ -1359,7 +1359,7 @@ test("Tree一致だけで起動entrypointの不足を受理しない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("新しいlocal TypeScript子entrypoint宣言の必須Registry登録漏れを受理しない", () => {
   const fixture = developmentFixture();
@@ -1481,7 +1481,7 @@ for (const scenario of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+   * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
    */
   test(`local TypeScript子entrypointの宣言・利用迂回を拒否する: ${scenario}`, () => {
     const fixture = developmentFixture();
@@ -2146,7 +2146,7 @@ for (const scenario of [
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("内部lifecycleまたはProcess wrapperを正規leafから再転送しない", () => {
   const interactiveSource = fs.readFileSync(
@@ -2187,7 +2187,7 @@ for (const target of ["package", "expected_package"] as const) {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+   * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
    */
   test(`開発版の${target}差替えを拒否する`, () => {
     const fixture = developmentFixture();
@@ -2220,7 +2220,7 @@ for (const target of ["package", "expected_package"] as const) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("Runtime依存外の文書変更は開発Source Identityを失効させない", () => {
   const fixture = developmentFixture();
@@ -2253,7 +2253,7 @@ test("Runtime依存外の文書変更は開発Source Identityを失効させな�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("開発版へ混入した署名manifestをReleaseへ昇格しない", () => {
   const fixture = developmentFixture();
@@ -2287,7 +2287,7 @@ for (const relativePath of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+   * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
    */
   test(`開発Sourceと別に検証する${relativePath}をSource Identityへ混在させない`, () => {
     const fixture = developmentFixture();
@@ -2315,7 +2315,7 @@ for (const relativePath of [
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("開発版のRoot alias、入力getterと追加keyを拒否し、Git metadataだけをTreeから除外する", () => {
   const fixture = developmentFixture();
@@ -2375,7 +2375,7 @@ test("開発版のRoot alias、入力getterと追加keyを拒否し、Git metada
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("実体観測と開始枠を結合し、準備待機後のRoot差替えで消費を拒否する", async () => {
   const fixture = developmentFixture();
@@ -2396,7 +2396,7 @@ test("実体観測と開始枠を結合し、準備待機後のRoot差替えで�
      * @observation 返却値、生成fixtureまたは観測値を取得する。
      * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
      * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-     * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+     * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
      */
     const observe = () => {
       const current = inspectFixedDevelopmentCoordinatorPackageCandidate(
@@ -2476,7 +2476,7 @@ test("実体観測と開始枠を結合し、準備待機後のRoot差替えで�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("署名済みPlatform Access観測は開発版Rootや自己申告の署名状態を拒否する", () => {
   const fixture = developmentFixture();
@@ -2540,7 +2540,7 @@ test("署名済みPlatform Access観測は開発版Rootや自己申告の署名�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("Task package capabilityは偽造・不正入力・再利用を受理しない", () => {
   const issued = issueRuntimeOwnedVerifiedCoordinatorPackageCapability({
@@ -2569,7 +2569,7 @@ test("Task package capabilityは偽造・不正入力・再利用を受理しな
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("Package Capability状態機械はfresh exact Identityを一度だけ受理する", () => {
   const state = createIsolatedVerifiedPackageCapabilityStateCandidate();
@@ -2614,7 +2614,7 @@ test("Package Capability状態機械はfresh exact Identityを一度だけ受理
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 function frame(payload: Record<string, unknown>) {
   const canonical = canonicalizeProvisioningJsonValueCandidate(payload);
@@ -2638,7 +2638,7 @@ function frame(payload: Record<string, unknown>) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 function signedManifest(
   packageContentRootSha256: string,
@@ -2713,7 +2713,7 @@ function signedManifest(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("固定Coordinator packageをPath非公開で一覧化する", () => {
   const result = inspectBundledCoordinatorPackageFilesystemCandidate();
@@ -2742,7 +2742,7 @@ test("固定Coordinator packageをPath非公開で一覧化する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("Host Operation Supervisor sourceは再帰Package inventoryのexact non-link fileである", () => {
   const entrypoint = path.resolve(
@@ -2769,7 +2769,7 @@ test("Host Operation Supervisor sourceは再帰Package inventoryのexact non-lin
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("caller選択Rootは非Authorityのまま内容変更をcontent rootへ反映する", () => {
   const root = fs.mkdtempSync(
@@ -2823,7 +2823,7 @@ test("caller選択Rootは非Authorityのまま内容変更をcontent rootへ反�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("文書・試験はRuntime Execution Identityへ入らず、実行sourceは必ず入る", () => {
   const root = fs.mkdtempSync(
@@ -2888,7 +2888,7 @@ test("文書・試験はRuntime Execution Identityへ入らず、実行sourceは
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("責務分離後のRuntime componentを静的依存閉包として実行Identityへ含める", () => {
   const fixture = developmentFixture();
@@ -3077,7 +3077,7 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("非正規表記または実行集合外へのrelative importを署名候補へ含めず拒否する", () => {
   const root = fs.mkdtempSync(
@@ -3132,7 +3132,7 @@ test("非正規表記または実行集合外へのrelative importを署名候�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを実行Identityへ含める", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-launch-closure-"));
@@ -3264,7 +3264,7 @@ test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("実行Identityのmodule構文を字句解析し、コメント・非relative・未束縛dynamicによる閉包回避を拒否する", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-module-lexer-"));
@@ -3428,7 +3428,7 @@ test("実行Identityのmodule構文を字句解析し、コメント・非relati
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("Repository textのLFとCRLFは同じ正本内容として検証し、意味差分は拒否する", () => {
   const root = fs.mkdtempSync(
@@ -3477,7 +3477,7 @@ test("Repository textのLFとCRLFは同じ正本内容として検証し、意�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("Coordinator packageはexact CLI-only exports境界を必須にする", () => {
   for (const exportsValue of [
@@ -3524,7 +3524,7 @@ test("Coordinator packageはexact CLI-only exports境界を必須にする", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("入れ子directoryの走査中にentryを追加・削除・型変更しても安定inventoryへ流用しない", () => {
   for (const scenario of ["add", "remove", "replace_type"] as const) {
@@ -3594,7 +3594,7 @@ test("入れ子directoryの走査中にentryを追加・削除・型変更して
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("同梱manifestは固定Release鍵以外の署名を拒否する", () => {
   const observation = inspectBundledCoordinatorPackageFilesystemCandidate();
@@ -3621,7 +3621,7 @@ test("同梱manifestは固定Release鍵以外の署名を拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("期限なしmanifestも固定Release鍵と配布結合を迂回できない", () => {
   const observed = inspectBundledCoordinatorPackageFilesystemCandidate();
@@ -3656,7 +3656,7 @@ test("期限なしmanifestも固定Release鍵と配布結合を迂回できな�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("不正Root、Release Identity不一致およびpackage metadataをfail closedにする", () => {
   assert.equal(
@@ -3695,7 +3695,7 @@ test("不正Root、Release Identity不一致およびpackage metadataをfail clo
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
  */
 test("package Filesystem contractは観測をTrustおよびEffectから分離する", () => {
   const contract = describePlatformProvisionerPackageFilesystemContract();

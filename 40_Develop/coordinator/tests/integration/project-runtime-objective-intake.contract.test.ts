@@ -6,7 +6,7 @@
  * @trace PRL-IT-005
  * @level IT
  * @scope project、runtime、objective、intake
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
@@ -67,7 +67,7 @@ type TestObjectiveDependencies = Omit<ObjectiveDependencies, "execution"> &
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 function runProjectRuntimeObjective(
   dependencies: TestObjectiveDependencies,
@@ -109,7 +109,7 @@ const dockerAcknowledgement = Object.freeze({
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 const finalizedAcknowledgement = () => ({
   status: "completed" as const,
@@ -125,7 +125,7 @@ const finalizedAcknowledgement = () => ({
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 function root(t: test.TestContext) {
   const value = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-project-intake-"));
@@ -143,7 +143,7 @@ function root(t: test.TestContext) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 function runtimeSnapshot(workingDirectory: string) {
   const runtime = path.join(workingDirectory, ".crdd");
@@ -158,7 +158,7 @@ function runtimeSnapshot(workingDirectory: string) {
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+   * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
    */
   const visit = (directory: string) => {
     if (!fs.existsSync(directory)) return;
@@ -188,7 +188,7 @@ function runtimeSnapshot(workingDirectory: string) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 async function abandonProjectOperationAcquisition(
   t: test.TestContext,
@@ -240,7 +240,7 @@ async function abandonProjectOperationAcquisition(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 function request(overrides: Record<string, unknown> = {}) {
   return {
@@ -269,7 +269,7 @@ function request(overrides: Record<string, unknown> = {}) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 async function completed(input: {
   attemptId: string;
@@ -306,7 +306,7 @@ async function completed(input: {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 function settleRuntimeProcessAsFreshProcess(
   workingDirectory: string,
@@ -379,7 +379,7 @@ function settleRuntimeProcessAsFreshProcess(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("public Objective intake binds, plans, executes and deduplicates the same request", async (t) => {
   const workingDirectory = root(t);
@@ -474,7 +474,7 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("public Objective re-entry reconciles a pre-publication owner loss before execution", async (t) => {
   const workingDirectory = root(t);
@@ -610,7 +610,7 @@ test("public Objective re-entry reconciles a pre-publication owner loss before e
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("public Objective re-entry preserves ambiguous acquisition evidence and returns its exact recovery reference", async (t) => {
   for (const count of [1, 2]) {
@@ -694,7 +694,7 @@ test("public Objective re-entry preserves ambiguous acquisition evidence and ret
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("public Objective classifies foreign, missing, and mismatched acquisition queues before durable mutation", async (t) => {
   for (const scenario of [
@@ -805,7 +805,7 @@ test("public Objective classifies foreign, missing, and mismatched acquisition q
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("a scheduled Objective arriving during interactive execution waits without effect", async (t) => {
   const workingDirectory = root(t);
@@ -900,7 +900,7 @@ test("a scheduled Objective arriving during interactive execution waits without 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("binding or planner scope failure creates no Project State or Task effect", async (t) => {
   const workingDirectory = root(t);
@@ -970,7 +970,7 @@ test("binding or planner scope failure creates no Project State or Task effect",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("public Objective intake rejects unknown fields, accessors, proxies, and non-closed planner output before effect", async (t) => {
   const workingDirectory = root(t);
@@ -1082,7 +1082,7 @@ test("public Objective intake rejects unknown fields, accessors, proxies, and no
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("Objective intake accepts only a closed explicit decision-capability replacement request", () => {
   const base = request();
@@ -1120,7 +1120,7 @@ test("Objective intake accepts only a closed explicit decision-capability replac
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("exact Runtime-owned recovery settles and retries without client recovery authority", async (t) => {
   const workingDirectory = root(t);
@@ -1447,7 +1447,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", async (t) => {
   const workingDirectory = root(t);
@@ -1572,7 +1572,7 @@ test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("owner lossはAuthority発行前の予約をEffect 0で戻して同じObjectiveを再開する", async (t) => {
   const workingDirectory = root(t);
@@ -1709,7 +1709,7 @@ for (const interruption of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+   * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
    */
   test(`exact Recovery settlement resumes after ${interruption} durable interruption without replay`, async (t) => {
     const workingDirectory = root(t);

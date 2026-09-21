@@ -6,7 +6,7 @@
  * @trace AIT-UT-005
  * @level UT
  * @scope provider、billing、policy
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -27,7 +27,7 @@ import {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("標準ProfileはSubscriptionだけを許し有料APIへfallbackしない", () => {
   const contract = describeProviderBillingPolicyContract();
@@ -63,7 +63,7 @@ test("標準ProfileはSubscriptionだけを許し有料APIへfallbackしない",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("将来の有料APIはユーザー設定だけで実行Authorityを発行しない", () => {
   const contract = describeProviderBillingPolicyContract();

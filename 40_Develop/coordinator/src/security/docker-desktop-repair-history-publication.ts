@@ -1,7 +1,13 @@
 /**
- * RepairHistoryPublicationFaultPointが扱う値の構造を表す。
+ * docker-desktop-repair-history-publicationに属する責務をまとめる。
  *
- * @responsibility RepairHistoryPublicationFaultPointに必要な値と制約を一つの型契約として保持する。
+ * @responsibility RepairHistoryPublicationFaultPointを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
+/**
+ * docker-desktop-repair-history-publicationで使用するRepair History Publication Fault Pointの値契約を定義する。
+ *
+ * @responsibility Repair History Publication Fault PointのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RepairHistoryPublicationFaultPointが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepairHistoryPublicationFaultPointで宣言した値と責務の対応を維持する。
@@ -16,9 +22,9 @@ export type RepairHistoryPublicationFaultPoint =
   | "after_unlink_before_platform_confirmation";
 
 /**
- * RepairHistoryPublicationOperationsが扱う値の構造を表す。
+ * docker-desktop-repair-history-publicationで使用するRepair History Publication Operationsの値契約を定義する。
  *
- * @responsibility RepairHistoryPublicationOperationsに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Repair History Publication OperationsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RepairHistoryPublicationOperationsが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepairHistoryPublicationOperationsで宣言した値と責務の対応を維持する。
@@ -46,9 +52,9 @@ export type RepairHistoryPublicationOperations = Readonly<{
 }>;
 
 /**
- * publishRepairHistoryFileUsingOperationsの処理を実行する。
+ * Repair History File Using Operationsを公開する。
  *
- * @responsibility publishRepairHistoryFileUsingOperationsに対応する入力処理と結果生成を所有する。
+ * @responsibility Repair History File Using Operationsの公開条件、公開範囲、未確定内容の非公開境界を所有する。
  * @trace ARCH-000008
  * @input operations: RepairHistoryPublicationOperations、directory: string、target: string、preparation: string、bytes: Buffer、maximumBytes: number
  * @returns booleanを返す。

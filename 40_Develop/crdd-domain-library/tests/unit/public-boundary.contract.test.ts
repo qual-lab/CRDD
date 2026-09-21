@@ -3,10 +3,11 @@
  *
  * @packageDocumentation
  * @responsibility crdd-domain-library:unit:public-boundaryが所有する検証責務を実行する。
- * @trace PPR-UT-016
+ * @trace RCM-UT-014
+ * @trace RCM-UT-016
  * @level UT
  * @scope domain、artifact、relation、reality、repository、public-boundary
- * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。 / RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -23,13 +24,13 @@ import * as repository from "../../src/repository-observation/index.ts";
  * exportedNamesのTest準備責務を実行する。
  *
  * @responsibility exportedNamesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace PPR-UT-016
+ * @trace RCM-UT-014
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
  * @stimulus exportedNamesを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
  */
 function exportedNames(relativePath: string): readonly string[] {
   const source = fs.readFileSync(
@@ -58,13 +59,13 @@ function exportedNames(relativePath: string): readonly string[] {
  * typescriptFilesのTest準備責務を実行する。
  *
  * @responsibility typescriptFilesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace PPR-UT-016
+ * @trace RCM-UT-014
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
  * @stimulus typescriptFilesを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
  */
 function typescriptFiles(root: string): readonly string[] {
   const files: string[] = [];
@@ -81,13 +82,13 @@ function typescriptFiles(root: string): readonly string[] {
  * Package RootはCapability別の公開入口だけを束ねるを検証する。
  *
  * @responsibility Package RootはCapability別の公開入口だけを束ねるの合否判定を所有する。
- * @trace PPR-UT-016
+ * @trace RCM-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Package RootはCapability別の公開入口だけを束ねるの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
  */
 test("Package RootはCapability別の公開入口だけを束ねる", () => {
   assert.deepEqual(Object.keys(domainLibrary).sort(), [
@@ -101,13 +102,13 @@ test("Package RootはCapability別の公開入口だけを束ねる", () => {
  * srcのDirectoryはCapability-firstかつ二階層以内に保つを検証する。
  *
  * @responsibility srcのDirectoryはCapability-firstかつ二階層以内に保つの合否判定を所有する。
- * @trace PPR-UT-016
+ * @trace RCM-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus srcのDirectoryはCapability-firstかつ二階層以内に保つの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
  */
 test("srcのDirectoryはCapability-firstかつ二階層以内に保つ", () => {
   const sourceRoot = path.resolve(
@@ -137,13 +138,13 @@ test("srcのDirectoryはCapability-firstかつ二階層以内に保つ", () => {
  * Artifactは解析、Schema検証、関係Graphの公開契約だけを公開するを検証する。
  *
  * @responsibility Artifactは解析、Schema検証、関係Graphの公開契約だけを公開するの合否判定を所有する。
- * @trace PPR-UT-016
+ * @trace RCM-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Artifactは解析、Schema検証、関係Graphの公開契約だけを公開するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
  */
 test("Artifactは解析、Schema検証、関係Graphの公開契約だけを公開する", () => {
   assert.deepEqual(Object.keys(artifact).sort(), [
@@ -227,13 +228,13 @@ UX ID: UX-000001
  * RelationはArtifact Graphと中立Issueだけを公開するを検証する。
  *
  * @responsibility RelationはArtifact Graphと中立Issueだけを公開するの合否判定を所有する。
- * @trace PPR-UT-016
+ * @trace RCM-UT-016
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus RelationはArtifact Graphと中立Issueだけを公開するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("RelationはArtifact Graphと中立Issueだけを公開する", () => {
   assert.deepEqual(
@@ -275,13 +276,13 @@ test("RelationはArtifact Graphと中立Issueだけを公開する", () => {
  * Reality Traceabilityは宣言済み公開入口だけを公開するを検証する。
  *
  * @responsibility Reality Traceabilityは宣言済み公開入口だけを公開するの合否判定を所有する。
- * @trace PPR-UT-016
+ * @trace RCM-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Reality Traceabilityは宣言済み公開入口だけを公開するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
  */
 test("Reality Traceabilityは宣言済み公開入口だけを公開する", () => {
   assert.deepEqual(Object.keys(reality).sort(), [
@@ -311,13 +312,13 @@ test("Reality Traceabilityは宣言済み公開入口だけを公開する", () 
  * Reality DiscoveryはRepository観測済みSnapshotだけからManifestを構成するを検証する。
  *
  * @responsibility Reality DiscoveryはRepository観測済みSnapshotだけからManifestを構成するの合否判定を所有する。
- * @trace PPR-UT-016
+ * @trace RCM-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Reality DiscoveryはRepository観測済みSnapshotだけからManifestを構成するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
  */
 test("Reality DiscoveryはRepository観測済みSnapshotだけからManifestを構成する", () => {
   const manifest = {
@@ -353,13 +354,13 @@ test("Reality DiscoveryはRepository観測済みSnapshotだけからManifestを�
  * Reality Annotationは公開Discovery経由で検証しinternalを公開しないを検証する。
  *
  * @responsibility Reality Annotationは公開Discovery経由で検証しinternalを公開しないの合否判定を所有する。
- * @trace PPR-UT-016
+ * @trace RCM-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Reality Annotationは公開Discovery経由で検証しinternalを公開しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
  */
 test("Reality Annotationは公開Discovery経由で検証しinternalを公開しない", () => {
   const manifest = {
@@ -400,13 +401,13 @@ test("Reality Annotationは公開Discovery経由で検証しinternalを公開し
  * 共通Outcomeは中立な処理結果契約だけを公開するを検証する。
  *
  * @responsibility 共通Outcomeは中立な処理結果契約だけを公開するの合否判定を所有する。
- * @trace PPR-UT-016
+ * @trace RCM-UT-016
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 共通Outcomeは中立な処理結果契約だけを公開するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("共通Outcomeは中立な処理結果契約だけを公開する", () => {
   assert.deepEqual(exportedNames("../../src/outcome.ts"), [
@@ -421,13 +422,13 @@ test("共通Outcomeは中立な処理結果契約だけを公開する", () => {
  * Domain Libraryの利用側は宣言済み公開indexだけを利用するを検証する。
  *
  * @responsibility Domain Libraryの利用側は宣言済み公開indexだけを利用するの合否判定を所有する。
- * @trace PPR-UT-016
+ * @trace RCM-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Domain Libraryの利用側は宣言済み公開indexだけを利用するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
  */
 test("Domain Libraryの利用側は宣言済み公開indexだけを利用する", () => {
   const repositoryRoot = path.resolve(
@@ -460,13 +461,13 @@ test("Domain Libraryの利用側は宣言済み公開indexだけを利用する"
  * Reality Domain IssueはChecker語彙と絶対Pathを公開しないを検証する。
  *
  * @responsibility Reality Domain IssueはChecker語彙と絶対Pathを公開しないの合否判定を所有する。
- * @trace PPR-UT-016
+ * @trace RCM-UT-016
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Reality Domain IssueはChecker語彙と絶対Pathを公開しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("Reality Domain IssueはChecker語彙と絶対Pathを公開しない", () => {
   const invalidContract = reality.validateRealitySymbolManifest(
@@ -512,13 +513,13 @@ test("Reality Domain IssueはChecker語彙と絶対Pathを公開しない", () =
  * Repository観測はPort生成だけを実行入口として公開するを検証する。
  *
  * @responsibility Repository観測はPort生成だけを実行入口として公開するの合否判定を所有する。
- * @trace PPR-UT-016
+ * @trace RCM-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Repository観測はPort生成だけを実行入口として公開するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ * @boundary RCM-UT-014=N/A: Packageの公開`index.ts`と利用側importは外部実行境界を持たない。
  */
 test("Repository観測はPort生成だけを実行入口として公開する", () => {
   assert.deepEqual(Object.keys(repository).sort(), [

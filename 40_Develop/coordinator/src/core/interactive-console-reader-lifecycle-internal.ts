@@ -1,3 +1,9 @@
+/**
+ * interactive-console-reader-lifecycle-internalに属する責務をまとめる。
+ *
+ * @responsibility InteractiveConsoleReaderLifecycleOutcomeを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import type { ChildProcess } from "node:child_process";
 
 import {
@@ -10,9 +16,9 @@ const READER_CANCEL_GRACE_MS = 500;
 const READER_TIMEOUT_MS = 110_000;
 
 /**
- * InteractiveConsoleReaderLifecycleOutcomeが扱う値の構造を表す。
+ * interactive-console-reader-lifecycle-internalで使用するInteractive Console Reader Lifecycle Outcomeの値契約を定義する。
  *
- * @responsibility InteractiveConsoleReaderLifecycleOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Interactive Console Reader Lifecycle OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape InteractiveConsoleReaderLifecycleOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant InteractiveConsoleReaderLifecycleOutcomeで宣言した値と責務の対応を維持する。
@@ -31,9 +37,9 @@ export type InteractiveConsoleReaderLifecycleOutcome = Readonly<{
 }>;
 
 /**
- * InteractiveConsoleReaderLifecycleSnapshotが扱う値の構造を表す。
+ * interactive-console-reader-lifecycle-internalで使用するInteractive Console Reader Lifecycle Snapshotの値契約を定義する。
  *
- * @responsibility InteractiveConsoleReaderLifecycleSnapshotに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Interactive Console Reader Lifecycle SnapshotのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape InteractiveConsoleReaderLifecycleSnapshotが表すProperty、識別子およびRelationを型として固定する。
  * @invariant InteractiveConsoleReaderLifecycleSnapshotで宣言した値と責務の対応を維持する。
@@ -46,9 +52,9 @@ export type InteractiveConsoleReaderLifecycleSnapshot = Readonly<{
 }>;
 
 /**
- * InteractiveConsoleReaderLifecycleAdapterが扱う値の構造を表す。
+ * interactive-console-reader-lifecycle-internalで使用するInteractive Console Reader Lifecycle Adapterの値契約を定義する。
  *
- * @responsibility InteractiveConsoleReaderLifecycleAdapterに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Interactive Console Reader Lifecycle AdapterのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape InteractiveConsoleReaderLifecycleAdapterが表すProperty、識別子およびRelationを型として固定する。
  * @invariant InteractiveConsoleReaderLifecycleAdapterで宣言した値と責務の対応を維持する。
@@ -62,9 +68,9 @@ export type InteractiveConsoleReaderLifecycleAdapter = Readonly<{
 }>;
 
 /**
- * parseReaderResultの処理を実行する。
+ * Reader 結果を構造化値へ解析する。
  *
- * @responsibility parseReaderResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Reader 結果の入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000008
  * @input source: Buffer
  * @returns parseReaderResultの計算結果を返す。
@@ -113,9 +119,9 @@ function parseReaderResult(source: Buffer) {
 }
 
 /**
- * runInteractiveConsoleReaderLifecycleの処理を実行する。
+ * Interactive Console Reader Lifecycleを実行する。
  *
- * @responsibility runInteractiveConsoleReaderLifecycleに対応する入力処理と結果生成を所有する。
+ * @responsibility Interactive Console Reader Lifecycleの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000008
  * @input snapshot: InteractiveConsoleReaderLifecycleSnapshot、cancellationSignal: AbortSignal、child: ChildProcess、adapter: InteractiveConsoleReaderLifecycleAdapter
  * @returns Promise<InteractiveConsoleReaderLifecycleOutcome>を返す。

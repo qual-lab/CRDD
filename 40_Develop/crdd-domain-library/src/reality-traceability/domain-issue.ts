@@ -1,11 +1,17 @@
+/**
+ * domain-issueに属する責務をまとめる。
+ *
+ * @responsibility RealityIssueDetailsを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import path from "node:path";
 
 import type { DomainIssue } from "../outcome.ts";
 
 /**
- * RealityIssueDetailsが扱う値の構造を表す。
+ * domain-issueで使用するReality Issue Detailsの値契約を定義する。
  *
- * @responsibility RealityIssueDetailsに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Reality Issue DetailsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RealityIssueDetailsが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RealityIssueDetailsで宣言した値と責務の対応を維持する。
@@ -72,9 +78,9 @@ export type RealityIssueDetails = Readonly<{
 }>;
 
 /**
- * RealityIssueKindが扱う値の構造を表す。
+ * domain-issueで使用するReality Issue Kindの値契約を定義する。
  *
- * @responsibility RealityIssueKindに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Reality Issue KindのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RealityIssueKindが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RealityIssueKindで宣言した値と責務の対応を維持する。
@@ -85,9 +91,9 @@ export type RealityIssueDetails = Readonly<{
 export type RealityIssueKind = keyof RealityIssueDetails;
 
 /**
- * isSafeDomainLocationの処理を実行する。
+ * Safe Domain Locationかを判定する。
  *
- * @responsibility isSafeDomainLocationに対応する入力処理と結果生成を所有する。
+ * @responsibility Safe Domain Locationの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input candidate: string
  * @returns booleanを返す。
@@ -117,9 +123,9 @@ export function isSafeDomainLocation(candidate: string): boolean {
 }
 
 /**
- * createRealityDomainIssueの処理を実行する。
+ * Reality Domain Issueを構築する。
  *
- * @responsibility createRealityDomainIssueに対応する入力処理と結果生成を所有する。
+ * @responsibility Reality Domain Issueの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input kind: K、location: string、targetIdentity: string、reason: string、details: RealityIssueDetails[K]
  * @returns DomainIssueを返す。
@@ -149,9 +155,9 @@ export function createRealityDomainIssue<K extends RealityIssueKind>(
 }
 
 /**
- * invalidDomainLocationIssueの処理を実行する。
+ * Domain Location Issueを不正結果として構築する。
  *
- * @responsibility invalidDomainLocationIssueに対応する入力処理と結果生成を所有する。
+ * @responsibility Domain Location Issueの不正理由、公開Property、結果境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns DomainIssueを返す。

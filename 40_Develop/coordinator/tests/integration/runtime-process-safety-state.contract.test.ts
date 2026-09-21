@@ -6,7 +6,7 @@
  * @trace PRL-IT-005
  * @level IT
  * @scope runtime、process、safety、state
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -37,7 +37,7 @@ import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("対話cleanup不明は同一Process stateを不可逆にpoisonする", () => {
   const firstProcess = createIsolatedRuntimeProcessSafetyStateCandidate();
@@ -60,7 +60,7 @@ test("対話cleanup不明は同一Process stateを不可逆にpoisonする", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("runtime_process回復Identityはattemptとoperationへ結合されfresh Processだけを識別する", () => {
   const attemptId = "attempt-a";
@@ -124,7 +124,7 @@ test("runtime_process回復Identityはattemptとoperationへ結合されfresh Pr
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("Host failure drainは所有tokenだけで解除でき既存poisonを消さない", () => {
   const state = createIsolatedRuntimeProcessSafetyStateCandidate();
@@ -152,7 +152,7 @@ test("Host failure drainは所有tokenだけで解除でき既存poisonを消さ
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("Process poison契約は同期不可逆Gateとfresh Process境界を固定する", () => {
   assert.deepEqual(describeRuntimeProcessSafetyStateContract(), {
@@ -189,7 +189,7 @@ test("Process poison契約は同期不可逆Gateとfresh Process境界を固定�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("Host failure drain中はTask／Package／External SendをEffect前に一時拒否し解除後はrestart要求しない", async () => {
   const drain = beginRuntimeProcessEffectDrain();
@@ -245,7 +245,7 @@ test("Host failure drain中はTask／Package／External SendをEffect前に一�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("全cleanup起点のproduction process poisonは保留cleanup中から全入口を停止する", () => {
   const fixture = path.join(

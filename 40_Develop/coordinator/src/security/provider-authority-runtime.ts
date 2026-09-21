@@ -1,3 +1,9 @@
+/**
+ * provider-authority-runtimeに属する責務をまとめる。
+ *
+ * @responsibility OperationBindingを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { randomBytes } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
@@ -15,9 +21,9 @@ const AUTHORITY_RECORD_ID_BYTES = 12;
 const SCOPE_ID = /^SCOPE-[0-9]{6,}$/u;
 
 /**
- * OperationBindingが扱う値の構造を表す。
+ * provider-authority-runtimeで使用するOperation Bindingの値契約を定義する。
  *
- * @responsibility OperationBindingに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Operation BindingのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape OperationBindingが表すProperty、識別子およびRelationを型として固定する。
  * @invariant OperationBindingで宣言した値と責務の対応を維持する。
@@ -30,9 +36,9 @@ type OperationBinding = Readonly<{
   createdAt: string;
 }>;
 /**
- * ActiveMountが扱う値の構造を表す。
+ * provider-authority-runtimeで使用するActive Mountの値契約を定義する。
  *
- * @responsibility ActiveMountに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Active MountのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ActiveMountが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ActiveMountで宣言した値と責務の対応を維持する。
@@ -50,9 +56,9 @@ type ActiveMount = Readonly<{
   providerHomeMounted: boolean;
 }>;
 /**
- * ActivatedAuthoritySourceが扱う値の構造を表す。
+ * provider-authority-runtimeで使用するActivated Authority Sourceの値契約を定義する。
  *
- * @responsibility ActivatedAuthoritySourceに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Activated Authority SourceのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ActivatedAuthoritySourceが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ActivatedAuthoritySourceで宣言した値と責務の対応を維持する。
@@ -66,9 +72,9 @@ type ActivatedAuthoritySource = Readonly<{
   scopeId: string;
 }>;
 /**
- * Verificationが扱う値の構造を表す。
+ * provider-authority-runtimeで使用するVerificationの値契約を定義する。
  *
- * @responsibility Verificationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility VerificationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape Verificationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Verificationで宣言した値と責務の対応を維持する。
@@ -97,9 +103,9 @@ type Verification = Readonly<{
   validUntil: string;
 }>;
 /**
- * AuthorityRecordが扱う値の構造を表す。
+ * provider-authority-runtimeで使用するAuthority 記録の値契約を定義する。
  *
- * @responsibility AuthorityRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Authority 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape AuthorityRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant AuthorityRecordで宣言した値と責務の対応を維持する。
@@ -120,9 +126,9 @@ type AuthorityRecord = Readonly<{
   useCapability: object;
 }>;
 /**
- * RuntimeStateが扱う値の構造を表す。
+ * provider-authority-runtimeで使用するRuntime 状態の値契約を定義する。
  *
- * @responsibility RuntimeStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape RuntimeStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeStateで宣言した値と責務の対応を維持する。
@@ -154,9 +160,9 @@ type RuntimeState = Readonly<{
 }>;
 
 /**
- * createRuntimeStateの処理を実行する。
+ * Runtime 状態を構築する。
  *
- * @responsibility createRuntimeStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 状態の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input dependencies: Omit< RuntimeState, "records" | "controlCapabilities" | "useCapabilities" >
  * @returns RuntimeStateを返す。
@@ -194,9 +200,9 @@ const productionState = createRuntimeState({
 });
 
 /**
- * blockedの処理を実行する。
+ * provider-authority-runtimeを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility provider-authority-runtimeの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000004
  * @input reason: string
  * @returns blockedの計算結果を返す。
@@ -230,9 +236,9 @@ function blocked(reason: string) {
 }
 
 /**
- * performSafelyの処理を実行する。
+ * Safelyを安全に実行する。
  *
- * @responsibility performSafelyに対応する入力処理と結果生成を所有する。
+ * @responsibility Safelyの実行条件、Effect範囲、失敗時の終了境界を所有する。
  * @trace ARCH-000004
  * @input reason: string、action: () => T
  * @returns performSafelyの計算結果を返す。
@@ -254,9 +260,9 @@ function performSafely<T>(reason: string, action: () => T) {
 }
 
 /**
- * removeRecordの処理を実行する。
+ * 記録を除去する。
  *
- * @responsibility removeRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility 記録の対象Identity、除去条件、終了後状態の境界を所有する。
  * @trace ARCH-000004
  * @input state: RuntimeState、record: AuthorityRecord
  * @returns N/A: removeRecordは戻り値を返さない。
@@ -276,9 +282,9 @@ function removeRecord(state: RuntimeState, record: AuthorityRecord) {
 }
 
 /**
- * isMountValidの処理を実行する。
+ * Mount Validかを判定する。
  *
- * @responsibility isMountValidに対応する入力処理と結果生成を所有する。
+ * @responsibility Mount Validの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000004
  * @input mount: ActiveMount、operation: OperationBinding
  * @returns isMountValidの計算結果を返す。
@@ -305,9 +311,9 @@ function isMountValid(mount: ActiveMount, operation: OperationBinding) {
 }
 
 /**
- * normalizeVerificationの処理を実行する。
+ * Verificationを固定Schemaへ正規化する。
  *
- * @responsibility normalizeVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility Verificationの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000004
  * @input candidate: unknown
  * @returns Verification | nullを返す。
@@ -371,9 +377,9 @@ function normalizeVerification(candidate: unknown): Verification | null {
 }
 
 /**
- * reverifyCurrentAuthorityの処理を実行する。
+ * reverify Current Authorityを決定する。
  *
- * @responsibility reverifyCurrentAuthorityに対応する入力処理と結果生成を所有する。
+ * @responsibility reverify Current Authorityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input state: RuntimeState、operation: OperationBinding、mount: ActiveMount、managementCapability: unknown
  * @returns reverifyCurrentAuthorityの計算結果を返す。
@@ -425,9 +431,9 @@ function reverifyCurrentAuthority(
 }
 
 /**
- * verificationIdentityの処理を実行する。
+ * verification Identityを決定する。
  *
- * @responsibility verificationIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility verification Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input verification: Verification
  * @returns verificationIdentityの計算結果を返す。
@@ -464,9 +470,9 @@ function verificationIdentity(verification: Verification) {
 }
 
 /**
- * isFreshの処理を実行する。
+ * Freshかを判定する。
  *
- * @responsibility isFreshに対応する入力処理と結果生成を所有する。
+ * @responsibility Freshの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000004
  * @input state: RuntimeState、record: AuthorityRecord
  * @returns isFreshの計算結果を返す。
@@ -493,9 +499,9 @@ function isFresh(state: RuntimeState, record: AuthorityRecord) {
 }
 
 /**
- * issueAuthorityの処理を実行する。
+ * Authorityを発行する。
  *
- * @responsibility issueAuthorityに対応する入力処理と結果生成を所有する。
+ * @responsibility Authorityの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000004
  * @input state: RuntimeState、managementCapability: unknown、activeMountCapability: unknown
  * @returns issueAuthorityの計算結果を返す。
@@ -584,9 +590,9 @@ function issueAuthority(
 }
 
 /**
- * findRecordの処理を実行する。
+ * 記録を検索する。
  *
- * @responsibility findRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility 記録の検索範囲、一致条件、未検出結果の境界を所有する。
  * @trace ARCH-000004
  * @input state: RuntimeState、capability: unknown、aliases: WeakMap<object, string>、managementCapability: unknown
  * @returns findRecordの計算結果を返す。
@@ -612,9 +618,9 @@ function findRecord(
 }
 
 /**
- * consumeAuthorityの処理を実行する。
+ * Authorityを一回限りで消費する。
  *
- * @responsibility consumeAuthorityに対応する入力処理と結果生成を所有する。
+ * @responsibility Authorityの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000004
  * @input state: RuntimeState、useCapability: unknown、activeMountCapability: unknown、managementCapability: unknown
  * @returns consumeAuthorityの計算結果を返す。
@@ -679,9 +685,9 @@ function consumeAuthority(
 }
 
 /**
- * revokeAuthorityの処理を実行する。
+ * Authorityを失効させる。
  *
- * @responsibility revokeAuthorityに対応する入力処理と結果生成を所有する。
+ * @responsibility Authorityの失効Authority、対象Identity、再利用防止境界を所有する。
  * @trace ARCH-000004
  * @input state: RuntimeState、controlCapability: unknown、managementCapability: unknown
  * @returns revokeAuthorityの計算結果を返す。
@@ -717,9 +723,9 @@ function revokeAuthority(
 }
 
 /**
- * issueRuntimeOwnedProviderAuthorityの処理を実行する。
+ * Runtime 所有 Provider Authorityを発行する。
  *
- * @responsibility issueRuntimeOwnedProviderAuthorityに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Provider Authorityの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000004
  * @input managementCapability: unknown、activeMountCapability: unknown
  * @returns issueRuntimeOwnedProviderAuthorityの計算結果を返す。
@@ -746,9 +752,9 @@ export function issueRuntimeOwnedProviderAuthority(
 }
 
 /**
- * consumeRuntimeOwnedProviderAuthorityの処理を実行する。
+ * Runtime 所有 Provider Authorityを一回限りで消費する。
  *
- * @responsibility consumeRuntimeOwnedProviderAuthorityに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Provider Authorityの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000004
  * @input useCapability: unknown、activeMountCapability: unknown、managementCapability: unknown
  * @returns consumeRuntimeOwnedProviderAuthorityの計算結果を返す。
@@ -779,9 +785,9 @@ export function consumeRuntimeOwnedProviderAuthority(
 }
 
 /**
- * revokeRuntimeOwnedProviderAuthorityの処理を実行する。
+ * Runtime 所有 Provider Authorityを失効させる。
  *
- * @responsibility revokeRuntimeOwnedProviderAuthorityに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Provider Authorityの失効Authority、対象Identity、再利用防止境界を所有する。
  * @trace ARCH-000004
  * @input controlCapability: unknown、managementCapability: unknown
  * @returns revokeRuntimeOwnedProviderAuthorityの計算結果を返す。
@@ -804,9 +810,9 @@ export function revokeRuntimeOwnedProviderAuthority(
 }
 
 /**
- * createIsolatedProviderAuthorityRuntimeCandidateの処理を実行する。
+ * Isolated Provider Authority Runtime 候補を構築する。
  *
- * @responsibility createIsolatedProviderAuthorityRuntimeCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Isolated Provider Authority Runtime 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input dependencies: Omit< RuntimeState, "records" | "controlCapabilities" | "useCapabilities" >
  * @returns createIsolatedProviderAuthorityRuntimeCandidateの計算結果を返す。
@@ -856,9 +862,9 @@ export function createIsolatedProviderAuthorityRuntimeCandidate(
 }
 
 /**
- * describeProviderAuthorityRuntimeContractの処理を実行する。
+ * Provider Authority Runtime 契約の公開契約を記述する。
  *
- * @responsibility describeProviderAuthorityRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Authority Runtime 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProviderAuthorityRuntimeContractの計算結果を返す。

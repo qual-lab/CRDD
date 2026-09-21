@@ -1,10 +1,16 @@
+/**
+ * lease-portに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeLeaseKindを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import type { ProjectQueueEntry } from "../core/project-runtime-queue.ts";
 import type { ProjectRuntimePortResult } from "./port-result.ts";
 
 /**
- * ProjectRuntimeLeaseKindが扱う値の構造を表す。
+ * lease-portで使用するProject Runtime Lease Kindの値契約を定義する。
  *
- * @responsibility ProjectRuntimeLeaseKindに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Lease KindのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeLeaseKindが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeLeaseKindで宣言した値と責務の対応を維持する。
@@ -17,9 +23,9 @@ export type ProjectRuntimeLeaseKind =
   | "canonical-adoption";
 
 /**
- * ProjectRuntimeLeaseが扱う値の構造を表す。
+ * lease-portで使用するProject Runtime Leaseの値契約を定義する。
  *
- * @responsibility ProjectRuntimeLeaseに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime LeaseのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeLeaseが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeLeaseで宣言した値と責務の対応を維持する。
@@ -34,9 +40,9 @@ export type ProjectRuntimeLease = Readonly<{
 }>;
 
 /**
- * ProjectRuntimeLeaseAcquisitionResolutionが扱う値の構造を表す。
+ * lease-portで使用するProject Runtime Lease Acquisition Resolutionの値契約を定義する。
  *
- * @responsibility ProjectRuntimeLeaseAcquisitionResolutionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Lease Acquisition ResolutionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeLeaseAcquisitionResolutionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeLeaseAcquisitionResolutionで宣言した値と責務の対応を維持する。
@@ -54,9 +60,9 @@ export type ProjectRuntimeLeaseAcquisitionResolution = Readonly<{
 }>;
 
 /**
- * ProjectRuntimeLeaseOwnerObservationが扱う値の構造を表す。
+ * lease-portで使用するProject Runtime Lease 所有者 Observationの値契約を定義する。
  *
- * @responsibility ProjectRuntimeLeaseOwnerObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Lease 所有者 ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeLeaseOwnerObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeLeaseOwnerObservationで宣言した値と責務の対応を維持する。
@@ -72,9 +78,9 @@ export type ProjectRuntimeLeaseOwnerObservation = (
 ) => unknown;
 
 /**
- * ProjectRuntimeLeasePortが扱う値の構造を表す。
+ * lease-portで使用するProject Runtime Lease Portの値契約を定義する。
  *
- * @responsibility ProjectRuntimeLeasePortに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Lease PortのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeLeasePortが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeLeasePortで宣言した値と責務の対応を維持する。

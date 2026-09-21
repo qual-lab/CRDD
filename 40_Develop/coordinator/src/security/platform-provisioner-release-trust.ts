@@ -1,3 +1,9 @@
+/**
+ * platform-provisioner-release-trustに属する責務をまとめる。
+ *
+ * @responsibility pinnedReleasePublicKeySnapshotを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { createHash, createPublicKey } from "node:crypto";
 
 const PINNED_RELEASE_PUBLIC_KEY_SPKI_BASE64 =
@@ -6,9 +12,9 @@ const PINNED_RELEASE_PUBLIC_KEY_SPKI_SHA256 =
   "6b250a21be0f8fd582907731a2cba6aae44b991cbff82234c4ee838548c5e95f";
 
 /**
- * pinnedReleasePublicKeySnapshotの処理を実行する。
+ * pinned Release Public Key Snapshotを決定する。
  *
- * @responsibility pinnedReleasePublicKeySnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility pinned Release Public Key Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns pinnedReleasePublicKeySnapshotの計算結果を返す。
@@ -42,9 +48,9 @@ function pinnedReleasePublicKeySnapshot() {
 }
 
 /**
- * getPinnedPlatformProvisionerReleaseSignerSpkiDerの処理を実行する。
+ * Pinned Platform Provisioner Release Signer Spki Derを取得する。
  *
- * @responsibility getPinnedPlatformProvisionerReleaseSignerSpkiDerに対応する入力処理と結果生成を所有する。
+ * @responsibility Pinned Platform Provisioner Release Signer Spki Derの参照条件、返却値、未検出結果の境界を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns getPinnedPlatformProvisionerReleaseSignerSpkiDerの計算結果を返す。
@@ -62,9 +68,9 @@ export function getPinnedPlatformProvisionerReleaseSignerSpkiDer() {
 }
 
 /**
- * describePlatformProvisionerReleaseTrustContractの処理を実行する。
+ * Platform Provisioner Release Trust 契約の公開契約を記述する。
  *
- * @responsibility describePlatformProvisionerReleaseTrustContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Provisioner Release Trust 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describePlatformProvisionerReleaseTrustContractの計算結果を返す。

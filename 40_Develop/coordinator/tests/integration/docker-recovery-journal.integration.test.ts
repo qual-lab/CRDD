@@ -6,7 +6,7 @@
  * @trace PRL-IT-013
  * @level IT
  * @scope docker、recovery、journal
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -50,7 +50,7 @@ const scopedRuntimeStateBinding = Object.freeze({
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 function temporaryDirectory() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "crdd-docker-journal-test-"));
@@ -66,7 +66,7 @@ function temporaryDirectory() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 function crashWriter(
   directory: string,
@@ -127,7 +127,7 @@ function crashWriter(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 function crashMutation(
   root: string,
@@ -242,7 +242,7 @@ function crashMutation(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 function deletionObservationFailure(directory: string) {
   const moduleUrl = pathToFileURL(
@@ -312,7 +312,7 @@ function deletionObservationFailure(directory: string) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 function crashScopedCleanup(root: string, discriminator: "a" | "b") {
   const moduleUrl = pathToFileURL(
@@ -362,7 +362,7 @@ function crashScopedCleanup(root: string, discriminator: "a" | "b") {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 function crashRecoveryIdentityIntent(
   root: string,
@@ -479,7 +479,7 @@ function crashRecoveryIdentityIntent(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("fsync済みtargetとcommit sidecarの完全な組だけをAuthorityとして読む", () => {
   const directory = temporaryDirectory();
@@ -516,7 +516,7 @@ test("fsync済みtargetとcommit sidecarの完全な組だけをAuthorityとし�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("delete後の存在観測不能は不存在へ縮退せずanchorを保持して再開可能にする", () => {
   const directory = temporaryDirectory();
@@ -548,7 +548,7 @@ test("delete後の存在観測不能は不存在へ縮退せずanchorを保持�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("target temp fsync直後のprocess killはorphan tempを保持して採用しない", () => {
   const directory = temporaryDirectory();
@@ -574,7 +574,7 @@ test("target temp fsync直後のprocess killはorphan tempを保持して採用�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("target rename直後のprocess killは未commit finalを保持してFail Closedにする", () => {
   const directory = temporaryDirectory();
@@ -609,7 +609,7 @@ test("target rename直後のprocess killは未commit finalを保持してFail Cl
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("exactなcreate側はcontent rename後のprocess killから同じpairを完成できる", () => {
   const directory = temporaryDirectory();
@@ -652,7 +652,7 @@ test("exactなcreate側はcontent rename後のprocess killから同じpairを完
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("Effect前のexact未commit finalだけを決定論的rollbackできる", () => {
   const directory = temporaryDirectory();
@@ -683,7 +683,7 @@ test("Effect前のexact未commit finalだけを決定論的rollbackできる", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("未commit finalの内容不一致と完全commit pairはrollbackしない", () => {
   const directory = temporaryDirectory();
@@ -739,7 +739,7 @@ test("未commit finalの内容不一致と完全commit pairはrollbackしない"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("commit rename直後のprocess killでも親processが完全な組を再検証できる", () => {
   const directory = temporaryDirectory();
@@ -765,7 +765,7 @@ test("commit rename直後のprocess killでも親processが完全な組を再検
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("delete intentは全process-kill境界からexact pair削除を再開する", () => {
   for (const boundary of ["fsync", "rename-1", "rm-1", "rm-2"] as const) {
@@ -792,7 +792,7 @@ test("delete intentは全process-kill境界からexact pair削除を再開する
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("move intentはsource／targetの全既知中間状態からexact targetへ収束する", () => {
   for (const boundary of [
@@ -830,7 +830,7 @@ test("move intentはsource／targetの全既知中間状態からexact targetへ
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("cleanup root anchorはpayload部分削除からdirectory residue 0へ再開する", () => {
   for (const boundary of ["fsync", "rename-1", "rm-1", "rm-2"] as const) {
@@ -856,7 +856,7 @@ test("cleanup root anchorはpayload部分削除からdirectory residue 0へ再�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("対象限定resumeは別Recovery IDのanchorをbyte／Identityとも変更しない", () => {
   const root = temporaryDirectory();
@@ -910,7 +910,7 @@ test("対象限定resumeは別Recovery IDのanchorをbyte／Identityとも変更
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("対象限定resumeは同一Recovery IDの作成時binding不一致をmutation前に拒否する", () => {
   const root = temporaryDirectory();
@@ -955,7 +955,7 @@ test("対象限定resumeは同一Recovery IDの作成時binding不一致をmutat
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("delete／moveの第三状態は上書きせずintentと観測物を保持する", () => {
   for (const [operation, boundary, replacement] of [
@@ -1001,7 +1001,7 @@ test("delete／moveの第三状態は上書きせずintentと観測物を保持�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("cleanup第三状態はrecursive deleteせずanchorとunknownを保持する", () => {
   const root = temporaryDirectory();
@@ -1037,7 +1037,7 @@ test("cleanup第三状態はrecursive deleteせずanchorとunknownを保持す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("read-only intent inventoryはdelete／move／cleanupのAuthorityを厳密投影する", () => {
   for (const [operation, boundary] of [
@@ -1097,7 +1097,7 @@ test("read-only intent inventoryはdelete／move／cleanupのAuthorityを厳密�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("同じ論理KeyとRecovery IDの複数intentは発見だけでも第三状態として保持する", (context) => {
   const root = temporaryDirectory();
@@ -1188,7 +1188,7 @@ test("同じ論理KeyとRecovery IDの複数intentは発見だけでも第三状
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("journal contractはprocess-crash回復とpower-loss非保証を分離する", () => {
   assert.deepEqual(describeDockerRecoveryJournalContract(), {
@@ -1215,7 +1215,7 @@ test("journal contractはprocess-crash回復とpower-loss非保証を分離す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("pending intent再入、cleanup rmdir後、競合anchorを決定的に分類する", () => {
   {
@@ -1276,7 +1276,7 @@ test("pending intent再入、cleanup rmdir後、競合anchorを決定的に分�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("不正intent schemaと変更されたempty directoryをEvidenceとして保持する", () => {
   {
@@ -1319,7 +1319,7 @@ test("不正intent schemaと変更されたempty directoryをEvidenceとして�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("intent anchorの改名、複製、commit semantic差を保持して拒否する", () => {
   for (const mutation of ["rename", "duplicate", "commit"] as const) {
@@ -1376,7 +1376,7 @@ test("intent anchorの改名、複製、commit semantic差を保持して拒否�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("root base／base-commit moveとpointer deleteのkill後もexact Recovery IDを再発見する", () => {
   for (const operation of [
@@ -1409,7 +1409,7 @@ test("root base／base-commit moveとpointer deleteのkill後もexact Recovery I
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("Root-level intent探索とresumeは全schemaでRecovery ID別にAだけを進めBを不変にする", () => {
   for (const operation of [
@@ -1493,7 +1493,7 @@ test("Root-level intent探索とresumeは全schemaでRecovery ID別にAだけを
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("Root-level base／base-commit／pointer intentはbinding不一致時に全anchorを保持する", () => {
   for (const operation of [

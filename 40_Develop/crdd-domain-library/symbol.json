@@ -40,16 +40,17 @@
       "kind": "test-suite",
       "path": "tests/unit/public-boundary.contract.test.ts",
       "qaIds": [
-        "QA-000004"
+        "QA-000001"
       ],
       "localTestIds": [
-        "PPR-UT-016"
+        "RCM-UT-014",
+        "RCM-UT-016"
       ],
       "verifies": [
-        "crdd-domain-library.common-outcome-entry",
         "crdd-domain-library.artifact-entry",
         "crdd-domain-library.reality-traceability-entry",
-        "crdd-domain-library.repository-entry"
+        "crdd-domain-library.repository-entry",
+        "crdd-domain-library.source.src.index"
       ]
     },
     {
@@ -63,8 +64,9 @@
         "RFD-IT-012"
       ],
       "verifies": [
-        "crdd-domain-library.reality-traceability-entry",
-        "crdd-domain-library.repository-entry"
+        "crdd-domain-library.source.src.reality.traceability.symbol.graph",
+        "crdd-domain-library.source.src.reality.traceability.symbol.manifest.validator",
+        "version-control.source.src.repository.location"
       ]
     },
     {
@@ -72,13 +74,61 @@
       "kind": "test-suite",
       "path": "tests/unit/repository-observation.contract.test.ts",
       "qaIds": [
-        "QA-000007"
+        "QA-000004"
       ],
       "localTestIds": [
-        "RFD-UT-006"
+        "PPR-UT-011"
       ],
       "verifies": [
-        "crdd-domain-library.repository-entry"
+        "crdd-domain-library.source.src.repository.observation.filesystem.repository.observer"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.source.src.index",
+      "kind": "file",
+      "path": "src/index.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.source.src.repository.observation.filesystem.repository.observer",
+      "kind": "file",
+      "path": "src/repository-observation/filesystem-repository-observer.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.source.src.reality.traceability.symbol.manifest.model",
+      "kind": "file",
+      "path": "src/reality-traceability/symbol-manifest-model.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.source.src.reality.traceability.symbol.graph",
+      "kind": "file",
+      "path": "src/reality-traceability/symbol-graph.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.source.src.reality.traceability.symbol.manifest.validator",
+      "kind": "file",
+      "path": "src/reality-traceability/symbol-manifest-validator.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.source.src.repository.observation.reality.symbol.repository.observer",
+      "kind": "file",
+      "path": "src/repository-observation/reality-symbol-repository-observer.ts",
+      "archIds": [
+        "ARCH-000008"
       ]
     }
   ]

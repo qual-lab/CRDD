@@ -6,7 +6,7 @@
  * @trace CQS-UT-010
  * @level UT
  * @scope dynamic、fake、provider、coverage
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -27,7 +27,7 @@ import {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("動的Fake coverageは生成器と共有LCOV parserを含むexact母集団を所有する", () => {
   assert.deepEqual(DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES, [
@@ -63,7 +63,7 @@ test("動的Fake coverageは生成器と共有LCOV parserを含むexact母集団
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("動的Fake coverage serializerはcompact JSONと末尾LF exact 1件を固定する", () => {
   const serialized = serializeDynamicFakeProviderCoverage({

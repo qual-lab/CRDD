@@ -1,3 +1,9 @@
+/**
+ * docker-process-controllerに属する責務をまとめる。
+ *
+ * @responsibility Commandを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { createHash } from "node:crypto";
 import type { Writable } from "node:stream";
 import { types as utilTypes } from "node:util";
@@ -104,9 +110,9 @@ const SAFE_IDENTIFIER =
   /^crdd-(?:auth|internal|egress|proxy|claude|codex)-[a-f0-9]{16}$/u;
 
 /**
- * Commandが扱う値の構造を表す。
+ * docker-process-controllerで使用するCommandの値契約を定義する。
  *
- * @responsibility Commandに必要な値と制約を一つの型契約として保持する。
+ * @responsibility CommandのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape Commandが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Commandで宣言した値と責務の対応を維持する。
@@ -116,9 +122,9 @@ const SAFE_IDENTIFIER =
  */
 type Command = Readonly<{ purpose: string; argv: readonly string[] }>;
 /**
- * PreparedPlanが扱う値の構造を表す。
+ * docker-process-controllerで使用するPrepared Planの値契約を定義する。
  *
- * @responsibility PreparedPlanに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Prepared PlanのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape PreparedPlanが表すProperty、識別子およびRelationを型として固定する。
  * @invariant PreparedPlanで宣言した値と責務の対応を維持する。
@@ -163,9 +169,9 @@ type PreparedPlan = Readonly<{
   commands: readonly Command[];
 }>;
 /**
- * CommandExecutionが扱う値の構造を表す。
+ * docker-process-controllerで使用するCommand Executionの値契約を定義する。
  *
- * @responsibility CommandExecutionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Command ExecutionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape CommandExecutionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CommandExecutionで宣言した値と責務の対応を維持する。
@@ -181,9 +187,9 @@ type CommandExecution = Readonly<{
   outputExceeded: boolean;
 }>;
 /**
- * CommandHandleが扱う値の構造を表す。
+ * docker-process-controllerで使用するCommand Handleの値契約を定義する。
  *
- * @responsibility CommandHandleに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Command HandleのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape CommandHandleが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CommandHandleで宣言した値と責務の対応を維持する。
@@ -197,9 +203,9 @@ type CommandHandle = Readonly<{
   terminateAndWait: (graceMs: number) => Promise<boolean>;
 }>;
 /**
- * Recoveryが扱う値の構造を表す。
+ * docker-process-controllerで使用する回復の値契約を定義する。
  *
- * @responsibility Recoveryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 回復のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape Recoveryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Recoveryで宣言した値と責務の対応を維持する。
@@ -213,9 +219,9 @@ type Recovery = Readonly<{
   recoveryCapability: object;
 }>;
 /**
- * BlockedRecoveryが扱う値の構造を表す。
+ * docker-process-controllerで使用するBlocked 回復の値契約を定義する。
  *
- * @responsibility BlockedRecoveryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Blocked 回復のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape BlockedRecoveryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant BlockedRecoveryで宣言した値と責務の対応を維持する。
@@ -230,9 +236,9 @@ type BlockedRecovery = Readonly<{
   manualRecoveryRequired?: boolean;
 }>;
 /**
- * CleanupObservationが扱う値の構造を表す。
+ * docker-process-controllerで使用する清掃 Observationの値契約を定義する。
  *
- * @responsibility CleanupObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 清掃 ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape CleanupObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CleanupObservationで宣言した値と責務の対応を維持する。
@@ -247,9 +253,9 @@ type CleanupObservation = Readonly<{
   networksAbsent: boolean;
 }>;
 /**
- * ProviderProcessStartedNoticeが扱う値の構造を表す。
+ * docker-process-controllerで使用するProvider Process Started Noticeの値契約を定義する。
  *
- * @responsibility ProviderProcessStartedNoticeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Provider Process Started NoticeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ProviderProcessStartedNoticeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProviderProcessStartedNoticeで宣言した値と責務の対応を維持する。
@@ -264,9 +270,9 @@ type ProviderProcessStartedNotice = Readonly<{
   operationId: string;
 }>;
 /**
- * ProviderBoundaryDiagnosticNoticeが扱う値の構造を表す。
+ * docker-process-controllerで使用するProvider Boundary Diagnostic Noticeの値契約を定義する。
  *
- * @responsibility ProviderBoundaryDiagnosticNoticeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Provider Boundary Diagnostic NoticeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ProviderBoundaryDiagnosticNoticeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProviderBoundaryDiagnosticNoticeで宣言した値と責務の対応を維持する。
@@ -317,9 +323,9 @@ type ProviderBoundaryDiagnosticNotice =
       cleanupConfirmed: boolean;
     }>;
 /**
- * RuntimeDependenciesが扱う値の構造を表す。
+ * docker-process-controllerで使用するRuntime Dependenciesの値契約を定義する。
  *
- * @responsibility RuntimeDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RuntimeDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeDependenciesで宣言した値と責務の対応を維持する。
@@ -398,9 +404,9 @@ type RuntimeDependencies = Readonly<{
 }>;
 
 /**
- * ExecutionRecordが扱う値の構造を表す。
+ * docker-process-controllerで使用するExecution 記録の値契約を定義する。
  *
- * @responsibility ExecutionRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Execution 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ExecutionRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ExecutionRecordで宣言した値と責務の対応を維持する。
@@ -416,9 +422,9 @@ type ExecutionRecord = {
   completion: Promise<ExecutionResult> | null;
 };
 /**
- * RuntimeStateが扱う値の構造を表す。
+ * docker-process-controllerで使用するRuntime 状態の値契約を定義する。
  *
- * @responsibility RuntimeStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RuntimeStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeStateで宣言した値と責務の対応を維持する。
@@ -431,9 +437,9 @@ type RuntimeState = Readonly<{
   controls: WeakMap<object, ExecutionRecord>;
 }>;
 /**
- * ExecutionResultが扱う値の構造を表す。
+ * docker-process-controllerで使用するExecution 結果の値契約を定義する。
  *
- * @responsibility ExecutionResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Execution 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ExecutionResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ExecutionResultで宣言した値と責務の対応を維持する。
@@ -444,9 +450,9 @@ type RuntimeState = Readonly<{
 type ExecutionResult = ReturnType<typeof createFinalResult>;
 
 /**
- * createRuntimeOwnedLifecycleNoticeReporterの処理を実行する。
+ * Runtime 所有 Lifecycle Notice Reporterを構築する。
  *
- * @responsibility createRuntimeOwnedLifecycleNoticeReporterに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Lifecycle Notice Reporterの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input stream: Writable
  * @returns createRuntimeOwnedLifecycleNoticeReporterの計算結果を返す。
@@ -494,9 +500,9 @@ export function createRuntimeOwnedLifecycleNoticeReporter(stream: Writable) {
 }
 
 /**
- * argumentAfterの処理を実行する。
+ * argument Afterを決定する。
  *
- * @responsibility argumentAfterに対応する入力処理と結果生成を所有する。
+ * @responsibility argument Afterの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input argv: readonly string[]、key: string
  * @returns argumentAfterの計算結果を返す。
@@ -515,9 +521,9 @@ function argumentAfter(argv: readonly string[], key: string) {
 }
 
 /**
- * providerBoundaryConfigurationの処理を実行する。
+ * provider Boundary Configurationを決定する。
  *
- * @responsibility providerBoundaryConfigurationに対応する入力処理と結果生成を所有する。
+ * @responsibility provider Boundary Configurationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input plan: PreparedPlan
  * @returns Extract< ProviderBoundaryDiagnosticNotice, { event: "coordinator_provider_boundary_configured" } >を返す。
@@ -576,9 +582,9 @@ function providerBoundaryConfiguration(
 }
 
 /**
- * providerProcessExitStatusClassの処理を実行する。
+ * provider Process Exit Status Classを決定する。
  *
- * @responsibility providerProcessExitStatusClassに対応する入力処理と結果生成を所有する。
+ * @responsibility provider Process Exit Status Classの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input execution: CommandExecution | null
  * @returns providerProcessExitStatusClassの計算結果を返す。
@@ -604,9 +610,9 @@ function providerProcessExitStatusClass(execution: CommandExecution | null) {
 }
 
 /**
- * reportPassiveBoundaryDiagnosticの処理を実行する。
+ * Passive Boundary Diagnosticを診断結果として報告する。
  *
- * @responsibility reportPassiveBoundaryDiagnosticに対応する入力処理と結果生成を所有する。
+ * @responsibility Passive Boundary Diagnosticの公開field、相関Identity、機密を含めない結果境界を所有する。
  * @trace ARCH-000008
  * @input state: RuntimeState、notice: ProviderBoundaryDiagnosticNotice
  * @returns N/A: reportPassiveBoundaryDiagnosticは戻り値を返さない。
@@ -696,9 +702,9 @@ const COMPLETION_KEYS = Object.freeze([
 ]);
 
 /**
- * ownDataValueの処理を実行する。
+ * own Data Valueを決定する。
  *
- * @responsibility ownDataValueに対応する入力処理と結果生成を所有する。
+ * @responsibility own Data Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、key: string
  * @returns unknownを返す。
@@ -722,9 +728,9 @@ function ownDataValue(value: unknown, key: string): unknown {
 }
 
 /**
- * exactPlainRecordの処理を実行する。
+ * Plain 記録が完全一致するか判定する。
  *
- * @responsibility exactPlainRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Plain 記録の比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、expectedKeys: readonly string[]
  * @returns exactPlainRecordの計算結果を返す。
@@ -775,7 +781,7 @@ function exactPlainRecord(value: unknown, expectedKeys: readonly string[]) {
 /**
  * Producer-owned exact projection for the controller's synchronous result.
  *
- * @responsibility projectDockerProcessControllerStartResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Process Controller Start 結果の公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、handedOffRecoveryId: unknown、expectedOperationId: unknown
  * @returns Readonly<Record<string, unknown>> | nullを返す。
@@ -859,7 +865,7 @@ export function projectDockerProcessControllerStartResult(
 /**
  * Producer-owned exact projection for the controller's asynchronous result.
  *
- * @responsibility projectDockerProcessControllerCompletionResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Process Controller Completion 結果の公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、expectedRecoveryId: unknown、expectedOperationId: unknown
  * @returns Readonly<Record<string, unknown>> | nullを返す。
@@ -987,9 +993,9 @@ export function projectDockerProcessControllerCompletionResult(
 }
 
 /**
- * snapshotReadyRecoveryの処理を実行する。
+ * Ready 回復を所有Snapshotへ変換する。
  *
- * @responsibility snapshotReadyRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility Ready 回復の取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns Recovery | nullを返す。
@@ -1026,9 +1032,9 @@ function snapshotReadyRecovery(value: unknown): Recovery | null {
 }
 
 /**
- * snapshotBlockedRecoveryWithExactIdの処理を実行する。
+ * Blocked 回復 With Exact Idを所有Snapshotへ変換する。
  *
- * @responsibility snapshotBlockedRecoveryWithExactIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Blocked 回復 With Exact Idの取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、expectedStableLogicalHomeBindingHash: string
  * @returns snapshotBlockedRecoveryWithExactIdの計算結果を返す。
@@ -1072,9 +1078,9 @@ function snapshotBlockedRecoveryWithExactId(
 }
 
 /**
- * createBlockedStartの処理を実行する。
+ * Blocked Startを構築する。
  *
- * @responsibility createBlockedStartに対応する入力処理と結果生成を所有する。
+ * @responsibility Blocked Startの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input reason: string、preEffectCleanupConfirmed、recoveryId: string | null、lowerManualRecoveryRequired
  * @returns createBlockedStartの計算結果を返す。
@@ -1117,9 +1123,9 @@ function createBlockedStart(
 }
 
 /**
- * settleInvalidRecoveryStartの処理を実行する。
+ * Invalid 回復 Startを終端状態へ確定する。
  *
- * @responsibility settleInvalidRecoveryStartに対応する入力処理と結果生成を所有する。
+ * @responsibility Invalid 回復 Startの確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000008
  * @input state: RuntimeState、plan: PreparedPlan、managementCapability: object、recoveryCapability: unknown、recoveryId: string | null、reason: string
  * @returns settleInvalidRecoveryStartの計算結果を返す。
@@ -1155,9 +1161,9 @@ function settleInvalidRecoveryStart(
 }
 
 /**
- * createFinalResultの処理を実行する。
+ * Final 結果を構築する。
  *
- * @responsibility createFinalResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Final 結果の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input status: "completed" | "blocked" | "cancelled"、reason: string、plan: PreparedPlan、recoveryId: string、details: Readonly<{ providerRequestStarted: boolean; cancellationRequested: boolean; processTreeTerminationConfirmed: boolean; containersAbsent: boolean; networksAbsent: boolean; mountLeaseReleased: boolean; recoveryCompleted: boolean; resultSha256: string | null; resultBytes: number; normalizedResult: unknown | null; subscriptionAuthConfirmed: boolean; recoveryFinalizationCapability: object | null; }>
  * @returns createFinalResultの計算結果を返す。
@@ -1235,9 +1241,9 @@ function createFinalResult(
 }
 
 /**
- * isPlanValidの処理を実行する。
+ * Plan Validかを判定する。
  *
- * @responsibility isPlanValidに対応する入力処理と結果生成を所有する。
+ * @responsibility Plan Validの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input plan: PreparedPlan
  * @returns isPlanValidの計算結果を返す。
@@ -1315,9 +1321,9 @@ function isPlanValid(plan: PreparedPlan) {
 }
 
 /**
- * subscriptionAuthConfirmedの処理を実行する。
+ * subscription Auth Confirmedを決定する。
  *
- * @responsibility subscriptionAuthConfirmedに対応する入力処理と結果生成を所有する。
+ * @responsibility subscription Auth Confirmedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input provider: "codex" | "claude"、expectedOffering: "chatgpt_subscription_oauth" | "claude_max"、stdout: string、stderr: string
  * @returns subscriptionAuthConfirmedの計算結果を返す。
@@ -1374,9 +1380,9 @@ function subscriptionAuthConfirmed(
 }
 
 /**
- * classifyExecutionの処理を実行する。
+ * Executionを分類する。
  *
- * @responsibility classifyExecutionに対応する入力処理と結果生成を所有する。
+ * @responsibility Executionの分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000008
  * @input execution: CommandExecution | null、isProvider: boolean、provider: "codex" | "claude"
  * @returns classifyExecutionの計算結果を返す。
@@ -1430,9 +1436,9 @@ function classifyExecution(
 }
 
 /**
- * classifyProviderNonzeroExitの処理を実行する。
+ * Provider Nonzero Exitを分類する。
  *
- * @responsibility classifyProviderNonzeroExitに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Nonzero Exitの分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000008
  * @input provider: "codex" | "claude"、execution: CommandExecution
  * @returns classifyProviderNonzeroExitの計算結果を返す。
@@ -1510,9 +1516,9 @@ function classifyProviderNonzeroExit(
 // This is an additional veto, never an authority source. Do not pass plans,
 // credentials or capabilities to it, or use it on the existing cleanup path.
 /**
- * commandRestrictionAllowsの処理を実行する。
+ * command Restriction Allowsを決定する。
  *
- * @responsibility commandRestrictionAllowsに対応する入力処理と結果生成を所有する。
+ * @responsibility command Restriction Allowsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input restriction: unknown、purpose: string
  * @returns commandRestrictionAllowsの計算結果を返す。
@@ -1552,9 +1558,9 @@ function commandRestrictionAllows(restriction: unknown, purpose: string) {
 }
 
 /**
- * executePlanの処理を実行する。
+ * Planを実行する。
  *
- * @responsibility executePlanに対応する入力処理と結果生成を所有する。
+ * @responsibility Planの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000008
  * @input state: RuntimeState、record: ExecutionRecord、plan: PreparedPlan、recovery: Recovery
  * @returns executePlanの計算結果を返す。
@@ -1899,9 +1905,9 @@ async function executePlan(
 }
 
 /**
- * startの処理を実行する。
+ * docker-process-controllerを開始する。
  *
- * @responsibility startに対応する入力処理と結果生成を所有する。
+ * @responsibility docker-process-controllerの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000008
  * @input state: RuntimeState、preparedCapability: unknown、managementCapability: unknown、registerRecoveryHandoff: unknown、commandRestriction: unknown
  * @returns startの計算結果を返す。
@@ -2088,9 +2094,9 @@ function start(
 }
 
 /**
- * cancelの処理を実行する。
+ * docker-process-controllerを取り消す。
  *
- * @responsibility cancelに対応する入力処理と結果生成を所有する。
+ * @responsibility docker-process-controllerの取消条件、終了状態、残存Effectの境界を所有する。
  * @trace ARCH-000008
  * @input state: RuntimeState、controlCapability: unknown、managementCapability: unknown
  * @returns cancelの計算結果を返す。
@@ -2168,9 +2174,9 @@ const productionState: RuntimeState = Object.freeze({
 });
 
 /**
- * startRuntimeOwnedDockerProcessControllerの処理を実行する。
+ * Runtime 所有 Docker Process Controllerを開始する。
  *
- * @responsibility startRuntimeOwnedDockerProcessControllerに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Process Controllerの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000008
  * @input preparedCapability: unknown、managementCapability: unknown、registerRecoveryHandoff: unknown、commandRestriction: unknown
  * @returns startRuntimeOwnedDockerProcessControllerの計算結果を返す。
@@ -2203,9 +2209,9 @@ export function startRuntimeOwnedDockerProcessController(
 }
 
 /**
- * cancelRuntimeOwnedDockerProcessControllerの処理を実行する。
+ * Runtime 所有 Docker Process Controllerを取り消す。
  *
- * @responsibility cancelRuntimeOwnedDockerProcessControllerに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Process Controllerの取消条件、終了状態、残存Effectの境界を所有する。
  * @trace ARCH-000008
  * @input controlCapability: unknown、managementCapability: unknown
  * @returns cancelRuntimeOwnedDockerProcessControllerの計算結果を返す。
@@ -2234,9 +2240,9 @@ export async function cancelRuntimeOwnedDockerProcessController(
 }
 
 /**
- * createIsolatedDockerProcessControllerCandidateの処理を実行する。
+ * Isolated Docker Process Controller 候補を構築する。
  *
- * @responsibility createIsolatedDockerProcessControllerCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Isolated Docker Process Controller 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RuntimeDependencies
  * @returns createIsolatedDockerProcessControllerCandidateの計算結果を返す。
@@ -2284,9 +2290,9 @@ export function createIsolatedDockerProcessControllerCandidate(
 }
 
 /**
- * describeDockerProcessControllerContractの処理を実行する。
+ * Docker Process Controller 契約の公開契約を記述する。
  *
- * @responsibility describeDockerProcessControllerContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Process Controller 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeDockerProcessControllerContractの計算結果を返す。

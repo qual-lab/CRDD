@@ -6,7 +6,7 @@
  * @trace RCM-UT-016
  * @level UT
  * @scope claude、structured、result
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -26,7 +26,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 function createEnvelope(overrides: Record<string, unknown> = {}) {
   return JSON.stringify({
@@ -53,7 +53,7 @@ function createEnvelope(overrides: Record<string, unknown> = {}) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("Claude JSON Envelopeからexact boolean Resultだけを正規化する", () => {
   const result = normalizeClaudeStructuredResult(`${createEnvelope()}\n`);
@@ -75,7 +75,7 @@ test("Claude JSON Envelopeからexact boolean Resultだけを正規化する", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("失敗Envelope、turn超過とbudget超過を拒否する", () => {
   for (const envelope of [
@@ -98,7 +98,7 @@ test("失敗Envelope、turn超過とbudget超過を拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("Structured Outputのfalse、余分なkeyと型差を拒否する", () => {
   for (const structuredOutput of [
@@ -127,7 +127,7 @@ test("Structured Outputのfalse、余分なkeyと型差を拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("重複key、複数document、BOMと不正JSONを曖昧入力として拒否する", () => {
   const duplicateEnvelope =
@@ -153,7 +153,7 @@ test("重複key、複数document、BOMと不正JSONを曖昧入力として拒�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("metadata内のJSON全型とescapeを走査しnested重複も拒否する", () => {
   const confirmed = normalizeClaudeStructuredResult(
@@ -200,7 +200,7 @@ test("metadata内のJSON全型とescapeを走査しnested重複も拒否する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("不完全なstring、array、objectと数値tokenを例外なく拒否する", () => {
   for (const raw of [
@@ -235,7 +235,7 @@ test("不完全なstring、array、objectと数値tokenを例外なく拒否す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("Envelope型、欠落field、非有限相当と0境界を区別する", () => {
   assert.equal(normalizeClaudeStructuredResult(1).status, "blocked");
@@ -278,7 +278,7 @@ test("Envelope型、欠落field、非有限相当と0境界を区別する", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("公開契約は単一JSON、重複拒否、2 turnsと$0.10上限を固定する", () => {
   const contract = describeClaudeStructuredResultContract();

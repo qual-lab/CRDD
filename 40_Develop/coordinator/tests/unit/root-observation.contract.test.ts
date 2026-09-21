@@ -6,7 +6,7 @@
  * @trace RFD-UT-006
  * @level UT
  * @scope root、observation
- * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ * @boundary RFD-UT-006=N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -27,7 +27,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ * @boundary RFD-UT-006=N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
  */
 function observation(rootRole: "runtime" | "authority" = "authority") {
   const entityCount = 3;
@@ -61,7 +61,7 @@ function observation(rootRole: "runtime" | "authority" = "authority") {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ * @boundary RFD-UT-006=N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
  */
 test("Windows Root観測はIdentityと保護を別domain Hashへ固定する", () => {
   const authority = compileWindowsRootObservationCandidate(observation());
@@ -91,7 +91,7 @@ test("Windows Root観測はIdentityと保護を別domain Hashへ固定する", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ * @boundary RFD-UT-006=N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
  */
 test("IdentityまたはRuntime主体の変更は対応するHashを変える", () => {
   const baseline = compileWindowsRootObservationCandidate(observation());
@@ -122,7 +122,7 @@ test("IdentityまたはRuntime主体の変更は対応するHashを変える", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ * @boundary RFD-UT-006=N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
  */
 test("DACL、FilesystemまたはIdentity不成立をfail closedにする", () => {
   for (const invalid of [
@@ -164,7 +164,7 @@ test("DACL、FilesystemまたはIdentity不成立をfail closedにする", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ * @boundary RFD-UT-006=N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
  */
 test("process結果の観測写像未実装時は入力に依存せず安全にblockedとする", () => {
   const result = inspectWindowsRootObservationCandidate(
@@ -204,7 +204,7 @@ test("process結果の観測写像未実装時は入力に依存せず安全にb
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ * @boundary RFD-UT-006=N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
  */
 test("Root観測契約はWindows候補とPOSIX未実装を分離する", () => {
   assert.deepEqual(describeRootObservationContract(), {

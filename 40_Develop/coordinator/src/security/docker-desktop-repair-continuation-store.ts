@@ -1,3 +1,9 @@
+/**
+ * docker-desktop-repair-continuation-storeに属する責務をまとめる。
+ *
+ * @responsibility DockerDesktopRepairContinuationActionを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -19,9 +25,9 @@ export const DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS = Object.freeze([
   "desktop_relaunch",
 ] as const);
 /**
- * DockerDesktopRepairContinuationActionが扱う値の構造を表す。
+ * docker-desktop-repair-continuation-storeで使用するDocker Desktop Repair Continuation Actionの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairContinuationActionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Continuation ActionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairContinuationActionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairContinuationActionで宣言した値と責務の対応を維持する。
@@ -43,9 +49,9 @@ export const DOCKER_DESKTOP_REPAIR_CONTINUATION_STAGES = Object.freeze([
   "recovered",
 ] as const);
 /**
- * DockerDesktopRepairContinuationStageが扱う値の構造を表す。
+ * docker-desktop-repair-continuation-storeで使用するDocker Desktop Repair Continuation Stageの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairContinuationStageに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Continuation StageのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairContinuationStageが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairContinuationStageで宣言した値と責務の対応を維持する。
@@ -57,9 +63,9 @@ export type DockerDesktopRepairContinuationStage =
   (typeof DOCKER_DESKTOP_REPAIR_CONTINUATION_STAGES)[number];
 
 /**
- * DockerDesktopRepairContinuationEffectが扱う値の構造を表す。
+ * docker-desktop-repair-continuation-storeで使用するDocker Desktop Repair Continuation Effectの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairContinuationEffectに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Continuation EffectのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairContinuationEffectが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairContinuationEffectで宣言した値と責務の対応を維持する。
@@ -74,9 +80,9 @@ export type DockerDesktopRepairContinuationEffect = Readonly<{
 }>;
 
 /**
- * DockerDesktopRepairContinuationが扱う値の構造を表す。
+ * docker-desktop-repair-continuation-storeで使用するDocker Desktop Repair Continuationの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairContinuationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair ContinuationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairContinuationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairContinuationで宣言した値と責務の対応を維持する。
@@ -104,9 +110,9 @@ export type DockerDesktopRepairContinuation = Readonly<{
 }>;
 
 /**
- * StoredContinuationが扱う値の構造を表す。
+ * docker-desktop-repair-continuation-storeで使用するStored Continuationの値契約を定義する。
  *
- * @responsibility StoredContinuationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Stored ContinuationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape StoredContinuationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant StoredContinuationで宣言した値と責務の対応を維持する。
@@ -142,9 +148,9 @@ const MAXIMUM_CONTINUATION_RECORDS = 8;
 const MAXIMUM_CONTINUATION_RECORD_BYTES = 32_768;
 
 /**
- * hash64の処理を実行する。
+ * hash64を決定する。
  *
- * @responsibility hash64に対応する入力処理と結果生成を所有する。
+ * @responsibility hash64の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is stringを返す。
@@ -162,9 +168,9 @@ function hash64(value: unknown): value is string {
 }
 
 /**
- * exactKeysの処理を実行する。
+ * Keysが完全一致するか判定する。
  *
- * @responsibility exactKeysに対応する入力処理と結果生成を所有する。
+ * @responsibility Keysの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: object、expectedKeys: readonly string[]
  * @returns exactKeysの計算結果を返す。
@@ -186,9 +192,9 @@ function exactKeys(value: object, expectedKeys: readonly string[]) {
 }
 
 /**
- * plainObjectの処理を実行する。
+ * ObjectをPlain Dataとして検証する。
  *
- * @responsibility plainObjectに対応する入力処理と結果生成を所有する。
+ * @responsibility Objectの許可Property、入れ子値、拒否境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is Record<string, unknown>を返す。
@@ -211,9 +217,9 @@ function plainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * validIdentityの処理を実行する。
+ * Identityが有効か判定する。
  *
- * @responsibility validIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Identityの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is DockerDesktopRepairDirectoryIdentityを返す。
@@ -239,9 +245,9 @@ function validIdentity(
 }
 
 /**
- * validEffectの処理を実行する。
+ * Effectが有効か判定する。
  *
- * @responsibility validEffectに対応する入力処理と結果生成を所有する。
+ * @responsibility Effectの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is DockerDesktopRepairContinuationEffectを返す。
@@ -279,9 +285,9 @@ function validEffect(
 }
 
 /**
- * validEffectsの処理を実行する。
+ * Effectsが有効か判定する。
  *
- * @responsibility validEffectsに対応する入力処理と結果生成を所有する。
+ * @responsibility Effectsの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is StoredContinuation["effects"]を返す。
@@ -305,9 +311,9 @@ function validEffects(value: unknown): value is StoredContinuation["effects"] {
 }
 
 /**
- * expectedNamesの処理を実行する。
+ * expected Namesを決定する。
  *
- * @responsibility expectedNamesに対応する入力処理と結果生成を所有する。
+ * @responsibility expected Namesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input operationId: string
  * @returns expectedNamesの計算結果を返す。
@@ -328,9 +334,9 @@ function expectedNames(operationId: string) {
 }
 
 /**
- * validStoredContinuationの処理を実行する。
+ * Stored Continuationが有効か判定する。
  *
- * @responsibility validStoredContinuationに対応する入力処理と結果生成を所有する。
+ * @responsibility Stored Continuationの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation
  * @returns value is StoredContinuationを返す。
@@ -411,9 +417,9 @@ function validStoredContinuation(
 }
 
 /**
- * effectEqualsの処理を実行する。
+ * effect Equalsを決定する。
  *
- * @responsibility effectEqualsに対応する入力処理と結果生成を所有する。
+ * @responsibility effect Equalsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input left: DockerDesktopRepairContinuationEffect | null、right: DockerDesktopRepairContinuationEffect | null
  * @returns effectEqualsの計算結果を返す。
@@ -434,9 +440,9 @@ function effectEquals(
 }
 
 /**
- * legalTransitionの処理を実行する。
+ * legal Transitionを決定する。
  *
- * @responsibility legalTransitionに対応する入力処理と結果生成を所有する。
+ * @responsibility legal Transitionの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input previous: StoredContinuation | null、next: StoredContinuation
  * @returns legalTransitionの計算結果を返す。
@@ -535,9 +541,9 @@ function legalTransition(
 }
 
 /**
- * stableBytesの処理を実行する。
+ * Bytesを安定Identityへ変換する。
  *
- * @responsibility stableBytesに対応する入力処理と結果生成を所有する。
+ * @responsibility Bytesの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input target: string
  * @returns stableBytesの計算結果を返す。
@@ -574,9 +580,9 @@ function stableBytes(target: string) {
 }
 
 /**
- * toContinuationの処理を実行する。
+ * to Continuationを決定する。
  *
- * @responsibility toContinuationに対応する入力処理と結果生成を所有する。
+ * @responsibility to Continuationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input record: StoredContinuation、recordSha256: string
  * @returns DockerDesktopRepairContinuationを返す。
@@ -609,9 +615,9 @@ function toContinuation(
 }
 
 /**
- * continuationDirectoryの処理を実行する。
+ * continuation Directoryを決定する。
  *
- * @responsibility continuationDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility continuation Directoryの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input operation: DockerDesktopRepairOperation
  * @returns continuationDirectoryの計算結果を返す。
@@ -632,9 +638,9 @@ function continuationDirectory(operation: DockerDesktopRepairOperation) {
 }
 
 /**
- * readDockerDesktopRepairContinuationの処理を実行する。
+ * Docker Desktop Repair Continuationを読み取る。
  *
- * @responsibility readDockerDesktopRepairContinuationに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Continuationの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation
  * @returns DockerDesktopRepairContinuation | nullを返す。
@@ -701,9 +707,9 @@ export function readDockerDesktopRepairContinuation(
 }
 
 /**
- * inspectDockerDesktopRepairContinuationの処理を実行する。
+ * Docker Desktop Repair Continuationを観測する。
  *
- * @responsibility inspectDockerDesktopRepairContinuationに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Continuationの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation
  * @returns inspectDockerDesktopRepairContinuationの計算結果を返す。
@@ -742,9 +748,9 @@ export function inspectDockerDesktopRepairContinuation(
 }
 
 /**
- * isDockerDesktopRepairContinuationDirectoryValidの処理を実行する。
+ * Docker Desktop Repair Continuation Directory Validかを判定する。
  *
- * @responsibility isDockerDesktopRepairContinuationDirectoryValidに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Continuation Directory Validの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation
  * @returns isDockerDesktopRepairContinuationDirectoryValidの計算結果を返す。
@@ -765,9 +771,9 @@ export function isDockerDesktopRepairContinuationDirectoryValid(
 }
 
 /**
- * persistの処理を実行する。
+ * docker-desktop-repair-continuation-storeを耐久保存する。
  *
- * @responsibility persistに対応する入力処理と結果生成を所有する。
+ * @responsibility docker-desktop-repair-continuation-storeの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、previous: DockerDesktopRepairContinuation | null、stage: DockerDesktopRepairContinuationStage、failedRunIdentity: DockerDesktopRepairDirectoryIdentity、secretsEngineIdentity: DockerDesktopRepairDirectoryIdentity、effects: DockerDesktopRepairContinuation["effects"]
  * @returns persistの計算結果を返す。
@@ -870,9 +876,9 @@ const emptyEffects = () =>
   });
 
 /**
- * createDockerDesktopRepairContinuationの処理を実行する。
+ * Docker Desktop Repair Continuationを構築する。
  *
- * @responsibility createDockerDesktopRepairContinuationに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Continuationの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、failedRunIdentity: DockerDesktopRepairDirectoryIdentity、secretsEngineIdentity: DockerDesktopRepairDirectoryIdentity
  * @returns createDockerDesktopRepairContinuationの計算結果を返す。
@@ -903,9 +909,9 @@ export function createDockerDesktopRepairContinuation(
 }
 
 /**
- * persistDockerDesktopRepairContinuationIntentの処理を実行する。
+ * Docker Desktop Repair Continuation Intentを耐久保存する。
  *
- * @responsibility persistDockerDesktopRepairContinuationIntentに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Continuation Intentの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、continuation: DockerDesktopRepairContinuation、action: DockerDesktopRepairContinuationAction
  * @returns persistDockerDesktopRepairContinuationIntentの計算結果を返す。
@@ -948,9 +954,9 @@ export function persistDockerDesktopRepairContinuationIntent(
 }
 
 /**
- * persistDockerDesktopRepairContinuationSettlementの処理を実行する。
+ * Docker Desktop Repair Continuation Settlementを耐久保存する。
  *
- * @responsibility persistDockerDesktopRepairContinuationSettlementに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Continuation Settlementの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、continuation: DockerDesktopRepairContinuation、action: DockerDesktopRepairContinuationAction、outcome: Readonly<{ issued: boolean | null; confirmation: DockerDesktopRepairEffectConfirmation; }>
  * @returns persistDockerDesktopRepairContinuationSettlementの計算結果を返す。
@@ -993,9 +999,9 @@ export function persistDockerDesktopRepairContinuationSettlement(
 }
 
 /**
- * persistDockerDesktopRepairContinuationRecoveredの処理を実行する。
+ * Docker Desktop Repair Continuation Recoveredを耐久保存する。
  *
- * @responsibility persistDockerDesktopRepairContinuationRecoveredに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Continuation Recoveredの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、continuation: DockerDesktopRepairContinuation
  * @returns persistDockerDesktopRepairContinuationRecoveredの計算結果を返す。
@@ -1036,9 +1042,9 @@ export function persistDockerDesktopRepairContinuationRecovered(
 }
 
 /**
- * dockerDesktopRepairContinuationPathsの処理を実行する。
+ * docker Desktop Repair Continuation Pathsを決定する。
  *
- * @responsibility dockerDesktopRepairContinuationPathsに対応する入力処理と結果生成を所有する。
+ * @responsibility docker Desktop Repair Continuation Pathsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、continuation: DockerDesktopRepairContinuation
  * @returns dockerDesktopRepairContinuationPathsの計算結果を返す。

@@ -1,11 +1,17 @@
+/**
+ * signed-runner-safety-observationに属する責務をまとめる。
+ *
+ * @responsibility SignedRunnerSafetySchemaを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { types as utilTypes } from "node:util";
 
 import { snapshotPlainArray } from "./plain-data-snapshot.ts";
 
 /**
- * SignedRunnerSafetySchemaが扱う値の構造を表す。
+ * signed-runner-safety-observationで使用するSigned Runner Safety Schemaの値契約を定義する。
  *
- * @responsibility SignedRunnerSafetySchemaに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Signed Runner Safety SchemaのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape SignedRunnerSafetySchemaが表すProperty、識別子およびRelationを型として固定する。
  * @invariant SignedRunnerSafetySchemaで宣言した値と責務の対応を維持する。
@@ -28,9 +34,9 @@ export type SignedRunnerSafetySchema = Readonly<{
 }>;
 
 /**
- * SignedRunnerRecoveryKindが扱う値の構造を表す。
+ * signed-runner-safety-observationで使用するSigned Runner 回復 Kindの値契約を定義する。
  *
- * @responsibility SignedRunnerRecoveryKindに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Signed Runner 回復 KindのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape SignedRunnerRecoveryKindが表すProperty、識別子およびRelationを型として固定する。
  * @invariant SignedRunnerRecoveryKindで宣言した値と責務の対応を維持する。
@@ -45,9 +51,9 @@ export type SignedRunnerRecoveryKind =
   | "candidate_store";
 
 /**
- * SignedRunnerSafetyObservationが扱う値の構造を表す。
+ * signed-runner-safety-observationで使用するSigned Runner Safety Observationの値契約を定義する。
  *
- * @responsibility SignedRunnerSafetyObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Signed Runner Safety ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape SignedRunnerSafetyObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant SignedRunnerSafetyObservationで宣言した値と責務の対応を維持する。
@@ -72,9 +78,9 @@ const RECOVERY_ID_PATTERNS: Readonly<Record<SignedRunnerRecoveryKind, RegExp>> =
   });
 
 /**
- * isCanonicalSignedRunnerRecoveryIdの処理を実行する。
+ * Canonical Signed Runner 回復 Idかを判定する。
  *
- * @responsibility isCanonicalSignedRunnerRecoveryIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Canonical Signed Runner 回復 Idの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown、kind: SignedRunnerRecoveryKind
  * @returns value is stringを返す。
@@ -100,9 +106,9 @@ export function isCanonicalSignedRunnerRecoveryId(
 }
 
 /**
- * ownDataValueの処理を実行する。
+ * own Data Valueを決定する。
  *
- * @responsibility ownDataValueに対応する入力処理と結果生成を所有する。
+ * @responsibility own Data Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input record: object、field: string
  * @returns ownDataValueの計算結果を返す。
@@ -127,9 +133,9 @@ function ownDataValue(record: object, field: string) {
 }
 
 /**
- * salvageSignedRunnerNullableRecoveryの処理を実行する。
+ * salvage Signed Runner Nullable 回復を決定する。
  *
- * @responsibility salvageSignedRunnerNullableRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility salvage Signed Runner Nullable 回復の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown、field: string、kind: SignedRunnerRecoveryKind
  * @returns salvageSignedRunnerNullableRecoveryの計算結果を返す。
@@ -172,9 +178,9 @@ export function salvageSignedRunnerNullableRecovery(
 }
 
 /**
- * salvageSignedRunnerRecoveryPairの処理を実行する。
+ * salvage Signed Runner 回復 Pairを決定する。
  *
- * @responsibility salvageSignedRunnerRecoveryPairに対応する入力処理と結果生成を所有する。
+ * @responsibility salvage Signed Runner 回復 Pairの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown、pair: Readonly<{ singularField: string; pluralField: string; kind: SignedRunnerRecoveryKind; }>
  * @returns salvageSignedRunnerRecoveryPairの計算結果を返す。
@@ -260,9 +266,9 @@ export function salvageSignedRunnerRecoveryPair(
 }
 
 /**
- * evaluateSignedRunnerSafetyObservationの処理を実行する。
+ * Signed Runner Safety Observationを評価する。
  *
- * @responsibility evaluateSignedRunnerSafetyObservationに対応する入力処理と結果生成を所有する。
+ * @responsibility Signed Runner Safety Observationの評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown、schema: SignedRunnerSafetySchema
  * @returns SignedRunnerSafetyObservationを返す。

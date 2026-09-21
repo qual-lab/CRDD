@@ -3,10 +3,10 @@
  *
  * @packageDocumentation
  * @responsibility coordinator:integration:project-runtime-full-flowが所有する検証責務を実行する。
- * @trace ERP-IT-001
+ * @trace PPR-IT-001
  * @level IT
  * @scope project、runtime、full、flow、bounded、integration、execution-intelligence
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -48,13 +48,13 @@ const revision = "a".repeat(40);
  * resolveProjectRuntimeReplanのTest準備責務を実行する。
  *
  * @responsibility resolveProjectRuntimeReplanがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace ERP-IT-001
+ * @trace PPR-IT-001
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
  * @stimulus resolveProjectRuntimeReplanを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
  */
 function resolveProjectRuntimeReplan(
   input: ProjectRuntimeReplanInput &
@@ -72,13 +72,13 @@ function resolveProjectRuntimeReplan(
  * fixtureのTest準備責務を実行する。
  *
  * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace ERP-IT-001
+ * @trace PPR-IT-001
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
  * @stimulus fixtureを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
  */
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(
@@ -193,13 +193,13 @@ function fixture(t: test.TestContext) {
  * public intake, bounded retry, progress and integration form one accepted flowを検証する。
  *
  * @responsibility public intake, bounded retry, progress and integration form one accepted flowの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace PPR-IT-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus public intake, bounded retry, progress and integration form one accepted flowの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
  */
 test("public intake, bounded retry, progress and integration form one accepted flow", async (t) => {
   const context = fixture(t);
@@ -292,13 +292,13 @@ test("public intake, bounded retry, progress and integration form one accepted f
  * bounded parallel attempts are evaluated by one integrated accepted resultを検証する。
  *
  * @responsibility bounded parallel attempts are evaluated by one integrated accepted resultの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace PPR-IT-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus bounded parallel attempts are evaluated by one integrated accepted resultの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
  */
 test("bounded parallel attempts are evaluated by one integrated accepted result", async (t) => {
   const root = fs.mkdtempSync(
@@ -519,13 +519,13 @@ test("bounded parallel attempts are evaluated by one integrated accepted result"
  * human decision is one-time and resumes only through a fresh bounded planを検証する。
  *
  * @responsibility human decision is one-time and resumes only through a fresh bounded planの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace PPR-IT-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus human decision is one-time and resumes only through a fresh bounded planの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
  */
 test("human decision is one-time and resumes only through a fresh bounded plan", async (t) => {
   const context = fixture(t);

@@ -1,3 +1,9 @@
+/**
+ * platform-provisioner-manifest-loaderに属する責務をまとめる。
+ *
+ * @responsibility stableManifestBytesを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -12,9 +18,9 @@ export const HISTORICAL_V2_PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH =
 export const PLATFORM_PROVISIONER_MANIFEST_MAXIMUM_BYTES = 128 * 1024;
 
 /**
- * stableManifestBytesの処理を実行する。
+ * Manifest Bytesを安定Identityへ変換する。
  *
- * @responsibility stableManifestBytesに対応する入力処理と結果生成を所有する。
+ * @responsibility Manifest Bytesの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input target: string
  * @returns stableManifestBytesの計算結果を返す。
@@ -91,9 +97,9 @@ function stableManifestBytes(target: string) {
 }
 
 /**
- * manifestPathの処理を実行する。
+ * manifest Pathを決定する。
  *
- * @responsibility manifestPathに対応する入力処理と結果生成を所有する。
+ * @responsibility manifest Pathの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input distributionRoot: string、relativePath: string
  * @returns manifestPathの計算結果を返す。
@@ -128,9 +134,9 @@ function manifestPath(distributionRoot: string, relativePath: string) {
 }
 
 /**
- * loadManifestAtRelativePathの処理を実行する。
+ * Manifest At Relative Pathを読み込む。
  *
- * @responsibility loadManifestAtRelativePathに対応する入力処理と結果生成を所有する。
+ * @responsibility Manifest At Relative Pathの読取り元、Schema検証、読取不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input distributionRoot: string、relativePath: string
  * @returns loadManifestAtRelativePathの計算結果を返す。
@@ -174,9 +180,9 @@ function loadManifestAtRelativePath(
 }
 
 /**
- * loadPlatformProvisionerManifestEnvelopeForVerificationの処理を実行する。
+ * Platform Provisioner Manifest Envelope For Verificationを読み込む。
  *
- * @responsibility loadPlatformProvisionerManifestEnvelopeForVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Provisioner Manifest Envelope For Verificationの読取り元、Schema検証、読取不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input distributionRoot: string
  * @returns loadPlatformProvisionerManifestEnvelopeForVerificationの計算結果を返す。
@@ -199,9 +205,9 @@ export function loadPlatformProvisionerManifestEnvelopeForVerification(
 }
 
 /**
- * loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerificationの処理を実行する。
+ * Historical V2 Platform Provisioner Manifest Envelope For Verificationを読み込む。
  *
- * @responsibility loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility Historical V2 Platform Provisioner Manifest Envelope For Verificationの読取り元、Schema検証、読取不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input distributionRoot: string
  * @returns loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerificationの計算結果を返す。
@@ -224,9 +230,9 @@ export function loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerificati
 }
 
 /**
- * manifestEntryExistsの処理を実行する。
+ * manifest Entry Existsを決定する。
  *
- * @responsibility manifestEntryExistsに対応する入力処理と結果生成を所有する。
+ * @responsibility manifest Entry Existsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input distributionRoot: string、relativePath: string
  * @returns manifestEntryExistsの計算結果を返す。
@@ -258,7 +264,7 @@ function manifestEntryExists(distributionRoot: string, relativePath: string) {
 /**
  * Loads exactly one signed manifest layout for historical recovery. This is
  *
- * @responsibility loadHistoricalReleaseManifestEnvelopeForVerificationに対応する入力処理と結果生成を所有する。
+ * @responsibility Historical Release Manifest Envelope For Verificationの読取り元、Schema検証、読取不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input distributionRoot: string
  * @returns loadHistoricalReleaseManifestEnvelopeForVerificationの計算結果を返す。
@@ -292,9 +298,9 @@ export function loadHistoricalReleaseManifestEnvelopeForVerification(
 }
 
 /**
- * inspectPlatformProvisionerManifestFileCandidateの処理を実行する。
+ * Platform Provisioner Manifest File 候補を観測する。
  *
- * @responsibility inspectPlatformProvisionerManifestFileCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Provisioner Manifest File 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input distributionRoot: unknown
  * @returns inspectPlatformProvisionerManifestFileCandidateの計算結果を返す。
@@ -346,9 +352,9 @@ export function inspectPlatformProvisionerManifestFileCandidate(
 }
 
 /**
- * describePlatformProvisionerManifestLoaderContractの処理を実行する。
+ * Platform Provisioner Manifest Loader 契約の公開契約を記述する。
  *
- * @responsibility describePlatformProvisionerManifestLoaderContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Provisioner Manifest Loader 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describePlatformProvisionerManifestLoaderContractの計算結果を返す。

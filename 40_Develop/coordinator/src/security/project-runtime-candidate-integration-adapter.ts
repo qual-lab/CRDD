@@ -1,3 +1,9 @@
+/**
+ * project-runtime-candidate-integration-adapterに属する責務をまとめる。
+ *
+ * @responsibility Entryを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000015
+ */
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -28,9 +34,9 @@ export const PROJECT_RUNTIME_CANDIDATE_INTEGRATION_ADAPTER_CONTRACT =
   "crdd-coordinator/project-runtime-candidate-integration-adapter/v1" as const;
 
 /**
- * Entryが扱う値の構造を表す。
+ * project-runtime-candidate-integration-adapterで使用するEntryの値契約を定義する。
  *
- * @responsibility Entryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility EntryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape Entryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Entryで宣言した値と責務の対応を維持する。
@@ -46,9 +52,9 @@ type Entry = Readonly<{
   contentBase64: string | null;
 }>;
 /**
- * Bundleが扱う値の構造を表す。
+ * project-runtime-candidate-integration-adapterで使用するBundleの値契約を定義する。
  *
- * @responsibility Bundleに必要な値と制約を一つの型契約として保持する。
+ * @responsibility BundleのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape Bundleが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Bundleで宣言した値と責務の対応を維持する。
@@ -69,9 +75,9 @@ type Bundle = Readonly<{
 }>;
 
 /**
- * digestの処理を実行する。
+ * project-runtime-candidate-integration-adapterのHashを算出する。
  *
- * @responsibility digestに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-candidate-integration-adapterの入力byte列、Hash algorithm、算出結果の境界を所有する。
  * @trace ARCH-000015
  * @input values: readonly (string | Buffer)[]
  * @returns digestの計算結果を返す。
@@ -91,9 +97,9 @@ function digest(...values: readonly (string | Buffer)[]) {
 }
 
 /**
- * CandidateStoreが扱う値の構造を表す。
+ * project-runtime-candidate-integration-adapterで使用する候補 Storeの値契約を定義する。
  *
- * @responsibility CandidateStoreに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 候補 StoreのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape CandidateStoreが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CandidateStoreで宣言した値と責務の対応を維持する。
@@ -116,9 +122,9 @@ const productionCandidateStore: CandidateStore = Object.freeze({
 });
 
 /**
- * exportedの処理を実行する。
+ * exportedを決定する。
  *
- * @responsibility exportedに対応する入力処理と結果生成を所有する。
+ * @responsibility exportedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input candidateStore: CandidateStore、candidateId: string
  * @returns exportedの計算結果を返す。
@@ -147,9 +153,9 @@ function exported(candidateStore: CandidateStore, candidateId: string) {
 }
 
 /**
- * highestClassificationの処理を実行する。
+ * highest Classificationを決定する。
  *
- * @responsibility highestClassificationに対応する入力処理と結果生成を所有する。
+ * @responsibility highest Classificationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input values: readonly ("public" | "internal" | "confidential")[]
  * @returns highestClassificationの計算結果を返す。
@@ -173,9 +179,9 @@ function highestClassification(
 }
 
 /**
- * sameEntryの処理を実行する。
+ * Entryが同一かを判定する。
  *
- * @responsibility sameEntryに対応する入力処理と結果生成を所有する。
+ * @responsibility Entryの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000015
  * @input left: Entry、right: Entry
  * @returns sameEntryの計算結果を返す。
@@ -198,9 +204,9 @@ function sameEntry(left: Entry, right: Entry) {
 }
 
 /**
- * mergeの処理を実行する。
+ * project-runtime-candidate-integration-adapterを統合する。
  *
- * @responsibility mergeに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-candidate-integration-adapterの統合順序、競合条件、統合結果の境界を所有する。
  * @trace ARCH-000015
  * @input candidateStore: CandidateStore、state: ProjectRuntimeState、candidateIds: readonly string[]
  * @returns mergeの計算結果を返す。
@@ -298,9 +304,9 @@ function merge(
 }
 
 /**
- * stableFileの処理を実行する。
+ * Fileを安定Identityへ変換する。
  *
- * @responsibility stableFileに対応する入力処理と結果生成を所有する。
+ * @responsibility Fileの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000015
  * @input target: string
  * @returns stableFileの計算結果を返す。
@@ -337,9 +343,9 @@ function stableFile(target: string) {
 }
 
 /**
- * cleanupMaterializedBaseの処理を実行する。
+ * Materialized Baseを清掃する。
  *
- * @responsibility cleanupMaterializedBaseに対応する入力処理と結果生成を所有する。
+ * @responsibility Materialized Baseの清掃対象、完了観測、残存時の失敗境界を所有する。
  * @trace ARCH-000015
  * @input workspace: string
  * @returns booleanを返す。
@@ -362,9 +368,9 @@ function cleanupMaterializedBase(workspace: string): boolean {
 }
 
 /**
- * candidateCleanupBlockedの処理を実行する。
+ * candidate 清掃 Blockedを決定する。
  *
- * @responsibility candidateCleanupBlockedに対応する入力処理と結果生成を所有する。
+ * @responsibility candidate 清掃 Blockedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input effectIssued: boolean、isEffectStateUnknown: boolean
  * @returns candidateCleanupBlockedの計算結果を返す。
@@ -393,9 +399,9 @@ function candidateCleanupBlocked(
 }
 
 /**
- * MaterializedBaseResultが扱う値の構造を表す。
+ * project-runtime-candidate-integration-adapterで使用するMaterialized Base 結果の値契約を定義する。
  *
- * @responsibility MaterializedBaseResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Materialized Base 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape MaterializedBaseResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant MaterializedBaseResultで宣言した値と責務の対応を維持する。
@@ -416,9 +422,9 @@ type MaterializedBaseResult =
     }>;
 
 /**
- * materializeBaseの処理を実行する。
+ * BaseをFilesystem上の候補として具体化する。
  *
- * @responsibility materializeBaseに対応する入力処理と結果生成を所有する。
+ * @responsibility Baseの入力Snapshot、書込み範囲、部分生成の失敗境界を所有する。
  * @trace ARCH-000015
  * @input repositoryRoot: string、revision: string、paths: readonly string[]、snapshotAdapter: typeof gitFixedSnapshotAdapter、materializeSnapshot: typeof materializeFixedSnapshotCandidate、cleanupWorkspace: (workspace: string) => boolean
  * @returns MaterializedBaseResult | nullを返す。
@@ -512,9 +518,9 @@ function materializeBase(
 }
 
 /**
- * currentMatchesBaseの処理を実行する。
+ * current Matches Baseを決定する。
  *
- * @responsibility currentMatchesBaseに対応する入力処理と結果生成を所有する。
+ * @responsibility current Matches Baseの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input repositoryRoot: string、base: string、entries: readonly Entry[]
  * @returns currentMatchesBaseの計算結果を返す。
@@ -548,9 +554,9 @@ function currentMatchesBase(
 }
 
 /**
- * CandidateApplicationResultが扱う値の構造を表す。
+ * project-runtime-candidate-integration-adapterで使用する候補 Application 結果の値契約を定義する。
  *
- * @responsibility CandidateApplicationResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 候補 Application 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape CandidateApplicationResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CandidateApplicationResultで宣言した値と責務の対応を維持する。
@@ -577,9 +583,9 @@ type CandidateApplicationResult =
     }>;
 
 /**
- * CandidateApplicationFaultが扱う値の構造を表す。
+ * project-runtime-candidate-integration-adapterで使用する候補 Application Faultの値契約を定義する。
  *
- * @responsibility CandidateApplicationFaultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 候補 Application FaultのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape CandidateApplicationFaultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CandidateApplicationFaultで宣言した値と責務の対応を維持する。
@@ -593,9 +599,9 @@ type CandidateApplicationFault = (
 ) => void;
 
 /**
- * applyBundleの処理を実行する。
+ * Bundleを適用する。
  *
- * @responsibility applyBundleに対応する入力処理と結果生成を所有する。
+ * @responsibility Bundleの適用条件、変更結果、拒否境界を所有する。
  * @trace ARCH-000015
  * @input repositoryRoot: string、bundle: Bundle、injectFault: CandidateApplicationFault
  * @returns CandidateApplicationResultを返す。
@@ -722,9 +728,9 @@ function applyBundle(
 }
 
 /**
- * createRuntimeOwnedProjectCandidateIntegrationAdapterの処理を実行する。
+ * Runtime 所有 Project 候補 Integration Adapterを構築する。
  *
- * @responsibility createRuntimeOwnedProjectCandidateIntegrationAdapterに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Project 候補 Integration Adapterの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
  * @input repositoryRoot: string、candidateStore: CandidateStore、snapshotAdapter: typeof gitFixedSnapshotAdapter、materializeSnapshot: typeof materializeFixedSnapshotCandidate、cleanupWorkspace: (workspace: string) => boolean、injectApplicationFault: CandidateApplicationFault
  * @returns ProjectRuntimeCandidatePortを返す。
@@ -749,9 +755,9 @@ export function createRuntimeOwnedProjectCandidateIntegrationAdapter(
   let pendingObservationBundle: Bundle | null = null;
   return Object.freeze({
     /**
-     * createCandidateの処理を実行する。
+     * 候補を構築する。
      *
-     * @responsibility createCandidateに対応する入力処理と結果生成を所有する。
+     * @responsibility 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
      * @trace ARCH-000015
      * @input { state, taskCandidateIds }
      * @returns createCandidateの計算結果を返す。
@@ -810,9 +816,9 @@ export function createRuntimeOwnedProjectCandidateIntegrationAdapter(
       });
     },
     /**
-     * observeCanonicalRepositoryの処理を実行する。
+     * Canonical Repositoryを観測する。
      *
-     * @responsibility observeCanonicalRepositoryに対応する入力処理と結果生成を所有する。
+     * @responsibility Canonical Repositoryの観測対象、取得根拠、観測不能結果の境界を所有する。
      * @trace ARCH-000015
      * @input N/A: 実行時引数を受け取らない。
      * @returns observeCanonicalRepositoryの計算結果を返す。
@@ -861,9 +867,9 @@ export function createRuntimeOwnedProjectCandidateIntegrationAdapter(
         : candidateCleanupBlocked(false, false);
     },
     /**
-     * adoptCandidateの処理を実行する。
+     * 候補を引き継ぐ。
      *
-     * @responsibility adoptCandidateに対応する入力処理と結果生成を所有する。
+     * @responsibility 候補の引継ぎ条件、Identity結合、拒否境界を所有する。
      * @trace ARCH-000015
      * @input candidate
      * @returns adoptCandidateの計算結果を返す。
@@ -947,9 +953,9 @@ export function createRuntimeOwnedProjectCandidateIntegrationAdapter(
 }
 
 /**
- * describeProjectRuntimeCandidateIntegrationAdapterContractの処理を実行する。
+ * Project Runtime 候補 Integration Adapter 契約の公開契約を記述する。
  *
- * @responsibility describeProjectRuntimeCandidateIntegrationAdapterContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime 候補 Integration Adapter 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProjectRuntimeCandidateIntegrationAdapterContractの計算結果を返す。

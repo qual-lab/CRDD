@@ -6,7 +6,7 @@
  * @trace RCM-IT-009
  * @level IT
  * @scope coordinator、development-toolchain、platform-access
- * @boundary Related 2 Blocks: launcher→検証済みCRDD基準版Root→実装正本→package依存Graph→Capability別公開export→代表利用側
+ * @boundary RCM-IT-009=Related 2 Blocks: launcher→検証済みCRDD基準版Root→実装正本→package依存Graph→Capability別公開export→代表利用側
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -25,7 +25,7 @@ const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: launcher→検証済みCRDD基準版Root→実装正本→package依存Graph→Capability別公開export→代表利用側
+ * @boundary RCM-IT-009=Related 2 Blocks: launcher→検証済みCRDD基準版Root→実装正本→package依存Graph→Capability別公開export→代表利用側
  */
 function scripts(): Record<string, string> {
   const value: unknown = JSON.parse(
@@ -47,7 +47,7 @@ function scripts(): Record<string, string> {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: launcher→検証済みCRDD基準版Root→実装正本→package依存Graph→Capability別公開export→代表利用側
+ * @boundary RCM-IT-009=Related 2 Blocks: launcher→検証済みCRDD基準版Root→実装正本→package依存Graph→Capability別公開export→代表利用側
  */
 test("CoordinatorのLintはWarningを検査失敗にする", () => {
   assert.equal(scripts().lint, "biome lint ../.. --error-on-warnings");
@@ -63,7 +63,7 @@ test("CoordinatorのLintはWarningを検査失敗にする", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: launcher→検証済みCRDD基準版Root→実装正本→package依存Graph→Capability別公開export→代表利用側
+ * @boundary RCM-IT-009=Related 2 Blocks: launcher→検証済みCRDD基準版Root→実装正本→package依存Graph→Capability別公開export→代表利用側
  */
 test("Platform Accessの開発入口は固定Cargo commandだけを使う", () => {
   const actual = scripts();

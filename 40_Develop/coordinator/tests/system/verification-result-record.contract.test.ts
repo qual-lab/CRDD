@@ -6,7 +6,7 @@
  * @trace ERP-ST-004
  * @level ST
  * @scope verification、result、record
- * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -40,7 +40,7 @@ const packageRoot = path.resolve(import.meta.dirname, "../..");
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
  */
 function fixture(t: TestContext) {
   const parent = path.join(
@@ -80,7 +80,7 @@ function fixture(t: TestContext) {
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+   * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
    */
   function object(type: string, body: string) {
     const bytes = Buffer.from(`${type} ${Buffer.byteLength(body)}\0${body}`);
@@ -109,7 +109,7 @@ function fixture(t: TestContext) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
  */
 function store(root: string) {
   return path.join(root, ".crdd", "verification");
@@ -124,7 +124,7 @@ function store(root: string) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
  */
 function resultPath(root: string, id: string | null) {
   assert.ok(id);
@@ -146,7 +146,7 @@ const SUCCESS = Object.freeze({
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
  */
 const failure = () =>
   createSignedRouteMatrixCliFailureResult("runner_exception");
@@ -161,7 +161,7 @@ const failure = () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
  */
 test("既知値だけ保存し、自由文・秘密風文字列・getter・proxyを実行しない", () => {
   let wasGetterCalled = false;
@@ -230,7 +230,7 @@ test("既知値だけ保存し、自由文・秘密風文字列・getter・proxy
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
  */
 test("配布Identityと作業対象Execution Identityと経路不一致分類を別々に保存する", () => {
   const projected = projectVerificationResult({
@@ -274,7 +274,7 @@ test("配布Identityと作業対象Execution Identityと経路不一致分類を
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
  */
 test("Candidate整合性不成立をunknownへ劣化させず保存用Projectionへ保持する", () => {
   const projected = projectVerificationResult({
@@ -303,7 +303,7 @@ test("Candidate整合性不成立をunknownへ劣化させず保存用Projection
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
  */
 test("subdirectoryからも最寄りRepositoryへ開始・終了を別記録し、元結果を変更しない", async (t) => {
   const root = fixture(t);
@@ -351,7 +351,7 @@ test("subdirectoryからも最寄りRepositoryへ開始・終了を別記録し�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
  */
 test("実formatter由来のprobe／hostとTaskの回復IDを値を変えずに記録する", () => {
   const nonce = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
@@ -394,7 +394,7 @@ test("実formatter由来のprobe／hostとTaskの回復IDを値を変えずに�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
  */
 test("実行が停止・例外でも記録し、保存成功を実行成功へ変えない", async (t) => {
   const root = fixture(t);
@@ -436,7 +436,7 @@ test("実行が停止・例外でも記録し、保存成功を実行成功へ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
  */
 test("不正Git境界・保存先link・開始書込み失敗なら検証callbackを呼ばない", async (t) => {
   const root = fixture(t);
@@ -454,7 +454,7 @@ test("不正Git境界・保存先link・開始書込み失敗なら検証callbac
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+   * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
    */
   const executeVerification = async () => {
     wasVerificationCalled = true;
@@ -519,7 +519,7 @@ test("不正Git境界・保存先link・開始書込み失敗なら検証callbac
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
  */
 test("実行成功後の保存衝突・directory置換は上書きせず、実行結果と区別する", async (t) => {
   const root = fixture(t);
@@ -569,7 +569,7 @@ test("実行成功後の保存衝突・directory置換は上書きせず、実�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
  */
 test("終了記録の短読・読戻し差・file同定差は実行結果を保持して保存失敗にする", async (t) => {
   for (const mutation of ["short_read", "readback_bytes", "file_identity"]) {
@@ -688,7 +688,7 @@ test("終了記録の短読・読戻し差・file同定差は実行結果を保�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
  */
 test("同時runは別UUIDへ保存し、容量に異物・未完了記録も数える", async (t) => {
   const root = fixture(t);
@@ -727,7 +727,7 @@ test("同時runは別UUIDへ保存し、容量に異物・未完了記録も数�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
  */
 test("実子が開始後に終了してもstartedが残り、成功記録は生成しない", (t) => {
   const root = fixture(t);
@@ -764,7 +764,7 @@ test("実子が開始後に終了してもstartedが残り、成功記録は生�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
  */
 test("終了記録のflush失敗は保存成功にせず、byte上限も緩和しない", async (t) => {
   const root = fixture(t);
@@ -824,7 +824,7 @@ test("終了記録のflush失敗は保存成功にせず、byte上限も緩和�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
  */
 test("公開Recovery入口は端末出力を変えず、未署名の停止も最終記録へ接続する", (t) => {
   const root = fixture(t);

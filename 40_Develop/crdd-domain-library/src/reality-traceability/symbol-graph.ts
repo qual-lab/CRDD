@@ -1,3 +1,9 @@
+/**
+ * symbol-graphに属する責務をまとめる。
+ *
+ * @responsibility RealitySymbolNodeを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import type { DomainIssue, DomainOutcome } from "../outcome.ts";
 import {
   createRealityDomainIssue,
@@ -10,9 +16,9 @@ import type {
 } from "./symbol-manifest-model.ts";
 
 /**
- * RealitySymbolNodeが扱う値の構造を表す。
+ * symbol-graphで使用するReality Symbol Nodeの値契約を定義する。
  *
- * @responsibility RealitySymbolNodeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Reality Symbol NodeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RealitySymbolNodeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RealitySymbolNodeで宣言した値と責務の対応を維持する。
@@ -28,9 +34,9 @@ export type RealitySymbolNode = Readonly<{
 }>;
 
 /**
- * RealitySymbolGraphが扱う値の構造を表す。
+ * symbol-graphで使用するReality Symbol Graphの値契約を定義する。
  *
- * @responsibility RealitySymbolGraphに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Reality Symbol GraphのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RealitySymbolGraphが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RealitySymbolGraphで宣言した値と責務の対応を維持する。
@@ -46,9 +52,9 @@ export type RealitySymbolGraph = Readonly<{
 }>;
 
 /**
- * appendToIndexの処理を実行する。
+ * To Indexを追記する。
  *
- * @responsibility appendToIndexに対応する入力処理と結果生成を所有する。
+ * @responsibility To Indexの追記対象、順序、書込み失敗境界を所有する。
  * @trace ARCH-000008
  * @input index: Map<string, RealitySymbolNode[]>、key: string、value: RealitySymbolNode
  * @returns N/A: appendToIndexは戻り値を返さない。
@@ -72,9 +78,9 @@ function appendToIndex(
 }
 
 /**
- * createRealitySymbolGraphの処理を実行する。
+ * Reality Symbol Graphを構築する。
  *
- * @responsibility createRealitySymbolGraphに対応する入力処理と結果生成を所有する。
+ * @responsibility Reality Symbol Graphの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input loadedManifests: readonly LoadedRealitySymbolManifest[]、knownArchIds: ReadonlySet<string>、knownQaIds: ReadonlySet<string>、knownLocalTestIdsByQaId: ReadonlyMap<string, ReadonlySet<string>>、registeredTestsByPath: ReadonlyMap< string, Readonly<{ owner: string; testId: string }> > | null、prerequisiteIssues: readonly DomainIssue[]
  * @returns DomainOutcome<RealitySymbolGraph>を返す。

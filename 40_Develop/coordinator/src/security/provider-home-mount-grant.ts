@@ -1,3 +1,9 @@
+/**
+ * provider-home-mount-grantに属する責務をまとめる。
+ *
+ * @responsibility blockedを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 export const PROVIDER_HOME_MOUNT_GRANT_CONTRACT =
@@ -45,9 +51,9 @@ const USE_KEYS = new Set([
 const TRANSITION_KEYS = new Set(["previous", "next"]);
 
 /**
- * blockedの処理を実行する。
+ * provider-home-mount-grantを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility provider-home-mount-grantの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000010
  * @input reason: string
  * @returns blockedの計算結果を返す。
@@ -77,9 +83,9 @@ function blocked(reason: string) {
 }
 
 /**
- * identifierの処理を実行する。
+ * identifierを決定する。
  *
- * @responsibility identifierに対応する入力処理と結果生成を所有する。
+ * @responsibility identifierの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input value: unknown、pattern: RegExp
  * @returns identifierの計算結果を返す。
@@ -97,9 +103,9 @@ function identifier(value: unknown, pattern: RegExp) {
 }
 
 /**
- * isProviderHomeMountGrantRefの処理を実行する。
+ * Provider Home Mount Grant Refかを判定する。
  *
- * @responsibility isProviderHomeMountGrantRefに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Home Mount Grant Refの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000010
  * @input value: unknown
  * @returns value is stringを返す。
@@ -117,9 +123,9 @@ export function isProviderHomeMountGrantRef(value: unknown): value is string {
 }
 
 /**
- * canonicalUtcの処理を実行する。
+ * canonical Utcを決定する。
  *
- * @responsibility canonicalUtcに対応する入力処理と結果生成を所有する。
+ * @responsibility canonical Utcの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input value: unknown
  * @returns value is stringを返す。
@@ -142,9 +148,9 @@ function canonicalUtc(value: unknown): value is string {
 }
 
 /**
- * optionalCanonicalUtcの処理を実行する。
+ * optional Canonical Utcを決定する。
  *
- * @responsibility optionalCanonicalUtcに対応する入力処理と結果生成を所有する。
+ * @responsibility optional Canonical Utcの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input value: unknown
  * @returns value is string | nullを返す。
@@ -162,9 +168,9 @@ function optionalCanonicalUtc(value: unknown): value is string | null {
 }
 
 /**
- * compileInternalの処理を実行する。
+ * Internalを機械利用可能な契約へ変換する。
  *
- * @responsibility compileInternalに対応する入力処理と結果生成を所有する。
+ * @responsibility Internalの入力Schema、決定論的変換、変換不能時の拒否境界を所有する。
  * @trace ARCH-000010
  * @input raw: unknown
  * @returns compileInternalの計算結果を返す。
@@ -272,9 +278,9 @@ function compileInternal(raw: unknown) {
 }
 
 /**
- * compileProviderHomeMountGrantCandidateの処理を実行する。
+ * Provider Home Mount Grant 候補を機械利用可能な契約へ変換する。
  *
- * @responsibility compileProviderHomeMountGrantCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Home Mount Grant 候補の入力Schema、決定論的変換、変換不能時の拒否境界を所有する。
  * @trace ARCH-000010
  * @input raw: unknown
  * @returns compileProviderHomeMountGrantCandidateの計算結果を返す。
@@ -302,9 +308,9 @@ export function compileProviderHomeMountGrantCandidate(raw: unknown) {
 }
 
 /**
- * sameBindingの処理を実行する。
+ * Bindingが同一かを判定する。
  *
- * @responsibility sameBindingに対応する入力処理と結果生成を所有する。
+ * @responsibility Bindingの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000010
  * @input previous: NonNullable<ReturnType<typeof compileInternal>>、next: NonNullable<ReturnType<typeof compileInternal>>
  * @returns sameBindingの計算結果を返す。
@@ -340,9 +346,9 @@ function sameBinding(
 }
 
 /**
- * evaluateProviderHomeMountGrantTransitionCandidateの処理を実行する。
+ * Provider Home Mount Grant Transition 候補を評価する。
  *
- * @responsibility evaluateProviderHomeMountGrantTransitionCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Home Mount Grant Transition 候補の評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000010
  * @input raw: unknown
  * @returns evaluateProviderHomeMountGrantTransitionCandidateの計算結果を返す。
@@ -396,9 +402,9 @@ export function evaluateProviderHomeMountGrantTransitionCandidate(
 }
 
 /**
- * evaluateProviderHomeMountGrantUseCandidateの処理を実行する。
+ * Provider Home Mount Grant Use 候補を評価する。
  *
- * @responsibility evaluateProviderHomeMountGrantUseCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Home Mount Grant Use 候補の評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000010
  * @input raw: unknown
  * @returns evaluateProviderHomeMountGrantUseCandidateの計算結果を返す。
@@ -469,9 +475,9 @@ export function evaluateProviderHomeMountGrantUseCandidate(raw: unknown) {
 }
 
 /**
- * describeProviderHomeMountGrantContractの処理を実行する。
+ * Provider Home Mount Grant 契約の公開契約を記述する。
  *
- * @responsibility describeProviderHomeMountGrantContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Home Mount Grant 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000010
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProviderHomeMountGrantContractの計算結果を返す。

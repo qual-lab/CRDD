@@ -6,7 +6,7 @@
  * @trace PRL-UT-006
  * @level UT
  * @scope docker、runtime、state、binding
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -32,7 +32,7 @@ const binding = Object.freeze({
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("RuntimeState mutationはRoot、保護、選択userとRecovery IDの完全一致だけを受理する", () => {
   assert.equal(
@@ -56,7 +56,7 @@ test("RuntimeState mutationはRoot、保護、選択userとRecovery IDの完全�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("Root差替え、別selected-user、別bindingと欠落Recovery IDを拒否する", () => {
   for (const [key, value] of [

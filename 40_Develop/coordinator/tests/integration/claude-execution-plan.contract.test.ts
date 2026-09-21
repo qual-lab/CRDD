@@ -6,7 +6,7 @@
  * @trace ERB-IT-001
  * @level IT
  * @scope claude、execution、plan
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -31,7 +31,7 @@ import {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ結合する", () => {
   const contract = describeClaudeExecutionPlanContract();
@@ -148,7 +148,7 @@ test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("配布物条件と認証service条件を別axisの未解決条件にする", () => {
   const contract = describeClaudeExecutionPlanContract();
@@ -262,7 +262,7 @@ test("配布物条件と認証service条件を別axisの未解決条件にする
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("Claude認証はsubscription OAuth候補だけを残しAPI課金経路を拒否する", () => {
   const contract = describeClaudeExecutionPlanContract();
@@ -310,7 +310,7 @@ test("Claude認証はsubscription OAuth候補だけを残しAPI課金経路を�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("読取専用probe候補は固定argv、環境置換要求、未検証制約を投影する", () => {
   const contract = describeClaudeExecutionPlanContract();
@@ -455,7 +455,7 @@ test("読取専用probe候補は固定argv、環境置換要求、未検証制�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("Managed Settingsの固定byte列を検証済みimage identityへ結合する", () => {
   const settings = readFileSync(
@@ -484,7 +484,7 @@ test("Managed Settingsの固定byte列を検証済みimage identityへ結合す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定する", () => {
   const executor = planClaudeIsolatedTask({
@@ -604,7 +604,7 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("Claude Task SettingsはProvider Homeと外部Toolをdenyする", () => {
   const settings = JSON.parse(
@@ -638,7 +638,7 @@ test("Claude Task SettingsはProvider Homeと外部Toolをdenyする", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否する", () => {
   assert.equal(
@@ -704,7 +704,7 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("全Task実行gateとPlan単体のEffect非発行を説明契約へ保持する", () => {
   const contract = describeClaudeExecutionPlanContract();

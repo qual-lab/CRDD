@@ -1,3 +1,9 @@
+/**
+ * repository-operation-runtimeに属する責務をまとめる。
+ *
+ * @responsibility Bindingを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000009
+ */
 import fs from "node:fs";
 import path from "node:path";
 import { observeFixedRevisionIdentity } from "../../../version-control/src/fixed-revision.ts";
@@ -19,9 +25,9 @@ export const REPOSITORY_OPERATION_RUNTIME_CONTRACT =
 export const REPOSITORY_OPERATION_RUNTIME_CONTRACT_REVISION = 2;
 
 /**
- * Bindingが扱う値の構造を表す。
+ * repository-operation-runtimeで使用するBindingの値契約を定義する。
  *
- * @responsibility Bindingに必要な値と制約を一つの型契約として保持する。
+ * @responsibility BindingのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000009
  * @shape Bindingが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Bindingで宣言した値と責務の対応を維持する。
@@ -43,9 +49,9 @@ const bindings = new WeakMap<object, Binding>();
 const capabilities = new WeakMap<object, Binding>();
 
 /**
- * observeの処理を実行する。
+ * repository-operation-runtimeを観測する。
  *
- * @responsibility observeに対応する入力処理と結果生成を所有する。
+ * @responsibility repository-operation-runtimeの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000009
  * @input repositoryRoot: string
  * @returns observeの計算結果を返す。
@@ -76,9 +82,9 @@ function observe(repositoryRoot: string) {
 }
 
 /**
- * inspectRepositoryObjectFormatCandidateの処理を実行する。
+ * Repository Object Format 候補を観測する。
  *
- * @responsibility inspectRepositoryObjectFormatCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Object Format 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000009
  * @input repositoryRoot: unknown
  * @returns inspectRepositoryObjectFormatCandidateの計算結果を返す。
@@ -121,9 +127,9 @@ export function inspectRepositoryObjectFormatCandidate(
 }
 
 /**
- * inspectRepositoryRevisionCandidateの処理を実行する。
+ * Repository Revision 候補を観測する。
  *
- * @responsibility inspectRepositoryRevisionCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Revision 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000009
  * @input repositoryRoot: unknown
  * @returns inspectRepositoryRevisionCandidateの計算結果を返す。
@@ -170,7 +176,7 @@ export function inspectRepositoryRevisionCandidate(repositoryRoot: unknown) {
 /**
  * Read-only identity and HEAD/tree observation for bounded admission.
  *
- * @responsibility inspectRepositoryIdentityCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Identity 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000009
  * @input repositoryRoot: unknown
  * @returns inspectRepositoryIdentityCandidateの計算結果を返す。
@@ -202,9 +208,9 @@ export function inspectRepositoryIdentityCandidate(repositoryRoot: unknown) {
 }
 
 /**
- * bindRuntimeOwnedRepositoryOperationの処理を実行する。
+ * Runtime 所有 Repository OperationをIdentityへ結合する。
  *
- * @responsibility bindRuntimeOwnedRepositoryOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Repository Operationの結合条件、相関Identity、不一致の拒否境界を所有する。
  * @trace ARCH-000009
  * @input managementCapability: unknown、repositoryRoot: unknown
  * @returns bindRuntimeOwnedRepositoryOperationの計算結果を返す。
@@ -259,9 +265,9 @@ export function bindRuntimeOwnedRepositoryOperation(
 }
 
 /**
- * currentBindingの処理を実行する。
+ * current Bindingを決定する。
  *
- * @responsibility currentBindingに対応する入力処理と結果生成を所有する。
+ * @responsibility current Bindingの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000009
  * @input managementCapability: unknown
  * @returns currentBindingの計算結果を返す。
@@ -292,9 +298,9 @@ function currentBinding(managementCapability: unknown) {
 }
 
 /**
- * verifyRuntimeOwnedRepositoryOperationの処理を実行する。
+ * Runtime 所有 Repository Operationを検証する。
  *
- * @responsibility verifyRuntimeOwnedRepositoryOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Repository Operationの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000009
  * @input managementCapability: unknown
  * @returns verifyRuntimeOwnedRepositoryOperationの計算結果を返す。
@@ -326,9 +332,9 @@ export function verifyRuntimeOwnedRepositoryOperation(
 }
 
 /**
- * verifyRuntimeOwnedRepositoryBindingCapabilityの処理を実行する。
+ * Runtime 所有 Repository Binding Capabilityを検証する。
  *
- * @responsibility verifyRuntimeOwnedRepositoryBindingCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Repository Binding Capabilityの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000009
  * @input repositoryBindingCapability: unknown、managementCapability: unknown
  * @returns verifyRuntimeOwnedRepositoryBindingCapabilityの計算結果を返す。
@@ -370,9 +376,9 @@ export function verifyRuntimeOwnedRepositoryBindingCapability(
 }
 
 /**
- * borrowRuntimeOwnedRepositorySourceの処理を実行する。
+ * Runtime 所有 Repository Sourceを一時参照として取得する。
  *
- * @responsibility borrowRuntimeOwnedRepositorySourceに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Repository Sourceの参照条件、lifetime、所有権を移さない境界を所有する。
  * @trace ARCH-000009
  * @input repositoryBindingCapability: unknown、managementCapability: unknown
  * @returns borrowRuntimeOwnedRepositorySourceの計算結果を返す。
@@ -418,9 +424,9 @@ export function borrowRuntimeOwnedRepositorySource(
 }
 
 /**
- * describeRepositoryOperationRuntimeContractの処理を実行する。
+ * Repository Operation Runtime 契約の公開契約を記述する。
  *
- * @responsibility describeRepositoryOperationRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Operation Runtime 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000009
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeRepositoryOperationRuntimeContractの計算結果を返す。

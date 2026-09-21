@@ -6,7 +6,7 @@
  * @trace RCM-UT-016
  * @level UT
  * @scope command、report
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -29,7 +29,7 @@ const digestB = "b".repeat(64);
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("人間向けTask結果はCandidate、期限、全Recovery IDと手動回復要否を保持する", () => {
   const rendered = renderSafeHumanCommandReport({
@@ -75,7 +75,7 @@ test("人間向けTask結果はCandidate、期限、全Recovery IDと手動回�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("人間向け投影は未知値、Path、Credentialらしい値と不正IDを出力しない", () => {
   const rendered = renderSafeHumanCommandReport({
@@ -110,7 +110,7 @@ test("人間向け投影は未知値、Path、Credentialらしい値と不正ID�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("cleanup確認済みprotocol失敗の人間表示はHost Recoveryを要求しない", () => {
   const rendered = renderSafeHumanCommandReport({
@@ -135,7 +135,7 @@ test("cleanup確認済みprotocol失敗の人間表示はHost Recoveryを要求�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("cleanup不明でactionable IDがない場合も再起動とoperator移送を表示する", () => {
   const rendered = renderSafeHumanCommandReport({
@@ -160,7 +160,7 @@ test("cleanup不明でactionable IDがない場合も再起動とoperator移送�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("Process再起動案内はRecovery IDと直交しruntime-owned booleanだけに従う", () => {
   const dockerRecoveryId = `docker-task.${digestA}.${digestB}.${digestA}`;
@@ -196,7 +196,7 @@ test("Process再起動案内はRecovery IDと直交しruntime-owned booleanだ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("cleanup確認済みの再起動だけの表示はoperator移送やRecoveryを要求しない", () => {
   const rendered = renderSafeHumanCommandReport({
@@ -242,7 +242,7 @@ test("cleanup確認済みの再起動だけの表示はoperator移送やRecovery
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("未取得と否定観測は区別し、未知の文字列を表示しない", () => {
   const rendered = renderSafeHumanCommandReport({
@@ -267,7 +267,7 @@ test("未取得と否定観測は区別し、未知の文字列を表示しな�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("候補操作の案内は完了・回収済み・再起動不要のTaskだけに限定する", () => {
   const base = {
@@ -321,7 +321,7 @@ test("候補操作の案内は完了・回収済み・再起動不要のTaskだ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("候補操作の成功を未取得理由から失敗表示にしない", () => {
   for (const [command, status] of [
@@ -349,7 +349,7 @@ test("候補操作の成功を未取得理由から失敗表示にしない", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("全形式の回復IDを重複なく保持し、再起動案内を候補操作より先に置く", () => {
   const oldDockerId = `docker.crdd-coordinator-doctor-test.${"a".repeat(36)}.${"b".repeat(36)}.${digestA}`;
@@ -385,7 +385,7 @@ test("全形式の回復IDを重複なく保持し、再起動案内を候補操
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
 test("Date範囲外の期限は例外や誤った期限ではなく未確認になる", () => {
   for (const expiresAtMs of [Number.MAX_SAFE_INTEGER, -1, NaN, Infinity]) {

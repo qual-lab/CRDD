@@ -77,20 +77,19 @@
       "kind": "test-suite",
       "path": "tests/integration/crdd-check.contract.test.ts",
       "qaIds": [
-        "QA-000001"
+        "QA-000001",
+        "QA-000013"
       ],
       "localTestIds": [
-        "RCM-IT-005"
+        "AUH-IT-002",
+        "AUH-IT-003",
+        "RCM-IT-005",
+        "RCM-IT-008"
       ],
       "verifies": [
-        "checker.public-entry",
         "checker.artifact-relation-adapter",
         "checker.pipeline",
-        "checker.finding-model",
-        "checker.rule-registry",
-        "checker.current-profile",
-        "checker.quality-design-state-rule",
-        "checker.reality-symbol-graph-rule"
+        "checker.rule-registry"
       ]
     },
     {
@@ -104,9 +103,25 @@
         "RCM-IT-005"
       ],
       "verifies": [
-        "checker.public-entry",
         "checker.pipeline",
+        "checker.public-entry",
         "checker.rule-registry"
+      ]
+    },
+    {
+      "symbolId": "checker.test.unit.checker-core",
+      "kind": "test-suite",
+      "path": "tests/unit/checker-core.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-001",
+        "RCM-UT-002"
+      ],
+      "verifies": [
+        "checker.finding-model",
+        "checker.pipeline"
       ]
     },
     {
@@ -120,7 +135,26 @@
         "PPR-UT-017"
       ],
       "verifies": [
-        "checker.reality-symbol-graph-rule"
+        "checker.source.src.adapters.reality.test.catalog",
+        "checker.source.src.adapters.reality.traceability",
+        "crdd-domain-library.source.src.reality.traceability.symbol.manifest.model",
+        "version-control.source.src.repository.location"
+      ]
+    },
+    {
+      "symbolId": "checker.source.src.adapters.reality.test.catalog",
+      "kind": "file",
+      "path": "src/adapters/reality-test-catalog.ts",
+      "archIds": [
+        "ARCH-000001"
+      ]
+    },
+    {
+      "symbolId": "checker.source.src.adapters.reality.traceability",
+      "kind": "file",
+      "path": "src/adapters/reality-traceability.ts",
+      "archIds": [
+        "ARCH-000001"
       ]
     }
   ]

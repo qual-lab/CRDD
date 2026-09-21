@@ -1,3 +1,9 @@
+/**
+ * project-runtime-composition-rootに属する責務をまとめる。
+ *
+ * @responsibility projectRuntimeDataBoundaryBlockedを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { createHash } from "node:crypto";
 import type { Writable } from "node:stream";
 import type { ProjectRuntimeExecutionPublicationObservation } from "../../../project-runtime/src/index.ts";
@@ -61,9 +67,9 @@ export const PROJECT_RUNTIME_EXECUTION_INTELLIGENCE_PREFIX =
 const PROJECT_RUNTIME_RECOVERY_DIAGNOSTIC_TIMEOUT_MS = 5_000;
 
 /**
- * projectRuntimeDataBoundaryBlockedの処理を実行する。
+ * Runtime Data Boundary Blockedを公開結果へ投影する。
  *
- * @responsibility projectRuntimeDataBoundaryBlockedに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Data Boundary Blockedの公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input error: RepositoryRuntimeDataAreaBlockedError
  * @returns projectRuntimeDataBoundaryBlockedの計算結果を返す。
@@ -100,9 +106,9 @@ export function projectRuntimeDataBoundaryBlocked(
 }
 
 /**
- * ProjectRuntimeRecoveryDiagnosticOutcomeが扱う値の構造を表す。
+ * project-runtime-composition-rootで使用するProject Runtime 回復 Diagnostic Outcomeの値契約を定義する。
  *
- * @responsibility ProjectRuntimeRecoveryDiagnosticOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime 回復 Diagnostic OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeRecoveryDiagnosticOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeRecoveryDiagnosticOutcomeで宣言した値と責務の対応を維持する。
@@ -120,9 +126,9 @@ export type ProjectRuntimeRecoveryDiagnosticOutcome =
   | "throw";
 
 /**
- * createProjectRuntimeInternalDiagnosticReporterの処理を実行する。
+ * Project Runtime Internal Diagnostic Reporterを構築する。
  *
- * @responsibility createProjectRuntimeInternalDiagnosticReporterに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Internal Diagnostic Reporterの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input stream: Writable、input: Readonly<{ prefix: string; event: string; timeoutMs: number; }>
  * @returns createProjectRuntimeInternalDiagnosticReporterの計算結果を返す。
@@ -218,9 +224,9 @@ function createProjectRuntimeInternalDiagnosticReporter(
 }
 
 /**
- * createProjectRuntimeRecoveryDiagnosticReporterの処理を実行する。
+ * Project Runtime 回復 Diagnostic Reporterを構築する。
  *
- * @responsibility createProjectRuntimeRecoveryDiagnosticReporterに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime 回復 Diagnostic Reporterの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input stream: Writable、timeoutMs
  * @returns createProjectRuntimeRecoveryDiagnosticReporterの計算結果を返す。
@@ -245,9 +251,9 @@ export function createProjectRuntimeRecoveryDiagnosticReporter(
 }
 
 /**
- * createProjectRuntimeExecutionIntelligenceDiagnosticReporterの処理を実行する。
+ * Project Runtime Execution Intelligence Diagnostic Reporterを構築する。
  *
- * @responsibility createProjectRuntimeExecutionIntelligenceDiagnosticReporterに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Execution Intelligence Diagnostic Reporterの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input stream: Writable、timeoutMs
  * @returns createProjectRuntimeExecutionIntelligenceDiagnosticReporterの計算結果を返す。
@@ -277,9 +283,9 @@ const productionExecutionIntelligenceDiagnosticReporter =
   createProjectRuntimeExecutionIntelligenceDiagnosticReporter(process.stderr);
 
 /**
- * writeProjectRuntimeRecoveryDiagnosticの処理を実行する。
+ * Project Runtime 回復 Diagnosticを書き込む。
  *
- * @responsibility writeProjectRuntimeRecoveryDiagnosticに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime 回復 Diagnosticの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000004
  * @input event: object
  * @returns N/A: writeProjectRuntimeRecoveryDiagnosticは戻り値を返さない。
@@ -297,9 +303,9 @@ async function writeProjectRuntimeRecoveryDiagnostic(event: object) {
 }
 
 /**
- * writeProjectRuntimeExecutionIntelligenceDiagnosticの処理を実行する。
+ * Project Runtime Execution Intelligence Diagnosticを書き込む。
  *
- * @responsibility writeProjectRuntimeExecutionIntelligenceDiagnosticに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Execution Intelligence Diagnosticの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000004
  * @input observation: ProjectRuntimeExecutionPublicationObservation
  * @returns writeProjectRuntimeExecutionIntelligenceDiagnosticの計算結果を返す。
@@ -320,9 +326,9 @@ function writeProjectRuntimeExecutionIntelligenceDiagnostic(
 }
 
 /**
- * PublicExecutionDependenciesが扱う値の構造を表す。
+ * project-runtime-composition-rootで使用するPublic Execution Dependenciesの値契約を定義する。
  *
- * @responsibility PublicExecutionDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Public Execution DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape PublicExecutionDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant PublicExecutionDependenciesで宣言した値と責務の対応を維持する。
@@ -350,9 +356,9 @@ type PublicExecutionDependencies = Readonly<{
 }>;
 
 /**
- * ProjectRuntimePublicDevelopmentDependenciesが扱う値の構造を表す。
+ * project-runtime-composition-rootで使用するProject Runtime Public Development Dependenciesの値契約を定義する。
  *
- * @responsibility ProjectRuntimePublicDevelopmentDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Public Development DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimePublicDevelopmentDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimePublicDevelopmentDependenciesで宣言した値と責務の対応を維持する。
@@ -393,9 +399,9 @@ const productionExecutionDependencies: PublicExecutionDependencies =
   });
 
 /**
- * stableの処理を実行する。
+ * project-runtime-composition-rootを安定Identityへ変換する。
  *
- * @responsibility stableに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-composition-rootの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000004
  * @input prefix: string、parts: readonly string[]
  * @returns stableの計算結果を返す。
@@ -415,7 +421,7 @@ function stable(prefix: string, ...parts: readonly string[]) {
 /**
  * Canonical Single Task request used by both execution and bounded E2E admission.
  *
- * @responsibility buildProjectRuntimeCoordinatorTaskRequestに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Coordinator Task Requestの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input request: ProjectRuntimeObjectiveRequest、frontProvider: "codex" | "claude"
  * @returns buildProjectRuntimeCoordinatorTaskRequestの計算結果を返す。
@@ -453,7 +459,7 @@ export function buildProjectRuntimeCoordinatorTaskRequest(
 /**
  * Production composition shared by the CLI and MCP transports.
  *
- * @responsibility executeProjectRuntimePublicObjectiveに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Public Objectiveの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input runtimeDependencies: PublicExecutionDependencies、rawRequest: unknown、cancellationSignal: AbortSignal、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
  * @returns executeProjectRuntimePublicObjectiveの計算結果を返す。
@@ -540,9 +546,9 @@ async function executeProjectRuntimePublicObjective(
     {
       authenticatedPrincipalId: authenticated.principalId,
       /**
-       * verifyProjectBindingの処理を実行する。
+       * Project Bindingを検証する。
        *
-       * @responsibility verifyProjectBindingに対応する入力処理と結果生成を所有する。
+       * @responsibility Project Bindingの検証根拠、成立条件、観測不能時の拒否境界を所有する。
        * @trace ARCH-000004
        * @input input
        * @returns verifyProjectBindingの計算結果を返す。
@@ -574,9 +580,9 @@ async function executeProjectRuntimePublicObjective(
         });
       },
       /**
-       * planObjectiveの処理を実行する。
+       * plan Objectiveを決定する。
        *
-       * @responsibility planObjectiveに対応する入力処理と結果生成を所有する。
+       * @responsibility plan Objectiveの導出に必要な入力、判定規則、返却結果の境界を所有する。
        * @trace ARCH-000004
        * @input request: ProjectRuntimeObjectiveRequest
        * @returns planObjectiveの計算結果を返す。
@@ -621,9 +627,9 @@ async function executeProjectRuntimePublicObjective(
         });
       },
       /**
-       * createTaskExecutionsの処理を実行する。
+       * Task Executionsを構築する。
        *
-       * @responsibility createTaskExecutionsに対応する入力処理と結果生成を所有する。
+       * @responsibility Task Executionsの構築入力、生成結果、不正入力の拒否境界を所有する。
        * @trace ARCH-000004
        * @input request、_bindingCapability、state
        * @returns createTaskExecutionsの計算結果を返す。
@@ -840,9 +846,9 @@ async function executeProjectRuntimePublicObjective(
 }
 
 /**
- * runProjectRuntimePublicObjectiveの処理を実行する。
+ * Project Runtime Public Objectiveを実行する。
  *
- * @responsibility runProjectRuntimePublicObjectiveに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Public Objectiveの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input rawRequest: unknown、cancellationSignal: AbortSignal、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
  * @returns runProjectRuntimePublicObjectiveの計算結果を返す。
@@ -885,7 +891,7 @@ export function runProjectRuntimePublicObjective(
 /**
  * Development-only composition. The supplied starter still needs its own admitted capability.
  *
- * @responsibility createDevelopmentProjectRuntimePublicObjectiveCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Development Project Runtime Public Objective 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input dependencies: Omit< ProjectRuntimePublicDevelopmentDependencies, "createIntegrationAdapter" > & Readonly<{ createIntegrationAdapter?: PublicExecutionDependencies["createIntegrationAdapter"]; }>
  * @returns createDevelopmentProjectRuntimePublicObjectiveCandidateの計算結果を返す。
@@ -959,9 +965,9 @@ export function createDevelopmentProjectRuntimePublicObjectiveCandidate(
 }
 
 /**
- * executeProjectRuntimePublicDecisionの処理を実行する。
+ * Project Runtime Public Decisionを実行する。
  *
- * @responsibility executeProjectRuntimePublicDecisionに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Public Decisionの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore、rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
  * @returns executeProjectRuntimePublicDecisionの計算結果を返す。
@@ -1072,7 +1078,7 @@ function executeProjectRuntimePublicDecision(
 /**
  * Production decision entry shared by the CLI and MCP process.
  *
- * @responsibility runProjectRuntimePublicDecisionに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Public Decisionの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
  * @returns runProjectRuntimePublicDecisionの計算結果を返す。
@@ -1107,7 +1113,7 @@ export function runProjectRuntimePublicDecision(
 /**
  * Read-only state entry shared by local transports. No mutation port is exposed.
  *
- * @responsibility executeProjectRuntimePublicStateQueryに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Public 状態 Queryの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore、rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
  * @returns executeProjectRuntimePublicStateQueryの計算結果を返す。
@@ -1191,7 +1197,7 @@ function executeProjectRuntimePublicStateQuery(
 /**
  * Production read-only state entry shared by local transports.
  *
- * @responsibility runProjectRuntimePublicStateQueryに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Public 状態 Queryの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
  * @returns runProjectRuntimePublicStateQueryの計算結果を返す。

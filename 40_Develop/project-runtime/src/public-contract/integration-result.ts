@@ -1,3 +1,9 @@
+/**
+ * integration-resultに属する責務をまとめる。
+ *
+ * @responsibility validIdを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -29,9 +35,9 @@ export const projectRuntimeIntegrationResultFields = Object.freeze([
 ] as const);
 
 /**
- * validIdの処理を実行する。
+ * Idが有効か判定する。
  *
- * @responsibility validIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Idの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown、maximum
  * @returns value is stringを返す。
@@ -56,7 +62,7 @@ function validId(value: unknown, maximum = 512): value is string {
 /**
  * Canonical closed result contract shared by the producer and transports.
  *
- * @responsibility inspectProjectRuntimeIntegrationResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Integration 結果の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input raw: unknown
  * @returns Readonly< Record<string, unknown> & { status: "completed" | "blocked"; recoveryIds: readonly string[]; effectIssued?: boolean; effectStateUnknown?: boolean; retryAllowed?: boolean; } > | nullを返す。

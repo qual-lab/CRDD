@@ -1,3 +1,9 @@
+/**
+ * external-send-consent-runtimeに属する責務をまとめる。
+ *
+ * @responsibility VerifiedRootを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000015
+ */
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -35,9 +41,9 @@ export {
 const HEX64 = /^[a-f0-9]{64}$/u;
 
 /**
- * VerifiedRootが扱う値の構造を表す。
+ * external-send-consent-runtimeで使用するVerified Rootの値契約を定義する。
  *
- * @responsibility VerifiedRootに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Verified RootのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape VerifiedRootが表すProperty、識別子およびRelationを型として固定する。
  * @invariant VerifiedRootで宣言した値と責務の対応を維持する。
@@ -49,9 +55,9 @@ type VerifiedRoot = NonNullable<
   ReturnType<typeof consumeRuntimeOwnedRuntimeStateRootCapability>
 >;
 /**
- * Lockが扱う値の構造を表す。
+ * external-send-consent-runtimeで使用するLockの値契約を定義する。
  *
- * @responsibility Lockに必要な値と制約を一つの型契約として保持する。
+ * @responsibility LockのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape Lockが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Lockで宣言した値と責務の対応を維持する。
@@ -61,9 +67,9 @@ type VerifiedRoot = NonNullable<
  */
 type Lock = Readonly<{ release: () => boolean }>;
 /**
- * ConsentDependenciesが扱う値の構造を表す。
+ * external-send-consent-runtimeで使用するConsent Dependenciesの値契約を定義する。
  *
- * @responsibility ConsentDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Consent DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape ConsentDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ConsentDependenciesで宣言した値と責務の対応を維持する。
@@ -79,9 +85,9 @@ type ConsentDependencies = Readonly<{
 }>;
 
 /**
- * compileExternalSendConsentBoundaryHashの処理を実行する。
+ * External Send Consent Boundary Hashを機械利用可能な契約へ変換する。
  *
- * @responsibility compileExternalSendConsentBoundaryHashに対応する入力処理と結果生成を所有する。
+ * @responsibility External Send Consent Boundary Hashの入力Schema、決定論的変換、変換不能時の拒否境界を所有する。
  * @trace ARCH-000015
  * @input policy: ExternalSendPolicy
  * @returns compileExternalSendConsentBoundaryHashの計算結果を返す。
@@ -110,9 +116,9 @@ export function compileExternalSendConsentBoundaryHash(
 }
 
 /**
- * productionObserveRootの処理を実行する。
+ * production Observe Rootを決定する。
  *
- * @responsibility productionObserveRootに対応する入力処理と結果生成を所有する。
+ * @responsibility production Observe Rootの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input shouldInitializeIfMissing: boolean、developmentContext: unknown
  * @returns productionObserveRootの計算結果を返す。
@@ -148,9 +154,9 @@ const productionDependencies: ConsentDependencies = Object.freeze({
 });
 
 /**
- * sameRootの処理を実行する。
+ * Rootが同一かを判定する。
  *
- * @responsibility sameRootに対応する入力処理と結果生成を所有する。
+ * @responsibility Rootの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000015
  * @input left: VerifiedRoot、right: VerifiedRoot
  * @returns sameRootの計算結果を返す。
@@ -174,9 +180,9 @@ function sameRoot(left: VerifiedRoot, right: VerifiedRoot) {
 }
 
 /**
- * expectedBoundaryの処理を実行する。
+ * expected Boundaryを決定する。
  *
- * @responsibility expectedBoundaryに対応する入力処理と結果生成を所有する。
+ * @responsibility expected Boundaryの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input policy: ExternalSendPolicy、boundaryHash: string、root: VerifiedRoot
  * @returns expectedBoundaryの計算結果を返す。
@@ -221,9 +227,9 @@ function expectedBoundary(
 }
 
 /**
- * recordForの処理を実行する。
+ * record Forを決定する。
  *
- * @responsibility recordForに対応する入力処理と結果生成を所有する。
+ * @responsibility record Forの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input policy: ExternalSendPolicy、boundaryHash: string、root: VerifiedRoot、now: number、generation: string
  * @returns recordForの計算結果を返す。
@@ -253,9 +259,9 @@ function recordFor(
 }
 
 /**
- * validRecordの処理を実行する。
+ * 記録が有効か判定する。
  *
- * @responsibility validRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility 記録の有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown、expected: ReturnType<typeof expectedBoundary>、now: number
  * @returns validRecordの計算結果を返す。
@@ -290,9 +296,9 @@ function validRecord(
 }
 
 /**
- * consentNameの処理を実行する。
+ * consent Nameを決定する。
  *
- * @responsibility consentNameに対応する入力処理と結果生成を所有する。
+ * @responsibility consent Nameの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input boundaryHash: string、generation: string
  * @returns consentNameの計算結果を返す。
@@ -312,9 +318,9 @@ function consentName(boundaryHash: string, generation: string) {
 }
 
 /**
- * consentPathsの処理を実行する。
+ * consent Pathsを決定する。
  *
- * @responsibility consentPathsに対応する入力処理と結果生成を所有する。
+ * @responsibility consent Pathsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input root: VerifiedRoot、name: string
  * @returns consentPathsの計算結果を返す。
@@ -336,9 +342,9 @@ function consentPaths(root: VerifiedRoot, name: string) {
 }
 
 /**
- * exactRegularFileOrMissingの処理を実行する。
+ * Regular File Or Missingが完全一致するか判定する。
  *
- * @responsibility exactRegularFileOrMissingに対応する入力処理と結果生成を所有する。
+ * @responsibility Regular File Or Missingの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000015
  * @input file: string
  * @returns exactRegularFileOrMissingの計算結果を返す。
@@ -365,9 +371,9 @@ function exactRegularFileOrMissing(file: string) {
 }
 
 /**
- * pathMissingの処理を実行する。
+ * path Missingを決定する。
  *
- * @responsibility pathMissingに対応する入力処理と結果生成を所有する。
+ * @responsibility path Missingの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input file: string
  * @returns pathMissingの計算結果を返す。
@@ -398,9 +404,9 @@ function pathMissing(file: string) {
 // Removing this one fixed pair only reduces authority. Commit is removed
 // first so a crash cannot leave an old record authoritative.
 /**
- * activeNamesの処理を実行する。
+ * Namesが有効な状態か判定する。
  *
- * @responsibility activeNamesに対応する入力処理と結果生成を所有する。
+ * @responsibility Namesの有効状態条件と判定結果境界を所有する。
  * @trace ARCH-000015
  * @input root: VerifiedRoot
  * @returns activeNamesの計算結果を返す。
@@ -423,9 +429,9 @@ function activeNames(root: VerifiedRoot) {
 }
 
 /**
- * revokePairの処理を実行する。
+ * Pairを失効させる。
  *
- * @responsibility revokePairに対応する入力処理と結果生成を所有する。
+ * @responsibility Pairの失効Authority、対象Identity、再利用防止境界を所有する。
  * @trace ARCH-000015
  * @input root: VerifiedRoot
  * @returns revokePairの計算結果を返す。
@@ -464,9 +470,9 @@ function revokePair(root: VerifiedRoot) {
 }
 
 /**
- * withConsentLockの処理を実行する。
+ * with Consent Lockを決定する。
  *
- * @responsibility withConsentLockに対応する入力処理と結果生成を所有する。
+ * @responsibility with Consent Lockの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input dependencies: ConsentDependencies、root: VerifiedRoot、operation: () => T
  * @returns withConsentLockの計算結果を返す。
@@ -505,9 +511,9 @@ function withConsentLock<T>(
 }
 
 /**
- * createRuntimeの処理を実行する。
+ * Runtimeを構築する。
  *
- * @responsibility createRuntimeに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtimeの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
  * @input dependencies: ConsentDependencies
  * @returns createRuntimeの計算結果を返す。
@@ -522,9 +528,9 @@ function withConsentLock<T>(
  */
 function createRuntime(dependencies: ConsentDependencies) {
   /**
-   * resolveの処理を実行する。
+   * external-send-consent-runtimeを一意に解決する。
    *
-   * @responsibility resolveに対応する入力処理と結果生成を所有する。
+   * @responsibility external-send-consent-runtimeの候補集合、解決規則、曖昧時の拒否境界を所有する。
    * @trace ARCH-000015
    * @input policy: ExternalSendPolicy
    * @returns resolveの計算結果を返す。
@@ -636,9 +642,9 @@ function createRuntime(dependencies: ConsentDependencies) {
   }
 
   /**
-   * persistの処理を実行する。
+   * external-send-consent-runtimeを耐久保存する。
    *
-   * @responsibility persistに対応する入力処理と結果生成を所有する。
+   * @responsibility external-send-consent-runtimeの保存Identity、確定条件、部分書込みの失敗境界を所有する。
    * @trace ARCH-000015
    * @input policy: ExternalSendPolicy
    * @returns persistの計算結果を返す。
@@ -694,9 +700,9 @@ function createRuntime(dependencies: ConsentDependencies) {
   }
 
   /**
-   * revokeの処理を実行する。
+   * external-send-consent-runtimeを失効させる。
    *
-   * @responsibility revokeに対応する入力処理と結果生成を所有する。
+   * @responsibility external-send-consent-runtimeの失効Authority、対象Identity、再利用防止境界を所有する。
    * @trace ARCH-000015
    * @input N/A: 実行時引数を受け取らない。
    * @returns revokeの計算結果を返す。
@@ -733,9 +739,9 @@ function createRuntime(dependencies: ConsentDependencies) {
 const productionRuntime = createRuntime(productionDependencies);
 
 /**
- * runtimeForOperationの処理を実行する。
+ * runtime For Operationを決定する。
  *
- * @responsibility runtimeForOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility runtime For Operationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input managementCapability: unknown
  * @returns runtimeForOperationの計算結果を返す。
@@ -764,9 +770,9 @@ function runtimeForOperation(managementCapability: unknown) {
   });
 }
 /**
- * resolveRuntimeOwnedExternalSendConsentの処理を実行する。
+ * Runtime 所有 External Send Consentを一意に解決する。
  *
- * @responsibility resolveRuntimeOwnedExternalSendConsentに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 External Send Consentの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000015
  * @input policy: ExternalSendPolicy、managementCapability: unknown
  * @returns resolveRuntimeOwnedExternalSendConsentの計算結果を返す。
@@ -786,9 +792,9 @@ export function resolveRuntimeOwnedExternalSendConsent(
   return runtimeForOperation(managementCapability).resolve(policy);
 }
 /**
- * persistRuntimeOwnedExternalSendConsentの処理を実行する。
+ * Runtime 所有 External Send Consentを耐久保存する。
  *
- * @responsibility persistRuntimeOwnedExternalSendConsentに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 External Send Consentの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000015
  * @input policy: ExternalSendPolicy、managementCapability: unknown
  * @returns persistRuntimeOwnedExternalSendConsentの計算結果を返す。
@@ -810,9 +816,9 @@ export function persistRuntimeOwnedExternalSendConsent(
 export const revokeRuntimeOwnedExternalSendConsent = productionRuntime.revoke;
 
 /**
- * createIsolatedExternalSendConsentRuntimeCandidateの処理を実行する。
+ * Isolated External Send Consent Runtime 候補を構築する。
  *
- * @responsibility createIsolatedExternalSendConsentRuntimeCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Isolated External Send Consent Runtime 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
  * @input dependencies: ConsentDependencies
  * @returns createIsolatedExternalSendConsentRuntimeCandidateの計算結果を返す。
@@ -832,9 +838,9 @@ export function createIsolatedExternalSendConsentRuntimeCandidate(
 }
 
 /**
- * describeExternalSendConsentRuntimeContractの処理を実行する。
+ * External Send Consent Runtime 契約の公開契約を記述する。
  *
- * @responsibility describeExternalSendConsentRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @responsibility External Send Consent Runtime 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeExternalSendConsentRuntimeContractの計算結果を返す。

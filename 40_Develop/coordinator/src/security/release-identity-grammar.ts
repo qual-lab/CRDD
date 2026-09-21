@@ -1,3 +1,9 @@
+/**
+ * release-identity-grammarに属する責務をまとめる。
+ *
+ * @responsibility isCanonicalCrddGitObjectIdを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 export const RELEASE_IDENTITY_GRAMMAR_CONTRACT =
   "crdd-coordinator/release-identity-grammar";
 export const RELEASE_IDENTITY_GRAMMAR_CONTRACT_REVISION = 1;
@@ -8,9 +14,9 @@ const CRDD_VERSION = /^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]{1,64})?$/u;
 const CRDD_UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 
 /**
- * isCanonicalCrddGitObjectIdの処理を実行する。
+ * Canonical Crdd Git Object Idかを判定する。
  *
- * @responsibility isCanonicalCrddGitObjectIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Canonical Crdd Git Object Idの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown
  * @returns value is stringを返す。
@@ -28,9 +34,9 @@ export function isCanonicalCrddGitObjectId(value: unknown): value is string {
 }
 
 /**
- * isSupportedCrddRuntimeGitObjectIdの処理を実行する。
+ * Supported Crdd Runtime Git Object Idかを判定する。
  *
- * @responsibility isSupportedCrddRuntimeGitObjectIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Supported Crdd Runtime Git Object Idの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown
  * @returns value is stringを返す。
@@ -50,9 +56,9 @@ export function isSupportedCrddRuntimeGitObjectId(
 }
 
 /**
- * isCanonicalCrddVersionの処理を実行する。
+ * Canonical Crdd Versionかを判定する。
  *
- * @responsibility isCanonicalCrddVersionに対応する入力処理と結果生成を所有する。
+ * @responsibility Canonical Crdd Versionの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown
  * @returns value is stringを返す。
@@ -70,9 +76,9 @@ export function isCanonicalCrddVersion(value: unknown): value is string {
 }
 
 /**
- * isCanonicalCrddUtcTimestampの処理を実行する。
+ * Canonical Crdd Utc Timestampかを判定する。
  *
- * @responsibility isCanonicalCrddUtcTimestampに対応する入力処理と結果生成を所有する。
+ * @responsibility Canonical Crdd Utc Timestampの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown
  * @returns value is stringを返す。
@@ -95,9 +101,9 @@ export function isCanonicalCrddUtcTimestamp(value: unknown): value is string {
 }
 
 /**
- * describeReleaseIdentityGrammarContractの処理を実行する。
+ * Release Identity Grammar 契約の公開契約を記述する。
  *
- * @responsibility describeReleaseIdentityGrammarContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Release Identity Grammar 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeReleaseIdentityGrammarContractの計算結果を返す。

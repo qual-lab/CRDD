@@ -1,3 +1,9 @@
+/**
+ * codex-executor-seccompに属する責務をまとめる。
+ *
+ * @responsibility resolveFixedCodexExecutorSeccompProfileを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -9,7 +15,7 @@ const executorSeccompProfilePath = fileURLToPath(
 /**
  * Resolve the one fixed Codex Executor seccomp artifact after verifying the
  *
- * @responsibility resolveFixedCodexExecutorSeccompProfileに対応する入力処理と結果生成を所有する。
+ * @responsibility Fixed Codex Executor Seccomp Profileの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000004
  * @input expectedSha256: string、expectedBytes: number
  * @returns resolveFixedCodexExecutorSeccompProfileの計算結果を返す。

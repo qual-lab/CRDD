@@ -1,3 +1,9 @@
+/**
+ * legacy-runtime-inventoryに属する責務をまとめる。
+ *
+ * @responsibility LegacyFieldOwnerを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import {
   createFilesystemRepositoryObservationPort,
   type RepositoryObservationPort,

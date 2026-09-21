@@ -6,7 +6,7 @@
  * @trace ERB-IT-001
  * @level IT
  * @scope platform、access、release
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -33,7 +33,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-platform-release-"));
@@ -57,7 +57,7 @@ function fixture() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("固定release PathのRust成果物を同一handleでHashへ結合する", () => {
   const value = fixture();
@@ -96,7 +96,7 @@ test("固定release PathのRust成果物を同一handleでHashへ結合する", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("欠落fileおよび署名観測後のfileとRoot置換を拒否する", () => {
   const value = fixture();
@@ -147,7 +147,7 @@ test("欠落fileおよび署名観測後のfileとRoot置換を拒否する", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("release contractは固定targetと非公開process境界を示す", () => {
   const contract = describePlatformAccessReleaseContract();

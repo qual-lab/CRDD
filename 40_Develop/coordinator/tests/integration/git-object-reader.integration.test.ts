@@ -6,7 +6,7 @@
  * @trace RFD-IT-012
  * @level IT
  * @scope git、object、reader
- * @boundary Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -54,7 +54,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
  */
 function materializeProtectedGitCommitTreeCandidate(candidate: unknown) {
   return materializeVersionControlTree(
@@ -74,7 +74,7 @@ for (const kind of ["base", "ofs", "ref"] as const) {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+   * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
    */
   test(`Git生成pack-only ${kind}は公開3APIで完全bytesを復元する`, {
     skip: process.platform !== "win32",
@@ -158,7 +158,7 @@ for (const mutation of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+   * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
    */
   test(`Git pack破損 ${mutation}は公開読取り・投影で拒否する`, {
     skip: process.platform !== "win32",
@@ -214,7 +214,7 @@ for (const mutation of [
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
  */
 test("Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合する", () => {
   const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
@@ -245,7 +245,7 @@ test("Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
  */
 test("現行CRDDのpacked objectから明示Read Projectionだけを隔離workspaceへ再構成する", (t) => {
   const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");

@@ -6,7 +6,7 @@
  * @trace ERB-IT-004
  * @level IT
  * @scope development、native、observation
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -49,7 +49,7 @@ const scenarios = [
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 async function runProbe(target: string, scenario: string) {
   const realNow = Date.now;
@@ -84,7 +84,7 @@ async function runProbe(target: string, scenario: string) {
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Observer→Effect Gate
+   * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
    */
   const moduleUrl = (name: string) =>
     new URL(`../../src/security/${name}.ts`, import.meta.url).href;
@@ -405,7 +405,7 @@ if (process.argv[2] === "--probe") {
        * @observation 結果、状態、Effectおよび終了後条件を観測する。
        * @oracle Test本文のassertionが期待条件を満たす。
        * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-       * @boundary Direct Boundary: Observer→Effect Gate
+       * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
        */
       test(`本番sessionとnative Adapterの結合: ${target} / ${scenario}`, (context) => {
         if (process.platform !== "win32") {

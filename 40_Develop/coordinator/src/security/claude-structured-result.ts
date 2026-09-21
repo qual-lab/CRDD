@@ -1,3 +1,9 @@
+/**
+ * claude-structured-resultに属する責務をまとめる。
+ *
+ * @responsibility ScanResultを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000015
+ */
 export const CLAUDE_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/claude-structured-result";
 export const CLAUDE_STRUCTURED_RESULT_CONTRACT_REVISION = 1;
@@ -8,9 +14,9 @@ const JSON_WHITESPACE = new Set([" ", "\t", "\r", "\n"]);
 const HEX_DIGIT = /^[0-9a-f]$/iu;
 
 /**
- * ScanResultが扱う値の構造を表す。
+ * claude-structured-resultで使用するScan 結果の値契約を定義する。
  *
- * @responsibility ScanResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Scan 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape ScanResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ScanResultで宣言した値と責務の対応を維持する。
@@ -24,9 +30,9 @@ type ScanResult = Readonly<{
 }>;
 
 /**
- * skipWhitespaceの処理を実行する。
+ * Whitespaceを読み飛ばして次位置を返す。
  *
- * @responsibility skipWhitespaceに対応する入力処理と結果生成を所有する。
+ * @responsibility Whitespaceの対象文字、走査上限、次位置境界を所有する。
  * @trace ARCH-000015
  * @input raw: string、startIndex: number
  * @returns skipWhitespaceの計算結果を返す。
@@ -47,9 +53,9 @@ function skipWhitespace(raw: string, startIndex: number) {
 }
 
 /**
- * scanStringの処理を実行する。
+ * Stringを構文単位として走査する。
  *
- * @responsibility scanStringに対応する入力処理と結果生成を所有する。
+ * @responsibility Stringの走査開始点、終了点、不正文法の拒否境界を所有する。
  * @trace ARCH-000015
  * @input raw: string、startIndex: number
  * @returns scanStringの計算結果を返す。
@@ -92,9 +98,9 @@ function scanString(raw: string, startIndex: number) {
 }
 
 /**
- * scanNumberの処理を実行する。
+ * Numberを構文単位として走査する。
  *
- * @responsibility scanNumberに対応する入力処理と結果生成を所有する。
+ * @responsibility Numberの走査開始点、終了点、不正文法の拒否境界を所有する。
  * @trace ARCH-000015
  * @input raw: string、startIndex: number
  * @returns scanNumberの計算結果を返す。
@@ -115,9 +121,9 @@ function scanNumber(raw: string, startIndex: number) {
 }
 
 /**
- * scanArrayの処理を実行する。
+ * Arrayを構文単位として走査する。
  *
- * @responsibility scanArrayに対応する入力処理と結果生成を所有する。
+ * @responsibility Arrayの走査開始点、終了点、不正文法の拒否境界を所有する。
  * @trace ARCH-000015
  * @input raw: string、startIndex: number
  * @returns ScanResult | nullを返す。
@@ -149,9 +155,9 @@ function scanArray(raw: string, startIndex: number): ScanResult | null {
 }
 
 /**
- * scanObjectの処理を実行する。
+ * Objectを構文単位として走査する。
  *
- * @responsibility scanObjectに対応する入力処理と結果生成を所有する。
+ * @responsibility Objectの走査開始点、終了点、不正文法の拒否境界を所有する。
  * @trace ARCH-000015
  * @input raw: string、startIndex: number
  * @returns ScanResult | nullを返す。
@@ -196,9 +202,9 @@ function scanObject(raw: string, startIndex: number): ScanResult | null {
 }
 
 /**
- * scanValueの処理を実行する。
+ * Valueを構文単位として走査する。
  *
- * @responsibility scanValueに対応する入力処理と結果生成を所有する。
+ * @responsibility Valueの走査開始点、終了点、不正文法の拒否境界を所有する。
  * @trace ARCH-000015
  * @input raw: string、startIndex: number
  * @returns ScanResult | nullを返す。
@@ -236,9 +242,9 @@ function scanValue(raw: string, startIndex: number): ScanResult | null {
 }
 
 /**
- * parseUnambiguousJsonDocumentの処理を実行する。
+ * Unambiguous Json Documentを構造化値へ解析する。
  *
- * @responsibility parseUnambiguousJsonDocumentに対応する入力処理と結果生成を所有する。
+ * @responsibility Unambiguous Json Documentの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000015
  * @input raw: string
  * @returns parseUnambiguousJsonDocumentの計算結果を返す。
@@ -269,9 +275,9 @@ export function parseUnambiguousJsonDocument(raw: string) {
 }
 
 /**
- * isRecordの処理を実行する。
+ * 記録かを判定する。
  *
- * @responsibility isRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility 記録の判定条件とtrue／false境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown
  * @returns value is Record<string, unknown>を返す。
@@ -289,9 +295,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * ownValueの処理を実行する。
+ * own Valueを決定する。
  *
- * @responsibility ownValueに対応する入力処理と結果生成を所有する。
+ * @responsibility own Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input value: Record<string, unknown>、key: string
  * @returns ownValueの計算結果を返す。
@@ -309,9 +315,9 @@ function ownValue(value: Record<string, unknown>, key: string) {
 }
 
 /**
- * createBlockedResultの処理を実行する。
+ * Blocked 結果を構築する。
  *
- * @responsibility createBlockedResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Blocked 結果の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
  * @returns createBlockedResultの計算結果を返す。
@@ -335,9 +341,9 @@ function createBlockedResult() {
 }
 
 /**
- * normalizeClaudeStructuredResultの処理を実行する。
+ * Claude Structured 結果を固定Schemaへ正規化する。
  *
- * @responsibility normalizeClaudeStructuredResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Claude Structured 結果の入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000015
  * @input raw: unknown
  * @returns normalizeClaudeStructuredResultの計算結果を返す。
@@ -388,9 +394,9 @@ export function normalizeClaudeStructuredResult(raw: unknown) {
 }
 
 /**
- * describeClaudeStructuredResultContractの処理を実行する。
+ * Claude Structured 結果 契約の公開契約を記述する。
  *
- * @responsibility describeClaudeStructuredResultContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Claude Structured 結果 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeClaudeStructuredResultContractの計算結果を返す。

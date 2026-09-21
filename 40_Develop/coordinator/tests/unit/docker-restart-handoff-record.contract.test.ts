@@ -6,7 +6,7 @@
  * @trace ERP-UT-006
  * @level UT
  * @scope docker、restart、handoff、record
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -31,7 +31,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 const h = (n: number) => n.toString(16).padStart(64, "0");
 const binding: DockerRestartBinding = {
@@ -56,7 +56,7 @@ const originRecords = [createDockerRestartRecord(binding, "stop_intent")];
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("migration codec preserves a closed continuation boundary without legacy acceptance", () => {
   const original = createDockerRestartHandoffRecord(
@@ -110,7 +110,7 @@ test("migration codec preserves a closed continuation boundary without legacy ac
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("partial v1 history can be linked without changing its bytes or issuing authority", () => {
   const saved = Buffer.from(originRecords[0] as Buffer);
@@ -151,7 +151,7 @@ test("partial v1 history can be linked without changing its bytes or issuing aut
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("closed canonical codec rejects malformed values and unsupported revision", () => {
   const first = createDockerRestartHandoffRecord(
@@ -198,7 +198,7 @@ test("closed canonical codec rejects malformed values and unsupported revision",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("exact originRecords, tip, current identity and every target binding field are required", () => {
   const first = createDockerRestartHandoffRecord(
@@ -245,7 +245,7 @@ test("exact originRecords, tip, current identity and every target binding field 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("duplicates, branches, gaps and cyclic runtime adoption are rejected", () => {
   const a = createDockerRestartHandoffRecord(originRecords, binding, [], h(2));
@@ -281,7 +281,7 @@ test("duplicates, branches, gaps and cyclic runtime adoption are rejected", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
  */
 test("eight handoffs are bounded and completed originRecords uses no partial handoff", () => {
   const records: Buffer[] = [];

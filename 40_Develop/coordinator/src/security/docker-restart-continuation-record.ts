@@ -1,3 +1,9 @@
+/**
+ * docker-restart-continuation-recordに属する責務をまとめる。
+ *
+ * @responsibility Continuationを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { createHash } from "node:crypto";
 import { isSha256Hex } from "./docker-recovery-identity.ts";
 import { parseDockerRestartHandoffRecord } from "./docker-restart-handoff-record.ts";
@@ -10,9 +16,9 @@ import {
 } from "./docker-restart-record.ts";
 
 /**
- * Continuationが扱う値の構造を表す。
+ * docker-restart-continuation-recordで使用するContinuationの値契約を定義する。
  *
- * @responsibility Continuationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ContinuationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape Continuationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Continuationで宣言した値と責務の対応を維持する。
@@ -31,7 +37,7 @@ const encode = (value: Continuation) =>
 /**
  * Pure record wrapping, never execution authority.
  *
- * @responsibility createDockerRestartContinuationRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Restart Continuation 記録の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input recordBytes: Uint8Array、handoffSha256: string
  * @returns Bufferを返す。
@@ -59,9 +65,9 @@ export function createDockerRestartContinuationRecord(
   });
 }
 /**
- * parseDockerRestartContinuationRecordの処理を実行する。
+ * Docker Restart Continuation 記録を構造化値へ解析する。
  *
- * @responsibility parseDockerRestartContinuationRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Restart Continuation 記録の入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000008
  * @input bytes: Uint8Array
  * @returns Continuation | nullを返す。
@@ -101,9 +107,9 @@ export function parseDockerRestartContinuationRecord(
   }
 }
 /**
- * validateDockerRestartContinuationChainの処理を実行する。
+ * Docker Restart Continuation Chainの契約を検証する。
  *
- * @responsibility validateDockerRestartContinuationChainに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Restart Continuation Chainの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input bytes: readonly Uint8Array[]、binding: DockerRestartBinding、handoffBytes: Uint8Array
  * @returns readonly DockerRestartRecord[] | nullを返す。
@@ -146,7 +152,7 @@ const fixedBindingKeys = [
 /**
  * Resolves immutable evidence only. Signature, lock and effect authority remain
  *
- * @responsibility resolveDockerRestartHistoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Restart Historyの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input originBytes: readonly Uint8Array[]、binding: DockerRestartBinding、handoffBytes: readonly Uint8Array[]、continuationBytes: readonly Uint8Array[]
  * @returns resolveDockerRestartHistoryの計算結果を返す。
@@ -245,7 +251,7 @@ export function resolveDockerRestartHistory(
 /**
  * Append-only migration proposal. Does not publish or acquire authority.
  *
- * @responsibility createDockerRestartMigrationRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Restart Migration 記録の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input originBytes: readonly Uint8Array[]、binding: DockerRestartBinding、handoffBytes: readonly Uint8Array[]、continuationBytes: readonly Uint8Array[]
  * @returns createDockerRestartMigrationRecordの計算結果を返す。
@@ -318,9 +324,9 @@ export function createDockerRestartMigrationRecord(
 }
 
 /**
- * createDockerRestartMigratedPhaseの処理を実行する。
+ * Docker Restart Migrated Phaseを構築する。
  *
- * @responsibility createDockerRestartMigratedPhaseに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Restart Migrated Phaseの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input binding: DockerRestartBinding、phase: DockerRestartRecord["phase"]、previous: Uint8Array
  * @returns createDockerRestartMigratedPhaseの計算結果を返す。

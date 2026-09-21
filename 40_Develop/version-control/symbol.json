@@ -32,10 +32,11 @@
         "QA-000007"
       ],
       "localTestIds": [
-        "RFD-IT-001"
+        "RFD-IT-001",
+        "RFD-IT-002"
       ],
       "verifies": [
-        "version-control.public-api"
+        "version-control.source.src.repository.location"
       ]
     },
     {
@@ -49,7 +50,9 @@
         "RFD-IT-008"
       ],
       "verifies": [
-        "version-control.checker-repository-observation-adapter"
+        "version-control.source.src.git.local.change.set.adapter",
+        "version-control.source.src.local.change.set",
+        "version-control.source.src.repository.location"
       ]
     },
     {
@@ -63,7 +66,9 @@
         "RCM-IT-004"
       ],
       "verifies": [
-        "version-control.public-api"
+        "version-control.public-api",
+        "version-control.source.src.checker.observation.index",
+        "version-control.source.src.repository.location"
       ]
     },
     {
@@ -71,13 +76,17 @@
       "kind": "test-suite",
       "path": "tests/integration/fixed-snapshot.integration.test.ts",
       "qaIds": [
+        "QA-000001",
         "QA-000007"
       ],
       "localTestIds": [
+        "RCM-IT-003",
         "RFD-IT-008"
       ],
       "verifies": [
-        "version-control.public-api"
+        "version-control.source.src.fixed.snapshot",
+        "version-control.source.src.git.fixed.snapshot.adapter",
+        "version-control.source.src.repository.location"
       ]
     },
     {
@@ -91,7 +100,124 @@
         "RFD-IT-008"
       ],
       "verifies": [
-        "version-control.checker-repository-observation-adapter"
+        "version-control.source.src.fixed.revision",
+        "version-control.source.src.git.fixed.revision.adapter",
+        "version-control.source.src.git.repository.layout",
+        "version-control.source.src.git.repository.local.ignore.adapter",
+        "version-control.source.src.repository.local.ignore",
+        "version-control.source.src.repository.location"
+      ]
+    },
+    {
+      "symbolId": "version-control.source.src.repository.identity.index",
+      "kind": "file",
+      "path": "src/repository-identity/index.ts",
+      "archIds": [
+        "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "version-control.source.src.git.object.reader",
+      "kind": "file",
+      "path": "src/git/object-reader.ts",
+      "archIds": [
+        "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "version-control.source.src.git.fixed.snapshot.adapter",
+      "kind": "file",
+      "path": "src/git/fixed-snapshot-adapter.ts",
+      "archIds": [
+        "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "version-control.source.src.fixed.snapshot",
+      "kind": "file",
+      "path": "src/fixed-snapshot.ts",
+      "archIds": [
+        "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "version-control.source.src.git.repository.layout",
+      "kind": "file",
+      "path": "src/git/repository-layout.ts",
+      "archIds": [
+        "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "version-control.source.src.repository.location",
+      "kind": "file",
+      "path": "src/repository-location.ts",
+      "archIds": [
+        "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "version-control.source.src.git.repository.layout.adapter",
+      "kind": "file",
+      "path": "src/git/repository-layout-adapter.ts",
+      "archIds": [
+        "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "version-control.source.src.git.local.change.set.adapter",
+      "kind": "file",
+      "path": "src/git/local-change-set-adapter.ts",
+      "archIds": [
+        "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "version-control.source.src.checker.observation.index",
+      "kind": "file",
+      "path": "src/checker-observation/index.ts",
+      "archIds": [
+        "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "version-control.source.src.local.change.set",
+      "kind": "file",
+      "path": "src/local-change-set.ts",
+      "archIds": [
+        "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "version-control.source.src.git.fixed.revision.adapter",
+      "kind": "file",
+      "path": "src/git/fixed-revision-adapter.ts",
+      "archIds": [
+        "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "version-control.source.src.git.repository.local.ignore.adapter",
+      "kind": "file",
+      "path": "src/git/repository-local-ignore-adapter.ts",
+      "archIds": [
+        "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "version-control.source.src.fixed.revision",
+      "kind": "file",
+      "path": "src/fixed-revision.ts",
+      "archIds": [
+        "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "version-control.source.src.repository.local.ignore",
+      "kind": "file",
+      "path": "src/repository-local-ignore.ts",
+      "archIds": [
+        "ARCH-000002"
       ]
     }
   ]

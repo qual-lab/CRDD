@@ -98,7 +98,7 @@
         "RFD-IT-008"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.bounded.file.snapshot"
       ]
     },
     {
@@ -112,7 +112,7 @@
         "RCM-IT-009"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.config.package-scripts"
       ]
     },
     {
@@ -126,7 +126,7 @@
         "CPR-IT-001"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.candidate.bundle.store"
       ]
     },
     {
@@ -134,13 +134,13 @@
       "kind": "test-suite",
       "path": "tests/integration/candidate-store-kernel-lock.contract.test.ts",
       "qaIds": [
-        "QA-000004"
+        "QA-000005"
       ],
       "localTestIds": [
-        "PPR-IT-001"
+        "CPR-IT-001"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.candidate.store.kernel.lock"
       ]
     },
     {
@@ -154,7 +154,7 @@
         "ERB-IT-001"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.claude.execution.plan"
       ]
     },
     {
@@ -168,7 +168,8 @@
         "PRL-IT-012"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.cli.options",
+        "coordinator.source.src.core.docker.recovery.command.report"
       ]
     },
     {
@@ -182,7 +183,8 @@
         "ERB-IT-001"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.codex.execution.plan",
+        "coordinator.source.src.security.codex.executor.seccomp"
       ]
     },
     {
@@ -190,13 +192,16 @@
       "kind": "test-suite",
       "path": "tests/integration/coordinator-claude-delegation.integration.test.ts",
       "qaIds": [
-        "QA-000006"
+        "QA-000003"
       ],
       "localTestIds": [
-        "ERB-IT-001"
+        "PRL-IT-005"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.provider-authority-runtime",
+        "coordinator.source.src.security.claude.docker.runtime.adapter",
+        "coordinator.source.src.security.delegation.selection.grant.runtime",
+        "coordinator.source.src.security.docker.process.controller"
       ]
     },
     {
@@ -207,9 +212,13 @@
         "QA-000006"
       ],
       "localTestIds": [
+        "ERB-IT-001",
         "ERB-IT-002"
       ],
       "verifies": [
+        "coordinator.source.src.core.command.report",
+        "coordinator.source.src.core.task.cli.cancellation",
+        "coordinator.source.src.security.execution.environment",
         "coordinator.task-runtime"
       ]
     },
@@ -218,12 +227,22 @@
       "kind": "test-suite",
       "path": "tests/integration/coordinator-task-runtime.contract.test.ts",
       "qaIds": [
-        "QA-000003"
+        "QA-000003",
+        "QA-000005",
+        "QA-000006"
       ],
       "localTestIds": [
+        "CPR-IT-001",
+        "ERB-IT-006",
         "PRL-IT-012"
       ],
       "verifies": [
+        "coordinator.provider-model-selection-runtime",
+        "coordinator.source.src.core.development.execution.timing",
+        "coordinator.source.src.core.runtime.process.safety.state",
+        "coordinator.source.src.security.delegation.route.selection",
+        "coordinator.source.src.security.execution.environment",
+        "coordinator.source.src.security.repository.operation.runtime",
         "coordinator.task-runtime"
       ]
     },
@@ -238,7 +257,7 @@
         "PPR-IT-010"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.development.execution.timing"
       ]
     },
     {
@@ -252,7 +271,9 @@
         "ERB-IT-004"
       ],
       "verifies": [
-        "coordinator.native-runtime-trace"
+        "coordinator.source.src.security.candidate.store.windows.adapter",
+        "coordinator.source.src.security.development.measurement.session",
+        "coordinator.source.src.security.provider.home.windows.adapter"
       ]
     },
     {
@@ -266,7 +287,7 @@
         "ERB-IT-001"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.desktop.repair.history.publication"
       ]
     },
     {
@@ -280,7 +301,9 @@
         "ERB-IT-001"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.desktop.current.artifact.trust",
+        "coordinator.source.src.security.docker.desktop.repair.native.process",
+        "coordinator.source.src.security.docker.desktop.repair.native.process.lifecycle"
       ]
     },
     {
@@ -294,7 +317,8 @@
         "ERB-IT-001"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.desktop.repair.continuation.store",
+        "coordinator.source.src.security.docker.desktop.repair.record.store"
       ]
     },
     {
@@ -308,7 +332,8 @@
         "ERP-IT-001"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.desktop.repair.record.store",
+        "coordinator.source.src.security.docker.recovery.runtime.internal"
       ]
     },
     {
@@ -322,7 +347,10 @@
         "ERB-IT-001"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.docker-desktop-runtime-repair",
+        "coordinator.source.src.core.docker.recovery.command.report",
+        "coordinator.source.src.security.docker.desktop.repair.continuation.store",
+        "coordinator.source.src.security.docker.desktop.repair.record.store"
       ]
     },
     {
@@ -336,7 +364,9 @@
         "ERB-IT-004"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.claude.docker.runtime.adapter",
+        "coordinator.source.src.security.docker.effect.runtime",
+        "coordinator.source.src.security.docker.owned.process"
       ]
     },
     {
@@ -350,7 +380,7 @@
         "ERB-IT-002"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.owned.process"
       ]
     },
     {
@@ -364,7 +394,11 @@
         "ERB-IT-002"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.task.cli.cancellation",
+        "coordinator.source.src.security.development.measurement.constraints",
+        "coordinator.source.src.security.docker.owned.process",
+        "coordinator.source.src.security.docker.process.controller",
+        "coordinator.task-runtime"
       ]
     },
     {
@@ -378,7 +412,7 @@
         "PRL-IT-013"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.recovery.journal"
       ]
     },
     {
@@ -392,7 +426,7 @@
         "PRL-IT-013"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.recovery.lock.controller"
       ]
     },
     {
@@ -406,7 +440,16 @@
         "PRL-IT-013"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.docker.recovery.command.report",
+        "coordinator.source.src.security.candidate.store.kernel.lock",
+        "coordinator.source.src.security.docker.recovery.journal",
+        "coordinator.source.src.security.docker.recovery.runtime",
+        "coordinator.source.src.security.docker.recovery.runtime.internal",
+        "coordinator.source.src.security.docker.restart.continuation.record",
+        "coordinator.source.src.security.docker.restart.handoff.record",
+        "coordinator.source.src.security.docker.restart.record",
+        "coordinator.source.src.security.execution.environment",
+        "coordinator.source.src.security.host.recovery.record"
       ]
     },
     {
@@ -420,7 +463,9 @@
         "EST-IT-004"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.recovery.runtime.internal",
+        "coordinator.source.src.security.external.send.consent.runtime",
+        "coordinator.source.src.security.external.send.policy.runtime"
       ]
     },
     {
@@ -434,7 +479,7 @@
         "EST-IT-004"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.scripts.revoke.external.send.consent"
       ]
     },
     {
@@ -448,7 +493,9 @@
         "EST-IT-004"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.recovery.journal",
+        "coordinator.source.src.security.external.send.consent.runtime",
+        "coordinator.source.src.security.external.send.policy.runtime"
       ]
     },
     {
@@ -462,7 +509,10 @@
         "EST-IT-004"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.claude.structured.result",
+        "coordinator.source.src.security.execution.environment",
+        "coordinator.source.src.security.external.send.policy.runtime",
+        "coordinator.source.src.security.repository.operation.runtime"
       ]
     },
     {
@@ -476,7 +526,9 @@
         "AIT-IT-008"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.scripts.generate.release.key",
+        "runtime-data.source.src.platform.runtime.data.path.resolver",
+        "version-control.source.src.repository.location"
       ]
     },
     {
@@ -490,7 +542,8 @@
         "RFD-IT-012"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.secret.material.policy",
+        "version-control.source.src.git.object.reader"
       ]
     },
     {
@@ -504,7 +557,14 @@
         "RFD-IT-012"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.execution.environment",
+        "coordinator.source.src.security.repository.operation.runtime",
+        "coordinator.source.src.security.secret.material.policy",
+        "version-control.source.src.fixed.snapshot",
+        "version-control.source.src.git.fixed.snapshot.adapter",
+        "version-control.source.src.git.object.reader",
+        "version-control.source.src.git.repository.layout",
+        "version-control.source.src.repository.location"
       ]
     },
     {
@@ -518,7 +578,8 @@
         "ERB-IT-004"
       ],
       "verifies": [
-        "coordinator.native-runtime-trace"
+        "coordinator.native-runtime-trace",
+        "coordinator.source.src.core.windows.child.environment"
       ]
     },
     {
@@ -532,7 +593,7 @@
         "ERB-IT-001"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.scripts.platform.access.coverage.path"
       ]
     },
     {
@@ -546,7 +607,7 @@
         "ERB-IT-001"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.platform.access.release"
       ]
     },
     {
@@ -560,7 +621,7 @@
         "ERB-IT-001"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.scripts.check.platform.access.ts.coverage"
       ]
     },
     {
@@ -574,7 +635,8 @@
         "AIT-IT-008"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.platform.provisioner.manifest.loader",
+        "coordinator.source.src.security.provisioning.signature.primitives"
       ]
     },
     {
@@ -588,7 +650,11 @@
         "AIT-IT-013"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.runtime.local.typescript.child.entrypoints",
+        "coordinator.source.src.security.development.measurement.constraints",
+        "coordinator.source.src.security.platform.provisioner.package.filesystem",
+        "coordinator.source.src.security.platform.provisioner.trust.core",
+        "coordinator.source.src.security.provisioning.signature.primitives"
       ]
     },
     {
@@ -599,10 +665,39 @@
         "QA-000010"
       ],
       "localTestIds": [
+        "AIT-IT-002"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.platform.provisioner.release.identity"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.runtime-trust-evaluator",
+      "kind": "test-suite",
+      "path": "tests/integration/runtime-trust-evaluator.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
         "AIT-IT-001"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.runtime.trust.evaluator"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.runtime-trust-package-gate",
+      "kind": "test-suite",
+      "path": "tests/integration/runtime-trust-package-gate.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-IT-014"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.platform.provisioner.package.gate",
+        "coordinator.source.src.security.runtime.trust.evaluator"
       ]
     },
     {
@@ -613,10 +708,13 @@
         "QA-000003"
       ],
       "localTestIds": [
-        "PRL-IT-005"
+        "PRL-IT-012"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.candidate.bundle.store",
+        "coordinator.source.src.security.project.runtime.candidate.integration.adapter",
+        "project-runtime.state-core",
+        "version-control.source.src.git.fixed.snapshot.adapter"
       ]
     },
     {
@@ -630,7 +728,8 @@
         "PRL-IT-013"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.project.runtime.decision.recovery.store",
+        "project-runtime.source.src.ports.decision.port"
       ]
     },
     {
@@ -644,7 +743,7 @@
         "AIT-IT-008"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.project.runtime.design.traceability"
       ]
     },
     {
@@ -658,8 +757,8 @@
         "PRL-IT-012"
       ],
       "verifies": [
-        "project-runtime.objective-application",
-        "project-runtime.execution"
+        "coordinator.source.src.security.project.runtime.durable.foundation",
+        "project-runtime.state-core"
       ]
     },
     {
@@ -673,7 +772,14 @@
         "PRL-IT-012"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.runtime.process.safety.state",
+        "coordinator.source.src.security.project.runtime.durable.foundation",
+        "coordinator.source.src.security.project.runtime.execution.authorization.adapter",
+        "coordinator.source.src.security.project.runtime.execution.host.adapter",
+        "coordinator.source.src.security.project.runtime.single.task.adapter",
+        "project-runtime.execution",
+        "project-runtime.source.src.ports.execution.port",
+        "project-runtime.state-core"
       ]
     },
     {
@@ -681,13 +787,26 @@
       "kind": "test-suite",
       "path": "tests/integration/project-runtime-full-flow.integration.test.ts",
       "qaIds": [
-        "QA-000012"
+        "QA-000004"
       ],
       "localTestIds": [
-        "ERP-IT-001"
+        "PPR-IT-001"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.execution.intelligence.adapter",
+        "coordinator.source.src.security.project.runtime.decision.capability.adapter",
+        "coordinator.source.src.security.project.runtime.durable.foundation",
+        "coordinator.source.src.security.project.runtime.execution.authorization.adapter",
+        "coordinator.source.src.security.project.runtime.integration.record.adapter",
+        "coordinator.source.src.security.project.runtime.objective.intake",
+        "execution-intelligence.source.src.core.bounded.integrated.result.evaluation",
+        "execution-intelligence.source.src.core.execution.intelligence",
+        "execution-intelligence.source.src.store.execution.intelligence.store",
+        "execution-intelligence.source.src.store.verified.repository.root",
+        "project-runtime.human-decision-application",
+        "project-runtime.integration-application",
+        "project-runtime.replanning-application",
+        "project-runtime.source.src.ports.decision.port"
       ]
     },
     {
@@ -701,7 +820,12 @@
         "PRL-IT-012"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.project.runtime.durable.foundation",
+        "coordinator.source.src.security.project.runtime.execution.authorization.adapter",
+        "coordinator.source.src.security.project.runtime.integration.record.adapter",
+        "coordinator.source.src.security.project.runtime.objective.intake",
+        "mcp.source.src.adapters.project.runtime.adapter",
+        "project-runtime.integration-application"
       ]
     },
     {
@@ -715,7 +839,16 @@
         "PRL-IT-005"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.project.recovery.settlement",
+        "coordinator.source.src.security.docker.recovery.journal",
+        "coordinator.source.src.security.docker.recovery.runtime",
+        "coordinator.source.src.security.docker.recovery.runtime.internal",
+        "coordinator.source.src.security.project.runtime.durable.foundation",
+        "coordinator.source.src.security.project.runtime.execution.authorization.adapter",
+        "coordinator.source.src.security.project.runtime.objective.intake",
+        "project-runtime.objective-intake",
+        "project-runtime.source.src.ports.execution.port",
+        "project-runtime.state-core"
       ]
     },
     {
@@ -729,7 +862,8 @@
         "PRL-IT-012"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.project.runtime.windows.platform.adapter",
+        "project-runtime.public-api"
       ]
     },
     {
@@ -737,13 +871,26 @@
       "kind": "test-suite",
       "path": "tests/integration/project-runtime-composition-root.integration.test.ts",
       "qaIds": [
-        "QA-000003"
+        "QA-000003",
+        "QA-000004"
       ],
       "localTestIds": [
+        "PPR-IT-001",
         "PRL-IT-005"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.composition.project.runtime.composition.root",
+        "coordinator.source.src.security.execution.intelligence.adapter",
+        "coordinator.source.src.security.project.runtime.windows.decision.store",
+        "execution-intelligence.source.src.store.execution.intelligence.store",
+        "execution-intelligence.source.src.store.verified.repository.root",
+        "mcp.source.src.adapters.project.runtime.adapter",
+        "mcp.source.src.protocol.project.runtime.protocol",
+        "project-runtime.objective-application",
+        "project-runtime.public-api",
+        "project-runtime.state-core",
+        "project-runtime.state-query-application",
+        "runtime-data.source.src.platform.runtime.data.path.resolver"
       ]
     },
     {
@@ -754,10 +901,10 @@
         "QA-000003"
       ],
       "localTestIds": [
-        "PRL-IT-012"
+        "PRL-IT-011"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.project.runtime.durable.foundation"
       ]
     },
     {
@@ -771,7 +918,15 @@
         "PRL-IT-005"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.project.runtime.decision.capability.adapter",
+        "coordinator.source.src.security.project.runtime.durable.foundation",
+        "coordinator.source.src.security.project.runtime.execution.authorization.adapter",
+        "coordinator.source.src.security.project.runtime.execution.host.adapter",
+        "project-runtime.execution",
+        "project-runtime.human-decision-application",
+        "project-runtime.replanning-application",
+        "project-runtime.source.src.ports.decision.port",
+        "project-runtime.state-core"
       ]
     },
     {
@@ -785,6 +940,7 @@
         "PRL-IT-005"
       ],
       "verifies": [
+        "coordinator.source.src.security.project.runtime.single.task.adapter",
         "coordinator.task-runtime"
       ]
     },
@@ -799,7 +955,8 @@
         "PRL-IT-005"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.project.runtime.windows.decision.store",
+        "project-runtime.source.src.ports.decision.port"
       ]
     },
     {
@@ -813,7 +970,7 @@
         "PRL-IT-005"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.scripts.check.provider.authority.coverage"
       ]
     },
     {
@@ -827,7 +984,8 @@
         "AIT-IT-008"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.scripts.promote.release.manifest",
+        "coordinator.source.scripts.release.manifest.promotion"
       ]
     },
     {
@@ -841,7 +999,8 @@
         "RFD-IT-001"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "version-control.source.src.git.repository.layout",
+        "version-control.source.src.git.repository.layout.adapter"
       ]
     },
     {
@@ -855,7 +1014,8 @@
         "PRL-IT-012"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.execution.environment",
+        "coordinator.source.src.security.repository.operation.runtime"
       ]
     },
     {
@@ -869,7 +1029,7 @@
         "RFD-IT-001"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "version-control.source.src.repository.location"
       ]
     },
     {
@@ -883,7 +1043,9 @@
         "RFD-IT-013"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.execution.environment",
+        "coordinator.source.src.security.repository.operation.runtime",
+        "coordinator.source.src.security.repository.workspace.runtime"
       ]
     },
     {
@@ -897,7 +1059,10 @@
         "PRL-IT-005"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.runtime.process.safety.state",
+        "coordinator.source.src.security.external.send.grant.runtime",
+        "coordinator.source.src.security.platform.provisioner.package.filesystem",
+        "coordinator.task-runtime"
       ]
     },
     {
@@ -911,7 +1076,7 @@
         "PPR-IT-018"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.runtime.traceability"
       ]
     },
     {
@@ -925,7 +1090,10 @@
         "AIT-IT-008"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.scripts.release.staging.manifest",
+        "coordinator.source.scripts.sign.release.manifest",
+        "coordinator.source.src.security.platform.provisioner.package.filesystem",
+        "coordinator.source.src.security.provisioning.signature.primitives"
       ]
     },
     {
@@ -939,7 +1107,8 @@
         "ERB-IT-003"
       ],
       "verifies": [
-        "coordinator.task-runtime"
+        "coordinator.source.src.core.command.report",
+        "coordinator.source.src.core.task.cli.cancellation"
       ]
     },
     {
@@ -953,7 +1122,7 @@
         "CQS-IT-011"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.config.package-scripts"
       ]
     },
     {
@@ -967,7 +1136,9 @@
         "PRL-ST-001"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.docker.desktop.repair.doctor.dispatch",
+        "coordinator.source.src.core.docker.recovery.command.report",
+        "coordinator.source.src.security.docker.recovery.runtime.internal"
       ]
     },
     {
@@ -981,7 +1152,7 @@
         "PRL-ST-001"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.coordinator.launch"
       ]
     },
     {
@@ -989,13 +1160,14 @@
       "kind": "test-suite",
       "path": "tests/system/dynamic-fake-provider-cancellation-verification.contract.test.ts",
       "qaIds": [
-        "QA-000006"
+        "QA-000003"
       ],
       "localTestIds": [
-        "ERB-ST-005"
+        "PRL-ST-003"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.scripts.verify.dynamic.fake.provider.cancellation",
+        "coordinator.source.src.security.docker.isolation"
       ]
     },
     {
@@ -1009,7 +1181,8 @@
         "EST-ST-005"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.scripts.verify.dynamic.fake.provider.failures",
+        "coordinator.source.src.security.docker.isolation"
       ]
     },
     {
@@ -1023,7 +1196,12 @@
         "EST-ST-003"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.interactive.console",
+        "coordinator.source.src.core.interactive.console.reader",
+        "coordinator.source.src.core.node.runtime.version",
+        "coordinator.source.src.core.runtime.process.safety.state",
+        "coordinator.source.src.core.windows.child.environment",
+        "coordinator.source.src.security.candidate.store.kernel.lock"
       ]
     },
     {
@@ -1031,13 +1209,16 @@
       "kind": "test-suite",
       "path": "tests/integration/provider-execution-boundary-matrix.contract.test.ts",
       "qaIds": [
-        "QA-000003"
+        "QA-000003",
+        "QA-000006"
       ],
       "localTestIds": [
+        "ERB-IT-004",
         "PRL-IT-005"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.src.security.claude.execution.plan",
+        "coordinator.source.src.security.codex.execution.plan"
       ]
     },
     {
@@ -1051,7 +1232,7 @@
         "AIT-IT-008"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.scripts.verify.signed.reviewer.boundary"
       ]
     },
     {
@@ -1062,10 +1243,33 @@
         "QA-000003"
       ],
       "localTestIds": [
-        "PRL-ST-001"
+        "PRL-ST-001",
+        "PRL-ST-004"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.scripts.project.runtime.real.provider.contract",
+        "project-runtime.integration-application",
+        "project-runtime.objective-application",
+        "project-runtime.public-api",
+        "project-runtime.state-core"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.system.project-runtime-recovery",
+      "kind": "test-suite",
+      "path": "tests/system/project-runtime-recovery.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-ST-004"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.project.runtime.durable.foundation",
+        "coordinator.source.src.security.project.runtime.objective.intake",
+        "project-runtime.objective-application",
+        "project-runtime.execution",
+        "project-runtime.state-core"
       ]
     },
     {
@@ -1073,12 +1277,20 @@
       "kind": "test-suite",
       "path": "tests/system/signed-general-task-verification.contract.test.ts",
       "qaIds": [
-        "QA-000010"
+        "QA-000003",
+        "QA-000006",
+        "QA-000009"
       ],
       "localTestIds": [
-        "AIT-ST-004"
+        "ERB-ST-005",
+        "EST-ST-003",
+        "PRL-ST-001",
+        "PRL-ST-003",
+        "PRL-ST-004"
       ],
       "verifies": [
+        "coordinator.native-runtime-trace",
+        "coordinator.source.scripts.verify.signed.general.task",
         "coordinator.task-runtime"
       ]
     },
@@ -1087,13 +1299,13 @@
       "kind": "test-suite",
       "path": "tests/system/signed-recovery-matrix-verification.contract.test.ts",
       "qaIds": [
-        "QA-000010"
+        "QA-000003"
       ],
       "localTestIds": [
-        "AIT-ST-004"
+        "PRL-ST-004"
       ],
       "verifies": [
-        "coordinator.task-runtime"
+        "coordinator.source.scripts.verify.signed.recovery.matrix"
       ]
     },
     {
@@ -1107,7 +1319,8 @@
         "AIT-ST-004"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.scripts.verify.signed.general.task",
+        "coordinator.source.scripts.verify.signed.reviewer.boundary"
       ]
     },
     {
@@ -1121,7 +1334,8 @@
         "AIT-ST-004"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.scripts.verify.signed.general.task",
+        "coordinator.source.scripts.verify.signed.route.matrix"
       ]
     },
     {
@@ -1135,7 +1349,7 @@
         "ERB-ST-005"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.interactive.console"
       ]
     },
     {
@@ -1149,7 +1363,10 @@
         "ERP-ST-004"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.scripts.verify.signed.route.matrix",
+        "coordinator.source.src.core.verification.result.record",
+        "coordinator.source.src.security.docker.isolation",
+        "coordinator.source.src.security.host.recovery.record"
       ]
     },
     {
@@ -1163,7 +1380,10 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.src.security.authority.file.bundle",
+        "coordinator.source.src.security.authority.grant.verifier",
+        "coordinator.source.src.security.authority.trust.loader",
+        "coordinator.source.src.security.provider.isolation.profile"
       ]
     },
     {
@@ -1177,7 +1397,8 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.src.security.authority.grant.verifier",
+        "coordinator.source.src.security.provider.isolation.profile"
       ]
     },
     {
@@ -1191,7 +1412,11 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.src.security.authority.file.bundle",
+        "coordinator.source.src.security.authority.grant.verifier",
+        "coordinator.source.src.security.authority.prelaunch.verifier",
+        "coordinator.source.src.security.authority.trust.loader",
+        "coordinator.source.src.security.provider.isolation.profile"
       ]
     },
     {
@@ -1205,7 +1430,7 @@
         "RFD-UT-006"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.src.security.authority.root.path.lexical"
       ]
     },
     {
@@ -1219,7 +1444,9 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.src.security.authority.grant.verifier",
+        "coordinator.source.src.security.authority.trust.loader",
+        "coordinator.source.src.security.provider.isolation.profile"
       ]
     },
     {
@@ -1233,7 +1460,8 @@
         "PPR-UT-014"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.windows.child.environment",
+        "coordinator.source.src.security.candidate.store.windows.adapter"
       ]
     },
     {
@@ -1247,7 +1475,8 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.claude.docker.runtime.adapter",
+        "coordinator.source.src.security.delegation.selection.grant.runtime"
       ]
     },
     {
@@ -1261,7 +1490,7 @@
         "RCM-UT-016"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.claude.structured.result"
       ]
     },
     {
@@ -1275,7 +1504,9 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.codex.docker.runtime.adapter",
+        "coordinator.source.src.security.delegation.selection.grant.runtime",
+        "coordinator.source.src.security.docker.effect.runtime"
       ]
     },
     {
@@ -1289,7 +1520,7 @@
         "RCM-UT-016"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.codex.structured.result"
       ]
     },
     {
@@ -1303,7 +1534,7 @@
         "RCM-UT-016"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.command.report"
       ]
     },
     {
@@ -1317,7 +1548,8 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.coordinator.operation.creation.internal",
+        "coordinator.source.src.security.execution.environment"
       ]
     },
     {
@@ -1331,7 +1563,7 @@
         "CPR-IT-001"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.scripts.prepare.release.candidate"
       ]
     },
     {
@@ -1345,7 +1577,7 @@
         "PRL-IT-005"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.project.runtime.integration.record.adapter"
       ]
     },
     {
@@ -1359,7 +1591,7 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "coordinator.provider-model-selection-runtime"
+        "coordinator.source.src.security.delegation.route.selection"
       ]
     },
     {
@@ -1373,7 +1605,7 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.provider-model-selection-runtime"
+        "coordinator.source.src.security.delegation.selection.grant.runtime"
       ]
     },
     {
@@ -1387,7 +1619,7 @@
         "PPR-UT-006"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.development.measurement.constraints"
       ]
     },
     {
@@ -1401,7 +1633,10 @@
         "PPR-UT-006"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.candidate.store.windows.adapter",
+        "coordinator.source.src.security.development.measurement.session",
+        "coordinator.source.src.security.provider.home.windows.adapter",
+        "coordinator.task-runtime"
       ]
     },
     {
@@ -1415,7 +1650,9 @@
         "PPR-UT-006"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.scripts.measure.development.providers",
+        "coordinator.source.src.security.coordinator.task.request",
+        "runtime-data.source.src.platform.runtime.data.path.resolver"
       ]
     },
     {
@@ -1429,7 +1666,7 @@
         "RDL-UT-005"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.docker.cleanup.eligibility"
       ]
     },
     {
@@ -1443,7 +1680,7 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.host.transition.state"
       ]
     },
     {
@@ -1457,7 +1694,7 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.recovery.public.projection"
       ]
     },
     {
@@ -1471,7 +1708,7 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.recovery.state.machine"
       ]
     },
     {
@@ -1485,7 +1722,7 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.runtime.state.binding"
       ]
     },
     {
@@ -1499,7 +1736,7 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.doctor"
       ]
     },
     {
@@ -1513,7 +1750,7 @@
         "CQS-UT-010"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.scripts.check.dynamic.fake.provider.coverage"
       ]
     },
     {
@@ -1527,7 +1764,8 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.egress.proxy.policy",
+        "coordinator.source.src.security.provider.isolation.profile"
       ]
     },
     {
@@ -1541,7 +1779,7 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.external.send.grant.runtime"
       ]
     },
     {
@@ -1555,7 +1793,7 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.host.generation.loss.transition"
       ]
     },
     {
@@ -1569,7 +1807,8 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.src.security.authority.prelaunch.verifier",
+        "coordinator.source.src.security.local.personal.authority.runtime"
       ]
     },
     {
@@ -1583,7 +1822,7 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.node.runtime.version"
       ]
     },
     {
@@ -1597,7 +1836,7 @@
         "PPR-UT-006"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.plain.data.snapshot"
       ]
     },
     {
@@ -1611,7 +1850,7 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.platform.access.adapter"
       ]
     },
     {
@@ -1625,7 +1864,7 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.platform.key.storage.policy"
       ]
     },
     {
@@ -1639,7 +1878,9 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.platform.provisioner.package.gate",
+        "coordinator.source.src.security.platform.provisioner.trust.core",
+        "coordinator.source.src.security.provisioning.signature.primitives"
       ]
     },
     {
@@ -1653,7 +1894,7 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.platform.provisioner.policy.identity"
       ]
     },
     {
@@ -1667,7 +1908,7 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.platform.provisioner.release.trust"
       ]
     },
     {
@@ -1681,7 +1922,8 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.platform.provisioner.trust.core",
+        "coordinator.source.src.security.provisioning.signature.primitives"
       ]
     },
     {
@@ -1695,7 +1937,7 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.project.runtime.execution.authorization.adapter"
       ]
     },
     {
@@ -1709,7 +1951,8 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.project.runtime.execution.host.adapter",
+        "coordinator.source.src.security.project.runtime.task.recovery.adapter"
       ]
     },
     {
@@ -1723,7 +1966,7 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.project.runtime.decision.capability.adapter"
       ]
     },
     {
@@ -1737,7 +1980,13 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.windows.child.environment",
+        "coordinator.source.src.security.docker.recovery.runtime",
+        "coordinator.source.src.security.project.runtime.windows.platform.adapter",
+        "coordinator.source.src.security.provider.home.windows.adapter",
+        "coordinator.source.src.security.root.observation",
+        "project-runtime.source.src.ports.platform.contract",
+        "version-control.source.src.repository.location"
       ]
     },
     {
@@ -1765,7 +2014,7 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.src.security.provider.billing.policy"
       ]
     },
     {
@@ -1779,7 +2028,8 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.src.security.delegation.route.selection",
+        "coordinator.source.src.security.provider.eligibility.runtime"
       ]
     },
     {
@@ -1793,7 +2043,7 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.provider-home-observation"
+        "coordinator.source.scripts.check.provider.home.coverage"
       ]
     },
     {
@@ -1807,7 +2057,9 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.src.security.execution.environment",
+        "coordinator.source.src.security.provider.home.mount.grant",
+        "coordinator.source.src.security.provider.home.mount.grant.runtime"
       ]
     },
     {
@@ -1821,7 +2073,7 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.provider-home-observation"
+        "coordinator.source.src.security.provider.home.mount.grant"
       ]
     },
     {
@@ -1835,7 +2087,9 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.provider-home-observation"
+        "coordinator.provider-home-observation",
+        "coordinator.source.src.core.windows.child.environment",
+        "coordinator.source.src.security.provider.home.windows.adapter"
       ]
     },
     {
@@ -1849,7 +2103,7 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.provider-home-observation"
+        "coordinator.source.src.security.provider.home"
       ]
     },
     {
@@ -1863,7 +2117,7 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.src.security.provider.isolation.profile"
       ]
     },
     {
@@ -1877,7 +2131,7 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.src.security.provider.lifecycle"
       ]
     },
     {
@@ -1891,7 +2145,7 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "coordinator.provider-model-selection-runtime"
+        "coordinator.source.src.security.provider.model.profile.runtime"
       ]
     },
     {
@@ -1919,7 +2173,12 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.scripts.verify.signed.general.task",
+        "coordinator.source.src.security.claude.execution.plan",
+        "coordinator.source.src.security.execution.environment",
+        "coordinator.source.src.security.external.send.grant.runtime",
+        "coordinator.source.src.security.provider.task.packet.runtime",
+        "coordinator.source.src.security.provider.task.structured.result"
       ]
     },
     {
@@ -1933,7 +2192,8 @@
         "RCM-UT-016"
       ],
       "verifies": [
-        "coordinator.provider-authority-runtime"
+        "coordinator.source.src.security.claude.execution.plan",
+        "coordinator.source.src.security.provider.task.structured.result"
       ]
     },
     {
@@ -1947,7 +2207,7 @@
         "AIT-UT-011"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.provisioning.signature.primitives"
       ]
     },
     {
@@ -1961,7 +2221,7 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.release.identity.grammar"
       ]
     },
     {
@@ -1975,7 +2235,7 @@
         "RFD-UT-006"
       ],
       "verifies": [
-        "coordinator.provider-home-observation"
+        "coordinator.source.src.security.root.observation"
       ]
     },
     {
@@ -1989,7 +2249,7 @@
         "RFD-UT-006"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.root.protection.policy"
       ]
     },
     {
@@ -2017,7 +2277,7 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.secret.material.policy"
       ]
     },
     {
@@ -2031,7 +2291,7 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.provider-home-observation"
+        "coordinator.source.src.security.signed.runner.safety.observation"
       ]
     },
     {
@@ -2045,7 +2305,7 @@
         "ERB-IT-014"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.docker.restart.execution"
       ]
     },
     {
@@ -2059,7 +2319,7 @@
         "ERB-IT-014"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.restart.machine"
       ]
     },
     {
@@ -2073,7 +2333,12 @@
         "ERB-IT-014"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.windows.child.environment",
+        "coordinator.source.src.security.candidate.store.kernel.lock",
+        "coordinator.source.src.security.docker.desktop.repair.native.process",
+        "coordinator.source.src.security.docker.restart.machine",
+        "coordinator.source.src.security.platform.access.release",
+        "coordinator.source.src.security.windows.directory.bootstrap"
       ]
     },
     {
@@ -2087,7 +2352,9 @@
         "ERB-IT-014"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.restart.continuation.record",
+        "coordinator.source.src.security.docker.restart.handoff.record",
+        "coordinator.source.src.security.docker.restart.record"
       ]
     },
     {
@@ -2101,7 +2368,9 @@
         "ERB-IT-014"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.docker.restart.execution",
+        "coordinator.source.src.security.docker.restart.machine",
+        "coordinator.source.src.security.docker.restart.runtime"
       ]
     },
     {
@@ -2115,7 +2384,8 @@
         "ERP-UT-006"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.restart.continuation.record",
+        "coordinator.source.src.security.docker.restart.record"
       ]
     },
     {
@@ -2129,7 +2399,8 @@
         "ERP-UT-006"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.restart.handoff.record",
+        "coordinator.source.src.security.docker.restart.record"
       ]
     },
     {
@@ -2143,7 +2414,7 @@
         "ERP-UT-006"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.restart.record"
       ]
     },
     {
@@ -2157,7 +2428,7 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.core.docker.restart.state"
       ]
     },
     {
@@ -2171,7 +2442,1150 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.docker-desktop-runtime-repair"
+        "coordinator.source.src.security.docker.wsl.state"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.bounded.file.snapshot",
+      "kind": "file",
+      "path": "src/security/bounded-file-snapshot.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.candidate.bundle.store",
+      "kind": "file",
+      "path": "src/security/candidate-bundle-store.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.candidate.store.kernel.lock",
+      "kind": "file",
+      "path": "src/security/candidate-store-kernel-lock.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.claude.execution.plan",
+      "kind": "file",
+      "path": "src/security/claude-execution-plan.ts",
+      "archIds": [
+        "ARCH-000010"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.cli.options",
+      "kind": "file",
+      "path": "src/core/cli-options.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.docker.recovery.command.report",
+      "kind": "file",
+      "path": "src/core/docker-recovery-command-report.ts",
+      "archIds": [
+        "ARCH-000003"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.codex.execution.plan",
+      "kind": "file",
+      "path": "src/security/codex-execution-plan.ts",
+      "archIds": [
+        "ARCH-000010"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.codex.executor.seccomp",
+      "kind": "file",
+      "path": "src/security/codex-executor-seccomp.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.claude.docker.runtime.adapter",
+      "kind": "file",
+      "path": "src/security/claude-docker-runtime-adapter.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.delegation.selection.grant.runtime",
+      "kind": "file",
+      "path": "src/security/delegation-selection-grant-runtime.ts",
+      "archIds": [
+        "ARCH-000010"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.process.controller",
+      "kind": "file",
+      "path": "src/security/docker-process-controller.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.command.report",
+      "kind": "file",
+      "path": "src/core/command-report.ts",
+      "archIds": [
+        "ARCH-000003"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.task.cli.cancellation",
+      "kind": "file",
+      "path": "src/core/task-cli-cancellation.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.execution.environment",
+      "kind": "file",
+      "path": "src/security/execution-environment.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.development.execution.timing",
+      "kind": "file",
+      "path": "src/core/development-execution-timing.ts",
+      "archIds": [
+        "ARCH-000018"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.runtime.process.safety.state",
+      "kind": "file",
+      "path": "src/core/runtime-process-safety-state.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.delegation.route.selection",
+      "kind": "file",
+      "path": "src/security/delegation-route-selection.ts",
+      "archIds": [
+        "ARCH-000010"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.repository.operation.runtime",
+      "kind": "file",
+      "path": "src/security/repository-operation-runtime.ts",
+      "archIds": [
+        "ARCH-000009"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.development.measurement.session",
+      "kind": "file",
+      "path": "src/security/development-measurement-session.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.provider.home.windows.adapter",
+      "kind": "file",
+      "path": "src/security/provider-home-windows-adapter.ts",
+      "archIds": [
+        "ARCH-000010"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.candidate.store.windows.adapter",
+      "kind": "file",
+      "path": "src/security/candidate-store-windows-adapter.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.desktop.repair.history.publication",
+      "kind": "file",
+      "path": "src/security/docker-desktop-repair-history-publication.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.desktop.current.artifact.trust",
+      "kind": "file",
+      "path": "src/security/docker-desktop-current-artifact-trust.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.desktop.repair.native.process",
+      "kind": "file",
+      "path": "src/security/docker-desktop-repair-native-process.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.desktop.repair.native.process.lifecycle",
+      "kind": "file",
+      "path": "src/security/docker-desktop-repair-native-process-lifecycle.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.desktop.repair.continuation.store",
+      "kind": "file",
+      "path": "src/security/docker-desktop-repair-continuation-store.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.desktop.repair.record.store",
+      "kind": "file",
+      "path": "src/security/docker-desktop-repair-record-store.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.recovery.runtime.internal",
+      "kind": "file",
+      "path": "src/security/docker-recovery-runtime-internal.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.owned.process",
+      "kind": "file",
+      "path": "src/security/docker-owned-process.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.effect.runtime",
+      "kind": "file",
+      "path": "src/security/docker-effect-runtime.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.development.measurement.constraints",
+      "kind": "file",
+      "path": "src/security/development-measurement-constraints.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.recovery.journal",
+      "kind": "file",
+      "path": "src/security/docker-recovery-journal.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.recovery.lock.controller",
+      "kind": "file",
+      "path": "src/security/docker-recovery-lock-controller.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.recovery.runtime",
+      "kind": "file",
+      "path": "src/security/docker-recovery-runtime.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.restart.continuation.record",
+      "kind": "file",
+      "path": "src/security/docker-restart-continuation-record.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.restart.handoff.record",
+      "kind": "file",
+      "path": "src/security/docker-restart-handoff-record.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.restart.record",
+      "kind": "file",
+      "path": "src/security/docker-restart-record.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.host.recovery.record",
+      "kind": "file",
+      "path": "src/security/host-recovery-record.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.external.send.consent.runtime",
+      "kind": "file",
+      "path": "src/security/external-send-consent-runtime.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.external.send.policy.runtime",
+      "kind": "file",
+      "path": "src/security/external-send-policy-runtime.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.revoke.external.send.consent",
+      "kind": "module",
+      "path": "scripts/revoke-external-send-consent.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.claude.structured.result",
+      "kind": "file",
+      "path": "src/security/claude-structured-result.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.generate.release.key",
+      "kind": "module",
+      "path": "scripts/generate-release-key.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.secret.material.policy",
+      "kind": "file",
+      "path": "src/security/secret-material-policy.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.windows.child.environment",
+      "kind": "file",
+      "path": "src/core/windows-child-environment.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.platform.access.coverage.path",
+      "kind": "module",
+      "path": "scripts/platform-access-coverage-path.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.platform.access.release",
+      "kind": "file",
+      "path": "src/security/platform-access-release.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.check.platform.access.ts.coverage",
+      "kind": "module",
+      "path": "scripts/check-platform-access-ts-coverage.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.platform.provisioner.manifest.loader",
+      "kind": "file",
+      "path": "src/security/platform-provisioner-manifest-loader.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.provisioning.signature.primitives",
+      "kind": "file",
+      "path": "src/security/provisioning-signature-primitives.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.runtime.local.typescript.child.entrypoints",
+      "kind": "file",
+      "path": "src/core/runtime-local-typescript-child-entrypoints.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.platform.provisioner.package.filesystem",
+      "kind": "file",
+      "path": "src/security/platform-provisioner-package-filesystem.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.platform.provisioner.trust.core",
+      "kind": "file",
+      "path": "src/security/platform-provisioner-trust-core.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.platform.provisioner.release.identity",
+      "kind": "file",
+      "path": "src/security/platform-provisioner-release-identity.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.project.runtime.candidate.integration.adapter",
+      "kind": "file",
+      "path": "src/security/project-runtime-candidate-integration-adapter.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.project.runtime.decision.recovery.store",
+      "kind": "file",
+      "path": "src/security/project-runtime-decision-recovery-store.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.project.runtime.design.traceability",
+      "kind": "file",
+      "path": "src/core/project-runtime-design-traceability.ts",
+      "archIds": [
+        "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.project.runtime.durable.foundation",
+      "kind": "file",
+      "path": "src/security/project-runtime-durable-foundation.ts",
+      "archIds": [
+        "ARCH-000004"
+      ],
+      "implements": [
+        "project-runtime.project-state-projection",
+        "project-runtime.queue-lease-lifecycle"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.project.runtime.execution.host.adapter",
+      "kind": "file",
+      "path": "src/security/project-runtime-execution-host-adapter.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.project.runtime.execution.authorization.adapter",
+      "kind": "file",
+      "path": "src/security/project-runtime-execution-authorization-adapter.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.project.runtime.single.task.adapter",
+      "kind": "file",
+      "path": "src/security/project-runtime-single-task-adapter.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.execution.intelligence.adapter",
+      "kind": "file",
+      "path": "src/security/execution-intelligence-adapter.ts",
+      "archIds": [
+        "ARCH-000007"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.project.runtime.integration.record.adapter",
+      "kind": "file",
+      "path": "src/security/project-runtime-integration-record-adapter.ts",
+      "archIds": [
+        "ARCH-000005"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.project.runtime.objective.intake",
+      "kind": "file",
+      "path": "src/security/project-runtime-objective-intake.ts",
+      "archIds": [
+        "ARCH-000004"
+      ],
+      "implements": [
+        "project-runtime.task-authority-narrowing"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.project.runtime.decision.capability.adapter",
+      "kind": "file",
+      "path": "src/security/project-runtime-decision-capability-adapter.ts",
+      "archIds": [
+        "ARCH-000005"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.project.recovery.settlement",
+      "kind": "file",
+      "path": "src/security/docker-project-recovery-settlement.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.composition.project.runtime.composition.root",
+      "kind": "file",
+      "path": "src/composition/project-runtime-composition-root.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.project.runtime.windows.decision.store",
+      "kind": "file",
+      "path": "src/security/project-runtime-windows-decision-store.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.check.provider.authority.coverage",
+      "kind": "module",
+      "path": "scripts/check-provider-authority-coverage.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.release.manifest.promotion",
+      "kind": "module",
+      "path": "scripts/release-manifest-promotion.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.promote.release.manifest",
+      "kind": "module",
+      "path": "scripts/promote-release-manifest.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.repository.workspace.runtime",
+      "kind": "file",
+      "path": "src/security/repository-workspace-runtime.ts",
+      "archIds": [
+        "ARCH-000013"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.external.send.grant.runtime",
+      "kind": "file",
+      "path": "src/security/external-send-grant-runtime.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.runtime.traceability",
+      "kind": "file",
+      "path": "src/core/runtime-traceability.ts",
+      "archIds": [
+        "ARCH-000018"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.release.staging.manifest",
+      "kind": "module",
+      "path": "scripts/release-staging-manifest.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.sign.release.manifest",
+      "kind": "module",
+      "path": "scripts/sign-release-manifest.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.docker.desktop.repair.doctor.dispatch",
+      "kind": "file",
+      "path": "src/core/docker-desktop-repair-doctor-dispatch.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.coordinator.launch",
+      "kind": "file",
+      "path": "src/core/coordinator-launch.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.isolation",
+      "kind": "file",
+      "path": "src/security/docker-isolation.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.verify.dynamic.fake.provider.cancellation",
+      "kind": "module",
+      "path": "scripts/verify-dynamic-fake-provider-cancellation.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.verify.dynamic.fake.provider.failures",
+      "kind": "module",
+      "path": "scripts/verify-dynamic-fake-provider-failures.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.interactive.console",
+      "kind": "file",
+      "path": "src/core/interactive-console.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.interactive.console.reader",
+      "kind": "file",
+      "path": "src/core/interactive-console-reader.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.node.runtime.version",
+      "kind": "file",
+      "path": "src/core/node-runtime-version.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.verify.signed.reviewer.boundary",
+      "kind": "module",
+      "path": "scripts/verify-signed-reviewer-boundary.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.project.runtime.real.provider.contract",
+      "kind": "module",
+      "path": "scripts/project-runtime-real-provider-contract.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.verify.signed.general.task",
+      "kind": "module",
+      "path": "scripts/verify-signed-general-task.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.verify.signed.recovery.matrix",
+      "kind": "module",
+      "path": "scripts/verify-signed-recovery-matrix.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.verify.signed.route.matrix",
+      "kind": "module",
+      "path": "scripts/verify-signed-route-matrix.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.verification.result.record",
+      "kind": "file",
+      "path": "src/core/verification-result-record.ts",
+      "archIds": [
+        "ARCH-000003"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.authority.file.bundle",
+      "kind": "file",
+      "path": "src/security/authority-file-bundle.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.authority.grant.verifier",
+      "kind": "file",
+      "path": "src/security/authority-grant-verifier.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.authority.trust.loader",
+      "kind": "file",
+      "path": "src/security/authority-trust-loader.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.provider.isolation.profile",
+      "kind": "file",
+      "path": "src/security/provider-isolation-profile.ts",
+      "archIds": [
+        "ARCH-000010"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.authority.prelaunch.verifier",
+      "kind": "file",
+      "path": "src/security/authority-prelaunch-verifier.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.authority.root.path.lexical",
+      "kind": "file",
+      "path": "src/security/authority-root-path-lexical.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.codex.docker.runtime.adapter",
+      "kind": "file",
+      "path": "src/security/codex-docker-runtime-adapter.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.codex.structured.result",
+      "kind": "file",
+      "path": "src/security/codex-structured-result.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.coordinator.operation.creation.internal",
+      "kind": "file",
+      "path": "src/security/coordinator-operation-creation-internal.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.prepare.release.candidate",
+      "kind": "module",
+      "path": "scripts/prepare-release-candidate.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.measure.development.providers",
+      "kind": "module",
+      "path": "scripts/measure-development-providers.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.coordinator.task.request",
+      "kind": "file",
+      "path": "src/security/coordinator-task-request.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.docker.cleanup.eligibility",
+      "kind": "file",
+      "path": "src/core/docker-cleanup-eligibility.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.host.transition.state",
+      "kind": "file",
+      "path": "src/security/docker-host-transition-state.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.recovery.public.projection",
+      "kind": "file",
+      "path": "src/security/docker-recovery-public-projection.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.recovery.state.machine",
+      "kind": "file",
+      "path": "src/security/docker-recovery-state-machine.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.runtime.state.binding",
+      "kind": "file",
+      "path": "src/security/docker-runtime-state-binding.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.doctor",
+      "kind": "file",
+      "path": "src/core/doctor.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.check.dynamic.fake.provider.coverage",
+      "kind": "module",
+      "path": "scripts/check-dynamic-fake-provider-coverage.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.egress.proxy.policy",
+      "kind": "file",
+      "path": "src/security/egress-proxy-policy.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.host.generation.loss.transition",
+      "kind": "file",
+      "path": "src/core/host-generation-loss-transition.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.local.personal.authority.runtime",
+      "kind": "file",
+      "path": "src/security/local-personal-authority-runtime.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.plain.data.snapshot",
+      "kind": "file",
+      "path": "src/security/plain-data-snapshot.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.platform.access.adapter",
+      "kind": "file",
+      "path": "src/security/platform-access-adapter.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.platform.key.storage.policy",
+      "kind": "file",
+      "path": "src/security/platform-key-storage-policy.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.platform.provisioner.package.gate",
+      "kind": "file",
+      "path": "src/security/platform-provisioner-package-gate.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.runtime.trust.evaluator",
+      "kind": "file",
+      "path": "src/security/runtime-trust-evaluator.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.platform.provisioner.policy.identity",
+      "kind": "file",
+      "path": "src/security/platform-provisioner-policy-identity.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.platform.provisioner.release.trust",
+      "kind": "file",
+      "path": "src/security/platform-provisioner-release-trust.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.project.runtime.task.recovery.adapter",
+      "kind": "file",
+      "path": "src/security/project-runtime-task-recovery-adapter.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.project.runtime.windows.platform.adapter",
+      "kind": "file",
+      "path": "src/security/project-runtime-windows-platform-adapter.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.root.observation",
+      "kind": "file",
+      "path": "src/security/root-observation.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.provider.billing.policy",
+      "kind": "file",
+      "path": "src/security/provider-billing-policy.ts",
+      "archIds": [
+        "ARCH-000010"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.provider.eligibility.runtime",
+      "kind": "file",
+      "path": "src/security/provider-eligibility-runtime.ts",
+      "archIds": [
+        "ARCH-000010"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.check.provider.home.coverage",
+      "kind": "module",
+      "path": "scripts/check-provider-home-coverage.ts",
+      "archIds": [
+        "ARCH-000010"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.provider.home.mount.grant.runtime",
+      "kind": "file",
+      "path": "src/security/provider-home-mount-grant-runtime.ts",
+      "archIds": [
+        "ARCH-000010"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.provider.home.mount.grant",
+      "kind": "file",
+      "path": "src/security/provider-home-mount-grant.ts",
+      "archIds": [
+        "ARCH-000010"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.provider.home",
+      "kind": "file",
+      "path": "src/security/provider-home.ts",
+      "archIds": [
+        "ARCH-000010"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.provider.lifecycle",
+      "kind": "file",
+      "path": "src/security/provider-lifecycle.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.provider.model.profile.runtime",
+      "kind": "file",
+      "path": "src/security/provider-model-profile-runtime.ts",
+      "archIds": [
+        "ARCH-000010"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.provider.task.packet.runtime",
+      "kind": "file",
+      "path": "src/security/provider-task-packet-runtime.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.provider.task.structured.result",
+      "kind": "file",
+      "path": "src/security/provider-task-structured-result.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.release.identity.grammar",
+      "kind": "file",
+      "path": "src/security/release-identity-grammar.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.root.protection.policy",
+      "kind": "file",
+      "path": "src/security/root-protection-policy.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.signed.runner.safety.observation",
+      "kind": "file",
+      "path": "src/security/signed-runner-safety-observation.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.docker.restart.execution",
+      "kind": "file",
+      "path": "src/core/docker-restart-execution.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.restart.machine",
+      "kind": "file",
+      "path": "src/security/docker-restart-machine.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.windows.directory.bootstrap",
+      "kind": "file",
+      "path": "src/security/windows-directory-bootstrap.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.restart.runtime",
+      "kind": "file",
+      "path": "src/security/docker-restart-runtime.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.docker.restart.state",
+      "kind": "file",
+      "path": "src/core/docker-restart-state.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.wsl.state",
+      "kind": "file",
+      "path": "src/security/docker-wsl-state.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.config.package-scripts",
+      "kind": "config",
+      "path": "package.json",
+      "archIds": [
+        "ARCH-000008"
       ]
     }
   ]

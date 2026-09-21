@@ -6,7 +6,7 @@
  * @trace RDL-UT-005
  * @level UT
  * @scope docker、cleanup、eligibility
- * @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
+ * @boundary RDL-UT-005=N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -23,7 +23,7 @@ import { evaluateManagedDockerCleanupEligibility } from "../../src/core/docker-c
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
+ * @boundary RDL-UT-005=N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
  */
 function exactAt<T>(values: readonly T[], index: number) {
   const value = values[index];
@@ -41,7 +41,7 @@ function exactAt<T>(values: readonly T[], index: number) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
+ * @boundary RDL-UT-005=N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
  */
 function candidate(
   ids: readonly string[],
@@ -77,7 +77,7 @@ function candidate(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
+ * @boundary RDL-UT-005=N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
  */
 function raw(ids: readonly string[]) {
   return Object.freeze({
@@ -98,7 +98,7 @@ function raw(ids: readonly string[]) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
+ * @boundary RDL-UT-005=N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
  */
 function cleanupState(value: ReturnType<typeof candidate>): Readonly<{
   handoffs: ReturnType<typeof candidate>["handoffs"];
@@ -120,7 +120,7 @@ function cleanupState(value: ReturnType<typeof candidate>): Readonly<{
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
+ * @boundary RDL-UT-005=N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
  */
 test("Docker cleanup eligibilityは0/1/N exact finalizable集合だけを受理する", () => {
   for (const ids of [[], ["r1"], ["r1", "r2"]] as const) {
@@ -145,7 +145,7 @@ test("Docker cleanup eligibilityは0/1/N exact finalizable集合だけを受理�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
+ * @boundary RDL-UT-005=N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
  */
 test("raw recovery projectionの不正shapeは認証済みhandoffがあっても拒否する", () => {
   const state = candidate(["r1"]);
@@ -270,7 +270,7 @@ test("raw recovery projectionの不正shapeは認証済みhandoffがあっても
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
+ * @boundary RDL-UT-005=N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
  */
 test("raw field欠落はpending件数にかかわらず拒否する", () => {
   assert.equal(
@@ -309,7 +309,7 @@ test("raw field欠落はpending件数にかかわらず拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
+ * @boundary RDL-UT-005=N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
  */
 test("raw集合がpending集合の空または部分集合なら拒否する", () => {
   for (const [rawIds, pendingIds] of [
@@ -337,7 +337,7 @@ test("raw集合がpending集合の空または部分集合なら拒否する", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
+ * @boundary RDL-UT-005=N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
  */
 test("handoff/finalizationのstate・重複・交差不一致・余剰を拒否する", () => {
   const base = candidate(["r1", "r2"]);
@@ -392,7 +392,7 @@ test("handoff/finalizationのstate・重複・交差不一致・余剰を拒否�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
+ * @boundary RDL-UT-005=N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
  */
 test("unmanaged raw IDとmanaged/raw混在を拒否する", () => {
   const state = candidate(["r1"]);
@@ -422,7 +422,7 @@ test("unmanaged raw IDとmanaged/raw混在を拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
+ * @boundary RDL-UT-005=N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
  */
 test("pure Coreは全入力構造のtransparent Proxyをtrap前に拒否する", () => {
   const base = candidate(["r1"]);

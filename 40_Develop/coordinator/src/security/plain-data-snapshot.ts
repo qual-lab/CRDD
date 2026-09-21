@@ -1,9 +1,15 @@
+/**
+ * plain-data-snapshotに属する責務をまとめる。
+ *
+ * @responsibility DataDescriptorを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { types as utilTypes } from "node:util";
 
 /**
- * DataDescriptorが扱う値の構造を表す。
+ * plain-data-snapshotで使用するData Descriptorの値契約を定義する。
  *
- * @responsibility DataDescriptorに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Data DescriptorのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape DataDescriptorが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DataDescriptorで宣言した値と責務の対応を維持する。
@@ -14,9 +20,9 @@ import { types as utilTypes } from "node:util";
 type DataDescriptor = PropertyDescriptor & { value: unknown };
 
 /**
- * PlainArraySnapshotが扱う値の構造を表す。
+ * plain-data-snapshotで使用するPlain Array Snapshotの値契約を定義する。
  *
- * @responsibility PlainArraySnapshotに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Plain Array SnapshotのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape PlainArraySnapshotが表すProperty、識別子およびRelationを型として固定する。
  * @invariant PlainArraySnapshotで宣言した値と責務の対応を維持する。
@@ -38,9 +44,9 @@ type PlainArraySnapshot<T> =
     }>;
 
 /**
- * dataDescriptorの処理を実行する。
+ * data Descriptorを決定する。
  *
- * @responsibility dataDescriptorに対応する入力処理と結果生成を所有する。
+ * @responsibility data Descriptorの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input descriptor: PropertyDescriptor | undefined、shouldBeEnumerable
  * @returns descriptor is DataDescriptorを返す。
@@ -67,9 +73,9 @@ function dataDescriptor(
 }
 
 /**
- * snapshotPlainRecordの処理を実行する。
+ * Plain 記録を所有Snapshotへ変換する。
  *
- * @responsibility snapshotPlainRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Plain 記録の取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown、allowedKeys: ReadonlySet<K>
  * @returns Readonly<Record<K, unknown>> | nullを返す。
@@ -116,9 +122,9 @@ export function snapshotPlainRecord<const K extends string>(
 }
 
 /**
- * snapshotPlainArrayの処理を実行する。
+ * Plain Arrayを所有Snapshotへ変換する。
  *
- * @responsibility snapshotPlainArrayに対応する入力処理と結果生成を所有する。
+ * @responsibility Plain Arrayの取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown、maximumLength: number
  * @returns PlainArraySnapshot<T>を返す。

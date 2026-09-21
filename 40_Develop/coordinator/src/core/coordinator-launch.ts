@@ -1,3 +1,9 @@
+/**
+ * coordinator-launchに属する責務をまとめる。
+ *
+ * @responsibility LaunchModeを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { isSupportedCoordinatorNodeRuntime } from "./node-runtime-version.ts";
 
 export const COORDINATOR_LAUNCH_ENTRIES = Object.freeze({
@@ -11,9 +17,9 @@ export const COORDINATOR_LAUNCH_ENTRIES = Object.freeze({
 });
 
 /**
- * LaunchModeが扱う値の構造を表す。
+ * coordinator-launchで使用するLaunch Modeの値契約を定義する。
  *
- * @responsibility LaunchModeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Launch ModeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape LaunchModeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LaunchModeで宣言した値と責務の対応を維持する。
@@ -23,9 +29,9 @@ export const COORDINATOR_LAUNCH_ENTRIES = Object.freeze({
  */
 type LaunchMode = keyof typeof COORDINATOR_LAUNCH_ENTRIES;
 /**
- * LaunchObservationが扱う値の構造を表す。
+ * coordinator-launchで使用するLaunch Observationの値契約を定義する。
  *
- * @responsibility LaunchObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Launch ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape LaunchObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LaunchObservationで宣言した値と責務の対応を維持する。
@@ -42,9 +48,9 @@ type LaunchObservation = Readonly<{
 
 // A routing plan, not execution authority. Each target retains its own gates.
 /**
- * resolveCoordinatorLaunchの処理を実行する。
+ * Coordinator Launchを一意に解決する。
  *
- * @responsibility resolveCoordinatorLaunchに対応する入力処理と結果生成を所有する。
+ * @responsibility Coordinator Launchの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000004
  * @input args: readonly string[]、observation: LaunchObservation
  * @returns resolveCoordinatorLaunchの計算結果を返す。
@@ -108,9 +114,9 @@ export function resolveCoordinatorLaunch(
 }
 
 /**
- * coordinatorLaunchFailureMessageの処理を実行する。
+ * coordinator Launch 失敗 Messageを決定する。
  *
- * @responsibility coordinatorLaunchFailureMessageに対応する入力処理と結果生成を所有する。
+ * @responsibility coordinator Launch 失敗 Messageの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input reason: string
  * @returns coordinatorLaunchFailureMessageの計算結果を返す。

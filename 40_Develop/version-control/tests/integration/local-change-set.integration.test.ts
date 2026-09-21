@@ -6,7 +6,7 @@
  * @trace RFD-IT-008
  * @level IT
  * @scope version-control、change-set、regression
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -32,7 +32,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 function git(root: string, commandArguments: readonly string[]): string {
   return execFileSync("git", ["-C", root, ...commandArguments], {
@@ -51,7 +51,7 @@ function git(root: string, commandArguments: readonly string[]): string {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 test("実RepositoryのRevision・準備・作業・未登録変更を分離して観測する", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-changes-"));
@@ -104,7 +104,7 @@ test("実RepositoryのRevision・準備・作業・未登録変更を分離し�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 test("四つの観測のどこで失敗しても部分的な変更集合を公開しない", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-failure-"));
@@ -151,7 +151,7 @@ test("四つの観測のどこで失敗しても部分的な変更集合を公�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 test("表現できないbackslashを含む名前を別Pathへ変換せず拒否する", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-verbatim-path-"));

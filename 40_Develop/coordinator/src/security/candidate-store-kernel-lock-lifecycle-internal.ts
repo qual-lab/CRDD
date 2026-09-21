@@ -1,3 +1,9 @@
+/**
+ * candidate-store-kernel-lock-lifecycle-internalに属する責務をまとめる。
+ *
+ * @responsibility HostOperationSupervisorCleanupを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000015
+ */
 import type { ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
 
@@ -5,9 +11,9 @@ const HOST_SUPERVISOR_ACQUIRE_TIMEOUT_MS = 1_000;
 const INTERACTIVE_LOCK_CLEANUP_TIMEOUT_MS = 1_000;
 
 /**
- * HostOperationSupervisorCleanupが扱う値の構造を表す。
+ * candidate-store-kernel-lock-lifecycle-internalで使用するHost Operation Supervisor 清掃の値契約を定義する。
  *
- * @responsibility HostOperationSupervisorCleanupに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Host Operation Supervisor 清掃のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape HostOperationSupervisorCleanupが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HostOperationSupervisorCleanupで宣言した値と責務の対応を維持する。
@@ -20,9 +26,9 @@ type HostOperationSupervisorCleanup =
   | "cleanup_confirmed_failure"
   | "cleanup_unknown";
 /**
- * HostOperationLockSupervisorが扱う値の構造を表す。
+ * candidate-store-kernel-lock-lifecycle-internalで使用するHost Operation Lock Supervisorの値契約を定義する。
  *
- * @responsibility HostOperationLockSupervisorに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Host Operation Lock SupervisorのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape HostOperationLockSupervisorが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HostOperationLockSupervisorで宣言した値と責務の対応を維持する。
@@ -41,9 +47,9 @@ export type HostOperationLockSupervisor = Readonly<{
   release: () => Promise<HostOperationSupervisorCleanup>;
 }>;
 /**
- * HostOperationSupervisorLockOutcomeが扱う値の構造を表す。
+ * candidate-store-kernel-lock-lifecycle-internalで使用するHost Operation Supervisor Lock Outcomeの値契約を定義する。
  *
- * @responsibility HostOperationSupervisorLockOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Host Operation Supervisor Lock OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape HostOperationSupervisorLockOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HostOperationSupervisorLockOutcomeで宣言した値と責務の対応を維持する。
@@ -61,9 +67,9 @@ export type HostOperationSupervisorLockOutcome = Readonly<{
 }>;
 
 /**
- * InteractiveConsoleLockWorkerが扱う値の構造を表す。
+ * candidate-store-kernel-lock-lifecycle-internalで使用するInteractive Console Lock Workerの値契約を定義する。
  *
- * @responsibility InteractiveConsoleLockWorkerに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Interactive Console Lock WorkerのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape InteractiveConsoleLockWorkerが表すProperty、識別子およびRelationを型として固定する。
  * @invariant InteractiveConsoleLockWorkerで宣言した値と責務の対応を維持する。
@@ -82,9 +88,9 @@ type InteractiveConsoleLockWorker = Readonly<{
 }>;
 
 /**
- * InteractiveConsoleKernelLockOutcomeが扱う値の構造を表す。
+ * candidate-store-kernel-lock-lifecycle-internalで使用するInteractive Console Kernel Lock Outcomeの値契約を定義する。
  *
- * @responsibility InteractiveConsoleKernelLockOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Interactive Console Kernel Lock OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape InteractiveConsoleKernelLockOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant InteractiveConsoleKernelLockOutcomeで宣言した値と責務の対応を維持する。
@@ -100,9 +106,9 @@ export type InteractiveConsoleKernelLockOutcome = Readonly<{
 }>;
 
 /**
- * waitForStateの処理を実行する。
+ * For 状態を完了まで待機する。
  *
- * @responsibility waitForStateに対応する入力処理と結果生成を所有する。
+ * @responsibility For 状態の待機条件、完了観測、Timeout境界を所有する。
  * @trace ARCH-000015
  * @input state: Int32Array、expected: number、timeoutMs: number
  * @returns waitForStateの計算結果を返す。
@@ -126,9 +132,9 @@ function waitForState(state: Int32Array, expected: number, timeoutMs: number) {
 }
 
 /**
- * boundedWorkerExitの処理を実行する。
+ * bounded Worker Exitを決定する。
  *
- * @responsibility boundedWorkerExitに対応する入力処理と結果生成を所有する。
+ * @responsibility bounded Worker Exitの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input worker: InteractiveConsoleLockWorker
  * @returns boundedWorkerExitの計算結果を返す。
@@ -155,9 +161,9 @@ function boundedWorkerExit(worker: InteractiveConsoleLockWorker) {
 }
 
 /**
- * withinTimeoutの処理を実行する。
+ * Timeoutが許容範囲内か判定する。
  *
- * @responsibility withinTimeoutに対応する入力処理と結果生成を所有する。
+ * @responsibility Timeoutの範囲条件、境界値、判定結果境界を所有する。
  * @trace ARCH-000015
  * @input promise: Promise<T>、timeoutMs: number
  * @returns withinTimeoutの計算結果を返す。
@@ -199,9 +205,9 @@ async function withinTimeout<T>(promise: Promise<T>, timeoutMs: number) {
 }
 
 /**
- * terminateAndConfirmInteractiveConsoleLockWorkerの処理を実行する。
+ * And Confirm Interactive Console Lock Workerを終了させる。
  *
- * @responsibility terminateAndConfirmInteractiveConsoleLockWorkerに対応する入力処理と結果生成を所有する。
+ * @responsibility And Confirm Interactive Console Lock Workerの終了Authority、対象Process、終了確認境界を所有する。
  * @trace ARCH-000015
  * @input worker: InteractiveConsoleLockWorker、exit: Promise<"exited" | "error">
  * @returns terminateAndConfirmInteractiveConsoleLockWorkerの計算結果を返す。
@@ -234,9 +240,9 @@ async function terminateAndConfirmInteractiveConsoleLockWorker(
 }
 
 /**
- * prepareInteractiveConsoleKernelLockRequestの処理を実行する。
+ * Interactive Console Kernel Lock Requestを実行前候補として準備する。
  *
- * @responsibility prepareInteractiveConsoleKernelLockRequestに対応する入力処理と結果生成を所有する。
+ * @responsibility Interactive Console Kernel Lock Requestの準備条件、候補Identity、Effect前の拒否境界を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
  * @returns prepareInteractiveConsoleKernelLockRequestの計算結果を返す。
@@ -263,9 +269,9 @@ export function prepareInteractiveConsoleKernelLockRequest() {
 }
 
 /**
- * runInteractiveConsoleKernelLockLifecycleの処理を実行する。
+ * Interactive Console Kernel Lock Lifecycleを実行する。
  *
- * @responsibility runInteractiveConsoleKernelLockLifecycleに対応する入力処理と結果生成を所有する。
+ * @responsibility Interactive Console Kernel Lock Lifecycleの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000015
  * @input worker: InteractiveConsoleLockWorker、sharedState: SharedArrayBuffer
  * @returns Promise<InteractiveConsoleKernelLockOutcome>を返す。
@@ -331,9 +337,9 @@ export async function runInteractiveConsoleKernelLockLifecycle(
 }
 
 /**
- * SupervisorChildが扱う値の構造を表す。
+ * candidate-store-kernel-lock-lifecycle-internalで使用するSupervisor Childの値契約を定義する。
  *
- * @responsibility SupervisorChildに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Supervisor ChildのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape SupervisorChildが表すProperty、識別子およびRelationを型として固定する。
  * @invariant SupervisorChildで宣言した値と責務の対応を維持する。
@@ -343,9 +349,9 @@ export async function runInteractiveConsoleKernelLockLifecycle(
  */
 type SupervisorChild = ChildProcess;
 /**
- * SupervisorObservationが扱う値の構造を表す。
+ * candidate-store-kernel-lock-lifecycle-internalで使用するSupervisor Observationの値契約を定義する。
  *
- * @responsibility SupervisorObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Supervisor ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape SupervisorObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant SupervisorObservationで宣言した値と責務の対応を維持する。
@@ -362,9 +368,9 @@ type SupervisorObservation =
   | "timeout";
 
 /**
- * exactSupervisorStatusの処理を実行する。
+ * Supervisor Statusが完全一致するか判定する。
  *
- * @responsibility exactSupervisorStatusに対応する入力処理と結果生成を所有する。
+ * @responsibility Supervisor Statusの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000015
  * @input message: unknown
  * @returns exactSupervisorStatusの計算結果を返す。
@@ -398,9 +404,9 @@ function exactSupervisorStatus(message: unknown) {
 }
 
 /**
- * waitForSupervisorStatusの処理を実行する。
+ * For Supervisor Statusを完了まで待機する。
  *
- * @responsibility waitForSupervisorStatusに対応する入力処理と結果生成を所有する。
+ * @responsibility For Supervisor Statusの待機条件、完了観測、Timeout境界を所有する。
  * @trace ARCH-000015
  * @input child: SupervisorChild、expected: "acquired" | "ready" | "release-ready" | "released"、timeoutMs: number
  * @returns waitForSupervisorStatusの計算結果を返す。
@@ -447,9 +453,9 @@ function waitForSupervisorStatus(
 }
 
 /**
- * releaseSupervisorHandlesの処理を実行する。
+ * Supervisor Handlesを解放する。
  *
- * @responsibility releaseSupervisorHandlesに対応する入力処理と結果生成を所有する。
+ * @responsibility Supervisor Handlesの所有権、解放条件、終了後不存在の確認境界を所有する。
  * @trace ARCH-000015
  * @input child: SupervisorChild
  * @returns N/A: releaseSupervisorHandlesは戻り値を返さない。
@@ -469,9 +475,9 @@ function releaseSupervisorHandles(child: SupervisorChild) {
 }
 
 /**
- * terminateSupervisorの処理を実行する。
+ * Supervisorを終了させる。
  *
- * @responsibility terminateSupervisorに対応する入力処理と結果生成を所有する。
+ * @responsibility Supervisorの終了Authority、対象Process、終了確認境界を所有する。
  * @trace ARCH-000015
  * @input child: SupervisorChild、timeoutMs: number
  * @returns terminateSupervisorの計算結果を返す。
@@ -509,9 +515,9 @@ async function terminateSupervisor(child: SupervisorChild, timeoutMs: number) {
 }
 
 /**
- * unresolvedSupervisorLockの処理を実行する。
+ * unresolved Supervisor Lockを決定する。
  *
- * @responsibility unresolvedSupervisorLockに対応する入力処理と結果生成を所有する。
+ * @responsibility unresolved Supervisor Lockの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input child: SupervisorChild
  * @returns unresolvedSupervisorLockの計算結果を返す。
@@ -540,9 +546,9 @@ function unresolvedSupervisorLock(child: SupervisorChild) {
 }
 
 /**
- * runHostOperationSupervisorLifecycleの処理を実行する。
+ * Host Operation Supervisor Lifecycleを実行する。
  *
- * @responsibility runHostOperationSupervisorLifecycleに対応する入力処理と結果生成を所有する。
+ * @responsibility Host Operation Supervisor Lifecycleの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000015
  * @input request: Readonly<{ pipeName: string; environment: NodeJS.ProcessEnv; timing: Readonly<{ acquireTimeoutMs: number; releaseTimeoutMs: number }>; }>、child: SupervisorChild
  * @returns Promise<HostOperationSupervisorLockOutcome>を返す。

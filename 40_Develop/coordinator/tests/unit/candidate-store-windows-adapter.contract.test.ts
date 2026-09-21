@@ -6,7 +6,7 @@
  * @trace PPR-UT-014
  * @level UT
  * @scope candidate、store、windows、adapter
- * @boundary N/A: 事実／評価候補分類規則は外部実行境界を持たない。
+ * @boundary PPR-UT-014=N/A: 事実／評価候補分類規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -28,7 +28,7 @@ import { WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE } from "../../src/core/win
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 事実／評価候補分類規則は外部実行境界を持たない。
+ * @boundary PPR-UT-014=N/A: 事実／評価候補分類規則は外部実行境界を持たない。
  */
 test("source checkoutは署名済みRelease確認前にCandidate Store Effectを開始しない", () => {
   const result = inspectRuntimeOwnedWindowsCandidateStore(
@@ -57,7 +57,7 @@ test("source checkoutは署名済みRelease確認前にCandidate Store Effectを
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 事実／評価候補分類規則は外部実行境界を持たない。
+ * @boundary PPR-UT-014=N/A: 事実／評価候補分類規則は外部実行境界を持たない。
  */
 test("Candidate Store adapterは環境由来の相対Rootをnative照合前に拒否する", () => {
   const original = process.env.LOCALAPPDATA;
@@ -87,7 +87,7 @@ test("Candidate Store adapterは環境由来の相対Rootをnative照合前に�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 事実／評価候補分類規則は外部実行境界を持たない。
+ * @boundary PPR-UT-014=N/A: 事実／評価候補分類規則は外部実行境界を持たない。
  */
 test("Candidate Store adapterは固定Known Folderとexact保護観測だけをAuthority候補にする", () => {
   const contract = describeCandidateStoreWindowsAdapterContract();

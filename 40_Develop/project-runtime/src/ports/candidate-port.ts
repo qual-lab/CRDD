@@ -1,9 +1,15 @@
+/**
+ * candidate-portに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeIntegrationCandidateを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import type { ProjectRuntimeState } from "../core/project-runtime-state.ts";
 
 /**
- * ProjectRuntimeIntegrationCandidateが扱う値の構造を表す。
+ * candidate-portで使用するProject Runtime Integration 候補の値契約を定義する。
  *
- * @responsibility ProjectRuntimeIntegrationCandidateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Integration 候補のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeIntegrationCandidateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeIntegrationCandidateで宣言した値と責務の対応を維持する。
@@ -24,9 +30,9 @@ export type ProjectRuntimeIntegrationCandidate = Readonly<{
 }>;
 
 /**
- * ProjectRuntimeCandidateAdoptionReceiptが扱う値の構造を表す。
+ * candidate-portで使用するProject Runtime 候補 Adoption Receiptの値契約を定義する。
  *
- * @responsibility ProjectRuntimeCandidateAdoptionReceiptに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime 候補 Adoption ReceiptのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeCandidateAdoptionReceiptが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeCandidateAdoptionReceiptで宣言した値と責務の対応を維持する。
@@ -44,9 +50,9 @@ export type ProjectRuntimeCandidateAdoptionReceipt = Readonly<{
 }>;
 
 /**
- * ProjectRuntimeCandidatePortが扱う値の構造を表す。
+ * candidate-portで使用するProject Runtime 候補 Portの値契約を定義する。
  *
- * @responsibility ProjectRuntimeCandidatePortに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime 候補 PortのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeCandidatePortが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeCandidatePortで宣言した値と責務の対応を維持する。

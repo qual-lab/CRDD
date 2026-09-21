@@ -6,7 +6,7 @@
  * @trace PRL-IT-005
  * @level IT
  * @scope project、runtime、windows、decision、store
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -27,7 +27,7 @@ import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../sr
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 function record(): ProjectRuntimeDecisionRecord {
   return Object.freeze({
@@ -60,7 +60,7 @@ function record(): ProjectRuntimeDecisionRecord {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("protected decision store retains an immutable CAS generation chain", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-decision-store-"));
@@ -107,7 +107,7 @@ test("protected decision store retains an immutable CAS generation chain", (t) =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("missing generation or changed immutable record fails closed", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-decision-store-"));

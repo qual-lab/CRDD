@@ -6,7 +6,7 @@
  * @trace PPR-UT-006
  * @level UT
  * @scope development、provider、measurement
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -31,7 +31,7 @@ type Dependencies = Parameters<
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("Development Measurement入口はRuntime Data停止理由を保持する", () => {
   const error = new RepositoryRuntimeDataAreaBlockedError({
@@ -65,7 +65,7 @@ test("Development Measurement入口はRuntime Data停止理由を保持する", 
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 function fixture(outcomes: readonly string[]) {
   const capability = Object.freeze({});
@@ -150,7 +150,7 @@ function fixture(outcomes: readonly string[]) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("比較は固定2Taskを一回ずつ実行し終了時にsessionを失効する", async () => {
   const value = fixture(["success", "success"]);
@@ -175,7 +175,7 @@ test("比較は固定2Taskを一回ずつ実行し終了時にsessionを失効�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("cleanな業務失敗は同じTaskを再試行せず別の承認済みTaskと比較する", async () => {
   const value = fixture(["clean_failure", "success"]);
@@ -206,7 +206,7 @@ for (const failure of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+   * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
    */
   test(`${failure}なら次Taskを開始せず終了する`, async () => {
     const value = fixture([failure, "success"]);
@@ -238,7 +238,7 @@ for (const failure of [
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("取消済みならProviderを開始しない", async () => {
   const value = fixture(["success", "success"]);

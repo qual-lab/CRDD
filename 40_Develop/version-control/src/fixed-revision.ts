@@ -1,3 +1,9 @@
+/**
+ * fixed-revisionに属する責務をまとめる。
+ *
+ * @responsibility FixedRevisionIdentityを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000002
+ */
 import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
@@ -8,9 +14,9 @@ export const FIXED_REVISION_IDENTITY_CONTRACT =
 export const FIXED_REVISION_IDENTITY_CONTRACT_REVISION = 1;
 
 /**
- * FixedRevisionIdentityが扱う値の構造を表す。
+ * fixed-revisionで使用するFixed Revision Identityの値契約を定義する。
  *
- * @responsibility FixedRevisionIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Fixed Revision IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape FixedRevisionIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant FixedRevisionIdentityで宣言した値と責務の対応を維持する。
@@ -33,9 +39,9 @@ export type FixedRevisionIdentity = Readonly<{
 }>;
 
 /**
- * FixedRevisionIdentityAdapterが扱う値の構造を表す。
+ * fixed-revisionで使用するFixed Revision Identity Adapterの値契約を定義する。
  *
- * @responsibility FixedRevisionIdentityAdapterに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Fixed Revision Identity AdapterのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape FixedRevisionIdentityAdapterが表すProperty、識別子およびRelationを型として固定する。
  * @invariant FixedRevisionIdentityAdapterで宣言した値と責務の対応を維持する。
@@ -48,9 +54,9 @@ export type FixedRevisionIdentityAdapter = (
 ) => FixedRevisionIdentity | null;
 
 /**
- * observeFixedRevisionIdentityの処理を実行する。
+ * Fixed Revision Identityを観測する。
  *
- * @responsibility observeFixedRevisionIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Fixed Revision Identityの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000002
  * @input capability: VerifiedRepositoryRoot、adapter: FixedRevisionIdentityAdapter
  * @returns FixedRevisionIdentity | nullを返す。

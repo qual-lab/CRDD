@@ -1,3 +1,9 @@
+/**
+ * repository-layoutに属する責務をまとめる。
+ *
+ * @responsibility EntityTypeを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000002
+ */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -12,9 +18,9 @@ const OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
 const SAFE_REF = /^refs\/(?:heads|tags)\/[A-Za-z0-9._/-]{1,1024}$/u;
 
 /**
- * EntityTypeが扱う値の構造を表す。
+ * repository-layoutで使用するEntity Typeの値契約を定義する。
  *
- * @responsibility EntityTypeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Entity TypeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape EntityTypeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant EntityTypeで宣言した値と責務の対応を維持する。
@@ -24,9 +30,9 @@ const SAFE_REF = /^refs\/(?:heads|tags)\/[A-Za-z0-9._/-]{1,1024}$/u;
  */
 type EntityType = "file" | "directory";
 /**
- * LayoutKindが扱う値の構造を表す。
+ * repository-layoutで使用するLayout Kindの値契約を定義する。
  *
- * @responsibility LayoutKindに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Layout KindのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape LayoutKindが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LayoutKindで宣言した値と責務の対応を維持する。
@@ -37,9 +43,9 @@ type EntityType = "file" | "directory";
 type LayoutKind = "normal_worktree" | "gitfile_worktree" | "linked_worktree";
 
 /**
- * EntityIdentityが扱う値の構造を表す。
+ * repository-layoutで使用するEntity Identityの値契約を定義する。
  *
- * @responsibility EntityIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Entity IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape EntityIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant EntityIdentityで宣言した値と責務の対応を維持する。
@@ -59,9 +65,9 @@ type EntityIdentity = Readonly<{
 }>;
 
 /**
- * EntitySnapshotが扱う値の構造を表す。
+ * repository-layoutで使用するEntity Snapshotの値契約を定義する。
  *
- * @responsibility EntitySnapshotに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Entity SnapshotのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape EntitySnapshotが表すProperty、識別子およびRelationを型として固定する。
  * @invariant EntitySnapshotで宣言した値と責務の対応を維持する。
@@ -75,9 +81,9 @@ type EntitySnapshot = Readonly<{
 }>;
 
 /**
- * RepositoryGitLayoutが扱う値の構造を表す。
+ * repository-layoutで使用するRepository Git Layoutの値契約を定義する。
  *
- * @responsibility RepositoryGitLayoutに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Repository Git LayoutのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape RepositoryGitLayoutが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepositoryGitLayoutで宣言した値と責務の対応を維持する。
@@ -96,9 +102,9 @@ export type RepositoryGitLayout = Readonly<{
 }>;
 
 /**
- * StableFileBytesが扱う値の構造を表す。
+ * repository-layoutで使用するStable File Bytesの値契約を定義する。
  *
- * @responsibility StableFileBytesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Stable File BytesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape StableFileBytesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant StableFileBytesで宣言した値と責務の対応を維持する。
@@ -109,9 +115,9 @@ export type RepositoryGitLayout = Readonly<{
 type StableFileBytes = Readonly<{ value: Buffer; snapshot: EntitySnapshot }>;
 
 /**
- * isEnoentの処理を実行する。
+ * Enoentかを判定する。
  *
- * @responsibility isEnoentに対応する入力処理と結果生成を所有する。
+ * @responsibility Enoentの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000002
  * @input error: unknown
  * @returns booleanを返す。
@@ -134,9 +140,9 @@ function isEnoent(error: unknown): boolean {
 }
 
 /**
- * identityの処理を実行する。
+ * identityを決定する。
  *
- * @responsibility identityに対応する入力処理と結果生成を所有する。
+ * @responsibility identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
  * @input metadata: fs.BigIntStats、expectedType: EntityType
  * @returns EntityIdentityを返す。
@@ -176,9 +182,9 @@ function identity(
 }
 
 /**
- * sameIdentityの処理を実行する。
+ * Identityが同一かを判定する。
  *
- * @responsibility sameIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Identityの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000002
  * @input left: EntityIdentity、right: EntityIdentity
  * @returns booleanを返す。
@@ -205,9 +211,9 @@ function sameIdentity(left: EntityIdentity, right: EntityIdentity): boolean {
 }
 
 /**
- * verifySnapshotの処理を実行する。
+ * Snapshotを検証する。
  *
- * @responsibility verifySnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility Snapshotの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000002
  * @input snapshot: EntitySnapshot
  * @returns N/A: verifySnapshotは戻り値を返さない。
@@ -234,9 +240,9 @@ function verifySnapshot(snapshot: EntitySnapshot): void {
 }
 
 /**
- * verifyEntitySnapshotの処理を実行する。
+ * Entity Snapshotを検証する。
  *
- * @responsibility verifyEntitySnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility Entity Snapshotの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000002
  * @input snapshot: EntitySnapshot
  * @returns N/A: verifyEntitySnapshotは戻り値を返さない。
@@ -266,9 +272,9 @@ function verifyEntitySnapshot(snapshot: EntitySnapshot): void {
 }
 
 /**
- * verifySnapshotsの処理を実行する。
+ * Snapshotsを検証する。
  *
- * @responsibility verifySnapshotsに対応する入力処理と結果生成を所有する。
+ * @responsibility Snapshotsの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000002
  * @input snapshots: readonly EntitySnapshot[]
  * @returns N/A: verifySnapshotsは戻り値を返さない。
@@ -289,9 +295,9 @@ function verifySnapshots(snapshots: readonly EntitySnapshot[]): void {
 }
 
 /**
- * verifyLayoutForWriteの処理を実行する。
+ * Layout For Writeを検証する。
  *
- * @responsibility verifyLayoutForWriteに対応する入力処理と結果生成を所有する。
+ * @responsibility Layout For Writeの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000002
  * @input layout: RepositoryGitLayout
  * @returns N/A: verifyLayoutForWriteは戻り値を返さない。
@@ -312,9 +318,9 @@ function verifyLayoutForWrite(layout: RepositoryGitLayout): void {
 }
 
 /**
- * directoryRealpathの処理を実行する。
+ * directory Realpathを決定する。
  *
- * @responsibility directoryRealpathに対応する入力処理と結果生成を所有する。
+ * @responsibility directory Realpathの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
  * @input target: string
  * @returns EntitySnapshotを返す。
@@ -342,9 +348,9 @@ function directoryRealpath(target: string): EntitySnapshot {
 }
 
 /**
- * readStableFileBytesの処理を実行する。
+ * Stable File Bytesを読み取る。
  *
- * @responsibility readStableFileBytesに対応する入力処理と結果生成を所有する。
+ * @responsibility Stable File Bytesの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000002
  * @input target: string、maximumBytes: number、parentSnapshots: readonly EntitySnapshot[]、shouldAllowEmpty
  * @returns StableFileBytesを返す。
@@ -438,9 +444,9 @@ function readStableFileBytes(
 }
 
 /**
- * decodeUtf8の処理を実行する。
+ * Utf8を検証済み値へ復号する。
  *
- * @responsibility decodeUtf8に対応する入力処理と結果生成を所有する。
+ * @responsibility Utf8の入力形式、復号結果、不正byte列の拒否境界を所有する。
  * @trace ARCH-000002
  * @input bytes: Uint8Array、reason: string
  * @returns stringを返す。
@@ -461,9 +467,9 @@ function decodeUtf8(bytes: Uint8Array, reason: string): string {
 }
 
 /**
- * readControlFileの処理を実行する。
+ * Control Fileを読み取る。
  *
- * @responsibility readControlFileに対応する入力処理と結果生成を所有する。
+ * @responsibility Control Fileの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000002
  * @input target: string、parentSnapshots: readonly EntitySnapshot[]
  * @returns Readonly<{ line: string; snapshot: EntitySnapshot }>を返す。
@@ -501,9 +507,9 @@ function readControlFile(
 }
 
 /**
- * parseNarrowRepositoryConfigの処理を実行する。
+ * Narrow Repository Configを構造化値へ解析する。
  *
- * @responsibility parseNarrowRepositoryConfigに対応する入力処理と結果生成を所有する。
+ * @responsibility Narrow Repository Configの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000002
  * @input target: string、commonDirectory: EntitySnapshot
  * @returns Readonly<{ snapshot: EntitySnapshot; objectFormat: "sha1" | "sha256"; worktree: string | null; }>を返す。
@@ -629,9 +635,9 @@ function parseNarrowRepositoryConfig(
 }
 
 /**
- * isValidRefの処理を実行する。
+ * Valid Refかを判定する。
  *
- * @responsibility isValidRefに対応する入力処理と結果生成を所有する。
+ * @responsibility Valid Refの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000002
  * @input value: string
  * @returns booleanを返す。
@@ -654,9 +660,9 @@ function isValidRef(value: string): boolean {
 }
 
 /**
- * inspectRevisionHexLengthの処理を実行する。
+ * Revision Hex Lengthを観測する。
  *
- * @responsibility inspectRevisionHexLengthに対応する入力処理と結果生成を所有する。
+ * @responsibility Revision Hex Lengthの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000002
  * @input gitDirectory: EntitySnapshot、commonDirectory: EntitySnapshot、snapshots: EntitySnapshot[]
  * @returns 40 | 64を返す。
@@ -716,9 +722,9 @@ function inspectRevisionHexLength(
 }
 
 /**
- * assertObjectFormatMatchesRevisionの処理を実行する。
+ * Object Format Matches Revisionを表明どおりか検査する。
  *
- * @responsibility assertObjectFormatMatchesRevisionに対応する入力処理と結果生成を所有する。
+ * @responsibility Object Format Matches Revisionの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000002
  * @input objectFormat: "sha1" | "sha256"、revisionHexLength: 40 | 64
  * @returns N/A: assertObjectFormatMatchesRevisionは戻り値を返さない。
@@ -744,9 +750,9 @@ function assertObjectFormatMatchesRevision(
 }
 
 /**
- * assertConfiguredWorktreeMatchesRootの処理を実行する。
+ * Configured Worktree Matches Rootを表明どおりか検査する。
  *
- * @responsibility assertConfiguredWorktreeMatchesRootに対応する入力処理と結果生成を所有する。
+ * @responsibility Configured Worktree Matches Rootの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000002
  * @input configuredWorktree: string | null、commonDirectory: EntitySnapshot、root: EntitySnapshot
  * @returns voidを返す。
@@ -778,9 +784,9 @@ function assertConfiguredWorktreeMatchesRoot(
 }
 
 /**
- * inspectRepositoryGitObjectFormatCandidateの処理を実行する。
+ * Repository Git Object Format 候補を観測する。
  *
- * @responsibility inspectRepositoryGitObjectFormatCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Git Object Format 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000002
  * @input repositoryRoot: unknown
  * @returns inspectRepositoryGitObjectFormatCandidateの計算結果を返す。
@@ -847,9 +853,9 @@ export function inspectRepositoryGitObjectFormatCandidate(
 }
 
 /**
- * optionalCommonDirectoryの処理を実行する。
+ * optional Common Directoryを決定する。
  *
- * @responsibility optionalCommonDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility optional Common Directoryの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
  * @input gitDirectory: EntitySnapshot、entitySnapshots: EntitySnapshot[]
  * @returns EntitySnapshot | nullを返す。
@@ -884,9 +890,9 @@ function optionalCommonDirectory(
 }
 
 /**
- * resolveExcludeBoundaryの処理を実行する。
+ * Exclude Boundaryを一意に解決する。
  *
- * @responsibility resolveExcludeBoundaryに対応する入力処理と結果生成を所有する。
+ * @responsibility Exclude Boundaryの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000002
  * @input commonDirectory: EntitySnapshot、entitySnapshots: EntitySnapshot[]
  * @returns Readonly<{ infoDirectory: EntitySnapshot | null; excludeSnapshot: EntitySnapshot | null; }>を返す。
@@ -933,9 +939,9 @@ function resolveExcludeBoundary(
 }
 
 /**
- * resolveRepositoryGitLayoutの処理を実行する。
+ * Repository Git Layoutを一意に解決する。
  *
- * @responsibility resolveRepositoryGitLayoutに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Git Layoutの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000002
  * @input repositoryRoot: unknown
  * @returns RepositoryGitLayoutを返す。
@@ -1012,9 +1018,9 @@ export function resolveRepositoryGitLayout(
 }
 
 /**
- * summarizeRepositoryGitLayoutの処理を実行する。
+ * Repository Git Layoutを要約する。
  *
- * @responsibility summarizeRepositoryGitLayoutに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Git Layoutの集計対象、要約規則、公開結果境界を所有する。
  * @trace ARCH-000002
  * @input layout: RepositoryGitLayout
  * @returns Readonly<{ kind: LayoutKind; commonMetadataResolved: true; supportedRepositoryFormat: "version_0_without_extensions_or_includes"; excludeBackend: "common_git_directory_info_exclude"; referencedRepositoriesModified: false; }>を返す。
@@ -1046,9 +1052,9 @@ export function summarizeRepositoryGitLayout(
 }
 
 /**
- * decodeExcludeの処理を実行する。
+ * Excludeを検証済み値へ復号する。
  *
- * @responsibility decodeExcludeに対応する入力処理と結果生成を所有する。
+ * @responsibility Excludeの入力形式、復号結果、不正byte列の拒否境界を所有する。
  * @trace ARCH-000002
  * @input bytes: Uint8Array
  * @returns stringを返す。
@@ -1068,9 +1074,9 @@ function decodeExclude(bytes: Uint8Array): string {
 }
 
 /**
- * exactEntryPresentの処理を実行する。
+ * Entry Presentが完全一致するか判定する。
  *
- * @responsibility exactEntryPresentに対応する入力処理と結果生成を所有する。
+ * @responsibility Entry Presentの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000002
  * @input text: string、entry: string
  * @returns booleanを返す。
@@ -1088,9 +1094,9 @@ function exactEntryPresent(text: string, entry: string): boolean {
 }
 
 /**
- * desiredExcludeBytesの処理を実行する。
+ * desired Exclude Bytesを決定する。
  *
- * @responsibility desiredExcludeBytesに対応する入力処理と結果生成を所有する。
+ * @responsibility desired Exclude Bytesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
  * @input existing: Buffer、entry: string
  * @returns Readonly<{ changed: boolean; bytes: Buffer }>を返す。
@@ -1122,9 +1128,9 @@ function desiredExcludeBytes(
 }
 
 /**
- * safeUnlinkOwnedの処理を実行する。
+ * Unlink 所有を安全条件の下で処理する。
  *
- * @responsibility safeUnlinkOwnedに対応する入力処理と結果生成を所有する。
+ * @responsibility Unlink 所有の安全条件、拒否条件、終了結果境界を所有する。
  * @trace ARCH-000002
  * @input target: string、snapshot: EntitySnapshot
  * @returns booleanを返す。
@@ -1173,9 +1179,9 @@ class RepositoryGitExcludeUpdateError extends Error {
 }
 
 /**
- * RepositoryLocalExcludeWriteResultが扱う値の構造を表す。
+ * repository-layoutで使用するRepository Local Exclude Write 結果の値契約を定義する。
  *
- * @responsibility RepositoryLocalExcludeWriteResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Repository Local Exclude Write 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape RepositoryLocalExcludeWriteResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepositoryLocalExcludeWriteResultで宣言した値と責務の対応を維持する。
@@ -1202,9 +1208,9 @@ export type RepositoryLocalExcludeWriteResult =
     }>;
 
 /**
- * RepositoryLocalExcludePhaseが扱う値の構造を表す。
+ * repository-layoutで使用するRepository Local Exclude Phaseの値契約を定義する。
  *
- * @responsibility RepositoryLocalExcludePhaseに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Repository Local Exclude PhaseのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape RepositoryLocalExcludePhaseが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepositoryLocalExcludePhaseで宣言した値と責務の対応を維持する。
@@ -1222,9 +1228,9 @@ type RepositoryLocalExcludePhase =
   | "post_readback";
 
 /**
- * contentIdentityの処理を実行する。
+ * content Identityを決定する。
  *
- * @responsibility contentIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility content Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
  * @input bytes: Uint8Array
  * @returns stringを返す。
@@ -1242,9 +1248,9 @@ function contentIdentity(bytes: Uint8Array): string {
 }
 
 /**
- * writeRepositoryLocalExcludeInternalの処理を実行する。
+ * Repository Local Exclude Internalを書き込む。
  *
- * @responsibility writeRepositoryLocalExcludeInternalに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Local Exclude Internalの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000002
  * @input layout: RepositoryGitLayout、entry: unknown、phaseHook: ((phase: RepositoryLocalExcludePhase) => void) | null
  * @returns Exclude<RepositoryLocalExcludeWriteResult, { status: "blocked" }>を返す。
@@ -1475,9 +1481,9 @@ function writeRepositoryLocalExcludeInternal(
 }
 
 /**
- * writeRepositoryLocalExcludeの処理を実行する。
+ * Repository Local Excludeを書き込む。
  *
- * @responsibility writeRepositoryLocalExcludeに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Local Excludeの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000002
  * @input layout: RepositoryGitLayout、entry: unknown、phaseHook: ((phase: RepositoryLocalExcludePhase) => void) | null
  * @returns RepositoryLocalExcludeWriteResultを返す。

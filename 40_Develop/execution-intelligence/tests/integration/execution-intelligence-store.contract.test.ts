@@ -4,9 +4,11 @@
  * @packageDocumentation
  * @responsibility execution-intelligence:integration:storeが所有する検証責務を実行する。
  * @trace ERP-IT-001
+ * @trace ERP-IT-002
+ * @trace ERP-IT-003
  * @level IT
  * @scope execution、intelligence、store、immutable
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader / ERP-IT-002=Direct Boundary: 複数Writer→同一Store / ERP-IT-003=Adjacent 1 Block: Writer→Filesystem publish→Reader
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
@@ -41,7 +43,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
  */
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-execution-store-"));
@@ -60,7 +62,7 @@ function fixture(t: test.TestContext) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
  */
 function verifiedRoot(root: string): VerifiedExecutionRepositoryRoot {
   const observed = verifyExecutionIntelligenceRepositoryRoot(root);
@@ -79,7 +81,7 @@ function verifiedRoot(root: string): VerifiedExecutionRepositoryRoot {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
  */
 function eventForTask(taskId: string) {
   return createTaskAttemptSettledEvent({
@@ -137,7 +139,7 @@ function eventForTask(taskId: string) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
  */
 function event() {
   return eventForTask("task-a");
@@ -153,7 +155,7 @@ function event() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
  */
 function operationDirectory(root: string) {
   return path.join(root, ".crdd", "execution", "operation-a");
@@ -169,7 +171,7 @@ function operationDirectory(root: string) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
  */
 function eventDirectory(root: string) {
   return path.join(operationDirectory(root), "events");
@@ -179,13 +181,13 @@ function eventDirectory(root: string) {
  * Runtime Data Ignore失敗の意味を最終Publicationまで保持するを検証する。
  *
  * @responsibility Runtime Data Ignore失敗の意味を最終Publicationまで保持するの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace ERP-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Runtime Data Ignore失敗の意味を最終Publicationまで保持するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
  */
 test("Runtime Data Ignore失敗の意味を最終Publicationまで保持する", (t) => {
   const root = fixture(t);
@@ -224,13 +226,13 @@ test("Runtime Data Ignore失敗の意味を最終Publicationまで保持する",
  * Runtime Data Effect不明はcleanup済みでもRead／Writeで手動回復を保持するを検証する。
  *
  * @responsibility Runtime Data Effect不明はcleanup済みでもRead／Writeで手動回復を保持するの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace ERP-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Runtime Data Effect不明はcleanup済みでもRead／Writeで手動回復を保持するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
  */
 test("Runtime Data Effect不明はcleanup済みでもRead／Writeで手動回復を保持する", (t) => {
   const root = fixture(t);
@@ -245,7 +247,7 @@ test("Runtime Data Effect不明はcleanup済みでもRead／Writeで手動回復
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+   * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
    */
   const blockedArea = (() =>
     Object.freeze({
@@ -299,7 +301,7 @@ test("Runtime Data Effect不明はcleanup済みでもRead／Writeで手動回復
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
  */
 test("an embedded TypeScript application can record and read through one public recorder", (t) => {
   const root = fixture(t);
@@ -327,13 +329,13 @@ test("an embedded TypeScript application can record and read through one public 
  * Recorderはtop-level Accessorを実行せずStore Effect 0で拒否するを検証する。
  *
  * @responsibility Recorderはtop-level Accessorを実行せずStore Effect 0で拒否するの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace ERP-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Recorderはtop-level Accessorを実行せずStore Effect 0で拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
  */
 test("Recorderはtop-level Accessorを実行せずStore Effect 0で拒否する", (t) => {
   const root = fixture(t);
@@ -362,13 +364,13 @@ test("Recorderはtop-level Accessorを実行せずStore Effect 0で拒否する"
  * Recorderは生成後のStore例外を入力不正やEffect 0へ偽装しないを検証する。
  *
  * @responsibility Recorderは生成後のStore例外を入力不正やEffect 0へ偽装しないの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace ERP-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Recorderは生成後のStore例外を入力不正やEffect 0へ偽装しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
  */
 test("Recorderは生成後のStore例外を入力不正やEffect 0へ偽装しない", (t) => {
   const root = fixture(t);
@@ -404,7 +406,7 @@ test("Recorderは生成後のStore例外を入力不正やEffect 0へ偽装し�
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
  */
 function runWriter(root: string, reason: string) {
   return new Promise<Readonly<{ exitCode: number | null; result: unknown }>>(
@@ -439,13 +441,13 @@ function runWriter(root: string, reason: string) {
  * writes immutable events under repository-local .crdd and reads a summaryを検証する。
  *
  * @responsibility writes immutable events under repository-local .crdd and reads a summaryの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace ERP-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus writes immutable events under repository-local .crdd and reads a summaryの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
  */
 test("writes immutable events under repository-local .crdd and reads a summary", (t) => {
   const root = fixture(t);
@@ -475,13 +477,13 @@ test("writes immutable events under repository-local .crdd and reads a summary",
  * rejects conflicting content for the same exact identityを検証する。
  *
  * @responsibility rejects conflicting content for the same exact identityの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace ERP-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus rejects conflicting content for the same exact identityの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-003=Adjacent 1 Block: Writer→Filesystem publish→Reader
  */
 test("rejects conflicting content for the same exact identity", (t) => {
   const root = fixture(t);
@@ -505,13 +507,13 @@ test("rejects conflicting content for the same exact identity", (t) => {
  * Accessorを含むEventは永続化前に拒否してStoreを作らないを検証する。
  *
  * @responsibility Accessorを含むEventは永続化前に拒否してStoreを作らないの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace ERP-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Accessorを含むEventは永続化前に拒否してStoreを作らないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
  */
 test("Accessorを含むEventは永続化前に拒否してStoreを作らない", (t) => {
   const root = fixture(t);
@@ -539,13 +541,13 @@ test("Accessorを含むEventは永続化前に拒否してStoreを作らない",
  * fails closed when stored content is corruptを検証する。
  *
  * @responsibility fails closed when stored content is corruptの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace ERP-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus fails closed when stored content is corruptの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
  */
 test("fails closed when stored content is corrupt", (t) => {
   const root = fixture(t);
@@ -578,13 +580,13 @@ test("fails closed when stored content is corrupt", (t) => {
  * does not replace a non-directory repository-local boundaryを検証する。
  *
  * @responsibility does not replace a non-directory repository-local boundaryの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace ERP-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus does not replace a non-directory repository-local boundaryの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
  */
 test("does not replace a non-directory repository-local boundary", (t) => {
   const root = fixture(t);
@@ -601,13 +603,13 @@ test("does not replace a non-directory repository-local boundary", (t) => {
  * does not hide an unknown residual file from the store resultを検証する。
  *
  * @responsibility does not hide an unknown residual file from the store resultの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace ERP-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus does not hide an unknown residual file from the store resultの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
  */
 test("does not hide an unknown residual file from the store result", (t) => {
   const root = fixture(t);
@@ -639,13 +641,13 @@ test("does not hide an unknown residual file from the store result", (t) => {
  * 物理保持削除を公開せず自己申告のEvidenceでEventを変更しないを検証する。
  *
  * @responsibility 物理保持削除を公開せず自己申告のEvidenceでEventを変更しないの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace ERP-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 物理保持削除を公開せず自己申告のEvidenceでEventを変更しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
  */
 test("物理保持削除を公開せず自己申告のEvidenceでEventを変更しない", async (t) => {
   const root = fixture(t);
@@ -675,13 +677,13 @@ test("物理保持削除を公開せず自己申告のEvidenceでEventを変更�
  * Repository RootはexactなVCS worktreeだけを実行時能力にするを検証する。
  *
  * @responsibility Repository RootはexactなVCS worktreeだけを実行時能力にするの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace ERP-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Repository RootはexactなVCS worktreeだけを実行時能力にするの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
  */
 test("Repository RootはexactなVCS worktreeだけを実行時能力にする", (t) => {
   const root = fixture(t);
@@ -731,13 +733,13 @@ test("Repository RootはexactなVCS worktreeだけを実行時能力にする", 
  * 能力発行後にGit境界が失効した場合はStore Effect 0で拒否するを検証する。
  *
  * @responsibility 能力発行後にGit境界が失効した場合はStore Effect 0で拒否するの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace ERP-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 能力発行後にGit境界が失効した場合はStore Effect 0で拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
  */
 test("能力発行後にGit境界が失効した場合はStore Effect 0で拒否する", (t) => {
   for (const replacement of [
@@ -766,13 +768,13 @@ test("能力発行後にGit境界が失効した場合はStore Effect 0で拒否
  * 並行Processの同一Eventは冪等で、異なる内容は上書きしないを検証する。
  *
  * @responsibility 並行Processの同一Eventは冪等で、異なる内容は上書きしないの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace ERP-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 並行Processの同一Eventは冪等で、異なる内容は上書きしないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
  */
 test("並行Processの同一Eventは冪等で、異なる内容は上書きしない", async (t) => {
   const sameRoot = fixture(t);
@@ -820,13 +822,13 @@ test("並行Processの同一Eventは冪等で、異なる内容は上書きし�
  * 通常Repository・linked worktree・submoduleのexact Rootを区別するを検証する。
  *
  * @responsibility 通常Repository・linked worktree・submoduleのexact Rootを区別するの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace ERP-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 通常Repository・linked worktree・submoduleのexact Rootを区別するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
  */
 test("通常Repository・linked worktree・submoduleのexact Rootを区別する", (t) => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-execution-layout-"));
@@ -930,13 +932,13 @@ for (const fault of [
    * Storeの${fault}失敗を成功へ丸めず資源を回収するを検証する。
    *
    * @responsibility Storeの${fault}失敗を成功へ丸めず資源を回収するの合否判定を所有する。
-   * @trace ERP-IT-001
+   * @trace ERP-IT-002
    * @precondition Test Fileが構築するfixtureと入力を使用する。
    * @stimulus Storeの${fault}失敗を成功へ丸めず資源を回収するの対象操作を実行する。
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+   * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
    */
   test(`Storeの${fault}失敗を成功へ丸めず資源を回収する`, (t) => {
     const root = fixture(t);
@@ -1004,13 +1006,13 @@ for (const fault of [
  * 一時fileの回収不明はexactな残存Identityを返すを検証する。
  *
  * @responsibility 一時fileの回収不明はexactな残存Identityを返すの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace ERP-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 一時fileの回収不明はexactな残存Identityを返すの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
  */
 test("一時fileの回収不明はexactな残存Identityを返す", (t) => {
   const root = fixture(t);
@@ -1043,7 +1045,7 @@ test("一時fileの回収不明はexactな残存Identityを返す", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
  */
 test("所有不明の残存Lockを自動奪取しない", (t) => {
   const root = fixture(t);
@@ -1075,7 +1077,7 @@ test("所有不明の残存Lockを自動奪取しない", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
  */
 test("Lock所有者の初期化失敗は回収済みとして閉じる", (t) => {
   const root = fixture(t);
@@ -1109,7 +1111,7 @@ test("Lock所有者の初期化失敗は回収済みとして閉じる", (t) => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
  */
 test("Lock所有者の初期化と回収が失敗した場合は残存Lockを返す", (t) => {
   const root = fixture(t);
@@ -1154,7 +1156,7 @@ test("Lock所有者の初期化と回収が失敗した場合は残存Lockを返
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
  */
 test("Lock解放不明はEvent成立と残存Lockを分けて返す", (t) => {
   const root = fixture(t);
@@ -1181,13 +1183,13 @@ test("Lock解放不明はEvent成立と残存Lockを分けて返す", (t) => {
  * Repository Rootへのlink経由は実行時能力にしないを検証する。
  *
  * @responsibility Repository Rootへのlink経由は実行時能力にしないの合否判定を所有する。
- * @trace ERP-IT-001
+ * @trace ERP-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Repository Rootへのlink経由は実行時能力にしないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Producer→Writer→Store→Reader
+ * @boundary ERP-IT-002=Direct Boundary: 複数Writer→同一Store
  */
 test("Repository Rootへのlink経由は実行時能力にしない", (t) => {
   const root = fixture(t);

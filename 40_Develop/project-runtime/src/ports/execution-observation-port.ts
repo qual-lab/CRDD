@@ -1,7 +1,13 @@
 /**
- * ProjectRuntimeTaskAttemptObservationが扱う値の構造を表す。
+ * execution-observation-portに属する責務をまとめる。
  *
- * @responsibility ProjectRuntimeTaskAttemptObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ProjectRuntimeTaskAttemptObservationを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000007
+ */
+/**
+ * execution-observation-portで使用するProject Runtime Task Attempt Observationの値契約を定義する。
+ *
+ * @responsibility Project Runtime Task Attempt ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape ProjectRuntimeTaskAttemptObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeTaskAttemptObservationで宣言した値と責務の対応を維持する。
@@ -33,9 +39,9 @@ export type ProjectRuntimeTaskAttemptObservation = Readonly<{
 }>;
 
 /**
- * ProjectRuntimeExecutionObservationPublicationが扱う値の構造を表す。
+ * execution-observation-portで使用するProject Runtime Execution Observation Publicationの値契約を定義する。
  *
- * @responsibility ProjectRuntimeExecutionObservationPublicationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Execution Observation PublicationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape ProjectRuntimeExecutionObservationPublicationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeExecutionObservationPublicationで宣言した値と責務の対応を維持する。
@@ -73,7 +79,7 @@ export type ProjectRuntimeExecutionObservationPublication =
 /**
  * Non-authority observation boundary. Publication failure must remain visible,
  *
- * @responsibility ProjectRuntimeExecutionObservationPortに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Execution Observation PortのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape ProjectRuntimeExecutionObservationPortが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeExecutionObservationPortで宣言した値と責務の対応を維持する。

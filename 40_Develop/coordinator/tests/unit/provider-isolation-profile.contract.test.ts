@@ -6,7 +6,7 @@
  * @trace AIT-UT-005
  * @level UT
  * @scope provider、isolation、profile
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -40,7 +40,7 @@ type ProfileFixture = Record<string, unknown> & {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 function candidate(overrides: Record<string, unknown> = {}): ProfileFixture {
   return {
@@ -79,7 +79,7 @@ function candidate(overrides: Record<string, unknown> = {}): ProfileFixture {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("限定参照だけを含むProfileをAuthority確認待ち候補として固定する", () => {
   const result = validateProviderIsolationProfile(candidate());
@@ -114,7 +114,7 @@ test("限定参照だけを含むProfileをAuthority確認待ち候補として�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Profile契約はCRDD版ごとに分岐しない", () => {
   const contract = describeProviderIsolationContract();
@@ -144,7 +144,7 @@ test("Profile契約はCRDD版ごとに分岐しない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("秘密値らしいfieldをProfileへ混入できない", () => {
   const result = validateProviderIsolationProfile(
@@ -170,7 +170,7 @@ test("秘密値らしいfieldをProfileへ混入できない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Profile入力budgetの境界と超過をfail closedにする", () => {
   const maximum = candidate({
@@ -245,7 +245,7 @@ test("Profile入力budgetの境界と超過をfail closedにする", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Profile入口はtop、nested、array accessorを実行しない", () => {
   for (const location of ["top", "nested", "array"]) {
@@ -297,7 +297,7 @@ test("Profile入口はtop、nested、array accessorを実行しない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Provider tokenらしい値をAuthority参照へ偽装できない", () => {
   const values = [
@@ -327,7 +327,7 @@ test("Provider tokenらしい値をAuthority参照へ偽装できない", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("自己申告の承認内容と旧時刻fieldをProfileへ保持できない", () => {
   const value = candidate();
@@ -350,7 +350,7 @@ test("自己申告の承認内容と旧時刻fieldをProfileへ保持できな�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Authority参照へ動的Mount Grant namespaceを流用できない", () => {
   const authority = candidate();
@@ -371,7 +371,7 @@ test("Authority参照へ動的Mount Grant namespaceを流用できない", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("旧revisionとgeneric Credential fieldをOAuth Profileへ混在できない", () => {
   assert.equal(
@@ -400,7 +400,7 @@ test("旧revisionとgeneric Credential fieldをOAuth Profileへ混在できな�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Mount GrantはProvider、ProfileおよびOperationへ完全結合する", () => {
   for (const [field, value] of [
@@ -428,7 +428,7 @@ test("Mount GrantはProvider、ProfileおよびOperationへ完全結合する", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("署名Profileへ動的Grant refまたは未検証状態を保持できない", () => {
   const dynamicReference = candidate();
@@ -462,7 +462,7 @@ test("署名Profileへ動的Grant refまたは未検証状態を保持できな�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("wildcard、平文HTTP、Path付き送信先を拒否する", () => {
   for (const origin of [
@@ -488,7 +488,7 @@ test("wildcard、平文HTTP、Path付き送信先を拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("空Origin集合を固定reasonへ閉じる", () => {
   const empty = candidate();
@@ -509,7 +509,7 @@ test("空Origin集合を固定reasonへ閉じる", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("未知Authority Registryと未対応Providerをfail closedにする", () => {
   const unknown = candidate();
@@ -534,7 +534,7 @@ test("未知Authority Registryと未対応Providerをfail closedにする", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("同じ意味のProfileはorigin順序に依存しないHashを持つ", () => {
   const left = candidate();

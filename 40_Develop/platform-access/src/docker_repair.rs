@@ -1,3 +1,8 @@
+//! Docker Desktop修復で必要なNative Process観測と限定操作を提供する。
+//!
+//! @responsibility 固定したPolicy ArtifactとProcess Identityを検証し、許可されたProcess操作・終了観測・資源回収だけを実行する。
+//! @trace ARCH-000008
+
 use std::ffi::{OsStr, OsString, c_void};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -43,9 +48,32 @@ const SYNCHRONIZE_ACCESS: u32 = 0x0010_0000;
 const RESTART_POLICY: &[u8] = b"CRDD_DOCKER_RESTART_TRUST_V1|official-fixed-paths|Docker Inc|cache-only|deny-write-delete|optional-dev-envs";
 const RESTART_RESPONSE_MAGIC: &[u8; 8] = b"CRDDDS01";
 
+/// Docker Desktop修復で使用するOwnedHandle契約を表す。
+///
+/// @responsibility OwnedHandleが保持するDocker Desktop修復の値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape structとしてDocker Desktop修復のfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 struct OwnedHandle(HANDLE);
 
 impl Drop for OwnedHandle {
+    /// Docker Desktop修復が所有するNative Resourceを解放する。
+    ///
+    /// @responsibility 一意に所有するOS HandleまたはNative Contextを一回だけ解放する。
+    /// @trace ARCH-000008
+    /// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+    /// @returns N/A: 戻り値を公開せず、終了状態またはProcess exitで結果を示す。
+    /// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+    /// @postcondition 完了または拒否後に、所有するResourceの状態を観測可能な形へ確定する。
+    /// @effect 対象のNative ResourceまたはProcessだけへ限定Effectを発行する。
+    /// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+    /// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+    /// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+    /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+    /// @concurrency 所有Handleと終了観測を同じ呼出しlifecycleへ限定し、競合時は安全側に失敗する。
     fn drop(&mut self) {
         if !self.0.is_null() && self.0 != INVALID_HANDLE_VALUE {
             // SAFETY: this type exclusively owns the valid Windows handle.
@@ -54,9 +82,32 @@ impl Drop for OwnedHandle {
     }
 }
 
+/// Docker Desktop修復で使用するOwnedAlgorithm契約を表す。
+///
+/// @responsibility OwnedAlgorithmが保持するDocker Desktop修復の値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape structとしてDocker Desktop修復のfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 struct OwnedAlgorithm(BCRYPT_ALG_HANDLE);
 
 impl Drop for OwnedAlgorithm {
+    /// Docker Desktop修復が所有するNative Resourceを解放する。
+    ///
+    /// @responsibility 一意に所有するOS HandleまたはNative Contextを一回だけ解放する。
+    /// @trace ARCH-000008
+    /// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+    /// @returns N/A: 戻り値を公開せず、終了状態またはProcess exitで結果を示す。
+    /// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+    /// @postcondition 完了または拒否後に、所有するResourceの状態を観測可能な形へ確定する。
+    /// @effect 対象のNative ResourceまたはProcessだけへ限定Effectを発行する。
+    /// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+    /// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+    /// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+    /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+    /// @concurrency 所有Handleと終了観測を同じ呼出しlifecycleへ限定し、競合時は安全側に失敗する。
     fn drop(&mut self) {
         if !self.0.is_null() {
             // SAFETY: this type exclusively owns the algorithm provider handle.
@@ -65,9 +116,32 @@ impl Drop for OwnedAlgorithm {
     }
 }
 
+/// Docker Desktop修復で使用するOwnedHash契約を表す。
+///
+/// @responsibility OwnedHashが保持するDocker Desktop修復の値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape structとしてDocker Desktop修復のfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 struct OwnedHash(BCRYPT_HASH_HANDLE);
 
 impl Drop for OwnedHash {
+    /// Docker Desktop修復が所有するNative Resourceを解放する。
+    ///
+    /// @responsibility 一意に所有するOS HandleまたはNative Contextを一回だけ解放する。
+    /// @trace ARCH-000008
+    /// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+    /// @returns N/A: 戻り値を公開せず、終了状態またはProcess exitで結果を示す。
+    /// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+    /// @postcondition 完了または拒否後に、所有するResourceの状態を観測可能な形へ確定する。
+    /// @effect 対象のNative ResourceまたはProcessだけへ限定Effectを発行する。
+    /// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+    /// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+    /// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+    /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+    /// @concurrency 所有Handleと終了観測を同じ呼出しlifecycleへ限定し、競合時は安全側に失敗する。
     fn drop(&mut self) {
         if !self.0.is_null() {
             // SAFETY: this type exclusively owns the hash handle.
@@ -76,6 +150,15 @@ impl Drop for OwnedHash {
     }
 }
 
+/// Docker Desktop修復で使用するPolicyArtifact契約を表す。
+///
+/// @responsibility PolicyArtifactが保持するDocker Desktop修復の値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape structとしてDocker Desktop修復のfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 #[derive(Clone)]
 struct PolicyArtifact {
     role: String,
@@ -84,24 +167,65 @@ struct PolicyArtifact {
     sha256: [u8; 32],
 }
 
+/// Docker Desktop修復で使用するLockedArtifact契約を表す。
+///
+/// @responsibility LockedArtifactが保持するDocker Desktop修復の値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape structとしてDocker Desktop修復のfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 struct LockedArtifact {
     policy: PolicyArtifact,
     file: File,
     information: BY_HANDLE_FILE_INFORMATION,
 }
 
+/// Docker Desktop修復で使用するVerifiedProcess契約を表す。
+///
+/// @responsibility VerifiedProcessが保持するDocker Desktop修復の値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape structとしてDocker Desktop修復のfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 struct VerifiedProcess {
     handle: OwnedHandle,
     process_id: u32,
     creation: u64,
 }
 
+/// Docker Desktop修復で使用するProcessInventory契約を表す。
+///
+/// @responsibility ProcessInventoryが保持するDocker Desktop修復の値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape enumとしてDocker Desktop修復のfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 enum ProcessInventory {
     Absent,
     Verified(Vec<VerifiedProcess>),
     Unknown,
 }
 
+/// Docker Desktop修復のbegin sha256責務を実行する。
+///
+/// @responsibility Docker Desktop修復のbegin sha256責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn begin_sha256() -> Option<(OwnedAlgorithm, OwnedHash)> {
     let mut algorithm = null_mut();
     // SAFETY: algorithm is writable and SHA-256 requires no provider-specific input.
@@ -119,6 +243,20 @@ fn begin_sha256() -> Option<(OwnedAlgorithm, OwnedHash)> {
     Some((algorithm, OwnedHash(hash)))
 }
 
+/// sha256 bytesを固定した入力から計算する。
+///
+/// @responsibility sha256 bytesを固定した入力から計算する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn sha256_bytes(bytes: &[u8]) -> Option<[u8; 32]> {
     let (_algorithm, hash) = begin_sha256()?;
     let length = u32::try_from(bytes.len()).ok()?;
@@ -134,6 +272,20 @@ fn sha256_bytes(bytes: &[u8]) -> Option<[u8; 32]> {
     Some(output)
 }
 
+/// sha256 fileを固定した入力から計算する。
+///
+/// @responsibility sha256 fileを固定した入力から計算する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn sha256_file(file: &mut File, expected_bytes: u64) -> Option<[u8; 32]> {
     file.seek(SeekFrom::Start(0)).ok()?;
     let (_algorithm, hash) = begin_sha256()?;
@@ -165,6 +317,20 @@ fn sha256_file(file: &mut File, expected_bytes: u64) -> Option<[u8; 32]> {
     Some(output)
 }
 
+/// Docker Desktop修復のhandle information責務を実行する。
+///
+/// @responsibility Docker Desktop修復のhandle information責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn handle_information(handle: HANDLE) -> Option<BY_HANDLE_FILE_INFORMATION> {
     let mut information = BY_HANDLE_FILE_INFORMATION {
         dwFileAttributes: 0,
@@ -182,6 +348,20 @@ fn handle_information(handle: HANDLE) -> Option<BY_HANDLE_FILE_INFORMATION> {
     (unsafe { GetFileInformationByHandle(handle, &mut information) } != 0).then_some(information)
 }
 
+/// Docker Desktop修復のsame file責務を実行する。
+///
+/// @responsibility Docker Desktop修復のsame file責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn same_file(left: &BY_HANDLE_FILE_INFORMATION, right: &BY_HANDLE_FILE_INFORMATION) -> bool {
     left.dwVolumeSerialNumber == right.dwVolumeSerialNumber
         && left.nFileIndexHigh == right.nFileIndexHigh
@@ -193,6 +373,20 @@ fn same_file(left: &BY_HANDLE_FILE_INFORMATION, right: &BY_HANDLE_FILE_INFORMATI
         && left.dwFileAttributes == right.dwFileAttributes
 }
 
+/// Docker Desktop修復のfinal dos path責務を実行する。
+///
+/// @responsibility Docker Desktop修復のfinal dos path責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn final_dos_path(handle: HANDLE) -> Option<PathBuf> {
     let mut units = vec![0_u16; 32_768];
     // SAFETY: units is writable and handle is valid for the duration of the call.
@@ -210,10 +404,38 @@ fn final_dos_path(handle: HANDLE) -> Option<PathBuf> {
     Some(PathBuf::from(stripped))
 }
 
+/// Docker Desktop修復のfiletime value責務を実行する。
+///
+/// @responsibility Docker Desktop修復のfiletime value責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn filetime_value(value: FILETIME) -> u64 {
     (u64::from(value.dwHighDateTime) << 32) | u64::from(value.dwLowDateTime)
 }
 
+/// locked artifactsを安全側に検証する。
+///
+/// @responsibility locked artifactsを安全側に検証する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn verify_locked_artifacts(artifacts: &mut [LockedArtifact]) -> bool {
     artifacts.iter_mut().all(|artifact| {
         let handle = artifact.file.as_raw_handle().cast::<c_void>();
@@ -237,6 +459,20 @@ fn verify_locked_artifacts(artifacts: &mut [LockedArtifact]) -> bool {
     })
 }
 
+/// Docker Desktop修復のlock current artifacts責務を実行する。
+///
+/// @responsibility Docker Desktop修復のlock current artifacts責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn lock_current_artifacts() -> Option<Vec<LockedArtifact>> {
     let entries = [
         (
@@ -324,6 +560,20 @@ fn lock_current_artifacts() -> Option<Vec<LockedArtifact>> {
     Some(artifacts)
 }
 
+/// Docker Desktop修復のmutex name責務を実行する。
+///
+/// @responsibility Docker Desktop修復のmutex name責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn mutex_name() -> Option<Vec<u16>> {
     let identity = crate::windows::current_selected_user_identity_hash()?;
     let mut text = String::from(r"Global\CRDD.Coordinator.DockerDesktopRepair.");
@@ -335,6 +585,20 @@ fn mutex_name() -> Option<Vec<u16>> {
     Some(wide)
 }
 
+/// Docker Desktop修復のacquire mutex責務を実行する。
+///
+/// @responsibility Docker Desktop修復のacquire mutex責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn acquire_mutex() -> Option<OwnedHandle> {
     let name = mutex_name()?;
     // SAFETY: name is NUL-terminated and the returned handle is transferred to OwnedHandle.
@@ -349,6 +613,20 @@ fn acquire_mutex() -> Option<OwnedHandle> {
     Some(OwnedHandle(handle))
 }
 
+/// Docker Desktop修復のprocess basename責務を実行する。
+///
+/// @responsibility Docker Desktop修復のprocess basename責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn process_basename(entry: &PROCESSENTRY32W) -> Option<String> {
     let length = entry
         .szExeFile
@@ -362,6 +640,20 @@ fn process_basename(entry: &PROCESSENTRY32W) -> Option<String> {
     })
 }
 
+/// Docker Desktop修復のmanaged process artifacts責務を実行する。
+///
+/// @responsibility Docker Desktop修復のmanaged process artifacts責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn managed_process_artifacts<'a>(
     name: &str,
     artifacts: &'a [LockedArtifact],
@@ -380,10 +672,38 @@ fn managed_process_artifacts<'a>(
         .collect()
 }
 
+/// is cli roleの成立可否を判定する。
+///
+/// @responsibility is cli roleの成立可否を判定する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn is_cli_role(role: &str) -> bool {
     matches!(role, "docker_cli" | "desktop_cli" | "desktop_plugin")
 }
 
+/// Docker Desktop修復のcli process artifacts責務を実行する。
+///
+/// @responsibility Docker Desktop修復のcli process artifacts責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn cli_process_artifacts<'a>(
     name: &str,
     artifacts: &'a [LockedArtifact],
@@ -402,6 +722,20 @@ fn cli_process_artifacts<'a>(
         .collect()
 }
 
+/// Docker Desktop修復のprocess path責務を実行する。
+///
+/// @responsibility Docker Desktop修復のprocess path責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn process_path(handle: HANDLE) -> Option<PathBuf> {
     let mut units = vec![0_u16; 32_768];
     let mut length = u32::try_from(units.len()).ok()?;
@@ -417,6 +751,20 @@ fn process_path(handle: HANDLE) -> Option<PathBuf> {
     Some(PathBuf::from(OsString::from_wide(&units)))
 }
 
+/// Docker Desktop修復のprocess creation責務を実行する。
+///
+/// @responsibility Docker Desktop修復のprocess creation責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn process_creation(handle: HANDLE) -> Option<u64> {
     let mut creation = FILETIME::default();
     let mut exit = FILETIME::default();
@@ -429,10 +777,38 @@ fn process_creation(handle: HANDLE) -> Option<u64> {
     Some(filetime_value(creation))
 }
 
+/// Docker Desktop修復のinventory processes責務を実行する。
+///
+/// @responsibility Docker Desktop修復のinventory processes責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn inventory_processes(artifacts: &[LockedArtifact]) -> ProcessInventory {
     inventory_process_scope(artifacts, false)
 }
 
+/// Docker Desktop修復のinventory process scope責務を実行する。
+///
+/// @responsibility Docker Desktop修復のinventory process scope責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn inventory_process_scope(artifacts: &[LockedArtifact], cli_only: bool) -> ProcessInventory {
     // SAFETY: no process ID filter is used and the returned snapshot is owned below.
     let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
@@ -524,6 +900,20 @@ fn inventory_process_scope(artifacts: &[LockedArtifact], cli_only: bool) -> Proc
     }
 }
 
+/// terminate processesを終了し終了後状態を観測する。
+///
+/// @responsibility terminate processesを終了し終了後状態を観測する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 完了または拒否後に、所有するResourceの状態を観測可能な形へ確定する。
+/// @effect 対象のNative ResourceまたはProcessだけへ限定Effectを発行する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency 所有Handleと終了観測を同じ呼出しlifecycleへ限定し、競合時は安全側に失敗する。
 fn terminate_processes(artifacts: &[LockedArtifact]) -> u8 {
     let processes = match inventory_processes(artifacts) {
         ProcessInventory::Absent => return b'A',
@@ -560,12 +950,40 @@ fn terminate_processes(artifacts: &[LockedArtifact]) -> u8 {
     }
 }
 
+/// Docker Desktop修復のexact artifact責務を実行する。
+///
+/// @responsibility Docker Desktop修復のexact artifact責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn exact_artifact<'a>(role: &str, artifacts: &'a [LockedArtifact]) -> Option<&'a LockedArtifact> {
     let mut matches = artifacts.iter().filter(|value| value.policy.role == role);
     let result = matches.next()?;
     matches.next().is_none().then_some(result)
 }
 
+/// Docker Desktop修復のappend environment entry責務を実行する。
+///
+/// @responsibility Docker Desktop修復のappend environment entry責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn append_environment_entry(environment: &mut Vec<u16>, name: &str, value: &OsStr) -> Option<()> {
     environment.extend(name.encode_utf16());
     environment.push(u16::from(b'='));
@@ -574,11 +992,34 @@ fn append_environment_entry(environment: &mut Vec<u16>, name: &str, value: &OsSt
     Some(())
 }
 
+/// Docker Desktop修復で使用するLauncherContext契約を表す。
+///
+/// @responsibility LauncherContextが保持するDocker Desktop修復の値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape structとしてDocker Desktop修復のfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 struct LauncherContext {
     environment: Vec<u16>,
     current_directory: PathBuf,
 }
 
+/// launcher contextを検証済み入力から生成する。
+///
+/// @responsibility launcher contextを検証済み入力から生成する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 完了または拒否後に、所有するResourceの状態を観測可能な形へ確定する。
+/// @effect 対象のNative ResourceまたはProcessだけへ限定Effectを発行する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency 所有Handleと終了観測を同じ呼出しlifecycleへ限定し、競合時は安全側に失敗する。
 fn launcher_context() -> Option<LauncherContext> {
     let local_app_data = crate::windows::local_app_data_path()?;
     let profile = crate::windows::user_profile_path()?;
@@ -672,6 +1113,20 @@ fn launcher_context() -> Option<LauncherContext> {
     })
 }
 
+/// Docker Desktop修復のsystem drive from windows directory責務を実行する。
+///
+/// @responsibility Docker Desktop修復のsystem drive from windows directory責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn system_drive_from_windows_directory(directory: &OsStr) -> Option<OsString> {
     let units: Vec<u16> = directory.encode_wide().collect();
     if units.len() <= 3
@@ -694,6 +1149,20 @@ fn system_drive_from_windows_directory(directory: &OsStr) -> Option<OsString> {
     Some(OsString::from_wide(&units[..2]))
 }
 
+/// create exact processを検証済み入力から生成する。
+///
+/// @responsibility create exact processを検証済み入力から生成する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 完了または拒否後に、所有するResourceの状態を観測可能な形へ確定する。
+/// @effect 対象のNative ResourceまたはProcessだけへ限定Effectを発行する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency 所有Handleと終了観測を同じ呼出しlifecycleへ限定し、競合時は安全側に失敗する。
 fn create_exact_process(
     executable: &std::path::Path,
     arguments: &OsStr,
@@ -755,6 +1224,20 @@ fn create_exact_process(
     }
 }
 
+/// launch desktopを検証済み入力から生成する。
+///
+/// @responsibility launch desktopを検証済み入力から生成する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 完了または拒否後に、所有するResourceの状態を観測可能な形へ確定する。
+/// @effect 対象のNative ResourceまたはProcessだけへ限定Effectを発行する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency 所有Handleと終了観測を同じ呼出しlifecycleへ限定し、競合時は安全側に失敗する。
 fn launch_desktop(artifacts: &mut [LockedArtifact]) -> u8 {
     if !verify_locked_artifacts(artifacts) {
         return b'N';
@@ -776,6 +1259,20 @@ fn launch_desktop(artifacts: &mut [LockedArtifact]) -> u8 {
     .0
 }
 
+/// responseを固定形式で書き込む。
+///
+/// @responsibility responseを固定形式で書き込む責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn write_response(writer: &mut impl Write, status: u8, policy_hash: &[u8; 32]) -> bool {
     let mut response = [0_u8; RESPONSE_BYTES];
     response[..8].copy_from_slice(RESPONSE_MAGIC);
@@ -784,6 +1281,20 @@ fn write_response(writer: &mut impl Write, status: u8, policy_hash: &[u8; 32]) -
     writer.write_all(&response).is_ok() && writer.flush().is_ok()
 }
 
+/// Docker Desktop修復のrun責務を実行する。
+///
+/// @responsibility Docker Desktop修復のrun責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 pub(crate) fn run(reader: &mut impl Read, writer: &mut impl Write) -> i32 {
     let Some(policy_hash) = sha256_bytes(RESTART_POLICY) else {
         return 2;
@@ -849,12 +1360,39 @@ pub(crate) fn run(reader: &mut impl Read, writer: &mut impl Write) -> i32 {
 }
 
 /// Separate trust contract for restart; legacy repair records keep their policy.
+///
+/// @responsibility Docker Desktop修復のstdin cancelled責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn stdin_cancelled() -> bool {
     // SAFETY: borrowed standard handle, never closed here.
     let input = unsafe { GetStdHandle(STD_INPUT_HANDLE) };
     pipe_cancelled(input)
 }
 
+/// Docker Desktop修復のpipe cancelled責務を実行する。
+///
+/// @responsibility Docker Desktop修復のpipe cancelled責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn pipe_cancelled(input: HANDLE) -> bool {
     if input.is_null() || input == INVALID_HANDLE_VALUE {
         return true;
@@ -865,6 +1403,20 @@ fn pipe_cancelled(input: HANDLE) -> bool {
         || available != 0
 }
 
+/// stop desktopを終了し終了後状態を観測する。
+///
+/// @responsibility stop desktopを終了し終了後状態を観測する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 完了または拒否後に、所有するResourceの状態を観測可能な形へ確定する。
+/// @effect 対象のNative ResourceまたはProcessだけへ限定Effectを発行する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency 所有Handleと終了観測を同じ呼出しlifecycleへ限定し、競合時は安全側に失敗する。
 fn stop_desktop(
     artifacts: &mut [LockedArtifact],
     mut cancelled: impl FnMut() -> bool,
@@ -909,10 +1461,38 @@ fn stop_desktop(
     }
 }
 
+/// Docker Desktop修復のrestart command is allowed責務を実行する。
+///
+/// @responsibility Docker Desktop修復のrestart command is allowed責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 完了または拒否後に、所有するResourceの状態を観測可能な形へ確定する。
+/// @effect 対象のNative ResourceまたはProcessだけへ限定Effectを発行する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency 所有Handleと終了観測を同じ呼出しlifecycleへ限定し、競合時は安全側に失敗する。
 fn restart_command_is_allowed(command: u8) -> bool {
     matches!(command, b'V' | b'B' | b'I' | b'S' | b'L' | b'Q')
 }
 
+/// Docker Desktop修復のrun restart責務を実行する。
+///
+/// @responsibility Docker Desktop修復のrun restart責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 完了または拒否後に、所有するResourceの状態を観測可能な形へ確定する。
+/// @effect 対象のNative ResourceまたはProcessだけへ限定Effectを発行する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency 所有Handleと終了観測を同じ呼出しlifecycleへ限定し、競合時は安全側に失敗する。
 pub(crate) fn run_restart<R: Read, W: Write>(reader: &mut R, writer: &mut W) -> i32 {
     let Some(policy_hash) = sha256_bytes(RESTART_POLICY) else {
         return 2;

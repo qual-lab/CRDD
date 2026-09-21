@@ -1,3 +1,9 @@
+/**
+ * provider-eligibility-runtimeに属する責務をまとめる。
+ *
+ * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 export const PROVIDER_ELIGIBILITY_RUNTIME_CONTRACT =
@@ -20,9 +26,9 @@ const OBSERVATION_STATES = new Set([
 ]);
 
 /**
- * Providerが扱う値の構造を表す。
+ * provider-eligibility-runtimeで使用するProviderの値契約を定義する。
  *
- * @responsibility Providerに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ProviderのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Providerで宣言した値と責務の対応を維持する。
@@ -32,9 +38,9 @@ const OBSERVATION_STATES = new Set([
  */
 type Provider = "codex" | "claude";
 /**
- * ObservationStateが扱う値の構造を表す。
+ * provider-eligibility-runtimeで使用するObservation 状態の値契約を定義する。
  *
- * @responsibility ObservationStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Observation 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape ObservationStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ObservationStateで宣言した値と責務の対応を維持する。
@@ -49,9 +55,9 @@ type ObservationState =
   | "unavailable"
   | "unknown";
 /**
- * ProviderObservationが扱う値の構造を表す。
+ * provider-eligibility-runtimeで使用するProvider Observationの値契約を定義する。
  *
- * @responsibility ProviderObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Provider ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape ProviderObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProviderObservationで宣言した値と責務の対応を維持する。
@@ -67,9 +73,9 @@ type ProviderObservation = Readonly<{
   policy: ObservationState;
 }>;
 /**
- * RuntimeDependenciesが扱う値の構造を表す。
+ * provider-eligibility-runtimeで使用するRuntime Dependenciesの値契約を定義する。
  *
- * @responsibility RuntimeDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape RuntimeDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeDependenciesで宣言した値と責務の対応を維持する。
@@ -82,9 +88,9 @@ type RuntimeDependencies = Readonly<{
 }>;
 
 /**
- * snapshotProviderObservationの処理を実行する。
+ * Provider Observationを所有Snapshotへ変換する。
  *
- * @responsibility snapshotProviderObservationに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Observationの取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000010
  * @input rawObservation: unknown
  * @returns snapshotProviderObservationの計算結果を返す。
@@ -119,9 +125,9 @@ function snapshotProviderObservation(rawObservation: unknown) {
 }
 
 /**
- * createEligibilityの処理を実行する。
+ * Eligibilityを構築する。
  *
- * @responsibility createEligibilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Eligibilityの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000010
  * @input provider: Provider、observation: ProviderObservation | null
  * @returns createEligibilityの計算結果を返す。
@@ -224,9 +230,9 @@ function createEligibility(
 }
 
 /**
- * observeEligibilityの処理を実行する。
+ * Eligibilityを観測する。
  *
- * @responsibility observeEligibilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Eligibilityの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000010
  * @input dependencies: RuntimeDependencies
  * @returns observeEligibilityの計算結果を返す。
@@ -265,9 +271,9 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
 });
 
 /**
- * observeRuntimeOwnedProviderEligibilityの処理を実行する。
+ * Runtime 所有 Provider Eligibilityを観測する。
  *
- * @responsibility observeRuntimeOwnedProviderEligibilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Provider Eligibilityの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000010
  * @input N/A: 実行時引数を受け取らない。
  * @returns observeRuntimeOwnedProviderEligibilityの計算結果を返す。
@@ -285,9 +291,9 @@ export function observeRuntimeOwnedProviderEligibility() {
 }
 
 /**
- * createIsolatedProviderEligibilityRuntimeCandidateの処理を実行する。
+ * Isolated Provider Eligibility Runtime 候補を構築する。
  *
- * @responsibility createIsolatedProviderEligibilityRuntimeCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Isolated Provider Eligibility Runtime 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000010
  * @input dependencies: RuntimeDependencies
  * @returns createIsolatedProviderEligibilityRuntimeCandidateの計算結果を返す。
@@ -310,9 +316,9 @@ export function createIsolatedProviderEligibilityRuntimeCandidate(
 }
 
 /**
- * describeProviderEligibilityRuntimeContractの処理を実行する。
+ * Provider Eligibility Runtime 契約の公開契約を記述する。
  *
- * @responsibility describeProviderEligibilityRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Eligibility Runtime 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000010
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProviderEligibilityRuntimeContractの計算結果を返す。

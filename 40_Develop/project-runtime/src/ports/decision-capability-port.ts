@@ -1,7 +1,13 @@
 /**
- * ProjectRuntimeDecisionCapabilityが扱う値の構造を表す。
+ * decision-capability-portに属する責務をまとめる。
  *
- * @responsibility ProjectRuntimeDecisionCapabilityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ProjectRuntimeDecisionCapabilityを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
+/**
+ * decision-capability-portで使用するProject Runtime Decision Capabilityの値契約を定義する。
+ *
+ * @responsibility Project Runtime Decision CapabilityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeDecisionCapabilityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeDecisionCapabilityで宣言した値と責務の対応を維持する。
@@ -17,7 +23,7 @@ export type ProjectRuntimeDecisionCapability = Readonly<{
 /**
  * Host-owned cryptographic operations for one-time human decision capabilities.
  *
- * @responsibility ProjectRuntimeDecisionCapabilityPortに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Decision Capability PortのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeDecisionCapabilityPortが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeDecisionCapabilityPortで宣言した値と責務の対応を維持する。

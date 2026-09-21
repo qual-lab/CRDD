@@ -1,3 +1,9 @@
+/**
+ * semantic-bundleに属する責務をまとめる。
+ *
+ * @responsibility PublishSemanticCoverageRequestを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import {
   createSemanticBundle,
   type SemanticCoverageGraph,

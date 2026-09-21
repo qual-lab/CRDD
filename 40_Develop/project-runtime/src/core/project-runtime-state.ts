@@ -1,3 +1,9 @@
+/**
+ * project-runtime-stateに属する責務をまとめる。
+ *
+ * @responsibility ProjectTaskStateを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { normalizeRepositoryRelativePath } from "../boundary/repository-relative-path.ts";
 
 export const PROJECT_RUNTIME_STATE_CONTRACT =
@@ -7,9 +13,9 @@ export const PROJECT_RUNTIME_MAXIMUM_OBJECTIVES = 128;
 export const PROJECT_RUNTIME_MAXIMUM_TASKS = 1024;
 
 /**
- * ProjectTaskStateが扱う値の構造を表す。
+ * project-runtime-stateで使用するProject Task 状態の値契約を定義する。
  *
- * @responsibility ProjectTaskStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Task 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectTaskStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectTaskStateで宣言した値と責務の対応を維持する。
@@ -31,9 +37,9 @@ export type ProjectTaskState =
   | "superseded";
 
 /**
- * ProjectObjectiveStateが扱う値の構造を表す。
+ * project-runtime-stateで使用するProject Objective 状態の値契約を定義する。
  *
- * @responsibility ProjectObjectiveStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Objective 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectObjectiveStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectObjectiveStateで宣言した値と責務の対応を維持する。
@@ -50,9 +56,9 @@ export type ProjectObjectiveState =
   | "cancelled";
 
 /**
- * ProjectMilestoneStateが扱う値の構造を表す。
+ * project-runtime-stateで使用するProject Milestone 状態の値契約を定義する。
  *
- * @responsibility ProjectMilestoneStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Milestone 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectMilestoneStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectMilestoneStateで宣言した値と責務の対応を維持する。
@@ -92,9 +98,9 @@ const PROJECT_TASK_STATES = Object.freeze([
 ] as const);
 
 /**
- * ProjectObjectiveDefinitionが扱う値の構造を表す。
+ * project-runtime-stateで使用するProject Objective Definitionの値契約を定義する。
  *
- * @responsibility ProjectObjectiveDefinitionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Objective DefinitionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectObjectiveDefinitionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectObjectiveDefinitionで宣言した値と責務の対応を維持する。
@@ -108,9 +114,9 @@ export type ProjectObjectiveDefinition = Readonly<{
 }>;
 
 /**
- * ProjectObjectiveRecordが扱う値の構造を表す。
+ * project-runtime-stateで使用するProject Objective 記録の値契約を定義する。
  *
- * @responsibility ProjectObjectiveRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Objective 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectObjectiveRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectObjectiveRecordで宣言した値と責務の対応を維持する。
@@ -125,9 +131,9 @@ export type ProjectObjectiveRecord = Readonly<{
 }>;
 
 /**
- * ProjectMilestoneRecordが扱う値の構造を表す。
+ * project-runtime-stateで使用するProject Milestone 記録の値契約を定義する。
  *
- * @responsibility ProjectMilestoneRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Milestone 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectMilestoneRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectMilestoneRecordで宣言した値と責務の対応を維持する。
@@ -143,9 +149,9 @@ export type ProjectMilestoneRecord = Readonly<{
 }>;
 
 /**
- * ProjectTaskDefinitionが扱う値の構造を表す。
+ * project-runtime-stateで使用するProject Task Definitionの値契約を定義する。
  *
- * @responsibility ProjectTaskDefinitionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Task DefinitionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectTaskDefinitionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectTaskDefinitionで宣言した値と責務の対応を維持する。
@@ -162,9 +168,9 @@ export type ProjectTaskDefinition = Readonly<{
 }>;
 
 /**
- * ProjectTaskRecoveryKindが扱う値の構造を表す。
+ * project-runtime-stateで使用するProject Task 回復 Kindの値契約を定義する。
  *
- * @responsibility ProjectTaskRecoveryKindに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Task 回復 KindのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectTaskRecoveryKindが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectTaskRecoveryKindで宣言した値と責務の対応を維持する。
@@ -180,9 +186,9 @@ export type ProjectTaskRecoveryKind =
   | "runtime_process";
 
 /**
- * ProjectTaskRecoveryObligationが扱う値の構造を表す。
+ * project-runtime-stateで使用するProject Task 回復 Obligationの値契約を定義する。
  *
- * @responsibility ProjectTaskRecoveryObligationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Task 回復 ObligationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectTaskRecoveryObligationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectTaskRecoveryObligationで宣言した値と責務の対応を維持する。
@@ -198,9 +204,9 @@ export type ProjectTaskRecoveryObligation = Readonly<{
 }>;
 
 /**
- * ProjectDockerRecoveryAcknowledgementが扱う値の構造を表す。
+ * project-runtime-stateで使用するProject Docker 回復 Acknowledgementの値契約を定義する。
  *
- * @responsibility ProjectDockerRecoveryAcknowledgementに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Docker 回復 AcknowledgementのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectDockerRecoveryAcknowledgementが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectDockerRecoveryAcknowledgementで宣言した値と責務の対応を維持する。
@@ -228,9 +234,9 @@ export type ProjectDockerRecoveryAcknowledgement = Readonly<{
 }>;
 
 /**
- * ProjectTaskStartPhaseが扱う値の構造を表す。
+ * project-runtime-stateで使用するProject Task Start Phaseの値契約を定義する。
  *
- * @responsibility ProjectTaskStartPhaseに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Task Start PhaseのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectTaskStartPhaseが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectTaskStartPhaseで宣言した値と責務の対応を維持する。
@@ -246,9 +252,9 @@ export type ProjectTaskStartPhase =
   | "settled";
 
 /**
- * ProjectTaskRecordが扱う値の構造を表す。
+ * project-runtime-stateで使用するProject Task 記録の値契約を定義する。
  *
- * @responsibility ProjectTaskRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Task 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectTaskRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectTaskRecordで宣言した値と責務の対応を維持する。
@@ -272,9 +278,9 @@ export type ProjectTaskRecord = Readonly<{
 }>;
 
 /**
- * ProjectRuntimeStateが扱う値の構造を表す。
+ * project-runtime-stateで使用するProject Runtime 状態の値契約を定義する。
  *
- * @responsibility ProjectRuntimeStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeStateで宣言した値と責務の対応を維持する。
@@ -297,9 +303,9 @@ export type ProjectRuntimeState = Readonly<{
 }>;
 
 /**
- * ProjectRuntimeProjectionが扱う値の構造を表す。
+ * project-runtime-stateで使用するProject Runtime Projectionの値契約を定義する。
  *
- * @responsibility ProjectRuntimeProjectionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime ProjectionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeProjectionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeProjectionで宣言した値と責務の対応を維持する。
@@ -340,7 +346,7 @@ export type ProjectRuntimeProjection = Readonly<{
 /**
  * Validate only semantic relations carried by the public projection itself.
  *
- * @responsibility isProjectRuntimeProjectionSemanticallyValidに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Projection Semantically Validの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000004
  * @input projection: ProjectRuntimeProjection
  * @returns isProjectRuntimeProjectionSemanticallyValidの計算結果を返す。
@@ -540,7 +546,7 @@ export function isProjectRuntimeProjectionSemanticallyValid(
 /**
  * Validate the relation between the public Objective result and its already
  *
- * @responsibility isProjectRuntimeObjectiveProjectionCorrelationValidに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Objective Projection Correlation Validの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000004
  * @input outer: Readonly<{ status: "completed" | "blocked" | "cancelled"; cleanupConfirmed: boolean; manualRecoveryRequired: boolean; processRestartRequired: boolean; effectState: "no_effect" | "settled" | "unknown"; recoveryCount: number; }>、projection: ProjectRuntimeProjection | null
  * @returns isProjectRuntimeObjectiveProjectionCorrelationValidの計算結果を返す。
@@ -592,9 +598,9 @@ export function isProjectRuntimeObjectiveProjectionCorrelationValid(
 }
 
 /**
- * StateResultが扱う値の構造を表す。
+ * project-runtime-stateで使用する状態 結果の値契約を定義する。
  *
- * @responsibility StateResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 状態 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape StateResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant StateResultで宣言した値と責務の対応を維持する。
@@ -617,9 +623,9 @@ type StateResult =
     }>;
 
 /**
- * validIdentityの処理を実行する。
+ * Identityが有効か判定する。
  *
- * @responsibility validIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Identityの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns validIdentityの計算結果を返す。
@@ -642,9 +648,9 @@ function validIdentity(value: unknown) {
 }
 
 /**
- * validRevisionの処理を実行する。
+ * Revisionが有効か判定する。
  *
- * @responsibility validRevisionに対応する入力処理と結果生成を所有する。
+ * @responsibility Revisionの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns validRevisionの計算結果を返す。
@@ -662,9 +668,9 @@ function validRevision(value: unknown) {
 }
 
 /**
- * validCandidateIdentityの処理を実行する。
+ * 候補 Identityが有効か判定する。
  *
- * @responsibility validCandidateIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility 候補 Identityの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns validCandidateIdentityの計算結果を返す。
@@ -687,9 +693,9 @@ function validCandidateIdentity(value: unknown) {
 }
 
 /**
- * isProjectRuntimeRecoveryIdentityの処理を実行する。
+ * Project Runtime 回復 Identityかを判定する。
  *
- * @responsibility isProjectRuntimeRecoveryIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime 回復 Identityの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -714,9 +720,9 @@ export function isProjectRuntimeRecoveryIdentity(
 }
 
 /**
- * uniqueStringsの処理を実行する。
+ * Stringsを重複のない順序へ正規化する。
  *
- * @responsibility uniqueStringsに対応する入力処理と結果生成を所有する。
+ * @responsibility Stringsの重複判定、順序規則、結果集合境界を所有する。
  * @trace ARCH-000004
  * @input values: readonly string[]、maximum: number、kind: "identity_or_path" | "repository_path" | "human_text"
  * @returns readonly string[] | nullを返す。
@@ -756,9 +762,9 @@ function uniqueStrings(
 }
 
 /**
- * snapshotDefinitionの処理を実行する。
+ * Definitionを所有Snapshotへ変換する。
  *
- * @responsibility snapshotDefinitionに対応する入力処理と結果生成を所有する。
+ * @responsibility Definitionの取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000004
  * @input definition: ProjectTaskDefinition
  * @returns ProjectTaskDefinition | nullを返す。
@@ -808,9 +814,9 @@ function snapshotDefinition(
 }
 
 /**
- * snapshotObjectiveDefinitionの処理を実行する。
+ * Objective Definitionを所有Snapshotへ変換する。
  *
- * @responsibility snapshotObjectiveDefinitionに対応する入力処理と結果生成を所有する。
+ * @responsibility Objective Definitionの取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000004
  * @input definition: ProjectObjectiveDefinition
  * @returns ProjectObjectiveDefinition | nullを返す。
@@ -837,9 +843,9 @@ function snapshotObjectiveDefinition(
 }
 
 /**
- * hasCycleの処理を実行する。
+ * Cycleが存在するかを判定する。
  *
- * @responsibility hasCycleに対応する入力処理と結果生成を所有する。
+ * @responsibility Cycleの存在条件とtrue／false境界を所有する。
  * @trace ARCH-000004
  * @input definitions: readonly ProjectTaskDefinition[]
  * @returns hasCycleの計算結果を返す。
@@ -873,9 +879,9 @@ function hasCycle(definitions: readonly ProjectTaskDefinition[]) {
 }
 
 /**
- * projectStateの処理を実行する。
+ * 状態を公開結果へ投影する。
  *
- * @responsibility projectStateに対応する入力処理と結果生成を所有する。
+ * @responsibility 状態の公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input state: Omit<ProjectRuntimeState, "contract">
  * @returns ProjectRuntimeStateを返す。
@@ -901,9 +907,9 @@ function projectState(
 }
 
 /**
- * createProjectRuntimeStateの処理を実行する。
+ * Project Runtime 状態を構築する。
  *
- * @responsibility createProjectRuntimeStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime 状態の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input input: Readonly<{ projectId: string; milestoneId: string; repositoryRevision: string; maximumConcurrency: number; milestoneAcceptanceCriteria: readonly string[]; objectives: readonly ProjectObjectiveDefinition[]; tasks: readonly ProjectTaskDefinition[]; ownerGeneration: string; }>
  * @returns StateResultを返す。
@@ -1061,9 +1067,9 @@ export function createProjectRuntimeState(
 }
 
 /**
- * activeForCapacityの処理を実行する。
+ * For Capacityが有効な状態か判定する。
  *
- * @responsibility activeForCapacityに対応する入力処理と結果生成を所有する。
+ * @responsibility For Capacityの有効状態条件と判定結果境界を所有する。
  * @trace ARCH-000004
  * @input task: ProjectTaskRecord
  * @returns activeForCapacityの計算結果を返す。
@@ -1086,9 +1092,9 @@ function activeForCapacity(task: ProjectTaskRecord) {
 }
 
 /**
- * reservesConflictの処理を実行する。
+ * reserves Conflictを決定する。
  *
- * @responsibility reservesConflictに対応する入力処理と結果生成を所有する。
+ * @responsibility reserves Conflictの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input task: ProjectTaskRecord
  * @returns reservesConflictの計算結果を返す。
@@ -1110,9 +1116,9 @@ function reservesConflict(task: ProjectTaskRecord) {
 }
 
 /**
- * normalizedConflictPathsの処理を実行する。
+ * Conflict Pathsを固定Schemaへ正規化する。
  *
- * @responsibility normalizedConflictPathsに対応する入力処理と結果生成を所有する。
+ * @responsibility Conflict Pathsの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000004
  * @input task: ProjectTaskRecord
  * @returns normalizedConflictPathsの計算結果を返す。
@@ -1132,9 +1138,9 @@ function normalizedConflictPaths(task: ProjectTaskRecord) {
 }
 
 /**
- * conflictsの処理を実行する。
+ * conflictsを決定する。
  *
- * @responsibility conflictsに対応する入力処理と結果生成を所有する。
+ * @responsibility conflictsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input left: ProjectTaskRecord、right: ProjectTaskRecord
  * @returns conflictsの計算結果を返す。
@@ -1168,9 +1174,9 @@ function conflicts(left: ProjectTaskRecord, right: ProjectTaskRecord) {
 }
 
 /**
- * selectSchedulableProjectTasksの処理を実行する。
+ * Schedulable Project Tasksを選択する。
  *
- * @responsibility selectSchedulableProjectTasksに対応する入力処理と結果生成を所有する。
+ * @responsibility Schedulable Project Tasksの候補集合、選択理由、選択不能時の境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState
  * @returns readonly string[]を返す。
@@ -1207,9 +1213,9 @@ export function selectSchedulableProjectTasks(
 }
 
 /**
- * replaceTaskの処理を実行する。
+ * replace Taskを決定する。
  *
- * @responsibility replaceTaskに対応する入力処理と結果生成を所有する。
+ * @responsibility replace Taskの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState、taskId: string、update: (task: ProjectTaskRecord) => ProjectTaskRecord
  * @returns replaceTaskの計算結果を返す。
@@ -1233,9 +1239,9 @@ function replaceTask(
 }
 
 /**
- * reserveProjectTaskStartの処理を実行する。
+ * reserve Project Task Startを決定する。
  *
- * @responsibility reserveProjectTaskStartに対応する入力処理と結果生成を所有する。
+ * @responsibility reserve Project Task Startの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState、expectedGeneration: number、taskId: string、attemptId: string、authorityBindingId: string
  * @returns StateResultを返す。
@@ -1316,9 +1322,9 @@ export function reserveProjectTaskStart(
 }
 
 /**
- * prepareProjectTaskHandoffの処理を実行する。
+ * Project Task Handoffを実行前候補として準備する。
  *
- * @responsibility prepareProjectTaskHandoffに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Task Handoffの準備条件、候補Identity、Effect前の拒否境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState、expectedGeneration: number、taskId: string、attemptId: string、operationId: string
  * @returns StateResultを返す。
@@ -1372,9 +1378,9 @@ export function prepareProjectTaskHandoff(
 }
 
 /**
- * observeProjectTaskStartedの処理を実行する。
+ * Project Task Startedを観測する。
  *
- * @responsibility observeProjectTaskStartedに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Task Startedの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState、expectedGeneration: number、taskId: string、attemptId: string、operationId: string
  * @returns StateResultを返す。
@@ -1427,9 +1433,9 @@ export function observeProjectTaskStarted(
 }
 
 /**
- * settleProjectTaskの処理を実行する。
+ * Project Taskを終端状態へ確定する。
  *
- * @responsibility settleProjectTaskに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Taskの確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState、expectedGeneration: number、input: Readonly<{ taskId: string; attemptId: string; operationId: string; authorityBindingId: string; outcome: "completed" | "failed" | "cancelled" | "recovery_required"; cleanupConfirmed: boolean; recoveryObligations: readonly ProjectTaskRecoveryObligation[]; recoveryUnresolved: boolean; candidateId?: string | null; }>
  * @returns StateResultを返す。
@@ -1590,7 +1596,7 @@ export function settleProjectTask(
 /**
  * Settle a durably prepared attempt that the Single Task Runtime did not
  *
- * @responsibility settleProjectTaskBeforeEffectに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Task Before Effectの確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState、expectedGeneration: number、input: Readonly<{ taskId: string; attemptId: string; operationId: string; authorityBindingId: string; outcome: "failed" | "cancelled" | "recovery_required"; cleanupConfirmed: boolean; recoveryObligations: readonly ProjectTaskRecoveryObligation[]; recoveryUnresolved: boolean; }>
  * @returns StateResultを返す。
@@ -1701,9 +1707,9 @@ export function settleProjectTaskBeforeEffect(
 }
 
 /**
- * markProjectTaskRecoveryObligationRecoveringの処理を実行する。
+ * mark Project Task 回復 Obligation Recoveringを決定する。
  *
- * @responsibility markProjectTaskRecoveryObligationRecoveringに対応する入力処理と結果生成を所有する。
+ * @responsibility mark Project Task 回復 Obligation Recoveringの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState、expectedGeneration: number、taskId: string、kind: ProjectTaskRecoveryKind、recoveryId: string
  * @returns StateResultを返す。
@@ -1766,9 +1772,9 @@ export function markProjectTaskRecoveryObligationRecovering(
 }
 
 /**
- * settleProjectTaskRecoveryObligationの処理を実行する。
+ * Project Task 回復 Obligationを終端状態へ確定する。
  *
- * @responsibility settleProjectTaskRecoveryObligationに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Task 回復 Obligationの確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState、expectedGeneration: number、taskId: string、kind: ProjectTaskRecoveryKind、recoveryId: string
  * @returns StateResultを返す。
@@ -1831,9 +1837,9 @@ export function settleProjectTaskRecoveryObligation(
 }
 
 /**
- * acknowledgeProjectDockerRecoveryObligationの処理を実行する。
+ * Project Docker 回復 Obligationを確認済みとして記録する。
  *
- * @responsibility acknowledgeProjectDockerRecoveryObligationに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Docker 回復 Obligationの確認入力、状態遷移、重複処理境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState、expectedGeneration: number、acknowledgement: ProjectDockerRecoveryAcknowledgement
  * @returns StateResultを返す。
@@ -1921,9 +1927,9 @@ export function acknowledgeProjectDockerRecoveryObligation(
 }
 
 /**
- * retrySettledProjectTaskRecoveriesの処理を実行する。
+ * retry Settled Project Task Recoveriesを決定する。
  *
- * @responsibility retrySettledProjectTaskRecoveriesに対応する入力処理と結果生成を所有する。
+ * @responsibility retry Settled Project Task Recoveriesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState、expectedGeneration: number、taskIds: readonly string[]
  * @returns StateResultを返す。
@@ -2022,7 +2028,7 @@ export function retrySettledProjectTaskRecoveries(
 /**
  * Bind owner-loss observations to the exact Runtime-owned Task recoveries.
  *
- * @responsibility recordProjectTaskOwnerLossRecoveriesに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-stateの入力からrecord Project Task 所有者 Loss Recoveriesを導く規則と結果境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState、expectedGeneration: number、bindings: readonly Readonly<{ operationId: string; status: "matched" | "verified_absent"; recoveryId: string | null; }>[]
  * @returns StateResultを返す。
@@ -2160,7 +2166,7 @@ export function recordProjectTaskOwnerLossRecoveries(
 /**
  * Replace only a failed task inside the already-authorized milestone scope.
  *
- * @responsibility applyProjectRuntimePartialReplanに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Partial Replanの適用条件、変更結果、拒否境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState、expectedGeneration: number、input: Readonly<{ failedTaskId: string; replacements: readonly ProjectTaskDefinition[]; maximumReplans: number; }>
  * @returns StateResultを返す。
@@ -2307,7 +2313,7 @@ export function applyProjectRuntimePartialReplan(
 /**
  * Retry the same bounded task definition without reusing its prior attempt or
  *
- * @responsibility retryProjectRuntimeTaskに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-stateの入力からretry Project Runtime Taskを導く規則と結果境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState、expectedGeneration: number、taskId: string、maximumReplans: number
  * @returns StateResultを返す。
@@ -2380,9 +2386,9 @@ export function retryProjectRuntimeTask(
 }
 
 /**
- * requestProjectRuntimeHumanDecisionの処理を実行する。
+ * Project Runtime Human Decisionを要求する。
  *
- * @responsibility requestProjectRuntimeHumanDecisionに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Human Decisionの要求条件、受理結果、Effect未成立との分離境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState、expectedGeneration: number、objectiveId: string
  * @returns StateResultを返す。
@@ -2437,9 +2443,9 @@ export function requestProjectRuntimeHumanDecision(
 }
 
 /**
- * applyProjectRuntimeHumanDecisionの処理を実行する。
+ * Project Runtime Human Decisionを適用する。
  *
- * @responsibility applyProjectRuntimeHumanDecisionに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Human Decisionの適用条件、変更結果、拒否境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState、expectedGeneration: number、action: "resume" | "cancel"、applicationId: string
  * @returns StateResultを返す。
@@ -2490,9 +2496,9 @@ export function applyProjectRuntimeHumanDecision(
 }
 
 /**
- * recordObjectiveIntegrationの処理を実行する。
+ * record Objective Integrationを決定する。
  *
- * @responsibility recordObjectiveIntegrationに対応する入力処理と結果生成を所有する。
+ * @responsibility record Objective Integrationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState、expectedGeneration: number、objectiveId: string、input: Readonly<{ accepted: boolean; criterionEvidenceIds: readonly string[]; }>
  * @returns StateResultを返す。
@@ -2567,9 +2573,9 @@ export function recordObjectiveIntegration(
 }
 
 /**
- * recordMilestoneIntegrationの処理を実行する。
+ * record Milestone Integrationを決定する。
  *
- * @responsibility recordMilestoneIntegrationに対応する入力処理と結果生成を所有する。
+ * @responsibility record Milestone Integrationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState、expectedGeneration: number、criterionEvidenceIds: readonly string[]
  * @returns StateResultを返す。
@@ -2618,9 +2624,9 @@ export function recordMilestoneIntegration(
 }
 
 /**
- * countStatesの処理を実行する。
+ * Statesの件数を算出する。
  *
- * @responsibility countStatesに対応する入力処理と結果生成を所有する。
+ * @responsibility Statesの計数対象、集計規則、件数結果境界を所有する。
  * @trace ARCH-000004
  * @input values: readonly T[]、states: readonly T[]
  * @returns Readonly<Record<T, number>>を返す。
@@ -2648,9 +2654,9 @@ function countStates<T extends string>(
 }
 
 /**
- * projectProjectRuntimeStateの処理を実行する。
+ * Project Runtime 状態を公開結果へ投影する。
  *
- * @responsibility projectProjectRuntimeStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime 状態の公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState
  * @returns ProjectRuntimeProjectionを返す。
@@ -2744,9 +2750,9 @@ export function projectProjectRuntimeState(
 }
 
 /**
- * describeProjectRuntimeStateContractの処理を実行する。
+ * Project Runtime 状態 契約の公開契約を記述する。
  *
- * @responsibility describeProjectRuntimeStateContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime 状態 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProjectRuntimeStateContractの計算結果を返す。

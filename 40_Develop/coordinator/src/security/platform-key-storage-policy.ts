@@ -1,3 +1,9 @@
+/**
+ * platform-key-storage-policyに属する責務をまとめる。
+ *
+ * @responsibility PlatformFamilyを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { inspectProvisioningP256SpkiCandidate } from "./provisioning-signature-primitives.ts";
 
@@ -28,9 +34,9 @@ const PLATFORM_POLICIES = Object.freeze({
 });
 
 /**
- * PlatformFamilyが扱う値の構造を表す。
+ * platform-key-storage-policyで使用するPlatform Familyの値契約を定義する。
  *
- * @responsibility PlatformFamilyに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Platform FamilyのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape PlatformFamilyが表すProperty、識別子およびRelationを型として固定する。
  * @invariant PlatformFamilyで宣言した値と責務の対応を維持する。
@@ -41,9 +47,9 @@ const PLATFORM_POLICIES = Object.freeze({
 type PlatformFamily = keyof typeof PLATFORM_POLICIES;
 
 /**
- * resultの処理を実行する。
+ * resultを決定する。
  *
- * @responsibility resultに対応する入力処理と結果生成を所有する。
+ * @responsibility resultの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input status: S、reason: string、details: T
  * @returns resultの計算結果を返す。
@@ -75,9 +81,9 @@ function result<const S extends string, T extends Record<string, unknown>>(
 }
 
 /**
- * isPlatformFamilyの処理を実行する。
+ * Platform Familyかを判定する。
  *
- * @responsibility isPlatformFamilyに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Familyの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input value: string
  * @returns value is PlatformFamilyを返す。
@@ -95,9 +101,9 @@ function isPlatformFamily(value: string): value is PlatformFamily {
 }
 
 /**
- * evaluatePlatformKeyStoragePolicyCandidateの処理を実行する。
+ * Platform Key Storage Policy 候補を評価する。
  *
- * @responsibility evaluatePlatformKeyStoragePolicyCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Key Storage Policy 候補の評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input rawInput: unknown
  * @returns evaluatePlatformKeyStoragePolicyCandidateの計算結果を返す。
@@ -162,9 +168,9 @@ export function evaluatePlatformKeyStoragePolicyCandidate(rawInput: unknown) {
 }
 
 /**
- * describePlatformKeyStoragePolicyContractの処理を実行する。
+ * Platform Key Storage Policy 契約の公開契約を記述する。
  *
- * @responsibility describePlatformKeyStoragePolicyContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Key Storage Policy 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describePlatformKeyStoragePolicyContractの計算結果を返す。

@@ -6,7 +6,7 @@
  * @trace PPR-IT-018
  * @level IT
  * @scope runtime、traceability
- * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ * @boundary PPR-IT-018=Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -30,7 +30,7 @@ const repositoryRoot = path.resolve(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ * @boundary PPR-IT-018=Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
  */
 function currentTrace(): unknown {
   return JSON.parse(
@@ -54,7 +54,7 @@ function currentTrace(): unknown {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ * @boundary PPR-IT-018=Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
  */
 function repositoryReader(repositoryRelativePath: string): string | null {
   try {
@@ -77,7 +77,7 @@ function repositoryReader(repositoryRelativePath: string): string | null {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ * @boundary PPR-IT-018=Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
  */
 test("Coordinator Runtime TraceはArchitecture・実在試験・検証区分を閉じる", () => {
   assert.deepEqual(
@@ -104,7 +104,7 @@ test("Coordinator Runtime TraceはArchitecture・実在試験・検証区分を�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ * @boundary PPR-IT-018=Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
  */
 test("参照切れ・孤立・必要検証区分の欠落を一括して拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
@@ -163,7 +163,7 @@ test("参照切れ・孤立・必要検証区分の欠落を一括して拒否�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ * @boundary PPR-IT-018=Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
  */
 test("Architectureまたは実在する試験名に接続できないTraceを拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
@@ -192,7 +192,7 @@ test("Architectureまたは実在する試験名に接続できないTraceを拒
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ * @boundary PPR-IT-018=Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
  */
 test("effect観測scopeとCanonical case完全一致assertionの無いTraceを拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
@@ -237,7 +237,7 @@ test("effect観測scopeとCanonical case完全一致assertionの無いTraceを�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ * @boundary PPR-IT-018=Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
  */
 test("Trace entityの欠落・余分field、risk typo、terminal内遷移と観測境界差を拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
@@ -298,7 +298,7 @@ test("Trace entityの欠落・余分field、risk typo、terminal内遷移と観�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ * @boundary PPR-IT-018=Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
  */
 test("検証caseの開始状態・終了状態・資源意味とsource別区分欠落を拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
@@ -355,7 +355,7 @@ test("検証caseの開始状態・終了状態・資源意味とsource別区分�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ * @boundary PPR-IT-018=Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
  */
 test("検証caseのsource未接続・未観測資源・拒否結果の誤到達を拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
@@ -406,7 +406,7 @@ test("検証caseのsource未接続・未観測資源・拒否結果の誤到達�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ * @boundary PPR-IT-018=Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
  */
 test("bindingが宣言するだけでcaseが観測しない資源を拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
@@ -444,7 +444,7 @@ test("bindingが宣言するだけでcaseが観測しない資源を拒否する
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ * @boundary PPR-IT-018=Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
  */
 test("拒否試行を実遷移または状態変更として記録するTraceを拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
@@ -491,7 +491,7 @@ test("拒否試行を実遷移または状態変更として記録するTraceを
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ * @boundary PPR-IT-018=Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
  */
 test("operation terminalからの遷移と非terminalからのRecovery invocationを拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;

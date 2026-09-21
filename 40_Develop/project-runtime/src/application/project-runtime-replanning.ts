@@ -1,3 +1,9 @@
+/**
+ * project-runtime-replanningに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeReplanDecisionを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import {
   applyProjectRuntimePartialReplan,
   requestProjectRuntimeHumanDecision,
@@ -14,9 +20,9 @@ export const PROJECT_RUNTIME_REPLANNING_CONTRACT =
   "crdd-coordinator/project-runtime-replanning/v1" as const;
 
 /**
- * ProjectRuntimeReplanDecisionが扱う値の構造を表す。
+ * project-runtime-replanningで使用するProject Runtime Replan Decisionの値契約を定義する。
  *
- * @responsibility ProjectRuntimeReplanDecisionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Replan DecisionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeReplanDecisionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeReplanDecisionで宣言した値と責務の対応を維持する。
@@ -38,9 +44,9 @@ export type ProjectRuntimeReplanDecision =
   | Readonly<{ disposition: "maintain_plan"; reason: string }>;
 
 /**
- * ProjectRuntimeReplanInputが扱う値の構造を表す。
+ * project-runtime-replanningで使用するProject Runtime Replan 入力の値契約を定義する。
  *
- * @responsibility ProjectRuntimeReplanInputに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Replan 入力のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeReplanInputが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeReplanInputで宣言した値と責務の対応を維持する。
@@ -56,9 +62,9 @@ export type ProjectRuntimeReplanInput = Readonly<{
 }>;
 
 /**
- * ProjectRuntimeReplanClassifierが扱う値の構造を表す。
+ * project-runtime-replanningで使用するProject Runtime Replan Classifierの値契約を定義する。
  *
- * @responsibility ProjectRuntimeReplanClassifierに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Replan ClassifierのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeReplanClassifierが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeReplanClassifierで宣言した値と責務の対応を維持する。
@@ -75,9 +81,9 @@ export type ProjectRuntimeReplanClassifier = (
 ) => unknown;
 
 /**
- * validIdの処理を実行する。
+ * Idが有効か判定する。
  *
- * @responsibility validIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Idの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -98,9 +104,9 @@ function validId(value: unknown): value is string {
 }
 
 /**
- * validTextの処理を実行する。
+ * Textが有効か判定する。
  *
- * @responsibility validTextに対応する入力処理と結果生成を所有する。
+ * @responsibility Textの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -123,9 +129,9 @@ function validText(value: unknown): value is string {
 }
 
 /**
- * inspectStringsの処理を実行する。
+ * Stringsを観測する。
  *
- * @responsibility inspectStringsに対応する入力処理と結果生成を所有する。
+ * @responsibility Stringsの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown、maximum: number、isEmptyAllowed: boolean
  * @returns inspectStringsの計算結果を返す。
@@ -155,9 +161,9 @@ function inspectStrings(
 }
 
 /**
- * inspectTaskDefinitionの処理を実行する。
+ * Task Definitionを観測する。
  *
- * @responsibility inspectTaskDefinitionに対応する入力処理と結果生成を所有する。
+ * @responsibility Task Definitionの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns ProjectTaskDefinition | nullを返す。
@@ -197,9 +203,9 @@ function inspectTaskDefinition(value: unknown): ProjectTaskDefinition | null {
 }
 
 /**
- * inspectDecisionの処理を実行する。
+ * Decisionを観測する。
  *
- * @responsibility inspectDecisionに対応する入力処理と結果生成を所有する。
+ * @responsibility Decisionの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input raw: unknown
  * @returns ProjectRuntimeReplanDecision | nullを返す。
@@ -259,9 +265,9 @@ function inspectDecision(raw: unknown): ProjectRuntimeReplanDecision | null {
 }
 
 /**
- * blockedの処理を実行する。
+ * project-runtime-replanningを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-replanningの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000004
  * @input reason: string、isRecovery
  * @returns blockedの計算結果を返す。
@@ -288,7 +294,7 @@ function blocked(reason: string, isRecovery = false) {
 /**
  * Resolve one durable replan boundary without widening Milestone scope or authority.
  *
- * @responsibility resolveProjectRuntimeReplanに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Replanの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000004
  * @input statePort: ProjectRuntimeStatePort、input: ProjectRuntimeReplanInput、classify: ProjectRuntimeReplanClassifier
  * @returns resolveProjectRuntimeReplanの計算結果を返す。

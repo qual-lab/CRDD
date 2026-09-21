@@ -6,7 +6,7 @@
  * @trace PRL-ST-001
  * @level ST
  * @scope coordinator、docker、recovery、cli
- * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -32,7 +32,7 @@ const hostRecoveryId = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
  */
 function invokeCli(isJson: boolean) {
   return spawnSync(
@@ -59,7 +59,7 @@ function invokeCli(isJson: boolean) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
  */
 function addCleanupRecovery(root: string, discriminator: string) {
   const token = `docker-task.${discriminator.repeat(64)}.${discriminator.repeat(64)}.${discriminator.repeat(64)}`;
@@ -103,7 +103,7 @@ function addCleanupRecovery(root: string, discriminator: string) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
  */
 function inventory(rootPath: string) {
   return inspectDockerRecoveryRootSnapshotWithLock(
@@ -128,7 +128,7 @@ function inventory(rootPath: string) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
  */
 test("実CLIのdocker-task dispatchはJSONでexact IDと安全なblocked理由を返す", () => {
   const result = invokeCli(true);
@@ -153,7 +153,7 @@ test("実CLIのdocker-task dispatchはJSONでexact IDと安全なblocked理由�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
  */
 test("実CLIの再起動Fence付きdocker-task dispatchは修復記録の生成元配布RootをRecoveryへ渡す", () => {
   const repairId = `docker-desktop-repair.${"4".repeat(32)}`;
@@ -192,7 +192,7 @@ test("実CLIの再起動Fence付きdocker-task dispatchは修復記録の生成�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
  */
 test("実CLIのDocker Desktop最終砦はinvalid IDをusage 64、未成立境界をblocked 2へ投影する", () => {
   const executable = path.resolve("bin/coordinator.ts");
@@ -269,7 +269,7 @@ test("実CLIのDocker Desktop最終砦はinvalid IDをusage 64、未成立境界
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
  */
 test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じrendererへ投影する", async () => {
   const repairId = `docker-desktop-repair.${"b".repeat(32)}`;
@@ -411,7 +411,7 @@ test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じre
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
  */
 test("実CLIの人間表示はmanual recoveryとEvidence不明を示し反復実行を誘導しない", () => {
   const result = invokeCli(false);
@@ -435,7 +435,7 @@ test("実CLIの人間表示はmanual recoveryとEvidence不明を示し反復実
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
  */
 test("CLI共通projectorはEvidenceの保持・非保持・不明を推測せず分離する", () => {
   for (const [evidenceState, expected] of [
@@ -479,7 +479,7 @@ test("CLI共通projectorはEvidenceの保持・非保持・不明を推測せず
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
  */
 test("日本語の復旧表示は三値とJSON・終了コードを保持する", () => {
   for (const [observationConfirmed, expected] of [
@@ -530,7 +530,7 @@ test("日本語の復旧表示は三値とJSON・終了コードを保持する"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
  */
 test("日本語の手動復旧案内は復旧記録上限時の再試行・削除・改名禁止を保持する", () => {
   for (const reason of [
@@ -579,7 +579,7 @@ test("日本語の手動復旧案内は復旧記録上限時の再試行・削�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
  */
 test("日本語の環境診断は未実行・状態変更なし・認証値非記録を明示する", () => {
   const report = Object.freeze({
@@ -634,7 +634,7 @@ test("日本語の環境診断は未実行・状態変更なし・認証値非�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
  */
 test("CLI共通projectorはHost release不明時もexact IDと再実行commandを保持する", () => {
   const report = Object.freeze({
@@ -668,7 +668,7 @@ test("CLI共通projectorはHost release不明時もexact IDと再実行command�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
  */
 test("CLI共通projectorはvalid単一／複数inventoryをJSON／人間表示へexact投影する", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-cli-inventory-"));
@@ -712,7 +712,7 @@ test("CLI共通projectorはvalid単一／複数inventoryをJSON／人間表示�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
  */
 test("CLI共通projectorはthird stateをblocked、回復成功をexit 0へ分離する", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-cli-third-state-"));

@@ -1,7 +1,13 @@
 /**
- * DomainStatusが扱う値の構造を表す。
+ * outcomeに属する責務をまとめる。
  *
- * @responsibility DomainStatusに必要な値と制約を一つの型契約として保持する。
+ * @responsibility DomainStatusを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
+/**
+ * outcomeで使用するDomain Statusの値契約を定義する。
+ *
+ * @responsibility Domain StatusのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DomainStatusが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DomainStatusで宣言した値と責務の対応を維持する。
@@ -12,9 +18,9 @@
 export type DomainStatus = "complete" | "partial" | "invalid" | "unobservable";
 
 /**
- * DomainLocationが扱う値の構造を表す。
+ * outcomeで使用するDomain Locationの値契約を定義する。
  *
- * @responsibility DomainLocationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Domain LocationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DomainLocationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DomainLocationで宣言した値と責務の対応を維持する。
@@ -28,9 +34,9 @@ export type DomainLocation = Readonly<{
 }>;
 
 /**
- * DomainIssueが扱う値の構造を表す。
+ * outcomeで使用するDomain Issueの値契約を定義する。
  *
- * @responsibility DomainIssueに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Domain IssueのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DomainIssueが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DomainIssueで宣言した値と責務の対応を維持する。
@@ -47,9 +53,9 @@ export type DomainIssue = Readonly<{
 }>;
 
 /**
- * DomainOutcomeが扱う値の構造を表す。
+ * outcomeで使用するDomain Outcomeの値契約を定義する。
  *
- * @responsibility DomainOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Domain OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DomainOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DomainOutcomeで宣言した値と責務の対応を維持する。

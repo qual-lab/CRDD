@@ -1,3 +1,9 @@
+/**
+ * symbol-discoveryに属する責務をまとめる。
+ *
+ * @responsibility RealitySymbolDiscoverySourceを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import type { DomainIssue, DomainOutcome } from "../outcome.ts";
 import { createRealityDomainIssue } from "./domain-issue.ts";
 import { validateRealitySymbolAnnotations } from "./symbol-annotation.ts";
@@ -5,9 +11,9 @@ import type { LoadedRealitySymbolManifest } from "./symbol-manifest-model.ts";
 import { validateRealitySymbolManifest } from "./symbol-manifest-validator.ts";
 
 /**
- * RealitySymbolDiscoverySourceが扱う値の構造を表す。
+ * symbol-discoveryで使用するReality Symbol Discovery Sourceの値契約を定義する。
  *
- * @responsibility RealitySymbolDiscoverySourceに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Reality Symbol Discovery SourceのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RealitySymbolDiscoverySourceが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RealitySymbolDiscoverySourceで宣言した値と責務の対応を維持する。
@@ -24,9 +30,9 @@ export type RealitySymbolDiscoverySource = Readonly<{
 }>;
 
 /**
- * RealitySymbolDiscoveryRequestが扱う値の構造を表す。
+ * symbol-discoveryで使用するReality Symbol Discovery Requestの値契約を定義する。
  *
- * @responsibility RealitySymbolDiscoveryRequestに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Reality Symbol Discovery RequestのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RealitySymbolDiscoveryRequestが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RealitySymbolDiscoveryRequestで宣言した値と責務の対応を維持する。
@@ -40,9 +46,9 @@ export type RealitySymbolDiscoveryRequest = Readonly<{
 }>;
 
 /**
- * RealitySymbolDiscoveryResultが扱う値の構造を表す。
+ * symbol-discoveryで使用するReality Symbol Discovery 結果の値契約を定義する。
  *
- * @responsibility RealitySymbolDiscoveryResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Reality Symbol Discovery 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RealitySymbolDiscoveryResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RealitySymbolDiscoveryResultで宣言した値と責務の対応を維持する。
@@ -55,9 +61,9 @@ export type RealitySymbolDiscoveryResult = Readonly<{
 }>;
 
 /**
- * discoverRealitySymbolsの処理を実行する。
+ * Reality Symbolsを探索する。
  *
- * @responsibility discoverRealitySymbolsに対応する入力処理と結果生成を所有する。
+ * @responsibility Reality Symbolsの探索Root、対象母集団、未観測境界を所有する。
  * @trace ARCH-000008
  * @input request: RealitySymbolDiscoveryRequest
  * @returns DomainOutcome<RealitySymbolDiscoveryResult>を返す。

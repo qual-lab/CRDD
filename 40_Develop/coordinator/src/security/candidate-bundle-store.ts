@@ -1,3 +1,9 @@
+/**
+ * candidate-bundle-storeに属する責務をまとめる。
+ *
+ * @responsibility CandidateBundleを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000015
+ */
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -32,9 +38,9 @@ const STORE_LOCK_RETRY_MILLISECONDS = 10;
 const STORE_LOCK_STALE_OBSERVATION_MILLISECONDS = 5 * 60 * 1_000;
 
 /**
- * CandidateBundleが扱う値の構造を表す。
+ * candidate-bundle-storeで使用する候補 Bundleの値契約を定義する。
  *
- * @responsibility CandidateBundleに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 候補 BundleのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape CandidateBundleが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CandidateBundleで宣言した値と責務の対応を維持する。
@@ -60,9 +66,9 @@ type CandidateBundle = Readonly<{
   }>[];
 }>;
 /**
- * StoredCandidateが扱う値の構造を表す。
+ * candidate-bundle-storeで使用するStored 候補の値契約を定義する。
  *
- * @responsibility StoredCandidateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Stored 候補のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape StoredCandidateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant StoredCandidateで宣言した値と責務の対応を維持する。
@@ -79,9 +85,9 @@ type StoredCandidate = Readonly<{
 }>;
 
 /**
- * CandidateStoreFaultOperationが扱う値の構造を表す。
+ * candidate-bundle-storeで使用する候補 Store Fault Operationの値契約を定義する。
  *
- * @responsibility CandidateStoreFaultOperationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 候補 Store Fault OperationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape CandidateStoreFaultOperationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CandidateStoreFaultOperationで宣言した値と責務の対応を維持する。
@@ -102,9 +108,9 @@ type CandidateStoreFaultOperation =
   | "before_published_verify";
 
 /**
- * CandidateStoreRuntimeが扱う値の構造を表す。
+ * candidate-bundle-storeで使用する候補 Store Runtimeの値契約を定義する。
  *
- * @responsibility CandidateStoreRuntimeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 候補 Store RuntimeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape CandidateStoreRuntimeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CandidateStoreRuntimeで宣言した値と責務の対応を維持する。
@@ -126,9 +132,9 @@ type CandidateStoreRuntime = Readonly<{
 }>;
 
 /**
- * CandidateStoreTestingOptionsが扱う値の構造を表す。
+ * candidate-bundle-storeで使用する候補 Store Testing Optionsの値契約を定義する。
  *
- * @responsibility CandidateStoreTestingOptionsに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 候補 Store Testing OptionsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape CandidateStoreTestingOptionsが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CandidateStoreTestingOptionsで宣言した値と責務の対応を維持する。
@@ -186,9 +192,9 @@ class CandidateStoreFailure extends Error {
 }
 
 /**
- * errorCodeの処理を実行する。
+ * error Codeを決定する。
  *
- * @responsibility errorCodeに対応する入力処理と結果生成を所有する。
+ * @responsibility error Codeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input error: unknown
  * @returns errorCodeの計算結果を返す。
@@ -208,9 +214,9 @@ function errorCode(error: unknown) {
 }
 
 /**
- * storeDirectoryの処理を実行する。
+ * store Directoryを決定する。
  *
- * @responsibility storeDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility store Directoryの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input runtime: CandidateStoreRuntime
  * @returns storeDirectoryの計算結果を返す。
@@ -281,9 +287,9 @@ function storeDirectory(runtime: CandidateStoreRuntime) {
 }
 
 /**
- * verifyProductionStoreDirectoryの処理を実行する。
+ * Production Store Directoryを検証する。
  *
- * @responsibility verifyProductionStoreDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Production Store Directoryの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000015
  * @input runtime: CandidateStoreRuntime、expected: ReturnType<typeof storeDirectory>
  * @returns verifyProductionStoreDirectoryの計算結果を返す。
@@ -321,9 +327,9 @@ function verifyProductionStoreDirectory(
 }
 
 /**
- * candidateLocationの処理を実行する。
+ * candidate Locationを決定する。
  *
- * @responsibility candidateLocationに対応する入力処理と結果生成を所有する。
+ * @responsibility candidate Locationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input rawCandidateId: unknown
  * @returns candidateLocationの計算結果を返す。
@@ -351,9 +357,9 @@ function candidateLocation(rawCandidateId: unknown) {
 }
 
 /**
- * validDigestの処理を実行する。
+ * Digestが有効か判定する。
  *
- * @responsibility validDigestに対応する入力処理と結果生成を所有する。
+ * @responsibility Digestの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown、bytes: 20 | 32
  * @returns validDigestの計算結果を返す。
@@ -374,9 +380,9 @@ function validDigest(value: unknown, bytes: 20 | 32) {
 }
 
 /**
- * validRelativePathの処理を実行する。
+ * Relative Pathが有効か判定する。
  *
- * @responsibility validRelativePathに対応する入力処理と結果生成を所有する。
+ * @responsibility Relative Pathの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown
  * @returns validRelativePathの計算結果を返す。
@@ -403,9 +409,9 @@ function validRelativePath(value: unknown) {
 }
 
 /**
- * normalizeBundleの処理を実行する。
+ * Bundleを固定Schemaへ正規化する。
  *
- * @responsibility normalizeBundleに対応する入力処理と結果生成を所有する。
+ * @responsibility Bundleの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000015
  * @input rawBundle: unknown
  * @returns CandidateBundle | nullを返す。
@@ -538,9 +544,9 @@ function normalizeBundle(rawBundle: unknown): CandidateBundle | null {
 }
 
 /**
- * normalizeStoredCandidateの処理を実行する。
+ * Stored 候補を固定Schemaへ正規化する。
  *
- * @responsibility normalizeStoredCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Stored 候補の入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000015
  * @input raw: unknown
  * @returns StoredCandidate | nullを返す。
@@ -594,9 +600,9 @@ function normalizeStoredCandidate(raw: unknown): StoredCandidate | null {
 }
 
 /**
- * containsRecognizedSecretの処理を実行する。
+ * Recognized Secretを含むか判定する。
  *
- * @responsibility containsRecognizedSecretに対応する入力処理と結果生成を所有する。
+ * @responsibility Recognized Secretの探索範囲、包含条件、判定結果境界を所有する。
  * @trace ARCH-000015
  * @input bundle: CandidateBundle
  * @returns containsRecognizedSecretの計算結果を返す。
@@ -621,9 +627,9 @@ function containsRecognizedSecret(bundle: CandidateBundle) {
 }
 
 /**
- * StableFileIdentityが扱う値の構造を表す。
+ * candidate-bundle-storeで使用するStable File Identityの値契約を定義する。
  *
- * @responsibility StableFileIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Stable File IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape StableFileIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant StableFileIdentityで宣言した値と責務の対応を維持する。
@@ -641,9 +647,9 @@ type StableFileIdentity = Readonly<{
 }>;
 
 /**
- * stableFileIdentityの処理を実行する。
+ * File Identityを安定Identityへ変換する。
  *
- * @responsibility stableFileIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility File Identityの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000015
  * @input metadata: fs.BigIntStats
  * @returns StableFileIdentityを返す。
@@ -671,9 +677,9 @@ function stableFileIdentity(metadata: fs.BigIntStats): StableFileIdentity {
 }
 
 /**
- * sameStableFileIdentityの処理を実行する。
+ * Stable File Identityが同一かを判定する。
  *
- * @responsibility sameStableFileIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Stable File Identityの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000015
  * @input left: StableFileIdentity、right: StableFileIdentity
  * @returns sameStableFileIdentityの計算結果を返す。
@@ -701,9 +707,9 @@ function sameStableFileIdentity(
 }
 
 /**
- * candidateStoreRecoveryIdの処理を実行する。
+ * candidate Store 回復 Idを決定する。
  *
- * @responsibility candidateStoreRecoveryIdに対応する入力処理と結果生成を所有する。
+ * @responsibility candidate Store 回復 Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input name: string、identity: StableFileIdentity
  * @returns candidateStoreRecoveryIdの計算結果を返す。
@@ -736,9 +742,9 @@ function candidateStoreRecoveryId(name: string, identity: StableFileIdentity) {
 }
 
 /**
- * waitForLockRetryの処理を実行する。
+ * For Lock Retryを完了まで待機する。
  *
- * @responsibility waitForLockRetryに対応する入力処理と結果生成を所有する。
+ * @responsibility For Lock Retryの待機条件、完了観測、Timeout境界を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
  * @returns N/A: waitForLockRetryは戻り値を返さない。
@@ -761,9 +767,9 @@ function waitForLockRetry() {
 }
 
 /**
- * stableRemoveの処理を実行する。
+ * Removeを安定Identityへ変換する。
  *
- * @responsibility stableRemoveに対応する入力処理と結果生成を所有する。
+ * @responsibility Removeの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000015
  * @input runtime: CandidateStoreRuntime、target: string、identity: StableFileIdentity、faultOperation: CandidateStoreFaultOperation
  * @returns N/A: stableRemoveは戻り値を返さない。
@@ -798,9 +804,9 @@ function stableRemove(
 }
 
 /**
- * withStoreLockの処理を実行する。
+ * with Store Lockを決定する。
  *
- * @responsibility withStoreLockに対応する入力処理と結果生成を所有する。
+ * @responsibility with Store Lockの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input runtime: CandidateStoreRuntime、operation: (store: string, nowMs: number) => T
  * @returns withStoreLockの計算結果を返す。
@@ -1035,9 +1041,9 @@ function withStoreLock<T>(
 }
 
 /**
- * readStableCandidateの処理を実行する。
+ * Stable 候補を読み取る。
  *
- * @responsibility readStableCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Stable 候補の読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000015
  * @input target: string、expectedHash: string、runtime: CandidateStoreRuntime、verifyFault: CandidateStoreFaultOperation
  * @returns readStableCandidateの計算結果を返す。
@@ -1106,9 +1112,9 @@ function readStableCandidate(
 }
 
 /**
- * storedCandidateの処理を実行する。
+ * stored 候補を決定する。
  *
- * @responsibility storedCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility stored 候補の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input content: Buffer
  * @returns storedCandidateの計算結果を返す。
@@ -1129,9 +1135,9 @@ function storedCandidate(content: Buffer) {
 }
 
 /**
- * recoveryIdの処理を実行する。
+ * recovery Idを決定する。
  *
- * @responsibility recoveryIdに対応する入力処理と結果生成を所有する。
+ * @responsibility recovery Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input storageId: string、bundleHash: string
  * @returns recoveryIdの計算結果を返す。
@@ -1149,9 +1155,9 @@ function recoveryId(storageId: string, bundleHash: string) {
 }
 
 /**
- * physicalTargetsの処理を実行する。
+ * physical Targetsを決定する。
  *
- * @responsibility physicalTargetsに対応する入力処理と結果生成を所有する。
+ * @responsibility physical Targetsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input store: string、storageId: string
  * @returns physicalTargetsの計算結果を返す。
@@ -1173,9 +1179,9 @@ function physicalTargets(store: string, storageId: string) {
 }
 
 /**
- * existingTargetsの処理を実行する。
+ * existing Targetsを決定する。
  *
- * @responsibility existingTargetsに対応する入力処理と結果生成を所有する。
+ * @responsibility existing Targetsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input store: string、storageId: string
  * @returns existingTargetsの計算結果を返す。
@@ -1208,9 +1214,9 @@ function existingTargets(store: string, storageId: string) {
 }
 
 /**
- * storeInventoryAndGcの処理を実行する。
+ * store Inventory And Gcを決定する。
  *
- * @responsibility storeInventoryAndGcに対応する入力処理と結果生成を所有する。
+ * @responsibility store Inventory And Gcの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input runtime: CandidateStoreRuntime、store: string、nowMs: number
  * @returns storeInventoryAndGcの計算結果を返す。
@@ -1375,9 +1381,9 @@ function storeInventoryAndGc(
 }
 
 /**
- * blockedResultの処理を実行する。
+ * 結果を停止結果として構築する。
  *
- * @responsibility blockedResultに対応する入力処理と結果生成を所有する。
+ * @responsibility 結果の停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000015
  * @input reason: string、candidateRecoveryId: string | null、manualRecoveryRequired: boolean、candidateStoreRecoveryId: string | null
  * @returns blockedResultの計算結果を返す。
@@ -1407,9 +1413,9 @@ function blockedResult(
 }
 
 /**
- * recoverableCandidateIdFromValueの処理を実行する。
+ * recoverable 候補 Id From Valueを決定する。
  *
- * @responsibility recoverableCandidateIdFromValueに対応する入力処理と結果生成を所有する。
+ * @responsibility recoverable 候補 Id From Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown
  * @returns recoverableCandidateIdFromValueの計算結果を返す。
@@ -1444,9 +1450,9 @@ function recoverableCandidateIdFromValue(value: unknown) {
 }
 
 /**
- * persistRuntimeOwnedCandidateBundleWithRuntimeの処理を実行する。
+ * Runtime 所有 候補 Bundle With Runtimeを耐久保存する。
  *
- * @responsibility persistRuntimeOwnedCandidateBundleWithRuntimeに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 候補 Bundle With Runtimeの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000015
  * @input runtime: CandidateStoreRuntime、rawBundle: unknown、rawPolicy: unknown
  * @returns persistRuntimeOwnedCandidateBundleWithRuntimeの計算結果を返す。
@@ -1636,9 +1642,9 @@ function persistRuntimeOwnedCandidateBundleWithRuntime(
 }
 
 /**
- * readRuntimeOwnedCandidateBundleWithRuntimeの処理を実行する。
+ * Runtime 所有 候補 Bundle With Runtimeを読み取る。
  *
- * @responsibility readRuntimeOwnedCandidateBundleWithRuntimeに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 候補 Bundle With Runtimeの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000015
  * @input runtime: CandidateStoreRuntime、rawCandidateId: unknown
  * @returns readRuntimeOwnedCandidateBundleWithRuntimeの計算結果を返す。
@@ -1695,9 +1701,9 @@ function readRuntimeOwnedCandidateBundleWithRuntime(
 }
 
 /**
- * publishRuntimeOwnedCandidateBundleWithRuntimeの処理を実行する。
+ * Runtime 所有 候補 Bundle With Runtimeを公開する。
  *
- * @responsibility publishRuntimeOwnedCandidateBundleWithRuntimeに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 候補 Bundle With Runtimeの公開条件、公開範囲、未確定内容の非公開境界を所有する。
  * @trace ARCH-000015
  * @input runtime: CandidateStoreRuntime、rawRecoveryId: unknown
  * @returns publishRuntimeOwnedCandidateBundleWithRuntimeの計算結果を返す。
@@ -1807,9 +1813,9 @@ function publishRuntimeOwnedCandidateBundleWithRuntime(
 }
 
 /**
- * discardRuntimeOwnedCandidateBundleWithRuntimeの処理を実行する。
+ * discard Runtime 所有 候補 Bundle With Runtimeを決定する。
  *
- * @responsibility discardRuntimeOwnedCandidateBundleWithRuntimeに対応する入力処理と結果生成を所有する。
+ * @responsibility discard Runtime 所有 候補 Bundle With Runtimeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input runtime: CandidateStoreRuntime、rawCandidateId: unknown
  * @returns discardRuntimeOwnedCandidateBundleWithRuntimeの計算結果を返す。
@@ -1885,9 +1891,9 @@ function discardRuntimeOwnedCandidateBundleWithRuntime(
 }
 
 /**
- * recoverRuntimeOwnedCandidateStoreWithRuntimeの処理を実行する。
+ * recover Runtime 所有 候補 Store With Runtimeを決定する。
  *
- * @responsibility recoverRuntimeOwnedCandidateStoreWithRuntimeに対応する入力処理と結果生成を所有する。
+ * @responsibility recover Runtime 所有 候補 Store With Runtimeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input runtime: CandidateStoreRuntime、rawRecoveryId: unknown
  * @returns recoverRuntimeOwnedCandidateStoreWithRuntimeの計算結果を返す。
@@ -2006,9 +2012,9 @@ function recoverRuntimeOwnedCandidateStoreWithRuntime(
 }
 
 /**
- * runCandidateStoreGcWithRuntimeの処理を実行する。
+ * 候補 Store Gc With Runtimeを実行する。
  *
- * @responsibility runCandidateStoreGcWithRuntimeに対応する入力処理と結果生成を所有する。
+ * @responsibility 候補 Store Gc With Runtimeの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000015
  * @input runtime: CandidateStoreRuntime
  * @returns runCandidateStoreGcWithRuntimeの計算結果を返す。
@@ -2047,9 +2053,9 @@ function runCandidateStoreGcWithRuntime(runtime: CandidateStoreRuntime) {
 const developmentCandidates = new WeakMap<object, Set<string>>();
 
 /**
- * runtimeForOperationの処理を実行する。
+ * runtime For Operationを決定する。
  *
- * @responsibility runtimeForOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility runtime For Operationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input managementCapability: unknown、purpose: "persist" | "read" | "publish" | "discard"、candidateId: unknown
  * @returns CandidateStoreRuntime | nullを返す。
@@ -2111,9 +2117,9 @@ function runtimeForOperation(
 }
 
 /**
- * persistRuntimeOwnedCandidateBundleの処理を実行する。
+ * Runtime 所有 候補 Bundleを耐久保存する。
  *
- * @responsibility persistRuntimeOwnedCandidateBundleに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 候補 Bundleの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000015
  * @input rawBundle: unknown、rawPolicy: unknown、managementCapability: unknown
  * @returns persistRuntimeOwnedCandidateBundleの計算結果を返す。
@@ -2141,9 +2147,9 @@ export function persistRuntimeOwnedCandidateBundle(
 }
 
 /**
- * readRuntimeOwnedCandidateBundleの処理を実行する。
+ * Runtime 所有 候補 Bundleを読み取る。
  *
- * @responsibility readRuntimeOwnedCandidateBundleに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 候補 Bundleの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000015
  * @input rawCandidateId: unknown、managementCapability: unknown
  * @returns readRuntimeOwnedCandidateBundleの計算結果を返す。
@@ -2170,9 +2176,9 @@ export function readRuntimeOwnedCandidateBundle(
 }
 
 /**
- * publishRuntimeOwnedCandidateBundleの処理を実行する。
+ * Runtime 所有 候補 Bundleを公開する。
  *
- * @responsibility publishRuntimeOwnedCandidateBundleに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 候補 Bundleの公開条件、公開範囲、未確定内容の非公開境界を所有する。
  * @trace ARCH-000015
  * @input rawRecoveryId: unknown、managementCapability: unknown
  * @returns publishRuntimeOwnedCandidateBundleの計算結果を返す。
@@ -2199,9 +2205,9 @@ export function publishRuntimeOwnedCandidateBundle(
 }
 
 /**
- * discardRuntimeOwnedCandidateBundleの処理を実行する。
+ * discard Runtime 所有 候補 Bundleを決定する。
  *
- * @responsibility discardRuntimeOwnedCandidateBundleに対応する入力処理と結果生成を所有する。
+ * @responsibility discard Runtime 所有 候補 Bundleの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input rawCandidateId: unknown、managementCapability: unknown
  * @returns discardRuntimeOwnedCandidateBundleの計算結果を返す。
@@ -2233,9 +2239,9 @@ export function discardRuntimeOwnedCandidateBundle(
 }
 
 /**
- * recoverRuntimeOwnedCandidateStoreの処理を実行する。
+ * recover Runtime 所有 候補 Storeを決定する。
  *
- * @responsibility recoverRuntimeOwnedCandidateStoreに対応する入力処理と結果生成を所有する。
+ * @responsibility recover Runtime 所有 候補 Storeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input rawRecoveryId: unknown
  * @returns recoverRuntimeOwnedCandidateStoreの計算結果を返す。
@@ -2256,9 +2262,9 @@ export function recoverRuntimeOwnedCandidateStore(rawRecoveryId: unknown) {
 }
 
 /**
- * runRuntimeOwnedCandidateStoreStartupGcの処理を実行する。
+ * Runtime 所有 候補 Store Startup Gcを実行する。
  *
- * @responsibility runRuntimeOwnedCandidateStoreStartupGcに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 候補 Store Startup Gcの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
  * @returns runRuntimeOwnedCandidateStoreStartupGcの計算結果を返す。
@@ -2278,7 +2284,7 @@ export function runRuntimeOwnedCandidateStoreStartupGc() {
 /**
  * Read-only inventory, apart from acquiring the existing store lock/root.
  *
- * @responsibility inspectRuntimeOwnedDevelopmentCandidateStoreに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Development 候補 Storeの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000015
  * @input developmentContext: object
  * @returns inspectRuntimeOwnedDevelopmentCandidateStoreの計算結果を返す。
@@ -2321,9 +2327,9 @@ export function inspectRuntimeOwnedDevelopmentCandidateStore(
 }
 
 /**
- * createCandidateBundleStoreTestingAdapterの処理を実行する。
+ * 候補 Bundle Store Testing Adapterを構築する。
  *
- * @responsibility createCandidateBundleStoreTestingAdapterに対応する入力処理と結果生成を所有する。
+ * @responsibility 候補 Bundle Store Testing Adapterの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
  * @input options: CandidateStoreTestingOptions
  * @returns createCandidateBundleStoreTestingAdapterの計算結果を返す。
@@ -2375,9 +2381,9 @@ export function createCandidateBundleStoreTestingAdapter(
 }
 
 /**
- * describeCandidateBundleStoreContractの処理を実行する。
+ * 候補 Bundle Store 契約の公開契約を記述する。
  *
- * @responsibility describeCandidateBundleStoreContractに対応する入力処理と結果生成を所有する。
+ * @responsibility 候補 Bundle Store 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeCandidateBundleStoreContractの計算結果を返す。

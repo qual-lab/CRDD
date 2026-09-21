@@ -1,3 +1,9 @@
+/**
+ * verify-dynamic-fake-provider-cancellationに属する責務をまとめる。
+ *
+ * @responsibility verifyDynamicFakeProviderCancellationを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -5,6 +11,22 @@ import { pathToFileURL } from "node:url";
 import { runDynamicFakeProviderCancellationVerification } from "../src/security/docker-isolation.ts";
 import { createOwnedOperationDirectories } from "../src/security/execution-environment.ts";
 
+/**
+ * Dynamic Fake Provider Cancellationを検証する。
+ *
+ * @responsibility Dynamic Fake Provider Cancellationの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns verifyDynamicFakeProviderCancellationの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がverifyDynamicFakeProviderCancellationの入力契約を満たす。
+ * @postcondition verifyDynamicFakeProviderCancellationの責務を完了した結果だけを返す。
+ * @effect verifyDynamicFakeProviderCancellationはFilesystemの読取りまたは書込みを実行する。
+ * @failure verifyDynamicFakeProviderCancellationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyDynamicFakeProviderCancellationは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: verifyDynamicFakeProviderCancellationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency verifyDynamicFakeProviderCancellationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function verifyDynamicFakeProviderCancellation() {
   const owned = createOwnedOperationDirectories();
   const result = await runDynamicFakeProviderCancellationVerification(owned);

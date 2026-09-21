@@ -6,7 +6,7 @@
  * @trace RCM-IT-005
  * @level IT
  * @scope tools、naming
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -125,7 +125,7 @@ const REQUIRED_CLASS_HEADER_TAGS = Object.freeze([
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function collectCanonicalArchitectureIds(): ReadonlySet<string> {
   const definitionsRoot = path.join(
@@ -170,7 +170,7 @@ const canonicalArchitectureIds = collectCanonicalArchitectureIds();
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function collectCanonicalQualityLocalItems(): ReadonlyMap<string, string> {
   const definitionsRoot = path.join(
@@ -468,7 +468,7 @@ const projectConfigs = Object.freeze([
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function exportedNames(relativePath: string): readonly string[] {
   const source = fs.readFileSync(path.join(checkerRoot, relativePath), "utf8");
@@ -499,7 +499,7 @@ function exportedNames(relativePath: string): readonly string[] {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 test("Checker公開入口はArchitecture宣言済みSymbolだけを公開する", () => {
   assert.deepEqual(exportedNames("src/index.ts"), [
@@ -520,7 +520,7 @@ test("Checker公開入口はArchitecture宣言済みSymbolだけを公開する"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 test("Checker公開Use Caseは工程別検査を所有せず現行Profileへ委譲する", () => {
   const applicationSource = fs.readFileSync(
@@ -716,7 +716,7 @@ type NamingViolation = Readonly<{
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function collectFiles(root: string): string[] {
   const files: string[] = [];
@@ -754,7 +754,7 @@ function collectFiles(root: string): string[] {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function collectPublicIndexFiles(): readonly string[] {
   return PUBLIC_INDEX_PROFILES.map((profile) =>
@@ -772,7 +772,7 @@ function collectPublicIndexFiles(): readonly string[] {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function assertPublicIndexContract(
   file: string,
@@ -842,7 +842,7 @@ function assertPublicIndexContract(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function assertSourceDirectoryPath(directory: string): void {
   const relativePath = path.relative(
@@ -881,7 +881,7 @@ function assertSourceDirectoryPath(directory: string): void {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isPlatformAccessTarget(target: string): boolean {
   return (
@@ -900,7 +900,7 @@ function isPlatformAccessTarget(target: string): boolean {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function assertGeneratedTargetDirectory(target: string): void {
   const metadata = fs.lstatSync(target);
@@ -918,7 +918,7 @@ function assertGeneratedTargetDirectory(target: string): void {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function collectReferenceFiles(root: string): string[] {
   const files: string[] = [];
@@ -957,7 +957,7 @@ function collectReferenceFiles(root: string): string[] {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function countLiteral(source: string, literal: string): number {
   let count = 0;
@@ -980,7 +980,7 @@ function countLiteral(source: string, literal: string): number {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function collectRetiredReferenceCounts(): Map<string, number> {
   const counts = new Map<string, number>();
@@ -1007,7 +1007,7 @@ function collectRetiredReferenceCounts(): Map<string, number> {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function assertFileName(file: string): void {
   const name = path.basename(file);
@@ -1094,7 +1094,7 @@ function assertFileName(file: string): void {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isContainedPath(candidate: string, root: string): boolean {
   const relative = path.relative(root, candidate);
@@ -1114,7 +1114,7 @@ function isContainedPath(candidate: string, root: string): boolean {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function resolveOwnedSource(file: string): string {
   const stats = fs.lstatSync(file);
@@ -1146,7 +1146,7 @@ function resolveOwnedSource(file: string): string {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isOwnedProgramFile(
   file: string,
@@ -1169,7 +1169,7 @@ function isOwnedProgramFile(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isNullish(type: Type): boolean {
   return Boolean(type.flags & (TypeFlags.Null | TypeFlags.Undefined));
@@ -1185,7 +1185,7 @@ function isNullish(type: Type): boolean {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isAllowedBooleanName(name: string): boolean {
   if (STANDALONE_BOOLEAN_NAMES.has(name)) return true;
@@ -1215,7 +1215,7 @@ function isAllowedBooleanName(name: string): boolean {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function nonNullishTypes(type: Type): readonly Type[] {
   const types = type.isUnionType() ? type.getTypes() : [type];
@@ -1232,7 +1232,7 @@ function nonNullishTypes(type: Type): readonly Type[] {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isBooleanType(type: Type): boolean {
   const types = nonNullishTypes(type);
@@ -1256,7 +1256,7 @@ function isBooleanType(type: Type): boolean {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isArrayType(
   type: Type,
@@ -1291,7 +1291,7 @@ function isArrayType(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isFunctionInitializer(initializer: Expression | undefined): boolean {
   return Boolean(
@@ -1319,7 +1319,7 @@ type FixedInitializerContext = Readonly<{
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function declarationSourcePath(
   identifier: Identifier,
@@ -1348,7 +1348,7 @@ function declarationSourcePath(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isGlobalIntrinsic(
   identifier: Identifier,
@@ -1372,7 +1372,7 @@ function isGlobalIntrinsic(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isImportedCreateHash(
   identifier: Identifier,
@@ -1396,7 +1396,7 @@ function isImportedCreateHash(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isTypedArrayPrototypeSnapshot(
   expression: Expression,
@@ -1437,7 +1437,7 @@ function isTypedArrayPrototypeSnapshot(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isGlobalPropertyAccess(
   expression: Expression,
@@ -1464,7 +1464,7 @@ function isGlobalPropertyAccess(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isFixedAggregateMember(
   initializer: Expression | undefined,
@@ -1507,7 +1507,7 @@ function isFixedAggregateMember(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function resolvedSymbolId(
   identifier: Identifier,
@@ -1532,7 +1532,7 @@ function resolvedSymbolId(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isNonEscapingDirectAggregate(
   declaration: VariableDeclaration,
@@ -1582,7 +1582,7 @@ function isNonEscapingDirectAggregate(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function directAggregateSeed(
   expression: Expression | undefined,
@@ -1618,7 +1618,7 @@ function directAggregateSeed(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function fixedFreezeSeed(
   expression: Expression,
@@ -1666,7 +1666,7 @@ function fixedFreezeSeed(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function literalPropertyName(node: Node): string | null {
   if (isIdentifier(node) || isStringLiteral(node)) return node.text;
@@ -1684,7 +1684,7 @@ function literalPropertyName(node: Node): string | null {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function canonicalArrayIndex(node: Expression | undefined): number | null {
   if (!node) return null;
@@ -1709,7 +1709,7 @@ function canonicalArrayIndex(node: Expression | undefined): number | null {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function primitiveReadType(type: Type): boolean {
   const types = type.isUnionType() ? type.getTypes() : [type];
@@ -1751,7 +1751,7 @@ function primitiveReadType(type: Type): boolean {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isSafeAggregateReadBinaryOperator(kind: SyntaxKind): boolean {
   switch (kind) {
@@ -1794,7 +1794,7 @@ function isSafeAggregateReadBinaryOperator(kind: SyntaxKind): boolean {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isExportedVariableDeclaration(
   declaration: VariableDeclaration,
@@ -1840,7 +1840,7 @@ function isExportedVariableDeclaration(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function aggregateReadUsageNode(accessNode: Node): Node | null {
   let usageNode = accessNode;
@@ -1890,7 +1890,7 @@ function aggregateReadUsageNode(accessNode: Node): Node | null {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isAllowedAggregateReadContext(
   accessNode: Node,
@@ -1919,7 +1919,7 @@ function isAllowedAggregateReadContext(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isSafeDirectAggregateRead(
   identifier: Identifier,
@@ -2032,7 +2032,7 @@ function isSafeDirectAggregateRead(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isFixedModuleConstantReference(
   identifier: Identifier,
@@ -2104,7 +2104,7 @@ function isFixedModuleConstantReference(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isOwnedFixedAggregateAccess(
   initializer: Expression,
@@ -2142,7 +2142,7 @@ function isOwnedFixedAggregateAccess(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isFixedCreateHashDigest(
   initializer: Expression,
@@ -2187,7 +2187,7 @@ function isFixedCreateHashDigest(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isFixedInitializer(
   initializer: Expression | undefined,
@@ -2341,7 +2341,7 @@ function isFixedInitializer(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isModuleConstant(
   declaration: VariableDeclaration,
@@ -2387,7 +2387,7 @@ function isModuleConstant(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function identifierLocation(
   identifier: Identifier,
@@ -2418,7 +2418,7 @@ function identifierLocation(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isUnusedUnderscoreParameter(
   identifier: Identifier,
@@ -2449,7 +2449,7 @@ function isUnusedUnderscoreParameter(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function inspectIdentifier(
   identifier: Identifier,
@@ -2515,7 +2515,7 @@ function inspectIdentifier(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function inspectBindingName(
   name: Node | undefined,
@@ -2544,11 +2544,76 @@ function inspectBindingName(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function isImplementationSourceFile(sourceFile: SourceFile): boolean {
   const normalized = path.normalize(sourceFile.fileName);
-  return normalized.split(path.sep).includes("src");
+  const segments = normalized.split(path.sep);
+  if (segments.includes("tests") || normalized.endsWith(".test.ts"))
+    return false;
+  return (
+    segments.includes("src") ||
+    segments.includes("bin") ||
+    segments.includes("scripts") ||
+    isContainedPath(normalized, path.join(repositoryRoot, "template", "tools"))
+  );
+}
+
+/**
+ * Production File Headerを検査する。
+ *
+ * @responsibility Production FileがFile単位の責務と実在Architectureを先頭で明示することを検査する。
+ * @trace RCM-IT-005
+ * @precondition Source Fileが検証済みRepository内のProduction母集団に属する。
+ * @stimulus Production Fileの先頭Headerを解析する。
+ * @observation Summary、責務、Architecture Traceの欠落または不正を取得する。
+ * @oracle 実在ArchitectureへのFile Headerが完全な場合だけ違反0になる。
+ * @cleanup N/A: Source FileおよびRepositoryを変更しない。
+ * @boundary RCM-IT-005=Direct Boundary: Production Source→Architecture Definition
+ */
+function inspectProductionFileHeader(
+  sourceFile: SourceFile,
+): NamingViolation[] {
+  if (!isImplementationSourceFile(sourceFile)) return [];
+  const header =
+    sourceFile.text.match(
+      /^\uFEFF?(?:#![^\r\n]*(?:\r?\n))?\s*\/\*\*[\s\S]*?\*\//u,
+    )?.[0] ?? "";
+  const fileName = path.basename(sourceFile.fileName);
+  const violation = (rule: string): NamingViolation => ({
+    column: 1,
+    file: fs.realpathSync.native(sourceFile.fileName),
+    kind: "file",
+    line: 1,
+    name: fileName,
+    rule,
+  });
+  const summary = header
+    .replace(/^\uFEFF?(?:#![^\r\n]*(?:\r?\n))?\s*\/\*\*\s*/u, "")
+    .replace(/\*\/\s*$/u, "")
+    .split(/\r?\n/u)
+    .map((line) => line.replace(/^\s*\*\s?/u, "").trim())
+    .find((line) => line.length > 0 && !line.startsWith("@"));
+  const violations: NamingViolation[] = [];
+  if (!summary) violations.push(violation("file-header-summary-missing"));
+  if (responsibilityHeaderTagValue(header, "responsibility") === null)
+    violations.push(violation("file-header-responsibility-missing"));
+  const traceValues = [
+    ...header.matchAll(/^\s*\*\s+@trace\s+(\S(?:.*\S)?)\s*$/gmu),
+  ].map((match) => match[1] ?? "");
+  if (traceValues.length === 0)
+    violations.push(violation("file-header-architecture-trace-missing"));
+  for (const traceValue of traceValues) {
+    if (!ARCHITECTURE_ID.test(traceValue)) {
+      violations.push(
+        violation("file-header-architecture-trace-format-invalid"),
+      );
+      continue;
+    }
+    if (!canonicalArchitectureIds.has(traceValue))
+      violations.push(violation("file-header-architecture-trace-not-found"));
+  }
+  return violations;
 }
 
 /**
@@ -2561,7 +2626,7 @@ function isImplementationSourceFile(sourceFile: SourceFile): boolean {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function responsibilityHeaderTagValue(
   header: string,
@@ -2584,7 +2649,7 @@ function responsibilityHeaderTagValue(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function inspectResponsibilityHeader(
   node: Node,
@@ -2613,12 +2678,37 @@ function inspectResponsibilityHeader(
         "responsibility-header-summary-missing",
       ),
     );
-  if (responsibilityHeaderTagValue(header, "responsibility") === null)
+  const responsibility = responsibilityHeaderTagValue(header, "responsibility");
+  if (responsibility === null)
     violations.push(
       identifierLocation(
         name,
         declarationKind,
         "responsibility-header-tag-missing",
+      ),
+    );
+  const cyclicSummaries = new Set([
+    `${name.text}の処理を実行する。`,
+    `${name.text}が扱う値の構造を表す。`,
+  ]);
+  const cyclicResponsibilities = new Set([
+    `${name.text}に対応する入力処理と結果生成を所有する。`,
+    `${name.text}に必要な値と制約を一つの型契約として保持する。`,
+  ]);
+  if (summary && cyclicSummaries.has(summary))
+    violations.push(
+      identifierLocation(
+        name,
+        declarationKind,
+        "responsibility-header-summary-cyclic",
+      ),
+    );
+  if (responsibility && cyclicResponsibilities.has(responsibility))
+    violations.push(
+      identifierLocation(
+        name,
+        declarationKind,
+        "responsibility-header-tag-cyclic",
       ),
     );
   const requiredTags =
@@ -2689,14 +2779,16 @@ function inspectResponsibilityHeader(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function inspectSourceFile(
   sourceFile: SourceFile,
   checker: Checker,
   ownershipRoots: readonly string[] = sourceOwnershipRoots,
 ): NamingViolation[] {
-  const violations: NamingViolation[] = [];
+  const violations: NamingViolation[] = [
+    ...inspectProductionFileHeader(sourceFile),
+  ];
   const visit = (node: Node): void => {
     if (isInterfaceDeclaration(node) || isTypeAliasDeclaration(node)) {
       if (node.name) {
@@ -2792,7 +2884,7 @@ function inspectSourceFile(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function collectOwnedProjects(
   api: API,
@@ -2834,7 +2926,7 @@ function collectOwnedProjects(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function inspectProjects(projects: readonly Project[]): {
   sourceFiles: ReadonlyMap<string, SourceFile>;
@@ -2873,7 +2965,7 @@ function inspectProjects(projects: readonly Project[]): {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function collectOwnedTypeScriptPaths(files: readonly string[]): Set<string> {
   return new Set(
@@ -2898,7 +2990,7 @@ function collectOwnedTypeScriptPaths(files: readonly string[]): Set<string> {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function collectOwnedRustPaths(files: readonly string[]): Set<string> {
   return new Set(
@@ -2906,6 +2998,175 @@ function collectOwnedRustPaths(files: readonly string[]): Set<string> {
       .filter((file) => file.endsWith(".rs"))
       .map((file) => fs.realpathSync.native(file)),
   );
+}
+
+/**
+ * Rust Production FileとNamed Symbolの責務Headerを検査する。
+ *
+ * @responsibility TypeScript AST検査から漏れていたprivate Rust crateを、同じArchitecture Trace契約へ接続する。
+ * @trace RCM-IT-005
+ * @precondition rustSourceFileは検証済みRepository内の実Fileである。
+ * @stimulus Rustdoc module Headerと宣言直前のRustdocを解析する。
+ * @observation Summary、固定tag、N/A理由およびArchitecture Traceの違反を取得する。
+ * @oracle 全Production Rust FileとNamed Symbolが宣言種別に応じたHeaderを持つ場合だけ違反0になる。
+ * @cleanup N/A: Rust sourceとRepositoryを変更しない。
+ * @boundary RCM-IT-005=Direct Boundary: Rust Production Source→Architecture Definition
+ */
+function inspectRustProductionHeaders(
+  rustSourceFile: string,
+): NamingViolation[] {
+  const normalized = path.normalize(rustSourceFile);
+  if (
+    normalized.includes(`${path.sep}tests${path.sep}`) ||
+    (!normalized.includes(`${path.sep}src${path.sep}`) &&
+      path.basename(normalized) !== "build.rs")
+  ) {
+    return [];
+  }
+  const text = fs.readFileSync(normalized, "utf8");
+  const lines = text.split(/\r?\n/u);
+  const violations: NamingViolation[] = [];
+  const violation = (
+    line: number,
+    kind: string,
+    name: string,
+    rule: string,
+  ): NamingViolation => ({
+    column: 1,
+    file: fs.realpathSync.native(normalized),
+    kind,
+    line,
+    name,
+    rule,
+  });
+  const moduleDocumentationLines = lines
+    .filter((line, index) => index < 20 && /^\s*\/\/!/u.test(line))
+    .map((line) => line.replace(/^\s*\/\/!\s?/u, ""));
+  const moduleSummary = moduleDocumentationLines.find(
+    (line) => line.trim().length > 0 && !line.trim().startsWith("@"),
+  );
+  if (!moduleSummary)
+    violations.push(
+      violation(
+        1,
+        "rust-file",
+        path.basename(normalized),
+        "file-header-summary-missing",
+      ),
+    );
+  const inspectRustTags = (
+    documentationLines: readonly string[],
+    requiredTags: readonly string[],
+    line: number,
+    kind: string,
+    name: string,
+  ): void => {
+    for (const tag of requiredTags) {
+      const values = documentationLines
+        .map(
+          (entry) =>
+            new RegExp(`^\\s*@${tag}\\s+(\\S(?:.*\\S)?)\\s*$`, "u").exec(
+              entry,
+            )?.[1],
+        )
+        .filter((value): value is string => Boolean(value));
+      if (values.length === 0) {
+        violations.push(
+          violation(line, kind, name, `responsibility-header-${tag}-missing`),
+        );
+        continue;
+      }
+      for (const value of values) {
+        if (/^N\/A\b/u.test(value) && !/^N\/A:\s+\S/u.test(value))
+          violations.push(
+            violation(
+              line,
+              kind,
+              name,
+              `responsibility-header-${tag}-na-reason-missing`,
+            ),
+          );
+        if (tag === "trace") {
+          if (!ARCHITECTURE_ID.test(value))
+            violations.push(
+              violation(line, kind, name, "architecture-trace-format-invalid"),
+            );
+          else if (!canonicalArchitectureIds.has(value))
+            violations.push(
+              violation(line, kind, name, "architecture-trace-not-found"),
+            );
+        }
+      }
+    }
+  };
+  inspectRustTags(
+    moduleDocumentationLines,
+    ["responsibility", "trace"],
+    1,
+    "rust-file",
+    path.basename(normalized),
+  );
+  const declaration =
+    /^\s*(?:pub(?:\([^)]*\))?\s+)?(?:(?:unsafe|async)\s+)*(fn|struct|enum|trait|type)\s+([A-Za-z_][A-Za-z0-9_]*)/u;
+  let isTestModulePending = false;
+  let testModuleDepth = 0;
+  for (let index = 0; index < lines.length; index += 1) {
+    const lineText = lines[index] ?? "";
+    if (/^\s*#\[cfg\(test\)\]\s*$/u.test(lineText)) {
+      isTestModulePending = true;
+      continue;
+    }
+    if (
+      isTestModulePending &&
+      /^\s*mod\s+[A-Za-z_][A-Za-z0-9_]*\s*\{/u.test(lineText)
+    ) {
+      testModuleDepth = 1;
+      isTestModulePending = false;
+      continue;
+    }
+    if (testModuleDepth > 0) {
+      testModuleDepth += (lineText.match(/\{/gu) ?? []).length;
+      testModuleDepth -= (lineText.match(/\}/gu) ?? []).length;
+      continue;
+    }
+    isTestModulePending = false;
+    const match = declaration.exec(lineText);
+    if (!match) continue;
+    const declarationType = match[1] ?? "";
+    const name = match[2] ?? "";
+    let cursor = index - 1;
+    while (cursor >= 0 && /^\s*#\[/u.test(lines[cursor] ?? "")) cursor -= 1;
+    const documentationLines: string[] = [];
+    while (cursor >= 0 && /^\s*\/\//u.test(lines[cursor] ?? "")) {
+      documentationLines.unshift(
+        (lines[cursor] ?? "").replace(/^\s*\/\/\/\s?/u, ""),
+      );
+      cursor -= 1;
+    }
+    const summary = documentationLines.find(
+      (entry) => entry.trim().length > 0 && !entry.trim().startsWith("@"),
+    );
+    const kind = declarationType === "fn" ? "rust-function" : "rust-type";
+    if (!summary)
+      violations.push(
+        violation(
+          index + 1,
+          kind,
+          name,
+          "responsibility-header-summary-missing",
+        ),
+      );
+    inspectRustTags(
+      documentationLines,
+      declarationType === "fn"
+        ? ["responsibility", "trace", ...REQUIRED_EXECUTABLE_HEADER_TAGS]
+        : ["responsibility", "trace", ...REQUIRED_TYPE_HEADER_TAGS],
+      index + 1,
+      kind,
+      name,
+    );
+  }
+  return violations;
 }
 
 /**
@@ -2918,7 +3179,7 @@ function collectOwnedRustPaths(files: readonly string[]): Set<string> {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function formatViolations(violations: readonly NamingViolation[]): string {
   return violations
@@ -2939,7 +3200,7 @@ function formatViolations(violations: readonly NamingViolation[]): string {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 test("内部実装のPathと型付きsource identifierは内部コーディング規約へ一致する", () => {
   const files = pathInspectionRoots.flatMap(collectFiles);
@@ -3001,6 +3262,7 @@ test("内部実装のPathと型付きsource identifierは内部コーディン�
         "platform-access",
         "build.rs",
       );
+      const rustHeaderViolations: NamingViolation[] = [];
       for (const rustSourceFile of rustSourceFiles) {
         assert.ok(
           rustSourceFile === rustBuildScript ||
@@ -3009,8 +3271,12 @@ test("内部実装のPathと型付きsource identifierは内部コーディン�
             ),
           `Rust source outside private platform-access crate: ${rustSourceFile}`,
         );
+        rustHeaderViolations.push(
+          ...inspectRustProductionHeaders(rustSourceFile),
+        );
       }
-      assert.equal(violations.length, 0, formatViolations(violations));
+      const allViolations = [...violations, ...rustHeaderViolations];
+      assert.equal(allViolations.length, 0, formatViolations(allViolations));
     } finally {
       snapshot.dispose();
     }
@@ -3029,7 +3295,7 @@ test("内部実装のPathと型付きsource identifierは内部コーディン�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 test("40_Develop配下のREADMEを拒否し、説明の正本分離を維持する", () => {
   assert.throws(
@@ -3054,7 +3320,7 @@ test("40_Develop配下のREADMEを拒否し、説明の正本分離を維持す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 test("Source Fileは曖昧な責務名と裸のtypesを使用しない", () => {
   for (const validName of [
@@ -3098,7 +3364,7 @@ test("Source Fileは曖昧な責務名と裸のtypesを使用しない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 test("Production Named Symbolは責務Headerと実在ARCH-IDへ接続する", () => {
   const temporaryRoot = fs.mkdtempSync(
@@ -3143,6 +3409,12 @@ test("Production Named Symbolは責務Headerと実在ARCH-IDへ接続する", ()
     fs.writeFileSync(
       sourcePath,
       [
+        "/**",
+        " * Production Header検査fixtureをまとめる。",
+        " *",
+        " * @responsibility Production Named Symbol Headerの正例と反例を同じFileで提供する。",
+        " * @trace ARCH-000001",
+        " */",
         ...completeHeader(
           "有効な責務を表す。",
           "有効なProduction責務を所有する。",
@@ -3185,6 +3457,12 @@ test("Production Named Symbolは責務Headerと実在ARCH-IDへ接続する", ()
           { effect: "N/A" },
         ),
         "function invalidNotApplicableReason(): void {}",
+        ...completeHeader(
+          "cyclicResponsibilityの処理を実行する。",
+          "cyclicResponsibilityに対応する入力処理と結果生成を所有する。",
+          "ARCH-000001",
+        ),
+        "function cyclicResponsibility(): void {}",
         "/**",
         " * 有効な型契約を表す。",
         " *",
@@ -3230,6 +3508,7 @@ test("Production Named Symbolは責務Headerと実在ARCH-IDへ接続する", ()
         "void invalidTrace;",
         "void unknownTrace;",
         "void invalidNotApplicableReason;",
+        "void cyclicResponsibility;",
       ].join("\n"),
       "utf8",
     );
@@ -3257,6 +3536,10 @@ test("Production Named Symbolは責務Headerと実在ARCH-IDへ接続する", ()
         const violations = inspectSourceFile(sourceFile, project.checker, [
           temporaryRoot,
         ]);
+        assert.deepEqual(
+          violations.filter((violation) => violation.kind === "file"),
+          [],
+        );
         const rulesByName = new Map<string, string[]>();
         for (const violation of violations) {
           const rules = rulesByName.get(violation.name) ?? [];
@@ -3281,6 +3564,10 @@ test("Production Named Symbolは責務Headerと実在ARCH-IDへ接続する", ()
         ]);
         assert.deepEqual(rulesByName.get("invalidNotApplicableReason"), [
           "responsibility-header-effect-na-reason-missing",
+        ]);
+        assert.deepEqual(rulesByName.get("cyclicResponsibility"), [
+          "responsibility-header-summary-cyclic",
+          "responsibility-header-tag-cyclic",
         ]);
         assert.deepEqual(rulesByName.get("ValidTypeContract") ?? [], []);
         assert.deepEqual(rulesByName.get("MissingTypeCompatibility"), [
@@ -3308,7 +3595,7 @@ test("Production Named Symbolは責務Headerと実在ARCH-IDへ接続する", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 test("公開indexは設計由来の説明と明示的なExport Allowlistを持つ", () => {
   const publicIndexes = collectPublicIndexFiles()
@@ -3455,7 +3742,7 @@ test("公開indexは設計由来の説明と明示的なExport Allowlistを持�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 test("src配下は責務名を使い二階層以内に保つ", () => {
   assert.doesNotThrow(() =>
@@ -3504,7 +3791,7 @@ test("src配下は責務名を使い二階層以内に保つ", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 test("各Tool packageの再生成可能な依存DirectoryをGit対象から除外する", () => {
   const ignoreRules = fs
@@ -3526,7 +3813,7 @@ test("各Tool packageの再生成可能な依存DirectoryをGit対象から除�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 test("Checker試験の実行集合はnested配置を含む所有集合と完全一致する", () => {
   const temporaryRoot = fs.mkdtempSync(
@@ -3633,7 +3920,7 @@ test("Checker試験の実行集合はnested配置を含む所有集合と完全�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 test("Boolean predicateの文法は正本化した三つの閉集合だけを許可する", () => {
   for (const prefix of BOOLEAN_AUXILIARY_PREFIXES)
@@ -3664,7 +3951,7 @@ test("Boolean predicateの文法は正本化した三つの閉集合だけを許
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 test("Path classifierは不正folderと不正fileを別々に拒否する", () => {
   const temporaryRoot = fs.mkdtempSync(
@@ -3767,7 +4054,7 @@ test("Path classifierは不正folderと不正fileを別々に拒否する", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 test("型付き命名classifierは構文境界の正負例を同じ規則で判定する", () => {
   const temporaryParent = path.join(
@@ -4486,7 +4773,7 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 test("旧checker実体は現行Treeに残らない", () => {
   assert.equal(
@@ -4513,7 +4800,7 @@ test("旧checker実体は現行Treeに残らない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 test("廃止済みPathの参照は固定履歴と移行説明にだけ残る", () => {
   const actualReferenceCounts = [...collectRetiredReferenceCounts()];
@@ -4543,7 +4830,7 @@ test("廃止済みPathの参照は固定履歴と移行説明にだけ残る", (
  * @observation 最初に一致したtag値または未検出を返す。
  * @oracle 完全なtag名にだけ一致し、値を欠く行を受理しない。
  * @cleanup N/A: Repositoryまたは外部資源を変更しない。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function testHeaderTagValue(header: string, tag: string): string | null {
   const match = new RegExp(
@@ -4551,6 +4838,32 @@ function testHeaderTagValue(header: string, tag: string): string | null {
     "mu",
   ).exec(header);
   return match?.[1] ?? null;
+}
+
+/**
+ * Test Headerから指定tagの全値を取得する。
+ *
+ * @responsibility Test FileとTest Helperが持つ複数Local Item Relationを順序に依存せず取得する。
+ * @trace RCM-IT-005
+ * @precondition HeaderはTSDocまたはRustdocの連続した文字列である。
+ * @stimulus tag名を指定してHeader全体を解析する。
+ * @observation 完全なtag名に一致する非空値を重複なく返す。
+ * @oracle 同じ値の重複をRelation追加として数えず、安定した出現順を保つ。
+ * @cleanup N/A: Repositoryまたは外部資源を変更しない。
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ */
+function testHeaderTagValues(header: string, tag: string): readonly string[] {
+  const pattern = new RegExp(
+    `^\\s*(?:\\*|///)\\s+@${tag}\\s+(\\S(?:.*\\S)?)\\s*$`,
+    "gmu",
+  );
+  return [
+    ...new Set(
+      [...header.matchAll(pattern)]
+        .map((match) => match[1] ?? "")
+        .filter(Boolean),
+    ),
+  ];
 }
 
 /**
@@ -4563,7 +4876,7 @@ function testHeaderTagValue(header: string, tag: string): string | null {
  * @observation TSDocまたはRustdoc Header文字列を返す。
  * @oracle 無関係なCodeまたは通常Commentを越えてHeaderを結合しない。
  * @cleanup N/A: 入力配列を変更しない。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function testHeaderBefore(lines: readonly string[], index: number): string {
   let cursor = index - 1;
@@ -4592,15 +4905,16 @@ function testHeaderBefore(lines: readonly string[], index: number): string {
  * @observation 欠落、不正形式、未知Traceまたは段階不一致をassertionとして取得する。
  * @oracle 全固定tagが非空で、Traceが実在し、期待段階と一致する。
  * @cleanup N/A: Repositoryまたは外部資源を変更しない。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
 function assertTestHeader(
   header: string,
   requiredTags: readonly string[],
-  expectedLocalItemId: string,
+  allowedLocalItemIds: readonly string[],
   expectedLevel: string,
   location: string,
-): void {
+  traceCardinality: "exact-one" | "one-or-more",
+): readonly string[] {
   assert.notEqual(header, "", `Test Header missing: ${location}`);
   const summary = header
     .split(/\r?\n/u)
@@ -4617,27 +4931,37 @@ function assertTestHeader(
         `Test Header @${tag} N/A reason missing: ${location}`,
       );
   }
-  const trace = testHeaderTagValue(header, "trace");
-  assert.equal(
-    trace,
-    expectedLocalItemId,
-    `Test Header trace mismatch: ${location}`,
-  );
-  assert.match(
-    trace ?? "",
-    QUALITY_LOCAL_ITEM_ID,
-    `Test Header trace format invalid: ${location}`,
-  );
-  assert.equal(
-    canonicalQualityLocalItems.has(trace ?? ""),
-    true,
-    `Test Header trace not found: ${location}`,
-  );
-  assert.equal(
-    trace?.split("-")[1],
-    expectedLevel,
-    `Test Header level mismatch: ${location}`,
-  );
+  const traces = testHeaderTagValues(header, "trace");
+  assert.ok(traces.length > 0, `Test Header @trace missing: ${location}`);
+  if (traceCardinality === "exact-one")
+    assert.equal(
+      traces.length,
+      1,
+      `Test Case must own one Local Item: ${location}`,
+    );
+  for (const trace of traces) {
+    assert.match(
+      trace,
+      QUALITY_LOCAL_ITEM_ID,
+      `Test Header trace format invalid: ${location}`,
+    );
+    assert.equal(
+      canonicalQualityLocalItems.has(trace),
+      true,
+      `Test Header trace not found: ${location}`,
+    );
+    assert.equal(
+      trace.split("-")[1],
+      expectedLevel,
+      `Test Header level mismatch: ${location}`,
+    );
+    assert.equal(
+      allowedLocalItemIds.includes(trace),
+      true,
+      `Test Header trace is outside Test Symbol relation: ${location}: ${trace}`,
+    );
+  }
+  return traces;
 }
 
 /**
@@ -4648,11 +4972,11 @@ function assertTestHeader(
  * @precondition Test Catalog、Quality Definitionおよび各Subsystemのsymbol.jsonが読取り可能である。
  * @stimulus 登録済みTest Sourceを全件走査してHeaderとRelationを照合する。
  * @observation Catalog件数、Test宣言、Header tag、Trace、段階およびSymbol Relationを取得する。
- * @oracle 全登録Testが一つの同段階Local Itemへ接続し、個別Test CaseとNamed Helperが固定Headerを持つ。
+ * @oracle Test FileはCase／HelperのLocal Item和集合へ接続し、個別Test Caseは一つ、Named Helperは一つ以上の同段階Local Itemを持つ。
  * @cleanup N/A: 読取り専用検査でありRepositoryを変更しない。
- * @boundary Direct Boundary: Producer→Consumer
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
  */
-test("全Test SourceをQuality Local Itemへ一意に接続する", () => {
+test("全Test SourceをQuality Local Itemへ責務単位で接続する", () => {
   const catalog = JSON.parse(
     fs.readFileSync(
       path.join(repositoryRoot, "07_Quality", "Registry", "test-catalog.json"),
@@ -4705,22 +5029,38 @@ test("全Test SourceをQuality Local Itemへ一意に接続する", () => {
       Array.isArray(localTestIds),
       `Test Symbol localTestIds missing: ${catalogTest.id}`,
     );
-    assert.equal(
-      localTestIds.length,
-      1,
-      `Test Symbol must own one primary Local Item: ${catalogTest.id}`,
+    assert.ok(
+      localTestIds.length > 0,
+      `Test Symbol Local Item missing: ${catalogTest.id}`,
     );
-    const localTestId = String(localTestIds[0]);
-    assert.equal(
-      localTestId.split("-")[1],
-      expectedLevel,
-      `Test Symbol level mismatch: ${catalogTest.id}`,
+    const normalizedLocalTestIds = [
+      ...new Set(localTestIds.map(String)),
+    ].sort();
+    assert.deepEqual(
+      localTestIds,
+      normalizedLocalTestIds,
+      `Test Symbol Local Items must be unique and sorted: ${catalogTest.id}`,
     );
-    const qaId = canonicalQualityLocalItems.get(localTestId);
-    assert.ok(qaId, `Test Symbol Local Item not found: ${catalogTest.id}`);
+    const qaIds = [
+      ...new Set(
+        normalizedLocalTestIds.map((localTestId) => {
+          assert.equal(
+            localTestId.split("-")[1],
+            expectedLevel,
+            `Test Symbol level mismatch: ${catalogTest.id}`,
+          );
+          const qaId = canonicalQualityLocalItems.get(localTestId);
+          assert.ok(
+            qaId,
+            `Test Symbol Local Item not found: ${catalogTest.id}`,
+          );
+          return qaId;
+        }),
+      ),
+    ].sort();
     assert.deepEqual(
       symbols[0]?.qaIds,
-      [qaId],
+      qaIds,
       `Test Symbol QA relation mismatch: ${catalogTest.id}`,
     );
     assert.ok(
@@ -4735,7 +5075,7 @@ test("全Test SourceをQuality Local Itemへ一意に接続する", () => {
     const lines = source.split(/\r?\n/u);
     if (catalogTest.path.endsWith(".ts")) {
       const fileHeader = source.match(/^\/\*\*[\s\S]*?\*\//u)?.[0] ?? "";
-      assertTestHeader(
+      const fileTraces = assertTestHeader(
         fileHeader,
         [
           "packageDocumentation",
@@ -4745,10 +5085,17 @@ test("全Test SourceをQuality Local Itemへ一意に接続する", () => {
           "scope",
           "boundary",
         ],
-        localTestId,
+        normalizedLocalTestIds,
         expectedLevel,
         `${catalogTest.path}:file`,
+        "one-or-more",
       );
+      assert.deepEqual(
+        [...fileTraces].sort(),
+        normalizedLocalTestIds,
+        `Test File trace set must equal Test Symbol relation: ${catalogTest.id}`,
+      );
+      const usedLocalItemIds = new Set<string>();
       for (let index = 0; index < lines.length; index += 1) {
         const trimmed = lines[index]?.trim() ?? "";
         const isTestCase = /^(?:test|it)(?:\.\w+)?\s*\(/u.test(trimmed);
@@ -4760,7 +5107,7 @@ test("全Test SourceをQuality Local Itemへ一意に接続する", () => {
             trimmed,
           );
         if (!isTestCase && !isNamedHelper) continue;
-        assertTestHeader(
+        const traces = assertTestHeader(
           testHeaderBefore(lines, index),
           [
             "responsibility",
@@ -4772,16 +5119,24 @@ test("全Test SourceをQuality Local Itemへ一意に接続する", () => {
             "cleanup",
             "boundary",
           ],
-          localTestId,
+          normalizedLocalTestIds,
           expectedLevel,
           `${catalogTest.path}:${index + 1}`,
+          isTestCase ? "exact-one" : "one-or-more",
         );
+        for (const trace of traces) usedLocalItemIds.add(trace);
       }
+      assert.deepEqual(
+        [...usedLocalItemIds].sort(),
+        normalizedLocalTestIds,
+        `Test Symbol relation must be used by a Case or Helper: ${catalogTest.id}`,
+      );
     } else if (catalogTest.path.endsWith(".rs")) {
+      const usedLocalItemIds = new Set<string>();
       for (let index = 0; index < lines.length; index += 1) {
         if (!/^\s*#\[(?:tokio::)?test\]\s*$/u.test(lines[index] ?? ""))
           continue;
-        assertTestHeader(
+        const traces = assertTestHeader(
           testHeaderBefore(lines, index),
           [
             "responsibility",
@@ -4793,11 +5148,18 @@ test("全Test SourceをQuality Local Itemへ一意に接続する", () => {
             "cleanup",
             "boundary",
           ],
-          localTestId,
+          normalizedLocalTestIds,
           expectedLevel,
           `${catalogTest.path}:${index + 1}`,
+          "exact-one",
         );
+        for (const trace of traces) usedLocalItemIds.add(trace);
       }
+      assert.deepEqual(
+        [...usedLocalItemIds].sort(),
+        normalizedLocalTestIds,
+        `Test Symbol relation must be used by a Rust Test Case: ${catalogTest.id}`,
+      );
     } else {
       assert.fail(`Unsupported test source: ${catalogTest.path}`);
     }

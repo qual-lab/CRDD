@@ -1,3 +1,9 @@
+/**
+ * check-platform-access-ts-coverageに属する責務をまとめる。
+ *
+ * @responsibility Counterを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -54,13 +60,46 @@ export const PLATFORM_ACCESS_TS_COVERAGE_NODE_OPTIONS = Object.freeze([
   "--test-reporter=lcov",
 ]);
 
+/**
+ * check-platform-access-ts-coverageで使用するCounterの値契約を定義する。
+ *
+ * @responsibility CounterのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape Counterが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Counterで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Counterの宣言は外部境界を開かない。
+ * @security N/A: CounterはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility Counterの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Counter = Readonly<{ covered: number; total: number }>;
+/**
+ * check-platform-access-ts-coverageで使用するBranchの値契約を定義する。
+ *
+ * @responsibility BranchのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape Branchが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Branchで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Branchの宣言は外部境界を開かない。
+ * @security N/A: BranchはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility Branchの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Branch = Readonly<{
   line: number;
   block: number;
   branch: number;
   taken: number | null;
 }>;
+/**
+ * check-platform-access-ts-coverageで使用するSource Coverageの値契約を定義する。
+ *
+ * @responsibility Source CoverageのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape SourceCoverageが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SourceCoverageで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SourceCoverageの宣言は外部境界を開かない。
+ * @security N/A: SourceCoverageはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility SourceCoverageの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type SourceCoverage = Readonly<{
   source: string;
   lines: Counter;
@@ -69,6 +108,17 @@ type SourceCoverage = Readonly<{
   uncoveredBranches: readonly Branch[];
 }>;
 
+/**
+ * check-platform-access-ts-coverageで使用するCoverage Obligationの値契約を定義する。
+ *
+ * @responsibility Coverage ObligationのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape CoverageObligationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoverageObligationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoverageObligationの宣言は外部境界を開かない。
+ * @security N/A: CoverageObligationはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoverageObligationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type CoverageObligation = Readonly<{
   status: "Not Verified";
   reason: string;
@@ -181,6 +231,22 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
     ),
   });
 
+/**
+ * obligationを決定する。
+ *
+ * @responsibility obligationの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input reason: string、risk: string、alternativeVerification: string、recheck: string
+ * @returns CoverageObligationを返す。
+ * @precondition 「reason: string、risk: string、alternativeVerification: string、recheck: string」がobligationの入力契約を満たす。
+ * @postcondition obligationの責務を完了した結果だけを返す。
+ * @effect N/A: obligationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: obligationは独自の失敗分岐を所有しない。
+ * @invariant obligationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: obligationはProcess内の同一Subsystemで完結する。
+ * @security N/A: obligationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: obligationは共有非同期状態を持たない同期処理である。
+ */
 function obligation(
   reason: string,
   risk: string,
@@ -198,6 +264,22 @@ function obligation(
   });
 }
 
+/**
+ * check-platform-access-ts-coverageの件数を算出する。
+ *
+ * @responsibility check-platform-access-ts-coverageの計数対象、集計規則、件数結果境界を所有する。
+ * @trace ARCH-000004
+ * @input raw: string、label: string
+ * @returns countの計算結果を返す。
+ * @precondition 「raw: string、label: string」がcountの入力契約を満たす。
+ * @postcondition countの責務を完了した結果だけを返す。
+ * @effect N/A: countは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure countは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant countは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: countはProcess内の同一Subsystemで完結する。
+ * @security N/A: countはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: countは共有非同期状態を持たない同期処理である。
+ */
 function count(raw: string, label: string) {
   if (!/^(?:0|[1-9]\d*)$/u.test(raw)) {
     throw new Error(`invalid ${label}`);
@@ -209,18 +291,66 @@ function count(raw: string, label: string) {
   return value;
 }
 
+/**
+ * Countが正数か検証する。
+ *
+ * @responsibility Countの数値条件、拒否条件、検証済み結果境界を所有する。
+ * @trace ARCH-000004
+ * @input raw: string、label: string
+ * @returns positiveCountの計算結果を返す。
+ * @precondition 「raw: string、label: string」がpositiveCountの入力契約を満たす。
+ * @postcondition positiveCountの責務を完了した結果だけを返す。
+ * @effect N/A: positiveCountは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure positiveCountは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant positiveCountは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: positiveCountはProcess内の同一Subsystemで完結する。
+ * @security N/A: positiveCountはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: positiveCountは共有非同期状態を持たない同期処理である。
+ */
 function positiveCount(raw: string, label: string) {
   const value = count(raw, label);
   if (value < 1) throw new Error(`invalid ${label}`);
   return value;
 }
 
+/**
+ * one Valueを決定する。
+ *
+ * @responsibility one Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input lines: readonly string[]、prefix: string
+ * @returns oneValueの計算結果を返す。
+ * @precondition 「lines: readonly string[]、prefix: string」がoneValueの入力契約を満たす。
+ * @postcondition oneValueの責務を完了した結果だけを返す。
+ * @effect N/A: oneValueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure oneValueは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant oneValueは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: oneValueはProcess内の同一Subsystemで完結する。
+ * @security N/A: oneValueはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: oneValueは共有非同期状態を持たない同期処理である。
+ */
 function oneValue(lines: readonly string[], prefix: string) {
   const values = lines.filter((line) => line.startsWith(prefix));
   if (values.length !== 1) throw new Error(`invalid ${prefix} count`);
   return count(values[0]?.slice(prefix.length) ?? "", prefix);
 }
 
+/**
+ * Sourceを固定Schemaへ正規化する。
+ *
+ * @responsibility Sourceの入力検証、正規化規則、不正値の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input raw: string、expectedSources: readonly string[]
+ * @returns normalizeSourceの計算結果を返す。
+ * @precondition 「raw: string、expectedSources: readonly string[]」がnormalizeSourceの入力契約を満たす。
+ * @postcondition normalizeSourceの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeSourceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure normalizeSourceは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant normalizeSourceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeSourceはProcess内の同一Subsystemで完結する。
+ * @security N/A: normalizeSourceはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: normalizeSourceは共有非同期状態を持たない同期処理である。
+ */
 function normalizeSource(raw: string, expectedSources: readonly string[]) {
   if (raw.length === 0 || raw.includes("\0") || path.isAbsolute(raw)) {
     throw new Error("invalid LCOV source");
@@ -240,6 +370,22 @@ function normalizeSource(raw: string, expectedSources: readonly string[]) {
   return relative;
 }
 
+/**
+ * branch Recordsを決定する。
+ *
+ * @responsibility branch Recordsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input lines: readonly string[]
+ * @returns branchRecordsの計算結果を返す。
+ * @precondition 「lines: readonly string[]」がbranchRecordsの入力契約を満たす。
+ * @postcondition branchRecordsの責務を完了した結果だけを返す。
+ * @effect N/A: branchRecordsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure branchRecordsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant branchRecordsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: branchRecordsはProcess内の同一Subsystemで完結する。
+ * @security N/A: branchRecordsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: branchRecordsは共有非同期状態を持たない同期処理である。
+ */
 function branchRecords(lines: readonly string[]) {
   const identities = new Set<string>();
   const branches: Branch[] = [];
@@ -261,6 +407,22 @@ function branchRecords(lines: readonly string[]) {
   return branches;
 }
 
+/**
+ * Line Recordsの契約を検証する。
+ *
+ * @responsibility Line Recordsの必須Property、拒否条件、検証結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input lines: readonly string[]、expectedTotal: number、expectedCovered: number
+ * @returns N/A: validateLineRecordsは戻り値を返さない。
+ * @precondition 「lines: readonly string[]、expectedTotal: number、expectedCovered: number」がvalidateLineRecordsの入力契約を満たす。
+ * @postcondition validateLineRecordsの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: validateLineRecordsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure validateLineRecordsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant validateLineRecordsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateLineRecordsはProcess内の同一Subsystemで完結する。
+ * @security N/A: validateLineRecordsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validateLineRecordsは共有非同期状態を持たない同期処理である。
+ */
 function validateLineRecords(
   lines: readonly string[],
   expectedTotal: number,
@@ -285,6 +447,22 @@ function validateLineRecords(
   }
 }
 
+/**
+ * Function Recordsの契約を検証する。
+ *
+ * @responsibility Function Recordsの必須Property、拒否条件、検証結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input lines: readonly string[]、expectedTotal: number、expectedCovered: number
+ * @returns N/A: validateFunctionRecordsは戻り値を返さない。
+ * @precondition 「lines: readonly string[]、expectedTotal: number、expectedCovered: number」がvalidateFunctionRecordsの入力契約を満たす。
+ * @postcondition validateFunctionRecordsの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: validateFunctionRecordsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure validateFunctionRecordsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant validateFunctionRecordsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateFunctionRecordsはProcess内の同一Subsystemで完結する。
+ * @security N/A: validateFunctionRecordsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validateFunctionRecordsは共有非同期状態を持たない同期処理である。
+ */
 function validateFunctionRecords(
   lines: readonly string[],
   expectedTotal: number,
@@ -343,6 +521,22 @@ const allowedLcovTags = Object.freeze(
   ]),
 );
 
+/**
+ * lcov Recordsを決定する。
+ *
+ * @responsibility lcov Recordsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input raw: string
+ * @returns lcovRecordsの計算結果を返す。
+ * @precondition 「raw: string」がlcovRecordsの入力契約を満たす。
+ * @postcondition lcovRecordsの責務を完了した結果だけを返す。
+ * @effect N/A: lcovRecordsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure lcovRecordsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant lcovRecordsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: lcovRecordsはProcess内の同一Subsystemで完結する。
+ * @security N/A: lcovRecordsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: lcovRecordsは共有非同期状態を持たない同期処理である。
+ */
 function lcovRecords(raw: string) {
   const records: string[][] = [];
   let currentLines: string[] = [];
@@ -372,6 +566,22 @@ function lcovRecords(raw: string) {
   return records;
 }
 
+/**
+ * Exact Ts Coverage Lcovを構造化値へ解析する。
+ *
+ * @responsibility Exact Ts Coverage Lcovの入力文法、解析結果、不正文法の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown、configuration: Readonly<{ sources: readonly string[]; obligations: Readonly<Record<string, CoverageObligation>>; }>
+ * @returns parseExactTsCoverageLcovの計算結果を返す。
+ * @precondition 「raw: unknown、configuration: Readonly<{ sources: readonly string[]; obligations: Readonly<Record<string, CoverageObligation>>; }>」がparseExactTsCoverageLcovの入力契約を満たす。
+ * @postcondition parseExactTsCoverageLcovの責務を完了した結果だけを返す。
+ * @effect N/A: parseExactTsCoverageLcovは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure parseExactTsCoverageLcovは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant parseExactTsCoverageLcovは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseExactTsCoverageLcovはProcess内の同一Subsystemで完結する。
+ * @security N/A: parseExactTsCoverageLcovはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: parseExactTsCoverageLcovは共有非同期状態を持たない同期処理である。
+ */
 export function parseExactTsCoverageLcov(
   raw: unknown,
   configuration: Readonly<{
@@ -496,6 +706,22 @@ export function parseExactTsCoverageLcov(
   });
 }
 
+/**
+ * Platform Access Ts Coverage Lcovを構造化値へ解析する。
+ *
+ * @responsibility Platform Access Ts Coverage Lcovの入力文法、解析結果、不正文法の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown
+ * @returns parsePlatformAccessTsCoverageLcovの計算結果を返す。
+ * @precondition 「raw: unknown」がparsePlatformAccessTsCoverageLcovの入力契約を満たす。
+ * @postcondition parsePlatformAccessTsCoverageLcovの責務を完了した結果だけを返す。
+ * @effect N/A: parsePlatformAccessTsCoverageLcovは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: parsePlatformAccessTsCoverageLcovは独自の失敗分岐を所有しない。
+ * @invariant parsePlatformAccessTsCoverageLcovは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parsePlatformAccessTsCoverageLcovはProcess内の同一Subsystemで完結する。
+ * @security N/A: parsePlatformAccessTsCoverageLcovはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: parsePlatformAccessTsCoverageLcovは共有非同期状態を持たない同期処理である。
+ */
 export function parsePlatformAccessTsCoverageLcov(raw: unknown) {
   return parseExactTsCoverageLcov(raw, {
     sources: PLATFORM_ACCESS_TS_COVERAGE_SOURCES,
@@ -503,6 +729,22 @@ export function parsePlatformAccessTsCoverageLcov(raw: unknown) {
   });
 }
 
+/**
+ * fixed Environmentを決定する。
+ *
+ * @responsibility fixed Environmentの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns fixedEnvironmentの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がfixedEnvironmentの入力契約を満たす。
+ * @postcondition fixedEnvironmentの責務を完了した結果だけを返す。
+ * @effect fixedEnvironmentは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: fixedEnvironmentは独自の失敗分岐を所有しない。
+ * @invariant fixedEnvironmentは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: fixedEnvironmentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: fixedEnvironmentは共有非同期状態を持たない同期処理である。
+ */
 function fixedEnvironment() {
   const environment: NodeJS.ProcessEnv = {};
   for (const name of ["SYSTEMROOT", "SystemRoot", "WINDIR", "TEMP", "TMP"]) {
@@ -512,6 +754,22 @@ function fixedEnvironment() {
   return environment;
 }
 
+/**
+ * Platform Access Ts Coverageを観測する。
+ *
+ * @responsibility Platform Access Ts Coverageの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns inspectPlatformAccessTsCoverageの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がinspectPlatformAccessTsCoverageの入力契約を満たす。
+ * @postcondition inspectPlatformAccessTsCoverageの責務を完了した結果だけを返す。
+ * @effect inspectPlatformAccessTsCoverageはFilesystemの読取りまたは書込みを実行する。
+ * @failure inspectPlatformAccessTsCoverageは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectPlatformAccessTsCoverageは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: inspectPlatformAccessTsCoverageはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectPlatformAccessTsCoverageは共有非同期状態を持たない同期処理である。
+ */
 export function inspectPlatformAccessTsCoverage() {
   const rootMetadata = fs.lstatSync(repositoryRoot);
   if (
@@ -554,6 +812,22 @@ export function inspectPlatformAccessTsCoverage() {
   return parsePlatformAccessTsCoverageLcov(result.stdout);
 }
 
+/**
+ * Platform Access Ts Coverageを固定byte表現へ直列化する。
+ *
+ * @responsibility Platform Access Ts Coverageの入力値、直列化規則、出力境界を所有する。
+ * @trace ARCH-000004
+ * @input value: ReturnType<typeof inspectPlatformAccessTsCoverage>
+ * @returns serializePlatformAccessTsCoverageの計算結果を返す。
+ * @precondition 「value: ReturnType<typeof inspectPlatformAccessTsCoverage>」がserializePlatformAccessTsCoverageの入力契約を満たす。
+ * @postcondition serializePlatformAccessTsCoverageの責務を完了した結果だけを返す。
+ * @effect N/A: serializePlatformAccessTsCoverageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: serializePlatformAccessTsCoverageは独自の失敗分岐を所有しない。
+ * @invariant serializePlatformAccessTsCoverageは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: serializePlatformAccessTsCoverageはProcess内の同一Subsystemで完結する。
+ * @security N/A: serializePlatformAccessTsCoverageはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: serializePlatformAccessTsCoverageは共有非同期状態を持たない同期処理である。
+ */
 export function serializePlatformAccessTsCoverage(
   value: ReturnType<typeof inspectPlatformAccessTsCoverage>,
 ) {

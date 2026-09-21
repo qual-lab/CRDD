@@ -1,3 +1,9 @@
+/**
+ * external-send-grant-runtimeに属する責務をまとめる。
+ *
+ * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000015
+ */
 import { createHash, randomInt } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
@@ -58,9 +64,9 @@ const DERIVED_REMEDIATION_TRANSFER = Object.freeze({
 });
 
 /**
- * Providerが扱う値の構造を表す。
+ * external-send-grant-runtimeで使用するProviderの値契約を定義する。
  *
- * @responsibility Providerに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ProviderのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Providerで宣言した値と責務の対応を維持する。
@@ -70,9 +76,9 @@ const DERIVED_REMEDIATION_TRANSFER = Object.freeze({
  */
 type Provider = "codex" | "claude";
 /**
- * Scopeが扱う値の構造を表す。
+ * external-send-grant-runtimeで使用するScopeの値契約を定義する。
  *
- * @responsibility Scopeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ScopeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape Scopeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Scopeで宣言した値と責務の対応を維持する。
@@ -87,9 +93,9 @@ type Scope = Readonly<{
   readPaths: readonly string[];
 }>;
 /**
- * GrantRecordが扱う値の構造を表す。
+ * external-send-grant-runtimeで使用するGrant 記録の値契約を定義する。
  *
- * @responsibility GrantRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Grant 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape GrantRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant GrantRecordで宣言した値と責務の対応を維持する。
@@ -111,9 +117,9 @@ type GrantRecord = {
   issuedMonotonicMs: number;
 };
 /**
- * RuntimeDependenciesが扱う値の構造を表す。
+ * external-send-grant-runtimeで使用するRuntime Dependenciesの値契約を定義する。
  *
- * @responsibility RuntimeDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape RuntimeDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeDependenciesで宣言した値と責務の対応を維持する。
@@ -137,9 +143,9 @@ type RuntimeDependencies = Readonly<{
   persistConsent?: typeof persistRuntimeOwnedExternalSendConsent;
 }>;
 /**
- * RuntimeStateが扱う値の構造を表す。
+ * external-send-grant-runtimeで使用するRuntime 状態の値契約を定義する。
  *
- * @responsibility RuntimeStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape RuntimeStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeStateで宣言した値と責務の対応を維持する。
@@ -153,9 +159,9 @@ type RuntimeState = Readonly<{
 }>;
 
 /**
- * normalizedStringsの処理を実行する。
+ * Stringsを固定Schemaへ正規化する。
  *
- * @responsibility normalizedStringsに対応する入力処理と結果生成を所有する。
+ * @responsibility Stringsの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown、maximum: number、maximumBytes: number
  * @returns normalizedStringsの計算結果を返す。
@@ -192,9 +198,9 @@ function normalizedStrings(
 }
 
 /**
- * normalizedScopeの処理を実行する。
+ * Scopeを固定Schemaへ正規化する。
  *
- * @responsibility normalizedScopeに対応する入力処理と結果生成を所有する。
+ * @responsibility Scopeの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000015
  * @input rawScope: unknown
  * @returns Scope | nullを返す。
@@ -250,9 +256,9 @@ function normalizedScope(rawScope: unknown): Scope | null {
 }
 
 /**
- * compileExternalSendScopeHashの処理を実行する。
+ * External Send Scope Hashを機械利用可能な契約へ変換する。
  *
- * @responsibility compileExternalSendScopeHashに対応する入力処理と結果生成を所有する。
+ * @responsibility External Send Scope Hashの入力Schema、決定論的変換、変換不能時の拒否境界を所有する。
  * @trace ARCH-000015
  * @input rawScope: unknown
  * @returns compileExternalSendScopeHashの計算結果を返す。
@@ -284,9 +290,9 @@ export function compileExternalSendScopeHash(rawScope: unknown) {
 }
 
 /**
- * terminalSafeJsonの処理を実行する。
+ * terminal Safe Jsonを決定する。
  *
- * @responsibility terminalSafeJsonに対応する入力処理と結果生成を所有する。
+ * @responsibility terminal Safe Jsonの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown
  * @returns terminalSafeJsonの計算結果を返す。
@@ -308,9 +314,9 @@ function terminalSafeJson(value: unknown) {
 }
 
 /**
- * ConsoleConfirmationAdapterが扱う値の構造を表す。
+ * external-send-grant-runtimeで使用するConsole Confirmation Adapterの値契約を定義する。
  *
- * @responsibility ConsoleConfirmationAdapterに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Console Confirmation AdapterのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape ConsoleConfirmationAdapterが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ConsoleConfirmationAdapterで宣言した値と責務の対応を維持する。
@@ -327,9 +333,9 @@ type ConsoleConfirmationAdapter = Readonly<{
 }>;
 
 /**
- * ConsoleConfirmationOutcomeが扱う値の構造を表す。
+ * external-send-grant-runtimeで使用するConsole Confirmation Outcomeの値契約を定義する。
  *
- * @responsibility ConsoleConfirmationOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Console Confirmation OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape ConsoleConfirmationOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ConsoleConfirmationOutcomeで宣言した値と責務の対応を維持する。
@@ -349,9 +355,9 @@ type ConsoleConfirmationOutcome = Readonly<{
 }>;
 
 /**
- * ConsoleConfirmationOutcomeAdapterが扱う値の構造を表す。
+ * external-send-grant-runtimeで使用するConsole Confirmation Outcome Adapterの値契約を定義する。
  *
- * @responsibility ConsoleConfirmationOutcomeAdapterに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Console Confirmation Outcome AdapterのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape ConsoleConfirmationOutcomeAdapterが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ConsoleConfirmationOutcomeAdapterで宣言した値と責務の対応を維持する。
@@ -371,9 +377,9 @@ type ConsoleConfirmationOutcomeAdapter = Readonly<{
 }>;
 
 /**
- * textWriteOutcomeの処理を実行する。
+ * Write Outcomeを表示文字列へ変換する。
  *
- * @responsibility textWriteOutcomeに対応する入力処理と結果生成を所有する。
+ * @responsibility Write Outcomeの入力値、文字列表現、機密を含めない結果境界を所有する。
  * @trace ARCH-000015
  * @input value: boolean | InteractiveConsoleTextWriteOutcome
  * @returns InteractiveConsoleTextWriteOutcomeを返す。
@@ -395,9 +401,9 @@ function textWriteOutcome(
 }
 
 /**
- * isCancellationSignalの処理を実行する。
+ * Cancellation Signalかを判定する。
  *
- * @responsibility isCancellationSignalに対応する入力処理と結果生成を所有する。
+ * @responsibility Cancellation Signalの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown
  * @returns value is AbortSignalを返す。
@@ -415,9 +421,9 @@ function isCancellationSignal(value: unknown): value is AbortSignal {
 }
 
 /**
- * confirmInteractiveConsoleChallengeUsingAdapterの処理を実行する。
+ * Interactive Console Challenge Using Adapterを確認する。
  *
- * @responsibility confirmInteractiveConsoleChallengeUsingAdapterに対応する入力処理と結果生成を所有する。
+ * @responsibility Interactive Console Challenge Using Adapterの確認根拠、成立条件、観測不能境界を所有する。
  * @trace ARCH-000015
  * @input notice: string、challenge: string、handles: Readonly<{ input: number; output: number }>、cancellationSignal: AbortSignal、adapter: ConsoleConfirmationAdapter
  * @returns confirmInteractiveConsoleChallengeUsingAdapterの計算結果を返す。
@@ -458,9 +464,9 @@ export async function confirmInteractiveConsoleChallengeUsingAdapter(
 }
 
 /**
- * confirmInteractiveConsoleChallengeOutcomeUsingAdapterの処理を実行する。
+ * Interactive Console Challenge Outcome Using Adapterを確認する。
  *
- * @responsibility confirmInteractiveConsoleChallengeOutcomeUsingAdapterに対応する入力処理と結果生成を所有する。
+ * @responsibility Interactive Console Challenge Outcome Using Adapterの確認根拠、成立条件、観測不能境界を所有する。
  * @trace ARCH-000015
  * @input notice: string、challenge: string、handles: Readonly<{ input: number; output: number }>、cancellationSignal: AbortSignal、adapter: ConsoleConfirmationOutcomeAdapter
  * @returns Promise<ConsoleConfirmationOutcome>を返す。
@@ -525,9 +531,9 @@ export async function confirmInteractiveConsoleChallengeOutcomeUsingAdapter(
 }
 
 /**
- * confirmRuntimeOwnedOperationUsingConsoleの処理を実行する。
+ * Runtime 所有 Operation Using Consoleを確認する。
  *
- * @responsibility confirmRuntimeOwnedOperationUsingConsoleに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Operation Using Consoleの確認根拠、成立条件、観測不能境界を所有する。
  * @trace ARCH-000015
  * @input notice: string、challenge: string、cancellationSignal: AbortSignal
  * @returns confirmRuntimeOwnedOperationUsingConsoleの計算結果を返す。
@@ -610,9 +616,9 @@ async function confirmRuntimeOwnedOperationUsingConsole(
 }
 
 /**
- * confirmRuntimeOwnedExternalSendUsingConsoleの処理を実行する。
+ * Runtime 所有 External Send Using Consoleを確認する。
  *
- * @responsibility confirmRuntimeOwnedExternalSendUsingConsoleに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 External Send Using Consoleの確認根拠、成立条件、観測不能境界を所有する。
  * @trace ARCH-000015
  * @input notice: string、challenge: string、cancellationSignal: AbortSignal
  * @returns confirmRuntimeOwnedExternalSendUsingConsoleの計算結果を返す。
@@ -638,9 +644,9 @@ export function confirmRuntimeOwnedExternalSendUsingConsole(
 }
 
 /**
- * createStateの処理を実行する。
+ * 状態を構築する。
  *
- * @responsibility createStateに対応する入力処理と結果生成を所有する。
+ * @responsibility 状態の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
  * @input dependencies: RuntimeDependencies
  * @returns RuntimeStateを返す。
@@ -672,9 +678,9 @@ const productionState = createState(
 );
 
 /**
- * requestGrantの処理を実行する。
+ * Grantを要求する。
  *
- * @responsibility requestGrantに対応する入力処理と結果生成を所有する。
+ * @responsibility Grantの要求条件、受理結果、Effect未成立との分離境界を所有する。
  * @trace ARCH-000015
  * @input state: RuntimeState、managementCapability: unknown、repositoryBindingCapability: unknown、policyCapability: unknown、rawScope: unknown、rawProviders: unknown、cancellationSignal: AbortSignal
  * @returns requestGrantの計算結果を返す。
@@ -885,9 +891,9 @@ async function requestGrant(
 }
 
 /**
- * consumeGrantの処理を実行する。
+ * Grantを一回限りで消費する。
  *
- * @responsibility consumeGrantに対応する入力処理と結果生成を所有する。
+ * @responsibility Grantの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000015
  * @input state: RuntimeState、capability: unknown、managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、rawScope: unknown
  * @returns consumeGrantの計算結果を返す。
@@ -972,9 +978,9 @@ function consumeGrant(
 }
 
 /**
- * requestRuntimeOwnedExternalSendGrantの処理を実行する。
+ * Runtime 所有 External Send Grantを要求する。
  *
- * @responsibility requestRuntimeOwnedExternalSendGrantに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 External Send Grantの要求条件、受理結果、Effect未成立との分離境界を所有する。
  * @trace ARCH-000015
  * @input managementCapability: unknown、repositoryBindingCapability: unknown、policyCapability: unknown、rawScope: unknown、rawProviders: unknown、cancellationSignal: AbortSignal
  * @returns requestRuntimeOwnedExternalSendGrantの計算結果を返す。
@@ -1021,9 +1027,9 @@ export function requestRuntimeOwnedExternalSendGrant(
 }
 
 /**
- * consumeRuntimeOwnedExternalSendGrantの処理を実行する。
+ * Runtime 所有 External Send Grantを一回限りで消費する。
  *
- * @responsibility consumeRuntimeOwnedExternalSendGrantに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 External Send Grantの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000015
  * @input capability: unknown、managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、rawScope: unknown
  * @returns consumeRuntimeOwnedExternalSendGrantの計算結果を返す。
@@ -1058,9 +1064,9 @@ export function consumeRuntimeOwnedExternalSendGrant(
 }
 
 /**
- * createIsolatedExternalSendGrantRuntimeCandidateの処理を実行する。
+ * Isolated External Send Grant Runtime 候補を構築する。
  *
- * @responsibility createIsolatedExternalSendGrantRuntimeCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Isolated External Send Grant Runtime 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
  * @input dependencies: RuntimeDependencies
  * @returns createIsolatedExternalSendGrantRuntimeCandidateの計算結果を返す。
@@ -1119,9 +1125,9 @@ export function createIsolatedExternalSendGrantRuntimeCandidate(
 }
 
 /**
- * describeExternalSendGrantRuntimeContractの処理を実行する。
+ * External Send Grant Runtime 契約の公開契約を記述する。
  *
- * @responsibility describeExternalSendGrantRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @responsibility External Send Grant Runtime 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeExternalSendGrantRuntimeContractの計算結果を返す。

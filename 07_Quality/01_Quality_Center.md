@@ -1,8 +1,8 @@
 # CRDD内部ツールの品質の現在状態
 
-状態: v0.21.0 Quality Design Ready — Reality Audit Pending（Released Baseline: v0.20.1）
+状態: Quality Design Ready — Reality Audit Pending（Released Baseline: v0.20.1）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-19
+最終更新日: 2026-09-21
 
 ## 設計集合
 
@@ -14,29 +14,29 @@
 
 ## 結論
 
-v0.21.0のQuality設計は、CRDD Domain Libraryに伴って追加した`RFD-IT-012`を含む13定義、114 Local Itemとして独立レビューを通過した。15 Canonical Architecture詳細設計領域の43検証単位は固定済みで、CRDD Domain LibraryのCandidate詳細設計6検証単位は実装・実境界未確認を示す`OPEN`として追加した。実装、試験、実行結果との現実照合（Reality Audit）は、Coordinator／Project Runtimeの17意味を対象とするPilotから開始した。
+v0.21.0のQuality設計は13定義、150 Local Itemまで拡張した。全SubsystemのTest Symbolと再照合した現在値は、一意なLocal Item 150件中69件が観測済み、81件が未観測である。未観測81件は自動48件、Hybrid 14件、Manual 19件であり、既存試験への正当なRelation不足、試験不足、実装不足、工程Evidenceおよび人間受入待ちをまだ分離中である。既知Gapを閉じる前に全回帰を実行しても完全性を証明しないため、全回帰と署名E2EはGap Closure後へ保留する。
 
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|
 | Canonical入力 | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18を全件Mapping済み | [Quality Integration](04_Quality_Integration.md) |
 | Quality Analysis | 6工程の全入力を、Source固有条件付きで13検証目標へ接続し独立レビュー済み | Reality Auditではこの設計集合を変更せず、現行実装との対応を照合する |
-| Quality Definitions | 13定義、150 Local ItemをCanonical化済み | 各項目の条件区分、試験段階、外部境界到達範囲、観測、Oracle、Evidenceおよび終了後条件を基準に照合する |
-| Architecture詳細設計 | 15 Canonical領域の43検証単位を接続済み。CRDD Domain Library Candidateの6検証単位は`OPEN` | Candidateの独立レビュー後も物理移動までは`OPEN`を維持し、既存43件の完成状態と分ける |
+| Quality Definitions | 13定義、150 Local ItemをCanonical化済み | 69件観測済み、81件未観測。定義済みであることを実装済み・試験済みへ読み替えない |
+| Architecture詳細設計 | 18領域を適用判定済み | 実装OwnerのないCapability、現実との不一致およびTest未接続をReality Auditで処置する |
 | Checker | 現在候補に対する構造・関係検査を実行 | Quality固定後にChecker安定化へ進み、責務分離後に再検証する |
-| Reality Audit | In Progress | Commit `3f2567bd`を対象改訂版として、Coordinator／Project Runtimeの17意味を全数処置する |
+| Reality Audit | In Progress — Blocked by Known Gaps | Coordinator／Project Runtime Pilotに加えて全Subsystemを照合し、83件の未観測Local ItemとRuntime Trustの実装不足を処置する |
 
 ## 現在の品質投影
 
 | 軸 | 現在状態 | この状態から主張しないこと |
 |---|---|---|
 | Designed | Canonical | 実装済みまたは試験可能とは主張しない |
-| Implemented | 未照合 | SourceやTestの存在をCanonical設計の実装根拠にしない |
-| Executed | 未実行 | Checker契約試験を114 Local Itemの実行結果へ数えない |
+| Implemented | 部分照合 | Runtime Trust等の未実装CapabilityをRelation追加だけで成立へ変えない |
+| Executed | 部分実行 | 局所試験結果を未観測81 Local Itemの実行結果へ数えない |
 | Passed | 未評価 | 過去版のPassをv0.21.0候補へ流用しない |
 | Evidence | 未収集 | 現在候補の対象改訂版・実行条件・結果を持つEvidenceがあるとは主張しない |
 | Reality Audit | In Progress | Relationの存在だけからImplemented／Passedを推定しない |
 
-現在はCoordinator／Project RuntimeのPilot範囲だけを照合する。17意味の判定方法と語彙が独立レビューを通過するまで、他Subsystemへの展開とQuality Readyへの昇格を行わない。Quality設計114件の独立レビューは完了しており、現時点で人間による新しい判断は必要ない。
+Coordinator／Project Runtimeの17意味Pilotに加えて全Subsystemへ照合範囲を広げた。17意味では自動観測15件、Runtime Trustの実装・Test不足1件、手動UAT待ち1件である。全Local Itemでは69件観測済み、81件未観測であり、Quality Readyへ昇格しない。PT／LTは人間の明示許可がないため実行しない。
 
 ## 公開済みBaselineと参照
 

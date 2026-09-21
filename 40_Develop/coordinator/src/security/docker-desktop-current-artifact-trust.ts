@@ -1,3 +1,9 @@
+/**
+ * docker-desktop-current-artifact-trustに属する責務をまとめる。
+ *
+ * @responsibility describeDockerDesktopCurrentArtifactTrustContractを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { createHash } from "node:crypto";
 
 export const DOCKER_DESKTOP_CURRENT_ARTIFACT_TRUST_POLICY =
@@ -10,9 +16,9 @@ export const dockerDesktopCurrentArtifactTrustPolicySha256 = createHash(
   .digest("hex");
 
 /**
- * describeDockerDesktopCurrentArtifactTrustContractの処理を実行する。
+ * Docker Desktop Current Artifact Trust 契約の公開契約を記述する。
  *
- * @responsibility describeDockerDesktopCurrentArtifactTrustContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Current Artifact Trust 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeDockerDesktopCurrentArtifactTrustContractの計算結果を返す。

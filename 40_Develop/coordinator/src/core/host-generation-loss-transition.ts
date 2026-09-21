@@ -1,7 +1,13 @@
 /**
- * HostGenerationLossEventが扱う値の構造を表す。
+ * host-generation-loss-transitionに属する責務をまとめる。
  *
- * @responsibility HostGenerationLossEventに必要な値と制約を一つの型契約として保持する。
+ * @responsibility HostGenerationLossEventを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
+/**
+ * host-generation-loss-transitionで使用するHost Generation Loss Eventの値契約を定義する。
+ *
+ * @responsibility Host Generation Loss EventのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape HostGenerationLossEventが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HostGenerationLossEventで宣言した値と責務の対応を維持する。
@@ -15,9 +21,9 @@ export type HostGenerationLossEvent =
   | "cleanup_unknown";
 
 /**
- * reduceHostGenerationLossTransitionの処理を実行する。
+ * reduce Host Generation Loss Transitionを決定する。
  *
- * @responsibility reduceHostGenerationLossTransitionに対応する入力処理と結果生成を所有する。
+ * @responsibility reduce Host Generation Loss Transitionの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input event: HostGenerationLossEvent
  * @returns reduceHostGenerationLossTransitionの計算結果を返す。

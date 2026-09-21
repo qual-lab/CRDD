@@ -1,3 +1,9 @@
+/**
+ * check-provider-home-coverageに属する責務をまとめる。
+ *
+ * @responsibility obligationを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -44,6 +50,22 @@ const NODE_OPTIONS = Object.freeze([
   "--test-reporter=lcov",
 ]);
 
+/**
+ * obligationを決定する。
+ *
+ * @responsibility obligationの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000010
+ * @input reason: string、risk: string、alternativeVerification: string、recheck: string
+ * @returns CoverageObligationを返す。
+ * @precondition 「reason: string、risk: string、alternativeVerification: string、recheck: string」がobligationの入力契約を満たす。
+ * @postcondition obligationの責務を完了した結果だけを返す。
+ * @effect N/A: obligationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: obligationは独自の失敗分岐を所有しない。
+ * @invariant obligationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: obligationはProcess内の同一Subsystemで完結する。
+ * @security N/A: obligationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: obligationは共有非同期状態を持たない同期処理である。
+ */
 function obligation(
   reason: string,
   risk: string,
@@ -115,6 +137,22 @@ const coverageObligations = Object.freeze({
   ),
 } satisfies Readonly<Record<string, CoverageObligation>>);
 
+/**
+ * fixed Environmentを決定する。
+ *
+ * @responsibility fixed Environmentの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000010
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns fixedEnvironmentの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がfixedEnvironmentの入力契約を満たす。
+ * @postcondition fixedEnvironmentの責務を完了した結果だけを返す。
+ * @effect fixedEnvironmentは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: fixedEnvironmentは独自の失敗分岐を所有しない。
+ * @invariant fixedEnvironmentは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: fixedEnvironmentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: fixedEnvironmentは共有非同期状態を持たない同期処理である。
+ */
 function fixedEnvironment() {
   const environment: NodeJS.ProcessEnv = {};
   for (const name of ["SYSTEMROOT", "SystemRoot", "WINDIR", "TEMP", "TMP"]) {
@@ -124,6 +162,22 @@ function fixedEnvironment() {
   return environment;
 }
 
+/**
+ * Supported Provider Home Coverage Node Versionかを判定する。
+ *
+ * @responsibility Supported Provider Home Coverage Node Versionの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000010
+ * @input value: unknown
+ * @returns isSupportedProviderHomeCoverageNodeVersionの計算結果を返す。
+ * @precondition 「value: unknown」がisSupportedProviderHomeCoverageNodeVersionの入力契約を満たす。
+ * @postcondition isSupportedProviderHomeCoverageNodeVersionの責務を完了した結果だけを返す。
+ * @effect N/A: isSupportedProviderHomeCoverageNodeVersionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isSupportedProviderHomeCoverageNodeVersionは独自の失敗分岐を所有しない。
+ * @invariant isSupportedProviderHomeCoverageNodeVersionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isSupportedProviderHomeCoverageNodeVersionはProcess内の同一Subsystemで完結する。
+ * @security N/A: isSupportedProviderHomeCoverageNodeVersionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isSupportedProviderHomeCoverageNodeVersionは共有非同期状態を持たない同期処理である。
+ */
 export function isSupportedProviderHomeCoverageNodeVersion(value: unknown) {
   if (typeof value !== "string") return false;
   const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(value);
@@ -143,6 +197,22 @@ export function isSupportedProviderHomeCoverageNodeVersion(value: unknown) {
   return true;
 }
 
+/**
+ * Onceを観測する。
+ *
+ * @responsibility Onceの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000010
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns inspectOnceの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がinspectOnceの入力契約を満たす。
+ * @postcondition inspectOnceの責務を完了した結果だけを返す。
+ * @effect inspectOnceは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure inspectOnceは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectOnceは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: inspectOnceはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectOnceは共有非同期状態を持たない同期処理である。
+ */
 function inspectOnce() {
   const result = spawnSync(
     process.execPath,
@@ -180,6 +250,22 @@ function inspectOnce() {
   });
 }
 
+/**
+ * Provider Home Coverageを観測する。
+ *
+ * @responsibility Provider Home Coverageの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000010
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns inspectProviderHomeCoverageの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がinspectProviderHomeCoverageの入力契約を満たす。
+ * @postcondition inspectProviderHomeCoverageの責務を完了した結果だけを返す。
+ * @effect inspectProviderHomeCoverageはFilesystemの読取りまたは書込みを実行する。
+ * @failure inspectProviderHomeCoverageは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectProviderHomeCoverageは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: inspectProviderHomeCoverageはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectProviderHomeCoverageは共有非同期状態を持たない同期処理である。
+ */
 export function inspectProviderHomeCoverage() {
   if (!isSupportedProviderHomeCoverageNodeVersion(process.versions.node)) {
     throw new Error("Provider Home coverage Node runtime unsupported");
@@ -213,6 +299,22 @@ export function inspectProviderHomeCoverage() {
   });
 }
 
+/**
+ * Provider Home Coverageを固定byte表現へ直列化する。
+ *
+ * @responsibility Provider Home Coverageの入力値、直列化規則、出力境界を所有する。
+ * @trace ARCH-000010
+ * @input value: ReturnType<typeof inspectProviderHomeCoverage>
+ * @returns serializeProviderHomeCoverageの計算結果を返す。
+ * @precondition 「value: ReturnType<typeof inspectProviderHomeCoverage>」がserializeProviderHomeCoverageの入力契約を満たす。
+ * @postcondition serializeProviderHomeCoverageの責務を完了した結果だけを返す。
+ * @effect N/A: serializeProviderHomeCoverageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: serializeProviderHomeCoverageは独自の失敗分岐を所有しない。
+ * @invariant serializeProviderHomeCoverageは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: serializeProviderHomeCoverageはProcess内の同一Subsystemで完結する。
+ * @security N/A: serializeProviderHomeCoverageはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: serializeProviderHomeCoverageは共有非同期状態を持たない同期処理である。
+ */
 export function serializeProviderHomeCoverage(
   value: ReturnType<typeof inspectProviderHomeCoverage>,
 ) {

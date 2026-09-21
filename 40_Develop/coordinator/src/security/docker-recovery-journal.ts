@@ -1,3 +1,9 @@
+/**
+ * docker-recovery-journalに属する責務をまとめる。
+ *
+ * @responsibility FileIdentityを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -17,9 +23,9 @@ const CLEANUP_PREFIX = ".crdd-cleanup-";
 const INTENT_PENDING_SUFFIX = ".pending";
 
 /**
- * FileIdentityが扱う値の構造を表す。
+ * docker-recovery-journalで使用するFile Identityの値契約を定義する。
  *
- * @responsibility FileIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility File IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape FileIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant FileIdentityで宣言した値と責務の対応を維持する。
@@ -34,9 +40,9 @@ type FileIdentity = Readonly<{
 }>;
 
 /**
- * CommittedJsonが扱う値の構造を表す。
+ * docker-recovery-journalで使用するCommitted Jsonの値契約を定義する。
  *
- * @responsibility CommittedJsonに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Committed JsonのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape CommittedJsonが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CommittedJsonで宣言した値と責務の対応を維持する。
@@ -56,9 +62,9 @@ type CommittedJson = Readonly<{
 }>;
 
 /**
- * DiscoveredJournalJsonが扱う値の構造を表す。
+ * docker-recovery-journalで使用するDiscovered Journal Jsonの値契約を定義する。
  *
- * @responsibility DiscoveredJournalJsonに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Discovered Journal JsonのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DiscoveredJournalJsonが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DiscoveredJournalJsonで宣言した値と責務の対応を維持する。
@@ -75,9 +81,9 @@ type DiscoveredJournalJson = Readonly<{
 }>;
 
 /**
- * canonicalの処理を実行する。
+ * canonicalを決定する。
  *
- * @responsibility canonicalに対応する入力処理と結果生成を所有する。
+ * @responsibility canonicalの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns canonicalの計算結果を返す。
@@ -95,9 +101,9 @@ function canonical(value: unknown) {
 }
 
 /**
- * identityOfの処理を実行する。
+ * identity Ofを決定する。
  *
- * @responsibility identityOfに対応する入力処理と結果生成を所有する。
+ * @responsibility identity Ofの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input metadata: fs.BigIntStats
  * @returns FileIdentityを返す。
@@ -119,9 +125,9 @@ function identityOf(metadata: fs.BigIntStats): FileIdentity {
 }
 
 /**
- * identityTextの処理を実行する。
+ * identity Textを決定する。
  *
- * @responsibility identityTextに対応する入力処理と結果生成を所有する。
+ * @responsibility identity Textの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input identity: FileIdentity
  * @returns identityTextの計算結果を返す。
@@ -139,9 +145,9 @@ function identityText(identity: FileIdentity) {
 }
 
 /**
- * exactKeysの処理を実行する。
+ * Keysが完全一致するか判定する。
  *
- * @responsibility exactKeysに対応する入力処理と結果生成を所有する。
+ * @responsibility Keysの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、keys: readonly string[]
  * @returns exactKeysの計算結果を返す。
@@ -167,9 +173,9 @@ function exactKeys(value: unknown, keys: readonly string[]) {
 }
 
 /**
- * readStableFileの処理を実行する。
+ * Stable Fileを読み取る。
  *
- * @responsibility readStableFileに対応する入力処理と結果生成を所有する。
+ * @responsibility Stable Fileの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input file: string
  * @returns readStableFileの計算結果を返す。
@@ -204,9 +210,9 @@ function readStableFile(file: string) {
 }
 
 /**
- * stableDirectoryIdentityの処理を実行する。
+ * Directory Identityを安定Identityへ変換する。
  *
- * @responsibility stableDirectoryIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Directory Identityの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input directory: string
  * @returns stableDirectoryIdentityの計算結果を返す。
@@ -227,9 +233,9 @@ function stableDirectoryIdentity(directory: string) {
 }
 
 /**
- * hashTextの処理を実行する。
+ * hash Textを決定する。
  *
- * @responsibility hashTextに対応する入力処理と結果生成を所有する。
+ * @responsibility hash Textの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input serialized: string
  * @returns hashTextの計算結果を返す。
@@ -247,9 +253,9 @@ function hashText(serialized: string) {
 }
 
 /**
- * observePathの処理を実行する。
+ * Pathを観測する。
  *
- * @responsibility observePathに対応する入力処理と結果生成を所有する。
+ * @responsibility Pathの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: string
  * @returns observePathの計算結果を返す。
@@ -273,9 +279,9 @@ function observePath(target: string) {
 }
 
 /**
- * pathPresentの処理を実行する。
+ * path Presentを決定する。
  *
- * @responsibility pathPresentに対応する入力処理と結果生成を所有する。
+ * @responsibility path Presentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: string
  * @returns pathPresentの計算結果を返す。
@@ -293,9 +299,9 @@ function pathPresent(target: string) {
 }
 
 /**
- * regularFilePresentの処理を実行する。
+ * regular File Presentを決定する。
  *
- * @responsibility regularFilePresentに対応する入力処理と結果生成を所有する。
+ * @responsibility regular File Presentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: string
  * @returns regularFilePresentの計算結果を返す。
@@ -317,9 +323,9 @@ function regularFilePresent(target: string) {
 }
 
 /**
- * exactFileの処理を実行する。
+ * Fileが完全一致するか判定する。
  *
- * @responsibility exactFileに対応する入力処理と結果生成を所有する。
+ * @responsibility Fileの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input file: string、serialized: string、identity: string
  * @returns exactFileの計算結果を返す。
@@ -344,9 +350,9 @@ function exactFile(file: string, serialized: string, identity: string) {
 }
 
 /**
- * writeIntentAnchorの処理を実行する。
+ * Intent Anchorを書き込む。
  *
- * @responsibility writeIntentAnchorに対応する入力処理と結果生成を所有する。
+ * @responsibility Intent Anchorの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input anchor: string、value: unknown
  * @returns writeIntentAnchorの計算結果を返す。
@@ -386,9 +392,9 @@ function writeIntentAnchor(anchor: string, value: unknown) {
 }
 
 /**
- * readIntentAnchorの処理を実行する。
+ * Intent Anchorを読み取る。
  *
- * @responsibility readIntentAnchorに対応する入力処理と結果生成を所有する。
+ * @responsibility Intent Anchorの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input anchor: string
  * @returns readIntentAnchorの計算結果を返す。
@@ -410,9 +416,9 @@ function readIntentAnchor(anchor: string) {
 }
 
 /**
- * committedPairEvidenceの処理を実行する。
+ * committed Pair Evidenceを決定する。
  *
- * @responsibility committedPairEvidenceに対応する入力処理と結果生成を所有する。
+ * @responsibility committed Pair Evidenceの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input source: CommittedJson
  * @returns committedPairEvidenceの計算結果を返す。
@@ -443,9 +449,9 @@ function committedPairEvidence(source: CommittedJson) {
 }
 
 /**
- * validPairEvidenceの処理を実行する。
+ * Pair Evidenceが有効か判定する。
  *
- * @responsibility validPairEvidenceに対応する入力処理と結果生成を所有する。
+ * @responsibility Pair Evidenceの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns validPairEvidenceの計算結果を返す。
@@ -521,9 +527,9 @@ function validPairEvidence(value: unknown) {
 }
 
 /**
- * finalIntentNameの処理を実行する。
+ * final Intent Nameを決定する。
  *
- * @responsibility finalIntentNameに対応する入力処理と結果生成を所有する。
+ * @responsibility final Intent Nameの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input anchor: string
  * @returns finalIntentNameの計算結果を返す。
@@ -544,9 +550,9 @@ function finalIntentName(anchor: string) {
 }
 
 /**
- * validateIntentAnchorNameの処理を実行する。
+ * Intent Anchor Nameの契約を検証する。
  *
- * @responsibility validateIntentAnchorNameに対応する入力処理と結果生成を所有する。
+ * @responsibility Intent Anchor Nameの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input anchor: string、value: Record<string, unknown>
  * @returns validateIntentAnchorNameの計算結果を返す。
@@ -596,9 +602,9 @@ function validateIntentAnchorName(
 }
 
 /**
- * recoveryIdFromIntentの処理を実行する。
+ * recovery Id From Intentを決定する。
  *
- * @responsibility recoveryIdFromIntentに対応する入力処理と結果生成を所有する。
+ * @responsibility recovery Id From Intentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: Record<string, unknown>
  * @returns recoveryIdFromIntentの計算結果を返す。
@@ -653,9 +659,9 @@ function recoveryIdFromIntent(value: Record<string, unknown>) {
 }
 
 /**
- * validRuntimeStateBindingEvidenceの処理を実行する。
+ * Runtime 状態 Binding Evidenceが有効か判定する。
  *
- * @responsibility validRuntimeStateBindingEvidenceに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 状態 Binding Evidenceの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns validRuntimeStateBindingEvidenceの計算結果を返す。
@@ -683,9 +689,9 @@ function validRuntimeStateBindingEvidence(value: unknown) {
 }
 
 /**
- * sameRuntimeStateBindingEvidenceの処理を実行する。
+ * Runtime 状態 Binding Evidenceが同一かを判定する。
  *
- * @responsibility sameRuntimeStateBindingEvidenceに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 状態 Binding Evidenceの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000008
  * @input left: unknown、right: unknown
  * @returns sameRuntimeStateBindingEvidenceの計算結果を返す。
@@ -717,9 +723,9 @@ function sameRuntimeStateBindingEvidence(left: unknown, right: unknown) {
 }
 
 /**
- * runtimeStateBindingFromIntentの処理を実行する。
+ * runtime 状態 Binding From Intentを決定する。
  *
- * @responsibility runtimeStateBindingFromIntentに対応する入力処理と結果生成を所有する。
+ * @responsibility runtime 状態 Binding From Intentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: Record<string, unknown>
  * @returns runtimeStateBindingFromIntentの計算結果を返す。
@@ -755,9 +761,9 @@ function runtimeStateBindingFromIntent(value: Record<string, unknown>) {
 }
 
 /**
- * resolveRuntimeStateBindingForRecoveryの処理を実行する。
+ * Runtime 状態 Binding For 回復を一意に解決する。
  *
- * @responsibility resolveRuntimeStateBindingForRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 状態 Binding For 回復の候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input directory: string、recoveryId: string、intents: readonly Record<string, unknown>[]
  * @returns resolveRuntimeStateBindingForRecoveryの計算結果を返す。
@@ -848,9 +854,9 @@ function resolveRuntimeStateBindingForRecovery(
 }
 
 /**
- * resumeDeleteAnchorの処理を実行する。
+ * resume Delete Anchorを決定する。
  *
- * @responsibility resumeDeleteAnchorに対応する入力処理と結果生成を所有する。
+ * @responsibility resume Delete Anchorの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input anchor: string
  * @returns resumeDeleteAnchorの計算結果を返す。
@@ -903,9 +909,9 @@ function resumeDeleteAnchor(anchor: string) {
 }
 
 /**
- * inspectMoveAnchorStateの処理を実行する。
+ * Move Anchor 状態を観測する。
  *
- * @responsibility inspectMoveAnchorStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Move Anchor 状態の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input anchor: string
  * @returns inspectMoveAnchorStateの計算結果を返す。
@@ -981,9 +987,9 @@ function inspectMoveAnchorState(anchor: string) {
 }
 
 /**
- * resumeMoveAnchorの処理を実行する。
+ * resume Move Anchorを決定する。
  *
- * @responsibility resumeMoveAnchorに対応する入力処理と結果生成を所有する。
+ * @responsibility resume Move Anchorの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input anchor: string
  * @returns resumeMoveAnchorの計算結果を返す。
@@ -1025,9 +1031,9 @@ function resumeMoveAnchor(anchor: string) {
 }
 
 /**
- * validCleanupEntryの処理を実行する。
+ * 清掃 Entryが有効か判定する。
  *
- * @responsibility validCleanupEntryに対応する入力処理と結果生成を所有する。
+ * @responsibility 清掃 Entryの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns validCleanupEntryの計算結果を返す。
@@ -1057,9 +1063,9 @@ function validCleanupEntry(value: unknown) {
 }
 
 /**
- * validateIntentSnapshotの処理を実行する。
+ * Intent Snapshotの契約を検証する。
  *
- * @responsibility validateIntentSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility Intent Snapshotの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input anchor: string
  * @returns validateIntentSnapshotの計算結果を返す。
@@ -1172,9 +1178,9 @@ function validateIntentSnapshot(anchor: string) {
 }
 
 /**
- * resumeCleanupAnchorの処理を実行する。
+ * resume 清掃 Anchorを決定する。
  *
- * @responsibility resumeCleanupAnchorに対応する入力処理と結果生成を所有する。
+ * @responsibility resume 清掃 Anchorの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input anchor: string
  * @returns resumeCleanupAnchorの計算結果を返す。
@@ -1287,9 +1293,9 @@ function resumeCleanupAnchor(anchor: string) {
 }
 
 /**
- * writeAtomicFileの処理を実行する。
+ * Atomic Fileを書き込む。
  *
- * @responsibility writeAtomicFileに対応する入力処理と結果生成を所有する。
+ * @responsibility Atomic Fileの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input directory: string、target: string、serialized: string
  * @returns writeAtomicFileの計算結果を返す。
@@ -1339,9 +1345,9 @@ function writeAtomicFile(
 }
 
 /**
- * dockerRecoveryCommitNameの処理を実行する。
+ * docker 回復 Commit Nameを決定する。
  *
- * @responsibility dockerRecoveryCommitNameに対応する入力処理と結果生成を所有する。
+ * @responsibility docker 回復 Commit Nameの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input name: string
  * @returns dockerRecoveryCommitNameの計算結果を返す。
@@ -1359,9 +1365,9 @@ export function dockerRecoveryCommitName(name: string) {
 }
 
 /**
- * isDockerRecoveryJournalTemporaryNameの処理を実行する。
+ * Docker 回復 Journal Temporary Nameかを判定する。
  *
- * @responsibility isDockerRecoveryJournalTemporaryNameに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 Journal Temporary Nameの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input name: string
  * @returns isDockerRecoveryJournalTemporaryNameの計算結果を返す。
@@ -1381,9 +1387,9 @@ export function isDockerRecoveryJournalTemporaryName(name: string) {
 }
 
 /**
- * writeCommittedDockerRecoveryJsonの処理を実行する。
+ * Committed Docker 回復 Jsonを書き込む。
  *
- * @responsibility writeCommittedDockerRecoveryJsonに対応する入力処理と結果生成を所有する。
+ * @responsibility Committed Docker 回復 Jsonの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input directory: string、name: string、logicalKey: string、value: unknown
  * @returns CommittedJsonを返す。
@@ -1433,7 +1439,7 @@ export function writeCommittedDockerRecoveryJson(
 /**
  * Complete or reuse one exact committed pair.  This is the create-side
  *
- * @responsibility writeOrResumeCommittedDockerRecoveryJsonに対応する入力処理と結果生成を所有する。
+ * @responsibility Or Resume Committed Docker 回復 Jsonの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input directory: string、name: string、logicalKey: string、value: unknown
  * @returns CommittedJsonを返す。
@@ -1487,9 +1493,9 @@ export function writeOrResumeCommittedDockerRecoveryJson(
 }
 
 /**
- * readCommittedDockerRecoveryJsonの処理を実行する。
+ * Committed Docker 回復 Jsonを読み取る。
  *
- * @responsibility readCommittedDockerRecoveryJsonに対応する入力処理と結果生成を所有する。
+ * @responsibility Committed Docker 回復 Jsonの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input file: string、expectedLogicalKey
  * @returns CommittedJsonを返す。
@@ -1545,9 +1551,9 @@ export function readCommittedDockerRecoveryJson(
 }
 
 /**
- * moveCommittedDockerRecoveryJsonの処理を実行する。
+ * move Committed Docker 回復 Jsonを決定する。
  *
- * @responsibility moveCommittedDockerRecoveryJsonに対応する入力処理と結果生成を所有する。
+ * @responsibility move Committed Docker 回復 Jsonの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input source: CommittedJson、target: string
  * @returns moveCommittedDockerRecoveryJsonの計算結果を返す。
@@ -1594,9 +1600,9 @@ export function moveCommittedDockerRecoveryJson(
 }
 
 /**
- * removeCommittedDockerRecoveryJsonの処理を実行する。
+ * Committed Docker 回復 Jsonを除去する。
  *
- * @responsibility removeCommittedDockerRecoveryJsonに対応する入力処理と結果生成を所有する。
+ * @responsibility Committed Docker 回復 Jsonの対象Identity、除去条件、終了後状態の境界を所有する。
  * @trace ARCH-000008
  * @input file: string、expectedLogicalKey
  * @returns removeCommittedDockerRecoveryJsonの計算結果を返す。
@@ -1631,9 +1637,9 @@ export function removeCommittedDockerRecoveryJson(
 }
 
 /**
- * removeExactUncommittedDockerRecoveryJsonの処理を実行する。
+ * Exact Uncommitted Docker 回復 Jsonを除去する。
  *
- * @responsibility removeExactUncommittedDockerRecoveryJsonに対応する入力処理と結果生成を所有する。
+ * @responsibility Exact Uncommitted Docker 回復 Jsonの対象Identity、除去条件、終了後状態の境界を所有する。
  * @trace ARCH-000008
  * @input file: string、expectedValue: unknown
  * @returns removeExactUncommittedDockerRecoveryJsonの計算結果を返す。
@@ -1687,9 +1693,9 @@ export function removeExactUncommittedDockerRecoveryJson(
 }
 
 /**
- * isDockerRecoveryJournalIntentNameの処理を実行する。
+ * Docker 回復 Journal Intent Nameかを判定する。
  *
- * @responsibility isDockerRecoveryJournalIntentNameに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 Journal Intent Nameの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input name: string
  * @returns isDockerRecoveryJournalIntentNameの計算結果を返す。
@@ -1709,9 +1715,9 @@ export function isDockerRecoveryJournalIntentName(name: string) {
 }
 
 /**
- * removeDockerRecoveryCleanupDirectoryの処理を実行する。
+ * Docker 回復 清掃 Directoryを除去する。
  *
- * @responsibility removeDockerRecoveryCleanupDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 清掃 Directoryの対象Identity、除去条件、終了後状態の境界を所有する。
  * @trace ARCH-000008
  * @input rootDirectory: string、cleanupDirectory: string、recoveryId: string、runtimeStateBinding: Readonly<{ runtimeStateIdentityHash: string; runtimeStateProtectionHash: string; localUserBindingHash: string; runtimeStateBindingHash: string; }>
  * @returns removeDockerRecoveryCleanupDirectoryの計算結果を返す。
@@ -1795,9 +1801,9 @@ export function removeDockerRecoveryCleanupDirectory(
 }
 
 /**
- * resumeDockerRecoveryJournalDirectoryの処理を実行する。
+ * resume Docker 回復 Journal Directoryを決定する。
  *
- * @responsibility resumeDockerRecoveryJournalDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility resume Docker 回復 Journal Directoryの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input directory: string
  * @returns resumeDockerRecoveryJournalDirectoryの計算結果を返す。
@@ -1852,7 +1858,7 @@ export function resumeDockerRecoveryJournalDirectory(directory: string) {
 /**
  * RuntimeState recovery is authorized for one exact recovery generation.  The
  *
- * @responsibility resumeDockerRecoveryJournalDirectoryForRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility docker-recovery-journalの入力からresume Docker 回復 Journal Directory For 回復を導く規則と結果境界を所有する。
  * @trace ARCH-000008
  * @input directory: string、recoveryId: string、runtimeStateBinding: Readonly<{ runtimeStateIdentityHash: string; runtimeStateProtectionHash: string; localUserBindingHash: string; runtimeStateBindingHash: string; }>
  * @returns resumeDockerRecoveryJournalDirectoryForRecoveryの計算結果を返す。
@@ -1953,9 +1959,9 @@ export function resumeDockerRecoveryJournalDirectoryForRecovery(
 }
 
 /**
- * hasDockerRecoveryJournalIntentForRecoveryの処理を実行する。
+ * Docker 回復 Journal Intent For 回復が存在するかを判定する。
  *
- * @responsibility hasDockerRecoveryJournalIntentForRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 Journal Intent For 回復の存在条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input directory: string、recoveryId: string
  * @returns hasDockerRecoveryJournalIntentForRecoveryの計算結果を返す。
@@ -1985,9 +1991,9 @@ export function hasDockerRecoveryJournalIntentForRecovery(
 }
 
 /**
- * inspectDockerRecoveryMoveJournalForRecoveryの処理を実行する。
+ * Docker 回復 Move Journal For 回復を観測する。
  *
- * @responsibility inspectDockerRecoveryMoveJournalForRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 Move Journal For 回復の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input directory: string、recoveryId: string、logicalKey: string、targetDirectory: string、targetContentName: string
  * @returns inspectDockerRecoveryMoveJournalForRecoveryの計算結果を返す。
@@ -2047,9 +2053,9 @@ export function inspectDockerRecoveryMoveJournalForRecovery(
 }
 
 /**
- * inspectDockerRecoveryJournalDirectoryの処理を実行する。
+ * Docker 回復 Journal Directoryを観測する。
  *
- * @responsibility inspectDockerRecoveryJournalDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 Journal Directoryの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input directory: string
  * @returns inspectDockerRecoveryJournalDirectoryの計算結果を返す。
@@ -2142,9 +2148,9 @@ export function inspectDockerRecoveryJournalDirectory(directory: string) {
 }
 
 /**
- * discoverDockerRecoveryJournalJsonの処理を実行する。
+ * Docker 回復 Journal Jsonを探索する。
  *
- * @responsibility discoverDockerRecoveryJournalJsonに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 Journal Jsonの探索Root、対象母集団、未観測境界を所有する。
  * @trace ARCH-000008
  * @input directory: string、logicalKey: string
  * @returns discoverDockerRecoveryJournalJsonの計算結果を返す。
@@ -2203,9 +2209,9 @@ export function discoverDockerRecoveryJournalJson(
 }
 
 /**
- * discoverDockerRecoveryJournalJsonForRecoveryの処理を実行する。
+ * Docker 回復 Journal Json For 回復を探索する。
  *
- * @responsibility discoverDockerRecoveryJournalJsonForRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 Journal Json For 回復の探索Root、対象母集団、未観測境界を所有する。
  * @trace ARCH-000008
  * @input directory: string、logicalKey: string、recoveryId: string
  * @returns discoverDockerRecoveryJournalJsonForRecoveryの計算結果を返す。
@@ -2273,9 +2279,9 @@ export function discoverDockerRecoveryJournalJsonForRecovery(
 }
 
 /**
- * describeDockerRecoveryJournalContractの処理を実行する。
+ * Docker 回復 Journal 契約の公開契約を記述する。
  *
- * @responsibility describeDockerRecoveryJournalContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 Journal 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeDockerRecoveryJournalContractの計算結果を返す。

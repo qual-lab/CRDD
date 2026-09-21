@@ -6,7 +6,7 @@
  * @trace PRL-UT-006
  * @level UT
  * @scope project-runtime、integration、application
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -26,7 +26,7 @@ import {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("統合Applicationは状態またはQueueを観測できない場合に外部Effect前で停止する", async () => {
   let candidateCalls = 0;
@@ -95,7 +95,7 @@ test("統合Applicationは状態またはQueueを観測できない場合に外�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("統合Applicationの説明は候補生成と採用を別Effectとして公開する", () => {
   assert.deepEqual(describeProjectRuntimeIntegrationContract(), {

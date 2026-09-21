@@ -1,3 +1,9 @@
+/**
+ * symbol-manifest-modelに属する責務をまとめる。
+ *
+ * @responsibility RealitySymbolKindを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 export const realitySymbolKinds = [
   "package",
   "module",
@@ -13,9 +19,9 @@ export const realitySymbolKinds = [
 ] as const;
 
 /**
- * RealitySymbolKindが扱う値の構造を表す。
+ * symbol-manifest-modelで使用するReality Symbol Kindの値契約を定義する。
  *
- * @responsibility RealitySymbolKindに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Reality Symbol KindのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RealitySymbolKindが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RealitySymbolKindで宣言した値と責務の対応を維持する。
@@ -26,9 +32,9 @@ export const realitySymbolKinds = [
 export type RealitySymbolKind = (typeof realitySymbolKinds)[number];
 
 /**
- * RealitySymbolが扱う値の構造を表す。
+ * symbol-manifest-modelで使用するReality Symbolの値契約を定義する。
  *
- * @responsibility RealitySymbolに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Reality SymbolのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RealitySymbolが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RealitySymbolで宣言した値と責務の対応を維持する。
@@ -48,9 +54,9 @@ export type RealitySymbol = Readonly<{
 }>;
 
 /**
- * RealitySymbolManifestが扱う値の構造を表す。
+ * symbol-manifest-modelで使用するReality Symbol Manifestの値契約を定義する。
  *
- * @responsibility RealitySymbolManifestに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Reality Symbol ManifestのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RealitySymbolManifestが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RealitySymbolManifestで宣言した値と責務の対応を維持する。
@@ -66,9 +72,9 @@ export type RealitySymbolManifest = Readonly<{
 }>;
 
 /**
- * LoadedRealitySymbolManifestが扱う値の構造を表す。
+ * symbol-manifest-modelで使用するLoaded Reality Symbol Manifestの値契約を定義する。
  *
- * @responsibility LoadedRealitySymbolManifestに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Loaded Reality Symbol ManifestのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape LoadedRealitySymbolManifestが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LoadedRealitySymbolManifestで宣言した値と責務の対応を維持する。

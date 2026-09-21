@@ -1,3 +1,9 @@
+/**
+ * checker-repository-observation-adapterに属する責務をまとめる。
+ *
+ * @responsibility runGitCommandを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000002
+ */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 
@@ -6,9 +12,9 @@ import path from "node:path";
 const MAX_OUTPUT_BYTES = 16 * 1_024 * 1_024;
 
 /**
- * runGitCommandの処理を実行する。
+ * Git Commandを実行する。
  *
- * @responsibility runGitCommandに対応する入力処理と結果生成を所有する。
+ * @responsibility Git Commandの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000002
  * @input root: string、commandArguments: readonly string[]
  * @returns runGitCommandの計算結果を返す。
@@ -33,9 +39,9 @@ function runGitCommand(root: string, commandArguments: readonly string[]) {
 }
 
 /**
- * samePathの処理を実行する。
+ * Pathが同一かを判定する。
  *
- * @responsibility samePathに対応する入力処理と結果生成を所有する。
+ * @responsibility Pathの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000002
  * @input left: string、right: string
  * @returns booleanを返す。
@@ -58,9 +64,9 @@ function samePath(left: string, right: string): boolean {
 }
 
 /**
- * failureReasonの処理を実行する。
+ * failure Reasonを決定する。
  *
- * @responsibility failureReasonに対応する入力処理と結果生成を所有する。
+ * @responsibility failure Reasonの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
  * @input result: ReturnType<typeof runGitCommand>
  * @returns stringを返す。
@@ -82,9 +88,9 @@ function failureReason(result: ReturnType<typeof runGitCommand>): string {
 }
 
 /**
- * RepositoryEntryObservationが扱う値の構造を表す。
+ * checker-repository-observation-adapterで使用するRepository Entry Observationの値契約を定義する。
  *
- * @responsibility RepositoryEntryObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Repository Entry ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape RepositoryEntryObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepositoryEntryObservationで宣言した値と責務の対応を維持する。
@@ -100,9 +106,9 @@ export type RepositoryEntryObservation = Readonly<{
 }>;
 
 /**
- * observeDeclaredNestedRepositoryPathsの処理を実行する。
+ * Declared Nested Repository Pathsを観測する。
  *
- * @responsibility observeDeclaredNestedRepositoryPathsに対応する入力処理と結果生成を所有する。
+ * @responsibility Declared Nested Repository Pathsの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000002
  * @input configPath: string
  * @returns | Readonly<{ status: "completed"; paths: readonly string[] }> | Readonly<{ status: "unavailable"; paths: readonly string[] }>を返す。
@@ -160,9 +166,9 @@ export function observeDeclaredNestedRepositoryPaths(
 }
 
 /**
- * observeRepositoryEntriesの処理を実行する。
+ * Repository Entriesを観測する。
  *
- * @responsibility observeRepositoryEntriesに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Entriesの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000002
  * @input scopeRoot: string
  * @returns | Readonly<{ status: "completed"; entries: readonly RepositoryEntryObservation[]; nestedRepositoryObservationComplete: boolean; repositoryPathReported: false; }> | Readonly<{ status: "unavailable"; reason: string; entries: readonly RepositoryEntryObservation[]; repositoryPathReported: false; }>を返す。
@@ -305,9 +311,9 @@ export function observeRepositoryEntries(scopeRoot: string):
 }
 
 /**
- * observeNestedRepositoryの処理を実行する。
+ * Nested Repositoryを観測する。
  *
- * @responsibility observeNestedRepositoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Nested Repositoryの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000002
  * @input scopeRoot: string、relativePath: string
  * @returns observeNestedRepositoryの計算結果を返す。
@@ -341,9 +347,9 @@ export function observeNestedRepository(
 }
 
 /**
- * readFixedSnapshotTextの処理を実行する。
+ * Fixed Snapshot Textを読み取る。
  *
- * @responsibility readFixedSnapshotTextに対応する入力処理と結果生成を所有する。
+ * @responsibility Fixed Snapshot Textの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000002
  * @input repositoryRoot: string、revisionIdentity: string、relativePath: string
  * @returns string | nullを返す。
@@ -380,9 +386,9 @@ export function readFixedSnapshotText(
 }
 
 /**
- * resolveRevisionIdentityの処理を実行する。
+ * Revision Identityを一意に解決する。
  *
- * @responsibility resolveRevisionIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Revision Identityの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000002
  * @input repositoryRoot: string、selector: string
  * @returns string | nullを返す。

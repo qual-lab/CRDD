@@ -6,7 +6,7 @@
  * @trace PRL-IT-013
  * @level IT
  * @scope project、runtime、decision、recovery、store
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -28,7 +28,7 @@ import type { ProjectRuntimeDecisionRecoveryIntent } from "../../../project-runt
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(
@@ -48,7 +48,7 @@ function fixture(t: test.TestContext) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 function intent(): ProjectRuntimeDecisionRecoveryIntent {
   return Object.freeze({
@@ -76,7 +76,7 @@ function intent(): ProjectRuntimeDecisionRecoveryIntent {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("independent decision recovery intent survives a fresh store and settles by CAS", (t) => {
   const root = fixture(t);
@@ -109,7 +109,7 @@ test("independent decision recovery intent survives a fresh store and settles by
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("recovery intent store rejects duplicate creation and a stale CAS", (t) => {
   const store = createProjectRuntimeDecisionRecoveryStore(fixture(t));
@@ -138,7 +138,7 @@ test("recovery intent store rejects duplicate creation and a stale CAS", (t) => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task／Recovery Store→再入場Application
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 test("unknown files fail closed without replacing the recovery history", (t) => {
   const root = fixture(t);

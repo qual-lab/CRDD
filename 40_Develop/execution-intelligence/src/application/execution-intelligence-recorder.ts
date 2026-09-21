@@ -1,3 +1,9 @@
+/**
+ * execution-intelligence-recorderに属する責務をまとめる。
+ *
+ * @responsibility ExecutionIntelligenceRecorderを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000007
+ */
 import {
   createTaskAttemptSettledEvent,
   type ExecutionIntelligenceEvent,
@@ -11,9 +17,9 @@ import {
 import { verifyExecutionIntelligenceRepositoryRoot } from "../store/verified-repository-root.ts";
 
 /**
- * ExecutionIntelligenceRecorderが扱う値の構造を表す。
+ * execution-intelligence-recorderで使用するExecution Intelligence Recorderの値契約を定義する。
  *
- * @responsibility ExecutionIntelligenceRecorderに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Execution Intelligence RecorderのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape ExecutionIntelligenceRecorderが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ExecutionIntelligenceRecorderで宣言した値と責務の対応を維持する。
@@ -32,9 +38,9 @@ export type ExecutionIntelligenceRecorder = Readonly<{
 }>;
 
 /**
- * ExecutionIntelligenceEventWriterが扱う値の構造を表す。
+ * execution-intelligence-recorderで使用するExecution Intelligence Event Writerの値契約を定義する。
  *
- * @responsibility ExecutionIntelligenceEventWriterに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Execution Intelligence Event WriterのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape ExecutionIntelligenceEventWriterが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ExecutionIntelligenceEventWriterで宣言した値と責務の対応を維持する。
@@ -48,9 +54,9 @@ type ExecutionIntelligenceEventWriter = (
 ) => ExecutionIntelligencePublicationResult;
 
 /**
- * invalidEventPublicationの処理を実行する。
+ * Event Publicationを不正結果として構築する。
  *
- * @responsibility invalidEventPublicationに対応する入力処理と結果生成を所有する。
+ * @responsibility Event Publicationの不正理由、公開Property、結果境界を所有する。
  * @trace ARCH-000007
  * @input N/A: 実行時引数を受け取らない。
  * @returns ExecutionIntelligencePublicationResultを返す。
@@ -81,7 +87,7 @@ function invalidEventPublication(): ExecutionIntelligencePublicationResult {
 /**
  * Package-internal composition boundary. The writer argument is intentionally
  *
- * @responsibility createBoundExecutionIntelligenceRecorderに対応する入力処理と結果生成を所有する。
+ * @responsibility Bound Execution Intelligence Recorderの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000007
  * @input capability: Parameters<typeof writeExecutionIntelligenceEvent>[0]、writeEvent: ExecutionIntelligenceEventWriter
  * @returns ExecutionIntelligenceRecorderを返す。
@@ -115,9 +121,9 @@ export function createBoundExecutionIntelligenceRecorder(
 }
 
 /**
- * createExecutionIntelligenceRecorderの処理を実行する。
+ * Execution Intelligence Recorderを構築する。
  *
- * @responsibility createExecutionIntelligenceRecorderに対応する入力処理と結果生成を所有する。
+ * @responsibility Execution Intelligence Recorderの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000007
  * @input repositoryRoot: string
  * @returns | Readonly<{ status: "completed"; reason: "execution_intelligence_recorder_ready"; recorder: ExecutionIntelligenceRecorder; }> | Readonly<{ status: "blocked"; reason: "execution_repository_root_invalid"; }>を返す。

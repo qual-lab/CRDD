@@ -6,7 +6,7 @@
  * @trace ERB-IT-004
  * @level IT
  * @scope docker、effect、runtime
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -29,7 +29,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 function createPlanFixture(taskRole: "executor" | "reviewer" | null = null) {
   const managementCapability = Object.freeze({});
@@ -166,7 +166,7 @@ function createPlanFixture(taskRole: "executor" | "reviewer" | null = null) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 function createEffectFixture(
   options: Readonly<{
@@ -316,7 +316,7 @@ type SanitizedAuthProbeInspectFixture = Readonly<{
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 function loadSanitizedAuthProbeInspectFixture() {
   return JSON.parse(
@@ -340,7 +340,7 @@ function loadSanitizedAuthProbeInspectFixture() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 function authProbeInspectOutput(
   fixture: ReturnType<typeof createEffectFixture>,
@@ -386,7 +386,7 @@ function authProbeInspectOutput(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 test("固定planのcommandだけを固定CLI・Engine・最小環境へ渡す", async () => {
   const fixture = createEffectFixture();
@@ -436,7 +436,7 @@ test("固定planのcommandだけを固定CLI・Engine・最小環境へ渡す", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 test("plain command copyと変更planはDocker processを開始しない", () => {
   const fixture = createEffectFixture();
@@ -480,7 +480,7 @@ test("plain command copyと変更planはDocker processを開始しない", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 test("Task本文はprovider startのstdinだけへ渡しDocker argvへ含めない", async () => {
   const fixture = createEffectFixture({ taskRole: "executor" });
@@ -512,7 +512,7 @@ test("Task本文はprovider startのstdinだけへ渡しDocker argvへ含めな�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 test("Taskの上限改変と同じ上限になる作業量の差替えを拒否する", async () => {
   const fixture = createEffectFixture({ taskRole: "executor" });
@@ -575,7 +575,7 @@ test("Taskの上限改変と同じ上限になる作業量の差替えを拒否�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 test("cleanupは全handle終了と所有resource不存在後だけconfigを除去する", async () => {
   const fixture = createEffectFixture();
@@ -615,7 +615,7 @@ test("cleanupは全handle終了と所有resource不存在後だけconfigを除�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 test("実行errorの後もstartCommandの未close handleを回収まで保持する", async () => {
   let closed = false;
@@ -676,7 +676,7 @@ test("実行errorの後もstartCommandの未close handleを回収まで保持す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 test("candidate/receipt cleanup中のrunShort errorもcloseまで所有し設定を保持する", async () => {
   for (const shouldUseReceipts of [false, true]) {
@@ -757,7 +757,7 @@ test("candidate/receipt cleanup中のrunShort errorもcloseまで所有し設定
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 test("foreign labelまたはconfig残存はcleanupとRecovery完了を止める", async () => {
   const foreign = createEffectFixture({
@@ -809,7 +809,7 @@ test("foreign labelまたはconfig残存はcleanupとRecovery完了を止める"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 test("exact ID削除後に同名replacementが残ればcleanupを完了しない", async () => {
   const dockerId = "a".repeat(64);
@@ -872,7 +872,7 @@ test("exact ID削除後に同名replacementが残ればcleanupを完了しない
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 test("通常Effect cleanupは実測同形の認証Probe none Networkだけを回収する", async () => {
   const dockerId = "c".repeat(64);
@@ -923,7 +923,7 @@ test("通常Effect cleanupは実測同形の認証Probe none Networkだけを回
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 test("通常Effect cleanupは認証Probeの空・別・追加Networkを削除しない", async () => {
   const cases = [
@@ -974,7 +974,7 @@ test("通常Effect cleanupは認証Probeの空・別・追加Networkを削除し
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Observer→Effect Gate
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 test("Docker Effect contractは発行者Trustと任意command禁止を公開する", () => {
   const contract = describeDockerEffectRuntimeContract();

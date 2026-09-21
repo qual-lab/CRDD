@@ -6,7 +6,7 @@
  * @trace PRL-UT-006
  * @level UT
  * @scope provider、authority、runtime
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -29,7 +29,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 function createFixture() {
   const managementCapability = Object.freeze({});
@@ -182,7 +182,7 @@ function createFixture() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("active MountとAuthority identityを5秒一回限りCapabilityへ結合する", () => {
   const fixture = createFixture();
@@ -237,7 +237,7 @@ for (const fault of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
    */
   test(`発行時のreverify ${fault}をAuthority Capabilityへ昇格しない`, () => {
     const fixture = createFixture();
@@ -268,7 +268,7 @@ for (const fault of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
    */
   test(`消費時のreverify ${fault}は元Capabilityを失効して再利用させない`, () => {
     const fixture = createFixture();
@@ -315,7 +315,7 @@ for (const fault of [
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("consume直前のBundle差とMount失効をAuthorityへ流用しない", () => {
   const changed = createFixture();
@@ -359,7 +359,7 @@ test("consume直前のBundle差とMount失効をAuthorityへ流用しない", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("期限、clock rollback、source欠落と別Mountをfail closedにする", () => {
   const expired = createFixture();
@@ -427,7 +427,7 @@ test("期限、clock rollback、source欠落と別Mountをfail closedにする",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("control aliasは未使用Authorityを全aliasごと失効する", () => {
   const fixture = createFixture();
@@ -462,7 +462,7 @@ test("control aliasは未使用Authorityを全aliasごと失効する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("偽造production Capabilityと公開契約はProvider Effect前に閉じる", () => {
   assert.equal(issueRuntimeOwnedProviderAuthority({}, {}).status, "blocked");

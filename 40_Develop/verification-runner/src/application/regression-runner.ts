@@ -1,3 +1,9 @@
+/**
+ * regression-runnerに属する責務をまとめる。
+ *
+ * @responsibility RegressionRunRequestを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000003
+ */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,9 +41,9 @@ const PLATFORM_TOOLCHAIN = "+1.94.1-x86_64-pc-windows-msvc";
 const PLATFORM_TARGET = "x86_64-pc-windows-msvc";
 
 /**
- * RegressionRunRequestが扱う値の構造を表す。
+ * regression-runnerで使用するRegression Run Requestの値契約を定義する。
  *
- * @responsibility RegressionRunRequestに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Regression Run RequestのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000003
  * @shape RegressionRunRequestが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RegressionRunRequestで宣言した値と責務の対応を維持する。
@@ -51,9 +57,9 @@ export type RegressionRunRequest = Readonly<{
 }>;
 
 /**
- * RegressionRunResultが扱う値の構造を表す。
+ * regression-runnerで使用するRegression Run 結果の値契約を定義する。
  *
- * @responsibility RegressionRunResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Regression Run 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000003
  * @shape RegressionRunResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RegressionRunResultで宣言した値と責務の対応を維持する。
@@ -66,9 +72,9 @@ export type RegressionRunResult = Readonly<{
 }>;
 
 /**
- * valuesAfterの処理を実行する。
+ * values Afterを決定する。
  *
- * @responsibility valuesAfterに対応する入力処理と結果生成を所有する。
+ * @responsibility values Afterの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000003
  * @input argumentValues: readonly string[]、name: string
  * @returns string[]を返す。
@@ -96,9 +102,9 @@ function valuesAfter(
 }
 
 /**
- * valueAfterの処理を実行する。
+ * value Afterを決定する。
  *
- * @responsibility valueAfterに対応する入力処理と結果生成を所有する。
+ * @responsibility value Afterの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000003
  * @input argumentValues: readonly string[]、name: string
  * @returns string | nullを返す。
@@ -119,9 +125,9 @@ function valueAfter(
 }
 
 /**
- * positiveNumberの処理を実行する。
+ * Numberが正数か検証する。
  *
- * @responsibility positiveNumberに対応する入力処理と結果生成を所有する。
+ * @responsibility Numberの数値条件、拒否条件、検証済み結果境界を所有する。
  * @trace ARCH-000003
  * @input argumentValues: readonly string[]、name: string
  * @returns number | nullを返す。
@@ -145,9 +151,9 @@ function positiveNumber(
 }
 
 /**
- * nonNegativeNumberの処理を実行する。
+ * Numberが0以上か検証する。
  *
- * @responsibility nonNegativeNumberに対応する入力処理と結果生成を所有する。
+ * @responsibility Numberの数値条件、拒否条件、検証済み結果境界を所有する。
  * @trace ARCH-000003
  * @input argumentValues: readonly string[]、name: string
  * @returns number | nullを返す。
@@ -171,9 +177,9 @@ function nonNegativeNumber(
 }
 
 /**
- * parseLevelsの処理を実行する。
+ * Levelsを構造化値へ解析する。
  *
- * @responsibility parseLevelsに対応する入力処理と結果生成を所有する。
+ * @responsibility Levelsの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000003
  * @input argumentValues: readonly string[]
  * @returns Set<TestLevel>を返す。
@@ -199,9 +205,9 @@ function parseLevels(argumentValues: readonly string[]): Set<TestLevel> {
 }
 
 /**
- * inspectRequestedResourceAuthorityの処理を実行する。
+ * Requested Resource Authorityを観測する。
  *
- * @responsibility inspectRequestedResourceAuthorityに対応する入力処理と結果生成を所有する。
+ * @responsibility Requested Resource Authorityの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000003
  * @input argumentValues: readonly string[]、levels: ReadonlySet<TestLevel>
  * @returns inspectRequestedResourceAuthorityの計算結果を返す。
@@ -238,9 +244,9 @@ function inspectRequestedResourceAuthority(
 }
 
 /**
- * runCommandの処理を実行する。
+ * Commandを実行する。
  *
- * @responsibility runCommandに対応する入力処理と結果生成を所有する。
+ * @responsibility Commandの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000003
  * @input command: string、commandArguments: readonly string[]、cwd: string
  * @returns numberを返す。
@@ -268,9 +274,9 @@ function runCommand(
 }
 
 /**
- * runNpmScriptの処理を実行する。
+ * Npm Scriptを実行する。
  *
- * @responsibility runNpmScriptに対応する入力処理と結果生成を所有する。
+ * @responsibility Npm Scriptの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000003
  * @input script: "check" | "verify:repository"、cwd: string
  * @returns numberを返す。
@@ -293,9 +299,9 @@ function runNpmScript(
 }
 
 /**
- * runNodeTestsの処理を実行する。
+ * Node Testsを実行する。
  *
- * @responsibility runNodeTestsに対応する入力処理と結果生成を所有する。
+ * @responsibility Node Testsの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000003
  * @input owner: | "artifact-signing" | "checker" | "coordinator" | "crdd-domain-library" | "execution-intelligence" | "mcp" | "project-runtime" | "runtime-data" | "semantic-coverage" | "version-control" | "verification-runner"、entries: readonly TestCatalogEntry[]、options: Readonly<{ testNamePattern?: string; testSkipPattern?: string; }>
  * @returns numberを返す。
@@ -352,9 +358,9 @@ function runNodeTests(
 }
 
 /**
- * runPlatformTestsの処理を実行する。
+ * Platform Testsを実行する。
  *
- * @responsibility runPlatformTestsに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Testsの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000003
  * @input level: TestLevel
  * @returns numberを返す。
@@ -387,9 +393,9 @@ function runPlatformTests(level: TestLevel): number {
 }
 
 /**
- * runStaticStageの処理を実行する。
+ * Static Stageを実行する。
  *
- * @responsibility runStaticStageに対応する入力処理と結果生成を所有する。
+ * @responsibility Static Stageの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000003
  * @input staticOwners: readonly TestCatalogEntry["owner"][]、changedPaths: readonly string[]
  * @returns numberを返す。
@@ -468,9 +474,9 @@ function runStaticStage(
 }
 
 /**
- * runLevelStageの処理を実行する。
+ * Level Stageを実行する。
  *
- * @responsibility runLevelStageに対応する入力処理と結果生成を所有する。
+ * @responsibility Level Stageの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000003
  * @input level: TestLevel、entries: readonly TestCatalogEntry[]、shouldSkipWindowsProcessTests: boolean
  * @returns numberを返す。
@@ -520,9 +526,9 @@ function runLevelStage(
 }
 
 /**
- * runWindowsProcessStageの処理を実行する。
+ * Windows Process Stageを実行する。
  *
- * @responsibility runWindowsProcessStageに対応する入力処理と結果生成を所有する。
+ * @responsibility Windows Process Stageの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000003
  * @input entries: readonly TestCatalogEntry[]
  * @returns numberを返す。
@@ -547,9 +553,9 @@ function runWindowsProcessStage(entries: readonly TestCatalogEntry[]): number {
 }
 
 /**
- * runRegressionの処理を実行する。
+ * Regressionを実行する。
  *
- * @responsibility runRegressionに対応する入力処理と結果生成を所有する。
+ * @responsibility Regressionの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000003
  * @input request: RegressionRunRequest
  * @returns RegressionRunResultを返す。

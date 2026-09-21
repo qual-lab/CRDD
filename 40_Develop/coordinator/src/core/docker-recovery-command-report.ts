@@ -1,9 +1,15 @@
+/**
+ * docker-recovery-command-reportに属する責務をまとめる。
+ *
+ * @responsibility plainRecordを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000003
+ */
 import { types as utilTypes } from "node:util";
 
 /**
- * plainRecordの処理を実行する。
+ * 記録をPlain Dataとして検証する。
  *
- * @responsibility plainRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility 記録の許可Property、入れ子値、拒否境界を所有する。
  * @trace ARCH-000003
  * @input value: unknown
  * @returns Readonly<Record<string, unknown>> | nullを返す。
@@ -31,9 +37,9 @@ function plainRecord(value: unknown): Readonly<Record<string, unknown>> | null {
 }
 
 /**
- * plainArrayの処理を実行する。
+ * ArrayをPlain Dataとして検証する。
  *
- * @responsibility plainArrayに対応する入力処理と結果生成を所有する。
+ * @responsibility Arrayの許可Property、入れ子値、拒否境界を所有する。
  * @trace ARCH-000003
  * @input value: unknown
  * @returns readonly unknown[]を返す。
@@ -51,9 +57,9 @@ function plainArray(value: unknown): readonly unknown[] {
 }
 
 /**
- * renderDockerRecoveryDoctorReportの処理を実行する。
+ * Docker 回復 Doctor Reportを人間向け表示へ整形する。
  *
- * @responsibility renderDockerRecoveryDoctorReportに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 Doctor Reportの入力値、表示規則、機密を含めない出力境界を所有する。
  * @trace ARCH-000003
  * @input report: unknown、shouldOutputJson: boolean
  * @returns renderDockerRecoveryDoctorReportの計算結果を返す。

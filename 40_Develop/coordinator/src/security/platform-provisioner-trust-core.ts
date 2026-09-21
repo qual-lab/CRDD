@@ -1,3 +1,9 @@
+/**
+ * platform-provisioner-trust-coreに属する責務をまとめる。
+ *
+ * @responsibility responseを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { createHash } from "node:crypto";
 import { types as utilTypes } from "node:util";
 import {
@@ -134,9 +140,9 @@ const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
 )?.get as () => number;
 
 /**
- * responseの処理を実行する。
+ * responseを決定する。
  *
- * @responsibility responseに対応する入力処理と結果生成を所有する。
+ * @responsibility responseの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input status: S、reason: string、fields: T
  * @returns responseの計算結果を返す。
@@ -168,9 +174,9 @@ function response<
 }
 
 /**
- * packageIdentityの処理を実行する。
+ * package Identityを決定する。
  *
- * @responsibility packageIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility package Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input name: string、version: string
  * @returns packageIdentityの計算結果を返す。
@@ -195,9 +201,9 @@ function packageIdentity(name: string, version: string) {
 }
 
 /**
- * normalizeFileの処理を実行する。
+ * Fileを固定Schemaへ正規化する。
  *
- * @responsibility normalizeFileに対応する入力処理と結果生成を所有する。
+ * @responsibility Fileの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000014
  * @input raw: unknown
  * @returns normalizeFileの計算結果を返す。
@@ -241,9 +247,9 @@ function normalizeFile(raw: unknown) {
 }
 
 /**
- * normalizeFilesの処理を実行する。
+ * Filesを固定Schemaへ正規化する。
  *
- * @responsibility normalizeFilesに対応する入力処理と結果生成を所有する。
+ * @responsibility Filesの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000014
  * @input raw: unknown
  * @returns normalizeFilesの計算結果を返す。
@@ -273,9 +279,9 @@ function normalizeFiles(raw: unknown) {
 }
 
 /**
- * normalizeObservedPackageの処理を実行する。
+ * Observed Packageを固定Schemaへ正規化する。
  *
- * @responsibility normalizeObservedPackageに対応する入力処理と結果生成を所有する。
+ * @responsibility Observed Packageの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000014
  * @input raw: unknown
  * @returns normalizeObservedPackageの計算結果を返す。
@@ -308,9 +314,9 @@ function normalizeObservedPackage(raw: unknown) {
 }
 
 /**
- * normalizeManifestの処理を実行する。
+ * Manifestを固定Schemaへ正規化する。
  *
- * @responsibility normalizeManifestに対応する入力処理と結果生成を所有する。
+ * @responsibility Manifestの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000014
  * @input raw: unknown
  * @returns normalizeManifestの計算結果を返す。
@@ -417,9 +423,9 @@ function normalizeManifest(raw: unknown) {
 }
 
 /**
- * normalizeHistoricalV2Manifestの処理を実行する。
+ * Historical V2 Manifestを固定Schemaへ正規化する。
  *
- * @responsibility normalizeHistoricalV2Manifestに対応する入力処理と結果生成を所有する。
+ * @responsibility Historical V2 Manifestの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000014
  * @input raw: unknown
  * @returns normalizeHistoricalV2Manifestの計算結果を返す。
@@ -519,9 +525,9 @@ function normalizeHistoricalV2Manifest(raw: unknown) {
 }
 
 /**
- * selectManifestDomainの処理を実行する。
+ * Manifest Domainを選択する。
  *
- * @responsibility selectManifestDomainに対応する入力処理と結果生成を所有する。
+ * @responsibility Manifest Domainの候補集合、選択理由、選択不能時の境界を所有する。
  * @trace ARCH-000014
  * @input revision: number
  * @returns selectManifestDomainの計算結果を返す。
@@ -541,9 +547,9 @@ function selectManifestDomain(revision: number) {
 }
 
 /**
- * normalizeSignatureの処理を実行する。
+ * Signatureを固定Schemaへ正規化する。
  *
- * @responsibility normalizeSignatureに対応する入力処理と結果生成を所有する。
+ * @responsibility Signatureの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000014
  * @input raw: unknown
  * @returns normalizeSignatureの計算結果を返す。
@@ -575,9 +581,9 @@ function normalizeSignature(raw: unknown) {
 }
 
 /**
- * normalizeEnvelopeの処理を実行する。
+ * Envelopeを固定Schemaへ正規化する。
  *
- * @responsibility normalizeEnvelopeに対応する入力処理と結果生成を所有する。
+ * @responsibility Envelopeの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000014
  * @input raw: unknown
  * @returns normalizeEnvelopeの計算結果を返す。
@@ -624,9 +630,9 @@ function normalizeEnvelope(raw: unknown) {
 }
 
 /**
- * normalizeHistoricalEnvelopeの処理を実行する。
+ * Historical Envelopeを固定Schemaへ正規化する。
  *
- * @responsibility normalizeHistoricalEnvelopeに対応する入力処理と結果生成を所有する。
+ * @responsibility Historical Envelopeの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000014
  * @input raw: unknown
  * @returns normalizeHistoricalEnvelopeの計算結果を返す。
@@ -677,9 +683,9 @@ function normalizeHistoricalEnvelope(raw: unknown) {
 }
 
 /**
- * compilePlatformProvisionerManifestPayloadCandidateの処理を実行する。
+ * Platform Provisioner Manifest Payload 候補を機械利用可能な契約へ変換する。
  *
- * @responsibility compilePlatformProvisionerManifestPayloadCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Provisioner Manifest Payload 候補の入力Schema、決定論的変換、変換不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input rawInput: unknown
  * @returns compilePlatformProvisionerManifestPayloadCandidateの計算結果を返す。
@@ -733,9 +739,9 @@ export function compilePlatformProvisionerManifestPayloadCandidate(
 }
 
 /**
- * frameの処理を実行する。
+ * frameを決定する。
  *
- * @responsibility frameに対応する入力処理と結果生成を所有する。
+ * @responsibility frameの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input domain: string、payload: unknown
  * @returns frameの計算結果を返す。
@@ -762,9 +768,9 @@ function frame(domain: string, payload: unknown) {
 }
 
 /**
- * calculateRuntimeExecutionIdentityCandidateの処理を実行する。
+ * Runtime Execution Identity 候補を算出する。
  *
- * @responsibility calculateRuntimeExecutionIdentityCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Execution Identity 候補の算出入力、決定規則、結果境界を所有する。
  * @trace ARCH-000014
  * @input raw: unknown
  * @returns calculateRuntimeExecutionIdentityCandidateの計算結果を返す。
@@ -832,9 +838,9 @@ export function calculateRuntimeExecutionIdentityCandidate(raw: unknown) {
 }
 
 /**
- * snapshotSignerSpkiの処理を実行する。
+ * Signer Spkiを所有Snapshotへ変換する。
  *
- * @responsibility snapshotSignerSpkiに対応する入力処理と結果生成を所有する。
+ * @responsibility Signer Spkiの取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000014
  * @input raw: unknown
  * @returns snapshotSignerSpkiの計算結果を返す。
@@ -857,9 +863,9 @@ function snapshotSignerSpki(raw: unknown) {
 }
 
 /**
- * calculatePlatformProvisionerPackageContentRootCandidateの処理を実行する。
+ * Platform Provisioner Package Content Root 候補を算出する。
  *
- * @responsibility calculatePlatformProvisionerPackageContentRootCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Provisioner Package Content Root 候補の算出入力、決定規則、結果境界を所有する。
  * @trace ARCH-000014
  * @input rawPackage: unknown
  * @returns calculatePlatformProvisionerPackageContentRootCandidateの計算結果を返す。
@@ -896,9 +902,9 @@ export function calculatePlatformProvisionerPackageContentRootCandidate(
 }
 
 /**
- * verifyPlatformProvisionerManifestCandidateの処理を実行する。
+ * Platform Provisioner Manifest 候補を検証する。
  *
- * @responsibility verifyPlatformProvisionerManifestCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Provisioner Manifest 候補の検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input rawInput: unknown
  * @returns verifyPlatformProvisionerManifestCandidateの計算結果を返す。
@@ -1010,9 +1016,9 @@ export function verifyPlatformProvisionerManifestCandidate(rawInput: unknown) {
 // Historical provenance only: neither an installed distribution observation nor
 // current execution authority. Expiry is intentionally not evaluated here.
 /**
- * verifyHistoricalPlatformProvisionerManifestCandidateの処理を実行する。
+ * Historical Platform Provisioner Manifest 候補を検証する。
  *
- * @responsibility verifyHistoricalPlatformProvisionerManifestCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Historical Platform Provisioner Manifest 候補の検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input manifestEnvelope: unknown、releaseSignerSpkiDer: unknown
  * @returns verifyHistoricalPlatformProvisionerManifestCandidateの計算結果を返す。
@@ -1068,9 +1074,9 @@ export function verifyHistoricalPlatformProvisionerManifestCandidate(
 }
 
 /**
- * describePlatformProvisionerTrustCoreContractの処理を実行する。
+ * Platform Provisioner Trust Core 契約の公開契約を記述する。
  *
- * @responsibility describePlatformProvisionerTrustCoreContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Provisioner Trust Core 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describePlatformProvisionerTrustCoreContractの計算結果を返す。

@@ -1,3 +1,9 @@
+/**
+ * development-measurement-sessionに属する責務をまとめる。
+ *
+ * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
@@ -48,9 +54,9 @@ const sourceDistributionRoot = path.resolve(
   fileURLToPath(new URL("../../../../", import.meta.url)),
 );
 /**
- * Providerが扱う値の構造を表す。
+ * development-measurement-sessionで使用するProviderの値契約を定義する。
  *
- * @responsibility Providerに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ProviderのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Providerで宣言した値と責務の対応を維持する。
@@ -60,9 +66,9 @@ const sourceDistributionRoot = path.resolve(
  */
 type Provider = "codex" | "claude";
 /**
- * Roleが扱う値の構造を表す。
+ * development-measurement-sessionで使用するRoleの値契約を定義する。
  *
- * @responsibility Roleに必要な値と制約を一つの型契約として保持する。
+ * @responsibility RoleのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape Roleが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Roleで宣言した値と責務の対応を維持する。
@@ -72,9 +78,9 @@ type Provider = "codex" | "claude";
  */
 type Role = "executor" | "reviewer";
 /**
- * Constraintsが扱う値の構造を表す。
+ * development-measurement-sessionで使用するConstraintsの値契約を定義する。
  *
- * @responsibility Constraintsに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ConstraintsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape Constraintsが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Constraintsで宣言した値と責務の対応を維持する。
@@ -86,9 +92,9 @@ type Constraints = NonNullable<
   ReturnType<typeof createDevelopmentMeasurementConstraints>
 >;
 /**
- * TaskRequestが扱う値の構造を表す。
+ * development-measurement-sessionで使用するTask Requestの値契約を定義する。
  *
- * @responsibility TaskRequestに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Task RequestのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape TaskRequestが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TaskRequestで宣言した値と責務の対応を維持する。
@@ -101,9 +107,9 @@ type TaskRequest = Extract<
   { status: "accepted" }
 >["request"];
 /**
- * Taskが扱う値の構造を表す。
+ * development-measurement-sessionで使用するTaskの値契約を定義する。
  *
- * @responsibility Taskに必要な値と制約を一つの型契約として保持する。
+ * @responsibility TaskのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape Taskが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Taskで宣言した値と責務の対応を維持する。
@@ -118,9 +124,9 @@ type Task = Readonly<{
   reviewer: Provider;
 }>;
 /**
- * Configurationが扱う値の構造を表す。
+ * development-measurement-sessionで使用するConfigurationの値契約を定義する。
  *
- * @responsibility Configurationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ConfigurationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape Configurationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Configurationで宣言した値と責務の対応を維持する。
@@ -139,9 +145,9 @@ type Configuration = Readonly<{
   expiresAtMs: number;
 }>;
 /**
- * Identityが扱う値の構造を表す。
+ * development-measurement-sessionで使用するIdentityの値契約を定義する。
  *
- * @responsibility Identityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape Identityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Identityで宣言した値と責務の対応を維持する。
@@ -155,9 +161,9 @@ type Identity = Readonly<{
   repositoryIdentitySha256: string;
 }>;
 /**
- * NativeVerificationが扱う値の構造を表す。
+ * development-measurement-sessionで使用するNative Verificationの値契約を定義する。
  *
- * @responsibility NativeVerificationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Native VerificationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape NativeVerificationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant NativeVerificationで宣言した値と責務の対応を維持する。
@@ -174,9 +180,9 @@ type NativeVerification = Extract<
 // lifecycle boundary; caller claims and isolated test identities remain invalid.
 const nativeVerifications = new WeakMap<Identity, NativeVerification>();
 /**
- * Dependenciesが扱う値の構造を表す。
+ * development-measurement-sessionで使用するDependenciesの値契約を定義する。
  *
- * @responsibility Dependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape Dependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Dependenciesで宣言した値と責務の対応を維持する。
@@ -193,9 +199,9 @@ type Dependencies = Readonly<{
   borrowRepository: typeof borrowRuntimeOwnedRepositorySource;
 }>;
 /**
- * Sessionが扱う値の構造を表す。
+ * development-measurement-sessionで使用するSessionの値契約を定義する。
  *
- * @responsibility Sessionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility SessionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape Sessionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Sessionで宣言した値と責務の対応を維持する。
@@ -213,9 +219,9 @@ type Session = {
   closed: boolean;
 };
 /**
- * TaskBindingが扱う値の構造を表す。
+ * development-measurement-sessionで使用するTask Bindingの値契約を定義する。
  *
- * @responsibility TaskBindingに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Task BindingのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape TaskBindingが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TaskBindingで宣言した値と責務の対応を維持する。
@@ -236,9 +242,9 @@ type TaskBinding = {
 };
 
 /**
- * digestの処理を実行する。
+ * development-measurement-sessionのHashを算出する。
  *
- * @responsibility digestに対応する入力処理と結果生成を所有する。
+ * @responsibility development-measurement-sessionの入力byte列、Hash algorithm、算出結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns digestの計算結果を返す。
@@ -258,9 +264,9 @@ function digest(value: unknown) {
 }
 
 /**
- * snapshotTaskの処理を実行する。
+ * Taskを所有Snapshotへ変換する。
  *
- * @responsibility snapshotTaskに対応する入力処理と結果生成を所有する。
+ * @responsibility Taskの取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000004
  * @input raw: unknown
  * @returns Task | nullを返す。
@@ -312,9 +318,9 @@ function snapshotTask(raw: unknown): Task | null {
 }
 
 /**
- * snapshotConfigurationの処理を実行する。
+ * Configurationを所有Snapshotへ変換する。
  *
- * @responsibility snapshotConfigurationに対応する入力処理と結果生成を所有する。
+ * @responsibility Configurationの取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000004
  * @input raw: unknown
  * @returns Configuration | nullを返す。
@@ -392,9 +398,9 @@ function snapshotConfiguration(raw: unknown): Configuration | null {
 }
 
 /**
- * observeProductionの処理を実行する。
+ * Productionを観測する。
  *
- * @responsibility observeProductionに対応する入力処理と結果生成を所有する。
+ * @responsibility Productionの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input configuration: Configuration
  * @returns Identity | nullを返す。
@@ -448,9 +454,9 @@ function observeProduction(configuration: Configuration): Identity | null {
 }
 
 /**
- * blockedの処理を実行する。
+ * development-measurement-sessionを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility development-measurement-sessionの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000004
  * @input reason: string
  * @returns blockedの計算結果を返す。
@@ -475,9 +481,9 @@ function blocked(reason: string) {
 }
 
 /**
- * createSessionRuntimeの処理を実行する。
+ * Session Runtimeを構築する。
  *
- * @responsibility createSessionRuntimeに対応する入力処理と結果生成を所有する。
+ * @responsibility Session Runtimeの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input dependencies: Dependencies
  * @returns createSessionRuntimeの計算結果を返す。
@@ -501,9 +507,9 @@ function createSessionRuntime(dependencies: Dependencies) {
   let admissionStarted = false;
 
   /**
-   * observeの処理を実行する。
+   * development-measurement-sessionを観測する。
    *
-   * @responsibility observeに対応する入力処理と結果生成を所有する。
+   * @responsibility development-measurement-sessionの観測対象、取得根拠、観測不能結果の境界を所有する。
    * @trace ARCH-000004
    * @input session: Session
    * @returns observeの計算結果を返す。
@@ -548,9 +554,9 @@ function createSessionRuntime(dependencies: Dependencies) {
   }
 
   /**
-   * checkBoundSessionの処理を実行する。
+   * Bound Sessionを検査する。
    *
-   * @responsibility checkBoundSessionに対応する入力処理と結果生成を所有する。
+   * @responsibility Bound Sessionの検査条件、違反分類、検査結果境界を所有する。
    * @trace ARCH-000004
    * @input session: Session
    * @returns checkBoundSessionの計算結果を返す。
@@ -587,9 +593,9 @@ function createSessionRuntime(dependencies: Dependencies) {
   }
 
   /**
-   * operationValidの処理を実行する。
+   * operation Validを決定する。
    *
-   * @responsibility operationValidに対応する入力処理と結果生成を所有する。
+   * @responsibility operation Validの導出に必要な入力、判定規則、返却結果の境界を所有する。
    * @trace ARCH-000004
    * @input binding: TaskBinding
    * @returns operationValidの計算結果を返す。
@@ -617,9 +623,9 @@ function createSessionRuntime(dependencies: Dependencies) {
 
   return Object.freeze({
     /**
-     * requestの処理を実行する。
+     * development-measurement-sessionを要求する。
      *
-     * @responsibility requestに対応する入力処理と結果生成を所有する。
+     * @responsibility development-measurement-sessionの要求条件、受理結果、Effect未成立との分離境界を所有する。
      * @trace ARCH-000004
      * @input raw: unknown、signal: AbortSignal
      * @returns requestの計算結果を返す。
@@ -713,9 +719,9 @@ function createSessionRuntime(dependencies: Dependencies) {
       }
     },
     /**
-     * reserveTaskの処理を実行する。
+     * reserve Taskを決定する。
      *
-     * @responsibility reserveTaskに対応する入力処理と結果生成を所有する。
+     * @responsibility reserve Taskの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000004
      * @input sessionCapability: object、raw: unknown
      * @returns reserveTaskの計算結果を返す。
@@ -754,9 +760,9 @@ function createSessionRuntime(dependencies: Dependencies) {
       return capability;
     },
     /**
-     * taskBoundaryの処理を実行する。
+     * task Boundaryを決定する。
      *
-     * @responsibility taskBoundaryに対応する入力処理と結果生成を所有する。
+     * @responsibility task Boundaryの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000004
      * @input taskCapability: object
      * @returns taskBoundaryの計算結果を返す。
@@ -783,9 +789,9 @@ function createSessionRuntime(dependencies: Dependencies) {
       });
     },
     /**
-     * bindOperationの処理を実行する。
+     * OperationをIdentityへ結合する。
      *
-     * @responsibility bindOperationに対応する入力処理と結果生成を所有する。
+     * @responsibility Operationの結合条件、相関Identity、不一致の拒否境界を所有する。
      * @trace ARCH-000004
      * @input taskCapability: object、managementCapability: object、repositoryBindingCapability: object
      * @returns bindOperationの計算結果を返す。
@@ -838,9 +844,9 @@ function createSessionRuntime(dependencies: Dependencies) {
       }
     },
     /**
-     * checkOperationの処理を実行する。
+     * Operationを検査する。
      *
-     * @responsibility checkOperationに対応する入力処理と結果生成を所有する。
+     * @responsibility Operationの検査条件、違反分類、検査結果境界を所有する。
      * @trace ARCH-000004
      * @input managementCapability: object
      * @returns checkOperationの計算結果を返す。
@@ -864,9 +870,9 @@ function createSessionRuntime(dependencies: Dependencies) {
       }
     },
     /**
-     * operationContextの処理を実行する。
+     * operation Contextを決定する。
      *
-     * @responsibility operationContextに対応する入力処理と結果生成を所有する。
+     * @responsibility operation Contextの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000004
      * @input managementCapability: object
      * @returns operationContextの計算結果を返す。
@@ -892,9 +898,9 @@ function createSessionRuntime(dependencies: Dependencies) {
         : null;
     },
     /**
-     * borrowNativeObservationの処理を実行する。
+     * Native Observationを一時参照として取得する。
      *
-     * @responsibility borrowNativeObservationに対応する入力処理と結果生成を所有する。
+     * @responsibility Native Observationの参照条件、lifetime、所有権を移さない境界を所有する。
      * @trace ARCH-000004
      * @input context: object、shouldInitializeIfMissing: boolean
      * @returns borrowNativeObservationの計算結果を返す。
@@ -970,9 +976,9 @@ function createSessionRuntime(dependencies: Dependencies) {
       }
     },
     /**
-     * reserveInvocationの処理を実行する。
+     * reserve Invocationを決定する。
      *
-     * @responsibility reserveInvocationに対応する入力処理と結果生成を所有する。
+     * @responsibility reserve Invocationの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000004
      * @input taskCapability: object、provider: Provider、role: Role
      * @returns reserveInvocationの計算結果を返す。
@@ -1002,9 +1008,9 @@ function createSessionRuntime(dependencies: Dependencies) {
       return reserved.value;
     },
     /**
-     * consumeInvocationの処理を実行する。
+     * Invocationを一回限りで消費する。
      *
-     * @responsibility consumeInvocationに対応する入力処理と結果生成を所有する。
+     * @responsibility Invocationの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
      * @trace ARCH-000004
      * @input taskCapability: object、invocationCapability: object、provider: Provider、role: Role
      * @returns consumeInvocationの計算結果を返す。
@@ -1048,9 +1054,9 @@ function createSessionRuntime(dependencies: Dependencies) {
       return true;
     },
     /**
-     * settleInvocationの処理を実行する。
+     * Invocationを終端状態へ確定する。
      *
-     * @responsibility settleInvocationに対応する入力処理と結果生成を所有する。
+     * @responsibility Invocationの確定条件、最終状態、未解決義務の境界を所有する。
      * @trace ARCH-000004
      * @input taskCapability: object、invocationCapability: object
      * @returns settleInvocationの計算結果を返す。
@@ -1074,9 +1080,9 @@ function createSessionRuntime(dependencies: Dependencies) {
       return wasSettled;
     },
     /**
-     * settleInvocationAndVerifyの処理を実行する。
+     * Invocation And Verifyを終端状態へ確定する。
      *
-     * @responsibility settleInvocationAndVerifyに対応する入力処理と結果生成を所有する。
+     * @responsibility Invocation And Verifyの確定条件、最終状態、未解決義務の境界を所有する。
      * @trace ARCH-000004
      * @input taskCapability: object、invocationCapability: object
      * @returns settleInvocationAndVerifyの計算結果を返す。
@@ -1106,9 +1112,9 @@ function createSessionRuntime(dependencies: Dependencies) {
       );
     },
     /**
-     * settleTaskの処理を実行する。
+     * Taskを終端状態へ確定する。
      *
-     * @responsibility settleTaskに対応する入力処理と結果生成を所有する。
+     * @responsibility Taskの確定条件、最終状態、未解決義務の境界を所有する。
      * @trace ARCH-000004
      * @input taskCapability: object、outcome: "finished" | "cleanup_unknown"
      * @returns settleTaskの計算結果を返す。
@@ -1136,9 +1142,9 @@ function createSessionRuntime(dependencies: Dependencies) {
       return true;
     },
     /**
-     * cancelの処理を実行する。
+     * development-measurement-sessionを取り消す。
      *
-     * @responsibility cancelに対応する入力処理と結果生成を所有する。
+     * @responsibility development-measurement-sessionの取消条件、終了状態、残存Effectの境界を所有する。
      * @trace ARCH-000004
      * @input capability: object
      * @returns cancelの計算結果を返す。
@@ -1159,9 +1165,9 @@ function createSessionRuntime(dependencies: Dependencies) {
       return true;
     },
     /**
-     * inspectの処理を実行する。
+     * development-measurement-sessionを観測する。
      *
-     * @responsibility inspectに対応する入力処理と結果生成を所有する。
+     * @responsibility development-measurement-sessionの観測対象、取得根拠、観測不能結果の境界を所有する。
      * @trace ARCH-000004
      * @input capability: object
      * @returns inspectの計算結果を返す。
@@ -1184,9 +1190,9 @@ function createSessionRuntime(dependencies: Dependencies) {
       });
     },
     /**
-     * tasksの処理を実行する。
+     * tasksを決定する。
      *
-     * @responsibility tasksに対応する入力処理と結果生成を所有する。
+     * @responsibility tasksの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000004
      * @input capability: object
      * @returns tasksの計算結果を返す。
@@ -1222,9 +1228,9 @@ const productionRuntime = createSessionRuntime(
 );
 
 /**
- * requestRuntimeOwnedDevelopmentMeasurementSessionの処理を実行する。
+ * Runtime 所有 Development Measurement Sessionを要求する。
  *
- * @responsibility requestRuntimeOwnedDevelopmentMeasurementSessionに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Development Measurement Sessionの要求条件、受理結果、Effect未成立との分離境界を所有する。
  * @trace ARCH-000004
  * @input raw: unknown、signal: AbortSignal
  * @returns requestRuntimeOwnedDevelopmentMeasurementSessionの計算結果を返す。
@@ -1245,9 +1251,9 @@ export function requestRuntimeOwnedDevelopmentMeasurementSession(
 }
 
 /**
- * inspectRuntimeOwnedDevelopmentMeasurementSessionの処理を実行する。
+ * Runtime 所有 Development Measurement Sessionを観測する。
  *
- * @responsibility inspectRuntimeOwnedDevelopmentMeasurementSessionに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Development Measurement Sessionの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input capability: object
  * @returns inspectRuntimeOwnedDevelopmentMeasurementSessionの計算結果を返す。
@@ -1267,9 +1273,9 @@ export function inspectRuntimeOwnedDevelopmentMeasurementSession(
 }
 
 /**
- * readRuntimeOwnedDevelopmentMeasurementTasksの処理を実行する。
+ * Runtime 所有 Development Measurement Tasksを読み取る。
  *
- * @responsibility readRuntimeOwnedDevelopmentMeasurementTasksに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Development Measurement Tasksの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input capability: object
  * @returns readRuntimeOwnedDevelopmentMeasurementTasksの計算結果を返す。
@@ -1289,9 +1295,9 @@ export function readRuntimeOwnedDevelopmentMeasurementTasks(
 }
 
 /**
- * cancelRuntimeOwnedDevelopmentMeasurementSessionの処理を実行する。
+ * Runtime 所有 Development Measurement Sessionを取り消す。
  *
- * @responsibility cancelRuntimeOwnedDevelopmentMeasurementSessionに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Development Measurement Sessionの取消条件、終了状態、残存Effectの境界を所有する。
  * @trace ARCH-000004
  * @input capability: object
  * @returns cancelRuntimeOwnedDevelopmentMeasurementSessionの計算結果を返す。
@@ -1311,9 +1317,9 @@ export function cancelRuntimeOwnedDevelopmentMeasurementSession(
 }
 
 /**
- * borrowRuntimeOwnedDevelopmentNativeObservationの処理を実行する。
+ * Runtime 所有 Development Native Observationを一時参照として取得する。
  *
- * @responsibility borrowRuntimeOwnedDevelopmentNativeObservationに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Development Native Observationの参照条件、lifetime、所有権を移さない境界を所有する。
  * @trace ARCH-000004
  * @input context: object、shouldInitializeIfMissing: boolean
  * @returns borrowRuntimeOwnedDevelopmentNativeObservationの計算結果を返す。
@@ -1347,9 +1353,9 @@ export function borrowRuntimeOwnedDevelopmentNativeObservation(
 }
 
 /**
- * inspectRuntimeOwnedDevelopmentOperationContextの処理を実行する。
+ * Runtime 所有 Development Operation Contextを観測する。
  *
- * @responsibility inspectRuntimeOwnedDevelopmentOperationContextに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Development Operation Contextの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input managementCapability: unknown
  * @returns inspectRuntimeOwnedDevelopmentOperationContextの計算結果を返す。
@@ -1373,7 +1379,7 @@ export function inspectRuntimeOwnedDevelopmentOperationContext(
 /**
  * Internal Task facade; caller values cannot construct an admitted session.
  *
- * @responsibility reserveRuntimeOwnedDevelopmentMeasurementTaskに対応する入力処理と結果生成を所有する。
+ * @responsibility development-measurement-sessionの入力からreserve Runtime 所有 Development Measurement Taskを導く規則と結果境界を所有する。
  * @trace ARCH-000004
  * @input sessionCapability: object、request: unknown、repositoryRoot: unknown
  * @returns reserveRuntimeOwnedDevelopmentMeasurementTaskの計算結果を返す。
@@ -1446,7 +1452,7 @@ export function reserveRuntimeOwnedDevelopmentMeasurementTask(
 /**
  * Isolated capability namespace: never accepted by the production facade.
  *
- * @responsibility createIsolatedDevelopmentMeasurementSessionCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Isolated Development Measurement Session 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input dependencies: Dependencies
  * @returns createIsolatedDevelopmentMeasurementSessionCandidateの計算結果を返す。

@@ -1,3 +1,9 @@
+/**
+ * development-measurement-constraintsに属する責務をまとめる。
+ *
+ * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -14,9 +20,9 @@ const OBSERVATION_KEYS = new Set([
 ]);
 
 /**
- * Providerが扱う値の構造を表す。
+ * development-measurement-constraintsで使用するProviderの値契約を定義する。
  *
- * @responsibility Providerに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ProviderのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Providerで宣言した値と責務の対応を維持する。
@@ -26,9 +32,9 @@ const OBSERVATION_KEYS = new Set([
  */
 type Provider = "codex" | "claude";
 /**
- * Roleが扱う値の構造を表す。
+ * development-measurement-constraintsで使用するRoleの値契約を定義する。
  *
- * @responsibility Roleに必要な値と制約を一つの型契約として保持する。
+ * @responsibility RoleのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape Roleが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Roleで宣言した値と責務の対応を維持する。
@@ -38,9 +44,9 @@ type Provider = "codex" | "claude";
  */
 type Role = "executor" | "reviewer";
 /**
- * StopReasonが扱う値の構造を表す。
+ * development-measurement-constraintsで使用するStop Reasonの値契約を定義する。
  *
- * @responsibility StopReasonに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Stop ReasonのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape StopReasonが表すProperty、識別子およびRelationを型として固定する。
  * @invariant StopReasonで宣言した値と責務の対応を維持する。
@@ -55,9 +61,9 @@ type StopReason =
   | "observation_invalid"
   | "cleanup_unknown";
 /**
- * Refusalが扱う値の構造を表す。
+ * development-measurement-constraintsで使用するRefusalの値契約を定義する。
  *
- * @responsibility Refusalに必要な値と制約を一つの型契約として保持する。
+ * @responsibility RefusalのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape Refusalが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Refusalで宣言した値と責務の対応を維持する。
@@ -67,9 +73,9 @@ type StopReason =
  */
 type Refusal = StopReason | "task_unavailable" | "invocation_unavailable";
 /**
- * ConstraintResultが扱う値の構造を表す。
+ * development-measurement-constraintsで使用するConstraint 結果の値契約を定義する。
  *
- * @responsibility ConstraintResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Constraint 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ConstraintResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ConstraintResultで宣言した値と責務の対応を維持する。
@@ -81,9 +87,9 @@ type ConstraintResult<T> =
   | Readonly<{ status: "recorded"; value: T }>
   | Readonly<{ status: "blocked"; reason: Refusal }>;
 /**
- * Observationが扱う値の構造を表す。
+ * development-measurement-constraintsで使用するObservationの値契約を定義する。
  *
- * @responsibility Observationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape Observationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Observationで宣言した値と責務の対応を維持する。
@@ -97,9 +103,9 @@ type Observation = Readonly<{
   monotonicTimeMs: number;
 }>;
 /**
- * TaskStateが扱う値の構造を表す。
+ * development-measurement-constraintsで使用するTask 状態の値契約を定義する。
  *
- * @responsibility TaskStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Task 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape TaskStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TaskStateで宣言した値と責務の対応を維持する。
@@ -117,9 +123,9 @@ type TaskState = {
   pendingCount: number;
 };
 /**
- * InvocationStateが扱う値の構造を表す。
+ * development-measurement-constraintsで使用するInvocation 状態の値契約を定義する。
  *
- * @responsibility InvocationStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Invocation 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape InvocationStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant InvocationStateで宣言した値と責務の対応を維持する。
@@ -135,9 +141,9 @@ type InvocationState = {
 };
 
 /**
- * parseObservationの処理を実行する。
+ * Observationを構造化値へ解析する。
  *
- * @responsibility parseObservationに対応する入力処理と結果生成を所有する。
+ * @responsibility Observationの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000004
  * @input raw: unknown
  * @returns Observation | nullを返す。
@@ -172,9 +178,9 @@ function parseObservation(raw: unknown): Observation | null {
 }
 
 /**
- * refuseの処理を実行する。
+ * refuseを決定する。
  *
- * @responsibility refuseに対応する入力処理と結果生成を所有する。
+ * @responsibility refuseの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input reason: Refusal
  * @returns ConstraintResult<never>を返す。
@@ -192,9 +198,9 @@ function refuse(reason: Refusal): ConstraintResult<never> {
 }
 
 /**
- * recordの処理を実行する。
+ * recordを決定する。
  *
- * @responsibility recordに対応する入力処理と結果生成を所有する。
+ * @responsibility recordの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: T
  * @returns ConstraintResult<T>を返す。
@@ -214,7 +220,7 @@ function record<T>(value: T): ConstraintResult<T> {
 /**
  * I/O-free accounting only. This factory neither authenticates approval/identity
  *
- * @responsibility createDevelopmentMeasurementConstraintsに対応する入力処理と結果生成を所有する。
+ * @responsibility Development Measurement Constraintsの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input raw: unknown、initialObservation: unknown
  * @returns createDevelopmentMeasurementConstraintsの計算結果を返す。
@@ -287,9 +293,9 @@ export function createDevelopmentMeasurementConstraints(
   let invocationCount = 0;
 
   /**
-   * checkObservationの処理を実行する。
+   * Observationを検査する。
    *
-   * @responsibility checkObservationに対応する入力処理と結果生成を所有する。
+   * @responsibility Observationの検査条件、違反分類、検査結果境界を所有する。
    * @trace ARCH-000004
    * @input rawObservation: unknown
    * @returns StopReason | nullを返す。
@@ -327,9 +333,9 @@ export function createDevelopmentMeasurementConstraints(
   return Object.freeze({
     productionAuthorityConferred: false as const,
     /**
-     * checkの処理を実行する。
+     * development-measurement-constraintsを検査する。
      *
-     * @responsibility checkに対応する入力処理と結果生成を所有する。
+     * @responsibility development-measurement-constraintsの検査条件、違反分類、検査結果境界を所有する。
      * @trace ARCH-000004
      * @input observation: unknown
      * @returns checkの計算結果を返す。
@@ -347,9 +353,9 @@ export function createDevelopmentMeasurementConstraints(
       return refusal ? refuse(refusal) : record(null);
     },
     /**
-     * reserveTaskの処理を実行する。
+     * reserve Taskを決定する。
      *
-     * @responsibility reserveTaskに対応する入力処理と結果生成を所有する。
+     * @responsibility reserve Taskの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000004
      * @input scopeSha256: string、observation: unknown
      * @returns reserveTaskの計算結果を返す。
@@ -374,9 +380,9 @@ export function createDevelopmentMeasurementConstraints(
       return record(token);
     },
     /**
-     * reserveInvocationの処理を実行する。
+     * reserve Invocationを決定する。
      *
-     * @responsibility reserveInvocationに対応する入力処理と結果生成を所有する。
+     * @responsibility reserve Invocationの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000004
      * @input taskToken: object、provider: Provider、role: Role、observation: unknown
      * @returns reserveInvocationの計算結果を返す。
@@ -417,9 +423,9 @@ export function createDevelopmentMeasurementConstraints(
       return record(token);
     },
     /**
-     * consumeInvocationの処理を実行する。
+     * Invocationを一回限りで消費する。
      *
-     * @responsibility consumeInvocationに対応する入力処理と結果生成を所有する。
+     * @responsibility Invocationの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
      * @trace ARCH-000004
      * @input invocationToken: object、taskToken: object、provider: Provider、role: Role、observation: unknown
      * @returns consumeInvocationの計算結果を返す。
@@ -456,9 +462,9 @@ export function createDevelopmentMeasurementConstraints(
     // Settlement records that the caller finished its existing lifecycle; it
     // does not prove resource absence, perform cleanup, or refund a reservation.
     /**
-     * settleInvocationの処理を実行する。
+     * Invocationを終端状態へ確定する。
      *
-     * @responsibility settleInvocationに対応する入力処理と結果生成を所有する。
+     * @responsibility Invocationの確定条件、最終状態、未解決義務の境界を所有する。
      * @trace ARCH-000004
      * @input invocationToken: object
      * @returns settleInvocationの計算結果を返す。
@@ -480,9 +486,9 @@ export function createDevelopmentMeasurementConstraints(
       return record(null);
     },
     /**
-     * settleTaskの処理を実行する。
+     * Taskを終端状態へ確定する。
      *
-     * @responsibility settleTaskに対応する入力処理と結果生成を所有する。
+     * @responsibility Taskの確定条件、最終状態、未解決義務の境界を所有する。
      * @trace ARCH-000004
      * @input taskToken: object、outcome: "finished" | "cleanup_unknown"
      * @returns settleTaskの計算結果を返す。
@@ -512,9 +518,9 @@ export function createDevelopmentMeasurementConstraints(
       return record(null);
     },
     /**
-     * cancelの処理を実行する。
+     * development-measurement-constraintsを取り消す。
      *
-     * @responsibility cancelに対応する入力処理と結果生成を所有する。
+     * @responsibility development-measurement-constraintsの取消条件、終了状態、残存Effectの境界を所有する。
      * @trace ARCH-000004
      * @input N/A: 実行時引数を受け取らない。
      * @returns N/A: cancelは戻り値を返さない。
@@ -531,9 +537,9 @@ export function createDevelopmentMeasurementConstraints(
       stopReason ??= "cancelled";
     },
     /**
-     * inspectの処理を実行する。
+     * development-measurement-constraintsを観測する。
      *
-     * @responsibility inspectに対応する入力処理と結果生成を所有する。
+     * @responsibility development-measurement-constraintsの観測対象、取得根拠、観測不能結果の境界を所有する。
      * @trace ARCH-000004
      * @input N/A: 実行時引数を受け取らない。
      * @returns inspectの計算結果を返す。

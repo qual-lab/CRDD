@@ -1,7 +1,13 @@
 /**
- * CheckerFindingが扱う値の構造を表す。
+ * finding-modelに属する責務をまとめる。
  *
- * @responsibility CheckerFindingに必要な値と制約を一つの型契約として保持する。
+ * @responsibility CheckerFindingを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000001
+ */
+/**
+ * finding-modelで使用するChecker Findingの値契約を定義する。
+ *
+ * @responsibility Checker FindingのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape CheckerFindingが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CheckerFindingで宣言した値と責務の対応を維持する。
@@ -19,9 +25,9 @@ export type CheckerFinding = Readonly<{
 }>;
 
 /**
- * FindingSinkが扱う値の構造を表す。
+ * finding-modelで使用するFinding Sinkの値契約を定義する。
  *
- * @responsibility FindingSinkに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Finding SinkのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape FindingSinkが表すProperty、識別子およびRelationを型として固定する。
  * @invariant FindingSinkで宣言した値と責務の対応を維持する。
@@ -32,9 +38,9 @@ export type CheckerFinding = Readonly<{
 export type FindingSink = (finding: CheckerFinding) => void;
 
 /**
- * createFindingCollectorの処理を実行する。
+ * Finding Collectorを構築する。
  *
- * @responsibility createFindingCollectorに対応する入力処理と結果生成を所有する。
+ * @responsibility Finding Collectorの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000001
  * @input N/A: 実行時引数を受け取らない。
  * @returns Readonly<{ findings: CheckerFinding[]; add: FindingSink; }>を返す。

@@ -1,3 +1,9 @@
+/**
+ * local-personal-authority-runtimeに属する責務をまとめる。
+ *
+ * @responsibility Bindingを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import {
   AUTHORITY_FILE_BUNDLE_CONTRACT,
   loadAuthorityFileBundleCandidate,
@@ -58,9 +64,9 @@ const PROFILE = Object.freeze({
 });
 
 /**
- * Bindingが扱う値の構造を表す。
+ * local-personal-authority-runtimeで使用するBindingの値契約を定義する。
  *
- * @responsibility Bindingに必要な値と制約を一つの型契約として保持する。
+ * @responsibility BindingのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape Bindingが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Bindingで宣言した値と責務の対応を維持する。
@@ -74,9 +80,9 @@ type Binding = Readonly<{
   profileId: string;
 }>;
 /**
- * Sourceが扱う値の構造を表す。
+ * local-personal-authority-runtimeで使用するSourceの値契約を定義する。
  *
- * @responsibility Sourceに必要な値と制約を一つの型契約として保持する。
+ * @responsibility SourceのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape Sourceが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Sourceで宣言した値と責務の対応を維持する。
@@ -90,9 +96,9 @@ type Source = Readonly<{
   scopeId: string;
 }>;
 /**
- * SourceRecordが扱う値の構造を表す。
+ * local-personal-authority-runtimeで使用するSource 記録の値契約を定義する。
  *
- * @responsibility SourceRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Source 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape SourceRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant SourceRecordで宣言した値と責務の対応を維持する。
@@ -105,9 +111,9 @@ type SourceRecord = Readonly<{
   expiresAtMs: number;
 }>;
 /**
- * RuntimeDependenciesが扱う値の構造を表す。
+ * local-personal-authority-runtimeで使用するRuntime Dependenciesの値契約を定義する。
  *
- * @responsibility RuntimeDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape RuntimeDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeDependenciesで宣言した値と責務の対応を維持する。
@@ -125,9 +131,9 @@ type RuntimeDependencies = Readonly<{
 }>;
 
 /**
- * canonicalJsonの処理を実行する。
+ * canonical Jsonを決定する。
  *
- * @responsibility canonicalJsonに対応する入力処理と結果生成を所有する。
+ * @responsibility canonical Jsonの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown
  * @returns stringを返す。
@@ -156,9 +162,9 @@ function canonicalJson(value: unknown): string {
 }
 
 /**
- * releaseConfirmedの処理を実行する。
+ * Confirmedを解放する。
  *
- * @responsibility releaseConfirmedに対応する入力処理と結果生成を所有する。
+ * @responsibility Confirmedの所有権、解放条件、終了後不存在の確認境界を所有する。
  * @trace ARCH-000014
  * @input candidate: unknown
  * @returns releaseConfirmedの計算結果を返す。
@@ -183,9 +189,9 @@ function releaseConfirmed(candidate: unknown) {
 }
 
 /**
- * createSourceの処理を実行する。
+ * Sourceを構築する。
  *
- * @responsibility createSourceに対応する入力処理と結果生成を所有する。
+ * @responsibility Sourceの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000014
  * @input binding: Binding、now: number
  * @returns Source | nullを返す。
@@ -294,9 +300,9 @@ function createSource(binding: Binding, now: number): Source | null {
 }
 
 /**
- * createRuntimeの処理を実行する。
+ * Runtimeを構築する。
  *
- * @responsibility createRuntimeに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtimeの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000014
  * @input dependencies: RuntimeDependencies
  * @returns createRuntimeの計算結果を返す。
@@ -313,9 +319,9 @@ function createRuntime(dependencies: RuntimeDependencies) {
   const sources = new Map<string, SourceRecord>();
   return Object.freeze({
     /**
-     * loadの処理を実行する。
+     * local-personal-authority-runtimeを読み込む。
      *
-     * @responsibility loadに対応する入力処理と結果生成を所有する。
+     * @responsibility local-personal-authority-runtimeの読取り元、Schema検証、読取不能時の拒否境界を所有する。
      * @trace ARCH-000014
      * @input binding: Binding、managementCapability: unknown
      * @returns loadの計算結果を返す。
@@ -380,9 +386,9 @@ const productionRuntime = createRuntime(
 );
 
 /**
- * loadRuntimeOwnedLocalPersonalAuthorityの処理を実行する。
+ * Runtime 所有 Local Personal Authorityを読み込む。
  *
- * @responsibility loadRuntimeOwnedLocalPersonalAuthorityに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Local Personal Authorityの読取り元、Schema検証、読取不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input binding: Binding、managementCapability: unknown
  * @returns loadRuntimeOwnedLocalPersonalAuthorityの計算結果を返す。
@@ -403,9 +409,9 @@ export function loadRuntimeOwnedLocalPersonalAuthority(
 }
 
 /**
- * createIsolatedLocalPersonalAuthorityRuntimeCandidateの処理を実行する。
+ * Isolated Local Personal Authority Runtime 候補を構築する。
  *
- * @responsibility createIsolatedLocalPersonalAuthorityRuntimeCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Isolated Local Personal Authority Runtime 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000014
  * @input dependencies: RuntimeDependencies
  * @returns createIsolatedLocalPersonalAuthorityRuntimeCandidateの計算結果を返す。
@@ -429,9 +435,9 @@ export function createIsolatedLocalPersonalAuthorityRuntimeCandidate(
 }
 
 /**
- * describeLocalPersonalAuthorityRuntimeContractの処理を実行する。
+ * Local Personal Authority Runtime 契約の公開契約を記述する。
  *
- * @responsibility describeLocalPersonalAuthorityRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Local Personal Authority Runtime 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeLocalPersonalAuthorityRuntimeContractの計算結果を返す。

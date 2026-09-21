@@ -1,3 +1,9 @@
+/**
+ * provider-task-structured-resultに属する責務をまとめる。
+ *
+ * @responsibility isRecordを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000015
+ */
 import { createHash } from "node:crypto";
 
 import {
@@ -39,9 +45,9 @@ const remediationRecords = new WeakMap<
 >();
 
 /**
- * isRecordの処理を実行する。
+ * 記録かを判定する。
  *
- * @responsibility isRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility 記録の判定条件とtrue／false境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown
  * @returns value is Record<string, unknown>を返す。
@@ -59,9 +65,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * exactKeysの処理を実行する。
+ * Keysが完全一致するか判定する。
  *
- * @responsibility exactKeysに対応する入力処理と結果生成を所有する。
+ * @responsibility Keysの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000015
  * @input value: Record<string, unknown>、keys: readonly string[]
  * @returns exactKeysの計算結果を返す。
@@ -83,9 +89,9 @@ function exactKeys(value: Record<string, unknown>, keys: readonly string[]) {
 }
 
 /**
- * validStringの処理を実行する。
+ * Stringが有効か判定する。
  *
- * @responsibility validStringに対応する入力処理と結果生成を所有する。
+ * @responsibility Stringの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown、maximumBytes: number
  * @returns validStringの計算結果を返す。
@@ -109,9 +115,9 @@ function validString(value: unknown, maximumBytes: number) {
 }
 
 /**
- * validPathの処理を実行する。
+ * Pathが有効か判定する。
  *
- * @responsibility validPathに対応する入力処理と結果生成を所有する。
+ * @responsibility Pathの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown
  * @returns validPathの計算結果を返す。
@@ -141,9 +147,9 @@ function validPath(value: unknown) {
 }
 
 /**
- * ResultMismatchReasonが扱う値の構造を表す。
+ * provider-task-structured-resultで使用する結果 Mismatch Reasonの値契約を定義する。
  *
- * @responsibility ResultMismatchReasonに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 結果 Mismatch ReasonのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape ResultMismatchReasonが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ResultMismatchReasonで宣言した値と責務の対応を維持する。
@@ -171,9 +177,9 @@ type ResultMismatchReason =
   | "provider_task_reviewer_decision_inconsistent";
 
 /**
- * rejectedの処理を実行する。
+ * rejectedを決定する。
  *
- * @responsibility rejectedに対応する入力処理と結果生成を所有する。
+ * @responsibility rejectedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input reason: ResultMismatchReason
  * @returns rejectedの計算結果を返す。
@@ -191,9 +197,9 @@ function rejected(reason: ResultMismatchReason) {
 }
 
 /**
- * executorResultの処理を実行する。
+ * executor 結果を決定する。
  *
- * @responsibility executorResultに対応する入力処理と結果生成を所有する。
+ * @responsibility executor 結果の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input value: Record<string, unknown>
  * @returns executorResultの計算結果を返す。
@@ -233,9 +239,9 @@ function executorResult(value: Record<string, unknown>) {
 }
 
 /**
- * reviewerResultの処理を実行する。
+ * reviewer 結果を決定する。
  *
- * @responsibility reviewerResultに対応する入力処理と結果生成を所有する。
+ * @responsibility reviewer 結果の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input value: Record<string, unknown>
  * @returns reviewerResultの計算結果を返す。
@@ -343,9 +349,9 @@ function reviewerResult(value: Record<string, unknown>) {
 }
 
 /**
- * consumeProviderTaskRemediationの処理を実行する。
+ * Provider Task Remediationを一回限りで消費する。
  *
- * @responsibility consumeProviderTaskRemediationに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Task Remediationの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000015
  * @input remediationCapability: unknown
  * @returns consumeProviderTaskRemediationの計算結果を返す。
@@ -373,9 +379,9 @@ export function consumeProviderTaskRemediation(remediationCapability: unknown) {
 }
 
 /**
- * structuredValueの処理を実行する。
+ * structured Valueを決定する。
  *
- * @responsibility structuredValueに対応する入力処理と結果生成を所有する。
+ * @responsibility structured Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input provider: "codex" | "claude"、taskRole: "executor" | "reviewer"、resultAcceptanceMaximumTurns: number、raw: string
  * @returns structuredValueの計算結果を返す。
@@ -641,9 +647,9 @@ function structuredValue(
 }
 
 /**
- * normalizeProviderTaskStructuredResultの処理を実行する。
+ * Provider Task Structured 結果を固定Schemaへ正規化する。
  *
- * @responsibility normalizeProviderTaskStructuredResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Task Structured 結果の入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000015
  * @input provider: unknown、taskRole: unknown、selectedEffort: unknown、raw: unknown、taskWorkload: unknown
  * @returns normalizeProviderTaskStructuredResultの計算結果を返す。
@@ -762,9 +768,9 @@ export function normalizeProviderTaskStructuredResult(
 }
 
 /**
- * describeProviderTaskStructuredResultContractの処理を実行する。
+ * Provider Task Structured 結果 契約の公開契約を記述する。
  *
- * @responsibility describeProviderTaskStructuredResultContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Task Structured 結果 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProviderTaskStructuredResultContractの計算結果を返す。

@@ -6,7 +6,7 @@
  * @trace PPR-UT-006
  * @level UT
  * @scope development、measurement、constraints
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -31,7 +31,7 @@ const SECOND_SCOPE_HASH =
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 function observation(wallTimeMs = 100, monotonicTimeMs = wallTimeMs) {
   return { bindingSha256: BINDING_HASH, wallTimeMs, monotonicTimeMs };
@@ -47,7 +47,7 @@ function observation(wallTimeMs = 100, monotonicTimeMs = wallTimeMs) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 function configuration() {
   return {
@@ -70,7 +70,7 @@ function configuration() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 function createConstraints() {
   const constraints = createDevelopmentMeasurementConstraints(
@@ -91,7 +91,7 @@ function createConstraints() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 function unwrap<T>(
   result: { status: "recorded"; value: T } | { status: "blocked" },
@@ -111,7 +111,7 @@ function unwrap<T>(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("2Task各4回、総8回を記録し枠の返却・Task再実行・9回目を拒否する", () => {
   const constraints = createConstraints();
@@ -189,7 +189,7 @@ test("2Task各4回、総8回を記録し枠の返却・Task再実行・9回目�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("準備失敗で起動しなくても予約枠を返却せず、重複並行開始を拒否する", () => {
   const constraints = createConstraints();
@@ -260,7 +260,7 @@ for (const scenario of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+   * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
    */
   test(`予約後の${scenario}で起動枠消費を拒否し、終了記録だけは可能`, () => {
     const constraints = createConstraints();
@@ -322,7 +322,7 @@ for (const scenario of [
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("cleanup不明は後続Taskを拒否し、遅延した既存呼出しの終了記録で解除しない", () => {
   const constraints = createConstraints();
@@ -356,7 +356,7 @@ test("cleanup不明は後続Taskを拒否し、遅延した既存呼出しの終
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("Task・呼出しtokenの偽造、別session、複製、Provider／役割差替えを拒否する", () => {
   const constraints = createConstraints();
@@ -440,7 +440,7 @@ test("Task・呼出しtokenの偽造、別session、複製、Provider／役割�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("許可外Taskと経路は枠を消費せず拒否する", () => {
   const constraints = createConstraints();
@@ -478,7 +478,7 @@ test("許可外Taskと経路は枠を消費せず拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("constructorはshape、期限、Task数・重複・経路を厳格検証する", () => {
   const valid = configuration();
@@ -523,7 +523,7 @@ test("constructorはshape、期限、Task数・重複・経路を厳格検証す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("getter／Proxyを実行せず拒否し、入力の後変更を保持しない", () => {
   let trapCalls = 0;
@@ -573,7 +573,7 @@ test("getter／Proxyを実行せず拒否し、入力の後変更を保持しな
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("単調時計の巻戻り、非有限値、観測getterはsessionを終端化する", () => {
   for (const invalid of [

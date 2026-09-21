@@ -22,10 +22,13 @@
         "QA-000009"
       ],
       "localTestIds": [
-        "EST-IT-001"
+        "EST-IT-001",
+        "EST-IT-002"
       ],
       "verifies": [
-        "mcp.public-api"
+        "mcp.source.src.adapters.project.runtime.adapter",
+        "mcp.source.src.transports.stdio.transport",
+        "mcp.source.src.transports.streamable.http.transport"
       ]
     },
     {
@@ -39,7 +42,7 @@
         "EST-ST-012"
       ],
       "verifies": [
-        "mcp.public-api"
+        "mcp.source.src.transports.stdio.transport"
       ]
     },
     {
@@ -53,7 +56,10 @@
         "EST-ST-003"
       ],
       "verifies": [
-        "mcp.public-api"
+        "mcp.source.src.adapters.project.runtime.adapter",
+        "mcp.source.src.protocol.project.runtime.protocol",
+        "mcp.source.src.transports.process.signal.shutdown",
+        "mcp.source.src.transports.streamable.http.transport"
       ]
     },
     {
@@ -61,13 +67,56 @@
       "kind": "test-suite",
       "path": "tests/unit/project-runtime-adapter.contract.test.ts",
       "qaIds": [
-        "QA-000003"
+        "QA-000003",
+        "QA-000004"
       ],
       "localTestIds": [
+        "PPR-UT-006",
         "PRL-UT-014"
       ],
       "verifies": [
-        "mcp.public-api"
+        "mcp.source.src.adapters.project.runtime.adapter",
+        "mcp.source.src.protocol.project.runtime.protocol"
+      ]
+    },
+    {
+      "symbolId": "mcp.source.src.adapters.project.runtime.adapter",
+      "kind": "file",
+      "path": "src/adapters/project-runtime-adapter.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "mcp.source.src.protocol.project.runtime.protocol",
+      "kind": "file",
+      "path": "src/protocol/project-runtime-protocol.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "mcp.source.src.transports.stdio.transport",
+      "kind": "file",
+      "path": "src/transports/stdio-transport.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "mcp.source.src.transports.streamable.http.transport",
+      "kind": "file",
+      "path": "src/transports/streamable-http-transport.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "mcp.source.src.transports.process.signal.shutdown",
+      "kind": "file",
+      "path": "src/transports/process-signal-shutdown.ts",
+      "archIds": [
+        "ARCH-000012"
       ]
     }
   ]

@@ -1,3 +1,9 @@
+/**
+ * provider-home-windows-adapterに属する責務をまとめる。
+ *
+ * @responsibility runtimeOwnedProviderHomeMountSourceCandidateを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
@@ -57,9 +63,9 @@ const mountSourceCapabilities = new WeakMap<
 >();
 
 /**
- * runtimeOwnedProviderHomeMountSourceCandidateの処理を実行する。
+ * runtime 所有 Provider Home Mount Source 候補を決定する。
  *
- * @responsibility runtimeOwnedProviderHomeMountSourceCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility runtime 所有 Provider Home Mount Source 候補の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input provider: unknown
  * @returns runtimeOwnedProviderHomeMountSourceCandidateの計算結果を返す。
@@ -95,9 +101,9 @@ function runtimeOwnedProviderHomeMountSourceCandidate(provider: unknown) {
 }
 
 /**
- * blockedの処理を実行する。
+ * provider-home-windows-adapterを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility provider-home-windows-adapterの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000010
  * @input reason: string、processEffectIssued、helperSpawned
  * @returns blockedの計算結果を返す。
@@ -149,9 +155,9 @@ function blocked(
 }
 
 /**
- * Artifactが扱う値の構造を表す。
+ * provider-home-windows-adapterで使用するArtifactの値契約を定義する。
  *
- * @responsibility Artifactに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ArtifactのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape Artifactが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Artifactで宣言した値と責務の対応を維持する。
@@ -169,9 +175,9 @@ type Artifact = Readonly<{
 }>;
 
 /**
- * sameArtifactの処理を実行する。
+ * Artifactが同一かを判定する。
  *
- * @responsibility sameArtifactに対応する入力処理と結果生成を所有する。
+ * @responsibility Artifactの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000010
  * @input left: unknown、right: unknown
  * @returns booleanを返す。
@@ -206,9 +212,9 @@ function sameArtifact(left: unknown, right: unknown): boolean {
 }
 
 /**
- * inspectRuntimeOwnedWindowsProviderHomeCandidateの処理を実行する。
+ * Runtime 所有 Windows Provider Home 候補を観測する。
  *
- * @responsibility inspectRuntimeOwnedWindowsProviderHomeCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Windows Provider Home 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000010
  * @input provider: unknown、evaluationTime: unknown、developmentContext: unknown
  * @returns inspectRuntimeOwnedWindowsProviderHomeCandidateの計算結果を返す。
@@ -400,9 +406,9 @@ export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
 }
 
 /**
- * consumeRuntimeOwnedProviderHomeObservationCapabilityの処理を実行する。
+ * Runtime 所有 Provider Home Observation Capabilityを一回限りで消費する。
  *
- * @responsibility consumeRuntimeOwnedProviderHomeObservationCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Provider Home Observation Capabilityの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000010
  * @input capability: unknown
  * @returns consumeRuntimeOwnedProviderHomeObservationCapabilityの計算結果を返す。
@@ -441,9 +447,9 @@ export function consumeRuntimeOwnedProviderHomeObservationCapability(
 }
 
 /**
- * consumeRuntimeOwnedProviderHomeMountSourceCapabilityの処理を実行する。
+ * Runtime 所有 Provider Home Mount Source Capabilityを一回限りで消費する。
  *
- * @responsibility consumeRuntimeOwnedProviderHomeMountSourceCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Provider Home Mount Source Capabilityの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000010
  * @input capability: unknown、expectedProvider: unknown
  * @returns consumeRuntimeOwnedProviderHomeMountSourceCapabilityの計算結果を返す。
@@ -469,9 +475,9 @@ export function consumeRuntimeOwnedProviderHomeMountSourceCapability(
 }
 
 /**
- * revokeRuntimeOwnedProviderHomeMountSourceCapabilityの処理を実行する。
+ * Runtime 所有 Provider Home Mount Source Capabilityを失効させる。
  *
- * @responsibility revokeRuntimeOwnedProviderHomeMountSourceCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Provider Home Mount Source Capabilityの失効Authority、対象Identity、再利用防止境界を所有する。
  * @trace ARCH-000010
  * @input capability: unknown
  * @returns revokeRuntimeOwnedProviderHomeMountSourceCapabilityの計算結果を返す。
@@ -495,9 +501,9 @@ export function revokeRuntimeOwnedProviderHomeMountSourceCapability(
 }
 
 /**
- * describeProviderHomeWindowsAdapterContractの処理を実行する。
+ * Provider Home Windows Adapter 契約の公開契約を記述する。
  *
- * @responsibility describeProviderHomeWindowsAdapterContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Home Windows Adapter 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000010
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProviderHomeWindowsAdapterContractの計算結果を返す。

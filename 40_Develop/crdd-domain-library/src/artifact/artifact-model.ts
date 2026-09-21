@@ -1,7 +1,13 @@
 /**
- * SourceLocationが扱う値の構造を表す。
+ * artifact-modelに属する責務をまとめる。
  *
- * @responsibility SourceLocationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility SourceLocationを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
+/**
+ * artifact-modelで使用するSource Locationの値契約を定義する。
+ *
+ * @responsibility Source LocationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape SourceLocationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant SourceLocationで宣言した値と責務の対応を維持する。
@@ -15,9 +21,9 @@ export type SourceLocation = Readonly<{
 }>;
 
 /**
- * ArtifactSectionが扱う値の構造を表す。
+ * artifact-modelで使用するArtifact Sectionの値契約を定義する。
  *
- * @responsibility ArtifactSectionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Artifact SectionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ArtifactSectionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ArtifactSectionで宣言した値と責務の対応を維持する。
@@ -33,9 +39,9 @@ export type ArtifactSection = Readonly<{
 }>;
 
 /**
- * ArtifactRelationが扱う値の構造を表す。
+ * artifact-modelで使用するArtifact Relationの値契約を定義する。
  *
- * @responsibility ArtifactRelationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Artifact RelationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ArtifactRelationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ArtifactRelationで宣言した値と責務の対応を維持する。
@@ -50,9 +56,9 @@ export type ArtifactRelation = Readonly<{
 }>;
 
 /**
- * ChecklistResultが扱う値の構造を表す。
+ * artifact-modelで使用するChecklist 結果の値契約を定義する。
  *
- * @responsibility ChecklistResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Checklist 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ChecklistResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ChecklistResultで宣言した値と責務の対応を維持する。
@@ -68,9 +74,9 @@ export type ChecklistResult = Readonly<{
 }>;
 
 /**
- * ArtifactModelが扱う値の構造を表す。
+ * artifact-modelで使用するArtifact Modelの値契約を定義する。
  *
- * @responsibility ArtifactModelに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Artifact ModelのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ArtifactModelが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ArtifactModelで宣言した値と責務の対応を維持する。
@@ -91,9 +97,9 @@ export type ArtifactModel = Readonly<{
 }>;
 
 /**
- * ArtifactSourceが扱う値の構造を表す。
+ * artifact-modelで使用するArtifact Sourceの値契約を定義する。
  *
- * @responsibility ArtifactSourceに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Artifact SourceのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ArtifactSourceが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ArtifactSourceで宣言した値と責務の対応を維持する。

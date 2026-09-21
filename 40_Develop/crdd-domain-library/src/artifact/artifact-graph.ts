@@ -1,10 +1,16 @@
+/**
+ * artifact-graphに属する責務をまとめる。
+ *
+ * @responsibility ArtifactGraphを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import type { ArtifactModel } from "./artifact-model.ts";
 import type { DomainIssue, DomainOutcome } from "../outcome.ts";
 
 /**
- * ArtifactGraphが扱う値の構造を表す。
+ * artifact-graphで使用するArtifact Graphの値契約を定義する。
  *
- * @responsibility ArtifactGraphに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Artifact GraphのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ArtifactGraphが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ArtifactGraphで宣言した値と責務の対応を維持する。
@@ -18,9 +24,9 @@ export type ArtifactGraph = Readonly<{
 }>;
 
 /**
- * BuildArtifactGraphRequestが扱う値の構造を表す。
+ * artifact-graphで使用するBuild Artifact Graph Requestの値契約を定義する。
  *
- * @responsibility BuildArtifactGraphRequestに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Build Artifact Graph RequestのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape BuildArtifactGraphRequestが表すProperty、識別子およびRelationを型として固定する。
  * @invariant BuildArtifactGraphRequestで宣言した値と責務の対応を維持する。
@@ -33,9 +39,9 @@ export type BuildArtifactGraphRequest = Readonly<{
 }>;
 
 /**
- * ArtifactGraphResultが扱う値の構造を表す。
+ * artifact-graphで使用するArtifact Graph 結果の値契約を定義する。
  *
- * @responsibility ArtifactGraphResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Artifact Graph 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ArtifactGraphResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ArtifactGraphResultで宣言した値と責務の対応を維持する。
@@ -46,9 +52,9 @@ export type BuildArtifactGraphRequest = Readonly<{
 export type ArtifactGraphResult = DomainOutcome<ArtifactGraph>;
 
 /**
- * buildArtifactGraphの処理を実行する。
+ * Artifact Graphを構築する。
  *
- * @responsibility buildArtifactGraphに対応する入力処理と結果生成を所有する。
+ * @responsibility Artifact Graphの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input request: BuildArtifactGraphRequest
  * @returns ArtifactGraphResultを返す。

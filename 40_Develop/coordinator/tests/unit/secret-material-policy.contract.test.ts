@@ -6,7 +6,7 @@
  * @trace AIT-UT-005
  * @level UT
  * @scope secret、material、policy
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -29,7 +29,7 @@ import {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("固定形式Secretと名前付き実値を検出し明示placeholderを誤検出しない", () => {
   assert.equal(
@@ -209,7 +209,7 @@ test("固定形式Secretと名前付き実値を検出し明示placeholderを誤
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("引用符とescapeを跨いでも既知SecretとSource参照を分離する", () => {
   const prefixes = [
@@ -254,7 +254,7 @@ test("引用符とescapeを跨いでも既知SecretとSource参照を分離す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("秘密用Pathを拒否し公開用env例と通常Sourceを許可する", () => {
   assert.equal(isRecognizedSecretBearingPath(".env"), true);
@@ -325,7 +325,7 @@ test("秘密用Pathを拒否し公開用env例と通常Sourceを許可する", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Task scopeは本文と全Pathを同じSecret境界で判定する", () => {
   assert.equal(
@@ -376,7 +376,7 @@ test("Task scopeは本文と全Pathを同じSecret境界で判定する", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("公開契約はSource許可とSecret検出限界を区別する", () => {
   const contract = describeSecretMaterialPolicyContract();

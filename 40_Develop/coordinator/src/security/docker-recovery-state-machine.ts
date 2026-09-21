@@ -1,11 +1,17 @@
+/**
+ * docker-recovery-state-machineに属する責務をまとめる。
+ *
+ * @responsibility releaseRecoverySynchronizationsを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 export const DOCKER_RECOVERY_STATE_MACHINE_CONTRACT =
   "crdd-coordinator/docker-recovery-state-machine";
 export const DOCKER_RECOVERY_STATE_MACHINE_CONTRACT_REVISION = 2;
 
 /**
- * releaseRecoverySynchronizationsの処理を実行する。
+ * 回復 Synchronizationsを解放する。
  *
- * @responsibility releaseRecoverySynchronizationsに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 Synchronizationsの所有権、解放条件、終了後不存在の確認境界を所有する。
  * @trace ARCH-000008
  * @input attempts: readonly Readonly<{ release: () => boolean; reason: string; }>[]
  * @returns releaseRecoverySynchronizationsの計算結果を返す。
@@ -36,9 +42,9 @@ export function releaseRecoverySynchronizations(
 }
 
 /**
- * classifyCommittedPairDeleteStateの処理を実行する。
+ * Committed Pair Delete 状態を分類する。
  *
- * @responsibility classifyCommittedPairDeleteStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Committed Pair Delete 状態の分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000008
  * @input contentPresent: boolean、commitPresent: boolean
  * @returns classifyCommittedPairDeleteStateの計算結果を返す。
@@ -62,9 +68,9 @@ export function classifyCommittedPairDeleteState(
 }
 
 /**
- * classifyCommittedPairMoveStateの処理を実行する。
+ * Committed Pair Move 状態を分類する。
  *
- * @responsibility classifyCommittedPairMoveStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Committed Pair Move 状態の分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000008
  * @input sourceContentPresent: boolean、sourceCommitPresent: boolean、targetContentPresent: boolean、targetCommitPresent: boolean
  * @returns classifyCommittedPairMoveStateの計算結果を返す。
@@ -108,9 +114,9 @@ export function classifyCommittedPairMoveState(
 }
 
 /**
- * classifyCleanupDirectoryStateの処理を実行する。
+ * 清掃 Directory 状態を分類する。
  *
- * @responsibility classifyCleanupDirectoryStateに対応する入力処理と結果生成を所有する。
+ * @responsibility 清掃 Directory 状態の分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000008
  * @input directoryPresent: boolean、unknownEntryPresent: boolean、hasIdentityOrContentMismatch: boolean、expectedEntryCount: number
  * @returns classifyCleanupDirectoryStateの計算結果を返す。
@@ -143,9 +149,9 @@ export function classifyCleanupDirectoryState(
 }
 
 /**
- * describeDockerRecoveryStateMachineContractの処理を実行する。
+ * Docker 回復 状態 Machine 契約の公開契約を記述する。
  *
- * @responsibility describeDockerRecoveryStateMachineContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 状態 Machine 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeDockerRecoveryStateMachineContractの計算結果を返す。

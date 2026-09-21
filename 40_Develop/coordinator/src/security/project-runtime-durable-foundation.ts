@@ -1,3 +1,9 @@
+/**
+ * project-runtime-durable-foundationに属する責務をまとめる。
+ *
+ * @responsibility StoreResultを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -25,9 +31,9 @@ export const PROJECT_RUNTIME_DURABLE_FOUNDATION_CONTRACT =
   "crdd-coordinator/project-runtime-durable-foundation/v1" as const;
 
 /**
- * StoreResultが扱う値の構造を表す。
+ * project-runtime-durable-foundationで使用するStore 結果の値契約を定義する。
  *
- * @responsibility StoreResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Store 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape StoreResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant StoreResultで宣言した値と責務の対応を維持する。
@@ -37,9 +43,9 @@ export const PROJECT_RUNTIME_DURABLE_FOUNDATION_CONTRACT =
  */
 type StoreResult<T> = ProjectRuntimePortResult<T>;
 /**
- * LeaseKindが扱う値の構造を表す。
+ * project-runtime-durable-foundationで使用するLease Kindの値契約を定義する。
  *
- * @responsibility LeaseKindに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Lease KindのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape LeaseKindが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LeaseKindで宣言した値と責務の対応を維持する。
@@ -50,9 +56,9 @@ type StoreResult<T> = ProjectRuntimePortResult<T>;
 type LeaseKind = ProjectRuntimeLeaseKind;
 
 /**
- * ActiveLeaseが扱う値の構造を表す。
+ * project-runtime-durable-foundationで使用するActive Leaseの値契約を定義する。
  *
- * @responsibility ActiveLeaseに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Active LeaseのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ActiveLeaseが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ActiveLeaseで宣言した値と責務の対応を維持する。
@@ -78,9 +84,9 @@ type ActiveLease = Readonly<{
 const activeLeases = new WeakMap<ProjectRuntimeLease, ActiveLease>();
 
 /**
- * Envelopeが扱う値の構造を表す。
+ * project-runtime-durable-foundationで使用するEnvelopeの値契約を定義する。
  *
- * @responsibility Envelopeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility EnvelopeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape Envelopeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Envelopeで宣言した値と責務の対応を維持する。
@@ -118,9 +124,9 @@ const PROJECT_QUEUE_STATES = new Set<ProjectQueueState>([
 ]);
 
 /**
- * errorCodeの処理を実行する。
+ * error Codeを決定する。
  *
- * @responsibility errorCodeに対応する入力処理と結果生成を所有する。
+ * @responsibility error Codeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input error: unknown
  * @returns errorCodeの計算結果を返す。
@@ -140,9 +146,9 @@ function errorCode(error: unknown) {
 }
 
 /**
- * exactKeysの処理を実行する。
+ * Keysが完全一致するか判定する。
  *
- * @responsibility exactKeysに対応する入力処理と結果生成を所有する。
+ * @responsibility Keysの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: object、keys: readonly string[]
  * @returns exactKeysの計算結果を返す。
@@ -165,9 +171,9 @@ function exactKeys(value: object, keys: readonly string[]) {
 }
 
 /**
- * plainObjectの処理を実行する。
+ * ObjectをPlain Dataとして検証する。
  *
- * @responsibility plainObjectに対応する入力処理と結果生成を所有する。
+ * @responsibility Objectの許可Property、入れ子値、拒否境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is Record<string, unknown>を返す。
@@ -190,9 +196,9 @@ function plainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * stringArrayの処理を実行する。
+ * string Arrayを決定する。
  *
- * @responsibility stringArrayに対応する入力処理と結果生成を所有する。
+ * @responsibility string Arrayの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown、maximum
  * @returns value is readonly string[]を返す。
@@ -220,9 +226,9 @@ function stringArray(
 }
 
 /**
- * nullableIdの処理を実行する。
+ * nullable Idを決定する。
  *
- * @responsibility nullableIdに対応する入力処理と結果生成を所有する。
+ * @responsibility nullable Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns nullableIdの計算結果を返す。
@@ -240,9 +246,9 @@ function nullableId(value: unknown) {
 }
 
 /**
- * nullableCandidateIdの処理を実行する。
+ * nullable 候補 Idを決定する。
  *
- * @responsibility nullableCandidateIdに対応する入力処理と結果生成を所有する。
+ * @responsibility nullable 候補 Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns nullableCandidateIdの計算結果を返す。
@@ -266,9 +272,9 @@ function nullableCandidateId(value: unknown) {
 }
 
 /**
- * nullableRecoveryIdの処理を実行する。
+ * nullable 回復 Idを決定する。
  *
- * @responsibility nullableRecoveryIdに対応する入力処理と結果生成を所有する。
+ * @responsibility nullable 回復 Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns nullableRecoveryIdの計算結果を返す。
@@ -292,9 +298,9 @@ function nullableRecoveryId(value: unknown) {
 }
 
 /**
- * recoveryObligationsの処理を実行する。
+ * recovery Obligationsを決定する。
  *
- * @responsibility recoveryObligationsに対応する入力処理と結果生成を所有する。
+ * @responsibility recovery Obligationsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is readonly ProjectTaskRecoveryObligation[]を返す。
@@ -397,9 +403,9 @@ function recoveryObligations(
 // These references use the same closed character set as stable IDs, but can
 // exceed the 128-character limit of ordinary project-local identifiers.
 /**
- * validResultReferenceの処理を実行する。
+ * 結果 Referenceが有効か判定する。
  *
- * @responsibility validResultReferenceに対応する入力処理と結果生成を所有する。
+ * @responsibility 結果 Referenceの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -422,9 +428,9 @@ function validResultReference(value: unknown): value is string {
 }
 
 /**
- * nullableResultReferenceの処理を実行する。
+ * nullable 結果 Referenceを決定する。
  *
- * @responsibility nullableResultReferenceに対応する入力処理と結果生成を所有する。
+ * @responsibility nullable 結果 Referenceの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns nullableResultReferenceの計算結果を返す。
@@ -442,9 +448,9 @@ function nullableResultReference(value: unknown) {
 }
 
 /**
- * validTaskLifecycleTupleの処理を実行する。
+ * Task Lifecycle Tupleが有効か判定する。
  *
- * @responsibility validTaskLifecycleTupleに対応する入力処理と結果生成を所有する。
+ * @responsibility Task Lifecycle Tupleの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input task: ProjectRuntimeState["tasks"][number]
  * @returns validTaskLifecycleTupleの計算結果を返す。
@@ -490,9 +496,9 @@ function validTaskLifecycleTuple(task: ProjectRuntimeState["tasks"][number]) {
 }
 
 /**
- * validProjectRuntimeStateの処理を実行する。
+ * Project Runtime 状態が有効か判定する。
  *
- * @responsibility validProjectRuntimeStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime 状態の有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is ProjectRuntimeStateを返す。
@@ -683,9 +689,9 @@ function validProjectRuntimeState(
 }
 
 /**
- * validQueueEntryの処理を実行する。
+ * Queue Entryが有効か判定する。
  *
- * @responsibility validQueueEntryに対応する入力処理と結果生成を所有する。
+ * @responsibility Queue Entryの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is ProjectQueueEntryを返す。
@@ -735,9 +741,9 @@ function validQueueEntry(value: unknown): value is ProjectQueueEntry {
 }
 
 /**
- * validLeaseEvidenceの処理を実行する。
+ * Lease Evidenceが有効か判定する。
  *
- * @responsibility validLeaseEvidenceに対応する入力処理と結果生成を所有する。
+ * @responsibility Lease Evidenceの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns validLeaseEvidenceの計算結果を返す。
@@ -773,9 +779,9 @@ function validLeaseEvidence(value: unknown) {
 }
 
 /**
- * completedの処理を実行する。
+ * completedを決定する。
  *
- * @responsibility completedに対応する入力処理と結果生成を所有する。
+ * @responsibility completedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input reason: string、value: T
  * @returns StoreResult<T>を返す。
@@ -793,9 +799,9 @@ function completed<T>(reason: string, value: T): StoreResult<T> {
 }
 
 /**
- * blockedの処理を実行する。
+ * project-runtime-durable-foundationを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-durable-foundationの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000004
  * @input reason: string、manualRecoveryRequired、recoveryId: string | null
  * @returns StoreResult<T>を返す。
@@ -823,9 +829,9 @@ function blocked<T>(
 }
 
 /**
- * LeaseAcquisitionMarkerが扱う値の構造を表す。
+ * project-runtime-durable-foundationで使用するLease Acquisition Markerの値契約を定義する。
  *
- * @responsibility LeaseAcquisitionMarkerに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Lease Acquisition MarkerのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape LeaseAcquisitionMarkerが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LeaseAcquisitionMarkerで宣言した値と責務の対応を維持する。
@@ -842,9 +848,9 @@ type LeaseAcquisitionMarker = Readonly<{
 }>;
 
 /**
- * leaseAcquisitionRecoveryIdの処理を実行する。
+ * lease Acquisition 回復 Idを決定する。
  *
- * @responsibility leaseAcquisitionRecoveryIdに対応する入力処理と結果生成を所有する。
+ * @responsibility lease Acquisition 回復 Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind
  * @returns leaseAcquisitionRecoveryIdの計算結果を返す。
@@ -873,9 +879,9 @@ function leaseAcquisitionRecoveryId(
 }
 
 /**
- * leaseIdentityの処理を実行する。
+ * lease Identityを決定する。
  *
- * @responsibility leaseIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility lease Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind
  * @returns leaseIdentityの計算結果を返す。
@@ -902,9 +908,9 @@ function leaseIdentity(
 }
 
 /**
- * leaseAcquisitionTemporaryPrefixの処理を実行する。
+ * lease Acquisition Temporary Prefixを決定する。
  *
- * @responsibility leaseAcquisitionTemporaryPrefixに対応する入力処理と結果生成を所有する。
+ * @responsibility lease Acquisition Temporary Prefixの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input identity: string
  * @returns leaseAcquisitionTemporaryPrefixの計算結果を返す。
@@ -922,9 +928,9 @@ function leaseAcquisitionTemporaryPrefix(identity: string) {
 }
 
 /**
- * leaseAcquisitionTemporaryFilesの処理を実行する。
+ * lease Acquisition Temporary Filesを決定する。
  *
- * @responsibility leaseAcquisitionTemporaryFilesに対応する入力処理と結果生成を所有する。
+ * @responsibility lease Acquisition Temporary Filesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input directory: string、identity: string
  * @returns leaseAcquisitionTemporaryFilesの計算結果を返す。
@@ -949,9 +955,9 @@ function leaseAcquisitionTemporaryFiles(directory: string, identity: string) {
 }
 
 /**
- * pathConfirmedAbsentの処理を実行する。
+ * path Confirmed Absentを決定する。
  *
- * @responsibility pathConfirmedAbsentに対応する入力処理と結果生成を所有する。
+ * @responsibility path Confirmed Absentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input candidate: string
  * @returns pathConfirmedAbsentの計算結果を返す。
@@ -975,9 +981,9 @@ function pathConfirmedAbsent(candidate: string) {
 }
 
 /**
- * leaseAcquisitionFootprintAbsentの処理を実行する。
+ * lease Acquisition Footprint Absentを決定する。
  *
- * @responsibility leaseAcquisitionFootprintAbsentに対応する入力処理と結果生成を所有する。
+ * @responsibility lease Acquisition Footprint Absentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input directory: string、identity: string、paths: readonly string[]
  * @returns leaseAcquisitionFootprintAbsentの計算結果を返す。
@@ -1002,9 +1008,9 @@ function leaseAcquisitionFootprintAbsent(
 }
 
 /**
- * readLeaseAcquisitionMarkerの処理を実行する。
+ * Lease Acquisition Markerを読み取る。
  *
- * @responsibility readLeaseAcquisitionMarkerに対応する入力処理と結果生成を所有する。
+ * @responsibility Lease Acquisition Markerの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input marker: string
  * @returns LeaseAcquisitionMarkerを返す。
@@ -1047,9 +1053,9 @@ function readLeaseAcquisitionMarker(marker: string): LeaseAcquisitionMarker {
 }
 
 /**
- * createLeaseAcquisitionMarkerの処理を実行する。
+ * Lease Acquisition Markerを構築する。
  *
- * @responsibility createLeaseAcquisitionMarkerに対応する入力処理と結果生成を所有する。
+ * @responsibility Lease Acquisition Markerの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input directory: string、identity: string、value: LeaseAcquisitionMarker
  * @returns N/A: createLeaseAcquisitionMarkerは戻り値を返さない。
@@ -1135,9 +1141,9 @@ function createLeaseAcquisitionMarker(
 }
 
 /**
- * createLeaseLockOwnershipMarkerの処理を実行する。
+ * Lease Lock Ownership Markerを構築する。
  *
- * @responsibility createLeaseLockOwnershipMarkerに対応する入力処理と結果生成を所有する。
+ * @responsibility Lease Lock Ownership Markerの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input marker: string、value: LeaseAcquisitionMarker
  * @returns N/A: createLeaseLockOwnershipMarkerは戻り値を返さない。
@@ -1177,9 +1183,9 @@ function createLeaseLockOwnershipMarker(
 }
 
 /**
- * digestの処理を実行する。
+ * project-runtime-durable-foundationのHashを算出する。
  *
- * @responsibility digestに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-durable-foundationの入力byte列、Hash algorithm、算出結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: string
  * @returns digestの計算結果を返す。
@@ -1197,9 +1203,9 @@ function digest(value: string) {
 }
 
 /**
- * validIdの処理を実行する。
+ * Idが有効か判定する。
  *
- * @responsibility validIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Idの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -1217,9 +1223,9 @@ function validId(value: unknown): value is string {
 }
 
 /**
- * assertDirectoryの処理を実行する。
+ * Directoryを表明どおりか検査する。
  *
- * @responsibility assertDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Directoryの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000004
  * @input directory: string
  * @returns N/A: assertDirectoryは戻り値を返さない。
@@ -1244,9 +1250,9 @@ function assertDirectory(directory: string) {
 }
 
 /**
- * ensureDirectoryの処理を実行する。
+ * Directoryが成立する状態を確保する。
  *
- * @responsibility ensureDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Directoryの成立条件、作成または再利用、失敗時の非成立境界を所有する。
  * @trace ARCH-000004
  * @input parent: string、name: string
  * @returns ensureDirectoryの計算結果を返す。
@@ -1283,9 +1289,9 @@ function ensureDirectory(parent: string, name: string) {
 }
 
 /**
- * storageRootの処理を実行する。
+ * storage Rootを決定する。
  *
- * @responsibility storageRootに対応する入力処理と結果生成を所有する。
+ * @responsibility storage Rootの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input workingDirectory: string
  * @returns storageRootの計算結果を返す。
@@ -1314,9 +1320,9 @@ function storageRoot(workingDirectory: string) {
 }
 
 /**
- * lockRootの処理を実行する。
+ * lock Rootを決定する。
  *
- * @responsibility lockRootに対応する入力処理と結果生成を所有する。
+ * @responsibility lock Rootの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input runtime: string
  * @returns lockRootの計算結果を返す。
@@ -1334,9 +1340,9 @@ function lockRoot(runtime: string) {
 }
 
 /**
- * leaseEvidenceRootの処理を実行する。
+ * lease Evidence Rootを決定する。
  *
- * @responsibility leaseEvidenceRootに対応する入力処理と結果生成を所有する。
+ * @responsibility lease Evidence Rootの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input runtime: string
  * @returns leaseEvidenceRootの計算結果を返す。
@@ -1354,9 +1360,9 @@ function leaseEvidenceRoot(runtime: string) {
 }
 
 /**
- * activeLeaseIsObservedの処理を実行する。
+ * Lease Is Observedが有効な状態か判定する。
  *
- * @responsibility activeLeaseIsObservedに対応する入力処理と結果生成を所有する。
+ * @responsibility Lease Is Observedの有効状態条件と判定結果境界を所有する。
  * @trace ARCH-000004
  * @input activeLease: ActiveLease
  * @returns activeLeaseIsObservedの計算結果を返す。
@@ -1379,9 +1385,9 @@ function activeLeaseIsObserved(activeLease: ActiveLease) {
 }
 
 /**
- * envelopeの処理を実行する。
+ * envelopeを決定する。
  *
- * @responsibility envelopeに対応する入力処理と結果生成を所有する。
+ * @responsibility envelopeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input recordKind: Envelope["recordKind"]、repositoryBindingId: string、projectId: string、createdGeneration: number、updatedGeneration: number、content: unknown
  * @returns Envelopeを返す。
@@ -1424,9 +1430,9 @@ function envelope(
 }
 
 /**
- * storageBytesの処理を実行する。
+ * storage Bytesを決定する。
  *
- * @responsibility storageBytesに対応する入力処理と結果生成を所有する。
+ * @responsibility storage Bytesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: Envelope
  * @returns storageBytesの計算結果を返す。
@@ -1447,9 +1453,9 @@ function storageBytes(value: Envelope) {
 }
 
 /**
- * atomicCreateAndReadBackの処理を実行する。
+ * atomic Create And Read Backを決定する。
  *
- * @responsibility atomicCreateAndReadBackに対応する入力処理と結果生成を所有する。
+ * @responsibility atomic Create And Read Backの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input directory: string、name: string、value: Envelope
  * @returns N/A: atomicCreateAndReadBackは戻り値を返さない。
@@ -1495,9 +1501,9 @@ function atomicCreateAndReadBack(
 }
 
 /**
- * readEnvelopeFileの処理を実行する。
+ * Envelope Fileを読み取る。
  *
- * @responsibility readEnvelopeFileに対応する入力処理と結果生成を所有する。
+ * @responsibility Envelope Fileの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input directory: string、name: string
  * @returns Envelopeを返す。
@@ -1570,9 +1576,9 @@ function readEnvelopeFile(directory: string, name: string): Envelope {
 }
 
 /**
- * readEnvelopesの処理を実行する。
+ * Envelopesを読み取る。
  *
- * @responsibility readEnvelopesに対応する入力処理と結果生成を所有する。
+ * @responsibility Envelopesの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input directory: string、prefix: string
  * @returns readonly Envelope[]を返す。
@@ -1623,9 +1629,9 @@ function readEnvelopes(directory: string, prefix: string): readonly Envelope[] {
 }
 
 /**
- * LeaseEvidenceContentが扱う値の構造を表す。
+ * project-runtime-durable-foundationで使用するLease Evidence Contentの値契約を定義する。
  *
- * @responsibility LeaseEvidenceContentに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Lease Evidence ContentのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape LeaseEvidenceContentが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LeaseEvidenceContentで宣言した値と責務の対応を維持する。
@@ -1642,9 +1648,9 @@ type LeaseEvidenceContent = Readonly<{
 }>;
 
 /**
- * LeaseEvidenceEnvelopeが扱う値の構造を表す。
+ * project-runtime-durable-foundationで使用するLease Evidence Envelopeの値契約を定義する。
  *
- * @responsibility LeaseEvidenceEnvelopeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Lease Evidence EnvelopeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape LeaseEvidenceEnvelopeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LeaseEvidenceEnvelopeで宣言した値と責務の対応を維持する。
@@ -1656,9 +1662,9 @@ type LeaseEvidenceEnvelope = Envelope &
   Readonly<{ recordKind: "lease-evidence"; content: LeaseEvidenceContent }>;
 
 /**
- * readExactLeaseEvidenceの処理を実行する。
+ * Exact Lease Evidenceを読み取る。
  *
- * @responsibility readExactLeaseEvidenceに対応する入力処理と結果生成を所有する。
+ * @responsibility Exact Lease Evidenceの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input directory: string、expected: Readonly<{ repositoryBindingId: string; projectId: string; queueId: string; kind: LeaseKind; identity: string; ownerGeneration: string; }>
  * @returns Readonly<{ acquired: LeaseEvidenceEnvelope; released: LeaseEvidenceEnvelope | null; recovered: LeaseEvidenceEnvelope | null; }>を返す。
@@ -1754,9 +1760,9 @@ function readExactLeaseEvidence(
 }
 
 /**
- * QueueEnvelopeが扱う値の構造を表す。
+ * project-runtime-durable-foundationで使用するQueue Envelopeの値契約を定義する。
  *
- * @responsibility QueueEnvelopeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Queue EnvelopeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape QueueEnvelopeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant QueueEnvelopeで宣言した値と責務の対応を維持する。
@@ -1767,9 +1773,9 @@ function readExactLeaseEvidence(
 type QueueEnvelope = Envelope & Readonly<{ content: ProjectQueueEntry }>;
 
 /**
- * validatedQueueHistoryの処理を実行する。
+ * validated Queue Historyを決定する。
  *
- * @responsibility validatedQueueHistoryに対応する入力処理と結果生成を所有する。
+ * @responsibility validated Queue Historyの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input records: readonly Envelope[]、repositoryBindingId: string、queueId: string、expectedProjectId: string
  * @returns readonly QueueEnvelope[] | nullを返す。
@@ -1812,9 +1818,9 @@ function validatedQueueHistory(
 }
 
 /**
- * withMutationLockの処理を実行する。
+ * with Mutation Lockを決定する。
  *
- * @responsibility withMutationLockに対応する入力処理と結果生成を所有する。
+ * @responsibility with Mutation Lockの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input runtime: string、identity: string、operation: () => StoreResult<T>
  * @returns withMutationLockの計算結果を返す。
@@ -1859,9 +1865,9 @@ function withMutationLock<T>(
 }
 
 /**
- * writeProjectRuntimeStateの処理を実行する。
+ * Project Runtime 状態を書き込む。
  *
- * @responsibility writeProjectRuntimeStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime 状態の書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000004
  * @input workingDirectory: string、repositoryBindingId: string、state: ProjectRuntimeState、expectedGeneration: number
  * @returns StoreResult<ProjectRuntimeState>を返す。
@@ -1919,9 +1925,9 @@ export function writeProjectRuntimeState(
 }
 
 /**
- * readProjectRuntimeStateの処理を実行する。
+ * Project Runtime 状態を読み取る。
  *
- * @responsibility readProjectRuntimeStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime 状態の読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input workingDirectory: string、repositoryBindingId: string、projectId: string
  * @returns StoreResult<ProjectRuntimeState | null>を返す。
@@ -1976,9 +1982,9 @@ export function readProjectRuntimeState(
 }
 
 /**
- * enqueueProjectOperationの処理を実行する。
+ * enqueue Project Operationを決定する。
  *
- * @responsibility enqueueProjectOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility enqueue Project Operationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input workingDirectory: string、repositoryBindingId: string、input: Omit< ProjectQueueEntry, | "state" | "generation" | "ownerGeneration" | "resumeCondition" | "resultReference" >
  * @returns StoreResult<ProjectQueueEntry>を返す。
@@ -2075,9 +2081,9 @@ export function enqueueProjectOperation(
 }
 
 /**
- * readProjectOperationQueueStateの処理を実行する。
+ * Project Operation Queue 状態を読み取る。
  *
- * @responsibility readProjectOperationQueueStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Operation Queue 状態の読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input workingDirectory: string、repositoryBindingId: string、queueId: string
  * @returns StoreResult<ProjectQueueEntry>を返す。
@@ -2129,7 +2135,7 @@ export function readProjectOperationQueueState(
 /**
  * Select the next unowned operation without preempting active work.
  *
- * @responsibility selectNextProjectOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility Next Project Operationの候補集合、選択理由、選択不能時の境界を所有する。
  * @trace ARCH-000004
  * @input workingDirectory: string、repositoryBindingId: string
  * @returns StoreResult<ProjectQueueEntry | null>を返す。
@@ -2329,9 +2335,9 @@ const QUEUE_TRANSITIONS = Object.freeze({
 } satisfies Record<ProjectQueueState, readonly ProjectQueueState[]>);
 
 /**
- * updateProjectOperationQueueStateの処理を実行する。
+ * Project Operation Queue 状態を更新する。
  *
- * @responsibility updateProjectOperationQueueStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Operation Queue 状態の更新対象、競合条件、更新結果の境界を所有する。
  * @trace ARCH-000004
  * @input workingDirectory: string、repositoryBindingId: string、queueId: string、expectedGeneration: number、next: Readonly<{ state: ProjectQueueState; lease: ProjectRuntimeLease | null; resumeCondition: string | null; resultReference: string | null; }>
  * @returns StoreResult<ProjectQueueEntry>を返す。
@@ -2482,7 +2488,7 @@ export function updateProjectOperationQueueState(
 /**
  * Resume a Queue only after its exact Runtime-owned recovery reference has
  *
- * @responsibility settleProjectOperationQueueRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Operation Queue 回復の確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000004
  * @input workingDirectory: string、repositoryBindingId: string、queueId: string、expectedGeneration: number、recoveryId: string
  * @returns StoreResult<ProjectQueueEntry>を返す。
@@ -2562,9 +2568,9 @@ export function settleProjectOperationQueueRecovery(
 }
 
 /**
- * acquireProjectRuntimeLeaseの処理を実行する。
+ * Project Runtime Leaseを取得する。
  *
- * @responsibility acquireProjectRuntimeLeaseに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Leaseの取得条件、所有権、失敗時の非取得境界を所有する。
  * @trace ARCH-000004
  * @input workingDirectory: string、repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind
  * @returns StoreResult<ProjectRuntimeLease>を返す。
@@ -2899,9 +2905,9 @@ export function acquireProjectRuntimeLease(
 }
 
 /**
- * inspectProjectRuntimeLeaseAcquisitionOwnerの処理を実行する。
+ * Project Runtime Lease Acquisition 所有者を観測する。
  *
- * @responsibility inspectProjectRuntimeLeaseAcquisitionOwnerに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Lease Acquisition 所有者の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input workingDirectory: string、repositoryBindingId: string
  * @returns StoreResult< Readonly<{ acquisition: ProjectRuntimeLeaseAcquisitionResolution | null }> >を返す。
@@ -3042,9 +3048,9 @@ export function inspectProjectRuntimeLeaseAcquisitionOwner(
 }
 
 /**
- * settleProjectOperationQueueLeaseReleaseの処理を実行する。
+ * Project Operation Queue Lease Releaseを終端状態へ確定する。
  *
- * @responsibility settleProjectOperationQueueLeaseReleaseに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Operation Queue Lease Releaseの確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000004
  * @input workingDirectory: string、repositoryBindingId: string、queueId: string、expectedGeneration: number、ownerGeneration: string
  * @returns StoreResult<ProjectQueueEntry>を返す。
@@ -3151,9 +3157,9 @@ export function settleProjectOperationQueueLeaseRelease(
 }
 
 /**
- * LeaseOwnerObserverが扱う値の構造を表す。
+ * project-runtime-durable-foundationで使用するLease 所有者 Observerの値契約を定義する。
  *
- * @responsibility LeaseOwnerObserverに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Lease 所有者 ObserverのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape LeaseOwnerObserverが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LeaseOwnerObserverで宣言した値と責務の対応を維持する。
@@ -3169,9 +3175,9 @@ type LeaseOwnerObserver = (
 ) => unknown;
 
 /**
- * reconcileUnboundLeaseAcquisitionの処理を実行する。
+ * reconcile Unbound Lease Acquisitionを決定する。
  *
- * @responsibility reconcileUnboundLeaseAcquisitionに対応する入力処理と結果生成を所有する。
+ * @responsibility reconcile Unbound Lease Acquisitionの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input runtime: string、repositoryBindingId: string、projectId: string、requestedQueueId: string、kind: LeaseKind、observeOwner: LeaseOwnerObserver、shouldRetainAcquisitionMarkerForCaller
  * @returns StoreResult<Readonly<{ recoveryId: string }>>を返す。
@@ -3520,9 +3526,9 @@ function reconcileUnboundLeaseAcquisition(
 }
 
 /**
- * reconcileCanonicalAdoptionLeaseAcquisitionOwnerLossの処理を実行する。
+ * reconcile Canonical Adoption Lease Acquisition 所有者 Lossを決定する。
  *
- * @responsibility reconcileCanonicalAdoptionLeaseAcquisitionOwnerLossに対応する入力処理と結果生成を所有する。
+ * @responsibility reconcile Canonical Adoption Lease Acquisition 所有者 Lossの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input workingDirectory: string、repositoryBindingId: string、projectId: string、observeOwner: LeaseOwnerObserver
  * @returns StoreResult<Readonly<{ recoveryId: string | null }>>を返す。
@@ -3605,9 +3611,9 @@ export function reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss(
 }
 
 /**
- * reconcileProjectRuntimeLeaseOwnerLossの処理を実行する。
+ * reconcile Project Runtime Lease 所有者 Lossを決定する。
  *
- * @responsibility reconcileProjectRuntimeLeaseOwnerLossに対応する入力処理と結果生成を所有する。
+ * @responsibility reconcile Project Runtime Lease 所有者 Lossの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input workingDirectory: string、repositoryBindingId: string、projectId: string、queueId: string、observeOwner: LeaseOwnerObserver
  * @returns StoreResult<ProjectQueueEntry>を返す。
@@ -4031,7 +4037,7 @@ export function reconcileProjectRuntimeLeaseOwnerLoss(
 /**
  * Bind repository-local infrastructure once at the composition root. Project
  *
- * @responsibility createProjectRuntimePersistencePortsに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Persistence Portsの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input workingDirectory: string、repositoryBindingId: string
  * @returns ProjectRuntimePersistencePortsを返す。
@@ -4137,9 +4143,9 @@ export function createProjectRuntimePersistencePorts(
 }
 
 /**
- * describeProjectRuntimeDurableFoundationの処理を実行する。
+ * Project Runtime Durable Foundationの公開契約を記述する。
  *
- * @responsibility describeProjectRuntimeDurableFoundationに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Durable Foundationの公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProjectRuntimeDurableFoundationの計算結果を返す。

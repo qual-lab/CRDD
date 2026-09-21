@@ -1,3 +1,9 @@
+/**
+ * platform-provisioner-policy-identityに属する責務をまとめる。
+ *
+ * @responsibility canonicalPolicyHashを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { createHash } from "node:crypto";
 
 import { describePlatformKeyStoragePolicyContract } from "./platform-key-storage-policy.ts";
@@ -5,9 +11,9 @@ import { canonicalizeProvisioningJsonValueCandidate } from "./provisioning-signa
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.ts";
 
 /**
- * canonicalPolicyHashの処理を実行する。
+ * canonical Policy Hashを決定する。
  *
- * @responsibility canonicalPolicyHashに対応する入力処理と結果生成を所有する。
+ * @responsibility canonical Policy Hashの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input policy: unknown
  * @returns canonicalPolicyHashの計算結果を返す。
@@ -29,9 +35,9 @@ function canonicalPolicyHash(policy: unknown) {
 }
 
 /**
- * getPlatformProvisionerPolicyIdentityの処理を実行する。
+ * Platform Provisioner Policy Identityを取得する。
  *
- * @responsibility getPlatformProvisionerPolicyIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Provisioner Policy Identityの参照条件、返却値、未検出結果の境界を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns getPlatformProvisionerPolicyIdentityの計算結果を返す。
@@ -56,9 +62,9 @@ export function getPlatformProvisionerPolicyIdentity() {
 }
 
 /**
- * describePlatformProvisionerPolicyIdentityContractの処理を実行する。
+ * Platform Provisioner Policy Identity 契約の公開契約を記述する。
  *
- * @responsibility describePlatformProvisionerPolicyIdentityContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Provisioner Policy Identity 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describePlatformProvisionerPolicyIdentityContractの計算結果を返す。

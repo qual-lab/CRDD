@@ -1,9 +1,15 @@
+/**
+ * integration-record-portに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeIntegrationRecordを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import type { ProjectRuntimePortResult } from "./port-result.ts";
 
 /**
- * ProjectRuntimeIntegrationRecordが扱う値の構造を表す。
+ * integration-record-portで使用するProject Runtime Integration 記録の値契約を定義する。
  *
- * @responsibility ProjectRuntimeIntegrationRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Integration 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeIntegrationRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeIntegrationRecordで宣言した値と責務の対応を維持する。
@@ -20,7 +26,7 @@ export type ProjectRuntimeIntegrationRecord = Readonly<{
 /**
  * Durable, immutable publication requested by the integration application.
  *
- * @responsibility ProjectRuntimeIntegrationRecordPortに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Integration 記録 PortのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeIntegrationRecordPortが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeIntegrationRecordPortで宣言した値と責務の対応を維持する。

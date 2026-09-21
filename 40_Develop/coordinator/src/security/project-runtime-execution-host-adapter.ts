@@ -1,3 +1,9 @@
+/**
+ * project-runtime-execution-host-adapterに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeExecutionHostAdapterOptionsを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import type {
@@ -12,9 +18,9 @@ import {
 } from "../core/runtime-process-safety-state.ts";
 
 /**
- * ProjectRuntimeExecutionHostAdapterOptionsが扱う値の構造を表す。
+ * project-runtime-execution-host-adapterで使用するProject Runtime Execution Host Adapter Optionsの値契約を定義する。
  *
- * @responsibility ProjectRuntimeExecutionHostAdapterOptionsに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Execution Host Adapter OptionsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeExecutionHostAdapterOptionsが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeExecutionHostAdapterOptionsで宣言した値と責務の対応を維持する。
@@ -30,7 +36,7 @@ export type ProjectRuntimeExecutionHostAdapterOptions = Readonly<{
 /**
  * Build the Host-owned capabilities required by Project Runtime execution.
  *
- * @responsibility createProjectRuntimeExecutionHostPortsに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Execution Host Portsの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input options: ProjectRuntimeExecutionHostAdapterOptions
  * @returns createProjectRuntimeExecutionHostPortsの計算結果を返す。

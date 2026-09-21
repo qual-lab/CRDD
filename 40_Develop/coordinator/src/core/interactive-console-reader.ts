@@ -1,3 +1,9 @@
+/**
+ * interactive-console-readerに属する責務をまとめる。
+ *
+ * @responsibility ReaderInputを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -8,9 +14,9 @@ export const INTERACTIVE_CONSOLE_READER_MAXIMUM_BYTES = 64;
 export const INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS = 120_000;
 
 /**
- * ReaderInputが扱う値の構造を表す。
+ * interactive-console-readerで使用するReader 入力の値契約を定義する。
  *
- * @responsibility ReaderInputに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Reader 入力のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ReaderInputが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ReaderInputで宣言した値と責務の対応を維持する。
@@ -36,9 +42,9 @@ export type ReaderInput = Readonly<{
 }>;
 
 /**
- * OwnedReaderAdapterが扱う値の構造を表す。
+ * interactive-console-readerで使用する所有 Reader Adapterの値契約を定義する。
  *
- * @responsibility OwnedReaderAdapterに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 所有 Reader AdapterのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape OwnedReaderAdapterが表すProperty、識別子およびRelationを型として固定する。
  * @invariant OwnedReaderAdapterで宣言した値と責務の対応を維持する。
@@ -60,9 +66,9 @@ type OwnedReaderAdapter = Readonly<{
 }>;
 
 /**
- * OwnedInteractiveConsoleReadOutcomeが扱う値の構造を表す。
+ * interactive-console-readerで使用する所有 Interactive Console Read Outcomeの値契約を定義する。
  *
- * @responsibility OwnedInteractiveConsoleReadOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 所有 Interactive Console Read OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape OwnedInteractiveConsoleReadOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant OwnedInteractiveConsoleReadOutcomeで宣言した値と責務の対応を維持する。
@@ -77,9 +83,9 @@ export type OwnedInteractiveConsoleReadOutcome = Readonly<{
 }>;
 
 /**
- * parseInteractiveConsoleLineの処理を実行する。
+ * Interactive Console Lineを構造化値へ解析する。
  *
- * @responsibility parseInteractiveConsoleLineに対応する入力処理と結果生成を所有する。
+ * @responsibility Interactive Console Lineの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000008
  * @input bytes: Uint8Array
  * @returns parseInteractiveConsoleLineの計算結果を返す。
@@ -119,9 +125,9 @@ export function parseInteractiveConsoleLine(bytes: Uint8Array) {
 }
 
 /**
- * readInteractiveConsoleLineFromStreamの処理を実行する。
+ * Interactive Console Line From Streamを読み取る。
  *
- * @responsibility readInteractiveConsoleLineFromStreamに対応する入力処理と結果生成を所有する。
+ * @responsibility Interactive Console Line From Streamの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input stream: ReaderInput、cancellationSignal: AbortSignal
  * @returns Promise<string | null>を返す。
@@ -221,9 +227,9 @@ export function readInteractiveConsoleLineFromStream(
 }
 
 /**
- * readOwnedInteractiveConsoleLineOutcomeUsingAdapterの処理を実行する。
+ * 所有 Interactive Console Line Outcome Using Adapterを読み取る。
  *
- * @responsibility readOwnedInteractiveConsoleLineOutcomeUsingAdapterに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Interactive Console Line Outcome Using Adapterの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input platform: NodeJS.Platform、cancellationSignal: AbortSignal、adapter: OwnedReaderAdapter
  * @returns Promise<OwnedInteractiveConsoleReadOutcome>を返す。
@@ -325,9 +331,9 @@ export async function readOwnedInteractiveConsoleLineOutcomeUsingAdapter(
 }
 
 /**
- * writeResultの処理を実行する。
+ * 結果を書き込む。
  *
- * @responsibility writeResultに対応する入力処理と結果生成を所有する。
+ * @responsibility 結果の書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input status: "completed" | "blocked"、line: string | null、cancellationSignal: AbortSignal
  * @returns Promise<boolean>を返す。
@@ -390,9 +396,9 @@ function writeResult(
 }
 
 /**
- * mainの処理を実行する。
+ * interactive-console-readerのCommand処理を開始する。
  *
- * @responsibility mainに対応する入力処理と結果生成を所有する。
+ * @responsibility interactive-console-readerの引数受付、終了Code、診断出力境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns mainの計算結果を返す。

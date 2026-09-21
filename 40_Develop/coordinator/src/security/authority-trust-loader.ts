@@ -1,3 +1,9 @@
+/**
+ * authority-trust-loaderに属する責務をまとめる。
+ *
+ * @responsibility blockedを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { createHash } from "node:crypto";
 
 import { decodeCanonicalAuthorityRegistryBytes } from "./authority-grant-verifier.ts";
@@ -30,9 +36,9 @@ const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
 )?.get as () => number;
 
 /**
- * blockedの処理を実行する。
+ * authority-trust-loaderを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility authority-trust-loaderの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000014
  * @input reason: string
  * @returns blockedの計算結果を返す。
@@ -58,9 +64,9 @@ function blocked(reason: string) {
 }
 
 /**
- * canonicalJsonの処理を実行する。
+ * canonical Jsonを決定する。
  *
- * @responsibility canonicalJsonに対応する入力処理と結果生成を所有する。
+ * @responsibility canonical Jsonの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown
  * @returns stringを返す。
@@ -89,9 +95,9 @@ function canonicalJson(value: unknown): string {
 }
 
 /**
- * decodeCanonicalAuthorityTrustPolicyBytesの処理を実行する。
+ * Canonical Authority Trust Policy Bytesを検証済み値へ復号する。
  *
- * @responsibility decodeCanonicalAuthorityTrustPolicyBytesに対応する入力処理と結果生成を所有する。
+ * @responsibility Canonical Authority Trust Policy Bytesの入力形式、復号結果、不正byte列の拒否境界を所有する。
  * @trace ARCH-000014
  * @input input: unknown
  * @returns decodeCanonicalAuthorityTrustPolicyBytesの計算結果を返す。
@@ -139,9 +145,9 @@ export function decodeCanonicalAuthorityTrustPolicyBytes(input: unknown) {
 }
 
 /**
- * validateTrustPolicyCandidateの処理を実行する。
+ * Trust Policy 候補の契約を検証する。
  *
- * @responsibility validateTrustPolicyCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Trust Policy 候補の必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000014
  * @input candidate: unknown
  * @returns validateTrustPolicyCandidateの計算結果を返す。
@@ -191,9 +197,9 @@ function validateTrustPolicyCandidate(candidate: unknown) {
 }
 
 /**
- * loadAuthorityRegistryTrustCandidateの処理を実行する。
+ * Authority Registry Trust 候補を読み込む。
  *
- * @responsibility loadAuthorityRegistryTrustCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Authority Registry Trust 候補の読取り元、Schema検証、読取不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input registryBytes: unknown、rawTrustPolicy: unknown
  * @returns loadAuthorityRegistryTrustCandidateの計算結果を返す。
@@ -243,9 +249,9 @@ export function loadAuthorityRegistryTrustCandidate(
 }
 
 /**
- * describeAuthorityTrustLoaderContractの処理を実行する。
+ * Authority Trust Loader 契約の公開契約を記述する。
  *
- * @responsibility describeAuthorityTrustLoaderContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Authority Trust Loader 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeAuthorityTrustLoaderContractの計算結果を返す。

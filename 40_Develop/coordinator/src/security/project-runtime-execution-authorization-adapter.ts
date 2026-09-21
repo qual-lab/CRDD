@@ -1,3 +1,9 @@
+/**
+ * project-runtime-execution-authorization-adapterに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeExecutionAuthorizationAdapterDependenciesを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { types as utilTypes } from "node:util";
 
 import type {
@@ -6,9 +12,9 @@ import type {
 } from "../../../project-runtime/src/index.ts";
 
 /**
- * ProjectRuntimeExecutionAuthorizationAdapterDependenciesが扱う値の構造を表す。
+ * project-runtime-execution-authorization-adapterで使用するProject Runtime Execution Authorization Adapter Dependenciesの値契約を定義する。
  *
- * @responsibility ProjectRuntimeExecutionAuthorizationAdapterDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Execution Authorization Adapter DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeExecutionAuthorizationAdapterDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeExecutionAuthorizationAdapterDependenciesで宣言した値と責務の対応を維持する。
@@ -22,9 +28,9 @@ export type ProjectRuntimeExecutionAuthorizationAdapterDependencies = Readonly<{
 }>;
 
 /**
- * isOpaqueCapabilityの処理を実行する。
+ * Opaque Capabilityかを判定する。
  *
- * @responsibility isOpaqueCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Opaque Capabilityの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is objectを返す。
@@ -44,9 +50,9 @@ function isOpaqueCapability(value: unknown): value is object {
 }
 
 /**
- * validIdentityの処理を実行する。
+ * Identityが有効か判定する。
  *
- * @responsibility validIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Identityの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: string
  * @returns validIdentityの計算結果を返す。
@@ -68,9 +74,9 @@ function validIdentity(value: string) {
 }
 
 /**
- * validRequestの処理を実行する。
+ * Requestが有効か判定する。
  *
- * @responsibility validRequestに対応する入力処理と結果生成を所有する。
+ * @responsibility Requestの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input request: ProjectRuntimeExecutionAuthorizationRequest
  * @returns validRequestの計算結果を返す。
@@ -98,7 +104,7 @@ function validRequest(request: ProjectRuntimeExecutionAuthorizationRequest) {
 /**
  * Bind the Project Runtime authorization Port to the signed package gate.
  *
- * @responsibility createProjectRuntimeExecutionAuthorizationAdapterに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Execution Authorization Adapterの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input dependencies: ProjectRuntimeExecutionAuthorizationAdapterDependencies
  * @returns ProjectRuntimeExecutionAuthorizationPortを返す。
@@ -116,9 +122,9 @@ export function createProjectRuntimeExecutionAuthorizationAdapter(
 ): ProjectRuntimeExecutionAuthorizationPort {
   return Object.freeze({
     /**
-     * issueの処理を実行する。
+     * project-runtime-execution-authorization-adapterを発行する。
      *
-     * @responsibility issueに対応する入力処理と結果生成を所有する。
+     * @responsibility project-runtime-execution-authorization-adapterの発行条件、Identity、非発行時のEffect 0境界を所有する。
      * @trace ARCH-000004
      * @input request
      * @returns issueの計算結果を返す。
@@ -172,9 +178,9 @@ export function createProjectRuntimeExecutionAuthorizationAdapter(
       }
     },
     /**
-     * revokeUnusedの処理を実行する。
+     * Unusedを失効させる。
      *
-     * @responsibility revokeUnusedに対応する入力処理と結果生成を所有する。
+     * @responsibility Unusedの失効Authority、対象Identity、再利用防止境界を所有する。
      * @trace ARCH-000004
      * @input capability
      * @returns revokeUnusedの計算結果を返す。

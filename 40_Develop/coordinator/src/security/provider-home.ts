@@ -1,3 +1,9 @@
+/**
+ * provider-homeに属する責務をまとめる。
+ *
+ * @responsibility blockedを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import path from "node:path";
 
 import { isSupportedWindowsAbsolutePathCandidate } from "./authority-root-path-lexical.ts";
@@ -23,9 +29,9 @@ const PROVIDERS = Object.freeze(["codex", "claude"] as const);
 const INPUT_KEYS = new Set(["provider", "localAppDataRoot"]);
 
 /**
- * blockedの処理を実行する。
+ * provider-homeを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility provider-homeの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000010
  * @input reason: string
  * @returns blockedの計算結果を返す。
@@ -55,9 +61,9 @@ function blocked(reason: string) {
 }
 
 /**
- * providerの処理を実行する。
+ * providerを決定する。
  *
- * @responsibility providerに対応する入力処理と結果生成を所有する。
+ * @responsibility providerの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input value: unknown
  * @returns (typeof PROVIDERS)[number] | nullを返す。
@@ -78,9 +84,9 @@ function provider(value: unknown): (typeof PROVIDERS)[number] | null {
 }
 
 /**
- * resolveLayoutForValidationの処理を実行する。
+ * Layout For Validationを一意に解決する。
  *
- * @responsibility resolveLayoutForValidationに対応する入力処理と結果生成を所有する。
+ * @responsibility Layout For Validationの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000010
  * @input localAppDataRoot: string、selectedProvider: (typeof PROVIDERS)[number]
  * @returns resolveLayoutForValidationの計算結果を返す。
@@ -108,9 +114,9 @@ function resolveLayoutForValidation(
 }
 
 /**
- * evaluateWindowsProviderHomeLayoutCandidateの処理を実行する。
+ * Windows Provider Home Layout 候補を評価する。
  *
- * @responsibility evaluateWindowsProviderHomeLayoutCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Windows Provider Home Layout 候補の評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000010
  * @input raw: unknown
  * @returns evaluateWindowsProviderHomeLayoutCandidateの計算結果を返す。
@@ -166,9 +172,9 @@ export function evaluateWindowsProviderHomeLayoutCandidate(raw: unknown) {
 }
 
 /**
- * observeRuntimeOwnedWindowsProviderHomeCandidateの処理を実行する。
+ * Runtime 所有 Windows Provider Home 候補を観測する。
  *
- * @responsibility observeRuntimeOwnedWindowsProviderHomeCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Windows Provider Home 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000010
  * @input provider: unknown、evaluationTime: unknown
  * @returns observeRuntimeOwnedWindowsProviderHomeCandidateの計算結果を返す。
@@ -192,9 +198,9 @@ export function observeRuntimeOwnedWindowsProviderHomeCandidate(
 }
 
 /**
- * describeProviderHomeContractの処理を実行する。
+ * Provider Home 契約の公開契約を記述する。
  *
- * @responsibility describeProviderHomeContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Home 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000010
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProviderHomeContractの計算結果を返す。

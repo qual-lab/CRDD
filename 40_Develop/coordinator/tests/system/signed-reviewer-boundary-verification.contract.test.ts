@@ -6,7 +6,7 @@
  * @trace AIT-ST-004
  * @level ST
  * @scope signed、reviewer、real-provider、integration-boundary
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -27,7 +27,7 @@ import { SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION } from "../../script
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 function completed(route: "forward" | "reverse") {
   return Object.freeze({
@@ -67,7 +67,7 @@ function completed(route: "forward" | "reverse") {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("実Codex／Claude Reviewer境界を4経路E2E前の二経路結合として固定する", async () => {
   const observedRoutes: string[] = [];
@@ -97,7 +97,7 @@ test("実Codex／Claude Reviewer境界を4経路E2E前の二経路結合とし�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("Reviewer拒否は次経路へ進まず安全な診断を子結果に保持する", async () => {
   const rejected = Object.freeze({
@@ -135,7 +135,7 @@ test("Reviewer拒否は次経路へ進まず安全な診断を子結果に保持
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
+ * @boundary AIT-ST-004=System/E2E: 配布物観測→Policy評価→Runtime Authority Gate
  */
 test("通常回帰は実Providerを起動せず明示実行だけが境界Effectを持つ", () => {
   const contract = describeSignedReviewerBoundaryVerificationContract();

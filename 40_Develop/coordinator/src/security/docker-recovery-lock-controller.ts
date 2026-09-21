@@ -1,9 +1,15 @@
+/**
+ * docker-recovery-lock-controllerに属する責務をまとめる。
+ *
+ * @responsibility KernelLockを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "./candidate-store-kernel-lock.ts";
 
 /**
- * KernelLockが扱う値の構造を表す。
+ * docker-recovery-lock-controllerで使用するKernel Lockの値契約を定義する。
  *
- * @responsibility KernelLockに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Kernel LockのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape KernelLockが表すProperty、識別子およびRelationを型として固定する。
  * @invariant KernelLockで宣言した値と責務の対応を維持する。
@@ -14,9 +20,9 @@ import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "./candidate-sto
 type KernelLock = Readonly<{ release: () => boolean }>;
 
 /**
- * createDockerRecoveryRuntimeStateLockControllerの処理を実行する。
+ * Docker 回復 Runtime 状態 Lock Controllerを構築する。
  *
- * @responsibility createDockerRecoveryRuntimeStateLockControllerに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 Runtime 状態 Lock Controllerの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input runtimeStateBindingHash: unknown
  * @returns createDockerRecoveryRuntimeStateLockControllerの計算結果を返す。
@@ -57,9 +63,9 @@ export function createDockerRecoveryRuntimeStateLockController(
   };
   return Object.freeze({
     /**
-     * outsideLockの処理を実行する。
+     * outside Lockを決定する。
      *
-     * @responsibility outsideLockに対応する入力処理と結果生成を所有する。
+     * @responsibility outside Lockの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000008
      * @input effect: () => T
      * @returns outsideLockの計算結果を返す。
@@ -83,9 +89,9 @@ export function createDockerRecoveryRuntimeStateLockController(
       }
     },
     /**
-     * closeの処理を実行する。
+     * docker-recovery-lock-controllerを終了する。
      *
-     * @responsibility closeに対応する入力処理と結果生成を所有する。
+     * @responsibility docker-recovery-lock-controllerの終了条件、資源解放、終了不能時の境界を所有する。
      * @trace ARCH-000008
      * @input N/A: 実行時引数を受け取らない。
      * @returns closeの計算結果を返す。

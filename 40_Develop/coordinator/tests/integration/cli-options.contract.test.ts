@@ -6,7 +6,7 @@
  * @trace PRL-IT-012
  * @level IT
  * @scope cli、options
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -42,7 +42,7 @@ const publicCoordinatorLauncher = path.resolve(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("検証付き再起動と記録後回復はexact Taskを指定する別操作", () => {
   const id = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
@@ -94,7 +94,7 @@ test("検証付き再起動と記録後回復はexact Taskを指定する別操�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("再起動元配布候補は再起動専用引数であり修復元を代用しない", () => {
   const id = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
@@ -144,7 +144,7 @@ test("再起動元配布候補は再起動専用引数であり修復元を代�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("再起動結果はTask回復を成功へ混同せずcleanup不明を拒否する", () => {
   const base = {
@@ -183,7 +183,7 @@ test("再起動結果はTask回復を成功へ混同せずcleanup不明を拒否
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("旧版修復記録の引継ぎはexact IDと修復記録の生成元配布Rootだけを受理する", () => {
   const id = `docker-desktop-repair.${"a".repeat(32)}`;
@@ -230,7 +230,7 @@ test("旧版修復記録の引継ぎはexact IDと修復記録の生成元配布
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("Docker Taskの未確定createはexact復旧ID・検証済み再起動・修復記録の生成元配布Rootの組だけを受理する", () => {
   const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
@@ -295,7 +295,7 @@ test("Docker Taskの未確定createはexact復旧ID・検証済み再起動・�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("doctorは診断と復旧に必要な引数だけを受理する", () => {
   assert.equal(parseDoctorArguments([], undefined).status, "ok");
@@ -331,7 +331,7 @@ test("doctorは診断と復旧に必要な引数だけを受理する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("Docker Desktop最終復旧は単独の明示doctor処置としてだけ受理する", () => {
   const repair = parseDoctorArguments(
@@ -369,7 +369,7 @@ test("Docker Desktop最終復旧は単独の明示doctor処置としてだけ受
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("taskは明示stdin入力だけを受理しrequestをargvへ置かない", () => {
   const parsed = parseTaskArguments(["--request-stdin", "--json"]);
@@ -396,7 +396,7 @@ test("taskは明示stdin入力だけを受理しrequestをargvへ置かない", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("candidateはopaque IDの明示Export、DiscardまたはStore Recoveryだけを受理する", () => {
   const candidateId = `candidate.${"1".repeat(64)}.${"2".repeat(64)}`;
@@ -436,7 +436,7 @@ test("candidateはopaque IDの明示Export、DiscardまたはStore Recoveryだ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("公開Capability表示はLocal Personalの成立済み入口だけを返す", () => {
   const result = spawnSync(
@@ -476,7 +476,7 @@ test("公開Capability表示はLocal Personalの成立済み入口だけを返�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("template toolsの安定入口はCoordinator共通Launcherへ同一Processで接続する", () => {
   const result = spawnSync(
@@ -506,7 +506,7 @@ test("template toolsの安定入口はCoordinator共通Launcherへ同一Process�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("削除したcommandは互換処理へ入らず未知commandとして拒否される", () => {
   for (const command of ["activate", "disable", "provision", "mcp"]) {
@@ -534,7 +534,7 @@ test("削除したcommandは互換処理へ入らず未知commandとして拒否
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("helpは通常Taskと現在利用可能なcommandだけを案内する", () => {
   const result = spawnSync(process.execPath, [coordinatorExecutable, "help"], {
@@ -569,7 +569,7 @@ test("helpは通常Taskと現在利用可能なcommandだけを案内する", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("実task CLIは曖昧JSONと未検証source checkoutを全Effect前に拒否する", () => {
   const ambiguous = spawnSync(

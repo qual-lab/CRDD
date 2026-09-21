@@ -1,3 +1,9 @@
+/**
+ * reality-symbol-graphに属する責務をまとめる。
+ *
+ * @responsibility realitySymbolGraphRuleを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000001
+ */
 import {
   createRealitySymbolGraph,
   discoverRealitySymbolManifests,
@@ -7,9 +13,9 @@ import { verifyRepositoryRoot } from "../../../version-control/src/repository-id
 import type { CheckerRule } from "./rule-registry.ts";
 
 /**
- * realitySymbolGraphRuleの処理を実行する。
+ * reality Symbol Graph Ruleを決定する。
  *
- * @responsibility realitySymbolGraphRuleに対応する入力処理と結果生成を所有する。
+ * @responsibility reality Symbol Graph Ruleの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000001
  * @input repositoryRoot: string
  * @returns CheckerRuleを返す。

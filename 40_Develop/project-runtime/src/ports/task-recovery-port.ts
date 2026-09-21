@@ -1,9 +1,15 @@
+/**
+ * task-recovery-portに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeDockerRecoveryIdentityを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import type { ProjectDockerRecoveryAcknowledgement } from "../core/project-runtime-state.ts";
 
 /**
- * ProjectRuntimeDockerRecoveryIdentityが扱う値の構造を表す。
+ * task-recovery-portで使用するProject Runtime Docker 回復 Identityの値契約を定義する。
  *
- * @responsibility ProjectRuntimeDockerRecoveryIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Docker 回復 IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeDockerRecoveryIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeDockerRecoveryIdentityで宣言した値と責務の対応を維持する。
@@ -23,9 +29,9 @@ export type ProjectRuntimeDockerRecoveryIdentity = Readonly<{
 }>;
 
 /**
- * ProjectRuntimeRecoveryTransitionが扱う値の構造を表す。
+ * task-recovery-portで使用するProject Runtime 回復 Transitionの値契約を定義する。
  *
- * @responsibility ProjectRuntimeRecoveryTransitionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime 回復 TransitionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeRecoveryTransitionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeRecoveryTransitionで宣言した値と責務の対応を維持する。
@@ -54,7 +60,7 @@ export type ProjectRuntimeRecoveryTransition = Readonly<{
 /**
  * Host capabilities required to resolve and settle Task recovery obligations.
  *
- * @responsibility ProjectRuntimeTaskRecoveryPortに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Task 回復 PortのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeTaskRecoveryPortが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeTaskRecoveryPortで宣言した値と責務の対応を維持する。

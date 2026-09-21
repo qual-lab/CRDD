@@ -6,7 +6,7 @@
  * @trace PRL-UT-006
  * @level UT
  * @scope provider、lifecycle
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -40,7 +40,7 @@ const COMPLETE_STATES = Object.freeze([
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 function observation(overrides: Record<string, unknown> = {}) {
   return {
@@ -77,7 +77,7 @@ function observation(overrides: Record<string, unknown> = {}) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("Provider認証方針は標準Profileをsubscription OAuthへ限定する", () => {
   const contract = describeProviderLifecycleContract();
@@ -148,7 +148,7 @@ test("Provider認証方針は標準Profileをsubscription OAuthへ限定する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("専用Provider HomeはProvider単位で永続しOperation cleanupへ含めない", () => {
   const home = describeProviderLifecycleContract().dedicatedProviderHome;
@@ -185,7 +185,7 @@ test("専用Provider HomeはProvider単位で永続しOperation cleanupへ含め
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("実Providerのloginとrunはいずれもspawn前にblockedとなる", () => {
   const codex = planProviderLifecycle({ provider: "codex", mode: "login" });
@@ -215,7 +215,7 @@ test("実Providerのloginとrunはいずれもspawn前にblockedとなる", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("任意Provider、mode、余分field、accessorおよびProxyを拒否する", () => {
   assert.equal(
@@ -263,7 +263,7 @@ test("任意Provider、mode、余分field、accessorおよびProxyを拒否す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("synthetic Fake claimの正常形も非Authority候補に限定する", () => {
   const result = evaluateSyntheticFakeProviderObservationCandidate(
@@ -294,7 +294,7 @@ test("synthetic Fake claimの正常形も非Authority候補に限定する", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("synthetic Fake claimの契約、revision、providerおよびmode差を拒否する", () => {
   for (const changed of [
@@ -322,7 +322,7 @@ test("synthetic Fake claimの契約、revision、providerおよびmode差を拒�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("動的Fake契約はDocker所有観測だけを実装済みとしcancelを未実装に保つ", () => {
   const dynamic =
@@ -350,7 +350,7 @@ test("動的Fake契約はDocker所有観測だけを実装済みとしcancelを�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("synthetic Fake claimのtimeout、cancel、入出力超過およびquotaを安全側へ閉じる", () => {
   assert.equal(
@@ -429,7 +429,7 @@ test("synthetic Fake claimのtimeout、cancel、入出力超過およびquotaを
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("synthetic Fake claimの異常終了、二重完了、malformed結果および残存claimを拒否する", () => {
   assert.equal(
@@ -480,7 +480,7 @@ test("synthetic Fake claimの異常終了、二重完了、malformed結果およ
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("synthetic Fake claimは状態順序、cancel整合、値型および入力trapをfail closedにする", () => {
   assert.equal(

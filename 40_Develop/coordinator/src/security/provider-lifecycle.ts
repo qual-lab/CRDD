@@ -1,3 +1,9 @@
+/**
+ * provider-lifecycleに属する責務をまとめる。
+ *
+ * @responsibility isMemberを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -92,9 +98,9 @@ const AUTH_POLICIES = Object.freeze({
 });
 
 /**
- * isMemberの処理を実行する。
+ * Memberかを判定する。
  *
- * @responsibility isMemberに対応する入力処理と結果生成を所有する。
+ * @responsibility Memberの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000004
  * @input values: T、value: unknown
  * @returns value is T[number]を返す。
@@ -115,9 +121,9 @@ function isMember<const T extends readonly string[]>(
 }
 
 /**
- * isBoundedIntegerの処理を実行する。
+ * Bounded Integerかを判定する。
  *
- * @responsibility isBoundedIntegerに対応する入力処理と結果生成を所有する。
+ * @responsibility Bounded Integerの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown、maximum: number
  * @returns value is numberを返す。
@@ -140,9 +146,9 @@ function isBoundedInteger(value: unknown, maximum: number): value is number {
 }
 
 /**
- * blockedの処理を実行する。
+ * provider-lifecycleを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility provider-lifecycleの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000004
  * @input reason: string
  * @returns blockedの計算結果を返す。
@@ -173,9 +179,9 @@ function blocked(reason: string) {
 }
 
 /**
- * planProviderLifecycleの処理を実行する。
+ * plan Provider Lifecycleを決定する。
  *
- * @responsibility planProviderLifecycleに対応する入力処理と結果生成を所有する。
+ * @responsibility plan Provider Lifecycleの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input candidate: unknown
  * @returns planProviderLifecycleの計算結果を返す。
@@ -219,9 +225,9 @@ export function planProviderLifecycle(candidate: unknown) {
 }
 
 /**
- * syntheticFakeObservationInternalの処理を実行する。
+ * synthetic Fake Observation Internalを決定する。
  *
- * @responsibility syntheticFakeObservationInternalに対応する入力処理と結果生成を所有する。
+ * @responsibility synthetic Fake Observation Internalの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input candidate: unknown
  * @returns syntheticFakeObservationInternalの計算結果を返す。
@@ -341,9 +347,9 @@ function syntheticFakeObservationInternal(candidate: unknown) {
 }
 
 /**
- * evaluateSyntheticFakeProviderObservationCandidateの処理を実行する。
+ * Synthetic Fake Provider Observation 候補を評価する。
  *
- * @responsibility evaluateSyntheticFakeProviderObservationCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Synthetic Fake Provider Observation 候補の評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input candidate: unknown
  * @returns evaluateSyntheticFakeProviderObservationCandidateの計算結果を返す。
@@ -363,9 +369,9 @@ export function evaluateSyntheticFakeProviderObservationCandidate(
 }
 
 /**
- * describeProviderLifecycleContractの処理を実行する。
+ * Provider Lifecycle 契約の公開契約を記述する。
  *
- * @responsibility describeProviderLifecycleContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Lifecycle 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProviderLifecycleContractの計算結果を返す。

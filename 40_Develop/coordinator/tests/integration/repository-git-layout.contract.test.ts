@@ -6,7 +6,7 @@
  * @trace RFD-IT-001
  * @level IT
  * @scope repository、git、layout
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -32,7 +32,7 @@ import { assertPresent, errorCode } from "../support/test-support.ts";
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 function temporaryRoot(t: TestContext) {
   const root = fs.mkdtempSync(
@@ -52,7 +52,7 @@ function temporaryRoot(t: TestContext) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 function makeGitDirectory(target: string) {
   fs.mkdirSync(path.join(target, "info"), { recursive: true });
@@ -74,7 +74,7 @@ function makeGitDirectory(target: string) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("通常worktreeのcommon metadata候補をPath非保持で識別する", (t) => {
   const repositoryRoot = temporaryRoot(t);
@@ -100,7 +100,7 @@ test("通常worktreeのcommon metadata候補をPath非保持で識別する", (t
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("linked worktreeはcommondirを解決する", (t) => {
   const parent = temporaryRoot(t);
@@ -137,7 +137,7 @@ test("linked worktreeはcommondirを解決する", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("core.worktreeを使わない限定gitfile worktreeを候補化する", (t) => {
   const parent = temporaryRoot(t);
@@ -167,7 +167,7 @@ test("core.worktreeを使わない限定gitfile worktreeを候補化する", (t)
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("標準submodule自身のcore.worktree構成をexact Rootとして受理する", (t) => {
   const parent = temporaryRoot(t);
@@ -201,7 +201,7 @@ test("標準submodule自身のcore.worktree構成をexact Rootとして受理す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("別Rootを指すcore.worktreeは全てのGit観測経路で拒否する", (t) => {
   const parent = temporaryRoot(t);
@@ -238,7 +238,7 @@ test("別Rootを指すcore.worktreeは全てのGit観測経路で拒否する", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("bare Repositoryと不正gitfileを拒否する", (t) => {
   const bare = temporaryRoot(t);
@@ -266,7 +266,7 @@ test("bare Repositoryと不正gitfileを拒否する", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("Git directoryのHEADまたは共通configが欠落する候補を拒否する", (t) => {
   const repositoryRoot = temporaryRoot(t);
@@ -287,7 +287,7 @@ test("Git directoryのHEADまたは共通configが欠落する候補を拒否す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("限定Repository formatだけをAuthority候補として受理する", (t) => {
   const repositoryRoot = temporaryRoot(t);
@@ -376,7 +376,7 @@ test("限定Repository formatだけをAuthority候補として受理する", (t)
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("control fileは上限ちょうどを受理し上限+1を拒否する", (t) => {
   const repositoryRoot = temporaryRoot(t);
@@ -404,7 +404,7 @@ test("control fileは上限ちょうどを受理し上限+1を拒否する", (t)
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("lstat後にcontrol fileを同名の別実体へ置換しても読まない", (t) => {
   const repositoryRoot = temporaryRoot(t);
@@ -440,7 +440,7 @@ test("lstat後にcontrol fileを同名の別実体へ置換しても読まない
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("同一handleの読取り中にsizeが変わる場合はblockedへ閉じる", (t) => {
   const repositoryRoot = temporaryRoot(t);
@@ -474,7 +474,7 @@ test("同一handleの読取り中にsizeが変わる場合はblockedへ閉じる
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("realpath解決中にRepository directoryを別実体へ置換しても候補化しない", (t) => {
   const parent = temporaryRoot(t);
@@ -516,7 +516,7 @@ test("realpath解決中にRepository directoryを別実体へ置換しても候�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("control fileのclose失敗を成功へ流用しない", (t) => {
   const repositoryRoot = temporaryRoot(t);
@@ -550,7 +550,7 @@ test("control fileのclose失敗を成功へ流用しない", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("Git markerのlinkを拒否する", (t) => {
   const parent = temporaryRoot(t);
@@ -588,7 +588,7 @@ test("Git markerのlinkを拒否する", (t) => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("accessorとProxyを実行せずblockedへ閉じる", () => {
   let calls = 0;
@@ -623,7 +623,7 @@ test("accessorとProxyを実行せずblockedへ閉じる", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
+ * @boundary RFD-IT-001=Adjacent 1 Block: 開始Path→Version Control Adapter→Repository Manifest
  */
 test("Repository形態contractは参照Repository非変更と未実装境界を保つ", () => {
   const contract = describeGitRepositoryLayoutAdapterContract();

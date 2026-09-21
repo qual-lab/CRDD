@@ -1,3 +1,9 @@
+/**
+ * delegation-route-selectionに属する責務をまとめる。
+ *
+ * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -80,9 +86,9 @@ const DIFFICULTIES = new Set(["low", "medium", "high"]);
 const DECISION_IMPACTS = new Set(["limited", "material", "critical"]);
 
 /**
- * Providerが扱う値の構造を表す。
+ * delegation-route-selectionで使用するProviderの値契約を定義する。
  *
- * @responsibility Providerに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ProviderのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Providerで宣言した値と責務の対応を維持する。
@@ -92,9 +98,9 @@ const DECISION_IMPACTS = new Set(["limited", "material", "critical"]);
  */
 type Provider = "codex" | "claude";
 /**
- * ProviderEligibilityが扱う値の構造を表す。
+ * delegation-route-selectionで使用するProvider Eligibilityの値契約を定義する。
  *
- * @responsibility ProviderEligibilityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Provider EligibilityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000010
  * @shape ProviderEligibilityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProviderEligibilityで宣言した値と責務の対応を維持する。
@@ -118,9 +124,9 @@ type ProviderEligibility = Readonly<{
 }>;
 
 /**
- * createBlockedResultの処理を実行する。
+ * Blocked 結果を構築する。
  *
- * @responsibility createBlockedResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Blocked 結果の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000010
  * @input reason: string
  * @returns createBlockedResultの計算結果を返す。
@@ -153,9 +159,9 @@ function createBlockedResult(reason: string) {
 }
 
 /**
- * createBlockedSlateの処理を実行する。
+ * Blocked Slateを構築する。
  *
- * @responsibility createBlockedSlateに対応する入力処理と結果生成を所有する。
+ * @responsibility Blocked Slateの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000010
  * @input reason: string
  * @returns createBlockedSlateの計算結果を返す。
@@ -184,9 +190,9 @@ function createBlockedSlate(reason: string) {
 }
 
 /**
- * isProviderの処理を実行する。
+ * Providerかを判定する。
  *
- * @responsibility isProviderに対応する入力処理と結果生成を所有する。
+ * @responsibility Providerの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000010
  * @input value: unknown
  * @returns value is Providerを返す。
@@ -204,9 +210,9 @@ function isProvider(value: unknown): value is Provider {
 }
 
 /**
- * isBooleanの処理を実行する。
+ * Booleanかを判定する。
  *
- * @responsibility isBooleanに対応する入力処理と結果生成を所有する。
+ * @responsibility Booleanの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000010
  * @input value: unknown
  * @returns value is booleanを返す。
@@ -224,9 +230,9 @@ function isBoolean(value: unknown): value is boolean {
 }
 
 /**
- * isDelegationDispositionValidの処理を実行する。
+ * Delegation Disposition Validかを判定する。
  *
- * @responsibility isDelegationDispositionValidに対応する入力処理と結果生成を所有する。
+ * @responsibility Delegation Disposition Validの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000010
  * @input need: unknown、reason: unknown、role: unknown
  * @returns isDelegationDispositionValidの計算結果を返す。
@@ -265,9 +271,9 @@ function isDelegationDispositionValid(
 }
 
 /**
- * selectPreferredProviderの処理を実行する。
+ * Preferred Providerを選択する。
  *
- * @responsibility selectPreferredProviderに対応する入力処理と結果生成を所有する。
+ * @responsibility Preferred Providerの候補集合、選択理由、選択不能時の境界を所有する。
  * @trace ARCH-000010
  * @input frontProvider: Provider、role: unknown、workClass: unknown、subjectProvider: Provider | null、shouldUseIndependentProvider: boolean
  * @returns Readonly<{ provider: Provider; reason: string }>を返す。
@@ -325,9 +331,9 @@ function selectPreferredProvider(
 }
 
 /**
- * snapshotProviderEligibilityの処理を実行する。
+ * Provider Eligibilityを所有Snapshotへ変換する。
  *
- * @responsibility snapshotProviderEligibilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Eligibilityの取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000010
  * @input raw: unknown
  * @returns snapshotProviderEligibilityの計算結果を返す。
@@ -371,9 +377,9 @@ function snapshotProviderEligibility(raw: unknown) {
 }
 
 /**
- * selectExecutorProviderの処理を実行する。
+ * Executor Providerを選択する。
  *
- * @responsibility selectExecutorProviderに対応する入力処理と結果生成を所有する。
+ * @responsibility Executor Providerの候補集合、選択理由、選択不能時の境界を所有する。
  * @trace ARCH-000010
  * @input requestedProvider: "auto" | Provider、preferredProvider: Provider、preferredReason: string、frontProvider: Provider、providerEligibility: ReadonlyMap<Provider, ProviderEligibility>、subjectProvider: Provider | null、shouldUseIndependentProvider: boolean
  * @returns selectExecutorProviderの計算結果を返す。
@@ -439,9 +445,9 @@ function selectExecutorProvider(
 }
 
 /**
- * validateOperationChainの処理を実行する。
+ * Operation Chainの契約を検証する。
  *
- * @responsibility validateOperationChainに対応する入力処理と結果生成を所有する。
+ * @responsibility Operation Chainの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000010
  * @input operationId: unknown、parentOperationId: unknown、rawAncestorOperationIds: unknown、delegationDepth: unknown
  * @returns validateOperationChainの計算結果を返す。
@@ -503,9 +509,9 @@ function validateOperationChain(
 }
 
 /**
- * describeSelectionNoticeの処理を実行する。
+ * Selection Noticeの公開契約を記述する。
  *
- * @responsibility describeSelectionNoticeに対応する入力処理と結果生成を所有する。
+ * @responsibility Selection Noticeの公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000010
  * @input frontProvider: Provider、executorProvider: Provider、route: string、reasonCodes: readonly string[]、modelNotice: string
  * @returns describeSelectionNoticeの計算結果を返す。
@@ -534,9 +540,9 @@ function describeSelectionNotice(
 }
 
 /**
- * selectDelegationRouteCandidateの処理を実行する。
+ * Delegation Route 候補を選択する。
  *
- * @responsibility selectDelegationRouteCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Delegation Route 候補の候補集合、選択理由、選択不能時の境界を所有する。
  * @trace ARCH-000010
  * @input rawRequest: unknown、rawRuntimeObservation: unknown
  * @returns selectDelegationRouteCandidateの計算結果を返す。
@@ -727,9 +733,9 @@ export function selectDelegationRouteCandidate(
 }
 
 /**
- * sameProviderReviewerAllowedの処理を実行する。
+ * Provider Reviewer Allowedが同一かを判定する。
  *
- * @responsibility sameProviderReviewerAllowedに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Reviewer Allowedの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000010
  * @input request: Readonly<Record<string, unknown>>
  * @returns sameProviderReviewerAllowedの計算結果を返す。
@@ -759,9 +765,9 @@ function sameProviderReviewerAllowed(
 }
 
 /**
- * selectDelegationExecutionSlateCandidateの処理を実行する。
+ * Delegation Execution Slate 候補を選択する。
  *
- * @responsibility selectDelegationExecutionSlateCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Delegation Execution Slate 候補の候補集合、選択理由、選択不能時の境界を所有する。
  * @trace ARCH-000010
  * @input rawExecutorRequest: unknown、rawRuntimeObservation: unknown
  * @returns selectDelegationExecutionSlateCandidateの計算結果を返す。
@@ -855,9 +861,9 @@ export function selectDelegationExecutionSlateCandidate(
 }
 
 /**
- * describeDelegationRouteSelectionContractの処理を実行する。
+ * Delegation Route Selection 契約の公開契約を記述する。
  *
- * @responsibility describeDelegationRouteSelectionContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Delegation Route Selection 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000010
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeDelegationRouteSelectionContractの計算結果を返す。

@@ -6,7 +6,7 @@
  * @trace EST-IT-004
  * @level IT
  * @scope external、send、consent、docker、recovery
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -32,7 +32,7 @@ import type { ExternalSendPolicy } from "../../src/security/external-send-policy
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 function policy(): ExternalSendPolicy {
   return Object.freeze({
@@ -62,7 +62,7 @@ function policy(): ExternalSendPolicy {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 function fixture() {
   const rootPath = fs.mkdtempSync(
@@ -97,7 +97,7 @@ function fixture() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 function inspectRecoveryRoot(root: ReturnType<typeof fixture>["root"]) {
   return inspectDockerRecoveryRootSnapshotWithLock(root, () =>
@@ -115,7 +115,7 @@ function inspectRecoveryRoot(root: ReturnType<typeof fixture>["root"]) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 test("実Consent producerの現行recordをDocker Recovery inventoryが非Authority namespaceとして受理する", () => {
   const target = fixture();
@@ -151,7 +151,7 @@ test("実Consent producerの現行recordをDocker Recovery inventoryが非Author
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 test("破損または部分Consent pairはRecovery Authorityへ昇格せずConsent ownerが失効して残存0にする", () => {
   for (const scenario of ["content_mismatch", "record_only"] as const) {
@@ -190,7 +190,7 @@ test("破損または部分Consent pairはRecovery Authorityへ昇格せずConse
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 test("異なる二世代のConsent namespaceはRecovery inventoryで競合として停止する", () => {
   const target = fixture();

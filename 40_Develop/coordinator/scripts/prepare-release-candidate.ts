@@ -1,3 +1,9 @@
+/**
+ * prepare-release-candidateに属する責務をまとめる。
+ *
+ * @responsibility PreparationInputを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -17,12 +23,39 @@ export const RELEASE_CANDIDATE_PREPARATION_CONTRACT_REVISION = 1;
 const REVISION = /^[a-f0-9]{40}$/u;
 const CANDIDATE_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/u;
 
+/**
+ * prepare-release-candidateで使用するPreparation 入力の値契約を定義する。
+ *
+ * @responsibility Preparation 入力のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape PreparationInputが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant PreparationInputで宣言した値と責務の対応を維持する。
+ * @boundary N/A: PreparationInputの宣言は外部境界を開かない。
+ * @security N/A: PreparationInputはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility PreparationInputの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type PreparationInput = Readonly<{
   repositoryRoot: string;
   revision: string;
   candidateName: string;
 }>;
 
+/**
+ * prepare-release-candidateを停止結果として構築する。
+ *
+ * @responsibility prepare-release-candidateの停止理由、未発行Effect、公開結果境界を所有する。
+ * @trace ARCH-000004
+ * @input reason: string、residuePresent、materialization: Readonly<{ effectIssued: boolean; effectStateUnknown: boolean; cleanupConfirmed: boolean; retryAllowed: boolean; recoveryReference: string | null; }>
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: string、residuePresent、materialization: Readonly<{ effectIssued: boolean; effectStateUnknown: boolean; cleanupConfirmed: boolean; retryAllowed: boolean; recoveryReference: string | null; }>」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
+ * @security N/A: blockedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(
   reason: string,
   residuePresent = false,
@@ -55,6 +88,22 @@ function blocked(
   });
 }
 
+/**
+ * Directoryを安定Identityへ変換する。
+ *
+ * @responsibility Directoryの正規化条件、一意性、変換不能時の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input target: string
+ * @returns stableDirectoryの計算結果を返す。
+ * @precondition 「target: string」がstableDirectoryの入力契約を満たす。
+ * @postcondition stableDirectoryの責務を完了した結果だけを返す。
+ * @effect stableDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure stableDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant stableDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: stableDirectoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: stableDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function stableDirectory(target: string) {
   const metadata = fs.lstatSync(target);
   if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
@@ -63,6 +112,22 @@ function stableDirectory(target: string) {
   return fs.realpathSync.native(target);
 }
 
+/**
+ * Release 候補を実行前候補として準備する。
+ *
+ * @responsibility Release 候補の準備条件、候補Identity、Effect前の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input input: PreparationInput
+ * @returns prepareReleaseCandidateの計算結果を返す。
+ * @precondition 「input: PreparationInput」がprepareReleaseCandidateの入力契約を満たす。
+ * @postcondition prepareReleaseCandidateの責務を完了した結果だけを返す。
+ * @effect prepareReleaseCandidateはFilesystemの読取りまたは書込みを実行する。
+ * @failure prepareReleaseCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant prepareReleaseCandidateは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: prepareReleaseCandidateはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: prepareReleaseCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function prepareReleaseCandidate(input: PreparationInput) {
   let preparingRoot: string | null = null;
   try {
@@ -217,6 +282,22 @@ export function prepareReleaseCandidate(input: PreparationInput) {
   }
 }
 
+/**
+ * argument Valueを決定する。
+ *
+ * @responsibility argument Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input args: readonly string[]、name: string
+ * @returns argumentValueの計算結果を返す。
+ * @precondition 「args: readonly string[]、name: string」がargumentValueの入力契約を満たす。
+ * @postcondition argumentValueの責務を完了した結果だけを返す。
+ * @effect N/A: argumentValueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: argumentValueは独自の失敗分岐を所有しない。
+ * @invariant argumentValueは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: argumentValueはProcess内の同一Subsystemで完結する。
+ * @security N/A: argumentValueはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: argumentValueは共有非同期状態を持たない同期処理である。
+ */
 function argumentValue(args: readonly string[], name: string) {
   const index = args.indexOf(name);
   if (
@@ -229,6 +310,22 @@ function argumentValue(args: readonly string[], name: string) {
   return args[index + 1] ?? null;
 }
 
+/**
+ * Release 候補 Argumentsを構造化値へ解析する。
+ *
+ * @responsibility Release 候補 Argumentsの入力文法、解析結果、不正文法の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input args: readonly string[]
+ * @returns parseReleaseCandidateArgumentsの計算結果を返す。
+ * @precondition 「args: readonly string[]」がparseReleaseCandidateArgumentsの入力契約を満たす。
+ * @postcondition parseReleaseCandidateArgumentsの責務を完了した結果だけを返す。
+ * @effect N/A: parseReleaseCandidateArgumentsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: parseReleaseCandidateArgumentsは独自の失敗分岐を所有しない。
+ * @invariant parseReleaseCandidateArgumentsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseReleaseCandidateArgumentsはProcess内の同一Subsystemで完結する。
+ * @security N/A: parseReleaseCandidateArgumentsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: parseReleaseCandidateArgumentsは共有非同期状態を持たない同期処理である。
+ */
 export function parseReleaseCandidateArguments(args: readonly string[]) {
   if (
     args.length !== 6 ||
@@ -246,6 +343,22 @@ export function parseReleaseCandidateArguments(args: readonly string[]) {
     : null;
 }
 
+/**
+ * prepare-release-candidateのCommand処理を開始する。
+ *
+ * @responsibility prepare-release-candidateの引数受付、終了Code、診断出力境界を所有する。
+ * @trace ARCH-000004
+ * @input args
+ * @returns N/A: mainは戻り値を返さない。
+ * @precondition 「args」がmainの入力契約を満たす。
+ * @postcondition mainの責務を完了して呼出し元へ制御を戻す。
+ * @effect mainは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: mainは独自の失敗分岐を所有しない。
+ * @invariant mainは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: mainはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: mainは共有非同期状態を持たない同期処理である。
+ */
 export function main(args = process.argv.slice(2)) {
   const input = parseReleaseCandidateArguments(args);
   const result = input

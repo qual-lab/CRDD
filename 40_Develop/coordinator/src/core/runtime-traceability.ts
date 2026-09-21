@@ -1,3 +1,9 @@
+/**
+ * runtime-traceabilityに属する責務をまとめる。
+ *
+ * @responsibility VerificationKindを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000018
+ */
 const TRACE_SCHEMA = "crdd-coordinator/runtime-traceability";
 const TRACE_SCHEMA_REVISION = 6;
 const VERIFICATION_KINDS = Object.freeze([
@@ -7,9 +13,9 @@ const VERIFICATION_KINDS = Object.freeze([
 ] as const);
 
 /**
- * VerificationKindが扱う値の構造を表す。
+ * runtime-traceabilityで使用するVerification Kindの値契約を定義する。
  *
- * @responsibility VerificationKindに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Verification KindのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000018
  * @shape VerificationKindが表すProperty、識別子およびRelationを型として固定する。
  * @invariant VerificationKindで宣言した値と責務の対応を維持する。
@@ -19,9 +25,9 @@ const VERIFICATION_KINDS = Object.freeze([
  */
 type VerificationKind = (typeof VERIFICATION_KINDS)[number];
 /**
- * TextReaderが扱う値の構造を表す。
+ * runtime-traceabilityで使用するText Readerの値契約を定義する。
  *
- * @responsibility TextReaderに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Text ReaderのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000018
  * @shape TextReaderが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TextReaderで宣言した値と責務の対応を維持する。
@@ -32,9 +38,9 @@ type VerificationKind = (typeof VERIFICATION_KINDS)[number];
 type TextReader = (repositoryRelativePath: string) => string | null;
 
 /**
- * AcceptedInspectionが扱う値の構造を表す。
+ * runtime-traceabilityで使用するAccepted Inspectionの値契約を定義する。
  *
- * @responsibility AcceptedInspectionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Accepted InspectionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000018
  * @shape AcceptedInspectionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant AcceptedInspectionで宣言した値と責務の対応を維持する。
@@ -53,9 +59,9 @@ type AcceptedInspection = Readonly<{
 }>;
 
 /**
- * BlockedInspectionが扱う値の構造を表す。
+ * runtime-traceabilityで使用するBlocked Inspectionの値契約を定義する。
  *
- * @responsibility BlockedInspectionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Blocked InspectionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000018
  * @shape BlockedInspectionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant BlockedInspectionで宣言した値と責務の対応を維持する。
@@ -70,9 +76,9 @@ type BlockedInspection = Readonly<{
 }>;
 
 /**
- * RuntimeTraceabilityInspectionが扱う値の構造を表す。
+ * runtime-traceabilityで使用するRuntime Traceability Inspectionの値契約を定義する。
  *
- * @responsibility RuntimeTraceabilityInspectionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime Traceability InspectionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000018
  * @shape RuntimeTraceabilityInspectionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeTraceabilityInspectionで宣言した値と責務の対応を維持する。
@@ -85,9 +91,9 @@ export type RuntimeTraceabilityInspection =
   | BlockedInspection;
 
 /**
- * JsonRecordが扱う値の構造を表す。
+ * runtime-traceabilityで使用するJson 記録の値契約を定義する。
  *
- * @responsibility JsonRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Json 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000018
  * @shape JsonRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant JsonRecordで宣言した値と責務の対応を維持する。
@@ -214,9 +220,9 @@ const EVIDENCE_BOUNDARIES = new Set([
 ]);
 
 /**
- * isRecordの処理を実行する。
+ * 記録かを判定する。
  *
- * @responsibility isRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility 記録の判定条件とtrue／false境界を所有する。
  * @trace ARCH-000018
  * @input value: unknown
  * @returns value is JsonRecordを返す。
@@ -234,9 +240,9 @@ function isRecord(value: unknown): value is JsonRecord {
 }
 
 /**
- * hasExactKeysの処理を実行する。
+ * Exact Keysが存在するかを判定する。
  *
- * @responsibility hasExactKeysに対応する入力処理と結果生成を所有する。
+ * @responsibility Exact Keysの存在条件とtrue／false境界を所有する。
  * @trace ARCH-000018
  * @input value: JsonRecord、expectedItems: readonly string[]
  * @returns booleanを返す。
@@ -262,9 +268,9 @@ function hasExactKeys(
 }
 
 /**
- * isExactRecordの処理を実行する。
+ * Exact 記録かを判定する。
  *
- * @responsibility isExactRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Exact 記録の判定条件とtrue／false境界を所有する。
  * @trace ARCH-000018
  * @input value: unknown、expectedItems: readonly string[]
  * @returns value is JsonRecordを返す。
@@ -285,9 +291,9 @@ function isExactRecord(
 }
 
 /**
- * nonEmptyTextの処理を実行する。
+ * non Empty Textを決定する。
  *
- * @responsibility nonEmptyTextに対応する入力処理と結果生成を所有する。
+ * @responsibility non Empty Textの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000018
  * @input value: unknown
  * @returns value is stringを返す。
@@ -305,9 +311,9 @@ function nonEmptyText(value: unknown): value is string {
 }
 
 /**
- * escapeRegularExpressionの処理を実行する。
+ * escape Regular Expressionを決定する。
  *
- * @responsibility escapeRegularExpressionに対応する入力処理と結果生成を所有する。
+ * @responsibility escape Regular Expressionの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000018
  * @input value: string
  * @returns escapeRegularExpressionの計算結果を返す。
@@ -325,9 +331,9 @@ function escapeRegularExpression(value: string) {
 }
 
 /**
- * isStringArrayの処理を実行する。
+ * String Arrayかを判定する。
  *
- * @responsibility isStringArrayに対応する入力処理と結果生成を所有する。
+ * @responsibility String Arrayの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000018
  * @input value: unknown
  * @returns value is string[]を返す。
@@ -347,9 +353,9 @@ function isStringArray(value: unknown): value is string[] {
 }
 
 /**
- * addUniqueIdsの処理を実行する。
+ * add Unique Idsを決定する。
  *
- * @responsibility addUniqueIdsに対応する入力処理と結果生成を所有する。
+ * @responsibility add Unique Idsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000018
  * @input population: unknown、label: string、prefix: string、issues: string[]
  * @returns { entries: JsonRecord[]; ids: Set<string> }を返す。
@@ -390,9 +396,9 @@ function addUniqueIds(
 }
 
 /**
- * checkReferencesの処理を実行する。
+ * Referencesを検査する。
  *
- * @responsibility checkReferencesに対応する入力処理と結果生成を所有する。
+ * @responsibility Referencesの検査条件、違反分類、検査結果境界を所有する。
  * @trace ARCH-000018
  * @input values: unknown、known: ReadonlySet<string>、label: string、issues: string[]
  * @returns string[]を返す。
@@ -422,9 +428,9 @@ function checkReferences(
 }
 
 /**
- * isSafeRepositoryPathの処理を実行する。
+ * Safe Repository Pathかを判定する。
  *
- * @responsibility isSafeRepositoryPathに対応する入力処理と結果生成を所有する。
+ * @responsibility Safe Repository Pathの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000018
  * @input value: string
  * @returns booleanを返す。
@@ -451,9 +457,9 @@ function isSafeRepositoryPath(value: string): boolean {
 }
 
 /**
- * quotedTestNameExistsの処理を実行する。
+ * quoted Test Name Existsを決定する。
  *
- * @responsibility quotedTestNameExistsに対応する入力処理と結果生成を所有する。
+ * @responsibility quoted Test Name Existsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000018
  * @input source: string、testName: string
  * @returns booleanを返す。
@@ -476,9 +482,9 @@ function quotedTestNameExists(source: string, testName: string): boolean {
 }
 
 /**
- * inspectCoordinatorRuntimeTraceabilityの処理を実行する。
+ * Coordinator Runtime Traceabilityを観測する。
  *
- * @responsibility inspectCoordinatorRuntimeTraceabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility Coordinator Runtime Traceabilityの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000018
  * @input input: unknown、readRepositoryText: TextReader
  * @returns RuntimeTraceabilityInspectionを返す。

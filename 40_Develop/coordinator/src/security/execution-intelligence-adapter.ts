@@ -1,3 +1,9 @@
+/**
+ * execution-intelligence-adapterに属する責務をまとめる。
+ *
+ * @responsibility createProjectRuntimeTaskAttemptEventを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000007
+ */
 import {
   createTaskAttemptSettledEvent,
   type ExecutionIntelligenceEvent,
@@ -14,7 +20,7 @@ import type {
 /**
  * Coordinator-specific projection into the shared Execution Intelligence
  *
- * @responsibility createProjectRuntimeTaskAttemptEventに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Task Attempt Eventの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000007
  * @input input: ProjectRuntimeTaskAttemptObservation
  * @returns ExecutionIntelligenceEventを返す。
@@ -85,9 +91,9 @@ export function createProjectRuntimeTaskAttemptEvent(
 }
 
 /**
- * recordProjectRuntimeExecutionEventの処理を実行する。
+ * record Project Runtime Execution Eventを決定する。
  *
- * @responsibility recordProjectRuntimeExecutionEventに対応する入力処理と結果生成を所有する。
+ * @responsibility record Project Runtime Execution Eventの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000007
  * @input repositoryRoot: string、observation: ProjectRuntimeTaskAttemptObservation
  * @returns ProjectRuntimeExecutionObservationPublicationを返す。

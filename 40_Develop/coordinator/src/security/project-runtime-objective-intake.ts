@@ -1,3 +1,9 @@
+/**
+ * project-runtime-objective-intakeに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeObjectiveIntakeDependenciesを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import {
   createProjectRuntimeObjectiveResult,
   describeProjectRuntimeObjectiveIntakeContract,
@@ -23,9 +29,9 @@ export {
 };
 
 /**
- * ProjectRuntimeObjectiveIntakeDependenciesが扱う値の構造を表す。
+ * project-runtime-objective-intakeで使用するProject Runtime Objective Intake Dependenciesの値契約を定義する。
  *
- * @responsibility ProjectRuntimeObjectiveIntakeDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Objective Intake DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeObjectiveIntakeDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeObjectiveIntakeDependenciesで宣言した値と責務の対応を維持する。
@@ -65,9 +71,9 @@ export type ProjectRuntimeObjectiveIntakeDependencies = Readonly<{
   ProjectRuntimeTaskRecoveryHostDependencies;
 
 /**
- * validIdの処理を実行する。
+ * Idが有効か判定する。
  *
- * @responsibility validIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Idの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -90,9 +96,9 @@ function validId(value: unknown): value is string {
 }
 
 /**
- * inspectBindingの処理を実行する。
+ * Bindingを観測する。
  *
- * @responsibility inspectBindingに対応する入力処理と結果生成を所有する。
+ * @responsibility Bindingの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input raw: unknown、revision: string
  * @returns inspectBindingの計算結果を返す。
@@ -139,9 +145,9 @@ function inspectBinding(raw: unknown, revision: string) {
 }
 
 /**
- * blockedの処理を実行する。
+ * project-runtime-objective-intakeを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-objective-intakeの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000004
  * @input request: ProjectRuntimeObjectiveRequest、reason: string
  * @returns blockedの計算結果を返す。
@@ -164,7 +170,7 @@ function blocked(request: ProjectRuntimeObjectiveRequest, reason: string) {
 /**
  * Verify Host inputs and compose the transport-independent Project Runtime.
  *
- * @responsibility runProjectRuntimeObjectiveに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Objectiveの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input dependencies: ProjectRuntimeObjectiveIntakeDependencies、rawRequest: unknown、cancellationSignal: AbortSignal
  * @returns runProjectRuntimeObjectiveの計算結果を返す。

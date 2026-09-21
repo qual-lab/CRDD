@@ -1,3 +1,9 @@
+/**
+ * provider-task-packet-runtimeに属する責務をまとめる。
+ *
+ * @responsibility TaskRoleを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000015
+ */
 import { createHash, randomBytes } from "node:crypto";
 
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
@@ -36,9 +42,9 @@ const RESERVED_WINDOWS_SEGMENT =
   /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu;
 
 /**
- * TaskRoleが扱う値の構造を表す。
+ * provider-task-packet-runtimeで使用するTask Roleの値契約を定義する。
  *
- * @responsibility TaskRoleに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Task RoleのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape TaskRoleが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TaskRoleで宣言した値と責務の対応を維持する。
@@ -48,9 +54,9 @@ const RESERVED_WINDOWS_SEGMENT =
  */
 type TaskRole = "executor" | "reviewer";
 /**
- * ReviewerReadProjectionが扱う値の構造を表す。
+ * provider-task-packet-runtimeで使用するReviewer Read Projectionの値契約を定義する。
  *
- * @responsibility ReviewerReadProjectionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Reviewer Read ProjectionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape ReviewerReadProjectionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ReviewerReadProjectionで宣言した値と責務の対応を維持する。
@@ -66,9 +72,9 @@ type ReviewerReadProjection = Readonly<{
   files: readonly Readonly<Record<string, unknown>>[];
 }>;
 /**
- * TaskPacketが扱う値の構造を表す。
+ * provider-task-packet-runtimeで使用するTask Packetの値契約を定義する。
  *
- * @responsibility TaskPacketに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Task PacketのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape TaskPacketが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TaskPacketで宣言した値と責務の対応を維持する。
@@ -98,9 +104,9 @@ type TaskPacket = Readonly<{
   taskPacketHash: string;
 }>;
 /**
- * PacketRecordが扱う値の構造を表す。
+ * provider-task-packet-runtimeで使用するPacket 記録の値契約を定義する。
  *
- * @responsibility PacketRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Packet 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape PacketRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant PacketRecordで宣言した値と責務の対応を維持する。
@@ -116,9 +122,9 @@ type PacketRecord = Readonly<{
 }>;
 
 /**
- * RuntimeStateが扱う値の構造を表す。
+ * provider-task-packet-runtimeで使用するRuntime 状態の値契約を定義する。
  *
- * @responsibility RuntimeStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape RuntimeStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeStateで宣言した値と責務の対応を維持する。
@@ -133,9 +139,9 @@ type RuntimeState = Readonly<{
 }>;
 
 /**
- * createStateの処理を実行する。
+ * 状態を構築する。
  *
- * @responsibility createStateに対応する入力処理と結果生成を所有する。
+ * @responsibility 状態の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
  * @input consumeExternalSendGrant: typeof consumeRuntimeOwnedExternalSendGrant
  * @returns RuntimeStateを返す。
@@ -161,9 +167,9 @@ function createState(
 const productionState = createState(consumeRuntimeOwnedExternalSendGrant);
 
 /**
- * validTextの処理を実行する。
+ * Textが有効か判定する。
  *
- * @responsibility validTextに対応する入力処理と結果生成を所有する。
+ * @responsibility Textの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown、maximumBytes: number
  * @returns validTextの計算結果を返す。
@@ -187,9 +193,9 @@ function validText(value: unknown, maximumBytes: number) {
 }
 
 /**
- * validSegmentの処理を実行する。
+ * Segmentが有効か判定する。
  *
- * @responsibility validSegmentに対応する入力処理と結果生成を所有する。
+ * @responsibility Segmentの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000015
  * @input segment: string
  * @returns validSegmentの計算結果を返す。
@@ -217,9 +223,9 @@ function validSegment(segment: string) {
 }
 
 /**
- * normalizedAllowedPathの処理を実行する。
+ * Allowed Pathを固定Schemaへ正規化する。
  *
- * @responsibility normalizedAllowedPathに対応する入力処理と結果生成を所有する。
+ * @responsibility Allowed Pathの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown
  * @returns normalizedAllowedPathの計算結果を返す。
@@ -249,9 +255,9 @@ function normalizedAllowedPath(value: unknown) {
 }
 
 /**
- * normalizedStringsの処理を実行する。
+ * Stringsを固定Schemaへ正規化する。
  *
- * @responsibility normalizedStringsに対応する入力処理と結果生成を所有する。
+ * @responsibility Stringsの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown、maximumLength: number、maximumBytes: number
  * @returns normalizedStringsの計算結果を返す。
@@ -280,9 +286,9 @@ function normalizedStrings(
 }
 
 /**
- * normalizedPathsの処理を実行する。
+ * Pathsを固定Schemaへ正規化する。
  *
- * @responsibility normalizedPathsに対応する入力処理と結果生成を所有する。
+ * @responsibility Pathsの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown
  * @returns normalizedPathsの計算結果を返す。
@@ -308,9 +314,9 @@ function normalizedPaths(value: unknown) {
 }
 
 /**
- * normalizedReviewerReadProjectionの処理を実行する。
+ * Reviewer Read Projectionを固定Schemaへ正規化する。
  *
- * @responsibility normalizedReviewerReadProjectionに対応する入力処理と結果生成を所有する。
+ * @responsibility Reviewer Read Projectionの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown
  * @returns normalizedReviewerReadProjectionの計算結果を返す。
@@ -402,9 +408,9 @@ function normalizedReviewerReadProjection(value: unknown) {
 }
 
 /**
- * taskHashの処理を実行する。
+ * task Hashを決定する。
  *
- * @responsibility taskHashに対応する入力処理と結果生成を所有する。
+ * @responsibility task Hashの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input operationId: string、taskRole: TaskRole、taskAttempt: 0 | 1、objective: string、acceptanceCriteria: readonly string[]、allowedPaths: readonly string[]、readPaths: readonly string[]、reviewerReadProjection: ReviewerReadProjection | null、remediationFindings: TaskPacket["remediationFindings"]
  * @returns taskHashの計算結果を返す。
@@ -447,9 +453,9 @@ function taskHash(
 }
 
 /**
- * promptForの処理を実行する。
+ * prompt Forを決定する。
  *
- * @responsibility promptForに対応する入力処理と結果生成を所有する。
+ * @responsibility prompt Forの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input packet: TaskPacket
  * @returns promptForの計算結果を返す。
@@ -513,9 +519,9 @@ function promptFor(packet: TaskPacket) {
 }
 
 /**
- * issueの処理を実行する。
+ * provider-task-packet-runtimeを発行する。
  *
- * @responsibility issueに対応する入力処理と結果生成を所有する。
+ * @responsibility provider-task-packet-runtimeの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000015
  * @input state: RuntimeState、managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、externalSendGrantCapability: unknown、remediationCapability: unknown、rawPacket: unknown
  * @returns issueの計算結果を返す。
@@ -711,9 +717,9 @@ function issue(
 }
 
 /**
- * consumeの処理を実行する。
+ * provider-task-packet-runtimeを一回限りで消費する。
  *
- * @responsibility consumeに対応する入力処理と結果生成を所有する。
+ * @responsibility provider-task-packet-runtimeの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000015
  * @input state: RuntimeState、useCapability: unknown、managementCapability: unknown
  * @returns consumeの計算結果を返す。
@@ -757,9 +763,9 @@ function consume(
 }
 
 /**
- * revokeの処理を実行する。
+ * provider-task-packet-runtimeを失効させる。
  *
- * @responsibility revokeに対応する入力処理と結果生成を所有する。
+ * @responsibility provider-task-packet-runtimeの失効Authority、対象Identity、再利用防止境界を所有する。
  * @trace ARCH-000015
  * @input state: RuntimeState、controlCapability: unknown、managementCapability: unknown
  * @returns revokeの計算結果を返す。
@@ -792,9 +798,9 @@ function revoke(
 }
 
 /**
- * issueRuntimeOwnedProviderTaskPacketの処理を実行する。
+ * Runtime 所有 Provider Task Packetを発行する。
  *
- * @responsibility issueRuntimeOwnedProviderTaskPacketに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Provider Task Packetの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000015
  * @input managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、externalSendGrantCapability: unknown、remediationCapability: unknown、rawPacket: unknown
  * @returns issueRuntimeOwnedProviderTaskPacketの計算結果を返す。
@@ -831,9 +837,9 @@ export function issueRuntimeOwnedProviderTaskPacket(
 }
 
 /**
- * consumeRuntimeOwnedProviderTaskPacketの処理を実行する。
+ * Runtime 所有 Provider Task Packetを一回限りで消費する。
  *
- * @responsibility consumeRuntimeOwnedProviderTaskPacketに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Provider Task Packetの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000015
  * @input useCapability: unknown、managementCapability: unknown
  * @returns consumeRuntimeOwnedProviderTaskPacketの計算結果を返す。
@@ -854,9 +860,9 @@ export function consumeRuntimeOwnedProviderTaskPacket(
 }
 
 /**
- * revokeRuntimeOwnedProviderTaskPacketの処理を実行する。
+ * Runtime 所有 Provider Task Packetを失効させる。
  *
- * @responsibility revokeRuntimeOwnedProviderTaskPacketに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Provider Task Packetの失効Authority、対象Identity、再利用防止境界を所有する。
  * @trace ARCH-000015
  * @input controlCapability: unknown、managementCapability: unknown
  * @returns revokeRuntimeOwnedProviderTaskPacketの計算結果を返す。
@@ -877,9 +883,9 @@ export function revokeRuntimeOwnedProviderTaskPacket(
 }
 
 /**
- * createIsolatedProviderTaskPacketRuntimeCandidateの処理を実行する。
+ * Isolated Provider Task Packet Runtime 候補を構築する。
  *
- * @responsibility createIsolatedProviderTaskPacketRuntimeCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Isolated Provider Task Packet Runtime 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
  * @input consumeExternalSendGrant: typeof consumeRuntimeOwnedExternalSendGrant
  * @returns createIsolatedProviderTaskPacketRuntimeCandidateの計算結果を返す。
@@ -927,9 +933,9 @@ export function createIsolatedProviderTaskPacketRuntimeCandidate(
 }
 
 /**
- * describeProviderTaskPacketRuntimeContractの処理を実行する。
+ * Provider Task Packet Runtime 契約の公開契約を記述する。
  *
- * @responsibility describeProviderTaskPacketRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Task Packet Runtime 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProviderTaskPacketRuntimeContractの計算結果を返す。

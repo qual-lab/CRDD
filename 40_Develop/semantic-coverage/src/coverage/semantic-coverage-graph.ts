@@ -1,3 +1,9 @@
+/**
+ * semantic-coverage-graphに属する責務をまとめる。
+ *
+ * @responsibility SemanticCoverageGraphを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import type { LoadedRealitySymbolManifest } from "../../../crdd-domain-library/src/reality-traceability/index.ts";
 import type {
   SemanticIr,
@@ -25,6 +31,10 @@ export type SemanticCoverageGraph = Readonly<{
   meaningsByKey: ReadonlyMap<string, SemanticIrMeaning>;
   implementationIdsByMeaningKey: ReadonlyMap<string, readonly string[]>;
   qualityLocalIdsByMeaningKey: ReadonlyMap<string, readonly string[]>;
+  verificationModesByMeaningKey: ReadonlyMap<
+    string,
+    readonly ("automated" | "manual")[]
+  >;
   testSymbolIdsByMeaningKey: ReadonlyMap<string, readonly string[]>;
 }>;
 
@@ -49,8 +59,9 @@ export type SemanticCoverageProjection = Readonly<{
     implementationSymbolIds: readonly string[];
     implementationObservation: "observed" | "unobserved";
     qualityLocalIds: readonly string[];
+    verificationMode: "automated" | "manual";
     testSymbolIds: readonly string[];
-    testObservation: "observed" | "unobserved";
+    testObservation: "observed" | "unobserved" | "manual_pending";
   }>[];
 }>;
 
@@ -167,6 +178,11 @@ function projectSemanticCoverage(
           graph.testSymbolIdsByMeaningKey.get(meaning.semanticKey) ?? [];
         const implementationSymbolIds =
           graph.implementationIdsByMeaningKey.get(meaning.semanticKey) ?? [];
+        const verificationModes =
+          graph.verificationModesByMeaningKey.get(meaning.semanticKey) ?? [];
+        const verificationMode = verificationModes.includes("automated")
+          ? "automated"
+          : "manual";
         return {
           semanticKey: meaning.semanticKey,
           archIds: meaning.archIds,
@@ -175,8 +191,14 @@ function projectSemanticCoverage(
             implementationSymbolIds.length > 0 ? "observed" : "unobserved",
           qualityLocalIds:
             graph.qualityLocalIdsByMeaningKey.get(meaning.semanticKey) ?? [],
+          verificationMode,
           testSymbolIds,
-          testObservation: testSymbolIds.length > 0 ? "observed" : "unobserved",
+          testObservation:
+            testSymbolIds.length > 0
+              ? "observed"
+              : verificationMode === "manual"
+                ? "manual_pending"
+                : "unobserved",
         };
       }),
   };
@@ -211,6 +233,10 @@ export function createSemanticCoverageGraph(
   const meaningsByKey = new Map<string, SemanticIrMeaning>();
   const implementationIdsByMeaningKey = new Map<string, string[]>();
   const qualityLocalIdsByMeaningKey = new Map<string, string[]>();
+  const verificationModesByMeaningKey = new Map<
+    string,
+    ("automated" | "manual")[]
+  >();
   const testSymbolIdsByMeaningKey = new Map<string, string[]>();
   for (const ir of semanticIrs)
     for (const meaning of ir.meanings) {
@@ -273,6 +299,10 @@ export function createSemanticCoverageGraph(
       qualityLocalIdsByMeaningKey.get(relation.semanticKey) ?? [];
     qualityIds.push(qualifiedLocalId);
     qualityLocalIdsByMeaningKey.set(relation.semanticKey, qualityIds);
+    const verificationModes =
+      verificationModesByMeaningKey.get(relation.semanticKey) ?? [];
+    verificationModes.push(relation.executionMode);
+    verificationModesByMeaningKey.set(relation.semanticKey, verificationModes);
     const meaningKeys =
       meaningKeysByQualifiedLocalId.get(qualifiedLocalId) ?? [];
     meaningKeys.push(relation.semanticKey);
@@ -341,6 +371,8 @@ export function createSemanticCoverageGraph(
 
   sortMapValues(implementationIdsByMeaningKey);
   sortMapValues(qualityLocalIdsByMeaningKey);
+  for (const [key, values] of verificationModesByMeaningKey)
+    verificationModesByMeaningKey.set(key, [...new Set(values)].sort());
   sortMapValues(testSymbolIdsByMeaningKey);
 
   return {
@@ -351,6 +383,7 @@ export function createSemanticCoverageGraph(
             meaningsByKey,
             implementationIdsByMeaningKey,
             qualityLocalIdsByMeaningKey,
+            verificationModesByMeaningKey,
             testSymbolIdsByMeaningKey,
           }
         : null,

@@ -1,3 +1,9 @@
+/**
+ * root-observationに属する責務をまとめる。
+ *
+ * @responsibility blockedを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { createHash } from "node:crypto";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
@@ -45,9 +51,9 @@ const HEX64 = /^[0-9a-f]{64}$/u;
 const DECIMAL_IDENTITY = /^[1-9][0-9]{0,39}$/u;
 
 /**
- * blockedの処理を実行する。
+ * root-observationを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility root-observationの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000004
  * @input reason: string
  * @returns blockedの計算結果を返す。
@@ -80,9 +86,9 @@ function blocked(reason: string) {
 }
 
 /**
- * uint64BigEndianの処理を実行する。
+ * uint64 Big Endianを決定する。
  *
- * @responsibility uint64BigEndianに対応する入力処理と結果生成を所有する。
+ * @responsibility uint64 Big Endianの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: number
  * @returns uint64BigEndianの計算結果を返す。
@@ -102,9 +108,9 @@ function uint64BigEndian(value: number) {
 }
 
 /**
- * artifactHashの処理を実行する。
+ * artifact Hashを決定する。
  *
- * @responsibility artifactHashに対応する入力処理と結果生成を所有する。
+ * @responsibility artifact Hashの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input domain: Buffer、value: Readonly<Record<string, unknown>>
  * @returns artifactHashの計算結果を返す。
@@ -130,9 +136,9 @@ function artifactHash(
 }
 
 /**
- * integerの処理を実行する。
+ * integerを決定する。
  *
- * @responsibility integerに対応する入力処理と結果生成を所有する。
+ * @responsibility integerの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns integerの計算結果を返す。
@@ -155,9 +161,9 @@ function integer(value: unknown) {
 }
 
 /**
- * compileWindowsRootObservationCandidateの処理を実行する。
+ * Windows Root Observation 候補を機械利用可能な契約へ変換する。
  *
- * @responsibility compileWindowsRootObservationCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Windows Root Observation 候補の入力Schema、決定論的変換、変換不能時の拒否境界を所有する。
  * @trace ARCH-000004
  * @input rawInput: unknown
  * @returns compileWindowsRootObservationCandidateの計算結果を返す。
@@ -266,9 +272,9 @@ export function compileWindowsRootObservationCandidate(rawInput: unknown) {
 }
 
 /**
- * inspectWindowsRootObservationCandidateの処理を実行する。
+ * Windows Root Observation 候補を観測する。
  *
- * @responsibility inspectWindowsRootObservationCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Windows Root Observation 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input rootPath: unknown、rootRole: unknown
  * @returns inspectWindowsRootObservationCandidateの計算結果を返す。
@@ -291,9 +297,9 @@ export function inspectWindowsRootObservationCandidate(
 }
 
 /**
- * describeRootObservationContractの処理を実行する。
+ * Root Observation 契約の公開契約を記述する。
  *
- * @responsibility describeRootObservationContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Root Observation 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeRootObservationContractの計算結果を返す。

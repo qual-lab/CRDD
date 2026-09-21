@@ -1,3 +1,9 @@
+/**
+ * local-change-setに属する責務をまとめる。
+ *
+ * @responsibility LocalChangeSetを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000002
+ */
 import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
@@ -8,9 +14,9 @@ export const LOCAL_CHANGE_SET_CONTRACT =
 export const LOCAL_CHANGE_SET_CONTRACT_REVISION = 1;
 
 /**
- * LocalChangeSetが扱う値の構造を表す。
+ * local-change-setで使用するLocal Change Setの値契約を定義する。
  *
- * @responsibility LocalChangeSetに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Local Change SetのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape LocalChangeSetが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LocalChangeSetで宣言した値と責務の対応を維持する。
@@ -30,9 +36,9 @@ export type LocalChangeSet = Readonly<{
 }>;
 
 /**
- * LocalChangeSetObservationが扱う値の構造を表す。
+ * local-change-setで使用するLocal Change Set Observationの値契約を定義する。
  *
- * @responsibility LocalChangeSetObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Local Change Set ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape LocalChangeSetObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LocalChangeSetObservationで宣言した値と責務の対応を維持する。
@@ -48,9 +54,9 @@ export type LocalChangeSetObservation = Readonly<{
 }>;
 
 /**
- * LocalChangeSetAdapterが扱う値の構造を表す。
+ * local-change-setで使用するLocal Change Set Adapterの値契約を定義する。
  *
- * @responsibility LocalChangeSetAdapterに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Local Change Set AdapterのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape LocalChangeSetAdapterが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LocalChangeSetAdapterで宣言した値と責務の対応を維持する。
@@ -64,9 +70,9 @@ export type LocalChangeSetAdapter = (
 ) => LocalChangeSetObservation;
 
 /**
- * validateComparisonBaseの処理を実行する。
+ * Comparison Baseの契約を検証する。
  *
- * @responsibility validateComparisonBaseに対応する入力処理と結果生成を所有する。
+ * @responsibility Comparison Baseの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000002
  * @input value: unknown
  * @returns asserts value is stringを返す。
@@ -91,9 +97,9 @@ function validateComparisonBase(value: unknown): asserts value is string {
 }
 
 /**
- * validatePathsの処理を実行する。
+ * Pathsの契約を検証する。
  *
- * @responsibility validatePathsに対応する入力処理と結果生成を所有する。
+ * @responsibility Pathsの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000002
  * @input paths: readonly string[]、phase: string
  * @returns N/A: validatePathsは戻り値を返さない。
@@ -125,9 +131,9 @@ function validatePaths(paths: readonly string[], phase: string): void {
 }
 
 /**
- * uniqueSortedの処理を実行する。
+ * Sortedを重複のない順序へ正規化する。
  *
- * @responsibility uniqueSortedに対応する入力処理と結果生成を所有する。
+ * @responsibility Sortedの重複判定、順序規則、結果集合境界を所有する。
  * @trace ARCH-000002
  * @input groups: readonly (readonly string[])[]
  * @returns readonly string[]を返す。
@@ -151,9 +157,9 @@ function uniqueSorted(
 }
 
 /**
- * observeLocalChangeSetの処理を実行する。
+ * Local Change Setを観測する。
  *
- * @responsibility observeLocalChangeSetに対応する入力処理と結果生成を所有する。
+ * @responsibility Local Change Setの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000002
  * @input capability: VerifiedRepositoryRoot、comparisonBase: unknown、adapter: LocalChangeSetAdapter
  * @returns LocalChangeSetを返す。
@@ -193,9 +199,9 @@ export function observeLocalChangeSet(
 }
 
 /**
- * changedPathsの処理を実行する。
+ * changed Pathsを決定する。
  *
- * @responsibility changedPathsに対応する入力処理と結果生成を所有する。
+ * @responsibility changed Pathsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
  * @input changeSet: LocalChangeSet
  * @returns readonly string[]を返す。

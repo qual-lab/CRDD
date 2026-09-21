@@ -1,9 +1,15 @@
+/**
+ * current-profileに属する責務をまとめる。
+ *
+ * @responsibility CurrentProfileRuleCallbacksを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000001
+ */
 import type { CheckerRule } from "./rule-registry.ts";
 
 /**
- * CurrentProfileRuleCallbacksが扱う値の構造を表す。
+ * current-profileで使用するCurrent Profile Rule Callbacksの値契約を定義する。
  *
- * @responsibility CurrentProfileRuleCallbacksに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Current Profile Rule CallbacksのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape CurrentProfileRuleCallbacksが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CurrentProfileRuleCallbacksで宣言した値と責務の対応を維持する。
@@ -24,9 +30,9 @@ export type CurrentProfileRuleCallbacks = Readonly<{
 }>;
 
 /**
- * currentProfileRulesの処理を実行する。
+ * current Profile Rulesを決定する。
  *
- * @responsibility currentProfileRulesに対応する入力処理と結果生成を所有する。
+ * @responsibility current Profile Rulesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000001
  * @input callbacks: CurrentProfileRuleCallbacks
  * @returns readonly CheckerRule[]を返す。

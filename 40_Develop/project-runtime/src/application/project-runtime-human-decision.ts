@@ -1,3 +1,9 @@
+/**
+ * project-runtime-human-decisionに属する責務をまとめる。
+ *
+ * @responsibility Commonを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000005
+ */
 import { applyProjectRuntimeHumanDecision } from "../core/project-runtime-state.ts";
 import {
   isProjectRuntimeDecisionRecord,
@@ -11,9 +17,9 @@ import type { ProjectRuntimePersistencePorts } from "../ports/state-port.ts";
 import { PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT } from "../public-contract/decision-request.ts";
 
 /**
- * Commonが扱う値の構造を表す。
+ * project-runtime-human-decisionで使用するCommonの値契約を定義する。
  *
- * @responsibility Commonに必要な値と制約を一つの型契約として保持する。
+ * @responsibility CommonのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000005
  * @shape Commonが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Commonで宣言した値と責務の対応を維持する。
@@ -36,9 +42,9 @@ const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 const REVISION = /^[0-9a-f]{40,64}$/u;
 
 /**
- * projectRuntimeDecisionRecordIdの処理を実行する。
+ * Runtime Decision 記録 Idを公開結果へ投影する。
  *
- * @responsibility projectRuntimeDecisionRecordIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Decision 記録 Idの公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000005
  * @input capability: ProjectRuntimeDecisionCapabilityPort、projectId: string、milestoneId: string、decisionId: string
  * @returns projectRuntimeDecisionRecordIdの計算結果を返す。
@@ -62,9 +68,9 @@ export function projectRuntimeDecisionRecordId(
     .slice(0, 40)}`;
 }
 /**
- * validIdの処理を実行する。
+ * Idが有効か判定する。
  *
- * @responsibility validIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Idの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000005
  * @input value: unknown
  * @returns value is stringを返す。
@@ -81,9 +87,9 @@ function validId(value: unknown): value is string {
   return typeof value === "string" && ID.test(value);
 }
 /**
- * storedの処理を実行する。
+ * storedを決定する。
  *
- * @responsibility storedに対応する入力処理と結果生成を所有する。
+ * @responsibility storedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000005
  * @input raw: unknown、expected: ProjectRuntimeDecisionRecord
  * @returns storedの計算結果を返す。
@@ -106,9 +112,9 @@ function stored(raw: unknown, expected?: ProjectRuntimeDecisionRecord) {
   );
 }
 /**
- * blockedの処理を実行する。
+ * project-runtime-human-decisionを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-human-decisionの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000005
  * @input reason: string、isRecovery
  * @returns blockedの計算結果を返す。
@@ -133,9 +139,9 @@ function blocked(reason: string, isRecovery = false) {
 }
 
 /**
- * recoveryIdentityの処理を実行する。
+ * recovery Identityを決定する。
  *
- * @responsibility recoveryIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility recovery Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000005
  * @input capability: ProjectRuntimeDecisionCapabilityPort、record: ProjectRuntimeDecisionRecord
  * @returns recoveryIdentityの計算結果を返す。
@@ -165,9 +171,9 @@ function recoveryIdentity(
 }
 
 /**
- * recoveryStoredの処理を実行する。
+ * recovery Storedを決定する。
  *
- * @responsibility recoveryStoredに対応する入力処理と結果生成を所有する。
+ * @responsibility recovery Storedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000005
  * @input raw: unknown、expected: ProjectRuntimeDecisionRecoveryIntent
  * @returns recoveryStoredの計算結果を返す。
@@ -194,9 +200,9 @@ function recoveryStored(
 }
 
 /**
- * persistRecoveryIntentの処理を実行する。
+ * 回復 Intentを耐久保存する。
  *
- * @responsibility persistRecoveryIntentに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 Intentの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000005
  * @input commonFields: Common、record: ProjectRuntimeDecisionRecord、unknownBoundary: string
  * @returns persistRecoveryIntentの計算結果を返す。
@@ -248,9 +254,9 @@ function persistRecoveryIntent(
 }
 
 /**
- * recoveryBlockedの処理を実行する。
+ * recovery Blockedを決定する。
  *
- * @responsibility recoveryBlockedに対応する入力処理と結果生成を所有する。
+ * @responsibility recovery Blockedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000005
  * @input commonFields: Common、record: ProjectRuntimeDecisionRecord、unknownBoundary: string
  * @returns recoveryBlockedの計算結果を返す。
@@ -277,9 +283,9 @@ function recoveryBlocked(
 }
 
 /**
- * settleRecoveryIntentの処理を実行する。
+ * 回復 Intentを終端状態へ確定する。
  *
- * @responsibility settleRecoveryIntentに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 Intentの確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000005
  * @input commonFields: Common、record: ProjectRuntimeDecisionRecord
  * @returns settleRecoveryIntentの計算結果を返す。
@@ -321,7 +327,7 @@ function settleRecoveryIntent(
 /**
  * Issue a one-time continuation capability. Only its hash enters the protected store.
  *
- * @responsibility issueProjectRuntimeHumanDecisionに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Human Decisionの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000005
  * @input commonFields: Common、input: Readonly<{ decisionId: string; repositoryRevision: string; expectedGeneration: number; allowedOptions: readonly ("resume" | "cancel")[]; lifetimeMs: number; nowEpochMs?: number; }>
  * @returns issueProjectRuntimeHumanDecisionの計算結果を返す。
@@ -416,7 +422,7 @@ export function issueProjectRuntimeHumanDecision(
 /**
  * Apply a decision by protected-store prepare -> repository generation -> protected-store finalize.
  *
- * @responsibility submitProjectRuntimeHumanDecisionに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-human-decisionの入力からsubmit Project Runtime Human Decisionを導く規則と結果境界を所有する。
  * @trace ARCH-000005
  * @input commonFields: Common、input: Readonly<{ decisionId: string; recordId: string; repositoryRevision: string; generation: number; selectedOption: "resume" | "cancel"; continuationCapability: string; nowEpochMs?: number; }>
  * @returns submitProjectRuntimeHumanDecisionの計算結果を返す。
@@ -617,7 +623,7 @@ export function submitProjectRuntimeHumanDecision(
 /**
  * Replace a capability only after the former hash is durably invalidated.
  *
- * @responsibility replaceProjectRuntimeHumanDecisionに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-human-decisionの入力からreplace Project Runtime Human Decisionを導く規則と結果境界を所有する。
  * @trace ARCH-000005
  * @input commonFields: Common、input: Readonly<{ recordId: string; replacementRequestId: string; lifetimeMs: number; nowEpochMs?: number; }>
  * @returns replaceProjectRuntimeHumanDecisionの計算結果を返す。
@@ -729,7 +735,7 @@ export function replaceProjectRuntimeHumanDecision(
 /**
  * Invalidate an unused capability after a fresh parent lifecycle observation.
  *
- * @responsibility invalidateProjectRuntimeHumanDecisionに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-human-decisionの入力からinvalidate Project Runtime Human Decisionを導く規則と結果境界を所有する。
  * @trace ARCH-000005
  * @input commonFields: Common、input: Readonly<{ recordId: string; reason: "project_advanced" | "milestone_accepted" | "milestone_cancelled"; }>
  * @returns invalidateProjectRuntimeHumanDecisionの計算結果を返す。
@@ -823,7 +829,7 @@ export function invalidateProjectRuntimeHumanDecision(
 /**
  * Reconcile a prepared decision after process loss without replaying its authority.
  *
- * @responsibility recoverProjectRuntimeHumanDecisionに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-human-decisionの入力からrecover Project Runtime Human Decisionを導く規則と結果境界を所有する。
  * @trace ARCH-000005
  * @input commonFields: Common、input: Readonly<{ recordId: string }>
  * @returns recoverProjectRuntimeHumanDecisionの計算結果を返す。

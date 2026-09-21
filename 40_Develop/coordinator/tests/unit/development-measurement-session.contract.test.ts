@@ -6,7 +6,7 @@
  * @trace PPR-UT-006
  * @level UT
  * @scope development、measurement、session
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import path from "node:path";
@@ -39,7 +39,7 @@ const TREE = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 function task(executor: "codex" | "claude") {
   return {
@@ -69,7 +69,7 @@ function task(executor: "codex" | "claude") {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 function configuration() {
   return {
@@ -105,7 +105,7 @@ function configuration() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 function harness() {
   const clock = { wall: 100, monotonic: 100 };
@@ -176,7 +176,7 @@ function harness() {
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+   * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
    */
   function createOperation() {
     const management = Object.freeze({});
@@ -198,7 +198,7 @@ function harness() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("固定Identityから2Task・最大8呼出しへ結合し、試験tokenは本番へ流用できない", async () => {
   const { runtime, state, createOperation } = harness();
@@ -299,7 +299,7 @@ for (const failure of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+   * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
    */
   test(`最終Admission再確認時の${failure}は許可を発行しない`, async () => {
     const { runtime, state, clock } = harness();
@@ -332,7 +332,7 @@ for (const failure of [
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("不正設定・Task・追加keyはIdentity観測前に拒否する", async () => {
   for (const invalid of [
@@ -372,7 +372,7 @@ test("不正設定・Task・追加keyはIdentity観測前に拒否する", async
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("設定をAdmission中に変更しても固定したTask snapshotだけに限定する", async () => {
   const { runtime, state } = harness();
@@ -399,7 +399,7 @@ test("設定をAdmission中に変更しても固定したTask snapshotだけに�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("進行中Taskのliveness参照は固定Identityを再Hashせず期限・取消・Process停止を維持する", async () => {
   for (const stop of ["none", "expiry", "cancel", "process_blocked"] as const) {
@@ -436,7 +436,7 @@ test("進行中Taskのliveness参照は固定Identityを再Hashせず期限・�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("偽Operation・別Repository・別Revision・別sessionへの再登録を拒否する", async () => {
   const { runtime, state, createOperation } = harness();
@@ -478,7 +478,7 @@ test("偽Operation・別Repository・別Revision・別sessionへの再登録を�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("期限切れで新規消費を止めても既発行tokenの終了記録は可能・cleanup不明なら次Taskを止める", async () => {
   const { runtime, clock, createOperation } = harness();
@@ -522,7 +522,7 @@ test("期限切れで新規消費を止めても既発行tokenの終了記録は
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("開発SessionはMCP認証用のread-only native観測だけを期限内に許可する", async () => {
   const { runtime, clock } = harness();
@@ -554,7 +554,7 @@ for (const stop of ["expiry", "cancel"] as const) {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+   * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
    */
   test(`${stop}後は新規native初期化を拒否し所有cleanupの読取り観測だけを残す`, async () => {
     const { runtime, clock, state, createOperation } = harness();
@@ -608,7 +608,7 @@ for (const stop of ["expiry", "cancel"] as const) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("同じNative lifecycle内の補助観測は完全Identity検証を繰り返さずProvider Effect前に再検証する", async () => {
   const { runtime, state, createOperation } = harness();
@@ -662,7 +662,7 @@ test("同じNative lifecycle内の補助観測は完全Identity検証を繰り�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("cleanup観測も実装差替え・観測失敗・process不明を推測して継続しない", async () => {
   for (const failure of ["replacement", "throw", "poison"] as const) {
@@ -708,7 +708,7 @@ test("cleanup観測も実装差替え・観測失敗・process不明を推測し
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("予約後にOperationが失われた場合は消費せず予約枠も払い戻さない", async () => {
   const { runtime, state, createOperation } = harness();
@@ -752,7 +752,7 @@ test("予約後にOperationが失われた場合は消費せず予約枠も払�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("試験sessionのtokenは本番Task・native Home・Store・Runtime Stateへ権限を渡さない", async () => {
   const { runtime } = harness();

@@ -1,3 +1,9 @@
+/**
+ * rule-registryに属する責務をまとめる。
+ *
+ * @responsibility CheckerStageを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000001
+ */
 import type { ArtifactModel } from "../../../crdd-domain-library/src/artifact/index.ts";
 import type { ArtifactGraph } from "../../../crdd-domain-library/src/artifact/index.ts";
 import type { FindingSink } from "../findings/finding-model.ts";
@@ -14,9 +20,9 @@ export const checkerStages = [
 ] as const;
 
 /**
- * CheckerStageが扱う値の構造を表す。
+ * rule-registryで使用するChecker Stageの値契約を定義する。
  *
- * @responsibility CheckerStageに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Checker StageのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape CheckerStageが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CheckerStageで宣言した値と責務の対応を維持する。
@@ -26,9 +32,9 @@ export const checkerStages = [
  */
 export type CheckerStage = (typeof checkerStages)[number];
 /**
- * CheckerRuleContextが扱う値の構造を表す。
+ * rule-registryで使用するChecker Rule Contextの値契約を定義する。
  *
- * @responsibility CheckerRuleContextに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Checker Rule ContextのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape CheckerRuleContextが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CheckerRuleContextで宣言した値と責務の対応を維持する。
@@ -42,9 +48,9 @@ export type CheckerRuleContext = Readonly<{
   add: FindingSink;
 }>;
 /**
- * CheckerRuleが扱う値の構造を表す。
+ * rule-registryで使用するChecker Ruleの値契約を定義する。
  *
- * @responsibility CheckerRuleに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Checker RuleのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape CheckerRuleが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CheckerRuleで宣言した値と責務の対応を維持する。
@@ -76,9 +82,9 @@ export class RuleRegistry {
   readonly #rules = new Map<string, CheckerRule>();
 
   /**
-   * registerの処理を実行する。
+   * rule-registryを登録する。
    *
-   * @responsibility registerに対応する入力処理と結果生成を所有する。
+   * @responsibility rule-registryの登録条件、Identity、一意性境界を所有する。
    * @trace ARCH-000001
    * @input rule: CheckerRule
    * @returns N/A: registerは戻り値を返さない。
@@ -98,9 +104,9 @@ export class RuleRegistry {
   }
 
   /**
-   * executeStageの処理を実行する。
+   * Stageを実行する。
    *
-   * @responsibility executeStageに対応する入力処理と結果生成を所有する。
+   * @responsibility Stageの実行条件、Effect範囲、終了結果の境界を所有する。
    * @trace ARCH-000001
    * @input stage: CheckerRule["stage"]、context: CheckerRuleContext
    * @returns N/A: executeStageは戻り値を返さない。

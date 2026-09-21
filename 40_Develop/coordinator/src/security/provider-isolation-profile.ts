@@ -1,3 +1,9 @@
+/**
+ * provider-isolation-profileに属する責務をまとめる。
+ *
+ * @responsibility blockedを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import { createHash } from "node:crypto";
 import {
   snapshotPlainArray,
@@ -31,9 +37,9 @@ const TOP_LEVEL_KEYS = new Set([
 ]);
 
 /**
- * blockedの処理を実行する。
+ * provider-isolation-profileを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility provider-isolation-profileの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000010
  * @input reason: string
  * @returns blockedの計算結果を返す。
@@ -56,9 +62,9 @@ function blocked(reason: string) {
 }
 
 /**
- * matchesの処理を実行する。
+ * matchesを決定する。
  *
- * @responsibility matchesに対応する入力処理と結果生成を所有する。
+ * @responsibility matchesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input value: unknown、pattern: RegExp
  * @returns value is stringを返す。
@@ -80,9 +86,9 @@ function matches(value: unknown, pattern: RegExp): value is string {
 }
 
 /**
- * normalizeOriginの処理を実行する。
+ * Originを固定Schemaへ正規化する。
  *
- * @responsibility normalizeOriginに対応する入力処理と結果生成を所有する。
+ * @responsibility Originの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000010
  * @input value: unknown
  * @returns normalizeOriginの計算結果を返す。
@@ -126,9 +132,9 @@ function normalizeOrigin(value: unknown) {
 }
 
 /**
- * canonicalJsonの処理を実行する。
+ * canonical Jsonを決定する。
  *
- * @responsibility canonicalJsonに対応する入力処理と結果生成を所有する。
+ * @responsibility canonical Jsonの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input value: unknown
  * @returns stringを返す。
@@ -157,9 +163,9 @@ function canonicalJson(value: unknown): string {
 }
 
 /**
- * validateProviderIsolationProfileInternalの処理を実行する。
+ * Provider Isolation Profile Internalの契約を検証する。
  *
- * @responsibility validateProviderIsolationProfileInternalに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Isolation Profile Internalの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000010
  * @input candidate: unknown
  * @returns validateProviderIsolationProfileInternalの計算結果を返す。
@@ -302,9 +308,9 @@ function validateProviderIsolationProfileInternal(candidate: unknown) {
 }
 
 /**
- * validateProviderIsolationProfileの処理を実行する。
+ * Provider Isolation Profileの契約を検証する。
  *
- * @responsibility validateProviderIsolationProfileに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Isolation Profileの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000010
  * @input candidate: unknown
  * @returns validateProviderIsolationProfileの計算結果を返す。
@@ -326,9 +332,9 @@ export function validateProviderIsolationProfile(candidate: unknown) {
 }
 
 /**
- * describeProviderIsolationContractの処理を実行する。
+ * Provider Isolation 契約の公開契約を記述する。
  *
- * @responsibility describeProviderIsolationContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Isolation 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000010
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProviderIsolationContractの計算結果を返す。

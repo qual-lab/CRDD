@@ -6,7 +6,7 @@
  * @trace PRL-UT-006
  * @level UT
  * @scope docker、restart、state
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -48,7 +48,7 @@ const phases: readonly DockerRestartPhase[] = [
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("restart progress requires each ordered stage before completion", () => {
   let phase: DockerRestartPhase = "prepared";
@@ -82,7 +82,7 @@ for (const phase of phases) {
      * @observation 結果、状態、Effectおよび終了後条件を観測する。
      * @oracle Test本文のassertionが期待条件を満たす。
      * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-     * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+     * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
      */
     test(`${phase}: ${field} prevents advancement or effect replay`, () => {
       const result = classifyDockerRestartProgress(phase, {
@@ -126,7 +126,7 @@ for (const [phase, fields, reason] of [
      * @observation 結果、状態、Effectおよび終了後条件を観測する。
      * @oracle Test本文のassertionが期待条件を満たす。
      * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-     * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+     * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
      */
     test(`${phase}: missing ${field} cannot be replaced by other success flags`, () => {
       const result = classifyDockerRestartProgress(phase, {

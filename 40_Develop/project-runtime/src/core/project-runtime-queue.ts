@@ -1,7 +1,13 @@
 /**
- * ProjectQueueStateが扱う値の構造を表す。
+ * project-runtime-queueに属する責務をまとめる。
  *
- * @responsibility ProjectQueueStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ProjectQueueStateを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
+/**
+ * project-runtime-queueで使用するProject Queue 状態の値契約を定義する。
+ *
+ * @responsibility Project Queue 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectQueueStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectQueueStateで宣言した値と責務の対応を維持する。
@@ -22,9 +28,9 @@ export type ProjectQueueState =
   | "cancelled";
 
 /**
- * ProjectQueueEntryが扱う値の構造を表す。
+ * project-runtime-queueで使用するProject Queue Entryの値契約を定義する。
  *
- * @responsibility ProjectQueueEntryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Queue EntryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectQueueEntryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectQueueEntryで宣言した値と責務の対応を維持する。

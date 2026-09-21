@@ -1,11 +1,17 @@
+/**
+ * symbol-annotationに属する責務をまとめる。
+ *
+ * @responsibility RealitySymbolAnnotationsを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import type { DomainIssue } from "../outcome.ts";
 import { createRealityDomainIssue } from "./domain-issue.ts";
 import type { RealitySymbol } from "./symbol-manifest-model.ts";
 
 /**
- * RealitySymbolAnnotationsが扱う値の構造を表す。
+ * symbol-annotationで使用するReality Symbol Annotationsの値契約を定義する。
  *
- * @responsibility RealitySymbolAnnotationsに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Reality Symbol AnnotationsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RealitySymbolAnnotationsが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RealitySymbolAnnotationsで宣言した値と責務の対応を維持する。
@@ -19,9 +25,9 @@ export type RealitySymbolAnnotations = Readonly<{
 }>;
 
 /**
- * extractRealitySymbolAnnotationsの処理を実行する。
+ * extract Reality Symbol Annotationsを決定する。
  *
- * @responsibility extractRealitySymbolAnnotationsに対応する入力処理と結果生成を所有する。
+ * @responsibility extract Reality Symbol Annotationsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input source: string
  * @returns RealitySymbolAnnotationsを返す。
@@ -50,9 +56,9 @@ export function extractRealitySymbolAnnotations(
 }
 
 /**
- * equalIdentitySetsの処理を実行する。
+ * Identity Setsが等しいか判定する。
  *
- * @responsibility equalIdentitySetsに対応する入力処理と結果生成を所有する。
+ * @responsibility Identity Setsの比較Property、一致条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input actual: ReadonlySet<string>、expectedIdentities: readonly string[]
  * @returns booleanを返す。
@@ -76,9 +82,9 @@ function equalIdentitySets(
 }
 
 /**
- * validateRealitySymbolAnnotationsの処理を実行する。
+ * Reality Symbol Annotationsの契約を検証する。
  *
- * @responsibility validateRealitySymbolAnnotationsに対応する入力処理と結果生成を所有する。
+ * @responsibility Reality Symbol Annotationsの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input symbol: RealitySymbol、source: string、manifestPath: string
  * @returns readonly DomainIssue[]を返す。

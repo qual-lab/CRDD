@@ -6,7 +6,7 @@
  * @trace RDL-IT-001
  * @level IT
  * @scope runtime-data、repository-root、path
- * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ * @boundary RDL-IT-001=Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -38,7 +38,7 @@ const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ * @boundary RDL-IT-001=Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
  */
 test("検証済みRepository Rootだけから全Repository-local Pathを解決する", () => {
   const verification = verifyRepositoryRoot(repositoryRoot);
@@ -77,7 +77,7 @@ test("検証済みRepository Rootだけから全Repository-local Pathを解決�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ * @boundary RDL-IT-001=Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
  */
 test("Consumerはraw Rootではなく名前付き領域だけを作成・検証する", (t) => {
   const isolatedRepository = fs.mkdtempSync(
@@ -128,7 +128,7 @@ test("Consumerはraw Rootではなく名前付き領域だけを作成・検証�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ * @boundary RDL-IT-001=Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
  */
 test("IgnoreのEffect不明をnullへ畳まずRuntime Data領域を作らない", (t) => {
   const isolatedRepository = fs.mkdtempSync(
@@ -196,7 +196,7 @@ test("IgnoreのEffect不明をnullへ畳まずRuntime Data領域を作らない"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ * @boundary RDL-IT-001=Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
  */
 test("Repositoryの子DirectoryはRoot Capabilityとして拒否する", () => {
   assert.deepEqual(verifyRepositoryRoot(import.meta.dirname), {
@@ -216,7 +216,7 @@ test("Repositoryの子DirectoryはRoot Capabilityとして拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ * @boundary RDL-IT-001=Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
  */
 test("任意Directoryと非公開のraw Root入口からPath能力を取得できない", async (t) => {
   const arbitrary = fs.mkdtempSync(
@@ -249,7 +249,7 @@ test("任意Directoryと非公開のraw Root入口からPath能力を取得で�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ * @boundary RDL-IT-001=Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
  */
 test("junction経由のWorking DirectoryはRepository Rootへ正規化せず拒否する", () => {
   const boundaryRoot = path.join(

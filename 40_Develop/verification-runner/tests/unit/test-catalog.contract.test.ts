@@ -6,7 +6,7 @@
  * @trace CQS-UT-010
  * @level UT
  * @scope test、catalog
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import path from "node:path";
@@ -41,7 +41,7 @@ const catalog = loadedCatalog as TestCatalog;
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("実在試験、登録試験、実行可能Ownerをexactに照合する", () => {
   assert.deepEqual(inspectTestCatalog(repositoryRoot, loadedCatalog), []);
@@ -57,7 +57,7 @@ test("実在試験、登録試験、実行可能Ownerをexactに照合する", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉じる", () => {
   assert.deepEqual(
@@ -103,7 +103,7 @@ test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("結合ブロックの未登録Tool、試験欠落、Lifecycle欠落を拒否する", () => {
   const first = catalog.integrationBlocks[0];
@@ -155,7 +155,7 @@ test("結合ブロックの未登録Tool、試験欠落、Lifecycle欠落を拒�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("ブロック間結合は実在Sequence、二段以内の経路、IT、全block被覆へ閉じる", () => {
   const first = catalog.integrationCorridors[0];
@@ -225,7 +225,7 @@ test("ブロック間結合は実在Sequence、二段以内の経路、IT、全b
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("変更した意味に対応する試験を選び、未分類の実装変更はOwner全件へ閉じる", () => {
   const focusedEntries = selectRegressionTests(catalog, [
@@ -262,7 +262,7 @@ test("変更した意味に対応する試験を選び、未分類の実装変�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("直接変更した試験だけはその試験に限定する", () => {
   const target =
@@ -283,7 +283,7 @@ test("直接変更した試験だけはその試験に限定する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("実行知の実装変更は共通試験と登録済み利用側契約を選ぶ", () => {
   const ownerPaths = catalog.tests
@@ -331,7 +331,7 @@ test("実行知の実装変更は共通試験と登録済み利用側契約を�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("利用側静的検査は試験levelの絞込みと独立して選ぶ", () => {
   const changedPaths = [
@@ -359,7 +359,7 @@ test("利用側静的検査は試験levelの絞込みと独立して選ぶ", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("利用側契約は欠落・Owner不一致・循環を拒否する", () => {
   const first = catalog.consumerBindings.find(
@@ -421,7 +421,7 @@ test("利用側契約は欠落・Owner不一致・循環を拒否する", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("利用側契約の未分類Producer変更は登録済み利用側全件へ閉じる", () => {
   for (const producerOwner of [
@@ -453,7 +453,7 @@ test("利用側契約の未分類Producer変更は登録済み利用側全件へ
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("production・support・fixture変更はownerのUT／IT／ST全件へ閉じる", () => {
   const expected = catalog.tests.filter(
@@ -482,7 +482,7 @@ test("production・support・fixture変更はownerのUT／IT／ST全件へ閉じ
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("共有設定とowner不明の実行変更は全ownerへ閉じる", () => {
   const expected = catalog.tests.filter((entry) =>
@@ -509,7 +509,7 @@ test("共有設定とowner不明の実行変更は全ownerへ閉じる", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("文書変更はRepository規則を検査するCheckerへ接続する", () => {
   for (const changedPath of [
@@ -536,7 +536,7 @@ test("文書変更はRepository規則を検査するCheckerへ接続する", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("PT／LTは明示Authorityと全上限がなければEffect前に拒否する", () => {
   const levels = new Set(["performance"] as const);
@@ -587,7 +587,7 @@ test("PT／LTは明示Authorityと全上限がなければEffect前に拒否す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("通常回帰は任意PT／LTを選ばず、PT／LTの既定必須化を拒否する", () => {
   const normalEntries = selectRegressionTests(catalog, [
@@ -629,7 +629,7 @@ test("通常回帰は任意PT／LTを選ばず、PT／LTの既定必須化を拒
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("実行Profileは閉集合かつ重複なしでなければならない", () => {
   const first = catalog.tests[0];
@@ -661,7 +661,7 @@ test("実行Profileは閉集合かつ重複なしでなければならない", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("Windows実Process Gateの3 fileと実行Profileをexactに照合する", () => {
   const gatePaths = [
@@ -724,7 +724,7 @@ test("Windows実Process Gateの3 fileと実行Profileをexactに照合する", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("試験台帳は実行判断fieldの欠落・誤型・未知keyを拒否する", () => {
   const first = catalog.tests[0];
@@ -784,7 +784,7 @@ test("試験台帳は実行判断fieldの欠落・誤型・未知keyを拒否す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ * @boundary CQS-UT-010=N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
  */
 test("試験台帳は危険なPathと空・重複配列を拒否する", () => {
   const first = catalog.tests[0];

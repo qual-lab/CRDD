@@ -1,3 +1,9 @@
+/**
+ * provisioning-signature-primitivesに属する責務をまとめる。
+ *
+ * @responsibility InputBudgetExceededを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { createHash, createPublicKey, verify } from "node:crypto";
 import { types as utilTypes } from "node:util";
 
@@ -49,9 +55,9 @@ const INVALID = Symbol("invalid");
 class InputBudgetExceeded extends Error {}
 
 /**
- * JsonPrimitiveが扱う値の構造を表す。
+ * provisioning-signature-primitivesで使用するJson Primitiveの値契約を定義する。
  *
- * @responsibility JsonPrimitiveに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Json PrimitiveのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape JsonPrimitiveが表すProperty、識別子およびRelationを型として固定する。
  * @invariant JsonPrimitiveで宣言した値と責務の対応を維持する。
@@ -61,9 +67,9 @@ class InputBudgetExceeded extends Error {}
  */
 type JsonPrimitive = null | boolean | number | string;
 /**
- * JsonObjectが扱う値の構造を表す。
+ * provisioning-signature-primitivesで使用するJson Objectの値契約を定義する。
  *
- * @responsibility JsonObjectに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Json ObjectのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape JsonObjectが表すProperty、識別子およびRelationを型として固定する。
  * @invariant JsonObjectで宣言した値と責務の対応を維持する。
@@ -75,9 +81,9 @@ interface JsonObject {
   readonly [key: string]: JsonValue;
 }
 /**
- * JsonArrayが扱う値の構造を表す。
+ * provisioning-signature-primitivesで使用するJson Arrayの値契約を定義する。
  *
- * @responsibility JsonArrayに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Json ArrayのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape JsonArrayが表すProperty、識別子およびRelationを型として固定する。
  * @invariant JsonArrayで宣言した値と責務の対応を維持する。
@@ -87,9 +93,9 @@ interface JsonObject {
  */
 interface JsonArray extends ReadonlyArray<JsonValue> {}
 /**
- * JsonValueが扱う値の構造を表す。
+ * provisioning-signature-primitivesで使用するJson Valueの値契約を定義する。
  *
- * @responsibility JsonValueに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Json ValueのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape JsonValueが表すProperty、識別子およびRelationを型として固定する。
  * @invariant JsonValueで宣言した値と責務の対応を維持する。
@@ -100,9 +106,9 @@ interface JsonArray extends ReadonlyArray<JsonValue> {}
 type JsonValue = JsonPrimitive | JsonObject | JsonArray;
 
 /**
- * isJsonArrayの処理を実行する。
+ * Json Arrayかを判定する。
  *
- * @responsibility isJsonArrayに対応する入力処理と結果生成を所有する。
+ * @responsibility Json Arrayの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input value: JsonValue
  * @returns value is JsonArrayを返す。
@@ -120,9 +126,9 @@ function isJsonArray(value: JsonValue): value is JsonArray {
 }
 
 /**
- * SnapshotStateが扱う値の構造を表す。
+ * provisioning-signature-primitivesで使用するSnapshot 状態の値契約を定義する。
  *
- * @responsibility SnapshotStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Snapshot 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
  * @shape SnapshotStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant SnapshotStateで宣言した値と責務の対応を維持する。
@@ -136,9 +142,9 @@ type SnapshotState = {
 };
 
 /**
- * blockedの処理を実行する。
+ * provisioning-signature-primitivesを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility provisioning-signature-primitivesの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000014
  * @input reason: string
  * @returns blockedの計算結果を返す。
@@ -163,9 +169,9 @@ function blocked(reason: string) {
 }
 
 /**
- * ownedBufferの処理を実行する。
+ * owned Bufferを決定する。
  *
- * @responsibility ownedBufferに対応する入力処理と結果生成を所有する。
+ * @responsibility owned Bufferの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown、maximumLength: number
  * @returns ownedBufferの計算結果を返す。
@@ -197,9 +203,9 @@ function ownedBuffer(value: unknown, maximumLength: number) {
 }
 
 /**
- * hasLoneSurrogateの処理を実行する。
+ * Lone Surrogateが存在するかを判定する。
  *
- * @responsibility hasLoneSurrogateに対応する入力処理と結果生成を所有する。
+ * @responsibility Lone Surrogateの存在条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input value: string
  * @returns hasLoneSurrogateの計算結果を返す。
@@ -225,9 +231,9 @@ function hasLoneSurrogate(value: string) {
 }
 
 /**
- * dataDescriptorの処理を実行する。
+ * data Descriptorを決定する。
  *
- * @responsibility dataDescriptorに対応する入力処理と結果生成を所有する。
+ * @responsibility data Descriptorの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input descriptor: PropertyDescriptor | undefined、shouldBeEnumerable
  * @returns descriptor is PropertyDescriptor & { value: unknown }を返す。
@@ -254,9 +260,9 @@ function dataDescriptor(
 }
 
 /**
- * snapshotJsonValueの処理を実行する。
+ * Json Valueを所有Snapshotへ変換する。
  *
- * @responsibility snapshotJsonValueに対応する入力処理と結果生成を所有する。
+ * @responsibility Json Valueの取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown、state: SnapshotState、depth
  * @returns JsonValue | typeof INVALIDを返す。
@@ -363,9 +369,9 @@ function snapshotJsonValue(
 }
 
 /**
- * boundedJcsの処理を実行する。
+ * bounded Jcsを決定する。
  *
- * @responsibility boundedJcsに対応する入力処理と結果生成を所有する。
+ * @responsibility bounded Jcsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input value: JsonValue
  * @returns boundedJcsの計算結果を返す。
@@ -467,9 +473,9 @@ function boundedJcs(value: JsonValue) {
 }
 
 /**
- * canonicalizeProvisioningJsonValueCandidateの処理を実行する。
+ * Provisioning Json Value 候補をcanonical形式へ変換する。
  *
- * @responsibility canonicalizeProvisioningJsonValueCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Provisioning Json Value 候補の変換規則、入力制約、canonical結果の境界を所有する。
  * @trace ARCH-000014
  * @input rawValue: unknown
  * @returns canonicalizeProvisioningJsonValueCandidateの計算結果を返す。
@@ -507,9 +513,9 @@ export function canonicalizeProvisioningJsonValueCandidate(rawValue: unknown) {
 }
 
 /**
- * inspectSpkiの処理を実行する。
+ * Spkiを観測する。
  *
- * @responsibility inspectSpkiに対応する入力処理と結果生成を所有する。
+ * @responsibility Spkiの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input input: unknown
  * @returns inspectSpkiの計算結果を返す。
@@ -536,9 +542,9 @@ function inspectSpki(input: unknown) {
 }
 
 /**
- * inspectP256Spkiの処理を実行する。
+ * P256 Spkiを観測する。
  *
- * @responsibility inspectP256Spkiに対応する入力処理と結果生成を所有する。
+ * @responsibility P256 Spkiの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input input: unknown
  * @returns inspectP256Spkiの計算結果を返す。
@@ -570,9 +576,9 @@ function inspectP256Spki(input: unknown) {
 }
 
 /**
- * canonicalP256Signatureの処理を実行する。
+ * canonical P256 Signatureを決定する。
  *
- * @responsibility canonicalP256Signatureに対応する入力処理と結果生成を所有する。
+ * @responsibility canonical P256 Signatureの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input signature: Buffer
  * @returns canonicalP256Signatureの計算結果を返す。
@@ -593,9 +599,9 @@ function canonicalP256Signature(signature: Buffer) {
 }
 
 /**
- * inspectProvisioningEd25519SpkiCandidateの処理を実行する。
+ * Provisioning Ed25519 Spki 候補を観測する。
  *
- * @responsibility inspectProvisioningEd25519SpkiCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Provisioning Ed25519 Spki 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input input: unknown
  * @returns inspectProvisioningEd25519SpkiCandidateの計算結果を返す。
@@ -626,9 +632,9 @@ export function inspectProvisioningEd25519SpkiCandidate(input: unknown) {
 }
 
 /**
- * inspectProvisioningP256SpkiCandidateの処理を実行する。
+ * Provisioning P256 Spki 候補を観測する。
  *
- * @responsibility inspectProvisioningP256SpkiCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Provisioning P256 Spki 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000014
  * @input input: unknown
  * @returns inspectProvisioningP256SpkiCandidateの計算結果を返す。
@@ -659,9 +665,9 @@ export function inspectProvisioningP256SpkiCandidate(input: unknown) {
 }
 
 /**
- * snapshotExactInputの処理を実行する。
+ * Exact 入力を所有Snapshotへ変換する。
  *
- * @responsibility snapshotExactInputに対応する入力処理と結果生成を所有する。
+ * @responsibility Exact 入力の取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown、expectedKeys: ReadonlySet<string>
  * @returns snapshotExactInputの計算結果を返す。
@@ -706,9 +712,9 @@ function snapshotExactInput(value: unknown, expectedKeys: ReadonlySet<string>) {
 }
 
 /**
- * verifyProvisioningEd25519PrimitiveCandidateの処理を実行する。
+ * Provisioning Ed25519 Primitive 候補を検証する。
  *
- * @responsibility verifyProvisioningEd25519PrimitiveCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Provisioning Ed25519 Primitive 候補の検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input rawInput: unknown
  * @returns verifyProvisioningEd25519PrimitiveCandidateの計算結果を返す。
@@ -760,9 +766,9 @@ export function verifyProvisioningEd25519PrimitiveCandidate(rawInput: unknown) {
 }
 
 /**
- * verifyProvisioningEd25519Base64urlCandidateの処理を実行する。
+ * Provisioning Ed25519 Base64url 候補を検証する。
  *
- * @responsibility verifyProvisioningEd25519Base64urlCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Provisioning Ed25519 Base64url 候補の検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input rawInput: unknown
  * @returns verifyProvisioningEd25519Base64urlCandidateの計算結果を返す。
@@ -804,9 +810,9 @@ export function verifyProvisioningEd25519Base64urlCandidate(rawInput: unknown) {
 }
 
 /**
- * verifyProvisioningP256Base64urlCandidateの処理を実行する。
+ * Provisioning P256 Base64url 候補を検証する。
  *
- * @responsibility verifyProvisioningP256Base64urlCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Provisioning P256 Base64url 候補の検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000014
  * @input rawInput: unknown
  * @returns verifyProvisioningP256Base64urlCandidateの計算結果を返す。
@@ -879,9 +885,9 @@ export function verifyProvisioningP256Base64urlCandidate(rawInput: unknown) {
 }
 
 /**
- * describeProvisioningSignaturePrimitivesContractの処理を実行する。
+ * Provisioning Signature Primitives 契約の公開契約を記述する。
  *
- * @responsibility describeProvisioningSignaturePrimitivesContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Provisioning Signature Primitives 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProvisioningSignaturePrimitivesContractの計算結果を返す。

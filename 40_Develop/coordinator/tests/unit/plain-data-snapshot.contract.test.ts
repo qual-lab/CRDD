@@ -6,7 +6,7 @@
  * @trace PPR-UT-006
  * @level UT
  * @scope plain、data、snapshot
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -27,7 +27,7 @@ import { assertPresent } from "../support/test-support.ts";
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("record snapshotはdata descriptorだけを一度固定する", () => {
   const raw = { left: "before", right: 1 };
@@ -64,7 +64,7 @@ test("record snapshotはdata descriptorだけを一度固定する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("record snapshotはaccessor、symbol、extra、custom prototypeを拒否しgetterを呼ばない", () => {
   let calls = 0;
@@ -109,7 +109,7 @@ test("record snapshotはaccessor、symbol、extra、custom prototypeを拒否し
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("array snapshotはhole、accessor、extra、symbolを拒否し元配列の変更を受けない", () => {
   const rawValues = ["before", "stable"];
@@ -155,7 +155,7 @@ test("array snapshotはhole、accessor、extra、symbolを拒否し元配列の�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("Proxyはreflection trapを実行する前に拒否する", () => {
   const calls = { ownKeys: 0, descriptor: 0, prototype: 0 };
@@ -206,7 +206,7 @@ test("Proxyはreflection trapを実行する前に拒否する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("reflection APIの失敗はrecordとarrayの固定reasonへ閉じる", () => {
   const original = Object.getOwnPropertyDescriptors;
@@ -234,7 +234,7 @@ test("reflection APIの失敗はrecordとarrayの固定reasonへ閉じる", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("array lengthの欠落と上限超過を固定reasonで拒否する", () => {
   const original = Object.getOwnPropertyDescriptor;

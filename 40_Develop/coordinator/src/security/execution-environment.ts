@@ -1,3 +1,9 @@
+/**
+ * execution-environmentに属する責務をまとめる。
+ *
+ * @responsibility FilesystemIdentityを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -45,9 +51,9 @@ const POSIX_RUNTIME_ENV = Object.freeze([
 const OWNED_PREFIX = "crdd-coordinator-doctor-";
 const HOST_RECOVERY_DIRECTORY = "crdd-coordinator-recovery-v1";
 /**
- * FilesystemIdentityが扱う値の構造を表す。
+ * execution-environmentで使用するFilesystem Identityの値契約を定義する。
  *
- * @responsibility FilesystemIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Filesystem IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape FilesystemIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant FilesystemIdentityで宣言した値と責務の対応を維持する。
@@ -61,9 +67,9 @@ type FilesystemIdentity = Readonly<{
   birthtimeNs: bigint;
 }>;
 /**
- * SerializableIdentityが扱う値の構造を表す。
+ * execution-environmentで使用するSerializable Identityの値契約を定義する。
  *
- * @responsibility SerializableIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Serializable IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape SerializableIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant SerializableIdentityで宣言した値と責務の対応を維持する。
@@ -77,9 +83,9 @@ type SerializableIdentity = Readonly<{
   birthtimeNs: string;
 }>;
 /**
- * DirectorySnapshotが扱う値の構造を表す。
+ * execution-environmentで使用するDirectory Snapshotの値契約を定義する。
  *
- * @responsibility DirectorySnapshotに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Directory SnapshotのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DirectorySnapshotが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DirectorySnapshotで宣言した値と責務の対応を維持する。
@@ -94,9 +100,9 @@ type DirectorySnapshot = Readonly<{
   filesystem: FilesystemIdentity;
 }>;
 /**
- * OperationDirectoriesが扱う値の構造を表す。
+ * execution-environmentで使用するOperation Directoriesの値契約を定義する。
  *
- * @responsibility OperationDirectoriesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Operation DirectoriesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape OperationDirectoriesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant OperationDirectoriesで宣言した値と責務の対応を維持する。
@@ -114,9 +120,9 @@ export type OperationDirectories = Readonly<{
   management: string;
 }>;
 /**
- * ChildSnapshotsが扱う値の構造を表す。
+ * execution-environmentで使用するChild Snapshotsの値契約を定義する。
  *
- * @responsibility ChildSnapshotsに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Child SnapshotsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ChildSnapshotsが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ChildSnapshotsで宣言した値と責務の対応を維持する。
@@ -133,9 +139,9 @@ type ChildSnapshots = Readonly<{
   management: DirectorySnapshot;
 }>;
 /**
- * RecoveryStateが扱う値の構造を表す。
+ * execution-environmentで使用する回復 状態の値契約を定義する。
  *
- * @responsibility RecoveryStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 回復 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RecoveryStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RecoveryStateで宣言した値と責務の対応を維持する。
@@ -149,9 +155,9 @@ type RecoveryState =
   | "docker_submission_started"
   | "docker_absent_confirmed";
 /**
- * HostRecoveryStateが扱う値の構造を表す。
+ * execution-environmentで使用するHost 回復 状態の値契約を定義する。
  *
- * @responsibility HostRecoveryStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Host 回復 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape HostRecoveryStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HostRecoveryStateで宣言した値と責務の対応を維持する。
@@ -169,9 +175,9 @@ type HostRecoveryState = Readonly<{
   recordHash: string | null;
 }>;
 /**
- * OwnedIdentityが扱う値の構造を表す。
+ * execution-environmentで使用する所有 Identityの値契約を定義する。
  *
- * @responsibility OwnedIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 所有 IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape OwnedIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant OwnedIdentityで宣言した値と責務の対応を維持する。
@@ -195,9 +201,9 @@ type OwnedIdentity = Readonly<{
   }>;
 }>;
 /**
- * OwnedOperationDirectoriesが扱う値の構造を表す。
+ * execution-environmentで使用する所有 Operation Directoriesの値契約を定義する。
  *
- * @responsibility OwnedOperationDirectoriesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 所有 Operation DirectoriesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape OwnedOperationDirectoriesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant OwnedOperationDirectoriesで宣言した値と責務の対応を維持する。
@@ -212,9 +218,9 @@ export type OwnedOperationDirectories = {
   hostRecoveryId: string | null;
 };
 /**
- * OwnedMountPathsが扱う値の構造を表す。
+ * execution-environmentで使用する所有 Mount Pathsの値契約を定義する。
  *
- * @responsibility OwnedMountPathsに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 所有 Mount PathsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape OwnedMountPathsが表すProperty、識別子およびRelationを型として固定する。
  * @invariant OwnedMountPathsで宣言した値と責務の対応を維持する。
@@ -231,9 +237,9 @@ export type OwnedMountPaths = Readonly<{
   management: string;
 }>;
 /**
- * HostRecordChildが扱う値の構造を表す。
+ * execution-environmentで使用するHost 記録 Childの値契約を定義する。
  *
- * @responsibility HostRecordChildに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Host 記録 ChildのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape HostRecordChildが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HostRecordChildで宣言した値と責務の対応を維持する。
@@ -243,9 +249,9 @@ export type OwnedMountPaths = Readonly<{
  */
 type HostRecordChild = SerializableIdentity & Readonly<{ pathName: string }>;
 /**
- * HostRecoveryRecordが扱う値の構造を表す。
+ * execution-environmentで使用するHost 回復 記録の値契約を定義する。
  *
- * @responsibility HostRecoveryRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Host 回復 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape HostRecoveryRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HostRecoveryRecordで宣言した値と責務の対応を維持する。
@@ -264,9 +270,9 @@ type HostRecoveryRecord = Readonly<{
 
 const ownedIdentities = new WeakMap<object, OwnedIdentity>();
 /**
- * OwnedOperationDirectoryCreationFailureが扱う値の構造を表す。
+ * execution-environmentで使用する所有 Operation Directory Creation 失敗の値契約を定義する。
  *
- * @responsibility OwnedOperationDirectoryCreationFailureに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 所有 Operation Directory Creation 失敗のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape OwnedOperationDirectoryCreationFailureが表すProperty、識別子およびRelationを型として固定する。
  * @invariant OwnedOperationDirectoryCreationFailureで宣言した値と責務の対応を維持する。
@@ -284,9 +290,9 @@ const ownedOperationDirectoryCreationFailures = new WeakMap<
   OwnedOperationDirectoryCreationFailure
 >();
 /**
- * HostRecoveryInitializationFailureが扱う値の構造を表す。
+ * execution-environmentで使用するHost 回復 Initialization 失敗の値契約を定義する。
  *
- * @responsibility HostRecoveryInitializationFailureに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Host 回復 Initialization 失敗のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape HostRecoveryInitializationFailureが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HostRecoveryInitializationFailureで宣言した値と責務の対応を維持する。
@@ -304,9 +310,9 @@ const hostRecoveryInitializationFailures = new WeakMap<
 >();
 
 /**
- * throwHostRecoveryInitializationFailureの処理を実行する。
+ * throw Host 回復 Initialization 失敗を決定する。
  *
- * @responsibility throwHostRecoveryInitializationFailureに対応する入力処理と結果生成を所有する。
+ * @responsibility throw Host 回復 Initialization 失敗の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input cause: unknown、details: HostRecoveryInitializationFailure
  * @returns neverを返す。
@@ -329,9 +335,9 @@ function throwHostRecoveryInitializationFailure(
 }
 
 /**
- * hostRecoveryInitializationFailureの処理を実行する。
+ * host 回復 Initialization 失敗を決定する。
  *
- * @responsibility hostRecoveryInitializationFailureに対応する入力処理と結果生成を所有する。
+ * @responsibility host 回復 Initialization 失敗の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input error: unknown
  * @returns hostRecoveryInitializationFailureの計算結果を返す。
@@ -351,9 +357,9 @@ function hostRecoveryInitializationFailure(error: unknown) {
 }
 
 /**
- * throwOwnedOperationDirectoryCreationFailureの処理を実行する。
+ * throw 所有 Operation Directory Creation 失敗を決定する。
  *
- * @responsibility throwOwnedOperationDirectoryCreationFailureに対応する入力処理と結果生成を所有する。
+ * @responsibility throw 所有 Operation Directory Creation 失敗の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input cause: unknown、details: OwnedOperationDirectoryCreationFailure
  * @returns neverを返す。
@@ -378,9 +384,9 @@ function throwOwnedOperationDirectoryCreationFailure(
 }
 
 /**
- * classifyOwnedOperationDirectoryCreationFailureの処理を実行する。
+ * 所有 Operation Directory Creation 失敗を分類する。
  *
- * @responsibility classifyOwnedOperationDirectoryCreationFailureに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation Directory Creation 失敗の分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000008
  * @input error: unknown
  * @returns classifyOwnedOperationDirectoryCreationFailureの計算結果を返す。
@@ -400,9 +406,9 @@ export function classifyOwnedOperationDirectoryCreationFailure(error: unknown) {
 }
 
 /**
- * createIsolatedOwnedOperationDirectoryCreationFailureCandidateの処理を実行する。
+ * Isolated 所有 Operation Directory Creation 失敗 候補を構築する。
  *
- * @responsibility createIsolatedOwnedOperationDirectoryCreationFailureCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Isolated 所有 Operation Directory Creation 失敗 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns createIsolatedOwnedOperationDirectoryCreationFailureCandidateの計算結果を返す。
@@ -426,9 +432,9 @@ export function createIsolatedOwnedOperationDirectoryCreationFailureCandidate() 
   });
 }
 /**
- * MountCapabilityIdentityが扱う値の構造を表す。
+ * execution-environmentで使用するMount Capability Identityの値契約を定義する。
  *
- * @responsibility MountCapabilityIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Mount Capability IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape MountCapabilityIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant MountCapabilityIdentityで宣言した値と責務の対応を維持する。
@@ -442,9 +448,9 @@ type MountCapabilityIdentity = Readonly<{
 }>;
 const mountCapabilities = new WeakMap<object, MountCapabilityIdentity>();
 /**
- * OperationContextIdentityが扱う値の構造を表す。
+ * execution-environmentで使用するOperation Context Identityの値契約を定義する。
  *
- * @responsibility OperationContextIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Operation Context IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape OperationContextIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant OperationContextIdentityで宣言した値と責務の対応を維持する。
@@ -458,9 +464,9 @@ type OperationContextIdentity = Readonly<{
   createdAt: string;
 }>;
 /**
- * OwnedOperationContextが扱う値の構造を表す。
+ * execution-environmentで使用する所有 Operation Contextの値契約を定義する。
  *
- * @responsibility OwnedOperationContextに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 所有 Operation ContextのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape OwnedOperationContextが表すProperty、識別子およびRelationを型として固定する。
  * @invariant OwnedOperationContextで宣言した値と責務の対応を維持する。
@@ -478,9 +484,9 @@ const operationContextCapabilities = new WeakMap<
 >();
 const operationContextAliases = new WeakMap<object, Set<object>>();
 /**
- * OperationManagementIdentityが扱う値の構造を表す。
+ * execution-environmentで使用するOperation Management Identityの値契約を定義する。
  *
- * @responsibility OperationManagementIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Operation Management IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape OperationManagementIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant OperationManagementIdentityで宣言した値と責務の対応を維持する。
@@ -494,9 +500,9 @@ type OperationManagementIdentity = Readonly<{
   createdAt: string;
 }>;
 /**
- * OwnedOperationManagementBindingが扱う値の構造を表す。
+ * execution-environmentで使用する所有 Operation Management Bindingの値契約を定義する。
  *
- * @responsibility OwnedOperationManagementBindingに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 所有 Operation Management BindingのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape OwnedOperationManagementBindingが表すProperty、識別子およびRelationを型として固定する。
  * @invariant OwnedOperationManagementBindingで宣言した値と責務の対応を維持する。
@@ -514,9 +520,9 @@ const operationManagementCapabilities = new WeakMap<
   OperationManagementIdentity
 >();
 /**
- * OperationGenerationStateが扱う値の構造を表す。
+ * execution-environmentで使用するOperation Generation 状態の値契約を定義する。
  *
- * @responsibility OperationGenerationStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Operation Generation 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape OperationGenerationStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant OperationGenerationStateで宣言した値と責務の対応を維持する。
@@ -540,9 +546,9 @@ type OperationGenerationState = {
 const operationGenerationsByKey = new Map<string, OperationGenerationState>();
 const operationGenerationByRoot = new Map<string, OperationGenerationState>();
 /**
- * HostCleanupCapabilityIdentityが扱う値の構造を表す。
+ * execution-environmentで使用するHost 清掃 Capability Identityの値契約を定義する。
  *
- * @responsibility HostCleanupCapabilityIdentityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Host 清掃 Capability IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape HostCleanupCapabilityIdentityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HostCleanupCapabilityIdentityで宣言した値と責務の対応を維持する。
@@ -565,9 +571,9 @@ const hostCleanupCapabilities = new WeakMap<
 >();
 
 /**
- * isObjectの処理を実行する。
+ * Objectかを判定する。
  *
- * @responsibility isObjectに対応する入力処理と結果生成を所有する。
+ * @responsibility Objectの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is objectを返す。
@@ -585,9 +591,9 @@ function isObject(value: unknown): value is object {
 }
 
 /**
- * createOperationIdの処理を実行する。
+ * Operation Idを構築する。
  *
- * @responsibility createOperationIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Operation Idの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns stringを返す。
@@ -606,9 +612,9 @@ function createOperationId(): string {
 }
 
 /**
- * revokeOwnedOperationContextCapabilitiesの処理を実行する。
+ * 所有 Operation Context Capabilitiesを失効させる。
  *
- * @responsibility revokeOwnedOperationContextCapabilitiesに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation Context Capabilitiesの失効Authority、対象Identity、再利用防止境界を所有する。
  * @trace ARCH-000008
  * @input owned: object
  * @returns N/A: revokeOwnedOperationContextCapabilitiesは戻り値を返さない。
@@ -634,9 +640,9 @@ function revokeOwnedOperationContextCapabilities(owned: object): void {
 }
 
 /**
- * revokeOwnedOperationEffectCapabilitiesの処理を実行する。
+ * 所有 Operation Effect Capabilitiesを失効させる。
  *
- * @responsibility revokeOwnedOperationEffectCapabilitiesに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation Effect Capabilitiesの失効Authority、対象Identity、再利用防止境界を所有する。
  * @trace ARCH-000008
  * @input owned: object
  * @returns voidを返す。
@@ -659,9 +665,9 @@ function revokeOwnedOperationEffectCapabilities(owned: object): void {
 }
 
 /**
- * operationGenerationKeyの処理を実行する。
+ * operation Generation Keyを決定する。
  *
- * @responsibility operationGenerationKeyに対応する入力処理と結果生成を所有する。
+ * @responsibility operation Generation Keyの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input root: string、nonce: string
  * @returns stringを返す。
@@ -679,9 +685,9 @@ function operationGenerationKey(root: string, nonce: string): string {
 }
 
 /**
- * registerOwnedOperationGenerationの処理を実行する。
+ * 所有 Operation Generationを登録する。
  *
- * @responsibility registerOwnedOperationGenerationに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation Generationの登録条件、Identity、一意性境界を所有する。
  * @trace ARCH-000008
  * @input owned: object、identity: OwnedIdentity
  * @returns N/A: registerOwnedOperationGenerationは戻り値を返さない。
@@ -723,9 +729,9 @@ function registerOwnedOperationGeneration(
 }
 
 /**
- * revokeOwnedOperationGenerationの処理を実行する。
+ * 所有 Operation Generationを失効させる。
  *
- * @responsibility revokeOwnedOperationGenerationに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation Generationの失効Authority、対象Identity、再利用防止境界を所有する。
  * @trace ARCH-000008
  * @input root: string、nonce: string
  * @returns revokeOwnedOperationGenerationの計算結果を返す。
@@ -752,9 +758,9 @@ function revokeOwnedOperationGeneration(root: string, nonce: string) {
 }
 
 /**
- * revokeOwnedOperationGenerationAsyncの処理を実行する。
+ * 所有 Operation Generation Asyncを失効させる。
  *
- * @responsibility revokeOwnedOperationGenerationAsyncに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation Generation Asyncの失効Authority、対象Identity、再利用防止境界を所有する。
  * @trace ARCH-000008
  * @input root: string、nonce: string
  * @returns revokeOwnedOperationGenerationAsyncの計算結果を返す。
@@ -800,9 +806,9 @@ async function revokeOwnedOperationGenerationAsync(
 }
 
 /**
- * HostOperationRecoveryGenerationが扱う値の構造を表す。
+ * execution-environmentで使用するHost Operation 回復 Generationの値契約を定義する。
  *
- * @responsibility HostOperationRecoveryGenerationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Host Operation 回復 GenerationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape HostOperationRecoveryGenerationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HostOperationRecoveryGenerationで宣言した値と責務の対応を維持する。
@@ -823,9 +829,9 @@ const hostOperationRecoveryGenerations = new WeakMap<
 >();
 
 /**
- * acquireHostOperationRecoveryGenerationの処理を実行する。
+ * Host Operation 回復 Generationを取得する。
  *
- * @responsibility acquireHostOperationRecoveryGenerationに対応する入力処理と結果生成を所有する。
+ * @responsibility Host Operation 回復 Generationの取得条件、所有権、失敗時の非取得境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown
  * @returns acquireHostOperationRecoveryGenerationの計算結果を返す。
@@ -852,9 +858,9 @@ export function acquireHostOperationRecoveryGeneration(token: unknown) {
 }
 
 /**
- * acquireHostOperationRecoveryGenerationByIdentityの処理を実行する。
+ * Host Operation 回復 Generation By Identityを取得する。
  *
- * @responsibility acquireHostOperationRecoveryGenerationByIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Host Operation 回復 Generation By Identityの取得条件、所有権、失敗時の非取得境界を所有する。
  * @trace ARCH-000008
  * @input root: unknown、nonce: unknown
  * @returns acquireHostOperationRecoveryGenerationByIdentityの計算結果を返す。
@@ -896,9 +902,9 @@ export function acquireHostOperationRecoveryGenerationByIdentity(
 }
 
 /**
- * releaseHostOperationRecoveryGenerationの処理を実行する。
+ * Host Operation 回復 Generationを解放する。
  *
- * @responsibility releaseHostOperationRecoveryGenerationに対応する入力処理と結果生成を所有する。
+ * @responsibility Host Operation 回復 Generationの所有権、解放条件、終了後不存在の確認境界を所有する。
  * @trace ARCH-000008
  * @input capability: unknown
  * @returns releaseHostOperationRecoveryGenerationの計算結果を返す。
@@ -924,9 +930,9 @@ export function releaseHostOperationRecoveryGeneration(capability: unknown) {
 }
 
 /**
- * verifyHostOperationRecoveryGenerationの処理を実行する。
+ * Host Operation 回復 Generationを検証する。
  *
- * @responsibility verifyHostOperationRecoveryGenerationに対応する入力処理と結果生成を所有する。
+ * @responsibility Host Operation 回復 Generationの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input capability: unknown、root: string、nonce: string
  * @returns N/A: verifyHostOperationRecoveryGenerationは戻り値を返さない。
@@ -952,9 +958,9 @@ function verifyHostOperationRecoveryGeneration(
 }
 
 /**
- * retireOwnedOperationGenerationの処理を実行する。
+ * retire 所有 Operation Generationを決定する。
  *
- * @responsibility retireOwnedOperationGenerationに対応する入力処理と結果生成を所有する。
+ * @responsibility retire 所有 Operation Generationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input root: string、nonce: string
  * @returns voidを返す。
@@ -977,9 +983,9 @@ function retireOwnedOperationGeneration(root: string, nonce: string): void {
 }
 
 /**
- * ownedOperationGenerationの処理を実行する。
+ * owned Operation Generationを決定する。
  *
- * @responsibility ownedOperationGenerationに対応する入力処理と結果生成を所有する。
+ * @responsibility owned Operation Generationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input owned: object、identity: OwnedIdentity、shouldAllowRetired
  * @returns OperationGenerationStateを返す。
@@ -1021,9 +1027,9 @@ function ownedOperationGeneration(
 }
 
 /**
- * operationIdentityReplacementの処理を実行する。
+ * operation Identity Replacementを決定する。
  *
- * @responsibility operationIdentityReplacementに対応する入力処理と結果生成を所有する。
+ * @responsibility operation Identity Replacementの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input error: unknown
  * @returns booleanを返す。
@@ -1046,9 +1052,9 @@ function operationIdentityReplacement(error: unknown): boolean {
 }
 
 /**
- * validateOwnedOperationIdentityの処理を実行する。
+ * 所有 Operation Identityの契約を検証する。
  *
- * @responsibility validateOwnedOperationIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation Identityの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input owned: object、identity: OwnedIdentity、shouldAllowRetired
  * @returns ChildSnapshotsを返す。
@@ -1099,9 +1105,9 @@ function validateOwnedOperationIdentity(
 }
 
 /**
- * ownValueの処理を実行する。
+ * own Valueを決定する。
  *
- * @responsibility ownValueに対応する入力処理と結果生成を所有する。
+ * @responsibility own Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: object、key: string
  * @returns unknownを返す。
@@ -1127,9 +1133,9 @@ function ownValue(value: object, key: string): unknown {
 }
 
 /**
- * ownStringの処理を実行する。
+ * own Stringを決定する。
  *
- * @responsibility ownStringに対応する入力処理と結果生成を所有する。
+ * @responsibility own Stringの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、key: string
  * @returns string | nullを返す。
@@ -1149,9 +1155,9 @@ function ownString(value: unknown, key: string): string | null {
 }
 
 /**
- * errorCodeの処理を実行する。
+ * error Codeを決定する。
  *
- * @responsibility errorCodeに対応する入力処理と結果生成を所有する。
+ * @responsibility error Codeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input error: unknown
  * @returns string | nullを返す。
@@ -1169,9 +1175,9 @@ function errorCode(error: unknown): string | null {
 }
 
 /**
- * errorMessageの処理を実行する。
+ * error Messageを決定する。
  *
- * @responsibility errorMessageに対応する入力処理と結果生成を所有する。
+ * @responsibility error Messageの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input error: unknown
  * @returns string | nullを返す。
@@ -1189,9 +1195,9 @@ function errorMessage(error: unknown): string | null {
 }
 
 /**
- * observeFilesystemEntryの処理を実行する。
+ * Filesystem Entryを観測する。
  *
- * @responsibility observeFilesystemEntryに対応する入力処理と結果生成を所有する。
+ * @responsibility Filesystem Entryの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: string
  * @returns "present" | "confirmed_absent" | "unknown"を返す。
@@ -1216,9 +1222,9 @@ function observeFilesystemEntry(
 }
 
 /**
- * requireConfirmedAbsentの処理を実行する。
+ * require Confirmed Absentを決定する。
  *
- * @responsibility requireConfirmedAbsentに対応する入力処理と結果生成を所有する。
+ * @responsibility require Confirmed Absentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: string、reason: string
  * @returns N/A: requireConfirmedAbsentは戻り値を返さない。
@@ -1237,9 +1243,9 @@ function requireConfirmedAbsent(target: string, reason: string): void {
 }
 
 /**
- * isPlainRecordの処理を実行する。
+ * Plain 記録かを判定する。
  *
- * @responsibility isPlainRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Plain 記録の判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is Record<string, unknown>を返す。
@@ -1259,9 +1265,9 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * normalizeSerializableIdentityの処理を実行する。
+ * Serializable Identityを固定Schemaへ正規化する。
  *
- * @responsibility normalizeSerializableIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Serializable Identityの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns SerializableIdentityを返す。
@@ -1285,9 +1291,9 @@ function normalizeSerializableIdentity(value: unknown): SerializableIdentity {
 }
 
 /**
- * normalizeRecoveryStateの処理を実行する。
+ * 回復 状態を固定Schemaへ正規化する。
  *
- * @responsibility normalizeRecoveryStateに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 状態の入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns RecoveryStateを返す。
@@ -1313,9 +1319,9 @@ function normalizeRecoveryState(value: unknown): RecoveryState {
 }
 
 /**
- * normalizeHostRecoveryRecordの処理を実行する。
+ * Host 回復 記録を固定Schemaへ正規化する。
  *
- * @responsibility normalizeHostRecoveryRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Host 回復 記録の入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns HostRecoveryRecordを返す。
@@ -1376,9 +1382,9 @@ function normalizeHostRecoveryRecord(value: unknown): HostRecoveryRecord {
 }
 
 /**
- * ownedIdentityの処理を実行する。
+ * owned Identityを決定する。
  *
- * @responsibility ownedIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility owned Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns OwnedIdentity | nullを返す。
@@ -1396,9 +1402,9 @@ function ownedIdentity(value: unknown): OwnedIdentity | null {
 }
 
 /**
- * requireOwnedIdentityの処理を実行する。
+ * require 所有 Identityを決定する。
  *
- * @responsibility requireOwnedIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility require 所有 Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: object
  * @returns OwnedIdentityを返す。
@@ -1418,9 +1424,9 @@ function requireOwnedIdentity(value: object): OwnedIdentity {
 }
 
 /**
- * readFilesystemIdentityの処理を実行する。
+ * Filesystem Identityを読み取る。
  *
- * @responsibility readFilesystemIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Filesystem Identityの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input root: string
  * @returns FilesystemIdentityを返す。
@@ -1452,9 +1458,9 @@ function readFilesystemIdentity(root: string): FilesystemIdentity {
 }
 
 /**
- * readFileIdentityの処理を実行する。
+ * File Identityを読み取る。
  *
- * @responsibility readFileIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility File Identityの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input target: string
  * @returns FilesystemIdentityを返す。
@@ -1485,9 +1491,9 @@ function readFileIdentity(target: string): FilesystemIdentity {
 }
 
 /**
- * readOpenFileIdentityの処理を実行する。
+ * Open File Identityを読み取る。
  *
- * @responsibility readOpenFileIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Open File Identityの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input handle: number
  * @returns FilesystemIdentityを返す。
@@ -1517,9 +1523,9 @@ function readOpenFileIdentity(handle: number): FilesystemIdentity {
 }
 
 /**
- * exactHostRecoveryTokenFromMarkerの処理を実行する。
+ * Host 回復 Token From Markerが完全一致するか判定する。
  *
- * @responsibility exactHostRecoveryTokenFromMarkerに対応する入力処理と結果生成を所有する。
+ * @responsibility Host 回復 Token From Markerの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input target: string、expectedRootName: string、nonce: string、allowedItems: readonly Readonly<{ identity: FilesystemIdentity; serialized: string; }>[]
  * @returns string | nullを返す。
@@ -1572,9 +1578,9 @@ function exactHostRecoveryTokenFromMarker(
 }
 
 /**
- * sameFilesystemIdentityの処理を実行する。
+ * Filesystem Identityが同一かを判定する。
  *
- * @responsibility sameFilesystemIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Filesystem Identityの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000008
  * @input left: FilesystemIdentity、right: FilesystemIdentity
  * @returns booleanを返す。
@@ -1599,9 +1605,9 @@ function sameFilesystemIdentity(
 }
 
 /**
- * directorySnapshotの処理を実行する。
+ * directory Snapshotを決定する。
  *
- * @responsibility directorySnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility directory Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input directory: string、parent: string、name: string
  * @returns DirectorySnapshotを返す。
@@ -1636,9 +1642,9 @@ function directorySnapshot(
 }
 
 /**
- * validateDirectorySnapshotの処理を実行する。
+ * Directory Snapshotの契約を検証する。
  *
- * @responsibility validateDirectorySnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility Directory Snapshotの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input snapshot: DirectorySnapshot
  * @returns stringを返す。
@@ -1668,9 +1674,9 @@ function validateDirectorySnapshot(snapshot: DirectorySnapshot): string {
 }
 
 /**
- * copyIfPresentの処理を実行する。
+ * copy If Presentを決定する。
  *
- * @responsibility copyIfPresentに対応する入力処理と結果生成を所有する。
+ * @responsibility copy If Presentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: Record<string, string>、source: unknown、name: string
  * @returns N/A: copyIfPresentは戻り値を返さない。
@@ -1693,9 +1699,9 @@ function copyIfPresent(
 }
 
 /**
- * serializableIdentityの処理を実行する。
+ * serializable Identityを決定する。
  *
- * @responsibility serializableIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility serializable Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: string
  * @returns SerializableIdentityを返す。
@@ -1718,9 +1724,9 @@ function serializableIdentity(target: string): SerializableIdentity {
 }
 
 /**
- * identityMatchesRecordの処理を実行する。
+ * identity Matches 記録を決定する。
  *
- * @responsibility identityMatchesRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility identity Matches 記録の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: string、record: SerializableIdentity
  * @returns booleanを返す。
@@ -1750,9 +1756,9 @@ function identityMatchesRecord(
 }
 
 /**
- * ensureHostRecoveryDirectoryの処理を実行する。
+ * Host 回復 Directoryが成立する状態を確保する。
  *
- * @responsibility ensureHostRecoveryDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Host 回復 Directoryの成立条件、作成または再利用、失敗時の非成立境界を所有する。
  * @trace ARCH-000008
  * @input parent: string
  * @returns Readonly<{ directory: string; identity: FilesystemIdentity }>を返す。
@@ -1828,9 +1834,9 @@ function ensureHostRecoveryDirectory(
 }
 
 /**
- * hostRecordContentの処理を実行する。
+ * host 記録 Contentを決定する。
  *
- * @responsibility hostRecordContentに対応する入力処理と結果生成を所有する。
+ * @responsibility host 記録 Contentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input identity: OwnedIdentity、state: RecoveryState
  * @returns HostRecoveryRecordを返す。
@@ -1866,9 +1872,9 @@ function hostRecordContent(
 }
 
 /**
- * writeInitializingHostRecoveryRecordの処理を実行する。
+ * Initializing Host 回復 記録を書き込む。
  *
- * @responsibility writeInitializingHostRecoveryRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Initializing Host 回復 記録の書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input target: string、rootName: string、nonce: string、createdAt: string
  * @returns Readonly<{ recordHash: string; recordIdentity: FilesystemIdentity; serialized: string; token: string; }>を返す。
@@ -1975,9 +1981,9 @@ function writeInitializingHostRecoveryRecord(
 }
 
 /**
- * writeHostRecoveryRecordの処理を実行する。
+ * Host 回復 記録を書き込む。
  *
- * @responsibility writeHostRecoveryRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Host 回復 記録の書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input owned: object、identity: OwnedIdentity、state: RecoveryState
  * @returns stringを返す。
@@ -2106,9 +2112,9 @@ function writeHostRecoveryRecord(
 }
 
 /**
- * createOperationDirectoriesの処理を実行する。
+ * Operation Directoriesを構築する。
  *
- * @responsibility createOperationDirectoriesに対応する入力処理と結果生成を所有する。
+ * @responsibility Operation Directoriesの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input rootDirectory: string
  * @returns OperationDirectoriesを返す。
@@ -2139,9 +2145,9 @@ export function createOperationDirectories(
 }
 
 /**
- * createOwnedOperationDirectoriesの処理を実行する。
+ * 所有 Operation Directoriesを構築する。
  *
- * @responsibility createOwnedOperationDirectoriesに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation Directoriesの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input temporaryParent: string
  * @returns OwnedOperationDirectories & { directories: OperationDirectories }を返す。
@@ -2158,9 +2164,9 @@ export function createOwnedOperationDirectories(
   temporaryParent?: string,
 ): OwnedOperationDirectories & { directories: OperationDirectories };
 /**
- * createOwnedOperationDirectoriesの処理を実行する。
+ * 所有 Operation Directoriesを構築する。
  *
- * @responsibility createOwnedOperationDirectoriesに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation Directoriesの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input temporaryParent: string
  * @returns OwnedOperationDirectoriesを返す。
@@ -2396,9 +2402,9 @@ export function createOwnedOperationDirectories(
 }
 
 /**
- * getOwnedHostRecoveryIdの処理を実行する。
+ * 所有 Host 回復 Idを取得する。
  *
- * @responsibility getOwnedHostRecoveryIdに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Host 回復 Idの参照条件、返却値、未検出結果の境界を所有する。
  * @trace ARCH-000008
  * @input owned: unknown
  * @returns stringを返す。
@@ -2420,9 +2426,9 @@ export function getOwnedHostRecoveryId(owned: unknown): string {
 }
 
 /**
- * activeOwnedTransitionInputsの処理を実行する。
+ * 所有 Transition Inputsが有効な状態か判定する。
  *
- * @responsibility activeOwnedTransitionInputsに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Transition Inputsの有効状態条件と判定結果境界を所有する。
  * @trace ARCH-000008
  * @input mountCapability: unknown、currentToken: unknown、expectedState: "host_only" | "docker_submission_started"
  * @returns Readonly<{ loaded: ReturnType<typeof loadHostRecoveryRecord>; state: OperationGenerationState; identity: OwnedIdentity; }>を返す。
@@ -2457,9 +2463,9 @@ function activeOwnedTransitionInputs(
 }
 
 /**
- * activeOwnedTransitionInputsForOwnedの処理を実行する。
+ * 所有 Transition Inputs For 所有が有効な状態か判定する。
  *
- * @responsibility activeOwnedTransitionInputsForOwnedに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Transition Inputs For 所有の有効状態条件と判定結果境界を所有する。
  * @trace ARCH-000008
  * @input owned: object、currentToken: unknown、expectedState: "host_only" | "docker_submission_started"、bindingError
  * @returns Readonly<{ loaded: ReturnType<typeof loadHostRecoveryRecord>; state: OperationGenerationState; identity: OwnedIdentity; }>を返す。
@@ -2503,9 +2509,9 @@ function activeOwnedTransitionInputsForOwned(
 }
 
 /**
- * replaceHostRecoveryRecordStateの処理を実行する。
+ * replace Host 回復 記録 状態を決定する。
  *
- * @responsibility replaceHostRecoveryRecordStateに対応する入力処理と結果生成を所有する。
+ * @responsibility replace Host 回復 記録 状態の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input loaded: ReturnType<typeof loadHostRecoveryRecord>、nextState: RecoveryState
  * @returns Readonly<{ recordHash: string; recordIdentity: FilesystemIdentity; token: string; }>を返す。
@@ -2548,9 +2554,9 @@ function replaceHostRecoveryRecordState(
 }
 
 /**
- * transitionOwnedDockerSubmissionStateの処理を実行する。
+ * 所有 Docker Submission 状態を状態遷移させる。
  *
- * @responsibility transitionOwnedDockerSubmissionStateに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Docker Submission 状態の遷移前提、次状態、無効遷移の拒否境界を所有する。
  * @trace ARCH-000008
  * @input mountCapability: unknown、currentToken: unknown、action: unknown
  * @returns stringを返す。
@@ -2597,9 +2603,9 @@ export function transitionOwnedDockerSubmissionState(
 }
 
 /**
- * ownedOperationFromManagementCapabilityの処理を実行する。
+ * owned Operation From Management Capabilityを決定する。
  *
- * @responsibility ownedOperationFromManagementCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility owned Operation From Management Capabilityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input managementCapability: unknown
  * @returns ownedOperationFromManagementCapabilityの計算結果を返す。
@@ -2630,9 +2636,9 @@ function ownedOperationFromManagementCapability(managementCapability: unknown) {
 }
 
 /**
- * activateOwnedHostOperationGenerationLockの処理を実行する。
+ * 所有 Host Operation Generation Lockを有効化する。
  *
- * @responsibility activateOwnedHostOperationGenerationLockに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Host Operation Generation Lockの有効化条件、状態遷移、失敗時の非発効境界を所有する。
  * @trace ARCH-000008
  * @input managementCapability: unknown
  * @returns activateOwnedHostOperationGenerationLockの計算結果を返す。
@@ -2672,9 +2678,9 @@ export async function activateOwnedHostOperationGenerationLock(
 }
 
 /**
- * confirmOwnedHostOperationGenerationLockReadinessの処理を実行する。
+ * 所有 Host Operation Generation Lock Readinessを確認する。
  *
- * @responsibility confirmOwnedHostOperationGenerationLockReadinessに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Host Operation Generation Lock Readinessの確認根拠、成立条件、観測不能境界を所有する。
  * @trace ARCH-000008
  * @input managementCapability: unknown
  * @returns confirmOwnedHostOperationGenerationLockReadinessの計算結果を返す。
@@ -2752,9 +2758,9 @@ export async function confirmOwnedHostOperationGenerationLockReadiness(
 }
 
 /**
- * ownedOperationFromManagementCapabilityForCleanupの処理を実行する。
+ * owned Operation From Management Capability For 清掃を決定する。
  *
- * @responsibility ownedOperationFromManagementCapabilityForCleanupに対応する入力処理と結果生成を所有する。
+ * @responsibility owned Operation From Management Capability For 清掃の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input managementCapability: unknown
  * @returns ownedOperationFromManagementCapabilityForCleanupの計算結果を返す。
@@ -2780,9 +2786,9 @@ function ownedOperationFromManagementCapabilityForCleanup(
 }
 
 /**
- * observeOwnedHostOperationGenerationLossの処理を実行する。
+ * 所有 Host Operation Generation Lossを観測する。
  *
- * @responsibility observeOwnedHostOperationGenerationLossに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Host Operation Generation Lossの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input managementCapability: unknown
  * @returns observeOwnedHostOperationGenerationLossの計算結果を返す。
@@ -2838,9 +2844,9 @@ export function observeOwnedHostOperationGenerationLoss(
 }
 
 /**
- * abandonOwnedHostOperationGenerationLockの処理を実行する。
+ * abandon 所有 Host Operation Generation Lockを決定する。
  *
- * @responsibility abandonOwnedHostOperationGenerationLockに対応する入力処理と結果生成を所有する。
+ * @responsibility abandon 所有 Host Operation Generation Lockの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input managementCapability: unknown
  * @returns abandonOwnedHostOperationGenerationLockの計算結果を返す。
@@ -2877,9 +2883,9 @@ export async function abandonOwnedHostOperationGenerationLock(
 }
 
 /**
- * transitionOwnedDockerSubmissionByManagementの処理を実行する。
+ * 所有 Docker Submission By Managementを状態遷移させる。
  *
- * @responsibility transitionOwnedDockerSubmissionByManagementに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Docker Submission By Managementの遷移前提、次状態、無効遷移の拒否境界を所有する。
  * @trace ARCH-000008
  * @input managementCapability: unknown、currentToken: unknown、action: "begin" | "cancel"
  * @returns transitionOwnedDockerSubmissionByManagementの計算結果を返す。
@@ -2926,9 +2932,9 @@ function transitionOwnedDockerSubmissionByManagement(
 }
 
 /**
- * beginOwnedDockerSubmissionRecoveryの処理を実行する。
+ * 所有 Docker Submission 回復を開始する。
  *
- * @responsibility beginOwnedDockerSubmissionRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Docker Submission 回復の開始条件、初期状態、開始失敗境界を所有する。
  * @trace ARCH-000008
  * @input managementCapability: unknown、operationId: unknown
  * @returns beginOwnedDockerSubmissionRecoveryの計算結果を返す。
@@ -2957,9 +2963,9 @@ export function beginOwnedDockerSubmissionRecovery(
 }
 
 /**
- * getOwnedHostRecoveryIdByManagementCapabilityの処理を実行する。
+ * 所有 Host 回復 Id By Management Capabilityを取得する。
  *
- * @responsibility getOwnedHostRecoveryIdByManagementCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Host 回復 Id By Management Capabilityの参照条件、返却値、未検出結果の境界を所有する。
  * @trace ARCH-000008
  * @input managementCapability: unknown
  * @returns getOwnedHostRecoveryIdByManagementCapabilityの計算結果を返す。
@@ -2982,9 +2988,9 @@ export function getOwnedHostRecoveryIdByManagementCapability(
 }
 
 /**
- * issueOwnedHostCleanupCapabilityの処理を実行する。
+ * 所有 Host 清掃 Capabilityを発行する。
  *
- * @responsibility issueOwnedHostCleanupCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Host 清掃 Capabilityの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000008
  * @input managementCapability: unknown、subject: unknown
  * @returns issueOwnedHostCleanupCapabilityの計算結果を返す。
@@ -3024,9 +3030,9 @@ export function issueOwnedHostCleanupCapability(
 }
 
 /**
- * consumeOwnedHostRecoveryIdForCleanupの処理を実行する。
+ * 所有 Host 回復 Id For 清掃を一回限りで消費する。
  *
- * @responsibility consumeOwnedHostRecoveryIdForCleanupに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Host 回復 Id For 清掃の消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000008
  * @input cleanupCapability: unknown、subject: unknown
  * @returns consumeOwnedHostRecoveryIdForCleanupの計算結果を返す。
@@ -3072,9 +3078,9 @@ export function consumeOwnedHostRecoveryIdForCleanup(
 }
 
 /**
- * completeOwnedDockerSubmissionRecoveryの処理を実行する。
+ * 所有 Docker Submission 回復を完了状態へ遷移させる。
  *
- * @responsibility completeOwnedDockerSubmissionRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Docker Submission 回復の完了条件、終了後状態、未完了境界を所有する。
  * @trace ARCH-000008
  * @input managementCapability: unknown、recoveryToken: unknown
  * @returns completeOwnedDockerSubmissionRecoveryの計算結果を返す。
@@ -3099,9 +3105,9 @@ export function completeOwnedDockerSubmissionRecovery(
 }
 
 /**
- * confirmOwnedDockerAbsenceForRecoveryの処理を実行する。
+ * 所有 Docker Absence For 回復を確認する。
  *
- * @responsibility confirmOwnedDockerAbsenceForRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Docker Absence For 回復の確認根拠、成立条件、観測不能境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown、recoveryGenerationCapability: unknown
  * @returns confirmOwnedDockerAbsenceForRecoveryの計算結果を返す。
@@ -3145,9 +3151,9 @@ export function confirmOwnedDockerAbsenceForRecovery(
 }
 
 /**
- * adoptOwnedHostRecoveryRecordTransitionの処理を実行する。
+ * 所有 Host 回復 記録 Transitionを引き継ぐ。
  *
- * @responsibility adoptOwnedHostRecoveryRecordTransitionに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Host 回復 記録 Transitionの引継ぎ条件、Identity結合、拒否境界を所有する。
  * @trace ARCH-000008
  * @input mountCapability: unknown、previousToken: unknown、nextToken: unknown
  * @returns N/A: adoptOwnedHostRecoveryRecordTransitionは戻り値を返さない。
@@ -3211,9 +3217,9 @@ export function adoptOwnedHostRecoveryRecordTransition(
 }
 
 /**
- * readCurrentOwnedHostRecordの処理を実行する。
+ * Current 所有 Host 記録を読み取る。
  *
- * @responsibility readCurrentOwnedHostRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Current 所有 Host 記録の読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input identity: OwnedIdentity
  * @returns Readonly<{ record: HostRecoveryRecord; serialized: string }>を返す。
@@ -3249,9 +3255,9 @@ function readCurrentOwnedHostRecord(
 }
 
 /**
- * expectedHostRecoveryTokenの処理を実行する。
+ * expected Host 回復 Tokenを決定する。
  *
- * @responsibility expectedHostRecoveryTokenに対応する入力処理と結果生成を所有する。
+ * @responsibility expected Host 回復 Tokenの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input identity: OwnedIdentity
  * @returns stringを返す。
@@ -3269,9 +3275,9 @@ function expectedHostRecoveryToken(identity: OwnedIdentity): string {
 }
 
 /**
- * validatePrivateHostRecoveryRecordの処理を実行する。
+ * Private Host 回復 記録の契約を検証する。
  *
- * @responsibility validatePrivateHostRecoveryRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Private Host 回復 記録の必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input identity: OwnedIdentity、expectedState: RecoveryState
  * @returns HostRecoveryRecordを返す。
@@ -3318,9 +3324,9 @@ function validatePrivateHostRecoveryRecord(
 }
 
 /**
- * rollbackInitializingOperationDirectoriesの処理を実行する。
+ * rollback Initializing Operation Directoriesを決定する。
  *
- * @responsibility rollbackInitializingOperationDirectoriesに対応する入力処理と結果生成を所有する。
+ * @responsibility rollback Initializing Operation Directoriesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input owned: unknown
  * @returns voidを返す。
@@ -3385,9 +3391,9 @@ function rollbackInitializingOperationDirectories(owned: unknown): void {
 }
 
 /**
- * createOwnedMountCapabilityの処理を実行する。
+ * 所有 Mount Capabilityを構築する。
  *
- * @responsibility createOwnedMountCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Mount Capabilityの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input owned: unknown
  * @returns Readonly<{ kind: "owned_operation_mounts" }>を返す。
@@ -3417,9 +3423,9 @@ export function createOwnedMountCapability(
 }
 
 /**
- * verifyOwnedMountCapabilityの処理を実行する。
+ * 所有 Mount Capabilityを検証する。
  *
- * @responsibility verifyOwnedMountCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Mount Capabilityの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input capability: unknown
  * @returns OwnedMountPathsを返す。
@@ -3455,9 +3461,9 @@ export function verifyOwnedMountCapability(
 }
 
 /**
- * createOwnedOperationContextCapabilityの処理を実行する。
+ * 所有 Operation Context Capabilityを構築する。
  *
- * @responsibility createOwnedOperationContextCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation Context Capabilityの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input owned: unknown
  * @returns Readonly<{ kind: "owned_operation_context" }>を返す。
@@ -3494,9 +3500,9 @@ export function createOwnedOperationContextCapability(
 }
 
 /**
- * verifyOwnedOperationContextCapabilityの処理を実行する。
+ * 所有 Operation Context Capabilityを検証する。
  *
- * @responsibility verifyOwnedOperationContextCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation Context Capabilityの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input capability: unknown
  * @returns OwnedOperationContextを返す。
@@ -3534,9 +3540,9 @@ export function verifyOwnedOperationContextCapability(
 }
 
 /**
- * createOwnedOperationManagementCapabilityの処理を実行する。
+ * 所有 Operation Management Capabilityを構築する。
  *
- * @responsibility createOwnedOperationManagementCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation Management Capabilityの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input operationContextCapability: unknown、mountCapability: unknown
  * @returns Readonly<{ kind: "owned_operation_management_binding" }>を返す。
@@ -3591,9 +3597,9 @@ export function createOwnedOperationManagementCapability(
 }
 
 /**
- * verifyOwnedOperationManagementCapabilityの処理を実行する。
+ * 所有 Operation Management Capabilityを検証する。
  *
- * @responsibility verifyOwnedOperationManagementCapabilityに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation Management Capabilityの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input capability: unknown
  * @returns OwnedOperationManagementBindingを返す。
@@ -3630,9 +3636,9 @@ export function verifyOwnedOperationManagementCapability(
 }
 
 /**
- * verifyOwnedOperationManagementMountBindingの処理を実行する。
+ * 所有 Operation Management Mount Bindingを検証する。
  *
- * @responsibility verifyOwnedOperationManagementMountBindingに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation Management Mount Bindingの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input managementCapability: unknown、mountCapability: unknown
  * @returns Readonly<{ operationId: string; createdAt: string; mounts: OwnedMountPaths; }>を返す。
@@ -3689,9 +3695,9 @@ export function verifyOwnedOperationManagementMountBinding(
 }
 
 /**
- * borrowOwnedDockerExecutionPathsの処理を実行する。
+ * 所有 Docker Execution Pathsを一時参照として取得する。
  *
- * @responsibility borrowOwnedDockerExecutionPathsに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Docker Execution Pathsの参照条件、lifetime、所有権を移さない境界を所有する。
  * @trace ARCH-000008
  * @input managementCapability: unknown
  * @returns Readonly<{ tmp: string; management: string }>を返す。
@@ -3720,9 +3726,9 @@ export function borrowOwnedDockerExecutionPaths(
 }
 
 /**
- * validateOwnedChildSetの処理を実行する。
+ * 所有 Child Setの契約を検証する。
  *
- * @responsibility validateOwnedChildSetに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Child Setの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input root: string、children: ChildSnapshots
  * @returns N/A: validateOwnedChildSetは戻り値を返さない。
@@ -3767,9 +3773,9 @@ function validateOwnedChildSet(root: string, children: ChildSnapshots): void {
 }
 
 /**
- * requireNoActiveDockerBindingの処理を実行する。
+ * require No Active Docker Bindingを決定する。
  *
- * @responsibility requireNoActiveDockerBindingに対応する入力処理と結果生成を所有する。
+ * @responsibility require No Active Docker Bindingの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input root: string、managementName: string | undefined
  * @returns voidを返す。
@@ -3805,9 +3811,9 @@ function requireNoActiveDockerBinding(
 }
 
 /**
- * removeOwnedOperationRootForCleanupの処理を実行する。
+ * 所有 Operation Root For 清掃を除去する。
  *
- * @responsibility removeOwnedOperationRootForCleanupに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation Root For 清掃の対象Identity、除去条件、終了後状態の境界を所有する。
  * @trace ARCH-000008
  * @input owned: unknown
  * @returns removeOwnedOperationRootForCleanupの計算結果を返す。
@@ -3890,9 +3896,9 @@ function removeOwnedOperationRootForCleanup(owned: unknown) {
 }
 
 /**
- * removeOwnedOperationRecoveryRecordの処理を実行する。
+ * 所有 Operation 回復 記録を除去する。
  *
- * @responsibility removeOwnedOperationRecoveryRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation 回復 記録の対象Identity、除去条件、終了後状態の境界を所有する。
  * @trace ARCH-000008
  * @input identity: OwnedIdentity
  * @returns N/A: removeOwnedOperationRecoveryRecordは戻り値を返さない。
@@ -3937,9 +3943,9 @@ function removeOwnedOperationRecoveryRecord(identity: OwnedIdentity) {
 }
 
 /**
- * cleanupOwnedOperationDirectoriesの処理を実行する。
+ * 所有 Operation Directoriesを清掃する。
  *
- * @responsibility cleanupOwnedOperationDirectoriesに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation Directoriesの清掃対象、完了観測、残存時の失敗境界を所有する。
  * @trace ARCH-000008
  * @input owned: unknown
  * @returns N/A: cleanupOwnedOperationDirectoriesは戻り値を返さない。
@@ -3970,9 +3976,9 @@ export function cleanupOwnedOperationDirectories(owned: unknown): void {
 }
 
 /**
- * cleanupOwnedOperationDirectoriesAsyncの処理を実行する。
+ * 所有 Operation Directories Asyncを清掃する。
  *
- * @responsibility cleanupOwnedOperationDirectoriesAsyncに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation Directories Asyncの清掃対象、完了観測、残存時の失敗境界を所有する。
  * @trace ARCH-000008
  * @input owned: unknown
  * @returns cleanupOwnedOperationDirectoriesAsyncの計算結果を返す。
@@ -4002,9 +4008,9 @@ export async function cleanupOwnedOperationDirectoriesAsync(owned: unknown) {
 }
 
 /**
- * OwnedOperationCleanupStatusが扱う値の構造を表す。
+ * execution-environmentで使用する所有 Operation 清掃 Statusの値契約を定義する。
  *
- * @responsibility OwnedOperationCleanupStatusに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 所有 Operation 清掃 StatusのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape OwnedOperationCleanupStatusが表すProperty、識別子およびRelationを型として固定する。
  * @invariant OwnedOperationCleanupStatusで宣言した値と責務の対応を維持する。
@@ -4021,9 +4027,9 @@ const ownedOperationCleanupOutcomes = new WeakMap<
 >();
 
 /**
- * createOwnedOperationCleanupOutcomeの処理を実行する。
+ * 所有 Operation 清掃 Outcomeを構築する。
  *
- * @responsibility createOwnedOperationCleanupOutcomeに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation 清掃 Outcomeの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input status: OwnedOperationCleanupStatus
  * @returns createOwnedOperationCleanupOutcomeの計算結果を返す。
@@ -4045,9 +4051,9 @@ function createOwnedOperationCleanupOutcome(
 }
 
 /**
- * verifyOwnedOperationCleanupOutcomeの処理を実行する。
+ * 所有 Operation 清掃 Outcomeを検証する。
  *
- * @responsibility verifyOwnedOperationCleanupOutcomeに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Operation 清掃 Outcomeの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input outcome: unknown
  * @returns OwnedOperationCleanupStatus | nullを返す。
@@ -4069,9 +4075,9 @@ export function verifyOwnedOperationCleanupOutcome(
 }
 
 /**
- * loadHostRecoveryRecordの処理を実行する。
+ * Host 回復 記録を読み込む。
  *
- * @responsibility loadHostRecoveryRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Host 回復 記録の読取り元、Schema検証、読取不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown
  * @returns Readonly<{ parsed: Readonly<{ rootName: string; nonce: string; recordHash: string }>; parent: string; recovery: Readonly<{ directory: string }>; marker: string; record: HostRecoveryRecord; }>を返す。
@@ -4102,9 +4108,9 @@ function loadHostRecoveryRecord(token: unknown): Readonly<{
 }
 
 /**
- * recoverOwnedOperationDirectoriesの処理を実行する。
+ * recover 所有 Operation Directoriesを決定する。
  *
- * @responsibility recoverOwnedOperationDirectoriesに対応する入力処理と結果生成を所有する。
+ * @responsibility recover 所有 Operation Directoriesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown、suppliedRecoveryGenerationCapability: unknown
  * @returns Readonly<{ status: "recovered" | "blocked"; reason: string; recoveryId: string | null; }>を返す。
@@ -4286,9 +4292,9 @@ export function recoverOwnedOperationDirectories(
 }
 
 /**
- * createProviderEnvironmentの処理を実行する。
+ * Provider Environmentを構築する。
  *
- * @responsibility createProviderEnvironmentに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input baseEnvironment: unknown、directories: OperationDirectories
  * @returns Record<string, string>を返す。
@@ -4322,9 +4328,9 @@ export function createProviderEnvironment(
 }
 
 /**
- * describeFilesystemPolicyの処理を実行する。
+ * Filesystem Policyの公開契約を記述する。
  *
- * @responsibility describeFilesystemPolicyに対応する入力処理と結果生成を所有する。
+ * @responsibility Filesystem Policyの公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000008
  * @input directories: OperationDirectories
  * @returns describeFilesystemPolicyの計算結果を返す。
@@ -4363,9 +4369,9 @@ export function describeFilesystemPolicy(directories: OperationDirectories) {
 }
 
 /**
- * credentialEnvironmentNamesPresentの処理を実行する。
+ * credential Environment Names Presentを決定する。
  *
- * @responsibility credentialEnvironmentNamesPresentに対応する入力処理と結果生成を所有する。
+ * @responsibility credential Environment Names Presentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input environment: unknown
  * @returns readonly string[]を返す。

@@ -1,3 +1,9 @@
+/**
+ * project-runtime-decision-recovery-storeに属する責務をまとめる。
+ *
+ * @responsibility Envelopeを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -14,9 +20,9 @@ export const PROJECT_RUNTIME_DECISION_RECOVERY_STORE_CONTRACT =
   "crdd-coordinator/project-runtime-decision-recovery-store/v1" as const;
 
 /**
- * Envelopeが扱う値の構造を表す。
+ * project-runtime-decision-recovery-storeで使用するEnvelopeの値契約を定義する。
  *
- * @responsibility Envelopeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility EnvelopeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape Envelopeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Envelopeで宣言した値と責務の対応を維持する。
@@ -35,9 +41,9 @@ const HASH = /^[0-9a-f]{64}$/u;
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 
 /**
- * digestの処理を実行する。
+ * project-runtime-decision-recovery-storeのHashを算出する。
  *
- * @responsibility digestに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-decision-recovery-storeの入力byte列、Hash algorithm、算出結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: string
  * @returns digestの計算結果を返す。
@@ -54,9 +60,9 @@ function digest(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
 /**
- * validIntentの処理を実行する。
+ * Intentが有効か判定する。
  *
- * @responsibility validIntentに対応する入力処理と結果生成を所有する。
+ * @responsibility Intentの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is ProjectRuntimeDecisionRecoveryIntentを返す。
@@ -104,9 +110,9 @@ function validIntent(
   );
 }
 /**
- * validEnvelopeの処理を実行する。
+ * Envelopeが有効か判定する。
  *
- * @responsibility validEnvelopeに対応する入力処理と結果生成を所有する。
+ * @responsibility Envelopeの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is Envelopeを返す。
@@ -132,9 +138,9 @@ function validEnvelope(value: unknown): value is Envelope {
 }
 
 /**
- * pathsの処理を実行する。
+ * pathsを決定する。
  *
- * @responsibility pathsに対応する入力処理と結果生成を所有する。
+ * @responsibility pathsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input projectRuntimeRoot: string、recoveryId: string
  * @returns pathsの計算結果を返す。
@@ -158,9 +164,9 @@ function paths(projectRuntimeRoot: string, recoveryId: string) {
   return Object.freeze({ directory });
 }
 /**
- * readChainの処理を実行する。
+ * Chainを読み取る。
  *
- * @responsibility readChainに対応する入力処理と結果生成を所有する。
+ * @responsibility Chainの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input directory: string、recoveryId: string
  * @returns readChainの計算結果を返す。
@@ -204,9 +210,9 @@ function readChain(directory: string, recoveryId: string) {
   return latest;
 }
 /**
- * writeGenerationの処理を実行する。
+ * Generationを書き込む。
  *
- * @responsibility writeGenerationに対応する入力処理と結果生成を所有する。
+ * @responsibility Generationの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input directory: string、generation: number、previousHash: string | null、value: ProjectRuntimeDecisionRecoveryIntent
  * @returns writeGenerationの計算結果を返す。
@@ -253,9 +259,9 @@ function writeGeneration(
   return readback;
 }
 /**
- * completedの処理を実行する。
+ * completedを決定する。
  *
- * @responsibility completedに対応する入力処理と結果生成を所有する。
+ * @responsibility completedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: ProjectRuntimeDecisionRecoveryIntent | null
  * @returns completedの計算結果を返す。
@@ -272,9 +278,9 @@ function completed(value: ProjectRuntimeDecisionRecoveryIntent | null) {
   return Object.freeze({ status: "completed" as const, value });
 }
 /**
- * blockedの処理を実行する。
+ * project-runtime-decision-recovery-storeを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-decision-recovery-storeの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns blockedの計算結果を返す。
@@ -292,9 +298,9 @@ function blocked() {
 }
 
 /**
- * createProjectRuntimeDecisionRecoveryStoreの処理を実行する。
+ * Project Runtime Decision 回復 Storeを構築する。
  *
- * @responsibility createProjectRuntimeDecisionRecoveryStoreに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Decision 回復 Storeの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input workingDirectory: string
  * @returns ProjectRuntimeDecisionRecoveryStoreを返す。
@@ -319,9 +325,9 @@ export function createProjectRuntimeDecisionRecoveryStore(
   );
   const projectRuntimeRoot = runtimeArea.directory;
   /**
-   * guardedの処理を実行する。
+   * guardedを決定する。
    *
-   * @responsibility guardedに対応する入力処理と結果生成を所有する。
+   * @responsibility guardedの導出に必要な入力、判定規則、返却結果の境界を所有する。
    * @trace ARCH-000008
    * @input recoveryId: string、operation: (directory: string) => T
    * @returns guardedの計算結果を返す。
@@ -358,9 +364,9 @@ export function createProjectRuntimeDecisionRecoveryStore(
   }
   return Object.freeze({
     /**
-     * createの処理を実行する。
+     * project-runtime-decision-recovery-storeを構築する。
      *
-     * @responsibility createに対応する入力処理と結果生成を所有する。
+     * @responsibility project-runtime-decision-recovery-storeの構築入力、生成結果、不正入力の拒否境界を所有する。
      * @trace ARCH-000008
      * @input intent
      * @returns createの計算結果を返す。
@@ -386,9 +392,9 @@ export function createProjectRuntimeDecisionRecoveryStore(
       }
     },
     /**
-     * readの処理を実行する。
+     * project-runtime-decision-recovery-storeを読み取る。
      *
-     * @responsibility readに対応する入力処理と結果生成を所有する。
+     * @responsibility project-runtime-decision-recovery-storeの読取り元、上限、読取不能時の結果境界を所有する。
      * @trace ARCH-000008
      * @input recoveryId
      * @returns readの計算結果を返す。
@@ -412,9 +418,9 @@ export function createProjectRuntimeDecisionRecoveryStore(
       }
     },
     /**
-     * compareAndSetの処理を実行する。
+     * And Setを比較する。
      *
-     * @responsibility compareAndSetに対応する入力処理と結果生成を所有する。
+     * @responsibility And Setの比較軸、一致条件、差分結果の境界を所有する。
      * @trace ARCH-000008
      * @input expected、next
      * @returns compareAndSetの計算結果を返す。
@@ -458,9 +464,9 @@ export function createProjectRuntimeDecisionRecoveryStore(
 }
 
 /**
- * describeProjectRuntimeDecisionRecoveryStoreContractの処理を実行する。
+ * Project Runtime Decision 回復 Store 契約の公開契約を記述する。
  *
- * @responsibility describeProjectRuntimeDecisionRecoveryStoreContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Decision 回復 Store 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProjectRuntimeDecisionRecoveryStoreContractの計算結果を返す。

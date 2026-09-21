@@ -1,3 +1,9 @@
+/**
+ * checker-pipelineに属する責務をまとめる。
+ *
+ * @responsibility CheckerPipelineResultを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000001
+ */
 import {
   type ArtifactModel,
   type ArtifactSchema,
@@ -17,9 +23,9 @@ import {
 import { RuleRegistry } from "../rules/rule-registry.ts";
 
 /**
- * CheckerPipelineResultが扱う値の構造を表す。
+ * checker-pipelineで使用するChecker Pipeline 結果の値契約を定義する。
  *
- * @responsibility CheckerPipelineResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Checker Pipeline 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape CheckerPipelineResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CheckerPipelineResultで宣言した値と責務の対応を維持する。
@@ -34,9 +40,9 @@ export type CheckerPipelineResult = Readonly<{
 }>;
 
 /**
- * runCheckerPipelineの処理を実行する。
+ * Checker Pipelineを実行する。
  *
- * @responsibility runCheckerPipelineに対応する入力処理と結果生成を所有する。
+ * @responsibility Checker Pipelineの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000001
  * @input input: Readonly<{ sources: readonly ArtifactSource[]; schemas?: readonly ArtifactSchema[]; registry?: RuleRegistry; }>
  * @returns CheckerPipelineResultを返す。

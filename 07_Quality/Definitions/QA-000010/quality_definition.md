@@ -86,7 +86,7 @@ Quality ID: `QA-000010`
 
 | Local ID | Semantic Key |
 |---|---|
-| `AIT-IT-001` | `coordinator.runtime-trust-consumption` |
+| `AIT-IT-014` | `coordinator.runtime-trust-consumption` |
 
 ## 5. 署名入口とEvidence
 

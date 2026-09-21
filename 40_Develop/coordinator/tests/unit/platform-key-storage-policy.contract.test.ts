@@ -6,7 +6,7 @@
  * @trace AIT-UT-005
  * @level UT
  * @scope platform、key、storage、policy
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
@@ -27,7 +27,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 function p256Spki() {
   return generateKeyPairSync("ec", {
@@ -45,7 +45,7 @@ function p256Spki() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("preferred backend and explicit fallback remain policy candidates only", () => {
   const publicKeySpkiDer = p256Spki();
@@ -94,7 +94,7 @@ test("preferred backend and explicit fallback remain policy candidates only", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("silent fallback, unknown backend, wrong curve and dynamic input fail closed", () => {
   const publicKeySpkiDer = p256Spki();
@@ -166,7 +166,7 @@ test("silent fallback, unknown backend, wrong curve and dynamic input fail close
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("contract fixes P-256 backends while native verification and effects remain closed", () => {
   const contract = describePlatformKeyStoragePolicyContract();

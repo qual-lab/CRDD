@@ -1,3 +1,9 @@
+/**
+ * verified-repository-rootに属する責務をまとめる。
+ *
+ * @responsibility VerifiedExecutionRepositoryRootを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000007
+ */
 import {
   resolveVerifiedRepositoryRoot,
   verifyRepositoryRoot,
@@ -5,9 +11,9 @@ import {
 } from "../../../version-control/src/repository-location.ts";
 
 /**
- * VerifiedExecutionRepositoryRootが扱う値の構造を表す。
+ * verified-repository-rootで使用するVerified Execution Repository Rootの値契約を定義する。
  *
- * @responsibility VerifiedExecutionRepositoryRootに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Verified Execution Repository RootのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape VerifiedExecutionRepositoryRootが表すProperty、識別子およびRelationを型として固定する。
  * @invariant VerifiedExecutionRepositoryRootで宣言した値と責務の対応を維持する。
@@ -18,9 +24,9 @@ import {
 export type VerifiedExecutionRepositoryRoot = VerifiedRepositoryRoot;
 
 /**
- * verifyExecutionIntelligenceRepositoryRootの処理を実行する。
+ * Execution Intelligence Repository Rootを検証する。
  *
- * @responsibility verifyExecutionIntelligenceRepositoryRootに対応する入力処理と結果生成を所有する。
+ * @responsibility Execution Intelligence Repository Rootの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000007
  * @input candidate: string
  * @returns | Readonly<{ status: "completed"; reason: "execution_repository_root_verified"; root: VerifiedExecutionRepositoryRoot; }> | Readonly<{ status: "blocked"; reason: "execution_repository_root_invalid"; }>を返す。
@@ -57,9 +63,9 @@ export function verifyExecutionIntelligenceRepositoryRoot(candidate: string):
 }
 
 /**
- * resolveVerifiedExecutionRepositoryRootの処理を実行する。
+ * Verified Execution Repository Rootを一意に解決する。
  *
- * @responsibility resolveVerifiedExecutionRepositoryRootに対応する入力処理と結果生成を所有する。
+ * @responsibility Verified Execution Repository Rootの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000007
  * @input capability: VerifiedExecutionRepositoryRoot
  * @returns string | nullを返す。

@@ -1,7 +1,13 @@
 /**
+ * repository-relative-pathに属する責務をまとめる。
+ *
+ * @responsibility normalizeRepositoryRelativePathを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
+/**
  * Normalize a bounded repository-relative path without consulting the Host filesystem.
  *
- * @responsibility normalizeRepositoryRelativePathに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Relative Pathの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns string | nullを返す。
@@ -35,9 +41,9 @@ export function normalizeRepositoryRelativePath(value: unknown): string | null {
 }
 
 /**
- * repositoryPathWithinの処理を実行する。
+ * repository Path Withinを決定する。
  *
- * @responsibility repositoryPathWithinに対応する入力処理と結果生成を所有する。
+ * @responsibility repository Path Withinの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input candidate: string、roots: readonly string[]
  * @returns repositoryPathWithinの計算結果を返す。

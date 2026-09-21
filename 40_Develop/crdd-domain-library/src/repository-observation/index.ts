@@ -1,7 +1,15 @@
 /**
- * Repository内容を副作用なしで観測する公開境界。
+ * 検証済みRepository Rootを副作用なく観測する公開境界。
  *
  * @packageDocumentation
+ * @responsibility FileとDirectoryの観測契約、およびFilesystem Adapterの公開範囲を所有する。
+ * @trace ARCH-000008
+ * @boundary 検証済みRepository RootとCRDD Domain利用側の間で、読取り専用の観測結果だけを公開する。
+ */
+
+/**
+ * Repository内容を副作用なしで観測する公開境界。
+ *
  * @responsibility 検証済みRoot内のEntryとFile内容を構造化して返す。
  * @trace ARCH-000008
  * @shape RepositoryEntryKindが表すProperty、識別子およびRelationを型として固定する。
@@ -17,9 +25,9 @@ export type RepositoryEntryKind =
   | "other";
 
 /**
- * RepositoryDirectoryEntryが扱う値の構造を表す。
+ * indexで使用するRepository Directory Entryの値契約を定義する。
  *
- * @responsibility RepositoryDirectoryEntryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Repository Directory EntryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000009
  * @shape RepositoryDirectoryEntryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepositoryDirectoryEntryで宣言した値と責務の対応を維持する。
@@ -33,9 +41,9 @@ export type RepositoryDirectoryEntry = Readonly<{
 }>;
 
 /**
- * RepositoryFileObservationが扱う値の構造を表す。
+ * indexで使用するRepository File Observationの値契約を定義する。
  *
- * @responsibility RepositoryFileObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Repository File ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000009
  * @shape RepositoryFileObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepositoryFileObservationで宣言した値と責務の対応を維持する。
@@ -58,9 +66,9 @@ export type RepositoryFileObservation = Readonly<
 >;
 
 /**
- * RepositoryDirectoryObservationが扱う値の構造を表す。
+ * indexで使用するRepository Directory Observationの値契約を定義する。
  *
- * @responsibility RepositoryDirectoryObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Repository Directory ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000009
  * @shape RepositoryDirectoryObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepositoryDirectoryObservationで宣言した値と責務の対応を維持する。
@@ -83,9 +91,9 @@ export type RepositoryDirectoryObservation = Readonly<
 >;
 
 /**
- * RepositoryObservationPortが扱う値の構造を表す。
+ * indexで使用するRepository Observation Portの値契約を定義する。
  *
- * @responsibility RepositoryObservationPortに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Repository Observation PortのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000009
  * @shape RepositoryObservationPortが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepositoryObservationPortで宣言した値と責務の対応を維持する。
@@ -101,9 +109,9 @@ export type RepositoryObservationPort = Readonly<{
 }>;
 
 /**
- * RepositoryRootCapabilityが扱う値の構造を表す。
+ * indexで使用するRepository Root Capabilityの値契約を定義する。
  *
- * @responsibility RepositoryRootCapabilityに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Repository Root CapabilityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000009
  * @shape RepositoryRootCapabilityが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepositoryRootCapabilityで宣言した値と責務の対応を維持する。
@@ -114,9 +122,9 @@ export type RepositoryObservationPort = Readonly<{
 export type RepositoryRootCapability = VerifiedRepositoryRoot;
 
 /**
- * createFilesystemRepositoryObservationPortの処理を実行する。
+ * Filesystem Repository Observation Portを構築する。
  *
- * @responsibility createFilesystemRepositoryObservationPortに対応する入力処理と結果生成を所有する。
+ * @responsibility Filesystem Repository Observation Portの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000009
  * @input capability: VerifiedRepositoryRoot
  * @returns RepositoryObservationPortを返す。

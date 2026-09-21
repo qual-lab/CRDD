@@ -1,3 +1,9 @@
+/**
+ * interactive-consoleに属する責務をまとめる。
+ *
+ * @responsibility InteractiveConsoleHandlesを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import type { ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -24,9 +30,9 @@ const READER_CLEANUP_SCHEDULING_MARGIN_MS = 5_000;
 const TERMINAL_WRITE_TIMEOUT_MS = 1_000;
 
 /**
- * InteractiveConsoleHandlesが扱う値の構造を表す。
+ * interactive-consoleで使用するInteractive Console Handlesの値契約を定義する。
  *
- * @responsibility InteractiveConsoleHandlesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Interactive Console HandlesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape InteractiveConsoleHandlesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant InteractiveConsoleHandlesで宣言した値と責務の対応を維持する。
@@ -40,9 +46,9 @@ type InteractiveConsoleHandles = Readonly<{
 }>;
 
 /**
- * InteractiveConsoleAdapterが扱う値の構造を表す。
+ * interactive-consoleで使用するInteractive Console Adapterの値契約を定義する。
  *
- * @responsibility InteractiveConsoleAdapterに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Interactive Console AdapterのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape InteractiveConsoleAdapterが表すProperty、識別子およびRelationを型として固定する。
  * @invariant InteractiveConsoleAdapterで宣言した値と責務の対応を維持する。
@@ -57,9 +63,9 @@ type InteractiveConsoleAdapter = Readonly<{
 }>;
 
 /**
- * InteractiveConsoleTextAdapterが扱う値の構造を表す。
+ * interactive-consoleで使用するInteractive Console Text Adapterの値契約を定義する。
  *
- * @responsibility InteractiveConsoleTextAdapterに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Interactive Console Text AdapterのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape InteractiveConsoleTextAdapterが表すProperty、識別子およびRelationを型として固定する。
  * @invariant InteractiveConsoleTextAdapterで宣言した値と責務の対応を維持する。
@@ -76,9 +82,9 @@ type InteractiveConsoleTextAdapter = Readonly<{
 }>;
 
 /**
- * InteractiveConsoleTextWriteOutcomeが扱う値の構造を表す。
+ * interactive-consoleで使用するInteractive Console Text Write Outcomeの値契約を定義する。
  *
- * @responsibility InteractiveConsoleTextWriteOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Interactive Console Text Write OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape InteractiveConsoleTextWriteOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant InteractiveConsoleTextWriteOutcomeで宣言した値と責務の対応を維持する。
@@ -91,9 +97,9 @@ export type InteractiveConsoleTextWriteOutcome = Readonly<{
 }>;
 
 /**
- * InteractiveConsoleOperationOutcomeが扱う値の構造を表す。
+ * interactive-consoleで使用するInteractive Console Operation Outcomeの値契約を定義する。
  *
- * @responsibility InteractiveConsoleOperationOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Interactive Console Operation OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape InteractiveConsoleOperationOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant InteractiveConsoleOperationOutcomeで宣言した値と責務の対応を維持する。
@@ -107,9 +113,9 @@ export type InteractiveConsoleOperationOutcome<T> = Readonly<{
 }>;
 
 /**
- * InteractiveConsoleAvailabilityOutcomeが扱う値の構造を表す。
+ * interactive-consoleで使用するInteractive Console Availability Outcomeの値契約を定義する。
  *
- * @responsibility InteractiveConsoleAvailabilityOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Interactive Console Availability OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape InteractiveConsoleAvailabilityOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant InteractiveConsoleAvailabilityOutcomeで宣言した値と責務の対応を維持する。
@@ -122,9 +128,9 @@ export type InteractiveConsoleAvailabilityOutcome = Readonly<{
 }>;
 
 /**
- * WindowsTerminalStreamが扱う値の構造を表す。
+ * interactive-consoleで使用するWindows Terminal Streamの値契約を定義する。
  *
- * @responsibility WindowsTerminalStreamに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Windows Terminal StreamのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape WindowsTerminalStreamが表すProperty、識別子およびRelationを型として固定する。
  * @invariant WindowsTerminalStreamで宣言した値と責務の対応を維持する。
@@ -151,9 +157,9 @@ const POSIX_INTERACTIVE_CONSOLE_DEVICES = Object.freeze({
 });
 
 /**
- * interactiveConsoleDevicesの処理を実行する。
+ * interactive Console Devicesを決定する。
  *
- * @responsibility interactiveConsoleDevicesに対応する入力処理と結果生成を所有する。
+ * @responsibility interactive Console Devicesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input platform: NodeJS.Platform
  * @returns interactiveConsoleDevicesの計算結果を返す。
@@ -173,9 +179,9 @@ function interactiveConsoleDevices(platform: NodeJS.Platform) {
 }
 
 /**
- * InteractiveConsoleReadOutcomeが扱う値の構造を表す。
+ * interactive-consoleで使用するInteractive Console Read Outcomeの値契約を定義する。
  *
- * @responsibility InteractiveConsoleReadOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Interactive Console Read OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape InteractiveConsoleReadOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant InteractiveConsoleReadOutcomeで宣言した値と責務の対応を維持する。
@@ -194,9 +200,9 @@ export type InteractiveConsoleReadOutcome = Readonly<{
 }>;
 
 /**
- * withInteractiveConsoleUsingAdapterの処理を実行する。
+ * with Interactive Console Using Adapterを決定する。
  *
- * @responsibility withInteractiveConsoleUsingAdapterに対応する入力処理と結果生成を所有する。
+ * @responsibility with Interactive Console Using Adapterの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input platform: NodeJS.Platform、adapter: InteractiveConsoleAdapter、operation: (handles: InteractiveConsoleHandles) => T
  * @returns T | nullを返す。
@@ -223,9 +229,9 @@ export function withInteractiveConsoleUsingAdapter<T>(
 }
 
 /**
- * withInteractiveConsoleOutcomeUsingAdapterの処理を実行する。
+ * with Interactive Console Outcome Using Adapterを決定する。
  *
- * @responsibility withInteractiveConsoleOutcomeUsingAdapterに対応する入力処理と結果生成を所有する。
+ * @responsibility with Interactive Console Outcome Using Adapterの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input platform: NodeJS.Platform、adapter: InteractiveConsoleAdapter、operation: (handles: InteractiveConsoleHandles) => T
  * @returns InteractiveConsoleOperationOutcome<T>を返す。
@@ -281,9 +287,9 @@ export function withInteractiveConsoleOutcomeUsingAdapter<T>(
 }
 
 /**
- * withInteractiveConsoleの処理を実行する。
+ * with Interactive Consoleを決定する。
  *
- * @responsibility withInteractiveConsoleに対応する入力処理と結果生成を所有する。
+ * @responsibility with Interactive Consoleの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input operation: (handles: InteractiveConsoleHandles) => T
  * @returns T | nullを返す。
@@ -304,9 +310,9 @@ export function withInteractiveConsole<T>(
 }
 
 /**
- * withInteractiveConsoleOutcomeの処理を実行する。
+ * with Interactive Console Outcomeを決定する。
  *
- * @responsibility withInteractiveConsoleOutcomeに対応する入力処理と結果生成を所有する。
+ * @responsibility with Interactive Console Outcomeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input operation: (handles: InteractiveConsoleHandles) => T
  * @returns InteractiveConsoleOperationOutcome<T>を返す。
@@ -340,9 +346,9 @@ export function withInteractiveConsoleOutcome<T>(
 }
 
 /**
- * withInteractiveConsoleAsyncUsingAdapterの処理を実行する。
+ * with Interactive Console Async Using Adapterを決定する。
  *
- * @responsibility withInteractiveConsoleAsyncUsingAdapterに対応する入力処理と結果生成を所有する。
+ * @responsibility with Interactive Console Async Using Adapterの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input platform: NodeJS.Platform、adapter: InteractiveConsoleAdapter、operation: (handles: InteractiveConsoleHandles) => Promise<T>
  * @returns Promise<T | null>を返す。
@@ -369,9 +375,9 @@ export async function withInteractiveConsoleAsyncUsingAdapter<T>(
 }
 
 /**
- * withInteractiveConsoleAsyncOutcomeUsingAdapterの処理を実行する。
+ * with Interactive Console Async Outcome Using Adapterを決定する。
  *
- * @responsibility withInteractiveConsoleAsyncOutcomeUsingAdapterに対応する入力処理と結果生成を所有する。
+ * @responsibility with Interactive Console Async Outcome Using Adapterの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input platform: NodeJS.Platform、adapter: InteractiveConsoleAdapter、operation: (handles: InteractiveConsoleHandles) => Promise<T>
  * @returns Promise<InteractiveConsoleOperationOutcome<T>>を返す。
@@ -427,9 +433,9 @@ export async function withInteractiveConsoleAsyncOutcomeUsingAdapter<T>(
 }
 
 /**
- * withInteractiveConsoleAsyncの処理を実行する。
+ * with Interactive Console Asyncを決定する。
  *
- * @responsibility withInteractiveConsoleAsyncに対応する入力処理と結果生成を所有する。
+ * @responsibility with Interactive Console Asyncの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input operation: (handles: InteractiveConsoleHandles) => Promise<T>
  * @returns withInteractiveConsoleAsyncの計算結果を返す。
@@ -451,9 +457,9 @@ export function withInteractiveConsoleAsync<T>(
 }
 
 /**
- * withInteractiveConsoleAsyncOutcomeの処理を実行する。
+ * with Interactive Console Async Outcomeを決定する。
  *
- * @responsibility withInteractiveConsoleAsyncOutcomeに対応する入力処理と結果生成を所有する。
+ * @responsibility with Interactive Console Async Outcomeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input operation: (handles: InteractiveConsoleHandles) => Promise<T>
  * @returns withInteractiveConsoleAsyncOutcomeの計算結果を返す。
@@ -488,9 +494,9 @@ export function withInteractiveConsoleAsyncOutcome<T>(
 }
 
 /**
- * writeInteractiveConsoleTextOutcomeUsingAdapterの処理を実行する。
+ * Interactive Console Text Outcome Using Adapterを書き込む。
  *
- * @responsibility writeInteractiveConsoleTextOutcomeUsingAdapterに対応する入力処理と結果生成を所有する。
+ * @responsibility Interactive Console Text Outcome Using Adapterの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input platform: NodeJS.Platform、outputDescriptor: number、value: string、adapter: InteractiveConsoleTextAdapter
  * @returns Promise<InteractiveConsoleTextWriteOutcome>を返す。
@@ -526,9 +532,9 @@ export async function writeInteractiveConsoleTextOutcomeUsingAdapter(
 }
 
 /**
- * writeInteractiveConsoleTextUsingAdapterの処理を実行する。
+ * Interactive Console Text Using Adapterを書き込む。
  *
- * @responsibility writeInteractiveConsoleTextUsingAdapterに対応する入力処理と結果生成を所有する。
+ * @responsibility Interactive Console Text Using Adapterの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input platform: NodeJS.Platform、outputDescriptor: number、value: string、adapter: InteractiveConsoleTextAdapter
  * @returns writeInteractiveConsoleTextUsingAdapterの計算結果を返す。
@@ -557,9 +563,9 @@ export async function writeInteractiveConsoleTextUsingAdapter(
 }
 
 /**
- * writeWindowsTerminalTextOutcomeUsingStreamの処理を実行する。
+ * Windows Terminal Text Outcome Using Streamを書き込む。
  *
- * @responsibility writeWindowsTerminalTextOutcomeUsingStreamに対応する入力処理と結果生成を所有する。
+ * @responsibility Windows Terminal Text Outcome Using Streamの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input value: string、stream: WindowsTerminalStream
  * @returns Promise<InteractiveConsoleTextWriteOutcome>を返す。
@@ -623,9 +629,9 @@ export function writeWindowsTerminalTextOutcomeUsingStream(
 }
 
 /**
- * writeWindowsTerminalTextUsingStreamの処理を実行する。
+ * Windows Terminal Text Using Streamを書き込む。
  *
- * @responsibility writeWindowsTerminalTextUsingStreamに対応する入力処理と結果生成を所有する。
+ * @responsibility Windows Terminal Text Using Streamの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input value: string、stream: WindowsTerminalStream
  * @returns writeWindowsTerminalTextUsingStreamの計算結果を返す。
@@ -650,9 +656,9 @@ export async function writeWindowsTerminalTextUsingStream(
 }
 
 /**
- * validateInteractiveConsoleHandlesの処理を実行する。
+ * Interactive Console Handlesの契約を検証する。
  *
- * @responsibility validateInteractiveConsoleHandlesに対応する入力処理と結果生成を所有する。
+ * @responsibility Interactive Console Handlesの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input handles: InteractiveConsoleHandles
  * @returns validateInteractiveConsoleHandlesの計算結果を返す。
@@ -680,9 +686,9 @@ function validateInteractiveConsoleHandles(handles: InteractiveConsoleHandles) {
 }
 
 /**
- * readInteractiveConsoleLineの処理を実行する。
+ * Interactive Console Lineを読み取る。
  *
- * @responsibility readInteractiveConsoleLineに対応する入力処理と結果生成を所有する。
+ * @responsibility Interactive Console Lineの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input inputDescriptor: number、cancellationSignal: AbortSignal
  * @returns readInteractiveConsoleLineの計算結果を返す。
@@ -706,9 +712,9 @@ export function readInteractiveConsoleLine(
 }
 
 /**
- * readInteractiveConsoleLineOutcomeの処理を実行する。
+ * Interactive Console Line Outcomeを読み取る。
  *
- * @responsibility readInteractiveConsoleLineOutcomeに対応する入力処理と結果生成を所有する。
+ * @responsibility Interactive Console Line Outcomeの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input inputDescriptor: number、cancellationSignal: AbortSignal
  * @returns readInteractiveConsoleLineOutcomeの計算結果を返す。
@@ -776,9 +782,9 @@ export function readInteractiveConsoleLineOutcome(
 }
 
 /**
- * writeWindowsTerminalTextの処理を実行する。
+ * Windows Terminal Textを書き込む。
  *
- * @responsibility writeWindowsTerminalTextに対応する入力処理と結果生成を所有する。
+ * @responsibility Windows Terminal Textの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input value: string
  * @returns writeWindowsTerminalTextの計算結果を返す。
@@ -796,9 +802,9 @@ function writeWindowsTerminalText(value: string) {
 }
 
 /**
- * writeInteractiveConsoleTextOutcomeの処理を実行する。
+ * Interactive Console Text Outcomeを書き込む。
  *
- * @responsibility writeInteractiveConsoleTextOutcomeに対応する入力処理と結果生成を所有する。
+ * @responsibility Interactive Console Text Outcomeの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input outputDescriptor: number、value: string
  * @returns writeInteractiveConsoleTextOutcomeの計算結果を返す。
@@ -834,9 +840,9 @@ export function writeInteractiveConsoleTextOutcome(
 }
 
 /**
- * writeInteractiveConsoleTextの処理を実行する。
+ * Interactive Console Textを書き込む。
  *
- * @responsibility writeInteractiveConsoleTextに対応する入力処理と結果生成を所有する。
+ * @responsibility Interactive Console Textの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input outputDescriptor: number、value: string
  * @returns writeInteractiveConsoleTextの計算結果を返す。
@@ -859,9 +865,9 @@ export function writeInteractiveConsoleText(
 }
 
 /**
- * interactiveConsoleAvailableの処理を実行する。
+ * interactive Console Availableを決定する。
  *
- * @responsibility interactiveConsoleAvailableに対応する入力処理と結果生成を所有する。
+ * @responsibility interactive Console Availableの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns interactiveConsoleAvailableの計算結果を返す。
@@ -879,9 +885,9 @@ export function interactiveConsoleAvailable() {
 }
 
 /**
- * interactiveConsoleAvailabilityOutcomeの処理を実行する。
+ * interactive Console Availability Outcomeを決定する。
  *
- * @responsibility interactiveConsoleAvailabilityOutcomeに対応する入力処理と結果生成を所有する。
+ * @responsibility interactive Console Availability Outcomeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns InteractiveConsoleAvailabilityOutcomeを返す。
@@ -914,9 +920,9 @@ export function interactiveConsoleAvailabilityOutcome(): InteractiveConsoleAvail
 }
 
 /**
- * describeInteractiveConsoleContractの処理を実行する。
+ * Interactive Console 契約の公開契約を記述する。
  *
- * @responsibility describeInteractiveConsoleContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Interactive Console 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeInteractiveConsoleContractの計算結果を返す。

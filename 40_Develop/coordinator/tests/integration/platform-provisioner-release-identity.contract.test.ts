@@ -3,10 +3,10 @@
  *
  * @packageDocumentation
  * @responsibility coordinator:integration:platform-provisioner-release-identityが所有する検証責務を実行する。
- * @trace AIT-IT-001
+ * @trace AIT-IT-002
  * @level IT
  * @scope platform、provisioner、release、identity
- * @boundary Adjacent 1 Block: Artifact Observer→Trust Evaluator→Policy
+ * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -24,13 +24,13 @@ import {
  * objectIdのTest準備責務を実行する。
  *
  * @responsibility objectIdがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace AIT-IT-001
+ * @trace AIT-IT-002
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
  * @stimulus objectIdを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Artifact Observer→Trust Evaluator→Policy
+ * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
  */
 function objectId(type: "blob" | "tree", bytes: Buffer) {
   return createHash("sha1")
@@ -43,13 +43,13 @@ function objectId(type: "blob" | "tree", bytes: Buffer) {
  * treeのTest準備責務を実行する。
  *
  * @responsibility treeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace AIT-IT-001
+ * @trace AIT-IT-002
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
  * @stimulus treeを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Artifact Observer→Trust Evaluator→Policy
+ * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
  */
 function tree(entries: ReadonlyArray<readonly [string, string, Buffer]>) {
   const bytes = Buffer.concat(
@@ -65,13 +65,13 @@ function tree(entries: ReadonlyArray<readonly [string, string, Buffer]>) {
  * fixtureのTest準備責務を実行する。
  *
  * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace AIT-IT-001
+ * @trace AIT-IT-002
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
  * @stimulus fixtureを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Artifact Observer→Trust Evaluator→Policy
+ * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
  */
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-release-tree-"));
@@ -148,13 +148,13 @@ function fixture() {
  * 配布Root全体をGit Treeへ再計算し後置manifestと管理metadataだけを除外するを検証する。
  *
  * @responsibility 配布Root全体をGit Treeへ再計算し後置manifestと管理metadataだけを除外するの合否判定を所有する。
- * @trace AIT-IT-001
+ * @trace AIT-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 配布Root全体をGit Treeへ再計算し後置manifestと管理metadataだけを除外するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Artifact Observer→Trust Evaluator→Policy
+ * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
  */
 test("配布Root全体をGit Treeへ再計算し後置manifestと管理metadataだけを除外する", () => {
   const value = fixture();
@@ -181,13 +181,13 @@ test("配布Root全体をGit Treeへ再計算し後置manifestと管理metadata�
  * Root .crddの追跡設定だけを含めRuntime状態を除外するを検証する。
  *
  * @responsibility Root .crddの追跡設定だけを含めRuntime状態を除外するの合否判定を所有する。
- * @trace AIT-IT-001
+ * @trace AIT-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Root .crddの追跡設定だけを含めRuntime状態を除外するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Artifact Observer→Trust Evaluator→Policy
+ * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
  */
 test("Root .crddの追跡設定だけを含めRuntime状態を除外する", () => {
   const value = fixture();
@@ -223,13 +223,13 @@ test("Root .crddの追跡設定だけを含めRuntime状態を除外する", () 
  * 配布fileの変更、追加および不正Treeを拒否するを検証する。
  *
  * @responsibility 配布fileの変更、追加および不正Treeを拒否するの合否判定を所有する。
- * @trace AIT-IT-001
+ * @trace AIT-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 配布fileの変更、追加および不正Treeを拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Artifact Observer→Trust Evaluator→Policy
+ * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
  */
 test("配布fileの変更、追加および不正Treeを拒否する", () => {
   const mutations: Array<(root: string) => void> = [
@@ -266,13 +266,13 @@ test("配布fileの変更、追加および不正Treeを拒否する", () => {
  * 配布TreeはRepository textのLF／CRLFを同一視しNative byte差を拒否するを検証する。
  *
  * @responsibility 配布TreeはRepository textのLF／CRLFを同一視しNative byte差を拒否するの合否判定を所有する。
- * @trace AIT-IT-001
+ * @trace AIT-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 配布TreeはRepository textのLF／CRLFを同一視しNative byte差を拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Artifact Observer→Trust Evaluator→Policy
+ * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
  */
 test("配布TreeはRepository textのLF／CRLFを同一視しNative byte差を拒否する", () => {
   const value = fixture();
@@ -312,13 +312,13 @@ test("配布TreeはRepository textのLF／CRLFを同一視しNative byte差を�
  * 配布TreeはNULを含む非exe binaryを改行正規化しないを検証する。
  *
  * @responsibility 配布TreeはNULを含む非exe binaryを改行正規化しないの合否判定を所有する。
- * @trace AIT-IT-001
+ * @trace AIT-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 配布TreeはNULを含む非exe binaryを改行正規化しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Artifact Observer→Trust Evaluator→Policy
+ * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
  */
 test("配布TreeはNULを含む非exe binaryを改行正規化しない", () => {
   const value = fixture();
@@ -341,13 +341,13 @@ test("配布TreeはNULを含む非exe binaryを改行正規化しない", () => 
  * 固定Platform Access成果物の欠落を署名対象Tree成立と誤認しないを検証する。
  *
  * @responsibility 固定Platform Access成果物の欠落を署名対象Tree成立と誤認しないの合否判定を所有する。
- * @trace AIT-IT-001
+ * @trace AIT-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 固定Platform Access成果物の欠落を署名対象Tree成立と誤認しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Artifact Observer→Trust Evaluator→Policy
+ * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
  */
 test("固定Platform Access成果物の欠落を署名対象Tree成立と誤認しない", () => {
   const value = fixture();
@@ -377,13 +377,13 @@ test("固定Platform Access成果物の欠落を署名対象Tree成立と誤認�
  * Release Identity contractはTree一致をEffectおよびrollbackから分離するを検証する。
  *
  * @responsibility Release Identity contractはTree一致をEffectおよびrollbackから分離するの合否判定を所有する。
- * @trace AIT-IT-001
+ * @trace AIT-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Release Identity contractはTree一致をEffectおよびrollbackから分離するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Artifact Observer→Trust Evaluator→Policy
+ * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
  */
 test("Release Identity contractはTree一致をEffectおよびrollbackから分離する", () => {
   const contract = describePlatformProvisionerReleaseIdentityContract();
@@ -411,13 +411,13 @@ test("Release Identity contractはTree一致をEffectおよびrollbackから分�
  * 配布Treeの読込競合はHashと権限を発行せず対象descriptorを閉じるを検証する。
  *
  * @responsibility 配布Treeの読込競合はHashと権限を発行せず対象descriptorを閉じるの合否判定を所有する。
- * @trace AIT-IT-001
+ * @trace AIT-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 配布Treeの読込競合はHashと権限を発行せず対象descriptorを閉じるの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Artifact Observer→Trust Evaluator→Policy
+ * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
  */
 test("配布Treeの読込競合はHashと権限を発行せず対象descriptorを閉じる", (t) => {
   for (const failure of [
@@ -434,13 +434,13 @@ test("配布Treeの読込競合はHashと権限を発行せず対象descriptor�
        * inspectのTest準備責務を実行する。
        *
        * @responsibility inspectがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
-       * @trace AIT-IT-001
+       * @trace AIT-IT-002
        * @precondition 呼出し元Test Caseが必要な入力を渡す。
        * @stimulus inspectを呼び出す。
        * @observation 返却値、生成fixtureまたは観測値を取得する。
        * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
        * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-       * @boundary Adjacent 1 Block: Artifact Observer→Trust Evaluator→Policy
+       * @boundary AIT-IT-002=Related 2 Blocks: Manifest・実行集合・Native成果物→Trust判定
        */
       const inspect = () =>
         inspectPlatformProvisionerReleaseIdentityCandidate(

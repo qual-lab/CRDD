@@ -1,3 +1,9 @@
+/**
+ * node-runtime-versionに属する責務をまとめる。
+ *
+ * @responsibility isSupportedCoordinatorNodeRuntimeを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 export const COORDINATOR_NODE_RUNTIME_VERSION_CONTRACT =
   "crdd-coordinator/node-runtime-version";
 export const COORDINATOR_NODE_RUNTIME_VERSION_CONTRACT_REVISION = 1;
@@ -6,9 +12,9 @@ export const MINIMUM_COORDINATOR_NODE_VERSION = "24.12.0";
 const MINIMUM = Object.freeze({ major: 24, minor: 12, patch: 0 });
 
 /**
- * isSupportedCoordinatorNodeRuntimeの処理を実行する。
+ * Supported Coordinator Node Runtimeかを判定する。
  *
- * @responsibility isSupportedCoordinatorNodeRuntimeに対応する入力処理と結果生成を所有する。
+ * @responsibility Supported Coordinator Node Runtimeの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns isSupportedCoordinatorNodeRuntimeの計算結果を返す。
@@ -38,9 +44,9 @@ export function isSupportedCoordinatorNodeRuntime(value: unknown) {
 }
 
 /**
- * assertSupportedCoordinatorNodeRuntimeの処理を実行する。
+ * Supported Coordinator Node Runtimeを表明どおりか検査する。
  *
- * @responsibility assertSupportedCoordinatorNodeRuntimeに対応する入力処理と結果生成を所有する。
+ * @responsibility Supported Coordinator Node Runtimeの必須条件と違反時の停止境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns N/A: assertSupportedCoordinatorNodeRuntimeは戻り値を返さない。
@@ -60,9 +66,9 @@ export function assertSupportedCoordinatorNodeRuntime(value: unknown) {
 }
 
 /**
- * describeCoordinatorNodeRuntimeVersionContractの処理を実行する。
+ * Coordinator Node Runtime Version 契約の公開契約を記述する。
  *
- * @responsibility describeCoordinatorNodeRuntimeVersionContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Coordinator Node Runtime Version 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeCoordinatorNodeRuntimeVersionContractの計算結果を返す。

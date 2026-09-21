@@ -6,7 +6,7 @@
  * @trace ERB-IT-001
  * @level IT
  * @scope docker、desktop、repair、native-helper
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -28,7 +28,7 @@ for (const status of ["N", "T", "P", "X"] as const) {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
    */
   test(`restart S distinguishes command outcome ${status} from Docker completion`, async () => {
     const source = `const frame=s=>Buffer.concat([Buffer.from("CRDDDS01"),Buffer.from(s),Buffer.alloc(32,0xaa)]);process.stdout.write(frame("R"));process.stdin.on("data",c=>{const k=c.toString();if(k==="S")process.stdout.write(frame("${status}"));else if(k==="Q"){process.stdout.write(frame("C"));setTimeout(()=>process.exit(0),25)}else process.exit(3)});`;
@@ -66,7 +66,7 @@ for (const status of ["A", "V", "U"] as const) {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
    */
   test(`restart B client observation maps ${status} without issuing termination`, async () => {
     const source = `const frame=s=>Buffer.concat([Buffer.from("CRDDDS01"),Buffer.from(s),Buffer.alloc(32,0xaa)]);process.stdout.write(frame("R"));process.stdin.on("data",c=>{const k=c.toString();if(k==="B")process.stdout.write(frame("${status}"));else if(k==="Q"){process.stdout.write(frame("C"));setTimeout(()=>process.exit(0),25)}else process.exit(3)});`;
@@ -140,7 +140,7 @@ for (const entry of [
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
    */
   test(`Native protocol separation ${JSON.stringify(entry)}`, async () => {
     const policy =
@@ -189,7 +189,7 @@ for (const entry of [
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("署名対象の固定textはWindows checkoutでもLFを維持する", () => {
   const attributes = fs.readFileSync(
@@ -221,7 +221,7 @@ test("署名対象の固定textはWindows checkoutでもLFを維持する", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("native helperはPIDでなく同じkernel handleを停止authorityにする", () => {
   const contract = describeDockerDesktopRepairNativeHelperContract();
@@ -256,7 +256,7 @@ test("native helperはPIDでなく同じkernel handleを停止authorityにする
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("現在の障害修復と再起動はDocker更新を許容し操作中の実体だけを固定する", () => {
   const contract = describeDockerDesktopCurrentArtifactTrustContract();
@@ -289,7 +289,7 @@ test("現在の障害修復と再起動はDocker更新を許容し操作中の�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("native helper adapterは固定frameを順序処理しQ応答とexit 0までcleanup確認する", async () => {
   const hash = "a".repeat(64);
@@ -334,7 +334,7 @@ test("native helper adapterは固定frameを順序処理しQ応答とexit 0ま�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("native helperはC応答後の非0 exitをcleanup成功と分離してprotocol失敗にする", async () => {
   const hash = "6".repeat(64);
@@ -367,7 +367,7 @@ test("native helperはC応答後の非0 exitをcleanup成功と分離してproto
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("native helper喪失はcommand失敗とbounded cleanup確認を分離する", async () => {
   const hash = "b".repeat(64);
@@ -403,7 +403,7 @@ test("native helper喪失はcommand失敗とbounded cleanup確認を分離する
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("正常な取消cleanupはprotocol failureへ変換しない", async () => {
   const hash = "f".repeat(64);
@@ -437,7 +437,7 @@ test("正常な取消cleanupはprotocol failureへ変換しない", async () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("helper failure後のabortはprotocol failureを保持する", async () => {
   const hash = "1".repeat(64);
@@ -471,7 +471,7 @@ test("helper failure後のabortはprotocol failureを保持する", async () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("不正initial frameはprotocol failureとしてbounded cleanupへ閉じる", async () => {
   const hash = "2".repeat(64);
@@ -505,7 +505,7 @@ test("不正initial frameはprotocol failureとしてbounded cleanupへ閉じる
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("native launcherはCreateProcess後のidentity不明をissued済みとして保持する", async () => {
   const hash = "c".repeat(64);
@@ -543,7 +543,7 @@ test("native launcherはCreateProcess後のidentity不明をissued済みとし�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("native K/NはEffect非発行とProcess不存在を混同しない", async () => {
   const hash = "e".repeat(64);
@@ -584,7 +584,7 @@ test("native K/NはEffect非発行とProcess不存在を混同しない", async 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("release中の不正frameは資源回収完了まで待ちprotocol成功と分離する", async () => {
   const hash = "d".repeat(64);
@@ -625,7 +625,7 @@ test("release中の不正frameは資源回収完了まで待ちprotocol成功と
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("Q確認後のstdin.end throw／errorはprotocol成功とcleanupを直交させる", async () => {
   for (const mode of ["throw", "error"] as const) {
@@ -674,7 +674,7 @@ test("Q確認後のstdin.end throw／errorはprotocol成功とcleanupを直交�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("active protocol中の全stdio errorは恒久listenerからfailure cleanupへ収束する", async () => {
   for (const streamName of ["stdin", "stdout", "stderr"] as const) {
@@ -710,7 +710,7 @@ test("active protocol中の全stdio errorは恒久listenerからfailure cleanup�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
 test("C確認後のstdout／stderr errorもprotocol Evidence不明として失敗する", async () => {
   for (const streamName of ["stdout", "stderr"] as const) {

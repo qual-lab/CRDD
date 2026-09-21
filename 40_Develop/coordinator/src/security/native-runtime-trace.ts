@@ -1,3 +1,9 @@
+/**
+ * native-runtime-traceに属する責務をまとめる。
+ *
+ * @responsibility NativeRuntimeTraceBlockedReasonを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import path from "node:path";
 
 const PROCESS_NAME = /^[a-z0-9][a-z0-9-]*\.exe$/u;
@@ -6,9 +12,9 @@ const LOST_EVENTS = /^Total # Lost Events\s*:\s*(\d+)\s*$/gmu;
 const NETWORK_EVENT = /^(?:Microsoft-Windows-TCPIP\/|\s*(?:Tcp|Udp)Ip)/u;
 
 /**
- * NativeRuntimeTraceBlockedReasonが扱う値の構造を表す。
+ * native-runtime-traceで使用するNative Runtime Trace Blocked Reasonの値契約を定義する。
  *
- * @responsibility NativeRuntimeTraceBlockedReasonに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Native Runtime Trace Blocked ReasonのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape NativeRuntimeTraceBlockedReasonが表すProperty、識別子およびRelationを型として固定する。
  * @invariant NativeRuntimeTraceBlockedReasonで宣言した値と責務の対応を維持する。
@@ -31,9 +37,9 @@ export type NativeRuntimeTraceBlockedReason =
   | "network_control_scope_invalid";
 
 /**
- * NativeRuntimeTraceOptionsが扱う値の構造を表す。
+ * native-runtime-traceで使用するNative Runtime Trace Optionsの値契約を定義する。
  *
- * @responsibility NativeRuntimeTraceOptionsに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Native Runtime Trace OptionsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape NativeRuntimeTraceOptionsが表すProperty、識別子およびRelationを型として固定する。
  * @invariant NativeRuntimeTraceOptionsで宣言した値と責務の対応を維持する。
@@ -49,9 +55,9 @@ type NativeRuntimeTraceOptions = Readonly<{
 }>;
 
 /**
- * blockedの処理を実行する。
+ * native-runtime-traceを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility native-runtime-traceの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000008
  * @input reason: NativeRuntimeTraceBlockedReason
  * @returns blockedの計算結果を返す。
@@ -69,9 +75,9 @@ function blocked(reason: NativeRuntimeTraceBlockedReason) {
 }
 
 /**
- * escapeRegularExpressionの処理を実行する。
+ * escape Regular Expressionを決定する。
  *
- * @responsibility escapeRegularExpressionに対応する入力処理と結果生成を所有する。
+ * @responsibility escape Regular Expressionの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: string
  * @returns stringを返す。
@@ -89,9 +95,9 @@ function escapeRegularExpression(value: string): string {
 }
 
 /**
- * canonicalWindowsPathの処理を実行する。
+ * canonical Windows Pathを決定する。
  *
- * @responsibility canonicalWindowsPathに対応する入力処理と結果生成を所有する。
+ * @responsibility canonical Windows Pathの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: string
  * @returns stringを返す。
@@ -109,9 +115,9 @@ function canonicalWindowsPath(value: string): string {
 }
 
 /**
- * isExactLoopbackAddressの処理を実行する。
+ * Exact Loopback Addressかを判定する。
  *
- * @responsibility isExactLoopbackAddressに対応する入力処理と結果生成を所有する。
+ * @responsibility Exact Loopback Addressの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input address: string
  * @returns booleanを返す。
@@ -144,9 +150,9 @@ function isExactLoopbackAddress(address: string): boolean {
 }
 
 /**
- * processStartIdsの処理を実行する。
+ * process Start Idsを決定する。
  *
- * @responsibility processStartIdsに対応する入力処理と結果生成を所有する。
+ * @responsibility process Start Idsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input lines: readonly string[]、processName: string
  * @returns processStartIdsの計算結果を返す。
@@ -171,9 +177,9 @@ function processStartIds(lines: readonly string[], processName: string) {
 }
 
 /**
- * hasExactProcessEndの処理を実行する。
+ * Exact Process Endが存在するかを判定する。
  *
- * @responsibility hasExactProcessEndに対応する入力処理と結果生成を所有する。
+ * @responsibility Exact Process Endの存在条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input lines: readonly string[]、processName: string、processId: number
  * @returns booleanを返す。
@@ -199,9 +205,9 @@ function hasExactProcessEnd(
 }
 
 /**
- * imagePathsの処理を実行する。
+ * image Pathsを決定する。
  *
- * @responsibility imagePathsに対応する入力処理と結果生成を所有する。
+ * @responsibility image Pathsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input lines: readonly string[]、processName: string、processId: number
  * @returns imagePathsの計算結果を返す。
@@ -234,9 +240,9 @@ function imagePaths(
 }
 
 /**
- * networkEventLinesの処理を実行する。
+ * network Event Linesを決定する。
  *
- * @responsibility networkEventLinesに対応する入力処理と結果生成を所有する。
+ * @responsibility network Event Linesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input lines: readonly string[]、processName: string、processId: number
  * @returns readonly string[]を返す。
@@ -261,9 +267,9 @@ function networkEventLines(
 }
 
 /**
- * inspectNativeRuntimeTraceの処理を実行する。
+ * Native Runtime Traceを観測する。
  *
- * @responsibility inspectNativeRuntimeTraceに対応する入力処理と結果生成を所有する。
+ * @responsibility Native Runtime Traceの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input rawEvents: unknown、rawTraceStatistics: unknown、options: NativeRuntimeTraceOptions
  * @returns inspectNativeRuntimeTraceの計算結果を返す。

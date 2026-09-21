@@ -6,7 +6,7 @@
  * @trace PRL-UT-006
  * @level UT
  * @scope local、personal、authority、runtime
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -28,7 +28,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 function confirmedRelease() {
   return Object.freeze({
@@ -50,7 +50,7 @@ function confirmedRelease() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("開発版の許可は同じAuthority生成器へ接続し期限切れ時はcacheを再利用しない", () => {
   let isAuthorized = true;
@@ -97,7 +97,7 @@ test("開発版の許可は同じAuthority生成器へ接続し期限切れ時�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("署名Release確認済みLocal Personal AuthorityをOperationへ固定する", () => {
   let now = Date.now();
@@ -146,7 +146,7 @@ test("署名Release確認済みLocal Personal AuthorityをOperationへ固定す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("Release未確認、未知Profile、Provider差と不正時計はsourceを返さない", () => {
   const blockedRelease = createIsolatedLocalPersonalAuthorityRuntimeCandidate({
@@ -221,7 +221,7 @@ test("Release未確認、未知Profile、Provider差と不正時計はsourceを�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("sourceは30秒後に再生成しRelease確認を省略しない", () => {
   let now = Date.parse("2026-08-25T00:00:00.000Z");
@@ -252,7 +252,7 @@ test("sourceは30秒後に再生成しRelease確認を省略しない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("source checkoutのproduction loaderは署名Release不成立なら停止する", () => {
   assert.equal(
@@ -275,7 +275,7 @@ test("source checkoutのproduction loaderは署名Release不成立なら停止�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("Local Personal Authority contractはT1-T2と外部Root非必須を固定する", () => {
   const contract = describeLocalPersonalAuthorityRuntimeContract();

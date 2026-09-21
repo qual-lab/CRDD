@@ -1,3 +1,9 @@
+/**
+ * windows-child-environmentに属する責務をまとめる。
+ *
+ * @responsibility fixedWindowsEnvironmentを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -46,9 +52,9 @@ const NEUTRAL_NAMES = Object.freeze([
 ] as const);
 
 /**
- * fixedWindowsEnvironmentの処理を実行する。
+ * fixed Windows Environmentを決定する。
  *
- * @responsibility fixedWindowsEnvironmentに対応する入力処理と結果生成を所有する。
+ * @responsibility fixed Windows Environmentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input additions: Readonly<Record<string, string>>
  * @returns fixedWindowsEnvironmentの計算結果を返す。
@@ -90,9 +96,9 @@ function fixedWindowsEnvironment(additions: Readonly<Record<string, string>>) {
 }
 
 /**
- * observedWindowsDirectoryFromNativeの処理を実行する。
+ * observed Windows Directory From Nativeを決定する。
  *
- * @responsibility observedWindowsDirectoryFromNativeに対応する入力処理と結果生成を所有する。
+ * @responsibility observed Windows Directory From Nativeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns observedWindowsDirectoryFromNativeの計算結果を返す。
@@ -136,9 +142,9 @@ function observedWindowsDirectoryFromNative() {
 }
 
 /**
- * observedWindowsUserProfileFromOsの処理を実行する。
+ * observed Windows User Profile From Osを決定する。
  *
- * @responsibility observedWindowsUserProfileFromOsに対応する入力処理と結果生成を所有する。
+ * @responsibility observed Windows User Profile From Osの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns observedWindowsUserProfileFromOsの計算結果を返す。
@@ -177,9 +183,9 @@ function observedWindowsUserProfileFromOs() {
 }
 
 /**
- * createInteractiveConsoleReaderEnvironmentの処理を実行する。
+ * Interactive Console Reader Environmentを構築する。
  *
- * @responsibility createInteractiveConsoleReaderEnvironmentに対応する入力処理と結果生成を所有する。
+ * @responsibility Interactive Console Reader Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input platform: NodeJS.Platform
  * @returns createInteractiveConsoleReaderEnvironmentの計算結果を返す。
@@ -200,9 +206,9 @@ export function createInteractiveConsoleReaderEnvironment(
 }
 
 /**
- * createWindowsNodeConsoleReaderEnvironmentの処理を実行する。
+ * Windows Node Console Reader Environmentを構築する。
  *
- * @responsibility createWindowsNodeConsoleReaderEnvironmentに対応する入力処理と結果生成を所有する。
+ * @responsibility Windows Node Console Reader Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns createWindowsNodeConsoleReaderEnvironmentの計算結果を返す。
@@ -220,9 +226,9 @@ export function createWindowsNodeConsoleReaderEnvironment() {
 }
 
 /**
- * createWindowsHostOperationSupervisorEnvironmentの処理を実行する。
+ * Windows Host Operation Supervisor Environmentを構築する。
  *
- * @responsibility createWindowsHostOperationSupervisorEnvironmentに対応する入力処理と結果生成を所有する。
+ * @responsibility Windows Host Operation Supervisor Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns createWindowsHostOperationSupervisorEnvironmentの計算結果を返す。
@@ -240,9 +246,9 @@ export function createWindowsHostOperationSupervisorEnvironment() {
 }
 
 /**
- * createWindowsNativeHelperEnvironmentの処理を実行する。
+ * Windows Native Helper Environmentを構築する。
  *
- * @responsibility createWindowsNativeHelperEnvironmentに対応する入力処理と結果生成を所有する。
+ * @responsibility Windows Native Helper Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns createWindowsNativeHelperEnvironmentの計算結果を返す。
@@ -263,9 +269,9 @@ export function createWindowsNativeHelperEnvironment() {
 }
 
 /**
- * createWindowsDockerDesktopRepairHelperEnvironmentの処理を実行する。
+ * Windows Docker Desktop Repair Helper Environmentを構築する。
  *
- * @responsibility createWindowsDockerDesktopRepairHelperEnvironmentに対応する入力処理と結果生成を所有する。
+ * @responsibility Windows Docker Desktop Repair Helper Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns Readonly< Record<string, string> > | nullを返す。
@@ -289,9 +295,9 @@ export function createWindowsDockerDesktopRepairHelperEnvironment(): Readonly<
 }
 
 /**
- * createWindowsPowerShellAuthenticodeEnvironmentの処理を実行する。
+ * Windows Power Shell Authenticode Environmentを構築する。
  *
- * @responsibility createWindowsPowerShellAuthenticodeEnvironmentに対応する入力処理と結果生成を所有する。
+ * @responsibility Windows Power Shell Authenticode Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns Readonly< Record<string, string> > | nullを返す。
@@ -329,9 +335,9 @@ export function createWindowsPowerShellAuthenticodeEnvironment(): Readonly<
 // Pure path validation; callers must obtain the directory from the OS observer.
 // This does not turn a caller-supplied path into an execution capability.
 /**
- * deriveWindowsSystemDriveの処理を実行する。
+ * derive Windows System Driveを決定する。
  *
- * @responsibility deriveWindowsSystemDriveに対応する入力処理と結果生成を所有する。
+ * @responsibility derive Windows System Driveの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input windowsDirectory: unknown
  * @returns deriveWindowsSystemDriveの計算結果を返す。
@@ -356,9 +362,9 @@ export function deriveWindowsSystemDrive(windowsDirectory: unknown) {
 }
 
 /**
- * createWindowsDockerCliEnvironmentの処理を実行する。
+ * Windows Docker Cli Environmentを構築する。
  *
- * @responsibility createWindowsDockerCliEnvironmentに対応する入力処理と結果生成を所有する。
+ * @responsibility Windows Docker Cli Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input options: Readonly<{ dockerConfig: string | null; dockerHome: string | null; }>
  * @returns createWindowsDockerCliEnvironmentの計算結果を返す。
@@ -398,9 +404,9 @@ export function createWindowsDockerCliEnvironment(
 }
 
 /**
- * describeWindowsChildEnvironmentContractの処理を実行する。
+ * Windows Child Environment 契約の公開契約を記述する。
  *
- * @responsibility describeWindowsChildEnvironmentContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Windows Child Environment 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeWindowsChildEnvironmentContractの計算結果を返す。

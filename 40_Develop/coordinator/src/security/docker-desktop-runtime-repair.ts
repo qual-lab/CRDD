@@ -1,3 +1,9 @@
+/**
+ * docker-desktop-runtime-repairに属する責務をまとめる。
+ *
+ * @responsibility EngineObservationを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -87,9 +93,9 @@ const HOST_EFFECT_ACTION_NAMES = new Set<DockerDesktopRepairEffectAction>([
 ]);
 
 /**
- * EngineObservationが扱う値の構造を表す。
+ * docker-desktop-runtime-repairで使用するEngine Observationの値契約を定義する。
  *
- * @responsibility EngineObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Engine ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape EngineObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant EngineObservationで宣言した値と責務の対応を維持する。
@@ -99,9 +105,9 @@ const HOST_EFFECT_ACTION_NAMES = new Set<DockerDesktopRepairEffectAction>([
  */
 type EngineObservation = "ready" | "known_unavailable" | "unknown";
 /**
- * PathObservationが扱う値の構造を表す。
+ * docker-desktop-runtime-repairで使用するPath Observationの値契約を定義する。
  *
- * @responsibility PathObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Path ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape PathObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant PathObservationで宣言した値と責務の対応を維持する。
@@ -114,9 +120,9 @@ type PathObservation = Readonly<{
   identity: DockerDesktopRepairDirectoryIdentity | null;
 }>;
 /**
- * TaggedEffectが扱う値の構造を表す。
+ * docker-desktop-runtime-repairで使用するTagged Effectの値契約を定義する。
  *
- * @responsibility TaggedEffectに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Tagged EffectのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape TaggedEffectが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TaggedEffectで宣言した値と責務の対応を維持する。
@@ -129,9 +135,9 @@ type TaggedEffect = Readonly<{
   confirmation: DockerDesktopRepairEffectConfirmation;
 }>;
 /**
- * RenameOutcomeが扱う値の構造を表す。
+ * docker-desktop-runtime-repairで使用するRename Outcomeの値契約を定義する。
  *
- * @responsibility RenameOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Rename OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RenameOutcomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RenameOutcomeで宣言した値と責務の対応を維持する。
@@ -146,9 +152,9 @@ type RenameOutcome = Readonly<{
 }>;
 
 /**
- * PreparedBoundaryが扱う値の構造を表す。
+ * docker-desktop-runtime-repairで使用するPrepared Boundaryの値契約を定義する。
  *
- * @responsibility PreparedBoundaryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Prepared BoundaryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape PreparedBoundaryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant PreparedBoundaryで宣言した値と責務の対応を維持する。
@@ -167,9 +173,9 @@ export type PreparedBoundary = DockerDesktopRepairRecordBoundary &
   }>;
 
 /**
- * MutableLedgerが扱う値の構造を表す。
+ * docker-desktop-runtime-repairで使用するMutable Ledgerの値契約を定義する。
  *
- * @responsibility MutableLedgerに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Mutable LedgerのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape MutableLedgerが表すProperty、識別子およびRelationを型として固定する。
  * @invariant MutableLedgerで宣言した値と責務の対応を維持する。
@@ -200,9 +206,9 @@ type MutableLedger = {
 };
 
 /**
- * DockerDesktopRuntimeRepairReportが扱う値の構造を表す。
+ * docker-desktop-runtime-repairで使用するDocker Desktop Runtime Repair Reportの値契約を定義する。
  *
- * @responsibility DockerDesktopRuntimeRepairReportに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Runtime Repair ReportのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRuntimeRepairReportが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRuntimeRepairReportで宣言した値と責務の対応を維持する。
@@ -251,9 +257,9 @@ export type DockerDesktopRuntimeRepairReport = Readonly<{
 }>;
 
 /**
- * RepairDependenciesが扱う値の構造を表す。
+ * docker-desktop-runtime-repairで使用するRepair Dependenciesの値契約を定義する。
  *
- * @responsibility RepairDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Repair DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RepairDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepairDependenciesで宣言した値と責務の対応を維持する。
@@ -308,9 +314,9 @@ export type RepairDependencies = Readonly<{
 }>;
 
 /**
- * initialLedgerの処理を実行する。
+ * initial Ledgerを決定する。
  *
- * @responsibility initialLedgerに対応する入力処理と結果生成を所有する。
+ * @responsibility initial Ledgerの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns MutableLedgerを返す。
@@ -341,9 +347,9 @@ function initialLedger(): MutableLedger {
 }
 
 /**
- * ledgerFromの処理を実行する。
+ * ledger Fromを決定する。
  *
- * @responsibility ledgerFromに対応する入力処理と結果生成を所有する。
+ * @responsibility ledger Fromの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input operation: DockerDesktopRepairOperation
  * @returns MutableLedgerを返す。
@@ -379,9 +385,9 @@ function ledgerFrom(operation: DockerDesktopRepairOperation): MutableLedger {
 }
 
 /**
- * restoreLedgerの処理を実行する。
+ * Ledgerを回復する。
  *
- * @responsibility restoreLedgerに対応する入力処理と結果生成を所有する。
+ * @responsibility Ledgerの回復Identity、再入場条件、回復不能時の境界を所有する。
  * @trace ARCH-000008
  * @input target: MutableLedger、operation: DockerDesktopRepairOperation
  * @returns N/A: restoreLedgerは戻り値を返さない。
@@ -402,9 +408,9 @@ function restoreLedger(
 }
 
 /**
- * snapshotLedgerの処理を実行する。
+ * Ledgerを所有Snapshotへ変換する。
  *
- * @responsibility snapshotLedgerに対応する入力処理と結果生成を所有する。
+ * @responsibility Ledgerの取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000008
  * @input ledger: MutableLedger
  * @returns DockerDesktopRepairLedgerSnapshotを返す。
@@ -428,9 +434,9 @@ function snapshotLedger(
 }
 
 /**
- * markUnknownの処理を実行する。
+ * mark Unknownを決定する。
  *
- * @responsibility markUnknownに対応する入力処理と結果生成を所有する。
+ * @responsibility mark Unknownの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input ledger: MutableLedger
  * @returns N/A: markUnknownは戻り値を返さない。
@@ -448,9 +454,9 @@ function markUnknown(ledger: MutableLedger) {
 }
 
 /**
- * mergeIssuedの処理を実行する。
+ * Issuedを統合する。
  *
- * @responsibility mergeIssuedに対応する入力処理と結果生成を所有する。
+ * @responsibility Issuedの統合順序、競合条件、統合結果の境界を所有する。
  * @trace ARCH-000008
  * @input isCurrent: boolean | null、isObserved: boolean | null
  * @returns boolean | nullを返す。
@@ -473,9 +479,9 @@ function mergeIssued(
 }
 
 /**
- * refreshEffectAggregateの処理を実行する。
+ * refresh Effect Aggregateを決定する。
  *
- * @responsibility refreshEffectAggregateに対応する入力処理と結果生成を所有する。
+ * @responsibility refresh Effect Aggregateの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input ledger: MutableLedger、kind: "process" | "filesystem"
  * @returns N/A: refreshEffectAggregateは戻り値を返さない。
@@ -517,9 +523,9 @@ function refreshEffectAggregate(
 }
 
 /**
- * appendEffectの処理を実行する。
+ * Effectを追記する。
  *
- * @responsibility appendEffectに対応する入力処理と結果生成を所有する。
+ * @responsibility Effectの追記対象、順序、書込み失敗境界を所有する。
  * @trace ARCH-000008
  * @input ledger: MutableLedger、kind: "process" | "filesystem"、action: DockerDesktopRepairEffectAction、observed: TaggedEffect
  * @returns N/A: appendEffectは戻り値を返さない。
@@ -552,9 +558,9 @@ function appendEffect(
 }
 
 /**
- * mergeProcessEffectの処理を実行する。
+ * Process Effectを統合する。
  *
- * @responsibility mergeProcessEffectに対応する入力処理と結果生成を所有する。
+ * @responsibility Process Effectの統合順序、競合条件、統合結果の境界を所有する。
  * @trace ARCH-000008
  * @input ledger: MutableLedger、action: DockerDesktopRepairEffectAction、observed: TaggedEffect
  * @returns N/A: mergeProcessEffectは戻り値を返さない。
@@ -576,9 +582,9 @@ function mergeProcessEffect(
 }
 
 /**
- * mergeFilesystemEffectの処理を実行する。
+ * Filesystem Effectを統合する。
  *
- * @responsibility mergeFilesystemEffectに対応する入力処理と結果生成を所有する。
+ * @responsibility Filesystem Effectの統合順序、競合条件、統合結果の境界を所有する。
  * @trace ARCH-000008
  * @input ledger: MutableLedger、action: DockerDesktopRepairEffectAction、observed: TaggedEffect
  * @returns N/A: mergeFilesystemEffectは戻り値を返さない。
@@ -600,9 +606,9 @@ function mergeFilesystemEffect(
 }
 
 /**
- * recordHostEffectIntentの処理を実行する。
+ * record Host Effect Intentを決定する。
  *
- * @responsibility recordHostEffectIntentに対応する入力処理と結果生成を所有する。
+ * @responsibility record Host Effect Intentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input ledger: MutableLedger、kind: "process" | "filesystem"、action: DockerDesktopRepairEffectAction
  * @returns recordHostEffectIntentの計算結果を返す。
@@ -637,9 +643,9 @@ function recordHostEffectIntent(
 }
 
 /**
- * settleHostEffectの処理を実行する。
+ * Host Effectを終端状態へ確定する。
  *
- * @responsibility settleHostEffectに対応する入力処理と結果生成を所有する。
+ * @responsibility Host Effectの確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000008
  * @input ledger: MutableLedger、kind: "process" | "filesystem"、action: DockerDesktopRepairEffectAction、observed: TaggedEffect
  * @returns settleHostEffectの計算結果を返す。
@@ -675,9 +681,9 @@ function settleHostEffect(
 }
 
 /**
- * reportの処理を実行する。
+ * docker-desktop-runtime-repairを診断結果として報告する。
  *
- * @responsibility reportに対応する入力処理と結果生成を所有する。
+ * @responsibility docker-desktop-runtime-repairの公開field、相関Identity、機密を含めない結果境界を所有する。
  * @trace ARCH-000008
  * @input status: DockerDesktopRuntimeRepairReport["status"]、reason: string、ledger: MutableLedger、operation: DockerDesktopRepairOperation | null、nativeHelperCleanupConfirmed: boolean | null、isNewRepairPermitted
  * @returns DockerDesktopRuntimeRepairReportを返す。
@@ -747,9 +753,9 @@ function report(
 }
 
 /**
- * identityの処理を実行する。
+ * identityを決定する。
  *
- * @responsibility identityに対応する入力処理と結果生成を所有する。
+ * @responsibility identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input metadata: fs.BigIntStats
  * @returns DockerDesktopRepairDirectoryIdentity | nullを返す。
@@ -779,9 +785,9 @@ function identity(
 }
 
 /**
- * observePathの処理を実行する。
+ * Pathを観測する。
  *
- * @responsibility observePathに対応する入力処理と結果生成を所有する。
+ * @responsibility Pathの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: string
  * @returns PathObservationを返す。
@@ -812,9 +818,9 @@ function observePath(target: string): PathObservation {
 }
 
 /**
- * observePathUsingの処理を実行する。
+ * Path Usingを観測する。
  *
- * @responsibility observePathUsingに対応する入力処理と結果生成を所有する。
+ * @responsibility Path Usingの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、target: string
  * @returns PathObservationを返す。
@@ -839,9 +845,9 @@ function observePathUsing(
 }
 
 /**
- * sameIdentityの処理を実行する。
+ * Identityが同一かを判定する。
  *
- * @responsibility sameIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Identityの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000008
  * @input left: DockerDesktopRepairDirectoryIdentity、right: DockerDesktopRepairDirectoryIdentity
  * @returns sameIdentityの計算結果を返す。
@@ -866,9 +872,9 @@ function sameIdentity(
 }
 
 /**
- * samePreparedAuthorityの処理を実行する。
+ * Prepared Authorityが同一かを判定する。
  *
- * @responsibility samePreparedAuthorityに対応する入力処理と結果生成を所有する。
+ * @responsibility Prepared Authorityの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000008
  * @input left: PreparedBoundary、right: PreparedBoundary
  * @returns samePreparedAuthorityの計算結果を返す。
@@ -898,9 +904,9 @@ function samePreparedAuthority(
 }
 
 /**
- * identityAtの処理を実行する。
+ * identity Atを決定する。
  *
- * @responsibility identityAtに対応する入力処理と結果生成を所有する。
+ * @responsibility identity Atの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: string
  * @returns identityAtの計算結果を返す。
@@ -922,9 +928,9 @@ function identityAt(target: string) {
 }
 
 /**
- * preparedBoundaryの処理を実行する。
+ * prepared Boundaryを決定する。
  *
- * @responsibility preparedBoundaryに対応する入力処理と結果生成を所有する。
+ * @responsibility prepared Boundaryの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns PreparedBoundary | nullを返す。
@@ -1003,9 +1009,9 @@ function preparedBoundary(): PreparedBoundary | null {
 }
 
 /**
- * observeCurrentTrustedDockerCliの処理を実行する。
+ * Current Trusted Docker Cliを観測する。
  *
- * @responsibility observeCurrentTrustedDockerCliに対応する入力処理と結果生成を所有する。
+ * @responsibility Current Trusted Docker Cliの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns observeCurrentTrustedDockerCliの計算結果を返す。
@@ -1027,9 +1033,9 @@ function observeCurrentTrustedDockerCli() {
 }
 
 /**
- * isKnownUnavailableDockerServerOutputの処理を実行する。
+ * Known Unavailable Docker Server 出力かを判定する。
  *
- * @responsibility isKnownUnavailableDockerServerOutputに対応する入力処理と結果生成を所有する。
+ * @responsibility Known Unavailable Docker Server 出力の判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input stdout: string
  * @returns isKnownUnavailableDockerServerOutputの計算結果を返す。
@@ -1054,9 +1060,9 @@ function isKnownUnavailableDockerServerOutput(stdout: string) {
 }
 
 /**
- * observeEngineの処理を実行する。
+ * Engineを観測する。
  *
- * @responsibility observeEngineに対応する入力処理と結果生成を所有する。
+ * @responsibility Engineの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input boundary: PreparedBoundary
  * @returns EngineObservationを返す。
@@ -1110,9 +1116,9 @@ function observeEngine(boundary: PreparedBoundary): EngineObservation {
 }
 
 /**
- * observeDockerDesktopUnavailableResultの処理を実行する。
+ * Docker Desktop Unavailable 結果を観測する。
  *
- * @responsibility observeDockerDesktopUnavailableResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Unavailable 結果の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input result: Readonly<{ pid: number | undefined; error?: Error | undefined; signal: NodeJS.Signals | null; status: number | null; stdout: unknown; }>、probeEnginePipe: () => void
  * @returns EngineObservationを返す。
@@ -1158,9 +1164,9 @@ function observeDockerDesktopUnavailableResult(
 }
 
 /**
- * observeDockerDesktopEngineResultの処理を実行する。
+ * Docker Desktop Engine 結果を観測する。
  *
- * @responsibility observeDockerDesktopEngineResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Engine 結果の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input result: Readonly<{ pid: number | undefined; error?: Error | undefined; signal: NodeJS.Signals | null; status: number | null; stdout: unknown; stderr: unknown; }>、expectedEngineVersion: string、probeEnginePipe: () => void
  * @returns EngineObservationを返す。
@@ -1218,9 +1224,9 @@ export function observeDockerDesktopEngineResult(
 }
 
 /**
- * RuntimeDirectoryEntryObservationが扱う値の構造を表す。
+ * docker-desktop-runtime-repairで使用するRuntime Directory Entry Observationの値契約を定義する。
  *
- * @responsibility RuntimeDirectoryEntryObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime Directory Entry ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RuntimeDirectoryEntryObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeDirectoryEntryObservationで宣言した値と責務の対応を維持する。
@@ -1235,9 +1241,9 @@ type RuntimeDirectoryEntryObservation = Readonly<{
 }>;
 
 /**
- * RuntimeDirectoryLockObservationDependenciesが扱う値の構造を表す。
+ * docker-desktop-runtime-repairで使用するRuntime Directory Lock Observation Dependenciesの値契約を定義する。
  *
- * @responsibility RuntimeDirectoryLockObservationDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime Directory Lock Observation DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RuntimeDirectoryLockObservationDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeDirectoryLockObservationDependenciesで宣言した値と責務の対応を維持する。
@@ -1254,9 +1260,9 @@ type RuntimeDirectoryLockObservationDependencies = Readonly<{
 }>;
 
 /**
- * sameRuntimeDirectoryEntriesの処理を実行する。
+ * Runtime Directory Entriesが同一かを判定する。
  *
- * @responsibility sameRuntimeDirectoryEntriesに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Directory Entriesの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000008
  * @input beforeEntries: readonly RuntimeDirectoryEntryObservation[]、afterEntries: readonly RuntimeDirectoryEntryObservation[]
  * @returns sameRuntimeDirectoryEntriesの計算結果を返す。
@@ -1283,9 +1289,9 @@ function sameRuntimeDirectoryEntries(
 }
 
 /**
- * validRuntimeDirectoryEntryの処理を実行する。
+ * Runtime Directory Entryが有効か判定する。
  *
- * @responsibility validRuntimeDirectoryEntryに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Directory Entryの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input entry: RuntimeDirectoryEntryObservation
  * @returns validRuntimeDirectoryEntryの計算結果を返す。
@@ -1311,9 +1317,9 @@ function validRuntimeDirectoryEntry(entry: RuntimeDirectoryEntryObservation) {
 }
 
 /**
- * observeDockerDesktopRuntimeDirectoryLockUsingDependenciesの処理を実行する。
+ * Docker Desktop Runtime Directory Lock Using Dependenciesを観測する。
  *
- * @responsibility observeDockerDesktopRuntimeDirectoryLockUsingDependenciesに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Runtime Directory Lock Using Dependenciesの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input boundary: PreparedBoundary、dependencies: RuntimeDirectoryLockObservationDependencies
  * @returns observeDockerDesktopRuntimeDirectoryLockUsingDependenciesの計算結果を返す。
@@ -1373,9 +1379,9 @@ export function observeDockerDesktopRuntimeDirectoryLockUsingDependencies(
 }
 
 /**
- * observeKnownSocketFailureの処理を実行する。
+ * Known Socket 失敗を観測する。
  *
- * @responsibility observeKnownSocketFailureに対応する入力処理と結果生成を所有する。
+ * @responsibility Known Socket 失敗の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input boundary: PreparedBoundary
  * @returns observeKnownSocketFailureの計算結果を返す。
@@ -1412,9 +1418,9 @@ function observeKnownSocketFailure(boundary: PreparedBoundary) {
 }
 
 /**
- * observeRuntimeDirectoryLockの処理を実行する。
+ * Runtime Directory Lockを観測する。
  *
- * @responsibility observeRuntimeDirectoryLockに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Directory Lockの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input directory: string
  * @returns observeRuntimeDirectoryLockの計算結果を返す。
@@ -1449,9 +1455,9 @@ function observeRuntimeDirectoryLock(directory: string) {
 }
 
 /**
- * officialShutdownの処理を実行する。
+ * official Shutdownを決定する。
  *
- * @responsibility officialShutdownに対応する入力処理と結果生成を所有する。
+ * @responsibility official Shutdownの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input _boundary: PreparedBoundary、_operation: DockerDesktopRepairOperation、session: DockerDesktopRepairNativeHelperSession
  * @returns Promise<TaggedEffect>を返す。
@@ -1484,9 +1490,9 @@ async function officialShutdown(
 }
 
 /**
- * terminateDockerWslの処理を実行する。
+ * Docker Wslを終了させる。
  *
- * @responsibility terminateDockerWslに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Wslの終了Authority、対象Process、終了確認境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns TaggedEffectを返す。
@@ -1525,9 +1531,9 @@ function terminateDockerWsl(): TaggedEffect {
 }
 
 /**
- * renameRunDirectoryの処理を実行する。
+ * rename Run Directoryを決定する。
  *
- * @responsibility renameRunDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility rename Run Directoryの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input boundary: PreparedBoundary、operation: DockerDesktopRepairOperation
  * @returns RenameOutcomeを返す。
@@ -1594,9 +1600,9 @@ function renameRunDirectory(
 }
 
 /**
- * renameRuntimeDirectoryの処理を実行する。
+ * rename Runtime Directoryを決定する。
  *
- * @responsibility renameRuntimeDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility rename Runtime Directoryの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input source: string、target: string、expectedIdentity: DockerDesktopRepairDirectoryIdentity
  * @returns RenameOutcomeを返す。
@@ -1651,9 +1657,9 @@ function renameRuntimeDirectory(
 }
 
 /**
- * awaitEngineの処理を実行する。
+ * Engineを完了まで待機する。
  *
- * @responsibility awaitEngineに対応する入力処理と結果生成を所有する。
+ * @responsibility Engineの待機条件、完了観測、Timeout境界を所有する。
  * @trace ARCH-000008
  * @input boundary: PreparedBoundary、shouldStop: () => boolean、stopDetected: Promise<void>
  * @returns Promise<EngineObservation>を返す。
@@ -1688,9 +1694,9 @@ async function awaitEngine(
 }
 
 /**
- * persistの処理を実行する。
+ * docker-desktop-runtime-repairを耐久保存する。
  *
- * @responsibility persistに対応する入力処理と結果生成を所有する。
+ * @responsibility docker-desktop-runtime-repairの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、boundary: PreparedBoundary、operation: DockerDesktopRepairOperation、stage: Parameters<RepairDependencies["persistStage"]>[2]、ledger: MutableLedger
  * @returns persistの計算結果を返す。
@@ -1765,9 +1771,9 @@ function persist(
 }
 
 /**
- * inventoryStateの処理を実行する。
+ * inventory 状態を決定する。
  *
- * @responsibility inventoryStateに対応する入力処理と結果生成を所有する。
+ * @responsibility inventory 状態の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、boundary: PreparedBoundary
  * @returns inventoryStateの計算結果を返す。
@@ -1835,9 +1841,9 @@ function inventoryState(
 }
 
 /**
- * durableInventoryStateの処理を実行する。
+ * durable Inventory 状態を決定する。
  *
- * @responsibility durableInventoryStateに対応する入力処理と結果生成を所有する。
+ * @responsibility durable Inventory 状態の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、boundary: PreparedBoundary
  * @returns durableInventoryStateの計算結果を返す。
@@ -1867,9 +1873,9 @@ function durableInventoryState(
 }
 
 /**
- * registerProcessCancellationの処理を実行する。
+ * Process Cancellationを登録する。
  *
- * @responsibility registerProcessCancellationに対応する入力処理と結果生成を所有する。
+ * @responsibility Process Cancellationの登録条件、Identity、一意性境界を所有する。
  * @trace ARCH-000008
  * @input listener: () => void
  * @returns registerProcessCancellationの計算結果を返す。
@@ -1892,9 +1898,9 @@ function registerProcessCancellation(listener: () => void) {
 }
 
 /**
- * attachCancellationの処理を実行する。
+ * attach Cancellationを決定する。
  *
- * @responsibility attachCancellationに対応する入力処理と結果生成を所有する。
+ * @responsibility attach Cancellationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input session: DockerDesktopRepairNativeHelperSession、registerCancellation
  * @returns attachCancellationの計算結果を返す。
@@ -1940,9 +1946,9 @@ function attachCancellation(
 }
 
 /**
- * EffectBoundaryVerificationが扱う値の構造を表す。
+ * docker-desktop-runtime-repairで使用するEffect Boundary Verificationの値契約を定義する。
  *
- * @responsibility EffectBoundaryVerificationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Effect Boundary VerificationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape EffectBoundaryVerificationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant EffectBoundaryVerificationで宣言した値と責務の対応を維持する。
@@ -1958,9 +1964,9 @@ type EffectBoundaryVerification =
   | "authority_changed";
 
 /**
- * effectBoundaryFailureReasonの処理を実行する。
+ * effect Boundary 失敗 Reasonを決定する。
  *
- * @responsibility effectBoundaryFailureReasonに対応する入力処理と結果生成を所有する。
+ * @responsibility effect Boundary 失敗 Reasonの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input state: Exclude<EffectBoundaryVerification, "verified">、isAfterIntent
  * @returns effectBoundaryFailureReasonの計算結果を返す。
@@ -1991,9 +1997,9 @@ function effectBoundaryFailureReason(
 }
 
 /**
- * persistFailureReasonの処理を実行する。
+ * 失敗 Reasonを耐久保存する。
  *
- * @responsibility persistFailureReasonに対応する入力処理と結果生成を所有する。
+ * @responsibility 失敗 Reasonの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input status: string、isAfterIntent
  * @returns persistFailureReasonの計算結果を返す。
@@ -2051,9 +2057,9 @@ class DockerDesktopRepairPersistenceError extends Error {
 }
 
 /**
- * throwPersistenceFailureの処理を実行する。
+ * throw Persistence 失敗を決定する。
  *
- * @responsibility throwPersistenceFailureに対応する入力処理と結果生成を所有する。
+ * @responsibility throw Persistence 失敗の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input status: string
  * @returns neverを返す。
@@ -2071,9 +2077,9 @@ function throwPersistenceFailure(status: string): never {
 }
 
 /**
- * verifyEffectBoundaryStateの処理を実行する。
+ * Effect Boundary 状態を検証する。
  *
- * @responsibility verifyEffectBoundaryStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Effect Boundary 状態の検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>
  * @returns Promise<EffectBoundaryVerification>を返す。
@@ -2113,9 +2119,9 @@ async function verifyEffectBoundaryState(
 }
 
 /**
- * verifyEffectBoundaryの処理を実行する。
+ * Effect Boundaryを検証する。
  *
- * @responsibility verifyEffectBoundaryに対応する入力処理と結果生成を所有する。
+ * @responsibility Effect Boundaryの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>
  * @returns verifyEffectBoundaryの計算結果を返す。
@@ -2145,9 +2151,9 @@ async function verifyEffectBoundary(
 }
 
 /**
- * verifyCleanupRecordBoundaryStateの処理を実行する。
+ * 清掃 記録 Boundary 状態を検証する。
  *
- * @responsibility verifyCleanupRecordBoundaryStateに対応する入力処理と結果生成を所有する。
+ * @responsibility 清掃 記録 Boundary 状態の検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession
  * @returns Promise<EffectBoundaryVerification>を返す。
@@ -2177,9 +2183,9 @@ async function verifyCleanupRecordBoundaryState(
 }
 
 /**
- * observeHelperWithinCancellationの処理を実行する。
+ * Helper Within Cancellationを観測する。
  *
- * @responsibility observeHelperWithinCancellationに対応する入力処理と結果生成を所有する。
+ * @responsibility Helper Within Cancellationの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input observe: () => Promise<T>、cancellation: ReturnType<typeof attachCancellation>、session: DockerDesktopRepairNativeHelperSession
  * @returns Promise<T | null>を返す。
@@ -2211,9 +2217,9 @@ async function observeHelperWithinCancellation<T>(
 }
 
 /**
- * inspectProcessesWithinCancellationの処理を実行する。
+ * Processes Within Cancellationを観測する。
  *
- * @responsibility inspectProcessesWithinCancellationに対応する入力処理と結果生成を所有する。
+ * @responsibility Processes Within Cancellationの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>
  * @returns inspectProcessesWithinCancellationの計算結果を返す。
@@ -2238,9 +2244,9 @@ function inspectProcessesWithinCancellation(
 }
 
 /**
- * FreshRuntimeStateが扱う値の構造を表す。
+ * docker-desktop-runtime-repairで使用するFresh Runtime 状態の値契約を定義する。
  *
- * @responsibility FreshRuntimeStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Fresh Runtime 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape FreshRuntimeStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant FreshRuntimeStateで宣言した値と責務の対応を維持する。
@@ -2257,9 +2263,9 @@ type FreshRuntimeState = Readonly<{
 }>;
 
 /**
- * observeFreshRuntimeStateの処理を実行する。
+ * Fresh Runtime 状態を観測する。
  *
- * @responsibility observeFreshRuntimeStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Fresh Runtime 状態の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation
  * @returns Promise<FreshRuntimeState>を返す。
@@ -2337,9 +2343,9 @@ async function observeFreshRuntimeState(
 }
 
 /**
- * freshReadyStateMatchesの処理を実行する。
+ * fresh Ready 状態 Matchesを決定する。
  *
- * @responsibility freshReadyStateMatchesに対応する入力処理と結果生成を所有する。
+ * @responsibility fresh Ready 状態 Matchesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input state: FreshRuntimeState、expectedRunIdentity: DockerDesktopRepairDirectoryIdentity、staleIdentity: DockerDesktopRepairDirectoryIdentity | null
  * @returns freshReadyStateMatchesの計算結果を返す。
@@ -2373,9 +2379,9 @@ function freshReadyStateMatches(
 }
 
 /**
- * historicalBrokenRuntimeCanBeRetainedForNewRepairの処理を実行する。
+ * historical Broken Runtime Can Be Retained For New Repairを決定する。
  *
- * @responsibility historicalBrokenRuntimeCanBeRetainedForNewRepairに対応する入力処理と結果生成を所有する。
+ * @responsibility historical Broken Runtime Can Be Retained For New Repairの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input state: FreshRuntimeState、lockedRunIdentity: DockerDesktopRepairDirectoryIdentity | null
  * @returns historicalBrokenRuntimeCanBeRetainedForNewRepairの計算結果を返す。
@@ -2405,9 +2411,9 @@ function historicalBrokenRuntimeCanBeRetainedForNewRepair(
 }
 
 /**
- * historicalOperationHasNoIssuedHostEffectの処理を実行する。
+ * historical Operation Has No Issued Host Effectを決定する。
  *
- * @responsibility historicalOperationHasNoIssuedHostEffectに対応する入力処理と結果生成を所有する。
+ * @responsibility historical Operation Has No Issued Host Effectの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input operation: DockerDesktopRepairOperation
  * @returns historicalOperationHasNoIssuedHostEffectの計算結果を返す。
@@ -2440,9 +2446,9 @@ function historicalOperationHasNoIssuedHostEffect(
 }
 
 /**
- * freshStoppedStateMatchesの処理を実行する。
+ * fresh Stopped 状態 Matchesを決定する。
  *
- * @responsibility freshStoppedStateMatchesに対応する入力処理と結果生成を所有する。
+ * @responsibility fresh Stopped 状態 Matchesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input state: FreshRuntimeState、operation: DockerDesktopRepairOperation
  * @returns freshStoppedStateMatchesの計算結果を返す。
@@ -2471,9 +2477,9 @@ function freshStoppedStateMatches(
 }
 
 /**
- * freshQuiescentRunStateMatchesの処理を実行する。
+ * fresh Quiescent Run 状態 Matchesを決定する。
  *
- * @responsibility freshQuiescentRunStateMatchesに対応する入力処理と結果生成を所有する。
+ * @responsibility fresh Quiescent Run 状態 Matchesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input state: FreshRuntimeState、operation: DockerDesktopRepairOperation
  * @returns freshQuiescentRunStateMatchesの計算結果を返す。
@@ -2502,9 +2508,9 @@ function freshQuiescentRunStateMatches(
 }
 
 /**
- * persistAfterLiveBoundaryの処理を実行する。
+ * After Live Boundaryを耐久保存する。
  *
- * @responsibility persistAfterLiveBoundaryに対応する入力処理と結果生成を所有する。
+ * @responsibility After Live Boundaryの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation、stage: Parameters<RepairDependencies["persistStage"]>[2]、ledger: MutableLedger、validateFresh: (state: FreshRuntimeState) => boolean
  * @returns persistAfterLiveBoundaryの計算結果を返す。
@@ -2559,9 +2565,9 @@ async function persistAfterLiveBoundary(
 }
 
 /**
- * persistHostEffectIntentの処理を実行する。
+ * Host Effect Intentを耐久保存する。
  *
- * @responsibility persistHostEffectIntentに対応する入力処理と結果生成を所有する。
+ * @responsibility Host Effect Intentの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation、kind: "process" | "filesystem"、action: DockerDesktopRepairEffectAction、ledger: MutableLedger
  * @returns persistHostEffectIntentの計算結果を返す。
@@ -2624,9 +2630,9 @@ async function persistHostEffectIntent(
 }
 
 /**
- * durableResumeAllowsHostActionの処理を実行する。
+ * durable Resume Allows Host Actionを決定する。
  *
- * @responsibility durableResumeAllowsHostActionに対応する入力処理と結果生成を所有する。
+ * @responsibility durable Resume Allows Host Actionの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input operation: DockerDesktopRepairOperation、action: Extract< DockerDesktopRepairEffectAction, | "official_shutdown" | "native_termination" | "wsl_termination" | "runtime_directory_rename" | "desktop_launch" >
  * @returns durableResumeAllowsHostActionの計算結果を返す。
@@ -2658,9 +2664,9 @@ function durableResumeAllowsHostAction(
 }
 
 /**
- * persistHostEffectSettlementの処理を実行する。
+ * Host Effect Settlementを耐久保存する。
  *
- * @responsibility persistHostEffectSettlementに対応する入力処理と結果生成を所有する。
+ * @responsibility Host Effect Settlementの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、_cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation、kind: "process" | "filesystem"、action: DockerDesktopRepairEffectAction、observed: TaggedEffect、ledger: MutableLedger
  * @returns persistHostEffectSettlementの計算結果を返す。
@@ -2708,9 +2714,9 @@ async function persistHostEffectSettlement(
 }
 
 /**
- * persistNativeTerminationObservationの処理を実行する。
+ * Native Termination Observationを耐久保存する。
  *
- * @responsibility persistNativeTerminationObservationに対応する入力処理と結果生成を所有する。
+ * @responsibility Native Termination Observationの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、operation: DockerDesktopRepairOperation、ledger: MutableLedger
  * @returns persistNativeTerminationObservationの計算結果を返す。
@@ -2765,9 +2771,9 @@ async function persistNativeTerminationObservation(
 }
 
 /**
- * HostEffectPreconditionが扱う値の構造を表す。
+ * docker-desktop-runtime-repairで使用するHost Effect Preconditionの値契約を定義する。
  *
- * @responsibility HostEffectPreconditionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Host Effect PreconditionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape HostEffectPreconditionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HostEffectPreconditionで宣言した値と責務の対応を維持する。
@@ -2789,9 +2795,9 @@ type HostEffectPrecondition = Readonly<{
 }>;
 
 /**
- * hostEffectPreconditionBlockReasonの処理を実行する。
+ * host Effect Precondition Block Reasonを決定する。
  *
- * @responsibility hostEffectPreconditionBlockReasonに対応する入力処理と結果生成を所有する。
+ * @responsibility host Effect Precondition Block Reasonの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input observation: HostEffectPrecondition、cancellation: ReturnType<typeof attachCancellation>
  * @returns hostEffectPreconditionBlockReasonの計算結果を返す。
@@ -2822,9 +2828,9 @@ function hostEffectPreconditionBlockReason(
 }
 
 /**
- * observeHostEffectPreconditionの処理を実行する。
+ * Host Effect Preconditionを観測する。
  *
- * @responsibility observeHostEffectPreconditionに対応する入力処理と結果生成を所有する。
+ * @responsibility Host Effect Preconditionの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation、action: Extract< DockerDesktopRepairEffectAction, | "official_shutdown" | "native_termination" | "wsl_termination" | "runtime_directory_rename" | "desktop_launch" >
  * @returns Promise<HostEffectPrecondition>を返す。
@@ -2972,9 +2978,9 @@ async function observeHostEffectPrecondition(
 }
 
 /**
- * settleUnissuedIntentAfterFreshObservationの処理を実行する。
+ * Unissued Intent After Fresh Observationを終端状態へ確定する。
  *
- * @responsibility settleUnissuedIntentAfterFreshObservationに対応する入力処理と結果生成を所有する。
+ * @responsibility Unissued Intent After Fresh Observationの確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation、kind: "process" | "filesystem"、action: DockerDesktopRepairEffectAction、ledger: MutableLedger、observation: HostEffectPrecondition
  * @returns settleUnissuedIntentAfterFreshObservationの計算結果を返す。
@@ -3060,9 +3066,9 @@ async function settleUnissuedIntentAfterFreshObservation(
 }
 
 /**
- * observeHistoricalRepairの処理を実行する。
+ * Historical Repairを観測する。
  *
- * @responsibility observeHistoricalRepairに対応する入力処理と結果生成を所有する。
+ * @responsibility Historical Repairの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation
  * @returns observeHistoricalRepairの計算結果を返す。
@@ -3236,9 +3242,9 @@ async function observeHistoricalRepair(
 }
 
 /**
- * originalRepairChainIsTerminalの処理を実行する。
+ * original Repair Chain Is Terminalを決定する。
  *
- * @responsibility originalRepairChainIsTerminalに対応する入力処理と結果生成を所有する。
+ * @responsibility original Repair Chain Is Terminalの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input operation: DockerDesktopRepairOperation
  * @returns booleanを返す。
@@ -3262,9 +3268,9 @@ function originalRepairChainIsTerminal(
 }
 
 /**
- * HistoricalAdoptionRouteが扱う値の構造を表す。
+ * docker-desktop-runtime-repairで使用するHistorical Adoption Routeの値契約を定義する。
  *
- * @responsibility HistoricalAdoptionRouteに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Historical Adoption RouteのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape HistoricalAdoptionRouteが表すProperty、識別子およびRelationを型として固定する。
  * @invariant HistoricalAdoptionRouteで宣言した値と責務の対応を維持する。
@@ -3280,9 +3286,9 @@ type HistoricalAdoptionRoute =
   | "session_handoff";
 
 /**
- * sameRepairOperationCoreの処理を実行する。
+ * Repair Operation Coreが同一かを判定する。
  *
- * @responsibility sameRepairOperationCoreに対応する入力処理と結果生成を所有する。
+ * @responsibility Repair Operation Coreの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000008
  * @input before: DockerDesktopRepairOperation、after: DockerDesktopRepairOperation、boundary: PreparedBoundary
  * @returns sameRepairOperationCoreの計算結果を返す。
@@ -3322,9 +3328,9 @@ function sameRepairOperationCore(
 }
 
 /**
- * classifyDockerDesktopRepairHistoricalAdoptionRouteの処理を実行する。
+ * Docker Desktop Repair Historical Adoption Routeを分類する。
  *
- * @responsibility classifyDockerDesktopRepairHistoricalAdoptionRouteに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Historical Adoption Routeの分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000008
  * @input operation: DockerDesktopRepairOperation、boundary: PreparedBoundary
  * @returns HistoricalAdoptionRouteを返す。
@@ -3353,9 +3359,9 @@ export function classifyDockerDesktopRepairHistoricalAdoptionRoute(
 }
 
 /**
- * validateDockerDesktopRepairHistoricalAdoptionResultの処理を実行する。
+ * Docker Desktop Repair Historical Adoption 結果の契約を検証する。
  *
- * @responsibility validateDockerDesktopRepairHistoricalAdoptionResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Historical Adoption 結果の必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input route: HistoricalAdoptionRoute、before: DockerDesktopRepairOperation、after: DockerDesktopRepairOperation、boundary: PreparedBoundary
  * @returns validateDockerDesktopRepairHistoricalAdoptionResultの計算結果を返す。
@@ -3426,9 +3432,9 @@ export function validateDockerDesktopRepairHistoricalAdoptionResult(
 }
 
 /**
- * validateDockerDesktopRepairHistoricalClosureResultの処理を実行する。
+ * Docker Desktop Repair Historical Closure 結果の契約を検証する。
  *
- * @responsibility validateDockerDesktopRepairHistoricalClosureResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Repair Historical Closure 結果の必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input before: DockerDesktopRepairOperation、after: DockerDesktopRepairOperation、boundary: PreparedBoundary、expected: Readonly<{ liveRunIdentity: DockerDesktopRepairDirectoryIdentity; staleState: "absent" | "retained"; }>
  * @returns validateDockerDesktopRepairHistoricalClosureResultの計算結果を返す。
@@ -3481,9 +3487,9 @@ export function validateDockerDesktopRepairHistoricalClosureResult(
 }
 
 /**
- * continuationEffectの処理を実行する。
+ * continuation Effectを決定する。
  *
- * @responsibility continuationEffectに対応する入力処理と結果生成を所有する。
+ * @responsibility continuation Effectの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input continuation: DockerDesktopRepairContinuation、action: DockerDesktopRepairContinuationAction
  * @returns continuationEffectの計算結果を返す。
@@ -3504,9 +3510,9 @@ function continuationEffect(
 }
 
 /**
- * exactRetainedDirectoryの処理を実行する。
+ * Retained Directoryが完全一致するか判定する。
  *
- * @responsibility exactRetainedDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Retained Directoryの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、source: string、target: string、identityValue: DockerDesktopRepairDirectoryIdentity
  * @returns exactRetainedDirectoryの計算結果を返す。
@@ -3536,9 +3542,9 @@ function exactRetainedDirectory(
 }
 
 /**
- * retainedDirectoryWithReplacementの処理を実行する。
+ * retained Directory With Replacementを決定する。
  *
- * @responsibility retainedDirectoryWithReplacementに対応する入力処理と結果生成を所有する。
+ * @responsibility retained Directory With Replacementの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、source: string、target: string、identityValue: DockerDesktopRepairDirectoryIdentity
  * @returns retainedDirectoryWithReplacementの計算結果を返す。
@@ -3570,9 +3576,9 @@ function retainedDirectoryWithReplacement(
 }
 
 /**
- * continuationEffectsConfirmedの処理を実行する。
+ * continuation Effects Confirmedを決定する。
  *
- * @responsibility continuationEffectsConfirmedに対応する入力処理と結果生成を所有する。
+ * @responsibility continuation Effects Confirmedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input continuation: DockerDesktopRepairContinuation
  * @returns continuationEffectsConfirmedの計算結果を返す。
@@ -3609,9 +3615,9 @@ function continuationEffectsConfirmed(
 }
 
 /**
- * continuationRuntimeGenerationsMatchの処理を実行する。
+ * continuation Runtime Generations Matchを決定する。
  *
- * @responsibility continuationRuntimeGenerationsMatchに対応する入力処理と結果生成を所有する。
+ * @responsibility continuation Runtime Generations Matchの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、boundary: PreparedBoundary、continuation: DockerDesktopRepairContinuation
  * @returns continuationRuntimeGenerationsMatchの計算結果を返す。
@@ -3647,9 +3653,9 @@ function continuationRuntimeGenerationsMatch(
 }
 
 /**
- * continuationHostQuiescenceの処理を実行する。
+ * continuation Host Quiescenceを決定する。
  *
- * @responsibility continuationHostQuiescenceに対応する入力処理と結果生成を所有する。
+ * @responsibility continuation Host Quiescenceの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>
  * @returns continuationHostQuiescenceの計算結果を返す。
@@ -3680,9 +3686,9 @@ async function continuationHostQuiescence(
 }
 
 /**
- * continueFailedDockerDesktopLaunchの処理を実行する。
+ * continue Failed Docker Desktop Launchを決定する。
  *
- * @responsibility continueFailedDockerDesktopLaunchに対応する入力処理と結果生成を所有する。
+ * @responsibility continue Failed Docker Desktop Launchの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation
  * @returns continueFailedDockerDesktopLaunchの計算結果を返す。
@@ -4303,9 +4309,9 @@ async function continueFailedDockerDesktopLaunch(
 }
 
 /**
- * failedLaunchContinuationRequiredの処理を実行する。
+ * failed Launch Continuation Requiredを決定する。
  *
- * @responsibility failedLaunchContinuationRequiredに対応する入力処理と結果生成を所有する。
+ * @responsibility failed Launch Continuation Requiredの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input operation: DockerDesktopRepairOperation
  * @returns failedLaunchContinuationRequiredの計算結果を返す。
@@ -4334,9 +4340,9 @@ function failedLaunchContinuationRequired(
 }
 
 /**
- * executeRepairの処理を実行する。
+ * Repairを実行する。
  *
- * @responsibility executeRepairに対応する入力処理と結果生成を所有する。
+ * @responsibility Repairの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、existing: DockerDesktopRepairOperation | null
  * @returns executeRepairの計算結果を返す。
@@ -6049,9 +6055,9 @@ async function executeRepair(
 }
 
 /**
- * repairWindowsDockerDesktopRuntimeUsingDependenciesの処理を実行する。
+ * repair Windows Docker Desktop Runtime Using Dependenciesを決定する。
  *
- * @responsibility repairWindowsDockerDesktopRuntimeUsingDependenciesに対応する入力処理と結果生成を所有する。
+ * @responsibility repair Windows Docker Desktop Runtime Using Dependenciesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies
  * @returns Promise<DockerDesktopRuntimeRepairReport>を返す。
@@ -6191,9 +6197,9 @@ export async function repairWindowsDockerDesktopRuntimeUsingDependencies(
 }
 
 /**
- * closeWindowsDockerDesktopRepairUsingDependenciesの処理を実行する。
+ * Windows Docker Desktop Repair Using Dependenciesを終了する。
  *
- * @responsibility closeWindowsDockerDesktopRepairUsingDependenciesに対応する入力処理と結果生成を所有する。
+ * @responsibility Windows Docker Desktop Repair Using Dependenciesの終了条件、資源解放、終了不能時の境界を所有する。
  * @trace ARCH-000008
  * @input repairId: unknown、dependencies: RepairDependencies
  * @returns Promise<DockerDesktopRuntimeRepairReport>を返す。
@@ -6650,9 +6656,9 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
 }
 
 /**
- * adoptWindowsDockerDesktopRepairUsingDependenciesの処理を実行する。
+ * Windows Docker Desktop Repair Using Dependenciesを引き継ぐ。
  *
- * @responsibility adoptWindowsDockerDesktopRepairUsingDependenciesに対応する入力処理と結果生成を所有する。
+ * @responsibility Windows Docker Desktop Repair Using Dependenciesの引継ぎ条件、Identity結合、拒否境界を所有する。
  * @trace ARCH-000008
  * @input repairId: unknown、originRoot: unknown、dependencies: RepairDependencies
  * @returns Promise<DockerDesktopRuntimeRepairReport>を返す。
@@ -6905,9 +6911,9 @@ const productionDependencies: RepairDependencies = Object.freeze({
 });
 
 /**
- * adoptRuntimeOwnedWindowsDockerDesktopRepairの処理を実行する。
+ * Runtime 所有 Windows Docker Desktop Repairを引き継ぐ。
  *
- * @responsibility adoptRuntimeOwnedWindowsDockerDesktopRepairに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Windows Docker Desktop Repairの引継ぎ条件、Identity結合、拒否境界を所有する。
  * @trace ARCH-000008
  * @input repairId: string、originRoot: string
  * @returns adoptRuntimeOwnedWindowsDockerDesktopRepairの計算結果を返す。
@@ -6932,9 +6938,9 @@ export function adoptRuntimeOwnedWindowsDockerDesktopRepair(
 }
 
 /**
- * repairRuntimeOwnedWindowsDockerDesktopRuntimeの処理を実行する。
+ * repair Runtime 所有 Windows Docker Desktop Runtimeを決定する。
  *
- * @responsibility repairRuntimeOwnedWindowsDockerDesktopRuntimeに対応する入力処理と結果生成を所有する。
+ * @responsibility repair Runtime 所有 Windows Docker Desktop Runtimeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns repairRuntimeOwnedWindowsDockerDesktopRuntimeの計算結果を返す。
@@ -6954,9 +6960,9 @@ export function repairRuntimeOwnedWindowsDockerDesktopRuntime() {
 }
 
 /**
- * closeRuntimeOwnedWindowsDockerDesktopRepairの処理を実行する。
+ * Runtime 所有 Windows Docker Desktop Repairを終了する。
  *
- * @responsibility closeRuntimeOwnedWindowsDockerDesktopRepairに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Windows Docker Desktop Repairの終了条件、資源解放、終了不能時の境界を所有する。
  * @trace ARCH-000008
  * @input repairId: unknown
  * @returns closeRuntimeOwnedWindowsDockerDesktopRepairの計算結果を返す。
@@ -6977,9 +6983,9 @@ export function closeRuntimeOwnedWindowsDockerDesktopRepair(repairId: unknown) {
 }
 
 /**
- * describeDockerDesktopRuntimeRepairContractの処理を実行する。
+ * Docker Desktop Runtime Repair 契約の公開契約を記述する。
  *
- * @responsibility describeDockerDesktopRuntimeRepairContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Desktop Runtime Repair 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeDockerDesktopRuntimeRepairContractの計算結果を返す。

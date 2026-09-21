@@ -1,3 +1,9 @@
+/**
+ * external-send-policy-runtimeに属する責務をまとめる。
+ *
+ * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000015
+ */
 import { createHash } from "node:crypto";
 
 import { EXTERNAL_SEND_POLICY_RELATIVE_PATH } from "../../../runtime-data/src/index.ts";
@@ -51,9 +57,9 @@ const PURPOSES = Object.freeze([
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._/:@+-]{0,255}$/u;
 
 /**
- * Providerが扱う値の構造を表す。
+ * external-send-policy-runtimeで使用するProviderの値契約を定義する。
  *
- * @responsibility Providerに必要な値と制約を一つの型契約として保持する。
+ * @responsibility ProviderのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Providerで宣言した値と責務の対応を維持する。
@@ -63,9 +69,9 @@ const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._/:@+-]{0,255}$/u;
  */
 type Provider = "codex" | "claude";
 /**
- * Destinationが扱う値の構造を表す。
+ * external-send-policy-runtimeで使用するDestinationの値契約を定義する。
  *
- * @responsibility Destinationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility DestinationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape Destinationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Destinationで宣言した値と責務の対応を維持する。
@@ -85,9 +91,9 @@ type Destination = Readonly<{
   boundaryResolution: "interactive_local_user_confirmation_required";
 }>;
 /**
- * ExternalSendPolicyが扱う値の構造を表す。
+ * external-send-policy-runtimeで使用するExternal Send Policyの値契約を定義する。
  *
- * @responsibility ExternalSendPolicyに必要な値と制約を一つの型契約として保持する。
+ * @responsibility External Send PolicyのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape ExternalSendPolicyが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ExternalSendPolicyで宣言した値と責務の対応を維持する。
@@ -110,9 +116,9 @@ export type ExternalSendPolicy = Readonly<{
   sourceFileHash: string;
 }>;
 /**
- * PolicyRecordが扱う値の構造を表す。
+ * external-send-policy-runtimeで使用するPolicy 記録の値契約を定義する。
  *
- * @responsibility PolicyRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Policy 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape PolicyRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant PolicyRecordで宣言した値と責務の対応を維持する。
@@ -130,9 +136,9 @@ type PolicyRecord = Readonly<{
 const policies = new WeakMap<object, PolicyRecord>();
 
 /**
- * safeIdentifierの処理を実行する。
+ * Identifierを安全条件の下で処理する。
  *
- * @responsibility safeIdentifierに対応する入力処理と結果生成を所有する。
+ * @responsibility Identifierの安全条件、拒否条件、終了結果境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown
  * @returns safeIdentifierの計算結果を返す。
@@ -150,9 +156,9 @@ function safeIdentifier(value: unknown) {
 }
 
 /**
- * normalizeDestinationの処理を実行する。
+ * Destinationを固定Schemaへ正規化する。
  *
- * @responsibility normalizeDestinationに対応する入力処理と結果生成を所有する。
+ * @responsibility Destinationの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000015
  * @input raw: unknown
  * @returns Destination | nullを返す。
@@ -235,9 +241,9 @@ function normalizeDestination(raw: unknown): Destination | null {
 }
 
 /**
- * canonicalPolicyPayloadの処理を実行する。
+ * canonical Policy Payloadを決定する。
  *
- * @responsibility canonicalPolicyPayloadに対応する入力処理と結果生成を所有する。
+ * @responsibility canonical Policy Payloadの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input policy: Omit<ExternalSendPolicy, "policyHash">
  * @returns canonicalPolicyPayloadの計算結果を返す。
@@ -279,9 +285,9 @@ function canonicalPolicyPayload(
 }
 
 /**
- * compileExternalSendPolicyCandidateの処理を実行する。
+ * External Send Policy 候補を機械利用可能な契約へ変換する。
  *
- * @responsibility compileExternalSendPolicyCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility External Send Policy 候補の入力Schema、決定論的変換、変換不能時の拒否境界を所有する。
  * @trace ARCH-000015
  * @input raw: unknown、sourceRevision: string、sourceFileHash: string
  * @returns ExternalSendPolicy | nullを返す。
@@ -356,9 +362,9 @@ export function compileExternalSendPolicyCandidate(
 }
 
 /**
- * resolveRuntimeOwnedExternalSendPolicyの処理を実行する。
+ * Runtime 所有 External Send Policyを一意に解決する。
  *
- * @responsibility resolveRuntimeOwnedExternalSendPolicyに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 External Send Policyの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000015
  * @input managementCapability: unknown、repositoryBindingCapability: unknown
  * @returns resolveRuntimeOwnedExternalSendPolicyの計算結果を返す。
@@ -464,9 +470,9 @@ export function resolveRuntimeOwnedExternalSendPolicy(
 }
 
 /**
- * verifyRuntimeOwnedExternalSendPolicyの処理を実行する。
+ * Runtime 所有 External Send Policyを検証する。
  *
- * @responsibility verifyRuntimeOwnedExternalSendPolicyに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 External Send Policyの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000015
  * @input capability: unknown、managementCapability: unknown、repositoryBindingCapability: unknown
  * @returns verifyRuntimeOwnedExternalSendPolicyの計算結果を返す。
@@ -507,9 +513,9 @@ export function verifyRuntimeOwnedExternalSendPolicy(
 }
 
 /**
- * describeExternalSendPolicyRuntimeContractの処理を実行する。
+ * External Send Policy Runtime 契約の公開契約を記述する。
  *
- * @responsibility describeExternalSendPolicyRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @responsibility External Send Policy Runtime 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeExternalSendPolicyRuntimeContractの計算結果を返す。

@@ -6,7 +6,7 @@
  * @trace AIT-IT-008
  * @level IT
  * @scope artifact-signing、private-key-reference、secret-input、ed25519
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 import assert from "node:assert/strict";
 import { createPublicKey, generateKeyPairSync, verify } from "node:crypto";
@@ -34,7 +34,7 @@ const PASSPHRASE = "artifact-signing-test-passphrase";
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-artifact-signing-"));
@@ -67,7 +67,7 @@ function fixture(t: test.TestContext) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("鍵参照を秘密入力前に固定し、任意byte列だけを署名する", (t) => {
   const { pair, privateKeyPath, prohibitedRoot } = fixture(t);
@@ -123,7 +123,7 @@ test("鍵参照を秘密入力前に固定し、任意byte列だけを署名す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("CLIとenvに共通の鍵参照preflightが欠落、directory、repository内、差替えを拒否する", (t) => {
   const { root, privateKeyPath, prohibitedRoot } = fixture(t);
@@ -204,7 +204,7 @@ test("CLIとenvに共通の鍵参照preflightが欠落、directory、repository�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("preflightは秘密鍵byteを読まず、読取り途中の失敗では確保済みbyteを消去する", (t) => {
   const { pair, privateKeyPath, prohibitedRoot } = fixture(t);
@@ -308,7 +308,7 @@ test("preflightは秘密鍵byteを読まず、読取り途中の失敗では確�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("hidden inputはTTYを要求し、取消とEOFで端末状態を必ず復元する", async () => {
   /**
@@ -321,7 +321,7 @@ test("hidden inputはTTYを要求し、取消とEOFで端末状態を必ず復�
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
    */
   function terminal(
     isInputTTY = true,
@@ -343,7 +343,7 @@ test("hidden inputはTTYを要求し、取消とEOFで端末状態を必ず復�
      * @observation 返却値、生成fixtureまたは観測値を取得する。
      * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
      * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-     * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+     * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
      */
     const observe = (operation: string) => {
       calls.push(operation);
@@ -466,7 +466,7 @@ test("hidden inputはTTYを要求し、取消とEOFで端末状態を必ず復�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
  */
 test("env fileは鍵Pathの構文と一意性だけを解決し、鍵の存在確認を再定義しない", (t) => {
   const root = fs.mkdtempSync(

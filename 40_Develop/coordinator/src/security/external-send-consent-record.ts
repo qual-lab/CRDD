@@ -1,3 +1,9 @@
+/**
+ * external-send-consent-recordに属する責務をまとめる。
+ *
+ * @responsibility exactKeysを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000015
+ */
 export const EXTERNAL_SEND_ACTIVE_CONSENT_PREFIX =
   "external-send-consent-active-v2-";
 export const EXTERNAL_SEND_CONSENT_SCHEMA =
@@ -30,9 +36,9 @@ const RECORD_KEYS = Object.freeze([
 ]);
 
 /**
- * exactKeysの処理を実行する。
+ * Keysが完全一致するか判定する。
  *
- * @responsibility exactKeysに対応する入力処理と結果生成を所有する。
+ * @responsibility Keysの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown、keys: readonly string[]
  * @returns exactKeysの計算結果を返す。
@@ -58,9 +64,9 @@ function exactKeys(value: unknown, keys: readonly string[]) {
 }
 
 /**
- * parseExternalSendConsentActiveEntryNameの処理を実行する。
+ * External Send Consent Active Entry Nameを構造化値へ解析する。
  *
- * @responsibility parseExternalSendConsentActiveEntryNameに対応する入力処理と結果生成を所有する。
+ * @responsibility External Send Consent Active Entry Nameの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown
  * @returns parseExternalSendConsentActiveEntryNameの計算結果を返す。
@@ -87,9 +93,9 @@ export function parseExternalSendConsentActiveEntryName(value: unknown) {
 }
 
 /**
- * externalSendConsentActiveRecordNameの処理を実行する。
+ * external Send Consent Active 記録 Nameを決定する。
  *
- * @responsibility externalSendConsentActiveRecordNameに対応する入力処理と結果生成を所有する。
+ * @responsibility external Send Consent Active 記録 Nameの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input boundaryHash: unknown、generation: unknown
  * @returns externalSendConsentActiveRecordNameの計算結果を返す。
@@ -115,9 +121,9 @@ export function externalSendConsentActiveRecordName(
 }
 
 /**
- * isExternalSendConsentRecordShapeの処理を実行する。
+ * External Send Consent 記録 Shapeかを判定する。
  *
- * @responsibility isExternalSendConsentRecordShapeに対応する入力処理と結果生成を所有する。
+ * @responsibility External Send Consent 記録 Shapeの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000015
  * @input value: unknown
  * @returns isExternalSendConsentRecordShapeの計算結果を返す。

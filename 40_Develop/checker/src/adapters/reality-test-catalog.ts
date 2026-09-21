@@ -1,3 +1,9 @@
+/**
+ * reality-test-catalogに属する責務をまとめる。
+ *
+ * @responsibility RegisteredRealityTestを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000001
+ */
 import {
   createFilesystemRepositoryObservationPort,
   type RepositoryObservationPort,
@@ -7,9 +13,9 @@ import type { VerifiedRepositoryRoot } from "../../../version-control/src/reposi
 import type { CheckerRealityFinding } from "./reality-traceability.ts";
 
 /**
- * RegisteredRealityTestが扱う値の構造を表す。
+ * reality-test-catalogで使用するRegistered Reality Testの値契約を定義する。
  *
- * @responsibility RegisteredRealityTestに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Registered Reality TestのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000001
  * @shape RegisteredRealityTestが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RegisteredRealityTestで宣言した値と責務の対応を維持する。
@@ -23,9 +29,9 @@ export type RegisteredRealityTest = Readonly<{
 }>;
 
 /**
- * readRegisteredRealityTestsの処理を実行する。
+ * Registered Reality Testsを読み取る。
  *
- * @responsibility readRegisteredRealityTestsに対応する入力処理と結果生成を所有する。
+ * @responsibility Registered Reality Testsの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000001
  * @input capability: VerifiedRepositoryRoot
  * @returns ReturnType<typeof readRegisteredRealityTestsFromRepository>を返す。
@@ -47,9 +53,9 @@ export function readRegisteredRealityTests(
 }
 
 /**
- * readRegisteredRealityTestsFromRepositoryの処理を実行する。
+ * Registered Reality Tests From Repositoryを読み取る。
  *
- * @responsibility readRegisteredRealityTestsFromRepositoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Registered Reality Tests From Repositoryの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000001
  * @input repository: RepositoryObservationPort
  * @returns Readonly<{ testsByPath: ReadonlyMap<string, RegisteredRealityTest> | null; findings: readonly CheckerRealityFinding[]; }>を返す。

@@ -1,3 +1,9 @@
+/**
+ * filesystem-repository-observerに属する責務をまとめる。
+ *
+ * @responsibility FilesystemObservationOperationsを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import fs from "node:fs";
 import path from "node:path";
 
@@ -8,9 +14,9 @@ import type {
 } from "./index.ts";
 
 /**
- * FilesystemObservationOperationsが扱う値の構造を表す。
+ * filesystem-repository-observerで使用するFilesystem Observation Operationsの値契約を定義する。
  *
- * @responsibility FilesystemObservationOperationsに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Filesystem Observation OperationsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape FilesystemObservationOperationsが表すProperty、識別子およびRelationを型として固定する。
  * @invariant FilesystemObservationOperationsで宣言した値と責務の対応を維持する。
@@ -31,9 +37,9 @@ export type FilesystemObservationOperations = Readonly<{
 }>;
 
 /**
- * RepositoryRootBindingが扱う値の構造を表す。
+ * filesystem-repository-observerで使用するRepository Root Bindingの値契約を定義する。
  *
- * @responsibility RepositoryRootBindingに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Repository Root BindingのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RepositoryRootBindingが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepositoryRootBindingで宣言した値と責務の対応を維持する。
@@ -77,9 +83,9 @@ const defaultOperations: FilesystemObservationOperations = {
 };
 
 /**
- * isFullyQualifiedPathの処理を実行する。
+ * Fully Qualified Pathかを判定する。
  *
- * @responsibility isFullyQualifiedPathに対応する入力処理と結果生成を所有する。
+ * @responsibility Fully Qualified Pathの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input candidate: string、flavor: RepositoryRootBinding["pathFlavor"]
  * @returns booleanを返す。
@@ -105,9 +111,9 @@ function isFullyQualifiedPath(
 }
 
 /**
- * samePathの処理を実行する。
+ * Pathが同一かを判定する。
  *
- * @responsibility samePathに対応する入力処理と結果生成を所有する。
+ * @responsibility Pathの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000008
  * @input left: string、right: string
  * @returns booleanを返す。
@@ -130,9 +136,9 @@ function samePath(left: string, right: string): boolean {
 }
 
 /**
- * validateRelativePathの処理を実行する。
+ * Relative Pathの契約を検証する。
  *
- * @responsibility validateRelativePathに対応する入力処理と結果生成を所有する。
+ * @responsibility Relative Pathの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input relativePath: string
  * @returns readonly string[] | nullを返す。
@@ -163,9 +169,9 @@ function validateRelativePath(relativePath: string): readonly string[] | null {
 }
 
 /**
- * isContainedの処理を実行する。
+ * Containedかを判定する。
  *
- * @responsibility isContainedに対応する入力処理と結果生成を所有する。
+ * @responsibility Containedの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input root: string、target: string
  * @returns booleanを返す。
@@ -189,9 +195,9 @@ function isContained(root: string, target: string): boolean {
 }
 
 /**
- * sameFileIdentityの処理を実行する。
+ * File Identityが同一かを判定する。
  *
- * @responsibility sameFileIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility File Identityの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000008
  * @input left: fs.Stats、right: fs.Stats
  * @returns booleanを返す。
@@ -215,9 +221,9 @@ function sameFileIdentity(left: fs.Stats, right: fs.Stats): boolean {
 }
 
 /**
- * directoryEntryKindの処理を実行する。
+ * directory Entry Kindを決定する。
  *
- * @responsibility directoryEntryKindに対応する入力処理と結果生成を所有する。
+ * @responsibility directory Entry Kindの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input entry: fs.Dirent
  * @returns directoryEntryKindの計算結果を返す。
@@ -238,9 +244,9 @@ function directoryEntryKind(entry: fs.Dirent) {
 }
 
 /**
- * invalidFileの処理を実行する。
+ * Fileを不正結果として構築する。
  *
- * @responsibility invalidFileに対応する入力処理と結果生成を所有する。
+ * @responsibility Fileの不正理由、公開Property、結果境界を所有する。
  * @trace ARCH-000008
  * @input pathValue: string、reason: string
  * @returns RepositoryFileObservationを返す。
@@ -261,9 +267,9 @@ function invalidFile(
 }
 
 /**
- * unobservableFileの処理を実行する。
+ * unobservable Fileを決定する。
  *
- * @responsibility unobservableFileに対応する入力処理と結果生成を所有する。
+ * @responsibility unobservable Fileの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input pathValue: string、reason: string
  * @returns RepositoryFileObservationを返す。
@@ -284,9 +290,9 @@ function unobservableFile(
 }
 
 /**
- * invalidDirectoryの処理を実行する。
+ * Directoryを不正結果として構築する。
  *
- * @responsibility invalidDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Directoryの不正理由、公開Property、結果境界を所有する。
  * @trace ARCH-000008
  * @input pathValue: string、reason: string
  * @returns RepositoryDirectoryObservationを返す。
@@ -307,9 +313,9 @@ function invalidDirectory(
 }
 
 /**
- * unobservableDirectoryの処理を実行する。
+ * unobservable Directoryを決定する。
  *
- * @responsibility unobservableDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility unobservable Directoryの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input pathValue: string、reason: string
  * @returns RepositoryDirectoryObservationを返す。
@@ -330,9 +336,9 @@ function unobservableDirectory(
 }
 
 /**
- * createFilesystemRepositoryObservationPortWithOperationsの処理を実行する。
+ * Filesystem Repository Observation Port With Operationsを構築する。
  *
- * @responsibility createFilesystemRepositoryObservationPortWithOperationsに対応する入力処理と結果生成を所有する。
+ * @responsibility Filesystem Repository Observation Port With Operationsの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input rootBinding: RepositoryRootBinding、operations: FilesystemObservationOperations
  * @returns RepositoryObservationPortを返す。
@@ -394,9 +400,9 @@ export function createFilesystemRepositoryObservationPortWithOperations(
     }
 
   /**
-   * rootFailureForFileの処理を実行する。
+   * root 失敗 For Fileを決定する。
    *
-   * @responsibility rootFailureForFileに対応する入力処理と結果生成を所有する。
+   * @responsibility root 失敗 For Fileの導出に必要な入力、判定規則、返却結果の境界を所有する。
    * @trace ARCH-000008
    * @input pathValue: string
    * @returns RepositoryFileObservationを返す。
@@ -420,9 +426,9 @@ export function createFilesystemRepositoryObservationPortWithOperations(
   }
 
   /**
-   * rootFailureForDirectoryの処理を実行する。
+   * root 失敗 For Directoryを決定する。
    *
-   * @responsibility rootFailureForDirectoryに対応する入力処理と結果生成を所有する。
+   * @responsibility root 失敗 For Directoryの導出に必要な入力、判定規則、返却結果の境界を所有する。
    * @trace ARCH-000008
    * @input pathValue: string
    * @returns RepositoryDirectoryObservationを返す。
@@ -448,9 +454,9 @@ export function createFilesystemRepositoryObservationPortWithOperations(
   }
 
   /**
-   * observePathの処理を実行する。
+   * Pathを観測する。
    *
-   * @responsibility observePathに対応する入力処理と結果生成を所有する。
+   * @responsibility Pathの観測対象、取得根拠、観測不能結果の境界を所有する。
    * @trace ARCH-000008
    * @input repositoryRelativePath: string、expectedKind: "file" | "directory"
    * @returns RepositoryFileObservation | RepositoryDirectoryObservationを返す。
@@ -612,9 +618,9 @@ export function createFilesystemRepositoryObservationPortWithOperations(
 }
 
 /**
- * createFilesystemRepositoryObservationPortFromRootBindingの処理を実行する。
+ * Filesystem Repository Observation Port From Root Bindingを構築する。
  *
- * @responsibility createFilesystemRepositoryObservationPortFromRootBindingに対応する入力処理と結果生成を所有する。
+ * @responsibility Filesystem Repository Observation Port From Root Bindingの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input rootBinding: RepositoryRootBinding
  * @returns RepositoryObservationPortを返す。

@@ -6,7 +6,7 @@
  * @trace AIT-UT-005
  * @level UT
  * @scope release、identity、grammar
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -29,7 +29,7 @@ import {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Release IdentityはSHA-1／SHA-256 Git IDとprereleaseを同じ正本で受理する", () => {
   for (const objectId of ["a".repeat(40), "b".repeat(64)]) {
@@ -53,7 +53,7 @@ test("Release IdentityはSHA-1／SHA-256 Git IDとprereleaseを同じ正本で�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 test("Release Identityの長さ・大小文字・suffix境界をFail Closedにする", () => {
   for (const objectId of [

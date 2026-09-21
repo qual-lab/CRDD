@@ -1,3 +1,9 @@
+/**
+ * docker-desktop-repair-doctor-dispatchに属する責務をまとめる。
+ *
+ * @responsibility DockerDesktopRepairDoctorCommandを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import {
   DOCKER_DESKTOP_RUNTIME_REPAIR_CONTRACT,
   DOCKER_DESKTOP_RUNTIME_REPAIR_CONTRACT_REVISION,
@@ -6,9 +12,9 @@ import {
 import { renderDockerRecoveryDoctorReport } from "./docker-recovery-command-report.ts";
 
 /**
- * DockerDesktopRepairDoctorCommandが扱う値の構造を表す。
+ * docker-desktop-repair-doctor-dispatchで使用するDocker Desktop Repair Doctor Commandの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairDoctorCommandに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Doctor CommandのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairDoctorCommandが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairDoctorCommandで宣言した値と責務の対応を維持する。
@@ -25,9 +31,9 @@ export type DockerDesktopRepairDoctorCommand = Readonly<{
 }>;
 
 /**
- * DockerDesktopRepairDoctorHandlersが扱う値の構造を表す。
+ * docker-desktop-repair-doctor-dispatchで使用するDocker Desktop Repair Doctor Handlersの値契約を定義する。
  *
- * @responsibility DockerDesktopRepairDoctorHandlersに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Desktop Repair Doctor HandlersのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairDoctorHandlersが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerDesktopRepairDoctorHandlersで宣言した値と責務の対応を維持する。
@@ -45,9 +51,9 @@ type DockerDesktopRepairDoctorHandlers = Readonly<{
 }>;
 
 /**
- * failedClosedReportの処理を実行する。
+ * failed Closed Reportを決定する。
  *
- * @responsibility failedClosedReportに対応する入力処理と結果生成を所有する。
+ * @responsibility failed Closed Reportの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns DockerDesktopRuntimeRepairReportを返す。
@@ -89,9 +95,9 @@ function failedClosedReport(): DockerDesktopRuntimeRepairReport {
 }
 
 /**
- * dispatchDockerDesktopRepairDoctorCommandの処理を実行する。
+ * dispatch Docker Desktop Repair Doctor Commandを決定する。
  *
- * @responsibility dispatchDockerDesktopRepairDoctorCommandに対応する入力処理と結果生成を所有する。
+ * @responsibility dispatch Docker Desktop Repair Doctor Commandの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input command: DockerDesktopRepairDoctorCommand、handlers: DockerDesktopRepairDoctorHandlers
  * @returns dispatchDockerDesktopRepairDoctorCommandの計算結果を返す。

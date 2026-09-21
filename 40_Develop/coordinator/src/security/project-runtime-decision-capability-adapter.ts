@@ -1,11 +1,17 @@
+/**
+ * project-runtime-decision-capability-adapterに属する責務をまとめる。
+ *
+ * @responsibility hashを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000005
+ */
 import { createHash, randomBytes } from "node:crypto";
 
 import type { ProjectRuntimeDecisionCapabilityPort } from "../../../project-runtime/src/index.ts";
 
 /**
- * hashの処理を実行する。
+ * hashを決定する。
  *
- * @responsibility hashに対応する入力処理と結果生成を所有する。
+ * @responsibility hashの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000005
  * @input value: string
  * @returns hashの計算結果を返す。
@@ -25,7 +31,7 @@ function hash(value: string) {
 /**
  * Supply cryptographic capability generation without exposing Node APIs to Project Runtime.
  *
- * @responsibility createProjectRuntimeDecisionCapabilityAdapterに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Decision Capability Adapterの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000005
  * @input N/A: 実行時引数を受け取らない。
  * @returns ProjectRuntimeDecisionCapabilityPortを返す。

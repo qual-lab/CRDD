@@ -6,7 +6,7 @@
  * @trace PRL-UT-014
  * @level UT
  * @scope coordinator、operation、creation、internal
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -32,7 +32,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 function fixture(
   options: Readonly<{
@@ -76,7 +76,7 @@ function fixture(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Root生成後のCapability初期化失敗をtransactionとして回収する", () => {
   const h = fixture();
@@ -107,7 +107,7 @@ test("Root生成後のCapability初期化失敗をtransactionとして回収す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Root生成後の回収不明はexact Host Recoveryを返す", () => {
   const h = fixture({ cleanupFails: true });
@@ -138,7 +138,7 @@ test("Root生成後の回収不明はexact Host Recoveryを返す", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Recovery ID取得失敗もtransaction内で回収する", () => {
   const h = fixture({ recoveryIdFails: true });
@@ -169,7 +169,7 @@ test("Recovery ID取得失敗もtransaction内で回収する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Recovery ID取得前の回収不明はIDを捏造せずmanualへ閉じる", () => {
   const h = fixture({ recoveryIdFails: true, cleanupFails: true });
@@ -200,7 +200,7 @@ test("Recovery ID取得前の回収不明はIDを捏造せずmanualへ閉じる"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("isolated transactionの正常形は取得済みIDとCapabilityを一括公開する", () => {
   const h = fixture({ initializationFails: false });
@@ -220,7 +220,7 @@ test("isolated transactionの正常形は取得済みIDとCapabilityを一括公
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("production Operationは実Directory producerのexact Host Recovery IDを公開する", () => {
   const created = createRuntimeOwnedCoordinatorOperation();
@@ -245,7 +245,7 @@ test("production Operationは実Directory producerのexact Host Recovery IDを�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("共有classifierは内包Directory producerの全failureを保持する", () => {
   const lower = createIsolatedOwnedOperationDirectoryCreationFailureCandidate();

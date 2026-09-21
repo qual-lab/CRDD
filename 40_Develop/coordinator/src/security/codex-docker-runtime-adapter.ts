@@ -1,3 +1,9 @@
+/**
+ * codex-docker-runtime-adapterに属する責務をまとめる。
+ *
+ * @responsibility OperationBindingを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000015
+ */
 import { randomBytes } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
@@ -47,9 +53,9 @@ const FORBIDDEN_ENVIRONMENT_NAMES = new Set([
 ]);
 
 /**
- * OperationBindingが扱う値の構造を表す。
+ * codex-docker-runtime-adapterで使用するOperation Bindingの値契約を定義する。
  *
- * @responsibility OperationBindingに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Operation BindingのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape OperationBindingが表すProperty、識別子およびRelationを型として固定する。
  * @invariant OperationBindingで宣言した値と責務の対応を維持する。
@@ -64,9 +70,9 @@ type OperationBinding = Readonly<{
 }>;
 
 /**
- * Commandが扱う値の構造を表す。
+ * codex-docker-runtime-adapterで使用するCommandの値契約を定義する。
  *
- * @responsibility Commandに必要な値と制約を一つの型契約として保持する。
+ * @responsibility CommandのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape Commandが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Commandで宣言した値と責務の対応を維持する。
@@ -80,9 +86,9 @@ type Command = Readonly<{
 }>;
 
 /**
- * PreparedPlanが扱う値の構造を表す。
+ * codex-docker-runtime-adapterで使用するPrepared Planの値契約を定義する。
  *
- * @responsibility PreparedPlanに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Prepared PlanのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape PreparedPlanが表すProperty、識別子およびRelationを型として固定する。
  * @invariant PreparedPlanで宣言した値と責務の対応を維持する。
@@ -131,9 +137,9 @@ type PreparedPlan = Readonly<{
 }>;
 
 /**
- * ConsumedTaskPacketが扱う値の構造を表す。
+ * codex-docker-runtime-adapterで使用するConsumed Task Packetの値契約を定義する。
  *
- * @responsibility ConsumedTaskPacketに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Consumed Task PacketのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape ConsumedTaskPacketが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ConsumedTaskPacketで宣言した値と責務の対応を維持する。
@@ -151,9 +157,9 @@ type ConsumedTaskPacket = Readonly<{
 }>;
 
 /**
- * ConsumedModelSelectionが扱う値の構造を表す。
+ * codex-docker-runtime-adapterで使用するConsumed Model Selectionの値契約を定義する。
  *
- * @responsibility ConsumedModelSelectionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Consumed Model SelectionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape ConsumedModelSelectionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ConsumedModelSelectionで宣言した値と責務の対応を維持する。
@@ -178,9 +184,9 @@ type ConsumedModelSelection = Readonly<{
 }>;
 
 /**
- * RuntimeStateが扱う値の構造を表す。
+ * codex-docker-runtime-adapterで使用するRuntime 状態の値契約を定義する。
  *
- * @responsibility RuntimeStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
  * @shape RuntimeStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeStateで宣言した値と責務の対応を維持する。
@@ -255,9 +261,9 @@ type RuntimeState = Readonly<{
 }>;
 
 /**
- * createRuntimeStateの処理を実行する。
+ * Runtime 状態を構築する。
  *
- * @responsibility createRuntimeStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 状態の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
  * @input dependencies: Omit<RuntimeState, "prepared" | "managementCapabilities">
  * @returns RuntimeStateを返す。
@@ -296,9 +302,9 @@ const productionState = createRuntimeState({
 });
 
 /**
- * createBlockedResultの処理を実行する。
+ * Blocked 結果を構築する。
  *
- * @responsibility createBlockedResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Blocked 結果の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
  * @input reason: string
  * @returns createBlockedResultの計算結果を返す。
@@ -337,9 +343,9 @@ function createBlockedResult(reason: string) {
 }
 
 /**
- * performSafelyの処理を実行する。
+ * Safelyを安全に実行する。
  *
- * @responsibility performSafelyに対応する入力処理と結果生成を所有する。
+ * @responsibility Safelyの実行条件、Effect範囲、失敗時の終了境界を所有する。
  * @trace ARCH-000015
  * @input reason: string、action: () => T
  * @returns performSafelyの計算結果を返す。
@@ -361,9 +367,9 @@ function performSafely<T>(reason: string, action: () => T) {
 }
 
 /**
- * createRandomHexの処理を実行する。
+ * Random Hexを構築する。
  *
- * @responsibility createRandomHexに対応する入力処理と結果生成を所有する。
+ * @responsibility Random Hexの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
  * @input state: RuntimeState、bytes: number
  * @returns createRandomHexの計算結果を返す。
@@ -384,9 +390,9 @@ function createRandomHex(state: RuntimeState, bytes: number) {
 }
 
 /**
- * createSafeMountの処理を実行する。
+ * Safe Mountを構築する。
  *
- * @responsibility createSafeMountに対応する入力処理と結果生成を所有する。
+ * @responsibility Safe Mountの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
  * @input source: string、destination: string
  * @returns createSafeMountの計算結果を返す。
@@ -413,9 +419,9 @@ function createSafeMount(source: string, destination: string) {
 }
 
 /**
- * createCommandの処理を実行する。
+ * Commandを構築する。
  *
- * @responsibility createCommandに対応する入力処理と結果生成を所有する。
+ * @responsibility Commandの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
  * @input purpose: string、argv: readonly string[]
  * @returns Commandを返す。
@@ -433,9 +439,9 @@ function createCommand(purpose: string, argv: readonly string[]): Command {
 }
 
 /**
- * buildExactFixedEnvironmentの処理を実行する。
+ * Exact Fixed Environmentを構築する。
  *
- * @responsibility buildExactFixedEnvironmentに対応する入力処理と結果生成を所有する。
+ * @responsibility Exact Fixed Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
  * @input environment: Readonly<Record<string, string>>
  * @returns buildExactFixedEnvironmentの計算結果を返す。
@@ -466,9 +472,9 @@ function buildExactFixedEnvironment(
 }
 
 /**
- * normalizeExactModelIdの処理を実行する。
+ * Exact Model Idを固定Schemaへ正規化する。
  *
- * @responsibility normalizeExactModelIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Exact Model Idの入力検証、正規化規則、不正値の拒否境界を所有する。
  * @trace ARCH-000015
  * @input model: string
  * @returns normalizeExactModelIdの計算結果を返す。
@@ -486,9 +492,9 @@ function normalizeExactModelId(model: string) {
 }
 
 /**
- * buildPlanの処理を実行する。
+ * Planを構築する。
  *
- * @responsibility buildPlanに対応する入力処理と結果生成を所有する。
+ * @responsibility Planの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
  * @input state: RuntimeState、binding: OperationBinding、activation: Readonly<{ grant: Readonly<{ grantRef: string; provider: string; profileId: string; operationId: string; providerHomeIdentityHash: string; providerHomeProtectionHash: string; localUserBindingHash: string; stableLogicalHomeBindingHash: string; }>; activeMountCapability: object; }>、consumedModelSelection: ConsumedModelSelection、providerHomeSourcePath: string、preparedWallClockMs: number、preparedMonotonicMs: number、taskPacket: ConsumedTaskPacket | null、recoveryCorrelationId: string | null
  * @returns buildPlanの計算結果を返す。
@@ -799,9 +805,9 @@ function buildPlan(
 }
 
 /**
- * prepareの処理を実行する。
+ * codex-docker-runtime-adapterを実行前候補として準備する。
  *
- * @responsibility prepareに対応する入力処理と結果生成を所有する。
+ * @responsibility codex-docker-runtime-adapterの準備条件、候補Identity、Effect前の拒否境界を所有する。
  * @trace ARCH-000015
  * @input state: RuntimeState、managementCapability: unknown、mountCapability: unknown、mountAuthorizationCapability: unknown、selectionUseCapability: unknown、taskPacketUseCapability: unknown、recoveryCorrelationId: unknown
  * @returns prepareの計算結果を返す。
@@ -978,9 +984,9 @@ function prepare(
 }
 
 /**
- * findStoredPlanの処理を実行する。
+ * Stored Planを検索する。
  *
- * @responsibility findStoredPlanに対応する入力処理と結果生成を所有する。
+ * @responsibility Stored Planの検索範囲、一致条件、未検出結果の境界を所有する。
  * @trace ARCH-000015
  * @input state: RuntimeState、preparedCapability: unknown、managementCapability: unknown
  * @returns findStoredPlanの計算結果を返す。
@@ -1007,9 +1013,9 @@ function findStoredPlan(
 }
 
 /**
- * isPlanFreshの処理を実行する。
+ * Plan Freshかを判定する。
  *
- * @responsibility isPlanFreshに対応する入力処理と結果生成を所有する。
+ * @responsibility Plan Freshの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000015
  * @input state: RuntimeState、plan: PreparedPlan
  * @returns isPlanFreshの計算結果を返す。
@@ -1036,9 +1042,9 @@ function isPlanFresh(state: RuntimeState, plan: PreparedPlan) {
 }
 
 /**
- * removePreparedの処理を実行する。
+ * Preparedを除去する。
  *
- * @responsibility removePreparedに対応する入力処理と結果生成を所有する。
+ * @responsibility Preparedの対象Identity、除去条件、終了後状態の境界を所有する。
  * @trace ARCH-000015
  * @input state: RuntimeState、preparedCapability: object
  * @returns N/A: removePreparedは戻り値を返さない。
@@ -1057,9 +1063,9 @@ function removePrepared(state: RuntimeState, preparedCapability: object) {
 }
 
 /**
- * cancelの処理を実行する。
+ * codex-docker-runtime-adapterを取り消す。
  *
- * @responsibility cancelに対応する入力処理と結果生成を所有する。
+ * @responsibility codex-docker-runtime-adapterの取消条件、終了状態、残存Effectの境界を所有する。
  * @trace ARCH-000015
  * @input state: RuntimeState、preparedCapability: unknown、managementCapability: unknown
  * @returns cancelの計算結果を返す。
@@ -1117,9 +1123,9 @@ function cancel(
 }
 
 /**
- * consumePreparedPlanの処理を実行する。
+ * Prepared Planを一回限りで消費する。
  *
- * @responsibility consumePreparedPlanに対応する入力処理と結果生成を所有する。
+ * @responsibility Prepared Planの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000015
  * @input state: RuntimeState、preparedCapability: unknown、managementCapability: unknown
  * @returns consumePreparedPlanの計算結果を返す。
@@ -1160,9 +1166,9 @@ function consumePreparedPlan(
 }
 
 /**
- * prepareRuntimeOwnedCodexDockerCandidateの処理を実行する。
+ * Runtime 所有 Codex Docker 候補を実行前候補として準備する。
  *
- * @responsibility prepareRuntimeOwnedCodexDockerCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Codex Docker 候補の準備条件、候補Identity、Effect前の拒否境界を所有する。
  * @trace ARCH-000015
  * @input managementCapability: unknown、mountCapability: unknown、mountAuthorizationCapability: unknown、selectionUseCapability: unknown
  * @returns prepareRuntimeOwnedCodexDockerCandidateの計算結果を返す。
@@ -1193,9 +1199,9 @@ export function prepareRuntimeOwnedCodexDockerCandidate(
 }
 
 /**
- * prepareRuntimeOwnedCodexDockerTaskCandidateの処理を実行する。
+ * Runtime 所有 Codex Docker Task 候補を実行前候補として準備する。
  *
- * @responsibility prepareRuntimeOwnedCodexDockerTaskCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Codex Docker Task 候補の準備条件、候補Identity、Effect前の拒否境界を所有する。
  * @trace ARCH-000015
  * @input managementCapability: unknown、mountCapability: unknown、mountAuthorizationCapability: unknown、selectionUseCapability: unknown、taskPacketUseCapability: unknown、recoveryCorrelationId: unknown
  * @returns prepareRuntimeOwnedCodexDockerTaskCandidateの計算結果を返す。
@@ -1232,9 +1238,9 @@ export function prepareRuntimeOwnedCodexDockerTaskCandidate(
 }
 
 /**
- * cancelRuntimeOwnedCodexDockerCandidateの処理を実行する。
+ * Runtime 所有 Codex Docker 候補を取り消す。
  *
- * @responsibility cancelRuntimeOwnedCodexDockerCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Codex Docker 候補の取消条件、終了状態、残存Effectの境界を所有する。
  * @trace ARCH-000015
  * @input preparedCapability: unknown、managementCapability: unknown
  * @returns cancelRuntimeOwnedCodexDockerCandidateの計算結果を返す。
@@ -1257,9 +1263,9 @@ export function cancelRuntimeOwnedCodexDockerCandidate(
 }
 
 /**
- * consumeRuntimeOwnedCodexDockerPlanForProcessControllerの処理を実行する。
+ * Runtime 所有 Codex Docker Plan For Process Controllerを一回限りで消費する。
  *
- * @responsibility consumeRuntimeOwnedCodexDockerPlanForProcessControllerに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Codex Docker Plan For Process Controllerの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000015
  * @input preparedCapability: unknown、managementCapability: unknown
  * @returns consumeRuntimeOwnedCodexDockerPlanForProcessControllerの計算結果を返す。
@@ -1288,9 +1294,9 @@ export function consumeRuntimeOwnedCodexDockerPlanForProcessController(
 }
 
 /**
- * createIsolatedCodexDockerRuntimeAdapterCandidateの処理を実行する。
+ * Isolated Codex Docker Runtime Adapter 候補を構築する。
  *
- * @responsibility createIsolatedCodexDockerRuntimeAdapterCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Isolated Codex Docker Runtime Adapter 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
  * @input dependencies: Omit<RuntimeState, "prepared" | "managementCapabilities">
  * @returns createIsolatedCodexDockerRuntimeAdapterCandidateの計算結果を返す。
@@ -1363,9 +1369,9 @@ export function createIsolatedCodexDockerRuntimeAdapterCandidate(
 }
 
 /**
- * describeCodexDockerRuntimeAdapterContractの処理を実行する。
+ * Codex Docker Runtime Adapter 契約の公開契約を記述する。
  *
- * @responsibility describeCodexDockerRuntimeAdapterContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Codex Docker Runtime Adapter 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeCodexDockerRuntimeAdapterContractの計算結果を返す。

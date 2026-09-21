@@ -6,7 +6,7 @@
  * @trace RFD-IT-008
  * @level IT
  * @scope version-control、fixed-revision、repository-local-ignore、lifecycle
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
@@ -37,7 +37,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 function git(root: string, commandArguments: readonly string[]): string {
   return execFileSync("git", ["-C", root, ...commandArguments], {
@@ -56,7 +56,7 @@ function git(root: string, commandArguments: readonly string[]): string {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 function repository(t: test.TestContext): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-revision-"));
@@ -80,7 +80,7 @@ function repository(t: test.TestContext): string {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 test("現在の固定Revision Identityは未Commit変更に依存しない", (t) => {
   const root = repository(t);
@@ -108,7 +108,7 @@ test("現在の固定Revision Identityは未Commit変更に依存しない", (t)
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 test("Repository-local ignore登録は原子的・冪等でreadbackされる", (t) => {
   const root = repository(t);
@@ -150,7 +150,7 @@ test("Repository-local ignore登録は原子的・冪等でreadbackされる", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 test("Repository-local ignoreは失敗段階ごとにEffectと後始末を区別する", async (t) => {
   const phases = [
@@ -205,7 +205,7 @@ test("Repository-local ignoreは失敗段階ごとにEffectと後始末を区別
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 test("Repository-local ignoreは競合Writerを未変更として扱わない", (t) => {
   const root = repository(t);
@@ -242,7 +242,7 @@ test("Repository-local ignoreは競合Writerを未変更として扱わない", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 test("Repository-local ignoreは二つの実Process競合後も内容と再入場を保つ", async (t) => {
   const root = repository(t);
@@ -332,7 +332,7 @@ test("Repository-local ignoreは二つの実Process競合後も内容と再入�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 test("linked worktreeからのRepository-local ignoreは共有common directoryへ一度だけ登録する", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-linked-main-"));

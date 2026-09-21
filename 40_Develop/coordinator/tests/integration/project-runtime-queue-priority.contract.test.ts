@@ -3,10 +3,10 @@
  *
  * @packageDocumentation
  * @responsibility coordinator:integration:project-runtime-queue-priorityが所有する検証責務を実行する。
- * @trace PRL-IT-012
+ * @trace PRL-IT-011
  * @level IT
  * @scope project、runtime、queue、priority
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-011=Related 2 Blocks: Queue→Project Operation Lease→Scheduler Slot→Task開始
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -30,13 +30,13 @@ const revision = "a".repeat(40);
  * hashのTest準備責務を実行する。
  *
  * @responsibility hashがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace PRL-IT-012
+ * @trace PRL-IT-011
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
  * @stimulus hashを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-011=Related 2 Blocks: Queue→Project Operation Lease→Scheduler Slot→Task開始
  */
 const hash = (value: string) =>
   createHash("sha256").update(value).digest("hex");
@@ -44,13 +44,13 @@ const hash = (value: string) =>
  * interactive queue parks scheduled work without preempting an active ownerを検証する。
  *
  * @responsibility interactive queue parks scheduled work without preempting an active ownerの合否判定を所有する。
- * @trace PRL-IT-012
+ * @trace PRL-IT-011
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus interactive queue parks scheduled work without preempting an active ownerの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-011=Related 2 Blocks: Queue→Project Operation Lease→Scheduler Slot→Task開始
  */
 test("interactive queue parks scheduled work without preempting an active owner", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-project-priority-"));
@@ -145,13 +145,13 @@ test("interactive queue parks scheduled work without preempting an active owner"
  * scheduled work arriving after an interactive operation starts remains effect-freeを検証する。
  *
  * @responsibility scheduled work arriving after an interactive operation starts remains effect-freeの合否判定を所有する。
- * @trace PRL-IT-012
+ * @trace PRL-IT-011
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus scheduled work arriving after an interactive operation starts remains effect-freeの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-011=Related 2 Blocks: Queue→Project Operation Lease→Scheduler Slot→Task開始
  */
 test("scheduled work arriving after an interactive operation starts remains effect-free", (t) => {
   const root = fs.mkdtempSync(
@@ -249,13 +249,13 @@ test("scheduled work arriving after an interactive operation starts remains effe
  * one Repository Binding cannot acquire two Project Operation leasesを検証する。
  *
  * @responsibility one Repository Binding cannot acquire two Project Operation leasesの合否判定を所有する。
- * @trace PRL-IT-012
+ * @trace PRL-IT-011
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus one Repository Binding cannot acquire two Project Operation leasesの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-011=Related 2 Blocks: Queue→Project Operation Lease→Scheduler Slot→Task開始
  */
 test("one Repository Binding cannot acquire two Project Operation leases", (t) => {
   const root = fs.mkdtempSync(
@@ -297,13 +297,13 @@ test("one Repository Binding cannot acquire two Project Operation leases", (t) =
  * separate processes cannot both own one Repository Binding operationを検証する。
  *
  * @responsibility separate processes cannot both own one Repository Binding operationの合否判定を所有する。
- * @trace PRL-IT-012
+ * @trace PRL-IT-011
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus separate processes cannot both own one Repository Binding operationの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ * @boundary PRL-IT-011=Related 2 Blocks: Queue→Project Operation Lease→Scheduler Slot→Task開始
  */
 test("separate processes cannot both own one Repository Binding operation", async (t) => {
   const workingDirectory = fs.mkdtempSync(
@@ -335,13 +335,13 @@ test("separate processes cannot both own one Repository Binding operation", asyn
    * operationRunのTest準備責務を実行する。
    *
    * @responsibility operationRunがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
-   * @trace PRL-IT-012
+   * @trace PRL-IT-011
    * @precondition 呼出し元Test Caseが必要な入力を渡す。
    * @stimulus operationRunを呼び出す。
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+   * @boundary PRL-IT-011=Related 2 Blocks: Queue→Project Operation Lease→Scheduler Slot→Task開始
    */
   const operationRun = (projectId: string, queueId: string) => {
     const child = spawn(

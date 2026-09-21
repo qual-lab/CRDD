@@ -1,3 +1,9 @@
+/**
+ * state-portに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeQueueEnqueueInputを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import type {
   ProjectQueueEntry,
   ProjectQueueState,
@@ -10,9 +16,9 @@ import type {
 import type { ProjectRuntimePortResult } from "./port-result.ts";
 
 /**
- * ProjectRuntimeQueueEnqueueInputが扱う値の構造を表す。
+ * state-portで使用するProject Runtime Queue Enqueue 入力の値契約を定義する。
  *
- * @responsibility ProjectRuntimeQueueEnqueueInputに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Queue Enqueue 入力のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeQueueEnqueueInputが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeQueueEnqueueInputで宣言した値と責務の対応を維持する。
@@ -30,9 +36,9 @@ export type ProjectRuntimeQueueEnqueueInput = Omit<
 >;
 
 /**
- * ProjectRuntimeQueueUpdateが扱う値の構造を表す。
+ * state-portで使用するProject Runtime Queue Updateの値契約を定義する。
  *
- * @responsibility ProjectRuntimeQueueUpdateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Queue UpdateのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeQueueUpdateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeQueueUpdateで宣言した値と責務の対応を維持する。
@@ -50,7 +56,7 @@ export type ProjectRuntimeQueueUpdate = Readonly<{
 /**
  * Repository-bound durable state capability supplied by a composition root.
  *
- * @responsibility ProjectRuntimeStatePortに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime 状態 PortのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeStatePortが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeStatePortで宣言した値と責務の対応を維持する。
@@ -89,9 +95,9 @@ export type ProjectRuntimeStatePort = Readonly<{
 }>;
 
 /**
- * ProjectRuntimePersistencePortsが扱う値の構造を表す。
+ * state-portで使用するProject Runtime Persistence Portsの値契約を定義する。
  *
- * @responsibility ProjectRuntimePersistencePortsに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Persistence PortsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimePersistencePortsが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimePersistencePortsで宣言した値と責務の対応を維持する。

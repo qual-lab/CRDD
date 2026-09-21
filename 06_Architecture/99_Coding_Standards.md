@@ -277,7 +277,18 @@ Source HeaderはCodeの逐語説明ではなく、Symbolが存在する理由、
 
 既存Symbolもprivateであることを恒久免除にしない。意味を確認せず名前だけから定型Headerを一括生成せず、Symbolの責務、Owner、失敗・Effect・境界を確認して移行する。短い局所処理でも独立した名前と責務を与えた場合は、巨大な説明ではなく簡潔なSummaryと`@responsibility`を残す。
 
-Header項目は宣言種別ごとに分ける。型宣言へ実行時の入出力を形式的に書かせず、実行責務へ型の互換性を形式的に書かせない。いずれも平易なSummary、`@responsibility`および`@trace`を共通必須項目とする。非該当項目も省略せず、`N/A:`に続けてそのSymbolで非該当となる理由を記録する。単に`N/A`、`none`または同じ定型理由を全Symbolへ複製して処置済みにしない。ProductionのNamed Symbolは、それが実現する既存ARCH-IDへ接続する。SymbolごとにARCH-IDを新設せず、複数Symbolが同じARCH-IDを実現してよい。責務を持つNamed SymbolをどのARCH-IDにも接続できない場合はDocumentation例外にせず、Architecture側のGapとして戻す。存在しないID、File Pathまたは説明用の局所名をCanonical Traceとして捏造しない。公開入口のFile Headerには`@packageDocumentation`を加え、その入口が公開するCapabilityを説明する。
+Header項目は宣言種別ごとに分ける。型宣言へ実行時の入出力を形式的に書かせず、実行責務へ型の互換性を形式的に書かせない。いずれも平易なSummary、`@responsibility`および`@trace`を共通必須項目とする。非該当項目も省略せず、`N/A:`に続けてそのSymbolで非該当となる理由を記録する。単に`N/A`、`none`または同じ定型理由を全Symbolへ複製して処置済みにしない。ProductionのNamed Symbolは、それが実現する既存ARCH-IDへ接続する。SymbolごとにARCH-IDを新設せず、複数Symbolが同じARCH-IDを実現してよい。責務を持つNamed SymbolをどのARCH-IDにも接続できない場合はDocumentation例外にせず、Architecture側のGapとして戻す。存在しないID、File Pathまたは説明用の局所名をCanonical Traceとして捏造しない。
+
+全Production Fileは、個別Symbol Headerとは別に、File先頭へSummary、`@responsibility`および一つ以上の実在`@trace ARCH-XXXXXX`を持つFile Headerを置く（MUST）。File HeaderはFileがまとめる責務境界を説明し、内部Symbolの逐語一覧や無関係なARCH-IDの和集合にしない。公開入口だけは`@packageDocumentation`も加え、公開するCapabilityとExport境界を説明する。TypeScriptの`src/`だけでなく、実行責務を持つ`bin/`、`scripts/`および配布入口も同じProduction母集団へ含める。Rustのcrate root、moduleおよびBuild Scriptは同じ意味をRustdoc module Headerで保持する。Test Fileは後述するQuality Local Item用Headerを使い、Production File Headerを重複させない。
+
+```ts
+/**
+ * <Fileがまとめる責務のSummary>
+ *
+ * @responsibility <Fileが所有する責務境界>
+ * @trace ARCH-XXXXXX
+ */
+```
 
 実行責務HeaderのCanonical形は次とする。項目の並びも機械検査と人間の読取りを安定させるために維持する。
 

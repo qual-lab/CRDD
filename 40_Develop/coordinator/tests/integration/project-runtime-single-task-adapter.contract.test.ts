@@ -6,7 +6,7 @@
  * @trace PRL-IT-005
  * @level IT
  * @scope project、runtime、single、task、adapter
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -38,7 +38,7 @@ const dockerRecoveryId = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 function completionRecord(
   overrides: Readonly<Record<string, unknown>> = Object.freeze({}),
@@ -69,7 +69,7 @@ function completionRecord(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 function harness(
   overrides: Readonly<{
@@ -119,7 +119,7 @@ function harness(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 function validInput(
   overrides: Readonly<Record<string, unknown>> = Object.freeze({}),
@@ -147,7 +147,7 @@ function validInput(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("正常完了はattemptと固定Revisionへ結合した閉結果で返る", async () => {
   const { dependencies, startCalls } = harness();
@@ -188,7 +188,7 @@ test("正常完了はattemptと固定Revisionへ結合した閉結果で返る",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("実行元が返した実効Executor Providerだけを閉結果へ保持する", async () => {
   const { dependencies } = harness({
@@ -214,7 +214,7 @@ test("実行元が返した実効Executor Providerだけを閉結果へ保持す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("入力不正はTask Effect 0の入力拒否として閉じる", async () => {
   const { dependencies, startCalls } = harness();
@@ -262,7 +262,7 @@ test("入力不正はTask Effect 0の入力拒否として閉じる", async () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("開始前の取消はTask Effect 0のcancelledとして閉じる", async () => {
   const { dependencies, startCalls } = harness();
@@ -288,7 +288,7 @@ test("開始前の取消はTask Effect 0のcancelledとして閉じる", async (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("既知のEffect前拒否はEffect 0のblockedへ写像する", async () => {
   for (const [message, processRestartRequired] of [
@@ -334,7 +334,7 @@ test("既知のEffect前拒否はEffect 0のblockedへ写像する", async () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("未知の開始例外はEffect不明としてfail closedする", async () => {
   const { dependencies } = harness({
@@ -363,7 +363,7 @@ test("未知の開始例外はEffect不明としてfail closedする", async () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("開始結果の形不一致はEffect不明としてfail closedする", async () => {
   for (const started of [
@@ -397,7 +397,7 @@ test("開始結果の形不一致はEffect不明としてfail closedする", asy
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("完了結果の観測不能・形不一致は成功へ補正せずfail closedする", async () => {
   const getterSwappedReason = Object.defineProperty(
@@ -465,7 +465,7 @@ test("完了結果の観測不能・形不一致は成功へ補正せずfail clo
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("Recovery Identityは種類横断で重複なく保持される", async () => {
   const { dependencies } = harness({
@@ -509,7 +509,7 @@ test("Recovery Identityは種類横断で重複なく保持される", async () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("Project Stateへ保存できないRecovery Identityは閉結果へ取り込まない", async () => {
   for (const recoveryId of ["recovery/a", "recovery id", "recovery\u0001id"]) {
@@ -545,7 +545,7 @@ test("Project Stateへ保存できないRecovery Identityは閉結果へ取り�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("cleanup未確認またはRecovery義務をsettledへ補正しない", async () => {
   for (const completion of [
@@ -587,7 +587,7 @@ test("cleanup未確認またはRecovery義務をsettledへ補正しない", asyn
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("成功表示とRecovery義務が競合する完了Recordをblockedへ単調化する", async () => {
   for (const [completion, expectedReason, expectedRecoveryIds] of [
@@ -635,7 +635,7 @@ test("成功表示とRecovery義務が競合する完了Recordをblockedへ単�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("実行中の取消はexactなcontrolへ一度だけ転送し完了観測を保持する", async () => {
   const controller = new AbortController();
@@ -676,7 +676,7 @@ test("実行中の取消はexactなcontrolへ一度だけ転送し完了観測�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("取消入口の例外は完了観測を切り離さない", async () => {
   const controller = new AbortController();
@@ -718,7 +718,7 @@ test("取消入口の例外は完了観測を切り離さない", async () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("取消入口の非同期失敗は未処理rejectionにせず完了観測を保持する", async () => {
   const controller = new AbortController();
@@ -737,7 +737,7 @@ test("取消入口の非同期失敗は未処理rejectionにせず完了観測�
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+   * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
    */
   const captureRejection = (reason: unknown) => {
     unhandledRejections.push(reason);
@@ -782,7 +782,7 @@ test("取消入口の非同期失敗は未処理rejectionにせず完了観測�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("startTask実行中の同期abortも一度だけ転送される", async () => {
   const controller = new AbortController();
@@ -828,7 +828,7 @@ test("startTask実行中の同期abortも一度だけ転送される", async () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("取消と同時に観測した通常失敗はcancelledへ丸めない", async () => {
   const controller = new AbortController();
@@ -864,7 +864,7 @@ test("取消と同時に観測した通常失敗はcancelledへ丸めない", as
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("回復義務を伴う取消結果はcancelledへ丸めない", async () => {
   const controller = new AbortController();
@@ -904,7 +904,7 @@ test("回復義務を伴う取消結果はcancelledへ丸めない", async () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("開始観測はaccessorやProxyの開始Recordをfail closedで拒否する", async () => {
   const accessorControl = Object.defineProperty(
@@ -945,7 +945,7 @@ test("開始観測はaccessorやProxyの開始Recordをfail closedで拒否す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("契約表示はProject状態・後続Task・受入の非所有を宣言する", () => {
   assert.deepEqual(describeProjectRuntimeSingleTaskAdapterContract(), {
@@ -971,7 +971,7 @@ test("契約表示はProject状態・後続Task・受入の非所有を宣言す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 test("Effect前拒否母集団はv0.18 Runtimeの実throw経路と一致する", () => {
   assert.deepEqual(PROJECT_RUNTIME_SINGLE_TASK_PRE_EFFECT_REJECTIONS, [

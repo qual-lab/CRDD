@@ -1,3 +1,9 @@
+/**
+ * platform-contractに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimePlatformBoundaryを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { types as utilTypes } from "node:util";
 
 export const PROJECT_RUNTIME_PLATFORM_CONTRACT =
@@ -21,9 +27,9 @@ export const PROJECT_RUNTIME_PLATFORM_BOUNDARIES = Object.freeze([
 ] as const);
 
 /**
- * ProjectRuntimePlatformBoundaryが扱う値の構造を表す。
+ * platform-contractで使用するProject Runtime Platform Boundaryの値契約を定義する。
  *
- * @responsibility ProjectRuntimePlatformBoundaryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Platform BoundaryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimePlatformBoundaryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimePlatformBoundaryで宣言した値と責務の対応を維持する。
@@ -105,9 +111,9 @@ export const PROJECT_RUNTIME_PLATFORM_BOUNDARY_GUARANTEES = Object.freeze({
 >);
 
 /**
- * ProjectRuntimePlatformGuaranteeが扱う値の構造を表す。
+ * platform-contractで使用するProject Runtime Platform Guaranteeの値契約を定義する。
  *
- * @responsibility ProjectRuntimePlatformGuaranteeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Platform GuaranteeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimePlatformGuaranteeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimePlatformGuaranteeで宣言した値と責務の対応を維持する。
@@ -119,9 +125,9 @@ export type ProjectRuntimePlatformGuarantee =
   (typeof PROJECT_RUNTIME_PLATFORM_BOUNDARY_GUARANTEES)[ProjectRuntimePlatformBoundary][number];
 
 /**
- * ProjectRuntimePlatformAdapterDescriptionが扱う値の構造を表す。
+ * platform-contractで使用するProject Runtime Platform Adapter Descriptionの値契約を定義する。
  *
- * @responsibility ProjectRuntimePlatformAdapterDescriptionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Platform Adapter DescriptionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimePlatformAdapterDescriptionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimePlatformAdapterDescriptionで宣言した値と責務の対応を維持する。
@@ -147,9 +153,9 @@ export type ProjectRuntimePlatformAdapterDescription = Readonly<{
 }>;
 
 /**
- * ProjectRuntimePlatformAdapterが扱う値の構造を表す。
+ * platform-contractで使用するProject Runtime Platform Adapterの値契約を定義する。
  *
- * @responsibility ProjectRuntimePlatformAdapterに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Platform AdapterのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimePlatformAdapterが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimePlatformAdapterで宣言した値と責務の対応を維持する。
@@ -165,9 +171,9 @@ export type ProjectRuntimePlatformAdapter = Readonly<{
 }>;
 
 /**
- * ProjectRuntimePlatformResolutionが扱う値の構造を表す。
+ * platform-contractで使用するProject Runtime Platform Resolutionの値契約を定義する。
  *
- * @responsibility ProjectRuntimePlatformResolutionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Platform ResolutionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimePlatformResolutionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimePlatformResolutionで宣言した値と責務の対応を維持する。
@@ -195,9 +201,9 @@ const boundarySet: ReadonlySet<string> = new Set(
 );
 
 /**
- * AdapterSnapshotが扱う値の構造を表す。
+ * platform-contractで使用するAdapter Snapshotの値契約を定義する。
  *
- * @responsibility AdapterSnapshotに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Adapter SnapshotのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape AdapterSnapshotが表すProperty、識別子およびRelationを型として固定する。
  * @invariant AdapterSnapshotで宣言した値と責務の対応を維持する。
@@ -215,9 +221,9 @@ type AdapterSnapshot = Readonly<{
 }>;
 
 /**
- * blockedの処理を実行する。
+ * platform-contractを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility platform-contractの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000004
  * @input reason: | "platform_request_invalid" | "platform_identity_unknown" | "platform_adapter_unavailable" | "platform_adapter_conflict" | "platform_boundary_unsupported"、unsupportedBoundaries: readonly ProjectRuntimePlatformBoundary[]
  * @returns ProjectRuntimePlatformResolutionを返す。
@@ -249,9 +255,9 @@ function blocked(
 }
 
 /**
- * validPlatformFamilyの処理を実行する。
+ * Platform Familyが有効か判定する。
  *
- * @responsibility validPlatformFamilyに対応する入力処理と結果生成を所有する。
+ * @responsibility Platform Familyの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -276,7 +282,7 @@ function validPlatformFamily(value: unknown): value is string {
 /**
  * Read one own data property exactly once. Accessor properties, prototype
  *
- * @responsibility ownDataPropertyに対応する入力処理と結果生成を所有する。
+ * @responsibility platform-contractの入力からown Data Propertyを導く規則と結果境界を所有する。
  * @trace ARCH-000004
  * @input container: object、key: string
  * @returns unknownを返す。
@@ -302,9 +308,9 @@ function ownDataProperty(container: object, key: string): unknown {
 }
 
 /**
- * isPlainContainerの処理を実行する。
+ * Plain Containerかを判定する。
  *
- * @responsibility isPlainContainerに対応する入力処理と結果生成を所有する。
+ * @responsibility Plain Containerの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is objectを返す。
@@ -336,7 +342,7 @@ function isPlainContainer(value: unknown): value is object {
 /**
  * Call describe() exactly once and validate the returned description into a
  *
- * @responsibility describedAdapterSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility platform-contractの入力からdescribed Adapter Snapshotを導く規則と結果境界を所有する。
  * @trace ARCH-000004
  * @input candidate: unknown
  * @returns AdapterSnapshot | nullを返す。
@@ -427,7 +433,7 @@ function describedAdapterSnapshot(candidate: unknown): AdapterSnapshot | null {
 /**
  * A boundary is supported only when the snapshot declares it AND the adapter
  *
- * @responsibility supportsBoundaryに対応する入力処理と結果生成を所有する。
+ * @responsibility platform-contractの入力からsupports Boundaryを導く規則と結果境界を所有する。
  * @trace ARCH-000004
  * @input adapter: ProjectRuntimePlatformAdapter、snapshot: AdapterSnapshot、boundary: ProjectRuntimePlatformBoundary
  * @returns booleanを返す。
@@ -481,9 +487,9 @@ function supportsBoundary(
 }
 
 /**
- * resolvedAdapterSnapshotの処理を実行する。
+ * resolved Adapter Snapshotを決定する。
  *
- * @responsibility resolvedAdapterSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility resolved Adapter Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input adapter: ProjectRuntimePlatformAdapter、snapshot: AdapterSnapshot、resolvedBoundaries: readonly ProjectRuntimePlatformBoundary[]
  * @returns ProjectRuntimePlatformAdapter | nullを返す。
@@ -549,7 +555,7 @@ function resolvedAdapterSnapshot(
 /**
  * Fail-closed adapter resolution for IF-PLATFORM. There is no fallback path:
  *
- * @responsibility resolveProjectRuntimePlatformAdapterに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Platform Adapterの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000004
  * @input observedPlatformFamily: unknown、registeredAdapters: readonly ProjectRuntimePlatformAdapter[]、requiredBoundaries: readonly ProjectRuntimePlatformBoundary[]
  * @returns ProjectRuntimePlatformResolutionを返す。
@@ -604,9 +610,9 @@ export function resolveProjectRuntimePlatformAdapter(
 }
 
 /**
- * describeProjectRuntimePlatformContractの処理を実行する。
+ * Project Runtime Platform 契約の公開契約を記述する。
  *
- * @responsibility describeProjectRuntimePlatformContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Platform 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProjectRuntimePlatformContractの計算結果を返す。

@@ -25,7 +25,7 @@
         "RDL-UT-005"
       ],
       "verifies": [
-        "runtime-data.public-api"
+        "runtime-data.source.src.core.runtime.data.contract"
       ]
     },
     {
@@ -39,7 +39,7 @@
         "RDL-UT-005"
       ],
       "verifies": [
-        "runtime-data.public-api"
+        "runtime-data.source.src.platform.runtime.data.path.resolver"
       ]
     },
     {
@@ -53,7 +53,8 @@
         "RDL-IT-001"
       ],
       "verifies": [
-        "runtime-data.public-api"
+        "runtime-data.source.src.platform.runtime.data.path.resolver",
+        "version-control.source.src.repository.location"
       ]
     },
     {
@@ -78,10 +79,37 @@
         "QA-000008"
       ],
       "localTestIds": [
-        "RDL-IT-001"
+        "RDL-IT-003",
+        "RDL-IT-004"
       ],
       "verifies": [
-        "runtime-data.public-api"
+        "runtime-data.source.src.platform.runtime.data.path.resolver",
+        "runtime-data.source.src.store.temporary.operation.store",
+        "version-control.source.src.repository.location"
+      ]
+    },
+    {
+      "symbolId": "runtime-data.source.src.platform.runtime.data.path.resolver",
+      "kind": "file",
+      "path": "src/platform/runtime-data-path-resolver.ts",
+      "archIds": [
+        "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "runtime-data.source.src.store.temporary.operation.store",
+      "kind": "file",
+      "path": "src/store/temporary-operation-store.ts",
+      "archIds": [
+        "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "runtime-data.source.src.core.runtime.data.contract",
+      "kind": "file",
+      "path": "src/core/runtime-data-contract.ts",
+      "archIds": [
+        "ARCH-000011"
       ]
     }
   ]

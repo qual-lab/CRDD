@@ -9,7 +9,7 @@
       "stability": "pilot",
       "subsystem": "coordinator",
       "sourceDocument": "06_Architecture/Details/coordinator/01_Architecture.md",
-      "sourceSha256": "06d27aa7ec83ae99d5b9ea73ea87ce948dae16dd446bf0d6f385e4c49319a180",
+      "sourceSha256": "ce8a0b5c5baaec2c9d8d54e299e05644686b911f526b6338602a6d1d2dc1358c",
       "meanings": [
         {
           "semanticKey": "coordinator.candidate-review-boundary",
@@ -232,8 +232,9 @@
         "qualityLocalIds": [
           "QA-000005/CPR-IT-001"
         ],
+        "verificationMode": "automated",
         "testSymbolIds": [
-          "coordinator.task-runtime-integration"
+          "coordinator.test.integration.coordinator-task-runtime"
         ],
         "testObservation": "observed"
       },
@@ -250,8 +251,9 @@
         "qualityLocalIds": [
           "QA-000003/PRL-ST-003"
         ],
+        "verificationMode": "automated",
         "testSymbolIds": [
-          "coordinator.task-process-integration"
+          "coordinator.test.system.signed-general-task-verification"
         ],
         "testObservation": "observed"
       },
@@ -268,8 +270,9 @@
         "qualityLocalIds": [
           "QA-000006/ERB-ST-005"
         ],
+        "verificationMode": "automated",
         "testSymbolIds": [
-          "coordinator.native-runtime-trace-integration"
+          "coordinator.test.system.signed-general-task-verification"
         ],
         "testObservation": "observed"
       },
@@ -285,8 +288,9 @@
         "qualityLocalIds": [
           "QA-000003/PRL-ST-001"
         ],
+        "verificationMode": "automated",
         "testSymbolIds": [
-          "coordinator.task-runtime-integration"
+          "coordinator.test.system.signed-general-task-verification"
         ],
         "testObservation": "observed"
       },
@@ -303,8 +307,9 @@
         "qualityLocalIds": [
           "QA-000003/PRL-IT-005"
         ],
+        "verificationMode": "automated",
         "testSymbolIds": [
-          "coordinator.provider-authority-unit"
+          "coordinator.test.integration.coordinator-claude-delegation"
         ],
         "testObservation": "observed"
       },
@@ -320,8 +325,9 @@
         "qualityLocalIds": [
           "QA-000006/ERB-IT-006"
         ],
+        "verificationMode": "automated",
         "testSymbolIds": [
-          "coordinator.provider-selection-unit"
+          "coordinator.test.integration.coordinator-task-runtime"
         ],
         "testObservation": "observed"
       },
@@ -333,15 +339,16 @@
           "ARCH-000015"
         ],
         "implementationSymbolIds": [
+          "coordinator.docker-desktop-runtime-repair",
           "coordinator.task-runtime"
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
           "QA-000003/PRL-ST-004"
         ],
+        "verificationMode": "automated",
         "testSymbolIds": [
-          "coordinator.signed-recovery-matrix-system",
-          "coordinator.task-runtime-integration"
+          "coordinator.test.system.signed-general-task-verification"
         ],
         "testObservation": "observed"
       },
@@ -353,8 +360,9 @@
         "implementationSymbolIds": [],
         "implementationObservation": "unobserved",
         "qualityLocalIds": [
-          "QA-000010/AIT-IT-001"
+          "QA-000010/AIT-IT-014"
         ],
+        "verificationMode": "automated",
         "testSymbolIds": [],
         "testObservation": "unobserved"
       },
@@ -371,10 +379,11 @@
         "qualityLocalIds": [
           "QA-000003/PRL-UT-007"
         ],
+        "verificationMode": "automated",
         "testSymbolIds": [
-          "project-runtime.human-decision-unit",
-          "project-runtime.objective-intake-unit",
-          "project-runtime.state-unit"
+          "project-runtime.test.unit.human-decision-application",
+          "project-runtime.test.unit.objective-intake",
+          "project-runtime.test.unit.state"
         ],
         "testObservation": "observed"
       },
@@ -391,8 +400,10 @@
         "qualityLocalIds": [
           "QA-000003/PRL-ST-004"
         ],
+        "verificationMode": "automated",
         "testSymbolIds": [
-          "coordinator.project-runtime-durable-foundation-integration"
+          "coordinator.test.system.project-runtime-real-provider-verification-script",
+          "coordinator.test.system.project-runtime-recovery"
         ],
         "testObservation": "observed"
       },
@@ -408,10 +419,9 @@
         "qualityLocalIds": [
           "QA-000004/PPR-UAT-008"
         ],
-        "testSymbolIds": [
-          "project-runtime.execution-observation-unit"
-        ],
-        "testObservation": "observed"
+        "verificationMode": "manual",
+        "testSymbolIds": [],
+        "testObservation": "manual_pending"
       },
       {
         "semanticKey": "project-runtime.objective-task-lifecycle",
@@ -428,10 +438,9 @@
         "qualityLocalIds": [
           "QA-000003/PRL-ST-001"
         ],
+        "verificationMode": "automated",
         "testSymbolIds": [
-          "project-runtime.integration-application-unit",
-          "project-runtime.objective-intake-unit",
-          "project-runtime.state-unit"
+          "coordinator.test.system.project-runtime-real-provider-verification-script"
         ],
         "testObservation": "observed"
       },
@@ -441,6 +450,7 @@
           "ARCH-000005"
         ],
         "implementationSymbolIds": [
+          "coordinator.source.src.security.project.runtime.durable.foundation",
           "project-runtime.state-core",
           "project-runtime.state-query-application"
         ],
@@ -448,9 +458,10 @@
         "qualityLocalIds": [
           "QA-000004/PPR-IT-001"
         ],
+        "verificationMode": "automated",
         "testSymbolIds": [
-          "project-runtime.state-query-unit",
-          "project-runtime.state-unit"
+          "coordinator.test.integration.project-runtime-composition-root",
+          "coordinator.test.integration.project-runtime-full-flow"
         ],
         "testObservation": "observed"
       },
@@ -460,6 +471,7 @@
           "ARCH-000004"
         ],
         "implementationSymbolIds": [
+          "coordinator.source.src.security.project.runtime.durable.foundation",
           "project-runtime.objective-application",
           "project-runtime.queue-core",
           "project-runtime.state-core"
@@ -468,8 +480,9 @@
         "qualityLocalIds": [
           "QA-000003/PRL-IT-011"
         ],
+        "verificationMode": "automated",
         "testSymbolIds": [
-          "project-runtime.state-unit"
+          "coordinator.test.integration.project-runtime-queue-priority"
         ],
         "testObservation": "observed"
       },
@@ -487,10 +500,10 @@
         "qualityLocalIds": [
           "QA-000003/PRL-ST-004"
         ],
+        "verificationMode": "automated",
         "testSymbolIds": [
-          "coordinator.project-runtime-durable-foundation-integration",
-          "project-runtime.integration-application-unit",
-          "project-runtime.state-unit"
+          "coordinator.test.system.project-runtime-real-provider-verification-script",
+          "coordinator.test.system.project-runtime-recovery"
         ],
         "testObservation": "observed"
       },
@@ -500,14 +513,16 @@
           "ARCH-000004"
         ],
         "implementationSymbolIds": [
+          "coordinator.source.src.security.project.runtime.objective.intake",
           "project-runtime.objective-intake"
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
           "QA-000003/PRL-IT-005"
         ],
+        "verificationMode": "automated",
         "testSymbolIds": [
-          "project-runtime.objective-intake-unit"
+          "coordinator.test.integration.project-runtime-objective-intake"
         ],
         "testObservation": "observed"
       },
@@ -523,8 +538,9 @@
         "qualityLocalIds": [
           "QA-000003/PRL-IT-012"
         ],
+        "verificationMode": "automated",
         "testSymbolIds": [
-          "project-runtime.public-contract-unit"
+          "coordinator.test.integration.project-runtime-platform-independence"
         ],
         "testObservation": "observed"
       }

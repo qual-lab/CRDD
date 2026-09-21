@@ -3,10 +3,10 @@
  *
  * @packageDocumentation
  * @responsibility coordinator:integration:project-runtime-candidate-integration-adapterが所有する検証責務を実行する。
- * @trace PRL-IT-005
+ * @trace PRL-IT-012
  * @level IT
  * @scope project、runtime、candidate、adapter
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -25,13 +25,13 @@ import { gitFixedSnapshotAdapter } from "../../../version-control/src/git/fixed-
  * real candidate bundles are merged and explicitly adopted into the bound repositoryを検証する。
  *
  * @responsibility real candidate bundles are merged and explicitly adopted into the bound repositoryの合否判定を所有する。
- * @trace PRL-IT-005
+ * @trace PRL-IT-012
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus real candidate bundles are merged and explicitly adopted into the bound repositoryの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 test("real candidate bundles are merged and explicitly adopted into the bound repository", async (t) => {
   const repository = fs.mkdtempSync(

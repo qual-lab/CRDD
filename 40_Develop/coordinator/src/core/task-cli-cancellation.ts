@@ -1,12 +1,18 @@
+/**
+ * task-cli-cancellationに属する責務をまとめる。
+ *
+ * @responsibility TaskCliSignalを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { types as utilTypes } from "node:util";
 
 const intrinsicPromiseThen = Promise.prototype.then;
 const taskCliSignals = ["SIGINT", "SIGTERM"] as const;
 
 /**
- * TaskCliSignalが扱う値の構造を表す。
+ * task-cli-cancellationで使用するTask Cli Signalの値契約を定義する。
  *
- * @responsibility TaskCliSignalに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Task Cli SignalのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape TaskCliSignalが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TaskCliSignalで宣言した値と責務の対応を維持する。
@@ -16,9 +22,9 @@ const taskCliSignals = ["SIGINT", "SIGTERM"] as const;
  */
 type TaskCliSignal = (typeof taskCliSignals)[number];
 /**
- * TaskCliSignalListenerが扱う値の構造を表す。
+ * task-cli-cancellationで使用するTask Cli Signal Listenerの値契約を定義する。
  *
- * @responsibility TaskCliSignalListenerに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Task Cli Signal ListenerのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape TaskCliSignalListenerが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TaskCliSignalListenerで宣言した値と責務の対応を維持する。
@@ -28,9 +34,9 @@ type TaskCliSignal = (typeof taskCliSignals)[number];
  */
 type TaskCliSignalListener = () => void;
 /**
- * TaskCliCancellationFailureReasonが扱う値の構造を表す。
+ * task-cli-cancellationで使用するTask Cli Cancellation 失敗 Reasonの値契約を定義する。
  *
- * @responsibility TaskCliCancellationFailureReasonに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Task Cli Cancellation 失敗 ReasonのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape TaskCliCancellationFailureReasonが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TaskCliCancellationFailureReasonで宣言した値と責務の対応を維持する。
@@ -42,9 +48,9 @@ export type TaskCliCancellationFailureReason =
   | "task_cli_cancellation_signal_binding_failed"
   | "task_cli_cancellation_signal_release_failed";
 /**
- * TaskCliSignalPortが扱う値の構造を表す。
+ * task-cli-cancellationで使用するTask Cli Signal Portの値契約を定義する。
  *
- * @responsibility TaskCliSignalPortに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Task Cli Signal PortのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape TaskCliSignalPortが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TaskCliSignalPortで宣言した値と責務の対応を維持する。
@@ -61,9 +67,9 @@ type TaskCliSignalPort = Readonly<{
 }>;
 
 /**
- * createTaskCliCancellationLatchの処理を実行する。
+ * Task Cli Cancellation Latchを構築する。
  *
- * @responsibility createTaskCliCancellationLatchに対応する入力処理と結果生成を所有する。
+ * @responsibility Task Cli Cancellation Latchの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input requestCancellation: () => Promise<unknown>
  * @returns createTaskCliCancellationLatchの計算結果を返す。
@@ -125,9 +131,9 @@ export function createTaskCliCancellationLatch(
 }
 
 /**
- * bindTaskCliCancellationSignalsToPortの処理を実行する。
+ * Task Cli Cancellation Signals To PortをIdentityへ結合する。
  *
- * @responsibility bindTaskCliCancellationSignalsToPortに対応する入力処理と結果生成を所有する。
+ * @responsibility Task Cli Cancellation Signals To Portの結合条件、相関Identity、不一致の拒否境界を所有する。
  * @trace ARCH-000004
  * @input port: TaskCliSignalPort、requestCancellation: () => Promise<unknown>
  * @returns bindTaskCliCancellationSignalsToPortの計算結果を返す。
@@ -217,9 +223,9 @@ function bindTaskCliCancellationSignalsToPort(
 }
 
 /**
- * bindTaskCliCancellationSignalsの処理を実行する。
+ * Task Cli Cancellation SignalsをIdentityへ結合する。
  *
- * @responsibility bindTaskCliCancellationSignalsに対応する入力処理と結果生成を所有する。
+ * @responsibility Task Cli Cancellation Signalsの結合条件、相関Identity、不一致の拒否境界を所有する。
  * @trace ARCH-000004
  * @input requestCancellation: () => Promise<unknown>
  * @returns bindTaskCliCancellationSignalsの計算結果を返す。
@@ -246,9 +252,9 @@ export function bindTaskCliCancellationSignals(
 }
 
 /**
- * bindTaskCliCancellationSignalsForTestingの処理を実行する。
+ * Task Cli Cancellation Signals For TestingをIdentityへ結合する。
  *
- * @responsibility bindTaskCliCancellationSignalsForTestingに対応する入力処理と結果生成を所有する。
+ * @responsibility Task Cli Cancellation Signals For Testingの結合条件、相関Identity、不一致の拒否境界を所有する。
  * @trace ARCH-000004
  * @input port: TaskCliSignalPort、requestCancellation: () => Promise<unknown>
  * @returns bindTaskCliCancellationSignalsForTestingの計算結果を返す。
@@ -269,9 +275,9 @@ export function bindTaskCliCancellationSignalsForTesting(
 }
 
 /**
- * projectTaskCliCancellationFailureの処理を実行する。
+ * Task Cli Cancellation 失敗を公開結果へ投影する。
  *
- * @responsibility projectTaskCliCancellationFailureに対応する入力処理と結果生成を所有する。
+ * @responsibility Task Cli Cancellation 失敗の公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000004
  * @input result: Result、reason: TaskCliCancellationFailureReason
  * @returns Readonly< Omit<Result, "command" | "status" | "reason"> & Readonly<{ command: "task"; status: "blocked"; reason: TaskCliCancellationFailureReason; }> >を返す。

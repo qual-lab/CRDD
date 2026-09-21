@@ -1,3 +1,9 @@
+/**
+ * development-execution-timingに属する責務をまとめる。
+ *
+ * @responsibility Intervalを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000018
+ */
 import { writeSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 
@@ -23,9 +29,9 @@ const STATE_LABELS = Object.freeze({
 });
 
 /**
- * Intervalが扱う値の構造を表す。
+ * development-execution-timingで使用するIntervalの値契約を定義する。
  *
- * @responsibility Intervalに必要な値と制約を一つの型契約として保持する。
+ * @responsibility IntervalのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000018
  * @shape Intervalが表すProperty、識別子およびRelationを型として固定する。
  * @invariant Intervalで宣言した値と責務の対応を維持する。
@@ -41,7 +47,7 @@ type Interval = Readonly<{
 /**
  * Passive diagnostics only: no authority clock, timer, listener or capability.
  *
- * @responsibility createDevelopmentExecutionTimingに対応する入力処理と結果生成を所有する。
+ * @responsibility Development Execution Timingの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000018
  * @input now: () => number、writeProgress: (text: string) => boolean
  * @returns createDevelopmentExecutionTimingの計算結果を返す。
@@ -72,9 +78,9 @@ export function createDevelopmentExecutionTiming(
   const intervals: Interval[] = [];
 
   /**
-   * readTimeの処理を実行する。
+   * Timeを読み取る。
    *
-   * @responsibility readTimeに対応する入力処理と結果生成を所有する。
+   * @responsibility Timeの読取り元、上限、読取不能時の結果境界を所有する。
    * @trace ARCH-000018
    * @input N/A: 実行時引数を受け取らない。
    * @returns readTimeの計算結果を返す。
@@ -108,9 +114,9 @@ export function createDevelopmentExecutionTiming(
   const startedAt = readTime();
 
   /**
-   * closeIntervalの処理を実行する。
+   * Intervalを終了する。
    *
-   * @responsibility closeIntervalに対応する入力処理と結果生成を所有する。
+   * @responsibility Intervalの終了条件、資源解放、終了不能時の境界を所有する。
    * @trace ARCH-000018
    * @input time: number | null
    * @returns closeIntervalの計算結果を返す。
@@ -138,9 +144,9 @@ export function createDevelopmentExecutionTiming(
 
   return Object.freeze({
     /**
-     * observeLifecycleStateの処理を実行する。
+     * Lifecycle 状態を観測する。
      *
-     * @responsibility observeLifecycleStateに対応する入力処理と結果生成を所有する。
+     * @responsibility Lifecycle 状態の観測対象、取得根拠、観測不能結果の境界を所有する。
      * @trace ARCH-000018
      * @input state: string
      * @returns observeLifecycleStateの計算結果を返す。
@@ -176,9 +182,9 @@ export function createDevelopmentExecutionTiming(
       }
     },
     /**
-     * measureIdentityの処理を実行する。
+     * measure Identityを決定する。
      *
-     * @responsibility measureIdentityに対応する入力処理と結果生成を所有する。
+     * @responsibility measure Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
      * @trace ARCH-000018
      * @input observe: () => Result
      * @returns Resultを返す。
@@ -207,9 +213,9 @@ export function createDevelopmentExecutionTiming(
       }
     },
     /**
-     * finishの処理を実行する。
+     * development-execution-timingを終了状態へ収束させる。
      *
-     * @responsibility finishに対応する入力処理と結果生成を所有する。
+     * @responsibility development-execution-timingの終了条件、最終状態、残存義務の境界を所有する。
      * @trace ARCH-000018
      * @input N/A: 実行時引数を受け取らない。
      * @returns finishの計算結果を返す。
@@ -230,9 +236,9 @@ export function createDevelopmentExecutionTiming(
       isFinished = true;
     },
     /**
-     * snapshotの処理を実行する。
+     * development-execution-timingを所有Snapshotへ変換する。
      *
-     * @responsibility snapshotに対応する入力処理と結果生成を所有する。
+     * @responsibility development-execution-timingの取得範囲、plain-data制約、拒否境界を所有する。
      * @trace ARCH-000018
      * @input N/A: 実行時引数を受け取らない。
      * @returns snapshotの計算結果を返す。
@@ -272,7 +278,7 @@ export function createDevelopmentExecutionTiming(
 /**
  * Only fixed labels generated above reach this bounded best-effort sink.
  *
- * @responsibility writeDevelopmentMeasurementProgressに対応する入力処理と結果生成を所有する。
+ * @responsibility Development Measurement Progressの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000018
  * @input text: string
  * @returns writeDevelopmentMeasurementProgressの計算結果を返す。

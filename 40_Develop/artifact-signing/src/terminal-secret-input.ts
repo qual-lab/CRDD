@@ -1,4 +1,10 @@
 /**
+ * terminal-secret-inputに属する責務をまとめる。
+ *
+ * @responsibility HiddenLineTerminalを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
+/**
  * 秘密入力に必要な対話端末操作だけを表す。
  *
  * @responsibility 実端末と試験端末を同じ最小Capability境界で扱う。

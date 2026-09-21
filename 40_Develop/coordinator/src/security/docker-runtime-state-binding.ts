@@ -1,7 +1,13 @@
 /**
- * RuntimeStateBindingが扱う値の構造を表す。
+ * docker-runtime-state-bindingに属する責務をまとめる。
  *
- * @responsibility RuntimeStateBindingに必要な値と制約を一つの型契約として保持する。
+ * @responsibility RuntimeStateBindingを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
+/**
+ * docker-runtime-state-bindingで使用するRuntime 状態 Bindingの値契約を定義する。
+ *
+ * @responsibility Runtime 状態 BindingのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RuntimeStateBindingが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeStateBindingで宣言した値と責務の対応を維持する。
@@ -18,9 +24,9 @@ type RuntimeStateBinding = Readonly<{
 }>;
 
 /**
- * isExactDockerRuntimeStateMutationBoundaryの処理を実行する。
+ * Exact Docker Runtime 状態 Mutation Boundaryかを判定する。
  *
- * @responsibility isExactDockerRuntimeStateMutationBoundaryに対応する入力処理と結果生成を所有する。
+ * @responsibility Exact Docker Runtime 状態 Mutation Boundaryの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input expected: RuntimeStateBinding、current: RuntimeStateBinding、recoveryIds: readonly string[]、recoveryId: string
  * @returns isExactDockerRuntimeStateMutationBoundaryの計算結果を返す。

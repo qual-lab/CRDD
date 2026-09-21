@@ -1,3 +1,9 @@
+/**
+ * project-runtime-integrationに属する責務をまとめる。
+ *
+ * @responsibility IntegrationInputを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import {
   recordMilestoneIntegration,
   recordObjectiveIntegration,
@@ -22,9 +28,9 @@ import {
 } from "../boundary/repository-relative-path.ts";
 
 /**
- * IntegrationInputが扱う値の構造を表す。
+ * project-runtime-integrationで使用するIntegration 入力の値契約を定義する。
  *
- * @responsibility IntegrationInputに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Integration 入力のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape IntegrationInputが表すProperty、識別子およびRelationを型として固定する。
  * @invariant IntegrationInputで宣言した値と責務の対応を維持する。
@@ -42,9 +48,9 @@ type IntegrationInput = Readonly<{
 }>;
 
 /**
- * IntegrationDependenciesが扱う値の構造を表す。
+ * project-runtime-integrationで使用するIntegration Dependenciesの値契約を定義する。
  *
- * @responsibility IntegrationDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Integration DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape IntegrationDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant IntegrationDependenciesで宣言した値と責務の対応を維持する。
@@ -59,9 +65,9 @@ type IntegrationDependencies = Readonly<{
 }>;
 
 /**
- * validIdの処理を実行する。
+ * Idが有効か判定する。
  *
- * @responsibility validIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Idの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown、maximum
  * @returns value is stringを返す。
@@ -84,9 +90,9 @@ function validId(value: unknown, maximum = 512): value is string {
 }
 
 /**
- * validRevisionの処理を実行する。
+ * Revisionが有効か判定する。
  *
- * @responsibility validRevisionに対応する入力処理と結果生成を所有する。
+ * @responsibility Revisionの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -104,9 +110,9 @@ function validRevision(value: unknown): value is string {
 }
 
 /**
- * validHashの処理を実行する。
+ * Hashが有効か判定する。
  *
- * @responsibility validHashに対応する入力処理と結果生成を所有する。
+ * @responsibility Hashの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -124,9 +130,9 @@ function validHash(value: unknown): value is string {
 }
 
 /**
- * validPathの処理を実行する。
+ * Pathが有効か判定する。
  *
- * @responsibility validPathに対応する入力処理と結果生成を所有する。
+ * @responsibility Pathの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -144,9 +150,9 @@ function validPath(value: unknown): value is string {
 }
 
 /**
- * stringArrayの処理を実行する。
+ * string Arrayを決定する。
  *
- * @responsibility stringArrayに対応する入力処理と結果生成を所有する。
+ * @responsibility string Arrayの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown、validator
  * @returns stringArrayの計算結果を返す。
@@ -168,9 +174,9 @@ function stringArray(value: unknown, validator = validId) {
 }
 
 /**
- * inspectCandidateの処理を実行する。
+ * 候補を観測する。
  *
- * @responsibility inspectCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input raw: unknown、state: ProjectRuntimeState
  * @returns ProjectRuntimeIntegrationCandidate | nullを返す。
@@ -249,9 +255,9 @@ function inspectCandidate(
 }
 
 /**
- * inspectRepositoryの処理を実行する。
+ * Repositoryを観測する。
  *
- * @responsibility inspectRepositoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Repositoryの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input raw: unknown
  * @returns inspectRepositoryの計算結果を返す。
@@ -291,9 +297,9 @@ function inspectRepository(raw: unknown) {
 }
 
 /**
- * inspectCandidatePortBlockedの処理を実行する。
+ * 候補 Port Blockedを観測する。
  *
- * @responsibility inspectCandidatePortBlockedに対応する入力処理と結果生成を所有する。
+ * @responsibility 候補 Port Blockedの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input raw: unknown
  * @returns inspectCandidatePortBlockedの計算結果を返す。
@@ -341,9 +347,9 @@ function inspectCandidatePortBlocked(raw: unknown) {
 }
 
 /**
- * inspectReceiptの処理を実行する。
+ * Receiptを観測する。
  *
- * @responsibility inspectReceiptに対応する入力処理と結果生成を所有する。
+ * @responsibility Receiptの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input raw: unknown
  * @returns ProjectRuntimeCandidateAdoptionReceipt | nullを返す。
@@ -392,9 +398,9 @@ function inspectReceipt(
 }
 
 /**
- * pathWithinAllowedの処理を実行する。
+ * path Within Allowedを決定する。
  *
- * @responsibility pathWithinAllowedに対応する入力処理と結果生成を所有する。
+ * @responsibility path Within Allowedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input candidate: string、allowedPaths: readonly string[]
  * @returns pathWithinAllowedの計算結果を返す。
@@ -412,9 +418,9 @@ function pathWithinAllowed(candidate: string, allowedPaths: readonly string[]) {
 }
 
 /**
- * responseの処理を実行する。
+ * responseを決定する。
  *
- * @responsibility responseに対応する入力処理と結果生成を所有する。
+ * @responsibility responseの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input input: IntegrationInput、status: "completed" | "blocked"、reason: string、state: ProjectRuntimeState | null、options: Readonly<{ candidateId?: string | null; receiptId?: string | null; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; recoveryIds?: readonly string[]; effectIssued?: boolean; effectStateUnknown?: boolean; retryAllowed?: boolean; }>
  * @returns responseの計算結果を返す。
@@ -469,7 +475,7 @@ function response(
 /**
  * Integrate terminal Task candidates and, when explicitly authorized, adopt
  *
- * @responsibility integrateProjectRuntimeOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-integrationの入力からintegrate Project Runtime Operationを導く規則と結果境界を所有する。
  * @trace ARCH-000004
  * @input dependencies: IntegrationDependencies、input: IntegrationInput
  * @returns integrateProjectRuntimeOperationの計算結果を返す。
@@ -889,9 +895,9 @@ export async function integrateProjectRuntimeOperation(
 }
 
 /**
- * describeProjectRuntimeIntegrationContractの処理を実行する。
+ * Project Runtime Integration 契約の公開契約を記述する。
  *
- * @responsibility describeProjectRuntimeIntegrationContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Integration 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProjectRuntimeIntegrationContractの計算結果を返す。

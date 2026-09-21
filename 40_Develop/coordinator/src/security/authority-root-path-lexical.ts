@@ -1,3 +1,9 @@
+/**
+ * authority-root-path-lexicalに属する責務をまとめる。
+ *
+ * @responsibility reservedNameLimitedUppercaseを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import path from "node:path";
 
 export const AUTHORITY_ROOT_ABSOLUTE_PATH_MAX_BYTES = 4_096;
@@ -22,9 +28,9 @@ const reservedNameSpecialUppercaseMapping = new Map<string, string>(
 );
 
 /**
- * reservedNameLimitedUppercaseの処理を実行する。
+ * reserved Name Limited Uppercaseを決定する。
  *
- * @responsibility reservedNameLimitedUppercaseに対応する入力処理と結果生成を所有する。
+ * @responsibility reserved Name Limited Uppercaseの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
  * @input value: string
  * @returns reservedNameLimitedUppercaseの計算結果を返す。
@@ -52,9 +58,9 @@ function reservedNameLimitedUppercase(value: string) {
 }
 
 /**
- * hasSupportedCommonPathBytesの処理を実行する。
+ * Supported Common Path Bytesが存在するかを判定する。
  *
- * @responsibility hasSupportedCommonPathBytesに対応する入力処理と結果生成を所有する。
+ * @responsibility Supported Common Path Bytesの存在条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown
  * @returns value is stringを返す。
@@ -79,9 +85,9 @@ function hasSupportedCommonPathBytes(value: unknown): value is string {
 }
 
 /**
- * isSupportedWindowsAbsolutePathCandidateの処理を実行する。
+ * Supported Windows Absolute Path 候補かを判定する。
  *
- * @responsibility isSupportedWindowsAbsolutePathCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Supported Windows Absolute Path 候補の判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown
  * @returns value is stringを返す。
@@ -127,9 +133,9 @@ export function isSupportedWindowsAbsolutePathCandidate(
 }
 
 /**
- * describeAuthorityRootPathLexicalContractの処理を実行する。
+ * Authority Root Path Lexical 契約の公開契約を記述する。
  *
- * @responsibility describeAuthorityRootPathLexicalContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Authority Root Path Lexical 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000014
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeAuthorityRootPathLexicalContractの計算結果を返す。
@@ -161,9 +167,9 @@ export function describeAuthorityRootPathLexicalContract() {
 }
 
 /**
- * isSupportedPosixAbsolutePathCandidateの処理を実行する。
+ * Supported Posix Absolute Path 候補かを判定する。
  *
- * @responsibility isSupportedPosixAbsolutePathCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Supported Posix Absolute Path 候補の判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown
  * @returns value is stringを返す。
@@ -188,9 +194,9 @@ export function isSupportedPosixAbsolutePathCandidate(
 }
 
 /**
- * isSupportedAuthorityRootAbsolutePathの処理を実行する。
+ * Supported Authority Root Absolute Pathかを判定する。
  *
- * @responsibility isSupportedAuthorityRootAbsolutePathに対応する入力処理と結果生成を所有する。
+ * @responsibility Supported Authority Root Absolute Pathの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
  * @input value: unknown
  * @returns value is stringを返す。

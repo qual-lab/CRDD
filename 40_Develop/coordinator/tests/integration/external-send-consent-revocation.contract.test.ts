@@ -6,7 +6,7 @@
  * @trace EST-IT-004
  * @level IT
  * @scope external、send、consent、revocation
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -28,7 +28,7 @@ import {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 test("明示取消は完了と手動回復をPath・Credentialなしで分離する", () => {
   assert.deepEqual(
@@ -63,7 +63,7 @@ test("明示取消は完了と手動回復をPath・Credentialなしで分離す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ * @boundary EST-IT-004=Related 2 Blocks: Application要求→Policy→Provider Adapter
  */
 test("取消CLIは任意引数をEffect前に拒否する", () => {
   const result = spawnSync(

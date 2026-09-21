@@ -1,3 +1,9 @@
+/**
+ * filesystem-semantic-bundle-publisherに属する責務をまとめる。
+ *
+ * @responsibility SemanticBundlePublishRequestを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import fs from "node:fs";
 import path from "node:path";
 

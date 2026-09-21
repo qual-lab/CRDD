@@ -1,3 +1,9 @@
+/**
+ * generate-release-keyに属する責務をまとめる。
+ *
+ * @responsibility isContainedByを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { createHash, generateKeyPairSync } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -12,6 +18,22 @@ const PUBLIC_KEY_FILE = "crdd-release-v1-public.spki.der";
 const MINIMUM_PASSPHRASE_CHARACTERS = 20;
 const MAXIMUM_PASSPHRASE_BYTES = 1_024;
 
+/**
+ * Contained Byかを判定する。
+ *
+ * @responsibility Contained Byの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000004
+ * @input parent: string、candidate: string
+ * @returns isContainedByの計算結果を返す。
+ * @precondition 「parent: string、candidate: string」がisContainedByの入力契約を満たす。
+ * @postcondition isContainedByの責務を完了した結果だけを返す。
+ * @effect N/A: isContainedByは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isContainedByは独自の失敗分岐を所有しない。
+ * @invariant isContainedByは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isContainedByはProcess内の同一Subsystemで完結する。
+ * @security N/A: isContainedByはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isContainedByは共有非同期状態を持たない同期処理である。
+ */
 function isContainedBy(parent: string, candidate: string) {
   const relative = path.relative(parent, candidate);
   return (
@@ -20,6 +42,22 @@ function isContainedBy(parent: string, candidate: string) {
   );
 }
 
+/**
+ * 出力 Directoryの契約を検証する。
+ *
+ * @responsibility 出力 Directoryの必須Property、拒否条件、検証結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input rawOutputDirectory: unknown
+ * @returns validateOutputDirectoryの計算結果を返す。
+ * @precondition 「rawOutputDirectory: unknown」がvalidateOutputDirectoryの入力契約を満たす。
+ * @postcondition validateOutputDirectoryの責務を完了した結果だけを返す。
+ * @effect validateOutputDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure validateOutputDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant validateOutputDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: validateOutputDirectoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validateOutputDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function validateOutputDirectory(rawOutputDirectory: unknown) {
   if (
     typeof rawOutputDirectory !== "string" ||
@@ -45,6 +83,22 @@ function validateOutputDirectory(rawOutputDirectory: unknown) {
   return outputDirectory;
 }
 
+/**
+ * Passphraseの契約を検証する。
+ *
+ * @responsibility Passphraseの必須Property、拒否条件、検証結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input rawPassphrase: unknown
+ * @returns validatePassphraseの計算結果を返す。
+ * @precondition 「rawPassphrase: unknown」がvalidatePassphraseの入力契約を満たす。
+ * @postcondition validatePassphraseの責務を完了した結果だけを返す。
+ * @effect N/A: validatePassphraseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure validatePassphraseは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant validatePassphraseは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validatePassphraseはProcess内の同一Subsystemで完結する。
+ * @security N/A: validatePassphraseはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validatePassphraseは共有非同期状態を持たない同期処理である。
+ */
 function validatePassphrase(rawPassphrase: unknown) {
   if (
     typeof rawPassphrase !== "string" ||
@@ -56,6 +110,22 @@ function validatePassphrase(rawPassphrase: unknown) {
   return Buffer.from(rawPassphrase, "utf8");
 }
 
+/**
+ * Release Key Pairを生成する。
+ *
+ * @responsibility Release Key Pairの生成入力、決定規則、生成物のIdentity境界を所有する。
+ * @trace ARCH-000004
+ * @input rawOutputDirectory: unknown、rawPassphrase: unknown
+ * @returns generateReleaseKeyPairの計算結果を返す。
+ * @precondition 「rawOutputDirectory: unknown、rawPassphrase: unknown」がgenerateReleaseKeyPairの入力契約を満たす。
+ * @postcondition generateReleaseKeyPairの責務を完了した結果だけを返す。
+ * @effect generateReleaseKeyPairはFilesystemの読取りまたは書込みを実行する。
+ * @failure generateReleaseKeyPairは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant generateReleaseKeyPairは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: generateReleaseKeyPairはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: generateReleaseKeyPairは共有非同期状態を持たない同期処理である。
+ */
 export function generateReleaseKeyPair(
   rawOutputDirectory: unknown,
   rawPassphrase: unknown,
@@ -102,6 +172,22 @@ export function generateReleaseKeyPair(
   }
 }
 
+/**
+ * generate-release-keyのCommand処理を開始する。
+ *
+ * @responsibility generate-release-keyの引数受付、終了Code、診断出力境界を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns N/A: mainは戻り値を返さない。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がmainの入力契約を満たす。
+ * @postcondition mainの責務を完了して呼出し元へ制御を戻す。
+ * @effect mainは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure mainは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant mainは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: mainはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency mainは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function main() {
   assertSupportedCoordinatorNodeRuntime(process.versions.node);
   const args = process.argv.slice(2);

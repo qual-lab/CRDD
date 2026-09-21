@@ -1,3 +1,9 @@
+/**
+ * provider-billing-policyに属する責務をまとめる。
+ *
+ * @responsibility describeProviderBillingPolicyContractを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 export const PROVIDER_BILLING_POLICY_CONTRACT =
   "crdd-coordinator/provider-billing-policy";
 export const PROVIDER_BILLING_POLICY_CONTRACT_REVISION = 1;
@@ -11,9 +17,9 @@ const FUTURE_PAID_API_REQUIREMENTS = Object.freeze([
 ]);
 
 /**
- * describeProviderBillingPolicyContractの処理を実行する。
+ * Provider Billing Policy 契約の公開契約を記述する。
  *
- * @responsibility describeProviderBillingPolicyContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Provider Billing Policy 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000010
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProviderBillingPolicyContractの計算結果を返す。

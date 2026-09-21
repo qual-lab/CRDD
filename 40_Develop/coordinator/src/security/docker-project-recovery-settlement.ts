@@ -1,10 +1,16 @@
+/**
+ * docker-project-recovery-settlementに属する責務をまとめる。
+ *
+ * @responsibility ProjectSettledDockerRecoveryを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { readProjectRuntimeState } from "./project-runtime-durable-foundation.ts";
 
 /**
- * ProjectSettledDockerRecoveryが扱う値の構造を表す。
+ * docker-project-recovery-settlementで使用するProject Settled Docker 回復の値契約を定義する。
  *
- * @responsibility ProjectSettledDockerRecoveryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Settled Docker 回復のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ProjectSettledDockerRecoveryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectSettledDockerRecoveryで宣言した値と責務の対応を維持する。
@@ -28,7 +34,7 @@ export type ProjectSettledDockerRecovery = Readonly<{
 /**
  * Internal production composition. The public facade supplies the Runtime-owned
  *
- * @responsibility consumeProjectSettledDockerRecoveryWithRuntimeBoundaryに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Settled Docker 回復 With Runtime Boundaryの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
  * @trace ARCH-000008
  * @input rawSettlement: ProjectSettledDockerRecovery、acknowledge: (recoveryId: string) => T
  * @returns consumeProjectSettledDockerRecoveryWithRuntimeBoundaryの計算結果を返す。

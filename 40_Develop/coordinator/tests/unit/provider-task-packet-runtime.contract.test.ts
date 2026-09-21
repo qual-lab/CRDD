@@ -6,7 +6,7 @@
  * @trace PRL-UT-014
  * @level UT
  * @scope provider、task、packet、runtime
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -38,7 +38,7 @@ import { normalizeProviderTaskStructuredResult } from "../../src/security/provid
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 function operation() {
   const owned = createOwnedOperationDirectories();
@@ -61,7 +61,7 @@ function operation() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 function packet() {
   return {
@@ -86,7 +86,7 @@ function packet() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 function reviewerPacket(
   source: {
@@ -136,7 +136,7 @@ function reviewerPacket(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 function packetRuntime() {
   const repositoryBindingCapability = Object.freeze({});
@@ -182,7 +182,7 @@ function packetRuntime() {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡す", () => {
   const current = operation();
@@ -257,7 +257,7 @@ test("Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境界を明示する", () => {
   const current = operation();
@@ -391,7 +391,7 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("文書を明示した受入条件は合成Reviewerの確認範囲から除外しない", () => {
   const current = operation();
@@ -445,7 +445,7 @@ test("文書を明示した受入条件は合成Reviewerの確認範囲から除
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("固定4経路の実TaskからReviewer指示と未変更の上限・読取能力を導く", () => {
   for (const route of [
@@ -545,7 +545,7 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("取消はuse aliasも失効し別Operationや動的入力を拒否する", () => {
   const current = operation();
@@ -623,7 +623,7 @@ test("取消はuse aliasも失効し別Operationや動的入力を拒否する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Path、上限、重複、余分fieldとRole差をfail closedにする", () => {
   const current = operation();
@@ -692,7 +692,7 @@ test("Path、上限、重複、余分fieldとRole差をfail closedにする", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ変換する", () => {
   const current = operation();
@@ -782,7 +782,7 @@ test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Packetから拒否する", () => {
   for (const secretPath of [
@@ -859,7 +859,7 @@ test("Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Pack
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Reviewer由来の認識済みSecret本文をExternal Send Grant消費前に是正Packetから拒否する", () => {
   const current = operation();
@@ -924,7 +924,7 @@ test("Reviewer由来の認識済みSecret本文をExternal Send Grant消費前�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に拒否する", () => {
   const current = operation();
@@ -987,7 +987,7 @@ test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   const contract = describeProviderTaskPacketRuntimeContract();

@@ -6,7 +6,7 @@
  * @trace ERB-ST-005
  * @level ST
  * @scope terminal、interaction、probe
- * @boundary System/E2E: 公開入口→外部Runtime→結果・終了後診断
+ * @boundary ERB-ST-005=System/E2E: 公開入口→外部Runtime→結果・終了後診断
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -33,7 +33,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→外部Runtime→結果・終了後診断
+ * @boundary ERB-ST-005=System/E2E: 公開入口→外部Runtime→結果・終了後診断
  */
 function createProbeFixture(
   options: {
@@ -130,7 +130,7 @@ function createProbeFixture(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→外部Runtime→結果・終了後診断
+ * @boundary ERB-ST-005=System/E2E: 公開入口→外部Runtime→結果・終了後診断
  */
 test("端末確認は表示後に一度だけ読み取り、値や権限を結果へ搬送しない", async () => {
   const fixture = createProbeFixture();
@@ -160,7 +160,7 @@ test("端末確認は表示後に一度だけ読み取り、値や権限を結�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→外部Runtime→結果・終了後診断
+ * @boundary ERB-ST-005=System/E2E: 公開入口→外部Runtime→結果・終了後診断
  */
 test("入力不一致と期待シナリオの不成立を分離する", async () => {
   for (const scenario of ["match", "mismatch"]) {
@@ -201,7 +201,7 @@ test("入力不一致と期待シナリオの不成立を分離する", async ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→外部Runtime→結果・終了後診断
+ * @boundary ERB-ST-005=System/E2E: 公開入口→外部Runtime→結果・終了後診断
  */
 test("取消と時間切れはreader停止を待ちtimerと両descriptorを回収する", async () => {
   for (const scenario of ["cancel", "timeout", "match"]) {
@@ -237,7 +237,7 @@ test("取消と時間切れはreader停止を待ちtimerと両descriptorを回�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→外部Runtime→結果・終了後診断
+ * @boundary ERB-ST-005=System/E2E: 公開入口→外部Runtime→結果・終了後診断
  */
 test("取消と完了の競合およびcleanup不明は入力成功へ戻さない", async () => {
   for (const read of [
@@ -269,7 +269,7 @@ test("取消と完了の競合およびcleanup不明は入力成功へ戻さな�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→外部Runtime→結果・終了後診断
+ * @boundary ERB-ST-005=System/E2E: 公開入口→外部Runtime→結果・終了後診断
  */
 test("表示失敗はreaderを開始せず、最終改行失敗も成功にしない", async () => {
   for (const writeFailureAt of [1, 2]) {
@@ -303,7 +303,7 @@ test("表示失敗はreaderを開始せず、最終改行失敗も成功にし�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→外部Runtime→結果・終了後診断
+ * @boundary ERB-ST-005=System/E2E: 公開入口→外部Runtime→結果・終了後診断
  */
 test("reader失敗・不正完了・例外・descriptor回収失敗を通常成功にしない", async () => {
   for (const options of [
@@ -336,7 +336,7 @@ test("reader失敗・不正完了・例外・descriptor回収失敗を通常成�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→外部Runtime→結果・終了後診断
+ * @boundary ERB-ST-005=System/E2E: 公開入口→外部Runtime→結果・終了後診断
  */
 test("取消要求だけでは完了せず、保留readerの停止結果まで資源を保持する", async () => {
   const fixture = createProbeFixture();
@@ -396,7 +396,7 @@ test("取消要求だけでは完了せず、保留readerの停止結果まで�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→外部Runtime→結果・終了後診断
+ * @boundary ERB-ST-005=System/E2E: 公開入口→外部Runtime→結果・終了後診断
  */
 test("不正引数はconsole取得より前に拒否し、不足情報を入力要求で補わない", async () => {
   for (const argv of [[], ["unknown"], ["match", "123456"], ["MATCH"]]) {
@@ -421,7 +421,7 @@ test("不正引数はconsole取得より前に拒否し、不足情報を入力�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→外部Runtime→結果・終了後診断
+ * @boundary ERB-ST-005=System/E2E: 公開入口→外部Runtime→結果・終了後診断
  */
 test("端末が取得できない場合は標準入力へfallbackしない", async () => {
   const fixture = createProbeFixture();
@@ -443,7 +443,7 @@ test("端末が取得できない場合は標準入力へfallbackしない", asy
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary System/E2E: 公開入口→外部Runtime→結果・終了後診断
+ * @boundary ERB-ST-005=System/E2E: 公開入口→外部Runtime→結果・終了後診断
  */
 test("実子の不正引数入口は非対話でJSONを返し、追加Enterを待たない", () => {
   const entrypoint = fileURLToPath(

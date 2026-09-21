@@ -1,3 +1,9 @@
+/**
+ * execution-intelligenceに属する責務をまとめる。
+ *
+ * @responsibility ExecutionObservationを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000007
+ */
 import { createHash } from "node:crypto";
 import {
   snapshotPlainArray,
@@ -8,9 +14,9 @@ export const EXECUTION_INTELLIGENCE_EVENT_CONTRACT =
   "crdd/execution-intelligence-event/v1" as const;
 
 /**
- * ExecutionObservationが扱う値の構造を表す。
+ * execution-intelligenceで使用するExecution Observationの値契約を定義する。
  *
- * @responsibility ExecutionObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Execution ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape ExecutionObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ExecutionObservationで宣言した値と責務の対応を維持する。
@@ -24,9 +30,9 @@ export type ExecutionObservation<T> =
   | Readonly<{ state: "not_applicable"; reason: string }>;
 
 /**
- * ExecutionUsageが扱う値の構造を表す。
+ * execution-intelligenceで使用するExecution Usageの値契約を定義する。
  *
- * @responsibility ExecutionUsageに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Execution UsageのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape ExecutionUsageが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ExecutionUsageで宣言した値と責務の対応を維持する。
@@ -45,9 +51,9 @@ export type ExecutionUsage = Readonly<{
 }>;
 
 /**
- * ExecutionIntelligenceEventが扱う値の構造を表す。
+ * execution-intelligenceで使用するExecution Intelligence Eventの値契約を定義する。
  *
- * @responsibility ExecutionIntelligenceEventに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Execution Intelligence EventのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape ExecutionIntelligenceEventが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ExecutionIntelligenceEventで宣言した値と責務の対応を維持する。
@@ -94,9 +100,9 @@ export type ExecutionIntelligenceEvent = Readonly<{
 }>;
 
 /**
- * TaskAttemptSettledEventInputが扱う値の構造を表す。
+ * execution-intelligenceで使用するTask Attempt Settled Event 入力の値契約を定義する。
  *
- * @responsibility TaskAttemptSettledEventInputに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Task Attempt Settled Event 入力のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape TaskAttemptSettledEventInputが表すProperty、識別子およびRelationを型として固定する。
  * @invariant TaskAttemptSettledEventInputで宣言した値と責務の対応を維持する。
@@ -113,9 +119,9 @@ export type TaskAttemptSettledEventInput = Readonly<{
 }>;
 
 /**
- * observedの処理を実行する。
+ * observedを決定する。
  *
- * @responsibility observedに対応する入力処理と結果生成を所有する。
+ * @responsibility observedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000007
  * @input value: T、source: string
  * @returns ExecutionObservation<T>を返す。
@@ -133,9 +139,9 @@ export function observed<T>(value: T, source: string): ExecutionObservation<T> {
 }
 
 /**
- * notObservedの処理を実行する。
+ * not Observedを決定する。
  *
- * @responsibility notObservedに対応する入力処理と結果生成を所有する。
+ * @responsibility not Observedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000007
  * @input reason: string
  * @returns ExecutionObservation<never>を返す。
@@ -153,9 +159,9 @@ export function notObserved(reason: string): ExecutionObservation<never> {
 }
 
 /**
- * notApplicableの処理を実行する。
+ * not Applicableを決定する。
  *
- * @responsibility notApplicableに対応する入力処理と結果生成を所有する。
+ * @responsibility not Applicableの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000007
  * @input reason: string
  * @returns ExecutionObservation<never>を返す。
@@ -173,9 +179,9 @@ export function notApplicable(reason: string): ExecutionObservation<never> {
 }
 
 /**
- * usageNotObservedの処理を実行する。
+ * usage Not Observedを決定する。
  *
- * @responsibility usageNotObservedに対応する入力処理と結果生成を所有する。
+ * @responsibility usage Not Observedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000007
  * @input reason: string
  * @returns ExecutionUsageを返す。
@@ -200,9 +206,9 @@ export function usageNotObserved(reason: string): ExecutionUsage {
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 /**
- * textの処理を実行する。
+ * execution-intelligenceを表示文字列へ変換する。
  *
- * @responsibility textに対応する入力処理と結果生成を所有する。
+ * @responsibility execution-intelligenceの入力値、文字列表現、機密を含めない結果境界を所有する。
  * @trace ARCH-000007
  * @input value: unknown、maximum
  * @returns value is stringを返す。
@@ -225,9 +231,9 @@ function text(value: unknown, maximum = 512): value is string {
 }
 
 /**
- * identityの処理を実行する。
+ * identityを決定する。
  *
- * @responsibility identityに対応する入力処理と結果生成を所有する。
+ * @responsibility identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000007
  * @input value: unknown
  * @returns value is stringを返す。
@@ -254,9 +260,9 @@ const taskAttemptIdentityKeys = new Set([
 ] as const);
 
 /**
- * taskAttemptEventIdの処理を実行する。
+ * task Attempt Event Idを決定する。
  *
- * @responsibility taskAttemptEventIdに対応する入力処理と結果生成を所有する。
+ * @responsibility task Attempt Event Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000007
  * @input value: ExecutionIntelligenceEvent["identity"]
  * @returns stringを返す。
@@ -287,9 +293,9 @@ function taskAttemptEventId(
 }
 
 /**
- * countの処理を実行する。
+ * execution-intelligenceの件数を算出する。
  *
- * @responsibility countに対応する入力処理と結果生成を所有する。
+ * @responsibility execution-intelligenceの計数対象、集計規則、件数結果境界を所有する。
  * @trace ARCH-000007
  * @input value: unknown
  * @returns value is numberを返す。
@@ -307,9 +313,9 @@ function count(value: unknown): value is number {
 }
 
 /**
- * nonnegativeNumberの処理を実行する。
+ * Numberが0以上か検証する。
  *
- * @responsibility nonnegativeNumberに対応する入力処理と結果生成を所有する。
+ * @responsibility Numberの数値条件、拒否条件、検証済み結果境界を所有する。
  * @trace ARCH-000007
  * @input value: unknown
  * @returns value is numberを返す。
@@ -327,9 +333,9 @@ function nonnegativeNumber(value: unknown): value is number {
 }
 
 /**
- * observationの処理を実行する。
+ * observationを決定する。
  *
- * @responsibility observationに対応する入力処理と結果生成を所有する。
+ * @responsibility observationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000007
  * @input value: unknown、inspectObserved: (observed: unknown) => T | null
  * @returns ExecutionObservation<T> | nullを返す。
@@ -379,9 +385,9 @@ function observation<T>(
 }
 
 /**
- * inspectExecutionIntelligenceEventの処理を実行する。
+ * Execution Intelligence Eventを観測する。
  *
- * @responsibility inspectExecutionIntelligenceEventに対応する入力処理と結果生成を所有する。
+ * @responsibility Execution Intelligence Eventの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000007
  * @input value: unknown
  * @returns ExecutionIntelligenceEvent | nullを返す。
@@ -578,9 +584,9 @@ export function inspectExecutionIntelligenceEvent(
 }
 
 /**
- * createTaskAttemptSettledEventの処理を実行する。
+ * Task Attempt Settled Eventを構築する。
  *
- * @responsibility createTaskAttemptSettledEventに対応する入力処理と結果生成を所有する。
+ * @responsibility Task Attempt Settled Eventの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000007
  * @input input: TaskAttemptSettledEventInput
  * @returns ExecutionIntelligenceEventを返す。
@@ -626,9 +632,9 @@ export function createTaskAttemptSettledEvent(
 }
 
 /**
- * ExecutionIntelligenceSummaryが扱う値の構造を表す。
+ * execution-intelligenceで使用するExecution Intelligence Summaryの値契約を定義する。
  *
- * @responsibility ExecutionIntelligenceSummaryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Execution Intelligence SummaryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape ExecutionIntelligenceSummaryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ExecutionIntelligenceSummaryで宣言した値と責務の対応を維持する。
@@ -655,9 +661,9 @@ export type ExecutionIntelligenceSummary = Readonly<{
 }>;
 
 /**
- * summarizeExecutionIntelligenceの処理を実行する。
+ * Execution Intelligenceを要約する。
  *
- * @responsibility summarizeExecutionIntelligenceに対応する入力処理と結果生成を所有する。
+ * @responsibility Execution Intelligenceの集計対象、要約規則、公開結果境界を所有する。
  * @trace ARCH-000007
  * @input values: readonly unknown[]
  * @returns ExecutionIntelligenceSummary | nullを返す。
@@ -740,9 +746,9 @@ export function summarizeExecutionIntelligence(
 }
 
 /**
- * proposeExecutionImprovementCandidatesの処理を実行する。
+ * propose Execution Improvement Candidatesを決定する。
  *
- * @responsibility proposeExecutionImprovementCandidatesに対応する入力処理と結果生成を所有する。
+ * @responsibility propose Execution Improvement Candidatesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000007
  * @input events: readonly unknown[]
  * @returns proposeExecutionImprovementCandidatesの計算結果を返す。

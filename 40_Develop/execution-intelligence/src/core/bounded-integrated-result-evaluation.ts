@@ -1,3 +1,9 @@
+/**
+ * bounded-integrated-result-evaluationに属する責務をまとめる。
+ *
+ * @responsibility IntegratedResultObservationを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000007
+ */
 import {
   inspectExecutionIntelligenceEvent,
   type ExecutionIntelligenceEvent,
@@ -18,9 +24,9 @@ const MAXIMUM_TASKS = 128;
 const MAXIMUM_EVIDENCE_IDS = 128;
 
 /**
- * IntegratedResultObservationが扱う値の構造を表す。
+ * bounded-integrated-result-evaluationで使用するIntegrated 結果 Observationの値契約を定義する。
  *
- * @responsibility IntegratedResultObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Integrated 結果 ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape IntegratedResultObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant IntegratedResultObservationで宣言した値と責務の対応を維持する。
@@ -35,9 +41,9 @@ type IntegratedResultObservation = ExecutionObservation<
   }>
 >;
 /**
- * CountObservationが扱う値の構造を表す。
+ * bounded-integrated-result-evaluationで使用するCount Observationの値契約を定義する。
  *
- * @responsibility CountObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Count ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape CountObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CountObservationで宣言した値と責務の対応を維持する。
@@ -48,9 +54,9 @@ type IntegratedResultObservation = ExecutionObservation<
 type CountObservation = ExecutionObservation<number>;
 
 /**
- * BoundedIntegratedResultEvaluationInputが扱う値の構造を表す。
+ * bounded-integrated-result-evaluationで使用するBounded Integrated 結果 Evaluation 入力の値契約を定義する。
  *
- * @responsibility BoundedIntegratedResultEvaluationInputに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Bounded Integrated 結果 Evaluation 入力のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape BoundedIntegratedResultEvaluationInputが表すProperty、識別子およびRelationを型として固定する。
  * @invariant BoundedIntegratedResultEvaluationInputで宣言した値と責務の対応を維持する。
@@ -78,9 +84,9 @@ export type BoundedIntegratedResultEvaluationInput = Readonly<{
 }>;
 
 /**
- * BoundedIntegratedResultEvaluationが扱う値の構造を表す。
+ * bounded-integrated-result-evaluationで使用するBounded Integrated 結果 Evaluationの値契約を定義する。
  *
- * @responsibility BoundedIntegratedResultEvaluationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Bounded Integrated 結果 EvaluationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape BoundedIntegratedResultEvaluationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant BoundedIntegratedResultEvaluationで宣言した値と責務の対応を維持する。
@@ -114,9 +120,9 @@ export type BoundedIntegratedResultEvaluation = Readonly<{
 }>;
 
 /**
- * idの処理を実行する。
+ * idを決定する。
  *
- * @responsibility idに対応する入力処理と結果生成を所有する。
+ * @responsibility idの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000007
  * @input value: unknown
  * @returns value is stringを返す。
@@ -134,9 +140,9 @@ function id(value: unknown): value is string {
 }
 
 /**
- * countの処理を実行する。
+ * bounded-integrated-result-evaluationの件数を算出する。
  *
- * @responsibility countに対応する入力処理と結果生成を所有する。
+ * @responsibility bounded-integrated-result-evaluationの計数対象、集計規則、件数結果境界を所有する。
  * @trace ARCH-000007
  * @input value: unknown
  * @returns value is numberを返す。
@@ -154,9 +160,9 @@ function count(value: unknown): value is number {
 }
 
 /**
- * textの処理を実行する。
+ * bounded-integrated-result-evaluationを表示文字列へ変換する。
  *
- * @responsibility textに対応する入力処理と結果生成を所有する。
+ * @responsibility bounded-integrated-result-evaluationの入力値、文字列表現、機密を含めない結果境界を所有する。
  * @trace ARCH-000007
  * @input value: unknown
  * @returns value is stringを返す。
@@ -179,9 +185,9 @@ function text(value: unknown): value is string {
 }
 
 /**
- * inspectObservationの処理を実行する。
+ * Observationを観測する。
  *
- * @responsibility inspectObservationに対応する入力処理と結果生成を所有する。
+ * @responsibility Observationの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000007
  * @input value: unknown、inspectValue: (entry: unknown) => T | null
  * @returns ExecutionObservation<T> | nullを返す。
@@ -227,9 +233,9 @@ function inspectObservation<T>(
 }
 
 /**
- * inspectIntegratedResultの処理を実行する。
+ * Integrated 結果を観測する。
  *
- * @responsibility inspectIntegratedResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Integrated 結果の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000007
  * @input value: unknown
  * @returns IntegratedResultObservation | nullを返す。
@@ -269,9 +275,9 @@ function inspectIntegratedResult(
 }
 
 /**
- * inspectMeasurementsの処理を実行する。
+ * Measurementsを観測する。
  *
- * @responsibility inspectMeasurementsに対応する入力処理と結果生成を所有する。
+ * @responsibility Measurementsの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000007
  * @input value: unknown
  * @returns BoundedIntegratedResultEvaluationInput["measurements"] | nullを返す。
@@ -313,9 +319,9 @@ function inspectMeasurements(
 }
 
 /**
- * inspectBoundedIntegratedResultEvaluationInputの処理を実行する。
+ * Bounded Integrated 結果 Evaluation 入力を観測する。
  *
- * @responsibility inspectBoundedIntegratedResultEvaluationInputに対応する入力処理と結果生成を所有する。
+ * @responsibility Bounded Integrated 結果 Evaluation 入力の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000007
  * @input value: unknown
  * @returns BoundedIntegratedResultEvaluationInput | nullを返す。
@@ -398,9 +404,9 @@ export function inspectBoundedIntegratedResultEvaluationInput(
 }
 
 /**
- * evaluateBoundedIntegratedResultの処理を実行する。
+ * Bounded Integrated 結果を評価する。
  *
- * @responsibility evaluateBoundedIntegratedResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Bounded Integrated 結果の評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000007
  * @input value: unknown
  * @returns BoundedIntegratedResultEvaluation | nullを返す。

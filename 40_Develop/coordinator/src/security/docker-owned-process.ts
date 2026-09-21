@@ -1,3 +1,9 @@
+/**
+ * docker-owned-processに属する責務をまとめる。
+ *
+ * @responsibility CommandExecutionを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { spawn } from "node:child_process";
 import { createWindowsDockerCliEnvironment } from "../core/windows-child-environment.ts";
 
@@ -6,9 +12,9 @@ export const STDOUT_LIMIT_BYTES = 1_048_576;
 export const STDERR_LIMIT_BYTES = 262_144;
 
 /**
- * CommandExecutionが扱う値の構造を表す。
+ * docker-owned-processで使用するCommand Executionの値契約を定義する。
  *
- * @responsibility CommandExecutionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Command ExecutionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape CommandExecutionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CommandExecutionで宣言した値と責務の対応を維持する。
@@ -24,9 +30,9 @@ export type CommandExecution = Readonly<{
   outputExceeded: boolean;
 }>;
 /**
- * CommandHandleが扱う値の構造を表す。
+ * docker-owned-processで使用するCommand Handleの値契約を定義する。
  *
- * @responsibility CommandHandleに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Command HandleのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape CommandHandleが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CommandHandleで宣言した値と責務の対応を維持する。
@@ -39,9 +45,9 @@ export type CommandHandle = Readonly<{
   terminateAndWait: (graceMs: number) => Promise<boolean>;
 }>;
 /**
- * OwnedCommandHandleが扱う値の構造を表す。
+ * docker-owned-processで使用する所有 Command Handleの値契約を定義する。
  *
- * @responsibility OwnedCommandHandleに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 所有 Command HandleのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape OwnedCommandHandleが表すProperty、識別子およびRelationを型として固定する。
  * @invariant OwnedCommandHandleで宣言した値と責務の対応を維持する。
@@ -56,9 +62,9 @@ export type OwnedCommandHandle = CommandHandle &
   }>;
 
 /**
- * createDockerProcessEnvironmentの処理を実行する。
+ * Docker Process Environmentを構築する。
  *
- * @responsibility createDockerProcessEnvironmentに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Process Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns createDockerProcessEnvironmentの計算結果を返す。
@@ -83,7 +89,7 @@ export function createDockerProcessEnvironment() {
 /**
  * Starts the fixed Windows process-tree termination helper under the same
  *
- * @responsibility startOwnedWindowsProcessTreeTerminationに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Windows Process Tree Terminationの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000008
  * @input pid: number
  * @returns startOwnedWindowsProcessTreeTerminationの計算結果を返す。
@@ -108,9 +114,9 @@ export function startOwnedWindowsProcessTreeTermination(pid: number) {
 }
 
 /**
- * boundedの処理を実行する。
+ * boundedを決定する。
  *
- * @responsibility boundedに対応する入力処理と結果生成を所有する。
+ * @responsibility boundedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input promise: Promise<T>、timeoutMs: number、fallback: T
  * @returns boundedの計算結果を返す。
@@ -136,9 +142,9 @@ function bounded<T>(promise: Promise<T>, timeoutMs: number, fallback: T) {
 }
 
 /**
- * startOwnedProcessの処理を実行する。
+ * 所有 Processを開始する。
  *
- * @responsibility startOwnedProcessに対応する入力処理と結果生成を所有する。
+ * @responsibility 所有 Processの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000008
  * @input executable: string、argv: readonly string[]、environment: Readonly<Record<string, string>>、stdin: string | null
  * @returns OwnedCommandHandleを返す。
@@ -249,9 +255,9 @@ export function startOwnedProcess(
   });
 
   /**
-   * terminateAndWaitの処理を実行する。
+   * And Waitを終了させる。
    *
-   * @responsibility terminateAndWaitに対応する入力処理と結果生成を所有する。
+   * @responsibility And Waitの終了Authority、対象Process、終了確認境界を所有する。
    * @trace ARCH-000008
    * @input graceMs: number
    * @returns terminateAndWaitの計算結果を返す。

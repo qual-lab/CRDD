@@ -1,3 +1,9 @@
+/**
+ * cli-optionsに属する責務をまとめる。
+ *
+ * @responsibility responseを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { parseDockerTaskRecoveryId } from "../security/docker-recovery-identity.ts";
 import { snapshotPlainArray } from "../security/plain-data-snapshot.ts";
 
@@ -5,9 +11,9 @@ const MAXIMUM_ARGUMENTS = 16;
 const MAXIMUM_ARGUMENT_LENGTH = 4_096;
 
 /**
- * responseの処理を実行する。
+ * responseを決定する。
  *
- * @responsibility responseに対応する入力処理と結果生成を所有する。
+ * @responsibility responseの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input status: S、reason: string | null、value: T | null、isJsonRequested
  * @returns responseの計算結果を返す。
@@ -35,9 +41,9 @@ function response<const S extends string, T>(
 }
 
 /**
- * commandResponseの処理を実行する。
+ * command Responseを決定する。
  *
- * @responsibility commandResponseに対応する入力処理と結果生成を所有する。
+ * @responsibility command Responseの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input status: S、reason: string | null、value: T | null、isJsonRequested、hasUsageError
  * @returns commandResponseの計算結果を返す。
@@ -67,9 +73,9 @@ function commandResponse<const S extends string, T>(
 }
 
 /**
- * validTokenの処理を実行する。
+ * Tokenが有効か判定する。
  *
- * @responsibility validTokenに対応する入力処理と結果生成を所有する。
+ * @responsibility Tokenの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -92,9 +98,9 @@ function validToken(value: unknown): value is string {
 }
 
 /**
- * parseTaskArgumentsの処理を実行する。
+ * Task Argumentsを構造化値へ解析する。
  *
- * @responsibility parseTaskArgumentsに対応する入力処理と結果生成を所有する。
+ * @responsibility Task Argumentsの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000004
  * @input rawArguments: unknown
  * @returns parseTaskArgumentsの計算結果を返す。
@@ -146,9 +152,9 @@ export function parseTaskArguments(rawArguments: unknown) {
 }
 
 /**
- * parseCandidateArgumentsの処理を実行する。
+ * 候補 Argumentsを構造化値へ解析する。
  *
- * @responsibility parseCandidateArgumentsに対応する入力処理と結果生成を所有する。
+ * @responsibility 候補 Argumentsの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000004
  * @input rawArguments: unknown
  * @returns parseCandidateArgumentsの計算結果を返す。
@@ -248,9 +254,9 @@ export function parseCandidateArguments(rawArguments: unknown) {
 }
 
 /**
- * parseDoctorArgumentsの処理を実行する。
+ * Doctor Argumentsを構造化値へ解析する。
  *
- * @responsibility parseDoctorArgumentsに対応する入力処理と結果生成を所有する。
+ * @responsibility Doctor Argumentsの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000004
  * @input rawArguments: unknown、_environmentRoot: unknown
  * @returns parseDoctorArgumentsの計算結果を返す。

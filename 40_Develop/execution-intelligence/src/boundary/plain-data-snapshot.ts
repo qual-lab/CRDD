@@ -1,9 +1,15 @@
+/**
+ * plain-data-snapshotに属する責務をまとめる。
+ *
+ * @responsibility ArraySnapshotを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000007
+ */
 import { types as utilTypes } from "node:util";
 
 /**
- * ArraySnapshotが扱う値の構造を表す。
+ * plain-data-snapshotで使用するArray Snapshotの値契約を定義する。
  *
- * @responsibility ArraySnapshotに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Array SnapshotのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
  * @shape ArraySnapshotが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ArraySnapshotで宣言した値と責務の対応を維持する。
@@ -16,9 +22,9 @@ type ArraySnapshot<T> =
   | Readonly<{ status: "blocked"; value: null }>;
 
 /**
- * isPlainRecordの処理を実行する。
+ * Plain 記録かを判定する。
  *
- * @responsibility isPlainRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Plain 記録の判定条件とtrue／false境界を所有する。
  * @trace ARCH-000007
  * @input value: unknown
  * @returns value is objectを返す。
@@ -48,9 +54,9 @@ function isPlainRecord(value: unknown): value is object {
 }
 
 /**
- * isDataDescriptorの処理を実行する。
+ * Data Descriptorかを判定する。
  *
- * @responsibility isDataDescriptorに対応する入力処理と結果生成を所有する。
+ * @responsibility Data Descriptorの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000007
  * @input descriptor: PropertyDescriptor | undefined、shouldBeEnumerable
  * @returns descriptor is PropertyDescriptor & { value: unknown }を返す。
@@ -77,9 +83,9 @@ function isDataDescriptor(
 }
 
 /**
- * snapshotPlainRecordの処理を実行する。
+ * Plain 記録を所有Snapshotへ変換する。
  *
- * @responsibility snapshotPlainRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Plain 記録の取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000007
  * @input value: unknown、expectedKeys: ReadonlySet<K>
  * @returns Readonly<Record<K, unknown>> | nullを返す。
@@ -118,9 +124,9 @@ export function snapshotPlainRecord<const K extends string>(
 }
 
 /**
- * snapshotPlainArrayの処理を実行する。
+ * Plain Arrayを所有Snapshotへ変換する。
  *
- * @responsibility snapshotPlainArrayに対応する入力処理と結果生成を所有する。
+ * @responsibility Plain Arrayの取得範囲、plain-data制約、拒否境界を所有する。
  * @trace ARCH-000007
  * @input value: unknown、maximumLength: number
  * @returns ArraySnapshot<T>を返す。

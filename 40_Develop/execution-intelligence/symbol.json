@@ -21,10 +21,15 @@
         "QA-000012"
       ],
       "localTestIds": [
-        "ERP-IT-001"
+        "ERP-IT-001",
+        "ERP-IT-002",
+        "ERP-IT-003"
       ],
       "verifies": [
-        "execution-intelligence.public-api"
+        "execution-intelligence.source.src.application.execution.intelligence.recorder",
+        "execution-intelligence.source.src.core.execution.intelligence",
+        "execution-intelligence.source.src.store.execution.intelligence.store",
+        "execution-intelligence.source.src.store.verified.repository.root"
       ]
     },
     {
@@ -38,7 +43,48 @@
         "ERP-UT-006"
       ],
       "verifies": [
-        "execution-intelligence.public-api"
+        "execution-intelligence.source.src.core.bounded.integrated.result.evaluation",
+        "execution-intelligence.source.src.core.execution.intelligence"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.src.application.execution.intelligence.recorder",
+      "kind": "file",
+      "path": "src/application/execution-intelligence-recorder.ts",
+      "archIds": [
+        "ARCH-000007"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.src.store.execution.intelligence.store",
+      "kind": "file",
+      "path": "src/store/execution-intelligence-store.ts",
+      "archIds": [
+        "ARCH-000007"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.src.core.bounded.integrated.result.evaluation",
+      "kind": "file",
+      "path": "src/core/bounded-integrated-result-evaluation.ts",
+      "archIds": [
+        "ARCH-000007"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.src.core.execution.intelligence",
+      "kind": "file",
+      "path": "src/core/execution-intelligence.ts",
+      "archIds": [
+        "ARCH-000007"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.src.store.verified.repository.root",
+      "kind": "file",
+      "path": "src/store/verified-repository-root.ts",
+      "archIds": [
+        "ARCH-000007"
       ]
     }
   ]

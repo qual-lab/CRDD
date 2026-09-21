@@ -6,7 +6,7 @@
  * @trace PPR-IT-010
  * @level IT
  * @scope development、execution、timing
- * @boundary Related 2 Blocks: Clock Source→実行記録→Projector
+ * @boundary PPR-IT-010=Related 2 Blocks: Clock Source→実行記録→Projector
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -26,7 +26,7 @@ import {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Clock Source→実行記録→Projector
+ * @boundary PPR-IT-010=Related 2 Blocks: Clock Source→実行記録→Projector
  */
 test("状態区間は非重複で、初期予約と最終候補処置も時間へ含める", () => {
   let time = 0;
@@ -83,7 +83,7 @@ for (const fault of ["throw", "nan", "backward"] as const) {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Clock Source→実行記録→Projector
+   * @boundary PPR-IT-010=Related 2 Blocks: Clock Source→実行記録→Projector
    */
   test(`時計${fault}でも元observerの値・例外・呼出し回数を変えない`, () => {
     let calls = 0;
@@ -130,7 +130,7 @@ for (const mode of ["throw", "partial"] as const) {
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
-   * @boundary Related 2 Blocks: Clock Source→実行記録→Projector
+   * @boundary PPR-IT-010=Related 2 Blocks: Clock Source→実行記録→Projector
    */
   test(`表示${mode}では再試行せず計測と状態遷移を継続する`, () => {
     let calls = 0;
@@ -165,7 +165,7 @@ for (const mode of ["throw", "partial"] as const) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Clock Source→実行記録→Projector
+ * @boundary PPR-IT-010=Related 2 Blocks: Clock Source→実行記録→Projector
  */
 test("未知状態・大量通知・任意文字列を公開しない", () => {
   const lines: string[] = [];
@@ -201,7 +201,7 @@ test("未知状態・大量通知・任意文字列を公開しない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Clock Source→実行記録→Projector
+ * @boundary PPR-IT-010=Related 2 Blocks: Clock Source→実行記録→Projector
  */
 test("実子ProcessのUTF-8表示を同期結果へ投影する", () => {
   const moduleUrl = new URL(

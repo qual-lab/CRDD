@@ -1,3 +1,9 @@
+/**
+ * repository-workspace-runtimeに属する責務をまとめる。
+ *
+ * @responsibility InventoryEntryを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000013
+ */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -35,9 +41,9 @@ const RESERVED_WINDOWS_SEGMENT =
 const INVALID_WINDOWS_CHARACTER = /[<>:"|?*\\\x00-\x1f\x7f]/u;
 
 /**
- * InventoryEntryが扱う値の構造を表す。
+ * repository-workspace-runtimeで使用するInventory Entryの値契約を定義する。
  *
- * @responsibility InventoryEntryに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Inventory EntryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000013
  * @shape InventoryEntryが表すProperty、識別子およびRelationを型として固定する。
  * @invariant InventoryEntryで宣言した値と責務の対応を維持する。
@@ -51,9 +57,9 @@ type InventoryEntry = Readonly<{
   sha256: string;
 }>;
 /**
- * WorkspaceRecordが扱う値の構造を表す。
+ * repository-workspace-runtimeで使用するWorkspace 記録の値契約を定義する。
  *
- * @responsibility WorkspaceRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Workspace 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000013
  * @shape WorkspaceRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant WorkspaceRecordで宣言した値と責務の対応を維持する。
@@ -72,9 +78,9 @@ type WorkspaceRecord = Readonly<{
   baseEntries: ReadonlyMap<string, InventoryEntry>;
 }>;
 /**
- * CandidateRecordが扱う値の構造を表す。
+ * repository-workspace-runtimeで使用する候補 記録の値契約を定義する。
  *
- * @responsibility CandidateRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 候補 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000013
  * @shape CandidateRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CandidateRecordで宣言した値と責務の対応を維持する。
@@ -94,9 +100,9 @@ const workspaces = new WeakMap<object, WorkspaceRecord>();
 const candidates = new WeakMap<object, CandidateRecord>();
 
 /**
- * validSegmentの処理を実行する。
+ * Segmentが有効か判定する。
  *
- * @responsibility validSegmentに対応する入力処理と結果生成を所有する。
+ * @responsibility Segmentの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000013
  * @input segment: string
  * @returns validSegmentの計算結果を返す。
@@ -124,9 +130,9 @@ function validSegment(segment: string) {
 }
 
 /**
- * validRelativePathの処理を実行する。
+ * Relative Pathが有効か判定する。
  *
- * @responsibility validRelativePathに対応する入力処理と結果生成を所有する。
+ * @responsibility Relative Pathの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000013
  * @input relativePath: string
  * @returns validRelativePathの計算結果を返す。
@@ -150,9 +156,9 @@ function validRelativePath(relativePath: string) {
 }
 
 /**
- * stableFileの処理を実行する。
+ * Fileを安定Identityへ変換する。
  *
- * @responsibility stableFileに対応する入力処理と結果生成を所有する。
+ * @responsibility Fileの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000013
  * @input target: string、maximumBytes: number
  * @returns stableFileの計算結果を返す。
@@ -222,9 +228,9 @@ function stableFile(target: string, maximumBytes: number) {
 }
 
 /**
- * stableFileContentの処理を実行する。
+ * File Contentを安定Identityへ変換する。
  *
- * @responsibility stableFileContentに対応する入力処理と結果生成を所有する。
+ * @responsibility File Contentの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000013
  * @input target: string、maximumBytes: number
  * @returns stableFileContentの計算結果を返す。
@@ -289,9 +295,9 @@ function stableFileContent(target: string, maximumBytes: number) {
 }
 
 /**
- * inventoryの処理を実行する。
+ * inventoryを決定する。
  *
- * @responsibility inventoryに対応する入力処理と結果生成を所有する。
+ * @responsibility inventoryの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000013
  * @input workspace: string
  * @returns inventoryの計算結果を返す。
@@ -314,9 +320,9 @@ function inventory(workspace: string) {
   let totalBytes = 0;
 
   /**
-   * visitの処理を実行する。
+   * visitを決定する。
    *
-   * @responsibility visitに対応する入力処理と結果生成を所有する。
+   * @responsibility visitの導出に必要な入力、判定規則、返却結果の境界を所有する。
    * @trace ARCH-000013
    * @input directory: string、parentPath: string、depth: number
    * @returns N/A: visitは戻り値を返さない。
@@ -385,9 +391,9 @@ function inventory(workspace: string) {
 }
 
 /**
- * manifestHashの処理を実行する。
+ * manifest Hashを決定する。
  *
- * @responsibility manifestHashに対応する入力処理と結果生成を所有する。
+ * @responsibility manifest Hashの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000013
  * @input entries: readonly InventoryEntry[]
  * @returns manifestHashの計算結果を返す。
@@ -415,9 +421,9 @@ function manifestHash(entries: readonly InventoryEntry[]) {
 }
 
 /**
- * entryMapの処理を実行する。
+ * entry Mapを決定する。
  *
- * @responsibility entryMapに対応する入力処理と結果生成を所有する。
+ * @responsibility entry Mapの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000013
  * @input entries: readonly InventoryEntry[]
  * @returns entryMapの計算結果を返す。
@@ -435,9 +441,9 @@ function entryMap(entries: readonly InventoryEntry[]) {
 }
 
 /**
- * allowedPathsの処理を実行する。
+ * Pathsが許可範囲内か判定する。
  *
- * @responsibility allowedPathsに対応する入力処理と結果生成を所有する。
+ * @responsibility Pathsの許可条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000013
  * @input rawAllowedPaths: unknown
  * @returns allowedPathsの計算結果を返す。
@@ -489,9 +495,9 @@ function allowedPaths(rawAllowedPaths: unknown) {
 }
 
 /**
- * isAllowedの処理を実行する。
+ * Allowedかを判定する。
  *
- * @responsibility isAllowedに対応する入力処理と結果生成を所有する。
+ * @responsibility Allowedの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000013
  * @input relativePath: string、paths: readonly string[]
  * @returns isAllowedの計算結果を返す。
@@ -513,9 +519,9 @@ function isAllowed(relativePath: string, paths: readonly string[]) {
 }
 
 /**
- * changedPathsの処理を実行する。
+ * changed Pathsを決定する。
  *
- * @responsibility changedPathsに対応する入力処理と結果生成を所有する。
+ * @responsibility changed Pathsの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000013
  * @input baseEntries: ReadonlyMap<string, InventoryEntry>、currentEntries: ReadonlyMap<string, InventoryEntry>
  * @returns changedPathsの計算結果を返す。
@@ -548,9 +554,9 @@ function changedPaths(
 }
 
 /**
- * materializeRuntimeOwnedRepositoryWorkspaceの処理を実行する。
+ * Runtime 所有 Repository WorkspaceをFilesystem上の候補として具体化する。
  *
- * @responsibility materializeRuntimeOwnedRepositoryWorkspaceに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Repository Workspaceの入力Snapshot、書込み範囲、部分生成の失敗境界を所有する。
  * @trace ARCH-000013
  * @input repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、rawReadPaths: unknown
  * @returns materializeRuntimeOwnedRepositoryWorkspaceの計算結果を返す。
@@ -677,9 +683,9 @@ export function materializeRuntimeOwnedRepositoryWorkspace(
 }
 
 /**
- * currentWorkspaceRecordの処理を実行する。
+ * current Workspace 記録を決定する。
  *
- * @responsibility currentWorkspaceRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility current Workspace 記録の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000013
  * @input workspaceCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown
  * @returns currentWorkspaceRecordの計算結果を返す。
@@ -734,9 +740,9 @@ function currentWorkspaceRecord(
 }
 
 /**
- * captureRuntimeOwnedCandidateRevisionの処理を実行する。
+ * Runtime 所有 候補 Revisionを固定Snapshotとして取得する。
  *
- * @responsibility captureRuntimeOwnedCandidateRevisionに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 候補 Revisionの観測範囲、Snapshot Identity、変更検出境界を所有する。
  * @trace ARCH-000013
  * @input workspaceCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、rawAllowedPaths: unknown
  * @returns captureRuntimeOwnedCandidateRevisionの計算結果を返す。
@@ -858,9 +864,9 @@ export function captureRuntimeOwnedCandidateRevision(
 }
 
 /**
- * projectRuntimeOwnedCandidateReadContentの処理を実行する。
+ * Runtime 所有 候補 Read Contentを公開結果へ投影する。
  *
- * @responsibility projectRuntimeOwnedCandidateReadContentに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 候補 Read Contentの公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000013
  * @input workspaceCapability: unknown、candidateCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、rawReadPaths: unknown
  * @returns projectRuntimeOwnedCandidateReadContentの計算結果を返す。
@@ -984,9 +990,9 @@ export function projectRuntimeOwnedCandidateReadContent(
 }
 
 /**
- * verifyRuntimeOwnedCandidateRevisionの処理を実行する。
+ * Runtime 所有 候補 Revisionを検証する。
  *
- * @responsibility verifyRuntimeOwnedCandidateRevisionに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 候補 Revisionの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000013
  * @input candidateCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown
  * @returns verifyRuntimeOwnedCandidateRevisionの計算結果を返す。
@@ -1047,9 +1053,9 @@ export function verifyRuntimeOwnedCandidateRevision(
 }
 
 /**
- * persistRuntimeOwnedCandidateRevisionの処理を実行する。
+ * Runtime 所有 候補 Revisionを耐久保存する。
  *
- * @responsibility persistRuntimeOwnedCandidateRevisionに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 候補 Revisionの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000013
  * @input candidateCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、persistencePolicy: unknown
  * @returns persistRuntimeOwnedCandidateRevisionの計算結果を返す。
@@ -1165,9 +1171,9 @@ export function persistRuntimeOwnedCandidateRevision(
 }
 
 /**
- * describeRepositoryWorkspaceRuntimeContractの処理を実行する。
+ * Repository Workspace Runtime 契約の公開契約を記述する。
  *
- * @responsibility describeRepositoryWorkspaceRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Workspace Runtime 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000013
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeRepositoryWorkspaceRuntimeContractの計算結果を返す。

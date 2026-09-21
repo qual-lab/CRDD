@@ -1,3 +1,9 @@
+/**
+ * markdown-artifact-parserに属する責務をまとめる。
+ *
+ * @responsibility visibleLinesを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import type {
   ArtifactModel,
   ArtifactRelation,
@@ -7,9 +13,9 @@ import type {
 } from "./artifact-model.ts";
 
 /**
- * visibleLinesの処理を実行する。
+ * visible Linesを決定する。
  *
- * @responsibility visibleLinesに対応する入力処理と結果生成を所有する。
+ * @responsibility visible Linesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input content: string
  * @returns readonly Readonly<{ line: number; text: string; }>[]を返す。
@@ -75,9 +81,9 @@ function visibleLines(content: string): readonly Readonly<{
 }
 
 /**
- * propertyの処理を実行する。
+ * propertyを決定する。
  *
- * @responsibility propertyに対応する入力処理と結果生成を所有する。
+ * @responsibility propertyの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input lines: readonly Readonly<{ line: number; text: string }>[]、name: string
  * @returns string | nullを返す。
@@ -103,9 +109,9 @@ function property(
 }
 
 /**
- * stableIdsの処理を実行する。
+ * Idsを安定Identityへ変換する。
  *
- * @responsibility stableIdsに対応する入力処理と結果生成を所有する。
+ * @responsibility Idsの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input value: string
  * @returns string[]を返す。
@@ -125,9 +131,9 @@ function stableIds(value: string): string[] {
 }
 
 /**
- * parseMarkdownArtifactの処理を実行する。
+ * Markdown Artifactを構造化値へ解析する。
  *
- * @responsibility parseMarkdownArtifactに対応する入力処理と結果生成を所有する。
+ * @responsibility Markdown Artifactの入力文法、解析結果、不正文法の拒否境界を所有する。
  * @trace ARCH-000008
  * @input source: ArtifactSource
  * @returns ArtifactModelを返す。

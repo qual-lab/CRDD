@@ -1,3 +1,9 @@
+/**
+ * docker-recovery-runtime-internalに属する責務をまとめる。
+ *
+ * @responsibility ProductionPlanを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
@@ -117,9 +123,9 @@ const DOCKER_ENGINE = "npipe:////./pipe/dockerDesktopLinuxEngine";
 let recoveryDockerCliSnapshot: DockerCliTrustSnapshot | null = null;
 
 /**
- * ProductionPlanが扱う値の構造を表す。
+ * docker-recovery-runtime-internalで使用するProduction Planの値契約を定義する。
  *
- * @responsibility ProductionPlanに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Production PlanのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape ProductionPlanが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProductionPlanで宣言した値と責務の対応を維持する。
@@ -150,9 +156,9 @@ type ProductionPlan = Readonly<{
 }>;
 
 /**
- * DurableRecordが扱う値の構造を表す。
+ * docker-recovery-runtime-internalで使用するDurable 記録の値契約を定義する。
  *
- * @responsibility DurableRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Durable 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DurableRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DurableRecordで宣言した値と責務の対応を維持する。
@@ -186,9 +192,9 @@ type DurableRecord = Readonly<{
 }>;
 
 /**
- * VerifiedRuntimeStateRootが扱う値の構造を表す。
+ * docker-recovery-runtime-internalで使用するVerified Runtime 状態 Rootの値契約を定義する。
  *
- * @responsibility VerifiedRuntimeStateRootに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Verified Runtime 状態 RootのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape VerifiedRuntimeStateRootが表すProperty、識別子およびRelationを型として固定する。
  * @invariant VerifiedRuntimeStateRootで宣言した値と責務の対応を維持する。
@@ -205,9 +211,9 @@ type VerifiedRuntimeStateRoot = Readonly<{
 }>;
 
 /**
- * VerifiedProviderHomeが扱う値の構造を表す。
+ * docker-recovery-runtime-internalで使用するVerified Provider Homeの値契約を定義する。
  *
- * @responsibility VerifiedProviderHomeに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Verified Provider HomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape VerifiedProviderHomeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant VerifiedProviderHomeで宣言した値と責務の対応を維持する。
@@ -223,9 +229,9 @@ type VerifiedProviderHome = Readonly<{
 }>;
 
 /**
- * RuntimeStateBindingEvidenceが扱う値の構造を表す。
+ * docker-recovery-runtime-internalで使用するRuntime 状態 Binding Evidenceの値契約を定義する。
  *
- * @responsibility RuntimeStateBindingEvidenceに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime 状態 Binding EvidenceのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RuntimeStateBindingEvidenceが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeStateBindingEvidenceで宣言した値と責務の対応を維持する。
@@ -244,9 +250,9 @@ const durableRecords = new WeakMap<object, DurableRecord>();
 const dockerHostCleanupCapabilities = new WeakMap<object, object>();
 const releasedLogicalHomeLeases = new WeakSet<object>();
 /**
- * DockerRestartPreparationが扱う値の構造を表す。
+ * docker-recovery-runtime-internalで使用するDocker Restart Preparationの値契約を定義する。
  *
- * @responsibility DockerRestartPreparationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Restart PreparationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerRestartPreparationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerRestartPreparationで宣言した値と責務の対応を維持する。
@@ -280,9 +286,9 @@ const dockerRestartPreparations = new WeakMap<
   DockerRestartPreparation
 >();
 /**
- * VerifiedDockerEngineRestartFenceが扱う値の構造を表す。
+ * docker-recovery-runtime-internalで使用するVerified Docker Engine Restart Fenceの値契約を定義する。
  *
- * @responsibility VerifiedDockerEngineRestartFenceに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Verified Docker Engine Restart FenceのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape VerifiedDockerEngineRestartFenceが表すProperty、識別子およびRelationを型として固定する。
  * @invariant VerifiedDockerEngineRestartFenceで宣言した値と責務の対応を維持する。
@@ -304,9 +310,9 @@ type VerifiedDockerEngineRestartFence =
     }>;
 
 /**
- * canonicalの処理を実行する。
+ * canonicalを決定する。
  *
- * @responsibility canonicalに対応する入力処理と結果生成を所有する。
+ * @responsibility canonicalの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns canonicalの計算結果を返す。
@@ -324,9 +330,9 @@ function canonical(value: unknown) {
 }
 
 /**
- * runtimeStateBindingEvidenceの処理を実行する。
+ * runtime 状態 Binding Evidenceを決定する。
  *
- * @responsibility runtimeStateBindingEvidenceに対応する入力処理と結果生成を所有する。
+ * @responsibility runtime 状態 Binding Evidenceの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input root: VerifiedRuntimeStateRoot
  * @returns RuntimeStateBindingEvidenceを返す。
@@ -351,9 +357,9 @@ function runtimeStateBindingEvidence(
 }
 
 /**
- * validRuntimeStateBindingEvidenceの処理を実行する。
+ * Runtime 状態 Binding Evidenceが有効か判定する。
  *
- * @responsibility validRuntimeStateBindingEvidenceに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 状態 Binding Evidenceの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is RuntimeStateBindingEvidenceを返す。
@@ -383,9 +389,9 @@ function validRuntimeStateBindingEvidence(
 }
 
 /**
- * commitDirectoryMutationBoundaryの処理を実行する。
+ * Directory Mutation Boundaryを確定する。
  *
- * @responsibility commitDirectoryMutationBoundaryに対応する入力処理と結果生成を所有する。
+ * @responsibility Directory Mutation Boundaryの確定条件、不可逆Effect、失敗時の未確定境界を所有する。
  * @trace ARCH-000008
  * @input directory: string
  * @returns commitDirectoryMutationBoundaryの計算結果を返す。
@@ -418,9 +424,9 @@ function commitDirectoryMutationBoundary(directory: string) {
 }
 
 /**
- * moveDurableFileの処理を実行する。
+ * move Durable Fileを決定する。
  *
- * @responsibility moveDurableFileに対応する入力処理と結果生成を所有する。
+ * @responsibility move Durable Fileの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input source: string、target: string、expected: Readonly<{ serialized: string; hash: string; identity: Readonly<{ dev: bigint; ino: bigint; birthtimeNs: bigint }>; identityText: string; logicalKey: string; target: string; commit: string; value: unknown; }>
  * @returns moveDurableFileの計算結果を返す。
@@ -453,9 +459,9 @@ function moveDurableFile(
 }
 
 /**
- * writeDurableJsonの処理を実行する。
+ * Durable Jsonを書き込む。
  *
- * @responsibility writeDurableJsonに対応する入力処理と結果生成を所有する。
+ * @responsibility Durable Jsonの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input directory: string、name: string、value: unknown、logicalKey
  * @returns writeDurableJsonの計算結果を返す。
@@ -485,9 +491,9 @@ function writeDurableJson(
 }
 
 /**
- * completedDockerRecoveryReceiptNameの処理を実行する。
+ * completed Docker 回復 Receipt Nameを決定する。
  *
- * @responsibility completedDockerRecoveryReceiptNameに対応する入力処理と結果生成を所有する。
+ * @responsibility completed Docker 回復 Receipt Nameの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input recoveryId: string
  * @returns completedDockerRecoveryReceiptNameの計算結果を返す。
@@ -507,9 +513,9 @@ function completedDockerRecoveryReceiptName(recoveryId: string) {
 }
 
 /**
- * acknowledgedDockerRecoveryReceiptNameの処理を実行する。
+ * acknowledged Docker 回復 Receipt Nameを決定する。
  *
- * @responsibility acknowledgedDockerRecoveryReceiptNameに対応する入力処理と結果生成を所有する。
+ * @responsibility acknowledged Docker 回復 Receipt Nameの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input recoveryId: string
  * @returns acknowledgedDockerRecoveryReceiptNameの計算結果を返す。
@@ -529,9 +535,9 @@ function acknowledgedDockerRecoveryReceiptName(recoveryId: string) {
 }
 
 /**
- * inspectAcknowledgedDockerRecoveryReceiptの処理を実行する。
+ * Acknowledged Docker 回復 Receiptを観測する。
  *
- * @responsibility inspectAcknowledgedDockerRecoveryReceiptに対応する入力処理と結果生成を所有する。
+ * @responsibility Acknowledged Docker 回復 Receiptの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input rootPath: string、recoveryId: string
  * @returns inspectAcknowledgedDockerRecoveryReceiptの計算結果を返す。
@@ -581,9 +587,9 @@ function inspectAcknowledgedDockerRecoveryReceipt(
 }
 
 /**
- * inspectCompletedDockerRecoveryReceiptの処理を実行する。
+ * Completed Docker 回復 Receiptを観測する。
  *
- * @responsibility inspectCompletedDockerRecoveryReceiptに対応する入力処理と結果生成を所有する。
+ * @responsibility Completed Docker 回復 Receiptの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input rootPath: string、recoveryId: string
  * @returns inspectCompletedDockerRecoveryReceiptの計算結果を返す。
@@ -622,9 +628,9 @@ function inspectCompletedDockerRecoveryReceipt(
 }
 
 /**
- * ensureCompletedDockerRecoveryReceiptの処理を実行する。
+ * Completed Docker 回復 Receiptが成立する状態を確保する。
  *
- * @responsibility ensureCompletedDockerRecoveryReceiptに対応する入力処理と結果生成を所有する。
+ * @responsibility Completed Docker 回復 Receiptの成立条件、作成または再利用、失敗時の非成立境界を所有する。
  * @trace ARCH-000008
  * @input rootPath: string、recoveryId: string、runtimeStateBinding: RuntimeStateBindingEvidence
  * @returns ensureCompletedDockerRecoveryReceiptの計算結果を返す。
@@ -666,9 +672,9 @@ function ensureCompletedDockerRecoveryReceipt(
 }
 
 /**
- * DockerTaskSessionHandoffStateが扱う値の構造を表す。
+ * docker-recovery-runtime-internalで使用するDocker Task Session Handoff 状態の値契約を定義する。
  *
- * @responsibility DockerTaskSessionHandoffStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Docker Task Session Handoff 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape DockerTaskSessionHandoffStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant DockerTaskSessionHandoffStateで宣言した値と責務の対応を維持する。
@@ -683,9 +689,9 @@ type DockerTaskSessionHandoffState = Readonly<{
 }>;
 
 /**
- * dockerTaskSessionHandoffPrefixの処理を実行する。
+ * docker Task Session Handoff Prefixを決定する。
  *
- * @responsibility dockerTaskSessionHandoffPrefixに対応する入力処理と結果生成を所有する。
+ * @responsibility docker Task Session Handoff Prefixの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input recoveryId: string
  * @returns dockerTaskSessionHandoffPrefixの計算結果を返す。
@@ -705,9 +711,9 @@ function dockerTaskSessionHandoffPrefix(recoveryId: string) {
 }
 
 /**
- * inspectDockerTaskSessionHandoffsの処理を実行する。
+ * Docker Task Session Handoffsを観測する。
  *
- * @responsibility inspectDockerTaskSessionHandoffsに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Task Session Handoffsの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input rootPath: string、recoveryId: string、durableBinding: RuntimeStateBindingEvidence
  * @returns DockerTaskSessionHandoffStateを返す。
@@ -797,9 +803,9 @@ function inspectDockerTaskSessionHandoffs(
 }
 
 /**
- * ensureDockerTaskSessionHandoffの処理を実行する。
+ * Docker Task Session Handoffが成立する状態を確保する。
  *
- * @responsibility ensureDockerTaskSessionHandoffに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Task Session Handoffの成立条件、作成または再利用、失敗時の非成立境界を所有する。
  * @trace ARCH-000008
  * @input root: VerifiedRuntimeStateRoot、recoveryId: string、durableBinding: RuntimeStateBindingEvidence
  * @returns ensureDockerTaskSessionHandoffの計算結果を返す。
@@ -855,9 +861,9 @@ function ensureDockerTaskSessionHandoff(
 }
 
 /**
- * validProductionPlanの処理を実行する。
+ * Production Planが有効か判定する。
  *
- * @responsibility validProductionPlanに対応する入力処理と結果生成を所有する。
+ * @responsibility Production Planの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input plan: ProductionPlan
  * @returns validProductionPlanの計算結果を返す。
@@ -901,9 +907,9 @@ function validProductionPlan(plan: ProductionPlan) {
 }
 
 /**
- * expectedHostSuccessorの処理を実行する。
+ * expected Host Successorを決定する。
  *
- * @responsibility expectedHostSuccessorに対応する入力処理と結果生成を所有する。
+ * @responsibility expected Host Successorの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input currentToken: string、nextState: string
  * @returns expectedHostSuccessorの計算結果を返す。
@@ -932,9 +938,9 @@ function expectedHostSuccessor(currentToken: string, nextState: string) {
 }
 
 /**
- * validateHostTransitionLineageの処理を実行する。
+ * Host Transition Lineageの契約を検証する。
  *
- * @responsibility validateHostTransitionLineageに対応する入力処理と結果生成を所有する。
+ * @responsibility Host Transition Lineageの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input intent: Record<string, unknown>、requiredNextState: string
  * @returns validateHostTransitionLineageの計算結果を返す。
@@ -955,9 +961,9 @@ function validateHostTransitionLineage(
 }
 
 /**
- * hostRecoveryIdentityの処理を実行する。
+ * host 回復 Identityを決定する。
  *
- * @responsibility hostRecoveryIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility host 回復 Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input token: string
  * @returns hostRecoveryIdentityの計算結果を返す。
@@ -991,9 +997,9 @@ function hostRecoveryIdentity(token: string) {
 }
 
 /**
- * classifyHostMarkerTransitionの処理を実行する。
+ * Host Marker Transitionを分類する。
  *
- * @responsibility classifyHostMarkerTransitionに対応する入力処理と結果生成を所有する。
+ * @responsibility Host Marker Transitionの分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000008
  * @input intent: Record<string, unknown>、expectedRoot: string、expectedNonce: string
  * @returns classifyHostMarkerTransitionの計算結果を返す。
@@ -1060,7 +1066,7 @@ function classifyHostMarkerTransition(
 /**
  * caller that derives these candidates from native Windows observation.
  *
- * @responsibility beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternalに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker 回復 From Verified Candidates Internalの開始条件、初期状態、開始失敗境界を所有する。
  * @trace ARCH-000008
  * @input plan: ProductionPlan、managementCapability: unknown、providerHome: VerifiedProviderHome、root: VerifiedRuntimeStateRoot、afterPendingBaseCommit: ((recoveryId: string) => void) | null、beforeHostBeginEffect: ((recoveryId: string) => void) | null、observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null
  * @returns beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternalの計算結果を返す。
@@ -1405,9 +1411,9 @@ function beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternal(
 }
 
 /**
- * beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesの処理を実行する。
+ * Runtime 所有 Docker 回復 From Verified Candidatesを開始する。
  *
- * @responsibility beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker 回復 From Verified Candidatesの開始条件、初期状態、開始失敗境界を所有する。
  * @trace ARCH-000008
  * @input plan: ProductionPlan、managementCapability: unknown、providerHome: VerifiedProviderHome、root: VerifiedRuntimeStateRoot
  * @returns beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesの計算結果を返す。
@@ -1438,9 +1444,9 @@ function beginRuntimeOwnedDockerRecoveryFromVerifiedCandidates(
 }
 
 /**
- * beginRuntimeOwnedDockerRecoveryWithHostBeginObserverの処理を実行する。
+ * Runtime 所有 Docker 回復 With Host Begin Observerを開始する。
  *
- * @responsibility beginRuntimeOwnedDockerRecoveryWithHostBeginObserverに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker 回復 With Host Begin Observerの開始条件、初期状態、開始失敗境界を所有する。
  * @trace ARCH-000008
  * @input plan: ProductionPlan、managementCapability: unknown、providerHome: VerifiedProviderHome、root: VerifiedRuntimeStateRoot、beforeHostBeginEffect: (recoveryId: string) => void、observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null
  * @returns beginRuntimeOwnedDockerRecoveryWithHostBeginObserverの計算結果を返す。
@@ -1473,9 +1479,9 @@ export function beginRuntimeOwnedDockerRecoveryWithHostBeginObserver(
 }
 
 /**
- * beginRuntimeOwnedDockerRecoveryWithPendingBaseObserverの処理を実行する。
+ * Runtime 所有 Docker 回復 With Pending Base Observerを開始する。
  *
- * @responsibility beginRuntimeOwnedDockerRecoveryWithPendingBaseObserverに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker 回復 With Pending Base Observerの開始条件、初期状態、開始失敗境界を所有する。
  * @trace ARCH-000008
  * @input plan: ProductionPlan、managementCapability: unknown、providerHome: VerifiedProviderHome、root: VerifiedRuntimeStateRoot、afterPendingBaseCommit: (recoveryId: string) => void、observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null
  * @returns beginRuntimeOwnedDockerRecoveryWithPendingBaseObserverの計算結果を返す。
@@ -1508,9 +1514,9 @@ export function beginRuntimeOwnedDockerRecoveryWithPendingBaseObserver(
 }
 
 /**
- * beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserverの処理を実行する。
+ * Runtime 所有 Docker 回復 With Runtime 状態 Observerを開始する。
  *
- * @responsibility beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserverに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker 回復 With Runtime 状態 Observerの開始条件、初期状態、開始失敗境界を所有する。
  * @trace ARCH-000008
  * @input plan: ProductionPlan、managementCapability: unknown、providerHome: VerifiedProviderHome、root: VerifiedRuntimeStateRoot、observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null
  * @returns beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserverの計算結果を返す。
@@ -1542,9 +1548,9 @@ export function beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
 }
 
 /**
- * beginProductionRecoveryの処理を実行する。
+ * Production 回復を開始する。
  *
- * @responsibility beginProductionRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility Production 回復の開始条件、初期状態、開始失敗境界を所有する。
  * @trace ARCH-000008
  * @input plan: ProductionPlan、managementCapability: unknown
  * @returns beginProductionRecoveryの計算結果を返す。
@@ -1605,9 +1611,9 @@ function beginProductionRecovery(
 }
 
 /**
- * durableRecordの処理を実行する。
+ * durable 記録を決定する。
  *
- * @responsibility durableRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility durable 記録の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input capability: unknown
  * @returns durableRecordの計算結果を返す。
@@ -1627,9 +1633,9 @@ function durableRecord(capability: unknown) {
 }
 
 /**
- * verifyRuntimeOwnedDockerRecoveryBindingの処理を実行する。
+ * Runtime 所有 Docker 回復 Bindingを検証する。
  *
- * @responsibility verifyRuntimeOwnedDockerRecoveryBindingに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker 回復 Bindingの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input recoveryCapability: unknown、recoveryId: unknown、managementCapability: unknown、stableLogicalHomeBindingHash: unknown
  * @returns verifyRuntimeOwnedDockerRecoveryBindingの計算結果を返す。
@@ -1660,9 +1666,9 @@ export function verifyRuntimeOwnedDockerRecoveryBinding(
 }
 
 /**
- * withDurableRuntimeStateLockの処理を実行する。
+ * with Durable Runtime 状態 Lockを決定する。
  *
- * @responsibility withDurableRuntimeStateLockに対応する入力処理と結果生成を所有する。
+ * @responsibility with Durable Runtime 状態 Lockの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input record: DurableRecord、operation: () => T
  * @returns withDurableRuntimeStateLockの計算結果を返す。
@@ -1714,9 +1720,9 @@ function withDurableRuntimeStateLock<T>(
 }
 
 /**
- * observeRuntimeStateRootFromWindowsの処理を実行する。
+ * Runtime 状態 Root From Windowsを観測する。
  *
- * @responsibility observeRuntimeStateRootFromWindowsに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 状態 Root From Windowsの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input developmentContext: unknown
  * @returns observeRuntimeStateRootFromWindowsの計算結果を返す。
@@ -1742,9 +1748,9 @@ function observeRuntimeStateRootFromWindows(developmentContext?: unknown) {
 }
 
 /**
- * verifyObservedRuntimeStateMutationBoundaryの処理を実行する。
+ * Observed Runtime 状態 Mutation Boundaryを検証する。
  *
- * @responsibility verifyObservedRuntimeStateMutationBoundaryに対応する入力処理と結果生成を所有する。
+ * @responsibility Observed Runtime 状態 Mutation Boundaryの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input expected: Readonly<{ rootPath: string; runtimeStateIdentityHash: string; runtimeStateProtectionHash: string; localUserBindingHash: string; runtimeStateBindingHash: string; }>、recoveryId: string、current: VerifiedRuntimeStateRoot | null
  * @returns N/A: verifyObservedRuntimeStateMutationBoundaryは戻り値を返さない。
@@ -1789,9 +1795,9 @@ function verifyObservedRuntimeStateMutationBoundary(
 }
 
 /**
- * withFreshHomeAndRuntimeStateLockの処理を実行する。
+ * with Fresh Home And Runtime 状態 Lockを決定する。
  *
- * @responsibility withFreshHomeAndRuntimeStateLockに対応する入力処理と結果生成を所有する。
+ * @responsibility with Fresh Home And Runtime 状態 Lockの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input record: DurableRecord、operation: () => T
  * @returns withFreshHomeAndRuntimeStateLockの計算結果を返す。
@@ -1829,9 +1835,9 @@ function withFreshHomeAndRuntimeStateLock<T>(
 }
 
 /**
- * markRuntimeOwnedDockerResourceSubmissionの処理を実行する。
+ * mark Runtime 所有 Docker Resource Submissionを決定する。
  *
- * @responsibility markRuntimeOwnedDockerResourceSubmissionに対応する入力処理と結果生成を所有する。
+ * @responsibility mark Runtime 所有 Docker Resource Submissionの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input recoveryCapability: unknown、purpose: unknown
  * @returns markRuntimeOwnedDockerResourceSubmissionの計算結果を返す。
@@ -1870,9 +1876,9 @@ export function markRuntimeOwnedDockerResourceSubmission(
 }
 
 /**
- * recordRuntimeOwnedDockerResourceReceiptの処理を実行する。
+ * record Runtime 所有 Docker Resource Receiptを決定する。
  *
- * @responsibility recordRuntimeOwnedDockerResourceReceiptに対応する入力処理と結果生成を所有する。
+ * @responsibility record Runtime 所有 Docker Resource Receiptの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input recoveryCapability: unknown、purpose: unknown、rawDockerId: unknown
  * @returns recordRuntimeOwnedDockerResourceReceiptの計算結果を返す。
@@ -1941,9 +1947,9 @@ export function recordRuntimeOwnedDockerResourceReceipt(
 }
 
 /**
- * inspectRuntimeOwnedDockerResourceReceiptsの処理を実行する。
+ * Runtime 所有 Docker Resource Receiptsを観測する。
  *
- * @responsibility inspectRuntimeOwnedDockerResourceReceiptsに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Resource Receiptsの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input recoveryCapability: unknown
  * @returns inspectRuntimeOwnedDockerResourceReceiptsの計算結果を返す。
@@ -2014,9 +2020,9 @@ export function inspectRuntimeOwnedDockerResourceReceipts(
 }
 
 /**
- * recordRuntimeOwnedDockerAbsenceの処理を実行する。
+ * record Runtime 所有 Docker Absenceを決定する。
  *
- * @responsibility recordRuntimeOwnedDockerAbsenceに対応する入力処理と結果生成を所有する。
+ * @responsibility record Runtime 所有 Docker Absenceの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input recoveryCapability: unknown
  * @returns recordRuntimeOwnedDockerAbsenceの計算結果を返す。
@@ -2051,9 +2057,9 @@ export function recordRuntimeOwnedDockerAbsence(recoveryCapability: unknown) {
 }
 
 /**
- * recordRuntimeOwnedNormalMountCompletionの処理を実行する。
+ * record Runtime 所有 Normal Mount Completionを決定する。
  *
- * @responsibility recordRuntimeOwnedNormalMountCompletionに対応する入力処理と結果生成を所有する。
+ * @responsibility record Runtime 所有 Normal Mount Completionの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input recoveryCapability: unknown
  * @returns recordRuntimeOwnedNormalMountCompletionの計算結果を返す。
@@ -2090,9 +2096,9 @@ export function recordRuntimeOwnedNormalMountCompletion(
 }
 
 /**
- * completeProductionRecoveryの処理を実行する。
+ * Production 回復を完了状態へ遷移させる。
  *
- * @responsibility completeProductionRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility Production 回復の完了条件、終了後状態、未完了境界を所有する。
  * @trace ARCH-000008
  * @input recoveryCapability: unknown、managementCapability: unknown
  * @returns completeProductionRecoveryの計算結果を返す。
@@ -2223,9 +2229,9 @@ function completeProductionRecovery(
 }
 
 /**
- * finalizeRuntimeOwnedDockerRecoveryの処理を実行する。
+ * finalize Runtime 所有 Docker 回復を決定する。
  *
- * @responsibility finalizeRuntimeOwnedDockerRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility finalize Runtime 所有 Docker 回復の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input recoveryFinalizationCapability: unknown
  * @returns finalizeRuntimeOwnedDockerRecoveryの計算結果を返す。
@@ -2287,9 +2293,9 @@ export function finalizeRuntimeOwnedDockerRecovery(
 }
 
 /**
- * prepareRuntimeOwnedDockerHostCleanupの処理を実行する。
+ * Runtime 所有 Docker Host 清掃を実行前候補として準備する。
  *
- * @responsibility prepareRuntimeOwnedDockerHostCleanupに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Host 清掃の準備条件、候補Identity、Effect前の拒否境界を所有する。
  * @trace ARCH-000008
  * @input recoveryFinalizationCapability: unknown
  * @returns prepareRuntimeOwnedDockerHostCleanupの計算結果を返す。
@@ -2360,9 +2366,9 @@ export function prepareRuntimeOwnedDockerHostCleanup(
 }
 
 /**
- * recordRuntimeOwnedDockerHostCleanupReceiptの処理を実行する。
+ * record Runtime 所有 Docker Host 清掃 Receiptを決定する。
  *
- * @responsibility recordRuntimeOwnedDockerHostCleanupReceiptに対応する入力処理と結果生成を所有する。
+ * @responsibility record Runtime 所有 Docker Host 清掃 Receiptの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input recoveryFinalizationCapability: unknown
  * @returns recordRuntimeOwnedDockerHostCleanupReceiptの計算結果を返す。
@@ -2429,9 +2435,9 @@ export function recordRuntimeOwnedDockerHostCleanupReceipt(
 }
 
 /**
- * abandonRuntimeOwnedDockerRecoveryの処理を実行する。
+ * abandon Runtime 所有 Docker 回復を決定する。
  *
- * @responsibility abandonRuntimeOwnedDockerRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility abandon Runtime 所有 Docker 回復の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input recoveryCapability: unknown
  * @returns abandonRuntimeOwnedDockerRecoveryの計算結果を返す。
@@ -2455,9 +2461,9 @@ export function abandonRuntimeOwnedDockerRecovery(recoveryCapability: unknown) {
 }
 
 /**
- * readExactJsonの処理を実行する。
+ * Exact Jsonを読み取る。
  *
- * @responsibility readExactJsonに対応する入力処理と結果生成を所有する。
+ * @responsibility Exact Jsonの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000008
  * @input file: string、logicalKey
  * @returns readExactJsonの計算結果を返す。
@@ -2479,9 +2485,9 @@ function readExactJson(file: string, logicalKey = path.basename(file)) {
 }
 
 /**
- * exactRecordKeysの処理を実行する。
+ * 記録 Keysが完全一致するか判定する。
  *
- * @responsibility exactRecordKeysに対応する入力処理と結果生成を所有する。
+ * @responsibility 記録 Keysの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、keys: readonly string[]
  * @returns exactRecordKeysの計算結果を返す。
@@ -2510,9 +2516,9 @@ const OPERATION_RECORD_NAME =
   /^(?:base|base-commit|engine-restart-0[0-4]|engine-handoff-0[0-7]|engine-continuation-0[0-4]|host-(?:begin|complete|crash-absence|cleanup)-(?:intent|receipt)|host-precleanup-finalization-intent|submission-(?:create_subscription_auth_probe|create_internal_network|create_egress_network|create_proxy|create_provider)|receipt-(?:create_subscription_auth_probe|create_internal_network|create_egress_network|create_proxy|create_provider)|restart-fence-(?:create_subscription_auth_probe|create_internal_network|create_egress_network|create_proxy|create_provider)|docker-absence(?:-crash)?|mount-(?:completion|crash-absence)|lease-release-receipt|normal-run-complete)\.json$/u;
 
 /**
- * validateHostSnapshotの処理を実行する。
+ * Host Snapshotの契約を検証する。
  *
- * @responsibility validateHostSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility Host Snapshotの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、initialToken: string
  * @returns validateHostSnapshotの計算結果を返す。
@@ -2593,9 +2599,9 @@ function validateHostSnapshot(value: unknown, initialToken: string) {
 }
 
 /**
- * validateDockerRecoveryBaseの処理を実行する。
+ * Docker 回復 Baseの契約を検証する。
  *
- * @responsibility validateDockerRecoveryBaseに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 Baseの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、nonce: string
  * @returns validateDockerRecoveryBaseの計算結果を返す。
@@ -2701,9 +2707,9 @@ function validateDockerRecoveryBase(value: unknown, nonce: string) {
 }
 
 /**
- * validateDockerRecoveryBaseCommitの処理を実行する。
+ * Docker 回復 Base Commitの契約を検証する。
  *
- * @responsibility validateDockerRecoveryBaseCommitに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 Base Commitの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、nonce: string、baseHash: string、recoveryId: string
  * @returns validateDockerRecoveryBaseCommitの計算結果を返す。
@@ -2749,9 +2755,9 @@ function validateDockerRecoveryBaseCommit(
 }
 
 /**
- * validateOperationRecordの処理を実行する。
+ * Operation 記録の契約を検証する。
  *
- * @responsibility validateOperationRecordに対応する入力処理と結果生成を所有する。
+ * @responsibility Operation 記録の必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input name: string、value: unknown、recoveryId: string、nonce: string、baseHash: string
  * @returns validateOperationRecordの計算結果を返す。
@@ -3015,9 +3021,9 @@ function validateOperationRecord(
 }
 
 /**
- * inventoryOperationDirectoryの処理を実行する。
+ * inventory Operation Directoryを決定する。
  *
- * @responsibility inventoryOperationDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility inventory Operation Directoryの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input operationDirectory: string、recoveryId: string、nonce: string、baseHash: string、splitMoveRecords: ReadonlyMap< string, Readonly<{ value: unknown }> >
  * @returns inventoryOperationDirectoryの計算結果を返す。
@@ -3213,7 +3219,7 @@ function inventoryOperationDirectory(
 /**
  * Select unresolved submission data records from an already validated inventory.
  *
- * @responsibility selectPendingDockerSubmissionNamesFromInventoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Pending Docker Submission Names From Inventoryの候補集合、選択理由、選択不能時の境界を所有する。
  * @trace ARCH-000008
  * @input names: readonly string[]
  * @returns selectPendingDockerSubmissionNamesFromInventoryの計算結果を返す。
@@ -3241,9 +3247,9 @@ export function selectPendingDockerSubmissionNamesFromInventory(
 }
 
 /**
- * ensureHostCleanupReceiptの処理を実行する。
+ * Host 清掃 Receiptが成立する状態を確保する。
  *
- * @responsibility ensureHostCleanupReceiptに対応する入力処理と結果生成を所有する。
+ * @responsibility Host 清掃 Receiptの成立条件、作成または再利用、失敗時の非成立境界を所有する。
  * @trace ARCH-000008
  * @input operationDirectory: string、recoveryId: string、hostPaths: Readonly<{ root: string; marker: string }>
  * @returns ensureHostCleanupReceiptの計算結果を返す。
@@ -3297,9 +3303,9 @@ function ensureHostCleanupReceipt(
 }
 
 /**
- * safeRecoveryReasonの処理を実行する。
+ * 回復 Reasonを安全条件の下で処理する。
  *
- * @responsibility safeRecoveryReasonに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 Reasonの安全条件、拒否条件、終了結果境界を所有する。
  * @trace ARCH-000008
  * @input error: unknown、fallback: string
  * @returns safeRecoveryReasonの計算結果を返す。
@@ -3320,9 +3326,9 @@ function safeRecoveryReason(error: unknown, fallback: string) {
 }
 
 /**
- * hostPathsFromBaseの処理を実行する。
+ * host Paths From Baseを決定する。
  *
- * @responsibility hostPathsFromBaseに対応する入力処理と結果生成を所有する。
+ * @responsibility host Paths From Baseの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input base: Record<string, unknown>
  * @returns hostPathsFromBaseの計算結果を返す。
@@ -3356,9 +3362,9 @@ function hostPathsFromBase(base: Record<string, unknown>) {
 }
 
 /**
- * managementDirectoryNameFromBaseの処理を実行する。
+ * management Directory Name From Baseを決定する。
  *
- * @responsibility managementDirectoryNameFromBaseに対応する入力処理と結果生成を所有する。
+ * @responsibility management Directory Name From Baseの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input base: Record<string, unknown>
  * @returns managementDirectoryNameFromBaseの計算結果を返す。
@@ -3390,9 +3396,9 @@ function managementDirectoryNameFromBase(base: Record<string, unknown>) {
 }
 
 /**
- * expectedHostActiveBindingの処理を実行する。
+ * expected Host Active Bindingを決定する。
  *
- * @responsibility expectedHostActiveBindingに対応する入力処理と結果生成を所有する。
+ * @responsibility expected Host Active Bindingの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input recoveryId: string、baseHash: string、operationNonce: string
  * @returns expectedHostActiveBindingの計算結果を返す。
@@ -3419,9 +3425,9 @@ function expectedHostActiveBinding(
 }
 
 /**
- * validateHostActiveBindingの処理を実行する。
+ * Host Active Bindingの契約を検証する。
  *
- * @responsibility validateHostActiveBindingに対応する入力処理と結果生成を所有する。
+ * @responsibility Host Active Bindingの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、expected: ReturnType<typeof expectedHostActiveBinding>
  * @returns N/A: validateHostActiveBindingは戻り値を返さない。
@@ -3455,9 +3461,9 @@ function validateHostActiveBinding(
 }
 
 /**
- * validateActiveLeasePointerの処理を実行する。
+ * Active Lease Pointerの契約を検証する。
  *
- * @responsibility validateActiveLeasePointerに対応する入力処理と結果生成を所有する。
+ * @responsibility Active Lease Pointerの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、expected: Readonly<{ stableLogicalHomeBindingHash: string; operationNonce: string; recoveryId: string; baseHash: string; }>
  * @returns N/A: validateActiveLeasePointerは戻り値を返さない。
@@ -3500,9 +3506,9 @@ function validateActiveLeasePointer(
 }
 
 /**
- * observeRecoveryPathの処理を実行する。
+ * 回復 Pathを観測する。
  *
- * @responsibility observeRecoveryPathに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 Pathの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: string
  * @returns observeRecoveryPathの計算結果を返す。
@@ -3526,9 +3532,9 @@ function observeRecoveryPath(target: string) {
 }
 
 /**
- * recoveryPathPresentの処理を実行する。
+ * recovery Path Presentを決定する。
  *
- * @responsibility recoveryPathPresentに対応する入力処理と結果生成を所有する。
+ * @responsibility recovery Path Presentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: string
  * @returns recoveryPathPresentの計算結果を返す。
@@ -3546,9 +3552,9 @@ function recoveryPathPresent(target: string) {
 }
 
 /**
- * observeRecoveryFileの処理を実行する。
+ * 回復 Fileを観測する。
  *
- * @responsibility observeRecoveryFileに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 Fileの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: string
  * @returns observeRecoveryFileの計算結果を返す。
@@ -3570,9 +3576,9 @@ function observeRecoveryFile(target: string) {
 }
 
 /**
- * verifyActiveBindingAndPointerClosureの処理を実行する。
+ * Active Binding And Pointer Closureを検証する。
  *
- * @responsibility verifyActiveBindingAndPointerClosureに対応する入力処理と結果生成を所有する。
+ * @responsibility Active Binding And Pointer Closureの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input activeBindingPath: string、pointerPath: string、expectedActive: ReturnType<typeof expectedHostActiveBinding>、expectedPointer: Readonly<{ stableLogicalHomeBindingHash: string; operationNonce: string; recoveryId: string; baseHash: string; }>
  * @returns verifyActiveBindingAndPointerClosureの計算結果を返す。
@@ -3645,9 +3651,9 @@ function verifyActiveBindingAndPointerClosure(
 }
 
 /**
- * removeRecoveryOperationDirectoryの処理を実行する。
+ * 回復 Operation Directoryを除去する。
  *
- * @responsibility removeRecoveryOperationDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 Operation Directoryの対象Identity、除去条件、終了後状態の境界を所有する。
  * @trace ARCH-000008
  * @input operationDirectory: string、recoveryId: string、nonce: string、baseHash: string、stableLogicalHomeBindingHash: string、runtimeStateBinding: RuntimeStateBindingEvidence、shouldPersistCompletionReceipt
  * @returns removeRecoveryOperationDirectoryの計算結果を返す。
@@ -3745,9 +3751,9 @@ function removeRecoveryOperationDirectory(
 }
 
 /**
- * verifyRecoveryCleanupManifestの処理を実行する。
+ * 回復 清掃 Manifestを検証する。
  *
- * @responsibility verifyRecoveryCleanupManifestに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 清掃 Manifestの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input cleanupDirectory: string、recoveryId: string
  * @returns verifyRecoveryCleanupManifestの計算結果を返す。
@@ -3859,9 +3865,9 @@ function verifyRecoveryCleanupManifest(
 }
 
 /**
- * inventoryRecoveryCleanupTombstoneの処理を実行する。
+ * inventory 回復 清掃 Tombstoneを決定する。
  *
- * @responsibility inventoryRecoveryCleanupTombstoneに対応する入力処理と結果生成を所有する。
+ * @responsibility inventory 回復 清掃 Tombstoneの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input cleanupDirectory: string、recoveryId: string
  * @returns inventoryRecoveryCleanupTombstoneの計算結果を返す。
@@ -3882,9 +3888,9 @@ function inventoryRecoveryCleanupTombstone(
 }
 
 /**
- * removeRecoveryCleanupTombstoneの処理を実行する。
+ * 回復 清掃 Tombstoneを除去する。
  *
- * @responsibility removeRecoveryCleanupTombstoneに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 清掃 Tombstoneの対象Identity、除去条件、終了後状態の境界を所有する。
  * @trace ARCH-000008
  * @input cleanupDirectory: string、recoveryId: string
  * @returns removeRecoveryCleanupTombstoneの計算結果を返す。
@@ -3911,9 +3917,9 @@ function removeRecoveryCleanupTombstone(
 }
 
 /**
- * hostRecoveryInventoryReadyの処理を実行する。
+ * host 回復 Inventory Readyを決定する。
  *
- * @responsibility hostRecoveryInventoryReadyに対応する入力処理と結果生成を所有する。
+ * @responsibility host 回復 Inventory Readyの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input runtimeStateRoot: string、hostRoot: string、targetOperationDirectory: string
  * @returns hostRecoveryInventoryReadyの計算結果を返す。
@@ -3976,9 +3982,9 @@ function hostRecoveryInventoryReady(
 }
 
 /**
- * currentHostRecoveryTokenForInventoryの処理を実行する。
+ * current Host 回復 Token For Inventoryを決定する。
  *
- * @responsibility currentHostRecoveryTokenForInventoryに対応する入力処理と結果生成を所有する。
+ * @responsibility current Host 回復 Token For Inventoryの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input runtimeStateRoot: string、hostRoot: string
  * @returns currentHostRecoveryTokenForInventoryの計算結果を返す。
@@ -4034,9 +4040,9 @@ function currentHostRecoveryTokenForInventory(
 }
 
 /**
- * verifyRecoveryDockerCliの処理を実行する。
+ * 回復 Docker Cliを検証する。
  *
- * @responsibility verifyRecoveryDockerCliに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 Docker Cliの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns N/A: verifyRecoveryDockerCliは戻り値を返さない。
@@ -4062,9 +4068,9 @@ function verifyRecoveryDockerCli() {
 }
 
 /**
- * recoveryConfigIdentityの処理を実行する。
+ * recovery Config Identityを決定する。
  *
- * @responsibility recoveryConfigIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility recovery Config Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input configDirectory: string
  * @returns recoveryConfigIdentityの計算結果を返す。
@@ -4090,9 +4096,9 @@ function recoveryConfigIdentity(configDirectory: string) {
 }
 
 /**
- * runRecoveryDockerの処理を実行する。
+ * 回復 Dockerを実行する。
  *
- * @responsibility runRecoveryDockerに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 Dockerの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000008
  * @input configDirectory: string、configIdentity: string、argv: readonly string[]
  * @returns runRecoveryDockerの計算結果を返す。
@@ -4140,9 +4146,9 @@ function runRecoveryDocker(
 }
 
 /**
- * RecoveryDockerResultが扱う値の構造を表す。
+ * docker-recovery-runtime-internalで使用する回復 Docker 結果の値契約を定義する。
  *
- * @responsibility RecoveryDockerResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 回復 Docker 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RecoveryDockerResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RecoveryDockerResultで宣言した値と責務の対応を維持する。
@@ -4159,9 +4165,9 @@ type RecoveryDockerResult = Readonly<{
 }>;
 
 /**
- * recoverExactDockerResourceWithRunnerの処理を実行する。
+ * recover Exact Docker Resource With Runnerを決定する。
  *
- * @responsibility recoverExactDockerResourceWithRunnerに対応する入力処理と結果生成を所有する。
+ * @responsibility recover Exact Docker Resource With Runnerの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input runDocker: (argv: readonly string[]) => RecoveryDockerResult、kind: "container" | "network"、dockerId: string、expectedName: string、ownershipLabel: string、expectedImage: string | null、shouldBeInternal: boolean | null、purpose: string、expectedNetworks: readonly string[]、operationMode: "boolean_probe" | "isolated_task"、workspaceMountMode: "read_write" | "read_only" | null、options: Readonly<{ allowAlreadyAbsent?: boolean; removeAfterVerification?: boolean; }>
  * @returns recoverExactDockerResourceWithRunnerの計算結果を返す。
@@ -4411,7 +4417,7 @@ export function recoverExactDockerResourceWithRunner(
 /**
  * Resolve the crash window after an exact create submission was durably
  *
- * @responsibility recoverUnknownDockerCreateOutcomeWithRunnerに対応する入力処理と結果生成を所有する。
+ * @responsibility docker-recovery-runtime-internalの入力からrecover Unknown Docker Create Outcome With Runnerを導く規則と結果境界を所有する。
  * @trace ARCH-000008
  * @input runDocker: (argv: readonly string[]) => RecoveryDockerResult、kind: "container" | "network"、expectedName: string、ownershipLabel: string、expectedImage: string | null、shouldBeInternal: boolean | null、purpose: string、expectedNetworks: readonly string[]、operationMode: "boolean_probe" | "isolated_task"、workspaceMountMode: "read_write" | "read_only" | null
  * @returns recoverUnknownDockerCreateOutcomeWithRunnerの計算結果を返す。
@@ -4507,9 +4513,9 @@ export function recoverUnknownDockerCreateOutcomeWithRunner(
 }
 
 /**
- * observeSubmittedDockerResourceAbsentWithRunnerの処理を実行する。
+ * Submitted Docker Resource Absent With Runnerを観測する。
  *
- * @responsibility observeSubmittedDockerResourceAbsentWithRunnerに対応する入力処理と結果生成を所有する。
+ * @responsibility Submitted Docker Resource Absent With Runnerの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input runDocker: (argv: readonly string[]) => RecoveryDockerResult、kind: "container" | "network"、expectedName: string、ownershipLabel: string
  * @returns observeSubmittedDockerResourceAbsentWithRunnerの計算結果を返す。
@@ -4565,9 +4571,9 @@ function observeSubmittedDockerResourceAbsentWithRunner(
 }
 
 /**
- * recoverExactDockerResourceの処理を実行する。
+ * recover Exact Docker Resourceを決定する。
  *
- * @responsibility recoverExactDockerResourceに対応する入力処理と結果生成を所有する。
+ * @responsibility recover Exact Docker Resourceの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input configDirectory: string、configIdentity: string、kind: "container" | "network"、dockerId: string、expectedName: string、ownershipLabel: string、expectedImage: string | null、shouldBeInternal: boolean | null、purpose: string、expectedNetworks: readonly string[]、operationMode: "boolean_probe" | "isolated_task"、workspaceMountMode: "read_write" | "read_only" | null
  * @returns recoverExactDockerResourceの計算結果を返す。
@@ -4610,9 +4616,9 @@ function recoverExactDockerResource(
 }
 
 /**
- * discoverRecoveryHostBindingの処理を実行する。
+ * 回復 Host Bindingを探索する。
  *
- * @responsibility discoverRecoveryHostBindingに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 Host Bindingの探索Root、対象母集団、未観測境界を所有する。
  * @trace ARCH-000008
  * @input rootPath: string、parsed: NonNullable<ReturnType<typeof parseDockerTaskRecoveryId>>
  * @returns discoverRecoveryHostBindingの計算結果を返す。
@@ -4676,9 +4682,9 @@ function discoverRecoveryHostBinding(
 }
 
 /**
- * discoverRecoveryRuntimeStateBindingの処理を実行する。
+ * 回復 Runtime 状態 Bindingを探索する。
  *
- * @responsibility discoverRecoveryRuntimeStateBindingに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 Runtime 状態 Bindingの探索Root、対象母集団、未観測境界を所有する。
  * @trace ARCH-000008
  * @input rootPath: string、parsed: NonNullable<ReturnType<typeof parseDockerTaskRecoveryId>>
  * @returns discoverRecoveryRuntimeStateBindingの計算結果を返す。
@@ -4764,7 +4770,7 @@ function discoverRecoveryRuntimeStateBinding(
 /**
  * observer; contract tests may supply an exact fixed observation.
  *
- * @responsibility recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserverに対応する入力処理と結果生成を所有する。
+ * @responsibility docker-recovery-runtime-internalの入力からrecover Runtime 所有 Docker Task From Verified Root With Observerを導く規則と結果境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown、root: VerifiedRuntimeStateRoot、observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null、recoveryDockerRunner: | ((argv: readonly string[]) => RecoveryDockerResult) | null、restartFence: VerifiedDockerEngineRestartFence | null
  * @returns recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserverの計算結果を返す。
@@ -6449,9 +6455,9 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
 }
 
 /**
- * recoverRuntimeOwnedDockerTaskFromVerifiedRootの処理を実行する。
+ * recover Runtime 所有 Docker Task From Verified Rootを決定する。
  *
- * @responsibility recoverRuntimeOwnedDockerTaskFromVerifiedRootに対応する入力処理と結果生成を所有する。
+ * @responsibility recover Runtime 所有 Docker Task From Verified Rootの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown、root: VerifiedRuntimeStateRoot、developmentContext: unknown
  * @returns recoverRuntimeOwnedDockerTaskFromVerifiedRootの計算結果を返す。
@@ -6477,9 +6483,9 @@ function recoverRuntimeOwnedDockerTaskFromVerifiedRoot(
 }
 
 /**
- * recoverRuntimeOwnedDockerTaskInternalの処理を実行する。
+ * recover Runtime 所有 Docker Task Internalを決定する。
  *
- * @responsibility recoverRuntimeOwnedDockerTaskInternalに対応する入力処理と結果生成を所有する。
+ * @responsibility recover Runtime 所有 Docker Task Internalの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown、developmentContext: unknown
  * @returns recoverRuntimeOwnedDockerTaskInternalの計算結果を返す。
@@ -6525,9 +6531,9 @@ function recoverRuntimeOwnedDockerTaskInternal(
 }
 
 /**
- * recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestartの処理を実行する。
+ * recover Runtime 所有 Docker Task After Verified Docker Desktop Restartを決定する。
  *
- * @responsibility recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestartに対応する入力処理と結果生成を所有する。
+ * @responsibility recover Runtime 所有 Docker Task After Verified Docker Desktop Restartの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown、repairId: unknown、repairReleaseRoot: unknown、developmentContext: unknown
  * @returns recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestartの計算結果を返す。
@@ -6717,9 +6723,9 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
 }
 
 /**
- * restartPathIdentityの処理を実行する。
+ * restart Path Identityを決定する。
  *
- * @responsibility restartPathIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility restart Path Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input target: string
  * @returns restartPathIdentityの計算結果を返す。
@@ -6746,7 +6752,7 @@ function restartPathIdentity(target: string) {
 /**
  * Owns the three existing kernel domains until explicit release; no Docker effect.
  *
- * @responsibility prepareRuntimeOwnedDockerRestartに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Restartの準備条件、候補Identity、Effect前の拒否境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown、originReleaseRoot: unknown、developmentContext: unknown
  * @returns prepareRuntimeOwnedDockerRestartの計算結果を返す。
@@ -7026,9 +7032,9 @@ export function prepareRuntimeOwnedDockerRestart(
 }
 
 /**
- * verifyRuntimeOwnedDockerRestartPreparationの処理を実行する。
+ * Runtime 所有 Docker Restart Preparationを検証する。
  *
- * @responsibility verifyRuntimeOwnedDockerRestartPreparationに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Restart Preparationの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input capability: unknown
  * @returns booleanを返す。
@@ -7113,9 +7119,9 @@ export function verifyRuntimeOwnedDockerRestartPreparation(
 }
 
 /**
- * persistRuntimeOwnedDockerRestartPhaseの処理を実行する。
+ * Runtime 所有 Docker Restart Phaseを耐久保存する。
  *
- * @responsibility persistRuntimeOwnedDockerRestartPhaseに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Restart Phaseの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000008
  * @input capability: unknown、phase: DockerRestartPhase
  * @returns booleanを返す。
@@ -7176,7 +7182,7 @@ export function persistRuntimeOwnedDockerRestartPhase(
 /**
  * Composition-only historical adoption. Does not authorize any host effect.
  *
- * @responsibility commitRuntimeOwnedDockerRestartHandoffに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Restart Handoffの確定条件、不可逆Effect、失敗時の未確定境界を所有する。
  * @trace ARCH-000008
  * @input capability: unknown
  * @returns booleanを返す。
@@ -7220,9 +7226,9 @@ export function commitRuntimeOwnedDockerRestartHandoff(
 }
 
 /**
- * releaseRuntimeOwnedDockerRestartPreparationの処理を実行する。
+ * Runtime 所有 Docker Restart Preparationを解放する。
  *
- * @responsibility releaseRuntimeOwnedDockerRestartPreparationに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Restart Preparationの所有権、解放条件、終了後不存在の確認境界を所有する。
  * @trace ARCH-000008
  * @input capability: unknown
  * @returns booleanを返す。
@@ -7256,7 +7262,7 @@ export function releaseRuntimeOwnedDockerRestartPreparation(
 /**
  * A settled protected chain is evidence, never a caller-supplied authority.
  *
- * @responsibility recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestartに対応する入力処理と結果生成を所有する。
+ * @responsibility docker-recovery-runtime-internalの入力からrecover Runtime 所有 Docker Task After Recorded Engine Restartを導く規則と結果境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown、developmentContext: unknown
  * @returns recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestartの計算結果を返す。
@@ -7418,9 +7424,9 @@ export function recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart(
 }
 
 /**
- * classifyRuntimeOwnedDockerRecoveryEvidenceの処理を実行する。
+ * Runtime 所有 Docker 回復 Evidenceを分類する。
  *
- * @responsibility classifyRuntimeOwnedDockerRecoveryEvidenceに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker 回復 Evidenceの分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000008
  * @input inventory: unknown、recoveryId: string
  * @returns classifyRuntimeOwnedDockerRecoveryEvidenceの計算結果を返す。
@@ -7448,9 +7454,9 @@ export function classifyRuntimeOwnedDockerRecoveryEvidence(
 }
 
 /**
- * recoverRuntimeOwnedDockerTaskの処理を実行する。
+ * recover Runtime 所有 Docker Taskを決定する。
  *
- * @responsibility recoverRuntimeOwnedDockerTaskに対応する入力処理と結果生成を所有する。
+ * @responsibility recover Runtime 所有 Docker Taskの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown、developmentContext: unknown
  * @returns recoverRuntimeOwnedDockerTaskの計算結果を返す。
@@ -7506,9 +7512,9 @@ export function recoverRuntimeOwnedDockerTask(
  * filling with already-consumed fences.
  */
 /**
- * acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRootの処理を実行する。
+ * Runtime 所有 Docker 回復 Completion From Verified Rootを確認済みとして記録する。
  *
- * @responsibility acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRootに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker 回復 Completion From Verified Rootの確認入力、状態遷移、重複処理境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown、root: VerifiedRuntimeStateRoot
  * @returns acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRootの計算結果を返す。
@@ -7654,9 +7660,9 @@ export function acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
 }
 
 /**
- * finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRootの処理を実行する。
+ * finalize Runtime 所有 Docker 回復 Acknowledgement From Verified Rootを決定する。
  *
- * @responsibility finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRootに対応する入力処理と結果生成を所有する。
+ * @responsibility finalize Runtime 所有 Docker 回復 Acknowledgement From Verified Rootの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown、acknowledgement: unknown、root: VerifiedRuntimeStateRoot
  * @returns finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRootの計算結果を返す。
@@ -7753,9 +7759,9 @@ export function finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoo
 }
 
 /**
- * acknowledgeRuntimeOwnedDockerRecoveryCompletionの処理を実行する。
+ * Runtime 所有 Docker 回復 Completionを確認済みとして記録する。
  *
- * @responsibility acknowledgeRuntimeOwnedDockerRecoveryCompletionに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker 回復 Completionの確認入力、状態遷移、重複処理境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown
  * @returns acknowledgeRuntimeOwnedDockerRecoveryCompletionの計算結果を返す。
@@ -7814,9 +7820,9 @@ export function acknowledgeRuntimeOwnedDockerRecoveryCompletion(
 }
 
 /**
- * finalizeRuntimeOwnedDockerRecoveryAcknowledgementの処理を実行する。
+ * finalize Runtime 所有 Docker 回復 Acknowledgementを決定する。
  *
- * @responsibility finalizeRuntimeOwnedDockerRecoveryAcknowledgementに対応する入力処理と結果生成を所有する。
+ * @responsibility finalize Runtime 所有 Docker 回復 Acknowledgementの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown、acknowledgement: unknown
  * @returns finalizeRuntimeOwnedDockerRecoveryAcknowledgementの計算結果を返す。
@@ -7878,9 +7884,9 @@ export function finalizeRuntimeOwnedDockerRecoveryAcknowledgement(
 }
 
 /**
- * inspectDockerRecoveryRootSnapshotの処理を実行する。
+ * Docker 回復 Root Snapshotを観測する。
  *
- * @responsibility inspectDockerRecoveryRootSnapshotに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 Root Snapshotの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input rootPath: unknown
  * @returns inspectDockerRecoveryRootSnapshotの計算結果を返す。
@@ -8001,9 +8007,9 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
       }
     };
     /**
-     * BootstrapRecordが扱う値の構造を表す。
+     * docker-recovery-runtime-internalで使用するBootstrap 記録の値契約を定義する。
      *
-     * @responsibility BootstrapRecordに必要な値と制約を一つの型契約として保持する。
+     * @responsibility Bootstrap 記録のProperty、Identity、状態制約を型境界として所有する。
      * @trace ARCH-000008
      * @shape BootstrapRecordが表すProperty、識別子およびRelationを型として固定する。
      * @invariant BootstrapRecordで宣言した値と責務の対応を維持する。
@@ -8013,9 +8019,9 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
      */
     type BootstrapRecord = ReturnType<typeof readRootRecord>;
     /**
-     * BootstrapPairStateが扱う値の構造を表す。
+     * docker-recovery-runtime-internalで使用するBootstrap Pair 状態の値契約を定義する。
      *
-     * @responsibility BootstrapPairStateに必要な値と制約を一つの型契約として保持する。
+     * @responsibility Bootstrap Pair 状態のProperty、Identity、状態制約を型境界として所有する。
      * @trace ARCH-000008
      * @shape BootstrapPairStateが表すProperty、識別子およびRelationを型として固定する。
      * @invariant BootstrapPairStateで宣言した値と責務の対応を維持する。
@@ -8029,9 +8035,9 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
       | "move_commit"
       | "complete";
     /**
-     * BootstrapPairInspectionが扱う値の構造を表す。
+     * docker-recovery-runtime-internalで使用するBootstrap Pair Inspectionの値契約を定義する。
      *
-     * @responsibility BootstrapPairInspectionに必要な値と制約を一つの型契約として保持する。
+     * @responsibility Bootstrap Pair InspectionのProperty、Identity、状態制約を型境界として所有する。
      * @trace ARCH-000008
      * @shape BootstrapPairInspectionが表すProperty、識別子およびRelationを型として固定する。
      * @invariant BootstrapPairInspectionで宣言した値と責務の対応を維持する。
@@ -8751,9 +8757,9 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
 }
 
 /**
- * inspectDockerRecoveryRootSnapshotWithLockの処理を実行する。
+ * Docker 回復 Root Snapshot With Lockを観測する。
  *
- * @responsibility inspectDockerRecoveryRootSnapshotWithLockに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 Root Snapshot With Lockの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input root: VerifiedRuntimeStateRoot、acquireRuntimeStateLock: (runtimeStateBindingHash: string) => Readonly<{ release: () => boolean; }> | null
  * @returns inspectDockerRecoveryRootSnapshotWithLockの計算結果を返す。
@@ -8822,9 +8828,9 @@ export function inspectDockerRecoveryRootSnapshotWithLock(
 }
 
 /**
- * inspectRuntimeOwnedDockerTaskRecoveryStateの処理を実行する。
+ * Runtime 所有 Docker Task 回復 状態を観測する。
  *
- * @responsibility inspectRuntimeOwnedDockerTaskRecoveryStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Task 回復 状態の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input developmentContext: unknown
  * @returns inspectRuntimeOwnedDockerTaskRecoveryStateの計算結果を返す。
@@ -8877,7 +8883,7 @@ export function inspectRuntimeOwnedDockerTaskRecoveryState(
 /**
  * Resolve Project-owned correlation identities to exact Runtime-owned Docker
  *
- * @responsibility resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserverに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Task 回復 Correlations From Verified Root With Observerの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input correlationIds: readonly string[]、root: VerifiedRuntimeStateRoot、observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null
  * @returns resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserverの計算結果を返す。
@@ -9054,9 +9060,9 @@ export function resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRoo
 }
 
 /**
- * resolveRuntimeOwnedDockerTaskRecoveryCorrelationsの処理を実行する。
+ * Runtime 所有 Docker Task 回復 Correlationsを一意に解決する。
  *
- * @responsibility resolveRuntimeOwnedDockerTaskRecoveryCorrelationsに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker Task 回復 Correlationsの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input correlationIds: readonly string[]、developmentContext: unknown
  * @returns resolveRuntimeOwnedDockerTaskRecoveryCorrelationsの計算結果を返す。
@@ -9104,9 +9110,9 @@ export function resolveRuntimeOwnedDockerTaskRecoveryCorrelations(
 }
 
 /**
- * RecoveryRecordが扱う値の構造を表す。
+ * docker-recovery-runtime-internalで使用する回復 記録の値契約を定義する。
  *
- * @responsibility RecoveryRecordに必要な値と制約を一つの型契約として保持する。
+ * @responsibility 回復 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RecoveryRecordが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RecoveryRecordで宣言した値と責務の対応を維持する。
@@ -9120,9 +9126,9 @@ type RecoveryRecord = Readonly<{
   recoveryId: string;
 }>;
 /**
- * RuntimeDependenciesが扱う値の構造を表す。
+ * docker-recovery-runtime-internalで使用するRuntime Dependenciesの値契約を定義する。
  *
- * @responsibility RuntimeDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RuntimeDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeDependenciesで宣言した値と責務の対応を維持する。
@@ -9144,9 +9150,9 @@ type RuntimeDependencies = Readonly<{
   ) => string;
 }>;
 /**
- * RuntimeStateが扱う値の構造を表す。
+ * docker-recovery-runtime-internalで使用するRuntime 状態の値契約を定義する。
  *
- * @responsibility RuntimeStateに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Runtime 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
  * @shape RuntimeStateが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RuntimeStateで宣言した値と責務の対応を維持する。
@@ -9160,9 +9166,9 @@ type RuntimeState = Readonly<{
 }>;
 
 /**
- * createRuntimeStateの処理を実行する。
+ * Runtime 状態を構築する。
  *
- * @responsibility createRuntimeStateに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 状態の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RuntimeDependencies
  * @returns RuntimeStateを返す。
@@ -9183,9 +9189,9 @@ function createRuntimeState(dependencies: RuntimeDependencies): RuntimeState {
 }
 
 /**
- * beginRecoveryの処理を実行する。
+ * 回復を開始する。
  *
- * @responsibility beginRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復の開始条件、初期状態、開始失敗境界を所有する。
  * @trace ARCH-000008
  * @input state: RuntimeState、plan: Readonly<{ operationId: string }>、managementCapability: unknown
  * @returns beginRecoveryの計算結果を返す。
@@ -9230,9 +9236,9 @@ function beginRecovery(
 }
 
 /**
- * completeRecoveryの処理を実行する。
+ * 回復を完了状態へ遷移させる。
  *
- * @responsibility completeRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復の完了条件、終了後状態、未完了境界を所有する。
  * @trace ARCH-000008
  * @input state: RuntimeState、recoveryCapability: unknown、managementCapability: unknown
  * @returns completeRecoveryの計算結果を返す。
@@ -9274,9 +9280,9 @@ function completeRecovery(
 }
 
 /**
- * beginRuntimeOwnedDockerRecoveryの処理を実行する。
+ * Runtime 所有 Docker 回復を開始する。
  *
- * @responsibility beginRuntimeOwnedDockerRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker 回復の開始条件、初期状態、開始失敗境界を所有する。
  * @trace ARCH-000008
  * @input plan: ProductionPlan、managementCapability: unknown
  * @returns beginRuntimeOwnedDockerRecoveryの計算結果を返す。
@@ -9309,9 +9315,9 @@ export function beginRuntimeOwnedDockerRecovery(
 }
 
 /**
- * completeRuntimeOwnedDockerRecoveryの処理を実行する。
+ * Runtime 所有 Docker 回復を完了状態へ遷移させる。
  *
- * @responsibility completeRuntimeOwnedDockerRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Docker 回復の完了条件、終了後状態、未完了境界を所有する。
  * @trace ARCH-000008
  * @input recoveryCapability: unknown、managementCapability: unknown
  * @returns completeRuntimeOwnedDockerRecoveryの計算結果を返す。
@@ -9336,9 +9342,9 @@ export function completeRuntimeOwnedDockerRecovery(
 }
 
 /**
- * createIsolatedDockerRecoveryRuntimeCandidateの処理を実行する。
+ * Isolated Docker 回復 Runtime 候補を構築する。
  *
- * @responsibility createIsolatedDockerRecoveryRuntimeCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Isolated Docker 回復 Runtime 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input dependencies: RuntimeDependencies
  * @returns createIsolatedDockerRecoveryRuntimeCandidateの計算結果を返す。
@@ -9382,9 +9388,9 @@ export function createIsolatedDockerRecoveryRuntimeCandidate(
 }
 
 /**
- * describeDockerRecoveryRuntimeContractの処理を実行する。
+ * Docker 回復 Runtime 契約の公開契約を記述する。
  *
- * @responsibility describeDockerRecoveryRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker 回復 Runtime 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeDockerRecoveryRuntimeContractの計算結果を返す。

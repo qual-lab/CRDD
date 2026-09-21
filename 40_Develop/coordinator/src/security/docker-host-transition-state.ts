@@ -1,11 +1,17 @@
+/**
+ * docker-host-transition-stateに属する責務をまとめる。
+ *
+ * @responsibility canonicalを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { createHash } from "node:crypto";
 
 import { parseHostRecoveryToken } from "./host-recovery-record.ts";
 
 /**
- * canonicalの処理を実行する。
+ * canonicalを決定する。
  *
- * @responsibility canonicalに対応する入力処理と結果生成を所有する。
+ * @responsibility canonicalの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
  * @returns canonicalの計算結果を返す。
@@ -23,9 +29,9 @@ function canonical(value: unknown) {
 }
 
 /**
- * validateDockerHostTransitionLineageの処理を実行する。
+ * Docker Host Transition Lineageの契約を検証する。
  *
- * @responsibility validateDockerHostTransitionLineageに対応する入力処理と結果生成を所有する。
+ * @responsibility Docker Host Transition Lineageの必須Property、拒否条件、検証結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、requiredNextState: string
  * @returns validateDockerHostTransitionLineageの計算結果を返す。

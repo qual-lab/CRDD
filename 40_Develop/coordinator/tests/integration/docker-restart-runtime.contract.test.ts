@@ -6,7 +6,7 @@
  * @trace ERB-IT-014
  * @level IT
  * @scope docker、restart、runtime
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -43,7 +43,7 @@ const compositionBody = stripTypeScriptTypes(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 async function compose(
   change:
@@ -177,7 +177,7 @@ async function compose(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("production composition preserves inherited stop intent without native S replay", async () => {
   const { result, calls } = await compose("handoff");
@@ -207,7 +207,7 @@ test("production composition preserves inherited stop intent without native S re
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("production composition failed handoff cannot issue stop start or phase publication", async () => {
   const { result, calls } = await compose("handoff_failed");
@@ -227,7 +227,7 @@ test("production composition failed handoff cannot issue stop start or phase pub
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("inherited stop intent with live Desktop remains blocked without replay", async () => {
   const { result, calls } = await compose("handoff_live");
@@ -248,7 +248,7 @@ test("inherited stop intent with live Desktop remains blocked without replay", a
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("production composition resumes current stop intent by observation without native S", async () => {
   const { result, calls } = await compose("resume");
@@ -274,7 +274,7 @@ test("production composition resumes current stop intent by observation without 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("production composition resumes current start intent by ready observation without native effect replay", async () => {
   const { result, calls } = await compose("resume_start_intent");
@@ -300,7 +300,7 @@ test("production composition resumes current start intent by ready observation w
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("production composition preserves Engine observation cleanup uncertainty through finally", async () => {
   const { result, calls } = await compose("engine_cleanup_unknown");
@@ -323,7 +323,7 @@ test("production composition preserves Engine observation cleanup uncertainty th
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("signed restart entry rejects cancellation before preparation", async () => {
   const controller = new AbortController();
@@ -349,7 +349,7 @@ test("signed restart entry rejects cancellation before preparation", async () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 test("signed restart entry rejects invalid recovery identity before native acquisition", async () => {
   const result = await restartRuntimeOwnedDockerForRecovery(

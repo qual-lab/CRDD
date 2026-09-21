@@ -1,3 +1,9 @@
+/**
+ * project-runtime-executionに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeTaskExecutionを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { types as utilTypes } from "node:util";
 
 import {
@@ -28,9 +34,9 @@ export const PROJECT_RUNTIME_EXECUTION_CONTRACT =
   "crdd-coordinator/project-runtime-execution/v1" as const;
 
 /**
- * ProjectRuntimeTaskExecutionが扱う値の構造を表す。
+ * project-runtime-executionで使用するProject Runtime Task Executionの値契約を定義する。
  *
- * @responsibility ProjectRuntimeTaskExecutionに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Task ExecutionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeTaskExecutionが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeTaskExecutionで宣言した値と責務の対応を維持する。
@@ -46,9 +52,9 @@ export type ProjectRuntimeTaskExecution = Readonly<{
 }>;
 
 /**
- * ProjectRuntimeExecutionPublicationObservationが扱う値の構造を表す。
+ * project-runtime-executionで使用するProject Runtime Execution Publication Observationの値契約を定義する。
  *
- * @responsibility ProjectRuntimeExecutionPublicationObservationに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Execution Publication ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeExecutionPublicationObservationが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeExecutionPublicationObservationで宣言した値と責務の対応を維持する。
@@ -60,9 +66,9 @@ export type ProjectRuntimeExecutionPublicationObservation =
   ProjectRuntimeExecutionObservationPublication;
 
 /**
- * ProjectRuntimeExecutionDependenciesが扱う値の構造を表す。
+ * project-runtime-executionで使用するProject Runtime Execution Dependenciesの値契約を定義する。
  *
- * @responsibility ProjectRuntimeExecutionDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Execution DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeExecutionDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeExecutionDependenciesで宣言した値と責務の対応を維持する。
@@ -82,9 +88,9 @@ export type ProjectRuntimeExecutionDependencies = Readonly<{
 }>;
 
 /**
- * ProjectRuntimeExecutionResultが扱う値の構造を表す。
+ * project-runtime-executionで使用するProject Runtime Execution 結果の値契約を定義する。
  *
- * @responsibility ProjectRuntimeExecutionResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Execution 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeExecutionResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeExecutionResultで宣言した値と責務の対応を維持する。
@@ -112,9 +118,9 @@ export type ProjectRuntimeExecutionResult = Readonly<{
 }>;
 
 /**
- * ExecutionInputが扱う値の構造を表す。
+ * project-runtime-executionで使用するExecution 入力の値契約を定義する。
  *
- * @responsibility ExecutionInputに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Execution 入力のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ExecutionInputが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ExecutionInputで宣言した値と責務の対応を維持する。
@@ -131,9 +137,9 @@ type ExecutionInput = Readonly<{
 }>;
 
 /**
- * stableIdの処理を実行する。
+ * Idを安定Identityへ変換する。
  *
- * @responsibility stableIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Idの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000004
  * @input dependencies: ProjectRuntimeExecutionDependencies、prefix: string、parts: readonly string[]
  * @returns stableIdの計算結果を返す。
@@ -155,9 +161,9 @@ function stableId(
 }
 
 /**
- * validIdentityの処理を実行する。
+ * Identityが有効か判定する。
  *
- * @responsibility validIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Identityの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -180,9 +186,9 @@ function validIdentity(value: unknown): value is string {
 }
 
 /**
- * validSingleTaskResultの処理を実行する。
+ * Single Task 結果が有効か判定する。
  *
- * @responsibility validSingleTaskResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Single Task 結果の有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown、runtimeIssuedRecoveryIds: ReadonlyMap< string, Readonly<{ attemptId: string; operationId: string }> >
  * @returns value is ProjectRuntimeSingleTaskResultを返す。
@@ -397,9 +403,9 @@ function validSingleTaskResult(
 }
 
 /**
- * resultの処理を実行する。
+ * resultを決定する。
  *
- * @responsibility resultに対応する入力処理と結果生成を所有する。
+ * @responsibility resultの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input input: ExecutionInput、fields: Omit< ProjectRuntimeExecutionResult, | "contract" | "projectId" | "queueId" | "processRestartRequired" | "recoveryIds" | "recoveryObligations" > & Readonly<{ processRestartRequired?: boolean; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string; }>[]; }>
  * @returns ProjectRuntimeExecutionResultを返す。
@@ -445,9 +451,9 @@ function result(
 }
 
 /**
- * blockedの処理を実行する。
+ * project-runtime-executionを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-executionの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000004
  * @input input: ExecutionInput、reason: string、options: Readonly<{ state?: ProjectRuntimeState | null; completedTaskIds?: readonly string[]; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; effectState?: "no_effect" | "settled" | "unknown"; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string; }>[]; }>
  * @returns blockedの計算結果を返す。
@@ -492,9 +498,9 @@ function blocked(
 }
 
 /**
- * taskExecutionMapの処理を実行する。
+ * task Execution Mapを決定する。
  *
- * @responsibility taskExecutionMapに対応する入力処理と結果生成を所有する。
+ * @responsibility task Execution Mapの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input state: ProjectRuntimeState、executions: readonly ProjectRuntimeTaskExecution[]
  * @returns taskExecutionMapの計算結果を返す。
@@ -536,9 +542,9 @@ function taskExecutionMap(
 }
 
 /**
- * persistedStateの処理を実行する。
+ * persisted 状態を決定する。
  *
- * @responsibility persistedStateに対応する入力処理と結果生成を所有する。
+ * @responsibility persisted 状態の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input dependencies: ProjectRuntimeExecutionDependencies、state: ProjectRuntimeState、expectedGeneration: number
  * @returns persistedStateの計算結果を返す。
@@ -562,7 +568,7 @@ function persistedState(
 /**
  * Own one durable Project operation from a queued request through all currently
  *
- * @responsibility runProjectRuntimeOperationに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Operationの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input dependencies: ProjectRuntimeExecutionDependencies、input: ExecutionInput
  * @returns Promise<ProjectRuntimeExecutionResult>を返す。
@@ -1494,9 +1500,9 @@ export async function runProjectRuntimeOperation(
 }
 
 /**
- * describeProjectRuntimeExecutionContractの処理を実行する。
+ * Project Runtime Execution 契約の公開契約を記述する。
  *
- * @responsibility describeProjectRuntimeExecutionContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Execution 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeProjectRuntimeExecutionContractの計算結果を返す。

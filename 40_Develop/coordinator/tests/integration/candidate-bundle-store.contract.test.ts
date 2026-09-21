@@ -6,7 +6,7 @@
  * @trace CPR-IT-001
  * @level IT
  * @scope candidate、bundle、store
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -36,7 +36,7 @@ const PERSISTENCE_POLICY = Object.freeze({
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 function bundle(content = Buffer.from("state=after\n", "utf8")) {
   return Object.freeze({
@@ -70,7 +70,7 @@ function bundle(content = Buffer.from("state=after\n", "utf8")) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 function bundleAtPath(
   relativePath: string,
@@ -106,7 +106,7 @@ function bundleAtPath(
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 function fixture() {
   const temporaryDirectory = fs.mkdtempSync(
@@ -124,7 +124,7 @@ function fixture() {
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary Direct Boundary: 観測結果→Candidate Store
+   * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
    */
   const createAdapter = (shouldCollectExpiredEntries = true) =>
     createCandidateBundleStoreTestingAdapter({
@@ -161,7 +161,7 @@ function fixture() {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 function requireRecoveryId(value: unknown) {
   assert.ok(value && typeof value === "object");
@@ -183,7 +183,7 @@ function requireRecoveryId(value: unknown) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 test("限定inventoryは起動・保存・公開・読取りで既存の期限切れ候補を削除しない", () => {
   const value = fixture();
@@ -236,7 +236,7 @@ test("限定inventoryは起動・保存・公開・読取りで既存の期限�
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 function requireStoreRecoveryId(value: unknown) {
   assert.ok(value && typeof value === "object");
@@ -261,7 +261,7 @@ function requireStoreRecoveryId(value: unknown) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 test("承認済みbundleをrestart後も冪等PublishしRecovery IDでDiscardする", () => {
   const value = fixture();
@@ -310,7 +310,7 @@ test("承認済みbundleをrestart後も冪等PublishしRecovery IDでDiscardす
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 test("期限到達後はExportせずstartupと公開入口GCでstagedとpublishedを削除する", () => {
   const value = fixture();
@@ -352,7 +352,7 @@ test("期限到達後はExportせずstartupと公開入口GCでstagedとpublishe
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 test("partial pendingはRecovery IDを失わず明示Discardだけが安定実体を削除する", () => {
   const value = fixture();
@@ -387,7 +387,7 @@ test("partial pendingはRecovery IDを失わず明示Discardだけが安定実�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 test("pending保存失敗後のclose報告不明は同じ候補IDと実体を保持する", (context) => {
   const value = fixture();
@@ -469,7 +469,7 @@ test("pending保存失敗後のclose報告不明は同じ候補IDと実体を保
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 test("staged障害とpublish rename後障害は同じRecovery IDで再開できる", () => {
   const value = fixture();
@@ -506,7 +506,7 @@ test("staged障害とpublish rename後障害は同じRecovery IDで再開でき�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 test("期限切れcleanup失敗はtyped Recoveryを返しstrict即時削除を主張しない", () => {
   const value = fixture();
@@ -542,7 +542,7 @@ test("期限切れcleanup失敗はtyped Recoveryを返しstrict即時削除を�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 test("同時writer lockとstale lockは推測削除せずboundedにFail Closedする", () => {
   const value = fixture();
@@ -580,7 +580,7 @@ test("同時writer lockとstale lockは推測削除せずboundedにFail Closed�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 test("unknownとdamaged entryは推測削除せずexact明示Recoveryだけで回復する", () => {
   const value = fixture();
@@ -625,7 +625,7 @@ test("unknownとdamaged entryは推測削除せずexact明示Recoveryだけで�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 test("個別Discardは無関係なunknown entryの全体GC失敗から独立する", () => {
   const value = fixture();
@@ -657,7 +657,7 @@ test("個別Discardは無関係なunknown entryの全体GC失敗から独立す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 test("Store Recovery ID取得後に実体が変わった場合は削除せず新しいIDを要求する", () => {
   const value = fixture();
@@ -695,7 +695,7 @@ test("Store Recovery ID取得後に実体が変わった場合は削除せず新
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 test("不正Schema、secret、clock異常とcapacity不足をCandidateへ昇格しない", () => {
   const value = fixture();
@@ -765,7 +765,7 @@ test("不正Schema、secret、clock異常とcapacity不足をCandidateへ昇格�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Direct Boundary: 観測結果→Candidate Store
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
  */
 test("公開契約は排他、bounded GC、Recoveryと非canonical Effectを固定する", () => {
   const contract = describeCandidateBundleStoreContract();

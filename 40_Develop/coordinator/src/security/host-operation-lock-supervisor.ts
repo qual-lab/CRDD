@@ -1,3 +1,9 @@
+/**
+ * host-operation-lock-supervisorに属する責務をまとめる。
+ *
+ * @responsibility sendを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { createServer } from "node:net";
 
 const pipeName = process.argv[2];
@@ -21,9 +27,9 @@ let isFinishScheduled = false;
 let isDisconnectCommitted = false;
 
 /**
- * sendの処理を実行する。
+ * sendを決定する。
  *
- * @responsibility sendに対応する入力処理と結果生成を所有する。
+ * @responsibility sendの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input status: "acquired" | "ready" | "release-ready" | "released" | "unavailable"
  * @returns sendの計算結果を返す。
@@ -49,9 +55,9 @@ function send(
 }
 
 /**
- * disconnectAndExitの処理を実行する。
+ * disconnect And Exitを決定する。
  *
- * @responsibility disconnectAndExitに対応する入力処理と結果生成を所有する。
+ * @responsibility disconnect And Exitの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input exitCode: number
  * @returns N/A: disconnectAndExitは戻り値を返さない。
@@ -73,9 +79,9 @@ function disconnectAndExit(exitCode: number) {
 }
 
 /**
- * scheduleFinalExitの処理を実行する。
+ * schedule Final Exitを決定する。
  *
- * @responsibility scheduleFinalExitに対応する入力処理と結果生成を所有する。
+ * @responsibility schedule Final Exitの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns scheduleFinalExitの計算結果を返す。
@@ -106,9 +112,9 @@ function scheduleFinalExit() {
 }
 
 /**
- * closeAndExitの処理を実行する。
+ * And Exitを終了する。
  *
- * @responsibility closeAndExitに対応する入力処理と結果生成を所有する。
+ * @responsibility And Exitの終了条件、資源解放、終了不能時の境界を所有する。
  * @trace ARCH-000004
  * @input isReportRelease: boolean、exitCode: number
  * @returns closeAndExitの計算結果を返す。
@@ -142,9 +148,9 @@ function closeAndExit(isReportRelease: boolean, exitCode: number) {
 }
 
 /**
- * beginReleaseの処理を実行する。
+ * Releaseを開始する。
  *
- * @responsibility beginReleaseに対応する入力処理と結果生成を所有する。
+ * @responsibility Releaseの開始条件、初期状態、開始失敗境界を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns beginReleaseの計算結果を返す。

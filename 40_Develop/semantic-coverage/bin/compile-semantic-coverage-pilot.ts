@@ -1,3 +1,9 @@
+/**
+ * compile-semantic-coverage-pilotに属する責務をまとめる。
+ *
+ * @responsibility このFileに属する実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 

@@ -1,3 +1,9 @@
+/**
+ * runtime-process-safety-stateに属する責務をまとめる。
+ *
+ * @responsibility getRuntimeProcessInstanceIdentityを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { createHash, randomUUID } from "node:crypto";
 
 export const RUNTIME_PROCESS_SAFETY_STATE_CONTRACT =
@@ -6,9 +12,9 @@ export const RUNTIME_PROCESS_SAFETY_STATE_CONTRACT =
 const runtimeProcessInstanceIdentity = randomUUID();
 
 /**
- * getRuntimeProcessInstanceIdentityの処理を実行する。
+ * Runtime Process Instance Identityを取得する。
  *
- * @responsibility getRuntimeProcessInstanceIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Process Instance Identityの参照条件、返却値、未検出結果の境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns getRuntimeProcessInstanceIdentityの計算結果を返す。
@@ -29,9 +35,9 @@ const RUNTIME_PROCESS_RECOVERY_ID =
   /^runtime-process\.([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.restart-([0-9a-f]{40})$/u;
 
 /**
- * recoveryDigestの処理を実行する。
+ * recovery Digestを決定する。
  *
- * @responsibility recoveryDigestに対応する入力処理と結果生成を所有する。
+ * @responsibility recovery Digestの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input processIdentity: string、attemptId: string、operationId: string
  * @returns recoveryDigestの計算結果を返す。
@@ -56,9 +62,9 @@ function recoveryDigest(
 }
 
 /**
- * createRuntimeProcessRecoveryIdentityの処理を実行する。
+ * Runtime Process 回復 Identityを構築する。
  *
- * @responsibility createRuntimeProcessRecoveryIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Process 回復 Identityの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input attemptId: string、operationId: string
  * @returns createRuntimeProcessRecoveryIdentityの計算結果を返す。
@@ -83,9 +89,9 @@ export function createRuntimeProcessRecoveryIdentity(
 }
 
 /**
- * inspectRuntimeProcessRecoveryIdentityの処理を実行する。
+ * Runtime Process 回復 Identityを観測する。
  *
- * @responsibility inspectRuntimeProcessRecoveryIdentityに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Process 回復 Identityの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、attemptId: string、operationId: string
  * @returns inspectRuntimeProcessRecoveryIdentityの計算結果を返す。
@@ -112,9 +118,9 @@ export function inspectRuntimeProcessRecoveryIdentity(
 }
 
 /**
- * createIsolatedRuntimeProcessSafetyStateCandidateの処理を実行する。
+ * Isolated Runtime Process Safety 状態 候補を構築する。
  *
- * @responsibility createIsolatedRuntimeProcessSafetyStateCandidateに対応する入力処理と結果生成を所有する。
+ * @responsibility Isolated Runtime Process Safety 状態 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns createIsolatedRuntimeProcessSafetyStateCandidateの計算結果を返す。
@@ -160,9 +166,9 @@ export function createIsolatedRuntimeProcessSafetyStateCandidate() {
 const productionState = createIsolatedRuntimeProcessSafetyStateCandidate();
 
 /**
- * poisonRuntimeProcessAfterCleanupUnknownの処理を実行する。
+ * poison Runtime Process After 清掃 Unknownを決定する。
  *
- * @responsibility poisonRuntimeProcessAfterCleanupUnknownに対応する入力処理と結果生成を所有する。
+ * @responsibility poison Runtime Process After 清掃 Unknownの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns N/A: poisonRuntimeProcessAfterCleanupUnknownは戻り値を返さない。
@@ -180,9 +186,9 @@ export function poisonRuntimeProcessAfterCleanupUnknown() {
 }
 
 /**
- * poisonRuntimeProcessAfterInteractiveCleanupUnknownの処理を実行する。
+ * poison Runtime Process After Interactive 清掃 Unknownを決定する。
  *
- * @responsibility poisonRuntimeProcessAfterInteractiveCleanupUnknownに対応する入力処理と結果生成を所有する。
+ * @responsibility poison Runtime Process After Interactive 清掃 Unknownの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns N/A: poisonRuntimeProcessAfterInteractiveCleanupUnknownは戻り値を返さない。
@@ -200,9 +206,9 @@ export function poisonRuntimeProcessAfterInteractiveCleanupUnknown() {
 }
 
 /**
- * isRuntimeProcessPoisonedの処理を実行する。
+ * Runtime Process Poisonedかを判定する。
  *
- * @responsibility isRuntimeProcessPoisonedに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Process Poisonedの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns isRuntimeProcessPoisonedの計算結果を返す。
@@ -220,9 +226,9 @@ export function isRuntimeProcessPoisoned() {
 }
 
 /**
- * beginRuntimeProcessEffectDrainの処理を実行する。
+ * Runtime Process Effect Drainを開始する。
  *
- * @responsibility beginRuntimeProcessEffectDrainに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Process Effect Drainの開始条件、初期状態、開始失敗境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns beginRuntimeProcessEffectDrainの計算結果を返す。
@@ -240,9 +246,9 @@ export function beginRuntimeProcessEffectDrain() {
 }
 
 /**
- * endRuntimeProcessEffectDrainの処理を実行する。
+ * end Runtime Process Effect Drainを決定する。
  *
- * @responsibility endRuntimeProcessEffectDrainに対応する入力処理と結果生成を所有する。
+ * @responsibility end Runtime Process Effect Drainの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input token: unknown
  * @returns endRuntimeProcessEffectDrainの計算結果を返す。
@@ -260,9 +266,9 @@ export function endRuntimeProcessEffectDrain(token: unknown) {
 }
 
 /**
- * isRuntimeProcessEffectBlockedの処理を実行する。
+ * Runtime Process Effect Blockedかを判定する。
  *
- * @responsibility isRuntimeProcessEffectBlockedに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Process Effect Blockedの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns isRuntimeProcessEffectBlockedの計算結果を返す。
@@ -280,9 +286,9 @@ export function isRuntimeProcessEffectBlocked() {
 }
 
 /**
- * isRuntimeProcessEffectDrainingの処理を実行する。
+ * Runtime Process Effect Drainingかを判定する。
  *
- * @responsibility isRuntimeProcessEffectDrainingに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Process Effect Drainingの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns isRuntimeProcessEffectDrainingの計算結果を返す。
@@ -300,9 +306,9 @@ export function isRuntimeProcessEffectDraining() {
 }
 
 /**
- * describeRuntimeProcessSafetyStateContractの処理を実行する。
+ * Runtime Process Safety 状態 契約の公開契約を記述する。
  *
- * @responsibility describeRuntimeProcessSafetyStateContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime Process Safety 状態 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeRuntimeProcessSafetyStateContractの計算結果を返す。

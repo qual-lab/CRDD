@@ -1,3 +1,9 @@
+/**
+ * project-runtime-objective-intakeに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeObjectivePlanを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import type {
   ProjectObjectiveDefinition,
   ProjectTaskDefinition,
@@ -21,9 +27,9 @@ export const PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT =
   "crdd-coordinator/project-runtime-objective-intake/v1" as const;
 
 /**
- * ProjectRuntimeObjectivePlanが扱う値の構造を表す。
+ * project-runtime-objective-intakeで使用するProject Runtime Objective Planの値契約を定義する。
  *
- * @responsibility ProjectRuntimeObjectivePlanに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Project Runtime Objective PlanのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape ProjectRuntimeObjectivePlanが表すProperty、識別子およびRelationを型として固定する。
  * @invariant ProjectRuntimeObjectivePlanで宣言した値と責務の対応を維持する。
@@ -38,9 +44,9 @@ export type ProjectRuntimeObjectivePlan = Readonly<{
 }>;
 
 /**
- * validIdの処理を実行する。
+ * Idが有効か判定する。
  *
- * @responsibility validIdに対応する入力処理と結果生成を所有する。
+ * @responsibility Idの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
@@ -63,9 +69,9 @@ function validId(value: unknown): value is string {
 }
 
 /**
- * validTextの処理を実行する。
+ * Textが有効か判定する。
  *
- * @responsibility validTextに対応する入力処理と結果生成を所有する。
+ * @responsibility Textの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown、maximum: number
  * @returns value is stringを返す。
@@ -88,9 +94,9 @@ function validText(value: unknown, maximum: number): value is string {
 }
 
 /**
- * inspectStringsの処理を実行する。
+ * Stringsを観測する。
  *
- * @responsibility inspectStringsに対応する入力処理と結果生成を所有する。
+ * @responsibility Stringsの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown、maximumItems: number、maximumText: number、shouldAllowEmpty
  * @returns readonly string[] | nullを返す。
@@ -125,9 +131,9 @@ function inspectStrings(
 }
 
 /**
- * pathWithinの処理を実行する。
+ * path Withinを決定する。
  *
- * @responsibility pathWithinに対応する入力処理と結果生成を所有する。
+ * @responsibility path Withinの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input candidate: string、roots: readonly string[]
  * @returns pathWithinの計算結果を返す。
@@ -147,7 +153,7 @@ function pathWithin(candidate: string, roots: readonly string[]) {
 /**
  * Validate an untrusted Planner result as a bounded Project Runtime plan.
  *
- * @responsibility inspectProjectRuntimeObjectivePlanに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Objective Planの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input raw: unknown、request: ProjectRuntimeObjectiveRequest
  * @returns ProjectRuntimeObjectivePlan | nullを返す。
@@ -245,7 +251,7 @@ export function inspectProjectRuntimeObjectivePlan(
 /**
  * Bind Host-prepared Task payloads to the exact current Task scope. The Host
  *
- * @responsibility createProjectRuntimeTaskExecutionSetに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Task Execution Setの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input raw: unknown、state: ProjectRuntimeState、clockIdentity: ProjectRuntimeClockIdentityPort
  * @returns readonly ProjectRuntimeTaskExecution[] | nullを返す。
@@ -312,7 +318,7 @@ export function createProjectRuntimeTaskExecutionSet(
 /**
  * Canonical public result envelope for one Project Runtime objective request.
  *
- * @responsibility createProjectRuntimeObjectiveResultに対応する入力処理と結果生成を所有する。
+ * @responsibility Project Runtime Objective 結果の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input request: ProjectRuntimeObjectiveRequest、options: Readonly<{ status: "completed" | "blocked" | "cancelled"; reason: string; queueId?: string | null; projection?: ReturnType<typeof projectProjectRuntimeState> | null; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryObligation["kind"]; recoveryId: string; }>[]; effectState?: "no_effect" | "settled" | "unknown"; }>
  * @returns createProjectRuntimeObjectiveResultの計算結果を返す。

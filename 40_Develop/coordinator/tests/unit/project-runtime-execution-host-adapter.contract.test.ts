@@ -6,7 +6,7 @@
  * @trace PRL-UT-014
  * @level UT
  * @scope project、runtime、clock、identity、process、adapter
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -24,7 +24,7 @@ import { createProjectRuntimeTaskRecoveryAdapter } from "../../src/security/proj
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Host Adapterは時刻と安定IdentityをProject Runtime Portへ閉じる", () => {
   const reading = Object.freeze({
@@ -66,7 +66,7 @@ test("Host Adapterは時刻と安定IdentityをProject Runtime Portへ閉じる"
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Host AdapterはProcess Recovery Identityと再利用禁止通知をProject Runtimeから分離する", () => {
   let poisonCount = 0;
@@ -110,7 +110,7 @@ test("Host AdapterはProcess Recovery Identityと再利用禁止通知をProject
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
  */
 test("Task Recovery AdapterはRepository情報を閉じて意味IdentityだけをProject Runtimeへ公開する", async () => {
   const calls: unknown[] = [];

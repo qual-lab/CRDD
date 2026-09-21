@@ -6,7 +6,7 @@
  * @trace PRL-UT-006
  * @level UT
  * @scope delegation、selection、grant、runtime
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -30,7 +30,7 @@ import {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 function createRequest(overrides: Record<string, unknown> = {}) {
   return {
@@ -67,7 +67,7 @@ function createRequest(overrides: Record<string, unknown> = {}) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 function createFixture(
   overrides: Partial<
@@ -146,7 +146,7 @@ function createFixture(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("4経路候補をOperationとProfileへ結合した一回限りSelection Grantにする", () => {
   const fixture = createFixture();
@@ -192,7 +192,7 @@ test("4経路候補をOperationとProfileへ結合した一回限りSelection Gr
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("control aliasは未使用Selection Grantを全aliasごと失効する", () => {
   const fixture = createFixture();
@@ -228,7 +228,7 @@ test("control aliasは未使用Selection Grantを全aliasごと失効する", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("Front Agent retained結果へSelection Grantを発行しない", () => {
   const fixture = createFixture();
@@ -256,7 +256,7 @@ test("Front Agent retained結果へSelection Grantを発行しない", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("再選定はreplacement検証後にだけ旧Grantを失効する", () => {
   const fixture = createFixture();
@@ -299,7 +299,7 @@ test("再選定はreplacement検証後にだけ旧Grantを失効する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("replacement検証失敗時は旧Grantを保持する", () => {
   let profileResolutionAllowed = true;
@@ -348,7 +348,7 @@ test("replacement検証失敗時は旧Grantを保持する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("別Operation、利用不能ProviderとProfile差をGrant発行前に拒否する", () => {
   const fixture = createFixture();
@@ -412,7 +412,7 @@ test("別Operation、利用不能ProviderとProfile差をGrant発行前に拒否
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("30秒期限、clock rollbackと乱数衝突をfail closedにする", () => {
   const fixture = createFixture();
@@ -465,7 +465,7 @@ test("30秒期限、clock rollbackと乱数衝突をfail closedにする", () =>
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("production入口はRuntime-owned Eligibilityでも偽造Capabilityを拒否する", () => {
   const issued = issueRuntimeOwnedDelegationSelectionGrant({}, createRequest());
@@ -493,7 +493,7 @@ test("production入口はRuntime-owned Eligibilityでも偽造Capabilityを拒�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
 test("公開契約は短命Grant、Subscription、通常速度と再選定境界を固定する", () => {
   const contract = describeDelegationSelectionGrantRuntimeContract();

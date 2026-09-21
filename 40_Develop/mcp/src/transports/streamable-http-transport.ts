@@ -1,3 +1,9 @@
+/**
+ * streamable-http-transportに属する責務をまとめる。
+ *
+ * @responsibility McpProjectRuntimeHttpOptionsを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000012
+ */
 import { timingSafeEqual } from "node:crypto";
 import http, {
   type IncomingHttpHeaders,
@@ -23,9 +29,9 @@ const ENDPOINT = "/mcp";
 const MAXIMUM_REQUEST_BYTES = 128 * 1024;
 
 /**
- * McpProjectRuntimeHttpOptionsが扱う値の構造を表す。
+ * streamable-http-transportで使用するMcp Project Runtime Http Optionsの値契約を定義する。
  *
- * @responsibility McpProjectRuntimeHttpOptionsに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Mcp Project Runtime Http OptionsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000012
  * @shape McpProjectRuntimeHttpOptionsが表すProperty、識別子およびRelationを型として固定する。
  * @invariant McpProjectRuntimeHttpOptionsで宣言した値と責務の対応を維持する。
@@ -40,9 +46,9 @@ export type McpProjectRuntimeHttpOptions = Readonly<{
 }>;
 
 /**
- * plainの処理を実行する。
+ * streamable-http-transportをPlain Dataとして検証する。
  *
- * @responsibility plainに対応する入力処理と結果生成を所有する。
+ * @responsibility streamable-http-transportの許可Property、入れ子値、拒否境界を所有する。
  * @trace ARCH-000012
  * @input value: unknown
  * @returns value is Record<string, unknown>を返す。
@@ -66,9 +72,9 @@ function plain(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * validTokenの処理を実行する。
+ * Tokenが有効か判定する。
  *
- * @responsibility validTokenに対応する入力処理と結果生成を所有する。
+ * @responsibility Tokenの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000012
  * @input value: unknown
  * @returns value is stringを返す。
@@ -91,9 +97,9 @@ function validToken(value: unknown): value is string {
 }
 
 /**
- * authorizedの処理を実行する。
+ * authorizedを決定する。
  *
- * @responsibility authorizedに対応する入力処理と結果生成を所有する。
+ * @responsibility authorizedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000012
  * @input headers: IncomingHttpHeaders、expected: Buffer
  * @returns authorizedの計算結果を返す。
@@ -118,9 +124,9 @@ function authorized(headers: IncomingHttpHeaders, expected: Buffer) {
 }
 
 /**
- * respondJsonの処理を実行する。
+ * JsonをProtocol応答として返す。
  *
- * @responsibility respondJsonに対応する入力処理と結果生成を所有する。
+ * @responsibility Jsonの応答Schema、状態Code、公開結果境界を所有する。
  * @trace ARCH-000012
  * @input response: ServerResponse、statusCode: number、body: unknown
  * @returns N/A: respondJsonは戻り値を返さない。
@@ -148,9 +154,9 @@ function respondJson(
 }
 
 /**
- * acceptsRequiredRepresentationsの処理を実行する。
+ * Required Representationsを受入れ可能か判定する。
  *
- * @responsibility acceptsRequiredRepresentationsに対応する入力処理と結果生成を所有する。
+ * @responsibility Required Representationsの受入条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000012
  * @input headers: IncomingHttpHeaders
  * @returns acceptsRequiredRepresentationsの計算結果を返す。
@@ -175,9 +181,9 @@ function acceptsRequiredRepresentations(headers: IncomingHttpHeaders) {
 }
 
 /**
- * requestMetadataの処理を実行する。
+ * Metadataを要求する。
  *
- * @responsibility requestMetadataに対応する入力処理と結果生成を所有する。
+ * @responsibility Metadataの要求条件、受理結果、Effect未成立との分離境界を所有する。
  * @trace ARCH-000012
  * @input value: unknown
  * @returns requestMetadataの計算結果を返す。
@@ -202,9 +208,9 @@ function requestMetadata(value: unknown) {
 }
 
 /**
- * headersMatchの処理を実行する。
+ * MatchのHeader条件が一致するか判定する。
  *
- * @responsibility headersMatchに対応する入力処理と結果生成を所有する。
+ * @responsibility Matchの比較対象、必須Header、一致結果境界を所有する。
  * @trace ARCH-000012
  * @input headers: IncomingHttpHeaders、body: unknown
  * @returns headersMatchの計算結果を返す。
@@ -233,9 +239,9 @@ function headersMatch(headers: IncomingHttpHeaders, body: unknown) {
 }
 
 /**
- * readBodyの処理を実行する。
+ * Bodyを読み取る。
  *
- * @responsibility readBodyに対応する入力処理と結果生成を所有する。
+ * @responsibility Bodyの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000012
  * @input request: IncomingMessage
  * @returns readBodyの計算結果を返す。
@@ -269,7 +275,7 @@ async function readBody(request: IncomingMessage) {
 /**
  * Start the stateless 2026-07-28 Streamable HTTP binding. Authentication is
  *
- * @responsibility startMcpProjectRuntimeStreamableHttpに対応する入力処理と結果生成を所有する。
+ * @responsibility Mcp Project Runtime Streamable Httpの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000012
  * @input dependencies: McpProjectRuntimeDependencies、options: McpProjectRuntimeHttpOptions
  * @returns startMcpProjectRuntimeStreamableHttpの計算結果を返す。
@@ -489,9 +495,9 @@ export async function startMcpProjectRuntimeStreamableHttp(
 }
 
 /**
- * describeMcpProjectRuntimeStreamableHttpContractの処理を実行する。
+ * Mcp Project Runtime Streamable Http 契約の公開契約を記述する。
  *
- * @responsibility describeMcpProjectRuntimeStreamableHttpContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Mcp Project Runtime Streamable Http 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000012
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeMcpProjectRuntimeStreamableHttpContractの計算結果を返す。

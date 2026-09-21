@@ -1,3 +1,9 @@
+/**
+ * release-staging-manifestに属する責務をまとめる。
+ *
+ * @responsibility DirectoryIdentityを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import fs from "node:fs";
 import path from "node:path";
 
@@ -15,12 +21,34 @@ const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
   "byteLength",
 )?.get;
 
+/**
+ * release-staging-manifestで使用するDirectory Identityの値契約を定義する。
+ *
+ * @responsibility Directory IdentityのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape DirectoryIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DirectoryIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DirectoryIdentityの宣言は外部境界を開かない。
+ * @security N/A: DirectoryIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility DirectoryIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type DirectoryIdentity = Readonly<{
   dev: bigint;
   ino: bigint;
   birthtimeNs: bigint;
 }>;
 
+/**
+ * release-staging-manifestで使用するManifest File Identityの値契約を定義する。
+ *
+ * @responsibility Manifest File IdentityのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ManifestFileIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ManifestFileIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ManifestFileIdentityの宣言は外部境界を開かない。
+ * @security N/A: ManifestFileIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ManifestFileIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ManifestFileIdentity = Readonly<{
   dev: bigint;
   ino: bigint;
@@ -31,6 +59,17 @@ type ManifestFileIdentity = Readonly<{
   mode: bigint;
 }>;
 
+/**
+ * release-staging-manifestで使用するStaging Snapshotの値契約を定義する。
+ *
+ * @responsibility Staging SnapshotのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape StagingSnapshotが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant StagingSnapshotで宣言した値と責務の対応を維持する。
+ * @boundary N/A: StagingSnapshotの宣言は外部境界を開かない。
+ * @security N/A: StagingSnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility StagingSnapshotの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type StagingSnapshot = Readonly<{
   root: string;
   rootIdentity: DirectoryIdentity;
@@ -41,6 +80,22 @@ type StagingSnapshot = Readonly<{
 
 const stagingSnapshots = new WeakMap<object, StagingSnapshot>();
 
+/**
+ * directory Identityを決定する。
+ *
+ * @responsibility directory Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input metadata: fs.BigIntStats
+ * @returns DirectoryIdentityを返す。
+ * @precondition 「metadata: fs.BigIntStats」がdirectoryIdentityの入力契約を満たす。
+ * @postcondition directoryIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: directoryIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure directoryIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant directoryIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: directoryIdentityはProcess内の同一Subsystemで完結する。
+ * @security N/A: directoryIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: directoryIdentityは共有非同期状態を持たない同期処理である。
+ */
 function directoryIdentity(metadata: fs.BigIntStats): DirectoryIdentity {
   if (
     !metadata.isDirectory() ||
@@ -58,6 +113,22 @@ function directoryIdentity(metadata: fs.BigIntStats): DirectoryIdentity {
   });
 }
 
+/**
+ * Directory Identityが同一かを判定する。
+ *
+ * @responsibility Directory Identityの同一性Propertyと一致／不一致境界を所有する。
+ * @trace ARCH-000004
+ * @input left: DirectoryIdentity、right: DirectoryIdentity
+ * @returns booleanを返す。
+ * @precondition 「left: DirectoryIdentity、right: DirectoryIdentity」がsameDirectoryIdentityの入力契約を満たす。
+ * @postcondition sameDirectoryIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: sameDirectoryIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameDirectoryIdentityは独自の失敗分岐を所有しない。
+ * @invariant sameDirectoryIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sameDirectoryIdentityはProcess内の同一Subsystemで完結する。
+ * @security N/A: sameDirectoryIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: sameDirectoryIdentityは共有非同期状態を持たない同期処理である。
+ */
 function sameDirectoryIdentity(
   left: DirectoryIdentity,
   right: DirectoryIdentity,
@@ -69,6 +140,22 @@ function sameDirectoryIdentity(
   );
 }
 
+/**
+ * manifest File Identityを決定する。
+ *
+ * @responsibility manifest File Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input metadata: fs.BigIntStats、expectedSize: number
+ * @returns ManifestFileIdentityを返す。
+ * @precondition 「metadata: fs.BigIntStats、expectedSize: number」がmanifestFileIdentityの入力契約を満たす。
+ * @postcondition manifestFileIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: manifestFileIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure manifestFileIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant manifestFileIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: manifestFileIdentityはProcess内の同一Subsystemで完結する。
+ * @security N/A: manifestFileIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: manifestFileIdentityは共有非同期状態を持たない同期処理である。
+ */
 function manifestFileIdentity(
   metadata: fs.BigIntStats,
   expectedSize: number,
@@ -94,6 +181,22 @@ function manifestFileIdentity(
   });
 }
 
+/**
+ * Manifest File Identityが同一かを判定する。
+ *
+ * @responsibility Manifest File Identityの同一性Propertyと一致／不一致境界を所有する。
+ * @trace ARCH-000004
+ * @input left: ManifestFileIdentity、right: ManifestFileIdentity
+ * @returns booleanを返す。
+ * @precondition 「left: ManifestFileIdentity、right: ManifestFileIdentity」がsameManifestFileIdentityの入力契約を満たす。
+ * @postcondition sameManifestFileIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: sameManifestFileIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameManifestFileIdentityは独自の失敗分岐を所有しない。
+ * @invariant sameManifestFileIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sameManifestFileIdentityはProcess内の同一Subsystemで完結する。
+ * @security N/A: sameManifestFileIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: sameManifestFileIdentityは共有非同期状態を持たない同期処理である。
+ */
 function sameManifestFileIdentity(
   left: ManifestFileIdentity,
   right: ManifestFileIdentity,
@@ -109,6 +212,22 @@ function sameManifestFileIdentity(
   );
 }
 
+/**
+ * Snapshotを検証する。
+ *
+ * @responsibility Snapshotの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input snapshot: StagingSnapshot
+ * @returns booleanを返す。
+ * @precondition 「snapshot: StagingSnapshot」がverifySnapshotの入力契約を満たす。
+ * @postcondition verifySnapshotの責務を完了した結果だけを返す。
+ * @effect verifySnapshotはFilesystemの読取りまたは書込みを実行する。
+ * @failure verifySnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifySnapshotは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: verifySnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: verifySnapshotは共有非同期状態を持たない同期処理である。
+ */
 function verifySnapshot(snapshot: StagingSnapshot): boolean {
   try {
     const rootIdentity = directoryIdentity(
@@ -135,6 +254,20 @@ function verifySnapshot(snapshot: StagingSnapshot): boolean {
   }
 }
 
+/**
+ * ReleaseStagingManifestErrorが担う状態と操作を提供する。
+ *
+ * @responsibility ReleaseStagingManifestErrorに属する状態と操作の所有境界をまとめる。
+ * @trace ARCH-000004
+ * @construction ReleaseStagingManifestErrorの生成に必要な依存と初期状態をConstructor契約で固定する。
+ * @lifecycle ReleaseStagingManifestErrorが所有する状態と資源を生成から終了まで同じInstanceで管理する。
+ * @effect N/A: ReleaseStagingManifestErrorの宣言自体は実行時Effectを発行しない。
+ * @failure N/A: ReleaseStagingManifestErrorの宣言自体は実行時失敗を所有しない。
+ * @invariant ReleaseStagingManifestErrorで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ReleaseStagingManifestErrorの宣言は外部境界を開かない。
+ * @security N/A: ReleaseStagingManifestErrorはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: ReleaseStagingManifestErrorは共有非同期状態を持たない同期処理である。
+ */
 export class ReleaseStagingManifestError extends Error {
   readonly reason = "release_manifest_staging_changed_after_placement";
   readonly releaseStagingFilesystemEffectIssued: boolean;
@@ -152,6 +285,22 @@ export class ReleaseStagingManifestError extends Error {
   }
 }
 
+/**
+ * Release Staging Manifest Sessionを開始する。
+ *
+ * @responsibility Release Staging Manifest Sessionの開始条件、初期状態、開始失敗境界を所有する。
+ * @trace ARCH-000004
+ * @input distributionRoot: unknown
+ * @returns beginReleaseStagingManifestSessionの計算結果を返す。
+ * @precondition 「distributionRoot: unknown」がbeginReleaseStagingManifestSessionの入力契約を満たす。
+ * @postcondition beginReleaseStagingManifestSessionの責務を完了した結果だけを返す。
+ * @effect beginReleaseStagingManifestSessionはFilesystemの読取りまたは書込みを実行する。
+ * @failure beginReleaseStagingManifestSessionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant beginReleaseStagingManifestSessionは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: beginReleaseStagingManifestSessionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: beginReleaseStagingManifestSessionは共有非同期状態を持たない同期処理である。
+ */
 export function beginReleaseStagingManifestSession(distributionRoot: unknown) {
   try {
     if (
@@ -205,11 +354,43 @@ export function beginReleaseStagingManifestSession(distributionRoot: unknown) {
   }
 }
 
+/**
+ * Release Staging Manifest Sessionを検証する。
+ *
+ * @responsibility Release Staging Manifest Sessionの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input token: object
+ * @returns booleanを返す。
+ * @precondition 「token: object」がverifyReleaseStagingManifestSessionの入力契約を満たす。
+ * @postcondition verifyReleaseStagingManifestSessionの責務を完了した結果だけを返す。
+ * @effect N/A: verifyReleaseStagingManifestSessionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: verifyReleaseStagingManifestSessionは独自の失敗分岐を所有しない。
+ * @invariant verifyReleaseStagingManifestSessionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyReleaseStagingManifestSessionはProcess内の同一Subsystemで完結する。
+ * @security verifyReleaseStagingManifestSessionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyReleaseStagingManifestSessionは共有非同期状態を持たない同期処理である。
+ */
 export function verifyReleaseStagingManifestSession(token: object): boolean {
   const snapshot = stagingSnapshots.get(token);
   return snapshot ? verifySnapshot(snapshot) : false;
 }
 
+/**
+ * place Release Staging Manifest 候補を決定する。
+ *
+ * @responsibility place Release Staging Manifest 候補の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input token: object、canonicalBytes: unknown
+ * @returns placeReleaseStagingManifestCandidateの計算結果を返す。
+ * @precondition 「token: object、canonicalBytes: unknown」がplaceReleaseStagingManifestCandidateの入力契約を満たす。
+ * @postcondition placeReleaseStagingManifestCandidateの責務を完了した結果だけを返す。
+ * @effect placeReleaseStagingManifestCandidateはFilesystemの読取りまたは書込みを実行する。
+ * @failure placeReleaseStagingManifestCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant placeReleaseStagingManifestCandidateは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security placeReleaseStagingManifestCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: placeReleaseStagingManifestCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function placeReleaseStagingManifestCandidate(
   token: object,
   canonicalBytes: unknown,
@@ -339,6 +520,22 @@ export function placeReleaseStagingManifestCandidate(
   }
 }
 
+/**
+ * Release Staging Manifest 契約の公開契約を記述する。
+ *
+ * @responsibility Release Staging Manifest 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeReleaseStagingManifestContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeReleaseStagingManifestContractの入力契約を満たす。
+ * @postcondition describeReleaseStagingManifestContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeReleaseStagingManifestContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeReleaseStagingManifestContractは独自の失敗分岐を所有しない。
+ * @invariant describeReleaseStagingManifestContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeReleaseStagingManifestContractはProcess内の同一Subsystemで完結する。
+ * @security N/A: describeReleaseStagingManifestContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeReleaseStagingManifestContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeReleaseStagingManifestContract() {
   return Object.freeze({
     contract: "crdd-coordinator/release-staging-manifest",

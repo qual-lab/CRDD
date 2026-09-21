@@ -1,7 +1,13 @@
 /**
- * SafeCommandReportが扱う値の構造を表す。
+ * command-reportに属する責務をまとめる。
  *
- * @responsibility SafeCommandReportに必要な値と制約を一つの型契約として保持する。
+ * @responsibility SafeCommandReportを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000003
+ */
+/**
+ * command-reportで使用するSafe Command Reportの値契約を定義する。
+ *
+ * @responsibility Safe Command ReportのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000003
  * @shape SafeCommandReportが表すProperty、識別子およびRelationを型として固定する。
  * @invariant SafeCommandReportで宣言した値と責務の対応を維持する。
@@ -73,9 +79,9 @@ const CANDIDATE_RECOVERY_ID_PATTERN =
 const STORE_RECOVERY_ID_PATTERN = /^candidate-store-recovery\.[0-9a-f]{64}$/u;
 
 /**
- * lookupFixedLabelの処理を実行する。
+ * Fixed Labelを対応表から取得する。
  *
- * @responsibility lookupFixedLabelに対応する入力処理と結果生成を所有する。
+ * @responsibility Fixed Labelの検索Key、既定値、未検出結果境界を所有する。
  * @trace ARCH-000003
  * @input labels: Readonly<Record<string, string>>、value: unknown
  * @returns lookupFixedLabelの計算結果を返す。
@@ -97,9 +103,9 @@ function lookupFixedLabel(
     : undefined;
 }
 /**
- * describeReportedBooleanの処理を実行する。
+ * Reported Booleanの公開契約を記述する。
  *
- * @responsibility describeReportedBooleanに対応する入力処理と結果生成を所有する。
+ * @responsibility Reported Booleanの公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000003
  * @input value: unknown
  * @returns describeReportedBooleanの計算結果を返す。
@@ -116,9 +122,9 @@ function describeReportedBoolean(value: unknown) {
   return value === true ? "あり" : value === false ? "なし" : "未確認";
 }
 /**
- * collectRecoveryIdsの処理を実行する。
+ * 回復 Idsを収集する。
  *
- * @responsibility collectRecoveryIdsに対応する入力処理と結果生成を所有する。
+ * @responsibility 回復 Idsの収集範囲、重複排除、欠落時の結果境界を所有する。
  * @trace ARCH-000003
  * @input single: unknown、multiple: unknown、pattern: RegExp
  * @returns collectRecoveryIdsの計算結果を返す。
@@ -145,9 +151,9 @@ function collectRecoveryIds(
 }
 
 /**
- * renderSafeHumanCommandReportの処理を実行する。
+ * Safe Human Command Reportを人間向け表示へ整形する。
  *
- * @responsibility renderSafeHumanCommandReportに対応する入力処理と結果生成を所有する。
+ * @responsibility Safe Human Command Reportの入力値、表示規則、機密を含めない出力境界を所有する。
  * @trace ARCH-000003
  * @input report: SafeCommandReport
  * @returns renderSafeHumanCommandReportの計算結果を返す。
@@ -294,9 +300,9 @@ export function renderSafeHumanCommandReport(report: SafeCommandReport) {
 }
 
 /**
- * describeCommandReportContractの処理を実行する。
+ * Command Report 契約の公開契約を記述する。
  *
- * @responsibility describeCommandReportContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Command Report 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000003
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeCommandReportContractの計算結果を返す。

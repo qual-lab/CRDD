@@ -1,3 +1,9 @@
+/**
+ * docker-restart-runtimeに属する責務をまとめる。
+ *
+ * @responsibility restartRuntimeOwnedDockerForRecoveryを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { executeDockerRestart } from "../core/docker-restart-execution.ts";
 import { acquireRuntimeOwnedDockerDesktopRestartNativeHelper } from "./docker-desktop-repair-native-process.ts";
 import {
@@ -12,7 +18,7 @@ import { createDockerRestartMachine } from "./docker-restart-machine.ts";
 /**
  * Package-internal composition. Task recovery remains a separate operation.
  *
- * @responsibility restartRuntimeOwnedDockerForRecoveryに対応する入力処理と結果生成を所有する。
+ * @responsibility docker-restart-runtimeの入力からrestart Runtime 所有 Docker For 回復を導く規則と結果境界を所有する。
  * @trace ARCH-000008
  * @input recoveryId: unknown、signal: AbortSignal、originReleaseRoot: unknown、developmentContext: unknown
  * @returns restartRuntimeOwnedDockerForRecoveryの計算結果を返す。

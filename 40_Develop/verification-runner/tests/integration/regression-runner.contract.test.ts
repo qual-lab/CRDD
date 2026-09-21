@@ -4,9 +4,10 @@
  * @packageDocumentation
  * @responsibility verification-runner:integration:regression-runnerが所有する検証責務を実行する。
  * @trace CQS-IT-011
+ * @trace RCM-IT-007
  * @level IT
  * @scope regression、runner、performance、longevity、authority
- * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner / RCM-IT-007=Adjacent 1 Block: 開発試験runner→子Process→fixture
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -34,7 +35,7 @@ const runner = path.join(verificationRunnerRoot, "bin", "regression-runner.ts");
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
  */
 function invokeRunner(runnerArguments: readonly string[]) {
   return spawnSync(process.execPath, [runner, ...runnerArguments], {
@@ -48,13 +49,13 @@ function invokeRunner(runnerArguments: readonly string[]) {
  * PT／LTは全Authority条件が揃う前に試験Processを開始しないを検証する。
  *
  * @responsibility PT／LTは全Authority条件が揃う前に試験Processを開始しないの合否判定を所有する。
- * @trace CQS-IT-011
+ * @trace RCM-IT-007
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus PT／LTは全Authority条件が揃う前に試験Processを開始しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary RCM-IT-007=Adjacent 1 Block: 開発試験runner→子Process→fixture
  */
 test("PT／LTは全Authority条件が揃う前に試験Processを開始しない", () => {
   const result = invokeRunner([
@@ -83,7 +84,7 @@ test("PT／LTは全Authority条件が揃う前に試験Processを開始しない
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
  */
 test("Credit 0を含む明示AuthorityはPTの計画だけを許可する", () => {
   const result = invokeRunner([
@@ -131,7 +132,7 @@ test("Credit 0を含む明示AuthorityはPTの計画だけを許可する", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
  */
 test("明示AuthorityがあってもPT／LTは上限強制実装まで計画だけとする", () => {
   const result = invokeRunner([
@@ -176,7 +177,7 @@ test("明示AuthorityがあってもPT／LTは上限強制実装まで計画だ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
  */
 test("通常回帰はUT／IT／STだけを実行可能集合へ選ぶ", () => {
   const result = invokeRunner([
@@ -209,7 +210,7 @@ test("通常回帰はUT／IT／STだけを実行可能集合へ選ぶ", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
  */
 test("外部Provider試験を含む変更でもEffect 0の計画表示は停止しない", () => {
   const changedPath =
@@ -247,13 +248,13 @@ test("外部Provider試験を含む変更でもEffect 0の計画表示は停止�
  * Windows実Process試験は専用実行Profileを計画へ明示するを検証する。
  *
  * @responsibility Windows実Process試験は専用実行Profileを計画へ明示するの合否判定を所有する。
- * @trace CQS-IT-011
+ * @trace RCM-IT-007
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Windows実Process試験は専用実行Profileを計画へ明示するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary RCM-IT-007=Adjacent 1 Block: 開発試験runner→子Process→fixture
  */
 test("Windows実Process試験は専用実行Profileを計画へ明示する", () => {
   const result = invokeRunner([
@@ -284,13 +285,13 @@ test("Windows実Process試験は専用実行Profileを計画へ明示する", ()
  * Windows実Process試験は専用実行Authorityなしに試験Processを開始しないを検証する。
  *
  * @responsibility Windows実Process試験は専用実行Authorityなしに試験Processを開始しないの合否判定を所有する。
- * @trace CQS-IT-011
+ * @trace RCM-IT-007
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Windows実Process試験は専用実行Authorityなしに試験Processを開始しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary RCM-IT-007=Adjacent 1 Block: 開発試験runner→子Process→fixture
  */
 test("Windows実Process試験は専用実行Authorityなしに試験Processを開始しない", {
   skip: process.platform !== "win32",
@@ -320,7 +321,7 @@ test("Windows実Process試験は専用実行Authorityなしに試験Processを�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
  */
 test("Tool配下MarkdownもCheckerとRepository静的検査へ接続する", () => {
   for (const changedPath of [
@@ -361,7 +362,7 @@ test("Tool配下MarkdownもCheckerとRepository静的検査へ接続する", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
  */
 test("共通component変更は利用側契約と利用側静的検査を同じ計画へ含める", () => {
   const result = invokeRunner([
@@ -397,7 +398,7 @@ test("共通component変更は利用側契約と利用側静的検査を同じ�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
  */
 test("利用側静的検査はunit限定でも残し、利用側ITは実行しない", () => {
   const result = invokeRunner([
@@ -439,7 +440,7 @@ test("利用側静的検査はunit限定でも残し、利用側ITは実行し�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
  */
 test("実行知の静的検査はCoordinatorのtoolchainを参照しない", () => {
   const source = fs.readFileSync(
@@ -479,7 +480,7 @@ const selectedRegressionEntries = [
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
  */
 function executeInjectedPlan(
   failedStep: string | null = null,
@@ -519,7 +520,7 @@ function executeInjectedPlan(
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
  */
 test("実配線は表示した同じ計画を静的確認からWindows GateとSTまで順序実行する", () => {
   const { observedSteps, plans, results } = executeInjectedPlan();
@@ -556,7 +557,7 @@ test("実配線は表示した同じ計画を静的確認からWindows GateとST
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
  */
 test("同じ計画の各工程失敗は後続levelとWindows Gateを開始しない", () => {
   for (const failedStep of [
@@ -587,7 +588,7 @@ test("同じ計画の各工程失敗は後続levelとWindows Gateを開始しな
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
  */
 test("Windows Gate不要時は表示計画にも実行記録にも現れない", () => {
   const { plans, observedSteps, results } = executeInjectedPlan(null, false);
@@ -612,7 +613,7 @@ test("Windows Gate不要時は表示計画にも実行記録にも現れない",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
  */
 test("明示変更PathはRepository内の正規化相対Pathだけを受理する", () => {
   for (const changedPath of [
@@ -642,7 +643,7 @@ test("明示変更PathはRepository内の正規化相対Pathだけを受理す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+ * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
  */
 test("Git変更集合はcommit・index・worktree・未追跡とrename両側を合成する", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-regression-git-"));
@@ -656,7 +657,7 @@ test("Git変更集合はcommit・index・worktree・未追跡とrename両側を�
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary Adjacent 1 Block: Test Catalog→Owner Runner
+   * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
    */
   const git = (...gitArguments: string[]) =>
     execFileSync("git", gitArguments, { cwd: root, stdio: "pipe" });

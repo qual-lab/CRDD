@@ -1,3 +1,9 @@
+/**
+ * runtime-data-path-resolverに属する責務をまとめる。
+ *
+ * @responsibility RepositoryRuntimeAreaを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000011
+ */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -33,9 +39,9 @@ const REPOSITORY_AREAS = Object.freeze([
 ] as const);
 
 /**
- * RepositoryRuntimeAreaが扱う値の構造を表す。
+ * runtime-data-path-resolverで使用するRepository Runtime Areaの値契約を定義する。
  *
- * @responsibility RepositoryRuntimeAreaに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Repository Runtime AreaのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000011
  * @shape RepositoryRuntimeAreaが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepositoryRuntimeAreaで宣言した値と責務の対応を維持する。
@@ -59,7 +65,7 @@ const AREA_PATH_KEYS = Object.freeze({
 /**
  * Resolves only canonical paths. The caller remains responsible for proving
  *
- * @responsibility resolveRepositoryRuntimeDataPathsFromValidatedRootに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Runtime Data Paths From Validated Rootの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000011
  * @input repositoryRoot: string
  * @returns resolveRepositoryRuntimeDataPathsFromValidatedRootの計算結果を返す。
@@ -102,7 +108,7 @@ function resolveRepositoryRuntimeDataPathsFromValidatedRoot(
 /**
  * Protected signing-only resolver. It derives the root from this package's
  *
- * @responsibility resolveBundledRepositoryRuntimeDataPathsForProtectedSigningに対応する入力処理と結果生成を所有する。
+ * @responsibility Bundled Repository Runtime Data Paths For Protected Signingの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000011
  * @input N/A: 実行時引数を受け取らない。
  * @returns resolveBundledRepositoryRuntimeDataPathsForProtectedSigningの計算結果を返す。
@@ -146,9 +152,9 @@ export function resolveBundledRepositoryRuntimeDataPathsForProtectedSigning() {
 }
 
 /**
- * resolveRepositoryRuntimeDataPathsの処理を実行する。
+ * Repository Runtime Data Pathsを一意に解決する。
  *
- * @responsibility resolveRepositoryRuntimeDataPathsに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Runtime Data Pathsの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000011
  * @input capability: VerifiedRepositoryRoot
  * @returns resolveRepositoryRuntimeDataPathsの計算結果を返す。
@@ -177,7 +183,7 @@ export function resolveRepositoryRuntimeDataPaths(
 /**
  * Runtime Data implementation-only path set; omitted from the public index.
  *
- * @responsibility resolveRepositoryRuntimeDataPathsForInternalUseに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Runtime Data Paths For Internal Useの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000011
  * @input capability: VerifiedRepositoryRoot
  * @returns resolveRepositoryRuntimeDataPathsForInternalUseの計算結果を返す。
@@ -200,9 +206,9 @@ export function resolveRepositoryRuntimeDataPathsForInternalUse(
 }
 
 /**
- * ensureCanonicalDirectoryの処理を実行する。
+ * Canonical Directoryが成立する状態を確保する。
  *
- * @responsibility ensureCanonicalDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Canonical Directoryの成立条件、作成または再利用、失敗時の非成立境界を所有する。
  * @trace ARCH-000011
  * @input target: string
  * @returns N/A: ensureCanonicalDirectoryは戻り値を返さない。
@@ -233,7 +239,7 @@ function ensureCanonicalDirectory(target: string): void {
 /**
  * Creates or verifies one declared repository-local area. Consumers receive
  *
- * @responsibility ensureRepositoryRuntimeDataAreaに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Runtime Data Areaの成立条件、作成または再利用、失敗時の非成立境界を所有する。
  * @trace ARCH-000011
  * @input capability: VerifiedRepositoryRoot、area: RepositoryRuntimeArea
  * @returns ensureRepositoryRuntimeDataAreaの計算結果を返す。
@@ -260,7 +266,7 @@ export function ensureRepositoryRuntimeDataArea(
 /**
  * Internal test seam for exact Ignore lifecycle failure injection.
  *
- * @responsibility ensureRepositoryRuntimeDataAreaWithAdapterに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Runtime Data Area With Adapterの成立条件、作成または再利用、失敗時の非成立境界を所有する。
  * @trace ARCH-000011
  * @input capability: VerifiedRepositoryRoot、area: RepositoryRuntimeArea、ignoreAdapter: RepositoryLocalIgnoreAdapter
  * @returns ensureRepositoryRuntimeDataAreaWithAdapterの計算結果を返す。
@@ -348,9 +354,9 @@ export class RepositoryRuntimeDataAreaBlockedError extends Error {
 }
 
 /**
- * requireReadyRepositoryRuntimeDataAreaの処理を実行する。
+ * require Ready Repository Runtime Data Areaを決定する。
  *
- * @responsibility requireReadyRepositoryRuntimeDataAreaに対応する入力処理と結果生成を所有する。
+ * @responsibility require Ready Repository Runtime Data Areaの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000011
  * @input result: ReturnType<typeof ensureRepositoryRuntimeDataArea>、invalidReason: string
  * @returns requireReadyRepositoryRuntimeDataAreaの計算結果を返す。
@@ -374,9 +380,9 @@ export function requireReadyRepositoryRuntimeDataArea(
 }
 
 /**
- * ensureRepositoryRuntimeDataAreaFromWorkingDirectoryの処理を実行する。
+ * Repository Runtime Data Area From Working Directoryが成立する状態を確保する。
  *
- * @responsibility ensureRepositoryRuntimeDataAreaFromWorkingDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Runtime Data Area From Working Directoryの成立条件、作成または再利用、失敗時の非成立境界を所有する。
  * @trace ARCH-000011
  * @input workingDirectory: unknown、area: RepositoryRuntimeArea
  * @returns ensureRepositoryRuntimeDataAreaFromWorkingDirectoryの計算結果を返す。
@@ -400,9 +406,9 @@ export function ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
 }
 
 /**
- * resolveRepositoryRuntimeDataPathsFromWorkingDirectoryの処理を実行する。
+ * Repository Runtime Data Paths From Working Directoryを一意に解決する。
  *
- * @responsibility resolveRepositoryRuntimeDataPathsFromWorkingDirectoryに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Runtime Data Paths From Working Directoryの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000011
  * @input workingDirectory: unknown
  * @returns resolveRepositoryRuntimeDataPathsFromWorkingDirectoryの計算結果を返す。
@@ -425,9 +431,9 @@ export function resolveRepositoryRuntimeDataPathsFromWorkingDirectory(
 }
 
 /**
- * CrosRootInputが扱う値の構造を表す。
+ * runtime-data-path-resolverで使用するCros Root 入力の値契約を定義する。
  *
- * @responsibility CrosRootInputに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Cros Root 入力のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000011
  * @shape CrosRootInputが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CrosRootInputで宣言した値と責務の対応を維持する。
@@ -448,9 +454,9 @@ type CrosRootInput = Readonly<{
 }>;
 
 /**
- * resolveCrosRuntimeRootsの処理を実行する。
+ * Cros Runtime Rootsを一意に解決する。
  *
- * @responsibility resolveCrosRuntimeRootsに対応する入力処理と結果生成を所有する。
+ * @responsibility Cros Runtime Rootsの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000011
  * @input input: CrosRootInput
  * @returns resolveCrosRuntimeRootsの計算結果を返す。

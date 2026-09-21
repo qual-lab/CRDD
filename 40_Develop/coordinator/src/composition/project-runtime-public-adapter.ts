@@ -1,3 +1,9 @@
+/**
+ * project-runtime-public-adapterに属する責務をまとめる。
+ *
+ * @responsibility observeRuntimeOwnedProjectClientPrincipalを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "../security/project-runtime-windows-decision-store.ts";
 import {
   runProjectRuntimePublicDecision,
@@ -12,9 +18,9 @@ export {
 };
 
 /**
- * observeRuntimeOwnedProjectClientPrincipalの処理を実行する。
+ * Runtime 所有 Project Client Principalを観測する。
  *
- * @responsibility observeRuntimeOwnedProjectClientPrincipalに対応する入力処理と結果生成を所有する。
+ * @responsibility Runtime 所有 Project Client Principalの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns observeRuntimeOwnedProjectClientPrincipalの計算結果を返す。

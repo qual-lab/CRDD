@@ -1,3 +1,9 @@
+/**
+ * stdio-transportに属する責務をまとめる。
+ *
+ * @responsibility writeを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000012
+ */
 import type { Readable, Writable } from "node:stream";
 
 import {
@@ -12,9 +18,9 @@ export const MCP_PROJECT_RUNTIME_STDIO_CONTRACT =
 const MAXIMUM_REQUEST_BYTES = 128 * 1024;
 
 /**
- * writeの処理を実行する。
+ * stdio-transportを書き込む。
  *
- * @responsibility writeに対応する入力処理と結果生成を所有する。
+ * @responsibility stdio-transportの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000012
  * @input output: Writable、value: unknown
  * @returns writeの計算結果を返す。
@@ -39,7 +45,7 @@ function write(output: Writable, value: unknown) {
 /**
  * Bounded JSON-lines MCP transport. EOF means parent loss: the active request
  *
- * @responsibility runMcpProjectRuntimeStdioに対応する入力処理と結果生成を所有する。
+ * @responsibility Mcp Project Runtime Stdioの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000012
  * @input dependencies: McpProjectRuntimeDependencies、input: Readable、output: Writable
  * @returns runMcpProjectRuntimeStdioの計算結果を返す。
@@ -177,9 +183,9 @@ export async function runMcpProjectRuntimeStdio(
 }
 
 /**
- * describeMcpProjectRuntimeStdioContractの処理を実行する。
+ * Mcp Project Runtime Stdio 契約の公開契約を記述する。
  *
- * @responsibility describeMcpProjectRuntimeStdioContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Mcp Project Runtime Stdio 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000012
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeMcpProjectRuntimeStdioContractの計算結果を返す。

@@ -1,3 +1,9 @@
+/**
+ * repository-local-ignoreに属する責務をまとめる。
+ *
+ * @responsibility RepositoryLocalIgnoreAdapterResultを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000002
+ */
 import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
@@ -9,9 +15,9 @@ export const REPOSITORY_LOCAL_IGNORE_CONTRACT =
 export const REPOSITORY_LOCAL_IGNORE_CONTRACT_REVISION = 1;
 
 /**
- * RepositoryLocalIgnoreAdapterResultが扱う値の構造を表す。
+ * repository-local-ignoreで使用するRepository Local Ignore Adapter 結果の値契約を定義する。
  *
- * @responsibility RepositoryLocalIgnoreAdapterResultに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Repository Local Ignore Adapter 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape RepositoryLocalIgnoreAdapterResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepositoryLocalIgnoreAdapterResultで宣言した値と責務の対応を維持する。
@@ -38,9 +44,9 @@ export type RepositoryLocalIgnoreAdapterResult =
     }>;
 
 /**
- * RepositoryLocalIgnoreAdapterが扱う値の構造を表す。
+ * repository-local-ignoreで使用するRepository Local Ignore Adapterの値契約を定義する。
  *
- * @responsibility RepositoryLocalIgnoreAdapterに必要な値と制約を一つの型契約として保持する。
+ * @responsibility Repository Local Ignore AdapterのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
  * @shape RepositoryLocalIgnoreAdapterが表すProperty、識別子およびRelationを型として固定する。
  * @invariant RepositoryLocalIgnoreAdapterで宣言した値と責務の対応を維持する。
@@ -54,9 +60,9 @@ export type RepositoryLocalIgnoreAdapter = (
 ) => RepositoryLocalIgnoreAdapterResult;
 
 /**
- * registerRepositoryLocalIgnoreの処理を実行する。
+ * Repository Local Ignoreを登録する。
  *
- * @responsibility registerRepositoryLocalIgnoreに対応する入力処理と結果生成を所有する。
+ * @responsibility Repository Local Ignoreの登録条件、Identity、一意性境界を所有する。
  * @trace ARCH-000002
  * @input capability: VerifiedRepositoryRoot、entry: unknown、adapter: RepositoryLocalIgnoreAdapter
  * @returns registerRepositoryLocalIgnoreの計算結果を返す。

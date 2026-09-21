@@ -1,3 +1,9 @@
+/**
+ * claude-execution-planに属する責務をまとめる。
+ *
+ * @responsibility planClaudeTaskTurnBudgetを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { describeProviderBillingPolicyContract } from "./provider-billing-policy.ts";
 
@@ -14,9 +20,9 @@ const TASK_WORKLOAD_KEYS = new Set([
 ]);
 
 /**
- * planClaudeTaskTurnBudgetの処理を実行する。
+ * plan Claude Task Turn Budgetを決定する。
  *
- * @responsibility planClaudeTaskTurnBudgetに対応する入力処理と結果生成を所有する。
+ * @responsibility plan Claude Task Turn Budgetの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input taskRole: unknown、taskWorkload: unknown
  * @returns planClaudeTaskTurnBudgetの計算結果を返す。
@@ -425,9 +431,9 @@ const ACTIVATION_GATES = Object.freeze([
 const ACTIVATION_BLOCKERS = Object.freeze([] as string[]);
 
 /**
- * blockedの処理を実行する。
+ * claude-execution-planを停止結果として構築する。
  *
- * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @responsibility claude-execution-planの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000010
  * @input reason: string
  * @returns blockedの計算結果を返す。
@@ -453,9 +459,9 @@ function blocked(reason: string) {
 }
 
 /**
- * planClaudeReadOnlyProbeの処理を実行する。
+ * plan Claude Read Only Probeを決定する。
  *
- * @responsibility planClaudeReadOnlyProbeに対応する入力処理と結果生成を所有する。
+ * @responsibility plan Claude Read Only Probeの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input candidate: unknown
  * @returns planClaudeReadOnlyProbeの計算結果を返す。
@@ -544,9 +550,9 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
 }
 
 /**
- * planClaudeIsolatedTaskの処理を実行する。
+ * plan Claude Isolated Taskを決定する。
  *
- * @responsibility planClaudeIsolatedTaskに対応する入力処理と結果生成を所有する。
+ * @responsibility plan Claude Isolated Taskの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
  * @input candidate: unknown
  * @returns planClaudeIsolatedTaskの計算結果を返す。
@@ -674,9 +680,9 @@ export function planClaudeIsolatedTask(candidate: unknown) {
 }
 
 /**
- * describeClaudeExecutionPlanContractの処理を実行する。
+ * Claude Execution Plan 契約の公開契約を記述する。
  *
- * @responsibility describeClaudeExecutionPlanContractに対応する入力処理と結果生成を所有する。
+ * @responsibility Claude Execution Plan 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000010
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeClaudeExecutionPlanContractの計算結果を返す。

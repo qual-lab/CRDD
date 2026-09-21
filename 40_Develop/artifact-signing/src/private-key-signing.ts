@@ -1,3 +1,9 @@
+/**
+ * private-key-signingに属する責務をまとめる。
+ *
+ * @responsibility FileIdentityを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import {
   createHash,
   createPrivateKey,

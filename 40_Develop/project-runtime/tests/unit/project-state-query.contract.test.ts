@@ -3,10 +3,10 @@
  *
  * @packageDocumentation
  * @responsibility project-runtime:unit:state-queryが所有する検証責務を実行する。
- * @trace PRL-UT-006
+ * @trace PPR-UT-006
  * @level UT
  * @scope project、runtime、state、query、public
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -31,13 +31,13 @@ const request = Object.freeze({
  * runtimeStateのTest準備責務を実行する。
  *
  * @responsibility runtimeStateがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace PRL-UT-006
+ * @trace PPR-UT-006
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
  * @stimulus runtimeStateを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 function runtimeState(): ProjectRuntimeState {
   const created = createProjectRuntimeState({
@@ -67,13 +67,13 @@ function runtimeState(): ProjectRuntimeState {
  * readerのTest準備責務を実行する。
  *
  * @responsibility readerがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace PRL-UT-006
+ * @trace PPR-UT-006
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
  * @stimulus readerを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 function reader(
   result: ReturnType<ProjectRuntimeStatePort["readState"]>,
@@ -85,13 +85,13 @@ function reader(
  * 状態参照は閉じた要求だけを受け入れるを検証する。
  *
  * @responsibility 状態参照は閉じた要求だけを受け入れるの合否判定を所有する。
- * @trace PRL-UT-006
+ * @trace PPR-UT-006
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 状態参照は閉じた要求だけを受け入れるの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("状態参照は閉じた要求だけを受け入れる", () => {
   assert.deepEqual(inspectProjectRuntimeStateQuery(request), request);
@@ -105,13 +105,13 @@ test("状態参照は閉じた要求だけを受け入れる", () => {
  * 状態参照はProject Runtimeのcanonical投影だけを返すを検証する。
  *
  * @responsibility 状態参照はProject Runtimeのcanonical投影だけを返すの合否判定を所有する。
- * @trace PRL-UT-006
+ * @trace PPR-UT-006
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 状態参照はProject Runtimeのcanonical投影だけを返すの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("状態参照はProject Runtimeのcanonical投影だけを返す", () => {
   const result = queryProjectRuntimeState(
@@ -129,13 +129,13 @@ test("状態参照はProject Runtimeのcanonical投影だけを返す", () => {
  * 状態不存在は失敗や成功推定ではなくabsent観測として返すを検証する。
  *
  * @responsibility 状態不存在は失敗や成功推定ではなくabsent観測として返すの合否判定を所有する。
- * @trace PRL-UT-006
+ * @trace PPR-UT-006
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 状態不存在は失敗や成功推定ではなくabsent観測として返すの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("状態不存在は失敗や成功推定ではなくabsent観測として返す", () => {
   const result = queryProjectRuntimeState(
@@ -151,13 +151,13 @@ test("状態不存在は失敗や成功推定ではなくabsent観測として�
  * 異なるRepository改訂版の状態を現在値として返さないを検証する。
  *
  * @responsibility 異なるRepository改訂版の状態を現在値として返さないの合否判定を所有する。
- * @trace PRL-UT-006
+ * @trace PPR-UT-006
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 異なるRepository改訂版の状態を現在値として返さないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("異なるRepository改訂版の状態を現在値として返さない", () => {
   const result = queryProjectRuntimeState(
@@ -178,13 +178,13 @@ test("異なるRepository改訂版の状態を現在値として返さない", (
  * 観測不能と既存Recovery義務をEffect発行と混同しないを検証する。
  *
  * @responsibility 観測不能と既存Recovery義務をEffect発行と混同しないの合否判定を所有する。
- * @trace PRL-UT-006
+ * @trace PPR-UT-006
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 観測不能と既存Recovery義務をEffect発行と混同しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
 test("観測不能と既存Recovery義務をEffect発行と混同しない", () => {
   const result = queryProjectRuntimeState(

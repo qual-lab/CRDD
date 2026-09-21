@@ -1,3 +1,9 @@
+/**
+ * project-runtime-state-queryに属する責務をまとめる。
+ *
+ * @responsibility queryProjectRuntimeStateを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000005
+ */
 import { projectProjectRuntimeState } from "../core/project-runtime-state.ts";
 import type { ProjectRuntimeStatePort } from "../ports/state-port.ts";
 import {
@@ -9,7 +15,7 @@ import {
 /**
  * Read-only application entry. It cannot receive a state mutation capability.
  *
- * @responsibility queryProjectRuntimeStateに対応する入力処理と結果生成を所有する。
+ * @responsibility project-runtime-state-queryの入力からquery Project Runtime 状態を導く規則と結果境界を所有する。
  * @trace ARCH-000005
  * @input state: Pick<ProjectRuntimeStatePort, "readState">、request: ProjectRuntimeStateQuery
  * @returns ProjectRuntimeStateQueryResultを返す。
