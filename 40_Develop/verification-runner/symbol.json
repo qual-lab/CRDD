@@ -44,6 +44,22 @@
       ]
     },
     {
+      "symbolId": "verification-runner.test.system.resource-intensive-gate",
+      "kind": "test-suite",
+      "path": "tests/system/resource-intensive-gate.contract.test.ts",
+      "qaIds": [
+        "QA-000002"
+      ],
+      "localTestIds": [
+        "CQS-ST-013"
+      ],
+      "verifies": [
+        "verification-runner.regression-entry",
+        "verification-runner.source.src.execution.regression.execution",
+        "verification-runner.source.src.catalog.test.catalog"
+      ]
+    },
+    {
       "symbolId": "verification-runner.source.src.execution.regression.execution",
       "kind": "file",
       "path": "src/execution/regression-execution.ts",

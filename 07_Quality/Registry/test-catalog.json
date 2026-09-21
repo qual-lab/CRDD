@@ -96,7 +96,7 @@
       "responsibilities": ["repository_root_binding", "runtime_path_resolution", "temporary_operation_lifecycle"],
       "externalBoundaries": ["git_worktree", "repository_filesystem", "os_managed_root"],
       "lifecycleProfile": "durable_operation",
-      "testIds": ["runtime-data:unit:contract", "runtime-data:unit:path-resolver", "runtime-data:integration:repository-paths", "runtime-data:integration:temporary-operation-lifecycle"],
+      "testIds": ["runtime-data:unit:contract", "runtime-data:unit:path-resolver", "runtime-data:integration:repository-paths", "runtime-data:integration:temporary-operation-lifecycle", "runtime-data:system:temporary-operation-cleanup"],
       "postconditions": ["repository_boundary_exact", "unregistered_path_not_issued", "temporary_artifact_absent_or_recovery_exact"]
     },
     {
@@ -508,7 +508,7 @@
       "owner": "crdd-domain-library",
       "path": "40_Develop/crdd-domain-library/tests/system/quality-change-control.contract.test.ts",
       "level": "system",
-      "kind": "system",
+      "kind": "contract",
       "semanticTags": ["quality", "release-gate", "audit-set", "revision", "remediation"],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -696,6 +696,28 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": ["all_terminal_paths_classified", "cleanup_nonexistence_observed", "parent_loss_recovery_exact"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "runtime-data:system:temporary-operation-cleanup",
+      "owner": "runtime-data",
+      "path": "40_Develop/runtime-data/tests/system/temporary-operation-cleanup.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": [
+        "runtime-data",
+        "temporary-operation",
+        "cleanup",
+        "recovery",
+        "public-api"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "public_result_observed",
+        "owned_resources_settled_or_reported"
+      ],
       "mandatoryByDefault": true
     },
     {
@@ -2309,6 +2331,28 @@
       "postconditions": [
         "public_result_observed",
         "exact_recovery_identity_settled",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:system:release-manifest-promotion",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/system/release-manifest-promotion.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": [
+        "signed",
+        "release",
+        "manifest",
+        "promotion",
+        "discard"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "public_result_observed",
         "owned_resources_settled_or_reported"
       ],
       "mandatoryByDefault": true
@@ -3970,6 +4014,28 @@
       "postconditions": [
         "execution_plan_observed",
         "unauthorized_effect_absent"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "verification-runner:system:resource-intensive-gate",
+      "owner": "verification-runner",
+      "path": "40_Develop/verification-runner/tests/system/resource-intensive-gate.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": [
+        "verification",
+        "public-entry",
+        "performance",
+        "longevity",
+        "authority"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "public_result_observed",
+        "owned_resources_settled_or_reported"
       ],
       "mandatoryByDefault": true
     },

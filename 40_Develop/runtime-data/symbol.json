@@ -89,6 +89,23 @@
       ]
     },
     {
+      "symbolId": "runtime-data.test.system.temporary-operation-cleanup",
+      "kind": "test-suite",
+      "path": "tests/system/temporary-operation-cleanup.contract.test.ts",
+      "qaIds": [
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "RDL-ST-002"
+      ],
+      "verifies": [
+        "runtime-data.public-api",
+        "runtime-data.source.src.platform.runtime.data.path.resolver",
+        "runtime-data.source.src.store.temporary.operation.store",
+        "version-control.source.src.repository.location"
+      ]
+    },
+    {
       "symbolId": "runtime-data.source.src.platform.runtime.data.path.resolver",
       "kind": "file",
       "path": "src/platform/runtime-data-path-resolver.ts",

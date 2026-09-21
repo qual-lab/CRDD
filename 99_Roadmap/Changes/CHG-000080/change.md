@@ -12,10 +12,10 @@
 |---|---|
 | 現在の変更状態 | Engineering CompletenessをRule、Format、Traceability、CheckerおよびCRDD自身の現実まで閉じる途中 |
 | Phase／Gate適用判断 | `Applicable`: Architecture、実装、Quality、MigrationおよびReality Auditを一括変更せず、局所Gateで成立確認する必要がある |
-| 現在Phase | `Phase 2／4／7／8 — Production Semantic Review／Test Relation再確認／Self Migration／Reality Audit`: 全Subsystemの現実照合で判明した未観測Local Itemを、Relation不足・試験不足・実装不足・工程Evidence・人間受入待ちへ分類して閉じている。Domain Outcome Adapter IT、one-shot Authorization UT、署名競合IT、署名結果責務境界IT、Semantic Bundle原子的公開IT、時系列由来分類UT、Reader状態Projection IT、Event相関・候補分離ITならびに品質Gate統合IT／STを実装・接続し、Architectureが要求するIT／ST段階を分離した現在値は62件 |
+| 現在Phase | `Phase 2／4／7／8 — Production Semantic Review／Test Relation再確認／Self Migration／Reality Audit`: 全Subsystemの現実照合で判明した未観測Local Itemを、Relation不足・試験不足・実装不足・工程Evidence・人間受入待ちへ分類して閉じている。実署名済み固定Snapshotの昇格System境界、公開Verification入口のPT／LT Authority Gate、公開Runtime Data APIの清掃・回復System lifecycleまで接続し、現在値は59件 |
 | 現在Gate | `Gate 0 — Passed`: Phase／Gate／途中拡張／途中見直し契約を正本、ひな型、Checkerおよび本CHGへ反映した。後続Gateの成立は示さない |
-| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 154件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 199件の責務別Local Item接続、Optionality Audit全数処置 |
-| 未成立 | Production Headerの独立意味確認、未観測Local Item 62件（Automated 29、Hybrid 14、Manual 19）の処置、Runtime Trustの実装・Test、独立レビュー、全回帰、署名E2E |
+| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 154件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 207件の責務別Local Item接続、Optionality Audit全数処置 |
+| 未成立 | Production Headerの独立意味確認、未観測Local Item 59件（Automated 26、Hybrid 14、Manual 19）の処置、Runtime Trustの実装・Test、独立レビュー、全回帰、署名E2E |
 | 次のGate | Gate 2／7／8の前にProduction Headerの意味妥当性、Rule／Format／Realityの未移行0件、および全Local Itemの処置を確認する。既知Gapを残したまま全回帰へ進まない |
 
 ## 1. 変更の目的
@@ -513,6 +513,6 @@ Production母集団へGateを適用した初回観測では、`artifact-signing`
 - [x] Canonical Model ItemとImplementation StructureのTemplate差分を確定し、18領域へ適用した。
 - [x] UAT／IT導出Pilotを完了し、上流意味とArchitectureから決定論的に導出できることを確認した。
 - [x] Required ObligationとLocal Itemの集合差Gateを実装し、試験段階と外部境界段階の不足を検出可能にした。
-- [x] Test Catalog 204件と2,151 Test Caseを責務別Quality Local Itemへ接続し、File Relation和集合、Local Item実在および試験段階一致を機械確認した。
+- [x] Test Catalog 207件と検出したTest Case全件を責務別Quality Local Itemへ接続し、File Relation和集合、Local Item実在および試験段階一致を機械確認した。
 - [x] 全Unit回帰87件、安全なTypeScript結合試験86件およびRust結合試験1件を完了した。
 - [ ] OPEN: Production Headerの独立意味確認、Reality Audit、独立レビューおよび署名E2Eを完了する。理由: Phase 2／7〜9が未完了である。

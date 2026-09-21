@@ -1276,6 +1276,21 @@
       ]
     },
     {
+      "symbolId": "coordinator.test.system.release-manifest-promotion",
+      "kind": "test-suite",
+      "path": "tests/system/release-manifest-promotion.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-ST-010"
+      ],
+      "verifies": [
+        "coordinator.source.scripts.promote.release.manifest",
+        "coordinator.source.scripts.release.manifest.promotion"
+      ]
+    },
+    {
       "symbolId": "coordinator.test.system.signed-general-task-verification",
       "kind": "test-suite",
       "path": "tests/system/signed-general-task-verification.contract.test.ts",

@@ -436,6 +436,35 @@ function productionComposition(
 }
 
 /**
+ * 固定した検証時刻で署名済みRelease Manifestの実運用Compositionを実行する。
+ *
+ * @responsibility 署名済みDistribution、配置先Repository、検証時刻を同じSystem検証へ結合する。
+ * @trace ARCH-000004
+ * @input distributionRoot: string、destinationRepositoryRoot: string、evaluationTime: string
+ * @returns 実運用CompositionによるRelease Manifest昇格結果を返す。
+ * @precondition Distributionは署名済み固定Snapshotであり、配置先は対応する検証済みRepositoryである。
+ * @postcondition 正常時は署名済みManifestを同一file objectとして配置し、異常時は構造化された失敗を返す。
+ * @effect 配置先RepositoryへRelease Manifestを原子的に配置し得る。
+ * @failure Snapshot、署名、対象集合、Repository Identityまたは配置後条件が不成立なら昇格を拒否する。
+ * @invariant 検証時刻以外は実運用入口と同じCompositionを使用し、検証規則を差し替えない。
+ * @boundary 署名済みDistributionと配置先RepositoryのFilesystem境界。
+ * @security 検証時刻は既存の署名済み履歴を再現するSystem検証だけで使用し、署名Authorityを生成しない。
+ * @concurrency 昇格Sessionの排他・同一file object・再入場規則を実運用Compositionへ委譲する。
+ */
+export function executeVerifiedReleaseManifestPromotionForVerification(
+  distributionRoot: string,
+  destinationRepositoryRoot: string,
+  evaluationTime: string,
+) {
+  return executeReleaseManifestPromotionCompositionForVerification(
+    distributionRoot,
+    destinationRepositoryRoot,
+    evaluationTime,
+    productionComposition(destinationRepositoryRoot),
+  );
+}
+
+/**
  * promote Verified Release Manifestを決定する。
  *
  * @responsibility promote Verified Release Manifestの導出に必要な入力、判定規則、返却結果の境界を所有する。
