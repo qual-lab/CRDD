@@ -236,27 +236,27 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 
 ## 12. Relation是正結果
 
-現在の完了判定は、13件のQuality Definitionが所有する154個の一意なLocal Itemを母集団とする。207 Test Sourceの`symbol.json`が所有する正方向Relationと再照合した結果、96件を観測済み、58件を未観測と判定した。未観測58件は自動25件、Hybrid 14件、Manual 19件である。
+現在の完了判定は、13件のQuality Definitionが所有する154個の一意なLocal Itemを母集団とする。208 Test Sourceの`symbol.json`が所有する正方向Relationと再照合した結果、98件を観測済み、56件を未観測と判定した。未観測56件は自動23件、Hybrid 14件、Manual 19件である。
 
 | Quality領域 | 未観測数 | 実行形態の内訳 |
 |---|---:|---|
 | AIT | 1 | Manual 1 |
 | AUH | 4 | Hybrid 3、Manual 1 |
 | CPR | 6 | Automated 2、Hybrid 3、Manual 1 |
-| CQS | 4 | Automated 1、Hybrid 1、Manual 2 |
+| CQS | 3 | Hybrid 1、Manual 2 |
 | ERB | 7 | Automated 5、Hybrid 1、Manual 1 |
 | ERP | 1 | Manual 1 |
 | EST | 6 | Automated 2、Manual 4 |
 | OAG | 8 | Automated 4、Hybrid 4 |
 | PPR | 6 | Automated 1、Hybrid 1、Manual 4 |
-| PRL | 4 | Automated 2、Hybrid 1、Manual 1 |
+| PRL | 3 | Automated 1、Hybrid 1、Manual 1 |
 | RCM | 3 | Automated 2、Manual 1 |
 | RDL | 1 | Manual 1 |
 | RFD | 7 | Automated 6、Manual 1 |
 
-この58件は「新しいTestが58本必要」という意味ではない。既存TestがLocal Itemの刺激、観測、Oracle、終了後条件を満たす場合はRelation不足として接続し、満たさない場合は試験不足、実装不足、工程Evidenceまたは人間受入待ちへ分類する。名前や同じQuality領域だけを根拠に接続しない。
+この56件は「新しいTestが56本必要」という意味ではない。既存TestがLocal Itemの刺激、観測、Oracle、終了後条件を満たす場合はRelation不足として接続し、満たさない場合は試験不足、実装不足、工程Evidenceまたは人間受入待ちへ分類する。名前や同じQuality領域だけを根拠に接続しない。
 
-今回の局所Closureでは、`AIT-ST-010`を実署名済み固定Snapshotの昇格・不一致拒否・候補破棄へ、`CQS-ST-013`を公開Verification入口のPT／LT Authority Gateへ、`RDL-ST-002`を公開Runtime Data APIの清掃・回復保護・最終不存在へ接続した。さらに`ERB-IT-012`は、既存のDocker Desktop修復統合試験がexact Repair Identity、旧Effect非再発行、fresh観測および同一義務の継続をすでに確認していたため、試験を複製せず正方向Relationを補った。PT／LT実処理、全回帰および署名E2Eは実行していない。
+今回の局所Closureでは、`AIT-ST-010`を実署名済み固定Snapshotの昇格・不一致拒否・候補破棄へ、`CQS-ST-013`を公開Verification入口のPT／LT Authority Gateへ、`RDL-ST-002`を公開Runtime Data APIの清掃・回復保護・最終不存在へ接続した。さらに`ERB-IT-012`は、既存のDocker Desktop修復統合試験がexact Repair Identity、旧Effect非再発行、fresh観測および同一義務の継続をすでに確認していたため、試験を複製せず正方向Relationを補った。`CQS-ST-012`は公開Verification CLIでStatic、UT、IT、ST、UATの固定計画を実行し、UATを自動Passへ畳まず人間入力待ち、全体`blocked`、Exit 2として返すSystem Testへ接続した。`PRL-IT-008`は、別対象、Revision不一致、古い世代、Authority不一致および重複判断をEffect 0で拒否し、exact入力だけを一度記録するAcceptance Decision ITへ接続した。PT／LT実処理、全回帰および署名E2Eは実行していない。
 
 ### 12.1 初回のSubsystem別Snapshot
 
@@ -287,11 +287,11 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 
 同じLocal Itemが複数領域へ現れる場合は、各領域が所有する境界を別Relationとして数える。したがって48件は試験件数ではなく、設計領域と検証義務の初回接続数である。手動UATや工程判断を自動Test Symbolへ偽装せず、実Runtimeが存在しない領域もRelation追加だけで`Covered`へ変更しない。
 
-## 13. 未観測58件の処置
+## 13. 未観測56件の処置
 
 | 実行形態 | 件数 | 現在の処置 |
 |---|---:|---|
-| Automated | 25 | 既存Testの意味一致を一件ずつ確認し、成立するものは正方向Relationを追加する。不成立は実装またはTest Gapとして閉じる |
+| Automated | 23 | 既存Testの意味一致を一件ずつ確認し、成立するものは正方向Relationを追加する。不成立は実装またはTest Gapとして閉じる |
 | Hybrid | 14 | 自動部分と人間判断部分を分離し、自動部分だけのPassを全体成立へ畳まない |
 | Manual | 19 | 自動Test Symbolを捏造せず、参加条件、入力、判断、未判断範囲およびEvidenceを固定して実施する |
 

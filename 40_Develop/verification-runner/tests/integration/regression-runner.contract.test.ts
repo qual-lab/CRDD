@@ -18,6 +18,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
+  aggregateRegressionStageResults,
   buildRegressionStagePlan,
   createRegressionStageExecutor,
   collectChangedPaths,
@@ -198,6 +199,7 @@ test("通常回帰はUT／IT／STだけを実行可能集合へ選ぶ", () => {
   assert.ok(Array.isArray(plan.selected));
   assert.deepEqual(plan.selected, [
     "40_Develop/verification-runner/tests/integration/regression-runner.contract.test.ts",
+    "40_Develop/verification-runner/tests/system/resource-intensive-gate.contract.test.ts",
     "40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts",
   ]);
 });
@@ -472,6 +474,16 @@ const selectedRegressionEntries = [
   { owner: "checker", level: "system", path: "checker.system.test.ts" },
 ] as const;
 
+const selectedRegressionEntriesWithHumanAcceptance = [
+  ...selectedRegressionEntries,
+  {
+    owner: "verification-runner",
+    level: "acceptance",
+    path: "verification-runner.acceptance.md",
+    humanInput: true,
+  },
+] as const;
+
 /**
  * executeInjectedPlanのTest準備責務を実行する。
  *
@@ -487,10 +499,13 @@ const selectedRegressionEntries = [
 function executeInjectedPlan(
   failedStep: string | null = null,
   windowsProcessControlRequired = true,
+  humanAcceptanceRequired = false,
 ) {
   const observedSteps: string[] = [];
   const plans = buildRegressionStagePlan(
-    selectedRegressionEntries,
+    humanAcceptanceRequired
+      ? selectedRegressionEntriesWithHumanAcceptance
+      : selectedRegressionEntries,
     ["40_Develop/coordinator/src/coordinator.ts"],
     windowsProcessControlRequired,
   );
@@ -536,6 +551,7 @@ test("実配線は表示した同じ計画を静的確認からWindows GateとST
     "integration",
     "windows_process_control",
     "system",
+    "acceptance",
   ]);
   assert.ok(results.every((entry) => entry.status === "completed"));
   assert.deepEqual(
@@ -544,6 +560,7 @@ test("実配線は表示した同じ計画を静的確認からWindows GateとST
       owners: result.owners,
       selected: result.selected,
       selectionReason: result.selectionReason,
+      execution: result.execution,
     })),
     plans,
   );
@@ -568,6 +585,7 @@ test("同じ計画の各工程失敗は後続levelとWindows Gateを開始しな
     "integration",
     "windows_process_control",
     "system",
+    "acceptance",
   ]) {
     const { observedSteps, plans, results } = executeInjectedPlan(failedStep);
     assert.equal(observedSteps.at(-1), failedStep);
@@ -596,13 +614,59 @@ test("Windows Gate不要時は表示計画にも実行記録にも現れない",
   const { plans, observedSteps, results } = executeInjectedPlan(null, false);
   assert.deepEqual(
     plans.map((entry) => entry.stage),
-    ["static", "unit", "integration", "system"],
+    ["static", "unit", "integration", "system", "acceptance"],
   );
   assert.deepEqual(
     observedSteps,
     plans.map((entry) => entry.stage),
   );
   assert.ok(results.every((entry) => entry.status === "completed"));
+});
+
+/**
+ * UATを含む固定計画は自動段階を実行し、人間入力待ちを未実行理由付きで保持するを検証する。
+ *
+ * @responsibility UATを自動Passへ畳まず、先行自動段階と人間入力待ちを同じ結果集合へ保持する。
+ * @trace CQS-IT-012
+ * @precondition Static、UT、IT、STおよびhumanInputを必要とするUATを含む固定計画を使用する。
+ * @stimulus 固定計画を段階実行する。
+ * @observation 実行した段階、UATの未実行理由、各段階の終了状態を観測する。
+ * @oracle UAT以外だけを順序実行し、UATをnot_run_due_to_human_inputとして保持する。
+ * @cleanup 外部Process、一時資源および人間入力を発行しない。
+ * @boundary CQS-IT-012=Related 2 Blocks: Verification Runner→段階実行→結果集約
+ */
+test("UATを含む固定計画は自動段階を実行し、人間入力待ちを未実行理由付きで保持する", () => {
+  const { observedSteps, plans, results } = executeInjectedPlan(
+    null,
+    false,
+    true,
+  );
+  assert.deepEqual(observedSteps, ["static", "unit", "integration", "system"]);
+  assert.deepEqual(
+    plans.map((entry) => [entry.stage, entry.execution]),
+    [
+      ["static", "automatic"],
+      ["unit", "automatic"],
+      ["integration", "automatic"],
+      ["system", "automatic"],
+      ["acceptance", "human_input_required"],
+    ],
+  );
+  assert.deepEqual(
+    results.map((entry) => [entry.stage, entry.status, entry.exitCode]),
+    [
+      ["static", "completed", 0],
+      ["unit", "completed", 0],
+      ["integration", "completed", 0],
+      ["system", "completed", 0],
+      ["acceptance", "not_run_due_to_human_input", null],
+    ],
+  );
+  assert.deepEqual(aggregateRegressionStageResults(results), {
+    status: "blocked",
+    reason: "regression_human_input_required",
+    exitCode: 2,
+  });
 });
 
 /**

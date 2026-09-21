@@ -4018,6 +4018,26 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "verification-runner:acceptance:regression-plan-understanding",
+      "owner": "verification-runner",
+      "path": "40_Develop/verification-runner/tests/acceptance/regression-plan-understanding.acceptance.test.ts",
+      "level": "acceptance",
+      "kind": "contract",
+      "semanticTags": [
+        "acceptance",
+        "regression-plan",
+        "human-decision"
+      ],
+      "environment": "fixed_system_runtime",
+      "externalProviderEffect": false,
+      "humanInput": true,
+      "postconditions": [
+        "partial_success_not_reported_complete",
+        "unauthorized_resource_intensive_effect_absent"
+      ],
+      "mandatoryByDefault": false
+    },
+    {
       "id": "verification-runner:system:resource-intensive-gate",
       "owner": "verification-runner",
       "path": "40_Develop/verification-runner/tests/system/resource-intensive-gate.contract.test.ts",

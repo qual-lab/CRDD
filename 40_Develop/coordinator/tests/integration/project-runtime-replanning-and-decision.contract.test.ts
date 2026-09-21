@@ -4,9 +4,10 @@
  * @packageDocumentation
  * @responsibility coordinator:integration:project-runtime-replanning-and-decisionが所有する検証責務を実行する。
  * @trace PRL-IT-005
+ * @trace PRL-IT-008
  * @level IT
  * @scope project、runtime、replanning、and、decision
- * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime / PRL-IT-008=Direct Boundary: Projection／SPEC入力→Acceptance Decision Port→Decision Store
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -527,6 +528,104 @@ test("human decision capability is one-time, principal-bound and finalized after
     queue.status === "completed" && queue.value.state,
     "replan_required",
   );
+});
+
+/**
+ * Acceptance Decisionは対象・Revision・世代・Authorityが一致する要求だけを一度記録する。
+ *
+ * @responsibility 別対象、Revision不一致、古い世代、Authority不一致および重複判断をDecision Effect 0で拒否する。
+ * @trace PRL-IT-008
+ * @precondition 判断待ちの同一Project／Milestoneと、一回限りCapabilityを持つDecision Recordを用意する。
+ * @stimulus 各不一致入力とexactに一致する入力をAcceptance Decision Portへ順に渡す。
+ * @observation 拒否理由、Decision Record状態、Project世代および正常適用後の重複結果を観測する。
+ * @oracle 不一致入力はRecordとProjectを変更せず、exact入力だけが一度完了し、再送はalready_consumedとなる。
+ * @cleanup Test ContextがRepository fixtureを削除し、Decision Record以外の外部Effectを発行しない。
+ * @boundary PRL-IT-008=Direct Boundary: Projection／SPEC入力→Acceptance Decision Port→Decision Store
+ */
+test("Acceptance Decisionは対象・Revision・世代・Authorityが一致する要求だけを一度記録する", async (t) => {
+  const { root, input } = fixture(t);
+  await failTask(root);
+  resolveProjectRuntimeReplan(input, () => ({
+    disposition: "human_decision",
+    objectiveId: "objective-a",
+    reason: "scope choice required",
+  }));
+  const records = new Map<string, ProjectRuntimeDecisionRecord>();
+  const store = {
+    create(record: ProjectRuntimeDecisionRecord) {
+      if (records.has(record.recordId)) return { status: "blocked" };
+      records.set(record.recordId, record);
+      return { status: "completed", value: record };
+    },
+    read(recordId: string) {
+      const value = records.get(recordId);
+      return value ? { status: "completed", value } : { status: "blocked" };
+    },
+    compareAndSet(
+      expected: ProjectRuntimeDecisionRecord,
+      next: ProjectRuntimeDecisionRecord,
+    ) {
+      const current = records.get(expected.recordId);
+      if (JSON.stringify(current) !== JSON.stringify(expected))
+        return { status: "blocked" };
+      records.set(expected.recordId, next);
+      return { status: "completed", value: next };
+    },
+  };
+  const commonFields = {
+    ...input,
+    ...decisionApplicationDependencies(root),
+    principalId: "principal-a",
+    store,
+  };
+  const before = readProjectRuntimeState(root, "binding-a", "project-a");
+  assert.equal(before.status, "completed");
+  if (before.status !== "completed" || !before.value) throw new Error("state");
+  const issued = issueProjectRuntimeHumanDecision(commonFields, {
+    decisionId: "decision-contract",
+    repositoryRevision: revision,
+    expectedGeneration: before.value.generation,
+    allowedOptions: ["resume"],
+    lifetimeMs: 60_000,
+    nowEpochMs: 1_000,
+  });
+  assert.equal(issued.status, "completed");
+  if (issued.status !== "completed") throw new Error("issue");
+  const exactInput = {
+    decisionId: "decision-contract",
+    recordId: issued.recordId,
+    repositoryRevision: revision,
+    generation: before.value.generation,
+    selectedOption: "resume" as const,
+    continuationCapability: issued.continuationCapability,
+    nowEpochMs: 2_000,
+  };
+  const mismatchCases = [
+    [{ ...commonFields, projectId: "project-b" }, exactInput],
+    [{ ...commonFields, milestoneId: "milestone-b" }, exactInput],
+    [{ ...commonFields, principalId: "principal-b" }, exactInput],
+    [commonFields, { ...exactInput, decisionId: "decision-other" }],
+    [commonFields, { ...exactInput, repositoryRevision: "c".repeat(40) }],
+    [commonFields, { ...exactInput, generation: before.value.generation + 1 }],
+  ] as const;
+  for (const [fields, decisionInput] of mismatchCases) {
+    const rejected = submitProjectRuntimeHumanDecision(fields, decisionInput);
+    assert.equal(
+      rejected.reason,
+      "project_runtime_decision_binding_mismatch_or_expired",
+    );
+    assert.equal(records.get(issued.recordId)?.disposition, "pending");
+    const unchanged = readProjectRuntimeState(root, "binding-a", "project-a");
+    assert.equal(
+      unchanged.status === "completed" && unchanged.value?.generation,
+      before.value.generation,
+    );
+  }
+  const applied = submitProjectRuntimeHumanDecision(commonFields, exactInput);
+  assert.equal(applied.status, "completed", JSON.stringify(applied));
+  assert.equal(records.get(issued.recordId)?.disposition, "finalized");
+  const replay = submitProjectRuntimeHumanDecision(commonFields, exactInput);
+  assert.equal(replay.reason, "project_runtime_decision_already_consumed");
 });
 
 /**

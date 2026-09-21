@@ -16,6 +16,7 @@ export const regressionStageOrder = [
   "unit",
   "integration",
   "system",
+  "acceptance",
 ] as const;
 
 /**
@@ -60,8 +61,33 @@ export type RegressionStageResult = Readonly<{
   owners: readonly string[];
   selected: readonly string[];
   selectionReason: string;
-  status: "completed" | "failed" | "not_run_due_to_prior_stage";
+  execution: "automatic" | "human_input_required";
+  status:
+    | "completed"
+    | "failed"
+    | "not_run_due_to_prior_stage"
+    | "not_run_due_to_human_input";
   exitCode: number | null;
+}>;
+
+/**
+ * 回帰段階の公開集約結果を定義する。
+ *
+ * @responsibility 全段階の結果から、公開する状態、理由および終了Codeを一意に表す。
+ * @trace ARCH-000003
+ * @shape RegressionAggregateResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant 失敗または人間入力待ちを完了へ畳まない。
+ * @boundary N/A: 型宣言は外部境界を開かない。
+ * @security N/A: 型宣言はAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility 利用側は宣言済みPropertyと列挙値だけへ依存する。
+ */
+export type RegressionAggregateResult = Readonly<{
+  status: "completed" | "blocked";
+  reason:
+    | "regression_stages_completed"
+    | "regression_stage_failed"
+    | "regression_human_input_required";
+  exitCode: number;
 }>;
 
 /**
@@ -79,6 +105,7 @@ export type RegressionPlanEntry = Readonly<{
   owner: string;
   level: string;
   path: string;
+  humanInput?: boolean;
   executionProfiles?: readonly string[];
 }>;
 
@@ -98,6 +125,7 @@ export type RegressionStagePlan = Readonly<{
   owners: readonly string[];
   selected: readonly string[];
   selectionReason: string;
+  execution: "automatic" | "human_input_required";
 }>;
 
 /**
@@ -152,6 +180,13 @@ export function buildRegressionStagePlan(
           ? "owner_static_checks_and_repository_check"
           : "owner_static_checks"
         : "conservative_owner_closure_or_direct_test_change",
+    execution:
+      stage === "acceptance" &&
+      selectedEntries.some(
+        (entry) => entry.level === "acceptance" && entry.humanInput === true,
+      )
+        ? ("human_input_required" as const)
+        : ("automatic" as const),
   }));
   const windowsEntries = selectedEntries.filter(
     (entry) =>
@@ -170,6 +205,7 @@ export function buildRegressionStagePlan(
       owners: [...new Set(windowsEntries.map((entry) => entry.owner))].sort(),
       selected: windowsEntries.map((entry) => entry.path),
       selectionReason: "required_execution_profile",
+      execution: "automatic",
     },
     ...levelPlans.slice(integrationIndex + 1),
   ];
@@ -250,12 +286,61 @@ export function executeRegressionStages(
       });
       continue;
     }
+    if (plan.execution === "human_input_required") {
+      results.push({
+        ...plan,
+        status: "not_run_due_to_human_input",
+        exitCode: null,
+      });
+      continue;
+    }
     const exitCode = executeStage(plan);
     const status = exitCode === 0 ? "completed" : "failed";
     results.push({ ...plan, status, exitCode });
     if (exitCode !== 0) priorStageFailed = true;
   }
   return results;
+}
+
+/**
+ * 回帰段階の結果を公開結果へ集約する。
+ *
+ * @responsibility 失敗、人間入力待ち、完了の優先順位を固定し、部分成立を全体完了として返さない。
+ * @trace ARCH-000003
+ * @input stageResults: 固定計画の順序で記録した全段階結果。
+ * @returns 公開状態、理由およびProcess終了Codeを返す。
+ * @precondition 各段階結果は同じ固定計画の実行または未実行理由を表す。
+ * @postcondition 失敗を最優先し、次に人間入力待ちを保持し、どちらもない場合だけ完了を返す。
+ * @effect N/A: 入力を読み取るだけで外部または共有Effectを発行しない。
+ * @failure N/A: 未知の状態は型境界で拒否され、この関数固有の例外分岐を持たない。
+ * @invariant 人間入力待ちまたは失敗を成功へ畳まない。
+ * @boundary 回帰段階の内部結果と公開Process結果の集約境界である。
+ * @security N/A: Authorityや秘密値を扱わず、観測済み結果だけを集約する。
+ * @concurrency N/A: 共有非同期状態を持たない同期処理である。
+ */
+export function aggregateRegressionStageResults(
+  stageResults: readonly RegressionStageResult[],
+): RegressionAggregateResult {
+  const failedStage = stageResults.find((entry) => entry.status === "failed");
+  if (failedStage !== undefined)
+    return {
+      status: "blocked",
+      reason: "regression_stage_failed",
+      exitCode: failedStage.exitCode ?? 1,
+    };
+  if (
+    stageResults.some((entry) => entry.status === "not_run_due_to_human_input")
+  )
+    return {
+      status: "blocked",
+      reason: "regression_human_input_required",
+      exitCode: 2,
+    };
+  return {
+    status: "completed",
+    reason: "regression_stages_completed",
+    exitCode: 0,
+  };
 }
 
 /**

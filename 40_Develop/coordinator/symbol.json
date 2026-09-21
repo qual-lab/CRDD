@@ -917,7 +917,8 @@
         "QA-000003"
       ],
       "localTestIds": [
-        "PRL-IT-005"
+        "PRL-IT-005",
+        "PRL-IT-008"
       ],
       "verifies": [
         "coordinator.source.src.security.project.runtime.decision.capability.adapter",

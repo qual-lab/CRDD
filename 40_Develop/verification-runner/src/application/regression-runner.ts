@@ -8,6 +8,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  aggregateRegressionStageResults,
   buildRegressionStagePlan,
   collectChangedPaths,
   createRegressionStageExecutor,
@@ -266,11 +267,17 @@ function runCommand(
 ): number {
   const result = spawnSync(command, commandArguments, {
     cwd,
-    stdio: "inherit",
+    encoding: "utf8",
     windowsHide: true,
   });
-  if (result.error !== undefined) return 1;
-  return result.status ?? 1;
+  const exitCode = result.error === undefined ? (result.status ?? 1) : 1;
+  if (exitCode !== 0) {
+    if (result.stdout.length > 0) process.stderr.write(result.stdout);
+    if (result.stderr.length > 0) process.stderr.write(result.stderr);
+    if (result.error !== undefined)
+      process.stderr.write(`${result.error.message}\n`);
+  }
+  return exitCode;
 }
 
 /**
@@ -660,9 +667,7 @@ export function runRegression(
     }
     if (
       !argumentValues.includes("--plan") &&
-      selectedEntries.some(
-        (entry) => entry.externalProviderEffect || entry.humanInput,
-      )
+      selectedEntries.some((entry) => entry.externalProviderEffect)
     ) {
       request.emit({
         status: "blocked",
@@ -694,6 +699,9 @@ export function runRegression(
       requiredExecutionProfiles: [
         "restricted_process",
         ...(isWindowsProcessControlRequired ? ["windows_process_control"] : []),
+        ...(selectedEntries.some((entry) => entry.humanInput)
+          ? ["human_input"]
+          : []),
       ],
       resourceIntensiveAuthorityVerified: isResourceIntensive,
       resourceIntensiveExecution: isResourceIntensive
@@ -719,17 +727,14 @@ export function runRegression(
       runWindowsProcess: () => runWindowsProcessStage(selectedEntries),
     });
     const stageResults = executeRegressionStages(stagePlans, executeStage);
-    const failedStage = stageResults.find((entry) => entry.status === "failed");
+    const aggregateResult = aggregateRegressionStageResults(stageResults);
     request.emit({
-      status: failedStage === undefined ? "completed" : "blocked",
-      reason:
-        failedStage === undefined
-          ? "regression_stages_completed"
-          : "regression_stage_failed",
+      status: aggregateResult.status,
+      reason: aggregateResult.reason,
       selectedCount: selectedEntries.length,
       stages: stageResults,
     });
-    return { exitCode: failedStage?.exitCode ?? 0 };
+    return { exitCode: aggregateResult.exitCode };
   } catch (error) {
     request.emit({
       status: "blocked",

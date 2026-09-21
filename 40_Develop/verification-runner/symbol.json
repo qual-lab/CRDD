@@ -51,12 +51,27 @@
         "QA-000002"
       ],
       "localTestIds": [
+        "CQS-ST-012",
         "CQS-ST-013"
       ],
       "verifies": [
         "verification-runner.regression-entry",
         "verification-runner.source.src.execution.regression.execution",
         "verification-runner.source.src.catalog.test.catalog"
+      ]
+    },
+    {
+      "symbolId": "verification-runner.test.acceptance.regression-plan-understanding",
+      "kind": "test-suite",
+      "path": "tests/acceptance/regression-plan-understanding.acceptance.test.ts",
+      "qaIds": [
+        "QA-000002"
+      ],
+      "localTestIds": [
+        "CQS-UAT-007"
+      ],
+      "verifies": [
+        "verification-runner.regression-entry"
       ]
     },
     {
