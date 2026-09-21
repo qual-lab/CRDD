@@ -28,6 +28,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Deployment | Required | Repository、worktree、submoduleと本番Consumerの配置差を扱う。 | [§5](#5-consumer移行の必要条件) |
 | Observability | Required | Root kind、revision、dirty state、観測時点、失敗理由を返す。 | [§7](#7-検証) |
 | Security Boundary | Required | 読めるPathを自動的に許可済みRepositoryへ昇格しない。 | [§2](#2-責務境界) |
+| Implementation Structure | Required | 設計責務を具象差、選択、状態依存、構成、資源Ownerおよび外部境界へ分解する。 | [§Implementation Structure](#implementation-structure) |
 
 `N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
 
@@ -53,11 +54,13 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 ## Qualityへの引渡し
 
-| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
-|---|---|---|---|---|---|---|
-| Root capability | 起点Path | exact Repository Root | fake .git、nested、submodule、link | root kindとreason | process／handle 0 | Windows/Linux実境界 |
-| Snapshot port | working tree／revision | 単一snapshotの結果 | 観測間変更、commit前情報欠落 | snapshot identityとobserved_at | 一時出力0 | 代替VCS Adapter未実装 |
-| Contract migration closure | 旧／新Owner、Producer、全Consumer、派生物、公開入口、署名・Release | 単一Snapshot上で移行集合が完全一致 | Consumer取り残し、別Snapshot混入、Canonical Path／Identity／State再解釈 | snapshot identity、集合差分、旧参照 | 全Consumer移行前の旧処理削除0 | 意味妥当性と移行採用は独立レビュー |
+| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|---|---|---|
+| `version-control.root-capability` | Interface／Security Boundary | 起点Path | exact Repository Root | fake .git、nested、submodule、link | IT | Direct Boundary | root kindとreason | process／handle 0 | Windows/Linux実境界 |
+| `version-control.snapshot-port` | Interface／Consistency | working tree／revision | 単一snapshotの結果 | 観測間変更、commit前情報欠落 | IT | Direct Boundary | snapshot identityとobserved_at | 一時出力0 | 代替VCS Adapter未実装 |
+| `version-control.contract-migration-closure` | Flow／Consistency | 旧／新Owner、Producer、全Consumer、派生物、公開入口、署名・Release | 単一Snapshot上で移行集合が完全一致 | Consumer取り残し、別Snapshot混入、Canonical Path／Identity／State再解釈 | IT／ST | Related 2 Blocks | snapshot identity、集合差分、旧参照 | 全Consumer移行前の旧処理削除0 | 意味妥当性と移行採用は独立レビュー |
+
+導出キーは本領域内でQualityが同じ設計項目を反復参照するための局所参照であり、CRDD全体の安定コンテキストIDではない。
 
 ## 現行実装との照合
 
@@ -288,16 +291,33 @@ v0.21 Phase 4では、`template/tools/crdd-check.ts`が同じCRDD基準版Root�
 - Remote Repository Hosting、認証、push／pullおよびServer側Git管理は本変更へ含めない。
 - Object Format差、submoduleおよびlinked worktreeで保持すべき既存Capabilityは、段階移行の実測で再確認する。
 
+## Implementation Structure
+
+| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
+|---|---|---|---|---|---|---|
+| Variation | Required | この観点を成立させる構造と責務が存在するため。 | Qualityへの引渡しで責務差を別の設計項目として固定する。 | 具象差を一つの分岐へ畳まず、各導出キーの正常条件と反証条件を保つ。 | 新しい具象を追加した場合、対応する導出キーと利用側の再確認が必要になる。 | `version-control.root-capability`<br>`version-control.snapshot-port`<br>`version-control.contract-migration-closure` |
+| Common Contract | Required | この観点を成立させる構造と責務が存在するため。 | Repository Root、Snapshot、差分とHistory観測を、Git具象へ交換可能なVersion Control Port契約へ揃える。 | 利用側はCommit必須を仮定せず、未Commit状態を含む観測対象IdentityとCapabilityを利用する。 | Git固有OIDやCommand結果がDomainへ漏れ、同等機能への差替えやdirty状態の扱いが破綻する。 | `version-control.root-capability`<br>`version-control.snapshot-port`<br>`version-control.contract-migration-closure` |
+| Creation／Selection | Required | この観点を成立させる構造と責務が存在するため。 | Authority、入力または配置条件を満たした後にだけ具象・処理経路を選ぶ。 | 選択前の検証と選択後のIdentityを分け、未確認時はEffect 0とする。 | 選択条件の変更はTrust、Authorityまたは利用側契約へ波及する。 | `version-control.root-capability` |
+| State-dependent Behavior | Required | この観点を成立させる構造と責務が存在するため。 | 入力・処理中・完了・失敗・観測不能を区別して振る舞いを決める。 | 状態を空値や成功へ畳まず、同じIdentityで終了条件まで追跡する。 | 状態追加・統合はRecoveryと観測契約へ波及する。 | `version-control.root-capability` |
+| Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | 複数の局所責務を公開結果へ合成し、部分成立と全体成立を分ける。 | 各局所結果を保持し、必要な全要素が揃うまで上位完成を表示しない。 | 構成要素の追加時は完成条件と全Consumerを再確認する。 | `version-control.root-capability`<br>`version-control.snapshot-port`<br>`version-control.contract-migration-closure` |
+| Lifecycle Ownership | Required | この観点を成立させる構造と責務が存在するため。 | Process、Handle、一時物、秘密または公開SnapshotのOwnerと終了条件を固定する。 | 成功・失敗・取消の全経路で資源回収または同一Identityの回復義務を残す。 | Owner変更は取消、Recovery、終了後条件へ波及する。 | `version-control.contract-migration-closure` |
+| External Boundary | Required | この観点を成立させる構造と責務が存在するため。 | 外部境界ごとに要求、受理、Effect、結果搬送および終了後状態を分ける。 | 境界の成功を要求発行だけから推定せず、段階に応じた観測を必須にする。 | 境界変更は直接境界からSystem／E2Eまでの検証範囲へ波及する。 | `version-control.contract-migration-closure` |
+
+同じ責務へ二つ目の具象実装を追加する場合は、共通契約へ昇格するかを評価する。昇格しない場合は、同じ責務ではない、または局所分岐の方が単純で影響が小さい理由を記録する。特定のDesign Pattern名は必須にしない。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した
-- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] 10種類の詳細成果物を全数Applicability判定した
 - [x] Requiredを実在する節または成果物へ接続した
 - [x] N/AにArchitecture上の理由を記録した
 - [x] 8種類のEngineering Concernを全数評価した
 - [x] PASSを設計済みの意味に限定した
 - [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
 - [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] 7種類のImplementation Structure観点を全数Applicability判定した
+- [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
+- [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
 - [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した

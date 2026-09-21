@@ -108,6 +108,8 @@ REQ、UXおよびIAは、UI／SPECが示す由来を確認するためのトレ�
 
 対象範囲全体について、次の責務を適用範囲で判定する。
 
+[任意機能と必須評価](03_Documentation.md#mandatory-applicability-evaluation)に従い、Architectureの機能または図が任意でも、Component／Responsibility、Boundary／Interface、State Transition、Sequence、Data／Resource Flow、Failure／Recovery、Implementation Structureおよび項目別の決定権限の適用判断は省略しない。非該当は理由、影響および再評価契機を持ち、情報不足を`N/A`へ畳まない。
+
 | 責務 | アーキテクチャで明らかにすること |
 |---|---|
 | システムコンテキスト | アクター、外部システム、信頼境界、主要データフロー |
@@ -309,6 +311,19 @@ Conceptual Data Model
 ```
 
 これらは説明用の装飾ではなく、実装所有者、結合単位および検証項目を導出する設計入力である。二重の正本を避けるため、ブロック表は責務と境界、クラス／型関係図は型の静的関係と交換契約、DFDはデータの生成・変換・保存・境界横断、ER図は概念EntityとRelation／多重度、スキーマ責務図／表はCanonical Owner、共通／固有領域、参照、拡張および所有禁止、物理Schemaはfield名、型、必須性、制約および保存表現、状態遷移表はブロック内部の状態、条件、処置および終了後観測、状態遷移図は同表の主要経路を読み取るための視覚投影、シーケンス図はブロック間の時間順と受渡し、試験カタログは検証項目との対応だけを所有する。IAのオブジェクト関係図は利用者と業務が認識する情報単位と関係を所有し、技術EntityのER図へ自動変換しない。状態、遷移、境界および所有者を相互に対応させ、図には存在するが表、実装または物理Schemaへ接続しない責務、表には存在するが図、利用側または契約試験へ接続しない責務を残さない。図と表が不一致の場合は図から条件を推定せず、固定候補前の設計不整合として停止する。
+
+設計から必要な検証義務を導出する対象では、図や説明文だけを機械処理の入力にしない。Component、Interface、Data／Resource Flow、State Transition、Sequence、Failure／Recovery等の設計項目を、同じ詳細設計領域内で一意に再識別できる局所的な導出キーへ結び付ける。導出キーはCRDD全体の安定コンテキストIDではなく、設計項目とQualityの検証義務を対応付けるための局所参照である。
+
+| 設計項目 | 最低限保持する意味 | 主に導出する検証義務 |
+|---|---|---|
+| Component | 責務、Owner、入力、出力、依存、所有禁止 | 責務分離、依存方向、局所不変条件 |
+| Interface／Boundary | 提供側、利用側、入力、結果、失敗、Authority、Effect | Contract、拒否、部分故障、境界間伝播 |
+| Data／Resource Flow | 生成、変換、保存、消費、解放、境界横断 | Identity、整合性、所有、cleanup |
+| State Transition | 前状態、契機・条件、処置、後状態、判定不能 | 正常、準正常、異常、取消、回復、禁止遷移 |
+| Sequence | Actor、受渡し、順序、完了条件、失敗点 | 順序、重複、遅延、途中失敗、settlement |
+| Failure／Recovery | 故障点、残存状態、回復Owner、再入場、終了後条件 | Fault、Recovery、再試行、Effect不明、回復不能 |
+
+同じ意味を複数の図表へ重複定義しない。厳密な条件を所有する表または本文節を一つ決め、図は人間が関係を理解するための投影とする。既存の説明的な名称、表の行またはアンカーで一意に参照できる場合は、新しい局所キーを機械的に増やさなくてよい。一方、複数成果物から反復参照する項目を位置や表現だけでは安定して識別できない場合は、局所キーを付与する。
 
 スキーマ責務図を適用する場合、厳密な責務割当は同じ節の責務表が所有する。図はその表を視覚投影し、図だけへ概念、Owner、禁止責務または拡張点を追加しない。
 
@@ -653,6 +668,49 @@ AIを含む対象では、直接・間接プロンプトインジェクション
 ```
 
 コード、構成、移行、開発者テスト、ビルド成果物、およびリンター / フォーマッター / 静的解析ツール等の実行可能な強制手段は実装が所有する。アーキテクチャは具体的なテスト場合を所有せず、テスト可能性を確保する境界、必要環境、失敗 / 負荷 / 移行等の検証義務を渡す。
+
+詳細設計は、実装を局所的な条件分岐と具象型の追加だけで継ぎ足さないため、次の実装構造上の観点を適用判定する。適用する観点は、成立させる構造、局所責務、不変条件、失敗、検証義務へ接続する。非該当は理由を示し、Pattern名を使っていないこと自体を不適合としない。
+
+| 観点 | 確認すること |
+|---|---|
+| Variation | 同じ責務で現在または将来変わり得る軸と、変わらない契約 |
+| Common Contract | 同じ責務の具象実装を交換・追加できる共通契約と、実装固有差分を漏らさない境界 |
+| Creation／Selection | 具象実装を誰が生成・選択し、利用側が選択理由を抱えない境界 |
+| State-dependent Behavior | 状態によって変わる振る舞いと、分岐を所有する責務 |
+| Composition／Recursion | 同じ契約を組み合わせる構造、順序、停止条件および循環防止 |
+| Lifecycle Ownership | 生成、利用、共有、破棄、取消および失敗時cleanupのOwner |
+| External Boundary | 外部実装を交換・隔離するPort、Adapter、Timeout、失敗投影 |
+
+同じ責務へ二つ目の具象実装を追加するときは、単に条件分岐を増やす前に、共通契約、生成・選択Owner、差分軸および利用側への漏出を評価する。共通契約へ昇格しない場合は、二つの実装が同じ責務ではない理由、または局所分岐の方が単純で変更影響が小さい理由を残す。継承、Strategy、Factory、State、Composite、Adapter等のPattern名は説明に使用できるが、採用自体を目的または検証義務にしない。
+
+次の兆候を検出した場合は、実装へ具象型や分岐を追加する前にImplementation Structureを再評価する。
+
+| 観測された構造 | 再評価する設計判断 |
+|---|---|
+| 同一責務の具象実装が二つ以上 | VariationとCommon Contract |
+| Provider、PlatformまたはEnvironmentによる差分 | Common Contract、Adapter、Creation／Selection |
+| 条件による具象実装の選択 | Creation／SelectionとPolicy |
+| 同じ状態判断の複数Fileへの分散 | State ModelとState-dependent BehaviorのOwner |
+| 同型Nodeの入れ子 | Composition／Recursionと循環・停止条件 |
+| 同型処理の連鎖 | Pipeline／Chain相当の共通Contractと停止条件 |
+| 同じRuleまたは具象型switchの反復 | Policy、Polymorphismまたは局所分岐を維持する理由 |
+| Resourceの複数生成・破棄 | Lifecycle Ownership |
+| 外部SDK型やProvider固有型の内部流入 | External BoundaryとAnti-corruption Boundary |
+| Copy & Pasteによる類似実装 | Common Contract候補と差分軸 |
+
+最初のPoC実装では将来の差分を推測した過剰抽象化を要求しない。ただし、二つ目の同一責務実装、同じ分岐・状態判断の再出現、外部SDK利用箇所の増加、Lifecycle Ownerの複数化または巨大な`if`／`switch`の成長を検出した時点で再評価する。単一所有はSingleton Patternの採用を意味せず、Dependency InjectionやApplication Context等で所有者を一意にできる。
+
+Architecture DefinitionからProduction Sourceへの正方向Relationは、責務を持つ名前付きSymbolのSource Headerが実在する`ARCH-*`を`@trace`で参照して所有する。一つの`ARCH-*`を複数Symbolが実現でき、SymbolごとにArchitecture IDを新設しない。名前付きSymbolを既存Architectureへ接続できない場合は、Header省略やFile Pathへの接続で閉じず、Architecture DefinitionまたはDetailsの不足として戻す。Sourceの存在から新しいCanonical意味を逆算しない。
+
+```text
+Architecture Definition
+        ↓
+      ARCH-ID
+        ↓
+Production Named Symbol
+```
+
+TestはこのRelationへ直接混在させず、Qualityが所有するLocal Itemへ接続する。ArchitectureとLocal ItemのRelation、Local ItemとTest SymbolのRelationを別々に保持し、生成した逆方向Viewから全体Traceabilityを投影する。
 
 ### UIと視覚表現の成立方式
 

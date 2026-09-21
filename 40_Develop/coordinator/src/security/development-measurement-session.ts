@@ -47,21 +47,87 @@ const MAX_DURATION_MS = 3_600_000;
 const sourceDistributionRoot = path.resolve(
   fileURLToPath(new URL("../../../../", import.meta.url)),
 );
+/**
+ * Providerが扱う値の構造を表す。
+ *
+ * @responsibility Providerに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Providerで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Providerの宣言は外部境界を開かない。
+ * @security ProviderはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Providerの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Provider = "codex" | "claude";
+/**
+ * Roleが扱う値の構造を表す。
+ *
+ * @responsibility Roleに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape Roleが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Roleで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Roleの宣言は外部境界を開かない。
+ * @security RoleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Roleの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Role = "executor" | "reviewer";
+/**
+ * Constraintsが扱う値の構造を表す。
+ *
+ * @responsibility Constraintsに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape Constraintsが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Constraintsで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Constraintsの宣言は外部境界を開かない。
+ * @security ConstraintsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Constraintsの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Constraints = NonNullable<
   ReturnType<typeof createDevelopmentMeasurementConstraints>
 >;
+/**
+ * TaskRequestが扱う値の構造を表す。
+ *
+ * @responsibility TaskRequestに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape TaskRequestが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant TaskRequestで宣言した値と責務の対応を維持する。
+ * @boundary N/A: TaskRequestの宣言は外部境界を開かない。
+ * @security TaskRequestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility TaskRequestの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type TaskRequest = Extract<
   NonNullable<ReturnType<typeof snapshotCoordinatorTaskRequest>>,
   { status: "accepted" }
 >["request"];
+/**
+ * Taskが扱う値の構造を表す。
+ *
+ * @responsibility Taskに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape Taskが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Taskで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Taskの宣言は外部境界を開かない。
+ * @security TaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Taskの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Task = Readonly<{
   request: TaskRequest;
   scopeSha256: string;
   executor: Provider;
   reviewer: Provider;
 }>;
+/**
+ * Configurationが扱う値の構造を表す。
+ *
+ * @responsibility Configurationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape Configurationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Configurationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Configurationの宣言は外部境界を開かない。
+ * @security ConfigurationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Configurationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Configuration = Readonly<{
   repositoryRoot: string;
   expectedCommit: string;
@@ -72,11 +138,33 @@ type Configuration = Readonly<{
   tasks: readonly Task[];
   expiresAtMs: number;
 }>;
+/**
+ * Identityが扱う値の構造を表す。
+ *
+ * @responsibility Identityに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape Identityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Identityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Identityの宣言は外部境界を開かない。
+ * @security IdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Identityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Identity = Readonly<{
   sourceIdentitySha256: string;
   nativeIdentitySha256: string;
   repositoryIdentitySha256: string;
 }>;
+/**
+ * NativeVerificationが扱う値の構造を表す。
+ *
+ * @responsibility NativeVerificationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape NativeVerificationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant NativeVerificationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: NativeVerificationの宣言は外部境界を開かない。
+ * @security NativeVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility NativeVerificationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type NativeVerification = Extract<
   ReturnType<typeof inspectVerifiedNativeDistributionCandidate>,
   { status: "candidate" }
@@ -85,6 +173,17 @@ type NativeVerification = Extract<
 // The exact immutable identity may be reused inside one already-verified native
 // lifecycle boundary; caller claims and isolated test identities remain invalid.
 const nativeVerifications = new WeakMap<Identity, NativeVerification>();
+/**
+ * Dependenciesが扱う値の構造を表す。
+ *
+ * @responsibility Dependenciesに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape Dependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Dependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Dependenciesの宣言は外部境界を開かない。
+ * @security DependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Dependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Dependencies = Readonly<{
   observe: (configuration: Configuration) => Identity | null;
   wallNow: () => number;
@@ -93,6 +192,17 @@ type Dependencies = Readonly<{
   verifyOperation: typeof verifyOwnedOperationManagementCapability;
   borrowRepository: typeof borrowRuntimeOwnedRepositorySource;
 }>;
+/**
+ * Sessionが扱う値の構造を表す。
+ *
+ * @responsibility Sessionに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape Sessionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Sessionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Sessionの宣言は外部境界を開かない。
+ * @security SessionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Sessionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Session = {
   timing: ReturnType<typeof createDevelopmentExecutionTiming>;
   configuration: Configuration;
@@ -102,6 +212,17 @@ type Session = {
   signal: AbortSignal;
   closed: boolean;
 };
+/**
+ * TaskBindingが扱う値の構造を表す。
+ *
+ * @responsibility TaskBindingに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape TaskBindingが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant TaskBindingで宣言した値と責務の対応を維持する。
+ * @boundary N/A: TaskBindingの宣言は外部境界を開かない。
+ * @security TaskBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility TaskBindingの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type TaskBinding = {
   session: Session;
   task: Task;
@@ -114,12 +235,44 @@ type TaskBinding = {
   settled: boolean;
 };
 
+/**
+ * digestの処理を実行する。
+ *
+ * @responsibility digestに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns digestの計算結果を返す。
+ * @precondition 「value: unknown」がdigestの入力契約を満たす。
+ * @postcondition digestの責務を完了した結果だけを返す。
+ * @effect N/A: digestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: digestは独自の失敗分岐を所有しない。
+ * @invariant digestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: digestはProcess内の同一Subsystemで完結する。
+ * @security digestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: digestは共有非同期状態を持たない同期処理である。
+ */
 function digest(value: unknown) {
   return createHash("sha256")
     .update(JSON.stringify(value), "utf8")
     .digest("hex");
 }
 
+/**
+ * snapshotTaskの処理を実行する。
+ *
+ * @responsibility snapshotTaskに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown
+ * @returns Task | nullを返す。
+ * @precondition 「raw: unknown」がsnapshotTaskの入力契約を満たす。
+ * @postcondition snapshotTaskの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure snapshotTaskは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant snapshotTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: snapshotTaskはProcess内の同一Subsystemで完結する。
+ * @security snapshotTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: snapshotTaskは共有非同期状態を持たない同期処理である。
+ */
 function snapshotTask(raw: unknown): Task | null {
   try {
     const parsed = snapshotCoordinatorTaskRequest(raw);
@@ -158,6 +311,22 @@ function snapshotTask(raw: unknown): Task | null {
   }
 }
 
+/**
+ * snapshotConfigurationの処理を実行する。
+ *
+ * @responsibility snapshotConfigurationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown
+ * @returns Configuration | nullを返す。
+ * @precondition 「raw: unknown」がsnapshotConfigurationの入力契約を満たす。
+ * @postcondition snapshotConfigurationの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotConfigurationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: snapshotConfigurationは独自の失敗分岐を所有しない。
+ * @invariant snapshotConfigurationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: snapshotConfigurationはProcess内の同一Subsystemで完結する。
+ * @security snapshotConfigurationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: snapshotConfigurationは共有非同期状態を持たない同期処理である。
+ */
 function snapshotConfiguration(raw: unknown): Configuration | null {
   const config = snapshotPlainRecord(raw, CONFIG_KEYS);
   if (!config) return null;
@@ -222,6 +391,22 @@ function snapshotConfiguration(raw: unknown): Configuration | null {
   });
 }
 
+/**
+ * observeProductionの処理を実行する。
+ *
+ * @responsibility observeProductionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input configuration: Configuration
+ * @returns Identity | nullを返す。
+ * @precondition 「configuration: Configuration」がobserveProductionの入力契約を満たす。
+ * @postcondition observeProductionの責務を完了した結果だけを返す。
+ * @effect N/A: observeProductionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: observeProductionは独自の失敗分岐を所有しない。
+ * @invariant observeProductionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observeProductionはProcess内の同一Subsystemで完結する。
+ * @security observeProductionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeProductionは共有非同期状態を持たない同期処理である。
+ */
 function observeProduction(configuration: Configuration): Identity | null {
   const repository = inspectRepositoryIdentityCandidate(
     configuration.repositoryRoot,
@@ -262,6 +447,22 @@ function observeProduction(configuration: Configuration): Identity | null {
   return identity;
 }
 
+/**
+ * blockedの処理を実行する。
+ *
+ * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input reason: string
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: string」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
+ * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(reason: string) {
   return Object.freeze({
     status: "blocked" as const,
@@ -273,6 +474,22 @@ function blocked(reason: string) {
   });
 }
 
+/**
+ * createSessionRuntimeの処理を実行する。
+ *
+ * @responsibility createSessionRuntimeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input dependencies: Dependencies
+ * @returns createSessionRuntimeの計算結果を返す。
+ * @precondition 「dependencies: Dependencies」がcreateSessionRuntimeの入力契約を満たす。
+ * @postcondition createSessionRuntimeの責務を完了した結果だけを返す。
+ * @effect createSessionRuntimeは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure createSessionRuntimeは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createSessionRuntimeは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security createSessionRuntimeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createSessionRuntimeは共有非同期状態を持たない同期処理である。
+ */
 function createSessionRuntime(dependencies: Dependencies) {
   const sessions = new WeakMap<object, Session>();
   const taskBindings = new WeakMap<object, TaskBinding>();
@@ -283,6 +500,22 @@ function createSessionRuntime(dependencies: Dependencies) {
   const cleanupContexts = new WeakMap<object, object>();
   let admissionStarted = false;
 
+  /**
+   * observeの処理を実行する。
+   *
+   * @responsibility observeに対応する入力処理と結果生成を所有する。
+   * @trace ARCH-000004
+   * @input session: Session
+   * @returns observeの計算結果を返す。
+   * @precondition 「session: Session」がobserveの入力契約を満たす。
+   * @postcondition observeの責務を完了した結果だけを返す。
+   * @effect N/A: observeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @failure observeは入力不正または下位処理の失敗を呼出し側へ返す。
+   * @invariant observeは入力から導いた結果以外の共有状態を変更しない。
+   * @boundary N/A: observeはProcess内の同一Subsystemで完結する。
+   * @security observeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+   * @concurrency N/A: observeは共有非同期状態を持たない同期処理である。
+   */
   function observe(session: Session) {
     try {
       if (
@@ -314,6 +547,22 @@ function createSessionRuntime(dependencies: Dependencies) {
     }
   }
 
+  /**
+   * checkBoundSessionの処理を実行する。
+   *
+   * @responsibility checkBoundSessionに対応する入力処理と結果生成を所有する。
+   * @trace ARCH-000004
+   * @input session: Session
+   * @returns checkBoundSessionの計算結果を返す。
+   * @precondition 「session: Session」がcheckBoundSessionの入力契約を満たす。
+   * @postcondition checkBoundSessionの責務を完了した結果だけを返す。
+   * @effect N/A: checkBoundSessionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @failure checkBoundSessionは入力不正または下位処理の失敗を呼出し側へ返す。
+   * @invariant checkBoundSessionは入力から導いた結果以外の共有状態を変更しない。
+   * @boundary N/A: checkBoundSessionはProcess内の同一Subsystemで完結する。
+   * @security checkBoundSessionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+   * @concurrency N/A: checkBoundSessionは共有非同期状態を持たない同期処理である。
+   */
   function checkBoundSession(session: Session) {
     try {
       if (
@@ -337,6 +586,22 @@ function createSessionRuntime(dependencies: Dependencies) {
     }
   }
 
+  /**
+   * operationValidの処理を実行する。
+   *
+   * @responsibility operationValidに対応する入力処理と結果生成を所有する。
+   * @trace ARCH-000004
+   * @input binding: TaskBinding
+   * @returns operationValidの計算結果を返す。
+   * @precondition 「binding: TaskBinding」がoperationValidの入力契約を満たす。
+   * @postcondition operationValidの責務を完了した結果だけを返す。
+   * @effect N/A: operationValidは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @failure operationValidは入力不正または下位処理の失敗を呼出し側へ返す。
+   * @invariant operationValidは入力から導いた結果以外の共有状態を変更しない。
+   * @boundary N/A: operationValidはProcess内の同一Subsystemで完結する。
+   * @security operationValidはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+   * @concurrency N/A: operationValidは共有非同期状態を持たない同期処理である。
+   */
   function operationValid(binding: TaskBinding) {
     try {
       return (
@@ -351,6 +616,22 @@ function createSessionRuntime(dependencies: Dependencies) {
   }
 
   return Object.freeze({
+    /**
+     * requestの処理を実行する。
+     *
+     * @responsibility requestに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000004
+     * @input raw: unknown、signal: AbortSignal
+     * @returns requestの計算結果を返す。
+     * @precondition 「raw: unknown、signal: AbortSignal」がrequestの入力契約を満たす。
+     * @postcondition requestの責務を完了した結果だけを返す。
+     * @effect N/A: requestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure requestは入力不正または下位処理の失敗を呼出し側へ返す。
+     * @invariant requestは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: requestはProcess内の同一Subsystemで完結する。
+     * @security requestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @concurrency requestは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+     */
     async request(raw: unknown, signal: AbortSignal) {
       if (admissionStarted)
         return blocked("development_measurement_admission_already_attempted");
@@ -431,6 +712,22 @@ function createSessionRuntime(dependencies: Dependencies) {
         return blocked("development_measurement_admission_failed");
       }
     },
+    /**
+     * reserveTaskの処理を実行する。
+     *
+     * @responsibility reserveTaskに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000004
+     * @input sessionCapability: object、raw: unknown
+     * @returns reserveTaskの計算結果を返す。
+     * @precondition 「sessionCapability: object、raw: unknown」がreserveTaskの入力契約を満たす。
+     * @postcondition reserveTaskの責務を完了した結果だけを返す。
+     * @effect N/A: reserveTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: reserveTaskは独自の失敗分岐を所有しない。
+     * @invariant reserveTaskは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: reserveTaskはProcess内の同一Subsystemで完結する。
+     * @security reserveTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @concurrency N/A: reserveTaskは共有非同期状態を持たない同期処理である。
+     */
     reserveTask(sessionCapability: object, raw: unknown) {
       const session = sessions.get(sessionCapability);
       const task = snapshotTask(raw);
@@ -456,6 +753,22 @@ function createSessionRuntime(dependencies: Dependencies) {
       });
       return capability;
     },
+    /**
+     * taskBoundaryの処理を実行する。
+     *
+     * @responsibility taskBoundaryに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000004
+     * @input taskCapability: object
+     * @returns taskBoundaryの計算結果を返す。
+     * @precondition 「taskCapability: object」がtaskBoundaryの入力契約を満たす。
+     * @postcondition taskBoundaryの責務を完了した結果だけを返す。
+     * @effect N/A: taskBoundaryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: taskBoundaryは独自の失敗分岐を所有しない。
+     * @invariant taskBoundaryは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: taskBoundaryはProcess内の同一Subsystemで完結する。
+     * @security taskBoundaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @concurrency N/A: taskBoundaryは共有非同期状態を持たない同期処理である。
+     */
     taskBoundary(taskCapability: object) {
       const binding = taskBindings.get(taskCapability);
       if (!binding || binding.settled) return null;
@@ -469,6 +782,22 @@ function createSessionRuntime(dependencies: Dependencies) {
           checkBoundSession(binding.session)?.result.status === "recorded",
       });
     },
+    /**
+     * bindOperationの処理を実行する。
+     *
+     * @responsibility bindOperationに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000004
+     * @input taskCapability: object、managementCapability: object、repositoryBindingCapability: object
+     * @returns bindOperationの計算結果を返す。
+     * @precondition 「taskCapability: object、managementCapability: object、repositoryBindingCapability: object」がbindOperationの入力契約を満たす。
+     * @postcondition bindOperationの責務を完了した結果だけを返す。
+     * @effect N/A: bindOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure bindOperationは入力不正または下位処理の失敗を呼出し側へ返す。
+     * @invariant bindOperationは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: bindOperationはProcess内の同一Subsystemで完結する。
+     * @security bindOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @concurrency N/A: bindOperationは共有非同期状態を持たない同期処理である。
+     */
     bindOperation(
       taskCapability: object,
       managementCapability: object,
@@ -508,6 +837,22 @@ function createSessionRuntime(dependencies: Dependencies) {
         return false;
       }
     },
+    /**
+     * checkOperationの処理を実行する。
+     *
+     * @responsibility checkOperationに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000004
+     * @input managementCapability: object
+     * @returns checkOperationの計算結果を返す。
+     * @precondition 「managementCapability: object」がcheckOperationの入力契約を満たす。
+     * @postcondition checkOperationの責務を完了した結果だけを返す。
+     * @effect N/A: checkOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure checkOperationは入力不正または下位処理の失敗を呼出し側へ返す。
+     * @invariant checkOperationは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: checkOperationはProcess内の同一Subsystemで完結する。
+     * @security checkOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @concurrency N/A: checkOperationは共有非同期状態を持たない同期処理である。
+     */
     checkOperation(managementCapability: object) {
       const binding = operationBindings.get(managementCapability);
       if (!binding || binding.settled) return false;
@@ -518,6 +863,22 @@ function createSessionRuntime(dependencies: Dependencies) {
         return false;
       }
     },
+    /**
+     * operationContextの処理を実行する。
+     *
+     * @responsibility operationContextに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000004
+     * @input managementCapability: object
+     * @returns operationContextの計算結果を返す。
+     * @precondition 「managementCapability: object」がoperationContextの入力契約を満たす。
+     * @postcondition operationContextの責務を完了した結果だけを返す。
+     * @effect N/A: operationContextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: operationContextは独自の失敗分岐を所有しない。
+     * @invariant operationContextは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: operationContextはProcess内の同一Subsystemで完結する。
+     * @security operationContextはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @concurrency N/A: operationContextは共有非同期状態を持たない同期処理である。
+     */
     operationContext(managementCapability: object) {
       const binding = operationBindings.get(managementCapability);
       return binding
@@ -530,6 +891,22 @@ function createSessionRuntime(dependencies: Dependencies) {
           })
         : null;
     },
+    /**
+     * borrowNativeObservationの処理を実行する。
+     *
+     * @responsibility borrowNativeObservationに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000004
+     * @input context: object、shouldInitializeIfMissing: boolean
+     * @returns borrowNativeObservationの計算結果を返す。
+     * @precondition 「context: object、shouldInitializeIfMissing: boolean」がborrowNativeObservationの入力契約を満たす。
+     * @postcondition borrowNativeObservationの責務を完了した結果だけを返す。
+     * @effect N/A: borrowNativeObservationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure borrowNativeObservationは入力不正または下位処理の失敗を呼出し側へ返す。
+     * @invariant borrowNativeObservationは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: borrowNativeObservationはProcess内の同一Subsystemで完結する。
+     * @security borrowNativeObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @concurrency N/A: borrowNativeObservationは共有非同期状態を持たない同期処理である。
+     */
     borrowNativeObservation(
       context: object,
       shouldInitializeIfMissing: boolean,
@@ -592,6 +969,22 @@ function createSessionRuntime(dependencies: Dependencies) {
         return null;
       }
     },
+    /**
+     * reserveInvocationの処理を実行する。
+     *
+     * @responsibility reserveInvocationに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000004
+     * @input taskCapability: object、provider: Provider、role: Role
+     * @returns reserveInvocationの計算結果を返す。
+     * @precondition 「taskCapability: object、provider: Provider、role: Role」がreserveInvocationの入力契約を満たす。
+     * @postcondition reserveInvocationの責務を完了した結果だけを返す。
+     * @effect N/A: reserveInvocationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: reserveInvocationは独自の失敗分岐を所有しない。
+     * @invariant reserveInvocationは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: reserveInvocationはProcess内の同一Subsystemで完結する。
+     * @security reserveInvocationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @concurrency N/A: reserveInvocationは共有非同期状態を持たない同期処理である。
+     */
     reserveInvocation(taskCapability: object, provider: Provider, role: Role) {
       const binding = taskBindings.get(taskCapability);
       const observed =
@@ -608,6 +1001,22 @@ function createSessionRuntime(dependencies: Dependencies) {
       invocationBindings.set(reserved.value, binding);
       return reserved.value;
     },
+    /**
+     * consumeInvocationの処理を実行する。
+     *
+     * @responsibility consumeInvocationに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000004
+     * @input taskCapability: object、invocationCapability: object、provider: Provider、role: Role
+     * @returns consumeInvocationの計算結果を返す。
+     * @precondition 「taskCapability: object、invocationCapability: object、provider: Provider、role: Role」がconsumeInvocationの入力契約を満たす。
+     * @postcondition consumeInvocationの責務を完了した結果だけを返す。
+     * @effect consumeInvocationは外部ProcessまたはRuntime境界の操作を呼び出す。
+     * @failure N/A: consumeInvocationは独自の失敗分岐を所有しない。
+     * @invariant consumeInvocationは宣言した境界以外へEffectを拡張しない。
+     * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+     * @security consumeInvocationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @concurrency N/A: consumeInvocationは共有非同期状態を持たない同期処理である。
+     */
     consumeInvocation(
       taskCapability: object,
       invocationCapability: object,
@@ -638,6 +1047,22 @@ function createSessionRuntime(dependencies: Dependencies) {
       binding.nativeBoundaryIdentity = observed.identity;
       return true;
     },
+    /**
+     * settleInvocationの処理を実行する。
+     *
+     * @responsibility settleInvocationに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000004
+     * @input taskCapability: object、invocationCapability: object
+     * @returns settleInvocationの計算結果を返す。
+     * @precondition 「taskCapability: object、invocationCapability: object」がsettleInvocationの入力契約を満たす。
+     * @postcondition settleInvocationの責務を完了した結果だけを返す。
+     * @effect N/A: settleInvocationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: settleInvocationは独自の失敗分岐を所有しない。
+     * @invariant settleInvocationは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: settleInvocationはProcess内の同一Subsystemで完結する。
+     * @security settleInvocationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @concurrency N/A: settleInvocationは共有非同期状態を持たない同期処理である。
+     */
     settleInvocation(taskCapability: object, invocationCapability: object) {
       const binding = taskBindings.get(taskCapability);
       if (!binding || invocationBindings.get(invocationCapability) !== binding)
@@ -648,6 +1073,22 @@ function createSessionRuntime(dependencies: Dependencies) {
       if (wasSettled) invocationBindings.delete(invocationCapability);
       return wasSettled;
     },
+    /**
+     * settleInvocationAndVerifyの処理を実行する。
+     *
+     * @responsibility settleInvocationAndVerifyに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000004
+     * @input taskCapability: object、invocationCapability: object
+     * @returns settleInvocationAndVerifyの計算結果を返す。
+     * @precondition 「taskCapability: object、invocationCapability: object」がsettleInvocationAndVerifyの入力契約を満たす。
+     * @postcondition settleInvocationAndVerifyの責務を完了した結果だけを返す。
+     * @effect N/A: settleInvocationAndVerifyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: settleInvocationAndVerifyは独自の失敗分岐を所有しない。
+     * @invariant settleInvocationAndVerifyは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: settleInvocationAndVerifyはProcess内の同一Subsystemで完結する。
+     * @security settleInvocationAndVerifyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @concurrency N/A: settleInvocationAndVerifyは共有非同期状態を持たない同期処理である。
+     */
     settleInvocationAndVerify(
       taskCapability: object,
       invocationCapability: object,
@@ -664,6 +1105,22 @@ function createSessionRuntime(dependencies: Dependencies) {
         wasSettled && observed && observed.result.status === "recorded",
       );
     },
+    /**
+     * settleTaskの処理を実行する。
+     *
+     * @responsibility settleTaskに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000004
+     * @input taskCapability: object、outcome: "finished" | "cleanup_unknown"
+     * @returns settleTaskの計算結果を返す。
+     * @precondition 「taskCapability: object、outcome: "finished" | "cleanup_unknown"」がsettleTaskの入力契約を満たす。
+     * @postcondition settleTaskの責務を完了した結果だけを返す。
+     * @effect N/A: settleTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: settleTaskは独自の失敗分岐を所有しない。
+     * @invariant settleTaskは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: settleTaskはProcess内の同一Subsystemで完結する。
+     * @security settleTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @concurrency N/A: settleTaskは共有非同期状態を持たない同期処理である。
+     */
     settleTask(
       taskCapability: object,
       outcome: "finished" | "cleanup_unknown",
@@ -678,6 +1135,22 @@ function createSessionRuntime(dependencies: Dependencies) {
       binding.settled = true;
       return true;
     },
+    /**
+     * cancelの処理を実行する。
+     *
+     * @responsibility cancelに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000004
+     * @input capability: object
+     * @returns cancelの計算結果を返す。
+     * @precondition 「capability: object」がcancelの入力契約を満たす。
+     * @postcondition cancelの責務を完了した結果だけを返す。
+     * @effect N/A: cancelは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: cancelは独自の失敗分岐を所有しない。
+     * @invariant cancelは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: cancelはProcess内の同一Subsystemで完結する。
+     * @security cancelはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @concurrency N/A: cancelは共有非同期状態を持たない同期処理である。
+     */
     cancel(capability: object) {
       const session = sessions.get(capability);
       if (!session) return false;
@@ -685,6 +1158,22 @@ function createSessionRuntime(dependencies: Dependencies) {
       session.constraints.cancel();
       return true;
     },
+    /**
+     * inspectの処理を実行する。
+     *
+     * @responsibility inspectに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000004
+     * @input capability: object
+     * @returns inspectの計算結果を返す。
+     * @precondition 「capability: object」がinspectの入力契約を満たす。
+     * @postcondition inspectの責務を完了した結果だけを返す。
+     * @effect N/A: inspectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: inspectは独自の失敗分岐を所有しない。
+     * @invariant inspectは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: inspectはProcess内の同一Subsystemで完結する。
+     * @security inspectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @concurrency N/A: inspectは共有非同期状態を持たない同期処理である。
+     */
     inspect(capability: object) {
       const session = sessions.get(capability);
       if (!session) return null;
@@ -694,6 +1183,22 @@ function createSessionRuntime(dependencies: Dependencies) {
         identityObservation: session.timing.snapshot().identityObservation,
       });
     },
+    /**
+     * tasksの処理を実行する。
+     *
+     * @responsibility tasksに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000004
+     * @input capability: object
+     * @returns tasksの計算結果を返す。
+     * @precondition 「capability: object」がtasksの入力契約を満たす。
+     * @postcondition tasksの責務を完了した結果だけを返す。
+     * @effect N/A: tasksは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: tasksは独自の失敗分岐を所有しない。
+     * @invariant tasksは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: tasksはProcess内の同一Subsystemで完結する。
+     * @security tasksはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @concurrency N/A: tasksは共有非同期状態を持たない同期処理である。
+     */
     tasks(capability: object) {
       const session = sessions.get(capability);
       if (!session || observe(session)?.result.status !== "recorded")
@@ -716,6 +1221,22 @@ const productionRuntime = createSessionRuntime(
   }),
 );
 
+/**
+ * requestRuntimeOwnedDevelopmentMeasurementSessionの処理を実行する。
+ *
+ * @responsibility requestRuntimeOwnedDevelopmentMeasurementSessionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown、signal: AbortSignal
+ * @returns requestRuntimeOwnedDevelopmentMeasurementSessionの計算結果を返す。
+ * @precondition 「raw: unknown、signal: AbortSignal」がrequestRuntimeOwnedDevelopmentMeasurementSessionの入力契約を満たす。
+ * @postcondition requestRuntimeOwnedDevelopmentMeasurementSessionの責務を完了した結果だけを返す。
+ * @effect N/A: requestRuntimeOwnedDevelopmentMeasurementSessionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: requestRuntimeOwnedDevelopmentMeasurementSessionは独自の失敗分岐を所有しない。
+ * @invariant requestRuntimeOwnedDevelopmentMeasurementSessionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: requestRuntimeOwnedDevelopmentMeasurementSessionはProcess内の同一Subsystemで完結する。
+ * @security requestRuntimeOwnedDevelopmentMeasurementSessionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: requestRuntimeOwnedDevelopmentMeasurementSessionは共有非同期状態を持たない同期処理である。
+ */
 export function requestRuntimeOwnedDevelopmentMeasurementSession(
   raw: unknown,
   signal: AbortSignal,
@@ -723,24 +1244,88 @@ export function requestRuntimeOwnedDevelopmentMeasurementSession(
   return productionRuntime.request(raw, signal);
 }
 
+/**
+ * inspectRuntimeOwnedDevelopmentMeasurementSessionの処理を実行する。
+ *
+ * @responsibility inspectRuntimeOwnedDevelopmentMeasurementSessionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input capability: object
+ * @returns inspectRuntimeOwnedDevelopmentMeasurementSessionの計算結果を返す。
+ * @precondition 「capability: object」がinspectRuntimeOwnedDevelopmentMeasurementSessionの入力契約を満たす。
+ * @postcondition inspectRuntimeOwnedDevelopmentMeasurementSessionの責務を完了した結果だけを返す。
+ * @effect N/A: inspectRuntimeOwnedDevelopmentMeasurementSessionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectRuntimeOwnedDevelopmentMeasurementSessionは独自の失敗分岐を所有しない。
+ * @invariant inspectRuntimeOwnedDevelopmentMeasurementSessionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectRuntimeOwnedDevelopmentMeasurementSessionはProcess内の同一Subsystemで完結する。
+ * @security inspectRuntimeOwnedDevelopmentMeasurementSessionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectRuntimeOwnedDevelopmentMeasurementSessionは共有非同期状態を持たない同期処理である。
+ */
 export function inspectRuntimeOwnedDevelopmentMeasurementSession(
   capability: object,
 ) {
   return productionRuntime.inspect(capability);
 }
 
+/**
+ * readRuntimeOwnedDevelopmentMeasurementTasksの処理を実行する。
+ *
+ * @responsibility readRuntimeOwnedDevelopmentMeasurementTasksに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input capability: object
+ * @returns readRuntimeOwnedDevelopmentMeasurementTasksの計算結果を返す。
+ * @precondition 「capability: object」がreadRuntimeOwnedDevelopmentMeasurementTasksの入力契約を満たす。
+ * @postcondition readRuntimeOwnedDevelopmentMeasurementTasksの責務を完了した結果だけを返す。
+ * @effect N/A: readRuntimeOwnedDevelopmentMeasurementTasksは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: readRuntimeOwnedDevelopmentMeasurementTasksは独自の失敗分岐を所有しない。
+ * @invariant readRuntimeOwnedDevelopmentMeasurementTasksは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: readRuntimeOwnedDevelopmentMeasurementTasksはProcess内の同一Subsystemで完結する。
+ * @security readRuntimeOwnedDevelopmentMeasurementTasksはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readRuntimeOwnedDevelopmentMeasurementTasksは共有非同期状態を持たない同期処理である。
+ */
 export function readRuntimeOwnedDevelopmentMeasurementTasks(
   capability: object,
 ) {
   return productionRuntime.tasks(capability);
 }
 
+/**
+ * cancelRuntimeOwnedDevelopmentMeasurementSessionの処理を実行する。
+ *
+ * @responsibility cancelRuntimeOwnedDevelopmentMeasurementSessionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input capability: object
+ * @returns cancelRuntimeOwnedDevelopmentMeasurementSessionの計算結果を返す。
+ * @precondition 「capability: object」がcancelRuntimeOwnedDevelopmentMeasurementSessionの入力契約を満たす。
+ * @postcondition cancelRuntimeOwnedDevelopmentMeasurementSessionの責務を完了した結果だけを返す。
+ * @effect N/A: cancelRuntimeOwnedDevelopmentMeasurementSessionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: cancelRuntimeOwnedDevelopmentMeasurementSessionは独自の失敗分岐を所有しない。
+ * @invariant cancelRuntimeOwnedDevelopmentMeasurementSessionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: cancelRuntimeOwnedDevelopmentMeasurementSessionはProcess内の同一Subsystemで完結する。
+ * @security cancelRuntimeOwnedDevelopmentMeasurementSessionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: cancelRuntimeOwnedDevelopmentMeasurementSessionは共有非同期状態を持たない同期処理である。
+ */
 export function cancelRuntimeOwnedDevelopmentMeasurementSession(
   capability: object,
 ) {
   return productionRuntime.cancel(capability);
 }
 
+/**
+ * borrowRuntimeOwnedDevelopmentNativeObservationの処理を実行する。
+ *
+ * @responsibility borrowRuntimeOwnedDevelopmentNativeObservationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input context: object、shouldInitializeIfMissing: boolean
+ * @returns borrowRuntimeOwnedDevelopmentNativeObservationの計算結果を返す。
+ * @precondition 「context: object、shouldInitializeIfMissing: boolean」がborrowRuntimeOwnedDevelopmentNativeObservationの入力契約を満たす。
+ * @postcondition borrowRuntimeOwnedDevelopmentNativeObservationの責務を完了した結果だけを返す。
+ * @effect N/A: borrowRuntimeOwnedDevelopmentNativeObservationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: borrowRuntimeOwnedDevelopmentNativeObservationは独自の失敗分岐を所有しない。
+ * @invariant borrowRuntimeOwnedDevelopmentNativeObservationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: borrowRuntimeOwnedDevelopmentNativeObservationはProcess内の同一Subsystemで完結する。
+ * @security borrowRuntimeOwnedDevelopmentNativeObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: borrowRuntimeOwnedDevelopmentNativeObservationは共有非同期状態を持たない同期処理である。
+ */
 export function borrowRuntimeOwnedDevelopmentNativeObservation(
   context: object,
   shouldInitializeIfMissing: boolean,
@@ -761,6 +1346,22 @@ export function borrowRuntimeOwnedDevelopmentNativeObservation(
   });
 }
 
+/**
+ * inspectRuntimeOwnedDevelopmentOperationContextの処理を実行する。
+ *
+ * @responsibility inspectRuntimeOwnedDevelopmentOperationContextに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input managementCapability: unknown
+ * @returns inspectRuntimeOwnedDevelopmentOperationContextの計算結果を返す。
+ * @precondition 「managementCapability: unknown」がinspectRuntimeOwnedDevelopmentOperationContextの入力契約を満たす。
+ * @postcondition inspectRuntimeOwnedDevelopmentOperationContextの責務を完了した結果だけを返す。
+ * @effect N/A: inspectRuntimeOwnedDevelopmentOperationContextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectRuntimeOwnedDevelopmentOperationContextは独自の失敗分岐を所有しない。
+ * @invariant inspectRuntimeOwnedDevelopmentOperationContextは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectRuntimeOwnedDevelopmentOperationContextはProcess内の同一Subsystemで完結する。
+ * @security inspectRuntimeOwnedDevelopmentOperationContextはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectRuntimeOwnedDevelopmentOperationContextは共有非同期状態を持たない同期処理である。
+ */
 export function inspectRuntimeOwnedDevelopmentOperationContext(
   managementCapability: unknown,
 ) {
@@ -769,7 +1370,22 @@ export function inspectRuntimeOwnedDevelopmentOperationContext(
     : null;
 }
 
-/** Internal Task facade; caller values cannot construct an admitted session. */
+/**
+ * Internal Task facade; caller values cannot construct an admitted session.
+ *
+ * @responsibility reserveRuntimeOwnedDevelopmentMeasurementTaskに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input sessionCapability: object、request: unknown、repositoryRoot: unknown
+ * @returns reserveRuntimeOwnedDevelopmentMeasurementTaskの計算結果を返す。
+ * @precondition 「sessionCapability: object、request: unknown、repositoryRoot: unknown」がreserveRuntimeOwnedDevelopmentMeasurementTaskの入力契約を満たす。
+ * @postcondition reserveRuntimeOwnedDevelopmentMeasurementTaskの責務を完了した結果だけを返す。
+ * @effect N/A: reserveRuntimeOwnedDevelopmentMeasurementTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: reserveRuntimeOwnedDevelopmentMeasurementTaskは独自の失敗分岐を所有しない。
+ * @invariant reserveRuntimeOwnedDevelopmentMeasurementTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: reserveRuntimeOwnedDevelopmentMeasurementTaskはProcess内の同一Subsystemで完結する。
+ * @security reserveRuntimeOwnedDevelopmentMeasurementTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: reserveRuntimeOwnedDevelopmentMeasurementTaskは共有非同期状態を持たない同期処理である。
+ */
 export function reserveRuntimeOwnedDevelopmentMeasurementTask(
   sessionCapability: object,
   request: unknown,
@@ -827,7 +1443,22 @@ export function reserveRuntimeOwnedDevelopmentMeasurementTask(
   });
 }
 
-/** Isolated capability namespace: never accepted by the production facade. */
+/**
+ * Isolated capability namespace: never accepted by the production facade.
+ *
+ * @responsibility createIsolatedDevelopmentMeasurementSessionCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input dependencies: Dependencies
+ * @returns createIsolatedDevelopmentMeasurementSessionCandidateの計算結果を返す。
+ * @precondition 「dependencies: Dependencies」がcreateIsolatedDevelopmentMeasurementSessionCandidateの入力契約を満たす。
+ * @postcondition createIsolatedDevelopmentMeasurementSessionCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: createIsolatedDevelopmentMeasurementSessionCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createIsolatedDevelopmentMeasurementSessionCandidateは独自の失敗分岐を所有しない。
+ * @invariant createIsolatedDevelopmentMeasurementSessionCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createIsolatedDevelopmentMeasurementSessionCandidateはProcess内の同一Subsystemで完結する。
+ * @security createIsolatedDevelopmentMeasurementSessionCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createIsolatedDevelopmentMeasurementSessionCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function createIsolatedDevelopmentMeasurementSessionCandidate(
   dependencies: Dependencies,
 ) {

@@ -18,6 +18,17 @@ export const REPOSITORY_OPERATION_RUNTIME_CONTRACT =
   "crdd-coordinator/repository-operation-runtime";
 export const REPOSITORY_OPERATION_RUNTIME_CONTRACT_REVISION = 2;
 
+/**
+ * Bindingが扱う値の構造を表す。
+ *
+ * @responsibility Bindingに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000009
+ * @shape Bindingが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Bindingで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Bindingの宣言は外部境界を開かない。
+ * @security BindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Bindingの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Binding = Readonly<{
   managementCapability: object;
   operationId: string;
@@ -31,6 +42,22 @@ type Binding = Readonly<{
 const bindings = new WeakMap<object, Binding>();
 const capabilities = new WeakMap<object, Binding>();
 
+/**
+ * observeの処理を実行する。
+ *
+ * @responsibility observeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000009
+ * @input repositoryRoot: string
+ * @returns observeの計算結果を返す。
+ * @precondition 「repositoryRoot: string」がobserveの入力契約を満たす。
+ * @postcondition observeの責務を完了した結果だけを返す。
+ * @effect N/A: observeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure observeは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observeはProcess内の同一Subsystemで完結する。
+ * @security observeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeは共有非同期状態を持たない同期処理である。
+ */
 function observe(repositoryRoot: string) {
   const verified = verifyRepositoryRoot(repositoryRoot);
   if (verified.status !== "completed")
@@ -48,6 +75,22 @@ function observe(repositoryRoot: string) {
   });
 }
 
+/**
+ * inspectRepositoryObjectFormatCandidateの処理を実行する。
+ *
+ * @responsibility inspectRepositoryObjectFormatCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000009
+ * @input repositoryRoot: unknown
+ * @returns inspectRepositoryObjectFormatCandidateの計算結果を返す。
+ * @precondition 「repositoryRoot: unknown」がinspectRepositoryObjectFormatCandidateの入力契約を満たす。
+ * @postcondition inspectRepositoryObjectFormatCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectRepositoryObjectFormatCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectRepositoryObjectFormatCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectRepositoryObjectFormatCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectRepositoryObjectFormatCandidateはProcess内の同一Subsystemで完結する。
+ * @security inspectRepositoryObjectFormatCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectRepositoryObjectFormatCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectRepositoryObjectFormatCandidate(
   repositoryRoot: unknown,
 ) {
@@ -77,6 +120,22 @@ export function inspectRepositoryObjectFormatCandidate(
   }
 }
 
+/**
+ * inspectRepositoryRevisionCandidateの処理を実行する。
+ *
+ * @responsibility inspectRepositoryRevisionCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000009
+ * @input repositoryRoot: unknown
+ * @returns inspectRepositoryRevisionCandidateの計算結果を返す。
+ * @precondition 「repositoryRoot: unknown」がinspectRepositoryRevisionCandidateの入力契約を満たす。
+ * @postcondition inspectRepositoryRevisionCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectRepositoryRevisionCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectRepositoryRevisionCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectRepositoryRevisionCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectRepositoryRevisionCandidateはProcess内の同一Subsystemで完結する。
+ * @security inspectRepositoryRevisionCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectRepositoryRevisionCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectRepositoryRevisionCandidate(repositoryRoot: unknown) {
   try {
     if (
@@ -108,7 +167,22 @@ export function inspectRepositoryRevisionCandidate(repositoryRoot: unknown) {
   }
 }
 
-/** Read-only identity and HEAD/tree observation for bounded admission. */
+/**
+ * Read-only identity and HEAD/tree observation for bounded admission.
+ *
+ * @responsibility inspectRepositoryIdentityCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000009
+ * @input repositoryRoot: unknown
+ * @returns inspectRepositoryIdentityCandidateの計算結果を返す。
+ * @precondition 「repositoryRoot: unknown」がinspectRepositoryIdentityCandidateの入力契約を満たす。
+ * @postcondition inspectRepositoryIdentityCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectRepositoryIdentityCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectRepositoryIdentityCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectRepositoryIdentityCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectRepositoryIdentityCandidateはProcess内の同一Subsystemで完結する。
+ * @security inspectRepositoryIdentityCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectRepositoryIdentityCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectRepositoryIdentityCandidate(repositoryRoot: unknown) {
   try {
     if (typeof repositoryRoot !== "string") return null;
@@ -127,6 +201,22 @@ export function inspectRepositoryIdentityCandidate(repositoryRoot: unknown) {
   }
 }
 
+/**
+ * bindRuntimeOwnedRepositoryOperationの処理を実行する。
+ *
+ * @responsibility bindRuntimeOwnedRepositoryOperationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000009
+ * @input managementCapability: unknown、repositoryRoot: unknown
+ * @returns bindRuntimeOwnedRepositoryOperationの計算結果を返す。
+ * @precondition 「managementCapability: unknown、repositoryRoot: unknown」がbindRuntimeOwnedRepositoryOperationの入力契約を満たす。
+ * @postcondition bindRuntimeOwnedRepositoryOperationの責務を完了した結果だけを返す。
+ * @effect bindRuntimeOwnedRepositoryOperationはFilesystemの読取りまたは書込みを実行する。
+ * @failure bindRuntimeOwnedRepositoryOperationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant bindRuntimeOwnedRepositoryOperationは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security bindRuntimeOwnedRepositoryOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: bindRuntimeOwnedRepositoryOperationは共有非同期状態を持たない同期処理である。
+ */
 export function bindRuntimeOwnedRepositoryOperation(
   managementCapability: unknown,
   repositoryRoot: unknown,
@@ -168,6 +258,22 @@ export function bindRuntimeOwnedRepositoryOperation(
   }
 }
 
+/**
+ * currentBindingの処理を実行する。
+ *
+ * @responsibility currentBindingに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000009
+ * @input managementCapability: unknown
+ * @returns currentBindingの計算結果を返す。
+ * @precondition 「managementCapability: unknown」がcurrentBindingの入力契約を満たす。
+ * @postcondition currentBindingの責務を完了した結果だけを返す。
+ * @effect N/A: currentBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: currentBindingは独自の失敗分岐を所有しない。
+ * @invariant currentBindingは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: currentBindingはProcess内の同一Subsystemで完結する。
+ * @security currentBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: currentBindingは共有非同期状態を持たない同期処理である。
+ */
 function currentBinding(managementCapability: unknown) {
   if (!managementCapability || typeof managementCapability !== "object")
     return null;
@@ -185,6 +291,22 @@ function currentBinding(managementCapability: unknown) {
     : null;
 }
 
+/**
+ * verifyRuntimeOwnedRepositoryOperationの処理を実行する。
+ *
+ * @responsibility verifyRuntimeOwnedRepositoryOperationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000009
+ * @input managementCapability: unknown
+ * @returns verifyRuntimeOwnedRepositoryOperationの計算結果を返す。
+ * @precondition 「managementCapability: unknown」がverifyRuntimeOwnedRepositoryOperationの入力契約を満たす。
+ * @postcondition verifyRuntimeOwnedRepositoryOperationの責務を完了した結果だけを返す。
+ * @effect N/A: verifyRuntimeOwnedRepositoryOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyRuntimeOwnedRepositoryOperationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyRuntimeOwnedRepositoryOperationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyRuntimeOwnedRepositoryOperationはProcess内の同一Subsystemで完結する。
+ * @security verifyRuntimeOwnedRepositoryOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyRuntimeOwnedRepositoryOperationは共有非同期状態を持たない同期処理である。
+ */
 export function verifyRuntimeOwnedRepositoryOperation(
   managementCapability: unknown,
 ) {
@@ -203,6 +325,22 @@ export function verifyRuntimeOwnedRepositoryOperation(
   }
 }
 
+/**
+ * verifyRuntimeOwnedRepositoryBindingCapabilityの処理を実行する。
+ *
+ * @responsibility verifyRuntimeOwnedRepositoryBindingCapabilityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000009
+ * @input repositoryBindingCapability: unknown、managementCapability: unknown
+ * @returns verifyRuntimeOwnedRepositoryBindingCapabilityの計算結果を返す。
+ * @precondition 「repositoryBindingCapability: unknown、managementCapability: unknown」がverifyRuntimeOwnedRepositoryBindingCapabilityの入力契約を満たす。
+ * @postcondition verifyRuntimeOwnedRepositoryBindingCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: verifyRuntimeOwnedRepositoryBindingCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyRuntimeOwnedRepositoryBindingCapabilityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyRuntimeOwnedRepositoryBindingCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyRuntimeOwnedRepositoryBindingCapabilityはProcess内の同一Subsystemで完結する。
+ * @security verifyRuntimeOwnedRepositoryBindingCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyRuntimeOwnedRepositoryBindingCapabilityは共有非同期状態を持たない同期処理である。
+ */
 export function verifyRuntimeOwnedRepositoryBindingCapability(
   repositoryBindingCapability: unknown,
   managementCapability: unknown,
@@ -231,6 +369,22 @@ export function verifyRuntimeOwnedRepositoryBindingCapability(
   }
 }
 
+/**
+ * borrowRuntimeOwnedRepositorySourceの処理を実行する。
+ *
+ * @responsibility borrowRuntimeOwnedRepositorySourceに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000009
+ * @input repositoryBindingCapability: unknown、managementCapability: unknown
+ * @returns borrowRuntimeOwnedRepositorySourceの計算結果を返す。
+ * @precondition 「repositoryBindingCapability: unknown、managementCapability: unknown」がborrowRuntimeOwnedRepositorySourceの入力契約を満たす。
+ * @postcondition borrowRuntimeOwnedRepositorySourceの責務を完了した結果だけを返す。
+ * @effect N/A: borrowRuntimeOwnedRepositorySourceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure borrowRuntimeOwnedRepositorySourceは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant borrowRuntimeOwnedRepositorySourceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: borrowRuntimeOwnedRepositorySourceはProcess内の同一Subsystemで完結する。
+ * @security borrowRuntimeOwnedRepositorySourceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: borrowRuntimeOwnedRepositorySourceは共有非同期状態を持たない同期処理である。
+ */
 export function borrowRuntimeOwnedRepositorySource(
   repositoryBindingCapability: unknown,
   managementCapability: unknown,
@@ -263,6 +417,22 @@ export function borrowRuntimeOwnedRepositorySource(
   }
 }
 
+/**
+ * describeRepositoryOperationRuntimeContractの処理を実行する。
+ *
+ * @responsibility describeRepositoryOperationRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000009
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeRepositoryOperationRuntimeContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeRepositoryOperationRuntimeContractの入力契約を満たす。
+ * @postcondition describeRepositoryOperationRuntimeContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeRepositoryOperationRuntimeContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeRepositoryOperationRuntimeContractは独自の失敗分岐を所有しない。
+ * @invariant describeRepositoryOperationRuntimeContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeRepositoryOperationRuntimeContractはProcess内の同一Subsystemで完結する。
+ * @security describeRepositoryOperationRuntimeContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeRepositoryOperationRuntimeContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeRepositoryOperationRuntimeContract() {
   return Object.freeze({
     contract: REPOSITORY_OPERATION_RUNTIME_CONTRACT,

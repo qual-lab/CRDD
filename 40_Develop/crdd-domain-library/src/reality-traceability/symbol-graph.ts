@@ -9,6 +9,17 @@ import type {
   RealitySymbol,
 } from "./symbol-manifest-model.ts";
 
+/**
+ * RealitySymbolNodeが扱う値の構造を表す。
+ *
+ * @responsibility RealitySymbolNodeに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape RealitySymbolNodeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RealitySymbolNodeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RealitySymbolNodeの宣言は外部境界を開かない。
+ * @security N/A: RealitySymbolNodeはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RealitySymbolNodeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type RealitySymbolNode = Readonly<{
   subsystem: string;
   subsystemRoot: string;
@@ -16,6 +27,17 @@ export type RealitySymbolNode = Readonly<{
   symbol: RealitySymbol;
 }>;
 
+/**
+ * RealitySymbolGraphが扱う値の構造を表す。
+ *
+ * @responsibility RealitySymbolGraphに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape RealitySymbolGraphが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RealitySymbolGraphで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RealitySymbolGraphの宣言は外部境界を開かない。
+ * @security N/A: RealitySymbolGraphはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RealitySymbolGraphの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type RealitySymbolGraph = Readonly<{
   symbolsById: ReadonlyMap<string, RealitySymbolNode>;
   symbolsByArchId: ReadonlyMap<string, readonly RealitySymbolNode[]>;
@@ -23,6 +45,22 @@ export type RealitySymbolGraph = Readonly<{
   testsByImplementationId: ReadonlyMap<string, readonly RealitySymbolNode[]>;
 }>;
 
+/**
+ * appendToIndexの処理を実行する。
+ *
+ * @responsibility appendToIndexに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input index: Map<string, RealitySymbolNode[]>、key: string、value: RealitySymbolNode
+ * @returns N/A: appendToIndexは戻り値を返さない。
+ * @precondition 「index: Map<string, RealitySymbolNode[]>、key: string、value: RealitySymbolNode」がappendToIndexの入力契約を満たす。
+ * @postcondition appendToIndexの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: appendToIndexは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: appendToIndexは独自の失敗分岐を所有しない。
+ * @invariant appendToIndexは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: appendToIndexはProcess内の同一Subsystemで完結する。
+ * @security N/A: appendToIndexはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: appendToIndexは共有非同期状態を持たない同期処理である。
+ */
 function appendToIndex(
   index: Map<string, RealitySymbolNode[]>,
   key: string,
@@ -33,6 +71,22 @@ function appendToIndex(
   index.set(key, values);
 }
 
+/**
+ * createRealitySymbolGraphの処理を実行する。
+ *
+ * @responsibility createRealitySymbolGraphに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input loadedManifests: readonly LoadedRealitySymbolManifest[]、knownArchIds: ReadonlySet<string>、knownQaIds: ReadonlySet<string>、knownLocalTestIdsByQaId: ReadonlyMap<string, ReadonlySet<string>>、registeredTestsByPath: ReadonlyMap< string, Readonly<{ owner: string; testId: string }> > | null、prerequisiteIssues: readonly DomainIssue[]
+ * @returns DomainOutcome<RealitySymbolGraph>を返す。
+ * @precondition 「loadedManifests: readonly LoadedRealitySymbolManifest[]、knownArchIds: ReadonlySet<string>、knownQaIds: ReadonlySet<string>、knownLocalTestIdsByQaId: ReadonlyMap<string, ReadonlySet<string>>、registeredTestsByPath: ReadonlyMap< string, Readonly<{ owner: string; testId: string }> > | null、prerequisiteIssues: readonly DomainIssue[]」がcreateRealitySymbolGraphの入力契約を満たす。
+ * @postcondition createRealitySymbolGraphの責務を完了した結果だけを返す。
+ * @effect N/A: createRealitySymbolGraphは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createRealitySymbolGraphは独自の失敗分岐を所有しない。
+ * @invariant createRealitySymbolGraphは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createRealitySymbolGraphはProcess内の同一Subsystemで完結する。
+ * @security N/A: createRealitySymbolGraphはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createRealitySymbolGraphは共有非同期状態を持たない同期処理である。
+ */
 export function createRealitySymbolGraph(
   loadedManifests: readonly LoadedRealitySymbolManifest[],
   knownArchIds: ReadonlySet<string>,

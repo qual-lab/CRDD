@@ -17,18 +17,62 @@ const OUTCOMES = new Set([
 const operations = new WeakMap<object, OperationRecord>();
 const promotionReceipts = new WeakMap<object, PromotionRecord>();
 
+/**
+ * TemporaryOperationCapabilityが扱う値の構造を表す。
+ *
+ * @responsibility TemporaryOperationCapabilityに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000011
+ * @shape TemporaryOperationCapabilityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant TemporaryOperationCapabilityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: TemporaryOperationCapabilityの宣言は外部境界を開かない。
+ * @security N/A: TemporaryOperationCapabilityはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility TemporaryOperationCapabilityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type TemporaryOperationCapability = Readonly<{
   contract: "crdd/runtime-data/temporary-operation-capability/v1";
 }>;
+/**
+ * TemporaryEvidencePromotionReceiptが扱う値の構造を表す。
+ *
+ * @responsibility TemporaryEvidencePromotionReceiptに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000011
+ * @shape TemporaryEvidencePromotionReceiptが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant TemporaryEvidencePromotionReceiptで宣言した値と責務の対応を維持する。
+ * @boundary N/A: TemporaryEvidencePromotionReceiptの宣言は外部境界を開かない。
+ * @security N/A: TemporaryEvidencePromotionReceiptはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility TemporaryEvidencePromotionReceiptの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type TemporaryEvidencePromotionReceipt = Readonly<{
   contract: "crdd/runtime-data/temporary-evidence-promotion-receipt/v1";
 }>;
+/**
+ * TemporaryOperationRecoveryReferenceが扱う値の構造を表す。
+ *
+ * @responsibility TemporaryOperationRecoveryReferenceに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000011
+ * @shape TemporaryOperationRecoveryReferenceが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant TemporaryOperationRecoveryReferenceで宣言した値と責務の対応を維持する。
+ * @boundary N/A: TemporaryOperationRecoveryReferenceの宣言は外部境界を開かない。
+ * @security N/A: TemporaryOperationRecoveryReferenceはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility TemporaryOperationRecoveryReferenceの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type TemporaryOperationRecoveryReference = Readonly<{
   operationId: string;
   owner: string;
   identity: string;
   generation: number;
 }>;
+/**
+ * OperationRecordが扱う値の構造を表す。
+ *
+ * @responsibility OperationRecordに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000011
+ * @shape OperationRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant OperationRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: OperationRecordの宣言は外部境界を開かない。
+ * @security N/A: OperationRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility OperationRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type OperationRecord = Readonly<{
   allowedContent: readonly string[];
   controlRoot: string;
@@ -40,6 +84,17 @@ type OperationRecord = Readonly<{
   operationId: string;
   owner: string;
 }>;
+/**
+ * PromotionRecordが扱う値の構造を表す。
+ *
+ * @responsibility PromotionRecordに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000011
+ * @shape PromotionRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant PromotionRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: PromotionRecordの宣言は外部境界を開かない。
+ * @security N/A: PromotionRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility PromotionRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type PromotionRecord = Readonly<{
   generation: number;
   identity: string;
@@ -48,6 +103,17 @@ type PromotionRecord = Readonly<{
   source: string;
   target: string;
 }>;
+/**
+ * TemporaryOperationInputが扱う値の構造を表す。
+ *
+ * @responsibility TemporaryOperationInputに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000011
+ * @shape TemporaryOperationInputが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant TemporaryOperationInputで宣言した値と責務の対応を維持する。
+ * @boundary N/A: TemporaryOperationInputの宣言は外部境界を開かない。
+ * @security N/A: TemporaryOperationInputはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility TemporaryOperationInputの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type TemporaryOperationInput = Readonly<{
   operationId: string;
   owner: string;
@@ -56,6 +122,17 @@ type TemporaryOperationInput = Readonly<{
   allowedContent: readonly string[];
   evidencePromotion: "required" | "not_required";
 }>;
+/**
+ * TemporaryOperationDocumentが扱う値の構造を表す。
+ *
+ * @responsibility TemporaryOperationDocumentに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000011
+ * @shape TemporaryOperationDocumentが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant TemporaryOperationDocumentで宣言した値と責務の対応を維持する。
+ * @boundary N/A: TemporaryOperationDocumentの宣言は外部境界を開かない。
+ * @security N/A: TemporaryOperationDocumentはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility TemporaryOperationDocumentの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type TemporaryOperationDocument = Readonly<{
   schema: "crdd/runtime-data/temporary-operation/v3";
   operationId: string;
@@ -70,10 +147,32 @@ type TemporaryOperationDocument = Readonly<{
   terminalPaths: readonly string[];
   evidencePromotion: "required" | "not_required";
 }>;
+/**
+ * LifecycleLockが扱う値の構造を表す。
+ *
+ * @responsibility LifecycleLockに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000011
+ * @shape LifecycleLockが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant LifecycleLockで宣言した値と責務の対応を維持する。
+ * @boundary N/A: LifecycleLockの宣言は外部境界を開かない。
+ * @security N/A: LifecycleLockはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility LifecycleLockの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type LifecycleLock = Readonly<{
   path: string;
   identity: string;
 }>;
+/**
+ * LifecycleLockDocumentが扱う値の構造を表す。
+ *
+ * @responsibility LifecycleLockDocumentに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000011
+ * @shape LifecycleLockDocumentが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant LifecycleLockDocumentで宣言した値と責務の対応を維持する。
+ * @boundary N/A: LifecycleLockDocumentの宣言は外部境界を開かない。
+ * @security N/A: LifecycleLockDocumentはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility LifecycleLockDocumentの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type LifecycleLockDocument = Readonly<{
   schema: "crdd/runtime-data/lifecycle-lock/v1";
   identity: string;
@@ -81,6 +180,22 @@ type LifecycleLockDocument = Readonly<{
   state: "active" | "released";
 }>;
 
+/**
+ * isSafeDirectoryの処理を実行する。
+ *
+ * @responsibility isSafeDirectoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input target: string
+ * @returns booleanを返す。
+ * @precondition 「target: string」がisSafeDirectoryの入力契約を満たす。
+ * @postcondition isSafeDirectoryの責務を完了した結果だけを返す。
+ * @effect isSafeDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: isSafeDirectoryは独自の失敗分岐を所有しない。
+ * @invariant isSafeDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: isSafeDirectoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isSafeDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function isSafeDirectory(target: string): boolean {
   const metadata = fs.lstatSync(target);
   return (
@@ -89,6 +204,22 @@ function isSafeDirectory(target: string): boolean {
     fs.realpathSync.native(target) === path.resolve(target)
   );
 }
+/**
+ * ensureDirectoryの処理を実行する。
+ *
+ * @responsibility ensureDirectoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input target: string
+ * @returns N/A: ensureDirectoryは戻り値を返さない。
+ * @precondition 「target: string」がensureDirectoryの入力契約を満たす。
+ * @postcondition ensureDirectoryの責務を完了して呼出し元へ制御を戻す。
+ * @effect ensureDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure ensureDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant ensureDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: ensureDirectoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: ensureDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function ensureDirectory(target: string): void {
   try {
     fs.mkdirSync(target, { mode: 0o700 });
@@ -98,6 +229,22 @@ function ensureDirectory(target: string): void {
   if (!isSafeDirectory(target))
     throw new Error("temporary_operation_boundary_invalid");
 }
+/**
+ * validInputの処理を実行する。
+ *
+ * @responsibility validInputに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input input: TemporaryOperationInput
+ * @returns booleanを返す。
+ * @precondition 「input: TemporaryOperationInput」がvalidInputの入力契約を満たす。
+ * @postcondition validInputの責務を完了した結果だけを返す。
+ * @effect N/A: validInputは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validInputは独自の失敗分岐を所有しない。
+ * @invariant validInputは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: validInputはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validInputは共有非同期状態を持たない同期処理である。
+ */
 function validInput(input: TemporaryOperationInput): boolean {
   return (
     ID.test(input.operationId) &&
@@ -116,6 +263,22 @@ function validInput(input: TemporaryOperationInput): boolean {
     ["required", "not_required"].includes(input.evidencePromotion)
   );
 }
+/**
+ * recoveryReferenceの処理を実行する。
+ *
+ * @responsibility recoveryReferenceに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input record: OperationRecord
+ * @returns TemporaryOperationRecoveryReferenceを返す。
+ * @precondition 「record: OperationRecord」がrecoveryReferenceの入力契約を満たす。
+ * @postcondition recoveryReferenceの責務を完了した結果だけを返す。
+ * @effect N/A: recoveryReferenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: recoveryReferenceは独自の失敗分岐を所有しない。
+ * @invariant recoveryReferenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: recoveryReferenceはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: recoveryReferenceは共有非同期状態を持たない同期処理である。
+ */
 function recoveryReference(
   record: OperationRecord,
 ): TemporaryOperationRecoveryReference {
@@ -126,6 +289,22 @@ function recoveryReference(
     generation: record.generation,
   });
 }
+/**
+ * inspectDocumentの処理を実行する。
+ *
+ * @responsibility inspectDocumentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input value: unknown
+ * @returns TemporaryOperationDocument | nullを返す。
+ * @precondition 「value: unknown」がinspectDocumentの入力契約を満たす。
+ * @postcondition inspectDocumentの責務を完了した結果だけを返す。
+ * @effect N/A: inspectDocumentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectDocumentは独自の失敗分岐を所有しない。
+ * @invariant inspectDocumentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: inspectDocumentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectDocumentは共有非同期状態を持たない同期処理である。
+ */
 function inspectDocument(value: unknown): TemporaryOperationDocument | null {
   if (typeof value !== "object" || value === null || Array.isArray(value))
     return null;
@@ -182,6 +361,22 @@ function inspectDocument(value: unknown): TemporaryOperationDocument | null {
     return null;
   return r as TemporaryOperationDocument;
 }
+/**
+ * readDocumentの処理を実行する。
+ *
+ * @responsibility readDocumentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input documentPath: string
+ * @returns TemporaryOperationDocumentを返す。
+ * @precondition 「documentPath: string」がreadDocumentの入力契約を満たす。
+ * @postcondition readDocumentの責務を完了した結果だけを返す。
+ * @effect readDocumentはFilesystemの読取りまたは書込みを実行する。
+ * @failure readDocumentは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readDocumentは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: readDocumentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readDocumentは共有非同期状態を持たない同期処理である。
+ */
 function readDocument(documentPath: string): TemporaryOperationDocument {
   const metadata = fs.lstatSync(documentPath);
   if (!metadata.isFile() || metadata.isSymbolicLink())
@@ -192,6 +387,22 @@ function readDocument(documentPath: string): TemporaryOperationDocument {
   if (!document) throw new Error("temporary_operation_document_invalid");
   return document;
 }
+/**
+ * writeDocumentの処理を実行する。
+ *
+ * @responsibility writeDocumentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input documentPath: string、document: TemporaryOperationDocument
+ * @returns N/A: writeDocumentは戻り値を返さない。
+ * @precondition 「documentPath: string、document: TemporaryOperationDocument」がwriteDocumentの入力契約を満たす。
+ * @postcondition writeDocumentの責務を完了して呼出し元へ制御を戻す。
+ * @effect writeDocumentはFilesystemの読取りまたは書込みを実行する。
+ * @failure writeDocumentは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant writeDocumentは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: writeDocumentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: writeDocumentは共有非同期状態を持たない同期処理である。
+ */
 function writeDocument(
   documentPath: string,
   document: TemporaryOperationDocument,
@@ -229,6 +440,22 @@ function writeDocument(
   }
 }
 
+/**
+ * createDocumentの処理を実行する。
+ *
+ * @responsibility createDocumentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input documentPath: string、document: TemporaryOperationDocument、afterStagingDocumentCreated: () => void、afterStagingDocumentWritten: () => void、afterCanonicalDocumentLinked: () => void
+ * @returns N/A: createDocumentは戻り値を返さない。
+ * @precondition 「documentPath: string、document: TemporaryOperationDocument、afterStagingDocumentCreated: () => void、afterStagingDocumentWritten: () => void、afterCanonicalDocumentLinked: () => void」がcreateDocumentの入力契約を満たす。
+ * @postcondition createDocumentの責務を完了して呼出し元へ制御を戻す。
+ * @effect createDocumentはFilesystemの読取りまたは書込みを実行する。
+ * @failure createDocumentは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createDocumentは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: createDocumentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createDocumentは共有非同期状態を持たない同期処理である。
+ */
 function createDocument(
   documentPath: string,
   document: TemporaryOperationDocument,
@@ -269,6 +496,22 @@ function createDocument(
   }
 }
 
+/**
+ * initialDocumentStagingPathの処理を実行する。
+ *
+ * @responsibility initialDocumentStagingPathに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input documentPath: string、reference: TemporaryOperationRecoveryReference
+ * @returns stringを返す。
+ * @precondition 「documentPath: string、reference: TemporaryOperationRecoveryReference」がinitialDocumentStagingPathの入力契約を満たす。
+ * @postcondition initialDocumentStagingPathの責務を完了した結果だけを返す。
+ * @effect N/A: initialDocumentStagingPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: initialDocumentStagingPathは独自の失敗分岐を所有しない。
+ * @invariant initialDocumentStagingPathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: initialDocumentStagingPathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: initialDocumentStagingPathは共有非同期状態を持たない同期処理である。
+ */
 function initialDocumentStagingPath(
   documentPath: string,
   reference: TemporaryOperationRecoveryReference,
@@ -280,6 +523,22 @@ function initialDocumentStagingPath(
   );
 }
 
+/**
+ * removeConfirmedInitialDocumentStagingAliasの処理を実行する。
+ *
+ * @responsibility removeConfirmedInitialDocumentStagingAliasに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input documentPath: string、reference: TemporaryOperationRecoveryReference
+ * @returns voidを返す。
+ * @precondition 「documentPath: string、reference: TemporaryOperationRecoveryReference」がremoveConfirmedInitialDocumentStagingAliasの入力契約を満たす。
+ * @postcondition removeConfirmedInitialDocumentStagingAliasの責務を完了した結果だけを返す。
+ * @effect removeConfirmedInitialDocumentStagingAliasはFilesystemの読取りまたは書込みを実行する。
+ * @failure removeConfirmedInitialDocumentStagingAliasは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant removeConfirmedInitialDocumentStagingAliasは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: removeConfirmedInitialDocumentStagingAliasはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: removeConfirmedInitialDocumentStagingAliasは共有非同期状態を持たない同期処理である。
+ */
 function removeConfirmedInitialDocumentStagingAlias(
   documentPath: string,
   reference: TemporaryOperationRecoveryReference,
@@ -317,6 +576,22 @@ function removeConfirmedInitialDocumentStagingAlias(
     throw new Error("temporary_operation_staging_alias_cleanup_unconfirmed");
 }
 
+/**
+ * processIsAliveの処理を実行する。
+ *
+ * @responsibility processIsAliveに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input processId: number
+ * @returns processIsAliveの計算結果を返す。
+ * @precondition 「processId: number」がprocessIsAliveの入力契約を満たす。
+ * @postcondition processIsAliveの責務を完了した結果だけを返す。
+ * @effect processIsAliveは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure processIsAliveは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant processIsAliveは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: processIsAliveはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: processIsAliveは共有非同期状態を持たない同期処理である。
+ */
 function processIsAlive(processId: number) {
   try {
     process.kill(processId, 0);
@@ -325,6 +600,22 @@ function processIsAlive(processId: number) {
     return (error as NodeJS.ErrnoException).code === "EPERM";
   }
 }
+/**
+ * readLockDocumentの処理を実行する。
+ *
+ * @responsibility readLockDocumentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input target: string
+ * @returns LifecycleLockDocument | nullを返す。
+ * @precondition 「target: string」がreadLockDocumentの入力契約を満たす。
+ * @postcondition readLockDocumentの責務を完了した結果だけを返す。
+ * @effect readLockDocumentはFilesystemの読取りまたは書込みを実行する。
+ * @failure readLockDocumentは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readLockDocumentは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: readLockDocumentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readLockDocumentは共有非同期状態を持たない同期処理である。
+ */
 function readLockDocument(target: string): LifecycleLockDocument | null {
   try {
     const metadata = fs.lstatSync(target);
@@ -349,6 +640,22 @@ function readLockDocument(target: string): LifecycleLockDocument | null {
     return null;
   }
 }
+/**
+ * publishLockDocumentの処理を実行する。
+ *
+ * @responsibility publishLockDocumentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input controlRoot: string、operationId: string、document: LifecycleLockDocument、afterStagingLockCreated: () => void、afterStagingLockWritten: () => void、afterCanonicalLockLinked: () => void
+ * @returns stringを返す。
+ * @precondition 「controlRoot: string、operationId: string、document: LifecycleLockDocument、afterStagingLockCreated: () => void、afterStagingLockWritten: () => void、afterCanonicalLockLinked: () => void」がpublishLockDocumentの入力契約を満たす。
+ * @postcondition publishLockDocumentの責務を完了した結果だけを返す。
+ * @effect publishLockDocumentはFilesystemの読取りまたは書込みを実行する。
+ * @failure publishLockDocumentは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant publishLockDocumentは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: publishLockDocumentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: publishLockDocumentは共有非同期状態を持たない同期処理である。
+ */
 function publishLockDocument(
   controlRoot: string,
   operationId: string,
@@ -397,9 +704,41 @@ function publishLockDocument(
   }
   return target;
 }
+/**
+ * removeLockFileの処理を実行する。
+ *
+ * @responsibility removeLockFileに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input target: string
+ * @returns N/A: removeLockFileは戻り値を返さない。
+ * @precondition 「target: string」がremoveLockFileの入力契約を満たす。
+ * @postcondition removeLockFileの責務を完了して呼出し元へ制御を戻す。
+ * @effect removeLockFileはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: removeLockFileは独自の失敗分岐を所有しない。
+ * @invariant removeLockFileは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: removeLockFileはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: removeLockFileは共有非同期状態を持たない同期処理である。
+ */
 function removeLockFile(target: string): void {
   fs.rmSync(target);
 }
+/**
+ * updateLockDocumentの処理を実行する。
+ *
+ * @responsibility updateLockDocumentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input target: string、document: LifecycleLockDocument
+ * @returns N/A: updateLockDocumentは戻り値を返さない。
+ * @precondition 「target: string、document: LifecycleLockDocument」がupdateLockDocumentの入力契約を満たす。
+ * @postcondition updateLockDocumentの責務を完了して呼出し元へ制御を戻す。
+ * @effect updateLockDocumentはFilesystemの読取りまたは書込みを実行する。
+ * @failure updateLockDocumentは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant updateLockDocumentは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: updateLockDocumentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: updateLockDocumentは共有非同期状態を持たない同期処理である。
+ */
 function updateLockDocument(
   target: string,
   document: LifecycleLockDocument,
@@ -431,6 +770,22 @@ function updateLockDocument(
     if (fs.existsSync(temporary)) fs.rmSync(temporary, { force: true });
   }
 }
+/**
+ * acquireLockの処理を実行する。
+ *
+ * @responsibility acquireLockに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input controlRoot: string、operationId: string、identity: string、afterStagingLockCreated: () => void、afterStagingLockWritten: () => void、afterCanonicalLockLinked: () => void
+ * @returns LifecycleLockを返す。
+ * @precondition 「controlRoot: string、operationId: string、identity: string、afterStagingLockCreated: () => void、afterStagingLockWritten: () => void、afterCanonicalLockLinked: () => void」がacquireLockの入力契約を満たす。
+ * @postcondition acquireLockの責務を完了した結果だけを返す。
+ * @effect acquireLockは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure acquireLockは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant acquireLockは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: acquireLockはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: acquireLockは共有非同期状態を持たない同期処理である。
+ */
 function acquireLock(
   controlRoot: string,
   operationId: string,
@@ -477,6 +832,22 @@ function acquireLock(
   }
   throw new Error("temporary_operation_lifecycle_busy");
 }
+/**
+ * releaseLockの処理を実行する。
+ *
+ * @responsibility releaseLockに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input lock: LifecycleLock、remove: (target: string) => void
+ * @returns booleanを返す。
+ * @precondition 「lock: LifecycleLock、remove: (target: string) => void」がreleaseLockの入力契約を満たす。
+ * @postcondition releaseLockの責務を完了した結果だけを返す。
+ * @effect releaseLockはFilesystemの読取りまたは書込みを実行する。
+ * @failure releaseLockは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant releaseLockは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: releaseLockはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: releaseLockは共有非同期状態を持たない同期処理である。
+ */
 function releaseLock(
   lock: LifecycleLock,
   remove: (target: string) => void = removeLockFile,
@@ -500,6 +871,22 @@ function releaseLock(
     return false;
   }
 }
+/**
+ * issueCapabilityの処理を実行する。
+ *
+ * @responsibility issueCapabilityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input controlRoot: string、directory: string、documentPath: string、document: TemporaryOperationDocument
+ * @returns issueCapabilityの計算結果を返す。
+ * @precondition 「controlRoot: string、directory: string、documentPath: string、document: TemporaryOperationDocument」がissueCapabilityの入力契約を満たす。
+ * @postcondition issueCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: issueCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: issueCapabilityは独自の失敗分岐を所有しない。
+ * @invariant issueCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: issueCapabilityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: issueCapabilityは共有非同期状態を持たない同期処理である。
+ */
 function issueCapability(
   controlRoot: string,
   directory: string,
@@ -524,6 +911,22 @@ function issueCapability(
   return { capability, record };
 }
 
+/**
+ * createTemporaryOperationInternalの処理を実行する。
+ *
+ * @responsibility createTemporaryOperationInternalに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input rootCapability: VerifiedRepositoryRoot、input: TemporaryOperationInput、afterStagingDocumentCreated: () => void、afterStagingDocumentWritten: () => void、afterCanonicalDocumentLinked: () => void、afterControlDocumentPublished: () => void
+ * @returns createTemporaryOperationInternalの計算結果を返す。
+ * @precondition 「rootCapability: VerifiedRepositoryRoot、input: TemporaryOperationInput、afterStagingDocumentCreated: () => void、afterStagingDocumentWritten: () => void、afterCanonicalDocumentLinked: () => void、afterControlDocumentPublished: () => void」がcreateTemporaryOperationInternalの入力契約を満たす。
+ * @postcondition createTemporaryOperationInternalの責務を完了した結果だけを返す。
+ * @effect createTemporaryOperationInternalはFilesystemの読取りまたは書込みを実行する。
+ * @failure createTemporaryOperationInternalは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createTemporaryOperationInternalは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: createTemporaryOperationInternalはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createTemporaryOperationInternalは共有非同期状態を持たない同期処理である。
+ */
 function createTemporaryOperationInternal(
   rootCapability: VerifiedRepositoryRoot,
   input: TemporaryOperationInput,
@@ -672,6 +1075,22 @@ function createTemporaryOperationInternal(
   }
 }
 
+/**
+ * createTemporaryOperationの処理を実行する。
+ *
+ * @responsibility createTemporaryOperationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input rootCapability: VerifiedRepositoryRoot、input: TemporaryOperationInput
+ * @returns createTemporaryOperationの計算結果を返す。
+ * @precondition 「rootCapability: VerifiedRepositoryRoot、input: TemporaryOperationInput」がcreateTemporaryOperationの入力契約を満たす。
+ * @postcondition createTemporaryOperationの責務を完了した結果だけを返す。
+ * @effect N/A: createTemporaryOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createTemporaryOperationは独自の失敗分岐を所有しない。
+ * @invariant createTemporaryOperationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: createTemporaryOperationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createTemporaryOperationは共有非同期状態を持たない同期処理である。
+ */
 export function createTemporaryOperation(
   rootCapability: VerifiedRepositoryRoot,
   input: TemporaryOperationInput,
@@ -686,7 +1105,22 @@ export function createTemporaryOperation(
   );
 }
 
-/** Direct-file verification seam; intentionally omitted from the public index. */
+/**
+ * Direct-file verification seam; intentionally omitted from the public index.
+ *
+ * @responsibility createTemporaryOperationWithInterruptionForVerificationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input rootCapability: VerifiedRepositoryRoot、input: TemporaryOperationInput、phase: | "after_staging_created" | "after_staging" | "after_staging_linked" | "after_control"、interrupt: () => void
+ * @returns createTemporaryOperationWithInterruptionForVerificationの計算結果を返す。
+ * @precondition 「rootCapability: VerifiedRepositoryRoot、input: TemporaryOperationInput、phase: | "after_staging_created" | "after_staging" | "after_staging_linked" | "after_control"、interrupt: () => void」がcreateTemporaryOperationWithInterruptionForVerificationの入力契約を満たす。
+ * @postcondition createTemporaryOperationWithInterruptionForVerificationの責務を完了した結果だけを返す。
+ * @effect N/A: createTemporaryOperationWithInterruptionForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createTemporaryOperationWithInterruptionForVerificationは独自の失敗分岐を所有しない。
+ * @invariant createTemporaryOperationWithInterruptionForVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: createTemporaryOperationWithInterruptionForVerificationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createTemporaryOperationWithInterruptionForVerificationは共有非同期状態を持たない同期処理である。
+ */
 export function createTemporaryOperationWithInterruptionForVerification(
   rootCapability: VerifiedRepositoryRoot,
   input: TemporaryOperationInput,
@@ -707,6 +1141,22 @@ export function createTemporaryOperationWithInterruptionForVerification(
   );
 }
 
+/**
+ * resumeTemporaryOperationInternalの処理を実行する。
+ *
+ * @responsibility resumeTemporaryOperationInternalに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input rootCapability: VerifiedRepositoryRoot、reference: TemporaryOperationRecoveryReference、nextIdentity: string、afterStagingLockCreated: () => void、afterStagingLockWritten: () => void、afterCanonicalLockLinked: () => void、afterNextGenerationPublished: () => void
+ * @returns resumeTemporaryOperationInternalの計算結果を返す。
+ * @precondition 「rootCapability: VerifiedRepositoryRoot、reference: TemporaryOperationRecoveryReference、nextIdentity: string、afterStagingLockCreated: () => void、afterStagingLockWritten: () => void、afterCanonicalLockLinked: () => void、afterNextGenerationPublished: () => void」がresumeTemporaryOperationInternalの入力契約を満たす。
+ * @postcondition resumeTemporaryOperationInternalの責務を完了した結果だけを返す。
+ * @effect resumeTemporaryOperationInternalはFilesystemの読取りまたは書込みを実行する。
+ * @failure resumeTemporaryOperationInternalは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant resumeTemporaryOperationInternalは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: resumeTemporaryOperationInternalはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: resumeTemporaryOperationInternalは共有非同期状態を持たない同期処理である。
+ */
 function resumeTemporaryOperationInternal(
   rootCapability: VerifiedRepositoryRoot,
   reference: TemporaryOperationRecoveryReference,
@@ -901,6 +1351,22 @@ function resumeTemporaryOperationInternal(
   }
 }
 
+/**
+ * resumeTemporaryOperationの処理を実行する。
+ *
+ * @responsibility resumeTemporaryOperationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input rootCapability: VerifiedRepositoryRoot、reference: TemporaryOperationRecoveryReference、nextIdentity: string
+ * @returns resumeTemporaryOperationの計算結果を返す。
+ * @precondition 「rootCapability: VerifiedRepositoryRoot、reference: TemporaryOperationRecoveryReference、nextIdentity: string」がresumeTemporaryOperationの入力契約を満たす。
+ * @postcondition resumeTemporaryOperationの責務を完了した結果だけを返す。
+ * @effect N/A: resumeTemporaryOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resumeTemporaryOperationは独自の失敗分岐を所有しない。
+ * @invariant resumeTemporaryOperationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: resumeTemporaryOperationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: resumeTemporaryOperationは共有非同期状態を持たない同期処理である。
+ */
 export function resumeTemporaryOperation(
   rootCapability: VerifiedRepositoryRoot,
   reference: TemporaryOperationRecoveryReference,
@@ -917,7 +1383,22 @@ export function resumeTemporaryOperation(
   );
 }
 
-/** Direct-file verification seam; intentionally omitted from the public index. */
+/**
+ * Direct-file verification seam; intentionally omitted from the public index.
+ *
+ * @responsibility resumeTemporaryOperationWithInterruptionForVerificationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input rootCapability: VerifiedRepositoryRoot、reference: TemporaryOperationRecoveryReference、nextIdentity: string、phase: | "after_lock_staging_created" | "after_lock_staging" | "after_lock_linked" | "after_generation"、afterNextGenerationPublished: () => void
+ * @returns resumeTemporaryOperationWithInterruptionForVerificationの計算結果を返す。
+ * @precondition 「rootCapability: VerifiedRepositoryRoot、reference: TemporaryOperationRecoveryReference、nextIdentity: string、phase: | "after_lock_staging_created" | "after_lock_staging" | "after_lock_linked" | "after_generation"、afterNextGenerationPublished: () => void」がresumeTemporaryOperationWithInterruptionForVerificationの入力契約を満たす。
+ * @postcondition resumeTemporaryOperationWithInterruptionForVerificationの責務を完了した結果だけを返す。
+ * @effect N/A: resumeTemporaryOperationWithInterruptionForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resumeTemporaryOperationWithInterruptionForVerificationは独自の失敗分岐を所有しない。
+ * @invariant resumeTemporaryOperationWithInterruptionForVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: resumeTemporaryOperationWithInterruptionForVerificationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: resumeTemporaryOperationWithInterruptionForVerificationは共有非同期状態を持たない同期処理である。
+ */
 export function resumeTemporaryOperationWithInterruptionForVerification(
   rootCapability: VerifiedRepositoryRoot,
   reference: TemporaryOperationRecoveryReference,
@@ -942,6 +1423,22 @@ export function resumeTemporaryOperationWithInterruptionForVerification(
   );
 }
 
+/**
+ * verifyTemporaryOperationEvidencePromotionの処理を実行する。
+ *
+ * @responsibility verifyTemporaryOperationEvidencePromotionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input rootCapability: VerifiedRepositoryRoot、capability: TemporaryOperationCapability、input: Readonly<{ recordId: string; artifactName: string; sha256: string }>
+ * @returns verifyTemporaryOperationEvidencePromotionの計算結果を返す。
+ * @precondition 「rootCapability: VerifiedRepositoryRoot、capability: TemporaryOperationCapability、input: Readonly<{ recordId: string; artifactName: string; sha256: string }>」がverifyTemporaryOperationEvidencePromotionの入力契約を満たす。
+ * @postcondition verifyTemporaryOperationEvidencePromotionの責務を完了した結果だけを返す。
+ * @effect verifyTemporaryOperationEvidencePromotionはFilesystemの読取りまたは書込みを実行する。
+ * @failure verifyTemporaryOperationEvidencePromotionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyTemporaryOperationEvidencePromotionは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security verifyTemporaryOperationEvidencePromotionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyTemporaryOperationEvidencePromotionは共有非同期状態を持たない同期処理である。
+ */
 export function verifyTemporaryOperationEvidencePromotion(
   rootCapability: VerifiedRepositoryRoot,
   capability: TemporaryOperationCapability,
@@ -1020,6 +1517,22 @@ export function verifyTemporaryOperationEvidencePromotion(
   }
 }
 
+/**
+ * settleTemporaryOperationWithRemovalの処理を実行する。
+ *
+ * @responsibility settleTemporaryOperationWithRemovalに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input capability: TemporaryOperationCapability、outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost"、promotionReceipt: TemporaryEvidencePromotionReceipt | null、removeDirectory: (directory: string) => void、removeLifecycleLock: (target: string) => void
+ * @returns settleTemporaryOperationWithRemovalの計算結果を返す。
+ * @precondition 「capability: TemporaryOperationCapability、outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost"、promotionReceipt: TemporaryEvidencePromotionReceipt | null、removeDirectory: (directory: string) => void、removeLifecycleLock: (target: string) => void」がsettleTemporaryOperationWithRemovalの入力契約を満たす。
+ * @postcondition settleTemporaryOperationWithRemovalの責務を完了した結果だけを返す。
+ * @effect settleTemporaryOperationWithRemovalはFilesystemの読取りまたは書込みを実行する。
+ * @failure settleTemporaryOperationWithRemovalは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant settleTemporaryOperationWithRemovalは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security settleTemporaryOperationWithRemovalはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: settleTemporaryOperationWithRemovalは共有非同期状態を持たない同期処理である。
+ */
 function settleTemporaryOperationWithRemoval(
   capability: TemporaryOperationCapability,
   outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost",
@@ -1161,6 +1674,22 @@ function settleTemporaryOperationWithRemoval(
   }
 }
 
+/**
+ * settleTemporaryOperationの処理を実行する。
+ *
+ * @responsibility settleTemporaryOperationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input capability: TemporaryOperationCapability、outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost"、promotionReceipt: TemporaryEvidencePromotionReceipt | null
+ * @returns settleTemporaryOperationの計算結果を返す。
+ * @precondition 「capability: TemporaryOperationCapability、outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost"、promotionReceipt: TemporaryEvidencePromotionReceipt | null」がsettleTemporaryOperationの入力契約を満たす。
+ * @postcondition settleTemporaryOperationの責務を完了した結果だけを返す。
+ * @effect settleTemporaryOperationはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: settleTemporaryOperationは独自の失敗分岐を所有しない。
+ * @invariant settleTemporaryOperationは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security settleTemporaryOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: settleTemporaryOperationは共有非同期状態を持たない同期処理である。
+ */
 export function settleTemporaryOperation(
   capability: TemporaryOperationCapability,
   outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost",
@@ -1174,7 +1703,22 @@ export function settleTemporaryOperation(
   );
 }
 
-/** Internal contract-test entry; omitted from the package public index. */
+/**
+ * Internal contract-test entry; omitted from the package public index.
+ *
+ * @responsibility settleTemporaryOperationWithRemovalForVerificationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input capability: TemporaryOperationCapability、outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost"、promotionReceipt: TemporaryEvidencePromotionReceipt | null、removeDirectory: (directory: string) => void、removeLifecycleLock: (target: string) => void
+ * @returns settleTemporaryOperationWithRemovalForVerificationの計算結果を返す。
+ * @precondition 「capability: TemporaryOperationCapability、outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost"、promotionReceipt: TemporaryEvidencePromotionReceipt | null、removeDirectory: (directory: string) => void、removeLifecycleLock: (target: string) => void」がsettleTemporaryOperationWithRemovalForVerificationの入力契約を満たす。
+ * @postcondition settleTemporaryOperationWithRemovalForVerificationの責務を完了した結果だけを返す。
+ * @effect N/A: settleTemporaryOperationWithRemovalForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: settleTemporaryOperationWithRemovalForVerificationは独自の失敗分岐を所有しない。
+ * @invariant settleTemporaryOperationWithRemovalForVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security settleTemporaryOperationWithRemovalForVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: settleTemporaryOperationWithRemovalForVerificationは共有非同期状態を持たない同期処理である。
+ */
 export function settleTemporaryOperationWithRemovalForVerification(
   capability: TemporaryOperationCapability,
   outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost",

@@ -42,6 +42,17 @@ const rootCapabilities = new WeakMap<
   }>
 >();
 
+/**
+ * Artifactが扱う値の構造を表す。
+ *
+ * @responsibility Artifactに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape Artifactが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Artifactで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Artifactの宣言は外部境界を開かない。
+ * @security ArtifactはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Artifactの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Artifact = Readonly<{
   relativePath: string;
   target: string;
@@ -51,6 +62,22 @@ type Artifact = Readonly<{
   sha256: string;
 }>;
 
+/**
+ * sameArtifactの処理を実行する。
+ *
+ * @responsibility sameArtifactに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input left: unknown、right: unknown
+ * @returns sameArtifactの計算結果を返す。
+ * @precondition 「left: unknown、right: unknown」がsameArtifactの入力契約を満たす。
+ * @postcondition sameArtifactの責務を完了した結果だけを返す。
+ * @effect N/A: sameArtifactは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameArtifactは独自の失敗分岐を所有しない。
+ * @invariant sameArtifactは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security sameArtifactはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameArtifactは共有非同期状態を持たない同期処理である。
+ */
 function sameArtifact(left: unknown, right: unknown) {
   if (!left || !right || typeof left !== "object" || typeof right !== "object")
     return false;
@@ -66,6 +93,22 @@ function sameArtifact(left: unknown, right: unknown) {
   );
 }
 
+/**
+ * blockedの処理を実行する。
+ *
+ * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input reason: string、effects: Readonly<{ processEffectIssued?: boolean; helperExitConfirmed?: boolean; filesystemEffectIssued?: boolean; }>
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: string、effects: Readonly<{ processEffectIssued?: boolean; helperExitConfirmed?: boolean; filesystemEffectIssued?: boolean; }>」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(
   reason: string,
   effects: Readonly<{
@@ -101,6 +144,22 @@ function blocked(
   });
 }
 
+/**
+ * rootPathCandidateの処理を実行する。
+ *
+ * @responsibility rootPathCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input kind: "candidate_store" | "runtime_state"
+ * @returns rootPathCandidateの計算結果を返す。
+ * @precondition 「kind: "candidate_store" | "runtime_state"」がrootPathCandidateの入力契約を満たす。
+ * @postcondition rootPathCandidateの責務を完了した結果だけを返す。
+ * @effect rootPathCandidateは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: rootPathCandidateは独自の失敗分岐を所有しない。
+ * @invariant rootPathCandidateは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security rootPathCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: rootPathCandidateは共有非同期状態を持たない同期処理である。
+ */
 function rootPathCandidate(kind: "candidate_store" | "runtime_state") {
   const localAppData = process.env.LOCALAPPDATA;
   if (
@@ -118,6 +177,22 @@ function rootPathCandidate(kind: "candidate_store" | "runtime_state") {
   return isSupportedWindowsAbsolutePathCandidate(rootPath) ? rootPath : null;
 }
 
+/**
+ * inspectRuntimeOwnedWindowsProtectedRootの処理を実行する。
+ *
+ * @responsibility inspectRuntimeOwnedWindowsProtectedRootに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input kind: "candidate_store" | "runtime_state"、initializeIfMissing: unknown、evaluationTime: unknown、developmentContext: unknown
+ * @returns inspectRuntimeOwnedWindowsProtectedRootの計算結果を返す。
+ * @precondition 「kind: "candidate_store" | "runtime_state"、initializeIfMissing: unknown、evaluationTime: unknown、developmentContext: unknown」がinspectRuntimeOwnedWindowsProtectedRootの入力契約を満たす。
+ * @postcondition inspectRuntimeOwnedWindowsProtectedRootの責務を完了した結果だけを返す。
+ * @effect inspectRuntimeOwnedWindowsProtectedRootは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: inspectRuntimeOwnedWindowsProtectedRootは独自の失敗分岐を所有しない。
+ * @invariant inspectRuntimeOwnedWindowsProtectedRootは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security inspectRuntimeOwnedWindowsProtectedRootはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectRuntimeOwnedWindowsProtectedRootは共有非同期状態を持たない同期処理である。
+ */
 function inspectRuntimeOwnedWindowsProtectedRoot(
   kind: "candidate_store" | "runtime_state",
   initializeIfMissing: unknown,
@@ -301,6 +376,22 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
   });
 }
 
+/**
+ * inspectRuntimeOwnedWindowsCandidateStoreの処理を実行する。
+ *
+ * @responsibility inspectRuntimeOwnedWindowsCandidateStoreに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input initializeIfMissing: unknown、evaluationTime: unknown、developmentContext: unknown
+ * @returns inspectRuntimeOwnedWindowsCandidateStoreの計算結果を返す。
+ * @precondition 「initializeIfMissing: unknown、evaluationTime: unknown、developmentContext: unknown」がinspectRuntimeOwnedWindowsCandidateStoreの入力契約を満たす。
+ * @postcondition inspectRuntimeOwnedWindowsCandidateStoreの責務を完了した結果だけを返す。
+ * @effect N/A: inspectRuntimeOwnedWindowsCandidateStoreは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectRuntimeOwnedWindowsCandidateStoreは独自の失敗分岐を所有しない。
+ * @invariant inspectRuntimeOwnedWindowsCandidateStoreは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security inspectRuntimeOwnedWindowsCandidateStoreはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectRuntimeOwnedWindowsCandidateStoreは共有非同期状態を持たない同期処理である。
+ */
 export function inspectRuntimeOwnedWindowsCandidateStore(
   initializeIfMissing: unknown,
   evaluationTime: unknown,
@@ -314,6 +405,22 @@ export function inspectRuntimeOwnedWindowsCandidateStore(
   );
 }
 
+/**
+ * inspectRuntimeOwnedWindowsRuntimeStateの処理を実行する。
+ *
+ * @responsibility inspectRuntimeOwnedWindowsRuntimeStateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input initializeIfMissing: unknown、evaluationTime: unknown、developmentContext: unknown
+ * @returns inspectRuntimeOwnedWindowsRuntimeStateの計算結果を返す。
+ * @precondition 「initializeIfMissing: unknown、evaluationTime: unknown、developmentContext: unknown」がinspectRuntimeOwnedWindowsRuntimeStateの入力契約を満たす。
+ * @postcondition inspectRuntimeOwnedWindowsRuntimeStateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectRuntimeOwnedWindowsRuntimeStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectRuntimeOwnedWindowsRuntimeStateは独自の失敗分岐を所有しない。
+ * @invariant inspectRuntimeOwnedWindowsRuntimeStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security inspectRuntimeOwnedWindowsRuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectRuntimeOwnedWindowsRuntimeStateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectRuntimeOwnedWindowsRuntimeState(
   initializeIfMissing: unknown,
   evaluationTime: unknown,
@@ -327,6 +434,22 @@ export function inspectRuntimeOwnedWindowsRuntimeState(
   );
 }
 
+/**
+ * consumeRuntimeOwnedCandidateStoreRootCapabilityの処理を実行する。
+ *
+ * @responsibility consumeRuntimeOwnedCandidateStoreRootCapabilityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input capability: unknown
+ * @returns consumeRuntimeOwnedCandidateStoreRootCapabilityの計算結果を返す。
+ * @precondition 「capability: unknown」がconsumeRuntimeOwnedCandidateStoreRootCapabilityの入力契約を満たす。
+ * @postcondition consumeRuntimeOwnedCandidateStoreRootCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: consumeRuntimeOwnedCandidateStoreRootCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: consumeRuntimeOwnedCandidateStoreRootCapabilityは独自の失敗分岐を所有しない。
+ * @invariant consumeRuntimeOwnedCandidateStoreRootCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security consumeRuntimeOwnedCandidateStoreRootCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: consumeRuntimeOwnedCandidateStoreRootCapabilityは共有非同期状態を持たない同期処理である。
+ */
 export function consumeRuntimeOwnedCandidateStoreRootCapability(
   capability: unknown,
 ) {
@@ -344,6 +467,22 @@ export function consumeRuntimeOwnedCandidateStoreRootCapability(
     : null;
 }
 
+/**
+ * consumeRuntimeOwnedRuntimeStateRootCapabilityの処理を実行する。
+ *
+ * @responsibility consumeRuntimeOwnedRuntimeStateRootCapabilityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input capability: unknown
+ * @returns consumeRuntimeOwnedRuntimeStateRootCapabilityの計算結果を返す。
+ * @precondition 「capability: unknown」がconsumeRuntimeOwnedRuntimeStateRootCapabilityの入力契約を満たす。
+ * @postcondition consumeRuntimeOwnedRuntimeStateRootCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: consumeRuntimeOwnedRuntimeStateRootCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: consumeRuntimeOwnedRuntimeStateRootCapabilityは独自の失敗分岐を所有しない。
+ * @invariant consumeRuntimeOwnedRuntimeStateRootCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security consumeRuntimeOwnedRuntimeStateRootCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: consumeRuntimeOwnedRuntimeStateRootCapabilityは共有非同期状態を持たない同期処理である。
+ */
 export function consumeRuntimeOwnedRuntimeStateRootCapability(
   capability: unknown,
 ) {
@@ -361,6 +500,22 @@ export function consumeRuntimeOwnedRuntimeStateRootCapability(
     : null;
 }
 
+/**
+ * describeCandidateStoreWindowsAdapterContractの処理を実行する。
+ *
+ * @responsibility describeCandidateStoreWindowsAdapterContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeCandidateStoreWindowsAdapterContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeCandidateStoreWindowsAdapterContractの入力契約を満たす。
+ * @postcondition describeCandidateStoreWindowsAdapterContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeCandidateStoreWindowsAdapterContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeCandidateStoreWindowsAdapterContractは独自の失敗分岐を所有しない。
+ * @invariant describeCandidateStoreWindowsAdapterContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security describeCandidateStoreWindowsAdapterContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeCandidateStoreWindowsAdapterContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeCandidateStoreWindowsAdapterContract() {
   return Object.freeze({
     platform: "windows",

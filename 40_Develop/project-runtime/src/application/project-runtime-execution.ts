@@ -27,6 +27,17 @@ import type { ProjectRuntimeProcessSafetyPort } from "../ports/process-safety-po
 export const PROJECT_RUNTIME_EXECUTION_CONTRACT =
   "crdd-coordinator/project-runtime-execution/v1" as const;
 
+/**
+ * ProjectRuntimeTaskExecutionが扱う値の構造を表す。
+ *
+ * @responsibility ProjectRuntimeTaskExecutionに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeTaskExecutionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeTaskExecutionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeTaskExecutionの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimeTaskExecutionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimeTaskExecutionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeTaskExecution = Readonly<{
   taskId: string;
   authorityBindingId: string;
@@ -34,9 +45,31 @@ export type ProjectRuntimeTaskExecution = Readonly<{
   repositoryRoot: unknown;
 }>;
 
+/**
+ * ProjectRuntimeExecutionPublicationObservationが扱う値の構造を表す。
+ *
+ * @responsibility ProjectRuntimeExecutionPublicationObservationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeExecutionPublicationObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeExecutionPublicationObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeExecutionPublicationObservationの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimeExecutionPublicationObservationはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimeExecutionPublicationObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeExecutionPublicationObservation =
   ProjectRuntimeExecutionObservationPublication;
 
+/**
+ * ProjectRuntimeExecutionDependenciesが扱う値の構造を表す。
+ *
+ * @responsibility ProjectRuntimeExecutionDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeExecutionDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeExecutionDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeExecutionDependenciesの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimeExecutionDependenciesはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimeExecutionDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeExecutionDependencies = Readonly<{
   persistence: ProjectRuntimePersistencePorts;
   clockIdentity: ProjectRuntimeClockIdentityPort;
@@ -48,6 +81,17 @@ export type ProjectRuntimeExecutionDependencies = Readonly<{
   executionObservation?: ProjectRuntimeExecutionObservationPort;
 }>;
 
+/**
+ * ProjectRuntimeExecutionResultが扱う値の構造を表す。
+ *
+ * @responsibility ProjectRuntimeExecutionResultに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeExecutionResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeExecutionResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeExecutionResultの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimeExecutionResultはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimeExecutionResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeExecutionResult = Readonly<{
   contract: typeof PROJECT_RUNTIME_EXECUTION_CONTRACT;
   status: "completed" | "blocked" | "cancelled";
@@ -67,6 +111,17 @@ export type ProjectRuntimeExecutionResult = Readonly<{
   effectState: "no_effect" | "settled" | "unknown";
 }>;
 
+/**
+ * ExecutionInputが扱う値の構造を表す。
+ *
+ * @responsibility ExecutionInputに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape ExecutionInputが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ExecutionInputで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ExecutionInputの宣言は外部境界を開かない。
+ * @security N/A: ExecutionInputはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ExecutionInputの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ExecutionInput = Readonly<{
   projectId: string;
   milestoneId: string;
@@ -75,6 +130,22 @@ type ExecutionInput = Readonly<{
   cancellationSignal: AbortSignal;
 }>;
 
+/**
+ * stableIdの処理を実行する。
+ *
+ * @responsibility stableIdに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input dependencies: ProjectRuntimeExecutionDependencies、prefix: string、parts: readonly string[]
+ * @returns stableIdの計算結果を返す。
+ * @precondition 「dependencies: ProjectRuntimeExecutionDependencies、prefix: string、parts: readonly string[]」がstableIdの入力契約を満たす。
+ * @postcondition stableIdの責務を完了した結果だけを返す。
+ * @effect N/A: stableIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: stableIdは独自の失敗分岐を所有しない。
+ * @invariant stableIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: stableIdはProcess内の同一Subsystemで完結する。
+ * @security N/A: stableIdはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: stableIdは共有非同期状態を持たない同期処理である。
+ */
 function stableId(
   dependencies: ProjectRuntimeExecutionDependencies,
   prefix: string,
@@ -83,6 +154,22 @@ function stableId(
   return dependencies.clockIdentity.createStableId(prefix, parts);
 }
 
+/**
+ * validIdentityの処理を実行する。
+ *
+ * @responsibility validIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidIdentityの入力契約を満たす。
+ * @postcondition validIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: validIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validIdentityは独自の失敗分岐を所有しない。
+ * @invariant validIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validIdentityはProcess内の同一Subsystemで完結する。
+ * @security N/A: validIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validIdentityは共有非同期状態を持たない同期処理である。
+ */
 function validIdentity(value: unknown): value is string {
   return (
     typeof value === "string" &&
@@ -92,6 +179,22 @@ function validIdentity(value: unknown): value is string {
   );
 }
 
+/**
+ * validSingleTaskResultの処理を実行する。
+ *
+ * @responsibility validSingleTaskResultに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、runtimeIssuedRecoveryIds: ReadonlyMap< string, Readonly<{ attemptId: string; operationId: string }> >
+ * @returns value is ProjectRuntimeSingleTaskResultを返す。
+ * @precondition 「value: unknown、runtimeIssuedRecoveryIds: ReadonlyMap< string, Readonly<{ attemptId: string; operationId: string }> >」がvalidSingleTaskResultの入力契約を満たす。
+ * @postcondition validSingleTaskResultの責務を完了した結果だけを返す。
+ * @effect N/A: validSingleTaskResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure validSingleTaskResultは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant validSingleTaskResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validSingleTaskResultはProcess内の同一Subsystemで完結する。
+ * @security N/A: validSingleTaskResultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validSingleTaskResultは共有非同期状態を持たない同期処理である。
+ */
 function validSingleTaskResult(
   value: unknown,
   runtimeIssuedRecoveryIds: ReadonlyMap<
@@ -293,6 +396,22 @@ function validSingleTaskResult(
   }
 }
 
+/**
+ * resultの処理を実行する。
+ *
+ * @responsibility resultに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input input: ExecutionInput、fields: Omit< ProjectRuntimeExecutionResult, | "contract" | "projectId" | "queueId" | "processRestartRequired" | "recoveryIds" | "recoveryObligations" > & Readonly<{ processRestartRequired?: boolean; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string; }>[]; }>
+ * @returns ProjectRuntimeExecutionResultを返す。
+ * @precondition 「input: ExecutionInput、fields: Omit< ProjectRuntimeExecutionResult, | "contract" | "projectId" | "queueId" | "processRestartRequired" | "recoveryIds" | "recoveryObligations" > & Readonly<{ processRestartRequired?: boolean; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string; }>[]; }>」がresultの入力契約を満たす。
+ * @postcondition resultの責務を完了した結果だけを返す。
+ * @effect N/A: resultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resultは独自の失敗分岐を所有しない。
+ * @invariant resultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resultはProcess内の同一Subsystemで完結する。
+ * @security N/A: resultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: resultは共有非同期状態を持たない同期処理である。
+ */
 function result(
   input: ExecutionInput,
   fields: Omit<
@@ -325,6 +444,22 @@ function result(
   });
 }
 
+/**
+ * blockedの処理を実行する。
+ *
+ * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input input: ExecutionInput、reason: string、options: Readonly<{ state?: ProjectRuntimeState | null; completedTaskIds?: readonly string[]; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; effectState?: "no_effect" | "settled" | "unknown"; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string; }>[]; }>
+ * @returns blockedの計算結果を返す。
+ * @precondition 「input: ExecutionInput、reason: string、options: Readonly<{ state?: ProjectRuntimeState | null; completedTaskIds?: readonly string[]; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; effectState?: "no_effect" | "settled" | "unknown"; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string; }>[]; }>」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
+ * @security N/A: blockedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(
   input: ExecutionInput,
   reason: string,
@@ -356,6 +491,22 @@ function blocked(
   });
 }
 
+/**
+ * taskExecutionMapの処理を実行する。
+ *
+ * @responsibility taskExecutionMapに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input state: ProjectRuntimeState、executions: readonly ProjectRuntimeTaskExecution[]
+ * @returns taskExecutionMapの計算結果を返す。
+ * @precondition 「state: ProjectRuntimeState、executions: readonly ProjectRuntimeTaskExecution[]」がtaskExecutionMapの入力契約を満たす。
+ * @postcondition taskExecutionMapの責務を完了した結果だけを返す。
+ * @effect N/A: taskExecutionMapは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: taskExecutionMapは独自の失敗分岐を所有しない。
+ * @invariant taskExecutionMapは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: taskExecutionMapはProcess内の同一Subsystemで完結する。
+ * @security N/A: taskExecutionMapはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: taskExecutionMapは共有非同期状態を持たない同期処理である。
+ */
 function taskExecutionMap(
   state: ProjectRuntimeState,
   executions: readonly ProjectRuntimeTaskExecution[],
@@ -384,6 +535,22 @@ function taskExecutionMap(
   return result;
 }
 
+/**
+ * persistedStateの処理を実行する。
+ *
+ * @responsibility persistedStateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input dependencies: ProjectRuntimeExecutionDependencies、state: ProjectRuntimeState、expectedGeneration: number
+ * @returns persistedStateの計算結果を返す。
+ * @precondition 「dependencies: ProjectRuntimeExecutionDependencies、state: ProjectRuntimeState、expectedGeneration: number」がpersistedStateの入力契約を満たす。
+ * @postcondition persistedStateの責務を完了した結果だけを返す。
+ * @effect N/A: persistedStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: persistedStateは独自の失敗分岐を所有しない。
+ * @invariant persistedStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: persistedStateはProcess内の同一Subsystemで完結する。
+ * @security N/A: persistedStateはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: persistedStateは共有非同期状態を持たない同期処理である。
+ */
 function persistedState(
   dependencies: ProjectRuntimeExecutionDependencies,
   state: ProjectRuntimeState,
@@ -394,11 +561,19 @@ function persistedState(
 
 /**
  * Own one durable Project operation from a queued request through all currently
- * reachable Task attempts. Short mutation locks are never held while a Single
- * Task Runtime effect is awaited. Capacity and conflict reservations are first
- * persisted in Project State; task results are accepted only for the exact
- * attempt and repository revision. Unknown cleanup becomes a durable recovery
- * obligation and never frees the state-level slot or conflict reservation.
+ *
+ * @responsibility runProjectRuntimeOperationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input dependencies: ProjectRuntimeExecutionDependencies、input: ExecutionInput
+ * @returns Promise<ProjectRuntimeExecutionResult>を返す。
+ * @precondition 「dependencies: ProjectRuntimeExecutionDependencies、input: ExecutionInput」がrunProjectRuntimeOperationの入力契約を満たす。
+ * @postcondition runProjectRuntimeOperationの責務を完了した結果だけを返す。
+ * @effect N/A: runProjectRuntimeOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure runProjectRuntimeOperationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runProjectRuntimeOperationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runProjectRuntimeOperationはProcess内の同一Subsystemで完結する。
+ * @security N/A: runProjectRuntimeOperationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency runProjectRuntimeOperationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 export async function runProjectRuntimeOperation(
   dependencies: ProjectRuntimeExecutionDependencies,
@@ -1318,6 +1493,22 @@ export async function runProjectRuntimeOperation(
   );
 }
 
+/**
+ * describeProjectRuntimeExecutionContractの処理を実行する。
+ *
+ * @responsibility describeProjectRuntimeExecutionContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProjectRuntimeExecutionContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProjectRuntimeExecutionContractの入力契約を満たす。
+ * @postcondition describeProjectRuntimeExecutionContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeProjectRuntimeExecutionContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProjectRuntimeExecutionContractは独自の失敗分岐を所有しない。
+ * @invariant describeProjectRuntimeExecutionContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeProjectRuntimeExecutionContractはProcess内の同一Subsystemで完結する。
+ * @security N/A: describeProjectRuntimeExecutionContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeProjectRuntimeExecutionContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeProjectRuntimeExecutionContract() {
   return Object.freeze({
     contract: PROJECT_RUNTIME_EXECUTION_CONTRACT,

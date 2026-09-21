@@ -19,16 +19,60 @@ const SELECTION_LIFETIME_MS = 30_000;
 const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
 const EXACT_MODEL_ID = /^[a-z0-9][a-z0-9._-]{0,127}$/u;
 
+/**
+ * Providerが扱う値の構造を表す。
+ *
+ * @responsibility Providerに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Providerで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Providerの宣言は外部境界を開かない。
+ * @security ProviderはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Providerの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Provider = "codex" | "claude";
+/**
+ * SelectionRoleが扱う値の構造を表す。
+ *
+ * @responsibility SelectionRoleに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape SelectionRoleが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SelectionRoleで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SelectionRoleの宣言は外部境界を開かない。
+ * @security SelectionRoleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility SelectionRoleの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type SelectionRole =
   | "coordinator"
   | "executor"
   | "independent_reviewer"
   | "result_integration";
+/**
+ * CandidateRouteが扱う値の構造を表す。
+ *
+ * @responsibility CandidateRouteに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape CandidateRouteが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CandidateRouteで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CandidateRouteの宣言は外部境界を開かない。
+ * @security CandidateRouteはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility CandidateRouteの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type CandidateRoute = Extract<
   ReturnType<typeof selectDelegationRouteCandidate>,
   { status: "candidate" }
 >;
+/**
+ * ResolvedModelProfileが扱う値の構造を表す。
+ *
+ * @responsibility ResolvedModelProfileに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape ResolvedModelProfileが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ResolvedModelProfileで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ResolvedModelProfileの宣言は外部境界を開かない。
+ * @security ResolvedModelProfileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ResolvedModelProfileの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ResolvedModelProfile = Readonly<{
   provider: Provider;
   profileId: string;
@@ -40,6 +84,17 @@ type ResolvedModelProfile = Readonly<{
   billingMode: "subscription_oauth";
   compatibilityReason: string | null;
 }>;
+/**
+ * ModelProfileRequestが扱う値の構造を表す。
+ *
+ * @responsibility ModelProfileRequestに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape ModelProfileRequestが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ModelProfileRequestで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ModelProfileRequestの宣言は外部境界を開かない。
+ * @security ModelProfileRequestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ModelProfileRequestの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ModelProfileRequest = Readonly<{
   provider: Provider;
   family: string;
@@ -48,6 +103,17 @@ type ModelProfileRequest = Readonly<{
   speedMode: "normal";
   billingMode: "subscription_oauth";
 }>;
+/**
+ * SelectionRecordが扱う値の構造を表す。
+ *
+ * @responsibility SelectionRecordに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape SelectionRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SelectionRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SelectionRecordの宣言は外部境界を開かない。
+ * @security SelectionRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility SelectionRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type SelectionRecord = {
   selectionRecordId: string;
   operationId: string;
@@ -60,6 +126,17 @@ type SelectionRecord = {
   controlCapability: object;
   useCapability: object;
 };
+/**
+ * RuntimeStateが扱う値の構造を表す。
+ *
+ * @responsibility RuntimeStateに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape RuntimeStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeStateの宣言は外部境界を開かない。
+ * @security RuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimeStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimeState = Readonly<{
   records: Map<string, SelectionRecord>;
   controlCapabilities: WeakMap<object, string>;
@@ -76,6 +153,22 @@ type RuntimeState = Readonly<{
   randomBytes: (size: number) => Buffer;
 }>;
 
+/**
+ * createRuntimeStateの処理を実行する。
+ *
+ * @responsibility createRuntimeStateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input dependencies: Omit< RuntimeState, "records" | "controlCapabilities" | "useCapabilities" >
+ * @returns RuntimeStateを返す。
+ * @precondition 「dependencies: Omit< RuntimeState, "records" | "controlCapabilities" | "useCapabilities" >」がcreateRuntimeStateの入力契約を満たす。
+ * @postcondition createRuntimeStateの責務を完了した結果だけを返す。
+ * @effect N/A: createRuntimeStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createRuntimeStateは独自の失敗分岐を所有しない。
+ * @invariant createRuntimeStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createRuntimeStateはProcess内の同一Subsystemで完結する。
+ * @security createRuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createRuntimeStateは共有非同期状態を持たない同期処理である。
+ */
 function createRuntimeState(
   dependencies: Omit<
     RuntimeState,
@@ -107,6 +200,22 @@ const productionState = createRuntimeState({
   randomBytes,
 });
 
+/**
+ * createBlockedResultの処理を実行する。
+ *
+ * @responsibility createBlockedResultに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input reason: string
+ * @returns createBlockedResultの計算結果を返す。
+ * @precondition 「reason: string」がcreateBlockedResultの入力契約を満たす。
+ * @postcondition createBlockedResultの責務を完了した結果だけを返す。
+ * @effect N/A: createBlockedResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createBlockedResultは独自の失敗分岐を所有しない。
+ * @invariant createBlockedResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createBlockedResultはProcess内の同一Subsystemで完結する。
+ * @security createBlockedResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createBlockedResultは共有非同期状態を持たない同期処理である。
+ */
 function createBlockedResult(reason: string) {
   return Object.freeze({
     status: "blocked" as const,
@@ -130,6 +239,22 @@ function createBlockedResult(reason: string) {
   });
 }
 
+/**
+ * isSelectionRoleの処理を実行する。
+ *
+ * @responsibility isSelectionRoleに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input value: unknown
+ * @returns value is SelectionRoleを返す。
+ * @precondition 「value: unknown」がisSelectionRoleの入力契約を満たす。
+ * @postcondition isSelectionRoleの責務を完了した結果だけを返す。
+ * @effect N/A: isSelectionRoleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isSelectionRoleは独自の失敗分岐を所有しない。
+ * @invariant isSelectionRoleは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isSelectionRoleはProcess内の同一Subsystemで完結する。
+ * @security isSelectionRoleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isSelectionRoleは共有非同期状態を持たない同期処理である。
+ */
 function isSelectionRole(value: unknown): value is SelectionRole {
   return (
     value === "coordinator" ||
@@ -139,6 +264,22 @@ function isSelectionRole(value: unknown): value is SelectionRole {
   );
 }
 
+/**
+ * performSafelyの処理を実行する。
+ *
+ * @responsibility performSafelyに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input reason: string、action: () => T
+ * @returns performSafelyの計算結果を返す。
+ * @precondition 「reason: string、action: () => T」がperformSafelyの入力契約を満たす。
+ * @postcondition performSafelyの責務を完了した結果だけを返す。
+ * @effect N/A: performSafelyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure performSafelyは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant performSafelyは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: performSafelyはProcess内の同一Subsystemで完結する。
+ * @security performSafelyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: performSafelyは共有非同期状態を持たない同期処理である。
+ */
 function performSafely<T>(reason: string, action: () => T) {
   try {
     return action();
@@ -147,6 +288,22 @@ function performSafely<T>(reason: string, action: () => T) {
   }
 }
 
+/**
+ * createSelectionRecordIdの処理を実行する。
+ *
+ * @responsibility createSelectionRecordIdに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input state: RuntimeState
+ * @returns createSelectionRecordIdの計算結果を返す。
+ * @precondition 「state: RuntimeState」がcreateSelectionRecordIdの入力契約を満たす。
+ * @postcondition createSelectionRecordIdの責務を完了した結果だけを返す。
+ * @effect N/A: createSelectionRecordIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createSelectionRecordIdは独自の失敗分岐を所有しない。
+ * @invariant createSelectionRecordIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createSelectionRecordIdはProcess内の同一Subsystemで完結する。
+ * @security createSelectionRecordIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createSelectionRecordIdは共有非同期状態を持たない同期処理である。
+ */
 function createSelectionRecordId(state: RuntimeState) {
   const value = state.randomBytes(12);
   return Buffer.isBuffer(value) && value.byteLength === 12
@@ -154,6 +311,22 @@ function createSelectionRecordId(state: RuntimeState) {
     : null;
 }
 
+/**
+ * isResolvedProfileValidの処理を実行する。
+ *
+ * @responsibility isResolvedProfileValidに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input profile: ResolvedModelProfile、route: CandidateRoute
+ * @returns isResolvedProfileValidの計算結果を返す。
+ * @precondition 「profile: ResolvedModelProfile、route: CandidateRoute」がisResolvedProfileValidの入力契約を満たす。
+ * @postcondition isResolvedProfileValidの責務を完了した結果だけを返す。
+ * @effect N/A: isResolvedProfileValidは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isResolvedProfileValidは独自の失敗分岐を所有しない。
+ * @invariant isResolvedProfileValidは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isResolvedProfileValidはProcess内の同一Subsystemで完結する。
+ * @security isResolvedProfileValidはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isResolvedProfileValidは共有非同期状態を持たない同期処理である。
+ */
 function isResolvedProfileValid(
   profile: ResolvedModelProfile,
   route: CandidateRoute,
@@ -170,6 +343,22 @@ function isResolvedProfileValid(
   );
 }
 
+/**
+ * describeResolvedSelectionNoticeの処理を実行する。
+ *
+ * @responsibility describeResolvedSelectionNoticeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input route: CandidateRoute、profile: ResolvedModelProfile
+ * @returns describeResolvedSelectionNoticeの計算結果を返す。
+ * @precondition 「route: CandidateRoute、profile: ResolvedModelProfile」がdescribeResolvedSelectionNoticeの入力契約を満たす。
+ * @postcondition describeResolvedSelectionNoticeの責務を完了した結果だけを返す。
+ * @effect N/A: describeResolvedSelectionNoticeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeResolvedSelectionNoticeは独自の失敗分岐を所有しない。
+ * @invariant describeResolvedSelectionNoticeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeResolvedSelectionNoticeはProcess内の同一Subsystemで完結する。
+ * @security describeResolvedSelectionNoticeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeResolvedSelectionNoticeは共有非同期状態を持たない同期処理である。
+ */
 function describeResolvedSelectionNotice(
   route: CandidateRoute,
   profile: ResolvedModelProfile,
@@ -183,6 +372,22 @@ function describeResolvedSelectionNotice(
   ].join("\n");
 }
 
+/**
+ * isSelectionFreshの処理を実行する。
+ *
+ * @responsibility isSelectionFreshに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input state: RuntimeState、record: SelectionRecord
+ * @returns isSelectionFreshの計算結果を返す。
+ * @precondition 「state: RuntimeState、record: SelectionRecord」がisSelectionFreshの入力契約を満たす。
+ * @postcondition isSelectionFreshの責務を完了した結果だけを返す。
+ * @effect N/A: isSelectionFreshは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isSelectionFreshは独自の失敗分岐を所有しない。
+ * @invariant isSelectionFreshは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isSelectionFreshはProcess内の同一Subsystemで完結する。
+ * @security isSelectionFreshはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isSelectionFreshは共有非同期状態を持たない同期処理である。
+ */
 function isSelectionFresh(state: RuntimeState, record: SelectionRecord) {
   const wallAge = state.wallNow() - record.issuedWallClockMs;
   const monotonicAge = state.monotonicNow() - record.issuedMonotonicMs;
@@ -196,12 +401,44 @@ function isSelectionFresh(state: RuntimeState, record: SelectionRecord) {
   );
 }
 
+/**
+ * removeSelectionRecordの処理を実行する。
+ *
+ * @responsibility removeSelectionRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input state: RuntimeState、record: SelectionRecord
+ * @returns N/A: removeSelectionRecordは戻り値を返さない。
+ * @precondition 「state: RuntimeState、record: SelectionRecord」がremoveSelectionRecordの入力契約を満たす。
+ * @postcondition removeSelectionRecordの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: removeSelectionRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: removeSelectionRecordは独自の失敗分岐を所有しない。
+ * @invariant removeSelectionRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: removeSelectionRecordはProcess内の同一Subsystemで完結する。
+ * @security removeSelectionRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: removeSelectionRecordは共有非同期状態を持たない同期処理である。
+ */
 function removeSelectionRecord(state: RuntimeState, record: SelectionRecord) {
   state.records.delete(record.selectionRecordId);
   state.controlCapabilities.delete(record.controlCapability);
   state.useCapabilities.delete(record.useCapability);
 }
 
+/**
+ * issueSelectionGrantの処理を実行する。
+ *
+ * @responsibility issueSelectionGrantに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input state: RuntimeState、managementCapability: unknown、rawRequest: unknown
+ * @returns issueSelectionGrantの計算結果を返す。
+ * @precondition 「state: RuntimeState、managementCapability: unknown、rawRequest: unknown」がissueSelectionGrantの入力契約を満たす。
+ * @postcondition issueSelectionGrantの責務を完了した結果だけを返す。
+ * @effect N/A: issueSelectionGrantは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: issueSelectionGrantは独自の失敗分岐を所有しない。
+ * @invariant issueSelectionGrantは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: issueSelectionGrantはProcess内の同一Subsystemで完結する。
+ * @security issueSelectionGrantはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: issueSelectionGrantは共有非同期状態を持たない同期処理である。
+ */
 function issueSelectionGrant(
   state: RuntimeState,
   managementCapability: unknown,
@@ -294,6 +531,22 @@ function issueSelectionGrant(
   });
 }
 
+/**
+ * findSelectionRecordの処理を実行する。
+ *
+ * @responsibility findSelectionRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input state: RuntimeState、capability: unknown、aliases: WeakMap<object, string>、managementCapability: unknown
+ * @returns findSelectionRecordの計算結果を返す。
+ * @precondition 「state: RuntimeState、capability: unknown、aliases: WeakMap<object, string>、managementCapability: unknown」がfindSelectionRecordの入力契約を満たす。
+ * @postcondition findSelectionRecordの責務を完了した結果だけを返す。
+ * @effect N/A: findSelectionRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: findSelectionRecordは独自の失敗分岐を所有しない。
+ * @invariant findSelectionRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: findSelectionRecordはProcess内の同一Subsystemで完結する。
+ * @security findSelectionRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: findSelectionRecordは共有非同期状態を持たない同期処理である。
+ */
 function findSelectionRecord(
   state: RuntimeState,
   capability: unknown,
@@ -313,6 +566,22 @@ function findSelectionRecord(
   return record?.managementCapability === managementCapability ? record : null;
 }
 
+/**
+ * consumeSelectionGrantの処理を実行する。
+ *
+ * @responsibility consumeSelectionGrantに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input state: RuntimeState、useCapability: unknown、managementCapability: unknown
+ * @returns consumeSelectionGrantの計算結果を返す。
+ * @precondition 「state: RuntimeState、useCapability: unknown、managementCapability: unknown」がconsumeSelectionGrantの入力契約を満たす。
+ * @postcondition consumeSelectionGrantの責務を完了した結果だけを返す。
+ * @effect N/A: consumeSelectionGrantは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: consumeSelectionGrantは独自の失敗分岐を所有しない。
+ * @invariant consumeSelectionGrantは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: consumeSelectionGrantはProcess内の同一Subsystemで完結する。
+ * @security consumeSelectionGrantはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: consumeSelectionGrantは共有非同期状態を持たない同期処理である。
+ */
 function consumeSelectionGrant(
   state: RuntimeState,
   useCapability: unknown,
@@ -346,6 +615,22 @@ function consumeSelectionGrant(
   });
 }
 
+/**
+ * revokeSelectionGrantの処理を実行する。
+ *
+ * @responsibility revokeSelectionGrantに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input state: RuntimeState、controlCapability: unknown、managementCapability: unknown
+ * @returns revokeSelectionGrantの計算結果を返す。
+ * @precondition 「state: RuntimeState、controlCapability: unknown、managementCapability: unknown」がrevokeSelectionGrantの入力契約を満たす。
+ * @postcondition revokeSelectionGrantの責務を完了した結果だけを返す。
+ * @effect N/A: revokeSelectionGrantは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: revokeSelectionGrantは独自の失敗分岐を所有しない。
+ * @invariant revokeSelectionGrantは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: revokeSelectionGrantはProcess内の同一Subsystemで完結する。
+ * @security revokeSelectionGrantはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: revokeSelectionGrantは共有非同期状態を持たない同期処理である。
+ */
 function revokeSelectionGrant(
   state: RuntimeState,
   controlCapability: unknown,
@@ -370,6 +655,22 @@ function revokeSelectionGrant(
   });
 }
 
+/**
+ * supersedeSelectionGrantの処理を実行する。
+ *
+ * @responsibility supersedeSelectionGrantに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input state: RuntimeState、controlCapability: unknown、managementCapability: unknown、rawReplacementRequest: unknown
+ * @returns supersedeSelectionGrantの計算結果を返す。
+ * @precondition 「state: RuntimeState、controlCapability: unknown、managementCapability: unknown、rawReplacementRequest: unknown」がsupersedeSelectionGrantの入力契約を満たす。
+ * @postcondition supersedeSelectionGrantの責務を完了した結果だけを返す。
+ * @effect N/A: supersedeSelectionGrantは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: supersedeSelectionGrantは独自の失敗分岐を所有しない。
+ * @invariant supersedeSelectionGrantは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: supersedeSelectionGrantはProcess内の同一Subsystemで完結する。
+ * @security supersedeSelectionGrantはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: supersedeSelectionGrantは共有非同期状態を持たない同期処理である。
+ */
 function supersedeSelectionGrant(
   state: RuntimeState,
   controlCapability: unknown,
@@ -404,6 +705,22 @@ function supersedeSelectionGrant(
   });
 }
 
+/**
+ * issueRuntimeOwnedDelegationSelectionGrantの処理を実行する。
+ *
+ * @responsibility issueRuntimeOwnedDelegationSelectionGrantに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input managementCapability: unknown、rawRequest: unknown
+ * @returns issueRuntimeOwnedDelegationSelectionGrantの計算結果を返す。
+ * @precondition 「managementCapability: unknown、rawRequest: unknown」がissueRuntimeOwnedDelegationSelectionGrantの入力契約を満たす。
+ * @postcondition issueRuntimeOwnedDelegationSelectionGrantの責務を完了した結果だけを返す。
+ * @effect N/A: issueRuntimeOwnedDelegationSelectionGrantは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: issueRuntimeOwnedDelegationSelectionGrantは独自の失敗分岐を所有しない。
+ * @invariant issueRuntimeOwnedDelegationSelectionGrantは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: issueRuntimeOwnedDelegationSelectionGrantはProcess内の同一Subsystemで完結する。
+ * @security issueRuntimeOwnedDelegationSelectionGrantはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: issueRuntimeOwnedDelegationSelectionGrantは共有非同期状態を持たない同期処理である。
+ */
 export function issueRuntimeOwnedDelegationSelectionGrant(
   managementCapability: unknown,
   rawRequest: unknown,
@@ -413,6 +730,22 @@ export function issueRuntimeOwnedDelegationSelectionGrant(
   );
 }
 
+/**
+ * preflightRuntimeOwnedDelegationExecutionSlateの処理を実行する。
+ *
+ * @responsibility preflightRuntimeOwnedDelegationExecutionSlateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input managementCapability: unknown、rawExecutorRequest: unknown
+ * @returns preflightRuntimeOwnedDelegationExecutionSlateの計算結果を返す。
+ * @precondition 「managementCapability: unknown、rawExecutorRequest: unknown」がpreflightRuntimeOwnedDelegationExecutionSlateの入力契約を満たす。
+ * @postcondition preflightRuntimeOwnedDelegationExecutionSlateの責務を完了した結果だけを返す。
+ * @effect N/A: preflightRuntimeOwnedDelegationExecutionSlateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: preflightRuntimeOwnedDelegationExecutionSlateは独自の失敗分岐を所有しない。
+ * @invariant preflightRuntimeOwnedDelegationExecutionSlateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: preflightRuntimeOwnedDelegationExecutionSlateはProcess内の同一Subsystemで完結する。
+ * @security preflightRuntimeOwnedDelegationExecutionSlateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: preflightRuntimeOwnedDelegationExecutionSlateは共有非同期状態を持たない同期処理である。
+ */
 export function preflightRuntimeOwnedDelegationExecutionSlate(
   managementCapability: unknown,
   rawExecutorRequest: unknown,
@@ -449,6 +782,22 @@ export function preflightRuntimeOwnedDelegationExecutionSlate(
   });
 }
 
+/**
+ * consumeRuntimeOwnedDelegationSelectionGrantの処理を実行する。
+ *
+ * @responsibility consumeRuntimeOwnedDelegationSelectionGrantに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input useCapability: unknown、managementCapability: unknown
+ * @returns consumeRuntimeOwnedDelegationSelectionGrantの計算結果を返す。
+ * @precondition 「useCapability: unknown、managementCapability: unknown」がconsumeRuntimeOwnedDelegationSelectionGrantの入力契約を満たす。
+ * @postcondition consumeRuntimeOwnedDelegationSelectionGrantの責務を完了した結果だけを返す。
+ * @effect N/A: consumeRuntimeOwnedDelegationSelectionGrantは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure consumeRuntimeOwnedDelegationSelectionGrantは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant consumeRuntimeOwnedDelegationSelectionGrantは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: consumeRuntimeOwnedDelegationSelectionGrantはProcess内の同一Subsystemで完結する。
+ * @security consumeRuntimeOwnedDelegationSelectionGrantはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: consumeRuntimeOwnedDelegationSelectionGrantは共有非同期状態を持たない同期処理である。
+ */
 export function consumeRuntimeOwnedDelegationSelectionGrant(
   useCapability: unknown,
   managementCapability: unknown,
@@ -464,6 +813,22 @@ export function consumeRuntimeOwnedDelegationSelectionGrant(
   }
 }
 
+/**
+ * revokeRuntimeOwnedDelegationSelectionGrantの処理を実行する。
+ *
+ * @responsibility revokeRuntimeOwnedDelegationSelectionGrantに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input controlCapability: unknown、managementCapability: unknown
+ * @returns revokeRuntimeOwnedDelegationSelectionGrantの計算結果を返す。
+ * @precondition 「controlCapability: unknown、managementCapability: unknown」がrevokeRuntimeOwnedDelegationSelectionGrantの入力契約を満たす。
+ * @postcondition revokeRuntimeOwnedDelegationSelectionGrantの責務を完了した結果だけを返す。
+ * @effect N/A: revokeRuntimeOwnedDelegationSelectionGrantは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: revokeRuntimeOwnedDelegationSelectionGrantは独自の失敗分岐を所有しない。
+ * @invariant revokeRuntimeOwnedDelegationSelectionGrantは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: revokeRuntimeOwnedDelegationSelectionGrantはProcess内の同一Subsystemで完結する。
+ * @security revokeRuntimeOwnedDelegationSelectionGrantはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: revokeRuntimeOwnedDelegationSelectionGrantは共有非同期状態を持たない同期処理である。
+ */
 export function revokeRuntimeOwnedDelegationSelectionGrant(
   controlCapability: unknown,
   managementCapability: unknown,
@@ -477,6 +842,22 @@ export function revokeRuntimeOwnedDelegationSelectionGrant(
   );
 }
 
+/**
+ * supersedeRuntimeOwnedDelegationSelectionGrantの処理を実行する。
+ *
+ * @responsibility supersedeRuntimeOwnedDelegationSelectionGrantに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input controlCapability: unknown、managementCapability: unknown、rawReplacementRequest: unknown
+ * @returns supersedeRuntimeOwnedDelegationSelectionGrantの計算結果を返す。
+ * @precondition 「controlCapability: unknown、managementCapability: unknown、rawReplacementRequest: unknown」がsupersedeRuntimeOwnedDelegationSelectionGrantの入力契約を満たす。
+ * @postcondition supersedeRuntimeOwnedDelegationSelectionGrantの責務を完了した結果だけを返す。
+ * @effect N/A: supersedeRuntimeOwnedDelegationSelectionGrantは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: supersedeRuntimeOwnedDelegationSelectionGrantは独自の失敗分岐を所有しない。
+ * @invariant supersedeRuntimeOwnedDelegationSelectionGrantは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: supersedeRuntimeOwnedDelegationSelectionGrantはProcess内の同一Subsystemで完結する。
+ * @security supersedeRuntimeOwnedDelegationSelectionGrantはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: supersedeRuntimeOwnedDelegationSelectionGrantは共有非同期状態を持たない同期処理である。
+ */
 export function supersedeRuntimeOwnedDelegationSelectionGrant(
   controlCapability: unknown,
   managementCapability: unknown,
@@ -492,6 +873,22 @@ export function supersedeRuntimeOwnedDelegationSelectionGrant(
   );
 }
 
+/**
+ * createIsolatedDelegationSelectionGrantRuntimeCandidateの処理を実行する。
+ *
+ * @responsibility createIsolatedDelegationSelectionGrantRuntimeCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input dependencies: Omit< RuntimeState, "records" | "controlCapabilities" | "useCapabilities" >
+ * @returns createIsolatedDelegationSelectionGrantRuntimeCandidateの計算結果を返す。
+ * @precondition 「dependencies: Omit< RuntimeState, "records" | "controlCapabilities" | "useCapabilities" >」がcreateIsolatedDelegationSelectionGrantRuntimeCandidateの入力契約を満たす。
+ * @postcondition createIsolatedDelegationSelectionGrantRuntimeCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: createIsolatedDelegationSelectionGrantRuntimeCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createIsolatedDelegationSelectionGrantRuntimeCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createIsolatedDelegationSelectionGrantRuntimeCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createIsolatedDelegationSelectionGrantRuntimeCandidateはProcess内の同一Subsystemで完結する。
+ * @security createIsolatedDelegationSelectionGrantRuntimeCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createIsolatedDelegationSelectionGrantRuntimeCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function createIsolatedDelegationSelectionGrantRuntimeCandidate(
   dependencies: Omit<
     RuntimeState,
@@ -536,6 +933,22 @@ export function createIsolatedDelegationSelectionGrantRuntimeCandidate(
   });
 }
 
+/**
+ * describeDelegationSelectionGrantRuntimeContractの処理を実行する。
+ *
+ * @responsibility describeDelegationSelectionGrantRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeDelegationSelectionGrantRuntimeContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeDelegationSelectionGrantRuntimeContractの入力契約を満たす。
+ * @postcondition describeDelegationSelectionGrantRuntimeContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeDelegationSelectionGrantRuntimeContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeDelegationSelectionGrantRuntimeContractは独自の失敗分岐を所有しない。
+ * @invariant describeDelegationSelectionGrantRuntimeContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeDelegationSelectionGrantRuntimeContractはProcess内の同一Subsystemで完結する。
+ * @security describeDelegationSelectionGrantRuntimeContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeDelegationSelectionGrantRuntimeContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeDelegationSelectionGrantRuntimeContract() {
   return Object.freeze({
     contract: DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT,

@@ -17,14 +17,46 @@ const SUBSYSTEM_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
 const SYMBOL_ID_PATTERN = /^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$/u;
 const ARCH_ID_PATTERN = /^ARCH-[0-9]{6}$/u;
 const QA_ID_PATTERN = /^QA-[0-9]{6}$/u;
-const LOCAL_TEST_ID_PATTERN = /^[A-Z][A-Z0-9]*-[0-9]{2,6}$/u;
+const LOCAL_TEST_ID_PATTERN = /^[A-Z][A-Z0-9]*-(?:UT|IT|ST|UAT)-[0-9]{3}$/u;
 const SEMANTIC_KEY_PATTERN =
   /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)+$/u;
 
+/**
+ * isRecordの処理を実行する。
+ *
+ * @responsibility isRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns value is Record<string, unknown>を返す。
+ * @precondition 「value: unknown」がisRecordの入力契約を満たす。
+ * @postcondition isRecordの責務を完了した結果だけを返す。
+ * @effect N/A: isRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isRecordは独自の失敗分岐を所有しない。
+ * @invariant isRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isRecordはProcess内の同一Subsystemで完結する。
+ * @security N/A: isRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isRecordは共有非同期状態を持たない同期処理である。
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * isSafeRelativePathの処理を実行する。
+ *
+ * @responsibility isSafeRelativePathに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: string
+ * @returns booleanを返す。
+ * @precondition 「value: string」がisSafeRelativePathの入力契約を満たす。
+ * @postcondition isSafeRelativePathの責務を完了した結果だけを返す。
+ * @effect N/A: isSafeRelativePathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isSafeRelativePathは独自の失敗分岐を所有しない。
+ * @invariant isSafeRelativePathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isSafeRelativePathはProcess内の同一Subsystemで完結する。
+ * @security N/A: isSafeRelativePathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isSafeRelativePathは共有非同期状態を持たない同期処理である。
+ */
 function isSafeRelativePath(value: string): boolean {
   if (
     value.length === 0 ||
@@ -39,6 +71,22 @@ function isSafeRelativePath(value: string): boolean {
   );
 }
 
+/**
+ * readUniqueStringsの処理を実行する。
+ *
+ * @responsibility readUniqueStringsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input owner: Record<string, unknown>、property: string、pattern: RegExp、location: string、issues: DomainIssue[]
+ * @returns readonly string[]を返す。
+ * @precondition 「owner: Record<string, unknown>、property: string、pattern: RegExp、location: string、issues: DomainIssue[]」がreadUniqueStringsの入力契約を満たす。
+ * @postcondition readUniqueStringsの責務を完了した結果だけを返す。
+ * @effect N/A: readUniqueStringsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: readUniqueStringsは独自の失敗分岐を所有しない。
+ * @invariant readUniqueStringsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: readUniqueStringsはProcess内の同一Subsystemで完結する。
+ * @security N/A: readUniqueStringsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readUniqueStringsは共有非同期状態を持たない同期処理である。
+ */
 function readUniqueStrings(
   owner: Record<string, unknown>,
   property: string,
@@ -87,6 +135,22 @@ function readUniqueStrings(
   return values;
 }
 
+/**
+ * validateRealitySymbolManifestの処理を実行する。
+ *
+ * @responsibility validateRealitySymbolManifestに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、manifestPath: string
+ * @returns DomainOutcome<RealitySymbolManifest>を返す。
+ * @precondition 「value: unknown、manifestPath: string」がvalidateRealitySymbolManifestの入力契約を満たす。
+ * @postcondition validateRealitySymbolManifestの責務を完了した結果だけを返す。
+ * @effect N/A: validateRealitySymbolManifestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validateRealitySymbolManifestは独自の失敗分岐を所有しない。
+ * @invariant validateRealitySymbolManifestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateRealitySymbolManifestはProcess内の同一Subsystemで完結する。
+ * @security N/A: validateRealitySymbolManifestはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validateRealitySymbolManifestは共有非同期状態を持たない同期処理である。
+ */
 export function validateRealitySymbolManifest(
   value: unknown,
   manifestPath: string,

@@ -65,7 +65,7 @@
               "archIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } },
               "implementationSymbolIds": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
               "implementationObservation": { "enum": ["observed", "unobserved"] },
-              "qualityLocalIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^QA-[0-9]{6}/[A-Z]{3}-[0-9]{2}$" } },
+              "qualityLocalIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^QA-[0-9]{6}/[A-Z]{3}-(UT|IT|ST|UAT)-[0-9]{3}$" } },
               "testSymbolIds": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
               "testObservation": { "enum": ["observed", "unobserved"] }
             }

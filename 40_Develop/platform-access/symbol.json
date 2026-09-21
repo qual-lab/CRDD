@@ -14,7 +14,7 @@
       "kind": "test-suite",
       "path": "tests/cli.rs",
       "qaIds": ["QA-000006", "QA-000008"],
-      "localTestIds": ["ERB-01", "ERB-09", "RDL-02"],
+      "localTestIds": ["ERB-IT-001", "ERB-ST-009", "RDL-ST-002"],
       "verifies": ["platform-access.native-entry"]
     }
   ]

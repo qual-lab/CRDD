@@ -1,3 +1,14 @@
+/**
+ * 秘密入力に必要な対話端末操作だけを表す。
+ *
+ * @responsibility 実端末と試験端末を同じ最小Capability境界で扱う。
+ * @trace ARCH-000014
+ * @shape HiddenLineTerminalが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant 秘密入力に必要な端末操作だけを公開する。
+ * @boundary TTY input／outputと秘密入力処理の境界。
+ * @security 入力値のEchoまたは永続化Capabilityを公開しない。
+ * @compatibility HiddenLineTerminalの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type HiddenLineTerminal = Readonly<{
   inputIsTTY: boolean;
   outputIsTTY: boolean;
@@ -12,6 +23,22 @@ type HiddenLineTerminal = Readonly<{
   offEnd: (listener: () => void) => void;
 }>;
 
+/**
+ * 指定した対話端末からEchoせず一行を読み取る。
+ *
+ * @responsibility raw mode、入力Event、取消、終了と全cleanupを一つのLifecycleとして所有する。
+ * @trace ARCH-000014
+ * @input 表示PromptとHiddenLineTerminal Capability。
+ * @returns Echoせず取得した一行の秘密文字列。
+ * @precondition 入出力の両方が対話TTYである。
+ * @postcondition 成否にかかわらずListener、raw modeおよび入力pauseのcleanupを試行する。
+ * @effect 端末へPromptと改行だけを書き、入力modeとListenerを一時変更する。
+ * @failure 非TTY、取消、入力終了、端末設定またはcleanup失敗を区別して返す。
+ * @invariant 入力文字列を端末出力へ書かず、最初の終端事象だけで完了する。
+ * @boundary 対話TTYと秘密入力値の境界。
+ * @security 入力文字を端末へ再表示しない。
+ * @concurrency 最初の完了・取消・終了だけでsettleし、Listenerを全経路で解除する。
+ */
 export async function readHiddenLineFromTerminal(
   prompt: string,
   terminal: HiddenLineTerminal,
@@ -108,6 +135,22 @@ export async function readHiddenLineFromTerminal(
   });
 }
 
+/**
+ * 現在Processの標準端末から秘密の一行を読み取る。
+ *
+ * @responsibility Node.js標準入出力をHiddenLineTerminal契約へ限定して接続する。
+ * @trace ARCH-000014
+ * @input 端末へ表示するPrompt。
+ * @returns 標準端末からEchoせず取得した一行の秘密文字列。
+ * @precondition 現在Processのstdinとstdoutが対話TTYである。
+ * @postcondition readHiddenLineFromTerminalのcleanup条件を維持する。
+ * @effect 標準端末のraw mode、Listenerおよびpause状態を一時変更する。
+ * @failure 非対話端末、取消、入出力またはcleanup失敗を呼出し側へ返す。
+ * @invariant 秘密入力を標準出力へEchoしない。
+ * @boundary Process標準入出力と署名Applicationの境界。
+ * @security redirectされた非対話入力を許可しない。
+ * @concurrency 一回の呼出しを一つの端末入力Lifecycleとして扱う。
+ */
 export async function readHiddenLine(prompt: string) {
   return await readHiddenLineFromTerminal(prompt, {
     inputIsTTY: process.stdin.isTTY === true,

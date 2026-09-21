@@ -29,6 +29,22 @@ const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
   "byteLength",
 )?.get as () => number;
 
+/**
+ * blockedの処理を実行する。
+ *
+ * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input reason: string
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: string」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
+ * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(reason: string) {
   return Object.freeze({
     status: "blocked",
@@ -41,6 +57,22 @@ function blocked(reason: string) {
   });
 }
 
+/**
+ * canonicalJsonの処理を実行する。
+ *
+ * @responsibility canonicalJsonに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input value: unknown
+ * @returns stringを返す。
+ * @precondition 「value: unknown」がcanonicalJsonの入力契約を満たす。
+ * @postcondition canonicalJsonの責務を完了した結果だけを返す。
+ * @effect N/A: canonicalJsonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure canonicalJsonは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant canonicalJsonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: canonicalJsonはProcess内の同一Subsystemで完結する。
+ * @security canonicalJsonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: canonicalJsonは共有非同期状態を持たない同期処理である。
+ */
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value && typeof value === "object") {
@@ -56,6 +88,22 @@ function canonicalJson(value: unknown): string {
   return serialized;
 }
 
+/**
+ * decodeCanonicalAuthorityTrustPolicyBytesの処理を実行する。
+ *
+ * @responsibility decodeCanonicalAuthorityTrustPolicyBytesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input input: unknown
+ * @returns decodeCanonicalAuthorityTrustPolicyBytesの計算結果を返す。
+ * @precondition 「input: unknown」がdecodeCanonicalAuthorityTrustPolicyBytesの入力契約を満たす。
+ * @postcondition decodeCanonicalAuthorityTrustPolicyBytesの責務を完了した結果だけを返す。
+ * @effect N/A: decodeCanonicalAuthorityTrustPolicyBytesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure decodeCanonicalAuthorityTrustPolicyBytesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant decodeCanonicalAuthorityTrustPolicyBytesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: decodeCanonicalAuthorityTrustPolicyBytesはProcess内の同一Subsystemで完結する。
+ * @security decodeCanonicalAuthorityTrustPolicyBytesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: decodeCanonicalAuthorityTrustPolicyBytesは共有非同期状態を持たない同期処理である。
+ */
 export function decodeCanonicalAuthorityTrustPolicyBytes(input: unknown) {
   try {
     if (!Buffer.isBuffer(input))
@@ -90,6 +138,22 @@ export function decodeCanonicalAuthorityTrustPolicyBytes(input: unknown) {
   }
 }
 
+/**
+ * validateTrustPolicyCandidateの処理を実行する。
+ *
+ * @responsibility validateTrustPolicyCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input candidate: unknown
+ * @returns validateTrustPolicyCandidateの計算結果を返す。
+ * @precondition 「candidate: unknown」がvalidateTrustPolicyCandidateの入力契約を満たす。
+ * @postcondition validateTrustPolicyCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: validateTrustPolicyCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validateTrustPolicyCandidateは独自の失敗分岐を所有しない。
+ * @invariant validateTrustPolicyCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateTrustPolicyCandidateはProcess内の同一Subsystemで完結する。
+ * @security validateTrustPolicyCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateTrustPolicyCandidateは共有非同期状態を持たない同期処理である。
+ */
 function validateTrustPolicyCandidate(candidate: unknown) {
   const snapshot = snapshotPlainRecord(candidate, POLICY_KEYS);
   if (!snapshot) return null;
@@ -126,6 +190,22 @@ function validateTrustPolicyCandidate(candidate: unknown) {
   });
 }
 
+/**
+ * loadAuthorityRegistryTrustCandidateの処理を実行する。
+ *
+ * @responsibility loadAuthorityRegistryTrustCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input registryBytes: unknown、rawTrustPolicy: unknown
+ * @returns loadAuthorityRegistryTrustCandidateの計算結果を返す。
+ * @precondition 「registryBytes: unknown、rawTrustPolicy: unknown」がloadAuthorityRegistryTrustCandidateの入力契約を満たす。
+ * @postcondition loadAuthorityRegistryTrustCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: loadAuthorityRegistryTrustCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure loadAuthorityRegistryTrustCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant loadAuthorityRegistryTrustCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: loadAuthorityRegistryTrustCandidateはProcess内の同一Subsystemで完結する。
+ * @security loadAuthorityRegistryTrustCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: loadAuthorityRegistryTrustCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function loadAuthorityRegistryTrustCandidate(
   registryBytes: unknown,
   rawTrustPolicy: unknown,
@@ -162,6 +242,22 @@ export function loadAuthorityRegistryTrustCandidate(
   }
 }
 
+/**
+ * describeAuthorityTrustLoaderContractの処理を実行する。
+ *
+ * @responsibility describeAuthorityTrustLoaderContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeAuthorityTrustLoaderContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeAuthorityTrustLoaderContractの入力契約を満たす。
+ * @postcondition describeAuthorityTrustLoaderContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeAuthorityTrustLoaderContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeAuthorityTrustLoaderContractは独自の失敗分岐を所有しない。
+ * @invariant describeAuthorityTrustLoaderContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeAuthorityTrustLoaderContractはProcess内の同一Subsystemで完結する。
+ * @security describeAuthorityTrustLoaderContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeAuthorityTrustLoaderContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeAuthorityTrustLoaderContract() {
   return Object.freeze({
     contract: AUTHORITY_TRUST_POLICY_CONTRACT,

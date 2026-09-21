@@ -266,45 +266,157 @@ cleanupの試験は、例外を捕捉したことまたは終了値を返した�
 
 ## 4.3. Source Header Documentation
 
-Source HeaderはCodeの逐語説明ではなく、Symbolが存在する理由、所有責務、保証および設計由来をSourceから辿るために使用する。TypeScriptではTSDoc形式を用いる。公開入口のFile Headerは現行Sourceを含めて必須とし、次のSymbolを新設または意味変更する場合、およびArchitecture Detailsが重要Symbolとして指定した既存SymbolではSymbol Headerを必須とする（MUST）。既存Symbol全件へ意味を確認しない定型Headerを一括追加せず、変更時またはArchitectureからの移行単位で責務と保証を確認して適用する。
+Source HeaderはCodeの逐語説明ではなく、Symbolが存在する理由、所有責務、保証および設計由来をSourceから辿るために使用する。TypeScriptではTSDoc形式、Rustでは同じ意味を持つRustdoc形式を用いる。Public／privateではなく、名前を与えて独立した責務を持たせたSymbolを対象とする（MUST）。
 
-- Architectureが宣言する公開入口と公開API
-- exported type、Domain ModelおよびArchitecture Symbol
-- Effectを発行または確定する処理
-- 外部境界Adapter
-- 状態、Authority、Recovery、SecurityまたはConcurrencyの成立条件を所有する重要な内部処理
+| 対象 | 扱い |
+|---|---|
+| Function、Method、Accessor、名前付きFunction式 | 実行責務Headerを適用する |
+| Interface、Type Alias | 型契約Headerを適用する |
+| Class、名前付きClass式 | 状態所有Headerを適用し、個別Methodには実行責務Headerを適用する |
+| Local Variable、通常の`const`、匿名Callback、Inline Object Type | Symbol Headerの対象外とする |
 
-単純な局所処理、短い変換、呼出し元から責務と失敗条件が一意なprivate処理へ巨大なHeaderを要求しない。Headerを付けない判断で公開Contract、Effect、Boundaryまたは不変条件を隠してはならない。既存Symbolが未変更であることは恒久免除ではなく、Architecture Detailsまたは変更で重要保証を扱う時点を移行契機とする。
+既存Symbolもprivateであることを恒久免除にしない。意味を確認せず名前だけから定型Headerを一括生成せず、Symbolの責務、Owner、失敗・Effect・境界を確認して移行する。短い局所処理でも独立した名前と責務を与えた場合は、巨大な説明ではなく簡潔なSummaryと`@responsibility`を残す。
 
-最低限、平易なSummary、`@responsibility`および`@trace`を持たせる。`@trace`は実在するCanonical IDまたはArchitectureが宣言した安定したSemantic Keyへ接続し、存在しないIDやFile Pathを設計Identityとして捏造しない。公開入口のFile Headerには`@packageDocumentation`を加え、その入口が公開するCapabilityを説明する。
+Header項目は宣言種別ごとに分ける。型宣言へ実行時の入出力を形式的に書かせず、実行責務へ型の互換性を形式的に書かせない。いずれも平易なSummary、`@responsibility`および`@trace`を共通必須項目とする。非該当項目も省略せず、`N/A:`に続けてそのSymbolで非該当となる理由を記録する。単に`N/A`、`none`または同じ定型理由を全Symbolへ複製して処置済みにしない。ProductionのNamed Symbolは、それが実現する既存ARCH-IDへ接続する。SymbolごとにARCH-IDを新設せず、複数Symbolが同じARCH-IDを実現してよい。責務を持つNamed SymbolをどのARCH-IDにも接続できない場合はDocumentation例外にせず、Architecture側のGapとして戻す。存在しないID、File Pathまたは説明用の局所名をCanonical Traceとして捏造しない。公開入口のFile Headerには`@packageDocumentation`を加え、その入口が公開するCapabilityを説明する。
+
+実行責務HeaderのCanonical形は次とする。項目の並びも機械検査と人間の読取りを安定させるために維持する。
+
+```ts
+/**
+ * <Summary>
+ *
+ * @responsibility <責務>
+ * @trace ARCH-XXXXXX
+ * @input <入力。なしなら N/A: 理由>
+ * @returns <出力。なしなら N/A: 理由>
+ * @precondition <事前条件。なしなら N/A: 理由>
+ * @postcondition <事後条件。なしなら N/A: 理由>
+ * @effect <Effect。なしなら N/A: 理由>
+ * @failure <失敗条件。なしなら N/A: 理由>
+ * @invariant <不変条件。なしなら N/A: 理由>
+ * @boundary <境界。なしなら N/A: 理由>
+ * @security <Security条件。なしなら N/A: 理由>
+ * @concurrency <並行性。なしなら N/A: 理由>
+ */
+```
+
+型契約Headerは、InterfaceおよびType Aliasが表す値の形、成立条件、利用境界および互換性を記録する。
+
+```ts
+/**
+ * <Summary>
+ *
+ * @responsibility <型契約が所有する責務>
+ * @trace ARCH-XXXXXX
+ * @shape <主要な構造・識別子・Relation>
+ * @invariant <常に守る条件>
+ * @boundary <利用できるSubsystem・外部境界。なしなら N/A: 理由>
+ * @security <Authority・秘密・公開条件。なしなら N/A: 理由>
+ * @compatibility <互換性・Version条件。なしなら N/A: 理由>
+ */
+```
+
+状態所有Headerは、Classが所有する生成条件、Lifecycle、Effectおよび並行性を記録する。Class内の個別Methodは実行責務Headerを別に持つ。
+
+```ts
+/**
+ * <Summary>
+ *
+ * @responsibility <状態と操作の所有責務>
+ * @trace ARCH-XXXXXX
+ * @construction <生成時に必要な値と成立条件>
+ * @lifecycle <生成から終了までの所有関係>
+ * @effect <共有・外部Effect。なしなら N/A: 理由>
+ * @failure <生成・Lifecycle上の失敗。なしなら N/A: 理由>
+ * @invariant <Lifecycle中に守る条件>
+ * @boundary <Subsystem・外部境界。なしなら N/A: 理由>
+ * @security <Authority・秘密・公開条件。なしなら N/A: 理由>
+ * @concurrency <並行性・Lock・取消条件。なしなら N/A: 理由>
+ */
+```
 
 ```ts
 /**
  * Project Runtimeの受入判断を適用する。
  *
- * @responsibility
- * 人間の判断を検証し、許可された状態遷移だけを適用する。
- *
+ * @responsibility 人間の判断を検証し、許可された状態遷移だけを適用する。
  * @trace ARCH-000005
+ * @input 受入判断と現在の目的状態。
+ * @returns 適用後の状態と公開結果。
+ * @precondition 判断対象のIdentityとRevisionが現在状態へ一致する。
+ * @postcondition 許可された遷移だけが一回適用される。
+ * @effect 受入済み判断を目的状態へ反映する。
+ * @failure 古い判断、対象不一致または不許可遷移を拒否する。
+ * @invariant 別目的の状態とAuthorityを変更しない。
+ * @boundary Project Runtimeの判断適用境界。
+ * @security 判断主体のAuthorityと対象Identityを再確認する。
+ * @concurrency 同じ目的への競合判断をRevisionで直列化する。
  */
 export function applyHumanDecision(...) {
   // ...
 }
 ```
 
-責務に応じて、`@input`、`@returns`、`@precondition`、`@postcondition`、`@effect`、`@failure`、`@invariant`、`@boundary`、`@security`および`@concurrency`を追加する。すべてのSymbolへ全tagを形式的に並べず、該当する保証だけを記録する。
+固定項目は、Symbolごとに次を明らかにするために使用する。
 
-| 条件 | 必須tag |
+| tag | 記録する内容 |
 |---|---|
-| 外部または共有Effectを発行・確定する | `@effect` |
-| 外部System、Process、Filesystem、Network、Platformまたは別Subsystemとの境界を所有する | `@boundary` |
-| Authority、秘密、信頼境界または情報公開を扱う | `@security` |
-| 並行Actor、Lock、Queueまたは取消後の競合を扱う | `@concurrency` |
-| 通常結果へ畳んではならない失敗を持つ | `@failure` |
+| `@input`／`@returns` | Function-likeが受け取る値と返す値 |
+| `@precondition`／`@postcondition` | 呼出し前提と完了後に成立する条件 |
+| `@effect` | 外部・共有Effect、または純粋計算である理由 |
+| `@failure` | 区別して返す失敗、または失敗を所有しない理由 |
+| `@invariant` | 成立中・終了後に守る条件、または局所値である理由 |
+| `@boundary` | 外部System、Process、Filesystem、Network、Platform、別Subsystemとの境界、または境界を持たない理由 |
+| `@security` | Authority、秘密、信頼・情報公開の処置、または非該当理由 |
+| `@concurrency` | 並行Actor、Lock、Queue、取消競合の処置、または同期局所処理である理由 |
+| `@shape`／`@compatibility` | 型契約が表す構造と、利用側が依存できる互換性条件 |
+| `@construction`／`@lifecycle` | Classの生成条件と、状態・資源の所有開始から終了まで |
 
 HeaderはCodeから明白な「値を返す」「関数を実行する」等を反復しない。ArchitectureからImplementation Detailを逆輸入せず、現行実装に存在するという理由だけで新しいCanonical意味を`@trace`へ追加しない。設計由来が不明な場合は推測でHeaderを埋めず、Architecture Gapとして所有工程へ戻す。
 
-機械検査は、公開入口のTSDoc、必須tagの存在、`@trace`の文法、曖昧なFile名および公開入口からの無名Barrel Export等、決定論的に判定できる構造へ限定する。Header本文の責務妥当性、Boundary選択およびCanonical IDとの意味一致は独立reviewで確認する。機械検査のためだけに同じ定型文を複製してはならない（MUST NOT）。
+Test CodeではARCH-IDへ直接接続せず、検証するQuality Local Itemへ接続する。Test File HeaderはそのFileが扱う一つ以上のLocal Itemを示し、個別Test Case、名前付きTest Helperおよび名前付きFixtureは対応する一つ以上のLocal Itemへ`@trace`する。Local ItemがArchitectureとのRelationを所有するため、Test側へARCH-IDを重複記載しない。匿名CallbackやInline Object等、独立責務を持たない処理はSymbol Header対象外だが、`test`／`it`等で宣言する個別Test Caseは匿名Callbackであっても検証責務を持つため、呼出し直前のTSDocを必須とする。
+
+Test File Headerは、File全体の検証範囲を示す。
+
+```ts
+/**
+ * <Summary>
+ *
+ * @packageDocumentation
+ * @responsibility <Fileが所有する検証責務>
+ * @trace XXX-UT-001
+ * @level UT
+ * @scope <対象Component・Boundary・Scenario>
+ * @boundary <外部境界の段階。なしなら N/A: 理由>
+ */
+```
+
+個別Test Case、名前付きTest Helperおよび名前付きFixtureは次の固定Headerを持つ。Helper／Fixtureも入力準備の責務と失敗が検証結果へ影響するため、項目を省略しない。
+
+```ts
+/**
+ * <Summary>
+ *
+ * @responsibility <検証または準備の責務>
+ * @trace XXX-UT-001
+ * @precondition <開始前の状態。なしなら N/A: 理由>
+ * @stimulus <操作・刺激。なしなら N/A: 理由>
+ * @observation <取得する観測値>
+ * @oracle <合否判定>
+ * @cleanup <終了後条件・清掃。なしなら N/A: 理由>
+ * @boundary <到達する境界。なしなら N/A: 理由>
+ */
+```
+
+```text
+Production Named Symbol → ARCH-ID
+Test Case／Named Test Helper／Fixture → Quality Local Item
+Quality Local Item → Architecture Meaning
+```
+
+Test Levelを含むLocal Item IDとTest Fileの論理配置が不一致の場合は、どちらかを説明で上書きせず、Quality Definitionまたは試験配置の誤りとして是正する。
+
+機械検査は、対象となるProduction Named SymbolのHeader、Summary、全固定tagの非空値、実在ARCH-IDへの`@trace`、Test Case／名前付きTest Helper／FixtureのHeader、実在Local Itemへの`@trace`、Test Levelとの一致、曖昧なFile名および公開入口からの無名Barrel Export等、決定論的に判定できる構造を扱う。Header本文の責務妥当性、`N/A`理由の妥当性、責務分割、Common Contract、過剰抽象化およびCanonical IDとの意味一致は独立reviewで確認する。機械検査のためだけに同じ定型文を複製してはならない（MUST NOT）。
 
 ## 5. 曖昧な名前
 

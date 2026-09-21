@@ -3818,7 +3818,7 @@ test("Architecture詳細設計はARCH-IDとの多対多Relationと適用判断�
     fs
       .readFileSync(weakQualityPath, "utf8")
       .replace(
-        "| sample | Core | 根拠付き結果 | 欠測補完 | result | Effect 0 | なし |",
+        "| `sample.core` | Component／Interface | Core | 根拠付き結果 | 欠測補完 | IT | Direct Boundary | result | Effect 0 | なし |",
         "境界を検証する。",
       ),
   );
@@ -4058,6 +4058,33 @@ test("Architecture詳細設計のConcern根拠は実在節へ接続する", () =
     fs
       .readFileSync(target, "utf8")
       .replace("[§2](#2-interface-model)", "後で追加する"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "architecture-detail-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+test("Architecture詳細設計のImplementation Structureは全観点に判定理由を要求する", () => {
+  const root = architectureReconstructionFixtureRoot();
+  const target = path.join(
+    root,
+    "06_Architecture",
+    "Details",
+    "sample",
+    "01_Architecture.md",
+  );
+  write(
+    target,
+    fs
+      .readFileSync(target, "utf8")
+      .replace(
+        "| Variation | N/A | 単一実装であるため |",
+        "| Variation | N/A |  |",
+      ),
   );
   const result = runChecker(root);
   assert.ok(
@@ -5276,7 +5303,7 @@ Architecture固有の追加人間判断はない。入力契約が変わる場�
       "sample",
       "01_Architecture.md",
     ),
-    "# Sample Detail\n\n成果物種別: Architecture詳細設計\n詳細設計領域: sample\n状態: Candidate\n\n## 基本設計との関係\n\n| Architecture定義 | この領域が具体化する責務 | Relation状態 |\n|---|---|---|\n| [ARCH-000001](../../Definitions/ARCH-000001/architecture_definition.md) | 試験責務 | Covered |\n\n## 詳細成果物の適用判断\n\n| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |\n|---|---|---|---|\n| Component Model | Required | 責務を分ける | [§1](#1-component-model) |\n| Interface Model | Required | 契約を分ける | [§2](#2-interface-model) |\n| Data Flow | Required | Dataを追跡する | [§3](#3-data-flow) |\n| State Model | Required | 状態を分ける | [§4](#4-state-model) |\n| Sequence | Required | 順序を固定する | [§5](#5-sequence) |\n| Failure／Recovery | Required | 失敗を分ける | [§6](#6-failurerecovery) |\n| Deployment | N/A | Process配置を持たない | [§7](#7-deployment) |\n| Observability | Required | 結果を観測する | [§8](#8-observability) |\n| Security Boundary | Required | Authorityを分ける | [§9](#9-security-boundary) |\n\n## Engineering Concern評価\n\n| Concern | Result | Rationale | Evidence／Related ID |\n|---|---|---|---|\n| Concurrency | N/A | 共有状態がない | [§1](#1-component-model) |\n| Timing | N/A | 時間制約がない | [§5](#5-sequence) |\n| Resource Lifecycle | PASS | Run単位で回収する | [§4](#4-state-model) |\n| External Boundary | PASS | 境界を分ける | [§2](#2-interface-model) |\n| Failure／Recovery | PASS | 失敗を返す | [§6](#6-failurerecovery) |\n\n## Qualityへの引渡し\n\n| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |\n|---|---|---|---|---|---|---|\n| sample | Core | 根拠付き結果 | 欠測補完 | result | Effect 0 | なし |\n\n## 現行実装との照合\n\n実装は後から照合する。\n\n## 1. Component Model\n\nCore。\n\n## 2. Interface Model\n\n契約。\n\n## 3. Data Flow\n\nFlow。\n\n## 4. State Model\n\nState。\n\n## 5. Sequence\n\nSequence。\n\n## 6. Failure／Recovery\n\nFailure。\n\n## 7. Deployment\n\nN/A。\n\n## 8. Observability\n\nObservation。\n\n## 9. Security Boundary\n\nBoundary。\n",
+    "# Sample Detail\n\n成果物種別: Architecture詳細設計\n詳細設計領域: sample\n状態: Candidate\n\n## 基本設計との関係\n\n| Architecture定義 | この領域が具体化する責務 | Relation状態 |\n|---|---|---|\n| [ARCH-000001](../../Definitions/ARCH-000001/architecture_definition.md) | 試験責務 | Covered |\n\n## 詳細成果物の適用判断\n\n| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |\n|---|---|---|---|\n| Component Model | Required | 責務を分ける | [§1](#1-component-model) |\n| Interface Model | Required | 契約を分ける | [§2](#2-interface-model) |\n| Data Flow | Required | Dataを追跡する | [§3](#3-data-flow) |\n| State Model | Required | 状態を分ける | [§4](#4-state-model) |\n| Sequence | Required | 順序を固定する | [§5](#5-sequence) |\n| Failure／Recovery | Required | 失敗を分ける | [§6](#6-failurerecovery) |\n| Deployment | N/A | Process配置を持たない | [§7](#7-deployment) |\n| Observability | Required | 結果を観測する | [§8](#8-observability) |\n| Security Boundary | Required | Authorityを分ける | [§9](#9-security-boundary) |\n| Implementation Structure | Required | 実装責務を分ける | [§10](#10-implementation-structure) |\n\n## Engineering Concern評価\n\n| Concern | Result | Rationale | Evidence／Related ID |\n|---|---|---|---|\n| Concurrency | N/A | 共有状態がない | [§1](#1-component-model) |\n| Timing | N/A | 時間制約がない | [§5](#5-sequence) |\n| Resource Lifecycle | PASS | Run単位で回収する | [§4](#4-state-model) |\n| External Boundary | PASS | 境界を分ける | [§2](#2-interface-model) |\n| Failure／Recovery | PASS | 失敗を返す | [§6](#6-failurerecovery) |\n\n## Qualityへの引渡し\n\n| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |\n|---|---|---|---|---|---|---|---|---|---|\n| `sample.core` | Component／Interface | Core | 根拠付き結果 | 欠測補完 | IT | Direct Boundary | result | Effect 0 | なし |\n\n## 現行実装との照合\n\n実装は後から照合する。\n\n## 1. Component Model\n\nCore。\n\n## 2. Interface Model\n\n契約。\n\n## 3. Data Flow\n\nFlow。\n\n## 4. State Model\n\nState。\n\n## 5. Sequence\n\nSequence。\n\n## 6. Failure／Recovery\n\nFailure。\n\n## 7. Deployment\n\nN/A。\n\n## 8. Observability\n\nObservation。\n\n## 9. Security Boundary\n\nBoundary。\n\n## 10. Implementation Structure\n\n| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |\n|---|---|---|---|---|---|---|\n| Variation | N/A | 単一実装であるため | 単一実装 | 代替実装を持たない | なし | `sample.core` |\n| Common Contract | N/A | 同一責務の複数具象を持たないため | 単一実装だけであり、共通契約へ昇格する具象差を持たない | Coreの責務を局所契約として保つ | 二つ目の同一責務実装を追加する場合に再評価する | N/A |\n| Creation／Selection | Required | 具象選択責務があるため | Factory | 正しいCoreを生成する | 不正Coreを拒否する | `sample.core` |\n| State-dependent Behavior | N/A | 状態分岐を持たないため | 状態分岐なし | 入力だけで決まる | なし | `sample.core` |\n| Composition／Recursion | N/A | 再帰構造を持たないため | 再帰構造なし | 単一Core | なし | `sample.core` |\n| Lifecycle Ownership | Required | Run資源を所有するため | Run owner | Run終了時に回収する | 資源残存 | `sample.core` |\n| External Boundary | Required | 外部Portを所有するため | Port | 外部境界をPortへ限定する | 境界逸脱 | `sample.core` |\n",
   );
   const detailFixturePath = path.join(
     root,
@@ -5407,13 +5434,13 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
 
 ### 4.0. Source固有条件と検証項目の関係
 
-| Source ID | 検証目標 | 保持する固有条件 | 試験段階 | 対応Local Item |
-|---|---|---|---|---|
-| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | [sample](../../Definitions/QA-000001/quality_definition.md) | 体験を保証する | ST／UAT | \`SAMPLE-10\`、\`SAMPLE-11\` |
-| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | [sample](../../Definitions/QA-000001/quality_definition.md) | 情報を保証する | IT／ST | \`SAMPLE-01\`、\`SAMPLE-10\` |
-| [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md) | [sample](../../Definitions/QA-000001/quality_definition.md) | UIを保証する | IT／ST | \`SAMPLE-01\`、\`SAMPLE-10\` |
-| [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md) | [sample](../../Definitions/QA-000001/quality_definition.md) | 振る舞いを保証する | UT／IT | \`SAMPLE-12\`、\`SAMPLE-01\` |
-| [ARCH-000001](../../../06_Architecture/Definitions/ARCH-000001/architecture_definition.md) | [sample](../../Definitions/QA-000001/quality_definition.md) | 構造を保証する | IT／ST | \`SAMPLE-01\`、\`SAMPLE-10\` |
+| Source ID | Obligation Key | 導出元 | 検証目標 | 保持する固有条件 | 試験段階 | 外部境界の段階 | 対応Local Item |
+|---|---|---|---|---|---|---|---|
+| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | \`ux-000001.qa-000001\` | UX Definition | [sample](../../Definitions/QA-000001/quality_definition.md) | 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | \`SAMPLE-ST-010\`、\`SAMPLE-UAT-011\` |
+| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | \`ia-000001.qa-000001\` | IA Definition | [sample](../../Definitions/QA-000001/quality_definition.md) | 情報を保証する | IT／ST | IT: Direct Boundary<br>ST: System/E2E | \`SAMPLE-IT-001\`、\`SAMPLE-ST-010\` |
+| [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md) | \`ui-000001.qa-000001\` | UI Definition | [sample](../../Definitions/QA-000001/quality_definition.md) | UIを保証する | IT／ST | IT: Direct Boundary<br>ST: System/E2E | \`SAMPLE-IT-001\`、\`SAMPLE-ST-010\` |
+| [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md) | \`spec-000001.qa-000001\` | SPEC Definition | [sample](../../Definitions/QA-000001/quality_definition.md) | 振る舞いを保証する | UT／IT | UT: N/A<br>IT: Direct Boundary | \`SAMPLE-UT-012\`、\`SAMPLE-IT-001\` |
+| [ARCH-000001](../../../06_Architecture/Definitions/ARCH-000001/architecture_definition.md) | \`arch-000001.qa-000001\` | Architecture Definition | [sample](../../Definitions/QA-000001/quality_definition.md) | 構造を保証する | IT／ST | IT: Direct Boundary<br>ST: System/E2E | \`SAMPLE-IT-001\`、\`SAMPLE-ST-010\` |
 
 ### 4.1. Architecture横断モデルの処置
 
@@ -5425,13 +5452,13 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
 
 | 詳細設計領域 | 検証単位 | 接続する検証目標 | Local Item | 処置状態 | 未確認／再評価条件 |
 |---|---|---|---|---|---|
-| [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | sample | [sample](../../Definitions/QA-000001/quality_definition.md) | \`SAMPLE-01\` | Covered | なし |
+| [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | \`sample.core\` | [sample](../../Definitions/QA-000001/quality_definition.md) | \`SAMPLE-IT-001\` | Covered | なし |
 
 ### 4.3. 検証項目の閉包
 
 | 検証目標 | Local Item集合 | 入力Coverage | Architecture入力 |
 |---|---|---|---|
-| [sample](../../Definitions/QA-000001/quality_definition.md) | \`SAMPLE-01\`、\`SAMPLE-10\`、\`SAMPLE-11\`、\`SAMPLE-12\` | §3の全入力 | §4.1と§4.2 |
+| [sample](../../Definitions/QA-000001/quality_definition.md) | \`SAMPLE-IT-001\`、\`SAMPLE-ST-010\`、\`SAMPLE-UAT-011\`、\`SAMPLE-UT-012\` | §3の全入力 | §4.1と§4.2 |
 `;
   const writeQualityMapping = function writeQualityMappingFixture(
     mappingValue: string,
@@ -5481,11 +5508,20 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
           "",
           "## 3. 検証目標への統合",
           "",
-          "| Source ID | 検証目標 | 保持する固有条件 | 試験段階 | 対応Local Item |",
-          "|---|---|---|---|---|",
+          "| Source ID | Obligation Key | 導出元 | 検証目標 | 保持する固有条件 | 試験段階 | 外部境界の段階 | 対応Local Item |",
+          "|---|---|---|---|---|---|---|---|",
           ...phaseRelations,
           "",
-          "## 4. 未解決事項",
+          "## 4. 必要義務と定義済み項目の差分",
+          "",
+          "| 区分 | 件数 | 対象 | 処置 |",
+          "|---|---:|---|---|",
+          "| Required - Defined | 0 | なし | 閉じている |",
+          "| Defined - Required | 0 | なし | 閉じている |",
+          "| Level不一致 | 0 | なし | 閉じている |",
+          "| Relation不明 | 0 | なし | 閉じている |",
+          "",
+          "## 5. 未解決事項",
           "",
           "なし",
           "",
@@ -5549,13 +5585,13 @@ Quality ID: \`QA-000001\`
 
 ## 1. 情報源と網羅条件
 
-| Source ID | 保持する固有条件 | 試験段階 | 対応Local Item |
-|---|---|---|---|
-| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | 体験を保証する | ST／UAT | \`SAMPLE-10\`、\`SAMPLE-11\` |
-| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | 情報を保証する | IT／ST | \`SAMPLE-01\`、\`SAMPLE-10\` |
-| [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md) | UIを保証する | IT／ST | \`SAMPLE-01\`、\`SAMPLE-10\` |
-| [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md) | 振る舞いを保証する | UT／IT | \`SAMPLE-12\`、\`SAMPLE-01\` |
-| [ARCH-000001](../../../06_Architecture/Definitions/ARCH-000001/architecture_definition.md) | 構造を保証する | IT／ST | \`SAMPLE-01\`、\`SAMPLE-10\` |
+| Source ID | Obligation Key | 導出元 | 保持する固有条件 | 試験段階 | 対応Local Item |
+|---|---|---|---|---|---|
+| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | \`ux-000001.qa-000001\` | UX Definition | 体験を保証する | ST／UAT | \`SAMPLE-ST-010\`、\`SAMPLE-UAT-011\` |
+| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | \`ia-000001.qa-000001\` | IA Definition | 情報を保証する | IT／ST | \`SAMPLE-IT-001\`、\`SAMPLE-ST-010\` |
+| [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md) | \`ui-000001.qa-000001\` | UI Definition | UIを保証する | IT／ST | \`SAMPLE-IT-001\`、\`SAMPLE-ST-010\` |
+| [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md) | \`spec-000001.qa-000001\` | SPEC Definition | 振る舞いを保証する | UT／IT | \`SAMPLE-UT-012\`、\`SAMPLE-IT-001\` |
+| [ARCH-000001](../../../06_Architecture/Definitions/ARCH-000001/architecture_definition.md) | \`arch-000001.qa-000001\` | Architecture Definition | 構造を保証する | IT／ST | \`SAMPLE-IT-001\`、\`SAMPLE-ST-010\` |
 
 ### Architecture詳細設計入力
 
@@ -5572,23 +5608,24 @@ Quality ID: \`QA-000001\`
 | ST | Required | System | System/E2E | 上位経路を確認する |
 | UAT | Required | 利用者受入 | User Acceptance | 利用者判断を確認する |
 
-### 状態区分の適用
+### 条件区分の適用
 
-| 状態区分 | 適用 | 対応Local Item | 判断理由 |
+| 条件区分 | 適用 | 対応Local Item | 判断理由 |
 |---|---|---|---|
-| 正常 | Required | SAMPLE-01、SAMPLE-10 | 正常経路を確認する |
-| 準正常／境界 | Required | SAMPLE-12 | 境界値を確認する |
-| 異常 | Required | SAMPLE-12 | 拒否を確認する |
-| 判定不能 | Required | SAMPLE-12 | 不明を成功へ畳まない |
+| 正常 | Required | SAMPLE-IT-001、SAMPLE-ST-010 | 正常経路を確認する |
+| 境界 | Required | SAMPLE-UAT-011、SAMPLE-UT-012 | 利用者判断と局所境界を確認する |
+| 準正常 | N/A | - | 継続可能な分岐を持たない |
+| 異常 | N/A | - | このfixtureでは対象外 |
+| 回復 | N/A | - | 回復経路を持たない |
 
 ## 3. 検証項目
 
-| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
+| Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| \`SAMPLE-01\` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |
-| \`SAMPLE-10\` | 正常 | ST | Scenario | Entry→System | System/E2E | 有効な経路 | 実行する | 完成状態を記録する | 完成結果を返す | 入力、観測値、判定 | 未解消状態なし | Automated |
-| \`SAMPLE-11\` | 利用者判断 | UAT | Acceptance | Result→User | User Acceptance | 完成結果 | 判断する | 利用者判断を記録する | 意味を理解できる | 判断条件、観測、結論 | 未解消状態なし | Manual |
-| \`SAMPLE-12\` | 境界 | UT | Contract | Core | N/A | 入力値 | 判定する | 局所結果を記録する | 局所契約に一致する | 入力、観測値、判定 | 外部Effect 0 | Automated |
+| \`SAMPLE-IT-001\` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |
+| \`SAMPLE-ST-010\` | 正常 | ST | Scenario | Entry→System | System/E2E | 有効な経路 | 実行する | 完成状態を記録する | 完成結果を返す | 入力、観測値、判定 | 未解消状態なし | Automated |
+| \`SAMPLE-UAT-011\` | 境界 | UAT | Acceptance | Result→User | User Acceptance | 完成結果 | 判断する | 利用者判断を記録する | 意味を理解できる | 判断条件、観測、結論 | 未解消状態なし | Manual |
+| \`SAMPLE-UT-012\` | 境界 | UT | Contract | Core | N/A | 入力値 | 判定する | 局所結果を記録する | 局所契約に一致する | 入力、観測値、判定 | 外部Effect 0 | Automated |
 ## 追加試験種別の適用
 
 | 種別 | 適用 | 確認する範囲 | 実行許可 | 未実行時の扱い |
@@ -5612,7 +5649,7 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
   write(
     definitionPath,
     definition.replace(
-      /^### 状態区分の適用\s*$[\s\S]*?(?=^## 3\. 検証項目)/mu,
+      /^### 条件区分の適用\s*$[\s\S]*?(?=^## 3\. 検証項目)/mu,
       "",
     ),
   );
@@ -6073,8 +6110,8 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
   write(
     definitionPath,
     definition.replace(
-      "| 体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11` |",
-      "| 体験を保証する | ST | `SAMPLE-10`、`SAMPLE-11` |",
+      "| 体験を保証する | ST／UAT | `SAMPLE-ST-010`、`SAMPLE-UAT-011` |",
+      "| 体験を保証する | ST | `SAMPLE-ST-010`、`SAMPLE-UAT-011` |",
     ),
   );
   result = runChecker(root);
@@ -6086,11 +6123,12 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
     ),
     `${result.stderr}\n${result.stdout}`,
   );
+  write(definitionPath, definition);
 
   writeQualityMapping(
     mapping.replace(
-      "| 体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11` |",
-      "| 体験を保証する | ST／UAT | `SAMPLE-10` |",
+      "| 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-011` |",
+      "| 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010` |",
     ),
   );
   result = runChecker(root);
@@ -6104,8 +6142,8 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
 
   writeQualityMapping(
     mapping.replace(
-      "| 体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11` |",
-      "| 体験を保証する | ST／UAT | `SAMPLE-11` |",
+      "| 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-011` |",
+      "| 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-UAT-011` |",
     ),
   );
   result = runChecker(root);
@@ -6119,8 +6157,8 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
 
   writeQualityMapping(
     mapping.replace(
-      "| 体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11` |",
-      "| 体験を保証する | ST／UAT | `SAMPLE-01`、`SAMPLE-12` |",
+      "| 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-011` |",
+      "| 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-IT-001`、`SAMPLE-UT-012` |",
     ),
   );
   result = runChecker(root);
@@ -6133,10 +6171,7 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
   );
 
   writeQualityMapping(
-    mapping.replace(
-      /^\| \[UX-000001\].*\| \[sample\].*\| 体験を保証する \| ST／UAT \| `SAMPLE-10`、`SAMPLE-11` \|\r?\n/mu,
-      "",
-    ),
+    mapping.replace(/^\| \[UX-000001\].*\| UX Definition \|.*\r?\n/mu, ""),
   );
   result = runChecker(root);
   assert.ok(
@@ -6149,8 +6184,8 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
 
   writeQualityMapping(
     mapping.replace(
-      "| 体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11` |",
-      "| 別表現の体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11` |\n| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | [sample](../../Definitions/QA-000001/quality_definition.md) | 体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11` |",
+      "| 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-011` |",
+      "| 別表現の体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-011` |\n| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | `ux-000001.qa-000001` | UX Definition | [sample](../../Definitions/QA-000001/quality_definition.md) | 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-011` |",
     ),
   );
   result = runChecker(root);
@@ -6163,8 +6198,8 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
 
   writeQualityMapping(
     mapping.replace(
-      "| 体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11` |",
-      "| 体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-99` |",
+      "| 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-011` |",
+      "| 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-099` |",
     ),
   );
   result = runChecker(root);
@@ -6176,12 +6211,57 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
     `${result.stderr}\n${result.stdout}`,
   );
 
+  writeQualityMapping(
+    mapping.replace(
+      "`ux-000001.qa-000001` | UX Definition |",
+      "`ux-000001.qa-000099` | UX Definition |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-source-local-relation-incomplete",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(
+    mapping.replace(
+      "`ux-000001.qa-000001` | UX Definition |",
+      "`ux-000001.qa-000001` |  |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-source-local-relation-incomplete",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(mapping);
+  write(
+    definitionPath,
+    definition.replace(
+      "`ux-000001.qa-000001` | UX Definition |",
+      "`ux-000001.qa-000099` | UX Definition |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-definition-source-local-relation-incomplete",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
   writeQualityMapping(mapping);
   write(definitionPath, definition);
   writeQualityMapping(
     mapping.replace(
-      "体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11`",
-      "体験の別条件 | ST／UAT | `SAMPLE-10`、`SAMPLE-11`",
+      "体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-011`",
+      "体験の別条件 | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-011`",
     ),
   );
   result = runChecker(root);
@@ -6196,8 +6276,8 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
   write(
     definitionPath,
     definition.replace(
-      "体験を保証する | ST／UAT | `SAMPLE-10`、`SAMPLE-11`",
-      "体験の別条件 | ST／UAT | `SAMPLE-10`、`SAMPLE-11`",
+      "体験を保証する | ST／UAT | `SAMPLE-ST-010`、`SAMPLE-UAT-011`",
+      "体験の別条件 | ST／UAT | `SAMPLE-ST-010`、`SAMPLE-UAT-011`",
     ),
   );
   result = runChecker(root);
@@ -6212,8 +6292,8 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
   write(
     definitionPath,
     definition.replace(
-      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
-      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | | 未解消状態なし | Automated |",
+      "| `SAMPLE-IT-001` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
+      "| `SAMPLE-IT-001` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | | 未解消状態なし | Automated |",
     ),
   );
   result = runChecker(root);
@@ -6228,8 +6308,8 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
   write(
     definitionPath,
     definition.replace(
-      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
-      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | |",
+      "| `SAMPLE-IT-001` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
+      "| `SAMPLE-IT-001` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | |",
     ),
   );
   result = runChecker(root);
@@ -6244,8 +6324,8 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
   write(
     definitionPath,
     definition.replace(
-      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
-      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated／ST |",
+      "| `SAMPLE-IT-001` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
+      "| `SAMPLE-IT-001` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated／ST |",
     ),
   );
   result = runChecker(root);
@@ -6261,8 +6341,8 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
   write(
     definitionPath,
     definition.replace(
-      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
-      "| `SAMPLE-01` | 正常 | Component | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
+      "| `SAMPLE-IT-001` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
+      "| `SAMPLE-IT-001` | 正常 | Component | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
     ),
   );
   result = runChecker(root);
@@ -6277,8 +6357,8 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
   write(
     definitionPath,
     definition.replace(
-      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
-      "| `SAMPLE-01` | 正常 | IT | Contract | Adapter→Core | Full Stack | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
+      "| `SAMPLE-IT-001` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
+      "| `SAMPLE-IT-001` | 正常 | IT | Contract | Adapter→Core | Full Stack | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
     ),
   );
   result = runChecker(root);
@@ -6422,9 +6502,9 @@ Quality ID: \`QA-000002\`
 
 ## 1. 情報源と網羅条件
 
-| Source ID | 保持する固有条件 | 試験段階 | 対応Local Item |
-|---|---|---|---|
-| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | 第二の体験条件を保証する | ST／UAT | \`SAMPLE-02\`、\`SAMPLE-03\` |
+| Source ID | Obligation Key | 導出元 | 保持する固有条件 | 試験段階 | 対応Local Item |
+|---|---|---|---|---|---|
+| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | \`ux-000001.qa-000002\` | UX Definition | 第二の体験条件を保証する | ST／UAT | \`SAMPLE-ST-002\`、\`SAMPLE-UAT-003\` |
 
 ### Architecture詳細設計入力
 
@@ -6441,21 +6521,22 @@ Quality ID: \`QA-000002\`
 | ST | Required | System | System/E2E | 上位経路を確認する |
 | UAT | Required | 利用者受入 | User Acceptance | 利用者判断を確認する |
 
-### 状態区分の適用
+### 条件区分の適用
 
-| 状態区分 | 適用 | 対応Local Item | 判断理由 |
+| 条件区分 | 適用 | 対応Local Item | 判断理由 |
 |---|---|---|---|
-| 正常 | Required | SAMPLE-02 | 正常経路を確認する |
-| 準正常／境界 | Required | SAMPLE-03 | 利用者判断の境界を確認する |
-| 異常 | Required | SAMPLE-02 | 不一致を確認する |
-| 判定不能 | Required | SAMPLE-03 | 不明を成功へ畳まない |
+| 正常 | Required | SAMPLE-ST-002 | 正常経路を確認する |
+| 境界 | Required | SAMPLE-UAT-003 | 利用者判断の境界を確認する |
+| 準正常 | N/A | - | 継続可能な分岐を持たない |
+| 異常 | N/A | - | このfixtureでは対象外 |
+| 回復 | N/A | - | 回復経路を持たない |
 
 ## 3. 検証項目
 
-| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
+| Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| \`SAMPLE-02\` | 正常 | ST | Scenario | Entry→Consumer | System/E2E | 第二の入力 | 入力する | 第二の結果を記録する | 第二の契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |
-| \`SAMPLE-03\` | 利用者判断 | UAT | Acceptance | Result→User | User Acceptance | 第二の結果 | 判断する | 利用者判断を記録する | 意味を理解できる | 判断条件、観測、結論 | 未解消状態なし | Manual |
+| \`SAMPLE-ST-002\` | 正常 | ST | Scenario | Entry→Consumer | System/E2E | 第二の入力 | 入力する | 第二の結果を記録する | 第二の契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |
+| \`SAMPLE-UAT-003\` | 境界 | UAT | Acceptance | Result→User | User Acceptance | 第二の結果 | 判断する | 利用者判断を記録する | 意味を理解できる | 判断条件、観測、結論 | 未解消状態なし | Manual |
 ## 追加試験種別の適用
 
 | 種別 | 適用 | 確認する範囲 | 実行許可 | 未実行時の扱い |
@@ -6483,20 +6564,20 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
       "[sample](../../Definitions/QA-000001/quality_definition.md)、[sample two](../../Definitions/QA-000002/quality_definition.md) | ST／UAT",
     )
     .replace(
-      "| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | [sample](../../Definitions/QA-000001/quality_definition.md) | 情報を保証する | IT／ST | `SAMPLE-01`、`SAMPLE-10` |",
-      "| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | [sample two](../../Definitions/QA-000002/quality_definition.md) | 第二の体験条件を保証する | ST／UAT | `SAMPLE-02`、`SAMPLE-03` |\n| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | [sample](../../Definitions/QA-000001/quality_definition.md) | 情報を保証する | IT／ST | `SAMPLE-01`、`SAMPLE-10` |",
+      "| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | `ia-000001.qa-000001` | IA Definition | [sample](../../Definitions/QA-000001/quality_definition.md) | 情報を保証する | IT／ST | IT: Direct Boundary<br>ST: System/E2E | `SAMPLE-IT-001`、`SAMPLE-ST-010` |",
+      "| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | `ux-000001.qa-000002` | UX Definition | [sample two](../../Definitions/QA-000002/quality_definition.md) | 第二の体験条件を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-002`、`SAMPLE-UAT-003` |\n| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | `ia-000001.qa-000001` | IA Definition | [sample](../../Definitions/QA-000001/quality_definition.md) | 情報を保証する | IT／ST | IT: Direct Boundary<br>ST: System/E2E | `SAMPLE-IT-001`、`SAMPLE-ST-010` |",
     )
     .replace(
       "| sample | Required | Required | Required | Required | N/A: 配置差なし |",
       "| sample | Required | Required | Required | Required | N/A: 配置差なし |\n| sample two | Required | Required | Required | Required | N/A: 配置差なし |",
     )
     .replace(
-      "[sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-01` | Covered | なし",
-      "[sample](../../Definitions/QA-000001/quality_definition.md)<br>[sample two](../../Definitions/QA-000002/quality_definition.md) | `SAMPLE-01`、`SAMPLE-02` | Covered | なし",
+      "`sample.core` | [sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-IT-001` | Covered | なし",
+      "`sample.core` | [sample](../../Definitions/QA-000001/quality_definition.md)<br>[sample two](../../Definitions/QA-000002/quality_definition.md) | `SAMPLE-IT-001`、`SAMPLE-ST-002` | Covered | なし",
     )
     .replace(
-      "| [sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-01`、`SAMPLE-10`、`SAMPLE-11`、`SAMPLE-12` | §3の全入力 | §4.1と§4.2 |",
-      "| [sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-01`、`SAMPLE-10`、`SAMPLE-11`、`SAMPLE-12` | §3の全入力 | §4.1と§4.2 |\n| [sample two](../../Definitions/QA-000002/quality_definition.md) | `SAMPLE-02`、`SAMPLE-03` | §3の全入力 | §4.1と§4.2 |",
+      "| [sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-IT-001`、`SAMPLE-ST-010`、`SAMPLE-UAT-011`、`SAMPLE-UT-012` | §3の全入力 | §4.1と§4.2 |",
+      "| [sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-IT-001`、`SAMPLE-ST-010`、`SAMPLE-UAT-011`、`SAMPLE-UT-012` | §3の全入力 | §4.1と§4.2 |\n| [sample two](../../Definitions/QA-000002/quality_definition.md) | `SAMPLE-ST-002`、`SAMPLE-UAT-003` | §3の全入力 | §4.1と§4.2 |",
     );
   writeQualityMapping(mappingTwoGoals);
   write(definitionPath, definition);
@@ -6511,12 +6592,12 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
   writeQualityMapping(
     mappingTwoGoals
       .replace(
-        "| [sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-01`、`SAMPLE-10`、`SAMPLE-11`、`SAMPLE-12` | §3の全入力 | §4.1と§4.2 |",
-        "| [sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-02`、`SAMPLE-10`、`SAMPLE-11`、`SAMPLE-12` | §3の全入力 | §4.1と§4.2 |",
+        "| [sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-IT-001`、`SAMPLE-ST-010`、`SAMPLE-UAT-011`、`SAMPLE-UT-012` | §3の全入力 | §4.1と§4.2 |",
+        "| [sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-ST-002`、`SAMPLE-ST-010`、`SAMPLE-UAT-011`、`SAMPLE-UT-012` | §3の全入力 | §4.1と§4.2 |",
       )
       .replace(
-        "| [sample two](../../Definitions/QA-000002/quality_definition.md) | `SAMPLE-02`、`SAMPLE-03` | §3の全入力 | §4.1と§4.2 |",
-        "| [sample two](../../Definitions/QA-000002/quality_definition.md) | `SAMPLE-01`、`SAMPLE-03` | §3の全入力 | §4.1と§4.2 |",
+        "| [sample two](../../Definitions/QA-000002/quality_definition.md) | `SAMPLE-ST-002`、`SAMPLE-UAT-003` | §3の全入力 | §4.1と§4.2 |",
+        "| [sample two](../../Definitions/QA-000002/quality_definition.md) | `SAMPLE-IT-001`、`SAMPLE-UAT-003` | §3の全入力 | §4.1と§4.2 |",
       ),
   );
   result = runChecker(root);
@@ -6635,7 +6716,7 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
       "QA-999999",
       "quality_definition.md",
     ),
-    "# Orphan\n\n## 1. 試験段階と外部境界の適用\n\n| 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |\n|---|---|---|---|---|\n| UT | Required | 最小責務 | N/A | 局所判定を確認する |\n| IT | N/A | 外部境界なし | N/A | 外部境界を持たない |\n| ST | N/A | System対象なし | N/A | 上位経路を持たない |\n| UAT | N/A | 利用者受入なし | N/A | 利用者判断を含まない |\n\n### 状態区分の適用\n\n| 状態区分 | 適用 | 対応Local Item | 判断理由 |\n|---|---|---|---|\n| 正常 | Required | `ORPHAN-01` | 正常成立を確認する |\n| 準正常／境界 | N/A | - | 境界値を持たない |\n| 異常 | N/A | - | このfixtureでは対象外 |\n| 判定不能 | N/A | - | 観測不能状態を持たない |\n\n## 2. 検証項目\n\n| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|\n| `ORPHAN-01` | 正常 | UT | Functional | 局所責務 | N/A | 入力あり | 入力する | 結果を記録する | 契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |\n",
+    "# Orphan\n\n## 1. 試験段階と外部境界の適用\n\n| 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |\n|---|---|---|---|---|\n| UT | Required | 最小責務 | N/A | 局所判定を確認する |\n| IT | N/A | 外部境界なし | N/A | 外部境界を持たない |\n| ST | N/A | System対象なし | N/A | 上位経路を持たない |\n| UAT | N/A | 利用者受入なし | N/A | 利用者判断を含まない |\n\n### 条件区分の適用\n\n| 条件区分 | 適用 | 対応Local Item | 判断理由 |\n|---|---|---|---|\n| 正常 | Required | `ORPHAN-UT-001` | 正常成立を確認する |\n| 境界 | N/A | - | 境界値を持たない |\n| 準正常 | N/A | - | 継続可能な分岐を持たない |\n| 異常 | N/A | - | このfixtureでは対象外 |\n| 回復 | N/A | - | 回復経路を持たない |\n\n## 2. 検証項目\n\n| Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|\n| `ORPHAN-UT-001` | 正常 | UT | Functional | 局所責務 | N/A | 入力あり | 入力する | 結果を記録する | 契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |\n",
   );
   result = runChecker(root);
   assert.ok(
@@ -6661,7 +6742,7 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
   );
   write(
     definitionPath,
-    "# Verification\n\n## 1. 試験段階と外部境界の適用\n\n| 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |\n|---|---|---|---|---|\n| UT | Required | 最小責務 | N/A | 局所判定を確認する |\n| IT | N/A | 外部境界なし | N/A | 外部境界を持たない |\n| ST | N/A | System対象なし | N/A | 上位経路を持たない |\n| UAT | N/A | 利用者受入なし | N/A | 利用者判断を含まない |\n\n### 状態区分の適用\n\n| 状態区分 | 適用 | 対応Local Item | 判断理由 |\n|---|---|---|---|\n| 正常 | Required | `SAMPLE-01` | 正常成立を確認する |\n| 準正常／境界 | N/A | - | 境界値を持たない |\n| 異常 | Required | `SAMPLE-01` | 拒否を確認する |\n| 判定不能 | N/A | - | 観測不能状態を持たない |\n\n## 2. 検証項目\n\n| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|\n| `SAMPLE-01` | 正常 | UT | Functional | 局所責務 | N/A | 入力あり | 入力する | 結果を記録する | 契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |\n| `SAMPLE-01` | 異常 | UT | Functional | 局所責務 | N/A | 壊れた入力 | 壊す | 拒否結果を記録する | 拒否する | 入力、観測値、判定 | Effect 0 | Automated |\n",
+    "# Verification\n\n## 1. 試験段階と外部境界の適用\n\n| 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |\n|---|---|---|---|---|\n| UT | Required | 最小責務 | N/A | 局所判定を確認する |\n| IT | N/A | 外部境界なし | N/A | 外部境界を持たない |\n| ST | N/A | System対象なし | N/A | 上位経路を持たない |\n| UAT | N/A | 利用者受入なし | N/A | 利用者判断を含まない |\n\n### 条件区分の適用\n\n| 条件区分 | 適用 | 対応Local Item | 判断理由 |\n|---|---|---|---|\n| 正常 | Required | `SAMPLE-IT-001` | 正常成立を確認する |\n| 境界 | N/A | - | 境界値を持たない |\n| 準正常 | N/A | - | 継続可能な分岐を持たない |\n| 異常 | Required | `SAMPLE-IT-001` | 拒否を確認する |\n| 回復 | N/A | - | 回復経路を持たない |\n\n## 2. 検証項目\n\n| Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|\n| `SAMPLE-IT-001` | 正常 | UT | Functional | 局所責務 | N/A | 入力あり | 入力する | 結果を記録する | 契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |\n| `SAMPLE-IT-001` | 異常 | UT | Functional | 局所責務 | N/A | 壊れた入力 | 壊す | 拒否結果を記録する | 拒否する | 入力、観測値、判定 | Effect 0 | Automated |\n",
   );
   result = runChecker(root);
   assert.ok(
@@ -7066,6 +7147,23 @@ test("Change契約は影響ファイルへ重複分類の親子階層を作ら�
       (finding) =>
         finding.code === "change-impact-files-contract-invalid" &&
         finding.path === "99_Roadmap/Changes/CHG-000065/change.md",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+});
+
+test("CHG-000080以降はPhase／Gateと固定前収束の必須評価を要求する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "99_Roadmap", "Changes", "CHG-000080", "change.md"),
+    "# Change\n\n変更ID: CHG-000080\n\n### 影響ファイル\n\n<details>\n<summary>全ファイルを表示</summary>\n\n- [`change.md`](./change.md)\n\n</details>\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "change-phase-gate-contract-incomplete" &&
+        finding.path === "99_Roadmap/Changes/CHG-000080/change.md",
     ),
     `${result.stderr}\n${result.stdout}`,
   );

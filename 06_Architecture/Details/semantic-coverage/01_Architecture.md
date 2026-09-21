@@ -27,6 +27,7 @@ Relation状態はSemantic Coverageが担当する責務断面に対する状態�
 | Deployment | Required | 独立Packageと薄いCLIとして配置し、Checkerから分離する。 | [§3](#3-component) |
 | Observability | Required | 入力Path、Semantic Key、未解決Relationおよび公開結果を返す。 | [§5](#5-状態と終了条件) |
 | Security Boundary | Required | 検証済みRepository Root外への読取り・公開を拒否する。 | [§2](#2-責務境界) |
+| Implementation Structure | Required | 設計責務を具象差、選択、状態依存、構成、資源Ownerおよび外部境界へ分解する。 | [§Implementation Structure](#implementation-structure) |
 
 `N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
 
@@ -52,11 +53,13 @@ Relation状態はSemantic Coverageが担当する責務断面に対する状態�
 
 ## Qualityへの引渡し
 
-| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
-|---|---|---|---|---|---|---|
-| Meaning compilation | Architecture Detailsの構造化表 | 明示された意味だけをSemantic IRへ変換 | 自由文から意味を推測、重複Key、未解決ARCH-ID | IR、Domain Issue、入力Path | Repository内容不変 | Pilot解除条件は別Changeで判断 |
-| Relation coverage | IR、Symbol Manifest、Quality Local Item | 必須Meaningが実装・検証Relationへ一意に接続 | 未解決、曖昧、逆向き所有、欠落 | Coverage Graphと理由code | Repository内容不変 | 全Subsystem展開は別Changeで判断 |
-| Bundle publication | 検証済みRepository Root内のRegistry | 完全なBundleだけを原子的に公開 | Root外、link、部分書込み、置換前失敗 | receipt、内容、temporary file残存 | 既存Snapshot維持、一時File 0 | 同時公開競合は実装拡張時に再評価 |
+| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|---|---|---|
+| `semantic-coverage.meaning-compilation` | Flow／Implementation Structure | Architecture Detailsの構造化表 | 明示された意味だけをSemantic IRへ変換 | 自由文から意味を推測、重複Key、未解決ARCH-ID | UT／IT | Adjacent 1 Block | IR、Domain Issue、入力Path | Repository内容不変 | Pilot解除条件は別Changeで判断 |
+| `semantic-coverage.relation-coverage` | Flow／Consistency | IR、Symbol Manifest、Quality Local Item | 必須Meaningが実装・検証Relationへ一意に接続 | 未解決、曖昧、逆向き所有、欠落 | UT／IT | Related 2 Blocks | Coverage Graphと理由code | Repository内容不変 | 全Subsystem展開は別Changeで判断 |
+| `semantic-coverage.bundle-publication` | Sequence／Lifecycle Ownership | 検証済みRepository Root内のRegistry | 完全なBundleだけを原子的に公開 | Root外、link、部分書込み、置換前失敗 | IT | Direct Boundary | receipt、内容、temporary file残存 | 既存Snapshot維持、一時File 0 | 同時公開競合は実装拡張時に再評価 |
+
+導出キーは本領域内でQualityが同じ設計項目を反復参照するための局所参照であり、CRDD全体の安定コンテキストIDではない。
 
 ## 現行実装との照合
 
@@ -137,16 +140,33 @@ semantic-coverage/
 - 一時Fileは成功・失敗の両方で除去する。
 - rename後の読戻し等、Effect成立が不明になる機能を追加する場合は耐久OperationとRecovery契約を別途設計する。
 
+## Implementation Structure
+
+| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
+|---|---|---|---|---|---|---|
+| Variation | Required | この観点を成立させる構造と責務が存在するため。 | Qualityへの引渡しで責務差を別の設計項目として固定する。 | 具象差を一つの分岐へ畳まず、各導出キーの正常条件と反証条件を保つ。 | 新しい具象を追加した場合、対応する導出キーと利用側の再確認が必要になる。 | `semantic-coverage.meaning-compilation`<br>`semantic-coverage.relation-coverage`<br>`semantic-coverage.bundle-publication` |
+| Common Contract | Required | この観点を成立させる構造と責務が存在するため。 | Architecture Meaning、Implementation Symbol、Quality Local ItemとTest Symbolを、片側Ownerを持つRelation契約へ揃える。 | 各Symbol種別は固有Propertyを保ち、逆Relationを複製せずGraphから投影する。 | 新しいRelation種別が独自Identityや双方向台帳を持ち、整合不能になる。 | `semantic-coverage.meaning-compilation`<br>`semantic-coverage.relation-coverage`<br>`semantic-coverage.bundle-publication` |
+| Creation／Selection | N/A | 本領域は独立した具象生成・選択責務を持たず、上位から固定入力を受ける。 | 本領域は独立した具象生成・選択責務を持たず、上位から固定入力を受ける。 | 生成・選択判断を本領域へ追加しない。 | 将来生成・選択責務を追加する場合に再評価する。 | N/A |
+| State-dependent Behavior | Required | この観点を成立させる構造と責務が存在するため。 | 入力・処理中・完了・失敗・観測不能を区別して振る舞いを決める。 | 状態を空値や成功へ畳まず、同じIdentityで終了条件まで追跡する。 | 状態追加・統合はRecoveryと観測契約へ波及する。 | `semantic-coverage.meaning-compilation` |
+| Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | 複数の局所責務を公開結果へ合成し、部分成立と全体成立を分ける。 | 各局所結果を保持し、必要な全要素が揃うまで上位完成を表示しない。 | 構成要素の追加時は完成条件と全Consumerを再確認する。 | `semantic-coverage.meaning-compilation`<br>`semantic-coverage.relation-coverage`<br>`semantic-coverage.bundle-publication` |
+| Lifecycle Ownership | Required | この観点を成立させる構造と責務が存在するため。 | Process、Handle、一時物、秘密または公開SnapshotのOwnerと終了条件を固定する。 | 成功・失敗・取消の全経路で資源回収または同一Identityの回復義務を残す。 | Owner変更は取消、Recovery、終了後条件へ波及する。 | `semantic-coverage.bundle-publication` |
+| External Boundary | Required | この観点を成立させる構造と責務が存在するため。 | 外部境界ごとに要求、受理、Effect、結果搬送および終了後状態を分ける。 | 境界の成功を要求発行だけから推定せず、段階に応じた観測を必須にする。 | 境界変更は直接境界からSystem／E2Eまでの検証範囲へ波及する。 | `semantic-coverage.bundle-publication` |
+
+同じ責務へ二つ目の具象実装を追加する場合は、共通契約へ昇格するかを評価する。昇格しない場合は、同じ責務ではない、または局所分岐の方が単純で影響が小さい理由を記録する。特定のDesign Pattern名は必須にしない。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した
-- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] 10種類の詳細成果物を全数Applicability判定した
 - [x] Requiredを実在する節または成果物へ接続した
 - [x] N/AにArchitecture上の理由を記録した
 - [x] 8種類のEngineering Concernを全数評価した
 - [x] PASSを設計済みの意味に限定した
 - [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
 - [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] 7種類のImplementation Structure観点を全数Applicability判定した
+- [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
+- [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
 - [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した

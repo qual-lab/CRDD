@@ -14,7 +14,7 @@
       "kind": "test-suite",
       "path": "tests/integration/transport-lifecycle.contract.test.ts",
       "qaIds": ["QA-000007", "QA-000009"],
-      "localTestIds": ["RFD-04", "EST-01", "EST-02"],
+      "localTestIds": ["RFD-ST-004", "EST-IT-001", "EST-IT-002"],
       "verifies": ["mcp.public-api"]
     },
     {
@@ -22,7 +22,7 @@
       "kind": "test-suite",
       "path": "tests/unit/project-runtime-adapter.contract.test.ts",
       "qaIds": ["QA-000004"],
-      "localTestIds": ["PPR-06"],
+      "localTestIds": ["PPR-UT-006"],
       "verifies": ["mcp.public-api"]
     }
   ]

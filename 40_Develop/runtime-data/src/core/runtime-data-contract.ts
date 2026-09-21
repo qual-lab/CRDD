@@ -6,6 +6,17 @@ const ID = /^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$/u;
 export const CROS_DIRECTORY_ID = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/u;
 const CAPABILITY = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
 
+/**
+ * RepositoryManifestが扱う値の構造を表す。
+ *
+ * @responsibility RepositoryManifestに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000011
+ * @shape RepositoryManifestが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RepositoryManifestで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RepositoryManifestの宣言は外部境界を開かない。
+ * @security N/A: RepositoryManifestはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RepositoryManifestの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type RepositoryManifest = Readonly<{
   schema: typeof REPOSITORY_MANIFEST_SCHEMA;
   projectId: string;
@@ -16,6 +27,17 @@ export type RepositoryManifest = Readonly<{
   externalSendPolicy: "config/external-send-policy.json" | null;
 }>;
 
+/**
+ * CrosTrustPolicyが扱う値の構造を表す。
+ *
+ * @responsibility CrosTrustPolicyに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000011
+ * @shape CrosTrustPolicyが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CrosTrustPolicyで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CrosTrustPolicyの宣言は外部境界を開かない。
+ * @security N/A: CrosTrustPolicyはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CrosTrustPolicyの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type CrosTrustPolicy = Readonly<{
   schema: typeof CROS_TRUST_POLICY_SCHEMA;
   trustDomainId: string;
@@ -26,6 +48,22 @@ export type CrosTrustPolicy = Readonly<{
   allowUnsignedLocalDevelopment: boolean;
 }>;
 
+/**
+ * plainRecordの処理を実行する。
+ *
+ * @responsibility plainRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input value: unknown
+ * @returns Readonly<Record<string, unknown>> | nullを返す。
+ * @precondition 「value: unknown」がplainRecordの入力契約を満たす。
+ * @postcondition plainRecordの責務を完了した結果だけを返す。
+ * @effect N/A: plainRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: plainRecordは独自の失敗分岐を所有しない。
+ * @invariant plainRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: plainRecordはProcess内の同一Subsystemで完結する。
+ * @security N/A: plainRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: plainRecordは共有非同期状態を持たない同期処理である。
+ */
 function plainRecord(value: unknown): Readonly<Record<string, unknown>> | null {
   if (
     typeof value !== "object" ||
@@ -37,6 +75,22 @@ function plainRecord(value: unknown): Readonly<Record<string, unknown>> | null {
   return value as Readonly<Record<string, unknown>>;
 }
 
+/**
+ * exactKeysの処理を実行する。
+ *
+ * @responsibility exactKeysに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input value: Readonly<Record<string, unknown>>、keys: string[]
+ * @returns exactKeysの計算結果を返す。
+ * @precondition 「value: Readonly<Record<string, unknown>>、keys: string[]」がexactKeysの入力契約を満たす。
+ * @postcondition exactKeysの責務を完了した結果だけを返す。
+ * @effect N/A: exactKeysは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: exactKeysは独自の失敗分岐を所有しない。
+ * @invariant exactKeysは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: exactKeysはProcess内の同一Subsystemで完結する。
+ * @security N/A: exactKeysはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: exactKeysは共有非同期状態を持たない同期処理である。
+ */
 function exactKeys(value: Readonly<Record<string, unknown>>, keys: string[]) {
   const actualKeys = Object.keys(value).sort();
   return (
@@ -45,6 +99,22 @@ function exactKeys(value: Readonly<Record<string, unknown>>, keys: string[]) {
   );
 }
 
+/**
+ * identifiersの処理を実行する。
+ *
+ * @responsibility identifiersに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input value: unknown、pattern: RegExp
+ * @returns readonly string[] | nullを返す。
+ * @precondition 「value: unknown、pattern: RegExp」がidentifiersの入力契約を満たす。
+ * @postcondition identifiersの責務を完了した結果だけを返す。
+ * @effect N/A: identifiersは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: identifiersは独自の失敗分岐を所有しない。
+ * @invariant identifiersは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: identifiersはProcess内の同一Subsystemで完結する。
+ * @security N/A: identifiersはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: identifiersは共有非同期状態を持たない同期処理である。
+ */
 function identifiers(
   value: unknown,
   pattern: RegExp,
@@ -63,6 +133,22 @@ function identifiers(
   return Object.freeze(identifiers);
 }
 
+/**
+ * inspectRepositoryManifestの処理を実行する。
+ *
+ * @responsibility inspectRepositoryManifestに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input value: unknown
+ * @returns RepositoryManifest | nullを返す。
+ * @precondition 「value: unknown」がinspectRepositoryManifestの入力契約を満たす。
+ * @postcondition inspectRepositoryManifestの責務を完了した結果だけを返す。
+ * @effect N/A: inspectRepositoryManifestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectRepositoryManifestは独自の失敗分岐を所有しない。
+ * @invariant inspectRepositoryManifestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectRepositoryManifestはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectRepositoryManifestはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectRepositoryManifestは共有非同期状態を持たない同期処理である。
+ */
 export function inspectRepositoryManifest(
   value: unknown,
 ): RepositoryManifest | null {
@@ -108,6 +194,22 @@ export function inspectRepositoryManifest(
   });
 }
 
+/**
+ * inspectCrosTrustPolicyの処理を実行する。
+ *
+ * @responsibility inspectCrosTrustPolicyに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000011
+ * @input value: unknown
+ * @returns CrosTrustPolicy | nullを返す。
+ * @precondition 「value: unknown」がinspectCrosTrustPolicyの入力契約を満たす。
+ * @postcondition inspectCrosTrustPolicyの責務を完了した結果だけを返す。
+ * @effect N/A: inspectCrosTrustPolicyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectCrosTrustPolicyは独自の失敗分岐を所有しない。
+ * @invariant inspectCrosTrustPolicyは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectCrosTrustPolicyはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectCrosTrustPolicyはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectCrosTrustPolicyは共有非同期状態を持たない同期処理である。
+ */
 export function inspectCrosTrustPolicy(value: unknown): CrosTrustPolicy | null {
   const record = plainRecord(value);
   if (

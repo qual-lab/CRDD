@@ -23,17 +23,50 @@ const READER_TIMEOUT_MS = 110_000;
 const READER_CLEANUP_SCHEDULING_MARGIN_MS = 5_000;
 const TERMINAL_WRITE_TIMEOUT_MS = 1_000;
 
+/**
+ * InteractiveConsoleHandlesが扱う値の構造を表す。
+ *
+ * @responsibility InteractiveConsoleHandlesに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape InteractiveConsoleHandlesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant InteractiveConsoleHandlesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: InteractiveConsoleHandlesの宣言は外部境界を開かない。
+ * @security N/A: InteractiveConsoleHandlesはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility InteractiveConsoleHandlesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type InteractiveConsoleHandles = Readonly<{
   input: number;
   output: number;
 }>;
 
+/**
+ * InteractiveConsoleAdapterが扱う値の構造を表す。
+ *
+ * @responsibility InteractiveConsoleAdapterに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape InteractiveConsoleAdapterが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant InteractiveConsoleAdapterで宣言した値と責務の対応を維持する。
+ * @boundary N/A: InteractiveConsoleAdapterの宣言は外部境界を開かない。
+ * @security N/A: InteractiveConsoleAdapterはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility InteractiveConsoleAdapterの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type InteractiveConsoleAdapter = Readonly<{
   open: (path: string, flags: "r" | "r+" | "w") => number;
   close: (descriptor: number) => void;
   validate?: (handles: InteractiveConsoleHandles) => boolean;
 }>;
 
+/**
+ * InteractiveConsoleTextAdapterが扱う値の構造を表す。
+ *
+ * @responsibility InteractiveConsoleTextAdapterに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape InteractiveConsoleTextAdapterが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant InteractiveConsoleTextAdapterで宣言した値と責務の対応を維持する。
+ * @boundary N/A: InteractiveConsoleTextAdapterの宣言は外部境界を開かない。
+ * @security N/A: InteractiveConsoleTextAdapterはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility InteractiveConsoleTextAdapterの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type InteractiveConsoleTextAdapter = Readonly<{
   isWindowsTerminal: boolean;
   writeWindowsTerminal: (
@@ -42,19 +75,63 @@ type InteractiveConsoleTextAdapter = Readonly<{
   writeDescriptor: (descriptor: number, value: string) => void;
 }>;
 
+/**
+ * InteractiveConsoleTextWriteOutcomeが扱う値の構造を表す。
+ *
+ * @responsibility InteractiveConsoleTextWriteOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape InteractiveConsoleTextWriteOutcomeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant InteractiveConsoleTextWriteOutcomeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: InteractiveConsoleTextWriteOutcomeの宣言は外部境界を開かない。
+ * @security N/A: InteractiveConsoleTextWriteOutcomeはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility InteractiveConsoleTextWriteOutcomeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type InteractiveConsoleTextWriteOutcome = Readonly<{
   status: "completed" | "write_failed" | "cleanup_unknown";
 }>;
 
+/**
+ * InteractiveConsoleOperationOutcomeが扱う値の構造を表す。
+ *
+ * @responsibility InteractiveConsoleOperationOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape InteractiveConsoleOperationOutcomeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant InteractiveConsoleOperationOutcomeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: InteractiveConsoleOperationOutcomeの宣言は外部境界を開かない。
+ * @security N/A: InteractiveConsoleOperationOutcomeはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility InteractiveConsoleOperationOutcomeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type InteractiveConsoleOperationOutcome<T> = Readonly<{
   status: "completed" | "unavailable" | "operation_failed" | "cleanup_unknown";
   value: T | null;
 }>;
 
+/**
+ * InteractiveConsoleAvailabilityOutcomeが扱う値の構造を表す。
+ *
+ * @responsibility InteractiveConsoleAvailabilityOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape InteractiveConsoleAvailabilityOutcomeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant InteractiveConsoleAvailabilityOutcomeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: InteractiveConsoleAvailabilityOutcomeの宣言は外部境界を開かない。
+ * @security N/A: InteractiveConsoleAvailabilityOutcomeはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility InteractiveConsoleAvailabilityOutcomeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type InteractiveConsoleAvailabilityOutcome = Readonly<{
   status: "available" | "unavailable" | "cleanup_unknown";
 }>;
 
+/**
+ * WindowsTerminalStreamが扱う値の構造を表す。
+ *
+ * @responsibility WindowsTerminalStreamに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape WindowsTerminalStreamが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant WindowsTerminalStreamで宣言した値と責務の対応を維持する。
+ * @boundary N/A: WindowsTerminalStreamの宣言は外部境界を開かない。
+ * @security N/A: WindowsTerminalStreamはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility WindowsTerminalStreamの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type WindowsTerminalStream = Readonly<{
   isTTY?: boolean;
   destroyed: boolean;
@@ -73,12 +150,39 @@ const POSIX_INTERACTIVE_CONSOLE_DEVICES = Object.freeze({
   output: Object.freeze({ path: "/dev/tty", flags: "w" as const }),
 });
 
+/**
+ * interactiveConsoleDevicesの処理を実行する。
+ *
+ * @responsibility interactiveConsoleDevicesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input platform: NodeJS.Platform
+ * @returns interactiveConsoleDevicesの計算結果を返す。
+ * @precondition 「platform: NodeJS.Platform」がinteractiveConsoleDevicesの入力契約を満たす。
+ * @postcondition interactiveConsoleDevicesの責務を完了した結果だけを返す。
+ * @effect N/A: interactiveConsoleDevicesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: interactiveConsoleDevicesは独自の失敗分岐を所有しない。
+ * @invariant interactiveConsoleDevicesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: interactiveConsoleDevicesはProcess内の同一Subsystemで完結する。
+ * @security N/A: interactiveConsoleDevicesはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: interactiveConsoleDevicesは共有非同期状態を持たない同期処理である。
+ */
 function interactiveConsoleDevices(platform: NodeJS.Platform) {
   return platform === "win32"
     ? WINDOWS_INTERACTIVE_CONSOLE_DEVICES
     : POSIX_INTERACTIVE_CONSOLE_DEVICES;
 }
 
+/**
+ * InteractiveConsoleReadOutcomeが扱う値の構造を表す。
+ *
+ * @responsibility InteractiveConsoleReadOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape InteractiveConsoleReadOutcomeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant InteractiveConsoleReadOutcomeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: InteractiveConsoleReadOutcomeの宣言は外部境界を開かない。
+ * @security N/A: InteractiveConsoleReadOutcomeはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility InteractiveConsoleReadOutcomeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type InteractiveConsoleReadOutcome = Readonly<{
   status:
     | "completed"
@@ -89,6 +193,22 @@ export type InteractiveConsoleReadOutcome = Readonly<{
   line: string | null;
 }>;
 
+/**
+ * withInteractiveConsoleUsingAdapterの処理を実行する。
+ *
+ * @responsibility withInteractiveConsoleUsingAdapterに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input platform: NodeJS.Platform、adapter: InteractiveConsoleAdapter、operation: (handles: InteractiveConsoleHandles) => T
+ * @returns T | nullを返す。
+ * @precondition 「platform: NodeJS.Platform、adapter: InteractiveConsoleAdapter、operation: (handles: InteractiveConsoleHandles) => T」がwithInteractiveConsoleUsingAdapterの入力契約を満たす。
+ * @postcondition withInteractiveConsoleUsingAdapterの責務を完了した結果だけを返す。
+ * @effect N/A: withInteractiveConsoleUsingAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: withInteractiveConsoleUsingAdapterは独自の失敗分岐を所有しない。
+ * @invariant withInteractiveConsoleUsingAdapterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: withInteractiveConsoleUsingAdapterはProcess内の同一Subsystemで完結する。
+ * @security N/A: withInteractiveConsoleUsingAdapterはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: withInteractiveConsoleUsingAdapterは共有非同期状態を持たない同期処理である。
+ */
 export function withInteractiveConsoleUsingAdapter<T>(
   platform: NodeJS.Platform,
   adapter: InteractiveConsoleAdapter,
@@ -102,6 +222,22 @@ export function withInteractiveConsoleUsingAdapter<T>(
   return outcome.status === "completed" ? outcome.value : null;
 }
 
+/**
+ * withInteractiveConsoleOutcomeUsingAdapterの処理を実行する。
+ *
+ * @responsibility withInteractiveConsoleOutcomeUsingAdapterに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input platform: NodeJS.Platform、adapter: InteractiveConsoleAdapter、operation: (handles: InteractiveConsoleHandles) => T
+ * @returns InteractiveConsoleOperationOutcome<T>を返す。
+ * @precondition 「platform: NodeJS.Platform、adapter: InteractiveConsoleAdapter、operation: (handles: InteractiveConsoleHandles) => T」がwithInteractiveConsoleOutcomeUsingAdapterの入力契約を満たす。
+ * @postcondition withInteractiveConsoleOutcomeUsingAdapterの責務を完了した結果だけを返す。
+ * @effect N/A: withInteractiveConsoleOutcomeUsingAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure withInteractiveConsoleOutcomeUsingAdapterは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant withInteractiveConsoleOutcomeUsingAdapterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: withInteractiveConsoleOutcomeUsingAdapterはProcess内の同一Subsystemで完結する。
+ * @security N/A: withInteractiveConsoleOutcomeUsingAdapterはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: withInteractiveConsoleOutcomeUsingAdapterは共有非同期状態を持たない同期処理である。
+ */
 export function withInteractiveConsoleOutcomeUsingAdapter<T>(
   platform: NodeJS.Platform,
   adapter: InteractiveConsoleAdapter,
@@ -144,6 +280,22 @@ export function withInteractiveConsoleOutcomeUsingAdapter<T>(
   return Object.freeze({ status, value });
 }
 
+/**
+ * withInteractiveConsoleの処理を実行する。
+ *
+ * @responsibility withInteractiveConsoleに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input operation: (handles: InteractiveConsoleHandles) => T
+ * @returns T | nullを返す。
+ * @precondition 「operation: (handles: InteractiveConsoleHandles) => T」がwithInteractiveConsoleの入力契約を満たす。
+ * @postcondition withInteractiveConsoleの責務を完了した結果だけを返す。
+ * @effect N/A: withInteractiveConsoleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: withInteractiveConsoleは独自の失敗分岐を所有しない。
+ * @invariant withInteractiveConsoleは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: withInteractiveConsoleはProcess内の同一Subsystemで完結する。
+ * @security N/A: withInteractiveConsoleはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: withInteractiveConsoleは共有非同期状態を持たない同期処理である。
+ */
 export function withInteractiveConsole<T>(
   operation: (handles: InteractiveConsoleHandles) => T,
 ): T | null {
@@ -151,6 +303,22 @@ export function withInteractiveConsole<T>(
   return outcome.status === "completed" ? outcome.value : null;
 }
 
+/**
+ * withInteractiveConsoleOutcomeの処理を実行する。
+ *
+ * @responsibility withInteractiveConsoleOutcomeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input operation: (handles: InteractiveConsoleHandles) => T
+ * @returns InteractiveConsoleOperationOutcome<T>を返す。
+ * @precondition 「operation: (handles: InteractiveConsoleHandles) => T」がwithInteractiveConsoleOutcomeの入力契約を満たす。
+ * @postcondition withInteractiveConsoleOutcomeの責務を完了した結果だけを返す。
+ * @effect withInteractiveConsoleOutcomeはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: withInteractiveConsoleOutcomeは独自の失敗分岐を所有しない。
+ * @invariant withInteractiveConsoleOutcomeは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: withInteractiveConsoleOutcomeはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: withInteractiveConsoleOutcomeは共有非同期状態を持たない同期処理である。
+ */
 export function withInteractiveConsoleOutcome<T>(
   operation: (handles: InteractiveConsoleHandles) => T,
 ): InteractiveConsoleOperationOutcome<T> {
@@ -171,6 +339,22 @@ export function withInteractiveConsoleOutcome<T>(
   });
 }
 
+/**
+ * withInteractiveConsoleAsyncUsingAdapterの処理を実行する。
+ *
+ * @responsibility withInteractiveConsoleAsyncUsingAdapterに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input platform: NodeJS.Platform、adapter: InteractiveConsoleAdapter、operation: (handles: InteractiveConsoleHandles) => Promise<T>
+ * @returns Promise<T | null>を返す。
+ * @precondition 「platform: NodeJS.Platform、adapter: InteractiveConsoleAdapter、operation: (handles: InteractiveConsoleHandles) => Promise<T>」がwithInteractiveConsoleAsyncUsingAdapterの入力契約を満たす。
+ * @postcondition withInteractiveConsoleAsyncUsingAdapterの責務を完了した結果だけを返す。
+ * @effect N/A: withInteractiveConsoleAsyncUsingAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: withInteractiveConsoleAsyncUsingAdapterは独自の失敗分岐を所有しない。
+ * @invariant withInteractiveConsoleAsyncUsingAdapterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: withInteractiveConsoleAsyncUsingAdapterはProcess内の同一Subsystemで完結する。
+ * @security N/A: withInteractiveConsoleAsyncUsingAdapterはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency withInteractiveConsoleAsyncUsingAdapterは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function withInteractiveConsoleAsyncUsingAdapter<T>(
   platform: NodeJS.Platform,
   adapter: InteractiveConsoleAdapter,
@@ -184,6 +368,22 @@ export async function withInteractiveConsoleAsyncUsingAdapter<T>(
   return outcome.status === "completed" ? outcome.value : null;
 }
 
+/**
+ * withInteractiveConsoleAsyncOutcomeUsingAdapterの処理を実行する。
+ *
+ * @responsibility withInteractiveConsoleAsyncOutcomeUsingAdapterに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input platform: NodeJS.Platform、adapter: InteractiveConsoleAdapter、operation: (handles: InteractiveConsoleHandles) => Promise<T>
+ * @returns Promise<InteractiveConsoleOperationOutcome<T>>を返す。
+ * @precondition 「platform: NodeJS.Platform、adapter: InteractiveConsoleAdapter、operation: (handles: InteractiveConsoleHandles) => Promise<T>」がwithInteractiveConsoleAsyncOutcomeUsingAdapterの入力契約を満たす。
+ * @postcondition withInteractiveConsoleAsyncOutcomeUsingAdapterの責務を完了した結果だけを返す。
+ * @effect N/A: withInteractiveConsoleAsyncOutcomeUsingAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure withInteractiveConsoleAsyncOutcomeUsingAdapterは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant withInteractiveConsoleAsyncOutcomeUsingAdapterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: withInteractiveConsoleAsyncOutcomeUsingAdapterはProcess内の同一Subsystemで完結する。
+ * @security N/A: withInteractiveConsoleAsyncOutcomeUsingAdapterはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency withInteractiveConsoleAsyncOutcomeUsingAdapterは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function withInteractiveConsoleAsyncOutcomeUsingAdapter<T>(
   platform: NodeJS.Platform,
   adapter: InteractiveConsoleAdapter,
@@ -226,6 +426,22 @@ export async function withInteractiveConsoleAsyncOutcomeUsingAdapter<T>(
   return Object.freeze({ status, value });
 }
 
+/**
+ * withInteractiveConsoleAsyncの処理を実行する。
+ *
+ * @responsibility withInteractiveConsoleAsyncに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input operation: (handles: InteractiveConsoleHandles) => Promise<T>
+ * @returns withInteractiveConsoleAsyncの計算結果を返す。
+ * @precondition 「operation: (handles: InteractiveConsoleHandles) => Promise<T>」がwithInteractiveConsoleAsyncの入力契約を満たす。
+ * @postcondition withInteractiveConsoleAsyncの責務を完了した結果だけを返す。
+ * @effect N/A: withInteractiveConsoleAsyncは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: withInteractiveConsoleAsyncは独自の失敗分岐を所有しない。
+ * @invariant withInteractiveConsoleAsyncは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: withInteractiveConsoleAsyncはProcess内の同一Subsystemで完結する。
+ * @security N/A: withInteractiveConsoleAsyncはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: withInteractiveConsoleAsyncは共有非同期状態を持たない同期処理である。
+ */
 export function withInteractiveConsoleAsync<T>(
   operation: (handles: InteractiveConsoleHandles) => Promise<T>,
 ) {
@@ -234,6 +450,22 @@ export function withInteractiveConsoleAsync<T>(
   );
 }
 
+/**
+ * withInteractiveConsoleAsyncOutcomeの処理を実行する。
+ *
+ * @responsibility withInteractiveConsoleAsyncOutcomeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input operation: (handles: InteractiveConsoleHandles) => Promise<T>
+ * @returns withInteractiveConsoleAsyncOutcomeの計算結果を返す。
+ * @precondition 「operation: (handles: InteractiveConsoleHandles) => Promise<T>」がwithInteractiveConsoleAsyncOutcomeの入力契約を満たす。
+ * @postcondition withInteractiveConsoleAsyncOutcomeの責務を完了した結果だけを返す。
+ * @effect withInteractiveConsoleAsyncOutcomeはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: withInteractiveConsoleAsyncOutcomeは独自の失敗分岐を所有しない。
+ * @invariant withInteractiveConsoleAsyncOutcomeは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: withInteractiveConsoleAsyncOutcomeはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: withInteractiveConsoleAsyncOutcomeは共有非同期状態を持たない同期処理である。
+ */
 export function withInteractiveConsoleAsyncOutcome<T>(
   operation: (handles: InteractiveConsoleHandles) => Promise<T>,
 ) {
@@ -255,6 +487,22 @@ export function withInteractiveConsoleAsyncOutcome<T>(
   });
 }
 
+/**
+ * writeInteractiveConsoleTextOutcomeUsingAdapterの処理を実行する。
+ *
+ * @responsibility writeInteractiveConsoleTextOutcomeUsingAdapterに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input platform: NodeJS.Platform、outputDescriptor: number、value: string、adapter: InteractiveConsoleTextAdapter
+ * @returns Promise<InteractiveConsoleTextWriteOutcome>を返す。
+ * @precondition 「platform: NodeJS.Platform、outputDescriptor: number、value: string、adapter: InteractiveConsoleTextAdapter」がwriteInteractiveConsoleTextOutcomeUsingAdapterの入力契約を満たす。
+ * @postcondition writeInteractiveConsoleTextOutcomeUsingAdapterの責務を完了した結果だけを返す。
+ * @effect N/A: writeInteractiveConsoleTextOutcomeUsingAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure writeInteractiveConsoleTextOutcomeUsingAdapterは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant writeInteractiveConsoleTextOutcomeUsingAdapterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: writeInteractiveConsoleTextOutcomeUsingAdapterはProcess内の同一Subsystemで完結する。
+ * @security N/A: writeInteractiveConsoleTextOutcomeUsingAdapterはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency writeInteractiveConsoleTextOutcomeUsingAdapterは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function writeInteractiveConsoleTextOutcomeUsingAdapter(
   platform: NodeJS.Platform,
   outputDescriptor: number,
@@ -277,6 +525,22 @@ export async function writeInteractiveConsoleTextOutcomeUsingAdapter(
   }
 }
 
+/**
+ * writeInteractiveConsoleTextUsingAdapterの処理を実行する。
+ *
+ * @responsibility writeInteractiveConsoleTextUsingAdapterに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input platform: NodeJS.Platform、outputDescriptor: number、value: string、adapter: InteractiveConsoleTextAdapter
+ * @returns writeInteractiveConsoleTextUsingAdapterの計算結果を返す。
+ * @precondition 「platform: NodeJS.Platform、outputDescriptor: number、value: string、adapter: InteractiveConsoleTextAdapter」がwriteInteractiveConsoleTextUsingAdapterの入力契約を満たす。
+ * @postcondition writeInteractiveConsoleTextUsingAdapterの責務を完了した結果だけを返す。
+ * @effect N/A: writeInteractiveConsoleTextUsingAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: writeInteractiveConsoleTextUsingAdapterは独自の失敗分岐を所有しない。
+ * @invariant writeInteractiveConsoleTextUsingAdapterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: writeInteractiveConsoleTextUsingAdapterはProcess内の同一Subsystemで完結する。
+ * @security N/A: writeInteractiveConsoleTextUsingAdapterはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency writeInteractiveConsoleTextUsingAdapterは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function writeInteractiveConsoleTextUsingAdapter(
   platform: NodeJS.Platform,
   outputDescriptor: number,
@@ -292,6 +556,22 @@ export async function writeInteractiveConsoleTextUsingAdapter(
   return outcome.status === "completed";
 }
 
+/**
+ * writeWindowsTerminalTextOutcomeUsingStreamの処理を実行する。
+ *
+ * @responsibility writeWindowsTerminalTextOutcomeUsingStreamに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: string、stream: WindowsTerminalStream
+ * @returns Promise<InteractiveConsoleTextWriteOutcome>を返す。
+ * @precondition 「value: string、stream: WindowsTerminalStream」がwriteWindowsTerminalTextOutcomeUsingStreamの入力契約を満たす。
+ * @postcondition writeWindowsTerminalTextOutcomeUsingStreamの責務を完了した結果だけを返す。
+ * @effect N/A: writeWindowsTerminalTextOutcomeUsingStreamは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure writeWindowsTerminalTextOutcomeUsingStreamは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant writeWindowsTerminalTextOutcomeUsingStreamは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: writeWindowsTerminalTextOutcomeUsingStreamはProcess内の同一Subsystemで完結する。
+ * @security N/A: writeWindowsTerminalTextOutcomeUsingStreamはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency writeWindowsTerminalTextOutcomeUsingStreamは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export function writeWindowsTerminalTextOutcomeUsingStream(
   value: string,
   stream: WindowsTerminalStream,
@@ -342,6 +622,22 @@ export function writeWindowsTerminalTextOutcomeUsingStream(
   });
 }
 
+/**
+ * writeWindowsTerminalTextUsingStreamの処理を実行する。
+ *
+ * @responsibility writeWindowsTerminalTextUsingStreamに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: string、stream: WindowsTerminalStream
+ * @returns writeWindowsTerminalTextUsingStreamの計算結果を返す。
+ * @precondition 「value: string、stream: WindowsTerminalStream」がwriteWindowsTerminalTextUsingStreamの入力契約を満たす。
+ * @postcondition writeWindowsTerminalTextUsingStreamの責務を完了した結果だけを返す。
+ * @effect N/A: writeWindowsTerminalTextUsingStreamは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: writeWindowsTerminalTextUsingStreamは独自の失敗分岐を所有しない。
+ * @invariant writeWindowsTerminalTextUsingStreamは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: writeWindowsTerminalTextUsingStreamはProcess内の同一Subsystemで完結する。
+ * @security N/A: writeWindowsTerminalTextUsingStreamはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency writeWindowsTerminalTextUsingStreamは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function writeWindowsTerminalTextUsingStream(
   value: string,
   stream: WindowsTerminalStream,
@@ -353,6 +649,22 @@ export async function writeWindowsTerminalTextUsingStream(
   return outcome.status === "completed";
 }
 
+/**
+ * validateInteractiveConsoleHandlesの処理を実行する。
+ *
+ * @responsibility validateInteractiveConsoleHandlesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input handles: InteractiveConsoleHandles
+ * @returns validateInteractiveConsoleHandlesの計算結果を返す。
+ * @precondition 「handles: InteractiveConsoleHandles」がvalidateInteractiveConsoleHandlesの入力契約を満たす。
+ * @postcondition validateInteractiveConsoleHandlesの責務を完了した結果だけを返す。
+ * @effect validateInteractiveConsoleHandlesは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure validateInteractiveConsoleHandlesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant validateInteractiveConsoleHandlesは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: validateInteractiveConsoleHandlesはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validateInteractiveConsoleHandlesは共有非同期状態を持たない同期処理である。
+ */
 function validateInteractiveConsoleHandles(handles: InteractiveConsoleHandles) {
   try {
     if (!tty.isatty(handles.input) || !tty.isatty(handles.output)) return false;
@@ -367,6 +679,22 @@ function validateInteractiveConsoleHandles(handles: InteractiveConsoleHandles) {
   }
 }
 
+/**
+ * readInteractiveConsoleLineの処理を実行する。
+ *
+ * @responsibility readInteractiveConsoleLineに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input inputDescriptor: number、cancellationSignal: AbortSignal
+ * @returns readInteractiveConsoleLineの計算結果を返す。
+ * @precondition 「inputDescriptor: number、cancellationSignal: AbortSignal」がreadInteractiveConsoleLineの入力契約を満たす。
+ * @postcondition readInteractiveConsoleLineの責務を完了した結果だけを返す。
+ * @effect N/A: readInteractiveConsoleLineは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: readInteractiveConsoleLineは独自の失敗分岐を所有しない。
+ * @invariant readInteractiveConsoleLineは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: readInteractiveConsoleLineはProcess内の同一Subsystemで完結する。
+ * @security N/A: readInteractiveConsoleLineはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readInteractiveConsoleLineは共有非同期状態を持たない同期処理である。
+ */
 export function readInteractiveConsoleLine(
   inputDescriptor: number,
   cancellationSignal: AbortSignal,
@@ -377,6 +705,22 @@ export function readInteractiveConsoleLine(
   ).then((outcome) => (outcome.status === "completed" ? outcome.line : null));
 }
 
+/**
+ * readInteractiveConsoleLineOutcomeの処理を実行する。
+ *
+ * @responsibility readInteractiveConsoleLineOutcomeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input inputDescriptor: number、cancellationSignal: AbortSignal
+ * @returns readInteractiveConsoleLineOutcomeの計算結果を返す。
+ * @precondition 「inputDescriptor: number、cancellationSignal: AbortSignal」がreadInteractiveConsoleLineOutcomeの入力契約を満たす。
+ * @postcondition readInteractiveConsoleLineOutcomeの責務を完了した結果だけを返す。
+ * @effect readInteractiveConsoleLineOutcomeは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure readInteractiveConsoleLineOutcomeは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readInteractiveConsoleLineOutcomeは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: readInteractiveConsoleLineOutcomeはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency readInteractiveConsoleLineOutcomeは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export function readInteractiveConsoleLineOutcome(
   inputDescriptor: number,
   cancellationSignal: AbortSignal,
@@ -431,10 +775,42 @@ export function readInteractiveConsoleLineOutcome(
   });
 }
 
+/**
+ * writeWindowsTerminalTextの処理を実行する。
+ *
+ * @responsibility writeWindowsTerminalTextに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: string
+ * @returns writeWindowsTerminalTextの計算結果を返す。
+ * @precondition 「value: string」がwriteWindowsTerminalTextの入力契約を満たす。
+ * @postcondition writeWindowsTerminalTextの責務を完了した結果だけを返す。
+ * @effect writeWindowsTerminalTextは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: writeWindowsTerminalTextは独自の失敗分岐を所有しない。
+ * @invariant writeWindowsTerminalTextは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: writeWindowsTerminalTextはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: writeWindowsTerminalTextは共有非同期状態を持たない同期処理である。
+ */
 function writeWindowsTerminalText(value: string) {
   return writeWindowsTerminalTextOutcomeUsingStream(value, process.stdout);
 }
 
+/**
+ * writeInteractiveConsoleTextOutcomeの処理を実行する。
+ *
+ * @responsibility writeInteractiveConsoleTextOutcomeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input outputDescriptor: number、value: string
+ * @returns writeInteractiveConsoleTextOutcomeの計算結果を返す。
+ * @precondition 「outputDescriptor: number、value: string」がwriteInteractiveConsoleTextOutcomeの入力契約を満たす。
+ * @postcondition writeInteractiveConsoleTextOutcomeの責務を完了した結果だけを返す。
+ * @effect writeInteractiveConsoleTextOutcomeはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: writeInteractiveConsoleTextOutcomeは独自の失敗分岐を所有しない。
+ * @invariant writeInteractiveConsoleTextOutcomeは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: writeInteractiveConsoleTextOutcomeはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: writeInteractiveConsoleTextOutcomeは共有非同期状態を持たない同期処理である。
+ */
 export function writeInteractiveConsoleTextOutcome(
   outputDescriptor: number,
   value: string,
@@ -457,6 +833,22 @@ export function writeInteractiveConsoleTextOutcome(
   });
 }
 
+/**
+ * writeInteractiveConsoleTextの処理を実行する。
+ *
+ * @responsibility writeInteractiveConsoleTextに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input outputDescriptor: number、value: string
+ * @returns writeInteractiveConsoleTextの計算結果を返す。
+ * @precondition 「outputDescriptor: number、value: string」がwriteInteractiveConsoleTextの入力契約を満たす。
+ * @postcondition writeInteractiveConsoleTextの責務を完了した結果だけを返す。
+ * @effect N/A: writeInteractiveConsoleTextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: writeInteractiveConsoleTextは独自の失敗分岐を所有しない。
+ * @invariant writeInteractiveConsoleTextは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: writeInteractiveConsoleTextはProcess内の同一Subsystemで完結する。
+ * @security N/A: writeInteractiveConsoleTextはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: writeInteractiveConsoleTextは共有非同期状態を持たない同期処理である。
+ */
 export function writeInteractiveConsoleText(
   outputDescriptor: number,
   value: string,
@@ -466,10 +858,42 @@ export function writeInteractiveConsoleText(
   );
 }
 
+/**
+ * interactiveConsoleAvailableの処理を実行する。
+ *
+ * @responsibility interactiveConsoleAvailableに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns interactiveConsoleAvailableの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がinteractiveConsoleAvailableの入力契約を満たす。
+ * @postcondition interactiveConsoleAvailableの責務を完了した結果だけを返す。
+ * @effect N/A: interactiveConsoleAvailableは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: interactiveConsoleAvailableは独自の失敗分岐を所有しない。
+ * @invariant interactiveConsoleAvailableは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: interactiveConsoleAvailableはProcess内の同一Subsystemで完結する。
+ * @security N/A: interactiveConsoleAvailableはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: interactiveConsoleAvailableは共有非同期状態を持たない同期処理である。
+ */
 export function interactiveConsoleAvailable() {
   return interactiveConsoleAvailabilityOutcome().status === "available";
 }
 
+/**
+ * interactiveConsoleAvailabilityOutcomeの処理を実行する。
+ *
+ * @responsibility interactiveConsoleAvailabilityOutcomeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns InteractiveConsoleAvailabilityOutcomeを返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がinteractiveConsoleAvailabilityOutcomeの入力契約を満たす。
+ * @postcondition interactiveConsoleAvailabilityOutcomeの責務を完了した結果だけを返す。
+ * @effect interactiveConsoleAvailabilityOutcomeはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: interactiveConsoleAvailabilityOutcomeは独自の失敗分岐を所有しない。
+ * @invariant interactiveConsoleAvailabilityOutcomeは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: interactiveConsoleAvailabilityOutcomeはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: interactiveConsoleAvailabilityOutcomeは共有非同期状態を持たない同期処理である。
+ */
 export function interactiveConsoleAvailabilityOutcome(): InteractiveConsoleAvailabilityOutcome {
   const outcome = withInteractiveConsoleOutcomeUsingAdapter(
     process.platform,
@@ -489,6 +913,22 @@ export function interactiveConsoleAvailabilityOutcome(): InteractiveConsoleAvail
   });
 }
 
+/**
+ * describeInteractiveConsoleContractの処理を実行する。
+ *
+ * @responsibility describeInteractiveConsoleContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeInteractiveConsoleContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeInteractiveConsoleContractの入力契約を満たす。
+ * @postcondition describeInteractiveConsoleContractの責務を完了した結果だけを返す。
+ * @effect describeInteractiveConsoleContractは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: describeInteractiveConsoleContractは独自の失敗分岐を所有しない。
+ * @invariant describeInteractiveConsoleContractは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: describeInteractiveConsoleContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeInteractiveConsoleContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeInteractiveConsoleContract() {
   return Object.freeze({
     contract: INTERACTIVE_CONSOLE_CONTRACT,

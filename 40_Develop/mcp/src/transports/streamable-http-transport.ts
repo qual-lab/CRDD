@@ -22,12 +22,39 @@ export const MCP_PROJECT_RUNTIME_STREAMABLE_HTTP_CONTRACT =
 const ENDPOINT = "/mcp";
 const MAXIMUM_REQUEST_BYTES = 128 * 1024;
 
+/**
+ * McpProjectRuntimeHttpOptionsが扱う値の構造を表す。
+ *
+ * @responsibility McpProjectRuntimeHttpOptionsに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000012
+ * @shape McpProjectRuntimeHttpOptionsが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant McpProjectRuntimeHttpOptionsで宣言した値と責務の対応を維持する。
+ * @boundary N/A: McpProjectRuntimeHttpOptionsの宣言は外部境界を開かない。
+ * @security N/A: McpProjectRuntimeHttpOptionsはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility McpProjectRuntimeHttpOptionsの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type McpProjectRuntimeHttpOptions = Readonly<{
   port: number;
   bearerToken: string;
   allowedOrigins?: readonly string[];
 }>;
 
+/**
+ * plainの処理を実行する。
+ *
+ * @responsibility plainに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000012
+ * @input value: unknown
+ * @returns value is Record<string, unknown>を返す。
+ * @precondition 「value: unknown」がplainの入力契約を満たす。
+ * @postcondition plainの責務を完了した結果だけを返す。
+ * @effect N/A: plainは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: plainは独自の失敗分岐を所有しない。
+ * @invariant plainは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: plainはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: plainは共有非同期状態を持たない同期処理である。
+ */
 function plain(value: unknown): value is Record<string, unknown> {
   return Boolean(
     value &&
@@ -38,6 +65,22 @@ function plain(value: unknown): value is Record<string, unknown> {
   );
 }
 
+/**
+ * validTokenの処理を実行する。
+ *
+ * @responsibility validTokenに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000012
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidTokenの入力契約を満たす。
+ * @postcondition validTokenの責務を完了した結果だけを返す。
+ * @effect N/A: validTokenは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validTokenは独自の失敗分岐を所有しない。
+ * @invariant validTokenは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: validTokenはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validTokenは共有非同期状態を持たない同期処理である。
+ */
 function validToken(value: unknown): value is string {
   return (
     typeof value === "string" &&
@@ -47,6 +90,22 @@ function validToken(value: unknown): value is string {
   );
 }
 
+/**
+ * authorizedの処理を実行する。
+ *
+ * @responsibility authorizedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000012
+ * @input headers: IncomingHttpHeaders、expected: Buffer
+ * @returns authorizedの計算結果を返す。
+ * @precondition 「headers: IncomingHttpHeaders、expected: Buffer」がauthorizedの入力契約を満たす。
+ * @postcondition authorizedの責務を完了した結果だけを返す。
+ * @effect N/A: authorizedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: authorizedは独自の失敗分岐を所有しない。
+ * @invariant authorizedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: authorizedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: authorizedは共有非同期状態を持たない同期処理である。
+ */
 function authorized(headers: IncomingHttpHeaders, expected: Buffer) {
   const header = headers.authorization;
   if (typeof header !== "string" || !header.startsWith("Bearer ")) return false;
@@ -58,6 +117,22 @@ function authorized(headers: IncomingHttpHeaders, expected: Buffer) {
   );
 }
 
+/**
+ * respondJsonの処理を実行する。
+ *
+ * @responsibility respondJsonに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000012
+ * @input response: ServerResponse、statusCode: number、body: unknown
+ * @returns N/A: respondJsonは戻り値を返さない。
+ * @precondition 「response: ServerResponse、statusCode: number、body: unknown」がrespondJsonの入力契約を満たす。
+ * @postcondition respondJsonの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: respondJsonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: respondJsonは独自の失敗分岐を所有しない。
+ * @invariant respondJsonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: respondJsonはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: respondJsonは共有非同期状態を持たない同期処理である。
+ */
 function respondJson(
   response: ServerResponse,
   statusCode: number,
@@ -72,6 +147,22 @@ function respondJson(
   response.end(bytes);
 }
 
+/**
+ * acceptsRequiredRepresentationsの処理を実行する。
+ *
+ * @responsibility acceptsRequiredRepresentationsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000012
+ * @input headers: IncomingHttpHeaders
+ * @returns acceptsRequiredRepresentationsの計算結果を返す。
+ * @precondition 「headers: IncomingHttpHeaders」がacceptsRequiredRepresentationsの入力契約を満たす。
+ * @postcondition acceptsRequiredRepresentationsの責務を完了した結果だけを返す。
+ * @effect N/A: acceptsRequiredRepresentationsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: acceptsRequiredRepresentationsは独自の失敗分岐を所有しない。
+ * @invariant acceptsRequiredRepresentationsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: acceptsRequiredRepresentationsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: acceptsRequiredRepresentationsは共有非同期状態を持たない同期処理である。
+ */
 function acceptsRequiredRepresentations(headers: IncomingHttpHeaders) {
   const accept = headers.accept;
   if (typeof accept !== "string") return false;
@@ -83,6 +174,22 @@ function acceptsRequiredRepresentations(headers: IncomingHttpHeaders) {
   );
 }
 
+/**
+ * requestMetadataの処理を実行する。
+ *
+ * @responsibility requestMetadataに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000012
+ * @input value: unknown
+ * @returns requestMetadataの計算結果を返す。
+ * @precondition 「value: unknown」がrequestMetadataの入力契約を満たす。
+ * @postcondition requestMetadataの責務を完了した結果だけを返す。
+ * @effect N/A: requestMetadataは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: requestMetadataは独自の失敗分岐を所有しない。
+ * @invariant requestMetadataは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: requestMetadataはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: requestMetadataは共有非同期状態を持たない同期処理である。
+ */
 function requestMetadata(value: unknown) {
   if (!plain(value)) return null;
   const params = value.params;
@@ -94,6 +201,22 @@ function requestMetadata(value: unknown) {
     : null;
 }
 
+/**
+ * headersMatchの処理を実行する。
+ *
+ * @responsibility headersMatchに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000012
+ * @input headers: IncomingHttpHeaders、body: unknown
+ * @returns headersMatchの計算結果を返す。
+ * @precondition 「headers: IncomingHttpHeaders、body: unknown」がheadersMatchの入力契約を満たす。
+ * @postcondition headersMatchの責務を完了した結果だけを返す。
+ * @effect N/A: headersMatchは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: headersMatchは独自の失敗分岐を所有しない。
+ * @invariant headersMatchは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: headersMatchはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: headersMatchは共有非同期状態を持たない同期処理である。
+ */
 function headersMatch(headers: IncomingHttpHeaders, body: unknown) {
   const metadata = requestMetadata(body);
   if (!metadata) return false;
@@ -109,6 +232,22 @@ function headersMatch(headers: IncomingHttpHeaders, body: unknown) {
     : headerName === undefined;
 }
 
+/**
+ * readBodyの処理を実行する。
+ *
+ * @responsibility readBodyに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000012
+ * @input request: IncomingMessage
+ * @returns readBodyの計算結果を返す。
+ * @precondition 「request: IncomingMessage」がreadBodyの入力契約を満たす。
+ * @postcondition readBodyの責務を完了した結果だけを返す。
+ * @effect N/A: readBodyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure readBodyは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readBodyは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: readBodyはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency readBodyは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function readBody(request: IncomingMessage) {
   const chunks: Buffer[] = [];
   let size = 0;
@@ -129,8 +268,19 @@ async function readBody(request: IncomingMessage) {
 
 /**
  * Start the stateless 2026-07-28 Streamable HTTP binding. Authentication is
- * mandatory, the listener is fixed to IPv4 localhost, and no session or GET
- * compatibility surface is created.
+ *
+ * @responsibility startMcpProjectRuntimeStreamableHttpに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000012
+ * @input dependencies: McpProjectRuntimeDependencies、options: McpProjectRuntimeHttpOptions
+ * @returns startMcpProjectRuntimeStreamableHttpの計算結果を返す。
+ * @precondition 「dependencies: McpProjectRuntimeDependencies、options: McpProjectRuntimeHttpOptions」がstartMcpProjectRuntimeStreamableHttpの入力契約を満たす。
+ * @postcondition startMcpProjectRuntimeStreamableHttpの責務を完了した結果だけを返す。
+ * @effect N/A: startMcpProjectRuntimeStreamableHttpは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure startMcpProjectRuntimeStreamableHttpは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant startMcpProjectRuntimeStreamableHttpは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: startMcpProjectRuntimeStreamableHttpはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency startMcpProjectRuntimeStreamableHttpは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 export async function startMcpProjectRuntimeStreamableHttp(
   dependencies: McpProjectRuntimeDependencies,
@@ -338,6 +488,22 @@ export async function startMcpProjectRuntimeStreamableHttp(
   });
 }
 
+/**
+ * describeMcpProjectRuntimeStreamableHttpContractの処理を実行する。
+ *
+ * @responsibility describeMcpProjectRuntimeStreamableHttpContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000012
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeMcpProjectRuntimeStreamableHttpContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeMcpProjectRuntimeStreamableHttpContractの入力契約を満たす。
+ * @postcondition describeMcpProjectRuntimeStreamableHttpContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeMcpProjectRuntimeStreamableHttpContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeMcpProjectRuntimeStreamableHttpContractは独自の失敗分岐を所有しない。
+ * @invariant describeMcpProjectRuntimeStreamableHttpContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: describeMcpProjectRuntimeStreamableHttpContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeMcpProjectRuntimeStreamableHttpContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeMcpProjectRuntimeStreamableHttpContract() {
   return Object.freeze({
     contract: MCP_PROJECT_RUNTIME_STREAMABLE_HTTP_CONTRACT,

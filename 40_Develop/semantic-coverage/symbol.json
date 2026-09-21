@@ -14,7 +14,7 @@
       "kind": "test-suite",
       "path": "tests/unit/semantic-coverage-pilot.contract.test.ts",
       "qaIds": ["QA-000004"],
-      "localTestIds": ["PPR-04"],
+      "localTestIds": ["PPR-IT-004"],
       "verifies": ["semantic-coverage.public-entry"]
     },
     {
@@ -22,7 +22,7 @@
       "kind": "test-suite",
       "path": "tests/unit/public-boundary.contract.test.ts",
       "qaIds": ["QA-000001"],
-      "localTestIds": ["RCM-09"],
+      "localTestIds": ["RCM-IT-009"],
       "verifies": ["semantic-coverage.public-entry"]
     },
     {
@@ -30,7 +30,7 @@
       "kind": "test-suite",
       "path": "tests/integration/semantic-bundle-publisher.integration.test.ts",
       "qaIds": ["QA-000008"],
-      "localTestIds": ["RDL-02"],
+      "localTestIds": ["RDL-ST-002"],
       "verifies": ["semantic-coverage.public-entry"]
     }
   ]

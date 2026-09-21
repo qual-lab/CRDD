@@ -42,6 +42,22 @@ const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
   "byteLength",
 )?.get as () => number;
 
+/**
+ * blockedの処理を実行する。
+ *
+ * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input reason: string
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: string」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
+ * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(reason: string) {
   return Object.freeze({
     status: "blocked",
@@ -56,6 +72,22 @@ function blocked(reason: string) {
   });
 }
 
+/**
+ * canonicalJsonの処理を実行する。
+ *
+ * @responsibility canonicalJsonに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input value: unknown
+ * @returns stringを返す。
+ * @precondition 「value: unknown」がcanonicalJsonの入力契約を満たす。
+ * @postcondition canonicalJsonの責務を完了した結果だけを返す。
+ * @effect N/A: canonicalJsonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure canonicalJsonは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant canonicalJsonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: canonicalJsonはProcess内の同一Subsystemで完結する。
+ * @security canonicalJsonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: canonicalJsonは共有非同期状態を持たない同期処理である。
+ */
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value && typeof value === "object") {
@@ -71,6 +103,22 @@ function canonicalJson(value: unknown): string {
   return serialized;
 }
 
+/**
+ * decodeManifestの処理を実行する。
+ *
+ * @responsibility decodeManifestに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input input: unknown
+ * @returns decodeManifestの計算結果を返す。
+ * @precondition 「input: unknown」がdecodeManifestの入力契約を満たす。
+ * @postcondition decodeManifestの責務を完了した結果だけを返す。
+ * @effect N/A: decodeManifestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: decodeManifestは独自の失敗分岐を所有しない。
+ * @invariant decodeManifestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: decodeManifestはProcess内の同一Subsystemで完結する。
+ * @security decodeManifestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: decodeManifestは共有非同期状態を持たない同期処理である。
+ */
 function decodeManifest(input: unknown) {
   if (!Buffer.isBuffer(input)) return null;
   const inputLength = Reflect.apply(TYPED_ARRAY_BYTE_LENGTH, input, []);
@@ -123,6 +171,22 @@ function decodeManifest(input: unknown) {
   });
 }
 
+/**
+ * loadAuthorityFileBundleCandidateの処理を実行する。
+ *
+ * @responsibility loadAuthorityFileBundleCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input rawInput: unknown
+ * @returns loadAuthorityFileBundleCandidateの計算結果を返す。
+ * @precondition 「rawInput: unknown」がloadAuthorityFileBundleCandidateの入力契約を満たす。
+ * @postcondition loadAuthorityFileBundleCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: loadAuthorityFileBundleCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure loadAuthorityFileBundleCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant loadAuthorityFileBundleCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: loadAuthorityFileBundleCandidateはProcess内の同一Subsystemで完結する。
+ * @security loadAuthorityFileBundleCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: loadAuthorityFileBundleCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function loadAuthorityFileBundleCandidate(rawInput: unknown) {
   try {
     const input = snapshotPlainRecord(rawInput, BUNDLE_INPUT_KEYS);
@@ -171,6 +235,22 @@ export function loadAuthorityFileBundleCandidate(rawInput: unknown) {
   }
 }
 
+/**
+ * describeAuthorityFileBundleContractの処理を実行する。
+ *
+ * @responsibility describeAuthorityFileBundleContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeAuthorityFileBundleContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeAuthorityFileBundleContractの入力契約を満たす。
+ * @postcondition describeAuthorityFileBundleContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeAuthorityFileBundleContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeAuthorityFileBundleContractは独自の失敗分岐を所有しない。
+ * @invariant describeAuthorityFileBundleContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeAuthorityFileBundleContractはProcess内の同一Subsystemで完結する。
+ * @security describeAuthorityFileBundleContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeAuthorityFileBundleContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeAuthorityFileBundleContract() {
   return Object.freeze({
     contract: AUTHORITY_FILE_BUNDLE_CONTRACT,

@@ -67,6 +67,69 @@ const checkerRoot = path.resolve(
   "../..",
 );
 const repositoryRoot = path.resolve(checkerRoot, "../..");
+const ARCHITECTURE_ID = /^ARCH-[0-9]{6}$/u;
+const REQUIRED_EXECUTABLE_HEADER_TAGS = Object.freeze([
+  "input",
+  "returns",
+  "precondition",
+  "postcondition",
+  "effect",
+  "failure",
+  "invariant",
+  "boundary",
+  "security",
+  "concurrency",
+]);
+const REQUIRED_TYPE_HEADER_TAGS = Object.freeze([
+  "shape",
+  "invariant",
+  "boundary",
+  "security",
+  "compatibility",
+]);
+const REQUIRED_CLASS_HEADER_TAGS = Object.freeze([
+  "construction",
+  "lifecycle",
+  "effect",
+  "failure",
+  "invariant",
+  "boundary",
+  "security",
+  "concurrency",
+]);
+
+function collectCanonicalArchitectureIds(): ReadonlySet<string> {
+  const definitionsRoot = path.join(
+    repositoryRoot,
+    "06_Architecture",
+    "Definitions",
+  );
+  const identifiers = new Set<string>();
+  for (const entry of fs.readdirSync(definitionsRoot, {
+    withFileTypes: true,
+  })) {
+    if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
+    if (!ARCHITECTURE_ID.test(entry.name)) continue;
+    const definition = path.join(
+      definitionsRoot,
+      entry.name,
+      "architecture_definition.md",
+    );
+    assert.equal(
+      fs.existsSync(definition),
+      true,
+      `Architecture definition missing: ${entry.name}`,
+    );
+    identifiers.add(entry.name);
+  }
+  assert.ok(
+    identifiers.size > 0,
+    "Architecture definition population is empty",
+  );
+  return identifiers;
+}
+
+const canonicalArchitectureIds = collectCanonicalArchitectureIds();
 const pathInspectionRoots = Object.freeze([
   path.join(repositoryRoot, "40_Develop"),
   path.join(repositoryRoot, "template", "tools"),
@@ -1806,6 +1869,115 @@ function inspectBindingName(
   return violations;
 }
 
+function isImplementationSourceFile(sourceFile: SourceFile): boolean {
+  const normalized = path.normalize(sourceFile.fileName);
+  return normalized.split(path.sep).includes("src");
+}
+
+function responsibilityHeaderTagValue(
+  header: string,
+  tag: string,
+): string | null {
+  const match = new RegExp(
+    `^\\s*\\*\\s+@${tag}\\s+(\\S(?:.*\\S)?)\\s*$`,
+    "mu",
+  ).exec(header);
+  return match?.[1] ?? null;
+}
+
+function inspectResponsibilityHeader(
+  node: Node,
+  name: Identifier,
+  declarationKind: string,
+): NamingViolation[] {
+  const sourceFile = node.getSourceFile();
+  if (!isImplementationSourceFile(sourceFile)) return [];
+  const leadingText = sourceFile.text.slice(
+    node.getFullStart(),
+    node.getStart(sourceFile),
+  );
+  const header = leadingText.match(/\/\*\*[\s\S]*?\*\/\s*$/u)?.[0] ?? "";
+  const summary = header
+    .replace(/^\/\*\*\s*/u, "")
+    .replace(/\*\/\s*$/u, "")
+    .split(/\r?\n/u)
+    .map((line) => line.replace(/^\s*\*\s?/u, "").trim())
+    .find((line) => line.length > 0 && !line.startsWith("@"));
+  const violations: NamingViolation[] = [];
+  if (!summary)
+    violations.push(
+      identifierLocation(
+        name,
+        declarationKind,
+        "responsibility-header-summary-missing",
+      ),
+    );
+  if (responsibilityHeaderTagValue(header, "responsibility") === null)
+    violations.push(
+      identifierLocation(
+        name,
+        declarationKind,
+        "responsibility-header-tag-missing",
+      ),
+    );
+  const requiredTags =
+    declarationKind === "type"
+      ? REQUIRED_TYPE_HEADER_TAGS
+      : declarationKind === "class"
+        ? REQUIRED_CLASS_HEADER_TAGS
+        : REQUIRED_EXECUTABLE_HEADER_TAGS;
+  for (const requiredTag of requiredTags) {
+    const tagValue = responsibilityHeaderTagValue(header, requiredTag);
+    if (tagValue === null) {
+      violations.push(
+        identifierLocation(
+          name,
+          declarationKind,
+          `responsibility-header-${requiredTag}-missing`,
+        ),
+      );
+      continue;
+    }
+    if (/^N\/A\b/u.test(tagValue) && !/^N\/A:\s+\S/u.test(tagValue))
+      violations.push(
+        identifierLocation(
+          name,
+          declarationKind,
+          `responsibility-header-${requiredTag}-na-reason-missing`,
+        ),
+      );
+  }
+  const traceValues = [
+    ...header.matchAll(/^\s*\*\s+@trace\s+(\S(?:.*\S)?)\s*$/gmu),
+  ].map((match) => match[1] ?? "");
+  if (traceValues.length === 0) {
+    violations.push(
+      identifierLocation(name, declarationKind, "architecture-trace-missing"),
+    );
+  }
+  for (const traceValue of traceValues) {
+    if (!ARCHITECTURE_ID.test(traceValue)) {
+      violations.push(
+        identifierLocation(
+          name,
+          declarationKind,
+          "architecture-trace-format-invalid",
+        ),
+      );
+      continue;
+    }
+    if (!canonicalArchitectureIds.has(traceValue))
+      violations.push(
+        identifierLocation(
+          name,
+          declarationKind,
+          "architecture-trace-not-found",
+        ),
+      );
+  }
+  return violations;
+}
+
 function inspectSourceFile(
   sourceFile: SourceFile,
   checker: Checker,
@@ -1813,14 +1985,24 @@ function inspectSourceFile(
 ): NamingViolation[] {
   const violations: NamingViolation[] = [];
   const visit = (node: Node): void => {
-    if (
-      isClassDeclaration(node) ||
-      isClassExpression(node) ||
-      isInterfaceDeclaration(node) ||
-      isTypeAliasDeclaration(node)
-    ) {
-      if (node.name && !PASCAL_CASE.test(node.name.text)) {
-        violations.push(identifierLocation(node.name, "type", "pascal-case"));
+    if (isInterfaceDeclaration(node) || isTypeAliasDeclaration(node)) {
+      if (node.name) {
+        if (!PASCAL_CASE.test(node.name.text)) {
+          violations.push(identifierLocation(node.name, "type", "pascal-case"));
+        }
+        violations.push(
+          ...inspectResponsibilityHeader(node, node.name, "type"),
+        );
+      }
+    } else if (isClassDeclaration(node) || isClassExpression(node)) {
+      if (node.name) {
+        if (!PASCAL_CASE.test(node.name.text))
+          violations.push(
+            identifierLocation(node.name, "class", "pascal-case"),
+          );
+        violations.push(
+          ...inspectResponsibilityHeader(node, node.name, "class"),
+        );
       }
     } else if (isFunctionDeclaration(node) || isFunctionExpression(node)) {
       if (node.name) {
@@ -1834,6 +2016,9 @@ function inspectSourceFile(
             identifierLocation(node.name, "function", "forbidden-bare-name"),
           );
         }
+        violations.push(
+          ...inspectResponsibilityHeader(node, node.name, "function"),
+        );
       }
     } else if (
       (isMethodDeclaration(node) ||
@@ -1863,6 +2048,9 @@ function inspectSourceFile(
           identifierLocation(node.name, declarationKind, "forbidden-bare-name"),
         );
       }
+      violations.push(
+        ...inspectResponsibilityHeader(node, node.name, declarationKind),
+      );
     } else if (isVariableDeclaration(node)) {
       violations.push(
         ...inspectBindingName(
@@ -2089,6 +2277,204 @@ test("Source Fileは曖昧な責務名と裸のtypesを使用しない", () => {
         ),
       /must express its owned responsibility|must include its responsibility/u,
     );
+});
+
+test("Production Named Symbolは責務Headerと実在ARCH-IDへ接続する", () => {
+  const temporaryRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-production-header-"),
+  );
+  try {
+    const sourceRoot = path.join(temporaryRoot, "src");
+    fs.mkdirSync(sourceRoot);
+    const sourcePath = path.join(sourceRoot, "production-header.ts");
+    const configPath = path.join(temporaryRoot, "tsconfig.json");
+    const completeHeader = (
+      summary: string,
+      responsibility: string,
+      trace: string,
+      omittedTag?: string,
+      overrides: Readonly<Record<string, string>> = {},
+    ): string[] => {
+      const tags: Readonly<Record<string, string>> = {
+        responsibility,
+        trace,
+        input: "N/A: 引数を持たない。",
+        returns: "N/A: 戻り値を持たない。",
+        precondition: "N/A: 呼出し前提を持たない。",
+        postcondition: "呼出し後も共有状態を変更しない。",
+        effect: "N/A: 局所計算だけを行う。",
+        failure: "N/A: 区別して返す失敗を持たない。",
+        invariant: "Repository状態を変更しない。",
+        boundary: "N/A: 外部境界を持たない。",
+        security: "N/A: Authorityまたは秘密を扱わない。",
+        concurrency: "N/A: 同期局所処理である。",
+        ...overrides,
+      };
+      return [
+        "/**",
+        ...(summary.length > 0 ? [` * ${summary}`, " *"] : []),
+        ...["responsibility", "trace", ...REQUIRED_EXECUTABLE_HEADER_TAGS]
+          .filter((tag) => tag !== omittedTag)
+          .map((tag) => ` * @${tag} ${tags[tag]}`),
+        " */",
+      ];
+    };
+    fs.writeFileSync(
+      sourcePath,
+      [
+        ...completeHeader(
+          "有効な責務を表す。",
+          "有効なProduction責務を所有する。",
+          "ARCH-000001",
+        ),
+        "function validResponsibility(): void {}",
+        ...completeHeader("", "Summaryを欠く。", "ARCH-000001"),
+        "function missingSummary(): void {}",
+        ...completeHeader(
+          "Responsibility tagを欠く。",
+          "削除される値。",
+          "ARCH-000001",
+          "responsibility",
+        ),
+        "function missingResponsibility(): void {}",
+        ...completeHeader(
+          "Traceを欠く。",
+          "Architecture接続を欠く。",
+          "ARCH-000001",
+          "trace",
+        ),
+        "function missingTrace(): void {}",
+        ...completeHeader(
+          "Trace形式が不正である。",
+          "Architecture ID以外を使用する。",
+          "artifact-signing.signature-component",
+        ),
+        "function invalidTrace(): void {}",
+        ...completeHeader(
+          "未定義のArchitectureへ接続する。",
+          "存在しないArchitecture IDを使用する。",
+          "ARCH-999999",
+        ),
+        "function unknownTrace(): void {}",
+        ...completeHeader(
+          "理由のないN/Aを使用する。",
+          "非該当理由の形式を検証する。",
+          "ARCH-000001",
+          undefined,
+          { effect: "N/A" },
+        ),
+        "function invalidNotApplicableReason(): void {}",
+        "/**",
+        " * 有効な型契約を表す。",
+        " *",
+        " * @responsibility 値の構造と制約を所有する。",
+        " * @trace ARCH-000001",
+        " * @shape value Propertyを持つ。",
+        " * @invariant valueを省略しない。",
+        " * @boundary N/A: Process内の値契約である。",
+        " * @security N/A: Authorityまたは秘密を扱わない。",
+        " * @compatibility value Propertyを互換境界として維持する。",
+        " */",
+        "interface ValidTypeContract { readonly value: string }",
+        "/**",
+        " * 互換性評価を欠く型契約を表す。",
+        " *",
+        " * @responsibility 値の構造と制約を所有する。",
+        " * @trace ARCH-000001",
+        " * @shape value Propertyを持つ。",
+        " * @invariant valueを省略しない。",
+        " * @boundary N/A: Process内の値契約である。",
+        " * @security N/A: Authorityまたは秘密を扱わない。",
+        " */",
+        "type MissingTypeCompatibility = Readonly<{ value: string }> ;",
+        "/**",
+        " * 有効な状態所有境界を表す。",
+        " *",
+        " * @responsibility InstanceのLifecycleを所有する。",
+        " * @trace ARCH-000001",
+        " * @construction 初期値なしで生成する。",
+        " * @lifecycle 生成から破棄まで共有資源を持たない。",
+        " * @effect N/A: 外部または共有Effectを発行しない。",
+        " * @failure N/A: 生成時失敗を持たない。",
+        " * @invariant 共有状態を保持しない。",
+        " * @boundary N/A: Process内で完結する。",
+        " * @security N/A: Authorityまたは秘密を扱わない。",
+        " * @concurrency N/A: 共有非同期状態を持たない。",
+        " */",
+        "class ValidStateOwner {}",
+        "void validResponsibility;",
+        "void missingSummary;",
+        "void missingResponsibility;",
+        "void missingTrace;",
+        "void invalidTrace;",
+        "void unknownTrace;",
+        "void invalidNotApplicableReason;",
+      ].join("\n"),
+      "utf8",
+    );
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        compilerOptions: {
+          module: "NodeNext",
+          moduleResolution: "NodeNext",
+          strict: true,
+          target: "ESNext",
+        },
+        files: [sourcePath],
+      }),
+      "utf8",
+    );
+    const api = new API({ cwd: checkerRoot });
+    try {
+      const snapshot = api.updateSnapshot({ openProjects: [configPath] });
+      try {
+        const project = snapshot.getProjects()[0];
+        assert.ok(project);
+        const sourceFile = project.program.getSourceFile(sourcePath);
+        assert.ok(sourceFile);
+        const violations = inspectSourceFile(sourceFile, project.checker, [
+          temporaryRoot,
+        ]);
+        const rulesByName = new Map<string, string[]>();
+        for (const violation of violations) {
+          const rules = rulesByName.get(violation.name) ?? [];
+          rules.push(violation.rule);
+          rulesByName.set(violation.name, rules);
+        }
+        assert.deepEqual(rulesByName.get("validResponsibility") ?? [], []);
+        assert.deepEqual(rulesByName.get("missingSummary"), [
+          "responsibility-header-summary-missing",
+        ]);
+        assert.deepEqual(rulesByName.get("missingResponsibility"), [
+          "responsibility-header-tag-missing",
+        ]);
+        assert.deepEqual(rulesByName.get("missingTrace"), [
+          "architecture-trace-missing",
+        ]);
+        assert.deepEqual(rulesByName.get("invalidTrace"), [
+          "architecture-trace-format-invalid",
+        ]);
+        assert.deepEqual(rulesByName.get("unknownTrace"), [
+          "architecture-trace-not-found",
+        ]);
+        assert.deepEqual(rulesByName.get("invalidNotApplicableReason"), [
+          "responsibility-header-effect-na-reason-missing",
+        ]);
+        assert.deepEqual(rulesByName.get("ValidTypeContract") ?? [], []);
+        assert.deepEqual(rulesByName.get("MissingTypeCompatibility"), [
+          "responsibility-header-compatibility-missing",
+        ]);
+        assert.deepEqual(rulesByName.get("ValidStateOwner") ?? [], []);
+      } finally {
+        snapshot.dispose();
+      }
+    } finally {
+      api.close();
+    }
+  } finally {
+    fs.rmSync(temporaryRoot, { force: true, recursive: true });
+  }
 });
 
 test("公開indexは設計由来の説明と明示的なExport Allowlistを持つ", () => {

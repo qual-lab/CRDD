@@ -147,7 +147,7 @@ test("Implementation SymbolへQualityとverifiesの責務を混在させない",
           path: "src/index.ts",
           archIds: ["ARCH-000001"],
           qaIds: ["QA-000001"],
-          localTestIds: ["UT-000001"],
+          localTestIds: ["SAMPLE-UT-001"],
           verifies: ["sample.other"],
         },
       ],
@@ -185,7 +185,7 @@ test("Global Symbol Graphは重複・未知Canonical ID・未解決verifiesを�
           path: "tests/sample.test.ts",
           archIds: [],
           qaIds: ["QA-999999"],
-          localTestIds: ["UT-000001"],
+          localTestIds: ["SAMPLE-UT-001"],
           verifies: ["sample.missing"],
         },
       ],
@@ -206,7 +206,7 @@ test("Global Symbol Graphは重複・未知Canonical ID・未解決verifiesを�
     [manifest, duplicateManifest],
     new Set(["ARCH-000001"]),
     new Set(["QA-000001"]),
-    new Map([["QA-000001", new Set(["UT-000001"])]]),
+    new Map([["QA-000001", new Set(["SAMPLE-UT-001"])]]),
     new Map([
       [
         "40_Develop/sample/tests/sample.test.ts",
@@ -251,7 +251,7 @@ test("Global Symbol GraphはQA定義に存在しないLocal Test IDを拒否す�
           path: "tests/sample.test.ts",
           archIds: [],
           qaIds: ["QA-000001"],
-          localTestIds: ["UT-999999"],
+          localTestIds: ["SAMPLE-UT-999"],
           verifies: ["sample.module"],
         },
       ],
@@ -261,7 +261,7 @@ test("Global Symbol GraphはQA定義に存在しないLocal Test IDを拒否す�
     [manifest],
     new Set(["ARCH-000001"]),
     new Set(["QA-000001"]),
-    new Map([["QA-000001", new Set(["UT-000001"])]]),
+    new Map([["QA-000001", new Set(["SAMPLE-UT-001"])]]),
     new Map([
       [
         "40_Develop/sample/tests/sample.test.ts",
@@ -349,7 +349,7 @@ test("Test SymbolはTest Catalogのexact pathとownerへ閉じる", () => {
           path: "src/index.ts",
           archIds: [],
           qaIds: ["QA-000001"],
-          localTestIds: ["UT-000001"],
+          localTestIds: ["SAMPLE-UT-001"],
           verifies: ["sample.module"],
         },
       ],
@@ -359,7 +359,7 @@ test("Test SymbolはTest Catalogのexact pathとownerへ閉じる", () => {
     [manifest],
     new Set(["ARCH-000001"]),
     new Set(["QA-000001"]),
-    new Map([["QA-000001", new Set(["UT-000001"])]]),
+    new Map([["QA-000001", new Set(["SAMPLE-UT-001"])]]),
   ] as const;
   assert.ok(
     createRealitySymbolGraph(...commonArguments, new Map(), []).findings.some(

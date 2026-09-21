@@ -31,6 +31,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Deployment | Required | PersonalとShared ServerでRepository集合の決定境界が異なる。 | [§3](#3-personalとshared-serverの共通モデル) |
 | Observability | Required | Source Coverage、欠測、制限、競合、観測時点を返す。 | [§12](#12-失敗と安全な結果) |
 | Security Boundary | Required | Workspace Grant、Repository Exposure、System管理可否を相互昇格させない。 | [§5](#5-repository利用可否) |
+| Implementation Structure | Required | 設計責務を具象差、選択、状態依存、構成、資源Ownerおよび外部境界へ分解する。 | [§Implementation Structure](#implementation-structure) |
 
 `N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
 
@@ -56,13 +57,13 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 ## Qualityへの引渡し
 
-| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
-|---|---|---|---|---|---|---|
-| 認証・Workspace境界 | Bearer CredentialとWorkspace集合 | 許可されたBindingだけ解決 | 失効、Exposure外、Admin-only | Access Contextと非開示結果 | Request後Secret 0 | 敵対的multi-tenantのHost分離は対象外 |
-| Federation | 複数Repository Source | 根拠・欠測付きProjection | 競合Binding、部分取得不能 | Source Coverageとobserved_at | 正本変更0 | 物理保存形式はDevelopmentで選択 |
-| Handoff | 構造化Task Context | 同じIdentityとRevisionで再開 | 未確認Context補完、Authority昇格 | handoff stateとreason | 未許可Effect 0 | transport schemaはSPEC待ち |
+| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|---|---|---|
+| `cros.workspace-access-boundary` | Interface／Security Boundary | Bearer CredentialとWorkspace集合 | 許可されたBindingだけ解決 | 失効、Exposure外、Admin-only | IT／ST | Direct Boundary | Access Contextと非開示結果 | Request後Secret 0 | 敵対的multi-tenantのHost分離は対象外 |
+| `cros.repository-federation` | Flow／Consistency | 複数Repository Source | 根拠・欠測付きProjection | 競合Binding、部分取得不能 | IT／ST | Related 2 Blocks | Source Coverageとobserved_at | 正本変更0 | 物理保存形式はDevelopmentで選択 |
+| `cros.context-handoff` | Sequence／Transition | 構造化Task Context | 同じIdentityとRevisionで再開 | 未確認Context補完、Authority昇格 | IT／ST | Adjacent 1 Block | handoff stateとreason | 未許可Effect 0 | transport schemaはSPEC待ち |
 
-Federation／ProjectionはAcceptance Decision Authorityを生成しない。SPEC-000006／SPEC-000007の読取り要求から判断Portへ到達できず、CROSが受入・差戻し・判断待ちを代理決定しないことを反証する。
+導出キーは本領域内でQualityが同じ設計項目を反復参照するための局所参照であり、CRDD全体の安定コンテキストIDではない。
 
 ## 現行実装との照合
 
@@ -578,16 +579,33 @@ Request A ── authenticated domain A ──x── Domain B Root
 
 Workspace GrantはHost Shell、OS Accountまたは敵対的tenant間の強制隔離ではない。互いに信頼しないtenantを同じHost／Processへ収容する構成、Container／VMによる強分離、Linux system-wide配置はv0.21の保証外とし、必要な場合はProcessとOS Accountを分ける。対象外をWorkspaceだけで安全と表示しない。
 
+## Implementation Structure
+
+| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
+|---|---|---|---|---|---|---|
+| Variation | Required | この観点を成立させる構造と責務が存在するため。 | Qualityへの引渡しで責務差を別の設計項目として固定する。 | 具象差を一つの分岐へ畳まず、各導出キーの正常条件と反証条件を保つ。 | 新しい具象を追加した場合、対応する導出キーと利用側の再確認が必要になる。 | `cros.workspace-access-boundary`<br>`cros.repository-federation`<br>`cros.context-handoff` |
+| Common Contract | Required | この観点を成立させる構造と責務が存在するため。 | Personal／Shared配置、複数WorkspaceおよびRepository Contextを、Grant、Exposure、ProjectionとHandoffの共通契約へ揃える。 | 配置差やRepository差があっても、利用可能・制限・欠測を同じ意味で返し、非開示Contextを推測しない。 | 配置・Workspace別の例外経路でGrantまたは情報境界が迂回される。 | `cros.workspace-access-boundary`<br>`cros.repository-federation`<br>`cros.context-handoff` |
+| Creation／Selection | Required | この観点を成立させる構造と責務が存在するため。 | Authority、入力または配置条件を満たした後にだけ具象・処理経路を選ぶ。 | 選択前の検証と選択後のIdentityを分け、未確認時はEffect 0とする。 | 選択条件の変更はTrust、Authorityまたは利用側契約へ波及する。 | `cros.workspace-access-boundary` |
+| State-dependent Behavior | Required | この観点を成立させる構造と責務が存在するため。 | 入力・処理中・完了・失敗・観測不能を区別して振る舞いを決める。 | 状態を空値や成功へ畳まず、同じIdentityで終了条件まで追跡する。 | 状態追加・統合はRecoveryと観測契約へ波及する。 | `cros.workspace-access-boundary` |
+| Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | 複数の局所責務を公開結果へ合成し、部分成立と全体成立を分ける。 | 各局所結果を保持し、必要な全要素が揃うまで上位完成を表示しない。 | 構成要素の追加時は完成条件と全Consumerを再確認する。 | `cros.workspace-access-boundary`<br>`cros.repository-federation`<br>`cros.context-handoff` |
+| Lifecycle Ownership | Required | この観点を成立させる構造と責務が存在するため。 | Process、Handle、一時物、秘密または公開SnapshotのOwnerと終了条件を固定する。 | 成功・失敗・取消の全経路で資源回収または同一Identityの回復義務を残す。 | Owner変更は取消、Recovery、終了後条件へ波及する。 | `cros.context-handoff` |
+| External Boundary | Required | この観点を成立させる構造と責務が存在するため。 | 外部境界ごとに要求、受理、Effect、結果搬送および終了後状態を分ける。 | 境界の成功を要求発行だけから推定せず、段階に応じた観測を必須にする。 | 境界変更は直接境界からSystem／E2Eまでの検証範囲へ波及する。 | `cros.context-handoff` |
+
+同じ責務へ二つ目の具象実装を追加する場合は、共通契約へ昇格するかを評価する。昇格しない場合は、同じ責務ではない、または局所分岐の方が単純で影響が小さい理由を記録する。特定のDesign Pattern名は必須にしない。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した
-- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] 10種類の詳細成果物を全数Applicability判定した
 - [x] Requiredを実在する節または成果物へ接続した
 - [x] N/AにArchitecture上の理由を記録した
 - [x] 8種類のEngineering Concernを全数評価した
 - [x] PASSを設計済みの意味に限定した
 - [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
 - [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] 7種類のImplementation Structure観点を全数Applicability判定した
+- [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
+- [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
 - [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した

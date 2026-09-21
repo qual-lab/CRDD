@@ -11,6 +11,22 @@ export const MCP_PROJECT_RUNTIME_STDIO_CONTRACT =
   "crdd-mcp/stdio-transport/v1" as const;
 const MAXIMUM_REQUEST_BYTES = 128 * 1024;
 
+/**
+ * writeの処理を実行する。
+ *
+ * @responsibility writeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000012
+ * @input output: Writable、value: unknown
+ * @returns writeの計算結果を返す。
+ * @precondition 「output: Writable、value: unknown」がwriteの入力契約を満たす。
+ * @postcondition writeの責務を完了した結果だけを返す。
+ * @effect N/A: writeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: writeは独自の失敗分岐を所有しない。
+ * @invariant writeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: writeはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency writeは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function write(output: Writable, value: unknown) {
   return new Promise<boolean>((resolve) => {
     const bytes = `${JSON.stringify(value)}\n`;
@@ -22,7 +38,19 @@ function write(output: Writable, value: unknown) {
 
 /**
  * Bounded JSON-lines MCP transport. EOF means parent loss: the active request
- * is cancelled and joined before the process reports a clean shutdown.
+ *
+ * @responsibility runMcpProjectRuntimeStdioに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000012
+ * @input dependencies: McpProjectRuntimeDependencies、input: Readable、output: Writable
+ * @returns runMcpProjectRuntimeStdioの計算結果を返す。
+ * @precondition 「dependencies: McpProjectRuntimeDependencies、input: Readable、output: Writable」がrunMcpProjectRuntimeStdioの入力契約を満たす。
+ * @postcondition runMcpProjectRuntimeStdioの責務を完了した結果だけを返す。
+ * @effect N/A: runMcpProjectRuntimeStdioは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure runMcpProjectRuntimeStdioは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runMcpProjectRuntimeStdioは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: runMcpProjectRuntimeStdioはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency runMcpProjectRuntimeStdioは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 export async function runMcpProjectRuntimeStdio(
   dependencies: McpProjectRuntimeDependencies,
@@ -148,6 +176,22 @@ export async function runMcpProjectRuntimeStdio(
   });
 }
 
+/**
+ * describeMcpProjectRuntimeStdioContractの処理を実行する。
+ *
+ * @responsibility describeMcpProjectRuntimeStdioContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000012
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeMcpProjectRuntimeStdioContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeMcpProjectRuntimeStdioContractの入力契約を満たす。
+ * @postcondition describeMcpProjectRuntimeStdioContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeMcpProjectRuntimeStdioContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeMcpProjectRuntimeStdioContractは独自の失敗分岐を所有しない。
+ * @invariant describeMcpProjectRuntimeStdioContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: describeMcpProjectRuntimeStdioContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeMcpProjectRuntimeStdioContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeMcpProjectRuntimeStdioContract() {
   return Object.freeze({
     contract: MCP_PROJECT_RUNTIME_STDIO_CONTRACT,

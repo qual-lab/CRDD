@@ -32,24 +32,125 @@ const P256_HALF_ORDER = P256_ORDER >> 1n;
 const UNPADDED_BASE64URL = /^[A-Za-z0-9_-]+$/u;
 const INVALID = Symbol("invalid");
 
+/**
+ * InputBudgetExceededが担う状態と操作を提供する。
+ *
+ * @responsibility InputBudgetExceededに属する状態と操作の所有境界をまとめる。
+ * @trace ARCH-000014
+ * @construction InputBudgetExceededの生成に必要な依存と初期状態をConstructor契約で固定する。
+ * @lifecycle InputBudgetExceededが所有する状態と資源を生成から終了まで同じInstanceで管理する。
+ * @effect N/A: InputBudgetExceededの宣言自体は実行時Effectを発行しない。
+ * @failure N/A: InputBudgetExceededの宣言自体は実行時失敗を所有しない。
+ * @invariant InputBudgetExceededで宣言した値と責務の対応を維持する。
+ * @boundary N/A: InputBudgetExceededの宣言は外部境界を開かない。
+ * @security InputBudgetExceededはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: InputBudgetExceededは共有非同期状態を持たない同期処理である。
+ */
 class InputBudgetExceeded extends Error {}
 
+/**
+ * JsonPrimitiveが扱う値の構造を表す。
+ *
+ * @responsibility JsonPrimitiveに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000014
+ * @shape JsonPrimitiveが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant JsonPrimitiveで宣言した値と責務の対応を維持する。
+ * @boundary N/A: JsonPrimitiveの宣言は外部境界を開かない。
+ * @security JsonPrimitiveはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility JsonPrimitiveの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type JsonPrimitive = null | boolean | number | string;
+/**
+ * JsonObjectが扱う値の構造を表す。
+ *
+ * @responsibility JsonObjectに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000014
+ * @shape JsonObjectが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant JsonObjectで宣言した値と責務の対応を維持する。
+ * @boundary N/A: JsonObjectの宣言は外部境界を開かない。
+ * @security JsonObjectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility JsonObjectの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 interface JsonObject {
   readonly [key: string]: JsonValue;
 }
+/**
+ * JsonArrayが扱う値の構造を表す。
+ *
+ * @responsibility JsonArrayに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000014
+ * @shape JsonArrayが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant JsonArrayで宣言した値と責務の対応を維持する。
+ * @boundary N/A: JsonArrayの宣言は外部境界を開かない。
+ * @security JsonArrayはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility JsonArrayの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 interface JsonArray extends ReadonlyArray<JsonValue> {}
+/**
+ * JsonValueが扱う値の構造を表す。
+ *
+ * @responsibility JsonValueに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000014
+ * @shape JsonValueが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant JsonValueで宣言した値と責務の対応を維持する。
+ * @boundary N/A: JsonValueの宣言は外部境界を開かない。
+ * @security JsonValueはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility JsonValueの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type JsonValue = JsonPrimitive | JsonObject | JsonArray;
 
+/**
+ * isJsonArrayの処理を実行する。
+ *
+ * @responsibility isJsonArrayに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input value: JsonValue
+ * @returns value is JsonArrayを返す。
+ * @precondition 「value: JsonValue」がisJsonArrayの入力契約を満たす。
+ * @postcondition isJsonArrayの責務を完了した結果だけを返す。
+ * @effect N/A: isJsonArrayは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isJsonArrayは独自の失敗分岐を所有しない。
+ * @invariant isJsonArrayは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isJsonArrayはProcess内の同一Subsystemで完結する。
+ * @security isJsonArrayはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isJsonArrayは共有非同期状態を持たない同期処理である。
+ */
 function isJsonArray(value: JsonValue): value is JsonArray {
   return Array.isArray(value);
 }
 
+/**
+ * SnapshotStateが扱う値の構造を表す。
+ *
+ * @responsibility SnapshotStateに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000014
+ * @shape SnapshotStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SnapshotStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SnapshotStateの宣言は外部境界を開かない。
+ * @security SnapshotStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility SnapshotStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type SnapshotState = {
   nodes: number;
   ancestors: WeakSet<object>;
 };
 
+/**
+ * blockedの処理を実行する。
+ *
+ * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input reason: string
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: string」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
+ * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(reason: string) {
   return Object.freeze({
     status: "blocked",
@@ -61,6 +162,22 @@ function blocked(reason: string) {
   });
 }
 
+/**
+ * ownedBufferの処理を実行する。
+ *
+ * @responsibility ownedBufferに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input value: unknown、maximumLength: number
+ * @returns ownedBufferの計算結果を返す。
+ * @precondition 「value: unknown、maximumLength: number」がownedBufferの入力契約を満たす。
+ * @postcondition ownedBufferの責務を完了した結果だけを返す。
+ * @effect N/A: ownedBufferは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: ownedBufferは独自の失敗分岐を所有しない。
+ * @invariant ownedBufferは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ownedBufferはProcess内の同一Subsystemで完結する。
+ * @security ownedBufferはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: ownedBufferは共有非同期状態を持たない同期処理である。
+ */
 function ownedBuffer(value: unknown, maximumLength: number) {
   if (!Buffer.isBuffer(value)) return null;
   if (typeof TYPED_ARRAY_BYTE_LENGTH !== "function") return null;
@@ -79,6 +196,22 @@ function ownedBuffer(value: unknown, maximumLength: number) {
   return copy;
 }
 
+/**
+ * hasLoneSurrogateの処理を実行する。
+ *
+ * @responsibility hasLoneSurrogateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input value: string
+ * @returns hasLoneSurrogateの計算結果を返す。
+ * @precondition 「value: string」がhasLoneSurrogateの入力契約を満たす。
+ * @postcondition hasLoneSurrogateの責務を完了した結果だけを返す。
+ * @effect N/A: hasLoneSurrogateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hasLoneSurrogateは独自の失敗分岐を所有しない。
+ * @invariant hasLoneSurrogateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: hasLoneSurrogateはProcess内の同一Subsystemで完結する。
+ * @security hasLoneSurrogateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hasLoneSurrogateは共有非同期状態を持たない同期処理である。
+ */
 function hasLoneSurrogate(value: string) {
   for (let index = 0; index < value.length; index += 1) {
     const unit = value.charCodeAt(index);
@@ -91,6 +224,22 @@ function hasLoneSurrogate(value: string) {
   return false;
 }
 
+/**
+ * dataDescriptorの処理を実行する。
+ *
+ * @responsibility dataDescriptorに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input descriptor: PropertyDescriptor | undefined、shouldBeEnumerable
+ * @returns descriptor is PropertyDescriptor & { value: unknown }を返す。
+ * @precondition 「descriptor: PropertyDescriptor | undefined、shouldBeEnumerable」がdataDescriptorの入力契約を満たす。
+ * @postcondition dataDescriptorの責務を完了した結果だけを返す。
+ * @effect N/A: dataDescriptorは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: dataDescriptorは独自の失敗分岐を所有しない。
+ * @invariant dataDescriptorは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: dataDescriptorはProcess内の同一Subsystemで完結する。
+ * @security dataDescriptorはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: dataDescriptorは共有非同期状態を持たない同期処理である。
+ */
 function dataDescriptor(
   descriptor: PropertyDescriptor | undefined,
   shouldBeEnumerable = true,
@@ -104,6 +253,22 @@ function dataDescriptor(
   );
 }
 
+/**
+ * snapshotJsonValueの処理を実行する。
+ *
+ * @responsibility snapshotJsonValueに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input value: unknown、state: SnapshotState、depth
+ * @returns JsonValue | typeof INVALIDを返す。
+ * @precondition 「value: unknown、state: SnapshotState、depth」がsnapshotJsonValueの入力契約を満たす。
+ * @postcondition snapshotJsonValueの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotJsonValueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure snapshotJsonValueは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant snapshotJsonValueは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: snapshotJsonValueはProcess内の同一Subsystemで完結する。
+ * @security snapshotJsonValueはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: snapshotJsonValueは共有非同期状態を持たない同期処理である。
+ */
 function snapshotJsonValue(
   value: unknown,
   state: SnapshotState,
@@ -197,6 +362,22 @@ function snapshotJsonValue(
   }
 }
 
+/**
+ * boundedJcsの処理を実行する。
+ *
+ * @responsibility boundedJcsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input value: JsonValue
+ * @returns boundedJcsの計算結果を返す。
+ * @precondition 「value: JsonValue」がboundedJcsの入力契約を満たす。
+ * @postcondition boundedJcsの責務を完了した結果だけを返す。
+ * @effect N/A: boundedJcsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure boundedJcsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant boundedJcsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: boundedJcsはProcess内の同一Subsystemで完結する。
+ * @security boundedJcsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: boundedJcsは共有非同期状態を持たない同期処理である。
+ */
 function boundedJcs(value: JsonValue) {
   const chunks: Buffer[] = [];
   let byteLength = 0;
@@ -285,6 +466,22 @@ function boundedJcs(value: JsonValue) {
   return Buffer.concat(chunks, byteLength);
 }
 
+/**
+ * canonicalizeProvisioningJsonValueCandidateの処理を実行する。
+ *
+ * @responsibility canonicalizeProvisioningJsonValueCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input rawValue: unknown
+ * @returns canonicalizeProvisioningJsonValueCandidateの計算結果を返す。
+ * @precondition 「rawValue: unknown」がcanonicalizeProvisioningJsonValueCandidateの入力契約を満たす。
+ * @postcondition canonicalizeProvisioningJsonValueCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: canonicalizeProvisioningJsonValueCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure canonicalizeProvisioningJsonValueCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant canonicalizeProvisioningJsonValueCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: canonicalizeProvisioningJsonValueCandidateはProcess内の同一Subsystemで完結する。
+ * @security canonicalizeProvisioningJsonValueCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: canonicalizeProvisioningJsonValueCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function canonicalizeProvisioningJsonValueCandidate(rawValue: unknown) {
   try {
     const value = snapshotJsonValue(rawValue, {
@@ -309,6 +506,22 @@ export function canonicalizeProvisioningJsonValueCandidate(rawValue: unknown) {
   }
 }
 
+/**
+ * inspectSpkiの処理を実行する。
+ *
+ * @responsibility inspectSpkiに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input input: unknown
+ * @returns inspectSpkiの計算結果を返す。
+ * @precondition 「input: unknown」がinspectSpkiの入力契約を満たす。
+ * @postcondition inspectSpkiの責務を完了した結果だけを返す。
+ * @effect N/A: inspectSpkiは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectSpkiは独自の失敗分岐を所有しない。
+ * @invariant inspectSpkiは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectSpkiはProcess内の同一Subsystemで完結する。
+ * @security inspectSpkiはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectSpkiは共有非同期状態を持たない同期処理である。
+ */
 function inspectSpki(input: unknown) {
   const spkiDer = ownedBuffer(
     input,
@@ -322,6 +535,22 @@ function inspectSpki(input: unknown) {
   return Object.freeze({ key, spkiDer });
 }
 
+/**
+ * inspectP256Spkiの処理を実行する。
+ *
+ * @responsibility inspectP256Spkiに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input input: unknown
+ * @returns inspectP256Spkiの計算結果を返す。
+ * @precondition 「input: unknown」がinspectP256Spkiの入力契約を満たす。
+ * @postcondition inspectP256Spkiの責務を完了した結果だけを返す。
+ * @effect N/A: inspectP256Spkiは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectP256Spkiは独自の失敗分岐を所有しない。
+ * @invariant inspectP256Spkiは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectP256SpkiはProcess内の同一Subsystemで完結する。
+ * @security inspectP256SpkiはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectP256Spkiは共有非同期状態を持たない同期処理である。
+ */
 function inspectP256Spki(input: unknown) {
   const spkiDer = ownedBuffer(
     input,
@@ -340,6 +569,22 @@ function inspectP256Spki(input: unknown) {
   return Object.freeze({ key, spkiDer });
 }
 
+/**
+ * canonicalP256Signatureの処理を実行する。
+ *
+ * @responsibility canonicalP256Signatureに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input signature: Buffer
+ * @returns canonicalP256Signatureの計算結果を返す。
+ * @precondition 「signature: Buffer」がcanonicalP256Signatureの入力契約を満たす。
+ * @postcondition canonicalP256Signatureの責務を完了した結果だけを返す。
+ * @effect N/A: canonicalP256Signatureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: canonicalP256Signatureは独自の失敗分岐を所有しない。
+ * @invariant canonicalP256Signatureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: canonicalP256SignatureはProcess内の同一Subsystemで完結する。
+ * @security canonicalP256SignatureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: canonicalP256Signatureは共有非同期状態を持たない同期処理である。
+ */
 function canonicalP256Signature(signature: Buffer) {
   if (signature.length !== 64) return false;
   const r = BigInt(`0x${signature.subarray(0, 32).toString("hex")}`);
@@ -347,6 +592,22 @@ function canonicalP256Signature(signature: Buffer) {
   return r > 0n && r < P256_ORDER && s > 0n && s <= P256_HALF_ORDER;
 }
 
+/**
+ * inspectProvisioningEd25519SpkiCandidateの処理を実行する。
+ *
+ * @responsibility inspectProvisioningEd25519SpkiCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input input: unknown
+ * @returns inspectProvisioningEd25519SpkiCandidateの計算結果を返す。
+ * @precondition 「input: unknown」がinspectProvisioningEd25519SpkiCandidateの入力契約を満たす。
+ * @postcondition inspectProvisioningEd25519SpkiCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectProvisioningEd25519SpkiCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectProvisioningEd25519SpkiCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectProvisioningEd25519SpkiCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectProvisioningEd25519SpkiCandidateはProcess内の同一Subsystemで完結する。
+ * @security inspectProvisioningEd25519SpkiCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectProvisioningEd25519SpkiCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectProvisioningEd25519SpkiCandidate(input: unknown) {
   try {
     const inspected = inspectSpki(input);
@@ -364,6 +625,22 @@ export function inspectProvisioningEd25519SpkiCandidate(input: unknown) {
   }
 }
 
+/**
+ * inspectProvisioningP256SpkiCandidateの処理を実行する。
+ *
+ * @responsibility inspectProvisioningP256SpkiCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input input: unknown
+ * @returns inspectProvisioningP256SpkiCandidateの計算結果を返す。
+ * @precondition 「input: unknown」がinspectProvisioningP256SpkiCandidateの入力契約を満たす。
+ * @postcondition inspectProvisioningP256SpkiCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectProvisioningP256SpkiCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectProvisioningP256SpkiCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectProvisioningP256SpkiCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectProvisioningP256SpkiCandidateはProcess内の同一Subsystemで完結する。
+ * @security inspectProvisioningP256SpkiCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectProvisioningP256SpkiCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectProvisioningP256SpkiCandidate(input: unknown) {
   try {
     const inspected = inspectP256Spki(input);
@@ -381,6 +658,22 @@ export function inspectProvisioningP256SpkiCandidate(input: unknown) {
   }
 }
 
+/**
+ * snapshotExactInputの処理を実行する。
+ *
+ * @responsibility snapshotExactInputに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input value: unknown、expectedKeys: ReadonlySet<string>
+ * @returns snapshotExactInputの計算結果を返す。
+ * @precondition 「value: unknown、expectedKeys: ReadonlySet<string>」がsnapshotExactInputの入力契約を満たす。
+ * @postcondition snapshotExactInputの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotExactInputは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: snapshotExactInputは独自の失敗分岐を所有しない。
+ * @invariant snapshotExactInputは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: snapshotExactInputはProcess内の同一Subsystemで完結する。
+ * @security snapshotExactInputはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: snapshotExactInputは共有非同期状態を持たない同期処理である。
+ */
 function snapshotExactInput(value: unknown, expectedKeys: ReadonlySet<string>) {
   if (
     !value ||
@@ -412,6 +705,22 @@ function snapshotExactInput(value: unknown, expectedKeys: ReadonlySet<string>) {
   return Object.freeze(result);
 }
 
+/**
+ * verifyProvisioningEd25519PrimitiveCandidateの処理を実行する。
+ *
+ * @responsibility verifyProvisioningEd25519PrimitiveCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input rawInput: unknown
+ * @returns verifyProvisioningEd25519PrimitiveCandidateの計算結果を返す。
+ * @precondition 「rawInput: unknown」がverifyProvisioningEd25519PrimitiveCandidateの入力契約を満たす。
+ * @postcondition verifyProvisioningEd25519PrimitiveCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: verifyProvisioningEd25519PrimitiveCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyProvisioningEd25519PrimitiveCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyProvisioningEd25519PrimitiveCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyProvisioningEd25519PrimitiveCandidateはProcess内の同一Subsystemで完結する。
+ * @security verifyProvisioningEd25519PrimitiveCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyProvisioningEd25519PrimitiveCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function verifyProvisioningEd25519PrimitiveCandidate(rawInput: unknown) {
   try {
     const input = snapshotExactInput(rawInput, VERIFY_KEYS);
@@ -450,6 +759,22 @@ export function verifyProvisioningEd25519PrimitiveCandidate(rawInput: unknown) {
   }
 }
 
+/**
+ * verifyProvisioningEd25519Base64urlCandidateの処理を実行する。
+ *
+ * @responsibility verifyProvisioningEd25519Base64urlCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input rawInput: unknown
+ * @returns verifyProvisioningEd25519Base64urlCandidateの計算結果を返す。
+ * @precondition 「rawInput: unknown」がverifyProvisioningEd25519Base64urlCandidateの入力契約を満たす。
+ * @postcondition verifyProvisioningEd25519Base64urlCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: verifyProvisioningEd25519Base64urlCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyProvisioningEd25519Base64urlCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyProvisioningEd25519Base64urlCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyProvisioningEd25519Base64urlCandidateはProcess内の同一Subsystemで完結する。
+ * @security verifyProvisioningEd25519Base64urlCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyProvisioningEd25519Base64urlCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function verifyProvisioningEd25519Base64urlCandidate(rawInput: unknown) {
   try {
     const input = snapshotExactInput(rawInput, BASE64URL_VERIFY_KEYS);
@@ -478,6 +803,22 @@ export function verifyProvisioningEd25519Base64urlCandidate(rawInput: unknown) {
   }
 }
 
+/**
+ * verifyProvisioningP256Base64urlCandidateの処理を実行する。
+ *
+ * @responsibility verifyProvisioningP256Base64urlCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input rawInput: unknown
+ * @returns verifyProvisioningP256Base64urlCandidateの計算結果を返す。
+ * @precondition 「rawInput: unknown」がverifyProvisioningP256Base64urlCandidateの入力契約を満たす。
+ * @postcondition verifyProvisioningP256Base64urlCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: verifyProvisioningP256Base64urlCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyProvisioningP256Base64urlCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyProvisioningP256Base64urlCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyProvisioningP256Base64urlCandidateはProcess内の同一Subsystemで完結する。
+ * @security verifyProvisioningP256Base64urlCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyProvisioningP256Base64urlCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function verifyProvisioningP256Base64urlCandidate(rawInput: unknown) {
   try {
     const input = snapshotExactInput(rawInput, BASE64URL_VERIFY_KEYS);
@@ -537,6 +878,22 @@ export function verifyProvisioningP256Base64urlCandidate(rawInput: unknown) {
   }
 }
 
+/**
+ * describeProvisioningSignaturePrimitivesContractの処理を実行する。
+ *
+ * @responsibility describeProvisioningSignaturePrimitivesContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProvisioningSignaturePrimitivesContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProvisioningSignaturePrimitivesContractの入力契約を満たす。
+ * @postcondition describeProvisioningSignaturePrimitivesContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeProvisioningSignaturePrimitivesContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProvisioningSignaturePrimitivesContractは独自の失敗分岐を所有しない。
+ * @invariant describeProvisioningSignaturePrimitivesContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeProvisioningSignaturePrimitivesContractはProcess内の同一Subsystemで完結する。
+ * @security describeProvisioningSignaturePrimitivesContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeProvisioningSignaturePrimitivesContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeProvisioningSignaturePrimitivesContract() {
   return Object.freeze({
     contract: PROVISIONING_SIGNATURE_PRIMITIVES_CONTRACT,

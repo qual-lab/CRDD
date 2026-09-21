@@ -29,6 +29,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Deployment | Required | 署名済み配布、Provider Home、Container、Host helperの配置を示す。 | [§2](#2-現行profileと公開入口) |
 | Observability | Required | Provider境界の各phaseと終了後資源を相関して診断する。 | [§13](#13-検証接続) |
 | Security Boundary | Required | Provider Credential、外部送信同意、Runtime Capabilityを分離する。 | [§7](#7-authorityと外部送信) |
+| Implementation Structure | Required | Provider／Process／Recoveryの差分軸、生成・選択、状態依存、構成および資源Ownerを固定する。 | [§16](#16-implementation-structure) |
 
 `N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
 
@@ -54,13 +55,13 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 ## Qualityへの引渡し
 
-| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
-|---|---|---|---|---|---|---|
-| Provider選択・Home／Trust境界 | Task属性、Provider／Model構成、Home、Trust結果 | 利用可能性・Policy・Trustを満たす計画だけをEffect前に固定 | 不正Home、未信頼Runtime、利用不能Modelの選択 | 選定理由、再選定条件、Trust結果、Effect 0 | Provider Process未開始 | 実Provider／実Homeを使う結合確認 |
-| Provider実行・外部送信・候補Review | Task／Attempt、送信Authority、Provider Effect、Reviewer結果 | 同じIdentityで結果または理由別停止へ到達 | 承認不足、sandbox拒否、CLI exit、無許可送信、生結果の直接採用 | phase診断、exit、送信範囲、候補状態 | Process／stream／Container回収、未採用候補隔離 | 実Providerによる双方向経路と候補Review |
-| 署名済みManifest・staging promotion | Distribution Root、Manifest、署名結果、staging | 完全集合を一つの固定Snapshotとして署名し、競合なくpromotion | Root差、対象漏れ、別Snapshot混入、配置途中失敗 | Manifest hash、Snapshot Identity、staging／promotion状態 | 失敗候補は公開不可、staging義務を保持 | 正式鍵を用いるRelease署名とpromotion |
-| 取消・Task回復 | exact Task／Attempt／Recovery Identity | 取消要求後の終了状態を観測し、同じIdentityへ再入場 | Effect不明の再発行、別Task混入、要求受理だけの完了化 | 状態、資源、Recovery Identity | 不存在確認または義務保持 | 実Processの取消・競合完了・再入場 |
-| Docker修復・再起動・別Session／Runtime引継ぎ | repair／restart／handoff IdentityとHost資源 | 旧Effectを再発行せず、現在状態をfresh観測して同じ義務を継続 | stale socket残存、旧Runtime Effect再発行、別Session混入 | Operation状態、Process／socket、Engine readiness、handoff chain | 不存在またはexact義務保持 | 実機停止・修復・再起動・別Runtime引継ぎの正式E2E |
+| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|---|---|---|
+| `coord.provider-selection` | Interface／Implementation Structure | Task属性、Provider／Model構成、Home、Trust結果 | 利用可能性・Policy・Trustを満たす計画だけをEffect前に固定 | 不正Home、未信頼Runtime、利用不能Modelの選択 | IT | Direct Boundary | 選定理由、再選定条件、Trust結果、Effect 0 | Provider Process未開始 | 実Provider／実Homeを使う結合確認 |
+| `coord.provider-attempt` | Sequence／Failure-Recovery | Task／Attempt、送信Authority、Provider Effect、Reviewer結果 | 同じIdentityで結果または理由別停止へ到達 | 承認不足、sandbox拒否、CLI exit、無許可送信、生結果の直接採用 | IT／ST | IT: Related 2 Blocks<br>ST: System/E2E | phase診断、exit、送信範囲、候補状態 | Process／stream／Container回収、未採用候補隔離 | 実Providerによる双方向経路と候補Review |
+| `coord.signed-promotion` | Data Flow／Sequence | Distribution Root、Manifest、署名結果、staging | 完全集合を一つの固定Snapshotとして署名し、競合なくpromotion | Root差、対象漏れ、別Snapshot混入、配置途中失敗 | IT／ST | IT: Adjacent 1 Block<br>ST: System/E2E | Manifest hash、Snapshot Identity、staging／promotion状態 | 失敗候補は公開不可、staging義務を保持 | 正式鍵を用いるRelease署名とpromotion |
+| `coord.task-recovery` | State Transition／Failure-Recovery | exact Task／Attempt／Recovery Identity | 取消要求後の終了状態を観測し、同じIdentityへ再入場 | Effect不明の再発行、別Task混入、要求受理だけの完了化 | IT／ST | IT: Related 2 Blocks<br>ST: System/E2E | 状態、資源、Recovery Identity | 不存在確認または義務保持 | 実Processの取消・競合完了・再入場 |
+| `coord.docker-repair-handoff` | Sequence／Failure-Recovery | repair／restart／handoff IdentityとHost資源 | 旧Effectを再発行せず、現在状態をfresh観測して同じ義務を継続 | stale socket残存、旧Runtime Effect再発行、別Session混入 | IT／ST | IT: Related 2 Blocks<br>ST: System/E2E | Operation状態、Process／socket、Engine readiness、handoff chain | 不存在またはexact義務保持 | 実機停止・修復・再起動・別Runtime引継ぎの正式E2E |
 
 ## 現行実装との照合
 
@@ -777,16 +778,33 @@ CoordinatorはProject状態を再定義せず、Project RuntimeはProvider、OS�
 
 将来Remote RuntimeやOrganization Runtimeが必要になった場合は、実在する利用者・運用・Authority・Recoveryから新しいArchitectureを設計する。削除済みのLocal Personal準備契約を互換性名目で復活させない。
 
+## 16. Implementation Structure
+
+| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
+|---|---|---|---|---|---|---|
+| Variation | Required | この観点を成立させる構造と責務が存在するため。 | Provider、Process Controller、候補Review、Recoveryを共通契約と具象Adapterへ分ける。 | 利用側はProvider／OS固有の選択理由や終了処理を持たない。 | 新Provider追加時にAuthority、診断、cleanupの抜けが生じる。 | `coord.provider-selection`、`coord.provider-attempt` |
+| Common Contract | Required | この観点を成立させる構造と責務が存在するため。 | Provider、Process Controller、候補ReviewおよびRecoveryの具象差を、Authority、結果、診断、取消とcleanupの共通契約へ揃える。 | 各具象は同じTask／Attempt Identity、Effect境界および終了後条件を保ち、固有出力を上位へ漏らさない。 | 新ProviderやOS経路だけが別の承認、状態、結果または資源回収規則を持つ。 | `coord.provider-selection`、`coord.provider-attempt`、`coord.task-recovery` |
+| Creation／Selection | Required | この観点を成立させる構造と責務が存在するため。 | 構成・利用可能性・Policy・TrustからCoordinatorがEffect前に具象Providerを選ぶ。 | 選定とProvider Effectを分け、未選定時はEffect 0とする。 | 選択後の再解釈や入口別選択で経路が不一致になる。 | `coord.provider-selection` |
+| State-dependent Behavior | Required | この観点を成立させる構造と責務が存在するため。 | Task／Attempt／Process／Review／Recovery状態ごとに許可する操作を限定する。 | Effect不明やcleanup未確認を成功状態へ遷移させない。 | 状態分岐の分散で再発行や回復Identity喪失が起きる。 | `coord.provider-attempt`、`coord.task-recovery` |
+| Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | 選定、送信許可、Provider実行、Review、候補、cleanupを順序付きで合成する。 | 各段階は前段の確定結果だけを入力とし、循環再試行を作らない。 | 部分成功を全体成功に畳む、または同じEffectを再実行する。 | `coord.provider-attempt`、`coord.signed-promotion` |
+| Lifecycle Ownership | Required | この観点を成立させる構造と責務が存在するため。 | 子Process、stream、Container、候補一時領域とRecovery義務をTask／Attemptへ結ぶ。 | 生成したOwnerが移送またはcleanup確認まで責任を持つ。 | 利用側が完了を受け取っても資源と回復義務が残る。 | `coord.task-recovery`、`coord.docker-repair-handoff` |
+| External Boundary | Required | この観点を成立させる構造と責務が存在するため。 | Provider、Docker、OS Process、Filesystemを診断可能なAdapterで隔離する。 | 要求・開始・完了・結果搬送・終了後状態を同じOperationで相関する。 | CLIやOS差を成功／不存在へ畳み、原因境界を失う。 | `coord.provider-attempt`、`coord.docker-repair-handoff` |
+
+CodexとClaude、複数のProcess Controller、通常実行とRecovery等、同じ責務の具象実装が既に複数あるため共通契約への昇格はRequiredである。共通契約はProviderやOS固有情報を消すためではなく、Authority、結果、診断およびcleanupの不変条件を各具象実装へ強制するために用いる。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した
-- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] 10種類の詳細成果物を全数Applicability判定した
 - [x] Requiredを実在する節または成果物へ接続した
 - [x] N/AにArchitecture上の理由を記録した
 - [x] 8種類のEngineering Concernを全数評価した
 - [x] PASSを設計済みの意味に限定した
 - [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
 - [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] 7種類のImplementation Structure観点を全数Applicability判定した
+- [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
+- [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
 - [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した

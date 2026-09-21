@@ -14,7 +14,7 @@
       "kind": "test-suite",
       "path": "tests/integration/private-key-signing.integration.test.ts",
       "qaIds": ["QA-000010"],
-      "localTestIds": ["AIT-08"],
+      "localTestIds": ["AIT-IT-008"],
       "verifies": ["artifact-signing.public-api"]
     }
   ]

@@ -56,8 +56,35 @@ const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
   "byteLength",
 )?.get;
 
+/**
+ * ProviderHomeObservationProviderが扱う値の構造を表す。
+ *
+ * @responsibility ProviderHomeObservationProviderに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape ProviderHomeObservationProviderが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProviderHomeObservationProviderで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProviderHomeObservationProviderの宣言は外部境界を開かない。
+ * @security ProviderHomeObservationProviderはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ProviderHomeObservationProviderの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProviderHomeObservationProvider = keyof typeof PROVIDERS;
 
+/**
+ * blockedの処理を実行する。
+ *
+ * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input reason: string
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: string」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
+ * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(reason: string) {
   return Object.freeze({
     status: "blocked" as const,
@@ -84,6 +111,22 @@ function blocked(reason: string) {
   });
 }
 
+/**
+ * snapshotBufferの処理を実行する。
+ *
+ * @responsibility snapshotBufferに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input value: unknown、expectedLength: number
+ * @returns Buffer | nullを返す。
+ * @precondition 「value: unknown、expectedLength: number」がsnapshotBufferの入力契約を満たす。
+ * @postcondition snapshotBufferの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotBufferは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure snapshotBufferは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant snapshotBufferは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: snapshotBufferはProcess内の同一Subsystemで完結する。
+ * @security snapshotBufferはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: snapshotBufferは共有非同期状態を持たない同期処理である。
+ */
 function snapshotBuffer(value: unknown, expectedLength: number): Buffer | null {
   try {
     if (
@@ -102,14 +145,62 @@ function snapshotBuffer(value: unknown, expectedLength: number): Buffer | null {
   }
 }
 
+/**
+ * readByteの処理を実行する。
+ *
+ * @responsibility readByteに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input bytes: Buffer、offset: number
+ * @returns numberを返す。
+ * @precondition 「bytes: Buffer、offset: number」がreadByteの入力契約を満たす。
+ * @postcondition readByteの責務を完了した結果だけを返す。
+ * @effect N/A: readByteは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: readByteは独自の失敗分岐を所有しない。
+ * @invariant readByteは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: readByteはProcess内の同一Subsystemで完結する。
+ * @security readByteはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readByteは共有非同期状態を持たない同期処理である。
+ */
 function readByte(bytes: Buffer, offset: number): number {
   return bytes[offset] ?? 0xff;
 }
 
+/**
+ * readUInt16LittleEndianの処理を実行する。
+ *
+ * @responsibility readUInt16LittleEndianに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input bytes: Buffer、offset: number
+ * @returns numberを返す。
+ * @precondition 「bytes: Buffer、offset: number」がreadUInt16LittleEndianの入力契約を満たす。
+ * @postcondition readUInt16LittleEndianの責務を完了した結果だけを返す。
+ * @effect N/A: readUInt16LittleEndianは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: readUInt16LittleEndianは独自の失敗分岐を所有しない。
+ * @invariant readUInt16LittleEndianは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: readUInt16LittleEndianはProcess内の同一Subsystemで完結する。
+ * @security readUInt16LittleEndianはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readUInt16LittleEndianは共有非同期状態を持たない同期処理である。
+ */
 function readUInt16LittleEndian(bytes: Buffer, offset: number): number {
   return readByte(bytes, offset) | (readByte(bytes, offset + 1) << 8);
 }
 
+/**
+ * readUInt32LittleEndianの処理を実行する。
+ *
+ * @responsibility readUInt32LittleEndianに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input bytes: Buffer、offset: number
+ * @returns numberを返す。
+ * @precondition 「bytes: Buffer、offset: number」がreadUInt32LittleEndianの入力契約を満たす。
+ * @postcondition readUInt32LittleEndianの責務を完了した結果だけを返す。
+ * @effect N/A: readUInt32LittleEndianは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: readUInt32LittleEndianは独自の失敗分岐を所有しない。
+ * @invariant readUInt32LittleEndianは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: readUInt32LittleEndianはProcess内の同一Subsystemで完結する。
+ * @security readUInt32LittleEndianはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readUInt32LittleEndianは共有非同期状態を持たない同期処理である。
+ */
 function readUInt32LittleEndian(bytes: Buffer, offset: number): number {
   return (
     (readByte(bytes, offset) |
@@ -120,6 +211,22 @@ function readUInt32LittleEndian(bytes: Buffer, offset: number): number {
   );
 }
 
+/**
+ * matchesBytesの処理を実行する。
+ *
+ * @responsibility matchesBytesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input bytes: Buffer、offset: number、expected: Buffer
+ * @returns booleanを返す。
+ * @precondition 「bytes: Buffer、offset: number、expected: Buffer」がmatchesBytesの入力契約を満たす。
+ * @postcondition matchesBytesの責務を完了した結果だけを返す。
+ * @effect N/A: matchesBytesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: matchesBytesは独自の失敗分岐を所有しない。
+ * @invariant matchesBytesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: matchesBytesはProcess内の同一Subsystemで完結する。
+ * @security matchesBytesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: matchesBytesは共有非同期状態を持たない同期処理である。
+ */
 function matchesBytes(
   bytes: Buffer,
   offset: number,
@@ -133,6 +240,22 @@ function matchesBytes(
   return true;
 }
 
+/**
+ * providerValueの処理を実行する。
+ *
+ * @responsibility providerValueに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input provider: unknown
+ * @returns (typeof PROVIDERS)[ProviderHomeObservationProvider] | nullを返す。
+ * @precondition 「provider: unknown」がproviderValueの入力契約を満たす。
+ * @postcondition providerValueの責務を完了した結果だけを返す。
+ * @effect N/A: providerValueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: providerValueは独自の失敗分岐を所有しない。
+ * @invariant providerValueは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: providerValueはProcess内の同一Subsystemで完結する。
+ * @security providerValueはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: providerValueは共有非同期状態を持たない同期処理である。
+ */
 function providerValue(
   provider: unknown,
 ): (typeof PROVIDERS)[ProviderHomeObservationProvider] | null {
@@ -141,17 +264,65 @@ function providerValue(
     : null;
 }
 
+/**
+ * providerNameの処理を実行する。
+ *
+ * @responsibility providerNameに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input value: number
+ * @returns ProviderHomeObservationProvider | nullを返す。
+ * @precondition 「value: number」がproviderNameの入力契約を満たす。
+ * @postcondition providerNameの責務を完了した結果だけを返す。
+ * @effect N/A: providerNameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: providerNameは独自の失敗分岐を所有しない。
+ * @invariant providerNameは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: providerNameはProcess内の同一Subsystemで完結する。
+ * @security providerNameはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: providerNameは共有非同期状態を持たない同期処理である。
+ */
 function providerName(value: number): ProviderHomeObservationProvider | null {
   if (value === PROVIDERS.codex) return "codex";
   if (value === PROVIDERS.claude) return "claude";
   return null;
 }
 
+/**
+ * nonzeroHashの処理を実行する。
+ *
+ * @responsibility nonzeroHashに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input bytes: Buffer、start: number
+ * @returns string | nullを返す。
+ * @precondition 「bytes: Buffer、start: number」がnonzeroHashの入力契約を満たす。
+ * @postcondition nonzeroHashの責務を完了した結果だけを返す。
+ * @effect N/A: nonzeroHashは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: nonzeroHashは独自の失敗分岐を所有しない。
+ * @invariant nonzeroHashは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: nonzeroHashはProcess内の同一Subsystemで完結する。
+ * @security nonzeroHashはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: nonzeroHashは共有非同期状態を持たない同期処理である。
+ */
 function nonzeroHash(bytes: Buffer, start: number): string | null {
   const value = bytes.subarray(start, start + 32).toString("hex");
   return /^0{64}$/u.test(value) ? null : value;
 }
 
+/**
+ * createProviderHomeObservationRequestの処理を実行する。
+ *
+ * @responsibility createProviderHomeObservationRequestに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input provider: unknown、mountSourcePath: unknown、nonceSource: () => Buffer
+ * @returns createProviderHomeObservationRequestの計算結果を返す。
+ * @precondition 「provider: unknown、mountSourcePath: unknown、nonceSource: () => Buffer」がcreateProviderHomeObservationRequestの入力契約を満たす。
+ * @postcondition createProviderHomeObservationRequestの責務を完了した結果だけを返す。
+ * @effect N/A: createProviderHomeObservationRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createProviderHomeObservationRequestは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createProviderHomeObservationRequestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createProviderHomeObservationRequestはProcess内の同一Subsystemで完結する。
+ * @security createProviderHomeObservationRequestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createProviderHomeObservationRequestは共有非同期状態を持たない同期処理である。
+ */
 export function createProviderHomeObservationRequest(
   provider: unknown,
   mountSourcePath: unknown,
@@ -191,6 +362,22 @@ export function createProviderHomeObservationRequest(
   }
 }
 
+/**
+ * createCandidateStoreObservationRequestの処理を実行する。
+ *
+ * @responsibility createCandidateStoreObservationRequestに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input mountSourcePath: unknown、initializeIfMissing: unknown、nonceSource: () => Buffer
+ * @returns createCandidateStoreObservationRequestの計算結果を返す。
+ * @precondition 「mountSourcePath: unknown、initializeIfMissing: unknown、nonceSource: () => Buffer」がcreateCandidateStoreObservationRequestの入力契約を満たす。
+ * @postcondition createCandidateStoreObservationRequestの責務を完了した結果だけを返す。
+ * @effect N/A: createCandidateStoreObservationRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createCandidateStoreObservationRequestは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createCandidateStoreObservationRequestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createCandidateStoreObservationRequestはProcess内の同一Subsystemで完結する。
+ * @security createCandidateStoreObservationRequestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createCandidateStoreObservationRequestは共有非同期状態を持たない同期処理である。
+ */
 export function createCandidateStoreObservationRequest(
   mountSourcePath: unknown,
   initializeIfMissing: unknown,
@@ -226,6 +413,22 @@ export function createCandidateStoreObservationRequest(
   }
 }
 
+/**
+ * createRuntimeStateObservationRequestの処理を実行する。
+ *
+ * @responsibility createRuntimeStateObservationRequestに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input mountSourcePath: unknown、initializeIfMissing: unknown、nonceSource: () => Buffer
+ * @returns createRuntimeStateObservationRequestの計算結果を返す。
+ * @precondition 「mountSourcePath: unknown、initializeIfMissing: unknown、nonceSource: () => Buffer」がcreateRuntimeStateObservationRequestの入力契約を満たす。
+ * @postcondition createRuntimeStateObservationRequestの責務を完了した結果だけを返す。
+ * @effect N/A: createRuntimeStateObservationRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createRuntimeStateObservationRequestは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createRuntimeStateObservationRequestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createRuntimeStateObservationRequestはProcess内の同一Subsystemで完結する。
+ * @security createRuntimeStateObservationRequestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createRuntimeStateObservationRequestは共有非同期状態を持たない同期処理である。
+ */
 export function createRuntimeStateObservationRequest(
   mountSourcePath: unknown,
   initializeIfMissing: unknown,
@@ -261,6 +464,22 @@ export function createRuntimeStateObservationRequest(
   }
 }
 
+/**
+ * evaluateProviderHomeObservationResponseCandidateの処理を実行する。
+ *
+ * @responsibility evaluateProviderHomeObservationResponseCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input rawResponse: unknown、expectedNonce: unknown、expectedProvider: unknown
+ * @returns evaluateProviderHomeObservationResponseCandidateの計算結果を返す。
+ * @precondition 「rawResponse: unknown、expectedNonce: unknown、expectedProvider: unknown」がevaluateProviderHomeObservationResponseCandidateの入力契約を満たす。
+ * @postcondition evaluateProviderHomeObservationResponseCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: evaluateProviderHomeObservationResponseCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure evaluateProviderHomeObservationResponseCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant evaluateProviderHomeObservationResponseCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: evaluateProviderHomeObservationResponseCandidateはProcess内の同一Subsystemで完結する。
+ * @security evaluateProviderHomeObservationResponseCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: evaluateProviderHomeObservationResponseCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function evaluateProviderHomeObservationResponseCandidate(
   rawResponse: unknown,
   expectedNonce: unknown,
@@ -362,6 +581,22 @@ export function evaluateProviderHomeObservationResponseCandidate(
   }
 }
 
+/**
+ * evaluateCandidateStoreObservationResponseCandidateの処理を実行する。
+ *
+ * @responsibility evaluateCandidateStoreObservationResponseCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input rawResponse: unknown、expectedNonce: unknown
+ * @returns evaluateCandidateStoreObservationResponseCandidateの計算結果を返す。
+ * @precondition 「rawResponse: unknown、expectedNonce: unknown」がevaluateCandidateStoreObservationResponseCandidateの入力契約を満たす。
+ * @postcondition evaluateCandidateStoreObservationResponseCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: evaluateCandidateStoreObservationResponseCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure evaluateCandidateStoreObservationResponseCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant evaluateCandidateStoreObservationResponseCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: evaluateCandidateStoreObservationResponseCandidateはProcess内の同一Subsystemで完結する。
+ * @security evaluateCandidateStoreObservationResponseCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: evaluateCandidateStoreObservationResponseCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function evaluateCandidateStoreObservationResponseCandidate(
   rawResponse: unknown,
   expectedNonce: unknown,
@@ -433,6 +668,22 @@ export function evaluateCandidateStoreObservationResponseCandidate(
   }
 }
 
+/**
+ * evaluateRuntimeStateObservationResponseCandidateの処理を実行する。
+ *
+ * @responsibility evaluateRuntimeStateObservationResponseCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input rawResponse: unknown、expectedNonce: unknown
+ * @returns evaluateRuntimeStateObservationResponseCandidateの計算結果を返す。
+ * @precondition 「rawResponse: unknown、expectedNonce: unknown」がevaluateRuntimeStateObservationResponseCandidateの入力契約を満たす。
+ * @postcondition evaluateRuntimeStateObservationResponseCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: evaluateRuntimeStateObservationResponseCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure evaluateRuntimeStateObservationResponseCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant evaluateRuntimeStateObservationResponseCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: evaluateRuntimeStateObservationResponseCandidateはProcess内の同一Subsystemで完結する。
+ * @security evaluateRuntimeStateObservationResponseCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: evaluateRuntimeStateObservationResponseCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function evaluateRuntimeStateObservationResponseCandidate(
   rawResponse: unknown,
   expectedNonce: unknown,
@@ -501,6 +752,22 @@ export function evaluateRuntimeStateObservationResponseCandidate(
   }
 }
 
+/**
+ * describeProviderHomeObservationContractの処理を実行する。
+ *
+ * @responsibility describeProviderHomeObservationContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProviderHomeObservationContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProviderHomeObservationContractの入力契約を満たす。
+ * @postcondition describeProviderHomeObservationContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeProviderHomeObservationContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProviderHomeObservationContractは独自の失敗分岐を所有しない。
+ * @invariant describeProviderHomeObservationContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeProviderHomeObservationContractはProcess内の同一Subsystemで完結する。
+ * @security describeProviderHomeObservationContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeProviderHomeObservationContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeProviderHomeObservationContract() {
   return Object.freeze({
     contract: PROVIDER_HOME_OBSERVATION_CONTRACT,

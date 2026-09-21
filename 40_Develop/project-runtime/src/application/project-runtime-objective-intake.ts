@@ -20,12 +20,39 @@ import { repositoryPathWithin } from "../boundary/repository-relative-path.ts";
 export const PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT =
   "crdd-coordinator/project-runtime-objective-intake/v1" as const;
 
+/**
+ * ProjectRuntimeObjectivePlanが扱う値の構造を表す。
+ *
+ * @responsibility ProjectRuntimeObjectivePlanに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeObjectivePlanが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeObjectivePlanで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeObjectivePlanの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimeObjectivePlanはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimeObjectivePlanの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeObjectivePlan = Readonly<{
   milestoneAcceptanceCriteria: readonly string[];
   objectives: readonly ProjectObjectiveDefinition[];
   tasks: readonly ProjectTaskDefinition[];
 }>;
 
+/**
+ * validIdの処理を実行する。
+ *
+ * @responsibility validIdに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidIdの入力契約を満たす。
+ * @postcondition validIdの責務を完了した結果だけを返す。
+ * @effect N/A: validIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validIdは独自の失敗分岐を所有しない。
+ * @invariant validIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validIdはProcess内の同一Subsystemで完結する。
+ * @security N/A: validIdはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validIdは共有非同期状態を持たない同期処理である。
+ */
 function validId(value: unknown): value is string {
   return (
     typeof value === "string" &&
@@ -35,6 +62,22 @@ function validId(value: unknown): value is string {
   );
 }
 
+/**
+ * validTextの処理を実行する。
+ *
+ * @responsibility validTextに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、maximum: number
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown、maximum: number」がvalidTextの入力契約を満たす。
+ * @postcondition validTextの責務を完了した結果だけを返す。
+ * @effect N/A: validTextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validTextは独自の失敗分岐を所有しない。
+ * @invariant validTextは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validTextはProcess内の同一Subsystemで完結する。
+ * @security N/A: validTextはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validTextは共有非同期状態を持たない同期処理である。
+ */
 function validText(value: unknown, maximum: number): value is string {
   return (
     typeof value === "string" &&
@@ -44,6 +87,22 @@ function validText(value: unknown, maximum: number): value is string {
   );
 }
 
+/**
+ * inspectStringsの処理を実行する。
+ *
+ * @responsibility inspectStringsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、maximumItems: number、maximumText: number、shouldAllowEmpty
+ * @returns readonly string[] | nullを返す。
+ * @precondition 「value: unknown、maximumItems: number、maximumText: number、shouldAllowEmpty」がinspectStringsの入力契約を満たす。
+ * @postcondition inspectStringsの責務を完了した結果だけを返す。
+ * @effect N/A: inspectStringsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectStringsは独自の失敗分岐を所有しない。
+ * @invariant inspectStringsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectStringsはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectStringsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectStringsは共有非同期状態を持たない同期処理である。
+ */
 function inspectStrings(
   value: unknown,
   maximumItems: number,
@@ -65,11 +124,42 @@ function inspectStrings(
   return Object.freeze([...(snapshot.value as readonly string[])]);
 }
 
+/**
+ * pathWithinの処理を実行する。
+ *
+ * @responsibility pathWithinに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input candidate: string、roots: readonly string[]
+ * @returns pathWithinの計算結果を返す。
+ * @precondition 「candidate: string、roots: readonly string[]」がpathWithinの入力契約を満たす。
+ * @postcondition pathWithinの責務を完了した結果だけを返す。
+ * @effect N/A: pathWithinは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: pathWithinは独自の失敗分岐を所有しない。
+ * @invariant pathWithinは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: pathWithinはProcess内の同一Subsystemで完結する。
+ * @security N/A: pathWithinはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: pathWithinは共有非同期状態を持たない同期処理である。
+ */
 function pathWithin(candidate: string, roots: readonly string[]) {
   return repositoryPathWithin(candidate, roots);
 }
 
-/** Validate an untrusted Planner result as a bounded Project Runtime plan. */
+/**
+ * Validate an untrusted Planner result as a bounded Project Runtime plan.
+ *
+ * @responsibility inspectProjectRuntimeObjectivePlanに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown、request: ProjectRuntimeObjectiveRequest
+ * @returns ProjectRuntimeObjectivePlan | nullを返す。
+ * @precondition 「raw: unknown、request: ProjectRuntimeObjectiveRequest」がinspectProjectRuntimeObjectivePlanの入力契約を満たす。
+ * @postcondition inspectProjectRuntimeObjectivePlanの責務を完了した結果だけを返す。
+ * @effect N/A: inspectProjectRuntimeObjectivePlanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectProjectRuntimeObjectivePlanは独自の失敗分岐を所有しない。
+ * @invariant inspectProjectRuntimeObjectivePlanは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectProjectRuntimeObjectivePlanはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectProjectRuntimeObjectivePlanはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectProjectRuntimeObjectivePlanは共有非同期状態を持たない同期処理である。
+ */
 export function inspectProjectRuntimeObjectivePlan(
   raw: unknown,
   request: ProjectRuntimeObjectiveRequest,
@@ -154,8 +244,19 @@ export function inspectProjectRuntimeObjectivePlan(
 
 /**
  * Bind Host-prepared Task payloads to the exact current Task scope. The Host
- * supplies execution mechanics; Project Runtime owns the Task Authority
- * binding identity and rejects payloads outside the current active Task set.
+ *
+ * @responsibility createProjectRuntimeTaskExecutionSetに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown、state: ProjectRuntimeState、clockIdentity: ProjectRuntimeClockIdentityPort
+ * @returns readonly ProjectRuntimeTaskExecution[] | nullを返す。
+ * @precondition 「raw: unknown、state: ProjectRuntimeState、clockIdentity: ProjectRuntimeClockIdentityPort」がcreateProjectRuntimeTaskExecutionSetの入力契約を満たす。
+ * @postcondition createProjectRuntimeTaskExecutionSetの責務を完了した結果だけを返す。
+ * @effect N/A: createProjectRuntimeTaskExecutionSetは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createProjectRuntimeTaskExecutionSetは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createProjectRuntimeTaskExecutionSetは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createProjectRuntimeTaskExecutionSetはProcess内の同一Subsystemで完結する。
+ * @security N/A: createProjectRuntimeTaskExecutionSetはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createProjectRuntimeTaskExecutionSetは共有非同期状態を持たない同期処理である。
  */
 export function createProjectRuntimeTaskExecutionSet(
   raw: unknown,
@@ -208,7 +309,22 @@ export function createProjectRuntimeTaskExecutionSet(
     : null;
 }
 
-/** Canonical public result envelope for one Project Runtime objective request. */
+/**
+ * Canonical public result envelope for one Project Runtime objective request.
+ *
+ * @responsibility createProjectRuntimeObjectiveResultに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input request: ProjectRuntimeObjectiveRequest、options: Readonly<{ status: "completed" | "blocked" | "cancelled"; reason: string; queueId?: string | null; projection?: ReturnType<typeof projectProjectRuntimeState> | null; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryObligation["kind"]; recoveryId: string; }>[]; effectState?: "no_effect" | "settled" | "unknown"; }>
+ * @returns createProjectRuntimeObjectiveResultの計算結果を返す。
+ * @precondition 「request: ProjectRuntimeObjectiveRequest、options: Readonly<{ status: "completed" | "blocked" | "cancelled"; reason: string; queueId?: string | null; projection?: ReturnType<typeof projectProjectRuntimeState> | null; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryObligation["kind"]; recoveryId: string; }>[]; effectState?: "no_effect" | "settled" | "unknown"; }>」がcreateProjectRuntimeObjectiveResultの入力契約を満たす。
+ * @postcondition createProjectRuntimeObjectiveResultの責務を完了した結果だけを返す。
+ * @effect N/A: createProjectRuntimeObjectiveResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createProjectRuntimeObjectiveResultは独自の失敗分岐を所有しない。
+ * @invariant createProjectRuntimeObjectiveResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createProjectRuntimeObjectiveResultはProcess内の同一Subsystemで完結する。
+ * @security N/A: createProjectRuntimeObjectiveResultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createProjectRuntimeObjectiveResultは共有非同期状態を持たない同期処理である。
+ */
 export function createProjectRuntimeObjectiveResult(
   request: ProjectRuntimeObjectiveRequest,
   options: Readonly<{

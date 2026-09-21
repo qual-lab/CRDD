@@ -24,6 +24,7 @@
 | Deployment | N/A | 移行閉包は責務・契約の変更規律であり、特定Process配置を所有しない。 | [§1](#1-移行単位) |
 | Observability | Required | 宣言集合、自動導出集合、差分、試験、旧参照0を観測する。 | [§2](#2-consumer-closure) |
 | Security Boundary | Required | Canonical Path、Identity、StateをConsumer側で再解釈しない。 | [§4](#4-失敗と再入場) |
+| Implementation Structure | Required | 設計責務を具象差、選択、状態依存、構成、資源Ownerおよび外部境界へ分解する。 | [§Implementation Structure](#implementation-structure) |
 
 ## Engineering Concern評価
 
@@ -47,10 +48,12 @@
 
 ## Qualityへの引渡し
 
-| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
-|---|---|---|---|---|---|---|
-| Consumer closure | Owner、Producer、全Consumer、派生物、公開入口、署名・Release・Recovery | 宣言集合と自動導出集合が完全一致し、既知Consumerごとの試験がある | Registry記載漏れ、未知・重複、rare path、派生物・署名経路の取り残し | set差分、consumer test、旧参照検索 | 全Consumer移行前の旧処理削除0、旧参照0 | 意味妥当性は独立レビュー |
-| 縦断移行 | Producerから公開／Release／Recovery | Canonical Path／Identity／Stateを再解釈せず同じSnapshot上で搬送 | path再構成、schema旧版、Snapshot混在、署名経路残存 | phase、snapshot identity、value identity、result | 新経路verified、旧経路retired | 外部実境界は該当IT／E2E |
+| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|---|---|---|
+| `contract-migration.consumer-closure` | Flow／Consistency | Owner、Producer、全Consumer、派生物、公開入口、署名・Release・Recovery | 宣言集合と自動導出集合が完全一致し、既知Consumerごとの試験がある | Registry記載漏れ、未知・重複、rare path、派生物・署名経路の取り残し | IT／ST | Related 2 Blocks | set差分、consumer test、旧参照検索 | 全Consumer移行前の旧処理削除0、旧参照0 | 意味妥当性は独立レビュー |
+| `contract-migration.vertical-migration` | Sequence／Transition | Producerから公開／Release／Recovery | Canonical Path／Identity／Stateを再解釈せず同じSnapshot上で搬送 | path再構成、schema旧版、Snapshot混在、署名経路残存 | IT／ST | System/E2E | phase、snapshot identity、value identity、result | 新経路verified、旧経路retired | 外部実境界は該当IT／E2E |
+
+導出キーは本領域内でQualityが同じ設計項目を反復参照するための局所参照であり、CRDD全体の安定コンテキストIDではない。
 
 ## 現行実装との照合
 
@@ -98,16 +101,33 @@ inventoried → migrating → verified → retired
 - Consumer追加で導出集合が変わった場合は、固定候補と閉包を再評価する。
 - 安全に独立保留できないConsumerを将来改善へ退避しない。
 
+## Implementation Structure
+
+| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
+|---|---|---|---|---|---|---|
+| Variation | Required | この観点を成立させる構造と責務が存在するため。 | Qualityへの引渡しで責務差を別の設計項目として固定する。 | 具象差を一つの分岐へ畳まず、各導出キーの正常条件と反証条件を保つ。 | 新しい具象を追加した場合、対応する導出キーと利用側の再確認が必要になる。 | `contract-migration.consumer-closure`<br>`contract-migration.vertical-migration` |
+| Common Contract | Required | この観点を成立させる構造と責務が存在するため。 | 契約変更、利用側移行、旧契約除去と検証を、一つの移行集合と完了条件で扱う。 | すべてのConsumerを同じ対象改訂版と新旧契約対応へ接続し、部分移行を完了にしない。 | Consumer種別ごとの独自移行で旧契約、互換Shimまたは未検証利用側が残る。 | `contract-migration.consumer-closure`<br>`contract-migration.vertical-migration` |
+| Creation／Selection | N/A | 本領域は独立した具象生成・選択責務を持たず、上位から固定入力を受ける。 | 本領域は独立した具象生成・選択責務を持たず、上位から固定入力を受ける。 | 生成・選択判断を本領域へ追加しない。 | 将来生成・選択責務を追加する場合に再評価する。 | N/A |
+| State-dependent Behavior | Required | この観点を成立させる構造と責務が存在するため。 | 入力・処理中・完了・失敗・観測不能を区別して振る舞いを決める。 | 状態を空値や成功へ畳まず、同じIdentityで終了条件まで追跡する。 | 状態追加・統合はRecoveryと観測契約へ波及する。 | `contract-migration.consumer-closure` |
+| Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | 複数の局所責務を公開結果へ合成し、部分成立と全体成立を分ける。 | 各局所結果を保持し、必要な全要素が揃うまで上位完成を表示しない。 | 構成要素の追加時は完成条件と全Consumerを再確認する。 | `contract-migration.consumer-closure`<br>`contract-migration.vertical-migration` |
+| Lifecycle Ownership | N/A | 本領域は独立した動的資源を所有しない。 | 本領域は独立した動的資源を所有しない。 | 資源所有を追加する場合はLifecycle契約を新設する。 | 現時点では非該当。 | N/A |
+| External Boundary | Required | この観点を成立させる構造と責務が存在するため。 | 外部境界ごとに要求、受理、Effect、結果搬送および終了後状態を分ける。 | 境界の成功を要求発行だけから推定せず、段階に応じた観測を必須にする。 | 境界変更は直接境界からSystem／E2Eまでの検証範囲へ波及する。 | `contract-migration.vertical-migration` |
+
+同じ責務へ二つ目の具象実装を追加する場合は、共通契約へ昇格するかを評価する。昇格しない場合は、同じ責務ではない、または局所分岐の方が単純で影響が小さい理由を記録する。特定のDesign Pattern名は必須にしない。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した
-- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] 10種類の詳細成果物を全数Applicability判定した
 - [x] Requiredを実在する節または成果物へ接続した
 - [x] N/AにArchitecture上の理由を記録した
 - [x] 8種類のEngineering Concernを全数評価した
 - [x] PASSを設計済みの意味に限定した
 - [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
 - [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] 7種類のImplementation Structure観点を全数Applicability判定した
+- [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
+- [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
 - [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した

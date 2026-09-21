@@ -17,8 +17,30 @@ const TRACKED_RUNTIME_SETTING_RELATIVE_PATHS = new Set<string>([
   REPOSITORY_MANIFEST_RELATIVE_PATH,
 ]);
 
+/**
+ * HashAlgorithmが扱う値の構造を表す。
+ *
+ * @responsibility HashAlgorithmに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000014
+ * @shape HashAlgorithmが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant HashAlgorithmで宣言した値と責務の対応を維持する。
+ * @boundary N/A: HashAlgorithmの宣言は外部境界を開かない。
+ * @security HashAlgorithmはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility HashAlgorithmの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type HashAlgorithm = "sha1" | "sha256";
 
+/**
+ * StableIdentityが扱う値の構造を表す。
+ *
+ * @responsibility StableIdentityに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000014
+ * @shape StableIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant StableIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: StableIdentityの宣言は外部境界を開かない。
+ * @security StableIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility StableIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type StableIdentity = Readonly<{
   dev: bigint;
   ino: bigint;
@@ -28,6 +50,17 @@ type StableIdentity = Readonly<{
   mode: bigint;
 }>;
 
+/**
+ * TreeEntryが扱う値の構造を表す。
+ *
+ * @responsibility TreeEntryに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000014
+ * @shape TreeEntryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant TreeEntryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: TreeEntryの宣言は外部境界を開かない。
+ * @security TreeEntryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility TreeEntryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type TreeEntry = Readonly<{
   name: string;
   isDirectory: boolean;
@@ -35,6 +68,22 @@ type TreeEntry = Readonly<{
   objectId: Buffer;
 }>;
 
+/**
+ * identityの処理を実行する。
+ *
+ * @responsibility identityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input metadata: fs.BigIntStats
+ * @returns StableIdentityを返す。
+ * @precondition 「metadata: fs.BigIntStats」がidentityの入力契約を満たす。
+ * @postcondition identityの責務を完了した結果だけを返す。
+ * @effect N/A: identityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: identityは独自の失敗分岐を所有しない。
+ * @invariant identityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: identityはProcess内の同一Subsystemで完結する。
+ * @security identityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: identityは共有非同期状態を持たない同期処理である。
+ */
 function identity(metadata: fs.BigIntStats): StableIdentity {
   return Object.freeze({
     dev: metadata.dev,
@@ -46,6 +95,22 @@ function identity(metadata: fs.BigIntStats): StableIdentity {
   });
 }
 
+/**
+ * sameIdentityの処理を実行する。
+ *
+ * @responsibility sameIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input left: StableIdentity、right: StableIdentity
+ * @returns sameIdentityの計算結果を返す。
+ * @precondition 「left: StableIdentity、right: StableIdentity」がsameIdentityの入力契約を満たす。
+ * @postcondition sameIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: sameIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameIdentityは独自の失敗分岐を所有しない。
+ * @invariant sameIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sameIdentityはProcess内の同一Subsystemで完結する。
+ * @security sameIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameIdentityは共有非同期状態を持たない同期処理である。
+ */
 function sameIdentity(left: StableIdentity, right: StableIdentity) {
   return (
     left.dev === right.dev &&
@@ -57,11 +122,43 @@ function sameIdentity(left: StableIdentity, right: StableIdentity) {
   );
 }
 
+/**
+ * hashAlgorithmの処理を実行する。
+ *
+ * @responsibility hashAlgorithmに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input expectedTree: string
+ * @returns HashAlgorithm | nullを返す。
+ * @precondition 「expectedTree: string」がhashAlgorithmの入力契約を満たす。
+ * @postcondition hashAlgorithmの責務を完了した結果だけを返す。
+ * @effect N/A: hashAlgorithmは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hashAlgorithmは独自の失敗分岐を所有しない。
+ * @invariant hashAlgorithmは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: hashAlgorithmはProcess内の同一Subsystemで完結する。
+ * @security hashAlgorithmはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hashAlgorithmは共有非同期状態を持たない同期処理である。
+ */
 function hashAlgorithm(expectedTree: string): HashAlgorithm | null {
   if (!isCanonicalCrddGitObjectId(expectedTree)) return null;
   return expectedTree.length === 40 ? "sha1" : "sha256";
 }
 
+/**
+ * gitObjectIdの処理を実行する。
+ *
+ * @responsibility gitObjectIdに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input algorithm: HashAlgorithm、type: "blob" | "tree"、bytes: Buffer
+ * @returns gitObjectIdの計算結果を返す。
+ * @precondition 「algorithm: HashAlgorithm、type: "blob" | "tree"、bytes: Buffer」がgitObjectIdの入力契約を満たす。
+ * @postcondition gitObjectIdの責務を完了した結果だけを返す。
+ * @effect N/A: gitObjectIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: gitObjectIdは独自の失敗分岐を所有しない。
+ * @invariant gitObjectIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: gitObjectIdはProcess内の同一Subsystemで完結する。
+ * @security gitObjectIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: gitObjectIdは共有非同期状態を持たない同期処理である。
+ */
 function gitObjectId(
   algorithm: HashAlgorithm,
   type: "blob" | "tree",
@@ -71,6 +168,22 @@ function gitObjectId(
   return createHash(algorithm).update(header).update(bytes).digest();
 }
 
+/**
+ * validEntryNameの処理を実行する。
+ *
+ * @responsibility validEntryNameに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input name: string
+ * @returns validEntryNameの計算結果を返す。
+ * @precondition 「name: string」がvalidEntryNameの入力契約を満たす。
+ * @postcondition validEntryNameの責務を完了した結果だけを返す。
+ * @effect N/A: validEntryNameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validEntryNameは独自の失敗分岐を所有しない。
+ * @invariant validEntryNameは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validEntryNameはProcess内の同一Subsystemで完結する。
+ * @security validEntryNameはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validEntryNameは共有非同期状態を持たない同期処理である。
+ */
 function validEntryName(name: string) {
   return (
     name.length > 0 &&
@@ -82,6 +195,22 @@ function validEntryName(name: string) {
   );
 }
 
+/**
+ * stableFileBytesの処理を実行する。
+ *
+ * @responsibility stableFileBytesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input target: string、remainingBytes: number
+ * @returns stableFileBytesの計算結果を返す。
+ * @precondition 「target: string、remainingBytes: number」がstableFileBytesの入力契約を満たす。
+ * @postcondition stableFileBytesの責務を完了した結果だけを返す。
+ * @effect stableFileBytesはFilesystemの読取りまたは書込みを実行する。
+ * @failure stableFileBytesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant stableFileBytesは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security stableFileBytesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: stableFileBytesは共有非同期状態を持たない同期処理である。
+ */
 function stableFileBytes(target: string, remainingBytes: number) {
   const beforeMetadata = fs.lstatSync(target, { bigint: true });
   const before = identity(beforeMetadata);
@@ -131,6 +260,22 @@ function stableFileBytes(target: string, remainingBytes: number) {
   }
 }
 
+/**
+ * canonicalDistributionFileBytesの処理を実行する。
+ *
+ * @responsibility canonicalDistributionFileBytesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、bytes: Buffer
+ * @returns canonicalDistributionFileBytesの計算結果を返す。
+ * @precondition 「relativePath: string、bytes: Buffer」がcanonicalDistributionFileBytesの入力契約を満たす。
+ * @postcondition canonicalDistributionFileBytesの責務を完了した結果だけを返す。
+ * @effect N/A: canonicalDistributionFileBytesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: canonicalDistributionFileBytesは独自の失敗分岐を所有しない。
+ * @invariant canonicalDistributionFileBytesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: canonicalDistributionFileBytesはProcess内の同一Subsystemで完結する。
+ * @security canonicalDistributionFileBytesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: canonicalDistributionFileBytesは共有非同期状態を持たない同期処理である。
+ */
 function canonicalDistributionFileBytes(relativePath: string, bytes: Buffer) {
   if (relativePath.endsWith(".exe")) return bytes;
   // The repository declares `* text=auto eol=lf`. Match Git's text=auto
@@ -151,10 +296,42 @@ function canonicalDistributionFileBytes(relativePath: string, bytes: Buffer) {
   return canonical;
 }
 
+/**
+ * gitSortNameの処理を実行する。
+ *
+ * @responsibility gitSortNameに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input entry: TreeEntry
+ * @returns gitSortNameの計算結果を返す。
+ * @precondition 「entry: TreeEntry」がgitSortNameの入力契約を満たす。
+ * @postcondition gitSortNameの責務を完了した結果だけを返す。
+ * @effect N/A: gitSortNameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: gitSortNameは独自の失敗分岐を所有しない。
+ * @invariant gitSortNameは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: gitSortNameはProcess内の同一Subsystemで完結する。
+ * @security gitSortNameはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: gitSortNameは共有非同期状態を持たない同期処理である。
+ */
 function gitSortName(entry: TreeEntry) {
   return Buffer.from(`${entry.name}${entry.isDirectory ? "/" : ""}`, "utf8");
 }
 
+/**
+ * encodeTreeの処理を実行する。
+ *
+ * @responsibility encodeTreeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input entries: readonly TreeEntry[]
+ * @returns encodeTreeの計算結果を返す。
+ * @precondition 「entries: readonly TreeEntry[]」がencodeTreeの入力契約を満たす。
+ * @postcondition encodeTreeの責務を完了した結果だけを返す。
+ * @effect N/A: encodeTreeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: encodeTreeは独自の失敗分岐を所有しない。
+ * @invariant encodeTreeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: encodeTreeはProcess内の同一Subsystemで完結する。
+ * @security encodeTreeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: encodeTreeは共有非同期状態を持たない同期処理である。
+ */
 function encodeTree(entries: readonly TreeEntry[]) {
   const orderedEntries = [...entries].sort((left, right) =>
     Buffer.compare(gitSortName(left), gitSortName(right)),
@@ -167,10 +344,42 @@ function encodeTree(entries: readonly TreeEntry[]) {
   );
 }
 
+/**
+ * isExcludedPostCheckoutArtifactの処理を実行する。
+ *
+ * @responsibility isExcludedPostCheckoutArtifactに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string
+ * @returns isExcludedPostCheckoutArtifactの計算結果を返す。
+ * @precondition 「relativePath: string」がisExcludedPostCheckoutArtifactの入力契約を満たす。
+ * @postcondition isExcludedPostCheckoutArtifactの責務を完了した結果だけを返す。
+ * @effect N/A: isExcludedPostCheckoutArtifactは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isExcludedPostCheckoutArtifactは独自の失敗分岐を所有しない。
+ * @invariant isExcludedPostCheckoutArtifactは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isExcludedPostCheckoutArtifactはProcess内の同一Subsystemで完結する。
+ * @security isExcludedPostCheckoutArtifactはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isExcludedPostCheckoutArtifactは共有非同期状態を持たない同期処理である。
+ */
 function isExcludedPostCheckoutArtifact(relativePath: string) {
   return relativePath === PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH;
 }
 
+/**
+ * verifyRepositoryMetadataEntryの処理を実行する。
+ *
+ * @responsibility verifyRepositoryMetadataEntryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input target: string
+ * @returns N/A: verifyRepositoryMetadataEntryは戻り値を返さない。
+ * @precondition 「target: string」がverifyRepositoryMetadataEntryの入力契約を満たす。
+ * @postcondition verifyRepositoryMetadataEntryの責務を完了して呼出し元へ制御を戻す。
+ * @effect verifyRepositoryMetadataEntryはFilesystemの読取りまたは書込みを実行する。
+ * @failure verifyRepositoryMetadataEntryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyRepositoryMetadataEntryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security verifyRepositoryMetadataEntryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyRepositoryMetadataEntryは共有非同期状態を持たない同期処理である。
+ */
 function verifyRepositoryMetadataEntry(target: string) {
   const metadata = fs.lstatSync(target);
   if (
@@ -182,6 +391,22 @@ function verifyRepositoryMetadataEntry(target: string) {
   }
 }
 
+/**
+ * observeDistributionTreeの処理を実行する。
+ *
+ * @responsibility observeDistributionTreeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input distributionRoot: string、expectedTree: string
+ * @returns observeDistributionTreeの計算結果を返す。
+ * @precondition 「distributionRoot: string、expectedTree: string」がobserveDistributionTreeの入力契約を満たす。
+ * @postcondition observeDistributionTreeの責務を完了した結果だけを返す。
+ * @effect observeDistributionTreeはFilesystemの読取りまたは書込みを実行する。
+ * @failure observeDistributionTreeは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeDistributionTreeは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security observeDistributionTreeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeDistributionTreeは共有非同期状態を持たない同期処理である。
+ */
 function observeDistributionTree(
   distributionRoot: string,
   expectedTree: string,
@@ -364,6 +589,22 @@ function observeDistributionTree(
   });
 }
 
+/**
+ * inspectPlatformProvisionerReleaseIdentityCandidateの処理を実行する。
+ *
+ * @responsibility inspectPlatformProvisionerReleaseIdentityCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input distributionRoot: unknown、expectedCrddTree: unknown
+ * @returns inspectPlatformProvisionerReleaseIdentityCandidateの計算結果を返す。
+ * @precondition 「distributionRoot: unknown、expectedCrddTree: unknown」がinspectPlatformProvisionerReleaseIdentityCandidateの入力契約を満たす。
+ * @postcondition inspectPlatformProvisionerReleaseIdentityCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectPlatformProvisionerReleaseIdentityCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectPlatformProvisionerReleaseIdentityCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectPlatformProvisionerReleaseIdentityCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectPlatformProvisionerReleaseIdentityCandidateはProcess内の同一Subsystemで完結する。
+ * @security inspectPlatformProvisionerReleaseIdentityCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectPlatformProvisionerReleaseIdentityCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectPlatformProvisionerReleaseIdentityCandidate(
   distributionRoot: unknown,
   expectedCrddTree: unknown,
@@ -445,6 +686,22 @@ export function inspectPlatformProvisionerReleaseIdentityCandidate(
   }
 }
 
+/**
+ * describePlatformProvisionerReleaseIdentityContractの処理を実行する。
+ *
+ * @responsibility describePlatformProvisionerReleaseIdentityContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describePlatformProvisionerReleaseIdentityContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribePlatformProvisionerReleaseIdentityContractの入力契約を満たす。
+ * @postcondition describePlatformProvisionerReleaseIdentityContractの責務を完了した結果だけを返す。
+ * @effect N/A: describePlatformProvisionerReleaseIdentityContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describePlatformProvisionerReleaseIdentityContractは独自の失敗分岐を所有しない。
+ * @invariant describePlatformProvisionerReleaseIdentityContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describePlatformProvisionerReleaseIdentityContractはProcess内の同一Subsystemで完結する。
+ * @security describePlatformProvisionerReleaseIdentityContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describePlatformProvisionerReleaseIdentityContractは共有非同期状態を持たない同期処理である。
+ */
 export function describePlatformProvisionerReleaseIdentityContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-release-identity",

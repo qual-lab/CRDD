@@ -374,7 +374,7 @@ test("Pilot Semantic Keyを実装Symbol側のimplementsから解決する", () =
     built.graph.qualityLocalIdsByMeaningKey.get(
       "project-runtime.queue-lease-lifecycle",
     ),
-    ["QA-000003/PRL-11"],
+    ["QA-000003/PRL-IT-011"],
   );
   assert.deepEqual(
     built.graph.testSymbolIdsByMeaningKey.get(
@@ -412,7 +412,7 @@ test("Test SymbolはQA-IDとLocal IDの完全一致だけを意味へ接続す�
   const relations = [
     {
       qaId: "QA-000003",
-      localId: "PRL-03",
+      localId: "PRL-ST-003",
       semanticKey: "coordinator.objective-lifecycle",
       sourceDocument: "qa-3.md",
     },
@@ -441,7 +441,7 @@ test("Test SymbolはQA-IDとLocal IDの完全一致だけを意味へ接続す�
           path: "tests/exact.test.ts",
           archIds: [],
           qaIds: ["QA-000003"],
-          localTestIds: ["PRL-03"],
+          localTestIds: ["PRL-ST-003"],
           verifies: ["sample.owner"],
         },
         {
@@ -450,7 +450,7 @@ test("Test SymbolはQA-IDとLocal IDの完全一致だけを意味へ接続す�
           path: "tests/wrong.test.ts",
           archIds: [],
           qaIds: ["QA-000004"],
-          localTestIds: ["PRL-03"],
+          localTestIds: ["PRL-ST-003"],
           verifies: ["sample.owner"],
         },
       ],
@@ -513,7 +513,7 @@ test("同じLocal IDが複数QAに存在するTest Symbolは曖昧として拒�
               path: "tests/ambiguous.test.ts",
               archIds: [],
               qaIds: ["QA-000003", "QA-000004"],
-              localTestIds: ["PRL-03"],
+              localTestIds: ["PRL-ST-003"],
               verifies: ["sample.owner"],
             },
           ],
@@ -523,13 +523,13 @@ test("同じLocal IDが複数QAに存在するTest Symbolは曖昧として拒�
     [
       {
         qaId: "QA-000003",
-        localId: "PRL-03",
+        localId: "PRL-ST-003",
         semanticKey: "coordinator.objective-lifecycle",
         sourceDocument: "qa-3.md",
       },
       {
         qaId: "QA-000004",
-        localId: "PRL-03",
+        localId: "PRL-ST-003",
         semanticKey: "coordinator.objective-lifecycle",
         sourceDocument: "qa-4.md",
       },

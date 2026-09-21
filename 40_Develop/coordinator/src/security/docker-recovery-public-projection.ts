@@ -96,6 +96,22 @@ const BLOCKED_REASONS_WITH_INVENTORY = new Set([
   "docker_task_runtime_state_lock_release_unconfirmed",
 ]);
 
+/**
+ * publicDockerRecoveryStartReasonの処理を実行する。
+ *
+ * @responsibility publicDockerRecoveryStartReasonに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input reason: unknown
+ * @returns publicDockerRecoveryStartReasonの計算結果を返す。
+ * @precondition 「reason: unknown」がpublicDockerRecoveryStartReasonの入力契約を満たす。
+ * @postcondition publicDockerRecoveryStartReasonの責務を完了した結果だけを返す。
+ * @effect N/A: publicDockerRecoveryStartReasonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: publicDockerRecoveryStartReasonは独自の失敗分岐を所有しない。
+ * @invariant publicDockerRecoveryStartReasonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: publicDockerRecoveryStartReasonはProcess内の同一Subsystemで完結する。
+ * @security publicDockerRecoveryStartReasonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: publicDockerRecoveryStartReasonは共有非同期状態を持たない同期処理である。
+ */
 export function publicDockerRecoveryStartReason(reason: unknown) {
   if (typeof reason === "string") {
     const classified = recoveryStartReasonClass.get(reason);
@@ -104,10 +120,42 @@ export function publicDockerRecoveryStartReason(reason: unknown) {
   return "docker_process_controller_recovery_unavailable";
 }
 
+/**
+ * publicVerifiedDockerRecoveryIdの処理を実行する。
+ *
+ * @responsibility publicVerifiedDockerRecoveryIdに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns publicVerifiedDockerRecoveryIdの計算結果を返す。
+ * @precondition 「value: unknown」がpublicVerifiedDockerRecoveryIdの入力契約を満たす。
+ * @postcondition publicVerifiedDockerRecoveryIdの責務を完了した結果だけを返す。
+ * @effect N/A: publicVerifiedDockerRecoveryIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: publicVerifiedDockerRecoveryIdは独自の失敗分岐を所有しない。
+ * @invariant publicVerifiedDockerRecoveryIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: publicVerifiedDockerRecoveryIdはProcess内の同一Subsystemで完結する。
+ * @security publicVerifiedDockerRecoveryIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: publicVerifiedDockerRecoveryIdは共有非同期状態を持たない同期処理である。
+ */
 export function publicVerifiedDockerRecoveryId(value: unknown) {
   return parseDockerTaskRecoveryId(value)?.token ?? null;
 }
 
+/**
+ * projectDockerRecoveryAdmissionの処理を実行する。
+ *
+ * @responsibility projectDockerRecoveryAdmissionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input rawObservation: unknown
+ * @returns projectDockerRecoveryAdmissionの計算結果を返す。
+ * @precondition 「rawObservation: unknown」がprojectDockerRecoveryAdmissionの入力契約を満たす。
+ * @postcondition projectDockerRecoveryAdmissionの責務を完了した結果だけを返す。
+ * @effect N/A: projectDockerRecoveryAdmissionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: projectDockerRecoveryAdmissionは独自の失敗分岐を所有しない。
+ * @invariant projectDockerRecoveryAdmissionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: projectDockerRecoveryAdmissionはProcess内の同一Subsystemで完結する。
+ * @security projectDockerRecoveryAdmissionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: projectDockerRecoveryAdmissionは共有非同期状態を持たない同期処理である。
+ */
 export function projectDockerRecoveryAdmission(rawObservation: unknown) {
   const observation = snapshotPlainRecord(
     rawObservation,

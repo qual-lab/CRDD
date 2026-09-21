@@ -1,6 +1,22 @@
 import type { DomainIssue } from "../../../crdd-domain-library/src/index.ts";
 import type { CheckerFinding } from "../findings/finding-model.ts";
 
+/**
+ * stringDetailの処理を実行する。
+ *
+ * @responsibility stringDetailに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000001
+ * @input issue: DomainIssue、name: string
+ * @returns stringを返す。
+ * @precondition 「issue: DomainIssue、name: string」がstringDetailの入力契約を満たす。
+ * @postcondition stringDetailの責務を完了した結果だけを返す。
+ * @effect N/A: stringDetailは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure stringDetailは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant stringDetailは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: stringDetailはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: stringDetailは共有非同期状態を持たない同期処理である。
+ */
 function stringDetail(issue: DomainIssue, name: string): string {
   const value = issue.details[name];
   if (typeof value !== "string" || value.length === 0)
@@ -10,6 +26,22 @@ function stringDetail(issue: DomainIssue, name: string): string {
   return value;
 }
 
+/**
+ * mapArtifactDomainIssueToCheckerFindingの処理を実行する。
+ *
+ * @responsibility mapArtifactDomainIssueToCheckerFindingに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000001
+ * @input issue: DomainIssue
+ * @returns CheckerFindingを返す。
+ * @precondition 「issue: DomainIssue」がmapArtifactDomainIssueToCheckerFindingの入力契約を満たす。
+ * @postcondition mapArtifactDomainIssueToCheckerFindingの責務を完了した結果だけを返す。
+ * @effect N/A: mapArtifactDomainIssueToCheckerFindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure mapArtifactDomainIssueToCheckerFindingは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant mapArtifactDomainIssueToCheckerFindingは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: mapArtifactDomainIssueToCheckerFindingはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: mapArtifactDomainIssueToCheckerFindingは共有非同期状態を持たない同期処理である。
+ */
 export function mapArtifactDomainIssueToCheckerFinding(
   issue: DomainIssue,
 ): CheckerFinding {

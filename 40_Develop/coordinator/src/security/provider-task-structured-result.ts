@@ -38,10 +38,42 @@ const remediationRecords = new WeakMap<
   }>[]
 >();
 
+/**
+ * isRecordの処理を実行する。
+ *
+ * @responsibility isRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input value: unknown
+ * @returns value is Record<string, unknown>を返す。
+ * @precondition 「value: unknown」がisRecordの入力契約を満たす。
+ * @postcondition isRecordの責務を完了した結果だけを返す。
+ * @effect N/A: isRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isRecordは独自の失敗分岐を所有しない。
+ * @invariant isRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isRecordはProcess内の同一Subsystemで完結する。
+ * @security isRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isRecordは共有非同期状態を持たない同期処理である。
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+/**
+ * exactKeysの処理を実行する。
+ *
+ * @responsibility exactKeysに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input value: Record<string, unknown>、keys: readonly string[]
+ * @returns exactKeysの計算結果を返す。
+ * @precondition 「value: Record<string, unknown>、keys: readonly string[]」がexactKeysの入力契約を満たす。
+ * @postcondition exactKeysの責務を完了した結果だけを返す。
+ * @effect N/A: exactKeysは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: exactKeysは独自の失敗分岐を所有しない。
+ * @invariant exactKeysは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: exactKeysはProcess内の同一Subsystemで完結する。
+ * @security exactKeysはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: exactKeysは共有非同期状態を持たない同期処理である。
+ */
 function exactKeys(value: Record<string, unknown>, keys: readonly string[]) {
   const actualKeys = Object.keys(value);
   return (
@@ -50,6 +82,22 @@ function exactKeys(value: Record<string, unknown>, keys: readonly string[]) {
   );
 }
 
+/**
+ * validStringの処理を実行する。
+ *
+ * @responsibility validStringに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input value: unknown、maximumBytes: number
+ * @returns validStringの計算結果を返す。
+ * @precondition 「value: unknown、maximumBytes: number」がvalidStringの入力契約を満たす。
+ * @postcondition validStringの責務を完了した結果だけを返す。
+ * @effect N/A: validStringは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validStringは独自の失敗分岐を所有しない。
+ * @invariant validStringは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validStringはProcess内の同一Subsystemで完結する。
+ * @security validStringはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validStringは共有非同期状態を持たない同期処理である。
+ */
 function validString(value: unknown, maximumBytes: number) {
   return (
     typeof value === "string" &&
@@ -60,6 +108,22 @@ function validString(value: unknown, maximumBytes: number) {
   );
 }
 
+/**
+ * validPathの処理を実行する。
+ *
+ * @responsibility validPathに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input value: unknown
+ * @returns validPathの計算結果を返す。
+ * @precondition 「value: unknown」がvalidPathの入力契約を満たす。
+ * @postcondition validPathの責務を完了した結果だけを返す。
+ * @effect N/A: validPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validPathは独自の失敗分岐を所有しない。
+ * @invariant validPathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validPathはProcess内の同一Subsystemで完結する。
+ * @security validPathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validPathは共有非同期状態を持たない同期処理である。
+ */
 function validPath(value: unknown) {
   return (
     typeof value === "string" &&
@@ -76,6 +140,17 @@ function validPath(value: unknown) {
   );
 }
 
+/**
+ * ResultMismatchReasonが扱う値の構造を表す。
+ *
+ * @responsibility ResultMismatchReasonに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape ResultMismatchReasonが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ResultMismatchReasonで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ResultMismatchReasonの宣言は外部境界を開かない。
+ * @security ResultMismatchReasonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ResultMismatchReasonの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ResultMismatchReason =
   | "provider_task_result_input_invalid"
   | "provider_task_result_json_invalid"
@@ -95,10 +170,42 @@ type ResultMismatchReason =
   | "provider_task_reviewer_finding_invalid"
   | "provider_task_reviewer_decision_inconsistent";
 
+/**
+ * rejectedの処理を実行する。
+ *
+ * @responsibility rejectedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input reason: ResultMismatchReason
+ * @returns rejectedの計算結果を返す。
+ * @precondition 「reason: ResultMismatchReason」がrejectedの入力契約を満たす。
+ * @postcondition rejectedの責務を完了した結果だけを返す。
+ * @effect N/A: rejectedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: rejectedは独自の失敗分岐を所有しない。
+ * @invariant rejectedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: rejectedはProcess内の同一Subsystemで完結する。
+ * @security rejectedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: rejectedは共有非同期状態を持たない同期処理である。
+ */
 function rejected(reason: ResultMismatchReason) {
   return Object.freeze({ normalizedResult: null, reason });
 }
 
+/**
+ * executorResultの処理を実行する。
+ *
+ * @responsibility executorResultに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input value: Record<string, unknown>
+ * @returns executorResultの計算結果を返す。
+ * @precondition 「value: Record<string, unknown>」がexecutorResultの入力契約を満たす。
+ * @postcondition executorResultの責務を完了した結果だけを返す。
+ * @effect N/A: executorResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: executorResultは独自の失敗分岐を所有しない。
+ * @invariant executorResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: executorResultはProcess内の同一Subsystemで完結する。
+ * @security executorResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: executorResultは共有非同期状態を持たない同期処理である。
+ */
 function executorResult(value: Record<string, unknown>) {
   if (
     !exactKeys(value, ["status", "summary", "changedPaths", "verification"]) ||
@@ -125,6 +232,22 @@ function executorResult(value: Record<string, unknown>) {
   });
 }
 
+/**
+ * reviewerResultの処理を実行する。
+ *
+ * @responsibility reviewerResultに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input value: Record<string, unknown>
+ * @returns reviewerResultの計算結果を返す。
+ * @precondition 「value: Record<string, unknown>」がreviewerResultの入力契約を満たす。
+ * @postcondition reviewerResultの責務を完了した結果だけを返す。
+ * @effect N/A: reviewerResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: reviewerResultは独自の失敗分岐を所有しない。
+ * @invariant reviewerResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: reviewerResultはProcess内の同一Subsystemで完結する。
+ * @security reviewerResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: reviewerResultは共有非同期状態を持たない同期処理である。
+ */
 function reviewerResult(value: Record<string, unknown>) {
   if (!exactKeys(value, ["decision", "summary", "findings"]))
     return rejected("provider_task_reviewer_keys_invalid");
@@ -219,6 +342,22 @@ function reviewerResult(value: Record<string, unknown>) {
   });
 }
 
+/**
+ * consumeProviderTaskRemediationの処理を実行する。
+ *
+ * @responsibility consumeProviderTaskRemediationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input remediationCapability: unknown
+ * @returns consumeProviderTaskRemediationの計算結果を返す。
+ * @precondition 「remediationCapability: unknown」がconsumeProviderTaskRemediationの入力契約を満たす。
+ * @postcondition consumeProviderTaskRemediationの責務を完了した結果だけを返す。
+ * @effect N/A: consumeProviderTaskRemediationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: consumeProviderTaskRemediationは独自の失敗分岐を所有しない。
+ * @invariant consumeProviderTaskRemediationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: consumeProviderTaskRemediationはProcess内の同一Subsystemで完結する。
+ * @security consumeProviderTaskRemediationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: consumeProviderTaskRemediationは共有非同期状態を持たない同期処理である。
+ */
 export function consumeProviderTaskRemediation(remediationCapability: unknown) {
   if (!remediationCapability || typeof remediationCapability !== "object")
     return null;
@@ -233,6 +372,22 @@ export function consumeProviderTaskRemediation(remediationCapability: unknown) {
   });
 }
 
+/**
+ * structuredValueの処理を実行する。
+ *
+ * @responsibility structuredValueに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input provider: "codex" | "claude"、taskRole: "executor" | "reviewer"、resultAcceptanceMaximumTurns: number、raw: string
+ * @returns structuredValueの計算結果を返す。
+ * @precondition 「provider: "codex" | "claude"、taskRole: "executor" | "reviewer"、resultAcceptanceMaximumTurns: number、raw: string」がstructuredValueの入力契約を満たす。
+ * @postcondition structuredValueの責務を完了した結果だけを返す。
+ * @effect N/A: structuredValueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: structuredValueは独自の失敗分岐を所有しない。
+ * @invariant structuredValueは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: structuredValueはProcess内の同一Subsystemで完結する。
+ * @security structuredValueはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: structuredValueは共有非同期状態を持たない同期処理である。
+ */
 function structuredValue(
   provider: "codex" | "claude",
   taskRole: "executor" | "reviewer",
@@ -485,6 +640,22 @@ function structuredValue(
   });
 }
 
+/**
+ * normalizeProviderTaskStructuredResultの処理を実行する。
+ *
+ * @responsibility normalizeProviderTaskStructuredResultに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input provider: unknown、taskRole: unknown、selectedEffort: unknown、raw: unknown、taskWorkload: unknown
+ * @returns normalizeProviderTaskStructuredResultの計算結果を返す。
+ * @precondition 「provider: unknown、taskRole: unknown、selectedEffort: unknown、raw: unknown、taskWorkload: unknown」がnormalizeProviderTaskStructuredResultの入力契約を満たす。
+ * @postcondition normalizeProviderTaskStructuredResultの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeProviderTaskStructuredResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizeProviderTaskStructuredResultは独自の失敗分岐を所有しない。
+ * @invariant normalizeProviderTaskStructuredResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeProviderTaskStructuredResultはProcess内の同一Subsystemで完結する。
+ * @security normalizeProviderTaskStructuredResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeProviderTaskStructuredResultは共有非同期状態を持たない同期処理である。
+ */
 export function normalizeProviderTaskStructuredResult(
   provider: unknown,
   taskRole: unknown,
@@ -590,6 +761,22 @@ export function normalizeProviderTaskStructuredResult(
       });
 }
 
+/**
+ * describeProviderTaskStructuredResultContractの処理を実行する。
+ *
+ * @responsibility describeProviderTaskStructuredResultContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProviderTaskStructuredResultContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProviderTaskStructuredResultContractの入力契約を満たす。
+ * @postcondition describeProviderTaskStructuredResultContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeProviderTaskStructuredResultContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProviderTaskStructuredResultContractは独自の失敗分岐を所有しない。
+ * @invariant describeProviderTaskStructuredResultContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeProviderTaskStructuredResultContractはProcess内の同一Subsystemで完結する。
+ * @security describeProviderTaskStructuredResultContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeProviderTaskStructuredResultContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeProviderTaskStructuredResultContract() {
   return Object.freeze({
     contract: PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT,

@@ -29,6 +29,17 @@ const preEffectRejectionSet: ReadonlySet<string> = new Set(
   PROJECT_RUNTIME_SINGLE_TASK_PRE_EFFECT_REJECTIONS,
 );
 
+/**
+ * ProjectRuntimeSingleTaskDependenciesが扱う値の構造を表す。
+ *
+ * @responsibility ProjectRuntimeSingleTaskDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeSingleTaskDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeSingleTaskDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeSingleTaskDependenciesの宣言は外部境界を開かない。
+ * @security ProjectRuntimeSingleTaskDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ProjectRuntimeSingleTaskDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeSingleTaskDependencies = Readonly<{
   startTask: (
     taskRequest: unknown,
@@ -39,6 +50,22 @@ export type ProjectRuntimeSingleTaskDependencies = Readonly<{
   cancelTask: (controlCapability: object) => unknown;
 }>;
 
+/**
+ * resultの処理を実行する。
+ *
+ * @responsibility resultに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input input: Readonly<{ attemptId: string | null; operationId: string | null; authorityBindingId: string | null; repositoryRevision: string | null; status: "completed" | "blocked" | "cancelled"; reason: string; effectState: "no_effect" | "settled" | "unknown"; cleanupConfirmed: boolean; manualRecoveryRequired: boolean; processRestartRequired: boolean; candidateId: string | null; recoveryIds: readonly string[]; recoveryObligations?: readonly ProjectRuntimeSingleTaskRecoveryObligation[]; executorProvider?: "codex" | "claude"; }>
+ * @returns ProjectRuntimeSingleTaskResultを返す。
+ * @precondition 「input: Readonly<{ attemptId: string | null; operationId: string | null; authorityBindingId: string | null; repositoryRevision: string | null; status: "completed" | "blocked" | "cancelled"; reason: string; effectState: "no_effect" | "settled" | "unknown"; cleanupConfirmed: boolean; manualRecoveryRequired: boolean; processRestartRequired: boolean; candidateId: string | null; recoveryIds: readonly string[]; recoveryObligations?: readonly ProjectRuntimeSingleTaskRecoveryObligation[]; executorProvider?: "codex" | "claude"; }>」がresultの入力契約を満たす。
+ * @postcondition resultの責務を完了した結果だけを返す。
+ * @effect N/A: resultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resultは独自の失敗分岐を所有しない。
+ * @invariant resultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security resultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resultは共有非同期状態を持たない同期処理である。
+ */
 function result(
   input: Readonly<{
     attemptId: string | null;
@@ -65,6 +92,22 @@ function result(
   });
 }
 
+/**
+ * rejectedWithoutEffectの処理を実行する。
+ *
+ * @responsibility rejectedWithoutEffectに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input attemptId: string | null、operationId: string | null、authorityBindingId: string | null、repositoryRevision: string | null、reason: string、processRestartRequired
+ * @returns ProjectRuntimeSingleTaskResultを返す。
+ * @precondition 「attemptId: string | null、operationId: string | null、authorityBindingId: string | null、repositoryRevision: string | null、reason: string、processRestartRequired」がrejectedWithoutEffectの入力契約を満たす。
+ * @postcondition rejectedWithoutEffectの責務を完了した結果だけを返す。
+ * @effect N/A: rejectedWithoutEffectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: rejectedWithoutEffectは独自の失敗分岐を所有しない。
+ * @invariant rejectedWithoutEffectは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security rejectedWithoutEffectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: rejectedWithoutEffectは共有非同期状態を持たない同期処理である。
+ */
 function rejectedWithoutEffect(
   attemptId: string | null,
   operationId: string | null,
@@ -89,6 +132,22 @@ function rejectedWithoutEffect(
   });
 }
 
+/**
+ * failedClosedUnknownの処理を実行する。
+ *
+ * @responsibility failedClosedUnknownに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input attemptId: string | null、operationId: string | null、authorityBindingId: string | null、repositoryRevision: string | null、reason: string
+ * @returns ProjectRuntimeSingleTaskResultを返す。
+ * @precondition 「attemptId: string | null、operationId: string | null、authorityBindingId: string | null、repositoryRevision: string | null、reason: string」がfailedClosedUnknownの入力契約を満たす。
+ * @postcondition failedClosedUnknownの責務を完了した結果だけを返す。
+ * @effect N/A: failedClosedUnknownは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: failedClosedUnknownは独自の失敗分岐を所有しない。
+ * @invariant failedClosedUnknownは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security failedClosedUnknownはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: failedClosedUnknownは共有非同期状態を持たない同期処理である。
+ */
 function failedClosedUnknown(
   attemptId: string | null,
   operationId: string | null,
@@ -112,6 +171,22 @@ function failedClosedUnknown(
   });
 }
 
+/**
+ * validTextの処理を実行する。
+ *
+ * @responsibility validTextに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、maximum: number
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown、maximum: number」がvalidTextの入力契約を満たす。
+ * @postcondition validTextの責務を完了した結果だけを返す。
+ * @effect N/A: validTextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validTextは独自の失敗分岐を所有しない。
+ * @invariant validTextは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security validTextはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validTextは共有非同期状態を持たない同期処理である。
+ */
 function validText(value: unknown, maximum: number): value is string {
   return (
     typeof value === "string" &&
@@ -121,10 +196,42 @@ function validText(value: unknown, maximum: number): value is string {
   );
 }
 
+/**
+ * optionalIdentityの処理を実行する。
+ *
+ * @responsibility optionalIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is string | nullを返す。
+ * @precondition 「value: unknown」がoptionalIdentityの入力契約を満たす。
+ * @postcondition optionalIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: optionalIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: optionalIdentityは独自の失敗分岐を所有しない。
+ * @invariant optionalIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security optionalIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: optionalIdentityは共有非同期状態を持たない同期処理である。
+ */
 function optionalIdentity(value: unknown): value is string | null {
   return value === null || validText(value, 512);
 }
 
+/**
+ * isOpaqueCapabilityの処理を実行する。
+ *
+ * @responsibility isOpaqueCapabilityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is objectを返す。
+ * @precondition 「value: unknown」がisOpaqueCapabilityの入力契約を満たす。
+ * @postcondition isOpaqueCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: isOpaqueCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isOpaqueCapabilityは独自の失敗分岐を所有しない。
+ * @invariant isOpaqueCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security isOpaqueCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isOpaqueCapabilityは共有非同期状態を持たない同期処理である。
+ */
 function isOpaqueCapability(value: unknown): value is object {
   return (
     typeof value === "object" && value !== null && !utilTypes.isProxy(value)
@@ -133,9 +240,19 @@ function isOpaqueCapability(value: unknown): value is object {
 
 /**
  * Read one own data property exactly once. Accessor properties, prototype
- * lookups and repeated reads are rejected so a hostile record cannot return a
- * validated value first and a different value later (single-read discipline
- * shared with plain-data-snapshot.ts).
+ *
+ * @responsibility ownDataPropertyに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input container: object、key: string
+ * @returns unknownを返す。
+ * @precondition 「container: object、key: string」がownDataPropertyの入力契約を満たす。
+ * @postcondition ownDataPropertyの責務を完了した結果だけを返す。
+ * @effect N/A: ownDataPropertyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: ownDataPropertyは独自の失敗分岐を所有しない。
+ * @invariant ownDataPropertyは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security ownDataPropertyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: ownDataPropertyは共有非同期状態を持たない同期処理である。
  */
 function ownDataProperty(container: object, key: string): unknown {
   const descriptor = Object.getOwnPropertyDescriptor(container, key);
@@ -149,6 +266,22 @@ function ownDataProperty(container: object, key: string): unknown {
   return descriptor.value;
 }
 
+/**
+ * isPlainContainerの処理を実行する。
+ *
+ * @responsibility isPlainContainerに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is objectを返す。
+ * @precondition 「value: unknown」がisPlainContainerの入力契約を満たす。
+ * @postcondition isPlainContainerの責務を完了した結果だけを返す。
+ * @effect N/A: isPlainContainerは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure isPlainContainerは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant isPlainContainerは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security isPlainContainerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isPlainContainerは共有非同期状態を持たない同期処理である。
+ */
 function isPlainContainer(value: unknown): value is object {
   try {
     if (
@@ -165,6 +298,22 @@ function isPlainContainer(value: unknown): value is object {
   }
 }
 
+/**
+ * inspectStartedTaskの処理を実行する。
+ *
+ * @responsibility inspectStartedTaskに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns Readonly<{ controlCapability: object; completion: Promise<unknown>; }> | nullを返す。
+ * @precondition 「value: unknown」がinspectStartedTaskの入力契約を満たす。
+ * @postcondition inspectStartedTaskの責務を完了した結果だけを返す。
+ * @effect N/A: inspectStartedTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectStartedTaskは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectStartedTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security inspectStartedTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency inspectStartedTaskは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function inspectStartedTask(value: unknown): Readonly<{
   controlCapability: object;
   completion: Promise<unknown>;
@@ -185,6 +334,22 @@ function inspectStartedTask(value: unknown): Readonly<{
   }
 }
 
+/**
+ * inspectCompletionRecordの処理を実行する。
+ *
+ * @responsibility inspectCompletionRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns Readonly<{ status: "completed" | "blocked"; reason: string; cleanupConfirmed: boolean; manualRecoveryRequired: boolean; processRestartRequired: boolean; candidateId: string | null; recoveryIds: readonly string[]; recoveryObligations: readonly ProjectRuntimeSingleTaskRecoveryObligation[]; executorProvider?: "codex" | "claude"; }> | nullを返す。
+ * @precondition 「value: unknown」がinspectCompletionRecordの入力契約を満たす。
+ * @postcondition inspectCompletionRecordの責務を完了した結果だけを返す。
+ * @effect N/A: inspectCompletionRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectCompletionRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectCompletionRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security inspectCompletionRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectCompletionRecordは共有非同期状態を持たない同期処理である。
+ */
 function inspectCompletionRecord(value: unknown): Readonly<{
   status: "completed" | "blocked";
   reason: string;
@@ -307,12 +472,19 @@ const SETTLED_RUNTIME_CANCELLATION_REASONS = new Set([
 
 /**
  * IF-SINGLE-TASK adapter: run exactly one task attempt on the existing v0.18
- * Single Task Runtime and return a closed structured result bound to the
- * attempt identity and the fixed repository revision. The adapter owns only
- * the attempt binding, cancellation forwarding and result observation; the
- * task request schema, provider effects, candidate store and recovery remain
- * owned by the underlying runtime. It never owns project state, follow-up
- * task creation or objective/milestone acceptance.
+ *
+ * @responsibility runProjectRuntimeSingleTaskAttemptに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input dependencies: ProjectRuntimeSingleTaskDependencies、input: ProjectRuntimeSingleTaskAttemptInput
+ * @returns Promise<ProjectRuntimeSingleTaskResult>を返す。
+ * @precondition 「dependencies: ProjectRuntimeSingleTaskDependencies、input: ProjectRuntimeSingleTaskAttemptInput」がrunProjectRuntimeSingleTaskAttemptの入力契約を満たす。
+ * @postcondition runProjectRuntimeSingleTaskAttemptの責務を完了した結果だけを返す。
+ * @effect N/A: runProjectRuntimeSingleTaskAttemptは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure runProjectRuntimeSingleTaskAttemptは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runProjectRuntimeSingleTaskAttemptは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security runProjectRuntimeSingleTaskAttemptはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency runProjectRuntimeSingleTaskAttemptは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 export async function runProjectRuntimeSingleTaskAttempt(
   dependencies: ProjectRuntimeSingleTaskDependencies,
@@ -505,6 +677,22 @@ export async function runProjectRuntimeSingleTaskAttempt(
   });
 }
 
+/**
+ * describeProjectRuntimeSingleTaskAdapterContractの処理を実行する。
+ *
+ * @responsibility describeProjectRuntimeSingleTaskAdapterContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProjectRuntimeSingleTaskAdapterContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProjectRuntimeSingleTaskAdapterContractの入力契約を満たす。
+ * @postcondition describeProjectRuntimeSingleTaskAdapterContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeProjectRuntimeSingleTaskAdapterContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProjectRuntimeSingleTaskAdapterContractは独自の失敗分岐を所有しない。
+ * @invariant describeProjectRuntimeSingleTaskAdapterContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security describeProjectRuntimeSingleTaskAdapterContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeProjectRuntimeSingleTaskAdapterContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeProjectRuntimeSingleTaskAdapterContract() {
   return Object.freeze({
     contract: PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT,

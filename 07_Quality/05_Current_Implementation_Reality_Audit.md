@@ -10,7 +10,7 @@
 
 | 項目 | 件数 |
 |---|---:|
-| Local Item数 | 114 |
+| Local Item数 | 150 |
 | 内訳 | 114 Review済み |
 
 ## 1. 目的
@@ -123,7 +123,7 @@ v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、�
 | `project-runtime.project-state-projection` | observed | observed | `Covered Candidate`: State QueryとState契約試験を局所実行で確認 |
 | `project-runtime.queue-lease-lifecycle` | observed | observed | `Covered Candidate`: State契約試験を局所実行で確認 |
 | `project-runtime.recovery-obligation` | observed | observed | `Covered Candidate`: State、IntegrationおよびDurable Foundation契約試験を局所実行で確認 |
-| `project-runtime.task-authority-narrowing` | observed | observed | `Covered Candidate`: Objective Intake契約試験を`PRL-05`へ接続し局所実行で確認 |
+| `project-runtime.task-authority-narrowing` | observed | observed | `Covered Candidate`: Objective Intake契約試験を`PRL-IT-005`へ接続し局所実行で確認 |
 | `project-runtime.transport-neutral-application-contract` | observed | observed | `Covered Candidate`: Public Contract契約試験を局所実行で確認 |
 
 `observed`はRelationの存在だけを示す。Source責務、反例、終了後条件、試験実行およびEvidenceが揃う前に`Covered`へ昇格しない。
@@ -151,16 +151,16 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 
 | 詳細設計領域 | 実装Owner | 局所確認 | 初回判定 | 主な不足／次の処置 |
 |---|---|---|---|---|
-| artifact-signing | `40_Develop/artifact-signing` | 5／5 Pass | Partial | `AIT-07`、`AIT-09`と実試験のRelationを確認して接続する |
-| checker | `40_Develop/checker` | Repository検査0 error／0 warning、初回350／351 Pass、命名是正後の対象試験1／1 Pass | Partial | 11期待Local Itemのうち6件を接続。`AUH-06`、`RCM-03`、`RCM-04`、`RCM-07`、`RCM-10`は独立再構築、Consumer Closure、Runner lifecycle、Tool Registryの追加確認が必要 |
+| artifact-signing | `40_Develop/artifact-signing` | 5／5 Pass | Partial | `AIT-IT-007`、`AIT-IT-009`と実試験のRelationを確認して接続する |
+| checker | `40_Develop/checker` | Repository検査0 error／0 warning、初回350／351 Pass、命名是正後の対象試験1／1 Pass | Partial | 11期待Local Itemのうち6件を接続。`AUH-ST-006`、`RCM-IT-003`、`RCM-IT-004`、`RCM-IT-007`、`RCM-IT-010`は独立再構築、Consumer Closure、Runner lifecycle、Tool Registryの追加確認が必要 |
 | contract-migration | checker／version-control等へ分散 | 専用Runnerなし | Gap | 独立packageを要求せず、Consumer Closureと縦断移行の実Owner／Test／Evidenceを明示する |
-| coordinator | `40_Develop/coordinator` | 静的確認Pass、通常ユーザー境界のPilot取消2／2 Pass | Partial／Missing | 14期待Local Itemのうち12件を接続。`AIT-04`、`ERB-11`はTrust組合せと別Session handoff chainの追加確認が必要。`coordinator.runtime-trust-consumption`は実装欠落 |
+| coordinator | `40_Develop/coordinator` | 静的確認Pass、通常ユーザー境界のPilot取消2／2 Pass | Partial／Missing | 14期待Local Itemのうち12件を接続。`AIT-ST-004`、`ERB-ST-011`はTrust組合せと別Session handoff chainの追加確認が必要。`coordinator.runtime-trust-consumption`は実装欠落 |
 | crdd-domain-library | `40_Develop/crdd-domain-library` | 20／20 Pass | Partial | 8期待Local Itemのうち3件を接続。署名配布、文書理解、移行閉包は利用側を含む追加確認が必要 |
 | cros | なし | 未実行 | Missing | 認証、Workspace、Federation、Handoffを持つRuntime実装と10 Local Itemの接続がない |
 | execution-intelligence | `40_Develop/execution-intelligence` | 43／43 Pass | Partial | 10期待Local Itemのうち7件を接続。利用者判断2件とClock／現行性の結合確認が残る |
 | mcp | `40_Develop/mcp` | 32／32 Pass | Partial | 6期待Local Itemのうち4件を接続。Candidate Storeと四入口のEffect同等性が残る |
 | official-asset-governance | 工程／人間判断 | 専用Runnerなし | Process-owned Partial | Runtime Component非該当。5 Local Itemを判断記録、公開・撤回Evidenceおよび競合判断へ接続する |
-| platform-access | `40_Develop/platform-access` | Rust 29 Pass、8 Explicit Ignore | Partial | Process／Docker境界試験は存在するが、`PRL-03`、`ERB-02`のRelationを確認して接続する。Ignore 8件は明示実環境試験として別扱い |
+| platform-access | `40_Develop/platform-access` | Rust 29 Pass、8 Explicit Ignore | Partial | Process／Docker境界試験は存在するが、`PRL-ST-003`、`ERB-IT-002`のRelationを確認して接続する。Ignore 8件は明示実環境試験として別扱い |
 | project-operation | なし | 未実行 | Missing | Topic／Meeting lifecycleとProject Projectionの実装Owner、保存形式、5 Local Itemの接続がない |
 | project-runtime | `40_Develop/project-runtime` | 60／60 Pass | Partial | 14期待Local Itemのうち9件を接続。Transport同等性、取消、判断待ち再開、受入Scenario／UATが残る |
 | quality-change-control | 保守／監査工程 | 専用Runnerなし | Process-owned Partial | 独立Runtimeは要求しない。監査集合統合、是正再入場と3 Local Itemを実レビュー／監査Evidenceへ接続する |
@@ -234,27 +234,27 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 
 ## 12. Relation是正結果
 
-Quality Integrationが各詳細設計領域へ割り当てる118個の`Subsystem × Local Item`を母集団にし、Test Symbolの正方向Relationを再照合した。初回37件から、既存試験の意味と一致する23件を追加し、60件を接続した。残る58件は既存試験へ名前だけで割り当てず、実装欠落、工程Evidence、手動UAT、外部境界または追加試験へ分離する。初回の独立レビューで、Checkerの`RCM-03`と`RCM-04`は実試験にConsumer Closureの刺激、反例およびOracleがないと確認されたため、Relationを削除して未接続に戻した。
+Quality Integrationが各詳細設計領域へ割り当てる118個の`Subsystem × Local Item`を母集団にし、Test Symbolの正方向Relationを再照合した。初回37件から、既存試験の意味と一致する23件を追加し、60件を接続した。残る58件は既存試験へ名前だけで割り当てず、実装欠落、工程Evidence、手動UAT、外部境界または追加試験へ分離する。初回の独立レビューで、Checkerの`RCM-IT-003`と`RCM-IT-004`は実試験にConsumer Closureの刺激、反例およびOracleがないと確認されたため、Relationを削除して未接続に戻した。
 
 是正後の現在分類は`Covered Candidate` 3、`Partial` 9、`Missing` 3、`Process-owned Partial` 2、`Gap` 1である。Version Controlだけが、期待6 Relationの全接続により`Partial`から`Covered Candidate`へ進んだ。他領域は一部Relationを補っても残る義務または実装欠落があるため、判定を強めていない。
 
 | 領域 | 接続済み／期待 | 残るLocal Item |
 |---|---:|---|
-| artifact-signing | 1／3 | `AIT-07`、`AIT-09` |
-| checker | 6／11 | `AUH-06`、`RCM-03`、`RCM-04`、`RCM-07`、`RCM-10` |
-| contract-migration | 0／3 | `RCM-03`、`RCM-04`、`RCM-05` |
-| coordinator | 12／14 | `AIT-04`、`ERB-11` |
-| crdd-domain-library | 3／8 | `AIT-10`、`AUH-02`、`RCM-03`、`RCM-04`、`RCM-08` |
-| cros | 0／10 | `ERB-10`、`EST-09`、`PPR-01`、`PPR-02`、`PPR-05`、`RFD-03`、`RFD-04`、`RFD-09`、`RFD-10`、`RFD-11` |
-| execution-intelligence | 7／10 | `PPR-08`、`PPR-09`、`PPR-10` |
-| mcp | 4／6 | `CPR-01`、`EST-10` |
-| official-asset-governance | 0／5 | `OAG-01`、`OAG-02`、`OAG-03`、`OAG-05`、`OAG-06` |
-| platform-access | 3／5 | `ERB-02`、`PRL-03` |
-| project-operation | 0／5 | `CPR-05`、`PPR-01`、`PPR-02`、`PPR-05`、`PPR-06` |
-| project-runtime | 9／14 | `EST-01`、`PRL-02`、`PRL-03`、`PRL-09`、`PRL-10` |
-| quality-change-control | 0／3 | `CQS-01`、`CQS-03`、`CQS-04` |
-| runtime-data | 4／6 | `PPR-06`、`RFD-03` |
-| runtime-trust | 0／4 | `AIT-01`、`AIT-03`、`AIT-04`、`AIT-05` |
+| artifact-signing | 1／3 | `AIT-IT-007`、`AIT-IT-009` |
+| checker | 6／11 | `AUH-ST-006`、`RCM-IT-003`、`RCM-IT-004`、`RCM-IT-007`、`RCM-IT-010` |
+| contract-migration | 0／3 | `RCM-IT-003`、`RCM-IT-004`、`RCM-IT-005` |
+| coordinator | 12／14 | `AIT-ST-004`、`ERB-ST-011` |
+| crdd-domain-library | 3／8 | `AIT-ST-010`、`AUH-IT-002`、`RCM-IT-003`、`RCM-IT-004`、`RCM-IT-008` |
+| cros | 0／10 | `ERB-IT-010`、`EST-UAT-009`、`PPR-IT-001`、`PPR-IT-002`、`PPR-ST-005`、`RFD-ST-003`、`RFD-ST-004`、`RFD-IT-009`、`RFD-ST-010`、`RFD-IT-011` |
+| execution-intelligence | 7／10 | `PPR-UAT-008`、`PPR-UAT-009`、`PPR-IT-010` |
+| mcp | 4／6 | `CPR-IT-001`、`EST-IT-010` |
+| official-asset-governance | 0／5 | `OAG-UAT-001`、`OAG-UAT-002`、`OAG-ST-003`、`OAG-IT-005`、`OAG-IT-006` |
+| platform-access | 3／5 | `ERB-IT-002`、`PRL-ST-003` |
+| project-operation | 0／5 | `CPR-ST-005`、`PPR-IT-001`、`PPR-IT-002`、`PPR-ST-005`、`PPR-UT-006` |
+| project-runtime | 9／14 | `EST-IT-001`、`PRL-UAT-002`、`PRL-ST-003`、`PRL-ST-009`、`PRL-UAT-010` |
+| quality-change-control | 0／3 | `CQS-IT-001`、`CQS-IT-003`、`CQS-IT-004` |
+| runtime-data | 4／6 | `PPR-UT-006`、`RFD-ST-003` |
+| runtime-trust | 0／4 | `AIT-IT-001`、`AIT-IT-003`、`AIT-ST-004`、`AIT-UT-005` |
 | semantic-coverage | 2／2 | なし |
 | verification-runner | 3／3 | なし |
 | version-control | 6／6 | なし |

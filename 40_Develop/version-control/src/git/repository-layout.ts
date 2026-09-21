@@ -11,9 +11,42 @@ const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
 const OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
 const SAFE_REF = /^refs\/(?:heads|tags)\/[A-Za-z0-9._/-]{1,1024}$/u;
 
+/**
+ * EntityTypeが扱う値の構造を表す。
+ *
+ * @responsibility EntityTypeに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape EntityTypeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant EntityTypeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: EntityTypeの宣言は外部境界を開かない。
+ * @security N/A: EntityTypeはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility EntityTypeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type EntityType = "file" | "directory";
+/**
+ * LayoutKindが扱う値の構造を表す。
+ *
+ * @responsibility LayoutKindに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape LayoutKindが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant LayoutKindで宣言した値と責務の対応を維持する。
+ * @boundary N/A: LayoutKindの宣言は外部境界を開かない。
+ * @security N/A: LayoutKindはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility LayoutKindの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type LayoutKind = "normal_worktree" | "gitfile_worktree" | "linked_worktree";
 
+/**
+ * EntityIdentityが扱う値の構造を表す。
+ *
+ * @responsibility EntityIdentityに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape EntityIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant EntityIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: EntityIdentityの宣言は外部境界を開かない。
+ * @security N/A: EntityIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility EntityIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type EntityIdentity = Readonly<{
   type: EntityType;
   dev: bigint;
@@ -25,11 +58,33 @@ type EntityIdentity = Readonly<{
   ctimeNs: bigint;
 }>;
 
+/**
+ * EntitySnapshotが扱う値の構造を表す。
+ *
+ * @responsibility EntitySnapshotに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape EntitySnapshotが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant EntitySnapshotで宣言した値と責務の対応を維持する。
+ * @boundary N/A: EntitySnapshotの宣言は外部境界を開かない。
+ * @security N/A: EntitySnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility EntitySnapshotの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type EntitySnapshot = Readonly<{
   realPath: string;
   identity: EntityIdentity;
 }>;
 
+/**
+ * RepositoryGitLayoutが扱う値の構造を表す。
+ *
+ * @responsibility RepositoryGitLayoutに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape RepositoryGitLayoutが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RepositoryGitLayoutで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RepositoryGitLayoutの宣言は外部境界を開かない。
+ * @security N/A: RepositoryGitLayoutはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RepositoryGitLayoutの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type RepositoryGitLayout = Readonly<{
   kind: LayoutKind;
   root: EntitySnapshot;
@@ -40,8 +95,35 @@ export type RepositoryGitLayout = Readonly<{
   structuralGraph: readonly EntitySnapshot[];
 }>;
 
+/**
+ * StableFileBytesが扱う値の構造を表す。
+ *
+ * @responsibility StableFileBytesに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape StableFileBytesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant StableFileBytesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: StableFileBytesの宣言は外部境界を開かない。
+ * @security N/A: StableFileBytesはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility StableFileBytesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type StableFileBytes = Readonly<{ value: Buffer; snapshot: EntitySnapshot }>;
 
+/**
+ * isEnoentの処理を実行する。
+ *
+ * @responsibility isEnoentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input error: unknown
+ * @returns booleanを返す。
+ * @precondition 「error: unknown」がisEnoentの入力契約を満たす。
+ * @postcondition isEnoentの責務を完了した結果だけを返す。
+ * @effect N/A: isEnoentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isEnoentは独自の失敗分岐を所有しない。
+ * @invariant isEnoentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isEnoentはProcess内の同一Subsystemで完結する。
+ * @security N/A: isEnoentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isEnoentは共有非同期状態を持たない同期処理である。
+ */
 function isEnoent(error: unknown): boolean {
   return (
     typeof error === "object" &&
@@ -51,6 +133,22 @@ function isEnoent(error: unknown): boolean {
   );
 }
 
+/**
+ * identityの処理を実行する。
+ *
+ * @responsibility identityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input metadata: fs.BigIntStats、expectedType: EntityType
+ * @returns EntityIdentityを返す。
+ * @precondition 「metadata: fs.BigIntStats、expectedType: EntityType」がidentityの入力契約を満たす。
+ * @postcondition identityの責務を完了した結果だけを返す。
+ * @effect N/A: identityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure identityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant identityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: identityはProcess内の同一Subsystemで完結する。
+ * @security N/A: identityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: identityは共有非同期状態を持たない同期処理である。
+ */
 function identity(
   metadata: fs.BigIntStats,
   expectedType: EntityType,
@@ -77,6 +175,22 @@ function identity(
   });
 }
 
+/**
+ * sameIdentityの処理を実行する。
+ *
+ * @responsibility sameIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input left: EntityIdentity、right: EntityIdentity
+ * @returns booleanを返す。
+ * @precondition 「left: EntityIdentity、right: EntityIdentity」がsameIdentityの入力契約を満たす。
+ * @postcondition sameIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: sameIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameIdentityは独自の失敗分岐を所有しない。
+ * @invariant sameIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sameIdentityはProcess内の同一Subsystemで完結する。
+ * @security N/A: sameIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: sameIdentityは共有非同期状態を持たない同期処理である。
+ */
 function sameIdentity(left: EntityIdentity, right: EntityIdentity): boolean {
   return (
     left.type === right.type &&
@@ -90,6 +204,22 @@ function sameIdentity(left: EntityIdentity, right: EntityIdentity): boolean {
   );
 }
 
+/**
+ * verifySnapshotの処理を実行する。
+ *
+ * @responsibility verifySnapshotに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input snapshot: EntitySnapshot
+ * @returns N/A: verifySnapshotは戻り値を返さない。
+ * @precondition 「snapshot: EntitySnapshot」がverifySnapshotの入力契約を満たす。
+ * @postcondition verifySnapshotの責務を完了して呼出し元へ制御を戻す。
+ * @effect verifySnapshotはFilesystemの読取りまたは書込みを実行する。
+ * @failure verifySnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifySnapshotは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: verifySnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: verifySnapshotは共有非同期状態を持たない同期処理である。
+ */
 function verifySnapshot(snapshot: EntitySnapshot): void {
   const current = identity(
     fs.lstatSync(snapshot.realPath, { bigint: true }),
@@ -103,6 +233,22 @@ function verifySnapshot(snapshot: EntitySnapshot): void {
   }
 }
 
+/**
+ * verifyEntitySnapshotの処理を実行する。
+ *
+ * @responsibility verifyEntitySnapshotに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input snapshot: EntitySnapshot
+ * @returns N/A: verifyEntitySnapshotは戻り値を返さない。
+ * @precondition 「snapshot: EntitySnapshot」がverifyEntitySnapshotの入力契約を満たす。
+ * @postcondition verifyEntitySnapshotの責務を完了して呼出し元へ制御を戻す。
+ * @effect verifyEntitySnapshotはFilesystemの読取りまたは書込みを実行する。
+ * @failure verifyEntitySnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyEntitySnapshotは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: verifyEntitySnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: verifyEntitySnapshotは共有非同期状態を持たない同期処理である。
+ */
 function verifyEntitySnapshot(snapshot: EntitySnapshot): void {
   const current = identity(
     fs.lstatSync(snapshot.realPath, { bigint: true }),
@@ -119,6 +265,22 @@ function verifyEntitySnapshot(snapshot: EntitySnapshot): void {
   }
 }
 
+/**
+ * verifySnapshotsの処理を実行する。
+ *
+ * @responsibility verifySnapshotsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input snapshots: readonly EntitySnapshot[]
+ * @returns N/A: verifySnapshotsは戻り値を返さない。
+ * @precondition 「snapshots: readonly EntitySnapshot[]」がverifySnapshotsの入力契約を満たす。
+ * @postcondition verifySnapshotsの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: verifySnapshotsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: verifySnapshotsは独自の失敗分岐を所有しない。
+ * @invariant verifySnapshotsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifySnapshotsはProcess内の同一Subsystemで完結する。
+ * @security N/A: verifySnapshotsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: verifySnapshotsは共有非同期状態を持たない同期処理である。
+ */
 function verifySnapshots(snapshots: readonly EntitySnapshot[]): void {
   for (const snapshot of snapshots) {
     if (snapshot.identity.type === "directory") verifyEntitySnapshot(snapshot);
@@ -126,6 +288,22 @@ function verifySnapshots(snapshots: readonly EntitySnapshot[]): void {
   }
 }
 
+/**
+ * verifyLayoutForWriteの処理を実行する。
+ *
+ * @responsibility verifyLayoutForWriteに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input layout: RepositoryGitLayout
+ * @returns N/A: verifyLayoutForWriteは戻り値を返さない。
+ * @precondition 「layout: RepositoryGitLayout」がverifyLayoutForWriteの入力契約を満たす。
+ * @postcondition verifyLayoutForWriteの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: verifyLayoutForWriteは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: verifyLayoutForWriteは独自の失敗分岐を所有しない。
+ * @invariant verifyLayoutForWriteは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyLayoutForWriteはProcess内の同一Subsystemで完結する。
+ * @security N/A: verifyLayoutForWriteはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: verifyLayoutForWriteは共有非同期状態を持たない同期処理である。
+ */
 function verifyLayoutForWrite(layout: RepositoryGitLayout): void {
   for (const snapshot of layout.structuralGraph) {
     if (snapshot === layout.infoDirectory) verifyEntitySnapshot(snapshot);
@@ -133,6 +311,22 @@ function verifyLayoutForWrite(layout: RepositoryGitLayout): void {
   }
 }
 
+/**
+ * directoryRealpathの処理を実行する。
+ *
+ * @responsibility directoryRealpathに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input target: string
+ * @returns EntitySnapshotを返す。
+ * @precondition 「target: string」がdirectoryRealpathの入力契約を満たす。
+ * @postcondition directoryRealpathの責務を完了した結果だけを返す。
+ * @effect directoryRealpathはFilesystemの読取りまたは書込みを実行する。
+ * @failure directoryRealpathは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant directoryRealpathは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: directoryRealpathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: directoryRealpathは共有非同期状態を持たない同期処理である。
+ */
 function directoryRealpath(target: string): EntitySnapshot {
   const before = identity(fs.lstatSync(target, { bigint: true }), "directory");
   const realPath = fs.realpathSync.native(target);
@@ -147,6 +341,22 @@ function directoryRealpath(target: string): EntitySnapshot {
   return Object.freeze({ realPath, identity: before });
 }
 
+/**
+ * readStableFileBytesの処理を実行する。
+ *
+ * @responsibility readStableFileBytesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input target: string、maximumBytes: number、parentSnapshots: readonly EntitySnapshot[]、shouldAllowEmpty
+ * @returns StableFileBytesを返す。
+ * @precondition 「target: string、maximumBytes: number、parentSnapshots: readonly EntitySnapshot[]、shouldAllowEmpty」がreadStableFileBytesの入力契約を満たす。
+ * @postcondition readStableFileBytesの責務を完了した結果だけを返す。
+ * @effect readStableFileBytesはFilesystemの読取りまたは書込みを実行する。
+ * @failure readStableFileBytesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readStableFileBytesは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: readStableFileBytesはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readStableFileBytesは共有非同期状態を持たない同期処理である。
+ */
 function readStableFileBytes(
   target: string,
   maximumBytes: number,
@@ -227,6 +437,22 @@ function readStableFileBytes(
   return result;
 }
 
+/**
+ * decodeUtf8の処理を実行する。
+ *
+ * @responsibility decodeUtf8に対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input bytes: Uint8Array、reason: string
+ * @returns stringを返す。
+ * @precondition 「bytes: Uint8Array、reason: string」がdecodeUtf8の入力契約を満たす。
+ * @postcondition decodeUtf8の責務を完了した結果だけを返す。
+ * @effect N/A: decodeUtf8は入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure decodeUtf8は入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant decodeUtf8は入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: decodeUtf8はProcess内の同一Subsystemで完結する。
+ * @security N/A: decodeUtf8はAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: decodeUtf8は共有非同期状態を持たない同期処理である。
+ */
 function decodeUtf8(bytes: Uint8Array, reason: string): string {
   const text = utf8Decoder.decode(bytes);
   if (text.charCodeAt(0) === 0xfeff || text.includes("\u0000"))
@@ -234,6 +460,22 @@ function decodeUtf8(bytes: Uint8Array, reason: string): string {
   return text;
 }
 
+/**
+ * readControlFileの処理を実行する。
+ *
+ * @responsibility readControlFileに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input target: string、parentSnapshots: readonly EntitySnapshot[]
+ * @returns Readonly<{ line: string; snapshot: EntitySnapshot }>を返す。
+ * @precondition 「target: string、parentSnapshots: readonly EntitySnapshot[]」がreadControlFileの入力契約を満たす。
+ * @postcondition readControlFileの責務を完了した結果だけを返す。
+ * @effect N/A: readControlFileは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure readControlFileは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readControlFileは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: readControlFileはProcess内の同一Subsystemで完結する。
+ * @security N/A: readControlFileはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readControlFileは共有非同期状態を持たない同期処理である。
+ */
 function readControlFile(
   target: string,
   parentSnapshots: readonly EntitySnapshot[] = [],
@@ -258,6 +500,22 @@ function readControlFile(
   return Object.freeze({ line, snapshot: bytes.snapshot });
 }
 
+/**
+ * parseNarrowRepositoryConfigの処理を実行する。
+ *
+ * @responsibility parseNarrowRepositoryConfigに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input target: string、commonDirectory: EntitySnapshot
+ * @returns Readonly<{ snapshot: EntitySnapshot; objectFormat: "sha1" | "sha256"; worktree: string | null; }>を返す。
+ * @precondition 「target: string、commonDirectory: EntitySnapshot」がparseNarrowRepositoryConfigの入力契約を満たす。
+ * @postcondition parseNarrowRepositoryConfigの責務を完了した結果だけを返す。
+ * @effect N/A: parseNarrowRepositoryConfigは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure parseNarrowRepositoryConfigは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant parseNarrowRepositoryConfigは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseNarrowRepositoryConfigはProcess内の同一Subsystemで完結する。
+ * @security N/A: parseNarrowRepositoryConfigはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: parseNarrowRepositoryConfigは共有非同期状態を持たない同期処理である。
+ */
 function parseNarrowRepositoryConfig(
   target: string,
   commonDirectory: EntitySnapshot,
@@ -370,6 +628,22 @@ function parseNarrowRepositoryConfig(
   });
 }
 
+/**
+ * isValidRefの処理を実行する。
+ *
+ * @responsibility isValidRefに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input value: string
+ * @returns booleanを返す。
+ * @precondition 「value: string」がisValidRefの入力契約を満たす。
+ * @postcondition isValidRefの責務を完了した結果だけを返す。
+ * @effect N/A: isValidRefは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isValidRefは独自の失敗分岐を所有しない。
+ * @invariant isValidRefは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isValidRefはProcess内の同一Subsystemで完結する。
+ * @security N/A: isValidRefはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isValidRefは共有非同期状態を持たない同期処理である。
+ */
 function isValidRef(value: string): boolean {
   return (
     SAFE_REF.test(value) &&
@@ -379,6 +653,22 @@ function isValidRef(value: string): boolean {
   );
 }
 
+/**
+ * inspectRevisionHexLengthの処理を実行する。
+ *
+ * @responsibility inspectRevisionHexLengthに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input gitDirectory: EntitySnapshot、commonDirectory: EntitySnapshot、snapshots: EntitySnapshot[]
+ * @returns 40 | 64を返す。
+ * @precondition 「gitDirectory: EntitySnapshot、commonDirectory: EntitySnapshot、snapshots: EntitySnapshot[]」がinspectRevisionHexLengthの入力契約を満たす。
+ * @postcondition inspectRevisionHexLengthの責務を完了した結果だけを返す。
+ * @effect N/A: inspectRevisionHexLengthは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectRevisionHexLengthは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectRevisionHexLengthは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectRevisionHexLengthはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectRevisionHexLengthはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectRevisionHexLengthは共有非同期状態を持たない同期処理である。
+ */
 function inspectRevisionHexLength(
   gitDirectory: EntitySnapshot,
   commonDirectory: EntitySnapshot,
@@ -425,6 +715,22 @@ function inspectRevisionHexLength(
   return revision.length as 40 | 64;
 }
 
+/**
+ * assertObjectFormatMatchesRevisionの処理を実行する。
+ *
+ * @responsibility assertObjectFormatMatchesRevisionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input objectFormat: "sha1" | "sha256"、revisionHexLength: 40 | 64
+ * @returns N/A: assertObjectFormatMatchesRevisionは戻り値を返さない。
+ * @precondition 「objectFormat: "sha1" | "sha256"、revisionHexLength: 40 | 64」がassertObjectFormatMatchesRevisionの入力契約を満たす。
+ * @postcondition assertObjectFormatMatchesRevisionの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: assertObjectFormatMatchesRevisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure assertObjectFormatMatchesRevisionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertObjectFormatMatchesRevisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: assertObjectFormatMatchesRevisionはProcess内の同一Subsystemで完結する。
+ * @security N/A: assertObjectFormatMatchesRevisionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: assertObjectFormatMatchesRevisionは共有非同期状態を持たない同期処理である。
+ */
 function assertObjectFormatMatchesRevision(
   objectFormat: "sha1" | "sha256",
   revisionHexLength: 40 | 64,
@@ -437,6 +743,22 @@ function assertObjectFormatMatchesRevision(
   }
 }
 
+/**
+ * assertConfiguredWorktreeMatchesRootの処理を実行する。
+ *
+ * @responsibility assertConfiguredWorktreeMatchesRootに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input configuredWorktree: string | null、commonDirectory: EntitySnapshot、root: EntitySnapshot
+ * @returns voidを返す。
+ * @precondition 「configuredWorktree: string | null、commonDirectory: EntitySnapshot、root: EntitySnapshot」がassertConfiguredWorktreeMatchesRootの入力契約を満たす。
+ * @postcondition assertConfiguredWorktreeMatchesRootの責務を完了した結果だけを返す。
+ * @effect assertConfiguredWorktreeMatchesRootはFilesystemの読取りまたは書込みを実行する。
+ * @failure assertConfiguredWorktreeMatchesRootは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertConfiguredWorktreeMatchesRootは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: assertConfiguredWorktreeMatchesRootはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: assertConfiguredWorktreeMatchesRootは共有非同期状態を持たない同期処理である。
+ */
 function assertConfiguredWorktreeMatchesRoot(
   configuredWorktree: string | null,
   commonDirectory: EntitySnapshot,
@@ -455,6 +777,22 @@ function assertConfiguredWorktreeMatchesRoot(
   if (!doesWorktreeMatch) throw new Error("repository_git_worktree_mismatch");
 }
 
+/**
+ * inspectRepositoryGitObjectFormatCandidateの処理を実行する。
+ *
+ * @responsibility inspectRepositoryGitObjectFormatCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input repositoryRoot: unknown
+ * @returns inspectRepositoryGitObjectFormatCandidateの計算結果を返す。
+ * @precondition 「repositoryRoot: unknown」がinspectRepositoryGitObjectFormatCandidateの入力契約を満たす。
+ * @postcondition inspectRepositoryGitObjectFormatCandidateの責務を完了した結果だけを返す。
+ * @effect inspectRepositoryGitObjectFormatCandidateはFilesystemの読取りまたは書込みを実行する。
+ * @failure inspectRepositoryGitObjectFormatCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectRepositoryGitObjectFormatCandidateは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: inspectRepositoryGitObjectFormatCandidateはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectRepositoryGitObjectFormatCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectRepositoryGitObjectFormatCandidate(
   repositoryRoot: unknown,
 ) {
@@ -508,6 +846,22 @@ export function inspectRepositoryGitObjectFormatCandidate(
   }
 }
 
+/**
+ * optionalCommonDirectoryの処理を実行する。
+ *
+ * @responsibility optionalCommonDirectoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input gitDirectory: EntitySnapshot、entitySnapshots: EntitySnapshot[]
+ * @returns EntitySnapshot | nullを返す。
+ * @precondition 「gitDirectory: EntitySnapshot、entitySnapshots: EntitySnapshot[]」がoptionalCommonDirectoryの入力契約を満たす。
+ * @postcondition optionalCommonDirectoryの責務を完了した結果だけを返す。
+ * @effect N/A: optionalCommonDirectoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure optionalCommonDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant optionalCommonDirectoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: optionalCommonDirectoryはProcess内の同一Subsystemで完結する。
+ * @security N/A: optionalCommonDirectoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: optionalCommonDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function optionalCommonDirectory(
   gitDirectory: EntitySnapshot,
   entitySnapshots: EntitySnapshot[],
@@ -529,6 +883,22 @@ function optionalCommonDirectory(
   }
 }
 
+/**
+ * resolveExcludeBoundaryの処理を実行する。
+ *
+ * @responsibility resolveExcludeBoundaryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input commonDirectory: EntitySnapshot、entitySnapshots: EntitySnapshot[]
+ * @returns Readonly<{ infoDirectory: EntitySnapshot | null; excludeSnapshot: EntitySnapshot | null; }>を返す。
+ * @precondition 「commonDirectory: EntitySnapshot、entitySnapshots: EntitySnapshot[]」がresolveExcludeBoundaryの入力契約を満たす。
+ * @postcondition resolveExcludeBoundaryの責務を完了した結果だけを返す。
+ * @effect N/A: resolveExcludeBoundaryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure resolveExcludeBoundaryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant resolveExcludeBoundaryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveExcludeBoundaryはProcess内の同一Subsystemで完結する。
+ * @security N/A: resolveExcludeBoundaryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: resolveExcludeBoundaryは共有非同期状態を持たない同期処理である。
+ */
 function resolveExcludeBoundary(
   commonDirectory: EntitySnapshot,
   entitySnapshots: EntitySnapshot[],
@@ -562,6 +932,22 @@ function resolveExcludeBoundary(
   }
 }
 
+/**
+ * resolveRepositoryGitLayoutの処理を実行する。
+ *
+ * @responsibility resolveRepositoryGitLayoutに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input repositoryRoot: unknown
+ * @returns RepositoryGitLayoutを返す。
+ * @precondition 「repositoryRoot: unknown」がresolveRepositoryGitLayoutの入力契約を満たす。
+ * @postcondition resolveRepositoryGitLayoutの責務を完了した結果だけを返す。
+ * @effect resolveRepositoryGitLayoutはFilesystemの読取りまたは書込みを実行する。
+ * @failure resolveRepositoryGitLayoutは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant resolveRepositoryGitLayoutは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: resolveRepositoryGitLayoutはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: resolveRepositoryGitLayoutは共有非同期状態を持たない同期処理である。
+ */
 export function resolveRepositoryGitLayout(
   repositoryRoot: unknown,
 ): RepositoryGitLayout {
@@ -625,6 +1011,22 @@ export function resolveRepositoryGitLayout(
   });
 }
 
+/**
+ * summarizeRepositoryGitLayoutの処理を実行する。
+ *
+ * @responsibility summarizeRepositoryGitLayoutに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input layout: RepositoryGitLayout
+ * @returns Readonly<{ kind: LayoutKind; commonMetadataResolved: true; supportedRepositoryFormat: "version_0_without_extensions_or_includes"; excludeBackend: "common_git_directory_info_exclude"; referencedRepositoriesModified: false; }>を返す。
+ * @precondition 「layout: RepositoryGitLayout」がsummarizeRepositoryGitLayoutの入力契約を満たす。
+ * @postcondition summarizeRepositoryGitLayoutの責務を完了した結果だけを返す。
+ * @effect N/A: summarizeRepositoryGitLayoutは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: summarizeRepositoryGitLayoutは独自の失敗分岐を所有しない。
+ * @invariant summarizeRepositoryGitLayoutは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: summarizeRepositoryGitLayoutはProcess内の同一Subsystemで完結する。
+ * @security N/A: summarizeRepositoryGitLayoutはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: summarizeRepositoryGitLayoutは共有非同期状態を持たない同期処理である。
+ */
 export function summarizeRepositoryGitLayout(
   layout: RepositoryGitLayout,
 ): Readonly<{
@@ -643,16 +1045,64 @@ export function summarizeRepositoryGitLayout(
   });
 }
 
+/**
+ * decodeExcludeの処理を実行する。
+ *
+ * @responsibility decodeExcludeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input bytes: Uint8Array
+ * @returns stringを返す。
+ * @precondition 「bytes: Uint8Array」がdecodeExcludeの入力契約を満たす。
+ * @postcondition decodeExcludeの責務を完了した結果だけを返す。
+ * @effect N/A: decodeExcludeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure decodeExcludeは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant decodeExcludeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: decodeExcludeはProcess内の同一Subsystemで完結する。
+ * @security N/A: decodeExcludeはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: decodeExcludeは共有非同期状態を持たない同期処理である。
+ */
 function decodeExclude(bytes: Uint8Array): string {
   const text = decodeUtf8(bytes, "repository_git_exclude_invalid");
   if (/\r(?!\n)/u.test(text)) throw new Error("repository_git_exclude_invalid");
   return text;
 }
 
+/**
+ * exactEntryPresentの処理を実行する。
+ *
+ * @responsibility exactEntryPresentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input text: string、entry: string
+ * @returns booleanを返す。
+ * @precondition 「text: string、entry: string」がexactEntryPresentの入力契約を満たす。
+ * @postcondition exactEntryPresentの責務を完了した結果だけを返す。
+ * @effect N/A: exactEntryPresentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: exactEntryPresentは独自の失敗分岐を所有しない。
+ * @invariant exactEntryPresentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: exactEntryPresentはProcess内の同一Subsystemで完結する。
+ * @security N/A: exactEntryPresentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: exactEntryPresentは共有非同期状態を持たない同期処理である。
+ */
 function exactEntryPresent(text: string, entry: string): boolean {
   return text.split(/\r?\n/u).some((line) => line === entry);
 }
 
+/**
+ * desiredExcludeBytesの処理を実行する。
+ *
+ * @responsibility desiredExcludeBytesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input existing: Buffer、entry: string
+ * @returns Readonly<{ changed: boolean; bytes: Buffer }>を返す。
+ * @precondition 「existing: Buffer、entry: string」がdesiredExcludeBytesの入力契約を満たす。
+ * @postcondition desiredExcludeBytesの責務を完了した結果だけを返す。
+ * @effect N/A: desiredExcludeBytesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure desiredExcludeBytesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant desiredExcludeBytesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: desiredExcludeBytesはProcess内の同一Subsystemで完結する。
+ * @security N/A: desiredExcludeBytesはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: desiredExcludeBytesは共有非同期状態を持たない同期処理である。
+ */
 function desiredExcludeBytes(
   existing: Buffer,
   entry: string,
@@ -671,6 +1121,22 @@ function desiredExcludeBytes(
   return Object.freeze({ changed: true, bytes });
 }
 
+/**
+ * safeUnlinkOwnedの処理を実行する。
+ *
+ * @responsibility safeUnlinkOwnedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input target: string、snapshot: EntitySnapshot
+ * @returns booleanを返す。
+ * @precondition 「target: string、snapshot: EntitySnapshot」がsafeUnlinkOwnedの入力契約を満たす。
+ * @postcondition safeUnlinkOwnedの責務を完了した結果だけを返す。
+ * @effect safeUnlinkOwnedはFilesystemの読取りまたは書込みを実行する。
+ * @failure safeUnlinkOwnedは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant safeUnlinkOwnedは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: safeUnlinkOwnedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: safeUnlinkOwnedは共有非同期状態を持たない同期処理である。
+ */
 function safeUnlinkOwned(target: string, snapshot: EntitySnapshot): boolean {
   try {
     verifyEntitySnapshot(snapshot);
@@ -681,6 +1147,20 @@ function safeUnlinkOwned(target: string, snapshot: EntitySnapshot): boolean {
   }
 }
 
+/**
+ * RepositoryGitExcludeUpdateErrorが担う状態と操作を提供する。
+ *
+ * @responsibility RepositoryGitExcludeUpdateErrorに属する状態と操作の所有境界をまとめる。
+ * @trace ARCH-000002
+ * @construction RepositoryGitExcludeUpdateErrorの生成に必要な依存と初期状態をConstructor契約で固定する。
+ * @lifecycle RepositoryGitExcludeUpdateErrorが所有する状態と資源を生成から終了まで同じInstanceで管理する。
+ * @effect N/A: RepositoryGitExcludeUpdateErrorの宣言自体は実行時Effectを発行しない。
+ * @failure N/A: RepositoryGitExcludeUpdateErrorの宣言自体は実行時失敗を所有しない。
+ * @invariant RepositoryGitExcludeUpdateErrorで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RepositoryGitExcludeUpdateErrorの宣言は外部境界を開かない。
+ * @security N/A: RepositoryGitExcludeUpdateErrorはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: RepositoryGitExcludeUpdateErrorは共有非同期状態を持たない同期処理である。
+ */
 class RepositoryGitExcludeUpdateError extends Error {
   readonly writeIssued: boolean;
   readonly cleanupConfirmed: boolean;
@@ -692,6 +1172,17 @@ class RepositoryGitExcludeUpdateError extends Error {
   }
 }
 
+/**
+ * RepositoryLocalExcludeWriteResultが扱う値の構造を表す。
+ *
+ * @responsibility RepositoryLocalExcludeWriteResultに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape RepositoryLocalExcludeWriteResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RepositoryLocalExcludeWriteResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RepositoryLocalExcludeWriteResultの宣言は外部境界を開かない。
+ * @security N/A: RepositoryLocalExcludeWriteResultはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RepositoryLocalExcludeWriteResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type RepositoryLocalExcludeWriteResult =
   | Readonly<{
       status: "completed";
@@ -710,6 +1201,17 @@ export type RepositoryLocalExcludeWriteResult =
       cleanupConfirmed: boolean;
     }>;
 
+/**
+ * RepositoryLocalExcludePhaseが扱う値の構造を表す。
+ *
+ * @responsibility RepositoryLocalExcludePhaseに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape RepositoryLocalExcludePhaseが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RepositoryLocalExcludePhaseで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RepositoryLocalExcludePhaseの宣言は外部境界を開かない。
+ * @security N/A: RepositoryLocalExcludePhaseはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RepositoryLocalExcludePhaseの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RepositoryLocalExcludePhase =
   | "lock_open"
   | "write"
@@ -719,10 +1221,42 @@ type RepositoryLocalExcludePhase =
   | "post_rename_readback"
   | "post_readback";
 
+/**
+ * contentIdentityの処理を実行する。
+ *
+ * @responsibility contentIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input bytes: Uint8Array
+ * @returns stringを返す。
+ * @precondition 「bytes: Uint8Array」がcontentIdentityの入力契約を満たす。
+ * @postcondition contentIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: contentIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: contentIdentityは独自の失敗分岐を所有しない。
+ * @invariant contentIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: contentIdentityはProcess内の同一Subsystemで完結する。
+ * @security N/A: contentIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: contentIdentityは共有非同期状態を持たない同期処理である。
+ */
 function contentIdentity(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+/**
+ * writeRepositoryLocalExcludeInternalの処理を実行する。
+ *
+ * @responsibility writeRepositoryLocalExcludeInternalに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input layout: RepositoryGitLayout、entry: unknown、phaseHook: ((phase: RepositoryLocalExcludePhase) => void) | null
+ * @returns Exclude<RepositoryLocalExcludeWriteResult, { status: "blocked" }>を返す。
+ * @precondition 「layout: RepositoryGitLayout、entry: unknown、phaseHook: ((phase: RepositoryLocalExcludePhase) => void) | null」がwriteRepositoryLocalExcludeInternalの入力契約を満たす。
+ * @postcondition writeRepositoryLocalExcludeInternalの責務を完了した結果だけを返す。
+ * @effect writeRepositoryLocalExcludeInternalはFilesystemの読取りまたは書込みを実行する。
+ * @failure writeRepositoryLocalExcludeInternalは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant writeRepositoryLocalExcludeInternalは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: writeRepositoryLocalExcludeInternalはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: writeRepositoryLocalExcludeInternalは共有非同期状態を持たない同期処理である。
+ */
 function writeRepositoryLocalExcludeInternal(
   layout: RepositoryGitLayout,
   entry: unknown,
@@ -940,6 +1474,22 @@ function writeRepositoryLocalExcludeInternal(
   throw new RepositoryGitExcludeUpdateError(hasRenamed, cleanupConfirmed);
 }
 
+/**
+ * writeRepositoryLocalExcludeの処理を実行する。
+ *
+ * @responsibility writeRepositoryLocalExcludeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input layout: RepositoryGitLayout、entry: unknown、phaseHook: ((phase: RepositoryLocalExcludePhase) => void) | null
+ * @returns RepositoryLocalExcludeWriteResultを返す。
+ * @precondition 「layout: RepositoryGitLayout、entry: unknown、phaseHook: ((phase: RepositoryLocalExcludePhase) => void) | null」がwriteRepositoryLocalExcludeの入力契約を満たす。
+ * @postcondition writeRepositoryLocalExcludeの責務を完了した結果だけを返す。
+ * @effect N/A: writeRepositoryLocalExcludeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure writeRepositoryLocalExcludeは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant writeRepositoryLocalExcludeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: writeRepositoryLocalExcludeはProcess内の同一Subsystemで完結する。
+ * @security N/A: writeRepositoryLocalExcludeはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: writeRepositoryLocalExcludeは共有非同期状態を持たない同期処理である。
+ */
 export function writeRepositoryLocalExclude(
   layout: RepositoryGitLayout,
   entry: unknown,

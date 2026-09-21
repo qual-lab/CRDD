@@ -6,9 +6,42 @@ const VERIFICATION_KINDS = Object.freeze([
   "abnormal",
 ] as const);
 
+/**
+ * VerificationKindが扱う値の構造を表す。
+ *
+ * @responsibility VerificationKindに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000018
+ * @shape VerificationKindが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant VerificationKindで宣言した値と責務の対応を維持する。
+ * @boundary N/A: VerificationKindの宣言は外部境界を開かない。
+ * @security N/A: VerificationKindはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility VerificationKindの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type VerificationKind = (typeof VERIFICATION_KINDS)[number];
+/**
+ * TextReaderが扱う値の構造を表す。
+ *
+ * @responsibility TextReaderに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000018
+ * @shape TextReaderが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant TextReaderで宣言した値と責務の対応を維持する。
+ * @boundary N/A: TextReaderの宣言は外部境界を開かない。
+ * @security N/A: TextReaderはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility TextReaderの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type TextReader = (repositoryRelativePath: string) => string | null;
 
+/**
+ * AcceptedInspectionが扱う値の構造を表す。
+ *
+ * @responsibility AcceptedInspectionに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000018
+ * @shape AcceptedInspectionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant AcceptedInspectionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: AcceptedInspectionの宣言は外部境界を開かない。
+ * @security N/A: AcceptedInspectionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility AcceptedInspectionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type AcceptedInspection = Readonly<{
   status: "accepted";
   resources: number;
@@ -19,16 +52,49 @@ type AcceptedInspection = Readonly<{
   verificationBindings: number;
 }>;
 
+/**
+ * BlockedInspectionが扱う値の構造を表す。
+ *
+ * @responsibility BlockedInspectionに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000018
+ * @shape BlockedInspectionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant BlockedInspectionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: BlockedInspectionの宣言は外部境界を開かない。
+ * @security N/A: BlockedInspectionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility BlockedInspectionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type BlockedInspection = Readonly<{
   status: "blocked";
   reason: "runtime_traceability_invalid";
   issues: readonly string[];
 }>;
 
+/**
+ * RuntimeTraceabilityInspectionが扱う値の構造を表す。
+ *
+ * @responsibility RuntimeTraceabilityInspectionに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000018
+ * @shape RuntimeTraceabilityInspectionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeTraceabilityInspectionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeTraceabilityInspectionの宣言は外部境界を開かない。
+ * @security N/A: RuntimeTraceabilityInspectionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RuntimeTraceabilityInspectionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type RuntimeTraceabilityInspection =
   | AcceptedInspection
   | BlockedInspection;
 
+/**
+ * JsonRecordが扱う値の構造を表す。
+ *
+ * @responsibility JsonRecordに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000018
+ * @shape JsonRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant JsonRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: JsonRecordの宣言は外部境界を開かない。
+ * @security N/A: JsonRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility JsonRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type JsonRecord = Record<string, unknown>;
 
 const ROOT_KEYS = Object.freeze([
@@ -147,10 +213,42 @@ const EVIDENCE_BOUNDARIES = new Set([
   "signed_e2e",
 ]);
 
+/**
+ * isRecordの処理を実行する。
+ *
+ * @responsibility isRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000018
+ * @input value: unknown
+ * @returns value is JsonRecordを返す。
+ * @precondition 「value: unknown」がisRecordの入力契約を満たす。
+ * @postcondition isRecordの責務を完了した結果だけを返す。
+ * @effect N/A: isRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isRecordは独自の失敗分岐を所有しない。
+ * @invariant isRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isRecordはProcess内の同一Subsystemで完結する。
+ * @security N/A: isRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isRecordは共有非同期状態を持たない同期処理である。
+ */
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * hasExactKeysの処理を実行する。
+ *
+ * @responsibility hasExactKeysに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000018
+ * @input value: JsonRecord、expectedItems: readonly string[]
+ * @returns booleanを返す。
+ * @precondition 「value: JsonRecord、expectedItems: readonly string[]」がhasExactKeysの入力契約を満たす。
+ * @postcondition hasExactKeysの責務を完了した結果だけを返す。
+ * @effect N/A: hasExactKeysは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hasExactKeysは独自の失敗分岐を所有しない。
+ * @invariant hasExactKeysは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: hasExactKeysはProcess内の同一Subsystemで完結する。
+ * @security N/A: hasExactKeysはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: hasExactKeysは共有非同期状態を持たない同期処理である。
+ */
 function hasExactKeys(
   value: JsonRecord,
   expectedItems: readonly string[],
@@ -163,6 +261,22 @@ function hasExactKeys(
   );
 }
 
+/**
+ * isExactRecordの処理を実行する。
+ *
+ * @responsibility isExactRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000018
+ * @input value: unknown、expectedItems: readonly string[]
+ * @returns value is JsonRecordを返す。
+ * @precondition 「value: unknown、expectedItems: readonly string[]」がisExactRecordの入力契約を満たす。
+ * @postcondition isExactRecordの責務を完了した結果だけを返す。
+ * @effect N/A: isExactRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isExactRecordは独自の失敗分岐を所有しない。
+ * @invariant isExactRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isExactRecordはProcess内の同一Subsystemで完結する。
+ * @security N/A: isExactRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isExactRecordは共有非同期状態を持たない同期処理である。
+ */
 function isExactRecord(
   value: unknown,
   expectedItems: readonly string[],
@@ -170,20 +284,84 @@ function isExactRecord(
   return isRecord(value) && hasExactKeys(value, expectedItems);
 }
 
+/**
+ * nonEmptyTextの処理を実行する。
+ *
+ * @responsibility nonEmptyTextに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000018
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がnonEmptyTextの入力契約を満たす。
+ * @postcondition nonEmptyTextの責務を完了した結果だけを返す。
+ * @effect N/A: nonEmptyTextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: nonEmptyTextは独自の失敗分岐を所有しない。
+ * @invariant nonEmptyTextは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: nonEmptyTextはProcess内の同一Subsystemで完結する。
+ * @security N/A: nonEmptyTextはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: nonEmptyTextは共有非同期状態を持たない同期処理である。
+ */
 function nonEmptyText(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
 }
 
+/**
+ * escapeRegularExpressionの処理を実行する。
+ *
+ * @responsibility escapeRegularExpressionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000018
+ * @input value: string
+ * @returns escapeRegularExpressionの計算結果を返す。
+ * @precondition 「value: string」がescapeRegularExpressionの入力契約を満たす。
+ * @postcondition escapeRegularExpressionの責務を完了した結果だけを返す。
+ * @effect N/A: escapeRegularExpressionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: escapeRegularExpressionは独自の失敗分岐を所有しない。
+ * @invariant escapeRegularExpressionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: escapeRegularExpressionはProcess内の同一Subsystemで完結する。
+ * @security N/A: escapeRegularExpressionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: escapeRegularExpressionは共有非同期状態を持たない同期処理である。
+ */
 function escapeRegularExpression(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
+/**
+ * isStringArrayの処理を実行する。
+ *
+ * @responsibility isStringArrayに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000018
+ * @input value: unknown
+ * @returns value is string[]を返す。
+ * @precondition 「value: unknown」がisStringArrayの入力契約を満たす。
+ * @postcondition isStringArrayの責務を完了した結果だけを返す。
+ * @effect N/A: isStringArrayは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isStringArrayは独自の失敗分岐を所有しない。
+ * @invariant isStringArrayは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isStringArrayはProcess内の同一Subsystemで完結する。
+ * @security N/A: isStringArrayはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isStringArrayは共有非同期状態を持たない同期処理である。
+ */
 function isStringArray(value: unknown): value is string[] {
   return (
     Array.isArray(value) && value.every((entry) => typeof entry === "string")
   );
 }
 
+/**
+ * addUniqueIdsの処理を実行する。
+ *
+ * @responsibility addUniqueIdsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000018
+ * @input population: unknown、label: string、prefix: string、issues: string[]
+ * @returns { entries: JsonRecord[]; ids: Set<string> }を返す。
+ * @precondition 「population: unknown、label: string、prefix: string、issues: string[]」がaddUniqueIdsの入力契約を満たす。
+ * @postcondition addUniqueIdsの責務を完了した結果だけを返す。
+ * @effect N/A: addUniqueIdsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: addUniqueIdsは独自の失敗分岐を所有しない。
+ * @invariant addUniqueIdsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: addUniqueIdsはProcess内の同一Subsystemで完結する。
+ * @security N/A: addUniqueIdsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: addUniqueIdsは共有非同期状態を持たない同期処理である。
+ */
 function addUniqueIds(
   population: unknown,
   label: string,
@@ -211,6 +389,22 @@ function addUniqueIds(
   return { entries, ids };
 }
 
+/**
+ * checkReferencesの処理を実行する。
+ *
+ * @responsibility checkReferencesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000018
+ * @input values: unknown、known: ReadonlySet<string>、label: string、issues: string[]
+ * @returns string[]を返す。
+ * @precondition 「values: unknown、known: ReadonlySet<string>、label: string、issues: string[]」がcheckReferencesの入力契約を満たす。
+ * @postcondition checkReferencesの責務を完了した結果だけを返す。
+ * @effect N/A: checkReferencesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: checkReferencesは独自の失敗分岐を所有しない。
+ * @invariant checkReferencesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: checkReferencesはProcess内の同一Subsystemで完結する。
+ * @security N/A: checkReferencesはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: checkReferencesは共有非同期状態を持たない同期処理である。
+ */
 function checkReferences(
   values: unknown,
   known: ReadonlySet<string>,
@@ -227,6 +421,22 @@ function checkReferences(
   return values;
 }
 
+/**
+ * isSafeRepositoryPathの処理を実行する。
+ *
+ * @responsibility isSafeRepositoryPathに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000018
+ * @input value: string
+ * @returns booleanを返す。
+ * @precondition 「value: string」がisSafeRepositoryPathの入力契約を満たす。
+ * @postcondition isSafeRepositoryPathの責務を完了した結果だけを返す。
+ * @effect N/A: isSafeRepositoryPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isSafeRepositoryPathは独自の失敗分岐を所有しない。
+ * @invariant isSafeRepositoryPathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isSafeRepositoryPathはProcess内の同一Subsystemで完結する。
+ * @security N/A: isSafeRepositoryPathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isSafeRepositoryPathは共有非同期状態を持たない同期処理である。
+ */
 function isSafeRepositoryPath(value: string): boolean {
   return (
     value.length > 0 &&
@@ -240,6 +450,22 @@ function isSafeRepositoryPath(value: string): boolean {
   );
 }
 
+/**
+ * quotedTestNameExistsの処理を実行する。
+ *
+ * @responsibility quotedTestNameExistsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000018
+ * @input source: string、testName: string
+ * @returns booleanを返す。
+ * @precondition 「source: string、testName: string」がquotedTestNameExistsの入力契約を満たす。
+ * @postcondition quotedTestNameExistsの責務を完了した結果だけを返す。
+ * @effect N/A: quotedTestNameExistsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: quotedTestNameExistsは独自の失敗分岐を所有しない。
+ * @invariant quotedTestNameExistsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: quotedTestNameExistsはProcess内の同一Subsystemで完結する。
+ * @security N/A: quotedTestNameExistsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: quotedTestNameExistsは共有非同期状態を持たない同期処理である。
+ */
 function quotedTestNameExists(source: string, testName: string): boolean {
   const doubleQuoted = JSON.stringify(testName);
   const singleQuoted = `'${testName.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
@@ -249,6 +475,22 @@ function quotedTestNameExists(source: string, testName: string): boolean {
   );
 }
 
+/**
+ * inspectCoordinatorRuntimeTraceabilityの処理を実行する。
+ *
+ * @responsibility inspectCoordinatorRuntimeTraceabilityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000018
+ * @input input: unknown、readRepositoryText: TextReader
+ * @returns RuntimeTraceabilityInspectionを返す。
+ * @precondition 「input: unknown、readRepositoryText: TextReader」がinspectCoordinatorRuntimeTraceabilityの入力契約を満たす。
+ * @postcondition inspectCoordinatorRuntimeTraceabilityの責務を完了した結果だけを返す。
+ * @effect N/A: inspectCoordinatorRuntimeTraceabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectCoordinatorRuntimeTraceabilityは独自の失敗分岐を所有しない。
+ * @invariant inspectCoordinatorRuntimeTraceabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectCoordinatorRuntimeTraceabilityはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectCoordinatorRuntimeTraceabilityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectCoordinatorRuntimeTraceabilityは共有非同期状態を持たない同期処理である。
+ */
 export function inspectCoordinatorRuntimeTraceability(
   input: unknown,
   readRepositoryText: TextReader,

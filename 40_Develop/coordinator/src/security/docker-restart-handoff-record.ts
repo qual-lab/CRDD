@@ -5,7 +5,17 @@ import {
   validateDockerRestartRecordChain,
 } from "./docker-restart-record.ts";
 
-/** Data provenance only. No signature, filesystem, lock or effect authority. */
+/**
+ * Data provenance only. No signature, filesystem, lock or effect authority.
+ *
+ * @responsibility DockerRestartHandoffRecordに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape DockerRestartHandoffRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerRestartHandoffRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerRestartHandoffRecordの宣言は外部境界を開かない。
+ * @security DockerRestartHandoffRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerRestartHandoffRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerRestartHandoffRecord = Readonly<{
   contract: "crdd-coordinator/docker-restart-handoff-record";
   contractRevision: 1 | 2;
@@ -37,6 +47,22 @@ const encode = (record: DockerRestartHandoffRecord) =>
     `${JSON.stringify(Object.fromEntries((record.contractRevision === 2 ? ([...keys, "continuationCount", "continuationTipSha256"] as const) : keys).map((key) => [key, record[key]])))}\n`,
   );
 
+/**
+ * parseDockerRestartHandoffRecordの処理を実行する。
+ *
+ * @responsibility parseDockerRestartHandoffRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input bytes: Uint8Array
+ * @returns DockerRestartHandoffRecord | nullを返す。
+ * @precondition 「bytes: Uint8Array」がparseDockerRestartHandoffRecordの入力契約を満たす。
+ * @postcondition parseDockerRestartHandoffRecordの責務を完了した結果だけを返す。
+ * @effect N/A: parseDockerRestartHandoffRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure parseDockerRestartHandoffRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant parseDockerRestartHandoffRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseDockerRestartHandoffRecordはProcess内の同一Subsystemで完結する。
+ * @security parseDockerRestartHandoffRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: parseDockerRestartHandoffRecordは共有非同期状態を持たない同期処理である。
+ */
 export function parseDockerRestartHandoffRecord(
   bytes: Uint8Array,
 ): DockerRestartHandoffRecord | null {
@@ -88,9 +114,22 @@ export function parseDockerRestartHandoffRecord(
   }
 }
 
-/** Origin binding must come from separately verified historical provenance.
- * Current identity must come from separately verified current authority.
- * This function validates neither of those authorities and issues none. */
+/**
+ * Origin binding must come from separately verified historical provenance.
+ *
+ * @responsibility validateDockerRestartHandoffChainに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input originRecords: readonly Uint8Array[]、originBinding: DockerRestartBinding、handoffs: readonly Uint8Array[]、currentRuntimeIdentitySha256: string
+ * @returns readonly DockerRestartHandoffRecord[] | nullを返す。
+ * @precondition 「originRecords: readonly Uint8Array[]、originBinding: DockerRestartBinding、handoffs: readonly Uint8Array[]、currentRuntimeIdentitySha256: string」がvalidateDockerRestartHandoffChainの入力契約を満たす。
+ * @postcondition validateDockerRestartHandoffChainの責務を完了した結果だけを返す。
+ * @effect N/A: validateDockerRestartHandoffChainは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validateDockerRestartHandoffChainは独自の失敗分岐を所有しない。
+ * @invariant validateDockerRestartHandoffChainは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateDockerRestartHandoffChainはProcess内の同一Subsystemで完結する。
+ * @security validateDockerRestartHandoffChainはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateDockerRestartHandoffChainは共有非同期状態を持たない同期処理である。
+ */
 export function validateDockerRestartHandoffChain(
   originRecords: readonly Uint8Array[],
   originBinding: DockerRestartBinding,
@@ -139,7 +178,22 @@ export function validateDockerRestartHandoffChain(
     : null;
 }
 
-/** Builds bytes only; caller owns exclusive append and durable re-read. */
+/**
+ * Builds bytes only; caller owns exclusive append and durable re-read.
+ *
+ * @responsibility createDockerRestartHandoffRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input originRecords: readonly Uint8Array[]、originBinding: DockerRestartBinding、previous: readonly Uint8Array[]、currentRuntimeIdentitySha256: string
+ * @returns Bufferを返す。
+ * @precondition 「originRecords: readonly Uint8Array[]、originBinding: DockerRestartBinding、previous: readonly Uint8Array[]、currentRuntimeIdentitySha256: string」がcreateDockerRestartHandoffRecordの入力契約を満たす。
+ * @postcondition createDockerRestartHandoffRecordの責務を完了した結果だけを返す。
+ * @effect N/A: createDockerRestartHandoffRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createDockerRestartHandoffRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createDockerRestartHandoffRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createDockerRestartHandoffRecordはProcess内の同一Subsystemで完結する。
+ * @security createDockerRestartHandoffRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createDockerRestartHandoffRecordは共有非同期状態を持たない同期処理である。
+ */
 export function createDockerRestartHandoffRecord(
   originRecords: readonly Uint8Array[],
   originBinding: DockerRestartBinding,

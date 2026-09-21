@@ -10,6 +10,17 @@ export const testLevels = [
   "longevity",
 ] as const;
 
+/**
+ * TestLevelが扱う値の構造を表す。
+ *
+ * @responsibility TestLevelに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000003
+ * @shape TestLevelが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant TestLevelで宣言した値と責務の対応を維持する。
+ * @boundary N/A: TestLevelの宣言は外部境界を開かない。
+ * @security N/A: TestLevelはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility TestLevelの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type TestLevel = (typeof testLevels)[number];
 export const testKinds = ["unit", "contract", "integration"] as const;
 export const testEnvironments = [
@@ -30,6 +41,17 @@ export const integrationLifecycleProfiles = [
   "external_effect_operation",
 ] as const;
 
+/**
+ * TestCatalogEntryが扱う値の構造を表す。
+ *
+ * @responsibility TestCatalogEntryに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000003
+ * @shape TestCatalogEntryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant TestCatalogEntryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: TestCatalogEntryの宣言は外部境界を開かない。
+ * @security N/A: TestCatalogEntryはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility TestCatalogEntryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type TestCatalogEntry = Readonly<{
   id: string;
   owner:
@@ -57,6 +79,17 @@ export type TestCatalogEntry = Readonly<{
   mandatoryByDefault: boolean;
 }>;
 
+/**
+ * TestCatalogが扱う値の構造を表す。
+ *
+ * @responsibility TestCatalogに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000003
+ * @shape TestCatalogが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant TestCatalogで宣言した値と責務の対応を維持する。
+ * @boundary N/A: TestCatalogの宣言は外部境界を開かない。
+ * @security N/A: TestCatalogはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility TestCatalogの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type TestCatalog = Readonly<{
   contract: "crdd/test-catalog";
   contractRevision: 10;
@@ -194,14 +227,62 @@ const IGNORED_WALK_DIRECTORIES = new Set([".git", "node_modules", "target"]);
 const WINDOWS_PROCESS_GATE_DECLARATION =
   /\btest\s*\(\s*[`"]Windows Process Gate:/u;
 
+/**
+ * ordinalの処理を実行する。
+ *
+ * @responsibility ordinalに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input left: string、right: string
+ * @returns numberを返す。
+ * @precondition 「left: string、right: string」がordinalの入力契約を満たす。
+ * @postcondition ordinalの責務を完了した結果だけを返す。
+ * @effect N/A: ordinalは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: ordinalは独自の失敗分岐を所有しない。
+ * @invariant ordinalは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ordinalはProcess内の同一Subsystemで完結する。
+ * @security N/A: ordinalはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: ordinalは共有非同期状態を持たない同期処理である。
+ */
 function ordinal(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
+/**
+ * repositoryPathの処理を実行する。
+ *
+ * @responsibility repositoryPathに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input root: string、absolutePath: string
+ * @returns stringを返す。
+ * @precondition 「root: string、absolutePath: string」がrepositoryPathの入力契約を満たす。
+ * @postcondition repositoryPathの責務を完了した結果だけを返す。
+ * @effect N/A: repositoryPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: repositoryPathは独自の失敗分岐を所有しない。
+ * @invariant repositoryPathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: repositoryPathはProcess内の同一Subsystemで完結する。
+ * @security N/A: repositoryPathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: repositoryPathは共有非同期状態を持たない同期処理である。
+ */
 function repositoryPath(root: string, absolutePath: string): string {
   return path.relative(root, absolutePath).split(path.sep).join("/");
 }
 
+/**
+ * walkFilesの処理を実行する。
+ *
+ * @responsibility walkFilesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input root: string、directory: string
+ * @returns string[]を返す。
+ * @precondition 「root: string、directory: string」がwalkFilesの入力契約を満たす。
+ * @postcondition walkFilesの責務を完了した結果だけを返す。
+ * @effect walkFilesはFilesystemの読取りまたは書込みを実行する。
+ * @failure walkFilesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant walkFilesは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: walkFilesはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: walkFilesは共有非同期状態を持たない同期処理である。
+ */
 function walkFiles(root: string, directory: string): string[] {
   if (!fs.existsSync(directory)) return [];
   const discoveredFiles: string[] = [];
@@ -220,6 +301,22 @@ function walkFiles(root: string, directory: string): string[] {
   return discoveredFiles;
 }
 
+/**
+ * discoverRepositoryTestFilesの処理を実行する。
+ *
+ * @responsibility discoverRepositoryTestFilesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input repositoryRoot: string
+ * @returns string[]を返す。
+ * @precondition 「repositoryRoot: string」がdiscoverRepositoryTestFilesの入力契約を満たす。
+ * @postcondition discoverRepositoryTestFilesの責務を完了した結果だけを返す。
+ * @effect discoverRepositoryTestFilesはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: discoverRepositoryTestFilesは独自の失敗分岐を所有しない。
+ * @invariant discoverRepositoryTestFilesは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: discoverRepositoryTestFilesはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: discoverRepositoryTestFilesは共有非同期状態を持たない同期処理である。
+ */
 export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
   const nodeTests = [
     "artifact-signing",
@@ -253,10 +350,42 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
   return [...nodeTests, ...rustTests].sort(ordinal);
 }
 
+/**
+ * isTestLevelの処理を実行する。
+ *
+ * @responsibility isTestLevelに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input value: unknown
+ * @returns value is TestLevelを返す。
+ * @precondition 「value: unknown」がisTestLevelの入力契約を満たす。
+ * @postcondition isTestLevelの責務を完了した結果だけを返す。
+ * @effect N/A: isTestLevelは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isTestLevelは独自の失敗分岐を所有しない。
+ * @invariant isTestLevelは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isTestLevelはProcess内の同一Subsystemで完結する。
+ * @security N/A: isTestLevelはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isTestLevelは共有非同期状態を持たない同期処理である。
+ */
 function isTestLevel(value: unknown): value is TestLevel {
   return typeof value === "string" && testLevels.includes(value as TestLevel);
 }
 
+/**
+ * expectedNodeLevelの処理を実行する。
+ *
+ * @responsibility expectedNodeLevelに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input entryPath: string
+ * @returns string | nullを返す。
+ * @precondition 「entryPath: string」がexpectedNodeLevelの入力契約を満たす。
+ * @postcondition expectedNodeLevelの責務を完了した結果だけを返す。
+ * @effect N/A: expectedNodeLevelは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: expectedNodeLevelは独自の失敗分岐を所有しない。
+ * @invariant expectedNodeLevelは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: expectedNodeLevelはProcess内の同一Subsystemで完結する。
+ * @security N/A: expectedNodeLevelはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: expectedNodeLevelは共有非同期状態を持たない同期処理である。
+ */
 function expectedNodeLevel(entryPath: string): string | null {
   return (
     /^40_Develop\/(?:artifact-signing|checker|coordinator|crdd-domain-library|execution-intelligence|mcp|project-runtime|runtime-data|semantic-coverage|verification-runner|version-control)\/tests\/([^/]+)\//u.exec(
@@ -265,14 +394,62 @@ function expectedNodeLevel(entryPath: string): string | null {
   );
 }
 
+/**
+ * loadTestCatalogの処理を実行する。
+ *
+ * @responsibility loadTestCatalogに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input catalogPath: string
+ * @returns unknownを返す。
+ * @precondition 「catalogPath: string」がloadTestCatalogの入力契約を満たす。
+ * @postcondition loadTestCatalogの責務を完了した結果だけを返す。
+ * @effect loadTestCatalogはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: loadTestCatalogは独自の失敗分岐を所有しない。
+ * @invariant loadTestCatalogは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: loadTestCatalogはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: loadTestCatalogは共有非同期状態を持たない同期処理である。
+ */
 export function loadTestCatalog(catalogPath: string): unknown {
   return JSON.parse(fs.readFileSync(catalogPath, "utf8")) as unknown;
 }
 
+/**
+ * isRecordの処理を実行する。
+ *
+ * @responsibility isRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input value: unknown
+ * @returns value is Record<string, unknown>を返す。
+ * @precondition 「value: unknown」がisRecordの入力契約を満たす。
+ * @postcondition isRecordの責務を完了した結果だけを返す。
+ * @effect N/A: isRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isRecordは独自の失敗分岐を所有しない。
+ * @invariant isRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isRecordはProcess内の同一Subsystemで完結する。
+ * @security N/A: isRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isRecordは共有非同期状態を持たない同期処理である。
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * inspectExactKeysの処理を実行する。
+ *
+ * @responsibility inspectExactKeysに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input value: Record<string, unknown>、expected: ReadonlySet<string>、prefix: string、optional: ReadonlySet<string>
+ * @returns string[]を返す。
+ * @precondition 「value: Record<string, unknown>、expected: ReadonlySet<string>、prefix: string、optional: ReadonlySet<string>」がinspectExactKeysの入力契約を満たす。
+ * @postcondition inspectExactKeysの責務を完了した結果だけを返す。
+ * @effect N/A: inspectExactKeysは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectExactKeysは独自の失敗分岐を所有しない。
+ * @invariant inspectExactKeysは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectExactKeysはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectExactKeysはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectExactKeysは共有非同期状態を持たない同期処理である。
+ */
 function inspectExactKeys(
   value: Record<string, unknown>,
   expected: ReadonlySet<string>,
@@ -288,6 +465,22 @@ function inspectExactKeys(
   return failures;
 }
 
+/**
+ * isNonEmptyUniqueStringArrayの処理を実行する。
+ *
+ * @responsibility isNonEmptyUniqueStringArrayに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input value: unknown
+ * @returns value is string[]を返す。
+ * @precondition 「value: unknown」がisNonEmptyUniqueStringArrayの入力契約を満たす。
+ * @postcondition isNonEmptyUniqueStringArrayの責務を完了した結果だけを返す。
+ * @effect N/A: isNonEmptyUniqueStringArrayは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isNonEmptyUniqueStringArrayは独自の失敗分岐を所有しない。
+ * @invariant isNonEmptyUniqueStringArrayは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isNonEmptyUniqueStringArrayはProcess内の同一Subsystemで完結する。
+ * @security N/A: isNonEmptyUniqueStringArrayはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isNonEmptyUniqueStringArrayは共有非同期状態を持たない同期処理である。
+ */
 function isNonEmptyUniqueStringArray(value: unknown): value is string[] {
   return (
     Array.isArray(value) &&
@@ -297,6 +490,22 @@ function isNonEmptyUniqueStringArray(value: unknown): value is string[] {
   );
 }
 
+/**
+ * isSafeRepositoryPathの処理を実行する。
+ *
+ * @responsibility isSafeRepositoryPathに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input value: string
+ * @returns booleanを返す。
+ * @precondition 「value: string」がisSafeRepositoryPathの入力契約を満たす。
+ * @postcondition isSafeRepositoryPathの責務を完了した結果だけを返す。
+ * @effect N/A: isSafeRepositoryPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isSafeRepositoryPathは独自の失敗分岐を所有しない。
+ * @invariant isSafeRepositoryPathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isSafeRepositoryPathはProcess内の同一Subsystemで完結する。
+ * @security N/A: isSafeRepositoryPathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isSafeRepositoryPathは共有非同期状態を持たない同期処理である。
+ */
 function isSafeRepositoryPath(value: string): boolean {
   return (
     value.length > 0 &&
@@ -312,6 +521,22 @@ function isSafeRepositoryPath(value: string): boolean {
   );
 }
 
+/**
+ * markdownHeadingAnchorExistsの処理を実行する。
+ *
+ * @responsibility markdownHeadingAnchorExistsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input repositoryRoot: string、architectureAnchor: string
+ * @returns booleanを返す。
+ * @precondition 「repositoryRoot: string、architectureAnchor: string」がmarkdownHeadingAnchorExistsの入力契約を満たす。
+ * @postcondition markdownHeadingAnchorExistsの責務を完了した結果だけを返す。
+ * @effect markdownHeadingAnchorExistsはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: markdownHeadingAnchorExistsは独自の失敗分岐を所有しない。
+ * @invariant markdownHeadingAnchorExistsは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: markdownHeadingAnchorExistsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: markdownHeadingAnchorExistsは共有非同期状態を持たない同期処理である。
+ */
 function markdownHeadingAnchorExists(
   repositoryRoot: string,
   architectureAnchor: string,
@@ -346,6 +571,22 @@ function markdownHeadingAnchorExists(
     .includes(fragment);
 }
 
+/**
+ * inspectTestCatalogの処理を実行する。
+ *
+ * @responsibility inspectTestCatalogに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input repositoryRoot: string、candidate: unknown
+ * @returns readonly string[]を返す。
+ * @precondition 「repositoryRoot: string、candidate: unknown」がinspectTestCatalogの入力契約を満たす。
+ * @postcondition inspectTestCatalogの責務を完了した結果だけを返す。
+ * @effect inspectTestCatalogはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: inspectTestCatalogは独自の失敗分岐を所有しない。
+ * @invariant inspectTestCatalogは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: inspectTestCatalogはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectTestCatalogは共有非同期状態を持たない同期処理である。
+ */
 export function inspectTestCatalog(
   repositoryRoot: string,
   candidate: unknown,
@@ -689,6 +930,17 @@ export function inspectTestCatalog(
   return [...new Set(failures)].sort(ordinal);
 }
 
+/**
+ * ResourceIntensiveTestAuthorityが扱う値の構造を表す。
+ *
+ * @responsibility ResourceIntensiveTestAuthorityに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000003
+ * @shape ResourceIntensiveTestAuthorityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ResourceIntensiveTestAuthorityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ResourceIntensiveTestAuthorityの宣言は外部境界を開かない。
+ * @security N/A: ResourceIntensiveTestAuthorityはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ResourceIntensiveTestAuthorityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ResourceIntensiveTestAuthority = Readonly<{
   authorized: boolean;
   purpose: string | null;
@@ -700,6 +952,22 @@ export type ResourceIntensiveTestAuthority = Readonly<{
   stopCondition: string | null;
 }>;
 
+/**
+ * inspectResourceIntensiveTestAuthorityの処理を実行する。
+ *
+ * @responsibility inspectResourceIntensiveTestAuthorityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input levels: ReadonlySet<TestLevel>、authority: ResourceIntensiveTestAuthority
+ * @returns readonly string[]を返す。
+ * @precondition 「levels: ReadonlySet<TestLevel>、authority: ResourceIntensiveTestAuthority」がinspectResourceIntensiveTestAuthorityの入力契約を満たす。
+ * @postcondition inspectResourceIntensiveTestAuthorityの責務を完了した結果だけを返す。
+ * @effect N/A: inspectResourceIntensiveTestAuthorityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectResourceIntensiveTestAuthorityは独自の失敗分岐を所有しない。
+ * @invariant inspectResourceIntensiveTestAuthorityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectResourceIntensiveTestAuthorityはProcess内の同一Subsystemで完結する。
+ * @security inspectResourceIntensiveTestAuthorityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectResourceIntensiveTestAuthorityは共有非同期状態を持たない同期処理である。
+ */
 export function inspectResourceIntensiveTestAuthority(
   levels: ReadonlySet<TestLevel>,
   authority: ResourceIntensiveTestAuthority,
@@ -727,6 +995,22 @@ export function inspectResourceIntensiveTestAuthority(
   return failures;
 }
 
+/**
+ * ownerForPathの処理を実行する。
+ *
+ * @responsibility ownerForPathに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input changedPath: string
+ * @returns TestCatalogEntry["owner"] | nullを返す。
+ * @precondition 「changedPath: string」がownerForPathの入力契約を満たす。
+ * @postcondition ownerForPathの責務を完了した結果だけを返す。
+ * @effect N/A: ownerForPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: ownerForPathは独自の失敗分岐を所有しない。
+ * @invariant ownerForPathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ownerForPathはProcess内の同一Subsystemで完結する。
+ * @security N/A: ownerForPathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: ownerForPathは共有非同期状態を持たない同期処理である。
+ */
 function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
   if (changedPath.startsWith("40_Develop/artifact-signing/"))
     return "artifact-signing";
@@ -751,10 +1035,42 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
   return null;
 }
 
+/**
+ * isDocumentationPathの処理を実行する。
+ *
+ * @responsibility isDocumentationPathに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input changedPath: string
+ * @returns booleanを返す。
+ * @precondition 「changedPath: string」がisDocumentationPathの入力契約を満たす。
+ * @postcondition isDocumentationPathの責務を完了した結果だけを返す。
+ * @effect N/A: isDocumentationPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isDocumentationPathは独自の失敗分岐を所有しない。
+ * @invariant isDocumentationPathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isDocumentationPathはProcess内の同一Subsystemで完結する。
+ * @security N/A: isDocumentationPathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isDocumentationPathは共有非同期状態を持たない同期処理である。
+ */
 function isDocumentationPath(changedPath: string): boolean {
   return changedPath.toLowerCase().endsWith(".md");
 }
 
+/**
+ * isSharedRuntimePathの処理を実行する。
+ *
+ * @responsibility isSharedRuntimePathに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input changedPath: string
+ * @returns booleanを返す。
+ * @precondition 「changedPath: string」がisSharedRuntimePathの入力契約を満たす。
+ * @postcondition isSharedRuntimePathの責務を完了した結果だけを返す。
+ * @effect N/A: isSharedRuntimePathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isSharedRuntimePathは独自の失敗分岐を所有しない。
+ * @invariant isSharedRuntimePathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isSharedRuntimePathはProcess内の同一Subsystemで完結する。
+ * @security N/A: isSharedRuntimePathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isSharedRuntimePathは共有非同期状態を持たない同期処理である。
+ */
 function isSharedRuntimePath(changedPath: string): boolean {
   return (
     changedPath === "07_Quality/Registry/test-catalog.json" ||
@@ -764,6 +1080,22 @@ function isSharedRuntimePath(changedPath: string): boolean {
   );
 }
 
+/**
+ * applicableConsumerBindingsの処理を実行する。
+ *
+ * @responsibility applicableConsumerBindingsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input catalog: TestCatalog、changedPath: string、producerOwner: TestCatalogEntry["owner"]
+ * @returns applicableConsumerBindingsの計算結果を返す。
+ * @precondition 「catalog: TestCatalog、changedPath: string、producerOwner: TestCatalogEntry["owner"]」がapplicableConsumerBindingsの入力契約を満たす。
+ * @postcondition applicableConsumerBindingsの責務を完了した結果だけを返す。
+ * @effect N/A: applicableConsumerBindingsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: applicableConsumerBindingsは独自の失敗分岐を所有しない。
+ * @invariant applicableConsumerBindingsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: applicableConsumerBindingsはProcess内の同一Subsystemで完結する。
+ * @security N/A: applicableConsumerBindingsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: applicableConsumerBindingsは共有非同期状態を持たない同期処理である。
+ */
 function applicableConsumerBindings(
   catalog: TestCatalog,
   changedPath: string,
@@ -784,6 +1116,22 @@ function applicableConsumerBindings(
   return matchedBindings.length > 0 ? matchedBindings : ownerBindings;
 }
 
+/**
+ * selectRegressionStaticOwnersの処理を実行する。
+ *
+ * @responsibility selectRegressionStaticOwnersに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input catalog: TestCatalog、changedPaths: readonly string[]、selectedEntries: readonly TestCatalogEntry[]
+ * @returns readonly TestCatalogEntry["owner"][]を返す。
+ * @precondition 「catalog: TestCatalog、changedPaths: readonly string[]、selectedEntries: readonly TestCatalogEntry[]」がselectRegressionStaticOwnersの入力契約を満たす。
+ * @postcondition selectRegressionStaticOwnersの責務を完了した結果だけを返す。
+ * @effect N/A: selectRegressionStaticOwnersは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: selectRegressionStaticOwnersは独自の失敗分岐を所有しない。
+ * @invariant selectRegressionStaticOwnersは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: selectRegressionStaticOwnersはProcess内の同一Subsystemで完結する。
+ * @security N/A: selectRegressionStaticOwnersはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: selectRegressionStaticOwnersは共有非同期状態を持たない同期処理である。
+ */
 export function selectRegressionStaticOwners(
   catalog: TestCatalog,
   changedPaths: readonly string[],
@@ -823,6 +1171,22 @@ export function selectRegressionStaticOwners(
   return [...owners].sort(ordinal);
 }
 
+/**
+ * selectRegressionTestsの処理を実行する。
+ *
+ * @responsibility selectRegressionTestsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input catalog: TestCatalog、changedPaths: readonly string[]、levels: ReadonlySet<TestLevel>
+ * @returns readonly TestCatalogEntry[]を返す。
+ * @precondition 「catalog: TestCatalog、changedPaths: readonly string[]、levels: ReadonlySet<TestLevel>」がselectRegressionTestsの入力契約を満たす。
+ * @postcondition selectRegressionTestsの責務を完了した結果だけを返す。
+ * @effect N/A: selectRegressionTestsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: selectRegressionTestsは独自の失敗分岐を所有しない。
+ * @invariant selectRegressionTestsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: selectRegressionTestsはProcess内の同一Subsystemで完結する。
+ * @security N/A: selectRegressionTestsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: selectRegressionTestsは共有非同期状態を持たない同期処理である。
+ */
 export function selectRegressionTests(
   catalog: TestCatalog,
   changedPaths: readonly string[],

@@ -9,6 +9,17 @@ import {
   validateDockerRestartRecordChain,
 } from "./docker-restart-record.ts";
 
+/**
+ * Continuationが扱う値の構造を表す。
+ *
+ * @responsibility Continuationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape Continuationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Continuationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Continuationの宣言は外部境界を開かない。
+ * @security ContinuationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Continuationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Continuation = Readonly<{
   contract: "crdd-coordinator/docker-restart-continuation";
   contractRevision: 1;
@@ -17,7 +28,22 @@ type Continuation = Readonly<{
 }>;
 const encode = (value: Continuation) =>
   Buffer.from(`${JSON.stringify(value)}\n`);
-/** Pure record wrapping, never execution authority. */
+/**
+ * Pure record wrapping, never execution authority.
+ *
+ * @responsibility createDockerRestartContinuationRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input recordBytes: Uint8Array、handoffSha256: string
+ * @returns Bufferを返す。
+ * @precondition 「recordBytes: Uint8Array、handoffSha256: string」がcreateDockerRestartContinuationRecordの入力契約を満たす。
+ * @postcondition createDockerRestartContinuationRecordの責務を完了した結果だけを返す。
+ * @effect N/A: createDockerRestartContinuationRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createDockerRestartContinuationRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createDockerRestartContinuationRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createDockerRestartContinuationRecordはProcess内の同一Subsystemで完結する。
+ * @security createDockerRestartContinuationRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createDockerRestartContinuationRecordは共有非同期状態を持たない同期処理である。
+ */
 export function createDockerRestartContinuationRecord(
   recordBytes: Uint8Array,
   handoffSha256: string,
@@ -32,6 +58,22 @@ export function createDockerRestartContinuationRecord(
     record,
   });
 }
+/**
+ * parseDockerRestartContinuationRecordの処理を実行する。
+ *
+ * @responsibility parseDockerRestartContinuationRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input bytes: Uint8Array
+ * @returns Continuation | nullを返す。
+ * @precondition 「bytes: Uint8Array」がparseDockerRestartContinuationRecordの入力契約を満たす。
+ * @postcondition parseDockerRestartContinuationRecordの責務を完了した結果だけを返す。
+ * @effect N/A: parseDockerRestartContinuationRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure parseDockerRestartContinuationRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant parseDockerRestartContinuationRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseDockerRestartContinuationRecordはProcess内の同一Subsystemで完結する。
+ * @security parseDockerRestartContinuationRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: parseDockerRestartContinuationRecordは共有非同期状態を持たない同期処理である。
+ */
 export function parseDockerRestartContinuationRecord(
   bytes: Uint8Array,
 ): Continuation | null {
@@ -58,6 +100,22 @@ export function parseDockerRestartContinuationRecord(
     return null;
   }
 }
+/**
+ * validateDockerRestartContinuationChainの処理を実行する。
+ *
+ * @responsibility validateDockerRestartContinuationChainに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input bytes: readonly Uint8Array[]、binding: DockerRestartBinding、handoffBytes: Uint8Array
+ * @returns readonly DockerRestartRecord[] | nullを返す。
+ * @precondition 「bytes: readonly Uint8Array[]、binding: DockerRestartBinding、handoffBytes: Uint8Array」がvalidateDockerRestartContinuationChainの入力契約を満たす。
+ * @postcondition validateDockerRestartContinuationChainの責務を完了した結果だけを返す。
+ * @effect N/A: validateDockerRestartContinuationChainは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validateDockerRestartContinuationChainは独自の失敗分岐を所有しない。
+ * @invariant validateDockerRestartContinuationChainは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateDockerRestartContinuationChainはProcess内の同一Subsystemで完結する。
+ * @security validateDockerRestartContinuationChainはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateDockerRestartContinuationChainは共有非同期状態を持たない同期処理である。
+ */
 export function validateDockerRestartContinuationChain(
   bytes: readonly Uint8Array[],
   binding: DockerRestartBinding,
@@ -85,8 +143,22 @@ const fixedBindingKeys = [
   "pendingSubmissionSha256",
 ] as const;
 
-/** Resolves immutable evidence only. Signature, lock and effect authority remain
- * the caller's responsibility. Every consumer uses the same generation cuts. */
+/**
+ * Resolves immutable evidence only. Signature, lock and effect authority remain
+ *
+ * @responsibility resolveDockerRestartHistoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input originBytes: readonly Uint8Array[]、binding: DockerRestartBinding、handoffBytes: readonly Uint8Array[]、continuationBytes: readonly Uint8Array[]
+ * @returns resolveDockerRestartHistoryの計算結果を返す。
+ * @precondition 「originBytes: readonly Uint8Array[]、binding: DockerRestartBinding、handoffBytes: readonly Uint8Array[]、continuationBytes: readonly Uint8Array[]」がresolveDockerRestartHistoryの入力契約を満たす。
+ * @postcondition resolveDockerRestartHistoryの責務を完了した結果だけを返す。
+ * @effect N/A: resolveDockerRestartHistoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveDockerRestartHistoryは独自の失敗分岐を所有しない。
+ * @invariant resolveDockerRestartHistoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveDockerRestartHistoryはProcess内の同一Subsystemで完結する。
+ * @security resolveDockerRestartHistoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resolveDockerRestartHistoryは共有非同期状態を持たない同期処理である。
+ */
 export function resolveDockerRestartHistory(
   originBytes: readonly Uint8Array[],
   binding: DockerRestartBinding,
@@ -170,7 +242,22 @@ export function resolveDockerRestartHistory(
   });
 }
 
-/** Append-only migration proposal. Does not publish or acquire authority. */
+/**
+ * Append-only migration proposal. Does not publish or acquire authority.
+ *
+ * @responsibility createDockerRestartMigrationRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input originBytes: readonly Uint8Array[]、binding: DockerRestartBinding、handoffBytes: readonly Uint8Array[]、continuationBytes: readonly Uint8Array[]
+ * @returns createDockerRestartMigrationRecordの計算結果を返す。
+ * @precondition 「originBytes: readonly Uint8Array[]、binding: DockerRestartBinding、handoffBytes: readonly Uint8Array[]、continuationBytes: readonly Uint8Array[]」がcreateDockerRestartMigrationRecordの入力契約を満たす。
+ * @postcondition createDockerRestartMigrationRecordの責務を完了した結果だけを返す。
+ * @effect N/A: createDockerRestartMigrationRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createDockerRestartMigrationRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createDockerRestartMigrationRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createDockerRestartMigrationRecordはProcess内の同一Subsystemで完結する。
+ * @security createDockerRestartMigrationRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createDockerRestartMigrationRecordは共有非同期状態を持たない同期処理である。
+ */
 export function createDockerRestartMigrationRecord(
   originBytes: readonly Uint8Array[],
   binding: DockerRestartBinding,
@@ -230,6 +317,22 @@ export function createDockerRestartMigrationRecord(
   return bytes;
 }
 
+/**
+ * createDockerRestartMigratedPhaseの処理を実行する。
+ *
+ * @responsibility createDockerRestartMigratedPhaseに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input binding: DockerRestartBinding、phase: DockerRestartRecord["phase"]、previous: Uint8Array
+ * @returns createDockerRestartMigratedPhaseの計算結果を返す。
+ * @precondition 「binding: DockerRestartBinding、phase: DockerRestartRecord["phase"]、previous: Uint8Array」がcreateDockerRestartMigratedPhaseの入力契約を満たす。
+ * @postcondition createDockerRestartMigratedPhaseの責務を完了した結果だけを返す。
+ * @effect N/A: createDockerRestartMigratedPhaseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createDockerRestartMigratedPhaseは独自の失敗分岐を所有しない。
+ * @invariant createDockerRestartMigratedPhaseは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createDockerRestartMigratedPhaseはProcess内の同一Subsystemで完結する。
+ * @security createDockerRestartMigratedPhaseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createDockerRestartMigratedPhaseは共有非同期状態を持たない同期処理である。
+ */
 export function createDockerRestartMigratedPhase(
   binding: DockerRestartBinding,
   phase: DockerRestartRecord["phase"],

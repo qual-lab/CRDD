@@ -73,10 +73,32 @@ const CHILD_ENVIRONMENT_PROFILES = new Set([
   "docker_cli",
 ]);
 
+/**
+ * ProjectRuntimeWindowsRepositoryRootResultが扱う値の構造を表す。
+ *
+ * @responsibility ProjectRuntimeWindowsRepositoryRootResultに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeWindowsRepositoryRootResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeWindowsRepositoryRootResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeWindowsRepositoryRootResultの宣言は外部境界を開かない。
+ * @security ProjectRuntimeWindowsRepositoryRootResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ProjectRuntimeWindowsRepositoryRootResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeWindowsRepositoryRootResult =
   | Readonly<{ status: "resolved"; repositoryRoot: string }>
   | Readonly<{ status: "blocked"; reason: string }>;
 
+/**
+ * ProjectRuntimeWindowsChildEnvironmentResultが扱う値の構造を表す。
+ *
+ * @responsibility ProjectRuntimeWindowsChildEnvironmentResultに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeWindowsChildEnvironmentResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeWindowsChildEnvironmentResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeWindowsChildEnvironmentResultの宣言は外部境界を開かない。
+ * @security ProjectRuntimeWindowsChildEnvironmentResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ProjectRuntimeWindowsChildEnvironmentResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeWindowsChildEnvironmentResult =
   | Readonly<{
       status: "derived";
@@ -85,12 +107,39 @@ export type ProjectRuntimeWindowsChildEnvironmentResult =
     }>
   | Readonly<{ status: "blocked"; reason: string }>;
 
+/**
+ * ProjectRuntimeWindowsLeaseOwnerObservationが扱う値の構造を表す。
+ *
+ * @responsibility ProjectRuntimeWindowsLeaseOwnerObservationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeWindowsLeaseOwnerObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeWindowsLeaseOwnerObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeWindowsLeaseOwnerObservationの宣言は外部境界を開かない。
+ * @security ProjectRuntimeWindowsLeaseOwnerObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ProjectRuntimeWindowsLeaseOwnerObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeWindowsLeaseOwnerObservation = Readonly<{
   status: "alive" | "absent" | "unknown";
   ownerProcessId: number;
   ownerGeneration: string;
 }>;
 
+/**
+ * observeLeaseOwnerの処理を実行する。
+ *
+ * @responsibility observeLeaseOwnerに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input rawOwner: unknown
+ * @returns ProjectRuntimeWindowsLeaseOwnerObservationを返す。
+ * @precondition 「rawOwner: unknown」がobserveLeaseOwnerの入力契約を満たす。
+ * @postcondition observeLeaseOwnerの責務を完了した結果だけを返す。
+ * @effect observeLeaseOwnerは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure observeLeaseOwnerは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeLeaseOwnerは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security observeLeaseOwnerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeLeaseOwnerは共有非同期状態を持たない同期処理である。
+ */
 function observeLeaseOwner(
   rawOwner: unknown,
 ): ProjectRuntimeWindowsLeaseOwnerObservation {
@@ -143,8 +192,19 @@ function observeLeaseOwner(
 
 /**
  * Observe the current process platform family without exporting the raw OS
- * token into Project Runtime Core. Core receives only the closed family name
- * and must fail closed when the observation is blocked.
+ *
+ * @responsibility observeProjectRuntimePlatformFamilyに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns | Readonly<{ status: "observed"; platformFamily: string }> | Readonly<{ status: "blocked"; reason: "platform_identity_unknown" }>を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がobserveProjectRuntimePlatformFamilyの入力契約を満たす。
+ * @postcondition observeProjectRuntimePlatformFamilyの責務を完了した結果だけを返す。
+ * @effect observeProjectRuntimePlatformFamilyは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: observeProjectRuntimePlatformFamilyは独自の失敗分岐を所有しない。
+ * @invariant observeProjectRuntimePlatformFamilyは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security observeProjectRuntimePlatformFamilyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeProjectRuntimePlatformFamilyは共有非同期状態を持たない同期処理である。
  */
 export function observeProjectRuntimePlatformFamily():
   | Readonly<{ status: "observed"; platformFamily: string }>
@@ -160,6 +220,22 @@ export function observeProjectRuntimePlatformFamily():
   });
 }
 
+/**
+ * resolveRepositoryRootの処理を実行する。
+ *
+ * @responsibility resolveRepositoryRootに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input workingDirectory: unknown
+ * @returns ProjectRuntimeWindowsRepositoryRootResultを返す。
+ * @precondition 「workingDirectory: unknown」がresolveRepositoryRootの入力契約を満たす。
+ * @postcondition resolveRepositoryRootの責務を完了した結果だけを返す。
+ * @effect N/A: resolveRepositoryRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure resolveRepositoryRootは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant resolveRepositoryRootは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security resolveRepositoryRootはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resolveRepositoryRootは共有非同期状態を持たない同期処理である。
+ */
 function resolveRepositoryRoot(
   workingDirectory: unknown,
 ): ProjectRuntimeWindowsRepositoryRootResult {
@@ -180,6 +256,22 @@ function resolveRepositoryRoot(
   }
 }
 
+/**
+ * deriveChildEnvironmentの処理を実行する。
+ *
+ * @responsibility deriveChildEnvironmentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input rawRequest: unknown
+ * @returns ProjectRuntimeWindowsChildEnvironmentResultを返す。
+ * @precondition 「rawRequest: unknown」がderiveChildEnvironmentの入力契約を満たす。
+ * @postcondition deriveChildEnvironmentの責務を完了した結果だけを返す。
+ * @effect N/A: deriveChildEnvironmentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: deriveChildEnvironmentは独自の失敗分岐を所有しない。
+ * @invariant deriveChildEnvironmentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security deriveChildEnvironmentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: deriveChildEnvironmentは共有非同期状態を持たない同期処理である。
+ */
 function deriveChildEnvironment(
   rawRequest: unknown,
 ): ProjectRuntimeWindowsChildEnvironmentResult {
@@ -234,9 +326,19 @@ function deriveChildEnvironment(
 
 /**
  * IF-PLATFORM Windows adapter. Every operation routes a closed request to an
- * implementation that already exists for the v0.18 Single Task Runtime and
- * keeps that implementation's own contract; the adapter adds no behavior, no
- * authority and no fallback. Observation results are data, not capabilities.
+ *
+ * @responsibility createProjectRuntimeWindowsPlatformAdapterに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns ProjectRuntimePlatformAdapterを返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がcreateProjectRuntimeWindowsPlatformAdapterの入力契約を満たす。
+ * @postcondition createProjectRuntimeWindowsPlatformAdapterの責務を完了した結果だけを返す。
+ * @effect N/A: createProjectRuntimeWindowsPlatformAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createProjectRuntimeWindowsPlatformAdapterは独自の失敗分岐を所有しない。
+ * @invariant createProjectRuntimeWindowsPlatformAdapterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security createProjectRuntimeWindowsPlatformAdapterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createProjectRuntimeWindowsPlatformAdapterは共有非同期状態を持たない同期処理である。
  */
 export function createProjectRuntimeWindowsPlatformAdapter(): ProjectRuntimePlatformAdapter {
   return Object.freeze({

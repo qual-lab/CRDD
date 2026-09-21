@@ -24,6 +24,7 @@
 | Deployment | Required | 公式Repository収載と公開成果物への配布を別Effectにする。 | [§1](#1-責務ブロック) |
 | Observability | Required | 判断者、対象版、許可用途、根拠へ戻れるようにする。 | [§2](#2-素材記録) |
 | Security Boundary | Required | 確認記録から法的判断、公開、用途外利用のAuthorityを生成しない。 | [§4](#4-失敗と停止) |
+| Implementation Structure | Required | 設計責務を具象差、選択、状態依存、構成、資源Ownerおよび外部境界へ分解する。 | [§Implementation Structure](#implementation-structure) |
 
 ## Engineering Concern評価
 
@@ -47,11 +48,13 @@
 
 ## Qualityへの引渡し
 
-| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
-|---|---|---|---|---|---|---|
-| 素材判断 | asset identityと根拠 | 判断者・用途・対象版が揃う | 生成手段だけで承認、用途空欄 | state、authority、evidence | 未確認時は収載Effect 0 | 法的助言は対象外 |
-| 収載・公開 | approved assetとRelease | 許可用途内で別Authorityにより実行 | restricted公開、withdrawn再利用 | release relationとasset state | 影響先追跡または公開なし | 外部配布先の撤回能力 |
-| 同一素材版の競合判断 | asset identity、期待revision、現行revision | 一致するrevisionへ一つの判断だけを確定 | silent overwrite、後着判断による上書き | 勝者revision、拒否理由、共有確定状態 | 敗者Effect 0、勝者状態を保持 | 複数判断者による競合反証 |
+| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|---|---|---|
+| `official-asset-governance.asset-decision` | Transition／Security Boundary | asset identityと根拠 | 判断者・用途・対象版が揃う | 生成手段だけで承認、用途空欄 | IT／UAT | User Acceptance | state、authority、evidence | 未確認時は収載Effect 0 | 法的助言は対象外 |
+| `official-asset-governance.asset-publication` | Sequence／Transition | approved assetとRelease | 許可用途内で別Authorityにより実行 | restricted公開、withdrawn再利用 | IT／ST | Related 2 Blocks | release relationとasset state | 影響先追跡または公開なし | 外部配布先の撤回能力 |
+| `official-asset-governance.revision-conflict` | Transition／Consistency | asset identity、期待revision、現行revision | 一致するrevisionへ一つの判断だけを確定 | silent overwrite、後着判断による上書き | UT／IT | Direct Boundary | 勝者revision、拒否理由、共有確定状態 | 敗者Effect 0、勝者状態を保持 | 複数判断者による競合反証 |
+
+導出キーは本領域内でQualityが同じ設計項目を反復参照するための局所参照であり、CRDD全体の安定コンテキストIDではない。
 
 ## 現行実装との照合
 
@@ -105,16 +108,33 @@ candidate
 - `restricted`と`withdrawn`を`approved`へ丸めない。
 - 取下げ後は新規利用を停止し、既公開物への処置を人間判断へ戻す。
 
+## Implementation Structure
+
+| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
+|---|---|---|---|---|---|---|
+| Variation | Required | この観点を成立させる構造と責務が存在するため。 | Qualityへの引渡しで責務差を別の設計項目として固定する。 | 具象差を一つの分岐へ畳まず、各導出キーの正常条件と反証条件を保つ。 | 新しい具象を追加した場合、対応する導出キーと利用側の再確認が必要になる。 | `official-asset-governance.asset-decision`<br>`official-asset-governance.asset-publication`<br>`official-asset-governance.revision-conflict` |
+| Common Contract | Required | この観点を成立させる構造と責務が存在するため。 | Asset種別ごとの候補、採用、改訂版競合と公開を、正本Ownerと判断Evidenceの共通契約へ揃える。 | Asset種別が異なっても候補と正式版、採用Authority、Revisionおよび置換関係を分ける。 | 新しいAsset種別だけが独自の採用・公開経路を持ち、正本が二重化する。 | `official-asset-governance.asset-decision`<br>`official-asset-governance.asset-publication`<br>`official-asset-governance.revision-conflict` |
+| Creation／Selection | Required | この観点を成立させる構造と責務が存在するため。 | Authority、入力または配置条件を満たした後にだけ具象・処理経路を選ぶ。 | 選択前の検証と選択後のIdentityを分け、未確認時はEffect 0とする。 | 選択条件の変更はTrust、Authorityまたは利用側契約へ波及する。 | `official-asset-governance.asset-decision` |
+| State-dependent Behavior | Required | この観点を成立させる構造と責務が存在するため。 | 入力・処理中・完了・失敗・観測不能を区別して振る舞いを決める。 | 状態を空値や成功へ畳まず、同じIdentityで終了条件まで追跡する。 | 状態追加・統合はRecoveryと観測契約へ波及する。 | `official-asset-governance.asset-decision` |
+| Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | 複数の局所責務を公開結果へ合成し、部分成立と全体成立を分ける。 | 各局所結果を保持し、必要な全要素が揃うまで上位完成を表示しない。 | 構成要素の追加時は完成条件と全Consumerを再確認する。 | `official-asset-governance.asset-decision`<br>`official-asset-governance.asset-publication`<br>`official-asset-governance.revision-conflict` |
+| Lifecycle Ownership | Required | この観点を成立させる構造と責務が存在するため。 | Process、Handle、一時物、秘密または公開SnapshotのOwnerと終了条件を固定する。 | 成功・失敗・取消の全経路で資源回収または同一Identityの回復義務を残す。 | Owner変更は取消、Recovery、終了後条件へ波及する。 | `official-asset-governance.revision-conflict` |
+| External Boundary | Required | この観点を成立させる構造と責務が存在するため。 | 外部境界ごとに要求、受理、Effect、結果搬送および終了後状態を分ける。 | 境界の成功を要求発行だけから推定せず、段階に応じた観測を必須にする。 | 境界変更は直接境界からSystem／E2Eまでの検証範囲へ波及する。 | `official-asset-governance.revision-conflict` |
+
+同じ責務へ二つ目の具象実装を追加する場合は、共通契約へ昇格するかを評価する。昇格しない場合は、同じ責務ではない、または局所分岐の方が単純で影響が小さい理由を記録する。特定のDesign Pattern名は必須にしない。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した
-- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] 10種類の詳細成果物を全数Applicability判定した
 - [x] Requiredを実在する節または成果物へ接続した
 - [x] N/AにArchitecture上の理由を記録した
 - [x] 8種類のEngineering Concernを全数評価した
 - [x] PASSを設計済みの意味に限定した
 - [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
 - [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] 7種類のImplementation Structure観点を全数Applicability判定した
+- [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
+- [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
 - [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した

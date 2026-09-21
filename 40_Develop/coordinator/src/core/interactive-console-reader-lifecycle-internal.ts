@@ -9,6 +9,17 @@ const READER_MAXIMUM_OUTPUT_BYTES = 512;
 const READER_CANCEL_GRACE_MS = 500;
 const READER_TIMEOUT_MS = 110_000;
 
+/**
+ * InteractiveConsoleReaderLifecycleOutcomeが扱う値の構造を表す。
+ *
+ * @responsibility InteractiveConsoleReaderLifecycleOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape InteractiveConsoleReaderLifecycleOutcomeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant InteractiveConsoleReaderLifecycleOutcomeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: InteractiveConsoleReaderLifecycleOutcomeの宣言は外部境界を開かない。
+ * @security N/A: InteractiveConsoleReaderLifecycleOutcomeはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility InteractiveConsoleReaderLifecycleOutcomeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type InteractiveConsoleReaderLifecycleOutcome = Readonly<{
   status:
     | "completed"
@@ -19,15 +30,53 @@ export type InteractiveConsoleReaderLifecycleOutcome = Readonly<{
   line: string | null;
 }>;
 
+/**
+ * InteractiveConsoleReaderLifecycleSnapshotが扱う値の構造を表す。
+ *
+ * @responsibility InteractiveConsoleReaderLifecycleSnapshotに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape InteractiveConsoleReaderLifecycleSnapshotが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant InteractiveConsoleReaderLifecycleSnapshotで宣言した値と責務の対応を維持する。
+ * @boundary N/A: InteractiveConsoleReaderLifecycleSnapshotの宣言は外部境界を開かない。
+ * @security N/A: InteractiveConsoleReaderLifecycleSnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility InteractiveConsoleReaderLifecycleSnapshotの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type InteractiveConsoleReaderLifecycleSnapshot = Readonly<{
   inputDescriptor: number;
 }>;
 
+/**
+ * InteractiveConsoleReaderLifecycleAdapterが扱う値の構造を表す。
+ *
+ * @responsibility InteractiveConsoleReaderLifecycleAdapterに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape InteractiveConsoleReaderLifecycleAdapterが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant InteractiveConsoleReaderLifecycleAdapterで宣言した値と責務の対応を維持する。
+ * @boundary N/A: InteractiveConsoleReaderLifecycleAdapterの宣言は外部境界を開かない。
+ * @security N/A: InteractiveConsoleReaderLifecycleAdapterはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility InteractiveConsoleReaderLifecycleAdapterの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type InteractiveConsoleReaderLifecycleAdapter = Readonly<{
   setTimeout: typeof setTimeout;
   clearTimeout: typeof clearTimeout;
 }>;
 
+/**
+ * parseReaderResultの処理を実行する。
+ *
+ * @responsibility parseReaderResultに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input source: Buffer
+ * @returns parseReaderResultの計算結果を返す。
+ * @precondition 「source: Buffer」がparseReaderResultの入力契約を満たす。
+ * @postcondition parseReaderResultの責務を完了した結果だけを返す。
+ * @effect N/A: parseReaderResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure parseReaderResultは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant parseReaderResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseReaderResultはProcess内の同一Subsystemで完結する。
+ * @security N/A: parseReaderResultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: parseReaderResultは共有非同期状態を持たない同期処理である。
+ */
 function parseReaderResult(source: Buffer) {
   if (
     source.byteLength === 0 ||
@@ -63,6 +112,22 @@ function parseReaderResult(source: Buffer) {
   });
 }
 
+/**
+ * runInteractiveConsoleReaderLifecycleの処理を実行する。
+ *
+ * @responsibility runInteractiveConsoleReaderLifecycleに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input snapshot: InteractiveConsoleReaderLifecycleSnapshot、cancellationSignal: AbortSignal、child: ChildProcess、adapter: InteractiveConsoleReaderLifecycleAdapter
+ * @returns Promise<InteractiveConsoleReaderLifecycleOutcome>を返す。
+ * @precondition 「snapshot: InteractiveConsoleReaderLifecycleSnapshot、cancellationSignal: AbortSignal、child: ChildProcess、adapter: InteractiveConsoleReaderLifecycleAdapter」がrunInteractiveConsoleReaderLifecycleの入力契約を満たす。
+ * @postcondition runInteractiveConsoleReaderLifecycleの責務を完了した結果だけを返す。
+ * @effect N/A: runInteractiveConsoleReaderLifecycleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure runInteractiveConsoleReaderLifecycleは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runInteractiveConsoleReaderLifecycleは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runInteractiveConsoleReaderLifecycleはProcess内の同一Subsystemで完結する。
+ * @security N/A: runInteractiveConsoleReaderLifecycleはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency runInteractiveConsoleReaderLifecycleは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export function runInteractiveConsoleReaderLifecycle(
   snapshot: InteractiveConsoleReaderLifecycleSnapshot,
   cancellationSignal: AbortSignal,

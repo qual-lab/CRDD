@@ -32,7 +32,7 @@
       "kind": "test-suite",
       "path": "tests/unit/public-boundary.contract.test.ts",
       "qaIds": ["QA-000001"],
-      "localTestIds": ["RCM-09", "RCM-11"],
+      "localTestIds": ["RCM-IT-009", "RCM-IT-011"],
       "verifies": [
         "crdd-domain-library.common-outcome-entry",
         "crdd-domain-library.artifact-entry",
@@ -45,7 +45,7 @@
       "kind": "test-suite",
       "path": "tests/unit/repository-observation.contract.test.ts",
       "qaIds": ["QA-000007"],
-      "localTestIds": ["RFD-12"],
+      "localTestIds": ["RFD-IT-012"],
       "verifies": ["crdd-domain-library.repository-entry"]
     },
     {
@@ -53,7 +53,7 @@
       "kind": "test-suite",
       "path": "tests/integration/reality-repository.integration.test.ts",
       "qaIds": ["QA-000007"],
-      "localTestIds": ["RFD-12"],
+      "localTestIds": ["RFD-IT-012"],
       "verifies": [
         "crdd-domain-library.reality-traceability-entry",
         "crdd-domain-library.repository-entry"

@@ -4,13 +4,46 @@ const RESPONSE_BYTES = 41;
 const COMMAND_TIMEOUT_MS = 60_000;
 const START_TIMEOUT_MS = 30_000;
 const RELEASE_TIMEOUT_MS = 5_000;
+/**
+ * DockerDesktopNativeHelperProtocolが扱う値の構造を表す。
+ *
+ * @responsibility DockerDesktopNativeHelperProtocolに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopNativeHelperProtocolが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopNativeHelperProtocolで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopNativeHelperProtocolの宣言は外部境界を開かない。
+ * @security DockerDesktopNativeHelperProtocolはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopNativeHelperProtocolの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopNativeHelperProtocol = "repair" | "restart";
 
+/**
+ * DockerDesktopRepairHelperReleaseOutcomeが扱う値の構造を表す。
+ *
+ * @responsibility DockerDesktopRepairHelperReleaseOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairHelperReleaseOutcomeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairHelperReleaseOutcomeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairHelperReleaseOutcomeの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairHelperReleaseOutcomeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairHelperReleaseOutcomeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairHelperReleaseOutcome = Readonly<{
   cleanup: "confirmed" | "unknown";
   protocol: "completed" | "failed" | "not_applicable";
 }>;
 
+/**
+ * DockerDesktopRepairNativeHelperSessionが扱う値の構造を表す。
+ *
+ * @responsibility DockerDesktopRepairNativeHelperSessionに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairNativeHelperSessionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairNativeHelperSessionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairNativeHelperSessionの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairNativeHelperSessionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairNativeHelperSessionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairNativeHelperSession = Readonly<{
   assertLive: () => boolean;
   onFailureDetected: (listener: () => void) => () => void;
@@ -35,13 +68,51 @@ export type DockerDesktopRepairNativeHelperSession = Readonly<{
   release: () => Promise<DockerDesktopRepairHelperReleaseOutcome>;
 }>;
 
+/**
+ * DockerDesktopRepairNativeHelperOutcomeが扱う値の構造を表す。
+ *
+ * @responsibility DockerDesktopRepairNativeHelperOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairNativeHelperOutcomeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairNativeHelperOutcomeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairNativeHelperOutcomeの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairNativeHelperOutcomeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairNativeHelperOutcomeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairNativeHelperOutcome = Readonly<{
   status: "acquired" | "unavailable" | "protocol_failed" | "cleanup_unknown";
   session: DockerDesktopRepairNativeHelperSession | null;
 }>;
 
+/**
+ * NativeChildが扱う値の構造を表す。
+ *
+ * @responsibility NativeChildに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape NativeChildが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant NativeChildで宣言した値と責務の対応を維持する。
+ * @boundary N/A: NativeChildの宣言は外部境界を開かない。
+ * @security NativeChildはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility NativeChildの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type NativeChild = ChildProcessWithoutNullStreams;
 
+/**
+ * validatedStatusの処理を実行する。
+ *
+ * @responsibility validatedStatusに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input frame: Buffer、expectedPolicyHash: string、protocol: DockerDesktopNativeHelperProtocol
+ * @returns validatedStatusの計算結果を返す。
+ * @precondition 「frame: Buffer、expectedPolicyHash: string、protocol: DockerDesktopNativeHelperProtocol」がvalidatedStatusの入力契約を満たす。
+ * @postcondition validatedStatusの責務を完了した結果だけを返す。
+ * @effect N/A: validatedStatusは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validatedStatusは独自の失敗分岐を所有しない。
+ * @invariant validatedStatusは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security validatedStatusはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validatedStatusは共有非同期状態を持たない同期処理である。
+ */
 function validatedStatus(
   frame: Buffer,
   expectedPolicyHash: string,
@@ -62,6 +133,22 @@ function validatedStatus(
   return typeof status === "number" ? String.fromCharCode(status) : null;
 }
 
+/**
+ * createDockerDesktopRepairNativeHelperLifecycleの処理を実行する。
+ *
+ * @responsibility createDockerDesktopRepairNativeHelperLifecycleに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input child: NativeChild、expectedPolicyHash: string、protocol: DockerDesktopNativeHelperProtocol
+ * @returns Readonly<{ waitForInitial: () => Promise<string | null>; waitForUnavailableExit: () => Promise<boolean>; failProtocol: () => Promise<DockerDesktopRepairHelperReleaseOutcome>; session: DockerDesktopRepairNativeHelperSession; }>を返す。
+ * @precondition 「child: NativeChild、expectedPolicyHash: string、protocol: DockerDesktopNativeHelperProtocol」がcreateDockerDesktopRepairNativeHelperLifecycleの入力契約を満たす。
+ * @postcondition createDockerDesktopRepairNativeHelperLifecycleの責務を完了した結果だけを返す。
+ * @effect N/A: createDockerDesktopRepairNativeHelperLifecycleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createDockerDesktopRepairNativeHelperLifecycleは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createDockerDesktopRepairNativeHelperLifecycleは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security createDockerDesktopRepairNativeHelperLifecycleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency createDockerDesktopRepairNativeHelperLifecycleは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export function createDockerDesktopRepairNativeHelperLifecycle(
   child: NativeChild,
   expectedPolicyHash: string,

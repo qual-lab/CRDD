@@ -57,11 +57,11 @@
       "path": "tests/integration/crdd-check.contract.test.ts",
       "qaIds": ["QA-000001", "QA-000013"],
       "localTestIds": [
-        "RCM-01",
-        "RCM-02",
-        "RCM-08",
-        "AUH-02",
-        "AUH-03"
+        "RCM-UT-001",
+        "RCM-UT-002",
+        "RCM-IT-008",
+        "AUH-IT-002",
+        "AUH-IT-003"
       ],
       "verifies": [
         "checker.public-entry",
@@ -79,7 +79,7 @@
       "kind": "test-suite",
       "path": "tests/integration/tools-naming.contract.test.ts",
       "qaIds": ["QA-000001"],
-      "localTestIds": ["RCM-09"],
+      "localTestIds": ["RCM-IT-009"],
       "verifies": [
         "checker.public-entry",
         "checker.pipeline",

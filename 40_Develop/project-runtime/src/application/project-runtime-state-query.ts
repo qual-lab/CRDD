@@ -6,7 +6,22 @@ import {
   type ProjectRuntimeStateQueryResult,
 } from "../public-contract/project-state-query.ts";
 
-/** Read-only application entry. It cannot receive a state mutation capability. */
+/**
+ * Read-only application entry. It cannot receive a state mutation capability.
+ *
+ * @responsibility queryProjectRuntimeStateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000005
+ * @input state: Pick<ProjectRuntimeStatePort, "readState">、request: ProjectRuntimeStateQuery
+ * @returns ProjectRuntimeStateQueryResultを返す。
+ * @precondition 「state: Pick<ProjectRuntimeStatePort, "readState">、request: ProjectRuntimeStateQuery」がqueryProjectRuntimeStateの入力契約を満たす。
+ * @postcondition queryProjectRuntimeStateの責務を完了した結果だけを返す。
+ * @effect N/A: queryProjectRuntimeStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: queryProjectRuntimeStateは独自の失敗分岐を所有しない。
+ * @invariant queryProjectRuntimeStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: queryProjectRuntimeStateはProcess内の同一Subsystemで完結する。
+ * @security N/A: queryProjectRuntimeStateはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: queryProjectRuntimeStateは共有非同期状態を持たない同期処理である。
+ */
 export function queryProjectRuntimeState(
   state: Pick<ProjectRuntimeStatePort, "readState">,
   request: ProjectRuntimeStateQuery,

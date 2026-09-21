@@ -85,6 +85,17 @@ const REGISTRY_METADATA = Object.freeze({
 // More-specific entries override their parents. `null` is an IANA N/A/blank
 // value and is denied. Protocol-level non-unicast/legacy ranges are included
 // as conservative supplements and are identified separately.
+/**
+ * SpecialPurposeEntryが扱う値の構造を表す。
+ *
+ * @responsibility SpecialPurposeEntryに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape SpecialPurposeEntryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SpecialPurposeEntryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SpecialPurposeEntryの宣言は外部境界を開かない。
+ * @security SpecialPurposeEntryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility SpecialPurposeEntryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type SpecialPurposeEntry = readonly [
   family: 4 | 6,
   cidr: string,
@@ -92,6 +103,17 @@ type SpecialPurposeEntry = readonly [
   source: string,
 ];
 
+/**
+ * CidrRuleが扱う値の構造を表す。
+ *
+ * @responsibility CidrRuleに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape CidrRuleが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CidrRuleで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CidrRuleの宣言は外部境界を開かない。
+ * @security CidrRuleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility CidrRuleの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type CidrRule = Readonly<{
   family: number;
   prefixLength: number;
@@ -199,11 +221,42 @@ const IPV6_ALLOCATED_ENTRIES: readonly string[] = Object.freeze([
   "2c00::/12",
 ]);
 
+/**
+ * blockedの処理を実行する。
+ *
+ * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input reason: string
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: string」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
+ * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(reason: string) {
   return Object.freeze({ status: "blocked", reason, policy: null });
 }
 
-/** @param {unknown} address */
+/**
+ * parseIpv4の処理を実行する。
+ *
+ * @responsibility parseIpv4に対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input address: unknown
+ * @returns bigint | nullを返す。
+ * @precondition 「address: unknown」がparseIpv4の入力契約を満たす。
+ * @postcondition parseIpv4の責務を完了した結果だけを返す。
+ * @effect N/A: parseIpv4は入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: parseIpv4は独自の失敗分岐を所有しない。
+ * @invariant parseIpv4は入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseIpv4はProcess内の同一Subsystemで完結する。
+ * @security parseIpv4はAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: parseIpv4は共有非同期状態を持たない同期処理である。
+ */
 function parseIpv4(address: unknown): bigint | null {
   if (
     typeof address !== "string" ||
@@ -218,7 +271,22 @@ function parseIpv4(address: unknown): bigint | null {
   return octets.reduce((value, octet) => (value << 8n) | BigInt(octet), 0n);
 }
 
-/** @param {unknown} address */
+/**
+ * parseIpv6の処理を実行する。
+ *
+ * @responsibility parseIpv6に対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input address: unknown
+ * @returns bigint | nullを返す。
+ * @precondition 「address: unknown」がparseIpv6の入力契約を満たす。
+ * @postcondition parseIpv6の責務を完了した結果だけを返す。
+ * @effect N/A: parseIpv6は入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: parseIpv6は独自の失敗分岐を所有しない。
+ * @invariant parseIpv6は入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseIpv6はProcess内の同一Subsystemで完結する。
+ * @security parseIpv6はAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: parseIpv6は共有非同期状態を持たない同期処理である。
+ */
 function parseIpv6(address: unknown): bigint | null {
   if (
     typeof address !== "string" ||
@@ -259,11 +327,20 @@ function parseIpv6(address: unknown): bigint | null {
 }
 
 /**
- * @param {number} family
- * @param {string} cidr
- * @param {boolean | null} globallyReachableValue
- * @param {string} source
+ * parseCidrの処理を実行する。
+ *
+ * @responsibility parseCidrに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input family: number、cidr: string、isGloballyReachable: boolean | null、source: string
  * @returns {Readonly<CidrRule>}
+ * @precondition 「family: number、cidr: string、isGloballyReachable: boolean | null、source: string」がparseCidrの入力契約を満たす。
+ * @postcondition parseCidrの責務を完了した結果だけを返す。
+ * @effect N/A: parseCidrは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure parseCidrは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant parseCidrは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseCidrはProcess内の同一Subsystemで完結する。
+ * @security parseCidrはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: parseCidrは共有非同期状態を持たない同期処理である。
  */
 function parseCidr(
   family: number,
@@ -318,13 +395,43 @@ const SPECIAL_PURPOSE_REGISTRY_SNAPSHOT_SHA256 = createHash("sha256")
   )
   .digest("hex");
 
-/** @param {bigint} value @param {number} bits @param {CidrRule} rule */
+/**
+ * cidrMatchの処理を実行する。
+ *
+ * @responsibility cidrMatchに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input value: bigint、bits: number、rule: CidrRule
+ * @returns cidrMatchの計算結果を返す。
+ * @precondition 「value: bigint、bits: number、rule: CidrRule」がcidrMatchの入力契約を満たす。
+ * @postcondition cidrMatchの責務を完了した結果だけを返す。
+ * @effect N/A: cidrMatchは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: cidrMatchは独自の失敗分岐を所有しない。
+ * @invariant cidrMatchは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: cidrMatchはProcess内の同一Subsystemで完結する。
+ * @security cidrMatchはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: cidrMatchは共有非同期状態を持たない同期処理である。
+ */
 function cidrMatch(value: bigint, bits: number, rule: CidrRule) {
   const shift = BigInt(bits - rule.prefixLength);
   return (shift === 0n ? value : (value >> shift) << shift) === rule.prefix;
 }
 
-/** @param {number} family @param {bigint} value @param {readonly CidrRule[]} rules */
+/**
+ * longestMatchの処理を実行する。
+ *
+ * @responsibility longestMatchに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input family: number、value: bigint、rules: readonly CidrRule[]
+ * @returns longestMatchの計算結果を返す。
+ * @precondition 「family: number、value: bigint、rules: readonly CidrRule[]」がlongestMatchの入力契約を満たす。
+ * @postcondition longestMatchの責務を完了した結果だけを返す。
+ * @effect N/A: longestMatchは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: longestMatchは独自の失敗分岐を所有しない。
+ * @invariant longestMatchは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: longestMatchはProcess内の同一Subsystemで完結する。
+ * @security longestMatchはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: longestMatchは共有非同期状態を持たない同期処理である。
+ */
 function longestMatch(
   family: number,
   value: bigint,
@@ -338,20 +445,65 @@ function longestMatch(
   );
 }
 
-/** @param {bigint} value */
+/**
+ * globallyReachableIpv4の処理を実行する。
+ *
+ * @responsibility globallyReachableIpv4に対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input value: bigint
+ * @returns globallyReachableIpv4の計算結果を返す。
+ * @precondition 「value: bigint」がgloballyReachableIpv4の入力契約を満たす。
+ * @postcondition globallyReachableIpv4の責務を完了した結果だけを返す。
+ * @effect N/A: globallyReachableIpv4は入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: globallyReachableIpv4は独自の失敗分岐を所有しない。
+ * @invariant globallyReachableIpv4は入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: globallyReachableIpv4はProcess内の同一Subsystemで完結する。
+ * @security globallyReachableIpv4はAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: globallyReachableIpv4は共有非同期状態を持たない同期処理である。
+ */
 function globallyReachableIpv4(value: bigint) {
   const match = longestMatch(4, value, cidrRules);
   return match ? match.globallyReachable === true : true;
 }
 
-/** @param {bigint} value */
+/**
+ * globallyReachableIpv6の処理を実行する。
+ *
+ * @responsibility globallyReachableIpv6に対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input value: bigint
+ * @returns globallyReachableIpv6の計算結果を返す。
+ * @precondition 「value: bigint」がgloballyReachableIpv6の入力契約を満たす。
+ * @postcondition globallyReachableIpv6の責務を完了した結果だけを返す。
+ * @effect N/A: globallyReachableIpv6は入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: globallyReachableIpv6は独自の失敗分岐を所有しない。
+ * @invariant globallyReachableIpv6は入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: globallyReachableIpv6はProcess内の同一Subsystemで完結する。
+ * @security globallyReachableIpv6はAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: globallyReachableIpv6は共有非同期状態を持たない同期処理である。
+ */
 function globallyReachableIpv6(value: bigint) {
   const special = longestMatch(6, value, cidrRules);
   if (special) return special.globallyReachable === true;
   return longestMatch(6, value, ipv6AllocatedRules) != null;
 }
 
-/** @param {unknown} address */
+/**
+ * classifyAddressの処理を実行する。
+ *
+ * @responsibility classifyAddressに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input address: unknown
+ * @returns classifyAddressの計算結果を返す。
+ * @precondition 「address: unknown」がclassifyAddressの入力契約を満たす。
+ * @postcondition classifyAddressの責務を完了した結果だけを返す。
+ * @effect N/A: classifyAddressは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: classifyAddressは独自の失敗分岐を所有しない。
+ * @invariant classifyAddressは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: classifyAddressはProcess内の同一Subsystemで完結する。
+ * @security classifyAddressはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: classifyAddressは共有非同期状態を持たない同期処理である。
+ */
 function classifyAddress(address: unknown) {
   if (typeof address !== "string" || address.includes("%")) return null;
   if (net.isIP(address) === 4) {
@@ -371,7 +523,22 @@ function classifyAddress(address: unknown) {
   return globallyReachableIpv6(value);
 }
 
-/** @param {unknown} rawProfile */
+/**
+ * compileEgressProxyPolicyCandidateの処理を実行する。
+ *
+ * @responsibility compileEgressProxyPolicyCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input rawProfile: unknown
+ * @returns compileEgressProxyPolicyCandidateの計算結果を返す。
+ * @precondition 「rawProfile: unknown」がcompileEgressProxyPolicyCandidateの入力契約を満たす。
+ * @postcondition compileEgressProxyPolicyCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: compileEgressProxyPolicyCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure compileEgressProxyPolicyCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant compileEgressProxyPolicyCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: compileEgressProxyPolicyCandidateはProcess内の同一Subsystemで完結する。
+ * @security compileEgressProxyPolicyCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: compileEgressProxyPolicyCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function compileEgressProxyPolicyCandidate(rawProfile: unknown) {
   let validation: ReturnType<typeof validateProviderIsolationProfile>;
   try {
@@ -419,7 +586,22 @@ export function compileEgressProxyPolicyCandidate(rawProfile: unknown) {
   }
 }
 
-/** @param {unknown} authority */
+/**
+ * parseConnectAuthorityの処理を実行する。
+ *
+ * @responsibility parseConnectAuthorityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input authority: unknown
+ * @returns parseConnectAuthorityの計算結果を返す。
+ * @precondition 「authority: unknown」がparseConnectAuthorityの入力契約を満たす。
+ * @postcondition parseConnectAuthorityの責務を完了した結果だけを返す。
+ * @effect N/A: parseConnectAuthorityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: parseConnectAuthorityは独自の失敗分岐を所有しない。
+ * @invariant parseConnectAuthorityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseConnectAuthorityはProcess内の同一Subsystemで完結する。
+ * @security parseConnectAuthorityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: parseConnectAuthorityは共有非同期状態を持たない同期処理である。
+ */
 function parseConnectAuthority(authority: unknown) {
   if (
     typeof authority !== "string" ||
@@ -446,6 +628,22 @@ function parseConnectAuthority(authority: unknown) {
   return { hostname, port: 443 };
 }
 
+/**
+ * evaluateProxyConnectForFixtureの処理を実行する。
+ *
+ * @responsibility evaluateProxyConnectForFixtureに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input policy: unknown、request: unknown
+ * @returns evaluateProxyConnectForFixtureの計算結果を返す。
+ * @precondition 「policy: unknown、request: unknown」がevaluateProxyConnectForFixtureの入力契約を満たす。
+ * @postcondition evaluateProxyConnectForFixtureの責務を完了した結果だけを返す。
+ * @effect N/A: evaluateProxyConnectForFixtureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: evaluateProxyConnectForFixtureは独自の失敗分岐を所有しない。
+ * @invariant evaluateProxyConnectForFixtureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: evaluateProxyConnectForFixtureはProcess内の同一Subsystemで完結する。
+ * @security evaluateProxyConnectForFixtureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: evaluateProxyConnectForFixtureは共有非同期状態を持たない同期処理である。
+ */
 export function evaluateProxyConnectForFixture(
   policy: unknown,
   request: unknown,
@@ -525,7 +723,22 @@ export function evaluateProxyConnectForFixture(
   });
 }
 
-/** @param {unknown} addresses */
+/**
+ * evaluateResolvedAddressesForFixtureの処理を実行する。
+ *
+ * @responsibility evaluateResolvedAddressesForFixtureに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input addresses: unknown
+ * @returns evaluateResolvedAddressesForFixtureの計算結果を返す。
+ * @precondition 「addresses: unknown」がevaluateResolvedAddressesForFixtureの入力契約を満たす。
+ * @postcondition evaluateResolvedAddressesForFixtureの責務を完了した結果だけを返す。
+ * @effect N/A: evaluateResolvedAddressesForFixtureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: evaluateResolvedAddressesForFixtureは独自の失敗分岐を所有しない。
+ * @invariant evaluateResolvedAddressesForFixtureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: evaluateResolvedAddressesForFixtureはProcess内の同一Subsystemで完結する。
+ * @security evaluateResolvedAddressesForFixtureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: evaluateResolvedAddressesForFixtureは共有非同期状態を持たない同期処理である。
+ */
 export function evaluateResolvedAddressesForFixture(addresses: unknown) {
   const snapshot = snapshotPlainArray<unknown>(
     addresses,
@@ -550,6 +763,22 @@ export function evaluateResolvedAddressesForFixture(addresses: unknown) {
   });
 }
 
+/**
+ * describeSpecialPurposeRegistrySnapshotの処理を実行する。
+ *
+ * @responsibility describeSpecialPurposeRegistrySnapshotに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeSpecialPurposeRegistrySnapshotの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeSpecialPurposeRegistrySnapshotの入力契約を満たす。
+ * @postcondition describeSpecialPurposeRegistrySnapshotの責務を完了した結果だけを返す。
+ * @effect N/A: describeSpecialPurposeRegistrySnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeSpecialPurposeRegistrySnapshotは独自の失敗分岐を所有しない。
+ * @invariant describeSpecialPurposeRegistrySnapshotは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeSpecialPurposeRegistrySnapshotはProcess内の同一Subsystemで完結する。
+ * @security describeSpecialPurposeRegistrySnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeSpecialPurposeRegistrySnapshotは共有非同期状態を持たない同期処理である。
+ */
 export function describeSpecialPurposeRegistrySnapshot() {
   return Object.freeze({
     ...REGISTRY_METADATA,
@@ -562,6 +791,22 @@ export function describeSpecialPurposeRegistrySnapshot() {
   });
 }
 
+/**
+ * describeEgressProxyTopologyの処理を実行する。
+ *
+ * @responsibility describeEgressProxyTopologyに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input provider: "claude" | "codex"
+ * @returns describeEgressProxyTopologyの計算結果を返す。
+ * @precondition 「provider: "claude" | "codex"」がdescribeEgressProxyTopologyの入力契約を満たす。
+ * @postcondition describeEgressProxyTopologyの責務を完了した結果だけを返す。
+ * @effect N/A: describeEgressProxyTopologyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeEgressProxyTopologyは独自の失敗分岐を所有しない。
+ * @invariant describeEgressProxyTopologyは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeEgressProxyTopologyはProcess内の同一Subsystemで完結する。
+ * @security describeEgressProxyTopologyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeEgressProxyTopologyは共有非同期状態を持たない同期処理である。
+ */
 export function describeEgressProxyTopology(
   provider: "claude" | "codex" = "claude",
 ) {

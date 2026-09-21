@@ -4,6 +4,17 @@ import {
 } from "../boundary/plain-data-snapshot.ts";
 import { normalizeRepositoryRelativePath } from "../boundary/repository-relative-path.ts";
 
+/**
+ * ProjectRuntimeObjectiveRequestが扱う値の構造を表す。
+ *
+ * @responsibility ProjectRuntimeObjectiveRequestに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeObjectiveRequestが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeObjectiveRequestで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeObjectiveRequestの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimeObjectiveRequestはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimeObjectiveRequestの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeObjectiveRequest = Readonly<{
   requestId: string;
   projectId: string;
@@ -24,6 +35,22 @@ export type ProjectRuntimeObjectiveRequest = Readonly<{
   }>;
 }>;
 
+/**
+ * validIdの処理を実行する。
+ *
+ * @responsibility validIdに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidIdの入力契約を満たす。
+ * @postcondition validIdの責務を完了した結果だけを返す。
+ * @effect N/A: validIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validIdは独自の失敗分岐を所有しない。
+ * @invariant validIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validIdはProcess内の同一Subsystemで完結する。
+ * @security N/A: validIdはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validIdは共有非同期状態を持たない同期処理である。
+ */
 function validId(value: unknown): value is string {
   return (
     typeof value === "string" &&
@@ -33,10 +60,42 @@ function validId(value: unknown): value is string {
   );
 }
 
+/**
+ * validRevisionの処理を実行する。
+ *
+ * @responsibility validRevisionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidRevisionの入力契約を満たす。
+ * @postcondition validRevisionの責務を完了した結果だけを返す。
+ * @effect N/A: validRevisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validRevisionは独自の失敗分岐を所有しない。
+ * @invariant validRevisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validRevisionはProcess内の同一Subsystemで完結する。
+ * @security N/A: validRevisionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validRevisionは共有非同期状態を持たない同期処理である。
+ */
 function validRevision(value: unknown): value is string {
   return typeof value === "string" && /^[0-9a-f]{40,64}$/u.test(value);
 }
 
+/**
+ * validTextの処理を実行する。
+ *
+ * @responsibility validTextに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、maximum: number
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown、maximum: number」がvalidTextの入力契約を満たす。
+ * @postcondition validTextの責務を完了した結果だけを返す。
+ * @effect N/A: validTextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validTextは独自の失敗分岐を所有しない。
+ * @invariant validTextは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validTextはProcess内の同一Subsystemで完結する。
+ * @security N/A: validTextはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validTextは共有非同期状態を持たない同期処理である。
+ */
 function validText(value: unknown, maximum: number): value is string {
   return (
     typeof value === "string" &&
@@ -46,6 +105,22 @@ function validText(value: unknown, maximum: number): value is string {
   );
 }
 
+/**
+ * inspectStringsの処理を実行する。
+ *
+ * @responsibility inspectStringsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、maximumItems: number、maximumText: number
+ * @returns readonly string[] | nullを返す。
+ * @precondition 「value: unknown、maximumItems: number、maximumText: number」がinspectStringsの入力契約を満たす。
+ * @postcondition inspectStringsの責務を完了した結果だけを返す。
+ * @effect N/A: inspectStringsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectStringsは独自の失敗分岐を所有しない。
+ * @invariant inspectStringsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectStringsはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectStringsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectStringsは共有非同期状態を持たない同期処理である。
+ */
 function inspectStrings(
   value: unknown,
   maximumItems: number,
@@ -96,6 +171,22 @@ const requestKeySets = Object.freeze(
   ),
 );
 
+/**
+ * inspectProjectRuntimeObjectiveRequestの処理を実行する。
+ *
+ * @responsibility inspectProjectRuntimeObjectiveRequestに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns ProjectRuntimeObjectiveRequest | nullを返す。
+ * @precondition 「value: unknown」がinspectProjectRuntimeObjectiveRequestの入力契約を満たす。
+ * @postcondition inspectProjectRuntimeObjectiveRequestの責務を完了した結果だけを返す。
+ * @effect N/A: inspectProjectRuntimeObjectiveRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectProjectRuntimeObjectiveRequestは独自の失敗分岐を所有しない。
+ * @invariant inspectProjectRuntimeObjectiveRequestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectProjectRuntimeObjectiveRequestはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectProjectRuntimeObjectiveRequestはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectProjectRuntimeObjectiveRequestは共有非同期状態を持たない同期処理である。
+ */
 export function inspectProjectRuntimeObjectiveRequest(
   value: unknown,
 ): ProjectRuntimeObjectiveRequest | null {

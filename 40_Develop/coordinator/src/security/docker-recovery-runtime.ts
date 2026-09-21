@@ -22,9 +22,19 @@ export type { ProjectSettledDockerRecovery };
 
 /**
  * Consume a Docker completion receipt only when the exact durable Project
- * State already records the same Task obligation as settled. This is the only
- * production acknowledgement boundary; a Recovery ID alone conveys no
- * deletion authority.
+ *
+ * @responsibility consumeDockerRecoveryReceiptAfterProjectSettlementに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input rawSettlement: ProjectSettledDockerRecovery
+ * @returns consumeDockerRecoveryReceiptAfterProjectSettlementの計算結果を返す。
+ * @precondition 「rawSettlement: ProjectSettledDockerRecovery」がconsumeDockerRecoveryReceiptAfterProjectSettlementの入力契約を満たす。
+ * @postcondition consumeDockerRecoveryReceiptAfterProjectSettlementの責務を完了した結果だけを返す。
+ * @effect N/A: consumeDockerRecoveryReceiptAfterProjectSettlementは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: consumeDockerRecoveryReceiptAfterProjectSettlementは独自の失敗分岐を所有しない。
+ * @invariant consumeDockerRecoveryReceiptAfterProjectSettlementは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: consumeDockerRecoveryReceiptAfterProjectSettlementはProcess内の同一Subsystemで完結する。
+ * @security consumeDockerRecoveryReceiptAfterProjectSettlementはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: consumeDockerRecoveryReceiptAfterProjectSettlementは共有非同期状態を持たない同期処理である。
  */
 export function consumeDockerRecoveryReceiptAfterProjectSettlement(
   rawSettlement: ProjectSettledDockerRecovery,
@@ -35,6 +45,22 @@ export function consumeDockerRecoveryReceiptAfterProjectSettlement(
   );
 }
 
+/**
+ * collectDockerRecoveryAcknowledgementAfterProjectRecordの処理を実行する。
+ *
+ * @responsibility collectDockerRecoveryAcknowledgementAfterProjectRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input rawSettlement: ProjectSettledDockerRecovery & Readonly<{ acknowledgement: unknown }>
+ * @returns collectDockerRecoveryAcknowledgementAfterProjectRecordの計算結果を返す。
+ * @precondition 「rawSettlement: ProjectSettledDockerRecovery & Readonly<{ acknowledgement: unknown }>」がcollectDockerRecoveryAcknowledgementAfterProjectRecordの入力契約を満たす。
+ * @postcondition collectDockerRecoveryAcknowledgementAfterProjectRecordの責務を完了した結果だけを返す。
+ * @effect N/A: collectDockerRecoveryAcknowledgementAfterProjectRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: collectDockerRecoveryAcknowledgementAfterProjectRecordは独自の失敗分岐を所有しない。
+ * @invariant collectDockerRecoveryAcknowledgementAfterProjectRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: collectDockerRecoveryAcknowledgementAfterProjectRecordはProcess内の同一Subsystemで完結する。
+ * @security collectDockerRecoveryAcknowledgementAfterProjectRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: collectDockerRecoveryAcknowledgementAfterProjectRecordは共有非同期状態を持たない同期処理である。
+ */
 export function collectDockerRecoveryAcknowledgementAfterProjectRecord(
   rawSettlement: ProjectSettledDockerRecovery &
     Readonly<{ acknowledgement: unknown }>,

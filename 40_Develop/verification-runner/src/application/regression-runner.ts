@@ -34,15 +34,53 @@ const catalogPath = path.join(
 const PLATFORM_TOOLCHAIN = "+1.94.1-x86_64-pc-windows-msvc";
 const PLATFORM_TARGET = "x86_64-pc-windows-msvc";
 
+/**
+ * RegressionRunRequestが扱う値の構造を表す。
+ *
+ * @responsibility RegressionRunRequestに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000003
+ * @shape RegressionRunRequestが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RegressionRunRequestで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RegressionRunRequestの宣言は外部境界を開かない。
+ * @security N/A: RegressionRunRequestはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RegressionRunRequestの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type RegressionRunRequest = Readonly<{
   arguments: readonly string[];
   emit: (value: unknown) => void;
 }>;
 
+/**
+ * RegressionRunResultが扱う値の構造を表す。
+ *
+ * @responsibility RegressionRunResultに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000003
+ * @shape RegressionRunResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RegressionRunResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RegressionRunResultの宣言は外部境界を開かない。
+ * @security N/A: RegressionRunResultはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RegressionRunResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type RegressionRunResult = Readonly<{
   exitCode: number;
 }>;
 
+/**
+ * valuesAfterの処理を実行する。
+ *
+ * @responsibility valuesAfterに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input argumentValues: readonly string[]、name: string
+ * @returns string[]を返す。
+ * @precondition 「argumentValues: readonly string[]、name: string」がvaluesAfterの入力契約を満たす。
+ * @postcondition valuesAfterの責務を完了した結果だけを返す。
+ * @effect N/A: valuesAfterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: valuesAfterは独自の失敗分岐を所有しない。
+ * @invariant valuesAfterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: valuesAfterはProcess内の同一Subsystemで完結する。
+ * @security N/A: valuesAfterはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: valuesAfterは共有非同期状態を持たない同期処理である。
+ */
 function valuesAfter(
   argumentValues: readonly string[],
   name: string,
@@ -57,6 +95,22 @@ function valuesAfter(
   return values;
 }
 
+/**
+ * valueAfterの処理を実行する。
+ *
+ * @responsibility valueAfterに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input argumentValues: readonly string[]、name: string
+ * @returns string | nullを返す。
+ * @precondition 「argumentValues: readonly string[]、name: string」がvalueAfterの入力契約を満たす。
+ * @postcondition valueAfterの責務を完了した結果だけを返す。
+ * @effect N/A: valueAfterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: valueAfterは独自の失敗分岐を所有しない。
+ * @invariant valueAfterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: valueAfterはProcess内の同一Subsystemで完結する。
+ * @security N/A: valueAfterはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: valueAfterは共有非同期状態を持たない同期処理である。
+ */
 function valueAfter(
   argumentValues: readonly string[],
   name: string,
@@ -64,6 +118,22 @@ function valueAfter(
   return valuesAfter(argumentValues, name)[0] ?? null;
 }
 
+/**
+ * positiveNumberの処理を実行する。
+ *
+ * @responsibility positiveNumberに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input argumentValues: readonly string[]、name: string
+ * @returns number | nullを返す。
+ * @precondition 「argumentValues: readonly string[]、name: string」がpositiveNumberの入力契約を満たす。
+ * @postcondition positiveNumberの責務を完了した結果だけを返す。
+ * @effect N/A: positiveNumberは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: positiveNumberは独自の失敗分岐を所有しない。
+ * @invariant positiveNumberは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: positiveNumberはProcess内の同一Subsystemで完結する。
+ * @security N/A: positiveNumberはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: positiveNumberは共有非同期状態を持たない同期処理である。
+ */
 function positiveNumber(
   argumentValues: readonly string[],
   name: string,
@@ -74,6 +144,22 @@ function positiveNumber(
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
+/**
+ * nonNegativeNumberの処理を実行する。
+ *
+ * @responsibility nonNegativeNumberに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input argumentValues: readonly string[]、name: string
+ * @returns number | nullを返す。
+ * @precondition 「argumentValues: readonly string[]、name: string」がnonNegativeNumberの入力契約を満たす。
+ * @postcondition nonNegativeNumberの責務を完了した結果だけを返す。
+ * @effect N/A: nonNegativeNumberは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: nonNegativeNumberは独自の失敗分岐を所有しない。
+ * @invariant nonNegativeNumberは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: nonNegativeNumberはProcess内の同一Subsystemで完結する。
+ * @security N/A: nonNegativeNumberはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: nonNegativeNumberは共有非同期状態を持たない同期処理である。
+ */
 function nonNegativeNumber(
   argumentValues: readonly string[],
   name: string,
@@ -84,6 +170,22 @@ function nonNegativeNumber(
   return Number.isFinite(value) && value >= 0 ? value : null;
 }
 
+/**
+ * parseLevelsの処理を実行する。
+ *
+ * @responsibility parseLevelsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input argumentValues: readonly string[]
+ * @returns Set<TestLevel>を返す。
+ * @precondition 「argumentValues: readonly string[]」がparseLevelsの入力契約を満たす。
+ * @postcondition parseLevelsの責務を完了した結果だけを返す。
+ * @effect N/A: parseLevelsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure parseLevelsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant parseLevelsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseLevelsはProcess内の同一Subsystemで完結する。
+ * @security N/A: parseLevelsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: parseLevelsは共有非同期状態を持たない同期処理である。
+ */
 function parseLevels(argumentValues: readonly string[]): Set<TestLevel> {
   const raw =
     valueAfter(argumentValues, "--levels") ?? "unit,integration,system";
@@ -96,6 +198,22 @@ function parseLevels(argumentValues: readonly string[]): Set<TestLevel> {
   return new Set(levels);
 }
 
+/**
+ * inspectRequestedResourceAuthorityの処理を実行する。
+ *
+ * @responsibility inspectRequestedResourceAuthorityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input argumentValues: readonly string[]、levels: ReadonlySet<TestLevel>
+ * @returns inspectRequestedResourceAuthorityの計算結果を返す。
+ * @precondition 「argumentValues: readonly string[]、levels: ReadonlySet<TestLevel>」がinspectRequestedResourceAuthorityの入力契約を満たす。
+ * @postcondition inspectRequestedResourceAuthorityの責務を完了した結果だけを返す。
+ * @effect N/A: inspectRequestedResourceAuthorityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectRequestedResourceAuthorityは独自の失敗分岐を所有しない。
+ * @invariant inspectRequestedResourceAuthorityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectRequestedResourceAuthorityはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectRequestedResourceAuthorityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectRequestedResourceAuthorityは共有非同期状態を持たない同期処理である。
+ */
 function inspectRequestedResourceAuthority(
   argumentValues: readonly string[],
   levels: ReadonlySet<TestLevel>,
@@ -119,6 +237,22 @@ function inspectRequestedResourceAuthority(
   };
 }
 
+/**
+ * runCommandの処理を実行する。
+ *
+ * @responsibility runCommandに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input command: string、commandArguments: readonly string[]、cwd: string
+ * @returns numberを返す。
+ * @precondition 「command: string、commandArguments: readonly string[]、cwd: string」がrunCommandの入力契約を満たす。
+ * @postcondition runCommandの責務を完了した結果だけを返す。
+ * @effect runCommandは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: runCommandは独自の失敗分岐を所有しない。
+ * @invariant runCommandは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: runCommandはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: runCommandは共有非同期状態を持たない同期処理である。
+ */
 function runCommand(
   command: string,
   commandArguments: readonly string[],
@@ -133,6 +267,22 @@ function runCommand(
   return result.status ?? 1;
 }
 
+/**
+ * runNpmScriptの処理を実行する。
+ *
+ * @responsibility runNpmScriptに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input script: "check" | "verify:repository"、cwd: string
+ * @returns numberを返す。
+ * @precondition 「script: "check" | "verify:repository"、cwd: string」がrunNpmScriptの入力契約を満たす。
+ * @postcondition runNpmScriptの責務を完了した結果だけを返す。
+ * @effect runNpmScriptは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: runNpmScriptは独自の失敗分岐を所有しない。
+ * @invariant runNpmScriptは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: runNpmScriptはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: runNpmScriptは共有非同期状態を持たない同期処理である。
+ */
 function runNpmScript(
   script: "check" | "verify:repository",
   cwd: string,
@@ -142,6 +292,22 @@ function runNpmScript(
     : runCommand("npm", ["run", script], cwd);
 }
 
+/**
+ * runNodeTestsの処理を実行する。
+ *
+ * @responsibility runNodeTestsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input owner: | "artifact-signing" | "checker" | "coordinator" | "crdd-domain-library" | "execution-intelligence" | "mcp" | "project-runtime" | "runtime-data" | "semantic-coverage" | "version-control" | "verification-runner"、entries: readonly TestCatalogEntry[]、options: Readonly<{ testNamePattern?: string; testSkipPattern?: string; }>
+ * @returns numberを返す。
+ * @precondition 「owner: | "artifact-signing" | "checker" | "coordinator" | "crdd-domain-library" | "execution-intelligence" | "mcp" | "project-runtime" | "runtime-data" | "semantic-coverage" | "version-control" | "verification-runner"、entries: readonly TestCatalogEntry[]、options: Readonly<{ testNamePattern?: string; testSkipPattern?: string; }>」がrunNodeTestsの入力契約を満たす。
+ * @postcondition runNodeTestsの責務を完了した結果だけを返す。
+ * @effect runNodeTestsは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: runNodeTestsは独自の失敗分岐を所有しない。
+ * @invariant runNodeTestsは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: runNodeTestsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: runNodeTestsは共有非同期状態を持たない同期処理である。
+ */
 function runNodeTests(
   owner:
     | "artifact-signing"
@@ -185,6 +351,22 @@ function runNodeTests(
   );
 }
 
+/**
+ * runPlatformTestsの処理を実行する。
+ *
+ * @responsibility runPlatformTestsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input level: TestLevel
+ * @returns numberを返す。
+ * @precondition 「level: TestLevel」がrunPlatformTestsの入力契約を満たす。
+ * @postcondition runPlatformTestsの責務を完了した結果だけを返す。
+ * @effect N/A: runPlatformTestsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: runPlatformTestsは独自の失敗分岐を所有しない。
+ * @invariant runPlatformTestsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runPlatformTestsはProcess内の同一Subsystemで完結する。
+ * @security N/A: runPlatformTestsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: runPlatformTestsは共有非同期状態を持たない同期処理である。
+ */
 function runPlatformTests(level: TestLevel): number {
   if (level !== "unit" && level !== "integration") return 0;
   const selectors =
@@ -204,6 +386,22 @@ function runPlatformTests(level: TestLevel): number {
   );
 }
 
+/**
+ * runStaticStageの処理を実行する。
+ *
+ * @responsibility runStaticStageに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input staticOwners: readonly TestCatalogEntry["owner"][]、changedPaths: readonly string[]
+ * @returns numberを返す。
+ * @precondition 「staticOwners: readonly TestCatalogEntry["owner"][]、changedPaths: readonly string[]」がrunStaticStageの入力契約を満たす。
+ * @postcondition runStaticStageの責務を完了した結果だけを返す。
+ * @effect N/A: runStaticStageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: runStaticStageは独自の失敗分岐を所有しない。
+ * @invariant runStaticStageは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runStaticStageはProcess内の同一Subsystemで完結する。
+ * @security N/A: runStaticStageはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: runStaticStageは共有非同期状態を持たない同期処理である。
+ */
 function runStaticStage(
   staticOwners: readonly TestCatalogEntry["owner"][],
   changedPaths: readonly string[],
@@ -269,6 +467,22 @@ function runStaticStage(
   return 0;
 }
 
+/**
+ * runLevelStageの処理を実行する。
+ *
+ * @responsibility runLevelStageに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input level: TestLevel、entries: readonly TestCatalogEntry[]、shouldSkipWindowsProcessTests: boolean
+ * @returns numberを返す。
+ * @precondition 「level: TestLevel、entries: readonly TestCatalogEntry[]、shouldSkipWindowsProcessTests: boolean」がrunLevelStageの入力契約を満たす。
+ * @postcondition runLevelStageの責務を完了した結果だけを返す。
+ * @effect N/A: runLevelStageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: runLevelStageは独自の失敗分岐を所有しない。
+ * @invariant runLevelStageは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runLevelStageはProcess内の同一Subsystemで完結する。
+ * @security N/A: runLevelStageはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: runLevelStageは共有非同期状態を持たない同期処理である。
+ */
 function runLevelStage(
   level: TestLevel,
   entries: readonly TestCatalogEntry[],
@@ -305,6 +519,22 @@ function runLevelStage(
   return 0;
 }
 
+/**
+ * runWindowsProcessStageの処理を実行する。
+ *
+ * @responsibility runWindowsProcessStageに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input entries: readonly TestCatalogEntry[]
+ * @returns numberを返す。
+ * @precondition 「entries: readonly TestCatalogEntry[]」がrunWindowsProcessStageの入力契約を満たす。
+ * @postcondition runWindowsProcessStageの責務を完了した結果だけを返す。
+ * @effect N/A: runWindowsProcessStageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: runWindowsProcessStageは独自の失敗分岐を所有しない。
+ * @invariant runWindowsProcessStageは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runWindowsProcessStageはProcess内の同一Subsystemで完結する。
+ * @security N/A: runWindowsProcessStageはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: runWindowsProcessStageは共有非同期状態を持たない同期処理である。
+ */
 function runWindowsProcessStage(entries: readonly TestCatalogEntry[]): number {
   const windowsEntries = entries.filter(
     (entry) =>
@@ -316,6 +546,22 @@ function runWindowsProcessStage(entries: readonly TestCatalogEntry[]): number {
   });
 }
 
+/**
+ * runRegressionの処理を実行する。
+ *
+ * @responsibility runRegressionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input request: RegressionRunRequest
+ * @returns RegressionRunResultを返す。
+ * @precondition 「request: RegressionRunRequest」がrunRegressionの入力契約を満たす。
+ * @postcondition runRegressionの責務を完了した結果だけを返す。
+ * @effect runRegressionは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure runRegressionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runRegressionは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: runRegressionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: runRegressionは共有非同期状態を持たない同期処理である。
+ */
 export function runRegression(
   request: RegressionRunRequest,
 ): RegressionRunResult {

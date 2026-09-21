@@ -46,17 +46,50 @@ const FORBIDDEN_ENVIRONMENT_NAMES = new Set([
   "NO_PROXY",
 ]);
 
+/**
+ * OperationBindingが扱う値の構造を表す。
+ *
+ * @responsibility OperationBindingに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape OperationBindingが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant OperationBindingで宣言した値と責務の対応を維持する。
+ * @boundary N/A: OperationBindingの宣言は外部境界を開かない。
+ * @security OperationBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility OperationBindingの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type OperationBinding = Readonly<{
   operationId: string;
   createdAt: string;
   mounts: OwnedMountPaths;
 }>;
 
+/**
+ * Commandが扱う値の構造を表す。
+ *
+ * @responsibility Commandに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape Commandが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Commandで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Commandの宣言は外部境界を開かない。
+ * @security CommandはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Commandの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Command = Readonly<{
   purpose: string;
   argv: readonly string[];
 }>;
 
+/**
+ * PreparedPlanが扱う値の構造を表す。
+ *
+ * @responsibility PreparedPlanに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape PreparedPlanが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant PreparedPlanで宣言した値と責務の対応を維持する。
+ * @boundary N/A: PreparedPlanの宣言は外部境界を開かない。
+ * @security PreparedPlanはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility PreparedPlanの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type PreparedPlan = Readonly<{
   provider: "codex";
   operationId: string;
@@ -97,6 +130,17 @@ type PreparedPlan = Readonly<{
   commands: readonly Command[];
 }>;
 
+/**
+ * ConsumedTaskPacketが扱う値の構造を表す。
+ *
+ * @responsibility ConsumedTaskPacketに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape ConsumedTaskPacketが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ConsumedTaskPacketで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ConsumedTaskPacketの宣言は外部境界を開かない。
+ * @security ConsumedTaskPacketはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ConsumedTaskPacketの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ConsumedTaskPacket = Readonly<{
   operationId: string;
   taskPacketRef: string;
@@ -106,6 +150,17 @@ type ConsumedTaskPacket = Readonly<{
   promptTransport: "provider_stdin_only";
 }>;
 
+/**
+ * ConsumedModelSelectionが扱う値の構造を表す。
+ *
+ * @responsibility ConsumedModelSelectionに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape ConsumedModelSelectionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ConsumedModelSelectionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ConsumedModelSelectionの宣言は外部境界を開かない。
+ * @security ConsumedModelSelectionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ConsumedModelSelectionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ConsumedModelSelection = Readonly<{
   selectionRecordId: string;
   operationId: string;
@@ -122,6 +177,17 @@ type ConsumedModelSelection = Readonly<{
   delegationDepth: number;
 }>;
 
+/**
+ * RuntimeStateが扱う値の構造を表す。
+ *
+ * @responsibility RuntimeStateに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape RuntimeStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeStateの宣言は外部境界を開かない。
+ * @security RuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimeStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimeState = Readonly<{
   prepared: WeakMap<object, PreparedPlan>;
   managementCapabilities: WeakMap<object, object>;
@@ -188,6 +254,22 @@ type RuntimeState = Readonly<{
   ) => Readonly<{ status: string }>;
 }>;
 
+/**
+ * createRuntimeStateの処理を実行する。
+ *
+ * @responsibility createRuntimeStateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input dependencies: Omit<RuntimeState, "prepared" | "managementCapabilities">
+ * @returns RuntimeStateを返す。
+ * @precondition 「dependencies: Omit<RuntimeState, "prepared" | "managementCapabilities">」がcreateRuntimeStateの入力契約を満たす。
+ * @postcondition createRuntimeStateの責務を完了した結果だけを返す。
+ * @effect N/A: createRuntimeStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createRuntimeStateは独自の失敗分岐を所有しない。
+ * @invariant createRuntimeStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security createRuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createRuntimeStateは共有非同期状態を持たない同期処理である。
+ */
 function createRuntimeState(
   dependencies: Omit<RuntimeState, "prepared" | "managementCapabilities">,
 ): RuntimeState {
@@ -213,6 +295,22 @@ const productionState = createRuntimeState({
   revokeProviderAuthority: revokeRuntimeOwnedProviderAuthority,
 });
 
+/**
+ * createBlockedResultの処理を実行する。
+ *
+ * @responsibility createBlockedResultに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input reason: string
+ * @returns createBlockedResultの計算結果を返す。
+ * @precondition 「reason: string」がcreateBlockedResultの入力契約を満たす。
+ * @postcondition createBlockedResultの責務を完了した結果だけを返す。
+ * @effect N/A: createBlockedResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createBlockedResultは独自の失敗分岐を所有しない。
+ * @invariant createBlockedResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security createBlockedResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createBlockedResultは共有非同期状態を持たない同期処理である。
+ */
 function createBlockedResult(reason: string) {
   return Object.freeze({
     status: "blocked" as const,
@@ -238,6 +336,22 @@ function createBlockedResult(reason: string) {
   });
 }
 
+/**
+ * performSafelyの処理を実行する。
+ *
+ * @responsibility performSafelyに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input reason: string、action: () => T
+ * @returns performSafelyの計算結果を返す。
+ * @precondition 「reason: string、action: () => T」がperformSafelyの入力契約を満たす。
+ * @postcondition performSafelyの責務を完了した結果だけを返す。
+ * @effect N/A: performSafelyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure performSafelyは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant performSafelyは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security performSafelyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: performSafelyは共有非同期状態を持たない同期処理である。
+ */
 function performSafely<T>(reason: string, action: () => T) {
   try {
     return action();
@@ -246,6 +360,22 @@ function performSafely<T>(reason: string, action: () => T) {
   }
 }
 
+/**
+ * createRandomHexの処理を実行する。
+ *
+ * @responsibility createRandomHexに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input state: RuntimeState、bytes: number
+ * @returns createRandomHexの計算結果を返す。
+ * @precondition 「state: RuntimeState、bytes: number」がcreateRandomHexの入力契約を満たす。
+ * @postcondition createRandomHexの責務を完了した結果だけを返す。
+ * @effect N/A: createRandomHexは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createRandomHexは独自の失敗分岐を所有しない。
+ * @invariant createRandomHexは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security createRandomHexはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createRandomHexは共有非同期状態を持たない同期処理である。
+ */
 function createRandomHex(state: RuntimeState, bytes: number) {
   const value = state.randomBytes(bytes);
   return Buffer.isBuffer(value) && value.byteLength === bytes
@@ -253,6 +383,22 @@ function createRandomHex(state: RuntimeState, bytes: number) {
     : null;
 }
 
+/**
+ * createSafeMountの処理を実行する。
+ *
+ * @responsibility createSafeMountに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input source: string、destination: string
+ * @returns createSafeMountの計算結果を返す。
+ * @precondition 「source: string、destination: string」がcreateSafeMountの入力契約を満たす。
+ * @postcondition createSafeMountの責務を完了した結果だけを返す。
+ * @effect N/A: createSafeMountは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createSafeMountは独自の失敗分岐を所有しない。
+ * @invariant createSafeMountは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security createSafeMountはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createSafeMountは共有非同期状態を持たない同期処理である。
+ */
 function createSafeMount(source: string, destination: string) {
   if (
     source.length === 0 ||
@@ -266,10 +412,42 @@ function createSafeMount(source: string, destination: string) {
   return `type=bind,src=${source},dst=${destination},bind-propagation=rprivate`;
 }
 
+/**
+ * createCommandの処理を実行する。
+ *
+ * @responsibility createCommandに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input purpose: string、argv: readonly string[]
+ * @returns Commandを返す。
+ * @precondition 「purpose: string、argv: readonly string[]」がcreateCommandの入力契約を満たす。
+ * @postcondition createCommandの責務を完了した結果だけを返す。
+ * @effect N/A: createCommandは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createCommandは独自の失敗分岐を所有しない。
+ * @invariant createCommandは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security createCommandはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createCommandは共有非同期状態を持たない同期処理である。
+ */
 function createCommand(purpose: string, argv: readonly string[]): Command {
   return Object.freeze({ purpose, argv: Object.freeze([...argv]) });
 }
 
+/**
+ * buildExactFixedEnvironmentの処理を実行する。
+ *
+ * @responsibility buildExactFixedEnvironmentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input environment: Readonly<Record<string, string>>
+ * @returns buildExactFixedEnvironmentの計算結果を返す。
+ * @precondition 「environment: Readonly<Record<string, string>>」がbuildExactFixedEnvironmentの入力契約を満たす。
+ * @postcondition buildExactFixedEnvironmentの責務を完了した結果だけを返す。
+ * @effect N/A: buildExactFixedEnvironmentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: buildExactFixedEnvironmentは独自の失敗分岐を所有しない。
+ * @invariant buildExactFixedEnvironmentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security buildExactFixedEnvironmentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: buildExactFixedEnvironmentは共有非同期状態を持たない同期処理である。
+ */
 function buildExactFixedEnvironment(
   environment: Readonly<Record<string, string>>,
 ) {
@@ -287,10 +465,42 @@ function buildExactFixedEnvironment(
   return entries.flatMap(([name, value]) => ["--env", `${name}=${value}`]);
 }
 
+/**
+ * normalizeExactModelIdの処理を実行する。
+ *
+ * @responsibility normalizeExactModelIdに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input model: string
+ * @returns normalizeExactModelIdの計算結果を返す。
+ * @precondition 「model: string」がnormalizeExactModelIdの入力契約を満たす。
+ * @postcondition normalizeExactModelIdの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeExactModelIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizeExactModelIdは独自の失敗分岐を所有しない。
+ * @invariant normalizeExactModelIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security normalizeExactModelIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeExactModelIdは共有非同期状態を持たない同期処理である。
+ */
 function normalizeExactModelId(model: string) {
   return /^[a-z0-9][a-z0-9._-]{0,127}$/.test(model) ? model : null;
 }
 
+/**
+ * buildPlanの処理を実行する。
+ *
+ * @responsibility buildPlanに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input state: RuntimeState、binding: OperationBinding、activation: Readonly<{ grant: Readonly<{ grantRef: string; provider: string; profileId: string; operationId: string; providerHomeIdentityHash: string; providerHomeProtectionHash: string; localUserBindingHash: string; stableLogicalHomeBindingHash: string; }>; activeMountCapability: object; }>、consumedModelSelection: ConsumedModelSelection、providerHomeSourcePath: string、preparedWallClockMs: number、preparedMonotonicMs: number、taskPacket: ConsumedTaskPacket | null、recoveryCorrelationId: string | null
+ * @returns buildPlanの計算結果を返す。
+ * @precondition 「state: RuntimeState、binding: OperationBinding、activation: Readonly<{ grant: Readonly<{ grantRef: string; provider: string; profileId: string; operationId: string; providerHomeIdentityHash: string; providerHomeProtectionHash: string; localUserBindingHash: string; stableLogicalHomeBindingHash: string; }>; activeMountCapability: object; }>、consumedModelSelection: ConsumedModelSelection、providerHomeSourcePath: string、preparedWallClockMs: number、preparedMonotonicMs: number、taskPacket: ConsumedTaskPacket | null、recoveryCorrelationId: string | null」がbuildPlanの入力契約を満たす。
+ * @postcondition buildPlanの責務を完了した結果だけを返す。
+ * @effect N/A: buildPlanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: buildPlanは独自の失敗分岐を所有しない。
+ * @invariant buildPlanは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security buildPlanはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: buildPlanは共有非同期状態を持たない同期処理である。
+ */
 function buildPlan(
   state: RuntimeState,
   binding: OperationBinding,
@@ -588,6 +798,22 @@ function buildPlan(
   });
 }
 
+/**
+ * prepareの処理を実行する。
+ *
+ * @responsibility prepareに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input state: RuntimeState、managementCapability: unknown、mountCapability: unknown、mountAuthorizationCapability: unknown、selectionUseCapability: unknown、taskPacketUseCapability: unknown、recoveryCorrelationId: unknown
+ * @returns prepareの計算結果を返す。
+ * @precondition 「state: RuntimeState、managementCapability: unknown、mountCapability: unknown、mountAuthorizationCapability: unknown、selectionUseCapability: unknown、taskPacketUseCapability: unknown、recoveryCorrelationId: unknown」がprepareの入力契約を満たす。
+ * @postcondition prepareの責務を完了した結果だけを返す。
+ * @effect N/A: prepareは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure prepareは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant prepareは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security prepareはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: prepareは共有非同期状態を持たない同期処理である。
+ */
 function prepare(
   state: RuntimeState,
   managementCapability: unknown,
@@ -751,6 +977,22 @@ function prepare(
   }
 }
 
+/**
+ * findStoredPlanの処理を実行する。
+ *
+ * @responsibility findStoredPlanに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input state: RuntimeState、preparedCapability: unknown、managementCapability: unknown
+ * @returns findStoredPlanの計算結果を返す。
+ * @precondition 「state: RuntimeState、preparedCapability: unknown、managementCapability: unknown」がfindStoredPlanの入力契約を満たす。
+ * @postcondition findStoredPlanの責務を完了した結果だけを返す。
+ * @effect N/A: findStoredPlanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: findStoredPlanは独自の失敗分岐を所有しない。
+ * @invariant findStoredPlanは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security findStoredPlanはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: findStoredPlanは共有非同期状態を持たない同期処理である。
+ */
 function findStoredPlan(
   state: RuntimeState,
   preparedCapability: unknown,
@@ -764,6 +1006,22 @@ function findStoredPlan(
   return plan;
 }
 
+/**
+ * isPlanFreshの処理を実行する。
+ *
+ * @responsibility isPlanFreshに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input state: RuntimeState、plan: PreparedPlan
+ * @returns isPlanFreshの計算結果を返す。
+ * @precondition 「state: RuntimeState、plan: PreparedPlan」がisPlanFreshの入力契約を満たす。
+ * @postcondition isPlanFreshの責務を完了した結果だけを返す。
+ * @effect N/A: isPlanFreshは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isPlanFreshは独自の失敗分岐を所有しない。
+ * @invariant isPlanFreshは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security isPlanFreshはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isPlanFreshは共有非同期状態を持たない同期処理である。
+ */
 function isPlanFresh(state: RuntimeState, plan: PreparedPlan) {
   const wallAge = state.wallNow() - plan.preparedWallClockMs;
   const monotonicAge = state.monotonicNow() - plan.preparedMonotonicMs;
@@ -777,11 +1035,43 @@ function isPlanFresh(state: RuntimeState, plan: PreparedPlan) {
   );
 }
 
+/**
+ * removePreparedの処理を実行する。
+ *
+ * @responsibility removePreparedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input state: RuntimeState、preparedCapability: object
+ * @returns N/A: removePreparedは戻り値を返さない。
+ * @precondition 「state: RuntimeState、preparedCapability: object」がremovePreparedの入力契約を満たす。
+ * @postcondition removePreparedの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: removePreparedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: removePreparedは独自の失敗分岐を所有しない。
+ * @invariant removePreparedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security removePreparedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: removePreparedは共有非同期状態を持たない同期処理である。
+ */
 function removePrepared(state: RuntimeState, preparedCapability: object) {
   state.prepared.delete(preparedCapability);
   state.managementCapabilities.delete(preparedCapability);
 }
 
+/**
+ * cancelの処理を実行する。
+ *
+ * @responsibility cancelに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input state: RuntimeState、preparedCapability: unknown、managementCapability: unknown
+ * @returns cancelの計算結果を返す。
+ * @precondition 「state: RuntimeState、preparedCapability: unknown、managementCapability: unknown」がcancelの入力契約を満たす。
+ * @postcondition cancelの責務を完了した結果だけを返す。
+ * @effect N/A: cancelは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: cancelは独自の失敗分岐を所有しない。
+ * @invariant cancelは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security cancelはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: cancelは共有非同期状態を持たない同期処理である。
+ */
 function cancel(
   state: RuntimeState,
   preparedCapability: unknown,
@@ -826,6 +1116,22 @@ function cancel(
   });
 }
 
+/**
+ * consumePreparedPlanの処理を実行する。
+ *
+ * @responsibility consumePreparedPlanに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input state: RuntimeState、preparedCapability: unknown、managementCapability: unknown
+ * @returns consumePreparedPlanの計算結果を返す。
+ * @precondition 「state: RuntimeState、preparedCapability: unknown、managementCapability: unknown」がconsumePreparedPlanの入力契約を満たす。
+ * @postcondition consumePreparedPlanの責務を完了した結果だけを返す。
+ * @effect N/A: consumePreparedPlanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: consumePreparedPlanは独自の失敗分岐を所有しない。
+ * @invariant consumePreparedPlanは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security consumePreparedPlanはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: consumePreparedPlanは共有非同期状態を持たない同期処理である。
+ */
 function consumePreparedPlan(
   state: RuntimeState,
   preparedCapability: unknown,
@@ -853,6 +1159,22 @@ function consumePreparedPlan(
   return plan;
 }
 
+/**
+ * prepareRuntimeOwnedCodexDockerCandidateの処理を実行する。
+ *
+ * @responsibility prepareRuntimeOwnedCodexDockerCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input managementCapability: unknown、mountCapability: unknown、mountAuthorizationCapability: unknown、selectionUseCapability: unknown
+ * @returns prepareRuntimeOwnedCodexDockerCandidateの計算結果を返す。
+ * @precondition 「managementCapability: unknown、mountCapability: unknown、mountAuthorizationCapability: unknown、selectionUseCapability: unknown」がprepareRuntimeOwnedCodexDockerCandidateの入力契約を満たす。
+ * @postcondition prepareRuntimeOwnedCodexDockerCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: prepareRuntimeOwnedCodexDockerCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: prepareRuntimeOwnedCodexDockerCandidateは独自の失敗分岐を所有しない。
+ * @invariant prepareRuntimeOwnedCodexDockerCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security prepareRuntimeOwnedCodexDockerCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: prepareRuntimeOwnedCodexDockerCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function prepareRuntimeOwnedCodexDockerCandidate(
   managementCapability: unknown,
   mountCapability: unknown,
@@ -870,6 +1192,22 @@ export function prepareRuntimeOwnedCodexDockerCandidate(
   );
 }
 
+/**
+ * prepareRuntimeOwnedCodexDockerTaskCandidateの処理を実行する。
+ *
+ * @responsibility prepareRuntimeOwnedCodexDockerTaskCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input managementCapability: unknown、mountCapability: unknown、mountAuthorizationCapability: unknown、selectionUseCapability: unknown、taskPacketUseCapability: unknown、recoveryCorrelationId: unknown
+ * @returns prepareRuntimeOwnedCodexDockerTaskCandidateの計算結果を返す。
+ * @precondition 「managementCapability: unknown、mountCapability: unknown、mountAuthorizationCapability: unknown、selectionUseCapability: unknown、taskPacketUseCapability: unknown、recoveryCorrelationId: unknown」がprepareRuntimeOwnedCodexDockerTaskCandidateの入力契約を満たす。
+ * @postcondition prepareRuntimeOwnedCodexDockerTaskCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: prepareRuntimeOwnedCodexDockerTaskCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: prepareRuntimeOwnedCodexDockerTaskCandidateは独自の失敗分岐を所有しない。
+ * @invariant prepareRuntimeOwnedCodexDockerTaskCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security prepareRuntimeOwnedCodexDockerTaskCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: prepareRuntimeOwnedCodexDockerTaskCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function prepareRuntimeOwnedCodexDockerTaskCandidate(
   managementCapability: unknown,
   mountCapability: unknown,
@@ -893,6 +1231,22 @@ export function prepareRuntimeOwnedCodexDockerTaskCandidate(
   );
 }
 
+/**
+ * cancelRuntimeOwnedCodexDockerCandidateの処理を実行する。
+ *
+ * @responsibility cancelRuntimeOwnedCodexDockerCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input preparedCapability: unknown、managementCapability: unknown
+ * @returns cancelRuntimeOwnedCodexDockerCandidateの計算結果を返す。
+ * @precondition 「preparedCapability: unknown、managementCapability: unknown」がcancelRuntimeOwnedCodexDockerCandidateの入力契約を満たす。
+ * @postcondition cancelRuntimeOwnedCodexDockerCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: cancelRuntimeOwnedCodexDockerCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: cancelRuntimeOwnedCodexDockerCandidateは独自の失敗分岐を所有しない。
+ * @invariant cancelRuntimeOwnedCodexDockerCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security cancelRuntimeOwnedCodexDockerCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: cancelRuntimeOwnedCodexDockerCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function cancelRuntimeOwnedCodexDockerCandidate(
   preparedCapability: unknown,
   managementCapability: unknown,
@@ -902,6 +1256,22 @@ export function cancelRuntimeOwnedCodexDockerCandidate(
   );
 }
 
+/**
+ * consumeRuntimeOwnedCodexDockerPlanForProcessControllerの処理を実行する。
+ *
+ * @responsibility consumeRuntimeOwnedCodexDockerPlanForProcessControllerに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input preparedCapability: unknown、managementCapability: unknown
+ * @returns consumeRuntimeOwnedCodexDockerPlanForProcessControllerの計算結果を返す。
+ * @precondition 「preparedCapability: unknown、managementCapability: unknown」がconsumeRuntimeOwnedCodexDockerPlanForProcessControllerの入力契約を満たす。
+ * @postcondition consumeRuntimeOwnedCodexDockerPlanForProcessControllerの責務を完了した結果だけを返す。
+ * @effect N/A: consumeRuntimeOwnedCodexDockerPlanForProcessControllerは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure consumeRuntimeOwnedCodexDockerPlanForProcessControllerは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant consumeRuntimeOwnedCodexDockerPlanForProcessControllerは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security consumeRuntimeOwnedCodexDockerPlanForProcessControllerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: consumeRuntimeOwnedCodexDockerPlanForProcessControllerは共有非同期状態を持たない同期処理である。
+ */
 export function consumeRuntimeOwnedCodexDockerPlanForProcessController(
   preparedCapability: unknown,
   managementCapability: unknown,
@@ -917,6 +1287,22 @@ export function consumeRuntimeOwnedCodexDockerPlanForProcessController(
   }
 }
 
+/**
+ * createIsolatedCodexDockerRuntimeAdapterCandidateの処理を実行する。
+ *
+ * @responsibility createIsolatedCodexDockerRuntimeAdapterCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input dependencies: Omit<RuntimeState, "prepared" | "managementCapabilities">
+ * @returns createIsolatedCodexDockerRuntimeAdapterCandidateの計算結果を返す。
+ * @precondition 「dependencies: Omit<RuntimeState, "prepared" | "managementCapabilities">」がcreateIsolatedCodexDockerRuntimeAdapterCandidateの入力契約を満たす。
+ * @postcondition createIsolatedCodexDockerRuntimeAdapterCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: createIsolatedCodexDockerRuntimeAdapterCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createIsolatedCodexDockerRuntimeAdapterCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createIsolatedCodexDockerRuntimeAdapterCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security createIsolatedCodexDockerRuntimeAdapterCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createIsolatedCodexDockerRuntimeAdapterCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function createIsolatedCodexDockerRuntimeAdapterCandidate(
   dependencies: Omit<RuntimeState, "prepared" | "managementCapabilities">,
 ) {
@@ -976,6 +1362,22 @@ export function createIsolatedCodexDockerRuntimeAdapterCandidate(
   });
 }
 
+/**
+ * describeCodexDockerRuntimeAdapterContractの処理を実行する。
+ *
+ * @responsibility describeCodexDockerRuntimeAdapterContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeCodexDockerRuntimeAdapterContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeCodexDockerRuntimeAdapterContractの入力契約を満たす。
+ * @postcondition describeCodexDockerRuntimeAdapterContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeCodexDockerRuntimeAdapterContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeCodexDockerRuntimeAdapterContractは独自の失敗分岐を所有しない。
+ * @invariant describeCodexDockerRuntimeAdapterContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security describeCodexDockerRuntimeAdapterContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeCodexDockerRuntimeAdapterContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeCodexDockerRuntimeAdapterContract() {
   return Object.freeze({
     contract: CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT,

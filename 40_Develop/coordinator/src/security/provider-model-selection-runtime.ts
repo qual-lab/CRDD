@@ -43,9 +43,47 @@ const HIGH_COST_REASON_CODES = new Set([
   "compound_unresolved_cross_context_alignment",
 ]);
 
+/**
+ * Providerが扱う値の構造を表す。
+ *
+ * @responsibility Providerに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Providerで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Providerの宣言は外部境界を開かない。
+ * @security ProviderはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Providerの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Provider = "codex" | "claude";
+/**
+ * Effortが扱う値の構造を表す。
+ *
+ * @responsibility Effortに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape Effortが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Effortで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Effortの宣言は外部境界を開かない。
+ * @security EffortはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Effortの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Effort = "low" | "medium" | "high";
 
+/**
+ * createBlockedResultの処理を実行する。
+ *
+ * @responsibility createBlockedResultに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input reason: string
+ * @returns createBlockedResultの計算結果を返す。
+ * @precondition 「reason: string」がcreateBlockedResultの入力契約を満たす。
+ * @postcondition createBlockedResultの責務を完了した結果だけを返す。
+ * @effect N/A: createBlockedResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createBlockedResultは独自の失敗分岐を所有しない。
+ * @invariant createBlockedResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createBlockedResultはProcess内の同一Subsystemで完結する。
+ * @security createBlockedResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createBlockedResultは共有非同期状態を持たない同期処理である。
+ */
 function createBlockedResult(reason: string) {
   return Object.freeze({
     status: "blocked" as const,
@@ -66,14 +104,62 @@ function createBlockedResult(reason: string) {
   });
 }
 
+/**
+ * isBooleanの処理を実行する。
+ *
+ * @responsibility isBooleanに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input value: unknown
+ * @returns value is booleanを返す。
+ * @precondition 「value: unknown」がisBooleanの入力契約を満たす。
+ * @postcondition isBooleanの責務を完了した結果だけを返す。
+ * @effect N/A: isBooleanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isBooleanは独自の失敗分岐を所有しない。
+ * @invariant isBooleanは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isBooleanはProcess内の同一Subsystemで完結する。
+ * @security isBooleanはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isBooleanは共有非同期状態を持たない同期処理である。
+ */
 function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
 }
 
+/**
+ * selectFamilyPreferenceの処理を実行する。
+ *
+ * @responsibility selectFamilyPreferenceに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input provider: Provider
+ * @returns selectFamilyPreferenceの計算結果を返す。
+ * @precondition 「provider: Provider」がselectFamilyPreferenceの入力契約を満たす。
+ * @postcondition selectFamilyPreferenceの責務を完了した結果だけを返す。
+ * @effect N/A: selectFamilyPreferenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: selectFamilyPreferenceは独自の失敗分岐を所有しない。
+ * @invariant selectFamilyPreferenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: selectFamilyPreferenceはProcess内の同一Subsystemで完結する。
+ * @security selectFamilyPreferenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: selectFamilyPreferenceは共有非同期状態を持たない同期処理である。
+ */
 function selectFamilyPreference(provider: Provider) {
   return provider === "codex" ? "sol" : "opus";
 }
 
+/**
+ * selectRationaleCodesの処理を実行する。
+ *
+ * @responsibility selectRationaleCodesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input value: Readonly<Record<string, unknown>>
+ * @returns selectRationaleCodesの計算結果を返す。
+ * @precondition 「value: Readonly<Record<string, unknown>>」がselectRationaleCodesの入力契約を満たす。
+ * @postcondition selectRationaleCodesの責務を完了した結果だけを返す。
+ * @effect N/A: selectRationaleCodesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: selectRationaleCodesは独自の失敗分岐を所有しない。
+ * @invariant selectRationaleCodesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: selectRationaleCodesはProcess内の同一Subsystemで完結する。
+ * @security selectRationaleCodesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: selectRationaleCodesは共有非同期状態を持たない同期処理である。
+ */
 function selectRationaleCodes(value: Readonly<Record<string, unknown>>) {
   const rationaleCodes: string[] = [];
   if (value.role === "coordinator") {
@@ -138,11 +224,43 @@ function selectRationaleCodes(value: Readonly<Record<string, unknown>>) {
   return Object.freeze(rationaleCodes);
 }
 
+/**
+ * selectEffortの処理を実行する。
+ *
+ * @responsibility selectEffortに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input rationaleCodes: readonly string[]
+ * @returns Effortを返す。
+ * @precondition 「rationaleCodes: readonly string[]」がselectEffortの入力契約を満たす。
+ * @postcondition selectEffortの責務を完了した結果だけを返す。
+ * @effect N/A: selectEffortは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: selectEffortは独自の失敗分岐を所有しない。
+ * @invariant selectEffortは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: selectEffortはProcess内の同一Subsystemで完結する。
+ * @security selectEffortはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: selectEffortは共有非同期状態を持たない同期処理である。
+ */
 function selectEffort(rationaleCodes: readonly string[]): Effort {
   if (rationaleCodes.includes("complete_bounded_local_plan")) return "low";
   return "medium";
 }
 
+/**
+ * describeSelectionNoticeの処理を実行する。
+ *
+ * @responsibility describeSelectionNoticeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input provider: Provider、role: string、family: string、effort: Effort、rationaleCodes: readonly string[]
+ * @returns describeSelectionNoticeの計算結果を返す。
+ * @precondition 「provider: Provider、role: string、family: string、effort: Effort、rationaleCodes: readonly string[]」がdescribeSelectionNoticeの入力契約を満たす。
+ * @postcondition describeSelectionNoticeの責務を完了した結果だけを返す。
+ * @effect N/A: describeSelectionNoticeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeSelectionNoticeは独自の失敗分岐を所有しない。
+ * @invariant describeSelectionNoticeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeSelectionNoticeはProcess内の同一Subsystemで完結する。
+ * @security describeSelectionNoticeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeSelectionNoticeは共有非同期状態を持たない同期処理である。
+ */
 function describeSelectionNotice(
   provider: Provider,
   role: string,
@@ -158,6 +276,22 @@ function describeSelectionNotice(
   ].join("\n");
 }
 
+/**
+ * selectProviderModelCandidateの処理を実行する。
+ *
+ * @responsibility selectProviderModelCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input candidate: unknown
+ * @returns selectProviderModelCandidateの計算結果を返す。
+ * @precondition 「candidate: unknown」がselectProviderModelCandidateの入力契約を満たす。
+ * @postcondition selectProviderModelCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: selectProviderModelCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: selectProviderModelCandidateは独自の失敗分岐を所有しない。
+ * @invariant selectProviderModelCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: selectProviderModelCandidateはProcess内の同一Subsystemで完結する。
+ * @security selectProviderModelCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: selectProviderModelCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function selectProviderModelCandidate(candidate: unknown) {
   const value = snapshotPlainRecord(candidate, SELECTION_KEYS);
   if (!value)
@@ -237,6 +371,22 @@ export function selectProviderModelCandidate(candidate: unknown) {
   });
 }
 
+/**
+ * describeProviderModelSelectionRuntimeContractの処理を実行する。
+ *
+ * @responsibility describeProviderModelSelectionRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProviderModelSelectionRuntimeContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProviderModelSelectionRuntimeContractの入力契約を満たす。
+ * @postcondition describeProviderModelSelectionRuntimeContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeProviderModelSelectionRuntimeContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProviderModelSelectionRuntimeContractは独自の失敗分岐を所有しない。
+ * @invariant describeProviderModelSelectionRuntimeContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeProviderModelSelectionRuntimeContractはProcess内の同一Subsystemで完結する。
+ * @security describeProviderModelSelectionRuntimeContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeProviderModelSelectionRuntimeContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeProviderModelSelectionRuntimeContract() {
   return Object.freeze({
     contract: PROVIDER_MODEL_SELECTION_RUNTIME_CONTRACT,

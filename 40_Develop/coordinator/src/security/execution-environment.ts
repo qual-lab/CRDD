@@ -44,22 +44,66 @@ const POSIX_RUNTIME_ENV = Object.freeze([
 ]);
 const OWNED_PREFIX = "crdd-coordinator-doctor-";
 const HOST_RECOVERY_DIRECTORY = "crdd-coordinator-recovery-v1";
+/**
+ * FilesystemIdentityが扱う値の構造を表す。
+ *
+ * @responsibility FilesystemIdentityに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape FilesystemIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant FilesystemIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: FilesystemIdentityの宣言は外部境界を開かない。
+ * @security FilesystemIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility FilesystemIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type FilesystemIdentity = Readonly<{
   dev: bigint;
   ino: bigint;
   birthtimeNs: bigint;
 }>;
+/**
+ * SerializableIdentityが扱う値の構造を表す。
+ *
+ * @responsibility SerializableIdentityに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape SerializableIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SerializableIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SerializableIdentityの宣言は外部境界を開かない。
+ * @security SerializableIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility SerializableIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type SerializableIdentity = Readonly<{
   dev: string;
   ino: string;
   birthtimeNs: string;
 }>;
+/**
+ * DirectorySnapshotが扱う値の構造を表す。
+ *
+ * @responsibility DirectorySnapshotに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape DirectorySnapshotが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DirectorySnapshotで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DirectorySnapshotの宣言は外部境界を開かない。
+ * @security DirectorySnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DirectorySnapshotの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type DirectorySnapshot = Readonly<{
   parent: string;
   root: string;
   name: string;
   filesystem: FilesystemIdentity;
 }>;
+/**
+ * OperationDirectoriesが扱う値の構造を表す。
+ *
+ * @responsibility OperationDirectoriesに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape OperationDirectoriesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant OperationDirectoriesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: OperationDirectoriesの宣言は外部境界を開かない。
+ * @security OperationDirectoriesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility OperationDirectoriesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type OperationDirectories = Readonly<{
   root: string;
   providerHome: string;
@@ -69,6 +113,17 @@ export type OperationDirectories = Readonly<{
   projection: string;
   management: string;
 }>;
+/**
+ * ChildSnapshotsが扱う値の構造を表す。
+ *
+ * @responsibility ChildSnapshotsに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape ChildSnapshotsが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ChildSnapshotsで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ChildSnapshotsの宣言は外部境界を開かない。
+ * @security ChildSnapshotsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ChildSnapshotsの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ChildSnapshots = Readonly<{
   workspace: DirectorySnapshot;
   providerHome: DirectorySnapshot;
@@ -77,11 +132,33 @@ type ChildSnapshots = Readonly<{
   projection: DirectorySnapshot;
   management: DirectorySnapshot;
 }>;
+/**
+ * RecoveryStateが扱う値の構造を表す。
+ *
+ * @responsibility RecoveryStateに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape RecoveryStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RecoveryStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RecoveryStateの宣言は外部境界を開かない。
+ * @security RecoveryStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RecoveryStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RecoveryState =
   | "initializing"
   | "host_only"
   | "docker_submission_started"
   | "docker_absent_confirmed";
+/**
+ * HostRecoveryStateが扱う値の構造を表す。
+ *
+ * @responsibility HostRecoveryStateに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape HostRecoveryStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant HostRecoveryStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: HostRecoveryStateの宣言は外部境界を開かない。
+ * @security HostRecoveryStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility HostRecoveryStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type HostRecoveryState = Readonly<{
   directory: string;
   directoryIdentity: FilesystemIdentity;
@@ -91,6 +168,17 @@ type HostRecoveryState = Readonly<{
   state: RecoveryState;
   recordHash: string | null;
 }>;
+/**
+ * OwnedIdentityが扱う値の構造を表す。
+ *
+ * @responsibility OwnedIdentityに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape OwnedIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant OwnedIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: OwnedIdentityの宣言は外部境界を開かない。
+ * @security OwnedIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility OwnedIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type OwnedIdentity = Readonly<{
   operationId: string;
   parent: string;
@@ -106,12 +194,34 @@ type OwnedIdentity = Readonly<{
     tmp: DirectorySnapshot;
   }>;
 }>;
+/**
+ * OwnedOperationDirectoriesが扱う値の構造を表す。
+ *
+ * @responsibility OwnedOperationDirectoriesに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape OwnedOperationDirectoriesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant OwnedOperationDirectoriesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: OwnedOperationDirectoriesの宣言は外部境界を開かない。
+ * @security OwnedOperationDirectoriesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility OwnedOperationDirectoriesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type OwnedOperationDirectories = {
   parent: string;
   root: string;
   directories: OperationDirectories | null;
   hostRecoveryId: string | null;
 };
+/**
+ * OwnedMountPathsが扱う値の構造を表す。
+ *
+ * @responsibility OwnedMountPathsに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape OwnedMountPathsが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant OwnedMountPathsで宣言した値と責務の対応を維持する。
+ * @boundary N/A: OwnedMountPathsの宣言は外部境界を開かない。
+ * @security OwnedMountPathsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility OwnedMountPathsの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type OwnedMountPaths = Readonly<{
   workspace: string;
   providerHome: string;
@@ -120,7 +230,29 @@ export type OwnedMountPaths = Readonly<{
   projection: string;
   management: string;
 }>;
+/**
+ * HostRecordChildが扱う値の構造を表す。
+ *
+ * @responsibility HostRecordChildに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape HostRecordChildが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant HostRecordChildで宣言した値と責務の対応を維持する。
+ * @boundary N/A: HostRecordChildの宣言は外部境界を開かない。
+ * @security HostRecordChildはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility HostRecordChildの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type HostRecordChild = SerializableIdentity & Readonly<{ pathName: string }>;
+/**
+ * HostRecoveryRecordが扱う値の構造を表す。
+ *
+ * @responsibility HostRecoveryRecordに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape HostRecoveryRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant HostRecoveryRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: HostRecoveryRecordの宣言は外部境界を開かない。
+ * @security HostRecoveryRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility HostRecoveryRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type HostRecoveryRecord = Readonly<{
   schema: "crdd-coordinator-host-recovery/v1";
   state: RecoveryState;
@@ -131,6 +263,17 @@ type HostRecoveryRecord = Readonly<{
 }>;
 
 const ownedIdentities = new WeakMap<object, OwnedIdentity>();
+/**
+ * OwnedOperationDirectoryCreationFailureが扱う値の構造を表す。
+ *
+ * @responsibility OwnedOperationDirectoryCreationFailureに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape OwnedOperationDirectoryCreationFailureが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant OwnedOperationDirectoryCreationFailureで宣言した値と責務の対応を維持する。
+ * @boundary N/A: OwnedOperationDirectoryCreationFailureの宣言は外部境界を開かない。
+ * @security OwnedOperationDirectoryCreationFailureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility OwnedOperationDirectoryCreationFailureの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type OwnedOperationDirectoryCreationFailure = Readonly<{
   cleanupConfirmed: boolean;
   manualRecoveryRequired: boolean;
@@ -140,6 +283,17 @@ const ownedOperationDirectoryCreationFailures = new WeakMap<
   object,
   OwnedOperationDirectoryCreationFailure
 >();
+/**
+ * HostRecoveryInitializationFailureが扱う値の構造を表す。
+ *
+ * @responsibility HostRecoveryInitializationFailureに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape HostRecoveryInitializationFailureが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant HostRecoveryInitializationFailureで宣言した値と責務の対応を維持する。
+ * @boundary N/A: HostRecoveryInitializationFailureの宣言は外部境界を開かない。
+ * @security HostRecoveryInitializationFailureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility HostRecoveryInitializationFailureの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type HostRecoveryInitializationFailure = Readonly<{
   cleanupConfirmed: boolean;
   hostRecoveryId: string | null;
@@ -149,6 +303,22 @@ const hostRecoveryInitializationFailures = new WeakMap<
   HostRecoveryInitializationFailure
 >();
 
+/**
+ * throwHostRecoveryInitializationFailureの処理を実行する。
+ *
+ * @responsibility throwHostRecoveryInitializationFailureに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input cause: unknown、details: HostRecoveryInitializationFailure
+ * @returns neverを返す。
+ * @precondition 「cause: unknown、details: HostRecoveryInitializationFailure」がthrowHostRecoveryInitializationFailureの入力契約を満たす。
+ * @postcondition throwHostRecoveryInitializationFailureの責務を完了した結果だけを返す。
+ * @effect N/A: throwHostRecoveryInitializationFailureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure throwHostRecoveryInitializationFailureは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant throwHostRecoveryInitializationFailureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: throwHostRecoveryInitializationFailureはProcess内の同一Subsystemで完結する。
+ * @security throwHostRecoveryInitializationFailureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: throwHostRecoveryInitializationFailureは共有非同期状態を持たない同期処理である。
+ */
 function throwHostRecoveryInitializationFailure(
   cause: unknown,
   details: HostRecoveryInitializationFailure,
@@ -158,12 +328,44 @@ function throwHostRecoveryInitializationFailure(
   throw error;
 }
 
+/**
+ * hostRecoveryInitializationFailureの処理を実行する。
+ *
+ * @responsibility hostRecoveryInitializationFailureに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input error: unknown
+ * @returns hostRecoveryInitializationFailureの計算結果を返す。
+ * @precondition 「error: unknown」がhostRecoveryInitializationFailureの入力契約を満たす。
+ * @postcondition hostRecoveryInitializationFailureの責務を完了した結果だけを返す。
+ * @effect N/A: hostRecoveryInitializationFailureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hostRecoveryInitializationFailureは独自の失敗分岐を所有しない。
+ * @invariant hostRecoveryInitializationFailureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: hostRecoveryInitializationFailureはProcess内の同一Subsystemで完結する。
+ * @security hostRecoveryInitializationFailureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hostRecoveryInitializationFailureは共有非同期状態を持たない同期処理である。
+ */
 function hostRecoveryInitializationFailure(error: unknown) {
   return error && typeof error === "object"
     ? (hostRecoveryInitializationFailures.get(error) ?? null)
     : null;
 }
 
+/**
+ * throwOwnedOperationDirectoryCreationFailureの処理を実行する。
+ *
+ * @responsibility throwOwnedOperationDirectoryCreationFailureに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input cause: unknown、details: OwnedOperationDirectoryCreationFailure
+ * @returns neverを返す。
+ * @precondition 「cause: unknown、details: OwnedOperationDirectoryCreationFailure」がthrowOwnedOperationDirectoryCreationFailureの入力契約を満たす。
+ * @postcondition throwOwnedOperationDirectoryCreationFailureの責務を完了した結果だけを返す。
+ * @effect N/A: throwOwnedOperationDirectoryCreationFailureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure throwOwnedOperationDirectoryCreationFailureは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant throwOwnedOperationDirectoryCreationFailureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: throwOwnedOperationDirectoryCreationFailureはProcess内の同一Subsystemで完結する。
+ * @security throwOwnedOperationDirectoryCreationFailureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: throwOwnedOperationDirectoryCreationFailureは共有非同期状態を持たない同期処理である。
+ */
 function throwOwnedOperationDirectoryCreationFailure(
   cause: unknown,
   details: OwnedOperationDirectoryCreationFailure,
@@ -175,12 +377,44 @@ function throwOwnedOperationDirectoryCreationFailure(
   throw error;
 }
 
+/**
+ * classifyOwnedOperationDirectoryCreationFailureの処理を実行する。
+ *
+ * @responsibility classifyOwnedOperationDirectoryCreationFailureに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input error: unknown
+ * @returns classifyOwnedOperationDirectoryCreationFailureの計算結果を返す。
+ * @precondition 「error: unknown」がclassifyOwnedOperationDirectoryCreationFailureの入力契約を満たす。
+ * @postcondition classifyOwnedOperationDirectoryCreationFailureの責務を完了した結果だけを返す。
+ * @effect N/A: classifyOwnedOperationDirectoryCreationFailureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: classifyOwnedOperationDirectoryCreationFailureは独自の失敗分岐を所有しない。
+ * @invariant classifyOwnedOperationDirectoryCreationFailureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: classifyOwnedOperationDirectoryCreationFailureはProcess内の同一Subsystemで完結する。
+ * @security classifyOwnedOperationDirectoryCreationFailureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: classifyOwnedOperationDirectoryCreationFailureは共有非同期状態を持たない同期処理である。
+ */
 export function classifyOwnedOperationDirectoryCreationFailure(error: unknown) {
   return error && typeof error === "object"
     ? (ownedOperationDirectoryCreationFailures.get(error) ?? null)
     : null;
 }
 
+/**
+ * createIsolatedOwnedOperationDirectoryCreationFailureCandidateの処理を実行する。
+ *
+ * @responsibility createIsolatedOwnedOperationDirectoryCreationFailureCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns createIsolatedOwnedOperationDirectoryCreationFailureCandidateの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がcreateIsolatedOwnedOperationDirectoryCreationFailureCandidateの入力契約を満たす。
+ * @postcondition createIsolatedOwnedOperationDirectoryCreationFailureCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: createIsolatedOwnedOperationDirectoryCreationFailureCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createIsolatedOwnedOperationDirectoryCreationFailureCandidateは独自の失敗分岐を所有しない。
+ * @invariant createIsolatedOwnedOperationDirectoryCreationFailureCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createIsolatedOwnedOperationDirectoryCreationFailureCandidateはProcess内の同一Subsystemで完結する。
+ * @security createIsolatedOwnedOperationDirectoryCreationFailureCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createIsolatedOwnedOperationDirectoryCreationFailureCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function createIsolatedOwnedOperationDirectoryCreationFailureCandidate() {
   return Object.freeze({
     productionAuthority: false as const,
@@ -191,16 +425,49 @@ export function createIsolatedOwnedOperationDirectoryCreationFailureCandidate() 
       ),
   });
 }
+/**
+ * MountCapabilityIdentityが扱う値の構造を表す。
+ *
+ * @responsibility MountCapabilityIdentityに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape MountCapabilityIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant MountCapabilityIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: MountCapabilityIdentityの宣言は外部境界を開かない。
+ * @security MountCapabilityIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility MountCapabilityIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type MountCapabilityIdentity = Readonly<{
   owned: object;
   children: ChildSnapshots;
 }>;
 const mountCapabilities = new WeakMap<object, MountCapabilityIdentity>();
+/**
+ * OperationContextIdentityが扱う値の構造を表す。
+ *
+ * @responsibility OperationContextIdentityに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape OperationContextIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant OperationContextIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: OperationContextIdentityの宣言は外部境界を開かない。
+ * @security OperationContextIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility OperationContextIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type OperationContextIdentity = Readonly<{
   owned: object;
   operationId: string;
   createdAt: string;
 }>;
+/**
+ * OwnedOperationContextが扱う値の構造を表す。
+ *
+ * @responsibility OwnedOperationContextに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape OwnedOperationContextが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant OwnedOperationContextで宣言した値と責務の対応を維持する。
+ * @boundary N/A: OwnedOperationContextの宣言は外部境界を開かない。
+ * @security OwnedOperationContextはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility OwnedOperationContextの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type OwnedOperationContext = Readonly<{
   operationId: string;
   createdAt: string;
@@ -210,11 +477,33 @@ const operationContextCapabilities = new WeakMap<
   OperationContextIdentity
 >();
 const operationContextAliases = new WeakMap<object, Set<object>>();
+/**
+ * OperationManagementIdentityが扱う値の構造を表す。
+ *
+ * @responsibility OperationManagementIdentityに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape OperationManagementIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant OperationManagementIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: OperationManagementIdentityの宣言は外部境界を開かない。
+ * @security OperationManagementIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility OperationManagementIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type OperationManagementIdentity = Readonly<{
   owned: object;
   operationId: string;
   createdAt: string;
 }>;
+/**
+ * OwnedOperationManagementBindingが扱う値の構造を表す。
+ *
+ * @responsibility OwnedOperationManagementBindingに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape OwnedOperationManagementBindingが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant OwnedOperationManagementBindingで宣言した値と責務の対応を維持する。
+ * @boundary N/A: OwnedOperationManagementBindingの宣言は外部境界を開かない。
+ * @security OwnedOperationManagementBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility OwnedOperationManagementBindingの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type OwnedOperationManagementBinding = Readonly<{
   operationId: string;
   createdAt: string;
@@ -224,6 +513,17 @@ const operationManagementCapabilities = new WeakMap<
   object,
   OperationManagementIdentity
 >();
+/**
+ * OperationGenerationStateが扱う値の構造を表す。
+ *
+ * @responsibility OperationGenerationStateに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape OperationGenerationStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant OperationGenerationStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: OperationGenerationStateの宣言は外部境界を開かない。
+ * @security OperationGenerationStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility OperationGenerationStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type OperationGenerationState = {
   owned: object;
   root: string;
@@ -239,6 +539,17 @@ type OperationGenerationState = {
 };
 const operationGenerationsByKey = new Map<string, OperationGenerationState>();
 const operationGenerationByRoot = new Map<string, OperationGenerationState>();
+/**
+ * HostCleanupCapabilityIdentityが扱う値の構造を表す。
+ *
+ * @responsibility HostCleanupCapabilityIdentityに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape HostCleanupCapabilityIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant HostCleanupCapabilityIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: HostCleanupCapabilityIdentityの宣言は外部境界を開かない。
+ * @security HostCleanupCapabilityIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility HostCleanupCapabilityIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type HostCleanupCapabilityIdentity = Readonly<{
   owned: object;
   operationId: string;
@@ -253,15 +564,63 @@ const hostCleanupCapabilities = new WeakMap<
   HostCleanupCapabilityIdentity
 >();
 
+/**
+ * isObjectの処理を実行する。
+ *
+ * @responsibility isObjectに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns value is objectを返す。
+ * @precondition 「value: unknown」がisObjectの入力契約を満たす。
+ * @postcondition isObjectの責務を完了した結果だけを返す。
+ * @effect N/A: isObjectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isObjectは独自の失敗分岐を所有しない。
+ * @invariant isObjectは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isObjectはProcess内の同一Subsystemで完結する。
+ * @security isObjectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isObjectは共有非同期状態を持たない同期処理である。
+ */
 function isObject(value: unknown): value is object {
   return typeof value === "object" && value !== null;
 }
 
+/**
+ * createOperationIdの処理を実行する。
+ *
+ * @responsibility createOperationIdに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns stringを返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がcreateOperationIdの入力契約を満たす。
+ * @postcondition createOperationIdの責務を完了した結果だけを返す。
+ * @effect N/A: createOperationIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createOperationIdは独自の失敗分岐を所有しない。
+ * @invariant createOperationIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createOperationIdはProcess内の同一Subsystemで完結する。
+ * @security createOperationIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createOperationIdは共有非同期状態を持たない同期処理である。
+ */
 function createOperationId(): string {
   const decimal = BigInt(`0x${randomUUID().replaceAll("-", "")}`).toString(10);
   return `OP-${decimal.padStart(6, "0")}`;
 }
 
+/**
+ * revokeOwnedOperationContextCapabilitiesの処理を実行する。
+ *
+ * @responsibility revokeOwnedOperationContextCapabilitiesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input owned: object
+ * @returns N/A: revokeOwnedOperationContextCapabilitiesは戻り値を返さない。
+ * @precondition 「owned: object」がrevokeOwnedOperationContextCapabilitiesの入力契約を満たす。
+ * @postcondition revokeOwnedOperationContextCapabilitiesの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: revokeOwnedOperationContextCapabilitiesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: revokeOwnedOperationContextCapabilitiesは独自の失敗分岐を所有しない。
+ * @invariant revokeOwnedOperationContextCapabilitiesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: revokeOwnedOperationContextCapabilitiesはProcess内の同一Subsystemで完結する。
+ * @security revokeOwnedOperationContextCapabilitiesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: revokeOwnedOperationContextCapabilitiesは共有非同期状態を持たない同期処理である。
+ */
 function revokeOwnedOperationContextCapabilities(owned: object): void {
   const aliases = operationContextAliases.get(owned);
   if (aliases) {
@@ -274,6 +633,22 @@ function revokeOwnedOperationContextCapabilities(owned: object): void {
   }
 }
 
+/**
+ * revokeOwnedOperationEffectCapabilitiesの処理を実行する。
+ *
+ * @responsibility revokeOwnedOperationEffectCapabilitiesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input owned: object
+ * @returns voidを返す。
+ * @precondition 「owned: object」がrevokeOwnedOperationEffectCapabilitiesの入力契約を満たす。
+ * @postcondition revokeOwnedOperationEffectCapabilitiesの責務を完了した結果だけを返す。
+ * @effect N/A: revokeOwnedOperationEffectCapabilitiesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: revokeOwnedOperationEffectCapabilitiesは独自の失敗分岐を所有しない。
+ * @invariant revokeOwnedOperationEffectCapabilitiesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: revokeOwnedOperationEffectCapabilitiesはProcess内の同一Subsystemで完結する。
+ * @security revokeOwnedOperationEffectCapabilitiesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: revokeOwnedOperationEffectCapabilitiesは共有非同期状態を持たない同期処理である。
+ */
 function revokeOwnedOperationEffectCapabilities(owned: object): void {
   const aliases = operationContextAliases.get(owned);
   if (!aliases) return;
@@ -283,10 +658,42 @@ function revokeOwnedOperationEffectCapabilities(owned: object): void {
   }
 }
 
+/**
+ * operationGenerationKeyの処理を実行する。
+ *
+ * @responsibility operationGenerationKeyに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input root: string、nonce: string
+ * @returns stringを返す。
+ * @precondition 「root: string、nonce: string」がoperationGenerationKeyの入力契約を満たす。
+ * @postcondition operationGenerationKeyの責務を完了した結果だけを返す。
+ * @effect N/A: operationGenerationKeyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: operationGenerationKeyは独自の失敗分岐を所有しない。
+ * @invariant operationGenerationKeyは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: operationGenerationKeyはProcess内の同一Subsystemで完結する。
+ * @security operationGenerationKeyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: operationGenerationKeyは共有非同期状態を持たない同期処理である。
+ */
 function operationGenerationKey(root: string, nonce: string): string {
   return `${root}\0${nonce}`;
 }
 
+/**
+ * registerOwnedOperationGenerationの処理を実行する。
+ *
+ * @responsibility registerOwnedOperationGenerationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input owned: object、identity: OwnedIdentity
+ * @returns N/A: registerOwnedOperationGenerationは戻り値を返さない。
+ * @precondition 「owned: object、identity: OwnedIdentity」がregisterOwnedOperationGenerationの入力契約を満たす。
+ * @postcondition registerOwnedOperationGenerationの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: registerOwnedOperationGenerationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure registerOwnedOperationGenerationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant registerOwnedOperationGenerationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: registerOwnedOperationGenerationはProcess内の同一Subsystemで完結する。
+ * @security registerOwnedOperationGenerationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: registerOwnedOperationGenerationは共有非同期状態を持たない同期処理である。
+ */
 function registerOwnedOperationGeneration(
   owned: object,
   identity: OwnedIdentity,
@@ -315,6 +722,22 @@ function registerOwnedOperationGeneration(
   operationGenerationByRoot.set(identity.root, state);
 }
 
+/**
+ * revokeOwnedOperationGenerationの処理を実行する。
+ *
+ * @responsibility revokeOwnedOperationGenerationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input root: string、nonce: string
+ * @returns revokeOwnedOperationGenerationの計算結果を返す。
+ * @precondition 「root: string、nonce: string」がrevokeOwnedOperationGenerationの入力契約を満たす。
+ * @postcondition revokeOwnedOperationGenerationの責務を完了した結果だけを返す。
+ * @effect N/A: revokeOwnedOperationGenerationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: revokeOwnedOperationGenerationは独自の失敗分岐を所有しない。
+ * @invariant revokeOwnedOperationGenerationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: revokeOwnedOperationGenerationはProcess内の同一Subsystemで完結する。
+ * @security revokeOwnedOperationGenerationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: revokeOwnedOperationGenerationは共有非同期状態を持たない同期処理である。
+ */
 function revokeOwnedOperationGeneration(root: string, nonce: string) {
   const key = operationGenerationKey(root, nonce);
   const state = operationGenerationsByKey.get(key);
@@ -328,6 +751,22 @@ function revokeOwnedOperationGeneration(root: string, nonce: string) {
   return true;
 }
 
+/**
+ * revokeOwnedOperationGenerationAsyncの処理を実行する。
+ *
+ * @responsibility revokeOwnedOperationGenerationAsyncに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input root: string、nonce: string
+ * @returns revokeOwnedOperationGenerationAsyncの計算結果を返す。
+ * @precondition 「root: string、nonce: string」がrevokeOwnedOperationGenerationAsyncの入力契約を満たす。
+ * @postcondition revokeOwnedOperationGenerationAsyncの責務を完了した結果だけを返す。
+ * @effect N/A: revokeOwnedOperationGenerationAsyncは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure revokeOwnedOperationGenerationAsyncは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant revokeOwnedOperationGenerationAsyncは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: revokeOwnedOperationGenerationAsyncはProcess内の同一Subsystemで完結する。
+ * @security revokeOwnedOperationGenerationAsyncはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency revokeOwnedOperationGenerationAsyncは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function revokeOwnedOperationGenerationAsync(
   root: string,
   nonce: string,
@@ -360,6 +799,17 @@ async function revokeOwnedOperationGenerationAsync(
   return generationRelease;
 }
 
+/**
+ * HostOperationRecoveryGenerationが扱う値の構造を表す。
+ *
+ * @responsibility HostOperationRecoveryGenerationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape HostOperationRecoveryGenerationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant HostOperationRecoveryGenerationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: HostOperationRecoveryGenerationの宣言は外部境界を開かない。
+ * @security HostOperationRecoveryGenerationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility HostOperationRecoveryGenerationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type HostOperationRecoveryGeneration = Readonly<{
   root: string;
   nonce: string;
@@ -372,6 +822,22 @@ const hostOperationRecoveryGenerations = new WeakMap<
   HostOperationRecoveryGeneration
 >();
 
+/**
+ * acquireHostOperationRecoveryGenerationの処理を実行する。
+ *
+ * @responsibility acquireHostOperationRecoveryGenerationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input token: unknown
+ * @returns acquireHostOperationRecoveryGenerationの計算結果を返す。
+ * @precondition 「token: unknown」がacquireHostOperationRecoveryGenerationの入力契約を満たす。
+ * @postcondition acquireHostOperationRecoveryGenerationの責務を完了した結果だけを返す。
+ * @effect N/A: acquireHostOperationRecoveryGenerationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure acquireHostOperationRecoveryGenerationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant acquireHostOperationRecoveryGenerationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: acquireHostOperationRecoveryGenerationはProcess内の同一Subsystemで完結する。
+ * @security acquireHostOperationRecoveryGenerationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: acquireHostOperationRecoveryGenerationは共有非同期状態を持たない同期処理である。
+ */
 export function acquireHostOperationRecoveryGeneration(token: unknown) {
   try {
     const loaded = loadHostRecoveryRecordByToken(token);
@@ -385,6 +851,22 @@ export function acquireHostOperationRecoveryGeneration(token: unknown) {
   }
 }
 
+/**
+ * acquireHostOperationRecoveryGenerationByIdentityの処理を実行する。
+ *
+ * @responsibility acquireHostOperationRecoveryGenerationByIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input root: unknown、nonce: unknown
+ * @returns acquireHostOperationRecoveryGenerationByIdentityの計算結果を返す。
+ * @precondition 「root: unknown、nonce: unknown」がacquireHostOperationRecoveryGenerationByIdentityの入力契約を満たす。
+ * @postcondition acquireHostOperationRecoveryGenerationByIdentityの責務を完了した結果だけを返す。
+ * @effect acquireHostOperationRecoveryGenerationByIdentityはFilesystemの読取りまたは書込みを実行する。
+ * @failure acquireHostOperationRecoveryGenerationByIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant acquireHostOperationRecoveryGenerationByIdentityは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security acquireHostOperationRecoveryGenerationByIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: acquireHostOperationRecoveryGenerationByIdentityは共有非同期状態を持たない同期処理である。
+ */
 export function acquireHostOperationRecoveryGenerationByIdentity(
   root: unknown,
   nonce: unknown,
@@ -413,6 +895,22 @@ export function acquireHostOperationRecoveryGenerationByIdentity(
   }
 }
 
+/**
+ * releaseHostOperationRecoveryGenerationの処理を実行する。
+ *
+ * @responsibility releaseHostOperationRecoveryGenerationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input capability: unknown
+ * @returns releaseHostOperationRecoveryGenerationの計算結果を返す。
+ * @precondition 「capability: unknown」がreleaseHostOperationRecoveryGenerationの入力契約を満たす。
+ * @postcondition releaseHostOperationRecoveryGenerationの責務を完了した結果だけを返す。
+ * @effect N/A: releaseHostOperationRecoveryGenerationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure releaseHostOperationRecoveryGenerationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant releaseHostOperationRecoveryGenerationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: releaseHostOperationRecoveryGenerationはProcess内の同一Subsystemで完結する。
+ * @security releaseHostOperationRecoveryGenerationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: releaseHostOperationRecoveryGenerationは共有非同期状態を持たない同期処理である。
+ */
 export function releaseHostOperationRecoveryGeneration(capability: unknown) {
   if (!isObject(capability)) return false;
   const generation = hostOperationRecoveryGenerations.get(capability);
@@ -425,6 +923,22 @@ export function releaseHostOperationRecoveryGeneration(capability: unknown) {
   }
 }
 
+/**
+ * verifyHostOperationRecoveryGenerationの処理を実行する。
+ *
+ * @responsibility verifyHostOperationRecoveryGenerationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input capability: unknown、root: string、nonce: string
+ * @returns N/A: verifyHostOperationRecoveryGenerationは戻り値を返さない。
+ * @precondition 「capability: unknown、root: string、nonce: string」がverifyHostOperationRecoveryGenerationの入力契約を満たす。
+ * @postcondition verifyHostOperationRecoveryGenerationの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: verifyHostOperationRecoveryGenerationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyHostOperationRecoveryGenerationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyHostOperationRecoveryGenerationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyHostOperationRecoveryGenerationはProcess内の同一Subsystemで完結する。
+ * @security verifyHostOperationRecoveryGenerationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyHostOperationRecoveryGenerationは共有非同期状態を持たない同期処理である。
+ */
 function verifyHostOperationRecoveryGeneration(
   capability: unknown,
   root: string,
@@ -437,6 +951,22 @@ function verifyHostOperationRecoveryGeneration(
     throw new Error("host_recovery_generation_active");
 }
 
+/**
+ * retireOwnedOperationGenerationの処理を実行する。
+ *
+ * @responsibility retireOwnedOperationGenerationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input root: string、nonce: string
+ * @returns voidを返す。
+ * @precondition 「root: string、nonce: string」がretireOwnedOperationGenerationの入力契約を満たす。
+ * @postcondition retireOwnedOperationGenerationの責務を完了した結果だけを返す。
+ * @effect N/A: retireOwnedOperationGenerationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: retireOwnedOperationGenerationは独自の失敗分岐を所有しない。
+ * @invariant retireOwnedOperationGenerationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: retireOwnedOperationGenerationはProcess内の同一Subsystemで完結する。
+ * @security retireOwnedOperationGenerationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: retireOwnedOperationGenerationは共有非同期状態を持たない同期処理である。
+ */
 function retireOwnedOperationGeneration(root: string, nonce: string): void {
   const state = operationGenerationsByKey.get(
     operationGenerationKey(root, nonce),
@@ -446,6 +976,22 @@ function retireOwnedOperationGeneration(root: string, nonce: string): void {
   revokeOwnedOperationContextCapabilities(state.owned);
 }
 
+/**
+ * ownedOperationGenerationの処理を実行する。
+ *
+ * @responsibility ownedOperationGenerationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input owned: object、identity: OwnedIdentity、shouldAllowRetired
+ * @returns OperationGenerationStateを返す。
+ * @precondition 「owned: object、identity: OwnedIdentity、shouldAllowRetired」がownedOperationGenerationの入力契約を満たす。
+ * @postcondition ownedOperationGenerationの責務を完了した結果だけを返す。
+ * @effect N/A: ownedOperationGenerationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure ownedOperationGenerationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant ownedOperationGenerationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ownedOperationGenerationはProcess内の同一Subsystemで完結する。
+ * @security ownedOperationGenerationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: ownedOperationGenerationは共有非同期状態を持たない同期処理である。
+ */
 function ownedOperationGeneration(
   owned: object,
   identity: OwnedIdentity,
@@ -474,6 +1020,22 @@ function ownedOperationGeneration(
   return state;
 }
 
+/**
+ * operationIdentityReplacementの処理を実行する。
+ *
+ * @responsibility operationIdentityReplacementに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input error: unknown
+ * @returns booleanを返す。
+ * @precondition 「error: unknown」がoperationIdentityReplacementの入力契約を満たす。
+ * @postcondition operationIdentityReplacementの責務を完了した結果だけを返す。
+ * @effect N/A: operationIdentityReplacementは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: operationIdentityReplacementは独自の失敗分岐を所有しない。
+ * @invariant operationIdentityReplacementは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: operationIdentityReplacementはProcess内の同一Subsystemで完結する。
+ * @security operationIdentityReplacementはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: operationIdentityReplacementは共有非同期状態を持たない同期処理である。
+ */
 function operationIdentityReplacement(error: unknown): boolean {
   const message = errorMessage(error);
   return (
@@ -483,6 +1045,22 @@ function operationIdentityReplacement(error: unknown): boolean {
   );
 }
 
+/**
+ * validateOwnedOperationIdentityの処理を実行する。
+ *
+ * @responsibility validateOwnedOperationIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input owned: object、identity: OwnedIdentity、shouldAllowRetired
+ * @returns ChildSnapshotsを返す。
+ * @precondition 「owned: object、identity: OwnedIdentity、shouldAllowRetired」がvalidateOwnedOperationIdentityの入力契約を満たす。
+ * @postcondition validateOwnedOperationIdentityの責務を完了した結果だけを返す。
+ * @effect validateOwnedOperationIdentityはFilesystemの読取りまたは書込みを実行する。
+ * @failure validateOwnedOperationIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant validateOwnedOperationIdentityは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security validateOwnedOperationIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateOwnedOperationIdentityは共有非同期状態を持たない同期処理である。
+ */
 function validateOwnedOperationIdentity(
   owned: object,
   identity: OwnedIdentity,
@@ -520,6 +1098,22 @@ function validateOwnedOperationIdentity(
   }
 }
 
+/**
+ * ownValueの処理を実行する。
+ *
+ * @responsibility ownValueに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: object、key: string
+ * @returns unknownを返す。
+ * @precondition 「value: object、key: string」がownValueの入力契約を満たす。
+ * @postcondition ownValueの責務を完了した結果だけを返す。
+ * @effect N/A: ownValueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: ownValueは独自の失敗分岐を所有しない。
+ * @invariant ownValueは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ownValueはProcess内の同一Subsystemで完結する。
+ * @security ownValueはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: ownValueは共有非同期状態を持たない同期処理である。
+ */
 function ownValue(value: object, key: string): unknown {
   const descriptor = Object.getOwnPropertyDescriptor(value, key);
   if (
@@ -532,20 +1126,84 @@ function ownValue(value: object, key: string): unknown {
   return descriptor.value;
 }
 
+/**
+ * ownStringの処理を実行する。
+ *
+ * @responsibility ownStringに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、key: string
+ * @returns string | nullを返す。
+ * @precondition 「value: unknown、key: string」がownStringの入力契約を満たす。
+ * @postcondition ownStringの責務を完了した結果だけを返す。
+ * @effect N/A: ownStringは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: ownStringは独自の失敗分岐を所有しない。
+ * @invariant ownStringは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ownStringはProcess内の同一Subsystemで完結する。
+ * @security ownStringはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: ownStringは共有非同期状態を持たない同期処理である。
+ */
 function ownString(value: unknown, key: string): string | null {
   if (!isObject(value)) return null;
   const candidate = ownValue(value, key);
   return typeof candidate === "string" ? candidate : null;
 }
 
+/**
+ * errorCodeの処理を実行する。
+ *
+ * @responsibility errorCodeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input error: unknown
+ * @returns string | nullを返す。
+ * @precondition 「error: unknown」がerrorCodeの入力契約を満たす。
+ * @postcondition errorCodeの責務を完了した結果だけを返す。
+ * @effect N/A: errorCodeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: errorCodeは独自の失敗分岐を所有しない。
+ * @invariant errorCodeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: errorCodeはProcess内の同一Subsystemで完結する。
+ * @security errorCodeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: errorCodeは共有非同期状態を持たない同期処理である。
+ */
 function errorCode(error: unknown): string | null {
   return ownString(error, "code");
 }
 
+/**
+ * errorMessageの処理を実行する。
+ *
+ * @responsibility errorMessageに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input error: unknown
+ * @returns string | nullを返す。
+ * @precondition 「error: unknown」がerrorMessageの入力契約を満たす。
+ * @postcondition errorMessageの責務を完了した結果だけを返す。
+ * @effect N/A: errorMessageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: errorMessageは独自の失敗分岐を所有しない。
+ * @invariant errorMessageは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: errorMessageはProcess内の同一Subsystemで完結する。
+ * @security errorMessageはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: errorMessageは共有非同期状態を持たない同期処理である。
+ */
 function errorMessage(error: unknown): string | null {
   return error instanceof Error ? error.message : ownString(error, "message");
 }
 
+/**
+ * observeFilesystemEntryの処理を実行する。
+ *
+ * @responsibility observeFilesystemEntryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input target: string
+ * @returns "present" | "confirmed_absent" | "unknown"を返す。
+ * @precondition 「target: string」がobserveFilesystemEntryの入力契約を満たす。
+ * @postcondition observeFilesystemEntryの責務を完了した結果だけを返す。
+ * @effect observeFilesystemEntryはFilesystemの読取りまたは書込みを実行する。
+ * @failure observeFilesystemEntryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeFilesystemEntryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security observeFilesystemEntryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeFilesystemEntryは共有非同期状態を持たない同期処理である。
+ */
 function observeFilesystemEntry(
   target: string,
 ): "present" | "confirmed_absent" | "unknown" {
@@ -557,17 +1215,65 @@ function observeFilesystemEntry(
   }
 }
 
+/**
+ * requireConfirmedAbsentの処理を実行する。
+ *
+ * @responsibility requireConfirmedAbsentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input target: string、reason: string
+ * @returns N/A: requireConfirmedAbsentは戻り値を返さない。
+ * @precondition 「target: string、reason: string」がrequireConfirmedAbsentの入力契約を満たす。
+ * @postcondition requireConfirmedAbsentの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: requireConfirmedAbsentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure requireConfirmedAbsentは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant requireConfirmedAbsentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: requireConfirmedAbsentはProcess内の同一Subsystemで完結する。
+ * @security requireConfirmedAbsentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: requireConfirmedAbsentは共有非同期状態を持たない同期処理である。
+ */
 function requireConfirmedAbsent(target: string, reason: string): void {
   if (observeFilesystemEntry(target) !== "confirmed_absent")
     throw new Error(reason);
 }
 
+/**
+ * isPlainRecordの処理を実行する。
+ *
+ * @responsibility isPlainRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns value is Record<string, unknown>を返す。
+ * @precondition 「value: unknown」がisPlainRecordの入力契約を満たす。
+ * @postcondition isPlainRecordの責務を完了した結果だけを返す。
+ * @effect N/A: isPlainRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isPlainRecordは独自の失敗分岐を所有しない。
+ * @invariant isPlainRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isPlainRecordはProcess内の同一Subsystemで完結する。
+ * @security isPlainRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isPlainRecordは共有非同期状態を持たない同期処理である。
+ */
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   if (!isObject(value)) return false;
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
 }
 
+/**
+ * normalizeSerializableIdentityの処理を実行する。
+ *
+ * @responsibility normalizeSerializableIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns SerializableIdentityを返す。
+ * @precondition 「value: unknown」がnormalizeSerializableIdentityの入力契約を満たす。
+ * @postcondition normalizeSerializableIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeSerializableIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure normalizeSerializableIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant normalizeSerializableIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeSerializableIdentityはProcess内の同一Subsystemで完結する。
+ * @security normalizeSerializableIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeSerializableIdentityは共有非同期状態を持たない同期処理である。
+ */
 function normalizeSerializableIdentity(value: unknown): SerializableIdentity {
   if (!isPlainRecord(value)) throw new Error("host_recovery_record_mismatch");
   const dev = ownString(value, "dev");
@@ -578,6 +1284,22 @@ function normalizeSerializableIdentity(value: unknown): SerializableIdentity {
   return Object.freeze({ dev, ino, birthtimeNs });
 }
 
+/**
+ * normalizeRecoveryStateの処理を実行する。
+ *
+ * @responsibility normalizeRecoveryStateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns RecoveryStateを返す。
+ * @precondition 「value: unknown」がnormalizeRecoveryStateの入力契約を満たす。
+ * @postcondition normalizeRecoveryStateの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeRecoveryStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure normalizeRecoveryStateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant normalizeRecoveryStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeRecoveryStateはProcess内の同一Subsystemで完結する。
+ * @security normalizeRecoveryStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeRecoveryStateは共有非同期状態を持たない同期処理である。
+ */
 function normalizeRecoveryState(value: unknown): RecoveryState {
   if (
     value !== "initializing" &&
@@ -590,6 +1312,22 @@ function normalizeRecoveryState(value: unknown): RecoveryState {
   return value;
 }
 
+/**
+ * normalizeHostRecoveryRecordの処理を実行する。
+ *
+ * @responsibility normalizeHostRecoveryRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns HostRecoveryRecordを返す。
+ * @precondition 「value: unknown」がnormalizeHostRecoveryRecordの入力契約を満たす。
+ * @postcondition normalizeHostRecoveryRecordの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeHostRecoveryRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure normalizeHostRecoveryRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant normalizeHostRecoveryRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeHostRecoveryRecordはProcess内の同一Subsystemで完結する。
+ * @security normalizeHostRecoveryRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeHostRecoveryRecordは共有非同期状態を持たない同期処理である。
+ */
 function normalizeHostRecoveryRecord(value: unknown): HostRecoveryRecord {
   if (!isPlainRecord(value)) throw new Error("host_recovery_record_mismatch");
   const schema = ownString(value, "schema");
@@ -637,16 +1375,64 @@ function normalizeHostRecoveryRecord(value: unknown): HostRecoveryRecord {
   });
 }
 
+/**
+ * ownedIdentityの処理を実行する。
+ *
+ * @responsibility ownedIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns OwnedIdentity | nullを返す。
+ * @precondition 「value: unknown」がownedIdentityの入力契約を満たす。
+ * @postcondition ownedIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: ownedIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: ownedIdentityは独自の失敗分岐を所有しない。
+ * @invariant ownedIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ownedIdentityはProcess内の同一Subsystemで完結する。
+ * @security ownedIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: ownedIdentityは共有非同期状態を持たない同期処理である。
+ */
 function ownedIdentity(value: unknown): OwnedIdentity | null {
   return isObject(value) ? (ownedIdentities.get(value) ?? null) : null;
 }
 
+/**
+ * requireOwnedIdentityの処理を実行する。
+ *
+ * @responsibility requireOwnedIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: object
+ * @returns OwnedIdentityを返す。
+ * @precondition 「value: object」がrequireOwnedIdentityの入力契約を満たす。
+ * @postcondition requireOwnedIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: requireOwnedIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure requireOwnedIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant requireOwnedIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: requireOwnedIdentityはProcess内の同一Subsystemで完結する。
+ * @security requireOwnedIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: requireOwnedIdentityは共有非同期状態を持たない同期処理である。
+ */
 function requireOwnedIdentity(value: object): OwnedIdentity {
   const identity = ownedIdentities.get(value);
   if (!identity) throw new Error("owned_operation_directory_identity_required");
   return identity;
 }
 
+/**
+ * readFilesystemIdentityの処理を実行する。
+ *
+ * @responsibility readFilesystemIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input root: string
+ * @returns FilesystemIdentityを返す。
+ * @precondition 「root: string」がreadFilesystemIdentityの入力契約を満たす。
+ * @postcondition readFilesystemIdentityの責務を完了した結果だけを返す。
+ * @effect readFilesystemIdentityはFilesystemの読取りまたは書込みを実行する。
+ * @failure readFilesystemIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readFilesystemIdentityは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security readFilesystemIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readFilesystemIdentityは共有非同期状態を持たない同期処理である。
+ */
 function readFilesystemIdentity(root: string): FilesystemIdentity {
   const metadata = fs.lstatSync(root, { bigint: true });
   if (
@@ -665,6 +1451,22 @@ function readFilesystemIdentity(root: string): FilesystemIdentity {
   });
 }
 
+/**
+ * readFileIdentityの処理を実行する。
+ *
+ * @responsibility readFileIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input target: string
+ * @returns FilesystemIdentityを返す。
+ * @precondition 「target: string」がreadFileIdentityの入力契約を満たす。
+ * @postcondition readFileIdentityの責務を完了した結果だけを返す。
+ * @effect readFileIdentityはFilesystemの読取りまたは書込みを実行する。
+ * @failure readFileIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readFileIdentityは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security readFileIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readFileIdentityは共有非同期状態を持たない同期処理である。
+ */
 function readFileIdentity(target: string): FilesystemIdentity {
   const metadata = fs.lstatSync(target, { bigint: true });
   if (
@@ -682,6 +1484,22 @@ function readFileIdentity(target: string): FilesystemIdentity {
   });
 }
 
+/**
+ * readOpenFileIdentityの処理を実行する。
+ *
+ * @responsibility readOpenFileIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input handle: number
+ * @returns FilesystemIdentityを返す。
+ * @precondition 「handle: number」がreadOpenFileIdentityの入力契約を満たす。
+ * @postcondition readOpenFileIdentityの責務を完了した結果だけを返す。
+ * @effect readOpenFileIdentityはFilesystemの読取りまたは書込みを実行する。
+ * @failure readOpenFileIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readOpenFileIdentityは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security readOpenFileIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readOpenFileIdentityは共有非同期状態を持たない同期処理である。
+ */
 function readOpenFileIdentity(handle: number): FilesystemIdentity {
   const metadata = fs.fstatSync(handle, { bigint: true });
   if (
@@ -698,6 +1516,22 @@ function readOpenFileIdentity(handle: number): FilesystemIdentity {
   });
 }
 
+/**
+ * exactHostRecoveryTokenFromMarkerの処理を実行する。
+ *
+ * @responsibility exactHostRecoveryTokenFromMarkerに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input target: string、expectedRootName: string、nonce: string、allowedItems: readonly Readonly<{ identity: FilesystemIdentity; serialized: string; }>[]
+ * @returns string | nullを返す。
+ * @precondition 「target: string、expectedRootName: string、nonce: string、allowedItems: readonly Readonly<{ identity: FilesystemIdentity; serialized: string; }>[]」がexactHostRecoveryTokenFromMarkerの入力契約を満たす。
+ * @postcondition exactHostRecoveryTokenFromMarkerの責務を完了した結果だけを返す。
+ * @effect exactHostRecoveryTokenFromMarkerはFilesystemの読取りまたは書込みを実行する。
+ * @failure exactHostRecoveryTokenFromMarkerは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant exactHostRecoveryTokenFromMarkerは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security exactHostRecoveryTokenFromMarkerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: exactHostRecoveryTokenFromMarkerは共有非同期状態を持たない同期処理である。
+ */
 function exactHostRecoveryTokenFromMarker(
   target: string,
   expectedRootName: string,
@@ -737,6 +1571,22 @@ function exactHostRecoveryTokenFromMarker(
   }
 }
 
+/**
+ * sameFilesystemIdentityの処理を実行する。
+ *
+ * @responsibility sameFilesystemIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input left: FilesystemIdentity、right: FilesystemIdentity
+ * @returns booleanを返す。
+ * @precondition 「left: FilesystemIdentity、right: FilesystemIdentity」がsameFilesystemIdentityの入力契約を満たす。
+ * @postcondition sameFilesystemIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: sameFilesystemIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameFilesystemIdentityは独自の失敗分岐を所有しない。
+ * @invariant sameFilesystemIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sameFilesystemIdentityはProcess内の同一Subsystemで完結する。
+ * @security sameFilesystemIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameFilesystemIdentityは共有非同期状態を持たない同期処理である。
+ */
 function sameFilesystemIdentity(
   left: FilesystemIdentity,
   right: FilesystemIdentity,
@@ -748,6 +1598,22 @@ function sameFilesystemIdentity(
   );
 }
 
+/**
+ * directorySnapshotの処理を実行する。
+ *
+ * @responsibility directorySnapshotに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input directory: string、parent: string、name: string
+ * @returns DirectorySnapshotを返す。
+ * @precondition 「directory: string、parent: string、name: string」がdirectorySnapshotの入力契約を満たす。
+ * @postcondition directorySnapshotの責務を完了した結果だけを返す。
+ * @effect directorySnapshotはFilesystemの読取りまたは書込みを実行する。
+ * @failure directorySnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant directorySnapshotは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security directorySnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: directorySnapshotは共有非同期状態を持たない同期処理である。
+ */
 function directorySnapshot(
   directory: string,
   parent: string,
@@ -769,6 +1635,22 @@ function directorySnapshot(
   });
 }
 
+/**
+ * validateDirectorySnapshotの処理を実行する。
+ *
+ * @responsibility validateDirectorySnapshotに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input snapshot: DirectorySnapshot
+ * @returns stringを返す。
+ * @precondition 「snapshot: DirectorySnapshot」がvalidateDirectorySnapshotの入力契約を満たす。
+ * @postcondition validateDirectorySnapshotの責務を完了した結果だけを返す。
+ * @effect validateDirectorySnapshotはFilesystemの読取りまたは書込みを実行する。
+ * @failure validateDirectorySnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant validateDirectorySnapshotは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security validateDirectorySnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateDirectorySnapshotは共有非同期状態を持たない同期処理である。
+ */
 function validateDirectorySnapshot(snapshot: DirectorySnapshot): string {
   const realParent = fs.realpathSync(snapshot.parent);
   const realDirectory = fs.realpathSync(snapshot.root);
@@ -785,6 +1667,22 @@ function validateDirectorySnapshot(snapshot: DirectorySnapshot): string {
   return snapshot.root;
 }
 
+/**
+ * copyIfPresentの処理を実行する。
+ *
+ * @responsibility copyIfPresentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input target: Record<string, string>、source: unknown、name: string
+ * @returns N/A: copyIfPresentは戻り値を返さない。
+ * @precondition 「target: Record<string, string>、source: unknown、name: string」がcopyIfPresentの入力契約を満たす。
+ * @postcondition copyIfPresentの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: copyIfPresentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: copyIfPresentは独自の失敗分岐を所有しない。
+ * @invariant copyIfPresentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: copyIfPresentはProcess内の同一Subsystemで完結する。
+ * @security copyIfPresentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: copyIfPresentは共有非同期状態を持たない同期処理である。
+ */
 function copyIfPresent(
   target: Record<string, string>,
   source: unknown,
@@ -794,6 +1692,22 @@ function copyIfPresent(
   if (candidate !== null) target[name] = candidate;
 }
 
+/**
+ * serializableIdentityの処理を実行する。
+ *
+ * @responsibility serializableIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input target: string
+ * @returns SerializableIdentityを返す。
+ * @precondition 「target: string」がserializableIdentityの入力契約を満たす。
+ * @postcondition serializableIdentityの責務を完了した結果だけを返す。
+ * @effect serializableIdentityはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: serializableIdentityは独自の失敗分岐を所有しない。
+ * @invariant serializableIdentityは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security serializableIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: serializableIdentityは共有非同期状態を持たない同期処理である。
+ */
 function serializableIdentity(target: string): SerializableIdentity {
   const identity = readFilesystemIdentity(target);
   return {
@@ -803,6 +1717,22 @@ function serializableIdentity(target: string): SerializableIdentity {
   };
 }
 
+/**
+ * identityMatchesRecordの処理を実行する。
+ *
+ * @responsibility identityMatchesRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input target: string、record: SerializableIdentity
+ * @returns booleanを返す。
+ * @precondition 「target: string、record: SerializableIdentity」がidentityMatchesRecordの入力契約を満たす。
+ * @postcondition identityMatchesRecordの責務を完了した結果だけを返す。
+ * @effect identityMatchesRecordはFilesystemの読取りまたは書込みを実行する。
+ * @failure identityMatchesRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant identityMatchesRecordは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security identityMatchesRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: identityMatchesRecordは共有非同期状態を持たない同期処理である。
+ */
 function identityMatchesRecord(
   target: string,
   record: SerializableIdentity,
@@ -819,6 +1749,22 @@ function identityMatchesRecord(
   }
 }
 
+/**
+ * ensureHostRecoveryDirectoryの処理を実行する。
+ *
+ * @responsibility ensureHostRecoveryDirectoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input parent: string
+ * @returns Readonly<{ directory: string; identity: FilesystemIdentity }>を返す。
+ * @precondition 「parent: string」がensureHostRecoveryDirectoryの入力契約を満たす。
+ * @postcondition ensureHostRecoveryDirectoryの責務を完了した結果だけを返す。
+ * @effect ensureHostRecoveryDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure ensureHostRecoveryDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant ensureHostRecoveryDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security ensureHostRecoveryDirectoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: ensureHostRecoveryDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function ensureHostRecoveryDirectory(
   parent: string,
 ): Readonly<{ directory: string; identity: FilesystemIdentity }> {
@@ -881,6 +1827,22 @@ function ensureHostRecoveryDirectory(
   }
 }
 
+/**
+ * hostRecordContentの処理を実行する。
+ *
+ * @responsibility hostRecordContentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input identity: OwnedIdentity、state: RecoveryState
+ * @returns HostRecoveryRecordを返す。
+ * @precondition 「identity: OwnedIdentity、state: RecoveryState」がhostRecordContentの入力契約を満たす。
+ * @postcondition hostRecordContentの責務を完了した結果だけを返す。
+ * @effect N/A: hostRecordContentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hostRecordContentは独自の失敗分岐を所有しない。
+ * @invariant hostRecordContentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: hostRecordContentはProcess内の同一Subsystemで完結する。
+ * @security hostRecordContentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hostRecordContentは共有非同期状態を持たない同期処理である。
+ */
 function hostRecordContent(
   identity: OwnedIdentity,
   state: RecoveryState,
@@ -903,6 +1865,22 @@ function hostRecordContent(
   };
 }
 
+/**
+ * writeInitializingHostRecoveryRecordの処理を実行する。
+ *
+ * @responsibility writeInitializingHostRecoveryRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input target: string、rootName: string、nonce: string、createdAt: string
+ * @returns Readonly<{ recordHash: string; recordIdentity: FilesystemIdentity; serialized: string; token: string; }>を返す。
+ * @precondition 「target: string、rootName: string、nonce: string、createdAt: string」がwriteInitializingHostRecoveryRecordの入力契約を満たす。
+ * @postcondition writeInitializingHostRecoveryRecordの責務を完了した結果だけを返す。
+ * @effect writeInitializingHostRecoveryRecordはFilesystemの読取りまたは書込みを実行する。
+ * @failure writeInitializingHostRecoveryRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant writeInitializingHostRecoveryRecordは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security writeInitializingHostRecoveryRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: writeInitializingHostRecoveryRecordは共有非同期状態を持たない同期処理である。
+ */
 function writeInitializingHostRecoveryRecord(
   target: string,
   rootName: string,
@@ -996,6 +1974,22 @@ function writeInitializingHostRecoveryRecord(
   });
 }
 
+/**
+ * writeHostRecoveryRecordの処理を実行する。
+ *
+ * @responsibility writeHostRecoveryRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input owned: object、identity: OwnedIdentity、state: RecoveryState
+ * @returns stringを返す。
+ * @precondition 「owned: object、identity: OwnedIdentity、state: RecoveryState」がwriteHostRecoveryRecordの入力契約を満たす。
+ * @postcondition writeHostRecoveryRecordの責務を完了した結果だけを返す。
+ * @effect writeHostRecoveryRecordはFilesystemの読取りまたは書込みを実行する。
+ * @failure writeHostRecoveryRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant writeHostRecoveryRecordは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security writeHostRecoveryRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: writeHostRecoveryRecordは共有非同期状態を持たない同期処理である。
+ */
 function writeHostRecoveryRecord(
   owned: object,
   identity: OwnedIdentity,
@@ -1111,6 +2105,22 @@ function writeHostRecoveryRecord(
   return `host.${path.basename(identity.root)}.${identity.hostRecovery.nonce}.${recordHash}`;
 }
 
+/**
+ * createOperationDirectoriesの処理を実行する。
+ *
+ * @responsibility createOperationDirectoriesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input rootDirectory: string
+ * @returns OperationDirectoriesを返す。
+ * @precondition 「rootDirectory: string」がcreateOperationDirectoriesの入力契約を満たす。
+ * @postcondition createOperationDirectoriesの責務を完了した結果だけを返す。
+ * @effect createOperationDirectoriesはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: createOperationDirectoriesは独自の失敗分岐を所有しない。
+ * @invariant createOperationDirectoriesは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security createOperationDirectoriesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createOperationDirectoriesは共有非同期状態を持たない同期処理である。
+ */
 export function createOperationDirectories(
   rootDirectory: string,
 ): OperationDirectories {
@@ -1128,9 +2138,41 @@ export function createOperationDirectories(
   return directories;
 }
 
+/**
+ * createOwnedOperationDirectoriesの処理を実行する。
+ *
+ * @responsibility createOwnedOperationDirectoriesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input temporaryParent: string
+ * @returns OwnedOperationDirectories & { directories: OperationDirectories }を返す。
+ * @precondition 「temporaryParent: string」がcreateOwnedOperationDirectoriesの入力契約を満たす。
+ * @postcondition createOwnedOperationDirectoriesの責務を完了した結果だけを返す。
+ * @effect N/A: createOwnedOperationDirectoriesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createOwnedOperationDirectoriesは独自の失敗分岐を所有しない。
+ * @invariant createOwnedOperationDirectoriesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createOwnedOperationDirectoriesはProcess内の同一Subsystemで完結する。
+ * @security createOwnedOperationDirectoriesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createOwnedOperationDirectoriesは共有非同期状態を持たない同期処理である。
+ */
 export function createOwnedOperationDirectories(
   temporaryParent?: string,
 ): OwnedOperationDirectories & { directories: OperationDirectories };
+/**
+ * createOwnedOperationDirectoriesの処理を実行する。
+ *
+ * @responsibility createOwnedOperationDirectoriesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input temporaryParent: string
+ * @returns OwnedOperationDirectoriesを返す。
+ * @precondition 「temporaryParent: string」がcreateOwnedOperationDirectoriesの入力契約を満たす。
+ * @postcondition createOwnedOperationDirectoriesの責務を完了した結果だけを返す。
+ * @effect createOwnedOperationDirectoriesはFilesystemの読取りまたは書込みを実行する。
+ * @failure createOwnedOperationDirectoriesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createOwnedOperationDirectoriesは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security createOwnedOperationDirectoriesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createOwnedOperationDirectoriesは共有非同期状態を持たない同期処理である。
+ */
 export function createOwnedOperationDirectories(
   temporaryParent: string = os.tmpdir(),
 ): OwnedOperationDirectories {
@@ -1353,6 +2395,22 @@ export function createOwnedOperationDirectories(
   }
 }
 
+/**
+ * getOwnedHostRecoveryIdの処理を実行する。
+ *
+ * @responsibility getOwnedHostRecoveryIdに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input owned: unknown
+ * @returns stringを返す。
+ * @precondition 「owned: unknown」がgetOwnedHostRecoveryIdの入力契約を満たす。
+ * @postcondition getOwnedHostRecoveryIdの責務を完了した結果だけを返す。
+ * @effect N/A: getOwnedHostRecoveryIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure getOwnedHostRecoveryIdは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant getOwnedHostRecoveryIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: getOwnedHostRecoveryIdはProcess内の同一Subsystemで完結する。
+ * @security getOwnedHostRecoveryIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: getOwnedHostRecoveryIdは共有非同期状態を持たない同期処理である。
+ */
 export function getOwnedHostRecoveryId(owned: unknown): string {
   const identity = ownedIdentity(owned);
   if (!identity?.hostRecovery?.recordHash)
@@ -1361,6 +2419,22 @@ export function getOwnedHostRecoveryId(owned: unknown): string {
   return expectedHostRecoveryToken(identity);
 }
 
+/**
+ * activeOwnedTransitionInputsの処理を実行する。
+ *
+ * @responsibility activeOwnedTransitionInputsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input mountCapability: unknown、currentToken: unknown、expectedState: "host_only" | "docker_submission_started"
+ * @returns Readonly<{ loaded: ReturnType<typeof loadHostRecoveryRecord>; state: OperationGenerationState; identity: OwnedIdentity; }>を返す。
+ * @precondition 「mountCapability: unknown、currentToken: unknown、expectedState: "host_only" | "docker_submission_started"」がactiveOwnedTransitionInputsの入力契約を満たす。
+ * @postcondition activeOwnedTransitionInputsの責務を完了した結果だけを返す。
+ * @effect N/A: activeOwnedTransitionInputsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure activeOwnedTransitionInputsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant activeOwnedTransitionInputsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: activeOwnedTransitionInputsはProcess内の同一Subsystemで完結する。
+ * @security activeOwnedTransitionInputsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: activeOwnedTransitionInputsは共有非同期状態を持たない同期処理である。
+ */
 function activeOwnedTransitionInputs(
   mountCapability: unknown,
   currentToken: unknown,
@@ -1382,6 +2456,22 @@ function activeOwnedTransitionInputs(
   );
 }
 
+/**
+ * activeOwnedTransitionInputsForOwnedの処理を実行する。
+ *
+ * @responsibility activeOwnedTransitionInputsForOwnedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input owned: object、currentToken: unknown、expectedState: "host_only" | "docker_submission_started"、bindingError
+ * @returns Readonly<{ loaded: ReturnType<typeof loadHostRecoveryRecord>; state: OperationGenerationState; identity: OwnedIdentity; }>を返す。
+ * @precondition 「owned: object、currentToken: unknown、expectedState: "host_only" | "docker_submission_started"、bindingError」がactiveOwnedTransitionInputsForOwnedの入力契約を満たす。
+ * @postcondition activeOwnedTransitionInputsForOwnedの責務を完了した結果だけを返す。
+ * @effect N/A: activeOwnedTransitionInputsForOwnedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure activeOwnedTransitionInputsForOwnedは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant activeOwnedTransitionInputsForOwnedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: activeOwnedTransitionInputsForOwnedはProcess内の同一Subsystemで完結する。
+ * @security activeOwnedTransitionInputsForOwnedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: activeOwnedTransitionInputsForOwnedは共有非同期状態を持たない同期処理である。
+ */
 function activeOwnedTransitionInputsForOwned(
   owned: object,
   currentToken: unknown,
@@ -1412,6 +2502,22 @@ function activeOwnedTransitionInputsForOwned(
   return Object.freeze({ loaded, state, identity });
 }
 
+/**
+ * replaceHostRecoveryRecordStateの処理を実行する。
+ *
+ * @responsibility replaceHostRecoveryRecordStateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input loaded: ReturnType<typeof loadHostRecoveryRecord>、nextState: RecoveryState
+ * @returns Readonly<{ recordHash: string; recordIdentity: FilesystemIdentity; token: string; }>を返す。
+ * @precondition 「loaded: ReturnType<typeof loadHostRecoveryRecord>、nextState: RecoveryState」がreplaceHostRecoveryRecordStateの入力契約を満たす。
+ * @postcondition replaceHostRecoveryRecordStateの責務を完了した結果だけを返す。
+ * @effect replaceHostRecoveryRecordStateはFilesystemの読取りまたは書込みを実行する。
+ * @failure replaceHostRecoveryRecordStateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant replaceHostRecoveryRecordStateは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security replaceHostRecoveryRecordStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: replaceHostRecoveryRecordStateは共有非同期状態を持たない同期処理である。
+ */
 function replaceHostRecoveryRecordState(
   loaded: ReturnType<typeof loadHostRecoveryRecord>,
   nextState: RecoveryState,
@@ -1441,6 +2547,22 @@ function replaceHostRecoveryRecordState(
   });
 }
 
+/**
+ * transitionOwnedDockerSubmissionStateの処理を実行する。
+ *
+ * @responsibility transitionOwnedDockerSubmissionStateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input mountCapability: unknown、currentToken: unknown、action: unknown
+ * @returns stringを返す。
+ * @precondition 「mountCapability: unknown、currentToken: unknown、action: unknown」がtransitionOwnedDockerSubmissionStateの入力契約を満たす。
+ * @postcondition transitionOwnedDockerSubmissionStateの責務を完了した結果だけを返す。
+ * @effect N/A: transitionOwnedDockerSubmissionStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure transitionOwnedDockerSubmissionStateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant transitionOwnedDockerSubmissionStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: transitionOwnedDockerSubmissionStateはProcess内の同一Subsystemで完結する。
+ * @security transitionOwnedDockerSubmissionStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: transitionOwnedDockerSubmissionStateは共有非同期状態を持たない同期処理である。
+ */
 export function transitionOwnedDockerSubmissionState(
   mountCapability: unknown,
   currentToken: unknown,
@@ -1474,6 +2596,22 @@ export function transitionOwnedDockerSubmissionState(
   return updated.token;
 }
 
+/**
+ * ownedOperationFromManagementCapabilityの処理を実行する。
+ *
+ * @responsibility ownedOperationFromManagementCapabilityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input managementCapability: unknown
+ * @returns ownedOperationFromManagementCapabilityの計算結果を返す。
+ * @precondition 「managementCapability: unknown」がownedOperationFromManagementCapabilityの入力契約を満たす。
+ * @postcondition ownedOperationFromManagementCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: ownedOperationFromManagementCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure ownedOperationFromManagementCapabilityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant ownedOperationFromManagementCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ownedOperationFromManagementCapabilityはProcess内の同一Subsystemで完結する。
+ * @security ownedOperationFromManagementCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: ownedOperationFromManagementCapabilityは共有非同期状態を持たない同期処理である。
+ */
 function ownedOperationFromManagementCapability(managementCapability: unknown) {
   const binding = isObject(managementCapability)
     ? (operationManagementCapabilities.get(managementCapability) ?? null)
@@ -1491,6 +2629,22 @@ function ownedOperationFromManagementCapability(managementCapability: unknown) {
   return Object.freeze({ binding, identity });
 }
 
+/**
+ * activateOwnedHostOperationGenerationLockの処理を実行する。
+ *
+ * @responsibility activateOwnedHostOperationGenerationLockに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input managementCapability: unknown
+ * @returns activateOwnedHostOperationGenerationLockの計算結果を返す。
+ * @precondition 「managementCapability: unknown」がactivateOwnedHostOperationGenerationLockの入力契約を満たす。
+ * @postcondition activateOwnedHostOperationGenerationLockの責務を完了した結果だけを返す。
+ * @effect N/A: activateOwnedHostOperationGenerationLockは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure activateOwnedHostOperationGenerationLockは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant activateOwnedHostOperationGenerationLockは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: activateOwnedHostOperationGenerationLockはProcess内の同一Subsystemで完結する。
+ * @security activateOwnedHostOperationGenerationLockはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency activateOwnedHostOperationGenerationLockは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function activateOwnedHostOperationGenerationLock(
   managementCapability: unknown,
 ) {
@@ -1517,6 +2671,22 @@ export async function activateOwnedHostOperationGenerationLock(
   return outcome.status;
 }
 
+/**
+ * confirmOwnedHostOperationGenerationLockReadinessの処理を実行する。
+ *
+ * @responsibility confirmOwnedHostOperationGenerationLockReadinessに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input managementCapability: unknown
+ * @returns confirmOwnedHostOperationGenerationLockReadinessの計算結果を返す。
+ * @precondition 「managementCapability: unknown」がconfirmOwnedHostOperationGenerationLockReadinessの入力契約を満たす。
+ * @postcondition confirmOwnedHostOperationGenerationLockReadinessの責務を完了した結果だけを返す。
+ * @effect N/A: confirmOwnedHostOperationGenerationLockReadinessは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure confirmOwnedHostOperationGenerationLockReadinessは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant confirmOwnedHostOperationGenerationLockReadinessは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: confirmOwnedHostOperationGenerationLockReadinessはProcess内の同一Subsystemで完結する。
+ * @security confirmOwnedHostOperationGenerationLockReadinessはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency confirmOwnedHostOperationGenerationLockReadinessは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function confirmOwnedHostOperationGenerationLockReadiness(
   managementCapability: unknown,
 ) {
@@ -1581,6 +2751,22 @@ export async function confirmOwnedHostOperationGenerationLockReadiness(
   }
 }
 
+/**
+ * ownedOperationFromManagementCapabilityForCleanupの処理を実行する。
+ *
+ * @responsibility ownedOperationFromManagementCapabilityForCleanupに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input managementCapability: unknown
+ * @returns ownedOperationFromManagementCapabilityForCleanupの計算結果を返す。
+ * @precondition 「managementCapability: unknown」がownedOperationFromManagementCapabilityForCleanupの入力契約を満たす。
+ * @postcondition ownedOperationFromManagementCapabilityForCleanupの責務を完了した結果だけを返す。
+ * @effect N/A: ownedOperationFromManagementCapabilityForCleanupは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure ownedOperationFromManagementCapabilityForCleanupは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant ownedOperationFromManagementCapabilityForCleanupは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ownedOperationFromManagementCapabilityForCleanupはProcess内の同一Subsystemで完結する。
+ * @security ownedOperationFromManagementCapabilityForCleanupはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: ownedOperationFromManagementCapabilityForCleanupは共有非同期状態を持たない同期処理である。
+ */
 function ownedOperationFromManagementCapabilityForCleanup(
   managementCapability: unknown,
 ) {
@@ -1593,6 +2779,22 @@ function ownedOperationFromManagementCapabilityForCleanup(
   return Object.freeze({ binding, identity });
 }
 
+/**
+ * observeOwnedHostOperationGenerationLossの処理を実行する。
+ *
+ * @responsibility observeOwnedHostOperationGenerationLossに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input managementCapability: unknown
+ * @returns observeOwnedHostOperationGenerationLossの計算結果を返す。
+ * @precondition 「managementCapability: unknown」がobserveOwnedHostOperationGenerationLossの入力契約を満たす。
+ * @postcondition observeOwnedHostOperationGenerationLossの責務を完了した結果だけを返す。
+ * @effect N/A: observeOwnedHostOperationGenerationLossは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure observeOwnedHostOperationGenerationLossは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeOwnedHostOperationGenerationLossは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observeOwnedHostOperationGenerationLossはProcess内の同一Subsystemで完結する。
+ * @security observeOwnedHostOperationGenerationLossはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency observeOwnedHostOperationGenerationLossは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export function observeOwnedHostOperationGenerationLoss(
   managementCapability: unknown,
 ) {
@@ -1635,6 +2837,22 @@ export function observeOwnedHostOperationGenerationLoss(
   });
 }
 
+/**
+ * abandonOwnedHostOperationGenerationLockの処理を実行する。
+ *
+ * @responsibility abandonOwnedHostOperationGenerationLockに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input managementCapability: unknown
+ * @returns abandonOwnedHostOperationGenerationLockの計算結果を返す。
+ * @precondition 「managementCapability: unknown」がabandonOwnedHostOperationGenerationLockの入力契約を満たす。
+ * @postcondition abandonOwnedHostOperationGenerationLockの責務を完了した結果だけを返す。
+ * @effect N/A: abandonOwnedHostOperationGenerationLockは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure abandonOwnedHostOperationGenerationLockは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant abandonOwnedHostOperationGenerationLockは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: abandonOwnedHostOperationGenerationLockはProcess内の同一Subsystemで完結する。
+ * @security abandonOwnedHostOperationGenerationLockはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency abandonOwnedHostOperationGenerationLockは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function abandonOwnedHostOperationGenerationLock(
   managementCapability: unknown,
 ) {
@@ -1658,6 +2876,22 @@ export async function abandonOwnedHostOperationGenerationLock(
   }
 }
 
+/**
+ * transitionOwnedDockerSubmissionByManagementの処理を実行する。
+ *
+ * @responsibility transitionOwnedDockerSubmissionByManagementに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input managementCapability: unknown、currentToken: unknown、action: "begin" | "cancel"
+ * @returns transitionOwnedDockerSubmissionByManagementの計算結果を返す。
+ * @precondition 「managementCapability: unknown、currentToken: unknown、action: "begin" | "cancel"」がtransitionOwnedDockerSubmissionByManagementの入力契約を満たす。
+ * @postcondition transitionOwnedDockerSubmissionByManagementの責務を完了した結果だけを返す。
+ * @effect N/A: transitionOwnedDockerSubmissionByManagementは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: transitionOwnedDockerSubmissionByManagementは独自の失敗分岐を所有しない。
+ * @invariant transitionOwnedDockerSubmissionByManagementは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: transitionOwnedDockerSubmissionByManagementはProcess内の同一Subsystemで完結する。
+ * @security transitionOwnedDockerSubmissionByManagementはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: transitionOwnedDockerSubmissionByManagementは共有非同期状態を持たない同期処理である。
+ */
 function transitionOwnedDockerSubmissionByManagement(
   managementCapability: unknown,
   currentToken: unknown,
@@ -1691,6 +2925,22 @@ function transitionOwnedDockerSubmissionByManagement(
   return updated.token;
 }
 
+/**
+ * beginOwnedDockerSubmissionRecoveryの処理を実行する。
+ *
+ * @responsibility beginOwnedDockerSubmissionRecoveryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input managementCapability: unknown、operationId: unknown
+ * @returns beginOwnedDockerSubmissionRecoveryの計算結果を返す。
+ * @precondition 「managementCapability: unknown、operationId: unknown」がbeginOwnedDockerSubmissionRecoveryの入力契約を満たす。
+ * @postcondition beginOwnedDockerSubmissionRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: beginOwnedDockerSubmissionRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure beginOwnedDockerSubmissionRecoveryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant beginOwnedDockerSubmissionRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: beginOwnedDockerSubmissionRecoveryはProcess内の同一Subsystemで完結する。
+ * @security beginOwnedDockerSubmissionRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: beginOwnedDockerSubmissionRecoveryは共有非同期状態を持たない同期処理である。
+ */
 export function beginOwnedDockerSubmissionRecovery(
   managementCapability: unknown,
   operationId: unknown,
@@ -1706,6 +2956,22 @@ export function beginOwnedDockerSubmissionRecovery(
   );
 }
 
+/**
+ * getOwnedHostRecoveryIdByManagementCapabilityの処理を実行する。
+ *
+ * @responsibility getOwnedHostRecoveryIdByManagementCapabilityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input managementCapability: unknown
+ * @returns getOwnedHostRecoveryIdByManagementCapabilityの計算結果を返す。
+ * @precondition 「managementCapability: unknown」がgetOwnedHostRecoveryIdByManagementCapabilityの入力契約を満たす。
+ * @postcondition getOwnedHostRecoveryIdByManagementCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: getOwnedHostRecoveryIdByManagementCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: getOwnedHostRecoveryIdByManagementCapabilityは独自の失敗分岐を所有しない。
+ * @invariant getOwnedHostRecoveryIdByManagementCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: getOwnedHostRecoveryIdByManagementCapabilityはProcess内の同一Subsystemで完結する。
+ * @security getOwnedHostRecoveryIdByManagementCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: getOwnedHostRecoveryIdByManagementCapabilityは共有非同期状態を持たない同期処理である。
+ */
 export function getOwnedHostRecoveryIdByManagementCapability(
   managementCapability: unknown,
 ) {
@@ -1715,7 +2981,22 @@ export function getOwnedHostRecoveryIdByManagementCapability(
   return expectedHostRecoveryToken(identity);
 }
 
-/** @internal Runtime-only, per-Docker-finalization cleanup authority. */
+/**
+ * issueOwnedHostCleanupCapabilityの処理を実行する。
+ *
+ * @responsibility issueOwnedHostCleanupCapabilityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input managementCapability: unknown、subject: unknown
+ * @returns issueOwnedHostCleanupCapabilityの計算結果を返す。
+ * @precondition 「managementCapability: unknown、subject: unknown」がissueOwnedHostCleanupCapabilityの入力契約を満たす。
+ * @postcondition issueOwnedHostCleanupCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: issueOwnedHostCleanupCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure issueOwnedHostCleanupCapabilityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant issueOwnedHostCleanupCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: issueOwnedHostCleanupCapabilityはProcess内の同一Subsystemで完結する。
+ * @security issueOwnedHostCleanupCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: issueOwnedHostCleanupCapabilityは共有非同期状態を持たない同期処理である。
+ */
 export function issueOwnedHostCleanupCapability(
   managementCapability: unknown,
   subject: unknown,
@@ -1742,7 +3023,22 @@ export function issueOwnedHostCleanupCapability(
   return capability;
 }
 
-/** @internal Consumed only by the Docker host-cleanup intent adapter. */
+/**
+ * consumeOwnedHostRecoveryIdForCleanupの処理を実行する。
+ *
+ * @responsibility consumeOwnedHostRecoveryIdForCleanupに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input cleanupCapability: unknown、subject: unknown
+ * @returns consumeOwnedHostRecoveryIdForCleanupの計算結果を返す。
+ * @precondition 「cleanupCapability: unknown、subject: unknown」がconsumeOwnedHostRecoveryIdForCleanupの入力契約を満たす。
+ * @postcondition consumeOwnedHostRecoveryIdForCleanupの責務を完了した結果だけを返す。
+ * @effect N/A: consumeOwnedHostRecoveryIdForCleanupは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure consumeOwnedHostRecoveryIdForCleanupは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant consumeOwnedHostRecoveryIdForCleanupは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: consumeOwnedHostRecoveryIdForCleanupはProcess内の同一Subsystemで完結する。
+ * @security consumeOwnedHostRecoveryIdForCleanupはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: consumeOwnedHostRecoveryIdForCleanupは共有非同期状態を持たない同期処理である。
+ */
 export function consumeOwnedHostRecoveryIdForCleanup(
   cleanupCapability: unknown,
   subject: unknown,
@@ -1775,6 +3071,22 @@ export function consumeOwnedHostRecoveryIdForCleanup(
   return expectedHostRecoveryToken(identity);
 }
 
+/**
+ * completeOwnedDockerSubmissionRecoveryの処理を実行する。
+ *
+ * @responsibility completeOwnedDockerSubmissionRecoveryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input managementCapability: unknown、recoveryToken: unknown
+ * @returns completeOwnedDockerSubmissionRecoveryの計算結果を返す。
+ * @precondition 「managementCapability: unknown、recoveryToken: unknown」がcompleteOwnedDockerSubmissionRecoveryの入力契約を満たす。
+ * @postcondition completeOwnedDockerSubmissionRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: completeOwnedDockerSubmissionRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: completeOwnedDockerSubmissionRecoveryは独自の失敗分岐を所有しない。
+ * @invariant completeOwnedDockerSubmissionRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: completeOwnedDockerSubmissionRecoveryはProcess内の同一Subsystemで完結する。
+ * @security completeOwnedDockerSubmissionRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: completeOwnedDockerSubmissionRecoveryは共有非同期状態を持たない同期処理である。
+ */
 export function completeOwnedDockerSubmissionRecovery(
   managementCapability: unknown,
   recoveryToken: unknown,
@@ -1786,6 +3098,22 @@ export function completeOwnedDockerSubmissionRecovery(
   );
 }
 
+/**
+ * confirmOwnedDockerAbsenceForRecoveryの処理を実行する。
+ *
+ * @responsibility confirmOwnedDockerAbsenceForRecoveryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input token: unknown、recoveryGenerationCapability: unknown
+ * @returns confirmOwnedDockerAbsenceForRecoveryの計算結果を返す。
+ * @precondition 「token: unknown、recoveryGenerationCapability: unknown」がconfirmOwnedDockerAbsenceForRecoveryの入力契約を満たす。
+ * @postcondition confirmOwnedDockerAbsenceForRecoveryの責務を完了した結果だけを返す。
+ * @effect confirmOwnedDockerAbsenceForRecoveryはFilesystemの読取りまたは書込みを実行する。
+ * @failure confirmOwnedDockerAbsenceForRecoveryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant confirmOwnedDockerAbsenceForRecoveryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security confirmOwnedDockerAbsenceForRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: confirmOwnedDockerAbsenceForRecoveryは共有非同期状態を持たない同期処理である。
+ */
 export function confirmOwnedDockerAbsenceForRecovery(
   token: unknown,
   recoveryGenerationCapability: unknown = null,
@@ -1816,6 +3144,22 @@ export function confirmOwnedDockerAbsenceForRecovery(
   return updated.token;
 }
 
+/**
+ * adoptOwnedHostRecoveryRecordTransitionの処理を実行する。
+ *
+ * @responsibility adoptOwnedHostRecoveryRecordTransitionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input mountCapability: unknown、previousToken: unknown、nextToken: unknown
+ * @returns N/A: adoptOwnedHostRecoveryRecordTransitionは戻り値を返さない。
+ * @precondition 「mountCapability: unknown、previousToken: unknown、nextToken: unknown」がadoptOwnedHostRecoveryRecordTransitionの入力契約を満たす。
+ * @postcondition adoptOwnedHostRecoveryRecordTransitionの責務を完了して呼出し元へ制御を戻す。
+ * @effect adoptOwnedHostRecoveryRecordTransitionはFilesystemの読取りまたは書込みを実行する。
+ * @failure adoptOwnedHostRecoveryRecordTransitionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant adoptOwnedHostRecoveryRecordTransitionは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security adoptOwnedHostRecoveryRecordTransitionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: adoptOwnedHostRecoveryRecordTransitionは共有非同期状態を持たない同期処理である。
+ */
 export function adoptOwnedHostRecoveryRecordTransition(
   mountCapability: unknown,
   previousToken: unknown,
@@ -1866,6 +3210,22 @@ export function adoptOwnedHostRecoveryRecordTransition(
   state.currentRecordHash = loaded.parsed.recordHash;
 }
 
+/**
+ * readCurrentOwnedHostRecordの処理を実行する。
+ *
+ * @responsibility readCurrentOwnedHostRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input identity: OwnedIdentity
+ * @returns Readonly<{ record: HostRecoveryRecord; serialized: string }>を返す。
+ * @precondition 「identity: OwnedIdentity」がreadCurrentOwnedHostRecordの入力契約を満たす。
+ * @postcondition readCurrentOwnedHostRecordの責務を完了した結果だけを返す。
+ * @effect readCurrentOwnedHostRecordはFilesystemの読取りまたは書込みを実行する。
+ * @failure readCurrentOwnedHostRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readCurrentOwnedHostRecordは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security readCurrentOwnedHostRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readCurrentOwnedHostRecordは共有非同期状態を持たない同期処理である。
+ */
 function readCurrentOwnedHostRecord(
   identity: OwnedIdentity,
 ): Readonly<{ record: HostRecoveryRecord; serialized: string }> {
@@ -1888,10 +3248,42 @@ function readCurrentOwnedHostRecord(
   return { record: normalized, serialized };
 }
 
+/**
+ * expectedHostRecoveryTokenの処理を実行する。
+ *
+ * @responsibility expectedHostRecoveryTokenに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input identity: OwnedIdentity
+ * @returns stringを返す。
+ * @precondition 「identity: OwnedIdentity」がexpectedHostRecoveryTokenの入力契約を満たす。
+ * @postcondition expectedHostRecoveryTokenの責務を完了した結果だけを返す。
+ * @effect N/A: expectedHostRecoveryTokenは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: expectedHostRecoveryTokenは独自の失敗分岐を所有しない。
+ * @invariant expectedHostRecoveryTokenは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: expectedHostRecoveryTokenはProcess内の同一Subsystemで完結する。
+ * @security expectedHostRecoveryTokenはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: expectedHostRecoveryTokenは共有非同期状態を持たない同期処理である。
+ */
 function expectedHostRecoveryToken(identity: OwnedIdentity): string {
   return `host.${path.basename(identity.root)}.${identity.hostRecovery.nonce}.${identity.hostRecovery.recordHash}`;
 }
 
+/**
+ * validatePrivateHostRecoveryRecordの処理を実行する。
+ *
+ * @responsibility validatePrivateHostRecoveryRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input identity: OwnedIdentity、expectedState: RecoveryState
+ * @returns HostRecoveryRecordを返す。
+ * @precondition 「identity: OwnedIdentity、expectedState: RecoveryState」がvalidatePrivateHostRecoveryRecordの入力契約を満たす。
+ * @postcondition validatePrivateHostRecoveryRecordの責務を完了した結果だけを返す。
+ * @effect N/A: validatePrivateHostRecoveryRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure validatePrivateHostRecoveryRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant validatePrivateHostRecoveryRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validatePrivateHostRecoveryRecordはProcess内の同一Subsystemで完結する。
+ * @security validatePrivateHostRecoveryRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validatePrivateHostRecoveryRecordは共有非同期状態を持たない同期処理である。
+ */
 function validatePrivateHostRecoveryRecord(
   identity: OwnedIdentity,
   expectedState: RecoveryState,
@@ -1925,6 +3317,22 @@ function validatePrivateHostRecoveryRecord(
   return record;
 }
 
+/**
+ * rollbackInitializingOperationDirectoriesの処理を実行する。
+ *
+ * @responsibility rollbackInitializingOperationDirectoriesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input owned: unknown
+ * @returns voidを返す。
+ * @precondition 「owned: unknown」がrollbackInitializingOperationDirectoriesの入力契約を満たす。
+ * @postcondition rollbackInitializingOperationDirectoriesの責務を完了した結果だけを返す。
+ * @effect rollbackInitializingOperationDirectoriesはFilesystemの読取りまたは書込みを実行する。
+ * @failure rollbackInitializingOperationDirectoriesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant rollbackInitializingOperationDirectoriesは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security rollbackInitializingOperationDirectoriesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: rollbackInitializingOperationDirectoriesは共有非同期状態を持たない同期処理である。
+ */
 function rollbackInitializingOperationDirectories(owned: unknown): void {
   const identity = ownedIdentity(owned);
   if (identity?.hostRecovery.state !== "initializing") {
@@ -1976,6 +3384,22 @@ function rollbackInitializingOperationDirectories(owned: unknown): void {
   removeOwnedOperationRecoveryRecord(identity);
 }
 
+/**
+ * createOwnedMountCapabilityの処理を実行する。
+ *
+ * @responsibility createOwnedMountCapabilityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input owned: unknown
+ * @returns Readonly<{ kind: "owned_operation_mounts" }>を返す。
+ * @precondition 「owned: unknown」がcreateOwnedMountCapabilityの入力契約を満たす。
+ * @postcondition createOwnedMountCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: createOwnedMountCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createOwnedMountCapabilityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createOwnedMountCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createOwnedMountCapabilityはProcess内の同一Subsystemで完結する。
+ * @security createOwnedMountCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createOwnedMountCapabilityは共有非同期状態を持たない同期処理である。
+ */
 export function createOwnedMountCapability(
   owned: unknown,
 ): Readonly<{ kind: "owned_operation_mounts" }> {
@@ -1992,6 +3416,22 @@ export function createOwnedMountCapability(
   return capability;
 }
 
+/**
+ * verifyOwnedMountCapabilityの処理を実行する。
+ *
+ * @responsibility verifyOwnedMountCapabilityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input capability: unknown
+ * @returns OwnedMountPathsを返す。
+ * @precondition 「capability: unknown」がverifyOwnedMountCapabilityの入力契約を満たす。
+ * @postcondition verifyOwnedMountCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: verifyOwnedMountCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyOwnedMountCapabilityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyOwnedMountCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyOwnedMountCapabilityはProcess内の同一Subsystemで完結する。
+ * @security verifyOwnedMountCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyOwnedMountCapabilityは共有非同期状態を持たない同期処理である。
+ */
 export function verifyOwnedMountCapability(
   capability: unknown,
 ): OwnedMountPaths {
@@ -2014,6 +3454,22 @@ export function verifyOwnedMountCapability(
   });
 }
 
+/**
+ * createOwnedOperationContextCapabilityの処理を実行する。
+ *
+ * @responsibility createOwnedOperationContextCapabilityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input owned: unknown
+ * @returns Readonly<{ kind: "owned_operation_context" }>を返す。
+ * @precondition 「owned: unknown」がcreateOwnedOperationContextCapabilityの入力契約を満たす。
+ * @postcondition createOwnedOperationContextCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: createOwnedOperationContextCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createOwnedOperationContextCapabilityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createOwnedOperationContextCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createOwnedOperationContextCapabilityはProcess内の同一Subsystemで完結する。
+ * @security createOwnedOperationContextCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createOwnedOperationContextCapabilityは共有非同期状態を持たない同期処理である。
+ */
 export function createOwnedOperationContextCapability(
   owned: unknown,
 ): Readonly<{ kind: "owned_operation_context" }> {
@@ -2037,6 +3493,22 @@ export function createOwnedOperationContextCapability(
   return capability;
 }
 
+/**
+ * verifyOwnedOperationContextCapabilityの処理を実行する。
+ *
+ * @responsibility verifyOwnedOperationContextCapabilityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input capability: unknown
+ * @returns OwnedOperationContextを返す。
+ * @precondition 「capability: unknown」がverifyOwnedOperationContextCapabilityの入力契約を満たす。
+ * @postcondition verifyOwnedOperationContextCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: verifyOwnedOperationContextCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyOwnedOperationContextCapabilityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyOwnedOperationContextCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyOwnedOperationContextCapabilityはProcess内の同一Subsystemで完結する。
+ * @security verifyOwnedOperationContextCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyOwnedOperationContextCapabilityは共有非同期状態を持たない同期処理である。
+ */
 export function verifyOwnedOperationContextCapability(
   capability: unknown,
 ): OwnedOperationContext {
@@ -2061,6 +3533,22 @@ export function verifyOwnedOperationContextCapability(
   });
 }
 
+/**
+ * createOwnedOperationManagementCapabilityの処理を実行する。
+ *
+ * @responsibility createOwnedOperationManagementCapabilityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input operationContextCapability: unknown、mountCapability: unknown
+ * @returns Readonly<{ kind: "owned_operation_management_binding" }>を返す。
+ * @precondition 「operationContextCapability: unknown、mountCapability: unknown」がcreateOwnedOperationManagementCapabilityの入力契約を満たす。
+ * @postcondition createOwnedOperationManagementCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: createOwnedOperationManagementCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createOwnedOperationManagementCapabilityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createOwnedOperationManagementCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createOwnedOperationManagementCapabilityはProcess内の同一Subsystemで完結する。
+ * @security createOwnedOperationManagementCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createOwnedOperationManagementCapabilityは共有非同期状態を持たない同期処理である。
+ */
 export function createOwnedOperationManagementCapability(
   operationContextCapability: unknown,
   mountCapability: unknown,
@@ -2102,6 +3590,22 @@ export function createOwnedOperationManagementCapability(
   return capability;
 }
 
+/**
+ * verifyOwnedOperationManagementCapabilityの処理を実行する。
+ *
+ * @responsibility verifyOwnedOperationManagementCapabilityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input capability: unknown
+ * @returns OwnedOperationManagementBindingを返す。
+ * @precondition 「capability: unknown」がverifyOwnedOperationManagementCapabilityの入力契約を満たす。
+ * @postcondition verifyOwnedOperationManagementCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: verifyOwnedOperationManagementCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyOwnedOperationManagementCapabilityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyOwnedOperationManagementCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyOwnedOperationManagementCapabilityはProcess内の同一Subsystemで完結する。
+ * @security verifyOwnedOperationManagementCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyOwnedOperationManagementCapabilityは共有非同期状態を持たない同期処理である。
+ */
 export function verifyOwnedOperationManagementCapability(
   capability: unknown,
 ): OwnedOperationManagementBinding {
@@ -2125,6 +3629,22 @@ export function verifyOwnedOperationManagementCapability(
   });
 }
 
+/**
+ * verifyOwnedOperationManagementMountBindingの処理を実行する。
+ *
+ * @responsibility verifyOwnedOperationManagementMountBindingに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input managementCapability: unknown、mountCapability: unknown
+ * @returns Readonly<{ operationId: string; createdAt: string; mounts: OwnedMountPaths; }>を返す。
+ * @precondition 「managementCapability: unknown、mountCapability: unknown」がverifyOwnedOperationManagementMountBindingの入力契約を満たす。
+ * @postcondition verifyOwnedOperationManagementMountBindingの責務を完了した結果だけを返す。
+ * @effect N/A: verifyOwnedOperationManagementMountBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyOwnedOperationManagementMountBindingは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyOwnedOperationManagementMountBindingは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyOwnedOperationManagementMountBindingはProcess内の同一Subsystemで完結する。
+ * @security verifyOwnedOperationManagementMountBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyOwnedOperationManagementMountBindingは共有非同期状態を持たない同期処理である。
+ */
 export function verifyOwnedOperationManagementMountBinding(
   managementCapability: unknown,
   mountCapability: unknown,
@@ -2168,6 +3688,22 @@ export function verifyOwnedOperationManagementMountBinding(
   });
 }
 
+/**
+ * borrowOwnedDockerExecutionPathsの処理を実行する。
+ *
+ * @responsibility borrowOwnedDockerExecutionPathsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input managementCapability: unknown
+ * @returns Readonly<{ tmp: string; management: string }>を返す。
+ * @precondition 「managementCapability: unknown」がborrowOwnedDockerExecutionPathsの入力契約を満たす。
+ * @postcondition borrowOwnedDockerExecutionPathsの責務を完了した結果だけを返す。
+ * @effect N/A: borrowOwnedDockerExecutionPathsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure borrowOwnedDockerExecutionPathsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant borrowOwnedDockerExecutionPathsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: borrowOwnedDockerExecutionPathsはProcess内の同一Subsystemで完結する。
+ * @security borrowOwnedDockerExecutionPathsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: borrowOwnedDockerExecutionPathsは共有非同期状態を持たない同期処理である。
+ */
 export function borrowOwnedDockerExecutionPaths(
   managementCapability: unknown,
 ): Readonly<{ tmp: string; management: string }> {
@@ -2183,6 +3719,22 @@ export function borrowOwnedDockerExecutionPaths(
   });
 }
 
+/**
+ * validateOwnedChildSetの処理を実行する。
+ *
+ * @responsibility validateOwnedChildSetに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input root: string、children: ChildSnapshots
+ * @returns N/A: validateOwnedChildSetは戻り値を返さない。
+ * @precondition 「root: string、children: ChildSnapshots」がvalidateOwnedChildSetの入力契約を満たす。
+ * @postcondition validateOwnedChildSetの責務を完了して呼出し元へ制御を戻す。
+ * @effect validateOwnedChildSetはFilesystemの読取りまたは書込みを実行する。
+ * @failure validateOwnedChildSetは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant validateOwnedChildSetは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security validateOwnedChildSetはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateOwnedChildSetは共有非同期状態を持たない同期処理である。
+ */
 function validateOwnedChildSet(root: string, children: ChildSnapshots): void {
   const known = new Set(
     Object.values(children).map((snapshot) => snapshot.name),
@@ -2214,6 +3766,22 @@ function validateOwnedChildSet(root: string, children: ChildSnapshots): void {
   }
 }
 
+/**
+ * requireNoActiveDockerBindingの処理を実行する。
+ *
+ * @responsibility requireNoActiveDockerBindingに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input root: string、managementName: string | undefined
+ * @returns voidを返す。
+ * @precondition 「root: string、managementName: string | undefined」がrequireNoActiveDockerBindingの入力契約を満たす。
+ * @postcondition requireNoActiveDockerBindingの責務を完了した結果だけを返す。
+ * @effect N/A: requireNoActiveDockerBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure requireNoActiveDockerBindingは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant requireNoActiveDockerBindingは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: requireNoActiveDockerBindingはProcess内の同一Subsystemで完結する。
+ * @security requireNoActiveDockerBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: requireNoActiveDockerBindingは共有非同期状態を持たない同期処理である。
+ */
 function requireNoActiveDockerBinding(
   root: string,
   managementName: string | undefined,
@@ -2236,6 +3804,22 @@ function requireNoActiveDockerBinding(
   }
 }
 
+/**
+ * removeOwnedOperationRootForCleanupの処理を実行する。
+ *
+ * @responsibility removeOwnedOperationRootForCleanupに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input owned: unknown
+ * @returns removeOwnedOperationRootForCleanupの計算結果を返す。
+ * @precondition 「owned: unknown」がremoveOwnedOperationRootForCleanupの入力契約を満たす。
+ * @postcondition removeOwnedOperationRootForCleanupの責務を完了した結果だけを返す。
+ * @effect removeOwnedOperationRootForCleanupはFilesystemの読取りまたは書込みを実行する。
+ * @failure removeOwnedOperationRootForCleanupは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant removeOwnedOperationRootForCleanupは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security removeOwnedOperationRootForCleanupはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: removeOwnedOperationRootForCleanupは共有非同期状態を持たない同期処理である。
+ */
 function removeOwnedOperationRootForCleanup(owned: unknown) {
   const identity = ownedIdentity(owned);
   if (!identity) {
@@ -2305,6 +3889,22 @@ function removeOwnedOperationRootForCleanup(owned: unknown) {
   return identity;
 }
 
+/**
+ * removeOwnedOperationRecoveryRecordの処理を実行する。
+ *
+ * @responsibility removeOwnedOperationRecoveryRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input identity: OwnedIdentity
+ * @returns N/A: removeOwnedOperationRecoveryRecordは戻り値を返さない。
+ * @precondition 「identity: OwnedIdentity」がremoveOwnedOperationRecoveryRecordの入力契約を満たす。
+ * @postcondition removeOwnedOperationRecoveryRecordの責務を完了して呼出し元へ制御を戻す。
+ * @effect removeOwnedOperationRecoveryRecordはFilesystemの読取りまたは書込みを実行する。
+ * @failure removeOwnedOperationRecoveryRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant removeOwnedOperationRecoveryRecordは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security removeOwnedOperationRecoveryRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: removeOwnedOperationRecoveryRecordは共有非同期状態を持たない同期処理である。
+ */
 function removeOwnedOperationRecoveryRecord(identity: OwnedIdentity) {
   try {
     const recoveryDirectory = fs.realpathSync(identity.hostRecovery.directory);
@@ -2336,6 +3936,22 @@ function removeOwnedOperationRecoveryRecord(identity: OwnedIdentity) {
   }
 }
 
+/**
+ * cleanupOwnedOperationDirectoriesの処理を実行する。
+ *
+ * @responsibility cleanupOwnedOperationDirectoriesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input owned: unknown
+ * @returns N/A: cleanupOwnedOperationDirectoriesは戻り値を返さない。
+ * @precondition 「owned: unknown」がcleanupOwnedOperationDirectoriesの入力契約を満たす。
+ * @postcondition cleanupOwnedOperationDirectoriesの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: cleanupOwnedOperationDirectoriesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure cleanupOwnedOperationDirectoriesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant cleanupOwnedOperationDirectoriesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: cleanupOwnedOperationDirectoriesはProcess内の同一Subsystemで完結する。
+ * @security cleanupOwnedOperationDirectoriesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: cleanupOwnedOperationDirectoriesは共有非同期状態を持たない同期処理である。
+ */
 export function cleanupOwnedOperationDirectories(owned: unknown): void {
   const currentIdentity = ownedIdentity(owned);
   if (!isObject(owned) || !currentIdentity)
@@ -2353,6 +3969,22 @@ export function cleanupOwnedOperationDirectories(owned: unknown): void {
   removeOwnedOperationRecoveryRecord(identity);
 }
 
+/**
+ * cleanupOwnedOperationDirectoriesAsyncの処理を実行する。
+ *
+ * @responsibility cleanupOwnedOperationDirectoriesAsyncに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input owned: unknown
+ * @returns cleanupOwnedOperationDirectoriesAsyncの計算結果を返す。
+ * @precondition 「owned: unknown」がcleanupOwnedOperationDirectoriesAsyncの入力契約を満たす。
+ * @postcondition cleanupOwnedOperationDirectoriesAsyncの責務を完了した結果だけを返す。
+ * @effect N/A: cleanupOwnedOperationDirectoriesAsyncは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure cleanupOwnedOperationDirectoriesAsyncは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant cleanupOwnedOperationDirectoriesAsyncは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: cleanupOwnedOperationDirectoriesAsyncはProcess内の同一Subsystemで完結する。
+ * @security cleanupOwnedOperationDirectoriesAsyncはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency cleanupOwnedOperationDirectoriesAsyncは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function cleanupOwnedOperationDirectoriesAsync(owned: unknown) {
   const identity = removeOwnedOperationRootForCleanup(owned);
   const release = await revokeOwnedOperationGenerationAsync(
@@ -2369,6 +4001,17 @@ export async function cleanupOwnedOperationDirectoriesAsync(owned: unknown) {
   return createOwnedOperationCleanupOutcome("completed");
 }
 
+/**
+ * OwnedOperationCleanupStatusが扱う値の構造を表す。
+ *
+ * @responsibility OwnedOperationCleanupStatusに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape OwnedOperationCleanupStatusが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant OwnedOperationCleanupStatusで宣言した値と責務の対応を維持する。
+ * @boundary N/A: OwnedOperationCleanupStatusの宣言は外部境界を開かない。
+ * @security OwnedOperationCleanupStatusはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility OwnedOperationCleanupStatusの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type OwnedOperationCleanupStatus =
   | "completed"
   | "protocol_failure_cleanup_confirmed";
@@ -2377,6 +4020,22 @@ const ownedOperationCleanupOutcomes = new WeakMap<
   OwnedOperationCleanupStatus
 >();
 
+/**
+ * createOwnedOperationCleanupOutcomeの処理を実行する。
+ *
+ * @responsibility createOwnedOperationCleanupOutcomeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input status: OwnedOperationCleanupStatus
+ * @returns createOwnedOperationCleanupOutcomeの計算結果を返す。
+ * @precondition 「status: OwnedOperationCleanupStatus」がcreateOwnedOperationCleanupOutcomeの入力契約を満たす。
+ * @postcondition createOwnedOperationCleanupOutcomeの責務を完了した結果だけを返す。
+ * @effect N/A: createOwnedOperationCleanupOutcomeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createOwnedOperationCleanupOutcomeは独自の失敗分岐を所有しない。
+ * @invariant createOwnedOperationCleanupOutcomeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createOwnedOperationCleanupOutcomeはProcess内の同一Subsystemで完結する。
+ * @security createOwnedOperationCleanupOutcomeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createOwnedOperationCleanupOutcomeは共有非同期状態を持たない同期処理である。
+ */
 function createOwnedOperationCleanupOutcome(
   status: OwnedOperationCleanupStatus,
 ) {
@@ -2385,6 +4044,22 @@ function createOwnedOperationCleanupOutcome(
   return outcome;
 }
 
+/**
+ * verifyOwnedOperationCleanupOutcomeの処理を実行する。
+ *
+ * @responsibility verifyOwnedOperationCleanupOutcomeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input outcome: unknown
+ * @returns OwnedOperationCleanupStatus | nullを返す。
+ * @precondition 「outcome: unknown」がverifyOwnedOperationCleanupOutcomeの入力契約を満たす。
+ * @postcondition verifyOwnedOperationCleanupOutcomeの責務を完了した結果だけを返す。
+ * @effect N/A: verifyOwnedOperationCleanupOutcomeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: verifyOwnedOperationCleanupOutcomeは独自の失敗分岐を所有しない。
+ * @invariant verifyOwnedOperationCleanupOutcomeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyOwnedOperationCleanupOutcomeはProcess内の同一Subsystemで完結する。
+ * @security verifyOwnedOperationCleanupOutcomeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyOwnedOperationCleanupOutcomeは共有非同期状態を持たない同期処理である。
+ */
 export function verifyOwnedOperationCleanupOutcome(
   outcome: unknown,
 ): OwnedOperationCleanupStatus | null {
@@ -2393,6 +4068,22 @@ export function verifyOwnedOperationCleanupOutcome(
     : null;
 }
 
+/**
+ * loadHostRecoveryRecordの処理を実行する。
+ *
+ * @responsibility loadHostRecoveryRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input token: unknown
+ * @returns Readonly<{ parsed: Readonly<{ rootName: string; nonce: string; recordHash: string }>; parent: string; recovery: Readonly<{ directory: string }>; marker: string; record: HostRecoveryRecord; }>を返す。
+ * @precondition 「token: unknown」がloadHostRecoveryRecordの入力契約を満たす。
+ * @postcondition loadHostRecoveryRecordの責務を完了した結果だけを返す。
+ * @effect N/A: loadHostRecoveryRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: loadHostRecoveryRecordは独自の失敗分岐を所有しない。
+ * @invariant loadHostRecoveryRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: loadHostRecoveryRecordはProcess内の同一Subsystemで完結する。
+ * @security loadHostRecoveryRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: loadHostRecoveryRecordは共有非同期状態を持たない同期処理である。
+ */
 function loadHostRecoveryRecord(token: unknown): Readonly<{
   parsed: Readonly<{ rootName: string; nonce: string; recordHash: string }>;
   parent: string;
@@ -2410,6 +4101,22 @@ function loadHostRecoveryRecord(token: unknown): Readonly<{
   };
 }
 
+/**
+ * recoverOwnedOperationDirectoriesの処理を実行する。
+ *
+ * @responsibility recoverOwnedOperationDirectoriesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input token: unknown、suppliedRecoveryGenerationCapability: unknown
+ * @returns Readonly<{ status: "recovered" | "blocked"; reason: string; recoveryId: string | null; }>を返す。
+ * @precondition 「token: unknown、suppliedRecoveryGenerationCapability: unknown」がrecoverOwnedOperationDirectoriesの入力契約を満たす。
+ * @postcondition recoverOwnedOperationDirectoriesの責務を完了した結果だけを返す。
+ * @effect recoverOwnedOperationDirectoriesはFilesystemの読取りまたは書込みを実行する。
+ * @failure recoverOwnedOperationDirectoriesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant recoverOwnedOperationDirectoriesは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security recoverOwnedOperationDirectoriesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recoverOwnedOperationDirectoriesは共有非同期状態を持たない同期処理である。
+ */
 export function recoverOwnedOperationDirectories(
   token: unknown,
   suppliedRecoveryGenerationCapability: unknown = null,
@@ -2578,6 +4285,22 @@ export function recoverOwnedOperationDirectories(
   return result;
 }
 
+/**
+ * createProviderEnvironmentの処理を実行する。
+ *
+ * @responsibility createProviderEnvironmentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input baseEnvironment: unknown、directories: OperationDirectories
+ * @returns Record<string, string>を返す。
+ * @precondition 「baseEnvironment: unknown、directories: OperationDirectories」がcreateProviderEnvironmentの入力契約を満たす。
+ * @postcondition createProviderEnvironmentの責務を完了した結果だけを返す。
+ * @effect N/A: createProviderEnvironmentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createProviderEnvironmentは独自の失敗分岐を所有しない。
+ * @invariant createProviderEnvironmentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createProviderEnvironmentはProcess内の同一Subsystemで完結する。
+ * @security createProviderEnvironmentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createProviderEnvironmentは共有非同期状態を持たない同期処理である。
+ */
 export function createProviderEnvironment(
   baseEnvironment: unknown,
   directories: OperationDirectories,
@@ -2598,6 +4321,22 @@ export function createProviderEnvironment(
   return environment;
 }
 
+/**
+ * describeFilesystemPolicyの処理を実行する。
+ *
+ * @responsibility describeFilesystemPolicyに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input directories: OperationDirectories
+ * @returns describeFilesystemPolicyの計算結果を返す。
+ * @precondition 「directories: OperationDirectories」がdescribeFilesystemPolicyの入力契約を満たす。
+ * @postcondition describeFilesystemPolicyの責務を完了した結果だけを返す。
+ * @effect N/A: describeFilesystemPolicyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeFilesystemPolicyは独自の失敗分岐を所有しない。
+ * @invariant describeFilesystemPolicyは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeFilesystemPolicyはProcess内の同一Subsystemで完結する。
+ * @security describeFilesystemPolicyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeFilesystemPolicyは共有非同期状態を持たない同期処理である。
+ */
 export function describeFilesystemPolicy(directories: OperationDirectories) {
   return {
     coordinatorRuntime: {
@@ -2623,6 +4362,22 @@ export function describeFilesystemPolicy(directories: OperationDirectories) {
   };
 }
 
+/**
+ * credentialEnvironmentNamesPresentの処理を実行する。
+ *
+ * @responsibility credentialEnvironmentNamesPresentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input environment: unknown
+ * @returns readonly string[]を返す。
+ * @precondition 「environment: unknown」がcredentialEnvironmentNamesPresentの入力契約を満たす。
+ * @postcondition credentialEnvironmentNamesPresentの責務を完了した結果だけを返す。
+ * @effect N/A: credentialEnvironmentNamesPresentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: credentialEnvironmentNamesPresentは独自の失敗分岐を所有しない。
+ * @invariant credentialEnvironmentNamesPresentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: credentialEnvironmentNamesPresentはProcess内の同一Subsystemで完結する。
+ * @security credentialEnvironmentNamesPresentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: credentialEnvironmentNamesPresentは共有非同期状態を持たない同期処理である。
+ */
 export function credentialEnvironmentNamesPresent(
   environment: unknown,
 ): readonly string[] {

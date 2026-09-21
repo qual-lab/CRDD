@@ -6,11 +6,38 @@ import type { VerifiedRepositoryRoot } from "../../../version-control/src/reposi
 
 import type { CheckerRealityFinding } from "./reality-traceability.ts";
 
+/**
+ * RegisteredRealityTestが扱う値の構造を表す。
+ *
+ * @responsibility RegisteredRealityTestに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000001
+ * @shape RegisteredRealityTestが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RegisteredRealityTestで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RegisteredRealityTestの宣言は外部境界を開かない。
+ * @security N/A: RegisteredRealityTestはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RegisteredRealityTestの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type RegisteredRealityTest = Readonly<{
   owner: string;
   testId: string;
 }>;
 
+/**
+ * readRegisteredRealityTestsの処理を実行する。
+ *
+ * @responsibility readRegisteredRealityTestsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000001
+ * @input capability: VerifiedRepositoryRoot
+ * @returns ReturnType<typeof readRegisteredRealityTestsFromRepository>を返す。
+ * @precondition 「capability: VerifiedRepositoryRoot」がreadRegisteredRealityTestsの入力契約を満たす。
+ * @postcondition readRegisteredRealityTestsの責務を完了した結果だけを返す。
+ * @effect N/A: readRegisteredRealityTestsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: readRegisteredRealityTestsは独自の失敗分岐を所有しない。
+ * @invariant readRegisteredRealityTestsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security readRegisteredRealityTestsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readRegisteredRealityTestsは共有非同期状態を持たない同期処理である。
+ */
 export function readRegisteredRealityTests(
   capability: VerifiedRepositoryRoot,
 ): ReturnType<typeof readRegisteredRealityTestsFromRepository> {
@@ -19,6 +46,22 @@ export function readRegisteredRealityTests(
   );
 }
 
+/**
+ * readRegisteredRealityTestsFromRepositoryの処理を実行する。
+ *
+ * @responsibility readRegisteredRealityTestsFromRepositoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000001
+ * @input repository: RepositoryObservationPort
+ * @returns Readonly<{ testsByPath: ReadonlyMap<string, RegisteredRealityTest> | null; findings: readonly CheckerRealityFinding[]; }>を返す。
+ * @precondition 「repository: RepositoryObservationPort」がreadRegisteredRealityTestsFromRepositoryの入力契約を満たす。
+ * @postcondition readRegisteredRealityTestsFromRepositoryの責務を完了した結果だけを返す。
+ * @effect N/A: readRegisteredRealityTestsFromRepositoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure readRegisteredRealityTestsFromRepositoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readRegisteredRealityTestsFromRepositoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: readRegisteredRealityTestsFromRepositoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readRegisteredRealityTestsFromRepositoryは共有非同期状態を持たない同期処理である。
+ */
 export function readRegisteredRealityTestsFromRepository(
   repository: RepositoryObservationPort,
 ): Readonly<{

@@ -23,6 +23,17 @@ import { qualityDesignCanonicalStateRule } from "../rules/quality-design-state.t
 import { currentProfileRules } from "../rules/current-profile.ts";
 import { realitySymbolGraphRule } from "../rules/reality-symbol-graph.ts";
 
+/**
+ * Findingが扱う値の構造を表す。
+ *
+ * @responsibility Findingに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000001
+ * @shape Findingが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Findingで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Findingの宣言は外部境界を開かない。
+ * @security N/A: FindingはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility Findingの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Finding = Readonly<{
   severity: string;
   code: string;
@@ -30,6 +41,17 @@ type Finding = Readonly<{
   message: string;
 }>;
 
+/**
+ * BaselineSubmoduleStateが扱う値の構造を表す。
+ *
+ * @responsibility BaselineSubmoduleStateに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000001
+ * @shape BaselineSubmoduleStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant BaselineSubmoduleStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: BaselineSubmoduleStateの宣言は外部境界を開かない。
+ * @security N/A: BaselineSubmoduleStateはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility BaselineSubmoduleStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type BaselineSubmoduleState = Readonly<{
   declared: boolean | null;
   gitlink_indexed: boolean | null;
@@ -42,6 +64,17 @@ type BaselineSubmoduleState = Readonly<{
   head_matches_gitlink: boolean | null;
 }>;
 
+/**
+ * Discoveryが扱う値の構造を表す。
+ *
+ * @responsibility Discoveryに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000001
+ * @shape Discoveryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Discoveryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Discoveryの宣言は外部境界を開かない。
+ * @security N/A: DiscoveryはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility Discoveryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Discovery = Readonly<{
   files: string[];
   source: string;
@@ -55,13 +88,46 @@ type Discovery = Readonly<{
   unchecked: string[];
 }>;
 
+/**
+ * GitlinkEntryが扱う値の構造を表す。
+ *
+ * @responsibility GitlinkEntryに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000001
+ * @shape GitlinkEntryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant GitlinkEntryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: GitlinkEntryの宣言は外部境界を開かない。
+ * @security N/A: GitlinkEntryはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility GitlinkEntryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type GitlinkEntry = Readonly<{ path: string; oid: string }>;
+/**
+ * MarkdownEntryが扱う値の構造を表す。
+ *
+ * @responsibility MarkdownEntryに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000001
+ * @shape MarkdownEntryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant MarkdownEntryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: MarkdownEntryの宣言は外部境界を開かない。
+ * @security N/A: MarkdownEntryはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility MarkdownEntryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type MarkdownEntry = {
   index: number;
   text: string;
   outside: boolean;
   fenceId: number | null;
 };
+/**
+ * MarkdownFenceが扱う値の構造を表す。
+ *
+ * @responsibility MarkdownFenceに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000001
+ * @shape MarkdownFenceが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant MarkdownFenceで宣言した値と責務の対応を維持する。
+ * @boundary N/A: MarkdownFenceの宣言は外部境界を開かない。
+ * @security N/A: MarkdownFenceはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility MarkdownFenceの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type MarkdownFence = {
   id: number;
   marker: string;
@@ -72,11 +138,33 @@ type MarkdownFence = {
   closed: boolean;
   contents: MarkdownEntry[];
 };
+/**
+ * ReleaseSectionが扱う値の構造を表す。
+ *
+ * @responsibility ReleaseSectionに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000001
+ * @shape ReleaseSectionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ReleaseSectionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ReleaseSectionの宣言は外部境界を開かない。
+ * @security N/A: ReleaseSectionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ReleaseSectionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ReleaseSection = Readonly<{
   start: number;
   end: number;
   entries: MarkdownEntry[];
 }>;
+/**
+ * LocalLinkResolutionが扱う値の構造を表す。
+ *
+ * @responsibility LocalLinkResolutionに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000001
+ * @shape LocalLinkResolutionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant LocalLinkResolutionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: LocalLinkResolutionの宣言は外部境界を開かない。
+ * @security N/A: LocalLinkResolutionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility LocalLinkResolutionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type LocalLinkResolution = Readonly<{
   external: false;
   target: string;
@@ -86,6 +174,17 @@ type LocalLinkResolution = Readonly<{
   outsideRoot: boolean;
   symbolicBoundary: boolean;
 }>;
+/**
+ * LinkResolutionが扱う値の構造を表す。
+ *
+ * @responsibility LinkResolutionに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000001
+ * @shape LinkResolutionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant LinkResolutionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: LinkResolutionの宣言は外部境界を開かない。
+ * @security N/A: LinkResolutionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility LinkResolutionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type LinkResolution =
   | LocalLinkResolution
   | Readonly<{
@@ -96,6 +195,17 @@ type LinkResolution =
       decodeError: boolean;
       outsideRoot: false;
     }>;
+/**
+ * LinkRecordが扱う値の構造を表す。
+ *
+ * @responsibility LinkRecordに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000001
+ * @shape LinkRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant LinkRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: LinkRecordの宣言は外部境界を開かない。
+ * @security N/A: LinkRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility LinkRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type LinkRecord = LinkResolution &
   Readonly<{
     source: string;
@@ -105,12 +215,39 @@ type LinkRecord = LinkResolution &
     historicalAnchorExists: boolean | null;
   }>;
 
+/**
+ * errorCodeの処理を実行する。
+ *
+ * @responsibility errorCodeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000001
+ * @input error: unknown
+ * @returns string | nullを返す。
+ * @precondition 「error: unknown」がerrorCodeの入力契約を満たす。
+ * @postcondition errorCodeの責務を完了した結果だけを返す。
+ * @effect N/A: errorCodeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: errorCodeは独自の失敗分岐を所有しない。
+ * @invariant errorCodeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: errorCodeはProcess内の同一Subsystemで完結する。
+ * @security N/A: errorCodeはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: errorCodeは共有非同期状態を持たない同期処理である。
+ */
 function errorCode(error: unknown): string | null {
   if (error === null || typeof error !== "object") return null;
   const code = Reflect.get(error, "code");
   return typeof code === "string" ? code : null;
 }
 
+/**
+ * CheckerRunRequestが扱う値の構造を表す。
+ *
+ * @responsibility CheckerRunRequestに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000001
+ * @shape CheckerRunRequestが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CheckerRunRequestで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CheckerRunRequestの宣言は外部境界を開かない。
+ * @security N/A: CheckerRunRequestはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CheckerRunRequestの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type CheckerRunRequest = Readonly<{
   arguments: readonly string[];
   cwd: string;
@@ -118,10 +255,35 @@ export type CheckerRunRequest = Readonly<{
   writeError: (value: string) => void;
 }>;
 
+/**
+ * CheckerResultが扱う値の構造を表す。
+ *
+ * @responsibility CheckerResultに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000001
+ * @shape CheckerResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CheckerResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CheckerResultの宣言は外部境界を開かない。
+ * @security N/A: CheckerResultはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CheckerResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type CheckerResult = Readonly<{
   exitCode: number;
 }>;
 
+/**
+ * CheckerCommandExitが担う状態と操作を提供する。
+ *
+ * @responsibility CheckerCommandExitに属する状態と操作の所有境界をまとめる。
+ * @trace ARCH-000001
+ * @construction CheckerCommandExitの生成に必要な依存と初期状態をConstructor契約で固定する。
+ * @lifecycle CheckerCommandExitが所有する状態と資源を生成から終了まで同じInstanceで管理する。
+ * @effect N/A: CheckerCommandExitの宣言自体は実行時Effectを発行しない。
+ * @failure N/A: CheckerCommandExitの宣言自体は実行時失敗を所有しない。
+ * @invariant CheckerCommandExitで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CheckerCommandExitの宣言は外部境界を開かない。
+ * @security N/A: CheckerCommandExitはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: CheckerCommandExitは共有非同期状態を持たない同期処理である。
+ */
 class CheckerCommandExit extends Error {
   readonly exitCode: number;
 
@@ -131,6 +293,22 @@ class CheckerCommandExit extends Error {
   }
 }
 
+/**
+ * runCurrentProfileCheckerの処理を実行する。
+ *
+ * @responsibility runCurrentProfileCheckerに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000001
+ * @input request: CheckerRunRequest
+ * @returns CheckerResultを返す。
+ * @precondition 「request: CheckerRunRequest」がrunCurrentProfileCheckerの入力契約を満たす。
+ * @postcondition runCurrentProfileCheckerの責務を完了した結果だけを返す。
+ * @effect runCurrentProfileCheckerはFilesystemの読取りまたは書込みを実行する。
+ * @failure runCurrentProfileCheckerは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runCurrentProfileCheckerは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: runCurrentProfileCheckerはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: runCurrentProfileCheckerは共有非同期状態を持たない同期処理である。
+ */
 export function runCurrentProfileChecker(
   request: CheckerRunRequest,
 ): CheckerResult {
@@ -144,6 +322,22 @@ export function runCurrentProfileChecker(
     const scopeValues: string[] = [];
     let referencesValue: string | null = null;
 
+    /**
+     * cliErrorの処理を実行する。
+     *
+     * @responsibility cliErrorに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input message: string
+     * @returns neverを返す。
+     * @precondition 「message: string」がcliErrorの入力契約を満たす。
+     * @postcondition cliErrorの責務を完了した結果だけを返す。
+     * @effect N/A: cliErrorは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure cliErrorは入力不正または下位処理の失敗を呼出し側へ返す。
+     * @invariant cliErrorは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: cliErrorはProcess内の同一Subsystemで完結する。
+     * @security N/A: cliErrorはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: cliErrorは共有非同期状態を持たない同期処理である。
+     */
     function cliError(message: string): never {
       request.writeError(`${message}\n`);
       throw new CheckerCommandExit(2);
@@ -183,6 +377,22 @@ export function runCurrentProfileChecker(
       cliError(`--root is not a directory: ${root}`);
     }
 
+    /**
+     * lstatIfPresentの処理を実行する。
+     *
+     * @responsibility lstatIfPresentに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input target: string
+     * @returns fs.Stats | nullを返す。
+     * @precondition 「target: string」がlstatIfPresentの入力契約を満たす。
+     * @postcondition lstatIfPresentの責務を完了した結果だけを返す。
+     * @effect lstatIfPresentはFilesystemの読取りまたは書込みを実行する。
+     * @failure lstatIfPresentは入力不正または下位処理の失敗を呼出し側へ返す。
+     * @invariant lstatIfPresentは宣言した境界以外へEffectを拡張しない。
+     * @boundary FilesystemとProcess内Domain処理の境界。
+     * @security N/A: lstatIfPresentはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: lstatIfPresentは共有非同期状態を持たない同期処理である。
+     */
     function lstatIfPresent(target: string): fs.Stats | null {
       try {
         return fs.lstatSync(target);
@@ -192,6 +402,22 @@ export function runCurrentProfileChecker(
       }
     }
 
+    /**
+     * pathContainsSymbolicLinkの処理を実行する。
+     *
+     * @responsibility pathContainsSymbolicLinkに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input target: string
+     * @returns booleanを返す。
+     * @precondition 「target: string」がpathContainsSymbolicLinkの入力契約を満たす。
+     * @postcondition pathContainsSymbolicLinkの責務を完了した結果だけを返す。
+     * @effect N/A: pathContainsSymbolicLinkは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: pathContainsSymbolicLinkは独自の失敗分岐を所有しない。
+     * @invariant pathContainsSymbolicLinkは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: pathContainsSymbolicLinkはProcess内の同一Subsystemで完結する。
+     * @security N/A: pathContainsSymbolicLinkはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: pathContainsSymbolicLinkは共有非同期状態を持たない同期処理である。
+     */
     function pathContainsSymbolicLink(target: string): boolean {
       if (!isWithin(root, target)) return false;
       const relation = path.relative(root, target);
@@ -206,10 +432,42 @@ export function runCurrentProfileChecker(
       return false;
     }
 
+    /**
+     * samePathの処理を実行する。
+     *
+     * @responsibility samePathに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input left: string、right: string
+     * @returns booleanを返す。
+     * @precondition 「left: string、right: string」がsamePathの入力契約を満たす。
+     * @postcondition samePathの責務を完了した結果だけを返す。
+     * @effect N/A: samePathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: samePathは独自の失敗分岐を所有しない。
+     * @invariant samePathは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: samePathはProcess内の同一Subsystemで完結する。
+     * @security N/A: samePathはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: samePathは共有非同期状態を持たない同期処理である。
+     */
     function samePath(left: string, right: string): boolean {
       return path.relative(path.resolve(left), path.resolve(right)) === "";
     }
 
+    /**
+     * isInitializedBaselineWithoutGitの処理を実行する。
+     *
+     * @responsibility isInitializedBaselineWithoutGitに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input baselineRoot: string
+     * @returns booleanを返す。
+     * @precondition 「baselineRoot: string」がisInitializedBaselineWithoutGitの入力契約を満たす。
+     * @postcondition isInitializedBaselineWithoutGitの責務を完了した結果だけを返す。
+     * @effect isInitializedBaselineWithoutGitはFilesystemの読取りまたは書込みを実行する。
+     * @failure N/A: isInitializedBaselineWithoutGitは独自の失敗分岐を所有しない。
+     * @invariant isInitializedBaselineWithoutGitは宣言した境界以外へEffectを拡張しない。
+     * @boundary FilesystemとProcess内Domain処理の境界。
+     * @security N/A: isInitializedBaselineWithoutGitはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: isInitializedBaselineWithoutGitは共有非同期状態を持たない同期処理である。
+     */
     function isInitializedBaselineWithoutGit(baselineRoot: string): boolean {
       const gitMarker = path.join(baselineRoot, ".git");
       if (pathContainsSymbolicLink(gitMarker)) return false;
@@ -226,6 +484,22 @@ export function runCurrentProfileChecker(
       return lstatIfPresent(gitDirectory)?.isDirectory() === true;
     }
 
+    /**
+     * decodeGitConfigValueの処理を実行する。
+     *
+     * @responsibility decodeGitConfigValueに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input value: string
+     * @returns string | nullを返す。
+     * @precondition 「value: string」がdecodeGitConfigValueの入力契約を満たす。
+     * @postcondition decodeGitConfigValueの責務を完了した結果だけを返す。
+     * @effect N/A: decodeGitConfigValueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: decodeGitConfigValueは独自の失敗分岐を所有しない。
+     * @invariant decodeGitConfigValueは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: decodeGitConfigValueはProcess内の同一Subsystemで完結する。
+     * @security N/A: decodeGitConfigValueはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: decodeGitConfigValueは共有非同期状態を持たない同期処理である。
+     */
     function decodeGitConfigValue(value: string): string | null {
       const trimmed = value.trim();
       let result = "";
@@ -260,6 +534,22 @@ export function runCurrentProfileChecker(
       return result.trim();
     }
 
+    /**
+     * fallbackDeclaredSubmodulePathsの処理を実行する。
+     *
+     * @responsibility fallbackDeclaredSubmodulePathsに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input file: string
+     * @returns Readonly<{ paths: string[]; readable: boolean; }>を返す。
+     * @precondition 「file: string」がfallbackDeclaredSubmodulePathsの入力契約を満たす。
+     * @postcondition fallbackDeclaredSubmodulePathsの責務を完了した結果だけを返す。
+     * @effect fallbackDeclaredSubmodulePathsはFilesystemの読取りまたは書込みを実行する。
+     * @failure fallbackDeclaredSubmodulePathsは入力不正または下位処理の失敗を呼出し側へ返す。
+     * @invariant fallbackDeclaredSubmodulePathsは宣言した境界以外へEffectを拡張しない。
+     * @boundary FilesystemとProcess内Domain処理の境界。
+     * @security N/A: fallbackDeclaredSubmodulePathsはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: fallbackDeclaredSubmodulePathsは共有非同期状態を持たない同期処理である。
+     */
     function fallbackDeclaredSubmodulePaths(file: string): Readonly<{
       paths: string[];
       readable: boolean;
@@ -355,6 +645,22 @@ export function runCurrentProfileChecker(
       path.relative(root, file).replaceAll("\\", "/") || ".";
     const read = (file: string) => fs.readFileSync(file, "utf8");
 
+    /**
+     * checkWorkLifecycleNavigationの処理を実行する。
+     *
+     * @responsibility checkWorkLifecycleNavigationに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input N/A: 実行時引数を受け取らない。
+     * @returns voidを返す。
+     * @precondition 「N/A: 実行時引数を受け取らない。」がcheckWorkLifecycleNavigationの入力契約を満たす。
+     * @postcondition checkWorkLifecycleNavigationの責務を完了した結果だけを返す。
+     * @effect checkWorkLifecycleNavigationはFilesystemの読取りまたは書込みを実行する。
+     * @failure N/A: checkWorkLifecycleNavigationは独自の失敗分岐を所有しない。
+     * @invariant checkWorkLifecycleNavigationは宣言した境界以外へEffectを拡張しない。
+     * @boundary FilesystemとProcess内Domain処理の境界。
+     * @security N/A: checkWorkLifecycleNavigationはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: checkWorkLifecycleNavigationは共有非同期状態を持たない同期処理である。
+     */
     function checkWorkLifecycleNavigation(): void {
       if (repositoryMode === "generic") return;
       for (const legacyPath of [
@@ -431,6 +737,88 @@ export function runCurrentProfileChecker(
             "The legacy representative-file heading must not remain in a canonical Change.",
           );
         }
+        if (Number.parseInt(aggregateId.slice(4), 10) >= 80) {
+          const phasedChangeHeadings = [
+            "## Phase／Gateと途中拡張",
+            "### 適用判断",
+            "### PhaseとGate",
+            "### 途中拡張の記録",
+            "### 途中見直しの記録",
+          ];
+          const phasedChangeTableHeaders = [
+            "| 評価対象 | 判定 | 理由 |",
+            "| Phase | 目的 | 変更範囲 | 検証 | Gate／通過条件 | 状態 |",
+            "| Finding／契機 | 同じIntentと判断した理由 | 追加Phase／範囲 | Gate・完了条件への影響 | 追加確認／人間判断 | 処置 |",
+            "| 契機 | 崩れた前提／旧判断 | 改訂後のPhase／Gate | 再実行する検証 | 不変範囲 | 処置 |",
+            "| 評価対象 | 判定 | 内容／理由 | 参照／再評価契機 |",
+          ];
+          const requiredConvergenceEvaluations = new Set([
+            "非自明な変更としての収束確認",
+            "変更する契約母集団",
+            "既知の利用側母集団と対象別の予定処置",
+            "安全上重要な層間搬送",
+            "保護対象Effect／Recoveryの耐久Authority",
+            "残存資源／Recovery／Authority義務を伴う取得transaction",
+            "発火例／非発火例／境界例／情報不足例",
+            "定義・発火条件・判定不能・正式結果の分離",
+            "固定前の実差分照合",
+            "根拠の主張軸（入口形態）",
+            "根拠の主張軸（観測基盤）",
+            "根拠の主張軸（成果物Identity）",
+            "根拠の主張軸（lifecycle）",
+            "未解消の不一致",
+          ]);
+          const convergenceBody =
+            change.match(
+              /^## 固定前の収束確認\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/mu,
+            )?.[1] ?? "";
+          const convergenceRows = convergenceBody
+            .split(/\r?\n/u)
+            .filter((line) => /^\| [^|-]/u.test(line))
+            .slice(1)
+            .map((line) =>
+              line
+                .split("|")
+                .slice(1, -1)
+                .map((cell) => cell.trim()),
+            );
+          const convergenceNames = convergenceRows.map(
+            (cells) => cells[0] ?? "",
+          );
+          const isConvergenceEvaluationInvalid =
+            convergenceRows.length !== requiredConvergenceEvaluations.size ||
+            new Set(convergenceNames).size !==
+              requiredConvergenceEvaluations.size ||
+            [...requiredConvergenceEvaluations].some(
+              (item) => !convergenceNames.includes(item),
+            ) ||
+            convergenceRows.some(
+              (cells) =>
+                cells.length !== 4 ||
+                !["Applicable", "N/A", "OPEN"].includes(cells[1] ?? "") ||
+                !cells[2] ||
+                !cells[3],
+            );
+          if (
+            phasedChangeHeadings.some(
+              (heading) => !change.split(/\r?\n/u).includes(heading),
+            ) ||
+            phasedChangeTableHeaders.some(
+              (header) => !change.split(/\r?\n/u).includes(header),
+            ) ||
+            !change.includes("## 固定前の収束確認") ||
+            isConvergenceEvaluationInvalid ||
+            !/^\| Phase／Gate \| (?:`?Applicable`?|`?N\/A`?) \| \S.*\|$/mu.test(
+              change,
+            )
+          )
+            add(
+              "error",
+              "change-phase-gate-contract-incomplete",
+              relative(changePath),
+              "CHG-000080以降の変更トレースは、Phase／Gateの適用判断、PhaseごとのGate、途中拡張、途中見直し、および固定前収束の必須適用判断を固定構造で保持する必要があります。",
+            );
+        }
       }
       if (repositoryMode === "official") {
         const changeTemplatePath = path.join(
@@ -446,14 +834,110 @@ export function runCurrentProfileChecker(
           if (
             !/^### 影響ファイル$/mu.test(changeTemplate) ||
             !/^<summary>全ファイルを表示<\/summary>$/mu.test(changeTemplate) ||
-            /^### 主な反映ファイル$/mu.test(changeTemplate)
+            /^### 主な反映ファイル$/mu.test(changeTemplate) ||
+            !/^\| Phase／Gate適用判断 \|/mu.test(changeTemplate) ||
+            !/^## Phase／Gateと途中拡張$/mu.test(changeTemplate) ||
+            !/^### 適用判断$/mu.test(changeTemplate) ||
+            !/^### PhaseとGate$/mu.test(changeTemplate) ||
+            !/^### 途中拡張の記録$/mu.test(changeTemplate) ||
+            !/^### 途中見直しの記録$/mu.test(changeTemplate) ||
+            !/^## 固定前の収束確認$/mu.test(changeTemplate) ||
+            !/^## 変更経路の計画$/mu.test(changeTemplate) ||
+            !/^- 適用判定: `<Applicable／N\/A: 理由／OPEN: 理由・確認先・再評価契機>`$/mu.test(
+              changeTemplate,
+            ) ||
+            /## 変更経路の計画（非自明な変更で該当する場合）/u.test(
+              changeTemplate,
+            ) ||
+            !/^\| 評価対象 \| 判定 \| 理由 \|$/mu.test(changeTemplate) ||
+            !/^\| 評価対象 \| 判定 \| 内容／理由 \| 参照／再評価契機 \|$/mu.test(
+              changeTemplate,
+            ) ||
+            !/^\| Phase \| 目的 \| 変更範囲 \| 検証 \| Gate／通過条件 \| 状態 \|$/mu.test(
+              changeTemplate,
+            ) ||
+            !/^\| Finding／契機 \| 同じIntentと判断した理由 \| 追加Phase／範囲 \| Gate・完了条件への影響 \| 追加確認／人間判断 \| 処置 \|$/mu.test(
+              changeTemplate,
+            ) ||
+            !/^\| 契機 \| 崩れた前提／旧判断 \| 改訂後のPhase／Gate \| 再実行する検証 \| 不変範囲 \| 処置 \|$/mu.test(
+              changeTemplate,
+            )
           ) {
             add(
               "error",
               "change-impact-files-template-mismatch",
               relative(changeTemplatePath),
-              "The official Change template must expose the canonical exhaustive impact-file section.",
+              "The official Change template must expose the canonical exhaustive impact-file section and the Phase/Gate/scope-extension/plan-revision evaluation contract.",
             );
+          }
+          for (const templatePath of [
+            path.join(root, "template", "04_UI", "01_User_Interface.md"),
+            path.join(
+              root,
+              "template",
+              "06_Architecture",
+              "01_Architecture.md",
+            ),
+          ]) {
+            if (!lstatIfPresent(templatePath)?.isFile()) continue;
+            const template = read(templatePath);
+            if (
+              !/^維持責任者: \S+/mu.test(template) ||
+              !/^基本決定権限: \S+/mu.test(template) ||
+              !/^項目別例外Authority: \S+/mu.test(template) ||
+              /項目の決定権限: 必要に応じて/mu.test(template)
+            )
+              add(
+                "error",
+                "mandatory-authority-evaluation-template-invalid",
+                relative(templatePath),
+                "The official UI and Architecture root templates must require an owner, a default authority, and an evaluated item-specific authority exception.",
+              );
+          }
+          for (const [templatePath, requiredFragments] of [
+            [
+              path.join(
+                root,
+                "template",
+                "80_Communication",
+                "01_Communication.md",
+              ),
+              [
+                "## 認知意図",
+                "## 市場・採用探索",
+                "## 人間対象調査",
+                "適用判定: `<Applicable／N/A: 理由／OPEN: 理由・確認先・再評価契機>`",
+              ],
+            ],
+            [
+              path.join(
+                root,
+                "template",
+                "05_SPEC",
+                "04_Actor_System_Sequence.md",
+              ),
+              [
+                "要求、受理、Effect、結果観測および終了を全数評価し、統合する段階には理由を記録した",
+              ],
+            ],
+          ] as const) {
+            if (!lstatIfPresent(templatePath)?.isFile()) continue;
+            const template = read(templatePath);
+            if (
+              requiredFragments.some(
+                (fragment) => !template.includes(fragment),
+              ) ||
+              /## (?:認知意図|市場・採用探索)（該当する場合）/u.test(
+                template,
+              ) ||
+              /必要に応じて分けた/u.test(template)
+            )
+              add(
+                "error",
+                "mandatory-applicability-template-invalid",
+                relative(templatePath),
+                "Conditional communication and sequence concerns must keep a visible mandatory applicability evaluation instead of a vague optional instruction.",
+              );
           }
         }
       }
@@ -948,13 +1432,16 @@ export function runCurrentProfileChecker(
 
     const architectureDetailChecklistItemTexts = [
       "関連するARCH-IDと担当する責務断面を明示した",
-      "9種類の詳細成果物を全数Applicability判定した",
+      "10種類の詳細成果物を全数Applicability判定した",
       "Requiredを実在する節または成果物へ接続した",
       "N/AにArchitecture上の理由を記録した",
       "8種類のEngineering Concernを全数評価した",
       "PASSを設計済みの意味に限定した",
       "Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した",
       "Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した",
+      "7種類のImplementation Structure観点を全数Applicability判定した",
+      "二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した",
+      "Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した",
       "Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した",
       "Human Inputの必要性とOpen／Gapを評価した",
       "現行実装との照合をReality Auditとして分離した",
@@ -987,7 +1474,7 @@ export function runCurrentProfileChecker(
       "検証対象、正式入力および実行入口を区別した",
       "UT／IT／ST／UATの適用判断を検証義務ごとに行える",
       "外部境界の直接、隣接1 block、関連2 blocks、System／E2Eおよび利用者受入の段階を扱える",
-      "正常、境界、失敗および観測不能を検証設計へ含めた",
+      "正常、境界、準正常、異常および回復を検証設計へ含めた",
       "観測、Oracle、Evidenceおよび終了後条件を区別した",
       "実行、停止、取消および再入場条件を示した",
       "RT／PT／LTの適用を評価し、PT／LTは人間の明示指定なしに実行しない",
@@ -1024,24 +1511,30 @@ export function runCurrentProfileChecker(
       "適用関係、無効化条件および再検証条件を示した",
       "Quality Centerへの反映要否を評価した",
       "保存するEvidenceと保存しない機密情報・生データを区別した",
+      "11項目の必須適用判断を全数処置した",
+      "N/Aに理由を、OPENに理由・影響・確認先・再評価契機を記録した",
+      "PT／LTを人間の指定なく実行していない",
     ];
 
-    const qualityAnalysisChecklistItemTexts = [
+    const qualityAnalysisTemplateChecklistItemTexts = [
       "対象工程の全Canonical IDを一件以上処置した",
       "各Source固有の成功、境界、失敗、Riskおよび観測不能を分析した",
       "表題や共通定型句ではなくSource固有の検証義務を記録した",
       "意味の近い義務を統合してもSource固有条件を失っていない",
       "各Sourceと検証目標、試験段階およびLocal Itemを接続した",
+      "必要検証義務を既存Local ItemやTestから逆算していない",
+      "Required／Definedの集合差、Level不一致およびRelation不明を評価した",
       "上流の未確認事項をUAT、OPEN義務または上流再開へ処置した",
       "現行Source、TestまたはEvidenceから検証義務を逆算していない",
       "未解決事項、判断者および再評価契機を明示した",
     ];
 
-    const qualityDefinitionChecklistItemTexts = [
+    const qualityDefinitionTemplateChecklistItemTexts = [
       "Quality ID、検証目標およびSource固有条件を自己完結して示した",
+      "各Local ItemをRequired Verification Obligationの局所参照と導出元へ接続した",
       "UT／IT／ST／UATの適用または理由付きN/Aを記録した",
       "外部境界の直接、隣接1 block、関連2 blocks、System／E2Eおよび利用者受入を適用判定した",
-      "正常、境界、失敗および観測不能をLocal Itemで処置した",
+      "正常、境界、準正常、異常および回復をLocal Itemで処置した",
       "各Local Itemで観測とOracleを分けた",
       "各Local ItemのEvidence要件を示した",
       "事前条件、刺激、終了後条件、cleanupおよびRecoveryを必要な範囲で示した",
@@ -1050,6 +1543,22 @@ export function runCurrentProfileChecker(
       "現行Source、TestおよびEvidenceとの照合をReality Auditへ分離した",
     ];
 
+    /**
+     * checklistItemTextの処理を実行する。
+     *
+     * @responsibility checklistItemTextに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input line: string
+     * @returns string | nullを返す。
+     * @precondition 「line: string」がchecklistItemTextの入力契約を満たす。
+     * @postcondition checklistItemTextの責務を完了した結果だけを返す。
+     * @effect N/A: checklistItemTextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: checklistItemTextは独自の失敗分岐を所有しない。
+     * @invariant checklistItemTextは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: checklistItemTextはProcess内の同一Subsystemで完結する。
+     * @security N/A: checklistItemTextはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: checklistItemTextは共有非同期状態を持たない同期処理である。
+     */
     function checklistItemText(line: string): string | null {
       const checked = /^- \[x\] (?<text>\S.*)$/u.exec(line);
       if (checked?.groups?.text) return checked.groups.text;
@@ -1059,6 +1568,22 @@ export function runCurrentProfileChecker(
       return result?.groups?.text ?? null;
     }
 
+    /**
+     * completedVisibleChecklistErrorの処理を実行する。
+     *
+     * @responsibility completedVisibleChecklistErrorに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input markdown: string、expectedItems: readonly string[]
+     * @returns string | nullを返す。
+     * @precondition 「markdown: string、expectedItems: readonly string[]」がcompletedVisibleChecklistErrorの入力契約を満たす。
+     * @postcondition completedVisibleChecklistErrorの責務を完了した結果だけを返す。
+     * @effect N/A: completedVisibleChecklistErrorは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: completedVisibleChecklistErrorは独自の失敗分岐を所有しない。
+     * @invariant completedVisibleChecklistErrorは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: completedVisibleChecklistErrorはProcess内の同一Subsystemで完結する。
+     * @security N/A: completedVisibleChecklistErrorはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: completedVisibleChecklistErrorは共有非同期状態を持たない同期処理である。
+     */
     function completedVisibleChecklistError(
       markdown: string,
       expectedItems: readonly string[],
@@ -1094,6 +1619,22 @@ export function runCurrentProfileChecker(
       return null;
     }
 
+    /**
+     * templateVisibleChecklistErrorの処理を実行する。
+     *
+     * @responsibility templateVisibleChecklistErrorに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input markdown: string、expectedItems: readonly string[]
+     * @returns string | nullを返す。
+     * @precondition 「markdown: string、expectedItems: readonly string[]」がtemplateVisibleChecklistErrorの入力契約を満たす。
+     * @postcondition templateVisibleChecklistErrorの責務を完了した結果だけを返す。
+     * @effect N/A: templateVisibleChecklistErrorは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: templateVisibleChecklistErrorは独自の失敗分岐を所有しない。
+     * @invariant templateVisibleChecklistErrorは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: templateVisibleChecklistErrorはProcess内の同一Subsystemで完結する。
+     * @security N/A: templateVisibleChecklistErrorはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: templateVisibleChecklistErrorは共有非同期状態を持たない同期処理である。
+     */
     function templateVisibleChecklistError(
       markdown: string,
       expectedItems: readonly string[],
@@ -1140,6 +1681,22 @@ export function runCurrentProfileChecker(
       return null;
     }
 
+    /**
+     * checkUxRequirementAnalysisの処理を実行する。
+     *
+     * @responsibility checkUxRequirementAnalysisに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input N/A: 実行時引数を受け取らない。
+     * @returns voidを返す。
+     * @precondition 「N/A: 実行時引数を受け取らない。」がcheckUxRequirementAnalysisの入力契約を満たす。
+     * @postcondition checkUxRequirementAnalysisの責務を完了した結果だけを返す。
+     * @effect checkUxRequirementAnalysisはFilesystemの読取りまたは書込みを実行する。
+     * @failure N/A: checkUxRequirementAnalysisは独自の失敗分岐を所有しない。
+     * @invariant checkUxRequirementAnalysisは宣言した境界以外へEffectを拡張しない。
+     * @boundary FilesystemとProcess内Domain処理の境界。
+     * @security N/A: checkUxRequirementAnalysisはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: checkUxRequirementAnalysisは共有非同期状態を持たない同期処理である。
+     */
     function checkUxRequirementAnalysis(): void {
       if (repositoryMode !== "official") return;
       const discoveryPath = path.join(
@@ -2115,6 +2672,22 @@ export function runCurrentProfileChecker(
         );
     }
 
+    /**
+     * checkIaReconstructionの処理を実行する。
+     *
+     * @responsibility checkIaReconstructionに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input N/A: 実行時引数を受け取らない。
+     * @returns voidを返す。
+     * @precondition 「N/A: 実行時引数を受け取らない。」がcheckIaReconstructionの入力契約を満たす。
+     * @postcondition checkIaReconstructionの責務を完了した結果だけを返す。
+     * @effect checkIaReconstructionはFilesystemの読取りまたは書込みを実行する。
+     * @failure N/A: checkIaReconstructionは独自の失敗分岐を所有しない。
+     * @invariant checkIaReconstructionは宣言した境界以外へEffectを拡張しない。
+     * @boundary FilesystemとProcess内Domain処理の境界。
+     * @security N/A: checkIaReconstructionはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: checkIaReconstructionは共有非同期状態を持たない同期処理である。
+     */
     function checkIaReconstruction(): void {
       if (repositoryMode !== "official") return;
       const tableRows = (
@@ -2819,6 +3392,22 @@ export function runCurrentProfileChecker(
         );
     }
 
+    /**
+     * checkUiReconstructionの処理を実行する。
+     *
+     * @responsibility checkUiReconstructionに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input N/A: 実行時引数を受け取らない。
+     * @returns voidを返す。
+     * @precondition 「N/A: 実行時引数を受け取らない。」がcheckUiReconstructionの入力契約を満たす。
+     * @postcondition checkUiReconstructionの責務を完了した結果だけを返す。
+     * @effect checkUiReconstructionはFilesystemの読取りまたは書込みを実行する。
+     * @failure N/A: checkUiReconstructionは独自の失敗分岐を所有しない。
+     * @invariant checkUiReconstructionは宣言した境界以外へEffectを拡張しない。
+     * @boundary FilesystemとProcess内Domain処理の境界。
+     * @security N/A: checkUiReconstructionはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: checkUiReconstructionは共有非同期状態を持たない同期処理である。
+     */
     function checkUiReconstruction(): void {
       if (repositoryMode !== "official") return;
       const uxDefinitionsRoot = path.join(root, "02_UX", "Definitions");
@@ -3287,6 +3876,22 @@ export function runCurrentProfileChecker(
         );
     }
 
+    /**
+     * checkSpecReconstructionの処理を実行する。
+     *
+     * @responsibility checkSpecReconstructionに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input N/A: 実行時引数を受け取らない。
+     * @returns voidを返す。
+     * @precondition 「N/A: 実行時引数を受け取らない。」がcheckSpecReconstructionの入力契約を満たす。
+     * @postcondition checkSpecReconstructionの責務を完了した結果だけを返す。
+     * @effect checkSpecReconstructionはFilesystemの読取りまたは書込みを実行する。
+     * @failure N/A: checkSpecReconstructionは独自の失敗分岐を所有しない。
+     * @invariant checkSpecReconstructionは宣言した境界以外へEffectを拡張しない。
+     * @boundary FilesystemとProcess内Domain処理の境界。
+     * @security N/A: checkSpecReconstructionはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: checkSpecReconstructionは共有非同期状態を持たない同期処理である。
+     */
     function checkSpecReconstruction(): void {
       if (repositoryMode !== "official") return;
       const tableRows = (
@@ -4161,6 +4766,22 @@ export function runCurrentProfileChecker(
       }
     }
 
+    /**
+     * checkArchitectureReconstructionの処理を実行する。
+     *
+     * @responsibility checkArchitectureReconstructionに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input N/A: 実行時引数を受け取らない。
+     * @returns voidを返す。
+     * @precondition 「N/A: 実行時引数を受け取らない。」がcheckArchitectureReconstructionの入力契約を満たす。
+     * @postcondition checkArchitectureReconstructionの責務を完了した結果だけを返す。
+     * @effect checkArchitectureReconstructionはFilesystemの読取りまたは書込みを実行する。
+     * @failure N/A: checkArchitectureReconstructionは独自の失敗分岐を所有しない。
+     * @invariant checkArchitectureReconstructionは宣言した境界以外へEffectを拡張しない。
+     * @boundary FilesystemとProcess内Domain処理の境界。
+     * @security N/A: checkArchitectureReconstructionはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: checkArchitectureReconstructionは共有非同期状態を持たない同期処理である。
+     */
     function checkArchitectureReconstruction(): void {
       if (repositoryMode !== "official") return;
       const architectureIndexPath = path.join(
@@ -4875,8 +5496,9 @@ export function runCurrentProfileChecker(
             continue;
           }
           const source = visibleMarkdownStructure(read(detailPath));
+          const detailMarkdown = read(detailPath);
           const checklistError = completedVisibleChecklistError(
-            read(detailPath),
+            detailMarkdown,
             architectureDetailChecklistItemTexts,
           );
           const relationSection = sectionBody(source, "## 基本設計との関係");
@@ -4910,6 +5532,10 @@ export function runCurrentProfileChecker(
           const applicability = sectionBody(source, "## 詳細成果物の適用判断");
           const concerns = sectionBody(source, "## Engineering Concern評価");
           const qualityHandoff = sectionBody(source, "## Qualityへの引渡し");
+          const implementationStructure =
+            source.match(
+              /^## (?:[0-9]+\.\s*)?Implementation Structure\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/mu,
+            )?.[1] ?? "";
           const applicabilityRows = applicability
             .split(/\r?\n/u)
             .filter((line) => /^\| [^|-]/u.test(line));
@@ -4926,6 +5552,7 @@ export function runCurrentProfileChecker(
             "Deployment",
             "Observability",
             "Security Boundary",
+            "Implementation Structure",
           ]);
           const expectedConcerns = new Set([
             "Concurrency",
@@ -4941,6 +5568,21 @@ export function runCurrentProfileChecker(
             .slice(1)
             .map((line) => line.split("|").slice(1, -1)[0]?.trim() ?? "");
           const concernNames = concernRows
+            .slice(1)
+            .map((line) => line.split("|").slice(1, -1)[0]?.trim() ?? "");
+          const implementationStructureRows = implementationStructure
+            .split(/\r?\n/u)
+            .filter((line) => /^\| [^|-]/u.test(line));
+          const expectedImplementationStructure = new Set([
+            "Variation",
+            "Common Contract",
+            "Creation／Selection",
+            "State-dependent Behavior",
+            "Composition／Recursion",
+            "Lifecycle Ownership",
+            "External Boundary",
+          ]);
+          const implementationStructureNames = implementationStructureRows
             .slice(1)
             .map((line) => line.split("|").slice(1, -1)[0]?.trim() ?? "");
           const hasInvalidApplicability = applicabilityRows
@@ -4972,6 +5614,21 @@ export function runCurrentProfileChecker(
               !/\[[^\]]+\]\([^)]*(?:\.md)?#[^)]+\)/u.test(cells[3])
             );
           });
+          const hasInvalidImplementationStructure =
+            !implementationStructure.includes(
+              "| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |",
+            ) ||
+            implementationStructureRows.slice(1).some((line) => {
+              const cells = line
+                .split("|")
+                .slice(1, -1)
+                .map((cell) => cell.trim());
+              return (
+                cells.length !== 7 ||
+                !["Required", "N/A", "OPEN"].includes(cells[1] ?? "") ||
+                cells.slice(2).some((cell) => !cell)
+              );
+            });
           const hasResultSemantics = [
             "`PASS`: 詳細設計上",
             "`N/A`: Architecture上、そのConcern自体が存在しない",
@@ -4982,10 +5639,11 @@ export function runCurrentProfileChecker(
           const hasBlockingChecklistResult = /^- (?:OPEN|FAIL): /mu.test(
             checklistBody,
           );
+          const expectedHandoffHeader =
+            "| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |";
+          const expectedHandoffCellCount = 10;
           const hasInvalidQualityHandoff =
-            !qualityHandoff.includes(
-              "| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |",
-            ) ||
+            !qualityHandoff.includes(expectedHandoffHeader) ||
             !qualityHandoff
               .split(/\r?\n/u)
               .filter((line) => /^\| [^|-]/u.test(line))
@@ -4995,7 +5653,10 @@ export function runCurrentProfileChecker(
                   .split("|")
                   .slice(1, -1)
                   .map((cell) => cell.trim());
-                return cells.length === 7 && cells.every(Boolean);
+                return (
+                  cells.length === expectedHandoffCellCount &&
+                  cells.every(Boolean)
+                );
               });
           const hasIncompleteApplicability =
             applicabilityNames.length !== expectedApplicability.size ||
@@ -5007,6 +5668,14 @@ export function runCurrentProfileChecker(
             concernNames.length !== expectedConcerns.size ||
             new Set(concernNames).size !== expectedConcerns.size ||
             [...expectedConcerns].some((name) => !concernNames.includes(name));
+          const hasIncompleteImplementationStructure =
+            implementationStructureNames.length !==
+              expectedImplementationStructure.size ||
+            new Set(implementationStructureNames).size !==
+              expectedImplementationStructure.size ||
+            [...expectedImplementationStructure].some(
+              (name) => !implementationStructureNames.includes(name),
+            );
           const hasUnresolvedWhenReady =
             isArchitectureReady &&
             (relationSection.includes("| Missing |") ||
@@ -5029,8 +5698,10 @@ export function runCurrentProfileChecker(
             hasInvalidRelation ||
             hasIncompleteApplicability ||
             hasIncompleteConcerns ||
+            hasIncompleteImplementationStructure ||
             hasInvalidApplicability ||
             hasInvalidConcern ||
+            hasInvalidImplementationStructure ||
             !hasResultSemantics ||
             hasInvalidQualityHandoff ||
             hasUnresolvedWhenReady ||
@@ -5040,7 +5711,7 @@ export function runCurrentProfileChecker(
               "error",
               "architecture-detail-contract-invalid",
               relative(detailPath),
-              `Each detailed design area must expose unique relation states, all nine applicability decisions, all eight concern decisions, a structured Quality handoff, one visible fully evaluated Checklist, and no unresolved item when Architecture Ready${checklistError ? ` (${checklistError})` : ""}.`,
+              `Each detailed design area must expose unique relation states, all ten applicability decisions, all eight concern decisions, all six implementation-structure decisions, a structured Quality handoff, one visible fully evaluated Checklist, and no unresolved item when Architecture Ready${checklistError ? ` (${checklistError})` : ""}.`,
             );
         }
       if (
@@ -5136,6 +5807,22 @@ export function runCurrentProfileChecker(
         );
     }
 
+    /**
+     * checkQualityReconstructionの処理を実行する。
+     *
+     * @responsibility checkQualityReconstructionに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input N/A: 実行時引数を受け取らない。
+     * @returns voidを返す。
+     * @precondition 「N/A: 実行時引数を受け取らない。」がcheckQualityReconstructionの入力契約を満たす。
+     * @postcondition checkQualityReconstructionの責務を完了した結果だけを返す。
+     * @effect checkQualityReconstructionはFilesystemの読取りまたは書込みを実行する。
+     * @failure checkQualityReconstructionは入力不正または下位処理の失敗を呼出し側へ返す。
+     * @invariant checkQualityReconstructionは宣言した境界以外へEffectを拡張しない。
+     * @boundary FilesystemとProcess内Domain処理の境界。
+     * @security N/A: checkQualityReconstructionはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: checkQualityReconstructionは共有非同期状態を持たない同期処理である。
+     */
     function checkQualityReconstruction(): void {
       if (repositoryMode !== "official") return;
 
@@ -5323,6 +6010,41 @@ export function runCurrentProfileChecker(
           `The Quality verification-result template must keep one unevaluated visible Checklist with result guidance and the canonical item set (${verificationResultTemplateError}).`,
         );
 
+      if (lstatIfPresent(verificationResultTemplatePath)?.isFile()) {
+        const verificationResultTemplate = read(verificationResultTemplatePath);
+        const requiredApplicabilityItems = [
+          "安全上重要な層間搬送",
+          "耐久状態のAuthority分類",
+          "発行前失敗／発行後失敗／retry",
+          "残存資源／Recovery",
+          "根拠の主張軸（入口形態）",
+          "根拠の主張軸（観測基盤）",
+          "根拠の主張軸（成果物Identity）",
+          "根拠の主張軸（lifecycle）",
+          "性能試験（PT）",
+          "負荷試験（LT）",
+          "人間による判断",
+        ];
+        if (
+          !verificationResultTemplate.includes("### 必須の適用判断") ||
+          !verificationResultTemplate.includes(
+            "| 評価対象 | 判定 | 内容／理由 | 根拠／再評価契機 |",
+          ) ||
+          requiredApplicabilityItems.some(
+            (item) =>
+              !verificationResultTemplate.includes(
+                `| ${item} | Applicable／N/A／OPEN |`,
+              ),
+          )
+        )
+          add(
+            "error",
+            "quality-verification-result-applicability-contract-invalid",
+            relative(verificationResultTemplatePath),
+            "The verification-result template must require all eleven applicability evaluations and reasoned N/A/OPEN handling.",
+          );
+      }
+
       const qualityAnalysisTemplatePath = path.join(
         templateQualityRoot,
         "Analysis",
@@ -5331,7 +6053,7 @@ export function runCurrentProfileChecker(
       );
       const qualityAnalysisTemplateError = templateVisibleChecklistError(
         read(qualityAnalysisTemplatePath),
-        qualityAnalysisChecklistItemTexts,
+        qualityAnalysisTemplateChecklistItemTexts,
       );
       if (qualityAnalysisTemplateError)
         add(
@@ -5343,7 +6065,7 @@ export function runCurrentProfileChecker(
       for (const phaseAnalysisPath of phaseAnalysisPaths) {
         const checklistError = completedVisibleChecklistError(
           read(phaseAnalysisPath),
-          qualityAnalysisChecklistItemTexts,
+          qualityAnalysisTemplateChecklistItemTexts,
         );
         if (checklistError)
           add(
@@ -5362,7 +6084,7 @@ export function runCurrentProfileChecker(
       );
       const qualityDefinitionTemplateError = templateVisibleChecklistError(
         read(qualityDefinitionTemplatePath),
-        qualityDefinitionChecklistItemTexts,
+        qualityDefinitionTemplateChecklistItemTexts,
       );
       if (qualityDefinitionTemplateError)
         add(
@@ -5390,7 +6112,7 @@ export function runCurrentProfileChecker(
       for (const definitionPath of qualityDefinitionPaths) {
         const checklistError = completedVisibleChecklistError(
           read(definitionPath),
-          qualityDefinitionChecklistItemTexts,
+          qualityDefinitionTemplateChecklistItemTexts,
         );
         if (checklistError)
           add(
@@ -5670,23 +6392,37 @@ export function runCurrentProfileChecker(
       const analysisSourceGoalRelationEntries: string[] = [];
       const analysisSourceConditions = new Map<string, string>();
       const analysisSourceGoalLevels = new Map<string, Set<string>>();
+      const analysisObligationKeys = new Map<string, string>();
+      const analysisObligationKeyEntries: string[] = [];
       const normalizeQualityCondition = (value: string): string =>
         value.trim().replace(/\s+/gu, " ");
       for (const line of (sourceRelationSection ?? "").split(/\r?\n/u)) {
         const relation = line.match(
-          /^\|\s*\[((?:REQ|UX|IA|UI|SPEC|ARCH)-[0-9]{6})\]\([^)]+\)\s*\|\s*\[[^\]]+\]\(\.\.\/\.\.\/Definitions\/(QA-[0-9]{6})\/quality_definition\.md\)\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|\s*$/u,
+          /^\|\s*\[((?:REQ|UX|IA|UI|SPEC|ARCH)-[0-9]{6})\]\([^)]+\)\s*\|\s*`([a-z0-9.-]+)`\s*\|\s*([^|]+)\|\s*\[[^\]]+\]\(\.\.\/\.\.\/Definitions\/(QA-[0-9]{6})\/quality_definition\.md\)\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|\s*$/u,
         );
         if (!relation) continue;
-        const [, sourceId, goalSlug, condition, levelCell, localCell] =
-          relation;
+        const [
+          ,
+          sourceId,
+          obligationKey,
+          derivationSource,
+          goalSlug,
+          condition,
+          levelCell,
+          boundaryStage,
+          localCell,
+        ] = relation;
         const requestedLevels = new Set(
           Array.from(levelCell.matchAll(/UT|IT|ST|UAT/gu), (match) => match[0]),
         );
         const localIds = Array.from(
-          localCell.matchAll(/`([A-Z][A-Z0-9]*-[0-9]{2,})`/gu),
+          localCell.matchAll(/`([A-Z][A-Z0-9]*-(?:UT|IT|ST|UAT)-[0-9]{3})`/gu),
           (match) => match[1],
         );
         const sourceGoalRelation = `${sourceId}|${goalSlug}`;
+        const expectedObligationKey = `${sourceId.toLowerCase()}.${goalSlug.toLowerCase()}`;
+        analysisObligationKeyEntries.push(obligationKey);
+        analysisObligationKeys.set(sourceGoalRelation, obligationKey);
         analysisSourceGoalRelationEntries.push(sourceGoalRelation);
         analysisSourceGoalRelations.add(sourceGoalRelation);
         analysisSourceConditions.set(
@@ -5695,15 +6431,18 @@ export function runCurrentProfileChecker(
         );
         analysisSourceGoalLevels.set(sourceGoalRelation, requestedLevels);
         if (
+          obligationKey !== expectedObligationKey ||
+          derivationSource.trim().length === 0 ||
           condition.trim().length === 0 ||
           requestedLevels.size === 0 ||
+          boundaryStage.trim().length === 0 ||
           localIds.length === 0
         )
           add(
             "error",
             "quality-source-local-relation-incomplete",
             relative(analysisPath),
-            "Every Source-to-goal relation must preserve a non-empty source-specific condition and connect it to one or more Local Items.",
+            "Every Source-to-goal relation must expose its deterministic Obligation Key, derivation source, source-specific condition, test level, external-boundary stage, and one or more Local Items.",
           );
         for (const localId of localIds) {
           const sourceLocalRelation = `${sourceId}|${goalSlug}|${localId}`;
@@ -5721,7 +6460,9 @@ export function runCurrentProfileChecker(
       if (
         analysisSourceGoalRelationEntries.length !==
           analysisSourceGoalRelations.size ||
-        analysisSourceRelationEntries.length !== analysisSourceRelations.size
+        analysisSourceRelationEntries.length !== analysisSourceRelations.size ||
+        analysisObligationKeyEntries.length !==
+          new Set(analysisObligationKeyEntries).size
       )
         add(
           "error",
@@ -5989,10 +6730,10 @@ export function runCurrentProfileChecker(
           analysisDetailUnitGoalRelations.add(unitGoalRelation);
         }
         for (const localMatch of cells[3].matchAll(
-          /`([A-Z][A-Z0-9]*-[0-9]{2,})`/gu,
+          /`([A-Z][A-Z0-9]*-(?:UT|IT|ST|UAT)-[0-9]{3})`/gu,
         ))
           analysisDetailUnitLocalRelations.add(`${unitKey}|${localMatch[1]}`);
-        if (!/`[A-Z][A-Z0-9]*-[0-9]{2,}`/u.test(cells[3]))
+        if (!/`[A-Z][A-Z0-9]*-(?:UT|IT|ST|UAT)-[0-9]{3}`/u.test(cells[3]))
           add(
             "error",
             "quality-architecture-detail-unit-local-item-missing",
@@ -6023,15 +6764,51 @@ export function runCurrentProfileChecker(
           "The Quality mapping must explicitly process every current Architecture detail area without adding an unknown area.",
         );
       const physicalDetailUnits = new Set<string>();
+      const physicalDetailUnitLevels = new Map<string, Set<string>>();
+      const physicalDetailUnitBoundaryStages = new Map<string, string>();
       for (const detailPath of physicalDetailPaths) {
         const detailSlug = path.basename(path.dirname(detailPath));
         const handoffSection = read(detailPath).match(
           /^## Qualityへの引(?:渡し|き渡し)\s*$([\s\S]*?)(?=^##\s)/mu,
         )?.[1];
         for (const line of (handoffSection ?? "").split(/\r?\n/u)) {
-          const unit = line.match(/^\|\s*([^|]+?)\s*\|/u)?.[1]?.trim();
-          if (!unit || unit === "検証単位" || /^---/u.test(unit)) continue;
-          physicalDetailUnits.add(`${detailSlug}|${unit}`);
+          if (!/^\|/u.test(line)) continue;
+          const cells = line
+            .slice(1, line.lastIndexOf("|"))
+            .split("|")
+            .map((cell) => cell.trim());
+          const unit = cells[0];
+          if (
+            !unit ||
+            unit === "検証単位" ||
+            unit === "導出キー" ||
+            /^---/u.test(unit)
+          )
+            continue;
+          const unitKey = `${detailSlug}|${unit}`;
+          physicalDetailUnits.add(unitKey);
+          physicalDetailUnitLevels.set(
+            unitKey,
+            new Set(
+              Array.from(
+                cells[5]?.matchAll(/UT|IT|ST|UAT/gu) ?? [],
+                (match) => match[0],
+              ),
+            ),
+          );
+          const declaredBoundaryCell = cells[6] ?? "";
+          const declaredBoundaryStages = [
+            "N/A",
+            "Direct Boundary",
+            "Adjacent 1 Block",
+            "Related 2 Blocks",
+            "System/E2E",
+            "User Acceptance",
+          ].filter((stage) => declaredBoundaryCell.includes(stage));
+          physicalDetailUnitBoundaryStages.set(
+            unitKey,
+            declaredBoundaryStages.at(-1) ?? "",
+          );
         }
       }
       if (
@@ -6053,11 +6830,14 @@ export function runCurrentProfileChecker(
       const definitionSourceRelationEntries: string[] = [];
       const definitionSourceConditions = new Map<string, string>();
       const definitionSourceGoalLevels = new Map<string, Set<string>>();
+      const definitionObligationKeys = new Map<string, string>();
+      const definitionObligationKeyEntries: string[] = [];
       const definitionDetailGoalRelations = new Set<string>();
       const definitionDetailGoalRelationEntries: string[] = [];
       const definitionGoalLocalRelations = new Set<string>();
       const definitionGoalLocalRelationEntries: string[] = [];
       const localItemLevels = new Map<string, string>();
+      const localItemBoundaryStages = new Map<string, string>();
       for (const definitionPath of physicalDefinitionPaths) {
         const definition = read(definitionPath);
         const goalSlug = path.basename(path.dirname(definitionPath));
@@ -6086,10 +6866,18 @@ export function runCurrentProfileChecker(
           );
         for (const line of (coverageSection ?? "").split(/\r?\n/u)) {
           const relation = line.match(
-            /^\|\s*\[((?:REQ|UX|IA|UI|SPEC|ARCH)-[0-9]{6})\]\([^)]+\)\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|\s*$/u,
+            /^\|\s*\[((?:REQ|UX|IA|UI|SPEC|ARCH)-[0-9]{6})\]\([^)]+\)\s*\|\s*`([a-z0-9.-]+)`\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|\s*$/u,
           );
           if (!relation) continue;
-          const [, sourceId, condition, levelCell, localCell] = relation;
+          const [
+            ,
+            sourceId,
+            obligationKey,
+            derivationSource,
+            condition,
+            levelCell,
+            localCell,
+          ] = relation;
           const requestedLevels = new Set(
             Array.from(
               levelCell.matchAll(/UT|IT|ST|UAT/gu),
@@ -6097,10 +6885,15 @@ export function runCurrentProfileChecker(
             ),
           );
           const localIds = Array.from(
-            localCell.matchAll(/`([A-Z][A-Z0-9]*-[0-9]{2,})`/gu),
+            localCell.matchAll(
+              /`([A-Z][A-Z0-9]*-(?:UT|IT|ST|UAT)-[0-9]{3})`/gu,
+            ),
             (match) => match[1],
           );
           if (
+            obligationKey !==
+              `${sourceId.toLowerCase()}.${goalSlug.toLowerCase()}` ||
+            derivationSource.trim().length === 0 ||
             condition.trim().length === 0 ||
             requestedLevels.size === 0 ||
             localIds.length === 0
@@ -6114,6 +6907,11 @@ export function runCurrentProfileChecker(
           definitionSourceConditions.set(
             `${sourceId}|${goalSlug}`,
             normalizeQualityCondition(condition),
+          );
+          definitionObligationKeyEntries.push(obligationKey);
+          definitionObligationKeys.set(
+            `${sourceId}|${goalSlug}`,
+            obligationKey,
           );
           definitionSourceGoalLevels.set(
             `${sourceId}|${goalSlug}`,
@@ -6143,7 +6941,7 @@ export function runCurrentProfileChecker(
           definitionDetailGoalRelations.add(relation);
         }
         const stateApplicabilitySection = definition.match(
-          /^### 状態区分の適用\s*$([\s\S]*?)(?=^##\s)/mu,
+          /^### 条件区分の適用\s*$([\s\S]*?)(?=^##\s)/mu,
         )?.[1];
         const stateApplicability = new Map<
           string,
@@ -6151,19 +6949,19 @@ export function runCurrentProfileChecker(
         >();
         for (const line of (stateApplicabilitySection ?? "").split(/\r?\n/u)) {
           const row = line.match(
-            /^\|\s*(正常|準正常／境界|異常|判定不能)\s*\|\s*(Required|N\/A)\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*$/u,
+            /^\|\s*(正常|境界|準正常|異常|回復)\s*\|\s*(Required|N\/A)\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*$/u,
           );
           if (!row) continue;
           stateApplicability.set(row[1], {
             applicability: row[2],
-            localItems: [...row[3].matchAll(/[A-Z][A-Z0-9]*-[0-9]{2,}/gu)].map(
-              (match) => match[0],
-            ),
+            localItems: [
+              ...row[3].matchAll(/[A-Z][A-Z0-9]*-(?:UT|IT|ST|UAT)-[0-9]{3}/gu),
+            ].map((match) => match[0]),
             rationale: row[4].trim(),
           });
         }
         if (
-          ["正常", "準正常／境界", "異常", "判定不能"].some(
+          ["正常", "境界", "準正常", "異常", "回復"].some(
             (state) => !stateApplicability.has(state),
           )
         )
@@ -6171,14 +6969,14 @@ export function runCurrentProfileChecker(
             "error",
             "quality-verification-state-applicability-incomplete",
             relative(definitionPath),
-            "Every Quality Definition must explicitly evaluate normal, quasi-normal/boundary, abnormal, and indeterminate states.",
+            "各Quality Definitionは、固定した条件区分である正常、境界、準正常、異常および回復を明示的に評価する必要があります。",
           );
         const itemSection = definition.match(
           /^## [0-9]+\. 検証項目\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/mu,
         )?.[1];
         const expectedItemColumns = [
           "Local ID",
-          "分類",
+          "条件区分",
           "試験段階",
           "試験種別",
           "対象／境界",
@@ -6199,6 +6997,7 @@ export function runCurrentProfileChecker(
           externalBoundaryStage: string;
         }> = [];
         const definitionLocalIds = new Set<string>();
+        const definitionLocalConditionClasses = new Map<string, string>();
         const itemHeaderCells = itemTableLines[0]
           ?.slice(1, itemTableLines[0].lastIndexOf("|"))
           .split("|")
@@ -6217,7 +7016,11 @@ export function runCurrentProfileChecker(
             "The verification-item table must use the exact thirteen canonical axes, including separate observation, oracle, evidence, completion, and execution-mode fields.",
           );
         for (const itemLine of itemTableLines.slice(2)) {
-          if (!/^\|\s*`[A-Z][A-Z0-9]*-[0-9]{2,}`\s*\|/u.test(itemLine))
+          if (
+            !/^\|\s*`[A-Z][A-Z0-9]*-(?:UT|IT|ST|UAT)-[0-9]{3}`\s*\|/u.test(
+              itemLine,
+            )
+          )
             continue;
           const cells = itemLine
             .slice(1, itemLine.lastIndexOf("|"))
@@ -6230,11 +7033,23 @@ export function runCurrentProfileChecker(
             });
           if (cells.length === expectedItemColumns.length) {
             const localId = cells[0].match(
-              /^`([A-Z][A-Z0-9]*-[0-9]{2,})`$/u,
+              /^`([A-Z][A-Z0-9]*-(UT|IT|ST|UAT)-[0-9]{3})`$/u,
             )?.[1];
             if (localId) {
+              const identifierLevel = cells[0].match(
+                /^`[A-Z][A-Z0-9]*-(UT|IT|ST|UAT)-[0-9]{3}`$/u,
+              )?.[1];
+              if (identifierLevel !== cells[2])
+                add(
+                  "error",
+                  "quality-verification-item-id-level-mismatch",
+                  relative(definitionPath),
+                  `Local Item ${localId} must encode the same test level declared by its verification-item row.`,
+                );
               localItemLevels.set(localId, cells[2]);
+              localItemBoundaryStages.set(localId, cells[5]);
               definitionLocalIds.add(localId);
+              definitionLocalConditionClasses.set(localId, cells[1]);
             }
           }
           if (
@@ -6246,6 +7061,16 @@ export function runCurrentProfileChecker(
               "quality-verification-item-axis-missing",
               relative(definitionPath),
               "Every verification item must populate all thirteen canonical axes so the intended level, boundary, observation, oracle, evidence, and completion condition can be reconstructed.",
+            );
+          if (
+            cells.length === expectedItemColumns.length &&
+            !["正常", "境界", "準正常", "異常", "回復"].includes(cells[1])
+          )
+            add(
+              "error",
+              "quality-verification-item-condition-class-invalid",
+              relative(definitionPath),
+              "検証項目の条件区分は、正常、境界、準正常、異常または回復のいずれかである必要があります。",
             );
           if (
             cells.length === expectedItemColumns.length &&
@@ -6293,13 +7118,22 @@ export function runCurrentProfileChecker(
               relative(definitionPath),
               `${state} applicability must include a rationale.`,
             );
+          const classLocalItems = [...definitionLocalConditionClasses]
+            .filter(([, conditionClass]) => conditionClass === state)
+            .map(([localId]) => localId);
           if (
             (entry.applicability === "Required" &&
               (entry.localItems.length === 0 ||
                 entry.localItems.some(
-                  (localId) => !definitionLocalIds.has(localId),
+                  (localId) =>
+                    !definitionLocalIds.has(localId) ||
+                    definitionLocalConditionClasses.get(localId) !== state,
+                ) ||
+                classLocalItems.some(
+                  (localId) => !entry.localItems.includes(localId),
                 ))) ||
-            (entry.applicability === "N/A" && entry.localItems.length > 0)
+            (entry.applicability === "N/A" &&
+              (entry.localItems.length > 0 || classLocalItems.length > 0))
           )
             add(
               "error",
@@ -6449,7 +7283,7 @@ export function runCurrentProfileChecker(
         }
         const localIds = Array.from(
           (itemSection ?? "").matchAll(
-            /^\|\s*`([A-Z][A-Z0-9]*-[0-9]{2,})`\s*\|/gmu,
+            /^\|\s*`([A-Z][A-Z0-9]*-(?:UT|IT|ST|UAT)-[0-9]{3})`\s*\|/gmu,
           ),
           (match) => match[1],
         );
@@ -6538,6 +7372,25 @@ export function runCurrentProfileChecker(
           relative(analysisPath),
           "The Quality analysis and verification definitions must expose the same duplicate-free Source ID, goal, and Local Item relation set.",
         );
+      if (
+        definitionObligationKeyEntries.length !==
+          new Set(definitionObligationKeyEntries).size ||
+        analysisObligationKeys.size !== definitionObligationKeys.size ||
+        [...analysisObligationKeys].some(
+          ([relation, obligationKey]) =>
+            definitionObligationKeys.get(relation) !== obligationKey,
+        ) ||
+        [...definitionObligationKeys].some(
+          ([relation, obligationKey]) =>
+            analysisObligationKeys.get(relation) !== obligationKey,
+        )
+      )
+        add(
+          "error",
+          "quality-obligation-key-closure-mismatch",
+          relative(analysisPath),
+          "Quality Analysis and Definitions must expose the same unique deterministic Obligation Key for every Source-to-goal relation.",
+        );
       for (const [
         sourceGoalRelation,
         requestedLevels,
@@ -6591,7 +7444,7 @@ export function runCurrentProfileChecker(
           "error",
           "quality-definition-source-test-level-closure-mismatch",
           relative(analysisPath),
-          "The Quality analysis and verification definitions must expose the same Source-to-goal test-level sets.",
+          `The Quality analysis and verification definitions must expose the same Source-to-goal test-level sets. Analysis=${JSON.stringify([...analysisSourceGoalLevels].map(([relation, levels]) => [relation, [...levels]]))}; Definitions=${JSON.stringify([...definitionSourceGoalLevels].map(([relation, levels]) => [relation, [...levels]]))}.`,
         );
       if (
         analysisSourceConditions.size !== definitionSourceConditions.size ||
@@ -6623,7 +7476,7 @@ export function runCurrentProfileChecker(
         )?.[1];
         if (!goalSlug) continue;
         for (const localMatch of line.matchAll(
-          /`([A-Z][A-Z0-9]*-[0-9]{2,})`/gu,
+          /`([A-Z][A-Z0-9]*-(?:UT|IT|ST|UAT)-[0-9]{3})`/gu,
         )) {
           listedLocalIds.add(localMatch[1]);
           const relation = `${goalSlug}|${localMatch[1]}`;
@@ -6650,6 +7503,61 @@ export function runCurrentProfileChecker(
             "quality-architecture-detail-unit-local-item-unknown",
             relative(analysisPath),
             `Architecture detail verification unit references an unknown Local Item: ${localId}.`,
+          );
+      }
+      const boundaryStageRank = new Map([
+        ["N/A", 0],
+        ["Direct Boundary", 1],
+        ["Adjacent 1 Block", 2],
+        ["Related 2 Blocks", 3],
+        ["System/E2E", 4],
+        ["User Acceptance", 5],
+      ]);
+      for (const unitKey of physicalDetailUnits) {
+        const relatedLocalIds = Array.from(analysisDetailUnitLocalRelations)
+          .filter((relation) => relation.startsWith(`${unitKey}|`))
+          .map((relation) => relation.slice(unitKey.length + 1));
+        const relatedLevels = new Set(
+          relatedLocalIds.flatMap((localId) => {
+            const level = localItemLevels.get(localId);
+            return level ? [level] : [];
+          }),
+        );
+        const requiredLevels =
+          physicalDetailUnitLevels.get(unitKey) ?? new Set<string>();
+        if (
+          requiredLevels.size === 0 ||
+          [...requiredLevels].some((level) => !relatedLevels.has(level))
+        )
+          add(
+            "error",
+            "quality-architecture-detail-unit-level-coverage-mismatch",
+            relative(analysisPath),
+            `Every test level required by an Architecture detail derivation key must have a related Local Item at that level: ${unitKey}.`,
+          );
+        const requiredBoundaryStage =
+          physicalDetailUnitBoundaryStages.get(unitKey) ?? "";
+        const requiredBoundaryRank = boundaryStageRank.get(
+          requiredBoundaryStage,
+        );
+        const actualBoundaryRank = Math.max(
+          -1,
+          ...relatedLocalIds.map(
+            (localId) =>
+              boundaryStageRank.get(
+                localItemBoundaryStages.get(localId) ?? "",
+              ) ?? -1,
+          ),
+        );
+        if (
+          requiredBoundaryRank === undefined ||
+          actualBoundaryRank < requiredBoundaryRank
+        )
+          add(
+            "error",
+            "quality-architecture-detail-unit-boundary-coverage-mismatch",
+            relative(analysisPath),
+            `Every Architecture detail derivation key must reach its declared external-boundary stage through a related Local Item: ${unitKey}.`,
           );
       }
       const declaredLocalItemCounts = [
@@ -6740,6 +7648,22 @@ export function runCurrentProfileChecker(
         : []),
     ];
 
+    /**
+     * changeTraceRootForの処理を実行する。
+     *
+     * @responsibility changeTraceRootForに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input file: string
+     * @returns string | nullを返す。
+     * @precondition 「file: string」がchangeTraceRootForの入力契約を満たす。
+     * @postcondition changeTraceRootForの責務を完了した結果だけを返す。
+     * @effect N/A: changeTraceRootForは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: changeTraceRootForは独自の失敗分岐を所有しない。
+     * @invariant changeTraceRootForは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: changeTraceRootForはProcess内の同一Subsystemで完結する。
+     * @security N/A: changeTraceRootForはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: changeTraceRootForは共有非同期状態を持たない同期処理である。
+     */
     function changeTraceRootFor(file: string): string | null {
       for (const workLifecycleRoot of workLifecycleRoots) {
         if (!isWithin(workLifecycleRoot, file)) continue;
@@ -6757,6 +7681,22 @@ export function runCurrentProfileChecker(
       }
       return null;
     }
+    /**
+     * isEvidenceFileの処理を実行する。
+     *
+     * @responsibility isEvidenceFileに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input file: string
+     * @returns booleanを返す。
+     * @precondition 「file: string」がisEvidenceFileの入力契約を満たす。
+     * @postcondition isEvidenceFileの責務を完了した結果だけを返す。
+     * @effect N/A: isEvidenceFileは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: isEvidenceFileは独自の失敗分岐を所有しない。
+     * @invariant isEvidenceFileは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: isEvidenceFileはProcess内の同一Subsystemで完結する。
+     * @security N/A: isEvidenceFileはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: isEvidenceFileは共有非同期状態を持たない同期処理である。
+     */
     function isEvidenceFile(file: string): boolean {
       return path
         .relative(root, file)
@@ -6765,6 +7705,22 @@ export function runCurrentProfileChecker(
         .some((part) => part.toLocaleLowerCase("en-US") === "evidence");
     }
 
+    /**
+     * declaredChangeTraceIdの処理を実行する。
+     *
+     * @responsibility declaredChangeTraceIdに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input file: string
+     * @returns string | nullを返す。
+     * @precondition 「file: string」がdeclaredChangeTraceIdの入力契約を満たす。
+     * @postcondition declaredChangeTraceIdの責務を完了した結果だけを返す。
+     * @effect N/A: declaredChangeTraceIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: declaredChangeTraceIdは独自の失敗分岐を所有しない。
+     * @invariant declaredChangeTraceIdは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: declaredChangeTraceIdはProcess内の同一Subsystemで完結する。
+     * @security N/A: declaredChangeTraceIdはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: declaredChangeTraceIdは共有非同期状態を持たない同期処理である。
+     */
     function declaredChangeTraceId(file: string): string | null {
       const header = read(file).split(/\r?\n/u).slice(0, 40).join("\n");
       return (
@@ -6774,6 +7730,22 @@ export function runCurrentProfileChecker(
       );
     }
 
+    /**
+     * hasChangeTraceDefinitionSignatureの処理を実行する。
+     *
+     * @responsibility hasChangeTraceDefinitionSignatureに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input file: string
+     * @returns booleanを返す。
+     * @precondition 「file: string」がhasChangeTraceDefinitionSignatureの入力契約を満たす。
+     * @postcondition hasChangeTraceDefinitionSignatureの責務を完了した結果だけを返す。
+     * @effect N/A: hasChangeTraceDefinitionSignatureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: hasChangeTraceDefinitionSignatureは独自の失敗分岐を所有しない。
+     * @invariant hasChangeTraceDefinitionSignatureは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: hasChangeTraceDefinitionSignatureはProcess内の同一Subsystemで完結する。
+     * @security N/A: hasChangeTraceDefinitionSignatureはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: hasChangeTraceDefinitionSignatureは共有非同期状態を持たない同期処理である。
+     */
     function hasChangeTraceDefinitionSignature(file: string): boolean {
       const header = read(file).split(/\r?\n/u).slice(0, 40).join("\n");
       const hasStandardHeading =
@@ -6783,6 +7755,22 @@ export function runCurrentProfileChecker(
       return Boolean(declaredChangeTraceId(file) && hasStandardHeading);
     }
 
+    /**
+     * walkの処理を実行する。
+     *
+     * @responsibility walkに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input directory: string、predicate: (file: string) => boolean、excludedDirectories: ReadonlySet<string>、excludedPaths: string[]、excludedLinks: string[]、unavailableDirectories: Set<string>、excludedDirectoryPaths: ReadonlySet<string>
+     * @returns string[]を返す。
+     * @precondition 「directory: string、predicate: (file: string) => boolean、excludedDirectories: ReadonlySet<string>、excludedPaths: string[]、excludedLinks: string[]、unavailableDirectories: Set<string>、excludedDirectoryPaths: ReadonlySet<string>」がwalkの入力契約を満たす。
+     * @postcondition walkの責務を完了した結果だけを返す。
+     * @effect walkはFilesystemの読取りまたは書込みを実行する。
+     * @failure walkは入力不正または下位処理の失敗を呼出し側へ返す。
+     * @invariant walkは宣言した境界以外へEffectを拡張しない。
+     * @boundary FilesystemとProcess内Domain処理の境界。
+     * @security N/A: walkはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: walkは共有非同期状態を持たない同期処理である。
+     */
     function walk(
       directory: string,
       predicate: (file: string) => boolean,
@@ -6792,6 +7780,22 @@ export function runCurrentProfileChecker(
       unavailableDirectories: Set<string> = new Set<string>(),
       excludedDirectoryPaths: ReadonlySet<string> = new Set<string>(),
     ): string[] {
+      /**
+       * failの処理を実行する。
+       *
+       * @responsibility failに対応する入力処理と結果生成を所有する。
+       * @trace ARCH-000001
+       * @input code: string、message: string
+       * @returns nullを返す。
+       * @precondition 「code: string、message: string」がfailの入力契約を満たす。
+       * @postcondition failの責務を完了した結果だけを返す。
+       * @effect N/A: failは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+       * @failure N/A: failは独自の失敗分岐を所有しない。
+       * @invariant failは入力から導いた結果以外の共有状態を変更しない。
+       * @boundary N/A: failはProcess内の同一Subsystemで完結する。
+       * @security N/A: failはAuthority、秘密値または信頼判断を扱わない。
+       * @concurrency N/A: failは共有非同期状態を持たない同期処理である。
+       */
       function fail(code: string, message: string): null {
         const target = relative(directory);
         add("error", code, target, message);
@@ -6799,6 +7803,22 @@ export function runCurrentProfileChecker(
         return null;
       }
 
+      /**
+       * inspectDirectoryの処理を実行する。
+       *
+       * @responsibility inspectDirectoryに対応する入力処理と結果生成を所有する。
+       * @trace ARCH-000001
+       * @input N/A: 実行時引数を受け取らない。
+       * @returns fs.Stats | nullを返す。
+       * @precondition 「N/A: 実行時引数を受け取らない。」がinspectDirectoryの入力契約を満たす。
+       * @postcondition inspectDirectoryの責務を完了した結果だけを返す。
+       * @effect inspectDirectoryはFilesystemの読取りまたは書込みを実行する。
+       * @failure inspectDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+       * @invariant inspectDirectoryは宣言した境界以外へEffectを拡張しない。
+       * @boundary FilesystemとProcess内Domain処理の境界。
+       * @security N/A: inspectDirectoryはAuthority、秘密値または信頼判断を扱わない。
+       * @concurrency N/A: inspectDirectoryは共有非同期状態を持たない同期処理である。
+       */
       function inspectDirectory(): fs.Stats | null {
         let stat: fs.Stats;
         try {
@@ -6904,6 +7924,22 @@ export function runCurrentProfileChecker(
       return discoveredFiles.sort();
     }
 
+    /**
+     * discoverProjectFilesの処理を実行する。
+     *
+     * @responsibility discoverProjectFilesに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input N/A: 実行時引数を受け取らない。
+     * @returns Discoveryを返す。
+     * @precondition 「N/A: 実行時引数を受け取らない。」がdiscoverProjectFilesの入力契約を満たす。
+     * @postcondition discoverProjectFilesの責務を完了した結果だけを返す。
+     * @effect N/A: discoverProjectFilesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: discoverProjectFilesは独自の失敗分岐を所有しない。
+     * @invariant discoverProjectFilesは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: discoverProjectFilesはProcess内の同一Subsystemで完結する。
+     * @security N/A: discoverProjectFilesはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: discoverProjectFilesは共有非同期状態を持たない同期処理である。
+     */
     function discoverProjectFiles(): Discovery {
       const repositoryEntries = observeRepositoryEntries(root);
       const gitFailure: string | null =
@@ -7162,18 +8198,82 @@ export function runCurrentProfileChecker(
       };
     }
 
+    /**
+     * markdownCodePointBeforeの処理を実行する。
+     *
+     * @responsibility markdownCodePointBeforeに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input value: string、index: number
+     * @returns stringを返す。
+     * @precondition 「value: string、index: number」がmarkdownCodePointBeforeの入力契約を満たす。
+     * @postcondition markdownCodePointBeforeの責務を完了した結果だけを返す。
+     * @effect N/A: markdownCodePointBeforeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: markdownCodePointBeforeは独自の失敗分岐を所有しない。
+     * @invariant markdownCodePointBeforeは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: markdownCodePointBeforeはProcess内の同一Subsystemで完結する。
+     * @security N/A: markdownCodePointBeforeはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: markdownCodePointBeforeは共有非同期状態を持たない同期処理である。
+     */
     function markdownCodePointBefore(value: string, index: number): string {
       return Array.from(value.slice(0, index)).at(-1) ?? "";
     }
 
+    /**
+     * markdownCodePointAfterの処理を実行する。
+     *
+     * @responsibility markdownCodePointAfterに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input value: string、index: number
+     * @returns stringを返す。
+     * @precondition 「value: string、index: number」がmarkdownCodePointAfterの入力契約を満たす。
+     * @postcondition markdownCodePointAfterの責務を完了した結果だけを返す。
+     * @effect N/A: markdownCodePointAfterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: markdownCodePointAfterは独自の失敗分岐を所有しない。
+     * @invariant markdownCodePointAfterは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: markdownCodePointAfterはProcess内の同一Subsystemで完結する。
+     * @security N/A: markdownCodePointAfterはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: markdownCodePointAfterは共有非同期状態を持たない同期処理である。
+     */
     function markdownCodePointAfter(value: string, index: number): string {
       return Array.from(value.slice(index)).at(0) ?? "";
     }
 
+    /**
+     * markdownWhitespaceの処理を実行する。
+     *
+     * @responsibility markdownWhitespaceに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input value: string
+     * @returns booleanを返す。
+     * @precondition 「value: string」がmarkdownWhitespaceの入力契約を満たす。
+     * @postcondition markdownWhitespaceの責務を完了した結果だけを返す。
+     * @effect N/A: markdownWhitespaceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: markdownWhitespaceは独自の失敗分岐を所有しない。
+     * @invariant markdownWhitespaceは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: markdownWhitespaceはProcess内の同一Subsystemで完結する。
+     * @security N/A: markdownWhitespaceはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: markdownWhitespaceは共有非同期状態を持たない同期処理である。
+     */
     function markdownWhitespace(value: string): boolean {
       return value === "" || /[\t\n\f\r\p{Zs}]/u.test(value);
     }
 
+    /**
+     * markdownPunctuationの処理を実行する。
+     *
+     * @responsibility markdownPunctuationに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input value: string
+     * @returns booleanを返す。
+     * @precondition 「value: string」がmarkdownPunctuationの入力契約を満たす。
+     * @postcondition markdownPunctuationの責務を完了した結果だけを返す。
+     * @effect N/A: markdownPunctuationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: markdownPunctuationは独自の失敗分岐を所有しない。
+     * @invariant markdownPunctuationは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: markdownPunctuationはProcess内の同一Subsystemで完結する。
+     * @security N/A: markdownPunctuationはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: markdownPunctuationは共有非同期状態を持たない同期処理である。
+     */
     function markdownPunctuation(value: string): boolean {
       return (
         value !== "" &&
@@ -7182,6 +8282,22 @@ export function runCurrentProfileChecker(
       );
     }
 
+    /**
+     * underscoreFlankingの処理を実行する。
+     *
+     * @responsibility underscoreFlankingに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input value: string、index: number、length: number
+     * @returns underscoreFlankingの計算結果を返す。
+     * @precondition 「value: string、index: number、length: number」がunderscoreFlankingの入力契約を満たす。
+     * @postcondition underscoreFlankingの責務を完了した結果だけを返す。
+     * @effect N/A: underscoreFlankingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: underscoreFlankingは独自の失敗分岐を所有しない。
+     * @invariant underscoreFlankingは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: underscoreFlankingはProcess内の同一Subsystemで完結する。
+     * @security N/A: underscoreFlankingはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: underscoreFlankingは共有非同期状態を持たない同期処理である。
+     */
     function underscoreFlanking(value: string, index: number, length: number) {
       const previous = markdownCodePointBefore(value, index);
       const next = markdownCodePointAfter(value, index + length);
@@ -7201,6 +8317,22 @@ export function runCurrentProfileChecker(
       };
     }
 
+    /**
+     * underscoreCanOpenの処理を実行する。
+     *
+     * @responsibility underscoreCanOpenに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input value: string、index: number、length: number
+     * @returns booleanを返す。
+     * @precondition 「value: string、index: number、length: number」がunderscoreCanOpenの入力契約を満たす。
+     * @postcondition underscoreCanOpenの責務を完了した結果だけを返す。
+     * @effect N/A: underscoreCanOpenは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: underscoreCanOpenは独自の失敗分岐を所有しない。
+     * @invariant underscoreCanOpenは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: underscoreCanOpenはProcess内の同一Subsystemで完結する。
+     * @security N/A: underscoreCanOpenはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: underscoreCanOpenは共有非同期状態を持たない同期処理である。
+     */
     function underscoreCanOpen(
       value: string,
       index: number,
@@ -7212,6 +8344,22 @@ export function runCurrentProfileChecker(
       );
     }
 
+    /**
+     * underscoreCanCloseの処理を実行する。
+     *
+     * @responsibility underscoreCanCloseに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input value: string、index: number、length: number
+     * @returns booleanを返す。
+     * @precondition 「value: string、index: number、length: number」がunderscoreCanCloseの入力契約を満たす。
+     * @postcondition underscoreCanCloseの責務を完了した結果だけを返す。
+     * @effect N/A: underscoreCanCloseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: underscoreCanCloseは独自の失敗分岐を所有しない。
+     * @invariant underscoreCanCloseは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: underscoreCanCloseはProcess内の同一Subsystemで完結する。
+     * @security N/A: underscoreCanCloseはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: underscoreCanCloseは共有非同期状態を持たない同期処理である。
+     */
     function underscoreCanClose(
       value: string,
       index: number,
@@ -7221,6 +8369,22 @@ export function runCurrentProfileChecker(
       return flanking.right && (!flanking.left || flanking.isNextPunctuation);
     }
 
+    /**
+     * delimiterRunLengthの処理を実行する。
+     *
+     * @responsibility delimiterRunLengthに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input value: string、start: number、character: string
+     * @returns numberを返す。
+     * @precondition 「value: string、start: number、character: string」がdelimiterRunLengthの入力契約を満たす。
+     * @postcondition delimiterRunLengthの責務を完了した結果だけを返す。
+     * @effect N/A: delimiterRunLengthは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: delimiterRunLengthは独自の失敗分岐を所有しない。
+     * @invariant delimiterRunLengthは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: delimiterRunLengthはProcess内の同一Subsystemで完結する。
+     * @security N/A: delimiterRunLengthはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: delimiterRunLengthは共有非同期状態を持たない同期処理である。
+     */
     function delimiterRunLength(
       value: string,
       start: number,
@@ -7231,6 +8395,22 @@ export function runCurrentProfileChecker(
       return end - start;
     }
 
+    /**
+     * closingDelimiterの処理を実行する。
+     *
+     * @responsibility closingDelimiterに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input value: string、delimiter: string、start: number
+     * @returns numberを返す。
+     * @precondition 「value: string、delimiter: string、start: number」がclosingDelimiterの入力契約を満たす。
+     * @postcondition closingDelimiterの責務を完了した結果だけを返す。
+     * @effect N/A: closingDelimiterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: closingDelimiterは独自の失敗分岐を所有しない。
+     * @invariant closingDelimiterは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: closingDelimiterはProcess内の同一Subsystemで完結する。
+     * @security N/A: closingDelimiterはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: closingDelimiterは共有非同期状態を持たない同期処理である。
+     */
     function closingDelimiter(
       value: string,
       delimiter: string,
@@ -7253,12 +8433,44 @@ export function runCurrentProfileChecker(
       return -1;
     }
 
+    /**
+     * backtickRunLengthの処理を実行する。
+     *
+     * @responsibility backtickRunLengthに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input value: string、start: number
+     * @returns numberを返す。
+     * @precondition 「value: string、start: number」がbacktickRunLengthの入力契約を満たす。
+     * @postcondition backtickRunLengthの責務を完了した結果だけを返す。
+     * @effect N/A: backtickRunLengthは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: backtickRunLengthは独自の失敗分岐を所有しない。
+     * @invariant backtickRunLengthは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: backtickRunLengthはProcess内の同一Subsystemで完結する。
+     * @security N/A: backtickRunLengthはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: backtickRunLengthは共有非同期状態を持たない同期処理である。
+     */
     function backtickRunLength(value: string, start: number): number {
       let end = start;
       while (value[end] === "`") end += 1;
       return end - start;
     }
 
+    /**
+     * closingBackticksの処理を実行する。
+     *
+     * @responsibility closingBackticksに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input value: string、start: number、length: number
+     * @returns numberを返す。
+     * @precondition 「value: string、start: number、length: number」がclosingBackticksの入力契約を満たす。
+     * @postcondition closingBackticksの責務を完了した結果だけを返す。
+     * @effect N/A: closingBackticksは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: closingBackticksは独自の失敗分岐を所有しない。
+     * @invariant closingBackticksは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: closingBackticksはProcess内の同一Subsystemで完結する。
+     * @security N/A: closingBackticksはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: closingBackticksは共有非同期状態を持たない同期処理である。
+     */
     function closingBackticks(
       value: string,
       start: number,
@@ -7277,6 +8489,22 @@ export function runCurrentProfileChecker(
       return -1;
     }
 
+    /**
+     * normalizedCodeSpanの処理を実行する。
+     *
+     * @responsibility normalizedCodeSpanに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input value: string
+     * @returns stringを返す。
+     * @precondition 「value: string」がnormalizedCodeSpanの入力契約を満たす。
+     * @postcondition normalizedCodeSpanの責務を完了した結果だけを返す。
+     * @effect N/A: normalizedCodeSpanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: normalizedCodeSpanは独自の失敗分岐を所有しない。
+     * @invariant normalizedCodeSpanは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: normalizedCodeSpanはProcess内の同一Subsystemで完結する。
+     * @security N/A: normalizedCodeSpanはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: normalizedCodeSpanは共有非同期状態を持たない同期処理である。
+     */
     function normalizedCodeSpan(value: string): string {
       const normalized = value.replace(/[ \t\r\n]+/gu, " ");
       if (/^ \S(?:.*\S)? $/u.test(normalized)) {
@@ -7285,6 +8513,22 @@ export function runCurrentProfileChecker(
       return normalized;
     }
 
+    /**
+     * githubHeadingTextの処理を実行する。
+     *
+     * @responsibility githubHeadingTextに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input value: string
+     * @returns stringを返す。
+     * @precondition 「value: string」がgithubHeadingTextの入力契約を満たす。
+     * @postcondition githubHeadingTextの責務を完了した結果だけを返す。
+     * @effect N/A: githubHeadingTextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: githubHeadingTextは独自の失敗分岐を所有しない。
+     * @invariant githubHeadingTextは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: githubHeadingTextはProcess内の同一Subsystemで完結する。
+     * @security N/A: githubHeadingTextはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: githubHeadingTextは共有非同期状態を持たない同期処理である。
+     */
     function githubHeadingText(value: string): string {
       let result = "";
       let index = 0;
@@ -7374,6 +8618,22 @@ export function runCurrentProfileChecker(
       return result;
     }
 
+    /**
+     * githubAnchorの処理を実行する。
+     *
+     * @responsibility githubAnchorに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input value: string
+     * @returns stringを返す。
+     * @precondition 「value: string」がgithubAnchorの入力契約を満たす。
+     * @postcondition githubAnchorの責務を完了した結果だけを返す。
+     * @effect N/A: githubAnchorは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: githubAnchorは独自の失敗分岐を所有しない。
+     * @invariant githubAnchorは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: githubAnchorはProcess内の同一Subsystemで完結する。
+     * @security N/A: githubAnchorはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: githubAnchorは共有非同期状態を持たない同期処理である。
+     */
     function githubAnchor(value: string): string {
       return githubHeadingText(value)
         .trim()
@@ -7382,10 +8642,42 @@ export function runCurrentProfileChecker(
         .replaceAll(" ", "-");
     }
 
+    /**
+     * anchorsForの処理を実行する。
+     *
+     * @responsibility anchorsForに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input file: string
+     * @returns Set<string>を返す。
+     * @precondition 「file: string」がanchorsForの入力契約を満たす。
+     * @postcondition anchorsForの責務を完了した結果だけを返す。
+     * @effect N/A: anchorsForは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: anchorsForは独自の失敗分岐を所有しない。
+     * @invariant anchorsForは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: anchorsForはProcess内の同一Subsystemで完結する。
+     * @security N/A: anchorsForはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: anchorsForは共有非同期状態を持たない同期処理である。
+     */
     function anchorsFor(file: string): Set<string> {
       return anchorsForText(read(file));
     }
 
+    /**
+     * anchorsForTextの処理を実行する。
+     *
+     * @responsibility anchorsForTextに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input content: string
+     * @returns Set<string>を返す。
+     * @precondition 「content: string」がanchorsForTextの入力契約を満たす。
+     * @postcondition anchorsForTextの責務を完了した結果だけを返す。
+     * @effect N/A: anchorsForTextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: anchorsForTextは独自の失敗分岐を所有しない。
+     * @invariant anchorsForTextは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: anchorsForTextはProcess内の同一Subsystemで完結する。
+     * @security N/A: anchorsForTextはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: anchorsForTextは共有非同期状態を持たない同期処理である。
+     */
     function anchorsForText(content: string): Set<string> {
       const text = withoutFencedCode(content);
       const anchors = new Set<string>();
@@ -7412,6 +8704,22 @@ export function runCurrentProfileChecker(
       return anchors;
     }
 
+    /**
+     * withoutFencedCodeの処理を実行する。
+     *
+     * @responsibility withoutFencedCodeに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input text: string
+     * @returns stringを返す。
+     * @precondition 「text: string」がwithoutFencedCodeの入力契約を満たす。
+     * @postcondition withoutFencedCodeの責務を完了した結果だけを返す。
+     * @effect N/A: withoutFencedCodeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: withoutFencedCodeは独自の失敗分岐を所有しない。
+     * @invariant withoutFencedCodeは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: withoutFencedCodeはProcess内の同一Subsystemで完結する。
+     * @security N/A: withoutFencedCodeはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: withoutFencedCodeは共有非同期状態を持たない同期処理である。
+     */
     function withoutFencedCode(text: string): string {
       let fence:
         | Readonly<{
@@ -7444,6 +8752,22 @@ export function runCurrentProfileChecker(
         .join("\n");
     }
 
+    /**
+     * visibleMarkdownStructureの処理を実行する。
+     *
+     * @responsibility visibleMarkdownStructureに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input text: string
+     * @returns stringを返す。
+     * @precondition 「text: string」がvisibleMarkdownStructureの入力契約を満たす。
+     * @postcondition visibleMarkdownStructureの責務を完了した結果だけを返す。
+     * @effect N/A: visibleMarkdownStructureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: visibleMarkdownStructureは独自の失敗分岐を所有しない。
+     * @invariant visibleMarkdownStructureは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: visibleMarkdownStructureはProcess内の同一Subsystemで完結する。
+     * @security N/A: visibleMarkdownStructureはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: visibleMarkdownStructureは共有非同期状態を持たない同期処理である。
+     */
     function visibleMarkdownStructure(text: string): string {
       let fence:
         | Readonly<{
@@ -7507,6 +8831,22 @@ export function runCurrentProfileChecker(
         .join("\n");
     }
 
+    /**
+     * visibleMarkdownIncludingFencedCodeの処理を実行する。
+     *
+     * @responsibility visibleMarkdownIncludingFencedCodeに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input text: string
+     * @returns stringを返す。
+     * @precondition 「text: string」がvisibleMarkdownIncludingFencedCodeの入力契約を満たす。
+     * @postcondition visibleMarkdownIncludingFencedCodeの責務を完了した結果だけを返す。
+     * @effect N/A: visibleMarkdownIncludingFencedCodeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: visibleMarkdownIncludingFencedCodeは独自の失敗分岐を所有しない。
+     * @invariant visibleMarkdownIncludingFencedCodeは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: visibleMarkdownIncludingFencedCodeはProcess内の同一Subsystemで完結する。
+     * @security N/A: visibleMarkdownIncludingFencedCodeはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: visibleMarkdownIncludingFencedCodeは共有非同期状態を持たない同期処理である。
+     */
     function visibleMarkdownIncludingFencedCode(text: string): string {
       let fence:
         | Readonly<{
@@ -7567,6 +8907,22 @@ export function runCurrentProfileChecker(
         .join("\n");
     }
 
+    /**
+     * markdownLinkTargetsの処理を実行する。
+     *
+     * @responsibility markdownLinkTargetsに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input text: string
+     * @returns string[]を返す。
+     * @precondition 「text: string」がmarkdownLinkTargetsの入力契約を満たす。
+     * @postcondition markdownLinkTargetsの責務を完了した結果だけを返す。
+     * @effect N/A: markdownLinkTargetsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: markdownLinkTargetsは独自の失敗分岐を所有しない。
+     * @invariant markdownLinkTargetsは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: markdownLinkTargetsはProcess内の同一Subsystemで完結する。
+     * @security N/A: markdownLinkTargetsはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: markdownLinkTargetsは共有非同期状態を持たない同期処理である。
+     */
     function markdownLinkTargets(text: string): string[] {
       const content = withoutFencedCode(text);
       const definitions = new Map<string, string>();
@@ -7594,11 +8950,38 @@ export function runCurrentProfileChecker(
       return targets;
     }
 
+    /**
+     * FormalInputTargetが扱う値の構造を表す。
+     *
+     * @responsibility FormalInputTargetに必要な値と制約を一つの型契約として保持する。
+     * @trace ARCH-000001
+     * @shape FormalInputTargetが表すProperty、識別子およびRelationを型として固定する。
+     * @invariant FormalInputTargetで宣言した値と責務の対応を維持する。
+     * @boundary N/A: FormalInputTargetの宣言は外部境界を開かない。
+     * @security N/A: FormalInputTargetはAuthority、秘密値または信頼判断を扱わない。
+     * @compatibility FormalInputTargetの利用側は宣言済みPropertyと型制約だけへ依存する。
+     */
     type FormalInputTarget = Readonly<{
       target: string;
       invalidEntity: boolean;
     }>;
 
+    /**
+     * uxFormalInputTargetsの処理を実行する。
+     *
+     * @responsibility uxFormalInputTargetsに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input text: string
+     * @returns FormalInputTarget[]を返す。
+     * @precondition 「text: string」がuxFormalInputTargetsの入力契約を満たす。
+     * @postcondition uxFormalInputTargetsの責務を完了した結果だけを返す。
+     * @effect N/A: uxFormalInputTargetsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: uxFormalInputTargetsは独自の失敗分岐を所有しない。
+     * @invariant uxFormalInputTargetsは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: uxFormalInputTargetsはProcess内の同一Subsystemで完結する。
+     * @security N/A: uxFormalInputTargetsはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: uxFormalInputTargetsは共有非同期状態を持たない同期処理である。
+     */
     function uxFormalInputTargets(text: string): FormalInputTarget[] {
       const content = withoutFencedCode(text)
         .replace(/<!--[\s\S]*?-->/gu, "")
@@ -7656,6 +9039,22 @@ export function runCurrentProfileChecker(
       return [...targets.values()];
     }
 
+    /**
+     * rawEntityPathCandidateの処理を実行する。
+     *
+     * @responsibility rawEntityPathCandidateに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input token: string
+     * @returns Readonly<{ value: string; invalid: boolean }> | nullを返す。
+     * @precondition 「token: string」がrawEntityPathCandidateの入力契約を満たす。
+     * @postcondition rawEntityPathCandidateの責務を完了した結果だけを返す。
+     * @effect N/A: rawEntityPathCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: rawEntityPathCandidateは独自の失敗分岐を所有しない。
+     * @invariant rawEntityPathCandidateは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: rawEntityPathCandidateはProcess内の同一Subsystemで完結する。
+     * @security rawEntityPathCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @concurrency N/A: rawEntityPathCandidateは共有非同期状態を持たない同期処理である。
+     */
     function rawEntityPathCandidate(
       token: string,
     ): Readonly<{ value: string; invalid: boolean }> | null {
@@ -7695,6 +9094,22 @@ export function runCurrentProfileChecker(
       return null;
     }
 
+    /**
+     * isDiscoveryPathCandidateの処理を実行する。
+     *
+     * @responsibility isDiscoveryPathCandidateに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input raw: string、decoded: string
+     * @returns booleanを返す。
+     * @precondition 「raw: string、decoded: string」がisDiscoveryPathCandidateの入力契約を満たす。
+     * @postcondition isDiscoveryPathCandidateの責務を完了した結果だけを返す。
+     * @effect N/A: isDiscoveryPathCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: isDiscoveryPathCandidateは独自の失敗分岐を所有しない。
+     * @invariant isDiscoveryPathCandidateは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: isDiscoveryPathCandidateはProcess内の同一Subsystemで完結する。
+     * @security N/A: isDiscoveryPathCandidateはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: isDiscoveryPathCandidateは共有非同期状態を持たない同期処理である。
+     */
     function isDiscoveryPathCandidate(raw: string, decoded: string): boolean {
       const entityLike = /&(?:#[xX]?[0-9A-Fa-f]*|[A-Za-z][A-Za-z0-9]*);?/gu;
       const entityMarker = "\u{e000}";
@@ -7712,6 +9127,22 @@ export function runCurrentProfileChecker(
       );
     }
 
+    /**
+     * decodeHtmlEntitiesOnceの処理を実行する。
+     *
+     * @responsibility decodeHtmlEntitiesOnceに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input value: string
+     * @returns Readonly<{ value: string; invalid: boolean }>を返す。
+     * @precondition 「value: string」がdecodeHtmlEntitiesOnceの入力契約を満たす。
+     * @postcondition decodeHtmlEntitiesOnceの責務を完了した結果だけを返す。
+     * @effect N/A: decodeHtmlEntitiesOnceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: decodeHtmlEntitiesOnceは独自の失敗分岐を所有しない。
+     * @invariant decodeHtmlEntitiesOnceは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: decodeHtmlEntitiesOnceはProcess内の同一Subsystemで完結する。
+     * @security N/A: decodeHtmlEntitiesOnceはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: decodeHtmlEntitiesOnceは共有非同期状態を持たない同期処理である。
+     */
     function decodeHtmlEntitiesOnce(
       value: string,
     ): Readonly<{ value: string; invalid: boolean }> {
@@ -7763,10 +9194,42 @@ export function runCurrentProfileChecker(
       return { value: decoded, invalid: isInvalid };
     }
 
+    /**
+     * normalizeReferenceLabelの処理を実行する。
+     *
+     * @responsibility normalizeReferenceLabelに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input value: string
+     * @returns stringを返す。
+     * @precondition 「value: string」がnormalizeReferenceLabelの入力契約を満たす。
+     * @postcondition normalizeReferenceLabelの責務を完了した結果だけを返す。
+     * @effect N/A: normalizeReferenceLabelは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: normalizeReferenceLabelは独自の失敗分岐を所有しない。
+     * @invariant normalizeReferenceLabelは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: normalizeReferenceLabelはProcess内の同一Subsystemで完結する。
+     * @security N/A: normalizeReferenceLabelはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: normalizeReferenceLabelは共有非同期状態を持たない同期処理である。
+     */
     function normalizeReferenceLabel(value: string): string {
       return value.trim().replace(/\s+/gu, " ").toLowerCase();
     }
 
+    /**
+     * markdownTableCellsの処理を実行する。
+     *
+     * @responsibility markdownTableCellsに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input line: string
+     * @returns string[] | nullを返す。
+     * @precondition 「line: string」がmarkdownTableCellsの入力契約を満たす。
+     * @postcondition markdownTableCellsの責務を完了した結果だけを返す。
+     * @effect N/A: markdownTableCellsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: markdownTableCellsは独自の失敗分岐を所有しない。
+     * @invariant markdownTableCellsは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: markdownTableCellsはProcess内の同一Subsystemで完結する。
+     * @security N/A: markdownTableCellsはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: markdownTableCellsは共有非同期状態を持たない同期処理である。
+     */
     function markdownTableCells(line: string): string[] | null {
       const value = line.trim();
       if (!value.includes("|")) return null;
@@ -7798,6 +9261,22 @@ export function runCurrentProfileChecker(
       return cells.map((cell) => cell.trim().replaceAll("`", ""));
     }
 
+    /**
+     * markdownTableSeparatorの処理を実行する。
+     *
+     * @responsibility markdownTableSeparatorに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input line: string、expectedCells: number
+     * @returns booleanを返す。
+     * @precondition 「line: string、expectedCells: number」がmarkdownTableSeparatorの入力契約を満たす。
+     * @postcondition markdownTableSeparatorの責務を完了した結果だけを返す。
+     * @effect N/A: markdownTableSeparatorは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: markdownTableSeparatorは独自の失敗分岐を所有しない。
+     * @invariant markdownTableSeparatorは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: markdownTableSeparatorはProcess内の同一Subsystemで完結する。
+     * @security N/A: markdownTableSeparatorはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: markdownTableSeparatorは共有非同期状態を持たない同期処理である。
+     */
     function markdownTableSeparator(
       line: string,
       expectedCells: number,
@@ -7810,6 +9289,22 @@ export function runCurrentProfileChecker(
       );
     }
 
+    /**
+     * safeDecodeの処理を実行する。
+     *
+     * @responsibility safeDecodeに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input value: string
+     * @returns Readonly<{ value: string; error: boolean }>を返す。
+     * @precondition 「value: string」がsafeDecodeの入力契約を満たす。
+     * @postcondition safeDecodeの責務を完了した結果だけを返す。
+     * @effect N/A: safeDecodeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure safeDecodeは入力不正または下位処理の失敗を呼出し側へ返す。
+     * @invariant safeDecodeは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: safeDecodeはProcess内の同一Subsystemで完結する。
+     * @security N/A: safeDecodeはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: safeDecodeは共有非同期状態を持たない同期処理である。
+     */
     function safeDecode(
       value: string,
     ): Readonly<{ value: string; error: boolean }> {
@@ -7820,6 +9315,22 @@ export function runCurrentProfileChecker(
       }
     }
 
+    /**
+     * splitLinkの処理を実行する。
+     *
+     * @responsibility splitLinkに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input raw: string
+     * @returns splitLinkの計算結果を返す。
+     * @precondition 「raw: string」がsplitLinkの入力契約を満たす。
+     * @postcondition splitLinkの責務を完了した結果だけを返す。
+     * @effect N/A: splitLinkは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: splitLinkは独自の失敗分岐を所有しない。
+     * @invariant splitLinkは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: splitLinkはProcess内の同一Subsystemで完結する。
+     * @security N/A: splitLinkはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: splitLinkは共有非同期状態を持たない同期処理である。
+     */
     function splitLink(raw: string) {
       let value = raw.trim();
       if (value.startsWith("<") && value.includes(">")) {
@@ -7839,6 +9350,22 @@ export function runCurrentProfileChecker(
       };
     }
 
+    /**
+     * isWithinの処理を実行する。
+     *
+     * @responsibility isWithinに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input parent: string、child: string
+     * @returns booleanを返す。
+     * @precondition 「parent: string、child: string」がisWithinの入力契約を満たす。
+     * @postcondition isWithinの責務を完了した結果だけを返す。
+     * @effect N/A: isWithinは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: isWithinは独自の失敗分岐を所有しない。
+     * @invariant isWithinは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: isWithinはProcess内の同一Subsystemで完結する。
+     * @security N/A: isWithinはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: isWithinは共有非同期状態を持たない同期処理である。
+     */
     function isWithin(parent: string, child: string): boolean {
       const relation = path.relative(parent, child);
       return (
@@ -7847,6 +9374,22 @@ export function runCurrentProfileChecker(
       );
     }
 
+    /**
+     * resolveLocalTargetの処理を実行する。
+     *
+     * @responsibility resolveLocalTargetに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input source: string、raw: string
+     * @returns LinkResolutionを返す。
+     * @precondition 「source: string、raw: string」がresolveLocalTargetの入力契約を満たす。
+     * @postcondition resolveLocalTargetの責務を完了した結果だけを返す。
+     * @effect resolveLocalTargetはFilesystemの読取りまたは書込みを実行する。
+     * @failure N/A: resolveLocalTargetは独自の失敗分岐を所有しない。
+     * @invariant resolveLocalTargetは宣言した境界以外へEffectを拡張しない。
+     * @boundary FilesystemとProcess内Domain処理の境界。
+     * @security N/A: resolveLocalTargetはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: resolveLocalTargetは共有非同期状態を持たない同期処理である。
+     */
     function resolveLocalTarget(source: string, raw: string): LinkResolution {
       const parsed = splitLink(raw);
       const targetText = parsed.target;
@@ -7912,6 +9455,17 @@ export function runCurrentProfileChecker(
       };
     }
 
+    /**
+     * WorkLifecycleMigrationEntryが扱う値の構造を表す。
+     *
+     * @responsibility WorkLifecycleMigrationEntryに必要な値と制約を一つの型契約として保持する。
+     * @trace ARCH-000001
+     * @shape WorkLifecycleMigrationEntryが表すProperty、識別子およびRelationを型として固定する。
+     * @invariant WorkLifecycleMigrationEntryで宣言した値と責務の対応を維持する。
+     * @boundary N/A: WorkLifecycleMigrationEntryの宣言は外部境界を開かない。
+     * @security N/A: WorkLifecycleMigrationEntryはAuthority、秘密値または信頼判断を扱わない。
+     * @compatibility WorkLifecycleMigrationEntryの利用側は宣言済みPropertyと型制約だけへ依存する。
+     */
     type WorkLifecycleMigrationEntry = Readonly<{
       source: string;
       target: string;
@@ -7920,6 +9474,22 @@ export function runCurrentProfileChecker(
       currentnessAtMigration: string;
     }>;
 
+    /**
+     * isCanonicalRepositoryRelativePathの処理を実行する。
+     *
+     * @responsibility isCanonicalRepositoryRelativePathに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input value: string
+     * @returns booleanを返す。
+     * @precondition 「value: string」がisCanonicalRepositoryRelativePathの入力契約を満たす。
+     * @postcondition isCanonicalRepositoryRelativePathの責務を完了した結果だけを返す。
+     * @effect N/A: isCanonicalRepositoryRelativePathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: isCanonicalRepositoryRelativePathは独自の失敗分岐を所有しない。
+     * @invariant isCanonicalRepositoryRelativePathは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: isCanonicalRepositoryRelativePathはProcess内の同一Subsystemで完結する。
+     * @security N/A: isCanonicalRepositoryRelativePathはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: isCanonicalRepositoryRelativePathは共有非同期状態を持たない同期処理である。
+     */
     function isCanonicalRepositoryRelativePath(value: string): boolean {
       return (
         value !== "" &&
@@ -7934,6 +9504,22 @@ export function runCurrentProfileChecker(
       );
     }
 
+    /**
+     * loadFixedHistoryMigrationの処理を実行する。
+     *
+     * @responsibility loadFixedHistoryMigrationに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input N/A: 実行時引数を受け取らない。
+     * @returns Readonly<{ byCurrentPath: ReadonlyMap<string, WorkLifecycleMigrationEntry>; byHistoricalPath: ReadonlyMap<string, WorkLifecycleMigrationEntry>; sourceCommit: string | null; }>を返す。
+     * @precondition 「N/A: 実行時引数を受け取らない。」がloadFixedHistoryMigrationの入力契約を満たす。
+     * @postcondition loadFixedHistoryMigrationの責務を完了した結果だけを返す。
+     * @effect loadFixedHistoryMigrationはFilesystemの読取りまたは書込みを実行する。
+     * @failure loadFixedHistoryMigrationは入力不正または下位処理の失敗を呼出し側へ返す。
+     * @invariant loadFixedHistoryMigrationは宣言した境界以外へEffectを拡張しない。
+     * @boundary FilesystemとProcess内Domain処理の境界。
+     * @security N/A: loadFixedHistoryMigrationはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: loadFixedHistoryMigrationは共有非同期状態を持たない同期処理である。
+     */
     function loadFixedHistoryMigration(): Readonly<{
       byCurrentPath: ReadonlyMap<string, WorkLifecycleMigrationEntry>;
       byHistoricalPath: ReadonlyMap<string, WorkLifecycleMigrationEntry>;
@@ -8036,6 +9622,22 @@ export function runCurrentProfileChecker(
     const fixedHistoryMigration = loadFixedHistoryMigration();
     const historicalContentCache = new Map<string, string | null>();
 
+    /**
+     * historicalContentの処理を実行する。
+     *
+     * @responsibility historicalContentに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input relativePath: string
+     * @returns string | nullを返す。
+     * @precondition 「relativePath: string」がhistoricalContentの入力契約を満たす。
+     * @postcondition historicalContentの責務を完了した結果だけを返す。
+     * @effect N/A: historicalContentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: historicalContentは独自の失敗分岐を所有しない。
+     * @invariant historicalContentは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: historicalContentはProcess内の同一Subsystemで完結する。
+     * @security N/A: historicalContentはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: historicalContentは共有非同期状態を持たない同期処理である。
+     */
     function historicalContent(relativePath: string): string | null {
       if (!fixedHistoryMigration.sourceCommit) return null;
       const normalized = relativePath.replaceAll("\\", "/");
@@ -8050,6 +9652,22 @@ export function runCurrentProfileChecker(
       return content;
     }
 
+    /**
+     * resolveLinkWithFixedHistoryの処理を実行する。
+     *
+     * @responsibility resolveLinkWithFixedHistoryに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input source: string、raw: string
+     * @returns LinkRecordを返す。
+     * @precondition 「source: string、raw: string」がresolveLinkWithFixedHistoryの入力契約を満たす。
+     * @postcondition resolveLinkWithFixedHistoryの責務を完了した結果だけを返す。
+     * @effect resolveLinkWithFixedHistoryはFilesystemの読取りまたは書込みを実行する。
+     * @failure N/A: resolveLinkWithFixedHistoryは独自の失敗分岐を所有しない。
+     * @invariant resolveLinkWithFixedHistoryは宣言した境界以外へEffectを拡張しない。
+     * @boundary FilesystemとProcess内Domain処理の境界。
+     * @security N/A: resolveLinkWithFixedHistoryはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: resolveLinkWithFixedHistoryは共有非同期状態を持たない同期処理である。
+     */
     function resolveLinkWithFixedHistory(
       source: string,
       raw: string,
@@ -8123,6 +9741,22 @@ export function runCurrentProfileChecker(
       recognizedChangeTracePatterns = ["99_Roadmap/Changes/CHG-*/change.md"];
     }
     const gitlinkRoots = discovery.gitlinks;
+    /**
+     * gitlinkRootForの処理を実行する。
+     *
+     * @responsibility gitlinkRootForに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input target: string
+     * @returns string | nullを返す。
+     * @precondition 「target: string」がgitlinkRootForの入力契約を満たす。
+     * @postcondition gitlinkRootForの責務を完了した結果だけを返す。
+     * @effect N/A: gitlinkRootForは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: gitlinkRootForは独自の失敗分岐を所有しない。
+     * @invariant gitlinkRootForは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: gitlinkRootForはProcess内の同一Subsystemで完結する。
+     * @security N/A: gitlinkRootForはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: gitlinkRootForは共有非同期状態を持たない同期処理である。
+     */
     function gitlinkRootFor(target: string): string | null {
       return gitlinkRoots.find((item) => isWithin(item, target)) ?? null;
     }
@@ -8264,6 +9898,22 @@ export function runCurrentProfileChecker(
       ],
     ]);
 
+    /**
+     * checkPhaseDiagramDispositionContractsの処理を実行する。
+     *
+     * @responsibility checkPhaseDiagramDispositionContractsに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input N/A: 実行時引数を受け取らない。
+     * @returns voidを返す。
+     * @precondition 「N/A: 実行時引数を受け取らない。」がcheckPhaseDiagramDispositionContractsの入力契約を満たす。
+     * @postcondition checkPhaseDiagramDispositionContractsの責務を完了した結果だけを返す。
+     * @effect checkPhaseDiagramDispositionContractsはFilesystemの読取りまたは書込みを実行する。
+     * @failure N/A: checkPhaseDiagramDispositionContractsは独自の失敗分岐を所有しない。
+     * @invariant checkPhaseDiagramDispositionContractsは宣言した境界以外へEffectを拡張しない。
+     * @boundary FilesystemとProcess内Domain処理の境界。
+     * @security N/A: checkPhaseDiagramDispositionContractsはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: checkPhaseDiagramDispositionContractsは共有非同期状態を持たない同期処理である。
+     */
     function checkPhaseDiagramDispositionContracts(): void {
       if (repositoryMode !== "official") return;
       const expectedHeaders = [
@@ -8546,6 +10196,22 @@ export function runCurrentProfileChecker(
     } else {
       docsRoot = requestedDocsRoot;
     }
+    /**
+     * parseCanonicalDocumentHeaderの処理を実行する。
+     *
+     * @responsibility parseCanonicalDocumentHeaderに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input content: string
+     * @returns stringを返す。
+     * @precondition 「content: string」がparseCanonicalDocumentHeaderの入力契約を満たす。
+     * @postcondition parseCanonicalDocumentHeaderの責務を完了した結果だけを返す。
+     * @effect N/A: parseCanonicalDocumentHeaderは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: parseCanonicalDocumentHeaderは独自の失敗分岐を所有しない。
+     * @invariant parseCanonicalDocumentHeaderは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: parseCanonicalDocumentHeaderはProcess内の同一Subsystemで完結する。
+     * @security N/A: parseCanonicalDocumentHeaderはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: parseCanonicalDocumentHeaderは共有非同期状態を持たない同期処理である。
+     */
     function parseCanonicalDocumentHeader(content: string): string {
       const headerLines: string[] = [];
       let hasFields = false;
@@ -8691,6 +10357,22 @@ export function runCurrentProfileChecker(
     const stableDocuments = canonicalDocumentStates.filter(
       ({ status }) => status === "Stable",
     );
+    /**
+     * candidateVersionFromHeaderの処理を実行する。
+     *
+     * @responsibility candidateVersionFromHeaderに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input header: string
+     * @returns string | nullを返す。
+     * @precondition 「header: string」がcandidateVersionFromHeaderの入力契約を満たす。
+     * @postcondition candidateVersionFromHeaderの責務を完了した結果だけを返す。
+     * @effect N/A: candidateVersionFromHeaderは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: candidateVersionFromHeaderは独自の失敗分岐を所有しない。
+     * @invariant candidateVersionFromHeaderは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: candidateVersionFromHeaderはProcess内の同一Subsystemで完結する。
+     * @security N/A: candidateVersionFromHeaderはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: candidateVersionFromHeaderは共有非同期状態を持たない同期処理である。
+     */
     function candidateVersionFromHeader(header: string): string | null {
       return (
         header.match(/^Status: Candidate \((v[^,、)\s]+)/mu)?.[1] ??
@@ -8838,6 +10520,22 @@ export function runCurrentProfileChecker(
         }
       }
     }
+    /**
+     * parseMarkdownStructureの処理を実行する。
+     *
+     * @responsibility parseMarkdownStructureに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input lines: readonly string[]
+     * @returns parseMarkdownStructureの計算結果を返す。
+     * @precondition 「lines: readonly string[]」がparseMarkdownStructureの入力契約を満たす。
+     * @postcondition parseMarkdownStructureの責務を完了した結果だけを返す。
+     * @effect N/A: parseMarkdownStructureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: parseMarkdownStructureは独自の失敗分岐を所有しない。
+     * @invariant parseMarkdownStructureは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: parseMarkdownStructureはProcess内の同一Subsystemで完結する。
+     * @security N/A: parseMarkdownStructureはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: parseMarkdownStructureは共有非同期状態を持たない同期処理である。
+     */
     function parseMarkdownStructure(lines: readonly string[]) {
       const entries: MarkdownEntry[] = [];
       const fences: MarkdownFence[] = [];
@@ -8896,6 +10594,22 @@ export function runCurrentProfileChecker(
       return { entries, fences };
     }
 
+    /**
+     * checkDiscoveryIdentityLinkOwnershipの処理を実行する。
+     *
+     * @responsibility checkDiscoveryIdentityLinkOwnershipに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input N/A: 実行時引数を受け取らない。
+     * @returns N/A: checkDiscoveryIdentityLinkOwnershipは戻り値を返さない。
+     * @precondition 「N/A: 実行時引数を受け取らない。」がcheckDiscoveryIdentityLinkOwnershipの入力契約を満たす。
+     * @postcondition checkDiscoveryIdentityLinkOwnershipの責務を完了して呼出し元へ制御を戻す。
+     * @effect N/A: checkDiscoveryIdentityLinkOwnershipは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: checkDiscoveryIdentityLinkOwnershipは独自の失敗分岐を所有しない。
+     * @invariant checkDiscoveryIdentityLinkOwnershipは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: checkDiscoveryIdentityLinkOwnershipはProcess内の同一Subsystemで完結する。
+     * @security N/A: checkDiscoveryIdentityLinkOwnershipはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: checkDiscoveryIdentityLinkOwnershipは共有非同期状態を持たない同期処理である。
+     */
     function checkDiscoveryIdentityLinkOwnership(): void {
       for (const file of allMarkdownFiles) {
         const relativePath = relative(file);
@@ -8927,6 +10641,22 @@ export function runCurrentProfileChecker(
       }
     }
 
+    /**
+     * parseReadmeVersionの処理を実行する。
+     *
+     * @responsibility parseReadmeVersionに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000001
+     * @input content: string
+     * @returns string | nullを返す。
+     * @precondition 「content: string」がparseReadmeVersionの入力契約を満たす。
+     * @postcondition parseReadmeVersionの責務を完了した結果だけを返す。
+     * @effect N/A: parseReadmeVersionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: parseReadmeVersionは独自の失敗分岐を所有しない。
+     * @invariant parseReadmeVersionは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: parseReadmeVersionはProcess内の同一Subsystemで完結する。
+     * @security N/A: parseReadmeVersionはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: parseReadmeVersionは共有非同期状態を持たない同期処理である。
+     */
     function parseReadmeVersion(content: string): string | null {
       const markdown = parseMarkdownStructure(
         content.replace(/^\uFEFF/u, "").split(/\r?\n/u),
@@ -9421,6 +11151,17 @@ export function runCurrentProfileChecker(
       owner: ["担当責任者", "Owner"],
       restart: ["再開条件", "Restart Condition"],
     };
+    /**
+     * RemediationColumnが扱う値の構造を表す。
+     *
+     * @responsibility RemediationColumnに必要な値と制約を一つの型契約として保持する。
+     * @trace ARCH-000001
+     * @shape RemediationColumnが表すProperty、識別子およびRelationを型として固定する。
+     * @invariant RemediationColumnで宣言した値と責務の対応を維持する。
+     * @boundary N/A: RemediationColumnの宣言は外部境界を開かない。
+     * @security N/A: RemediationColumnはAuthority、秘密値または信頼判断を扱わない。
+     * @compatibility RemediationColumnの利用側は宣言済みPropertyと型制約だけへ依存する。
+     */
     type RemediationColumn = keyof typeof remediationHeaderAliases;
     const remediationPlaceholder =
       /^(?:|[-—–]|N\/A|TBD|TODO|None|なし|未定|未取得|未確認|対象外)$/iu;

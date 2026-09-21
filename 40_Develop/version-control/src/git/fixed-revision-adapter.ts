@@ -19,6 +19,22 @@ const MAX_PACKED_REFS_BYTES = 4 * 1024 * 1024;
 const OBJECT_ID = /^[a-f0-9]{40}$/u;
 const SAFE_REF = /^refs\/(?:heads|tags)\/[A-Za-z0-9._/-]{1,1024}$/u;
 
+/**
+ * stableFileの処理を実行する。
+ *
+ * @responsibility stableFileに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input target: string、maximumBytes: number
+ * @returns Bufferを返す。
+ * @precondition 「target: string、maximumBytes: number」がstableFileの入力契約を満たす。
+ * @postcondition stableFileの責務を完了した結果だけを返す。
+ * @effect stableFileはFilesystemの読取りまたは書込みを実行する。
+ * @failure stableFileは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant stableFileは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: stableFileはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: stableFileは共有非同期状態を持たない同期処理である。
+ */
 function stableFile(target: string, maximumBytes: number): Buffer {
   const handle = fs.openSync(target, "r");
   try {
@@ -59,6 +75,22 @@ function stableFile(target: string, maximumBytes: number): Buffer {
   }
 }
 
+/**
+ * decodeControlの処理を実行する。
+ *
+ * @responsibility decodeControlに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input bytes: Buffer
+ * @returns stringを返す。
+ * @precondition 「bytes: Buffer」がdecodeControlの入力契約を満たす。
+ * @postcondition decodeControlの責務を完了した結果だけを返す。
+ * @effect N/A: decodeControlは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure decodeControlは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant decodeControlは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: decodeControlはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: decodeControlは共有非同期状態を持たない同期処理である。
+ */
 function decodeControl(bytes: Buffer): string {
   const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   if (/\0|\r(?!\n)/u.test(source))
@@ -66,6 +98,22 @@ function decodeControl(bytes: Buffer): string {
   return source.replace(/\r?\n$/u, "");
 }
 
+/**
+ * readPackedの処理を実行する。
+ *
+ * @responsibility readPackedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input commonDirectory: string、ref: string
+ * @returns stringを返す。
+ * @precondition 「commonDirectory: string、ref: string」がreadPackedの入力契約を満たす。
+ * @postcondition readPackedの責務を完了した結果だけを返す。
+ * @effect N/A: readPackedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure readPackedは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readPackedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: readPackedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readPackedは共有非同期状態を持たない同期処理である。
+ */
 function readPacked(commonDirectory: string, ref: string): string {
   const matches = decodeControl(
     stableFile(
@@ -82,6 +130,22 @@ function readPacked(commonDirectory: string, ref: string): string {
   return matches[0]?.[0] as string;
 }
 
+/**
+ * readRevisionの処理を実行する。
+ *
+ * @responsibility readRevisionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input layout: RepositoryGitLayout
+ * @returns stringを返す。
+ * @precondition 「layout: RepositoryGitLayout」がreadRevisionの入力契約を満たす。
+ * @postcondition readRevisionの責務を完了した結果だけを返す。
+ * @effect N/A: readRevisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure readRevisionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readRevisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: readRevisionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readRevisionは共有非同期状態を持たない同期処理である。
+ */
 function readRevision(layout: RepositoryGitLayout): string {
   const head = decodeControl(
     stableFile(path.join(layout.gitDirectory.realPath, "HEAD"), MAX_HEAD_BYTES),
@@ -118,6 +182,22 @@ function readRevision(layout: RepositoryGitLayout): string {
   }
 }
 
+/**
+ * identityの処理を実行する。
+ *
+ * @responsibility identityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input domain: string、entity: RepositoryGitLayout["root"]
+ * @returns stringを返す。
+ * @precondition 「domain: string、entity: RepositoryGitLayout["root"]」がidentityの入力契約を満たす。
+ * @postcondition identityの責務を完了した結果だけを返す。
+ * @effect N/A: identityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: identityは独自の失敗分岐を所有しない。
+ * @invariant identityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: identityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: identityは共有非同期状態を持たない同期処理である。
+ */
 function identity(domain: string, entity: RepositoryGitLayout["root"]): string {
   return createHash("sha256")
     .update(domain)

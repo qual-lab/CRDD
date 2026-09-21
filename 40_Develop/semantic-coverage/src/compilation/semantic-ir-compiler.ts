@@ -5,11 +5,33 @@ import type {
   DomainOutcome,
 } from "../../../crdd-domain-library/src/index.ts";
 
+/**
+ * Semantic IRへ変換するCanonical文書Snapshotを表す。
+ *
+ * @responsibility 変換入力のPathと同一時点の本文を一つの値として保持する。
+ * @trace ARCH-000008
+ * @shape SemanticSourceDocumentが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SemanticSourceDocumentで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SemanticSourceDocumentの宣言は外部境界を開かない。
+ * @security N/A: SemanticSourceDocumentはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility SemanticSourceDocumentの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type SemanticSourceDocument = Readonly<{
   path: string;
   source: string;
 }>;
 
+/**
+ * Architecture Detailsから明示的に抽出した一つの意味要素を表す。
+ *
+ * @responsibility 意味Key、Architecture Relation、検証要否および根拠節を保持する。
+ * @trace ARCH-000008
+ * @shape SemanticIrMeaningが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SemanticIrMeaningで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SemanticIrMeaningの宣言は外部境界を開かない。
+ * @security N/A: SemanticIrMeaningはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility SemanticIrMeaningの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type SemanticIrMeaning = Readonly<{
   semanticKey: string;
   kind: string;
@@ -20,6 +42,17 @@ export type SemanticIrMeaning = Readonly<{
   notApplicableReason: string | null;
 }>;
 
+/**
+ * 一つのSubsystemから決定論的に生成した意味要素集合を表す。
+ *
+ * @responsibility 入力文書IdentityとHashを意味要素集合へ結合する。
+ * @trace ARCH-000008
+ * @shape SemanticIrが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SemanticIrで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SemanticIrの宣言は外部境界を開かない。
+ * @security N/A: SemanticIrはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility SemanticIrの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type SemanticIr = Readonly<{
   contract: "crdd/semantic-ir-pilot";
   contractRevision: 0;
@@ -40,6 +73,22 @@ const expectedHeaders = [
   "N/A理由",
 ] as const;
 
+/**
+ * Markdown表の一行を意味抽出前のCell列へ分解する。
+ *
+ * @responsibility 行境界を維持したまま外側DelimiterとCell余白だけを除く。
+ * @trace ARCH-000008
+ * @input line: string
+ * @returns string[]を返す。
+ * @precondition line: stringがparseTableRowの入力契約を満たす。
+ * @postcondition parseTableRowの責務を完了した結果だけを返す。
+ * @effect N/A: parseTableRowは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: parseTableRowは独自の失敗分岐を所有しない。
+ * @invariant parseTableRowは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseTableRowはProcess内の同一Subsystemで完結する。
+ * @security N/A: parseTableRowはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: parseTableRowは共有非同期状態を持たない同期処理である。
+ */
 function parseTableRow(line: string): string[] {
   return line
     .trim()
@@ -49,11 +98,43 @@ function parseTableRow(line: string): string[] {
     .map((cell) => cell.trim());
 }
 
+/**
+ * 一つのInline Code値から囲み記号を除去する。
+ *
+ * @responsibility Inline Code以外を値として受理せず構造不一致を保持する。
+ * @trace ARCH-000008
+ * @input value: string
+ * @returns string | nullを返す。
+ * @precondition value: stringがunwrapCodeの入力契約を満たす。
+ * @postcondition unwrapCodeの責務を完了した結果だけを返す。
+ * @effect N/A: unwrapCodeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: unwrapCodeは独自の失敗分岐を所有しない。
+ * @invariant unwrapCodeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: unwrapCodeはProcess内の同一Subsystemで完結する。
+ * @security N/A: unwrapCodeはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: unwrapCodeは共有非同期状態を持たない同期処理である。
+ */
 function unwrapCode(value: string): string | null {
   const match = /^`([^`]+)`$/u.exec(value);
   return match?.[1] ?? null;
 }
 
+/**
+ * Semantic Coverageで共有する構造化Issueを生成する。
+ *
+ * @responsibility 理由、対象Identity、LocationおよびDetailを同じIssueへ結合する。
+ * @trace ARCH-000008
+ * @input kind: string、path: string、reason: string、details: DomainIssue["details"]、targetIdentity
+ * @returns DomainIssueを返す。
+ * @precondition kind: string、path: string、reason: string、details: DomainIssue["details"]、targetIdentityがsemanticDomainIssueの入力契約を満たす。
+ * @postcondition semanticDomainIssueの責務を完了した結果だけを返す。
+ * @effect N/A: semanticDomainIssueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: semanticDomainIssueは独自の失敗分岐を所有しない。
+ * @invariant semanticDomainIssueは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: semanticDomainIssueはProcess内の同一Subsystemで完結する。
+ * @security N/A: semanticDomainIssueはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: semanticDomainIssueは共有非同期状態を持たない同期処理である。
+ */
 export function semanticDomainIssue(
   kind: string,
   path: string,
@@ -70,6 +151,22 @@ export function semanticDomainIssue(
   };
 }
 
+/**
+ * Architecture Detailsの明示表を検証してSemantic IRへ変換する。
+ *
+ * @responsibility 自由文を推測せず、契約どおりのMeaningだけを完全または不正として返す。
+ * @trace ARCH-000008
+ * @input sourceDocument: SemanticSourceDocument、subsystem: string、architectureDefinitionIds: ReadonlySet<string>
+ * @returns DomainOutcome<SemanticIr>を返す。
+ * @precondition sourceDocument: SemanticSourceDocument、subsystem: string、architectureDefinitionIds: ReadonlySet<string>がcompileSemanticIrの入力契約を満たす。
+ * @postcondition compileSemanticIrの責務を完了した結果だけを返す。
+ * @effect N/A: compileSemanticIrは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure 欠落、重複、未解決Architectureまたは不正なN/Aを部分IRへ畳まない。
+ * @invariant 完全な結果の全Meaningは実在Architectureと根拠節へ接続する。
+ * @boundary N/A: compileSemanticIrはProcess内の同一Subsystemで完結する。
+ * @security N/A: compileSemanticIrはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: compileSemanticIrは共有非同期状態を持たない同期処理である。
+ */
 export function compileSemanticIr(
   sourceDocument: SemanticSourceDocument,
   subsystem: string,

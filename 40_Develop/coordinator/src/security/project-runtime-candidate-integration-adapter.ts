@@ -27,6 +27,17 @@ import { containsRecognizedSecretMaterial } from "./secret-material-policy.ts";
 export const PROJECT_RUNTIME_CANDIDATE_INTEGRATION_ADAPTER_CONTRACT =
   "crdd-coordinator/project-runtime-candidate-integration-adapter/v1" as const;
 
+/**
+ * Entryが扱う値の構造を表す。
+ *
+ * @responsibility Entryに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape Entryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Entryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Entryの宣言は外部境界を開かない。
+ * @security EntryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Entryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Entry = Readonly<{
   relativePath: string;
   operation: "upsert" | "delete";
@@ -34,6 +45,17 @@ type Entry = Readonly<{
   sha256: string | null;
   contentBase64: string | null;
 }>;
+/**
+ * Bundleが扱う値の構造を表す。
+ *
+ * @responsibility Bundleに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape Bundleが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Bundleで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Bundleの宣言は外部境界を開かない。
+ * @security BundleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Bundleの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Bundle = Readonly<{
   schema: "crdd-coordinator-candidate-bundle/v1";
   baseCommit: string;
@@ -46,12 +68,39 @@ type Bundle = Readonly<{
   entries: readonly Entry[];
 }>;
 
+/**
+ * digestの処理を実行する。
+ *
+ * @responsibility digestに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input values: readonly (string | Buffer)[]
+ * @returns digestの計算結果を返す。
+ * @precondition 「values: readonly (string | Buffer)[]」がdigestの入力契約を満たす。
+ * @postcondition digestの責務を完了した結果だけを返す。
+ * @effect N/A: digestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: digestは独自の失敗分岐を所有しない。
+ * @invariant digestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security digestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: digestは共有非同期状態を持たない同期処理である。
+ */
 function digest(...values: readonly (string | Buffer)[]) {
   const hash = createHash("sha256");
   for (const value of values) hash.update(value).update("\0");
   return hash.digest("hex");
 }
 
+/**
+ * CandidateStoreが扱う値の構造を表す。
+ *
+ * @responsibility CandidateStoreに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape CandidateStoreが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CandidateStoreで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CandidateStoreの宣言は外部境界を開かない。
+ * @security CandidateStoreはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility CandidateStoreの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type CandidateStore = Readonly<{
   read: (
     candidateId: string,
@@ -66,6 +115,22 @@ const productionCandidateStore: CandidateStore = Object.freeze({
   publish: publishRuntimeOwnedCandidateBundle,
 });
 
+/**
+ * exportedの処理を実行する。
+ *
+ * @responsibility exportedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input candidateStore: CandidateStore、candidateId: string
+ * @returns exportedの計算結果を返す。
+ * @precondition 「candidateStore: CandidateStore、candidateId: string」がexportedの入力契約を満たす。
+ * @postcondition exportedの責務を完了した結果だけを返す。
+ * @effect N/A: exportedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: exportedは独自の失敗分岐を所有しない。
+ * @invariant exportedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security exportedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: exportedは共有非同期状態を持たない同期処理である。
+ */
 function exported(candidateStore: CandidateStore, candidateId: string) {
   const value = candidateStore.read(candidateId);
   if (
@@ -81,6 +146,22 @@ function exported(candidateStore: CandidateStore, candidateId: string) {
   });
 }
 
+/**
+ * highestClassificationの処理を実行する。
+ *
+ * @responsibility highestClassificationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input values: readonly ("public" | "internal" | "confidential")[]
+ * @returns highestClassificationの計算結果を返す。
+ * @precondition 「values: readonly ("public" | "internal" | "confidential")[]」がhighestClassificationの入力契約を満たす。
+ * @postcondition highestClassificationの責務を完了した結果だけを返す。
+ * @effect N/A: highestClassificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: highestClassificationは独自の失敗分岐を所有しない。
+ * @invariant highestClassificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security highestClassificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: highestClassificationは共有非同期状態を持たない同期処理である。
+ */
 function highestClassification(
   values: readonly ("public" | "internal" | "confidential")[],
 ) {
@@ -91,6 +172,22 @@ function highestClassification(
       : "public";
 }
 
+/**
+ * sameEntryの処理を実行する。
+ *
+ * @responsibility sameEntryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input left: Entry、right: Entry
+ * @returns sameEntryの計算結果を返す。
+ * @precondition 「left: Entry、right: Entry」がsameEntryの入力契約を満たす。
+ * @postcondition sameEntryの責務を完了した結果だけを返す。
+ * @effect N/A: sameEntryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameEntryは独自の失敗分岐を所有しない。
+ * @invariant sameEntryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security sameEntryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameEntryは共有非同期状態を持たない同期処理である。
+ */
 function sameEntry(left: Entry, right: Entry) {
   return (
     left.operation === right.operation &&
@@ -100,6 +197,22 @@ function sameEntry(left: Entry, right: Entry) {
   );
 }
 
+/**
+ * mergeの処理を実行する。
+ *
+ * @responsibility mergeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input candidateStore: CandidateStore、state: ProjectRuntimeState、candidateIds: readonly string[]
+ * @returns mergeの計算結果を返す。
+ * @precondition 「candidateStore: CandidateStore、state: ProjectRuntimeState、candidateIds: readonly string[]」がmergeの入力契約を満たす。
+ * @postcondition mergeの責務を完了した結果だけを返す。
+ * @effect N/A: mergeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: mergeは独自の失敗分岐を所有しない。
+ * @invariant mergeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security mergeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: mergeは共有非同期状態を持たない同期処理である。
+ */
 function merge(
   candidateStore: CandidateStore,
   state: ProjectRuntimeState,
@@ -184,6 +297,22 @@ function merge(
   });
 }
 
+/**
+ * stableFileの処理を実行する。
+ *
+ * @responsibility stableFileに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input target: string
+ * @returns stableFileの計算結果を返す。
+ * @precondition 「target: string」がstableFileの入力契約を満たす。
+ * @postcondition stableFileの責務を完了した結果だけを返す。
+ * @effect stableFileはFilesystemの読取りまたは書込みを実行する。
+ * @failure stableFileは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant stableFileは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security stableFileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: stableFileは共有非同期状態を持たない同期処理である。
+ */
 function stableFile(target: string) {
   try {
     const before = fs.lstatSync(target, { bigint: true });
@@ -207,6 +336,22 @@ function stableFile(target: string) {
   }
 }
 
+/**
+ * cleanupMaterializedBaseの処理を実行する。
+ *
+ * @responsibility cleanupMaterializedBaseに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input workspace: string
+ * @returns booleanを返す。
+ * @precondition 「workspace: string」がcleanupMaterializedBaseの入力契約を満たす。
+ * @postcondition cleanupMaterializedBaseの責務を完了した結果だけを返す。
+ * @effect cleanupMaterializedBaseはFilesystemの読取りまたは書込みを実行する。
+ * @failure cleanupMaterializedBaseは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant cleanupMaterializedBaseは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security cleanupMaterializedBaseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: cleanupMaterializedBaseは共有非同期状態を持たない同期処理である。
+ */
 function cleanupMaterializedBase(workspace: string): boolean {
   try {
     fs.rmSync(workspace, { recursive: true, force: true });
@@ -216,6 +361,22 @@ function cleanupMaterializedBase(workspace: string): boolean {
   }
 }
 
+/**
+ * candidateCleanupBlockedの処理を実行する。
+ *
+ * @responsibility candidateCleanupBlockedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input effectIssued: boolean、isEffectStateUnknown: boolean
+ * @returns candidateCleanupBlockedの計算結果を返す。
+ * @precondition 「effectIssued: boolean、isEffectStateUnknown: boolean」がcandidateCleanupBlockedの入力契約を満たす。
+ * @postcondition candidateCleanupBlockedの責務を完了した結果だけを返す。
+ * @effect N/A: candidateCleanupBlockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: candidateCleanupBlockedは独自の失敗分岐を所有しない。
+ * @invariant candidateCleanupBlockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security candidateCleanupBlockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: candidateCleanupBlockedは共有非同期状態を持たない同期処理である。
+ */
 function candidateCleanupBlocked(
   effectIssued: boolean,
   isEffectStateUnknown: boolean,
@@ -231,6 +392,17 @@ function candidateCleanupBlocked(
   });
 }
 
+/**
+ * MaterializedBaseResultが扱う値の構造を表す。
+ *
+ * @responsibility MaterializedBaseResultに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape MaterializedBaseResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant MaterializedBaseResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: MaterializedBaseResultの宣言は外部境界を開かない。
+ * @security MaterializedBaseResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility MaterializedBaseResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type MaterializedBaseResult =
   | Readonly<{ status: "materialized"; workspace: string }>
   | Readonly<{
@@ -243,6 +415,22 @@ type MaterializedBaseResult =
       recoveryReference: string | null;
     }>;
 
+/**
+ * materializeBaseの処理を実行する。
+ *
+ * @responsibility materializeBaseに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input repositoryRoot: string、revision: string、paths: readonly string[]、snapshotAdapter: typeof gitFixedSnapshotAdapter、materializeSnapshot: typeof materializeFixedSnapshotCandidate、cleanupWorkspace: (workspace: string) => boolean
+ * @returns MaterializedBaseResult | nullを返す。
+ * @precondition 「repositoryRoot: string、revision: string、paths: readonly string[]、snapshotAdapter: typeof gitFixedSnapshotAdapter、materializeSnapshot: typeof materializeFixedSnapshotCandidate、cleanupWorkspace: (workspace: string) => boolean」がmaterializeBaseの入力契約を満たす。
+ * @postcondition materializeBaseの責務を完了した結果だけを返す。
+ * @effect materializeBaseはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: materializeBaseは独自の失敗分岐を所有しない。
+ * @invariant materializeBaseは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security materializeBaseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: materializeBaseは共有非同期状態を持たない同期処理である。
+ */
 function materializeBase(
   repositoryRoot: string,
   revision: string,
@@ -323,6 +511,22 @@ function materializeBase(
   });
 }
 
+/**
+ * currentMatchesBaseの処理を実行する。
+ *
+ * @responsibility currentMatchesBaseに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input repositoryRoot: string、base: string、entries: readonly Entry[]
+ * @returns currentMatchesBaseの計算結果を返す。
+ * @precondition 「repositoryRoot: string、base: string、entries: readonly Entry[]」がcurrentMatchesBaseの入力契約を満たす。
+ * @postcondition currentMatchesBaseの責務を完了した結果だけを返す。
+ * @effect N/A: currentMatchesBaseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: currentMatchesBaseは独自の失敗分岐を所有しない。
+ * @invariant currentMatchesBaseは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security currentMatchesBaseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: currentMatchesBaseは共有非同期状態を持たない同期処理である。
+ */
 function currentMatchesBase(
   repositoryRoot: string,
   base: string,
@@ -343,6 +547,17 @@ function currentMatchesBase(
   return true;
 }
 
+/**
+ * CandidateApplicationResultが扱う値の構造を表す。
+ *
+ * @responsibility CandidateApplicationResultに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape CandidateApplicationResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CandidateApplicationResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CandidateApplicationResultの宣言は外部境界を開かない。
+ * @security CandidateApplicationResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility CandidateApplicationResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type CandidateApplicationResult =
   | Readonly<{
       status: "completed";
@@ -361,11 +576,38 @@ type CandidateApplicationResult =
       recoveryReference: null;
     }>;
 
+/**
+ * CandidateApplicationFaultが扱う値の構造を表す。
+ *
+ * @responsibility CandidateApplicationFaultに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape CandidateApplicationFaultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CandidateApplicationFaultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CandidateApplicationFaultの宣言は外部境界を開かない。
+ * @security CandidateApplicationFaultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility CandidateApplicationFaultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type CandidateApplicationFault = (
   phase: "before_entry" | "before_rollback",
   relativePath: string,
 ) => void;
 
+/**
+ * applyBundleの処理を実行する。
+ *
+ * @responsibility applyBundleに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input repositoryRoot: string、bundle: Bundle、injectFault: CandidateApplicationFault
+ * @returns CandidateApplicationResultを返す。
+ * @precondition 「repositoryRoot: string、bundle: Bundle、injectFault: CandidateApplicationFault」がapplyBundleの入力契約を満たす。
+ * @postcondition applyBundleの責務を完了した結果だけを返す。
+ * @effect applyBundleはFilesystemの読取りまたは書込みを実行する。
+ * @failure applyBundleは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant applyBundleは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security applyBundleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: applyBundleは共有非同期状態を持たない同期処理である。
+ */
 function applyBundle(
   repositoryRoot: string,
   bundle: Bundle,
@@ -479,6 +721,22 @@ function applyBundle(
   }
 }
 
+/**
+ * createRuntimeOwnedProjectCandidateIntegrationAdapterの処理を実行する。
+ *
+ * @responsibility createRuntimeOwnedProjectCandidateIntegrationAdapterに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input repositoryRoot: string、candidateStore: CandidateStore、snapshotAdapter: typeof gitFixedSnapshotAdapter、materializeSnapshot: typeof materializeFixedSnapshotCandidate、cleanupWorkspace: (workspace: string) => boolean、injectApplicationFault: CandidateApplicationFault
+ * @returns ProjectRuntimeCandidatePortを返す。
+ * @precondition 「repositoryRoot: string、candidateStore: CandidateStore、snapshotAdapter: typeof gitFixedSnapshotAdapter、materializeSnapshot: typeof materializeFixedSnapshotCandidate、cleanupWorkspace: (workspace: string) => boolean、injectApplicationFault: CandidateApplicationFault」がcreateRuntimeOwnedProjectCandidateIntegrationAdapterの入力契約を満たす。
+ * @postcondition createRuntimeOwnedProjectCandidateIntegrationAdapterの責務を完了した結果だけを返す。
+ * @effect N/A: createRuntimeOwnedProjectCandidateIntegrationAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createRuntimeOwnedProjectCandidateIntegrationAdapterは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createRuntimeOwnedProjectCandidateIntegrationAdapterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security createRuntimeOwnedProjectCandidateIntegrationAdapterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createRuntimeOwnedProjectCandidateIntegrationAdapterは共有非同期状態を持たない同期処理である。
+ */
 export function createRuntimeOwnedProjectCandidateIntegrationAdapter(
   repositoryRoot: string,
   candidateStore: CandidateStore = productionCandidateStore,
@@ -490,6 +748,22 @@ export function createRuntimeOwnedProjectCandidateIntegrationAdapter(
   const integrated = new Map<string, Bundle>();
   let pendingObservationBundle: Bundle | null = null;
   return Object.freeze({
+    /**
+     * createCandidateの処理を実行する。
+     *
+     * @responsibility createCandidateに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000015
+     * @input { state, taskCandidateIds }
+     * @returns createCandidateの計算結果を返す。
+     * @precondition 「{ state, taskCandidateIds }」がcreateCandidateの入力契約を満たす。
+     * @postcondition createCandidateの責務を完了した結果だけを返す。
+     * @effect N/A: createCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: createCandidateは独自の失敗分岐を所有しない。
+     * @invariant createCandidateは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+     * @security createCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @concurrency createCandidateは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+     */
     async createCandidate({ state, taskCandidateIds }) {
       const merged = merge(candidateStore, state, taskCandidateIds);
       if (!merged) return null;
@@ -535,6 +809,22 @@ export function createRuntimeOwnedProjectCandidateIntegrationAdapter(
         cleanupConfirmed: true,
       });
     },
+    /**
+     * observeCanonicalRepositoryの処理を実行する。
+     *
+     * @responsibility observeCanonicalRepositoryに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000015
+     * @input N/A: 実行時引数を受け取らない。
+     * @returns observeCanonicalRepositoryの計算結果を返す。
+     * @precondition 「N/A: 実行時引数を受け取らない。」がobserveCanonicalRepositoryの入力契約を満たす。
+     * @postcondition observeCanonicalRepositoryの責務を完了した結果だけを返す。
+     * @effect N/A: observeCanonicalRepositoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure observeCanonicalRepositoryは入力不正または下位処理の失敗を呼出し側へ返す。
+     * @invariant observeCanonicalRepositoryは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+     * @security observeCanonicalRepositoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @concurrency N/A: observeCanonicalRepositoryは共有非同期状態を持たない同期処理である。
+     */
     observeCanonicalRepository() {
       const identity = inspectRepositoryIdentityCandidate(repositoryRoot);
       const bundle = pendingObservationBundle;
@@ -570,6 +860,22 @@ export function createRuntimeOwnedProjectCandidateIntegrationAdapter(
         ? result
         : candidateCleanupBlocked(false, false);
     },
+    /**
+     * adoptCandidateの処理を実行する。
+     *
+     * @responsibility adoptCandidateに対応する入力処理と結果生成を所有する。
+     * @trace ARCH-000015
+     * @input candidate
+     * @returns adoptCandidateの計算結果を返す。
+     * @precondition 「candidate」がadoptCandidateの入力契約を満たす。
+     * @postcondition adoptCandidateの責務を完了した結果だけを返す。
+     * @effect N/A: adoptCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure adoptCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+     * @invariant adoptCandidateは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+     * @security adoptCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @concurrency adoptCandidateは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+     */
     async adoptCandidate(candidate) {
       const bundle =
         integrated.get(candidate.candidateId) ??
@@ -640,6 +946,22 @@ export function createRuntimeOwnedProjectCandidateIntegrationAdapter(
   });
 }
 
+/**
+ * describeProjectRuntimeCandidateIntegrationAdapterContractの処理を実行する。
+ *
+ * @responsibility describeProjectRuntimeCandidateIntegrationAdapterContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProjectRuntimeCandidateIntegrationAdapterContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProjectRuntimeCandidateIntegrationAdapterContractの入力契約を満たす。
+ * @postcondition describeProjectRuntimeCandidateIntegrationAdapterContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeProjectRuntimeCandidateIntegrationAdapterContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProjectRuntimeCandidateIntegrationAdapterContractは独自の失敗分岐を所有しない。
+ * @invariant describeProjectRuntimeCandidateIntegrationAdapterContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security describeProjectRuntimeCandidateIntegrationAdapterContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeProjectRuntimeCandidateIntegrationAdapterContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeProjectRuntimeCandidateIntegrationAdapterContract() {
   return Object.freeze({
     contract: PROJECT_RUNTIME_CANDIDATE_INTEGRATION_ADAPTER_CONTRACT,

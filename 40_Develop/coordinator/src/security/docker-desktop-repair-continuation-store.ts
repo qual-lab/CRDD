@@ -18,6 +18,17 @@ export const DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS = Object.freeze([
   "secrets_engine_directory_rename",
   "desktop_relaunch",
 ] as const);
+/**
+ * DockerDesktopRepairContinuationActionが扱う値の構造を表す。
+ *
+ * @responsibility DockerDesktopRepairContinuationActionに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairContinuationActionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairContinuationActionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairContinuationActionの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairContinuationActionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairContinuationActionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairContinuationAction =
   (typeof DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS)[number];
 
@@ -31,15 +42,48 @@ export const DOCKER_DESKTOP_REPAIR_CONTINUATION_STAGES = Object.freeze([
   "relaunched",
   "recovered",
 ] as const);
+/**
+ * DockerDesktopRepairContinuationStageが扱う値の構造を表す。
+ *
+ * @responsibility DockerDesktopRepairContinuationStageに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairContinuationStageが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairContinuationStageで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairContinuationStageの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairContinuationStageはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairContinuationStageの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairContinuationStage =
   (typeof DOCKER_DESKTOP_REPAIR_CONTINUATION_STAGES)[number];
 
+/**
+ * DockerDesktopRepairContinuationEffectが扱う値の構造を表す。
+ *
+ * @responsibility DockerDesktopRepairContinuationEffectに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairContinuationEffectが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairContinuationEffectで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairContinuationEffectの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairContinuationEffectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairContinuationEffectの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairContinuationEffect = Readonly<{
   phase: "intent_recorded" | "settled";
   issued: boolean | null;
   confirmation: DockerDesktopRepairEffectConfirmation;
 }>;
 
+/**
+ * DockerDesktopRepairContinuationが扱う値の構造を表す。
+ *
+ * @responsibility DockerDesktopRepairContinuationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairContinuationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairContinuationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairContinuationの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairContinuationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairContinuationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairContinuation = Readonly<{
   repairId: string;
   sequence: number;
@@ -59,6 +103,17 @@ export type DockerDesktopRepairContinuation = Readonly<{
   >;
 }>;
 
+/**
+ * StoredContinuationが扱う値の構造を表す。
+ *
+ * @responsibility StoredContinuationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape StoredContinuationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant StoredContinuationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: StoredContinuationの宣言は外部境界を開かない。
+ * @security StoredContinuationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility StoredContinuationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type StoredContinuation = Readonly<{
   schema: typeof DOCKER_DESKTOP_REPAIR_CONTINUATION_SCHEMA;
   contractRevision: 1;
@@ -86,10 +141,42 @@ type StoredContinuation = Readonly<{
 const MAXIMUM_CONTINUATION_RECORDS = 8;
 const MAXIMUM_CONTINUATION_RECORD_BYTES = 32_768;
 
+/**
+ * hash64の処理を実行する。
+ *
+ * @responsibility hash64に対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がhash64の入力契約を満たす。
+ * @postcondition hash64の責務を完了した結果だけを返す。
+ * @effect N/A: hash64は入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hash64は独自の失敗分岐を所有しない。
+ * @invariant hash64は入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security hash64はAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hash64は共有非同期状態を持たない同期処理である。
+ */
 function hash64(value: unknown): value is string {
   return typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
 }
 
+/**
+ * exactKeysの処理を実行する。
+ *
+ * @responsibility exactKeysに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: object、expectedKeys: readonly string[]
+ * @returns exactKeysの計算結果を返す。
+ * @precondition 「value: object、expectedKeys: readonly string[]」がexactKeysの入力契約を満たす。
+ * @postcondition exactKeysの責務を完了した結果だけを返す。
+ * @effect N/A: exactKeysは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: exactKeysは独自の失敗分岐を所有しない。
+ * @invariant exactKeysは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security exactKeysはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: exactKeysは共有非同期状態を持たない同期処理である。
+ */
 function exactKeys(value: object, expectedKeys: readonly string[]) {
   const actualKeys = Reflect.ownKeys(value);
   return (
@@ -98,6 +185,22 @@ function exactKeys(value: object, expectedKeys: readonly string[]) {
   );
 }
 
+/**
+ * plainObjectの処理を実行する。
+ *
+ * @responsibility plainObjectに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns value is Record<string, unknown>を返す。
+ * @precondition 「value: unknown」がplainObjectの入力契約を満たす。
+ * @postcondition plainObjectの責務を完了した結果だけを返す。
+ * @effect N/A: plainObjectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: plainObjectは独自の失敗分岐を所有しない。
+ * @invariant plainObjectは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security plainObjectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: plainObjectは共有非同期状態を持たない同期処理である。
+ */
 function plainObject(value: unknown): value is Record<string, unknown> {
   return (
     value !== null &&
@@ -107,6 +210,22 @@ function plainObject(value: unknown): value is Record<string, unknown> {
   );
 }
 
+/**
+ * validIdentityの処理を実行する。
+ *
+ * @responsibility validIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns value is DockerDesktopRepairDirectoryIdentityを返す。
+ * @precondition 「value: unknown」がvalidIdentityの入力契約を満たす。
+ * @postcondition validIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: validIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validIdentityは独自の失敗分岐を所有しない。
+ * @invariant validIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security validIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validIdentityは共有非同期状態を持たない同期処理である。
+ */
 function validIdentity(
   value: unknown,
 ): value is DockerDesktopRepairDirectoryIdentity {
@@ -119,6 +238,22 @@ function validIdentity(
   );
 }
 
+/**
+ * validEffectの処理を実行する。
+ *
+ * @responsibility validEffectに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns value is DockerDesktopRepairContinuationEffectを返す。
+ * @precondition 「value: unknown」がvalidEffectの入力契約を満たす。
+ * @postcondition validEffectの責務を完了した結果だけを返す。
+ * @effect N/A: validEffectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validEffectは独自の失敗分岐を所有しない。
+ * @invariant validEffectは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security validEffectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validEffectは共有非同期状態を持たない同期処理である。
+ */
 function validEffect(
   value: unknown,
 ): value is DockerDesktopRepairContinuationEffect {
@@ -143,6 +278,22 @@ function validEffect(
   );
 }
 
+/**
+ * validEffectsの処理を実行する。
+ *
+ * @responsibility validEffectsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns value is StoredContinuation["effects"]を返す。
+ * @precondition 「value: unknown」がvalidEffectsの入力契約を満たす。
+ * @postcondition validEffectsの責務を完了した結果だけを返す。
+ * @effect N/A: validEffectsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validEffectsは独自の失敗分岐を所有しない。
+ * @invariant validEffectsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security validEffectsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validEffectsは共有非同期状態を持たない同期処理である。
+ */
 function validEffects(value: unknown): value is StoredContinuation["effects"] {
   return (
     plainObject(value) &&
@@ -153,6 +304,22 @@ function validEffects(value: unknown): value is StoredContinuation["effects"] {
   );
 }
 
+/**
+ * expectedNamesの処理を実行する。
+ *
+ * @responsibility expectedNamesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input operationId: string
+ * @returns expectedNamesの計算結果を返す。
+ * @precondition 「operationId: string」がexpectedNamesの入力契約を満たす。
+ * @postcondition expectedNamesの責務を完了した結果だけを返す。
+ * @effect N/A: expectedNamesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: expectedNamesは独自の失敗分岐を所有しない。
+ * @invariant expectedNamesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security expectedNamesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: expectedNamesは共有非同期状態を持たない同期処理である。
+ */
 function expectedNames(operationId: string) {
   return Object.freeze({
     failedRunStaleName: `run.crdd-stale-${operationId}-restart`,
@@ -160,6 +327,22 @@ function expectedNames(operationId: string) {
   });
 }
 
+/**
+ * validStoredContinuationの処理を実行する。
+ *
+ * @responsibility validStoredContinuationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation
+ * @returns value is StoredContinuationを返す。
+ * @precondition 「value: unknown、boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation」がvalidStoredContinuationの入力契約を満たす。
+ * @postcondition validStoredContinuationの責務を完了した結果だけを返す。
+ * @effect N/A: validStoredContinuationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validStoredContinuationは独自の失敗分岐を所有しない。
+ * @invariant validStoredContinuationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security validStoredContinuationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validStoredContinuationは共有非同期状態を持たない同期処理である。
+ */
 function validStoredContinuation(
   value: unknown,
   boundary: DockerDesktopRepairRecordBoundary,
@@ -227,6 +410,22 @@ function validStoredContinuation(
   );
 }
 
+/**
+ * effectEqualsの処理を実行する。
+ *
+ * @responsibility effectEqualsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input left: DockerDesktopRepairContinuationEffect | null、right: DockerDesktopRepairContinuationEffect | null
+ * @returns effectEqualsの計算結果を返す。
+ * @precondition 「left: DockerDesktopRepairContinuationEffect | null、right: DockerDesktopRepairContinuationEffect | null」がeffectEqualsの入力契約を満たす。
+ * @postcondition effectEqualsの責務を完了した結果だけを返す。
+ * @effect N/A: effectEqualsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: effectEqualsは独自の失敗分岐を所有しない。
+ * @invariant effectEqualsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security effectEqualsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: effectEqualsは共有非同期状態を持たない同期処理である。
+ */
 function effectEquals(
   left: DockerDesktopRepairContinuationEffect | null,
   right: DockerDesktopRepairContinuationEffect | null,
@@ -234,6 +433,22 @@ function effectEquals(
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+/**
+ * legalTransitionの処理を実行する。
+ *
+ * @responsibility legalTransitionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input previous: StoredContinuation | null、next: StoredContinuation
+ * @returns legalTransitionの計算結果を返す。
+ * @precondition 「previous: StoredContinuation | null、next: StoredContinuation」がlegalTransitionの入力契約を満たす。
+ * @postcondition legalTransitionの責務を完了した結果だけを返す。
+ * @effect legalTransitionはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: legalTransitionは独自の失敗分岐を所有しない。
+ * @invariant legalTransitionは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security legalTransitionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: legalTransitionは共有非同期状態を持たない同期処理である。
+ */
 function legalTransition(
   previous: StoredContinuation | null,
   next: StoredContinuation,
@@ -319,6 +534,22 @@ function legalTransition(
   );
 }
 
+/**
+ * stableBytesの処理を実行する。
+ *
+ * @responsibility stableBytesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input target: string
+ * @returns stableBytesの計算結果を返す。
+ * @precondition 「target: string」がstableBytesの入力契約を満たす。
+ * @postcondition stableBytesの責務を完了した結果だけを返す。
+ * @effect stableBytesはFilesystemの読取りまたは書込みを実行する。
+ * @failure stableBytesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant stableBytesは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security stableBytesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: stableBytesは共有非同期状態を持たない同期処理である。
+ */
 function stableBytes(target: string) {
   try {
     const metadata = fs.lstatSync(target, { bigint: true });
@@ -342,6 +573,22 @@ function stableBytes(target: string) {
   }
 }
 
+/**
+ * toContinuationの処理を実行する。
+ *
+ * @responsibility toContinuationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input record: StoredContinuation、recordSha256: string
+ * @returns DockerDesktopRepairContinuationを返す。
+ * @precondition 「record: StoredContinuation、recordSha256: string」がtoContinuationの入力契約を満たす。
+ * @postcondition toContinuationの責務を完了した結果だけを返す。
+ * @effect N/A: toContinuationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: toContinuationは独自の失敗分岐を所有しない。
+ * @invariant toContinuationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security toContinuationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: toContinuationは共有非同期状態を持たない同期処理である。
+ */
 function toContinuation(
   record: StoredContinuation,
   recordSha256: string,
@@ -361,6 +608,22 @@ function toContinuation(
   });
 }
 
+/**
+ * continuationDirectoryの処理を実行する。
+ *
+ * @responsibility continuationDirectoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input operation: DockerDesktopRepairOperation
+ * @returns continuationDirectoryの計算結果を返す。
+ * @precondition 「operation: DockerDesktopRepairOperation」がcontinuationDirectoryの入力契約を満たす。
+ * @postcondition continuationDirectoryの責務を完了した結果だけを返す。
+ * @effect N/A: continuationDirectoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: continuationDirectoryは独自の失敗分岐を所有しない。
+ * @invariant continuationDirectoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security continuationDirectoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: continuationDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function continuationDirectory(operation: DockerDesktopRepairOperation) {
   return path.win32.join(
     operation.operationDirectory,
@@ -368,6 +631,22 @@ function continuationDirectory(operation: DockerDesktopRepairOperation) {
   );
 }
 
+/**
+ * readDockerDesktopRepairContinuationの処理を実行する。
+ *
+ * @responsibility readDockerDesktopRepairContinuationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation
+ * @returns DockerDesktopRepairContinuation | nullを返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation」がreadDockerDesktopRepairContinuationの入力契約を満たす。
+ * @postcondition readDockerDesktopRepairContinuationの責務を完了した結果だけを返す。
+ * @effect readDockerDesktopRepairContinuationはFilesystemの読取りまたは書込みを実行する。
+ * @failure readDockerDesktopRepairContinuationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readDockerDesktopRepairContinuationは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security readDockerDesktopRepairContinuationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readDockerDesktopRepairContinuationは共有非同期状態を持たない同期処理である。
+ */
 export function readDockerDesktopRepairContinuation(
   boundary: DockerDesktopRepairRecordBoundary,
   operation: DockerDesktopRepairOperation,
@@ -421,6 +700,22 @@ export function readDockerDesktopRepairContinuation(
   }
 }
 
+/**
+ * inspectDockerDesktopRepairContinuationの処理を実行する。
+ *
+ * @responsibility inspectDockerDesktopRepairContinuationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation
+ * @returns inspectDockerDesktopRepairContinuationの計算結果を返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation」がinspectDockerDesktopRepairContinuationの入力契約を満たす。
+ * @postcondition inspectDockerDesktopRepairContinuationの責務を完了した結果だけを返す。
+ * @effect inspectDockerDesktopRepairContinuationはFilesystemの読取りまたは書込みを実行する。
+ * @failure inspectDockerDesktopRepairContinuationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectDockerDesktopRepairContinuationは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security inspectDockerDesktopRepairContinuationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectDockerDesktopRepairContinuationは共有非同期状態を持たない同期処理である。
+ */
 export function inspectDockerDesktopRepairContinuation(
   boundary: DockerDesktopRepairRecordBoundary,
   operation: DockerDesktopRepairOperation,
@@ -446,6 +741,22 @@ export function inspectDockerDesktopRepairContinuation(
     : Object.freeze({ status: "invalid" as const, continuation: null });
 }
 
+/**
+ * isDockerDesktopRepairContinuationDirectoryValidの処理を実行する。
+ *
+ * @responsibility isDockerDesktopRepairContinuationDirectoryValidに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation
+ * @returns isDockerDesktopRepairContinuationDirectoryValidの計算結果を返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation」がisDockerDesktopRepairContinuationDirectoryValidの入力契約を満たす。
+ * @postcondition isDockerDesktopRepairContinuationDirectoryValidの責務を完了した結果だけを返す。
+ * @effect N/A: isDockerDesktopRepairContinuationDirectoryValidは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isDockerDesktopRepairContinuationDirectoryValidは独自の失敗分岐を所有しない。
+ * @invariant isDockerDesktopRepairContinuationDirectoryValidは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security isDockerDesktopRepairContinuationDirectoryValidはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isDockerDesktopRepairContinuationDirectoryValidは共有非同期状態を持たない同期処理である。
+ */
 export function isDockerDesktopRepairContinuationDirectoryValid(
   boundary: DockerDesktopRepairRecordBoundary,
   operation: DockerDesktopRepairOperation,
@@ -453,6 +764,22 @@ export function isDockerDesktopRepairContinuationDirectoryValid(
   return readDockerDesktopRepairContinuation(boundary, operation) !== null;
 }
 
+/**
+ * persistの処理を実行する。
+ *
+ * @responsibility persistに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、previous: DockerDesktopRepairContinuation | null、stage: DockerDesktopRepairContinuationStage、failedRunIdentity: DockerDesktopRepairDirectoryIdentity、secretsEngineIdentity: DockerDesktopRepairDirectoryIdentity、effects: DockerDesktopRepairContinuation["effects"]
+ * @returns persistの計算結果を返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、previous: DockerDesktopRepairContinuation | null、stage: DockerDesktopRepairContinuationStage、failedRunIdentity: DockerDesktopRepairDirectoryIdentity、secretsEngineIdentity: DockerDesktopRepairDirectoryIdentity、effects: DockerDesktopRepairContinuation["effects"]」がpersistの入力契約を満たす。
+ * @postcondition persistの責務を完了した結果だけを返す。
+ * @effect persistはFilesystemの読取りまたは書込みを実行する。
+ * @failure persistは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant persistは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security persistはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: persistは共有非同期状態を持たない同期処理である。
+ */
 function persist(
   boundary: DockerDesktopRepairRecordBoundary,
   operation: DockerDesktopRepairOperation,
@@ -542,6 +869,22 @@ const emptyEffects = () =>
     desktop_relaunch: null,
   });
 
+/**
+ * createDockerDesktopRepairContinuationの処理を実行する。
+ *
+ * @responsibility createDockerDesktopRepairContinuationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、failedRunIdentity: DockerDesktopRepairDirectoryIdentity、secretsEngineIdentity: DockerDesktopRepairDirectoryIdentity
+ * @returns createDockerDesktopRepairContinuationの計算結果を返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、failedRunIdentity: DockerDesktopRepairDirectoryIdentity、secretsEngineIdentity: DockerDesktopRepairDirectoryIdentity」がcreateDockerDesktopRepairContinuationの入力契約を満たす。
+ * @postcondition createDockerDesktopRepairContinuationの責務を完了した結果だけを返す。
+ * @effect N/A: createDockerDesktopRepairContinuationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createDockerDesktopRepairContinuationは独自の失敗分岐を所有しない。
+ * @invariant createDockerDesktopRepairContinuationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security createDockerDesktopRepairContinuationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createDockerDesktopRepairContinuationは共有非同期状態を持たない同期処理である。
+ */
 export function createDockerDesktopRepairContinuation(
   boundary: DockerDesktopRepairRecordBoundary,
   operation: DockerDesktopRepairOperation,
@@ -559,6 +902,22 @@ export function createDockerDesktopRepairContinuation(
   );
 }
 
+/**
+ * persistDockerDesktopRepairContinuationIntentの処理を実行する。
+ *
+ * @responsibility persistDockerDesktopRepairContinuationIntentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、continuation: DockerDesktopRepairContinuation、action: DockerDesktopRepairContinuationAction
+ * @returns persistDockerDesktopRepairContinuationIntentの計算結果を返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、continuation: DockerDesktopRepairContinuation、action: DockerDesktopRepairContinuationAction」がpersistDockerDesktopRepairContinuationIntentの入力契約を満たす。
+ * @postcondition persistDockerDesktopRepairContinuationIntentの責務を完了した結果だけを返す。
+ * @effect persistDockerDesktopRepairContinuationIntentはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: persistDockerDesktopRepairContinuationIntentは独自の失敗分岐を所有しない。
+ * @invariant persistDockerDesktopRepairContinuationIntentは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security persistDockerDesktopRepairContinuationIntentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: persistDockerDesktopRepairContinuationIntentは共有非同期状態を持たない同期処理である。
+ */
 export function persistDockerDesktopRepairContinuationIntent(
   boundary: DockerDesktopRepairRecordBoundary,
   operation: DockerDesktopRepairOperation,
@@ -588,6 +947,22 @@ export function persistDockerDesktopRepairContinuationIntent(
   );
 }
 
+/**
+ * persistDockerDesktopRepairContinuationSettlementの処理を実行する。
+ *
+ * @responsibility persistDockerDesktopRepairContinuationSettlementに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、continuation: DockerDesktopRepairContinuation、action: DockerDesktopRepairContinuationAction、outcome: Readonly<{ issued: boolean | null; confirmation: DockerDesktopRepairEffectConfirmation; }>
+ * @returns persistDockerDesktopRepairContinuationSettlementの計算結果を返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、continuation: DockerDesktopRepairContinuation、action: DockerDesktopRepairContinuationAction、outcome: Readonly<{ issued: boolean | null; confirmation: DockerDesktopRepairEffectConfirmation; }>」がpersistDockerDesktopRepairContinuationSettlementの入力契約を満たす。
+ * @postcondition persistDockerDesktopRepairContinuationSettlementの責務を完了した結果だけを返す。
+ * @effect persistDockerDesktopRepairContinuationSettlementはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: persistDockerDesktopRepairContinuationSettlementは独自の失敗分岐を所有しない。
+ * @invariant persistDockerDesktopRepairContinuationSettlementは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security persistDockerDesktopRepairContinuationSettlementはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: persistDockerDesktopRepairContinuationSettlementは共有非同期状態を持たない同期処理である。
+ */
 export function persistDockerDesktopRepairContinuationSettlement(
   boundary: DockerDesktopRepairRecordBoundary,
   operation: DockerDesktopRepairOperation,
@@ -617,6 +992,22 @@ export function persistDockerDesktopRepairContinuationSettlement(
   );
 }
 
+/**
+ * persistDockerDesktopRepairContinuationRecoveredの処理を実行する。
+ *
+ * @responsibility persistDockerDesktopRepairContinuationRecoveredに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、continuation: DockerDesktopRepairContinuation
+ * @returns persistDockerDesktopRepairContinuationRecoveredの計算結果を返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、continuation: DockerDesktopRepairContinuation」がpersistDockerDesktopRepairContinuationRecoveredの入力契約を満たす。
+ * @postcondition persistDockerDesktopRepairContinuationRecoveredの責務を完了した結果だけを返す。
+ * @effect N/A: persistDockerDesktopRepairContinuationRecoveredは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: persistDockerDesktopRepairContinuationRecoveredは独自の失敗分岐を所有しない。
+ * @invariant persistDockerDesktopRepairContinuationRecoveredは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security persistDockerDesktopRepairContinuationRecoveredはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: persistDockerDesktopRepairContinuationRecoveredは共有非同期状態を持たない同期処理である。
+ */
 export function persistDockerDesktopRepairContinuationRecovered(
   boundary: DockerDesktopRepairRecordBoundary,
   operation: DockerDesktopRepairOperation,
@@ -644,6 +1035,22 @@ export function persistDockerDesktopRepairContinuationRecovered(
   );
 }
 
+/**
+ * dockerDesktopRepairContinuationPathsの処理を実行する。
+ *
+ * @responsibility dockerDesktopRepairContinuationPathsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、continuation: DockerDesktopRepairContinuation
+ * @returns dockerDesktopRepairContinuationPathsの計算結果を返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary、continuation: DockerDesktopRepairContinuation」がdockerDesktopRepairContinuationPathsの入力契約を満たす。
+ * @postcondition dockerDesktopRepairContinuationPathsの責務を完了した結果だけを返す。
+ * @effect N/A: dockerDesktopRepairContinuationPathsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: dockerDesktopRepairContinuationPathsは独自の失敗分岐を所有しない。
+ * @invariant dockerDesktopRepairContinuationPathsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security dockerDesktopRepairContinuationPathsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: dockerDesktopRepairContinuationPathsは共有非同期状態を持たない同期処理である。
+ */
 export function dockerDesktopRepairContinuationPaths(
   boundary: DockerDesktopRepairRecordBoundary,
   continuation: DockerDesktopRepairContinuation,

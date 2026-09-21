@@ -26,7 +26,7 @@ Actor              Public Contract        Runtime／Owner        External Bounda
 ## Checklist
 
 - [x] 全SPEC DefinitionのActorとAuthorityを処置した
-- [x] 要求、受理、Effect、結果観測および終了を必要に応じて分けた
+- [x] 要求、受理、Effect、結果観測および終了を全数評価し、統合する段階には理由を記録した
 - [x] 利用者操作と内部実装呼出しを同一視していない
 - [x] 個別SPEC Definitionの意味を再定義していない
 - [x] Architecture方式を先取りしていない

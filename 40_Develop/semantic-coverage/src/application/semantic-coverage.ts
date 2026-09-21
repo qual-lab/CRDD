@@ -13,13 +13,52 @@ import type { DomainIssue } from "../../../crdd-domain-library/src/index.ts";
 import { createFilesystemRepositoryObservationPort } from "../../../crdd-domain-library/src/repository-observation/index.ts";
 import type { VerifiedRepositoryRoot } from "../../../version-control/src/repository-identity/index.ts";
 
+/**
+ * Repositoryから観測したSemantic Source文書を表す。
+ *
+ * @responsibility 観測Pathと同じ観測で得た本文を結合する。
+ * @trace ARCH-000008
+ * @shape SemanticSourceDocumentが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SemanticSourceDocumentで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SemanticSourceDocumentの宣言は外部境界を開かない。
+ * @security N/A: SemanticSourceDocumentはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility SemanticSourceDocumentの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type SemanticSourceDocument = Readonly<{ path: string; source: string }>;
+
+/**
+ * Domain Issueを利用側へ返す診断形式を表す。
+ *
+ * @responsibility 安定code、Pathおよび人間向けmessageを保持する。
+ * @trace ARCH-000008
+ * @shape SemanticCoverageDiagnosticが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SemanticCoverageDiagnosticで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SemanticCoverageDiagnosticの宣言は外部境界を開かない。
+ * @security N/A: SemanticCoverageDiagnosticはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility SemanticCoverageDiagnosticの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type SemanticCoverageDiagnostic = Readonly<{
   code: string;
   path: string;
   message: string;
 }>;
 
+/**
+ * Domain Issueから必須の文字列Detailを取得する。
+ *
+ * @responsibility 不正なIssue shapeを診断変換前に拒否する。
+ * @trace ARCH-000008
+ * @input issue: DomainIssue、name: string
+ * @returns stringを返す。
+ * @precondition issue: DomainIssue、name: stringがstringDetailの入力契約を満たす。
+ * @postcondition stringDetailの責務を完了した結果だけを返す。
+ * @effect N/A: stringDetailは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure 欠落または空文字列を既定値へ畳まない。
+ * @invariant stringDetailは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: stringDetailはProcess内の同一Subsystemで完結する。
+ * @security N/A: stringDetailはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: stringDetailは共有非同期状態を持たない同期処理である。
+ */
 function stringDetail(issue: DomainIssue, name: string): string {
   const value = issue.details[name];
   if (typeof value !== "string" || value.length === 0)
@@ -29,6 +68,22 @@ function stringDetail(issue: DomainIssue, name: string): string {
   return value;
 }
 
+/**
+ * Domain Issueから必須の数値Detailを取得する。
+ *
+ * @responsibility 不正なIssue shapeを診断変換前に拒否する。
+ * @trace ARCH-000008
+ * @input issue: DomainIssue、name: string
+ * @returns numberを返す。
+ * @precondition issue: DomainIssue、name: stringがnumberDetailの入力契約を満たす。
+ * @postcondition numberDetailの責務を完了した結果だけを返す。
+ * @effect N/A: numberDetailは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure 非数値を変換または既定値へ畳まない。
+ * @invariant numberDetailは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: numberDetailはProcess内の同一Subsystemで完結する。
+ * @security N/A: numberDetailはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: numberDetailは共有非同期状態を持たない同期処理である。
+ */
 function numberDetail(issue: DomainIssue, name: string): number {
   const value = issue.details[name];
   if (typeof value !== "number")
@@ -38,6 +93,22 @@ function numberDetail(issue: DomainIssue, name: string): number {
   return value;
 }
 
+/**
+ * 閉じたDomain Issue集合を公開Diagnosticへ変換する。
+ *
+ * @responsibility Issue kindごとの安定codeと必要Detailを一意に決める。
+ * @trace ARCH-000008
+ * @input issue: DomainIssue
+ * @returns SemanticCoverageDiagnosticを返す。
+ * @precondition issue: DomainIssueがmapSemanticDomainIssueToDiagnosticの入力契約を満たす。
+ * @postcondition mapSemanticDomainIssueToDiagnosticの責務を完了した結果だけを返す。
+ * @effect N/A: mapSemanticDomainIssueToDiagnosticは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure 未知Issue kindを一般診断へ丸めず拒否する。
+ * @invariant mapSemanticDomainIssueToDiagnosticは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: mapSemanticDomainIssueToDiagnosticはProcess内の同一Subsystemで完結する。
+ * @security N/A: mapSemanticDomainIssueToDiagnosticはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: mapSemanticDomainIssueToDiagnosticは共有非同期状態を持たない同期処理である。
+ */
 export function mapSemanticDomainIssueToDiagnostic(
   issue: DomainIssue,
 ): SemanticCoverageDiagnostic {
@@ -193,6 +264,22 @@ export function mapSemanticDomainIssueToDiagnostic(
   return { code, path: issue.location.path, message };
 }
 
+/**
+ * 検証済みRepository Rootから指定文書集合を観測する。
+ *
+ * @responsibility 読取り成功文書と観測不能Diagnosticを同じBatch結果へ分ける。
+ * @trace ARCH-000008
+ * @input capability: VerifiedRepositoryRoot、paths: readonly string[]
+ * @returns Readonly<{ documents: readonly SemanticSourceDocument[]; findings: readonly SemanticCoverageDiagnostic[]; }>を返す。
+ * @precondition capability: VerifiedRepositoryRoot、paths: readonly string[]がobserveDocumentsの入力契約を満たす。
+ * @postcondition observeDocumentsの責務を完了した結果だけを返す。
+ * @effect N/A: observeDocumentsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: observeDocumentsは独自の失敗分岐を所有しない。
+ * @invariant observeDocumentsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary Repository Observation Portとの読取り境界。
+ * @security N/A: observeDocumentsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: observeDocumentsは共有非同期状態を持たない同期処理である。
+ */
 function observeDocuments(
   capability: VerifiedRepositoryRoot,
   paths: readonly string[],
@@ -217,6 +304,22 @@ function observeDocuments(
   return { documents, findings };
 }
 
+/**
+ * Repository文書を観測してSemantic IRへ変換する。
+ *
+ * @responsibility 観測不能とDomain変換失敗を同じDiagnostic契約へ投影する。
+ * @trace ARCH-000008
+ * @input capability: VerifiedRepositoryRoot、sourceDocument: string、subsystem: string、architectureDefinitionIds: ReadonlySet<string>
+ * @returns compileSemanticIrFromRepositoryの計算結果を返す。
+ * @precondition capability: VerifiedRepositoryRoot、sourceDocument: string、subsystem: string、architectureDefinitionIds: ReadonlySet<string>がcompileSemanticIrFromRepositoryの入力契約を満たす。
+ * @postcondition compileSemanticIrFromRepositoryの責務を完了した結果だけを返す。
+ * @effect N/A: compileSemanticIrFromRepositoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: compileSemanticIrFromRepositoryは独自の失敗分岐を所有しない。
+ * @invariant compileSemanticIrFromRepositoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 検証済みRepository入力とSemantic Compilerの境界。
+ * @security N/A: compileSemanticIrFromRepositoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: compileSemanticIrFromRepositoryは共有非同期状態を持たない同期処理である。
+ */
 export function compileSemanticIrFromRepository(
   capability: VerifiedRepositoryRoot,
   sourceDocument: string,
@@ -237,6 +340,22 @@ export function compileSemanticIrFromRepository(
   };
 }
 
+/**
+ * Quality Definition群を観測してSemantic Relationへ変換する。
+ *
+ * @responsibility 一つでも観測不能な入力がある場合に部分Relationを返さない。
+ * @trace ARCH-000008
+ * @input capability: VerifiedRepositoryRoot、sourceDocuments: readonly string[]、semanticIrs: readonly SemanticIr[]
+ * @returns compileQualitySemanticRelationsFromRepositoryの計算結果を返す。
+ * @precondition capability: VerifiedRepositoryRoot、sourceDocuments: readonly string[]、semanticIrs: readonly SemanticIr[]がcompileQualitySemanticRelationsFromRepositoryの入力契約を満たす。
+ * @postcondition compileQualitySemanticRelationsFromRepositoryの責務を完了した結果だけを返す。
+ * @effect N/A: compileQualitySemanticRelationsFromRepositoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: compileQualitySemanticRelationsFromRepositoryは独自の失敗分岐を所有しない。
+ * @invariant compileQualitySemanticRelationsFromRepositoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary Repository入力とQuality Relation Compilerの境界。
+ * @security N/A: compileQualitySemanticRelationsFromRepositoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: compileQualitySemanticRelationsFromRepositoryは共有非同期状態を持たない同期処理である。
+ */
 export function compileQualitySemanticRelationsFromRepository(
   capability: VerifiedRepositoryRoot,
   sourceDocuments: readonly string[],
@@ -255,6 +374,22 @@ export function compileQualitySemanticRelationsFromRepository(
   };
 }
 
+/**
+ * 前提診断を確認してApplication向けCoverage Graph結果を生成する。
+ *
+ * @responsibility Domain Issueを公開Diagnosticへ変換し、部分Graphを公開しない。
+ * @trace ARCH-000008
+ * @input semanticIrs: readonly SemanticIr[]、manifests: readonly LoadedRealitySymbolManifest[]、qualityRelations: readonly QualitySemanticRelation[]、prerequisiteFindings: readonly SemanticCoverageDiagnostic[]
+ * @returns Readonly<{ graph: SemanticCoverageGraph | null; findings: readonly SemanticCoverageDiagnostic[]; }>を返す。
+ * @precondition semanticIrs: readonly SemanticIr[]、manifests: readonly LoadedRealitySymbolManifest[]、qualityRelations: readonly QualitySemanticRelation[]、prerequisiteFindings: readonly SemanticCoverageDiagnostic[]がcreateSemanticCoverageGraphの入力契約を満たす。
+ * @postcondition createSemanticCoverageGraphの責務を完了した結果だけを返す。
+ * @effect N/A: createSemanticCoverageGraphは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createSemanticCoverageGraphは独自の失敗分岐を所有しない。
+ * @invariant createSemanticCoverageGraphは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createSemanticCoverageGraphはProcess内の同一Subsystemで完結する。
+ * @security N/A: createSemanticCoverageGraphはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createSemanticCoverageGraphは共有非同期状態を持たない同期処理である。
+ */
 export function createSemanticCoverageGraph(
   semanticIrs: readonly SemanticIr[],
   manifests: readonly LoadedRealitySymbolManifest[],

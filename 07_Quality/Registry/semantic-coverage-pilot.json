@@ -230,7 +230,7 @@
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
-          "QA-000005/CPR-01"
+          "QA-000005/CPR-IT-001"
         ],
         "testSymbolIds": [
           "coordinator.task-runtime-integration"
@@ -248,7 +248,7 @@
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
-          "QA-000003/PRL-03"
+          "QA-000003/PRL-ST-003"
         ],
         "testSymbolIds": [
           "coordinator.task-process-integration"
@@ -266,7 +266,7 @@
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
-          "QA-000006/ERB-05"
+          "QA-000006/ERB-ST-005"
         ],
         "testSymbolIds": [
           "coordinator.native-runtime-trace-integration"
@@ -283,7 +283,7 @@
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
-          "QA-000003/PRL-01"
+          "QA-000003/PRL-ST-001"
         ],
         "testSymbolIds": [
           "coordinator.task-runtime-integration"
@@ -301,7 +301,7 @@
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
-          "QA-000003/PRL-05"
+          "QA-000003/PRL-IT-005"
         ],
         "testSymbolIds": [
           "coordinator.provider-authority-unit"
@@ -318,7 +318,7 @@
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
-          "QA-000006/ERB-06"
+          "QA-000006/ERB-IT-006"
         ],
         "testSymbolIds": [
           "coordinator.provider-selection-unit"
@@ -337,7 +337,7 @@
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
-          "QA-000003/PRL-04"
+          "QA-000003/PRL-ST-004"
         ],
         "testSymbolIds": [
           "coordinator.signed-recovery-matrix-system",
@@ -353,7 +353,7 @@
         "implementationSymbolIds": [],
         "implementationObservation": "unobserved",
         "qualityLocalIds": [
-          "QA-000010/AIT-01"
+          "QA-000010/AIT-IT-001"
         ],
         "testSymbolIds": [],
         "testObservation": "unobserved"
@@ -369,7 +369,7 @@
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
-          "QA-000003/PRL-07"
+          "QA-000003/PRL-UT-007"
         ],
         "testSymbolIds": [
           "project-runtime.human-decision-unit",
@@ -389,7 +389,7 @@
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
-          "QA-000003/PRL-04"
+          "QA-000003/PRL-ST-004"
         ],
         "testSymbolIds": [
           "coordinator.project-runtime-durable-foundation-integration"
@@ -406,7 +406,7 @@
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
-          "QA-000004/PPR-08"
+          "QA-000004/PPR-UAT-008"
         ],
         "testSymbolIds": [
           "project-runtime.execution-observation-unit"
@@ -426,7 +426,7 @@
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
-          "QA-000003/PRL-01"
+          "QA-000003/PRL-ST-001"
         ],
         "testSymbolIds": [
           "project-runtime.integration-application-unit",
@@ -446,7 +446,7 @@
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
-          "QA-000004/PPR-01"
+          "QA-000004/PPR-IT-001"
         ],
         "testSymbolIds": [
           "project-runtime.state-query-unit",
@@ -466,7 +466,7 @@
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
-          "QA-000003/PRL-11"
+          "QA-000003/PRL-IT-011"
         ],
         "testSymbolIds": [
           "project-runtime.state-unit"
@@ -485,7 +485,7 @@
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
-          "QA-000003/PRL-04"
+          "QA-000003/PRL-ST-004"
         ],
         "testSymbolIds": [
           "coordinator.project-runtime-durable-foundation-integration",
@@ -504,7 +504,7 @@
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
-          "QA-000003/PRL-05"
+          "QA-000003/PRL-IT-005"
         ],
         "testSymbolIds": [
           "project-runtime.objective-intake-unit"
@@ -521,7 +521,7 @@
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
-          "QA-000003/PRL-12"
+          "QA-000003/PRL-IT-012"
         ],
         "testSymbolIds": [
           "project-runtime.public-contract-unit"

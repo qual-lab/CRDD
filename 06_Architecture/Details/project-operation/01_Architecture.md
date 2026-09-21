@@ -27,6 +27,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Deployment | Required | ContextごとのRepository同居・分離が情報境界に影響する。 | [§8](#8-任意repository構造) |
 | Observability | Required | 各表示値からSource、Revision、観測時点へ戻れるようにする。 | [§7](#7-project-management-projection) |
 | Security Boundary | Required | Repository分離と利用可能性を保ち、非公開内容の存在を漏らさない。 | [§3](#3-repository分離とアクセス境界) |
+| Implementation Structure | Required | 設計責務を具象差、選択、状態依存、構成、資源Ownerおよび外部境界へ分解する。 | [§Implementation Structure](#implementation-structure) |
 
 `N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
 
@@ -52,12 +53,12 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 ## Qualityへの引渡し
 
-| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
-|---|---|---|---|---|---|---|
-| Topic／Meeting lifecycle | IDと基準Revision | 候補から明示採用 | 二重正本、競合更新、媒体名誤分類 | status、source、relation | 採否後の候補処置 | 物理保存形式はDevelopmentで選択 |
-| Project Projection | 複数正本 | 根拠・欠測付きread model | restricted漏えい、staleのcurrent化 | source coverageとobserved_at | 正本Effect 0 | 表示構成はUI実装で選択 |
+| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|---|---|---|
+| `project-operation.context-lifecycle` | Transition／Consistency | IDと基準Revision | 候補から明示採用 | 二重正本、競合更新、媒体名誤分類 | IT／UAT | User Acceptance | status、source、relation | 採否後の候補処置 | 物理保存形式はDevelopmentで選択 |
+| `project-operation.project-projection` | Flow／Consistency | 複数正本 | 根拠・欠測付きread model | restricted漏えい、staleのcurrent化 | IT／ST／UAT | User Acceptance | source coverageとobserved_at | 正本Effect 0 | 表示構成はUI実装で選択 |
 
-Project ProjectionからObjective／Milestone Acceptance Decision PortのAuthorityを生成せず、SPEC-000006／SPEC-000007の読取り要求は正本Effect 0で終了する。
+導出キーは本領域内でQualityが同じ設計項目を反復参照するための局所参照であり、CRDD全体の安定コンテキストIDではない。
 
 ## 現行実装との照合
 
@@ -411,16 +412,33 @@ created ──→ under_review
 
 Candidateは`candidate_id`、source identity／revision、target owner、作成時点、状態、採否理由を持つ。本文または一時生成物はRuntime Dataの保持規則で清掃できるが、採否と正本へのrelationを再構成するための最小記録は保持する。Projectionは再生成可能であり正本化しない。清掃はOwner、参照、Recovery義務を確認した後にだけ行う。
 
+## Implementation Structure
+
+| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
+|---|---|---|---|---|---|---|
+| Variation | Required | この観点を成立させる構造と責務が存在するため。 | Qualityへの引渡しで責務差を別の設計項目として固定する。 | 具象差を一つの分岐へ畳まず、各導出キーの正常条件と反証条件を保つ。 | 新しい具象を追加した場合、対応する導出キーと利用側の再確認が必要になる。 | `project-operation.context-lifecycle`<br>`project-operation.project-projection` |
+| Common Contract | Required | この観点を成立させる構造と責務が存在するため。 | Project、Commercial、Topic、Meeting等のContextを、Identity、Relation、LifecycleとProjectionの共通契約へ揃える。 | Context固有Schemaを保ちながら、Projectとの結合、Currentness、Sourceおよび利用不能を同じ境界で扱う。 | 新しいContextが独自Project複製や独自状態台帳を作り、横断Projectionが推測依存になる。 | `project-operation.context-lifecycle`<br>`project-operation.project-projection` |
+| Creation／Selection | N/A | 本領域は独立した具象生成・選択責務を持たず、上位から固定入力を受ける。 | 本領域は独立した具象生成・選択責務を持たず、上位から固定入力を受ける。 | 生成・選択判断を本領域へ追加しない。 | 将来生成・選択責務を追加する場合に再評価する。 | N/A |
+| State-dependent Behavior | Required | この観点を成立させる構造と責務が存在するため。 | 入力・処理中・完了・失敗・観測不能を区別して振る舞いを決める。 | 状態を空値や成功へ畳まず、同じIdentityで終了条件まで追跡する。 | 状態追加・統合はRecoveryと観測契約へ波及する。 | `project-operation.context-lifecycle` |
+| Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | 複数の局所責務を公開結果へ合成し、部分成立と全体成立を分ける。 | 各局所結果を保持し、必要な全要素が揃うまで上位完成を表示しない。 | 構成要素の追加時は完成条件と全Consumerを再確認する。 | `project-operation.context-lifecycle`<br>`project-operation.project-projection` |
+| Lifecycle Ownership | Required | この観点を成立させる構造と責務が存在するため。 | Process、Handle、一時物、秘密または公開SnapshotのOwnerと終了条件を固定する。 | 成功・失敗・取消の全経路で資源回収または同一Identityの回復義務を残す。 | Owner変更は取消、Recovery、終了後条件へ波及する。 | `project-operation.project-projection` |
+| External Boundary | Required | この観点を成立させる構造と責務が存在するため。 | 外部境界ごとに要求、受理、Effect、結果搬送および終了後状態を分ける。 | 境界の成功を要求発行だけから推定せず、段階に応じた観測を必須にする。 | 境界変更は直接境界からSystem／E2Eまでの検証範囲へ波及する。 | `project-operation.project-projection` |
+
+同じ責務へ二つ目の具象実装を追加する場合は、共通契約へ昇格するかを評価する。昇格しない場合は、同じ責務ではない、または局所分岐の方が単純で影響が小さい理由を記録する。特定のDesign Pattern名は必須にしない。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した
-- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] 10種類の詳細成果物を全数Applicability判定した
 - [x] Requiredを実在する節または成果物へ接続した
 - [x] N/AにArchitecture上の理由を記録した
 - [x] 8種類のEngineering Concernを全数評価した
 - [x] PASSを設計済みの意味に限定した
 - [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
 - [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] 7種類のImplementation Structure観点を全数Applicability判定した
+- [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
+- [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
 - [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した

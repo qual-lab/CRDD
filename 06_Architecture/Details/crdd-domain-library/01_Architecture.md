@@ -255,6 +255,7 @@ MCPとWorkbenchは将来Consumer候補であり、現在接続済みとは表示
 | Deployment | Required | `40_Develop`を実装正本、`template/tools`を薄い入口と設定配置に限定する。 | [§6](#6-配布と開発の境界) |
 | Observability | Required | 公開APIとConsumer集合のClosure条件を固定する。 | [§7](#7-consumer-closure) |
 | Security Boundary | Required | Root検証、link非追従、読取りと書込みEffectの分離を維持する。 | [§8](#8-security境界) |
+| Implementation Structure | Required | 設計責務を具象差、選択、状態依存、構成、資源Ownerおよび外部境界へ分解する。 | [§Implementation Structure](#implementation-structure) |
 
 ## Engineering Concern評価
 
@@ -278,32 +279,49 @@ MCPとWorkbenchは将来Consumer候補であり、現在接続済みとは表示
 
 ## Qualityへの引渡し
 
-| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
-|---|---|---|---|---|---|---|
-| Dependency Direction | Domain、Checker、Repository基盤 | DomainからCheckerへのimportが0 | DomainがChecker型、RuleまたはCLIをimport | import graph | 禁止逆依存0 | 将来Consumer接続時の再確認 |
-| Public Surface | Capability別公開入口 | 利用側が宣言済み`index.ts`だけをimport | deep import、巨大Barrel、未宣言export | export集合とConsumer import集合 | 集合差分0 | 将来公開API追加時の再確認 |
-| Source Layout | CRDD所有Source | Directoryが責務を表し、Package Rootへ任意Sourceがない | 汎用`internal`、Root直下の`.ts`、Owner不明の共通置場 | Source tree | 禁止Path 0 | 別Subsystem変更時の再確認 |
-| Consumer Closure | launcher、CLI、Script、試験 | 全Consumerが現在の入口を利用 | 旧Path残存、宣言漏れ、未知Consumer | 宣言集合と自動導出集合 | 集合差分0 | 将来Consumer接続時の再確認 |
-| Result Boundary | Domain IssueとSurface固有結果 | 中立IssueをSurface Adapterが変換 | Domainがseverity、Checker code、exit codeを決定 | 型と契約試験 | DomainからChecker型への依存0 | MCP／Workbench表示Adapter |
-| Repository Boundary | Repository観測と公開Effect | 検証済みRoot内のregular fileだけを観測 | Root外読取り、link先を確認済み扱い | 境界反証fixture | Handleと一時物0 | 代替Version Control Adapter |
-| Distribution Identity | launcherと同じ基準版Rootの実装 | launcherが公開APIだけへ接続 | `template/tools`内の実装コピー、別版へのfallback | launcher target／配布Identity | launcher内の業務ロジック0 | 採用Repositoryでの配布実測 |
+| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|---|---|---|
+| `crdd-domain-library.dependency-direction` | Implementation Structure | Domain、Checker、Repository基盤 | DomainからCheckerへのimportが0 | DomainがChecker型、RuleまたはCLIをimport | UT | N/A | import graph | 禁止逆依存0 | 将来Consumer接続時の再確認 |
+| `crdd-domain-library.public-surface` | Interface／Implementation Structure | Capability別公開入口 | 利用側が宣言済み`index.ts`だけをimport | deep import、巨大Barrel、未宣言export | UT／IT | Direct Boundary | export集合とConsumer import集合 | 集合差分0 | 将来公開API追加時の再確認 |
+| `crdd-domain-library.source-layout` | Implementation Structure | CRDD所有Source | Directoryが責務を表し、Package Rootへ任意Sourceがない | 汎用`internal`、Root直下の`.ts`、Owner不明の共通置場 | UT | N/A | Source tree | 禁止Path 0 | 別Subsystem変更時の再確認 |
+| `crdd-domain-library.consumer-closure` | Flow／Consistency | launcher、CLI、Script、試験 | 全Consumerが現在の入口を利用 | 旧Path残存、宣言漏れ、未知Consumer | IT | Related 2 Blocks | 宣言集合と自動導出集合 | 集合差分0 | 将来Consumer接続時の再確認 |
+| `crdd-domain-library.result-boundary` | Interface | Domain IssueとSurface固有結果 | 中立IssueをSurface Adapterが変換 | Domainがseverity、Checker code、exit codeを決定 | UT／IT | Direct Boundary | 型と契約試験 | DomainからChecker型への依存0 | MCP／Workbench表示Adapter |
+| `crdd-domain-library.repository-boundary` | Interface／Failure-Recovery | Repository観測と公開Effect | 検証済みRoot内のregular fileだけを観測 | Root外読取り、link先を確認済み扱い | IT | Direct Boundary | 境界反証fixture | Handleと一時物0 | 代替Version Control Adapter |
+| `crdd-domain-library.distribution-identity` | Interface／Deployment | launcherと同じ基準版Rootの実装 | launcherが公開APIだけへ接続 | `template/tools`内の実装コピー、別版へのfallback | IT／ST | Related 2 Blocks | launcher target／配布Identity | launcher内の業務ロジック0 | 採用Repositoryでの配布実測 |
 
-実装、試験、移行および現在の適合状態は、本書へ進捗として追記せず、Quality成果物、Reality AuditおよびCHG-000076で確認する。
+導出キーは本領域内でQualityが同じ設計項目を反復参照するための局所参照であり、CRDD全体の安定コンテキストIDではない。
 
 ## 現行実装との照合
 
 本書は現在あるべき設計を所有し、現行Sourceを設計の根拠として逆輸入しない。Source、Test、package、配布物およびEvidenceとの一致は、Canonical設計固定後のReality Auditで照合する。移行中のPath対応、実行結果および残るGateはCHG-000076で追跡する。
 
+## Implementation Structure
+
+| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
+|---|---|---|---|---|---|---|
+| Variation | Required | この観点を成立させる構造と責務が存在するため。 | Qualityへの引渡しで責務差を別の設計項目として固定する。 | 具象差を一つの分岐へ畳まず、各導出キーの正常条件と反証条件を保つ。 | 新しい具象を追加した場合、対応する導出キーと利用側の再確認が必要になる。 | `crdd-domain-library.dependency-direction`<br>`crdd-domain-library.public-surface`<br>`crdd-domain-library.source-layout`<br>`crdd-domain-library.consumer-closure`<br>`crdd-domain-library.result-boundary`<br>`crdd-domain-library.repository-boundary`<br>`crdd-domain-library.distribution-identity` |
+| Common Contract | Required | この観点を成立させる構造と責務が存在するため。 | Artifact、Relation、Repository ObservationおよびResultを、Checker／MCP／Workbenchから再利用できるDomain契約として公開する。 | Domain型はCLIやFilesystemの具象を所有せず、各Consumerが同じ意味と結果語彙を利用する。 | Consumer別の類似型・変換・例外語彙が増え、同じCRDD意味が分岐する。 | `crdd-domain-library.public-surface`<br>`crdd-domain-library.result-boundary`<br>`crdd-domain-library.repository-boundary` |
+| Creation／Selection | N/A | 本領域は独立した具象生成・選択責務を持たず、上位から固定入力を受ける。 | 本領域は独立した具象生成・選択責務を持たず、上位から固定入力を受ける。 | 生成・選択判断を本領域へ追加しない。 | 将来生成・選択責務を追加する場合に再評価する。 | N/A |
+| State-dependent Behavior | N/A | 独立した状態遷移を所有せず、構造契約だけを扱う。 | 独立した状態遷移を所有せず、構造契約だけを扱う。 | 状態を新設する場合はOwnerと遷移を再設計する。 | 現時点では非該当。 | N/A |
+| Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | 複数の局所責務を公開結果へ合成し、部分成立と全体成立を分ける。 | 各局所結果を保持し、必要な全要素が揃うまで上位完成を表示しない。 | 構成要素の追加時は完成条件と全Consumerを再確認する。 | `crdd-domain-library.dependency-direction`<br>`crdd-domain-library.public-surface`<br>`crdd-domain-library.source-layout`<br>`crdd-domain-library.consumer-closure`<br>`crdd-domain-library.result-boundary`<br>`crdd-domain-library.repository-boundary`<br>`crdd-domain-library.distribution-identity` |
+| Lifecycle Ownership | Required | この観点を成立させる構造と責務が存在するため。 | Process、Handle、一時物、秘密または公開SnapshotのOwnerと終了条件を固定する。 | 成功・失敗・取消の全経路で資源回収または同一Identityの回復義務を残す。 | Owner変更は取消、Recovery、終了後条件へ波及する。 | `crdd-domain-library.distribution-identity` |
+| External Boundary | Required | この観点を成立させる構造と責務が存在するため。 | 外部境界ごとに要求、受理、Effect、結果搬送および終了後状態を分ける。 | 境界の成功を要求発行だけから推定せず、段階に応じた観測を必須にする。 | 境界変更は直接境界からSystem／E2Eまでの検証範囲へ波及する。 | `crdd-domain-library.distribution-identity` |
+
+同じ責務へ二つ目の具象実装を追加する場合は、共通契約へ昇格するかを評価する。昇格しない場合は、同じ責務ではない、または局所分岐の方が単純で影響が小さい理由を記録する。特定のDesign Pattern名は必須にしない。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した
-- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] 10種類の詳細成果物を全数Applicability判定した
 - [x] Requiredを実在する節または成果物へ接続した
 - [x] N/AにArchitecture上の理由を記録した
 - [x] 8種類のEngineering Concernを全数評価した
 - [x] PASSを設計済みの意味に限定した
 - [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
 - [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] 7種類のImplementation Structure観点を全数Applicability判定した
+- [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
+- [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
 - [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した

@@ -26,6 +26,7 @@ Relation状態はこの領域が担当する責務断面に対する状態であ
 | Deployment | Required／N/A | | [§7](#7-deployment) |
 | Observability | Required／N/A | | [§8](#8-observability) |
 | Security Boundary | Required／N/A | | [§9](#9-security-boundary) |
+| Implementation Structure | Required／N/A | | [§10](#10-implementation-structure) |
 
 `N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
 
@@ -51,9 +52,11 @@ Relation状態はこの領域が担当する責務断面に対する状態であ
 
 ## Qualityへの引渡し
 
-| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
-|---|---|---|---|---|---|---|
-| （検証単位） | | | | | | |
+| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|---|---|---|
+| `<領域内で一意な局所参照>` | `<Component／Interface／Flow／Transition／Sequence／Failure-Recovery／Implementation Structure>` | | | | `<UT／IT／ST／UAT>` | `<N/A／Direct Boundary／Adjacent 1 Block／Related 2 Blocks／System/E2E／User Acceptance>` | | | |
+
+導出キーはCRDD全体の安定コンテキストIDではない。同じ設計項目をQualityから反復参照し、名称や位置だけでは関係が不安定になる場合に付与する。図は人間可読な投影とし、検証義務の厳密な導出条件は本表または参照先の構造化された表が所有する。
 
 ## 現行実装との照合
 
@@ -95,18 +98,37 @@ Process、package、Repository、OSまたはNetwork配置が意味へ影響す�
 
 Trust、Authority、秘密、情報開示、許可されたEffectと拒否時Effect 0を示す。
 
+## 10. Implementation Structure
+
+| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
+|---|---|---|---|---|---|---|
+| Variation | Required／N/A／OPEN | | | | | |
+| Common Contract | Required／N/A／OPEN | | | | | |
+| Creation／Selection | Required／N/A／OPEN | | | | | |
+| State-dependent Behavior | Required／N/A／OPEN | | | | | |
+| Composition／Recursion | Required／N/A／OPEN | | | | | |
+| Lifecycle Ownership | Required／N/A／OPEN | | | | | |
+| External Boundary | Required／N/A／OPEN | | | | | |
+
+同じ責務へ二つ目の具象実装を追加する場合は、共通契約へ昇格するかを評価する。昇格しない場合は、同じ責務ではない、または局所分岐の方が単純で影響が小さい理由を記録する。Provider／Platform差、具象選択、状態判断の分散、同型構造の入れ子・連鎖、Rule重複、Resource Ownerの複数化、外部SDK型の流入、Copy & Pasteおよび巨大な具象型分岐を再評価契機にする。特定のDesign Pattern名は必須にしない。
+
+7観点は全数評価する。`N/A`は不要な理由、`OPEN`は未解決理由、現在の影響、確認先および再評価契機を判定理由へ記載する。
+
 ## Checklist
 
 結果は`[x]`、未評価は`[ ]`、未完了は`OPEN: 理由`、不適合は`FAIL: 理由`、非該当は`N/A: 理由`で記録する。
 
 - [ ] 関連するARCH-IDと担当する責務断面を明示した
-- [ ] 9種類の詳細成果物を全数Applicability判定した
+- [ ] 10種類の詳細成果物を全数Applicability判定した
 - [ ] Requiredを実在する節または成果物へ接続した
 - [ ] N/AにArchitecture上の理由を記録した
 - [ ] 8種類のEngineering Concernを全数評価した
 - [ ] PASSを設計済みの意味に限定した
 - [ ] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
 - [ ] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [ ] 7種類のImplementation Structure観点を全数Applicability判定した
+- [ ] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
+- [ ] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
 - [ ] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
 - [ ] Human Inputの必要性とOpen／Gapを評価した
 - [ ] 現行実装との照合をReality Auditとして分離した

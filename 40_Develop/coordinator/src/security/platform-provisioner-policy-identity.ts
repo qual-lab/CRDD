@@ -4,6 +4,22 @@ import { describePlatformKeyStoragePolicyContract } from "./platform-key-storage
 import { canonicalizeProvisioningJsonValueCandidate } from "./provisioning-signature-primitives.ts";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.ts";
 
+/**
+ * canonicalPolicyHashの処理を実行する。
+ *
+ * @responsibility canonicalPolicyHashに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input policy: unknown
+ * @returns canonicalPolicyHashの計算結果を返す。
+ * @precondition 「policy: unknown」がcanonicalPolicyHashの入力契約を満たす。
+ * @postcondition canonicalPolicyHashの責務を完了した結果だけを返す。
+ * @effect N/A: canonicalPolicyHashは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure canonicalPolicyHashは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant canonicalPolicyHashは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: canonicalPolicyHashはProcess内の同一Subsystemで完結する。
+ * @security canonicalPolicyHashはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: canonicalPolicyHashは共有非同期状態を持たない同期処理である。
+ */
 function canonicalPolicyHash(policy: unknown) {
   const canonical = canonicalizeProvisioningJsonValueCandidate(policy);
   if (canonical.status !== "candidate") {
@@ -12,6 +28,22 @@ function canonicalPolicyHash(policy: unknown) {
   return createHash("sha256").update(canonical.canonicalBytes).digest("hex");
 }
 
+/**
+ * getPlatformProvisionerPolicyIdentityの処理を実行する。
+ *
+ * @responsibility getPlatformProvisionerPolicyIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns getPlatformProvisionerPolicyIdentityの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がgetPlatformProvisionerPolicyIdentityの入力契約を満たす。
+ * @postcondition getPlatformProvisionerPolicyIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: getPlatformProvisionerPolicyIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: getPlatformProvisionerPolicyIdentityは独自の失敗分岐を所有しない。
+ * @invariant getPlatformProvisionerPolicyIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: getPlatformProvisionerPolicyIdentityはProcess内の同一Subsystemで完結する。
+ * @security getPlatformProvisionerPolicyIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: getPlatformProvisionerPolicyIdentityは共有非同期状態を持たない同期処理である。
+ */
 export function getPlatformProvisionerPolicyIdentity() {
   return Object.freeze({
     rootProtectionPolicySha256: canonicalPolicyHash(
@@ -23,6 +55,22 @@ export function getPlatformProvisionerPolicyIdentity() {
   });
 }
 
+/**
+ * describePlatformProvisionerPolicyIdentityContractの処理を実行する。
+ *
+ * @responsibility describePlatformProvisionerPolicyIdentityContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describePlatformProvisionerPolicyIdentityContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribePlatformProvisionerPolicyIdentityContractの入力契約を満たす。
+ * @postcondition describePlatformProvisionerPolicyIdentityContractの責務を完了した結果だけを返す。
+ * @effect N/A: describePlatformProvisionerPolicyIdentityContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describePlatformProvisionerPolicyIdentityContractは独自の失敗分岐を所有しない。
+ * @invariant describePlatformProvisionerPolicyIdentityContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describePlatformProvisionerPolicyIdentityContractはProcess内の同一Subsystemで完結する。
+ * @security describePlatformProvisionerPolicyIdentityContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describePlatformProvisionerPolicyIdentityContractは共有非同期状態を持たない同期処理である。
+ */
 export function describePlatformProvisionerPolicyIdentityContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-policy-identity",

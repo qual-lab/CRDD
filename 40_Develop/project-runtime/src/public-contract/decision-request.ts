@@ -3,6 +3,17 @@ import { snapshotPlainRecord } from "../boundary/plain-data-snapshot.ts";
 export const PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT =
   "crdd-coordinator/project-runtime-human-decision/v1" as const;
 
+/**
+ * ProjectRuntimeDecisionRequestが扱う値の構造を表す。
+ *
+ * @responsibility ProjectRuntimeDecisionRequestに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeDecisionRequestが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeDecisionRequestで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeDecisionRequestの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimeDecisionRequestはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimeDecisionRequestの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeDecisionRequest = Readonly<{
   decisionId: string;
   projectId: string;
@@ -28,6 +39,22 @@ const decisionKeysWithComment = new Set([
   "comment",
 ] as const);
 
+/**
+ * validIdの処理を実行する。
+ *
+ * @responsibility validIdに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidIdの入力契約を満たす。
+ * @postcondition validIdの責務を完了した結果だけを返す。
+ * @effect N/A: validIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validIdは独自の失敗分岐を所有しない。
+ * @invariant validIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validIdはProcess内の同一Subsystemで完結する。
+ * @security N/A: validIdはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validIdは共有非同期状態を持たない同期処理である。
+ */
 function validId(value: unknown): value is string {
   return (
     typeof value === "string" &&
@@ -35,10 +62,42 @@ function validId(value: unknown): value is string {
   );
 }
 
+/**
+ * validRevisionの処理を実行する。
+ *
+ * @responsibility validRevisionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidRevisionの入力契約を満たす。
+ * @postcondition validRevisionの責務を完了した結果だけを返す。
+ * @effect N/A: validRevisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validRevisionは独自の失敗分岐を所有しない。
+ * @invariant validRevisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validRevisionはProcess内の同一Subsystemで完結する。
+ * @security N/A: validRevisionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validRevisionは共有非同期状態を持たない同期処理である。
+ */
 function validRevision(value: unknown): value is string {
   return typeof value === "string" && /^[0-9a-f]{40,64}$/u.test(value);
 }
 
+/**
+ * validCapabilityの処理を実行する。
+ *
+ * @responsibility validCapabilityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidCapabilityの入力契約を満たす。
+ * @postcondition validCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: validCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validCapabilityは独自の失敗分岐を所有しない。
+ * @invariant validCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validCapabilityはProcess内の同一Subsystemで完結する。
+ * @security N/A: validCapabilityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validCapabilityは共有非同期状態を持たない同期処理である。
+ */
 function validCapability(value: unknown): value is string {
   return (
     typeof value === "string" &&
@@ -48,6 +107,22 @@ function validCapability(value: unknown): value is string {
   );
 }
 
+/**
+ * validCommentの処理を実行する。
+ *
+ * @responsibility validCommentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidCommentの入力契約を満たす。
+ * @postcondition validCommentの責務を完了した結果だけを返す。
+ * @effect N/A: validCommentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validCommentは独自の失敗分岐を所有しない。
+ * @invariant validCommentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validCommentはProcess内の同一Subsystemで完結する。
+ * @security N/A: validCommentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validCommentは共有非同期状態を持たない同期処理である。
+ */
 function validComment(value: unknown): value is string {
   return (
     typeof value === "string" &&
@@ -56,6 +131,22 @@ function validComment(value: unknown): value is string {
   );
 }
 
+/**
+ * inspectProjectRuntimeDecisionRequestの処理を実行する。
+ *
+ * @responsibility inspectProjectRuntimeDecisionRequestに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns ProjectRuntimeDecisionRequest | nullを返す。
+ * @precondition 「value: unknown」がinspectProjectRuntimeDecisionRequestの入力契約を満たす。
+ * @postcondition inspectProjectRuntimeDecisionRequestの責務を完了した結果だけを返す。
+ * @effect N/A: inspectProjectRuntimeDecisionRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectProjectRuntimeDecisionRequestは独自の失敗分岐を所有しない。
+ * @invariant inspectProjectRuntimeDecisionRequestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectProjectRuntimeDecisionRequestはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectProjectRuntimeDecisionRequestはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectProjectRuntimeDecisionRequestは共有非同期状態を持たない同期処理である。
+ */
 export function inspectProjectRuntimeDecisionRequest(
   value: unknown,
 ): ProjectRuntimeDecisionRequest | null {

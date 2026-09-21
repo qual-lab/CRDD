@@ -94,6 +94,8 @@ Related:
 
 対象範囲について次の責務を適用範囲で判定する。
 
+[任意機能と必須評価](03_Documentation.md#mandatory-applicability-evaluation)に従い、Design Patternの採用自体は必須にしないが、Variation Point、Common Contract、Creation／Selection、State-dependent Behavior、Composition／Recursion、Lifecycle OwnershipおよびExternal Boundaryの適用判断は省略しない。非該当は理由を示し、未検討または情報不足を`Not Applicable`へ畳まない。
+
 | 責務 | 実装で明らかにすること |
 |---|---|
 | 対象範囲とトレース | 変更トレース、UI / SPEC、アーキテクチャ、受入条件、変更対象へのトレース |

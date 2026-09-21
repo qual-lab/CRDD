@@ -28,6 +28,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Deployment | Required | 独立package境界とHostが注入するAdapterを示す。 | [§2](#2-package境界) |
 | Observability | Required | 公開入口から状態、理由、Recovery Identityを観測できるようにする。 | [§10](#10-完成境界) |
 | Security Boundary | Required | CoreがHost AuthorityやProvider Credentialを生成しない。 | [§6](#6-状態authority資源) |
+| Implementation Structure | Required | Port具象、状態依存、Task構成、資源Ownerおよび外部実行境界を固定する。 | [§11](#11-implementation-structure) |
 
 `N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
 
@@ -53,11 +54,11 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 ## Qualityへの引渡し
 
-| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
-|---|---|---|---|---|---|---|
-| Task lifecycle | ObjectiveとTask identity | 許可された状態遷移 | 競合、親喪失、取消、Effect不明 | state、owner、recovery ID | lease／resource 0または義務 | なし |
-| Objective／Milestone受入判断 | 対象Identity、根拠Revision、Project運営者の明示判断 | 受入・差戻し・判断待ちを別状態で一度記録し、Objective受入済みだけがMilestone判断へ進む | ProjectionからのAuthority生成、SPEC-000006／000007からの到達、Task作成、Provider Effect、下位完了からの上位受入推定、Objective差戻し／判断待ちからのMilestone判断開始 | decision type、owner、source revision、effect count | 対象Decision Record一件またはEffect 0。Objective差戻し／判断待ちではMilestone判断Effect 0 | 物理StoreはDevelopmentで選択 |
-| Public Application | 公開DTOとPort | Transport間で同じ意味 | Schemaずれ、内部Path依存 | exact result contract | 内部Effectは所有Portだけ | なし |
+| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|---|---|---|
+| `project-runtime.task-lifecycle` | State Transition／Failure-Recovery | ObjectiveとTask identity | 許可された状態遷移 | 競合、親喪失、取消、Effect不明 | UT／IT | UT: Direct Boundary<br>IT: Adjacent 1 Block | state、owner、recovery ID | lease／resource 0または義務 | なし |
+| `project-runtime.acceptance-decision` | Interface／State Transition | 対象Identity、根拠Revision、Project運営者の明示判断 | 受入・差戻し・判断待ちを別状態で一度記録し、Objective受入済みだけがMilestone判断へ進む | ProjectionからのAuthority生成、SPEC-000006／000007からの到達、Task作成、Provider Effect、下位完了からの上位受入推定、Objective差戻し／判断待ちからのMilestone判断開始 | UT／IT | Direct Boundary | decision type、owner、source revision、effect count | 対象Decision Record一件またはEffect 0。Objective差戻し／判断待ちではMilestone判断Effect 0 | 物理StoreはDevelopmentで選択 |
+| `project-runtime.public-application` | Interface／Data Flow | 公開DTOとPort | Transport間で同じ意味 | Schemaずれ、内部Path依存 | UT／IT | Adjacent 1 Block | exact result contract | 内部Effectは所有Portだけ | なし |
 
 ## 現行実装との照合
 
@@ -269,16 +270,33 @@ Coordinator CLI composition root
 
 Project Runtimeのpackage作成、Core試験合格または安全な拒否だけでは分離完了としない。全Portの実装接続、公開入口、利用側閉包、CLI／MCP stdio回帰、状態・Authority・Recoveryの意味保持、内部Path参照0および独立レビューが揃った場合だけ完成とする。
 
+## 11. Implementation Structure
+
+| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
+|---|---|---|---|---|---|---|
+| Variation | Required | この観点を成立させる構造と責務が存在するため。 | Execution、State Store、実行事実、Decision、PlatformをPortと具象Adapterへ分ける。 | Coreは具象Runtime、Transport、OS、保存方式を知らない。 | 新Adapter追加時にAuthorityや結果意味が変わる。 | `project-runtime.public-application` |
+| Common Contract | Required | この観点を成立させる構造と責務が存在するため。 | Execution、State Store、Decision、PlatformおよびCandidateの具象差を、Identity、Authority、状態遷移、結果と回復義務のPort契約へ揃える。 | Coreは具象Runtime、Transport、OS、保存方式にかかわらず同じ不変条件を適用する。 | 新Adapterだけが異なるAuthority、完了、RetryまたはRecovery意味を持つ。 | `project-runtime.public-application`<br>`project-runtime.task-lifecycle`<br>`project-runtime.acceptance-decision` |
+| Creation／Selection | Required | この観点を成立させる構造と責務が存在するため。 | 構成Rootが必要保証を満たす具象Adapterを選びApplicationへ注入する。 | Coreや利用側が環境判定から具象型を組み立てない。 | 入口ごとに異なるAdapter集合や権限が選ばれる。 | `project-runtime.public-application` |
+| State-dependent Behavior | Required | この観点を成立させる構造と責務が存在するため。 | Task、Decision、Lease、Recovery、Effect状態が許可する遷移をCoreが所有する。 | 下位完了やProjectionから上位Authorityを生成しない。 | 分散した状態分岐が二重実行や受入推定を起こす。 | `project-runtime.task-lifecycle`、`project-runtime.acceptance-decision` |
+| Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | Objective、Milestone、Task Graphを明示した親子関係と停止条件で構成する。 | 子の完了を親の受入へ自動昇格せず、循環依存を作らない。 | Graphの部分成立がProject全体の完成へ畳まれる。 | `project-runtime.task-lifecycle`、`project-runtime.acceptance-decision` |
+| Lifecycle Ownership | Required | この観点を成立させる構造と責務が存在するため。 | Task、Attempt、Lease、Queue、Decision、Recovery義務をProject RuntimeのIdentityへ結ぶ。 | Owner移送、失効またはcleanup確認まで状態を完了にしない。 | LeaseやRecovery義務を失い、同じTaskへ再入場できない。 | `project-runtime.task-lifecycle` |
+| External Boundary | Required | この観点を成立させる構造と責務が存在するため。 | Execution、Persistence、Platform、Candidate、Decision、実行知をPortで隔離する。 | AdapterはAuthorityを生成せず、閉じた要求と観測を変換する。 | OS／Transport／Provider固有の都合がCore契約を変える。 | `project-runtime.public-application` |
+
+State Store、Execution Adapter、Transport等には複数の具象実装が成立し得るため、共通Portへの昇格はRequiredである。一方、ObjectiveとMilestoneは同じ受入責務の具象実装ではなく異なる階層の判断であるため、単一の汎用Decision型へ畳まず、共有する不変条件だけを共通契約にする。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した
-- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] 10種類の詳細成果物を全数Applicability判定した
 - [x] Requiredを実在する節または成果物へ接続した
 - [x] N/AにArchitecture上の理由を記録した
 - [x] 8種類のEngineering Concernを全数評価した
 - [x] PASSを設計済みの意味に限定した
 - [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
 - [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] 7種類のImplementation Structure観点を全数Applicability判定した
+- [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
+- [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
 - [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した

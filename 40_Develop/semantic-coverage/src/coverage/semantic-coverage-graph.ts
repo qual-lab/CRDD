@@ -10,6 +10,17 @@ import type {
   DomainOutcome,
 } from "../../../crdd-domain-library/src/index.ts";
 
+/**
+ * Meaningを実装、Quality Local ItemおよびTest Symbolへ接続したGraphを表す。
+ *
+ * @responsibility Relation Ownerから得た正方向EdgeをMeaning Key単位で保持する。
+ * @trace ARCH-000008
+ * @shape SemanticCoverageGraphが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SemanticCoverageGraphで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SemanticCoverageGraphの宣言は外部境界を開かない。
+ * @security N/A: SemanticCoverageGraphはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility SemanticCoverageGraphの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type SemanticCoverageGraph = Readonly<{
   meaningsByKey: ReadonlyMap<string, SemanticIrMeaning>;
   implementationIdsByMeaningKey: ReadonlyMap<string, readonly string[]>;
@@ -17,6 +28,17 @@ export type SemanticCoverageGraph = Readonly<{
   testSymbolIdsByMeaningKey: ReadonlyMap<string, readonly string[]>;
 }>;
 
+/**
+ * Semantic Coverage Graphの機械可読な公開Projectionを表す。
+ *
+ * @responsibility 観測済みと未観測を区別し、逆方向Relationを派生表示する。
+ * @trace ARCH-000008
+ * @shape SemanticCoverageProjectionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SemanticCoverageProjectionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SemanticCoverageProjectionの宣言は外部境界を開かない。
+ * @security N/A: SemanticCoverageProjectionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility SemanticCoverageProjectionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type SemanticCoverageProjection = Readonly<{
   contract: "crdd/semantic-coverage-pilot";
   contractRevision: 0;
@@ -32,6 +54,17 @@ export type SemanticCoverageProjection = Readonly<{
   }>[];
 }>;
 
+/**
+ * Semantic IRとCoverage Projectionを同じ公開単位へ束ねる。
+ *
+ * @responsibility 同一実行で生成した意味入力とCoverage結果を分離せず搬送する。
+ * @trace ARCH-000008
+ * @shape SemanticCoverageBundleが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SemanticCoverageBundleで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SemanticCoverageBundleの宣言は外部境界を開かない。
+ * @security N/A: SemanticCoverageBundleはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility SemanticCoverageBundleの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type SemanticCoverageBundle = Readonly<{
   contract: "crdd/semantic-coverage-pilot-bundle";
   contractRevision: 0;
@@ -40,8 +73,35 @@ export type SemanticCoverageBundle = Readonly<{
   coverage: SemanticCoverageProjection;
 }>;
 
+/**
+ * 原子的公開境界へ渡す直列化済みBundle本文を表す。
+ *
+ * @responsibility 未直列化Domain値と公開予定byte列を型上で区別する。
+ * @trace ARCH-000008
+ * @shape SemanticBundleContentが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SemanticBundleContentで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SemanticBundleContentの宣言は外部境界を開かない。
+ * @security N/A: SemanticBundleContentはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility SemanticBundleContentの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type SemanticBundleContent = string;
 
+/**
+ * Semantic IR群とCoverage Graphから公開Bundleを生成する。
+ *
+ * @responsibility Subsystem順を固定し、同じGraphのProjectionを一つのBundleへ格納する。
+ * @trace ARCH-000008
+ * @input semanticIrs: readonly SemanticIr[]、graph: SemanticCoverageGraph
+ * @returns SemanticCoverageBundleを返す。
+ * @precondition semanticIrs: readonly SemanticIr[]、graph: SemanticCoverageGraphがcreateSemanticBundleの入力契約を満たす。
+ * @postcondition createSemanticBundleの責務を完了した結果だけを返す。
+ * @effect N/A: createSemanticBundleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createSemanticBundleは独自の失敗分岐を所有しない。
+ * @invariant createSemanticBundleは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createSemanticBundleはProcess内の同一Subsystemで完結する。
+ * @security N/A: createSemanticBundleはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createSemanticBundleは共有非同期状態を持たない同期処理である。
+ */
 export function createSemanticBundle(
   semanticIrs: readonly SemanticIr[],
   graph: SemanticCoverageGraph,
@@ -57,10 +117,42 @@ export function createSemanticBundle(
   };
 }
 
+/**
+ * Relation Mapの各値集合を重複除去した安定順へ正規化する。
+ *
+ * @responsibility 同じRelation入力から同じProjection順序を得られるようにする。
+ * @trace ARCH-000008
+ * @input map: Map<string, string[]>
+ * @returns N/A: sortMapValuesは戻り値を返さない。
+ * @precondition map: Map<string, string[]>がsortMapValuesの入力契約を満たす。
+ * @postcondition sortMapValuesの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: sortMapValuesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sortMapValuesは独自の失敗分岐を所有しない。
+ * @invariant 正規化後の各値集合は重複を持たず昇順である。
+ * @boundary N/A: sortMapValuesはProcess内の同一Subsystemで完結する。
+ * @security N/A: sortMapValuesはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: sortMapValuesは共有非同期状態を持たない同期処理である。
+ */
 function sortMapValues(map: Map<string, string[]>): void {
   for (const [key, values] of map) map.set(key, [...new Set(values)].sort());
 }
 
+/**
+ * 内部Graphを公開可能なCoverage Projectionへ変換する。
+ *
+ * @responsibility Meaningごとの実装・Quality・Test観測を欠落状態込みで公開する。
+ * @trace ARCH-000008
+ * @input graph: SemanticCoverageGraph
+ * @returns SemanticCoverageProjectionを返す。
+ * @precondition graph: SemanticCoverageGraphがprojectSemanticCoverageの入力契約を満たす。
+ * @postcondition projectSemanticCoverageの責務を完了した結果だけを返す。
+ * @effect N/A: projectSemanticCoverageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: projectSemanticCoverageは独自の失敗分岐を所有しない。
+ * @invariant projectSemanticCoverageは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: projectSemanticCoverageはProcess内の同一Subsystemで完結する。
+ * @security N/A: projectSemanticCoverageはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: projectSemanticCoverageは共有非同期状態を持たない同期処理である。
+ */
 function projectSemanticCoverage(
   graph: SemanticCoverageGraph,
 ): SemanticCoverageProjection {
@@ -90,6 +182,22 @@ function projectSemanticCoverage(
   };
 }
 
+/**
+ * Semantic IR、Symbol ManifestおよびQuality Relationを一つのCoverage Graphへ接続する。
+ *
+ * @responsibility 未解決、重複、曖昧Relationを検出し完全なGraphだけを返す。
+ * @trace ARCH-000008
+ * @input semanticIrs: readonly SemanticIr[]、manifests: readonly LoadedRealitySymbolManifest[]、qualityRelations: readonly QualitySemanticRelation[]、prerequisiteIssues: readonly DomainIssue[]
+ * @returns DomainOutcome<SemanticCoverageGraph>を返す。
+ * @precondition semanticIrs: readonly SemanticIr[]、manifests: readonly LoadedRealitySymbolManifest[]、qualityRelations: readonly QualitySemanticRelation[]、prerequisiteIssues: readonly DomainIssue[]がcreateSemanticCoverageGraphの入力契約を満たす。
+ * @postcondition createSemanticCoverageGraphの責務を完了した結果だけを返す。
+ * @effect N/A: createSemanticCoverageGraphは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure 前提IssueまたはRelation不整合を部分Coverageへ畳まない。
+ * @invariant 成功Graphの全Edgeは既知Meaningへ解決する。
+ * @boundary N/A: createSemanticCoverageGraphはProcess内の同一Subsystemで完結する。
+ * @security N/A: createSemanticCoverageGraphはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createSemanticCoverageGraphは共有非同期状態を持たない同期処理である。
+ */
 export function createSemanticCoverageGraph(
   semanticIrs: readonly SemanticIr[],
   manifests: readonly LoadedRealitySymbolManifest[],

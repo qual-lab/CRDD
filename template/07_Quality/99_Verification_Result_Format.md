@@ -49,9 +49,26 @@
 - 再識別に使う対象改訂版／チェックサム:
 - 確認した入口形態／観測基盤／成果物Identity／lifecycle範囲:
 - fixture／stub／fakeを使用した軸と、実境界で確認した軸:
-- 耐久状態のAuthority分類と、発行前失敗／発行後失敗／retryで観測した状態（該当する場合）:
 - 未取得範囲と品質判断への影響:
 - 補助的なツールリンク／実行ID（任意）:
+
+### 必須の適用判断
+
+| 評価対象 | 判定 | 内容／理由 | 根拠／再評価契機 |
+|---|---|---|---|
+| 安全上重要な層間搬送 | Applicable／N/A／OPEN | | |
+| 耐久状態のAuthority分類 | Applicable／N/A／OPEN | | |
+| 発行前失敗／発行後失敗／retry | Applicable／N/A／OPEN | | |
+| 残存資源／Recovery | Applicable／N/A／OPEN | | |
+| 根拠の主張軸（入口形態） | Applicable／N/A／OPEN | | |
+| 根拠の主張軸（観測基盤） | Applicable／N/A／OPEN | | |
+| 根拠の主張軸（成果物Identity） | Applicable／N/A／OPEN | | |
+| 根拠の主張軸（lifecycle） | Applicable／N/A／OPEN | | |
+| 性能試験（PT） | Applicable／N/A／OPEN | | |
+| 負荷試験（LT） | Applicable／N/A／OPEN | | |
+| 人間による判断 | Applicable／N/A／OPEN | | |
+
+`N/A`は対象外の理由を、`OPEN`は未解決理由、現在の影響、確認先および再評価契機を記録する。補助ツールの利用は任意機能であり、適用判断の代替にしない。PT／LTは`Applicable`でも、人間が今回の実行を指定していない場合は未実行理由と実行判断者を示し、自動実行しない。
 
 ## 検証項目結果
 
@@ -104,3 +121,6 @@
 - [ ] 適用関係、無効化条件および再検証条件を示した
 - [ ] Quality Centerへの反映要否を評価した
 - [ ] 保存するEvidenceと保存しない機密情報・生データを区別した
+- [ ] 11項目の必須適用判断を全数処置した
+- [ ] N/Aに理由を、OPENに理由・影響・確認先・再評価契機を記録した
+- [ ] PT／LTを人間の指定なく実行していない

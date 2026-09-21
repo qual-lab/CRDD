@@ -1,3 +1,14 @@
+/**
+ * SafeCommandReportが扱う値の構造を表す。
+ *
+ * @responsibility SafeCommandReportに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000003
+ * @shape SafeCommandReportが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SafeCommandReportで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SafeCommandReportの宣言は外部境界を開かない。
+ * @security N/A: SafeCommandReportはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility SafeCommandReportの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type SafeCommandReport = Readonly<{
   command: string;
   status: string;
@@ -61,6 +72,22 @@ const CANDIDATE_RECOVERY_ID_PATTERN =
   /^candidate-recovery\.[0-9a-f]{64}\.[0-9a-f]{64}$/u;
 const STORE_RECOVERY_ID_PATTERN = /^candidate-store-recovery\.[0-9a-f]{64}$/u;
 
+/**
+ * lookupFixedLabelの処理を実行する。
+ *
+ * @responsibility lookupFixedLabelに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input labels: Readonly<Record<string, string>>、value: unknown
+ * @returns lookupFixedLabelの計算結果を返す。
+ * @precondition 「labels: Readonly<Record<string, string>>、value: unknown」がlookupFixedLabelの入力契約を満たす。
+ * @postcondition lookupFixedLabelの責務を完了した結果だけを返す。
+ * @effect N/A: lookupFixedLabelは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: lookupFixedLabelは独自の失敗分岐を所有しない。
+ * @invariant lookupFixedLabelは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: lookupFixedLabelはProcess内の同一Subsystemで完結する。
+ * @security N/A: lookupFixedLabelはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: lookupFixedLabelは共有非同期状態を持たない同期処理である。
+ */
 function lookupFixedLabel(
   labels: Readonly<Record<string, string>>,
   value: unknown,
@@ -69,9 +96,41 @@ function lookupFixedLabel(
     ? labels[value]
     : undefined;
 }
+/**
+ * describeReportedBooleanの処理を実行する。
+ *
+ * @responsibility describeReportedBooleanに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input value: unknown
+ * @returns describeReportedBooleanの計算結果を返す。
+ * @precondition 「value: unknown」がdescribeReportedBooleanの入力契約を満たす。
+ * @postcondition describeReportedBooleanの責務を完了した結果だけを返す。
+ * @effect N/A: describeReportedBooleanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeReportedBooleanは独自の失敗分岐を所有しない。
+ * @invariant describeReportedBooleanは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeReportedBooleanはProcess内の同一Subsystemで完結する。
+ * @security N/A: describeReportedBooleanはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeReportedBooleanは共有非同期状態を持たない同期処理である。
+ */
 function describeReportedBoolean(value: unknown) {
   return value === true ? "あり" : value === false ? "なし" : "未確認";
 }
+/**
+ * collectRecoveryIdsの処理を実行する。
+ *
+ * @responsibility collectRecoveryIdsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input single: unknown、multiple: unknown、pattern: RegExp
+ * @returns collectRecoveryIdsの計算結果を返す。
+ * @precondition 「single: unknown、multiple: unknown、pattern: RegExp」がcollectRecoveryIdsの入力契約を満たす。
+ * @postcondition collectRecoveryIdsの責務を完了した結果だけを返す。
+ * @effect N/A: collectRecoveryIdsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: collectRecoveryIdsは独自の失敗分岐を所有しない。
+ * @invariant collectRecoveryIdsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: collectRecoveryIdsはProcess内の同一Subsystemで完結する。
+ * @security N/A: collectRecoveryIdsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: collectRecoveryIdsは共有非同期状態を持たない同期処理である。
+ */
 function collectRecoveryIds(
   single: unknown,
   multiple: unknown,
@@ -85,6 +144,22 @@ function collectRecoveryIds(
   );
 }
 
+/**
+ * renderSafeHumanCommandReportの処理を実行する。
+ *
+ * @responsibility renderSafeHumanCommandReportに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input report: SafeCommandReport
+ * @returns renderSafeHumanCommandReportの計算結果を返す。
+ * @precondition 「report: SafeCommandReport」がrenderSafeHumanCommandReportの入力契約を満たす。
+ * @postcondition renderSafeHumanCommandReportの責務を完了した結果だけを返す。
+ * @effect N/A: renderSafeHumanCommandReportは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: renderSafeHumanCommandReportは独自の失敗分岐を所有しない。
+ * @invariant renderSafeHumanCommandReportは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: renderSafeHumanCommandReportはProcess内の同一Subsystemで完結する。
+ * @security N/A: renderSafeHumanCommandReportはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: renderSafeHumanCommandReportは共有非同期状態を持たない同期処理である。
+ */
 export function renderSafeHumanCommandReport(report: SafeCommandReport) {
   const commandLabel =
     lookupFixedLabel(COMMAND_LABELS, report.command) ?? "操作不明";
@@ -218,6 +293,22 @@ export function renderSafeHumanCommandReport(report: SafeCommandReport) {
   return `${lines.join("\n")}\n`;
 }
 
+/**
+ * describeCommandReportContractの処理を実行する。
+ *
+ * @responsibility describeCommandReportContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000003
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeCommandReportContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeCommandReportContractの入力契約を満たす。
+ * @postcondition describeCommandReportContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeCommandReportContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeCommandReportContractは独自の失敗分岐を所有しない。
+ * @invariant describeCommandReportContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeCommandReportContractはProcess内の同一Subsystemで完結する。
+ * @security N/A: describeCommandReportContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeCommandReportContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeCommandReportContract() {
   return Object.freeze({
     humanProjection:

@@ -5,6 +5,22 @@ import path from "node:path";
 
 const MAX_OUTPUT_BYTES = 16 * 1_024 * 1_024;
 
+/**
+ * runGitCommandの処理を実行する。
+ *
+ * @responsibility runGitCommandに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input root: string、commandArguments: readonly string[]
+ * @returns runGitCommandの計算結果を返す。
+ * @precondition 「root: string、commandArguments: readonly string[]」がrunGitCommandの入力契約を満たす。
+ * @postcondition runGitCommandの責務を完了した結果だけを返す。
+ * @effect runGitCommandは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: runGitCommandは独自の失敗分岐を所有しない。
+ * @invariant runGitCommandは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: runGitCommandはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: runGitCommandは共有非同期状態を持たない同期処理である。
+ */
 function runGitCommand(root: string, commandArguments: readonly string[]) {
   return spawnSync("git", ["-C", root, ...commandArguments], {
     encoding: "utf8",
@@ -16,6 +32,22 @@ function runGitCommand(root: string, commandArguments: readonly string[]) {
   });
 }
 
+/**
+ * samePathの処理を実行する。
+ *
+ * @responsibility samePathに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input left: string、right: string
+ * @returns booleanを返す。
+ * @precondition 「left: string、right: string」がsamePathの入力契約を満たす。
+ * @postcondition samePathの責務を完了した結果だけを返す。
+ * @effect samePathは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: samePathは独自の失敗分岐を所有しない。
+ * @invariant samePathは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: samePathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: samePathは共有非同期状態を持たない同期処理である。
+ */
 function samePath(left: string, right: string): boolean {
   const leftResolved = path.resolve(left);
   const rightResolved = path.resolve(right);
@@ -25,6 +57,22 @@ function samePath(left: string, right: string): boolean {
     : leftResolved === rightResolved;
 }
 
+/**
+ * failureReasonの処理を実行する。
+ *
+ * @responsibility failureReasonに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input result: ReturnType<typeof runGitCommand>
+ * @returns stringを返す。
+ * @precondition 「result: ReturnType<typeof runGitCommand>」がfailureReasonの入力契約を満たす。
+ * @postcondition failureReasonの責務を完了した結果だけを返す。
+ * @effect N/A: failureReasonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: failureReasonは独自の失敗分岐を所有しない。
+ * @invariant failureReasonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: failureReasonはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: failureReasonは共有非同期状態を持たない同期処理である。
+ */
 function failureReason(result: ReturnType<typeof runGitCommand>): string {
   if (result.error && "code" in result.error && result.error.code === "ENOENT")
     return "version_control_not_installed";
@@ -33,6 +81,17 @@ function failureReason(result: ReturnType<typeof runGitCommand>): string {
   return "repository_observation_failed";
 }
 
+/**
+ * RepositoryEntryObservationが扱う値の構造を表す。
+ *
+ * @responsibility RepositoryEntryObservationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape RepositoryEntryObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RepositoryEntryObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RepositoryEntryObservationの宣言は外部境界を開かない。
+ * @security N/A: RepositoryEntryObservationはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RepositoryEntryObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type RepositoryEntryObservation = Readonly<{
   relativePath: string;
   kind: "file" | "nested_repository";
@@ -40,6 +99,22 @@ export type RepositoryEntryObservation = Readonly<{
   conflicted: boolean;
 }>;
 
+/**
+ * observeDeclaredNestedRepositoryPathsの処理を実行する。
+ *
+ * @responsibility observeDeclaredNestedRepositoryPathsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input configPath: string
+ * @returns | Readonly<{ status: "completed"; paths: readonly string[] }> | Readonly<{ status: "unavailable"; paths: readonly string[] }>を返す。
+ * @precondition 「configPath: string」がobserveDeclaredNestedRepositoryPathsの入力契約を満たす。
+ * @postcondition observeDeclaredNestedRepositoryPathsの責務を完了した結果だけを返す。
+ * @effect observeDeclaredNestedRepositoryPathsは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: observeDeclaredNestedRepositoryPathsは独自の失敗分岐を所有しない。
+ * @invariant observeDeclaredNestedRepositoryPathsは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: observeDeclaredNestedRepositoryPathsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: observeDeclaredNestedRepositoryPathsは共有非同期状態を持たない同期処理である。
+ */
 export function observeDeclaredNestedRepositoryPaths(
   configPath: string,
 ):
@@ -84,6 +159,22 @@ export function observeDeclaredNestedRepositoryPaths(
   });
 }
 
+/**
+ * observeRepositoryEntriesの処理を実行する。
+ *
+ * @responsibility observeRepositoryEntriesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input scopeRoot: string
+ * @returns | Readonly<{ status: "completed"; entries: readonly RepositoryEntryObservation[]; nestedRepositoryObservationComplete: boolean; repositoryPathReported: false; }> | Readonly<{ status: "unavailable"; reason: string; entries: readonly RepositoryEntryObservation[]; repositoryPathReported: false; }>を返す。
+ * @precondition 「scopeRoot: string」がobserveRepositoryEntriesの入力契約を満たす。
+ * @postcondition observeRepositoryEntriesの責務を完了した結果だけを返す。
+ * @effect N/A: observeRepositoryEntriesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: observeRepositoryEntriesは独自の失敗分岐を所有しない。
+ * @invariant observeRepositoryEntriesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: observeRepositoryEntriesはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: observeRepositoryEntriesは共有非同期状態を持たない同期処理である。
+ */
 export function observeRepositoryEntries(scopeRoot: string):
   | Readonly<{
       status: "completed";
@@ -213,6 +304,22 @@ export function observeRepositoryEntries(scopeRoot: string):
   });
 }
 
+/**
+ * observeNestedRepositoryの処理を実行する。
+ *
+ * @responsibility observeNestedRepositoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input scopeRoot: string、relativePath: string
+ * @returns observeNestedRepositoryの計算結果を返す。
+ * @precondition 「scopeRoot: string、relativePath: string」がobserveNestedRepositoryの入力契約を満たす。
+ * @postcondition observeNestedRepositoryの責務を完了した結果だけを返す。
+ * @effect N/A: observeNestedRepositoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: observeNestedRepositoryは独自の失敗分岐を所有しない。
+ * @invariant observeNestedRepositoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: observeNestedRepositoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: observeNestedRepositoryは共有非同期状態を持たない同期処理である。
+ */
 export function observeNestedRepository(
   scopeRoot: string,
   relativePath: string,
@@ -233,6 +340,22 @@ export function observeNestedRepository(
   });
 }
 
+/**
+ * readFixedSnapshotTextの処理を実行する。
+ *
+ * @responsibility readFixedSnapshotTextに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input repositoryRoot: string、revisionIdentity: string、relativePath: string
+ * @returns string | nullを返す。
+ * @precondition 「repositoryRoot: string、revisionIdentity: string、relativePath: string」がreadFixedSnapshotTextの入力契約を満たす。
+ * @postcondition readFixedSnapshotTextの責務を完了した結果だけを返す。
+ * @effect N/A: readFixedSnapshotTextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: readFixedSnapshotTextは独自の失敗分岐を所有しない。
+ * @invariant readFixedSnapshotTextは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: readFixedSnapshotTextはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readFixedSnapshotTextは共有非同期状態を持たない同期処理である。
+ */
 export function readFixedSnapshotText(
   repositoryRoot: string,
   revisionIdentity: string,
@@ -256,6 +379,22 @@ export function readFixedSnapshotText(
   return result.status === 0 ? result.stdout : null;
 }
 
+/**
+ * resolveRevisionIdentityの処理を実行する。
+ *
+ * @responsibility resolveRevisionIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input repositoryRoot: string、selector: string
+ * @returns string | nullを返す。
+ * @precondition 「repositoryRoot: string、selector: string」がresolveRevisionIdentityの入力契約を満たす。
+ * @postcondition resolveRevisionIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: resolveRevisionIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveRevisionIdentityは独自の失敗分岐を所有しない。
+ * @invariant resolveRevisionIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: resolveRevisionIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: resolveRevisionIdentityは共有非同期状態を持たない同期処理である。
+ */
 export function resolveRevisionIdentity(
   repositoryRoot: string,
   selector: string,

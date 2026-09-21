@@ -78,7 +78,7 @@ Pilot入力の対象改訂版はCommit `3f2567bd54f00fe638bfc8ff9e7f3695fd8eba66
 
 初回分類は`Covered 1／Partial 15／Missing 1`だった。実在するSourceと試験を確認してRelation Ownerを是正した結果、16件は実装／試験Relationへ接続された。局所実行では16件の対応試験が期待どおりPassした。Sandbox内で失敗したWindows Process取消2条件も、必要なProcess権限を持つ通常ユーザー境界では2／2 Passした。`coordinator.runtime-trust-consumption`は、Runtime Trust Policy activationとProvider launch integrationが現行Sourceで`not_implemented`と明示されている実装欠落である。
 
-全18領域の初回分類では、`Covered Candidate` 2、`Partial` 10、`Missing` 3、`Process-owned Partial` 2、`Gap` 1となった。既存試験との意味照合により、118個の`Subsystem × Local Item`のうち37件だった接続を60件へ是正した。初回独立レビューで根拠不足となったCheckerの`RCM-03`と`RCM-04`は未接続に戻し、残る58件はRelation記載漏れへ一律に畳まず、実装欠落、工程Evidence、手動UAT、外部境界または追加試験として保持する。旧2 Runtime Traceability JSONは全Subsystemへ展開せず、固有情報0、全Consumer移行、決定論的同等性、Capability保持を満たした後の廃止候補とした。
+全18領域の初回分類では、`Covered Candidate` 2、`Partial` 10、`Missing` 3、`Process-owned Partial` 2、`Gap` 1となった。既存試験との意味照合により、118個の`Subsystem × Local Item`のうち37件だった接続を60件へ是正した。初回独立レビューで根拠不足となったCheckerの`RCM-IT-003`と`RCM-IT-004`は未接続に戻し、残る58件はRelation記載漏れへ一律に畳まず、実装欠落、工程Evidence、手動UAT、外部境界または追加試験として保持する。旧2 Runtime Traceability JSONは全Subsystemへ展開せず、固有情報0、全Consumer移行、決定論的同等性、Capability保持を満たした後の廃止候補とした。
 
 ## 6. 局所検証
 

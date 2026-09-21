@@ -7,11 +7,33 @@ import {
 export const EXECUTION_INTELLIGENCE_EVENT_CONTRACT =
   "crdd/execution-intelligence-event/v1" as const;
 
+/**
+ * ExecutionObservationが扱う値の構造を表す。
+ *
+ * @responsibility ExecutionObservationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000007
+ * @shape ExecutionObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ExecutionObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ExecutionObservationの宣言は外部境界を開かない。
+ * @security N/A: ExecutionObservationはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ExecutionObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ExecutionObservation<T> =
   | Readonly<{ state: "observed"; value: T; source: string }>
   | Readonly<{ state: "not_observed"; reason: string }>
   | Readonly<{ state: "not_applicable"; reason: string }>;
 
+/**
+ * ExecutionUsageが扱う値の構造を表す。
+ *
+ * @responsibility ExecutionUsageに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000007
+ * @shape ExecutionUsageが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ExecutionUsageで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ExecutionUsageの宣言は外部境界を開かない。
+ * @security N/A: ExecutionUsageはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ExecutionUsageの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ExecutionUsage = Readonly<{
   inputTokens: ExecutionObservation<number>;
   outputTokens: ExecutionObservation<number>;
@@ -22,6 +44,17 @@ export type ExecutionUsage = Readonly<{
   >;
 }>;
 
+/**
+ * ExecutionIntelligenceEventが扱う値の構造を表す。
+ *
+ * @responsibility ExecutionIntelligenceEventに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000007
+ * @shape ExecutionIntelligenceEventが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ExecutionIntelligenceEventで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ExecutionIntelligenceEventの宣言は外部境界を開かない。
+ * @security N/A: ExecutionIntelligenceEventはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ExecutionIntelligenceEventの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ExecutionIntelligenceEvent = Readonly<{
   contract: typeof EXECUTION_INTELLIGENCE_EVENT_CONTRACT;
   eventId: string;
@@ -60,6 +93,17 @@ export type ExecutionIntelligenceEvent = Readonly<{
   >;
 }>;
 
+/**
+ * TaskAttemptSettledEventInputが扱う値の構造を表す。
+ *
+ * @responsibility TaskAttemptSettledEventInputに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000007
+ * @shape TaskAttemptSettledEventInputが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant TaskAttemptSettledEventInputで宣言した値と責務の対応を維持する。
+ * @boundary N/A: TaskAttemptSettledEventInputの宣言は外部境界を開かない。
+ * @security N/A: TaskAttemptSettledEventInputはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility TaskAttemptSettledEventInputの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type TaskAttemptSettledEventInput = Readonly<{
   occurredAt: string;
   identity: ExecutionIntelligenceEvent["identity"];
@@ -68,18 +112,82 @@ export type TaskAttemptSettledEventInput = Readonly<{
   quality: ExecutionIntelligenceEvent["quality"];
 }>;
 
+/**
+ * observedの処理を実行する。
+ *
+ * @responsibility observedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input value: T、source: string
+ * @returns ExecutionObservation<T>を返す。
+ * @precondition 「value: T、source: string」がobservedの入力契約を満たす。
+ * @postcondition observedの責務を完了した結果だけを返す。
+ * @effect N/A: observedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: observedは独自の失敗分岐を所有しない。
+ * @invariant observedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observedはProcess内の同一Subsystemで完結する。
+ * @security N/A: observedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: observedは共有非同期状態を持たない同期処理である。
+ */
 export function observed<T>(value: T, source: string): ExecutionObservation<T> {
   return Object.freeze({ state: "observed" as const, value, source });
 }
 
+/**
+ * notObservedの処理を実行する。
+ *
+ * @responsibility notObservedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input reason: string
+ * @returns ExecutionObservation<never>を返す。
+ * @precondition 「reason: string」がnotObservedの入力契約を満たす。
+ * @postcondition notObservedの責務を完了した結果だけを返す。
+ * @effect N/A: notObservedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: notObservedは独自の失敗分岐を所有しない。
+ * @invariant notObservedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: notObservedはProcess内の同一Subsystemで完結する。
+ * @security N/A: notObservedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: notObservedは共有非同期状態を持たない同期処理である。
+ */
 export function notObserved(reason: string): ExecutionObservation<never> {
   return Object.freeze({ state: "not_observed" as const, reason });
 }
 
+/**
+ * notApplicableの処理を実行する。
+ *
+ * @responsibility notApplicableに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input reason: string
+ * @returns ExecutionObservation<never>を返す。
+ * @precondition 「reason: string」がnotApplicableの入力契約を満たす。
+ * @postcondition notApplicableの責務を完了した結果だけを返す。
+ * @effect N/A: notApplicableは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: notApplicableは独自の失敗分岐を所有しない。
+ * @invariant notApplicableは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: notApplicableはProcess内の同一Subsystemで完結する。
+ * @security N/A: notApplicableはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: notApplicableは共有非同期状態を持たない同期処理である。
+ */
 export function notApplicable(reason: string): ExecutionObservation<never> {
   return Object.freeze({ state: "not_applicable" as const, reason });
 }
 
+/**
+ * usageNotObservedの処理を実行する。
+ *
+ * @responsibility usageNotObservedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input reason: string
+ * @returns ExecutionUsageを返す。
+ * @precondition 「reason: string」がusageNotObservedの入力契約を満たす。
+ * @postcondition usageNotObservedの責務を完了した結果だけを返す。
+ * @effect N/A: usageNotObservedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: usageNotObservedは独自の失敗分岐を所有しない。
+ * @invariant usageNotObservedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: usageNotObservedはProcess内の同一Subsystemで完結する。
+ * @security N/A: usageNotObservedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: usageNotObservedは共有非同期状態を持たない同期処理である。
+ */
 export function usageNotObserved(reason: string): ExecutionUsage {
   return Object.freeze({
     inputTokens: notObserved(reason),
@@ -91,6 +199,22 @@ export function usageNotObserved(reason: string): ExecutionUsage {
 }
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
+/**
+ * textの処理を実行する。
+ *
+ * @responsibility textに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input value: unknown、maximum
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown、maximum」がtextの入力契約を満たす。
+ * @postcondition textの責務を完了した結果だけを返す。
+ * @effect N/A: textは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: textは独自の失敗分岐を所有しない。
+ * @invariant textは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: textはProcess内の同一Subsystemで完結する。
+ * @security N/A: textはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: textは共有非同期状態を持たない同期処理である。
+ */
 function text(value: unknown, maximum = 512): value is string {
   return (
     typeof value === "string" &&
@@ -100,6 +224,22 @@ function text(value: unknown, maximum = 512): value is string {
   );
 }
 
+/**
+ * identityの処理を実行する。
+ *
+ * @responsibility identityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がidentityの入力契約を満たす。
+ * @postcondition identityの責務を完了した結果だけを返す。
+ * @effect N/A: identityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: identityは独自の失敗分岐を所有しない。
+ * @invariant identityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: identityはProcess内の同一Subsystemで完結する。
+ * @security N/A: identityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: identityは共有非同期状態を持たない同期処理である。
+ */
 function identity(value: unknown): value is string {
   return typeof value === "string" && ID.test(value);
 }
@@ -113,6 +253,22 @@ const taskAttemptIdentityKeys = new Set([
   "taskId",
 ] as const);
 
+/**
+ * taskAttemptEventIdの処理を実行する。
+ *
+ * @responsibility taskAttemptEventIdに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input value: ExecutionIntelligenceEvent["identity"]
+ * @returns stringを返す。
+ * @precondition 「value: ExecutionIntelligenceEvent["identity"]」がtaskAttemptEventIdの入力契約を満たす。
+ * @postcondition taskAttemptEventIdの責務を完了した結果だけを返す。
+ * @effect N/A: taskAttemptEventIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: taskAttemptEventIdは独自の失敗分岐を所有しない。
+ * @invariant taskAttemptEventIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: taskAttemptEventIdはProcess内の同一Subsystemで完結する。
+ * @security N/A: taskAttemptEventIdはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: taskAttemptEventIdは共有非同期状態を持たない同期処理である。
+ */
 function taskAttemptEventId(
   value: ExecutionIntelligenceEvent["identity"],
 ): string {
@@ -130,14 +286,62 @@ function taskAttemptEventId(
     .digest("hex")}`;
 }
 
+/**
+ * countの処理を実行する。
+ *
+ * @responsibility countに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input value: unknown
+ * @returns value is numberを返す。
+ * @precondition 「value: unknown」がcountの入力契約を満たす。
+ * @postcondition countの責務を完了した結果だけを返す。
+ * @effect N/A: countは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: countは独自の失敗分岐を所有しない。
+ * @invariant countは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: countはProcess内の同一Subsystemで完結する。
+ * @security N/A: countはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: countは共有非同期状態を持たない同期処理である。
+ */
 function count(value: unknown): value is number {
   return Number.isSafeInteger(value) && Number(value) >= 0;
 }
 
+/**
+ * nonnegativeNumberの処理を実行する。
+ *
+ * @responsibility nonnegativeNumberに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input value: unknown
+ * @returns value is numberを返す。
+ * @precondition 「value: unknown」がnonnegativeNumberの入力契約を満たす。
+ * @postcondition nonnegativeNumberの責務を完了した結果だけを返す。
+ * @effect N/A: nonnegativeNumberは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: nonnegativeNumberは独自の失敗分岐を所有しない。
+ * @invariant nonnegativeNumberは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: nonnegativeNumberはProcess内の同一Subsystemで完結する。
+ * @security N/A: nonnegativeNumberはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: nonnegativeNumberは共有非同期状態を持たない同期処理である。
+ */
 function nonnegativeNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
+/**
+ * observationの処理を実行する。
+ *
+ * @responsibility observationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input value: unknown、inspectObserved: (observed: unknown) => T | null
+ * @returns ExecutionObservation<T> | nullを返す。
+ * @precondition 「value: unknown、inspectObserved: (observed: unknown) => T | null」がobservationの入力契約を満たす。
+ * @postcondition observationの責務を完了した結果だけを返す。
+ * @effect N/A: observationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: observationは独自の失敗分岐を所有しない。
+ * @invariant observationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observationはProcess内の同一Subsystemで完結する。
+ * @security N/A: observationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: observationは共有非同期状態を持たない同期処理である。
+ */
 function observation<T>(
   value: unknown,
   inspectObserved: (observed: unknown) => T | null,
@@ -174,6 +378,22 @@ function observation<T>(
     : null;
 }
 
+/**
+ * inspectExecutionIntelligenceEventの処理を実行する。
+ *
+ * @responsibility inspectExecutionIntelligenceEventに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input value: unknown
+ * @returns ExecutionIntelligenceEvent | nullを返す。
+ * @precondition 「value: unknown」がinspectExecutionIntelligenceEventの入力契約を満たす。
+ * @postcondition inspectExecutionIntelligenceEventの責務を完了した結果だけを返す。
+ * @effect N/A: inspectExecutionIntelligenceEventは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectExecutionIntelligenceEventは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectExecutionIntelligenceEventは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectExecutionIntelligenceEventはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectExecutionIntelligenceEventはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectExecutionIntelligenceEventは共有非同期状態を持たない同期処理である。
+ */
 export function inspectExecutionIntelligenceEvent(
   value: unknown,
 ): ExecutionIntelligenceEvent | null {
@@ -357,6 +577,22 @@ export function inspectExecutionIntelligenceEvent(
   }
 }
 
+/**
+ * createTaskAttemptSettledEventの処理を実行する。
+ *
+ * @responsibility createTaskAttemptSettledEventに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input input: TaskAttemptSettledEventInput
+ * @returns ExecutionIntelligenceEventを返す。
+ * @precondition 「input: TaskAttemptSettledEventInput」がcreateTaskAttemptSettledEventの入力契約を満たす。
+ * @postcondition createTaskAttemptSettledEventの責務を完了した結果だけを返す。
+ * @effect N/A: createTaskAttemptSettledEventは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createTaskAttemptSettledEventは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createTaskAttemptSettledEventは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createTaskAttemptSettledEventはProcess内の同一Subsystemで完結する。
+ * @security N/A: createTaskAttemptSettledEventはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createTaskAttemptSettledEventは共有非同期状態を持たない同期処理である。
+ */
 export function createTaskAttemptSettledEvent(
   input: TaskAttemptSettledEventInput,
 ): ExecutionIntelligenceEvent {
@@ -389,6 +625,17 @@ export function createTaskAttemptSettledEvent(
   return inspected;
 }
 
+/**
+ * ExecutionIntelligenceSummaryが扱う値の構造を表す。
+ *
+ * @responsibility ExecutionIntelligenceSummaryに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000007
+ * @shape ExecutionIntelligenceSummaryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ExecutionIntelligenceSummaryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ExecutionIntelligenceSummaryの宣言は外部境界を開かない。
+ * @security N/A: ExecutionIntelligenceSummaryはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ExecutionIntelligenceSummaryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ExecutionIntelligenceSummary = Readonly<{
   contract: "crdd/execution-intelligence-summary/v1";
   eventCount: number;
@@ -407,6 +654,22 @@ export type ExecutionIntelligenceSummary = Readonly<{
   missingnessPreserved: true;
 }>;
 
+/**
+ * summarizeExecutionIntelligenceの処理を実行する。
+ *
+ * @responsibility summarizeExecutionIntelligenceに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input values: readonly unknown[]
+ * @returns ExecutionIntelligenceSummary | nullを返す。
+ * @precondition 「values: readonly unknown[]」がsummarizeExecutionIntelligenceの入力契約を満たす。
+ * @postcondition summarizeExecutionIntelligenceの責務を完了した結果だけを返す。
+ * @effect N/A: summarizeExecutionIntelligenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: summarizeExecutionIntelligenceは独自の失敗分岐を所有しない。
+ * @invariant summarizeExecutionIntelligenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: summarizeExecutionIntelligenceはProcess内の同一Subsystemで完結する。
+ * @security N/A: summarizeExecutionIntelligenceはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: summarizeExecutionIntelligenceは共有非同期状態を持たない同期処理である。
+ */
 export function summarizeExecutionIntelligence(
   values: readonly unknown[],
 ): ExecutionIntelligenceSummary | null {
@@ -476,6 +739,22 @@ export function summarizeExecutionIntelligence(
   });
 }
 
+/**
+ * proposeExecutionImprovementCandidatesの処理を実行する。
+ *
+ * @responsibility proposeExecutionImprovementCandidatesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input events: readonly unknown[]
+ * @returns proposeExecutionImprovementCandidatesの計算結果を返す。
+ * @precondition 「events: readonly unknown[]」がproposeExecutionImprovementCandidatesの入力契約を満たす。
+ * @postcondition proposeExecutionImprovementCandidatesの責務を完了した結果だけを返す。
+ * @effect N/A: proposeExecutionImprovementCandidatesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: proposeExecutionImprovementCandidatesは独自の失敗分岐を所有しない。
+ * @invariant proposeExecutionImprovementCandidatesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: proposeExecutionImprovementCandidatesはProcess内の同一Subsystemで完結する。
+ * @security N/A: proposeExecutionImprovementCandidatesはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: proposeExecutionImprovementCandidatesは共有非同期状態を持たない同期処理である。
+ */
 export function proposeExecutionImprovementCandidates(
   events: readonly unknown[],
 ) {

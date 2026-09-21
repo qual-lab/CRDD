@@ -34,10 +34,43 @@ export {
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 
+/**
+ * VerifiedRootが扱う値の構造を表す。
+ *
+ * @responsibility VerifiedRootに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape VerifiedRootが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant VerifiedRootで宣言した値と責務の対応を維持する。
+ * @boundary N/A: VerifiedRootの宣言は外部境界を開かない。
+ * @security VerifiedRootはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility VerifiedRootの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type VerifiedRoot = NonNullable<
   ReturnType<typeof consumeRuntimeOwnedRuntimeStateRootCapability>
 >;
+/**
+ * Lockが扱う値の構造を表す。
+ *
+ * @responsibility Lockに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape Lockが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Lockで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Lockの宣言は外部境界を開かない。
+ * @security LockはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Lockの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Lock = Readonly<{ release: () => boolean }>;
+/**
+ * ConsentDependenciesが扱う値の構造を表す。
+ *
+ * @responsibility ConsentDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape ConsentDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ConsentDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ConsentDependenciesの宣言は外部境界を開かない。
+ * @security ConsentDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ConsentDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ConsentDependencies = Readonly<{
   observeRoot: (shouldInitializeIfMissing: boolean) => VerifiedRoot | null;
   acquireLock: (bindingHash: string) => Lock | null;
@@ -45,6 +78,22 @@ type ConsentDependencies = Readonly<{
   nonce: () => string;
 }>;
 
+/**
+ * compileExternalSendConsentBoundaryHashの処理を実行する。
+ *
+ * @responsibility compileExternalSendConsentBoundaryHashに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input policy: ExternalSendPolicy
+ * @returns compileExternalSendConsentBoundaryHashの計算結果を返す。
+ * @precondition 「policy: ExternalSendPolicy」がcompileExternalSendConsentBoundaryHashの入力契約を満たす。
+ * @postcondition compileExternalSendConsentBoundaryHashの責務を完了した結果だけを返す。
+ * @effect N/A: compileExternalSendConsentBoundaryHashは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: compileExternalSendConsentBoundaryHashは独自の失敗分岐を所有しない。
+ * @invariant compileExternalSendConsentBoundaryHashは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: compileExternalSendConsentBoundaryHashはProcess内の同一Subsystemで完結する。
+ * @security compileExternalSendConsentBoundaryHashはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: compileExternalSendConsentBoundaryHashは共有非同期状態を持たない同期処理である。
+ */
 export function compileExternalSendConsentBoundaryHash(
   policy: ExternalSendPolicy,
 ) {
@@ -60,6 +109,22 @@ export function compileExternalSendConsentBoundaryHash(
     : null;
 }
 
+/**
+ * productionObserveRootの処理を実行する。
+ *
+ * @responsibility productionObserveRootに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input shouldInitializeIfMissing: boolean、developmentContext: unknown
+ * @returns productionObserveRootの計算結果を返す。
+ * @precondition 「shouldInitializeIfMissing: boolean、developmentContext: unknown」がproductionObserveRootの入力契約を満たす。
+ * @postcondition productionObserveRootの責務を完了した結果だけを返す。
+ * @effect N/A: productionObserveRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: productionObserveRootは独自の失敗分岐を所有しない。
+ * @invariant productionObserveRootは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: productionObserveRootはProcess内の同一Subsystemで完結する。
+ * @security productionObserveRootはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: productionObserveRootは共有非同期状態を持たない同期処理である。
+ */
 function productionObserveRoot(
   shouldInitializeIfMissing: boolean,
   developmentContext?: unknown,
@@ -82,6 +147,22 @@ const productionDependencies: ConsentDependencies = Object.freeze({
   nonce: () => randomBytes(8).toString("hex"),
 });
 
+/**
+ * sameRootの処理を実行する。
+ *
+ * @responsibility sameRootに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input left: VerifiedRoot、right: VerifiedRoot
+ * @returns sameRootの計算結果を返す。
+ * @precondition 「left: VerifiedRoot、right: VerifiedRoot」がsameRootの入力契約を満たす。
+ * @postcondition sameRootの責務を完了した結果だけを返す。
+ * @effect N/A: sameRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameRootは独自の失敗分岐を所有しない。
+ * @invariant sameRootは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sameRootはProcess内の同一Subsystemで完結する。
+ * @security sameRootはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameRootは共有非同期状態を持たない同期処理である。
+ */
 function sameRoot(left: VerifiedRoot, right: VerifiedRoot) {
   return (
     left.rootPath === right.rootPath &&
@@ -92,6 +173,22 @@ function sameRoot(left: VerifiedRoot, right: VerifiedRoot) {
   );
 }
 
+/**
+ * expectedBoundaryの処理を実行する。
+ *
+ * @responsibility expectedBoundaryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input policy: ExternalSendPolicy、boundaryHash: string、root: VerifiedRoot
+ * @returns expectedBoundaryの計算結果を返す。
+ * @precondition 「policy: ExternalSendPolicy、boundaryHash: string、root: VerifiedRoot」がexpectedBoundaryの入力契約を満たす。
+ * @postcondition expectedBoundaryの責務を完了した結果だけを返す。
+ * @effect N/A: expectedBoundaryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: expectedBoundaryは独自の失敗分岐を所有しない。
+ * @invariant expectedBoundaryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: expectedBoundaryはProcess内の同一Subsystemで完結する。
+ * @security expectedBoundaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: expectedBoundaryは共有非同期状態を持たない同期処理である。
+ */
 function expectedBoundary(
   policy: ExternalSendPolicy,
   boundaryHash: string,
@@ -123,6 +220,22 @@ function expectedBoundary(
   });
 }
 
+/**
+ * recordForの処理を実行する。
+ *
+ * @responsibility recordForに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input policy: ExternalSendPolicy、boundaryHash: string、root: VerifiedRoot、now: number、generation: string
+ * @returns recordForの計算結果を返す。
+ * @precondition 「policy: ExternalSendPolicy、boundaryHash: string、root: VerifiedRoot、now: number、generation: string」がrecordForの入力契約を満たす。
+ * @postcondition recordForの責務を完了した結果だけを返す。
+ * @effect N/A: recordForは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: recordForは独自の失敗分岐を所有しない。
+ * @invariant recordForは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recordForはProcess内の同一Subsystemで完結する。
+ * @security recordForはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recordForは共有非同期状態を持たない同期処理である。
+ */
 function recordFor(
   policy: ExternalSendPolicy,
   boundaryHash: string,
@@ -139,6 +252,22 @@ function recordFor(
   });
 }
 
+/**
+ * validRecordの処理を実行する。
+ *
+ * @responsibility validRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input value: unknown、expected: ReturnType<typeof expectedBoundary>、now: number
+ * @returns validRecordの計算結果を返す。
+ * @precondition 「value: unknown、expected: ReturnType<typeof expectedBoundary>、now: number」がvalidRecordの入力契約を満たす。
+ * @postcondition validRecordの責務を完了した結果だけを返す。
+ * @effect N/A: validRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validRecordは独自の失敗分岐を所有しない。
+ * @invariant validRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validRecordはProcess内の同一Subsystemで完結する。
+ * @security validRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validRecordは共有非同期状態を持たない同期処理である。
+ */
 function validRecord(
   value: unknown,
   expected: ReturnType<typeof expectedBoundary>,
@@ -160,12 +289,44 @@ function validRecord(
   );
 }
 
+/**
+ * consentNameの処理を実行する。
+ *
+ * @responsibility consentNameに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input boundaryHash: string、generation: string
+ * @returns consentNameの計算結果を返す。
+ * @precondition 「boundaryHash: string、generation: string」がconsentNameの入力契約を満たす。
+ * @postcondition consentNameの責務を完了した結果だけを返す。
+ * @effect N/A: consentNameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure consentNameは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant consentNameは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: consentNameはProcess内の同一Subsystemで完結する。
+ * @security consentNameはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: consentNameは共有非同期状態を持たない同期処理である。
+ */
 function consentName(boundaryHash: string, generation: string) {
   const name = externalSendConsentActiveRecordName(boundaryHash, generation);
   if (!name) throw new Error("external_send_consent_identity_invalid");
   return name;
 }
 
+/**
+ * consentPathsの処理を実行する。
+ *
+ * @responsibility consentPathsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input root: VerifiedRoot、name: string
+ * @returns consentPathsの計算結果を返す。
+ * @precondition 「root: VerifiedRoot、name: string」がconsentPathsの入力契約を満たす。
+ * @postcondition consentPathsの責務を完了した結果だけを返す。
+ * @effect N/A: consentPathsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: consentPathsは独自の失敗分岐を所有しない。
+ * @invariant consentPathsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: consentPathsはProcess内の同一Subsystemで完結する。
+ * @security consentPathsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: consentPathsは共有非同期状態を持たない同期処理である。
+ */
 function consentPaths(root: VerifiedRoot, name: string) {
   const file = path.join(root.rootPath, name);
   return Object.freeze({
@@ -174,6 +335,22 @@ function consentPaths(root: VerifiedRoot, name: string) {
   });
 }
 
+/**
+ * exactRegularFileOrMissingの処理を実行する。
+ *
+ * @responsibility exactRegularFileOrMissingに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input file: string
+ * @returns exactRegularFileOrMissingの計算結果を返す。
+ * @precondition 「file: string」がexactRegularFileOrMissingの入力契約を満たす。
+ * @postcondition exactRegularFileOrMissingの責務を完了した結果だけを返す。
+ * @effect exactRegularFileOrMissingはFilesystemの読取りまたは書込みを実行する。
+ * @failure exactRegularFileOrMissingは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant exactRegularFileOrMissingは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security exactRegularFileOrMissingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: exactRegularFileOrMissingは共有非同期状態を持たない同期処理である。
+ */
 function exactRegularFileOrMissing(file: string) {
   try {
     const stat = fs.lstatSync(file);
@@ -187,6 +364,22 @@ function exactRegularFileOrMissing(file: string) {
   }
 }
 
+/**
+ * pathMissingの処理を実行する。
+ *
+ * @responsibility pathMissingに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input file: string
+ * @returns pathMissingの計算結果を返す。
+ * @precondition 「file: string」がpathMissingの入力契約を満たす。
+ * @postcondition pathMissingの責務を完了した結果だけを返す。
+ * @effect pathMissingはFilesystemの読取りまたは書込みを実行する。
+ * @failure pathMissingは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant pathMissingは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security pathMissingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: pathMissingは共有非同期状態を持たない同期処理である。
+ */
 function pathMissing(file: string) {
   try {
     fs.lstatSync(file);
@@ -204,6 +397,22 @@ function pathMissing(file: string) {
 
 // Removing this one fixed pair only reduces authority. Commit is removed
 // first so a crash cannot leave an old record authoritative.
+/**
+ * activeNamesの処理を実行する。
+ *
+ * @responsibility activeNamesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input root: VerifiedRoot
+ * @returns activeNamesの計算結果を返す。
+ * @precondition 「root: VerifiedRoot」がactiveNamesの入力契約を満たす。
+ * @postcondition activeNamesの責務を完了した結果だけを返す。
+ * @effect activeNamesはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: activeNamesは独自の失敗分岐を所有しない。
+ * @invariant activeNamesは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security activeNamesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: activeNamesは共有非同期状態を持たない同期処理である。
+ */
 function activeNames(root: VerifiedRoot) {
   const names = new Set<string>();
   for (const entry of fs.readdirSync(root.rootPath)) {
@@ -213,6 +422,22 @@ function activeNames(root: VerifiedRoot) {
   return [...names];
 }
 
+/**
+ * revokePairの処理を実行する。
+ *
+ * @responsibility revokePairに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input root: VerifiedRoot
+ * @returns revokePairの計算結果を返す。
+ * @precondition 「root: VerifiedRoot」がrevokePairの入力契約を満たす。
+ * @postcondition revokePairの責務を完了した結果だけを返す。
+ * @effect revokePairはFilesystemの読取りまたは書込みを実行する。
+ * @failure revokePairは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant revokePairは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security revokePairはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: revokePairは共有非同期状態を持たない同期処理である。
+ */
 function revokePair(root: VerifiedRoot) {
   const names = activeNames(root);
   if (names.length > 1) return false;
@@ -238,6 +463,22 @@ function revokePair(root: VerifiedRoot) {
   return pathMissing(target.file) && pathMissing(target.commit);
 }
 
+/**
+ * withConsentLockの処理を実行する。
+ *
+ * @responsibility withConsentLockに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input dependencies: ConsentDependencies、root: VerifiedRoot、operation: () => T
+ * @returns withConsentLockの計算結果を返す。
+ * @precondition 「dependencies: ConsentDependencies、root: VerifiedRoot、operation: () => T」がwithConsentLockの入力契約を満たす。
+ * @postcondition withConsentLockの責務を完了した結果だけを返す。
+ * @effect N/A: withConsentLockは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure withConsentLockは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant withConsentLockは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: withConsentLockはProcess内の同一Subsystemで完結する。
+ * @security withConsentLockはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: withConsentLockは共有非同期状態を持たない同期処理である。
+ */
 function withConsentLock<T>(
   dependencies: ConsentDependencies,
   root: VerifiedRoot,
@@ -263,7 +504,39 @@ function withConsentLock<T>(
   return hasFailed || !released ? null : result;
 }
 
+/**
+ * createRuntimeの処理を実行する。
+ *
+ * @responsibility createRuntimeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input dependencies: ConsentDependencies
+ * @returns createRuntimeの計算結果を返す。
+ * @precondition 「dependencies: ConsentDependencies」がcreateRuntimeの入力契約を満たす。
+ * @postcondition createRuntimeの責務を完了した結果だけを返す。
+ * @effect N/A: createRuntimeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createRuntimeは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createRuntimeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createRuntimeはProcess内の同一Subsystemで完結する。
+ * @security createRuntimeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createRuntimeは共有非同期状態を持たない同期処理である。
+ */
 function createRuntime(dependencies: ConsentDependencies) {
+  /**
+   * resolveの処理を実行する。
+   *
+   * @responsibility resolveに対応する入力処理と結果生成を所有する。
+   * @trace ARCH-000015
+   * @input policy: ExternalSendPolicy
+   * @returns resolveの計算結果を返す。
+   * @precondition 「policy: ExternalSendPolicy」がresolveの入力契約を満たす。
+   * @postcondition resolveの責務を完了した結果だけを返す。
+   * @effect N/A: resolveは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @failure resolveは入力不正または下位処理の失敗を呼出し側へ返す。
+   * @invariant resolveは入力から導いた結果以外の共有状態を変更しない。
+   * @boundary N/A: resolveはProcess内の同一Subsystemで完結する。
+   * @security resolveはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+   * @concurrency N/A: resolveは共有非同期状態を持たない同期処理である。
+   */
   function resolve(policy: ExternalSendPolicy) {
     try {
       const boundaryHash = compileExternalSendConsentBoundaryHash(policy);
@@ -362,6 +635,22 @@ function createRuntime(dependencies: ConsentDependencies) {
     }
   }
 
+  /**
+   * persistの処理を実行する。
+   *
+   * @responsibility persistに対応する入力処理と結果生成を所有する。
+   * @trace ARCH-000015
+   * @input policy: ExternalSendPolicy
+   * @returns persistの計算結果を返す。
+   * @precondition 「policy: ExternalSendPolicy」がpersistの入力契約を満たす。
+   * @postcondition persistの責務を完了した結果だけを返す。
+   * @effect N/A: persistは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @failure persistは入力不正または下位処理の失敗を呼出し側へ返す。
+   * @invariant persistは入力から導いた結果以外の共有状態を変更しない。
+   * @boundary N/A: persistはProcess内の同一Subsystemで完結する。
+   * @security persistはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+   * @concurrency N/A: persistは共有非同期状態を持たない同期処理である。
+   */
   function persist(policy: ExternalSendPolicy) {
     try {
       const boundaryHash = compileExternalSendConsentBoundaryHash(policy);
@@ -404,6 +693,22 @@ function createRuntime(dependencies: ConsentDependencies) {
     }
   }
 
+  /**
+   * revokeの処理を実行する。
+   *
+   * @responsibility revokeに対応する入力処理と結果生成を所有する。
+   * @trace ARCH-000015
+   * @input N/A: 実行時引数を受け取らない。
+   * @returns revokeの計算結果を返す。
+   * @precondition 「N/A: 実行時引数を受け取らない。」がrevokeの入力契約を満たす。
+   * @postcondition revokeの責務を完了した結果だけを返す。
+   * @effect N/A: revokeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @failure revokeは入力不正または下位処理の失敗を呼出し側へ返す。
+   * @invariant revokeは入力から導いた結果以外の共有状態を変更しない。
+   * @boundary N/A: revokeはProcess内の同一Subsystemで完結する。
+   * @security revokeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+   * @concurrency N/A: revokeは共有非同期状態を持たない同期処理である。
+   */
   function revoke() {
     try {
       // Explicit revoke may create the fixed protected RuntimeState root, but
@@ -427,6 +732,22 @@ function createRuntime(dependencies: ConsentDependencies) {
 
 const productionRuntime = createRuntime(productionDependencies);
 
+/**
+ * runtimeForOperationの処理を実行する。
+ *
+ * @responsibility runtimeForOperationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input managementCapability: unknown
+ * @returns runtimeForOperationの計算結果を返す。
+ * @precondition 「managementCapability: unknown」がruntimeForOperationの入力契約を満たす。
+ * @postcondition runtimeForOperationの責務を完了した結果だけを返す。
+ * @effect N/A: runtimeForOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: runtimeForOperationは独自の失敗分岐を所有しない。
+ * @invariant runtimeForOperationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runtimeForOperationはProcess内の同一Subsystemで完結する。
+ * @security runtimeForOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: runtimeForOperationは共有非同期状態を持たない同期処理である。
+ */
 function runtimeForOperation(managementCapability: unknown) {
   const development =
     inspectRuntimeOwnedDevelopmentOperationContext(managementCapability);
@@ -442,12 +763,44 @@ function runtimeForOperation(managementCapability: unknown) {
         : null,
   });
 }
+/**
+ * resolveRuntimeOwnedExternalSendConsentの処理を実行する。
+ *
+ * @responsibility resolveRuntimeOwnedExternalSendConsentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input policy: ExternalSendPolicy、managementCapability: unknown
+ * @returns resolveRuntimeOwnedExternalSendConsentの計算結果を返す。
+ * @precondition 「policy: ExternalSendPolicy、managementCapability: unknown」がresolveRuntimeOwnedExternalSendConsentの入力契約を満たす。
+ * @postcondition resolveRuntimeOwnedExternalSendConsentの責務を完了した結果だけを返す。
+ * @effect N/A: resolveRuntimeOwnedExternalSendConsentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveRuntimeOwnedExternalSendConsentは独自の失敗分岐を所有しない。
+ * @invariant resolveRuntimeOwnedExternalSendConsentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveRuntimeOwnedExternalSendConsentはProcess内の同一Subsystemで完結する。
+ * @security resolveRuntimeOwnedExternalSendConsentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resolveRuntimeOwnedExternalSendConsentは共有非同期状態を持たない同期処理である。
+ */
 export function resolveRuntimeOwnedExternalSendConsent(
   policy: ExternalSendPolicy,
   managementCapability?: unknown,
 ) {
   return runtimeForOperation(managementCapability).resolve(policy);
 }
+/**
+ * persistRuntimeOwnedExternalSendConsentの処理を実行する。
+ *
+ * @responsibility persistRuntimeOwnedExternalSendConsentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input policy: ExternalSendPolicy、managementCapability: unknown
+ * @returns persistRuntimeOwnedExternalSendConsentの計算結果を返す。
+ * @precondition 「policy: ExternalSendPolicy、managementCapability: unknown」がpersistRuntimeOwnedExternalSendConsentの入力契約を満たす。
+ * @postcondition persistRuntimeOwnedExternalSendConsentの責務を完了した結果だけを返す。
+ * @effect N/A: persistRuntimeOwnedExternalSendConsentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: persistRuntimeOwnedExternalSendConsentは独自の失敗分岐を所有しない。
+ * @invariant persistRuntimeOwnedExternalSendConsentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: persistRuntimeOwnedExternalSendConsentはProcess内の同一Subsystemで完結する。
+ * @security persistRuntimeOwnedExternalSendConsentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: persistRuntimeOwnedExternalSendConsentは共有非同期状態を持たない同期処理である。
+ */
 export function persistRuntimeOwnedExternalSendConsent(
   policy: ExternalSendPolicy,
   managementCapability?: unknown,
@@ -456,12 +809,44 @@ export function persistRuntimeOwnedExternalSendConsent(
 }
 export const revokeRuntimeOwnedExternalSendConsent = productionRuntime.revoke;
 
+/**
+ * createIsolatedExternalSendConsentRuntimeCandidateの処理を実行する。
+ *
+ * @responsibility createIsolatedExternalSendConsentRuntimeCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input dependencies: ConsentDependencies
+ * @returns createIsolatedExternalSendConsentRuntimeCandidateの計算結果を返す。
+ * @precondition 「dependencies: ConsentDependencies」がcreateIsolatedExternalSendConsentRuntimeCandidateの入力契約を満たす。
+ * @postcondition createIsolatedExternalSendConsentRuntimeCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: createIsolatedExternalSendConsentRuntimeCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createIsolatedExternalSendConsentRuntimeCandidateは独自の失敗分岐を所有しない。
+ * @invariant createIsolatedExternalSendConsentRuntimeCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createIsolatedExternalSendConsentRuntimeCandidateはProcess内の同一Subsystemで完結する。
+ * @security createIsolatedExternalSendConsentRuntimeCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createIsolatedExternalSendConsentRuntimeCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function createIsolatedExternalSendConsentRuntimeCandidate(
   dependencies: ConsentDependencies,
 ) {
   return createRuntime(dependencies);
 }
 
+/**
+ * describeExternalSendConsentRuntimeContractの処理を実行する。
+ *
+ * @responsibility describeExternalSendConsentRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeExternalSendConsentRuntimeContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeExternalSendConsentRuntimeContractの入力契約を満たす。
+ * @postcondition describeExternalSendConsentRuntimeContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeExternalSendConsentRuntimeContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeExternalSendConsentRuntimeContractは独自の失敗分岐を所有しない。
+ * @invariant describeExternalSendConsentRuntimeContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeExternalSendConsentRuntimeContractはProcess内の同一Subsystemで完結する。
+ * @security describeExternalSendConsentRuntimeContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeExternalSendConsentRuntimeContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeExternalSendConsentRuntimeContract() {
   return Object.freeze({
     contract: EXTERNAL_SEND_CONSENT_RUNTIME_CONTRACT,

@@ -86,21 +86,76 @@ const HOST_EFFECT_ACTION_NAMES = new Set<DockerDesktopRepairEffectAction>([
   "desktop_launch",
 ]);
 
+/**
+ * EngineObservationが扱う値の構造を表す。
+ *
+ * @responsibility EngineObservationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape EngineObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant EngineObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: EngineObservationの宣言は外部境界を開かない。
+ * @security EngineObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility EngineObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type EngineObservation = "ready" | "known_unavailable" | "unknown";
+/**
+ * PathObservationが扱う値の構造を表す。
+ *
+ * @responsibility PathObservationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape PathObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant PathObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: PathObservationの宣言は外部境界を開かない。
+ * @security PathObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility PathObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type PathObservation = Readonly<{
   state: "confirmed_absent" | "present" | "unknown";
   identity: DockerDesktopRepairDirectoryIdentity | null;
 }>;
+/**
+ * TaggedEffectが扱う値の構造を表す。
+ *
+ * @responsibility TaggedEffectに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape TaggedEffectが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant TaggedEffectで宣言した値と責務の対応を維持する。
+ * @boundary N/A: TaggedEffectの宣言は外部境界を開かない。
+ * @security TaggedEffectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility TaggedEffectの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type TaggedEffect = Readonly<{
   issued: boolean | null;
   confirmation: DockerDesktopRepairEffectConfirmation;
 }>;
+/**
+ * RenameOutcomeが扱う値の構造を表す。
+ *
+ * @responsibility RenameOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape RenameOutcomeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RenameOutcomeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RenameOutcomeの宣言は外部境界を開かない。
+ * @security RenameOutcomeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RenameOutcomeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RenameOutcome = Readonly<{
   issued: boolean | null;
   confirmation: DockerDesktopRepairEffectConfirmation;
   staleState: DockerDesktopRepairStaleState;
 }>;
 
+/**
+ * PreparedBoundaryが扱う値の構造を表す。
+ *
+ * @responsibility PreparedBoundaryに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape PreparedBoundaryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant PreparedBoundaryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: PreparedBoundaryの宣言は外部境界を開かない。
+ * @security PreparedBoundaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility PreparedBoundaryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type PreparedBoundary = DockerDesktopRepairRecordBoundary &
   Readonly<{
     runDirectory: string;
@@ -111,6 +166,17 @@ export type PreparedBoundary = DockerDesktopRepairRecordBoundary &
     runtimeExecutionIdentitySha256: string;
   }>;
 
+/**
+ * MutableLedgerが扱う値の構造を表す。
+ *
+ * @responsibility MutableLedgerに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape MutableLedgerが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant MutableLedgerで宣言した値と責務の対応を維持する。
+ * @boundary N/A: MutableLedgerの宣言は外部境界を開かない。
+ * @security MutableLedgerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility MutableLedgerの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type MutableLedger = {
   processEffects: DockerDesktopRepairEffectEntry[];
   processEffectIssued: boolean | null;
@@ -133,6 +199,17 @@ type MutableLedger = {
   liveRunIdentity: DockerDesktopRepairDirectoryIdentity | null;
 };
 
+/**
+ * DockerDesktopRuntimeRepairReportが扱う値の構造を表す。
+ *
+ * @responsibility DockerDesktopRuntimeRepairReportに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRuntimeRepairReportが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRuntimeRepairReportで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRuntimeRepairReportの宣言は外部境界を開かない。
+ * @security DockerDesktopRuntimeRepairReportはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRuntimeRepairReportの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRuntimeRepairReport = Readonly<{
   contract: typeof DOCKER_DESKTOP_RUNTIME_REPAIR_CONTRACT;
   contractRevision: typeof DOCKER_DESKTOP_RUNTIME_REPAIR_CONTRACT_REVISION;
@@ -173,6 +250,17 @@ export type DockerDesktopRuntimeRepairReport = Readonly<{
   providerEffectIssued: false;
 }>;
 
+/**
+ * RepairDependenciesが扱う値の構造を表す。
+ *
+ * @responsibility RepairDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape RepairDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RepairDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RepairDependenciesの宣言は外部境界を開かない。
+ * @security RepairDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RepairDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type RepairDependencies = Readonly<{
   history?: Readonly<{
     inspect: typeof inspectDockerDesktopRepairHistoricalOperation;
@@ -219,6 +307,22 @@ export type RepairDependencies = Readonly<{
   registerCancellation?: (listener: () => void) => () => void;
 }>;
 
+/**
+ * initialLedgerの処理を実行する。
+ *
+ * @responsibility initialLedgerに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns MutableLedgerを返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がinitialLedgerの入力契約を満たす。
+ * @postcondition initialLedgerの責務を完了した結果だけを返す。
+ * @effect N/A: initialLedgerは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: initialLedgerは独自の失敗分岐を所有しない。
+ * @invariant initialLedgerは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: initialLedgerはProcess内の同一Subsystemで完結する。
+ * @security initialLedgerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: initialLedgerは共有非同期状態を持たない同期処理である。
+ */
 function initialLedger(): MutableLedger {
   return {
     processEffects: [],
@@ -236,6 +340,22 @@ function initialLedger(): MutableLedger {
   };
 }
 
+/**
+ * ledgerFromの処理を実行する。
+ *
+ * @responsibility ledgerFromに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input operation: DockerDesktopRepairOperation
+ * @returns MutableLedgerを返す。
+ * @precondition 「operation: DockerDesktopRepairOperation」がledgerFromの入力契約を満たす。
+ * @postcondition ledgerFromの責務を完了した結果だけを返す。
+ * @effect N/A: ledgerFromは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: ledgerFromは独自の失敗分岐を所有しない。
+ * @invariant ledgerFromは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ledgerFromはProcess内の同一Subsystemで完結する。
+ * @security ledgerFromはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: ledgerFromは共有非同期状態を持たない同期処理である。
+ */
 function ledgerFrom(operation: DockerDesktopRepairOperation): MutableLedger {
   const ledger: MutableLedger = {
     ...operation.ledger,
@@ -258,6 +378,22 @@ function ledgerFrom(operation: DockerDesktopRepairOperation): MutableLedger {
   return ledger;
 }
 
+/**
+ * restoreLedgerの処理を実行する。
+ *
+ * @responsibility restoreLedgerに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input target: MutableLedger、operation: DockerDesktopRepairOperation
+ * @returns N/A: restoreLedgerは戻り値を返さない。
+ * @precondition 「target: MutableLedger、operation: DockerDesktopRepairOperation」がrestoreLedgerの入力契約を満たす。
+ * @postcondition restoreLedgerの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: restoreLedgerは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: restoreLedgerは独自の失敗分岐を所有しない。
+ * @invariant restoreLedgerは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: restoreLedgerはProcess内の同一Subsystemで完結する。
+ * @security restoreLedgerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: restoreLedgerは共有非同期状態を持たない同期処理である。
+ */
 function restoreLedger(
   target: MutableLedger,
   operation: DockerDesktopRepairOperation,
@@ -265,6 +401,22 @@ function restoreLedger(
   Object.assign(target, ledgerFrom(operation));
 }
 
+/**
+ * snapshotLedgerの処理を実行する。
+ *
+ * @responsibility snapshotLedgerに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input ledger: MutableLedger
+ * @returns DockerDesktopRepairLedgerSnapshotを返す。
+ * @precondition 「ledger: MutableLedger」がsnapshotLedgerの入力契約を満たす。
+ * @postcondition snapshotLedgerの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotLedgerは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: snapshotLedgerは独自の失敗分岐を所有しない。
+ * @invariant snapshotLedgerは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: snapshotLedgerはProcess内の同一Subsystemで完結する。
+ * @security snapshotLedgerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: snapshotLedgerは共有非同期状態を持たない同期処理である。
+ */
 function snapshotLedger(
   ledger: MutableLedger,
 ): DockerDesktopRepairLedgerSnapshot {
@@ -275,10 +427,42 @@ function snapshotLedger(
   });
 }
 
+/**
+ * markUnknownの処理を実行する。
+ *
+ * @responsibility markUnknownに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input ledger: MutableLedger
+ * @returns N/A: markUnknownは戻り値を返さない。
+ * @precondition 「ledger: MutableLedger」がmarkUnknownの入力契約を満たす。
+ * @postcondition markUnknownの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: markUnknownは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: markUnknownは独自の失敗分岐を所有しない。
+ * @invariant markUnknownは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: markUnknownはProcess内の同一Subsystemで完結する。
+ * @security markUnknownはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: markUnknownは共有非同期状態を持たない同期処理である。
+ */
 function markUnknown(ledger: MutableLedger) {
   ledger.hostSafety = "unknown";
 }
 
+/**
+ * mergeIssuedの処理を実行する。
+ *
+ * @responsibility mergeIssuedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input isCurrent: boolean | null、isObserved: boolean | null
+ * @returns boolean | nullを返す。
+ * @precondition 「isCurrent: boolean | null、isObserved: boolean | null」がmergeIssuedの入力契約を満たす。
+ * @postcondition mergeIssuedの責務を完了した結果だけを返す。
+ * @effect N/A: mergeIssuedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: mergeIssuedは独自の失敗分岐を所有しない。
+ * @invariant mergeIssuedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: mergeIssuedはProcess内の同一Subsystemで完結する。
+ * @security mergeIssuedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: mergeIssuedは共有非同期状態を持たない同期処理である。
+ */
 function mergeIssued(
   isCurrent: boolean | null,
   isObserved: boolean | null,
@@ -288,6 +472,22 @@ function mergeIssued(
   return false;
 }
 
+/**
+ * refreshEffectAggregateの処理を実行する。
+ *
+ * @responsibility refreshEffectAggregateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input ledger: MutableLedger、kind: "process" | "filesystem"
+ * @returns N/A: refreshEffectAggregateは戻り値を返さない。
+ * @precondition 「ledger: MutableLedger、kind: "process" | "filesystem"」がrefreshEffectAggregateの入力契約を満たす。
+ * @postcondition refreshEffectAggregateの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: refreshEffectAggregateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: refreshEffectAggregateは独自の失敗分岐を所有しない。
+ * @invariant refreshEffectAggregateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: refreshEffectAggregateはProcess内の同一Subsystemで完結する。
+ * @security refreshEffectAggregateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: refreshEffectAggregateは共有非同期状態を持たない同期処理である。
+ */
 function refreshEffectAggregate(
   ledger: MutableLedger,
   kind: "process" | "filesystem",
@@ -316,6 +516,22 @@ function refreshEffectAggregate(
   }
 }
 
+/**
+ * appendEffectの処理を実行する。
+ *
+ * @responsibility appendEffectに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input ledger: MutableLedger、kind: "process" | "filesystem"、action: DockerDesktopRepairEffectAction、observed: TaggedEffect
+ * @returns N/A: appendEffectは戻り値を返さない。
+ * @precondition 「ledger: MutableLedger、kind: "process" | "filesystem"、action: DockerDesktopRepairEffectAction、observed: TaggedEffect」がappendEffectの入力契約を満たす。
+ * @postcondition appendEffectの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: appendEffectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: appendEffectは独自の失敗分岐を所有しない。
+ * @invariant appendEffectは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: appendEffectはProcess内の同一Subsystemで完結する。
+ * @security appendEffectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: appendEffectは共有非同期状態を持たない同期処理である。
+ */
 function appendEffect(
   ledger: MutableLedger,
   kind: "process" | "filesystem",
@@ -335,6 +551,22 @@ function appendEffect(
   refreshEffectAggregate(ledger, kind);
 }
 
+/**
+ * mergeProcessEffectの処理を実行する。
+ *
+ * @responsibility mergeProcessEffectに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input ledger: MutableLedger、action: DockerDesktopRepairEffectAction、observed: TaggedEffect
+ * @returns N/A: mergeProcessEffectは戻り値を返さない。
+ * @precondition 「ledger: MutableLedger、action: DockerDesktopRepairEffectAction、observed: TaggedEffect」がmergeProcessEffectの入力契約を満たす。
+ * @postcondition mergeProcessEffectの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: mergeProcessEffectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: mergeProcessEffectは独自の失敗分岐を所有しない。
+ * @invariant mergeProcessEffectは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: mergeProcessEffectはProcess内の同一Subsystemで完結する。
+ * @security mergeProcessEffectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: mergeProcessEffectは共有非同期状態を持たない同期処理である。
+ */
 function mergeProcessEffect(
   ledger: MutableLedger,
   action: DockerDesktopRepairEffectAction,
@@ -343,6 +575,22 @@ function mergeProcessEffect(
   appendEffect(ledger, "process", action, observed);
 }
 
+/**
+ * mergeFilesystemEffectの処理を実行する。
+ *
+ * @responsibility mergeFilesystemEffectに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input ledger: MutableLedger、action: DockerDesktopRepairEffectAction、observed: TaggedEffect
+ * @returns N/A: mergeFilesystemEffectは戻り値を返さない。
+ * @precondition 「ledger: MutableLedger、action: DockerDesktopRepairEffectAction、observed: TaggedEffect」がmergeFilesystemEffectの入力契約を満たす。
+ * @postcondition mergeFilesystemEffectの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: mergeFilesystemEffectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: mergeFilesystemEffectは独自の失敗分岐を所有しない。
+ * @invariant mergeFilesystemEffectは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: mergeFilesystemEffectはProcess内の同一Subsystemで完結する。
+ * @security mergeFilesystemEffectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: mergeFilesystemEffectは共有非同期状態を持たない同期処理である。
+ */
 function mergeFilesystemEffect(
   ledger: MutableLedger,
   action: DockerDesktopRepairEffectAction,
@@ -351,6 +599,22 @@ function mergeFilesystemEffect(
   appendEffect(ledger, "filesystem", action, observed);
 }
 
+/**
+ * recordHostEffectIntentの処理を実行する。
+ *
+ * @responsibility recordHostEffectIntentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input ledger: MutableLedger、kind: "process" | "filesystem"、action: DockerDesktopRepairEffectAction
+ * @returns recordHostEffectIntentの計算結果を返す。
+ * @precondition 「ledger: MutableLedger、kind: "process" | "filesystem"、action: DockerDesktopRepairEffectAction」がrecordHostEffectIntentの入力契約を満たす。
+ * @postcondition recordHostEffectIntentの責務を完了した結果だけを返す。
+ * @effect N/A: recordHostEffectIntentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: recordHostEffectIntentは独自の失敗分岐を所有しない。
+ * @invariant recordHostEffectIntentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recordHostEffectIntentはProcess内の同一Subsystemで完結する。
+ * @security recordHostEffectIntentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recordHostEffectIntentは共有非同期状態を持たない同期処理である。
+ */
 function recordHostEffectIntent(
   ledger: MutableLedger,
   kind: "process" | "filesystem",
@@ -372,6 +636,22 @@ function recordHostEffectIntent(
   return true;
 }
 
+/**
+ * settleHostEffectの処理を実行する。
+ *
+ * @responsibility settleHostEffectに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input ledger: MutableLedger、kind: "process" | "filesystem"、action: DockerDesktopRepairEffectAction、observed: TaggedEffect
+ * @returns settleHostEffectの計算結果を返す。
+ * @precondition 「ledger: MutableLedger、kind: "process" | "filesystem"、action: DockerDesktopRepairEffectAction、observed: TaggedEffect」がsettleHostEffectの入力契約を満たす。
+ * @postcondition settleHostEffectの責務を完了した結果だけを返す。
+ * @effect N/A: settleHostEffectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: settleHostEffectは独自の失敗分岐を所有しない。
+ * @invariant settleHostEffectは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: settleHostEffectはProcess内の同一Subsystemで完結する。
+ * @security settleHostEffectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: settleHostEffectは共有非同期状態を持たない同期処理である。
+ */
 function settleHostEffect(
   ledger: MutableLedger,
   kind: "process" | "filesystem",
@@ -394,6 +674,22 @@ function settleHostEffect(
   return true;
 }
 
+/**
+ * reportの処理を実行する。
+ *
+ * @responsibility reportに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input status: DockerDesktopRuntimeRepairReport["status"]、reason: string、ledger: MutableLedger、operation: DockerDesktopRepairOperation | null、nativeHelperCleanupConfirmed: boolean | null、isNewRepairPermitted
+ * @returns DockerDesktopRuntimeRepairReportを返す。
+ * @precondition 「status: DockerDesktopRuntimeRepairReport["status"]、reason: string、ledger: MutableLedger、operation: DockerDesktopRepairOperation | null、nativeHelperCleanupConfirmed: boolean | null、isNewRepairPermitted」がreportの入力契約を満たす。
+ * @postcondition reportの責務を完了した結果だけを返す。
+ * @effect N/A: reportは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: reportは独自の失敗分岐を所有しない。
+ * @invariant reportは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: reportはProcess内の同一Subsystemで完結する。
+ * @security reportはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: reportは共有非同期状態を持たない同期処理である。
+ */
 function report(
   status: DockerDesktopRuntimeRepairReport["status"],
   reason: string,
@@ -450,6 +746,22 @@ function report(
   });
 }
 
+/**
+ * identityの処理を実行する。
+ *
+ * @responsibility identityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input metadata: fs.BigIntStats
+ * @returns DockerDesktopRepairDirectoryIdentity | nullを返す。
+ * @precondition 「metadata: fs.BigIntStats」がidentityの入力契約を満たす。
+ * @postcondition identityの責務を完了した結果だけを返す。
+ * @effect N/A: identityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: identityは独自の失敗分岐を所有しない。
+ * @invariant identityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: identityはProcess内の同一Subsystemで完結する。
+ * @security identityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: identityは共有非同期状態を持たない同期処理である。
+ */
 function identity(
   metadata: fs.BigIntStats,
 ): DockerDesktopRepairDirectoryIdentity | null {
@@ -466,6 +778,22 @@ function identity(
     : null;
 }
 
+/**
+ * observePathの処理を実行する。
+ *
+ * @responsibility observePathに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input target: string
+ * @returns PathObservationを返す。
+ * @precondition 「target: string」がobservePathの入力契約を満たす。
+ * @postcondition observePathの責務を完了した結果だけを返す。
+ * @effect observePathはFilesystemの読取りまたは書込みを実行する。
+ * @failure observePathは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observePathは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security observePathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observePathは共有非同期状態を持たない同期処理である。
+ */
 function observePath(target: string): PathObservation {
   try {
     const observed = identity(fs.lstatSync(target, { bigint: true }));
@@ -483,6 +811,22 @@ function observePath(target: string): PathObservation {
   }
 }
 
+/**
+ * observePathUsingの処理を実行する。
+ *
+ * @responsibility observePathUsingに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、target: string
+ * @returns PathObservationを返す。
+ * @precondition 「dependencies: RepairDependencies、target: string」がobservePathUsingの入力契約を満たす。
+ * @postcondition observePathUsingの責務を完了した結果だけを返す。
+ * @effect N/A: observePathUsingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: observePathUsingは独自の失敗分岐を所有しない。
+ * @invariant observePathUsingは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observePathUsingはProcess内の同一Subsystemで完結する。
+ * @security observePathUsingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observePathUsingは共有非同期状態を持たない同期処理である。
+ */
 function observePathUsing(
   dependencies: RepairDependencies,
   target: string,
@@ -494,6 +838,22 @@ function observePathUsing(
     : Object.freeze({ state: "unknown" as const, identity: null });
 }
 
+/**
+ * sameIdentityの処理を実行する。
+ *
+ * @responsibility sameIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input left: DockerDesktopRepairDirectoryIdentity、right: DockerDesktopRepairDirectoryIdentity
+ * @returns sameIdentityの計算結果を返す。
+ * @precondition 「left: DockerDesktopRepairDirectoryIdentity、right: DockerDesktopRepairDirectoryIdentity」がsameIdentityの入力契約を満たす。
+ * @postcondition sameIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: sameIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameIdentityは独自の失敗分岐を所有しない。
+ * @invariant sameIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sameIdentityはProcess内の同一Subsystemで完結する。
+ * @security sameIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameIdentityは共有非同期状態を持たない同期処理である。
+ */
 function sameIdentity(
   left: DockerDesktopRepairDirectoryIdentity,
   right: DockerDesktopRepairDirectoryIdentity,
@@ -505,6 +865,22 @@ function sameIdentity(
   );
 }
 
+/**
+ * samePreparedAuthorityの処理を実行する。
+ *
+ * @responsibility samePreparedAuthorityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input left: PreparedBoundary、right: PreparedBoundary
+ * @returns samePreparedAuthorityの計算結果を返す。
+ * @precondition 「left: PreparedBoundary、right: PreparedBoundary」がsamePreparedAuthorityの入力契約を満たす。
+ * @postcondition samePreparedAuthorityの責務を完了した結果だけを返す。
+ * @effect N/A: samePreparedAuthorityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: samePreparedAuthorityは独自の失敗分岐を所有しない。
+ * @invariant samePreparedAuthorityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: samePreparedAuthorityはProcess内の同一Subsystemで完結する。
+ * @security samePreparedAuthorityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: samePreparedAuthorityは共有非同期状態を持たない同期処理である。
+ */
 function samePreparedAuthority(
   left: PreparedBoundary,
   right: PreparedBoundary,
@@ -521,6 +897,22 @@ function samePreparedAuthority(
   );
 }
 
+/**
+ * identityAtの処理を実行する。
+ *
+ * @responsibility identityAtに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input target: string
+ * @returns identityAtの計算結果を返す。
+ * @precondition 「target: string」がidentityAtの入力契約を満たす。
+ * @postcondition identityAtの責務を完了した結果だけを返す。
+ * @effect identityAtはFilesystemの読取りまたは書込みを実行する。
+ * @failure identityAtは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant identityAtは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security identityAtはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: identityAtは共有非同期状態を持たない同期処理である。
+ */
 function identityAt(target: string) {
   try {
     return identity(fs.lstatSync(target, { bigint: true }));
@@ -529,6 +921,22 @@ function identityAt(target: string) {
   }
 }
 
+/**
+ * preparedBoundaryの処理を実行する。
+ *
+ * @responsibility preparedBoundaryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns PreparedBoundary | nullを返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がpreparedBoundaryの入力契約を満たす。
+ * @postcondition preparedBoundaryの責務を完了した結果だけを返す。
+ * @effect preparedBoundaryは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: preparedBoundaryは独自の失敗分岐を所有しない。
+ * @invariant preparedBoundaryは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security preparedBoundaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: preparedBoundaryは共有非同期状態を持たない同期処理である。
+ */
 function preparedBoundary(): PreparedBoundary | null {
   if (process.platform !== "win32") return null;
   const packageVerification =
@@ -594,6 +1002,22 @@ function preparedBoundary(): PreparedBoundary | null {
   });
 }
 
+/**
+ * observeCurrentTrustedDockerCliの処理を実行する。
+ *
+ * @responsibility observeCurrentTrustedDockerCliに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns observeCurrentTrustedDockerCliの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がobserveCurrentTrustedDockerCliの入力契約を満たす。
+ * @postcondition observeCurrentTrustedDockerCliの責務を完了した結果だけを返す。
+ * @effect N/A: observeCurrentTrustedDockerCliは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure observeCurrentTrustedDockerCliは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeCurrentTrustedDockerCliは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observeCurrentTrustedDockerCliはProcess内の同一Subsystemで完結する。
+ * @security observeCurrentTrustedDockerCliはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeCurrentTrustedDockerCliは共有非同期状態を持たない同期処理である。
+ */
 function observeCurrentTrustedDockerCli() {
   try {
     return observeTrustedDockerCli();
@@ -602,6 +1026,22 @@ function observeCurrentTrustedDockerCli() {
   }
 }
 
+/**
+ * isKnownUnavailableDockerServerOutputの処理を実行する。
+ *
+ * @responsibility isKnownUnavailableDockerServerOutputに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input stdout: string
+ * @returns isKnownUnavailableDockerServerOutputの計算結果を返す。
+ * @precondition 「stdout: string」がisKnownUnavailableDockerServerOutputの入力契約を満たす。
+ * @postcondition isKnownUnavailableDockerServerOutputの責務を完了した結果だけを返す。
+ * @effect N/A: isKnownUnavailableDockerServerOutputは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isKnownUnavailableDockerServerOutputは独自の失敗分岐を所有しない。
+ * @invariant isKnownUnavailableDockerServerOutputは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isKnownUnavailableDockerServerOutputはProcess内の同一Subsystemで完結する。
+ * @security isKnownUnavailableDockerServerOutputはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isKnownUnavailableDockerServerOutputは共有非同期状態を持たない同期処理である。
+ */
 function isKnownUnavailableDockerServerOutput(stdout: string) {
   return (
     stdout === "" ||
@@ -613,6 +1053,22 @@ function isKnownUnavailableDockerServerOutput(stdout: string) {
   );
 }
 
+/**
+ * observeEngineの処理を実行する。
+ *
+ * @responsibility observeEngineに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input boundary: PreparedBoundary
+ * @returns EngineObservationを返す。
+ * @precondition 「boundary: PreparedBoundary」がobserveEngineの入力契約を満たす。
+ * @postcondition observeEngineの責務を完了した結果だけを返す。
+ * @effect observeEngineはFilesystemの読取りまたは書込みを実行する。
+ * @failure observeEngineは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeEngineは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security observeEngineはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeEngineは共有非同期状態を持たない同期処理である。
+ */
 function observeEngine(boundary: PreparedBoundary): EngineObservation {
   const environment = createWindowsDockerCliEnvironment({
     dockerConfig: boundary.runtimeStateRoot,
@@ -653,6 +1109,22 @@ function observeEngine(boundary: PreparedBoundary): EngineObservation {
   });
 }
 
+/**
+ * observeDockerDesktopUnavailableResultの処理を実行する。
+ *
+ * @responsibility observeDockerDesktopUnavailableResultに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input result: Readonly<{ pid: number | undefined; error?: Error | undefined; signal: NodeJS.Signals | null; status: number | null; stdout: unknown; }>、probeEnginePipe: () => void
+ * @returns EngineObservationを返す。
+ * @precondition 「result: Readonly<{ pid: number | undefined; error?: Error | undefined; signal: NodeJS.Signals | null; status: number | null; stdout: unknown; }>、probeEnginePipe: () => void」がobserveDockerDesktopUnavailableResultの入力契約を満たす。
+ * @postcondition observeDockerDesktopUnavailableResultの責務を完了した結果だけを返す。
+ * @effect N/A: observeDockerDesktopUnavailableResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure observeDockerDesktopUnavailableResultは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeDockerDesktopUnavailableResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observeDockerDesktopUnavailableResultはProcess内の同一Subsystemで完結する。
+ * @security observeDockerDesktopUnavailableResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeDockerDesktopUnavailableResultは共有非同期状態を持たない同期処理である。
+ */
 function observeDockerDesktopUnavailableResult(
   result: Readonly<{
     pid: number | undefined;
@@ -685,6 +1157,22 @@ function observeDockerDesktopUnavailableResult(
   }
 }
 
+/**
+ * observeDockerDesktopEngineResultの処理を実行する。
+ *
+ * @responsibility observeDockerDesktopEngineResultに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input result: Readonly<{ pid: number | undefined; error?: Error | undefined; signal: NodeJS.Signals | null; status: number | null; stdout: unknown; stderr: unknown; }>、expectedEngineVersion: string、probeEnginePipe: () => void
+ * @returns EngineObservationを返す。
+ * @precondition 「result: Readonly<{ pid: number | undefined; error?: Error | undefined; signal: NodeJS.Signals | null; status: number | null; stdout: unknown; stderr: unknown; }>、expectedEngineVersion: string、probeEnginePipe: () => void」がobserveDockerDesktopEngineResultの入力契約を満たす。
+ * @postcondition observeDockerDesktopEngineResultの責務を完了した結果だけを返す。
+ * @effect N/A: observeDockerDesktopEngineResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure observeDockerDesktopEngineResultは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeDockerDesktopEngineResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observeDockerDesktopEngineResultはProcess内の同一Subsystemで完結する。
+ * @security observeDockerDesktopEngineResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeDockerDesktopEngineResultは共有非同期状態を持たない同期処理である。
+ */
 export function observeDockerDesktopEngineResult(
   result: Readonly<{
     pid: number | undefined;
@@ -729,12 +1217,34 @@ export function observeDockerDesktopEngineResult(
   }
 }
 
+/**
+ * RuntimeDirectoryEntryObservationが扱う値の構造を表す。
+ *
+ * @responsibility RuntimeDirectoryEntryObservationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape RuntimeDirectoryEntryObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeDirectoryEntryObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeDirectoryEntryObservationの宣言は外部境界を開かない。
+ * @security RuntimeDirectoryEntryObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimeDirectoryEntryObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimeDirectoryEntryObservation = Readonly<{
   name: string;
   isDirectory: boolean;
   isSymbolicLink: boolean;
 }>;
 
+/**
+ * RuntimeDirectoryLockObservationDependenciesが扱う値の構造を表す。
+ *
+ * @responsibility RuntimeDirectoryLockObservationDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape RuntimeDirectoryLockObservationDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeDirectoryLockObservationDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeDirectoryLockObservationDependenciesの宣言は外部境界を開かない。
+ * @security RuntimeDirectoryLockObservationDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimeDirectoryLockObservationDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimeDirectoryLockObservationDependencies = Readonly<{
   identityAt: (target: string) => DockerDesktopRepairDirectoryIdentity | null;
   readEntries: (
@@ -743,6 +1253,22 @@ type RuntimeDirectoryLockObservationDependencies = Readonly<{
   probeEntry: (target: string) => void;
 }>;
 
+/**
+ * sameRuntimeDirectoryEntriesの処理を実行する。
+ *
+ * @responsibility sameRuntimeDirectoryEntriesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input beforeEntries: readonly RuntimeDirectoryEntryObservation[]、afterEntries: readonly RuntimeDirectoryEntryObservation[]
+ * @returns sameRuntimeDirectoryEntriesの計算結果を返す。
+ * @precondition 「beforeEntries: readonly RuntimeDirectoryEntryObservation[]、afterEntries: readonly RuntimeDirectoryEntryObservation[]」がsameRuntimeDirectoryEntriesの入力契約を満たす。
+ * @postcondition sameRuntimeDirectoryEntriesの責務を完了した結果だけを返す。
+ * @effect N/A: sameRuntimeDirectoryEntriesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameRuntimeDirectoryEntriesは独自の失敗分岐を所有しない。
+ * @invariant sameRuntimeDirectoryEntriesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sameRuntimeDirectoryEntriesはProcess内の同一Subsystemで完結する。
+ * @security sameRuntimeDirectoryEntriesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameRuntimeDirectoryEntriesは共有非同期状態を持たない同期処理である。
+ */
 function sameRuntimeDirectoryEntries(
   beforeEntries: readonly RuntimeDirectoryEntryObservation[],
   afterEntries: readonly RuntimeDirectoryEntryObservation[],
@@ -756,6 +1282,22 @@ function sameRuntimeDirectoryEntries(
   );
 }
 
+/**
+ * validRuntimeDirectoryEntryの処理を実行する。
+ *
+ * @responsibility validRuntimeDirectoryEntryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input entry: RuntimeDirectoryEntryObservation
+ * @returns validRuntimeDirectoryEntryの計算結果を返す。
+ * @precondition 「entry: RuntimeDirectoryEntryObservation」がvalidRuntimeDirectoryEntryの入力契約を満たす。
+ * @postcondition validRuntimeDirectoryEntryの責務を完了した結果だけを返す。
+ * @effect N/A: validRuntimeDirectoryEntryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validRuntimeDirectoryEntryは独自の失敗分岐を所有しない。
+ * @invariant validRuntimeDirectoryEntryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validRuntimeDirectoryEntryはProcess内の同一Subsystemで完結する。
+ * @security validRuntimeDirectoryEntryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validRuntimeDirectoryEntryは共有非同期状態を持たない同期処理である。
+ */
 function validRuntimeDirectoryEntry(entry: RuntimeDirectoryEntryObservation) {
   return (
     entry.name.length > 0 &&
@@ -768,6 +1310,22 @@ function validRuntimeDirectoryEntry(entry: RuntimeDirectoryEntryObservation) {
   );
 }
 
+/**
+ * observeDockerDesktopRuntimeDirectoryLockUsingDependenciesの処理を実行する。
+ *
+ * @responsibility observeDockerDesktopRuntimeDirectoryLockUsingDependenciesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input boundary: PreparedBoundary、dependencies: RuntimeDirectoryLockObservationDependencies
+ * @returns observeDockerDesktopRuntimeDirectoryLockUsingDependenciesの計算結果を返す。
+ * @precondition 「boundary: PreparedBoundary、dependencies: RuntimeDirectoryLockObservationDependencies」がobserveDockerDesktopRuntimeDirectoryLockUsingDependenciesの入力契約を満たす。
+ * @postcondition observeDockerDesktopRuntimeDirectoryLockUsingDependenciesの責務を完了した結果だけを返す。
+ * @effect N/A: observeDockerDesktopRuntimeDirectoryLockUsingDependenciesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure observeDockerDesktopRuntimeDirectoryLockUsingDependenciesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeDockerDesktopRuntimeDirectoryLockUsingDependenciesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observeDockerDesktopRuntimeDirectoryLockUsingDependenciesはProcess内の同一Subsystemで完結する。
+ * @security observeDockerDesktopRuntimeDirectoryLockUsingDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeDockerDesktopRuntimeDirectoryLockUsingDependenciesは共有非同期状態を持たない同期処理である。
+ */
 export function observeDockerDesktopRuntimeDirectoryLockUsingDependencies(
   boundary: PreparedBoundary,
   dependencies: RuntimeDirectoryLockObservationDependencies,
@@ -814,6 +1372,22 @@ export function observeDockerDesktopRuntimeDirectoryLockUsingDependencies(
   }
 }
 
+/**
+ * observeKnownSocketFailureの処理を実行する。
+ *
+ * @responsibility observeKnownSocketFailureに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input boundary: PreparedBoundary
+ * @returns observeKnownSocketFailureの計算結果を返す。
+ * @precondition 「boundary: PreparedBoundary」がobserveKnownSocketFailureの入力契約を満たす。
+ * @postcondition observeKnownSocketFailureの責務を完了した結果だけを返す。
+ * @effect observeKnownSocketFailureはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: observeKnownSocketFailureは独自の失敗分岐を所有しない。
+ * @invariant observeKnownSocketFailureは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security observeKnownSocketFailureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeKnownSocketFailureは共有非同期状態を持たない同期処理である。
+ */
 function observeKnownSocketFailure(boundary: PreparedBoundary) {
   return observeDockerDesktopRuntimeDirectoryLockUsingDependencies(boundary, {
     identityAt,
@@ -837,6 +1411,22 @@ function observeKnownSocketFailure(boundary: PreparedBoundary) {
   });
 }
 
+/**
+ * observeRuntimeDirectoryLockの処理を実行する。
+ *
+ * @responsibility observeRuntimeDirectoryLockに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input directory: string
+ * @returns observeRuntimeDirectoryLockの計算結果を返す。
+ * @precondition 「directory: string」がobserveRuntimeDirectoryLockの入力契約を満たす。
+ * @postcondition observeRuntimeDirectoryLockの責務を完了した結果だけを返す。
+ * @effect observeRuntimeDirectoryLockはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: observeRuntimeDirectoryLockは独自の失敗分岐を所有しない。
+ * @invariant observeRuntimeDirectoryLockは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security observeRuntimeDirectoryLockはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeRuntimeDirectoryLockは共有非同期状態を持たない同期処理である。
+ */
 function observeRuntimeDirectoryLock(directory: string) {
   return observeDockerDesktopRuntimeDirectoryLockUsingDependencies(
     { runDirectory: directory } as PreparedBoundary,
@@ -858,6 +1448,22 @@ function observeRuntimeDirectoryLock(directory: string) {
   );
 }
 
+/**
+ * officialShutdownの処理を実行する。
+ *
+ * @responsibility officialShutdownに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input _boundary: PreparedBoundary、_operation: DockerDesktopRepairOperation、session: DockerDesktopRepairNativeHelperSession
+ * @returns Promise<TaggedEffect>を返す。
+ * @precondition 「_boundary: PreparedBoundary、_operation: DockerDesktopRepairOperation、session: DockerDesktopRepairNativeHelperSession」がofficialShutdownの入力契約を満たす。
+ * @postcondition officialShutdownの責務を完了した結果だけを返す。
+ * @effect N/A: officialShutdownは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: officialShutdownは独自の失敗分岐を所有しない。
+ * @invariant officialShutdownは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: officialShutdownはProcess内の同一Subsystemで完結する。
+ * @security officialShutdownはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency officialShutdownは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function officialShutdown(
   _boundary: PreparedBoundary,
   _operation: DockerDesktopRepairOperation,
@@ -877,6 +1483,22 @@ async function officialShutdown(
   });
 }
 
+/**
+ * terminateDockerWslの処理を実行する。
+ *
+ * @responsibility terminateDockerWslに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns TaggedEffectを返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がterminateDockerWslの入力契約を満たす。
+ * @postcondition terminateDockerWslの責務を完了した結果だけを返す。
+ * @effect terminateDockerWslは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: terminateDockerWslは独自の失敗分岐を所有しない。
+ * @invariant terminateDockerWslは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security terminateDockerWslはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: terminateDockerWslは共有非同期状態を持たない同期処理である。
+ */
 function terminateDockerWsl(): TaggedEffect {
   const environment = createWindowsNativeHelperEnvironment();
   const systemRoot = environment?.SystemRoot;
@@ -902,6 +1524,22 @@ function terminateDockerWsl(): TaggedEffect {
   });
 }
 
+/**
+ * renameRunDirectoryの処理を実行する。
+ *
+ * @responsibility renameRunDirectoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input boundary: PreparedBoundary、operation: DockerDesktopRepairOperation
+ * @returns RenameOutcomeを返す。
+ * @precondition 「boundary: PreparedBoundary、operation: DockerDesktopRepairOperation」がrenameRunDirectoryの入力契約を満たす。
+ * @postcondition renameRunDirectoryの責務を完了した結果だけを返す。
+ * @effect renameRunDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure renameRunDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant renameRunDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security renameRunDirectoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: renameRunDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function renameRunDirectory(
   boundary: PreparedBoundary,
   operation: DockerDesktopRepairOperation,
@@ -955,6 +1593,22 @@ function renameRunDirectory(
   }
 }
 
+/**
+ * renameRuntimeDirectoryの処理を実行する。
+ *
+ * @responsibility renameRuntimeDirectoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input source: string、target: string、expectedIdentity: DockerDesktopRepairDirectoryIdentity
+ * @returns RenameOutcomeを返す。
+ * @precondition 「source: string、target: string、expectedIdentity: DockerDesktopRepairDirectoryIdentity」がrenameRuntimeDirectoryの入力契約を満たす。
+ * @postcondition renameRuntimeDirectoryの責務を完了した結果だけを返す。
+ * @effect renameRuntimeDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure renameRuntimeDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant renameRuntimeDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security renameRuntimeDirectoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: renameRuntimeDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function renameRuntimeDirectory(
   source: string,
   target: string,
@@ -996,6 +1650,22 @@ function renameRuntimeDirectory(
   }
 }
 
+/**
+ * awaitEngineの処理を実行する。
+ *
+ * @responsibility awaitEngineに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input boundary: PreparedBoundary、shouldStop: () => boolean、stopDetected: Promise<void>
+ * @returns Promise<EngineObservation>を返す。
+ * @precondition 「boundary: PreparedBoundary、shouldStop: () => boolean、stopDetected: Promise<void>」がawaitEngineの入力契約を満たす。
+ * @postcondition awaitEngineの責務を完了した結果だけを返す。
+ * @effect N/A: awaitEngineは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: awaitEngineは独自の失敗分岐を所有しない。
+ * @invariant awaitEngineは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: awaitEngineはProcess内の同一Subsystemで完結する。
+ * @security awaitEngineはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency awaitEngineは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function awaitEngine(
   boundary: PreparedBoundary,
   shouldStop: () => boolean,
@@ -1017,6 +1687,22 @@ async function awaitEngine(
   return "known_unavailable";
 }
 
+/**
+ * persistの処理を実行する。
+ *
+ * @responsibility persistに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、boundary: PreparedBoundary、operation: DockerDesktopRepairOperation、stage: Parameters<RepairDependencies["persistStage"]>[2]、ledger: MutableLedger
+ * @returns persistの計算結果を返す。
+ * @precondition 「dependencies: RepairDependencies、boundary: PreparedBoundary、operation: DockerDesktopRepairOperation、stage: Parameters<RepairDependencies["persistStage"]>[2]、ledger: MutableLedger」がpersistの入力契約を満たす。
+ * @postcondition persistの責務を完了した結果だけを返す。
+ * @effect N/A: persistは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: persistは独自の失敗分岐を所有しない。
+ * @invariant persistは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: persistはProcess内の同一Subsystemで完結する。
+ * @security persistはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: persistは共有非同期状態を持たない同期処理である。
+ */
 function persist(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
@@ -1078,6 +1764,22 @@ function persist(
   return Object.freeze({ status: "persisted" as const, operation: updated });
 }
 
+/**
+ * inventoryStateの処理を実行する。
+ *
+ * @responsibility inventoryStateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、boundary: PreparedBoundary
+ * @returns inventoryStateの計算結果を返す。
+ * @precondition 「dependencies: RepairDependencies、boundary: PreparedBoundary」がinventoryStateの入力契約を満たす。
+ * @postcondition inventoryStateの責務を完了した結果だけを返す。
+ * @effect inventoryStateはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: inventoryStateは独自の失敗分岐を所有しない。
+ * @invariant inventoryStateは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security inventoryStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inventoryStateは共有非同期状態を持たない同期処理である。
+ */
 function inventoryState(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
@@ -1132,6 +1834,22 @@ function inventoryState(
   return Object.freeze({ inventory, unfinished: unfinishedItems[0] ?? null });
 }
 
+/**
+ * durableInventoryStateの処理を実行する。
+ *
+ * @responsibility durableInventoryStateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、boundary: PreparedBoundary
+ * @returns durableInventoryStateの計算結果を返す。
+ * @precondition 「dependencies: RepairDependencies、boundary: PreparedBoundary」がdurableInventoryStateの入力契約を満たす。
+ * @postcondition durableInventoryStateの責務を完了した結果だけを返す。
+ * @effect N/A: durableInventoryStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: durableInventoryStateは独自の失敗分岐を所有しない。
+ * @invariant durableInventoryStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: durableInventoryStateはProcess内の同一Subsystemで完結する。
+ * @security durableInventoryStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: durableInventoryStateは共有非同期状態を持たない同期処理である。
+ */
 function durableInventoryState(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
@@ -1148,6 +1866,22 @@ function durableInventoryState(
     : Object.freeze({ inventory, unfinished: unfinishedItems[0] ?? null });
 }
 
+/**
+ * registerProcessCancellationの処理を実行する。
+ *
+ * @responsibility registerProcessCancellationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input listener: () => void
+ * @returns registerProcessCancellationの計算結果を返す。
+ * @precondition 「listener: () => void」がregisterProcessCancellationの入力契約を満たす。
+ * @postcondition registerProcessCancellationの責務を完了した結果だけを返す。
+ * @effect registerProcessCancellationは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: registerProcessCancellationは独自の失敗分岐を所有しない。
+ * @invariant registerProcessCancellationは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security registerProcessCancellationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: registerProcessCancellationは共有非同期状態を持たない同期処理である。
+ */
 function registerProcessCancellation(listener: () => void) {
   process.once("SIGINT", listener);
   process.once("SIGTERM", listener);
@@ -1157,6 +1891,22 @@ function registerProcessCancellation(listener: () => void) {
   };
 }
 
+/**
+ * attachCancellationの処理を実行する。
+ *
+ * @responsibility attachCancellationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input session: DockerDesktopRepairNativeHelperSession、registerCancellation
+ * @returns attachCancellationの計算結果を返す。
+ * @precondition 「session: DockerDesktopRepairNativeHelperSession、registerCancellation」がattachCancellationの入力契約を満たす。
+ * @postcondition attachCancellationの責務を完了した結果だけを返す。
+ * @effect N/A: attachCancellationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: attachCancellationは独自の失敗分岐を所有しない。
+ * @invariant attachCancellationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: attachCancellationはProcess内の同一Subsystemで完結する。
+ * @security attachCancellationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency attachCancellationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function attachCancellation(
   session: DockerDesktopRepairNativeHelperSession,
   registerCancellation = registerProcessCancellation,
@@ -1189,6 +1939,17 @@ function attachCancellation(
   });
 }
 
+/**
+ * EffectBoundaryVerificationが扱う値の構造を表す。
+ *
+ * @responsibility EffectBoundaryVerificationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape EffectBoundaryVerificationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant EffectBoundaryVerificationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: EffectBoundaryVerificationの宣言は外部境界を開かない。
+ * @security EffectBoundaryVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility EffectBoundaryVerificationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type EffectBoundaryVerification =
   | "verified"
   | "cancelled"
@@ -1196,6 +1957,22 @@ type EffectBoundaryVerification =
   | "artifact_unknown"
   | "authority_changed";
 
+/**
+ * effectBoundaryFailureReasonの処理を実行する。
+ *
+ * @responsibility effectBoundaryFailureReasonに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input state: Exclude<EffectBoundaryVerification, "verified">、isAfterIntent
+ * @returns effectBoundaryFailureReasonの計算結果を返す。
+ * @precondition 「state: Exclude<EffectBoundaryVerification, "verified">、isAfterIntent」がeffectBoundaryFailureReasonの入力契約を満たす。
+ * @postcondition effectBoundaryFailureReasonの責務を完了した結果だけを返す。
+ * @effect N/A: effectBoundaryFailureReasonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: effectBoundaryFailureReasonは独自の失敗分岐を所有しない。
+ * @invariant effectBoundaryFailureReasonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: effectBoundaryFailureReasonはProcess内の同一Subsystemで完結する。
+ * @security effectBoundaryFailureReasonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: effectBoundaryFailureReasonは共有非同期状態を持たない同期処理である。
+ */
 function effectBoundaryFailureReason(
   state: Exclude<EffectBoundaryVerification, "verified">,
   isAfterIntent = false,
@@ -1213,6 +1990,22 @@ function effectBoundaryFailureReason(
     : "docker_desktop_repair_authority_changed";
 }
 
+/**
+ * persistFailureReasonの処理を実行する。
+ *
+ * @responsibility persistFailureReasonに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input status: string、isAfterIntent
+ * @returns persistFailureReasonの計算結果を返す。
+ * @precondition 「status: string、isAfterIntent」がpersistFailureReasonの入力契約を満たす。
+ * @postcondition persistFailureReasonの責務を完了した結果だけを返す。
+ * @effect N/A: persistFailureReasonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: persistFailureReasonは独自の失敗分岐を所有しない。
+ * @invariant persistFailureReasonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: persistFailureReasonはProcess内の同一Subsystemで完結する。
+ * @security persistFailureReasonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: persistFailureReasonは共有非同期状態を持たない同期処理である。
+ */
 function persistFailureReason(status: string, isAfterIntent = false) {
   if (status === "capacity_unavailable")
     return "docker_desktop_repair_record_capacity_unavailable";
@@ -1233,6 +2026,20 @@ function persistFailureReason(status: string, isAfterIntent = false) {
   return "docker_desktop_repair_record_update_failed";
 }
 
+/**
+ * DockerDesktopRepairPersistenceErrorが担う状態と操作を提供する。
+ *
+ * @responsibility DockerDesktopRepairPersistenceErrorに属する状態と操作の所有境界をまとめる。
+ * @trace ARCH-000008
+ * @construction DockerDesktopRepairPersistenceErrorの生成に必要な依存と初期状態をConstructor契約で固定する。
+ * @lifecycle DockerDesktopRepairPersistenceErrorが所有する状態と資源を生成から終了まで同じInstanceで管理する。
+ * @effect N/A: DockerDesktopRepairPersistenceErrorの宣言自体は実行時Effectを発行しない。
+ * @failure N/A: DockerDesktopRepairPersistenceErrorの宣言自体は実行時失敗を所有しない。
+ * @invariant DockerDesktopRepairPersistenceErrorで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairPersistenceErrorの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairPersistenceErrorはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: DockerDesktopRepairPersistenceErrorは共有非同期状態を持たない同期処理である。
+ */
 class DockerDesktopRepairPersistenceError extends Error {
   readonly repairReason: string;
 
@@ -1243,10 +2050,42 @@ class DockerDesktopRepairPersistenceError extends Error {
   }
 }
 
+/**
+ * throwPersistenceFailureの処理を実行する。
+ *
+ * @responsibility throwPersistenceFailureに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input status: string
+ * @returns neverを返す。
+ * @precondition 「status: string」がthrowPersistenceFailureの入力契約を満たす。
+ * @postcondition throwPersistenceFailureの責務を完了した結果だけを返す。
+ * @effect N/A: throwPersistenceFailureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure throwPersistenceFailureは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant throwPersistenceFailureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: throwPersistenceFailureはProcess内の同一Subsystemで完結する。
+ * @security throwPersistenceFailureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: throwPersistenceFailureは共有非同期状態を持たない同期処理である。
+ */
 function throwPersistenceFailure(status: string): never {
   throw new DockerDesktopRepairPersistenceError(persistFailureReason(status));
 }
 
+/**
+ * verifyEffectBoundaryStateの処理を実行する。
+ *
+ * @responsibility verifyEffectBoundaryStateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>
+ * @returns Promise<EffectBoundaryVerification>を返す。
+ * @precondition 「dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>」がverifyEffectBoundaryStateの入力契約を満たす。
+ * @postcondition verifyEffectBoundaryStateの責務を完了した結果だけを返す。
+ * @effect N/A: verifyEffectBoundaryStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: verifyEffectBoundaryStateは独自の失敗分岐を所有しない。
+ * @invariant verifyEffectBoundaryStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyEffectBoundaryStateはProcess内の同一Subsystemで完結する。
+ * @security verifyEffectBoundaryStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency verifyEffectBoundaryStateは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function verifyEffectBoundaryState(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
@@ -1273,6 +2112,22 @@ async function verifyEffectBoundaryState(
     : "authority_changed";
 }
 
+/**
+ * verifyEffectBoundaryの処理を実行する。
+ *
+ * @responsibility verifyEffectBoundaryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>
+ * @returns verifyEffectBoundaryの計算結果を返す。
+ * @precondition 「dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>」がverifyEffectBoundaryの入力契約を満たす。
+ * @postcondition verifyEffectBoundaryの責務を完了した結果だけを返す。
+ * @effect N/A: verifyEffectBoundaryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: verifyEffectBoundaryは独自の失敗分岐を所有しない。
+ * @invariant verifyEffectBoundaryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyEffectBoundaryはProcess内の同一Subsystemで完結する。
+ * @security verifyEffectBoundaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency verifyEffectBoundaryは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function verifyEffectBoundary(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
@@ -1289,6 +2144,22 @@ async function verifyEffectBoundary(
   );
 }
 
+/**
+ * verifyCleanupRecordBoundaryStateの処理を実行する。
+ *
+ * @responsibility verifyCleanupRecordBoundaryStateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession
+ * @returns Promise<EffectBoundaryVerification>を返す。
+ * @precondition 「dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession」がverifyCleanupRecordBoundaryStateの入力契約を満たす。
+ * @postcondition verifyCleanupRecordBoundaryStateの責務を完了した結果だけを返す。
+ * @effect N/A: verifyCleanupRecordBoundaryStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: verifyCleanupRecordBoundaryStateは独自の失敗分岐を所有しない。
+ * @invariant verifyCleanupRecordBoundaryStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyCleanupRecordBoundaryStateはProcess内の同一Subsystemで完結する。
+ * @security verifyCleanupRecordBoundaryStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency verifyCleanupRecordBoundaryStateは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function verifyCleanupRecordBoundaryState(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
@@ -1305,6 +2176,22 @@ async function verifyCleanupRecordBoundaryState(
     : "authority_changed";
 }
 
+/**
+ * observeHelperWithinCancellationの処理を実行する。
+ *
+ * @responsibility observeHelperWithinCancellationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input observe: () => Promise<T>、cancellation: ReturnType<typeof attachCancellation>、session: DockerDesktopRepairNativeHelperSession
+ * @returns Promise<T | null>を返す。
+ * @precondition 「observe: () => Promise<T>、cancellation: ReturnType<typeof attachCancellation>、session: DockerDesktopRepairNativeHelperSession」がobserveHelperWithinCancellationの入力契約を満たす。
+ * @postcondition observeHelperWithinCancellationの責務を完了した結果だけを返す。
+ * @effect N/A: observeHelperWithinCancellationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: observeHelperWithinCancellationは独自の失敗分岐を所有しない。
+ * @invariant observeHelperWithinCancellationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observeHelperWithinCancellationはProcess内の同一Subsystemで完結する。
+ * @security observeHelperWithinCancellationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency observeHelperWithinCancellationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function observeHelperWithinCancellation<T>(
   observe: () => Promise<T>,
   cancellation: ReturnType<typeof attachCancellation>,
@@ -1323,6 +2210,22 @@ async function observeHelperWithinCancellation<T>(
   return null;
 }
 
+/**
+ * inspectProcessesWithinCancellationの処理を実行する。
+ *
+ * @responsibility inspectProcessesWithinCancellationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>
+ * @returns inspectProcessesWithinCancellationの計算結果を返す。
+ * @precondition 「session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>」がinspectProcessesWithinCancellationの入力契約を満たす。
+ * @postcondition inspectProcessesWithinCancellationの責務を完了した結果だけを返す。
+ * @effect N/A: inspectProcessesWithinCancellationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectProcessesWithinCancellationは独自の失敗分岐を所有しない。
+ * @invariant inspectProcessesWithinCancellationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectProcessesWithinCancellationはProcess内の同一Subsystemで完結する。
+ * @security inspectProcessesWithinCancellationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectProcessesWithinCancellationは共有非同期状態を持たない同期処理である。
+ */
 function inspectProcessesWithinCancellation(
   session: DockerDesktopRepairNativeHelperSession,
   cancellation: ReturnType<typeof attachCancellation>,
@@ -1334,6 +2237,17 @@ function inspectProcessesWithinCancellation(
   );
 }
 
+/**
+ * FreshRuntimeStateが扱う値の構造を表す。
+ *
+ * @responsibility FreshRuntimeStateに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape FreshRuntimeStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant FreshRuntimeStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: FreshRuntimeStateの宣言は外部境界を開かない。
+ * @security FreshRuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility FreshRuntimeStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type FreshRuntimeState = Readonly<{
   boundaryState: EffectBoundaryVerification;
   processes: "verified" | "absent" | "unknown";
@@ -1342,6 +2256,22 @@ type FreshRuntimeState = Readonly<{
   stale: PathObservation;
 }>;
 
+/**
+ * observeFreshRuntimeStateの処理を実行する。
+ *
+ * @responsibility observeFreshRuntimeStateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation
+ * @returns Promise<FreshRuntimeState>を返す。
+ * @precondition 「dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation」がobserveFreshRuntimeStateの入力契約を満たす。
+ * @postcondition observeFreshRuntimeStateの責務を完了した結果だけを返す。
+ * @effect N/A: observeFreshRuntimeStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure observeFreshRuntimeStateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeFreshRuntimeStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observeFreshRuntimeStateはProcess内の同一Subsystemで完結する。
+ * @security observeFreshRuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency observeFreshRuntimeStateは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function observeFreshRuntimeState(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
@@ -1406,6 +2336,22 @@ async function observeFreshRuntimeState(
   });
 }
 
+/**
+ * freshReadyStateMatchesの処理を実行する。
+ *
+ * @responsibility freshReadyStateMatchesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input state: FreshRuntimeState、expectedRunIdentity: DockerDesktopRepairDirectoryIdentity、staleIdentity: DockerDesktopRepairDirectoryIdentity | null
+ * @returns freshReadyStateMatchesの計算結果を返す。
+ * @precondition 「state: FreshRuntimeState、expectedRunIdentity: DockerDesktopRepairDirectoryIdentity、staleIdentity: DockerDesktopRepairDirectoryIdentity | null」がfreshReadyStateMatchesの入力契約を満たす。
+ * @postcondition freshReadyStateMatchesの責務を完了した結果だけを返す。
+ * @effect N/A: freshReadyStateMatchesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: freshReadyStateMatchesは独自の失敗分岐を所有しない。
+ * @invariant freshReadyStateMatchesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: freshReadyStateMatchesはProcess内の同一Subsystemで完結する。
+ * @security freshReadyStateMatchesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: freshReadyStateMatchesは共有非同期状態を持たない同期処理である。
+ */
 function freshReadyStateMatches(
   state: FreshRuntimeState,
   expectedRunIdentity: DockerDesktopRepairDirectoryIdentity,
@@ -1426,6 +2372,22 @@ function freshReadyStateMatches(
   );
 }
 
+/**
+ * historicalBrokenRuntimeCanBeRetainedForNewRepairの処理を実行する。
+ *
+ * @responsibility historicalBrokenRuntimeCanBeRetainedForNewRepairに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input state: FreshRuntimeState、lockedRunIdentity: DockerDesktopRepairDirectoryIdentity | null
+ * @returns historicalBrokenRuntimeCanBeRetainedForNewRepairの計算結果を返す。
+ * @precondition 「state: FreshRuntimeState、lockedRunIdentity: DockerDesktopRepairDirectoryIdentity | null」がhistoricalBrokenRuntimeCanBeRetainedForNewRepairの入力契約を満たす。
+ * @postcondition historicalBrokenRuntimeCanBeRetainedForNewRepairの責務を完了した結果だけを返す。
+ * @effect N/A: historicalBrokenRuntimeCanBeRetainedForNewRepairは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: historicalBrokenRuntimeCanBeRetainedForNewRepairは独自の失敗分岐を所有しない。
+ * @invariant historicalBrokenRuntimeCanBeRetainedForNewRepairは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: historicalBrokenRuntimeCanBeRetainedForNewRepairはProcess内の同一Subsystemで完結する。
+ * @security historicalBrokenRuntimeCanBeRetainedForNewRepairはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: historicalBrokenRuntimeCanBeRetainedForNewRepairは共有非同期状態を持たない同期処理である。
+ */
 function historicalBrokenRuntimeCanBeRetainedForNewRepair(
   state: FreshRuntimeState,
   lockedRunIdentity: DockerDesktopRepairDirectoryIdentity | null,
@@ -1442,6 +2404,22 @@ function historicalBrokenRuntimeCanBeRetainedForNewRepair(
   );
 }
 
+/**
+ * historicalOperationHasNoIssuedHostEffectの処理を実行する。
+ *
+ * @responsibility historicalOperationHasNoIssuedHostEffectに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input operation: DockerDesktopRepairOperation
+ * @returns historicalOperationHasNoIssuedHostEffectの計算結果を返す。
+ * @precondition 「operation: DockerDesktopRepairOperation」がhistoricalOperationHasNoIssuedHostEffectの入力契約を満たす。
+ * @postcondition historicalOperationHasNoIssuedHostEffectの責務を完了した結果だけを返す。
+ * @effect N/A: historicalOperationHasNoIssuedHostEffectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: historicalOperationHasNoIssuedHostEffectは独自の失敗分岐を所有しない。
+ * @invariant historicalOperationHasNoIssuedHostEffectは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: historicalOperationHasNoIssuedHostEffectはProcess内の同一Subsystemで完結する。
+ * @security historicalOperationHasNoIssuedHostEffectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: historicalOperationHasNoIssuedHostEffectは共有非同期状態を持たない同期処理である。
+ */
 function historicalOperationHasNoIssuedHostEffect(
   operation: DockerDesktopRepairOperation,
 ) {
@@ -1461,6 +2439,22 @@ function historicalOperationHasNoIssuedHostEffect(
   );
 }
 
+/**
+ * freshStoppedStateMatchesの処理を実行する。
+ *
+ * @responsibility freshStoppedStateMatchesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input state: FreshRuntimeState、operation: DockerDesktopRepairOperation
+ * @returns freshStoppedStateMatchesの計算結果を返す。
+ * @precondition 「state: FreshRuntimeState、operation: DockerDesktopRepairOperation」がfreshStoppedStateMatchesの入力契約を満たす。
+ * @postcondition freshStoppedStateMatchesの責務を完了した結果だけを返す。
+ * @effect N/A: freshStoppedStateMatchesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: freshStoppedStateMatchesは独自の失敗分岐を所有しない。
+ * @invariant freshStoppedStateMatchesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: freshStoppedStateMatchesはProcess内の同一Subsystemで完結する。
+ * @security freshStoppedStateMatchesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: freshStoppedStateMatchesは共有非同期状態を持たない同期処理である。
+ */
 function freshStoppedStateMatches(
   state: FreshRuntimeState,
   operation: DockerDesktopRepairOperation,
@@ -1476,6 +2470,22 @@ function freshStoppedStateMatches(
   );
 }
 
+/**
+ * freshQuiescentRunStateMatchesの処理を実行する。
+ *
+ * @responsibility freshQuiescentRunStateMatchesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input state: FreshRuntimeState、operation: DockerDesktopRepairOperation
+ * @returns freshQuiescentRunStateMatchesの計算結果を返す。
+ * @precondition 「state: FreshRuntimeState、operation: DockerDesktopRepairOperation」がfreshQuiescentRunStateMatchesの入力契約を満たす。
+ * @postcondition freshQuiescentRunStateMatchesの責務を完了した結果だけを返す。
+ * @effect N/A: freshQuiescentRunStateMatchesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: freshQuiescentRunStateMatchesは独自の失敗分岐を所有しない。
+ * @invariant freshQuiescentRunStateMatchesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: freshQuiescentRunStateMatchesはProcess内の同一Subsystemで完結する。
+ * @security freshQuiescentRunStateMatchesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: freshQuiescentRunStateMatchesは共有非同期状態を持たない同期処理である。
+ */
 function freshQuiescentRunStateMatches(
   state: FreshRuntimeState,
   operation: DockerDesktopRepairOperation,
@@ -1491,6 +2501,22 @@ function freshQuiescentRunStateMatches(
   );
 }
 
+/**
+ * persistAfterLiveBoundaryの処理を実行する。
+ *
+ * @responsibility persistAfterLiveBoundaryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation、stage: Parameters<RepairDependencies["persistStage"]>[2]、ledger: MutableLedger、validateFresh: (state: FreshRuntimeState) => boolean
+ * @returns persistAfterLiveBoundaryの計算結果を返す。
+ * @precondition 「dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation、stage: Parameters<RepairDependencies["persistStage"]>[2]、ledger: MutableLedger、validateFresh: (state: FreshRuntimeState) => boolean」がpersistAfterLiveBoundaryの入力契約を満たす。
+ * @postcondition persistAfterLiveBoundaryの責務を完了した結果だけを返す。
+ * @effect N/A: persistAfterLiveBoundaryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure persistAfterLiveBoundaryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant persistAfterLiveBoundaryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: persistAfterLiveBoundaryはProcess内の同一Subsystemで完結する。
+ * @security persistAfterLiveBoundaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency persistAfterLiveBoundaryは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function persistAfterLiveBoundary(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
@@ -1532,6 +2558,22 @@ async function persistAfterLiveBoundary(
   return persisted.operation;
 }
 
+/**
+ * persistHostEffectIntentの処理を実行する。
+ *
+ * @responsibility persistHostEffectIntentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation、kind: "process" | "filesystem"、action: DockerDesktopRepairEffectAction、ledger: MutableLedger
+ * @returns persistHostEffectIntentの計算結果を返す。
+ * @precondition 「dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation、kind: "process" | "filesystem"、action: DockerDesktopRepairEffectAction、ledger: MutableLedger」がpersistHostEffectIntentの入力契約を満たす。
+ * @postcondition persistHostEffectIntentの責務を完了した結果だけを返す。
+ * @effect N/A: persistHostEffectIntentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: persistHostEffectIntentは独自の失敗分岐を所有しない。
+ * @invariant persistHostEffectIntentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: persistHostEffectIntentはProcess内の同一Subsystemで完結する。
+ * @security persistHostEffectIntentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency persistHostEffectIntentは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function persistHostEffectIntent(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
@@ -1581,6 +2623,22 @@ async function persistHostEffectIntent(
   return persisted;
 }
 
+/**
+ * durableResumeAllowsHostActionの処理を実行する。
+ *
+ * @responsibility durableResumeAllowsHostActionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input operation: DockerDesktopRepairOperation、action: Extract< DockerDesktopRepairEffectAction, | "official_shutdown" | "native_termination" | "wsl_termination" | "runtime_directory_rename" | "desktop_launch" >
+ * @returns durableResumeAllowsHostActionの計算結果を返す。
+ * @precondition 「operation: DockerDesktopRepairOperation、action: Extract< DockerDesktopRepairEffectAction, | "official_shutdown" | "native_termination" | "wsl_termination" | "runtime_directory_rename" | "desktop_launch" >」がdurableResumeAllowsHostActionの入力契約を満たす。
+ * @postcondition durableResumeAllowsHostActionの責務を完了した結果だけを返す。
+ * @effect N/A: durableResumeAllowsHostActionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: durableResumeAllowsHostActionは独自の失敗分岐を所有しない。
+ * @invariant durableResumeAllowsHostActionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: durableResumeAllowsHostActionはProcess内の同一Subsystemで完結する。
+ * @security durableResumeAllowsHostActionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: durableResumeAllowsHostActionは共有非同期状態を持たない同期処理である。
+ */
 function durableResumeAllowsHostAction(
   operation: DockerDesktopRepairOperation,
   action: Extract<
@@ -1599,6 +2657,22 @@ function durableResumeAllowsHostAction(
   );
 }
 
+/**
+ * persistHostEffectSettlementの処理を実行する。
+ *
+ * @responsibility persistHostEffectSettlementに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、_cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation、kind: "process" | "filesystem"、action: DockerDesktopRepairEffectAction、observed: TaggedEffect、ledger: MutableLedger
+ * @returns persistHostEffectSettlementの計算結果を返す。
+ * @precondition 「dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、_cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation、kind: "process" | "filesystem"、action: DockerDesktopRepairEffectAction、observed: TaggedEffect、ledger: MutableLedger」がpersistHostEffectSettlementの入力契約を満たす。
+ * @postcondition persistHostEffectSettlementの責務を完了した結果だけを返す。
+ * @effect N/A: persistHostEffectSettlementは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure persistHostEffectSettlementは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant persistHostEffectSettlementは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: persistHostEffectSettlementはProcess内の同一Subsystemで完結する。
+ * @security persistHostEffectSettlementはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency persistHostEffectSettlementは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function persistHostEffectSettlement(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
@@ -1633,6 +2707,22 @@ async function persistHostEffectSettlement(
   return persisted.operation;
 }
 
+/**
+ * persistNativeTerminationObservationの処理を実行する。
+ *
+ * @responsibility persistNativeTerminationObservationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、operation: DockerDesktopRepairOperation、ledger: MutableLedger
+ * @returns persistNativeTerminationObservationの計算結果を返す。
+ * @precondition 「dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、operation: DockerDesktopRepairOperation、ledger: MutableLedger」がpersistNativeTerminationObservationの入力契約を満たす。
+ * @postcondition persistNativeTerminationObservationの責務を完了した結果だけを返す。
+ * @effect N/A: persistNativeTerminationObservationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure persistNativeTerminationObservationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant persistNativeTerminationObservationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: persistNativeTerminationObservationはProcess内の同一Subsystemで完結する。
+ * @security persistNativeTerminationObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency persistNativeTerminationObservationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function persistNativeTerminationObservation(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
@@ -1674,6 +2764,17 @@ async function persistNativeTerminationObservation(
   return persisted.operation;
 }
 
+/**
+ * HostEffectPreconditionが扱う値の構造を表す。
+ *
+ * @responsibility HostEffectPreconditionに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape HostEffectPreconditionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant HostEffectPreconditionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: HostEffectPreconditionの宣言は外部境界を開かない。
+ * @security HostEffectPreconditionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility HostEffectPreconditionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type HostEffectPrecondition = Readonly<{
   state:
     | "proceed"
@@ -1687,6 +2788,22 @@ type HostEffectPrecondition = Readonly<{
   liveRunIdentity: DockerDesktopRepairDirectoryIdentity | null;
 }>;
 
+/**
+ * hostEffectPreconditionBlockReasonの処理を実行する。
+ *
+ * @responsibility hostEffectPreconditionBlockReasonに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input observation: HostEffectPrecondition、cancellation: ReturnType<typeof attachCancellation>
+ * @returns hostEffectPreconditionBlockReasonの計算結果を返す。
+ * @precondition 「observation: HostEffectPrecondition、cancellation: ReturnType<typeof attachCancellation>」がhostEffectPreconditionBlockReasonの入力契約を満たす。
+ * @postcondition hostEffectPreconditionBlockReasonの責務を完了した結果だけを返す。
+ * @effect N/A: hostEffectPreconditionBlockReasonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hostEffectPreconditionBlockReasonは独自の失敗分岐を所有しない。
+ * @invariant hostEffectPreconditionBlockReasonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: hostEffectPreconditionBlockReasonはProcess内の同一Subsystemで完結する。
+ * @security hostEffectPreconditionBlockReasonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hostEffectPreconditionBlockReasonは共有非同期状態を持たない同期処理である。
+ */
 function hostEffectPreconditionBlockReason(
   observation: HostEffectPrecondition,
   cancellation: ReturnType<typeof attachCancellation>,
@@ -1704,6 +2821,22 @@ function hostEffectPreconditionBlockReason(
     : "docker_desktop_repair_native_helper_lost";
 }
 
+/**
+ * observeHostEffectPreconditionの処理を実行する。
+ *
+ * @responsibility observeHostEffectPreconditionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation、action: Extract< DockerDesktopRepairEffectAction, | "official_shutdown" | "native_termination" | "wsl_termination" | "runtime_directory_rename" | "desktop_launch" >
+ * @returns Promise<HostEffectPrecondition>を返す。
+ * @precondition 「dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation、action: Extract< DockerDesktopRepairEffectAction, | "official_shutdown" | "native_termination" | "wsl_termination" | "runtime_directory_rename" | "desktop_launch" >」がobserveHostEffectPreconditionの入力契約を満たす。
+ * @postcondition observeHostEffectPreconditionの責務を完了した結果だけを返す。
+ * @effect observeHostEffectPreconditionはFilesystemの読取りまたは書込みを実行する。
+ * @failure observeHostEffectPreconditionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeHostEffectPreconditionは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security observeHostEffectPreconditionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency observeHostEffectPreconditionは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function observeHostEffectPrecondition(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
@@ -1838,6 +2971,22 @@ async function observeHostEffectPrecondition(
   return Object.freeze({ state: "unknown" as const, liveRunIdentity: null });
 }
 
+/**
+ * settleUnissuedIntentAfterFreshObservationの処理を実行する。
+ *
+ * @responsibility settleUnissuedIntentAfterFreshObservationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation、kind: "process" | "filesystem"、action: DockerDesktopRepairEffectAction、ledger: MutableLedger、observation: HostEffectPrecondition
+ * @returns settleUnissuedIntentAfterFreshObservationの計算結果を返す。
+ * @precondition 「dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation、kind: "process" | "filesystem"、action: DockerDesktopRepairEffectAction、ledger: MutableLedger、observation: HostEffectPrecondition」がsettleUnissuedIntentAfterFreshObservationの入力契約を満たす。
+ * @postcondition settleUnissuedIntentAfterFreshObservationの責務を完了した結果だけを返す。
+ * @effect settleUnissuedIntentAfterFreshObservationはFilesystemの読取りまたは書込みを実行する。
+ * @failure settleUnissuedIntentAfterFreshObservationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant settleUnissuedIntentAfterFreshObservationは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security settleUnissuedIntentAfterFreshObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency settleUnissuedIntentAfterFreshObservationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function settleUnissuedIntentAfterFreshObservation(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
@@ -1910,6 +3059,22 @@ async function settleUnissuedIntentAfterFreshObservation(
   );
 }
 
+/**
+ * observeHistoricalRepairの処理を実行する。
+ *
+ * @responsibility observeHistoricalRepairに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation
+ * @returns observeHistoricalRepairの計算結果を返す。
+ * @precondition 「dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation」がobserveHistoricalRepairの入力契約を満たす。
+ * @postcondition observeHistoricalRepairの責務を完了した結果だけを返す。
+ * @effect observeHistoricalRepairはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: observeHistoricalRepairは独自の失敗分岐を所有しない。
+ * @invariant observeHistoricalRepairは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security observeHistoricalRepairはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency observeHistoricalRepairは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function observeHistoricalRepair(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
@@ -2070,6 +3235,22 @@ async function observeHistoricalRepair(
   return { status, reason, ledger, operation };
 }
 
+/**
+ * originalRepairChainIsTerminalの処理を実行する。
+ *
+ * @responsibility originalRepairChainIsTerminalに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input operation: DockerDesktopRepairOperation
+ * @returns booleanを返す。
+ * @precondition 「operation: DockerDesktopRepairOperation」がoriginalRepairChainIsTerminalの入力契約を満たす。
+ * @postcondition originalRepairChainIsTerminalの責務を完了した結果だけを返す。
+ * @effect N/A: originalRepairChainIsTerminalは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: originalRepairChainIsTerminalは独自の失敗分岐を所有しない。
+ * @invariant originalRepairChainIsTerminalは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: originalRepairChainIsTerminalはProcess内の同一Subsystemで完結する。
+ * @security originalRepairChainIsTerminalはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: originalRepairChainIsTerminalは共有非同期状態を持たない同期処理である。
+ */
 function originalRepairChainIsTerminal(
   operation: DockerDesktopRepairOperation,
 ): boolean {
@@ -2080,6 +3261,17 @@ function originalRepairChainIsTerminal(
   ].includes(operation.stage);
 }
 
+/**
+ * HistoricalAdoptionRouteが扱う値の構造を表す。
+ *
+ * @responsibility HistoricalAdoptionRouteに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape HistoricalAdoptionRouteが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant HistoricalAdoptionRouteで宣言した値と責務の対応を維持する。
+ * @boundary N/A: HistoricalAdoptionRouteの宣言は外部境界を開かない。
+ * @security HistoricalAdoptionRouteはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility HistoricalAdoptionRouteの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type HistoricalAdoptionRoute =
   | "invalid"
   | "initial_adoption"
@@ -2087,6 +3279,22 @@ type HistoricalAdoptionRoute =
   | "current_session"
   | "session_handoff";
 
+/**
+ * sameRepairOperationCoreの処理を実行する。
+ *
+ * @responsibility sameRepairOperationCoreに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input before: DockerDesktopRepairOperation、after: DockerDesktopRepairOperation、boundary: PreparedBoundary
+ * @returns sameRepairOperationCoreの計算結果を返す。
+ * @precondition 「before: DockerDesktopRepairOperation、after: DockerDesktopRepairOperation、boundary: PreparedBoundary」がsameRepairOperationCoreの入力契約を満たす。
+ * @postcondition sameRepairOperationCoreの責務を完了した結果だけを返す。
+ * @effect N/A: sameRepairOperationCoreは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameRepairOperationCoreは独自の失敗分岐を所有しない。
+ * @invariant sameRepairOperationCoreは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sameRepairOperationCoreはProcess内の同一Subsystemで完結する。
+ * @security sameRepairOperationCoreはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameRepairOperationCoreは共有非同期状態を持たない同期処理である。
+ */
 function sameRepairOperationCore(
   before: DockerDesktopRepairOperation,
   after: DockerDesktopRepairOperation,
@@ -2113,6 +3321,22 @@ function sameRepairOperationCore(
   );
 }
 
+/**
+ * classifyDockerDesktopRepairHistoricalAdoptionRouteの処理を実行する。
+ *
+ * @responsibility classifyDockerDesktopRepairHistoricalAdoptionRouteに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input operation: DockerDesktopRepairOperation、boundary: PreparedBoundary
+ * @returns HistoricalAdoptionRouteを返す。
+ * @precondition 「operation: DockerDesktopRepairOperation、boundary: PreparedBoundary」がclassifyDockerDesktopRepairHistoricalAdoptionRouteの入力契約を満たす。
+ * @postcondition classifyDockerDesktopRepairHistoricalAdoptionRouteの責務を完了した結果だけを返す。
+ * @effect N/A: classifyDockerDesktopRepairHistoricalAdoptionRouteは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: classifyDockerDesktopRepairHistoricalAdoptionRouteは独自の失敗分岐を所有しない。
+ * @invariant classifyDockerDesktopRepairHistoricalAdoptionRouteは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: classifyDockerDesktopRepairHistoricalAdoptionRouteはProcess内の同一Subsystemで完結する。
+ * @security classifyDockerDesktopRepairHistoricalAdoptionRouteはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: classifyDockerDesktopRepairHistoricalAdoptionRouteは共有非同期状態を持たない同期処理である。
+ */
 export function classifyDockerDesktopRepairHistoricalAdoptionRoute(
   operation: DockerDesktopRepairOperation,
   boundary: PreparedBoundary,
@@ -2128,6 +3352,22 @@ export function classifyDockerDesktopRepairHistoricalAdoptionRoute(
   return "invalid";
 }
 
+/**
+ * validateDockerDesktopRepairHistoricalAdoptionResultの処理を実行する。
+ *
+ * @responsibility validateDockerDesktopRepairHistoricalAdoptionResultに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input route: HistoricalAdoptionRoute、before: DockerDesktopRepairOperation、after: DockerDesktopRepairOperation、boundary: PreparedBoundary
+ * @returns validateDockerDesktopRepairHistoricalAdoptionResultの計算結果を返す。
+ * @precondition 「route: HistoricalAdoptionRoute、before: DockerDesktopRepairOperation、after: DockerDesktopRepairOperation、boundary: PreparedBoundary」がvalidateDockerDesktopRepairHistoricalAdoptionResultの入力契約を満たす。
+ * @postcondition validateDockerDesktopRepairHistoricalAdoptionResultの責務を完了した結果だけを返す。
+ * @effect N/A: validateDockerDesktopRepairHistoricalAdoptionResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validateDockerDesktopRepairHistoricalAdoptionResultは独自の失敗分岐を所有しない。
+ * @invariant validateDockerDesktopRepairHistoricalAdoptionResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateDockerDesktopRepairHistoricalAdoptionResultはProcess内の同一Subsystemで完結する。
+ * @security validateDockerDesktopRepairHistoricalAdoptionResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateDockerDesktopRepairHistoricalAdoptionResultは共有非同期状態を持たない同期処理である。
+ */
 export function validateDockerDesktopRepairHistoricalAdoptionResult(
   route: HistoricalAdoptionRoute,
   before: DockerDesktopRepairOperation,
@@ -2185,6 +3425,22 @@ export function validateDockerDesktopRepairHistoricalAdoptionResult(
   );
 }
 
+/**
+ * validateDockerDesktopRepairHistoricalClosureResultの処理を実行する。
+ *
+ * @responsibility validateDockerDesktopRepairHistoricalClosureResultに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input before: DockerDesktopRepairOperation、after: DockerDesktopRepairOperation、boundary: PreparedBoundary、expected: Readonly<{ liveRunIdentity: DockerDesktopRepairDirectoryIdentity; staleState: "absent" | "retained"; }>
+ * @returns validateDockerDesktopRepairHistoricalClosureResultの計算結果を返す。
+ * @precondition 「before: DockerDesktopRepairOperation、after: DockerDesktopRepairOperation、boundary: PreparedBoundary、expected: Readonly<{ liveRunIdentity: DockerDesktopRepairDirectoryIdentity; staleState: "absent" | "retained"; }>」がvalidateDockerDesktopRepairHistoricalClosureResultの入力契約を満たす。
+ * @postcondition validateDockerDesktopRepairHistoricalClosureResultの責務を完了した結果だけを返す。
+ * @effect N/A: validateDockerDesktopRepairHistoricalClosureResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validateDockerDesktopRepairHistoricalClosureResultは独自の失敗分岐を所有しない。
+ * @invariant validateDockerDesktopRepairHistoricalClosureResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateDockerDesktopRepairHistoricalClosureResultはProcess内の同一Subsystemで完結する。
+ * @security validateDockerDesktopRepairHistoricalClosureResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateDockerDesktopRepairHistoricalClosureResultは共有非同期状態を持たない同期処理である。
+ */
 export function validateDockerDesktopRepairHistoricalClosureResult(
   before: DockerDesktopRepairOperation,
   after: DockerDesktopRepairOperation,
@@ -2224,6 +3480,22 @@ export function validateDockerDesktopRepairHistoricalClosureResult(
   );
 }
 
+/**
+ * continuationEffectの処理を実行する。
+ *
+ * @responsibility continuationEffectに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input continuation: DockerDesktopRepairContinuation、action: DockerDesktopRepairContinuationAction
+ * @returns continuationEffectの計算結果を返す。
+ * @precondition 「continuation: DockerDesktopRepairContinuation、action: DockerDesktopRepairContinuationAction」がcontinuationEffectの入力契約を満たす。
+ * @postcondition continuationEffectの責務を完了した結果だけを返す。
+ * @effect N/A: continuationEffectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: continuationEffectは独自の失敗分岐を所有しない。
+ * @invariant continuationEffectは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: continuationEffectはProcess内の同一Subsystemで完結する。
+ * @security continuationEffectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: continuationEffectは共有非同期状態を持たない同期処理である。
+ */
 function continuationEffect(
   continuation: DockerDesktopRepairContinuation,
   action: DockerDesktopRepairContinuationAction,
@@ -2231,6 +3503,22 @@ function continuationEffect(
   return continuation.effects[action];
 }
 
+/**
+ * exactRetainedDirectoryの処理を実行する。
+ *
+ * @responsibility exactRetainedDirectoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、source: string、target: string、identityValue: DockerDesktopRepairDirectoryIdentity
+ * @returns exactRetainedDirectoryの計算結果を返す。
+ * @precondition 「dependencies: RepairDependencies、source: string、target: string、identityValue: DockerDesktopRepairDirectoryIdentity」がexactRetainedDirectoryの入力契約を満たす。
+ * @postcondition exactRetainedDirectoryの責務を完了した結果だけを返す。
+ * @effect N/A: exactRetainedDirectoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: exactRetainedDirectoryは独自の失敗分岐を所有しない。
+ * @invariant exactRetainedDirectoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: exactRetainedDirectoryはProcess内の同一Subsystemで完結する。
+ * @security exactRetainedDirectoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: exactRetainedDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function exactRetainedDirectory(
   dependencies: RepairDependencies,
   source: string,
@@ -2247,6 +3535,22 @@ function exactRetainedDirectory(
   );
 }
 
+/**
+ * retainedDirectoryWithReplacementの処理を実行する。
+ *
+ * @responsibility retainedDirectoryWithReplacementに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、source: string、target: string、identityValue: DockerDesktopRepairDirectoryIdentity
+ * @returns retainedDirectoryWithReplacementの計算結果を返す。
+ * @precondition 「dependencies: RepairDependencies、source: string、target: string、identityValue: DockerDesktopRepairDirectoryIdentity」がretainedDirectoryWithReplacementの入力契約を満たす。
+ * @postcondition retainedDirectoryWithReplacementの責務を完了した結果だけを返す。
+ * @effect N/A: retainedDirectoryWithReplacementは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: retainedDirectoryWithReplacementは独自の失敗分岐を所有しない。
+ * @invariant retainedDirectoryWithReplacementは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: retainedDirectoryWithReplacementはProcess内の同一Subsystemで完結する。
+ * @security retainedDirectoryWithReplacementはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: retainedDirectoryWithReplacementは共有非同期状態を持たない同期処理である。
+ */
 function retainedDirectoryWithReplacement(
   dependencies: RepairDependencies,
   source: string,
@@ -2265,6 +3569,22 @@ function retainedDirectoryWithReplacement(
   );
 }
 
+/**
+ * continuationEffectsConfirmedの処理を実行する。
+ *
+ * @responsibility continuationEffectsConfirmedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input continuation: DockerDesktopRepairContinuation
+ * @returns continuationEffectsConfirmedの計算結果を返す。
+ * @precondition 「continuation: DockerDesktopRepairContinuation」がcontinuationEffectsConfirmedの入力契約を満たす。
+ * @postcondition continuationEffectsConfirmedの責務を完了した結果だけを返す。
+ * @effect continuationEffectsConfirmedはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: continuationEffectsConfirmedは独自の失敗分岐を所有しない。
+ * @invariant continuationEffectsConfirmedは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security continuationEffectsConfirmedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: continuationEffectsConfirmedは共有非同期状態を持たない同期処理である。
+ */
 function continuationEffectsConfirmed(
   continuation: DockerDesktopRepairContinuation,
 ) {
@@ -2288,6 +3608,22 @@ function continuationEffectsConfirmed(
   );
 }
 
+/**
+ * continuationRuntimeGenerationsMatchの処理を実行する。
+ *
+ * @responsibility continuationRuntimeGenerationsMatchに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、boundary: PreparedBoundary、continuation: DockerDesktopRepairContinuation
+ * @returns continuationRuntimeGenerationsMatchの計算結果を返す。
+ * @precondition 「dependencies: RepairDependencies、boundary: PreparedBoundary、continuation: DockerDesktopRepairContinuation」がcontinuationRuntimeGenerationsMatchの入力契約を満たす。
+ * @postcondition continuationRuntimeGenerationsMatchの責務を完了した結果だけを返す。
+ * @effect N/A: continuationRuntimeGenerationsMatchは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: continuationRuntimeGenerationsMatchは独自の失敗分岐を所有しない。
+ * @invariant continuationRuntimeGenerationsMatchは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: continuationRuntimeGenerationsMatchはProcess内の同一Subsystemで完結する。
+ * @security continuationRuntimeGenerationsMatchはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: continuationRuntimeGenerationsMatchは共有非同期状態を持たない同期処理である。
+ */
 function continuationRuntimeGenerationsMatch(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
@@ -2310,6 +3646,22 @@ function continuationRuntimeGenerationsMatch(
   );
 }
 
+/**
+ * continuationHostQuiescenceの処理を実行する。
+ *
+ * @responsibility continuationHostQuiescenceに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>
+ * @returns continuationHostQuiescenceの計算結果を返す。
+ * @precondition 「dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>」がcontinuationHostQuiescenceの入力契約を満たす。
+ * @postcondition continuationHostQuiescenceの責務を完了した結果だけを返す。
+ * @effect N/A: continuationHostQuiescenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: continuationHostQuiescenceは独自の失敗分岐を所有しない。
+ * @invariant continuationHostQuiescenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: continuationHostQuiescenceはProcess内の同一Subsystemで完結する。
+ * @security continuationHostQuiescenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency continuationHostQuiescenceは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function continuationHostQuiescence(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
@@ -2327,6 +3679,22 @@ async function continuationHostQuiescence(
     : "changed";
 }
 
+/**
+ * continueFailedDockerDesktopLaunchの処理を実行する。
+ *
+ * @responsibility continueFailedDockerDesktopLaunchに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation
+ * @returns continueFailedDockerDesktopLaunchの計算結果を返す。
+ * @precondition 「dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation」がcontinueFailedDockerDesktopLaunchの入力契約を満たす。
+ * @postcondition continueFailedDockerDesktopLaunchの責務を完了した結果だけを返す。
+ * @effect continueFailedDockerDesktopLaunchはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: continueFailedDockerDesktopLaunchは独自の失敗分岐を所有しない。
+ * @invariant continueFailedDockerDesktopLaunchは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security continueFailedDockerDesktopLaunchはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency continueFailedDockerDesktopLaunchは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function continueFailedDockerDesktopLaunch(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
@@ -2934,6 +4302,22 @@ async function continueFailedDockerDesktopLaunch(
       };
 }
 
+/**
+ * failedLaunchContinuationRequiredの処理を実行する。
+ *
+ * @responsibility failedLaunchContinuationRequiredに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input operation: DockerDesktopRepairOperation
+ * @returns failedLaunchContinuationRequiredの計算結果を返す。
+ * @precondition 「operation: DockerDesktopRepairOperation」がfailedLaunchContinuationRequiredの入力契約を満たす。
+ * @postcondition failedLaunchContinuationRequiredの責務を完了した結果だけを返す。
+ * @effect failedLaunchContinuationRequiredはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: failedLaunchContinuationRequiredは独自の失敗分岐を所有しない。
+ * @invariant failedLaunchContinuationRequiredは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security failedLaunchContinuationRequiredはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: failedLaunchContinuationRequiredは共有非同期状態を持たない同期処理である。
+ */
 function failedLaunchContinuationRequired(
   operation: DockerDesktopRepairOperation,
 ) {
@@ -2949,6 +4333,22 @@ function failedLaunchContinuationRequired(
   );
 }
 
+/**
+ * executeRepairの処理を実行する。
+ *
+ * @responsibility executeRepairに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、existing: DockerDesktopRepairOperation | null
+ * @returns executeRepairの計算結果を返す。
+ * @precondition 「dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、existing: DockerDesktopRepairOperation | null」がexecuteRepairの入力契約を満たす。
+ * @postcondition executeRepairの責務を完了した結果だけを返す。
+ * @effect executeRepairはFilesystemの読取りまたは書込みを実行する。
+ * @failure executeRepairは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant executeRepairは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security executeRepairはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency executeRepairは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function executeRepair(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
@@ -4648,6 +6048,22 @@ async function executeRepair(
   }
 }
 
+/**
+ * repairWindowsDockerDesktopRuntimeUsingDependenciesの処理を実行する。
+ *
+ * @responsibility repairWindowsDockerDesktopRuntimeUsingDependenciesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies
+ * @returns Promise<DockerDesktopRuntimeRepairReport>を返す。
+ * @precondition 「dependencies: RepairDependencies」がrepairWindowsDockerDesktopRuntimeUsingDependenciesの入力契約を満たす。
+ * @postcondition repairWindowsDockerDesktopRuntimeUsingDependenciesの責務を完了した結果だけを返す。
+ * @effect N/A: repairWindowsDockerDesktopRuntimeUsingDependenciesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure repairWindowsDockerDesktopRuntimeUsingDependenciesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant repairWindowsDockerDesktopRuntimeUsingDependenciesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: repairWindowsDockerDesktopRuntimeUsingDependenciesはProcess内の同一Subsystemで完結する。
+ * @security repairWindowsDockerDesktopRuntimeUsingDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency repairWindowsDockerDesktopRuntimeUsingDependenciesは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function repairWindowsDockerDesktopRuntimeUsingDependencies(
   dependencies: RepairDependencies,
 ): Promise<DockerDesktopRuntimeRepairReport> {
@@ -4774,6 +6190,22 @@ export async function repairWindowsDockerDesktopRuntimeUsingDependencies(
   );
 }
 
+/**
+ * closeWindowsDockerDesktopRepairUsingDependenciesの処理を実行する。
+ *
+ * @responsibility closeWindowsDockerDesktopRepairUsingDependenciesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input repairId: unknown、dependencies: RepairDependencies
+ * @returns Promise<DockerDesktopRuntimeRepairReport>を返す。
+ * @precondition 「repairId: unknown、dependencies: RepairDependencies」がcloseWindowsDockerDesktopRepairUsingDependenciesの入力契約を満たす。
+ * @postcondition closeWindowsDockerDesktopRepairUsingDependenciesの責務を完了した結果だけを返す。
+ * @effect N/A: closeWindowsDockerDesktopRepairUsingDependenciesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure closeWindowsDockerDesktopRepairUsingDependenciesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant closeWindowsDockerDesktopRepairUsingDependenciesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: closeWindowsDockerDesktopRepairUsingDependenciesはProcess内の同一Subsystemで完結する。
+ * @security closeWindowsDockerDesktopRepairUsingDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency closeWindowsDockerDesktopRepairUsingDependenciesは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function closeWindowsDockerDesktopRepairUsingDependencies(
   repairId: unknown,
   dependencies: RepairDependencies,
@@ -5217,6 +6649,22 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
   );
 }
 
+/**
+ * adoptWindowsDockerDesktopRepairUsingDependenciesの処理を実行する。
+ *
+ * @responsibility adoptWindowsDockerDesktopRepairUsingDependenciesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input repairId: unknown、originRoot: unknown、dependencies: RepairDependencies
+ * @returns Promise<DockerDesktopRuntimeRepairReport>を返す。
+ * @precondition 「repairId: unknown、originRoot: unknown、dependencies: RepairDependencies」がadoptWindowsDockerDesktopRepairUsingDependenciesの入力契約を満たす。
+ * @postcondition adoptWindowsDockerDesktopRepairUsingDependenciesの責務を完了した結果だけを返す。
+ * @effect N/A: adoptWindowsDockerDesktopRepairUsingDependenciesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure adoptWindowsDockerDesktopRepairUsingDependenciesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant adoptWindowsDockerDesktopRepairUsingDependenciesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: adoptWindowsDockerDesktopRepairUsingDependenciesはProcess内の同一Subsystemで完結する。
+ * @security adoptWindowsDockerDesktopRepairUsingDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency adoptWindowsDockerDesktopRepairUsingDependenciesは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function adoptWindowsDockerDesktopRepairUsingDependencies(
   repairId: unknown,
   originRoot: unknown,
@@ -5456,6 +6904,22 @@ const productionDependencies: RepairDependencies = Object.freeze({
   observePath,
 });
 
+/**
+ * adoptRuntimeOwnedWindowsDockerDesktopRepairの処理を実行する。
+ *
+ * @responsibility adoptRuntimeOwnedWindowsDockerDesktopRepairに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input repairId: string、originRoot: string
+ * @returns adoptRuntimeOwnedWindowsDockerDesktopRepairの計算結果を返す。
+ * @precondition 「repairId: string、originRoot: string」がadoptRuntimeOwnedWindowsDockerDesktopRepairの入力契約を満たす。
+ * @postcondition adoptRuntimeOwnedWindowsDockerDesktopRepairの責務を完了した結果だけを返す。
+ * @effect N/A: adoptRuntimeOwnedWindowsDockerDesktopRepairは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: adoptRuntimeOwnedWindowsDockerDesktopRepairは独自の失敗分岐を所有しない。
+ * @invariant adoptRuntimeOwnedWindowsDockerDesktopRepairは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: adoptRuntimeOwnedWindowsDockerDesktopRepairはProcess内の同一Subsystemで完結する。
+ * @security adoptRuntimeOwnedWindowsDockerDesktopRepairはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: adoptRuntimeOwnedWindowsDockerDesktopRepairは共有非同期状態を持たない同期処理である。
+ */
 export function adoptRuntimeOwnedWindowsDockerDesktopRepair(
   repairId: string,
   originRoot: string,
@@ -5467,12 +6931,44 @@ export function adoptRuntimeOwnedWindowsDockerDesktopRepair(
   );
 }
 
+/**
+ * repairRuntimeOwnedWindowsDockerDesktopRuntimeの処理を実行する。
+ *
+ * @responsibility repairRuntimeOwnedWindowsDockerDesktopRuntimeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns repairRuntimeOwnedWindowsDockerDesktopRuntimeの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がrepairRuntimeOwnedWindowsDockerDesktopRuntimeの入力契約を満たす。
+ * @postcondition repairRuntimeOwnedWindowsDockerDesktopRuntimeの責務を完了した結果だけを返す。
+ * @effect N/A: repairRuntimeOwnedWindowsDockerDesktopRuntimeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: repairRuntimeOwnedWindowsDockerDesktopRuntimeは独自の失敗分岐を所有しない。
+ * @invariant repairRuntimeOwnedWindowsDockerDesktopRuntimeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: repairRuntimeOwnedWindowsDockerDesktopRuntimeはProcess内の同一Subsystemで完結する。
+ * @security repairRuntimeOwnedWindowsDockerDesktopRuntimeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: repairRuntimeOwnedWindowsDockerDesktopRuntimeは共有非同期状態を持たない同期処理である。
+ */
 export function repairRuntimeOwnedWindowsDockerDesktopRuntime() {
   return repairWindowsDockerDesktopRuntimeUsingDependencies(
     productionDependencies,
   );
 }
 
+/**
+ * closeRuntimeOwnedWindowsDockerDesktopRepairの処理を実行する。
+ *
+ * @responsibility closeRuntimeOwnedWindowsDockerDesktopRepairに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input repairId: unknown
+ * @returns closeRuntimeOwnedWindowsDockerDesktopRepairの計算結果を返す。
+ * @precondition 「repairId: unknown」がcloseRuntimeOwnedWindowsDockerDesktopRepairの入力契約を満たす。
+ * @postcondition closeRuntimeOwnedWindowsDockerDesktopRepairの責務を完了した結果だけを返す。
+ * @effect N/A: closeRuntimeOwnedWindowsDockerDesktopRepairは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: closeRuntimeOwnedWindowsDockerDesktopRepairは独自の失敗分岐を所有しない。
+ * @invariant closeRuntimeOwnedWindowsDockerDesktopRepairは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: closeRuntimeOwnedWindowsDockerDesktopRepairはProcess内の同一Subsystemで完結する。
+ * @security closeRuntimeOwnedWindowsDockerDesktopRepairはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: closeRuntimeOwnedWindowsDockerDesktopRepairは共有非同期状態を持たない同期処理である。
+ */
 export function closeRuntimeOwnedWindowsDockerDesktopRepair(repairId: unknown) {
   return closeWindowsDockerDesktopRepairUsingDependencies(
     repairId,
@@ -5480,6 +6976,22 @@ export function closeRuntimeOwnedWindowsDockerDesktopRepair(repairId: unknown) {
   );
 }
 
+/**
+ * describeDockerDesktopRuntimeRepairContractの処理を実行する。
+ *
+ * @responsibility describeDockerDesktopRuntimeRepairContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeDockerDesktopRuntimeRepairContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeDockerDesktopRuntimeRepairContractの入力契約を満たす。
+ * @postcondition describeDockerDesktopRuntimeRepairContractの責務を完了した結果だけを返す。
+ * @effect describeDockerDesktopRuntimeRepairContractはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: describeDockerDesktopRuntimeRepairContractは独自の失敗分岐を所有しない。
+ * @invariant describeDockerDesktopRuntimeRepairContractは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security describeDockerDesktopRuntimeRepairContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeDockerDesktopRuntimeRepairContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeDockerDesktopRuntimeRepairContract() {
   return Object.freeze({
     contract: DOCKER_DESKTOP_RUNTIME_REPAIR_CONTRACT,

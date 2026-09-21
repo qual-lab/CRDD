@@ -27,6 +27,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Deployment | Required | Windows binary、Node利用側、Docker Desktopの境界を固定する。 | [§2](#2-成果物と依存) |
 | Observability | Required | OS結果、Process終了、Engine ready、残存資源を実境界で観測する。 | [§7](#7-検証への接続) |
 | Security Boundary | Required | 検証済みbinaryと用途限定Capabilityだけを実Effectへ接続する。 | [§4](#4-バイナリ境界) |
+| Implementation Structure | Required | 設計責務を具象差、選択、状態依存、構成、資源Ownerおよび外部境界へ分解する。 | [§Implementation Structure](#implementation-structure) |
 
 `N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
 
@@ -52,10 +53,12 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 ## Qualityへの引渡し
 
-| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
-|---|---|---|---|---|---|---|
-| Process境界 | exact process identity | 開始・終了を実観測 | handleだけ、PID再利用、取消競合 | native resultとphase | handle／job 0 | Windows実境界 |
-| Docker修復 | repair identityとruntime paths | Engine ready後だけ完了 | stale socket、再起動不明 | repair stateとengine probe | stale残存0または義務 | Docker Desktop実境界 |
+| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|---|---|---|
+| `platform-access.process-boundary` | Interface／Lifecycle Ownership | exact process identity | 開始・終了を実観測 | handleだけ、PID再利用、取消競合 | IT／ST | Direct Boundary | native resultとphase | handle／job 0 | Windows実境界 |
+| `platform-access.docker-repair` | Failure-Recovery／Lifecycle Ownership | repair identityとruntime paths | Engine ready後だけ完了 | stale socket、再起動不明 | IT／ST | System/E2E | repair stateとengine probe | stale残存0または義務 | Docker Desktop実境界 |
+
+導出キーは本領域内でQualityが同じ設計項目を反復参照するための局所参照であり、CRDD全体の安定コンテキストIDではない。
 
 ## 現行実装との照合
 
@@ -209,16 +212,33 @@ native部品自身は耐久Recovery recordを所有しない。呼出側はhelpe
 
 単体試験の合格から、本物のDocker Desktop復旧、署名済み配布物の実行または終了後資源0を推定しない。本番同等入口のE2Eと回復行列を別に実測する。
 
+## Implementation Structure
+
+| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
+|---|---|---|---|---|---|---|
+| Variation | Required | この観点を成立させる構造と責務が存在するため。 | Qualityへの引渡しで責務差を別の設計項目として固定する。 | 具象差を一つの分岐へ畳まず、各導出キーの正常条件と反証条件を保つ。 | 新しい具象を追加した場合、対応する導出キーと利用側の再確認が必要になる。 | `platform-access.process-boundary`<br>`platform-access.docker-repair` |
+| Common Contract | Required | この観点を成立させる構造と責務が存在するため。 | Windows／将来PlatformのProcess、Filesystem、Docker観測と限定操作を、要求・観測・結果・終了後状態の共通契約へ揃える。 | Platform具象は上位Authorityを作らず、OS固有結果を欠測や成功へ畳まない。 | Platform追加が上位CoreへOS型や固有Errorを漏らし、同じ保証を提供できない。 | `platform-access.process-boundary`<br>`platform-access.docker-repair` |
+| Creation／Selection | N/A | 本領域は独立した具象生成・選択責務を持たず、上位から固定入力を受ける。 | 本領域は独立した具象生成・選択責務を持たず、上位から固定入力を受ける。 | 生成・選択判断を本領域へ追加しない。 | 将来生成・選択責務を追加する場合に再評価する。 | N/A |
+| State-dependent Behavior | Required | この観点を成立させる構造と責務が存在するため。 | 入力・処理中・完了・失敗・観測不能を区別して振る舞いを決める。 | 状態を空値や成功へ畳まず、同じIdentityで終了条件まで追跡する。 | 状態追加・統合はRecoveryと観測契約へ波及する。 | `platform-access.process-boundary` |
+| Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | 複数の局所責務を公開結果へ合成し、部分成立と全体成立を分ける。 | 各局所結果を保持し、必要な全要素が揃うまで上位完成を表示しない。 | 構成要素の追加時は完成条件と全Consumerを再確認する。 | `platform-access.process-boundary`<br>`platform-access.docker-repair` |
+| Lifecycle Ownership | Required | この観点を成立させる構造と責務が存在するため。 | Process、Handle、一時物、秘密または公開SnapshotのOwnerと終了条件を固定する。 | 成功・失敗・取消の全経路で資源回収または同一Identityの回復義務を残す。 | Owner変更は取消、Recovery、終了後条件へ波及する。 | `platform-access.docker-repair` |
+| External Boundary | Required | この観点を成立させる構造と責務が存在するため。 | 外部境界ごとに要求、受理、Effect、結果搬送および終了後状態を分ける。 | 境界の成功を要求発行だけから推定せず、段階に応じた観測を必須にする。 | 境界変更は直接境界からSystem／E2Eまでの検証範囲へ波及する。 | `platform-access.docker-repair` |
+
+同じ責務へ二つ目の具象実装を追加する場合は、共通契約へ昇格するかを評価する。昇格しない場合は、同じ責務ではない、または局所分岐の方が単純で影響が小さい理由を記録する。特定のDesign Pattern名は必須にしない。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した
-- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] 10種類の詳細成果物を全数Applicability判定した
 - [x] Requiredを実在する節または成果物へ接続した
 - [x] N/AにArchitecture上の理由を記録した
 - [x] 8種類のEngineering Concernを全数評価した
 - [x] PASSを設計済みの意味に限定した
 - [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
 - [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] 7種類のImplementation Structure観点を全数Applicability判定した
+- [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
+- [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
 - [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した

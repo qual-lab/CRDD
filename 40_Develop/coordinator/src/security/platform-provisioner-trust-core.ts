@@ -133,6 +133,22 @@ const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
   "byteLength",
 )?.get as () => number;
 
+/**
+ * responseの処理を実行する。
+ *
+ * @responsibility responseに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input status: S、reason: string、fields: T
+ * @returns responseの計算結果を返す。
+ * @precondition 「status: S、reason: string、fields: T」がresponseの入力契約を満たす。
+ * @postcondition responseの責務を完了した結果だけを返す。
+ * @effect N/A: responseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: responseは独自の失敗分岐を所有しない。
+ * @invariant responseは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: responseはProcess内の同一Subsystemで完結する。
+ * @security responseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: responseは共有非同期状態を持たない同期処理である。
+ */
 function response<
   S extends "candidate" | "blocked",
   T extends Record<string, unknown>,
@@ -151,6 +167,22 @@ function response<
   });
 }
 
+/**
+ * packageIdentityの処理を実行する。
+ *
+ * @responsibility packageIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input name: string、version: string
+ * @returns packageIdentityの計算結果を返す。
+ * @precondition 「name: string、version: string」がpackageIdentityの入力契約を満たす。
+ * @postcondition packageIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: packageIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: packageIdentityは独自の失敗分岐を所有しない。
+ * @invariant packageIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: packageIdentityはProcess内の同一Subsystemで完結する。
+ * @security packageIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: packageIdentityは共有非同期状態を持たない同期処理である。
+ */
 function packageIdentity(name: string, version: string) {
   return (
     typeof name === "string" &&
@@ -162,6 +194,22 @@ function packageIdentity(name: string, version: string) {
   );
 }
 
+/**
+ * normalizeFileの処理を実行する。
+ *
+ * @responsibility normalizeFileに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input raw: unknown
+ * @returns normalizeFileの計算結果を返す。
+ * @precondition 「raw: unknown」がnormalizeFileの入力契約を満たす。
+ * @postcondition normalizeFileの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeFileは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizeFileは独自の失敗分岐を所有しない。
+ * @invariant normalizeFileは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeFileはProcess内の同一Subsystemで完結する。
+ * @security normalizeFileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeFileは共有非同期状態を持たない同期処理である。
+ */
 function normalizeFile(raw: unknown) {
   const value = snapshotPlainRecord(raw, FILE_KEYS);
   if (
@@ -192,6 +240,22 @@ function normalizeFile(raw: unknown) {
   });
 }
 
+/**
+ * normalizeFilesの処理を実行する。
+ *
+ * @responsibility normalizeFilesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input raw: unknown
+ * @returns normalizeFilesの計算結果を返す。
+ * @precondition 「raw: unknown」がnormalizeFilesの入力契約を満たす。
+ * @postcondition normalizeFilesの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeFilesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizeFilesは独自の失敗分岐を所有しない。
+ * @invariant normalizeFilesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeFilesはProcess内の同一Subsystemで完結する。
+ * @security normalizeFilesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeFilesは共有非同期状態を持たない同期処理である。
+ */
 function normalizeFiles(raw: unknown) {
   const snapshot = snapshotPlainArray<unknown>(raw, MAXIMUM_FILES);
   if (snapshot.status !== "ok" || snapshot.value.length === 0) return null;
@@ -208,6 +272,22 @@ function normalizeFiles(raw: unknown) {
   return Object.freeze(files);
 }
 
+/**
+ * normalizeObservedPackageの処理を実行する。
+ *
+ * @responsibility normalizeObservedPackageに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input raw: unknown
+ * @returns normalizeObservedPackageの計算結果を返す。
+ * @precondition 「raw: unknown」がnormalizeObservedPackageの入力契約を満たす。
+ * @postcondition normalizeObservedPackageの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeObservedPackageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizeObservedPackageは独自の失敗分岐を所有しない。
+ * @invariant normalizeObservedPackageは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeObservedPackageはProcess内の同一Subsystemで完結する。
+ * @security normalizeObservedPackageはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeObservedPackageは共有非同期状態を持たない同期処理である。
+ */
 function normalizeObservedPackage(raw: unknown) {
   const value = snapshotPlainRecord(raw, OBSERVED_PACKAGE_KEYS);
   if (
@@ -227,6 +307,22 @@ function normalizeObservedPackage(raw: unknown) {
     : null;
 }
 
+/**
+ * normalizeManifestの処理を実行する。
+ *
+ * @responsibility normalizeManifestに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input raw: unknown
+ * @returns normalizeManifestの計算結果を返す。
+ * @precondition 「raw: unknown」がnormalizeManifestの入力契約を満たす。
+ * @postcondition normalizeManifestの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeManifestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizeManifestは独自の失敗分岐を所有しない。
+ * @invariant normalizeManifestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeManifestはProcess内の同一Subsystemで完結する。
+ * @security normalizeManifestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeManifestは共有非同期状態を持たない同期処理である。
+ */
 function normalizeManifest(raw: unknown) {
   const value = snapshotPlainRecord(raw, MANIFEST_KEYS);
   const platformAccessArtifact =
@@ -320,6 +416,22 @@ function normalizeManifest(raw: unknown) {
     : null;
 }
 
+/**
+ * normalizeHistoricalV2Manifestの処理を実行する。
+ *
+ * @responsibility normalizeHistoricalV2Manifestに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input raw: unknown
+ * @returns normalizeHistoricalV2Manifestの計算結果を返す。
+ * @precondition 「raw: unknown」がnormalizeHistoricalV2Manifestの入力契約を満たす。
+ * @postcondition normalizeHistoricalV2Manifestの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeHistoricalV2Manifestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizeHistoricalV2Manifestは独自の失敗分岐を所有しない。
+ * @invariant normalizeHistoricalV2Manifestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeHistoricalV2ManifestはProcess内の同一Subsystemで完結する。
+ * @security normalizeHistoricalV2ManifestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeHistoricalV2Manifestは共有非同期状態を持たない同期処理である。
+ */
 function normalizeHistoricalV2Manifest(raw: unknown) {
   const value = snapshotPlainRecord(raw, HISTORICAL_V2_MANIFEST_KEYS);
   const platformAccessArtifact =
@@ -406,12 +518,44 @@ function normalizeHistoricalV2Manifest(raw: unknown) {
   });
 }
 
+/**
+ * selectManifestDomainの処理を実行する。
+ *
+ * @responsibility selectManifestDomainに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input revision: number
+ * @returns selectManifestDomainの計算結果を返す。
+ * @precondition 「revision: number」がselectManifestDomainの入力契約を満たす。
+ * @postcondition selectManifestDomainの責務を完了した結果だけを返す。
+ * @effect N/A: selectManifestDomainは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: selectManifestDomainは独自の失敗分岐を所有しない。
+ * @invariant selectManifestDomainは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: selectManifestDomainはProcess内の同一Subsystemで完結する。
+ * @security selectManifestDomainはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: selectManifestDomainは共有非同期状態を持たない同期処理である。
+ */
 function selectManifestDomain(revision: number) {
   return revision === 2
     ? HISTORICAL_PLATFORM_PROVISIONER_MANIFEST_DOMAIN_V2
     : PLATFORM_PROVISIONER_MANIFEST_DOMAIN;
 }
 
+/**
+ * normalizeSignatureの処理を実行する。
+ *
+ * @responsibility normalizeSignatureに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input raw: unknown
+ * @returns normalizeSignatureの計算結果を返す。
+ * @precondition 「raw: unknown」がnormalizeSignatureの入力契約を満たす。
+ * @postcondition normalizeSignatureの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeSignatureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizeSignatureは独自の失敗分岐を所有しない。
+ * @invariant normalizeSignatureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeSignatureはProcess内の同一Subsystemで完結する。
+ * @security normalizeSignatureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeSignatureは共有非同期状態を持たない同期処理である。
+ */
 function normalizeSignature(raw: unknown) {
   const value = snapshotPlainRecord(raw, SIGNATURE_KEYS);
   if (
@@ -430,6 +574,22 @@ function normalizeSignature(raw: unknown) {
     : null;
 }
 
+/**
+ * normalizeEnvelopeの処理を実行する。
+ *
+ * @responsibility normalizeEnvelopeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input raw: unknown
+ * @returns normalizeEnvelopeの計算結果を返す。
+ * @precondition 「raw: unknown」がnormalizeEnvelopeの入力契約を満たす。
+ * @postcondition normalizeEnvelopeの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeEnvelopeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizeEnvelopeは独自の失敗分岐を所有しない。
+ * @invariant normalizeEnvelopeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeEnvelopeはProcess内の同一Subsystemで完結する。
+ * @security normalizeEnvelopeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeEnvelopeは共有非同期状態を持たない同期処理である。
+ */
 function normalizeEnvelope(raw: unknown) {
   const value = snapshotPlainRecord(raw, ENVELOPE_KEYS);
   if (
@@ -463,6 +623,22 @@ function normalizeEnvelope(raw: unknown) {
     : null;
 }
 
+/**
+ * normalizeHistoricalEnvelopeの処理を実行する。
+ *
+ * @responsibility normalizeHistoricalEnvelopeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input raw: unknown
+ * @returns normalizeHistoricalEnvelopeの計算結果を返す。
+ * @precondition 「raw: unknown」がnormalizeHistoricalEnvelopeの入力契約を満たす。
+ * @postcondition normalizeHistoricalEnvelopeの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeHistoricalEnvelopeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizeHistoricalEnvelopeは独自の失敗分岐を所有しない。
+ * @invariant normalizeHistoricalEnvelopeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeHistoricalEnvelopeはProcess内の同一Subsystemで完結する。
+ * @security normalizeHistoricalEnvelopeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeHistoricalEnvelopeは共有非同期状態を持たない同期処理である。
+ */
 function normalizeHistoricalEnvelope(raw: unknown) {
   const value = snapshotPlainRecord(raw, ENVELOPE_KEYS);
   if (
@@ -500,6 +676,22 @@ function normalizeHistoricalEnvelope(raw: unknown) {
     : null;
 }
 
+/**
+ * compilePlatformProvisionerManifestPayloadCandidateの処理を実行する。
+ *
+ * @responsibility compilePlatformProvisionerManifestPayloadCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input rawInput: unknown
+ * @returns compilePlatformProvisionerManifestPayloadCandidateの計算結果を返す。
+ * @precondition 「rawInput: unknown」がcompilePlatformProvisionerManifestPayloadCandidateの入力契約を満たす。
+ * @postcondition compilePlatformProvisionerManifestPayloadCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: compilePlatformProvisionerManifestPayloadCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure compilePlatformProvisionerManifestPayloadCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant compilePlatformProvisionerManifestPayloadCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: compilePlatformProvisionerManifestPayloadCandidateはProcess内の同一Subsystemで完結する。
+ * @security compilePlatformProvisionerManifestPayloadCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: compilePlatformProvisionerManifestPayloadCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function compilePlatformProvisionerManifestPayloadCandidate(
   rawInput: unknown,
 ) {
@@ -540,6 +732,22 @@ export function compilePlatformProvisionerManifestPayloadCandidate(
   }
 }
 
+/**
+ * frameの処理を実行する。
+ *
+ * @responsibility frameに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input domain: string、payload: unknown
+ * @returns frameの計算結果を返す。
+ * @precondition 「domain: string、payload: unknown」がframeの入力契約を満たす。
+ * @postcondition frameの責務を完了した結果だけを返す。
+ * @effect N/A: frameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: frameは独自の失敗分岐を所有しない。
+ * @invariant frameは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: frameはProcess内の同一Subsystemで完結する。
+ * @security frameはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: frameは共有非同期状態を持たない同期処理である。
+ */
 function frame(domain: string, payload: unknown) {
   const canonical = canonicalizeProvisioningJsonValueCandidate(payload);
   if (canonical.status !== "candidate") return null;
@@ -553,6 +761,22 @@ function frame(domain: string, payload: unknown) {
   });
 }
 
+/**
+ * calculateRuntimeExecutionIdentityCandidateの処理を実行する。
+ *
+ * @responsibility calculateRuntimeExecutionIdentityCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input raw: unknown
+ * @returns calculateRuntimeExecutionIdentityCandidateの計算結果を返す。
+ * @precondition 「raw: unknown」がcalculateRuntimeExecutionIdentityCandidateの入力契約を満たす。
+ * @postcondition calculateRuntimeExecutionIdentityCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: calculateRuntimeExecutionIdentityCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure calculateRuntimeExecutionIdentityCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant calculateRuntimeExecutionIdentityCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: calculateRuntimeExecutionIdentityCandidateはProcess内の同一Subsystemで完結する。
+ * @security calculateRuntimeExecutionIdentityCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: calculateRuntimeExecutionIdentityCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function calculateRuntimeExecutionIdentityCandidate(raw: unknown) {
   try {
     const value = snapshotPlainRecord(raw, RUNTIME_EXECUTION_IDENTITY_KEYS);
@@ -607,6 +831,22 @@ export function calculateRuntimeExecutionIdentityCandidate(raw: unknown) {
   }
 }
 
+/**
+ * snapshotSignerSpkiの処理を実行する。
+ *
+ * @responsibility snapshotSignerSpkiに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input raw: unknown
+ * @returns snapshotSignerSpkiの計算結果を返す。
+ * @precondition 「raw: unknown」がsnapshotSignerSpkiの入力契約を満たす。
+ * @postcondition snapshotSignerSpkiの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotSignerSpkiは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: snapshotSignerSpkiは独自の失敗分岐を所有しない。
+ * @invariant snapshotSignerSpkiは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: snapshotSignerSpkiはProcess内の同一Subsystemで完結する。
+ * @security snapshotSignerSpkiはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: snapshotSignerSpkiは共有非同期状態を持たない同期処理である。
+ */
 function snapshotSignerSpki(raw: unknown) {
   if (!Buffer.isBuffer(raw)) return null;
   const length = Reflect.apply(TYPED_ARRAY_BYTE_LENGTH, raw, []);
@@ -616,6 +856,22 @@ function snapshotSignerSpki(raw: unknown) {
   return owned;
 }
 
+/**
+ * calculatePlatformProvisionerPackageContentRootCandidateの処理を実行する。
+ *
+ * @responsibility calculatePlatformProvisionerPackageContentRootCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input rawPackage: unknown
+ * @returns calculatePlatformProvisionerPackageContentRootCandidateの計算結果を返す。
+ * @precondition 「rawPackage: unknown」がcalculatePlatformProvisionerPackageContentRootCandidateの入力契約を満たす。
+ * @postcondition calculatePlatformProvisionerPackageContentRootCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: calculatePlatformProvisionerPackageContentRootCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure calculatePlatformProvisionerPackageContentRootCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant calculatePlatformProvisionerPackageContentRootCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: calculatePlatformProvisionerPackageContentRootCandidateはProcess内の同一Subsystemで完結する。
+ * @security calculatePlatformProvisionerPackageContentRootCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: calculatePlatformProvisionerPackageContentRootCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function calculatePlatformProvisionerPackageContentRootCandidate(
   rawPackage: unknown,
 ) {
@@ -639,6 +895,22 @@ export function calculatePlatformProvisionerPackageContentRootCandidate(
   }
 }
 
+/**
+ * verifyPlatformProvisionerManifestCandidateの処理を実行する。
+ *
+ * @responsibility verifyPlatformProvisionerManifestCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input rawInput: unknown
+ * @returns verifyPlatformProvisionerManifestCandidateの計算結果を返す。
+ * @precondition 「rawInput: unknown」がverifyPlatformProvisionerManifestCandidateの入力契約を満たす。
+ * @postcondition verifyPlatformProvisionerManifestCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: verifyPlatformProvisionerManifestCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyPlatformProvisionerManifestCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyPlatformProvisionerManifestCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyPlatformProvisionerManifestCandidateはProcess内の同一Subsystemで完結する。
+ * @security verifyPlatformProvisionerManifestCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyPlatformProvisionerManifestCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function verifyPlatformProvisionerManifestCandidate(rawInput: unknown) {
   try {
     const input = snapshotPlainRecord(rawInput, VERIFY_KEYS);
@@ -737,6 +1009,22 @@ export function verifyPlatformProvisionerManifestCandidate(rawInput: unknown) {
 
 // Historical provenance only: neither an installed distribution observation nor
 // current execution authority. Expiry is intentionally not evaluated here.
+/**
+ * verifyHistoricalPlatformProvisionerManifestCandidateの処理を実行する。
+ *
+ * @responsibility verifyHistoricalPlatformProvisionerManifestCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input manifestEnvelope: unknown、releaseSignerSpkiDer: unknown
+ * @returns verifyHistoricalPlatformProvisionerManifestCandidateの計算結果を返す。
+ * @precondition 「manifestEnvelope: unknown、releaseSignerSpkiDer: unknown」がverifyHistoricalPlatformProvisionerManifestCandidateの入力契約を満たす。
+ * @postcondition verifyHistoricalPlatformProvisionerManifestCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: verifyHistoricalPlatformProvisionerManifestCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyHistoricalPlatformProvisionerManifestCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyHistoricalPlatformProvisionerManifestCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyHistoricalPlatformProvisionerManifestCandidateはProcess内の同一Subsystemで完結する。
+ * @security verifyHistoricalPlatformProvisionerManifestCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyHistoricalPlatformProvisionerManifestCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function verifyHistoricalPlatformProvisionerManifestCandidate(
   manifestEnvelope: unknown,
   releaseSignerSpkiDer: unknown,
@@ -779,6 +1067,22 @@ export function verifyHistoricalPlatformProvisionerManifestCandidate(
   }
 }
 
+/**
+ * describePlatformProvisionerTrustCoreContractの処理を実行する。
+ *
+ * @responsibility describePlatformProvisionerTrustCoreContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describePlatformProvisionerTrustCoreContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribePlatformProvisionerTrustCoreContractの入力契約を満たす。
+ * @postcondition describePlatformProvisionerTrustCoreContractの責務を完了した結果だけを返す。
+ * @effect N/A: describePlatformProvisionerTrustCoreContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describePlatformProvisionerTrustCoreContractは独自の失敗分岐を所有しない。
+ * @invariant describePlatformProvisionerTrustCoreContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describePlatformProvisionerTrustCoreContractはProcess内の同一Subsystemで完結する。
+ * @security describePlatformProvisionerTrustCoreContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describePlatformProvisionerTrustCoreContractは共有非同期状態を持たない同期処理である。
+ */
 export function describePlatformProvisionerTrustCoreContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-package-trust-core",

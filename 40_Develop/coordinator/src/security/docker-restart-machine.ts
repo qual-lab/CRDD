@@ -15,23 +15,89 @@ import {
   observeDockerWslState,
 } from "./docker-wsl-state.ts";
 
+/**
+ * Sessionが扱う値の構造を表す。
+ *
+ * @responsibility Sessionに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape Sessionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Sessionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Sessionの宣言は外部境界を開かない。
+ * @security SessionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Sessionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Session = NonNullable<DockerDesktopRestartNativeHelperOutcome["session"]>;
+/**
+ * DockerRestartEngineObservationが扱う値の構造を表す。
+ *
+ * @responsibility DockerRestartEngineObservationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape DockerRestartEngineObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerRestartEngineObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerRestartEngineObservationの宣言は外部境界を開かない。
+ * @security DockerRestartEngineObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerRestartEngineObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerRestartEngineObservation =
   | "ready"
   | "known_unavailable"
   | "unknown";
+/**
+ * DockerRestartEnginePipeObservationが扱う値の構造を表す。
+ *
+ * @responsibility DockerRestartEnginePipeObservationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape DockerRestartEnginePipeObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerRestartEnginePipeObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerRestartEnginePipeObservationの宣言は外部境界を開かない。
+ * @security DockerRestartEnginePipeObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerRestartEnginePipeObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerRestartEnginePipeObservation =
   | "present"
   | "absent"
   | "unknown";
+/**
+ * DockerRestartEngineObservationResultが扱う値の構造を表す。
+ *
+ * @responsibility DockerRestartEngineObservationResultに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape DockerRestartEngineObservationResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerRestartEngineObservationResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerRestartEngineObservationResultの宣言は外部境界を開かない。
+ * @security DockerRestartEngineObservationResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerRestartEngineObservationResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerRestartEngineObservationResult = Readonly<{
   state: DockerRestartEngineObservation;
   cleanup: "confirmed" | "unknown";
 }>;
+/**
+ * DockerRestartEnginePipeObservationResultが扱う値の構造を表す。
+ *
+ * @responsibility DockerRestartEnginePipeObservationResultに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape DockerRestartEnginePipeObservationResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerRestartEnginePipeObservationResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerRestartEnginePipeObservationResultの宣言は外部境界を開かない。
+ * @security DockerRestartEnginePipeObservationResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerRestartEnginePipeObservationResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerRestartEnginePipeObservationResult = Readonly<{
   state: DockerRestartEnginePipeObservation;
   cleanup: "confirmed" | "unknown";
 }>;
+/**
+ * MachinePortsが扱う値の構造を表す。
+ *
+ * @responsibility MachinePortsに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape MachinePortsが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant MachinePortsで宣言した値と責務の対応を維持する。
+ * @boundary N/A: MachinePortsの宣言は外部境界を開かない。
+ * @security MachinePortsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility MachinePortsの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type MachinePorts = Readonly<{
   session: Session;
   observeWsl: () => DockerWslState;
@@ -45,6 +111,22 @@ type MachinePorts = Readonly<{
   signal?: AbortSignal;
 }>;
 
+/**
+ * createMachineの処理を実行する。
+ *
+ * @responsibility createMachineに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input ports: MachinePorts
+ * @returns createMachineの計算結果を返す。
+ * @precondition 「ports: MachinePorts」がcreateMachineの入力契約を満たす。
+ * @postcondition createMachineの責務を完了した結果だけを返す。
+ * @effect N/A: createMachineは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createMachineは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createMachineは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createMachineはProcess内の同一Subsystemで完結する。
+ * @security createMachineはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency createMachineは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function createMachine(ports: MachinePorts) {
   const { session } = ports;
   let stopConfirmed = false;
@@ -182,6 +264,22 @@ function createMachine(ports: MachinePorts) {
   });
 }
 
+/**
+ * queryWslの処理を実行する。
+ *
+ * @responsibility queryWslに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input kind: "registered" | "running"
+ * @returns queryWslの計算結果を返す。
+ * @precondition 「kind: "registered" | "running"」がqueryWslの入力契約を満たす。
+ * @postcondition queryWslの責務を完了した結果だけを返す。
+ * @effect queryWslは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: queryWslは独自の失敗分岐を所有しない。
+ * @invariant queryWslは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security queryWslはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: queryWslは共有非同期状態を持たない同期処理である。
+ */
 function queryWsl(kind: "registered" | "running") {
   const env = createWindowsNativeHelperEnvironment();
   if (!env?.SystemRoot) return null;
@@ -202,6 +300,22 @@ function queryWsl(kind: "registered" | "running") {
   );
 }
 
+/**
+ * observeWslの処理を実行する。
+ *
+ * @responsibility observeWslに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns DockerWslStateを返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がobserveWslの入力契約を満たす。
+ * @postcondition observeWslの責務を完了した結果だけを返す。
+ * @effect N/A: observeWslは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: observeWslは独自の失敗分岐を所有しない。
+ * @invariant observeWslは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observeWslはProcess内の同一Subsystemで完結する。
+ * @security observeWslはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeWslは共有非同期状態を持たない同期処理である。
+ */
 function observeWsl(): DockerWslState {
   const registered = queryWsl("registered");
   const running = queryWsl("running");
@@ -210,6 +324,22 @@ function observeWsl(): DockerWslState {
     : "unknown";
 }
 
+/**
+ * isDockerRestartEngineReadyの処理を実行する。
+ *
+ * @responsibility isDockerRestartEngineReadyに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input result: Readonly<{ status: number | null; signal: string | null; error?: unknown; stdout: unknown; stderr: unknown; }>
+ * @returns isDockerRestartEngineReadyの計算結果を返す。
+ * @precondition 「result: Readonly<{ status: number | null; signal: string | null; error?: unknown; stdout: unknown; stderr: unknown; }>」がisDockerRestartEngineReadyの入力契約を満たす。
+ * @postcondition isDockerRestartEngineReadyの責務を完了した結果だけを返す。
+ * @effect N/A: isDockerRestartEngineReadyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isDockerRestartEngineReadyは独自の失敗分岐を所有しない。
+ * @invariant isDockerRestartEngineReadyは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isDockerRestartEngineReadyはProcess内の同一Subsystemで完結する。
+ * @security isDockerRestartEngineReadyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isDockerRestartEngineReadyは共有非同期状態を持たない同期処理である。
+ */
 export function isDockerRestartEngineReady(
   result: Readonly<{
     status: number | null;
@@ -226,6 +356,22 @@ export function isDockerRestartEngineReady(
   );
 }
 
+/**
+ * observeDockerRestartEnginePipeの処理を実行する。
+ *
+ * @responsibility observeDockerRestartEnginePipeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input openPipe: () => number、closePipe: (handle: number) => void
+ * @returns DockerRestartEnginePipeObservationResultを返す。
+ * @precondition 「openPipe: () => number、closePipe: (handle: number) => void」がobserveDockerRestartEnginePipeの入力契約を満たす。
+ * @postcondition observeDockerRestartEnginePipeの責務を完了した結果だけを返す。
+ * @effect N/A: observeDockerRestartEnginePipeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure observeDockerRestartEnginePipeは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeDockerRestartEnginePipeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observeDockerRestartEnginePipeはProcess内の同一Subsystemで完結する。
+ * @security observeDockerRestartEnginePipeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeDockerRestartEnginePipeは共有非同期状態を持たない同期処理である。
+ */
 export function observeDockerRestartEnginePipe(
   openPipe: () => number = () =>
     fs.openSync("\\\\.\\pipe\\dockerDesktopLinuxEngine", "r+"),
@@ -251,6 +397,22 @@ export function observeDockerRestartEnginePipe(
   }
 }
 
+/**
+ * observeDockerRestartEngineResultの処理を実行する。
+ *
+ * @responsibility observeDockerRestartEngineResultに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input result: Readonly<{ pid?: number; status: number | null; signal: string | null; error?: unknown; stdout: unknown; stderr: unknown; }>、observeEnginePipe: () => DockerRestartEnginePipeObservationResult
+ * @returns DockerRestartEngineObservationResultを返す。
+ * @precondition 「result: Readonly<{ pid?: number; status: number | null; signal: string | null; error?: unknown; stdout: unknown; stderr: unknown; }>、observeEnginePipe: () => DockerRestartEnginePipeObservationResult」がobserveDockerRestartEngineResultの入力契約を満たす。
+ * @postcondition observeDockerRestartEngineResultの責務を完了した結果だけを返す。
+ * @effect N/A: observeDockerRestartEngineResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure observeDockerRestartEngineResultは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeDockerRestartEngineResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observeDockerRestartEngineResultはProcess内の同一Subsystemで完結する。
+ * @security observeDockerRestartEngineResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeDockerRestartEngineResultは共有非同期状態を持たない同期処理である。
+ */
 export function observeDockerRestartEngineResult(
   result: Readonly<{
     pid?: number;
@@ -304,6 +466,22 @@ export function observeDockerRestartEngineResult(
   });
 }
 
+/**
+ * queryDockerEngineの処理を実行する。
+ *
+ * @responsibility queryDockerEngineに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns DockerRestartEngineObservationResultを返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がqueryDockerEngineの入力契約を満たす。
+ * @postcondition queryDockerEngineの責務を完了した結果だけを返す。
+ * @effect queryDockerEngineは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure queryDockerEngineは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant queryDockerEngineは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security queryDockerEngineはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: queryDockerEngineは共有非同期状態を持たない同期処理である。
+ */
 function queryDockerEngine(): DockerRestartEngineObservationResult {
   try {
     const cli = observeTrustedDockerCli();
@@ -340,6 +518,22 @@ function queryDockerEngine(): DockerRestartEngineObservationResult {
   }
 }
 
+/**
+ * queryContainersAbsentの処理を実行する。
+ *
+ * @responsibility queryContainersAbsentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns queryContainersAbsentの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がqueryContainersAbsentの入力契約を満たす。
+ * @postcondition queryContainersAbsentの責務を完了した結果だけを返す。
+ * @effect queryContainersAbsentは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure queryContainersAbsentは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant queryContainersAbsentは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security queryContainersAbsentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: queryContainersAbsentは共有非同期状態を持たない同期処理である。
+ */
 function queryContainersAbsent() {
   try {
     const cli = observeTrustedDockerCli();
@@ -380,7 +574,22 @@ function queryContainersAbsent() {
   }
 }
 
-/** Called only inside the signed host preparation, exclusion and durable phase boundary. */
+/**
+ * Called only inside the signed host preparation, exclusion and durable phase boundary.
+ *
+ * @responsibility createDockerRestartMachineに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input session: Session、boundary: () => boolean、signal: AbortSignal
+ * @returns createDockerRestartMachineの計算結果を返す。
+ * @precondition 「session: Session、boundary: () => boolean、signal: AbortSignal」がcreateDockerRestartMachineの入力契約を満たす。
+ * @postcondition createDockerRestartMachineの責務を完了した結果だけを返す。
+ * @effect N/A: createDockerRestartMachineは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createDockerRestartMachineは独自の失敗分岐を所有しない。
+ * @invariant createDockerRestartMachineは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createDockerRestartMachineはProcess内の同一Subsystemで完結する。
+ * @security createDockerRestartMachineはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency createDockerRestartMachineは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export function createDockerRestartMachine(
   session: Session,
   boundary: () => boolean,
@@ -398,7 +607,22 @@ export function createDockerRestartMachine(
   });
 }
 
-/** Injected ports cannot obtain production preparation or issue production authority. */
+/**
+ * Injected ports cannot obtain production preparation or issue production authority.
+ *
+ * @responsibility createDockerRestartMachineForVerificationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input ports: MachinePorts
+ * @returns createDockerRestartMachineForVerificationの計算結果を返す。
+ * @precondition 「ports: MachinePorts」がcreateDockerRestartMachineForVerificationの入力契約を満たす。
+ * @postcondition createDockerRestartMachineForVerificationの責務を完了した結果だけを返す。
+ * @effect N/A: createDockerRestartMachineForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createDockerRestartMachineForVerificationは独自の失敗分岐を所有しない。
+ * @invariant createDockerRestartMachineForVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createDockerRestartMachineForVerificationはProcess内の同一Subsystemで完結する。
+ * @security createDockerRestartMachineForVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createDockerRestartMachineForVerificationは共有非同期状態を持たない同期処理である。
+ */
 export function createDockerRestartMachineForVerification(ports: MachinePorts) {
   return createMachine(ports);
 }

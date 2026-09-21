@@ -44,6 +44,22 @@ const USE_KEYS = new Set([
 ]);
 const TRANSITION_KEYS = new Set(["previous", "next"]);
 
+/**
+ * blockedの処理を実行する。
+ *
+ * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input reason: string
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: string」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
+ * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(reason: string) {
   return Object.freeze({
     status: "blocked" as const,
@@ -60,14 +76,62 @@ function blocked(reason: string) {
   });
 }
 
+/**
+ * identifierの処理を実行する。
+ *
+ * @responsibility identifierに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input value: unknown、pattern: RegExp
+ * @returns identifierの計算結果を返す。
+ * @precondition 「value: unknown、pattern: RegExp」がidentifierの入力契約を満たす。
+ * @postcondition identifierの責務を完了した結果だけを返す。
+ * @effect N/A: identifierは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: identifierは独自の失敗分岐を所有しない。
+ * @invariant identifierは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: identifierはProcess内の同一Subsystemで完結する。
+ * @security identifierはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: identifierは共有非同期状態を持たない同期処理である。
+ */
 function identifier(value: unknown, pattern: RegExp) {
   return typeof value === "string" && value.length <= 64 && pattern.test(value);
 }
 
+/**
+ * isProviderHomeMountGrantRefの処理を実行する。
+ *
+ * @responsibility isProviderHomeMountGrantRefに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がisProviderHomeMountGrantRefの入力契約を満たす。
+ * @postcondition isProviderHomeMountGrantRefの責務を完了した結果だけを返す。
+ * @effect N/A: isProviderHomeMountGrantRefは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isProviderHomeMountGrantRefは独自の失敗分岐を所有しない。
+ * @invariant isProviderHomeMountGrantRefは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isProviderHomeMountGrantRefはProcess内の同一Subsystemで完結する。
+ * @security isProviderHomeMountGrantRefはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isProviderHomeMountGrantRefは共有非同期状態を持たない同期処理である。
+ */
 export function isProviderHomeMountGrantRef(value: unknown): value is string {
   return identifier(value, GRANT_REF);
 }
 
+/**
+ * canonicalUtcの処理を実行する。
+ *
+ * @responsibility canonicalUtcに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がcanonicalUtcの入力契約を満たす。
+ * @postcondition canonicalUtcの責務を完了した結果だけを返す。
+ * @effect N/A: canonicalUtcは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: canonicalUtcは独自の失敗分岐を所有しない。
+ * @invariant canonicalUtcは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: canonicalUtcはProcess内の同一Subsystemで完結する。
+ * @security canonicalUtcはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: canonicalUtcは共有非同期状態を持たない同期処理である。
+ */
 function canonicalUtc(value: unknown): value is string {
   if (typeof value !== "string") return false;
   const milliseconds = Date.parse(value);
@@ -77,10 +141,42 @@ function canonicalUtc(value: unknown): value is string {
   );
 }
 
+/**
+ * optionalCanonicalUtcの処理を実行する。
+ *
+ * @responsibility optionalCanonicalUtcに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input value: unknown
+ * @returns value is string | nullを返す。
+ * @precondition 「value: unknown」がoptionalCanonicalUtcの入力契約を満たす。
+ * @postcondition optionalCanonicalUtcの責務を完了した結果だけを返す。
+ * @effect N/A: optionalCanonicalUtcは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: optionalCanonicalUtcは独自の失敗分岐を所有しない。
+ * @invariant optionalCanonicalUtcは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: optionalCanonicalUtcはProcess内の同一Subsystemで完結する。
+ * @security optionalCanonicalUtcはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: optionalCanonicalUtcは共有非同期状態を持たない同期処理である。
+ */
 function optionalCanonicalUtc(value: unknown): value is string | null {
   return value === null || canonicalUtc(value);
 }
 
+/**
+ * compileInternalの処理を実行する。
+ *
+ * @responsibility compileInternalに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input raw: unknown
+ * @returns compileInternalの計算結果を返す。
+ * @precondition 「raw: unknown」がcompileInternalの入力契約を満たす。
+ * @postcondition compileInternalの責務を完了した結果だけを返す。
+ * @effect N/A: compileInternalは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: compileInternalは独自の失敗分岐を所有しない。
+ * @invariant compileInternalは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: compileInternalはProcess内の同一Subsystemで完結する。
+ * @security compileInternalはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: compileInternalは共有非同期状態を持たない同期処理である。
+ */
 function compileInternal(raw: unknown) {
   const value = snapshotPlainRecord(raw, RECORD_KEYS);
   if (
@@ -175,6 +271,22 @@ function compileInternal(raw: unknown) {
   });
 }
 
+/**
+ * compileProviderHomeMountGrantCandidateの処理を実行する。
+ *
+ * @responsibility compileProviderHomeMountGrantCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input raw: unknown
+ * @returns compileProviderHomeMountGrantCandidateの計算結果を返す。
+ * @precondition 「raw: unknown」がcompileProviderHomeMountGrantCandidateの入力契約を満たす。
+ * @postcondition compileProviderHomeMountGrantCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: compileProviderHomeMountGrantCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure compileProviderHomeMountGrantCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant compileProviderHomeMountGrantCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: compileProviderHomeMountGrantCandidateはProcess内の同一Subsystemで完結する。
+ * @security compileProviderHomeMountGrantCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: compileProviderHomeMountGrantCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function compileProviderHomeMountGrantCandidate(raw: unknown) {
   try {
     const grant = compileInternal(raw);
@@ -189,6 +301,22 @@ export function compileProviderHomeMountGrantCandidate(raw: unknown) {
   }
 }
 
+/**
+ * sameBindingの処理を実行する。
+ *
+ * @responsibility sameBindingに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input previous: NonNullable<ReturnType<typeof compileInternal>>、next: NonNullable<ReturnType<typeof compileInternal>>
+ * @returns sameBindingの計算結果を返す。
+ * @precondition 「previous: NonNullable<ReturnType<typeof compileInternal>>、next: NonNullable<ReturnType<typeof compileInternal>>」がsameBindingの入力契約を満たす。
+ * @postcondition sameBindingの責務を完了した結果だけを返す。
+ * @effect N/A: sameBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameBindingは独自の失敗分岐を所有しない。
+ * @invariant sameBindingは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sameBindingはProcess内の同一Subsystemで完結する。
+ * @security sameBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameBindingは共有非同期状態を持たない同期処理である。
+ */
 function sameBinding(
   previous: NonNullable<ReturnType<typeof compileInternal>>,
   next: NonNullable<ReturnType<typeof compileInternal>>,
@@ -211,6 +339,22 @@ function sameBinding(
   );
 }
 
+/**
+ * evaluateProviderHomeMountGrantTransitionCandidateの処理を実行する。
+ *
+ * @responsibility evaluateProviderHomeMountGrantTransitionCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input raw: unknown
+ * @returns evaluateProviderHomeMountGrantTransitionCandidateの計算結果を返す。
+ * @precondition 「raw: unknown」がevaluateProviderHomeMountGrantTransitionCandidateの入力契約を満たす。
+ * @postcondition evaluateProviderHomeMountGrantTransitionCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: evaluateProviderHomeMountGrantTransitionCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure evaluateProviderHomeMountGrantTransitionCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant evaluateProviderHomeMountGrantTransitionCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: evaluateProviderHomeMountGrantTransitionCandidateはProcess内の同一Subsystemで完結する。
+ * @security evaluateProviderHomeMountGrantTransitionCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: evaluateProviderHomeMountGrantTransitionCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function evaluateProviderHomeMountGrantTransitionCandidate(
   raw: unknown,
 ) {
@@ -251,6 +395,22 @@ export function evaluateProviderHomeMountGrantTransitionCandidate(
   }
 }
 
+/**
+ * evaluateProviderHomeMountGrantUseCandidateの処理を実行する。
+ *
+ * @responsibility evaluateProviderHomeMountGrantUseCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input raw: unknown
+ * @returns evaluateProviderHomeMountGrantUseCandidateの計算結果を返す。
+ * @precondition 「raw: unknown」がevaluateProviderHomeMountGrantUseCandidateの入力契約を満たす。
+ * @postcondition evaluateProviderHomeMountGrantUseCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: evaluateProviderHomeMountGrantUseCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure evaluateProviderHomeMountGrantUseCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant evaluateProviderHomeMountGrantUseCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: evaluateProviderHomeMountGrantUseCandidateはProcess内の同一Subsystemで完結する。
+ * @security evaluateProviderHomeMountGrantUseCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: evaluateProviderHomeMountGrantUseCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function evaluateProviderHomeMountGrantUseCandidate(raw: unknown) {
   try {
     const input = snapshotPlainRecord(raw, USE_KEYS);
@@ -308,6 +468,22 @@ export function evaluateProviderHomeMountGrantUseCandidate(raw: unknown) {
   }
 }
 
+/**
+ * describeProviderHomeMountGrantContractの処理を実行する。
+ *
+ * @responsibility describeProviderHomeMountGrantContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProviderHomeMountGrantContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProviderHomeMountGrantContractの入力契約を満たす。
+ * @postcondition describeProviderHomeMountGrantContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeProviderHomeMountGrantContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProviderHomeMountGrantContractは独自の失敗分岐を所有しない。
+ * @invariant describeProviderHomeMountGrantContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeProviderHomeMountGrantContractはProcess内の同一Subsystemで完結する。
+ * @security describeProviderHomeMountGrantContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeProviderHomeMountGrantContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeProviderHomeMountGrantContract() {
   return Object.freeze({
     contract: PROVIDER_HOME_MOUNT_GRANT_CONTRACT,

@@ -99,7 +99,7 @@
       "kind": "test-suite",
       "path": "tests/unit/objective-intake.contract.test.ts",
       "qaIds": ["QA-000003", "QA-000004"],
-      "localTestIds": ["PRL-01", "PRL-05", "PRL-07", "PPR-06"],
+      "localTestIds": ["PRL-ST-001", "PRL-IT-005", "PRL-UT-007", "PPR-UT-006"],
       "verifies": [
         "project-runtime.objective-intake",
         "project-runtime.state-core"
@@ -111,12 +111,12 @@
       "path": "tests/unit/project-runtime-state.contract.test.ts",
       "qaIds": ["QA-000003", "QA-000004"],
       "localTestIds": [
-        "PRL-01",
-        "PRL-04",
-        "PRL-06",
-        "PRL-07",
-        "PRL-11",
-        "PPR-01"
+        "PRL-ST-001",
+        "PRL-ST-004",
+        "PRL-UT-006",
+        "PRL-UT-007",
+        "PRL-IT-011",
+        "PPR-IT-001"
       ],
       "verifies": ["project-runtime.state-core", "project-runtime.queue-core"]
     },
@@ -125,7 +125,7 @@
       "kind": "test-suite",
       "path": "tests/unit/project-state-query.contract.test.ts",
       "qaIds": ["QA-000004"],
-      "localTestIds": ["PPR-01"],
+      "localTestIds": ["PPR-IT-001"],
       "verifies": [
         "project-runtime.state-query-application",
         "project-runtime.state-core"
@@ -136,7 +136,7 @@
       "kind": "test-suite",
       "path": "tests/unit/execution-observation-port.contract.test.ts",
       "qaIds": ["QA-000004"],
-      "localTestIds": ["PPR-08"],
+      "localTestIds": ["PPR-UAT-008"],
       "verifies": ["project-runtime.execution-observation-port"]
     },
     {
@@ -144,7 +144,7 @@
       "kind": "test-suite",
       "path": "tests/unit/human-decision-application.contract.test.ts",
       "qaIds": ["QA-000003"],
-      "localTestIds": ["PRL-07", "PRL-08"],
+      "localTestIds": ["PRL-UT-007", "PRL-IT-008"],
       "verifies": ["project-runtime.human-decision-application"]
     },
     {
@@ -152,7 +152,7 @@
       "kind": "test-suite",
       "path": "tests/unit/integration-application.contract.test.ts",
       "qaIds": ["QA-000003"],
-      "localTestIds": ["PRL-01", "PRL-04"],
+      "localTestIds": ["PRL-ST-001", "PRL-ST-004"],
       "verifies": ["project-runtime.integration-application"]
     },
     {
@@ -160,7 +160,7 @@
       "kind": "test-suite",
       "path": "tests/unit/public-contract.contract.test.ts",
       "qaIds": ["QA-000003"],
-      "localTestIds": ["PRL-12"],
+      "localTestIds": ["PRL-IT-012"],
       "verifies": ["project-runtime.public-api"]
     }
   ]

@@ -60,6 +60,22 @@ export const PROJECT_RUNTIME_EXECUTION_INTELLIGENCE_PREFIX =
   "[Project Runtime execution intelligence] " as const;
 const PROJECT_RUNTIME_RECOVERY_DIAGNOSTIC_TIMEOUT_MS = 5_000;
 
+/**
+ * projectRuntimeDataBoundaryBlockedの処理を実行する。
+ *
+ * @responsibility projectRuntimeDataBoundaryBlockedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input error: RepositoryRuntimeDataAreaBlockedError
+ * @returns projectRuntimeDataBoundaryBlockedの計算結果を返す。
+ * @precondition 「error: RepositoryRuntimeDataAreaBlockedError」がprojectRuntimeDataBoundaryBlockedの入力契約を満たす。
+ * @postcondition projectRuntimeDataBoundaryBlockedの責務を完了した結果だけを返す。
+ * @effect N/A: projectRuntimeDataBoundaryBlockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: projectRuntimeDataBoundaryBlockedは独自の失敗分岐を所有しない。
+ * @invariant projectRuntimeDataBoundaryBlockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: projectRuntimeDataBoundaryBlockedはProcess内の同一Subsystemで完結する。
+ * @security N/A: projectRuntimeDataBoundaryBlockedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: projectRuntimeDataBoundaryBlockedは共有非同期状態を持たない同期処理である。
+ */
 export function projectRuntimeDataBoundaryBlocked(
   error: RepositoryRuntimeDataAreaBlockedError,
 ) {
@@ -83,6 +99,17 @@ export function projectRuntimeDataBoundaryBlocked(
   });
 }
 
+/**
+ * ProjectRuntimeRecoveryDiagnosticOutcomeが扱う値の構造を表す。
+ *
+ * @responsibility ProjectRuntimeRecoveryDiagnosticOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeRecoveryDiagnosticOutcomeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeRecoveryDiagnosticOutcomeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeRecoveryDiagnosticOutcomeの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimeRecoveryDiagnosticOutcomeはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimeRecoveryDiagnosticOutcomeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeRecoveryDiagnosticOutcome =
   | "success"
   | "callback_error"
@@ -92,6 +119,22 @@ export type ProjectRuntimeRecoveryDiagnosticOutcome =
   | "unavailable"
   | "throw";
 
+/**
+ * createProjectRuntimeInternalDiagnosticReporterの処理を実行する。
+ *
+ * @responsibility createProjectRuntimeInternalDiagnosticReporterに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input stream: Writable、input: Readonly<{ prefix: string; event: string; timeoutMs: number; }>
+ * @returns createProjectRuntimeInternalDiagnosticReporterの計算結果を返す。
+ * @precondition 「stream: Writable、input: Readonly<{ prefix: string; event: string; timeoutMs: number; }>」がcreateProjectRuntimeInternalDiagnosticReporterの入力契約を満たす。
+ * @postcondition createProjectRuntimeInternalDiagnosticReporterの責務を完了した結果だけを返す。
+ * @effect N/A: createProjectRuntimeInternalDiagnosticReporterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createProjectRuntimeInternalDiagnosticReporterは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createProjectRuntimeInternalDiagnosticReporterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createProjectRuntimeInternalDiagnosticReporterはProcess内の同一Subsystemで完結する。
+ * @security N/A: createProjectRuntimeInternalDiagnosticReporterはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency createProjectRuntimeInternalDiagnosticReporterは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function createProjectRuntimeInternalDiagnosticReporter(
   stream: Writable,
   input: Readonly<{
@@ -174,6 +217,22 @@ function createProjectRuntimeInternalDiagnosticReporter(
   return Object.freeze({ report, dispose });
 }
 
+/**
+ * createProjectRuntimeRecoveryDiagnosticReporterの処理を実行する。
+ *
+ * @responsibility createProjectRuntimeRecoveryDiagnosticReporterに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input stream: Writable、timeoutMs
+ * @returns createProjectRuntimeRecoveryDiagnosticReporterの計算結果を返す。
+ * @precondition 「stream: Writable、timeoutMs」がcreateProjectRuntimeRecoveryDiagnosticReporterの入力契約を満たす。
+ * @postcondition createProjectRuntimeRecoveryDiagnosticReporterの責務を完了した結果だけを返す。
+ * @effect N/A: createProjectRuntimeRecoveryDiagnosticReporterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createProjectRuntimeRecoveryDiagnosticReporterは独自の失敗分岐を所有しない。
+ * @invariant createProjectRuntimeRecoveryDiagnosticReporterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createProjectRuntimeRecoveryDiagnosticReporterはProcess内の同一Subsystemで完結する。
+ * @security N/A: createProjectRuntimeRecoveryDiagnosticReporterはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createProjectRuntimeRecoveryDiagnosticReporterは共有非同期状態を持たない同期処理である。
+ */
 export function createProjectRuntimeRecoveryDiagnosticReporter(
   stream: Writable,
   timeoutMs = PROJECT_RUNTIME_RECOVERY_DIAGNOSTIC_TIMEOUT_MS,
@@ -185,6 +244,22 @@ export function createProjectRuntimeRecoveryDiagnosticReporter(
   });
 }
 
+/**
+ * createProjectRuntimeExecutionIntelligenceDiagnosticReporterの処理を実行する。
+ *
+ * @responsibility createProjectRuntimeExecutionIntelligenceDiagnosticReporterに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input stream: Writable、timeoutMs
+ * @returns createProjectRuntimeExecutionIntelligenceDiagnosticReporterの計算結果を返す。
+ * @precondition 「stream: Writable、timeoutMs」がcreateProjectRuntimeExecutionIntelligenceDiagnosticReporterの入力契約を満たす。
+ * @postcondition createProjectRuntimeExecutionIntelligenceDiagnosticReporterの責務を完了した結果だけを返す。
+ * @effect N/A: createProjectRuntimeExecutionIntelligenceDiagnosticReporterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createProjectRuntimeExecutionIntelligenceDiagnosticReporterは独自の失敗分岐を所有しない。
+ * @invariant createProjectRuntimeExecutionIntelligenceDiagnosticReporterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createProjectRuntimeExecutionIntelligenceDiagnosticReporterはProcess内の同一Subsystemで完結する。
+ * @security N/A: createProjectRuntimeExecutionIntelligenceDiagnosticReporterはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createProjectRuntimeExecutionIntelligenceDiagnosticReporterは共有非同期状態を持たない同期処理である。
+ */
 export function createProjectRuntimeExecutionIntelligenceDiagnosticReporter(
   stream: Writable,
   timeoutMs = PROJECT_RUNTIME_RECOVERY_DIAGNOSTIC_TIMEOUT_MS,
@@ -201,10 +276,42 @@ const productionRecoveryDiagnosticReporter =
 const productionExecutionIntelligenceDiagnosticReporter =
   createProjectRuntimeExecutionIntelligenceDiagnosticReporter(process.stderr);
 
+/**
+ * writeProjectRuntimeRecoveryDiagnosticの処理を実行する。
+ *
+ * @responsibility writeProjectRuntimeRecoveryDiagnosticに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input event: object
+ * @returns N/A: writeProjectRuntimeRecoveryDiagnosticは戻り値を返さない。
+ * @precondition 「event: object」がwriteProjectRuntimeRecoveryDiagnosticの入力契約を満たす。
+ * @postcondition writeProjectRuntimeRecoveryDiagnosticの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: writeProjectRuntimeRecoveryDiagnosticは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: writeProjectRuntimeRecoveryDiagnosticは独自の失敗分岐を所有しない。
+ * @invariant writeProjectRuntimeRecoveryDiagnosticは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: writeProjectRuntimeRecoveryDiagnosticはProcess内の同一Subsystemで完結する。
+ * @security N/A: writeProjectRuntimeRecoveryDiagnosticはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency writeProjectRuntimeRecoveryDiagnosticは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function writeProjectRuntimeRecoveryDiagnostic(event: object) {
   await productionRecoveryDiagnosticReporter.report(event);
 }
 
+/**
+ * writeProjectRuntimeExecutionIntelligenceDiagnosticの処理を実行する。
+ *
+ * @responsibility writeProjectRuntimeExecutionIntelligenceDiagnosticに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input observation: ProjectRuntimeExecutionPublicationObservation
+ * @returns writeProjectRuntimeExecutionIntelligenceDiagnosticの計算結果を返す。
+ * @precondition 「observation: ProjectRuntimeExecutionPublicationObservation」がwriteProjectRuntimeExecutionIntelligenceDiagnosticの入力契約を満たす。
+ * @postcondition writeProjectRuntimeExecutionIntelligenceDiagnosticの責務を完了した結果だけを返す。
+ * @effect N/A: writeProjectRuntimeExecutionIntelligenceDiagnosticは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: writeProjectRuntimeExecutionIntelligenceDiagnosticは独自の失敗分岐を所有しない。
+ * @invariant writeProjectRuntimeExecutionIntelligenceDiagnosticは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: writeProjectRuntimeExecutionIntelligenceDiagnosticはProcess内の同一Subsystemで完結する。
+ * @security N/A: writeProjectRuntimeExecutionIntelligenceDiagnosticはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: writeProjectRuntimeExecutionIntelligenceDiagnosticは共有非同期状態を持たない同期処理である。
+ */
 function writeProjectRuntimeExecutionIntelligenceDiagnostic(
   observation: ProjectRuntimeExecutionPublicationObservation,
 ) {
@@ -212,6 +319,17 @@ function writeProjectRuntimeExecutionIntelligenceDiagnostic(
   void productionExecutionIntelligenceDiagnosticReporter.report(observation);
 }
 
+/**
+ * PublicExecutionDependenciesが扱う値の構造を表す。
+ *
+ * @responsibility PublicExecutionDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape PublicExecutionDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant PublicExecutionDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: PublicExecutionDependenciesの宣言は外部境界を開かない。
+ * @security N/A: PublicExecutionDependenciesはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility PublicExecutionDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type PublicExecutionDependencies = Readonly<{
   issueRuntimeExecutionAuthorization: () => object | null;
   revokeRuntimeExecutionAuthorization?: (capability: object) => boolean;
@@ -231,6 +349,17 @@ type PublicExecutionDependencies = Readonly<{
   ) => void;
 }>;
 
+/**
+ * ProjectRuntimePublicDevelopmentDependenciesが扱う値の構造を表す。
+ *
+ * @responsibility ProjectRuntimePublicDevelopmentDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimePublicDevelopmentDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimePublicDevelopmentDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimePublicDevelopmentDependenciesの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimePublicDevelopmentDependenciesはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimePublicDevelopmentDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimePublicDevelopmentDependencies = Omit<
   PublicExecutionDependencies,
   "recordExecutionEvent" | "observeExecutionEventPublication"
@@ -263,11 +392,42 @@ const productionExecutionDependencies: PublicExecutionDependencies =
       writeProjectRuntimeExecutionIntelligenceDiagnostic,
   });
 
+/**
+ * stableの処理を実行する。
+ *
+ * @responsibility stableに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input prefix: string、parts: readonly string[]
+ * @returns stableの計算結果を返す。
+ * @precondition 「prefix: string、parts: readonly string[]」がstableの入力契約を満たす。
+ * @postcondition stableの責務を完了した結果だけを返す。
+ * @effect N/A: stableは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: stableは独自の失敗分岐を所有しない。
+ * @invariant stableは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: stableはProcess内の同一Subsystemで完結する。
+ * @security N/A: stableはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: stableは共有非同期状態を持たない同期処理である。
+ */
 function stable(prefix: string, ...parts: readonly string[]) {
   return `${prefix}-${createHash("sha256").update(parts.join("\0")).digest("hex").slice(0, 40)}`;
 }
 
-/** Canonical Single Task request used by both execution and bounded E2E admission. */
+/**
+ * Canonical Single Task request used by both execution and bounded E2E admission.
+ *
+ * @responsibility buildProjectRuntimeCoordinatorTaskRequestに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input request: ProjectRuntimeObjectiveRequest、frontProvider: "codex" | "claude"
+ * @returns buildProjectRuntimeCoordinatorTaskRequestの計算結果を返す。
+ * @precondition 「request: ProjectRuntimeObjectiveRequest、frontProvider: "codex" | "claude"」がbuildProjectRuntimeCoordinatorTaskRequestの入力契約を満たす。
+ * @postcondition buildProjectRuntimeCoordinatorTaskRequestの責務を完了した結果だけを返す。
+ * @effect N/A: buildProjectRuntimeCoordinatorTaskRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: buildProjectRuntimeCoordinatorTaskRequestは独自の失敗分岐を所有しない。
+ * @invariant buildProjectRuntimeCoordinatorTaskRequestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: buildProjectRuntimeCoordinatorTaskRequestはProcess内の同一Subsystemで完結する。
+ * @security N/A: buildProjectRuntimeCoordinatorTaskRequestはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: buildProjectRuntimeCoordinatorTaskRequestは共有非同期状態を持たない同期処理である。
+ */
 export function buildProjectRuntimeCoordinatorTaskRequest(
   request: ProjectRuntimeObjectiveRequest,
   frontProvider: "codex" | "claude",
@@ -290,7 +450,22 @@ export function buildProjectRuntimeCoordinatorTaskRequest(
   });
 }
 
-/** Production composition shared by the CLI and MCP transports. */
+/**
+ * Production composition shared by the CLI and MCP transports.
+ *
+ * @responsibility executeProjectRuntimePublicObjectiveに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input runtimeDependencies: PublicExecutionDependencies、rawRequest: unknown、cancellationSignal: AbortSignal、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
+ * @returns executeProjectRuntimePublicObjectiveの計算結果を返す。
+ * @precondition 「runtimeDependencies: PublicExecutionDependencies、rawRequest: unknown、cancellationSignal: AbortSignal、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がexecuteProjectRuntimePublicObjectiveの入力契約を満たす。
+ * @postcondition executeProjectRuntimePublicObjectiveの責務を完了した結果だけを返す。
+ * @effect N/A: executeProjectRuntimePublicObjectiveは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure executeProjectRuntimePublicObjectiveは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant executeProjectRuntimePublicObjectiveは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: executeProjectRuntimePublicObjectiveはProcess内の同一Subsystemで完結する。
+ * @security N/A: executeProjectRuntimePublicObjectiveはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency executeProjectRuntimePublicObjectiveは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function executeProjectRuntimePublicObjective(
   runtimeDependencies: PublicExecutionDependencies,
   rawRequest: unknown,
@@ -364,6 +539,22 @@ async function executeProjectRuntimePublicObjective(
   const execution = await runProjectRuntimeObjective(
     {
       authenticatedPrincipalId: authenticated.principalId,
+      /**
+       * verifyProjectBindingの処理を実行する。
+       *
+       * @responsibility verifyProjectBindingに対応する入力処理と結果生成を所有する。
+       * @trace ARCH-000004
+       * @input input
+       * @returns verifyProjectBindingの計算結果を返す。
+       * @precondition 「input」がverifyProjectBindingの入力契約を満たす。
+       * @postcondition verifyProjectBindingの責務を完了した結果だけを返す。
+       * @effect N/A: verifyProjectBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+       * @failure N/A: verifyProjectBindingは独自の失敗分岐を所有しない。
+       * @invariant verifyProjectBindingは入力から導いた結果以外の共有状態を変更しない。
+       * @boundary N/A: verifyProjectBindingはProcess内の同一Subsystemで完結する。
+       * @security N/A: verifyProjectBindingはAuthority、秘密値または信頼判断を扱わない。
+       * @concurrency N/A: verifyProjectBindingは共有非同期状態を持たない同期処理である。
+       */
       verifyProjectBinding(input) {
         if (
           identity?.status !== "candidate" ||
@@ -382,6 +573,22 @@ async function executeProjectRuntimePublicObjective(
           bindingCapability: Object.freeze({}),
         });
       },
+      /**
+       * planObjectiveの処理を実行する。
+       *
+       * @responsibility planObjectiveに対応する入力処理と結果生成を所有する。
+       * @trace ARCH-000004
+       * @input request: ProjectRuntimeObjectiveRequest
+       * @returns planObjectiveの計算結果を返す。
+       * @precondition 「request: ProjectRuntimeObjectiveRequest」がplanObjectiveの入力契約を満たす。
+       * @postcondition planObjectiveの責務を完了した結果だけを返す。
+       * @effect N/A: planObjectiveは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+       * @failure N/A: planObjectiveは独自の失敗分岐を所有しない。
+       * @invariant planObjectiveは入力から導いた結果以外の共有状態を変更しない。
+       * @boundary N/A: planObjectiveはProcess内の同一Subsystemで完結する。
+       * @security N/A: planObjectiveはAuthority、秘密値または信頼判断を扱わない。
+       * @concurrency N/A: planObjectiveは共有非同期状態を持たない同期処理である。
+       */
       planObjective(request: ProjectRuntimeObjectiveRequest) {
         const objectiveId = stable(
           "objective",
@@ -413,6 +620,22 @@ async function executeProjectRuntimePublicObjective(
           ]),
         });
       },
+      /**
+       * createTaskExecutionsの処理を実行する。
+       *
+       * @responsibility createTaskExecutionsに対応する入力処理と結果生成を所有する。
+       * @trace ARCH-000004
+       * @input request、_bindingCapability、state
+       * @returns createTaskExecutionsの計算結果を返す。
+       * @precondition 「request、_bindingCapability、state」がcreateTaskExecutionsの入力契約を満たす。
+       * @postcondition createTaskExecutionsの責務を完了した結果だけを返す。
+       * @effect N/A: createTaskExecutionsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+       * @failure N/A: createTaskExecutionsは独自の失敗分岐を所有しない。
+       * @invariant createTaskExecutionsは入力から導いた結果以外の共有状態を変更しない。
+       * @boundary N/A: createTaskExecutionsはProcess内の同一Subsystemで完結する。
+       * @security N/A: createTaskExecutionsはAuthority、秘密値または信頼判断を扱わない。
+       * @concurrency N/A: createTaskExecutionsは共有非同期状態を持たない同期処理である。
+       */
       createTaskExecutions(request, _bindingCapability, state) {
         return state.tasks
           .filter((task) => task.state !== "superseded")
@@ -616,6 +839,22 @@ async function executeProjectRuntimePublicObjective(
   return Object.freeze({ ...integration, decision });
 }
 
+/**
+ * runProjectRuntimePublicObjectiveの処理を実行する。
+ *
+ * @responsibility runProjectRuntimePublicObjectiveに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input rawRequest: unknown、cancellationSignal: AbortSignal、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
+ * @returns runProjectRuntimePublicObjectiveの計算結果を返す。
+ * @precondition 「rawRequest: unknown、cancellationSignal: AbortSignal、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がrunProjectRuntimePublicObjectiveの入力契約を満たす。
+ * @postcondition runProjectRuntimePublicObjectiveの責務を完了した結果だけを返す。
+ * @effect N/A: runProjectRuntimePublicObjectiveは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure runProjectRuntimePublicObjectiveは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runProjectRuntimePublicObjectiveは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runProjectRuntimePublicObjectiveはProcess内の同一Subsystemで完結する。
+ * @security N/A: runProjectRuntimePublicObjectiveはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency runProjectRuntimePublicObjectiveは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export function runProjectRuntimePublicObjective(
   rawRequest: unknown,
   cancellationSignal: AbortSignal,
@@ -643,7 +882,22 @@ export function runProjectRuntimePublicObjective(
   }
 }
 
-/** Development-only composition. The supplied starter still needs its own admitted capability. */
+/**
+ * Development-only composition. The supplied starter still needs its own admitted capability.
+ *
+ * @responsibility createDevelopmentProjectRuntimePublicObjectiveCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input dependencies: Omit< ProjectRuntimePublicDevelopmentDependencies, "createIntegrationAdapter" > & Readonly<{ createIntegrationAdapter?: PublicExecutionDependencies["createIntegrationAdapter"]; }>
+ * @returns createDevelopmentProjectRuntimePublicObjectiveCandidateの計算結果を返す。
+ * @precondition 「dependencies: Omit< ProjectRuntimePublicDevelopmentDependencies, "createIntegrationAdapter" > & Readonly<{ createIntegrationAdapter?: PublicExecutionDependencies["createIntegrationAdapter"]; }>」がcreateDevelopmentProjectRuntimePublicObjectiveCandidateの入力契約を満たす。
+ * @postcondition createDevelopmentProjectRuntimePublicObjectiveCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: createDevelopmentProjectRuntimePublicObjectiveCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createDevelopmentProjectRuntimePublicObjectiveCandidateは独自の失敗分岐を所有しない。
+ * @invariant createDevelopmentProjectRuntimePublicObjectiveCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createDevelopmentProjectRuntimePublicObjectiveCandidateはProcess内の同一Subsystemで完結する。
+ * @security N/A: createDevelopmentProjectRuntimePublicObjectiveCandidateはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createDevelopmentProjectRuntimePublicObjectiveCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function createDevelopmentProjectRuntimePublicObjectiveCandidate(
   dependencies: Omit<
     ProjectRuntimePublicDevelopmentDependencies,
@@ -704,6 +958,22 @@ export function createDevelopmentProjectRuntimePublicObjectiveCandidate(
   });
 }
 
+/**
+ * executeProjectRuntimePublicDecisionの処理を実行する。
+ *
+ * @responsibility executeProjectRuntimePublicDecisionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore、rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
+ * @returns executeProjectRuntimePublicDecisionの計算結果を返す。
+ * @precondition 「openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore、rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がexecuteProjectRuntimePublicDecisionの入力契約を満たす。
+ * @postcondition executeProjectRuntimePublicDecisionの責務を完了した結果だけを返す。
+ * @effect N/A: executeProjectRuntimePublicDecisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure executeProjectRuntimePublicDecisionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant executeProjectRuntimePublicDecisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: executeProjectRuntimePublicDecisionはProcess内の同一Subsystemで完結する。
+ * @security N/A: executeProjectRuntimePublicDecisionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: executeProjectRuntimePublicDecisionは共有非同期状態を持たない同期処理である。
+ */
 function executeProjectRuntimePublicDecision(
   openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore,
   rawRequest: unknown,
@@ -799,7 +1069,22 @@ function executeProjectRuntimePublicDecision(
   });
 }
 
-/** Production decision entry shared by the CLI and MCP process. */
+/**
+ * Production decision entry shared by the CLI and MCP process.
+ *
+ * @responsibility runProjectRuntimePublicDecisionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
+ * @returns runProjectRuntimePublicDecisionの計算結果を返す。
+ * @precondition 「rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がrunProjectRuntimePublicDecisionの入力契約を満たす。
+ * @postcondition runProjectRuntimePublicDecisionの責務を完了した結果だけを返す。
+ * @effect N/A: runProjectRuntimePublicDecisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure runProjectRuntimePublicDecisionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runProjectRuntimePublicDecisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runProjectRuntimePublicDecisionはProcess内の同一Subsystemで完結する。
+ * @security N/A: runProjectRuntimePublicDecisionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: runProjectRuntimePublicDecisionは共有非同期状態を持たない同期処理である。
+ */
 export function runProjectRuntimePublicDecision(
   rawRequest: unknown,
   workingDirectory = process.cwd(),
@@ -819,7 +1104,22 @@ export function runProjectRuntimePublicDecision(
   }
 }
 
-/** Read-only state entry shared by local transports. No mutation port is exposed. */
+/**
+ * Read-only state entry shared by local transports. No mutation port is exposed.
+ *
+ * @responsibility executeProjectRuntimePublicStateQueryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore、rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
+ * @returns executeProjectRuntimePublicStateQueryの計算結果を返す。
+ * @precondition 「openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore、rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がexecuteProjectRuntimePublicStateQueryの入力契約を満たす。
+ * @postcondition executeProjectRuntimePublicStateQueryの責務を完了した結果だけを返す。
+ * @effect N/A: executeProjectRuntimePublicStateQueryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure executeProjectRuntimePublicStateQueryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant executeProjectRuntimePublicStateQueryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: executeProjectRuntimePublicStateQueryはProcess内の同一Subsystemで完結する。
+ * @security N/A: executeProjectRuntimePublicStateQueryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: executeProjectRuntimePublicStateQueryは共有非同期状態を持たない同期処理である。
+ */
 function executeProjectRuntimePublicStateQuery(
   openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore,
   rawRequest: unknown,
@@ -888,7 +1188,22 @@ function executeProjectRuntimePublicStateQuery(
   );
 }
 
-/** Production read-only state entry shared by local transports. */
+/**
+ * Production read-only state entry shared by local transports.
+ *
+ * @responsibility runProjectRuntimePublicStateQueryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
+ * @returns runProjectRuntimePublicStateQueryの計算結果を返す。
+ * @precondition 「rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がrunProjectRuntimePublicStateQueryの入力契約を満たす。
+ * @postcondition runProjectRuntimePublicStateQueryの責務を完了した結果だけを返す。
+ * @effect N/A: runProjectRuntimePublicStateQueryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure runProjectRuntimePublicStateQueryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runProjectRuntimePublicStateQueryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runProjectRuntimePublicStateQueryはProcess内の同一Subsystemで完結する。
+ * @security N/A: runProjectRuntimePublicStateQueryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: runProjectRuntimePublicStateQueryは共有非同期状態を持たない同期処理である。
+ */
 export function runProjectRuntimePublicStateQuery(
   rawRequest: unknown,
   workingDirectory = process.cwd(),

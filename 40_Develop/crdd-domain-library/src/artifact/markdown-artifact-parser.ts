@@ -6,6 +6,22 @@ import type {
   ChecklistResult,
 } from "./artifact-model.ts";
 
+/**
+ * visibleLinesの処理を実行する。
+ *
+ * @responsibility visibleLinesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input content: string
+ * @returns readonly Readonly<{ line: number; text: string; }>[]を返す。
+ * @precondition 「content: string」がvisibleLinesの入力契約を満たす。
+ * @postcondition visibleLinesの責務を完了した結果だけを返す。
+ * @effect N/A: visibleLinesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: visibleLinesは独自の失敗分岐を所有しない。
+ * @invariant visibleLinesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: visibleLinesはProcess内の同一Subsystemで完結する。
+ * @security N/A: visibleLinesはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: visibleLinesは共有非同期状態を持たない同期処理である。
+ */
 function visibleLines(content: string): readonly Readonly<{
   line: number;
   text: string;
@@ -58,6 +74,22 @@ function visibleLines(content: string): readonly Readonly<{
   return visibleLineEntries;
 }
 
+/**
+ * propertyの処理を実行する。
+ *
+ * @responsibility propertyに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input lines: readonly Readonly<{ line: number; text: string }>[]、name: string
+ * @returns string | nullを返す。
+ * @precondition 「lines: readonly Readonly<{ line: number; text: string }>[]、name: string」がpropertyの入力契約を満たす。
+ * @postcondition propertyの責務を完了した結果だけを返す。
+ * @effect N/A: propertyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: propertyは独自の失敗分岐を所有しない。
+ * @invariant propertyは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: propertyはProcess内の同一Subsystemで完結する。
+ * @security N/A: propertyはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: propertyは共有非同期状態を持たない同期処理である。
+ */
 function property(
   lines: readonly Readonly<{ line: number; text: string }>[],
   name: string,
@@ -70,12 +102,44 @@ function property(
   );
 }
 
+/**
+ * stableIdsの処理を実行する。
+ *
+ * @responsibility stableIdsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: string
+ * @returns string[]を返す。
+ * @precondition 「value: string」がstableIdsの入力契約を満たす。
+ * @postcondition stableIdsの責務を完了した結果だけを返す。
+ * @effect N/A: stableIdsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: stableIdsは独自の失敗分岐を所有しない。
+ * @invariant stableIdsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: stableIdsはProcess内の同一Subsystemで完結する。
+ * @security N/A: stableIdsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: stableIdsは共有非同期状態を持たない同期処理である。
+ */
 function stableIds(value: string): string[] {
   return [
     ...value.matchAll(/\b(?:REQ|UX|IA|UI|SPEC|ARCH|QA)-[0-9]{6}\b/gu),
   ].map((match) => match[0]);
 }
 
+/**
+ * parseMarkdownArtifactの処理を実行する。
+ *
+ * @responsibility parseMarkdownArtifactに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input source: ArtifactSource
+ * @returns ArtifactModelを返す。
+ * @precondition 「source: ArtifactSource」がparseMarkdownArtifactの入力契約を満たす。
+ * @postcondition parseMarkdownArtifactの責務を完了した結果だけを返す。
+ * @effect N/A: parseMarkdownArtifactは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: parseMarkdownArtifactは独自の失敗分岐を所有しない。
+ * @invariant parseMarkdownArtifactは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseMarkdownArtifactはProcess内の同一Subsystemで完結する。
+ * @security N/A: parseMarkdownArtifactはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: parseMarkdownArtifactは共有非同期状態を持たない同期処理である。
+ */
 export function parseMarkdownArtifact(source: ArtifactSource): ArtifactModel {
   const lines = visibleLines(source.content);
   const headingEntries = lines.flatMap(({ line, text }) => {

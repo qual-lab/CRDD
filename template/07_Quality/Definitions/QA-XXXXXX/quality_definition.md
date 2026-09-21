@@ -9,9 +9,9 @@ Quality ID: `QA-XXXXXX`
 
 ## 1. 情報源と網羅条件
 
-| Source ID | 保持する固有条件 | 試験段階 | 対応Local Item |
-|---|---|---|---|
-| `../../../<工程>/Definitions/<ID>/<definition>.md` | `<このSource固有の成立条件。共通目標名へ置換しない>` | `<UT／IT／ST／UAT>` | `<各試験段階を満たす本文内Local ID>` |
+| Source ID | Obligation Key | 導出元 | 保持する固有条件 | 試験段階 | 対応Local Item |
+|---|---|---|---|---|---|
+| `../../../<工程>/Definitions/<ID>/<definition>.md` | `<Quality Analysis内の局所参照>` | `<Definitionの節、Architecture Model Itemまたは詳細設計の導出キー>` | `<このSource固有の成立条件。共通目標名へ置換しない>` | `<UT／IT／ST／UAT>` | `<各試験段階を満たす本文内Local ID>` |
 
 ### Architecture詳細設計入力
 
@@ -36,26 +36,27 @@ Sourceと詳細設計領域は、Quality Analysis Mappingに宣言した関係�
 
 `Required`には同じ試験段階のLocal Itemを一件以上持たせ、`N/A`には同じ試験段階のLocal Itemを置かない。外部境界の到達範囲は同じ試験段階で必要な最大範囲とし、Local Itemはその範囲を越えない。`N/A`も理由を必須とする。外部境界を持つ目標では、下位の直接境界を省略して最終E2Eだけを設計しない。
 
-### 状態区分の適用
+### 条件区分の適用
 
-| 状態区分 | 適用 | 対応Local Item | 判断理由 |
+| 条件区分 | 適用 | 対応Local Item | 判断理由 |
 |---|---|---|---|
 | 正常 | `<Required／N/A>` | `<Local ID。N/Aならなし>` | `<理由>` |
-| 準正常／境界 | `<Required／N/A>` | `<Local ID。N/Aならなし>` | `<理由>` |
+| 境界 | `<Required／N/A>` | `<Local ID。N/Aならなし>` | `<理由>` |
+| 準正常 | `<Required／N/A>` | `<Local ID。N/Aならなし>` | `<理由>` |
 | 異常 | `<Required／N/A>` | `<Local ID。N/Aならなし>` | `<理由>` |
-| 判定不能 | `<Required／N/A>` | `<Local ID。N/Aならなし>` | `<理由>` |
+| 回復 | `<Required／N/A>` | `<Local ID。N/Aならなし>` | `<理由>` |
 
-四区分を全数評価する。`Required`は一件以上のLocal Itemへ接続し、`N/A`は対象の成立主張にその状態が存在しないArchitecture上の理由を記録する。異常と判定不能を同じ結果へ畳まない。
+五つの条件区分を全数評価する。`Required`は同じ条件区分のLocal Item全件へ接続し、`N/A`は対象の成立主張にその条件が存在しないArchitecture上の理由を記録する。一つのLocal Itemは主となる条件区分を一つだけ持つ。異なる条件区分で観測またはOracleが独立する場合は、同じLocal Itemへ列挙せず別Local Itemへ分ける。
 
 ## 4. 検証項目
 
-| Local ID | 分類 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
+| Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `OBJ-01` | 正常 | `<UT／IT／ST／UAT>` | `<Functional／Contract／Recovery等>` | `<対象責務・境界。N/Aなら理由>` | `<N/A／Direct Boundary／Adjacent 1 Block／Related 2 Blocks／System/E2E／User Acceptance>` | `<入力>` | `<操作>` | `<実際に取得する値・状態・Effect>` | `<合否を決める期待条件>` | `<保存する入力分類・観測値・判定・終了後条件>` | `<終了後>` | `Automated／Manual／Hybrid` |
-| `OBJ-02` | 準正常／境界 | `<UT／IT／ST／UAT>` | `<種別>` | `<対象責務・境界>` | `<段階>` | `<入力>` | `<操作>` | `<実際に取得する情報>` | `<期待条件>` | `<必要なEvidence>` | `<終了後>` | `Automated／Manual／Hybrid` |
-| `OBJ-03` | 異常／判定不能 | `<UT／IT／ST／UAT>` | `<種別>` | `<対象責務・境界>` | `<段階>` | `<入力>` | `<操作>` | `<実際に取得する情報>` | `<期待条件>` | `<必要なEvidence>` | `<終了後>` | `Automated／Manual／Hybrid` |
+| `OBJ-UT-001` | 正常 | `UT` | `<Functional／Contract等>` | `<最小責務。N/Aなら理由>` | `N/A` | `<入力>` | `<操作>` | `<実際に取得する値・状態・Effect>` | `<合否を決める期待条件>` | `<保存する入力分類・観測値・判定・終了後条件>` | `<終了後>` | `Automated／Manual／Hybrid` |
+| `OBJ-IT-002` | 境界 | `IT` | `<Contract／Fault等>` | `<直接または隣接境界>` | `<Direct Boundary／Adjacent 1 Block／Related 2 Blocks>` | `<入力>` | `<操作>` | `<実際に取得する情報>` | `<期待条件>` | `<必要なEvidence>` | `<終了後>` | `Automated／Manual／Hybrid` |
+| `OBJ-ST-003` | 異常 | `ST` | `<Scenario／Recovery等>` | `<System境界>` | `System/E2E` | `<入力>` | `<操作>` | `<実際に取得する情報>` | `<期待条件>` | `<必要なEvidence>` | `<終了後>` | `Automated／Manual／Hybrid` |
 
-Local IDは本Definition内でSource固有条件とEvidenceを対応させるための識別子であり、CRDD全体の安定コンテキストIDではない。
+Local IDは本Definition内でSource固有条件とEvidenceを対応させるための識別子であり、CRDD全体の安定コンテキストIDではない。形式は`<PREFIX>-<UT／IT／ST／UAT>-<3桁連番>`とし、ID内の試験段階と表の`試験段階`を一致させる。一つのLocal Itemへ複数試験段階を持たせず、観測境界が異なる段階は別Local Itemへ分ける。
 
 13軸はすべて記載する。定型操作を持たないレビューや評価でも、対象／境界、事前状態／入力、観測、Oracle、Evidence、終了後条件および実行形態を空欄にしない。観測は実際に取得する値・状態・Effect、Oracleはその観測から合否を決める条件、Evidenceは後から同じ判断を再構成するために保存する情報である。一つのLocal Itemに複数段階が必要なら、段階ごとの観測境界と合格条件が独立するようLocal Itemを分ける。実行形態は`Automated`、`Manual`、`Hybrid`から選び、試験段階または担当観点を混在させない。
 
@@ -90,9 +91,10 @@ PT／LTは設計できても、利用者が対象、環境、上限、中止条�
 結果は`[x]`、未評価は`[ ]`、未完了は`OPEN: 理由`、不適合は`FAIL: 理由`、非該当は`N/A: 理由`で記録する。
 
 - [ ] Quality ID、検証目標およびSource固有条件を自己完結して示した
+- [ ] 各Local ItemをRequired Verification Obligationの局所参照と導出元へ接続した
 - [ ] UT／IT／ST／UATの適用または理由付きN/Aを記録した
 - [ ] 外部境界の直接、隣接1 block、関連2 blocks、System／E2Eおよび利用者受入を適用判定した
-- [ ] 正常、境界、失敗および観測不能をLocal Itemで処置した
+- [ ] 正常、境界、準正常、異常および回復をLocal Itemで処置した
 - [ ] 各Local Itemで観測とOracleを分けた
 - [ ] 各Local ItemのEvidence要件を示した
 - [ ] 事前条件、刺激、終了後条件、cleanupおよびRecoveryを必要な範囲で示した

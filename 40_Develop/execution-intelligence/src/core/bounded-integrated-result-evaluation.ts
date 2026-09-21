@@ -17,14 +17,47 @@ const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 const MAXIMUM_TASKS = 128;
 const MAXIMUM_EVIDENCE_IDS = 128;
 
+/**
+ * IntegratedResultObservationが扱う値の構造を表す。
+ *
+ * @responsibility IntegratedResultObservationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000007
+ * @shape IntegratedResultObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant IntegratedResultObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: IntegratedResultObservationの宣言は外部境界を開かない。
+ * @security N/A: IntegratedResultObservationはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility IntegratedResultObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type IntegratedResultObservation = ExecutionObservation<
   Readonly<{
     result: "accepted" | "rejected";
     evidenceIds: readonly string[];
   }>
 >;
+/**
+ * CountObservationが扱う値の構造を表す。
+ *
+ * @responsibility CountObservationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000007
+ * @shape CountObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CountObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CountObservationの宣言は外部境界を開かない。
+ * @security N/A: CountObservationはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CountObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type CountObservation = ExecutionObservation<number>;
 
+/**
+ * BoundedIntegratedResultEvaluationInputが扱う値の構造を表す。
+ *
+ * @responsibility BoundedIntegratedResultEvaluationInputに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000007
+ * @shape BoundedIntegratedResultEvaluationInputが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant BoundedIntegratedResultEvaluationInputで宣言した値と責務の対応を維持する。
+ * @boundary N/A: BoundedIntegratedResultEvaluationInputの宣言は外部境界を開かない。
+ * @security N/A: BoundedIntegratedResultEvaluationInputはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility BoundedIntegratedResultEvaluationInputの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type BoundedIntegratedResultEvaluationInput = Readonly<{
   contract: typeof BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT;
   evaluationId: string;
@@ -44,6 +77,17 @@ export type BoundedIntegratedResultEvaluationInput = Readonly<{
   }>;
 }>;
 
+/**
+ * BoundedIntegratedResultEvaluationが扱う値の構造を表す。
+ *
+ * @responsibility BoundedIntegratedResultEvaluationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000007
+ * @shape BoundedIntegratedResultEvaluationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant BoundedIntegratedResultEvaluationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: BoundedIntegratedResultEvaluationの宣言は外部境界を開かない。
+ * @security N/A: BoundedIntegratedResultEvaluationはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility BoundedIntegratedResultEvaluationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type BoundedIntegratedResultEvaluation = Readonly<{
   contract: typeof BOUNDED_INTEGRATED_RESULT_EVALUATION_CONTRACT;
   evaluationId: string;
@@ -69,14 +113,62 @@ export type BoundedIntegratedResultEvaluation = Readonly<{
   missingnessPreserved: true;
 }>;
 
+/**
+ * idの処理を実行する。
+ *
+ * @responsibility idに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がidの入力契約を満たす。
+ * @postcondition idの責務を完了した結果だけを返す。
+ * @effect N/A: idは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: idは独自の失敗分岐を所有しない。
+ * @invariant idは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: idはProcess内の同一Subsystemで完結する。
+ * @security N/A: idはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: idは共有非同期状態を持たない同期処理である。
+ */
 function id(value: unknown): value is string {
   return typeof value === "string" && ID.test(value);
 }
 
+/**
+ * countの処理を実行する。
+ *
+ * @responsibility countに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input value: unknown
+ * @returns value is numberを返す。
+ * @precondition 「value: unknown」がcountの入力契約を満たす。
+ * @postcondition countの責務を完了した結果だけを返す。
+ * @effect N/A: countは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: countは独自の失敗分岐を所有しない。
+ * @invariant countは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: countはProcess内の同一Subsystemで完結する。
+ * @security N/A: countはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: countは共有非同期状態を持たない同期処理である。
+ */
 function count(value: unknown): value is number {
   return Number.isSafeInteger(value) && Number(value) >= 0;
 }
 
+/**
+ * textの処理を実行する。
+ *
+ * @responsibility textに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がtextの入力契約を満たす。
+ * @postcondition textの責務を完了した結果だけを返す。
+ * @effect N/A: textは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: textは独自の失敗分岐を所有しない。
+ * @invariant textは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: textはProcess内の同一Subsystemで完結する。
+ * @security N/A: textはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: textは共有非同期状態を持たない同期処理である。
+ */
 function text(value: unknown): value is string {
   return (
     typeof value === "string" &&
@@ -86,6 +178,22 @@ function text(value: unknown): value is string {
   );
 }
 
+/**
+ * inspectObservationの処理を実行する。
+ *
+ * @responsibility inspectObservationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input value: unknown、inspectValue: (entry: unknown) => T | null
+ * @returns ExecutionObservation<T> | nullを返す。
+ * @precondition 「value: unknown、inspectValue: (entry: unknown) => T | null」がinspectObservationの入力契約を満たす。
+ * @postcondition inspectObservationの責務を完了した結果だけを返す。
+ * @effect N/A: inspectObservationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectObservationは独自の失敗分岐を所有しない。
+ * @invariant inspectObservationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectObservationはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectObservationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectObservationは共有非同期状態を持たない同期処理である。
+ */
 function inspectObservation<T>(
   value: unknown,
   inspectValue: (entry: unknown) => T | null,
@@ -118,6 +226,22 @@ function inspectObservation<T>(
   return null;
 }
 
+/**
+ * inspectIntegratedResultの処理を実行する。
+ *
+ * @responsibility inspectIntegratedResultに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input value: unknown
+ * @returns IntegratedResultObservation | nullを返す。
+ * @precondition 「value: unknown」がinspectIntegratedResultの入力契約を満たす。
+ * @postcondition inspectIntegratedResultの責務を完了した結果だけを返す。
+ * @effect N/A: inspectIntegratedResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectIntegratedResultは独自の失敗分岐を所有しない。
+ * @invariant inspectIntegratedResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectIntegratedResultはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectIntegratedResultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectIntegratedResultは共有非同期状態を持たない同期処理である。
+ */
 function inspectIntegratedResult(
   value: unknown,
 ): IntegratedResultObservation | null {
@@ -144,6 +268,22 @@ function inspectIntegratedResult(
   });
 }
 
+/**
+ * inspectMeasurementsの処理を実行する。
+ *
+ * @responsibility inspectMeasurementsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input value: unknown
+ * @returns BoundedIntegratedResultEvaluationInput["measurements"] | nullを返す。
+ * @precondition 「value: unknown」がinspectMeasurementsの入力契約を満たす。
+ * @postcondition inspectMeasurementsの責務を完了した結果だけを返す。
+ * @effect N/A: inspectMeasurementsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectMeasurementsは独自の失敗分岐を所有しない。
+ * @invariant inspectMeasurementsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectMeasurementsはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectMeasurementsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectMeasurementsは共有非同期状態を持たない同期処理である。
+ */
 function inspectMeasurements(
   value: unknown,
 ): BoundedIntegratedResultEvaluationInput["measurements"] | null {
@@ -172,6 +312,22 @@ function inspectMeasurements(
   ) as BoundedIntegratedResultEvaluationInput["measurements"];
 }
 
+/**
+ * inspectBoundedIntegratedResultEvaluationInputの処理を実行する。
+ *
+ * @responsibility inspectBoundedIntegratedResultEvaluationInputに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input value: unknown
+ * @returns BoundedIntegratedResultEvaluationInput | nullを返す。
+ * @precondition 「value: unknown」がinspectBoundedIntegratedResultEvaluationInputの入力契約を満たす。
+ * @postcondition inspectBoundedIntegratedResultEvaluationInputの責務を完了した結果だけを返す。
+ * @effect N/A: inspectBoundedIntegratedResultEvaluationInputは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectBoundedIntegratedResultEvaluationInputは独自の失敗分岐を所有しない。
+ * @invariant inspectBoundedIntegratedResultEvaluationInputは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectBoundedIntegratedResultEvaluationInputはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectBoundedIntegratedResultEvaluationInputはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectBoundedIntegratedResultEvaluationInputは共有非同期状態を持たない同期処理である。
+ */
 export function inspectBoundedIntegratedResultEvaluationInput(
   value: unknown,
 ): BoundedIntegratedResultEvaluationInput | null {
@@ -241,6 +397,22 @@ export function inspectBoundedIntegratedResultEvaluationInput(
   });
 }
 
+/**
+ * evaluateBoundedIntegratedResultの処理を実行する。
+ *
+ * @responsibility evaluateBoundedIntegratedResultに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input value: unknown
+ * @returns BoundedIntegratedResultEvaluation | nullを返す。
+ * @precondition 「value: unknown」がevaluateBoundedIntegratedResultの入力契約を満たす。
+ * @postcondition evaluateBoundedIntegratedResultの責務を完了した結果だけを返す。
+ * @effect N/A: evaluateBoundedIntegratedResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: evaluateBoundedIntegratedResultは独自の失敗分岐を所有しない。
+ * @invariant evaluateBoundedIntegratedResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: evaluateBoundedIntegratedResultはProcess内の同一Subsystemで完結する。
+ * @security N/A: evaluateBoundedIntegratedResultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: evaluateBoundedIntegratedResultは共有非同期状態を持たない同期処理である。
+ */
 export function evaluateBoundedIntegratedResult(
   value: unknown,
 ): BoundedIntegratedResultEvaluation | null {

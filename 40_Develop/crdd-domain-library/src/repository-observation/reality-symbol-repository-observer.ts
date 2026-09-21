@@ -7,12 +7,34 @@ import {
 import type { VerifiedRepositoryRoot } from "../../../version-control/src/repository-identity/index.ts";
 import { createFilesystemRepositoryObservationPort } from "./index.ts";
 
+/**
+ * RealityRepositoryObservationIssueが扱う値の構造を表す。
+ *
+ * @responsibility RealityRepositoryObservationIssueに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape RealityRepositoryObservationIssueが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RealityRepositoryObservationIssueで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RealityRepositoryObservationIssueの宣言は外部境界を開かない。
+ * @security N/A: RealityRepositoryObservationIssueはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RealityRepositoryObservationIssueの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type RealityRepositoryObservationIssue = Readonly<{
   code: string;
   path: string;
   reason: string;
 }>;
 
+/**
+ * RealitySymbolRepositoryObservationが扱う値の構造を表す。
+ *
+ * @responsibility RealitySymbolRepositoryObservationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape RealitySymbolRepositoryObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RealitySymbolRepositoryObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RealitySymbolRepositoryObservationの宣言は外部境界を開かない。
+ * @security N/A: RealitySymbolRepositoryObservationはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RealitySymbolRepositoryObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type RealitySymbolRepositoryObservation = Readonly<{
   manifests: readonly LoadedRealitySymbolManifest[];
   knownArchIds: ReadonlySet<string>;
@@ -22,6 +44,22 @@ export type RealitySymbolRepositoryObservation = Readonly<{
   repositoryIssues: readonly RealityRepositoryObservationIssue[];
 }>;
 
+/**
+ * observeRealitySymbolRepositoryの処理を実行する。
+ *
+ * @responsibility observeRealitySymbolRepositoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input capability: VerifiedRepositoryRoot
+ * @returns RealitySymbolRepositoryObservationを返す。
+ * @precondition 「capability: VerifiedRepositoryRoot」がobserveRealitySymbolRepositoryの入力契約を満たす。
+ * @postcondition observeRealitySymbolRepositoryの責務を完了した結果だけを返す。
+ * @effect N/A: observeRealitySymbolRepositoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure observeRealitySymbolRepositoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeRealitySymbolRepositoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security observeRealitySymbolRepositoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeRealitySymbolRepositoryは共有非同期状態を持たない同期処理である。
+ */
 export function observeRealitySymbolRepository(
   capability: VerifiedRepositoryRoot,
 ): RealitySymbolRepositoryObservation {

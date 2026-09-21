@@ -13,6 +13,22 @@ const TASK_WORKLOAD_KEYS = new Set([
   "remediationFindingCount",
 ]);
 
+/**
+ * planClaudeTaskTurnBudgetの処理を実行する。
+ *
+ * @responsibility planClaudeTaskTurnBudgetに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input taskRole: unknown、taskWorkload: unknown
+ * @returns planClaudeTaskTurnBudgetの計算結果を返す。
+ * @precondition 「taskRole: unknown、taskWorkload: unknown」がplanClaudeTaskTurnBudgetの入力契約を満たす。
+ * @postcondition planClaudeTaskTurnBudgetの責務を完了した結果だけを返す。
+ * @effect N/A: planClaudeTaskTurnBudgetは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: planClaudeTaskTurnBudgetは独自の失敗分岐を所有しない。
+ * @invariant planClaudeTaskTurnBudgetは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: planClaudeTaskTurnBudgetはProcess内の同一Subsystemで完結する。
+ * @security planClaudeTaskTurnBudgetはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: planClaudeTaskTurnBudgetは共有非同期状態を持たない同期処理である。
+ */
 export function planClaudeTaskTurnBudget(
   taskRole: unknown,
   taskWorkload: unknown,
@@ -408,6 +424,22 @@ const ACTIVATION_GATES = Object.freeze([
 ]);
 const ACTIVATION_BLOCKERS = Object.freeze([] as string[]);
 
+/**
+ * blockedの処理を実行する。
+ *
+ * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input reason: string
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: string」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect blockedは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(reason: string) {
   return Object.freeze({
     status: "blocked",
@@ -420,6 +452,22 @@ function blocked(reason: string) {
   });
 }
 
+/**
+ * planClaudeReadOnlyProbeの処理を実行する。
+ *
+ * @responsibility planClaudeReadOnlyProbeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input candidate: unknown
+ * @returns planClaudeReadOnlyProbeの計算結果を返す。
+ * @precondition 「candidate: unknown」がplanClaudeReadOnlyProbeの入力契約を満たす。
+ * @postcondition planClaudeReadOnlyProbeの責務を完了した結果だけを返す。
+ * @effect planClaudeReadOnlyProbeは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: planClaudeReadOnlyProbeは独自の失敗分岐を所有しない。
+ * @invariant planClaudeReadOnlyProbeは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security planClaudeReadOnlyProbeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: planClaudeReadOnlyProbeは共有非同期状態を持たない同期処理である。
+ */
 export function planClaudeReadOnlyProbe(candidate: unknown) {
   const value = snapshotPlainRecord(candidate, PLAN_KEYS);
   if (!value) return blocked("claude_execution_plan_shape_invalid");
@@ -495,6 +543,22 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
   });
 }
 
+/**
+ * planClaudeIsolatedTaskの処理を実行する。
+ *
+ * @responsibility planClaudeIsolatedTaskに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input candidate: unknown
+ * @returns planClaudeIsolatedTaskの計算結果を返す。
+ * @precondition 「candidate: unknown」がplanClaudeIsolatedTaskの入力契約を満たす。
+ * @postcondition planClaudeIsolatedTaskの責務を完了した結果だけを返す。
+ * @effect planClaudeIsolatedTaskは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: planClaudeIsolatedTaskは独自の失敗分岐を所有しない。
+ * @invariant planClaudeIsolatedTaskは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security planClaudeIsolatedTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: planClaudeIsolatedTaskは共有非同期状態を持たない同期処理である。
+ */
 export function planClaudeIsolatedTask(candidate: unknown) {
   const value = snapshotPlainRecord(candidate, TASK_PLAN_KEYS);
   if (!value) return blocked("claude_task_execution_plan_shape_invalid");
@@ -609,6 +673,22 @@ export function planClaudeIsolatedTask(candidate: unknown) {
   });
 }
 
+/**
+ * describeClaudeExecutionPlanContractの処理を実行する。
+ *
+ * @responsibility describeClaudeExecutionPlanContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000010
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeClaudeExecutionPlanContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeClaudeExecutionPlanContractの入力契約を満たす。
+ * @postcondition describeClaudeExecutionPlanContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeClaudeExecutionPlanContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeClaudeExecutionPlanContractは独自の失敗分岐を所有しない。
+ * @invariant describeClaudeExecutionPlanContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeClaudeExecutionPlanContractはProcess内の同一Subsystemで完結する。
+ * @security describeClaudeExecutionPlanContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeClaudeExecutionPlanContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeClaudeExecutionPlanContract() {
   return Object.freeze({
     contract: CLAUDE_EXECUTION_PLAN_CONTRACT,

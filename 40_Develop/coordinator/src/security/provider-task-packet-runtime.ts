@@ -35,7 +35,29 @@ const INVALID_WINDOWS_CHARACTER = /[<>:"|?*\\\x00-\x1f\x7f]/u;
 const RESERVED_WINDOWS_SEGMENT =
   /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu;
 
+/**
+ * TaskRoleが扱う値の構造を表す。
+ *
+ * @responsibility TaskRoleに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape TaskRoleが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant TaskRoleで宣言した値と責務の対応を維持する。
+ * @boundary N/A: TaskRoleの宣言は外部境界を開かない。
+ * @security TaskRoleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility TaskRoleの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type TaskRole = "executor" | "reviewer";
+/**
+ * ReviewerReadProjectionが扱う値の構造を表す。
+ *
+ * @responsibility ReviewerReadProjectionに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape ReviewerReadProjectionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ReviewerReadProjectionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ReviewerReadProjectionの宣言は外部境界を開かない。
+ * @security ReviewerReadProjectionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ReviewerReadProjectionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ReviewerReadProjection = Readonly<{
   candidatePatchHash: string;
   candidateContentManifestHash: string;
@@ -43,6 +65,17 @@ type ReviewerReadProjection = Readonly<{
   totalBytes: number;
   files: readonly Readonly<Record<string, unknown>>[];
 }>;
+/**
+ * TaskPacketが扱う値の構造を表す。
+ *
+ * @responsibility TaskPacketに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape TaskPacketが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant TaskPacketで宣言した値と責務の対応を維持する。
+ * @boundary N/A: TaskPacketの宣言は外部境界を開かない。
+ * @security TaskPacketはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility TaskPacketの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type TaskPacket = Readonly<{
   operationId: string;
   taskPacketRef: string;
@@ -64,6 +97,17 @@ type TaskPacket = Readonly<{
   externalSendScopeHash: string;
   taskPacketHash: string;
 }>;
+/**
+ * PacketRecordが扱う値の構造を表す。
+ *
+ * @responsibility PacketRecordに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape PacketRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant PacketRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: PacketRecordの宣言は外部境界を開かない。
+ * @security PacketRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility PacketRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type PacketRecord = Readonly<{
   managementCapability: object;
   packet: TaskPacket;
@@ -71,12 +115,39 @@ type PacketRecord = Readonly<{
   useCapability: object;
 }>;
 
+/**
+ * RuntimeStateが扱う値の構造を表す。
+ *
+ * @responsibility RuntimeStateに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape RuntimeStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeStateの宣言は外部境界を開かない。
+ * @security RuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimeStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimeState = Readonly<{
   controlRecords: WeakMap<object, PacketRecord>;
   useRecords: WeakMap<object, PacketRecord>;
   consumeExternalSendGrant: typeof consumeRuntimeOwnedExternalSendGrant;
 }>;
 
+/**
+ * createStateの処理を実行する。
+ *
+ * @responsibility createStateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input consumeExternalSendGrant: typeof consumeRuntimeOwnedExternalSendGrant
+ * @returns RuntimeStateを返す。
+ * @precondition 「consumeExternalSendGrant: typeof consumeRuntimeOwnedExternalSendGrant」がcreateStateの入力契約を満たす。
+ * @postcondition createStateの責務を完了した結果だけを返す。
+ * @effect N/A: createStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createStateは独自の失敗分岐を所有しない。
+ * @invariant createStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createStateはProcess内の同一Subsystemで完結する。
+ * @security createStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createStateは共有非同期状態を持たない同期処理である。
+ */
 function createState(
   consumeExternalSendGrant: typeof consumeRuntimeOwnedExternalSendGrant,
 ): RuntimeState {
@@ -89,6 +160,22 @@ function createState(
 
 const productionState = createState(consumeRuntimeOwnedExternalSendGrant);
 
+/**
+ * validTextの処理を実行する。
+ *
+ * @responsibility validTextに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input value: unknown、maximumBytes: number
+ * @returns validTextの計算結果を返す。
+ * @precondition 「value: unknown、maximumBytes: number」がvalidTextの入力契約を満たす。
+ * @postcondition validTextの責務を完了した結果だけを返す。
+ * @effect N/A: validTextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validTextは独自の失敗分岐を所有しない。
+ * @invariant validTextは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validTextはProcess内の同一Subsystemで完結する。
+ * @security validTextはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validTextは共有非同期状態を持たない同期処理である。
+ */
 function validText(value: unknown, maximumBytes: number) {
   return (
     typeof value === "string" &&
@@ -99,6 +186,22 @@ function validText(value: unknown, maximumBytes: number) {
   );
 }
 
+/**
+ * validSegmentの処理を実行する。
+ *
+ * @responsibility validSegmentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input segment: string
+ * @returns validSegmentの計算結果を返す。
+ * @precondition 「segment: string」がvalidSegmentの入力契約を満たす。
+ * @postcondition validSegmentの責務を完了した結果だけを返す。
+ * @effect N/A: validSegmentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validSegmentは独自の失敗分岐を所有しない。
+ * @invariant validSegmentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validSegmentはProcess内の同一Subsystemで完結する。
+ * @security validSegmentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validSegmentは共有非同期状態を持たない同期処理である。
+ */
 function validSegment(segment: string) {
   return !(
     segment.length === 0 ||
@@ -113,6 +216,22 @@ function validSegment(segment: string) {
   );
 }
 
+/**
+ * normalizedAllowedPathの処理を実行する。
+ *
+ * @responsibility normalizedAllowedPathに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input value: unknown
+ * @returns normalizedAllowedPathの計算結果を返す。
+ * @precondition 「value: unknown」がnormalizedAllowedPathの入力契約を満たす。
+ * @postcondition normalizedAllowedPathの責務を完了した結果だけを返す。
+ * @effect N/A: normalizedAllowedPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizedAllowedPathは独自の失敗分岐を所有しない。
+ * @invariant normalizedAllowedPathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizedAllowedPathはProcess内の同一Subsystemで完結する。
+ * @security normalizedAllowedPathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizedAllowedPathは共有非同期状態を持たない同期処理である。
+ */
 function normalizedAllowedPath(value: unknown) {
   if (
     typeof value !== "string" ||
@@ -129,6 +248,22 @@ function normalizedAllowedPath(value: unknown) {
   return isDirectory ? `${relativePath}/` : relativePath;
 }
 
+/**
+ * normalizedStringsの処理を実行する。
+ *
+ * @responsibility normalizedStringsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input value: unknown、maximumLength: number、maximumBytes: number
+ * @returns normalizedStringsの計算結果を返す。
+ * @precondition 「value: unknown、maximumLength: number、maximumBytes: number」がnormalizedStringsの入力契約を満たす。
+ * @postcondition normalizedStringsの責務を完了した結果だけを返す。
+ * @effect N/A: normalizedStringsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizedStringsは独自の失敗分岐を所有しない。
+ * @invariant normalizedStringsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizedStringsはProcess内の同一Subsystemで完結する。
+ * @security normalizedStringsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizedStringsは共有非同期状態を持たない同期処理である。
+ */
 function normalizedStrings(
   value: unknown,
   maximumLength: number,
@@ -144,6 +279,22 @@ function normalizedStrings(
     : Object.freeze(strings as string[]);
 }
 
+/**
+ * normalizedPathsの処理を実行する。
+ *
+ * @responsibility normalizedPathsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input value: unknown
+ * @returns normalizedPathsの計算結果を返す。
+ * @precondition 「value: unknown」がnormalizedPathsの入力契約を満たす。
+ * @postcondition normalizedPathsの責務を完了した結果だけを返す。
+ * @effect N/A: normalizedPathsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizedPathsは独自の失敗分岐を所有しない。
+ * @invariant normalizedPathsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizedPathsはProcess内の同一Subsystemで完結する。
+ * @security normalizedPathsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizedPathsは共有非同期状態を持たない同期処理である。
+ */
 function normalizedPaths(value: unknown) {
   const snapshot = snapshotPlainArray(value, MAXIMUM_ALLOWED_PATHS);
   if (snapshot.status !== "ok" || snapshot.value.length === 0) return null;
@@ -156,6 +307,22 @@ function normalizedPaths(value: unknown) {
     : null;
 }
 
+/**
+ * normalizedReviewerReadProjectionの処理を実行する。
+ *
+ * @responsibility normalizedReviewerReadProjectionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input value: unknown
+ * @returns normalizedReviewerReadProjectionの計算結果を返す。
+ * @precondition 「value: unknown」がnormalizedReviewerReadProjectionの入力契約を満たす。
+ * @postcondition normalizedReviewerReadProjectionの責務を完了した結果だけを返す。
+ * @effect N/A: normalizedReviewerReadProjectionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizedReviewerReadProjectionは独自の失敗分岐を所有しない。
+ * @invariant normalizedReviewerReadProjectionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizedReviewerReadProjectionはProcess内の同一Subsystemで完結する。
+ * @security normalizedReviewerReadProjectionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizedReviewerReadProjectionは共有非同期状態を持たない同期処理である。
+ */
 function normalizedReviewerReadProjection(value: unknown) {
   const record = snapshotPlainRecord(
     value,
@@ -234,6 +401,22 @@ function normalizedReviewerReadProjection(value: unknown) {
   }) as ReviewerReadProjection;
 }
 
+/**
+ * taskHashの処理を実行する。
+ *
+ * @responsibility taskHashに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input operationId: string、taskRole: TaskRole、taskAttempt: 0 | 1、objective: string、acceptanceCriteria: readonly string[]、allowedPaths: readonly string[]、readPaths: readonly string[]、reviewerReadProjection: ReviewerReadProjection | null、remediationFindings: TaskPacket["remediationFindings"]
+ * @returns taskHashの計算結果を返す。
+ * @precondition 「operationId: string、taskRole: TaskRole、taskAttempt: 0 | 1、objective: string、acceptanceCriteria: readonly string[]、allowedPaths: readonly string[]、readPaths: readonly string[]、reviewerReadProjection: ReviewerReadProjection | null、remediationFindings: TaskPacket["remediationFindings"]」がtaskHashの入力契約を満たす。
+ * @postcondition taskHashの責務を完了した結果だけを返す。
+ * @effect N/A: taskHashは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: taskHashは独自の失敗分岐を所有しない。
+ * @invariant taskHashは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: taskHashはProcess内の同一Subsystemで完結する。
+ * @security taskHashはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: taskHashは共有非同期状態を持たない同期処理である。
+ */
 function taskHash(
   operationId: string,
   taskRole: TaskRole,
@@ -263,6 +446,22 @@ function taskHash(
     .digest("hex");
 }
 
+/**
+ * promptForの処理を実行する。
+ *
+ * @responsibility promptForに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input packet: TaskPacket
+ * @returns promptForの計算結果を返す。
+ * @precondition 「packet: TaskPacket」がpromptForの入力契約を満たす。
+ * @postcondition promptForの責務を完了した結果だけを返す。
+ * @effect N/A: promptForは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: promptForは独自の失敗分岐を所有しない。
+ * @invariant promptForは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: promptForはProcess内の同一Subsystemで完結する。
+ * @security promptForはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: promptForは共有非同期状態を持たない同期処理である。
+ */
 function promptFor(packet: TaskPacket) {
   const roleInstruction =
     packet.taskRole === "executor"
@@ -313,6 +512,22 @@ function promptFor(packet: TaskPacket) {
   ].join("\n\n");
 }
 
+/**
+ * issueの処理を実行する。
+ *
+ * @responsibility issueに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input state: RuntimeState、managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、externalSendGrantCapability: unknown、remediationCapability: unknown、rawPacket: unknown
+ * @returns issueの計算結果を返す。
+ * @precondition 「state: RuntimeState、managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、externalSendGrantCapability: unknown、remediationCapability: unknown、rawPacket: unknown」がissueの入力契約を満たす。
+ * @postcondition issueの責務を完了した結果だけを返す。
+ * @effect N/A: issueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure issueは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant issueは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: issueはProcess内の同一Subsystemで完結する。
+ * @security issueはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: issueは共有非同期状態を持たない同期処理である。
+ */
 function issue(
   state: RuntimeState,
   managementCapability: unknown,
@@ -495,6 +710,22 @@ function issue(
   }
 }
 
+/**
+ * consumeの処理を実行する。
+ *
+ * @responsibility consumeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input state: RuntimeState、useCapability: unknown、managementCapability: unknown
+ * @returns consumeの計算結果を返す。
+ * @precondition 「state: RuntimeState、useCapability: unknown、managementCapability: unknown」がconsumeの入力契約を満たす。
+ * @postcondition consumeの責務を完了した結果だけを返す。
+ * @effect N/A: consumeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure consumeは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant consumeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: consumeはProcess内の同一Subsystemで完結する。
+ * @security consumeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: consumeは共有非同期状態を持たない同期処理である。
+ */
 function consume(
   state: RuntimeState,
   useCapability: unknown,
@@ -525,6 +756,22 @@ function consume(
   }
 }
 
+/**
+ * revokeの処理を実行する。
+ *
+ * @responsibility revokeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input state: RuntimeState、controlCapability: unknown、managementCapability: unknown
+ * @returns revokeの計算結果を返す。
+ * @precondition 「state: RuntimeState、controlCapability: unknown、managementCapability: unknown」がrevokeの入力契約を満たす。
+ * @postcondition revokeの責務を完了した結果だけを返す。
+ * @effect N/A: revokeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure revokeは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant revokeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: revokeはProcess内の同一Subsystemで完結する。
+ * @security revokeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: revokeは共有非同期状態を持たない同期処理である。
+ */
 function revoke(
   state: RuntimeState,
   controlCapability: unknown,
@@ -544,6 +791,22 @@ function revoke(
   }
 }
 
+/**
+ * issueRuntimeOwnedProviderTaskPacketの処理を実行する。
+ *
+ * @responsibility issueRuntimeOwnedProviderTaskPacketに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、externalSendGrantCapability: unknown、remediationCapability: unknown、rawPacket: unknown
+ * @returns issueRuntimeOwnedProviderTaskPacketの計算結果を返す。
+ * @precondition 「managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、externalSendGrantCapability: unknown、remediationCapability: unknown、rawPacket: unknown」がissueRuntimeOwnedProviderTaskPacketの入力契約を満たす。
+ * @postcondition issueRuntimeOwnedProviderTaskPacketの責務を完了した結果だけを返す。
+ * @effect N/A: issueRuntimeOwnedProviderTaskPacketは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: issueRuntimeOwnedProviderTaskPacketは独自の失敗分岐を所有しない。
+ * @invariant issueRuntimeOwnedProviderTaskPacketは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: issueRuntimeOwnedProviderTaskPacketはProcess内の同一Subsystemで完結する。
+ * @security issueRuntimeOwnedProviderTaskPacketはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: issueRuntimeOwnedProviderTaskPacketは共有非同期状態を持たない同期処理である。
+ */
 export function issueRuntimeOwnedProviderTaskPacket(
   managementCapability: unknown,
   repositoryBindingCapability: unknown,
@@ -567,6 +830,22 @@ export function issueRuntimeOwnedProviderTaskPacket(
   );
 }
 
+/**
+ * consumeRuntimeOwnedProviderTaskPacketの処理を実行する。
+ *
+ * @responsibility consumeRuntimeOwnedProviderTaskPacketに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input useCapability: unknown、managementCapability: unknown
+ * @returns consumeRuntimeOwnedProviderTaskPacketの計算結果を返す。
+ * @precondition 「useCapability: unknown、managementCapability: unknown」がconsumeRuntimeOwnedProviderTaskPacketの入力契約を満たす。
+ * @postcondition consumeRuntimeOwnedProviderTaskPacketの責務を完了した結果だけを返す。
+ * @effect N/A: consumeRuntimeOwnedProviderTaskPacketは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: consumeRuntimeOwnedProviderTaskPacketは独自の失敗分岐を所有しない。
+ * @invariant consumeRuntimeOwnedProviderTaskPacketは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: consumeRuntimeOwnedProviderTaskPacketはProcess内の同一Subsystemで完結する。
+ * @security consumeRuntimeOwnedProviderTaskPacketはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: consumeRuntimeOwnedProviderTaskPacketは共有非同期状態を持たない同期処理である。
+ */
 export function consumeRuntimeOwnedProviderTaskPacket(
   useCapability: unknown,
   managementCapability: unknown,
@@ -574,6 +853,22 @@ export function consumeRuntimeOwnedProviderTaskPacket(
   return consume(productionState, useCapability, managementCapability);
 }
 
+/**
+ * revokeRuntimeOwnedProviderTaskPacketの処理を実行する。
+ *
+ * @responsibility revokeRuntimeOwnedProviderTaskPacketに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input controlCapability: unknown、managementCapability: unknown
+ * @returns revokeRuntimeOwnedProviderTaskPacketの計算結果を返す。
+ * @precondition 「controlCapability: unknown、managementCapability: unknown」がrevokeRuntimeOwnedProviderTaskPacketの入力契約を満たす。
+ * @postcondition revokeRuntimeOwnedProviderTaskPacketの責務を完了した結果だけを返す。
+ * @effect N/A: revokeRuntimeOwnedProviderTaskPacketは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: revokeRuntimeOwnedProviderTaskPacketは独自の失敗分岐を所有しない。
+ * @invariant revokeRuntimeOwnedProviderTaskPacketは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: revokeRuntimeOwnedProviderTaskPacketはProcess内の同一Subsystemで完結する。
+ * @security revokeRuntimeOwnedProviderTaskPacketはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: revokeRuntimeOwnedProviderTaskPacketは共有非同期状態を持たない同期処理である。
+ */
 export function revokeRuntimeOwnedProviderTaskPacket(
   controlCapability: unknown,
   managementCapability: unknown,
@@ -581,6 +876,22 @@ export function revokeRuntimeOwnedProviderTaskPacket(
   return revoke(productionState, controlCapability, managementCapability);
 }
 
+/**
+ * createIsolatedProviderTaskPacketRuntimeCandidateの処理を実行する。
+ *
+ * @responsibility createIsolatedProviderTaskPacketRuntimeCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input consumeExternalSendGrant: typeof consumeRuntimeOwnedExternalSendGrant
+ * @returns createIsolatedProviderTaskPacketRuntimeCandidateの計算結果を返す。
+ * @precondition 「consumeExternalSendGrant: typeof consumeRuntimeOwnedExternalSendGrant」がcreateIsolatedProviderTaskPacketRuntimeCandidateの入力契約を満たす。
+ * @postcondition createIsolatedProviderTaskPacketRuntimeCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: createIsolatedProviderTaskPacketRuntimeCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createIsolatedProviderTaskPacketRuntimeCandidateは独自の失敗分岐を所有しない。
+ * @invariant createIsolatedProviderTaskPacketRuntimeCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createIsolatedProviderTaskPacketRuntimeCandidateはProcess内の同一Subsystemで完結する。
+ * @security createIsolatedProviderTaskPacketRuntimeCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createIsolatedProviderTaskPacketRuntimeCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function createIsolatedProviderTaskPacketRuntimeCandidate(
   consumeExternalSendGrant: typeof consumeRuntimeOwnedExternalSendGrant,
 ) {
@@ -615,6 +926,22 @@ export function createIsolatedProviderTaskPacketRuntimeCandidate(
   });
 }
 
+/**
+ * describeProviderTaskPacketRuntimeContractの処理を実行する。
+ *
+ * @responsibility describeProviderTaskPacketRuntimeContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProviderTaskPacketRuntimeContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProviderTaskPacketRuntimeContractの入力契約を満たす。
+ * @postcondition describeProviderTaskPacketRuntimeContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeProviderTaskPacketRuntimeContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProviderTaskPacketRuntimeContractは独自の失敗分岐を所有しない。
+ * @invariant describeProviderTaskPacketRuntimeContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeProviderTaskPacketRuntimeContractはProcess内の同一Subsystemで完結する。
+ * @security describeProviderTaskPacketRuntimeContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeProviderTaskPacketRuntimeContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeProviderTaskPacketRuntimeContract() {
   return Object.freeze({
     contract: PROVIDER_TASK_PACKET_RUNTIME_CONTRACT,

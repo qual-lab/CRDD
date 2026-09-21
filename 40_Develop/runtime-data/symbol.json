@@ -14,7 +14,7 @@
       "kind": "test-suite",
       "path": "tests/integration/temporary-operation-lifecycle.integration.test.ts",
       "qaIds": ["QA-000008"],
-      "localTestIds": ["RDL-01", "RDL-02", "RDL-03", "RDL-04"],
+      "localTestIds": ["RDL-IT-001", "RDL-ST-002", "RDL-IT-003", "RDL-IT-004"],
       "verifies": ["runtime-data.public-api"]
     }
   ]

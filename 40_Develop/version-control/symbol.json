@@ -20,7 +20,7 @@
       "kind": "test-suite",
       "path": "tests/integration/fixed-snapshot.integration.test.ts",
       "qaIds": ["QA-000001", "QA-000004", "QA-000007"],
-      "localTestIds": ["RCM-03", "PPR-09", "RFD-08"],
+      "localTestIds": ["RCM-IT-003", "PPR-UAT-009", "RFD-IT-008"],
       "verifies": ["version-control.public-api"]
     },
     {
@@ -28,7 +28,7 @@
       "kind": "test-suite",
       "path": "tests/integration/repository-location.integration.test.ts",
       "qaIds": ["QA-000007"],
-      "localTestIds": ["RFD-01", "RFD-02"],
+      "localTestIds": ["RFD-IT-001", "RFD-IT-002"],
       "verifies": ["version-control.public-api"]
     },
     {
@@ -36,7 +36,7 @@
       "kind": "test-suite",
       "path": "tests/integration/consumer-closure.integration.test.ts",
       "qaIds": ["QA-000001"],
-      "localTestIds": ["RCM-04"],
+      "localTestIds": ["RCM-IT-004"],
       "verifies": ["version-control.public-api"]
     }
   ]

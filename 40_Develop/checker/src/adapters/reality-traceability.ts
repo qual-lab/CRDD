@@ -8,12 +8,39 @@ import {
 import { observeRealitySymbolRepository } from "../../../crdd-domain-library/src/repository-observation/index.ts";
 import type { VerifiedRepositoryRoot } from "../../../version-control/src/repository-identity/index.ts";
 
+/**
+ * CheckerRealityFindingが扱う値の構造を表す。
+ *
+ * @responsibility CheckerRealityFindingに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000001
+ * @shape CheckerRealityFindingが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CheckerRealityFindingで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CheckerRealityFindingの宣言は外部境界を開かない。
+ * @security N/A: CheckerRealityFindingはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CheckerRealityFindingの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type CheckerRealityFinding = Readonly<{
   code: string;
   path: string;
   message: string;
 }>;
 
+/**
+ * mapRealityDomainIssueToCheckerFindingの処理を実行する。
+ *
+ * @responsibility mapRealityDomainIssueToCheckerFindingに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000001
+ * @input issue: DomainIssue
+ * @returns CheckerRealityFindingを返す。
+ * @precondition 「issue: DomainIssue」がmapRealityDomainIssueToCheckerFindingの入力契約を満たす。
+ * @postcondition mapRealityDomainIssueToCheckerFindingの責務を完了した結果だけを返す。
+ * @effect N/A: mapRealityDomainIssueToCheckerFindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure mapRealityDomainIssueToCheckerFindingは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant mapRealityDomainIssueToCheckerFindingは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: mapRealityDomainIssueToCheckerFindingはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: mapRealityDomainIssueToCheckerFindingは共有非同期状態を持たない同期処理である。
+ */
 export function mapRealityDomainIssueToCheckerFinding(
   issue: DomainIssue,
 ): CheckerRealityFinding {
@@ -212,6 +239,22 @@ export function mapRealityDomainIssueToCheckerFinding(
   };
 }
 
+/**
+ * validateRealitySymbolManifestの処理を実行する。
+ *
+ * @responsibility validateRealitySymbolManifestに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000001
+ * @input value: unknown、manifestPath: string
+ * @returns validateRealitySymbolManifestの計算結果を返す。
+ * @precondition 「value: unknown、manifestPath: string」がvalidateRealitySymbolManifestの入力契約を満たす。
+ * @postcondition validateRealitySymbolManifestの責務を完了した結果だけを返す。
+ * @effect N/A: validateRealitySymbolManifestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validateRealitySymbolManifestは独自の失敗分岐を所有しない。
+ * @invariant validateRealitySymbolManifestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: validateRealitySymbolManifestはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validateRealitySymbolManifestは共有非同期状態を持たない同期処理である。
+ */
 export function validateRealitySymbolManifest(
   value: unknown,
   manifestPath: string,
@@ -223,6 +266,22 @@ export function validateRealitySymbolManifest(
   };
 }
 
+/**
+ * createRealitySymbolGraphの処理を実行する。
+ *
+ * @responsibility createRealitySymbolGraphに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000001
+ * @input loadedManifests: readonly LoadedRealitySymbolManifest[]、knownArchIds: ReadonlySet<string>、knownQaIds: ReadonlySet<string>、knownLocalTestIdsByQaId: ReadonlyMap<string, ReadonlySet<string>>、registeredTestsByPath: ReadonlyMap< string, Readonly<{ owner: string; testId: string }> > | null、prerequisiteFindings: readonly CheckerRealityFinding[]
+ * @returns Readonly<{ graph: RealitySymbolGraph | null; findings: readonly CheckerRealityFinding[]; }>を返す。
+ * @precondition 「loadedManifests: readonly LoadedRealitySymbolManifest[]、knownArchIds: ReadonlySet<string>、knownQaIds: ReadonlySet<string>、knownLocalTestIdsByQaId: ReadonlyMap<string, ReadonlySet<string>>、registeredTestsByPath: ReadonlyMap< string, Readonly<{ owner: string; testId: string }> > | null、prerequisiteFindings: readonly CheckerRealityFinding[]」がcreateRealitySymbolGraphの入力契約を満たす。
+ * @postcondition createRealitySymbolGraphの責務を完了した結果だけを返す。
+ * @effect N/A: createRealitySymbolGraphは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createRealitySymbolGraphは独自の失敗分岐を所有しない。
+ * @invariant createRealitySymbolGraphは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: createRealitySymbolGraphはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createRealitySymbolGraphは共有非同期状態を持たない同期処理である。
+ */
 export function createRealitySymbolGraph(
   loadedManifests: readonly LoadedRealitySymbolManifest[],
   knownArchIds: ReadonlySet<string>,
@@ -253,6 +312,22 @@ export function createRealitySymbolGraph(
   };
 }
 
+/**
+ * discoverRealitySymbolManifestsの処理を実行する。
+ *
+ * @responsibility discoverRealitySymbolManifestsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000001
+ * @input capability: VerifiedRepositoryRoot
+ * @returns Readonly<{ manifests: readonly LoadedRealitySymbolManifest[]; knownArchIds: ReadonlySet<string>; knownQaIds: ReadonlySet<string>; knownLocalTestIdsByQaId: ReadonlyMap<string, ReadonlySet<string>>; findings: readonly CheckerRealityFinding[]; }>を返す。
+ * @precondition 「capability: VerifiedRepositoryRoot」がdiscoverRealitySymbolManifestsの入力契約を満たす。
+ * @postcondition discoverRealitySymbolManifestsの責務を完了した結果だけを返す。
+ * @effect N/A: discoverRealitySymbolManifestsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: discoverRealitySymbolManifestsは独自の失敗分岐を所有しない。
+ * @invariant discoverRealitySymbolManifestsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security discoverRealitySymbolManifestsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: discoverRealitySymbolManifestsは共有非同期状態を持たない同期処理である。
+ */
 export function discoverRealitySymbolManifests(
   capability: VerifiedRepositoryRoot,
 ): Readonly<{

@@ -21,6 +21,17 @@ import {
   repositoryPathWithin,
 } from "../boundary/repository-relative-path.ts";
 
+/**
+ * IntegrationInputが扱う値の構造を表す。
+ *
+ * @responsibility IntegrationInputに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape IntegrationInputが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant IntegrationInputで宣言した値と責務の対応を維持する。
+ * @boundary N/A: IntegrationInputの宣言は外部境界を開かない。
+ * @security N/A: IntegrationInputはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility IntegrationInputの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type IntegrationInput = Readonly<{
   projectId: string;
   milestoneId: string;
@@ -30,12 +41,39 @@ type IntegrationInput = Readonly<{
   adoptionAuthorized: boolean;
 }>;
 
+/**
+ * IntegrationDependenciesが扱う値の構造を表す。
+ *
+ * @responsibility IntegrationDependenciesに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape IntegrationDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant IntegrationDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: IntegrationDependenciesの宣言は外部境界を開かない。
+ * @security N/A: IntegrationDependenciesはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility IntegrationDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type IntegrationDependencies = Readonly<{
   candidate: ProjectRuntimeCandidatePort;
   records: ProjectRuntimeIntegrationRecordPort;
   persistence: ProjectRuntimePersistencePorts;
 }>;
 
+/**
+ * validIdの処理を実行する。
+ *
+ * @responsibility validIdに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、maximum
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown、maximum」がvalidIdの入力契約を満たす。
+ * @postcondition validIdの責務を完了した結果だけを返す。
+ * @effect N/A: validIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validIdは独自の失敗分岐を所有しない。
+ * @invariant validIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validIdはProcess内の同一Subsystemで完結する。
+ * @security N/A: validIdはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validIdは共有非同期状態を持たない同期処理である。
+ */
 function validId(value: unknown, maximum = 512): value is string {
   return (
     typeof value === "string" &&
@@ -45,18 +83,82 @@ function validId(value: unknown, maximum = 512): value is string {
   );
 }
 
+/**
+ * validRevisionの処理を実行する。
+ *
+ * @responsibility validRevisionに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidRevisionの入力契約を満たす。
+ * @postcondition validRevisionの責務を完了した結果だけを返す。
+ * @effect N/A: validRevisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validRevisionは独自の失敗分岐を所有しない。
+ * @invariant validRevisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validRevisionはProcess内の同一Subsystemで完結する。
+ * @security N/A: validRevisionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validRevisionは共有非同期状態を持たない同期処理である。
+ */
 function validRevision(value: unknown): value is string {
   return typeof value === "string" && /^[0-9a-f]{40,64}$/u.test(value);
 }
 
+/**
+ * validHashの処理を実行する。
+ *
+ * @responsibility validHashに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidHashの入力契約を満たす。
+ * @postcondition validHashの責務を完了した結果だけを返す。
+ * @effect N/A: validHashは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validHashは独自の失敗分岐を所有しない。
+ * @invariant validHashは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validHashはProcess内の同一Subsystemで完結する。
+ * @security N/A: validHashはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validHashは共有非同期状態を持たない同期処理である。
+ */
 function validHash(value: unknown): value is string {
   return typeof value === "string" && /^[0-9a-f]{64}$/u.test(value);
 }
 
+/**
+ * validPathの処理を実行する。
+ *
+ * @responsibility validPathに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidPathの入力契約を満たす。
+ * @postcondition validPathの責務を完了した結果だけを返す。
+ * @effect N/A: validPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validPathは独自の失敗分岐を所有しない。
+ * @invariant validPathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validPathはProcess内の同一Subsystemで完結する。
+ * @security N/A: validPathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validPathは共有非同期状態を持たない同期処理である。
+ */
 function validPath(value: unknown): value is string {
   return normalizeRepositoryRelativePath(value) !== null;
 }
 
+/**
+ * stringArrayの処理を実行する。
+ *
+ * @responsibility stringArrayに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、validator
+ * @returns stringArrayの計算結果を返す。
+ * @precondition 「value: unknown、validator」がstringArrayの入力契約を満たす。
+ * @postcondition stringArrayの責務を完了した結果だけを返す。
+ * @effect N/A: stringArrayは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: stringArrayは独自の失敗分岐を所有しない。
+ * @invariant stringArrayは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: stringArrayはProcess内の同一Subsystemで完結する。
+ * @security N/A: stringArrayはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: stringArrayは共有非同期状態を持たない同期処理である。
+ */
 function stringArray(value: unknown, validator = validId) {
   const snapshot = snapshotPlainArray(value, 1024);
   return snapshot.status === "ok" &&
@@ -65,6 +167,22 @@ function stringArray(value: unknown, validator = validId) {
     : null;
 }
 
+/**
+ * inspectCandidateの処理を実行する。
+ *
+ * @responsibility inspectCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown、state: ProjectRuntimeState
+ * @returns ProjectRuntimeIntegrationCandidate | nullを返す。
+ * @precondition 「raw: unknown、state: ProjectRuntimeState」がinspectCandidateの入力契約を満たす。
+ * @postcondition inspectCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectCandidateは独自の失敗分岐を所有しない。
+ * @invariant inspectCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectCandidateはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectCandidateはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectCandidateは共有非同期状態を持たない同期処理である。
+ */
 function inspectCandidate(
   raw: unknown,
   state: ProjectRuntimeState,
@@ -130,6 +248,22 @@ function inspectCandidate(
   });
 }
 
+/**
+ * inspectRepositoryの処理を実行する。
+ *
+ * @responsibility inspectRepositoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown
+ * @returns inspectRepositoryの計算結果を返す。
+ * @precondition 「raw: unknown」がinspectRepositoryの入力契約を満たす。
+ * @postcondition inspectRepositoryの責務を完了した結果だけを返す。
+ * @effect N/A: inspectRepositoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectRepositoryは独自の失敗分岐を所有しない。
+ * @invariant inspectRepositoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectRepositoryはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectRepositoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectRepositoryは共有非同期状態を持たない同期処理である。
+ */
 function inspectRepository(raw: unknown) {
   const value = snapshotPlainRecord(
     raw,
@@ -156,6 +290,22 @@ function inspectRepository(raw: unknown) {
     : null;
 }
 
+/**
+ * inspectCandidatePortBlockedの処理を実行する。
+ *
+ * @responsibility inspectCandidatePortBlockedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown
+ * @returns inspectCandidatePortBlockedの計算結果を返す。
+ * @precondition 「raw: unknown」がinspectCandidatePortBlockedの入力契約を満たす。
+ * @postcondition inspectCandidatePortBlockedの責務を完了した結果だけを返す。
+ * @effect N/A: inspectCandidatePortBlockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectCandidatePortBlockedは独自の失敗分岐を所有しない。
+ * @invariant inspectCandidatePortBlockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectCandidatePortBlockedはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectCandidatePortBlockedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectCandidatePortBlockedは共有非同期状態を持たない同期処理である。
+ */
 function inspectCandidatePortBlocked(raw: unknown) {
   const value = snapshotPlainRecord(
     raw,
@@ -190,6 +340,22 @@ function inspectCandidatePortBlocked(raw: unknown) {
   });
 }
 
+/**
+ * inspectReceiptの処理を実行する。
+ *
+ * @responsibility inspectReceiptに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown
+ * @returns ProjectRuntimeCandidateAdoptionReceipt | nullを返す。
+ * @precondition 「raw: unknown」がinspectReceiptの入力契約を満たす。
+ * @postcondition inspectReceiptの責務を完了した結果だけを返す。
+ * @effect N/A: inspectReceiptは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectReceiptは独自の失敗分岐を所有しない。
+ * @invariant inspectReceiptは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectReceiptはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectReceiptはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectReceiptは共有非同期状態を持たない同期処理である。
+ */
 function inspectReceipt(
   raw: unknown,
 ): ProjectRuntimeCandidateAdoptionReceipt | null {
@@ -225,10 +391,42 @@ function inspectReceipt(
     : null;
 }
 
+/**
+ * pathWithinAllowedの処理を実行する。
+ *
+ * @responsibility pathWithinAllowedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input candidate: string、allowedPaths: readonly string[]
+ * @returns pathWithinAllowedの計算結果を返す。
+ * @precondition 「candidate: string、allowedPaths: readonly string[]」がpathWithinAllowedの入力契約を満たす。
+ * @postcondition pathWithinAllowedの責務を完了した結果だけを返す。
+ * @effect N/A: pathWithinAllowedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: pathWithinAllowedは独自の失敗分岐を所有しない。
+ * @invariant pathWithinAllowedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: pathWithinAllowedはProcess内の同一Subsystemで完結する。
+ * @security N/A: pathWithinAllowedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: pathWithinAllowedは共有非同期状態を持たない同期処理である。
+ */
 function pathWithinAllowed(candidate: string, allowedPaths: readonly string[]) {
   return repositoryPathWithin(candidate, allowedPaths);
 }
 
+/**
+ * responseの処理を実行する。
+ *
+ * @responsibility responseに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input input: IntegrationInput、status: "completed" | "blocked"、reason: string、state: ProjectRuntimeState | null、options: Readonly<{ candidateId?: string | null; receiptId?: string | null; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; recoveryIds?: readonly string[]; effectIssued?: boolean; effectStateUnknown?: boolean; retryAllowed?: boolean; }>
+ * @returns responseの計算結果を返す。
+ * @precondition 「input: IntegrationInput、status: "completed" | "blocked"、reason: string、state: ProjectRuntimeState | null、options: Readonly<{ candidateId?: string | null; receiptId?: string | null; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; recoveryIds?: readonly string[]; effectIssued?: boolean; effectStateUnknown?: boolean; retryAllowed?: boolean; }>」がresponseの入力契約を満たす。
+ * @postcondition responseの責務を完了した結果だけを返す。
+ * @effect N/A: responseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: responseは独自の失敗分岐を所有しない。
+ * @invariant responseは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: responseはProcess内の同一Subsystemで完結する。
+ * @security N/A: responseはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: responseは共有非同期状態を持たない同期処理である。
+ */
 function response(
   input: IntegrationInput,
   status: "completed" | "blocked",
@@ -270,8 +468,19 @@ function response(
 
 /**
  * Integrate terminal Task candidates and, when explicitly authorized, adopt
- * the fixed result.  Candidate creation and canonical adoption are separate
- * effects; neither runs while a Project State mutation lock is held.
+ *
+ * @responsibility integrateProjectRuntimeOperationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input dependencies: IntegrationDependencies、input: IntegrationInput
+ * @returns integrateProjectRuntimeOperationの計算結果を返す。
+ * @precondition 「dependencies: IntegrationDependencies、input: IntegrationInput」がintegrateProjectRuntimeOperationの入力契約を満たす。
+ * @postcondition integrateProjectRuntimeOperationの責務を完了した結果だけを返す。
+ * @effect N/A: integrateProjectRuntimeOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure integrateProjectRuntimeOperationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant integrateProjectRuntimeOperationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: integrateProjectRuntimeOperationはProcess内の同一Subsystemで完結する。
+ * @security N/A: integrateProjectRuntimeOperationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency integrateProjectRuntimeOperationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 export async function integrateProjectRuntimeOperation(
   dependencies: IntegrationDependencies,
@@ -679,6 +888,22 @@ export async function integrateProjectRuntimeOperation(
   );
 }
 
+/**
+ * describeProjectRuntimeIntegrationContractの処理を実行する。
+ *
+ * @responsibility describeProjectRuntimeIntegrationContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProjectRuntimeIntegrationContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProjectRuntimeIntegrationContractの入力契約を満たす。
+ * @postcondition describeProjectRuntimeIntegrationContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeProjectRuntimeIntegrationContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProjectRuntimeIntegrationContractは独自の失敗分岐を所有しない。
+ * @invariant describeProjectRuntimeIntegrationContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeProjectRuntimeIntegrationContractはProcess内の同一Subsystemで完結する。
+ * @security N/A: describeProjectRuntimeIntegrationContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeProjectRuntimeIntegrationContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeProjectRuntimeIntegrationContract() {
   return Object.freeze({
     contract: PROJECT_RUNTIME_INTEGRATION_CONTRACT,

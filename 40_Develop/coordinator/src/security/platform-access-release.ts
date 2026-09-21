@@ -9,6 +9,17 @@ export const PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES = 16 * 1024 * 1024;
 export const PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH =
   "template/tools/coordinator/windows-x64/crdd-platform-access.exe";
 
+/**
+ * FileIdentityが扱う値の構造を表す。
+ *
+ * @responsibility FileIdentityに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000014
+ * @shape FileIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant FileIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: FileIdentityの宣言は外部境界を開かない。
+ * @security FileIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility FileIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type FileIdentity = Readonly<{
   dev: bigint;
   ino: bigint;
@@ -19,6 +30,17 @@ type FileIdentity = Readonly<{
   mode: bigint;
 }>;
 
+/**
+ * DirectoryIdentityが扱う値の構造を表す。
+ *
+ * @responsibility DirectoryIdentityに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000014
+ * @shape DirectoryIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DirectoryIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DirectoryIdentityの宣言は外部境界を開かない。
+ * @security DirectoryIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DirectoryIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type DirectoryIdentity = Readonly<{
   dev: bigint;
   ino: bigint;
@@ -43,6 +65,22 @@ const signingSnapshots = new WeakMap<
   }>
 >();
 
+/**
+ * fileIdentityの処理を実行する。
+ *
+ * @responsibility fileIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input metadata: fs.BigIntStats
+ * @returns FileIdentityを返す。
+ * @precondition 「metadata: fs.BigIntStats」がfileIdentityの入力契約を満たす。
+ * @postcondition fileIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: fileIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure fileIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant fileIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: fileIdentityはProcess内の同一Subsystemで完結する。
+ * @security fileIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: fileIdentityは共有非同期状態を持たない同期処理である。
+ */
 function fileIdentity(metadata: fs.BigIntStats): FileIdentity {
   if (
     !metadata.isFile() ||
@@ -66,6 +104,22 @@ function fileIdentity(metadata: fs.BigIntStats): FileIdentity {
   });
 }
 
+/**
+ * sameIdentityの処理を実行する。
+ *
+ * @responsibility sameIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input left: FileIdentity、right: FileIdentity
+ * @returns booleanを返す。
+ * @precondition 「left: FileIdentity、right: FileIdentity」がsameIdentityの入力契約を満たす。
+ * @postcondition sameIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: sameIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameIdentityは独自の失敗分岐を所有しない。
+ * @invariant sameIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sameIdentityはProcess内の同一Subsystemで完結する。
+ * @security sameIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameIdentityは共有非同期状態を持たない同期処理である。
+ */
 function sameIdentity(left: FileIdentity, right: FileIdentity): boolean {
   return (
     left.dev === right.dev &&
@@ -78,6 +132,22 @@ function sameIdentity(left: FileIdentity, right: FileIdentity): boolean {
   );
 }
 
+/**
+ * directoryIdentityの処理を実行する。
+ *
+ * @responsibility directoryIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input metadata: fs.BigIntStats
+ * @returns DirectoryIdentityを返す。
+ * @precondition 「metadata: fs.BigIntStats」がdirectoryIdentityの入力契約を満たす。
+ * @postcondition directoryIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: directoryIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure directoryIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant directoryIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: directoryIdentityはProcess内の同一Subsystemで完結する。
+ * @security directoryIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: directoryIdentityは共有非同期状態を持たない同期処理である。
+ */
 function directoryIdentity(metadata: fs.BigIntStats): DirectoryIdentity {
   if (
     !metadata.isDirectory() ||
@@ -95,6 +165,22 @@ function directoryIdentity(metadata: fs.BigIntStats): DirectoryIdentity {
   });
 }
 
+/**
+ * sameDirectoryIdentityの処理を実行する。
+ *
+ * @responsibility sameDirectoryIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input left: DirectoryIdentity、right: DirectoryIdentity
+ * @returns booleanを返す。
+ * @precondition 「left: DirectoryIdentity、right: DirectoryIdentity」がsameDirectoryIdentityの入力契約を満たす。
+ * @postcondition sameDirectoryIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: sameDirectoryIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameDirectoryIdentityは独自の失敗分岐を所有しない。
+ * @invariant sameDirectoryIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sameDirectoryIdentityはProcess内の同一Subsystemで完結する。
+ * @security sameDirectoryIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameDirectoryIdentityは共有非同期状態を持たない同期処理である。
+ */
 function sameDirectoryIdentity(
   left: DirectoryIdentity,
   right: DirectoryIdentity,
@@ -106,6 +192,22 @@ function sameDirectoryIdentity(
   );
 }
 
+/**
+ * distributionRootSnapshotの処理を実行する。
+ *
+ * @responsibility distributionRootSnapshotに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input raw: unknown
+ * @returns distributionRootSnapshotの計算結果を返す。
+ * @precondition 「raw: unknown」がdistributionRootSnapshotの入力契約を満たす。
+ * @postcondition distributionRootSnapshotの責務を完了した結果だけを返す。
+ * @effect distributionRootSnapshotはFilesystemの読取りまたは書込みを実行する。
+ * @failure distributionRootSnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant distributionRootSnapshotは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security distributionRootSnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: distributionRootSnapshotは共有非同期状態を持たない同期処理である。
+ */
 function distributionRootSnapshot(raw: unknown) {
   if (
     typeof raw !== "string" ||
@@ -123,6 +225,22 @@ function distributionRootSnapshot(raw: unknown) {
   return Object.freeze({ root, identity });
 }
 
+/**
+ * verifyDistributionRootSnapshotの処理を実行する。
+ *
+ * @responsibility verifyDistributionRootSnapshotに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input snapshot: { root: string; identity: DirectoryIdentity; }
+ * @returns verifyDistributionRootSnapshotの計算結果を返す。
+ * @precondition 「snapshot: { root: string; identity: DirectoryIdentity; }」がverifyDistributionRootSnapshotの入力契約を満たす。
+ * @postcondition verifyDistributionRootSnapshotの責務を完了した結果だけを返す。
+ * @effect verifyDistributionRootSnapshotはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: verifyDistributionRootSnapshotは独自の失敗分岐を所有しない。
+ * @invariant verifyDistributionRootSnapshotは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security verifyDistributionRootSnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyDistributionRootSnapshotは共有非同期状態を持たない同期処理である。
+ */
 function verifyDistributionRootSnapshot(snapshot: {
   root: string;
   identity: DirectoryIdentity;
@@ -136,6 +254,22 @@ function verifyDistributionRootSnapshot(snapshot: {
   );
 }
 
+/**
+ * observeArtifactSnapshotの処理を実行する。
+ *
+ * @responsibility observeArtifactSnapshotに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input distributionRoot: unknown
+ * @returns observeArtifactSnapshotの計算結果を返す。
+ * @precondition 「distributionRoot: unknown」がobserveArtifactSnapshotの入力契約を満たす。
+ * @postcondition observeArtifactSnapshotの責務を完了した結果だけを返す。
+ * @effect observeArtifactSnapshotはFilesystemの読取りまたは書込みを実行する。
+ * @failure observeArtifactSnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeArtifactSnapshotは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security observeArtifactSnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeArtifactSnapshotは共有非同期状態を持たない同期処理である。
+ */
 function observeArtifactSnapshot(distributionRoot: unknown) {
   const rootSnapshot = distributionRootSnapshot(distributionRoot);
   const root = rootSnapshot.root;
@@ -196,6 +330,22 @@ function observeArtifactSnapshot(distributionRoot: unknown) {
   }
 }
 
+/**
+ * observePlatformAccessReleaseArtifactCandidateの処理を実行する。
+ *
+ * @responsibility observePlatformAccessReleaseArtifactCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input distributionRoot: unknown
+ * @returns observePlatformAccessReleaseArtifactCandidateの計算結果を返す。
+ * @precondition 「distributionRoot: unknown」がobservePlatformAccessReleaseArtifactCandidateの入力契約を満たす。
+ * @postcondition observePlatformAccessReleaseArtifactCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: observePlatformAccessReleaseArtifactCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure observePlatformAccessReleaseArtifactCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observePlatformAccessReleaseArtifactCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observePlatformAccessReleaseArtifactCandidateはProcess内の同一Subsystemで完結する。
+ * @security observePlatformAccessReleaseArtifactCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observePlatformAccessReleaseArtifactCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function observePlatformAccessReleaseArtifactCandidate(
   distributionRoot: unknown,
 ) {
@@ -223,6 +373,22 @@ export function observePlatformAccessReleaseArtifactCandidate(
   }
 }
 
+/**
+ * beginPlatformAccessArtifactSigningObservationの処理を実行する。
+ *
+ * @responsibility beginPlatformAccessArtifactSigningObservationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input distributionRoot: unknown
+ * @returns beginPlatformAccessArtifactSigningObservationの計算結果を返す。
+ * @precondition 「distributionRoot: unknown」がbeginPlatformAccessArtifactSigningObservationの入力契約を満たす。
+ * @postcondition beginPlatformAccessArtifactSigningObservationの責務を完了した結果だけを返す。
+ * @effect N/A: beginPlatformAccessArtifactSigningObservationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure beginPlatformAccessArtifactSigningObservationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant beginPlatformAccessArtifactSigningObservationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: beginPlatformAccessArtifactSigningObservationはProcess内の同一Subsystemで完結する。
+ * @security beginPlatformAccessArtifactSigningObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: beginPlatformAccessArtifactSigningObservationは共有非同期状態を持たない同期処理である。
+ */
 export function beginPlatformAccessArtifactSigningObservation(
   distributionRoot: unknown,
 ) {
@@ -245,6 +411,22 @@ export function beginPlatformAccessArtifactSigningObservation(
   }
 }
 
+/**
+ * verifyPlatformAccessArtifactSigningObservationの処理を実行する。
+ *
+ * @responsibility verifyPlatformAccessArtifactSigningObservationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input token: object
+ * @returns booleanを返す。
+ * @precondition 「token: object」がverifyPlatformAccessArtifactSigningObservationの入力契約を満たす。
+ * @postcondition verifyPlatformAccessArtifactSigningObservationの責務を完了した結果だけを返す。
+ * @effect N/A: verifyPlatformAccessArtifactSigningObservationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyPlatformAccessArtifactSigningObservationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyPlatformAccessArtifactSigningObservationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyPlatformAccessArtifactSigningObservationはProcess内の同一Subsystemで完結する。
+ * @security verifyPlatformAccessArtifactSigningObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyPlatformAccessArtifactSigningObservationは共有非同期状態を持たない同期処理である。
+ */
 export function verifyPlatformAccessArtifactSigningObservation(
   token: object,
 ): boolean {
@@ -268,6 +450,22 @@ export function verifyPlatformAccessArtifactSigningObservation(
   }
 }
 
+/**
+ * describePlatformAccessReleaseContractの処理を実行する。
+ *
+ * @responsibility describePlatformAccessReleaseContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describePlatformAccessReleaseContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribePlatformAccessReleaseContractの入力契約を満たす。
+ * @postcondition describePlatformAccessReleaseContractの責務を完了した結果だけを返す。
+ * @effect N/A: describePlatformAccessReleaseContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describePlatformAccessReleaseContractは独自の失敗分岐を所有しない。
+ * @invariant describePlatformAccessReleaseContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describePlatformAccessReleaseContractはProcess内の同一Subsystemで完結する。
+ * @security describePlatformAccessReleaseContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describePlatformAccessReleaseContractは共有非同期状態を持たない同期処理である。
+ */
 export function describePlatformAccessReleaseContract() {
   return Object.freeze({
     artifactRelativePath: PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,

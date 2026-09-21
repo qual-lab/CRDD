@@ -7,6 +7,17 @@ import type {
   RepositoryObservationPort,
 } from "./index.ts";
 
+/**
+ * FilesystemObservationOperationsが扱う値の構造を表す。
+ *
+ * @responsibility FilesystemObservationOperationsに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape FilesystemObservationOperationsが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant FilesystemObservationOperationsで宣言した値と責務の対応を維持する。
+ * @boundary N/A: FilesystemObservationOperationsの宣言は外部境界を開かない。
+ * @security N/A: FilesystemObservationOperationsはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility FilesystemObservationOperationsの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type FilesystemObservationOperations = Readonly<{
   lstat: (targetPath: string) => fs.Stats;
   stat: (targetPath: string) => fs.Stats;
@@ -19,6 +30,17 @@ export type FilesystemObservationOperations = Readonly<{
   close: (descriptor: number) => void;
 }>;
 
+/**
+ * RepositoryRootBindingが扱う値の構造を表す。
+ *
+ * @responsibility RepositoryRootBindingに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape RepositoryRootBindingが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RepositoryRootBindingで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RepositoryRootBindingの宣言は外部境界を開かない。
+ * @security N/A: RepositoryRootBindingはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RepositoryRootBindingの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type RepositoryRootBinding = Readonly<{
   absolutePath: string;
   canonicalPath: string;
@@ -54,6 +76,22 @@ const defaultOperations: FilesystemObservationOperations = {
   close: (descriptor) => fs.closeSync(descriptor),
 };
 
+/**
+ * isFullyQualifiedPathの処理を実行する。
+ *
+ * @responsibility isFullyQualifiedPathに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input candidate: string、flavor: RepositoryRootBinding["pathFlavor"]
+ * @returns booleanを返す。
+ * @precondition 「candidate: string、flavor: RepositoryRootBinding["pathFlavor"]」がisFullyQualifiedPathの入力契約を満たす。
+ * @postcondition isFullyQualifiedPathの責務を完了した結果だけを返す。
+ * @effect N/A: isFullyQualifiedPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isFullyQualifiedPathは独自の失敗分岐を所有しない。
+ * @invariant isFullyQualifiedPathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: isFullyQualifiedPathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isFullyQualifiedPathは共有非同期状態を持たない同期処理である。
+ */
 function isFullyQualifiedPath(
   candidate: string,
   flavor: RepositoryRootBinding["pathFlavor"],
@@ -66,6 +104,22 @@ function isFullyQualifiedPath(
   return /^[A-Za-z]:\\$/u.test(root) || /^\\\\[^\\]+\\[^\\]+\\$/u.test(root);
 }
 
+/**
+ * samePathの処理を実行する。
+ *
+ * @responsibility samePathに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input left: string、right: string
+ * @returns booleanを返す。
+ * @precondition 「left: string、right: string」がsamePathの入力契約を満たす。
+ * @postcondition samePathの責務を完了した結果だけを返す。
+ * @effect N/A: samePathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: samePathは独自の失敗分岐を所有しない。
+ * @invariant samePathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: samePathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: samePathは共有非同期状態を持たない同期処理である。
+ */
 function samePath(left: string, right: string): boolean {
   const isWindowsStyle =
     /^[A-Za-z]:[\\/]/u.test(left) || left.startsWith("\\\\");
@@ -75,6 +129,22 @@ function samePath(left: string, right: string): boolean {
     : path.posix.normalize(left) === path.posix.normalize(right);
 }
 
+/**
+ * validateRelativePathの処理を実行する。
+ *
+ * @responsibility validateRelativePathに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input relativePath: string
+ * @returns readonly string[] | nullを返す。
+ * @precondition 「relativePath: string」がvalidateRelativePathの入力契約を満たす。
+ * @postcondition validateRelativePathの責務を完了した結果だけを返す。
+ * @effect N/A: validateRelativePathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validateRelativePathは独自の失敗分岐を所有しない。
+ * @invariant validateRelativePathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: validateRelativePathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validateRelativePathは共有非同期状態を持たない同期処理である。
+ */
 function validateRelativePath(relativePath: string): readonly string[] | null {
   if (
     relativePath.length === 0 ||
@@ -92,6 +162,22 @@ function validateRelativePath(relativePath: string): readonly string[] | null {
     : null;
 }
 
+/**
+ * isContainedの処理を実行する。
+ *
+ * @responsibility isContainedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input root: string、target: string
+ * @returns booleanを返す。
+ * @precondition 「root: string、target: string」がisContainedの入力契約を満たす。
+ * @postcondition isContainedの責務を完了した結果だけを返す。
+ * @effect N/A: isContainedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isContainedは独自の失敗分岐を所有しない。
+ * @invariant isContainedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: isContainedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isContainedは共有非同期状態を持たない同期処理である。
+ */
 function isContained(root: string, target: string): boolean {
   const relative = path.relative(root, target);
   return (
@@ -102,6 +188,22 @@ function isContained(root: string, target: string): boolean {
   );
 }
 
+/**
+ * sameFileIdentityの処理を実行する。
+ *
+ * @responsibility sameFileIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input left: fs.Stats、right: fs.Stats
+ * @returns booleanを返す。
+ * @precondition 「left: fs.Stats、right: fs.Stats」がsameFileIdentityの入力契約を満たす。
+ * @postcondition sameFileIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: sameFileIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameFileIdentityは独自の失敗分岐を所有しない。
+ * @invariant sameFileIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: sameFileIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: sameFileIdentityは共有非同期状態を持たない同期処理である。
+ */
 function sameFileIdentity(left: fs.Stats, right: fs.Stats): boolean {
   return (
     left.dev === right.dev &&
@@ -112,6 +214,22 @@ function sameFileIdentity(left: fs.Stats, right: fs.Stats): boolean {
   );
 }
 
+/**
+ * directoryEntryKindの処理を実行する。
+ *
+ * @responsibility directoryEntryKindに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input entry: fs.Dirent
+ * @returns directoryEntryKindの計算結果を返す。
+ * @precondition 「entry: fs.Dirent」がdirectoryEntryKindの入力契約を満たす。
+ * @postcondition directoryEntryKindの責務を完了した結果だけを返す。
+ * @effect N/A: directoryEntryKindは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: directoryEntryKindは独自の失敗分岐を所有しない。
+ * @invariant directoryEntryKindは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: directoryEntryKindはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: directoryEntryKindは共有非同期状態を持たない同期処理である。
+ */
 function directoryEntryKind(entry: fs.Dirent) {
   if (entry.isSymbolicLink()) return "symbolic-link" as const;
   if (entry.isDirectory()) return "directory" as const;
@@ -119,6 +237,22 @@ function directoryEntryKind(entry: fs.Dirent) {
   return "other" as const;
 }
 
+/**
+ * invalidFileの処理を実行する。
+ *
+ * @responsibility invalidFileに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input pathValue: string、reason: string
+ * @returns RepositoryFileObservationを返す。
+ * @precondition 「pathValue: string、reason: string」がinvalidFileの入力契約を満たす。
+ * @postcondition invalidFileの責務を完了した結果だけを返す。
+ * @effect N/A: invalidFileは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: invalidFileは独自の失敗分岐を所有しない。
+ * @invariant invalidFileは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: invalidFileはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: invalidFileは共有非同期状態を持たない同期処理である。
+ */
 function invalidFile(
   pathValue: string,
   reason: string,
@@ -126,6 +260,22 @@ function invalidFile(
   return { status: "invalid", repositoryRelativePath: pathValue, reason };
 }
 
+/**
+ * unobservableFileの処理を実行する。
+ *
+ * @responsibility unobservableFileに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input pathValue: string、reason: string
+ * @returns RepositoryFileObservationを返す。
+ * @precondition 「pathValue: string、reason: string」がunobservableFileの入力契約を満たす。
+ * @postcondition unobservableFileの責務を完了した結果だけを返す。
+ * @effect N/A: unobservableFileは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: unobservableFileは独自の失敗分岐を所有しない。
+ * @invariant unobservableFileは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: unobservableFileはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: unobservableFileは共有非同期状態を持たない同期処理である。
+ */
 function unobservableFile(
   pathValue: string,
   reason: string,
@@ -133,6 +283,22 @@ function unobservableFile(
   return { status: "unobservable", repositoryRelativePath: pathValue, reason };
 }
 
+/**
+ * invalidDirectoryの処理を実行する。
+ *
+ * @responsibility invalidDirectoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input pathValue: string、reason: string
+ * @returns RepositoryDirectoryObservationを返す。
+ * @precondition 「pathValue: string、reason: string」がinvalidDirectoryの入力契約を満たす。
+ * @postcondition invalidDirectoryの責務を完了した結果だけを返す。
+ * @effect N/A: invalidDirectoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: invalidDirectoryは独自の失敗分岐を所有しない。
+ * @invariant invalidDirectoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: invalidDirectoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: invalidDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function invalidDirectory(
   pathValue: string,
   reason: string,
@@ -140,6 +306,22 @@ function invalidDirectory(
   return { status: "invalid", repositoryRelativePath: pathValue, reason };
 }
 
+/**
+ * unobservableDirectoryの処理を実行する。
+ *
+ * @responsibility unobservableDirectoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input pathValue: string、reason: string
+ * @returns RepositoryDirectoryObservationを返す。
+ * @precondition 「pathValue: string、reason: string」がunobservableDirectoryの入力契約を満たす。
+ * @postcondition unobservableDirectoryの責務を完了した結果だけを返す。
+ * @effect N/A: unobservableDirectoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: unobservableDirectoryは独自の失敗分岐を所有しない。
+ * @invariant unobservableDirectoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: unobservableDirectoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: unobservableDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function unobservableDirectory(
   pathValue: string,
   reason: string,
@@ -147,6 +329,22 @@ function unobservableDirectory(
   return { status: "unobservable", repositoryRelativePath: pathValue, reason };
 }
 
+/**
+ * createFilesystemRepositoryObservationPortWithOperationsの処理を実行する。
+ *
+ * @responsibility createFilesystemRepositoryObservationPortWithOperationsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input rootBinding: RepositoryRootBinding、operations: FilesystemObservationOperations
+ * @returns RepositoryObservationPortを返す。
+ * @precondition 「rootBinding: RepositoryRootBinding、operations: FilesystemObservationOperations」がcreateFilesystemRepositoryObservationPortWithOperationsの入力契約を満たす。
+ * @postcondition createFilesystemRepositoryObservationPortWithOperationsの責務を完了した結果だけを返す。
+ * @effect N/A: createFilesystemRepositoryObservationPortWithOperationsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createFilesystemRepositoryObservationPortWithOperationsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createFilesystemRepositoryObservationPortWithOperationsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: createFilesystemRepositoryObservationPortWithOperationsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createFilesystemRepositoryObservationPortWithOperationsは共有非同期状態を持たない同期処理である。
+ */
 export function createFilesystemRepositoryObservationPortWithOperations(
   rootBinding: RepositoryRootBinding,
   operations: FilesystemObservationOperations,
@@ -195,6 +393,22 @@ export function createFilesystemRepositoryObservationPortWithOperations(
       };
     }
 
+  /**
+   * rootFailureForFileの処理を実行する。
+   *
+   * @responsibility rootFailureForFileに対応する入力処理と結果生成を所有する。
+   * @trace ARCH-000008
+   * @input pathValue: string
+   * @returns RepositoryFileObservationを返す。
+   * @precondition 「pathValue: string」がrootFailureForFileの入力契約を満たす。
+   * @postcondition rootFailureForFileの責務を完了した結果だけを返す。
+   * @effect N/A: rootFailureForFileは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @failure N/A: rootFailureForFileは独自の失敗分岐を所有しない。
+   * @invariant rootFailureForFileは入力から導いた結果以外の共有状態を変更しない。
+   * @boundary FilesystemとProcess内Domain処理の境界。
+   * @security N/A: rootFailureForFileはAuthority、秘密値または信頼判断を扱わない。
+   * @concurrency N/A: rootFailureForFileは共有非同期状態を持たない同期処理である。
+   */
   function rootFailureForFile(pathValue: string): RepositoryFileObservation {
     const failure = rootFailure ?? {
       status: "unobservable" as const,
@@ -205,6 +419,22 @@ export function createFilesystemRepositoryObservationPortWithOperations(
       : unobservableFile(pathValue, failure.reason);
   }
 
+  /**
+   * rootFailureForDirectoryの処理を実行する。
+   *
+   * @responsibility rootFailureForDirectoryに対応する入力処理と結果生成を所有する。
+   * @trace ARCH-000008
+   * @input pathValue: string
+   * @returns RepositoryDirectoryObservationを返す。
+   * @precondition 「pathValue: string」がrootFailureForDirectoryの入力契約を満たす。
+   * @postcondition rootFailureForDirectoryの責務を完了した結果だけを返す。
+   * @effect N/A: rootFailureForDirectoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @failure N/A: rootFailureForDirectoryは独自の失敗分岐を所有しない。
+   * @invariant rootFailureForDirectoryは入力から導いた結果以外の共有状態を変更しない。
+   * @boundary FilesystemとProcess内Domain処理の境界。
+   * @security N/A: rootFailureForDirectoryはAuthority、秘密値または信頼判断を扱わない。
+   * @concurrency N/A: rootFailureForDirectoryは共有非同期状態を持たない同期処理である。
+   */
   function rootFailureForDirectory(
     pathValue: string,
   ): RepositoryDirectoryObservation {
@@ -217,6 +447,22 @@ export function createFilesystemRepositoryObservationPortWithOperations(
       : unobservableDirectory(pathValue, failure.reason);
   }
 
+  /**
+   * observePathの処理を実行する。
+   *
+   * @responsibility observePathに対応する入力処理と結果生成を所有する。
+   * @trace ARCH-000008
+   * @input repositoryRelativePath: string、expectedKind: "file" | "directory"
+   * @returns RepositoryFileObservation | RepositoryDirectoryObservationを返す。
+   * @precondition 「repositoryRelativePath: string、expectedKind: "file" | "directory"」がobservePathの入力契約を満たす。
+   * @postcondition observePathの責務を完了した結果だけを返す。
+   * @effect N/A: observePathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @failure observePathは入力不正または下位処理の失敗を呼出し側へ返す。
+   * @invariant observePathは入力から導いた結果以外の共有状態を変更しない。
+   * @boundary FilesystemとProcess内Domain処理の境界。
+   * @security N/A: observePathはAuthority、秘密値または信頼判断を扱わない。
+   * @concurrency N/A: observePathは共有非同期状態を持たない同期処理である。
+   */
   function observePath(
     repositoryRelativePath: string,
     expectedKind: "file" | "directory",
@@ -365,6 +611,22 @@ export function createFilesystemRepositoryObservationPortWithOperations(
   };
 }
 
+/**
+ * createFilesystemRepositoryObservationPortFromRootBindingの処理を実行する。
+ *
+ * @responsibility createFilesystemRepositoryObservationPortFromRootBindingに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input rootBinding: RepositoryRootBinding
+ * @returns RepositoryObservationPortを返す。
+ * @precondition 「rootBinding: RepositoryRootBinding」がcreateFilesystemRepositoryObservationPortFromRootBindingの入力契約を満たす。
+ * @postcondition createFilesystemRepositoryObservationPortFromRootBindingの責務を完了した結果だけを返す。
+ * @effect N/A: createFilesystemRepositoryObservationPortFromRootBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createFilesystemRepositoryObservationPortFromRootBindingは独自の失敗分岐を所有しない。
+ * @invariant createFilesystemRepositoryObservationPortFromRootBindingは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: createFilesystemRepositoryObservationPortFromRootBindingはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createFilesystemRepositoryObservationPortFromRootBindingは共有非同期状態を持たない同期処理である。
+ */
 export function createFilesystemRepositoryObservationPortFromRootBinding(
   rootBinding: RepositoryRootBinding,
 ): RepositoryObservationPort {

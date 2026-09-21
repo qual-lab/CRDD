@@ -28,6 +28,22 @@ export const projectRuntimeIntegrationResultFields = Object.freeze([
   "retryAllowed",
 ] as const);
 
+/**
+ * validIdの処理を実行する。
+ *
+ * @responsibility validIdに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、maximum
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown、maximum」がvalidIdの入力契約を満たす。
+ * @postcondition validIdの責務を完了した結果だけを返す。
+ * @effect N/A: validIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validIdは独自の失敗分岐を所有しない。
+ * @invariant validIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validIdはProcess内の同一Subsystemで完結する。
+ * @security N/A: validIdはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validIdは共有非同期状態を持たない同期処理である。
+ */
 function validId(value: unknown, maximum = 512): value is string {
   return (
     typeof value === "string" &&
@@ -37,7 +53,22 @@ function validId(value: unknown, maximum = 512): value is string {
   );
 }
 
-/** Canonical closed result contract shared by the producer and transports. */
+/**
+ * Canonical closed result contract shared by the producer and transports.
+ *
+ * @responsibility inspectProjectRuntimeIntegrationResultに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown
+ * @returns Readonly< Record<string, unknown> & { status: "completed" | "blocked"; recoveryIds: readonly string[]; effectIssued?: boolean; effectStateUnknown?: boolean; retryAllowed?: boolean; } > | nullを返す。
+ * @precondition 「raw: unknown」がinspectProjectRuntimeIntegrationResultの入力契約を満たす。
+ * @postcondition inspectProjectRuntimeIntegrationResultの責務を完了した結果だけを返す。
+ * @effect N/A: inspectProjectRuntimeIntegrationResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectProjectRuntimeIntegrationResultは独自の失敗分岐を所有しない。
+ * @invariant inspectProjectRuntimeIntegrationResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectProjectRuntimeIntegrationResultはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectProjectRuntimeIntegrationResultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectProjectRuntimeIntegrationResultは共有非同期状態を持たない同期処理である。
+ */
 export function inspectProjectRuntimeIntegrationResult(raw: unknown): Readonly<
   Record<string, unknown> & {
     status: "completed" | "blocked";

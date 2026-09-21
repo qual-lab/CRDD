@@ -3,6 +3,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { inflateSync } from "node:zlib";
 
+/**
+ * ContentPolicyが扱う値の構造を表す。
+ *
+ * @responsibility ContentPolicyに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape ContentPolicyが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ContentPolicyで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ContentPolicyの宣言は外部境界を開かない。
+ * @security N/A: ContentPolicyはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ContentPolicyの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ContentPolicy = (relativePath: string, bytes: Uint8Array) => boolean;
 
 export const GIT_OBJECT_READER_CONTRACT =
@@ -22,8 +33,41 @@ const RESERVED_WINDOWS_SEGMENT =
   /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu;
 const INVALID_WINDOWS_CHARACTER = /[<>:"|?*\\\x00-\x1f\x7f]/u;
 
+/**
+ * GitObjectTypeが扱う値の構造を表す。
+ *
+ * @responsibility GitObjectTypeに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape GitObjectTypeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant GitObjectTypeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: GitObjectTypeの宣言は外部境界を開かない。
+ * @security N/A: GitObjectTypeはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility GitObjectTypeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type GitObjectType = "commit" | "tree" | "blob" | "tag";
+/**
+ * GitObjectが扱う値の構造を表す。
+ *
+ * @responsibility GitObjectに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape GitObjectが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant GitObjectで宣言した値と責務の対応を維持する。
+ * @boundary N/A: GitObjectの宣言は外部境界を開かない。
+ * @security N/A: GitObjectはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility GitObjectの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type GitObject = Readonly<{ type: GitObjectType; bytes: Buffer }>;
+/**
+ * PackIndexが扱う値の構造を表す。
+ *
+ * @responsibility PackIndexに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape PackIndexが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant PackIndexで宣言した値と責務の対応を維持する。
+ * @boundary N/A: PackIndexの宣言は外部境界を開かない。
+ * @security N/A: PackIndexはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility PackIndexの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type PackIndex = Readonly<{
   indexPath: string;
   packPath: string;
@@ -32,12 +76,39 @@ type PackIndex = Readonly<{
   offsetObjectIds: ReadonlyMap<number, string>;
   sortedOffsets: readonly number[];
 }>;
+/**
+ * WorkspaceEntryが扱う値の構造を表す。
+ *
+ * @responsibility WorkspaceEntryに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000002
+ * @shape WorkspaceEntryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant WorkspaceEntryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: WorkspaceEntryの宣言は外部境界を開かない。
+ * @security N/A: WorkspaceEntryはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility WorkspaceEntryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type WorkspaceEntry = Readonly<{
   relativePath: string;
   mode: "100644" | "100755";
   bytes: Buffer;
 }>;
 
+/**
+ * pathSelectedの処理を実行する。
+ *
+ * @responsibility pathSelectedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input relativePath: string、readPaths: readonly string[]
+ * @returns pathSelectedの計算結果を返す。
+ * @precondition 「relativePath: string、readPaths: readonly string[]」がpathSelectedの入力契約を満たす。
+ * @postcondition pathSelectedの責務を完了した結果だけを返す。
+ * @effect N/A: pathSelectedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: pathSelectedは独自の失敗分岐を所有しない。
+ * @invariant pathSelectedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: pathSelectedはProcess内の同一Subsystemで完結する。
+ * @security N/A: pathSelectedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: pathSelectedは共有非同期状態を持たない同期処理である。
+ */
 function pathSelected(relativePath: string, readPaths: readonly string[]) {
   return readPaths.some((readPath) =>
     readPath.endsWith("/")
@@ -46,6 +117,22 @@ function pathSelected(relativePath: string, readPaths: readonly string[]) {
   );
 }
 
+/**
+ * treeSelectedの処理を実行する。
+ *
+ * @responsibility treeSelectedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input relativePath: string、readPaths: readonly string[]
+ * @returns treeSelectedの計算結果を返す。
+ * @precondition 「relativePath: string、readPaths: readonly string[]」がtreeSelectedの入力契約を満たす。
+ * @postcondition treeSelectedの責務を完了した結果だけを返す。
+ * @effect N/A: treeSelectedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: treeSelectedは独自の失敗分岐を所有しない。
+ * @invariant treeSelectedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: treeSelectedはProcess内の同一Subsystemで完結する。
+ * @security N/A: treeSelectedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: treeSelectedは共有非同期状態を持たない同期処理である。
+ */
 function treeSelected(relativePath: string, readPaths: readonly string[]) {
   const prefix = `${relativePath}/`;
   return readPaths.some((readPath) => {
@@ -60,6 +147,22 @@ function treeSelected(relativePath: string, readPaths: readonly string[]) {
   });
 }
 
+/**
+ * stableFileの処理を実行する。
+ *
+ * @responsibility stableFileに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input target: string、maximumBytes: number
+ * @returns stableFileの計算結果を返す。
+ * @precondition 「target: string、maximumBytes: number」がstableFileの入力契約を満たす。
+ * @postcondition stableFileの責務を完了した結果だけを返す。
+ * @effect stableFileはFilesystemの読取りまたは書込みを実行する。
+ * @failure stableFileは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant stableFileは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: stableFileはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: stableFileは共有非同期状態を持たない同期処理である。
+ */
 function stableFile(target: string, maximumBytes: number) {
   const handle = fs.openSync(target, "r");
   try {
@@ -113,10 +216,42 @@ function stableFile(target: string, maximumBytes: number) {
   }
 }
 
+/**
+ * sha1の処理を実行する。
+ *
+ * @responsibility sha1に対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input bytes: Buffer
+ * @returns sha1の計算結果を返す。
+ * @precondition 「bytes: Buffer」がsha1の入力契約を満たす。
+ * @postcondition sha1の責務を完了した結果だけを返す。
+ * @effect N/A: sha1は入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sha1は独自の失敗分岐を所有しない。
+ * @invariant sha1は入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sha1はProcess内の同一Subsystemで完結する。
+ * @security N/A: sha1はAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: sha1は共有非同期状態を持たない同期処理である。
+ */
 function sha1(bytes: Buffer) {
   return createHash("sha1").update(bytes).digest();
 }
 
+/**
+ * verifyObjectIdentityの処理を実行する。
+ *
+ * @responsibility verifyObjectIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input objectId: string、type: GitObjectType、bytes: Buffer
+ * @returns N/A: verifyObjectIdentityは戻り値を返さない。
+ * @precondition 「objectId: string、type: GitObjectType、bytes: Buffer」がverifyObjectIdentityの入力契約を満たす。
+ * @postcondition verifyObjectIdentityの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: verifyObjectIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyObjectIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyObjectIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyObjectIdentityはProcess内の同一Subsystemで完結する。
+ * @security N/A: verifyObjectIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: verifyObjectIdentityは共有非同期状態を持たない同期処理である。
+ */
 function verifyObjectIdentity(
   objectId: string,
   type: GitObjectType,
@@ -129,6 +264,22 @@ function verifyObjectIdentity(
   if (identity !== objectId) throw new Error("git_object_identity_mismatch");
 }
 
+/**
+ * parseLooseObjectの処理を実行する。
+ *
+ * @responsibility parseLooseObjectに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input objectId: string、compressed: Buffer
+ * @returns GitObjectを返す。
+ * @precondition 「objectId: string、compressed: Buffer」がparseLooseObjectの入力契約を満たす。
+ * @postcondition parseLooseObjectの責務を完了した結果だけを返す。
+ * @effect N/A: parseLooseObjectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure parseLooseObjectは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant parseLooseObjectは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseLooseObjectはProcess内の同一Subsystemで完結する。
+ * @security N/A: parseLooseObjectはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: parseLooseObjectは共有非同期状態を持たない同期処理である。
+ */
 function parseLooseObject(objectId: string, compressed: Buffer): GitObject {
   const inflated = inflateSync(compressed, {
     maxOutputLength: MAXIMUM_OBJECT_BYTES + 128,
@@ -152,6 +303,22 @@ function parseLooseObject(objectId: string, compressed: Buffer): GitObject {
   return Object.freeze({ type, bytes });
 }
 
+/**
+ * parsePackIndexの処理を実行する。
+ *
+ * @responsibility parsePackIndexに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input indexPath: string
+ * @returns PackIndexを返す。
+ * @precondition 「indexPath: string」がparsePackIndexの入力契約を満たす。
+ * @postcondition parsePackIndexの責務を完了した結果だけを返す。
+ * @effect N/A: parsePackIndexは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure parsePackIndexは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant parsePackIndexは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parsePackIndexはProcess内の同一Subsystemで完結する。
+ * @security N/A: parsePackIndexはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: parsePackIndexは共有非同期状態を持たない同期処理である。
+ */
 function parsePackIndex(indexPath: string): PackIndex {
   const bytes = stableFile(indexPath, MAXIMUM_INDEX_BYTES);
   if (
@@ -226,6 +393,22 @@ function parsePackIndex(indexPath: string): PackIndex {
   });
 }
 
+/**
+ * readVariableIntegerの処理を実行する。
+ *
+ * @responsibility readVariableIntegerに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input bytes: Buffer、startIndex: number
+ * @returns readVariableIntegerの計算結果を返す。
+ * @precondition 「bytes: Buffer、startIndex: number」がreadVariableIntegerの入力契約を満たす。
+ * @postcondition readVariableIntegerの責務を完了した結果だけを返す。
+ * @effect N/A: readVariableIntegerは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure readVariableIntegerは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readVariableIntegerは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: readVariableIntegerはProcess内の同一Subsystemで完結する。
+ * @security N/A: readVariableIntegerはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readVariableIntegerは共有非同期状態を持たない同期処理である。
+ */
 function readVariableInteger(bytes: Buffer, startIndex: number) {
   let value = 0;
   let shift = 0;
@@ -244,6 +427,22 @@ function readVariableInteger(bytes: Buffer, startIndex: number) {
   throw new Error("git_delta_integer_invalid");
 }
 
+/**
+ * applyDeltaの処理を実行する。
+ *
+ * @responsibility applyDeltaに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input base: Buffer、delta: Buffer
+ * @returns applyDeltaの計算結果を返す。
+ * @precondition 「base: Buffer、delta: Buffer」がapplyDeltaの入力契約を満たす。
+ * @postcondition applyDeltaの責務を完了した結果だけを返す。
+ * @effect N/A: applyDeltaは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure applyDeltaは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant applyDeltaは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: applyDeltaはProcess内の同一Subsystemで完結する。
+ * @security N/A: applyDeltaはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: applyDeltaは共有非同期状態を持たない同期処理である。
+ */
 function applyDelta(base: Buffer, delta: Buffer) {
   const baseSize = readVariableInteger(delta, 0);
   if (baseSize.value !== base.byteLength)
@@ -298,6 +497,22 @@ function applyDelta(base: Buffer, delta: Buffer) {
   return Buffer.concat(chunks, outputSize);
 }
 
+/**
+ * decodePackOffsetの処理を実行する。
+ *
+ * @responsibility decodePackOffsetに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input bytes: Buffer、startIndex: number、objectOffset: number
+ * @returns decodePackOffsetの計算結果を返す。
+ * @precondition 「bytes: Buffer、startIndex: number、objectOffset: number」がdecodePackOffsetの入力契約を満たす。
+ * @postcondition decodePackOffsetの責務を完了した結果だけを返す。
+ * @effect N/A: decodePackOffsetは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure decodePackOffsetは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant decodePackOffsetは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: decodePackOffsetはProcess内の同一Subsystemで完結する。
+ * @security N/A: decodePackOffsetはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: decodePackOffsetは共有非同期状態を持たない同期処理である。
+ */
 function decodePackOffset(
   bytes: Buffer,
   startIndex: number,
@@ -321,6 +536,22 @@ function decodePackOffset(
   return Object.freeze({ baseOffset, nextIndex });
 }
 
+/**
+ * safePackIndexesの処理を実行する。
+ *
+ * @responsibility safePackIndexesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input commonDirectory: string
+ * @returns safePackIndexesの計算結果を返す。
+ * @precondition 「commonDirectory: string」がsafePackIndexesの入力契約を満たす。
+ * @postcondition safePackIndexesの責務を完了した結果だけを返す。
+ * @effect safePackIndexesはFilesystemの読取りまたは書込みを実行する。
+ * @failure safePackIndexesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant safePackIndexesは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: safePackIndexesはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: safePackIndexesは共有非同期状態を持たない同期処理である。
+ */
 function safePackIndexes(commonDirectory: string) {
   const objectDirectory = path.join(commonDirectory, "objects");
   const alternates = path.join(objectDirectory, "info", "alternates");
@@ -352,12 +583,44 @@ function safePackIndexes(commonDirectory: string) {
   );
 }
 
+/**
+ * createObjectReaderの処理を実行する。
+ *
+ * @responsibility createObjectReaderに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input commonDirectory: string
+ * @returns createObjectReaderの計算結果を返す。
+ * @precondition 「commonDirectory: string」がcreateObjectReaderの入力契約を満たす。
+ * @postcondition createObjectReaderの責務を完了した結果だけを返す。
+ * @effect N/A: createObjectReaderは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createObjectReaderは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createObjectReaderは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createObjectReaderはProcess内の同一Subsystemで完結する。
+ * @security N/A: createObjectReaderはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createObjectReaderは共有非同期状態を持たない同期処理である。
+ */
 function createObjectReader(commonDirectory: string) {
   const indexes = safePackIndexes(commonDirectory);
   const objectCache = new Map<string, GitObject>();
   const packCache = new Map<string, Buffer>();
   const resolvingObjectIds = new Set<string>();
 
+  /**
+   * packBytesの処理を実行する。
+   *
+   * @responsibility packBytesに対応する入力処理と結果生成を所有する。
+   * @trace ARCH-000002
+   * @input index: PackIndex
+   * @returns packBytesの計算結果を返す。
+   * @precondition 「index: PackIndex」がpackBytesの入力契約を満たす。
+   * @postcondition packBytesの責務を完了した結果だけを返す。
+   * @effect N/A: packBytesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @failure packBytesは入力不正または下位処理の失敗を呼出し側へ返す。
+   * @invariant packBytesは入力から導いた結果以外の共有状態を変更しない。
+   * @boundary N/A: packBytesはProcess内の同一Subsystemで完結する。
+   * @security N/A: packBytesはAuthority、秘密値または信頼判断を扱わない。
+   * @concurrency N/A: packBytesは共有非同期状態を持たない同期処理である。
+   */
   function packBytes(index: PackIndex) {
     const cached = packCache.get(index.packPath);
     if (cached) return cached;
@@ -380,6 +643,22 @@ function createObjectReader(commonDirectory: string) {
     return bytes;
   }
 
+  /**
+   * resolvePackObjectの処理を実行する。
+   *
+   * @responsibility resolvePackObjectに対応する入力処理と結果生成を所有する。
+   * @trace ARCH-000002
+   * @input index: PackIndex、objectId: string、objectOffset: number、depth: number
+   * @returns GitObjectを返す。
+   * @precondition 「index: PackIndex、objectId: string、objectOffset: number、depth: number」がresolvePackObjectの入力契約を満たす。
+   * @postcondition resolvePackObjectの責務を完了した結果だけを返す。
+   * @effect N/A: resolvePackObjectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @failure resolvePackObjectは入力不正または下位処理の失敗を呼出し側へ返す。
+   * @invariant resolvePackObjectは入力から導いた結果以外の共有状態を変更しない。
+   * @boundary N/A: resolvePackObjectはProcess内の同一Subsystemで完結する。
+   * @security N/A: resolvePackObjectはAuthority、秘密値または信頼判断を扱わない。
+   * @concurrency N/A: resolvePackObjectは共有非同期状態を持たない同期処理である。
+   */
   function resolvePackObject(
     index: PackIndex,
     objectId: string,
@@ -455,6 +734,22 @@ function createObjectReader(commonDirectory: string) {
     return result;
   }
 
+  /**
+   * readObjectの処理を実行する。
+   *
+   * @responsibility readObjectに対応する入力処理と結果生成を所有する。
+   * @trace ARCH-000002
+   * @input objectId: string、depth
+   * @returns GitObjectを返す。
+   * @precondition 「objectId: string、depth」がreadObjectの入力契約を満たす。
+   * @postcondition readObjectの責務を完了した結果だけを返す。
+   * @effect N/A: readObjectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @failure readObjectは入力不正または下位処理の失敗を呼出し側へ返す。
+   * @invariant readObjectは入力から導いた結果以外の共有状態を変更しない。
+   * @boundary N/A: readObjectはProcess内の同一Subsystemで完結する。
+   * @security N/A: readObjectはAuthority、秘密値または信頼判断を扱わない。
+   * @concurrency N/A: readObjectは共有非同期状態を持たない同期処理である。
+   */
   function readObject(objectId: string, depth = 0): GitObject {
     if (!OBJECT_ID.test(objectId)) throw new Error("git_object_id_invalid");
     const cached = objectCache.get(objectId);
@@ -504,6 +799,22 @@ function createObjectReader(commonDirectory: string) {
   return readObject;
 }
 
+/**
+ * validSegmentの処理を実行する。
+ *
+ * @responsibility validSegmentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input segment: string
+ * @returns validSegmentの計算結果を返す。
+ * @precondition 「segment: string」がvalidSegmentの入力契約を満たす。
+ * @postcondition validSegmentの責務を完了した結果だけを返す。
+ * @effect N/A: validSegmentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validSegmentは独自の失敗分岐を所有しない。
+ * @invariant validSegmentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validSegmentはProcess内の同一Subsystemで完結する。
+ * @security N/A: validSegmentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validSegmentは共有非同期状態を持たない同期処理である。
+ */
 function validSegment(segment: string) {
   return !(
     segment.length === 0 ||
@@ -518,12 +829,44 @@ function validSegment(segment: string) {
   );
 }
 
+/**
+ * decodeTreeNameの処理を実行する。
+ *
+ * @responsibility decodeTreeNameに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input bytes: Buffer
+ * @returns decodeTreeNameの計算結果を返す。
+ * @precondition 「bytes: Buffer」がdecodeTreeNameの入力契約を満たす。
+ * @postcondition decodeTreeNameの責務を完了した結果だけを返す。
+ * @effect N/A: decodeTreeNameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure decodeTreeNameは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant decodeTreeNameは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: decodeTreeNameはProcess内の同一Subsystemで完結する。
+ * @security N/A: decodeTreeNameはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: decodeTreeNameは共有非同期状態を持たない同期処理である。
+ */
 function decodeTreeName(bytes: Buffer) {
   const name = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   if (!validSegment(name)) throw new Error("git_tree_name_invalid");
   return name;
 }
 
+/**
+ * commitTreeの処理を実行する。
+ *
+ * @responsibility commitTreeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input object: GitObject
+ * @returns commitTreeの計算結果を返す。
+ * @precondition 「object: GitObject」がcommitTreeの入力契約を満たす。
+ * @postcondition commitTreeの責務を完了した結果だけを返す。
+ * @effect N/A: commitTreeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure commitTreeは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant commitTreeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: commitTreeはProcess内の同一Subsystemで完結する。
+ * @security N/A: commitTreeはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: commitTreeは共有非同期状態を持たない同期処理である。
+ */
 function commitTree(object: GitObject) {
   if (object.type !== "commit") throw new Error("git_revision_not_commit");
   const text = new TextDecoder("utf-8", { fatal: true }).decode(object.bytes);
@@ -543,6 +886,22 @@ function commitTree(object: GitObject) {
   return treeId;
 }
 
+/**
+ * parseTreeの処理を実行する。
+ *
+ * @responsibility parseTreeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input readObject: (objectId: string) => GitObject、treeId: string、parentPath: string、entries: WorkspaceEntry[]、depth: number、budget: { bytes: number; files: number }、readPaths: readonly string[] | null
+ * @returns N/A: parseTreeは戻り値を返さない。
+ * @precondition 「readObject: (objectId: string) => GitObject、treeId: string、parentPath: string、entries: WorkspaceEntry[]、depth: number、budget: { bytes: number; files: number }、readPaths: readonly string[] | null」がparseTreeの入力契約を満たす。
+ * @postcondition parseTreeの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: parseTreeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure parseTreeは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant parseTreeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseTreeはProcess内の同一Subsystemで完結する。
+ * @security N/A: parseTreeはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: parseTreeは共有非同期状態を持たない同期処理である。
+ */
 function parseTree(
   readObject: (objectId: string) => GitObject,
   treeId: string,
@@ -626,6 +985,22 @@ function parseTree(
   }
 }
 
+/**
+ * workspaceRootの処理を実行する。
+ *
+ * @responsibility workspaceRootに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input target: string
+ * @returns workspaceRootの計算結果を返す。
+ * @precondition 「target: string」がworkspaceRootの入力契約を満たす。
+ * @postcondition workspaceRootの責務を完了した結果だけを返す。
+ * @effect workspaceRootはFilesystemの読取りまたは書込みを実行する。
+ * @failure workspaceRootは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant workspaceRootは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: workspaceRootはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: workspaceRootは共有非同期状態を持たない同期処理である。
+ */
 function workspaceRoot(target: string) {
   const resolved = fs.realpathSync.native(target);
   const metadata = fs.lstatSync(resolved);
@@ -639,6 +1014,22 @@ function workspaceRoot(target: string) {
   return resolved;
 }
 
+/**
+ * contentManifestの処理を実行する。
+ *
+ * @responsibility contentManifestに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input entries: readonly WorkspaceEntry[]
+ * @returns contentManifestの計算結果を返す。
+ * @precondition 「entries: readonly WorkspaceEntry[]」がcontentManifestの入力契約を満たす。
+ * @postcondition contentManifestの責務を完了した結果だけを返す。
+ * @effect N/A: contentManifestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: contentManifestは独自の失敗分岐を所有しない。
+ * @invariant contentManifestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: contentManifestはProcess内の同一Subsystemで完結する。
+ * @security N/A: contentManifestはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: contentManifestは共有非同期状態を持たない同期処理である。
+ */
 function contentManifest(entries: readonly WorkspaceEntry[]) {
   const hash = createHash("sha256").update("crdd-workspace-content-v1\0");
   for (const entry of entries) {
@@ -655,6 +1046,22 @@ function contentManifest(entries: readonly WorkspaceEntry[]) {
   return hash.digest("hex");
 }
 
+/**
+ * inspectGitCommitTreeCandidateの処理を実行する。
+ *
+ * @responsibility inspectGitCommitTreeCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input candidate: unknown
+ * @returns inspectGitCommitTreeCandidateの計算結果を返す。
+ * @precondition 「candidate: unknown」がinspectGitCommitTreeCandidateの入力契約を満たす。
+ * @postcondition inspectGitCommitTreeCandidateの責務を完了した結果だけを返す。
+ * @effect inspectGitCommitTreeCandidateはFilesystemの読取りまたは書込みを実行する。
+ * @failure inspectGitCommitTreeCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectGitCommitTreeCandidateは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: inspectGitCommitTreeCandidateはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectGitCommitTreeCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectGitCommitTreeCandidate(candidate: unknown) {
   try {
     if (
@@ -695,6 +1102,22 @@ export function inspectGitCommitTreeCandidate(candidate: unknown) {
   }
 }
 
+/**
+ * materializeGitCommitTreeCandidateUsingPolicyの処理を実行する。
+ *
+ * @responsibility materializeGitCommitTreeCandidateUsingPolicyに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input candidate: unknown、shouldRejectContent: ContentPolicy | null
+ * @returns materializeGitCommitTreeCandidateUsingPolicyの計算結果を返す。
+ * @precondition 「candidate: unknown、shouldRejectContent: ContentPolicy | null」がmaterializeGitCommitTreeCandidateUsingPolicyの入力契約を満たす。
+ * @postcondition materializeGitCommitTreeCandidateUsingPolicyの責務を完了した結果だけを返す。
+ * @effect materializeGitCommitTreeCandidateUsingPolicyはFilesystemの読取りまたは書込みを実行する。
+ * @failure materializeGitCommitTreeCandidateUsingPolicyは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant materializeGitCommitTreeCandidateUsingPolicyは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: materializeGitCommitTreeCandidateUsingPolicyはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: materializeGitCommitTreeCandidateUsingPolicyは共有非同期状態を持たない同期処理である。
+ */
 function materializeGitCommitTreeCandidateUsingPolicy(
   candidate: unknown,
   shouldRejectContent: ContentPolicy | null,
@@ -804,6 +1227,22 @@ function materializeGitCommitTreeCandidateUsingPolicy(
   }
 }
 
+/**
+ * materializeGitCommitTreeCandidateの処理を実行する。
+ *
+ * @responsibility materializeGitCommitTreeCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input candidate: unknown、shouldRejectContent: ContentPolicy
+ * @returns materializeGitCommitTreeCandidateの計算結果を返す。
+ * @precondition 「candidate: unknown、shouldRejectContent: ContentPolicy」がmaterializeGitCommitTreeCandidateの入力契約を満たす。
+ * @postcondition materializeGitCommitTreeCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: materializeGitCommitTreeCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: materializeGitCommitTreeCandidateは独自の失敗分岐を所有しない。
+ * @invariant materializeGitCommitTreeCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: materializeGitCommitTreeCandidateはProcess内の同一Subsystemで完結する。
+ * @security N/A: materializeGitCommitTreeCandidateはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: materializeGitCommitTreeCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function materializeGitCommitTreeCandidate(
   candidate: unknown,
   shouldRejectContent: ContentPolicy,
@@ -814,10 +1253,42 @@ export function materializeGitCommitTreeCandidate(
   );
 }
 
+/**
+ * materializeGitReleaseCandidateTreeの処理を実行する。
+ *
+ * @responsibility materializeGitReleaseCandidateTreeに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input candidate: unknown
+ * @returns materializeGitReleaseCandidateTreeの計算結果を返す。
+ * @precondition 「candidate: unknown」がmaterializeGitReleaseCandidateTreeの入力契約を満たす。
+ * @postcondition materializeGitReleaseCandidateTreeの責務を完了した結果だけを返す。
+ * @effect N/A: materializeGitReleaseCandidateTreeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: materializeGitReleaseCandidateTreeは独自の失敗分岐を所有しない。
+ * @invariant materializeGitReleaseCandidateTreeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: materializeGitReleaseCandidateTreeはProcess内の同一Subsystemで完結する。
+ * @security N/A: materializeGitReleaseCandidateTreeはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: materializeGitReleaseCandidateTreeは共有非同期状態を持たない同期処理である。
+ */
 export function materializeGitReleaseCandidateTree(candidate: unknown) {
   return materializeGitCommitTreeCandidateUsingPolicy(candidate, null);
 }
 
+/**
+ * readGitCommitFileCandidateの処理を実行する。
+ *
+ * @responsibility readGitCommitFileCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input candidate: unknown
+ * @returns readGitCommitFileCandidateの計算結果を返す。
+ * @precondition 「candidate: unknown」がreadGitCommitFileCandidateの入力契約を満たす。
+ * @postcondition readGitCommitFileCandidateの責務を完了した結果だけを返す。
+ * @effect readGitCommitFileCandidateはFilesystemの読取りまたは書込みを実行する。
+ * @failure readGitCommitFileCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readGitCommitFileCandidateは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: readGitCommitFileCandidateはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readGitCommitFileCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function readGitCommitFileCandidate(candidate: unknown) {
   try {
     const value = candidate as Record<string, unknown>;
@@ -878,6 +1349,22 @@ export function readGitCommitFileCandidate(candidate: unknown) {
   }
 }
 
+/**
+ * describeGitObjectReaderContractの処理を実行する。
+ *
+ * @responsibility describeGitObjectReaderContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeGitObjectReaderContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeGitObjectReaderContractの入力契約を満たす。
+ * @postcondition describeGitObjectReaderContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeGitObjectReaderContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeGitObjectReaderContractは独自の失敗分岐を所有しない。
+ * @invariant describeGitObjectReaderContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeGitObjectReaderContractはProcess内の同一Subsystemで完結する。
+ * @security N/A: describeGitObjectReaderContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeGitObjectReaderContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeGitObjectReaderContract() {
   return Object.freeze({
     contract: GIT_OBJECT_READER_CONTRACT,

@@ -10,7 +10,29 @@ export const COORDINATOR_LAUNCH_ENTRIES = Object.freeze({
   "promote-release": "../scripts/promote-release-manifest.ts",
 });
 
+/**
+ * LaunchModeが扱う値の構造を表す。
+ *
+ * @responsibility LaunchModeに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape LaunchModeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant LaunchModeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: LaunchModeの宣言は外部境界を開かない。
+ * @security N/A: LaunchModeはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility LaunchModeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type LaunchMode = keyof typeof COORDINATOR_LAUNCH_ENTRIES;
+/**
+ * LaunchObservationが扱う値の構造を表す。
+ *
+ * @responsibility LaunchObservationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000004
+ * @shape LaunchObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant LaunchObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: LaunchObservationの宣言は外部境界を開かない。
+ * @security N/A: LaunchObservationはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility LaunchObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type LaunchObservation = Readonly<{
   nodeVersion: string;
   stdinIsTty: boolean;
@@ -19,6 +41,22 @@ type LaunchObservation = Readonly<{
 }>;
 
 // A routing plan, not execution authority. Each target retains its own gates.
+/**
+ * resolveCoordinatorLaunchの処理を実行する。
+ *
+ * @responsibility resolveCoordinatorLaunchに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input args: readonly string[]、observation: LaunchObservation
+ * @returns resolveCoordinatorLaunchの計算結果を返す。
+ * @precondition 「args: readonly string[]、observation: LaunchObservation」がresolveCoordinatorLaunchの入力契約を満たす。
+ * @postcondition resolveCoordinatorLaunchの責務を完了した結果だけを返す。
+ * @effect N/A: resolveCoordinatorLaunchは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveCoordinatorLaunchは独自の失敗分岐を所有しない。
+ * @invariant resolveCoordinatorLaunchは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveCoordinatorLaunchはProcess内の同一Subsystemで完結する。
+ * @security N/A: resolveCoordinatorLaunchはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: resolveCoordinatorLaunchは共有非同期状態を持たない同期処理である。
+ */
 export function resolveCoordinatorLaunch(
   args: readonly string[],
   observation: LaunchObservation,
@@ -69,6 +107,22 @@ export function resolveCoordinatorLaunch(
   });
 }
 
+/**
+ * coordinatorLaunchFailureMessageの処理を実行する。
+ *
+ * @responsibility coordinatorLaunchFailureMessageに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000004
+ * @input reason: string
+ * @returns coordinatorLaunchFailureMessageの計算結果を返す。
+ * @precondition 「reason: string」がcoordinatorLaunchFailureMessageの入力契約を満たす。
+ * @postcondition coordinatorLaunchFailureMessageの責務を完了した結果だけを返す。
+ * @effect N/A: coordinatorLaunchFailureMessageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: coordinatorLaunchFailureMessageは独自の失敗分岐を所有しない。
+ * @invariant coordinatorLaunchFailureMessageは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: coordinatorLaunchFailureMessageはProcess内の同一Subsystemで完結する。
+ * @security N/A: coordinatorLaunchFailureMessageはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: coordinatorLaunchFailureMessageは共有非同期状態を持たない同期処理である。
+ */
 export function coordinatorLaunchFailureMessage(reason: string) {
   switch (reason) {
     case "coordinator_node_version_unsupported":

@@ -150,7 +150,7 @@ PilotではSemantic Keyの最終記法、最終Schemaおよび全Subsystemへの
 
 Pilot Projectionは17件すべてについてArchitectureとQuality Local Itemを接続した。実装Symbolは16件が`observed`、Runtime Trust消費の1件が`unobserved`である。Test Symbolとの接続は3件が`observed`、14件が`unobserved`である。いずれも実装完成、試験実行または合格を表さず、後続Reality Auditへの観測入力である。
 
-Quality Relationを作成する過程で、Queue／Leaseの終了条件とTransport中立Application Contractに専用Local Itemがないことを検出した。既存Local Itemへ意味を流用せず、`PRL-11`および`PRL-12`としてQuality正本へ追加した。
+Quality Relationを作成する過程で、Queue／Leaseの終了条件とTransport中立Application Contractに専用Local Itemがないことを検出した。既存Local Itemへ意味を流用せず、`PRL-IT-011`および`PRL-IT-012`としてQuality正本へ追加した。
 
 ## Checklist
 

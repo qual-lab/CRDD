@@ -52,6 +52,17 @@ const GRANT_KEYS = new Set([
   "profileHash",
 ]);
 
+/**
+ * AuthorityGrantが扱う値の構造を表す。
+ *
+ * @responsibility AuthorityGrantに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000014
+ * @shape AuthorityGrantが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant AuthorityGrantで宣言した値と責務の対応を維持する。
+ * @boundary N/A: AuthorityGrantの宣言は外部境界を開かない。
+ * @security AuthorityGrantはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility AuthorityGrantの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type AuthorityGrant = {
   grantRef: string;
   grantRevision: number;
@@ -74,6 +85,22 @@ type AuthorityGrant = {
   profileHash: string;
 };
 
+/**
+ * blockedの処理を実行する。
+ *
+ * @responsibility blockedに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input reason: string
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: string」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
+ * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(reason: string) {
   return Object.freeze({
     status: "blocked" as const,
@@ -84,6 +111,22 @@ function blocked(reason: string) {
   });
 }
 
+/**
+ * canonicalJsonの処理を実行する。
+ *
+ * @responsibility canonicalJsonに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input value: unknown
+ * @returns stringを返す。
+ * @precondition 「value: unknown」がcanonicalJsonの入力契約を満たす。
+ * @postcondition canonicalJsonの責務を完了した結果だけを返す。
+ * @effect N/A: canonicalJsonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure canonicalJsonは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant canonicalJsonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: canonicalJsonはProcess内の同一Subsystemで完結する。
+ * @security canonicalJsonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: canonicalJsonは共有非同期状態を持たない同期処理である。
+ */
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value && typeof value === "object") {
@@ -99,6 +142,22 @@ function canonicalJson(value: unknown): string {
   return serialized;
 }
 
+/**
+ * normalizedUtcの処理を実行する。
+ *
+ * @responsibility normalizedUtcに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input value: unknown
+ * @returns normalizedUtcの計算結果を返す。
+ * @precondition 「value: unknown」がnormalizedUtcの入力契約を満たす。
+ * @postcondition normalizedUtcの責務を完了した結果だけを返す。
+ * @effect N/A: normalizedUtcは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizedUtcは独自の失敗分岐を所有しない。
+ * @invariant normalizedUtcは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizedUtcはProcess内の同一Subsystemで完結する。
+ * @security normalizedUtcはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizedUtcは共有非同期状態を持たない同期処理である。
+ */
 function normalizedUtc(value: unknown) {
   if (typeof value !== "string" || !CANONICAL_UTC.test(value)) return null;
   const milliseconds = Date.parse(value);
@@ -107,6 +166,22 @@ function normalizedUtc(value: unknown) {
   return value === normalized ? normalized : null;
 }
 
+/**
+ * normalizeNowの処理を実行する。
+ *
+ * @responsibility normalizeNowに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input value: unknown
+ * @returns normalizeNowの計算結果を返す。
+ * @precondition 「value: unknown」がnormalizeNowの入力契約を満たす。
+ * @postcondition normalizeNowの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeNowは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizeNowは独自の失敗分岐を所有しない。
+ * @invariant normalizeNowは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeNowはProcess内の同一Subsystemで完結する。
+ * @security normalizeNowはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeNowは共有非同期状態を持たない同期処理である。
+ */
 function normalizeNow(value: unknown) {
   if (value instanceof Date) {
     const milliseconds = Date.prototype.getTime.call(value);
@@ -117,6 +192,22 @@ function normalizeNow(value: unknown) {
   return normalizedUtc(value);
 }
 
+/**
+ * normalizeOriginsの処理を実行する。
+ *
+ * @responsibility normalizeOriginsに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input origins: unknown
+ * @returns normalizeOriginsの計算結果を返す。
+ * @precondition 「origins: unknown」がnormalizeOriginsの入力契約を満たす。
+ * @postcondition normalizeOriginsの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeOriginsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure normalizeOriginsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant normalizeOriginsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeOriginsはProcess内の同一Subsystemで完結する。
+ * @security normalizeOriginsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeOriginsは共有非同期状態を持たない同期処理である。
+ */
 function normalizeOrigins(origins: unknown) {
   const result = snapshotPlainArray<string>(
     origins,
@@ -168,6 +259,22 @@ function normalizeOrigins(origins: unknown) {
     : null;
 }
 
+/**
+ * normalizeGrantの処理を実行する。
+ *
+ * @responsibility normalizeGrantに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input grant: unknown
+ * @returns Readonly<AuthorityGrant> | nullを返す。
+ * @precondition 「grant: unknown」がnormalizeGrantの入力契約を満たす。
+ * @postcondition normalizeGrantの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeGrantは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizeGrantは独自の失敗分岐を所有しない。
+ * @invariant normalizeGrantは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeGrantはProcess内の同一Subsystemで完結する。
+ * @security normalizeGrantはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeGrantは共有非同期状態を持たない同期処理である。
+ */
 function normalizeGrant(grant: unknown): Readonly<AuthorityGrant> | null {
   const snapshot = snapshotPlainRecord(grant, GRANT_KEYS);
   if (!snapshot) return null;
@@ -244,6 +351,22 @@ function normalizeGrant(grant: unknown): Readonly<AuthorityGrant> | null {
   });
 }
 
+/**
+ * validateAuthorityRegistryCandidateInternalの処理を実行する。
+ *
+ * @responsibility validateAuthorityRegistryCandidateInternalに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input candidate: unknown
+ * @returns validateAuthorityRegistryCandidateInternalの計算結果を返す。
+ * @precondition 「candidate: unknown」がvalidateAuthorityRegistryCandidateInternalの入力契約を満たす。
+ * @postcondition validateAuthorityRegistryCandidateInternalの責務を完了した結果だけを返す。
+ * @effect N/A: validateAuthorityRegistryCandidateInternalは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validateAuthorityRegistryCandidateInternalは独自の失敗分岐を所有しない。
+ * @invariant validateAuthorityRegistryCandidateInternalは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateAuthorityRegistryCandidateInternalはProcess内の同一Subsystemで完結する。
+ * @security validateAuthorityRegistryCandidateInternalはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateAuthorityRegistryCandidateInternalは共有非同期状態を持たない同期処理である。
+ */
 function validateAuthorityRegistryCandidateInternal(candidate: unknown) {
   const top = snapshotPlainRecord(candidate, TOP_LEVEL_KEYS);
   if (!top) return blocked("authority_registry_shape_invalid");
@@ -321,6 +444,22 @@ function validateAuthorityRegistryCandidateInternal(candidate: unknown) {
   });
 }
 
+/**
+ * validateAuthorityRegistryCandidateの処理を実行する。
+ *
+ * @responsibility validateAuthorityRegistryCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input candidate: unknown
+ * @returns validateAuthorityRegistryCandidateの計算結果を返す。
+ * @precondition 「candidate: unknown」がvalidateAuthorityRegistryCandidateの入力契約を満たす。
+ * @postcondition validateAuthorityRegistryCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: validateAuthorityRegistryCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure validateAuthorityRegistryCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant validateAuthorityRegistryCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateAuthorityRegistryCandidateはProcess内の同一Subsystemで完結する。
+ * @security validateAuthorityRegistryCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateAuthorityRegistryCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function validateAuthorityRegistryCandidate(candidate: unknown) {
   try {
     return validateAuthorityRegistryCandidateInternal(candidate);
@@ -329,6 +468,22 @@ export function validateAuthorityRegistryCandidate(candidate: unknown) {
   }
 }
 
+/**
+ * decodeCanonicalAuthorityRegistryBytesの処理を実行する。
+ *
+ * @responsibility decodeCanonicalAuthorityRegistryBytesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input input: unknown
+ * @returns decodeCanonicalAuthorityRegistryBytesの計算結果を返す。
+ * @precondition 「input: unknown」がdecodeCanonicalAuthorityRegistryBytesの入力契約を満たす。
+ * @postcondition decodeCanonicalAuthorityRegistryBytesの責務を完了した結果だけを返す。
+ * @effect N/A: decodeCanonicalAuthorityRegistryBytesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure decodeCanonicalAuthorityRegistryBytesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant decodeCanonicalAuthorityRegistryBytesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: decodeCanonicalAuthorityRegistryBytesはProcess内の同一Subsystemで完結する。
+ * @security decodeCanonicalAuthorityRegistryBytesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: decodeCanonicalAuthorityRegistryBytesは共有非同期状態を持たない同期処理である。
+ */
 export function decodeCanonicalAuthorityRegistryBytes(input: unknown) {
   try {
     if (!Buffer.isBuffer(input))
@@ -356,6 +511,22 @@ export function decodeCanonicalAuthorityRegistryBytes(input: unknown) {
   }
 }
 
+/**
+ * evaluateAuthorityGrantCandidateInternalの処理を実行する。
+ *
+ * @responsibility evaluateAuthorityGrantCandidateInternalに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input rawProfile: unknown、rawRegistry: unknown、context: unknown
+ * @returns evaluateAuthorityGrantCandidateInternalの計算結果を返す。
+ * @precondition 「rawProfile: unknown、rawRegistry: unknown、context: unknown」がevaluateAuthorityGrantCandidateInternalの入力契約を満たす。
+ * @postcondition evaluateAuthorityGrantCandidateInternalの責務を完了した結果だけを返す。
+ * @effect N/A: evaluateAuthorityGrantCandidateInternalは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: evaluateAuthorityGrantCandidateInternalは独自の失敗分岐を所有しない。
+ * @invariant evaluateAuthorityGrantCandidateInternalは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: evaluateAuthorityGrantCandidateInternalはProcess内の同一Subsystemで完結する。
+ * @security evaluateAuthorityGrantCandidateInternalはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: evaluateAuthorityGrantCandidateInternalは共有非同期状態を持たない同期処理である。
+ */
 function evaluateAuthorityGrantCandidateInternal(
   rawProfile: unknown,
   rawRegistry: unknown,
@@ -475,6 +646,22 @@ function evaluateAuthorityGrantCandidateInternal(
   });
 }
 
+/**
+ * evaluateAuthorityGrantCandidateの処理を実行する。
+ *
+ * @responsibility evaluateAuthorityGrantCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input rawProfile: unknown、rawRegistry: unknown、context: unknown
+ * @returns evaluateAuthorityGrantCandidateの計算結果を返す。
+ * @precondition 「rawProfile: unknown、rawRegistry: unknown、context: unknown」がevaluateAuthorityGrantCandidateの入力契約を満たす。
+ * @postcondition evaluateAuthorityGrantCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: evaluateAuthorityGrantCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure evaluateAuthorityGrantCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant evaluateAuthorityGrantCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: evaluateAuthorityGrantCandidateはProcess内の同一Subsystemで完結する。
+ * @security evaluateAuthorityGrantCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: evaluateAuthorityGrantCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function evaluateAuthorityGrantCandidate(
   rawProfile: unknown,
   rawRegistry: unknown,
@@ -491,6 +678,22 @@ export function evaluateAuthorityGrantCandidate(
   }
 }
 
+/**
+ * describeAuthorityGrantVerifierContractの処理を実行する。
+ *
+ * @responsibility describeAuthorityGrantVerifierContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000014
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeAuthorityGrantVerifierContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeAuthorityGrantVerifierContractの入力契約を満たす。
+ * @postcondition describeAuthorityGrantVerifierContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeAuthorityGrantVerifierContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeAuthorityGrantVerifierContractは独自の失敗分岐を所有しない。
+ * @invariant describeAuthorityGrantVerifierContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeAuthorityGrantVerifierContractはProcess内の同一Subsystemで完結する。
+ * @security describeAuthorityGrantVerifierContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeAuthorityGrantVerifierContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeAuthorityGrantVerifierContract() {
   return Object.freeze({
     contract: AUTHORITY_REGISTRY_CONTRACT,

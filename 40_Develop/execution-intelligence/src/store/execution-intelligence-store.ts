@@ -24,6 +24,17 @@ const LOCK_ATTEMPTS = 200;
 const LOCK_RETRY_MS = 10;
 const waitArray = new Int32Array(new SharedArrayBuffer(4));
 
+/**
+ * ExecutionIntelligencePublicationResultが扱う値の構造を表す。
+ *
+ * @responsibility ExecutionIntelligencePublicationResultに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000007
+ * @shape ExecutionIntelligencePublicationResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ExecutionIntelligencePublicationResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ExecutionIntelligencePublicationResultの宣言は外部境界を開かない。
+ * @security N/A: ExecutionIntelligencePublicationResultはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ExecutionIntelligencePublicationResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ExecutionIntelligencePublicationResult =
   | Readonly<{
       status: "completed";
@@ -51,20 +62,67 @@ export type ExecutionIntelligencePublicationResult =
       recoveryReference: string | null;
     }>;
 
+/**
+ * StoreLayoutが扱う値の構造を表す。
+ *
+ * @responsibility StoreLayoutに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000007
+ * @shape StoreLayoutが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant StoreLayoutで宣言した値と責務の対応を維持する。
+ * @boundary N/A: StoreLayoutの宣言は外部境界を開かない。
+ * @security N/A: StoreLayoutはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility StoreLayoutの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type StoreLayout = Readonly<{
   executionDirectory: string;
   operationDirectory: string | null;
   eventsDirectory: string | null;
 }>;
 
+/**
+ * MutationLockが扱う値の構造を表す。
+ *
+ * @responsibility MutationLockに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000007
+ * @shape MutationLockが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant MutationLockで宣言した値と責務の対応を維持する。
+ * @boundary N/A: MutationLockの宣言は外部境界を開かない。
+ * @security N/A: MutationLockはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility MutationLockの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type MutationLock = Readonly<{
   directory: string;
   owner: string;
   identity: string;
 }>;
 
+/**
+ * RuntimeDataAreaResolverが扱う値の構造を表す。
+ *
+ * @responsibility RuntimeDataAreaResolverに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000007
+ * @shape RuntimeDataAreaResolverが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeDataAreaResolverで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeDataAreaResolverの宣言は外部境界を開かない。
+ * @security N/A: RuntimeDataAreaResolverはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RuntimeDataAreaResolverの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimeDataAreaResolver = typeof ensureRepositoryRuntimeDataArea;
 
+/**
+ * MutationBoundaryErrorが担う状態と操作を提供する。
+ *
+ * @responsibility MutationBoundaryErrorに属する状態と操作の所有境界をまとめる。
+ * @trace ARCH-000007
+ * @construction MutationBoundaryErrorの生成に必要な依存と初期状態をConstructor契約で固定する。
+ * @lifecycle MutationBoundaryErrorが所有する状態と資源を生成から終了まで同じInstanceで管理する。
+ * @effect N/A: MutationBoundaryErrorの宣言自体は実行時Effectを発行しない。
+ * @failure N/A: MutationBoundaryErrorの宣言自体は実行時失敗を所有しない。
+ * @invariant MutationBoundaryErrorで宣言した値と責務の対応を維持する。
+ * @boundary N/A: MutationBoundaryErrorの宣言は外部境界を開かない。
+ * @security N/A: MutationBoundaryErrorはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: MutationBoundaryErrorは共有非同期状態を持たない同期処理である。
+ */
 class MutationBoundaryError extends Error {
   readonly residualArtifactIds: readonly string[];
 
@@ -75,10 +133,42 @@ class MutationBoundaryError extends Error {
   }
 }
 
+/**
+ * sha256の処理を実行する。
+ *
+ * @responsibility sha256に対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input bytes: string | Buffer
+ * @returns sha256の計算結果を返す。
+ * @precondition 「bytes: string | Buffer」がsha256の入力契約を満たす。
+ * @postcondition sha256の責務を完了した結果だけを返す。
+ * @effect N/A: sha256は入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sha256は独自の失敗分岐を所有しない。
+ * @invariant sha256は入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: sha256はAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: sha256は共有非同期状態を持たない同期処理である。
+ */
 function sha256(bytes: string | Buffer) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+/**
+ * samePathの処理を実行する。
+ *
+ * @responsibility samePathに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input left: string、right: string
+ * @returns booleanを返す。
+ * @precondition 「left: string、right: string」がsamePathの入力契約を満たす。
+ * @postcondition samePathの責務を完了した結果だけを返す。
+ * @effect samePathは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: samePathは独自の失敗分岐を所有しない。
+ * @invariant samePathは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: samePathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: samePathは共有非同期状態を持たない同期処理である。
+ */
 function samePath(left: string, right: string): boolean {
   const normalizedLeft = path.normalize(left);
   const normalizedRight = path.normalize(right);
@@ -88,6 +178,22 @@ function samePath(left: string, right: string): boolean {
     : normalizedLeft === normalizedRight;
 }
 
+/**
+ * safeDirectoryの処理を実行する。
+ *
+ * @responsibility safeDirectoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input directory: string
+ * @returns booleanを返す。
+ * @precondition 「directory: string」がsafeDirectoryの入力契約を満たす。
+ * @postcondition safeDirectoryの責務を完了した結果だけを返す。
+ * @effect safeDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: safeDirectoryは独自の失敗分岐を所有しない。
+ * @invariant safeDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: safeDirectoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: safeDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function safeDirectory(directory: string): boolean {
   const metadata = fs.lstatSync(directory);
   return (
@@ -97,6 +203,22 @@ function safeDirectory(directory: string): boolean {
   );
 }
 
+/**
+ * ensureDirectoryの処理を実行する。
+ *
+ * @responsibility ensureDirectoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input directory: string
+ * @returns N/A: ensureDirectoryは戻り値を返さない。
+ * @precondition 「directory: string」がensureDirectoryの入力契約を満たす。
+ * @postcondition ensureDirectoryの責務を完了して呼出し元へ制御を戻す。
+ * @effect ensureDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure ensureDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant ensureDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: ensureDirectoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: ensureDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function ensureDirectory(directory: string): void {
   try {
     fs.mkdirSync(directory, { mode: 0o700 });
@@ -107,6 +229,22 @@ function ensureDirectory(directory: string): void {
     throw new Error("execution_store_link_or_type_rejected");
 }
 
+/**
+ * storeLayoutの処理を実行する。
+ *
+ * @responsibility storeLayoutに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input rootCapability: VerifiedExecutionRepositoryRoot、shouldCreate: boolean、operationId: string | null、resolveArea: RuntimeDataAreaResolver
+ * @returns StoreLayout | nullを返す。
+ * @precondition 「rootCapability: VerifiedExecutionRepositoryRoot、shouldCreate: boolean、operationId: string | null、resolveArea: RuntimeDataAreaResolver」がstoreLayoutの入力契約を満たす。
+ * @postcondition storeLayoutの責務を完了した結果だけを返す。
+ * @effect storeLayoutはFilesystemの読取りまたは書込みを実行する。
+ * @failure storeLayoutは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant storeLayoutは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: storeLayoutはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: storeLayoutは共有非同期状態を持たない同期処理である。
+ */
 function storeLayout(
   rootCapability: VerifiedExecutionRepositoryRoot,
   shouldCreate: boolean,
@@ -164,6 +302,22 @@ function storeLayout(
   });
 }
 
+/**
+ * acquireMutationLockの処理を実行する。
+ *
+ * @responsibility acquireMutationLockに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input layout: StoreLayout
+ * @returns MutationLock | nullを返す。
+ * @precondition 「layout: StoreLayout」がacquireMutationLockの入力契約を満たす。
+ * @postcondition acquireMutationLockの責務を完了した結果だけを返す。
+ * @effect acquireMutationLockはFilesystemの読取りまたは書込みを実行する。
+ * @failure acquireMutationLockは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant acquireMutationLockは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: acquireMutationLockはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: acquireMutationLockは共有非同期状態を持たない同期処理である。
+ */
 function acquireMutationLock(layout: StoreLayout): MutationLock | null {
   if (layout.operationDirectory === null)
     throw new Error("execution_store_operation_directory_missing");
@@ -213,6 +367,22 @@ function acquireMutationLock(layout: StoreLayout): MutationLock | null {
   return null;
 }
 
+/**
+ * releaseMutationLockの処理を実行する。
+ *
+ * @responsibility releaseMutationLockに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input lock: MutationLock
+ * @returns booleanを返す。
+ * @precondition 「lock: MutationLock」がreleaseMutationLockの入力契約を満たす。
+ * @postcondition releaseMutationLockの責務を完了した結果だけを返す。
+ * @effect releaseMutationLockはFilesystemの読取りまたは書込みを実行する。
+ * @failure releaseMutationLockは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant releaseMutationLockは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: releaseMutationLockはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: releaseMutationLockは共有非同期状態を持たない同期処理である。
+ */
 function releaseMutationLock(lock: MutationLock): boolean {
   try {
     const parsed = JSON.parse(fs.readFileSync(lock.owner, "utf8")) as unknown;
@@ -230,6 +400,22 @@ function releaseMutationLock(lock: MutationLock): boolean {
   }
 }
 
+/**
+ * blockedPublicationの処理を実行する。
+ *
+ * @responsibility blockedPublicationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input reason: string、effectState: "no_effect" | "settled" | "unknown"、cleanupConfirmed: boolean、residualArtifactIds: readonly string[]、retryAllowed、boundary: Readonly<{ effectIssued?: boolean; effectStateUnknown?: boolean; recoveryReference?: string | null; }>
+ * @returns ExecutionIntelligencePublicationResultを返す。
+ * @precondition 「reason: string、effectState: "no_effect" | "settled" | "unknown"、cleanupConfirmed: boolean、residualArtifactIds: readonly string[]、retryAllowed、boundary: Readonly<{ effectIssued?: boolean; effectStateUnknown?: boolean; recoveryReference?: string | null; }>」がblockedPublicationの入力契約を満たす。
+ * @postcondition blockedPublicationの責務を完了した結果だけを返す。
+ * @effect N/A: blockedPublicationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedPublicationは独自の失敗分岐を所有しない。
+ * @invariant blockedPublicationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: blockedPublicationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: blockedPublicationは共有非同期状態を持たない同期処理である。
+ */
 function blockedPublication(
   reason: string,
   effectState: "no_effect" | "settled" | "unknown",
@@ -260,6 +446,22 @@ function blockedPublication(
   });
 }
 
+/**
+ * existingPublicationの処理を実行する。
+ *
+ * @responsibility existingPublicationに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input target: string、expected: Buffer、eventId: string
+ * @returns ExecutionIntelligencePublicationResultを返す。
+ * @precondition 「target: string、expected: Buffer、eventId: string」がexistingPublicationの入力契約を満たす。
+ * @postcondition existingPublicationの責務を完了した結果だけを返す。
+ * @effect existingPublicationはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: existingPublicationは独自の失敗分岐を所有しない。
+ * @invariant existingPublicationは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: existingPublicationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: existingPublicationは共有非同期状態を持たない同期処理である。
+ */
 function existingPublication(
   target: string,
   expected: Buffer,
@@ -288,6 +490,22 @@ function existingPublication(
       );
 }
 
+/**
+ * writeExecutionIntelligenceEventWithRuntimeDataAreaの処理を実行する。
+ *
+ * @responsibility writeExecutionIntelligenceEventWithRuntimeDataAreaに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input rootCapability: VerifiedExecutionRepositoryRoot、value: unknown、resolveArea: RuntimeDataAreaResolver
+ * @returns ExecutionIntelligencePublicationResultを返す。
+ * @precondition 「rootCapability: VerifiedExecutionRepositoryRoot、value: unknown、resolveArea: RuntimeDataAreaResolver」がwriteExecutionIntelligenceEventWithRuntimeDataAreaの入力契約を満たす。
+ * @postcondition writeExecutionIntelligenceEventWithRuntimeDataAreaの責務を完了した結果だけを返す。
+ * @effect writeExecutionIntelligenceEventWithRuntimeDataAreaはFilesystemの読取りまたは書込みを実行する。
+ * @failure writeExecutionIntelligenceEventWithRuntimeDataAreaは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant writeExecutionIntelligenceEventWithRuntimeDataAreaは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: writeExecutionIntelligenceEventWithRuntimeDataAreaはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: writeExecutionIntelligenceEventWithRuntimeDataAreaは共有非同期状態を持たない同期処理である。
+ */
 export function writeExecutionIntelligenceEventWithRuntimeDataArea(
   rootCapability: VerifiedExecutionRepositoryRoot,
   value: unknown,
@@ -431,6 +649,22 @@ export function writeExecutionIntelligenceEventWithRuntimeDataArea(
   );
 }
 
+/**
+ * writeExecutionIntelligenceEventの処理を実行する。
+ *
+ * @responsibility writeExecutionIntelligenceEventに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input rootCapability: VerifiedExecutionRepositoryRoot、value: unknown
+ * @returns ExecutionIntelligencePublicationResultを返す。
+ * @precondition 「rootCapability: VerifiedExecutionRepositoryRoot、value: unknown」がwriteExecutionIntelligenceEventの入力契約を満たす。
+ * @postcondition writeExecutionIntelligenceEventの責務を完了した結果だけを返す。
+ * @effect N/A: writeExecutionIntelligenceEventは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: writeExecutionIntelligenceEventは独自の失敗分岐を所有しない。
+ * @invariant writeExecutionIntelligenceEventは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: writeExecutionIntelligenceEventはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: writeExecutionIntelligenceEventは共有非同期状態を持たない同期処理である。
+ */
 export function writeExecutionIntelligenceEvent(
   rootCapability: VerifiedExecutionRepositoryRoot,
   value: unknown,
@@ -442,6 +676,22 @@ export function writeExecutionIntelligenceEvent(
   );
 }
 
+/**
+ * readFromExecutionDirectoryの処理を実行する。
+ *
+ * @responsibility readFromExecutionDirectoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input directory: string
+ * @returns readFromExecutionDirectoryの計算結果を返す。
+ * @precondition 「directory: string」がreadFromExecutionDirectoryの入力契約を満たす。
+ * @postcondition readFromExecutionDirectoryの責務を完了した結果だけを返す。
+ * @effect readFromExecutionDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure readFromExecutionDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readFromExecutionDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: readFromExecutionDirectoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readFromExecutionDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function readFromExecutionDirectory(directory: string) {
   const events: ExecutionIntelligenceEvent[] = [];
   const hashes: Record<string, string> = {};
@@ -495,6 +745,22 @@ function readFromExecutionDirectory(directory: string) {
   });
 }
 
+/**
+ * readExecutionIntelligenceWithRuntimeDataAreaの処理を実行する。
+ *
+ * @responsibility readExecutionIntelligenceWithRuntimeDataAreaに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input rootCapability: VerifiedExecutionRepositoryRoot、resolveArea: RuntimeDataAreaResolver
+ * @returns | ReturnType<typeof readFromExecutionDirectory> | Extract<ExecutionIntelligencePublicationResult, { status: "blocked" }>を返す。
+ * @precondition 「rootCapability: VerifiedExecutionRepositoryRoot、resolveArea: RuntimeDataAreaResolver」がreadExecutionIntelligenceWithRuntimeDataAreaの入力契約を満たす。
+ * @postcondition readExecutionIntelligenceWithRuntimeDataAreaの責務を完了した結果だけを返す。
+ * @effect N/A: readExecutionIntelligenceWithRuntimeDataAreaは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure readExecutionIntelligenceWithRuntimeDataAreaは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readExecutionIntelligenceWithRuntimeDataAreaは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: readExecutionIntelligenceWithRuntimeDataAreaはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readExecutionIntelligenceWithRuntimeDataAreaは共有非同期状態を持たない同期処理である。
+ */
 export function readExecutionIntelligenceWithRuntimeDataArea(
   rootCapability: VerifiedExecutionRepositoryRoot,
   resolveArea: RuntimeDataAreaResolver,
@@ -539,6 +805,22 @@ export function readExecutionIntelligenceWithRuntimeDataArea(
   }
 }
 
+/**
+ * readExecutionIntelligenceの処理を実行する。
+ *
+ * @responsibility readExecutionIntelligenceに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input rootCapability: VerifiedExecutionRepositoryRoot
+ * @returns readExecutionIntelligenceの計算結果を返す。
+ * @precondition 「rootCapability: VerifiedExecutionRepositoryRoot」がreadExecutionIntelligenceの入力契約を満たす。
+ * @postcondition readExecutionIntelligenceの責務を完了した結果だけを返す。
+ * @effect N/A: readExecutionIntelligenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: readExecutionIntelligenceは独自の失敗分岐を所有しない。
+ * @invariant readExecutionIntelligenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: readExecutionIntelligenceはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readExecutionIntelligenceは共有非同期状態を持たない同期処理である。
+ */
 export function readExecutionIntelligence(
   rootCapability: VerifiedExecutionRepositoryRoot,
 ) {

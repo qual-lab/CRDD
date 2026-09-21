@@ -12,6 +12,22 @@ export const GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT_REVISION = 1 as const;
 
 const MAX_PATH_CHARACTERS = 4096;
 
+/**
+ * readExactRepositoryRootの処理を実行する。
+ *
+ * @responsibility readExactRepositoryRootに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input value: unknown
+ * @returns string | nullを返す。
+ * @precondition 「value: unknown」がreadExactRepositoryRootの入力契約を満たす。
+ * @postcondition readExactRepositoryRootの責務を完了した結果だけを返す。
+ * @effect N/A: readExactRepositoryRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure readExactRepositoryRootは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readExactRepositoryRootは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: readExactRepositoryRootはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readExactRepositoryRootは共有非同期状態を持たない同期処理である。
+ */
 function readExactRepositoryRoot(value: unknown): string | null {
   try {
     if (
@@ -46,6 +62,22 @@ function readExactRepositoryRoot(value: unknown): string | null {
   }
 }
 
+/**
+ * responseの処理を実行する。
+ *
+ * @responsibility responseに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input status: S、reason: string、layout: T | null
+ * @returns responseの計算結果を返す。
+ * @precondition 「status: S、reason: string、layout: T | null」がresponseの入力契約を満たす。
+ * @postcondition responseの責務を完了した結果だけを返す。
+ * @effect N/A: responseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: responseは独自の失敗分岐を所有しない。
+ * @invariant responseは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: responseはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: responseは共有非同期状態を持たない同期処理である。
+ */
 function response<const S extends string, T>(
   status: S,
   reason: string,
@@ -61,6 +93,22 @@ function response<const S extends string, T>(
   });
 }
 
+/**
+ * inspectGitRepositoryLayoutCandidateの処理を実行する。
+ *
+ * @responsibility inspectGitRepositoryLayoutCandidateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input rawInput: unknown
+ * @returns inspectGitRepositoryLayoutCandidateの計算結果を返す。
+ * @precondition 「rawInput: unknown」がinspectGitRepositoryLayoutCandidateの入力契約を満たす。
+ * @postcondition inspectGitRepositoryLayoutCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectGitRepositoryLayoutCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectGitRepositoryLayoutCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectGitRepositoryLayoutCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: inspectGitRepositoryLayoutCandidateはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectGitRepositoryLayoutCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectGitRepositoryLayoutCandidate(rawInput: unknown) {
   const repositoryRoot = readExactRepositoryRoot(rawInput);
   if (repositoryRoot === null)
@@ -91,6 +139,22 @@ export function inspectGitRepositoryLayoutCandidate(rawInput: unknown) {
   }
 }
 
+/**
+ * describeGitRepositoryLayoutAdapterContractの処理を実行する。
+ *
+ * @responsibility describeGitRepositoryLayoutAdapterContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000002
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeGitRepositoryLayoutAdapterContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeGitRepositoryLayoutAdapterContractの入力契約を満たす。
+ * @postcondition describeGitRepositoryLayoutAdapterContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeGitRepositoryLayoutAdapterContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeGitRepositoryLayoutAdapterContractは独自の失敗分岐を所有しない。
+ * @invariant describeGitRepositoryLayoutAdapterContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: describeGitRepositoryLayoutAdapterContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeGitRepositoryLayoutAdapterContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeGitRepositoryLayoutAdapterContract() {
   return Object.freeze({
     contract: GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT,

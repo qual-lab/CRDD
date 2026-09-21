@@ -696,6 +696,29 @@ Quality AnalysisとQuality Definitionは1対1に固定しない。複数のCanon
 
 Quality Analysisは、`Source ID → 検証目標 → 試験段階 → Definition内Local Item`と`Architecture詳細設計領域 → 検証目標`を明示する。各Definitionは同じSource固有条件、試験段階、Local Itemおよび詳細設計入力を保持する。宣言集合と、Canonical Definition、Architecture詳細設計領域およびDefinition実体から導出した集合を比較し、欠落、未知Relation、別目標への移動および説明だけを変えた重複を不整合として扱う。Source固有条件は空欄でないことだけでなく、Quality AnalysisとDefinitionの間で空白差を除いて一致させる。全件MappingのSource行に示す試験段階は、そのSourceを複数の検証目標へ分けた各関係の試験段階の和集合と一致させる。各`Source ID + 検証目標`関係に示した試験段階は、同じ関係へ結び付けたLocal Itemに同じ段階が一件以上なければならない。別Source、別の検証目標、別段階のLocal Itemまたは検証目標全体の適用表で代替しない。検証項目の閉包はLocal Itemの全体集合だけでなく、`検証目標 → Local Item`の組を完全一致させ、別目標との入替を許容しない。検証目標名だけへの接続、代表Sourceだけの試験またはLocal Item一覧だけでは全件処置としない。
 
+検証項目の完全性は、既に存在するLocal ItemやTestの一覧から逆算しない。Quality Analysisは、正本成果物から導出した必要検証義務（Required Verification Obligation）の集合と、Quality Definitionが定義したLocal Itemの集合を別に扱い、次の差を判定できるようにする。
+
+```text
+Canonical Definition／Architecture Model Item
+                    ↓
+       Required Verification Obligation
+                    ↓  Same／New／Merge
+             Quality Definition
+                    ↓
+             Defined Local Item
+                    ↓
+          Test／Execution／Evidence
+```
+
+| 差分 | 意味 | 処置 |
+|---|---|---|
+| Required - Defined | 必要だがLocal Itemがない | Quality Definitionを追加・更新するか、上流の導出誤りを是正する |
+| Defined - Required | 正本上の必要性へ戻れないLocal Item | Legacy、重複、実装都合または上流Gapとして分類する |
+| Level不一致 | 必要な観測境界とLocal Itemの試験段階が違う | 同じ意味でも観測境界ごとにLocal Itemを分ける |
+| Relation不明 | Source、設計項目または検証目標へ一意に戻れない | 推測で接続せずGapとする |
+
+REQ／UX／IAはUAT専用のLocal Itemや新しい安定IDを所有しない。要求の受入条件、UXの利用者成果・重要場面・失敗、IAの情報発見・理解・関連付けをQuality Analysisが受入検証義務へ変換し、Quality DefinitionがUAT Local Itemを所有する。UI／SPECからは主にSystemとして観測する成立条件を、Architectureからは主にComponent・Boundary・State・Sequence・Failure／Recoveryの結合条件を、Architecture Detailsと実装構造からは主に局所責務・分岐・不変条件・Error処置を導出する。この対応は試験段階の固定割当ではなく、同じ条件が複数の観測境界を必要とする場合は複数段階へ展開する。
+
 品質工程は直前のArchitectureだけを正式入力としない。各工程は異なる種類の成立条件を所有するため、要求は課題解決、UXは利用者成果、IAは情報の理解・識別・追跡、UIは認識・操作・Feedback、SPECは振る舞い契約、Architectureは構造・境界・故障・回復の観点から横断分析する。試験段階は情報源となる工程へ固定対応させず、検証義務と観測境界から判断する。
 
 根拠は、対象成果物内または最も近い親フォルダの`Evidence/`に置く。実装コード、テストコード、構成、再現手順等は、それぞれの通常配置を正本とし、検証結果とQuality Centerから参照する。根拠を`07_Quality`へ集め直さない。
@@ -711,6 +734,8 @@ Git管理対象の一覧、Blob Identityまたは機械的な属性分類を固�
 ## 4.3. 空欄による準拠を求めない
 
 固定構成は、すべての対象へ同じ文章量、検証方法または項目数を要求するものではない。適用しない項目は理由付き`Not Applicable`、まだ判断または実施が必要な項目は未決または未検証として、担当責任者と追跡先を示す。
+
+[任意機能と必須評価](03_Documentation.md#mandatory-applicability-evaluation)に従い、品質上重要な評価項目自体を任意にしない。検証結果では、少なくとも層間搬送、耐久状態のAuthority分類、残存資源／Recovery、根拠の主張軸、PT／LT、未取得範囲および人間判断の適用可否を全数評価し、`Applicable`、理由付き`N/A`または理由付き`OPEN`へ処置する。補助ツールの利用、外部リンクの追加または生ログ保存等の任意機能まで強制しない。
 
 長い空のひな型、意味のない`N/A`の列、実施しない方法の一覧を埋めることを品質保証の完了条件にしない。短い記録でも、責務境界、対象、理由、結果、未保証範囲および判断先を理解できればよい。
 
@@ -889,6 +914,20 @@ Quality Definitions
 | Quality Center | Coverage、Freshness、Pass／Fail／Blocked、未確認範囲へのNavigation |
 
 Quality Definitionは特定CHGに閉じず、複数の変更・改訂版から再利用できる検証項目書とする。実行結果を同じDefinitionへ書き込まず、項目書と成績を分離する。Test Caseへ意味の薄いGlobal IDを一律発行せず、必要ならCanonical Definitionと文書内Local Itemの組で識別する。
+
+Test SourceはArchitecture IDへ直接接続せず、検証するQuality Local Itemへ接続する。Test Fileは扱うLocal Item集合をFile Headerに示し、個別Test Case、責務を持つ名前付きTest HelperおよびFixtureは対応するLocal Itemを`@trace`で示す。匿名Callback一般はSymbol Header対象外だが、`test`／`it`等で宣言する個別Test Caseは検証責務を持つため、呼出し直前の可視HeaderでSummary、`@responsibility`および`@trace`を保持する。Local Item側がArchitecture MeaningとのRelationを所有し、Test側へ`ARCH-*`を重複記録しない。
+
+```text
+Architecture Meaning
+        ↓
+Quality Local Item
+        ↓
+Test Case／Named Helper／Fixture
+        ↓
+Execution／Evidence
+```
+
+Local Item IDが試験段階を含む場合、Test Fileの論理配置およびTest kindは同じ段階と一致させる。同じ検証意図が複数の観測境界を必要とする場合は、一つのLocal Itemを複数段階へ流用せず、Quality Definitionで観測境界ごとのLocal Itemへ分ける。既存Local Itemが複数段階を同時に持つ移行前構造では、Test Headerを先に推測で付けず、Local Item細分化と利用側移行を完了してから必須Gateを有効化する。
 
 `07_Quality`は、上記の固定構造を用いる。`Analysis/`は意味のある横断分析単位、`Definitions/`は独立した検証目標で整理する。全Canonical IDはMappingで個別処置するが、ID別Directoryや薄い文書を既定にしない。試験段階はDirectory、上流工程または検証目標へ固定せず、各検証義務と観測境界の適用判定として保持する。各DefinitionはUT／IT／ST／UATの適用表と、Local Itemごとの試験段階、試験種別、対象境界および外部境界の段階を持ち、試験段階別の人間向けViewはこの正本から投影する。既存成果物を移行するときは、利用側とEvidenceを棚卸しし、同じ意味を複製せずに現行の分析・定義・Evidenceへ接続する。空Directoryや中身のない準拠文書は作成しない。
 

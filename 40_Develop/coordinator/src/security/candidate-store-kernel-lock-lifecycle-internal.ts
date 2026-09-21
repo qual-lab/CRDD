@@ -4,10 +4,32 @@ import { createHash } from "node:crypto";
 const HOST_SUPERVISOR_ACQUIRE_TIMEOUT_MS = 1_000;
 const INTERACTIVE_LOCK_CLEANUP_TIMEOUT_MS = 1_000;
 
+/**
+ * HostOperationSupervisorCleanupが扱う値の構造を表す。
+ *
+ * @responsibility HostOperationSupervisorCleanupに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape HostOperationSupervisorCleanupが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant HostOperationSupervisorCleanupで宣言した値と責務の対応を維持する。
+ * @boundary N/A: HostOperationSupervisorCleanupの宣言は外部境界を開かない。
+ * @security HostOperationSupervisorCleanupはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility HostOperationSupervisorCleanupの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type HostOperationSupervisorCleanup =
   | "released"
   | "cleanup_confirmed_failure"
   | "cleanup_unknown";
+/**
+ * HostOperationLockSupervisorが扱う値の構造を表す。
+ *
+ * @responsibility HostOperationLockSupervisorに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape HostOperationLockSupervisorが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant HostOperationLockSupervisorで宣言した値と責務の対応を維持する。
+ * @boundary N/A: HostOperationLockSupervisorの宣言は外部境界を開かない。
+ * @security HostOperationLockSupervisorはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility HostOperationLockSupervisorの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type HostOperationLockSupervisor = Readonly<{
   assertLive: () => boolean;
   onFailureDetected: (listener: () => void) => () => void;
@@ -18,6 +40,17 @@ export type HostOperationLockSupervisor = Readonly<{
   >;
   release: () => Promise<HostOperationSupervisorCleanup>;
 }>;
+/**
+ * HostOperationSupervisorLockOutcomeが扱う値の構造を表す。
+ *
+ * @responsibility HostOperationSupervisorLockOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape HostOperationSupervisorLockOutcomeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant HostOperationSupervisorLockOutcomeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: HostOperationSupervisorLockOutcomeの宣言は外部境界を開かない。
+ * @security HostOperationSupervisorLockOutcomeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility HostOperationSupervisorLockOutcomeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type HostOperationSupervisorLockOutcome = Readonly<{
   status:
     | "acquired"
@@ -27,6 +60,17 @@ export type HostOperationSupervisorLockOutcome = Readonly<{
   lock: HostOperationLockSupervisor | null;
 }>;
 
+/**
+ * InteractiveConsoleLockWorkerが扱う値の構造を表す。
+ *
+ * @responsibility InteractiveConsoleLockWorkerに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape InteractiveConsoleLockWorkerが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant InteractiveConsoleLockWorkerで宣言した値と責務の対応を維持する。
+ * @boundary N/A: InteractiveConsoleLockWorkerの宣言は外部境界を開かない。
+ * @security InteractiveConsoleLockWorkerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility InteractiveConsoleLockWorkerの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type InteractiveConsoleLockWorker = Readonly<{
   unref: () => void;
   postMessage: (value: string) => void;
@@ -37,6 +81,17 @@ type InteractiveConsoleLockWorker = Readonly<{
   ) => unknown;
 }>;
 
+/**
+ * InteractiveConsoleKernelLockOutcomeが扱う値の構造を表す。
+ *
+ * @responsibility InteractiveConsoleKernelLockOutcomeに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape InteractiveConsoleKernelLockOutcomeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant InteractiveConsoleKernelLockOutcomeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: InteractiveConsoleKernelLockOutcomeの宣言は外部境界を開かない。
+ * @security InteractiveConsoleKernelLockOutcomeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility InteractiveConsoleKernelLockOutcomeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type InteractiveConsoleKernelLockOutcome = Readonly<{
   status: "acquired" | "unavailable" | "cleanup_unknown";
   lock: Readonly<{
@@ -44,6 +99,22 @@ export type InteractiveConsoleKernelLockOutcome = Readonly<{
   }> | null;
 }>;
 
+/**
+ * waitForStateの処理を実行する。
+ *
+ * @responsibility waitForStateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input state: Int32Array、expected: number、timeoutMs: number
+ * @returns waitForStateの計算結果を返す。
+ * @precondition 「state: Int32Array、expected: number、timeoutMs: number」がwaitForStateの入力契約を満たす。
+ * @postcondition waitForStateの責務を完了した結果だけを返す。
+ * @effect N/A: waitForStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: waitForStateは独自の失敗分岐を所有しない。
+ * @invariant waitForStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security waitForStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: waitForStateは共有非同期状態を持たない同期処理である。
+ */
 function waitForState(state: Int32Array, expected: number, timeoutMs: number) {
   const deadline = Date.now() + timeoutMs;
   while (Atomics.load(state, 0) === expected) {
@@ -54,6 +125,22 @@ function waitForState(state: Int32Array, expected: number, timeoutMs: number) {
   return true;
 }
 
+/**
+ * boundedWorkerExitの処理を実行する。
+ *
+ * @responsibility boundedWorkerExitに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input worker: InteractiveConsoleLockWorker
+ * @returns boundedWorkerExitの計算結果を返す。
+ * @precondition 「worker: InteractiveConsoleLockWorker」がboundedWorkerExitの入力契約を満たす。
+ * @postcondition boundedWorkerExitの責務を完了した結果だけを返す。
+ * @effect N/A: boundedWorkerExitは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: boundedWorkerExitは独自の失敗分岐を所有しない。
+ * @invariant boundedWorkerExitは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security boundedWorkerExitはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency boundedWorkerExitは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function boundedWorkerExit(worker: InteractiveConsoleLockWorker) {
   return new Promise<"exited" | "error">((resolve) => {
     let isSettled = false;
@@ -67,6 +154,22 @@ function boundedWorkerExit(worker: InteractiveConsoleLockWorker) {
   });
 }
 
+/**
+ * withinTimeoutの処理を実行する。
+ *
+ * @responsibility withinTimeoutに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input promise: Promise<T>、timeoutMs: number
+ * @returns withinTimeoutの計算結果を返す。
+ * @precondition 「promise: Promise<T>、timeoutMs: number」がwithinTimeoutの入力契約を満たす。
+ * @postcondition withinTimeoutの責務を完了した結果だけを返す。
+ * @effect N/A: withinTimeoutは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: withinTimeoutは独自の失敗分岐を所有しない。
+ * @invariant withinTimeoutは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security withinTimeoutはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency withinTimeoutは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function withinTimeout<T>(promise: Promise<T>, timeoutMs: number) {
   return new Promise<Readonly<{ completed: boolean; value: T | null }>>(
     (resolve) => {
@@ -95,6 +198,22 @@ async function withinTimeout<T>(promise: Promise<T>, timeoutMs: number) {
   );
 }
 
+/**
+ * terminateAndConfirmInteractiveConsoleLockWorkerの処理を実行する。
+ *
+ * @responsibility terminateAndConfirmInteractiveConsoleLockWorkerに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input worker: InteractiveConsoleLockWorker、exit: Promise<"exited" | "error">
+ * @returns terminateAndConfirmInteractiveConsoleLockWorkerの計算結果を返す。
+ * @precondition 「worker: InteractiveConsoleLockWorker、exit: Promise<"exited" | "error">」がterminateAndConfirmInteractiveConsoleLockWorkerの入力契約を満たす。
+ * @postcondition terminateAndConfirmInteractiveConsoleLockWorkerの責務を完了した結果だけを返す。
+ * @effect N/A: terminateAndConfirmInteractiveConsoleLockWorkerは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: terminateAndConfirmInteractiveConsoleLockWorkerは独自の失敗分岐を所有しない。
+ * @invariant terminateAndConfirmInteractiveConsoleLockWorkerは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security terminateAndConfirmInteractiveConsoleLockWorkerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency terminateAndConfirmInteractiveConsoleLockWorkerは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function terminateAndConfirmInteractiveConsoleLockWorker(
   worker: InteractiveConsoleLockWorker,
   exit: Promise<"exited" | "error">,
@@ -114,6 +233,22 @@ async function terminateAndConfirmInteractiveConsoleLockWorker(
   );
 }
 
+/**
+ * prepareInteractiveConsoleKernelLockRequestの処理を実行する。
+ *
+ * @responsibility prepareInteractiveConsoleKernelLockRequestに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns prepareInteractiveConsoleKernelLockRequestの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がprepareInteractiveConsoleKernelLockRequestの入力契約を満たす。
+ * @postcondition prepareInteractiveConsoleKernelLockRequestの責務を完了した結果だけを返す。
+ * @effect prepareInteractiveConsoleKernelLockRequestは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: prepareInteractiveConsoleKernelLockRequestは独自の失敗分岐を所有しない。
+ * @invariant prepareInteractiveConsoleKernelLockRequestは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security prepareInteractiveConsoleKernelLockRequestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: prepareInteractiveConsoleKernelLockRequestは共有非同期状態を持たない同期処理である。
+ */
 export function prepareInteractiveConsoleKernelLockRequest() {
   if (process.platform !== "win32") return null;
   const lockIdentity = createHash("sha256")
@@ -127,6 +262,22 @@ export function prepareInteractiveConsoleKernelLockRequest() {
   });
 }
 
+/**
+ * runInteractiveConsoleKernelLockLifecycleの処理を実行する。
+ *
+ * @responsibility runInteractiveConsoleKernelLockLifecycleに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input worker: InteractiveConsoleLockWorker、sharedState: SharedArrayBuffer
+ * @returns Promise<InteractiveConsoleKernelLockOutcome>を返す。
+ * @precondition 「worker: InteractiveConsoleLockWorker、sharedState: SharedArrayBuffer」がrunInteractiveConsoleKernelLockLifecycleの入力契約を満たす。
+ * @postcondition runInteractiveConsoleKernelLockLifecycleの責務を完了した結果だけを返す。
+ * @effect N/A: runInteractiveConsoleKernelLockLifecycleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure runInteractiveConsoleKernelLockLifecycleは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runInteractiveConsoleKernelLockLifecycleは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security runInteractiveConsoleKernelLockLifecycleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency runInteractiveConsoleKernelLockLifecycleは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function runInteractiveConsoleKernelLockLifecycle(
   worker: InteractiveConsoleLockWorker,
   sharedState: SharedArrayBuffer,
@@ -179,7 +330,29 @@ export async function runInteractiveConsoleKernelLockLifecycle(
   });
 }
 
+/**
+ * SupervisorChildが扱う値の構造を表す。
+ *
+ * @responsibility SupervisorChildに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape SupervisorChildが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SupervisorChildで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SupervisorChildの宣言は外部境界を開かない。
+ * @security SupervisorChildはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility SupervisorChildの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type SupervisorChild = ChildProcess;
+/**
+ * SupervisorObservationが扱う値の構造を表す。
+ *
+ * @responsibility SupervisorObservationに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000015
+ * @shape SupervisorObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SupervisorObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SupervisorObservationの宣言は外部境界を開かない。
+ * @security SupervisorObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility SupervisorObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type SupervisorObservation =
   | "expected"
   | "unavailable"
@@ -188,6 +361,22 @@ type SupervisorObservation =
   | "exit"
   | "timeout";
 
+/**
+ * exactSupervisorStatusの処理を実行する。
+ *
+ * @responsibility exactSupervisorStatusに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input message: unknown
+ * @returns exactSupervisorStatusの計算結果を返す。
+ * @precondition 「message: unknown」がexactSupervisorStatusの入力契約を満たす。
+ * @postcondition exactSupervisorStatusの責務を完了した結果だけを返す。
+ * @effect N/A: exactSupervisorStatusは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: exactSupervisorStatusは独自の失敗分岐を所有しない。
+ * @invariant exactSupervisorStatusは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security exactSupervisorStatusはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: exactSupervisorStatusは共有非同期状態を持たない同期処理である。
+ */
 function exactSupervisorStatus(message: unknown) {
   if (
     typeof message !== "object" ||
@@ -208,6 +397,22 @@ function exactSupervisorStatus(message: unknown) {
     : null;
 }
 
+/**
+ * waitForSupervisorStatusの処理を実行する。
+ *
+ * @responsibility waitForSupervisorStatusに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input child: SupervisorChild、expected: "acquired" | "ready" | "release-ready" | "released"、timeoutMs: number
+ * @returns waitForSupervisorStatusの計算結果を返す。
+ * @precondition 「child: SupervisorChild、expected: "acquired" | "ready" | "release-ready" | "released"、timeoutMs: number」がwaitForSupervisorStatusの入力契約を満たす。
+ * @postcondition waitForSupervisorStatusの責務を完了した結果だけを返す。
+ * @effect N/A: waitForSupervisorStatusは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: waitForSupervisorStatusは独自の失敗分岐を所有しない。
+ * @invariant waitForSupervisorStatusは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security waitForSupervisorStatusはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency waitForSupervisorStatusは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function waitForSupervisorStatus(
   child: SupervisorChild,
   expected: "acquired" | "ready" | "release-ready" | "released",
@@ -241,12 +446,44 @@ function waitForSupervisorStatus(
   });
 }
 
+/**
+ * releaseSupervisorHandlesの処理を実行する。
+ *
+ * @responsibility releaseSupervisorHandlesに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input child: SupervisorChild
+ * @returns N/A: releaseSupervisorHandlesは戻り値を返さない。
+ * @precondition 「child: SupervisorChild」がreleaseSupervisorHandlesの入力契約を満たす。
+ * @postcondition releaseSupervisorHandlesの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: releaseSupervisorHandlesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: releaseSupervisorHandlesは独自の失敗分岐を所有しない。
+ * @invariant releaseSupervisorHandlesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security releaseSupervisorHandlesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: releaseSupervisorHandlesは共有非同期状態を持たない同期処理である。
+ */
 function releaseSupervisorHandles(child: SupervisorChild) {
   child.removeAllListeners();
   child.unref();
   child.channel?.unref();
 }
 
+/**
+ * terminateSupervisorの処理を実行する。
+ *
+ * @responsibility terminateSupervisorに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input child: SupervisorChild、timeoutMs: number
+ * @returns terminateSupervisorの計算結果を返す。
+ * @precondition 「child: SupervisorChild、timeoutMs: number」がterminateSupervisorの入力契約を満たす。
+ * @postcondition terminateSupervisorの責務を完了した結果だけを返す。
+ * @effect N/A: terminateSupervisorは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure terminateSupervisorは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant terminateSupervisorは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security terminateSupervisorはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency terminateSupervisorは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function terminateSupervisor(child: SupervisorChild, timeoutMs: number) {
   if (child.exitCode !== null || child.signalCode !== null) {
     releaseSupervisorHandles(child);
@@ -271,6 +508,22 @@ async function terminateSupervisor(child: SupervisorChild, timeoutMs: number) {
   return hasExited;
 }
 
+/**
+ * unresolvedSupervisorLockの処理を実行する。
+ *
+ * @responsibility unresolvedSupervisorLockに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input child: SupervisorChild
+ * @returns unresolvedSupervisorLockの計算結果を返す。
+ * @precondition 「child: SupervisorChild」がunresolvedSupervisorLockの入力契約を満たす。
+ * @postcondition unresolvedSupervisorLockの責務を完了した結果だけを返す。
+ * @effect N/A: unresolvedSupervisorLockは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: unresolvedSupervisorLockは独自の失敗分岐を所有しない。
+ * @invariant unresolvedSupervisorLockは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security unresolvedSupervisorLockはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency unresolvedSupervisorLockは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function unresolvedSupervisorLock(child: SupervisorChild) {
   releaseSupervisorHandles(child);
   return Object.freeze({
@@ -286,6 +539,22 @@ function unresolvedSupervisorLock(child: SupervisorChild) {
   });
 }
 
+/**
+ * runHostOperationSupervisorLifecycleの処理を実行する。
+ *
+ * @responsibility runHostOperationSupervisorLifecycleに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000015
+ * @input request: Readonly<{ pipeName: string; environment: NodeJS.ProcessEnv; timing: Readonly<{ acquireTimeoutMs: number; releaseTimeoutMs: number }>; }>、child: SupervisorChild
+ * @returns Promise<HostOperationSupervisorLockOutcome>を返す。
+ * @precondition 「request: Readonly<{ pipeName: string; environment: NodeJS.ProcessEnv; timing: Readonly<{ acquireTimeoutMs: number; releaseTimeoutMs: number }>; }>、child: SupervisorChild」がrunHostOperationSupervisorLifecycleの入力契約を満たす。
+ * @postcondition runHostOperationSupervisorLifecycleの責務を完了した結果だけを返す。
+ * @effect N/A: runHostOperationSupervisorLifecycleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure runHostOperationSupervisorLifecycleは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runHostOperationSupervisorLifecycleは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security runHostOperationSupervisorLifecycleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency runHostOperationSupervisorLifecycleは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function runHostOperationSupervisorLifecycle(
   request: Readonly<{
     pipeName: string;

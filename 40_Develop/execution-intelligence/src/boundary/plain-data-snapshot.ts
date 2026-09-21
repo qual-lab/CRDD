@@ -1,9 +1,36 @@
 import { types as utilTypes } from "node:util";
 
+/**
+ * ArraySnapshotが扱う値の構造を表す。
+ *
+ * @responsibility ArraySnapshotに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000007
+ * @shape ArraySnapshotが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ArraySnapshotで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ArraySnapshotの宣言は外部境界を開かない。
+ * @security N/A: ArraySnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ArraySnapshotの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ArraySnapshot<T> =
   | Readonly<{ status: "ok"; value: readonly T[] }>
   | Readonly<{ status: "blocked"; value: null }>;
 
+/**
+ * isPlainRecordの処理を実行する。
+ *
+ * @responsibility isPlainRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input value: unknown
+ * @returns value is objectを返す。
+ * @precondition 「value: unknown」がisPlainRecordの入力契約を満たす。
+ * @postcondition isPlainRecordの責務を完了した結果だけを返す。
+ * @effect N/A: isPlainRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure isPlainRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant isPlainRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isPlainRecordはProcess内の同一Subsystemで完結する。
+ * @security N/A: isPlainRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isPlainRecordは共有非同期状態を持たない同期処理である。
+ */
 function isPlainRecord(value: unknown): value is object {
   try {
     if (
@@ -20,6 +47,22 @@ function isPlainRecord(value: unknown): value is object {
   }
 }
 
+/**
+ * isDataDescriptorの処理を実行する。
+ *
+ * @responsibility isDataDescriptorに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input descriptor: PropertyDescriptor | undefined、shouldBeEnumerable
+ * @returns descriptor is PropertyDescriptor & { value: unknown }を返す。
+ * @precondition 「descriptor: PropertyDescriptor | undefined、shouldBeEnumerable」がisDataDescriptorの入力契約を満たす。
+ * @postcondition isDataDescriptorの責務を完了した結果だけを返す。
+ * @effect N/A: isDataDescriptorは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isDataDescriptorは独自の失敗分岐を所有しない。
+ * @invariant isDataDescriptorは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isDataDescriptorはProcess内の同一Subsystemで完結する。
+ * @security N/A: isDataDescriptorはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isDataDescriptorは共有非同期状態を持たない同期処理である。
+ */
 function isDataDescriptor(
   descriptor: PropertyDescriptor | undefined,
   shouldBeEnumerable = true,
@@ -33,6 +76,22 @@ function isDataDescriptor(
   );
 }
 
+/**
+ * snapshotPlainRecordの処理を実行する。
+ *
+ * @responsibility snapshotPlainRecordに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input value: unknown、expectedKeys: ReadonlySet<K>
+ * @returns Readonly<Record<K, unknown>> | nullを返す。
+ * @precondition 「value: unknown、expectedKeys: ReadonlySet<K>」がsnapshotPlainRecordの入力契約を満たす。
+ * @postcondition snapshotPlainRecordの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotPlainRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure snapshotPlainRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant snapshotPlainRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: snapshotPlainRecordはProcess内の同一Subsystemで完結する。
+ * @security N/A: snapshotPlainRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: snapshotPlainRecordは共有非同期状態を持たない同期処理である。
+ */
 export function snapshotPlainRecord<const K extends string>(
   value: unknown,
   expectedKeys: ReadonlySet<K>,
@@ -58,6 +117,22 @@ export function snapshotPlainRecord<const K extends string>(
   }
 }
 
+/**
+ * snapshotPlainArrayの処理を実行する。
+ *
+ * @responsibility snapshotPlainArrayに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000007
+ * @input value: unknown、maximumLength: number
+ * @returns ArraySnapshot<T>を返す。
+ * @precondition 「value: unknown、maximumLength: number」がsnapshotPlainArrayの入力契約を満たす。
+ * @postcondition snapshotPlainArrayの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotPlainArrayは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure snapshotPlainArrayは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant snapshotPlainArrayは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: snapshotPlainArrayはProcess内の同一Subsystemで完結する。
+ * @security N/A: snapshotPlainArrayはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: snapshotPlainArrayは共有非同期状態を持たない同期処理である。
+ */
 export function snapshotPlainArray<T = unknown>(
   value: unknown,
   maximumLength: number,

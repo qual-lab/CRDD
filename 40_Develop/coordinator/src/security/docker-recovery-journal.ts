@@ -16,12 +16,34 @@ const MOVE_PREFIX = ".crdd-move-";
 const CLEANUP_PREFIX = ".crdd-cleanup-";
 const INTENT_PENDING_SUFFIX = ".pending";
 
+/**
+ * FileIdentityが扱う値の構造を表す。
+ *
+ * @responsibility FileIdentityに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape FileIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant FileIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: FileIdentityの宣言は外部境界を開かない。
+ * @security FileIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility FileIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type FileIdentity = Readonly<{
   dev: bigint;
   ino: bigint;
   birthtimeNs: bigint;
 }>;
 
+/**
+ * CommittedJsonが扱う値の構造を表す。
+ *
+ * @responsibility CommittedJsonに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape CommittedJsonが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CommittedJsonで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CommittedJsonの宣言は外部境界を開かない。
+ * @security CommittedJsonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility CommittedJsonの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type CommittedJson = Readonly<{
   target: string;
   commit: string;
@@ -33,6 +55,17 @@ type CommittedJson = Readonly<{
   value: unknown;
 }>;
 
+/**
+ * DiscoveredJournalJsonが扱う値の構造を表す。
+ *
+ * @responsibility DiscoveredJournalJsonに必要な値と制約を一つの型契約として保持する。
+ * @trace ARCH-000008
+ * @shape DiscoveredJournalJsonが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DiscoveredJournalJsonで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DiscoveredJournalJsonの宣言は外部境界を開かない。
+ * @security DiscoveredJournalJsonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DiscoveredJournalJsonの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type DiscoveredJournalJson = Readonly<{
   serialized: string;
   hash: string;
@@ -41,10 +74,42 @@ type DiscoveredJournalJson = Readonly<{
   value: unknown;
 }>;
 
+/**
+ * canonicalの処理を実行する。
+ *
+ * @responsibility canonicalに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns canonicalの計算結果を返す。
+ * @precondition 「value: unknown」がcanonicalの入力契約を満たす。
+ * @postcondition canonicalの責務を完了した結果だけを返す。
+ * @effect N/A: canonicalは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: canonicalは独自の失敗分岐を所有しない。
+ * @invariant canonicalは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: canonicalはProcess内の同一Subsystemで完結する。
+ * @security canonicalはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: canonicalは共有非同期状態を持たない同期処理である。
+ */
 function canonical(value: unknown) {
   return `${JSON.stringify(value)}\n`;
 }
 
+/**
+ * identityOfの処理を実行する。
+ *
+ * @responsibility identityOfに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input metadata: fs.BigIntStats
+ * @returns FileIdentityを返す。
+ * @precondition 「metadata: fs.BigIntStats」がidentityOfの入力契約を満たす。
+ * @postcondition identityOfの責務を完了した結果だけを返す。
+ * @effect N/A: identityOfは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: identityOfは独自の失敗分岐を所有しない。
+ * @invariant identityOfは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: identityOfはProcess内の同一Subsystemで完結する。
+ * @security identityOfはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: identityOfは共有非同期状態を持たない同期処理である。
+ */
 function identityOf(metadata: fs.BigIntStats): FileIdentity {
   return Object.freeze({
     dev: metadata.dev,
@@ -53,10 +118,42 @@ function identityOf(metadata: fs.BigIntStats): FileIdentity {
   });
 }
 
+/**
+ * identityTextの処理を実行する。
+ *
+ * @responsibility identityTextに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input identity: FileIdentity
+ * @returns identityTextの計算結果を返す。
+ * @precondition 「identity: FileIdentity」がidentityTextの入力契約を満たす。
+ * @postcondition identityTextの責務を完了した結果だけを返す。
+ * @effect N/A: identityTextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: identityTextは独自の失敗分岐を所有しない。
+ * @invariant identityTextは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: identityTextはProcess内の同一Subsystemで完結する。
+ * @security identityTextはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: identityTextは共有非同期状態を持たない同期処理である。
+ */
 function identityText(identity: FileIdentity) {
   return `${identity.dev}:${identity.ino}:${identity.birthtimeNs}`;
 }
 
+/**
+ * exactKeysの処理を実行する。
+ *
+ * @responsibility exactKeysに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、keys: readonly string[]
+ * @returns exactKeysの計算結果を返す。
+ * @precondition 「value: unknown、keys: readonly string[]」がexactKeysの入力契約を満たす。
+ * @postcondition exactKeysの責務を完了した結果だけを返す。
+ * @effect N/A: exactKeysは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: exactKeysは独自の失敗分岐を所有しない。
+ * @invariant exactKeysは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: exactKeysはProcess内の同一Subsystemで完結する。
+ * @security exactKeysはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: exactKeysは共有非同期状態を持たない同期処理である。
+ */
 function exactKeys(value: unknown, keys: readonly string[]) {
   return (
     value !== null &&
@@ -69,6 +166,22 @@ function exactKeys(value: unknown, keys: readonly string[]) {
   );
 }
 
+/**
+ * readStableFileの処理を実行する。
+ *
+ * @responsibility readStableFileに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input file: string
+ * @returns readStableFileの計算結果を返す。
+ * @precondition 「file: string」がreadStableFileの入力契約を満たす。
+ * @postcondition readStableFileの責務を完了した結果だけを返す。
+ * @effect readStableFileはFilesystemの読取りまたは書込みを実行する。
+ * @failure readStableFileは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readStableFileは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security readStableFileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readStableFileは共有非同期状態を持たない同期処理である。
+ */
 function readStableFile(file: string) {
   const before = fs.lstatSync(file, { bigint: true });
   if (
@@ -90,6 +203,22 @@ function readStableFile(file: string) {
   return Object.freeze({ serialized, identity: identityOf(before) });
 }
 
+/**
+ * stableDirectoryIdentityの処理を実行する。
+ *
+ * @responsibility stableDirectoryIdentityに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input directory: string
+ * @returns stableDirectoryIdentityの計算結果を返す。
+ * @precondition 「directory: string」がstableDirectoryIdentityの入力契約を満たす。
+ * @postcondition stableDirectoryIdentityの責務を完了した結果だけを返す。
+ * @effect stableDirectoryIdentityはFilesystemの読取りまたは書込みを実行する。
+ * @failure stableDirectoryIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant stableDirectoryIdentityは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security stableDirectoryIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: stableDirectoryIdentityは共有非同期状態を持たない同期処理である。
+ */
 function stableDirectoryIdentity(directory: string) {
   const metadata = fs.lstatSync(directory, { bigint: true });
   if (!metadata.isDirectory() || metadata.isSymbolicLink())
@@ -97,10 +226,42 @@ function stableDirectoryIdentity(directory: string) {
   return identityText(identityOf(metadata));
 }
 
+/**
+ * hashTextの処理を実行する。
+ *
+ * @responsibility hashTextに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input serialized: string
+ * @returns hashTextの計算結果を返す。
+ * @precondition 「serialized: string」がhashTextの入力契約を満たす。
+ * @postcondition hashTextの責務を完了した結果だけを返す。
+ * @effect N/A: hashTextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hashTextは独自の失敗分岐を所有しない。
+ * @invariant hashTextは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: hashTextはProcess内の同一Subsystemで完結する。
+ * @security hashTextはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hashTextは共有非同期状態を持たない同期処理である。
+ */
 function hashText(serialized: string) {
   return createHash("sha256").update(serialized).digest("hex");
 }
 
+/**
+ * observePathの処理を実行する。
+ *
+ * @responsibility observePathに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input target: string
+ * @returns observePathの計算結果を返す。
+ * @precondition 「target: string」がobservePathの入力契約を満たす。
+ * @postcondition observePathの責務を完了した結果だけを返す。
+ * @effect observePathはFilesystemの読取りまたは書込みを実行する。
+ * @failure observePathは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observePathは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security observePathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observePathは共有非同期状態を持たない同期処理である。
+ */
 function observePath(target: string) {
   try {
     return fs.lstatSync(target, { bigint: true });
@@ -111,10 +272,42 @@ function observePath(target: string) {
   }
 }
 
+/**
+ * pathPresentの処理を実行する。
+ *
+ * @responsibility pathPresentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input target: string
+ * @returns pathPresentの計算結果を返す。
+ * @precondition 「target: string」がpathPresentの入力契約を満たす。
+ * @postcondition pathPresentの責務を完了した結果だけを返す。
+ * @effect N/A: pathPresentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: pathPresentは独自の失敗分岐を所有しない。
+ * @invariant pathPresentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: pathPresentはProcess内の同一Subsystemで完結する。
+ * @security pathPresentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: pathPresentは共有非同期状態を持たない同期処理である。
+ */
 function pathPresent(target: string) {
   return observePath(target) !== null;
 }
 
+/**
+ * regularFilePresentの処理を実行する。
+ *
+ * @responsibility regularFilePresentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input target: string
+ * @returns regularFilePresentの計算結果を返す。
+ * @precondition 「target: string」がregularFilePresentの入力契約を満たす。
+ * @postcondition regularFilePresentの責務を完了した結果だけを返す。
+ * @effect N/A: regularFilePresentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure regularFilePresentは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant regularFilePresentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: regularFilePresentはProcess内の同一Subsystemで完結する。
+ * @security regularFilePresentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: regularFilePresentは共有非同期状態を持たない同期処理である。
+ */
 function regularFilePresent(target: string) {
   const metadata = observePath(target);
   if (metadata === null) return false;
@@ -123,6 +316,22 @@ function regularFilePresent(target: string) {
   return true;
 }
 
+/**
+ * exactFileの処理を実行する。
+ *
+ * @responsibility exactFileに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input file: string、serialized: string、identity: string
+ * @returns exactFileの計算結果を返す。
+ * @precondition 「file: string、serialized: string、identity: string」がexactFileの入力契約を満たす。
+ * @postcondition exactFileの責務を完了した結果だけを返す。
+ * @effect N/A: exactFileは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure exactFileは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant exactFileは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: exactFileはProcess内の同一Subsystemで完結する。
+ * @security exactFileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: exactFileは共有非同期状態を持たない同期処理である。
+ */
 function exactFile(file: string, serialized: string, identity: string) {
   if (!regularFilePresent(file)) return false;
   const observed = readStableFile(file);
@@ -134,6 +343,22 @@ function exactFile(file: string, serialized: string, identity: string) {
   return true;
 }
 
+/**
+ * writeIntentAnchorの処理を実行する。
+ *
+ * @responsibility writeIntentAnchorに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input anchor: string、value: unknown
+ * @returns writeIntentAnchorの計算結果を返す。
+ * @precondition 「anchor: string、value: unknown」がwriteIntentAnchorの入力契約を満たす。
+ * @postcondition writeIntentAnchorの責務を完了した結果だけを返す。
+ * @effect writeIntentAnchorはFilesystemの読取りまたは書込みを実行する。
+ * @failure writeIntentAnchorは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant writeIntentAnchorは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security writeIntentAnchorはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: writeIntentAnchorは共有非同期状態を持たない同期処理である。
+ */
 function writeIntentAnchor(anchor: string, value: unknown) {
   const serialized = canonical(value);
   const pending = `${anchor}${INTENT_PENDING_SUFFIX}`;
@@ -160,6 +385,22 @@ function writeIntentAnchor(anchor: string, value: unknown) {
     throw new Error("docker_recovery_record_changed");
 }
 
+/**
+ * readIntentAnchorの処理を実行する。
+ *
+ * @responsibility readIntentAnchorに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input anchor: string
+ * @returns readIntentAnchorの計算結果を返す。
+ * @precondition 「anchor: string」がreadIntentAnchorの入力契約を満たす。
+ * @postcondition readIntentAnchorの責務を完了した結果だけを返す。
+ * @effect N/A: readIntentAnchorは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure readIntentAnchorは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readIntentAnchorは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: readIntentAnchorはProcess内の同一Subsystemで完結する。
+ * @security readIntentAnchorはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readIntentAnchorは共有非同期状態を持たない同期処理である。
+ */
 function readIntentAnchor(anchor: string) {
   const record = readStableFile(anchor);
   const value = JSON.parse(record.serialized);
@@ -168,6 +409,22 @@ function readIntentAnchor(anchor: string) {
   return value as Record<string, unknown>;
 }
 
+/**
+ * committedPairEvidenceの処理を実行する。
+ *
+ * @responsibility committedPairEvidenceに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input source: CommittedJson
+ * @returns committedPairEvidenceの計算結果を返す。
+ * @precondition 「source: CommittedJson」がcommittedPairEvidenceの入力契約を満たす。
+ * @postcondition committedPairEvidenceの責務を完了した結果だけを返す。
+ * @effect N/A: committedPairEvidenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: committedPairEvidenceは独自の失敗分岐を所有しない。
+ * @invariant committedPairEvidenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: committedPairEvidenceはProcess内の同一Subsystemで完結する。
+ * @security committedPairEvidenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: committedPairEvidenceは共有非同期状態を持たない同期処理である。
+ */
 function committedPairEvidence(source: CommittedJson) {
   const commit = readStableFile(source.commit);
   return Object.freeze({
@@ -185,6 +442,22 @@ function committedPairEvidence(source: CommittedJson) {
   });
 }
 
+/**
+ * validPairEvidenceの処理を実行する。
+ *
+ * @responsibility validPairEvidenceに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns validPairEvidenceの計算結果を返す。
+ * @precondition 「value: unknown」がvalidPairEvidenceの入力契約を満たす。
+ * @postcondition validPairEvidenceの責務を完了した結果だけを返す。
+ * @effect N/A: validPairEvidenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure validPairEvidenceは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant validPairEvidenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validPairEvidenceはProcess内の同一Subsystemで完結する。
+ * @security validPairEvidenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validPairEvidenceは共有非同期状態を持たない同期処理である。
+ */
 function validPairEvidence(value: unknown) {
   if (
     !exactKeys(value, [
@@ -247,6 +520,22 @@ function validPairEvidence(value: unknown) {
   }
 }
 
+/**
+ * finalIntentNameの処理を実行する。
+ *
+ * @responsibility finalIntentNameに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input anchor: string
+ * @returns finalIntentNameの計算結果を返す。
+ * @precondition 「anchor: string」がfinalIntentNameの入力契約を満たす。
+ * @postcondition finalIntentNameの責務を完了した結果だけを返す。
+ * @effect N/A: finalIntentNameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: finalIntentNameは独自の失敗分岐を所有しない。
+ * @invariant finalIntentNameは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: finalIntentNameはProcess内の同一Subsystemで完結する。
+ * @security finalIntentNameはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: finalIntentNameは共有非同期状態を持たない同期処理である。
+ */
 function finalIntentName(anchor: string) {
   const name = path.basename(anchor);
   return name.endsWith(INTENT_PENDING_SUFFIX)
@@ -254,6 +543,22 @@ function finalIntentName(anchor: string) {
     : name;
 }
 
+/**
+ * validateIntentAnchorNameの処理を実行する。
+ *
+ * @responsibility validateIntentAnchorNameに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input anchor: string、value: Record<string, unknown>
+ * @returns validateIntentAnchorNameの計算結果を返す。
+ * @precondition 「anchor: string、value: Record<string, unknown>」がvalidateIntentAnchorNameの入力契約を満たす。
+ * @postcondition validateIntentAnchorNameの責務を完了した結果だけを返す。
+ * @effect N/A: validateIntentAnchorNameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure validateIntentAnchorNameは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant validateIntentAnchorNameは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateIntentAnchorNameはProcess内の同一Subsystemで完結する。
+ * @security validateIntentAnchorNameはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateIntentAnchorNameは共有非同期状態を持たない同期処理である。
+ */
 function validateIntentAnchorName(
   anchor: string,
   value: Record<string, unknown>,
@@ -290,6 +595,22 @@ function validateIntentAnchorName(
     throw new Error("docker_recovery_cleanup_intent_invalid");
 }
 
+/**
+ * recoveryIdFromIntentの処理を実行する。
+ *
+ * @responsibility recoveryIdFromIntentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: Record<string, unknown>
+ * @returns recoveryIdFromIntentの計算結果を返す。
+ * @precondition 「value: Record<string, unknown>」がrecoveryIdFromIntentの入力契約を満たす。
+ * @postcondition recoveryIdFromIntentの責務を完了した結果だけを返す。
+ * @effect N/A: recoveryIdFromIntentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure recoveryIdFromIntentは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant recoveryIdFromIntentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recoveryIdFromIntentはProcess内の同一Subsystemで完結する。
+ * @security recoveryIdFromIntentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recoveryIdFromIntentは共有非同期状態を持たない同期処理である。
+ */
 function recoveryIdFromIntent(value: Record<string, unknown>) {
   if (
     value.schema === "crdd-coordinator-recovery-cleanup-delete/v1" &&
@@ -331,6 +652,22 @@ function recoveryIdFromIntent(value: Record<string, unknown>) {
   return null;
 }
 
+/**
+ * validRuntimeStateBindingEvidenceの処理を実行する。
+ *
+ * @responsibility validRuntimeStateBindingEvidenceに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns validRuntimeStateBindingEvidenceの計算結果を返す。
+ * @precondition 「value: unknown」がvalidRuntimeStateBindingEvidenceの入力契約を満たす。
+ * @postcondition validRuntimeStateBindingEvidenceの責務を完了した結果だけを返す。
+ * @effect N/A: validRuntimeStateBindingEvidenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validRuntimeStateBindingEvidenceは独自の失敗分岐を所有しない。
+ * @invariant validRuntimeStateBindingEvidenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validRuntimeStateBindingEvidenceはProcess内の同一Subsystemで完結する。
+ * @security validRuntimeStateBindingEvidenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validRuntimeStateBindingEvidenceは共有非同期状態を持たない同期処理である。
+ */
 function validRuntimeStateBindingEvidence(value: unknown) {
   return (
     exactKeys(value, [
@@ -345,6 +682,22 @@ function validRuntimeStateBindingEvidence(value: unknown) {
   );
 }
 
+/**
+ * sameRuntimeStateBindingEvidenceの処理を実行する。
+ *
+ * @responsibility sameRuntimeStateBindingEvidenceに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input left: unknown、right: unknown
+ * @returns sameRuntimeStateBindingEvidenceの計算結果を返す。
+ * @precondition 「left: unknown、right: unknown」がsameRuntimeStateBindingEvidenceの入力契約を満たす。
+ * @postcondition sameRuntimeStateBindingEvidenceの責務を完了した結果だけを返す。
+ * @effect N/A: sameRuntimeStateBindingEvidenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameRuntimeStateBindingEvidenceは独自の失敗分岐を所有しない。
+ * @invariant sameRuntimeStateBindingEvidenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sameRuntimeStateBindingEvidenceはProcess内の同一Subsystemで完結する。
+ * @security sameRuntimeStateBindingEvidenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameRuntimeStateBindingEvidenceは共有非同期状態を持たない同期処理である。
+ */
 function sameRuntimeStateBindingEvidence(left: unknown, right: unknown) {
   if (
     !validRuntimeStateBindingEvidence(left) ||
@@ -363,6 +716,22 @@ function sameRuntimeStateBindingEvidence(left: unknown, right: unknown) {
   );
 }
 
+/**
+ * runtimeStateBindingFromIntentの処理を実行する。
+ *
+ * @responsibility runtimeStateBindingFromIntentに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: Record<string, unknown>
+ * @returns runtimeStateBindingFromIntentの計算結果を返す。
+ * @precondition 「value: Record<string, unknown>」がruntimeStateBindingFromIntentの入力契約を満たす。
+ * @postcondition runtimeStateBindingFromIntentの責務を完了した結果だけを返す。
+ * @effect N/A: runtimeStateBindingFromIntentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: runtimeStateBindingFromIntentは独自の失敗分岐を所有しない。
+ * @invariant runtimeStateBindingFromIntentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runtimeStateBindingFromIntentはProcess内の同一Subsystemで完結する。
+ * @security runtimeStateBindingFromIntentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: runtimeStateBindingFromIntentは共有非同期状態を持たない同期処理である。
+ */
 function runtimeStateBindingFromIntent(value: Record<string, unknown>) {
   if (
     value.schema === "crdd-coordinator-recovery-cleanup-delete/v1" &&
@@ -385,6 +754,22 @@ function runtimeStateBindingFromIntent(value: Record<string, unknown>) {
   return null;
 }
 
+/**
+ * resolveRuntimeStateBindingForRecoveryの処理を実行する。
+ *
+ * @responsibility resolveRuntimeStateBindingForRecoveryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input directory: string、recoveryId: string、intents: readonly Record<string, unknown>[]
+ * @returns resolveRuntimeStateBindingForRecoveryの計算結果を返す。
+ * @precondition 「directory: string、recoveryId: string、intents: readonly Record<string, unknown>[]」がresolveRuntimeStateBindingForRecoveryの入力契約を満たす。
+ * @postcondition resolveRuntimeStateBindingForRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: resolveRuntimeStateBindingForRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure resolveRuntimeStateBindingForRecoveryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant resolveRuntimeStateBindingForRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveRuntimeStateBindingForRecoveryはProcess内の同一Subsystemで完結する。
+ * @security resolveRuntimeStateBindingForRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resolveRuntimeStateBindingForRecoveryは共有非同期状態を持たない同期処理である。
+ */
 function resolveRuntimeStateBindingForRecovery(
   directory: string,
   recoveryId: string,
@@ -462,6 +847,22 @@ function resolveRuntimeStateBindingForRecovery(
   return first;
 }
 
+/**
+ * resumeDeleteAnchorの処理を実行する。
+ *
+ * @responsibility resumeDeleteAnchorに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input anchor: string
+ * @returns resumeDeleteAnchorの計算結果を返す。
+ * @precondition 「anchor: string」がresumeDeleteAnchorの入力契約を満たす。
+ * @postcondition resumeDeleteAnchorの責務を完了した結果だけを返す。
+ * @effect resumeDeleteAnchorはFilesystemの読取りまたは書込みを実行する。
+ * @failure resumeDeleteAnchorは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant resumeDeleteAnchorは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security resumeDeleteAnchorはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resumeDeleteAnchorは共有非同期状態を持たない同期処理である。
+ */
 function resumeDeleteAnchor(anchor: string) {
   const intent = readIntentAnchor(anchor);
   if (
@@ -501,6 +902,22 @@ function resumeDeleteAnchor(anchor: string) {
   return true;
 }
 
+/**
+ * inspectMoveAnchorStateの処理を実行する。
+ *
+ * @responsibility inspectMoveAnchorStateに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input anchor: string
+ * @returns inspectMoveAnchorStateの計算結果を返す。
+ * @precondition 「anchor: string」がinspectMoveAnchorStateの入力契約を満たす。
+ * @postcondition inspectMoveAnchorStateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectMoveAnchorStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectMoveAnchorStateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectMoveAnchorStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectMoveAnchorStateはProcess内の同一Subsystemで完結する。
+ * @security inspectMoveAnchorStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectMoveAnchorStateは共有非同期状態を持たない同期処理である。
+ */
 function inspectMoveAnchorState(anchor: string) {
   const intent = validateIntentSnapshot(anchor);
   if (intent.schema !== "crdd-coordinator-durable-json-move/v1")
@@ -563,6 +980,22 @@ function inspectMoveAnchorState(anchor: string) {
   });
 }
 
+/**
+ * resumeMoveAnchorの処理を実行する。
+ *
+ * @responsibility resumeMoveAnchorに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input anchor: string
+ * @returns resumeMoveAnchorの計算結果を返す。
+ * @precondition 「anchor: string」がresumeMoveAnchorの入力契約を満たす。
+ * @postcondition resumeMoveAnchorの責務を完了した結果だけを返す。
+ * @effect resumeMoveAnchorはFilesystemの読取りまたは書込みを実行する。
+ * @failure resumeMoveAnchorは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant resumeMoveAnchorは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security resumeMoveAnchorはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resumeMoveAnchorは共有非同期状態を持たない同期処理である。
+ */
 function resumeMoveAnchor(anchor: string) {
   const inspected = inspectMoveAnchorState(anchor);
   const { pair, sourceTarget, sourceCommit, target, targetCommit, state } =
@@ -591,6 +1024,22 @@ function resumeMoveAnchor(anchor: string) {
   return readCommittedDockerRecoveryJson(target, String(pair.logicalKey));
 }
 
+/**
+ * validCleanupEntryの処理を実行する。
+ *
+ * @responsibility validCleanupEntryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns validCleanupEntryの計算結果を返す。
+ * @precondition 「value: unknown」がvalidCleanupEntryの入力契約を満たす。
+ * @postcondition validCleanupEntryの責務を完了した結果だけを返す。
+ * @effect N/A: validCleanupEntryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validCleanupEntryは独自の失敗分岐を所有しない。
+ * @invariant validCleanupEntryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validCleanupEntryはProcess内の同一Subsystemで完結する。
+ * @security validCleanupEntryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validCleanupEntryは共有非同期状態を持たない同期処理である。
+ */
 function validCleanupEntry(value: unknown) {
   if (!exactKeys(value, ["name", "type", "hash", "identity", "bytes"]))
     return false;
@@ -607,6 +1056,22 @@ function validCleanupEntry(value: unknown) {
   );
 }
 
+/**
+ * validateIntentSnapshotの処理を実行する。
+ *
+ * @responsibility validateIntentSnapshotに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input anchor: string
+ * @returns validateIntentSnapshotの計算結果を返す。
+ * @precondition 「anchor: string」がvalidateIntentSnapshotの入力契約を満たす。
+ * @postcondition validateIntentSnapshotの責務を完了した結果だけを返す。
+ * @effect validateIntentSnapshotはFilesystemの読取りまたは書込みを実行する。
+ * @failure validateIntentSnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant validateIntentSnapshotは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security validateIntentSnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateIntentSnapshotは共有非同期状態を持たない同期処理である。
+ */
 function validateIntentSnapshot(anchor: string) {
   const value = readIntentAnchor(anchor);
   if (value.schema === "crdd-coordinator-durable-json-delete/v1") {
@@ -706,6 +1171,22 @@ function validateIntentSnapshot(anchor: string) {
   return value;
 }
 
+/**
+ * resumeCleanupAnchorの処理を実行する。
+ *
+ * @responsibility resumeCleanupAnchorに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input anchor: string
+ * @returns resumeCleanupAnchorの計算結果を返す。
+ * @precondition 「anchor: string」がresumeCleanupAnchorの入力契約を満たす。
+ * @postcondition resumeCleanupAnchorの責務を完了した結果だけを返す。
+ * @effect resumeCleanupAnchorはFilesystemの読取りまたは書込みを実行する。
+ * @failure resumeCleanupAnchorは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant resumeCleanupAnchorは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security resumeCleanupAnchorはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resumeCleanupAnchorは共有非同期状態を持たない同期処理である。
+ */
 function resumeCleanupAnchor(anchor: string) {
   const intent = readIntentAnchor(anchor);
   if (
@@ -805,6 +1286,22 @@ function resumeCleanupAnchor(anchor: string) {
   return true;
 }
 
+/**
+ * writeAtomicFileの処理を実行する。
+ *
+ * @responsibility writeAtomicFileに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input directory: string、target: string、serialized: string
+ * @returns writeAtomicFileの計算結果を返す。
+ * @precondition 「directory: string、target: string、serialized: string」がwriteAtomicFileの入力契約を満たす。
+ * @postcondition writeAtomicFileの責務を完了した結果だけを返す。
+ * @effect writeAtomicFileはFilesystemの読取りまたは書込みを実行する。
+ * @failure writeAtomicFileは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant writeAtomicFileは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security writeAtomicFileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: writeAtomicFileは共有非同期状態を持たない同期処理である。
+ */
 function writeAtomicFile(
   directory: string,
   target: string,
@@ -841,16 +1338,64 @@ function writeAtomicFile(
   return finalRecord;
 }
 
+/**
+ * dockerRecoveryCommitNameの処理を実行する。
+ *
+ * @responsibility dockerRecoveryCommitNameに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input name: string
+ * @returns dockerRecoveryCommitNameの計算結果を返す。
+ * @precondition 「name: string」がdockerRecoveryCommitNameの入力契約を満たす。
+ * @postcondition dockerRecoveryCommitNameの責務を完了した結果だけを返す。
+ * @effect N/A: dockerRecoveryCommitNameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: dockerRecoveryCommitNameは独自の失敗分岐を所有しない。
+ * @invariant dockerRecoveryCommitNameは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: dockerRecoveryCommitNameはProcess内の同一Subsystemで完結する。
+ * @security dockerRecoveryCommitNameはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: dockerRecoveryCommitNameは共有非同期状態を持たない同期処理である。
+ */
 export function dockerRecoveryCommitName(name: string) {
   return `${name}${COMMIT_SUFFIX}`;
 }
 
+/**
+ * isDockerRecoveryJournalTemporaryNameの処理を実行する。
+ *
+ * @responsibility isDockerRecoveryJournalTemporaryNameに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input name: string
+ * @returns isDockerRecoveryJournalTemporaryNameの計算結果を返す。
+ * @precondition 「name: string」がisDockerRecoveryJournalTemporaryNameの入力契約を満たす。
+ * @postcondition isDockerRecoveryJournalTemporaryNameの責務を完了した結果だけを返す。
+ * @effect N/A: isDockerRecoveryJournalTemporaryNameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isDockerRecoveryJournalTemporaryNameは独自の失敗分岐を所有しない。
+ * @invariant isDockerRecoveryJournalTemporaryNameは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isDockerRecoveryJournalTemporaryNameはProcess内の同一Subsystemで完結する。
+ * @security isDockerRecoveryJournalTemporaryNameはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isDockerRecoveryJournalTemporaryNameは共有非同期状態を持たない同期処理である。
+ */
 export function isDockerRecoveryJournalTemporaryName(name: string) {
   return (
     name.startsWith(TEMP_PREFIX) && /^[.a-z0-9_-]{1,220}\.tmp$/u.test(name)
   );
 }
 
+/**
+ * writeCommittedDockerRecoveryJsonの処理を実行する。
+ *
+ * @responsibility writeCommittedDockerRecoveryJsonに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input directory: string、name: string、logicalKey: string、value: unknown
+ * @returns CommittedJsonを返す。
+ * @precondition 「directory: string、name: string、logicalKey: string、value: unknown」がwriteCommittedDockerRecoveryJsonの入力契約を満たす。
+ * @postcondition writeCommittedDockerRecoveryJsonの責務を完了した結果だけを返す。
+ * @effect N/A: writeCommittedDockerRecoveryJsonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure writeCommittedDockerRecoveryJsonは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant writeCommittedDockerRecoveryJsonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: writeCommittedDockerRecoveryJsonはProcess内の同一Subsystemで完結する。
+ * @security writeCommittedDockerRecoveryJsonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: writeCommittedDockerRecoveryJsonは共有非同期状態を持たない同期処理である。
+ */
 export function writeCommittedDockerRecoveryJson(
   directory: string,
   name: string,
@@ -887,8 +1432,19 @@ export function writeCommittedDockerRecoveryJson(
 
 /**
  * Complete or reuse one exact committed pair.  This is the create-side
- * counterpart of the delete journal: a crash after the content rename but
- * before the commit rename can be resumed without replacing either file.
+ *
+ * @responsibility writeOrResumeCommittedDockerRecoveryJsonに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input directory: string、name: string、logicalKey: string、value: unknown
+ * @returns CommittedJsonを返す。
+ * @precondition 「directory: string、name: string、logicalKey: string、value: unknown」がwriteOrResumeCommittedDockerRecoveryJsonの入力契約を満たす。
+ * @postcondition writeOrResumeCommittedDockerRecoveryJsonの責務を完了した結果だけを返す。
+ * @effect N/A: writeOrResumeCommittedDockerRecoveryJsonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure writeOrResumeCommittedDockerRecoveryJsonは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant writeOrResumeCommittedDockerRecoveryJsonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: writeOrResumeCommittedDockerRecoveryJsonはProcess内の同一Subsystemで完結する。
+ * @security writeOrResumeCommittedDockerRecoveryJsonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: writeOrResumeCommittedDockerRecoveryJsonは共有非同期状態を持たない同期処理である。
  */
 export function writeOrResumeCommittedDockerRecoveryJson(
   directory: string,
@@ -930,6 +1486,22 @@ export function writeOrResumeCommittedDockerRecoveryJson(
   return observed;
 }
 
+/**
+ * readCommittedDockerRecoveryJsonの処理を実行する。
+ *
+ * @responsibility readCommittedDockerRecoveryJsonに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input file: string、expectedLogicalKey
+ * @returns CommittedJsonを返す。
+ * @precondition 「file: string、expectedLogicalKey」がreadCommittedDockerRecoveryJsonの入力契約を満たす。
+ * @postcondition readCommittedDockerRecoveryJsonの責務を完了した結果だけを返す。
+ * @effect N/A: readCommittedDockerRecoveryJsonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure readCommittedDockerRecoveryJsonは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readCommittedDockerRecoveryJsonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: readCommittedDockerRecoveryJsonはProcess内の同一Subsystemで完結する。
+ * @security readCommittedDockerRecoveryJsonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readCommittedDockerRecoveryJsonは共有非同期状態を持たない同期処理である。
+ */
 export function readCommittedDockerRecoveryJson(
   file: string,
   expectedLogicalKey = path.basename(file),
@@ -972,6 +1544,22 @@ export function readCommittedDockerRecoveryJson(
   });
 }
 
+/**
+ * moveCommittedDockerRecoveryJsonの処理を実行する。
+ *
+ * @responsibility moveCommittedDockerRecoveryJsonに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input source: CommittedJson、target: string
+ * @returns moveCommittedDockerRecoveryJsonの計算結果を返す。
+ * @precondition 「source: CommittedJson、target: string」がmoveCommittedDockerRecoveryJsonの入力契約を満たす。
+ * @postcondition moveCommittedDockerRecoveryJsonの責務を完了した結果だけを返す。
+ * @effect N/A: moveCommittedDockerRecoveryJsonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure moveCommittedDockerRecoveryJsonは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant moveCommittedDockerRecoveryJsonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: moveCommittedDockerRecoveryJsonはProcess内の同一Subsystemで完結する。
+ * @security moveCommittedDockerRecoveryJsonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: moveCommittedDockerRecoveryJsonは共有非同期状態を持たない同期処理である。
+ */
 export function moveCommittedDockerRecoveryJson(
   source: CommittedJson,
   target: string,
@@ -1005,6 +1593,22 @@ export function moveCommittedDockerRecoveryJson(
   return resumeMoveAnchor(anchor);
 }
 
+/**
+ * removeCommittedDockerRecoveryJsonの処理を実行する。
+ *
+ * @responsibility removeCommittedDockerRecoveryJsonに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input file: string、expectedLogicalKey
+ * @returns removeCommittedDockerRecoveryJsonの計算結果を返す。
+ * @precondition 「file: string、expectedLogicalKey」がremoveCommittedDockerRecoveryJsonの入力契約を満たす。
+ * @postcondition removeCommittedDockerRecoveryJsonの責務を完了した結果だけを返す。
+ * @effect N/A: removeCommittedDockerRecoveryJsonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: removeCommittedDockerRecoveryJsonは独自の失敗分岐を所有しない。
+ * @invariant removeCommittedDockerRecoveryJsonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: removeCommittedDockerRecoveryJsonはProcess内の同一Subsystemで完結する。
+ * @security removeCommittedDockerRecoveryJsonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: removeCommittedDockerRecoveryJsonは共有非同期状態を持たない同期処理である。
+ */
 export function removeCommittedDockerRecoveryJson(
   file: string,
   expectedLogicalKey = path.basename(file),
@@ -1026,6 +1630,22 @@ export function removeCommittedDockerRecoveryJson(
   return resumeDeleteAnchor(anchor);
 }
 
+/**
+ * removeExactUncommittedDockerRecoveryJsonの処理を実行する。
+ *
+ * @responsibility removeExactUncommittedDockerRecoveryJsonに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input file: string、expectedValue: unknown
+ * @returns removeExactUncommittedDockerRecoveryJsonの計算結果を返す。
+ * @precondition 「file: string、expectedValue: unknown」がremoveExactUncommittedDockerRecoveryJsonの入力契約を満たす。
+ * @postcondition removeExactUncommittedDockerRecoveryJsonの責務を完了した結果だけを返す。
+ * @effect removeExactUncommittedDockerRecoveryJsonはFilesystemの読取りまたは書込みを実行する。
+ * @failure removeExactUncommittedDockerRecoveryJsonは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant removeExactUncommittedDockerRecoveryJsonは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security removeExactUncommittedDockerRecoveryJsonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: removeExactUncommittedDockerRecoveryJsonは共有非同期状態を持たない同期処理である。
+ */
 export function removeExactUncommittedDockerRecoveryJson(
   file: string,
   expectedValue: unknown,
@@ -1066,12 +1686,44 @@ export function removeExactUncommittedDockerRecoveryJson(
   return true;
 }
 
+/**
+ * isDockerRecoveryJournalIntentNameの処理を実行する。
+ *
+ * @responsibility isDockerRecoveryJournalIntentNameに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input name: string
+ * @returns isDockerRecoveryJournalIntentNameの計算結果を返す。
+ * @precondition 「name: string」がisDockerRecoveryJournalIntentNameの入力契約を満たす。
+ * @postcondition isDockerRecoveryJournalIntentNameの責務を完了した結果だけを返す。
+ * @effect N/A: isDockerRecoveryJournalIntentNameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isDockerRecoveryJournalIntentNameは独自の失敗分岐を所有しない。
+ * @invariant isDockerRecoveryJournalIntentNameは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isDockerRecoveryJournalIntentNameはProcess内の同一Subsystemで完結する。
+ * @security isDockerRecoveryJournalIntentNameはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isDockerRecoveryJournalIntentNameは共有非同期状態を持たない同期処理である。
+ */
 export function isDockerRecoveryJournalIntentName(name: string) {
   return /^(?:\.crdd-delete-|\.crdd-move-|\.crdd-cleanup-)[a-f0-9]{64}\.json(?:\.pending)?$/u.test(
     name,
   );
 }
 
+/**
+ * removeDockerRecoveryCleanupDirectoryの処理を実行する。
+ *
+ * @responsibility removeDockerRecoveryCleanupDirectoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input rootDirectory: string、cleanupDirectory: string、recoveryId: string、runtimeStateBinding: Readonly<{ runtimeStateIdentityHash: string; runtimeStateProtectionHash: string; localUserBindingHash: string; runtimeStateBindingHash: string; }>
+ * @returns removeDockerRecoveryCleanupDirectoryの計算結果を返す。
+ * @precondition 「rootDirectory: string、cleanupDirectory: string、recoveryId: string、runtimeStateBinding: Readonly<{ runtimeStateIdentityHash: string; runtimeStateProtectionHash: string; localUserBindingHash: string; runtimeStateBindingHash: string; }>」がremoveDockerRecoveryCleanupDirectoryの入力契約を満たす。
+ * @postcondition removeDockerRecoveryCleanupDirectoryの責務を完了した結果だけを返す。
+ * @effect removeDockerRecoveryCleanupDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure removeDockerRecoveryCleanupDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant removeDockerRecoveryCleanupDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security removeDockerRecoveryCleanupDirectoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: removeDockerRecoveryCleanupDirectoryは共有非同期状態を持たない同期処理である。
+ */
 export function removeDockerRecoveryCleanupDirectory(
   rootDirectory: string,
   cleanupDirectory: string,
@@ -1142,6 +1794,22 @@ export function removeDockerRecoveryCleanupDirectory(
   return resumeCleanupAnchor(anchor);
 }
 
+/**
+ * resumeDockerRecoveryJournalDirectoryの処理を実行する。
+ *
+ * @responsibility resumeDockerRecoveryJournalDirectoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input directory: string
+ * @returns resumeDockerRecoveryJournalDirectoryの計算結果を返す。
+ * @precondition 「directory: string」がresumeDockerRecoveryJournalDirectoryの入力契約を満たす。
+ * @postcondition resumeDockerRecoveryJournalDirectoryの責務を完了した結果だけを返す。
+ * @effect resumeDockerRecoveryJournalDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure resumeDockerRecoveryJournalDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant resumeDockerRecoveryJournalDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security resumeDockerRecoveryJournalDirectoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resumeDockerRecoveryJournalDirectoryは共有非同期状態を持たない同期処理である。
+ */
 export function resumeDockerRecoveryJournalDirectory(directory: string) {
   stableDirectoryIdentity(directory);
   const names = fs
@@ -1183,11 +1851,19 @@ export function resumeDockerRecoveryJournalDirectory(directory: string) {
 
 /**
  * RuntimeState recovery is authorized for one exact recovery generation.  The
- * root lock serializes inventory changes, but it does not authorize one task
- * to advance another task's journal.  Validate the entire bounded inventory
- * before the first mutation, then resume only anchors bound to the requested
- * recovery ID.  Non-target anchors are checked again byte-for-byte and by
- * filesystem identity before returning.
+ *
+ * @responsibility resumeDockerRecoveryJournalDirectoryForRecoveryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input directory: string、recoveryId: string、runtimeStateBinding: Readonly<{ runtimeStateIdentityHash: string; runtimeStateProtectionHash: string; localUserBindingHash: string; runtimeStateBindingHash: string; }>
+ * @returns resumeDockerRecoveryJournalDirectoryForRecoveryの計算結果を返す。
+ * @precondition 「directory: string、recoveryId: string、runtimeStateBinding: Readonly<{ runtimeStateIdentityHash: string; runtimeStateProtectionHash: string; localUserBindingHash: string; runtimeStateBindingHash: string; }>」がresumeDockerRecoveryJournalDirectoryForRecoveryの入力契約を満たす。
+ * @postcondition resumeDockerRecoveryJournalDirectoryForRecoveryの責務を完了した結果だけを返す。
+ * @effect resumeDockerRecoveryJournalDirectoryForRecoveryはFilesystemの読取りまたは書込みを実行する。
+ * @failure resumeDockerRecoveryJournalDirectoryForRecoveryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant resumeDockerRecoveryJournalDirectoryForRecoveryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security resumeDockerRecoveryJournalDirectoryForRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resumeDockerRecoveryJournalDirectoryForRecoveryは共有非同期状態を持たない同期処理である。
  */
 export function resumeDockerRecoveryJournalDirectoryForRecovery(
   directory: string,
@@ -1276,6 +1952,22 @@ export function resumeDockerRecoveryJournalDirectoryForRecovery(
   return true;
 }
 
+/**
+ * hasDockerRecoveryJournalIntentForRecoveryの処理を実行する。
+ *
+ * @responsibility hasDockerRecoveryJournalIntentForRecoveryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input directory: string、recoveryId: string
+ * @returns hasDockerRecoveryJournalIntentForRecoveryの計算結果を返す。
+ * @precondition 「directory: string、recoveryId: string」がhasDockerRecoveryJournalIntentForRecoveryの入力契約を満たす。
+ * @postcondition hasDockerRecoveryJournalIntentForRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: hasDockerRecoveryJournalIntentForRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hasDockerRecoveryJournalIntentForRecoveryは独自の失敗分岐を所有しない。
+ * @invariant hasDockerRecoveryJournalIntentForRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: hasDockerRecoveryJournalIntentForRecoveryはProcess内の同一Subsystemで完結する。
+ * @security hasDockerRecoveryJournalIntentForRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hasDockerRecoveryJournalIntentForRecoveryは共有非同期状態を持たない同期処理である。
+ */
 export function hasDockerRecoveryJournalIntentForRecovery(
   directory: string,
   recoveryId: string,
@@ -1292,6 +1984,22 @@ export function hasDockerRecoveryJournalIntentForRecovery(
     });
 }
 
+/**
+ * inspectDockerRecoveryMoveJournalForRecoveryの処理を実行する。
+ *
+ * @responsibility inspectDockerRecoveryMoveJournalForRecoveryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input directory: string、recoveryId: string、logicalKey: string、targetDirectory: string、targetContentName: string
+ * @returns inspectDockerRecoveryMoveJournalForRecoveryの計算結果を返す。
+ * @precondition 「directory: string、recoveryId: string、logicalKey: string、targetDirectory: string、targetContentName: string」がinspectDockerRecoveryMoveJournalForRecoveryの入力契約を満たす。
+ * @postcondition inspectDockerRecoveryMoveJournalForRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: inspectDockerRecoveryMoveJournalForRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectDockerRecoveryMoveJournalForRecoveryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectDockerRecoveryMoveJournalForRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectDockerRecoveryMoveJournalForRecoveryはProcess内の同一Subsystemで完結する。
+ * @security inspectDockerRecoveryMoveJournalForRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectDockerRecoveryMoveJournalForRecoveryは共有非同期状態を持たない同期処理である。
+ */
 export function inspectDockerRecoveryMoveJournalForRecovery(
   directory: string,
   recoveryId: string,
@@ -1338,6 +2046,22 @@ export function inspectDockerRecoveryMoveJournalForRecovery(
   return match;
 }
 
+/**
+ * inspectDockerRecoveryJournalDirectoryの処理を実行する。
+ *
+ * @responsibility inspectDockerRecoveryJournalDirectoryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input directory: string
+ * @returns inspectDockerRecoveryJournalDirectoryの計算結果を返す。
+ * @precondition 「directory: string」がinspectDockerRecoveryJournalDirectoryの入力契約を満たす。
+ * @postcondition inspectDockerRecoveryJournalDirectoryの責務を完了した結果だけを返す。
+ * @effect N/A: inspectDockerRecoveryJournalDirectoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectDockerRecoveryJournalDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectDockerRecoveryJournalDirectoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectDockerRecoveryJournalDirectoryはProcess内の同一Subsystemで完結する。
+ * @security inspectDockerRecoveryJournalDirectoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectDockerRecoveryJournalDirectoryは共有非同期状態を持たない同期処理である。
+ */
 export function inspectDockerRecoveryJournalDirectory(directory: string) {
   stableDirectoryIdentity(directory);
   const values: Array<
@@ -1417,6 +2141,22 @@ export function inspectDockerRecoveryJournalDirectory(directory: string) {
   return Object.freeze(values);
 }
 
+/**
+ * discoverDockerRecoveryJournalJsonの処理を実行する。
+ *
+ * @responsibility discoverDockerRecoveryJournalJsonに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input directory: string、logicalKey: string
+ * @returns discoverDockerRecoveryJournalJsonの計算結果を返す。
+ * @precondition 「directory: string、logicalKey: string」がdiscoverDockerRecoveryJournalJsonの入力契約を満たす。
+ * @postcondition discoverDockerRecoveryJournalJsonの責務を完了した結果だけを返す。
+ * @effect N/A: discoverDockerRecoveryJournalJsonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure discoverDockerRecoveryJournalJsonは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant discoverDockerRecoveryJournalJsonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: discoverDockerRecoveryJournalJsonはProcess内の同一Subsystemで完結する。
+ * @security discoverDockerRecoveryJournalJsonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: discoverDockerRecoveryJournalJsonは共有非同期状態を持たない同期処理である。
+ */
 export function discoverDockerRecoveryJournalJson(
   directory: string,
   logicalKey: string,
@@ -1462,6 +2202,22 @@ export function discoverDockerRecoveryJournalJson(
   return matches[0] ?? null;
 }
 
+/**
+ * discoverDockerRecoveryJournalJsonForRecoveryの処理を実行する。
+ *
+ * @responsibility discoverDockerRecoveryJournalJsonForRecoveryに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input directory: string、logicalKey: string、recoveryId: string
+ * @returns discoverDockerRecoveryJournalJsonForRecoveryの計算結果を返す。
+ * @precondition 「directory: string、logicalKey: string、recoveryId: string」がdiscoverDockerRecoveryJournalJsonForRecoveryの入力契約を満たす。
+ * @postcondition discoverDockerRecoveryJournalJsonForRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: discoverDockerRecoveryJournalJsonForRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure discoverDockerRecoveryJournalJsonForRecoveryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant discoverDockerRecoveryJournalJsonForRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: discoverDockerRecoveryJournalJsonForRecoveryはProcess内の同一Subsystemで完結する。
+ * @security discoverDockerRecoveryJournalJsonForRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: discoverDockerRecoveryJournalJsonForRecoveryは共有非同期状態を持たない同期処理である。
+ */
 export function discoverDockerRecoveryJournalJsonForRecovery(
   directory: string,
   logicalKey: string,
@@ -1516,6 +2272,22 @@ export function discoverDockerRecoveryJournalJsonForRecovery(
   return matches[0] ?? null;
 }
 
+/**
+ * describeDockerRecoveryJournalContractの処理を実行する。
+ *
+ * @responsibility describeDockerRecoveryJournalContractに対応する入力処理と結果生成を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeDockerRecoveryJournalContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeDockerRecoveryJournalContractの入力契約を満たす。
+ * @postcondition describeDockerRecoveryJournalContractの責務を完了した結果だけを返す。
+ * @effect describeDockerRecoveryJournalContractはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: describeDockerRecoveryJournalContractは独自の失敗分岐を所有しない。
+ * @invariant describeDockerRecoveryJournalContractは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security describeDockerRecoveryJournalContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeDockerRecoveryJournalContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeDockerRecoveryJournalContract() {
   return Object.freeze({
     commitSchema: "crdd-coordinator-durable-json-commit/v1",

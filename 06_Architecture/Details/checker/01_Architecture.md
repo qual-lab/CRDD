@@ -26,6 +26,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Deployment | Required | 実装正本と薄い配布入口の接続を保つ。 | [§2](#2-実装正本と配布入口) |
 | Observability | Required | 検査範囲、未検査範囲、所要時間、Findingを返す。 | [§6](#6-結果の意味と利用側) |
 | Security Boundary | Required | 検証済みRootだけを読み、link越境を確認済みにしない。 | [§4](#4-読取り境界) |
+| Implementation Structure | Required | 設計責務を具象差、選択、状態依存、構成、資源Ownerおよび外部境界へ分解する。 | [§Implementation Structure](#implementation-structure) |
 
 `N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
 
@@ -51,12 +52,14 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 ## Qualityへの引渡し
 
-| 検証単位 | 対象 | 正常条件 | 反証する失敗 | 観測 | 終了後条件 | 未確認 |
-|---|---|---|---|---|---|---|
-| Generic Core | 可視Markdown／Path／ID | 同一入力で同一Finding | 非表示構造、link越境、重複ID | Finding codeとpath | handle・一時物0 | 意味妥当性は独立レビュー |
-| 配布入口 | package入口とRepository入口 | 同じCore／Profileを実行 | 旧実装、内部Path直参照 | 実行source identity | 同じ終了code | なし |
-| 宣言集合と導出集合 | Consumer／派生物／公開・Release経路の構造 | 両集合が完全一致 | 欠落、未知、重複、正規節外、旧Path／API残存 | Finding code、Path、集合差分 | 構造差分0 | 意味妥当性と移行採用は独立レビュー |
-| 開発試験runnerのLifecycle | 試験子Process、timeout、取消、fixture | 完了・timeout・取消を区別し、全子Processの終了とfixture残存を確認する | timeoutを正常完了へ丸める、子Processまたはfixtureの残存を見落とす | 終了状態、signal、残存Process、fixture分類 | 全子Process終了、残存物を未確認として報告 | 所要時間そのものは品質合否に使わない |
+| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|---|---|---|
+| `checker.generic-core` | Component | 可視Markdown／Path／ID | 同一入力で同一Finding | 非表示構造、link越境、重複ID | UT | N/A | Finding codeとpath | handle・一時物0 | 意味妥当性は独立レビュー |
+| `checker.distribution-entry` | Interface | package入口とRepository入口 | 同じCore／Profileを実行 | 旧実装、内部Path直参照 | IT | Direct Boundary | 実行source identity | 同じ終了code | なし |
+| `checker.declared-derived-closure` | Flow／Consistency | Consumer／派生物／公開・Release経路の構造 | 両集合が完全一致 | 欠落、未知、重複、正規節外、旧Path／API残存 | IT | Related 2 Blocks | Finding code、Path、集合差分 | 構造差分0 | 意味妥当性と移行採用は独立レビュー |
+| `checker.test-runner-lifecycle` | Sequence／Lifecycle Ownership | 試験子Process、timeout、取消、fixture | 完了・timeout・取消を区別し、全子Processの終了とfixture残存を確認する | timeoutを正常完了へ丸める、子Processまたはfixtureの残存を見落とす | IT | Direct Boundary | 終了状態、signal、残存Process、fixture分類 | 全子Process終了、残存物を未確認として報告 | 所要時間そのものは品質合否に使わない |
+
+導出キーは本領域内でQualityが同じ設計項目を反復参照するための局所参照であり、CRDD全体の安定コンテキストIDではない。
 
 ## 現行実装との照合
 
@@ -281,16 +284,33 @@ Architecture Definition          Quality Definition
 
 Test Catalogの定義、変更影響からの試験選択、試験段階の実行および結果集約は[Verification Runner](../verification-runner/01_Architecture.md)が所有する。CheckerのTest Catalog Adapterは、Reality Symbolとの構造整合だけを読取り検査し、試験を選択・実行しない。
 
+## Implementation Structure
+
+| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
+|---|---|---|---|---|---|---|
+| Variation | Required | この観点を成立させる構造と責務が存在するため。 | Qualityへの引渡しで責務差を別の設計項目として固定する。 | 具象差を一つの分岐へ畳まず、各導出キーの正常条件と反証条件を保つ。 | 新しい具象を追加した場合、対応する導出キーと利用側の再確認が必要になる。 | `checker.generic-core`<br>`checker.distribution-entry`<br>`checker.declared-derived-closure`<br>`checker.test-runner-lifecycle` |
+| Common Contract | Required | この観点を成立させる構造と責務が存在するため。 | Rule、Profile、Repository観測および結果報告を、決定論的FindingとEffect 0の共通契約へ揃える。 | RuleはRepositoryを変更せず、対象、code、severityおよび理由を同じ結果境界へ返す。 | Rule追加が独自走査・独自結果・暗黙除外を持ち、検査母集団が分岐する。 | `checker.generic-core`<br>`checker.distribution-entry`<br>`checker.declared-derived-closure` |
+| Creation／Selection | N/A | 本領域は独立した具象生成・選択責務を持たず、上位から固定入力を受ける。 | 本領域は独立した具象生成・選択責務を持たず、上位から固定入力を受ける。 | 生成・選択判断を本領域へ追加しない。 | 将来生成・選択責務を追加する場合に再評価する。 | N/A |
+| State-dependent Behavior | Required | この観点を成立させる構造と責務が存在するため。 | 入力・処理中・完了・失敗・観測不能を区別して振る舞いを決める。 | 状態を空値や成功へ畳まず、同じIdentityで終了条件まで追跡する。 | 状態追加・統合はRecoveryと観測契約へ波及する。 | `checker.generic-core` |
+| Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | 複数の局所責務を公開結果へ合成し、部分成立と全体成立を分ける。 | 各局所結果を保持し、必要な全要素が揃うまで上位完成を表示しない。 | 構成要素の追加時は完成条件と全Consumerを再確認する。 | `checker.generic-core`<br>`checker.distribution-entry`<br>`checker.declared-derived-closure`<br>`checker.test-runner-lifecycle` |
+| Lifecycle Ownership | Required | この観点を成立させる構造と責務が存在するため。 | Process、Handle、一時物、秘密または公開SnapshotのOwnerと終了条件を固定する。 | 成功・失敗・取消の全経路で資源回収または同一Identityの回復義務を残す。 | Owner変更は取消、Recovery、終了後条件へ波及する。 | `checker.test-runner-lifecycle` |
+| External Boundary | Required | この観点を成立させる構造と責務が存在するため。 | 外部境界ごとに要求、受理、Effect、結果搬送および終了後状態を分ける。 | 境界の成功を要求発行だけから推定せず、段階に応じた観測を必須にする。 | 境界変更は直接境界からSystem／E2Eまでの検証範囲へ波及する。 | `checker.test-runner-lifecycle` |
+
+同じ責務へ二つ目の具象実装を追加する場合は、共通契約へ昇格するかを評価する。昇格しない場合は、同じ責務ではない、または局所分岐の方が単純で影響が小さい理由を記録する。特定のDesign Pattern名は必須にしない。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した
-- [x] 9種類の詳細成果物を全数Applicability判定した
+- [x] 10種類の詳細成果物を全数Applicability判定した
 - [x] Requiredを実在する節または成果物へ接続した
 - [x] N/AにArchitecture上の理由を記録した
 - [x] 8種類のEngineering Concernを全数評価した
 - [x] PASSを設計済みの意味に限定した
 - [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
 - [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] 7種類のImplementation Structure観点を全数Applicability判定した
+- [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
+- [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
 - [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した
