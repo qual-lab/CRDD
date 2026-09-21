@@ -29,6 +29,7 @@ export {
   executeRegisteredTool,
   inspectRegisteredTool,
   type RegisteredTool,
+  type ToolImplementationResult,
   type ToolExecutionRequest,
   type ToolSurface,
 } from "./tool-registry.ts";
@@ -43,3 +44,9 @@ export {
   type SurfaceOperationRequest,
   type SurfaceOperationResult,
 } from "./application-contract.ts";
+export {
+  createFileCanonicalOperationOwner,
+  resumeDurableHandoff,
+  settleDurableDelegatedResult,
+  writeDurableHandoff,
+} from "./durable-store.ts";

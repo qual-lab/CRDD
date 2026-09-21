@@ -39,13 +39,15 @@ const exposures: readonly CrosExposure[] = [
   {
     workspaceId: "development",
     repositoryId: "REPO-DEV",
-    revision: 1,
+    repositoryRevision: "rev-dev",
+    registryRevision: "registry-1",
     active: true,
   },
   {
     workspaceId: "management",
     repositoryId: "REPO-MGMT",
-    revision: 1,
+    repositoryRevision: "rev-mgmt",
+    registryRevision: "registry-1",
     active: true,
   },
 ];
@@ -119,4 +121,50 @@ test("Grant外Repositoryを非開示で拒否し管理能力を閲覧権限へ�
   );
   assert.deepEqual(devResult, { status: "restricted" });
   assert.deepEqual(adminResult, { status: "restricted" });
+});
+
+/**
+ * 古いExposure Revisionを非開示で拒否することを検証する。
+ * @responsibility Session、Exposure、RepositoryのRevision相関を確認する。
+ * @trace RFD-ST-004
+ * @precondition SessionとRepositoryに対して古いRegistryまたはRepository Revisionを持つExposureを用意する。
+ * @stimulus 古いExposure経由でRepository解決を要求する。
+ * @observation 公開結果だけを観測する。
+ * @oracle 結果はstatus=restrictedだけで、Repositoryの存在を開示しない。
+ * @cleanup N/A: 読取りだけで外部資源を生成しない。
+ * @boundary RFD-ST-004=System/E2E: Session Snapshot→Exposure Revision→Repository Revision。
+ */
+test("古いExposure Revisionを非開示で拒否する", () => {
+  const session = createCrosSession(
+    "session-stale",
+    {
+      credentialId: "cred-dev",
+      workspaceIds: ["development"],
+      systemAdmin: false,
+      revoked: false,
+    },
+    "registry-2",
+  );
+  assert.ok(session);
+  assert.deepEqual(
+    resolveRepository(session, "REPO-DEV", exposures, repositories),
+    { status: "restricted" },
+  );
+  assert.deepEqual(
+    resolveRepository(
+      { ...session, registryRevision: "registry-1" },
+      "REPO-DEV",
+      [
+        {
+          workspaceId: "development",
+          repositoryId: "REPO-DEV",
+          repositoryRevision: "rev-old",
+          registryRevision: "registry-1",
+          active: true,
+        },
+      ],
+      repositories,
+    ),
+    { status: "restricted" },
+  );
 });

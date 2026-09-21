@@ -49,7 +49,8 @@ export type CrosRepository = Readonly<{
 export type CrosExposure = Readonly<{
   workspaceId: string;
   repositoryId: string;
-  revision: number;
+  repositoryRevision: string;
+  registryRevision: string;
   active: boolean;
 }>;
 
@@ -68,6 +69,7 @@ export type CrosSession = Readonly<{
   sessionId: string;
   credentialId: string;
   workspaceIds: readonly string[];
+  registryRevision: string;
   systemAdmin: boolean;
   active: boolean;
 }>;
@@ -150,12 +152,20 @@ export type CrosHandoff = Readonly<{
 export function createCrosSession(
   sessionId: string,
   credential: CrosCredential,
+  registryRevision = "registry-1",
 ): CrosSession | null {
-  if (!sessionId || !credential.credentialId || credential.revoked) return null;
+  if (
+    !sessionId ||
+    !credential.credentialId ||
+    !registryRevision ||
+    credential.revoked
+  )
+    return null;
   return Object.freeze({
     sessionId,
     credentialId: credential.credentialId,
     workspaceIds: Object.freeze([...new Set(credential.workspaceIds)]),
+    registryRevision,
     systemAdmin: credential.systemAdmin,
     active: true,
   });
@@ -210,13 +220,23 @@ export function resolveRepository(
     (entry) =>
       entry.active &&
       entry.repositoryId === requestedRepositoryId &&
+      entry.registryRevision === session.registryRevision &&
       session.workspaceIds.includes(entry.workspaceId),
   );
   const repository = isExposed
     ? repositories.find((entry) => entry.repositoryId === requestedRepositoryId)
     : undefined;
   return repository
-    ? Object.freeze({ status: "available", repository })
+    ? exposures.some(
+        (entry) =>
+          entry.active &&
+          entry.repositoryId === repository.repositoryId &&
+          entry.registryRevision === session.registryRevision &&
+          entry.repositoryRevision === repository.revision &&
+          session.workspaceIds.includes(entry.workspaceId),
+      )
+      ? Object.freeze({ status: "available", repository })
+      : Object.freeze({ status: "restricted" })
     : Object.freeze({ status: "restricted" });
 }
 

@@ -35,21 +35,36 @@ test("Tool状態を分離し四入口を同じ共有実装へ接続する", asyn
       implementationId: "shared.echo.v1",
       published: true,
       hostAvailable: true,
-      execute: async (input) => input.toUpperCase(),
+      execute: async (input) => ({
+        output: input.toUpperCase(),
+        effectState: "issued",
+        residualResources: 0,
+        recoveryRequired: false,
+      }),
     },
     {
       toolId: "hidden",
       implementationId: "shared.hidden.v1",
       published: false,
       hostAvailable: true,
-      execute: async (input) => input,
+      execute: async (input) => ({
+        output: input,
+        effectState: "not_issued",
+        residualResources: 0,
+        recoveryRequired: false,
+      }),
     },
     {
       toolId: "offline",
       implementationId: "shared.offline.v1",
       published: true,
       hostAvailable: false,
-      execute: async (input) => input,
+      execute: async (input) => ({
+        output: input,
+        effectState: "not_issued",
+        residualResources: 0,
+        recoveryRequired: false,
+      }),
     },
   ];
   assert.equal(
@@ -99,7 +114,53 @@ test("Tool状態を分離し四入口を同じ共有実装へ接続する", asyn
     registeredTools,
     controller.signal,
   );
-  assert.equal(denied.effectIssued, false);
+  assert.equal(denied.effectState, "not_issued");
   assert.equal(cancelled.status, "cancelled");
   assert.equal(cancelled.residualResources, 0);
+});
+
+/**
+ * Effect発行後の取消と清掃観測不能をfalseへ畳まないことを検証する。
+ * @responsibility Tool実装が返したEffect・清掃・回復状態を取消結果へ保持する。
+ * @trace RCM-IT-010
+ * @precondition 実装がEffect発行後にSignalを取消し、残存資源を観測不能として返す。
+ * @stimulus 許可済みToolを実行する。
+ * @observation 取消結果のEffect状態、残存資源および回復要否を観測する。
+ * @oracle issued、unknown、recoveryRequired=trueが保持される。
+ * @cleanup 回復義務を結果へ返し、清掃完了を推定しない。
+ * @boundary RCM-IT-010=Related 2 Blocks: 共有実装→取消競合→Registry結果。
+ */
+test("Effect発行後の取消と清掃観測不能を保持する", async () => {
+  const controller = new AbortController();
+  const tools: readonly RegisteredTool[] = [
+    {
+      toolId: "effectful",
+      implementationId: "shared.effectful.v1",
+      published: true,
+      hostAvailable: true,
+      execute: async () => {
+        controller.abort();
+        return {
+          output: null,
+          effectState: "issued",
+          residualResources: "unknown",
+          recoveryRequired: true,
+        };
+      },
+    },
+  ];
+  const result = await executeRegisteredTool(
+    {
+      surface: "coordinator",
+      toolId: "effectful",
+      input: "run",
+      authorized: true,
+    },
+    tools,
+    controller.signal,
+  );
+  assert.equal(result.status, "cancelled");
+  assert.equal(result.effectState, "issued");
+  assert.equal(result.residualResources, "unknown");
+  assert.equal(result.recoveryRequired, true);
 });

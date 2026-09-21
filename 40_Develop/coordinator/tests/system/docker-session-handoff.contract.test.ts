@@ -9,7 +9,11 @@
  * @boundary ERB-ST-011=System/E2E: repair／restart→handoff chain→別Session／Runtime→closure。
  */
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import {
   createDockerRestartContinuationRecord,
@@ -42,7 +46,25 @@ const binding = Object.freeze({
  * @cleanup 正常完了後に旧Session所有資源と旧Host Effectの再発行が0であることを確認する。
  * @boundary ERB-ST-011=System/E2E: repair／restart→handoff chain→別Session／Runtime→closure。
  */
-test("別Runtimeへ同じDocker回復義務をhandoffし不正chainを拒否する", () => {
+test("別Runtimeへ同じDocker回復義務をhandoffし不正chainを拒否する", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-docker-handoff-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const worker = path.resolve("tests/fixtures/docker-handoff-worker.ts");
+  const runWorker = (command: string, workerBinding: typeof binding) =>
+    JSON.parse(
+      execFileSync(
+        process.execPath,
+        [worker, command, root, JSON.stringify(workerBinding)],
+        { encoding: "utf8" },
+      ),
+    ) as {
+      pid: number;
+      effectIssued: boolean;
+      resources: number;
+      currentPhase?: string;
+      recordCount?: number;
+    };
+  const originProcess = runWorker("origin", binding);
   const originRecords = [createDockerRestartRecord(binding, "stop_intent")];
   const runtimeB = {
     ...binding,
@@ -52,6 +74,8 @@ test("別Runtimeへ同じDocker回復義務をhandoffし不正chainを拒否す�
     ...binding,
     runtimeExecutionIdentitySha256: "c".repeat(64),
   };
+  const intermediateProcess = runWorker("intermediate", runtimeB);
+  const destinationProcess = runWorker("destination", runtimeC);
   const handoffB = createDockerRestartMigrationRecord(
     originRecords,
     runtimeB,
@@ -115,4 +139,15 @@ test("別Runtimeへ同じDocker回復義務をhandoffし不正chainを拒否す�
   assert.equal(reversed, null);
   assert.equal(wrongIdentity, null);
   assert.equal(binding.recoveryId, runtimeC.recoveryId);
+  assert.equal(destinationProcess.currentPhase, "settled");
+  assert.equal(destinationProcess.recordCount, 5);
+  for (const processResult of [
+    originProcess,
+    intermediateProcess,
+    destinationProcess,
+  ]) {
+    assert.equal(processResult.effectIssued, false);
+    assert.equal(processResult.resources, 0);
+    assert.throws(() => process.kill(processResult.pid, 0));
+  }
 });

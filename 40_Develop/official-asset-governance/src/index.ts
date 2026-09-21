@@ -18,3 +18,9 @@ export {
   type OfficialInclusionRecord,
   verifyOfficialAssetInclusion,
 } from "./official-asset-governance.ts";
+export {
+  createFileOfficialAssetStore,
+  executeOfficialAssetDecision,
+  type OfficialAssetAuthorityPort,
+  type OfficialAssetStore,
+} from "./official-asset-store.ts";

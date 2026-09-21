@@ -24,6 +24,7 @@ import {
   reserveProjectTaskStart,
   settleProjectTask,
   type ProjectRuntimeAcceptanceDecision,
+  type ProjectRuntimeAcceptanceDecisionRecord,
   type ProjectRuntimeState,
 } from "../../../project-runtime/src/index.ts";
 import {
@@ -31,6 +32,7 @@ import {
   executeProjectRuntimePublicStateQuery,
 } from "../../src/composition/project-runtime-composition-root.ts";
 import { createProjectRuntimePersistencePorts } from "../../src/security/project-runtime-durable-foundation.ts";
+import { createProjectRuntimeAcceptanceDecisionStore } from "../../src/security/project-runtime-acceptance-decision-store.ts";
 import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../src/security/project-runtime-windows-decision-store.ts";
 
 /**
@@ -340,4 +342,74 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
     assert.equal(projection.status, "completed");
     assert.equal(projection.projection?.milestoneState, expectedMilestoneState);
   }
+});
+
+/**
+ * Acceptance Decisionの前世代Hash改ざんを拒否することを検証する。
+ *
+ * @responsibility generation 2のpreviousHashをgeneration 1実体と照合し、形式だけ正しい改ざんを拒否する。
+ * @trace PRL-ST-009
+ * @precondition prepared→finalizedの二世代Recordを耐久化済みである。
+ * @stimulus generation 2のpreviousHashを別の有効なSHA-256値へ置換してreadする。
+ * @observation Storeの状態、理由および手動回復要否を観測する。
+ * @oracle history_invalidでblockedとなり、改ざん後Recordを返さない。
+ * @cleanup Test終了時にRepository-local Runtime Dataを削除する。
+ * @boundary PRL-ST-009=System/E2E: 耐久JSON→世代Hash Chain→Acceptance Decision Store。
+ */
+test("Acceptance Decisionの前世代Hash改ざんを拒否する", (t) => {
+  const repository = createRepository();
+  t.after(() => fs.rmSync(repository.root, { recursive: true, force: true }));
+  const bindingId = "binding-hash-chain";
+  const store = createProjectRuntimeAcceptanceDecisionStore(
+    repository.root,
+    bindingId,
+  );
+  const prepared: ProjectRuntimeAcceptanceDecisionRecord = Object.freeze({
+    recordId: "decision-record-hash-chain",
+    decisionId: "decision-hash-chain",
+    sourceSpecId: "SPEC-000002",
+    projectId: "project-hash-chain",
+    milestoneId: "milestone-hash-chain",
+    repositoryRevision: repository.revision,
+    expectedGeneration: 1,
+    target: "objective",
+    targetId: "objective-hash-chain",
+    decision: "accept",
+    criterionEvidenceIds: Object.freeze(["criterion-hash-chain"]),
+    principalId: "operator-a",
+    disposition: "prepared",
+    newGeneration: null,
+  });
+  const finalized: ProjectRuntimeAcceptanceDecisionRecord = Object.freeze({
+    ...prepared,
+    disposition: "finalized",
+    newGeneration: 2,
+  });
+  assert.equal(store.create(prepared).status, "completed");
+  assert.equal(store.compareAndSet(prepared, finalized).status, "completed");
+  const recordDirectory = path.join(
+    repository.root,
+    ".crdd",
+    "project-runtime",
+    "state",
+    "acceptance-decisions",
+    createHash("sha256")
+      .update(prepared.recordId, "utf8")
+      .digest("hex")
+      .slice(0, 40),
+  );
+  const secondPath = path.join(recordDirectory, "generation-2.json");
+  const second = JSON.parse(fs.readFileSync(secondPath, "utf8")) as Record<
+    string,
+    unknown
+  >;
+  second.previousHash = "f".repeat(64);
+  fs.writeFileSync(secondPath, `${JSON.stringify(second)}\n`, "utf8");
+  const observed = store.read(prepared.recordId);
+  assert.equal(observed.status, "blocked");
+  assert.equal(
+    observed.reason,
+    "project_runtime_acceptance_record_history_invalid",
+  );
+  assert.equal(observed.manualRecoveryRequired, true);
 });

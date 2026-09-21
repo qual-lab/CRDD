@@ -4,6 +4,9 @@
  * @responsibility realitySymbolGraphRuleを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000001
  */
+import fs from "node:fs";
+import path from "node:path";
+
 import {
   createRealitySymbolGraph,
   discoverRealitySymbolManifests,
@@ -65,6 +68,26 @@ export function realitySymbolGraphRule(repositoryRoot: string): CheckerRule {
           rule: "current-profile.reality-symbol-graph",
           message: finding.message,
         });
+      for (const loaded of discovery.manifests)
+        for (const symbol of loaded.manifest.symbols) {
+          if (
+            symbol.localTestIds.length === 0 ||
+            (symbol.kind !== "test-suite" && symbol.kind !== "test-case")
+          )
+            continue;
+          const testPath = path.join(loaded.subsystemRoot, symbol.path);
+          if (!fs.existsSync(testPath)) continue;
+          const source = fs.readFileSync(testPath, "utf8");
+          if (/\b(?:test|it|describe)\.skip\s*\(/u.test(source))
+            add({
+              severity: "error",
+              code: "reality-symbol-skipped-test-evidence-forbidden",
+              path: path.relative(repositoryRoot, testPath).replaceAll("\\", "/"),
+              rule: "current-profile.reality-symbol-graph",
+              message:
+                "A skipped test placeholder cannot own Local Item relations or count as observed verification evidence.",
+            });
+        }
     },
   };
 }

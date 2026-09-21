@@ -21,12 +21,25 @@
       ]
     },
     {
+      "symbolId": "official-asset-governance.store.asset-decision",
+      "kind": "implementation",
+      "path": "src/official-asset-store.ts",
+      "archIds": ["ARCH-000017"],
+      "implements": [
+        "official-asset-governance.asset-decision",
+        "official-asset-governance.revision-conflict"
+      ]
+    },
+    {
       "symbolId": "official-asset-governance.test.unit.revision-conflict",
       "kind": "test-suite",
       "path": "tests/unit/revision-conflict.contract.test.ts",
       "qaIds": ["QA-000011"],
       "localTestIds": ["OAG-UT-008"],
-      "verifies": ["official-asset-governance.domain.asset-decision"]
+      "verifies": [
+        "official-asset-governance.domain.asset-decision",
+        "official-asset-governance.store.asset-decision"
+      ]
     },
     {
       "symbolId": "official-asset-governance.test.integration.asset-governance",

@@ -24,6 +24,13 @@
       "implements": ["project-operation.context-lifecycle"]
     },
     {
+      "symbolId": "project-operation.store.candidate-lifecycle",
+      "kind": "implementation",
+      "path": "src/candidate-store.ts",
+      "archIds": ["ARCH-000006", "ARCH-000016"],
+      "implements": ["project-operation.context-lifecycle"]
+    },
+    {
       "symbolId": "project-operation.test.integration.project-projection",
       "kind": "test-suite",
       "path": "tests/integration/project-projection.contract.test.ts",
@@ -37,7 +44,10 @@
       "path": "tests/integration/candidate-adoption.contract.test.ts",
       "qaIds": ["QA-000005"],
       "localTestIds": ["CPR-IT-004", "CPR-IT-006"],
-      "verifies": ["project-operation.domain.candidate-lifecycle"]
+      "verifies": [
+        "project-operation.domain.candidate-lifecycle",
+        "project-operation.store.candidate-lifecycle"
+      ]
     }
   ]
 }

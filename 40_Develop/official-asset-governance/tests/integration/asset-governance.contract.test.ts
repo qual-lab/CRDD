@@ -11,10 +11,15 @@
  * @boundary OAG-IT-005=Related 2 Blocks、OAG-IT-006／OAG-IT-007=Direct Boundary。
  */
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import {
   applyOfficialAssetDecision,
+  createFileOfficialAssetStore,
+  executeOfficialAssetDecision,
   type OfficialAssetDecisionInput,
   type OfficialAssetRecord,
   verifyOfficialAssetInclusion,
@@ -125,14 +130,25 @@ test("完全な判断の収載先から根拠へ戻れる", () => {
  * @cleanup N/A: Domain結果だけを観測しFilesystem Effectを発行しない。
  * @boundary OAG-IT-007=Direct Boundary: Decision Record→Official Asset Store。
  */
-test("完全な判断だけが素材状態へ一回適用される", () => {
-  const applied = applyOfficialAssetDecision(candidate(), decision());
+test("完全な判断だけが素材状態へ一回適用される", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-asset-store-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const store = createFileOfficialAssetStore(
+    path.join(root, "asset.json"),
+    candidate(),
+  );
+  const applied = executeOfficialAssetDecision(
+    store,
+    { verify: (input) => input.decisionAuthorityId === "asset-owner-a" },
+    decision(),
+  );
   assert.equal(applied.status, "completed");
   if (applied.status !== "completed") return;
   assert.equal(applied.record.state, "approved");
   assert.equal(applied.record.recordRevision, 2);
   assert.equal(applied.record.decisionAuthorityId, "asset-owner-a");
   assert.equal(applied.storeEffectIssued, true);
+  assert.equal(store.read().recordRevision, 2);
 });
 
 /**
@@ -172,13 +188,21 @@ test("不完全な判断を収載Effect前で拒否する", () => {
  * @cleanup N/A: 純粋値だけを使用する。
  * @boundary OAG-IT-006=Direct Boundary: Concurrent Decision→Official Asset Store。
  */
-test("競合する同一Revision判断の後着側を上書きせず拒否する", () => {
-  const first = applyOfficialAssetDecision(candidate(), decision());
+test("競合する同一Revision判断の後着側を上書きせず拒否する", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-asset-conflict-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const store = createFileOfficialAssetStore(
+    path.join(root, "asset.json"),
+    candidate(),
+  );
+  const authority = { verify: () => true };
+  const first = executeOfficialAssetDecision(store, authority, decision());
   assert.equal(first.status, "completed");
   if (first.status !== "completed") return;
 
-  const second = applyOfficialAssetDecision(
-    first.record,
+  const second = executeOfficialAssetDecision(
+    store,
+    authority,
     decision({
       decision: "restrict",
       allowedPurposes: Object.freeze(["internal-review"]),
@@ -186,6 +210,7 @@ test("競合する同一Revision判断の後着側を上書きせず拒否する
   );
   assert.equal(first.record.state, "approved");
   assert.equal(first.record.recordRevision, 2);
+  assert.equal(store.read().state, "approved");
   assert.deepEqual(second, {
     status: "blocked",
     reason: "official_asset_decision_revision_conflict",

@@ -27,7 +27,28 @@ export type RegisteredTool = Readonly<{
   implementationId: string;
   published: boolean;
   hostAvailable: boolean;
-  execute: (input: string, signal: AbortSignal) => Promise<string>;
+  execute: (
+    input: string,
+    signal: AbortSignal,
+  ) => Promise<ToolImplementationResult>;
+}>;
+
+/**
+ * 共有Tool実装が所有するEffect、清掃および回復状態を定義する。
+ *
+ * @responsibility 取消競合を含む実装完了時点のEffect状態をRegistryへ搬送する。
+ * @trace ARCH-000010
+ * @shape 出力、Effect状態、残存資源数および回復要否を表す。
+ * @invariant RegistryはAbortSignalだけからEffect 0または清掃完了を推定しない。
+ * @boundary 共有Tool実装とTool Registryの結果境界。
+ * @security 生CredentialまたはHost Pathを含めない。
+ * @compatibility effectStateのunknownをfalseへ畳まない。
+ */
+export type ToolImplementationResult = Readonly<{
+  output: string | null;
+  effectState: "not_issued" | "issued" | "unknown";
+  residualResources: number | "unknown";
+  recoveryRequired: boolean;
 }>;
 
 /**
@@ -113,8 +134,9 @@ export async function executeRegisteredTool(
     reason: string;
     implementationId: string | null;
     output: string | null;
-    effectIssued: boolean;
-    residualResources: 0;
+    effectState: "not_issued" | "issued" | "unknown";
+    residualResources: number | "unknown";
+    recoveryRequired: boolean;
   }>
 > {
   const observation = inspectRegisteredTool(request.toolId, registeredTools);
@@ -126,8 +148,9 @@ export async function executeRegisteredTool(
         : "tool_not_authorized",
       implementationId: observation.implementationId,
       output: null,
-      effectIssued: false,
+      effectState: "not_issued",
       residualResources: 0,
+      recoveryRequired: false,
     });
   if (signal.aborted)
     return Object.freeze({
@@ -135,11 +158,12 @@ export async function executeRegisteredTool(
       reason: "tool_cancelled",
       implementationId: observation.implementationId,
       output: null,
-      effectIssued: false,
+      effectState: "not_issued",
       residualResources: 0,
+      recoveryRequired: false,
     });
   try {
-    const output = await registeredTools
+    const result = await registeredTools
       .find((entry) => entry.toolId === request.toolId)
       ?.execute(request.input, signal);
     if (signal.aborted)
@@ -148,16 +172,18 @@ export async function executeRegisteredTool(
         reason: "tool_cancelled",
         implementationId: observation.implementationId,
         output: null,
-        effectIssued: false,
-        residualResources: 0,
+        effectState: result?.effectState ?? "unknown",
+        residualResources: result?.residualResources ?? "unknown",
+        recoveryRequired: result?.recoveryRequired ?? true,
       });
     return Object.freeze({
       status: "completed",
       reason: "tool_completed",
       implementationId: observation.implementationId,
-      output: output ?? "",
-      effectIssued: true,
-      residualResources: 0,
+      output: result?.output ?? "",
+      effectState: result?.effectState ?? "unknown",
+      residualResources: result?.residualResources ?? "unknown",
+      recoveryRequired: result?.recoveryRequired ?? true,
     });
   } catch (error) {
     if (signal.aborted)
@@ -166,8 +192,9 @@ export async function executeRegisteredTool(
         reason: "tool_cancelled",
         implementationId: observation.implementationId,
         output: null,
-        effectIssued: false,
-        residualResources: 0,
+        effectState: "unknown",
+        residualResources: "unknown",
+        recoveryRequired: true,
       });
     throw error;
   }

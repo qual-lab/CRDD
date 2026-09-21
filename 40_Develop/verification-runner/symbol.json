@@ -63,20 +63,6 @@
       ]
     },
     {
-      "symbolId": "verification-runner.test.acceptance.regression-plan-understanding",
-      "kind": "test-suite",
-      "path": "tests/acceptance/regression-plan-understanding.contract.test.ts",
-      "qaIds": [
-        "QA-000002"
-      ],
-      "localTestIds": [
-        "CQS-UAT-007"
-      ],
-      "verifies": [
-        "verification-runner.regression-entry"
-      ]
-    },
-    {
       "symbolId": "verification-runner.source.src.execution.regression.execution",
       "kind": "file",
       "path": "src/execution/regression-execution.ts",

@@ -104,6 +104,7 @@ export type OfficialAssetDecisionResult =
       status: "blocked";
       reason:
         | "official_asset_decision_input_invalid"
+        | "official_asset_decision_authority_invalid"
         | "official_asset_decision_target_mismatch"
         | "official_asset_decision_revision_conflict"
         | "official_asset_decision_transition_invalid";

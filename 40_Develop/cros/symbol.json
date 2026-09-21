@@ -31,12 +31,19 @@
       "implements": ["cros.surface-contract", "cros.result-return"]
     },
     {
+      "symbolId": "cros.durable-store",
+      "kind": "implementation",
+      "path": "src/durable-store.ts",
+      "archIds": ["ARCH-000010", "ARCH-000015"],
+      "implements": ["cros.surface-contract", "cros.context-handoff", "cros.result-return"]
+    },
+    {
       "symbolId": "cros.test.integration.core",
       "kind": "test-suite",
       "path": "tests/integration/cros-core.contract.test.ts",
       "qaIds": ["QA-000006", "QA-000007"],
       "localTestIds": ["ERB-IT-010", "RFD-IT-009", "RFD-IT-011"],
-      "verifies": ["cros.runtime"]
+      "verifies": ["cros.runtime", "cros.durable-store"]
     },
     {
       "symbolId": "cros.test.integration.tool-registry",
@@ -51,7 +58,7 @@
       "kind": "test-suite",
       "path": "tests/system/session-access.contract.test.ts",
       "qaIds": ["QA-000007"],
-      "localTestIds": ["RFD-ST-003", "RFD-ST-004"],
+      "localTestIds": [],
       "verifies": ["cros.runtime"]
     },
     {
@@ -59,7 +66,7 @@
       "kind": "test-suite",
       "path": "tests/system/context-handoff.contract.test.ts",
       "qaIds": ["QA-000006", "QA-000007"],
-      "localTestIds": ["ERB-ST-013", "RFD-ST-010"],
+      "localTestIds": ["ERB-ST-013"],
       "verifies": ["cros.runtime"]
     },
     {
@@ -68,7 +75,7 @@
       "path": "tests/integration/surface-contract.contract.test.ts",
       "qaIds": ["QA-000009"],
       "localTestIds": ["EST-IT-010"],
-      "verifies": ["cros.application-contract"]
+      "verifies": ["cros.application-contract", "cros.durable-store"]
     },
     {
       "symbolId": "cros.test.system.result-return",
@@ -76,7 +83,7 @@
       "path": "tests/system/result-return.contract.test.ts",
       "qaIds": ["QA-000009"],
       "localTestIds": ["EST-ST-011"],
-      "verifies": ["cros.application-contract"]
+      "verifies": ["cros.application-contract", "cros.durable-store"]
     }
   ]
 }

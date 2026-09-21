@@ -358,6 +358,15 @@ export function createProjectRuntimeAcceptanceDecisionStore(
             "project_runtime_acceptance_record_history_invalid",
             true,
           );
+        if (
+          second &&
+          first &&
+          second.previousHash !== digest(JSON.stringify(first))
+        )
+          return blocked(
+            "project_runtime_acceptance_record_history_invalid",
+            true,
+          );
         return completed(second?.record ?? first?.record ?? null);
       } catch {
         return blocked(

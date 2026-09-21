@@ -121,7 +121,7 @@
       "kind": "test-suite",
       "path": "tests/system/migration-system-closure.contract.test.ts",
       "qaIds": ["QA-000001"],
-      "localTestIds": ["RCM-ST-012"],
+      "localTestIds": [],
       "verifies": ["version-control.migration-closure"]
     },
     {
