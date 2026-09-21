@@ -133,10 +133,10 @@
       "id": "project-runtime:decision-recovery",
       "owner": "project-runtime",
       "architectureAnchor": "06_Architecture/Details/project-runtime/01_Architecture.md#9-移行と検証",
-      "responsibilities": ["human_decision_wait", "replanning", "recovery_reentry"],
-      "externalBoundaries": ["decision_port", "task_recovery_port", "lease_port"],
+      "responsibilities": ["human_decision_wait", "acceptance_decision", "replanning", "recovery_reentry"],
+      "externalBoundaries": ["decision_port", "acceptance_decision_store", "state_port", "task_recovery_port", "lease_port"],
       "lifecycleProfile": "durable_operation",
-      "testIds": ["project-runtime:unit:human-decision-application", "coordinator:integration:project-runtime-replanning-and-decision", "coordinator:integration:project-runtime-decision-recovery-store"],
+      "testIds": ["project-runtime:unit:human-decision-application", "project-runtime:integration:acceptance-decision-application", "coordinator:integration:project-runtime-replanning-and-decision", "coordinator:integration:project-runtime-decision-recovery-store", "coordinator:system:project-runtime-acceptance-decision"],
       "postconditions": ["decision_authority_single_use", "recovery_identity_exact", "stale_generation_rejected"]
     },
     {
@@ -2856,6 +2856,27 @@
       "humanInput": false,
       "postconditions": [
         "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "project-runtime:integration:acceptance-decision-application",
+      "owner": "project-runtime",
+      "path": "40_Develop/project-runtime/tests/integration/acceptance-decision-application.integration.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "project-runtime",
+        "acceptance",
+        "decision",
+        "recovery"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "decision_record_finalized_or_recovery_preserved",
+        "state_effect_not_duplicated"
       ],
       "mandatoryByDefault": true
     },

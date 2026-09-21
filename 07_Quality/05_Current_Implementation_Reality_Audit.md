@@ -236,7 +236,7 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 
 ## 12. Relation是正結果
 
-現在の完了判定は、13件のQuality Definitionが所有する154個の一意なLocal Itemを母集団とする。Test Sourceの`symbol.json`が所有する正方向Relationと再照合した結果、102件を観測済み、52件を未観測と判定した。未観測52件は自動20件、Hybrid 14件、Manual 18件である。
+現在の完了判定は、13件のQuality Definitionが所有する154個の一意なLocal Itemを母集団とする。Test Sourceの`symbol.json`が所有する正方向Relationと再照合した結果、103件を観測済み、51件を未観測と判定した。未観測51件は自動19件、Hybrid 14件、Manual 18件である。
 
 | Quality領域 | 未観測数 | 実行形態の内訳 |
 |---|---:|---|
@@ -244,7 +244,7 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 | AUH | 4 | Hybrid 3、Manual 1 |
 | CPR | 6 | Automated 2、Hybrid 3、Manual 1 |
 | CQS | 3 | Hybrid 1、Manual 2 |
-| ERB | 7 | Automated 5、Hybrid 1、Manual 1 |
+| ERB | 6 | Automated 4、Hybrid 1、Manual 1 |
 | ERP | 1 | Manual 1 |
 | EST | 6 | Automated 2、Manual 4 |
 | OAG | 8 | Automated 4、Hybrid 4 |
@@ -254,9 +254,9 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 | RDL | 1 | Manual 1 |
 | RFD | 6 | Automated 5、Manual 1 |
 
-この52件は「新しいTestが52本必要」という意味ではない。既存TestがLocal Itemの刺激、観測、Oracle、終了後条件を満たす場合はRelation不足として接続し、満たさない場合は試験不足、実装不足、工程Evidenceまたは人間受入待ちへ分類する。名前や同じQuality領域だけを根拠に接続しない。
+この51件は「新しいTestが51本必要」という意味ではない。既存TestがLocal Itemの刺激、観測、Oracle、終了後条件を満たす場合はRelation不足として接続し、満たさない場合は試験不足、実装不足、工程Evidenceまたは人間受入待ちへ分類する。名前や同じQuality領域だけを根拠に接続しない。
 
-今回の局所Closureでは、`AIT-ST-010`を実署名済み固定Snapshotの昇格・不一致拒否・候補破棄へ、`CQS-ST-013`を公開Verification入口のPT／LT Authority Gateへ、`RDL-ST-002`を公開Runtime Data APIの清掃・回復保護・最終不存在へ接続した。さらに`ERB-IT-012`は、既存のDocker Desktop修復統合試験がexact Repair Identity、旧Effect非再発行、fresh観測および同一義務の継続をすでに確認していたため、試験を複製せず正方向Relationを補った。`CQS-ST-012`は公開Verification CLIでStatic、UT、IT、ST、UATの固定計画を実行し、UATを自動Passへ畳まず人間入力待ち、全体`blocked`、Exit 2として返すSystem Testへ接続した。`RFD-IT-005`はdirtyな実Repositoryと同じPortを実装する差替Adapterで同じLocal Change Set操作を行い、Commit SHAおよびGit具象をCoreの成立条件へしない専用ITへ接続した。`ERB-IT-008`はPlatform AccessのHome分類結果をTask RuntimeのProcess Gateへ結合し、missing、regular file、link／reparse、異なるIdentity、権限不足および観測不能が初回観測・再観測のどちらで発生してもProvider Process Effect 0で停止する専用ITへ接続した。再計画中のHuman Decision試験は`PRL-IT-005`を補強するが、Objective／Milestone Acceptance Decisionを求める`PRL-IT-008`とは意味が異なるため、同項目は未観測を維持する。PT／LT実処理、全回帰および署名E2Eは実行していない。
+今回の局所Closureでは、`AIT-ST-010`を実署名済み固定Snapshotの昇格・不一致拒否・候補破棄へ、`CQS-ST-013`を公開Verification入口のPT／LT Authority Gateへ、`RDL-ST-002`を公開Runtime Data APIの清掃・回復保護・最終不存在へ接続した。さらに`ERB-IT-012`は、既存のDocker Desktop修復統合試験がexact Repair Identity、旧Effect非再発行、fresh観測および同一義務の継続をすでに確認していたため、試験を複製せず正方向Relationを補った。`CQS-ST-012`は公開Verification CLIでStatic、UT、IT、ST、UATの固定計画を実行し、UATを自動Passへ畳まず人間入力待ち、全体`blocked`、Exit 2として返すSystem Testへ接続した。同じ公開入口試験は、Static、UT、IT、STを順序実行し、下位未成立または人間入力待ちで上位を開始しない`ERB-ST-015`の境界進行も直接観測するため、同Local Itemへ正方向Relationを追加した。`RFD-IT-005`はdirtyな実Repositoryと同じPortを実装する差替Adapterで同じLocal Change Set操作を行い、Commit SHAおよびGit具象をCoreの成立条件へしない専用ITへ接続した。`ERB-IT-008`はPlatform AccessのHome分類結果をTask RuntimeのProcess Gateへ結合し、missing、regular file、link／reparse、異なるIdentity、権限不足および観測不能が初回観測・再観測のどちらで発生してもProvider Process Effect 0で停止する専用ITへ接続した。再計画中のHuman Decision試験は`PRL-IT-005`を補強するが、Objective／Milestone Acceptance Decisionを求める`PRL-IT-008`とは意味が異なるため、同項目は未観測を維持する。PT／LT実処理、全回帰および署名E2Eは実行していない。
 
 ### 12.1 初回のSubsystem別Snapshot
 
@@ -287,13 +287,13 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 
 同じLocal Itemが複数領域へ現れる場合は、各領域が所有する境界を別Relationとして数える。したがって48件は試験件数ではなく、設計領域と検証義務の初回接続数である。手動UATや工程判断を自動Test Symbolへ偽装せず、実Runtimeが存在しない領域もRelation追加だけで`Covered`へ変更しない。
 
-## 13. 未観測52件の処置
+## 13. 未観測51件の処置
 
 | 実行形態 | 件数 | 現在の処置 |
 |---|---:|---|
-| Automated | 23 | 既存Testの意味一致を一件ずつ確認し、成立するものは正方向Relationを追加する。不成立は実装またはTest Gapとして閉じる |
+| Automated | 19 | 既存Testの意味一致を一件ずつ確認し、成立するものは正方向Relationを追加する。不成立は実装またはTest Gapとして閉じる |
 | Hybrid | 14 | 自動部分と人間判断部分を分離し、自動部分だけのPassを全体成立へ畳まない |
-| Manual | 19 | 自動Test Symbolを捏造せず、参加条件、入力、判断、未判断範囲およびEvidenceを固定して実施する |
+| Manual | 18 | 自動Test Symbolを捏造せず、参加条件、入力、判断、未判断範囲およびEvidenceを固定して実施する |
 
 全回帰は、Automated／Hybridの実装・試験Gapを閉じ、Manual項目の実施条件と現在Releaseへの影響を固定した後に実行する。Phase 8完了前に各件の具体的Owner、処置、再評価契機および現在Releaseへの影響を固定する。Reality Auditは未実装Capabilityや未実行の手動評価を自分で補完せず、対応するQuality Mappingから再評価する。
 

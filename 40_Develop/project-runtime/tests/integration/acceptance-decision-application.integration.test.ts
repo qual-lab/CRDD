@@ -13,6 +13,7 @@ import test from "node:test";
 
 import {
   PROJECT_RUNTIME_ACCEPTANCE_DECISION_CONTRACT,
+  applyProjectRuntimeAcceptanceDecision,
   createProjectRuntimeState,
   observeProjectTaskStarted,
   prepareProjectTaskHandoff,
@@ -257,6 +258,39 @@ function request(
 }
 
 /**
+ * 状態Effect前に耐久化された準備Recordを構築する。
+ *
+ * @responsibility Exact再入場試験が使用する判断Identityと入力を一つのRecordへ固定する。
+ * @trace PRL-IT-008
+ * @precondition inputが有効なSPEC-000002受入判断要求である。
+ * @stimulus inputを`prepared` Dispositionへ写像する。
+ * @observation ApplicationのStore Portへ投入できる完全なRecordを返す。
+ * @oracle Record ID、対象、世代、根拠およびPrincipalがinputと一致する。
+ * @cleanup N/A: Process内の不変値だけを使用する。
+ * @boundary PRL-IT-008=Direct Boundary: Recovery fixture→Acceptance Decision Store
+ */
+function preparedRecord(
+  input: ProjectRuntimeAcceptanceDecisionRequest,
+): ProjectRuntimeAcceptanceDecisionRecord {
+  return Object.freeze({
+    recordId: `acceptance-${input.decisionId}`,
+    decisionId: input.decisionId,
+    sourceSpecId: "SPEC-000002",
+    projectId: input.projectId,
+    milestoneId: input.milestoneId,
+    repositoryRevision: input.repositoryRevision,
+    expectedGeneration: input.expectedGeneration,
+    target: input.target,
+    targetId: input.targetId,
+    decision: input.decision,
+    criterionEvidenceIds: Object.freeze([...input.criterionEvidenceIds]),
+    principalId: input.principalId,
+    disposition: "prepared",
+    newGeneration: null,
+  });
+}
+
+/**
  * SPEC-000002のexactな対象・世代・Authorityだけを一度記録することを検証する。
  *
  * @responsibility 正常なDirect BoundaryでDecision Record一件と対象状態更新一件だけが発生することを判定する。
@@ -341,4 +375,108 @@ test("Projection Source、古い世代、権限不一致および重複判断を
   assert.equal(fixture.current().stateWrites, 1);
   assert.equal(fixture.current().creates, 1);
   assert.equal(fixture.current().finalizes, 1);
+});
+
+/**
+ * 状態Effect前に停止した同一判断をexact再入場で一度だけ完了できることを検証する。
+ *
+ * @responsibility 準備Recordだけが残った状態から、同じ判断が状態更新と確定を重複なく再開することを判定する。
+ * @trace PRL-IT-008
+ * @precondition Storeに入力と同一の`prepared` Recordがあり、Stateは未適用である。
+ * @stimulus 同じDecision ID、対象、世代、根拠およびPrincipalで再入場する。
+ * @observation State Write、Record Create、Finalizeおよび最終Dispositionを観測する。
+ * @oracle Recordを再作成せず、Stateを一度更新して既存Recordを`finalized`へ進める。
+ * @cleanup N/A: Process内Mapだけを使用する。
+ * @boundary PRL-IT-008=Recovery Boundary: Prepared Record→State Effect→Finalize
+ */
+test("状態Effect前に停止した同一判断をexact再入場で一度だけ完了する", () => {
+  const fixture = harness(acceptancePendingState());
+  const exact = request(fixture.current().state.generation);
+  fixture.current().records.set("acceptance-decision-a", preparedRecord(exact));
+
+  const recovered = recordProjectRuntimeAcceptanceDecision(
+    fixture.dependencies,
+    exact,
+  );
+
+  assert.equal(recovered.status, "completed");
+  assert.equal(fixture.current().state.objectives[0]?.state, "accepted");
+  assert.equal(fixture.current().stateWrites, 1);
+  assert.equal(fixture.current().creates, 0);
+  assert.equal(fixture.current().finalizes, 1);
+  assert.equal(
+    fixture.current().records.get("acceptance-decision-a")?.disposition,
+    "finalized",
+  );
+});
+
+/**
+ * 状態Effect後に停止した同一判断を再発行せず確定できることを検証する。
+ *
+ * @responsibility State更新済みかつ準備Record残存時に、再入場が二重State Effectを発行しないことを判定する。
+ * @trace PRL-IT-008
+ * @precondition Storeに`prepared` Recordがあり、Stateには同じ判断が適用済みである。
+ * @stimulus 同じ判断Identityで再入場する。
+ * @observation State Write、Record Create、Finalizeおよび最終世代を観測する。
+ * @oracle State Writeは0、Record Createは0、Finalizeだけが1となる。
+ * @cleanup N/A: Process内Mapだけを使用する。
+ * @boundary PRL-IT-008=Recovery Boundary: Applied State＋Prepared Record→Finalize
+ */
+test("状態Effect後に停止した同一判断を再発行せず確定する", () => {
+  const pending = acceptancePendingState();
+  const exact = request(pending.generation);
+  const applied = applyProjectRuntimeAcceptanceDecision(
+    pending,
+    exact.expectedGeneration,
+    exact,
+  );
+  assert.ok(applied.state);
+  const fixture = harness(applied.state);
+  fixture.current().records.set("acceptance-decision-a", preparedRecord(exact));
+
+  const recovered = recordProjectRuntimeAcceptanceDecision(
+    fixture.dependencies,
+    exact,
+  );
+
+  assert.equal(recovered.status, "completed");
+  assert.equal(fixture.current().stateWrites, 0);
+  assert.equal(fixture.current().creates, 0);
+  assert.equal(fixture.current().finalizes, 1);
+  assert.equal(recovered.newGeneration, applied.state.generation);
+});
+
+/**
+ * 別判断による準備Recordの横取りをEffect 0で拒否することを検証する。
+ *
+ * @responsibility Exact再入場を同じ根拠とPrincipalへ限定し、別入力を既存Recordへ結合しないことを判定する。
+ * @trace PRL-IT-008
+ * @precondition Storeに元要求の`prepared` Recordが存在する。
+ * @stimulus Evidenceだけを変更した要求で同じDecision IDへ再入場する。
+ * @observation 理由code、State Write、Record CreateおよびFinalize件数を観測する。
+ * @oracle duplicateとして停止し、全Effectが0となる。
+ * @cleanup N/A: Process内Mapだけを使用する。
+ * @boundary PRL-IT-008=Recovery Boundary: Mismatched Request→Effect 0
+ */
+test("別判断による準備Recordの横取りをEffect 0で拒否する", () => {
+  const fixture = harness(acceptancePendingState());
+  const exact = request(fixture.current().state.generation);
+  fixture.current().records.set("acceptance-decision-a", preparedRecord(exact));
+
+  const rejected = recordProjectRuntimeAcceptanceDecision(
+    fixture.dependencies,
+    Object.freeze({
+      ...exact,
+      criterionEvidenceIds: Object.freeze(["evidence-b"]),
+    }),
+  );
+
+  assert.equal(rejected.status, "blocked");
+  assert.equal(
+    rejected.reason,
+    "project_runtime_acceptance_decision_duplicate",
+  );
+  assert.equal(fixture.current().stateWrites, 0);
+  assert.equal(fixture.current().creates, 0);
+  assert.equal(fixture.current().finalizes, 0);
 });

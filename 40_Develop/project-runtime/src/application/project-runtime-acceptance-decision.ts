@@ -169,6 +169,101 @@ function validRequest(
 }
 
 /**
+ * 耐久化済みの準備Recordが再入場要求と同一かを判定する。
+ *
+ * @responsibility 再入場を同じ判断Identity、対象、世代、根拠およびPrincipalへ限定する。
+ * @trace ARCH-000005
+ * @input record: 既存Record、input: 再入場要求。
+ * @returns 全Propertyが一致する場合だけtrueを返す。
+ * @precondition recordとinputは各境界で構造検証済みである。
+ * @postcondition 比較以外の状態を変更しない。
+ * @effect N/A: Plain Dataを比較するだけである。
+ * @failure N/A: 不一致はfalseへ閉じる。
+ * @invariant 別の判断、根拠またはPrincipalを既存Recordへ結合しない。
+ * @boundary 耐久Recordと再入場要求の相関境界。
+ * @security Principal以外のCredential値を扱わない。
+ * @concurrency N/A: 不変値の同期比較だけを行う。
+ */
+function samePreparedDecision(
+  record: ProjectRuntimeAcceptanceDecisionRecord,
+  input: ProjectRuntimeAcceptanceDecisionRequest,
+): boolean {
+  return (
+    record.disposition === "prepared" &&
+    record.decisionId === input.decisionId &&
+    record.sourceSpecId === input.sourceSpecId &&
+    record.projectId === input.projectId &&
+    record.milestoneId === input.milestoneId &&
+    record.repositoryRevision === input.repositoryRevision &&
+    record.expectedGeneration === input.expectedGeneration &&
+    record.target === input.target &&
+    record.targetId === input.targetId &&
+    record.decision === input.decision &&
+    record.principalId === input.principalId &&
+    JSON.stringify(record.criterionEvidenceIds) ===
+      JSON.stringify(input.criterionEvidenceIds)
+  );
+}
+
+/**
+ * 準備Recordの判断が現在状態へ既に適用済みかを判定する。
+ *
+ * @responsibility 観測不能後の再入場で状態Effectを重複発行せず、適用済み判断だけを確定可能にする。
+ * @trace ARCH-000005
+ * @input state: 現在状態、record: 同一性確認済み準備Record。
+ * @returns 判断結果と世代が一致する場合だけtrueを返す。
+ * @precondition recordはsamePreparedDecisionで再入場要求と一致している。
+ * @postcondition 判定以外の状態を変更しない。
+ * @effect N/A: 現在状態を読むだけである。
+ * @failure N/A: 不一致または対象不存在はfalseへ閉じる。
+ * @invariant accept／returnは次世代、waitは元世代だけを適用済みとみなす。
+ * @boundary 耐久RecordとProject Runtime Stateの相関境界。
+ * @security Authorityを生成せず、検証済みRecordの意味だけを照合する。
+ * @concurrency 世代一致を必須として競合更新を適用済みへ誤認しない。
+ */
+function decisionAlreadyApplied(
+  state: Readonly<{
+    generation: number;
+    milestone: Readonly<{ state: string }>;
+    objectives: readonly Readonly<{
+      definition: Readonly<{ id: string }>;
+      state: string;
+    }>[];
+  }>,
+  record: ProjectRuntimeAcceptanceDecisionRecord,
+): boolean {
+  if (record.target === "objective") {
+    const objective = state.objectives.find(
+      ({ definition }) => definition.id === record.targetId,
+    );
+    const expectedState =
+      record.decision === "accept"
+        ? "accepted"
+        : record.decision === "return"
+          ? "returned"
+          : "integration_pending";
+    const expectedGeneration =
+      record.expectedGeneration + (record.decision === "wait" ? 0 : 1);
+    return (
+      state.generation === expectedGeneration &&
+      objective?.state === expectedState
+    );
+  }
+  const expectedState =
+    record.decision === "accept"
+      ? "accepted"
+      : record.decision === "return"
+        ? "returned"
+        : "integrating";
+  const expectedGeneration =
+    record.expectedGeneration + (record.decision === "wait" ? 0 : 1);
+  return (
+    state.generation === expectedGeneration &&
+    state.milestone.state === expectedState
+  );
+}
+
+/**
  * Project運営者の受入判断をAuthority検証し、一つのRecordと状態へ適用する。
  *
  * @responsibility exactなProject、対象、世代、SourceおよびAuthorityだけを処置し、Decision Recordを状態Effectより先に耐久化する。
@@ -198,7 +293,7 @@ export function recordProjectRuntimeAcceptanceDecision(
       recordId,
       existing.manualRecoveryRequired,
     );
-  if (existing.value)
+  if (existing.value?.disposition === "finalized")
     return blocked("project_runtime_acceptance_decision_duplicate", recordId);
   const observed = dependencies.state.readState(input.projectId);
   if (observed.status !== "completed" || !observed.value)
@@ -208,13 +303,15 @@ export function recordProjectRuntimeAcceptanceDecision(
       observed.status === "blocked" && observed.manualRecoveryRequired,
     );
   const state = observed.value;
+  const preparedRecord = existing.value;
   if (
     state.projectId !== input.projectId ||
     state.milestoneId !== input.milestoneId ||
-    state.repositoryRevision !== input.repositoryRevision ||
-    state.generation !== input.expectedGeneration
+    state.repositoryRevision !== input.repositoryRevision
   )
     return blocked("project_runtime_acceptance_decision_target_mismatch");
+  if (preparedRecord && !samePreparedDecision(preparedRecord, input))
+    return blocked("project_runtime_acceptance_decision_duplicate", recordId);
   const binding: ProjectRuntimeAcceptanceDecisionAuthorityBinding =
     Object.freeze({
       sourceSpecId: "SPEC-000002",
@@ -235,38 +332,54 @@ export function recordProjectRuntimeAcceptanceDecision(
   }
   if (!authorized)
     return blocked("project_runtime_acceptance_decision_authority_invalid");
-  const transition = applyProjectRuntimeAcceptanceDecision(
-    state,
-    input.expectedGeneration,
-    input,
-  );
-  if (transition.status !== "completed") return blocked(transition.reason);
-  const prepared: ProjectRuntimeAcceptanceDecisionRecord = Object.freeze({
-    recordId,
-    decisionId: input.decisionId,
-    sourceSpecId: "SPEC-000002",
-    projectId: input.projectId,
-    milestoneId: input.milestoneId,
-    repositoryRevision: input.repositoryRevision,
-    expectedGeneration: input.expectedGeneration,
-    target: input.target,
-    targetId: input.targetId,
-    decision: input.decision,
-    criterionEvidenceIds: Object.freeze([...input.criterionEvidenceIds]),
-    principalId: input.principalId,
-    disposition: "prepared",
-    newGeneration: null,
-  });
-  const created = dependencies.store.create(prepared);
-  if (created.status !== "completed")
-    return blocked(
-      "project_runtime_acceptance_decision_record_unknown",
+  const prepared: ProjectRuntimeAcceptanceDecisionRecord =
+    preparedRecord ??
+    Object.freeze({
       recordId,
-      true,
+      decisionId: input.decisionId,
+      sourceSpecId: "SPEC-000002",
+      projectId: input.projectId,
+      milestoneId: input.milestoneId,
+      repositoryRevision: input.repositoryRevision,
+      expectedGeneration: input.expectedGeneration,
+      target: input.target,
+      targetId: input.targetId,
+      decision: input.decision,
+      criterionEvidenceIds: Object.freeze([...input.criterionEvidenceIds]),
+      principalId: input.principalId,
+      disposition: "prepared",
+      newGeneration: null,
+    });
+  if (!preparedRecord) {
+    if (state.generation !== input.expectedGeneration)
+      return blocked("project_runtime_acceptance_decision_target_mismatch");
+    const created = dependencies.store.create(prepared);
+    if (created.status !== "completed")
+      return blocked(
+        "project_runtime_acceptance_decision_record_unknown",
+        recordId,
+        true,
+      );
+  }
+  let nextState = state;
+  if (!decisionAlreadyApplied(state, prepared)) {
+    if (state.generation !== input.expectedGeneration)
+      return blocked(
+        "project_runtime_acceptance_decision_recovery_state_unknown",
+        recordId,
+        true,
+      );
+    const transition = applyProjectRuntimeAcceptanceDecision(
+      state,
+      input.expectedGeneration,
+      input,
     );
-  if (transition.state !== state) {
+    if (transition.status !== "completed") return blocked(transition.reason);
+    nextState = transition.state;
+  }
+  if (nextState !== state) {
     const written = dependencies.state.writeState(
-      transition.state,
+      nextState,
       input.expectedGeneration,
     );
     if (written.status !== "completed")
@@ -279,7 +392,7 @@ export function recordProjectRuntimeAcceptanceDecision(
   const finalized: ProjectRuntimeAcceptanceDecisionRecord = Object.freeze({
     ...prepared,
     disposition: "finalized",
-    newGeneration: transition.state.generation,
+    newGeneration: nextState.generation,
   });
   const committed = dependencies.store.compareAndSet(prepared, finalized);
   if (committed.status !== "completed")

@@ -48,11 +48,13 @@
       "kind": "test-suite",
       "path": "tests/system/resource-intensive-gate.contract.test.ts",
       "qaIds": [
-        "QA-000002"
+        "QA-000002",
+        "QA-000006"
       ],
       "localTestIds": [
         "CQS-ST-012",
-        "CQS-ST-013"
+        "CQS-ST-013",
+        "ERB-ST-015"
       ],
       "verifies": [
         "verification-runner.regression-entry",

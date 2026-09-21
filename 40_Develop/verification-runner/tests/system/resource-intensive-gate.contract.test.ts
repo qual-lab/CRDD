@@ -5,6 +5,7 @@
  * @responsibility 公開Verification入口がPT／LTを人間許可と上限なしに開始しないことを検証する。
  * @trace CQS-ST-012
  * @trace CQS-ST-013
+ * @trace ERB-ST-015
  * @level ST
  * @scope verification、public-entry、performance、longevity、authority、effect-zero
  * @boundary CQS-ST-013=System/E2E: 公開Verification入口→人間許可Gate→PT／LT Runner
@@ -27,6 +28,7 @@ const HUMAN_ACCEPTANCE_PATH =
  * @responsibility CLI Processの終了Codeと構造化標準出力をTest Caseへ返す。
  * @trace CQS-ST-012
  * @trace CQS-ST-013
+ * @trace ERB-ST-015
  * @precondition 引数はTest Caseが固定し、PT／LT実行を要求する場合も実行不能またはplan-only条件に限定する。
  * @stimulus Node.jsから公開Verification CLIを起動する。
  * @observation 終了Code、stdout、stderrを取得する。
@@ -53,6 +55,7 @@ function invoke(argumentValues: readonly string[]) {
  *
  * @responsibility 計画と統合結果を別のTop-level JSONとして保持し、部分出力を一つの結果へ誤結合しない。
  * @trace CQS-ST-012
+ * @trace ERB-ST-015
  * @precondition CLIは各Top-level JSONを改行で区切り、Top-level開始波括弧を行頭へ出力する。
  * @stimulus CLIの標準出力を渡す。
  * @observation Top-level JSONごとの構造化値を取得する。
@@ -72,12 +75,13 @@ function parsePublicResults(stdout: string): Record<string, unknown>[] {
  *
  * @responsibility 公開入口がUATを自動Passへ畳まず、全段階結果と未実行理由を統合結果へ保持することを検証する。
  * @trace CQS-ST-012
+ * @trace ERB-ST-015
  * @precondition 人間入力を必要とする登録済みUATだけを直接変更対象として選ぶ。
  * @stimulus Static、UT、IT、ST、UATを指定して公開Verification CLIを起動する。
  * @observation 計画、段階順、開始・終了結果、未開始理由、公開状態、終了Codeおよびstderrを観測する。
  * @oracle 自動段階は完了し、UATはnot_run_due_to_human_input、全体はblocked、Exit 2となる。
  * @cleanup 子Processは同期終了し、一時資源、PT／LTおよび外部Effectを残さない。
- * @boundary CQS-ST-012=System/E2E: 公開Verification入口→全段階Runner→統合結果
+ * @boundary CQS-ST-012／ERB-ST-015=System/E2E: 公開Verification入口→全段階Runner→統合結果
  */
 test("公開入口はUATを自動Passにせず全段階結果と人間入力待ちを返す", () => {
   const result = invoke([
