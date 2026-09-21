@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:project-runtime-durable-foundationの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:project-runtime-durable-foundationが所有する検証責務を実行する。
+ * @trace PRL-IT-012
+ * @level IT
+ * @scope project、runtime、durable、foundation
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -28,6 +38,18 @@ import {
 
 const MAX_RECORD_BYTES = 16 * 1024 * 1024;
 
+/**
+ * stateEnvelopeのTest準備責務を実行する。
+ *
+ * @responsibility stateEnvelopeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus stateEnvelopeを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function stateEnvelope(state: ProjectRuntimeState) {
   const serialized = JSON.stringify(state);
   return {
@@ -43,18 +65,66 @@ function stateEnvelope(state: ProjectRuntimeState) {
   };
 }
 
+/**
+ * storedEnvelopeBytesのTest準備責務を実行する。
+ *
+ * @responsibility storedEnvelopeBytesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus storedEnvelopeBytesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function storedEnvelopeBytes(state: ProjectRuntimeState) {
   return Buffer.byteLength(`${JSON.stringify(stateEnvelope(state))}\n`, "utf8");
 }
 
+/**
+ * stateDirectoryのTest準備責務を実行する。
+ *
+ * @responsibility stateDirectoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus stateDirectoryを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function stateDirectory(root: string) {
   return path.join(root, ".crdd", "project-runtime", "state", "project-a");
 }
 
+/**
+ * queueDirectoryのTest準備責務を実行する。
+ *
+ * @responsibility queueDirectoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus queueDirectoryを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function queueDirectory(root: string) {
   return path.join(root, ".crdd", "project-runtime", "queues", "queue-a");
 }
 
+/**
+ * stateWithStoredBytesのTest準備責務を実行する。
+ *
+ * @responsibility stateWithStoredBytesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus stateWithStoredBytesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function stateWithStoredBytes(
   template: ProjectRuntimeState,
   targetBytes: number,
@@ -106,6 +176,18 @@ function stateWithStoredBytes(
   return result;
 }
 
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-project-durable-"));
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
@@ -133,6 +215,18 @@ function fixture(t: test.TestContext) {
   return { root, state: created.state };
 }
 
+/**
+ * PR-D-N-01 durably creates and reads generation-bound Project Stateを検証する。
+ *
+ * @responsibility PR-D-N-01 durably creates and reads generation-bound Project Stateの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-D-N-01 durably creates and reads generation-bound Project Stateの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-D-N-01 durably creates and reads generation-bound Project State", (t) => {
   const { root, state } = fixture(t);
   const write = writeProjectRuntimeState(root, "binding-a", state, 0);
@@ -146,6 +240,18 @@ test("PR-D-N-01 durably creates and reads generation-bound Project State", (t) =
   assert.equal(stale.reason, "project_runtime_state_generation_conflict");
 });
 
+/**
+ * Repository RootとBindingを構成時に閉じたState／Lease Portを返すを検証する。
+ *
+ * @responsibility Repository RootとBindingを構成時に閉じたState／Lease Portを返すの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Repository RootとBindingを構成時に閉じたState／Lease Portを返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Repository RootとBindingを構成時に閉じたState／Lease Portを返す", (t) => {
   const { root, state } = fixture(t);
   const ports = createProjectRuntimePersistencePorts(root, "binding-a");
@@ -159,6 +265,18 @@ test("Repository RootとBindingを構成時に閉じたState／Lease Portを返�
   assert.deepEqual(read.value, state);
 });
 
+/**
+ * PR-D-A-01 rejects corrupt or semantically invalid durable stateを検証する。
+ *
+ * @responsibility PR-D-A-01 rejects corrupt or semantically invalid durable stateの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-D-A-01 rejects corrupt or semantically invalid durable stateの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-D-A-01 rejects corrupt or semantically invalid durable state", (t) => {
   const { root, state } = fixture(t);
   assert.equal(
@@ -188,6 +306,18 @@ test("PR-D-A-01 rejects corrupt or semantically invalid durable state", (t) => {
   );
 });
 
+/**
+ * PR-D-A-01 rejects impossible Task state and identity tuplesを検証する。
+ *
+ * @responsibility PR-D-A-01 rejects impossible Task state and identity tuplesの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-D-A-01 rejects impossible Task state and identity tuplesの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-D-A-01 rejects impossible Task state and identity tuples", (t) => {
   const cases = [
     {
@@ -253,6 +383,18 @@ test("PR-D-A-01 rejects impossible Task state and identity tuples", (t) => {
   }
 });
 
+/**
+ * PR-D-A-01 rejects malformed envelopes, generation gaps, and residual inventoryを検証する。
+ *
+ * @responsibility PR-D-A-01 rejects malformed envelopes, generation gaps, and residual inventoryの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-D-A-01 rejects malformed envelopes, generation gaps, and residual inventoryの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-D-A-01 rejects malformed envelopes, generation gaps, and residual inventory", (t) => {
   const cases: ReadonlyArray<{
     name: string;
@@ -349,6 +491,18 @@ test("PR-D-A-01 rejects malformed envelopes, generation gaps, and residual inven
   }
 });
 
+/**
+ * PR-D-A-01 rejects an unknown queue record kind on exact retryを検証する。
+ *
+ * @responsibility PR-D-A-01 rejects an unknown queue record kind on exact retryの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-D-A-01 rejects an unknown queue record kind on exact retryの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-D-A-01 rejects an unknown queue record kind on exact retry", (t) => {
   const { root } = fixture(t);
   const input = {
@@ -378,6 +532,18 @@ test("PR-D-A-01 rejects an unknown queue record kind on exact retry", (t) => {
   assert.deepEqual(fs.readdirSync(queueDirectory(root)), ["generation-1.json"]);
 });
 
+/**
+ * PR-D-Q-00 selects only queues owned by the requested Project bindingを検証する。
+ *
+ * @responsibility PR-D-Q-00 selects only queues owned by the requested Project bindingの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-D-Q-00 selects only queues owned by the requested Project bindingの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-D-Q-00 selects only queues owned by the requested Project binding", (t) => {
   const { root } = fixture(t);
   const commonFields = {
@@ -411,6 +577,18 @@ test("PR-D-Q-00 selects only queues owned by the requested Project binding", (t)
   assert.equal(selectedB.value?.queueId, "queue-b");
 });
 
+/**
+ * PR-D-Q-01 binds queue ownership to a live opaque leaseを検証する。
+ *
+ * @responsibility PR-D-Q-01 binds queue ownership to a live opaque leaseの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-D-Q-01 binds queue ownership to a live opaque leaseの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-D-Q-01 binds queue ownership to a live opaque lease", (t) => {
   const { root } = fixture(t);
   const input = {
@@ -533,6 +711,18 @@ test("PR-D-Q-01 binds queue ownership to a live opaque lease", (t) => {
   assert.equal(releasedLease.reason, "project_runtime_queue_lease_invalid");
 });
 
+/**
+ * PR-D-A-01 rejects identity changes in every queue generationを検証する。
+ *
+ * @responsibility PR-D-A-01 rejects identity changes in every queue generationの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-D-A-01 rejects identity changes in every queue generationの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-D-A-01 rejects identity changes in every queue generation", (t) => {
   for (const identity of ["project", "queue"] as const) {
     for (const operation of ["retry", "update"] as const) {
@@ -615,6 +805,18 @@ test("PR-D-A-01 rejects identity changes in every queue generation", (t) => {
   }
 });
 
+/**
+ * PR-D-Q-01 serializes operation and project-scoped adoption leasesを検証する。
+ *
+ * @responsibility PR-D-Q-01 serializes operation and project-scoped adoption leasesの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-D-Q-01 serializes operation and project-scoped adoption leasesの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-D-Q-01 serializes operation and project-scoped adoption leases", (t) => {
   const { root } = fixture(t);
   const first = acquireProjectRuntimeLease(
@@ -671,6 +873,18 @@ test("PR-D-Q-01 serializes operation and project-scoped adoption leases", (t) =>
     assert.equal(reacquired.value.release().status, "completed");
 });
 
+/**
+ * PR-D-A-01 preserves a recovery marker when lease release evidence failsを検証する。
+ *
+ * @responsibility PR-D-A-01 preserves a recovery marker when lease release evidence failsの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-D-A-01 preserves a recovery marker when lease release evidence failsの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-D-A-01 preserves a recovery marker when lease release evidence fails", (t) => {
   const { root } = fixture(t);
   const acquired = acquireProjectRuntimeLease(
@@ -707,6 +921,18 @@ test("PR-D-A-01 preserves a recovery marker when lease release evidence fails", 
   assert.equal(reacquired.manualRecoveryRequired, true);
 });
 
+/**
+ * PR-A-04 reconciles an exited lease owner without starting new workを検証する。
+ *
+ * @responsibility PR-A-04 reconciles an exited lease owner without starting new workの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-04 reconciles an exited lease owner without starting new workの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-A-04 reconciles an exited lease owner without starting new work", (t) => {
   const { root } = fixture(t);
   assert.equal(
@@ -782,6 +1008,18 @@ if (queued.status !== "completed") process.exit(21);`,
     assert.equal(reacquired.value.release().status, "completed");
 });
 
+/**
+ * PR-A-04 recovers a lease acquisition interrupted before Queue ownershipを検証する。
+ *
+ * @responsibility PR-A-04 recovers a lease acquisition interrupted before Queue ownershipの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-04 recovers a lease acquisition interrupted before Queue ownershipの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-A-04 recovers a lease acquisition interrupted before Queue ownership", (t) => {
   const { root } = fixture(t);
   assert.equal(
@@ -886,6 +1124,18 @@ if (lease.status !== "completed") process.exit(20);`,
     assert.equal(reacquired.value.release().status, "completed");
 });
 
+/**
+ * PR-A-04 recovers canonical-adoption acquisition across Queue callersを検証する。
+ *
+ * @responsibility PR-A-04 recovers canonical-adoption acquisition across Queue callersの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-04 recovers canonical-adoption acquisition across Queue callersの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-A-04 recovers canonical-adoption acquisition across Queue callers", (t) => {
   const { root } = fixture(t);
   const moduleUrl = new URL(
@@ -937,6 +1187,18 @@ if (lease.status !== "completed") process.exit(20);`,
     assert.equal(reacquired.value.release().status, "completed");
 });
 
+/**
+ * PR-A-04 classifies a late contender against a live owner as unavailableを検証する。
+ *
+ * @responsibility PR-A-04 classifies a late contender against a live owner as unavailableの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-04 classifies a late contender against a live owner as unavailableの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-A-04 classifies a late contender against a live owner as unavailable", async (t) => {
   const { root } = fixture(t);
   const signal = path.join(root, "live-owner-ready");
@@ -975,6 +1237,18 @@ test("PR-A-04 classifies a late contender against a live owner as unavailable", 
   assert.equal(exitCode, 0);
 });
 
+/**
+ * PR-A-04 keeps pre-publication contention effect-free and recovers only after owner lossを検証する。
+ *
+ * @responsibility PR-A-04 keeps pre-publication contention effect-free and recovers only after owner lossの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-04 keeps pre-publication contention effect-free and recovers only after owner lossの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-A-04 keeps pre-publication contention effect-free and recovers only after owner loss", async (t) => {
   const { root } = fixture(t);
   const signal = path.join(root, "pre-publication-ready");
@@ -1032,6 +1306,18 @@ test("PR-A-04 keeps pre-publication contention effect-free and recovers only aft
     assert.equal(reacquired.value.release().status, "completed");
 });
 
+/**
+ * PR-A-04 returns the exact Recovery ID when acquisition Marker readback fails after publicationを検証する。
+ *
+ * @responsibility PR-A-04 returns the exact Recovery ID when acquisition Marker readback fails after publicationの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-04 returns the exact Recovery ID when acquisition Marker readback fails after publicationの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-A-04 returns the exact Recovery ID when acquisition Marker readback fails after publication", (t) => {
   const { root } = fixture(t);
   const marker = path.join(
@@ -1044,6 +1330,18 @@ test("PR-A-04 returns the exact Recovery ID when acquisition Marker readback fai
   );
   const originalReadFileSync = fs.readFileSync;
   let isFaultInjected = false;
+  /**
+   * faultingReadFileSyncのTest準備責務を実行する。
+   *
+   * @responsibility faultingReadFileSyncがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace PRL-IT-012
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus faultingReadFileSyncを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+   */
   const faultingReadFileSync = ((...args: unknown[]) => {
     if (!isFaultInjected && String(args[0]) === marker) {
       isFaultInjected = true;
@@ -1113,6 +1411,18 @@ test("PR-A-04 returns the exact Recovery ID when acquisition Marker readback fai
   assert.equal(fs.existsSync(marker), false);
 });
 
+/**
+ * PR-A-04 preserves a published acquisition when temporary cleanup is unknownを検証する。
+ *
+ * @responsibility PR-A-04 preserves a published acquisition when temporary cleanup is unknownの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-04 preserves a published acquisition when temporary cleanup is unknownの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-A-04 preserves a published acquisition when temporary cleanup is unknown", (t) => {
   const { root } = fixture(t);
   const locks = path.join(root, ".crdd", "project-runtime", "work", "locks");
@@ -1121,6 +1431,18 @@ test("PR-A-04 preserves a published acquisition when temporary cleanup is unknow
   const lock = path.join(locks, `${identity}.lock`);
   const originalRmSync = fs.rmSync;
   let isCleanupFaultInjected = false;
+  /**
+   * faultingRmSyncのTest準備責務を実行する。
+   *
+   * @responsibility faultingRmSyncがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace PRL-IT-012
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus faultingRmSyncを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+   */
   const faultingRmSync = ((...args: unknown[]) => {
     if (
       !isCleanupFaultInjected &&
@@ -1185,6 +1507,18 @@ test("PR-A-04 preserves a published acquisition when temporary cleanup is unknow
   assert.equal(fs.existsSync(marker), false);
 });
 
+/**
+ * PR-A-04 reconciles release intent created before Queue ownershipを検証する。
+ *
+ * @responsibility PR-A-04 reconciles release intent created before Queue ownershipの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-04 reconciles release intent created before Queue ownershipの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-A-04 reconciles release intent created before Queue ownership", (t) => {
   const { root } = fixture(t);
   assert.equal(
@@ -1253,6 +1587,18 @@ if (lease.status !== "completed") process.exit(20);`,
     assert.equal(reacquired.value.release().status, "completed");
 });
 
+/**
+ * PR-A-04 leaves mismatched acquisition and release identities unchangedを検証する。
+ *
+ * @responsibility PR-A-04 leaves mismatched acquisition and release identities unchangedの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-04 leaves mismatched acquisition and release identities unchangedの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-A-04 leaves mismatched acquisition and release identities unchanged", (t) => {
   const { root } = fixture(t);
   const moduleUrl = new URL(
@@ -1318,6 +1664,18 @@ if (lease.status !== "completed") process.exit(20);`,
   );
 });
 
+/**
+ * PR-D-A-01 preserves malformed and partial acquisition state with an exact recovery IDを検証する。
+ *
+ * @responsibility PR-D-A-01 preserves malformed and partial acquisition state with an exact recovery IDの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-D-A-01 preserves malformed and partial acquisition state with an exact recovery IDの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-D-A-01 preserves malformed and partial acquisition state with an exact recovery ID", (t) => {
   for (const scenario of [
     "malformed-marker",
@@ -1395,6 +1753,18 @@ test("PR-D-A-01 preserves malformed and partial acquisition state with an exact 
   }
 });
 
+/**
+ * PR-A-04 clears Queue ownership only after exact lease release settlementを検証する。
+ *
+ * @responsibility PR-A-04 clears Queue ownership only after exact lease release settlementの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-04 clears Queue ownership only after exact lease release settlementの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-A-04 clears Queue ownership only after exact lease release settlement", (t) => {
   const { root } = fixture(t);
   assert.equal(
@@ -1491,6 +1861,18 @@ test("PR-A-04 clears Queue ownership only after exact lease release settlement",
   );
 });
 
+/**
+ * PR-A-04 preserves an exact long recovery reference in Queue terminal intentを検証する。
+ *
+ * @responsibility PR-A-04 preserves an exact long recovery reference in Queue terminal intentの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-04 preserves an exact long recovery reference in Queue terminal intentの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-A-04 preserves an exact long recovery reference in Queue terminal intent", (t) => {
   const { root } = fixture(t);
   const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
@@ -1574,6 +1956,18 @@ test("PR-A-04 preserves an exact long recovery reference in Queue terminal inten
   );
 });
 
+/**
+ * PR-A-04 reconciles a released terminal intent after owner settlement was interruptedを検証する。
+ *
+ * @responsibility PR-A-04 reconciles a released terminal intent after owner settlement was interruptedの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-04 reconciles a released terminal intent after owner settlement was interruptedの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-A-04 reconciles a released terminal intent after owner settlement was interrupted", (t) => {
   const { root } = fixture(t);
   assert.equal(
@@ -1639,6 +2033,18 @@ test("PR-A-04 reconciles a released terminal intent after owner settlement was i
   );
 });
 
+/**
+ * PR-A-04 requires exact Queue-bound lease evidence before clearing ownershipを検証する。
+ *
+ * @responsibility PR-A-04 requires exact Queue-bound lease evidence before clearing ownershipの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-04 requires exact Queue-bound lease evidence before clearing ownershipの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-A-04 requires exact Queue-bound lease evidence before clearing ownership", (t) => {
   const { root } = fixture(t);
   assert.equal(
@@ -1720,6 +2126,18 @@ test("PR-A-04 requires exact Queue-bound lease evidence before clearing ownershi
   );
 });
 
+/**
+ * PR-A-04 rejects malformed pre-existing recovered evidenceを検証する。
+ *
+ * @responsibility PR-A-04 rejects malformed pre-existing recovered evidenceの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-04 rejects malformed pre-existing recovered evidenceの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-A-04 rejects malformed pre-existing recovered evidence", (t) => {
   const { root } = fixture(t);
   assert.equal(
@@ -1784,6 +2202,18 @@ test("PR-A-04 rejects malformed pre-existing recovered evidence", (t) => {
   assert.equal(lease.value.release().status, "completed");
 });
 
+/**
+ * PR-A-04 does not steal a lease from a live or unobservable ownerを検証する。
+ *
+ * @responsibility PR-A-04 does not steal a lease from a live or unobservable ownerの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-A-04 does not steal a lease from a live or unobservable ownerの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-A-04 does not steal a lease from a live or unobservable owner", (t) => {
   const { root } = fixture(t);
   assert.equal(
@@ -1835,6 +2265,18 @@ test("PR-A-04 does not steal a lease from a live or unobservable owner", (t) => 
   assert.equal(lease.value.release().status, "completed");
 });
 
+/**
+ * PR-D-A-01 rejects generic recovery resume without advancing generationを検証する。
+ *
+ * @responsibility PR-D-A-01 rejects generic recovery resume without advancing generationの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-D-A-01 rejects generic recovery resume without advancing generationの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-D-A-01 rejects generic recovery resume without advancing generation", (t) => {
   const { root } = fixture(t);
   const input = {
@@ -1958,6 +2400,18 @@ test("PR-D-A-01 rejects generic recovery resume without advancing generation", (
   ]);
 });
 
+/**
+ * PR-D-A-01 enforces the exact stored-record byte boundaryを検証する。
+ *
+ * @responsibility PR-D-A-01 enforces the exact stored-record byte boundaryの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PR-D-A-01 enforces the exact stored-record byte boundaryの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("PR-D-A-01 enforces the exact stored-record byte boundary", (t) => {
   for (const targetBytes of [MAX_RECORD_BYTES - 1, MAX_RECORD_BYTES]) {
     const { root, state } = fixture(t);
@@ -1982,6 +2436,18 @@ test("PR-D-A-01 enforces the exact stored-record byte boundary", (t) => {
   );
 });
 
+/**
+ * describes the durable foundation without claiming the upper Runtime completeを検証する。
+ *
+ * @responsibility describes the durable foundation without claiming the upper Runtime completeの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus describes the durable foundation without claiming the upper Runtime completeの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("describes the durable foundation without claiming the upper Runtime complete", () => {
   const contract = describeProjectRuntimeDurableFoundation();
   assert.equal(contract.upperProjectRuntimeCapabilityComplete, false);

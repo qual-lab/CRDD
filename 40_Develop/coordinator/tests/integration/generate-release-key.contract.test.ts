@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:generate-release-keyの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:generate-release-keyが所有する検証責務を実行する。
+ * @trace AIT-IT-008
+ * @level IT
+ * @scope generate、release、key
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 import assert from "node:assert/strict";
 import { createHash, createPrivateKey, createPublicKey } from "node:crypto";
 import fs from "node:fs";
@@ -12,6 +22,18 @@ import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 const TEST_PASSPHRASE = "test-only-passphrase-0123456789";
 const repositoryRoot = fileURLToPath(new URL("../../../../", import.meta.url));
 
+/**
+ * createReleaseKeyDistributionFixtureのTest準備責務を実行する。
+ *
+ * @responsibility createReleaseKeyDistributionFixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus createReleaseKeyDistributionFixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 async function createReleaseKeyDistributionFixture(t: TestContext) {
   const verifiedRoot = verifyRepositoryRoot(repositoryRoot);
   assert.equal(verifiedRoot.status, "completed");
@@ -66,6 +88,18 @@ async function createReleaseKeyDistributionFixture(t: TestContext) {
   return { parent, distributionRoot, implementation };
 }
 
+/**
+ * 配布Root外へ暗号化秘密鍵とSPKI DER公開鍵だけを生成するを検証する。
+ *
+ * @responsibility 配布Root外へ暗号化秘密鍵とSPKI DER公開鍵だけを生成するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 配布Root外へ暗号化秘密鍵とSPKI DER公開鍵だけを生成するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("配布Root外へ暗号化秘密鍵とSPKI DER公開鍵だけを生成する", async (t) => {
   const { parent, distributionRoot, implementation } =
     await createReleaseKeyDistributionFixture(t);
@@ -115,6 +149,18 @@ test("配布Root外へ暗号化秘密鍵とSPKI DER公開鍵だけを生成す�
   );
 });
 
+/**
+ * Repository内Path、相対Pathおよび短いpassphraseを拒否するを検証する。
+ *
+ * @responsibility Repository内Path、相対Pathおよび短いpassphraseを拒否するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Repository内Path、相対Pathおよび短いpassphraseを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("Repository内Path、相対Pathおよび短いpassphraseを拒否する", async (t) => {
   assert.throws(
     () => generateReleaseKeyPair("relative", TEST_PASSPHRASE),

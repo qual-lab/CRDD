@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:platform-provisioner-manifest-loaderの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:platform-provisioner-manifest-loaderが所有する検証責務を実行する。
+ * @trace AIT-IT-008
+ * @level IT
+ * @scope platform、provisioner、manifest、loader
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -12,6 +22,18 @@ import {
 } from "../../src/security/platform-provisioner-manifest-loader.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../../src/security/provisioning-signature-primitives.ts";
 
+/**
+ * fixtureEnvelopeのTest準備責務を実行する。
+ *
+ * @responsibility fixtureEnvelopeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureEnvelopeを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 function fixtureEnvelope() {
   return {
     contract: "crdd-coordinator/platform-provisioner-package-manifest-envelope",
@@ -27,6 +49,18 @@ function fixtureEnvelope() {
   };
 }
 
+/**
+ * 旧revision 2 manifestは旧固定Pathからだけ履歴確認用に読込するを検証する。
+ *
+ * @responsibility 旧revision 2 manifestは旧固定Pathからだけ履歴確認用に読込するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 旧revision 2 manifestは旧固定Pathからだけ履歴確認用に読込するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("旧revision 2 manifestは旧固定Pathからだけ履歴確認用に読込する", () => {
   const canonical = canonicalizeProvisioningJsonValueCandidate(
     fixtureEnvelope(),
@@ -58,6 +92,18 @@ test("旧revision 2 manifestは旧固定Pathからだけ履歴確認用に読込
   }
 });
 
+/**
+ * 履歴Recoveryは新旧manifest配置のexact一方だけを受理するを検証する。
+ *
+ * @responsibility 履歴Recoveryは新旧manifest配置のexact一方だけを受理するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 履歴Recoveryは新旧manifest配置のexact一方だけを受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("履歴Recoveryは新旧manifest配置のexact一方だけを受理する", () => {
   const canonical = canonicalizeProvisioningJsonValueCandidate(
     fixtureEnvelope(),
@@ -91,6 +137,18 @@ test("履歴Recoveryは新旧manifest配置のexact一方だけを受理する",
   }
 });
 
+/**
+ * 履歴Recoveryの全producerは新旧配置のexact-one loaderへ接続するを検証する。
+ *
+ * @responsibility 履歴Recoveryの全producerは新旧配置のexact-one loaderへ接続するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 履歴Recoveryの全producerは新旧配置のexact-one loaderへ接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("履歴Recoveryの全producerは新旧配置のexact-one loaderへ接続する", () => {
   for (const relativePath of [
     "src/security/docker-desktop-runtime-repair.ts",
@@ -111,6 +169,18 @@ test("履歴Recoveryの全producerは新旧配置のexact-one loaderへ接続す
   }
 });
 
+/**
+ * withDistributionのTest準備責務を実行する。
+ *
+ * @responsibility withDistributionがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus withDistributionを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 function withDistribution(
   bytes: Buffer,
   verify: (distributionRoot: string) => void,
@@ -136,6 +206,18 @@ function withDistribution(
   }
 }
 
+/**
+ * 固定Pathのcanonical manifest bytesだけを安定読込するを検証する。
+ *
+ * @responsibility 固定Pathのcanonical manifest bytesだけを安定読込するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定Pathのcanonical manifest bytesだけを安定読込するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("固定Pathのcanonical manifest bytesだけを安定読込する", () => {
   const canonical = canonicalizeProvisioningJsonValueCandidate(
     fixtureEnvelope(),
@@ -154,6 +236,18 @@ test("固定Pathのcanonical manifest bytesだけを安定読込する", () => {
   });
 });
 
+/**
+ * 非canonical JSON、BOM、相対Rootおよび欠落manifestを拒否するを検証する。
+ *
+ * @responsibility 非canonical JSON、BOM、相対Rootおよび欠落manifestを拒否するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 非canonical JSON、BOM、相対Rootおよび欠落manifestを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("非canonical JSON、BOM、相対Rootおよび欠落manifestを拒否する", () => {
   withDistribution(
     Buffer.from(`${JSON.stringify(fixtureEnvelope())}\n`),
@@ -189,6 +283,18 @@ test("非canonical JSON、BOM、相対Rootおよび欠落manifestを拒否する
     fs.rmSync(emptyRoot, { recursive: true, force: true });
   }
 });
+/**
+ * manifestの読込競合はHashと権限を発行せず対象descriptorを閉じるを検証する。
+ *
+ * @responsibility manifestの読込競合はHashと権限を発行せず対象descriptorを閉じるの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus manifestの読込競合はHashと権限を発行せず対象descriptorを閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("manifestの読込競合はHashと権限を発行せず対象descriptorを閉じる", (t) => {
   for (const failure of [
     "short-read",
@@ -210,6 +316,18 @@ test("manifestの読込競合はHashと権限を発行せず対象descriptorを�
         "coordinator-package-manifest.json",
       );
       const bytes = fs.readFileSync(target);
+      /**
+       * inspectのTest準備責務を実行する。
+       *
+       * @responsibility inspectがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+       * @trace AIT-IT-008
+       * @precondition 呼出し元Test Caseが必要な入力を渡す。
+       * @stimulus inspectを呼び出す。
+       * @observation 返却値、生成fixtureまたは観測値を取得する。
+       * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+       * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+       * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+       */
       const inspect = () =>
         inspectPlatformProvisionerManifestFileCandidate(root);
       assert.equal(inspect().status, "candidate");

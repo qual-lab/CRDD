@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:cli-optionsの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:cli-optionsが所有する検証責務を実行する。
+ * @trace PRL-IT-012
+ * @level IT
+ * @scope cli、options
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import os from "node:os";
@@ -22,6 +32,18 @@ const publicCoordinatorLauncher = path.resolve(
   "../../../../template/tools/crdd-coordinator.ts",
 );
 
+/**
+ * 検証付き再起動と記録後回復はexact Taskを指定する別操作を検証する。
+ *
+ * @responsibility 検証付き再起動と記録後回復はexact Taskを指定する別操作の合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 検証付き再起動と記録後回復はexact Taskを指定する別操作の対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("検証付き再起動と記録後回復はexact Taskを指定する別操作", () => {
   const id = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
   const restart = parseDoctorArguments(
@@ -62,6 +84,18 @@ test("検証付き再起動と記録後回復はexact Taskを指定する別操�
     );
 });
 
+/**
+ * 再起動元配布候補は再起動専用引数であり修復元を代用しないを検証する。
+ *
+ * @responsibility 再起動元配布候補は再起動専用引数であり修復元を代用しないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 再起動元配布候補は再起動専用引数であり修復元を代用しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("再起動元配布候補は再起動専用引数であり修復元を代用しない", () => {
   const id = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
   const option = "--restart-origin-release-root";
@@ -100,6 +134,18 @@ test("再起動元配布候補は再起動専用引数であり修復元を代�
     );
 });
 
+/**
+ * 再起動結果はTask回復を成功へ混同せずcleanup不明を拒否するを検証する。
+ *
+ * @responsibility 再起動結果はTask回復を成功へ混同せずcleanup不明を拒否するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 再起動結果はTask回復を成功へ混同せずcleanup不明を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("再起動結果はTask回復を成功へ混同せずcleanup不明を拒否する", () => {
   const base = {
     contract: "crdd-coordinator/docker-restart-for-recovery",
@@ -127,6 +173,18 @@ test("再起動結果はTask回復を成功へ混同せずcleanup不明を拒否
   }
 });
 
+/**
+ * 旧版修復記録の引継ぎはexact IDと修復記録の生成元配布Rootだけを受理するを検証する。
+ *
+ * @responsibility 旧版修復記録の引継ぎはexact IDと修復記録の生成元配布Rootだけを受理するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 旧版修復記録の引継ぎはexact IDと修復記録の生成元配布Rootだけを受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("旧版修復記録の引継ぎはexact IDと修復記録の生成元配布Rootだけを受理する", () => {
   const id = `docker-desktop-repair.${"a".repeat(32)}`;
   const args = [
@@ -162,6 +220,18 @@ test("旧版修復記録の引継ぎはexact IDと修復記録の生成元配布
   }
 });
 
+/**
+ * Docker Taskの未確定createはexact復旧ID・検証済み再起動・修復記録の生成元配布Rootの組だけを受理するを検証する。
+ *
+ * @responsibility Docker Taskの未確定createはexact復旧ID・検証済み再起動・修復記録の生成元配布Rootの組だけを受理するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Docker Taskの未確定createはexact復旧ID・検証済み再起動・修復記録の生成元配布Rootの組だけを受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Docker Taskの未確定createはexact復旧ID・検証済み再起動・修復記録の生成元配布Rootの組だけを受理する", () => {
   const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
   const repairId = `docker-desktop-repair.${"d".repeat(32)}`;
@@ -215,6 +285,18 @@ test("Docker Taskの未確定createはexact復旧ID・検証済み再起動・�
     );
 });
 
+/**
+ * doctorは診断と復旧に必要な引数だけを受理するを検証する。
+ *
+ * @responsibility doctorは診断と復旧に必要な引数だけを受理するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus doctorは診断と復旧に必要な引数だけを受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("doctorは診断と復旧に必要な引数だけを受理する", () => {
   assert.equal(parseDoctorArguments([], undefined).status, "ok");
   assert.equal(
@@ -239,6 +321,18 @@ test("doctorは診断と復旧に必要な引数だけを受理する", () => {
   }
 });
 
+/**
+ * Docker Desktop最終復旧は単独の明示doctor処置としてだけ受理するを検証する。
+ *
+ * @responsibility Docker Desktop最終復旧は単独の明示doctor処置としてだけ受理するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Docker Desktop最終復旧は単独の明示doctor処置としてだけ受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Docker Desktop最終復旧は単独の明示doctor処置としてだけ受理する", () => {
   const repair = parseDoctorArguments(
     ["--repair-docker-desktop-runtime", "--json"],
@@ -265,6 +359,18 @@ test("Docker Desktop最終復旧は単独の明示doctor処置としてだけ受
   );
 });
 
+/**
+ * taskは明示stdin入力だけを受理しrequestをargvへ置かないを検証する。
+ *
+ * @responsibility taskは明示stdin入力だけを受理しrequestをargvへ置かないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus taskは明示stdin入力だけを受理しrequestをargvへ置かないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("taskは明示stdin入力だけを受理しrequestをargvへ置かない", () => {
   const parsed = parseTaskArguments(["--request-stdin", "--json"]);
   assert.equal(parsed.status, "ok");
@@ -280,6 +386,18 @@ test("taskは明示stdin入力だけを受理しrequestをargvへ置かない", 
   }
 });
 
+/**
+ * candidateはopaque IDの明示Export、DiscardまたはStore Recoveryだけを受理するを検証する。
+ *
+ * @responsibility candidateはopaque IDの明示Export、DiscardまたはStore Recoveryだけを受理するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus candidateはopaque IDの明示Export、DiscardまたはStore Recoveryだけを受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("candidateはopaque IDの明示Export、DiscardまたはStore Recoveryだけを受理する", () => {
   const candidateId = `candidate.${"1".repeat(64)}.${"2".repeat(64)}`;
   assert.equal(
@@ -308,6 +426,18 @@ test("candidateはopaque IDの明示Export、DiscardまたはStore Recoveryだ�
   );
 });
 
+/**
+ * 公開Capability表示はLocal Personalの成立済み入口だけを返すを検証する。
+ *
+ * @responsibility 公開Capability表示はLocal Personalの成立済み入口だけを返すの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開Capability表示はLocal Personalの成立済み入口だけを返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("公開Capability表示はLocal Personalの成立済み入口だけを返す", () => {
   const result = spawnSync(
     process.execPath,
@@ -336,6 +466,18 @@ test("公開Capability表示はLocal Personalの成立済み入口だけを返�
   });
 });
 
+/**
+ * template toolsの安定入口はCoordinator共通Launcherへ同一Processで接続するを検証する。
+ *
+ * @responsibility template toolsの安定入口はCoordinator共通Launcherへ同一Processで接続するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus template toolsの安定入口はCoordinator共通Launcherへ同一Processで接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("template toolsの安定入口はCoordinator共通Launcherへ同一Processで接続する", () => {
   const result = spawnSync(
     process.execPath,
@@ -354,6 +496,18 @@ test("template toolsの安定入口はCoordinator共通Launcherへ同一Process�
   );
 });
 
+/**
+ * 削除したcommandは互換処理へ入らず未知commandとして拒否されるを検証する。
+ *
+ * @responsibility 削除したcommandは互換処理へ入らず未知commandとして拒否されるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 削除したcommandは互換処理へ入らず未知commandとして拒否されるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("削除したcommandは互換処理へ入らず未知commandとして拒否される", () => {
   for (const command of ["activate", "disable", "provision", "mcp"]) {
     const result = spawnSync(
@@ -370,6 +524,18 @@ test("削除したcommandは互換処理へ入らず未知commandとして拒否
   }
 });
 
+/**
+ * helpは通常Taskと現在利用可能なcommandだけを案内するを検証する。
+ *
+ * @responsibility helpは通常Taskと現在利用可能なcommandだけを案内するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus helpは通常Taskと現在利用可能なcommandだけを案内するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("helpは通常Taskと現在利用可能なcommandだけを案内する", () => {
   const result = spawnSync(process.execPath, [coordinatorExecutable, "help"], {
     encoding: "utf8",
@@ -393,6 +559,18 @@ test("helpは通常Taskと現在利用可能なcommandだけを案内する", ()
   assert.equal(result.stdout.includes("coordinator mcp"), false);
 });
 
+/**
+ * 実task CLIは曖昧JSONと未検証source checkoutを全Effect前に拒否するを検証する。
+ *
+ * @responsibility 実task CLIは曖昧JSONと未検証source checkoutを全Effect前に拒否するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実task CLIは曖昧JSONと未検証source checkoutを全Effect前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("実task CLIは曖昧JSONと未検証source checkoutを全Effect前に拒否する", () => {
   const ambiguous = spawnSync(
     process.execPath,

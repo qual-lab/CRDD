@@ -7,32 +7,44 @@
       "symbolId": "crdd-domain-library.common-outcome-entry",
       "kind": "module",
       "path": "src/outcome.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "crdd-domain-library.artifact-entry",
       "kind": "module",
       "path": "src/artifact/index.ts",
-      "archIds": ["ARCH-000001"]
+      "archIds": [
+        "ARCH-000001"
+      ]
     },
     {
       "symbolId": "crdd-domain-library.reality-traceability-entry",
       "kind": "module",
       "path": "src/reality-traceability/index.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "crdd-domain-library.repository-entry",
       "kind": "module",
       "path": "src/repository-observation/index.ts",
-      "archIds": ["ARCH-000009"]
+      "archIds": [
+        "ARCH-000009"
+      ]
     },
     {
-      "symbolId": "crdd-domain-library.public-boundary-contract",
+      "symbolId": "crdd-domain-library.test.unit.public-boundary",
       "kind": "test-suite",
       "path": "tests/unit/public-boundary.contract.test.ts",
-      "qaIds": ["QA-000001"],
-      "localTestIds": ["RCM-IT-009", "RCM-IT-011"],
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-UT-016"
+      ],
       "verifies": [
         "crdd-domain-library.common-outcome-entry",
         "crdd-domain-library.artifact-entry",
@@ -41,21 +53,31 @@
       ]
     },
     {
-      "symbolId": "crdd-domain-library.repository-observation-contract",
-      "kind": "test-suite",
-      "path": "tests/unit/repository-observation.contract.test.ts",
-      "qaIds": ["QA-000007"],
-      "localTestIds": ["RFD-IT-012"],
-      "verifies": ["crdd-domain-library.repository-entry"]
-    },
-    {
-      "symbolId": "crdd-domain-library.reality-repository-integration",
+      "symbolId": "crdd-domain-library.test.integration.reality-repository",
       "kind": "test-suite",
       "path": "tests/integration/reality-repository.integration.test.ts",
-      "qaIds": ["QA-000007"],
-      "localTestIds": ["RFD-IT-012"],
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-012"
+      ],
       "verifies": [
         "crdd-domain-library.reality-traceability-entry",
+        "crdd-domain-library.repository-entry"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.test.unit.repository-observation",
+      "kind": "test-suite",
+      "path": "tests/unit/repository-observation.contract.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-UT-006"
+      ],
+      "verifies": [
         "crdd-domain-library.repository-entry"
       ]
     }

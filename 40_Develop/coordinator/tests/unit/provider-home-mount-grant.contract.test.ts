@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:provider-home-mount-grantの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:provider-home-mount-grantが所有する検証責務を実行する。
+ * @trace AIT-UT-005
+ * @level UT
+ * @scope provider、home、mount、grant
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -18,6 +28,18 @@ const localUserBindingHash = "c".repeat(64);
 const ISSUED_AT = "2026-08-22T00:00:00.000Z";
 const EXPIRES_AT = "2026-08-22T00:05:00.000Z";
 
+/**
+ * recordのTest準備責務を実行する。
+ *
+ * @responsibility recordがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-UT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus recordを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 function record(overrides: Record<string, unknown> = {}) {
   return {
     contract: PROVIDER_HOME_MOUNT_GRANT_CONTRACT,
@@ -41,6 +63,18 @@ function record(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/**
+ * useInputのTest準備責務を実行する。
+ *
+ * @responsibility useInputがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-UT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus useInputを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 function useInput(overrides: Record<string, unknown> = {}) {
   return {
     grant: record(),
@@ -57,6 +91,18 @@ function useInput(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/**
+ * assertNoMountEffectsのTest準備責務を実行する。
+ *
+ * @responsibility assertNoMountEffectsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-UT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus assertNoMountEffectsを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 function assertNoMountEffects(result: {
   providerHomeMountGrantIssued: boolean;
   mountAuthorizationIssued: boolean;
@@ -77,6 +123,18 @@ function assertNoMountEffects(result: {
   assert.equal(result.credentialReported, false);
 }
 
+/**
+ * Mount Grant契約は一回限り・短命・三者bindingと非Effect境界を固定するを検証する。
+ *
+ * @responsibility Mount Grant契約は一回限り・短命・三者bindingと非Effect境界を固定するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Mount Grant契約は一回限り・短命・三者bindingと非Effect境界を固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Mount Grant契約は一回限り・短命・三者bindingと非Effect境界を固定する", () => {
   const contract = describeProviderHomeMountGrantContract();
   assert.equal(contract.contract, PROVIDER_HOME_MOUNT_GRANT_CONTRACT);
@@ -120,6 +178,18 @@ test("Mount Grant契約は一回限り・短命・三者bindingと非Effect境�
   assert.equal(contract.operationCapabilityIssued, false);
 });
 
+/**
+ * prepared、issued、consumed、revokedの整合したrecordだけを候補化するを検証する。
+ *
+ * @responsibility prepared、issued、consumed、revokedの整合したrecordだけを候補化するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus prepared、issued、consumed、revokedの整合したrecordだけを候補化するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("prepared、issued、consumed、revokedの整合したrecordだけを候補化する", () => {
   const candidates = [
     record({
@@ -164,6 +234,18 @@ test("prepared、issued、consumed、revokedの整合したrecordだけを候補
   assert.equal(isProviderHomeMountGrantRef("AUTH-000001"), false);
 });
 
+/**
+ * recordのshape、Identity、時刻、回数および状態矛盾を拒否するを検証する。
+ *
+ * @responsibility recordのshape、Identity、時刻、回数および状態矛盾を拒否するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus recordのshape、Identity、時刻、回数および状態矛盾を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("recordのshape、Identity、時刻、回数および状態矛盾を拒否する", () => {
   for (const changed of [
     { contract: "other" },
@@ -237,6 +319,18 @@ test("recordのshape、Identity、時刻、回数および状態矛盾を拒否�
   assertNoMountEffects(schemaFailure);
 });
 
+/**
+ * 正規遷移だけを同じbindingと時刻で候補化するを検証する。
+ *
+ * @responsibility 正規遷移だけを同じbindingと時刻で候補化するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 正規遷移だけを同じbindingと時刻で候補化するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("正規遷移だけを同じbindingと時刻で候補化する", () => {
   const prepared = record({
     state: "prepared",
@@ -328,6 +422,18 @@ test("正規遷移だけを同じbindingと時刻で候補化する", () => {
   );
 });
 
+/**
+ * use候補はissued状態、三者binding、canonical Runtime時刻と有効期間を要求するを検証する。
+ *
+ * @responsibility use候補はissued状態、三者binding、canonical Runtime時刻と有効期間を要求するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus use候補はissued状態、三者binding、canonical Runtime時刻と有効期間を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("use候補はissued状態、三者binding、canonical Runtime時刻と有効期間を要求する", () => {
   const input = useInput();
   const result = evaluateProviderHomeMountGrantUseCandidate(input);
@@ -439,6 +545,18 @@ test("use候補はissued状態、三者binding、canonical Runtime時刻と有�
   }
 });
 
+/**
+ * 余分field、accessor、Proxyと不正nested recordを例外なく拒否するを検証する。
+ *
+ * @responsibility 余分field、accessor、Proxyと不正nested recordを例外なく拒否するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 余分field、accessor、Proxyと不正nested recordを例外なく拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("余分field、accessor、Proxyと不正nested recordを例外なく拒否する", () => {
   const transitionSchemaFailure =
     evaluateProviderHomeMountGrantTransitionCandidate({
@@ -509,6 +627,18 @@ test("余分field、accessor、Proxyと不正nested recordを例外なく拒否�
   );
 });
 
+/**
+ * 時刻評価基盤の例外は各入口で固定blocked結果へ閉じるを検証する。
+ *
+ * @responsibility 時刻評価基盤の例外は各入口で固定blocked結果へ閉じるの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 時刻評価基盤の例外は各入口で固定blocked結果へ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("時刻評価基盤の例外は各入口で固定blocked結果へ閉じる", () => {
   const originalParse = Date.parse;
   Date.parse = () => {

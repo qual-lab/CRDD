@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:docker-restart-stateの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:docker-restart-stateが所有する検証責務を実行する。
+ * @trace PRL-UT-006
+ * @level UT
+ * @scope docker、restart、state
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -28,6 +38,18 @@ const phases: readonly DockerRestartPhase[] = [
   "settled",
 ];
 
+/**
+ * restart progress requires each ordered stage before completionを検証する。
+ *
+ * @responsibility restart progress requires each ordered stage before completionの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus restart progress requires each ordered stage before completionの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("restart progress requires each ordered stage before completion", () => {
   let phase: DockerRestartPhase = "prepared";
   for (const expected of phases.slice(1)) {
@@ -50,6 +72,18 @@ for (const phase of phases) {
     ["recordConfirmed", false, "docker_restart_record_unconfirmed"],
     ["effectOutcomeUnknown", true, "docker_restart_effect_outcome_unknown"],
   ] as const) {
+    /**
+     * ${phase}: ${field} prevents advancement or effect replayを検証する。
+     *
+     * @responsibility ${phase}: ${field} prevents advancement or effect replayの合否判定を所有する。
+     * @trace PRL-UT-006
+     * @precondition Test Fileが構築するfixtureと入力を使用する。
+     * @stimulus ${phase}: ${field} prevents advancement or effect replayの対象操作を実行する。
+     * @observation 結果、状態、Effectおよび終了後条件を観測する。
+     * @oracle Test本文のassertionが期待条件を満たす。
+     * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+     * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+     */
     test(`${phase}: ${field} prevents advancement or effect replay`, () => {
       const result = classifyDockerRestartProgress(phase, {
         ...CONFIRMED_OBSERVATION,
@@ -82,6 +116,18 @@ for (const [phase, fields, reason] of [
   ["ready", ["helperCleanupConfirmed"], "docker_restart_cleanup_unconfirmed"],
 ] as const) {
   for (const field of fields) {
+    /**
+     * ${phase}: missing ${field} cannot be replaced by other success flagsを検証する。
+     *
+     * @responsibility ${phase}: missing ${field} cannot be replaced by other success flagsの合否判定を所有する。
+     * @trace PRL-UT-006
+     * @precondition Test Fileが構築するfixtureと入力を使用する。
+     * @stimulus ${phase}: missing ${field} cannot be replaced by other success flagsの対象操作を実行する。
+     * @observation 結果、状態、Effectおよび終了後条件を観測する。
+     * @oracle Test本文のassertionが期待条件を満たす。
+     * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+     * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+     */
     test(`${phase}: missing ${field} cannot be replaced by other success flags`, () => {
       const result = classifyDockerRestartProgress(phase, {
         ...CONFIRMED_OBSERVATION,

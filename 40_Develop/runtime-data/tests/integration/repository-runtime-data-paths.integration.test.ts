@@ -1,3 +1,13 @@
+/**
+ * runtime-data:integration:repository-pathsの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility runtime-data:integration:repository-pathsが所有する検証責務を実行する。
+ * @trace RDL-IT-001
+ * @level IT
+ * @scope runtime-data、repository-root、path
+ * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -18,6 +28,18 @@ import {
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
+/**
+ * 検証済みRepository Rootだけから全Repository-local Pathを解決するを検証する。
+ *
+ * @responsibility 検証済みRepository Rootだけから全Repository-local Pathを解決するの合否判定を所有する。
+ * @trace RDL-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 検証済みRepository Rootだけから全Repository-local Pathを解決するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ */
 test("検証済みRepository Rootだけから全Repository-local Pathを解決する", () => {
   const verification = verifyRepositoryRoot(repositoryRoot);
   assert.equal(verification.status, "completed");
@@ -45,6 +67,18 @@ test("検証済みRepository Rootだけから全Repository-local Pathを解決�
   ]);
 });
 
+/**
+ * Consumerはraw Rootではなく名前付き領域だけを作成・検証するを検証する。
+ *
+ * @responsibility Consumerはraw Rootではなく名前付き領域だけを作成・検証するの合否判定を所有する。
+ * @trace RDL-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Consumerはraw Rootではなく名前付き領域だけを作成・検証するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ */
 test("Consumerはraw Rootではなく名前付き領域だけを作成・検証する", (t) => {
   const isolatedRepository = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-runtime-data-area-"),
@@ -84,6 +118,18 @@ test("Consumerはraw Rootではなく名前付き領域だけを作成・検証�
   );
 });
 
+/**
+ * IgnoreのEffect不明をnullへ畳まずRuntime Data領域を作らないを検証する。
+ *
+ * @responsibility IgnoreのEffect不明をnullへ畳まずRuntime Data領域を作らないの合否判定を所有する。
+ * @trace RDL-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IgnoreのEffect不明をnullへ畳まずRuntime Data領域を作らないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ */
 test("IgnoreのEffect不明をnullへ畳まずRuntime Data領域を作らない", (t) => {
   const isolatedRepository = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-runtime-data-ignore-unknown-"),
@@ -140,6 +186,18 @@ test("IgnoreのEffect不明をnullへ畳まずRuntime Data領域を作らない"
   );
 });
 
+/**
+ * Repositoryの子DirectoryはRoot Capabilityとして拒否するを検証する。
+ *
+ * @responsibility Repositoryの子DirectoryはRoot Capabilityとして拒否するの合否判定を所有する。
+ * @trace RDL-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Repositoryの子DirectoryはRoot Capabilityとして拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ */
 test("Repositoryの子DirectoryはRoot Capabilityとして拒否する", () => {
   assert.deepEqual(verifyRepositoryRoot(import.meta.dirname), {
     status: "blocked",
@@ -148,6 +206,18 @@ test("Repositoryの子DirectoryはRoot Capabilityとして拒否する", () => {
   });
 });
 
+/**
+ * 任意Directoryと非公開のraw Root入口からPath能力を取得できないを検証する。
+ *
+ * @responsibility 任意Directoryと非公開のraw Root入口からPath能力を取得できないの合否判定を所有する。
+ * @trace RDL-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 任意Directoryと非公開のraw Root入口からPath能力を取得できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ */
 test("任意Directoryと非公開のraw Root入口からPath能力を取得できない", async (t) => {
   const arbitrary = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-runtime-root-"),
@@ -169,6 +239,18 @@ test("任意Directoryと非公開のraw Root入口からPath能力を取得で�
   );
 });
 
+/**
+ * junction経由のWorking DirectoryはRepository Rootへ正規化せず拒否するを検証する。
+ *
+ * @responsibility junction経由のWorking DirectoryはRepository Rootへ正規化せず拒否するの合否判定を所有する。
+ * @trace RDL-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus junction経由のWorking DirectoryはRepository Rootへ正規化せず拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ */
 test("junction経由のWorking DirectoryはRepository Rootへ正規化せず拒否する", () => {
   const boundaryRoot = path.join(
     repositoryRoot,

@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:codex-docker-runtime-adapterの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:codex-docker-runtime-adapterが所有する検証責務を実行する。
+ * @trace PRL-UT-014
+ * @level UT
+ * @scope codex、docker、runtime、adapter
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -44,6 +54,18 @@ const taskModelSelection = Object.freeze({
   model: "gpt-5.5",
 });
 
+/**
+ * createFixtureのTest準備責務を実行する。
+ *
+ * @responsibility createFixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-014
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus createFixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 function createFixture(
   overrides: Partial<
     Parameters<typeof createIsolatedCodexDockerRuntimeAdapterCandidate>[0]
@@ -180,6 +202,18 @@ function createFixture(
   };
 }
 
+/**
+ * Codex Executorの正規seccomp commandをDocker Effect利用側も同じ意味で受理するを検証する。
+ *
+ * @responsibility Codex Executorの正規seccomp commandをDocker Effect利用側も同じ意味で受理するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Codex Executorの正規seccomp commandをDocker Effect利用側も同じ意味で受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Codex Executorの正規seccomp commandをDocker Effect利用側も同じ意味で受理する", () => {
   const fixture = createFixture({}, true, "executor");
   const prepared = fixture.adapter.prepareTask(
@@ -248,6 +282,18 @@ test("Codex Executorの正規seccomp commandをDocker Effect利用側も同じ�
   );
 });
 
+/**
+ * 説明可能な低推論選定を固定Docker command planへ一度だけ結合するを検証する。
+ *
+ * @responsibility 説明可能な低推論選定を固定Docker command planへ一度だけ結合するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 説明可能な低推論選定を固定Docker command planへ一度だけ結合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("説明可能な低推論選定を固定Docker command planへ一度だけ結合する", () => {
   const fixture = createFixture();
   const prepared = fixture.adapter.prepare(
@@ -329,6 +375,18 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
   );
 });
 
+/**
+ * cancelはMount leaseを完了しprepared capabilityを再利用不能にするを検証する。
+ *
+ * @responsibility cancelはMount leaseを完了しprepared capabilityを再利用不能にするの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus cancelはMount leaseを完了しprepared capabilityを再利用不能にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("cancelはMount leaseを完了しprepared capabilityを再利用不能にする", () => {
   const fixture = createFixture();
   const prepared = fixture.adapter.prepare(
@@ -353,6 +411,18 @@ test("cancelはMount leaseを完了しprepared capabilityを再利用不能に�
   );
 });
 
+/**
+ * Task Packetをstdin専用入力と隔離workspace RW mountへ結合するを検証する。
+ *
+ * @responsibility Task Packetをstdin専用入力と隔離workspace RW mountへ結合するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Task Packetをstdin専用入力と隔離workspace RW mountへ結合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Task Packetをstdin専用入力と隔離workspace RW mountへ結合する", () => {
   const fixture = createFixture({}, true);
   const prepared = fixture.adapter.prepareTask(
@@ -393,6 +463,18 @@ test("Task Packetをstdin専用入力と隔離workspace RW mountへ結合する"
   );
 });
 
+/**
+ * Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受け取らないを検証する。
+ *
+ * @responsibility Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受け取らないの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受け取らないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受け取らない", () => {
   const fixture = createFixture(
     {
@@ -439,6 +521,18 @@ test("Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受
   );
 });
 
+/**
+ * 期限切れprepared planはProvider EffectなしでMount leaseを回収するを検証する。
+ *
+ * @responsibility 期限切れprepared planはProvider EffectなしでMount leaseを回収するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 期限切れprepared planはProvider EffectなしでMount leaseを回収するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("期限切れprepared planはProvider EffectなしでMount leaseを回収する", () => {
   const fixture = createFixture();
   const prepared = fixture.adapter.prepare(
@@ -458,6 +552,18 @@ test("期限切れprepared planはProvider EffectなしでMount leaseを回収�
   assert.equal(fixture.getCompletionCount(), 1);
 });
 
+/**
+ * Executor seccomp profileを検証できなければProvider planを発行しないを検証する。
+ *
+ * @responsibility Executor seccomp profileを検証できなければProvider planを発行しないの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Executor seccomp profileを検証できなければProvider planを発行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Executor seccomp profileを検証できなければProvider planを発行しない", () => {
   const fixture = createFixture(
     {
@@ -479,6 +585,18 @@ test("Executor seccomp profileを検証できなければProvider planを発行�
   assert.equal(fixture.getRevocationCount(), 0);
 });
 
+/**
+ * Profile不一致または高コスト根拠不正ではplanを作らずleaseを回収するを検証する。
+ *
+ * @responsibility Profile不一致または高コスト根拠不正ではplanを作らずleaseを回収するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Profile不一致または高コスト根拠不正ではplanを作らずleaseを回収するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Profile不一致または高コスト根拠不正ではplanを作らずleaseを回収する", () => {
   const fixture = createFixture({
     consumeModelSelection: () =>
@@ -498,6 +616,18 @@ test("Profile不一致または高コスト根拠不正ではplanを作らずlea
   assert.equal(fixture.getCompletionCount(), 1);
 });
 
+/**
+ * Selection Grantのopaque use aliasをCodex adapterへ一回だけ接続するを検証する。
+ *
+ * @responsibility Selection Grantのopaque use aliasをCodex adapterへ一回だけ接続するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Selection Grantのopaque use aliasをCodex adapterへ一回だけ接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Selection Grantのopaque use aliasをCodex adapterへ一回だけ接続する", () => {
   let randomValue = 40;
   const selectionRuntime =
@@ -589,6 +719,18 @@ test("Selection Grantのopaque use aliasをCodex adapterへ一回だけ接続す
   );
 });
 
+/**
+ * Selection GrantをconsumeできなければMount leaseだけ回収して停止するを検証する。
+ *
+ * @responsibility Selection GrantをconsumeできなければMount leaseだけ回収して停止するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Selection GrantをconsumeできなければMount leaseだけ回収して停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Selection GrantをconsumeできなければMount leaseだけ回収して停止する", () => {
   const fixture = createFixture({
     consumeModelSelection: () => null,
@@ -604,6 +746,18 @@ test("Selection GrantをconsumeできなければMount leaseだけ回収して�
   assert.equal(fixture.getCompletionCount(), 1);
 });
 
+/**
+ * Provider Authorityを発行できなければMount leaseを返しPlanを作らないを検証する。
+ *
+ * @responsibility Provider Authorityを発行できなければMount leaseを返しPlanを作らないの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Provider Authorityを発行できなければMount leaseを返しPlanを作らないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Provider Authorityを発行できなければMount leaseを返しPlanを作らない", () => {
   const fixture = createFixture({
     issueProviderAuthority: () =>
@@ -629,6 +783,18 @@ test("Provider Authorityを発行できなければMount leaseを返しPlanを�
   assert.equal(fixture.getCompletionCount(), 1);
 });
 
+/**
+ * 不一致の発行済みProvider Authorityは失効してMount leaseを返すを検証する。
+ *
+ * @responsibility 不一致の発行済みProvider Authorityは失効してMount leaseを返すの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不一致の発行済みProvider Authorityは失効してMount leaseを返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("不一致の発行済みProvider Authorityは失効してMount leaseを返す", () => {
   let revocations = 0;
   const fixture = createFixture({
@@ -660,6 +826,18 @@ test("不一致の発行済みProvider Authorityは失効してMount leaseを返
   assert.equal(revocations, 1);
 });
 
+/**
+ * prepared取消はAuthority失効とMount解放の両方を要求するを検証する。
+ *
+ * @responsibility prepared取消はAuthority失効とMount解放の両方を要求するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus prepared取消はAuthority失効とMount解放の両方を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("prepared取消はAuthority失効とMount解放の両方を要求する", () => {
   const fixture = createFixture({
     revokeProviderAuthority: () => Object.freeze({ status: "blocked" }),
@@ -683,6 +861,18 @@ test("prepared取消はAuthority失効とMount解放の両方を要求する", (
   assert.equal(fixture.getCompletionCount(), 1);
 });
 
+/**
+ * production adapterは未発行のCapabilityと未接続Selection Grantを拒否するを検証する。
+ *
+ * @responsibility production adapterは未発行のCapabilityと未接続Selection Grantを拒否するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus production adapterは未発行のCapabilityと未接続Selection Grantを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("production adapterは未発行のCapabilityと未接続Selection Grantを拒否する", () => {
   const prepared = prepareRuntimeOwnedCodexDockerCandidate({}, {}, {}, {});
   assert.equal(prepared.status, "blocked");
@@ -693,6 +883,18 @@ test("production adapterは未発行のCapabilityと未接続Selection Grantを�
   );
 });
 
+/**
+ * 公開契約はCoordinator選定とProvider fallbackを分離するを検証する。
+ *
+ * @responsibility 公開契約はCoordinator選定とProvider fallbackを分離するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開契約はCoordinator選定とProvider fallbackを分離するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("公開契約はCoordinator選定とProvider fallbackを分離する", () => {
   const contract = describeCodexDockerRuntimeAdapterContract();
   assert.equal(contract.contractRevision, 7);

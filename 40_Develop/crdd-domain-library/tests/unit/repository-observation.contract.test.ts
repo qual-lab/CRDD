@@ -1,3 +1,13 @@
+/**
+ * crdd-domain-library:unit:repository-observationの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility crdd-domain-library:unit:repository-observationが所有する検証責務を実行する。
+ * @trace RFD-UT-006
+ * @level UT
+ * @scope repository、filesystem、boundary、negative-control
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -28,6 +38,18 @@ const actualOperations = {
   },
 };
 
+/**
+ * rootBindingのTest準備責務を実行する。
+ *
+ * @responsibility rootBindingがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RFD-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus rootBindingを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 function rootBinding(root: string) {
   return {
     absolutePath: root,
@@ -36,6 +58,18 @@ function rootBinding(root: string) {
   };
 }
 
+/**
+ * Repository外PathをFilesystem観測前に拒否するを検証する。
+ *
+ * @responsibility Repository外PathをFilesystem観測前に拒否するの合否判定を所有する。
+ * @trace RFD-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Repository外PathをFilesystem観測前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 test("Repository外PathをFilesystem観測前に拒否する", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repository-root-"));
   const observedPaths: string[] = [];
@@ -70,6 +104,18 @@ test("Repository外PathをFilesystem観測前に拒否する", () => {
   }
 });
 
+/**
+ * 中間linkと観測途中の変化をinvalidとunobservableへ分けるを検証する。
+ *
+ * @responsibility 中間linkと観測途中の変化をinvalidとunobservableへ分けるの合否判定を所有する。
+ * @trace RFD-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 中間linkと観測途中の変化をinvalidとunobservableへ分けるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 test("中間linkと観測途中の変化をinvalidとunobservableへ分ける", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repository-root-"));
   try {
@@ -120,6 +166,18 @@ test("中間linkと観測途中の変化をinvalidとunobservableへ分ける", 
   }
 });
 
+/**
+ * 観測不能なRepository Rootを不存在へ畳まないを検証する。
+ *
+ * @responsibility 観測不能なRepository Rootを不存在へ畳まないの合否判定を所有する。
+ * @trace RFD-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 観測不能なRepository Rootを不存在へ畳まないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 test("観測不能なRepository Rootを不存在へ畳まない", () => {
   const root = "C:\\fixture\\unobservable-root";
   const port = createFilesystemRepositoryObservationPortWithOperations(
@@ -140,6 +198,18 @@ test("観測不能なRepository Rootを不存在へ畳まない", () => {
   assert.equal(port.observeDirectory("40_Develop").status, "unobservable");
 });
 
+/**
+ * OS別に相対Rootと異なるFlavorのRoot BindingをFilesystem観測前に拒否するを検証する。
+ *
+ * @responsibility OS別に相対Rootと異なるFlavorのRoot BindingをFilesystem観測前に拒否するの合否判定を所有する。
+ * @trace RFD-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus OS別に相対Rootと異なるFlavorのRoot BindingをFilesystem観測前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 test("OS別に相対Rootと異なるFlavorのRoot BindingをFilesystem観測前に拒否する", () => {
   for (const [candidate, pathFlavor] of [
     ["relative-root", "win32"],
@@ -164,6 +234,18 @@ test("OS別に相対Rootと異なるFlavorのRoot BindingをFilesystem観測前�
   }
 });
 
+/**
+ * Repository Root自身のlinkまたはjunctionを拒否するを検証する。
+ *
+ * @responsibility Repository Root自身のlinkまたはjunctionを拒否するの合否判定を所有する。
+ * @trace RFD-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Repository Root自身のlinkまたはjunctionを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 test("Repository Root自身のlinkまたはjunctionを拒否する", () => {
   const root = "C:\\fixture\\repository-link";
   const observedPaths: string[] = [];
@@ -191,6 +273,18 @@ test("Repository Root自身のlinkまたはjunctionを拒否する", () => {
   assert.deepEqual(observedPaths, [root]);
 });
 
+/**
+ * Directory列挙は名前順とEntry種別を固定しlinkを通常Directoryへ畳まないを検証する。
+ *
+ * @responsibility Directory列挙は名前順とEntry種別を固定しlinkを通常Directoryへ畳まないの合否判定を所有する。
+ * @trace RFD-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Directory列挙は名前順とEntry種別を固定しlinkを通常Directoryへ畳まないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 test("Directory列挙は名前順とEntry種別を固定しlinkを通常Directoryへ畳まない", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repository-root-"));
   const outside = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-outside-root-"));
@@ -220,6 +314,18 @@ test("Directory列挙は名前順とEntry種別を固定しlinkを通常Director
   }
 });
 
+/**
+ * 差替えで別File Handleを取得しても読まずにcloseするを検証する。
+ *
+ * @responsibility 差替えで別File Handleを取得しても読まずにcloseするの合否判定を所有する。
+ * @trace RFD-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 差替えで別File Handleを取得しても読まずにcloseするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 test("差替えで別File Handleを取得しても読まずにcloseする", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repository-root-"));
   const outside = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-outside-root-"));
@@ -260,6 +366,18 @@ test("差替えで別File Handleを取得しても読まずにcloseする", () =
   }
 });
 
+/**
+ * PlatformがOpened Handleの所在を証明できなければ読まずにcloseするを検証する。
+ *
+ * @responsibility PlatformがOpened Handleの所在を証明できなければ読まずにcloseするの合否判定を所有する。
+ * @trace RFD-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PlatformがOpened Handleの所在を証明できなければ読まずにcloseするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 test("PlatformがOpened Handleの所在を証明できなければ読まずにcloseする", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repository-root-"));
   const target = path.join(root, "target.txt");

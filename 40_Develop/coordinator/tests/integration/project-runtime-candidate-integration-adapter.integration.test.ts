@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:project-runtime-candidate-integration-adapterの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:project-runtime-candidate-integration-adapterが所有する検証責務を実行する。
+ * @trace PRL-IT-005
+ * @level IT
+ * @scope project、runtime、candidate、adapter
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -11,6 +21,18 @@ import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "../../src/
 import { createProjectRuntimeState } from "../../../project-runtime/src/index.ts";
 import { gitFixedSnapshotAdapter } from "../../../version-control/src/git/fixed-snapshot-adapter.ts";
 
+/**
+ * real candidate bundles are merged and explicitly adopted into the bound repositoryを検証する。
+ *
+ * @responsibility real candidate bundles are merged and explicitly adopted into the bound repositoryの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus real candidate bundles are merged and explicitly adopted into the bound repositoryの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("real candidate bundles are merged and explicitly adopted into the bound repository", async (t) => {
   const repository = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-adoption-repo-"),

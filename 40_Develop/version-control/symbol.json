@@ -7,37 +7,92 @@
       "symbolId": "version-control.public-api",
       "kind": "module",
       "path": "src/index.ts",
-      "archIds": ["ARCH-000002", "ARCH-000009", "ARCH-000014", "ARCH-000016"]
+      "archIds": [
+        "ARCH-000002",
+        "ARCH-000009",
+        "ARCH-000014",
+        "ARCH-000016"
+      ]
     },
     {
       "symbolId": "version-control.checker-repository-observation-adapter",
       "kind": "module",
       "path": "src/git/checker-repository-observation-adapter.ts",
-      "archIds": ["ARCH-000002", "ARCH-000009", "ARCH-000016"]
+      "archIds": [
+        "ARCH-000002",
+        "ARCH-000009",
+        "ARCH-000016"
+      ]
     },
     {
-      "symbolId": "version-control.snapshot-integration",
-      "kind": "test-suite",
-      "path": "tests/integration/fixed-snapshot.integration.test.ts",
-      "qaIds": ["QA-000001", "QA-000004", "QA-000007"],
-      "localTestIds": ["RCM-IT-003", "PPR-UAT-009", "RFD-IT-008"],
-      "verifies": ["version-control.public-api"]
-    },
-    {
-      "symbolId": "version-control.repository-location-integration",
+      "symbolId": "version-control.test.integration.repository-location",
       "kind": "test-suite",
       "path": "tests/integration/repository-location.integration.test.ts",
-      "qaIds": ["QA-000007"],
-      "localTestIds": ["RFD-IT-001", "RFD-IT-002"],
-      "verifies": ["version-control.public-api"]
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-001"
+      ],
+      "verifies": [
+        "version-control.public-api"
+      ]
     },
     {
-      "symbolId": "version-control.consumer-closure-integration",
+      "symbolId": "version-control.test.integration.local-change-set",
+      "kind": "test-suite",
+      "path": "tests/integration/local-change-set.integration.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-008"
+      ],
+      "verifies": [
+        "version-control.checker-repository-observation-adapter"
+      ]
+    },
+    {
+      "symbolId": "version-control.test.integration.consumer-closure",
       "kind": "test-suite",
       "path": "tests/integration/consumer-closure.integration.test.ts",
-      "qaIds": ["QA-000001"],
-      "localTestIds": ["RCM-IT-004"],
-      "verifies": ["version-control.public-api"]
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-IT-004"
+      ],
+      "verifies": [
+        "version-control.public-api"
+      ]
+    },
+    {
+      "symbolId": "version-control.test.integration.fixed-snapshot",
+      "kind": "test-suite",
+      "path": "tests/integration/fixed-snapshot.integration.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-008"
+      ],
+      "verifies": [
+        "version-control.public-api"
+      ]
+    },
+    {
+      "symbolId": "version-control.test.integration.fixed-revision-and-ignore",
+      "kind": "test-suite",
+      "path": "tests/integration/fixed-revision-and-ignore.integration.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-008"
+      ],
+      "verifies": [
+        "version-control.checker-repository-observation-adapter"
+      ]
     }
   ]
 }

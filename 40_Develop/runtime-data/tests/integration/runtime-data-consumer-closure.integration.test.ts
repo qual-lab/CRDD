@@ -1,3 +1,13 @@
+/**
+ * runtime-data:integration:consumer-closureの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility runtime-data:integration:consumer-closureが所有する検証責務を実行する。
+ * @trace RDL-IT-001
+ * @level IT
+ * @scope runtime-data、consumer-closure、repository-root、signing
+ * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -69,6 +79,18 @@ const retiredTopLevelAreas = [
 
 type SourceSet = ReadonlyMap<string, string>;
 
+/**
+ * walkのTest準備責務を実行する。
+ *
+ * @responsibility walkがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RDL-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus walkを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ */
 function walk(directory: string): string[] {
   if (!fs.existsSync(directory)) return [];
   const discoveredFiles: string[] = [];
@@ -81,6 +103,18 @@ function walk(directory: string): string[] {
   return discoveredFiles;
 }
 
+/**
+ * consumerSourcesのTest準備責務を実行する。
+ *
+ * @responsibility consumerSourcesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RDL-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus consumerSourcesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ */
 function consumerSources(): Map<string, string> {
   const result = new Map<string, string>();
   const developRoot = path.join(repositoryRoot, "40_Develop");
@@ -113,6 +147,18 @@ function consumerSources(): Map<string, string> {
   return result;
 }
 
+/**
+ * violationsのTest準備責務を実行する。
+ *
+ * @responsibility violationsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RDL-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus violationsを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ */
 function violations(sources: SourceSet): string[] {
   const findings: string[] = [];
   for (const [item, source] of sources) {
@@ -255,10 +301,34 @@ function violations(sources: SourceSet): string[] {
   return findings.sort();
 }
 
+/**
+ * 本番Runtime Data Consumer集合は公開された名前付き境界だけを使うを検証する。
+ *
+ * @responsibility 本番Runtime Data Consumer集合は公開された名前付き境界だけを使うの合否判定を所有する。
+ * @trace RDL-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 本番Runtime Data Consumer集合は公開された名前付き境界だけを使うの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ */
 test("本番Runtime Data Consumer集合は公開された名前付き境界だけを使う", () => {
   assert.deepEqual(violations(consumerSources()), []);
 });
 
+/**
+ * 新規Componentのraw Root構築と名前付きPathの親再解釈を拒否するを検証する。
+ *
+ * @responsibility 新規Componentのraw Root構築と名前付きPathの親再解釈を拒否するの合否判定を所有する。
+ * @trace RDL-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 新規Componentのraw Root構築と名前付きPathの親再解釈を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ */
 test("新規Componentのraw Root構築と名前付きPathの親再解釈を拒否する", () => {
   const sources = consumerSources();
   sources.set(
@@ -279,6 +349,18 @@ test("新規Componentのraw Root構築と名前付きPathの親再解釈を拒�
   );
 });
 
+/**
+ * 内部Resolverの公開と予定外の保護署名Consumerを拒否するを検証する。
+ *
+ * @responsibility 内部Resolverの公開と予定外の保護署名Consumerを拒否するの合否判定を所有する。
+ * @trace RDL-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 内部Resolverの公開と予定外の保護署名Consumerを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ */
 test("内部Resolverの公開と予定外の保護署名Consumerを拒否する", () => {
   const sources = consumerSources();
   sources.set(
@@ -298,6 +380,18 @@ test("内部Resolverの公開と予定外の保護署名Consumerを拒否する"
   );
 });
 
+/**
+ * 配布Toolを含む利用側で旧Area名と未登録Top-level Areaを拒否するを検証する。
+ *
+ * @responsibility 配布Toolを含む利用側で旧Area名と未登録Top-level Areaを拒否するの合否判定を所有する。
+ * @trace RDL-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 配布Toolを含む利用側で旧Area名と未登録Top-level Areaを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Repository Root・Runtime Root→Filesystem Writer
+ */
 test("配布Toolを含む利用側で旧Area名と未登録Top-level Areaを拒否する", () => {
   const sources = consumerSources();
   sources.set(

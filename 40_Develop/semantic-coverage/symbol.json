@@ -7,31 +7,51 @@
       "symbolId": "semantic-coverage.public-entry",
       "kind": "module",
       "path": "src/index.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
-      "symbolId": "semantic-coverage.pilot-contract-tests",
-      "kind": "test-suite",
-      "path": "tests/unit/semantic-coverage-pilot.contract.test.ts",
-      "qaIds": ["QA-000004"],
-      "localTestIds": ["PPR-IT-004"],
-      "verifies": ["semantic-coverage.public-entry"]
-    },
-    {
-      "symbolId": "semantic-coverage.public-boundary-contract",
-      "kind": "test-suite",
-      "path": "tests/unit/public-boundary.contract.test.ts",
-      "qaIds": ["QA-000001"],
-      "localTestIds": ["RCM-IT-009"],
-      "verifies": ["semantic-coverage.public-entry"]
-    },
-    {
-      "symbolId": "semantic-coverage.publisher-integration-tests",
+      "symbolId": "semantic-coverage.test.integration.bundle-publisher",
       "kind": "test-suite",
       "path": "tests/integration/semantic-bundle-publisher.integration.test.ts",
-      "qaIds": ["QA-000008"],
-      "localTestIds": ["RDL-ST-002"],
-      "verifies": ["semantic-coverage.public-entry"]
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-IT-018"
+      ],
+      "verifies": [
+        "semantic-coverage.public-entry"
+      ]
+    },
+    {
+      "symbolId": "semantic-coverage.test.unit.pilot",
+      "kind": "test-suite",
+      "path": "tests/unit/semantic-coverage-pilot.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-UT-016"
+      ],
+      "verifies": [
+        "semantic-coverage.public-entry"
+      ]
+    },
+    {
+      "symbolId": "semantic-coverage.test.unit.public-boundary",
+      "kind": "test-suite",
+      "path": "tests/unit/public-boundary.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-001"
+      ],
+      "verifies": [
+        "semantic-coverage.public-entry"
+      ]
     }
   ]
 }

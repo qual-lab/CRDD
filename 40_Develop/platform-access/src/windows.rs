@@ -1282,6 +1282,16 @@ mod tests {
     use super::*;
     use crate::protocol::RootRole;
 
+    /// observes_current_process_access_without_mutating_rootを検証する。
+    ///
+    /// @responsibility observes_current_process_access_without_mutating_rootの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus observes_current_process_access_without_mutating_rootの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     fn observes_current_process_access_without_mutating_root() {
         let unique = SystemTime::now()
@@ -1316,6 +1326,16 @@ mod tests {
         fs::remove_dir(root_path).unwrap();
     }
 
+    /// blocks_missing_non_directory_and_identity_mismatchを検証する。
+    ///
+    /// @responsibility blocks_missing_non_directory_and_identity_mismatchの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus blocks_missing_non_directory_and_identity_mismatchの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     fn blocks_missing_non_directory_and_identity_mismatch() {
         let unique = SystemTime::now()
@@ -1361,6 +1381,16 @@ mod tests {
         fs::remove_dir(temporary_root).unwrap();
     }
 
+    /// provider_home_hash_domains_bind_provider_identity_and_login_sessionを検証する。
+    ///
+    /// @responsibility provider_home_hash_domains_bind_provider_identity_and_login_sessionの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus provider_home_hash_domains_bind_provider_identity_and_login_sessionの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     fn provider_home_hash_domains_bind_provider_identity_and_login_session() {
         let codex = ProviderHomeRequest {
@@ -1405,6 +1435,16 @@ mod tests {
         );
     }
 
+    /// bounded_ace_sid_rejects_truncated_or_noncanonical_sidを検証する。
+    ///
+    /// @responsibility bounded_ace_sid_rejects_truncated_or_noncanonical_sidの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus bounded_ace_sid_rejects_truncated_or_noncanonical_sidの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     fn bounded_ace_sid_rejects_truncated_or_noncanonical_sid() {
         let valid = [1_u8, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0];

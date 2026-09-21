@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:coordinator-claude-delegationの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:coordinator-claude-delegationが所有する検証責務を実行する。
+ * @trace ERB-IT-001
+ * @level IT
+ * @scope coordinator、claude、delegation
+ * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -6,6 +16,18 @@ import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../sr
 import { createIsolatedDockerProcessControllerCandidate } from "../../src/security/docker-process-controller.ts";
 import { createIsolatedProviderAuthorityRuntimeCandidate } from "../../src/security/provider-authority-runtime.ts";
 
+/**
+ * Codex frontから選定理由付きClaude委譲をcleanup済みResultまで接続するを検証する。
+ *
+ * @responsibility Codex frontから選定理由付きClaude委譲をcleanup済みResultまで接続するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Codex frontから選定理由付きClaude委譲をcleanup済みResultまで接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("Codex frontから選定理由付きClaude委譲をcleanup済みResultまで接続する", async () => {
   const managementCapability = Object.freeze({});
   const mountCapability = Object.freeze({});
@@ -148,6 +170,18 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
   assert.equal(issued.route, "front_codex__executor_claude");
   assert.match(issued.selectionNotice ?? "", /経路選定理由/);
 
+  /**
+   * completeMountのTest準備責務を実行する。
+   *
+   * @responsibility completeMountがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERB-IT-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus completeMountを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+   */
   const completeMount = (active: unknown, management: unknown) => {
     assert.equal(active, activeMountCapability);
     assert.equal(management, managementCapability);

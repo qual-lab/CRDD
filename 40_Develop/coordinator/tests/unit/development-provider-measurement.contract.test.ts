@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:development-provider-measurementの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:development-provider-measurementが所有する検証責務を実行する。
+ * @trace PPR-UT-006
+ * @level UT
+ * @scope development、provider、measurement
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -11,6 +21,18 @@ type Dependencies = Parameters<
   typeof createIsolatedDevelopmentProviderMeasurementCandidate
 >[0];
 
+/**
+ * Development Measurement入口はRuntime Data停止理由を保持するを検証する。
+ *
+ * @responsibility Development Measurement入口はRuntime Data停止理由を保持するの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Development Measurement入口はRuntime Data停止理由を保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("Development Measurement入口はRuntime Data停止理由を保持する", () => {
   const error = new RepositoryRuntimeDataAreaBlockedError({
     status: "blocked",
@@ -33,6 +55,18 @@ test("Development Measurement入口はRuntime Data停止理由を保持する", 
     recoveryReference: "repository-local-ignore.test-reference",
   });
 });
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 function fixture(outcomes: readonly string[]) {
   const capability = Object.freeze({});
   const starts: string[] = [];
@@ -106,6 +140,18 @@ function fixture(outcomes: readonly string[]) {
   };
 }
 
+/**
+ * 比較は固定2Taskを一回ずつ実行し終了時にsessionを失効するを検証する。
+ *
+ * @responsibility 比較は固定2Taskを一回ずつ実行し終了時にsessionを失効するの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 比較は固定2Taskを一回ずつ実行し終了時にsessionを失効するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("比較は固定2Taskを一回ずつ実行し終了時にsessionを失効する", async () => {
   const value = fixture(["success", "success"]);
   const result = await value.runtime.run(
@@ -119,6 +165,18 @@ test("比較は固定2Taskを一回ずつ実行し終了時にsessionを失効�
   assert.equal(value.cancellationCount(), 1);
 });
 
+/**
+ * cleanな業務失敗は同じTaskを再試行せず別の承認済みTaskと比較するを検証する。
+ *
+ * @responsibility cleanな業務失敗は同じTaskを再試行せず別の承認済みTaskと比較するの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus cleanな業務失敗は同じTaskを再試行せず別の承認済みTaskと比較するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("cleanな業務失敗は同じTaskを再試行せず別の承認済みTaskと比較する", async () => {
   const value = fixture(["clean_failure", "success"]);
   const result = await value.runtime.run(
@@ -138,6 +196,18 @@ for (const failure of [
   "throw",
   "reject",
 ] as const) {
+  /**
+   * ${failure}なら次Taskを開始せず終了するを検証する。
+   *
+   * @responsibility ${failure}なら次Taskを開始せず終了するの合否判定を所有する。
+   * @trace PPR-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus ${failure}なら次Taskを開始せず終了するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+   */
   test(`${failure}なら次Taskを開始せず終了する`, async () => {
     const value = fixture([failure, "success"]);
     const result = await value.runtime.run(
@@ -158,6 +228,18 @@ for (const failure of [
   });
 }
 
+/**
+ * 取消済みならProviderを開始しないを検証する。
+ *
+ * @responsibility 取消済みならProviderを開始しないの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 取消済みならProviderを開始しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("取消済みならProviderを開始しない", async () => {
   const value = fixture(["success", "success"]);
   const abort = new AbortController();

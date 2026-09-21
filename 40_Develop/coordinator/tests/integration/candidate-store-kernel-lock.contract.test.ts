@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:candidate-store-kernel-lockの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:candidate-store-kernel-lockが所有する検証責務を実行する。
+ * @trace PPR-IT-001
+ * @level IT
+ * @scope candidate、store、kernel、lock
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
@@ -25,6 +35,18 @@ const FAST_SUPERVISOR_TIMING = Object.freeze({
   releaseTimeoutMs: 10,
 });
 
+/**
+ * restart kernel domains retain live ownership across await and invalidate on releaseを検証する。
+ *
+ * @responsibility restart kernel domains retain live ownership across await and invalidate on releaseの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus restart kernel domains retain live ownership across await and invalidate on releaseの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("restart kernel domains retain live ownership across await and invalidate on release", {
   skip: process.platform !== "win32",
 }, async () => {
@@ -51,6 +73,18 @@ test("restart kernel domains retain live ownership across await and invalidate o
   }
 });
 
+/**
+ * acquireInteractiveConsoleLockForConcurrentTestRunのTest準備責務を実行する。
+ *
+ * @responsibility acquireInteractiveConsoleLockForConcurrentTestRunがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus acquireInteractiveConsoleLockForConcurrentTestRunを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 async function acquireInteractiveConsoleLockForConcurrentTestRun() {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const outcome =
@@ -61,6 +95,18 @@ async function acquireInteractiveConsoleLockForConcurrentTestRun() {
   return acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome();
 }
 
+/**
+ * supervisorChildScenarioのTest準備責務を実行する。
+ *
+ * @responsibility supervisorChildScenarioがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus supervisorChildScenarioを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 function supervisorChildScenario(
   scenario:
     | "normal"
@@ -81,6 +127,18 @@ function supervisorChildScenario(
     environment: NodeJS.ProcessEnv;
   }> | null = null;
   let killCount = 0;
+  /**
+   * factoryのTest準備責務を実行する。
+   *
+   * @responsibility factoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace PPR-IT-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus factoryを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+   */
   const factory = (pipeName: string, environment: NodeJS.ProcessEnv) => {
     captured = Object.freeze({ pipeName, environment });
     const child = new EventEmitter() as EventEmitter & {
@@ -97,6 +155,18 @@ function supervisorChildScenario(
     child.signalCode = null;
     child.channel = Object.freeze({ unref: () => undefined });
     child.unref = () => undefined;
+    /**
+     * exitのTest準備責務を実行する。
+     *
+     * @responsibility exitがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+     * @trace PPR-IT-001
+     * @precondition 呼出し元Test Caseが必要な入力を渡す。
+     * @stimulus exitを呼び出す。
+     * @observation 返却値、生成fixtureまたは観測値を取得する。
+     * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+     * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+     * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+     */
     const exit = (code: number) => {
       if (child.exitCode !== null) return;
       child.exitCode = code;
@@ -171,6 +241,18 @@ function supervisorChildScenario(
   });
 }
 
+/**
+ * interactiveLockWorkerScenarioのTest準備責務を実行する。
+ *
+ * @responsibility interactiveLockWorkerScenarioがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus interactiveLockWorkerScenarioを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 function interactiveLockWorkerScenario(initialState: 1 | -1) {
   const listeners = new Map<string, (value: unknown) => void>();
   return Object.freeze({
@@ -197,6 +279,18 @@ function interactiveLockWorkerScenario(initialState: 1 | -1) {
   });
 }
 
+/**
+ * 固定Supervisor: 不正root・nonce・待機値はfactoryを呼ばず拒否するを検証する。
+ *
+ * @responsibility 固定Supervisor: 不正root・nonce・待機値はfactoryを呼ばず拒否するの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定Supervisor: 不正root・nonce・待機値はfactoryを呼ばず拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("固定Supervisor: 不正root・nonce・待機値はfactoryを呼ばず拒否する", {
   skip: process.platform !== "win32",
 }, async () => {
@@ -279,6 +373,18 @@ test("固定Supervisor: 不正root・nonce・待機値はfactoryを呼ばず拒�
   }
 });
 
+/**
+ * 固定Supervisor: 三段階のsend同期例外は終了失敗と失効へ収束するを検証する。
+ *
+ * @responsibility 固定Supervisor: 三段階のsend同期例外は終了失敗と失効へ収束するの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定Supervisor: 三段階のsend同期例外は終了失敗と失効へ収束するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("固定Supervisor: 三段階のsend同期例外は終了失敗と失効へ収束する", {
   skip: process.platform !== "win32",
 }, async () => {
@@ -336,6 +442,18 @@ test("固定Supervisor: 三段階のsend同期例外は終了失敗と失効へ�
   }
 });
 
+/**
+ * 固定Supervisor: 失敗listenerの例外は他の通知・終了・失効を妨げないを検証する。
+ *
+ * @responsibility 固定Supervisor: 失敗listenerの例外は他の通知・終了・失効を妨げないの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定Supervisor: 失敗listenerの例外は他の通知・終了・失効を妨げないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("固定Supervisor: 失敗listenerの例外は他の通知・終了・失効を妨げない", {
   skip: process.platform !== "win32",
 }, async () => {
@@ -383,6 +501,18 @@ test("固定Supervisor: 失敗listenerの例外は他の通知・終了・失効
   assert.deepEqual(notifications, ["throwing", "following"]);
 });
 
+/**
+ * 追加境界: 公開lock入口は不正bindingを非取得にするを検証する。
+ *
+ * @responsibility 追加境界: 公開lock入口は不正bindingを非取得にするの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 追加境界: 公開lock入口は不正bindingを非取得にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("追加境界: 公開lock入口は不正bindingを非取得にする", () => {
   for (const invalid of [null, 42, "", "a".repeat(63), "A".repeat(64)]) {
     assert.equal(
@@ -400,6 +530,18 @@ test("追加境界: 公開lock入口は不正bindingを非取得にする", () =
   }
 });
 
+/**
+ * 追加境界: 対話Workerの失敗と遅延終了を解放成功へ変換しないを検証する。
+ *
+ * @responsibility 追加境界: 対話Workerの失敗と遅延終了を解放成功へ変換しないの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 追加境界: 対話Workerの失敗と遅延終了を解放成功へ変換しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("追加境界: 対話Workerの失敗と遅延終了を解放成功へ変換しない", {
   skip: process.platform !== "win32",
 }, async (t) => {
@@ -491,6 +633,18 @@ test("追加境界: 対話Workerの失敗と遅延終了を解放成功へ変換
   }
 });
 
+/**
+ * 追加境界: Supervisorのspawnと終了要求失敗を資源取得前後で分けるを検証する。
+ *
+ * @responsibility 追加境界: Supervisorのspawnと終了要求失敗を資源取得前後で分けるの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 追加境界: Supervisorのspawnと終了要求失敗を資源取得前後で分けるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("追加境界: Supervisorのspawnと終了要求失敗を資源取得前後で分ける", {
   skip: process.platform !== "win32",
 }, async (t) => {
@@ -546,6 +700,18 @@ test("追加境界: Supervisorのspawnと終了要求失敗を資源取得前後
   assert.equal(await outcome.lock.release(), "cleanup_unknown");
 });
 
+/**
+ * 追加境界: SupervisorはIPC形状違反と終了中競合を単一の失敗へ収束するを検証する。
+ *
+ * @responsibility 追加境界: SupervisorはIPC形状違反と終了中競合を単一の失敗へ収束するの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 追加境界: SupervisorはIPC形状違反と終了中競合を単一の失敗へ収束するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("追加境界: SupervisorはIPC形状違反と終了中競合を単一の失敗へ収束する", {
   skip: process.platform !== "win32",
 }, async (t) => {
@@ -644,6 +810,18 @@ test("追加境界: SupervisorはIPC形状違反と終了中競合を単一の�
   }
 });
 
+/**
+ * verifyDelayedLockWorkerInChildのTest準備責務を実行する。
+ *
+ * @responsibility verifyDelayedLockWorkerInChildがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus verifyDelayedLockWorkerInChildを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 async function verifyDelayedLockWorkerInChild(
   moduleUrl: string,
   workerUrl: string,
@@ -767,6 +945,18 @@ async function verifyDelayedLockWorkerInChild(
   }
 }
 
+/**
+ * 同期Lock取得timeoutは本番Worker終了後に遅延取得を残さず再取得できるを検証する。
+ *
+ * @responsibility 同期Lock取得timeoutは本番Worker終了後に遅延取得を残さず再取得できるの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 同期Lock取得timeoutは本番Worker終了後に遅延取得を残さず再取得できるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("同期Lock取得timeoutは本番Worker終了後に遅延取得を残さず再取得できる", {
   skip: process.platform !== "win32",
   timeout: 30_000,
@@ -824,6 +1014,18 @@ test("同期Lock取得timeoutは本番Worker終了後に遅延取得を残さず
   });
 });
 
+/**
+ * Windows kernel lockは不正Identity、同時取得と二重releaseを拒否するを検証する。
+ *
+ * @responsibility Windows kernel lockは不正Identity、同時取得と二重releaseを拒否するの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows kernel lockは不正Identity、同時取得と二重releaseを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("Windows kernel lockは不正Identity、同時取得と二重releaseを拒否する", () => {
   assert.equal(acquireRuntimeOwnedCandidateStoreKernelLock("invalid"), null);
   if (process.platform !== "win32") return;
@@ -843,6 +1045,18 @@ test("Windows kernel lockは不正Identity、同時取得と二重releaseを拒�
   assert.equal(next.release(), true);
 });
 
+/**
+ * Host Operation lock Supervisorは往復、競合とexit確認済みreleaseを固定するを検証する。
+ *
+ * @responsibility Host Operation lock Supervisorは往復、競合とexit確認済みreleaseを固定するの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host Operation lock Supervisorは往復、競合とexit確認済みreleaseを固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("Host Operation lock Supervisorは往復、競合とexit確認済みreleaseを固定する", async (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows Local Personal contract");
@@ -873,6 +1087,18 @@ test("Host Operation lock Supervisorは往復、競合とexit確認済みrelease
   assert.equal(await next.lock.release(), "released");
 });
 
+/**
+ * Host Operation Supervisorは固定入力と異常状態を構造化するを検証する。
+ *
+ * @responsibility Host Operation Supervisorは固定入力と異常状態を構造化するの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host Operation Supervisorは固定入力と異常状態を構造化するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("Host Operation Supervisorは固定入力と異常状態を構造化する", async (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows Local Personal contract");
@@ -944,6 +1170,18 @@ test("Host Operation Supervisorは固定入力と異常状態を構造化する"
   }
 });
 
+/**
+ * Host Operation Supervisorはterminate未確認だけをcleanup不明にするを検証する。
+ *
+ * @responsibility Host Operation Supervisorはterminate未確認だけをcleanup不明にするの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host Operation Supervisorはterminate未確認だけをcleanup不明にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("Host Operation Supervisorはterminate未確認だけをcleanup不明にする", async (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows Local Personal contract");
@@ -975,6 +1213,18 @@ test("Host Operation Supervisorはterminate未確認だけをcleanup不明にす
   assert.equal(await unknown.lock.release(), "cleanup_unknown");
 });
 
+/**
+ * Host Operation Supervisorの非同期喪失と複合通知は単一finalizerへ収束するを検証する。
+ *
+ * @responsibility Host Operation Supervisorの非同期喪失と複合通知は単一finalizerへ収束するの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host Operation Supervisorの非同期喪失と複合通知は単一finalizerへ収束するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("Host Operation Supervisorの非同期喪失と複合通知は単一finalizerへ収束する", async (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows Local Personal contract");
@@ -1009,6 +1259,18 @@ test("Host Operation Supervisorの非同期喪失と複合通知は単一finaliz
   }
 });
 
+/**
+ * Host Operation Supervisorのcleanup不明は遅延通知で降格せずexactly onceを保つを検証する。
+ *
+ * @responsibility Host Operation Supervisorのcleanup不明は遅延通知で降格せずexactly onceを保つの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host Operation Supervisorのcleanup不明は遅延通知で降格せずexactly onceを保つの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("Host Operation Supervisorのcleanup不明は遅延通知で降格せずexactly onceを保つ", async (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows Local Personal contract");
@@ -1030,6 +1292,18 @@ test("Host Operation Supervisorのcleanup不明は遅延通知で降格せずexa
   assert.equal(candidate.killCount(), 1);
 });
 
+/**
+ * Host Operation Supervisor entrypointはexact argvとIPCなしでlistenしないを検証する。
+ *
+ * @responsibility Host Operation Supervisor entrypointはexact argvとIPCなしでlistenしないの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host Operation Supervisor entrypointはexact argvとIPCなしでlistenしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("Host Operation Supervisor entrypointはexact argvとIPCなしでlistenしない", () => {
   const entrypoint = fileURLToPath(
     new URL(
@@ -1055,6 +1329,18 @@ test("Host Operation Supervisor entrypointはexact argvとIPCなしでlistenし�
   }
 });
 
+/**
+ * Host Operation Supervisor entrypointはclosing中の親command違反をnonzeroへ単調化するを検証する。
+ *
+ * @responsibility Host Operation Supervisor entrypointはclosing中の親command違反をnonzeroへ単調化するの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host Operation Supervisor entrypointはclosing中の親command違反をnonzeroへ単調化するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("Host Operation Supervisor entrypointはclosing中の親command違反をnonzeroへ単調化する", async () => {
   const entrypoint = fileURLToPath(
     new URL(
@@ -1089,6 +1375,18 @@ test("Host Operation Supervisor entrypointはclosing中の親command違反をnon
   }
 });
 
+/**
+ * Host Operation Supervisor entrypointはconfirm-release後の違反を成功へ戻さないを検証する。
+ *
+ * @responsibility Host Operation Supervisor entrypointはconfirm-release後の違反を成功へ戻さないの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host Operation Supervisor entrypointはconfirm-release後の違反を成功へ戻さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("Host Operation Supervisor entrypointはconfirm-release後の違反を成功へ戻さない", async () => {
   const entrypoint = fileURLToPath(
     new URL(
@@ -1139,6 +1437,18 @@ test("Host Operation Supervisor entrypointはconfirm-release後の違反を成�
   }
 });
 
+/**
+ * Host Operation Supervisor entrypointはconfirm-release直後の親disconnectを成功にしないを検証する。
+ *
+ * @responsibility Host Operation Supervisor entrypointはconfirm-release直後の親disconnectを成功にしないの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host Operation Supervisor entrypointはconfirm-release直後の親disconnectを成功にしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("Host Operation Supervisor entrypointはconfirm-release直後の親disconnectを成功にしない", async () => {
   const entrypoint = fileURLToPath(
     new URL(
@@ -1173,6 +1483,18 @@ test("Host Operation Supervisor entrypointはconfirm-release直後の親disconne
   );
 });
 
+/**
+ * Windows対話Console lockは同時承認readerを一つへ限定するを検証する。
+ *
+ * @responsibility Windows対話Console lockは同時承認readerを一つへ限定するの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows対話Console lockは同時承認readerを一つへ限定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("Windows対話Console lockは同時承認readerを一つへ限定する", async () => {
   if (process.platform !== "win32") return;
   const first = await acquireInteractiveConsoleLockForConcurrentTestRun();
@@ -1188,6 +1510,18 @@ test("Windows対話Console lockは同時承認readerを一つへ限定する", a
   assert.equal(await next.lock.release(), "released");
 });
 
+/**
+ * Windows対話Console lockは独立Processをrelease完了まで存続させるを検証する。
+ *
+ * @responsibility Windows対話Console lockは独立Processをrelease完了まで存続させるの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows対話Console lockは独立Processをrelease完了まで存続させるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("Windows対話Console lockは独立Processをrelease完了まで存続させる", async (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows Local Personal contract");
@@ -1221,6 +1555,18 @@ test("Windows対話Console lockは独立Processをrelease完了まで存続さ�
   assert.equal(Buffer.concat(stdoutItems).toString("utf8"), "LOCK_RELEASED\n");
 });
 
+/**
+ * 対話Console専用lockは終了確認済み非取得とcleanup不明を分離するを検証する。
+ *
+ * @responsibility 対話Console専用lockは終了確認済み非取得とcleanup不明を分離するの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 対話Console専用lockは終了確認済み非取得とcleanup不明を分離するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("対話Console専用lockは終了確認済み非取得とcleanup不明を分離する", async () => {
   if (process.platform !== "win32") return;
   const unavailable =
@@ -1248,6 +1594,18 @@ test("対話Console専用lockは終了確認済み非取得とcleanup不明を�
   assert.deepEqual(timedOut, { status: "cleanup_unknown", lock: null });
 });
 
+/**
+ * 対話Console専用lockの非同期cleanup契約は共通同期lockの意味を変更しないを検証する。
+ *
+ * @responsibility 対話Console専用lockの非同期cleanup契約は共通同期lockの意味を変更しないの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 対話Console専用lockの非同期cleanup契約は共通同期lockの意味を変更しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("対話Console専用lockの非同期cleanup契約は共通同期lockの意味を変更しない", () => {
   const contract = describeCandidateStoreKernelLockContract();
   assert.equal(contract.acquireTimeoutMs, 5_000);
@@ -1281,6 +1639,18 @@ test("対話Console専用lockの非同期cleanup契約は共通同期lockの意�
   ]);
 });
 
+/**
+ * Host Operation owner lockはprocess世代をまたぐ同時取得を拒否し強制終了後に回復するを検証する。
+ *
+ * @responsibility Host Operation owner lockはprocess世代をまたぐ同時取得を拒否し強制終了後に回復するの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host Operation owner lockはprocess世代をまたぐ同時取得を拒否し強制終了後に回復するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("Host Operation owner lockはprocess世代をまたぐ同時取得を拒否し強制終了後に回復する", async (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows Local Personal contract");
@@ -1316,6 +1686,18 @@ test("Host Operation owner lockはprocess世代をまたぐ同時取得を拒否
   assert.equal(recovered.release(), true);
 });
 
+/**
+ * Host Operation Supervisorは親process強制終了後にlockをkernelに残さないを検証する。
+ *
+ * @responsibility Host Operation Supervisorは親process強制終了後にlockをkernelに残さないの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host Operation Supervisorは親process強制終了後にlockをkernelに残さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("Host Operation Supervisorは親process強制終了後にlockをkernelに残さない", async (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows Local Personal contract");
@@ -1361,6 +1743,18 @@ const ownerFixture = new URL(
   import.meta.url,
 );
 
+/**
+ * Windows kernel lockはowner process強制終了後にstale residueなしで再取得できるを検証する。
+ *
+ * @responsibility Windows kernel lockはowner process強制終了後にstale residueなしで再取得できるの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows kernel lockはowner process強制終了後にstale residueなしで再取得できるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("Windows kernel lockはowner process強制終了後にstale residueなしで再取得できる", async (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows Local Personal contract");

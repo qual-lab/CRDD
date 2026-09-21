@@ -94,6 +94,16 @@ fn invoke(input: &[u8]) -> std::process::Output {
     child.wait_with_output().unwrap()
 }
 
+/// binary_reports_candidate_blocked_and_invalid_requestsを検証する。
+///
+/// @responsibility binary_reports_candidate_blocked_and_invalid_requestsの合否判定を所有する。
+    /// @trace ERB-IT-001
+/// @precondition Test moduleが構築するfixtureと入力を使用する。
+/// @stimulus binary_reports_candidate_blocked_and_invalid_requestsの対象操作を実行する。
+/// @observation 結果、状態、Effectおよび終了後条件を観測する。
+/// @oracle Test本文のassertionが期待条件を満たす。
+/// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary Direct Boundary: Adapter→実CLI・Process・Container
 #[test]
 fn binary_reports_candidate_blocked_and_invalid_requests() {
     let unique = SystemTime::now()

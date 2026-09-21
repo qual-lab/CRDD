@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:project-runtime-windows-platform-adapterの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:project-runtime-windows-platform-adapterが所有する検証責務を実行する。
+ * @trace PRL-UT-014
+ * @level UT
+ * @scope project、runtime、windows、platform、adapter
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
@@ -18,6 +28,18 @@ import { compileWindowsRootObservationCandidate } from "../../src/security/root-
 
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 
+/**
+ * rootObservationのTest準備責務を実行する。
+ *
+ * @responsibility rootObservationがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-014
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus rootObservationを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 function rootObservation() {
   const entityCount = 3;
   return {
@@ -40,6 +62,18 @@ function rootObservation() {
   };
 }
 
+/**
+ * operationsのTest準備責務を実行する。
+ *
+ * @responsibility operationsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-014
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus operationsを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 function operations(boundary: string): Readonly<Record<string, unknown>> {
   const adapter = createProjectRuntimeWindowsPlatformAdapter();
   const group = (
@@ -49,6 +83,18 @@ function operations(boundary: string): Readonly<Record<string, unknown>> {
   return group as Readonly<Record<string, unknown>>;
 }
 
+/**
+ * Windows AdapterはPlatform契約の宣言と実操作を一致させるを検証する。
+ *
+ * @responsibility Windows AdapterはPlatform契約の宣言と実操作を一致させるの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows AdapterはPlatform契約の宣言と実操作を一致させるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Windows AdapterはPlatform契約の宣言と実操作を一致させる", () => {
   const adapter = createProjectRuntimeWindowsPlatformAdapter();
   assert.deepEqual(adapter.describe(), {
@@ -94,6 +140,18 @@ test("Windows AdapterはPlatform契約の宣言と実操作を一致させる", 
   ]);
 });
 
+/**
+ * 現在ProcessのPlatform familyは閉じた観測として返るを検証する。
+ *
+ * @responsibility 現在ProcessのPlatform familyは閉じた観測として返るの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 現在ProcessのPlatform familyは閉じた観測として返るの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("現在ProcessのPlatform familyは閉じた観測として返る", () => {
   assert.deepEqual(observeProjectRuntimePlatformFamily(), {
     status: "observed",
@@ -101,6 +159,18 @@ test("現在ProcessのPlatform familyは閉じた観測として返る", () => {
   });
 });
 
+/**
+ * Lease owner観測は現在Process・不存在・不正入力を区別するを検証する。
+ *
+ * @responsibility Lease owner観測は現在Process・不存在・不正入力を区別するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Lease owner観測は現在Process・不存在・不正入力を区別するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Lease owner観測は現在Process・不存在・不正入力を区別する", () => {
   const observe = operations("lock_lease").observeLeaseOwner as (
     value: unknown,
@@ -125,6 +195,18 @@ test("Lease owner観測は現在Process・不存在・不正入力を区別す�
   });
 });
 
+/**
+ * Windows Adapterは完成保証だけを解決し、部分抽出境界を対応済みにしないを検証する。
+ *
+ * @responsibility Windows Adapterは完成保証だけを解決し、部分抽出境界を対応済みにしないの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows Adapterは完成保証だけを解決し、部分抽出境界を対応済みにしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Windows Adapterは完成保証だけを解決し、部分抽出境界を対応済みにしない", () => {
   const adapter = createProjectRuntimeWindowsPlatformAdapter();
   const supported = resolveProjectRuntimePlatformAdapter(
@@ -157,6 +239,18 @@ test("Windows Adapterは完成保証だけを解決し、部分抽出境界を�
   );
 });
 
+/**
+ * Repository Root解決は既存実装と同じ受理・拒否を閉結果で返すを検証する。
+ *
+ * @responsibility Repository Root解決は既存実装と同じ受理・拒否を閉結果で返すの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Repository Root解決は既存実装と同じ受理・拒否を閉結果で返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Repository Root解決は既存実装と同じ受理・拒否を閉結果で返す", () => {
   const group = operations("filesystem_repository");
   const resolveRepositoryRoot = group.resolveRepositoryRoot as (
@@ -175,6 +269,18 @@ test("Repository Root解決は既存実装と同じ受理・拒否を閉結果�
     });
 });
 
+/**
+ * 子Process環境の導出は既存Profileと同一の値を閉結果で返すを検証する。
+ *
+ * @responsibility 子Process環境の導出は既存Profileと同一の値を閉結果で返すの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 子Process環境の導出は既存Profileと同一の値を閉結果で返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("子Process環境の導出は既存Profileと同一の値を閉結果で返す", () => {
   const group = operations("process_cancellation");
   const deriveChildEnvironment = group.deriveChildEnvironment as (
@@ -229,6 +335,18 @@ test("子Process環境の導出は既存Profileと同一の値を閉結果で返
     });
 });
 
+/**
+ * Runtime Root保護観測は既存実装と同一のHash候補・拒否を返すを検証する。
+ *
+ * @responsibility Runtime Root保護観測は既存実装と同一のHash候補・拒否を返すの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Runtime Root保護観測は既存実装と同一のHash候補・拒否を返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Runtime Root保護観測は既存実装と同一のHash候補・拒否を返す", () => {
   const group = operations("runtime_root_recovery");
   const compileRootObservationCandidate =
@@ -245,6 +363,18 @@ test("Runtime Root保護観測は既存実装と同一のHash候補・拒否を�
   );
 });
 
+/**
+ * Provider Home観測は既存実装と同一の閉じた拒否を返すを検証する。
+ *
+ * @responsibility Provider Home観測は既存実装と同一の閉じた拒否を返すの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Provider Home観測は既存実装と同一の閉じた拒否を返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Provider Home観測は既存実装と同一の閉じた拒否を返す", () => {
   const group = operations("principal_provider_home");
   const observeProviderHomeCandidate = group.observeProviderHomeCandidate as (
@@ -262,6 +392,18 @@ test("Provider Home観測は既存実装と同一の閉じた拒否を返す", (
     );
 });
 
+/**
+ * Container Host回復状態の観測は既存実装と同じ分類を返すを検証する。
+ *
+ * @responsibility Container Host回復状態の観測は既存実装と同じ分類を返すの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Container Host回復状態の観測は既存実装と同じ分類を返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Container Host回復状態の観測は既存実装と同じ分類を返す", () => {
   const group = operations("container_host");
   const observeContainerHostRecoveryState =

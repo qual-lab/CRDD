@@ -7,61 +7,80 @@
       "symbolId": "checker.public-entry",
       "kind": "module",
       "path": "src/index.ts",
-      "archIds": ["ARCH-000001", "ARCH-000002"]
+      "archIds": [
+        "ARCH-000001",
+        "ARCH-000002"
+      ]
     },
     {
       "symbolId": "checker.artifact-relation-adapter",
       "kind": "module",
       "path": "src/adapters/artifact-relation.ts",
-      "archIds": ["ARCH-000001", "ARCH-000002"]
+      "archIds": [
+        "ARCH-000001",
+        "ARCH-000002"
+      ]
     },
     {
       "symbolId": "checker.pipeline",
       "kind": "module",
       "path": "src/pipeline/checker-pipeline.ts",
-      "archIds": ["ARCH-000001", "ARCH-000002"]
+      "archIds": [
+        "ARCH-000001",
+        "ARCH-000002"
+      ]
     },
     {
       "symbolId": "checker.finding-model",
       "kind": "module",
       "path": "src/findings/finding-model.ts",
-      "archIds": ["ARCH-000001"]
+      "archIds": [
+        "ARCH-000001"
+      ]
     },
     {
       "symbolId": "checker.rule-registry",
       "kind": "module",
       "path": "src/rules/rule-registry.ts",
-      "archIds": ["ARCH-000001", "ARCH-000002"]
+      "archIds": [
+        "ARCH-000001",
+        "ARCH-000002"
+      ]
     },
     {
       "symbolId": "checker.current-profile",
       "kind": "module",
       "path": "src/rules/current-profile.ts",
-      "archIds": ["ARCH-000001"]
+      "archIds": [
+        "ARCH-000001"
+      ]
     },
     {
       "symbolId": "checker.quality-design-state-rule",
       "kind": "module",
       "path": "src/rules/quality-design-state.ts",
-      "archIds": ["ARCH-000001"]
+      "archIds": [
+        "ARCH-000001"
+      ]
     },
     {
       "symbolId": "checker.reality-symbol-graph-rule",
       "kind": "module",
       "path": "src/rules/reality-symbol-graph.ts",
-      "archIds": ["ARCH-000001", "ARCH-000002"]
+      "archIds": [
+        "ARCH-000001",
+        "ARCH-000002"
+      ]
     },
     {
-      "symbolId": "checker.contract-regression",
+      "symbolId": "checker.test.integration.crdd-check",
       "kind": "test-suite",
       "path": "tests/integration/crdd-check.contract.test.ts",
-      "qaIds": ["QA-000001", "QA-000013"],
+      "qaIds": [
+        "QA-000001"
+      ],
       "localTestIds": [
-        "RCM-UT-001",
-        "RCM-UT-002",
-        "RCM-IT-008",
-        "AUH-IT-002",
-        "AUH-IT-003"
+        "RCM-IT-005"
       ],
       "verifies": [
         "checker.public-entry",
@@ -75,15 +94,33 @@
       ]
     },
     {
-      "symbolId": "checker.naming-contract",
+      "symbolId": "checker.test.integration.tools-naming",
       "kind": "test-suite",
       "path": "tests/integration/tools-naming.contract.test.ts",
-      "qaIds": ["QA-000001"],
-      "localTestIds": ["RCM-IT-009"],
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-IT-005"
+      ],
       "verifies": [
         "checker.public-entry",
         "checker.pipeline",
         "checker.rule-registry"
+      ]
+    },
+    {
+      "symbolId": "checker.test.unit.symbol-graph",
+      "kind": "test-suite",
+      "path": "tests/unit/symbol-graph.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-UT-017"
+      ],
+      "verifies": [
+        "checker.reality-symbol-graph-rule"
       ]
     }
   ]

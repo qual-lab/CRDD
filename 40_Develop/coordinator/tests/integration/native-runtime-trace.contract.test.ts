@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:native-runtime-traceの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:native-runtime-traceが所有する検証責務を実行する。
+ * @trace ERB-IT-004
+ * @level IT
+ * @scope native、runtime、trace
+ * @boundary Direct Boundary: Observer→Effect Gate
+ */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -13,6 +23,18 @@ const OPTIONS = Object.freeze({
   windowsSystem32Directory: "C:\\Windows\\System32",
 });
 
+/**
+ * traceのTest準備責務を実行する。
+ *
+ * @responsibility traceがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-004
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus traceを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Observer→Effect Gate
+ */
 function trace(lines: readonly string[]) {
   return [
     'P-Start, 10, crdd-platform-access.exe (101), 1, 1, 0, 0, 0, SID, "C:\\release\\crdd-platform-access.exe"',
@@ -26,10 +48,34 @@ function trace(lines: readonly string[]) {
   ].join("\n");
 }
 
+/**
+ * traceStatisticsのTest準備責務を実行する。
+ *
+ * @responsibility traceStatisticsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-004
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus traceStatisticsを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Observer→Effect Gate
+ */
 function traceStatistics(lostEvents = 0, lostBuffers = 0) {
   return `Total # Lost Buffers : ${lostBuffers}\nTotal # Lost Events  : ${lostEvents}\n`;
 }
 
+/**
+ * lost event 0、System32 module集合、target通信0とpositive controlを受理するを検証する。
+ *
+ * @responsibility lost event 0、System32 module集合、target通信0とpositive controlを受理するの合否判定を所有する。
+ * @trace ERB-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus lost event 0、System32 module集合、target通信0とpositive controlを受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Observer→Effect Gate
+ */
 test("lost event 0、System32 module集合、target通信0とpositive controlを受理する", () => {
   assert.deepEqual(
     inspectNativeRuntimeTrace(trace([]), traceStatistics(), OPTIONS),
@@ -56,6 +102,18 @@ test("lost event 0、System32 module集合、target通信0とpositive controlを
   );
 });
 
+/**
+ * 対象Network event、外部Moduleおよびlost eventを個別に拒否するを検証する。
+ *
+ * @responsibility 対象Network event、外部Moduleおよびlost eventを個別に拒否するの合否判定を所有する。
+ * @trace ERB-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 対象Network event、外部Moduleおよびlost eventを個別に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Observer→Effect Gate
+ */
 test("対象Network event、外部Moduleおよびlost eventを個別に拒否する", () => {
   const targetNetwork = trace([
     "Microsoft-Windows-TCPIP/TcpRequestConnect/win:Info, 13, crdd-platform-access.exe (101), 1, 1",
@@ -85,6 +143,18 @@ test("対象Network event、外部Moduleおよびlost eventを個別に拒否す
   );
 });
 
+/**
+ * 対象・control・summaryの欠落または重複を情報不足として拒否するを検証する。
+ *
+ * @responsibility 対象・control・summaryの欠落または重複を情報不足として拒否するの合否判定を所有する。
+ * @trace ERB-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 対象・control・summaryの欠落または重複を情報不足として拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Observer→Effect Gate
+ */
 test("対象・control・summaryの欠落または重複を情報不足として拒否する", () => {
   const cases = [
     [
@@ -150,6 +220,18 @@ test("対象・control・summaryの欠落または重複を情報不足として
   );
 });
 
+/**
+ * 入力契約外はtrace判定前に拒否するを検証する。
+ *
+ * @responsibility 入力契約外はtrace判定前に拒否するの合否判定を所有する。
+ * @trace ERB-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 入力契約外はtrace判定前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Observer→Effect Gate
+ */
 test("入力契約外はtrace判定前に拒否する", () => {
   assert.deepEqual(
     inspectNativeRuntimeTrace(null, traceStatistics(), OPTIONS),
@@ -167,6 +249,18 @@ test("入力契約外はtrace判定前に拒否する", () => {
   );
 });
 
+/**
+ * Network positive controlはloopbackだけを受理するを検証する。
+ *
+ * @responsibility Network positive controlはloopbackだけを受理するの合否判定を所有する。
+ * @trace ERB-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Network positive controlはloopbackだけを受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Observer→Effect Gate
+ */
 test("Network positive controlはloopbackだけを受理する", () => {
   const externalControl = trace([]).replace("127.0.0.1:9", "203.0.113.1:443");
   assert.deepEqual(
@@ -182,6 +276,18 @@ test("Network positive controlはloopbackだけを受理する", () => {
   );
 });
 
+/**
+ * 重複Image Loadを同一Pathへ畳み、大小文字差を同じSystem32として扱うを検証する。
+ *
+ * @responsibility 重複Image Loadを同一Pathへ畳み、大小文字差を同じSystem32として扱うの合否判定を所有する。
+ * @trace ERB-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 重複Image Loadを同一Pathへ畳み、大小文字差を同じSystem32として扱うの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Observer→Effect Gate
+ */
 test("重複Image Loadを同一Pathへ畳み、大小文字差を同じSystem32として扱う", () => {
   const candidate = trace([
     'I-Start, 13, crdd-platform-access.exe (101), 0, 0, 0, 0, 0, "c:\\windows\\system32\\NTDLL.DLL", , "\\Device\\ntdll"',
@@ -195,6 +301,18 @@ test("重複Image Loadを同一Pathへ畳み、大小文字差を同じSystem32�
   if (result.status === "accepted") assert.equal(result.target.moduleCount, 2);
 });
 
+/**
+ * trace確認CLIは実ファイル搬送・引数・読取り拒否を終了コードへ接続するを検証する。
+ *
+ * @responsibility trace確認CLIは実ファイル搬送・引数・読取り拒否を終了コードへ接続するの合否判定を所有する。
+ * @trace ERB-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus trace確認CLIは実ファイル搬送・引数・読取り拒否を終了コードへ接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Observer→Effect Gate
+ */
 test("trace確認CLIは実ファイル搬送・引数・読取り拒否を終了コードへ接続する", {
   skip: process.platform !== "win32",
 }, () => {
@@ -232,6 +350,18 @@ test("trace確認CLIは実ファイル搬送・引数・読取り拒否を終了
     "--system32",
     OPTIONS.windowsSystem32Directory,
   ];
+  /**
+   * invokeCliのTest準備責務を実行する。
+   *
+   * @responsibility invokeCliがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERB-IT-004
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus invokeCliを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary Direct Boundary: Observer→Effect Gate
+   */
   const invokeCli = (args: string[]) => {
     const result = spawnSync(process.execPath, [script, ...args], {
       cwd: root,

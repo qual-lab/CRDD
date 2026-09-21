@@ -27,6 +27,16 @@ pub fn run(writer: &mut impl Write) -> i32 {
 
 #[cfg(test)]
 mod tests {
+    /// directory_observation_has_exact_frame_lengthを検証する。
+    ///
+    /// @responsibility directory_observation_has_exact_frame_lengthの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus directory_observation_has_exact_frame_lengthの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     fn directory_observation_has_exact_frame_length() {
         let mut output = Vec::new();

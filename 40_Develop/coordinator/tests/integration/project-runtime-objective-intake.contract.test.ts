@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:project-runtime-objective-intakeの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:project-runtime-objective-intakeが所有する検証責務を実行する。
+ * @trace PRL-IT-005
+ * @level IT
+ * @scope project、runtime、objective、intake
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -47,6 +57,18 @@ type TestObjectiveDependencies = Omit<ObjectiveDependencies, "execution"> &
     execution: Omit<ObjectiveDependencies["execution"], "authorization">;
   }>;
 
+/**
+ * runProjectRuntimeObjectiveのTest準備責務を実行する。
+ *
+ * @responsibility runProjectRuntimeObjectiveがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus runProjectRuntimeObjectiveを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 function runProjectRuntimeObjective(
   dependencies: TestObjectiveDependencies,
   rawRequest: unknown,
@@ -77,19 +99,67 @@ const dockerAcknowledgement = Object.freeze({
   receiptContentHash: "5".repeat(64),
   receiptContentIdentity: "1:2:3",
 });
+/**
+ * finalizedAcknowledgementのTest準備責務を実行する。
+ *
+ * @responsibility finalizedAcknowledgementがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus finalizedAcknowledgementを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 const finalizedAcknowledgement = () => ({
   status: "completed" as const,
   reason: "acknowledgement_collected",
 });
+/**
+ * rootのTest準備責務を実行する。
+ *
+ * @responsibility rootがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus rootを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 function root(t: test.TestContext) {
   const value = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-project-intake-"));
   execFileSync("git", ["init", "--quiet", value], { windowsHide: true });
   t.after(() => fs.rmSync(value, { recursive: true, force: true }));
   return value;
 }
+/**
+ * runtimeSnapshotのTest準備責務を実行する。
+ *
+ * @responsibility runtimeSnapshotがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus runtimeSnapshotを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 function runtimeSnapshot(workingDirectory: string) {
   const runtime = path.join(workingDirectory, ".crdd");
   const entries = new Map<string, string>();
+  /**
+   * visitのTest準備責務を実行する。
+   *
+   * @responsibility visitがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace PRL-IT-005
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus visitを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+   */
   const visit = (directory: string) => {
     if (!fs.existsSync(directory)) return;
     for (const name of fs.readdirSync(directory).sort()) {
@@ -108,6 +178,18 @@ function runtimeSnapshot(workingDirectory: string) {
   return entries;
 }
 
+/**
+ * abandonProjectOperationAcquisitionのTest準備責務を実行する。
+ *
+ * @responsibility abandonProjectOperationAcquisitionがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus abandonProjectOperationAcquisitionを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 async function abandonProjectOperationAcquisition(
   t: test.TestContext,
   workingDirectory: string,
@@ -148,6 +230,18 @@ async function abandonProjectOperationAcquisition(
   await new Promise<void>((resolve) => child.once("exit", () => resolve()));
   fs.rmSync(signal);
 }
+/**
+ * requestのTest準備責務を実行する。
+ *
+ * @responsibility requestがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus requestを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 function request(overrides: Record<string, unknown> = {}) {
   return {
     requestId: "request-a",
@@ -165,6 +259,18 @@ function request(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+/**
+ * completedのTest準備責務を実行する。
+ *
+ * @responsibility completedがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus completedを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 async function completed(input: {
   attemptId: string;
   operationId: string;
@@ -190,6 +296,18 @@ async function completed(input: {
   };
 }
 
+/**
+ * settleRuntimeProcessAsFreshProcessのTest準備責務を実行する。
+ *
+ * @responsibility settleRuntimeProcessAsFreshProcessがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus settleRuntimeProcessAsFreshProcessを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 function settleRuntimeProcessAsFreshProcess(
   workingDirectory: string,
   repositoryBindingId: string,
@@ -251,6 +369,18 @@ function settleRuntimeProcessAsFreshProcess(
   assert.equal(write.status, "completed");
 }
 
+/**
+ * public Objective intake binds, plans, executes and deduplicates the same requestを検証する。
+ *
+ * @responsibility public Objective intake binds, plans, executes and deduplicates the same requestの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus public Objective intake binds, plans, executes and deduplicates the same requestの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("public Objective intake binds, plans, executes and deduplicates the same request", async (t) => {
   const workingDirectory = root(t);
   let effects = 0;
@@ -334,6 +464,18 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
   );
 });
 
+/**
+ * public Objective re-entry reconciles a pre-publication owner loss before executionを検証する。
+ *
+ * @responsibility public Objective re-entry reconciles a pre-publication owner loss before executionの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus public Objective re-entry reconciles a pre-publication owner loss before executionの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("public Objective re-entry reconciles a pre-publication owner loss before execution", async (t) => {
   const workingDirectory = root(t);
   const queueId = `queue-${createHash("sha256")
@@ -458,6 +600,18 @@ test("public Objective re-entry reconciles a pre-publication owner loss before e
   assert.equal(result.queueId, queueId);
 });
 
+/**
+ * public Objective re-entry preserves ambiguous acquisition evidence and returns its exact recovery referenceを検証する。
+ *
+ * @responsibility public Objective re-entry preserves ambiguous acquisition evidence and returns its exact recovery referenceの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus public Objective re-entry preserves ambiguous acquisition evidence and returns its exact recovery referenceの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("public Objective re-entry preserves ambiguous acquisition evidence and returns its exact recovery reference", async (t) => {
   for (const count of [1, 2]) {
     const workingDirectory = root(t);
@@ -530,6 +684,18 @@ test("public Objective re-entry preserves ambiguous acquisition evidence and ret
   }
 });
 
+/**
+ * public Objective classifies foreign, missing, and mismatched acquisition queues before durable mutationを検証する。
+ *
+ * @responsibility public Objective classifies foreign, missing, and mismatched acquisition queues before durable mutationの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus public Objective classifies foreign, missing, and mismatched acquisition queues before durable mutationの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("public Objective classifies foreign, missing, and mismatched acquisition queues before durable mutation", async (t) => {
   for (const scenario of [
     "foreign-project",
@@ -629,6 +795,18 @@ test("public Objective classifies foreign, missing, and mismatched acquisition q
   }
 });
 
+/**
+ * a scheduled Objective arriving during interactive execution waits without effectを検証する。
+ *
+ * @responsibility a scheduled Objective arriving during interactive execution waits without effectの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus a scheduled Objective arriving during interactive execution waits without effectの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("a scheduled Objective arriving during interactive execution waits without effect", async (t) => {
   const workingDirectory = root(t);
   let effects = 0;
@@ -712,6 +890,18 @@ test("a scheduled Objective arriving during interactive execution waits without 
   assert.equal(effects, 1);
 });
 
+/**
+ * binding or planner scope failure creates no Project State or Task effectを検証する。
+ *
+ * @responsibility binding or planner scope failure creates no Project State or Task effectの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus binding or planner scope failure creates no Project State or Task effectの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("binding or planner scope failure creates no Project State or Task effect", async (t) => {
   const workingDirectory = root(t);
   let effects = 0;
@@ -770,6 +960,18 @@ test("binding or planner scope failure creates no Project State or Task effect",
   assert.equal(state.status === "completed" && state.value, null);
 });
 
+/**
+ * public Objective intake rejects unknown fields, accessors, proxies, and non-closed planner output before effectを検証する。
+ *
+ * @responsibility public Objective intake rejects unknown fields, accessors, proxies, and non-closed planner output before effectの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus public Objective intake rejects unknown fields, accessors, proxies, and non-closed planner output before effectの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("public Objective intake rejects unknown fields, accessors, proxies, and non-closed planner output before effect", async (t) => {
   const workingDirectory = root(t);
   let bindingCalls = 0;
@@ -870,6 +1072,18 @@ test("public Objective intake rejects unknown fields, accessors, proxies, and no
   assert.equal(state.status === "completed" && state.value, null);
 });
 
+/**
+ * Objective intake accepts only a closed explicit decision-capability replacement requestを検証する。
+ *
+ * @responsibility Objective intake accepts only a closed explicit decision-capability replacement requestの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Objective intake accepts only a closed explicit decision-capability replacement requestの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("Objective intake accepts only a closed explicit decision-capability replacement request", () => {
   const base = request();
   const accepted = inspectProjectRuntimeObjectiveRequest({
@@ -896,6 +1110,18 @@ test("Objective intake accepts only a closed explicit decision-capability replac
   );
 });
 
+/**
+ * exact Runtime-owned recovery settles and retries without client recovery authorityを検証する。
+ *
+ * @responsibility exact Runtime-owned recovery settles and retries without client recovery authorityの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus exact Runtime-owned recovery settles and retries without client recovery authorityの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("exact Runtime-owned recovery settles and retries without client recovery authority", async (t) => {
   const workingDirectory = root(t);
   const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
@@ -1211,6 +1437,18 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   );
 });
 
+/**
+ * 混在RecoveryはDockerをsettleして外部義務を型付きで返すを検証する。
+ *
+ * @responsibility 混在RecoveryはDockerをsettleして外部義務を型付きで返すの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 混在RecoveryはDockerをsettleして外部義務を型付きで返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", async (t) => {
   const workingDirectory = root(t);
   const hostRecoveryId = `host-task.${"a".repeat(64)}`;
@@ -1324,6 +1562,18 @@ test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", 
   assert.equal(attempts, 1);
 });
 
+/**
+ * owner lossはAuthority発行前の予約をEffect 0で戻して同じObjectiveを再開するを検証する。
+ *
+ * @responsibility owner lossはAuthority発行前の予約をEffect 0で戻して同じObjectiveを再開するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus owner lossはAuthority発行前の予約をEffect 0で戻して同じObjectiveを再開するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("owner lossはAuthority発行前の予約をEffect 0で戻して同じObjectiveを再開する", async (t) => {
   const workingDirectory = root(t);
   let effects = 0;
@@ -1449,6 +1699,18 @@ for (const interruption of [
   "item_only",
   "item_and_queue",
 ] as const) {
+  /**
+   * exact Recovery settlement resumes after ${interruption} durable interruption without replayを検証する。
+   *
+   * @responsibility exact Recovery settlement resumes after ${interruption} durable interruption without replayの合否判定を所有する。
+   * @trace PRL-IT-005
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus exact Recovery settlement resumes after ${interruption} durable interruption without replayの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+   */
   test(`exact Recovery settlement resumes after ${interruption} durable interruption without replay`, async (t) => {
     const workingDirectory = root(t);
     const recoveryId = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;

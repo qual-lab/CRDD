@@ -1,3 +1,13 @@
+/**
+ * coordinator:system:project-runtime-real-provider-verification-scriptの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:system:project-runtime-real-provider-verification-scriptが所有する検証責務を実行する。
+ * @trace PRL-ST-001
+ * @level ST
+ * @scope project、runtime、real、provider、verification、script
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 import assert from "node:assert/strict";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { EventEmitter } from "node:events";
@@ -29,6 +39,18 @@ const verificationScriptSource = fs.readFileSync(
   "utf8",
 );
 
+/**
+ * 実Provider E2Eは分離後の公開MCP入口だけを起動するを検証する。
+ *
+ * @responsibility 実Provider E2Eは分離後の公開MCP入口だけを起動するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実Provider E2Eは分離後の公開MCP入口だけを起動するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("実Provider E2Eは分離後の公開MCP入口だけを起動する", () => {
   assert.match(
     verificationScriptSource,
@@ -45,6 +67,18 @@ test("実Provider E2Eは分離後の公開MCP入口だけを起動する", () =>
     2,
   );
 });
+/**
+ * projectionのTest準備責務を実行する。
+ *
+ * @responsibility projectionがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-ST-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus projectionを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 const projection = (isCancelled: boolean) => ({
   projectId: "project-a",
   milestoneId: "milestone-a",
@@ -262,6 +296,18 @@ const normalRun = (
     expectedCanonicalStateObserved: true,
   };
 };
+/**
+ * recoverySettlementFixtureのTest準備責務を実行する。
+ *
+ * @responsibility recoverySettlementFixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-ST-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus recoverySettlementFixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 const recoverySettlementFixture = () => ({
   parentLoss: observation([], {
     exit: { code: 1, signal: null },
@@ -323,6 +369,18 @@ const recoverySettlementFixture = () => ({
   snapshotAfter: unchangedSnapshot,
   expectedCanonicalStateObserved: true,
 });
+/**
+ * buildInputのTest準備責務を実行する。
+ *
+ * @responsibility buildInputがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-ST-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus buildInputを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 const buildInput = (overrides: Record<string, unknown> = {}) =>
   ({
     runId: "run",
@@ -384,9 +442,33 @@ const buildInput = (overrides: Record<string, unknown> = {}) =>
     },
     ...overrides,
   }) as Parameters<typeof buildProjectRuntimeRealProviderReport>[0];
+/**
+ * buildのTest準備責務を実行する。
+ *
+ * @responsibility buildがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-ST-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus buildを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 const build = (overrides: Record<string, unknown> = {}) =>
   buildProjectRuntimeRealProviderReport(buildInput(overrides));
 
+/**
+ * 全観測が相関した場合だけ公開Process E2Eをcompletedにするを検証する。
+ *
+ * @responsibility 全観測が相関した場合だけ公開Process E2Eをcompletedにするの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 全観測が相関した場合だけ公開Process E2Eをcompletedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("全観測が相関した場合だけ公開Process E2Eをcompletedにする", () => {
   const result = build();
   assert.equal(result.status, "completed", JSON.stringify(result));
@@ -396,8 +478,32 @@ test("全観測が相関した場合だけ公開Process E2Eをcompletedにする
   assert.notDeepEqual(result.sourceIdentity, result.distributionIdentity);
 });
 
+/**
+ * 全公開経路はchild未joinを個別にblockedへ閉じるを検証する。
+ *
+ * @responsibility 全公開経路はchild未joinを個別にblockedへ閉じるの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 全公開経路はchild未joinを個別にblockedへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("全公開経路はchild未joinを個別にblockedへ閉じる", () => {
   const base = buildInput();
+  /**
+   * unjoinedのTest準備責務を実行する。
+   *
+   * @responsibility unjoinedがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace PRL-ST-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus unjoinedを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+   */
   const unjoined = (value: PublicProcessObservation) => ({
     ...value,
     joined: false,
@@ -459,6 +565,18 @@ test("全公開経路はchild未joinを個別にblockedへ閉じる", () => {
   }
 });
 
+/**
+ * clean観測だけ、欠落・順序違反・Identity不一致を回復実行証明にしないを検証する。
+ *
+ * @responsibility clean観測だけ、欠落・順序違反・Identity不一致を回復実行証明にしないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus clean観測だけ、欠落・順序違反・Identity不一致を回復実行証明にしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("clean観測だけ、欠落・順序違反・Identity不一致を回復実行証明にしない", () => {
   const base = recoverySettlementFixture();
   const cases = [
@@ -571,6 +689,18 @@ test("clean観測だけ、欠落・順序違反・Identity不一致を回復実�
   }
 });
 
+/**
+ * 選定と実Process開始の統合順序違反およびrun間Operation再利用を拒否するを検証する。
+ *
+ * @responsibility 選定と実Process開始の統合順序違反およびrun間Operation再利用を拒否するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 選定と実Process開始の統合順序違反およびrun間Operation再利用を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("選定と実Process開始の統合順序違反およびrun間Operation再利用を拒否する", () => {
   const first = normalRun("objective-1", "codex", "claude", false);
   const wrongOrder = build({
@@ -644,6 +774,18 @@ test("選定と実Process開始の統合順序違反およびrun間Operation再�
   assert.ok(reused.problems.includes("provider_operation_identity_reused"));
 });
 
+/**
+ * 正常・準正常・異常の不一致をblocked結果へ閉じるを検証する。
+ *
+ * @responsibility 正常・準正常・異常の不一致をblocked結果へ閉じるの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 正常・準正常・異常の不一致をblocked結果へ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("正常・準正常・異常の不一致をblocked結果へ閉じる", () => {
   const cases = [
     {
@@ -792,6 +934,18 @@ test("正常・準正常・異常の不一致をblocked結果へ閉じる", () =
   }
 });
 
+/**
+ * 固定子Processを実spawnし応答後EOFとjoinを観測するを検証する。
+ *
+ * @responsibility 固定子Processを実spawnし応答後EOFとjoinを観測するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定子Processを実spawnし応答後EOFとjoinを観測するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("固定子Processを実spawnし応答後EOFとjoinを観測する", async () => {
   const child = spawn(process.execPath, [fixture, "normal"], {
     windowsHide: true,
@@ -812,6 +966,18 @@ test("固定子Processを実spawnし応答後EOFとjoinを観測する", async (
   assert.deepEqual(result.exit, { code: 0, signal: null });
 });
 
+/**
+ * createSyntheticUnclosedChildのTest準備責務を実行する。
+ *
+ * @responsibility createSyntheticUnclosedChildがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-ST-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus createSyntheticUnclosedChildを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 function createSyntheticUnclosedChild(
   isExitObserved: boolean,
   options: Readonly<{ emitStreamClose?: boolean }> = {},
@@ -835,6 +1001,18 @@ function createSyntheticUnclosedChild(
       return true;
     }
   }
+  /**
+   * createStreamのTest準備責務を実行する。
+   *
+   * @responsibility createStreamがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace PRL-ST-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus createStreamを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+   */
   const createStream = () =>
     options.emitStreamClose === false
       ? new ControlledUnclosedStream()
@@ -854,6 +1032,18 @@ function createSyntheticUnclosedChild(
   return { child, killCalls: () => killCalls };
 }
 
+/**
+ * exit先着でclose未到達でも有限時間で未joinを返すを検証する。
+ *
+ * @responsibility exit先着でclose未到達でも有限時間で未joinを返すの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus exit先着でclose未到達でも有限時間で未joinを返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("exit先着でclose未到達でも有限時間で未joinを返す", async () => {
   const fixture = createSyntheticUnclosedChild(true);
   const startedAt = Date.now();
@@ -873,6 +1063,18 @@ test("exit先着でclose未到達でも有限時間で未joinを返す", async (
   assert.equal(result.joined, false);
 });
 
+/**
+ * destroy済みclose未観測streamの遅延通知を実closeまで所有するを検証する。
+ *
+ * @responsibility destroy済みclose未観測streamの遅延通知を実closeまで所有するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus destroy済みclose未観測streamの遅延通知を実closeまで所有するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("destroy済みclose未観測streamの遅延通知を実closeまで所有する", async () => {
   const fixture = createSyntheticUnclosedChild(true, {
     emitStreamClose: false,
@@ -886,6 +1088,18 @@ test("destroy済みclose未観測streamの遅延通知を実closeまで所有す
   streams.forEach((stream, index) => {
     stream.on("error", existingStreamListeners[index] as () => void);
   });
+  /**
+   * existingChildListenerのTest準備責務を実行する。
+   *
+   * @responsibility existingChildListenerがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace PRL-ST-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus existingChildListenerを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+   */
   const existingChildListener = () => {};
   fixture.child.on("error", existingChildListener);
   const streamBaselines = streams.map((stream) =>
@@ -927,6 +1141,18 @@ test("destroy済みclose未観測streamの遅延通知を実closeまで所有す
   assert.equal(fixture.child.listenerCount("error"), childBaseline);
 });
 
+/**
+ * timeout後のfallback killをProcess-tree終了確認へ昇格しないを検証する。
+ *
+ * @responsibility timeout後のfallback killをProcess-tree終了確認へ昇格しないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus timeout後のfallback killをProcess-tree終了確認へ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("timeout後のfallback killをProcess-tree終了確認へ昇格しない", async () => {
   const fixture = createSyntheticUnclosedChild(false);
   const result = await observePublicMcpProcess(fixture.child, {
@@ -941,6 +1167,18 @@ test("timeout後のfallback killをProcess-tree終了確認へ昇格しない", 
   fixture.child.emit("close", null, "SIGTERM");
 });
 
+/**
+ * close観測後は保有timerを解除し遅延killや結果変更を起こさないを検証する。
+ *
+ * @responsibility close観測後は保有timerを解除し遅延killや結果変更を起こさないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus close観測後は保有timerを解除し遅延killや結果変更を起こさないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("close観測後は保有timerを解除し遅延killや結果変更を起こさない", async () => {
   const fixture = createSyntheticUnclosedChild(false);
   const initialChildErrorListeners = fixture.child.listenerCount("error");
@@ -962,6 +1200,18 @@ test("close観測後は保有timerを解除し遅延killや結果変更を起こ
   );
 });
 
+/**
+ * helper永続pendingとchild close欠落が同時でも共通期限で未joinを返すを検証する。
+ *
+ * @responsibility helper永続pendingとchild close欠落が同時でも共通期限で未joinを返すの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus helper永続pendingとchild close欠落が同時でも共通期限で未joinを返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("helper永続pendingとchild close欠落が同時でも共通期限で未joinを返す", async () => {
   for (const pendingAt of ["started", "wait"] as const) {
     let resolvePending!: (value: unknown) => void;
@@ -1016,6 +1266,18 @@ test("helper永続pendingとchild close欠落が同時でも共通期限で未jo
   }
 });
 
+/**
+ * 実子Process treeを開始通知後に強制終了して親喪失を観測するを検証する。
+ *
+ * @responsibility 実子Process treeを開始通知後に強制終了して親喪失を観測するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実子Process treeを開始通知後に強制終了して親喪失を観測するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("実子Process treeを開始通知後に強制終了して親喪失を観測する", async () => {
   const child = spawn(process.execPath, [fixture, "parent-loss"], {
     windowsHide: true,
@@ -1059,6 +1321,18 @@ test("実子Process treeを開始通知後に強制終了して親喪失を観�
   assert.equal(result.exit?.code === 0 && result.exit.signal === null, false);
 });
 
+/**
+ * Process-tree helperの不成立形を終了確認へ昇格しないを検証する。
+ *
+ * @responsibility Process-tree helperの不成立形を終了確認へ昇格しないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Process-tree helperの不成立形を終了確認へ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("Process-tree helperの不成立形を終了確認へ昇格しない", async (t) => {
   const cases = [
     { name: "started_false", started: false, result: null, closed: false },
@@ -1135,6 +1409,18 @@ test("Process-tree helperの不成立形を終了確認へ昇格しない", asyn
   }
 });
 
+/**
+ * 固定prefix外の埋込みJSONをRuntime Eventへ昇格しないを検証する。
+ *
+ * @responsibility 固定prefix外の埋込みJSONをRuntime Eventへ昇格しないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定prefix外の埋込みJSONをRuntime Eventへ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("固定prefix外の埋込みJSONをRuntime Eventへ昇格しない", async () => {
   const child = spawn(process.execPath, [fixture, "embedded-event"], {
     windowsHide: true,
@@ -1159,6 +1445,18 @@ test("固定prefix外の埋込みJSONをRuntime Eventへ昇格しない", async 
   );
 });
 
+/**
+ * 既知prefixの不正・未完了eventをProtocol違反にして操作を発行しないを検証する。
+ *
+ * @responsibility 既知prefixの不正・未完了eventをProtocol違反にして操作を発行しないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 既知prefixの不正・未完了eventをProtocol違反にして操作を発行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("既知prefixの不正・未完了eventをProtocol違反にして操作を発行しない", async () => {
   for (const mode of [
     "malformed-known-prefix",
@@ -1186,6 +1484,18 @@ test("既知prefixの不正・未完了eventをProtocol違反にして操作を�
   }
 });
 
+/**
+ * 分割chunkとCRLFから完全なeventだけを一度抽出するを検証する。
+ *
+ * @responsibility 分割chunkとCRLFから完全なeventだけを一度抽出するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 分割chunkとCRLFから完全なeventだけを一度抽出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("分割chunkとCRLFから完全なeventだけを一度抽出する", async () => {
   const child = spawn(process.execPath, [fixture, "chunked-crlf"], {
     windowsHide: true,
@@ -1209,6 +1519,18 @@ test("分割chunkとCRLFから完全なeventだけを一度抽出する", async 
   assert.equal(result.processStartEvents[0]?.operationId, "OP-600001");
 });
 
+/**
+ * 役割またはProviderが違う開始通知では取消操作を発火しないを検証する。
+ *
+ * @responsibility 役割またはProviderが違う開始通知では取消操作を発火しないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 役割またはProviderが違う開始通知では取消操作を発火しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("役割またはProviderが違う開始通知では取消操作を発火しない", async () => {
   const child = spawn(process.execPath, [fixture, "normal"], {
     windowsHide: true,
@@ -1231,6 +1553,18 @@ test("役割またはProviderが違う開始通知では取消操作を発火し
   assert.equal(result.inputCloseTriggerEvent, null);
 });
 
+/**
+ * 公開Processから回復遷移の閉じた順序とIdentityを抽出するを検証する。
+ *
+ * @responsibility 公開Processから回復遷移の閉じた順序とIdentityを抽出するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開Processから回復遷移の閉じた順序とIdentityを抽出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("公開Processから回復遷移の閉じた順序とIdentityを抽出する", async () => {
   const child = spawn(process.execPath, [fixture, "recovery-events"], {
     windowsHide: true,
@@ -1266,6 +1600,18 @@ test("公開Processから回復遷移の閉じた順序とIdentityを抽出す�
   );
 });
 
+/**
+ * 出力超過とEOF無視を成功へ変換せずchildをjoinするを検証する。
+ *
+ * @responsibility 出力超過とEOF無視を成功へ変換せずchildをjoinするの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 出力超過とEOF無視を成功へ変換せずchildをjoinするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("出力超過とEOF無視を成功へ変換せずchildをjoinする", async () => {
   for (const mode of ["overflow", "ignore-eof"] as const) {
     const child = spawn(process.execPath, [fixture, mode], {
@@ -1287,6 +1633,18 @@ test("出力超過とEOF無視を成功へ変換せずchildをjoinする", async
   }
 });
 
+/**
+ * runProbeのTest準備責務を実行する。
+ *
+ * @responsibility runProbeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-ST-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus runProbeを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 async function runProbe(mode: string, id: string) {
   const child = spawn(process.execPath, [fixture, mode], {
     windowsHide: true,
@@ -1312,6 +1670,18 @@ async function runProbe(mode: string, id: string) {
   return resultPromise;
 }
 
+/**
+ * 固定子Processの実観測を結果契約へ一続きで結合するを検証する。
+ *
+ * @responsibility 固定子Processの実観測を結果契約へ一続きで結合するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定子Processの実観測を結果契約へ一続きで結合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("固定子Processの実観測を結果契約へ一続きで結合する", async () => {
   const cancellation = await runProbe("cancelled", "objective-cancellation");
   const normal = await runProbe("normal", "objective-1");
@@ -1347,6 +1717,18 @@ test("固定子Processの実観測を結果契約へ一続きで結合する", a
   }
 });
 
+/**
+ * stdin非同期失敗も観測結果へ閉じてchild終了を待つを検証する。
+ *
+ * @responsibility stdin非同期失敗も観測結果へ閉じてchild終了を待つの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus stdin非同期失敗も観測結果へ閉じてchild終了を待つの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("stdin非同期失敗も観測結果へ閉じてchild終了を待つ", async () => {
   const child = spawn(process.execPath, [fixture, "normal"], {
     windowsHide: true,

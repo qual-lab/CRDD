@@ -316,6 +316,16 @@ mod tests {
         )
         .unwrap_or_else(|failure| panic!("{failure:?}"))
     }
+    /// same_child_success_and_nonzero_exit_are_distinctを検証する。
+    ///
+    /// @responsibility same_child_success_and_nonzero_exit_are_distinctの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus same_child_success_and_nonzero_exit_are_distinctの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     fn same_child_success_and_nonzero_exit_are_distinct() {
         assert_eq!(
@@ -333,6 +343,16 @@ mod tests {
             }
         );
     }
+    /// timeout_kills_owned_child_and_observes_exitを検証する。
+    ///
+    /// @responsibility timeout_kills_owned_child_and_observes_exitの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus timeout_kills_owned_child_and_observes_exitの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     fn timeout_kills_owned_child_and_observes_exit() {
         assert_eq!(
@@ -343,6 +363,16 @@ mod tests {
             }
         );
     }
+    /// cancellation_kills_owned_child_and_observes_exitを検証する。
+    ///
+    /// @responsibility cancellation_kills_owned_child_and_observes_exitの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus cancellation_kills_owned_child_and_observes_exitの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     fn cancellation_kills_owned_child_and_observes_exit() {
         assert_eq!(
@@ -353,6 +383,16 @@ mod tests {
             }
         );
     }
+    /// closing_owner_job_handle_terminates_child_without_stdin_cooperationを検証する。
+    ///
+    /// @responsibility closing_owner_job_handle_terminates_child_without_stdin_cooperationの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus closing_owner_job_handle_terminates_child_without_stdin_cooperationの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     fn closing_owner_job_handle_terminates_child_without_stdin_cooperation() {
         let OwnedChild { job, process } = child("sleep_child");
@@ -363,6 +403,16 @@ mod tests {
             WAIT_OBJECT_0
         );
     }
+    /// invalid_executable_is_unissuedを検証する。
+    ///
+    /// @responsibility invalid_executable_is_unissuedの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus invalid_executable_is_unissuedの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     fn invalid_executable_is_unissued() {
         let result = OwnedChild::spawn(
@@ -379,16 +429,46 @@ mod tests {
             })
         ));
     }
+    /// Rust Test Caseを検証する。
+    ///
+    /// @responsibility Rust Test Caseの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus Rust Test Caseの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     #[ignore]
     fn exit_zero() {
         std::process::exit(0);
     }
+    /// Rust Test Caseを検証する。
+    ///
+    /// @responsibility Rust Test Caseの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus Rust Test Caseの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     #[ignore]
     fn exit_seven() {
         std::process::exit(7);
     }
+    /// Rust Test Caseを検証する。
+    ///
+    /// @responsibility Rust Test Caseの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus Rust Test Caseの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     #[ignore]
     fn sleep_child() {

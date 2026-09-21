@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:development-measurement-sessionの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:development-measurement-sessionが所有する検証責務を実行する。
+ * @trace PPR-UT-006
+ * @level UT
+ * @scope development、measurement、session
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
@@ -19,6 +29,18 @@ const repositoryRoot = path.resolve(
 );
 const COMMIT = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const TREE = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+/**
+ * taskのTest準備責務を実行する。
+ *
+ * @responsibility taskがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus taskを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 function task(executor: "codex" | "claude") {
   return {
     frontProvider: executor === "codex" ? "claude" : "codex",
@@ -37,6 +59,18 @@ function task(executor: "codex" | "claude") {
     requiresCrossContextAlignment: false,
   };
 }
+/**
+ * configurationのTest準備責務を実行する。
+ *
+ * @responsibility configurationがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus configurationを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 function configuration() {
   return {
     repositoryRoot,
@@ -61,6 +95,18 @@ function configuration() {
     expiresAtMs: 1_100,
   };
 }
+/**
+ * harnessのTest準備責務を実行する。
+ *
+ * @responsibility harnessがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus harnessを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 function harness() {
   const clock = { wall: 100, monotonic: 100 };
   const state = {
@@ -120,6 +166,18 @@ function harness() {
       };
     },
   });
+  /**
+   * createOperationのTest準備責務を実行する。
+   *
+   * @responsibility createOperationがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace PPR-UT-006
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus createOperationを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+   */
   function createOperation() {
     const management = Object.freeze({});
     const repository = Object.freeze({});
@@ -130,6 +188,18 @@ function harness() {
   return { runtime, state, clock, createOperation };
 }
 
+/**
+ * 固定Identityから2Task・最大8呼出しへ結合し、試験tokenは本番へ流用できないを検証する。
+ *
+ * @responsibility 固定Identityから2Task・最大8呼出しへ結合し、試験tokenは本番へ流用できないの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定Identityから2Task・最大8呼出しへ結合し、試験tokenは本番へ流用できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("固定Identityから2Task・最大8呼出しへ結合し、試験tokenは本番へ流用できない", async () => {
   const { runtime, state, createOperation } = harness();
   const admitted = await runtime.request(
@@ -219,6 +289,18 @@ for (const failure of [
   "process_blocked",
   "observer_throw",
 ] as const) {
+  /**
+   * 最終Admission再確認時の${failure}は許可を発行しないを検証する。
+   *
+   * @responsibility 最終Admission再確認時の${failure}は許可を発行しないの合否判定を所有する。
+   * @trace PPR-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 最終Admission再確認時の${failure}は許可を発行しないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+   */
   test(`最終Admission再確認時の${failure}は許可を発行しない`, async () => {
     const { runtime, state, clock } = harness();
     const abort = new AbortController();
@@ -240,6 +322,18 @@ for (const failure of [
   });
 }
 
+/**
+ * 不正設定・Task・追加keyはIdentity観測前に拒否するを検証する。
+ *
+ * @responsibility 不正設定・Task・追加keyはIdentity観測前に拒否するの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不正設定・Task・追加keyはIdentity観測前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("不正設定・Task・追加keyはIdentity観測前に拒否する", async () => {
   for (const invalid of [
     { ...configuration(), confirmed: true },
@@ -268,6 +362,18 @@ test("不正設定・Task・追加keyはIdentity観測前に拒否する", async
   }
 });
 
+/**
+ * 設定をAdmission中に変更しても固定したTask snapshotだけに限定するを検証する。
+ *
+ * @responsibility 設定をAdmission中に変更しても固定したTask snapshotだけに限定するの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 設定をAdmission中に変更しても固定したTask snapshotだけに限定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("設定をAdmission中に変更しても固定したTask snapshotだけに限定する", async () => {
   const { runtime, state } = harness();
   const config = configuration();
@@ -283,6 +389,18 @@ test("設定をAdmission中に変更しても固定したTask snapshotだけに�
   assertPresent(runtime.reserveTask(result.capability, task("codex")));
 });
 
+/**
+ * 進行中Taskのliveness参照は固定Identityを再Hashせず期限・取消・Process停止を維持するを検証する。
+ *
+ * @responsibility 進行中Taskのliveness参照は固定Identityを再Hashせず期限・取消・Process停止を維持するの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 進行中Taskのliveness参照は固定Identityを再Hashせず期限・取消・Process停止を維持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("進行中Taskのliveness参照は固定Identityを再Hashせず期限・取消・Process停止を維持する", async () => {
   for (const stop of ["none", "expiry", "cancel", "process_blocked"] as const) {
     const { runtime, state, clock } = harness();
@@ -308,6 +426,18 @@ test("進行中Taskのliveness参照は固定Identityを再Hashせず期限・�
   }
 });
 
+/**
+ * 偽Operation・別Repository・別Revision・別sessionへの再登録を拒否するを検証する。
+ *
+ * @responsibility 偽Operation・別Repository・別Revision・別sessionへの再登録を拒否するの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 偽Operation・別Repository・別Revision・別sessionへの再登録を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("偽Operation・別Repository・別Revision・別sessionへの再登録を拒否する", async () => {
   const { runtime, state, createOperation } = harness();
   const result = await runtime.request(
@@ -338,6 +468,18 @@ test("偽Operation・別Repository・別Revision・別sessionへの再登録を�
   assert.equal(runtime.bindOperation({}, management, repository), false);
 });
 
+/**
+ * 期限切れで新規消費を止めても既発行tokenの終了記録は可能・cleanup不明なら次Taskを止めるを検証する。
+ *
+ * @responsibility 期限切れで新規消費を止めても既発行tokenの終了記録は可能・cleanup不明なら次Taskを止めるの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 期限切れで新規消費を止めても既発行tokenの終了記録は可能・cleanup不明なら次Taskを止めるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("期限切れで新規消費を止めても既発行tokenの終了記録は可能・cleanup不明なら次Taskを止める", async () => {
   const { runtime, clock, createOperation } = harness();
   const result = await runtime.request(
@@ -370,6 +512,18 @@ test("期限切れで新規消費を止めても既発行tokenの終了記録は
   assert.equal(runtime.reserveTask(result.capability, task("claude")), null);
 });
 
+/**
+ * 開発SessionはMCP認証用のread-only native観測だけを期限内に許可するを検証する。
+ *
+ * @responsibility 開発SessionはMCP認証用のread-only native観測だけを期限内に許可するの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 開発SessionはMCP認証用のread-only native観測だけを期限内に許可するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("開発SessionはMCP認証用のread-only native観測だけを期限内に許可する", async () => {
   const { runtime, clock } = harness();
   const admitted = await runtime.request(
@@ -390,6 +544,18 @@ test("開発SessionはMCP認証用のread-only native観測だけを期限内に
 });
 
 for (const stop of ["expiry", "cancel"] as const) {
+  /**
+   * ${stop}後は新規native初期化を拒否し所有cleanupの読取り観測だけを残すを検証する。
+   *
+   * @responsibility ${stop}後は新規native初期化を拒否し所有cleanupの読取り観測だけを残すの合否判定を所有する。
+   * @trace PPR-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus ${stop}後は新規native初期化を拒否し所有cleanupの読取り観測だけを残すの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+   */
   test(`${stop}後は新規native初期化を拒否し所有cleanupの読取り観測だけを残す`, async () => {
     const { runtime, clock, state, createOperation } = harness();
     const abort = new AbortController();
@@ -432,6 +598,18 @@ for (const stop of ["expiry", "cancel"] as const) {
   });
 }
 
+/**
+ * 同じNative lifecycle内の補助観測は完全Identity検証を繰り返さずProvider Effect前に再検証するを検証する。
+ *
+ * @responsibility 同じNative lifecycle内の補助観測は完全Identity検証を繰り返さずProvider Effect前に再検証するの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 同じNative lifecycle内の補助観測は完全Identity検証を繰り返さずProvider Effect前に再検証するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("同じNative lifecycle内の補助観測は完全Identity検証を繰り返さずProvider Effect前に再検証する", async () => {
   const { runtime, state, createOperation } = harness();
   const admitted = await runtime.request(
@@ -474,6 +652,18 @@ test("同じNative lifecycle内の補助観測は完全Identity検証を繰り�
   );
 });
 
+/**
+ * cleanup観測も実装差替え・観測失敗・process不明を推測して継続しないを検証する。
+ *
+ * @responsibility cleanup観測も実装差替え・観測失敗・process不明を推測して継続しないの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus cleanup観測も実装差替え・観測失敗・process不明を推測して継続しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("cleanup観測も実装差替え・観測失敗・process不明を推測して継続しない", async () => {
   for (const failure of ["replacement", "throw", "poison"] as const) {
     const { runtime, state, createOperation } = harness();
@@ -508,6 +698,18 @@ test("cleanup観測も実装差替え・観測失敗・process不明を推測し
   }
 });
 
+/**
+ * 予約後にOperationが失われた場合は消費せず予約枠も払い戻さないを検証する。
+ *
+ * @responsibility 予約後にOperationが失われた場合は消費せず予約枠も払い戻さないの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 予約後にOperationが失われた場合は消費せず予約枠も払い戻さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("予約後にOperationが失われた場合は消費せず予約枠も払い戻さない", async () => {
   const { runtime, state, createOperation } = harness();
   const admitted = await runtime.request(
@@ -540,6 +742,18 @@ test("予約後にOperationが失われた場合は消費せず予約枠も払�
   assert.equal(runtime.settleInvocation(taskCapability, invocation), true);
 });
 
+/**
+ * 試験sessionのtokenは本番Task・native Home・Store・Runtime Stateへ権限を渡さないを検証する。
+ *
+ * @responsibility 試験sessionのtokenは本番Task・native Home・Store・Runtime Stateへ権限を渡さないの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 試験sessionのtokenは本番Task・native Home・Store・Runtime Stateへ権限を渡さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("試験sessionのtokenは本番Task・native Home・Store・Runtime Stateへ権限を渡さない", async () => {
   const { runtime } = harness();
   const admitted = await runtime.request(

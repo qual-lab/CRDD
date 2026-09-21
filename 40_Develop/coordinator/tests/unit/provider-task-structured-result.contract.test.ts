@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:provider-task-structured-resultの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:provider-task-structured-resultが所有する検証責務を実行する。
+ * @trace RCM-UT-016
+ * @level UT
+ * @scope provider、task、structured、result
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -23,6 +33,18 @@ const TASK_WORKLOAD = Object.freeze({
   remediationFindingCount: 0,
 });
 
+/**
+ * normalizeFixtureTaskResultのTest準備責務を実行する。
+ *
+ * @responsibility normalizeFixtureTaskResultがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-UT-016
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus normalizeFixtureTaskResultを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 function normalizeFixtureTaskResult(
   provider: unknown,
   role: unknown,
@@ -52,6 +74,18 @@ const REVIEWER = JSON.stringify({
   ],
 });
 
+/**
+ * claudeのTest準備責務を実行する。
+ *
+ * @responsibility claudeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-UT-016
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus claudeを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 function claude(structuredOutput: unknown, overrides = {}) {
   return JSON.stringify({
     type: "result",
@@ -64,6 +98,18 @@ function claude(structuredOutput: unknown, overrides = {}) {
   });
 }
 
+/**
+ * claudeReviewerのTest準備責務を実行する。
+ *
+ * @responsibility claudeReviewerがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-UT-016
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus claudeReviewerを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 function claudeReviewer(result: unknown, overrides = {}) {
   return JSON.stringify({
     type: "result",
@@ -76,6 +122,18 @@ function claudeReviewer(result: unknown, overrides = {}) {
   });
 }
 
+/**
+ * Codex ExecutorとClaude Reviewerのexact Resultを正規化するを検証する。
+ *
+ * @responsibility Codex ExecutorとClaude Reviewerのexact Resultを正規化するの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Codex ExecutorとClaude Reviewerのexact Resultを正規化するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("Codex ExecutorとClaude Reviewerのexact Resultを正規化する", () => {
   const codex = normalizeFixtureTaskResult(
     "codex",
@@ -123,6 +181,18 @@ test("Codex ExecutorとClaude Reviewerのexact Resultを正規化する", () => 
   assert.equal(claudeResult.credentialAbsenceVerified, false);
 });
 
+/**
+ * Codex JSONLは本文を公開せずTool種別と終了状態だけを投影するを検証する。
+ *
+ * @responsibility Codex JSONLは本文を公開せずTool種別と終了状態だけを投影するの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Codex JSONLは本文を公開せずTool種別と終了状態だけを投影するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("Codex JSONLは本文を公開せずTool種別と終了状態だけを投影する", () => {
   const raw = [
     JSON.stringify({ type: "thread.started", thread_id: "thread" }),
@@ -191,6 +261,18 @@ test("Codex JSONLは本文を公開せずTool種別と終了状態だけを投�
   });
 });
 
+/**
+ * Codex JSONLのCommand終了codeは本文なしの閉じた区分へ集計するを検証する。
+ *
+ * @responsibility Codex JSONLのCommand終了codeは本文なしの閉じた区分へ集計するの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Codex JSONLのCommand終了codeは本文なしの閉じた区分へ集計するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("Codex JSONLのCommand終了codeは本文なしの閉じた区分へ集計する", () => {
   const commands = [0, 1, 126, 127, 42, null].flatMap((exitCode, index) => [
     JSON.stringify({
@@ -259,6 +341,18 @@ test("Codex JSONLのCommand終了codeは本文なしの閉じた区分へ集計�
   });
 });
 
+/**
+ * Codex JSONLは生Commandと出力を公開せずTool系統と失敗理由だけを分類するを検証する。
+ *
+ * @responsibility Codex JSONLは生Commandと出力を公開せずTool系統と失敗理由だけを分類するの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Codex JSONLは生Commandと出力を公開せずTool系統と失敗理由だけを分類するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("Codex JSONLは生Commandと出力を公開せずTool系統と失敗理由だけを分類する", () => {
   const commands = [
     {
@@ -323,6 +417,18 @@ test("Codex JSONLは生Commandと出力を公開せずTool系統と失敗理由�
   assert.equal(JSON.stringify(observation).includes("<secret path>"), false);
 });
 
+/**
+ * Reviewer decisionとfinding件数の矛盾、余分field、path traversalを拒否するを検証する。
+ *
+ * @responsibility Reviewer decisionとfinding件数の矛盾、余分field、path traversalを拒否するの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Reviewer decisionとfinding件数の矛盾、余分field、path traversalを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("Reviewer decisionとfinding件数の矛盾、余分field、path traversalを拒否する", () => {
   for (const value of [
     {
@@ -394,6 +500,18 @@ test("Reviewer decisionとfinding件数の矛盾、余分field、path traversal�
   }
 });
 
+/**
+ * Claude Reviewer本文と既知の終了EnvelopeをCRDD側で分類するを検証する。
+ *
+ * @responsibility Claude Reviewer本文と既知の終了EnvelopeをCRDD側で分類するの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Claude Reviewer本文と既知の終了EnvelopeをCRDD側で分類するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("Claude Reviewer本文と既知の終了EnvelopeをCRDD側で分類する", () => {
   const invalidDocument = normalizeFixtureTaskResult(
     "claude",
@@ -423,6 +541,18 @@ test("Claude Reviewer本文と既知の終了EnvelopeをCRDD側で分類する",
   }
 });
 
+/**
+ * Claude Envelope拒否を値の非公開と受理条件を維持して分類するを検証する。
+ *
+ * @responsibility Claude Envelope拒否を値の非公開と受理条件を維持して分類するの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Claude Envelope拒否を値の非公開と受理条件を維持して分類するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("Claude Envelope拒否を値の非公開と受理条件を維持して分類する", () => {
   const cases = [
     [
@@ -459,6 +589,18 @@ test("Claude Envelope拒否を値の非公開と受理条件を維持して分�
   }
 });
 
+/**
+ * Provider Result拒否はrawを出さず固定理由で意味分類するを検証する。
+ *
+ * @responsibility Provider Result拒否はrawを出さず固定理由で意味分類するの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Provider Result拒否はrawを出さず固定理由で意味分類するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("Provider Result拒否はrawを出さず固定理由で意味分類する", () => {
   const cases = [
     ["not-json", "provider_task_result_json_invalid"],
@@ -494,6 +636,18 @@ test("Provider Result拒否はrawを出さず固定理由で意味分類する",
   }
 });
 
+/**
+ * Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで拒否するを検証する。
+ *
+ * @responsibility Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで拒否するの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで拒否する", () => {
   const executorCases = [
     {
@@ -556,6 +710,18 @@ test("Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで�
   assert.equal(result.reason, "provider_task_reviewer_findings_invalid");
 });
 
+/**
+ * Reviewerの外形拒否は本文を出さず構造条件ごとに分類するを検証する。
+ *
+ * @responsibility Reviewerの外形拒否は本文を出さず構造条件ごとに分類するの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Reviewerの外形拒否は本文を出さず構造条件ごとに分類するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("Reviewerの外形拒否は本文を出さず構造条件ごとに分類する", () => {
   const cases = [
     [
@@ -586,6 +752,18 @@ test("Reviewerの外形拒否は本文を出さず構造条件ごとに分類す
   }
 });
 
+/**
+ * Claudeの実行目標と結果受理の絶対上限を分離するを検証する。
+ *
+ * @responsibility Claudeの実行目標と結果受理の絶対上限を分離するの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Claudeの実行目標と結果受理の絶対上限を分離するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("Claudeの実行目標と結果受理の絶対上限を分離する", () => {
   const expectedLimits = {
     executor: { low: 8, medium: 8, high: 8 },
@@ -656,6 +834,18 @@ test("Claudeの実行目標と結果受理の絶対上限を分離する", () =>
   }
 });
 
+/**
+ * 作業量の有限見積りは全推論で一致し、選定上限を超える結果を拒否するを検証する。
+ *
+ * @responsibility 作業量の有限見積りは全推論で一致し、選定上限を超える結果を拒否するの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 作業量の有限見積りは全推論で一致し、選定上限を超える結果を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("作業量の有限見積りは全推論で一致し、選定上限を超える結果を拒否する", () => {
   for (const [
     readPathCount,
@@ -706,6 +896,18 @@ test("作業量の有限見積りは全推論で一致し、選定上限を超�
   }
 });
 
+/**
+ * 不明または予算超過の作業量を旧固定値へfallbackしないを検証する。
+ *
+ * @responsibility 不明または予算超過の作業量を旧固定値へfallbackしないの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不明または予算超過の作業量を旧固定値へfallbackしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("不明または予算超過の作業量を旧固定値へfallbackしない", () => {
   for (const workload of [
     undefined,
@@ -766,6 +968,18 @@ test("不明または予算超過の作業量を旧固定値へfallbackしない
     assert.equal(split.reason, "claude_task_workload_split_required");
 });
 
+/**
+ * Claude turn上限、不正cost、重複JSON key、複数documentと巨大出力を拒否するを検証する。
+ *
+ * @responsibility Claude turn上限、不正cost、重複JSON key、複数documentと巨大出力を拒否するの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Claude turn上限、不正cost、重複JSON key、複数documentと巨大出力を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("Claude turn上限、不正cost、重複JSON key、複数documentと巨大出力を拒否する", () => {
   assert.equal(
     normalizeFixtureTaskResult(
@@ -808,6 +1022,18 @@ test("Claude turn上限、不正cost、重複JSON key、複数documentと巨大�
   );
 });
 
+/**
+ * SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負なら受理するを検証する。
+ *
+ * @responsibility SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負なら受理するの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負なら受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負なら受理する", () => {
   assert.equal(
     normalizeFixtureTaskResult(
@@ -829,6 +1055,18 @@ test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負�
   );
 });
 
+/**
+ * 公開契約は両Provider、両Role、上限とraw非公開を固定するを検証する。
+ *
+ * @responsibility 公開契約は両Provider、両Role、上限とraw非公開を固定するの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開契約は両Provider、両Role、上限とraw非公開を固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
   assert.equal(contract.contractRevision, 19);

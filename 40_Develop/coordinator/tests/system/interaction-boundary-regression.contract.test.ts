@@ -1,3 +1,13 @@
+/**
+ * coordinator:system:interaction-boundary-regressionの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:system:interaction-boundary-regressionが所有する検証責務を実行する。
+ * @trace EST-ST-003
+ * @level ST
+ * @scope interaction、boundary、regression
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { EventEmitter } from "node:events";
@@ -51,11 +61,35 @@ import { readInteractiveConsoleLineOutcomeUsingAdapter } from "../support/intera
 
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 
+/**
+ * resolveDeferredBooleanのTest準備責務を実行する。
+ *
+ * @responsibility resolveDeferredBooleanがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace EST-ST-003
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus resolveDeferredBooleanを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 function resolveDeferredBoolean(resolver: unknown, isResolved: boolean) {
   assert.equal(typeof resolver, "function");
   (resolver as (isSuccessful: boolean) => void)(isResolved);
 }
 
+/**
+ * sourceFilesのTest準備責務を実行する。
+ *
+ * @responsibility sourceFilesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace EST-ST-003
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus sourceFilesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 function sourceFiles(root: string): string[] {
   return fs.readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
     const absolute = path.join(root, entry.name);
@@ -64,6 +98,18 @@ function sourceFiles(root: string): string[] {
   });
 }
 
+/**
+ * 対話Consoleは一つのRuntime契約だけがOS deviceを所有するを検証する。
+ *
+ * @responsibility 対話Consoleは一つのRuntime契約だけがOS deviceを所有するの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 対話Consoleは一つのRuntime契約だけがOS deviceを所有するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", () => {
   const contract = describeInteractiveConsoleContract();
   assert.deepEqual(contract, {
@@ -170,6 +216,18 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   assert.equal(cliSource.includes("fs.readSync(0"), true);
 });
 
+/**
+ * generic Console adapterはcleanup不明でもproduction stateを変更しないを検証する。
+ *
+ * @responsibility generic Console adapterはcleanup不明でもproduction stateを変更しないの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus generic Console adapterはcleanup不明でもproduction stateを変更しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("generic Console adapterはcleanup不明でもproduction stateを変更しない", async () => {
   assert.equal(isRuntimeProcessPoisoned(), false);
   const syncOutcome = withInteractiveConsoleOutcomeUsingAdapter(
@@ -203,6 +261,18 @@ test("generic Console adapterはcleanup不明でもproduction stateを変更し�
   assert.equal(isRuntimeProcessPoisoned(), false);
 });
 
+/**
+ * Console非同期所有はoperationと全close失敗を構造化するを検証する。
+ *
+ * @responsibility Console非同期所有はoperationと全close失敗を構造化するの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Console非同期所有はoperationと全close失敗を構造化するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("Console非同期所有はoperationと全close失敗を構造化する", async () => {
   const closedDescriptors: number[] = [];
   const cleanupUnknown = await withInteractiveConsoleAsyncOutcomeUsingAdapter(
@@ -268,6 +338,18 @@ test("Console非同期所有はoperationと全close失敗を構造化する", as
   }
 });
 
+/**
+ * Windows writerはwrite失敗とlistener cleanup不明を分離するを検証する。
+ *
+ * @responsibility Windows writerはwrite失敗とlistener cleanup不明を分離するの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows writerはwrite失敗とlistener cleanup不明を分離するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("Windows writerはwrite失敗とlistener cleanup不明を分離する", async () => {
   const outcome = await writeWindowsTerminalTextOutcomeUsingStream("value", {
     isTTY: true,
@@ -307,11 +389,47 @@ test("Windows writerはwrite失敗とlistener cleanup不明を分離する", asy
   assert.equal(lateEvents.listenerCount("error"), 0);
 });
 
+/**
+ * POSIX reader Profileは親環境を受けない固定空集合にするを検証する。
+ *
+ * @responsibility POSIX reader Profileは親環境を受けない固定空集合にするの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus POSIX reader Profileは親環境を受けない固定空集合にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("POSIX reader Profileは親環境を受けない固定空集合にする", () => {
   assert.deepEqual(createInteractiveConsoleReaderEnvironment("linux"), {});
 });
 
+/**
+ * Windows対話表示はUnicode TTYの完了へ結合しredirect時にFail Closedとなるを検証する。
+ *
+ * @responsibility Windows対話表示はUnicode TTYの完了へ結合しredirect時にFail Closedとなるの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows対話表示はUnicode TTYの完了へ結合しredirect時にFail Closedとなるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("Windows対話表示はUnicode TTYの完了へ結合しredirect時にFail Closedとなる", async () => {
+  /**
+   * scenarioのTest準備責務を実行する。
+   *
+   * @responsibility scenarioがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace EST-ST-003
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus scenarioを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+   */
   function scenario(isWindowsTerminal: boolean) {
     const terminalWrites: string[] = [];
     const descriptorWrites: Array<Readonly<[number, string]>> = [];
@@ -411,7 +529,31 @@ test("Windows対話表示はUnicode TTYの完了へ結合しredirect時にFail C
   assert.equal(await pendingWrite, true);
 });
 
+/**
+ * Windows TTY writeのcallback・stream error・backpressureを一度だけ完了させるを検証する。
+ *
+ * @responsibility Windows TTY writeのcallback・stream error・backpressureを一度だけ完了させるの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows TTY writeのcallback・stream error・backpressureを一度だけ完了させるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("Windows TTY writeのcallback・stream error・backpressureを一度だけ完了させる", async () => {
+  /**
+   * streamScenarioのTest準備責務を実行する。
+   *
+   * @responsibility streamScenarioがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace EST-ST-003
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus streamScenarioを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+   */
   function streamScenario(
     outcome: "success" | "callback_error" | "stream_error" | "throw",
     isTTY = true,
@@ -523,7 +665,31 @@ test("Windows TTY writeのcallback・stream error・backpressureを一度だけ�
   assert.equal(actualWritable.listenerCount("error"), 0);
 });
 
+/**
+ * 検証済みTTY入力は完了・取消・errorをlistener残存なしへ収束するを検証する。
+ *
+ * @responsibility 検証済みTTY入力は完了・取消・errorをlistener残存なしへ収束するの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 検証済みTTY入力は完了・取消・errorをlistener残存なしへ収束するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("検証済みTTY入力は完了・取消・errorをlistener残存なしへ収束する", async () => {
+  /**
+   * inputScenarioのTest準備責務を実行する。
+   *
+   * @responsibility inputScenarioがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace EST-ST-003
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus inputScenarioを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+   */
   function inputScenario(overrides: Record<string, unknown> = {}) {
     const emitter = new EventEmitter();
     let pauseCount = 0;
@@ -736,7 +902,31 @@ test("検証済みTTY入力は完了・取消・errorをlistener残存なしへ�
   assert.equal(cancelledInput.listenerCount("end"), 0);
 });
 
+/**
+ * 固定reader子Processは単一OS readとdescriptor closeを分離するを検証する。
+ *
+ * @responsibility 固定reader子Processは単一OS readとdescriptor closeを分離するの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定reader子Processは単一OS readとdescriptor closeを分離するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("固定reader子Processは単一OS readとdescriptor closeを分離する", async () => {
+  /**
+   * scenarioのTest準備責務を実行する。
+   *
+   * @responsibility scenarioがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace EST-ST-003
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus scenarioを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+   */
   function scenario(
     options: { closeConfirmed?: boolean; openFails?: boolean } = {},
   ) {
@@ -849,6 +1039,18 @@ test("固定reader子Processは単一OS readとdescriptor closeを分離する",
   }
 });
 
+/**
+ * 固定reader fixtureはdescriptor close失敗を成功へ流用しないを検証する。
+ *
+ * @responsibility 固定reader fixtureはdescriptor close失敗を成功へ流用しないの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定reader fixtureはdescriptor close失敗を成功へ流用しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("固定reader fixtureはdescriptor close失敗を成功へ流用しない", () => {
   const fixture = path.join(
     coordinatorRoot,
@@ -873,6 +1075,18 @@ test("固定reader fixtureはdescriptor close失敗を成功へ流用しない",
   });
 });
 
+/**
+ * 固定Console readerは厳密な一行protocolと非TTY拒否へ閉じるを検証する。
+ *
+ * @responsibility 固定Console readerは厳密な一行protocolと非TTY拒否へ閉じるの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定Console readerは厳密な一行protocolと非TTY拒否へ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("固定Console readerは厳密な一行protocolと非TTY拒否へ閉じる", () => {
   assert.equal(
     parseInteractiveConsoleLine(Buffer.from("123456\n", "utf8")),
@@ -915,6 +1129,18 @@ test("固定Console readerは厳密な一行protocolと非TTY拒否へ閉じる"
   assert.equal(result.stdout, "");
 });
 
+/**
+ * Windows内部子Processの実Environmentは用途別固定集合へ閉じるを検証する。
+ *
+ * @responsibility Windows内部子Processの実Environmentは用途別固定集合へ閉じるの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows内部子Processの実Environmentは用途別固定集合へ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("Windows内部子Processの実Environmentは用途別固定集合へ閉じる", (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows Local Personal contract");
@@ -1040,6 +1266,18 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
   });
 });
 
+/**
+ * Authenticode検査用PowerShellは親環境を継承せず最小OS環境で起動するを検証する。
+ *
+ * @responsibility Authenticode検査用PowerShellは親環境を継承せず最小OS環境で起動するの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Authenticode検査用PowerShellは親環境を継承せず最小OS環境で起動するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("Authenticode検査用PowerShellは親環境を継承せず最小OS環境で起動する", (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows contract");
@@ -1101,6 +1339,18 @@ test("Authenticode検査用PowerShellは親環境を継承せず最小OS環境�
   assert.equal(result.stderr, "");
 });
 
+/**
+ * 中立化した親ProcessからもAuthenticode検査用PowerShellを初期化できるを検証する。
+ *
+ * @responsibility 中立化した親ProcessからもAuthenticode検査用PowerShellを初期化できるの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 中立化した親ProcessからもAuthenticode検査用PowerShellを初期化できるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("中立化した親ProcessからもAuthenticode検査用PowerShellを初期化できる", (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows contract");
@@ -1147,6 +1397,18 @@ test("中立化した親ProcessからもAuthenticode検査用PowerShellを初期
   });
 });
 
+/**
+ * Docker修復専用のOS driveは非C driveを受理し曖昧Pathを拒否するを検証する。
+ *
+ * @responsibility Docker修復専用のOS driveは非C driveを受理し曖昧Pathを拒否するの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Docker修復専用のOS driveは非C driveを受理し曖昧Pathを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("Docker修復専用のOS driveは非C driveを受理し曖昧Pathを拒否する", () => {
   assert.equal(deriveWindowsSystemDrive("D:\\Windows"), "D:");
   assert.equal(deriveWindowsSystemDrive("c:\\Windows"), "c:");
@@ -1166,6 +1428,18 @@ test("Docker修復専用のOS driveは非C driveを受理し曖昧Pathを拒否�
   }
 });
 
+/**
+ * Docker修復の実子は親のSYSTEMDRIVEを継承せず他用途はneutralを維持するを検証する。
+ *
+ * @responsibility Docker修復の実子は親のSYSTEMDRIVEを継承せず他用途はneutralを維持するの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Docker修復の実子は親のSYSTEMDRIVEを継承せず他用途はneutralを維持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("Docker修復の実子は親のSYSTEMDRIVEを継承せず他用途はneutralを維持する", (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows contract");
@@ -1214,6 +1488,18 @@ test("Docker修復の実子は親のSYSTEMDRIVEを継承せず他用途はneutra
   }
 });
 
+/**
+ * Windows directoryの親環境差替えを子Environment Authorityにしないを検証する。
+ *
+ * @responsibility Windows directoryの親環境差替えを子Environment Authorityにしないの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows directoryの親環境差替えを子Environment Authorityにしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("Windows directoryの親環境差替えを子Environment Authorityにしない", (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows Local Personal contract");
@@ -1282,6 +1568,18 @@ test("Windows directoryの親環境差替えを子Environment Authorityにしな
   }
 });
 
+/**
+ * Windows OS Profile判定不能は親Profileへfallbackしないを検証する。
+ *
+ * @responsibility Windows OS Profile判定不能は親Profileへfallbackしないの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows OS Profile判定不能は親Profileへfallbackしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("Windows OS Profile判定不能は親Profileへfallbackしない", (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows Local Personal contract");
@@ -1315,6 +1613,18 @@ test("Windows OS Profile判定不能は親Profileへfallbackしない", (context
   }
 });
 
+/**
+ * Native Helper環境不成立は全利用側をspawn・Effect・Authority 0へ閉じるを検証する。
+ *
+ * @responsibility Native Helper環境不成立は全利用側をspawn・Effect・Authority 0へ閉じるの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Native Helper環境不成立は全利用側をspawn・Effect・Authority 0へ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("Native Helper環境不成立は全利用側をspawn・Effect・Authority 0へ閉じる", (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows Local Personal contract");
@@ -1348,6 +1658,18 @@ test("Native Helper環境不成立は全利用側をspawn・Effect・Authority 0
   });
 });
 
+/**
+ * Windows実Console descriptorの取消は固定reader終了後に戻るを検証する。
+ *
+ * @responsibility Windows実Console descriptorの取消は固定reader終了後に戻るの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows実Console descriptorの取消は固定reader終了後に戻るの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("Windows実Console descriptorの取消は固定reader終了後に戻る", async (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows Local Personal contract");
@@ -1371,6 +1693,18 @@ test("Windows実Console descriptorの取消は固定reader終了後に戻る", a
   }
 });
 
+/**
+ * Windows実ProcessでTask stdin pipeと固定Console readerを分離するを検証する。
+ *
+ * @responsibility Windows実ProcessでTask stdin pipeと固定Console readerを分離するの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows実ProcessでTask stdin pipeと固定Console readerを分離するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("Windows実ProcessでTask stdin pipeと固定Console readerを分離する", (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows Local Personal contract");
@@ -1425,6 +1759,18 @@ test("Windows実ProcessでTask stdin pipeと固定Console readerを分離する"
   }
 });
 
+/**
+ * Windows固定readerは親Process消失時に終了しLockを次回へ返すを検証する。
+ *
+ * @responsibility Windows固定readerは親Process消失時に終了しLockを次回へ返すの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows固定readerは親Process消失時に終了しLockを次回へ返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("Windows固定readerは親Process消失時に終了しLockを次回へ返す", async (context) => {
   if (process.platform !== "win32") {
     context.skip("Windows Local Personal contract");
@@ -1503,7 +1849,31 @@ test("Windows固定readerは親Process消失時に終了しLockを次回へ返�
   }
 });
 
+/**
+ * 固定reader親はProcess順序・取消・timeout・cleanupを同じ状態機械で閉じるを検証する。
+ *
+ * @responsibility 固定reader親はProcess順序・取消・timeout・cleanupを同じ状態機械で閉じるの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定reader親はProcess順序・取消・timeout・cleanupを同じ状態機械で閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状態機械で閉じる", async () => {
+  /**
+   * readerProcessScenarioのTest準備責務を実行する。
+   *
+   * @responsibility readerProcessScenarioがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace EST-ST-003
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus readerProcessScenarioを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+   */
   function readerProcessScenario(isKillSuccessful = true) {
     const child = new EventEmitter() as EventEmitter & {
       stdout: EventEmitter;
@@ -1854,7 +2224,31 @@ test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状�
   }
 });
 
+/**
+ * 対話ConsoleのOS device openと全失敗位置を一つのprimitiveで閉じるを検証する。
+ *
+ * @responsibility 対話ConsoleのOS device openと全失敗位置を一つのprimitiveで閉じるの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 対話ConsoleのOS device openと全失敗位置を一つのprimitiveで閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("対話ConsoleのOS device openと全失敗位置を一つのprimitiveで閉じる", async () => {
+  /**
+   * scenarioのTest準備責務を実行する。
+   *
+   * @responsibility scenarioがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace EST-ST-003
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus scenarioを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+   */
   function scenario(
     options: { failOpenAt?: number; failClose?: ReadonlySet<number> } = {},
   ) {
@@ -2033,6 +2427,18 @@ test("対話ConsoleのOS device openと全失敗位置を一つのprimitiveで�
   }
 });
 
+/**
+ * 非同期対話処理が完了するまで両OS deviceを保持してから回収するを検証する。
+ *
+ * @responsibility 非同期対話処理が完了するまで両OS deviceを保持してから回収するの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 非同期対話処理が完了するまで両OS deviceを保持してから回収するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("非同期対話処理が完了するまで両OS deviceを保持してから回収する", async () => {
   const closedDescriptors: number[] = [];
   let completeOperation: ((isSuccessful: boolean) => void) | null = null;
@@ -2088,6 +2494,18 @@ test("非同期対話処理が完了するまで両OS deviceを保持してか�
   assert.deepEqual(closeFailureClosedDescriptors, [11, 12]);
 });
 
+/**
+ * Executable sourceとpackage commandへShell依存のJSON搬送を再導入しないを検証する。
+ *
+ * @responsibility Executable sourceとpackage commandへShell依存のJSON搬送を再導入しないの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Executable sourceとpackage commandへShell依存のJSON搬送を再導入しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入しない", () => {
   const forbiddenPatterns = [
     /StandardInputEncoding/u,
@@ -2213,6 +2631,18 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
   }
 });
 
+/**
+ * 非同期の対話・正式Runner entrypointはtop-levelでmain完了を所有するを検証する。
+ *
+ * @responsibility 非同期の対話・正式Runner entrypointはtop-levelでmain完了を所有するの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 非同期の対話・正式Runner entrypointはtop-levelでmain完了を所有するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("非同期の対話・正式Runner entrypointはtop-levelでmain完了を所有する", () => {
   const asynchronousEntrypoints = [
     "scripts/generate-release-key.ts",
@@ -2231,6 +2661,18 @@ test("非同期の対話・正式Runner entrypointはtop-levelでmain完了を�
   }
 });
 
+/**
+ * 保護操作は別名でも裸Runtimeのpackage aliasへ公開しないを検証する。
+ *
+ * @responsibility 保護操作は別名でも裸Runtimeのpackage aliasへ公開しないの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 保護操作は別名でも裸Runtimeのpackage aliasへ公開しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("保護操作は別名でも裸Runtimeのpackage aliasへ公開しない", () => {
   const protectedEntrypoints = [
     "bin/launch.ts",
@@ -2246,6 +2688,18 @@ test("保護操作は別名でも裸Runtimeのpackage aliasへ公開しない", 
   const packageDocument = JSON.parse(
     fs.readFileSync(path.join(coordinatorRoot, "package.json"), "utf8"),
   ) as { scripts: Record<string, string> };
+  /**
+   * invokesProtectedEntrypointのTest準備責務を実行する。
+   *
+   * @responsibility invokesProtectedEntrypointがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace EST-ST-003
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus invokesProtectedEntrypointを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+   */
   const invokesProtectedEntrypoint = (command: string) => {
     const normalizedCommand = command.replaceAll("\\", "/");
     if (
@@ -2281,6 +2735,18 @@ test("保護操作は別名でも裸Runtimeのpackage aliasへ公開しない", 
   }
 });
 
+/**
+ * Node版GateはPATHをAuthorityにせずEffect前に停止するを検証する。
+ *
+ * @responsibility Node版GateはPATHをAuthorityにせずEffect前に停止するの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Node版GateはPATHをAuthorityにせずEffect前に停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
   assert.deepEqual(describeCoordinatorNodeRuntimeVersionContract(), {
     contract: "crdd-coordinator/node-runtime-version",

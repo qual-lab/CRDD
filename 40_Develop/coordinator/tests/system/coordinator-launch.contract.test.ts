@@ -1,3 +1,13 @@
+/**
+ * coordinator:system:coordinator-launchの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:system:coordinator-launchが所有する検証責務を実行する。
+ * @trace PRL-ST-001
+ * @level ST
+ * @scope coordinator、launch
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -19,6 +29,18 @@ const terminal = {
   stdoutWritable: true,
 };
 
+/**
+ * 共通Launcherの実行入口を一つの正本から解決するを検証する。
+ *
+ * @responsibility 共通Launcherの実行入口を一つの正本から解決するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 共通Launcherの実行入口を一つの正本から解決するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("共通Launcherの実行入口を一つの正本から解決する", () => {
   assert.deepEqual(COORDINATOR_LAUNCH_ENTRIES, {
     task: "./coordinator.ts",
@@ -32,6 +54,18 @@ test("共通Launcherの実行入口を一つの正本から解決する", () => 
   assert.equal(Object.isFrozen(COORDINATOR_LAUNCH_ENTRIES), true);
 });
 
+/**
+ * 用途ごとの入力と端末条件を区別し、内部Recovery引数を公開しないを検証する。
+ *
+ * @responsibility 用途ごとの入力と端末条件を区別し、内部Recovery引数を公開しないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 用途ごとの入力と端末条件を区別し、内部Recovery引数を公開しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("用途ごとの入力と端末条件を区別し、内部Recovery引数を公開しない", () => {
   for (const mode of ["interactive", "verify-routes", "sign-release"]) {
     assert.equal(resolveCoordinatorLaunch([mode], terminal).status, "ready");
@@ -128,6 +162,18 @@ test("用途ごとの入力と端末条件を区別し、内部Recovery引数を
   );
 });
 
+/**
+ * 不正用途、未対応Node、NULを拒否し引数の空白・Unicodeを変えないを検証する。
+ *
+ * @responsibility 不正用途、未対応Node、NULを拒否し引数の空白・Unicodeを変えないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不正用途、未対応Node、NULを拒否し引数の空白・Unicodeを変えないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("不正用途、未対応Node、NULを拒否し引数の空白・Unicodeを変えない", () => {
   for (const mode of [
     "",
@@ -156,6 +202,18 @@ test("不正用途、未対応Node、NULを拒否し引数の空白・Unicodeを
   assert.ok(Object.isFrozen(plan.forwardedArgs));
 });
 
+/**
+ * 推奨Task入口は一般Taskの固定引数だけを追加するを検証する。
+ *
+ * @responsibility 推奨Task入口は一般Taskの固定引数だけを追加するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 推奨Task入口は一般Taskの固定引数だけを追加するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("推奨Task入口は一般Taskの固定引数だけを追加する", () => {
   const plan = resolveCoordinatorLaunch(["task", "--request-stdin", "--json"], {
     ...terminal,
@@ -167,6 +225,18 @@ test("推奨Task入口は一般Taskの固定引数だけを追加する", () => 
   assert.deepEqual(plan.forwardedArgs, ["task", "--request-stdin", "--json"]);
 });
 
+/**
+ * 実CLIのhelpは起動Directoryに依存せず、自動処理から到達するを検証する。
+ *
+ * @responsibility 実CLIのhelpは起動Directoryに依存せず、自動処理から到達するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実CLIのhelpは起動Directoryに依存せず、自動処理から到達するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("実CLIのhelpは起動Directoryに依存せず、自動処理から到達する", () => {
   for (const cwd of [repositoryRoot, packageRoot]) {
     const result = spawnSync(
@@ -179,6 +249,18 @@ test("実CLIのhelpは起動Directoryに依存せず、自動処理から到達�
   }
 });
 
+/**
+ * 実Processのredirectでは対話入口を対象import前に拒否し、秘密候補を出さないを検証する。
+ *
+ * @responsibility 実Processのredirectでは対話入口を対象import前に拒否し、秘密候補を出さないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実Processのredirectでは対話入口を対象import前に拒否し、秘密候補を出さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("実Processのredirectでは対話入口を対象import前に拒否し、秘密候補を出さない", () => {
   for (const mode of ["interactive", "verify-routes", "sign-release"]) {
     const result = spawnSync(process.execPath, [launcher, mode], {
@@ -201,6 +283,18 @@ test("実Processのredirectでは対話入口を対象import前に拒否し、�
   assert.doesNotMatch(invalid.stderr, /DO_NOT_REPORT_ARGUMENT/);
 });
 
+/**
+ * 実子で同一PID・引数・stdin byte・cwd・終了コードを保持し、import例外を成功にしないを検証する。
+ *
+ * @responsibility 実子で同一PID・引数・stdin byte・cwd・終了コードを保持し、import例外を成功にしないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実子で同一PID・引数・stdin byte・cwd・終了コードを保持し、import例外を成功にしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("実子で同一PID・引数・stdin byte・cwd・終了コードを保持し、import例外を成功にしない", () => {
   const tempParent = path.join(
     repositoryRoot,

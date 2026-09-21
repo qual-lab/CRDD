@@ -1,3 +1,13 @@
+/**
+ * checker:integration:crdd-checkの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility checker:integration:crdd-checkが所有する検証責務を実行する。
+ * @trace RCM-IT-005
+ * @level IT
+ * @scope crdd、check
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 import assert from "node:assert/strict";
 import type { SpawnSyncReturns } from "node:child_process";
 import { spawnSync } from "node:child_process";
@@ -24,6 +34,18 @@ const faultInjector = pathToFileURL(
   path.join(checkerRoot, "tests", "support", "fault-injector.ts"),
 ).href;
 
+/**
+ * Checker固有Moduleは40_Develop/checkerだけが所有するを検証する。
+ *
+ * @responsibility Checker固有Moduleは40_Develop/checkerだけが所有するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Checker固有Moduleは40_Develop/checkerだけが所有するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Checker固有Moduleは40_Develop/checkerだけが所有する", () => {
   const expectedModules = [
     "src/findings/finding-model.ts",
@@ -57,6 +79,18 @@ test("Checker固有Moduleは40_Develop/checkerだけが所有する", () => {
   assert.doesNotMatch(officialCli, /pipeline|rules|findings/u);
 });
 
+/**
+ * Checker PipelineはMarkdownをArtifact Modelへ変換し固定順のRuleを実行するを検証する。
+ *
+ * @responsibility Checker PipelineはMarkdownをArtifact Modelへ変換し固定順のRuleを実行するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Checker PipelineはMarkdownをArtifact Modelへ変換し固定順のRuleを実行するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Checker PipelineはMarkdownをArtifact Modelへ変換し固定順のRuleを実行する", () => {
   const registry = new RuleRegistry();
   const executedRuleIds: string[] = [];
@@ -126,6 +160,18 @@ UX ID: UX-000001
   );
 });
 
+/**
+ * Checker PipelineはSchema不整合とCanonical ID重複を共通Findingで返すを検証する。
+ *
+ * @responsibility Checker PipelineはSchema不整合とCanonical ID重複を共通Findingで返すの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Checker PipelineはSchema不整合とCanonical ID重複を共通Findingで返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Checker PipelineはSchema不整合とCanonical ID重複を共通Findingで返す", () => {
   const source = {
     path: "duplicate.md",
@@ -149,6 +195,18 @@ test("Checker PipelineはSchema不整合とCanonical ID重複を共通Findingで
   assert.ok(result.findings.every(({ rule }) => rule.length > 0));
 });
 
+/**
+ * Artifact Domain IssueはChecker境界で明示変換し未知種別を拒否するを検証する。
+ *
+ * @responsibility Artifact Domain IssueはChecker境界で明示変換し未知種別を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Artifact Domain IssueはChecker境界で明示変換し未知種別を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Artifact Domain IssueはChecker境界で明示変換し未知種別を拒否する", () => {
   assert.deepEqual(
     mapArtifactDomainIssueToCheckerFinding({
@@ -190,6 +248,18 @@ test("Artifact Domain IssueはChecker境界で明示変換し未知種別を拒�
   );
 });
 
+/**
+ * 主要工程ひな型は工程責務と構造表現を維持するを検証する。
+ *
+ * @responsibility 主要工程ひな型は工程責務と構造表現を維持するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 主要工程ひな型は工程責務と構造表現を維持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("主要工程ひな型は工程責務と構造表現を維持する", () => {
   const phaseTemplates = [
     "template/01_Discovery/01_Product_Discovery.md",
@@ -552,6 +622,18 @@ type CheckerReport = Readonly<{
   unchecked: readonly string[];
 }>;
 
+/**
+ * 品質固定構成は規則・公式文書・ひな型の番号付き名称と一致するを検証する。
+ *
+ * @responsibility 品質固定構成は規則・公式文書・ひな型の番号付き名称と一致するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 品質固定構成は規則・公式文書・ひな型の番号付き名称と一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("品質固定構成は規則・公式文書・ひな型の番号付き名称と一致する", () => {
   const names = [
     "01_Quality_Center.md",
@@ -653,6 +735,18 @@ test("品質固定構成は規則・公式文書・ひな型の番号付き名�
   );
 });
 
+/**
+ * checker packageのRepository検証はRepository rootを明示するを検証する。
+ *
+ * @responsibility checker packageのRepository検証はRepository rootを明示するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus checker packageのRepository検証はRepository rootを明示するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("checker packageのRepository検証はRepository rootを明示する", () => {
   const packageJson: unknown = JSON.parse(
     fs.readFileSync(path.join(checkerRoot, "package.json"), "utf8"),
@@ -676,6 +770,18 @@ test("checker packageのRepository検証はRepository rootを明示する", () =
   assert.equal(path.resolve(checkerRoot, "../.."), repositoryRoot);
 });
 
+/**
+ * Checker packageのLintはWarningを検査失敗にするを検証する。
+ *
+ * @responsibility Checker packageのLintはWarningを検査失敗にするの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Checker packageのLintはWarningを検査失敗にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Checker packageのLintはWarningを検査失敗にする", () => {
   const packageJson: unknown = JSON.parse(
     fs.readFileSync(path.join(checkerRoot, "package.json"), "utf8"),
@@ -685,6 +791,18 @@ test("Checker packageのLintはWarningを検査失敗にする", () => {
   assert.equal(scripts?.lint, "biome lint ../.. --error-on-warnings");
 });
 
+/**
+ * CRDD所有packageの全回帰入口は静的検査後にだけ試験本体を開始するを検証する。
+ *
+ * @responsibility CRDD所有packageの全回帰入口は静的検査後にだけ試験本体を開始するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CRDD所有packageの全回帰入口は静的検査後にだけ試験本体を開始するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("CRDD所有packageの全回帰入口は静的検査後にだけ試験本体を開始する", () => {
   const packageRoots = [
     "artifact-signing",
@@ -741,6 +859,18 @@ test("CRDD所有packageの全回帰入口は静的検査後にだけ試験本体
   assert.ok(windowsIndex > restrictedIndex, "Windows tests must follow checks");
 });
 
+/**
+ * Biomeは.crdd内の入れ子設定を探索せず両所有sourceを検査するを検証する。
+ *
+ * @responsibility Biomeは.crdd内の入れ子設定を探索せず両所有sourceを検査するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Biomeは.crdd内の入れ子設定を探索せず両所有sourceを検査するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Biomeは.crdd内の入れ子設定を探索せず両所有sourceを検査する", () => {
   const root = fixture();
   write(
@@ -763,6 +893,18 @@ test("Biomeは.crdd内の入れ子設定を探索せず両所有sourceを検査�
     write(path.join(root, relativePath, "broken.ts"), "invalid {{{");
   }
   const biome = path.join(checkerRoot, "node_modules/@biomejs/biome/bin/biome");
+  /**
+   * inspectLintのTest準備責務を実行する。
+   *
+   * @responsibility inspectLintがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace RCM-IT-005
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus inspectLintを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary Direct Boundary: Producer→Consumer
+   */
   const inspectLint = () =>
     spawnSync(process.execPath, [biome, "lint", ".", "--error-on-warnings"], {
       cwd: root,
@@ -783,6 +925,18 @@ test("Biomeは.crdd内の入れ子設定を探索せず両所有sourceを検査�
 
 type CheckerRun = SpawnSyncReturns<string> & { report: CheckerReport };
 
+/**
+ * recordのTest準備責務を実行する。
+ *
+ * @responsibility recordがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus recordを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function record(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? Object.fromEntries(
@@ -793,6 +947,18 @@ function record(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+/**
+ * reportStringのTest準備責務を実行する。
+ *
+ * @responsibility reportStringがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus reportStringを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function reportString(value: Record<string, unknown>, key: string): string {
   const candidate = value[key];
   if (typeof candidate !== "string")
@@ -800,6 +966,18 @@ function reportString(value: Record<string, unknown>, key: string): string {
   return candidate;
 }
 
+/**
+ * reportBooleanのTest準備責務を実行する。
+ *
+ * @responsibility reportBooleanがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus reportBooleanを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function reportBoolean(value: Record<string, unknown>, key: string): boolean {
   const candidate = value[key];
   if (typeof candidate !== "boolean")
@@ -807,6 +985,18 @@ function reportBoolean(value: Record<string, unknown>, key: string): boolean {
   return candidate;
 }
 
+/**
+ * reportNullableBooleanのTest準備責務を実行する。
+ *
+ * @responsibility reportNullableBooleanがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus reportNullableBooleanを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function reportNullableBoolean(
   value: Record<string, unknown>,
   key: string,
@@ -818,6 +1008,18 @@ function reportNullableBoolean(
   return candidate;
 }
 
+/**
+ * reportNullableStringのTest準備責務を実行する。
+ *
+ * @responsibility reportNullableStringがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus reportNullableStringを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function reportNullableString(
   value: Record<string, unknown>,
   key: string,
@@ -829,6 +1031,18 @@ function reportNullableString(
   return candidate;
 }
 
+/**
+ * reportStringArrayのTest準備責務を実行する。
+ *
+ * @responsibility reportStringArrayがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus reportStringArrayを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function reportStringArray(
   value: Record<string, unknown>,
   key: string,
@@ -847,6 +1061,18 @@ function reportStringArray(
   });
 }
 
+/**
+ * reportNumberRecordのTest準備責務を実行する。
+ *
+ * @responsibility reportNumberRecordがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus reportNumberRecordを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function reportNumberRecord(
   value: Record<string, unknown>,
   key: string,
@@ -863,6 +1089,18 @@ function reportNumberRecord(
   return result;
 }
 
+/**
+ * reportStateのTest準備責務を実行する。
+ *
+ * @responsibility reportStateがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus reportStateを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function reportState(
   value: Record<string, unknown>,
   key: string,
@@ -883,6 +1121,18 @@ function reportState(
   return result;
 }
 
+/**
+ * reportFindingsのTest準備責務を実行する。
+ *
+ * @responsibility reportFindingsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus reportFindingsを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function reportFindings(value: Record<string, unknown>): CheckerFinding[] {
   const findings = value.findings;
   if (!Array.isArray(findings))
@@ -899,6 +1149,18 @@ function reportFindings(value: Record<string, unknown>): CheckerFinding[] {
   });
 }
 
+/**
+ * reportReferencesのTest準備責務を実行する。
+ *
+ * @responsibility reportReferencesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus reportReferencesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function reportReferences(
   value: Record<string, unknown>,
 ): CheckerReport["references"] {
@@ -935,6 +1197,18 @@ function reportReferences(
   });
 }
 
+/**
+ * parseCheckerReportのTest準備責務を実行する。
+ *
+ * @responsibility parseCheckerReportがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus parseCheckerReportを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function parseCheckerReport(source: string): CheckerReport {
   if (source === "") {
     return Object.freeze({
@@ -1010,12 +1284,36 @@ const requiredFolders = [
   "99_Roadmap",
 ];
 
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-check-"));
   fixtures.push(root);
   return root;
 }
 
+/**
+ * 工程基本図の必須列または閉じた処置語彙の欠落を拒否するを検証する。
+ *
+ * @responsibility 工程基本図の必須列または閉じた処置語彙の欠落を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 工程基本図の必須列または閉じた処置語彙の欠落を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("工程基本図の必須列または閉じた処置語彙の欠落を拒否する", () => {
   const sourcePath = path.join(
     repositoryRoot,
@@ -1049,6 +1347,18 @@ test("工程基本図の必須列または閉じた処置語彙の欠落を拒�
   }
 });
 
+/**
+ * Discoveryひな型から人間理解の確認契約を除去できないを検証する。
+ *
+ * @responsibility Discoveryひな型から人間理解の確認契約を除去できないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Discoveryひな型から人間理解の確認契約を除去できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Discoveryひな型から人間理解の確認契約を除去できない", () => {
   const sourcePath = path.join(
     repositoryRoot,
@@ -1076,6 +1386,18 @@ test("Discoveryひな型から人間理解の確認契約を除去できない",
   );
 });
 
+/**
+ * IA分析は全UX定義を一件ずつ覆うを検証する。
+ *
+ * @responsibility IA分析は全UX定義を一件ずつ覆うの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA分析は全UX定義を一件ずつ覆うの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("IA分析は全UX定義を一件ずつ覆う", () => {
   const root = iaReconstructionFixtureRoot();
   fs.rmSync(path.join(root, "03_IA", "Analysis", "UX-000001"), {
@@ -1091,6 +1413,18 @@ test("IA分析は全UX定義を一件ずつ覆う", () => {
   );
 });
 
+/**
+ * IA分析は同じUX定義を正式入力にするを検証する。
+ *
+ * @responsibility IA分析は同じUX定義を正式入力にするの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA分析は同じUX定義を正式入力にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("IA分析は同じUX定義を正式入力にする", () => {
   const root = iaReconstructionFixtureRoot();
   const analysisPath = path.join(
@@ -1117,6 +1451,18 @@ test("IA分析は同じUX定義を正式入力にする", () => {
   );
 });
 
+/**
+ * IA分析の実ひな型を埋めた成果物を受理するを検証する。
+ *
+ * @responsibility IA分析の実ひな型を埋めた成果物を受理するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA分析の実ひな型を埋めた成果物を受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("IA分析の実ひな型を埋めた成果物を受理する", () => {
   const root = iaReconstructionFixtureRoot();
   const template = fs.readFileSync(
@@ -1171,6 +1517,18 @@ test("IA分析の実ひな型を埋めた成果物を受理する", () => {
   );
 });
 
+/**
+ * IA分析の縮小見出しと三列契約の欠落を拒否するを検証する。
+ *
+ * @responsibility IA分析の縮小見出しと三列契約の欠落を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA分析の縮小見出しと三列契約の欠落を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("IA分析の縮小見出しと三列契約の欠落を拒否する", () => {
   for (const mutate of [
     (value: string) =>
@@ -1201,6 +1559,18 @@ test("IA分析の縮小見出しと三列契約の欠落を拒否する", () => 
   }
 });
 
+/**
+ * IA正本は成果物別の可視で評価済みChecklistを必要とするを検証する。
+ *
+ * @responsibility IA正本は成果物別の可視で評価済みChecklistを必要とするの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA正本は成果物別の可視で評価済みChecklistを必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("IA正本は成果物別の可視で評価済みChecklistを必要とする", () => {
   const cases: Array<[string, string]> = [
     [
@@ -1233,6 +1603,18 @@ test("IA正本は成果物別の可視で評価済みChecklistを必要とする
   }
 });
 
+/**
+ * IAひな型は未評価の正確なChecklist項目集合を持つを検証する。
+ *
+ * @responsibility IAひな型は未評価の正確なChecklist項目集合を持つの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IAひな型は未評価の正確なChecklist項目集合を持つの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("IAひな型は未評価の正確なChecklist項目集合を持つ", () => {
   for (const mutate of [
     (value: string) => value.replace("- [ ] StateとVisibilityを定義した\n", ""),
@@ -1262,6 +1644,18 @@ test("IAひな型は未評価の正確なChecklist項目集合を持つ", () => 
   }
 });
 
+/**
+ * IAの後続関係表へArchitectureその他の直接Handoffを追加できないを検証する。
+ *
+ * @responsibility IAの後続関係表へArchitectureその他の直接Handoffを追加できないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IAの後続関係表へArchitectureその他の直接Handoffを追加できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("IAの後続関係表へArchitectureその他の直接Handoffを追加できない", () => {
   for (const relativePath of [
     path.join("03_IA", "Analysis", "UX-000001", "ia_analysis.md"),
@@ -1291,6 +1685,18 @@ test("IAの後続関係表へArchitectureその他の直接Handoffを追加で�
   }
 });
 
+/**
+ * IA横断投影は全Canonical IA IDを一件ずつ処置するを検証する。
+ *
+ * @responsibility IA横断投影は全Canonical IA IDを一件ずつ処置するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA横断投影は全Canonical IA IDを一件ずつ処置するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("IA横断投影は全Canonical IA IDを一件ずつ処置する", () => {
   for (const replacement of [
     "",
@@ -1321,6 +1727,18 @@ test("IA横断投影は全Canonical IA IDを一件ずつ処置する", () => {
   }
 });
 
+/**
+ * IA分析Objectは全件を一意に処置するを検証する。
+ *
+ * @responsibility IA分析Objectは全件を一意に処置するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA分析Objectは全件を一意に処置するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("IA分析Objectは全件を一意に処置する", () => {
   for (const mutate of [
     (value: string) =>
@@ -1361,6 +1779,18 @@ test("IA分析Objectは全件を一意に処置する", () => {
   }
 });
 
+/**
+ * IA定義Mappingは実在する分析ObjectとCanonical Objectだけを使うを検証する。
+ *
+ * @responsibility IA定義Mappingは実在する分析ObjectとCanonical Objectだけを使うの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA定義Mappingは実在する分析ObjectとCanonical Objectだけを使うの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("IA定義Mappingは実在する分析ObjectとCanonical Objectだけを使う", () => {
   for (const mutate of [
     (value: string) => value.replace("UX-000001: 根拠", "UX-000001: 偽Object"),
@@ -1408,6 +1838,18 @@ test("IA定義Mappingは実在する分析ObjectとCanonical Objectだけを使�
   }
 });
 
+/**
+ * REQ表示をDiscovery分析へ偽装接続できないを検証する。
+ *
+ * @responsibility REQ表示をDiscovery分析へ偽装接続できないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus REQ表示をDiscovery分析へ偽装接続できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("REQ表示をDiscovery分析へ偽装接続できない", () => {
   const root = iaReconstructionFixtureRoot();
   write(
@@ -1425,6 +1867,18 @@ test("REQ表示をDiscovery分析へ偽装接続できない", () => {
   );
 });
 
+/**
+ * IA台帳とIA定義Directoryは同じ集合を持つを検証する。
+ *
+ * @responsibility IA台帳とIA定義Directoryは同じ集合を持つの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA台帳とIA定義Directoryは同じ集合を持つの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("IA台帳とIA定義Directoryは同じ集合を持つ", () => {
   const root = iaReconstructionFixtureRoot();
   const indexPath = path.join(root, "03_IA", "01_Information_Architecture.md");
@@ -1438,6 +1892,18 @@ test("IA台帳とIA定義Directoryは同じ集合を持つ", () => {
   );
 });
 
+/**
+ * IA分析の処置とIA定義の情報源はUXとIAの組で閉じるを検証する。
+ *
+ * @responsibility IA分析の処置とIA定義の情報源はUXとIAの組で閉じるの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA分析の処置とIA定義の情報源はUXとIAの組で閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("IA分析の処置とIA定義の情報源はUXとIAの組で閉じる", () => {
   const root = iaReconstructionFixtureRoot();
   const indexPath = path.join(root, "03_IA", "01_Information_Architecture.md");
@@ -1458,6 +1924,18 @@ test("IA分析の処置とIA定義の情報源はUXとIAの組で閉じる", () 
   );
 });
 
+/**
+ * IA台帳の入力UXも分析処置と定義情報源へ完全一致するを検証する。
+ *
+ * @responsibility IA台帳の入力UXも分析処置と定義情報源へ完全一致するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA台帳の入力UXも分析処置と定義情報源へ完全一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("IA台帳の入力UXも分析処置と定義情報源へ完全一致する", () => {
   const root = iaReconstructionFixtureRoot();
   const indexPath = path.join(root, "03_IA", "01_Information_Architecture.md");
@@ -1476,6 +1954,18 @@ test("IA台帳の入力UXも分析処置と定義情報源へ完全一致する"
   );
 });
 
+/**
+ * IA関係は分析処置節と定義情報源節の外へ移せないを検証する。
+ *
+ * @responsibility IA関係は分析処置節と定義情報源節の外へ移せないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA関係は分析処置節と定義情報源節の外へ移せないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("IA関係は分析処置節と定義情報源節の外へ移せない", () => {
   for (const target of ["analysis", "definition"] as const) {
     const root = iaReconstructionFixtureRoot();
@@ -1511,6 +2001,18 @@ test("IA関係は分析処置節と定義情報源節の外へ移せない", () 
   }
 });
 
+/**
+ * IA関係の重複行または対象節の重複を拒否するを検証する。
+ *
+ * @responsibility IA関係の重複行または対象節の重複を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA関係の重複行または対象節の重複を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("IA関係の重複行または対象節の重複を拒否する", () => {
   for (const mutate of [
     (root: string) => {
@@ -1564,6 +2066,18 @@ test("IA関係の重複行または対象節の重複を拒否する", () => {
   }
 });
 
+/**
+ * 非表示Markdownだけに置かれたIA台帳・処置・情報源を拒否するを検証する。
+ *
+ * @responsibility 非表示Markdownだけに置かれたIA台帳・処置・情報源を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 非表示Markdownだけに置かれたIA台帳・処置・情報源を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("非表示Markdownだけに置かれたIA台帳・処置・情報源を拒否する", () => {
   const cases: Array<{
     file: (root: string) => string;
@@ -1627,6 +2141,18 @@ test("非表示Markdownだけに置かれたIA台帳・処置・情報源を拒�
   }
 });
 
+/**
+ * 表示されるIA構造が正しければ非表示の偽構造を関係として数えないを検証する。
+ *
+ * @responsibility 表示されるIA構造が正しければ非表示の偽構造を関係として数えないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 表示されるIA構造が正しければ非表示の偽構造を関係として数えないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("表示されるIA構造が正しければ非表示の偽構造を関係として数えない", () => {
   const root = iaReconstructionFixtureRoot();
   const indexPath = path.join(root, "03_IA", "01_Information_Architecture.md");
@@ -1670,6 +2196,18 @@ test("表示されるIA構造が正しければ非表示の偽構造を関係と
   );
 });
 
+/**
+ * 未閉鎖HTMLコメントだけに置かれたIA構造を成立根拠にしないを検証する。
+ *
+ * @responsibility 未閉鎖HTMLコメントだけに置かれたIA構造を成立根拠にしないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 未閉鎖HTMLコメントだけに置かれたIA構造を成立根拠にしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("未閉鎖HTMLコメントだけに置かれたIA構造を成立根拠にしない", () => {
   const cases = [
     {
@@ -1724,6 +2262,18 @@ test("未閉鎖HTMLコメントだけに置かれたIA構造を成立根拠に�
   }
 });
 
+/**
+ * コメントとコードフェンスの入れ子は後続の正式IA構造を隠さないを検証する。
+ *
+ * @responsibility コメントとコードフェンスの入れ子は後続の正式IA構造を隠さないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus コメントとコードフェンスの入れ子は後続の正式IA構造を隠さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("コメントとコードフェンスの入れ子は後続の正式IA構造を隠さない", () => {
   for (const prefix of [
     "<!--\n```text\n~~~text\n-->\n",
@@ -1753,6 +2303,18 @@ test("コメントとコードフェンスの入れ子は後続の正式IA構造
   }
 });
 
+/**
+ * UX要求分析Directoryの全欠落を拒否するを検証する。
+ *
+ * @responsibility UX要求分析Directoryの全欠落を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX要求分析Directoryの全欠落を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX要求分析Directoryの全欠落を拒否する", () => {
   const root = dispositionFixtureRoot();
   fs.mkdirSync(path.join(root, "01_Discovery"), { recursive: true });
@@ -1778,6 +2340,18 @@ test("UX要求分析Directoryの全欠落を拒否する", () => {
   );
 });
 
+/**
+ * Discoveryひな型へ空の共通Evidence Rootを再導入できないを検証する。
+ *
+ * @responsibility Discoveryひな型へ空の共通Evidence Rootを再導入できないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Discoveryひな型へ空の共通Evidence Rootを再導入できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Discoveryひな型へ空の共通Evidence Rootを再導入できない", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -1801,6 +2375,18 @@ test("Discoveryひな型へ空の共通Evidence Rootを再導入できない", (
   );
 });
 
+/**
+ * Discovery分析は工程と役割を識別できる成果物種別を宣言するを検証する。
+ *
+ * @responsibility Discovery分析は工程と役割を識別できる成果物種別を宣言するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Discovery分析は工程と役割を識別できる成果物種別を宣言するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Discovery分析は工程と役割を識別できる成果物種別を宣言する", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -1822,6 +2408,18 @@ test("Discovery分析は工程と役割を識別できる成果物種別を宣�
   );
 });
 
+/**
+ * Discovery正本は可視で評価済みのChecklistを必要とするを検証する。
+ *
+ * @responsibility Discovery正本は可視で評価済みのChecklistを必要とするの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Discovery正本は可視で評価済みのChecklistを必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Discovery正本は可視で評価済みのChecklistを必要とする", () => {
   for (const checklist of [
     "<!--\n## Checklist\n\n- [x] 本文を確認した。\n-->",
@@ -1858,6 +2456,18 @@ test("Discovery正本は可視で評価済みのChecklistを必要とする", ()
   }
 });
 
+/**
+ * Discovery正本は理由付きのOPEN・FAIL・N/Aを受け付けるを検証する。
+ *
+ * @responsibility Discovery正本は理由付きのOPEN・FAIL・N/Aを受け付けるの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Discovery正本は理由付きのOPEN・FAIL・N/Aを受け付けるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Discovery正本は理由付きのOPEN・FAIL・N/Aを受け付ける", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -1884,6 +2494,18 @@ test("Discovery正本は理由付きのOPEN・FAIL・N/Aを受け付ける", () 
   );
 });
 
+/**
+ * Discovery Checklistは末尾と成果物種別固有の項目集合を必要とするを検証する。
+ *
+ * @responsibility Discovery Checklistは末尾と成果物種別固有の項目集合を必要とするの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Discovery Checklistは末尾と成果物種別固有の項目集合を必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Discovery Checklistは末尾と成果物種別固有の項目集合を必要とする", () => {
   const invalidChecklists = [
     `${evaluatedChecklist(discoveryExplorationChecklistTestItems)}\n\n## 補足\n\nChecklist後の本文。`,
@@ -1925,6 +2547,18 @@ test("Discovery Checklistは末尾と成果物種別固有の項目集合を必�
   }
 });
 
+/**
+ * Discoveryひな型のChecklist項目を後続Sectionへ移せないを検証する。
+ *
+ * @responsibility Discoveryひな型のChecklist項目を後続Sectionへ移せないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Discoveryひな型のChecklist項目を後続Sectionへ移せないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Discoveryひな型のChecklist項目を後続Sectionへ移せない", () => {
   for (const heading of [
     "## 補足",
@@ -1976,6 +2610,18 @@ test("Discoveryひな型のChecklist項目を後続Sectionへ移せない", () =
   }
 });
 
+/**
+ * UX正本は成果物別の可視で評価済みのChecklistを必要とするを検証する。
+ *
+ * @responsibility UX正本は成果物別の可視で評価済みのChecklistを必要とするの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX正本は成果物別の可視で評価済みのChecklistを必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX正本は成果物別の可視で評価済みのChecklistを必要とする", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2023,6 +2669,18 @@ test("UX正本は成果物別の可視で評価済みのChecklistを必要とす
     );
 });
 
+/**
+ * UX Checklistは末尾と成果物種別固有の項目集合を必要とするを検証する。
+ *
+ * @responsibility UX Checklistは末尾と成果物種別固有の項目集合を必要とするの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX Checklistは末尾と成果物種別固有の項目集合を必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX Checklistは末尾と成果物種別固有の項目集合を必要とする", () => {
   for (const invalidChecklist of [
     evaluatedChecklist(uxIndexChecklistTestItems),
@@ -2055,6 +2713,18 @@ test("UX Checklistは末尾と成果物種別固有の項目集合を必要と�
   }
 });
 
+/**
+ * UXひな型のChecklist項目を後続Sectionへ移せないを検証する。
+ *
+ * @responsibility UXひな型のChecklist項目を後続Sectionへ移せないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UXひな型のChecklist項目を後続Sectionへ移せないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UXひな型のChecklist項目を後続Sectionへ移せない", () => {
   for (const heading of ["## 補足", "   ### 字下げ", "補足\n---"]) {
     const root = dispositionFixtureRoot();
@@ -2102,6 +2772,18 @@ test("UXひな型のChecklist項目を後続Sectionへ移せない", () => {
   }
 });
 
+/**
+ * UXの正本投影と七つのひな型を欠落させられないを検証する。
+ *
+ * @responsibility UXの正本投影と七つのひな型を欠落させられないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UXの正本投影と七つのひな型を欠落させられないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UXの正本投影と七つのひな型を欠落させられない", () => {
   const root = dispositionFixtureRoot();
   fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
@@ -2149,6 +2831,18 @@ test("UXの正本投影と七つのひな型を欠落させられない", () => 
     );
 });
 
+/**
+ * 横断UX成果物は全UX IDを重複なく投影するを検証する。
+ *
+ * @responsibility 横断UX成果物は全UX IDを重複なく投影するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 横断UX成果物は全UX IDを重複なく投影するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("横断UX成果物は全UX IDを重複なく投影する", () => {
   const root = dispositionFixtureRoot();
   fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
@@ -2176,6 +2870,18 @@ test("横断UX成果物は全UX IDを重複なく投影する", () => {
   );
 });
 
+/**
+ * UXからIAを飛び越える旧Handoffを再導入できないを検証する。
+ *
+ * @responsibility UXからIAを飛び越える旧Handoffを再導入できないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UXからIAを飛び越える旧Handoffを再導入できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UXからIAを飛び越える旧Handoffを再導入できない", () => {
   const root = dispositionFixtureRoot();
   fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
@@ -2199,6 +2905,18 @@ test("UXからIAを飛び越える旧Handoffを再導入できない", () => {
   );
 });
 
+/**
+ * UXの正規Handoffへ言い換えた直接接続を追加できないを検証する。
+ *
+ * @responsibility UXの正規Handoffへ言い換えた直接接続を追加できないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UXの正規Handoffへ言い換えた直接接続を追加できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UXの正規Handoffへ言い換えた直接接続を追加できない", () => {
   for (const [relativePath, insertionPoint] of [
     ["02_UX/01_User_Experience.md", "| IAへの正式な引き渡し |"],
@@ -2249,6 +2967,18 @@ test("UXの正規Handoffへ言い換えた直接接続を追加できない", ()
   }
 });
 
+/**
+ * UXひな型へ空の共通Evidence Rootを再導入できないを検証する。
+ *
+ * @responsibility UXひな型へ空の共通Evidence Rootを再導入できないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UXひな型へ空の共通Evidence Rootを再導入できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UXひな型へ空の共通Evidence Rootを再導入できない", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2269,6 +2999,18 @@ test("UXひな型へ空の共通Evidence Rootを再導入できない", () => {
   );
 });
 
+/**
+ * UXを主な関係領域に持たない採用要求もUX分析から省略できないを検証する。
+ *
+ * @responsibility UXを主な関係領域に持たない採用要求もUX分析から省略できないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UXを主な関係領域に持たない採用要求もUX分析から省略できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UXを主な関係領域に持たない採用要求もUX分析から省略できない", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2294,6 +3036,18 @@ test("UXを主な関係領域に持たない採用要求もUX分析から省略�
   );
 });
 
+/**
+ * UX分析は探索記録だけでなく同じREQのDefinitionを正式入力にするを検証する。
+ *
+ * @responsibility UX分析は探索記録だけでなく同じREQのDefinitionを正式入力にするの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析は探索記録だけでなく同じREQのDefinitionを正式入力にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX分析は探索記録だけでなく同じREQのDefinitionを正式入力にする", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2324,6 +3078,18 @@ test("UX分析は探索記録だけでなく同じREQのDefinitionを正式入�
   );
 });
 
+/**
+ * UX分析は別REQのDefinitionを正式入力にできないを検証する。
+ *
+ * @responsibility UX分析は別REQのDefinitionを正式入力にできないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析は別REQのDefinitionを正式入力にできないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX分析は別REQのDefinitionを正式入力にできない", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2354,6 +3120,18 @@ test("UX分析は別REQのDefinitionを正式入力にできない", () => {
   );
 });
 
+/**
+ * UX分析の正式入力Headerは可視本文のHeader自身へ結合するを検証する。
+ *
+ * @responsibility UX分析の正式入力Headerは可視本文のHeader自身へ結合するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析の正式入力Headerは可視本文のHeader自身へ結合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX分析の正式入力Headerは可視本文のHeader自身へ結合する", () => {
   const invalidVariants = [
     "<!-- 分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md) -->\n\n参考: [同じ要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)",
@@ -2419,6 +3197,18 @@ test("UX分析の正式入力Headerは可視本文のHeader自身へ結合する
   );
 });
 
+/**
+ * UX分析は全CommonMark参照形式のSource Analysis参照でDefinitionを補完できないを検証する。
+ *
+ * @responsibility UX分析は全CommonMark参照形式のSource Analysis参照でDefinitionを補完できないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析は全CommonMark参照形式のSource Analysis参照でDefinitionを補完できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX分析は全CommonMark参照形式のSource Analysis参照でDefinitionを補完できない", () => {
   const variants = [
     "不足する意味は[過去の探索](../../../01_Discovery/Analysis/EXP-000001/exploration.md)から補う。",
@@ -2503,6 +3293,18 @@ test("UX分析は全CommonMark参照形式のSource Analysis参照でDefinition�
   }
 });
 
+/**
+ * UX分析の例示内にある探索Pathは正式入力へ昇格しないを検証する。
+ *
+ * @responsibility UX分析の例示内にある探索Pathは正式入力へ昇格しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析の例示内にある探索Pathは正式入力へ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX分析の例示内にある探索Pathは正式入力へ昇格しない", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2533,6 +3335,18 @@ test("UX分析の例示内にある探索Pathは正式入力へ昇格しない",
   );
 });
 
+/**
+ * UX分析の通常本文にあるentity付き一般語をPathと誤認しないを検証する。
+ *
+ * @responsibility UX分析の通常本文にあるentity付き一般語をPathと誤認しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析の通常本文にあるentity付き一般語をPathと誤認しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX分析の通常本文にあるentity付き一般語をPathと誤認しない", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2563,6 +3377,18 @@ test("UX分析の通常本文にあるentity付き一般語をPathと誤認し�
   );
 });
 
+/**
+ * UX分析は絶対PathのSource Analysis参照でDefinitionを補完できないを検証する。
+ *
+ * @responsibility UX分析は絶対PathのSource Analysis参照でDefinitionを補完できないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析は絶対PathのSource Analysis参照でDefinitionを補完できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX分析は絶対PathのSource Analysis参照でDefinitionを補完できない", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2600,6 +3426,18 @@ test("UX分析は絶対PathのSource Analysis参照でDefinitionを補完でき�
   );
 });
 
+/**
+ * UX分析は正しいHeaderに任意参照形式の別REQ Definitionを追加できないを検証する。
+ *
+ * @responsibility UX分析は正しいHeaderに任意参照形式の別REQ Definitionを追加できないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析は正しいHeaderに任意参照形式の別REQ Definitionを追加できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX分析は正しいHeaderに任意参照形式の別REQ Definitionを追加できない", () => {
   const variants = [
     "補助入力: [別要求](../../../01_Discovery/Definitions/REQ-000002/requirement.md)",
@@ -2637,6 +3475,18 @@ test("UX分析は正しいHeaderに任意参照形式の別REQ Definitionを追�
   }
 });
 
+/**
+ * CheckerはUX定義の意味重複を機械的な不正と断定しないを検証する。
+ *
+ * @responsibility CheckerはUX定義の意味重複を機械的な不正と断定しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CheckerはUX定義の意味重複を機械的な不正と断定しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("CheckerはUX定義の意味重複を機械的な不正と断定しない", () => {
   const root = dispositionFixtureRoot();
   fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
@@ -2665,6 +3515,18 @@ test("CheckerはUX定義の意味重複を機械的な不正と断定しない",
   );
 });
 
+/**
+ * UX定義はCanonicalまたはSuperseded以外の翻訳状態を拒否するを検証する。
+ *
+ * @responsibility UX定義はCanonicalまたはSuperseded以外の翻訳状態を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX定義はCanonicalまたはSuperseded以外の翻訳状態を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX定義はCanonicalまたはSuperseded以外の翻訳状態を拒否する", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2692,6 +3554,18 @@ test("UX定義はCanonicalまたはSuperseded以外の翻訳状態を拒否す�
   );
 });
 
+/**
+ * UX定義は状態Headerの重複を拒否するを検証する。
+ *
+ * @responsibility UX定義は状態Headerの重複を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX定義は状態Headerの重複を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX定義は状態Headerの重複を拒否する", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2719,6 +3593,18 @@ test("UX定義は状態Headerの重複を拒否する", () => {
   );
 });
 
+/**
+ * CheckerはDiscovery定義の意味重複を機械的な不正と断定しないを検証する。
+ *
+ * @responsibility CheckerはDiscovery定義の意味重複を機械的な不正と断定しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CheckerはDiscovery定義の意味重複を機械的な不正と断定しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("CheckerはDiscovery定義の意味重複を機械的な不正と断定しない", () => {
   const root = dispositionFixtureRoot();
   fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
@@ -2743,6 +3629,18 @@ test("CheckerはDiscovery定義の意味重複を機械的な不正と断定し�
   );
 });
 
+/**
+ * UXのSame判断は要求固有の理由を必要とするを検証する。
+ *
+ * @responsibility UXのSame判断は要求固有の理由を必要とするの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UXのSame判断は要求固有の理由を必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UXのSame判断は要求固有の理由を必要とする", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2768,6 +3666,18 @@ test("UXのSame判断は要求固有の理由を必要とする", () => {
   );
 });
 
+/**
+ * UXのSame判断は4軸比較を揃えた構造を受け付けるを検証する。
+ *
+ * @responsibility UXのSame判断は4軸比較を揃えた構造を受け付けるの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UXのSame判断は4軸比較を揃えた構造を受け付けるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UXのSame判断は4軸比較を揃えた構造を受け付ける", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2793,6 +3703,18 @@ test("UXのSame判断は4軸比較を揃えた構造を受け付ける", () => {
   );
 });
 
+/**
+ * UX統合図と正式関係表のNewとSameは完全一致するを検証する。
+ *
+ * @responsibility UX統合図と正式関係表のNewとSameは完全一致するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX統合図と正式関係表のNewとSameは完全一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX統合図と正式関係表のNewとSameは完全一致する", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2818,6 +3740,18 @@ test("UX統合図と正式関係表のNewとSameは完全一致する", () => {
   );
 });
 
+/**
+ * UX分析の責任境界表は正式な三列見出しを一件だけ持つを検証する。
+ *
+ * @responsibility UX分析の責任境界表は正式な三列見出しを一件だけ持つの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析の責任境界表は正式な三列見出しを一件だけ持つの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX分析の責任境界表は正式な三列見出しを一件だけ持つ", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2844,6 +3778,18 @@ test("UX分析の責任境界表は正式な三列見出しを一件だけ持つ
   );
 });
 
+/**
+ * UX分析は責任境界節または責任表を重複できないを検証する。
+ *
+ * @responsibility UX分析は責任境界節または責任表を重複できないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析は責任境界節または責任表を重複できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX分析は責任境界節または責任表を重複できない", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2870,6 +3816,18 @@ test("UX分析は責任境界節または責任表を重複できない", () => 
   );
 });
 
+/**
+ * UX統合の理由付きNot ApplicableをRelation不正にしないを検証する。
+ *
+ * @responsibility UX統合の理由付きNot ApplicableをRelation不正にしないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX統合の理由付きNot ApplicableをRelation不正にしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX統合の理由付きNot ApplicableをRelation不正にしない", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2887,6 +3845,18 @@ test("UX統合の理由付きNot ApplicableをRelation不正にしない", () =>
   );
 });
 
+/**
+ * サービス提供の流れの作成と非該当を処置なしで済ませないを検証する。
+ *
+ * @responsibility サービス提供の流れの作成と非該当を処置なしで済ませないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus サービス提供の流れの作成と非該当を処置なしで済ませないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("サービス提供の流れの作成と非該当を処置なしで済ませない", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2913,6 +3883,18 @@ test("サービス提供の流れの作成と非該当を処置なしで済ま�
   );
 });
 
+/**
+ * 作成するサービス提供の流れは主体・時間関係・完了情報・失敗時の判断を閉じるを検証する。
+ *
+ * @responsibility 作成するサービス提供の流れは主体・時間関係・完了情報・失敗時の判断を閉じるの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 作成するサービス提供の流れは主体・時間関係・完了情報・失敗時の判断を閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("作成するサービス提供の流れは主体・時間関係・完了情報・失敗時の判断を閉じる", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2939,6 +3921,18 @@ test("作成するサービス提供の流れは主体・時間関係・完了�
   );
 });
 
+/**
+ * 作成するサービス提供の流れは完了時に返る情報を省略できないを検証する。
+ *
+ * @responsibility 作成するサービス提供の流れは完了時に返る情報を省略できないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 作成するサービス提供の流れは完了時に返る情報を省略できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("作成するサービス提供の流れは完了時に返る情報を省略できない", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2965,6 +3959,18 @@ test("作成するサービス提供の流れは完了時に返る情報を省�
   );
 });
 
+/**
+ * UX台帳と要求分析のRelationが閉じていない状態を拒否するを検証する。
+ *
+ * @responsibility UX台帳と要求分析のRelationが閉じていない状態を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX台帳と要求分析のRelationが閉じていない状態を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX台帳と要求分析のRelationが閉じていない状態を拒否する", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -2990,6 +3996,18 @@ test("UX台帳と要求分析のRelationが閉じていない状態を拒否す�
   );
 });
 
+/**
+ * UX台帳と要求分析はID集合でなくREQとUXの組で閉じるを検証する。
+ *
+ * @responsibility UX台帳と要求分析はID集合でなくREQとUXの組で閉じるの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX台帳と要求分析はID集合でなくREQとUXの組で閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX台帳と要求分析はID集合でなくREQとUXの組で閉じる", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -3017,6 +4035,18 @@ test("UX台帳と要求分析はID集合でなくREQとUXの組で閉じる", ()
   );
 });
 
+/**
+ * Canonical UX台帳の同一ID二重定義を拒否するを検証する。
+ *
+ * @responsibility Canonical UX台帳の同一ID二重定義を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Canonical UX台帳の同一ID二重定義を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Canonical UX台帳の同一ID二重定義を拒否する", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -3034,6 +4064,18 @@ test("Canonical UX台帳の同一ID二重定義を拒否する", () => {
   );
 });
 
+/**
+ * Experience Mapと要求分析のJourney割当不一致を拒否するを検証する。
+ *
+ * @responsibility Experience Mapと要求分析のJourney割当不一致を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Experience Mapと要求分析のJourney割当不一致を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Experience Mapと要求分析のJourney割当不一致を拒否する", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -3061,6 +4103,18 @@ test("Experience Mapと要求分析のJourney割当不一致を拒否する", ()
   );
 });
 
+/**
+ * UI分析は全UX定義と全IA定義の構造・入力・関係を別々に閉じるを検証する。
+ *
+ * @responsibility UI分析は全UX定義と全IA定義の構造・入力・関係を別々に閉じるの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UI分析は全UX定義と全IA定義の構造・入力・関係を別々に閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UI分析は全UX定義と全IA定義の構造・入力・関係を別々に閉じる", () => {
   const root = uiReconstructionFixtureRoot();
   const valid = runChecker(root);
@@ -3082,6 +4136,18 @@ test("UI分析は全UX定義と全IA定義の構造・入力・関係を別々�
   );
 });
 
+/**
+ * UI分析・定義とひな型は成果物別の可視Checklistを必要とするを検証する。
+ *
+ * @responsibility UI分析・定義とひな型は成果物別の可視Checklistを必要とするの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UI分析・定義とひな型は成果物別の可視Checklistを必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UI分析・定義とひな型は成果物別の可視Checklistを必要とする", () => {
   const root = uiReconstructionFixtureRoot();
   for (const [relativePath, expectedCode] of [
@@ -3114,6 +4180,18 @@ test("UI分析・定義とひな型は成果物別の可視Checklistを必要と
   }
 });
 
+/**
+ * UIからSPECへの引き渡しは可視Checklistを必要とするを検証する。
+ *
+ * @responsibility UIからSPECへの引き渡しは可視Checklistを必要とするの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UIからSPECへの引き渡しは可視Checklistを必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UIからSPECへの引き渡しは可視Checklistを必要とする", () => {
   const root = uiReconstructionFixtureRoot();
   const relativePath = "04_UI/05_UI_SPEC_Handoff.md";
@@ -3133,6 +4211,18 @@ test("UIからSPECへの引き渡しは可視Checklistを必要とする", () =>
   );
 });
 
+/**
+ * UX観点のUI分析はIAまたはREQを正式入力へ追加できないを検証する。
+ *
+ * @responsibility UX観点のUI分析はIAまたはREQを正式入力へ追加できないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX観点のUI分析はIAまたはREQを正式入力へ追加できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX観点のUI分析はIAまたはREQを正式入力へ追加できない", () => {
   const root = uiReconstructionFixtureRoot();
   const analysisPath = path.join(
@@ -3157,6 +4247,18 @@ test("UX観点のUI分析はIAまたはREQを正式入力へ追加できない",
   );
 });
 
+/**
+ * IA観点のUI分析はUXまたはREQを正式入力へ追加できないを検証する。
+ *
+ * @responsibility IA観点のUI分析はUXまたはREQを正式入力へ追加できないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA観点のUI分析はUXまたはREQを正式入力へ追加できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("IA観点のUI分析はUXまたはREQを正式入力へ追加できない", () => {
   const root = uiReconstructionFixtureRoot();
   const analysisPath = path.join(
@@ -3184,6 +4286,18 @@ test("IA観点のUI分析はUXまたはREQを正式入力へ追加できない",
   );
 });
 
+/**
+ * IA観点のUI分析が欠けると全数再構築を満たさないを検証する。
+ *
+ * @responsibility IA観点のUI分析が欠けると全数再構築を満たさないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA観点のUI分析が欠けると全数再構築を満たさないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("IA観点のUI分析が欠けると全数再構築を満たさない", () => {
   const root = uiReconstructionFixtureRoot();
   fs.rmSync(path.join(root, "04_UI", "Analysis", "IA-000001"), {
@@ -3199,6 +4313,18 @@ test("IA観点のUI分析が欠けると全数再構築を満たさない", () =
   );
 });
 
+/**
+ * UI定義はUX観点とIA観点の両方を統合するを検証する。
+ *
+ * @responsibility UI定義はUX観点とIA観点の両方を統合するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UI定義はUX観点とIA観点の両方を統合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UI定義はUX観点とIA観点の両方を統合する", () => {
   const root = uiReconstructionFixtureRoot();
   const definitionPath = path.join(
@@ -3223,6 +4349,18 @@ test("UI定義はUX観点とIA観点の両方を統合する", () => {
   );
 });
 
+/**
+ * UI台帳・分析・定義のUXとIA対応は完全一致するを検証する。
+ *
+ * @responsibility UI台帳・分析・定義のUXとIA対応は完全一致するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UI台帳・分析・定義のUXとIA対応は完全一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UI台帳・分析・定義のUXとIA対応は完全一致する", () => {
   const root = uiReconstructionFixtureRoot();
   const definitionPath = path.join(
@@ -3245,6 +4383,18 @@ test("UI台帳・分析・定義のUXとIA対応は完全一致する", () => {
   );
 });
 
+/**
+ * SPEC分析はUX観点とIA観点を分けて全入力を閉じるを検証する。
+ *
+ * @responsibility SPEC分析はUX観点とIA観点を分けて全入力を閉じるの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus SPEC分析はUX観点とIA観点を分けて全入力を閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("SPEC分析はUX観点とIA観点を分けて全入力を閉じる", () => {
   const root = specReconstructionFixtureRoot();
   const valid = runChecker(root);
@@ -3265,6 +4415,18 @@ test("SPEC分析はUX観点とIA観点を分けて全入力を閉じる", () => 
   );
 });
 
+/**
+ * SPEC分析・定義とひな型は成果物別の可視Checklistを必要とするを検証する。
+ *
+ * @responsibility SPEC分析・定義とひな型は成果物別の可視Checklistを必要とするの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus SPEC分析・定義とひな型は成果物別の可視Checklistを必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("SPEC分析・定義とひな型は成果物別の可視Checklistを必要とする", () => {
   const root = specReconstructionFixtureRoot();
   for (const [relativePath, expectedCode] of [
@@ -3297,6 +4459,18 @@ test("SPEC分析・定義とひな型は成果物別の可視Checklistを必要�
   }
 });
 
+/**
+ * UIとSPECの対応レビューは可視Checklistと全対応閉包を必要とするを検証する。
+ *
+ * @responsibility UIとSPECの対応レビューは可視Checklistと全対応閉包を必要とするの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UIとSPECの対応レビューは可視Checklistと全対応閉包を必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UIとSPECの対応レビューは可視Checklistと全対応閉包を必要とする", () => {
   const checklistRoot = specReconstructionFixtureRoot();
   const relativePath = "05_SPEC/06_UI_SPEC_Correspondence.md";
@@ -3356,6 +4530,18 @@ test("UIとSPECの対応レビューは可視Checklistと全対応閉包を必�
   );
 });
 
+/**
+ * UI定義は正式入力と分析根拠を同じ集合で保持するを検証する。
+ *
+ * @responsibility UI定義は正式入力と分析根拠を同じ集合で保持するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UI定義は正式入力と分析根拠を同じ集合で保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UI定義は正式入力と分析根拠を同じ集合で保持する", () => {
   const root = uiReconstructionFixtureRoot();
   const file = path.join(
@@ -3383,6 +4569,18 @@ test("UI定義は正式入力と分析根拠を同じ集合で保持する", () 
   );
 });
 
+/**
+ * SPEC定義は正式入力・分析根拠・対応UI受入条件を同じ集合で保持するを検証する。
+ *
+ * @responsibility SPEC定義は正式入力・分析根拠・対応UI受入条件を同じ集合で保持するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus SPEC定義は正式入力・分析根拠・対応UI受入条件を同じ集合で保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("SPEC定義は正式入力・分析根拠・対応UI受入条件を同じ集合で保持する", () => {
   for (const mutation of [
     [
@@ -3416,6 +4614,18 @@ test("SPEC定義は正式入力・分析根拠・対応UI受入条件を同じ�
   }
 });
 
+/**
+ * SPEC RootのCoverage件数は現行集合と一致するを検証する。
+ *
+ * @responsibility SPEC RootのCoverage件数は現行集合と一致するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus SPEC RootのCoverage件数は現行集合と一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("SPEC RootのCoverage件数は現行集合と一致する", () => {
   const root = specReconstructionFixtureRoot();
   const file = path.join(root, "05_SPEC", "01_Behavior_Specification.md");
@@ -3432,6 +4642,18 @@ test("SPEC RootのCoverage件数は現行集合と一致する", () => {
   );
 });
 
+/**
+ * UI／SPEC対応Evidenceは共有集合・両側Anchor・固定改訂版を必要とするを検証する。
+ *
+ * @responsibility UI／SPEC対応Evidenceは共有集合・両側Anchor・固定改訂版を必要とするの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UI／SPEC対応Evidenceは共有集合・両側Anchor・固定改訂版を必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UI／SPEC対応Evidenceは共有集合・両側Anchor・固定改訂版を必要とする", () => {
   const mutations = [
     ["UX-000001／IA-000001 | Shared", "UX-000001 | Shared"],
@@ -3499,6 +4721,18 @@ test("UI／SPEC対応Evidenceは共有集合・両側Anchor・固定改訂版を
   );
 });
 
+/**
+ * UX観点のSPEC分析はIAまたはREQを正式入力へ追加できないを検証する。
+ *
+ * @responsibility UX観点のSPEC分析はIAまたはREQを正式入力へ追加できないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX観点のSPEC分析はIAまたはREQを正式入力へ追加できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UX観点のSPEC分析はIAまたはREQを正式入力へ追加できない", () => {
   const root = specReconstructionFixtureRoot();
   const file = path.join(
@@ -3526,6 +4760,18 @@ test("UX観点のSPEC分析はIAまたはREQを正式入力へ追加できない
   );
 });
 
+/**
+ * SPEC台帳・分析・定義の入力関係は完全一致するを検証する。
+ *
+ * @responsibility SPEC台帳・分析・定義の入力関係は完全一致するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus SPEC台帳・分析・定義の入力関係は完全一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("SPEC台帳・分析・定義の入力関係は完全一致する", () => {
   const root = specReconstructionFixtureRoot();
   const file = path.join(
@@ -3548,6 +4794,18 @@ test("SPEC台帳・分析・定義の入力関係は完全一致する", () => {
   );
 });
 
+/**
+ * UIとSPECのpairs_with関係は双方と台帳で完全一致するを検証する。
+ *
+ * @responsibility UIとSPECのpairs_with関係は双方と台帳で完全一致するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UIとSPECのpairs_with関係は双方と台帳で完全一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UIとSPECのpairs_with関係は双方と台帳で完全一致する", () => {
   const root = specReconstructionFixtureRoot();
   const file = path.join(
@@ -3570,6 +4828,18 @@ test("UIとSPECのpairs_with関係は双方と台帳で完全一致する", () =
   );
 });
 
+/**
+ * Architecture分析はUIとSPECを分けて全入力を閉じるを検証する。
+ *
+ * @responsibility Architecture分析はUIとSPECを分けて全入力を閉じるの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture分析はUIとSPECを分けて全入力を閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Architecture分析はUIとSPECを分けて全入力を閉じる", () => {
   const root = architectureReconstructionFixtureRoot();
   const valid = runChecker(root);
@@ -3592,6 +4862,18 @@ test("Architecture分析はUIとSPECを分けて全入力を閉じる", () => {
   );
 });
 
+/**
+ * Architecture横断モデルは責務・境界・流れ・故障・配置をQualityへ引き渡すを検証する。
+ *
+ * @responsibility Architecture横断モデルは責務・境界・流れ・故障・配置をQualityへ引き渡すの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture横断モデルは責務・境界・流れ・故障・配置をQualityへ引き渡すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Architecture横断モデルは責務・境界・流れ・故障・配置をQualityへ引き渡す", () => {
   let root = architectureReconstructionFixtureRoot();
   const valid = runChecker(root);
@@ -3727,6 +5009,18 @@ test("Architecture横断モデルは責務・境界・流れ・故障・配置�
   );
 });
 
+/**
+ * Architecture詳細設計はARCH-IDとの多対多Relationと適用判断を閉じるを検証する。
+ *
+ * @responsibility Architecture詳細設計はARCH-IDとの多対多Relationと適用判断を閉じるの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture詳細設計はARCH-IDとの多対多Relationと適用判断を閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Architecture詳細設計はARCH-IDとの多対多Relationと適用判断を閉じる", () => {
   let root = architectureReconstructionFixtureRoot();
   const valid = runChecker(root);
@@ -3995,6 +5289,18 @@ test("Architecture詳細設計はARCH-IDとの多対多Relationと適用判断�
   );
 });
 
+/**
+ * Architecture成果物は責務別の可視Checklistを必要とするを検証する。
+ *
+ * @responsibility Architecture成果物は責務別の可視Checklistを必要とするの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture成果物は責務別の可視Checklistを必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Architecture成果物は責務別の可視Checklistを必要とする", () => {
   for (const relativePath of [
     "06_Architecture/Analysis/UI-000001/architecture_analysis.md",
@@ -4020,6 +5326,18 @@ test("Architecture成果物は責務別の可視Checklistを必要とする", ()
   }
 });
 
+/**
+ * Architecture詳細設計は8種類のEngineering Concernを全数評価するを検証する。
+ *
+ * @responsibility Architecture詳細設計は8種類のEngineering Concernを全数評価するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture詳細設計は8種類のEngineering Concernを全数評価するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Architecture詳細設計は8種類のEngineering Concernを全数評価する", () => {
   const root = architectureReconstructionFixtureRoot();
   const target = path.join(
@@ -4044,6 +5362,18 @@ test("Architecture詳細設計は8種類のEngineering Concernを全数評価す
   );
 });
 
+/**
+ * Architecture詳細設計のConcern根拠は実在節へ接続するを検証する。
+ *
+ * @responsibility Architecture詳細設計のConcern根拠は実在節へ接続するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture詳細設計のConcern根拠は実在節へ接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Architecture詳細設計のConcern根拠は実在節へ接続する", () => {
   const root = architectureReconstructionFixtureRoot();
   const target = path.join(
@@ -4068,6 +5398,18 @@ test("Architecture詳細設計のConcern根拠は実在節へ接続する", () =
   );
 });
 
+/**
+ * Architecture詳細設計のImplementation Structureは全観点に判定理由を要求するを検証する。
+ *
+ * @responsibility Architecture詳細設計のImplementation Structureは全観点に判定理由を要求するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture詳細設計のImplementation Structureは全観点に判定理由を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Architecture詳細設計のImplementation Structureは全観点に判定理由を要求する", () => {
   const root = architectureReconstructionFixtureRoot();
   const target = path.join(
@@ -4095,6 +5437,18 @@ test("Architecture詳細設計のImplementation Structureは全観点に判定�
   );
 });
 
+/**
+ * Architecture候補は理由付きOPEN／FAILを保持でき、Readyでは拒否するを検証する。
+ *
+ * @responsibility Architecture候補は理由付きOPEN／FAILを保持でき、Readyでは拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture候補は理由付きOPEN／FAILを保持でき、Readyでは拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Architecture候補は理由付きOPEN／FAILを保持でき、Readyでは拒否する", () => {
   const cases = [
     [
@@ -4153,6 +5507,18 @@ test("Architecture候補は理由付きOPEN／FAILを保持でき、Readyでは�
   }
 });
 
+/**
+ * Architecture分析の9観点表は完全な3列・閉じた判定語彙・根拠を要求するを検証する。
+ *
+ * @responsibility Architecture分析の9観点表は完全な3列・閉じた判定語彙・根拠を要求するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture分析の9観点表は完全な3列・閉じた判定語彙・根拠を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Architecture分析の9観点表は完全な3列・閉じた判定語彙・根拠を要求する", () => {
   const mutations = [
     (source: string) => source.replace(/^\| Responsibility \|.*\r?\n/mu, ""),
@@ -4189,6 +5555,18 @@ test("Architecture分析の9観点表は完全な3列・閉じた判定語彙・
   }
 });
 
+/**
+ * Architecture定義の未確認表は入力集合と完全一致する5列を要求するを検証する。
+ *
+ * @responsibility Architecture定義の未確認表は入力集合と完全一致する5列を要求するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture定義の未確認表は入力集合と完全一致する5列を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Architecture定義の未確認表は入力集合と完全一致する5列を要求する", () => {
   const mutations = [
     (source: string) =>
@@ -4230,6 +5608,18 @@ test("Architecture定義の未確認表は入力集合と完全一致する5列�
   }
 });
 
+/**
+ * Architecture詳細設計のConcern OPEN／FAILは候補で保持しReadyで拒否するを検証する。
+ *
+ * @responsibility Architecture詳細設計のConcern OPEN／FAILは候補で保持しReadyで拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture詳細設計のConcern OPEN／FAILは候補で保持しReadyで拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Architecture詳細設計のConcern OPEN／FAILは候補で保持しReadyで拒否する", () => {
   for (const decision of ["OPEN", "FAIL"] as const) {
     const root = architectureReconstructionFixtureRoot();
@@ -4270,6 +5660,18 @@ test("Architecture詳細設計のConcern OPEN／FAILは候補で保持しReady�
   }
 });
 
+/**
+ * Architecture分析・定義・詳細設計の意味構造欠落を拒否するを検証する。
+ *
+ * @responsibility Architecture分析・定義・詳細設計の意味構造欠落を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture分析・定義・詳細設計の意味構造欠落を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Architecture分析・定義・詳細設計の意味構造欠落を拒否する", () => {
   const mutations = [
     [
@@ -4300,6 +5702,18 @@ test("Architecture分析・定義・詳細設計の意味構造欠落を拒否�
   }
 });
 
+/**
+ * UI観点のArchitecture分析はSPECや上流工程を正式入力にできないを検証する。
+ *
+ * @responsibility UI観点のArchitecture分析はSPECや上流工程を正式入力にできないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UI観点のArchitecture分析はSPECや上流工程を正式入力にできないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("UI観点のArchitecture分析はSPECや上流工程を正式入力にできない", () => {
   const root = architectureReconstructionFixtureRoot();
   const file = path.join(
@@ -4324,6 +5738,18 @@ test("UI観点のArchitecture分析はSPECや上流工程を正式入力にで�
   );
 });
 
+/**
+ * Architecture台帳・分析・定義の責務関係は完全一致するを検証する。
+ *
+ * @responsibility Architecture台帳・分析・定義の責務関係は完全一致するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture台帳・分析・定義の責務関係は完全一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Architecture台帳・分析・定義の責務関係は完全一致する", () => {
   const root = architectureReconstructionFixtureRoot();
   const file = path.join(
@@ -4347,6 +5773,18 @@ test("Architecture台帳・分析・定義の責務関係は完全一致する",
   );
 });
 
+/**
+ * Architecture台帳の入力関係も分析・定義と完全一致するを検証する。
+ *
+ * @responsibility Architecture台帳の入力関係も分析・定義と完全一致するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture台帳の入力関係も分析・定義と完全一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Architecture台帳の入力関係も分析・定義と完全一致する", () => {
   const root = architectureReconstructionFixtureRoot();
   const file = path.join(root, "06_Architecture", "01_Architecture.md");
@@ -4364,6 +5802,18 @@ test("Architecture台帳の入力関係も分析・定義と完全一致する",
   );
 });
 
+/**
+ * Architecture定義は責務・入力別契約・品質・移行の構造を自己完結して持つを検証する。
+ *
+ * @responsibility Architecture定義は責務・入力別契約・品質・移行の構造を自己完結して持つの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture定義は責務・入力別契約・品質・移行の構造を自己完結して持つの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Architecture定義は責務・入力別契約・品質・移行の構造を自己完結して持つ", () => {
   const root = architectureReconstructionFixtureRoot();
   const file = path.join(
@@ -4391,6 +5841,18 @@ test("Architecture定義は責務・入力別契約・品質・移行の構造�
   );
 });
 
+/**
+ * Architecture定義の説明用placeholderを完成契約として受理しないを検証する。
+ *
+ * @responsibility Architecture定義の説明用placeholderを完成契約として受理しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture定義の説明用placeholderを完成契約として受理しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Architecture定義の説明用placeholderを完成契約として受理しない", () => {
   const root = architectureReconstructionFixtureRoot();
   const file = path.join(
@@ -4418,6 +5880,18 @@ test("Architecture定義の説明用placeholderを完成契約として受理し
   );
 });
 
+/**
+ * Architecture入力関係はCanonical入力節の外へ移しても成立しないを検証する。
+ *
+ * @responsibility Architecture入力関係はCanonical入力節の外へ移しても成立しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture入力関係はCanonical入力節の外へ移しても成立しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Architecture入力関係はCanonical入力節の外へ移しても成立しない", () => {
   const root = architectureReconstructionFixtureRoot();
   const file = path.join(
@@ -4451,6 +5925,18 @@ test("Architecture入力関係はCanonical入力節の外へ移しても成立�
   );
 });
 
+/**
+ * 同じ入力とArchitecture責務の重複関係を拒否するを検証する。
+ *
+ * @responsibility 同じ入力とArchitecture責務の重複関係を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 同じ入力とArchitecture責務の重複関係を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("同じ入力とArchitecture責務の重複関係を拒否する", () => {
   const root = architectureReconstructionFixtureRoot();
   const file = path.join(
@@ -4478,6 +5964,18 @@ test("同じ入力とArchitecture責務の重複関係を拒否する", () => {
   );
 });
 
+/**
+ * Canonical定義に対応しない余分なArchitecture分析を拒否するを検証する。
+ *
+ * @responsibility Canonical定義に対応しない余分なArchitecture分析を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Canonical定義に対応しない余分なArchitecture分析を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Canonical定義に対応しない余分なArchitecture分析を拒否する", () => {
   const root = architectureReconstructionFixtureRoot();
   write(
@@ -4500,6 +5998,18 @@ test("Canonical定義に対応しない余分なArchitecture分析を拒否す�
   );
 });
 
+/**
+ * SPEC処置の重複関係を拒否するを検証する。
+ *
+ * @responsibility SPEC処置の重複関係を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus SPEC処置の重複関係を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("SPEC処置の重複関係を拒否する", () => {
   const root = specReconstructionFixtureRoot();
   const file = path.join(
@@ -4527,6 +6037,18 @@ test("SPEC処置の重複関係を拒否する", () => {
   );
 });
 
+/**
+ * 対応UI節外のリンクをpairs_withとして数えないを検証する。
+ *
+ * @responsibility 対応UI節外のリンクをpairs_withとして数えないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 対応UI節外のリンクをpairs_withとして数えないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("対応UI節外のリンクをpairs_withとして数えない", () => {
   const root = specReconstructionFixtureRoot();
   const file = path.join(
@@ -4549,6 +6071,18 @@ test("対応UI節外のリンクをpairs_withとして数えない", () => {
   );
 });
 
+/**
+ * 直接UIなしは理由・運用Feedback・人間確認を必須にするを検証する。
+ *
+ * @responsibility 直接UIなしは理由・運用Feedback・人間確認を必須にするの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 直接UIなしは理由・運用Feedback・人間確認を必須にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("直接UIなしは理由・運用Feedback・人間確認を必須にする", () => {
   const root = specReconstructionFixtureRoot();
   const file = path.join(
@@ -4576,6 +6110,18 @@ test("直接UIなしは理由・運用Feedback・人間確認を必須にする"
   );
 });
 
+/**
+ * 理由付きの直接UIなし契約を受理するを検証する。
+ *
+ * @responsibility 理由付きの直接UIなし契約を受理するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 理由付きの直接UIなし契約を受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("理由付きの直接UIなし契約を受理する", () => {
   const root = specReconstructionFixtureRoot();
   const definition = path.join(
@@ -4624,6 +6170,18 @@ test("理由付きの直接UIなし契約を受理する", () => {
   );
 });
 
+/**
+ * 直接UIありとなしの同時宣言を拒否するを検証する。
+ *
+ * @responsibility 直接UIありとなしの同時宣言を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 直接UIありとなしの同時宣言を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("直接UIありとなしの同時宣言を拒否する", () => {
   const root = specReconstructionFixtureRoot();
   const file = path.join(
@@ -4648,6 +6206,18 @@ test("直接UIありとなしの同時宣言を拒否する", () => {
   );
 });
 
+/**
+ * SPEC工程直下の共通Evidence箱を拒否するを検証する。
+ *
+ * @responsibility SPEC工程直下の共通Evidence箱を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus SPEC工程直下の共通Evidence箱を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("SPEC工程直下の共通Evidence箱を拒否する", () => {
   const root = specReconstructionFixtureRoot();
   write(path.join(root, "05_SPEC", "Evidence", ".gitkeep"));
@@ -4671,12 +6241,36 @@ after(() => {
   }
 });
 
+/**
+ * makeStructureのTest準備責務を実行する。
+ *
+ * @responsibility makeStructureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus makeStructureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function makeStructure(root: string): void {
   for (const folder of requiredFolders) {
     fs.mkdirSync(path.join(root, folder), { recursive: true });
   }
 }
 
+/**
+ * writeのTest準備責務を実行する。
+ *
+ * @responsibility writeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus writeを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function write(file: string, content = ""): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, content, "utf8");
@@ -4796,6 +6390,18 @@ const uxDefinitionChecklistTestItems = [
   "補足定義へ必須情報を退避していない",
 ];
 
+/**
+ * evaluatedChecklistのTest準備責務を実行する。
+ *
+ * @responsibility evaluatedChecklistがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus evaluatedChecklistを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function evaluatedChecklist(
   items: readonly string[],
   overrides: ReadonlyMap<number, readonly [string, string]> = new Map(),
@@ -4809,6 +6415,18 @@ function evaluatedChecklist(
   return `## Checklist\n\n${lines.join("\n")}`;
 }
 
+/**
+ * checklistItemsFromTemplateのTest準備責務を実行する。
+ *
+ * @responsibility checklistItemsFromTemplateがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus checklistItemsFromTemplateを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function checklistItemsFromTemplate(relativePath: string): string[] {
   return fs
     .readFileSync(path.join(repositoryRoot, relativePath), "utf8")
@@ -4819,6 +6437,18 @@ function checklistItemsFromTemplate(relativePath: string): string[] {
     });
 }
 
+/**
+ * discoveryDefinitionのTest準備責務を実行する。
+ *
+ * @responsibility discoveryDefinitionがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus discoveryDefinitionを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function discoveryDefinition(
   requirementId: string,
   explorationId: string,
@@ -4827,18 +6457,66 @@ function discoveryDefinition(
   return `# ${requirementId} 要求\n\n成果物種別: Discovery定義\n要求ID: \`${requirementId}\`\n\n## 要求\n\n${marker}として利用者が望む結果を得られる要求である。\n\n## 対象と利用状況\n\n${marker}の対象者が、判断に必要な情報を確認する具体的な状況を扱う。\n\n## 解く問題と望ましい変化\n\n${marker}により現在の問題を識別し、再現可能な望ましい状態へ変える。\n\n## 採用理由と比較\n\n${marker}では代替案との違いと、採用した理由および残る弱点を比較する。\n\n## 成立条件\n\n- ${marker}の正常結果を確認できる\n- ${marker}の不完全状態を正常へ丸めない\n- ${marker}を破る反証を拒否できる\n\n## 制約\n\n- ${marker}の決定権限を下流へ移さない\n- ${marker}の対象外を完成扱いしない\n\n## 検証意図\n\n${marker}の正常、境界、失敗を実際の観測結果で区別できることを確認する。\n\n## 工程引渡し\n\n| 引渡し先 | 失ってはならない意味 | 下流で決めること |\n|---|---|---|\n| UX | ${marker}の利用者、状況、問題、変化 | 目的と得られる結果 |\n| IA以降 | ${marker}の状態と制約 | 工程固有設計 |\n\n## 関係\n\n- 元の探索記録: [${explorationId}](../../Analysis/${explorationId}/exploration.md)\n\n${evaluatedChecklist(discoveryRequirementChecklistTestItems)}\n`;
 }
 
+/**
+ * iaAnalysisのTest準備責務を実行する。
+ *
+ * @responsibility iaAnalysisがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus iaAnalysisを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function iaAnalysis(uxId: string, iaId: string): string {
   return `# IA分析: 試験用\n\n成果物種別: IA分析\n分析対象: [${uxId}](../../../02_UX/Definitions/${uxId}/ux_definition.md)\n状態: 分析済み\n\n## 1. UXから受け取る意味\n\n| 観点 | この分析で受け取る内容 |\n|---|---|\n| 利用者 | 試験利用者 |\n| 場面 | 判断する時 |\n| 目的 | 対象を理解する |\n| 得たい結果 | 次の行動を選べる |\n| 重要場面 | 判断する直前 |\n| 避ける失敗 | 不明を正常と誤認する |\n| 守る品質 | 根拠を失わない |\n\n## 2. 情報候補と関係\n\n| 情報Object | 利用者にとっての意味 | 同一性と関係の基準 |\n|---|---|---|\n| 対象 | 判断対象 | 安定IDで識別する |\n| 根拠 | 判断を支える情報 | 対象と情報源へ結ぶ |\n\n\`\`\`text\n[O: 対象]\n   └─ 支えられる → [O: 根拠]\n\`\`\`\n\n図中の\`[O:]\`は情報Objectだけを表す。\n\n### Canonical化候補\n\n| 接続先 | 分析Object | Canonical Object | 処置 | 判断理由 |\n|---|---|---|---|---|\n| ${iaId} | 対象 | 対象 | Same | 同じ意味を保持する |\n| ${iaId} | 根拠 | 根拠 | Same | 同じ意味を保持する |\n\n## 3. 状態・可視性・導線・責任\n\n| 観点 | 分析結果 |\n|---|---|\n| 状態 | 未確認と確認済みを分ける |\n| 可視性 | 判断時に示す |\n| 導線 | 対象から根拠へ進む |\n| 責任 | 試験情報管理者が対象と根拠の同一性を保つ |\n| 時間的な意味 | 現在と不明を分ける |\n| 情報の優先度 | 判断対象を先に示す |\n| 情報のまとまり | 対象と根拠をまとめる |\n| 判断権限 | 試験承認者が意味と状態を確定し、利用者が次の行動を選ぶ |\n| 重要な失敗 | 不明を正常と誤認する |\n| 制約・対象外 | UIと実装を決めない |\n| 人間判断 | UXから継承する判断だけを保持する |\n| IAへ戻す条件 | 情報契約が不足した時 |\n| 検証意図 | 対象と根拠を区別できること |\n\n### 未確認事項と判断\n\n| 区分 | 内容 |\n|---|---|\n| UXから継承する確認事項 | 利用者が理解できるか |\n| 判断者 | 代表利用者 |\n| 現在判定 | 後続確認が必要 |\n| 未確認時の影響 | 定量条件を確定しない |\n| IAで追加した未確認事項 | なし |\n| IA固有の追加人間判断 | なし |\n\n## 4. 現実照合の参考情報（正式入力ではない）\n\nこの節は後続のReality Auditへ引き継ぐ参考情報であり、IA Candidateを導く正式入力ではない。\n\nなし。\n\n## 5. IA処置\n\n[${iaId}](../../Definitions/${iaId}/ia_definition.md)へ接続する。\n\n## 6. 後続工程が保持する意味\n\n| 接続先 | 保持する意味 |\n|---|---|\n| UI（UX＋IAの正式入力） | 情報の優先度を保持する |\n| SPEC（UX＋IAの正式入力） | 識別と状態を保持する |\n| Quality Analysis / IA（伴走） | 成立条件を保持する |\n\nArchitectureやSourceへ直接引き渡さない。\n\n## 7. 補足分析\n\nなし。\n\n${evaluatedChecklist(checklistItemsFromTemplate("template/03_IA/Analysis/UX-XXXXXX/ia_analysis.md"))}\n`;
 }
 
+/**
+ * iaDefinitionのTest準備責務を実行する。
+ *
+ * @responsibility iaDefinitionがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus iaDefinitionを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function iaDefinition(iaId: string, uxId: string): string {
   return `# ${iaId} 試験用情報\n\n成果物種別: IA定義\nIA ID: \`${iaId}\`\n\n## 意味と利用者成果\n\n利用者が情報を見分けられる。\n\n## 対象・識別・関係\n\n### 分析ObjectからCanonical Objectへの対応\n\n| Source Analysis Object | Canonical Object | 処置 | 判断理由 |\n|---|---|---|---|\n| ${uxId}: 対象 | 対象 | Same | 同じ意味を保持する |\n\n対象と関係を定義する。\n\n## 状態・可視性・時間的な意味\n\n状態と時間差を区別する。\n\n## 情報の優先度・まとまり・見つけ方・責任\n\n対象から根拠へ進める。\n\n### 責任と判断権限\n\n| 入力UX | 情報を作成・更新・提供する責任 | 意味・状態・次の行動を決める権限 |\n|---|---|---|\n| ${uxId} | 試験情報管理者が対象と根拠を正確に保つ | 試験承認者が意味と状態を確定し、利用者が次の行動を決める |\n\n## 失敗・制約・未確認事項\n\n不明を正常へ丸めず、実装を先取りしない。\n\n## 検証意図\n\n| 入力UX | 重要場面 | 避ける失敗 | 品質期待 |\n|---|---|---|---|\n| ${uxId} | 判断前 | 誤認 | 根拠を示す |\n\n### 人間判断・未確認事項・戻り条件\n\n| 入力UX | UXから継承する確認事項 | 判断者 | 現在判定 | 未確認時の影響 |\n|---|---|---|---|---|\n| ${uxId} | 理解できるか | 代表利用者 | 後続確認が必要 | 定量条件を確定しない |\n\n## 後続工程との関係\n\n| 接続先 | 保持する意味 |\n|---|---|\n| UI（UX＋IAの正式入力） | 情報の優先度を保持する |\n| SPEC（UX＋IAの正式入力） | 識別と状態を保持する |\n| Quality Analysis / IA（伴走） | 成立条件を保持する |\n\n## 情報源\n\n- [${uxId}のIA分析](../../Analysis/${uxId}/ia_analysis.md)\n\n## 補足分析\n\nなし。\n\n${evaluatedChecklist(checklistItemsFromTemplate("template/03_IA/Definitions/IA-XXXXXX/ia_definition.md"))}\n`;
 }
 
+/**
+ * iaCrossArtifactのTest準備責務を実行する。
+ *
+ * @responsibility iaCrossArtifactがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus iaCrossArtifactを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function iaCrossArtifact(title: string, checklistTemplatePath: string): string {
   return `# ${title}\n\n## 4. IA定義への適用\n\n| IA定義 | 処置 | 横断投影での扱い |\n|---|---|---|\n| [IA-000001](Definitions/IA-000001/ia_definition.md) | 適用 | 試験用の横断投影へ接続 |\n\n${evaluatedChecklist(checklistItemsFromTemplate(checklistTemplatePath))}\n`;
 }
 
+/**
+ * iaReconstructionFixtureRootのTest準備責務を実行する。
+ *
+ * @responsibility iaReconstructionFixtureRootがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus iaReconstructionFixtureRootを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function iaReconstructionFixtureRoot(): string {
   const root = fixture();
   makeStructure(root);
@@ -4911,6 +6589,18 @@ function iaReconstructionFixtureRoot(): string {
   return root;
 }
 
+/**
+ * completedChecklistのTest準備責務を実行する。
+ *
+ * @responsibility completedChecklistがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus completedChecklistを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function completedChecklist(relativePath: string): string {
   const source = fs.readFileSync(
     path.join(repositoryRoot, relativePath),
@@ -4924,18 +6614,66 @@ function completedChecklist(relativePath: string): string {
   return `${lines.join("\n")}\n`;
 }
 
+/**
+ * uxViewUiAnalysisのTest準備責務を実行する。
+ *
+ * @responsibility uxViewUiAnalysisがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus uxViewUiAnalysisを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function uxViewUiAnalysis(uxId: string, uiId: string): string {
   return `# ${uxId}のUI分析\n\n成果物種別: UI分析（UX観点）\n分析単位: \`${uxId}\`\n状態: Candidate\n\n## 1. 正式入力\n\n- UX定義: [${uxId} 試験用](../../../02_UX/Definitions/${uxId}/ux_definition.md)\n\n## 2. UIへ引き継ぐ利用者成果\n\n利用者が対象を理解する。\n\n## 3. 必要な認識・操作・Feedback\n\n対象、操作、Feedbackを示す。\n\n## 4. 状況による体験差\n\nこのUXに必要な状況だけを区別する。\n\n## 5. UI処置\n\n- [${uiId} 試験用](../../Definitions/${uiId}/ui_definition.md) — \`New\`。独立した利用者成果として扱う。\n\n## 6. IA観点との統合時に確認すること\n\n情報構造と利用者成果が矛盾しないことを確認する。\n\n${completedChecklist("template/04_UI/Analysis/UX-XXXXXX/ui_analysis.md")}`;
 }
 
+/**
+ * iaViewUiAnalysisのTest準備責務を実行する。
+ *
+ * @responsibility iaViewUiAnalysisがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus iaViewUiAnalysisを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function iaViewUiAnalysis(iaId: string, uiId: string): string {
   return `# ${iaId}のUI分析\n\n成果物種別: UI分析（IA観点）\n分析単位: \`${iaId}\`\n状態: Candidate\n\n## 1. 正式入力\n\n- IA定義: [${iaId} 試験用](../../../03_IA/Definitions/${iaId}/ia_definition.md)\n\n## 2. UIへ引き継ぐ情報構造\n\n対象、状態、関係を示す。\n\n## 3. 表示の優先順位とNavigation\n\n対象、状態、根拠の順に示す。\n\n## 4. 表示差と開示境界\n\n通常、停止、結果不明を区別する。\n\n## 5. UI処置\n\n- [${uiId} 試験用](../../Definitions/${uiId}/ui_definition.md) — \`New\`。独立した情報構造として扱う。\n\n## 6. UX観点との統合時に確認すること\n\n情報構造と利用者成果が矛盾しないことを確認する。\n\n${completedChecklist("template/04_UI/Analysis/IA-XXXXXX/ui_analysis.md")}`;
 }
 
+/**
+ * uiDefinitionのTest準備責務を実行する。
+ *
+ * @responsibility uiDefinitionがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus uiDefinitionを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function uiDefinition(uiId: string, uxId: string, iaId: string): string {
   return `# ${uiId} 試験用Interface\n\n成果物種別: UI定義\nUI ID: \`${uiId}\`\n状態: Candidate\n\n## 利用者成果\n\n対象を理解できる。\n\n## UX観点の分析結果\n\n| UX分析 | このUIで保持する利用者成果 |\n|---|---|\n| [${uxId}](../../Analysis/${uxId}/ui_analysis.md) | 対象を理解する |\n\n## IA観点の分析結果\n\n| IA分析 | このUIで保持する情報構造 |\n|---|---|\n| [${iaId}](../../Analysis/${iaId}/ui_analysis.md) | 対象と状態を見分ける |\n\n## 両観点の統合判断\n\n利用者成果を情報構造によって判断可能にする。\n\n## 表示面と情報の優先順位\n\n対象、状態、根拠、行動の順に示す。\n\n## 操作とFeedback\n\n主要操作と結果を示す。\n\n## 状態と表示差\n\n通常と停止を区別する。\n\n## 視覚表現とアクセシビリティ\n\n色以外でも区別する。\n\n## 制約\n\n正本を複製しない。\n\n## UI／SPEC対応レビューへ渡す項目\n\n同じUXとIAについて、UIの観測点とSPEC側の未確定事項を渡す。\n\n## 正式入力と変換根拠\n\n- 正式入力: [${uxId}](../../../02_UX/Definitions/${uxId}/ux_definition.md)\n- 正式入力: [${iaId}](../../../03_IA/Definitions/${iaId}/ia_definition.md)\n\n以下は正式入力をUIの責務へ変換した根拠であり、正式入力そのものではない。\n\n- [${uxId}のUI分析](../../Analysis/${uxId}/ui_analysis.md)\n- [${iaId}のUI分析](../../Analysis/${iaId}/ui_analysis.md)\n\n${completedChecklist("template/04_UI/Definitions/UI-XXXXXX/ui_definition.md")}`;
 }
 
+/**
+ * uiReconstructionFixtureRootのTest準備責務を実行する。
+ *
+ * @responsibility uiReconstructionFixtureRootがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus uiReconstructionFixtureRootを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function uiReconstructionFixtureRoot(): string {
   const root = iaReconstructionFixtureRoot();
   write(
@@ -5023,6 +6761,18 @@ function uiReconstructionFixtureRoot(): string {
   return root;
 }
 
+/**
+ * specReconstructionFixtureRootのTest準備責務を実行する。
+ *
+ * @responsibility specReconstructionFixtureRootがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus specReconstructionFixtureRootを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function specReconstructionFixtureRoot(): string {
   const root = uiReconstructionFixtureRoot();
   const uxAnalysis = `# UX-000001のSPEC分析\n\n成果物種別: SPEC分析（UX観点）\n分析単位: \`UX-000001\`\n\n## 1. 正式入力\n\n- UX定義: [UX-000001 試験用](../../../02_UX/Definitions/UX-000001/ux_definition.md)\n\n## 2. 振る舞いへ引き継ぐ利用者成果\n\n成果を示す。\n\n## 3. 観測可能にする契機・結果・失敗\n\n結果を示す。\n\n## 4. 受入条件と適用範囲\n\n適用範囲を示す。\n\n## 5. SPEC処置\n\n| SPEC候補 | 処置 | 判断理由 |\n|---|---|---|\n| [SPEC-000001](../../Definitions/SPEC-000001/spec_definition.md) | New | 独立契約 |\n\n## 6. IA観点との統合時に確認すること\n\n情報構造と統合する。\n\n\n${completedChecklist("template/05_SPEC/Analysis/UX-XXXXXX/spec_analysis.md")}`;
@@ -5211,6 +6961,18 @@ function specReconstructionFixtureRoot(): string {
   return root;
 }
 
+/**
+ * architectureReconstructionFixtureRootのTest準備責務を実行する。
+ *
+ * @responsibility architectureReconstructionFixtureRootがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus architectureReconstructionFixtureRootを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function architectureReconstructionFixtureRoot(): string {
   const root = specReconstructionFixtureRoot();
   const architectureLensEvaluation = `### 観点別評価
@@ -5229,11 +6991,35 @@ function architectureReconstructionFixtureRoot(): string {
 
 Human Inputの判断者は不要である。再評価契機は上流契約が変わった時である。
 `;
+  /**
+   * withArchitectureAnalysisContractsのTest準備責務を実行する。
+   *
+   * @responsibility withArchitectureAnalysisContractsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace RCM-IT-005
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus withArchitectureAnalysisContractsを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary Direct Boundary: Producer→Consumer
+   */
   const withArchitectureAnalysisContracts = (source: string) =>
     source.replace(
       "\n\n## 4. Architecture処置",
       `\n\n${architectureLensEvaluation}\n## 4. Architecture処置`,
     );
+  /**
+   * withArchitectureDefinitionContractsのTest準備責務を実行する。
+   *
+   * @responsibility withArchitectureDefinitionContractsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace RCM-IT-005
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus withArchitectureDefinitionContractsを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary Direct Boundary: Producer→Consumer
+   */
   const withArchitectureDefinitionContracts = (source: string) =>
     source
       .replace(
@@ -5354,6 +7140,18 @@ Architecture固有の追加人間判断はない。入力契約が変わる場�
   return root;
 }
 
+/**
+ * Architecture Readyは全Canonical IDのQuality Mappingと検証定義の閉包を要求するを検証する。
+ *
+ * @responsibility Architecture Readyは全Canonical IDのQuality Mappingと検証定義の閉包を要求するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture Readyは全Canonical IDのQuality Mappingと検証定義の閉包を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の閉包を要求する", () => {
   const root = architectureReconstructionFixtureRoot();
   const architectureIndexPath = path.join(
@@ -6753,6 +8551,18 @@ ${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions
   );
 });
 
+/**
+ * dispositionFixtureRootのTest準備責務を実行する。
+ *
+ * @responsibility dispositionFixtureRootがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus dispositionFixtureRootを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function dispositionFixtureRoot(hasFixedEvidence = false): string {
   const root = fixture();
   makeStructure(root);
@@ -6990,6 +8800,18 @@ function dispositionFixtureRoot(hasFixedEvidence = false): string {
   return root;
 }
 
+/**
+ * initializeGitのTest準備責務を実行する。
+ *
+ * @responsibility initializeGitがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus initializeGitを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function initializeGit(root: string): void {
   const initialized = spawnSync("git", ["init", "--quiet", root], {
     encoding: "utf8",
@@ -6997,6 +8819,18 @@ function initializeGit(root: string): void {
   assert.equal(initialized.status, 0, initialized.stderr);
 }
 
+/**
+ * addGitlinkのTest準備責務を実行する。
+ *
+ * @responsibility addGitlinkがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus addGitlinkを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function addGitlink(root: string, relativePath: string): void {
   const tree = spawnSync("git", ["-C", root, "mktree"], {
     encoding: "utf8",
@@ -7037,6 +8871,18 @@ function addGitlink(root: string, relativePath: string): void {
   assert.equal(updated.status, 0, updated.stderr);
 }
 
+/**
+ * runCheckerのTest準備責務を実行する。
+ *
+ * @responsibility runCheckerがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus runCheckerを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function runChecker(root: string, ...extraArguments: string[]): CheckerRun {
   const result = spawnSync(
     process.execPath,
@@ -7049,6 +8895,18 @@ function runChecker(root: string, ...extraArguments: string[]): CheckerRun {
   };
 }
 
+/**
+ * Canonical案内文書の名称移行後に旧表題を残さないを検証する。
+ *
+ * @responsibility Canonical案内文書の名称移行後に旧表題を残さないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Canonical案内文書の名称移行後に旧表題を残さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Canonical案内文書の名称移行後に旧表題を残さない", () => {
   const root = dispositionFixtureRoot();
   const roadmapPath = path.join(root, "99_Roadmap", "01_Roadmap.md");
@@ -7069,6 +8927,18 @@ test("Canonical案内文書の名称移行後に旧表題を残さない", () =>
   );
 });
 
+/**
+ * Work Lifecycle契約は旧Evidence集約Pathの再導入を拒否するを検証する。
+ *
+ * @responsibility Work Lifecycle契約は旧Evidence集約Pathの再導入を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Work Lifecycle契約は旧Evidence集約Pathの再導入を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Work Lifecycle契約は旧Evidence集約Pathの再導入を拒否する", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -7086,6 +8956,18 @@ test("Work Lifecycle契約は旧Evidence集約Pathの再導入を拒否する", 
   );
 });
 
+/**
+ * Work Lifecycle契約は全Change aggregateの案内欠落を拒否するを検証する。
+ *
+ * @responsibility Work Lifecycle契約は全Change aggregateの案内欠落を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Work Lifecycle契約は全Change aggregateの案内欠落を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Work Lifecycle契約は全Change aggregateの案内欠落を拒否する", () => {
   const root = dispositionFixtureRoot();
   const result = runChecker(root);
@@ -7097,6 +8979,18 @@ test("Work Lifecycle契約は全Change aggregateの案内欠落を拒否する",
   );
 });
 
+/**
+ * Change契約は影響ファイルの全数表示区画を要求するを検証する。
+ *
+ * @responsibility Change契約は影響ファイルの全数表示区画を要求するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Change契約は影響ファイルの全数表示区画を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Change契約は影響ファイルの全数表示区画を要求する", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -7114,6 +9008,18 @@ test("Change契約は影響ファイルの全数表示区画を要求する", ()
   );
 });
 
+/**
+ * Change契約は代表ファイルだけを示す旧表示を拒否するを検証する。
+ *
+ * @responsibility Change契約は代表ファイルだけを示す旧表示を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Change契約は代表ファイルだけを示す旧表示を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Change契約は代表ファイルだけを示す旧表示を拒否する", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -7135,6 +9041,18 @@ test("Change契約は代表ファイルだけを示す旧表示を拒否する",
     );
 });
 
+/**
+ * Change契約は影響ファイルへ重複分類の親子階層を作らないを検証する。
+ *
+ * @responsibility Change契約は影響ファイルへ重複分類の親子階層を作らないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Change契約は影響ファイルへ重複分類の親子階層を作らないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Change契約は影響ファイルへ重複分類の親子階層を作らない", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -7152,6 +9070,18 @@ test("Change契約は影響ファイルへ重複分類の親子階層を作ら�
   );
 });
 
+/**
+ * CHG-000080以降はPhase／Gateと固定前収束の必須評価を要求するを検証する。
+ *
+ * @responsibility CHG-000080以降はPhase／Gateと固定前収束の必須評価を要求するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CHG-000080以降はPhase／Gateと固定前収束の必須評価を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("CHG-000080以降はPhase／Gateと固定前収束の必須評価を要求する", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -7169,6 +9099,18 @@ test("CHG-000080以降はPhase／Gateと固定前収束の必須評価を要求�
   );
 });
 
+/**
+ * Work Lifecycle契約はRelease Evidenceの案内欠落を拒否するを検証する。
+ *
+ * @responsibility Work Lifecycle契約はRelease Evidenceの案内欠落を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Work Lifecycle契約はRelease Evidenceの案内欠落を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Work Lifecycle契約はRelease Evidenceの案内欠落を拒否する", () => {
   const root = dispositionFixtureRoot();
   write(path.join(root, "99_Roadmap", "03_Releases.md"), "# Releases\n");
@@ -7181,6 +9123,18 @@ test("Work Lifecycle契約はRelease Evidenceの案内欠落を拒否する", ()
   );
 });
 
+/**
+ * Change記録とWork Lifecycle Evidenceの通常リンク切れを検出するを検証する。
+ *
+ * @responsibility Change記録とWork Lifecycle Evidenceの通常リンク切れを検出するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Change記録とWork Lifecycle Evidenceの通常リンク切れを検出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Change記録とWork Lifecycle Evidenceの通常リンク切れを検出する", () => {
   const root = dispositionFixtureRoot();
   write(
@@ -7212,6 +9166,18 @@ test("Change記録とWork Lifecycle Evidenceの通常リンク切れを検出す
     );
 });
 
+/**
+ * 固定履歴本文の旧リンクを移行表から解決し本文変更を要求しないを検証する。
+ *
+ * @responsibility 固定履歴本文の旧リンクを移行表から解決し本文変更を要求しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定履歴本文の旧リンクを移行表から解決し本文変更を要求しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("固定履歴本文の旧リンクを移行表から解決し本文変更を要求しない", () => {
   const root = dispositionFixtureRoot(true);
   const result = runChecker(root);
@@ -7227,6 +9193,18 @@ test("固定履歴本文の旧リンクを移行表から解決し本文変更�
   );
 });
 
+/**
+ * 固定履歴本文が移行表のHashから変化した場合は拒否するを検証する。
+ *
+ * @responsibility 固定履歴本文が移行表のHashから変化した場合は拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定履歴本文が移行表のHashから変化した場合は拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("固定履歴本文が移行表のHashから変化した場合は拒否する", () => {
   const root = dispositionFixtureRoot(true);
   fs.appendFileSync(
@@ -7252,6 +9230,18 @@ test("固定履歴本文が移行表のHashから変化した場合は拒否す�
   );
 });
 
+/**
+ * 移行表の重複・Root外Path・不正Hashを拒否するを検証する。
+ *
+ * @responsibility 移行表の重複・Root外Path・不正Hashを拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 移行表の重複・Root外Path・不正Hashを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("移行表の重複・Root外Path・不正Hashを拒否する", () => {
   const firstEntry = (manifest: {
     entries: Array<Record<string, unknown>>;
@@ -7296,6 +9286,18 @@ test("移行表の重複・Root外Path・不正Hashを拒否する", () => {
   }
 });
 
+/**
+ * runWithEnvのTest準備責務を実行する。
+ *
+ * @responsibility runWithEnvがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus runWithEnvを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function runWithEnv(
   root: string,
   env: Readonly<Record<string, string>>,
@@ -7312,6 +9314,18 @@ function runWithEnv(
   };
 }
 
+/**
+ * runWithFaultのTest準備責務を実行する。
+ *
+ * @responsibility runWithFaultがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus runWithFaultを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function runWithFault(
   root: string,
   fault: string,
@@ -7335,12 +9349,36 @@ function runWithFault(
   );
 }
 
+/**
+ * runRawのTest準備責務を実行する。
+ *
+ * @responsibility runRawがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus runRawを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function runRaw(...checkerArguments: string[]) {
   return spawnSync(process.execPath, [checker, ...checkerArguments], {
     encoding: "utf8",
   });
 }
 
+/**
+ * 公式リポジトリではREADMEと正本文書の版を比較するを検証する。
+ *
+ * @responsibility 公式リポジトリではREADMEと正本文書の版を比較するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公式リポジトリではREADMEと正本文書の版を比較するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("公式リポジトリではREADMEと正本文書の版を比較する", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -7358,6 +9396,18 @@ test("公式リポジトリではREADMEと正本文書の版を比較する", ()
 for (const label of ["Version", "Status"]) {
   for (const suffix of ["", " — 版の説明"]) {
     for (const version of ["v0.16.0", "v0.15.0"]) {
+      /**
+       * README先頭の版表示を照合する: ${label}/${version}/${suffix}を検証する。
+       *
+       * @responsibility README先頭の版表示を照合する: ${label}/${version}/${suffix}の合否判定を所有する。
+       * @trace RCM-IT-005
+       * @precondition Test Fileが構築するfixtureと入力を使用する。
+       * @stimulus README先頭の版表示を照合する: ${label}/${version}/${suffix}の対象操作を実行する。
+       * @observation 結果、状態、Effectおよび終了後条件を観測する。
+       * @oracle Test本文のassertionが期待条件を満たす。
+       * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+       * @boundary Direct Boundary: Producer→Consumer
+       */
       test(`README先頭の版表示を照合する: ${label}/${version}/${suffix}`, () => {
         const root = currentChangelogFixture(
           ["- `migration_required: false`"],
@@ -7396,6 +9446,18 @@ for (const body of [
   "~~~markdown\nStatus: **v9.0.0**\n~~~",
   "```markdown\nVersion: **v9.0.0**",
 ]) {
+  /**
+   * \nを検証する。
+   *
+   * @responsibility \nの合否判定を所有する。
+   * @trace RCM-IT-005
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus \nの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Direct Boundary: Producer→Consumer
+   */
   test(`README先頭にない版を本文やfenceから補完しない: ${body.split("\n")[0]}`, () => {
     const root = currentChangelogFixture(
       ["- `migration_required: false`"],
@@ -7407,6 +9469,18 @@ for (const body of [
   });
 }
 
+/**
+ * READMEの太字でないVersion表示も現行版比較へ接続するを検証する。
+ *
+ * @responsibility READMEの太字でないVersion表示も現行版比較へ接続するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus READMEの太字でないVersion表示も現行版比較へ接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("READMEの太字でないVersion表示も現行版比較へ接続する", () => {
   const root = currentChangelogFixture(
     ["- `migration_required: false`"],
@@ -7421,6 +9495,18 @@ test("READMEの太字でないVersion表示も現行版比較へ接続する", (
   );
 });
 
+/**
+ * currentChangelogFixtureのTest準備責務を実行する。
+ *
+ * @responsibility currentChangelogFixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus currentChangelogFixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function currentChangelogFixture(
   englishLines: readonly string[],
   japaneseLines: readonly string[],
@@ -7447,6 +9533,18 @@ function currentChangelogFixture(
   return root;
 }
 
+/**
+ * 公式CHANGELOGの現行移行注記に英日必須境界を要求するを検証する。
+ *
+ * @responsibility 公式CHANGELOGの現行移行注記に英日必須境界を要求するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公式CHANGELOGの現行移行注記に英日必須境界を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("公式CHANGELOGの現行移行注記に英日必須境界を要求する", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -7489,6 +9587,18 @@ test("公式CHANGELOGの現行移行注記に英日必須境界を要求する",
   assert.match(finding.message, /Known risk if deferred/);
 });
 
+/**
+ * 公式CHANGELOGの完全な英日移行注記を受け入れるを検証する。
+ *
+ * @responsibility 公式CHANGELOGの完全な英日移行注記を受け入れるの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公式CHANGELOGの完全な英日移行注記を受け入れるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("公式CHANGELOGの完全な英日移行注記を受け入れる", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -7538,6 +9648,18 @@ for (const body of [
   "本文の例です。\nVersion: v9.0.0\nStatus: Candidate\nReleased Baseline: v8.0.0",
   "## 本文\nVersion: v9.0.0\nStatus: Candidate\nReleased Baseline: v8.0.0",
 ]) {
+  /**
+   * \nを検証する。
+   *
+   * @responsibility \nの合否判定を所有する。
+   * @trace RCM-IT-005
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus \nの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Direct Boundary: Producer→Consumer
+   */
   test(`標準ヘッダーはStableと本文例を分離する: ${body.split("\n")[0]}/${body.split("\n")[1]}`, () => {
     const root = currentChangelogFixture(
       ["- `migration_required: false`"],
@@ -7558,6 +9680,18 @@ for (const body of [
   "本文の例です。\nReleased Baseline: v0.16.0",
   "## 本文\nReleased Baseline: v0.16.0",
 ]) {
+  /**
+   * \nを検証する。
+   *
+   * @responsibility \nの合否判定を所有する。
+   * @trace RCM-IT-005
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus \nの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Direct Boundary: Producer→Consumer
+   */
   test(`標準ヘッダーのCandidate基準版を本文から補完しない: ${body.split("\n")[0]}`, () => {
     const root = fixture();
     makeStructure(path.join(root, "template"));
@@ -7574,6 +9708,18 @@ for (const body of [
   });
 }
 
+/**
+ * 標準ヘッダーにないVersionとStatusを本文から補完しないを検証する。
+ *
+ * @responsibility 標準ヘッダーにないVersionとStatusを本文から補完しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 標準ヘッダーにないVersionとStatusを本文から補完しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("標準ヘッダーにないVersionとStatusを本文から補完しない", () => {
   const root = currentChangelogFixture(
     ["- `migration_required: false`"],
@@ -7590,6 +9736,18 @@ test("標準ヘッダーにないVersionとStatusを本文から補完しない"
 
 for (const labelStyle of ["旧表現", "新表現"]) {
   for (const placement of ["本文", "欠落", "fence", "引用", "過去版"]) {
+    /**
+     * 移行注記の閉じた同義表現: ${labelStyle}/${placement}を検証する。
+     *
+     * @responsibility 移行注記の閉じた同義表現: ${labelStyle}/${placement}の合否判定を所有する。
+     * @trace RCM-IT-005
+     * @precondition Test Fileが構築するfixtureと入力を使用する。
+     * @stimulus 移行注記の閉じた同義表現: ${labelStyle}/${placement}の対象操作を実行する。
+     * @observation 結果、状態、Effectおよび終了後条件を観測する。
+     * @oracle Test本文のassertionが期待条件を満たす。
+     * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+     * @boundary Direct Boundary: Producer→Consumer
+     */
     test(`移行注記の閉じた同義表現: ${labelStyle}/${placement}`, () => {
       const englishMarkers = [
         labelStyle === "旧表現"
@@ -7696,6 +9854,18 @@ for (const labelStyle of ["旧表現", "新表現"]) {
     日本語: japaneseLabels,
   })) {
     for (const label of labels) {
+      /**
+       * 移行注記の説明を単独で要求する: ${labelStyle}/${language}/${label}を検証する。
+       *
+       * @responsibility 移行注記の説明を単独で要求する: ${labelStyle}/${language}/${label}の合否判定を所有する。
+       * @trace RCM-IT-005
+       * @precondition Test Fileが構築するfixtureと入力を使用する。
+       * @stimulus 移行注記の説明を単独で要求する: ${labelStyle}/${language}/${label}の対象操作を実行する。
+       * @observation 結果、状態、Effectおよび終了後条件を観測する。
+       * @oracle Test本文のassertionが期待条件を満たす。
+       * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+       * @boundary Direct Boundary: Producer→Consumer
+       */
       test(`移行注記の説明を単独で要求する: ${labelStyle}/${language}/${label}`, () => {
         for (const explanation of ["", " \t　 ", " 説明あり"]) {
           const createLines = (
@@ -7758,6 +9928,18 @@ for (const labelStyle of ["旧表現", "新表現"]) {
   }
 }
 
+/**
+ * Candidate文書ではReleased BaselineのCHANGELOGを検査するを検証する。
+ *
+ * @responsibility Candidate文書ではReleased BaselineのCHANGELOGを検査するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Candidate文書ではReleased BaselineのCHANGELOGを検査するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Candidate文書ではReleased BaselineのCHANGELOGを検査する", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -7810,6 +9992,18 @@ test("Candidate文書ではReleased BaselineのCHANGELOGを検査する", () => 
   );
 });
 
+/**
+ * Candidate文書のReleased Baseline欠落を拒否するを検証する。
+ *
+ * @responsibility Candidate文書のReleased Baseline欠落を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Candidate文書のReleased Baseline欠落を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Candidate文書のReleased Baseline欠落を拒否する", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -7825,6 +10019,18 @@ test("Candidate文書のReleased Baseline欠落を拒否する", () => {
   );
 });
 
+/**
+ * stableReleaseClosureFixtureのTest準備責務を実行する。
+ *
+ * @responsibility stableReleaseClosureFixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus stableReleaseClosureFixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 function stableReleaseClosureFixture() {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -7849,6 +10055,18 @@ function stableReleaseClosureFixture() {
   return root;
 }
 
+/**
+ * Stable最終候補に残った現行MarkdownのCandidate表示を拒否するを検証する。
+ *
+ * @responsibility Stable最終候補に残った現行MarkdownのCandidate表示を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Stable最終候補に残った現行MarkdownのCandidate表示を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Stable最終候補に残った現行MarkdownのCandidate表示を拒否する", () => {
   const root = stableReleaseClosureFixture();
   write(
@@ -7864,6 +10082,18 @@ test("Stable最終候補に残った現行MarkdownのCandidate表示を拒否す
   );
 });
 
+/**
+ * Stable最終候補のREADME版と英日Release見出しを相関検査するを検証する。
+ *
+ * @responsibility Stable最終候補のREADME版と英日Release見出しを相関検査するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Stable最終候補のREADME版と英日Release見出しを相関検査するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Stable最終候補のREADME版と英日Release見出しを相関検査する", () => {
   const root = stableReleaseClosureFixture();
   write(path.join(root, "README.md"), "Version: **v0.16.0**\n");
@@ -7886,6 +10116,18 @@ test("Stable最終候補のREADME版と英日Release見出しを相関検査す�
   );
 });
 
+/**
+ * Stable最終候補では全CRDD正本の版と状態を閉包検査するを検証する。
+ *
+ * @responsibility Stable最終候補では全CRDD正本の版と状態を閉包検査するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Stable最終候補では全CRDD正本の版と状態を閉包検査するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Stable最終候補では全CRDD正本の版と状態を閉包検査する", () => {
   const root = stableReleaseClosureFixture();
   write(
@@ -7901,6 +10143,18 @@ test("Stable最終候補では全CRDD正本の版と状態を閉包検査する"
   );
 });
 
+/**
+ * Change Traceは公式tag前にReleasedを名乗らず引渡し可能状態を保持するを検証する。
+ *
+ * @responsibility Change Traceは公式tag前にReleasedを名乗らず引渡し可能状態を保持するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Change Traceは公式tag前にReleasedを名乗らず引渡し可能状態を保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Change Traceは公式tag前にReleasedを名乗らず引渡し可能状態を保持する", () => {
   const root = stableReleaseClosureFixture();
   const changePath = path.join(
@@ -7939,9 +10193,33 @@ test("Change Traceは公式tag前にReleasedを名乗らず引渡し可能状態
   );
 });
 
+/**
+ * 既存の公式tagが現在HEAD以外を指すStable状態を拒否するを検証する。
+ *
+ * @responsibility 既存の公式tagが現在HEAD以外を指すStable状態を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 既存の公式tagが現在HEAD以外を指すStable状態を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("既存の公式tagが現在HEAD以外を指すStable状態を拒否する", () => {
   const root = stableReleaseClosureFixture();
   initializeGit(root);
+  /**
+   * commitのTest準備責務を実行する。
+   *
+   * @responsibility commitがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace RCM-IT-005
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus commitを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary Direct Boundary: Producer→Consumer
+   */
   const commit = (message: string) => {
     const added = spawnSync("git", ["-C", root, "add", "."], {
       encoding: "utf8",
@@ -7982,9 +10260,33 @@ test("既存の公式tagが現在HEAD以外を指すStable状態を拒否する"
   );
 });
 
+/**
+ * 次版Candidateは公開済み基準版のtag不一致や候補残存として扱わないを検証する。
+ *
+ * @responsibility 次版Candidateは公開済み基準版のtag不一致や候補残存として扱わないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 次版Candidateは公開済み基準版のtag不一致や候補残存として扱わないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("次版Candidateは公開済み基準版のtag不一致や候補残存として扱わない", () => {
   const root = stableReleaseClosureFixture();
   initializeGit(root);
+  /**
+   * commitのTest準備責務を実行する。
+   *
+   * @responsibility commitがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace RCM-IT-005
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus commitを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary Direct Boundary: Producer→Consumer
+   */
   const commit = (message: string) => {
     const added = spawnSync("git", ["-C", root, "add", "."], {
       encoding: "utf8",
@@ -8033,6 +10335,18 @@ test("次版Candidateは公開済み基準版のtag不一致や候補残存と�
 });
 
 for (const status of ["Draft", "Stable"]) {
+  /**
+   * ${status}文書に残ったReleased Baselineを拒否するを検証する。
+   *
+   * @responsibility ${status}文書に残ったReleased Baselineを拒否するの合否判定を所有する。
+   * @trace RCM-IT-005
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus ${status}文書に残ったReleased Baselineを拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Direct Boundary: Producer→Consumer
+   */
   test(`${status}文書に残ったReleased Baselineを拒否する`, () => {
     const root = fixture();
     makeStructure(path.join(root, "template"));
@@ -8049,6 +10363,18 @@ for (const status of ["Draft", "Stable"]) {
   });
 }
 
+/**
+ * 公式CHANGELOGに日本語区分がない場合は現行リリース欠落を返すを検証する。
+ *
+ * @responsibility 公式CHANGELOGに日本語区分がない場合は現行リリース欠落を返すの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公式CHANGELOGに日本語区分がない場合は現行リリース欠落を返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("公式CHANGELOGに日本語区分がない場合は現行リリース欠落を返す", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -8073,6 +10399,18 @@ test("公式CHANGELOGに日本語区分がない場合は現行リリース欠�
   );
 });
 
+/**
+ * 公式CHANGELOGの日本語区分に現行リリースがない場合は欠落を返すを検証する。
+ *
+ * @responsibility 公式CHANGELOGの日本語区分に現行リリースがない場合は欠落を返すの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公式CHANGELOGの日本語区分に現行リリースがない場合は欠落を返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("公式CHANGELOGの日本語区分に現行リリースがない場合は欠落を返す", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -8100,6 +10438,18 @@ test("公式CHANGELOGの日本語区分に現行リリースがない場合は�
   );
 });
 
+/**
+ * 移行不要の現行英日リリースには移行注記区分を要求しないを検証する。
+ *
+ * @responsibility 移行不要の現行英日リリースには移行注記区分を要求しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 移行不要の現行英日リリースには移行注記区分を要求しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("移行不要の現行英日リリースには移行注記区分を要求しない", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -8125,6 +10475,18 @@ test("移行不要の現行英日リリースには移行注記区分を要求�
   );
 });
 
+/**
+ * 現行移行要否の欠落を判定不能として返すを検証する。
+ *
+ * @responsibility 現行移行要否の欠落を判定不能として返すの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 現行移行要否の欠落を判定不能として返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("現行移行要否の欠落を判定不能として返す", () => {
   const root = currentChangelogFixture([], ["- `migration_required: false`"]);
   const result = runChecker(root);
@@ -8137,6 +10499,18 @@ test("現行移行要否の欠落を判定不能として返す", () => {
   );
 });
 
+/**
+ * 現行移行要否の不正値を判定不能として返すを検証する。
+ *
+ * @responsibility 現行移行要否の不正値を判定不能として返すの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 現行移行要否の不正値を判定不能として返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("現行移行要否の不正値を判定不能として返す", () => {
   const root = currentChangelogFixture(
     ["- `migration_required: maybe`"],
@@ -8150,6 +10524,18 @@ test("現行移行要否の不正値を判定不能として返す", () => {
   );
 });
 
+/**
+ * 現行移行要否の同値重複を判定不能として返すを検証する。
+ *
+ * @responsibility 現行移行要否の同値重複を判定不能として返すの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 現行移行要否の同値重複を判定不能として返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("現行移行要否の同値重複を判定不能として返す", () => {
   const root = currentChangelogFixture(
     ["- `migration_required: false`", "- `migration_required: false`"],
@@ -8163,6 +10549,18 @@ test("現行移行要否の同値重複を判定不能として返す", () => {
   );
 });
 
+/**
+ * 現行移行要否の競合宣言を判定不能として返すを検証する。
+ *
+ * @responsibility 現行移行要否の競合宣言を判定不能として返すの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 現行移行要否の競合宣言を判定不能として返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("現行移行要否の競合宣言を判定不能として返す", () => {
   const root = currentChangelogFixture(
     ["- `migration_required: true`", "- `migration_required: false`"],
@@ -8176,6 +10574,18 @@ test("現行移行要否の競合宣言を判定不能として返す", () => {
   );
 });
 
+/**
+ * 現行英日移行要否の不一致を返すを検証する。
+ *
+ * @responsibility 現行英日移行要否の不一致を返すの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 現行英日移行要否の不一致を返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("現行英日移行要否の不一致を返す", () => {
   const root = currentChangelogFixture(
     ["- `migration_required: true`"],
@@ -8189,6 +10599,18 @@ test("現行英日移行要否の不一致を返す", () => {
   );
 });
 
+/**
+ * 閉じたYAML fenceの現行移行宣言を受け入れるを検証する。
+ *
+ * @responsibility 閉じたYAML fenceの現行移行宣言を受け入れるの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 閉じたYAML fenceの現行移行宣言を受け入れるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("閉じたYAML fenceの現行移行宣言を受け入れる", () => {
   const englishCategories = [
     "- Required: example",
@@ -8237,6 +10659,18 @@ test("閉じたYAML fenceの現行移行宣言を受け入れる", () => {
   );
 });
 
+/**
+ * 説明文中の移行語を宣言として扱わないを検証する。
+ *
+ * @responsibility 説明文中の移行語を宣言として扱わないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 説明文中の移行語を宣言として扱わないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("説明文中の移行語を宣言として扱わない", () => {
   const root = currentChangelogFixture(
     ["This example says migration_required: false in prose."],
@@ -8251,6 +10685,18 @@ test("説明文中の移行語を宣言として扱わない", () => {
   );
 });
 
+/**
+ * 非YAML fence内の移行宣言を判定データとして扱わないを検証する。
+ *
+ * @responsibility 非YAML fence内の移行宣言を判定データとして扱わないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 非YAML fence内の移行宣言を判定データとして扱わないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("非YAML fence内の移行宣言を判定データとして扱わない", () => {
   const root = currentChangelogFixture(
     ["```text", "- `migration_required: false`", "```"],
@@ -8265,6 +10711,18 @@ test("非YAML fence内の移行宣言を判定データとして扱わない", (
   );
 });
 
+/**
+ * 非YAML fence内の移行注記区分を成立根拠へ流用しないを検証する。
+ *
+ * @responsibility 非YAML fence内の移行注記区分を成立根拠へ流用しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 非YAML fence内の移行注記区分を成立根拠へ流用しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("非YAML fence内の移行注記区分を成立根拠へ流用しない", () => {
   const fencedEnglishLines = [
     "```text",
@@ -8310,6 +10768,18 @@ test("非YAML fence内の移行注記区分を成立根拠へ流用しない", (
   );
 });
 
+/**
+ * fence外の有効宣言と非YAML例示を重複扱いしないを検証する。
+ *
+ * @responsibility fence外の有効宣言と非YAML例示を重複扱いしないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fence外の有効宣言と非YAML例示を重複扱いしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("fence外の有効宣言と非YAML例示を重複扱いしない", () => {
   const exampleLines = ["```", "- `migration_required: true`", "```"];
   const result = runChecker(
@@ -8328,6 +10798,18 @@ test("fence外の有効宣言と非YAML例示を重複扱いしない", () => {
   );
 });
 
+/**
+ * チルダと大文字YAML fenceの宣言を受け入れるを検証する。
+ *
+ * @responsibility チルダと大文字YAML fenceの宣言を受け入れるの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus チルダと大文字YAML fenceの宣言を受け入れるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("チルダと大文字YAML fenceの宣言を受け入れる", () => {
   const root = currentChangelogFixture(
     ["   ~~~YAML", "migration_required: false", "   ~~~"],
@@ -8342,6 +10824,18 @@ test("チルダと大文字YAML fenceの宣言を受け入れる", () => {
   );
 });
 
+/**
+ * 長いbacktick fence内の短いbacktick列でfenceを閉じないを検証する。
+ *
+ * @responsibility 長いbacktick fence内の短いbacktick列でfenceを閉じないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 長いbacktick fence内の短いbacktick列でfenceを閉じないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("長いbacktick fence内の短いbacktick列でfenceを閉じない", () => {
   const exampleLines = [
     "````text",
@@ -8363,6 +10857,18 @@ test("長いbacktick fence内の短いbacktick列でfenceを閉じない", () =>
   );
 });
 
+/**
+ * 閉じていない非YAML fence内の見出しや宣言を構造へ戻さないを検証する。
+ *
+ * @responsibility 閉じていない非YAML fence内の見出しや宣言を構造へ戻さないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 閉じていない非YAML fence内の見出しや宣言を構造へ戻さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("閉じていない非YAML fence内の見出しや宣言を構造へ戻さない", () => {
   const root = currentChangelogFixture(
     ["```text", "- `migration_required: false`"],
@@ -8378,6 +10884,18 @@ test("閉じていない非YAML fence内の見出しや宣言を構造へ戻さ�
   );
 });
 
+/**
+ * YAML fence内の言語見出しと現行Release見出しを構造として扱わないを検証する。
+ *
+ * @responsibility YAML fence内の言語見出しと現行Release見出しを構造として扱わないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus YAML fence内の言語見出しと現行Release見出しを構造として扱わないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("YAML fence内の言語見出しと現行Release見出しを構造として扱わない", () => {
   const root = currentChangelogFixture(
     [
@@ -8399,6 +10917,18 @@ test("YAML fence内の言語見出しと現行Release見出しを構造として
   );
 });
 
+/**
+ * 同じ言語区分の重複を一部採用せずエラーにするを検証する。
+ *
+ * @responsibility 同じ言語区分の重複を一部採用せずエラーにするの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 同じ言語区分の重複を一部採用せずエラーにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("同じ言語区分の重複を一部採用せずエラーにする", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -8438,6 +10968,18 @@ test("同じ言語区分の重複を一部採用せずエラーにする", () =>
   );
 });
 
+/**
+ * 非YAML fence内の言語見出しと現行Release見出しを無視するを検証する。
+ *
+ * @responsibility 非YAML fence内の言語見出しと現行Release見出しを無視するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 非YAML fence内の言語見出しと現行Release見出しを無視するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("非YAML fence内の言語見出しと現行Release見出しを無視する", () => {
   const root = currentChangelogFixture(
     [
@@ -8466,6 +11008,18 @@ test("非YAML fence内の言語見出しと現行Release見出しを無視する
   );
 });
 
+/**
+ * 現行リリース節の重複をエラーにするを検証する。
+ *
+ * @responsibility 現行リリース節の重複をエラーにするの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 現行リリース節の重複をエラーにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("現行リリース節の重複をエラーにする", () => {
   const root = currentChangelogFixture(
     [
@@ -8485,6 +11039,18 @@ test("現行リリース節の重複をエラーにする", () => {
   );
 });
 
+/**
+ * 過去リリースの宣言を現行リリースへ流用しないを検証する。
+ *
+ * @responsibility 過去リリースの宣言を現行リリースへ流用しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 過去リリースの宣言を現行リリースへ流用しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("過去リリースの宣言を現行リリースへ流用しない", () => {
   const root = currentChangelogFixture([], []);
   const result = runChecker(root);
@@ -8496,6 +11062,18 @@ test("過去リリースの宣言を現行リリースへ流用しない", () =>
   );
 });
 
+/**
+ * 現行英日変更分類の不一致を返すを検証する。
+ *
+ * @responsibility 現行英日変更分類の不一致を返すの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 現行英日変更分類の不一致を返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("現行英日変更分類の不一致を返す", () => {
   const completeEnglishLines = [
     "- `migration_required: true`",
@@ -8529,6 +11107,18 @@ test("現行英日変更分類の不一致を返す", () => {
   );
 });
 
+/**
+ * 移行が必要な現行節の変更分類欠落を判定不能として返すを検証する。
+ *
+ * @responsibility 移行が必要な現行節の変更分類欠落を判定不能として返すの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 移行が必要な現行節の変更分類欠落を判定不能として返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("移行が必要な現行節の変更分類欠落を判定不能として返す", () => {
   const englishCategories = [
     "- `migration_required: true`",
@@ -8563,6 +11153,18 @@ test("移行が必要な現行節の変更分類欠落を判定不能として�
   );
 });
 
+/**
+ * 移行が必要な現行節の変更分類重複を判定不能として返すを検証する。
+ *
+ * @responsibility 移行が必要な現行節の変更分類重複を判定不能として返すの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 移行が必要な現行節の変更分類重複を判定不能として返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("移行が必要な現行節の変更分類重複を判定不能として返す", () => {
   const englishCategories = [
     "- `migration_required: true`",
@@ -8599,6 +11201,18 @@ test("移行が必要な現行節の変更分類重複を判定不能として�
   );
 });
 
+/**
+ * 閉じていないYAML宣言を判定不能として返すを検証する。
+ *
+ * @responsibility 閉じていないYAML宣言を判定不能として返すの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 閉じていないYAML宣言を判定不能として返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("閉じていないYAML宣言を判定不能として返す", () => {
   const root = currentChangelogFixture(
     ["```yaml", "migration_required: false"],
@@ -8614,6 +11228,18 @@ test("閉じていないYAML宣言を判定不能として返す", () => {
   );
 });
 
+/**
+ * Git管理された公式リポジトリではbaseline状態を非該当として返すを検証する。
+ *
+ * @responsibility Git管理された公式リポジトリではbaseline状態を非該当として返すの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Git管理された公式リポジトリではbaseline状態を非該当として返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Git管理された公式リポジトリではbaseline状態を非該当として返す", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -8628,6 +11254,18 @@ test("Git管理された公式リポジトリではbaseline状態を非該当と
   assert.equal(result.report.baseline_submodule_state.worktree_present, null);
 });
 
+/**
+ * 採用先の製品READMEはCRDD基準版と比較しないを検証する。
+ *
+ * @responsibility 採用先の製品READMEはCRDD基準版と比較しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 採用先の製品READMEはCRDD基準版と比較しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("採用先の製品READMEはCRDD基準版と比較しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -8638,6 +11276,18 @@ test("採用先の製品READMEはCRDD基準版と比較しない", () => {
   assert.equal(result.report.findings.length, 0);
 });
 
+/**
+ * 採用先では公式CHANGELOG専用の移行宣言検査を発火しないを検証する。
+ *
+ * @responsibility 採用先では公式CHANGELOG専用の移行宣言検査を発火しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 採用先では公式CHANGELOG専用の移行宣言検査を発火しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("採用先では公式CHANGELOG専用の移行宣言検査を発火しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -8666,6 +11316,18 @@ test("採用先では公式CHANGELOG専用の移行宣言検査を発火しな�
   );
 });
 
+/**
+ * 採用先のCRDD正本文書間の版不一致は検出するを検証する。
+ *
+ * @responsibility 採用先のCRDD正本文書間の版不一致は検出するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 採用先のCRDD正本文書間の版不一致は検出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("採用先のCRDD正本文書間の版不一致は検出する", () => {
   const root = fixture();
   makeStructure(root);
@@ -8680,6 +11342,18 @@ test("採用先のCRDD正本文書間の版不一致は検出する", () => {
   );
 });
 
+/**
+ * 安定コンテキストIDを含むファイル名を拒否するを検証する。
+ *
+ * @responsibility 安定コンテキストIDを含むファイル名を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 安定コンテキストIDを含むファイル名を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("安定コンテキストIDを含むファイル名を拒否する", () => {
   const root = fixture();
   makeStructure(root);
@@ -8693,6 +11367,18 @@ test("安定コンテキストIDを含むファイル名を拒否する", () => 
   );
 });
 
+/**
+ * 安定コンテキストIDへ手動改訂番号を結合した表記を拒否するを検証する。
+ *
+ * @responsibility 安定コンテキストIDへ手動改訂番号を結合した表記を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 安定コンテキストIDへ手動改訂番号を結合した表記を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("安定コンテキストIDへ手動改訂番号を結合した表記を拒否する", () => {
   const root = fixture();
   makeStructure(root);
@@ -8709,6 +11395,18 @@ test("安定コンテキストIDへ手動改訂番号を結合した表記を拒
   );
 });
 
+/**
+ * 範囲指定でも全体不変条件を確認し、部分確認を明示するを検証する。
+ *
+ * @responsibility 範囲指定でも全体不変条件を確認し、部分確認を明示するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 範囲指定でも全体不変条件を確認し、部分確認を明示するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("範囲指定でも全体不変条件を確認し、部分確認を明示する", () => {
   const root = fixture();
   makeStructure(root);
@@ -8728,6 +11426,18 @@ test("範囲指定でも全体不変条件を確認し、部分確認を明示�
   );
 });
 
+/**
+ * 全体確認は実行情報と件数を返すを検証する。
+ *
+ * @responsibility 全体確認は実行情報と件数を返すの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 全体確認は実行情報と件数を返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("全体確認は実行情報と件数を返す", () => {
   const root = fixture();
   makeStructure(root);
@@ -8743,6 +11453,18 @@ test("全体確認は実行情報と件数を返す", () => {
   assert.ok(result.report.metrics.markdown_files_checked >= 1);
 });
 
+/**
+ * 明示された安定コンテキストID定義の重複を検出するを検証する。
+ *
+ * @responsibility 明示された安定コンテキストID定義の重複を検出するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 明示された安定コンテキストID定義の重複を検出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("明示された安定コンテキストID定義の重複を検出する", () => {
   const root = fixture();
   makeStructure(root);
@@ -8757,6 +11479,18 @@ test("明示された安定コンテキストID定義の重複を検出する", 
   );
 });
 
+/**
+ * 深いEvidence階層のMarkdownも内容を検査するを検証する。
+ *
+ * @responsibility 深いEvidence階層のMarkdownも内容を検査するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 深いEvidence階層のMarkdownも内容を検査するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("深いEvidence階層のMarkdownも内容を検査する", () => {
   const root = fixture();
   makeStructure(root);
@@ -8783,6 +11517,18 @@ test("深いEvidence階層のMarkdownも内容を検査する", () => {
   );
 });
 
+/**
+ * 参照関係を重複回数付きで集約するを検証する。
+ *
+ * @responsibility 参照関係を重複回数付きで集約するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 参照関係を重複回数付きで集約するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("参照関係を重複回数付きで集約する", () => {
   const root = fixture();
   makeStructure(root);
@@ -8796,6 +11542,18 @@ test("参照関係を重複回数付きで集約する", () => {
   assert.equal(references.outbound[0].target, "01_Discovery/A.md");
 });
 
+/**
+ * 分岐網羅率の分母・分子・割合の不整合を検出するを検証する。
+ *
+ * @responsibility 分岐網羅率の分母・分子・割合の不整合を検出するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 分岐網羅率の分母・分子・割合の不整合を検出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("分岐網羅率の分母・分子・割合の不整合を検出する", () => {
   const root = fixture();
   makeStructure(root);
@@ -8816,6 +11574,18 @@ test("分岐網羅率の分母・分子・割合の不整合を検出する", ()
   );
 });
 
+/**
+ * 不正なCLI入力を終了コード2で拒否するを検証する。
+ *
+ * @responsibility 不正なCLI入力を終了コード2で拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不正なCLI入力を終了コード2で拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("不正なCLI入力を終了コード2で拒否する", () => {
   const file = path.join(fixture(), "root.txt");
   write(file, "not a directory");
@@ -8830,6 +11600,18 @@ test("不正なCLI入力を終了コード2で拒否する", () => {
   }
 });
 
+/**
+ * 適用先では無関係なtemplateフォルダより00_CRDDを優先するを検証する。
+ *
+ * @responsibility 適用先では無関係なtemplateフォルダより00_CRDDを優先するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 適用先では無関係なtemplateフォルダより00_CRDDを優先するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("適用先では無関係なtemplateフォルダより00_CRDDを優先する", () => {
   const root = fixture();
   makeStructure(root);
@@ -8841,6 +11623,18 @@ test("適用先では無関係なtemplateフォルダより00_CRDDを優先す�
   assert.equal(result.report.repository_mode, "adopter");
 });
 
+/**
+ * 同一ファイル内の安定コンテキストID重複定義を検出するを検証する。
+ *
+ * @responsibility 同一ファイル内の安定コンテキストID重複定義を検出するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 同一ファイル内の安定コンテキストID重複定義を検出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("同一ファイル内の安定コンテキストID重複定義を検出する", () => {
   const root = fixture();
   makeStructure(root);
@@ -8857,6 +11651,18 @@ test("同一ファイル内の安定コンテキストID重複定義を検出す
   );
 });
 
+/**
+ * ルート外リンクを読み取らず未確認として返すを検証する。
+ *
+ * @responsibility ルート外リンクを読み取らず未確認として返すの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus ルート外リンクを読み取らず未確認として返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("ルート外リンクを読み取らず未確認として返す", () => {
   const root = fixture();
   makeStructure(root);
@@ -8876,6 +11682,18 @@ test("ルート外リンクを読み取らず未確認として返す", () => {
   );
 });
 
+/**
+ * Git無視ファイルを除外し未追跡・非無視ファイルを確認するを検証する。
+ *
+ * @responsibility Git無視ファイルを除外し未追跡・非無視ファイルを確認するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Git無視ファイルを除外し未追跡・非無視ファイルを確認するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Git無視ファイルを除外し未追跡・非無視ファイルを確認する", () => {
   const root = fixture();
   makeStructure(root);
@@ -8899,6 +11717,18 @@ test("Git無視ファイルを除外し未追跡・非無視ファイルを確�
   );
 });
 
+/**
+ * 英語の分岐網羅率と不正な測定値を検出するを検証する。
+ *
+ * @responsibility 英語の分岐網羅率と不正な測定値を検出するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 英語の分岐網羅率と不正な測定値を検出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("英語の分岐網羅率と不正な測定値を検出する", () => {
   const root = fixture();
   makeStructure(root);
@@ -8918,6 +11748,18 @@ test("英語の分岐網羅率と不正な測定値を検出する", () => {
   );
 });
 
+/**
+ * コードフェンス内の疑似リンクと表を検査しないを検証する。
+ *
+ * @responsibility コードフェンス内の疑似リンクと表を検査しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus コードフェンス内の疑似リンクと表を検査しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("コードフェンス内の疑似リンクと表を検査しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -8936,6 +11778,18 @@ test("コードフェンス内の疑似リンクと表を検査しない", () =>
   assert.equal(result.report.findings.length, 0);
 });
 
+/**
+ * 旧JSON配列と非JSONサマリーの互換性を維持するを検証する。
+ *
+ * @responsibility 旧JSON配列と非JSONサマリーの互換性を維持するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 旧JSON配列と非JSONサマリーの互換性を維持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("旧JSON配列と非JSONサマリーの互換性を維持する", () => {
   const root = fixture();
   makeStructure(root);
@@ -8952,6 +11806,18 @@ test("旧JSON配列と非JSONサマリーの互換性を維持する", () => {
   assert.match(summary.stdout, /Unchecked=/u);
 });
 
+/**
+ * 不正なURIエンコードを例外にせず警告するを検証する。
+ *
+ * @responsibility 不正なURIエンコードを例外にせず警告するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不正なURIエンコードを例外にせず警告するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("不正なURIエンコードを例外にせず警告する", () => {
   const root = fixture();
   makeStructure(root);
@@ -8965,6 +11831,18 @@ test("不正なURIエンコードを例外にせず警告する", () => {
   );
 });
 
+/**
+ * 存在しない参照マップ対象を終了コード2で拒否するを検証する。
+ *
+ * @responsibility 存在しない参照マップ対象を終了コード2で拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 存在しない参照マップ対象を終了コード2で拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("存在しない参照マップ対象を終了コード2で拒否する", () => {
   const root = fixture();
   makeStructure(root);
@@ -8979,6 +11857,18 @@ test("存在しない参照マップ対象を終了コード2で拒否する", (
   assert.equal(result.status, 2);
 });
 
+/**
+ * リポジトリ内のディレクトリリンクを検査対象外と誤認しないを検証する。
+ *
+ * @responsibility リポジトリ内のディレクトリリンクを検査対象外と誤認しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus リポジトリ内のディレクトリリンクを検査対象外と誤認しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("リポジトリ内のディレクトリリンクを検査対象外と誤認しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -8993,6 +11883,18 @@ test("リポジトリ内のディレクトリリンクを検査対象外と誤�
   );
 });
 
+/**
+ * Git未導入と非Git対象のフォールバック理由を区別するを検証する。
+ *
+ * @responsibility Git未導入と非Git対象のフォールバック理由を区別するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Git未導入と非Git対象のフォールバック理由を区別するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Git未導入と非Git対象のフォールバック理由を区別する", () => {
   const root = fixture();
   makeStructure(root);
@@ -9005,6 +11907,18 @@ test("Git未導入と非Git対象のフォールバック理由を区別する",
   assert.equal(notInstalled.report.discovery_git_failure, "not-installed");
 });
 
+/**
+ * Git一覧取得失敗を生の標準エラーなしで分類するを検証する。
+ *
+ * @responsibility Git一覧取得失敗を生の標準エラーなしで分類するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Git一覧取得失敗を生の標準エラーなしで分類するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Git一覧取得失敗を生の標準エラーなしで分類する", () => {
   const root = fixture();
   makeStructure(root);
@@ -9019,6 +11933,18 @@ test("Git一覧取得失敗を生の標準エラーなしで分類する", () =>
   assert.doesNotMatch(result.stdout, /index file|fatal:/iu);
 });
 
+/**
+ * gitlinkでない入れ子Gitリポジトリをサブモジュールと誤認しないを検証する。
+ *
+ * @responsibility gitlinkでない入れ子Gitリポジトリをサブモジュールと誤認しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus gitlinkでない入れ子Gitリポジトリをサブモジュールと誤認しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("gitlinkでない入れ子Gitリポジトリをサブモジュールと誤認しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -9080,6 +12006,18 @@ test("gitlinkでない入れ子Gitリポジトリをサブモジュールと誤�
   assert.equal(scope.status, 0, scope.stderr);
 });
 
+/**
+ * 未初期化の00_CRDDサブモジュールを成功扱いしないを検証する。
+ *
+ * @responsibility 未初期化の00_CRDDサブモジュールを成功扱いしないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 未初期化の00_CRDDサブモジュールを成功扱いしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("未初期化の00_CRDDサブモジュールを成功扱いしない", () => {
   const root = fixture();
   for (const folder of requiredFolders.filter((name) => name !== "00_CRDD")) {
@@ -9118,6 +12056,18 @@ test("未初期化の00_CRDDサブモジュールを成功扱いしない", () =
   );
 });
 
+/**
+ * 00_CRDDのgitlinkとgitmodules宣言を別々に検証するを検証する。
+ *
+ * @responsibility 00_CRDDのgitlinkとgitmodules宣言を別々に検証するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 00_CRDDのgitlinkとgitmodules宣言を別々に検証するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("00_CRDDのgitlinkとgitmodules宣言を別々に検証する", () => {
   const root = fixture();
   makeStructure(root);
@@ -9137,6 +12087,18 @@ test("00_CRDDのgitlinkとgitmodules宣言を別々に検証する", () => {
   );
 });
 
+/**
+ * worktreeと宣言がなくても親indexの00_CRDD gitlinkを検出するを検証する。
+ *
+ * @responsibility worktreeと宣言がなくても親indexの00_CRDD gitlinkを検出するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus worktreeと宣言がなくても親indexの00_CRDD gitlinkを検出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("worktreeと宣言がなくても親indexの00_CRDD gitlinkを検出する", () => {
   const root = fixture();
   makeStructure(root);
@@ -9164,6 +12126,18 @@ test("worktreeと宣言がなくても親indexの00_CRDD gitlinkを検出する"
   );
 });
 
+/**
+ * gitlink位置の通常ディレクトリから親GitのHEADを読まないを検証する。
+ *
+ * @responsibility gitlink位置の通常ディレクトリから親GitのHEADを読まないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus gitlink位置の通常ディレクトリから親GitのHEADを読まないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("gitlink位置の通常ディレクトリから親GitのHEADを読まない", () => {
   const root = fixture();
   makeStructure(root);
@@ -9200,6 +12174,18 @@ test("gitlink位置の通常ディレクトリから親GitのHEADを読まない
   );
 });
 
+/**
+ * submodule節外のpathをgitmodules宣言と誤認しないを検証する。
+ *
+ * @responsibility submodule節外のpathをgitmodules宣言と誤認しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus submodule節外のpathをgitmodules宣言と誤認しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("submodule節外のpathをgitmodules宣言と誤認しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -9220,6 +12206,18 @@ test("submodule節外のpathをgitmodules宣言と誤認しない", () => {
   );
 });
 
+/**
+ * gitmodulesのコメント開始をGit自身の解釈で判定するを検証する。
+ *
+ * @responsibility gitmodulesのコメント開始をGit自身の解釈で判定するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus gitmodulesのコメント開始をGit自身の解釈で判定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("gitmodulesのコメント開始をGit自身の解釈で判定する", () => {
   const root = fixture();
   makeStructure(root);
@@ -9241,6 +12239,18 @@ test("gitmodulesのコメント開始をGit自身の解釈で判定する", () =
   );
 });
 
+/**
+ * gitmodulesの引用値に続く文字を切り捨てないを検証する。
+ *
+ * @responsibility gitmodulesの引用値に続く文字を切り捨てないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus gitmodulesの引用値に続く文字を切り捨てないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("gitmodulesの引用値に続く文字を切り捨てない", () => {
   const root = fixture();
   makeStructure(root);
@@ -9261,6 +12271,18 @@ test("gitmodulesの引用値に続く文字を切り捨てない", () => {
   );
 });
 
+/**
+ * gitmodulesの空値・不正な引用符・行末コメントを安全に解釈するを検証する。
+ *
+ * @responsibility gitmodulesの空値・不正な引用符・行末コメントを安全に解釈するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus gitmodulesの空値・不正な引用符・行末コメントを安全に解釈するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("gitmodulesの空値・不正な引用符・行末コメントを安全に解釈する", () => {
   const root = fixture();
   makeStructure(root);
@@ -9302,6 +12324,18 @@ test("gitmodulesの空値・不正な引用符・行末コメントを安全に�
   ]);
 });
 
+/**
+ * gitmodules宣言だけの通常ディレクトリをgitlinkと誤認しないを検証する。
+ *
+ * @responsibility gitmodules宣言だけの通常ディレクトリをgitlinkと誤認しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus gitmodules宣言だけの通常ディレクトリをgitlinkと誤認しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("gitmodules宣言だけの通常ディレクトリをgitlinkと誤認しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -9328,6 +12362,18 @@ test("gitmodules宣言だけの通常ディレクトリをgitlinkと誤認しな
   );
 });
 
+/**
+ * 親indexのmodeを読めない場合はgitlink欠落と断定しないを検証する。
+ *
+ * @responsibility 親indexのmodeを読めない場合はgitlink欠落と断定しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 親indexのmodeを読めない場合はgitlink欠落と断定しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("親indexのmodeを読めない場合はgitlink欠落と断定しない", () => {
   const source = fixture();
   initializeGit(source);
@@ -9394,6 +12440,18 @@ test("親indexのmodeを読めない場合はgitlink欠落と断定しない", (
   );
 });
 
+/**
+ * 競合中のgitlinkを確定Revisionとして扱わないを検証する。
+ *
+ * @responsibility 競合中のgitlinkを確定Revisionとして扱わないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 競合中のgitlinkを確定Revisionとして扱わないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("競合中のgitlinkを確定Revisionとして扱わない", () => {
   const root = fixture();
   makeStructure(root);
@@ -9431,6 +12489,18 @@ test("競合中のgitlinkを確定Revisionとして扱わない", () => {
   );
 });
 
+/**
+ * gitmodulesを検証できない場合は宣言欠落と断定しないを検証する。
+ *
+ * @responsibility gitmodulesを検証できない場合は宣言欠落と断定しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus gitmodulesを検証できない場合は宣言欠落と断定しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("gitmodulesを検証できない場合は宣言欠落と断定しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -9463,6 +12533,18 @@ test("gitmodulesを検証できない場合は宣言欠落と断定しない", (
   );
 });
 
+/**
+ * git configの不正な出力をsubmodule宣言として採用しないを検証する。
+ *
+ * @responsibility git configの不正な出力をsubmodule宣言として採用しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus git configの不正な出力をsubmodule宣言として採用しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("git configの不正な出力をsubmodule宣言として採用しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -9494,6 +12576,18 @@ test("git configの不正な出力をsubmodule宣言として採用しない", (
   );
 });
 
+/**
+ * 未初期化gitlink配下へのリンクを破損リンクと誤認しないを検証する。
+ *
+ * @responsibility 未初期化gitlink配下へのリンクを破損リンクと誤認しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 未初期化gitlink配下へのリンクを破損リンクと誤認しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("未初期化gitlink配下へのリンクを破損リンクと誤認しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -9547,6 +12641,18 @@ test("未初期化gitlink配下へのリンクを破損リンクと誤認しな�
   assert.match(references.stderr, /Gitlink submodule/u);
 });
 
+/**
+ * index modeを読めなくても宣言済みsubmodule境界を破損リンクにしないを検証する。
+ *
+ * @responsibility index modeを読めなくても宣言済みsubmodule境界を破損リンクにしないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus index modeを読めなくても宣言済みsubmodule境界を破損リンクにしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("index modeを読めなくても宣言済みsubmodule境界を破損リンクにしない", () => {
   const root = fixture();
   makeStructure(root);
@@ -9579,6 +12685,18 @@ test("index modeを読めなくても宣言済みsubmodule境界を破損リン�
   );
 });
 
+/**
+ * 必須領域自体が未初期化gitlinkでも欠落と誤認しないを検証する。
+ *
+ * @responsibility 必須領域自体が未初期化gitlinkでも欠落と誤認しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 必須領域自体が未初期化gitlinkでも欠落と誤認しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("必須領域自体が未初期化gitlinkでも欠落と誤認しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -9603,6 +12721,18 @@ test("必須領域自体が未初期化gitlinkでも欠落と誤認しない", (
   );
 });
 
+/**
+ * シンボリックリンク経由のルート外参照を読み取らないを検証する。
+ *
+ * @responsibility シンボリックリンク経由のルート外参照を読み取らないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus シンボリックリンク経由のルート外参照を読み取らないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("シンボリックリンク経由のルート外参照を読み取らない", () => {
   const root = fixture();
   const outside = fixture();
@@ -9654,6 +12784,18 @@ test("シンボリックリンク経由のルート外参照を読み取らな�
   assert.equal(references.status, 2);
 });
 
+/**
+ * 実物のGitサブモジュール内チェッカーから適用先を確認するを検証する。
+ *
+ * @responsibility 実物のGitサブモジュール内チェッカーから適用先を確認するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実物のGitサブモジュール内チェッカーから適用先を確認するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("実物のGitサブモジュール内チェッカーから適用先を確認する", () => {
   const source = fixture();
   write(
@@ -9877,6 +13019,18 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
   );
 });
 
+/**
+ * 構造上の欠落・旧配置・予約領域・中央集約をまとめて検出するを検証する。
+ *
+ * @responsibility 構造上の欠落・旧配置・予約領域・中央集約をまとめて検出するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 構造上の欠落・旧配置・予約領域・中央集約をまとめて検出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("構造上の欠落・旧配置・予約領域・中央集約をまとめて検出する", () => {
   const root = fixture();
   makeStructure(root);
@@ -9899,6 +13053,18 @@ test("構造上の欠落・旧配置・予約領域・中央集約をまとめ�
   }
 });
 
+/**
+ * 外部リンクと山括弧リンクと公式ひな型の正本読替えを扱うを検証する。
+ *
+ * @responsibility 外部リンクと山括弧リンクと公式ひな型の正本読替えを扱うの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 外部リンクと山括弧リンクと公式ひな型の正本読替えを扱うの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("外部リンクと山括弧リンクと公式ひな型の正本読替えを扱う", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -9925,6 +13091,18 @@ test("外部リンクと山括弧リンクと公式ひな型の正本読替え�
   assert.equal(result.report.metrics.errors, 0);
 });
 
+/**
+ * 範囲指定を直接の参照元と参照先へ広げるを検証する。
+ *
+ * @responsibility 範囲指定を直接の参照元と参照先へ広げるの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 範囲指定を直接の参照元と参照先へ広げるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("範囲指定を直接の参照元と参照先へ広げる", () => {
   const root = fixture();
   makeStructure(root);
@@ -9943,6 +13121,18 @@ test("範囲指定を直接の参照元と参照先へ広げる", () => {
   );
 });
 
+/**
+ * 正本文書ルートのジャンクションを拒否するを検証する。
+ *
+ * @responsibility 正本文書ルートのジャンクションを拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 正本文書ルートのジャンクションを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("正本文書ルートのジャンクションを拒否する", () => {
   const root = fixture();
   const outside = fixture();
@@ -9964,6 +13154,18 @@ test("正本文書ルートのジャンクションを拒否する", () => {
   assert.equal(result.report.metrics.versioned_documents_checked, 0);
 });
 
+/**
+ * 範囲指定のルート外と存在しない対象を拒否するを検証する。
+ *
+ * @responsibility 範囲指定のルート外と存在しない対象を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 範囲指定のルート外と存在しない対象を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("範囲指定のルート外と存在しない対象を拒否する", () => {
   const root = fixture();
   makeStructure(root);
@@ -9980,6 +13182,18 @@ test("範囲指定のルート外と存在しない対象を拒否する", () =>
   }
 });
 
+/**
+ * 参照マップのルート外とGit対象外ファイルを拒否するを検証する。
+ *
+ * @responsibility 参照マップのルート外とGit対象外ファイルを拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 参照マップのルート外とGit対象外ファイルを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("参照マップのルート外とGit対象外ファイルを拒否する", () => {
   const root = fixture();
   makeStructure(root);
@@ -10002,6 +13216,18 @@ test("参照マップのルート外とGit対象外ファイルを拒否する",
   }
 });
 
+/**
+ * 公式ひな型ルートのジャンクションを拒否するを検証する。
+ *
+ * @responsibility 公式ひな型ルートのジャンクションを拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公式ひな型ルートのジャンクションを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("公式ひな型ルートのジャンクションを拒否する", () => {
   const root = fixture();
   const outside = fixture();
@@ -10023,6 +13249,18 @@ test("公式ひな型ルートのジャンクションを拒否する", () => {
   );
 });
 
+/**
+ * 非JSON出力に指摘と参照マップを表示するを検証する。
+ *
+ * @responsibility 非JSON出力に指摘と参照マップを表示するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 非JSON出力に指摘と参照マップを表示するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("非JSON出力に指摘と参照マップを表示する", () => {
   const root = fixture();
   makeStructure(root);
@@ -10039,6 +13277,18 @@ test("非JSON出力に指摘と参照マップを表示する", () => {
   assert.match(result.stdout, /"target": "01_Discovery\/A.md"/u);
 });
 
+/**
+ * checker root must be a real directory rather than a junctionを検証する。
+ *
+ * @responsibility checker root must be a real directory rather than a junctionの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus checker root must be a real directory rather than a junctionの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("checker root must be a real directory rather than a junction", () => {
   const realRoot = fixture();
   const holder = fixture();
@@ -10056,6 +13306,18 @@ test("checker root must be a real directory rather than a junction", () => {
   assert.doesNotMatch(result.stdout, /Secret\.md/u);
 });
 
+/**
+ * a regular file at 00_CRDD is reported without traversalを検証する。
+ *
+ * @responsibility a regular file at 00_CRDD is reported without traversalの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus a regular file at 00_CRDD is reported without traversalの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("a regular file at 00_CRDD is reported without traversal", () => {
   const root = fixture();
   for (const folder of requiredFolders.filter((name) => name !== "00_CRDD")) {
@@ -10070,6 +13332,18 @@ test("a regular file at 00_CRDD is reported without traversal", () => {
   assert.ok(codes.has("invalid-structure-entry"));
 });
 
+/**
+ * a regular file at the official template root is reported without traversalを検証する。
+ *
+ * @responsibility a regular file at the official template root is reported without traversalの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus a regular file at the official template root is reported without traversalの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("a regular file at the official template root is reported without traversal", () => {
   const root = fixture();
   write(path.join(root, "01_Principles.md"), "Version: v0.10.0\n");
@@ -10085,6 +13359,18 @@ test("a regular file at the official template root is reported without traversal
   );
 });
 
+/**
+ * a required CRDD structure entry must be a directoryを検証する。
+ *
+ * @responsibility a required CRDD structure entry must be a directoryの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus a required CRDD structure entry must be a directoryの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("a required CRDD structure entry must be a directory", () => {
   const root = fixture();
   makeStructure(root);
@@ -10101,6 +13387,18 @@ test("a required CRDD structure entry must be a directory", () => {
   );
 });
 
+/**
+ * fallbackではgitdirが読めても親indexのgitlinkを検証済みにしないを検証する。
+ *
+ * @responsibility fallbackではgitdirが読めても親indexのgitlinkを検証済みにしないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallbackではgitdirが読めても親indexのgitlinkを検証済みにしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("fallbackではgitdirが読めても親indexのgitlinkを検証済みにしない", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -10136,6 +13434,18 @@ test("fallbackではgitdirが読めても親indexのgitlinkを検証済みにし
   assert.equal(result.report.discovery_source, "walk-fallback");
 });
 
+/**
+ * gitmodulesを読めないfallbackは例外終了せず未確認にするを検証する。
+ *
+ * @responsibility gitmodulesを読めないfallbackは例外終了せず未確認にするの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus gitmodulesを読めないfallbackは例外終了せず未確認にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("gitmodulesを読めないfallbackは例外終了せず未確認にする", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -10158,6 +13468,18 @@ test("gitmodulesを読めないfallbackは例外終了せず未確認にする",
   );
 });
 
+/**
+ * fallback rejects an invalid submodule gitdir fileを検証する。
+ *
+ * @responsibility fallback rejects an invalid submodule gitdir fileの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback rejects an invalid submodule gitdir fileの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("fallback rejects an invalid submodule gitdir file", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -10182,6 +13504,18 @@ test("fallback rejects an invalid submodule gitdir file", () => {
   );
 });
 
+/**
+ * fallback rejects a linked submodule git markerを検証する。
+ *
+ * @responsibility fallback rejects a linked submodule git markerの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback rejects a linked submodule git markerの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("fallback rejects a linked submodule git marker", () => {
   const root = fixture();
   const outside = fixture();
@@ -10212,6 +13546,18 @@ test("fallback rejects a linked submodule git marker", () => {
   );
 });
 
+/**
+ * a generic repository does not require the CRDD template structureを検証する。
+ *
+ * @responsibility a generic repository does not require the CRDD template structureの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus a generic repository does not require the CRDD template structureの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("a generic repository does not require the CRDD template structure", () => {
   const root = fixture();
 
@@ -10221,6 +13567,18 @@ test("a generic repository does not require the CRDD template structure", () => 
   assert.equal(result.report.findings.length, 0);
 });
 
+/**
+ * duplicate headings use the same suffixes as GitHub anchorsを検証する。
+ *
+ * @responsibility duplicate headings use the same suffixes as GitHub anchorsの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus duplicate headings use the same suffixes as GitHub anchorsの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("duplicate headings use the same suffixes as GitHub anchors", () => {
   const root = fixture();
   makeStructure(root);
@@ -10238,6 +13596,18 @@ test("duplicate headings use the same suffixes as GitHub anchors", () => {
   assert.equal(result.report.metrics.anchors_checked, 1);
 });
 
+/**
+ * heading anchors remove Japanese punctuation without removing Japanese textを検証する。
+ *
+ * @responsibility heading anchors remove Japanese punctuation without removing Japanese textの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus heading anchors remove Japanese punctuation without removing Japanese textの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("heading anchors remove Japanese punctuation without removing Japanese text", () => {
   const root = fixture();
   makeStructure(root);
@@ -10252,6 +13622,18 @@ test("heading anchors remove Japanese punctuation without removing Japanese text
   assert.equal(result.report.metrics.anchors_checked, 1);
 });
 
+/**
+ * heading anchors preserve consecutive, leading, and trailing hyphensを検証する。
+ *
+ * @responsibility heading anchors preserve consecutive, leading, and trailing hyphensの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus heading anchors preserve consecutive, leading, and trailing hyphensの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("heading anchors preserve consecutive, leading, and trailing hyphens", () => {
   const root = fixture();
   makeStructure(root);
@@ -10273,6 +13655,18 @@ test("heading anchors preserve consecutive, leading, and trailing hyphens", () =
   assert.equal(result.report.metrics.anchors_checked, 3);
 });
 
+/**
+ * heading anchors use rendered Markdown textを検証する。
+ *
+ * @responsibility heading anchors use rendered Markdown textの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus heading anchors use rendered Markdown textの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("heading anchors use rendered Markdown text", () => {
   const root = fixture();
   makeStructure(root);
@@ -10290,6 +13684,18 @@ test("heading anchors use rendered Markdown text", () => {
   assert.equal(result.report.metrics.anchors_checked, 1);
 });
 
+/**
+ * heading anchors preserve literal underscores outside emphasisを検証する。
+ *
+ * @responsibility heading anchors preserve literal underscores outside emphasisの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus heading anchors preserve literal underscores outside emphasisの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("heading anchors preserve literal underscores outside emphasis", () => {
   const root = fixture();
   makeStructure(root);
@@ -10349,6 +13755,18 @@ test("heading anchors preserve literal underscores outside emphasis", () => {
   assert.equal(result.report.metrics.anchors_checked, 20);
 });
 
+/**
+ * heading anchors use visible labels from common inline Markdownを検証する。
+ *
+ * @responsibility heading anchors use visible labels from common inline Markdownの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus heading anchors use visible labels from common inline Markdownの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("heading anchors use visible labels from common inline Markdown", () => {
   const root = fixture();
   makeStructure(root);
@@ -10384,6 +13802,18 @@ test("heading anchors use visible labels from common inline Markdown", () => {
   assert.equal(result.report.metrics.anchors_checked, 8);
 });
 
+/**
+ * duplicate heading suffixes avoid anchors generated by another headingを検証する。
+ *
+ * @responsibility duplicate heading suffixes avoid anchors generated by another headingの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus duplicate heading suffixes avoid anchors generated by another headingの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("duplicate heading suffixes avoid anchors generated by another heading", () => {
   const root = fixture();
   makeStructure(root);
@@ -10398,6 +13828,18 @@ test("duplicate heading suffixes avoid anchors generated by another heading", ()
   assert.equal(result.report.metrics.anchors_checked, 1);
 });
 
+/**
+ * an anchor-only Markdown link resolves to its source fileを検証する。
+ *
+ * @responsibility an anchor-only Markdown link resolves to its source fileの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus an anchor-only Markdown link resolves to its source fileの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("an anchor-only Markdown link resolves to its source file", () => {
   const root = fixture();
   makeStructure(root);
@@ -10411,6 +13853,18 @@ test("an anchor-only Markdown link resolves to its source file", () => {
   assert.equal(result.report.metrics.anchors_checked, 1);
 });
 
+/**
+ * fallbackではGit metadataディレクトリだけで初期化済みにしないを検証する。
+ *
+ * @responsibility fallbackではGit metadataディレクトリだけで初期化済みにしないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallbackではGit metadataディレクトリだけで初期化済みにしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("fallbackではGit metadataディレクトリだけで初期化済みにしない", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -10436,6 +13890,18 @@ test("fallbackではGit metadataディレクトリだけで初期化済みにし
   );
 });
 
+/**
+ * fallback rejects a gitdir reference outside the target rootを検証する。
+ *
+ * @responsibility fallback rejects a gitdir reference outside the target rootの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback rejects a gitdir reference outside the target rootの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("fallback rejects a gitdir reference outside the target root", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -10455,6 +13921,18 @@ test("fallback rejects a gitdir reference outside the target root", () => {
   assert.equal(result.report.baseline_submodule_initialized, null);
 });
 
+/**
+ * fallback rejects a gitdir reference that is not a directoryを検証する。
+ *
+ * @responsibility fallback rejects a gitdir reference that is not a directoryの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback rejects a gitdir reference that is not a directoryの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("fallback rejects a gitdir reference that is not a directory", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -10478,6 +13956,18 @@ test("fallback rejects a gitdir reference that is not a directory", () => {
   assert.equal(result.report.baseline_submodule_initialized, null);
 });
 
+/**
+ * clean non-JSON summary output does not require a reference mapを検証する。
+ *
+ * @responsibility clean non-JSON summary output does not require a reference mapの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus clean non-JSON summary output does not require a reference mapの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("clean non-JSON summary output does not require a reference map", () => {
   const root = fixture();
   makeStructure(root);
@@ -10488,6 +13978,18 @@ test("clean non-JSON summary output does not require a reference map", () => {
   assert.match(result.stdout, /Repository=adopter/u);
 });
 
+/**
+ * unexpected filesystem metadata failures are not treated as missing filesを検証する。
+ *
+ * @responsibility unexpected filesystem metadata failures are not treated as missing filesの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus unexpected filesystem metadata failures are not treated as missing filesの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("unexpected filesystem metadata failures are not treated as missing files", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -10507,6 +14009,18 @@ test("unexpected filesystem metadata failures are not treated as missing files",
   assert.match(result.stderr, /injected metadata failure/u);
 });
 
+/**
+ * a structure root removed during inspection becomes a structured findingを検証する。
+ *
+ * @responsibility a structure root removed during inspection becomes a structured findingの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus a structure root removed during inspection becomes a structured findingの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("a structure root removed during inspection becomes a structured finding", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -10522,6 +14036,18 @@ test("a structure root removed during inspection becomes a structured finding", 
   );
 });
 
+/**
+ * a special filesystem object cannot initialize a fallback baselineを検証する。
+ *
+ * @responsibility a special filesystem object cannot initialize a fallback baselineの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus a special filesystem object cannot initialize a fallback baselineの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("a special filesystem object cannot initialize a fallback baseline", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -10543,6 +14069,18 @@ test("a special filesystem object cannot initialize a fallback baseline", () => 
   assert.equal(result.report.baseline_submodule_initialized, null);
 });
 
+/**
+ * a special filesystem object is not accepted as a reference targetを検証する。
+ *
+ * @responsibility a special filesystem object is not accepted as a reference targetの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus a special filesystem object is not accepted as a reference targetの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("a special filesystem object is not accepted as a reference target", () => {
   const root = fixture();
   makeStructure(root);
@@ -10561,6 +14099,18 @@ test("a special filesystem object is not accepted as a reference target", () => 
   assert.match(result.stderr, /is not a file or directory/u);
 });
 
+/**
+ * Git repository discovery failures use the explicit fallback reasonを検証する。
+ *
+ * @responsibility Git repository discovery failures use the explicit fallback reasonの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Git repository discovery failures use the explicit fallback reasonの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Git repository discovery failures use the explicit fallback reason", () => {
   for (const fault of ["git-root-failed", "git-root-failed-no-stderr"]) {
     const root = fixture();
@@ -10575,6 +14125,18 @@ test("Git repository discovery failures use the explicit fallback reason", () =>
   }
 });
 
+/**
+ * Git file discovery rejects outside, missing, and linked entriesを検証する。
+ *
+ * @responsibility Git file discovery rejects outside, missing, and linked entriesの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Git file discovery rejects outside, missing, and linked entriesの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("Git file discovery rejects outside, missing, and linked entries", () => {
   const root = fixture();
   const outside = fixture();
@@ -10611,6 +14173,18 @@ test("Git file discovery rejects outside, missing, and linked entries", () => {
   );
 });
 
+/**
+ * symbolic-boundary helper fails closed when a target resolves outsideを検証する。
+ *
+ * @responsibility symbolic-boundary helper fails closed when a target resolves outsideの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus symbolic-boundary helper fails closed when a target resolves outsideの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("symbolic-boundary helper fails closed when a target resolves outside", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -10632,6 +14206,18 @@ test("symbolic-boundary helper fails closed when a target resolves outside", () 
   assert.equal(result.report.baseline_submodule, true);
 });
 
+/**
+ * fallback rejects a gitdir directory reached through a junctionを検証する。
+ *
+ * @responsibility fallback rejects a gitdir directory reached through a junctionの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback rejects a gitdir directory reached through a junctionの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("fallback rejects a gitdir directory reached through a junction", () => {
   const root = fixture();
   const outside = fixture();
@@ -10658,6 +14244,18 @@ test("fallback rejects a gitdir directory reached through a junction", () => {
   assert.equal(result.report.baseline_submodule_initialized, null);
 });
 
+/**
+ * empty heading anchors are ignoredを検証する。
+ *
+ * @responsibility empty heading anchors are ignoredの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus empty heading anchors are ignoredの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("empty heading anchors are ignored", () => {
   const root = fixture();
   makeStructure(root);
@@ -10671,6 +14269,18 @@ test("empty heading anchors are ignored", () => {
   );
 });
 
+/**
+ * finding order falls back to the message when other keys are equalを検証する。
+ *
+ * @responsibility finding order falls back to the message when other keys are equalの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus finding order falls back to the message when other keys are equalの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("finding order falls back to the message when other keys are equal", () => {
   const root = fixture();
   makeStructure(root);
@@ -10689,6 +14299,18 @@ test("finding order falls back to the message when other keys are equal", () => 
   );
 });
 
+/**
+ * clean Git summary renders a null discovery failure as noneを検証する。
+ *
+ * @responsibility clean Git summary renders a null discovery failure as noneの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus clean Git summary renders a null discovery failure as noneの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("clean Git summary renders a null discovery failure as none", () => {
   const root = fixture();
   makeStructure(root);
@@ -10702,6 +14324,18 @@ test("clean Git summary renders a null discovery failure as none", () => {
   assert.match(result.stdout, /git_failure=none/u);
 });
 
+/**
+ * fallback fails closed when the root disappears before directory walkingを検証する。
+ *
+ * @responsibility fallback fails closed when the root disappears before directory walkingの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback fails closed when the root disappears before directory walkingの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("fallback fails closed when the root disappears before directory walking", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -10725,6 +14359,18 @@ test("fallback fails closed when the root disappears before directory walking", 
   );
 });
 
+/**
+ * reference maps omit external linksを検証する。
+ *
+ * @responsibility reference maps omit external linksの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus reference maps omit external linksの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("reference maps omit external links", () => {
   const root = fixture();
   makeStructure(root);
@@ -10742,6 +14388,18 @@ test("reference maps omit external links", () => {
   assert.equal(references.outbound[0].target, "01_Discovery/B.md");
 });
 
+/**
+ * fallback reports a nested directory that disappears before recursionを検証する。
+ *
+ * @responsibility fallback reports a nested directory that disappears before recursionの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback reports a nested directory that disappears before recursionの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("fallback reports a nested directory that disappears before recursion", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -10764,6 +14422,18 @@ test("fallback reports a nested directory that disappears before recursion", () 
   );
 });
 
+/**
+ * fallback distinguishes nested metadata, type, and link racesを検証する。
+ *
+ * @responsibility fallback distinguishes nested metadata, type, and link racesの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback distinguishes nested metadata, type, and link racesの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("fallback distinguishes nested metadata, type, and link races", () => {
   const cases = [
     ["lstat-error", "discovery-directory-metadata-failed"],
@@ -10793,6 +14463,18 @@ test("fallback distinguishes nested metadata, type, and link races", () => {
   }
 });
 
+/**
+ * fallback distinguishes directory-list failuresを検証する。
+ *
+ * @responsibility fallback distinguishes directory-list failuresの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback distinguishes directory-list failuresの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("fallback distinguishes directory-list failures", () => {
   const cases = [
     ["ENOENT", "discovery-directory-missing"],
@@ -10820,6 +14502,18 @@ test("fallback distinguishes directory-list failures", () => {
   }
 });
 
+/**
+ * fallback rejects a directory removed after its entries are readを検証する。
+ *
+ * @responsibility fallback rejects a directory removed after its entries are readの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback rejects a directory removed after its entries are readの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("fallback rejects a directory removed after its entries are read", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -10840,6 +14534,18 @@ test("fallback rejects a directory removed after its entries are read", () => {
   );
 });
 
+/**
+ * reference maps aggregate links for a directory targetを検証する。
+ *
+ * @responsibility reference maps aggregate links for a directory targetの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus reference maps aggregate links for a directory targetの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("reference maps aggregate links for a directory target", () => {
   const root = fixture();
   makeStructure(root);
@@ -10854,6 +14560,18 @@ test("reference maps aggregate links for a directory target", () => {
   assert.equal(references.inbound.length, 1);
 });
 
+/**
+ * child-process fault injection records a directory replacementを検証する。
+ *
+ * @responsibility child-process fault injection records a directory replacementの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus child-process fault injection records a directory replacementの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("child-process fault injection records a directory replacement", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -10882,6 +14600,18 @@ test("child-process fault injection records a directory replacement", () => {
   );
 });
 
+/**
+ * recognizable remediation tables validate a resolved rowを検証する。
+ *
+ * @responsibility recognizable remediation tables validate a resolved rowの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus recognizable remediation tables validate a resolved rowの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("recognizable remediation tables validate a resolved row", () => {
   const root = fixture();
   makeStructure(root);
@@ -10901,6 +14631,18 @@ test("recognizable remediation tables validate a resolved row", () => {
   assert.equal(result.report.metrics.remediation_rows_checked, 1);
 });
 
+/**
+ * recognizable remediation tables reject fixed and premature resolutionを検証する。
+ *
+ * @responsibility recognizable remediation tables reject fixed and premature resolutionの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus recognizable remediation tables reject fixed and premature resolutionの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("recognizable remediation tables reject fixed and premature resolution", () => {
   const root = fixture();
   makeStructure(root);
@@ -10938,6 +14680,18 @@ test("recognizable remediation tables reject fixed and premature resolution", ()
   );
 });
 
+/**
+ * recognizable remediation tables require restart information for blockersを検証する。
+ *
+ * @responsibility recognizable remediation tables require restart information for blockersの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus recognizable remediation tables require restart information for blockersの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("recognizable remediation tables require restart information for blockers", () => {
   const root = fixture();
   makeStructure(root);
@@ -10961,6 +14715,18 @@ test("recognizable remediation tables require restart information for blockers",
   );
 });
 
+/**
+ * remediation tables support outer-pipe-free GFM and pipes inside cellsを検証する。
+ *
+ * @responsibility remediation tables support outer-pipe-free GFM and pipes inside cellsの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus remediation tables support outer-pipe-free GFM and pipes inside cellsの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("remediation tables support outer-pipe-free GFM and pipes inside cells", () => {
   const root = fixture();
   makeStructure(root);
@@ -10980,6 +14746,18 @@ test("remediation tables support outer-pipe-free GFM and pipes inside cells", ()
   assert.equal(result.report.metrics.remediation_rows_checked, 1);
 });
 
+/**
+ * remediation tables report a missing state axisを検証する。
+ *
+ * @responsibility remediation tables report a missing state axisの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus remediation tables report a missing state axisの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("remediation tables report a missing state axis", () => {
   const root = fixture();
   makeStructure(root);
@@ -11003,6 +14781,18 @@ test("remediation tables report a missing state axis", () => {
   );
 });
 
+/**
+ * resolved remediation rejects inconsistent progress and blocker axesを検証する。
+ *
+ * @responsibility resolved remediation rejects inconsistent progress and blocker axesの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus resolved remediation rejects inconsistent progress and blocker axesの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("resolved remediation rejects inconsistent progress and blocker axes", () => {
   const root = fixture();
   makeStructure(root);
@@ -11032,6 +14822,18 @@ test("resolved remediation rejects inconsistent progress and blocker axes", () =
   );
 });
 
+/**
+ * generic review tables are not treated as remediation tablesを検証する。
+ *
+ * @responsibility generic review tables are not treated as remediation tablesの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus generic review tables are not treated as remediation tablesの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("generic review tables are not treated as remediation tables", () => {
   const root = fixture();
   makeStructure(root);
@@ -11051,6 +14853,18 @@ test("generic review tables are not treated as remediation tables", () => {
   assert.equal(result.report.metrics.remediation_rows_checked, 0);
 });
 
+/**
+ * generic tables with two short state aliases are not remediation tablesを検証する。
+ *
+ * @responsibility generic tables with two short state aliases are not remediation tablesの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus generic tables with two short state aliases are not remediation tablesの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("generic tables with two short state aliases are not remediation tables", () => {
   const root = fixture();
   makeStructure(root);
@@ -11070,6 +14884,18 @@ test("generic tables with two short state aliases are not remediation tables", (
   assert.equal(result.report.metrics.remediation_rows_checked, 0);
 });
 
+/**
+ * explicit remediation context detects a missing state axis without auxiliary columnsを検証する。
+ *
+ * @responsibility explicit remediation context detects a missing state axis without auxiliary columnsの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus explicit remediation context detects a missing state axis without auxiliary columnsの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("explicit remediation context detects a missing state axis without auxiliary columns", () => {
   const root = fixture();
   makeStructure(root);
@@ -11093,6 +14919,18 @@ test("explicit remediation context detects a missing state axis without auxiliar
   assert.match(finding.message, /阻害状態/u);
 });
 
+/**
+ * canonical English remediation headers are recognizedを検証する。
+ *
+ * @responsibility canonical English remediation headers are recognizedの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus canonical English remediation headers are recognizedの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("canonical English remediation headers are recognized", () => {
   const root = fixture();
   makeStructure(root);
@@ -11112,6 +14950,18 @@ test("canonical English remediation headers are recognized", () => {
   assert.equal(result.report.metrics.remediation_rows_checked, 1);
 });
 
+/**
+ * branch coverage tables use one parser for GFM headers and rowsを検証する。
+ *
+ * @responsibility branch coverage tables use one parser for GFM headers and rowsの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus branch coverage tables use one parser for GFM headers and rowsの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Producer→Consumer
+ */
 test("branch coverage tables use one parser for GFM headers and rows", () => {
   const root = fixture();
   makeStructure(root);

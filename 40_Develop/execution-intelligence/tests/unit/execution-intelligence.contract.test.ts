@@ -1,3 +1,13 @@
+/**
+ * execution-intelligence:unit:event-contractの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility execution-intelligence:unit:event-contractが所有する検証責務を実行する。
+ * @trace ERP-UT-006
+ * @level UT
+ * @scope execution、intelligence、observation、aggregation
+ * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -14,6 +24,18 @@ import {
   usageNotObserved,
 } from "../../src/index.ts";
 
+/**
+ * public observation helpers preserve values, absence and non-applicabilityを検証する。
+ *
+ * @responsibility public observation helpers preserve values, absence and non-applicabilityの合否判定を所有する。
+ * @trace ERP-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus public observation helpers preserve values, absence and non-applicabilityの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 test("public observation helpers preserve values, absence and non-applicability", () => {
   assert.deepEqual(observed(12, "provider_receipt"), {
     state: "observed",
@@ -30,6 +52,18 @@ test("public observation helpers preserve values, absence and non-applicability"
   });
 });
 
+/**
+ * eventのTest準備責務を実行する。
+ *
+ * @responsibility eventがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERP-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus eventを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 function event(
   status: "completed" | "blocked" = "completed",
   taskId = "task-a",
@@ -79,6 +113,18 @@ function event(
   });
 }
 
+/**
+ * creates a closed metadata-only event and preserves missing observationsを検証する。
+ *
+ * @responsibility creates a closed metadata-only event and preserves missing observationsの合否判定を所有する。
+ * @trace ERP-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus creates a closed metadata-only event and preserves missing observationsの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 test("creates a closed metadata-only event and preserves missing observations", () => {
   const created = event();
   assert.deepEqual(inspectExecutionIntelligenceEvent(created), created);
@@ -98,6 +144,18 @@ test("creates a closed metadata-only event and preserves missing observations", 
   );
 });
 
+/**
+ * accepts stable provider and role identifiers without Coordinator ownershipを検証する。
+ *
+ * @responsibility accepts stable provider and role identifiers without Coordinator ownershipの合否判定を所有する。
+ * @trace ERP-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus accepts stable provider and role identifiers without Coordinator ownershipの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 test("accepts stable provider and role identifiers without Coordinator ownership", () => {
   const created = event();
   const external = createTaskAttemptSettledEvent({
@@ -123,6 +181,18 @@ test("accepts stable provider and role identifiers without Coordinator ownership
   });
 });
 
+/**
+ * aggregates observed facts without turning missing values into zeroを検証する。
+ *
+ * @responsibility aggregates observed facts without turning missing values into zeroの合否判定を所有する。
+ * @trace ERP-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus aggregates observed facts without turning missing values into zeroの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 test("aggregates observed facts without turning missing values into zero", () => {
   const summary = summarizeExecutionIntelligence([event()]);
   assert.ok(summary);
@@ -136,6 +206,18 @@ test("aggregates observed facts without turning missing values into zero", () =>
   assert.equal(summary.missingnessPreserved, true);
 });
 
+/**
+ * preserves partially observed AI API usage without inventing cost or cache valuesを検証する。
+ *
+ * @responsibility preserves partially observed AI API usage without inventing cost or cache valuesの合否判定を所有する。
+ * @trace ERP-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus preserves partially observed AI API usage without inventing cost or cache valuesの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 test("preserves partially observed AI API usage without inventing cost or cache values", () => {
   const base = event();
   const partial = createTaskAttemptSettledEvent({
@@ -162,6 +244,18 @@ test("preserves partially observed AI API usage without inventing cost or cache 
   assert.equal(partial.execution.usage.costOrCredits.state, "not_observed");
 });
 
+/**
+ * accepts an explicit cost unit and rejects invalid usage membersを検証する。
+ *
+ * @responsibility accepts an explicit cost unit and rejects invalid usage membersの合否判定を所有する。
+ * @trace ERP-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus accepts an explicit cost unit and rejects invalid usage membersの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 test("accepts an explicit cost unit and rejects invalid usage members", () => {
   const base = event();
   const measured = createTaskAttemptSettledEvent({
@@ -206,6 +300,18 @@ test("accepts an explicit cost unit and rejects invalid usage members", () => {
   );
 });
 
+/**
+ * returns non-authoritative improvement candidatesを検証する。
+ *
+ * @responsibility returns non-authoritative improvement candidatesの合否判定を所有する。
+ * @trace ERP-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus returns non-authoritative improvement candidatesの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 test("returns non-authoritative improvement candidates", () => {
   const proposal = proposeExecutionImprovementCandidates([event("blocked")]);
   assert.ok(proposal);
@@ -218,6 +324,18 @@ test("returns non-authoritative improvement candidates", () => {
   );
 });
 
+/**
+ * rejects an invalid member instead of silently dropping itを検証する。
+ *
+ * @responsibility rejects an invalid member instead of silently dropping itの合否判定を所有する。
+ * @trace ERP-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus rejects an invalid member instead of silently dropping itの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 test("rejects an invalid member instead of silently dropping it", () => {
   assert.equal(
     summarizeExecutionIntelligence([event(), { status: "bad" }]),
@@ -231,6 +349,18 @@ test("rejects an invalid member instead of silently dropping it", () => {
   assert.equal(summarizeExecutionIntelligence([duplicate, duplicate]), null);
 });
 
+/**
+ * 公開Event検査はAccessor・Proxyを実行せずcanonical copyだけを返すを検証する。
+ *
+ * @responsibility 公開Event検査はAccessor・Proxyを実行せずcanonical copyだけを返すの合否判定を所有する。
+ * @trace ERP-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開Event検査はAccessor・Proxyを実行せずcanonical copyだけを返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 test("公開Event検査はAccessor・Proxyを実行せずcanonical copyだけを返す", () => {
   const base = event();
   let getterCalls = 0;
@@ -261,6 +391,18 @@ test("公開Event検査はAccessor・Proxyを実行せずcanonical copyだけを
   assert.deepEqual(inspected, base);
 });
 
+/**
+ * Event生成は入力を一度だけsnapshotしIdentityと決定的IDを一致させるを検証する。
+ *
+ * @responsibility Event生成は入力を一度だけsnapshotしIdentityと決定的IDを一致させるの合否判定を所有する。
+ * @trace ERP-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Event生成は入力を一度だけsnapshotしIdentityと決定的IDを一致させるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 test("Event生成は入力を一度だけsnapshotしIdentityと決定的IDを一致させる", () => {
   const base = event();
   let getterCalls = 0;
@@ -289,7 +431,31 @@ test("Event生成は入力を一度だけsnapshotしIdentityと決定的IDを一
   assert.notEqual(event("completed", "task-b").eventId, base.eventId);
 });
 
+/**
+ * evaluationInputのTest準備責務を実行する。
+ *
+ * @responsibility evaluationInputがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERP-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus evaluationInputを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 function evaluationInput() {
+  /**
+   * observedCountのTest準備責務を実行する。
+   *
+   * @responsibility observedCountがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERP-UT-006
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus observedCountを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+   */
   const observedCount = (value: number) => ({
     state: "observed" as const,
     value,
@@ -322,6 +488,18 @@ function evaluationInput() {
   };
 }
 
+/**
+ * evaluates bounded work by the integrated accepted result rather than task successを検証する。
+ *
+ * @responsibility evaluates bounded work by the integrated accepted result rather than task successの合否判定を所有する。
+ * @trace ERP-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus evaluates bounded work by the integrated accepted result rather than task successの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 test("evaluates bounded work by the integrated accepted result rather than task success", () => {
   const result = evaluateBoundedIntegratedResult(evaluationInput());
   assert.ok(result);
@@ -334,6 +512,18 @@ test("evaluates bounded work by the integrated accepted result rather than task 
   assert.equal(result.authorityConferred, false);
 });
 
+/**
+ * preserves an unobserved integrated result and missing task evidenceを検証する。
+ *
+ * @responsibility preserves an unobserved integrated result and missing task evidenceの合否判定を所有する。
+ * @trace ERP-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus preserves an unobserved integrated result and missing task evidenceの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 test("preserves an unobserved integrated result and missing task evidence", () => {
   const base = evaluationInput();
   const result = evaluateBoundedIntegratedResult({
@@ -352,6 +542,18 @@ test("preserves an unobserved integrated result and missing task evidence", () =
   assert.equal(result.missingnessPreserved, true);
 });
 
+/**
+ * rejects cross-project events and unknown evaluation fieldsを検証する。
+ *
+ * @responsibility rejects cross-project events and unknown evaluation fieldsの合否判定を所有する。
+ * @trace ERP-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus rejects cross-project events and unknown evaluation fieldsの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 test("rejects cross-project events and unknown evaluation fields", () => {
   const base = evaluationInput();
   assert.equal(
@@ -375,6 +577,18 @@ test("rejects cross-project events and unknown evaluation fields", () => {
   );
 });
 
+/**
+ * 限定統合入力はProxy・Accessor・疎な配列を例外なく拒否するを検証する。
+ *
+ * @responsibility 限定統合入力はProxy・Accessor・疎な配列を例外なく拒否するの合否判定を所有する。
+ * @trace ERP-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 限定統合入力はProxy・Accessor・疎な配列を例外なく拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 test("限定統合入力はProxy・Accessor・疎な配列を例外なく拒否する", () => {
   const base = evaluationInput();
   const trapped = new Proxy(base, {
@@ -406,6 +620,18 @@ test("限定統合入力はProxy・Accessor・疎な配列を例外なく拒否�
   );
 });
 
+/**
+ * Provider集計はprototype名を通常の観測IDとして決定論的に数えるを検証する。
+ *
+ * @responsibility Provider集計はprototype名を通常の観測IDとして決定論的に数えるの合否判定を所有する。
+ * @trace ERP-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Provider集計はprototype名を通常の観測IDとして決定論的に数えるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 test("Provider集計はprototype名を通常の観測IDとして決定論的に数える", () => {
   const base = evaluationInput();
   const providers = ["constructor", "toString", "hasOwnProperty"];
@@ -424,7 +650,31 @@ test("Provider集計はprototype名を通常の観測IDとして決定論的に�
   });
 });
 
+/**
+ * 観測時間の合計が安全整数を越える場合は誤った数値を返さないを検証する。
+ *
+ * @responsibility 観測時間の合計が安全整数を越える場合は誤った数値を返さないの合否判定を所有する。
+ * @trace ERP-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 観測時間の合計が安全整数を越える場合は誤った数値を返さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 test("観測時間の合計が安全整数を越える場合は誤った数値を返さない", () => {
+  /**
+   * maximumEventのTest準備責務を実行する。
+   *
+   * @responsibility maximumEventがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERP-UT-006
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus maximumEventを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+   */
   const maximumEvent = (taskId: string) => {
     const base = event("completed", taskId);
     return createTaskAttemptSettledEvent({

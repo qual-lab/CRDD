@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:platform-provisioner-package-filesystemの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:platform-provisioner-package-filesystemが所有する検証責務を実行する。
+ * @trace AIT-IT-013
+ * @level IT
+ * @scope platform、provisioner、package、filesystem
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
@@ -44,6 +54,18 @@ import { assertCanonicalCandidate } from "../support/test-support.ts";
 const developmentFixtureRoots = new Set<string>();
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 
+/**
+ * Runtime sibling component宣言は各Identityを一度だけ所有するを検証する。
+ *
+ * @responsibility Runtime sibling component宣言は各Identityを一度だけ所有するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Runtime sibling component宣言は各Identityを一度だけ所有するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("Runtime sibling component宣言は各Identityを一度だけ所有する", () => {
   const source = fs.readFileSync(
     path.join(
@@ -70,6 +92,18 @@ test("Runtime sibling component宣言は各Identityを一度だけ所有する",
   }
 });
 
+/**
+ * restart machineのWSL対象とDocker観測引数は閉集合で保持するを検証する。
+ *
+ * @responsibility restart machineのWSL対象とDocker観測引数は閉集合で保持するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus restart machineのWSL対象とDocker観測引数は閉集合で保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("restart machineのWSL対象とDocker観測引数は閉集合で保持する", () => {
   const sourcePath = "src/security/docker-restart-machine.ts";
   const source = fs.readFileSync(
@@ -110,6 +144,18 @@ test("restart machineのWSL対象とDocker観測引数は閉集合で保持す�
   );
 });
 
+/**
+ * Native repair/restart spawnは同じ署名観測所有者と閉じた引数集合を要求するを検証する。
+ *
+ * @responsibility Native repair/restart spawnは同じ署名観測所有者と閉じた引数集合を要求するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Native repair/restart spawnは同じ署名観測所有者と閉じた引数集合を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("Native repair/restart spawnは同じ署名観測所有者と閉じた引数集合を要求する", () => {
   const sourcePath = "src/security/docker-desktop-repair-native-process.ts";
   const source = fs.readFileSync(
@@ -133,9 +179,33 @@ test("Native repair/restart spawnは同じ署名観測所有者と閉じた引�
   );
 });
 
+/**
+ * verificationToolSourcesのTest準備責務を実行する。
+ *
+ * @responsibility verificationToolSourcesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-013
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus verificationToolSourcesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 function verificationToolSources() {
   const scriptsRoot = path.join(coordinatorRoot, "scripts");
   const sources: Record<string, string> = {};
+  /**
+   * visitのTest準備責務を実行する。
+   *
+   * @responsibility visitがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace AIT-IT-013
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus visitを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+   */
   const visit = (root: string, relativeRoot: string) => {
     for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
       const relative = `${relativeRoot}/${entry.name}`;
@@ -152,8 +222,32 @@ function verificationToolSources() {
   return sources;
 }
 
+/**
+ * runtimeTypeScriptSourcesのTest準備責務を実行する。
+ *
+ * @responsibility runtimeTypeScriptSourcesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-013
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus runtimeTypeScriptSourcesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 function runtimeTypeScriptSources() {
   const sources: Record<string, string> = {};
+  /**
+   * visitのTest準備責務を実行する。
+   *
+   * @responsibility visitがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace AIT-IT-013
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus visitを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+   */
   const visit = (root: string, relativeRoot: string) => {
     for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
       const relative = `${relativeRoot}/${entry.name}`;
@@ -174,6 +268,18 @@ function runtimeTypeScriptSources() {
   );
   return sources;
 }
+/**
+ * removeDevelopmentFixtureのTest準備責務を実行する。
+ *
+ * @responsibility removeDevelopmentFixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-013
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus removeDevelopmentFixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 function removeDevelopmentFixture(root: string) {
   assert.equal(path.dirname(root), path.resolve(os.tmpdir()));
   assert.equal(fs.realpathSync.native(root), root);
@@ -185,6 +291,18 @@ after(() => {
   for (const root of developmentFixtureRoots) removeDevelopmentFixture(root);
 });
 
+/**
+ * local TypeScript子wrapperはroleとkindを実行前に検証し、targetを外へ公開しないを検証する。
+ *
+ * @responsibility local TypeScript子wrapperはroleとkindを実行前に検証し、targetを外へ公開しないの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus local TypeScript子wrapperはroleとkindを実行前に検証し、targetを外へ公開しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("local TypeScript子wrapperはroleとkindを実行前に検証し、targetを外へ公開しない", () => {
   assert.throws(
     () => spawnRuntimeLocalTypeScriptChild("unknown" as never, [], {}),
@@ -233,6 +351,18 @@ test("local TypeScript子wrapperはroleとkindを実行前に検証し、target�
   );
 });
 
+/**
+ * developmentFixtureのTest準備責務を実行する。
+ *
+ * @responsibility developmentFixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-013
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus developmentFixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 function developmentFixture(omittedEntrypoint: string | null = null) {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-development-package-"),
@@ -278,6 +408,18 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
   );
   const oracleRoot = path.join(root, "oracle");
   fs.cpSync(distributionRoot, oracleRoot, { recursive: true });
+  /**
+   * gitのTest準備責務を実行する。
+   *
+   * @responsibility gitがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace AIT-IT-013
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus gitを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+   */
   function git(...args: string[]) {
     const result = spawnSync("git", ["-C", oracleRoot, ...args], {
       encoding: "utf8",
@@ -319,6 +461,18 @@ function developmentFixture(omittedEntrypoint: string | null = null) {
   };
 }
 
+/**
+ * 開発版はRuntime依存閉包を実体照合し、署名・実行Authorityを発行しないを検証する。
+ *
+ * @responsibility 開発版はRuntime依存閉包を実体照合し、署名・実行Authorityを発行しないの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 開発版はRuntime依存閉包を実体照合し、署名・実行Authorityを発行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("開発版はRuntime依存閉包を実体照合し、署名・実行Authorityを発行しない", () => {
   const fixture = developmentFixture();
   try {
@@ -354,6 +508,18 @@ test("開発版はRuntime依存閉包を実体照合し、署名・実行Authori
   }
 });
 
+/**
+ * 実行能力を持たないchild_processのtype-only importはRuntime候補を失効させないを検証する。
+ *
+ * @responsibility 実行能力を持たないchild_processのtype-only importはRuntime候補を失効させないの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実行能力を持たないchild_processのtype-only importはRuntime候補を失効させないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("実行能力を持たないchild_processのtype-only importはRuntime候補を失効させない", () => {
   const fixture = developmentFixture();
   try {
@@ -386,6 +552,18 @@ test("実行能力を持たないchild_processのtype-only importはRuntime候�
   }
 });
 
+/**
+ * type-only star再公開は実行能力として扱わず、value star再公開だけを拒否するを検証する。
+ *
+ * @responsibility type-only star再公開は実行能力として扱わず、value star再公開だけを拒否するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus type-only star再公開は実行能力として扱わず、value star再公開だけを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("type-only star再公開は実行能力として扱わず、value star再公開だけを拒否する", () => {
   assert.doesNotThrow(() =>
     assertRuntimeSourceModuleBoundaryForVerification(
@@ -410,6 +588,18 @@ test("type-only star再公開は実行能力として扱わず、value star再�
   );
 });
 
+/**
+ * loader能力のnamespace・bracket取得と文字列再構成を直接の理由で拒否するを検証する。
+ *
+ * @responsibility loader能力のnamespace・bracket取得と文字列再構成を直接の理由で拒否するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus loader能力のnamespace・bracket取得と文字列再構成を直接の理由で拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("loader能力のnamespace・bracket取得と文字列再構成を直接の理由で拒否する", () => {
   for (const source of [
     'import * as moduleBuiltin from "node:module"; void moduleBuiltin.createRequire;\n',
@@ -430,6 +620,18 @@ test("loader能力のnamespace・bracket取得と文字列再構成を直接の�
   }
 });
 
+/**
+ * 宣言済みProcess利用側は実ソースのcall・scope・引数から完全一致を要求するを検証する。
+ *
+ * @responsibility 宣言済みProcess利用側は実ソースのcall・scope・引数から完全一致を要求するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 宣言済みProcess利用側は実ソースのcall・scope・引数から完全一致を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("宣言済みProcess利用側は実ソースのcall・scope・引数から完全一致を要求する", () => {
   const sourcePath = "src/security/candidate-store-windows-adapter.ts";
   const source = fs.readFileSync(
@@ -470,6 +672,18 @@ test("宣言済みProcess利用側は実ソースのcall・scope・引数から�
   }
 });
 
+/**
+ * 検証Toolの全Sourceと実Process起動点を独立グラフとして完全一致させるを検証する。
+ *
+ * @responsibility 検証Toolの全Sourceと実Process起動点を独立グラフとして完全一致させるの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 検証Toolの全Sourceと実Process起動点を独立グラフとして完全一致させるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("検証Toolの全Sourceと実Process起動点を独立グラフとして完全一致させる", () => {
   const sources = verificationToolSources();
   assert.doesNotThrow(() =>
@@ -517,6 +731,18 @@ test("検証Toolの全Sourceと実Process起動点を独立グラフとして完
   );
 });
 
+/**
+ * Process wrapper注入後のproperty callと内部lifecycle callを利用側閉包へ含めるを検証する。
+ *
+ * @responsibility Process wrapper注入後のproperty callと内部lifecycle callを利用側閉包へ含めるの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Process wrapper注入後のproperty callと内部lifecycle callを利用側閉包へ含めるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("Process wrapper注入後のproperty callと内部lifecycle callを利用側閉包へ含める", () => {
   const dockerPath = "src/security/docker-effect-runtime.ts";
   const dockerSource = fs.readFileSync(
@@ -564,6 +790,18 @@ test("Process wrapper注入後のproperty callと内部lifecycle callを利用�
   );
 });
 
+/**
+ * 非同期子Processは同期完了・所有保持・lifecycle移管のいずれかを証明するを検証する。
+ *
+ * @responsibility 非同期子Processは同期完了・所有保持・lifecycle移管のいずれかを証明するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 非同期子Processは同期完了・所有保持・lifecycle移管のいずれかを証明するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("非同期子Processは同期完了・所有保持・lifecycle移管のいずれかを証明する", () => {
   const cases = [
     {
@@ -601,6 +839,18 @@ test("非同期子Processは同期完了・所有保持・lifecycle移管のい�
   }
 });
 
+/**
+ * 配布観測から開発・署名・導入・Capability利用側までを実ソースから閉じるを検証する。
+ *
+ * @responsibility 配布観測から開発・署名・導入・Capability利用側までを実ソースから閉じるの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 配布観測から開発・署名・導入・Capability利用側までを実ソースから閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("配布観測から開発・署名・導入・Capability利用側までを実ソースから閉じる", () => {
   const sourcePath = "src/security/platform-provisioner-package-filesystem.ts";
   const source = fs.readFileSync(
@@ -644,6 +894,18 @@ test("配布観測から開発・署名・導入・Capability利用側までを�
   }
 });
 
+/**
+ * Runtime Package Capabilityの宣言集合と全実利用側を完全一致させるを検証する。
+ *
+ * @responsibility Runtime Package Capabilityの宣言集合と全実利用側を完全一致させるの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Runtime Package Capabilityの宣言集合と全実利用側を完全一致させるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("Runtime Package Capabilityの宣言集合と全実利用側を完全一致させる", () => {
   const sources = runtimeTypeScriptSources();
   assert.doesNotThrow(() =>
@@ -674,6 +936,18 @@ test("Runtime Package Capabilityの宣言集合と全実利用側を完全一致
   );
 });
 
+/**
+ * 旧修復と新再起動のRuntime Identityは所有関数ごとにCanonical検証値を要求するを検証する。
+ *
+ * @responsibility 旧修復と新再起動のRuntime Identityは所有関数ごとにCanonical検証値を要求するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 旧修復と新再起動のRuntime Identityは所有関数ごとにCanonical検証値を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("旧修復と新再起動のRuntime Identityは所有関数ごとにCanonical検証値を要求する", () => {
   const sources = runtimeTypeScriptSources();
   const sourcePath = "src/security/docker-recovery-runtime-internal.ts";
@@ -705,6 +979,18 @@ test("旧修復と新再起動のRuntime Identityは所有関数ごとにCanonic
   }
 });
 
+/**
+ * 実行能力の反証は利用側伝播の意図したphaseで拒否するを検証する。
+ *
+ * @responsibility 実行能力の反証は利用側伝播の意図したphaseで拒否するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実行能力の反証は利用側伝播の意図したphaseで拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("実行能力の反証は利用側伝播の意図したphaseで拒否する", () => {
   const sources = runtimeTypeScriptSources();
   const cases = [
@@ -796,6 +1082,18 @@ test("実行能力の反証は利用側伝播の意図したphaseで拒否する
   }
 });
 
+/**
+ * 署名入口は配布観測結果を秘密入力前の検査と署名結果へ同じflowで伝播するを検証する。
+ *
+ * @responsibility 署名入口は配布観測結果を秘密入力前の検査と署名結果へ同じflowで伝播するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 署名入口は配布観測結果を秘密入力前の検査と署名結果へ同じflowで伝播するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("署名入口は配布観測結果を秘密入力前の検査と署名結果へ同じflowで伝播する", () => {
   const source = fs.readFileSync(
     path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
@@ -833,6 +1131,18 @@ test("署名入口は配布観測結果を秘密入力前の検査と署名結�
     );
 });
 
+/**
+ * 署名の保護対象flowを同名decoy・事前Effect・条件付き証明で迂回できないを検証する。
+ *
+ * @responsibility 署名の保護対象flowを同名decoy・事前Effect・条件付き証明で迂回できないの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 署名の保護対象flowを同名decoy・事前Effect・条件付き証明で迂回できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("署名の保護対象flowを同名decoy・事前Effect・条件付き証明で迂回できない", () => {
   const source = fs.readFileSync(
     path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
@@ -863,6 +1173,18 @@ test("署名の保護対象flowを同名decoy・事前Effect・条件付き証�
     );
 });
 
+/**
+ * 署名の反証は意図した保護phaseで最初に拒否しEffect経路へ到達させないを検証する。
+ *
+ * @responsibility 署名の反証は意図した保護phaseで最初に拒否しEffect経路へ到達させないの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 署名の反証は意図した保護phaseで最初に拒否しEffect経路へ到達させないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("署名の反証は意図した保護phaseで最初に拒否しEffect経路へ到達させない", () => {
   const source = fs.readFileSync(
     path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
@@ -926,6 +1248,18 @@ test("署名の反証は意図した保護phaseで最初に拒否しEffect経路
   }
 });
 
+/**
+ * 公開結果はCanonical観測値を欠落・再解釈・混合せず投影するを検証する。
+ *
+ * @responsibility 公開結果はCanonical観測値を欠落・再解釈・混合せず投影するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開結果はCanonical観測値を欠落・再解釈・混合せず投影するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("公開結果はCanonical観測値を欠落・再解釈・混合せず投影する", () => {
   const sourcePath = "src/security/platform-provisioner-package-filesystem.ts";
   const source = fs.readFileSync(
@@ -959,6 +1293,18 @@ test("公開結果はCanonical観測値を欠落・再解釈・混合せず投�
     );
 });
 
+/**
+ * 利用者向けCoordinatorまたはMCP Launcherの欠落をRuntime候補として受理しないを検証する。
+ *
+ * @responsibility 利用者向けCoordinatorまたはMCP Launcherの欠落をRuntime候補として受理しないの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 利用者向けCoordinatorまたはMCP Launcherの欠落をRuntime候補として受理しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("利用者向けCoordinatorまたはMCP Launcherの欠落をRuntime候補として受理しない", () => {
   for (const launcher of ["crdd-coordinator.ts", "crdd-mcp.ts"]) {
     const fixture = developmentFixture();
@@ -978,6 +1324,18 @@ test("利用者向けCoordinatorまたはMCP Launcherの欠落をRuntime候補�
   }
 });
 
+/**
+ * Tree一致だけで起動entrypointの不足を受理しないを検証する。
+ *
+ * @responsibility Tree一致だけで起動entrypointの不足を受理しないの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Tree一致だけで起動entrypointの不足を受理しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("Tree一致だけで起動entrypointの不足を受理しない", () => {
   const fixture = developmentFixture("src/core/interactive-console-reader.ts");
   try {
@@ -991,6 +1349,18 @@ test("Tree一致だけで起動entrypointの不足を受理しない", () => {
   }
 });
 
+/**
+ * 新しいlocal TypeScript子entrypoint宣言の必須Registry登録漏れを受理しないを検証する。
+ *
+ * @responsibility 新しいlocal TypeScript子entrypoint宣言の必須Registry登録漏れを受理しないの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 新しいlocal TypeScript子entrypoint宣言の必須Registry登録漏れを受理しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("新しいlocal TypeScript子entrypoint宣言の必須Registry登録漏れを受理しない", () => {
   const fixture = developmentFixture();
   try {
@@ -1101,6 +1471,18 @@ for (const scenario of [
   "start_owned_process_sibling_import",
   "absolute_node_allowed_owner",
 ] as const) {
+  /**
+   * local TypeScript子entrypointの宣言・利用迂回を拒否する: ${scenario}を検証する。
+   *
+   * @responsibility local TypeScript子entrypointの宣言・利用迂回を拒否する: ${scenario}の合否判定を所有する。
+   * @trace AIT-IT-013
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus local TypeScript子entrypointの宣言・利用迂回を拒否する: ${scenario}の対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+   */
   test(`local TypeScript子entrypointの宣言・利用迂回を拒否する: ${scenario}`, () => {
     const fixture = developmentFixture();
     try {
@@ -1754,6 +2136,18 @@ for (const scenario of [
   });
 }
 
+/**
+ * 内部lifecycleまたはProcess wrapperを正規leafから再転送しないを検証する。
+ *
+ * @responsibility 内部lifecycleまたはProcess wrapperを正規leafから再転送しないの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 内部lifecycleまたはProcess wrapperを正規leafから再転送しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("内部lifecycleまたはProcess wrapperを正規leafから再転送しない", () => {
   const interactiveSource = fs.readFileSync(
     path.join(coordinatorRoot, "src", "core", "interactive-console.ts"),
@@ -1783,6 +2177,18 @@ test("内部lifecycleまたはProcess wrapperを正規leafから再転送しな�
 });
 
 for (const target of ["package", "expected_package"] as const) {
+  /**
+   * 開発版の${target}差替えを拒否するを検証する。
+   *
+   * @responsibility 開発版の${target}差替えを拒否するの合否判定を所有する。
+   * @trace AIT-IT-013
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 開発版の${target}差替えを拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+   */
   test(`開発版の${target}差替えを拒否する`, () => {
     const fixture = developmentFixture();
     try {
@@ -1804,6 +2210,18 @@ for (const target of ["package", "expected_package"] as const) {
   });
 }
 
+/**
+ * Runtime依存外の文書変更は開発Source Identityを失効させないを検証する。
+ *
+ * @responsibility Runtime依存外の文書変更は開発Source Identityを失効させないの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Runtime依存外の文書変更は開発Source Identityを失効させないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("Runtime依存外の文書変更は開発Source Identityを失効させない", () => {
   const fixture = developmentFixture();
   try {
@@ -1825,6 +2243,18 @@ test("Runtime依存外の文書変更は開発Source Identityを失効させな�
   }
 });
 
+/**
+ * 開発版へ混入した署名manifestをReleaseへ昇格しないを検証する。
+ *
+ * @responsibility 開発版へ混入した署名manifestをReleaseへ昇格しないの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 開発版へ混入した署名manifestをReleaseへ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("開発版へ混入した署名manifestをReleaseへ昇格しない", () => {
   const fixture = developmentFixture();
   try {
@@ -1847,6 +2277,18 @@ test("開発版へ混入した署名manifestをReleaseへ昇格しない", () =>
 for (const relativePath of [
   "template/tools/coordinator/windows-x64/crdd-platform-access.exe",
 ]) {
+  /**
+   * 開発Sourceと別に検証する${relativePath}をSource Identityへ混在させないを検証する。
+   *
+   * @responsibility 開発Sourceと別に検証する${relativePath}をSource Identityへ混在させないの合否判定を所有する。
+   * @trace AIT-IT-013
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 開発Sourceと別に検証する${relativePath}をSource Identityへ混在させないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+   */
   test(`開発Sourceと別に検証する${relativePath}をSource Identityへ混在させない`, () => {
     const fixture = developmentFixture();
     try {
@@ -1863,6 +2305,18 @@ for (const relativePath of [
   });
 }
 
+/**
+ * 開発版のRoot alias、入力getterと追加keyを拒否し、Git metadataだけをTreeから除外するを検証する。
+ *
+ * @responsibility 開発版のRoot alias、入力getterと追加keyを拒否し、Git metadataだけをTreeから除外するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 開発版のRoot alias、入力getterと追加keyを拒否し、Git metadataだけをTreeから除外するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("開発版のRoot alias、入力getterと追加keyを拒否し、Git metadataだけをTreeから除外する", () => {
   const fixture = developmentFixture();
   try {
@@ -1911,6 +2365,18 @@ test("開発版のRoot alias、入力getterと追加keyを拒否し、Git metada
   }
 });
 
+/**
+ * 実体観測と開始枠を結合し、準備待機後のRoot差替えで消費を拒否するを検証する。
+ *
+ * @responsibility 実体観測と開始枠を結合し、準備待機後のRoot差替えで消費を拒否するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実体観測と開始枠を結合し、準備待機後のRoot差替えで消費を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("実体観測と開始枠を結合し、準備待機後のRoot差替えで消費を拒否する", async () => {
   const fixture = developmentFixture();
   try {
@@ -1920,6 +2386,18 @@ test("実体観測と開始枠を結合し、準備待機後のRoot差替えで�
     assert.equal(initial.status, "candidate");
     // Identity component only: this test does not supply human approval or
     // exercise the not-yet-connected production execution boundary.
+    /**
+     * observeのTest準備責務を実行する。
+     *
+     * @responsibility observeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+     * @trace AIT-IT-013
+     * @precondition 呼出し元Test Caseが必要な入力を渡す。
+     * @stimulus observeを呼び出す。
+     * @observation 返却値、生成fixtureまたは観測値を取得する。
+     * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+     * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+     * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+     */
     const observe = () => {
       const current = inspectFixedDevelopmentCoordinatorPackageCandidate(
         fixture.input,
@@ -1988,6 +2466,18 @@ test("実体観測と開始枠を結合し、準備待機後のRoot差替えで�
   }
 });
 
+/**
+ * 署名済みPlatform Access観測は開発版Rootや自己申告の署名状態を拒否するを検証する。
+ *
+ * @responsibility 署名済みPlatform Access観測は開発版Rootや自己申告の署名状態を拒否するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 署名済みPlatform Access観測は開発版Rootや自己申告の署名状態を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("署名済みPlatform Access観測は開発版Rootや自己申告の署名状態を拒否する", () => {
   const fixture = developmentFixture();
   try {
@@ -2040,6 +2530,18 @@ test("署名済みPlatform Access観測は開発版Rootや自己申告の署名�
   }
 });
 
+/**
+ * Task package capabilityは偽造・不正入力・再利用を受理しないを検証する。
+ *
+ * @responsibility Task package capabilityは偽造・不正入力・再利用を受理しないの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Task package capabilityは偽造・不正入力・再利用を受理しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("Task package capabilityは偽造・不正入力・再利用を受理しない", () => {
   const issued = issueRuntimeOwnedVerifiedCoordinatorPackageCapability({
     evaluationTime: "not-a-time",
@@ -2057,6 +2559,18 @@ test("Task package capabilityは偽造・不正入力・再利用を受理しな
   );
 });
 
+/**
+ * Package Capability状態機械はfresh exact Identityを一度だけ受理するを検証する。
+ *
+ * @responsibility Package Capability状態機械はfresh exact Identityを一度だけ受理するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Package Capability状態機械はfresh exact Identityを一度だけ受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("Package Capability状態機械はfresh exact Identityを一度だけ受理する", () => {
   const state = createIsolatedVerifiedPackageCapabilityStateCandidate();
   const identity = Object.freeze({
@@ -2090,6 +2604,18 @@ test("Package Capability状態機械はfresh exact Identityを一度だけ受理
   assert.equal(state.productionConsumerCompatible, false);
 });
 
+/**
+ * frameのTest準備責務を実行する。
+ *
+ * @responsibility frameがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-013
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus frameを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 function frame(payload: Record<string, unknown>) {
   const canonical = canonicalizeProvisioningJsonValueCandidate(payload);
   assertCanonicalCandidate(canonical);
@@ -2102,6 +2628,18 @@ function frame(payload: Record<string, unknown>) {
   ]);
 }
 
+/**
+ * signedManifestのTest準備責務を実行する。
+ *
+ * @responsibility signedManifestがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-013
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus signedManifestを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 function signedManifest(
   packageContentRootSha256: string,
   revision = PLATFORM_PROVISIONER_MANIFEST_REVISION,
@@ -2165,6 +2703,18 @@ function signedManifest(
   };
 }
 
+/**
+ * 固定Coordinator packageをPath非公開で一覧化するを検証する。
+ *
+ * @responsibility 固定Coordinator packageをPath非公開で一覧化するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定Coordinator packageをPath非公開で一覧化するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("固定Coordinator packageをPath非公開で一覧化する", () => {
   const result = inspectBundledCoordinatorPackageFilesystemCandidate();
   assert.equal(result.status, "candidate");
@@ -2182,6 +2732,18 @@ test("固定Coordinator packageをPath非公開で一覧化する", () => {
   assert.equal("path" in result, false);
 });
 
+/**
+ * Host Operation Supervisor sourceは再帰Package inventoryのexact non-link fileであるを検証する。
+ *
+ * @responsibility Host Operation Supervisor sourceは再帰Package inventoryのexact non-link fileであるの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host Operation Supervisor sourceは再帰Package inventoryのexact non-link fileであるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("Host Operation Supervisor sourceは再帰Package inventoryのexact non-link fileである", () => {
   const entrypoint = path.resolve(
     import.meta.dirname,
@@ -2197,6 +2759,18 @@ test("Host Operation Supervisor sourceは再帰Package inventoryのexact non-lin
   assert.equal(typeof packageCandidate.packageContentRootSha256, "string");
 });
 
+/**
+ * caller選択Rootは非Authorityのまま内容変更をcontent rootへ反映するを検証する。
+ *
+ * @responsibility caller選択Rootは非Authorityのまま内容変更をcontent rootへ反映するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus caller選択Rootは非Authorityのまま内容変更をcontent rootへ反映するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("caller選択Rootは非Authorityのまま内容変更をcontent rootへ反映する", () => {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-package-observation-"),
@@ -2239,6 +2813,18 @@ test("caller選択Rootは非Authorityのまま内容変更をcontent rootへ反�
   }
 });
 
+/**
+ * 文書・試験はRuntime Execution Identityへ入らず、実行sourceは必ず入るを検証する。
+ *
+ * @responsibility 文書・試験はRuntime Execution Identityへ入らず、実行sourceは必ず入るの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 文書・試験はRuntime Execution Identityへ入らず、実行sourceは必ず入るの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("文書・試験はRuntime Execution Identityへ入らず、実行sourceは必ず入る", () => {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-runtime-execution-set-"),
@@ -2292,6 +2878,18 @@ test("文書・試験はRuntime Execution Identityへ入らず、実行sourceは
   }
 });
 
+/**
+ * 責務分離後のRuntime componentを静的依存閉包として実行Identityへ含めるを検証する。
+ *
+ * @responsibility 責務分離後のRuntime componentを静的依存閉包として実行Identityへ含めるの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 責務分離後のRuntime componentを静的依存閉包として実行Identityへ含めるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("責務分離後のRuntime componentを静的依存閉包として実行Identityへ含める", () => {
   const fixture = developmentFixture();
   const root = fixture.distributionRoot;
@@ -2469,6 +3067,18 @@ test("責務分離後のRuntime componentを静的依存閉包として実行Ide
   }
 });
 
+/**
+ * 非正規表記または実行集合外へのrelative importを署名候補へ含めず拒否するを検証する。
+ *
+ * @responsibility 非正規表記または実行集合外へのrelative importを署名候補へ含めず拒否するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 非正規表記または実行集合外へのrelative importを署名候補へ含めず拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("非正規表記または実行集合外へのrelative importを署名候補へ含めず拒否する", () => {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-runtime-dependency-boundary-"),
@@ -2512,6 +3122,18 @@ test("非正規表記または実行集合外へのrelative importを署名候�
   }
 });
 
+/**
+ * 共通Launcherの署名・4経路・Recovery入口と静的依存だけを実行Identityへ含めるを検証する。
+ *
+ * @responsibility 共通Launcherの署名・4経路・Recovery入口と静的依存だけを実行Identityへ含めるの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 共通Launcherの署名・4経路・Recovery入口と静的依存だけを実行Identityへ含めるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを実行Identityへ含める", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-launch-closure-"));
   try {
@@ -2632,6 +3254,18 @@ test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを
   }
 });
 
+/**
+ * 実行Identityのmodule構文を字句解析し、コメント・非relative・未束縛dynamicによる閉包回避を拒否するを検証する。
+ *
+ * @responsibility 実行Identityのmodule構文を字句解析し、コメント・非relative・未束縛dynamicによる閉包回避を拒否するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実行Identityのmodule構文を字句解析し、コメント・非relative・未束縛dynamicによる閉包回避を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("実行Identityのmodule構文を字句解析し、コメント・非relative・未束縛dynamicによる閉包回避を拒否する", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-module-lexer-"));
   try {
@@ -2784,6 +3418,18 @@ test("実行Identityのmodule構文を字句解析し、コメント・非relati
   }
 });
 
+/**
+ * Repository textのLFとCRLFは同じ正本内容として検証し、意味差分は拒否するを検証する。
+ *
+ * @responsibility Repository textのLFとCRLFは同じ正本内容として検証し、意味差分は拒否するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Repository textのLFとCRLFは同じ正本内容として検証し、意味差分は拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("Repository textのLFとCRLFは同じ正本内容として検証し、意味差分は拒否する", () => {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-package-line-ending-"),
@@ -2821,6 +3467,18 @@ test("Repository textのLFとCRLFは同じ正本内容として検証し、意�
   }
 });
 
+/**
+ * Coordinator packageはexact CLI-only exports境界を必須にするを検証する。
+ *
+ * @responsibility Coordinator packageはexact CLI-only exports境界を必須にするの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Coordinator packageはexact CLI-only exports境界を必須にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("Coordinator packageはexact CLI-only exports境界を必須にする", () => {
   for (const exportsValue of [
     undefined,
@@ -2856,6 +3514,18 @@ test("Coordinator packageはexact CLI-only exports境界を必須にする", () 
   }
 });
 
+/**
+ * 入れ子directoryの走査中にentryを追加・削除・型変更しても安定inventoryへ流用しないを検証する。
+ *
+ * @responsibility 入れ子directoryの走査中にentryを追加・削除・型変更しても安定inventoryへ流用しないの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 入れ子directoryの走査中にentryを追加・削除・型変更しても安定inventoryへ流用しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("入れ子directoryの走査中にentryを追加・削除・型変更しても安定inventoryへ流用しない", () => {
   for (const scenario of ["add", "remove", "replace_type"] as const) {
     const root = fs.mkdtempSync(
@@ -2914,6 +3584,18 @@ test("入れ子directoryの走査中にentryを追加・削除・型変更して
   }
 });
 
+/**
+ * 同梱manifestは固定Release鍵以外の署名を拒否するを検証する。
+ *
+ * @responsibility 同梱manifestは固定Release鍵以外の署名を拒否するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 同梱manifestは固定Release鍵以外の署名を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("同梱manifestは固定Release鍵以外の署名を拒否する", () => {
   const observation = inspectBundledCoordinatorPackageFilesystemCandidate();
   assert.equal(observation.status, "candidate");
@@ -2929,6 +3611,18 @@ test("同梱manifestは固定Release鍵以外の署名を拒否する", () => {
   assert.equal("releaseSignerSpkiDer" in result, false);
 });
 
+/**
+ * 期限なしmanifestも固定Release鍵と配布結合を迂回できないを検証する。
+ *
+ * @responsibility 期限なしmanifestも固定Release鍵と配布結合を迂回できないの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 期限なしmanifestも固定Release鍵と配布結合を迂回できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("期限なしmanifestも固定Release鍵と配布結合を迂回できない", () => {
   const observed = inspectBundledCoordinatorPackageFilesystemCandidate();
   assert.equal(observed.status, "candidate");
@@ -2952,6 +3646,18 @@ test("期限なしmanifestも固定Release鍵と配布結合を迂回できな�
   }
 });
 
+/**
+ * 不正Root、Release Identity不一致およびpackage metadataをfail closedにするを検証する。
+ *
+ * @responsibility 不正Root、Release Identity不一致およびpackage metadataをfail closedにするの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不正Root、Release Identity不一致およびpackage metadataをfail closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("不正Root、Release Identity不一致およびpackage metadataをfail closedにする", () => {
   assert.equal(
     inspectPlatformProvisionerPackageFilesystemCandidate(null).status,
@@ -2979,6 +3685,18 @@ test("不正Root、Release Identity不一致およびpackage metadataをfail clo
   }
 });
 
+/**
+ * package Filesystem contractは観測をTrustおよびEffectから分離するを検証する。
+ *
+ * @responsibility package Filesystem contractは観測をTrustおよびEffectから分離するの合否判定を所有する。
+ * @trace AIT-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus package Filesystem contractは観測をTrustおよびEffectから分離するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
 test("package Filesystem contractは観測をTrustおよびEffectから分離する", () => {
   const contract = describePlatformProvisionerPackageFilesystemContract();
   assert.equal(contract.contractRevision, 6);

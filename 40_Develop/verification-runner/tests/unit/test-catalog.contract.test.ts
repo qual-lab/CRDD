@@ -1,3 +1,13 @@
+/**
+ * verification-runner:unit:test-catalogの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility verification-runner:unit:test-catalogが所有する検証責務を実行する。
+ * @trace CQS-UT-010
+ * @level UT
+ * @scope test、catalog
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
@@ -21,10 +31,34 @@ const loadedCatalog = loadTestCatalog(
 );
 const catalog = loadedCatalog as TestCatalog;
 
+/**
+ * 実在試験、登録試験、実行可能Ownerをexactに照合するを検証する。
+ *
+ * @responsibility 実在試験、登録試験、実行可能Ownerをexactに照合するの合否判定を所有する。
+ * @trace CQS-UT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実在試験、登録試験、実行可能Ownerをexactに照合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 test("実在試験、登録試験、実行可能Ownerをexactに照合する", () => {
   assert.deepEqual(inspectTestCatalog(repositoryRoot, loadedCatalog), []);
 });
 
+/**
+ * 全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉じるを検証する。
+ *
+ * @responsibility 全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉じるの合否判定を所有する。
+ * @trace CQS-UT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉じる", () => {
   assert.deepEqual(
     [...new Set(catalog.integrationBlocks.map((entry) => entry.owner))].sort(),
@@ -59,6 +93,18 @@ test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉�
   }
 });
 
+/**
+ * 結合ブロックの未登録Tool、試験欠落、Lifecycle欠落を拒否するを検証する。
+ *
+ * @responsibility 結合ブロックの未登録Tool、試験欠落、Lifecycle欠落を拒否するの合否判定を所有する。
+ * @trace CQS-UT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 結合ブロックの未登録Tool、試験欠落、Lifecycle欠落を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 test("結合ブロックの未登録Tool、試験欠落、Lifecycle欠落を拒否する", () => {
   const first = catalog.integrationBlocks[0];
   assert.ok(first);
@@ -99,6 +145,18 @@ test("結合ブロックの未登録Tool、試験欠落、Lifecycle欠落を拒�
   );
 });
 
+/**
+ * ブロック間結合は実在Sequence、二段以内の経路、IT、全block被覆へ閉じるを検証する。
+ *
+ * @responsibility ブロック間結合は実在Sequence、二段以内の経路、IT、全block被覆へ閉じるの合否判定を所有する。
+ * @trace CQS-UT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus ブロック間結合は実在Sequence、二段以内の経路、IT、全block被覆へ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 test("ブロック間結合は実在Sequence、二段以内の経路、IT、全block被覆へ閉じる", () => {
   const first = catalog.integrationCorridors[0];
   assert.ok(first);
@@ -157,6 +215,18 @@ test("ブロック間結合は実在Sequence、二段以内の経路、IT、全b
   assert.deepEqual(inspectTestCatalog(repositoryRoot, catalog), []);
 });
 
+/**
+ * 変更した意味に対応する試験を選び、未分類の実装変更はOwner全件へ閉じるを検証する。
+ *
+ * @responsibility 変更した意味に対応する試験を選び、未分類の実装変更はOwner全件へ閉じるの合否判定を所有する。
+ * @trace CQS-UT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 変更した意味に対応する試験を選び、未分類の実装変更はOwner全件へ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 test("変更した意味に対応する試験を選び、未分類の実装変更はOwner全件へ閉じる", () => {
   const focusedEntries = selectRegressionTests(catalog, [
     "40_Develop/coordinator/src/security/provider-lifecycle.ts",
@@ -182,6 +252,18 @@ test("変更した意味に対応する試験を選び、未分類の実装変�
   );
 });
 
+/**
+ * 直接変更した試験だけはその試験に限定するを検証する。
+ *
+ * @responsibility 直接変更した試験だけはその試験に限定するの合否判定を所有する。
+ * @trace CQS-UT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 直接変更した試験だけはその試験に限定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 test("直接変更した試験だけはその試験に限定する", () => {
   const target =
     "40_Develop/coordinator/tests/unit/command-report.contract.test.ts";
@@ -191,6 +273,18 @@ test("直接変更した試験だけはその試験に限定する", () => {
   );
 });
 
+/**
+ * 実行知の実装変更は共通試験と登録済み利用側契約を選ぶを検証する。
+ *
+ * @responsibility 実行知の実装変更は共通試験と登録済み利用側契約を選ぶの合否判定を所有する。
+ * @trace CQS-UT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実行知の実装変更は共通試験と登録済み利用側契約を選ぶの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 test("実行知の実装変更は共通試験と登録済み利用側契約を選ぶ", () => {
   const ownerPaths = catalog.tests
     .filter(
@@ -227,6 +321,18 @@ test("実行知の実装変更は共通試験と登録済み利用側契約を�
   }
 });
 
+/**
+ * 利用側静的検査は試験levelの絞込みと独立して選ぶを検証する。
+ *
+ * @responsibility 利用側静的検査は試験levelの絞込みと独立して選ぶの合否判定を所有する。
+ * @trace CQS-UT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 利用側静的検査は試験levelの絞込みと独立して選ぶの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 test("利用側静的検査は試験levelの絞込みと独立して選ぶ", () => {
   const changedPaths = [
     "40_Develop/execution-intelligence/src/core/execution-intelligence.ts",
@@ -243,6 +349,18 @@ test("利用側静的検査は試験levelの絞込みと独立して選ぶ", () 
   );
 });
 
+/**
+ * 利用側契約は欠落・Owner不一致・循環を拒否するを検証する。
+ *
+ * @responsibility 利用側契約は欠落・Owner不一致・循環を拒否するの合否判定を所有する。
+ * @trace CQS-UT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 利用側契約は欠落・Owner不一致・循環を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 test("利用側契約は欠落・Owner不一致・循環を拒否する", () => {
   const first = catalog.consumerBindings.find(
     (binding) => binding.producerOwner === "execution-intelligence",
@@ -293,6 +411,18 @@ test("利用側契約は欠落・Owner不一致・循環を拒否する", () => 
   );
 });
 
+/**
+ * 利用側契約の未分類Producer変更は登録済み利用側全件へ閉じるを検証する。
+ *
+ * @responsibility 利用側契約の未分類Producer変更は登録済み利用側全件へ閉じるの合否判定を所有する。
+ * @trace CQS-UT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 利用側契約の未分類Producer変更は登録済み利用側全件へ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 test("利用側契約の未分類Producer変更は登録済み利用側全件へ閉じる", () => {
   for (const producerOwner of [
     ...new Set(catalog.consumerBindings.map((entry) => entry.producerOwner)),
@@ -313,6 +443,18 @@ test("利用側契約の未分類Producer変更は登録済み利用側全件へ
   }
 });
 
+/**
+ * production・support・fixture変更はownerのUT／IT／ST全件へ閉じるを検証する。
+ *
+ * @responsibility production・support・fixture変更はownerのUT／IT／ST全件へ閉じるの合否判定を所有する。
+ * @trace CQS-UT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus production・support・fixture変更はownerのUT／IT／ST全件へ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 test("production・support・fixture変更はownerのUT／IT／ST全件へ閉じる", () => {
   const expected = catalog.tests.filter(
     (entry) =>
@@ -330,6 +472,18 @@ test("production・support・fixture変更はownerのUT／IT／ST全件へ閉じ
     );
 });
 
+/**
+ * 共有設定とowner不明の実行変更は全ownerへ閉じるを検証する。
+ *
+ * @responsibility 共有設定とowner不明の実行変更は全ownerへ閉じるの合否判定を所有する。
+ * @trace CQS-UT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 共有設定とowner不明の実行変更は全ownerへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 test("共有設定とowner不明の実行変更は全ownerへ閉じる", () => {
   const expected = catalog.tests.filter((entry) =>
     ["unit", "integration", "system"].includes(entry.level),
@@ -345,6 +499,18 @@ test("共有設定とowner不明の実行変更は全ownerへ閉じる", () => {
     );
 });
 
+/**
+ * 文書変更はRepository規則を検査するCheckerへ接続するを検証する。
+ *
+ * @responsibility 文書変更はRepository規則を検査するCheckerへ接続するの合否判定を所有する。
+ * @trace CQS-UT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 文書変更はRepository規則を検査するCheckerへ接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 test("文書変更はRepository規則を検査するCheckerへ接続する", () => {
   for (const changedPath of [
     "16_Quality_Assurance.md",
@@ -360,6 +526,18 @@ test("文書変更はRepository規則を検査するCheckerへ接続する", () 
   }
 });
 
+/**
+ * PT／LTは明示Authorityと全上限がなければEffect前に拒否するを検証する。
+ *
+ * @responsibility PT／LTは明示Authorityと全上限がなければEffect前に拒否するの合否判定を所有する。
+ * @trace CQS-UT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus PT／LTは明示Authorityと全上限がなければEffect前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 test("PT／LTは明示Authorityと全上限がなければEffect前に拒否する", () => {
   const levels = new Set(["performance"] as const);
   assert.deepEqual(
@@ -399,6 +577,18 @@ test("PT／LTは明示Authorityと全上限がなければEffect前に拒否す�
   );
 });
 
+/**
+ * 通常回帰は任意PT／LTを選ばず、PT／LTの既定必須化を拒否するを検証する。
+ *
+ * @responsibility 通常回帰は任意PT／LTを選ばず、PT／LTの既定必須化を拒否するの合否判定を所有する。
+ * @trace CQS-UT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 通常回帰は任意PT／LTを選ばず、PT／LTの既定必須化を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 test("通常回帰は任意PT／LTを選ばず、PT／LTの既定必須化を拒否する", () => {
   const normalEntries = selectRegressionTests(catalog, [
     "40_Develop/coordinator/package.json",
@@ -429,6 +619,18 @@ test("通常回帰は任意PT／LTを選ばず、PT／LTの既定必須化を拒
   );
 });
 
+/**
+ * 実行Profileは閉集合かつ重複なしでなければならないを検証する。
+ *
+ * @responsibility 実行Profileは閉集合かつ重複なしでなければならないの合否判定を所有する。
+ * @trace CQS-UT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実行Profileは閉集合かつ重複なしでなければならないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 test("実行Profileは閉集合かつ重複なしでなければならない", () => {
   const first = catalog.tests[0];
   assert.ok(first);
@@ -449,6 +651,18 @@ test("実行Profileは閉集合かつ重複なしでなければならない", (
   );
 });
 
+/**
+ * Windows実Process Gateの3 fileと実行Profileをexactに照合するを検証する。
+ *
+ * @responsibility Windows実Process Gateの3 fileと実行Profileをexactに照合するの合否判定を所有する。
+ * @trace CQS-UT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows実Process Gateの3 fileと実行Profileをexactに照合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 test("Windows実Process Gateの3 fileと実行Profileをexactに照合する", () => {
   const gatePaths = [
     "40_Develop/coordinator/tests/integration/coordinator-task-process.integration.test.ts",
@@ -500,6 +714,18 @@ test("Windows実Process Gateの3 fileと実行Profileをexactに照合する", (
   );
 });
 
+/**
+ * 試験台帳は実行判断fieldの欠落・誤型・未知keyを拒否するを検証する。
+ *
+ * @responsibility 試験台帳は実行判断fieldの欠落・誤型・未知keyを拒否するの合否判定を所有する。
+ * @trace CQS-UT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 試験台帳は実行判断fieldの欠落・誤型・未知keyを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 test("試験台帳は実行判断fieldの欠落・誤型・未知keyを拒否する", () => {
   const first = catalog.tests[0];
   assert.ok(first);
@@ -548,6 +774,18 @@ test("試験台帳は実行判断fieldの欠落・誤型・未知keyを拒否す
     assert.ok(failures.includes(expected), expected);
 });
 
+/**
+ * 試験台帳は危険なPathと空・重複配列を拒否するを検証する。
+ *
+ * @responsibility 試験台帳は危険なPathと空・重複配列を拒否するの合否判定を所有する。
+ * @trace CQS-UT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 試験台帳は危険なPathと空・重複配列を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Test CatalogとOwner／Path／Levelは外部実行境界を持たない。
+ */
 test("試験台帳は危険なPathと空・重複配列を拒否する", () => {
   const first = catalog.tests[0];
   assert.ok(first);

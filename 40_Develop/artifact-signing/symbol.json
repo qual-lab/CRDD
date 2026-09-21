@@ -7,15 +7,23 @@
       "symbolId": "artifact-signing.public-api",
       "kind": "module",
       "path": "src/index.ts",
-      "archIds": ["ARCH-000014"]
+      "archIds": [
+        "ARCH-000014"
+      ]
     },
     {
-      "symbolId": "artifact-signing.private-key-integration",
+      "symbolId": "artifact-signing.test.integration.private-key-signing",
       "kind": "test-suite",
       "path": "tests/integration/private-key-signing.integration.test.ts",
-      "qaIds": ["QA-000010"],
-      "localTestIds": ["AIT-IT-008"],
-      "verifies": ["artifact-signing.public-api"]
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-IT-008"
+      ],
+      "verifies": [
+        "artifact-signing.public-api"
+      ]
     }
   ]
 }

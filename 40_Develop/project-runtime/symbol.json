@@ -7,7 +7,9 @@
       "symbolId": "project-runtime.objective-application",
       "kind": "file",
       "path": "src/application/project-runtime-objective-application.ts",
-      "archIds": ["ARCH-000004"],
+      "archIds": [
+        "ARCH-000004"
+      ],
       "implements": [
         "project-runtime.objective-task-lifecycle",
         "project-runtime.durable-before-effect",
@@ -19,7 +21,10 @@
       "symbolId": "project-runtime.state-core",
       "kind": "file",
       "path": "src/core/project-runtime-state.ts",
-      "archIds": ["ARCH-000004", "ARCH-000005"],
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000005"
+      ],
       "implements": [
         "project-runtime.objective-task-lifecycle",
         "project-runtime.project-state-projection",
@@ -32,14 +37,20 @@
       "symbolId": "project-runtime.human-decision-application",
       "kind": "file",
       "path": "src/application/project-runtime-human-decision.ts",
-      "archIds": ["ARCH-000005"],
-      "implements": ["project-runtime.acceptance-decision-authority"]
+      "archIds": [
+        "ARCH-000005"
+      ],
+      "implements": [
+        "project-runtime.acceptance-decision-authority"
+      ]
     },
     {
       "symbolId": "project-runtime.integration-application",
       "kind": "file",
       "path": "src/application/project-runtime-integration.ts",
-      "archIds": ["ARCH-000004"],
+      "archIds": [
+        "ARCH-000004"
+      ],
       "implements": [
         "project-runtime.objective-task-lifecycle",
         "project-runtime.recovery-obligation"
@@ -49,119 +60,196 @@
       "symbolId": "project-runtime.replanning-application",
       "kind": "file",
       "path": "src/application/project-runtime-replanning.ts",
-      "archIds": ["ARCH-000004"],
-      "implements": ["project-runtime.objective-task-lifecycle"]
+      "archIds": [
+        "ARCH-000004"
+      ],
+      "implements": [
+        "project-runtime.objective-task-lifecycle"
+      ]
     },
     {
       "symbolId": "project-runtime.state-query-application",
       "kind": "file",
       "path": "src/application/project-runtime-state-query.ts",
-      "archIds": ["ARCH-000005"],
-      "implements": ["project-runtime.project-state-projection"]
+      "archIds": [
+        "ARCH-000005"
+      ],
+      "implements": [
+        "project-runtime.project-state-projection"
+      ]
     },
     {
       "symbolId": "project-runtime.queue-core",
       "kind": "file",
       "path": "src/core/project-runtime-queue.ts",
-      "archIds": ["ARCH-000004"],
-      "implements": ["project-runtime.queue-lease-lifecycle"]
+      "archIds": [
+        "ARCH-000004"
+      ],
+      "implements": [
+        "project-runtime.queue-lease-lifecycle"
+      ]
     },
     {
       "symbolId": "project-runtime.objective-intake",
       "kind": "file",
       "path": "src/application/project-runtime-objective-intake.ts",
-      "archIds": ["ARCH-000004"],
-      "implements": ["project-runtime.task-authority-narrowing"]
+      "archIds": [
+        "ARCH-000004"
+      ],
+      "implements": [
+        "project-runtime.task-authority-narrowing"
+      ]
     },
     {
       "symbolId": "project-runtime.execution",
       "kind": "file",
       "path": "src/application/project-runtime-execution.ts",
-      "archIds": ["ARCH-000004"],
-      "implements": ["project-runtime.durable-before-effect"]
+      "archIds": [
+        "ARCH-000004"
+      ],
+      "implements": [
+        "project-runtime.durable-before-effect"
+      ]
     },
     {
       "symbolId": "project-runtime.execution-observation-port",
       "kind": "file",
       "path": "src/ports/execution-observation-port.ts",
-      "archIds": ["ARCH-000007"],
-      "implements": ["project-runtime.execution-intelligence-read-model"]
+      "archIds": [
+        "ARCH-000007"
+      ],
+      "implements": [
+        "project-runtime.execution-intelligence-read-model"
+      ]
     },
     {
       "symbolId": "project-runtime.public-api",
       "kind": "module",
       "path": "src/index.ts",
-      "archIds": ["ARCH-000004", "ARCH-000005", "ARCH-000007", "ARCH-000012"],
-      "implements": ["project-runtime.transport-neutral-application-contract"]
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000005",
+        "ARCH-000007",
+        "ARCH-000012"
+      ],
+      "implements": [
+        "project-runtime.transport-neutral-application-contract"
+      ]
     },
     {
-      "symbolId": "project-runtime.objective-intake-unit",
+      "symbolId": "project-runtime.test.unit.human-decision-application",
+      "kind": "test-suite",
+      "path": "tests/unit/human-decision-application.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "project-runtime.human-decision-application"
+      ]
+    },
+    {
+      "symbolId": "project-runtime.test.unit.integration-application",
+      "kind": "test-suite",
+      "path": "tests/unit/integration-application.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "project-runtime.integration-application"
+      ]
+    },
+    {
+      "symbolId": "project-runtime.test.unit.execution-observation-port",
+      "kind": "test-suite",
+      "path": "tests/unit/execution-observation-port.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "project-runtime.execution-observation-port"
+      ]
+    },
+    {
+      "symbolId": "project-runtime.test.unit.objective-intake",
       "kind": "test-suite",
       "path": "tests/unit/objective-intake.contract.test.ts",
-      "qaIds": ["QA-000003", "QA-000004"],
-      "localTestIds": ["PRL-ST-001", "PRL-IT-005", "PRL-UT-007", "PPR-UT-006"],
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
       "verifies": [
         "project-runtime.objective-intake",
         "project-runtime.state-core"
       ]
     },
     {
-      "symbolId": "project-runtime.state-unit",
+      "symbolId": "project-runtime.test.unit.public-contract",
       "kind": "test-suite",
-      "path": "tests/unit/project-runtime-state.contract.test.ts",
-      "qaIds": ["QA-000003", "QA-000004"],
-      "localTestIds": [
-        "PRL-ST-001",
-        "PRL-ST-004",
-        "PRL-UT-006",
-        "PRL-UT-007",
-        "PRL-IT-011",
-        "PPR-IT-001"
+      "path": "tests/unit/public-contract.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
       ],
-      "verifies": ["project-runtime.state-core", "project-runtime.queue-core"]
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "project-runtime.public-api"
+      ]
     },
     {
-      "symbolId": "project-runtime.state-query-unit",
+      "symbolId": "project-runtime.test.unit.state-query",
       "kind": "test-suite",
       "path": "tests/unit/project-state-query.contract.test.ts",
-      "qaIds": ["QA-000004"],
-      "localTestIds": ["PPR-IT-001"],
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
       "verifies": [
         "project-runtime.state-query-application",
         "project-runtime.state-core"
       ]
     },
     {
-      "symbolId": "project-runtime.execution-observation-unit",
+      "symbolId": "project-runtime.test.unit.platform-contract",
       "kind": "test-suite",
-      "path": "tests/unit/execution-observation-port.contract.test.ts",
-      "qaIds": ["QA-000004"],
-      "localTestIds": ["PPR-UAT-008"],
-      "verifies": ["project-runtime.execution-observation-port"]
+      "path": "tests/unit/platform-contract.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "project-runtime.execution"
+      ]
     },
     {
-      "symbolId": "project-runtime.human-decision-unit",
+      "symbolId": "project-runtime.test.unit.state",
       "kind": "test-suite",
-      "path": "tests/unit/human-decision-application.contract.test.ts",
-      "qaIds": ["QA-000003"],
-      "localTestIds": ["PRL-UT-007", "PRL-IT-008"],
-      "verifies": ["project-runtime.human-decision-application"]
-    },
-    {
-      "symbolId": "project-runtime.integration-application-unit",
-      "kind": "test-suite",
-      "path": "tests/unit/integration-application.contract.test.ts",
-      "qaIds": ["QA-000003"],
-      "localTestIds": ["PRL-ST-001", "PRL-ST-004"],
-      "verifies": ["project-runtime.integration-application"]
-    },
-    {
-      "symbolId": "project-runtime.public-contract-unit",
-      "kind": "test-suite",
-      "path": "tests/unit/public-contract.contract.test.ts",
-      "qaIds": ["QA-000003"],
-      "localTestIds": ["PRL-IT-012"],
-      "verifies": ["project-runtime.public-api"]
+      "path": "tests/unit/project-runtime-state.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "project-runtime.state-core",
+        "project-runtime.queue-core"
+      ]
     }
   ]
 }

@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:docker-restart-executionの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:docker-restart-executionが所有する検証責務を実行する。
+ * @trace ERB-IT-014
+ * @level IT
+ * @scope docker、restart、execution
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -5,6 +15,18 @@ import {
   executeDockerRestart,
 } from "../../src/core/docker-restart-execution.ts";
 
+/**
+ * restart driver waits for pending stop before cleanup after cancellationを検証する。
+ *
+ * @responsibility restart driver waits for pending stop before cleanup after cancellationの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus restart driver waits for pending stop before cleanup after cancellationの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("restart driver waits for pending stop before cleanup after cancellation", async () => {
   const f = fixture();
   let releaseStop: (() => void) | undefined;
@@ -37,6 +59,18 @@ test("restart driver waits for pending stop before cleanup after cancellation", 
   assert.equal(f.calls.includes("start"), false);
 });
 
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-014
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 function fixture() {
   const context = Object.freeze({});
   const controller = new AbortController();
@@ -83,6 +117,18 @@ for (const phase of [
   "start_intent",
   "ready",
 ] as const) {
+  /**
+   * restart resume from ${phase} uses observation without replaying completed effectsを検証する。
+   *
+   * @responsibility restart resume from ${phase} uses observation without replaying completed effectsの合否判定を所有する。
+   * @trace ERB-IT-014
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus restart resume from ${phase} uses observation without replaying completed effectsの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+   */
   test(`restart resume from ${phase} uses observation without replaying completed effects`, async () => {
     const f = fixture();
     const result = await executeDockerRestart(
@@ -135,8 +181,32 @@ for (const phase of [
   });
 
   for (const failure of ["false", "throw", "missing", "cancel"] as const) {
+    /**
+     * restart resume ${phase} observation ${failure} never issues next effectを検証する。
+     *
+     * @responsibility restart resume ${phase} observation ${failure} never issues next effectの合否判定を所有する。
+     * @trace ERB-IT-014
+     * @precondition Test Fileが構築するfixtureと入力を使用する。
+     * @stimulus restart resume ${phase} observation ${failure} never issues next effectの対象操作を実行する。
+     * @observation 結果、状態、Effectおよび終了後条件を観測する。
+     * @oracle Test本文のassertionが期待条件を満たす。
+     * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+     * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+     */
     test(`restart resume ${phase} observation ${failure} never issues next effect`, async () => {
       const f = fixture();
+      /**
+       * observeのTest準備責務を実行する。
+       *
+       * @responsibility observeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+       * @trace ERB-IT-014
+       * @precondition 呼出し元Test Caseが必要な入力を渡す。
+       * @stimulus observeを呼び出す。
+       * @observation 返却値、生成fixtureまたは観測値を取得する。
+       * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+       * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+       * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+       */
       const observe = async () => {
         f.calls.push("observe");
         if (failure === "throw") throw new Error("observation failed");
@@ -169,6 +239,18 @@ for (const phase of [
     });
   }
 
+  /**
+   * restart resume ${phase} rejects cancellation before observationを検証する。
+   *
+   * @responsibility restart resume ${phase} rejects cancellation before observationの合否判定を所有する。
+   * @trace ERB-IT-014
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus restart resume ${phase} rejects cancellation before observationの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+   */
   test(`restart resume ${phase} rejects cancellation before observation`, async () => {
     const f = fixture();
     f.controller.abort();
@@ -194,6 +276,18 @@ for (const phase of [
 }
 
 for (const phase of ["settled"] as const) {
+  /**
+   * restart resume ${phase} refuses replay and retains obligationを検証する。
+   *
+   * @responsibility restart resume ${phase} refuses replay and retains obligationの合否判定を所有する。
+   * @trace ERB-IT-014
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus restart resume ${phase} refuses replay and retains obligationの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+   */
   test(`restart resume ${phase} refuses replay and retains obligation`, async () => {
     const f = fixture();
     const result = await executeDockerRestart(
@@ -212,6 +306,18 @@ for (const phase of ["settled"] as const) {
   });
 }
 
+/**
+ * restart resume rejects unknown or prepared persisted phases without effectsを検証する。
+ *
+ * @responsibility restart resume rejects unknown or prepared persisted phases without effectsの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus restart resume rejects unknown or prepared persisted phases without effectsの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("restart resume rejects unknown or prepared persisted phases without effects", async () => {
   for (const phase of ["prepared", "unknown", null, {}, 0]) {
     const f = fixture();
@@ -229,6 +335,18 @@ test("restart resume rejects unknown or prepared persisted phases without effect
   }
 });
 
+/**
+ * restart driver settles restart only, persists intents and cleans before settlementを検証する。
+ *
+ * @responsibility restart driver settles restart only, persists intents and cleans before settlementの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus restart driver settles restart only, persists intents and cleans before settlementの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("restart driver settles restart only, persists intents and cleans before settlement", async () => {
   const f = fixture();
   const result = await executeDockerRestart(
@@ -267,6 +385,18 @@ for (const phase of [
   "settled",
 ] as const) {
   for (const failure of ["false", "throw", "cancel"] as const) {
+    /**
+     * restart driver retains obligation after ${phase} persistence ${failure}を検証する。
+     *
+     * @responsibility restart driver retains obligation after ${phase} persistence ${failure}の合否判定を所有する。
+     * @trace ERB-IT-014
+     * @precondition Test Fileが構築するfixtureと入力を使用する。
+     * @stimulus restart driver retains obligation after ${phase} persistence ${failure}の対象操作を実行する。
+     * @observation 結果、状態、Effectおよび終了後条件を観測する。
+     * @oracle Test本文のassertionが期待条件を満たす。
+     * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+     * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+     */
     test(`restart driver retains obligation after ${phase} persistence ${failure}`, async () => {
       const f = fixture();
       const result = await executeDockerRestart(
@@ -297,6 +427,18 @@ for (const phase of [
 
 for (const operation of ["stop", "start"] as const) {
   for (const failure of ["throw", "cancel", "unknown", "incomplete"] as const) {
+    /**
+     * restart driver does not replay ${operation} after ${failure}を検証する。
+     *
+     * @responsibility restart driver does not replay ${operation} after ${failure}の合否判定を所有する。
+     * @trace ERB-IT-014
+     * @precondition Test Fileが構築するfixtureと入力を使用する。
+     * @stimulus restart driver does not replay ${operation} after ${failure}の対象操作を実行する。
+     * @observation 結果、状態、Effectおよび終了後条件を観測する。
+     * @oracle Test本文のassertionが期待条件を満たす。
+     * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+     * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+     */
     test(`restart driver does not replay ${operation} after ${failure}`, async () => {
       const f = fixture();
       const ports: DockerRestartPorts = {
@@ -335,6 +477,18 @@ for (const field of [
   "engineStopped",
   "engineReady",
 ] as const) {
+  /**
+   * restart driver requires independent ${field} observationを検証する。
+   *
+   * @responsibility restart driver requires independent ${field} observationの合否判定を所有する。
+   * @trace ERB-IT-014
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus restart driver requires independent ${field} observationの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+   */
   test(`restart driver requires independent ${field} observation`, async () => {
     const f = fixture();
     const result = await executeDockerRestart(
@@ -358,6 +512,18 @@ for (const field of [
 }
 
 for (const failure of ["false", "throw", "cancel"] as const) {
+  /**
+   * restart driver never succeeds with cleanup ${failure}を検証する。
+   *
+   * @responsibility restart driver never succeeds with cleanup ${failure}の合否判定を所有する。
+   * @trace ERB-IT-014
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus restart driver never succeeds with cleanup ${failure}の対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+   */
   test(`restart driver never succeeds with cleanup ${failure}`, async () => {
     const f = fixture();
     const result = await executeDockerRestart(
@@ -378,6 +544,18 @@ for (const failure of ["false", "throw", "cancel"] as const) {
   });
 }
 
+/**
+ * restart driver rechecks boundary after await and cleans on initial rejectionを検証する。
+ *
+ * @responsibility restart driver rechecks boundary after await and cleans on initial rejectionの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus restart driver rechecks boundary after await and cleans on initial rejectionの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("restart driver rechecks boundary after await and cleans on initial rejection", async () => {
   const f = fixture();
   let observations = 0;
@@ -392,6 +570,18 @@ test("restart driver rechecks boundary after await and cleans on initial rejecti
   assert.equal(result.cleanupConfirmed, true);
 });
 
+/**
+ * restart resume from start_intent blocks when boundary changes after ready observationを検証する。
+ *
+ * @responsibility restart resume from start_intent blocks when boundary changes after ready observationの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus restart resume from start_intent blocks when boundary changes after ready observationの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("restart resume from start_intent blocks when boundary changes after ready observation", async () => {
   const f = fixture();
   let boundaryChecks = 0;

@@ -1,3 +1,13 @@
+/**
+ * semantic-coverage:unit:pilotの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility semantic-coverage:unit:pilotが所有する検証責務を実行する。
+ * @trace PPR-UT-016
+ * @level UT
+ * @scope architecture、semantic-coverage、migration-inventory
+ * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
@@ -51,6 +61,18 @@ const discovery = {
   ],
 };
 
+/**
+ * validateRealitySymbolManifestのTest準備責務を実行する。
+ *
+ * @responsibility validateRealitySymbolManifestがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-UT-016
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus validateRealitySymbolManifestを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ */
 function validateRealitySymbolManifest(value: unknown, manifestPath: string) {
   const outcome = validateDomainRealitySymbolManifest(value, manifestPath);
   return {
@@ -63,10 +85,34 @@ function validateRealitySymbolManifest(value: unknown, manifestPath: string) {
   };
 }
 
+/**
+ * createLegacyRuntimeInventoriesのTest準備責務を実行する。
+ *
+ * @responsibility createLegacyRuntimeInventoriesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-UT-016
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus createLegacyRuntimeInventoriesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ */
 function createLegacyRuntimeInventories(_repositoryRoot: string) {
   return createInventories(capability);
 }
 
+/**
+ * compileSemanticIrPilotのTest準備責務を実行する。
+ *
+ * @responsibility compileSemanticIrPilotがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-UT-016
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus compileSemanticIrPilotを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ */
 function compileSemanticIrPilot(
   _repositoryRoot: string,
   sourceDocument: string,
@@ -80,6 +126,18 @@ function compileSemanticIrPilot(
   );
 }
 
+/**
+ * compileQualitySemanticRelationsのTest準備責務を実行する。
+ *
+ * @responsibility compileQualitySemanticRelationsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-UT-016
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus compileQualitySemanticRelationsを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ */
 function compileQualitySemanticRelations(
   _repositoryRoot: string,
   sourceDocuments: readonly string[],
@@ -92,6 +150,18 @@ function compileQualitySemanticRelations(
   );
 }
 
+/**
+ * discoverRealitySymbolManifestsのTest準備責務を実行する。
+ *
+ * @responsibility discoverRealitySymbolManifestsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-UT-016
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus discoverRealitySymbolManifestsを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ */
 function discoverRealitySymbolManifests(_repositoryRoot: string) {
   return discovery;
 }
@@ -104,6 +174,18 @@ const qualitySources = [
   "07_Quality/Definitions/QA-000010/quality_definition.md",
 ] as const;
 
+/**
+ * Semantic Domain IssueはChecker境界で明示変換し未知種別を拒否するを検証する。
+ *
+ * @responsibility Semantic Domain IssueはChecker境界で明示変換し未知種別を拒否するの合否判定を所有する。
+ * @trace PPR-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Semantic Domain IssueはChecker境界で明示変換し未知種別を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ */
 test("Semantic Domain IssueはChecker境界で明示変換し未知種別を拒否する", () => {
   assert.deepEqual(
     mapSemanticDomainIssueToDiagnostic({
@@ -143,6 +225,18 @@ test("Semantic Domain IssueはChecker境界で明示変換し未知種別を拒�
   );
 });
 
+/**
+ * 旧Runtime JSONをRelation Owner別に分解してPilot Gapを観測するを検証する。
+ *
+ * @responsibility 旧Runtime JSONをRelation Owner別に分解してPilot Gapを観測するの合否判定を所有する。
+ * @trace PPR-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 旧Runtime JSONをRelation Owner別に分解してPilot Gapを観測するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ */
 test("旧Runtime JSONをRelation Owner別に分解してPilot Gapを観測する", () => {
   const result = createLegacyRuntimeInventories(repositoryRoot);
   assert.deepEqual(result.findings, []);
@@ -237,6 +331,18 @@ test("旧Runtime JSONをRelation Owner別に分解してPilot Gapを観測する
   assert.equal(projectRuntime.fields.length, 16);
 });
 
+/**
+ * 旧Runtime JSONの未知root propertyはInventoryを発行せず拒否するを検証する。
+ *
+ * @responsibility 旧Runtime JSONの未知root propertyはInventoryを発行せず拒否するの合否判定を所有する。
+ * @trace PPR-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 旧Runtime JSONの未知root propertyはInventoryを発行せず拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ */
 test("旧Runtime JSONの未知root propertyはInventoryを発行せず拒否する", () => {
   const filesystemRepository =
     createFilesystemRepositoryObservationPort(capability);
@@ -272,12 +378,36 @@ test("旧Runtime JSONの未知root propertyはInventoryを発行せず拒否す�
   ]);
 });
 
+/**
+ * Pilot Inventoryは同じRepository入力から同じ結果を生成するを検証する。
+ *
+ * @responsibility Pilot Inventoryは同じRepository入力から同じ結果を生成するの合否判定を所有する。
+ * @trace PPR-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Pilot Inventoryは同じRepository入力から同じ結果を生成するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ */
 test("Pilot Inventoryは同じRepository入力から同じ結果を生成する", () => {
   const first = createLegacyRuntimeInventories(repositoryRoot);
   const second = createLegacyRuntimeInventories(repositoryRoot);
   assert.equal(JSON.stringify(first), JSON.stringify(second));
 });
 
+/**
+ * CoordinatorとProject Runtimeの可視表からPilot IRを決定論的に生成するを検証する。
+ *
+ * @responsibility CoordinatorとProject Runtimeの可視表からPilot IRを決定論的に生成するの合否判定を所有する。
+ * @trace PPR-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CoordinatorとProject Runtimeの可視表からPilot IRを決定論的に生成するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ */
 test("CoordinatorとProject Runtimeの可視表からPilot IRを決定論的に生成する", () => {
   const pilots = [
     {
@@ -311,6 +441,18 @@ test("CoordinatorとProject Runtimeの可視表からPilot IRを決定論的に�
   }
 });
 
+/**
+ * Pilot IRは自由文推測をせず構造欠落を拒否するを検証する。
+ *
+ * @responsibility Pilot IRは自由文推測をせず構造欠落を拒否するの合否判定を所有する。
+ * @trace PPR-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Pilot IRは自由文推測をせず構造欠落を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ */
 test("Pilot IRは自由文推測をせず構造欠落を拒否する", () => {
   const missingTable = compileSemanticIrPilot(
     repositoryRoot,
@@ -324,6 +466,18 @@ test("Pilot IRは自由文推測をせず構造欠落を拒否する", () => {
   );
 });
 
+/**
+ * Pilot Semantic Keyを実装Symbol側のimplementsから解決するを検証する。
+ *
+ * @responsibility Pilot Semantic Keyを実装Symbol側のimplementsから解決するの合否判定を所有する。
+ * @trace PPR-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Pilot Semantic Keyを実装Symbol側のimplementsから解決するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ */
 test("Pilot Semantic Keyを実装Symbol側のimplementsから解決する", () => {
   const semanticIrs = [
     compileSemanticIrPilot(
@@ -394,6 +548,18 @@ test("Pilot Semantic Keyを実装Symbol側のimplementsから解決する", () =
   );
 });
 
+/**
+ * Test SymbolはQA-IDとLocal IDの完全一致だけを意味へ接続するを検証する。
+ *
+ * @responsibility Test SymbolはQA-IDとLocal IDの完全一致だけを意味へ接続するの合否判定を所有する。
+ * @trace PPR-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Test SymbolはQA-IDとLocal IDの完全一致だけを意味へ接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ */
 test("Test SymbolはQA-IDとLocal IDの完全一致だけを意味へ接続する", () => {
   const coordinatorIr = compileSemanticIrPilot(
     repositoryRoot,
@@ -471,6 +637,18 @@ test("Test SymbolはQA-IDとLocal IDの完全一致だけを意味へ接続す�
   );
 });
 
+/**
+ * 同じLocal IDが複数QAに存在するTest Symbolは曖昧として拒否するを検証する。
+ *
+ * @responsibility 同じLocal IDが複数QAに存在するTest Symbolは曖昧として拒否するの合否判定を所有する。
+ * @trace PPR-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 同じLocal IDが複数QAに存在するTest Symbolは曖昧として拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ */
 test("同じLocal IDが複数QAに存在するTest Symbolは曖昧として拒否する", () => {
   const coordinatorIr = compileSemanticIrPilot(
     repositoryRoot,
@@ -544,6 +722,18 @@ test("同じLocal IDが複数QAに存在するTest Symbolは曖昧として拒�
   );
 });
 
+/**
+ * Quality Local Itemが全Pilot Semantic Keyの正方向Relationを所有するを検証する。
+ *
+ * @responsibility Quality Local Itemが全Pilot Semantic Keyの正方向Relationを所有するの合否判定を所有する。
+ * @trace PPR-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Quality Local Itemが全Pilot Semantic Keyの正方向Relationを所有するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ */
 test("Quality Local Itemが全Pilot Semantic Keyの正方向Relationを所有する", () => {
   const semanticIrs = [
     compileSemanticIrPilot(
@@ -570,6 +760,18 @@ test("Quality Local Itemが全Pilot Semantic Keyの正方向Relationを所有す
   );
 });
 
+/**
+ * Test Symbolはimplementsを所有できないを検証する。
+ *
+ * @responsibility Test Symbolはimplementsを所有できないの合否判定を所有する。
+ * @trace PPR-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Test Symbolはimplementsを所有できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Architecture Details→Semantic IRは外部実行境界を持たない。
+ */
 test("Test Symbolはimplementsを所有できない", () => {
   const validation = validateRealitySymbolManifest(
     {

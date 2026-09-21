@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:provider-model-selection-runtimeの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:provider-model-selection-runtimeが所有する検証責務を実行する。
+ * @trace PRL-UT-014
+ * @level UT
+ * @scope provider、model、selection、runtime
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -6,6 +16,18 @@ import {
   selectProviderModelCandidate,
 } from "../../src/security/provider-model-selection-runtime.ts";
 
+/**
+ * createBoundedImplementationのTest準備責務を実行する。
+ *
+ * @responsibility createBoundedImplementationがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-014
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus createBoundedImplementationを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 function createBoundedImplementation(provider: "codex" | "claude") {
   return {
     provider,
@@ -21,6 +43,18 @@ function createBoundedImplementation(provider: "codex" | "claude") {
   };
 }
 
+/**
+ * 具体化済みの局所実装は通常速度の低推論候補になるを検証する。
+ *
+ * @responsibility 具体化済みの局所実装は通常速度の低推論候補になるの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 具体化済みの局所実装は通常速度の低推論候補になるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("具体化済みの局所実装は通常速度の低推論候補になる", () => {
   const selected = selectProviderModelCandidate(
     createBoundedImplementation("claude"),
@@ -38,6 +72,18 @@ test("具体化済みの局所実装は通常速度の低推論候補になる",
   assert.equal(selected.providerEffectAllowed, false);
 });
 
+/**
+ * 高難度レビュー自己申告だけでは高推論を発行せず中推論へ抑制するを検証する。
+ *
+ * @responsibility 高難度レビュー自己申告だけでは高推論を発行せず中推論へ抑制するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 高難度レビュー自己申告だけでは高推論を発行せず中推論へ抑制するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("高難度レビュー自己申告だけでは高推論を発行せず中推論へ抑制する", () => {
   const selected = selectProviderModelCandidate({
     ...createBoundedImplementation("codex"),
@@ -65,6 +111,18 @@ test("高難度レビュー自己申告だけでは高推論を発行せず中�
   assert.match(selected.selectionNotice ?? "", /role=independent_reviewer/);
 });
 
+/**
+ * 通常のCoordinator方針整合は役割だけで高コスト化しないを検証する。
+ *
+ * @responsibility 通常のCoordinator方針整合は役割だけで高コスト化しないの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 通常のCoordinator方針整合は役割だけで高コスト化しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("通常のCoordinator方針整合は役割だけで高コスト化しない", () => {
   const selected = selectProviderModelCandidate({
     ...createBoundedImplementation("codex"),
@@ -81,6 +139,18 @@ test("通常のCoordinator方針整合は役割だけで高コスト化しない
   ]);
 });
 
+/**
+ * 限定診断は中推論になりProvider fallbackを発行しないを検証する。
+ *
+ * @responsibility 限定診断は中推論になりProvider fallbackを発行しないの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 限定診断は中推論になりProvider fallbackを発行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("限定診断は中推論になりProvider fallbackを発行しない", () => {
   const selected = selectProviderModelCandidate({
     ...createBoundedImplementation("claude"),
@@ -96,6 +166,18 @@ test("限定診断は中推論になりProvider fallbackを発行しない", () 
   assert.equal(selected.automaticProviderFallbackAllowed, false);
 });
 
+/**
+ * 未解決方針を含む実装を低推論へ分類しないを検証する。
+ *
+ * @responsibility 未解決方針を含む実装を低推論へ分類しないの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 未解決方針を含む実装を低推論へ分類しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("未解決方針を含む実装を低推論へ分類しない", () => {
   const selected = selectProviderModelCandidate({
     ...createBoundedImplementation("claude"),
@@ -109,6 +191,18 @@ test("未解決方針を含む実装を低推論へ分類しない", () => {
   ]);
 });
 
+/**
+ * 不足・余分・不正な分類情報は固定理由でfail closedになるを検証する。
+ *
+ * @responsibility 不足・余分・不正な分類情報は固定理由でfail closedになるの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不足・余分・不正な分類情報は固定理由でfail closedになるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("不足・余分・不正な分類情報は固定理由でfail closedになる", () => {
   const missing = { ...createBoundedImplementation("claude") } as Record<
     string,
@@ -142,6 +236,18 @@ test("不足・余分・不正な分類情報は固定理由でfail closedにな
   );
 });
 
+/**
+ * 公開契約は通常速度・説明可能選定・再選定境界を固定するを検証する。
+ *
+ * @responsibility 公開契約は通常速度・説明可能選定・再選定境界を固定するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開契約は通常速度・説明可能選定・再選定境界を固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("公開契約は通常速度・説明可能選定・再選定境界を固定する", () => {
   const contract = describeProviderModelSelectionRuntimeContract();
   assert.equal(contract.contractRevision, 2);

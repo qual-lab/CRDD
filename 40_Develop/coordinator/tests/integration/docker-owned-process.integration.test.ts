@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:docker-owned-processの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:docker-owned-processが所有する検証責務を実行する。
+ * @trace ERB-IT-002
+ * @level IT
+ * @scope docker、owned、process
+ * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ */
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import { EventEmitter } from "node:events";
@@ -28,6 +38,18 @@ const codexSeccompProfile = fileURLToPath(
   new URL("../../runtime/codex-executor-seccomp.json", import.meta.url),
 );
 
+/**
+ * createSyntheticChildのTest準備責務を実行する。
+ *
+ * @responsibility createSyntheticChildがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus createSyntheticChildを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ */
 function createSyntheticChild() {
   return Object.assign(new EventEmitter(), {
     pid: undefined as number | undefined,
@@ -37,6 +59,18 @@ function createSyntheticChild() {
   });
 }
 
+/**
+ * 固定子: Windows process-tree終了helperを固定引数と制限環境で所有するを検証する。
+ *
+ * @responsibility 固定子: Windows process-tree終了helperを固定引数と制限環境で所有するの合否判定を所有する。
+ * @trace ERB-IT-002
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定子: Windows process-tree終了helperを固定引数と制限環境で所有するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ */
 test("固定子: Windows process-tree終了helperを固定引数と制限環境で所有する", async () => {
   if (process.platform !== "win32") return;
   const child = createSyntheticChild();
@@ -94,6 +128,18 @@ test("固定子: Windows process-tree終了helperを固定引数と制限環境�
   assert.equal(startOwnedWindowsProcessTreeTermination(Number.NaN), null);
 });
 
+/**
+ * withSyntheticSpawnのTest準備責務を実行する。
+ *
+ * @responsibility withSyntheticSpawnがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus withSyntheticSpawnを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ */
 async function withSyntheticSpawn(
   spawnFixture: typeof childProcess.spawn,
   verify: () => Promise<void>,
@@ -109,6 +155,18 @@ async function withSyntheticSpawn(
   }
 }
 
+/**
+ * 固定子: stdio構築前のEMFILE/ENFILEは所有を保持しerror後closeを待つを検証する。
+ *
+ * @responsibility 固定子: stdio構築前のEMFILE/ENFILEは所有を保持しerror後closeを待つの合否判定を所有する。
+ * @trace ERB-IT-002
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定子: stdio構築前のEMFILE/ENFILEは所有を保持しerror後closeを待つの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ */
 test("固定子: stdio構築前のEMFILE/ENFILEは所有を保持しerror後closeを待つ", async () => {
   for (const code of ["EMFILE", "ENFILE"]) {
     const child = createSyntheticChild();
@@ -141,6 +199,18 @@ test("固定子: stdio構築前のEMFILE/ENFILEは所有を保持しerror後clos
   }
 });
 
+/**
+ * 固定子: close不明と同期spawn失敗を資源終了へ昇格しないを検証する。
+ *
+ * @responsibility 固定子: close不明と同期spawn失敗を資源終了へ昇格しないの合否判定を所有する。
+ * @trace ERB-IT-002
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定子: close不明と同期spawn失敗を資源終了へ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ */
 test("固定子: close不明と同期spawn失敗を資源終了へ昇格しない", async () => {
   for (const pid of [
     undefined,
@@ -181,6 +251,18 @@ test("固定子: close不明と同期spawn失敗を資源終了へ昇格しな�
   );
 });
 
+/**
+ * 固定子: 入出力欠落・送信失敗・stream errorの後もcloseを所有するを検証する。
+ *
+ * @responsibility 固定子: 入出力欠落・送信失敗・stream errorの後もcloseを所有するの合否判定を所有する。
+ * @trace ERB-IT-002
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定子: 入出力欠落・送信失敗・stream errorの後もcloseを所有するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ */
 test("固定子: 入出力欠落・送信失敗・stream errorの後もcloseを所有する", async () => {
   for (const failure of [
     "stdout",
@@ -217,6 +299,18 @@ test("固定子: 入出力欠落・送信失敗・stream errorの後もcloseを�
   }
 });
 
+/**
+ * 固定子: taskkill起動失敗・非0結果を元子の終了失敗と混同しないを検証する。
+ *
+ * @responsibility 固定子: taskkill起動失敗・非0結果を元子の終了失敗と混同しないの合否判定を所有する。
+ * @trace ERB-IT-002
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定子: taskkill起動失敗・非0結果を元子の終了失敗と混同しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ */
 test("固定子: taskkill起動失敗・非0結果を元子の終了失敗と混同しない", async () => {
   for (const failure of ["throw", "error", "nonzero"]) {
     const child = createSyntheticChild();
@@ -252,6 +346,18 @@ test("固定子: taskkill起動失敗・非0結果を元子の終了失敗と混
   }
 });
 
+/**
+ * 固定子: 元子がcloseしてもtaskkill補助子のclose不明を成功にしないを検証する。
+ *
+ * @responsibility 固定子: 元子がcloseしてもtaskkill補助子のclose不明を成功にしないの合否判定を所有する。
+ * @trace ERB-IT-002
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定子: 元子がcloseしてもtaskkill補助子のclose不明を成功にしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ */
 test("固定子: 元子がcloseしてもtaskkill補助子のclose不明を成功にしない", async () => {
   const child = createSyntheticChild();
   child.pid = 123456;
@@ -282,6 +388,18 @@ test("固定子: 元子がcloseしてもtaskkill補助子のclose不明を成功
   child.stderr.destroy();
 });
 
+/**
+ * 動的条件の検証Caseを検証する。
+ *
+ * @responsibility 動的条件の検証Caseの合否判定を所有する。
+ * @trace ERB-IT-002
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 動的条件の検証Caseの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ */
 test(
   "本番共通process: UTF-8標準入力と正常/非0終了を実観測",
   windowsOnly,
@@ -309,6 +427,18 @@ test(
   },
 );
 
+/**
+ * Windows Process Gate: Codex Executor SandboxはWorkspaceだけを書込み可能にするを検証する。
+ *
+ * @responsibility Windows Process Gate: Codex Executor SandboxはWorkspaceだけを書込み可能にするの合否判定を所有する。
+ * @trace ERB-IT-002
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows Process Gate: Codex Executor SandboxはWorkspaceだけを書込み可能にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ */
 test("Windows Process Gate: Codex Executor SandboxはWorkspaceだけを書込み可能にする", {
   skip: process.platform !== "win32",
   timeout: 60_000,
@@ -427,6 +557,18 @@ test("Windows Process Gate: Codex Executor SandboxはWorkspaceだけを書込み
   );
 });
 
+/**
+ * 動的条件の検証Caseを検証する。
+ *
+ * @responsibility 動的条件の検証Caseの合否判定を所有する。
+ * @trace ERB-IT-002
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 動的条件の検証Caseの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ */
 test(
   "Windows Process Gate: 本番共通process: 待機期限は取消ではなく、重複取消後に実子孫とcloseを確認",
   windowsOnly,
@@ -450,6 +592,18 @@ test(
 );
 
 for (const mode of ["stdout-limit", "stderr-limit"]) {
+  /**
+   * 動的条件の検証Caseを検証する。
+   *
+   * @responsibility 動的条件の検証Caseの合否判定を所有する。
+   * @trace ERB-IT-002
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 動的条件の検証Caseの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+   */
   test(
     `Windows Process Gate: 本番共通process: ${mode}は実processを終了し出力保持を制限`,
     windowsOnly,
@@ -474,6 +628,18 @@ for (const mode of ["stdout-limit", "stderr-limit"]) {
   );
 }
 
+/**
+ * 動的条件の検証Caseを検証する。
+ *
+ * @responsibility 動的条件の検証Caseの合否判定を所有する。
+ * @trace ERB-IT-002
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 動的条件の検証Caseの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ */
 test(
   "本番共通process: 起動失敗はerror結果とcloseを区別して観測",
   windowsOnly,

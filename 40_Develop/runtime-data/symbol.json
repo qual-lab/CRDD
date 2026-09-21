@@ -7,15 +7,82 @@
       "symbolId": "runtime-data.public-api",
       "kind": "module",
       "path": "src/index.ts",
-      "archIds": ["ARCH-000009", "ARCH-000011", "ARCH-000013", "ARCH-000016"]
+      "archIds": [
+        "ARCH-000009",
+        "ARCH-000011",
+        "ARCH-000013",
+        "ARCH-000016"
+      ]
     },
     {
-      "symbolId": "runtime-data.lifecycle-integration",
+      "symbolId": "runtime-data.test.unit.contract",
+      "kind": "test-suite",
+      "path": "tests/unit/runtime-data-contract.contract.test.ts",
+      "qaIds": [
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "RDL-UT-005"
+      ],
+      "verifies": [
+        "runtime-data.public-api"
+      ]
+    },
+    {
+      "symbolId": "runtime-data.test.unit.path-resolver",
+      "kind": "test-suite",
+      "path": "tests/unit/runtime-data-path-resolver.contract.test.ts",
+      "qaIds": [
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "RDL-UT-005"
+      ],
+      "verifies": [
+        "runtime-data.public-api"
+      ]
+    },
+    {
+      "symbolId": "runtime-data.test.integration.repository-paths",
+      "kind": "test-suite",
+      "path": "tests/integration/repository-runtime-data-paths.integration.test.ts",
+      "qaIds": [
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "RDL-IT-001"
+      ],
+      "verifies": [
+        "runtime-data.public-api"
+      ]
+    },
+    {
+      "symbolId": "runtime-data.test.integration.consumer-closure",
+      "kind": "test-suite",
+      "path": "tests/integration/runtime-data-consumer-closure.integration.test.ts",
+      "qaIds": [
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "RDL-IT-001"
+      ],
+      "verifies": [
+        "runtime-data.public-api"
+      ]
+    },
+    {
+      "symbolId": "runtime-data.test.integration.temporary-operation-lifecycle",
       "kind": "test-suite",
       "path": "tests/integration/temporary-operation-lifecycle.integration.test.ts",
-      "qaIds": ["QA-000008"],
-      "localTestIds": ["RDL-IT-001", "RDL-ST-002", "RDL-IT-003", "RDL-IT-004"],
-      "verifies": ["runtime-data.public-api"]
+      "qaIds": [
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "RDL-IT-001"
+      ],
+      "verifies": [
+        "runtime-data.public-api"
+      ]
     }
   ]
 }

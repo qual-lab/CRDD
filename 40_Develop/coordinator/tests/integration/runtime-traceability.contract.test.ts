@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:runtime-traceabilityの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:runtime-traceabilityが所有する検証責務を実行する。
+ * @trace PPR-IT-018
+ * @level IT
+ * @scope runtime、traceability
+ * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -10,6 +20,18 @@ const repositoryRoot = path.resolve(
   "../../../..",
 );
 
+/**
+ * currentTraceのTest準備責務を実行する。
+ *
+ * @responsibility currentTraceがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-IT-018
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus currentTraceを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ */
 function currentTrace(): unknown {
   return JSON.parse(
     fs.readFileSync(
@@ -22,6 +44,18 @@ function currentTrace(): unknown {
   );
 }
 
+/**
+ * repositoryReaderのTest準備責務を実行する。
+ *
+ * @responsibility repositoryReaderがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-IT-018
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus repositoryReaderを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ */
 function repositoryReader(repositoryRelativePath: string): string | null {
   try {
     return fs.readFileSync(
@@ -33,6 +67,18 @@ function repositoryReader(repositoryRelativePath: string): string | null {
   }
 }
 
+/**
+ * Coordinator Runtime TraceはArchitecture・実在試験・検証区分を閉じるを検証する。
+ *
+ * @responsibility Coordinator Runtime TraceはArchitecture・実在試験・検証区分を閉じるの合否判定を所有する。
+ * @trace PPR-IT-018
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Coordinator Runtime TraceはArchitecture・実在試験・検証区分を閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ */
 test("Coordinator Runtime TraceはArchitecture・実在試験・検証区分を閉じる", () => {
   assert.deepEqual(
     inspectCoordinatorRuntimeTraceability(currentTrace(), repositoryReader),
@@ -48,6 +94,18 @@ test("Coordinator Runtime TraceはArchitecture・実在試験・検証区分を�
   );
 });
 
+/**
+ * 参照切れ・孤立・必要検証区分の欠落を一括して拒否するを検証する。
+ *
+ * @responsibility 参照切れ・孤立・必要検証区分の欠落を一括して拒否するの合否判定を所有する。
+ * @trace PPR-IT-018
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 参照切れ・孤立・必要検証区分の欠落を一括して拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ */
 test("参照切れ・孤立・必要検証区分の欠落を一括して拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
   const transitions = structuredClone(trace.transitions) as Record<
@@ -95,6 +153,18 @@ test("参照切れ・孤立・必要検証区分の欠落を一括して拒否�
   }
 });
 
+/**
+ * Architectureまたは実在する試験名に接続できないTraceを拒否するを検証する。
+ *
+ * @responsibility Architectureまたは実在する試験名に接続できないTraceを拒否するの合否判定を所有する。
+ * @trace PPR-IT-018
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architectureまたは実在する試験名に接続できないTraceを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ */
 test("Architectureまたは実在する試験名に接続できないTraceを拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
   trace.architectureDocument = "06_Architecture/Details/coordinator/missing.md";
@@ -112,6 +182,18 @@ test("Architectureまたは実在する試験名に接続できないTraceを拒
   }
 });
 
+/**
+ * effect観測scopeとCanonical case完全一致assertionの無いTraceを拒否するを検証する。
+ *
+ * @responsibility effect観測scopeとCanonical case完全一致assertionの無いTraceを拒否するの合否判定を所有する。
+ * @trace PPR-IT-018
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus effect観測scopeとCanonical case完全一致assertionの無いTraceを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ */
 test("effect観測scopeとCanonical case完全一致assertionの無いTraceを拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
   trace.effectObservationScope = "cumulative";
@@ -145,6 +227,18 @@ test("effect観測scopeとCanonical case完全一致assertionの無いTraceを�
   }
 });
 
+/**
+ * Trace entityの欠落・余分field、risk typo、terminal内遷移と観測境界差を拒否するを検証する。
+ *
+ * @responsibility Trace entityの欠落・余分field、risk typo、terminal内遷移と観測境界差を拒否するの合否判定を所有する。
+ * @trace PPR-IT-018
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Trace entityの欠落・余分field、risk typo、terminal内遷移と観測境界差を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ */
 test("Trace entityの欠落・余分field、risk typo、terminal内遷移と観測境界差を拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
   const states = structuredClone(trace.states) as Record<string, unknown>[];
@@ -194,6 +288,18 @@ test("Trace entityの欠落・余分field、risk typo、terminal内遷移と観�
   }
 });
 
+/**
+ * 検証caseの開始状態・終了状態・資源意味とsource別区分欠落を拒否するを検証する。
+ *
+ * @responsibility 検証caseの開始状態・終了状態・資源意味とsource別区分欠落を拒否するの合否判定を所有する。
+ * @trace PPR-IT-018
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 検証caseの開始状態・終了状態・資源意味とsource別区分欠落を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ */
 test("検証caseの開始状態・終了状態・資源意味とsource別区分欠落を拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
   const bindings = structuredClone(trace.verificationBindings) as Record<
@@ -239,6 +345,18 @@ test("検証caseの開始状態・終了状態・資源意味とsource別区分�
   }
 });
 
+/**
+ * 検証caseのsource未接続・未観測資源・拒否結果の誤到達を拒否するを検証する。
+ *
+ * @responsibility 検証caseのsource未接続・未観測資源・拒否結果の誤到達を拒否するの合否判定を所有する。
+ * @trace PPR-IT-018
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 検証caseのsource未接続・未観測資源・拒否結果の誤到達を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ */
 test("検証caseのsource未接続・未観測資源・拒否結果の誤到達を拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
   const bindings = structuredClone(trace.verificationBindings) as Record<
@@ -278,6 +396,18 @@ test("検証caseのsource未接続・未観測資源・拒否結果の誤到達�
   }
 });
 
+/**
+ * bindingが宣言するだけでcaseが観測しない資源を拒否するを検証する。
+ *
+ * @responsibility bindingが宣言するだけでcaseが観測しない資源を拒否するの合否判定を所有する。
+ * @trace PPR-IT-018
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus bindingが宣言するだけでcaseが観測しない資源を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ */
 test("bindingが宣言するだけでcaseが観測しない資源を拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
   const bindings = structuredClone(trace.verificationBindings) as Record<
@@ -304,6 +434,18 @@ test("bindingが宣言するだけでcaseが観測しない資源を拒否する
   }
 });
 
+/**
+ * 拒否試行を実遷移または状態変更として記録するTraceを拒否するを検証する。
+ *
+ * @responsibility 拒否試行を実遷移または状態変更として記録するTraceを拒否するの合否判定を所有する。
+ * @trace PPR-IT-018
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 拒否試行を実遷移または状態変更として記録するTraceを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ */
 test("拒否試行を実遷移または状態変更として記録するTraceを拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
   const bindings = structuredClone(trace.verificationBindings) as Record<
@@ -339,6 +481,18 @@ test("拒否試行を実遷移または状態変更として記録するTraceを
   }
 });
 
+/**
+ * operation terminalからの遷移と非terminalからのRecovery invocationを拒否するを検証する。
+ *
+ * @responsibility operation terminalからの遷移と非terminalからのRecovery invocationを拒否するの合否判定を所有する。
+ * @trace PPR-IT-018
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus operation terminalからの遷移と非terminalからのRecovery invocationを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation
+ */
 test("operation terminalからの遷移と非terminalからのRecovery invocationを拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
   const transitions = structuredClone(trace.transitions) as Record<

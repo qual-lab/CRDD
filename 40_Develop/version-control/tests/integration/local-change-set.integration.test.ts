@@ -1,3 +1,13 @@
+/**
+ * version-control:integration:local-change-setの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility version-control:integration:local-change-setが所有する検証責務を実行する。
+ * @trace RFD-IT-008
+ * @level IT
+ * @scope version-control、change-set、regression
+ * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -12,6 +22,18 @@ import {
   verifyRepositoryRoot,
 } from "../../src/index.ts";
 
+/**
+ * gitのTest準備責務を実行する。
+ *
+ * @responsibility gitがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RFD-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus gitを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ */
 function git(root: string, commandArguments: readonly string[]): string {
   return execFileSync("git", ["-C", root, ...commandArguments], {
     encoding: "utf8",
@@ -19,6 +41,18 @@ function git(root: string, commandArguments: readonly string[]): string {
   }).trim();
 }
 
+/**
+ * 実RepositoryのRevision・準備・作業・未登録変更を分離して観測するを検証する。
+ *
+ * @responsibility 実RepositoryのRevision・準備・作業・未登録変更を分離して観測するの合否判定を所有する。
+ * @trace RFD-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実RepositoryのRevision・準備・作業・未登録変更を分離して観測するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ */
 test("実RepositoryのRevision・準備・作業・未登録変更を分離して観測する", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-changes-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -60,6 +94,18 @@ test("実RepositoryのRevision・準備・作業・未登録変更を分離し�
   assert.equal(JSON.stringify(observed).includes(root), false);
 });
 
+/**
+ * 四つの観測のどこで失敗しても部分的な変更集合を公開しないを検証する。
+ *
+ * @responsibility 四つの観測のどこで失敗しても部分的な変更集合を公開しないの合否判定を所有する。
+ * @trace RFD-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 四つの観測のどこで失敗しても部分的な変更集合を公開しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ */
 test("四つの観測のどこで失敗しても部分的な変更集合を公開しない", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-failure-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -95,6 +141,18 @@ test("四つの観測のどこで失敗しても部分的な変更集合を公�
   }
 });
 
+/**
+ * 表現できないbackslashを含む名前を別Pathへ変換せず拒否するを検証する。
+ *
+ * @responsibility 表現できないbackslashを含む名前を別Pathへ変換せず拒否するの合否判定を所有する。
+ * @trace RFD-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 表現できないbackslashを含む名前を別Pathへ変換せず拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ */
 test("表現できないbackslashを含む名前を別Pathへ変換せず拒否する", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-verbatim-path-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));

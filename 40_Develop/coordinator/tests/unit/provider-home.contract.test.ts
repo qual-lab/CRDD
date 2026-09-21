@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:provider-homeの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:provider-homeが所有する検証責務を実行する。
+ * @trace AIT-UT-005
+ * @level UT
+ * @scope provider、home
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -8,6 +18,18 @@ import {
   PROVIDER_HOME_CONTRACT_REVISION,
 } from "../../src/security/provider-home.ts";
 
+/**
+ * 専用Provider Homeはlocal userとProvider単位の固定方針を持つを検証する。
+ *
+ * @responsibility 専用Provider Homeはlocal userとProvider単位の固定方針を持つの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 専用Provider Homeはlocal userとProvider単位の固定方針を持つの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("専用Provider Homeはlocal userとProvider単位の固定方針を持つ", () => {
   const contract = describeProviderHomeContract();
   assert.equal(contract.contract, PROVIDER_HOME_CONTRACT);
@@ -40,6 +62,18 @@ test("専用Provider Homeはlocal userとProvider単位の固定方針を持つ"
   assert.equal(contract.mountGrantRuntime.providerHomeMounted, false);
 });
 
+/**
+ * Windows local app dataからProvider別layout候補を作るがPathやAuthorityを返さないを検証する。
+ *
+ * @responsibility Windows local app dataからProvider別layout候補を作るがPathやAuthorityを返さないの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows local app dataからProvider別layout候補を作るがPathやAuthorityを返さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Windows local app dataからProvider別layout候補を作るがPathやAuthorityを返さない", () => {
   for (const provider of ["codex", "claude"]) {
     const result = evaluateWindowsProviderHomeLayoutCandidate({
@@ -60,6 +94,18 @@ test("Windows local app dataからProvider別layout候補を作るがPathやAuth
   }
 });
 
+/**
+ * 不正なWindows Root候補とunsupported Providerをlayout候補にしないを検証する。
+ *
+ * @responsibility 不正なWindows Root候補とunsupported Providerをlayout候補にしないの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不正なWindows Root候補とunsupported Providerをlayout候補にしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("不正なWindows Root候補とunsupported Providerをlayout候補にしない", () => {
   for (const localAppDataRoot of [
     "",
@@ -93,6 +139,18 @@ test("不正なWindows Root候補とunsupported Providerをlayout候補にしな
   );
 });
 
+/**
+ * 余分field、accessor、Proxyを処置前にfail closedとするを検証する。
+ *
+ * @responsibility 余分field、accessor、Proxyを処置前にfail closedとするの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 余分field、accessor、Proxyを処置前にfail closedとするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("余分field、accessor、Proxyを処置前にfail closedとする", () => {
   assert.equal(
     evaluateWindowsProviderHomeLayoutCandidate({
@@ -130,6 +188,18 @@ test("余分field、accessor、Proxyを処置前にfail closedとする", () => 
   );
 });
 
+/**
+ * layout候補は保護・認証・mount Grantの実装済み主張へ昇格しないを検証する。
+ *
+ * @responsibility layout候補は保護・認証・mount Grantの実装済み主張へ昇格しないの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus layout候補は保護・認証・mount Grantの実装済み主張へ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("layout候補は保護・認証・mount Grantの実装済み主張へ昇格しない", () => {
   const contract = describeProviderHomeContract();
   assert.equal(

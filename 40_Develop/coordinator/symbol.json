@@ -7,7 +7,11 @@
       "symbolId": "coordinator.task-runtime",
       "kind": "file",
       "path": "src/security/coordinator-task-runtime.ts",
-      "archIds": ["ARCH-000004", "ARCH-000008", "ARCH-000015"],
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008",
+        "ARCH-000015"
+      ],
       "implements": [
         "coordinator.objective-lifecycle",
         "coordinator.external-boundary-diagnostics",
@@ -20,123 +24,2154 @@
       "symbolId": "coordinator.provider-authority-runtime",
       "kind": "file",
       "path": "src/security/provider-authority-runtime.ts",
-      "archIds": ["ARCH-000004", "ARCH-000015"],
-      "implements": ["coordinator.provider-effect-authority"]
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000015"
+      ],
+      "implements": [
+        "coordinator.provider-effect-authority"
+      ]
     },
     {
       "symbolId": "coordinator.provider-model-selection-runtime",
       "kind": "file",
       "path": "src/security/provider-model-selection-runtime.ts",
-      "archIds": ["ARCH-000010"],
-      "implements": ["coordinator.provider-selection-boundary"]
+      "archIds": [
+        "ARCH-000010"
+      ],
+      "implements": [
+        "coordinator.provider-selection-boundary"
+      ]
     },
     {
       "symbolId": "coordinator.native-runtime-trace",
       "kind": "file",
       "path": "src/security/native-runtime-trace.ts",
-      "archIds": ["ARCH-000008"],
-      "implements": ["coordinator.external-boundary-diagnostics"]
+      "archIds": [
+        "ARCH-000008"
+      ],
+      "implements": [
+        "coordinator.external-boundary-diagnostics"
+      ]
     },
     {
       "symbolId": "coordinator.provider-home-observation",
       "kind": "file",
       "path": "src/security/provider-home-observation.ts",
-      "archIds": ["ARCH-000010", "ARCH-000015"]
+      "archIds": [
+        "ARCH-000010",
+        "ARCH-000015"
+      ]
     },
     {
       "symbolId": "coordinator.docker-desktop-runtime-repair",
       "kind": "file",
       "path": "src/security/docker-desktop-runtime-repair.ts",
-      "archIds": ["ARCH-000008", "ARCH-000015"],
-      "implements": ["coordinator.recovery-obligation"]
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000015"
+      ],
+      "implements": [
+        "coordinator.recovery-obligation"
+      ]
     },
     {
       "symbolId": "coordinator.public-api",
       "kind": "module",
       "path": "src/index.ts",
-      "archIds": ["ARCH-000004", "ARCH-000008", "ARCH-000010", "ARCH-000014", "ARCH-000015"]
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008",
+        "ARCH-000010",
+        "ARCH-000014",
+        "ARCH-000015"
+      ]
     },
     {
-      "symbolId": "coordinator.task-process-integration",
+      "symbolId": "coordinator.test.integration.bounded-file-snapshot",
+      "kind": "test-suite",
+      "path": "tests/integration/bounded-file-snapshot.contract.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-008"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.development-package-scripts",
+      "kind": "test-suite",
+      "path": "tests/integration/development-package-scripts.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-IT-009"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.candidate-bundle-store",
+      "kind": "test-suite",
+      "path": "tests/integration/candidate-bundle-store.contract.test.ts",
+      "qaIds": [
+        "QA-000005"
+      ],
+      "localTestIds": [
+        "CPR-IT-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.candidate-store-kernel-lock",
+      "kind": "test-suite",
+      "path": "tests/integration/candidate-store-kernel-lock.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-IT-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.claude-execution-plan",
+      "kind": "test-suite",
+      "path": "tests/integration/claude-execution-plan.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.cli-options",
+      "kind": "test-suite",
+      "path": "tests/integration/cli-options.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-012"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.codex-execution-plan",
+      "kind": "test-suite",
+      "path": "tests/integration/codex-execution-plan.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.coordinator-claude-delegation",
+      "kind": "test-suite",
+      "path": "tests/integration/coordinator-claude-delegation.integration.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.coordinator-task-process",
       "kind": "test-suite",
       "path": "tests/integration/coordinator-task-process.integration.test.ts",
-      "qaIds": ["QA-000003", "QA-000006", "QA-000010"],
-      "localTestIds": ["PRL-ST-003", "ERB-IT-001", "ERB-IT-002", "AIT-ST-010"],
-      "verifies": ["coordinator.task-runtime"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002"
+      ],
+      "verifies": [
+        "coordinator.task-runtime"
+      ]
     },
     {
-      "symbolId": "coordinator.task-runtime-integration",
+      "symbolId": "coordinator.test.integration.coordinator-task-runtime",
       "kind": "test-suite",
       "path": "tests/integration/coordinator-task-runtime.contract.test.ts",
-      "qaIds": ["QA-000003", "QA-000005", "QA-000009"],
-      "localTestIds": ["PRL-ST-001", "PRL-ST-004", "CPR-IT-001", "EST-ST-005"],
-      "verifies": ["coordinator.task-runtime"]
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-012"
+      ],
+      "verifies": [
+        "coordinator.task-runtime"
+      ]
     },
     {
-      "symbolId": "coordinator.native-runtime-trace-integration",
+      "symbolId": "coordinator.test.integration.development-execution-timing",
       "kind": "test-suite",
-      "path": "tests/integration/native-runtime-trace.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-ST-005"],
-      "verifies": ["coordinator.native-runtime-trace"]
+      "path": "tests/integration/development-execution-timing.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-IT-010"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
     },
     {
-      "symbolId": "coordinator.provider-authority-unit",
+      "symbolId": "coordinator.test.integration.development-native-observation",
       "kind": "test-suite",
-      "path": "tests/unit/provider-authority-runtime.contract.test.ts",
-      "qaIds": ["QA-000003"],
-      "localTestIds": ["PRL-IT-005"],
-      "verifies": ["coordinator.provider-authority-runtime"]
+      "path": "tests/integration/development-native-observation.integration.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "coordinator.native-runtime-trace"
+      ]
     },
     {
-      "symbolId": "coordinator.provider-selection-unit",
+      "symbolId": "coordinator.test.integration.docker-desktop-repair-history-publication",
       "kind": "test-suite",
-      "path": "tests/unit/provider-model-selection-runtime.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-006"],
-      "verifies": ["coordinator.provider-model-selection-runtime"]
+      "path": "tests/integration/docker-desktop-repair-history-publication.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
     },
     {
-      "symbolId": "coordinator.provider-home-observation-unit",
+      "symbolId": "coordinator.test.integration.docker-desktop-native-helper",
       "kind": "test-suite",
-      "path": "tests/unit/provider-home-observation.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-008"],
-      "verifies": ["coordinator.provider-home-observation"]
+      "path": "tests/integration/docker-desktop-native-helper.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
     },
     {
-      "symbolId": "coordinator.docker-desktop-repair-integration",
+      "symbolId": "coordinator.test.integration.docker-desktop-repair-continuation-store",
+      "kind": "test-suite",
+      "path": "tests/integration/docker-desktop-repair-continuation-store.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.docker-desktop-repair-record-store",
+      "kind": "test-suite",
+      "path": "tests/integration/docker-desktop-repair-record-store.contract.test.ts",
+      "qaIds": [
+        "QA-000012"
+      ],
+      "localTestIds": [
+        "ERP-IT-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.docker-desktop-runtime-repair",
       "kind": "test-suite",
       "path": "tests/integration/docker-desktop-runtime-repair.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-ST-009"],
-      "verifies": ["coordinator.docker-desktop-runtime-repair"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
     },
     {
-      "symbolId": "coordinator.signed-general-task-system",
+      "symbolId": "coordinator.test.integration.docker-effect-runtime",
       "kind": "test-suite",
-      "path": "tests/system/signed-general-task-verification.contract.test.ts",
-      "qaIds": ["QA-000009"],
-      "localTestIds": ["EST-ST-003", "EST-ST-005"],
-      "verifies": ["coordinator.task-runtime"]
+      "path": "tests/integration/docker-effect-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
     },
     {
-      "symbolId": "coordinator.signed-recovery-matrix-system",
+      "symbolId": "coordinator.test.integration.docker-owned-process",
       "kind": "test-suite",
-      "path": "tests/system/signed-recovery-matrix-verification.contract.test.ts",
-      "qaIds": ["QA-000003"],
-      "localTestIds": ["PRL-ST-004"],
-      "verifies": ["coordinator.task-runtime"]
+      "path": "tests/integration/docker-owned-process.integration.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
     },
     {
-      "symbolId": "coordinator.project-runtime-durable-foundation-integration",
+      "symbolId": "coordinator.test.integration.docker-process-controller",
+      "kind": "test-suite",
+      "path": "tests/integration/docker-process-controller.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.docker-recovery-journal",
+      "kind": "test-suite",
+      "path": "tests/integration/docker-recovery-journal.integration.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-013"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.docker-recovery-lock-controller",
+      "kind": "test-suite",
+      "path": "tests/integration/docker-recovery-lock-controller.integration.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-013"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.docker-recovery-runtime",
+      "kind": "test-suite",
+      "path": "tests/integration/docker-recovery-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-013"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.external-send-consent-docker-recovery",
+      "kind": "test-suite",
+      "path": "tests/integration/external-send-consent-docker-recovery.integration.test.ts",
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-IT-004"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.external-send-consent-revocation",
+      "kind": "test-suite",
+      "path": "tests/integration/external-send-consent-revocation.contract.test.ts",
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-IT-004"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.external-send-consent-runtime",
+      "kind": "test-suite",
+      "path": "tests/integration/external-send-consent-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-IT-004"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.external-send-policy-runtime",
+      "kind": "test-suite",
+      "path": "tests/integration/external-send-policy-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-IT-004"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.generate-release-key",
+      "kind": "test-suite",
+      "path": "tests/integration/generate-release-key.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-IT-008"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.git-object-reader-contract",
+      "kind": "test-suite",
+      "path": "tests/integration/git-object-reader.contract.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-012"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.git-object-reader-integration",
+      "kind": "test-suite",
+      "path": "tests/integration/git-object-reader.integration.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-012"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.native-runtime-trace",
+      "kind": "test-suite",
+      "path": "tests/integration/native-runtime-trace.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "coordinator.native-runtime-trace"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.platform-access-coverage",
+      "kind": "test-suite",
+      "path": "tests/integration/platform-access-coverage.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.platform-access-release",
+      "kind": "test-suite",
+      "path": "tests/integration/platform-access-release.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.platform-access-ts-coverage",
+      "kind": "test-suite",
+      "path": "tests/integration/platform-access-ts-coverage.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.platform-provisioner-manifest-loader",
+      "kind": "test-suite",
+      "path": "tests/integration/platform-provisioner-manifest-loader.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-IT-008"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.platform-provisioner-package-filesystem",
+      "kind": "test-suite",
+      "path": "tests/integration/platform-provisioner-package-filesystem.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-IT-013"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.platform-provisioner-release-identity",
+      "kind": "test-suite",
+      "path": "tests/integration/platform-provisioner-release-identity.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-IT-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.project-runtime-candidate-integration-adapter",
+      "kind": "test-suite",
+      "path": "tests/integration/project-runtime-candidate-integration-adapter.integration.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-005"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.project-runtime-decision-recovery-store",
+      "kind": "test-suite",
+      "path": "tests/integration/project-runtime-decision-recovery-store.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-013"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.project-runtime-design-traceability",
+      "kind": "test-suite",
+      "path": "tests/integration/project-runtime-design-traceability.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-IT-008"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.project-runtime-durable-foundation",
       "kind": "test-suite",
       "path": "tests/integration/project-runtime-durable-foundation.contract.test.ts",
-      "qaIds": ["QA-000003"],
-      "localTestIds": ["PRL-ST-004"],
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-012"
+      ],
       "verifies": [
         "project-runtime.objective-application",
         "project-runtime.execution"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.project-runtime-execution",
+      "kind": "test-suite",
+      "path": "tests/integration/project-runtime-execution.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-012"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.project-runtime-full-flow",
+      "kind": "test-suite",
+      "path": "tests/integration/project-runtime-full-flow.integration.test.ts",
+      "qaIds": [
+        "QA-000012"
+      ],
+      "localTestIds": [
+        "ERP-IT-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.project-runtime-integration",
+      "kind": "test-suite",
+      "path": "tests/integration/project-runtime-integration.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-012"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.project-runtime-objective-intake",
+      "kind": "test-suite",
+      "path": "tests/integration/project-runtime-objective-intake.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-005"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.project-runtime-platform-independence",
+      "kind": "test-suite",
+      "path": "tests/integration/project-runtime-platform-independence.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-012"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.project-runtime-composition-root",
+      "kind": "test-suite",
+      "path": "tests/integration/project-runtime-composition-root.integration.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-005"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.project-runtime-queue-priority",
+      "kind": "test-suite",
+      "path": "tests/integration/project-runtime-queue-priority.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-012"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.project-runtime-replanning-and-decision",
+      "kind": "test-suite",
+      "path": "tests/integration/project-runtime-replanning-and-decision.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-005"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.project-runtime-single-task-adapter",
+      "kind": "test-suite",
+      "path": "tests/integration/project-runtime-single-task-adapter.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-005"
+      ],
+      "verifies": [
+        "coordinator.task-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.project-runtime-windows-decision-store",
+      "kind": "test-suite",
+      "path": "tests/integration/project-runtime-windows-decision-store.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-005"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.provider-authority-coverage",
+      "kind": "test-suite",
+      "path": "tests/integration/provider-authority-coverage.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-005"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.release-manifest-promotion",
+      "kind": "test-suite",
+      "path": "tests/integration/release-manifest-promotion.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-IT-008"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.repository-git-layout",
+      "kind": "test-suite",
+      "path": "tests/integration/repository-git-layout.contract.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.repository-operation-runtime",
+      "kind": "test-suite",
+      "path": "tests/integration/repository-operation-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-012"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.repository-root-resolution",
+      "kind": "test-suite",
+      "path": "tests/integration/repository-root-resolution.contract.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.repository-workspace-runtime",
+      "kind": "test-suite",
+      "path": "tests/integration/repository-workspace-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-013"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.runtime-process-safety-state",
+      "kind": "test-suite",
+      "path": "tests/integration/runtime-process-safety-state.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-005"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.runtime-traceability",
+      "kind": "test-suite",
+      "path": "tests/integration/runtime-traceability.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-IT-018"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.sign-release-manifest",
+      "kind": "test-suite",
+      "path": "tests/integration/sign-release-manifest.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-IT-008"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.task-cli-cancellation",
+      "kind": "test-suite",
+      "path": "tests/integration/task-cli-cancellation.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-003"
+      ],
+      "verifies": [
+        "coordinator.task-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.test-execution-profile",
+      "kind": "test-suite",
+      "path": "tests/integration/test-execution-profile.contract.test.ts",
+      "qaIds": [
+        "QA-000002"
+      ],
+      "localTestIds": [
+        "CQS-IT-011"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.system.coordinator-docker-recovery-cli",
+      "kind": "test-suite",
+      "path": "tests/system/coordinator-docker-recovery-cli.integration.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-ST-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.system.coordinator-launch",
+      "kind": "test-suite",
+      "path": "tests/system/coordinator-launch.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-ST-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.system.dynamic-fake-provider-cancellation-verification",
+      "kind": "test-suite",
+      "path": "tests/system/dynamic-fake-provider-cancellation-verification.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-ST-005"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.system.dynamic-fake-provider-failure-verification",
+      "kind": "test-suite",
+      "path": "tests/system/dynamic-fake-provider-failure-verification.contract.test.ts",
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-ST-005"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.system.interaction-boundary-regression",
+      "kind": "test-suite",
+      "path": "tests/system/interaction-boundary-regression.contract.test.ts",
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-ST-003"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.provider-execution-boundary-matrix",
+      "kind": "test-suite",
+      "path": "tests/integration/provider-execution-boundary-matrix.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-005"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.signed-reviewer-real-boundary",
+      "kind": "test-suite",
+      "path": "tests/integration/signed-reviewer-real-boundary.integration.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-IT-008"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.system.project-runtime-real-provider-verification-script",
+      "kind": "test-suite",
+      "path": "tests/system/project-runtime-real-provider-verification-script.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-ST-001"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.system.signed-general-task-verification",
+      "kind": "test-suite",
+      "path": "tests/system/signed-general-task-verification.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-ST-004"
+      ],
+      "verifies": [
+        "coordinator.task-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.system.signed-recovery-matrix-verification",
+      "kind": "test-suite",
+      "path": "tests/system/signed-recovery-matrix-verification.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-ST-004"
+      ],
+      "verifies": [
+        "coordinator.task-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.system.signed-reviewer-boundary-verification",
+      "kind": "test-suite",
+      "path": "tests/system/signed-reviewer-boundary-verification.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-ST-004"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.system.signed-route-matrix-verification",
+      "kind": "test-suite",
+      "path": "tests/system/signed-route-matrix-verification.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-ST-004"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.system.terminal-interaction-probe",
+      "kind": "test-suite",
+      "path": "tests/system/terminal-interaction-probe.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-ST-005"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.system.verification-result-record",
+      "kind": "test-suite",
+      "path": "tests/system/verification-result-record.contract.test.ts",
+      "qaIds": [
+        "QA-000012"
+      ],
+      "localTestIds": [
+        "ERP-ST-004"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.authority-file-bundle",
+      "kind": "test-suite",
+      "path": "tests/unit/authority-file-bundle.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.authority-grant-verifier",
+      "kind": "test-suite",
+      "path": "tests/unit/authority-grant-verifier.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.authority-prelaunch-verifier",
+      "kind": "test-suite",
+      "path": "tests/unit/authority-prelaunch-verifier.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.authority-root-path-lexical",
+      "kind": "test-suite",
+      "path": "tests/unit/authority-root-path-lexical.contract.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-UT-006"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.authority-trust-loader",
+      "kind": "test-suite",
+      "path": "tests/unit/authority-trust-loader.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.candidate-store-windows-adapter",
+      "kind": "test-suite",
+      "path": "tests/unit/candidate-store-windows-adapter.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-UT-014"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.claude-docker-runtime-adapter",
+      "kind": "test-suite",
+      "path": "tests/unit/claude-docker-runtime-adapter.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.claude-structured-result",
+      "kind": "test-suite",
+      "path": "tests/unit/claude-structured-result.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-016"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.codex-docker-runtime-adapter",
+      "kind": "test-suite",
+      "path": "tests/unit/codex-docker-runtime-adapter.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.codex-structured-result",
+      "kind": "test-suite",
+      "path": "tests/unit/codex-structured-result.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-016"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.command-report",
+      "kind": "test-suite",
+      "path": "tests/unit/command-report.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-016"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.coordinator-operation-creation-internal",
+      "kind": "test-suite",
+      "path": "tests/unit/coordinator-operation-creation-internal.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.release-candidate-preparation",
+      "kind": "test-suite",
+      "path": "tests/integration/release-candidate-preparation.contract.test.ts",
+      "qaIds": [
+        "QA-000005"
+      ],
+      "localTestIds": [
+        "CPR-IT-001"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.project-runtime-integration-record-adapter",
+      "kind": "test-suite",
+      "path": "tests/integration/project-runtime-integration-record-adapter.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-005"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.delegation-route-selection",
+      "kind": "test-suite",
+      "path": "tests/unit/delegation-route-selection.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "coordinator.provider-model-selection-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.delegation-selection-grant-runtime",
+      "kind": "test-suite",
+      "path": "tests/unit/delegation-selection-grant-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.provider-model-selection-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.development-measurement-constraints",
+      "kind": "test-suite",
+      "path": "tests/unit/development-measurement-constraints.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-UT-006"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.development-measurement-session",
+      "kind": "test-suite",
+      "path": "tests/unit/development-measurement-session.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-UT-006"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.development-provider-measurement",
+      "kind": "test-suite",
+      "path": "tests/unit/development-provider-measurement.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-UT-006"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.docker-cleanup-eligibility",
+      "kind": "test-suite",
+      "path": "tests/unit/docker-cleanup-eligibility.contract.test.ts",
+      "qaIds": [
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "RDL-UT-005"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.docker-host-transition-state",
+      "kind": "test-suite",
+      "path": "tests/unit/docker-host-transition-state.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.docker-recovery-public-projection",
+      "kind": "test-suite",
+      "path": "tests/unit/docker-recovery-public-projection.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.docker-recovery-state-machine",
+      "kind": "test-suite",
+      "path": "tests/unit/docker-recovery-state-machine.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.docker-runtime-state-binding",
+      "kind": "test-suite",
+      "path": "tests/unit/docker-runtime-state-binding.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.doctor",
+      "kind": "test-suite",
+      "path": "tests/unit/doctor.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.dynamic-fake-provider-coverage",
+      "kind": "test-suite",
+      "path": "tests/unit/dynamic-fake-provider-coverage.contract.test.ts",
+      "qaIds": [
+        "QA-000002"
+      ],
+      "localTestIds": [
+        "CQS-UT-010"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.egress-proxy-policy",
+      "kind": "test-suite",
+      "path": "tests/unit/egress-proxy-policy.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.external-send-grant-runtime",
+      "kind": "test-suite",
+      "path": "tests/unit/external-send-grant-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.host-generation-loss-transition",
+      "kind": "test-suite",
+      "path": "tests/unit/host-generation-loss-transition.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.local-personal-authority-runtime",
+      "kind": "test-suite",
+      "path": "tests/unit/local-personal-authority-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.node-runtime-version",
+      "kind": "test-suite",
+      "path": "tests/unit/node-runtime-version.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.plain-data-snapshot",
+      "kind": "test-suite",
+      "path": "tests/unit/plain-data-snapshot.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-UT-006"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.platform-access-adapter",
+      "kind": "test-suite",
+      "path": "tests/unit/platform-access-adapter.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.platform-key-storage-policy",
+      "kind": "test-suite",
+      "path": "tests/unit/platform-key-storage-policy.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.platform-provisioner-package-gate",
+      "kind": "test-suite",
+      "path": "tests/unit/platform-provisioner-package-gate.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.platform-provisioner-policy-identity",
+      "kind": "test-suite",
+      "path": "tests/unit/platform-provisioner-policy-identity.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.platform-provisioner-release-trust",
+      "kind": "test-suite",
+      "path": "tests/unit/platform-provisioner-release-trust.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.platform-provisioner-trust-core",
+      "kind": "test-suite",
+      "path": "tests/unit/platform-provisioner-trust-core.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.project-runtime-execution-authorization-adapter",
+      "kind": "test-suite",
+      "path": "tests/unit/project-runtime-execution-authorization-adapter.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.project-runtime-execution-host-adapter",
+      "kind": "test-suite",
+      "path": "tests/unit/project-runtime-execution-host-adapter.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.project-runtime-decision-capability-adapter",
+      "kind": "test-suite",
+      "path": "tests/unit/project-runtime-decision-capability-adapter.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.project-runtime-windows-platform-adapter",
+      "kind": "test-suite",
+      "path": "tests/unit/project-runtime-windows-platform-adapter.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.provider-authority-runtime",
+      "kind": "test-suite",
+      "path": "tests/unit/provider-authority-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.provider-billing-policy",
+      "kind": "test-suite",
+      "path": "tests/unit/provider-billing-policy.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.provider-eligibility-runtime",
+      "kind": "test-suite",
+      "path": "tests/unit/provider-eligibility-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.provider-home-coverage",
+      "kind": "test-suite",
+      "path": "tests/unit/provider-home-coverage.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "coordinator.provider-home-observation"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.provider-home-mount-grant-runtime",
+      "kind": "test-suite",
+      "path": "tests/unit/provider-home-mount-grant-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.provider-home-mount-grant",
+      "kind": "test-suite",
+      "path": "tests/unit/provider-home-mount-grant.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "coordinator.provider-home-observation"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.provider-home-observation",
+      "kind": "test-suite",
+      "path": "tests/unit/provider-home-observation.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "coordinator.provider-home-observation"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.provider-home",
+      "kind": "test-suite",
+      "path": "tests/unit/provider-home.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "coordinator.provider-home-observation"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.provider-isolation-profile",
+      "kind": "test-suite",
+      "path": "tests/unit/provider-isolation-profile.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.provider-lifecycle",
+      "kind": "test-suite",
+      "path": "tests/unit/provider-lifecycle.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.provider-model-profile-runtime",
+      "kind": "test-suite",
+      "path": "tests/unit/provider-model-profile-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "coordinator.provider-model-selection-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.provider-model-selection-runtime",
+      "kind": "test-suite",
+      "path": "tests/unit/provider-model-selection-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "coordinator.provider-model-selection-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.provider-task-packet-runtime",
+      "kind": "test-suite",
+      "path": "tests/unit/provider-task-packet-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.provider-task-structured-result",
+      "kind": "test-suite",
+      "path": "tests/unit/provider-task-structured-result.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-016"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.provisioning-signature-primitives",
+      "kind": "test-suite",
+      "path": "tests/unit/provisioning-signature-primitives.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-011"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.release-identity-grammar",
+      "kind": "test-suite",
+      "path": "tests/unit/release-identity-grammar.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.root-observation",
+      "kind": "test-suite",
+      "path": "tests/unit/root-observation.contract.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-UT-006"
+      ],
+      "verifies": [
+        "coordinator.provider-home-observation"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.root-protection-policy",
+      "kind": "test-suite",
+      "path": "tests/unit/root-protection-policy.contract.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-UT-006"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.runtime-trace-case",
+      "kind": "test-suite",
+      "path": "tests/unit/runtime-trace-case.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-UT-006"
+      ],
+      "verifies": [
+        "coordinator.native-runtime-trace"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.secret-material-policy",
+      "kind": "test-suite",
+      "path": "tests/unit/secret-material-policy.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.signed-runner-safety-observation",
+      "kind": "test-suite",
+      "path": "tests/unit/signed-runner-safety-observation.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "coordinator.provider-home-observation"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.docker-restart-execution",
+      "kind": "test-suite",
+      "path": "tests/integration/docker-restart-execution.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-014"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.docker-restart-machine",
+      "kind": "test-suite",
+      "path": "tests/integration/docker-restart-machine.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-014"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.docker-restart-real-observation",
+      "kind": "test-suite",
+      "path": "tests/integration/docker-restart-real-observation.integration.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-014"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.docker-restart-preparation-order",
+      "kind": "test-suite",
+      "path": "tests/integration/docker-restart-preparation-order.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-014"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.docker-restart-runtime",
+      "kind": "test-suite",
+      "path": "tests/integration/docker-restart-runtime.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-014"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.docker-restart-continuation-record",
+      "kind": "test-suite",
+      "path": "tests/unit/docker-restart-continuation-record.contract.test.ts",
+      "qaIds": [
+        "QA-000012"
+      ],
+      "localTestIds": [
+        "ERP-UT-006"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.docker-restart-handoff-record",
+      "kind": "test-suite",
+      "path": "tests/unit/docker-restart-handoff-record.contract.test.ts",
+      "qaIds": [
+        "QA-000012"
+      ],
+      "localTestIds": [
+        "ERP-UT-006"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.docker-restart-record",
+      "kind": "test-suite",
+      "path": "tests/unit/docker-restart-record.contract.test.ts",
+      "qaIds": [
+        "QA-000012"
+      ],
+      "localTestIds": [
+        "ERP-UT-006"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.docker-restart-state",
+      "kind": "test-suite",
+      "path": "tests/unit/docker-restart-state.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.docker-wsl-state",
+      "kind": "test-suite",
+      "path": "tests/unit/docker-wsl-state.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.docker-desktop-runtime-repair"
       ]
     }
   ]

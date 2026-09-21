@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:project-runtime-replanning-and-decisionの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:project-runtime-replanning-and-decisionが所有する検証責務を実行する。
+ * @trace PRL-IT-005
+ * @level IT
+ * @scope project、runtime、replanning、and、decision
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -34,12 +44,36 @@ import {
 
 const revision = "a".repeat(40);
 
+/**
+ * decisionApplicationDependenciesのTest準備責務を実行する。
+ *
+ * @responsibility decisionApplicationDependenciesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus decisionApplicationDependenciesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 function decisionApplicationDependencies(root: string) {
   return {
     capability: createProjectRuntimeDecisionCapabilityAdapter(),
     persistence: createProjectRuntimePersistencePorts(root, "binding-a"),
   };
 }
+/**
+ * hashのTest準備責務を実行する。
+ *
+ * @responsibility hashがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus hashを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 const hash = (value: string) =>
   createHash("sha256").update(value).digest("hex");
 
@@ -52,6 +86,18 @@ type BoundExecutionInput = Parameters<
 >[1] &
   Readonly<{ workingDirectory: string; repositoryBindingId: string }>;
 
+/**
+ * runProjectRuntimeOperationのTest準備責務を実行する。
+ *
+ * @responsibility runProjectRuntimeOperationがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus runProjectRuntimeOperationを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 function runProjectRuntimeOperation(
   dependencies: BoundExecutionDependencies,
   input: BoundExecutionInput,
@@ -74,6 +120,18 @@ function runProjectRuntimeOperation(
   );
 }
 
+/**
+ * resolveProjectRuntimeReplanのTest準備責務を実行する。
+ *
+ * @responsibility resolveProjectRuntimeReplanがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus resolveProjectRuntimeReplanを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 function resolveProjectRuntimeReplan(
   input: ProjectRuntimeReplanInput &
     Readonly<{ workingDirectory: string; repositoryBindingId: string }>,
@@ -85,6 +143,18 @@ function resolveProjectRuntimeReplan(
   );
   return resolveProjectRuntimeReplanWithPort(ports.state, input, classify);
 }
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-project-replan-"));
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
@@ -137,6 +207,18 @@ function fixture(t: test.TestContext) {
     },
   };
 }
+/**
+ * failTaskのTest準備責務を実行する。
+ *
+ * @responsibility failTaskがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus failTaskを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 async function failTask(root: string) {
   return runProjectRuntimeOperation(
     {
@@ -178,6 +260,18 @@ async function failTask(root: string) {
   );
 }
 
+/**
+ * bounded partial replan supersedes the failed task and returns the queue to readyを検証する。
+ *
+ * @responsibility bounded partial replan supersedes the failed task and returns the queue to readyの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus bounded partial replan supersedes the failed task and returns the queue to readyの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("bounded partial replan supersedes the failed task and returns the queue to ready", async (t) => {
   const { root, input } = fixture(t);
   assert.equal(
@@ -211,6 +305,18 @@ test("bounded partial replan supersedes the failed task and returns the queue to
   assert.equal(queue.status === "completed" && queue.value.state, "queued");
 });
 
+/**
+ * 再計画分類は各形の余剰field・Accessor・ProxyをEffect前に拒否するを検証する。
+ *
+ * @responsibility 再計画分類は各形の余剰field・Accessor・ProxyをEffect前に拒否するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 再計画分類は各形の余剰field・Accessor・ProxyをEffect前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("再計画分類は各形の余剰field・Accessor・ProxyをEffect前に拒否する", async (t) => {
   const { root, input } = fixture(t);
   await failTask(root);
@@ -271,6 +377,18 @@ test("再計画分類は各形の余剰field・Accessor・ProxyをEffect前に�
   assert.equal(getterCalls, 0);
 });
 
+/**
+ * maintaining the plan creates a fresh attempt and enforces the retry limitを検証する。
+ *
+ * @responsibility maintaining the plan creates a fresh attempt and enforces the retry limitの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus maintaining the plan creates a fresh attempt and enforces the retry limitの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("maintaining the plan creates a fresh attempt and enforces the retry limit", async (t) => {
   const { root, input } = fixture(t);
   assert.equal(
@@ -308,6 +426,18 @@ test("maintaining the plan creates a fresh attempt and enforces the retry limit"
   );
 });
 
+/**
+ * human decision capability is one-time, principal-bound and finalized after Project readbackを検証する。
+ *
+ * @responsibility human decision capability is one-time, principal-bound and finalized after Project readbackの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus human decision capability is one-time, principal-bound and finalized after Project readbackの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("human decision capability is one-time, principal-bound and finalized after Project readback", async (t) => {
   const { root, input } = fixture(t);
   await failTask(root);
@@ -399,6 +529,18 @@ test("human decision capability is one-time, principal-bound and finalized after
   );
 });
 
+/**
+ * prepared human decision is reconciled from durable Project state without replaying authorityを検証する。
+ *
+ * @responsibility prepared human decision is reconciled from durable Project state without replaying authorityの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus prepared human decision is reconciled from durable Project state without replaying authorityの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("prepared human decision is reconciled from durable Project state without replaying authority", async (t) => {
   const { root, input } = fixture(t);
   await failTask(root);
@@ -489,6 +631,18 @@ test("prepared human decision is reconciled from durable Project state without r
   );
 });
 
+/**
+ * explicit replacement invalidates the former capability before issuing one fresh capabilityを検証する。
+ *
+ * @responsibility explicit replacement invalidates the former capability before issuing one fresh capabilityの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus explicit replacement invalidates the former capability before issuing one fresh capabilityの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("explicit replacement invalidates the former capability before issuing one fresh capability", async (t) => {
   const { root, input } = fixture(t);
   await failTask(root);
@@ -574,6 +728,18 @@ test("explicit replacement invalidates the former capability before issuing one 
   );
 });
 
+/**
+ * parent lifecycle invalidation requires a fresh changed generationを検証する。
+ *
+ * @responsibility parent lifecycle invalidation requires a fresh changed generationの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus parent lifecycle invalidation requires a fresh changed generationの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("parent lifecycle invalidation requires a fresh changed generation", async (t) => {
   const { root, input } = fixture(t);
   const records = new Map<string, ProjectRuntimeDecisionRecord>();
@@ -641,6 +807,18 @@ test("parent lifecycle invalidation requires a fresh changed generation", async 
   assert.equal(records.get(issued.recordId)?.disposition, "invalidated");
 });
 
+/**
+ * issuance and expiry uncertainty persist an exact independent recovery intentを検証する。
+ *
+ * @responsibility issuance and expiry uncertainty persist an exact independent recovery intentの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus issuance and expiry uncertainty persist an exact independent recovery intentの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("issuance and expiry uncertainty persist an exact independent recovery intent", async (t) => {
   const { root, input } = fixture(t);
   const recovery = new Map<string, ProjectRuntimeDecisionRecoveryIntent>();

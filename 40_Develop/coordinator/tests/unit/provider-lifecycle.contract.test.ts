@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:provider-lifecycleの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:provider-lifecycleが所有する検証責務を実行する。
+ * @trace PRL-UT-006
+ * @level UT
+ * @scope provider、lifecycle
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -20,6 +30,18 @@ const COMPLETE_STATES = Object.freeze([
   "cleanup_confirmed",
 ]);
 
+/**
+ * observationのTest準備責務を実行する。
+ *
+ * @responsibility observationがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus observationを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 function observation(overrides: Record<string, unknown> = {}) {
   return {
     contract: PROVIDER_LIFECYCLE_CONTRACT,
@@ -45,6 +67,18 @@ function observation(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/**
+ * Provider認証方針は標準Profileをsubscription OAuthへ限定するを検証する。
+ *
+ * @responsibility Provider認証方針は標準Profileをsubscription OAuthへ限定するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Provider認証方針は標準Profileをsubscription OAuthへ限定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Provider認証方針は標準Profileをsubscription OAuthへ限定する", () => {
   const contract = describeProviderLifecycleContract();
   assert.equal(
@@ -104,6 +138,18 @@ test("Provider認証方針は標準Profileをsubscription OAuthへ限定する",
   assert.equal(contract.authPolicies.claude.paidApiProfileSelected, false);
 });
 
+/**
+ * 専用Provider HomeはProvider単位で永続しOperation cleanupへ含めないを検証する。
+ *
+ * @responsibility 専用Provider HomeはProvider単位で永続しOperation cleanupへ含めないの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 専用Provider HomeはProvider単位で永続しOperation cleanupへ含めないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("専用Provider HomeはProvider単位で永続しOperation cleanupへ含めない", () => {
   const home = describeProviderLifecycleContract().dedicatedProviderHome;
   assert.equal(home.scope, "local_os_user_and_provider");
@@ -129,6 +175,18 @@ test("専用Provider HomeはProvider単位で永続しOperation cleanupへ含め
   assert.equal(grant.mountAdapter, "not_implemented");
 });
 
+/**
+ * 実Providerのloginとrunはいずれもspawn前にblockedとなるを検証する。
+ *
+ * @responsibility 実Providerのloginとrunはいずれもspawn前にblockedとなるの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実Providerのloginとrunはいずれもspawn前にblockedとなるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("実Providerのloginとrunはいずれもspawn前にblockedとなる", () => {
   const codex = planProviderLifecycle({ provider: "codex", mode: "login" });
   const claude = planProviderLifecycle({ provider: "claude", mode: "run" });
@@ -147,6 +205,18 @@ test("実Providerのloginとrunはいずれもspawn前にblockedとなる", () =
   );
 });
 
+/**
+ * 任意Provider、mode、余分field、accessorおよびProxyを拒否するを検証する。
+ *
+ * @responsibility 任意Provider、mode、余分field、accessorおよびProxyを拒否するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 任意Provider、mode、余分field、accessorおよびProxyを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("任意Provider、mode、余分field、accessorおよびProxyを拒否する", () => {
   assert.equal(
     planProviderLifecycle({ provider: "other", mode: "run" }).reason,
@@ -183,6 +253,18 @@ test("任意Provider、mode、余分field、accessorおよびProxyを拒否す�
   );
 });
 
+/**
+ * synthetic Fake claimの正常形も非Authority候補に限定するを検証する。
+ *
+ * @responsibility synthetic Fake claimの正常形も非Authority候補に限定するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus synthetic Fake claimの正常形も非Authority候補に限定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("synthetic Fake claimの正常形も非Authority候補に限定する", () => {
   const result = evaluateSyntheticFakeProviderObservationCandidate(
     observation(),
@@ -202,6 +284,18 @@ test("synthetic Fake claimの正常形も非Authority候補に限定する", () 
   assert.equal(result.networkEffectIssued, false);
 });
 
+/**
+ * synthetic Fake claimの契約、revision、providerおよびmode差を拒否するを検証する。
+ *
+ * @responsibility synthetic Fake claimの契約、revision、providerおよびmode差を拒否するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus synthetic Fake claimの契約、revision、providerおよびmode差を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("synthetic Fake claimの契約、revision、providerおよびmode差を拒否する", () => {
   for (const changed of [
     { contract: "other" },
@@ -218,6 +312,18 @@ test("synthetic Fake claimの契約、revision、providerおよびmode差を拒�
   }
 });
 
+/**
+ * 動的Fake契約はDocker所有観測だけを実装済みとしcancelを未実装に保つを検証する。
+ *
+ * @responsibility 動的Fake契約はDocker所有観測だけを実装済みとしcancelを未実装に保つの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 動的Fake契約はDocker所有観測だけを実装済みとしcancelを未実装に保つの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("動的Fake契約はDocker所有観測だけを実装済みとしcancelを未実装に保つ", () => {
   const dynamic =
     describeProviderLifecycleContract().dynamicFakeProviderObservation;
@@ -234,6 +340,18 @@ test("動的Fake契約はDocker所有観測だけを実装済みとしcancelを�
   assert.equal(dynamic.realProviderReadiness, false);
 });
 
+/**
+ * synthetic Fake claimのtimeout、cancel、入出力超過およびquotaを安全側へ閉じるを検証する。
+ *
+ * @responsibility synthetic Fake claimのtimeout、cancel、入出力超過およびquotaを安全側へ閉じるの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus synthetic Fake claimのtimeout、cancel、入出力超過およびquotaを安全側へ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("synthetic Fake claimのtimeout、cancel、入出力超過およびquotaを安全側へ閉じる", () => {
   assert.equal(
     evaluateSyntheticFakeProviderObservationCandidate(
@@ -301,6 +419,18 @@ test("synthetic Fake claimのtimeout、cancel、入出力超過およびquotaを
   );
 });
 
+/**
+ * synthetic Fake claimの異常終了、二重完了、malformed結果および残存claimを拒否するを検証する。
+ *
+ * @responsibility synthetic Fake claimの異常終了、二重完了、malformed結果および残存claimを拒否するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus synthetic Fake claimの異常終了、二重完了、malformed結果および残存claimを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("synthetic Fake claimの異常終了、二重完了、malformed結果および残存claimを拒否する", () => {
   assert.equal(
     evaluateSyntheticFakeProviderObservationCandidate(
@@ -340,6 +470,18 @@ test("synthetic Fake claimの異常終了、二重完了、malformed結果およ
   );
 });
 
+/**
+ * synthetic Fake claimは状態順序、cancel整合、値型および入力trapをfail closedにするを検証する。
+ *
+ * @responsibility synthetic Fake claimは状態順序、cancel整合、値型および入力trapをfail closedにするの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus synthetic Fake claimは状態順序、cancel整合、値型および入力trapをfail closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("synthetic Fake claimは状態順序、cancel整合、値型および入力trapをfail closedにする", () => {
   assert.equal(
     evaluateSyntheticFakeProviderObservationCandidate(

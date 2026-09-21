@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:external-send-policy-runtimeの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:external-send-policy-runtimeが所有する検証責務を実行する。
+ * @trace EST-IT-004
+ * @level IT
+ * @scope external、send、policy、runtime
+ * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -25,6 +35,18 @@ import { bindRuntimeOwnedRepositoryOperation } from "../../src/security/reposito
 const revision = "1".repeat(40);
 const fileHash = "2".repeat(64);
 
+/**
+ * policyのTest準備責務を実行する。
+ *
+ * @responsibility policyがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace EST-IT-004
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus policyを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ */
 function policy() {
   const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
   return parseUnambiguousJsonDocument(
@@ -35,6 +57,18 @@ function policy() {
   );
 }
 
+/**
+ * writeObjectのTest準備責務を実行する。
+ *
+ * @responsibility writeObjectがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace EST-IT-004
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus writeObjectを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ */
 function writeObject(commonDirectory: string, type: string, bytes: Buffer) {
   const framed = Buffer.concat([
     Buffer.from(`${type} ${bytes.byteLength}\0`),
@@ -52,6 +86,18 @@ function writeObject(commonDirectory: string, type: string, bytes: Buffer) {
   return id;
 }
 
+/**
+ * repositoryのTest準備責務を実行する。
+ *
+ * @responsibility repositoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace EST-IT-004
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus repositoryを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ */
 function repository(
   t: TestContext,
   policyText: string | null,
@@ -129,6 +175,18 @@ function repository(
   return root;
 }
 
+/**
+ * resolveのTest準備責務を実行する。
+ *
+ * @responsibility resolveがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace EST-IT-004
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus resolveを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ */
 function resolve(t: TestContext, root: string) {
   const owned = createOwnedOperationDirectories();
   t.after(() => cleanupOwnedOperationDirectories(owned));
@@ -144,6 +202,18 @@ function resolve(t: TestContext, root: string) {
   );
 }
 
+/**
+ * Repository所有Policyへ分類・Provider別処理境界・Candidate保持を固定するを検証する。
+ *
+ * @responsibility Repository所有Policyへ分類・Provider別処理境界・Candidate保持を固定するの合否判定を所有する。
+ * @trace EST-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Repository所有Policyへ分類・Provider別処理境界・Candidate保持を固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ */
 test("Repository所有Policyへ分類・Provider別処理境界・Candidate保持を固定する", () => {
   const compiled = compileExternalSendPolicyCandidate(
     policy(),
@@ -165,6 +235,18 @@ test("Repository所有Policyへ分類・Provider別処理境界・Candidate保�
   assert.match(compiled.policyHash, /^[0-9a-f]{64}$/u);
 });
 
+/**
+ * 未知field・Provider欠落・不正保持期間・順序差をPolicyへ昇格しないを検証する。
+ *
+ * @responsibility 未知field・Provider欠落・不正保持期間・順序差をPolicyへ昇格しないの合否判定を所有する。
+ * @trace EST-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 未知field・Provider欠落・不正保持期間・順序差をPolicyへ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ */
 test("未知field・Provider欠落・不正保持期間・順序差をPolicyへ昇格しない", () => {
   const valid = policy() as Record<string, unknown>;
   for (const invalid of [
@@ -195,6 +277,18 @@ test("未知field・Provider欠落・不正保持期間・順序差をPolicyへ�
   }
 });
 
+/**
+ * 公開契約は開始Commitの固定Policy fileと不明時停止を保持するを検証する。
+ *
+ * @responsibility 公開契約は開始Commitの固定Policy fileと不明時停止を保持するの合否判定を所有する。
+ * @trace EST-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開契約は開始Commitの固定Policy fileと不明時停止を保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ */
 test("公開契約は開始Commitの固定Policy fileと不明時停止を保持する", () => {
   const contract = describeExternalSendPolicyRuntimeContract();
   assert.equal(contract.contractRevision, 3);
@@ -205,6 +299,18 @@ test("公開契約は開始Commitの固定Policy fileと不明時停止を保持
   assert.equal(contract.hostPathReported, false);
 });
 
+/**
+ * 別RepositoryのPolicy欠落・不正・disabled・承認済みを開始Commitから区別するを検証する。
+ *
+ * @responsibility 別RepositoryのPolicy欠落・不正・disabled・承認済みを開始Commitから区別するの合否判定を所有する。
+ * @trace EST-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 別RepositoryのPolicy欠落・不正・disabled・承認済みを開始Commitから区別するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ */
 test("別RepositoryのPolicy欠落・不正・disabled・承認済みを開始Commitから区別する", (t) => {
   assert.equal(resolve(t, repository(t, null)), null);
   assert.equal(resolve(t, repository(t, "{}\n")), null);

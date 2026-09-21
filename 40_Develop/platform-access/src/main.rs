@@ -237,6 +237,16 @@ fn main() {
 mod tests {
     use super::*;
 
+    /// accepts_only_fixed_local_appcontainer_pipe_namesを検証する。
+    ///
+    /// @responsibility accepts_only_fixed_local_appcontainer_pipe_namesの合否判定を所有する。
+    /// @trace PRL-UT-014
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus accepts_only_fixed_local_appcontainer_pipe_namesの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Project Runtime Application Portは外部実行境界を持たない。
     #[test]
     fn accepts_only_fixed_local_appcontainer_pipe_names() {
         assert!(valid_appcontainer_pipe_name(

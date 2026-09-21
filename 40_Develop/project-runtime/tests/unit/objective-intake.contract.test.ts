@@ -1,3 +1,13 @@
+/**
+ * project-runtime:unit:objective-intakeの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility project-runtime:unit:objective-intakeが所有する検証責務を実行する。
+ * @trace PRL-UT-006
+ * @level UT
+ * @scope project、runtime、objective、intake、public
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -44,6 +54,18 @@ const PROJECT_RUNTIME_OBJECTIVE_PLAN = Object.freeze({
   ]),
 });
 
+/**
+ * Objective Planは許可Path内の閉じた値だけを受理するを検証する。
+ *
+ * @responsibility Objective Planは許可Path内の閉じた値だけを受理するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Objective Planは許可Path内の閉じた値だけを受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Objective Planは許可Path内の閉じた値だけを受理する", () => {
   const request = inspectProjectRuntimeObjectiveRequest(objectiveRequest);
   assert.ok(request);
@@ -68,6 +90,18 @@ test("Objective Planは許可Path内の閉じた値だけを受理する", () =>
   );
 });
 
+/**
+ * Task実行集合はProject RuntimeがTask範囲へAuthority bindingを縮小するを検証する。
+ *
+ * @responsibility Task実行集合はProject RuntimeがTask範囲へAuthority bindingを縮小するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Task実行集合はProject RuntimeがTask範囲へAuthority bindingを縮小するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Task実行集合はProject RuntimeがTask範囲へAuthority bindingを縮小する", () => {
   const created = createProjectRuntimeState({
     projectId: "project-a",
@@ -116,6 +150,18 @@ test("Task実行集合はProject RuntimeがTask範囲へAuthority bindingを縮�
   );
 });
 
+/**
+ * Objective結果は入力Identityと終了条件を同じ公開契約へ固定するを検証する。
+ *
+ * @responsibility Objective結果は入力Identityと終了条件を同じ公開契約へ固定するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Objective結果は入力Identityと終了条件を同じ公開契約へ固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Objective結果は入力Identityと終了条件を同じ公開契約へ固定する", () => {
   const request = inspectProjectRuntimeObjectiveRequest(objectiveRequest);
   assert.ok(request);

@@ -445,6 +445,16 @@ mod tests {
         bytes
     }
 
+    /// parses_exact_requestを検証する。
+    ///
+    /// @responsibility parses_exact_requestの合否判定を所有する。
+    /// @trace RCM-UT-016
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus parses_exact_requestの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
     #[test]
     fn parses_exact_request() {
         let request = parse_request(&request_bytes(b"C:\\root")).unwrap();
@@ -456,6 +466,16 @@ mod tests {
         assert_eq!(request.path, "C:\\root");
     }
 
+    /// rejects_exact_revision_two_request_without_aliasingを検証する。
+    ///
+    /// @responsibility rejects_exact_revision_two_request_without_aliasingの合否判定を所有する。
+    /// @trace RCM-UT-016
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus rejects_exact_revision_two_request_without_aliasingの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
     #[test]
     fn rejects_exact_revision_two_request_without_aliasing() {
         let mut legacy = request_bytes(b"C:\\root");
@@ -464,6 +484,16 @@ mod tests {
         assert!(parse_request(&legacy).is_none());
     }
 
+    /// rejects_unsupported_or_oversized_request_framingを検証する。
+    ///
+    /// @responsibility rejects_unsupported_or_oversized_request_framingの合否判定を所有する。
+    /// @trace RCM-UT-016
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus rejects_unsupported_or_oversized_request_framingの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
     #[test]
     fn rejects_unsupported_or_oversized_request_framing() {
         let mut trailing = request_bytes(b"C:\\root");
@@ -509,6 +539,16 @@ mod tests {
         assert!(parse_request(&request_bytes("C:\\CONSOLE".as_bytes())).is_some());
     }
 
+    /// response_is_fixed_size_and_does_not_echo_pathを検証する。
+    ///
+    /// @responsibility response_is_fixed_size_and_does_not_echo_pathの合否判定を所有する。
+    /// @trace RCM-UT-016
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus response_is_fixed_size_and_does_not_echo_pathの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
     #[test]
     fn response_is_fixed_size_and_does_not_echo_path() {
         let response = encode_response(Response {
@@ -531,6 +571,16 @@ mod tests {
         assert!(!response.windows(3).any(|window| window == b"C:\\"));
     }
 
+    /// blocked_response_has_zero_status_reason_and_access_maskを検証する。
+    ///
+    /// @responsibility blocked_response_has_zero_status_reason_and_access_maskの合否判定を所有する。
+    /// @trace RCM-UT-016
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus blocked_response_has_zero_status_reason_and_access_maskの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
     #[test]
     fn blocked_response_has_zero_status_reason_and_access_mask() {
         let response = encode_response(Response {
@@ -551,6 +601,16 @@ mod tests {
         assert_eq!(&response[82..86], &[0_u8; 4]);
     }
 
+    /// provider_home_request_accepts_only_fixed_provider_and_frameを検証する。
+    ///
+    /// @responsibility provider_home_request_accepts_only_fixed_provider_and_frameの合否判定を所有する。
+    /// @trace RCM-UT-016
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus provider_home_request_accepts_only_fixed_provider_and_frameの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
     #[test]
     fn provider_home_request_accepts_only_fixed_provider_and_frame() {
         let request = parse_provider_home_request(&provider_home_request_bytes(2)).unwrap();
@@ -589,6 +649,16 @@ mod tests {
         assert!(parse_provider_home_request(&zero_source).is_none());
     }
 
+    /// provider_home_response_is_fixed_and_discloses_no_pathを検証する。
+    ///
+    /// @responsibility provider_home_response_is_fixed_and_discloses_no_pathの合否判定を所有する。
+    /// @trace RCM-UT-016
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus provider_home_response_is_fixed_and_discloses_no_pathの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
     #[test]
     fn provider_home_response_is_fixed_and_discloses_no_path() {
         let response = encode_provider_home_response(ProviderHomeResponse {

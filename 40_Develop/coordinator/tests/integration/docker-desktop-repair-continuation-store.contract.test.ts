@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:docker-desktop-repair-continuation-storeの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:docker-desktop-repair-continuation-storeが所有する検証責務を実行する。
+ * @trace ERB-IT-001
+ * @level IT
+ * @scope docker、desktop、repair、continuation、store
+ * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -21,6 +31,18 @@ import type {
 const identity = (value: string): DockerDesktopRepairDirectoryIdentity =>
   Object.freeze({ dev: value, ino: value, birthtimeNs: value });
 
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ */
 function fixture() {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-repair-continuation-"),
@@ -75,6 +97,18 @@ function fixture() {
   return { root, boundary, operation };
 }
 
+/**
+ * 失敗起動後の複数Runtime領域は同じ復旧IDへ追記し、Effectごとの意図と結果を保持するを検証する。
+ *
+ * @responsibility 失敗起動後の複数Runtime領域は同じ復旧IDへ追記し、Effectごとの意図と結果を保持するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 失敗起動後の複数Runtime領域は同じ復旧IDへ追記し、Effectごとの意図と結果を保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("失敗起動後の複数Runtime領域は同じ復旧IDへ追記し、Effectごとの意図と結果を保持する", () => {
   const { root, boundary, operation } = fixture();
   try {
@@ -140,6 +174,18 @@ test("失敗起動後の複数Runtime領域は同じ復旧IDへ追記し、Effec
   }
 });
 
+/**
+ * 継続記録の改ざん・余分な項目・途中欠落はvalidへ昇格しないを検証する。
+ *
+ * @responsibility 継続記録の改ざん・余分な項目・途中欠落はvalidへ昇格しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 継続記録の改ざん・余分な項目・途中欠落はvalidへ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("継続記録の改ざん・余分な項目・途中欠落はvalidへ昇格しない", () => {
   for (const mutation of ["hash", "extra", "missing"] as const) {
     const { root, boundary, operation } = fixture();
@@ -174,6 +220,18 @@ test("継続記録の改ざん・余分な項目・途中欠落はvalidへ昇格
   }
 });
 
+/**
+ * 全Host Effectがconfirmedでなければrecoveredを記録しないを検証する。
+ *
+ * @responsibility 全Host Effectがconfirmedでなければrecoveredを記録しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 全Host Effectがconfirmedでなければrecoveredを記録しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("全Host Effectがconfirmedでなければrecoveredを記録しない", () => {
   const { root, boundary, operation } = fixture();
   try {

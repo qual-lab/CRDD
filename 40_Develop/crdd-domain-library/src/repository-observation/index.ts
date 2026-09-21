@@ -1,6 +1,7 @@
 /**
  * Repository内容を副作用なしで観測する公開境界。
  *
+ * @packageDocumentation
  * @responsibility 検証済みRoot内のEntryとFile内容を構造化して返す。
  * @trace ARCH-000008
  * @shape RepositoryEntryKindが表すProperty、識別子およびRelationを型として固定する。

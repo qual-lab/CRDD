@@ -990,6 +990,16 @@ pub(crate) fn run_restart<R: Read, W: Write>(reader: &mut R, writer: &mut W) -> 
 mod tests {
     use super::*;
 
+    /// eof_during_owned_child_wait_cancels_and_joins_childを検証する。
+    ///
+    /// @responsibility eof_during_owned_child_wait_cancels_and_joins_childの合否判定を所有する。
+    /// @trace PRL-UT-006
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus eof_during_owned_child_wait_cancels_and_joins_childの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
     #[test]
     fn eof_during_owned_child_wait_cancels_and_joins_child() {
         let mut read = null_mut();
@@ -1027,6 +1037,16 @@ mod tests {
         assert!(result.cleanup_confirmed);
     }
 
+    /// cli_inventory_scope_never_expands_managed_termination_rolesを検証する。
+    ///
+    /// @responsibility cli_inventory_scope_never_expands_managed_termination_rolesの合否判定を所有する。
+    /// @trace PRL-UT-006
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus cli_inventory_scope_never_expands_managed_termination_rolesの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
     #[test]
     fn cli_inventory_scope_never_expands_managed_termination_roles() {
         for role in ["docker_cli", "desktop_cli"] {
@@ -1044,6 +1064,16 @@ mod tests {
         }
     }
 
+    /// Rust Test Caseを検証する。
+    ///
+    /// @responsibility Rust Test Caseの合否判定を所有する。
+    /// @trace PRL-UT-006
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus Rust Test Caseの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
     #[test]
     #[ignore = "Explicit installed Docker read-only CLI inventory probe"]
     fn restart_cli_inventory_is_read_only_and_closed() {
@@ -1060,6 +1090,16 @@ mod tests {
         assert_eq!(output[2 * RESPONSE_BYTES + 8], b'C');
     }
 
+    /// Rust Test Caseを検証する。
+    ///
+    /// @responsibility Rust Test Caseの合否判定を所有する。
+    /// @trace PRL-UT-006
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus Rust Test Caseの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
     #[test]
     #[ignore = "Explicit installed Docker read-only restart trust probe"]
     fn restart_trust_accepts_current_installation_without_process_effects() {
@@ -1074,6 +1114,16 @@ mod tests {
         }
     }
 
+    /// Rust Test Caseを検証する。
+    ///
+    /// @responsibility Rust Test Caseの合否判定を所有する。
+    /// @trace PRL-UT-006
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus Rust Test Caseの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
     #[test]
     #[ignore = "Explicit installed Docker read-only repair trust probe"]
     fn repair_trust_accepts_current_installation_without_process_effects() {
@@ -1088,6 +1138,16 @@ mod tests {
         }
     }
 
+    /// restart_protocol_rejects_force_termination_commandを検証する。
+    ///
+    /// @responsibility restart_protocol_rejects_force_termination_commandの合否判定を所有する。
+    /// @trace PRL-UT-006
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus restart_protocol_rejects_force_termination_commandの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
     #[test]
     fn restart_protocol_rejects_force_termination_command() {
         assert!(!restart_command_is_allowed(b'K'));
@@ -1096,6 +1156,16 @@ mod tests {
         }
     }
 
+    /// fixed_response_does_not_report_path_or_process_idを検証する。
+    ///
+    /// @responsibility fixed_response_does_not_report_path_or_process_idの合否判定を所有する。
+    /// @trace PRL-UT-006
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus fixed_response_does_not_report_path_or_process_idの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
     #[test]
     fn fixed_response_does_not_report_path_or_process_id() {
         let mut bytes = Vec::new();
@@ -1107,6 +1177,16 @@ mod tests {
         assert!(!bytes.windows(3).any(|window| window == b"C:\\"));
     }
 
+    /// launcher_environment_is_known_folder_derived_and_proxy_neutralを検証する。
+    ///
+    /// @responsibility launcher_environment_is_known_folder_derived_and_proxy_neutralの合否判定を所有する。
+    /// @trace PRL-UT-006
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus launcher_environment_is_known_folder_derived_and_proxy_neutralの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
     #[test]
     fn launcher_environment_is_known_folder_derived_and_proxy_neutral() {
         let context = launcher_context().unwrap();
@@ -1164,6 +1244,16 @@ mod tests {
         assert_eq!(exit_code, 0);
     }
 
+    /// exact_launcher_primitive_observes_the_created_child_handleを検証する。
+    ///
+    /// @responsibility exact_launcher_primitive_observes_the_created_child_handleの合否判定を所有する。
+    /// @trace PRL-UT-006
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus exact_launcher_primitive_observes_the_created_child_handleの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
     #[test]
     fn exact_launcher_primitive_observes_the_created_child_handle() {
         let executable = std::env::current_exe().unwrap();
@@ -1177,6 +1267,16 @@ mod tests {
         }
     }
 
+    /// launcher_context_is_observed_inside_real_childを検証する。
+    ///
+    /// @responsibility launcher_context_is_observed_inside_real_childの合否判定を所有する。
+    /// @trace PRL-UT-006
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus launcher_context_is_observed_inside_real_childの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
     #[test]
     fn launcher_context_is_observed_inside_real_child() {
         // LLVM's instrumented Windows test executable reconstructs its own
@@ -1217,6 +1317,16 @@ mod tests {
         wait_for_test_child(process.unwrap());
     }
 
+    /// Rust Test Caseを検証する。
+    ///
+    /// @responsibility Rust Test Caseの合否判定を所有する。
+    /// @trace PRL-UT-006
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus Rust Test Caseの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
     #[test]
     #[ignore = "invoked only by the real-child context test"]
     fn launcher_child_context_probe() {
@@ -1260,6 +1370,16 @@ mod tests {
         );
     }
 
+    /// system_drive_requires_canonical_local_windows_directoryを検証する。
+    ///
+    /// @responsibility system_drive_requires_canonical_local_windows_directoryの合否判定を所有する。
+    /// @trace PRL-UT-006
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus system_drive_requires_canonical_local_windows_directoryの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
     #[test]
     fn system_drive_requires_canonical_local_windows_directory() {
         assert_eq!(
@@ -1293,6 +1413,16 @@ mod tests {
             .collect()
     }
 
+    /// launcher_invalid_directory_does_not_fall_back_to_parent_directoryを検証する。
+    ///
+    /// @responsibility launcher_invalid_directory_does_not_fall_back_to_parent_directoryの合否判定を所有する。
+    /// @trace PRL-UT-006
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus launcher_invalid_directory_does_not_fall_back_to_parent_directoryの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
     #[test]
     fn launcher_invalid_directory_does_not_fall_back_to_parent_directory() {
         let executable = std::env::current_exe().unwrap();

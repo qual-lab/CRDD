@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:root-protection-policyの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:root-protection-policyが所有する検証責務を実行する。
+ * @trace RFD-UT-006
+ * @level UT
+ * @scope root、protection、policy
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -7,6 +17,18 @@ import {
 } from "../../src/security/root-protection-policy.ts";
 import { assertPresent } from "../support/test-support.ts";
 
+/**
+ * observationsのTest準備責務を実行する。
+ *
+ * @responsibility observationsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RFD-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus observationsを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 function observations(overrides = {}) {
   return {
     rootExists: true,
@@ -20,6 +42,18 @@ function observations(overrides = {}) {
   };
 }
 
+/**
+ * inputのTest準備責務を実行する。
+ *
+ * @responsibility inputがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RFD-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus inputを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 function input(overrides = {}) {
   return {
     rootRole: "runtime",
@@ -30,6 +64,18 @@ function input(overrides = {}) {
   };
 }
 
+/**
+ * WindowsとPOSIXのlocal／persistent volume claimを候補に限定するを検証する。
+ *
+ * @responsibility WindowsとPOSIXのlocal／persistent volume claimを候補に限定するの合否判定を所有する。
+ * @trace RFD-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus WindowsとPOSIXのlocal／persistent volume claimを候補に限定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 test("WindowsとPOSIXのlocal／persistent volume claimを候補に限定する", () => {
   for (const platformFamily of ["windows", "posix"]) {
     for (const filesystemClass of ["local", "persistent_volume"]) {
@@ -74,6 +120,18 @@ test("WindowsとPOSIXのlocal／persistent volume claimを候補に限定する"
   }
 });
 
+/**
+ * unsupported platformとFilesystem classをfail closedにするを検証する。
+ *
+ * @responsibility unsupported platformとFilesystem classをfail closedにするの合否判定を所有する。
+ * @trace RFD-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus unsupported platformとFilesystem classをfail closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 test("unsupported platformとFilesystem classをfail closedにする", () => {
   assert.equal(
     evaluateRootProtectionPolicyCandidate(input({ platformFamily: "unknown" }))
@@ -93,6 +151,18 @@ test("unsupported platformとFilesystem classをfail closedにする", () => {
   }
 });
 
+/**
+ * 欠落、Identity不明、linkおよび非承認書込みを拒否するを検証する。
+ *
+ * @responsibility 欠落、Identity不明、linkおよび非承認書込みを拒否するの合否判定を所有する。
+ * @trace RFD-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 欠落、Identity不明、linkおよび非承認書込みを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 test("欠落、Identity不明、linkおよび非承認書込みを拒否する", () => {
   const cases = [
     ["root_protection_root_missing", { rootExists: false }],
@@ -121,6 +191,18 @@ test("欠落、Identity不明、linkおよび非承認書込みを拒否する",
   }
 });
 
+/**
+ * Runtime RootとAuthority Rootの主体別access policyを区別するを検証する。
+ *
+ * @responsibility Runtime RootとAuthority Rootの主体別access policyを区別するの合否判定を所有する。
+ * @trace RFD-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Runtime RootとAuthority Rootの主体別access policyを区別するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 test("Runtime RootとAuthority Rootの主体別access policyを区別する", () => {
   for (const override of [
     { runtimeReadAllowed: false },
@@ -157,6 +239,18 @@ test("Runtime RootとAuthority Rootの主体別access policyを区別する", ()
   }
 });
 
+/**
+ * exact plain-data以外と欠落観測を処置前に拒否するを検証する。
+ *
+ * @responsibility exact plain-data以外と欠落観測を処置前に拒否するの合否判定を所有する。
+ * @trace RFD-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus exact plain-data以外と欠落観測を処置前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 test("exact plain-data以外と欠落観測を処置前に拒否する", () => {
   let getterCalls = 0;
   const accessor = input();
@@ -282,6 +376,18 @@ test("exact plain-data以外と欠落観測を処置前に拒否する", () => {
   );
 });
 
+/**
+ * 通常、null-prototypeおよびfreeze済みinputを受理するを検証する。
+ *
+ * @responsibility 通常、null-prototypeおよびfreeze済みinputを受理するの合否判定を所有する。
+ * @trace RFD-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 通常、null-prototypeおよびfreeze済みinputを受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 test("通常、null-prototypeおよびfreeze済みinputを受理する", () => {
   const nullObservations = Object.assign(Object.create(null), observations());
   const nullInput = Object.assign(
@@ -304,6 +410,18 @@ test("通常、null-prototypeおよびfreeze済みinputを受理する", () => {
   );
 });
 
+/**
+ * contractはclaim候補と未実装Adapter／Effect／Capabilityを分離するを検証する。
+ *
+ * @responsibility contractはclaim候補と未実装Adapter／Effect／Capabilityを分離するの合否判定を所有する。
+ * @trace RFD-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus contractはclaim候補と未実装Adapter／Effect／Capabilityを分離するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ */
 test("contractはclaim候補と未実装Adapter／Effect／Capabilityを分離する", () => {
   const contract = describeRootProtectionPolicyContract();
   assert.deepEqual(contract.supportedPlatformFamilies, ["windows", "posix"]);

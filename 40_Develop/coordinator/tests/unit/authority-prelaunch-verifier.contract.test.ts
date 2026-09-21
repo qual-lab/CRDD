@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:authority-prelaunch-verifierの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:authority-prelaunch-verifierが所有する検証責務を実行する。
+ * @trace PRL-UT-006
+ * @level UT
+ * @scope authority、prelaunch、verifier
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -20,6 +30,18 @@ import {
 } from "../../src/security/provider-isolation-profile.ts";
 import { canonicalJson } from "../support/test-support.ts";
 
+/**
+ * profileのTest準備責務を実行する。
+ *
+ * @responsibility profileがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus profileを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 function profile() {
   return {
     contract: PROVIDER_ISOLATION_CONTRACT,
@@ -41,6 +63,18 @@ function profile() {
   };
 }
 
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 function fixture(grantOverrides = {}, policyOverrides = {}) {
   const rawProfile = profile();
   const now = Date.now();
@@ -119,6 +153,18 @@ const CONTEXT = Object.freeze({
   providerHomeMountGrantRef: "PHMGRANT-000001",
 });
 
+/**
+ * Runtime時計でGrantを起動直前に再確認する候補を作るを検証する。
+ *
+ * @responsibility Runtime時計でGrantを起動直前に再確認する候補を作るの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Runtime時計でGrantを起動直前に再確認する候補を作るの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Runtime時計でGrantを起動直前に再確認する候補を作る", () => {
   const before = Date.now();
   const { rawProfile, bundle, trustPolicy } = fixture();
@@ -158,6 +204,18 @@ test("Runtime時計でGrantを起動直前に再確認する候補を作る", ()
   assert.ok(before <= checkedAt && checkedAt <= after);
 });
 
+/**
+ * 呼出側時刻を受理せず固定Contextだけを使うを検証する。
+ *
+ * @responsibility 呼出側時刻を受理せず固定Contextだけを使うの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 呼出側時刻を受理せず固定Contextだけを使うの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("呼出側時刻を受理せず固定Contextだけを使う", () => {
   const { rawProfile, bundle } = fixture();
   assert.equal(
@@ -184,6 +242,18 @@ test("呼出側時刻を受理せず固定Contextだけを使う", () => {
   assert.equal(getterCalls, 0);
 });
 
+/**
+ * Prelaunch contextはMount Grant参照の欠落とnamespace差を拒否するを検証する。
+ *
+ * @responsibility Prelaunch contextはMount Grant参照の欠落とnamespace差を拒否するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Prelaunch contextはMount Grant参照の欠落とnamespace差を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Prelaunch contextはMount Grant参照の欠落とnamespace差を拒否する", () => {
   const { rawProfile, bundle } = fixture();
   const { providerHomeMountGrantRef: unusedRef, ...missing } = CONTEXT;
@@ -205,6 +275,18 @@ test("Prelaunch contextはMount Grant参照の欠落とnamespace差を拒否す�
   }
 });
 
+/**
+ * Prelaunchは静的要件を現在の動的Mount Grant refへ結合するを検証する。
+ *
+ * @responsibility Prelaunchは静的要件を現在の動的Mount Grant refへ結合するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Prelaunchは静的要件を現在の動的Mount Grant refへ結合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Prelaunchは静的要件を現在の動的Mount Grant refへ結合する", () => {
   const { rawProfile, bundle } = fixture();
   const result = reverifyAuthorityBeforeProviderLaunch(rawProfile, bundle, {
@@ -222,6 +304,18 @@ test("Prelaunchは静的要件を現在の動的Mount Grant refへ結合する",
   );
 });
 
+/**
+ * 失効GrantとTrust Policy不一致をCapabilityへ昇格させないを検証する。
+ *
+ * @responsibility 失効GrantとTrust Policy不一致をCapabilityへ昇格させないの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 失効GrantとTrust Policy不一致をCapabilityへ昇格させないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("失効GrantとTrust Policy不一致をCapabilityへ昇格させない", () => {
   const expired = fixture({
     validFrom: "2020-01-01T00:00:00.000Z",
@@ -262,6 +356,18 @@ test("失効GrantとTrust Policy不一致をCapabilityへ昇格させない", ()
   assert.equal(mismatchResult.runtimeCapabilityIssued, false);
 });
 
+/**
+ * Core候補はProvider起動やAuthority Capabilityを成立させないを検証する。
+ *
+ * @responsibility Core候補はProvider起動やAuthority Capabilityを成立させないの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Core候補はProvider起動やAuthority Capabilityを成立させないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Core候補はProvider起動やAuthority Capabilityを成立させない", () => {
   const contract = describeAuthorityPrelaunchVerifierContract();
   assert.equal(contract.runtimeClockRead, "implemented_candidate");

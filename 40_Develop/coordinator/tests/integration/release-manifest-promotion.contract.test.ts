@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:release-manifest-promotionの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:release-manifest-promotionが所有する検証責務を実行する。
+ * @trace AIT-IT-008
+ * @level IT
+ * @scope release、manifest、promotion
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
@@ -26,6 +36,18 @@ const manifestRelativePath = path.join(
   "coordinator-package-manifest.json",
 );
 
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 function fixture(bytes = Buffer.from('{"exact":true}', "utf8")) {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-promotion-"));
   const sourceRoot = path.join(parent, "source");
@@ -46,6 +68,18 @@ function fixture(bytes = Buffer.from('{"exact":true}', "utf8")) {
   };
 }
 
+/**
+ * beginのTest準備責務を実行する。
+ *
+ * @responsibility beginがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus beginを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 function begin(value: ReturnType<typeof fixture>) {
   return beginReleaseManifestPromotionSession(
     value.sourceRoot,
@@ -60,6 +94,18 @@ type RacerHandle = Readonly<{
   closed: Promise<void>;
 }>;
 
+/**
+ * startRacerのTest準備責務を実行する。
+ *
+ * @responsibility startRacerがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus startRacerを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 function startRacer(
   id: string,
   value: ReturnType<typeof fixture>,
@@ -121,6 +167,18 @@ function startRacer(
   return Object.freeze({ child, result, closed });
 }
 
+/**
+ * stopAndConfirmRacersのTest準備責務を実行する。
+ *
+ * @responsibility stopAndConfirmRacersがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus stopAndConfirmRacersを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 async function stopAndConfirmRacers(handles: readonly RacerHandle[]) {
   for (const handle of handles)
     if (handle.child.exitCode === null && handle.child.signalCode === null)
@@ -140,6 +198,18 @@ async function stopAndConfirmRacers(handles: readonly RacerHandle[]) {
   );
 }
 
+/**
+ * 署名済みManifestを途中byteを公開せずatomicに昇格するを検証する。
+ *
+ * @responsibility 署名済みManifestを途中byteを公開せずatomicに昇格するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 署名済みManifestを途中byteを公開せずatomicに昇格するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("署名済みManifestを途中byteを公開せずatomicに昇格する", () => {
   const value = fixture();
   try {
@@ -174,6 +244,18 @@ test("署名済みManifestを途中byteを公開せずatomicに昇格する", ()
   }
 });
 
+/**
+ * 既存の別file、偽token、開始後source変更をEffect前に拒否するを検証する。
+ *
+ * @responsibility 既存の別file、偽token、開始後source変更をEffect前に拒否するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 既存の別file、偽token、開始後source変更をEffect前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("既存の別file、偽token、開始後source変更をEffect前に拒否する", () => {
   const existing = fixture();
   try {
@@ -209,6 +291,18 @@ test("既存の別file、偽token、開始後source変更をEffect前に拒否�
   }
 });
 
+/**
+ * link直前に同byteの別fileへ置換されても別主体のsourceを削除しないを検証する。
+ *
+ * @responsibility link直前に同byteの別fileへ置換されても別主体のsourceを削除しないの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus link直前に同byteの別fileへ置換されても別主体のsourceを削除しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("link直前に同byteの別fileへ置換されても別主体のsourceを削除しない", {
   concurrency: false,
 }, () => {
@@ -238,6 +332,18 @@ test("link直前に同byteの別fileへ置換されても別主体のsourceを�
   }
 });
 
+/**
+ * atomic publish後のlinked状態をfresh sessionから成功として再観測するを検証する。
+ *
+ * @responsibility atomic publish後のlinked状態をfresh sessionから成功として再観測するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus atomic publish後のlinked状態をfresh sessionから成功として再観測するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("atomic publish後のlinked状態をfresh sessionから成功として再観測する", () => {
   const value = fixture();
   try {
@@ -255,6 +361,18 @@ test("atomic publish後のlinked状態をfresh sessionから成功として再�
   }
 });
 
+/**
+ * 明示的なstaging破棄後はdestination-only状態を再観測できるを検証する。
+ *
+ * @responsibility 明示的なstaging破棄後はdestination-only状態を再観測できるの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 明示的なstaging破棄後はdestination-only状態を再観測できるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("明示的なstaging破棄後はdestination-only状態を再観測できる", () => {
   const value = fixture();
   try {
@@ -274,6 +392,18 @@ test("明示的なstaging破棄後はdestination-only状態を再観測できる
   }
 });
 
+/**
+ * linked状態の同byte別identityと転送後の内容変更を再開しないを検証する。
+ *
+ * @responsibility linked状態の同byte別identityと転送後の内容変更を再開しないの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus linked状態の同byte別identityと転送後の内容変更を再開しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("linked状態の同byte別identityと転送後の内容変更を再開しない", () => {
   const different = fixture();
   try {
@@ -296,6 +426,18 @@ test("linked状態の同byte別identityと転送後の内容変更を再開し�
   }
 });
 
+/**
+ * 二つのProcessがprecheck後に競合しても一方だけがEffectを発行するを検証する。
+ *
+ * @responsibility 二つのProcessがprecheck後に競合しても一方だけがEffectを発行するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 二つのProcessがprecheck後に競合しても一方だけがEffectを発行するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("二つのProcessがprecheck後に競合しても一方だけがEffectを発行する", async () => {
   const value = fixture();
   const handles: RacerHandle[] = [];
@@ -340,6 +482,18 @@ test("二つのProcessがprecheck後に競合しても一方だけがEffectを�
   }
 });
 
+/**
+ * 競合fixtureはready前停止、出力破損、ready後停止を有限時間で回収するを検証する。
+ *
+ * @responsibility 競合fixtureはready前停止、出力破損、ready後停止を有限時間で回収するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 競合fixtureはready前停止、出力破損、ready後停止を有限時間で回収するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("競合fixtureはready前停止、出力破損、ready後停止を有限時間で回収する", async () => {
   for (const mode of ["hang-before-ready", "malformed", "hang-after-ready"]) {
     const value = fixture();
@@ -366,6 +520,18 @@ test("競合fixtureはready前停止、出力破損、ready後停止を有限時
   }
 });
 
+/**
+ * 開始後のRoot置換と完了後の親Directory置換を同一Sessionへ流用しないを検証する。
+ *
+ * @responsibility 開始後のRoot置換と完了後の親Directory置換を同一Sessionへ流用しないの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 開始後のRoot置換と完了後の親Directory置換を同一Sessionへ流用しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("開始後のRoot置換と完了後の親Directory置換を同一Sessionへ流用しない", () => {
   const before = fixture();
   try {
@@ -402,6 +568,18 @@ test("開始後のRoot置換と完了後の親Directory置換を同一Sessionへ
   }
 });
 
+/**
+ * productionと同じ合成順序で前段検証、atomic昇格、後段検証を実行するを検証する。
+ *
+ * @responsibility productionと同じ合成順序で前段検証、atomic昇格、後段検証を実行するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus productionと同じ合成順序で前段検証、atomic昇格、後段検証を実行するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("productionと同じ合成順序で前段検証、atomic昇格、後段検証を実行する", () => {
   const value = fixture();
   const phases: string[] = [];
@@ -448,6 +626,18 @@ test("productionと同じ合成順序で前段検証、atomic昇格、後段検�
   }
 });
 
+/**
+ * 合成後段の不成立は公開済みfileを推測削除せず再入場を要求するを検証する。
+ *
+ * @responsibility 合成後段の不成立は公開済みfileを推測削除せず再入場を要求するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 合成後段の不成立は公開済みfileを推測削除せず再入場を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("合成後段の不成立は公開済みfileを推測削除せず再入場を要求する", () => {
   const value = fixture();
   const release = Object.freeze({
@@ -487,6 +677,18 @@ test("合成後段の不成立は公開済みfileを推測削除せず再入場�
   }
 });
 
+/**
+ * production昇格入口はGit CLIやtext再serializeを使わず固定検証を合成するを検証する。
+ *
+ * @responsibility production昇格入口はGit CLIやtext再serializeを使わず固定検証を合成するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus production昇格入口はGit CLIやtext再serializeを使わず固定検証を合成するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("production昇格入口はGit CLIやtext再serializeを使わず固定検証を合成する", () => {
   assert.equal(typeof promoteVerifiedReleaseManifest, "function");
   const source = fs.readFileSync(
@@ -514,6 +716,18 @@ test("production昇格入口はGit CLIやtext再serializeを使わず固定検�
   assert.doesNotMatch(source, /--distribution-root/u);
 });
 
+/**
+ * 昇格入口は配置先Repository直下の署名候補自身だけを実行元にするを検証する。
+ *
+ * @responsibility 昇格入口は配置先Repository直下の署名候補自身だけを実行元にするの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 昇格入口は配置先Repository直下の署名候補自身だけを実行元にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("昇格入口は配置先Repository直下の署名候補自身だけを実行元にする", () => {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-topology-"));
   const destinationRoot = path.join(parent, "repository");
@@ -572,6 +786,18 @@ test("昇格入口は配置先Repository直下の署名候補自身だけを実�
   }
 });
 
+/**
+ * 作業Checkout内の未署名Launcherからは昇格を開始しないを検証する。
+ *
+ * @responsibility 作業Checkout内の未署名Launcherからは昇格を開始しないの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 作業Checkout内の未署名Launcherからは昇格を開始しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("作業Checkout内の未署名Launcherからは昇格を開始しない", () => {
   const previousWorkingDirectory = process.cwd();
   try {

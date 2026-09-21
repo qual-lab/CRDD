@@ -7,23 +7,68 @@
       "symbolId": "mcp.public-api",
       "kind": "module",
       "path": "src/index.ts",
-      "archIds": ["ARCH-000005", "ARCH-000012", "ARCH-000013", "ARCH-000015"]
+      "archIds": [
+        "ARCH-000005",
+        "ARCH-000012",
+        "ARCH-000013",
+        "ARCH-000015"
+      ]
     },
     {
-      "symbolId": "mcp.transport-lifecycle-integration",
+      "symbolId": "mcp.test.integration.transport-lifecycle",
       "kind": "test-suite",
       "path": "tests/integration/transport-lifecycle.contract.test.ts",
-      "qaIds": ["QA-000007", "QA-000009"],
-      "localTestIds": ["RFD-ST-004", "EST-IT-001", "EST-IT-002"],
-      "verifies": ["mcp.public-api"]
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-IT-001"
+      ],
+      "verifies": [
+        "mcp.public-api"
+      ]
     },
     {
-      "symbolId": "mcp.project-runtime-adapter-unit",
+      "symbolId": "mcp.test.system.stdio",
+      "kind": "test-suite",
+      "path": "tests/system/stdio-transport.integration.test.ts",
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-ST-012"
+      ],
+      "verifies": [
+        "mcp.public-api"
+      ]
+    },
+    {
+      "symbolId": "mcp.test.system.streamable-http",
+      "kind": "test-suite",
+      "path": "tests/system/streamable-http-transport.integration.test.ts",
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-ST-003"
+      ],
+      "verifies": [
+        "mcp.public-api"
+      ]
+    },
+    {
+      "symbolId": "mcp.test.unit.project-runtime",
       "kind": "test-suite",
       "path": "tests/unit/project-runtime-adapter.contract.test.ts",
-      "qaIds": ["QA-000004"],
-      "localTestIds": ["PPR-UT-006"],
-      "verifies": ["mcp.public-api"]
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "mcp.public-api"
+      ]
     }
   ]
 }

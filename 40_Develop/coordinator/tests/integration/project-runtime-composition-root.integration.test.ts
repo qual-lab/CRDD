@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:project-runtime-composition-rootの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:project-runtime-composition-rootが所有する検証責務を実行する。
+ * @trace PRL-IT-005
+ * @level IT
+ * @scope project、runtime、public、state、mcp
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -27,6 +37,18 @@ import {
   verifyExecutionIntelligenceRepositoryRoot,
 } from "../../../execution-intelligence/src/index.ts";
 
+/**
+ * Runtime Data失敗を公開Project Runtime結果まで意味変更せず投影するを検証する。
+ *
+ * @responsibility Runtime Data失敗を公開Project Runtime結果まで意味変更せず投影するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Runtime Data失敗を公開Project Runtime結果まで意味変更せず投影するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("Runtime Data失敗を公開Project Runtime結果まで意味変更せず投影する", () => {
   const error = new RepositoryRuntimeDataAreaBlockedError({
     status: "blocked",
@@ -53,6 +75,18 @@ test("Runtime Data失敗を公開Project Runtime結果まで意味変更せず�
   });
 });
 
+/**
+ * development composition uses the explicitly supplied candidate integration boundaryを検証する。
+ *
+ * @responsibility development composition uses the explicitly supplied candidate integration boundaryの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus development composition uses the explicitly supplied candidate integration boundaryの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("development composition uses the explicitly supplied candidate integration boundary", async (t) => {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-project-public-runtime-"),
@@ -521,6 +555,18 @@ class ControlledDiagnosticStream extends Writable {
   }
 }
 
+/**
+ * 回復診断を直列化しcallback成功だけを成功として扱うを検証する。
+ *
+ * @responsibility 回復診断を直列化しcallback成功だけを成功として扱うの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 回復診断を直列化しcallback成功だけを成功として扱うの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("回復診断を直列化しcallback成功だけを成功として扱う", async () => {
   const stream = new ControlledDiagnosticStream({ highWaterMark: 1 });
   const reporter = createProjectRuntimeRecoveryDiagnosticReporter(stream, 200);
@@ -538,6 +584,18 @@ test("回復診断を直列化しcallback成功だけを成功として扱う", 
   reporter.dispose();
 });
 
+/**
+ * 実行Event発行診断は回復診断と別の閉じた識別子で出力するを検証する。
+ *
+ * @responsibility 実行Event発行診断は回復診断と別の閉じた識別子で出力するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実行Event発行診断は回復診断と別の閉じた識別子で出力するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("実行Event発行診断は回復診断と別の閉じた識別子で出力する", async () => {
   const stream = new ControlledDiagnosticStream();
   const reporter = createProjectRuntimeExecutionIntelligenceDiagnosticReporter(
@@ -563,6 +621,18 @@ test("実行Event発行診断は回復診断と別の閉じた識別子で出力
   reporter.dispose();
 });
 
+/**
+ * 回復診断の各終端を区別し失敗後の書込みを停止するを検証する。
+ *
+ * @responsibility 回復診断の各終端を区別し失敗後の書込みを停止するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 回復診断の各終端を区別し失敗後の書込みを停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("回復診断の各終端を区別し失敗後の書込みを停止する", async (t) => {
   const cases = [
     {
@@ -605,6 +675,18 @@ test("回復診断の各終端を区別し失敗後の書込みを停止する",
   }
 });
 
+/**
+ * 回復診断timeout後の遅延callbackとerrorを二重完了にしないを検証する。
+ *
+ * @responsibility 回復診断timeout後の遅延callbackとerrorを二重完了にしないの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 回復診断timeout後の遅延callbackとerrorを二重完了にしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("回復診断timeout後の遅延callbackとerrorを二重完了にしない", async () => {
   const stream = new ControlledDiagnosticStream();
   const reporter = createProjectRuntimeRecoveryDiagnosticReporter(stream, 10);
@@ -616,6 +698,18 @@ test("回復診断timeout後の遅延callbackとerrorを二重完了にしない
   reporter.dispose();
 });
 
+/**
+ * 回復診断の同期throwと明示disposeを閉じた結果へ変換するを検証する。
+ *
+ * @responsibility 回復診断の同期throwと明示disposeを閉じた結果へ変換するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 回復診断の同期throwと明示disposeを閉じた結果へ変換するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("回復診断の同期throwと明示disposeを閉じた結果へ変換する", async () => {
   class ThrowingDiagnosticStream extends Writable {
     override write(): boolean {

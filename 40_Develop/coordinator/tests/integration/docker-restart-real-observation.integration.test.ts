@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:docker-restart-real-observationの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:docker-restart-real-observationが所有する検証責務を実行する。
+ * @trace ERB-IT-014
+ * @level IT
+ * @scope docker、restart、real-observation
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -17,6 +27,18 @@ import {
   createWindowsNativeHelperEnvironment,
 } from "../../src/core/windows-child-environment.ts";
 
+/**
+ * 中立化したRuntime子Processから実Docker CLIのPublisher Trustを確認できるを検証する。
+ *
+ * @responsibility 中立化したRuntime子Processから実Docker CLIのPublisher Trustを確認できるの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 中立化したRuntime子Processから実Docker CLIのPublisher Trustを確認できるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("中立化したRuntime子Processから実Docker CLIのPublisher Trustを確認できる", {
   skip:
     process.platform !== "win32" ||
@@ -59,6 +81,18 @@ test("中立化したRuntime子Processから実Docker CLIのPublisher Trustを�
   });
 });
 
+/**
+ * Windows environment observation completes with three runtime lock workersを検証する。
+ *
+ * @responsibility Windows environment observation completes with three runtime lock workersの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows environment observation completes with three runtime lock workersの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("Windows environment observation completes with three runtime lock workers", {
   skip: process.env.CRDD_REAL_DOCKER_OBSERVATION !== "1",
   timeout: 60_000,
@@ -82,6 +116,18 @@ test("Windows environment observation completes with three runtime lock workers"
   }
 });
 
+/**
+ * Windows directory bootstrap rejects incomplete or failed native resultsを検証する。
+ *
+ * @responsibility Windows directory bootstrap rejects incomplete or failed native resultsの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows directory bootstrap rejects incomplete or failed native resultsの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("Windows directory bootstrap rejects incomplete or failed native results", {
   skip: process.platform !== "win32",
 }, () => {
@@ -127,6 +173,18 @@ test("Windows directory bootstrap rejects incomplete or failed native results", 
 
 // Explicit, read-only real-environment IT. No stop/start or Provider invocation.
 for (const hasRuntimeLock of [false, true]) {
+  /**
+   * real Native and WSL observation with runtime lock=${hasRuntimeLock}を検証する。
+   *
+   * @responsibility real Native and WSL observation with runtime lock=${hasRuntimeLock}の合否判定を所有する。
+   * @trace ERB-IT-014
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus real Native and WSL observation with runtime lock=${hasRuntimeLock}の対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+   */
   test(`real Native and WSL observation with runtime lock=${hasRuntimeLock}`, {
     skip: process.env.CRDD_REAL_DOCKER_OBSERVATION !== "1",
     timeout: 60_000,

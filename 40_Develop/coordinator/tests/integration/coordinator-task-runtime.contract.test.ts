@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:coordinator-task-runtimeの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:coordinator-task-runtimeが所有する検証責務を実行する。
+ * @trace PRL-IT-012
+ * @level IT
+ * @scope coordinator、task、runtime
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -46,6 +56,18 @@ type TraceSnapshot = Readonly<{
 const admissionRecoveryOne = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
 const admissionRecoveryTwo = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
 
+/**
+ * fixtureDockerRecoveryIdのTest準備責務を実行する。
+ *
+ * @responsibility fixtureDockerRecoveryIdがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureDockerRecoveryIdを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function fixtureDockerRecoveryId(label: string) {
   const digest = createHash("sha256").update(label).digest("hex");
   return `docker-task.${digest}.${"1".repeat(64)}.${"2".repeat(64)}`;
@@ -314,6 +336,18 @@ const taskTraceAssertions: Readonly<
 });
 const executedTaskTraceCases = new Set<string>();
 
+/**
+ * assertExactTaskTraceExecutionCoverageのTest準備責務を実行する。
+ *
+ * @responsibility assertExactTaskTraceExecutionCoverageがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus assertExactTaskTraceExecutionCoverageを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function assertExactTaskTraceExecutionCoverage(executed: ReadonlySet<string>) {
   assertRuntimeTraceExecutionCoverage(
     "40_Develop/coordinator/tests/integration/coordinator-task-runtime.contract.test.ts",
@@ -322,6 +356,18 @@ function assertExactTaskTraceExecutionCoverage(executed: ReadonlySet<string>) {
   );
 }
 
+/**
+ * selectResourcePostconditionsのTest準備責務を実行する。
+ *
+ * @responsibility selectResourcePostconditionsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus selectResourcePostconditionsを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function selectResourcePostconditions(
   snapshot: TraceSnapshot,
   resources: readonly string[],
@@ -337,6 +383,18 @@ function selectResourcePostconditions(
   );
 }
 
+/**
+ * assertTerminalRuntimeTraceCaseのTest準備責務を実行する。
+ *
+ * @responsibility assertTerminalRuntimeTraceCaseがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus assertTerminalRuntimeTraceCaseを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 async function assertTerminalRuntimeTraceCase(
   caseId: string,
   harness: ReturnType<typeof fixture>,
@@ -409,6 +467,18 @@ async function assertTerminalRuntimeTraceCase(
   executedTaskTraceCases.add(caseId);
 }
 
+/**
+ * assertLifecycleRuntimeTraceCasesのTest準備責務を実行する。
+ *
+ * @responsibility assertLifecycleRuntimeTraceCasesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus assertLifecycleRuntimeTraceCasesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 async function assertLifecycleRuntimeTraceCases(
   caseIds: readonly string[],
   harness: ReturnType<typeof fixture>,
@@ -470,6 +540,18 @@ async function assertLifecycleRuntimeTraceCases(
   }
 }
 
+/**
+ * requestのTest準備責務を実行する。
+ *
+ * @responsibility requestがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus requestを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function request(overrides: Record<string, unknown> = {}) {
   return {
     frontProvider: "codex",
@@ -490,6 +572,18 @@ function request(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function fixture(
   options: {
     beginInvocation?: Parameters<
@@ -665,6 +759,18 @@ function fixture(
   let externalCancellationSignal: AbortSignal | null = null;
   const processCounts = new Map<"executor" | "reviewer", number>();
   const processStartCounts = new Map<"executor" | "reviewer", number>();
+  /**
+   * currentResourceSnapshotのTest準備責務を実行する。
+   *
+   * @responsibility currentResourceSnapshotがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace PRL-IT-012
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus currentResourceSnapshotを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+   */
   const currentResourceSnapshot = (state: string) => {
     const isRecoveryTerminal =
       state === "STATE-RECOVERY-REQUIRED" ||
@@ -1586,6 +1692,18 @@ function fixture(
   };
 }
 
+/**
+ * 開発版の呼出し枠はExecutor・Reviewer・一回是正へ同じ入口から接続するを検証する。
+ *
+ * @responsibility 開発版の呼出し枠はExecutor・Reviewer・一回是正へ同じ入口から接続するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 開発版の呼出し枠はExecutor・Reviewer・一回是正へ同じ入口から接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("開発版の呼出し枠はExecutor・Reviewer・一回是正へ同じ入口から接続する", async () => {
   const reservations: string[] = [];
   let consumptionCount = 0;
@@ -1624,6 +1742,18 @@ test("開発版の呼出し枠はExecutor・Reviewer・一回是正へ同じ入�
   assert.equal(harness.cleanupCount(), 1);
 });
 
+/**
+ * 呼出し予約拒否は準備・Provider開始前に停止し既存Operationを回収するを検証する。
+ *
+ * @responsibility 呼出し予約拒否は準備・Provider開始前に停止し既存Operationを回収するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 呼出し予約拒否は準備・Provider開始前に停止し既存Operationを回収するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("呼出し予約拒否は準備・Provider開始前に停止し既存Operationを回収する", async () => {
   const harness = fixture({ beginInvocation: () => null });
   const result = await harness.runtime.start(
@@ -1642,6 +1772,18 @@ test("呼出し予約拒否は準備・Provider開始前に停止し既存Operat
   assert.equal(result.cleanupConfirmed, true);
 });
 
+/**
+ * Provider終了後の開発Identity再検証が失敗した場合は成功を公開しないを検証する。
+ *
+ * @responsibility Provider終了後の開発Identity再検証が失敗した場合は成功を公開しないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Provider終了後の開発Identity再検証が失敗した場合は成功を公開しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Provider終了後の開発Identity再検証が失敗した場合は成功を公開しない", async () => {
   const harness = fixture({
     beginInvocation: () => ({
@@ -1664,6 +1806,18 @@ test("Provider終了後の開発Identity再検証が失敗した場合は成功�
   assert.equal(result.cleanupConfirmed, true);
 });
 
+/**
+ * 呼出し予約後の準備失敗でも終了記録を一回だけ残すを検証する。
+ *
+ * @responsibility 呼出し予約後の準備失敗でも終了記録を一回だけ残すの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 呼出し予約後の準備失敗でも終了記録を一回だけ残すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("呼出し予約後の準備失敗でも終了記録を一回だけ残す", async () => {
   let settlementCount = 0;
   const harness = fixture({
@@ -1686,6 +1840,18 @@ test("呼出し予約後の準備失敗でも終了記録を一回だけ残す",
   assert.equal(result.cleanupConfirmed, true);
 });
 
+/**
+ * 作業量超過は一般的な起動失敗へ潰さず分割理由を返し再試行しないを検証する。
+ *
+ * @responsibility 作業量超過は一般的な起動失敗へ潰さず分割理由を返し再試行しないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 作業量超過は一般的な起動失敗へ潰さず分割理由を返し再試行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("作業量超過は一般的な起動失敗へ潰さず分割理由を返し再試行しない", async () => {
   const harness = fixture({ prepareWorkloadSplit: true });
   const result = await harness.runtime.start(
@@ -1726,6 +1892,18 @@ for (const [providerReason, publicReason] of [
     "coordinator_task_provider_recovery_correlation_invalid",
   ],
 ] as const) {
+  /**
+   * Provider準備の固定理由を一般失敗へ潰さない: ${publicReason}を検証する。
+   *
+   * @responsibility Provider準備の固定理由を一般失敗へ潰さない: ${publicReason}の合否判定を所有する。
+   * @trace PRL-IT-012
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus Provider準備の固定理由を一般失敗へ潰さない: ${publicReason}の対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+   */
   test(`Provider準備の固定理由を一般失敗へ潰さない: ${publicReason}`, async () => {
     const harness = fixture({ prepareFailureReason: providerReason });
     const result = await harness.runtime.start(
@@ -1741,6 +1919,18 @@ for (const [providerReason, publicReason] of [
   });
 }
 
+/**
+ * sha256RepositoryのTest準備責務を実行する。
+ *
+ * @responsibility sha256RepositoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus sha256Repositoryを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function sha256Repository(t: TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-sha256-task-"));
   const git = path.join(root, ".git");
@@ -1755,6 +1945,18 @@ function sha256Repository(t: TestContext) {
   return root;
 }
 
+/**
+ * mismatchedRepositoryのTest準備責務を実行する。
+ *
+ * @responsibility mismatchedRepositoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus mismatchedRepositoryを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function mismatchedRepository(t: TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-mismatched-task-"));
   const git = path.join(root, ".git");
@@ -1769,6 +1971,18 @@ function mismatchedRepository(t: TestContext) {
   return root;
 }
 
+/**
+ * junctionRefRepositoryのTest準備責務を実行する。
+ *
+ * @responsibility junctionRefRepositoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus junctionRefRepositoryを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function junctionRefRepository(t: TestContext) {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-junction-ref-task-"),
@@ -1797,6 +2011,18 @@ function junctionRefRepository(t: TestContext) {
   return root;
 }
 
+/**
+ * 対象SHA-256 RepositoryはOperation／Grant／Store／Workspace／Processより前に専用停止するを検証する。
+ *
+ * @responsibility 対象SHA-256 RepositoryはOperation／Grant／Store／Workspace／Processより前に専用停止するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 対象SHA-256 RepositoryはOperation／Grant／Store／Workspace／Processより前に専用停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("対象SHA-256 RepositoryはOperation／Grant／Store／Workspace／Processより前に専用停止する", async (t) => {
   const harness = fixture({
     inspectRepository: inspectRepositoryObjectFormatCandidate,
@@ -1817,6 +2043,18 @@ test("対象SHA-256 RepositoryはOperation／Grant／Store／Workspace／Process
   assert.equal(harness.cleanupCount(), 0);
 });
 
+/**
+ * 宣言FormatとRevision幅の不一致は全Effect前にpreflight failureへ閉じるを検証する。
+ *
+ * @responsibility 宣言FormatとRevision幅の不一致は全Effect前にpreflight failureへ閉じるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 宣言FormatとRevision幅の不一致は全Effect前にpreflight failureへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("宣言FormatとRevision幅の不一致は全Effect前にpreflight failureへ閉じる", async (t) => {
   const harness = fixture({
     inspectRepository: inspectRepositoryObjectFormatCandidate,
@@ -1836,6 +2074,18 @@ test("宣言FormatとRevision幅の不一致は全Effect前にpreflight failure�
   assert.equal(harness.cleanupCount(), 0);
 });
 
+/**
+ * loose refの中間junctionは全Effect前にpreflight failureへ閉じるを検証する。
+ *
+ * @responsibility loose refの中間junctionは全Effect前にpreflight failureへ閉じるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus loose refの中間junctionは全Effect前にpreflight failureへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("loose refの中間junctionは全Effect前にpreflight failureへ閉じる", async (t) => {
   const harness = fixture({
     inspectRepository: inspectRepositoryObjectFormatCandidate,
@@ -1855,6 +2105,18 @@ test("loose refの中間junctionは全Effect前にpreflight failureへ閉じる"
   assert.equal(harness.cleanupCount(), 0);
 });
 
+/**
+ * 認証秘密を示すTask PathはOperationと外部送信前に安全な理由で停止するを検証する。
+ *
+ * @responsibility 認証秘密を示すTask PathはOperationと外部送信前に安全な理由で停止するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 認証秘密を示すTask PathはOperationと外部送信前に安全な理由で停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("認証秘密を示すTask PathはOperationと外部送信前に安全な理由で停止する", async () => {
   const harness = fixture();
   const result = await harness.runtime.start(
@@ -1874,6 +2136,18 @@ test("認証秘密を示すTask PathはOperationと外部送信前に安全な�
   assert.equal(harness.cleanupCount(), 0);
 });
 
+/**
+ * 読取投影の認証秘密はProvider Effect前に安全な理由で停止するを検証する。
+ *
+ * @responsibility 読取投影の認証秘密はProvider Effect前に安全な理由で停止するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 読取投影の認証秘密はProvider Effect前に安全な理由で停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("読取投影の認証秘密はProvider Effect前に安全な理由で停止する", async () => {
   const harness = fixture({ workspaceSecretBlocked: true });
   const result = await harness.runtime.start(
@@ -1891,6 +2165,18 @@ test("読取投影の認証秘密はProvider Effect前に安全な理由で停�
   assert.equal(harness.cleanupCount(), 1);
 });
 
+/**
+ * Executorが生成した認証秘密はReviewerへ渡さず安全な理由で停止するを検証する。
+ *
+ * @responsibility Executorが生成した認証秘密はReviewerへ渡さず安全な理由で停止するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Executorが生成した認証秘密はReviewerへ渡さず安全な理由で停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Executorが生成した認証秘密はReviewerへ渡さず安全な理由で停止する", async () => {
   const harness = fixture({ candidateSecretAtCapture: 1 });
   const result = await harness.runtime.start(
@@ -1908,6 +2194,18 @@ test("Executorが生成した認証秘密はReviewerへ渡さず安全な理由�
   assert.equal(harness.cleanupCount(), 1);
 });
 
+/**
+ * 是正Executorが生成した認証秘密も再Reviewerへ渡さず停止するを検証する。
+ *
+ * @responsibility 是正Executorが生成した認証秘密も再Reviewerへ渡さず停止するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 是正Executorが生成した認証秘密も再Reviewerへ渡さず停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("是正Executorが生成した認証秘密も再Reviewerへ渡さず停止する", async () => {
   const harness = fixture({
     reviewerDecision: "changes_requested",
@@ -1935,6 +2233,18 @@ test("是正Executorが生成した認証秘密も再Reviewerへ渡さず停止�
   assert.equal(harness.cleanupCount(), 1);
 });
 
+/**
+ * Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidateへ接続するを検証する。
+ *
+ * @responsibility Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidateへ接続するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidateへ接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidateへ接続する", async () => {
   const traceCaseIds = [
     "CASE-NORMAL-ADMISSION-TO-OPERATION",
@@ -1984,6 +2294,18 @@ test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidate�
   await assertLifecycleRuntimeTraceCases(traceCaseIds, harness);
 });
 
+/**
+ * 検証済みProvider turn観測をcleanup後のTask結果へ伝播するを検証する。
+ *
+ * @responsibility 検証済みProvider turn観測をcleanup後のTask結果へ伝播するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 検証済みProvider turn観測をcleanup後のTask結果へ伝播するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("検証済みProvider turn観測をcleanup後のTask結果へ伝播する", async () => {
   const harness = fixture({ providerTurnObservation: true });
   const result = await harness.runtime.start(
@@ -2030,6 +2352,18 @@ test("検証済みProvider turn観測をcleanup後のTask結果へ伝播する",
   );
 });
 
+/**
+ * Candidate結合済みReviewer投影を作れなければReviewer Effect前に停止するを検証する。
+ *
+ * @responsibility Candidate結合済みReviewer投影を作れなければReviewer Effect前に停止するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Candidate結合済みReviewer投影を作れなければReviewer Effect前に停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Candidate結合済みReviewer投影を作れなければReviewer Effect前に停止する", async () => {
   const harness = fixture({ reviewerReadProjectionFails: true });
   const result = await harness.runtime.start(
@@ -2048,6 +2382,18 @@ test("Candidate結合済みReviewer投影を作れなければReviewer Effect前
   assert.equal(harness.processStartCount(), 1);
 });
 
+/**
+ * 外周Candidate破棄が未確認ならturn観測だけを開発結果から除去するを検証する。
+ *
+ * @responsibility 外周Candidate破棄が未確認ならturn観測だけを開発結果から除去するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 外周Candidate破棄が未確認ならturn観測だけを開発結果から除去するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("外周Candidate破棄が未確認ならturn観測だけを開発結果から除去する", () => {
   const projected = projectDevelopmentTaskResultAfterOuterCleanup(
     Object.freeze({
@@ -2067,6 +2413,18 @@ test("外周Candidate破棄が未確認ならturn観測だけを開発結果か�
   assert.equal(projected.candidateRecoveryId, "candidate.recovery.example");
 });
 
+/**
+ * lifecycle observer例外はRuntime状態・Authority・Effect・結果を変更しないを検証する。
+ *
+ * @responsibility lifecycle observer例外はRuntime状態・Authority・Effect・結果を変更しないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus lifecycle observer例外はRuntime状態・Authority・Effect・結果を変更しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("lifecycle observer例外はRuntime状態・Authority・Effect・結果を変更しない", async () => {
   const baseline = fixture();
   const throwing = fixture({ lifecycleObserverThrows: true });
@@ -2094,6 +2452,18 @@ for (const scenario of [
   "cleanup_unknown",
   "cancel",
 ] as const) {
+  /**
+   * 受動計測の時計・表示失敗でも${scenario}のTask結果とEffectは同じを検証する。
+   *
+   * @responsibility 受動計測の時計・表示失敗でも${scenario}のTask結果とEffectは同じの合否判定を所有する。
+   * @trace PRL-IT-012
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 受動計測の時計・表示失敗でも${scenario}のTask結果とEffectは同じの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+   */
   test(`受動計測の時計・表示失敗でも${scenario}のTask結果とEffectは同じ`, async () => {
     const options: Parameters<typeof fixture>[0] =
       scenario === "remediation"
@@ -2150,6 +2520,18 @@ for (const scenario of [
   });
 }
 
+/**
+ * 初期確認と既存許可再利用を入力要求ではない一回の表示と最終結果へ接続するを検証する。
+ *
+ * @responsibility 初期確認と既存許可再利用を入力要求ではない一回の表示と最終結果へ接続するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 初期確認と既存許可再利用を入力要求ではない一回の表示と最終結果へ接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("初期確認と既存許可再利用を入力要求ではない一回の表示と最終結果へ接続する", async () => {
   for (const mode of [
     "interactive_initial_consent",
@@ -2178,6 +2560,18 @@ test("初期確認と既存許可再利用を入力要求ではない一回の�
   }
 });
 
+/**
+ * 不明な許可方式または表示失敗を再利用と推定せずWorkspaceとProvider起動前に停止するを検証する。
+ *
+ * @responsibility 不明な許可方式または表示失敗を再利用と推定せずWorkspaceとProvider起動前に停止するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不明な許可方式または表示失敗を再利用と推定せずWorkspaceとProvider起動前に停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("不明な許可方式または表示失敗を再利用と推定せずWorkspaceとProvider起動前に停止する", async () => {
   for (const options of [
     ...[undefined, null, "", "unknown", true].map((mode) => ({
@@ -2215,6 +2609,18 @@ test("不明な許可方式または表示失敗を再利用と推定せずWorks
   }
 });
 
+/**
+ * 許可状況の表示中に取消された場合もWorkspaceとProvider起動へ進まないを検証する。
+ *
+ * @responsibility 許可状況の表示中に取消された場合もWorkspaceとProvider起動へ進まないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 許可状況の表示中に取消された場合もWorkspaceとProvider起動へ進まないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("許可状況の表示中に取消された場合もWorkspaceとProvider起動へ進まない", async () => {
   const harness = fixture({
     externalSendNoticeObserver: () => {
@@ -2237,6 +2643,18 @@ test("許可状況の表示中に取消された場合もWorkspaceとProvider起
   assert.equal(result.cleanupConfirmed, true);
 });
 
+/**
+ * 両Front×両Executorの4経路をEffect前Slateと独立Reviewerへ接続するを検証する。
+ *
+ * @responsibility 両Front×両Executorの4経路をEffect前Slateと独立Reviewerへ接続するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 両Front×両Executorの4経路をEffect前Slateと独立Reviewerへ接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("両Front×両Executorの4経路をEffect前Slateと独立Reviewerへ接続する", async () => {
   const cases = [
     ["codex", "claude", "codex"],
@@ -2275,6 +2693,18 @@ test("両Front×両Executorの4経路をEffect前Slateと独立Reviewerへ接続
   }
 });
 
+/**
+ * 実選定器へautoと明示制約の由来を保持し是正・Reviewerへ人間指定を捏造しないを検証する。
+ *
+ * @responsibility 実選定器へautoと明示制約の由来を保持し是正・Reviewerへ人間指定を捏造しないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実選定器へautoと明示制約の由来を保持し是正・Reviewerへ人間指定を捏造しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("実選定器へautoと明示制約の由来を保持し是正・Reviewerへ人間指定を捏造しない", async () => {
   const cases = [
     ["codex", "auto", "bounded_implementation", "claude", "codex"],
@@ -2323,6 +2753,18 @@ test("実選定器へautoと明示制約の由来を保持し是正・Reviewer�
   }
 });
 
+/**
+ * 再選定が事前Slateと異なる場合は当該Stageの起動前にSelectionを失効させるを検証する。
+ *
+ * @responsibility 再選定が事前Slateと異なる場合は当該Stageの起動前にSelectionを失効させるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 再選定が事前Slateと異なる場合は当該Stageの起動前にSelectionを失効させるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("再選定が事前Slateと異なる場合は当該Stageの起動前にSelectionを失効させる", async () => {
   for (const selectionMismatchAt of [1, 2, 3, 4]) {
     const harness = fixture({
@@ -2351,6 +2793,18 @@ test("再選定が事前Slateと異なる場合は当該Stageの起動前にSele
   }
 });
 
+/**
+ * 時間を要するProvider Home観測後に同一Selectionを更新してからEffectへ進むを検証する。
+ *
+ * @responsibility 時間を要するProvider Home観測後に同一Selectionを更新してからEffectへ進むの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 時間を要するProvider Home観測後に同一Selectionを更新してからEffectへ進むの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("時間を要するProvider Home観測後に同一Selectionを更新してからEffectへ進む", async () => {
   const harness = fixture();
   const result = await harness.runtime.start(
@@ -2370,6 +2824,18 @@ test("時間を要するProvider Home観測後に同一Selectionを更新して�
   assert.equal(harness.processStartCount(), 2);
 });
 
+/**
+ * Selection更新の失敗・意味変更・旧Grant失効失敗はProvider Effect前に停止するを検証する。
+ *
+ * @responsibility Selection更新の失敗・意味変更・旧Grant失効失敗はProvider Effect前に停止するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Selection更新の失敗・意味変更・旧Grant失効失敗はProvider Effect前に停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Selection更新の失敗・意味変更・旧Grant失効失敗はProvider Effect前に停止する", async () => {
   for (const [options, reason] of [
     [
@@ -2400,6 +2866,18 @@ test("Selection更新の失敗・意味変更・旧Grant失効失敗はProvider 
   }
 });
 
+/**
+ * 任意Executor制約はauto既定と分離して同じSlate・Selection Gateへ伝播するを検証する。
+ *
+ * @responsibility 任意Executor制約はauto既定と分離して同じSlate・Selection Gateへ伝播するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 任意Executor制約はauto既定と分離して同じSlate・Selection Gateへ伝播するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("任意Executor制約はauto既定と分離して同じSlate・Selection Gateへ伝播する", async () => {
   for (const provider of ["codex", "claude"] as const) {
     const reviewer = provider === "codex" ? "claude" : "codex";
@@ -2463,6 +2941,18 @@ test("任意Executor制約はauto既定と分離して同じSlate・Selection Ga
   assert.equal(mismatched.selectionRequests.length, 0);
 });
 
+/**
+ * 同一Provider Reviewerは低リスクSlateが指定した別実行Contextだけを使うを検証する。
+ *
+ * @responsibility 同一Provider Reviewerは低リスクSlateが指定した別実行Contextだけを使うの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 同一Provider Reviewerは低リスクSlateが指定した別実行Contextだけを使うの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("同一Provider Reviewerは低リスクSlateが指定した別実行Contextだけを使う", async () => {
   for (const provider of ["codex", "claude"] as const) {
     const harness = fixture({
@@ -2494,6 +2984,18 @@ test("同一Provider Reviewerは低リスクSlateが指定した別実行Context
   }
 });
 
+/**
+ * 完遂可能なExecution SlateがなければExternal SendとExecutor Effect前に停止するを検証する。
+ *
+ * @responsibility 完遂可能なExecution SlateがなければExternal SendとExecutor Effect前に停止するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 完遂可能なExecution SlateがなければExternal SendとExecutor Effect前に停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("完遂可能なExecution SlateがなければExternal SendとExecutor Effect前に停止する", async () => {
   const harness = fixture({ slateUnavailable: true });
   const started = harness.runtime.start(
@@ -2511,6 +3013,18 @@ test("完遂可能なExecution SlateがなければExternal SendとExecutor Effe
   assert.equal(harness.cleanupCount(), 1);
 });
 
+/**
+ * Docker回復記録はHost cleanup intentと不存在receiptの後だけfinalizeするを検証する。
+ *
+ * @responsibility Docker回復記録はHost cleanup intentと不存在receiptの後だけfinalizeするの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Docker回復記録はHost cleanup intentと不存在receiptの後だけfinalizeするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Docker回復記録はHost cleanup intentと不存在receiptの後だけfinalizeする", async () => {
   const harness = fixture({ hostCleanupWal: true });
   const result = await harness.runtime.start(
@@ -2530,6 +3044,18 @@ test("Docker回復記録はHost cleanup intentと不存在receiptの後だけfin
   ]);
 });
 
+/**
+ * 清掃済みProvider失敗もHost cleanup後にDocker回復記録をfinalizeするを検証する。
+ *
+ * @responsibility 清掃済みProvider失敗もHost cleanup後にDocker回復記録をfinalizeするの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 清掃済みProvider失敗もHost cleanup後にDocker回復記録をfinalizeするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("清掃済みProvider失敗もHost cleanup後にDocker回復記録をfinalizeする", async () => {
   const harness = fixture({
     hostCleanupWal: true,
@@ -2555,6 +3081,18 @@ test("清掃済みProvider失敗もHost cleanup後にDocker回復記録をfinali
   ]);
 });
 
+/**
+ * finalizable Docker handoffは0／1／2件で同じcleanup DAGへ進むを検証する。
+ *
+ * @responsibility finalizable Docker handoffは0／1／2件で同じcleanup DAGへ進むの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus finalizable Docker handoffは0／1／2件で同じcleanup DAGへ進むの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("finalizable Docker handoffは0／1／2件で同じcleanup DAGへ進む", async () => {
   const zero = fixture({ externalSendDenied: true, hostCleanupWal: true });
   const zeroResult = await zero.runtime.start(
@@ -2597,6 +3135,18 @@ test("finalizable Docker handoffは0／1／2件で同じcleanup DAGへ進む", a
   );
 });
 
+/**
+ * managed handoffとraw Docker IDの混在はHost cleanup前に全件保持するを検証する。
+ *
+ * @responsibility managed handoffとraw Docker IDの混在はHost cleanup前に全件保持するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus managed handoffとraw Docker IDの混在はHost cleanup前に全件保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("managed handoffとraw Docker IDの混在はHost cleanup前に全件保持する", async () => {
   const harness = fixture({
     hostCleanupWal: true,
@@ -2617,6 +3167,18 @@ test("managed handoffとraw Docker IDの混在はHost cleanup前に全件保持�
   assert.equal(harness.events.includes("docker-host-cleanup-intent"), false);
 });
 
+/**
+ * 各Stageのraw Docker欠落・empty・foreignは表示補完前にcleanup Authorityを閉じるを検証する。
+ *
+ * @responsibility 各Stageのraw Docker欠落・empty・foreignは表示補完前にcleanup Authorityを閉じるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 各Stageのraw Docker欠落・empty・foreignは表示補完前にcleanup Authorityを閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("各Stageのraw Docker欠落・empty・foreignは表示補完前にcleanup Authorityを閉じる", async () => {
   const cases = [
     {
@@ -2672,6 +3234,18 @@ test("各Stageのraw Docker欠落・empty・foreignは表示補完前にcleanup 
   }
 });
 
+/**
+ * 複数Docker intentの途中失敗はHost cleanupへ進まず未解決集合を保持するを検証する。
+ *
+ * @responsibility 複数Docker intentの途中失敗はHost cleanupへ進まず未解決集合を保持するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 複数Docker intentの途中失敗はHost cleanupへ進まず未解決集合を保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("複数Docker intentの途中失敗はHost cleanupへ進まず未解決集合を保持する", async () => {
   const harness = fixture({ hostCleanupWal: true, dockerIntentFailsAt: 2 });
   const result = await harness.runtime.start(
@@ -2699,6 +3273,18 @@ test("複数Docker intentの途中失敗はHost cleanupへ進まず未解決集�
   );
 });
 
+/**
+ * 先にfinalize済みのDocker IDを後続finalize失敗の未解決集合へ再混入しないを検証する。
+ *
+ * @responsibility 先にfinalize済みのDocker IDを後続finalize失敗の未解決集合へ再混入しないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 先にfinalize済みのDocker IDを後続finalize失敗の未解決集合へ再混入しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("先にfinalize済みのDocker IDを後続finalize失敗の未解決集合へ再混入しない", async () => {
   const harness = fixture({ hostCleanupWal: true, dockerFinalizeFailsAt: 2 });
   const result = await harness.runtime.start(
@@ -2722,6 +3308,18 @@ test("先にfinalize済みのDocker IDを後続finalize失敗の未解決集合�
   assert.equal(harness.abandonOperationCount(), 0);
 });
 
+/**
+ * Host cleanup後のDocker receipt失敗は無効なHost IDを再公開しないを検証する。
+ *
+ * @responsibility Host cleanup後のDocker receipt失敗は無効なHost IDを再公開しないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host cleanup後のDocker receipt失敗は無効なHost IDを再公開しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Host cleanup後のDocker receipt失敗は無効なHost IDを再公開しない", async () => {
   const harness = fixture({ hostCleanupWal: true, dockerReceiptFailsAt: 1 });
   const result = await harness.runtime.start(
@@ -2742,6 +3340,18 @@ test("Host cleanup後のDocker receipt失敗は無効なHost IDを再公開し�
   assert.equal(harness.abandonOperationCount(), 0);
 });
 
+/**
+ * 全Docker handoff finalize後のCandidate永続化失敗はDocker IDを返さないを検証する。
+ *
+ * @responsibility 全Docker handoff finalize後のCandidate永続化失敗はDocker IDを返さないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 全Docker handoff finalize後のCandidate永続化失敗はDocker IDを返さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("全Docker handoff finalize後のCandidate永続化失敗はDocker IDを返さない", async () => {
   const harness = fixture({
     hostCleanupWal: true,
@@ -2758,6 +3368,18 @@ test("全Docker handoff finalize後のCandidate永続化失敗はDocker IDを返
   assert.equal(result.dockerRecoveryId, null);
 });
 
+/**
+ * Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格せずExecutor診断を安全に返すを検証する。
+ *
+ * @responsibility Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格せずExecutor診断を安全に返すの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格せずExecutor診断を安全に返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格せずExecutor診断を安全に返す", async () => {
   const harness = fixture({
     reviewerDecision: "changes_requested",
@@ -2852,6 +3474,18 @@ test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格�
   assert.equal(harness.cleanupCount(), 1);
 });
 
+/**
+ * Reviewer指摘を一回だけ同一Executorへ戻し、同一独立Reviewerの再承認へ接続するを検証する。
+ *
+ * @responsibility Reviewer指摘を一回だけ同一Executorへ戻し、同一独立Reviewerの再承認へ接続するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Reviewer指摘を一回だけ同一Executorへ戻し、同一独立Reviewerの再承認へ接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Reviewer指摘を一回だけ同一Executorへ戻し、同一独立Reviewerの再承認へ接続する", async () => {
   const traceCaseIds = [
     "CASE-REMEDIATION-AUTHORIZED-TO-EXECUTOR-CLEAN",
@@ -2881,6 +3515,18 @@ test("Reviewer指摘を一回だけ同一Executorへ戻し、同一独立Reviewe
   await assertLifecycleRuntimeTraceCases(traceCaseIds, harness);
 });
 
+/**
+ * 是正ExecutorのchangedPathsはBaseから見た最終Candidate全体と一致しなければ未発行で停止するを検証する。
+ *
+ * @responsibility 是正ExecutorのchangedPathsはBaseから見た最終Candidate全体と一致しなければ未発行で停止するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 是正ExecutorのchangedPathsはBaseから見た最終Candidate全体と一致しなければ未発行で停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("是正ExecutorのchangedPathsはBaseから見た最終Candidate全体と一致しなければ未発行で停止する", async () => {
   const harness = fixture({
     reviewerDecision: "changes_requested",
@@ -2902,6 +3548,18 @@ test("是正ExecutorのchangedPathsはBaseから見た最終Candidate全体と�
   assert.equal(result.candidateStoreRecoveryId, null);
 });
 
+/**
+ * Reviewer由来Secret Pathは是正Executor Process前に安全な理由で停止するを検証する。
+ *
+ * @responsibility Reviewer由来Secret Pathは是正Executor Process前に安全な理由で停止するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Reviewer由来Secret Pathは是正Executor Process前に安全な理由で停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Reviewer由来Secret Pathは是正Executor Process前に安全な理由で停止する", async () => {
   const harness = fixture({
     reviewerDecision: "changes_requested",
@@ -2928,6 +3586,18 @@ test("Reviewer由来Secret Pathは是正Executor Process前に安全な理由で
   assert.equal(harness.cleanupCount(), 1);
 });
 
+/**
+ * 選定理由は各Provider Effectより前に安全なCoordinator eventへ出すを検証する。
+ *
+ * @responsibility 選定理由は各Provider Effectより前に安全なCoordinator eventへ出すの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 選定理由は各Provider Effectより前に安全なCoordinator eventへ出すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("選定理由は各Provider Effectより前に安全なCoordinator eventへ出す", async () => {
   const harness = fixture();
   const result = await harness.runtime.start(
@@ -2948,6 +3618,18 @@ test("選定理由は各Provider Effectより前に安全なCoordinator eventへ
   );
 });
 
+/**
+ * Candidate保存禁止Policyは外部送信とProvider Effect前に停止するを検証する。
+ *
+ * @responsibility Candidate保存禁止Policyは外部送信とProvider Effect前に停止するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Candidate保存禁止Policyは外部送信とProvider Effect前に停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Candidate保存禁止Policyは外部送信とProvider Effect前に停止する", async () => {
   const harness = fixture({ candidatePersistenceAllowed: false });
   const result = await harness.runtime.start(
@@ -2963,6 +3645,18 @@ test("Candidate保存禁止Policyは外部送信とProvider Effect前に停止�
   assert.deepEqual(harness.events, []);
 });
 
+/**
+ * Candidate Storeを安全に準備できなければ外部送信Authority前に停止するを検証する。
+ *
+ * @responsibility Candidate Storeを安全に準備できなければ外部送信Authority前に停止するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Candidate Storeを安全に準備できなければ外部送信Authority前に停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Candidate Storeを安全に準備できなければ外部送信Authority前に停止する", async () => {
   const harness = fixture({ candidateStoreUnavailable: true });
   const result = await harness.runtime.start(
@@ -2981,6 +3675,18 @@ test("Candidate Storeを安全に準備できなければ外部送信Authority�
   assert.equal(harness.selectionRequests.length, 0);
 });
 
+/**
+ * 対話的External Send Grantが無ければWorkspaceとProvider Effect前に停止するを検証する。
+ *
+ * @responsibility 対話的External Send Grantが無ければWorkspaceとProvider Effect前に停止するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 対話的External Send Grantが無ければWorkspaceとProvider Effect前に停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("対話的External Send Grantが無ければWorkspaceとProvider Effect前に停止する", async () => {
   const harness = fixture({ externalSendDenied: true });
   const result = await harness.runtime.start(
@@ -2994,6 +3700,18 @@ test("対話的External Send Grantが無ければWorkspaceとProvider Effect前�
   assert.equal(harness.cleanupCount(), 1);
 });
 
+/**
+ * 対話cleanup不明はProcess再起動を要求しOperation cleanupを独立して処置するを検証する。
+ *
+ * @responsibility 対話cleanup不明はProcess再起動を要求しOperation cleanupを独立して処置するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 対話cleanup不明はProcess再起動を要求しOperation cleanupを独立して処置するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("対話cleanup不明はProcess再起動を要求しOperation cleanupを独立して処置する", async () => {
   const reason =
     "external_send_confirmation_cleanup_unknown_process_restart_required";
@@ -3038,6 +3756,18 @@ test("対話cleanup不明はProcess再起動を要求しOperation cleanupを独�
   assert.equal(cleanupFailure.selectionRequests.length, 0);
 });
 
+/**
+ * External Send拒否状態はTaskの理由・回復・Effect 0へ完全投影するを検証する。
+ *
+ * @responsibility External Send拒否状態はTaskの理由・回復・Effect 0へ完全投影するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus External Send拒否状態はTaskの理由・回復・Effect 0へ完全投影するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("External Send拒否状態はTaskの理由・回復・Effect 0へ完全投影する", async () => {
   for (const status of [
     "declined_invalid",
@@ -3068,6 +3798,18 @@ test("External Send拒否状態はTaskの理由・回復・Effect 0へ完全投�
   }
 });
 
+/**
+ * Executor自己申告と実Candidate差またはOperation cleanup不明を成功にしないを検証する。
+ *
+ * @responsibility Executor自己申告と実Candidate差またはOperation cleanup不明を成功にしないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Executor自己申告と実Candidate差またはOperation cleanup不明を成功にしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Executor自己申告と実Candidate差またはOperation cleanup不明を成功にしない", async () => {
   const mismatch = fixture({ executorChangedPaths: [] });
   const mismatchResult = await mismatch.runtime.start(
@@ -3097,6 +3839,18 @@ test("Executor自己申告と実Candidate差またはOperation cleanup不明を�
   assert.equal(cleanupFailure.discardCount(), 1);
 });
 
+/**
+ * Host cleanup返却前の喪失通知は確認済み失敗と回収不明を区別し候補公開しないを検証する。
+ *
+ * @responsibility Host cleanup返却前の喪失通知は確認済み失敗と回収不明を区別し候補公開しないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host cleanup返却前の喪失通知は確認済み失敗と回収不明を区別し候補公開しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Host cleanup返却前の喪失通知は確認済み失敗と回収不明を区別し候補公開しない", async () => {
   for (const outcome of [
     "cleanup_confirmed_failure",
@@ -3148,6 +3902,18 @@ test("Host cleanup返却前の喪失通知は確認済み失敗と回収不明�
   }
 });
 
+/**
+ * 回復保持処理も例外になったcleanup失敗は制御を失効しprocess再利用を禁止するを検証する。
+ *
+ * @responsibility 回復保持処理も例外になったcleanup失敗は制御を失効しprocess再利用を禁止するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 回復保持処理も例外になったcleanup失敗は制御を失効しprocess再利用を禁止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("回復保持処理も例外になったcleanup失敗は制御を失効しprocess再利用を禁止する", async () => {
   const harness = fixture({
     cleanupThrows: true,
@@ -3176,6 +3942,18 @@ test("回復保持処理も例外になったcleanup失敗は制御を失効しp
   });
 });
 
+/**
+ * Host Supervisor protocol失敗後の確認済みcleanupは成功公開も手動Recoveryも行わないを検証する。
+ *
+ * @responsibility Host Supervisor protocol失敗後の確認済みcleanupは成功公開も手動Recoveryも行わないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host Supervisor protocol失敗後の確認済みcleanupは成功公開も手動Recoveryも行わないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Host Supervisor protocol失敗後の確認済みcleanupは成功公開も手動Recoveryも行わない", async () => {
   const harness = fixture({ cleanupProtocolFailure: true });
   const result = await harness.runtime.start(
@@ -3197,6 +3975,18 @@ test("Host Supervisor protocol失敗後の確認済みcleanupは成功公開も�
   assert.equal(harness.discardCount(), 1);
 });
 
+/**
+ * Operation cleanupとCandidate discardが共に失敗してもdiscard専用Recovery IDを失わないを検証する。
+ *
+ * @responsibility Operation cleanupとCandidate discardが共に失敗してもdiscard専用Recovery IDを失わないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Operation cleanupとCandidate discardが共に失敗してもdiscard専用Recovery IDを失わないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Operation cleanupとCandidate discardが共に失敗してもdiscard専用Recovery IDを失わない", async () => {
   const harness = fixture({ cleanupThrows: true, discardFails: true });
   const result = await harness.runtime.start(
@@ -3213,6 +4003,18 @@ test("Operation cleanupとCandidate discardが共に失敗してもdiscard専用
   assert.equal(result.candidateId, null);
 });
 
+/**
+ * Candidate publish失敗はexport不能なRecovery IDだけを返すを検証する。
+ *
+ * @responsibility Candidate publish失敗はexport不能なRecovery IDだけを返すの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Candidate publish失敗はexport不能なRecovery IDだけを返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Candidate publish失敗はexport不能なRecovery IDだけを返す", async () => {
   const harness = fixture({ publishFails: true });
   const result = await harness.runtime.start(
@@ -3229,6 +4031,18 @@ test("Candidate publish失敗はexport不能なRecovery IDだけを返す", asyn
   );
 });
 
+/**
+ * Candidate publishとStore障害を同時に観測しても二つのRecovery IDを保持するを検証する。
+ *
+ * @responsibility Candidate publishとStore障害を同時に観測しても二つのRecovery IDを保持するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Candidate publishとStore障害を同時に観測しても二つのRecovery IDを保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Candidate publishとStore障害を同時に観測しても二つのRecovery IDを保持する", async () => {
   const harness = fixture({ publishNeedsStoreRecovery: true });
   const result = await harness.runtime.start(
@@ -3249,6 +4063,18 @@ test("Candidate publishとStore障害を同時に観測しても二つのRecover
   );
 });
 
+/**
+ * 承認済みCandidateを永続化できない場合はIDを公開せずFail Closedするを検証する。
+ *
+ * @responsibility 承認済みCandidateを永続化できない場合はIDを公開せずFail Closedするの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 承認済みCandidateを永続化できない場合はIDを公開せずFail Closedするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("承認済みCandidateを永続化できない場合はIDを公開せずFail Closedする", async () => {
   const harness = fixture({ candidatePersistenceFails: true });
   const result = await harness.runtime.start(
@@ -3262,6 +4088,18 @@ test("承認済みCandidateを永続化できない場合はIDを公開せずFai
   assert.equal(harness.cleanupCount(), 1);
 });
 
+/**
+ * Candidate Store障害はCandidate IDと分離したStore Recovery IDを返すを検証する。
+ *
+ * @responsibility Candidate Store障害はCandidate IDと分離したStore Recovery IDを返すの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Candidate Store障害はCandidate IDと分離したStore Recovery IDを返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Candidate Store障害はCandidate IDと分離したStore Recovery IDを返す", async () => {
   const harness = fixture({ candidatePersistenceNeedsStoreRecovery: true });
   const result = await harness.runtime.start(
@@ -3278,6 +4116,18 @@ test("Candidate Store障害はCandidate IDと分離したStore Recovery IDを返
   );
 });
 
+/**
+ * Candidate Storeだけのmanual recoveryはHostとDocker cleanupを保留しないを検証する。
+ *
+ * @responsibility Candidate Storeだけのmanual recoveryはHostとDocker cleanupを保留しないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Candidate Storeだけのmanual recoveryはHostとDocker cleanupを保留しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Candidate Storeだけのmanual recoveryはHostとDocker cleanupを保留しない", async () => {
   const harness = fixture({
     hostCleanupWal: true,
@@ -3303,6 +4153,18 @@ test("Candidate Storeだけのmanual recoveryはHostとDocker cleanupを保留�
   );
 });
 
+/**
+ * Candidate永続化の中間障害はcleanup後にRecovery IDで自動破棄するを検証する。
+ *
+ * @responsibility Candidate永続化の中間障害はcleanup後にRecovery IDで自動破棄するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Candidate永続化の中間障害はcleanup後にRecovery IDで自動破棄するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Candidate永続化の中間障害はcleanup後にRecovery IDで自動破棄する", async () => {
   const harness = fixture({ candidatePersistenceNeedsRecovery: true });
   const result = await harness.runtime.start(
@@ -3318,6 +4180,18 @@ test("Candidate永続化の中間障害はcleanup後にRecovery IDで自動破�
   assert.equal(harness.cleanupCount(), 1);
 });
 
+/**
+ * 全Docker finalize後のCandidate publish例外へ削除済みDocker IDを再投影しないを検証する。
+ *
+ * @responsibility 全Docker finalize後のCandidate publish例外へ削除済みDocker IDを再投影しないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 全Docker finalize後のCandidate publish例外へ削除済みDocker IDを再投影しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("全Docker finalize後のCandidate publish例外へ削除済みDocker IDを再投影しない", async () => {
   const harness = fixture({ hostCleanupWal: true, publishThrows: true });
   const result = await harness.runtime.start(
@@ -3331,6 +4205,18 @@ test("全Docker finalize後のCandidate publish例外へ削除済みDocker IDを
   assert.equal(result.hostRecoveryId, null);
 });
 
+/**
+ * 先行finalize済みIDはCandidate discard例外後のcatchへ残さないを検証する。
+ *
+ * @responsibility 先行finalize済みIDはCandidate discard例外後のcatchへ残さないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 先行finalize済みIDはCandidate discard例外後のcatchへ残さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("先行finalize済みIDはCandidate discard例外後のcatchへ残さない", async () => {
   const harness = fixture({
     hostCleanupWal: true,
@@ -3348,6 +4234,18 @@ test("先行finalize済みIDはCandidate discard例外後のcatchへ残さない
   assert.equal(result.hostRecoveryId, null);
 });
 
+/**
+ * Provider completion rejectは取消を試みOperation RootをRecovery用に保持するを検証する。
+ *
+ * @responsibility Provider completion rejectは取消を試みOperation RootをRecovery用に保持するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Provider completion rejectは取消を試みOperation RootをRecovery用に保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Provider completion rejectは取消を試みOperation RootをRecovery用に保持する", async () => {
   const harness = fixture({ completionRejectRole: "executor" });
   const result = await harness.runtime.start(
@@ -3369,6 +4267,18 @@ test("Provider completion rejectは取消を試みOperation RootをRecovery用�
   assert.equal(harness.cleanupCount(), 0);
 });
 
+/**
+ * Provider start／completion cleanup不明はHostとDockerのRecovery IDを分離するを検証する。
+ *
+ * @responsibility Provider start／completion cleanup不明はHostとDockerのRecovery IDを分離するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Provider start／completion cleanup不明はHostとDockerのRecovery IDを分離するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Provider start／completion cleanup不明はHostとDockerのRecovery IDを分離する", async () => {
   for (const [options, expectedIds] of [
     [
@@ -3402,6 +4312,18 @@ test("Provider start／completion cleanup不明はHostとDockerのRecovery IDを
   }
 });
 
+/**
+ * Provider startがlower cleanup済みでも手動Recoveryとexact Docker IDを返す場合はHost rootを保持するを検証する。
+ *
+ * @responsibility Provider startがlower cleanup済みでも手動Recoveryとexact Docker IDを返す場合はHost rootを保持するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Provider startがlower cleanup済みでも手動Recoveryとexact Docker IDを返す場合はHost rootを保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Provider startがlower cleanup済みでも手動Recoveryとexact Docker IDを返す場合はHost rootを保持する", async () => {
   const harness = fixture({
     processStartFailureRole: "executor",
@@ -3429,6 +4351,18 @@ test("Provider startがlower cleanup済みでも手動Recoveryとexact Docker ID
   assert.equal(harness.events.includes("host-cleanup"), false);
 });
 
+/**
+ * 独立Reviewer実行中のCandidate差替えを承認済みResultへ昇格しないを検証する。
+ *
+ * @responsibility 独立Reviewer実行中のCandidate差替えを承認済みResultへ昇格しないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 独立Reviewer実行中のCandidate差替えを承認済みResultへ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("独立Reviewer実行中のCandidate差替えを承認済みResultへ昇格しない", async () => {
   const harness = fixture({ candidateVerificationFails: true });
   const result = await harness.runtime.start(
@@ -3444,6 +4378,18 @@ test("独立Reviewer実行中のCandidate差替えを承認済みResultへ昇格
   assert.equal(harness.cleanupCount(), 1);
 });
 
+/**
+ * 実行中取消はProvider完了後もCandidateを公開せずexactly onceに閉じるを検証する。
+ *
+ * @responsibility 実行中取消はProvider完了後もCandidateを公開せずexactly onceに閉じるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実行中取消はProvider完了後もCandidateを公開せずexactly onceに閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("実行中取消はProvider完了後もCandidateを公開せずexactly onceに閉じる", async () => {
   const harness = fixture({ pauseRole: "executor", hostCleanupWal: true });
   const started = harness.runtime.start(
@@ -3486,6 +4432,18 @@ test("実行中取消はProvider完了後もCandidateを公開せずexactly once
   ]);
 });
 
+/**
+ * 不正なlower取消receiptも同じlive Operationでは同じcached rejectionへ閉じるを検証する。
+ *
+ * @responsibility 不正なlower取消receiptも同じlive Operationでは同じcached rejectionへ閉じるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不正なlower取消receiptも同じlive Operationでは同じcached rejectionへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("不正なlower取消receiptも同じlive Operationでは同じcached rejectionへ閉じる", async () => {
   const harness = fixture({
     pauseRole: "executor",
@@ -3517,6 +4475,18 @@ test("不正なlower取消receiptも同じlive Operationでは同じcached rejec
   assert.equal(result.processRestartRequired, true);
 });
 
+/**
+ * never取消receiptはack上限後にcleanupを続けて不可逆poisonへ閉じるを検証する。
+ *
+ * @responsibility never取消receiptはack上限後にcleanupを続けて不可逆poisonへ閉じるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus never取消receiptはack上限後にcleanupを続けて不可逆poisonへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("never取消receiptはack上限後にcleanupを続けて不可逆poisonへ閉じる", async () => {
   const harness = fixture({
     pauseRole: "executor",
@@ -3547,6 +4517,18 @@ test("never取消receiptはack上限後にcleanupを続けて不可逆poisonへ�
   assert.ok(harness.poisonProcessCount() >= 1);
 });
 
+/**
+ * 取消protocol failureと資源cleanup unknownは依存順を守り全actionable Recoveryを保持するを検証する。
+ *
+ * @responsibility 取消protocol failureと資源cleanup unknownは依存順を守り全actionable Recoveryを保持するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 取消protocol failureと資源cleanup unknownは依存順を守り全actionable Recoveryを保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("取消protocol failureと資源cleanup unknownは依存順を守り全actionable Recoveryを保持する", async () => {
   const harness = fixture({
     pauseRole: "reviewer",
@@ -3595,6 +4577,18 @@ test("取消protocol failureと資源cleanup unknownは依存順を守り全acti
   ]);
 });
 
+/**
+ * ready後のHost Supervisor喪失は実行中Providerを取消して成功公開を拒否するを検証する。
+ *
+ * @responsibility ready後のHost Supervisor喪失は実行中Providerを取消して成功公開を拒否するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus ready後のHost Supervisor喪失は実行中Providerを取消して成功公開を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("ready後のHost Supervisor喪失は実行中Providerを取消して成功公開を拒否する", async () => {
   const harness = fixture({
     pauseRole: "executor",
@@ -3626,6 +4620,18 @@ test("ready後のHost Supervisor喪失は実行中Providerを取消して成功�
   assert.equal(harness.releaseDrainCount(), 1);
 });
 
+/**
+ * ready後喪失のcleanup不明は取消より優先してexact Host Recoveryへ閉じるを検証する。
+ *
+ * @responsibility ready後喪失のcleanup不明は取消より優先してexact Host Recoveryへ閉じるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus ready後喪失のcleanup不明は取消より優先してexact Host Recoveryへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("ready後喪失のcleanup不明は取消より優先してexact Host Recoveryへ閉じる", async () => {
   const harness = fixture({
     pauseRole: "executor",
@@ -3657,6 +4663,18 @@ test("ready後喪失のcleanup不明は取消より優先してexact Host Recove
   assert.equal(harness.releaseDrainCount(), 1);
 });
 
+/**
+ * Host confirmedとProvider cleanup unknownの合成は全actionable Recovery IDを保持するを検証する。
+ *
+ * @responsibility Host confirmedとProvider cleanup unknownの合成は全actionable Recovery IDを保持するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host confirmedとProvider cleanup unknownの合成は全actionable Recovery IDを保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Host confirmedとProvider cleanup unknownの合成は全actionable Recovery IDを保持する", async () => {
   const harness = fixture({
     pauseRole: "executor",
@@ -3684,6 +4702,18 @@ test("Host confirmedとProvider cleanup unknownの合成は全actionable Recover
   assert.ok(harness.poisonProcessCount() >= 1);
 });
 
+/**
+ * Candidate staged後のHost confirmed lossはpublishせずdiscardしてcleanup confirmedへ閉じるを検証する。
+ *
+ * @responsibility Candidate staged後のHost confirmed lossはpublishせずdiscardしてcleanup confirmedへ閉じるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Candidate staged後のHost confirmed lossはpublishせずdiscardしてcleanup confirmedへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Candidate staged後のHost confirmed lossはpublishせずdiscardしてcleanup confirmedへ閉じる", async () => {
   const harness = fixture({
     pauseOperationCleanup: true,
@@ -3708,6 +4738,18 @@ test("Candidate staged後のHost confirmed lossはpublishせずdiscardしてclea
   assert.equal(harness.poisonProcessCount(), 0);
 });
 
+/**
+ * Host confirmedでもProvider取消終了不明ならunknownへ昇格してpoisonするを検証する。
+ *
+ * @responsibility Host confirmedでもProvider取消終了不明ならunknownへ昇格してpoisonするの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host confirmedでもProvider取消終了不明ならunknownへ昇格してpoisonするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Host confirmedでもProvider取消終了不明ならunknownへ昇格してpoisonする", async () => {
   const harness = fixture({
     pauseRole: "executor",
@@ -3730,6 +4772,18 @@ test("Host confirmedでもProvider取消終了不明ならunknownへ昇格して
   assert.ok(harness.poisonProcessCount() >= 1);
 });
 
+/**
+ * 分類不能なopaque cleanup outcomeはcleanup unknownへ閉じるを検証する。
+ *
+ * @responsibility 分類不能なopaque cleanup outcomeはcleanup unknownへ閉じるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 分類不能なopaque cleanup outcomeはcleanup unknownへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("分類不能なopaque cleanup outcomeはcleanup unknownへ閉じる", async () => {
   const harness = fixture({ cleanupOutcomeUnverified: true });
   const result = await harness.runtime.start(
@@ -3743,6 +4797,18 @@ test("分類不能なopaque cleanup outcomeはcleanup unknownへ閉じる", asyn
   assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
 });
 
+/**
+ * Operation作成待機中の取消は最初の後続Effect前にcleanupへ閉じるを検証する。
+ *
+ * @responsibility Operation作成待機中の取消は最初の後続Effect前にcleanupへ閉じるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Operation作成待機中の取消は最初の後続Effect前にcleanupへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Operation作成待機中の取消は最初の後続Effect前にcleanupへ閉じる", async () => {
   const harness = fixture({ pauseOperationCreation: true });
   const started = harness.runtime.start(
@@ -3776,6 +4842,18 @@ test("Operation作成待機中の取消は最初の後続Effect前にcleanupへ�
   assert.equal(harness.processStartCount(), 0);
 });
 
+/**
+ * 外部送信承認中の取消は同じSignalへ伝播しWorkspace前に停止するを検証する。
+ *
+ * @responsibility 外部送信承認中の取消は同じSignalへ伝播しWorkspace前に停止するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 外部送信承認中の取消は同じSignalへ伝播しWorkspace前に停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("外部送信承認中の取消は同じSignalへ伝播しWorkspace前に停止する", async () => {
   const harness = fixture({ pauseExternalAuthorization: true });
   const started = harness.runtime.start(
@@ -3804,6 +4882,18 @@ test("外部送信承認中の取消は同じSignalへ伝播しWorkspace前に�
   assert.equal(harness.cleanupCount(), 1);
 });
 
+/**
+ * Production入口はPackage Capability欠落を全Effect前に拒否するを検証する。
+ *
+ * @responsibility Production入口はPackage Capability欠落を全Effect前に拒否するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Production入口はPackage Capability欠落を全Effect前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Production入口はPackage Capability欠落を全Effect前に拒否する", () => {
   assert.throws(
     () =>
@@ -3816,6 +4906,18 @@ test("Production入口はPackage Capability欠落を全Effect前に拒否する"
   );
 });
 
+/**
+ * 不正controlの取消はexact blockedかつEffect 0へ閉じるを検証する。
+ *
+ * @responsibility 不正controlの取消はexact blockedかつEffect 0へ閉じるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不正controlの取消はexact blockedかつEffect 0へ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("不正controlの取消はexact blockedかつEffect 0へ閉じる", async () => {
   const harness = fixture();
   for (const control of [null, Object.freeze({})])
@@ -3826,6 +4928,18 @@ test("不正controlの取消はexact blockedかつEffect 0へ閉じる", async (
   assert.equal(harness.cancelProcessCount(), 0);
 });
 
+/**
+ * Task producerはRunnerが安全に観測できるexact native completionを返すを検証する。
+ *
+ * @responsibility Task producerはRunnerが安全に観測できるexact native completionを返すの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Task producerはRunnerが安全に観測できるexact native completionを返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Task producerはRunnerが安全に観測できるexact native completionを返す", async () => {
   const harness = fixture();
   const started = harness.runtime.start(
@@ -3846,6 +4960,18 @@ test("Task producerはRunnerが安全に観測できるexact native completion�
   await started.completion;
 });
 
+/**
+ * 別Runtimeのlive controlは両RuntimeのEffect 0でforeignへ閉じるを検証する。
+ *
+ * @responsibility 別Runtimeのlive controlは両RuntimeのEffect 0でforeignへ閉じるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 別Runtimeのlive controlは両RuntimeのEffect 0でforeignへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("別Runtimeのlive controlは両RuntimeのEffect 0でforeignへ閉じる", async () => {
   const source = fixture({ pauseRole: "executor" });
   const target = fixture();
@@ -3891,6 +5017,18 @@ test("別Runtimeのlive controlは両RuntimeのEffect 0でforeignへ閉じる", 
   await started.completion;
 });
 
+/**
+ * 正常completion後の失効controlは追加Effect 0へ閉じるを検証する。
+ *
+ * @responsibility 正常completion後の失効controlは追加Effect 0へ閉じるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 正常completion後の失効controlは追加Effect 0へ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("正常completion後の失効controlは追加Effect 0へ閉じる", async () => {
   const harness = fixture();
   const started = harness.runtime.start(
@@ -3924,6 +5062,18 @@ test("正常completion後の失効controlは追加Effect 0へ閉じる", async (
   );
 });
 
+/**
+ * final poison観測例外でもControlを先に失効して保守的なResultへ閉じるを検証する。
+ *
+ * @responsibility final poison観測例外でもControlを先に失効して保守的なResultへ閉じるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus final poison観測例外でもControlを先に失効して保守的なResultへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("final poison観測例外でもControlを先に失効して保守的なResultへ閉じる", async () => {
   let controlCapability: object | null = null;
   let cancellationAtTerminal: Promise<unknown> | null = null;
@@ -3959,6 +5109,18 @@ test("final poison観測例外でもControlを先に失効して保守的なResu
   assert.deepEqual(harness.effectCounts(), terminalEffectCounts);
 });
 
+/**
+ * Host drain解放例外でもControlとterminal observerをexactly onceへ閉じるを検証する。
+ *
+ * @responsibility Host drain解放例外でもControlとterminal observerをexactly onceへ閉じるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host drain解放例外でもControlとterminal observerをexactly onceへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Host drain解放例外でもControlとterminal observerをexactly onceへ閉じる", async () => {
   let terminalCount = 0;
   const harness = fixture({
@@ -3990,6 +5152,18 @@ test("Host drain解放例外でもControlとterminal observerをexactly onceへ�
   });
 });
 
+/**
+ * 外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanupを妨げないを検証する。
+ *
+ * @responsibility 外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanupを妨げないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanupを妨げないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanupを妨げない", async () => {
   const harness = fixture({ pauseOperationCleanup: true });
   const started = harness.runtime.start(
@@ -4008,6 +5182,18 @@ test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanup�
   assert.equal(harness.cleanupCount(), 1);
 });
 
+/**
+ * 公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定するを検証する。
+ *
+ * @responsibility 公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
   assert.equal(contract.contractRevision, 35);
@@ -4091,6 +5277,18 @@ test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを�
   );
 });
 
+/**
+ * Task terminal分類はcleanup・手動Recovery・再起動・actionable IDを直交させるを検証する。
+ *
+ * @responsibility Task terminal分類はcleanup・手動Recovery・再起動・actionable IDを直交させるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Task terminal分類はcleanup・手動Recovery・再起動・actionable IDを直交させるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Task terminal分類はcleanup・手動Recovery・再起動・actionable IDを直交させる", () => {
   type TerminalRecord = Parameters<
     typeof classifyCoordinatorTaskTerminalLifecycleState
@@ -4179,6 +5377,18 @@ test("Task terminal分類はcleanup・手動Recovery・再起動・actionable ID
   }
 });
 
+/**
+ * Task terminal Traceは開始状態ごとの実scenarioと資源後条件を分離するを検証する。
+ *
+ * @responsibility Task terminal Traceは開始状態ごとの実scenarioと資源後条件を分離するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Task terminal Traceは開始状態ごとの実scenarioと資源後条件を分離するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件を分離する", async (t) => {
   await t.test("CASE-BLOCKED-ADMISSION", async () => {
     const harness = fixture({
@@ -4993,6 +6203,18 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
   });
 });
 
+/**
+ * Task Runtime契約は実Host active binding残存時にcleanupを拒否してexact Recoveryを返すを検証する。
+ *
+ * @responsibility Task Runtime契約は実Host active binding残存時にcleanupを拒否してexact Recoveryを返すの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Task Runtime契約は実Host active binding残存時にcleanupを拒否してexact Recoveryを返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Task Runtime契約は実Host active binding残存時にcleanupを拒否してexact Recoveryを返す", async () => {
   const owned = createOwnedOperationDirectories();
   const contextCapability = createOwnedOperationContextCapability(owned);
@@ -5086,6 +6308,18 @@ test("Task Runtime契約は実Host active binding残存時にcleanupを拒否し
   }
 });
 
+/**
+ * Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投影するを検証する。
+ *
+ * @responsibility Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投影するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投影するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投影する", async () => {
   for (const [internalReason, publicReason, doesPreserveId] of [
     [
@@ -5135,6 +6369,18 @@ test("Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投�
   }
 });
 
+/**
+ * ConsoleまたはControl資源cellの一件差をCanonical Trace不一致として拒否するを検証する。
+ *
+ * @responsibility ConsoleまたはControl資源cellの一件差をCanonical Trace不一致として拒否するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus ConsoleまたはControl資源cellの一件差をCanonical Trace不一致として拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("ConsoleまたはControl資源cellの一件差をCanonical Trace不一致として拒否する", () => {
   for (const [caseId, resource] of [
     ["CASE-OPERATOR-TRANSFER-OPERATION-READY", "RES-INTERACTIVE-CONSOLE"],
@@ -5153,6 +6399,18 @@ test("ConsoleまたはControl資源cellの一件差をCanonical Trace不一致�
   }
 });
 
+/**
+ * Canonical Task Trace全caseはregistry存在だけでなく実scenarioから実行されるを検証する。
+ *
+ * @responsibility Canonical Task Trace全caseはregistry存在だけでなく実scenarioから実行されるの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Canonical Task Trace全caseはregistry存在だけでなく実scenarioから実行されるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Canonical Task Trace全caseはregistry存在だけでなく実scenarioから実行される", () => {
   assertExactTaskTraceExecutionCoverage(executedTaskTraceCases);
   const missing = new Set(executedTaskTraceCases);

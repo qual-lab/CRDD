@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:signed-runner-safety-observationの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:signed-runner-safety-observationが所有する検証責務を実行する。
+ * @trace AIT-UT-005
+ * @level UT
+ * @scope signed、runner、safety、observation
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -33,6 +43,18 @@ const SCHEMA = Object.freeze({
   effectUnknownField: "effectStateUnknown",
 });
 
+/**
+ * exactのTest準備責務を実行する。
+ *
+ * @responsibility exactがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-UT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus exactを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 function exact(overrides: Readonly<Record<string, unknown>> = {}) {
   return Object.freeze({
     cleanupConfirmed: true,
@@ -47,6 +69,18 @@ function exact(overrides: Readonly<Record<string, unknown>> = {}) {
   });
 }
 
+/**
+ * 安全観測はexact booleanとRecovery集合だけを確定するを検証する。
+ *
+ * @responsibility 安全観測はexact booleanとRecovery集合だけを確定するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 安全観測はexact booleanとRecovery集合だけを確定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("安全観測はexact booleanとRecovery集合だけを確定する", () => {
   const none = evaluateSignedRunnerSafetyObservation(exact(), SCHEMA);
   assert.equal(none.status, "exact");
@@ -67,6 +101,18 @@ test("安全観測はexact booleanとRecovery集合だけを確定する", () =>
   assert.deepEqual(recovery.recoveryIds, [hostA, hostB, dockerA]);
 });
 
+/**
+ * booleanの欠落・null・文字列は安全状態不明に閉じるを検証する。
+ *
+ * @responsibility booleanの欠落・null・文字列は安全状態不明に閉じるの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus booleanの欠落・null・文字列は安全状態不明に閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("booleanの欠落・null・文字列は安全状態不明に閉じる", () => {
   for (const field of SCHEMA.booleanFields) {
     const missing = { ...exact() } as Record<string, unknown>;
@@ -85,6 +131,18 @@ test("booleanの欠落・null・文字列は安全状態不明に閉じる", () 
   }
 });
 
+/**
+ * cleanup・manual recovery・effect unknownの相関矛盾を拒否するを検証する。
+ *
+ * @responsibility cleanup・manual recovery・effect unknownの相関矛盾を拒否するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus cleanup・manual recovery・effect unknownの相関矛盾を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("cleanup・manual recovery・effect unknownの相関矛盾を拒否する", () => {
   for (const candidate of [
     exact({ cleanupConfirmed: false }),
@@ -106,6 +164,18 @@ test("cleanup・manual recovery・effect unknownの相関矛盾を拒否する",
   assert.equal(childPoison.booleans?.processRestartRequired, true);
 });
 
+/**
+ * Recovery配列の疎・accessor・Proxy・重複・非文字列を拒否するを検証する。
+ *
+ * @responsibility Recovery配列の疎・accessor・Proxy・重複・非文字列を拒否するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Recovery配列の疎・accessor・Proxy・重複・非文字列を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Recovery配列の疎・accessor・Proxy・重複・非文字列を拒否する", () => {
   const sparseItems = Array<string>(1);
   const accessorItems: string[] = [];
@@ -137,6 +207,18 @@ test("Recovery配列の疎・accessor・Proxy・重複・非文字列を拒否�
   }
 });
 
+/**
+ * Recovery pairは0件・1件・N件のcanonical関係だけを受理するを検証する。
+ *
+ * @responsibility Recovery pairは0件・1件・N件のcanonical関係だけを受理するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Recovery pairは0件・1件・N件のcanonical関係だけを受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Recovery pairは0件・1件・N件のcanonical関係だけを受理する", () => {
   for (const candidate of [
     exact({ hostRecoveryId: hostA, hostRecoveryIds: Object.freeze([]) }),
@@ -167,6 +249,18 @@ test("Recovery pairは0件・1件・N件のcanonical関係だけを受理する"
   }
 });
 
+/**
+ * Recordのgetter・Proxy・独自prototypeを観測済みにしないを検証する。
+ *
+ * @responsibility Recordのgetter・Proxy・独自prototypeを観測済みにしないの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Recordのgetter・Proxy・独自prototypeを観測済みにしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Recordのgetter・Proxy・独自prototypeを観測済みにしない", () => {
   const getter = { ...exact() } as Record<string, unknown>;
   Object.defineProperty(getter, "cleanupConfirmed", {
@@ -185,6 +279,18 @@ test("Recordのgetter・Proxy・独自prototypeを観測済みにしない", () 
   }
 });
 
+/**
+ * partial salvageはown-dataのcanonical IDだけをboundedに保持するを検証する。
+ *
+ * @responsibility partial salvageはown-dataのcanonical IDだけをboundedに保持するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus partial salvageはown-dataのcanonical IDだけをboundedに保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("partial salvageはown-dataのcanonical IDだけをboundedに保持する", () => {
   const mixed = salvageSignedRunnerRecoveryPair(
     Object.freeze({

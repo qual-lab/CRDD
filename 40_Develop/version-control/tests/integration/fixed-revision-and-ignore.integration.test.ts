@@ -1,3 +1,13 @@
+/**
+ * version-control:integration:fixed-revision-and-ignoreの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility version-control:integration:fixed-revision-and-ignoreが所有する検証責務を実行する。
+ * @trace RFD-IT-008
+ * @level IT
+ * @scope version-control、fixed-revision、repository-local-ignore、lifecycle
+ * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ */
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
@@ -17,6 +27,18 @@ import {
   writeRepositoryLocalExclude,
 } from "../../src/git/repository-layout.ts";
 
+/**
+ * gitのTest準備責務を実行する。
+ *
+ * @responsibility gitがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RFD-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus gitを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ */
 function git(root: string, commandArguments: readonly string[]): string {
   return execFileSync("git", ["-C", root, ...commandArguments], {
     encoding: "utf8",
@@ -24,6 +46,18 @@ function git(root: string, commandArguments: readonly string[]): string {
   }).trim();
 }
 
+/**
+ * repositoryのTest準備責務を実行する。
+ *
+ * @responsibility repositoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RFD-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus repositoryを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ */
 function repository(t: test.TestContext): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-revision-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -36,6 +70,18 @@ function repository(t: test.TestContext): string {
   return root;
 }
 
+/**
+ * 現在の固定Revision Identityは未Commit変更に依存しないを検証する。
+ *
+ * @responsibility 現在の固定Revision Identityは未Commit変更に依存しないの合否判定を所有する。
+ * @trace RFD-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 現在の固定Revision Identityは未Commit変更に依存しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ */
 test("現在の固定Revision Identityは未Commit変更に依存しない", (t) => {
   const root = repository(t);
   const revision = git(root, ["rev-parse", "HEAD"]);
@@ -52,6 +98,18 @@ test("現在の固定Revision Identityは未Commit変更に依存しない", (t)
   assert.equal(JSON.stringify(identity).includes(root), false);
 });
 
+/**
+ * Repository-local ignore登録は原子的・冪等でreadbackされるを検証する。
+ *
+ * @responsibility Repository-local ignore登録は原子的・冪等でreadbackされるの合否判定を所有する。
+ * @trace RFD-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Repository-local ignore登録は原子的・冪等でreadbackされるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ */
 test("Repository-local ignore登録は原子的・冪等でreadbackされる", (t) => {
   const root = repository(t);
   const verified = verifyRepositoryRoot(root);
@@ -82,6 +140,18 @@ test("Repository-local ignore登録は原子的・冪等でreadbackされる", (
   );
 });
 
+/**
+ * Repository-local ignoreは失敗段階ごとにEffectと後始末を区別するを検証する。
+ *
+ * @responsibility Repository-local ignoreは失敗段階ごとにEffectと後始末を区別するの合否判定を所有する。
+ * @trace RFD-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Repository-local ignoreは失敗段階ごとにEffectと後始末を区別するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ */
 test("Repository-local ignoreは失敗段階ごとにEffectと後始末を区別する", async (t) => {
   const phases = [
     "lock_open",
@@ -125,6 +195,18 @@ test("Repository-local ignoreは失敗段階ごとにEffectと後始末を区別
   }
 });
 
+/**
+ * Repository-local ignoreは競合Writerを未変更として扱わないを検証する。
+ *
+ * @responsibility Repository-local ignoreは競合Writerを未変更として扱わないの合否判定を所有する。
+ * @trace RFD-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Repository-local ignoreは競合Writerを未変更として扱わないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ */
 test("Repository-local ignoreは競合Writerを未変更として扱わない", (t) => {
   const root = repository(t);
   const lockPath = path.join(
@@ -150,6 +232,18 @@ test("Repository-local ignoreは競合Writerを未変更として扱わない", 
   assert.equal(fs.readFileSync(lockPath, "utf8"), "other-writer\n");
 });
 
+/**
+ * Repository-local ignoreは二つの実Process競合後も内容と再入場を保つを検証する。
+ *
+ * @responsibility Repository-local ignoreは二つの実Process競合後も内容と再入場を保つの合否判定を所有する。
+ * @trace RFD-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Repository-local ignoreは二つの実Process競合後も内容と再入場を保つの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ */
 test("Repository-local ignoreは二つの実Process競合後も内容と再入場を保つ", async (t) => {
   const root = repository(t);
   const exchange = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-writers-"));
@@ -228,6 +322,18 @@ test("Repository-local ignoreは二つの実Process競合後も内容と再入�
   );
 });
 
+/**
+ * linked worktreeからのRepository-local ignoreは共有common directoryへ一度だけ登録するを検証する。
+ *
+ * @responsibility linked worktreeからのRepository-local ignoreは共有common directoryへ一度だけ登録するの合否判定を所有する。
+ * @trace RFD-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus linked worktreeからのRepository-local ignoreは共有common directoryへ一度だけ登録するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ */
 test("linked worktreeからのRepository-local ignoreは共有common directoryへ一度だけ登録する", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-linked-main-"));
   const linked = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-linked-"));

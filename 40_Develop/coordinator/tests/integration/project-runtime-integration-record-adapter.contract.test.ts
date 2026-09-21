@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:project-runtime-integration-record-adapterの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:project-runtime-integration-record-adapterが所有する検証責務を実行する。
+ * @trace PRL-IT-005
+ * @level IT
+ * @scope project、runtime、integration、record、adapter
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -7,6 +17,18 @@ import test from "node:test";
 
 import { createProjectRuntimeIntegrationRecordAdapter } from "../../src/security/project-runtime-integration-record-adapter.ts";
 
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-project-integration-record-"),
@@ -16,6 +38,18 @@ function fixture(t: test.TestContext) {
   return { root };
 }
 
+/**
+ * adapterのTest準備責務を実行する。
+ *
+ * @responsibility adapterがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus adapterを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 function adapter(root: string, projectId = "project-a") {
   return createProjectRuntimeIntegrationRecordAdapter({
     workingDirectory: root,
@@ -26,6 +60,18 @@ function adapter(root: string, projectId = "project-a") {
   });
 }
 
+/**
+ * integration records are immutable and an identical retry is idempotentを検証する。
+ *
+ * @responsibility integration records are immutable and an identical retry is idempotentの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus integration records are immutable and an identical retry is idempotentの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("integration records are immutable and an identical retry is idempotent", (t) => {
   const { root } = fixture(t);
   const records = adapter(root);
@@ -52,6 +98,18 @@ test("integration records are immutable and an identical retry is idempotent", (
   );
 });
 
+/**
+ * an identity collision is blocked without replacing the first recordを検証する。
+ *
+ * @responsibility an identity collision is blocked without replacing the first recordの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus an identity collision is blocked without replacing the first recordの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("an identity collision is blocked without replacing the first record", (t) => {
   const { root } = fixture(t);
   const records = adapter(root);
@@ -72,6 +130,18 @@ test("an identity collision is blocked without replacing the first record", (t) 
   );
 });
 
+/**
+ * invalid path identities fail before creating a record directoryを検証する。
+ *
+ * @responsibility invalid path identities fail before creating a record directoryの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus invalid path identities fail before creating a record directoryの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("invalid path identities fail before creating a record directory", (t) => {
   const { root } = fixture(t);
   const escaped = `escape-${path.basename(root)}`;

@@ -1,3 +1,13 @@
+/**
+ * project-runtime:unit:public-contractの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility project-runtime:unit:public-contractが所有する検証責務を実行する。
+ * @trace PRL-UT-006
+ * @level UT
+ * @scope project、runtime、public、contract
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -15,6 +25,18 @@ import {
 
 const repositoryRevision = "a".repeat(40);
 
+/**
+ * Execution Portは既存Single Task結果契約を意味変更せず所有するを検証する。
+ *
+ * @responsibility Execution Portは既存Single Task結果契約を意味変更せず所有するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Execution Portは既存Single Task結果契約を意味変更せず所有するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Execution Portは既存Single Task結果契約を意味変更せず所有する", () => {
   assert.equal(
     PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT,
@@ -23,6 +45,18 @@ test("Execution Portは既存Single Task結果契約を意味変更せず所有�
   assert.equal(PROJECT_RUNTIME_SINGLE_TASK_ADAPTER_CONTRACT_REVISION, 2);
 });
 
+/**
+ * objectiveRequestのTest準備責務を実行する。
+ *
+ * @responsibility objectiveRequestがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus objectiveRequestを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 function objectiveRequest() {
   return {
     requestId: "request-1",
@@ -40,6 +74,18 @@ function objectiveRequest() {
   } as const;
 }
 
+/**
+ * integrationResultのTest準備責務を実行する。
+ *
+ * @responsibility integrationResultがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus integrationResultを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 function integrationResult() {
   return {
     contract: PROJECT_RUNTIME_INTEGRATION_CONTRACT,
@@ -57,6 +103,18 @@ function integrationResult() {
   } as const;
 }
 
+/**
+ * decisionRequestのTest準備責務を実行する。
+ *
+ * @responsibility decisionRequestがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus decisionRequestを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 function decisionRequest() {
   return {
     decisionId: "decision-1",
@@ -70,6 +128,18 @@ function decisionRequest() {
   } as const;
 }
 
+/**
+ * Objective要求は閉じた公開契約へsnapshotするを検証する。
+ *
+ * @responsibility Objective要求は閉じた公開契約へsnapshotするの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Objective要求は閉じた公開契約へsnapshotするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Objective要求は閉じた公開契約へsnapshotする", () => {
   assert.equal(
     PROJECT_RUNTIME_PUBLIC_RUNTIME_CONTRACT,
@@ -83,6 +153,18 @@ test("Objective要求は閉じた公開契約へsnapshotする", () => {
   assert.ok(Object.isFrozen(inspected.acceptanceCriteria));
 });
 
+/**
+ * Objective要求は未知field・accessor・ProxyをEffect前に拒否するを検証する。
+ *
+ * @responsibility Objective要求は未知field・accessor・ProxyをEffect前に拒否するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Objective要求は未知field・accessor・ProxyをEffect前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Objective要求は未知field・accessor・ProxyをEffect前に拒否する", () => {
   assert.equal(
     inspectProjectRuntimeObjectiveRequest({ ...objectiveRequest(), extra: 1 }),
@@ -127,6 +209,18 @@ test("Objective要求は未知field・accessor・ProxyをEffect前に拒否す�
   );
 });
 
+/**
+ * Objective要求はRepository外を指すPath表現をEffect前に拒否するを検証する。
+ *
+ * @responsibility Objective要求はRepository外を指すPath表現をEffect前に拒否するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Objective要求はRepository外を指すPath表現をEffect前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Objective要求はRepository外を指すPath表現をEffect前に拒否する", () => {
   for (const pathValue of [
     "C:\\project\\outside",
@@ -152,6 +246,18 @@ test("Objective要求はRepository外を指すPath表現をEffect前に拒否す
   }
 });
 
+/**
+ * 判断要求はTransportに依存しない閉じた公開契約へsnapshotするを検証する。
+ *
+ * @responsibility 判断要求はTransportに依存しない閉じた公開契約へsnapshotするの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 判断要求はTransportに依存しない閉じた公開契約へsnapshotするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("判断要求はTransportに依存しない閉じた公開契約へsnapshotする", () => {
   assert.equal(
     PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT,
@@ -165,6 +271,18 @@ test("判断要求はTransportに依存しない閉じた公開契約へsnapshot
   assert.equal(inspected.selectedOption, "resume");
 });
 
+/**
+ * 判断Store RecordはProject Runtimeの閉じた意味契約で検証するを検証する。
+ *
+ * @responsibility 判断Store RecordはProject Runtimeの閉じた意味契約で検証するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 判断Store RecordはProject Runtimeの閉じた意味契約で検証するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("判断Store RecordはProject Runtimeの閉じた意味契約で検証する", () => {
   const record = {
     recordId: "decision-record-1",
@@ -216,6 +334,18 @@ test("判断Store RecordはProject Runtimeの閉じた意味契約で検証す�
   );
 });
 
+/**
+ * 判断要求は未知field・改行comment・不正世代をEffect前に拒否するを検証する。
+ *
+ * @responsibility 判断要求は未知field・改行comment・不正世代をEffect前に拒否するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 判断要求は未知field・改行comment・不正世代をEffect前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("判断要求は未知field・改行comment・不正世代をEffect前に拒否する", () => {
   assert.equal(
     inspectProjectRuntimeDecisionRequest({ ...decisionRequest(), extra: 1 }),
@@ -237,6 +367,18 @@ test("判断要求は未知field・改行comment・不正世代をEffect前に�
   );
 });
 
+/**
+ * 統合結果は正常完了とRecovery付き停止を区別するを検証する。
+ *
+ * @responsibility 統合結果は正常完了とRecovery付き停止を区別するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 統合結果は正常完了とRecovery付き停止を区別するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("統合結果は正常完了とRecovery付き停止を区別する", () => {
   const completed = inspectProjectRuntimeIntegrationResult(integrationResult());
   assert.ok(completed);
@@ -285,6 +427,18 @@ test("統合結果は正常完了とRecovery付き停止を区別する", () => 
   assert.equal(effectUnknown.effectStateUnknown, true);
 });
 
+/**
+ * 統合結果は成功とRecoveryの矛盾・重複・未知fieldを拒否するを検証する。
+ *
+ * @responsibility 統合結果は成功とRecoveryの矛盾・重複・未知fieldを拒否するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 統合結果は成功とRecoveryの矛盾・重複・未知fieldを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("統合結果は成功とRecoveryの矛盾・重複・未知fieldを拒否する", () => {
   const recoveryId = "runtime-process.recovery-1";
   assert.equal(

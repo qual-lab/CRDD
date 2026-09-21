@@ -7,23 +7,37 @@
       "symbolId": "verification-runner.regression-entry",
       "kind": "module",
       "path": "src/index.ts",
-      "archIds": ["ARCH-000003"]
+      "archIds": [
+        "ARCH-000003"
+      ]
     },
     {
-      "symbolId": "verification-runner.regression-contract-test",
+      "symbolId": "verification-runner.test.integration.regression-runner",
       "kind": "test-suite",
       "path": "tests/integration/regression-runner.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-002", "ERB-IT-004"],
-      "verifies": ["verification-runner.regression-entry"]
+      "qaIds": [
+        "QA-000002"
+      ],
+      "localTestIds": [
+        "CQS-IT-011"
+      ],
+      "verifies": [
+        "verification-runner.regression-entry"
+      ]
     },
     {
-      "symbolId": "verification-runner.test-catalog-contract-test",
+      "symbolId": "verification-runner.test.unit.test-catalog",
       "kind": "test-suite",
       "path": "tests/unit/test-catalog.contract.test.ts",
-      "qaIds": ["QA-000002"],
-      "localTestIds": ["CQS-IT-003"],
-      "verifies": ["verification-runner.regression-entry"]
+      "qaIds": [
+        "QA-000002"
+      ],
+      "localTestIds": [
+        "CQS-UT-010"
+      ],
+      "verifies": [
+        "verification-runner.regression-entry"
+      ]
     }
   ]
 }

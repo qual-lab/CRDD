@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:provisioning-signature-primitivesの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:provisioning-signature-primitivesが所有する検証責務を実行する。
+ * @trace AIT-UT-011
+ * @level UT
+ * @scope provisioning、signature、primitives
+ * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import test from "node:test";
@@ -24,6 +34,18 @@ const P256_ORDER = BigInt(
   "0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551",
 );
 
+/**
+ * lowSP256のTest準備責務を実行する。
+ *
+ * @responsibility lowSP256がTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-UT-011
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus lowSP256を呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ */
 function lowSP256(signature: Uint8Array) {
   const result = Buffer.from(signature);
   const s = BigInt(`0x${result.subarray(32).toString("hex")}`);
@@ -34,10 +56,34 @@ function lowSP256(signature: Uint8Array) {
   return result;
 }
 
+/**
+ * spkiのTest準備責務を実行する。
+ *
+ * @responsibility spkiがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-UT-011
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus spkiを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ */
 function spki() {
   return Buffer.from(`${ED25519_SPKI_PREFIX}${RFC_8032_PUBLIC_KEY}`, "hex");
 }
 
+/**
+ * RFC 8785のprimitive、再帰sortおよびUnicode非正規化を固定するを検証する。
+ *
+ * @responsibility RFC 8785のprimitive、再帰sortおよびUnicode非正規化を固定するの合否判定を所有する。
+ * @trace AIT-UT-011
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus RFC 8785のprimitive、再帰sortおよびUnicode非正規化を固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ */
 test("RFC 8785のprimitive、再帰sortおよびUnicode非正規化を固定する", () => {
   const result = canonicalizeProvisioningJsonValueCandidate({
     numbers: [
@@ -76,6 +122,18 @@ test("RFC 8785のprimitive、再帰sortおよびUnicode非正規化を固定す�
   assert.notEqual(composed.canonicalHash, decomposed.canonicalHash);
 });
 
+/**
+ * JCS値Coreは非plain、動的入力、循環、lone surrogate、非有限数とbudget超過を拒否するを検証する。
+ *
+ * @responsibility JCS値Coreは非plain、動的入力、循環、lone surrogate、非有限数とbudget超過を拒否するの合否判定を所有する。
+ * @trace AIT-UT-011
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus JCS値Coreは非plain、動的入力、循環、lone surrogate、非有限数とbudget超過を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ */
 test("JCS値Coreは非plain、動的入力、循環、lone surrogate、非有限数とbudget超過を拒否する", () => {
   let getterCalls = 0;
   const accessor = {};
@@ -118,6 +176,18 @@ test("JCS値Coreは非plain、動的入力、循環、lone surrogate、非有限
   assert.equal(proxyCalls, 0);
 });
 
+/**
+ * JCS値Coreは循環だけを拒否し非循環の共有参照を出現ごとに展開するを検証する。
+ *
+ * @responsibility JCS値Coreは循環だけを拒否し非循環の共有参照を出現ごとに展開するの合否判定を所有する。
+ * @trace AIT-UT-011
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus JCS値Coreは循環だけを拒否し非循環の共有参照を出現ごとに展開するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ */
 test("JCS値Coreは循環だけを拒否し非循環の共有参照を出現ごとに展開する", () => {
   const sharedObject = Object.assign(Object.create(null), { x: 1 });
   const sharedValues = [sharedObject, 2];
@@ -181,6 +251,18 @@ test("JCS値Coreは循環だけを拒否し非循環の共有参照を出現ご�
   );
 });
 
+/**
+ * JCSはnodeとcanonical byteの境界を全descriptor展開と巨大token生成より前に閉じるを検証する。
+ *
+ * @responsibility JCSはnodeとcanonical byteの境界を全descriptor展開と巨大token生成より前に閉じるの合否判定を所有する。
+ * @trace AIT-UT-011
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus JCSはnodeとcanonical byteの境界を全descriptor展開と巨大token生成より前に閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ */
 test("JCSはnodeとcanonical byteの境界を全descriptor展開と巨大token生成より前に閉じる", () => {
   const maximumObject: Record<string, null> = {};
   for (
@@ -243,6 +325,18 @@ test("JCSはnodeとcanonical byteの境界を全descriptor展開と巨大token�
   );
 });
 
+/**
+ * RFC 8410 Ed25519 SPKIだけを受理しexact DERのdigestを候補化するを検証する。
+ *
+ * @responsibility RFC 8410 Ed25519 SPKIだけを受理しexact DERのdigestを候補化するの合否判定を所有する。
+ * @trace AIT-UT-011
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus RFC 8410 Ed25519 SPKIだけを受理しexact DERのdigestを候補化するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ */
 test("RFC 8410 Ed25519 SPKIだけを受理しexact DERのdigestを候補化する", () => {
   const result = inspectProvisioningEd25519SpkiCandidate(spki());
   assert.equal(result.status, "candidate");
@@ -273,6 +367,18 @@ test("RFC 8410 Ed25519 SPKIだけを受理しexact DERのdigestを候補化す�
     );
 });
 
+/**
+ * RFC 8032 vectorの個別署名一致だけをcandidateにし改変を拒否するを検証する。
+ *
+ * @responsibility RFC 8032 vectorの個別署名一致だけをcandidateにし改変を拒否するの合否判定を所有する。
+ * @trace AIT-UT-011
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus RFC 8032 vectorの個別署名一致だけをcandidateにし改変を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ */
 test("RFC 8032 vectorの個別署名一致だけをcandidateにし改変を拒否する", () => {
   const input = {
     spkiDer: spki(),
@@ -331,6 +437,18 @@ test("RFC 8032 vectorの個別署名一致だけをcandidateにし改変を拒�
   assert.equal(getterCalls, 0);
 });
 
+/**
+ * RFC 4648のpaddingなしbase64url署名だけを内部復号して個別検証するを検証する。
+ *
+ * @responsibility RFC 4648のpaddingなしbase64url署名だけを内部復号して個別検証するの合否判定を所有する。
+ * @trace AIT-UT-011
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus RFC 4648のpaddingなしbase64url署名だけを内部復号して個別検証するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ */
 test("RFC 4648のpaddingなしbase64url署名だけを内部復号して個別検証する", () => {
   const signatureBase64url = Buffer.from(RFC_8032_SIGNATURE, "hex").toString(
     "base64url",
@@ -415,6 +533,18 @@ test("RFC 4648のpaddingなしbase64url署名だけを内部復号して個別�
   assert.equal(proxyCalls, 0);
 });
 
+/**
+ * P-256 SPKIと固定P1363署名をhardware-backed installation key候補に限定するを検証する。
+ *
+ * @responsibility P-256 SPKIと固定P1363署名をhardware-backed installation key候補に限定するの合否判定を所有する。
+ * @trace AIT-UT-011
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus P-256 SPKIと固定P1363署名をhardware-backed installation key候補に限定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ */
 test("P-256 SPKIと固定P1363署名をhardware-backed installation key候補に限定する", () => {
   const pair = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
   const spkiDer = pair.publicKey.export({ format: "der", type: "spki" });
@@ -472,6 +602,18 @@ test("P-256 SPKIと固定P1363署名をhardware-backed installation key候補に
   );
 });
 
+/**
+ * 公開contractはprimitiveと未決の統合Trust境界を分離するを検証する。
+ *
+ * @responsibility 公開contractはprimitiveと未決の統合Trust境界を分離するの合否判定を所有する。
+ * @trace AIT-UT-011
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開contractはprimitiveと未決の統合Trust境界を分離するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: 署名PrimitiveとPublisher検証規則は外部実行境界を持たない。
+ */
 test("公開contractはprimitiveと未決の統合Trust境界を分離する", () => {
   assert.deepEqual(describeProvisioningSignaturePrimitivesContract(), {
     contract: "crdd-coordinator/provisioning-signature-primitives",

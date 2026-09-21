@@ -1,3 +1,13 @@
+/**
+ * coordinator:system:verification-result-recordの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:system:verification-result-recordが所有する検証責務を実行する。
+ * @trace ERP-ST-004
+ * @level ST
+ * @scope verification、result、record
+ * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -20,6 +30,18 @@ import { formatHostRecoveryToken } from "../../src/security/host-recovery-record
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 const packageRoot = path.resolve(import.meta.dirname, "../..");
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERP-ST-004
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ */
 function fixture(t: TestContext) {
   const parent = path.join(
     repositoryRoot,
@@ -48,6 +70,18 @@ function fixture(t: TestContext) {
     path.join(git, "config"),
     "[core]\nrepositoryformatversion = 0\nbare = false\n",
   );
+  /**
+   * objectのTest準備責務を実行する。
+   *
+   * @responsibility objectがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERP-ST-004
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus objectを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+   */
   function object(type: string, body: string) {
     const bytes = Buffer.from(`${type} ${Buffer.byteLength(body)}\0${body}`);
     const hash = createHash("sha1").update(bytes).digest("hex");
@@ -65,9 +99,33 @@ function fixture(t: TestContext) {
   fs.writeFileSync(path.join(root, ".gitignore"), "/.crdd/\n");
   return root;
 }
+/**
+ * storeのTest準備責務を実行する。
+ *
+ * @responsibility storeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERP-ST-004
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus storeを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ */
 function store(root: string) {
   return path.join(root, ".crdd", "verification");
 }
+/**
+ * resultPathのTest準備責務を実行する。
+ *
+ * @responsibility resultPathがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERP-ST-004
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus resultPathを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ */
 function resultPath(root: string, id: string | null) {
   assert.ok(id);
   return path.join(store(root), id, "result.json");
@@ -78,9 +136,33 @@ const SUCCESS = Object.freeze({
   cleanupConfirmed: true,
   manualRecoveryRequired: false,
 });
+/**
+ * failureのTest準備責務を実行する。
+ *
+ * @responsibility failureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERP-ST-004
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus failureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ */
 const failure = () =>
   createSignedRouteMatrixCliFailureResult("runner_exception");
 
+/**
+ * 既知値だけ保存し、自由文・秘密風文字列・getter・proxyを実行しないを検証する。
+ *
+ * @responsibility 既知値だけ保存し、自由文・秘密風文字列・getter・proxyを実行しないの合否判定を所有する。
+ * @trace ERP-ST-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 既知値だけ保存し、自由文・秘密風文字列・getter・proxyを実行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ */
 test("既知値だけ保存し、自由文・秘密風文字列・getter・proxyを実行しない", () => {
   let wasGetterCalled = false;
   const id = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
@@ -138,6 +220,18 @@ test("既知値だけ保存し、自由文・秘密風文字列・getter・proxy
   );
 });
 
+/**
+ * 配布Identityと作業対象Execution Identityと経路不一致分類を別々に保存するを検証する。
+ *
+ * @responsibility 配布Identityと作業対象Execution Identityと経路不一致分類を別々に保存するの合否判定を所有する。
+ * @trace ERP-ST-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 配布Identityと作業対象Execution Identityと経路不一致分類を別々に保存するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ */
 test("配布Identityと作業対象Execution Identityと経路不一致分類を別々に保存する", () => {
   const projected = projectVerificationResult({
     status: "blocked",
@@ -170,6 +264,18 @@ test("配布Identityと作業対象Execution Identityと経路不一致分類を
   assert.equal(child?.executionTree, "d".repeat(40));
 });
 
+/**
+ * Candidate整合性不成立をunknownへ劣化させず保存用Projectionへ保持するを検証する。
+ *
+ * @responsibility Candidate整合性不成立をunknownへ劣化させず保存用Projectionへ保持するの合否判定を所有する。
+ * @trace ERP-ST-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Candidate整合性不成立をunknownへ劣化させず保存用Projectionへ保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ */
 test("Candidate整合性不成立をunknownへ劣化させず保存用Projectionへ保持する", () => {
   const projected = projectVerificationResult({
     status: "blocked",
@@ -187,6 +293,18 @@ test("Candidate整合性不成立をunknownへ劣化させず保存用Projection
   assert.equal(projected.effectStateUnknown, false);
 });
 
+/**
+ * subdirectoryからも最寄りRepositoryへ開始・終了を別記録し、元結果を変更しないを検証する。
+ *
+ * @responsibility subdirectoryからも最寄りRepositoryへ開始・終了を別記録し、元結果を変更しないの合否判定を所有する。
+ * @trace ERP-ST-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus subdirectoryからも最寄りRepositoryへ開始・終了を別記録し、元結果を変更しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ */
 test("subdirectoryからも最寄りRepositoryへ開始・終了を別記録し、元結果を変更しない", async (t) => {
   const root = fixture(t);
   const cwd = path.join(root, "package");
@@ -223,6 +341,18 @@ test("subdirectoryからも最寄りRepositoryへ開始・終了を別記録し�
   assert.doesNotMatch(fs.readFileSync(target, "utf8"), /PRIVATE|test@example/u);
 });
 
+/**
+ * 実formatter由来のprobe／hostとTaskの回復IDを値を変えずに記録するを検証する。
+ *
+ * @responsibility 実formatter由来のprobe／hostとTaskの回復IDを値を変えずに記録するの合否判定を所有する。
+ * @trace ERP-ST-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実formatter由来のprobe／hostとTaskの回復IDを値を変えずに記録するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ */
 test("実formatter由来のprobe／hostとTaskの回復IDを値を変えずに記録する", () => {
   const nonce = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
   const digest = "a".repeat(64);
@@ -254,6 +384,18 @@ test("実formatter由来のprobe／hostとTaskの回復IDを値を変えずに�
   }
 });
 
+/**
+ * 実行が停止・例外でも記録し、保存成功を実行成功へ変えないを検証する。
+ *
+ * @responsibility 実行が停止・例外でも記録し、保存成功を実行成功へ変えないの合否判定を所有する。
+ * @trace ERP-ST-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実行が停止・例外でも記録し、保存成功を実行成功へ変えないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ */
 test("実行が停止・例外でも記録し、保存成功を実行成功へ変えない", async (t) => {
   const root = fixture(t);
   const blocked = createSignedRouteMatrixCliFailureResult("arguments_invalid");
@@ -284,12 +426,36 @@ test("実行が停止・例外でも記録し、保存成功を実行成功へ�
   assert.equal(JSON.parse(text).summary.effectStateUnknown, true);
 });
 
+/**
+ * 不正Git境界・保存先link・開始書込み失敗なら検証callbackを呼ばないを検証する。
+ *
+ * @responsibility 不正Git境界・保存先link・開始書込み失敗なら検証callbackを呼ばないの合否判定を所有する。
+ * @trace ERP-ST-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不正Git境界・保存先link・開始書込み失敗なら検証callbackを呼ばないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ */
 test("不正Git境界・保存先link・開始書込み失敗なら検証callbackを呼ばない", async (t) => {
   const root = fixture(t);
   const foreign = path.join(root, "foreign");
   fs.mkdirSync(foreign);
   fs.symlinkSync(foreign, path.join(root, ".crdd"), "junction");
   let wasVerificationCalled = false;
+  /**
+   * executeVerificationのTest準備責務を実行する。
+   *
+   * @responsibility executeVerificationがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERP-ST-004
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus executeVerificationを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+   */
   const executeVerification = async () => {
     wasVerificationCalled = true;
     return SUCCESS;
@@ -343,6 +509,18 @@ test("不正Git境界・保存先link・開始書込み失敗なら検証callbac
   assert.equal(wasVerificationCalled, false);
 });
 
+/**
+ * 実行成功後の保存衝突・directory置換は上書きせず、実行結果と区別するを検証する。
+ *
+ * @responsibility 実行成功後の保存衝突・directory置換は上書きせず、実行結果と区別するの合否判定を所有する。
+ * @trace ERP-ST-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実行成功後の保存衝突・directory置換は上書きせず、実行結果と区別するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ */
 test("実行成功後の保存衝突・directory置換は上書きせず、実行結果と区別する", async (t) => {
   const root = fixture(t);
   const outcome = await runRecordedVerification(
@@ -381,6 +559,18 @@ test("実行成功後の保存衝突・directory置換は上書きせず、実�
   assert.equal(fs.existsSync(resultPath(other, replaced.recordId)), false);
 });
 
+/**
+ * 終了記録の短読・読戻し差・file同定差は実行結果を保持して保存失敗にするを検証する。
+ *
+ * @responsibility 終了記録の短読・読戻し差・file同定差は実行結果を保持して保存失敗にするの合否判定を所有する。
+ * @trace ERP-ST-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 終了記録の短読・読戻し差・file同定差は実行結果を保持して保存失敗にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ */
 test("終了記録の短読・読戻し差・file同定差は実行結果を保持して保存失敗にする", async (t) => {
   for (const mutation of ["short_read", "readback_bytes", "file_identity"]) {
     const root = fixture(t);
@@ -488,6 +678,18 @@ test("終了記録の短読・読戻し差・file同定差は実行結果を保�
   }
 });
 
+/**
+ * 同時runは別UUIDへ保存し、容量に異物・未完了記録も数えるを検証する。
+ *
+ * @responsibility 同時runは別UUIDへ保存し、容量に異物・未完了記録も数えるの合否判定を所有する。
+ * @trace ERP-ST-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 同時runは別UUIDへ保存し、容量に異物・未完了記録も数えるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ */
 test("同時runは別UUIDへ保存し、容量に異物・未完了記録も数える", async (t) => {
   const root = fixture(t);
   const outcomes = await Promise.all(
@@ -515,6 +717,18 @@ test("同時runは別UUIDへ保存し、容量に異物・未完了記録も数�
   assert.equal(fs.readdirSync(store(root)).length, 256);
 });
 
+/**
+ * 実子が開始後に終了してもstartedが残り、成功記録は生成しないを検証する。
+ *
+ * @responsibility 実子が開始後に終了してもstartedが残り、成功記録は生成しないの合否判定を所有する。
+ * @trace ERP-ST-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実子が開始後に終了してもstartedが残り、成功記録は生成しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ */
 test("実子が開始後に終了してもstartedが残り、成功記録は生成しない", (t) => {
   const root = fixture(t);
   const entry = path.join(root, "abrupt-exit.ts");
@@ -540,6 +754,18 @@ test("実子が開始後に終了してもstartedが残り、成功記録は生�
   ]);
 });
 
+/**
+ * 終了記録のflush失敗は保存成功にせず、byte上限も緩和しないを検証する。
+ *
+ * @responsibility 終了記録のflush失敗は保存成功にせず、byte上限も緩和しないの合否判定を所有する。
+ * @trace ERP-ST-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 終了記録のflush失敗は保存成功にせず、byte上限も緩和しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ */
 test("終了記録のflush失敗は保存成功にせず、byte上限も緩和しない", async (t) => {
   const root = fixture(t);
   let restore = () => {};
@@ -588,6 +814,18 @@ test("終了記録のflush失敗は保存成功にせず、byte上限も緩和�
   assert.equal(fs.existsSync(resultPath(root, large.recordId)), false);
 });
 
+/**
+ * 公開Recovery入口は端末出力を変えず、未署名の停止も最終記録へ接続するを検証する。
+ *
+ * @responsibility 公開Recovery入口は端末出力を変えず、未署名の停止も最終記録へ接続するの合否判定を所有する。
+ * @trace ERP-ST-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開Recovery入口は端末出力を変えず、未署名の停止も最終記録へ接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary System/E2E: Producer→Writer→公開結果→再観測入口
+ */
 test("公開Recovery入口は端末出力を変えず、未署名の停止も最終記録へ接続する", (t) => {
   const root = fixture(t);
   const child = spawnSync(

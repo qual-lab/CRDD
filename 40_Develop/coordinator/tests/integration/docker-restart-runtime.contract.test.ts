@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:docker-restart-runtimeの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:docker-restart-runtimeが所有する検証責務を実行する。
+ * @trace ERB-IT-014
+ * @level IT
+ * @scope docker、restart、runtime
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
@@ -23,6 +33,18 @@ const compositionBody = stripTypeScriptTypes(
     .replace("export async function", "async function"),
 );
 
+/**
+ * composeのTest準備責務を実行する。
+ *
+ * @responsibility composeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-014
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus composeを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 async function compose(
   change:
     | "handoff"
@@ -145,6 +167,18 @@ async function compose(
   return { result: await runComposition("fixture", controller.signal), calls };
 }
 
+/**
+ * production composition preserves inherited stop intent without native S replayを検証する。
+ *
+ * @responsibility production composition preserves inherited stop intent without native S replayの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus production composition preserves inherited stop intent without native S replayの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("production composition preserves inherited stop intent without native S replay", async () => {
   const { result, calls } = await compose("handoff");
   assert.equal(result.status, "completed");
@@ -163,6 +197,18 @@ test("production composition preserves inherited stop intent without native S re
   ]);
 });
 
+/**
+ * production composition failed handoff cannot issue stop start or phase publicationを検証する。
+ *
+ * @responsibility production composition failed handoff cannot issue stop start or phase publicationの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus production composition failed handoff cannot issue stop start or phase publicationの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("production composition failed handoff cannot issue stop start or phase publication", async () => {
   const { result, calls } = await compose("handoff_failed");
   assert.equal(result.status, "blocked");
@@ -171,6 +217,18 @@ test("production composition failed handoff cannot issue stop start or phase pub
   assert.deepEqual(calls, ["handoff", "helper_release", "lock_release"]);
 });
 
+/**
+ * inherited stop intent with live Desktop remains blocked without replayを検証する。
+ *
+ * @responsibility inherited stop intent with live Desktop remains blocked without replayの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus inherited stop intent with live Desktop remains blocked without replayの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("inherited stop intent with live Desktop remains blocked without replay", async () => {
   const { result, calls } = await compose("handoff_live");
   assert.equal(result.status, "blocked");
@@ -180,6 +238,18 @@ test("inherited stop intent with live Desktop remains blocked without replay", a
   assert.equal(calls.includes("settled"), false);
 });
 
+/**
+ * production composition resumes current stop intent by observation without native Sを検証する。
+ *
+ * @responsibility production composition resumes current stop intent by observation without native Sの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus production composition resumes current stop intent by observation without native Sの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("production composition resumes current stop intent by observation without native S", async () => {
   const { result, calls } = await compose("resume");
   assert.equal(result.status, "completed");
@@ -194,6 +264,18 @@ test("production composition resumes current stop intent by observation without 
   ]);
 });
 
+/**
+ * production composition resumes current start intent by ready observation without native effect replayを検証する。
+ *
+ * @responsibility production composition resumes current start intent by ready observation without native effect replayの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus production composition resumes current start intent by ready observation without native effect replayの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("production composition resumes current start intent by ready observation without native effect replay", async () => {
   const { result, calls } = await compose("resume_start_intent");
   assert.equal(result.status, "completed");
@@ -208,6 +290,18 @@ test("production composition resumes current start intent by ready observation w
   assert.equal(calls.includes("L"), false);
 });
 
+/**
+ * production composition preserves Engine observation cleanup uncertainty through finallyを検証する。
+ *
+ * @responsibility production composition preserves Engine observation cleanup uncertainty through finallyの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus production composition preserves Engine observation cleanup uncertainty through finallyの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("production composition preserves Engine observation cleanup uncertainty through finally", async () => {
   const { result, calls } = await compose("engine_cleanup_unknown");
   assert.equal(result.status, "blocked");
@@ -219,6 +313,18 @@ test("production composition preserves Engine observation cleanup uncertainty th
   assert.deepEqual(calls, ["ready", "helper_release", "lock_release"]);
 });
 
+/**
+ * signed restart entry rejects cancellation before preparationを検証する。
+ *
+ * @responsibility signed restart entry rejects cancellation before preparationの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus signed restart entry rejects cancellation before preparationの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("signed restart entry rejects cancellation before preparation", async () => {
   const controller = new AbortController();
   controller.abort();
@@ -233,6 +339,18 @@ test("signed restart entry rejects cancellation before preparation", async () =>
   assert.equal(result.taskRecoveryCompleted, false);
 });
 
+/**
+ * signed restart entry rejects invalid recovery identity before native acquisitionを検証する。
+ *
+ * @responsibility signed restart entry rejects invalid recovery identity before native acquisitionの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus signed restart entry rejects invalid recovery identity before native acquisitionの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("signed restart entry rejects invalid recovery identity before native acquisition", async () => {
   const result = await restartRuntimeOwnedDockerForRecovery(
     "not-a-recovery-id",

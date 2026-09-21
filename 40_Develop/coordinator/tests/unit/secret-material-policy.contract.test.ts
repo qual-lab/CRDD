@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:secret-material-policyの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:secret-material-policyが所有する検証責務を実行する。
+ * @trace AIT-UT-005
+ * @level UT
+ * @scope secret、material、policy
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -9,6 +19,18 @@ import {
   isRecognizedSecretBearingPath,
 } from "../../src/security/secret-material-policy.ts";
 
+/**
+ * 固定形式Secretと名前付き実値を検出し明示placeholderを誤検出しないを検証する。
+ *
+ * @responsibility 固定形式Secretと名前付き実値を検出し明示placeholderを誤検出しないの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定形式Secretと名前付き実値を検出し明示placeholderを誤検出しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("固定形式Secretと名前付き実値を検出し明示placeholderを誤検出しない", () => {
   assert.equal(
     containsRecognizedSecretText(`token=sk-${"A".repeat(24)}`),
@@ -177,6 +199,18 @@ test("固定形式Secretと名前付き実値を検出し明示placeholderを誤
   );
 });
 
+/**
+ * 引用符とescapeを跨いでも既知SecretとSource参照を分離するを検証する。
+ *
+ * @responsibility 引用符とescapeを跨いでも既知SecretとSource参照を分離するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 引用符とescapeを跨いでも既知SecretとSource参照を分離するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("引用符とescapeを跨いでも既知SecretとSource参照を分離する", () => {
   const prefixes = [
     "const note = 'ordinary';\n",
@@ -210,6 +244,18 @@ test("引用符とescapeを跨いでも既知SecretとSource参照を分離す�
   }
 });
 
+/**
+ * 秘密用Pathを拒否し公開用env例と通常Sourceを許可するを検証する。
+ *
+ * @responsibility 秘密用Pathを拒否し公開用env例と通常Sourceを許可するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 秘密用Pathを拒否し公開用env例と通常Sourceを許可するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("秘密用Pathを拒否し公開用env例と通常Sourceを許可する", () => {
   assert.equal(isRecognizedSecretBearingPath(".env"), true);
   assert.equal(isRecognizedSecretBearingPath("config/.env.production"), true);
@@ -269,6 +315,18 @@ test("秘密用Pathを拒否し公開用env例と通常Sourceを許可する", (
   );
 });
 
+/**
+ * Task scopeは本文と全Pathを同じSecret境界で判定するを検証する。
+ *
+ * @responsibility Task scopeは本文と全Pathを同じSecret境界で判定するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Task scopeは本文と全Pathを同じSecret境界で判定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Task scopeは本文と全Pathを同じSecret境界で判定する", () => {
   assert.equal(
     containsRecognizedSecretScope(
@@ -308,6 +366,18 @@ test("Task scopeは本文と全Pathを同じSecret境界で判定する", () => 
   );
 });
 
+/**
+ * 公開契約はSource許可とSecret検出限界を区別するを検証する。
+ *
+ * @responsibility 公開契約はSource許可とSecret検出限界を区別するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開契約はSource許可とSecret検出限界を区別するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("公開契約はSource許可とSecret検出限界を区別する", () => {
   const contract = describeSecretMaterialPolicyContract();
   assert.equal(contract.contractRevision, 1);

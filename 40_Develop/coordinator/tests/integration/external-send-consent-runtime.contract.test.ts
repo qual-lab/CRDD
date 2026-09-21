@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:external-send-consent-runtimeの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:external-send-consent-runtimeが所有する検証責務を実行する。
+ * @trace EST-IT-004
+ * @level IT
+ * @scope external、send、consent、runtime
+ * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -14,6 +24,18 @@ import {
 import { dockerRecoveryCommitName } from "../../src/security/docker-recovery-journal.ts";
 import type { ExternalSendPolicy } from "../../src/security/external-send-policy-runtime.ts";
 
+/**
+ * policyのTest準備責務を実行する。
+ *
+ * @responsibility policyがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace EST-IT-004
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus policyを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ */
 function policy(overrides: Partial<ExternalSendPolicy> = {}) {
   return Object.freeze({
     schema: "crdd-coordinator/external-send-policy/v2" as const,
@@ -33,6 +55,18 @@ function policy(overrides: Partial<ExternalSendPolicy> = {}) {
   }) as ExternalSendPolicy;
 }
 
+/**
+ * 初期同意境界はRepository revisionでなくexact Policy byteとPolicy IDへ結合するを検証する。
+ *
+ * @responsibility 初期同意境界はRepository revisionでなくexact Policy byteとPolicy IDへ結合するの合否判定を所有する。
+ * @trace EST-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 初期同意境界はRepository revisionでなくexact Policy byteとPolicy IDへ結合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ */
 test("初期同意境界はRepository revisionでなくexact Policy byteとPolicy IDへ結合する", () => {
   const first = compileExternalSendConsentBoundaryHash(policy());
   assert.match(first ?? "", /^[a-f0-9]{64}$/u);
@@ -73,6 +107,18 @@ test("初期同意境界はRepository revisionでなくexact Policy byteとPolic
   );
 });
 
+/**
+ * 公開契約は選択User・保護Runtime State・Subscription境界と再承認条件を固定するを検証する。
+ *
+ * @responsibility 公開契約は選択User・保護Runtime State・Subscription境界と再承認条件を固定するの合否判定を所有する。
+ * @trace EST-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開契約は選択User・保護Runtime State・Subscription境界と再承認条件を固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ */
 test("公開契約は選択User・保護Runtime State・Subscription境界と再承認条件を固定する", () => {
   const contract = describeExternalSendConsentRuntimeContract();
   assert.equal(contract.contractRevision, 3);
@@ -90,6 +136,18 @@ test("公開契約は選択User・保護Runtime State・Subscription境界と再
   assert.equal(contract.callerSuppliedPathAccepted, false);
 });
 
+/**
+ * isolatedのTest準備責務を実行する。
+ *
+ * @responsibility isolatedがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace EST-IT-004
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus isolatedを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ */
 function isolated() {
   const rootPath = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-external-send-consent-"),
@@ -191,6 +249,18 @@ function isolated() {
   });
 }
 
+/**
+ * 単一Active境界はabsentから保存・再利用しA→B→Aで古い許可を復活させないを検証する。
+ *
+ * @responsibility 単一Active境界はabsentから保存・再利用しA→B→Aで古い許可を復活させないの合否判定を所有する。
+ * @trace EST-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 単一Active境界はabsentから保存・再利用しA→B→Aで古い許可を復活させないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ */
 test("単一Active境界はabsentから保存・再利用しA→B→Aで古い許可を復活させない", () => {
   const fixture = isolated();
   const first = policy();
@@ -223,6 +293,18 @@ test("単一Active境界はabsentから保存・再利用しA→B→Aで古い�
   }
 });
 
+/**
+ * 期限切れ・選択User・Runtime identity/protection変更は再承認を要求するを検証する。
+ *
+ * @responsibility 期限切れ・選択User・Runtime identity/protection変更は再承認を要求するの合否判定を所有する。
+ * @trace EST-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 期限切れ・選択User・Runtime identity/protection変更は再承認を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ */
 test("期限切れ・選択User・Runtime identity/protection変更は再承認を要求する", () => {
   for (const replacement of ["identity", "protection", "user"] as const) {
     const fixture = isolated();
@@ -258,6 +340,18 @@ test("期限切れ・選択User・Runtime identity/protection変更は再承認�
   }
 });
 
+/**
+ * 観測不能Rootとdangling reparse residueを取消成功へ流用しないを検証する。
+ *
+ * @responsibility 観測不能Rootとdangling reparse residueを取消成功へ流用しないの合否判定を所有する。
+ * @trace EST-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 観測不能Rootとdangling reparse residueを取消成功へ流用しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ */
 test("観測不能Rootとdangling reparse residueを取消成功へ流用しない", () => {
   const unavailable = isolated();
   try {
@@ -287,6 +381,18 @@ test("観測不能Rootとdangling reparse residueを取消成功へ流用しな�
   }
 });
 
+/**
+ * 部分pairと破損pairは固定Authorityを安全に失効し、明示revokeも残存0にするを検証する。
+ *
+ * @responsibility 部分pairと破損pairは固定Authorityを安全に失効し、明示revokeも残存0にするの合否判定を所有する。
+ * @trace EST-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 部分pairと破損pairは固定Authorityを安全に失効し、明示revokeも残存0にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ */
 test("部分pairと破損pairは固定Authorityを安全に失効し、明示revokeも残存0にする", () => {
   const fixture = isolated();
   const name = `${EXTERNAL_SEND_ACTIVE_CONSENT_PREFIX}${compileExternalSendConsentBoundaryHash(policy())}-ffffffffffffffff.json`;
@@ -324,6 +430,18 @@ test("部分pairと破損pairは固定Authorityを安全に失効し、明示rev
   }
 });
 
+/**
+ * lock競合とrelease失敗はAuthorityを発行せずrecovery requiredに閉じるを検証する。
+ *
+ * @responsibility lock競合とrelease失敗はAuthorityを発行せずrecovery requiredに閉じるの合否判定を所有する。
+ * @trace EST-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus lock競合とrelease失敗はAuthorityを発行せずrecovery requiredに閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+ */
 test("lock競合とrelease失敗はAuthorityを発行せずrecovery requiredに閉じる", () => {
   const locked = isolated();
   try {
@@ -349,6 +467,18 @@ for (const operation of ["resolve", "persist", "revoke"] as const) {
     "unavailable",
     "throw",
   ] as const) {
+    /**
+     * ${operation}: lock取得後のRoot再観測${fault}は既存同意を変更せず回復要求へ閉じるを検証する。
+     *
+     * @responsibility ${operation}: lock取得後のRoot再観測${fault}は既存同意を変更せず回復要求へ閉じるの合否判定を所有する。
+     * @trace EST-IT-004
+     * @precondition Test Fileが構築するfixtureと入力を使用する。
+     * @stimulus ${operation}: lock取得後のRoot再観測${fault}は既存同意を変更せず回復要求へ閉じるの対象操作を実行する。
+     * @observation 結果、状態、Effectおよび終了後条件を観測する。
+     * @oracle Test本文のassertionが期待条件を満たす。
+     * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+     * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+     */
     test(`${operation}: lock取得後のRoot再観測${fault}は既存同意を変更せず回復要求へ閉じる`, () => {
       const fixture = isolated();
       try {
@@ -378,6 +508,18 @@ for (const operation of ["resolve", "persist", "revoke"] as const) {
     });
   }
 
+  /**
+   * ${operation}: release例外を同意確認または取消完了へ昇格しないを検証する。
+   *
+   * @responsibility ${operation}: release例外を同意確認または取消完了へ昇格しないの合否判定を所有する。
+   * @trace EST-IT-004
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus ${operation}: release例外を同意確認または取消完了へ昇格しないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Related 2 Blocks: Application要求→Policy→Provider Adapter
+   */
   test(`${operation}: release例外を同意確認または取消完了へ昇格しない`, () => {
     const fixture = isolated();
     try {

@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:development-execution-timingの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:development-execution-timingが所有する検証責務を実行する。
+ * @trace PPR-IT-010
+ * @level IT
+ * @scope development、execution、timing
+ * @boundary Related 2 Blocks: Clock Source→実行記録→Projector
+ */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
@@ -6,6 +16,18 @@ import {
   writeDevelopmentMeasurementProgress,
 } from "../../src/core/development-execution-timing.ts";
 
+/**
+ * 状態区間は非重複で、初期予約と最終候補処置も時間へ含めるを検証する。
+ *
+ * @responsibility 状態区間は非重複で、初期予約と最終候補処置も時間へ含めるの合否判定を所有する。
+ * @trace PPR-IT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 状態区間は非重複で、初期予約と最終候補処置も時間へ含めるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Clock Source→実行記録→Projector
+ */
 test("状態区間は非重複で、初期予約と最終候補処置も時間へ含める", () => {
   let time = 0;
   const lines: string[] = [];
@@ -51,6 +73,18 @@ test("状態区間は非重複で、初期予約と最終候補処置も時間�
 });
 
 for (const fault of ["throw", "nan", "backward"] as const) {
+  /**
+   * 時計${fault}でも元observerの値・例外・呼出し回数を変えないを検証する。
+   *
+   * @responsibility 時計${fault}でも元observerの値・例外・呼出し回数を変えないの合否判定を所有する。
+   * @trace PPR-IT-010
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 時計${fault}でも元observerの値・例外・呼出し回数を変えないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Related 2 Blocks: Clock Source→実行記録→Projector
+   */
   test(`時計${fault}でも元observerの値・例外・呼出し回数を変えない`, () => {
     let calls = 0;
     const timing = createDevelopmentExecutionTiming(() => {
@@ -86,6 +120,18 @@ for (const fault of ["throw", "nan", "backward"] as const) {
 }
 
 for (const mode of ["throw", "partial"] as const) {
+  /**
+   * 表示${mode}では再試行せず計測と状態遷移を継続するを検証する。
+   *
+   * @responsibility 表示${mode}では再試行せず計測と状態遷移を継続するの合否判定を所有する。
+   * @trace PPR-IT-010
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 表示${mode}では再試行せず計測と状態遷移を継続するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Related 2 Blocks: Clock Source→実行記録→Projector
+   */
   test(`表示${mode}では再試行せず計測と状態遷移を継続する`, () => {
     let calls = 0;
     let time = 0;
@@ -109,6 +155,18 @@ for (const mode of ["throw", "partial"] as const) {
   });
 }
 
+/**
+ * 未知状態・大量通知・任意文字列を公開しないを検証する。
+ *
+ * @responsibility 未知状態・大量通知・任意文字列を公開しないの合否判定を所有する。
+ * @trace PPR-IT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 未知状態・大量通知・任意文字列を公開しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Clock Source→実行記録→Projector
+ */
 test("未知状態・大量通知・任意文字列を公開しない", () => {
   const lines: string[] = [];
   const timing = createDevelopmentExecutionTiming(
@@ -133,6 +191,18 @@ test("未知状態・大量通知・任意文字列を公開しない", () => {
   assert.equal(writeDevelopmentMeasurementProgress("secret_path_token"), false);
 });
 
+/**
+ * 実子ProcessのUTF-8表示を同期結果へ投影するを検証する。
+ *
+ * @responsibility 実子ProcessのUTF-8表示を同期結果へ投影するの合否判定を所有する。
+ * @trace PPR-IT-010
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実子ProcessのUTF-8表示を同期結果へ投影するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Clock Source→実行記録→Projector
+ */
 test("実子ProcessのUTF-8表示を同期結果へ投影する", () => {
   const moduleUrl = new URL(
     "../../src/core/development-execution-timing.ts",

@@ -278,7 +278,7 @@ Architecture Definition          Quality Definition
 | Global Symbol Graph | ARCH→実装、QA→試験、試験→実装と各逆方向のIndex。構造Findingが1件でもあればGraphを発行しない | Reality Gapの意味分類 |
 | Quality Local Item解決 | Test SymbolのLocal Test IDが、同じSymbolに結合したQA定義の検証項目に実在することを確認 | Test実装済み・Passの主張 |
 | Test Catalog Adapter | Test SymbolのPathとOwnerがTest Catalogへexactに一度だけ登録されていることを確認 | Test CatalogをGraph Coreへ直接読ませること、試験結果の意味評価 |
-| Source Annotation | 必要な場合の局所Navigation Hint。存在時は`symbol.json`との不一致を検出 | Relationの正本、Annotationの必須化 |
+| Source Header | Production Named SymbolはARCH-ID、Test File／Case／Helper／FixtureはQuality Local Itemへ接続する局所Navigation Hintを必須で持つ。`symbol.json`との不一致を検出する | Relationの正本、HeaderからCanonical Relationを逆生成すること |
 
 新Subsystemは`40_Develop/<subsystem>/symbol.json`を追加して参加する。Checker CoreへSubsystem名を追加しない。Implementation SymbolはARCH Relationだけを、Test SymbolはQA、Local Test、`verifies` Relationだけを所有し、設計と検証の責務を一つのSymbolへ混在させない。Symbol Pathは途中要素を含めてlink／junctionではない通常fileであり、実体PathもSubsystem内に留まる場合だけ受理する。Test SymbolはTest Catalog Adapterが返す登録集合へexact Pathと同一Ownerで接続する。`symbol.json`が存在しPathとIDが解決できることはRelationの構造成立だけを意味し、`Covered`、実装済み、試験済みまたは合格済みを意味しない。
 

@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:project-runtime-integrationの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:project-runtime-integrationが所有する検証責務を実行する。
+ * @trace PRL-IT-012
+ * @level IT
+ * @scope project、runtime
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
@@ -18,6 +28,18 @@ import { runProjectRuntimeObjective } from "../../src/security/project-runtime-o
 import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
 
 const revision = "a".repeat(40);
+/**
+ * preparedのTest準備責務を実行する。
+ *
+ * @responsibility preparedがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus preparedを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 async function prepared(t: test.TestContext) {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-project-integration-"),
@@ -102,6 +124,18 @@ async function prepared(t: test.TestContext) {
   assert.equal(result.status, "completed");
   return { root, queueId: result.queueId ?? "invalid" };
 }
+/**
+ * candidateのTest準備責務を実行する。
+ *
+ * @responsibility candidateがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus candidateを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function candidate(conflicts: readonly string[] = []) {
   return {
     status: "candidate",
@@ -116,6 +150,18 @@ function candidate(conflicts: readonly string[] = []) {
   };
 }
 
+/**
+ * integrationDependenciesのTest準備責務を実行する。
+ *
+ * @responsibility integrationDependenciesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus integrationDependenciesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function integrationDependencies(
   root: string,
   queueId: string,
@@ -136,6 +182,18 @@ function integrationDependencies(
   };
 }
 
+/**
+ * Task completion is integrated into Objective and Milestone acceptanceを検証する。
+ *
+ * @responsibility Task completion is integrated into Objective and Milestone acceptanceの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Task completion is integrated into Objective and Milestone acceptanceの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Task completion is integrated into Objective and Milestone acceptance", async (t) => {
   const { root, queueId } = await prepared(t);
   let adoptions = 0;
@@ -188,6 +246,18 @@ test("Task completion is integrated into Objective and Milestone acceptance", as
   );
 });
 
+/**
+ * explicit adoption is serialized and requires a fresh matching repository observationを検証する。
+ *
+ * @responsibility explicit adoption is serialized and requires a fresh matching repository observationの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus explicit adoption is serialized and requires a fresh matching repository observationの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("explicit adoption is serialized and requires a fresh matching repository observation", async (t) => {
   const { root, queueId } = await prepared(t);
   const signal = path.join(root, "canonical-pre-publication-ready");
@@ -248,6 +318,18 @@ test("explicit adoption is serialized and requires a fresh matching repository o
   assert.equal(adoptions, 1);
 });
 
+/**
+ * integration conflict stops before adoption and requests a human decisionを検証する。
+ *
+ * @responsibility integration conflict stops before adoption and requests a human decisionの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus integration conflict stops before adoption and requests a human decisionの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("integration conflict stops before adoption and requests a human decision", async (t) => {
   const { root, queueId } = await prepared(t);
   let adoptions = 0;
@@ -279,6 +361,18 @@ test("integration conflict stops before adoption and requests a human decision",
   );
 });
 
+/**
+ * revision mismatch blocks canonical adoption and releases its leaseを検証する。
+ *
+ * @responsibility revision mismatch blocks canonical adoption and releases its leaseの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus revision mismatch blocks canonical adoption and releases its leaseの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("revision mismatch blocks canonical adoption and releases its lease", async (t) => {
   const { root, queueId } = await prepared(t);
   const input = {
@@ -320,6 +414,18 @@ test("revision mismatch blocks canonical adoption and releases its lease", async
   assert.equal(first.manualRecoveryRequired, false);
 });
 
+/**
+ * canonical adoption preserves malformed acquisition evidence and exposes its recovery referenceを検証する。
+ *
+ * @responsibility canonical adoption preserves malformed acquisition evidence and exposes its recovery referenceの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus canonical adoption preserves malformed acquisition evidence and exposes its recovery referenceの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("canonical adoption preserves malformed acquisition evidence and exposes its recovery reference", async (t) => {
   const { root, queueId } = await prepared(t);
   const marker = path.join(

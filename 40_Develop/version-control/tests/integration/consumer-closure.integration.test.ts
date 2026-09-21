@@ -1,3 +1,13 @@
+/**
+ * version-control:integration:consumer-closureの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility version-control:integration:consumer-closureが所有する検証責務を実行する。
+ * @trace RCM-IT-004
+ * @level IT
+ * @scope version-control、consumer-closure
+ * @boundary Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -8,6 +18,18 @@ import { describeRepositoryLocationContract } from "../../src/index.ts";
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 const developRoot = path.join(repositoryRoot, "40_Develop");
 
+/**
+ * publicExportNamesのTest準備責務を実行する。
+ *
+ * @responsibility publicExportNamesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-004
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus publicExportNamesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ */
 function publicExportNames(source: string): readonly string[] {
   const names: string[] = [];
   for (const block of source.matchAll(/export\s*\{([\s\S]*?)\}\s*from/gu))
@@ -19,6 +41,18 @@ function publicExportNames(source: string): readonly string[] {
   return [...new Set(names)].sort();
 }
 
+/**
+ * productionSourcesのTest準備責務を実行する。
+ *
+ * @responsibility productionSourcesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RCM-IT-004
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus productionSourcesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ */
 function productionSources(root: string): readonly string[] {
   const foundFiles: string[] = [];
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
@@ -31,6 +65,18 @@ function productionSources(root: string): readonly string[] {
   return foundFiles;
 }
 
+/**
+ * Repository Locationの旧Ownerと重複した能力発行入口を残さないを検証する。
+ *
+ * @responsibility Repository Locationの旧Ownerと重複した能力発行入口を残さないの合否判定を所有する。
+ * @trace RCM-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Repository Locationの旧Ownerと重複した能力発行入口を残さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ */
 test("Repository Locationの旧Ownerと重複した能力発行入口を残さない", () => {
   const sources = productionSources(developRoot).map((sourcePath) => ({
     sourcePath,
@@ -61,6 +107,18 @@ test("Repository Locationの旧Ownerと重複した能力発行入口を残さ�
   );
 });
 
+/**
+ * 保護対象Runtimeは公開barrelやVersion Control内部実装を依存閉包へ取り込まないを検証する。
+ *
+ * @responsibility 保護対象Runtimeは公開barrelやVersion Control内部実装を依存閉包へ取り込まないの合否判定を所有する。
+ * @trace RCM-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 保護対象Runtimeは公開barrelやVersion Control内部実装を依存閉包へ取り込まないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ */
 test("保護対象Runtimeは公開barrelやVersion Control内部実装を依存閉包へ取り込まない", () => {
   const protectedRoots = [
     path.join(developRoot, "coordinator", "src"),
@@ -94,6 +152,18 @@ test("保護対象Runtimeは公開barrelやVersion Control内部実装を依存�
   }
 });
 
+/**
+ * Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致するを検証する。
+ *
+ * @responsibility Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致するの合否判定を所有する。
+ * @trace RCM-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ */
 test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致する", () => {
   const sources = productionSources(developRoot).map((sourcePath) => ({
     relativePath: path
@@ -101,6 +171,18 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
       .replaceAll(path.sep, "/"),
     source: fs.readFileSync(sourcePath, "utf8"),
   }));
+  /**
+   * externalConsumersのTest準備責務を実行する。
+   *
+   * @responsibility externalConsumersがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace RCM-IT-004
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus externalConsumersを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+   */
   const externalConsumers = (pattern: RegExp) =>
     sources
       .filter(
@@ -132,12 +214,36 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
   );
 });
 
+/**
+ * Repository Locationの公開ProjectionにGit固有語彙を出さないを検証する。
+ *
+ * @responsibility Repository Locationの公開ProjectionにGit固有語彙を出さないの合否判定を所有する。
+ * @trace RCM-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Repository Locationの公開ProjectionにGit固有語彙を出さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ */
 test("Repository Locationの公開ProjectionにGit固有語彙を出さない", () => {
   const projection = JSON.stringify(describeRepositoryLocationContract());
   for (const term of ["commit", "tree", "index", "worktree", "staged"])
     assert.equal(projection.toLocaleLowerCase("en-US").includes(term), false);
 });
 
+/**
+ * Repository LocationとRepository-local Ignoreの既知Consumer集合が宣言と一致するを検証する。
+ *
+ * @responsibility Repository LocationとRepository-local Ignoreの既知Consumer集合が宣言と一致するの合否判定を所有する。
+ * @trace RCM-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Repository LocationとRepository-local Ignoreの既知Consumer集合が宣言と一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ */
 test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣言と一致する", () => {
   const sources = productionSources(developRoot).map((sourcePath) => ({
     relativePath: path
@@ -145,6 +251,18 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       .replaceAll(path.sep, "/"),
     source: fs.readFileSync(sourcePath, "utf8"),
   }));
+  /**
+   * consumersのTest準備責務を実行する。
+   *
+   * @responsibility consumersがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace RCM-IT-004
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus consumersを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+   */
   const consumers = (pattern: RegExp) =>
     sources
       .filter(
@@ -193,6 +311,18 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
   );
 });
 
+/**
+ * Checkerは同じ基準版RootのVersion Control公開入口だけを使うを検証する。
+ *
+ * @responsibility Checkerは同じ基準版RootのVersion Control公開入口だけを使うの合否判定を所有する。
+ * @trace RCM-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Checkerは同じ基準版RootのVersion Control公開入口だけを使うの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ */
 test("Checkerは同じ基準版RootのVersion Control公開入口だけを使う", () => {
   const checkerSource = fs.readFileSync(
     path.join(
@@ -239,6 +369,18 @@ test("Checkerは同じ基準版RootのVersion Control公開入口だけを使う
   );
 });
 
+/**
+ * Version Controlの公開SymbolはArchitectureの現行集合と完全一致するを検証する。
+ *
+ * @responsibility Version Controlの公開SymbolはArchitectureの現行集合と完全一致するの合否判定を所有する。
+ * @trace RCM-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Version Controlの公開SymbolはArchitectureの現行集合と完全一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ */
 test("Version Controlの公開SymbolはArchitectureの現行集合と完全一致する", () => {
   const source = fs.readFileSync(
     path.join(
@@ -304,6 +446,18 @@ test("Version Controlの公開SymbolはArchitectureの現行集合と完全一�
   }
 });
 
+/**
+ * Local Change Setと狭いVersion Control公開入口のConsumer集合が宣言と一致するを検証する。
+ *
+ * @responsibility Local Change Setと狭いVersion Control公開入口のConsumer集合が宣言と一致するの合否判定を所有する。
+ * @trace RCM-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Local Change Setと狭いVersion Control公開入口のConsumer集合が宣言と一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ */
 test("Local Change Setと狭いVersion Control公開入口のConsumer集合が宣言と一致する", () => {
   const sources = [
     ...productionSources(developRoot),
@@ -357,6 +511,18 @@ test("Local Change Setと狭いVersion Control公開入口のConsumer集合が�
   ]);
 });
 
+/**
+ * 既知ConsumerはGitを再解釈せずVersion Control公開契約だけを使うを検証する。
+ *
+ * @responsibility 既知ConsumerはGitを再解釈せずVersion Control公開契約だけを使うの合否判定を所有する。
+ * @trace RCM-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 既知ConsumerはGitを再解釈せずVersion Control公開契約だけを使うの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ */
 test("既知ConsumerはGitを再解釈せずVersion Control公開契約だけを使う", () => {
   const consumerPaths = [
     "40_Develop/checker/src/profiles/current-profile.ts",
@@ -379,6 +545,18 @@ test("既知ConsumerはGitを再解釈せずVersion Control公開契約だけを
   }
 });
 
+/**
+ * GitによるLocal Change Set観測能力はVersion Control Adapterだけが発行するを検証する。
+ *
+ * @responsibility GitによるLocal Change Set観測能力はVersion Control Adapterだけが発行するの合否判定を所有する。
+ * @trace RCM-IT-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus GitによるLocal Change Set観測能力はVersion Control Adapterだけが発行するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: 旧Consumer→新Contract→完成Gate
+ */
 test("GitによるLocal Change Set観測能力はVersion Control Adapterだけが発行する", () => {
   const sources = productionSources(developRoot).map((sourcePath) => ({
     relativePath: path

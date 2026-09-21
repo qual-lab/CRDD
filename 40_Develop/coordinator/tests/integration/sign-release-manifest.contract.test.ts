@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:sign-release-manifestの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:sign-release-manifestが所有する検証責務を実行する。
+ * @trace AIT-IT-008
+ * @level IT
+ * @scope sign、release、manifest
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { generateKeyPairSync, randomBytes, sign } from "node:crypto";
@@ -37,6 +47,18 @@ type ContractTestManifestOptions = Parameters<
 >[0] &
   Readonly<{ passphrase: string }>;
 
+/**
+ * signReleaseManifestのTest準備責務を実行する。
+ *
+ * @responsibility signReleaseManifestがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus signReleaseManifestを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 function signReleaseManifest(options: ContractTestManifestOptions) {
   const { passphrase, ...preflightOptions } = options;
   const preflight = preflightReleaseManifest(preflightOptions);
@@ -46,6 +68,18 @@ function signReleaseManifest(options: ContractTestManifestOptions) {
   );
 }
 
+/**
+ * 署名鍵PathだけをGit管理外envから一意に解決するを検証する。
+ *
+ * @responsibility 署名鍵PathだけをGit管理外envから一意に解決するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 署名鍵PathだけをGit管理外envから一意に解決するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("署名鍵PathだけをGit管理外envから一意に解決する", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-signing-env-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -93,6 +127,18 @@ test("署名鍵PathだけをGit管理外envから一意に解決する", (t) => 
   );
 });
 
+/**
+ * 明示した鍵Pathはenvを読まず、両入口とも後続の共通preflightへ渡すを検証する。
+ *
+ * @responsibility 明示した鍵Pathはenvを読まず、両入口とも後続の共通preflightへ渡すの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 明示した鍵Pathはenvを読まず、両入口とも後続の共通preflightへ渡すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("明示した鍵Pathはenvを読まず、両入口とも後続の共通preflightへ渡す", () => {
   const explicit = path.resolve("external-release-private.pem");
   assert.equal(
@@ -109,6 +155,18 @@ test("明示した鍵Pathはenvを読まず、両入口とも後続の共通pref
   );
 });
 
+/**
+ * 期限なしは明示指定だけを受け、CLIの排他違反とundefinedを秘密入力前に拒否するを検証する。
+ *
+ * @responsibility 期限なしは明示指定だけを受け、CLIの排他違反とundefinedを秘密入力前に拒否するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 期限なしは明示指定だけを受け、CLIの排他違反とundefinedを秘密入力前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("期限なしは明示指定だけを受け、CLIの排他違反とundefinedを秘密入力前に拒否する", () => {
   const options = {
     distributionRoot: repositoryRoot,
@@ -222,6 +280,18 @@ test("期限なしは明示指定だけを受け、CLIの排他違反とundefine
   assert.equal(fs.existsSync(options.privateKeyPath), false);
 });
 
+/**
+ * uniqueReleaseCandidateのTest準備責務を実行する。
+ *
+ * @responsibility uniqueReleaseCandidateがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus uniqueReleaseCandidateを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 function uniqueReleaseCandidate(prefix: string) {
   fs.mkdirSync(releaseStagingRoot, { recursive: true });
   const value = path.join(
@@ -232,6 +302,18 @@ function uniqueReleaseCandidate(prefix: string) {
   return value;
 }
 
+/**
+ * currentSignedSourceIdentityのTest準備責務を実行する。
+ *
+ * @responsibility currentSignedSourceIdentityがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus currentSignedSourceIdentityを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 function currentSignedSourceIdentity() {
   const manifestPath = path.join(
     repositoryRoot,
@@ -288,6 +370,18 @@ function currentSignedSourceIdentity() {
   return Object.freeze({ crddCommit, crddTree });
 }
 
+/**
+ * runtimeDistributionFixtureのTest準備責務を実行する。
+ *
+ * @responsibility runtimeDistributionFixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus runtimeDistributionFixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 function runtimeDistributionFixture(prefix: string) {
   const distributionRoot = uniqueReleaseCandidate(prefix);
   for (const component of [
@@ -344,6 +438,18 @@ function runtimeDistributionFixture(prefix: string) {
   return distributionRoot;
 }
 
+/**
+ * production署名sourceはTrust差替え、検証skipまたはtest hookを持たないを検証する。
+ *
+ * @responsibility production署名sourceはTrust差替え、検証skipまたはtest hookを持たないの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus production署名sourceはTrust差替え、検証skipまたはtest hookを持たないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("production署名sourceはTrust差替え、検証skipまたはtest hookを持たない", () => {
   const forbiddenNames = [
     "ContractTestTrust",
@@ -435,6 +541,18 @@ test("production署名sourceはTrust差替え、検証skipまたはtest hookを�
   );
 });
 
+/**
+ * SHA-256 CRDD Release Identityはpassphrase利用とFilesystem観測より前に明示拒否するを検証する。
+ *
+ * @responsibility SHA-256 CRDD Release Identityはpassphrase利用とFilesystem観測より前に明示拒否するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus SHA-256 CRDD Release Identityはpassphrase利用とFilesystem観測より前に明示拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("SHA-256 CRDD Release Identityはpassphrase利用とFilesystem観測より前に明示拒否する", () => {
   assert.throws(
     () =>
@@ -486,6 +604,18 @@ test("SHA-256 CRDD Release Identityはpassphrase利用とFilesystem観測より�
   assert.equal(cli.stderr, "release_manifest_git_object_format_unsupported\n");
 });
 
+/**
+ * Release公開引数はpassphrase入力とFilesystem観測より前に完全検証するを検証する。
+ *
+ * @responsibility Release公開引数はpassphrase入力とFilesystem観測より前に完全検証するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Release公開引数はpassphrase入力とFilesystem観測より前に完全検証するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("Release公開引数はpassphrase入力とFilesystem観測より前に完全検証する", () => {
   const base = {
     distributionRoot: path.resolve("fixture-distribution-root-not-read"),
@@ -565,6 +695,18 @@ test("Release公開引数はpassphrase入力とFilesystem観測より前に完�
   assert.equal(cli.stderr, "release_manifest_time_invalid\n");
 });
 
+/**
+ * Release stagingの非秘密検査はpassphrase入力より前に完了するを検証する。
+ *
+ * @responsibility Release stagingの非秘密検査はpassphrase入力より前に完了するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Release stagingの非秘密検査はpassphrase入力より前に完了するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("Release stagingの非秘密検査はpassphrase入力より前に完了する", () => {
   const cli = spawnSync(
     process.execPath,
@@ -600,6 +742,18 @@ test("Release stagingの非秘密検査はpassphrase入力より前に完了す�
   assert.equal(cli.stderr, "release_manifest_distribution_root_invalid\n");
 });
 
+/**
+ * Runtime依存閉包の欠落を秘密鍵読取りより前の署名preflightで拒否するを検証する。
+ *
+ * @responsibility Runtime依存閉包の欠落を秘密鍵読取りより前の署名preflightで拒否するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Runtime依存閉包の欠落を秘密鍵読取りより前の署名preflightで拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("Runtime依存閉包の欠落を秘密鍵読取りより前の署名preflightで拒否する", () => {
   const cases = [
     "40_Develop/coordinator/bin/coordinator.ts",
@@ -695,6 +849,18 @@ test("Runtime依存閉包の欠落を秘密鍵読取りより前の署名preflig
   }
 });
 
+/**
+ * 実行primitive閉包の代表違反を全公開Consumerと署名CLIで秘密入力前に拒否するを検証する。
+ *
+ * @responsibility 実行primitive閉包の代表違反を全公開Consumerと署名CLIで秘密入力前に拒否するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実行primitive閉包の代表違反を全公開Consumerと署名CLIで秘密入力前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("実行primitive閉包の代表違反を全公開Consumerと署名CLIで秘密入力前に拒否する", async () => {
   const cases = [
     {
@@ -889,6 +1055,18 @@ test("実行primitive閉包の代表違反を全公開Consumerと署名CLIで秘
   }
 });
 
+/**
+ * Release署名RootはRepository-localの単一candidate directoryだけを受理するを検証する。
+ *
+ * @responsibility Release署名RootはRepository-localの単一candidate directoryだけを受理するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Release署名RootはRepository-localの単一candidate directoryだけを受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("Release署名RootはRepository-localの単一candidate directoryだけを受理する", () => {
   const candidate = uniqueReleaseCandidate("contract-root");
   const outside = fs.mkdtempSync(
@@ -935,6 +1113,18 @@ test("Release署名RootはRepository-localの単一candidate directoryだけを�
   }
 });
 
+/**
+ * 偽造または再利用したP検査能力は秘密値処理と署名Effectの前に拒否するを検証する。
+ *
+ * @responsibility 偽造または再利用したP検査能力は秘密値処理と署名Effectの前に拒否するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 偽造または再利用したP検査能力は秘密値処理と署名Effectの前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("偽造または再利用したP検査能力は秘密値処理と署名Effectの前に拒否する", () => {
   const forged = Object.freeze({
     contract: "crdd-coordinator/release-manifest-preflight-authorization",
@@ -950,6 +1140,18 @@ test("偽造または再利用したP検査能力は秘密値処理と署名Effe
   );
 });
 
+/**
+ * ephemeralEnvelopeBytesのTest準備責務を実行する。
+ *
+ * @responsibility ephemeralEnvelopeBytesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus ephemeralEnvelopeBytesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 function ephemeralEnvelopeBytes() {
   const { privateKey, publicKey } = generateKeyPairSync("ed25519");
   const payload = Buffer.from("CRDD test-only placement envelope", "utf8");
@@ -967,6 +1169,18 @@ function ephemeralEnvelopeBytes() {
   return canonical.canonicalBytes;
 }
 
+/**
+ * placementFixtureのTest準備責務を実行する。
+ *
+ * @responsibility placementFixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus placementFixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 function placementFixture() {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-placement-flow-"));
   const distributionRoot = path.join(parent, "distribution");
@@ -999,6 +1213,18 @@ function placementFixture() {
   };
 }
 
+/**
+ * withFsyncMutationのTest準備責務を実行する。
+ *
+ * @responsibility withFsyncMutationがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus withFsyncMutationを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 function withFsyncMutation(
   mutation: (descriptor: number) => void,
   operation: () => void,
@@ -1015,6 +1241,18 @@ function withFsyncMutation(
   }
 }
 
+/**
+ * assertStagingFailureのTest準備責務を実行する。
+ *
+ * @responsibility assertStagingFailureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus assertStagingFailureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 function assertStagingFailure(
   operation: () => void,
   isEffectExpected: boolean,
@@ -1030,6 +1268,18 @@ function assertStagingFailure(
   }
 }
 
+/**
+ * Platform Access成果物欠落ではRelease staging sessionを開始しないを検証する。
+ *
+ * @responsibility Platform Access成果物欠落ではRelease staging sessionを開始しないの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Platform Access成果物欠落ではRelease staging sessionを開始しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("Platform Access成果物欠落ではRelease staging sessionを開始しない", () => {
   const parent = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-staging-missing-"),
@@ -1044,6 +1294,18 @@ test("Platform Access成果物欠落ではRelease staging sessionを開始しな
   }
 });
 
+/**
+ * 署名Authorityを持たない配置helperは同一fdのcanonical byteを再確認するを検証する。
+ *
+ * @responsibility 署名Authorityを持たない配置helperは同一fdのcanonical byteを再確認するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 署名Authorityを持たない配置helperは同一fdのcanonical byteを再確認するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("署名Authorityを持たない配置helperは同一fdのcanonical byteを再確認する", () => {
   const value = placementFixture();
   try {
@@ -1078,6 +1340,18 @@ test("署名Authorityを持たない配置helperは同一fdのcanonical byteを�
   }
 });
 
+/**
+ * manifestの同長上書き、短縮および追記をcreatedへ流用しないを検証する。
+ *
+ * @responsibility manifestの同長上書き、短縮および追記をcreatedへ流用しないの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus manifestの同長上書き、短縮および追記をcreatedへ流用しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("manifestの同長上書き、短縮および追記をcreatedへ流用しない", {
   concurrency: false,
 }, () => {
@@ -1121,6 +1395,18 @@ test("manifestの同長上書き、短縮および追記をcreatedへ流用し�
   }
 });
 
+/**
+ * manifest Path、Release DirectoryまたはPlatform Access成果物の配置後差を拒否して自動削除しないを検証する。
+ *
+ * @responsibility manifest Path、Release DirectoryまたはPlatform Access成果物の配置後差を拒否して自動削除しないの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus manifest Path、Release DirectoryまたはPlatform Access成果物の配置後差を拒否して自動削除しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("manifest Path、Release DirectoryまたはPlatform Access成果物の配置後差を拒否して自動削除しない", {
   concurrency: false,
 }, () => {
@@ -1171,6 +1457,18 @@ test("manifest Path、Release DirectoryまたはPlatform Access成果物の配�
   }
 });
 
+/**
+ * 偽造tokenと既存manifestをRelease staging成功へ流用しないを検証する。
+ *
+ * @responsibility 偽造tokenと既存manifestをRelease staging成功へ流用しないの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 偽造tokenと既存manifestをRelease staging成功へ流用しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("偽造tokenと既存manifestをRelease staging成功へ流用しない", () => {
   const canonicalBytes = ephemeralEnvelopeBytes();
   assertStagingFailure(
@@ -1193,6 +1491,18 @@ test("偽造tokenと既存manifestをRelease staging成功へ流用しない", (
   }
 });
 
+/**
+ * 固定公開鍵に対応しない秘密鍵ではmanifestを生成しないを検証する。
+ *
+ * @responsibility 固定公開鍵に対応しない秘密鍵ではmanifestを生成しないの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定公開鍵に対応しない秘密鍵ではmanifestを生成しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない", () => {
   const distributionRoot = uniqueReleaseCandidate("test-key-pin");
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-manifest-key-"));

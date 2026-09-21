@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:provider-execution-boundary-matrixの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:provider-execution-boundary-matrixが所有する検証責務を実行する。
+ * @trace PRL-IT-005
+ * @level IT
+ * @scope provider、executor、reviewer、lifecycle、coverage
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -96,6 +106,18 @@ const REAL_ROUTE_CASES = Object.freeze([
   }),
 ] as const);
 
+/**
+ * Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで固定するを検証する。
+ *
+ * @responsibility Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで固定するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで固定する", () => {
   assert.equal(PLAN_CASES.length, 4);
   for (const item of PLAN_CASES) {
@@ -157,6 +179,18 @@ test("Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで
   }
 });
 
+/**
+ * Provider境界の正常・拒否・異常・回収caseを実在試験へ全数対応させるを検証する。
+ *
+ * @responsibility Provider境界の正常・拒否・異常・回収caseを実在試験へ全数対応させるの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Provider境界の正常・拒否・異常・回収caseを実在試験へ全数対応させるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("Provider境界の正常・拒否・異常・回収caseを実在試験へ全数対応させる", () => {
   assert.equal(
     new Set(LIFECYCLE_CASES.map((item) => item.id)).size,
@@ -171,6 +205,18 @@ test("Provider境界の正常・拒否・異常・回収caseを実在試験へ�
   }
 });
 
+/**
+ * 実Provider結合はCodex／ClaudeをExecutorとReviewerの双方で一回ずつ通すを検証する。
+ *
+ * @responsibility 実Provider結合はCodex／ClaudeをExecutorとReviewerの双方で一回ずつ通すの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実Provider結合はCodex／ClaudeをExecutorとReviewerの双方で一回ずつ通すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("実Provider結合はCodex／ClaudeをExecutorとReviewerの双方で一回ずつ通す", () => {
   assert.deepEqual(REAL_ROUTE_CASES, [
     { route: "forward", executor: "claude", reviewer: "codex" },

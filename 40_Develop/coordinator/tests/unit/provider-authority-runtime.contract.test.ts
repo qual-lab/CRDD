@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:provider-authority-runtimeの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:provider-authority-runtimeが所有する検証責務を実行する。
+ * @trace PRL-UT-006
+ * @level UT
+ * @scope provider、authority、runtime
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -9,6 +19,18 @@ import {
   revokeRuntimeOwnedProviderAuthority,
 } from "../../src/security/provider-authority-runtime.ts";
 
+/**
+ * createFixtureのTest準備責務を実行する。
+ *
+ * @responsibility createFixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus createFixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 function createFixture() {
   const managementCapability = Object.freeze({});
   const activeMountCapability = Object.freeze({});
@@ -150,6 +172,18 @@ function createFixture() {
   });
 }
 
+/**
+ * active MountとAuthority identityを5秒一回限りCapabilityへ結合するを検証する。
+ *
+ * @responsibility active MountとAuthority identityを5秒一回限りCapabilityへ結合するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus active MountとAuthority identityを5秒一回限りCapabilityへ結合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("active MountとAuthority identityを5秒一回限りCapabilityへ結合する", () => {
   const fixture = createFixture();
   const issued = fixture.runtime.issue(
@@ -193,6 +227,18 @@ for (const fault of [
   "scopeId",
   "providerHomeMountGrantRef",
 ] as const) {
+  /**
+   * 発行時のreverify ${fault}をAuthority Capabilityへ昇格しないを検証する。
+   *
+   * @responsibility 発行時のreverify ${fault}をAuthority Capabilityへ昇格しないの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 発行時のreverify ${fault}をAuthority Capabilityへ昇格しないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   test(`発行時のreverify ${fault}をAuthority Capabilityへ昇格しない`, () => {
     const fixture = createFixture();
     fixture.setReverifyFault(fault);
@@ -212,6 +258,18 @@ for (const fault of [
     assert.equal(result.providerEffectAllowed, false);
   });
 
+  /**
+   * 消費時のreverify ${fault}は元Capabilityを失効して再利用させないを検証する。
+   *
+   * @responsibility 消費時のreverify ${fault}は元Capabilityを失効して再利用させないの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 消費時のreverify ${fault}は元Capabilityを失効して再利用させないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   test(`消費時のreverify ${fault}は元Capabilityを失効して再利用させない`, () => {
     const fixture = createFixture();
     const issued = fixture.runtime.issue(
@@ -247,6 +305,18 @@ for (const fault of [
   });
 }
 
+/**
+ * consume直前のBundle差とMount失効をAuthorityへ流用しないを検証する。
+ *
+ * @responsibility consume直前のBundle差とMount失効をAuthorityへ流用しないの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus consume直前のBundle差とMount失効をAuthorityへ流用しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("consume直前のBundle差とMount失効をAuthorityへ流用しない", () => {
   const changed = createFixture();
   const changedIssued = changed.runtime.issue(
@@ -279,6 +349,18 @@ test("consume直前のBundle差とMount失効をAuthorityへ流用しない", ()
   );
 });
 
+/**
+ * 期限、clock rollback、source欠落と別Mountをfail closedにするを検証する。
+ *
+ * @responsibility 期限、clock rollback、source欠落と別Mountをfail closedにするの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 期限、clock rollback、source欠落と別Mountをfail closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("期限、clock rollback、source欠落と別Mountをfail closedにする", () => {
   const expired = createFixture();
   const expiredIssued = expired.runtime.issue(
@@ -335,6 +417,18 @@ test("期限、clock rollback、source欠落と別Mountをfail closedにする",
   );
 });
 
+/**
+ * control aliasは未使用Authorityを全aliasごと失効するを検証する。
+ *
+ * @responsibility control aliasは未使用Authorityを全aliasごと失効するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus control aliasは未使用Authorityを全aliasごと失効するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("control aliasは未使用Authorityを全aliasごと失効する", () => {
   const fixture = createFixture();
   const issued = fixture.runtime.issue(
@@ -358,6 +452,18 @@ test("control aliasは未使用Authorityを全aliasごと失効する", () => {
   );
 });
 
+/**
+ * 偽造production Capabilityと公開契約はProvider Effect前に閉じるを検証する。
+ *
+ * @responsibility 偽造production Capabilityと公開契約はProvider Effect前に閉じるの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 偽造production Capabilityと公開契約はProvider Effect前に閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("偽造production Capabilityと公開契約はProvider Effect前に閉じる", () => {
   assert.equal(issueRuntimeOwnedProviderAuthority({}, {}).status, "blocked");
   assert.equal(consumeRuntimeOwnedProviderAuthority({}, {}, {}), null);

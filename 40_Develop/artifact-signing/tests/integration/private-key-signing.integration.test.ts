@@ -1,3 +1,13 @@
+/**
+ * artifact-signing:integration:private-key-signingの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility artifact-signing:integration:private-key-signingが所有する検証責務を実行する。
+ * @trace AIT-IT-008
+ * @level IT
+ * @scope artifact-signing、private-key-reference、secret-input、ed25519
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 import assert from "node:assert/strict";
 import { createPublicKey, generateKeyPairSync, verify } from "node:crypto";
 import fs from "node:fs";
@@ -14,6 +24,18 @@ import { readHiddenLineFromTerminal } from "../../src/terminal-secret-input.ts";
 
 const PASSPHRASE = "artifact-signing-test-passphrase";
 
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-artifact-signing-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -35,6 +57,18 @@ function fixture(t: test.TestContext) {
   return { root, pair, privateKeyPath, prohibitedRoot };
 }
 
+/**
+ * 鍵参照を秘密入力前に固定し、任意byte列だけを署名するを検証する。
+ *
+ * @responsibility 鍵参照を秘密入力前に固定し、任意byte列だけを署名するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 鍵参照を秘密入力前に固定し、任意byte列だけを署名するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("鍵参照を秘密入力前に固定し、任意byte列だけを署名する", (t) => {
   const { pair, privateKeyPath, prohibitedRoot } = fixture(t);
   const payload = Buffer.from("generic-artifact-payload", "utf8");
@@ -79,6 +113,18 @@ test("鍵参照を秘密入力前に固定し、任意byte列だけを署名す�
   );
 });
 
+/**
+ * CLIとenvに共通の鍵参照preflightが欠落、directory、repository内、差替えを拒否するを検証する。
+ *
+ * @responsibility CLIとenvに共通の鍵参照preflightが欠落、directory、repository内、差替えを拒否するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CLIとenvに共通の鍵参照preflightが欠落、directory、repository内、差替えを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("CLIとenvに共通の鍵参照preflightが欠落、directory、repository内、差替えを拒否する", (t) => {
   const { root, privateKeyPath, prohibitedRoot } = fixture(t);
   for (const invalidPath of [
@@ -148,6 +194,18 @@ test("CLIとenvに共通の鍵参照preflightが欠落、directory、repository�
   );
 });
 
+/**
+ * preflightは秘密鍵byteを読まず、読取り途中の失敗では確保済みbyteを消去するを検証する。
+ *
+ * @responsibility preflightは秘密鍵byteを読まず、読取り途中の失敗では確保済みbyteを消去するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus preflightは秘密鍵byteを読まず、読取り途中の失敗では確保済みbyteを消去するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("preflightは秘密鍵byteを読まず、読取り途中の失敗では確保済みbyteを消去する", (t) => {
   const { pair, privateKeyPath, prohibitedRoot } = fixture(t);
   const expectedPublicKeySpki = createPublicKey(pair.privateKey).export({
@@ -240,7 +298,31 @@ test("preflightは秘密鍵byteを読まず、読取り途中の失敗では確�
   }
 });
 
+/**
+ * hidden inputはTTYを要求し、取消とEOFで端末状態を必ず復元するを検証する。
+ *
+ * @responsibility hidden inputはTTYを要求し、取消とEOFで端末状態を必ず復元するの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus hidden inputはTTYを要求し、取消とEOFで端末状態を必ず復元するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("hidden inputはTTYを要求し、取消とEOFで端末状態を必ず復元する", async () => {
+  /**
+   * terminalのTest準備責務を実行する。
+   *
+   * @responsibility terminalがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace AIT-IT-008
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus terminalを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   */
   function terminal(
     isInputTTY = true,
     isOutputTTY = true,
@@ -251,6 +333,18 @@ test("hidden inputはTTYを要求し、取消とEOFで端末状態を必ず復�
     const rawModes: boolean[] = [];
     const calls: string[] = [];
     let pauseCount = 0;
+    /**
+     * observeのTest準備責務を実行する。
+     *
+     * @responsibility observeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+     * @trace AIT-IT-008
+     * @precondition 呼出し元Test Caseが必要な入力を渡す。
+     * @stimulus observeを呼び出す。
+     * @observation 返却値、生成fixtureまたは観測値を取得する。
+     * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+     * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+     * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+     */
     const observe = (operation: string) => {
       calls.push(operation);
       if (failures.has(operation)) throw new Error(`injected_${operation}`);
@@ -362,6 +456,18 @@ test("hidden inputはTTYを要求し、取消とEOFで端末状態を必ず復�
   }
 });
 
+/**
+ * env fileは鍵Pathの構文と一意性だけを解決し、鍵の存在確認を再定義しないを検証する。
+ *
+ * @responsibility env fileは鍵Pathの構文と一意性だけを解決し、鍵の存在確認を再定義しないの合否判定を所有する。
+ * @trace AIT-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus env fileは鍵Pathの構文と一意性だけを解決し、鍵の存在確認を再定義しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 test("env fileは鍵Pathの構文と一意性だけを解決し、鍵の存在確認を再定義しない", (t) => {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-artifact-signing-env-"),

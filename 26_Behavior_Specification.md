@@ -93,7 +93,7 @@ Related:
 
 ## 変換契約（Transformation Contract）
 
-UX DefinitionとIA Definitionが持つ振る舞い上の義務、検証上の義務および品質上の懸念を、検証可能な振る舞いへ変換する。UIテーマ（UI Theme）、操作パターン（Interaction Pattern）またはUI部品状態（UI Component State）は、UI／SPEC対応レビューで照合する候補であり、SPECの正式入力として振る舞いを決めない。必要に応じて次を定義する。
+UX DefinitionとIA Definitionが持つ振る舞い上の義務、検証上の義務および品質上の懸念を、検証可能な振る舞いへ変換する。UIテーマ（UI Theme）、操作パターン（Interaction Pattern）またはUI部品状態（UI Component State）は、UI／SPEC対応レビューで照合する候補であり、SPECの正式入力として振る舞いを決めない。次の各項目を評価し、適用する項目を定義する。非該当は理由を、未解決は確認先と再評価契機を残す。
 
 - アクター / 決定権限、契機、事前条件
 - 入力 / 妥当性確認、選択肢 / 既定値 / 実効値
@@ -178,7 +178,7 @@ SPECはUIと独立して`SPEC Ready`へ到達できる。UI／SPEC対応レビ�
           +--cancel-------> [C: Cancelled／Cleanup]
 ```
 
-`[A:]`はActor、`[S:]`は振る舞い所有System、`{state:}`はCanonicalな状態、`request／success／failure／cancel`は契約上の遷移、`[R:]`は観測可能な結果、`[E:]`は失敗・回復、`[C:]`は取消と終了後条件を表す。Sequenceの矢印は要求発行、受理、Effect成立、観測およびsettlementを必要に応じて分ける。図は条件、Authority、状態値またはEffectを新設する正本ではなく、振る舞い表と受入条件の投影である。
+`[A:]`はActor、`[S:]`は振る舞い所有System、`{state:}`はCanonicalな状態、`request／success／failure／cancel`は契約上の遷移、`[R:]`は観測可能な結果、`[E:]`は失敗・回復、`[C:]`は取消と終了後条件を表す。Sequenceでは要求発行、受理、Effect成立、観測およびsettlementを全数評価し、統合する段階には理由を記録する。図は条件、Authority、状態値またはEffectを新設する正本ではなく、振る舞い表と受入条件の投影である。
 
 工程出口では、図の全分岐を正常、準正常、異常、取消、回復および利用側結果へ対応づける。UIを持つ対象ではUI／SPEC対応レビューを完了し、直接UIがない対象は公開結果または利用側契約との対応を示す。図で露出した分岐・状態・Effectは検証義務または理由付き非該当へ結ぶ。
 

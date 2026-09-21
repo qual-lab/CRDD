@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:git-object-reader-integrationの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:git-object-reader-integrationが所有する検証責務を実行する。
+ * @trace RFD-IT-012
+ * @level IT
+ * @scope git、object、reader
+ * @boundary Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -34,6 +44,18 @@ import {
   mutateGitPackedObjectFixture,
 } from "../fixtures/git-packed-object-fixture.ts";
 
+/**
+ * materializeProtectedGitCommitTreeCandidateのTest準備責務を実行する。
+ *
+ * @responsibility materializeProtectedGitCommitTreeCandidateがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RFD-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus materializeProtectedGitCommitTreeCandidateを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 function materializeProtectedGitCommitTreeCandidate(candidate: unknown) {
   return materializeVersionControlTree(
     candidate,
@@ -42,6 +64,18 @@ function materializeProtectedGitCommitTreeCandidate(candidate: unknown) {
 }
 
 for (const kind of ["base", "ofs", "ref"] as const) {
+  /**
+   * Git生成pack-only ${kind}は公開3APIで完全bytesを復元するを検証する。
+   *
+   * @responsibility Git生成pack-only ${kind}は公開3APIで完全bytesを復元するの合否判定を所有する。
+   * @trace RFD-IT-012
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus Git生成pack-only ${kind}は公開3APIで完全bytesを復元するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+   */
   test(`Git生成pack-only ${kind}は公開3APIで完全bytesを復元する`, {
     skip: process.platform !== "win32",
   }, (t) => {
@@ -114,6 +148,18 @@ for (const mutation of [
   "result-size",
   "object-id",
 ] as const) {
+  /**
+   * Git pack破損 ${mutation}は公開読取り・投影で拒否するを検証する。
+   *
+   * @responsibility Git pack破損 ${mutation}は公開読取り・投影で拒否するの合否判定を所有する。
+   * @trace RFD-IT-012
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus Git pack破損 ${mutation}は公開読取り・投影で拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+   */
   test(`Git pack破損 ${mutation}は公開読取り・投影で拒否する`, {
     skip: process.platform !== "win32",
   }, (t) => {
@@ -158,6 +204,18 @@ for (const mutation of [
   });
 }
 
+/**
+ * Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合するを検証する。
+ *
+ * @responsibility Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合するの合否判定を所有する。
+ * @trace RFD-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 test("Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合する", () => {
   const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
   const layout = resolveRepositoryGitLayout(repositoryRoot);
@@ -177,6 +235,18 @@ test("Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合
   assert.equal(exact?.repositoryPathReported, false);
 });
 
+/**
+ * 現行CRDDのpacked objectから明示Read Projectionだけを隔離workspaceへ再構成するを検証する。
+ *
+ * @responsibility 現行CRDDのpacked objectから明示Read Projectionだけを隔離workspaceへ再構成するの合否判定を所有する。
+ * @trace RFD-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 現行CRDDのpacked objectから明示Read Projectionだけを隔離workspaceへ再構成するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 test("現行CRDDのpacked objectから明示Read Projectionだけを隔離workspaceへ再構成する", (t) => {
   const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
   const owned = createOwnedOperationDirectories();

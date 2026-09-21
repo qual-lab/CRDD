@@ -7,15 +7,123 @@
       "symbolId": "platform-access.native-entry",
       "kind": "module",
       "path": "src/main.rs",
-      "archIds": ["ARCH-000004", "ARCH-000008", "ARCH-000011"]
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008",
+        "ARCH-000011"
+      ]
     },
     {
-      "symbolId": "platform-access.cli-integration",
+      "symbolId": "platform-access.test.unit.protocol",
+      "kind": "test-suite",
+      "path": "src/protocol.rs",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-016"
+      ],
+      "verifies": [
+        "platform-access.native-entry"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.unit.docker-repair",
+      "kind": "test-suite",
+      "path": "src/docker_repair.rs",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "platform-access.native-entry"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.unit.main",
+      "kind": "test-suite",
+      "path": "src/main.rs",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "platform-access.native-entry"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.unit.windows",
+      "kind": "test-suite",
+      "path": "src/windows.rs",
+      "qaIds": [
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "RDL-UT-005"
+      ],
+      "verifies": [
+        "platform-access.native-entry"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.integration.cli",
       "kind": "test-suite",
       "path": "tests/cli.rs",
-      "qaIds": ["QA-000006", "QA-000008"],
-      "localTestIds": ["ERB-IT-001", "ERB-ST-009", "RDL-ST-002"],
-      "verifies": ["platform-access.native-entry"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001"
+      ],
+      "verifies": [
+        "platform-access.native-entry"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.unit.docker-authenticode",
+      "kind": "test-suite",
+      "path": "src/docker_authenticode.rs",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "platform-access.native-entry"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.unit.windows-directory",
+      "kind": "test-suite",
+      "path": "src/windows_directory.rs",
+      "qaIds": [
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "RDL-UT-005"
+      ],
+      "verifies": [
+        "platform-access.native-entry"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.unit.windows-owned-child",
+      "kind": "test-suite",
+      "path": "src/windows_owned_child.rs",
+      "qaIds": [
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "RDL-UT-005"
+      ],
+      "verifies": [
+        "platform-access.native-entry"
+      ]
     }
   ]
 }
