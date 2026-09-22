@@ -122,9 +122,11 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 1. 表示された公式Claude認証手順を外部system browserで完了する。
 2. `status: completed`、`authenticationConfirmed: true`、`cleanupConfirmed: true`を同じ結果で確認する。
 3. 認証用URL、code、tokenまたはProvider Home実Pathを記録・貼付しない。
-4. `blocked`、事後Probe不成立またはcleanup不明では自動再試行せず、固定理由を保持する。
+4. `blocked`でも`recoveryId`が返った場合は、そのIDを保持する。資源状態が不明なまま記録を手動削除・改名しない。
+5. Process loss後は同じ入口をfresh Processから一度起動する。同じProvider Home Identityから同じRecovery IDを導き、旧資源のexact cleanupを認証Effectより先に行う。
+6. `blocked`、事後Probe不成立、cleanup不明または`manualRecoveryRequired: true`では自動再試行せず、固定理由を保持する。
 
-この入口はClaude Max専用であり、Codex、API key、Console API課金、Repository、Workspaceまたは外部送信Taskを扱わない。
+この入口はClaude Max専用であり、Codex、API key、Console API課金、Repository、Workspaceまたは外部送信Taskを扱わない。同じProvider Homeへの別Process実行はKernel LockでEffect前に拒否する。Docker daemon停止、権限不足またはTransport障害を資源不存在として扱わない。
 
 
 ## 正常なDockerで作成結果不明のTaskを回復するとき

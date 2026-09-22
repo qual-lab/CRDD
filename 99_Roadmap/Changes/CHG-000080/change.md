@@ -12,11 +12,11 @@
 |---|---|
 | 現在の変更状態 | Docker Setup 8段階の固定診断を署名候補へ反映し、Recovery MatrixをPassした。4経路E2Eは最初のClaude経路で`docker_setup_start_subscription_auth_probe_attached_failed`までexactに到達した。最小単位の確認により、選択UserのCRDD専用Claude Provider HomeにあるSubscription OAuthの失効を確認したため、通常Taskから分離したHuman-only再認証LifecycleをGate 9へ追加した |
 | Phase／Gate適用判断 | `Applicable`: Architecture、実装、Quality、MigrationおよびReality Auditを一括変更せず、局所Gateで成立確認する必要がある |
-| 現在Phase | `Phase 9 — Signed E2E／Release Gate`: Phase 2／4／7／8の独立再レビューはBlocking Finding 0でPassした。Canonical設計集合154件は維持し、v0.21対象を128件、v0.22移管を26件へ分けた。v0.21の未観測22件（Hybrid 12、Manual 10）は署名E2Eと人間確認で処置する。移管26件は既存Prototype Relation 10件と未観測16件を区別し、いずれも新CapabilityのPass・実装済みへ変更しない |
+| 現在Phase | `Phase 9 — Signed E2E／Release Gate`: Phase 2／4／7／8の独立再レビューはBlocking Finding 0でPassした。Claude再認証Lifecycleの検証義務を加えたCanonical設計集合155件のうち、v0.21対象を129件、v0.22移管を26件へ分けた。v0.21の未観測23件（Automated 1、Hybrid 12、Manual 10）は局所試験、署名E2Eと人間確認で処置する。移管26件は既存Prototype Relation 10件と未観測16件を区別し、いずれも新CapabilityのPass・実装済みへ変更しない |
 | 現在Gate | `Passed: Gate 0〜8`。`In Progress: Gate 9`。再署名候補のRecovery MatrixはPassした。4経路E2Eは最初のforward経路を`docker_setup_command_failed`で安全停止し、cleanup確認済み、Recovery不要、状態不明なしを保持した。認証Probe単体は同じ固定Image、Networkなし、読取専用Mountで成功した。次の再実行で失敗段階を直接識別できるよう、Docker Setup 8用途をexact固定理由へ分離し、独立レビュー、再署名および4経路E2Eをやり直す |
-| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 154件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 223件の責務別Local Item接続、Optionality Audit全数処置。独立再レビューはBlocking Finding 0、Coordinatorは2015件中2010 Pass・失敗0・5 Explicit Skip、Windows Process Gateは8／8 Pass、Checker全回帰は363／363 Pass |
-| 未成立 | v0.21未観測Local Item 22件（Automated 0、Hybrid 12、Manual 10）のうち署名E2Eまたは人間受入を必要とするEvidence処置と、Gate 9のRelease Readiness判定。v0.22移管26件は同版の実装・実境界・人間受入で再開する |
-| 次のGate | Human-only Claude再認証入口が固定Image、限定Proxy、専用Provider Home、Repository非接続、事後Probeおよびexact cleanupを満たすことを局所試験と独立レビューで確認する。Coordinatorを再署名し、人が一度再認証した後、Recovery Matrixと4経路E2Eを同じ固定候補で再実行する。結果を22件のEvidence義務へ対応付け、残る人間受入をRelease判断へ提示する |
+| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 155件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 223件の責務別Local Item接続、Optionality Audit全数処置。既存範囲の独立再レビューはBlocking Finding 0、Coordinatorは2015件中2010 Pass・失敗0・5 Explicit Skip、Windows Process Gateは8／8 Pass、Checker全回帰は363／363 Pass。Claude再認証の局所契約試験6件もPassした |
+| 未成立 | v0.21未観測Local Item 23件（Automated 1、Hybrid 12、Manual 10）のうち、現在候補の独立レビュー、署名E2Eまたは人間受入を必要とするEvidence処置と、Gate 9のRelease Readiness判定。v0.22移管26件は同版の実装・実境界・人間受入で再開する |
+| 次のGate | Human-only Claude再認証入口が固定Image、限定Proxy、専用Provider Home、Repository非接続、Docker CLI信頼、Provider Home排他、Effect前耐久Intent、fresh Process回復、tri-state不存在観測、事後Probeおよびexact cleanupを満たすことを独立レビューで確認する。Coordinatorを再署名し、人が一度再認証した後、Recovery Matrixと4経路E2Eを同じ固定候補で再実行する。結果を23件のEvidence義務へ対応付け、残る人間受入をRelease判断へ提示する |
 
 ## 1. 変更の目的
 
@@ -255,7 +255,7 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 | Project Runtime | `project-runtime.acceptance-decision` | `PRL-UT-007`〜`PRL-UAT-010` | 0 |
 | Project Runtime | `project-runtime.public-application` | `PRL-ST-001`、`PRL-IT-012`、`EST-IT-001` | 0 |
 
-8件の代表導出キーで変換方法を固定した後、18のArchitecture Definitionと18の詳細設計領域へ展開した。REQ 36件、UX 32件、IA 22件、UI 20件、SPEC 29件およびARCH 18件をQuality Analysisで全数処置し、154の一意なLocal Itemへ統合した。各工程の`Required - Defined`、Level不一致およびRelation不明は0件である。Architecture DetailsのLevel／外部境界段階不足もChecker上0件であり、初回に検出した試験段階不足35件・外部境界段階不足17件を期待値緩和せず解消した。
+8件の代表導出キーで変換方法を固定した後、18のArchitecture Definitionと18の詳細設計領域へ展開した。REQ 36件、UX 32件、IA 22件、UI 20件、SPEC 29件およびARCH 18件をQuality Analysisで全数処置し、155の一意なLocal Itemへ統合した。各工程の`Required - Defined`、Level不一致およびRelation不明は0件である。Architecture DetailsのLevel／外部境界段階不足もChecker上0件であり、初回に検出した試験段階不足35件・外部境界段階不足17件を期待値緩和せず解消した。
 
 ### 影響ファイル
 
@@ -508,6 +508,7 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 - [`07_Quality/01_Quality_Center.md`](../../../07_Quality/01_Quality_Center.md)
 - [`07_Quality/04_Quality_Integration.md`](../../../07_Quality/04_Quality_Integration.md)
 - [`07_Quality/05_Current_Implementation_Reality_Audit.md`](../../../07_Quality/05_Current_Implementation_Reality_Audit.md)
+- [`07_Quality/Analysis/ARCH/quality_analysis.md`](../../../07_Quality/Analysis/ARCH/quality_analysis.md)
 - [`07_Quality/Definitions/QA-000001/quality_definition.md`](../../../07_Quality/Definitions/QA-000001/quality_definition.md)
 - [`07_Quality/Definitions/QA-000006/quality_definition.md`](../../../07_Quality/Definitions/QA-000006/quality_definition.md)
 - [`07_Quality/Registry/test-catalog.json`](../../../07_Quality/Registry/test-catalog.json)
@@ -587,7 +588,7 @@ ARCH-ID ──→ Quality Local Item ──→ Test Case／Helper／Fixture
 | Production Named Symbol | Summary、`@responsibility`、実在`ARCH-*`への`@trace` | Checkerの構造Gateと負例を実装し、現行Production母集団の構造・実在Trace検査をPassした。意味妥当性も独立再レビューで確認し、Blocking Finding 0でPassした |
 | Test File／Case／Helper／Fixture | 実在Quality Local Itemへの`@trace` | Test Catalog 223件を全15 Manifest Ownerへ接続した。FileはCase／Helper Relationの和集合、Caseは対応する1件、Helperは支援する1件以上を保持し、Local Item実在、Owner、試験段階および`verifies`をCheckerで照合して363／363 Passした |
 | Architecture Details | 7つのImplementation Structure観点 | 18領域とTemplateへ反映済み |
-| Quality Local Item | Architecture Meaning、試験段階、観測境界 | 154件へ細分化し、Required／Defined、試験段階および外部境界段階の差分0を確認済み |
+| Quality Local Item | Architecture Meaning、試験段階、観測境界 | 155件へ細分化し、Required／Defined、試験段階および外部境界段階の差分0を確認済み |
 
 Production母集団へGateを適用した初回観測では、`artifact-signing`を除く既存PackageにHeaderまたはTrace不足が残った。各PackageのArchitecture所有責務へ接続して是正し、現在の構造GateはPassした。接続不能なSymbolをDocumentation例外へ退避しない原則を維持し、独立再レビューでも意味妥当性を確認した。
 

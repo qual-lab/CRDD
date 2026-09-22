@@ -10,8 +10,8 @@
 
 | 項目 | 件数 |
 |---|---:|
-| Local Item数 | 154 |
-| 内訳 | 154件をCanonical化済み。実装・Test・Evidenceとの照合は本書の各判定で分ける |
+| Local Item数 | 155 |
+| 内訳 | 155件をCanonical化済み。実装・Test・Evidenceとの照合は本書の各判定で分ける |
 
 ## 1. 目的
 
@@ -57,7 +57,7 @@
 
 | 対象 | 状態 | 理由 | 次の処置 |
 |---|---|---|---|
-| 13検証目標のLocal Item | Quality Design Ready | 157件のMapping、Source ID固有条件および154 Local ItemとのRelationを固定した | Pilotの17意味に接続したLocal Itemから照合する |
+| 13検証目標のLocal Item | Quality Design Ready | 157件のMapping、Source ID固有条件および155 Local ItemとのRelationを固定した | Pilotの17意味に接続したLocal Itemから照合する |
 | 現行Source／Test | 全Subsystem初回照合済み | 18領域を実装所有、Symbol Relation、Test Catalog、局所試験、工程／統制所有へ分けた。実装を持つ12領域の静的確認は全てPassした | `Partial`のRelation不足と実装欠落を所有変更へ返す |
 | 実行結果／Evidence | 全Subsystem局所実行済み | 12 TypeScript packageとPlatform Accessの局所試験を実行した。CoordinatorとCheckerではSandboxまたは命名規則に起因する不一致を分離した | 是正後の局所再実行と独立レビューを対象Commitへ結合する |
 
@@ -236,7 +236,7 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 
 ## 12. Relation是正結果
 
-現在のCanonical設計集合は、13件のQuality Definitionが所有する154個の一意なLocal Itemである。Test Sourceの`symbol.json`が所有する正方向Relationは120件に存在する。このうち116件を完成Evidenceへ算入し、4件はRelationを対象指示として保持したまま非完成・非Evidenceと判定する。Relationなし34件と非Evidence Relation 4件を合わせ、品質判定上の未観測は38件である。Test Symbol Relationは「その試験がLocal Itemを対象にする」ことを表すだけで、単独では観測済みEvidenceを意味しない。v0.21のRelease対象はGroup Aの128件で、106件が観測済み、22件が未観測（Hybrid 12件、Manual 10件）である。v0.22へ移管した26件は、既存Prototype Relation 10件と未観測16件を区別し、いずれも新CapabilityのPass、実装済みまたはRelease可能へ変更しない。
+現在のCanonical設計集合は、13件のQuality Definitionが所有する155個の一意なLocal Itemである。Test Sourceの`symbol.json`が所有する正方向Relationは121件に存在する。このうち116件を完成Evidenceへ算入し、5件はRelationを対象指示として保持したまま非完成・非Evidenceと判定する。Relationなし34件と非Evidence Relation 5件を合わせ、品質判定上の未観測は39件である。Test Symbol Relationは「その試験がLocal Itemを対象にする」ことを表すだけで、単独では観測済みEvidenceを意味しない。v0.21のRelease対象はGroup Aの129件で、106件が観測済み、23件が未観測（Automated 1件、Hybrid 12件、Manual 10件）である。v0.22へ移管した26件は、既存Prototype Relation 10件と未観測16件を区別し、いずれも新CapabilityのPass、実装済みまたはRelease可能へ変更しない。
 
 | 非完成・非Evidence Relation | Relationを保持する理由 | Evidenceへ算入しない理由 |
 |---|---|---|

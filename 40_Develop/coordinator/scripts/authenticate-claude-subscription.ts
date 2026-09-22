@@ -28,20 +28,25 @@ if (process.stdin.isTTY !== true || process.stdout.isTTY !== true) {
     const consumed = consumeRuntimeOwnedProviderHomeObservationCapability(
       observed.observationCapability,
     );
+    const stableLogicalHomeBindingHash =
+      consumed?.stableLogicalHomeBindingHash ?? null;
     const source = consumed
       ? consumeRuntimeOwnedProviderHomeMountSourceCapability(
           consumed.providerHomeMountSourceCapability,
           "claude",
         )
       : null;
-    if (!source) {
+    if (!source || !stableLogicalHomeBindingHash) {
       process.stderr.write("claude_authentication_provider_home_unavailable\n");
       process.exitCode = 2;
     } else {
       process.stdout.write(
         "Claude Maxの認証画面を開きます。表示された公式手順だけを完了してください。秘密値はCRDDへ保存・表示しません。\n",
       );
-      const result = await authenticateClaudeSubscription(source);
+      const result = await authenticateClaudeSubscription(
+        source,
+        stableLogicalHomeBindingHash,
+      );
       process.stdout.write(`${JSON.stringify(result)}\n`);
       process.exitCode = result.status === "completed" ? 0 : 2;
     }

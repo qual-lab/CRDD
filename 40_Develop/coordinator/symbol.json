@@ -1521,10 +1521,10 @@
       "kind": "test-suite",
       "path": "tests/unit/claude-subscription-authentication.contract.test.ts",
       "qaIds": [
-        "QA-000003"
+        "QA-000006"
       ],
       "localTestIds": [
-        "PRL-UT-001"
+        "ERB-UT-016"
       ],
       "verifies": [
         "coordinator.source.src.security.claude.subscription.authentication"

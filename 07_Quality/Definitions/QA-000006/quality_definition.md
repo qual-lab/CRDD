@@ -26,7 +26,7 @@ Quality ID: `QA-000006`
 | [SPEC-000009](../../../05_SPEC/Definitions/SPEC-000009/spec_definition.md) | `spec-000009.qa-000006` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | 正常: 原因未確定と確定済みを分け、Providerごとの差を保持する。境界: 診断対象内／対象外、原因確定／未確定を分け、診断から修復Effectを発行しない。失敗: 一つの失敗から全機能停止や原因を断定しない。観測不能: 不明を正常・不存在・完了へ丸めず、実際の副作用「許可された小規模Probeだけを実行し、Provider仕事や修復Effectを発行しない」と矛盾する結果を返さない。失敗: 一つの失敗から全機能停止や原因を断定しない。副作用: 許可された小規模Probeだけを実行し、Provider仕事や修復Effectを発行しない。本SPEC固有の回復経路は設けず、失敗理由と安全な戻り先を返す | IT／ST | `ERB-IT-004`、`ERB-ST-005` |
 | [SPEC-000015](../../../05_SPEC/Definitions/SPEC-000015/spec_definition.md) | `spec-000015.qa-000006` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | 正常: コード変更なしで構成を更新でき、選択理由と適用範囲を確認できる。境界: 許可値／未知値、利用可能／利用不能を分け、不正構成を暗黙fallbackしない。失敗: 未知モデルや不正構成を暗黙fallbackせず、構成変更を実行許可にしない。観測不能: 不明を正常・不存在・完了へ丸めず、実際の副作用「採用時だけ構成を保存する。選択はProvider実行Effectを発行しない」と矛盾する結果を返さない。失敗: 未知モデルや不正構成を暗黙fallbackせず、構成変更を実行許可にしない。副作用: 採用時だけ構成を保存する。選択はProvider実行Effectを発行しない。本SPEC固有の回復経路は設けず、失敗理由と安全な戻り先を返す | IT／ST | `ERB-IT-004`、`ERB-ST-005`、`ERB-IT-006` |
 | [ARCH-000008](../../../06_Architecture/Definitions/ARCH-000008/architecture_definition.md) | `arch-000008.qa-000006` | Architecture Definition（責務・境界・状態・故障） | 境界ごとのavailable／blocked／unknownと相関IDを返し、診断成功をTask成功へ読み替えない。観測手段に許可された最小Probeだけを使う。所有する責務: 外部境界ごとの到達、受理、開始、結果搬送、終了状態の観測。所有しない責務: Provider Task、Docker修復、再起動、結果採用。主な外部境界: OS Process、Docker、Network、外部CLI。SPEC-000009: 一つの失敗から全機能停止や原因を断定しない。Effect: 許可された小規模Probeだけを実行し、Provider仕事や修復Effectを発行しない。入力SPECが固有Recoveryを定義しない場合、Architectureから追加しない。結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める | IT／ST | `ERB-IT-004`、`ERB-IT-001`、`ERB-ST-005` |
-| [ARCH-000010](../../../06_Architecture/Definitions/ARCH-000010/architecture_definition.md) | `arch-000010.qa-000006` | Architecture Definition（責務・境界・状態・故障） | Toolのavailable／unavailable／unverified／blockedと、モデル構成のvalid／invalid／selectedを分ける。コード埋込みのモデル一覧ではなく検証済み外部構成から選ぶ。所有する責務: Repositoryに適合するTool能力の発見、AIモデル構成の検証・選択理由。所有しない責務: Tool実行、Provider利用可能性の捏造、Repository Binding。主な外部境界: Repository設定、Tool Package、Provider Preflight。SPEC-000014: Tool一覧の閲覧だけで実行Authorityを発行しない。Effect: 読取り専用で候補を返し、Toolまたは配布物を実行・変更しない。SPEC-000015: 未知モデルや不正構成を暗黙fallbackせず、構成変更を実行許可にしない。Effect: 採用時だけ構成を保存する。選択はProvider実行Effectを発行しない。入力SPECが固有Recoveryを定義しない場合、Architectureから追加しない。結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める | IT／ST | `ERB-IT-004`、`ERB-ST-005`、`ERB-IT-003`、`ERB-IT-006` |
+| [ARCH-000010](../../../06_Architecture/Definitions/ARCH-000010/architecture_definition.md) | `arch-000010.qa-000006` | Architecture Definition（責務・境界・状態・故障） | Toolのavailable／unavailable／unverified／blockedと、モデル構成のvalid／invalid／selectedを分ける。コード埋込みのモデル一覧ではなく検証済み外部構成から選ぶ。所有する責務: Repositoryに適合するTool能力の発見、AIモデル構成の検証・選択理由。所有しない責務: Tool実行、Provider利用可能性の捏造、Repository Binding。主な外部境界: Repository設定、Tool Package、Provider Preflight。SPEC-000014: Tool一覧の閲覧だけで実行Authorityを発行しない。Effect: 読取り専用で候補を返し、Toolまたは配布物を実行・変更しない。SPEC-000015: 未知モデルや不正構成を暗黙fallbackせず、構成変更を実行許可にしない。Effect: 採用時だけ構成を保存する。選択はProvider実行Effectを発行しない。入力SPECが固有Recoveryを定義しない場合、Architectureから追加しない。結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める | UT／IT／ST | `ERB-UT-016`、`ERB-IT-004`、`ERB-ST-005`、`ERB-IT-003`、`ERB-IT-006` |
 ### Architecture詳細設計入力
 
 | 詳細設計領域 | 受け取る成立条件 |
@@ -63,7 +63,7 @@ Quality ID: `QA-000006`
 
 | 条件区分 | 適用 | 対応Local Item | 判断理由 |
 |---|---|---|---|
-| 正常 | Required | ERB-IT-001 | 通常の成立経路を独立して確認する。 |
+| 正常 | Required | ERB-IT-001、ERB-UT-016 | 通常の成立経路を独立して確認する。 |
 | 境界 | Required | ERB-IT-002、ERB-IT-006、ERB-UAT-007、ERB-IT-008、ERB-IT-010、ERB-ST-015 | 値、Authority、情報、責務または利用者判断の境界を確認する。 |
 | 準正常 | Required | ERB-IT-004、ERB-ST-005 | 継続可能な分岐、保留、観測不能または診断状態を成功へ畳まない。 |
 | 異常 | N/A | - | 独立した異常条件を持たない。 |
@@ -102,6 +102,7 @@ Quality ID: `QA-000006`
 | `ERB-ST-013` | 回復 | ST | CROS Handoff Scenario | Source Runtime→Handoff→Destination Runtime | System/E2E | 同じContext Identity／Revision、切断、Destination拒否、Authority差 | SourceからDestinationへContextを移送し再開する | 両Runtime状態、Identity、Revision、Authority差、結果を記録する | 未確認Context補完やAuthority昇格なしに同じIdentityで再開する | Source／Destination状態、結果、判定 | Source二重実行0 | Automated |
 | `ERB-IT-014` | 回復 | IT | Docker Repair Boundary | Platform Adapter→Docker Desktop／Engine Observer | Related 2 Blocks | stale socket、Engine停止、restart受理、ready未確認 | 修復要求を発行しEngine状態を観測する | socket処置、restart要求、Engine観測、終了状態を記録する | Engine readyのfresh観測前に完了を返さない | 入力、要求、観測、終了状態、判定 | 未確認時は回復義務保持 | Automated |
 | `ERB-ST-015` | 境界 | ST | Boundary Progression | 局所Gate→直接境界→Lifecycle→公開入口 | System/E2E | 段階別結果と下位未Pass／未実行反例 | 下位Gate成立時だけ次の境界を実行する | 各段階の開始条件、結果、未開始理由を記録する | 下位未成立のまま上位境界を開始せず公開入口まで順序を保つ | 段階結果、実行順、判定 | 禁止上位Effect 0 | Automated |
+| `ERB-UT-016` | 正常 | UT | Authentication／Lifecycle Contract | Claude再認証Plan→Provider Home排他→耐久Intent→認証Probe→exact cleanup | N/A | 固定Provider Home Identity、正常・途中失敗・観測不能・競合・既存Intentの各固定入力 | 再認証Lifecycleを依存差替え境界で実行する | mount、実行順、Probe、資源不存在、回復Identity、後発Effect件数を記録する | Repository／Workspace／API keyを接続せず、Probeと全資源不存在が揃った場合だけ完了し、競合・観測不能では追加Effect 0で同じ回復Identityを保持する | ERB-UT-016、固定入力、実行順、結果理由、回復Identity、Effect件数および終了後資源状態を保存する。Path、Credential、Secret、生Provider出力は保存しない | 正常時は所有資源と耐久Intentが不存在。未確認時は同じ回復Identityを保持 | Automated |
 
 ## Semantic Coverage Pilot
 
