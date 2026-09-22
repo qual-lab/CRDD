@@ -64,7 +64,7 @@ Node版・用途・入出力の不一致は対象入口を読み込む前に固�
 
 既存入口の署名、Repository、Authority、同意、取消、cleanup、結果と終了コードを維持する。共通入口はそれらを事前成立させるAuthorityではない。接続後の未処理例外は終了コード2と状態未確認の説明を返し、成功結果や回収確認を生成しない。既存の直接入口は内部呼出しと既存利用のため保持する。人向け手順は共通入口を優先する。
 
-Local Personal一般Taskは永続的なManaged／Hardened Runtime状態を前提にしない。公開CLIは`task`、`doctor`、`candidate`、`capabilities`だけであり、削除済みの有効化・無効化・準備commandを互換入口、失敗専用入口または将来予約として残さない。
+Local Personal一般Taskは永続的なManaged／Hardened Runtime状態を前提にしない。一般Taskの公開CLIは`task`、`doctor`、`candidate`、`capabilities`だけである。これらとは別に、失効したClaude専用Provider Homeを人が復旧する署名済み保守入口`authenticate-claude`を持つ。削除済みの有効化・無効化・準備commandを互換入口、失敗専用入口または将来予約として残さない。
 
 ### 検証結果の保存
 
@@ -229,7 +229,7 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 
 - Local Personal一般Taskでは、selected-user binder、Mount Grant、Provider eligibility、Subscription OAuth preflight、固定Docker CLI Effect executor、限定Egressおよびdurable Recoveryを各操作へ接続する。
 - 永続的なRuntime有効化、共有Authority Root、Provisioning記録またはRepository単位のActivation Recordを、利用者が事前に作成する契約は持たない。
-- 公開CLIは`task`、`doctor`、`candidate`と機械可読な`capabilities --json`に限定する。`activate`、`disable`、`provision`、`doctor --enable-runtime`および`--runtime-root`は公開構文ではない。
+- 一般Taskの公開CLIは`task`、`doctor`、`candidate`と機械可読な`capabilities --json`に限定する。署名済み保守入口`authenticate-claude`は、direct TTY、選択UserのClaude専用Provider Home、固定Image、限定Proxyおよび事後認証Probeへ閉じ、Repository、Workspace、Task Authorityまたは自動再認証へ接続しない。`activate`、`disable`、`provision`、`doctor --enable-runtime`および`--runtime-root`は公開構文ではない。
 - `capabilities --json`は現在対応するLocal Personal Profileだけを返し、未実装候補や将来構想を利用可能な入口として列挙しない。
 - 将来、常設Serverや複数Repository Bindingに永続状態が必要になった場合も、実在するconsumerと利用者成果から新しい責務境界を設計する。
 - 未署名の開発branch、manifest欠落、改変checkoutまたは固定Native成果物欠落はEffect前に停止する。公式Release tagへ固定し、同梱manifestと必要なNative成果物を検証できるclone／submoduleは正式配布Rootになり得る。

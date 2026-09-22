@@ -111,6 +111,21 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 
 対話境界を、PowerShellのtext pipeline、`ConvertTo-Json`、一時request file、長い`Start-Process ... -Command`または入れ子Shellへ再構成してはならない。Windows PowerShell 5.1とPowerShell 7ではprocess標準入力API、既定encodingおよび引数再構成が異なり、正しいTaskが実行前に壊れるためである。Release鍵生成／署名は既存のdirect TTY command、外部送信承認はRuntime所有のconsole challenge、OAuth bootstrapは公式Provider CLIと外部system browserをそれぞれ唯一の対話入口とする。対話端末を取得できない場合は別搬送へfallbackせず停止する。
 
+## Claude Max専用Provider Homeを再認証するとき
+
+通常Taskが`provider_subscription_auth_not_confirmed`またはClaude認証Probeの固定失敗理由で停止し、専用Provider HomeのOAuth失効を人が確認した場合だけ使用する。通常Taskから自動起動せず、署名済み配布Rootの共通Launcherをdirect TTYから実行する。
+
+```powershell
+& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\launch.ts" authenticate-claude
+```
+
+1. 表示された公式Claude認証手順を外部system browserで完了する。
+2. `status: completed`、`authenticationConfirmed: true`、`cleanupConfirmed: true`を同じ結果で確認する。
+3. 認証用URL、code、tokenまたはProvider Home実Pathを記録・貼付しない。
+4. `blocked`、事後Probe不成立またはcleanup不明では自動再試行せず、固定理由を保持する。
+
+この入口はClaude Max専用であり、Codex、API key、Console API課金、Repository、Workspaceまたは外部送信Taskを扱わない。
+
 
 ## 正常なDockerで作成結果不明のTaskを回復するとき
 

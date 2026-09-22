@@ -50,6 +50,7 @@ test("共通Launcherの実行入口を一つの正本から解決する", () => 
     "verify-recovery": "../scripts/verify-signed-recovery-matrix.ts",
     "sign-release": "../scripts/sign-release-manifest.ts",
     "promote-release": "../scripts/promote-release-manifest.ts",
+    "authenticate-claude": "../scripts/authenticate-claude-subscription.ts",
   });
   assert.equal(Object.isFrozen(COORDINATOR_LAUNCH_ENTRIES), true);
 });
@@ -67,7 +68,12 @@ test("共通Launcherの実行入口を一つの正本から解決する", () => 
  * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
  */
 test("用途ごとの入力と端末条件を区別し、内部Recovery引数を公開しない", () => {
-  for (const mode of ["interactive", "verify-routes", "sign-release"]) {
+  for (const mode of [
+    "interactive",
+    "verify-routes",
+    "sign-release",
+    "authenticate-claude",
+  ]) {
     assert.equal(resolveCoordinatorLaunch([mode], terminal).status, "ready");
     assert.equal(
       resolveCoordinatorLaunch([mode], { ...terminal, stdoutIsTty: false })
@@ -113,6 +119,20 @@ test("用途ごとの入力と端末条件を区別し、内部Recovery引数を
       ...terminal,
       stdinIsTty: false,
     }).status,
+    "blocked",
+  );
+  assert.equal(
+    resolveCoordinatorLaunch(["authenticate-claude"], {
+      ...terminal,
+      stdinIsTty: false,
+    }).status,
+    "blocked",
+  );
+  assert.equal(
+    resolveCoordinatorLaunch(
+      ["authenticate-claude", "--provider", "codex"],
+      terminal,
+    ).status,
     "blocked",
   );
   assert.equal(

@@ -246,7 +246,24 @@ observerは固定`Qual-Lab/CRDD/ProviderHomes/{codex|claude}`を、現在Process
 
 observerはHome作成またはDACL修復を行わない。明示bootstrap Effect、回復、logout／revoke／削除は別Lifecycleとして再評価する。
 
-### 7.3 Provider Homeマウント許可
+### 7.3 Claude Subscriptionの人手再認証
+
+Claude専用Provider HomeのSubscription OAuthが失効した場合だけ、署名済みCoordinatorの`authenticate-claude`入口から人手再認証を行う。この入口は通常Task Authority、外部送信許可、自動実行または自動再認証へ接続しない。
+
+| 観点 | 固定条件 |
+|---|---|
+| 操作者 | OSが認証した選択ローカル対話ユーザー |
+| 入出力 | direct TTY。公式Claude CLIと外部system browserだけを対話入口にする |
+| 実行物 | 署名Manifestへ結合した固定Claude Imageと固定Proxy Image |
+| 永続書込み | 選択UserのClaude専用Provider Homeだけ |
+| Network | Provider Containerは内部Networkだけ。Claude allowlistを強制する固定Proxyだけが外部Networkへ接続 |
+| 非接続 | Repository、Workspace、Host既定Home、API key、別Provider Home、Task Packet |
+| 成功条件 | `auth login --claudeai`完了後、networkなし・Provider Home read-onlyの`auth status --json`が`claude.ai`、`firstParty`、`max`を確認する |
+| 終了条件 | Login／Probe／Proxy Containerと内部／Egress Networkのexact不存在を再観測する |
+
+認証用URL、PKCE値、code、token、email、組織情報、Provider Home実PathおよびProvider生出力を結果・Log・Evidenceへ保存してはならない（MUST NOT）。任意段階の失敗、事後Probe不成立またはcleanup観測不能では成功を公開せず、自動再試行しない。通常Taskは認証失敗からこの入口を自動起動せず、人間へ固定理由を返す。
+
+### 7.4 Provider Homeマウント許可
 
 Runtime所有Provider Homeマウント許可（Runtime-owned Provider Home Mount Grant）は、同じOperation世代のopaque management Capabilityと、一回限りのRuntime所有Provider Home観測Capabilityからだけ発行しなければならない（MUST）。呼出し元が渡したOperation ID、観測Hash、時刻、Path、SID、ACLまたはCredential値を発行Authorityとして受理してはならない（MUST NOT）。
 

@@ -10,13 +10,13 @@
 
 | 項目 | 現在値 |
 |---|---|
-| 現在の変更状態 | Engineering Completenessの独立レビュー指摘を是正し、再署名候補のRecovery MatrixもPassした。4経路E2Eの再実行では、保存Recordが`unknown`、汎用Task失敗を経て`docker_setup_command_failed`までexactに到達した。Docker Engine、固定ImageおよびCodex認証Probeは最小単位の手動確認で正常だったため、残るDocker Setup 8段階を目的別固定理由へ分離してGate 9を継続中 |
+| 現在の変更状態 | Docker Setup 8段階の固定診断を署名候補へ反映し、Recovery MatrixをPassした。4経路E2Eは最初のClaude経路で`docker_setup_start_subscription_auth_probe_attached_failed`までexactに到達した。最小単位の確認により、選択UserのCRDD専用Claude Provider HomeにあるSubscription OAuthの失効を確認したため、通常Taskから分離したHuman-only再認証LifecycleをGate 9へ追加した |
 | Phase／Gate適用判断 | `Applicable`: Architecture、実装、Quality、MigrationおよびReality Auditを一括変更せず、局所Gateで成立確認する必要がある |
 | 現在Phase | `Phase 9 — Signed E2E／Release Gate`: Phase 2／4／7／8の独立再レビューはBlocking Finding 0でPassした。Canonical設計集合154件は維持し、v0.21対象を128件、v0.22移管を26件へ分けた。v0.21の未観測22件（Hybrid 12、Manual 10）は署名E2Eと人間確認で処置する。移管26件は既存Prototype Relation 10件と未観測16件を区別し、いずれも新CapabilityのPass・実装済みへ変更しない |
 | 現在Gate | `Passed: Gate 0〜8`。`In Progress: Gate 9`。再署名候補のRecovery MatrixはPassした。4経路E2Eは最初のforward経路を`docker_setup_command_failed`で安全停止し、cleanup確認済み、Recovery不要、状態不明なしを保持した。認証Probe単体は同じ固定Image、Networkなし、読取専用Mountで成功した。次の再実行で失敗段階を直接識別できるよう、Docker Setup 8用途をexact固定理由へ分離し、独立レビュー、再署名および4経路E2Eをやり直す |
 | 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 154件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 223件の責務別Local Item接続、Optionality Audit全数処置。独立再レビューはBlocking Finding 0、Coordinatorは2015件中2010 Pass・失敗0・5 Explicit Skip、Windows Process Gateは8／8 Pass、Checker全回帰は363／363 Pass |
 | 未成立 | v0.21未観測Local Item 22件（Automated 0、Hybrid 12、Manual 10）のうち署名E2Eまたは人間受入を必要とするEvidence処置と、Gate 9のRelease Readiness判定。v0.22移管26件は同版の実装・実境界・人間受入で再開する |
-| 次のGate | Docker Setup 8用途の非ゼロ終了が、生出力を持たず用途別固定理由としてCoordinator TaskとRecorderへexact接続されることを契約試験と独立レビューで確認する。Coordinatorを再署名し、Recovery Matrixと4経路E2Eを同じ固定候補で再実行する。結果を22件のEvidence義務へ対応付け、残る人間受入をRelease判断へ提示する |
+| 次のGate | Human-only Claude再認証入口が固定Image、限定Proxy、専用Provider Home、Repository非接続、事後Probeおよびexact cleanupを満たすことを局所試験と独立レビューで確認する。Coordinatorを再署名し、人が一度再認証した後、Recovery Matrixと4経路E2Eを同じ固定候補で再実行する。結果を22件のEvidence義務へ対応付け、残る人間受入をRelease判断へ提示する |
 
 ## 1. 変更の目的
 
@@ -149,6 +149,7 @@ PhaseはCHGを分割する別Identityではなく、一つの変更意図を安�
 | 重要観点が「必要に応じて」で未評価のまま省略できる | AIの暗黙判断をFormatへ戻す同じ目的である | Phase 6としてOptionality Auditを追加 | C〜Fの必須評価化とSelf Migrationを完了条件へ追加 | CRDD正本、全ひな型、Checker、独立監査 | Added |
 | 同じIntentの不足発見ごとにCHGが細分化し得る | 本CHG自身を完成まで追跡するChange Management上の前提不足である | Phase 0としてPhase／Gate／Scope Extension契約を追加 | Gate 0通過前に以後のPhase完了を確定しない | Change正本、Maintenance、ひな型、Checker | Added |
 | 4経路E2Eの固定失敗理由が保存Recordで`unknown`へ劣化した | 外部境界を推測せず診断でき、Evidenceへ再現可能に接続する同じ完全性目的である | Phase 9へVerification Result Recorderの固定理由投影と負例を追加 | 実Provider再試行前に原因分類を耐久記録できることをGateへ追加 | 固定理由だけを許可し、自由文・秘密風文字列・Provider生出力を保存しない | Added |
+| 段階別診断によりCRDD専用Claude Provider HomeのOAuth失効を確認した | 署名4経路E2Eを成立させる既存Capabilityの認証Lifecycleが、準備だけを要求して回復入口を欠いていた | Phase 9へHuman-only `authenticate-claude`入口、事後Probe、cleanup確認および利用手順を追加 | 再署名後の実再認証と同一候補4経路E2E PassをGateへ追加 | 通常Task Authority、自動再認証、Repository mount、API key fallbackは追加しない | Added |
 
 ### 途中見直しの記録
 
@@ -265,8 +266,10 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 - [`03_Documentation.md`](../../../03_Documentation.md)
 - [`05_Autonomous_Operation.md`](../../../05_Autonomous_Operation.md)
 - [`06_Architecture/Details/checker/01_Architecture.md`](../../../06_Architecture/Details/checker/01_Architecture.md)
+- [`06_Architecture/Details/coordinator/01_Architecture.md`](../../../06_Architecture/Details/coordinator/01_Architecture.md)
 - [`10_Agent.md`](../../../10_Agent.md)
 - [`19_Maintenance.md`](../../../19_Maintenance.md)
+- [`19_Workflows/01_Coordinator_Runtime.md`](../../../19_Workflows/01_Coordinator_Runtime.md)
 - [`25_UI.md`](../../../25_UI.md)
 - [`26_Behavior_Specification.md`](../../../26_Behavior_Specification.md)
 - [`27_Architecture.md`](../../../27_Architecture.md)
@@ -278,10 +281,16 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 - [`40_Develop/checker/tests/integration/tools-naming.contract.test.ts`](../../../40_Develop/checker/tests/integration/tools-naming.contract.test.ts)
 - [`40_Develop/checker/tests/unit/symbol-graph.contract.test.ts`](../../../40_Develop/checker/tests/unit/symbol-graph.contract.test.ts)
 - [`40_Develop/coordinator/symbol.json`](../../../40_Develop/coordinator/symbol.json)
+- [`40_Develop/coordinator/bin/launch.ts`](../../../40_Develop/coordinator/bin/launch.ts)
+- [`40_Develop/coordinator/package.json`](../../../40_Develop/coordinator/package.json)
+- [`40_Develop/coordinator/scripts/authenticate-claude-subscription.ts`](../../../40_Develop/coordinator/scripts/authenticate-claude-subscription.ts)
+- [`40_Develop/coordinator/src/core/coordinator-launch.ts`](../../../40_Develop/coordinator/src/core/coordinator-launch.ts)
+- [`40_Develop/coordinator/src/security/claude-subscription-authentication.ts`](../../../40_Develop/coordinator/src/security/claude-subscription-authentication.ts)
 - [`40_Develop/coordinator/tests/integration/bounded-file-snapshot.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/bounded-file-snapshot.contract.test.ts)
 - [`40_Develop/coordinator/tests/integration/candidate-bundle-store.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/candidate-bundle-store.contract.test.ts)
 - [`40_Develop/coordinator/tests/integration/candidate-store-kernel-lock.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/candidate-store-kernel-lock.contract.test.ts)
 - [`40_Develop/coordinator/tests/integration/claude-execution-plan.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/claude-execution-plan.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/claude-subscription-authentication.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/claude-subscription-authentication.contract.test.ts)
 - [`40_Develop/coordinator/tests/integration/cli-options.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/cli-options.contract.test.ts)
 - [`40_Develop/coordinator/tests/integration/codex-execution-plan.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/codex-execution-plan.contract.test.ts)
 - [`40_Develop/coordinator/tests/integration/coordinator-claude-delegation.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/coordinator-claude-delegation.integration.test.ts)

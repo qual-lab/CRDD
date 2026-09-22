@@ -14,6 +14,7 @@ export const COORDINATOR_LAUNCH_ENTRIES = Object.freeze({
   "verify-recovery": "../scripts/verify-signed-recovery-matrix.ts",
   "sign-release": "../scripts/sign-release-manifest.ts",
   "promote-release": "../scripts/promote-release-manifest.ts",
+  "authenticate-claude": "../scripts/authenticate-claude-subscription.ts",
 });
 
 /**
@@ -84,6 +85,7 @@ export function resolveCoordinatorLaunch(
     ((mode === "verify-routes" || mode === "verify-recovery") &&
       forwardedArgs.length !== 0) ||
     (mode === "promote-release" && forwardedArgs.length !== 0) ||
+    (mode === "authenticate-claude" && forwardedArgs.length !== 0) ||
     (mode === "automation" && !forwardedArgs.includes("--json")) ||
     (mode === "task" &&
       (!suppliedArgs.includes("--request-stdin") ||
@@ -94,12 +96,16 @@ export function resolveCoordinatorLaunch(
   if (
     (mode === "interactive" ||
       mode === "verify-routes" ||
-      mode === "sign-release") &&
+      mode === "sign-release" ||
+      mode === "authenticate-claude") &&
     (!observation.stdoutIsTty || !observation.stdoutWritable)
   ) {
     return blocked("coordinator_launch_terminal_output_required");
   }
-  if (mode === "sign-release" && !observation.stdinIsTty) {
+  if (
+    (mode === "sign-release" || mode === "authenticate-claude") &&
+    !observation.stdinIsTty
+  ) {
     return blocked("coordinator_launch_terminal_input_required");
   }
   if ((mode === "automation" || mode === "task") && observation.stdoutIsTty) {

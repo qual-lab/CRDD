@@ -2549,7 +2549,7 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
   const developmentE2e = packageDocument.scripts?.["development-e2e:verify"];
   assert.equal(
     developmentE2e,
-    "node --test --test-concurrency=1 ./tests/system/coordinator-launch.contract.test.ts ./tests/system/verification-result-record.contract.test.ts ./tests/system/interaction-boundary-regression.contract.test.ts ./tests/integration/claude-execution-plan.contract.test.ts ./tests/unit/claude-docker-runtime-adapter.contract.test.ts ./tests/integration/codex-execution-plan.contract.test.ts ./tests/unit/codex-docker-runtime-adapter.contract.test.ts ./tests/integration/coordinator-task-runtime.contract.test.ts ./tests/integration/coordinator-task-process.integration.test.ts ./tests/system/signed-general-task-verification.contract.test.ts ./tests/system/signed-reviewer-boundary-verification.contract.test.ts ./tests/system/signed-route-matrix-verification.contract.test.ts ./tests/system/signed-recovery-matrix-verification.contract.test.ts",
+    "node --test --test-concurrency=1 ./tests/system/coordinator-launch.contract.test.ts ./tests/system/verification-result-record.contract.test.ts ./tests/system/interaction-boundary-regression.contract.test.ts ./tests/integration/claude-execution-plan.contract.test.ts ./tests/unit/claude-docker-runtime-adapter.contract.test.ts ./tests/unit/claude-subscription-authentication.contract.test.ts ./tests/integration/codex-execution-plan.contract.test.ts ./tests/unit/codex-docker-runtime-adapter.contract.test.ts ./tests/integration/coordinator-task-runtime.contract.test.ts ./tests/integration/coordinator-task-process.integration.test.ts ./tests/system/signed-general-task-verification.contract.test.ts ./tests/system/signed-reviewer-boundary-verification.contract.test.ts ./tests/system/signed-route-matrix-verification.contract.test.ts ./tests/system/signed-recovery-matrix-verification.contract.test.ts",
   );
   assert.equal(
     /sign-release|release-key|passphrase/u.test(developmentE2e),
@@ -2586,6 +2586,9 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     "src/security/candidate-store-kernel-lock-lifecycle-internal.ts",
     "src/security/candidate-store-kernel-lock.ts",
     "src/security/candidate-store-windows-adapter.ts",
+    // Human-only Claude authentication owns one exact interactive Docker child.
+    // Repository input and shell transport remain forbidden by its contract test.
+    "src/security/claude-subscription-authentication.ts",
     "src/security/docker-cli-trust.ts",
     "src/security/docker-desktop-repair-native-process-lifecycle.ts",
     "src/security/docker-desktop-repair-native-process.ts",

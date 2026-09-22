@@ -2858,6 +2858,28 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "coordinator:unit:claude-subscription-authentication",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/claude-subscription-authentication.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "claude",
+        "subscription-authentication",
+        "provider-home",
+        "cleanup"
+      ],
+      "environment": "fixed_unit_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "repository_not_mounted",
+        "authentication_probe_required",
+        "owned_resources_absent"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "coordinator:unit:claude-structured-result",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/unit/claude-structured-result.contract.test.ts",

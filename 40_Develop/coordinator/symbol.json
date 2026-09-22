@@ -1517,6 +1517,20 @@
       ]
     },
     {
+      "symbolId": "coordinator.test.unit.claude-subscription-authentication",
+      "kind": "test-suite",
+      "path": "tests/unit/claude-subscription-authentication.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-001"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.claude.subscription.authentication"
+      ]
+    },
+    {
       "symbolId": "coordinator.test.unit.claude-structured-result",
       "kind": "test-suite",
       "path": "tests/unit/claude-structured-result.contract.test.ts",
@@ -2515,6 +2529,22 @@
       ]
     },
     {
+      "symbolId": "coordinator.source.src.security.claude.subscription.authentication",
+      "kind": "file",
+      "path": "src/security/claude-subscription-authentication.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008",
+        "ARCH-000010",
+        "ARCH-000015"
+      ],
+      "implements": [
+        "coordinator.provider-effect-authority",
+        "coordinator.recovery-obligation",
+        "coordinator.cleanup-before-result"
+      ]
+    },
+    {
       "symbolId": "coordinator.source.src.core.cli.options",
       "kind": "file",
       "path": "src/core/cli-options.ts",
@@ -3135,6 +3165,19 @@
       "path": "scripts/sign-release-manifest.ts",
       "archIds": [
         "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.scripts.authenticate.claude.subscription",
+      "kind": "module",
+      "path": "scripts/authenticate-claude-subscription.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000010",
+        "ARCH-000015"
+      ],
+      "implements": [
+        "coordinator.provider-effect-authority"
       ]
     },
     {
