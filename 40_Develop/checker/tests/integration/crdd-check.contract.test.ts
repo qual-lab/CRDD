@@ -107,6 +107,18 @@ test("Checker PipelineはMarkdownをArtifact Modelへ変換し固定順のRule�
     stage: "special-rules",
     run: () => executedRuleIds.push("a"),
   });
+  registry.register({
+    id: "special.finding",
+    stage: "special-rules",
+    run: ({ add }) =>
+      add({
+        severity: "error",
+        code: "pipeline-finding-propagated",
+        path: "sample.md",
+        rule: "special.finding",
+        message: "Rule finding reaches the pipeline result.",
+      }),
+  });
   const result = runCheckerPipeline({
     sources: [
       {
@@ -146,7 +158,10 @@ UX ID: UX-000001
     ],
     registry,
   });
-  assert.equal(result.findings.length, 0);
+  assert.deepEqual(
+    result.findings.map(({ code }) => code),
+    ["pipeline-finding-propagated"],
+  );
   assert.deepEqual(executedRuleIds, ["a", "z"]);
   assert.equal(result.artifacts[0]?.canonicalId, "UX-000001");
   assert.deepEqual(result.artifacts[0]?.formalInputs, ["REQ-000001"]);
@@ -837,13 +852,24 @@ test("CRDD所有packageの全回帰入口は静的検査後にだけ試験本体
       packageRoot,
     );
     assert.ok(typeof testRun === "string", packageRoot);
-    assert.equal(
-      regression,
-      packageRoot === "checker"
-        ? "npm run check && npm run verify:repository && npm run test:run"
-        : "npm run check && npm run test:run",
-      packageRoot,
-    );
+    assert.ok(typeof regression === "string", packageRoot);
+    const regressionSteps = regression.split(" && ");
+    assert.equal(regressionSteps[0], "npm run check", packageRoot);
+    if (packageRoot === "checker") {
+      assert.equal(
+        regressionSteps[1],
+        "npm run verify:repository",
+        packageRoot,
+      );
+      assert.equal(regressionSteps[2], "npm run test:run", packageRoot);
+    } else {
+      assert.equal(regressionSteps[1], "npm run test:run", packageRoot);
+    }
+    for (const step of regressionSteps.slice(
+      packageRoot === "checker" ? 3 : 2,
+    )) {
+      assert.match(step, /^npm run test:[a-z0-9:-]+$/u, packageRoot);
+    }
   }
   const agentContract = fs.readFileSync(
     path.join(repositoryRoot, "AGENTS.md"),

@@ -107,9 +107,32 @@ export type OfficialAssetDecisionResult =
         | "official_asset_decision_authority_invalid"
         | "official_asset_decision_target_mismatch"
         | "official_asset_decision_revision_conflict"
-        | "official_asset_decision_transition_invalid";
+        | "official_asset_decision_transition_invalid"
+        | "official_asset_store_unavailable"
+        | "official_asset_store_observation_unknown";
       currentRecordRevision: number;
       storeEffectIssued: false;
+    }>
+  | Readonly<{
+      status: "blocked";
+      reason: "official_asset_store_recovery_required";
+      currentRecordRevision: number;
+      storeEffectIssued: false;
+      recoveryId: string;
+    }>
+  | Readonly<{
+      status: "blocked";
+      reason: "official_asset_store_effect_unknown_cleanup_required";
+      currentRecordRevision: number;
+      storeEffectIssued: null;
+      recoveryId: string;
+    }>
+  | Readonly<{
+      status: "effect_issued_cleanup_required";
+      reason: "official_asset_store_effect_issued_cleanup_required";
+      record: OfficialAssetRecord;
+      storeEffectIssued: true;
+      recoveryId: string;
     }>;
 
 /**

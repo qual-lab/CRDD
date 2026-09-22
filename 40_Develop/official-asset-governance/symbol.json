@@ -11,24 +11,15 @@
     },
     {
       "symbolId": "official-asset-governance.domain.asset-decision",
-      "kind": "implementation",
+      "kind": "file",
       "path": "src/official-asset-governance.ts",
-      "archIds": ["ARCH-000017"],
-      "implements": [
-        "official-asset-governance.asset-decision",
-        "official-asset-governance.asset-publication",
-        "official-asset-governance.revision-conflict"
-      ]
+      "archIds": ["ARCH-000017"]
     },
     {
       "symbolId": "official-asset-governance.store.asset-decision",
-      "kind": "implementation",
+      "kind": "file",
       "path": "src/official-asset-store.ts",
-      "archIds": ["ARCH-000017"],
-      "implements": [
-        "official-asset-governance.asset-decision",
-        "official-asset-governance.revision-conflict"
-      ]
+      "archIds": ["ARCH-000017"]
     },
     {
       "symbolId": "official-asset-governance.test.unit.revision-conflict",

@@ -32,6 +32,7 @@ const expectedAreaConsumers = [
   "40_Develop/coordinator/scripts/measure-development-providers.ts",
   "40_Develop/coordinator/scripts/prepare-release-candidate.ts",
   "40_Develop/coordinator/src/core/verification-result-record.ts",
+  "40_Develop/coordinator/src/security/project-runtime-acceptance-decision-store.ts",
   "40_Develop/coordinator/src/security/project-runtime-candidate-integration-adapter.ts",
   "40_Develop/coordinator/src/security/project-runtime-decision-recovery-store.ts",
   "40_Develop/coordinator/src/security/project-runtime-durable-foundation.ts",
@@ -40,6 +41,7 @@ const expectedAreaConsumers = [
 const PUBLIC_PROJECT_RUNTIME_BOUNDARY =
   "40_Develop/coordinator/src/composition/project-runtime-composition-root.ts";
 const PROJECT_RUNTIME_STORE_CONSUMERS = new Set([
+  "40_Develop/coordinator/src/security/project-runtime-acceptance-decision-store.ts",
   "40_Develop/coordinator/src/security/project-runtime-decision-recovery-store.ts",
   "40_Develop/coordinator/src/security/project-runtime-durable-foundation.ts",
 ]);

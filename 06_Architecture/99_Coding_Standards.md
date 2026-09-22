@@ -385,6 +385,15 @@ export function applyHumanDecision(...) {
 
 HeaderはCodeから明白な「値を返す」「関数を実行する」等を反復しない。ArchitectureからImplementation Detailを逆輸入せず、現行実装に存在するという理由だけで新しいCanonical意味を`@trace`へ追加しない。設計由来が不明な場合は推測でHeaderを埋めず、Architecture Gapとして所有工程へ戻す。
 
+実装または試験によって、上位正本にない順序、境界、状態、所有、並行性、資源Lifecycle、回復、外部契約または利用者から観測可能な振る舞いが必要だと判明した場合は、[実装知識の上位還元](../27_Architecture.md#44-implementation-knowledge-promotion)を評価する。この評価は任意に省略しない。別言語・別Framework・別の内部構造でも同じ成果または保証へ必要なら`Applicable`として責務を持つ上位工程へ戻し、現在の変更トレースへ候補、還元先、影響する利用側および再開条件を残す。技術固有の方式であり別実装で変更しても保証が変わらない場合は`N/A`とし、その理由をレビューまたは変更トレースから取得可能にする。判断不能な場合は`OPEN`として上位を推測で補完せず、Source HeaderやTestだけを正本の代用にしない。
+
+```text
+実装で発見した知識
+  ├─ Applicable → SPEC／Architecture等を再開し、更新後の正本から実装・Qualityへ再伝播
+  ├─ N/A        → 実装固有である理由を保持
+  └─ OPEN       → 判断先と再開条件を保持し、完成主張を停止
+```
+
 Test CodeではARCH-IDへ直接接続せず、検証するQuality Local Itemへ接続する。Test File HeaderはそのFileが扱う一つ以上のLocal Itemを示し、個別Test Case、名前付きTest Helperおよび名前付きFixtureは対応する一つ以上のLocal Itemへ`@trace`する。Local ItemがArchitectureとのRelationを所有するため、Test側へARCH-IDを重複記載しない。匿名CallbackやInline Object等、独立責務を持たない処理はSymbol Header対象外だが、`test`／`it`等で宣言する個別Test Caseは匿名Callbackであっても検証責務を持つため、呼出し直前のTSDocを必須とする。
 
 Test File Headerは、File全体の検証範囲を示す。

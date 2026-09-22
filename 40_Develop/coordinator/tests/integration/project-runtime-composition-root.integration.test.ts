@@ -4,6 +4,7 @@
  * @packageDocumentation
  * @responsibility coordinator:integration:project-runtime-composition-rootが所有する検証責務を実行する。
  * @trace PRL-IT-005
+ * @trace PRL-IT-008
  * @trace PPR-IT-001
  * @level IT
  * @scope project、runtime、public、state、mcp
@@ -27,6 +28,7 @@ import {
   createDevelopmentProjectRuntimePublicObjectiveCandidate,
   createProjectRuntimeExecutionIntelligenceDiagnosticReporter,
   createProjectRuntimeRecoveryDiagnosticReporter,
+  executeProjectRuntimePublicAcceptanceDecision,
   projectRuntimeDataBoundaryBlocked,
   PROJECT_RUNTIME_EXECUTION_INTELLIGENCE_PREFIX,
 } from "../../src/composition/project-runtime-composition-root.ts";
@@ -270,6 +272,107 @@ test("development composition uses the explicitly supplied candidate integration
     root,
     Object.freeze({ principalId: "local-user-test-user" }),
   );
+  assert.equal(result.status, "blocked", JSON.stringify(result));
+  assert.equal(result.reason, "project_runtime_acceptance_decision_required");
+  let pending = runtime.runStateQuery(
+    {
+      requestId: "query-acceptance-pending",
+      projectId: "project-public-runtime",
+      repositoryRevision: revision,
+    },
+    root,
+    { principalId: "local-user-test-user" },
+  );
+  assert.equal(pending.status, "completed");
+  if (!("projection" in pending) || pending.projection === null)
+    throw new Error("acceptance_pending_projection_missing");
+  const objectiveId = pending.projection.objectiveTaskSummaries[0]?.objectiveId;
+  assert.ok(objectiveId);
+  let expectedGeneration = pending.projection.generation;
+  /**
+   * 受入判断用の認証済みPrincipalを返す。
+   *
+   * @responsibility 明示的な受入判断を実行する認証主体を固定する。
+   * @trace PRL-IT-008
+   * @precondition 試験用Principalが受入判断Authorityを持つ。
+   * @stimulus 受入判断入口から認証処理を呼び出す。
+   * @observation completed状態とPrincipal IDを返す。
+   * @oracle 未認証または別Principalへ置き換えない。
+   * @cleanup N/A: 認証状態を永続化しない。
+   * @boundary PRL-IT-008=Direct Boundary: Public Acceptance Entry→Authentication
+   */
+  const authenticate = () =>
+    Object.freeze({
+      status: "completed" as const,
+      principalId: "local-user-test-user",
+    });
+  /**
+   * 指定対象へ明示的な受入判断を記録する。
+   *
+   * @responsibility ObjectiveとMilestoneの受入判断を同じPublic Contractで実行する。
+   * @trace PRL-IT-008
+   * @precondition 対象IDと現在Generationが取得済みである。
+   * @stimulus accept判断とEvidence IDを受入判断入口へ渡す。
+   * @observation 判断結果と更新後Generationを取得する。
+   * @oracle 明示判断なしに受入状態へ遷移しない。
+   * @cleanup N/A: 試験の一時Repositoryは外側のcleanupが回収する。
+   * @boundary PRL-IT-008=Adjacent 1 Block: Public Acceptance Entry→Durable Decision Store
+   */
+  const decide = (
+    target: "objective" | "milestone",
+    targetId: string,
+    decisionId: string,
+    evidenceId: string,
+  ) =>
+    executeProjectRuntimePublicAcceptanceDecision(
+      authenticate,
+      {
+        contract: "crdd-coordinator/project-runtime-acceptance-decision/v1",
+        decisionId,
+        sourceSpecId: "SPEC-000002",
+        projectId: "project-public-runtime",
+        milestoneId: "milestone-public-runtime",
+        repositoryRevision: revision,
+        expectedGeneration,
+        target,
+        targetId,
+        decision: "accept",
+        criterionEvidenceIds: [evidenceId],
+        principalId: "local-user-test-user",
+      },
+      root,
+      { principalId: "local-user-test-user" },
+    );
+  assert.equal(
+    decide(
+      "objective",
+      objectiveId,
+      "decision-objective-public-runtime",
+      "evidence-objective",
+    ).status,
+    "completed",
+  );
+  pending = runtime.runStateQuery(
+    {
+      requestId: "query-objective-accepted",
+      projectId: "project-public-runtime",
+      repositoryRevision: revision,
+    },
+    root,
+    { principalId: "local-user-test-user" },
+  );
+  if (!("projection" in pending) || pending.projection === null)
+    throw new Error("objective_accepted_projection_missing");
+  expectedGeneration = pending.projection.generation;
+  assert.equal(
+    decide(
+      "milestone",
+      "milestone-public-runtime",
+      "decision-milestone-public-runtime",
+      "evidence-milestone",
+    ).status,
+    "completed",
+  );
   const after = runtime.runStateQuery(
     {
       requestId: "query-after",
@@ -282,8 +385,6 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(after.status, "completed");
   assert.equal(after.observationState, "observed");
   assert.equal(after.projection?.milestoneState, "accepted");
-  assert.equal(result.status, "completed", JSON.stringify(result));
-  assert.equal(result.reason, "project_runtime_milestone_accepted");
   assert.equal(
     result.contract,
     "crdd-coordinator/project-runtime-objective-intake/v1",
@@ -291,7 +392,7 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(result.requestId, "request-public-runtime");
   assert.equal(result.projectId, "project-public-runtime");
   assert.equal(result.milestoneId, "milestone-public-runtime");
-  assert.equal(result.projection?.milestoneState, "accepted");
+  assert.equal(result.projection?.milestoneState, "executing");
   assert.equal(result.effectState, "settled");
   assert.equal(integrationAdapterCalls, 1);
   assert.equal(taskStarts, 1);
@@ -402,11 +503,11 @@ test("development composition uses the explicitly supplied candidate integration
     };
     isError: boolean;
   };
-  assert.equal(mcpResult.isError, false);
-  assert.equal(mcpResult.structuredContent.status, "completed");
+  assert.equal(mcpResult.isError, true);
+  assert.equal(mcpResult.structuredContent.status, "blocked");
   assert.equal(
     mcpResult.structuredContent.reason,
-    "project_runtime_milestone_accepted",
+    "project_runtime_acceptance_decision_required",
   );
   assert.deepEqual(mcpResult.structuredContent.recoveryIds, []);
 
@@ -506,8 +607,11 @@ test("development composition uses the explicitly supplied candidate integration
     root,
     Object.freeze({ principalId: "local-user-test-user" }),
   );
-  assert.equal(publicationBlocked.status, "completed");
-  assert.equal(publicationBlocked.reason, "project_runtime_milestone_accepted");
+  assert.equal(publicationBlocked.status, "blocked");
+  assert.equal(
+    publicationBlocked.reason,
+    "project_runtime_acceptance_decision_required",
+  );
   assert.equal(
     (publicationObservations.at(-1) as { status?: unknown }).status,
     "blocked",
@@ -535,8 +639,11 @@ test("development composition uses the explicitly supplied candidate integration
     root,
     Object.freeze({ principalId: "local-user-test-user" }),
   );
-  assert.equal(diagnosticFailed.status, "completed");
-  assert.equal(diagnosticFailed.reason, "project_runtime_milestone_accepted");
+  assert.equal(diagnosticFailed.status, "blocked");
+  assert.equal(
+    diagnosticFailed.reason,
+    "project_runtime_acceptance_decision_required",
+  );
   assert.equal(taskStarts, 4);
 });
 

@@ -33,7 +33,7 @@ Repository-local `.crdd`を、そのRepositoryだけに属する設定、Runtime
 | 項目 | 内容 |
 |---|---|
 | 契機 | v0.18からv0.20の署名、E2E、診断、回復および手動作業が`.crdd`直下と重複Directoryへ累積し、用途・Owner・Lifecycleを追跡しにくくなった |
-| Roadmap | [v0.21 `.crdd` Runtime Data Contractと構造化基盤](../../01_Roadmap.md#11-v0210--project運営信頼複数repository) |
+| Roadmap | [v0.21 `.crdd` Runtime Data Contractと構造化基盤](../../01_Roadmap.md#11-v0210--設計構造化の共通gate) |
 | 着手判断 | 2026-09-12の利用者対話で、棚卸し、親子階層、Repository-local／CROS分離、Trust Domainおよび`tmp/`契約を確認した |
 | 基準版 | `v0.20.0` |
 
@@ -46,7 +46,7 @@ Repository-local `.crdd`を、そのRepositoryだけに属する設定、Runtime
 - `tmp/`は未分類物の置場にせず、Operation所有の再生成可能な短期中間物だけに使う。
 - Recoveryは状態遷移、再入場および解消を所有するComponentの配下へ置き、中央へ同じ義務を複製しない。
 - CROSは`qual-lab/cros/<trust-domain-id>/`の論理PathをWindows／Linuxで共通化する。
-- v0.21では一つのCROS Processを一つのTrust Domainへだけ接続する。
+- v0.22では一つのCROS Processを一つのTrust Domainへだけ接続する。
 
 ### 影響ファイル
 
@@ -418,7 +418,7 @@ Component単位契約試験
 | 現行調査 | [Runtime Dataの現行Path棚卸し](../../../06_Architecture/Details/runtime-data/02_Current_Path_Reality_Audit.md) |
 | 目標設計 | [Runtime Dataの目標Architecture](../../../06_Architecture/Details/runtime-data/01_Architecture.md) |
 | Discovery | [`.crdd`の用途とLifecycleを分からなくしない](../../../01_Discovery/Analysis/EXP-000016/exploration.md) |
-| Roadmap | [v0.21未完了作業](../../01_Roadmap.md#11-v0210--project運営信頼複数repository) |
+| Roadmap | [v0.21共通Gate](../../01_Roadmap.md#11-v0210--設計構造化の共通gate) |
 | 実装 | `40_Develop/runtime-data/`、Coordinator／Execution Intelligence利用側、Checker旧Path拒否 |
 | 検証結果 | [固定候補の署名・回帰・正式E2E](#12-固定候補の完了evidence) |
 

@@ -46,6 +46,7 @@
 │     ├ index.ts                   Package全体の公開入口
 │     ├ outcome.ts                 Capability横断の中立な処理結果契約
 │     ├ artifact/                  Artifact解析・Schema・Relation Graph
+│     ├ filesystem-store-root/     用途限定Store Root Capabilityと排他
 │     ├ reality-traceability/      Symbol Manifest・Annotation・Graph
 │     └ repository-observation/    検証済みRoot内の安全なRepository観測
 │
@@ -136,6 +137,7 @@ Repository／Version Control Infrastructure
 | Package Root `crdd-domain-library/src/index.ts` | Capability別namespaceと共通Outcome型 | なし | 全実装Symbolの無差別な再公開 |
 | Common Outcome `crdd-domain-library/src/outcome.ts` | `DomainStatus`、`DomainIssue`、`DomainOutcome<T>`、`DomainLocation` | なし | Capability固有Issue種別、Checker code、severity、rule、exit code |
 | Artifact `crdd-domain-library/src/artifact/index.ts` | Artifact Model、Schema検証、Relation Graphの公開型と決定論的関数 | なし | Checker Finding、利用者向けmessage |
+| Filesystem Store Root `crdd-domain-library/src/filesystem-store-root/index.ts` | 検証済みRoot Capability、Root内Path解決、OS Kernel排他、exact残存Lock回復 | Root検証では読取り、排他操作ではHash導出EndpointのlistenとLock Record作成・削除 | 任意絶対PathのAuthority化、Link／Junction経由のRoot拡張、個別Domain判断、Filesystem Recordだけによる排他推定 |
 | Reality Traceability `crdd-domain-library/src/reality-traceability/index.ts` | Symbol Manifest、Annotation解釈、Graphの公開型と決定論的な生成・検証関数 | なし。Path APIはRepository相対表記の構文検査だけに用いる | Repository走査、Checker Finding変換、Reality Audit実行、Test合格、実装完成 |
 | Repository Observation `crdd-domain-library/src/repository-observation/index.ts` | Repository観測Port、Root Capability、Reality Symbol Repository観測 | Filesystem読取り | CRDD意味、公開Effect、Checker code、採用判断 |
 | Semantic Coverage `semantic-coverage/src/index.ts` | Repository入力の編成、診断、Bundle生成・公開 | 明示したBundle公開 | Architecture・Quality・実装の意味採否、部分公開の成功扱い |
@@ -144,6 +146,12 @@ Repository／Version Control Infrastructure
 | Verification Runner `verification-runner/src/index.ts` | `RegressionRunRequest`、`RegressionRunResult`、`runRegression` | 宣言された試験段階の選択と子Process実行 | Checker規則、CLI表示、`process.argv`解釈、`process.exitCode`設定 |
 
 未記載SymbolはCapability内部とする。新しい公開Symbolは本表へ追加し、宣言した公開Symbol集合と実export集合を契約試験で完全一致させる。
+
+Filesystem Storeの所有権遷移は、WindowsではNamed Pipe、LinuxではAbstract Unix SocketをWorker lifetimeへ結合したOS Kernel排他で直列化する。Lock RecordはRecovery IdentityとOwner PIDを保持する耐久根拠であり、排他そのものではない。Recordの生成、観測および回復対象の確定は同じKernel Lock内で行う。Kernel Endpoint解放後のRecord削除は、同じexact IdentityのObligationを再確認する二段階cleanupとして別世代を保護する。
+
+通常Operationと回復Operationのどちらでも、Kernel Endpointを解放する前に同じRootへexact Recovery IdentityのRecovery Obligation Recordを書き込み、`fsync`で耐久化する。Operation結果とcleanup結果は別に扱い、Effect発行後に解放を確認できない場合はEffect状態を`issued`、`not_issued`または`unknown`として搬送し、Lock RecordとObligation Recordを残す。成功結果はKernel Endpointの解放、同じRecordの再確認、Obligation解消まで確認した場合だけ返す。後続Ownerは通常Recordより先にObligationを確認してEffect 0で停止し、同じIdentityの再入場だけが再確認と解消を行える。
+
+Owner不存在の観測でもKernel Endpointの解放を確認できなければProofを返さず観測不能とする。空、部分、破損または読取り不能なRecordは`recovery_required`へ昇格せず観測不能としてEffect 0で停止する。`recovery_required`を返す場合は、検証済みRecordに含まれる非nullのexact Recovery Identityを必須とする。対応するKernel原語を提供しないOSではFilesystem Lockへ縮退せず、観測不能として停止する。
 
 ## 4. Data Flow
 

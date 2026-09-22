@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./outcome": "./src/outcome.ts",
     "./artifact": "./src/artifact/index.ts",
+    "./filesystem-store-root": "./src/filesystem-store-root/index.ts",
     "./quality-change-control": "./src/quality-change-control/index.ts",
     "./reality-traceability": "./src/reality-traceability/index.ts",
     "./repository-observation": "./src/repository-observation/index.ts"

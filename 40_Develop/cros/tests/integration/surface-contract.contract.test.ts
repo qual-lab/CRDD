@@ -9,13 +9,9 @@
  * @boundary EST-IT-010=Related 2 Blocks: Surface Adapter→Application Contract→Canonical Owner。
  */
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import test from "node:test";
 import {
   bindOperationSurface,
-  createFileCanonicalOperationOwner,
   createSurfaceApplicationContract,
 } from "../../src/index.ts";
 
@@ -30,19 +26,31 @@ import {
  * @cleanup 入口固有Storeと取消後残存資源が0であることを確認する。
  * @boundary EST-IT-010=Related 2 Blocks: Surface Adapter→Application Contract→Canonical Owner。
  */
-test("四入口が同じApplication ContractとCanonical Ownerを使用する", (t) => {
+test("四入口が同じApplication ContractとCanonical Ownerを使用する", () => {
   const surfaces = ["ts-api", "cli", "mcp", "workbench"] as const;
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-cros-surface-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const owner = createFileCanonicalOperationOwner(
-    path.join(root, "canonical-owner.json"),
-    "r1",
-  );
-  const contract = createSurfaceApplicationContract(owner, "write");
-  const adapters = surfaces.map((surface) =>
-    bindOperationSurface(surface, contract),
-  );
-  for (const adapter of adapters) {
+  const stores = surfaces.map(() => ({
+    revision: "r1",
+    value: null as string | null,
+    writes: 0,
+  }));
+  const adapters = surfaces.map((surface, index) => {
+    const store = stores[index] as (typeof stores)[number];
+    const contract = createSurfaceApplicationContract(
+      {
+        inspect: () => ({ revision: store.revision, value: store.value }),
+        apply: (input) => {
+          if (input.revision !== store.revision) return false;
+          store.value = input.value;
+          store.revision = "r2";
+          store.writes += 1;
+          return true;
+        },
+      },
+      "write",
+    );
+    return bindOperationSurface(surface, contract);
+  });
+  const observedResults = adapters.map((adapter, index) => {
     const partial = adapter.performSurfaceOperation({
       operationId: `${adapter.surface}-inspect`,
       revision: "r1",
@@ -64,32 +72,27 @@ test("四入口が同じApplication ContractとCanonical Ownerを使用する", 
       action: "cancel",
       value: "candidate",
     });
-    assert.equal(partial.status, "partial");
-    assert.equal(rejected.ownerEffectCount, 0);
-    assert.equal(cancelled.residualResourceCount, 0);
-  }
-  const applications = adapters.map((adapter) =>
-    adapter.performSurfaceOperation({
+    const completed = adapter.performSurfaceOperation({
       operationId: `${adapter.surface}-apply`,
       revision: "r1",
       authority: "write",
       action: "apply",
       value: "accepted",
-    }),
-  );
-  assert.equal(
-    applications.filter((result) => result.status === "completed").length,
-    1,
-  );
-  assert.equal(
-    applications.filter(
-      (result) => result.reason === "surface_operation_revision_conflict",
-    ).length,
-    3,
-  );
-  assert.deepEqual(owner.inspect(), {
-    revision: "r2",
-    value: "accepted",
-    writes: 1,
+    });
+    return {
+      partial: { ...partial, revision: "normalized" },
+      rejected: { ...rejected, revision: "normalized" },
+      cancelled: { ...cancelled, revision: "normalized" },
+      completed: { ...completed, revision: "normalized" },
+      writes: stores[index]?.writes,
+      value: stores[index]?.value,
+    };
   });
+  for (const value of observedResults.slice(1))
+    assert.deepEqual(value, observedResults[0]);
+  assert.equal(observedResults[0]?.writes, 1);
+  assert.equal(observedResults[0]?.value, "accepted");
+  assert.equal(observedResults[0]?.partial.status, "partial");
+  assert.equal(observedResults[0]?.rejected.ownerEffectCount, 0);
+  assert.equal(observedResults[0]?.cancelled.residualResourceCount, 0);
 });

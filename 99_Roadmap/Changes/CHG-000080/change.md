@@ -10,13 +10,13 @@
 
 | 項目 | 現在値 |
 |---|---|
-| 現在の変更状態 | Engineering CompletenessをRule、Format、Traceability、CheckerおよびCRDD自身の現実まで閉じる途中 |
+| 現在の変更状態 | Engineering Completenessの独立レビュー指摘を是正し、同一候補の再レビューと全回帰をPassした。署名E2Eへ渡す段階 |
 | Phase／Gate適用判断 | `Applicable`: Architecture、実装、Quality、MigrationおよびReality Auditを一括変更せず、局所Gateで成立確認する必要がある |
-| 現在Phase | `Phase 2／4／7／8 — Production Semantic Review／Test Relation再確認／Self Migration／Reality Audit`: 全Subsystemの現実照合で判明した未観測Local Itemを、Relation不足・試験不足・実装不足・工程Evidence・人間受入待ちへ分類して閉じている。実署名済み固定Snapshotの昇格System境界、公開Verification入口のPT／LT Authority Gate、公開Runtime Data APIの清掃・回復System lifecycle、Docker Desktop修復のexact Identity・旧Effect非再発行、公開Verification入口の固定段階計画とUAT人間入力待ち、未Commit状態と差替可能なVersion Control Portの同等操作、Provider Home不正・不明分類からProcess Effect 0への結合境界を接続した。Human Decision ITとObjective／Milestone Acceptance Decision ITは別義務として再分離し、Acceptance Decisionの公開Application、耐久Store、Authority Adapter、ITおよびSTを接続した。さらに、準備Record後にState更新または確定観測で停止した場合も、同じ判断Identityだけが未適用Effectを一度だけ再開し、適用済みStateではEffectを再発行せず確定できるexact再入場を接続した。公開Verification入口が下位Gate成立時だけ次の境界へ進む独立System観測を`ERB-ST-015`へ接続し、公式素材の判断完全性、Revision競合および収載Relationを専用Packageの4 Local Itemへ接続した。Project Operationの部分状態投影、restricted非開示、候補AuthorityおよびRevision競合を専用Packageの3 Local Itemへ接続した。CROSのlocal同等性、AI入口、Handoff、Tool Registry、Session Grant、非開示、Context Package、再開Scenario、四Surface共有契約および相関付き結果帰還を専用Packageへ接続した。固定Snapshot上の移行System Closureと別Runtime間のDocker recovery chainを追加し、機械化可能な未観測を0件まで閉じた。現在値は32件（Hybrid 14、Manual 18） |
-| 現在Gate | `Gate 0 — Passed`: Phase／Gate／途中拡張／途中見直し契約を正本、ひな型、Checkerおよび本CHGへ反映した。後続Gateの成立は示さない |
-| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 154件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 212件の責務別Local Item接続、Optionality Audit全数処置 |
-| 未成立 | Production Headerの独立意味確認、未観測Local Item 32件（Automated 0、Hybrid 14、Manual 18）のEvidence処置、独立レビュー、全回帰、署名E2E |
-| 次のGate | Gate 2／7／8の前にProduction Headerの意味妥当性、Rule／Format／Realityの未移行0件、および全Local Itemの処置を確認する。既知Gapを残したまま全回帰へ進まない |
+| 現在Phase | `Phase 9 — Signed E2E／Release Gate`: Phase 2／4／7／8の独立再レビューはBlocking Finding 0でPassした。Canonical設計集合154件は維持し、v0.21対象を128件、v0.22移管を26件へ分けた。v0.21の未観測22件（Hybrid 12、Manual 10）は署名E2Eと人間確認で処置する。移管26件は既存Prototype Relation 10件と未観測16件を区別し、いずれも新CapabilityのPass・実装済みへ変更しない |
+| 現在Gate | `Passed: Gate 0〜8`。`In Progress: Gate 9`。同一候補のCoordinator全回帰、Windows Process Gate、Checker全回帰および独立再レビューはPassした。署名E2Eを実行してRelease Readinessを判定する |
+| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 154件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 223件の責務別Local Item接続、Optionality Audit全数処置。独立再レビューはBlocking Finding 0、Coordinatorは2015件中2010 Pass・失敗0・5 Explicit Skip、Windows Process Gateは8／8 Pass、Checker全回帰は363／363 Pass |
+| 未成立 | v0.21未観測Local Item 22件（Automated 0、Hybrid 12、Manual 10）のうち署名E2Eまたは人間受入を必要とするEvidence処置と、Gate 9のRelease Readiness判定。v0.22移管26件は同版の実装・実境界・人間受入で再開する |
+| 次のGate | Coordinatorを再署名し、Recovery Matrixと4経路E2Eを同じ固定候補で実行する。結果を22件のEvidence義務へ対応付け、残る人間受入をRelease判断へ提示する |
 
 ## 1. 変更の目的
 
@@ -67,7 +67,7 @@ Architecture Details／実装構造 ──→ UT Obligation
 | 根拠の主張軸（観測基盤） | Applicable | 静的解析、Checker、Runner、実境界では観測可能範囲が異なる | 検証結果ごとに取得範囲を記録する |
 | 根拠の主張軸（成果物Identity） | Applicable | Canonical ID、ARCH-ID、QA Local Item、SymbolおよびEvidenceの対応が必要である | Semantic CoverageとReality Auditで照合する |
 | 根拠の主張軸（lifecycle） | Applicable | 定義、実装、実行、回復および終了後状態を一つの成功へ畳まない | Quality CenterとE2Eで確認する |
-| 未解消の不一致 | OPEN | Production Headerの意味確認、Reality Audit、独立レビューおよび署名E2Eが残る。Test Header、OptionalityおよびRequired Verification差分は解消済み | Phase 2／7〜9を通過した時点で0件を再確認する |
+| 未解消の不一致 | OPEN | Production Header、RelationおよびReality Auditの独立レビュー指摘は解消し、再レビューをPassした。Test Header、OptionalityおよびRequired Verification差分も解消済みである。署名E2Eと人間受入を必要とするEvidence義務だけが残る | Gate 9の署名E2E後に再確認する |
 
 ## 3. 採用する責務境界
 
@@ -131,14 +131,14 @@ PhaseはCHGを分割する別Identityではなく、一つの変更意図を安�
 |---|---|---|---|---|---|
 | Phase 0: CHG Model Extension | 途中拡張・途中見直しを履歴とGate付きで扱う | `12_Change.md`、`19_Maintenance.md`、CHGひな型、Checker、本CHG | 発火・非発火・境界・情報不足例と構造契約試験 | 正本・ひな型・Checker・Dogfoodが一致し、別CHG判定とGate再開を検査できる | Passed |
 | Phase 1: Architecture Completeness | 基本・詳細設計から必要構造と検証対象を導く | Canonical Model、実装構造、Component／Boundary／State／Flow／Failure | 全詳細設計領域の適用表と導出差分 | 全18領域を適用、理由付きN/AまたはOPENへ処置する | Passed |
-| Phase 2: Implementation Contract | Production Named Symbolを設計責務へ接続する | 固定Header Schema、ARCH Trace、Source Migration | Header構造、実在Trace、Architecture所有責務 | 対象Symbol全件がHeaderと実在ARCH-IDを持つ | In Progress |
+| Phase 2: Implementation Contract | Production Named Symbolを設計責務へ接続する | 固定Header Schema、ARCH Trace、Source Migration | Header構造、実在Trace、Architecture所有責務 | 対象Symbol全件がHeaderと実在ARCH-IDを持つ | In Review |
 | Phase 3: Verification Completeness | 必要な試験義務とLocal Item集合を閉じる | UT／IT／ST／UAT、条件区分、外部境界段階、集合差 | Required／Defined／Level／Boundary差分 | Required - DefinedとLevel／Boundary不足が0件 | Passed |
 | Phase 4: Test Source Contract | Test実装をQuality Local Itemへ接続する | Test Case／Named Helper／Fixture Header、QA Trace | Header構造、Local Item実在、試験段階一致、File Relation和集合 | FileはCase／HelperのRelation和集合、Caseは対応する1件、Helperは支援する1件以上を持ち、Test Symbol全件が実在Local Itemと試験段階に一致する | In Review |
 | Phase 5: UAT Pilot | 上流の受入意味からUAT義務を再現する | REQ／UX／IA Pilotから全Canonical Sourceへ展開 | Source別UAT ObligationとSame／New判断 | 推測なしで導出でき、重複・導出不能を処置する | Passed |
 | Phase 6: Optionality Audit | 重要評価の未記載をなくす | CRDD全体のOptional表現、Format、Checker | A〜F全数分類、理由付きN/A／OPEN、負例 | A〜F分類とC〜Fの必須評価化、理由なしN/A／OPEN 0件 | Passed |
-| Phase 7: CRDD Self Migration | 新ContractをCRDD自身へ適用する | Architecture、Source、Test、Quality、Traceability | 契約母集団と利用側母集団の全数照合 | Ruleと現実の未移行0件 | In Progress |
-| Phase 8: Reality Audit | CanonicalからEvidenceまで照合する | Design→Obligation→Local Item→Test→Execution→Evidence | 欠落、矛盾、Orphan、Freshnessを全数判定 | 欠落・矛盾・Orphanを全数処置する | In Progress |
-| Phase 9: Independent Review／Release Gate | 独立反証とRelease Readinessを閉じる | 必須監査、全回帰、署名E2E | 固定改訂版への独立レビュー、監査、署名E2E | Blocking Finding 0、必要な署名E2E Pass、人間のRelease判断へ引渡し可能 | Planned |
+| Phase 7: CRDD Self Migration | 新ContractをCRDD自身へ適用する | Architecture、Source、Test、Quality、Traceability | 契約母集団と利用側母集団の全数照合 | Ruleと現実の未移行0件 | In Review |
+| Phase 8: Reality Audit | CanonicalからEvidenceまで照合する | Design→Obligation→Local Item→Test→Execution→Evidence | 欠落、矛盾、Orphan、Freshnessを全数判定 | 欠落・矛盾・Orphanを全数処置する | In Review |
+| Phase 9: Independent Review／Release Gate | 独立反証とRelease Readinessを閉じる | 必須監査、全回帰、署名E2E | 固定改訂版への独立レビュー、監査、署名E2E | Blocking Finding 0、必要な署名E2E Pass、人間のRelease判断へ引渡し可能 | In Progress |
 
 ### 途中拡張の記録
 
@@ -476,6 +476,66 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 - [`40_Develop/version-control/tests/integration/repository-location.integration.test.ts`](../../../40_Develop/version-control/tests/integration/repository-location.integration.test.ts)
 - [`99_Roadmap/Changes/CHG-000080/change.md`](change.md)
 - [`template/CLAUDE.md`](../../../template/CLAUDE.md)
+- [`02_UX/01_User_Experience.md`](../../../02_UX/01_User_Experience.md)
+- [`04_UI/04_Visual_and_Accessibility_Direction.md`](../../../04_UI/04_Visual_and_Accessibility_Direction.md)
+- [`04_UI/06_Current_Interface_Reference.md`](../../../04_UI/06_Current_Interface_Reference.md)
+- [`05_SPEC/07_Current_Behavior_Reference.md`](../../../05_SPEC/07_Current_Behavior_Reference.md)
+- [`06_Architecture/99_Coding_Standards.md`](../../../06_Architecture/99_Coding_Standards.md)
+- [`06_Architecture/Definitions/ARCH-000005/architecture_definition.md`](../../../06_Architecture/Definitions/ARCH-000005/architecture_definition.md)
+- [`06_Architecture/Definitions/ARCH-000006/architecture_definition.md`](../../../06_Architecture/Definitions/ARCH-000006/architecture_definition.md)
+- [`06_Architecture/Definitions/ARCH-000013/architecture_definition.md`](../../../06_Architecture/Definitions/ARCH-000013/architecture_definition.md)
+- [`06_Architecture/Details/crdd-domain-library/01_Architecture.md`](../../../06_Architecture/Details/crdd-domain-library/01_Architecture.md)
+- [`06_Architecture/Details/cros/01_Architecture.md`](../../../06_Architecture/Details/cros/01_Architecture.md)
+- [`06_Architecture/Details/official-asset-governance/01_Architecture.md`](../../../06_Architecture/Details/official-asset-governance/01_Architecture.md)
+- [`06_Architecture/Details/project-operation/01_Architecture.md`](../../../06_Architecture/Details/project-operation/01_Architecture.md)
+- [`06_Architecture/Details/runtime-data/01_Architecture.md`](../../../06_Architecture/Details/runtime-data/01_Architecture.md)
+- [`07_Quality/01_Quality_Center.md`](../../../07_Quality/01_Quality_Center.md)
+- [`07_Quality/04_Quality_Integration.md`](../../../07_Quality/04_Quality_Integration.md)
+- [`07_Quality/05_Current_Implementation_Reality_Audit.md`](../../../07_Quality/05_Current_Implementation_Reality_Audit.md)
+- [`07_Quality/Definitions/QA-000001/quality_definition.md`](../../../07_Quality/Definitions/QA-000001/quality_definition.md)
+- [`07_Quality/Definitions/QA-000006/quality_definition.md`](../../../07_Quality/Definitions/QA-000006/quality_definition.md)
+- [`07_Quality/Registry/test-catalog.json`](../../../07_Quality/Registry/test-catalog.json)
+- [`40_Develop/checker/src/profiles/current-profile.ts`](../../../40_Develop/checker/src/profiles/current-profile.ts)
+- [`40_Develop/checker/src/rules/reality-symbol-graph.ts`](../../../40_Develop/checker/src/rules/reality-symbol-graph.ts)
+- [`40_Develop/coordinator/src/composition/project-runtime-composition-root.ts`](../../../40_Develop/coordinator/src/composition/project-runtime-composition-root.ts)
+- [`40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts`](../../../40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts)
+- [`40_Develop/coordinator/tests/fixtures/docker-handoff-worker.ts`](../../../40_Develop/coordinator/tests/fixtures/docker-handoff-worker.ts)
+- [`40_Develop/coordinator/tests/fixtures/project-runtime-public-process-probe.ts`](../../../40_Develop/coordinator/tests/fixtures/project-runtime-public-process-probe.ts)
+- [`40_Develop/coordinator/tests/system/docker-session-handoff.contract.test.ts`](../../../40_Develop/coordinator/tests/system/docker-session-handoff.contract.test.ts)
+- [`40_Develop/crdd-domain-library/package.json`](../../../40_Develop/crdd-domain-library/package.json)
+- [`40_Develop/crdd-domain-library/src/filesystem-store-root/index.ts`](../../../40_Develop/crdd-domain-library/src/filesystem-store-root/index.ts)
+- [`40_Develop/crdd-domain-library/src/filesystem-store-root/filesystem-store-kernel-lock-worker.ts`](../../../40_Develop/crdd-domain-library/src/filesystem-store-root/filesystem-store-kernel-lock-worker.ts)
+- [`40_Develop/crdd-domain-library/src/index.ts`](../../../40_Develop/crdd-domain-library/src/index.ts)
+- [`40_Develop/crdd-domain-library/tests/fixtures/filesystem-store-lock-owner.ts`](../../../40_Develop/crdd-domain-library/tests/fixtures/filesystem-store-lock-owner.ts)
+- [`40_Develop/crdd-domain-library/tests/unit/filesystem-store-root.contract.test.ts`](../../../40_Develop/crdd-domain-library/tests/unit/filesystem-store-root.contract.test.ts)
+- [`40_Develop/crdd-domain-library/tests/fixtures/filesystem-store-lock-contender.ts`](../../../40_Develop/crdd-domain-library/tests/fixtures/filesystem-store-lock-contender.ts)
+- `40_Develop/cros/src/durable-store.ts`（削除）
+- [`40_Develop/cros/src/index.ts`](../../../40_Develop/cros/src/index.ts)
+- [`40_Develop/cros/src/tool-registry.ts`](../../../40_Develop/cros/src/tool-registry.ts)
+- [`40_Develop/cros/symbol.json`](../../../40_Develop/cros/symbol.json)
+- `40_Develop/cros/tests/fixtures/durable-boundary-worker.ts`（削除）
+- [`40_Develop/cros/tests/integration/cros-core.contract.test.ts`](../../../40_Develop/cros/tests/integration/cros-core.contract.test.ts)
+- [`40_Develop/cros/tests/integration/surface-contract.contract.test.ts`](../../../40_Develop/cros/tests/integration/surface-contract.contract.test.ts)
+- [`40_Develop/cros/tests/system/context-handoff.contract.test.ts`](../../../40_Develop/cros/tests/system/context-handoff.contract.test.ts)
+- [`40_Develop/cros/tests/system/result-return.contract.test.ts`](../../../40_Develop/cros/tests/system/result-return.contract.test.ts)
+- [`40_Develop/cros/tests/system/session-access.contract.test.ts`](../../../40_Develop/cros/tests/system/session-access.contract.test.ts)
+- [`40_Develop/mcp/src/adapters/project-runtime-adapter.ts`](../../../40_Develop/mcp/src/adapters/project-runtime-adapter.ts)
+- [`40_Develop/official-asset-governance/src/official-asset-governance.ts`](../../../40_Develop/official-asset-governance/src/official-asset-governance.ts)
+- [`40_Develop/official-asset-governance/src/official-asset-store.ts`](../../../40_Develop/official-asset-governance/src/official-asset-store.ts)
+- [`40_Develop/official-asset-governance/symbol.json`](../../../40_Develop/official-asset-governance/symbol.json)
+- [`40_Develop/official-asset-governance/tests/fixtures/asset-decision-worker.ts`](../../../40_Develop/official-asset-governance/tests/fixtures/asset-decision-worker.ts)
+- [`40_Develop/official-asset-governance/tests/integration/asset-governance.contract.test.ts`](../../../40_Develop/official-asset-governance/tests/integration/asset-governance.contract.test.ts)
+- `40_Develop/project-operation/src/candidate-store.ts`（削除）
+- [`40_Develop/project-operation/src/index.ts`](../../../40_Develop/project-operation/src/index.ts)
+- [`40_Develop/project-operation/symbol.json`](../../../40_Develop/project-operation/symbol.json)
+- [`40_Develop/project-operation/tests/integration/candidate-adoption.contract.test.ts`](../../../40_Develop/project-operation/tests/integration/candidate-adoption.contract.test.ts)
+- [`40_Develop/version-control/tests/fixtures/migration-consumer-declaration.json`](../../../40_Develop/version-control/tests/fixtures/migration-consumer-declaration.json)
+- [`40_Develop/version-control/tests/system/migration-system-closure.contract.test.ts`](../../../40_Develop/version-control/tests/system/migration-system-closure.contract.test.ts)
+- [`99_Roadmap/01_Roadmap.md`](../../01_Roadmap.md)
+- [`99_Roadmap/02_Changes.md`](../../02_Changes.md)
+- [`99_Roadmap/Changes/CHG-000066/change.md`](../CHG-000066/change.md)
+- [`99_Roadmap/Changes/CHG-000067/change.md`](../CHG-000067/change.md)
+- [`template/07_Quality/05_Current_Implementation_Reality_Audit.md`](../../../template/07_Quality/05_Current_Implementation_Reality_Audit.md)
 
 </details>
 ## 7. 検証計画
@@ -500,12 +560,12 @@ ARCH-ID ──→ Quality Local Item ──→ Test Case／Helper／Fixture
 
 | 対象 | 正方向Relation | 現在状態 |
 |---|---|---|
-| Production Named Symbol | Summary、`@responsibility`、実在`ARCH-*`への`@trace` | Checkerの構造Gateと負例を実装済み。既存SourceをPackage単位で意味確認しながら移行中 |
-| Test File／Case／Helper／Fixture | 実在Quality Local Itemへの`@trace` | Test Catalog 204件を全12 Manifest Ownerへ接続し、2,151 Test CaseとNamed Helper／Fixtureへ必須Headerを適用した。FileはCase／Helper Relationの和集合、Caseは対応する1件、Helperは支援する1件以上を保持し、Local Item実在、Owner、試験段階および`verifies`をCheckerで照合する |
+| Production Named Symbol | Summary、`@responsibility`、実在`ARCH-*`への`@trace` | Checkerの構造Gateと負例を実装し、現行Production母集団の構造・実在Trace検査をPassした。意味妥当性も独立再レビューで確認し、Blocking Finding 0でPassした |
+| Test File／Case／Helper／Fixture | 実在Quality Local Itemへの`@trace` | Test Catalog 223件を全15 Manifest Ownerへ接続した。FileはCase／Helper Relationの和集合、Caseは対応する1件、Helperは支援する1件以上を保持し、Local Item実在、Owner、試験段階および`verifies`をCheckerで照合して363／363 Passした |
 | Architecture Details | 7つのImplementation Structure観点 | 18領域とTemplateへ反映済み |
 | Quality Local Item | Architecture Meaning、試験段階、観測境界 | 154件へ細分化し、Required／Defined、試験段階および外部境界段階の差分0を確認済み |
 
-Production母集団へGateを適用した初回観測では、`artifact-signing`を除く既存PackageにHeaderまたはTrace不足が残った。件数だけを減らすための定型Header一括生成は行わず、各PackageのArchitecture所有責務へ接続できるかを確認する。接続不能なSymbolはDocumentation例外ではなくArchitecture Gapとする。
+Production母集団へGateを適用した初回観測では、`artifact-signing`を除く既存PackageにHeaderまたはTrace不足が残った。各PackageのArchitecture所有責務へ接続して是正し、現在の構造GateはPassした。接続不能なSymbolをDocumentation例外へ退避しない原則を維持し、独立再レビューでも意味妥当性を確認した。
 
 ## Checklist
 
@@ -517,6 +577,7 @@ Production母集団へGateを適用した初回観測では、`artifact-signing`
 - [x] Canonical Model ItemとImplementation StructureのTemplate差分を確定し、18領域へ適用した。
 - [x] UAT／IT導出Pilotを完了し、上流意味とArchitectureから決定論的に導出できることを確認した。
 - [x] Required ObligationとLocal Itemの集合差Gateを実装し、試験段階と外部境界段階の不足を検出可能にした。
-- [x] Test Catalog 207件と検出したTest Case全件を責務別Quality Local Itemへ接続し、File Relation和集合、Local Item実在および試験段階一致を機械確認した。
-- [x] 全Unit回帰87件、安全なTypeScript結合試験86件およびRust結合試験1件を完了した。
-- [ ] OPEN: Production Headerの独立意味確認、Reality Audit、独立レビューおよび署名E2Eを完了する。理由: Phase 2／7〜9が未完了である。
+- [x] Test Catalog 223件と検出したTest Case全件を責務別Quality Local Itemへ接続し、File Relation和集合、Local Item実在および試験段階一致を機械確認した。
+- [x] 独立レビュー是正後の同一候補でCoordinator／Checker全回帰を再実行した。Coordinatorは2015件中2010 Pass・失敗0・明示Skip 5、Checkerは363／363 Passである。
+- [x] Production Header、Relation、Reality Auditおよび実装境界の独立再レビューを完了し、Blocking Finding 0を確認した。
+- [ ] OPEN: 署名E2Eと、人間受入を必要とするEvidence義務を完了する。理由: Phase 2／4／7／8はPassし、Phase 9だけが署名E2EとRelease判断待ちである。

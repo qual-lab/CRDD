@@ -42,7 +42,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Concurrency | PASS | Registry更新はrevision付き排他と不変publishを使い、Requestは開始時snapshotへ固定する。 | [§15](#15-registryとrequest-snapshot) |
 | Timing | PASS | Requestごとに現在Credentialと観測時点を評価し、旧値を再利用しない。 | [正本節](#7-connection-credentialとrequest-access-context) |
 | Resource Lifecycle | PASS | Credential、Request Context、Workspace snapshotと管理回復の終了条件を分ける。 | [§16](#16-credentialと管理回復) |
-| External Boundary | PASS | v0.21 Shared Profileを信頼済み運用者向けの一Process／複数Trust Domain論理分離に限定する。 | [§17](#17-shared-host配置境界) |
+| External Boundary | PASS | v0.22 Shared Profileを信頼済み運用者向けの一Process／複数Trust Domain論理分離に限定する。 | [§17](#17-shared-host配置境界) |
 | Failure／Recovery | PASS | 競合更新、Credential紛失、Registry破損を別経路で停止・回復する。 | [§15](#15-registryとrequest-snapshot)、[§16](#16-credentialと管理回復) |
 | State／Consistency | PASS | 登録、Binding、Exposure、利用可能性、解除を別状態にする。 | [§9](#9-登録exposure解除) |
 | Observability | PASS | Source Coverage、欠測、制限、競合、観測時点を返す。 | [§12](#12-失敗と安全な結果) |
@@ -75,7 +75,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 - [Project Operation Context](../project-operation/01_Architecture.md)
 - [Runtime Dataの目標Architecture](../runtime-data/01_Architecture.md)
 - [MCP Architecture](../mcp/01_Architecture.md)
-- [v0.21 Roadmap](../../../99_Roadmap/01_Roadmap.md#11-v0210--project運営信頼複数repository)
+- [v0.22 Roadmap](../../../99_Roadmap/01_Roadmap.md#12-v0220--project運営信頼複数repository)
 
 ## 1. 結論と対象
 
@@ -206,7 +206,7 @@ Workspace ExposureはCROS Application内の公開境界である。Host UserがR
 
 ## 4. CredentialにWorkspace集合を結合する理由
 
-v0.21候補では、`general < privileged < administrator`というグローバルなAccess ClassをCoreへ固定しない。
+v0.22候補では、`general < privileged < administrator`というグローバルなAccess ClassをCoreへ固定しない。
 
 | 構造 | 判断 |
 |---|---|
@@ -313,7 +313,7 @@ Caller由来のFilesystem PathをRepository Resolverの代替として受理し�
 
 ## 7. Connection CredentialとRequest Access Context
 
-v0.21のShared Serverは、Remote MCPの認証方式をBearer Tokenへ固定する。一般的な認証Provider Interface、User Directory、Principal、Group、MFA、SSO、Refresh Tokenまたは永続認証SessionをCROS Coreへ追加しない。
+v0.22のShared Serverは、Remote MCPの認証方式をBearer Tokenへ固定する。一般的な認証Provider Interface、User Directory、Principal、Group、MFA、SSO、Refresh Tokenまたは永続認証SessionをCROS Coreへ追加しない。
 
 ```text
 Authorization: Bearer <token>
@@ -423,7 +423,7 @@ Coding Agent Resume
 
 Handoffは外部送信許可、Repository Effect Authorityまたは人間の決定を新たに生成しない。会話中の未昇格発言、秘密値、利用不能Repositoryの内容および無関係なCRDD全文を既定Packetへ含めない。
 
-v0.21の代表範囲は、Operating Contextの読取り、構造化Handoff Request、Decision待ちおよび同一Task Identityでの再開契約までとする。Agentが自律的に相手Agentを選定・起動する一般Router、無制限な会話履歴同期および未承認Effectの連鎖実行は対象外とする。
+v0.22の代表範囲は、Operating Contextの読取り、構造化Handoff Request、Decision待ちおよび同一Task Identityでの再開契約までとする。Agentが自律的に相手Agentを選定・起動する一般Router、無制限な会話履歴同期および未承認Effectの連鎖実行は対象外とする。
 
 ## 9. 登録、Exposure、解除
 
@@ -494,7 +494,7 @@ Secret value -x Repository／.crdd／Prompt／Projection
 | MCP接続済みだがOperating Context未解決 | CRDD準拠またはTask開始済みと表示せず、Effect 0 |
 | Handoff先がContext Revisionを再構成不能 | 不足を表示して停止し、会話や推定で補完しない |
 
-## 13. v0.21の完成条件
+## 13. v0.22の完成条件
 
 - PersonalとShared Serverが同じProject／Repository／Bindingモデルを使用する。
 - Personalでは登録済みLocal Bindingだけを使い、Git Access失効と既存cloneを混同しない。
@@ -527,7 +527,7 @@ Secret value -x Repository／.crdd／Prompt／Projection
 | Credential任意field | `credential_id`、Verifier、Workspace集合、管理可否、失効は必須 | 表示名、作成時点、有効期限 |
 | Operating Context wire | 正本Revision、適用根拠、Capability、Decision境界を保持する | MCP Tool名、JSON field配置 |
 | Handoff transport | §8.2の意味契約を保持する | 利用するTransportとAgent製品 |
-| Linux system-wide配置 | v0.21では保証しない | v0.22のLinux実環境で決定 |
+| Linux system-wide配置 | v0.22では保証しない | v0.23のLinux実環境で決定 |
 
 ## 15. RegistryとRequest snapshot
 
@@ -567,7 +567,7 @@ Registry破損、Root未検証または排他取得不能では新Credentialを�
 
 ## 17. Shared Host配置境界
 
-v0.21のShared Profileは、同一運用主体が管理する一つのCROS Server Processが複数Trust Domainを論理的にrouteする構成を対象とする。各Trust Domainは別Runtime Root、別Registry、別Repository Poolを持ち、Requestは認証後に一つのTrust Domainへ固定する。
+v0.22のShared Profileは、同一運用主体が管理する一つのCROS Server Processが複数Trust Domainを論理的にrouteする構成を対象とする。各Trust Domainは別Runtime Root、別Registry、別Repository Poolを持ち、Requestは認証後に一つのTrust Domainへ固定する。
 
 ```text
 [CROS Server Process]
@@ -577,7 +577,7 @@ v0.21のShared Profileは、同一運用主体が管理する一つのCROS Serve
 Request A ── authenticated domain A ──x── Domain B Root
 ```
 
-Workspace GrantはHost Shell、OS Accountまたは敵対的tenant間の強制隔離ではない。互いに信頼しないtenantを同じHost／Processへ収容する構成、Container／VMによる強分離、Linux system-wide配置はv0.21の保証外とし、必要な場合はProcessとOS Accountを分ける。対象外をWorkspaceだけで安全と表示しない。
+Workspace GrantはHost Shell、OS Accountまたは敵対的tenant間の強制隔離ではない。互いに信頼しないtenantを同じHost／Processへ収容する構成、Container／VMによる強分離、Linux system-wide配置はv0.22の保証外とし、必要な場合はProcessとOS Accountを分ける。対象外をWorkspaceだけで安全と表示しない。
 
 ## Implementation Structure
 

@@ -3,7 +3,7 @@
 変更ID: `CHG-000067`
 状態: `In Progress`
 担当責任者: Qual-Lab
-対象版: `v0.21.0`
+対象版: `v0.22.0`
 変更分類: `feature`
 最終更新日: 2026-09-14
 
@@ -46,7 +46,7 @@ Project Operation Context
 - Repositoryを単一Roleへ固定せず、所有するContext Responsibilityの集合を宣言する。既存のTool／Runtime Capabilityとは別fieldで扱う。
 - Meeting、TopicおよびCommunicationは使用サービスではなく目的と意味で分類する。
 - `20_Project`、`21_Commercial`、`22_Topics`および`23_Meetings`は、使用するRepositoryだけに置く任意領域とする。
-- CommercialはProjectとの分離境界だけをv0.21で固定し、会計・請求・税・通貨等の完全Schemaを作らない。
+- CommercialはProjectとの分離境界だけをv0.22で固定し、会計・請求・税・通貨等の完全Schemaを作らない。
 - 情報アクセス差はRepository分離、既存Git／OSの権限およびShared CROS ServerのWorkspace Exposureで表現し、CROSを独自IAM、Password Storeまたは暗号化製品にしない。
 - Workbench等のUnlock操作は外部所有の認証処理への入口に限定し、同じOS Userが読める内容の表示ロックを強い情報境界とみなさない。
 - Source Repositoryを読めない利用者向けの縮約Projectionは、自動要約や複製ではなく、明示的に許可された公開成果物として扱う。
@@ -55,7 +55,7 @@ Project Operation Context
 - `system_admin`、Content Access、既存の開示制約、Task Roleおよび人間の決定権限を別軸に保つ。
 - Chat AgentとCoding Agentは同じCRDD正本から解決したAgent Operating Contextを参照し、会話全文のPrompt転記ではなく構造化Contextと判断要求でHandoffする。
 - MCP接続済みであることを、CRDD規則の認識、準拠、Repository AccessまたはEffect Authorityの根拠にしない。
-- v0.21へ採用済みのProject Operation／CROS Capabilityは、既知の次版全面Refactorを前提とする中間構造で正式化せず、現在宣言した利用形態を満たす最小責務を利用者入口から実境界・利用側まで閉じる。
+- v0.22へ採用済みのProject Operation／CROS Capabilityは、既知の次版全面Refactorを前提とする中間構造で正式化せず、現在宣言した利用形態を満たす最小責務を利用者入口から実境界・利用側まで閉じる。
 - 内部のSpike、垂直Sliceおよび段階的結合試験は維持し、部分成立を公開CapabilityまたはRelease可能と表示しない。
 
 ### 影響ファイル
@@ -462,13 +462,13 @@ Project Operation Context
 | `UX-000068` | Version Control非依存の日常作業 | `UX-000010` | Architecture条件 | 旧「Version Control非依存の日常作業」は現行「Repository単独で日常作業を続ける」を支える責務分離・依存境界であり、利用者が独立して達成するOutcomeではない |
 ## 3. 既存契約からの発展
 
-v0.19は一つのProjectを一つの明示Binding済みRepositoryへ結合した。CHG-000066はRepository-local `.crdd`のManifestへProject IDを置き、同じProject IDの複数書込みBindingを安全側で拒否した。v0.21の複数Repository Projectでは、Repositoryの論理Identityと実在するclone／worktreeのBindingを分ける。
+v0.19は一つのProjectを一つの明示Binding済みRepositoryへ結合した。CHG-000066はRepository-local `.crdd`のManifestへProject IDを置き、同じProject IDの複数書込みBindingを安全側で拒否した。v0.22の複数Repository Projectでは、Repositoryの論理Identityと実在するclone／worktreeのBindingを分ける。
 
 ```text
 v0.19／CHG-000066
 Project ID ──→ Repository Binding
 
-v0.21
+v0.22
 Project ID
   └─ Repository ID
        └─ Repository Binding ID
@@ -517,7 +517,7 @@ Project ID
 | 代表代替 | AI／MCPのみ、静的Report、薄いWorkbench、独立Project管理Database、中央要約複製 |
 | 現在の選択 | 薄いWorkbenchを限定実装し、AI／MCPのみの経路を比較基準として維持する |
 | 反証 | 現在地理解、欠測認識、正本到達を改善しない、または専用状態・権限迂回が必要なら拡張しない |
-| 人間判断 | v0.21の限定実装範囲とUX工程への移行は決定済み。利用価値の成立はVerificationまで未確定 |
+| 人間判断 | v0.22の限定実装範囲とUX工程への移行は決定済み。利用価値の成立はVerificationまで未確定 |
 
 ### 4.1. CROS Workbenchの工程Gate
 
@@ -603,7 +603,7 @@ UIとSPECは直列化せず、共有する対応契約を介して並行に具�
 | CROS利用境界 | [CROS Federationと利用境界](../../../06_Architecture/Details/cros/01_Architecture.md) |
 | Runtime Data基準 | [Runtime Dataの目標Architecture](../../../06_Architecture/Details/runtime-data/01_Architecture.md) |
 | Communication | [CRDD外部コミュニケーション](../../../17_Communication.md) |
-| Roadmap | [v0.21未完了作業](../../01_Roadmap.md#11-v0210--project運営信頼複数repository) |
+| Roadmap | [v0.22未完了作業](../../01_Roadmap.md#12-v0220--project運営信頼複数repository) |
 
 ## 8. 次のGate
 

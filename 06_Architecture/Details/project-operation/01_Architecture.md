@@ -126,7 +126,7 @@ Project ID
 | Repository Binding ID | Repository IDと検証済みRoot／worktreeの実行時結合 | Project全体のAuthority、別Bindingの代替権限 |
 | Artifact ID | Topic、Meeting、CHG等の所有正本内Identity | Relation先のAuthorityまたは現在性 |
 
-v0.21のRepository ManifestはProject IDとRepository IDを別fieldとして保持する。同じProject IDに異なるRepository IDを関連付けられるが、同じRepository IDに複数の書込み可能Bindingがある場合は自動選択しない。Relation解決とOperation Authorizationを分離し、CROSは対象Binding、Principal、Policy、Revisionおよび操作AuthorityをRepositoryごとに再検証する。
+v0.22のRepository ManifestはProject IDとRepository IDを別fieldとして保持する。同じProject IDに異なるRepository IDを関連付けられるが、同じRepository IDに複数の書込み可能Bindingがある場合は自動選択しない。Relation解決とOperation Authorizationを分離し、CROSは対象Binding、Principal、Policy、Revisionおよび操作AuthorityをRepositoryごとに再検証する。
 
 Repository-local `.crdd`は、そのRepositoryの設定・状態・Evidence・一時物だけを保持する。Project IDが同じ別Repositoryの情報を、代表Repositoryの`.crdd`へ集約しない。
 
@@ -161,7 +161,7 @@ Logical Project: PRJ-001
 | 同じProject内で複数Repositoryが同じ責務をCanonical Ownerとして宣言する | 明示した分割規則がなければ`conflicting`として扱い、自動選択しない |
 | 同じ責務を分割所有する必要がある | Artifact IDのnamespace、partitionまたは対象範囲を別契約で明示する。Pathや検索順で所有者を決めない |
 
-Repository Manifestの既存`capabilities`はTool／Runtime Capabilityを表す。Context Responsibilityと混同せず、v0.21のSchemaでは別fieldとして表現する。CROSは責務宣言だけでRepositoryを信頼せず、検証済みBindingとTrust Policyの許可範囲を交差させる。
+Repository Manifestの既存`capabilities`はTool／Runtime Capabilityを表す。Context Responsibilityと混同せず、v0.22のSchemaでは別fieldとして表現する。CROSは責務宣言だけでRepositoryを信頼せず、検証済みBindingとTrust Policyの許可範囲を交差させる。
 
 
 Repository名またはDirectory名は人間向け表示であり、Project IDまたはRepository IDの代用にしない。`PRJ-001-MGMT`、`PRJ-001-DEV`等の命名は利用者向けの例として使用できるが、CROSは名前のprefix／suffixからProject Relation、責務またはAuthorityを推定しない。
@@ -209,13 +209,13 @@ Source Repositoryを読めない利用者へ縮約情報を渡す場合、それ
 | 領域 | 所有する問い | 所有する情報 | 所有しない情報 |
 |---|---|---|---|
 | Project | この案件は何か | Summary、Scope、Stakeholder、Organization、Governance、大枠Schedule | CHG、品質状態、実行状態、Topic、Meeting、Commercial詳細 |
-| Commercial | どの商取引条件で成立させるか | 採用先が必要とする見積・契約・採算等の正本または参照 | Project全体、実行Authority、v0.21共通の完全会計Schema |
+| Commercial | どの商取引条件で成立させるか | 採用先が必要とする見積・契約・採算等の正本または参照 | Project全体、実行Authority、v0.22共通の完全会計Schema |
 | Topics | 今何を継続して議論・解決するか | Topic、現在状態、関係、昇格先、終了理由 | Meeting本文、CHG本文、Requirement本文、外部公開結果 |
 | Meetings | 特定時点に誰と何を確認したか | 時間境界、参加主体、Source、関連Topic、確認Decision、更新正本、残った問い | 継続論点の現在状態、生Transcriptの無条件正本化 |
 | Communication | 何を外部へどう伝え、何を観測したか | 受け手、主張、表現、媒体、公開状態、外部反応候補 | 内部Meeting、Project正本、外部反応からのRequirement自動確定 |
 | Projection | Project運営上、現在何を判断すべきか | 各正本から導出した現在View、Source、取得時点、欠測・競合 | 独立した正本、直接更新可能なProject状態、Authority |
 
-Commercialはv0.21で責務、Project Relation、可視性および分離可能性だけを共通契約にする。内容Schema、保持期間および法務・会計上のAuthorityは採用先の責務とし、CRDD共通Schemaを先に作らない。Commercialの分離は代表例であり、Topics、Meetings、Communicationその他の責務領域も同じRepository分離契約を使用する。
+Commercialはv0.22で責務、Project Relation、可視性および分離可能性だけを共通契約にする。内容Schema、保持期間および法務・会計上のAuthorityは採用先の責務とし、CRDD共通Schemaを先に作らない。Commercialの分離は代表例であり、Topics、Meetings、Communicationその他の責務領域も同じRepository分離契約を使用する。
 
 ## 5. 媒体ではなく目的による分類
 

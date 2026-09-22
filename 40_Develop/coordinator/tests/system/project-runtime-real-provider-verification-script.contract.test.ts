@@ -90,6 +90,7 @@ const projection = (isCancelled: boolean) => ({
     executing: 0,
     integration_pending: 0,
     accepted: isCancelled ? 0 : 1,
+    returned: 0,
     blocked: 0,
     cancelled: isCancelled ? 1 : 0,
   },

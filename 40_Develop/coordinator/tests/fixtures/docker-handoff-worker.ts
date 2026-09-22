@@ -69,8 +69,8 @@ if (command === "origin") {
     [handoffB],
     [continuationB],
   );
-  const continuations = [continuationB];
-  let previous = createDockerRestartRecord(
+  const continuations: Uint8Array[] = [continuationB];
+  let previous: Uint8Array = createDockerRestartRecord(
     { ...binding, runtimeExecutionIdentitySha256: "b".repeat(64) },
     "stop_intent",
   );

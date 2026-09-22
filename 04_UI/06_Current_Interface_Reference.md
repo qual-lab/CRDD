@@ -9,15 +9,15 @@
 
 | 基本図 | 対象 | 目的 | 処置 | 現行図／一意な参照／理由 | 投影元改訂版 | 現在状態 | 未確認範囲 | 次の処置・再評価契機 |
 |---|---|---|---|---|---|---|---|---|
-| 論理画面／領域構成図 | CROS Workbench候補 | Project概要、Source Coverage、操作領域の配置 | 作成 | [Project Operation／CROS Workbench](#9-v021-project-operationcros-workbench) | v0.21 Candidate | 概念図 | 具体的な画面構成は未確定 | Group BのUIで利用者検証可能な構成へ更新する |
-| 画面／操作Flow | Agent Handoff | 対話、構築、判断待ち、再開の操作順序 | 作成不能 | [Agent Handoffの表示](#91-agent-handoffの表示)は判断待ちの単一表示例であり、操作順序のFlowではない | v0.21 Candidate | 未作成 | 対話から構築、判断待ち、再開までの操作遷移 | Group BのUIで作成し、SPECと共同確認する |
-| 表示状態／Variant図 | Project Runtime結果 | 完了、停止、回復、判断待ちの表示差 | 作成不能 | [Project Runtimeの状態表示](#8-project-runtimeの状態表示)は表示原則であり、状態Variantの対応図ではない | v0.21 Candidate | 未作成 | 状態ごとの表示差、優先度、操作可能性 | Group BのUIで作成する |
-| 主要Component関係図 | CROS Workbench | 表示Componentと責務境界の関係 | 作成不能 | WorkbenchのComponent境界はGroup BのIA／UIで未確定 | v0.21 Candidate | 未作成 | Component、状態Owner、操作Port | Group BのUI出口で再評価する |
-| UI／SPEC対応図 | 現行Tool操作 | 表示・入力と振る舞い契約の対応 | 作成 | [UIと振る舞い仕様の対応](#6-uiと振る舞い仕様の対応) | v0.20.1 Baseline＋v0.21 Candidate | 現行 | Workbench部分は未対応 | Group BのUI／SPEC共同レビューで更新する |
+| 論理画面／領域構成図 | CROS Workbench候補 | Project概要、Source Coverage、操作領域の配置 | 作成 | [Project Operation／CROS Workbench](#9-v022-project-operationcros-workbench) | v0.22 Candidate | 概念図 | 具体的な画面構成は未確定 | Group BのUIで利用者検証可能な構成へ更新する |
+| 画面／操作Flow | Agent Handoff | 対話、構築、判断待ち、再開の操作順序 | 作成不能 | [Agent Handoffの表示](#91-agent-handoffの表示)は判断待ちの単一表示例であり、操作順序のFlowではない | v0.22 Candidate | 未作成 | 対話から構築、判断待ち、再開までの操作遷移 | Group BのUIで作成し、SPECと共同確認する |
+| 表示状態／Variant図 | Project Runtime結果 | 完了、停止、回復、判断待ちの表示差 | 作成不能 | [Project Runtimeの状態表示](#8-project-runtimeの状態表示)は表示原則であり、状態Variantの対応図ではない | v0.22 Candidate | 未作成 | 状態ごとの表示差、優先度、操作可能性 | Group BのUIで作成する |
+| 主要Component関係図 | CROS Workbench | 表示Componentと責務境界の関係 | 作成不能 | WorkbenchのComponent境界はGroup BのIA／UIで未確定 | v0.22 Candidate | 未作成 | Component、状態Owner、操作Port | Group BのUI出口で再評価する |
+| UI／SPEC対応図 | 現行Tool操作 | 表示・入力と振る舞い契約の対応 | 作成 | [UIと振る舞い仕様の対応](#6-uiと振る舞い仕様の対応) | v0.20.1 Baseline＋v0.22 Candidate | 現行 | Workbench部分は未対応 | Group BのUI／SPEC共同レビューで更新する |
 
 ## 1. 対象と読み方
 
-[利用体験](../02_UX/01_User_Experience.md)と[情報構造](../03_IA/01_Information_Architecture.md)から、現行のコマンドライン（CLI）とMCP投影に必要な入力・認識・フィードバック・回復を整理する。§8「Project Runtimeの状態表示」はv0.19.0の公開契約を扱う。§9はv0.21のProject Operationと最小CROS Workbenchが満たす表示契約を扱う。固定GUI Framework、装飾またはWorkbench固有の業務ロジックを設計した文書ではない。
+[利用体験](../02_UX/01_User_Experience.md)と[情報構造](../03_IA/01_Information_Architecture.md)から、現行のコマンドライン（CLI）とMCP投影に必要な入力・認識・フィードバック・回復を整理する。§8「Project Runtimeの状態表示」はv0.19.0の公開契約を扱う。§9はv0.22のProject Operationと最小CROS Workbenchが満たす表示契約を扱う。固定GUI Framework、装飾またはWorkbench固有の業務ロジックを設計した文書ではない。
 
 以下の「現行」は[公開Coordinator入口](../template/tools/crdd-coordinator.ts)、[公開MCP入口](../template/tools/crdd-mcp.ts)、[公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[結果表示](../40_Develop/coordinator/src/core/command-report.ts)、[対話入力](../40_Develop/coordinator/src/core/interactive-console.ts)、[配布Checker](../template/tools/crdd-check.ts)のソースを照合した内容である。実端末で見た結果、UX成立、人間の採用とは区別する。「要求」は既存の人間判断・上位設計から求める状態、「既知差」は今回未解消の差を示す。
 
@@ -145,9 +145,9 @@ MCPの判断応答では、人間向けの選択肢と影響を先に示し、�
 
 接続後の再表示は、同じ`crdd.run_objective` request identityの再送で行う。画面は「新しく開始した」か「既存Operationへ再接続した」かを区別し、再接続では重複Taskを起動していないことと現在状態を示す。判断用のopaqueな継続CapabilityはClient内部で搬送し、人間向け画面、コピー操作、ログまたはProvider出力へ表示しない。期限切れ・消費済み・別主体では判断Effectがなかったことと次の処置を示し、別主体や誤入力だけで正規Capabilityを失効させない。Capability応答喪失ではClientが同じObjective接続内で明示置換し、旧Capabilityの失効確認後に新しい1件だけを内部受領する。判断適用後の応答喪失では新規受理ではなく既存結果を表示する。
 
-## 9. v0.21 Project Operation／CROS Workbench
+## 9. v0.22 Project Operation／CROS Workbench
 
-本節は、同じProject Operation契約を立場に応じた粒度で投影する要求を示す。v0.21ではこの要求を満たす最小Workbenchを実装するが、図の配置を固定Pixel Layout、特定GUI FrameworkまたはCommercial Schemaの確定とは扱わない。
+本節は、同じProject Operation契約を立場に応じた粒度で投影する要求を示す。v0.22ではこの要求を満たす最小Workbenchを実装するが、図の配置を固定Pixel Layout、特定GUI FrameworkまたはCommercial Schemaの確定とは扱わない。
 
 ```text
 Project: PRJ-001

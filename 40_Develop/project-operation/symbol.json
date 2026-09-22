@@ -7,28 +7,19 @@
       "symbolId": "project-operation.public-api",
       "kind": "module",
       "path": "src/index.ts",
-      "archIds": ["ARCH-000005", "ARCH-000006", "ARCH-000016"]
+      "archIds": ["ARCH-000005", "ARCH-000016"]
     },
     {
       "symbolId": "project-operation.domain.project-projection",
-      "kind": "implementation",
+      "kind": "file",
       "path": "src/project-operation.ts",
-      "archIds": ["ARCH-000005", "ARCH-000016"],
-      "implements": ["project-operation.project-projection"]
+      "archIds": ["ARCH-000005", "ARCH-000016"]
     },
     {
       "symbolId": "project-operation.domain.candidate-lifecycle",
-      "kind": "implementation",
+      "kind": "file",
       "path": "src/project-operation.ts",
-      "archIds": ["ARCH-000006", "ARCH-000016"],
-      "implements": ["project-operation.context-lifecycle"]
-    },
-    {
-      "symbolId": "project-operation.store.candidate-lifecycle",
-      "kind": "implementation",
-      "path": "src/candidate-store.ts",
-      "archIds": ["ARCH-000006", "ARCH-000016"],
-      "implements": ["project-operation.context-lifecycle"]
+      "archIds": ["ARCH-000016"]
     },
     {
       "symbolId": "project-operation.test.integration.project-projection",
@@ -44,10 +35,7 @@
       "path": "tests/integration/candidate-adoption.contract.test.ts",
       "qaIds": ["QA-000005"],
       "localTestIds": ["CPR-IT-004", "CPR-IT-006"],
-      "verifies": [
-        "project-operation.domain.candidate-lifecycle",
-        "project-operation.store.candidate-lifecycle"
-      ]
+      "verifies": ["project-operation.domain.candidate-lifecycle"]
     }
   ]
 }

@@ -59,7 +59,7 @@
 |---|---|---|---|
 | 13検証目標のLocal Item | Quality Design Ready | 157件のMapping、Source ID固有条件および154 Local ItemとのRelationを固定した | Pilotの17意味に接続したLocal Itemから照合する |
 | 現行Source／Test | 全Subsystem初回照合済み | 18領域を実装所有、Symbol Relation、Test Catalog、局所試験、工程／統制所有へ分けた。実装を持つ12領域の静的確認は全てPassした | `Partial`のRelation不足と実装欠落を所有変更へ返す |
-| 実行結果／Evidence | 全Subsystem局所実行済み | 11 TypeScript packageとPlatform Accessの局所試験を実行した。CoordinatorとCheckerではSandboxまたは命名規則に起因する不一致を分離した | 是正後の局所再実行と独立レビューを対象Commitへ結合する |
+| 実行結果／Evidence | 全Subsystem局所実行済み | 12 TypeScript packageとPlatform Accessの局所試験を実行した。CoordinatorとCheckerではSandboxまたは命名規則に起因する不一致を分離した | 是正後の局所再実行と独立レビューを対象Commitへ結合する |
 
 以前のArchitecture限定Sliceで示した`Covered 4／Partial 6／Missing 1`は、17 ARCH-IDだけを入力にした暫定対応であり、現在の157件Mappingに対する品質状態ではない。現在判定へ使用しない。
 
@@ -143,33 +143,33 @@ v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、�
 | Test Source Contract | 16／16 Pass | 197 File、2,125 Case、Helper、Manifest Relation和集合、Local Item実在および試験段階一致を確認 |
 | Symbol Graph Contract | 11／11 Pass | Test Relation、未知Symbol、未知Local Item、Catalog owner／pathをFail Closedで確認 |
 | Semantic Coverage Pilot | 17意味を全数生成。実装観測16、自動Test観測15、手動確認待ち1 | Runtime Trustの実装・Test不足と手動UAT待ちを空Relationのまま保持し、旧Relationや近似Testで補完していない |
-| Repository Checker | 1,622 files、962 Markdown、16,201 links、0 error、0 warning | 現行構造とRelation更新後のRepository検査は成立 |
+| Repository Checker | 1,691 files、962 Markdown、16,216 links、1,965 anchors、0 error、0 warning | 現行構造、版移管およびRelation更新後のRepository検査は成立 |
 
 Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Process終了を猶予内に観測できなかった。同じ2条件を通常ユーザー境界で再実行すると2／2 Passしたため、製品回帰ではなく実行環境の不一致として分類する。Process／OS境界の成立は、必要な権限を持つ本番同等境界で確認し、Sandbox内の失敗も消さずに実行条件とともに残す。
 
-## 9. 全Subsystem初回分類
+## 9. 現在の全Subsystem分類
 
-照合対象はCommit `54f248ff93ebbefdb82a76363d5bb33bd84d228e`で固定した。`Quality Integration`の詳細設計領域とLocal Itemを期待集合とし、`symbol.json`、Test Catalog、Sourceおよび局所試験を現実集合として照合した。`symbol.json`がないことだけで実装欠落とせず、工程・統制として人間確認を所有する領域と、実Runtimeを宣言しながら実装を持たない領域を分けた。
+初回照合はCommit `54f248ff93ebbefdb82a76363d5bb33bd84d228e`で開始し、初回値は§12.1とGit履歴へ固定した。次表は現在のレビュー候補に対する投影であり、`Quality Integration`の詳細設計領域とLocal Itemを期待集合、`symbol.json`、Test Catalog、Sourceおよび実行結果を現実集合として照合する。対象候補のexact Commitは独立レビュー是正後に固定し、異なる改訂版の結果を同じEvidenceへ統合しない。
 
-| 詳細設計領域 | 実装Owner | 局所確認 | 初回判定 | 主な不足／次の処置 |
+| 詳細設計領域 | 実装Owner | 現在確認 | 現在判定 | 主な不足／次の処置 |
 |---|---|---|---|---|
-| artifact-signing | `40_Develop/artifact-signing` | 5／5 Pass | Partial | `AIT-IT-007`、`AIT-IT-009`と実試験のRelationを確認して接続する |
-| checker | `40_Develop/checker` | Repository検査0 error／0 warning、初回350／351 Pass、命名是正後の対象試験1／1 Pass | Partial | 11期待Local Itemのうち6件を接続。`AUH-ST-006`、`RCM-IT-003`、`RCM-IT-004`、`RCM-IT-007`、`RCM-IT-010`は独立再構築、Consumer Closure、Runner lifecycle、Tool Registryの追加確認が必要 |
+| artifact-signing | `40_Develop/artifact-signing` | 8／8 Pass | Partial | `AIT-IT-007`、`AIT-IT-009`と実試験のRelationを確認して接続する |
+| checker | `40_Develop/checker` | Repository検査0 error／0 warning、全契約試験363／363 Pass | In Review | 構造・関係・Consumer Closure・Symbol Graphの機械確認は成立した。独立レビューで意味妥当性を確認する |
 | contract-migration | checker／version-control等へ分散 | 専用Runnerなし | Gap | 独立packageを要求せず、Consumer Closureと縦断移行の実Owner／Test／Evidenceを明示する |
 | coordinator | `40_Develop/coordinator` | 静的確認Pass、通常ユーザー境界のPilot取消2／2 Pass | Partial／Missing | 14期待Local Itemのうち12件を接続。`AIT-ST-004`、`ERB-ST-011`はTrust組合せと別Session handoff chainの追加確認が必要。`coordinator.runtime-trust-consumption`は実装欠落 |
-| crdd-domain-library | `40_Develop/crdd-domain-library` | 20／20 Pass | Partial | 8期待Local Itemのうち3件を接続。署名配布、文書理解、移行閉包は利用側を含む追加確認が必要 |
-| cros | `40_Develop/cros` | 静的確認Pass、IT／ST 10／10 Pass | Partial | 認証、Workspace非開示、local同等性、AI入口、Context Package、Handoff、Tool Registry、四Surface共有契約および結果帰還を接続した。Hybrid／Manual、Shared Host実配置およびWorkbench実利用側は未成立 |
-| execution-intelligence | `40_Develop/execution-intelligence` | 43／43 Pass | Partial | 10期待Local Itemのうち7件を接続。利用者判断2件とClock／現行性の結合確認が残る |
+| crdd-domain-library | `40_Develop/crdd-domain-library` | 39／39 Pass | Partial | 8期待Local Itemのうち3件を接続。Filesystem Store LockはOS Kernel排他、二回復者と後続Ownerの別Process競合、同一targetのPath alias競合、不完全RecordのRecovery Identity非発行、回復時・通常Operation後・既存Record観測後のKernel Endpoint解放不明、exact Recovery Obligationの耐久保持・再入場、およびcleanup AuthorityのRoot／Path Scopeまで確認した。署名配布、文書理解、移行閉包は利用側を含む追加確認が必要 |
+| cros | `40_Develop/cros` | 11／11 Pass | Deferred to v0.22 | v0.21基準Capabilityの非後退を確認した。Group B以降の新規永続Store、Workbench利用側、Shared HostおよびFederation Capabilityはv0.22へ移管した |
+| execution-intelligence | `40_Develop/execution-intelligence` | 56／56 Pass | Partial | 10期待Local Itemのうち7件を接続。利用者判断2件とClock／現行性の結合確認が残る |
 | mcp | `40_Develop/mcp` | 32／32 Pass | Partial | 6期待Local Itemのうち4件を接続。Candidate Storeと四入口のEffect同等性が残る |
-| official-asset-governance | `40_Develop/official-asset-governance` | 静的確認Pass、6／6 Pass | Partial | 判断完全性、Revision競合および収載Relationの4 Local Itemを接続した。公開・撤回のSystem境界と人間受入4件は未観測を維持する |
+| official-asset-governance | `40_Develop/official-asset-governance` | 静的確認Pass、11／11 Pass | Partial | 判断完全性、Revision競合、exact残存Lock回復義務、不完全Lockの観測不能分離、Store Effect後のcleanup不明と`issued`／`not_issued`／`unknown`の公開搬送、および収載Relationを確認した。公開・撤回のSystem境界と人間受入4件は未観測を維持する |
 | platform-access | `40_Develop/platform-access` | Rust 29 Pass、8 Explicit Ignore | Partial | Process／Docker境界試験は存在するが、`PRL-ST-003`、`ERB-IT-002`のRelationを確認して接続する。Ignore 8件は明示実環境試験として別扱い |
-| project-operation | `40_Develop/project-operation` | 静的確認Pass、投影／候補採否IT 3／3 Pass | Partial | 部分状態投影、restricted非開示、Authority不足、採用／拒否／保留およびRevision競合を接続した。ST／UATと永続化・横断利用側は未成立 |
-| project-runtime | `40_Develop/project-runtime` | 60／60 Pass | Partial | 14期待Local Itemのうち9件を接続。Transport同等性、取消、判断待ち再開、受入Scenario／UATが残る |
+| project-operation | `40_Develop/project-operation` | 3／3 Pass | Deferred to v0.22 | v0.21基準Capabilityの非後退を確認した。Group Bの永続Candidate Store、Topic／Meeting、Project Projectionおよび横断利用側はv0.22へ移管した |
+| project-runtime | `40_Develop/project-runtime` | 66／66 Pass | Partial | 14期待Local Itemのうち9件を接続。Transport同等性、取消、判断待ち再開、受入Scenario／UATが残る |
 | quality-change-control | 保守／監査工程 | 専用Runnerなし | Process-owned Partial | 独立Runtimeは要求しない。監査集合統合、是正再入場と3 Local Itemを実レビュー／監査Evidenceへ接続する |
 | runtime-data | `40_Develop/runtime-data` | 35／35 Pass | Partial | 6期待Local Itemのうち4件を接続。Project View分類とCredential→Session Grantを伴うCROS Root利用は別Ownerの成立が必要 |
-| runtime-trust | なし | 未実行 | Missing | Trust候補の部品はCoordinator側にあるが、Policy activationとProvider launch結合を持つOwnerがない |
-| semantic-coverage | `40_Develop/semantic-coverage` | 14／14 Pass | Covered Candidate | 期待Local Itemを全て接続。Pilot名称と全Subsystem対応は別の移行処置 |
-| verification-runner | `40_Develop/verification-runner` | 35／35 Pass | Covered Candidate | 期待Local Itemを全て接続。PT／LTは計画のみで、明示Authorityなしに実行していない |
+| runtime-trust | なし | v0.21対象外 | Deferred to v0.22 | 利用者所有Trust Policy、Policy activationおよびProvider launch結合はGroup Cとしてv0.22へ移管した |
+| semantic-coverage | `40_Develop/semantic-coverage` | 16／16 Pass | Covered Candidate | 期待Local Itemを全て接続。Pilot名称と全Subsystem対応は別の移行処置 |
+| verification-runner | `40_Develop/verification-runner` | 40 Pass、1 Explicit Skip | Covered Candidate | 自動実行対象は全てPass。1件は人間入力を要するUAT計画であり、未実行をEvidenceへ昇格していない。PT／LTは計画のみで、明示Authorityなしに実行していない |
 | version-control | `40_Develop/version-control` | 41／41 Pass | Covered Candidate | 固定Snapshot、Consumer ClosureおよびSystem移行Closureを接続。独立レビューで意味一致を確認する |
 
 `Process-owned Partial`は実装packageがないという理由での失敗ではない。各Local Itemに必要な判断、レビュー、公開記録または監査Evidenceが追跡できない状態である。`Missing`は現在宣言したRuntime能力に対する実装Ownerを確認できない状態である。
@@ -179,13 +179,13 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 | 対象 | 結果 | 扱い |
 |---|---:|---|
 | 実装を持つ12領域のformat／type／lintまたはRust build | 全てPass | 静的成立を確認 |
-| 9 TypeScript library／runtime package | 283／283 Pass | artifact-signing、domain library、execution intelligence、MCP、project runtime、runtime data、semantic coverage、verification runner、version control |
+| 12 TypeScript library／runtime package | 358 Pass、1 Explicit Skip | artifact-signing、domain library、CROS、execution intelligence、MCP、official asset governance、project operation、project runtime、runtime data、semantic coverage、verification runner、version control。Skip 1件は人間入力を要するUAT計画 |
 | Platform Access | 29 Pass、8 Explicit Ignore | 8件はinstalled Docker等の明示実環境観測であり、未実行をPassへ畳まない |
-| Checker Repository検査 | 959 Markdown、15,892 links、0 error、0 warning | 現行Repository構造は成立 |
-| Checker全試験 | 初回350／351 Pass、対象試験の是正後再実行1／1 Pass | Coordinatorの命名規則違反11件を検出し、意味を変えない名称是正後に同じ検査がPassした |
-| Coordinator静的確認 | Pass | 旧2 Registryの現行契約検査もPass |
-| Coordinator Windows Process Gate | Sandbox内0／8 Pass | Process権限とDocker pipeアクセス制約。既知の通常ユーザー境界再確認と分離する |
-| Coordinator restricted-process | 1995 Pass、1 Fail、5 Explicit Skip（全2001件） | 失敗1件は`os.tmpdir()`を未検証Source checkoutとして起動する試験で、Workspace外を許可しないSandboxが先に`coordinator_task_start_failed_closed`へ閉じた。期待した`coordinator_task_release_verification_required`まで到達しておらず、製品の意味不一致ではなく実行環境差として分離する |
+| Checker Repository検査 | 1,694 files、962 Markdown、16,273 links、1,965 anchors、0 error、0 warning | 現行Repository構造、版移管およびRelation更新後の構造は成立 |
+| Checker全試験 | 363／363 Pass | Current Profile、工程契約、Source／Test Header、Symbol GraphおよびReality Relationを同じ候補で確認した |
+| Coordinator静的確認 | Format／Type／Lint／3 Traceability GateすべてPass | Runtime Capability Graph、Coordinator Runtime Traceability、Project Runtime Design Traceabilityを確認した |
+| Coordinator Windows Process Gate | 通常ユーザー境界8／8 Pass | Windows Process、Sandbox、取消、出力上限およびDocker cleanup模擬を実境界で確認した |
+| Coordinator全回帰 | 2015件中2010 Pass、失敗0、5 Explicit Skip | Skipは明示実環境試験でありPassへ畳まない。Group Aの自動回帰に既知の失敗は残っていない |
 
 ## 11. 旧Runtime Traceability JSONの移行判定
 
@@ -236,27 +236,34 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 
 ## 12. Relation是正結果
 
-現在の完了判定は、13件のQuality Definitionが所有する154個の一意なLocal Itemを母集団とする。Test Sourceの`symbol.json`が所有する正方向Relationと再照合した結果、122件を観測済み、32件を未観測と判定した。機械化可能な未観測は0件であり、残る32件はHybrid 14件、Manual 18件である。
+現在のCanonical設計集合は、13件のQuality Definitionが所有する154個の一意なLocal Itemである。Test Sourceの`symbol.json`が所有する正方向Relationは120件に存在する。このうち116件を完成Evidenceへ算入し、4件はRelationを対象指示として保持したまま非完成・非Evidenceと判定する。Relationなし34件と非Evidence Relation 4件を合わせ、品質判定上の未観測は38件である。Test Symbol Relationは「その試験がLocal Itemを対象にする」ことを表すだけで、単独では観測済みEvidenceを意味しない。v0.21のRelease対象はGroup Aの128件で、106件が観測済み、22件が未観測（Hybrid 12件、Manual 10件）である。v0.22へ移管した26件は、既存Prototype Relation 10件と未観測16件を区別し、いずれも新CapabilityのPass、実装済みまたはRelease可能へ変更しない。
+
+| 非完成・非Evidence Relation | Relationを保持する理由 | Evidenceへ算入しない理由 |
+|---|---|---|
+| `RCM-ST-012` | Consumer ClosureのSystem検証対象を明示する | 固定観測配列は実Consumerの実行を証明しない |
+| `ERB-ST-011` | Docker Session HandoffのSystem検証対象を明示する | 別Process RecordだけではDocker Engine／Host資源を独立観測していない |
+| `RFD-ST-003` | CROS Session AccessのPrototype検証対象を明示する | v0.22のCredential→Workspace Grant実境界を成立させていない |
+| `RFD-ST-010` | CROS Context HandoffのPrototype検証対象を明示する | v0.22の複数Repository Handoff実境界を成立させていない |
 
 | Quality領域 | 未観測数 | 実行形態の内訳 |
 |---|---:|---|
 | AIT | 1 | Manual 1 |
 | AUH | 4 | Hybrid 3、Manual 1 |
 | CPR | 4 | Hybrid 3、Manual 1 |
-| CQS | 2 | Hybrid 1、Manual 1 |
-| ERB | 2 | Hybrid 1、Manual 1 |
+| CQS | 3 | Hybrid 1、Manual 2 |
+| ERB | 4 | Automated 1、Hybrid 2、Manual 1 |
 | ERP | 1 | Manual 1 |
 | EST | 4 | Manual 4 |
 | OAG | 4 | Hybrid 4 |
 | PPR | 5 | Hybrid 1、Manual 4 |
 | PRL | 2 | Hybrid 1、Manual 1 |
-| RCM | 1 | Manual 1 |
+| RCM | 2 | Hybrid 1、Manual 1 |
 | RDL | 1 | Manual 1 |
-| RFD | 1 | Manual 1 |
+| RFD | 3 | Automated 2、Manual 1 |
 
-この32件は「新しい自動Testが32本必要」という意味ではない。Hybridは自動観測と独立した人間・実境界評価の両方、Manualは参加者の判断Evidenceを必要とする。自動部分だけを全体成立へ畳まず、名前や同じQuality領域だけを根拠にTest Symbolへ接続しない。
+この38件は「新しい自動Testが38本必要」という意味ではない。v0.22移管範囲の未観測16件はAutomated 3件、Hybrid 4件、Manual 9件であり、v0.21範囲の未観測22件はHybrid 12件、Manual 10件である。Hybridは自動観測と独立した人間・実境界評価の両方、Manualは参加者の判断Evidenceを必要とする。自動部分だけを全体成立へ畳まず、名前や同じQuality領域だけを根拠にTest Symbolへ接続しない。
 
-今回の局所Closureでは、`AIT-ST-010`を実署名済み固定Snapshotの昇格・不一致拒否・候補破棄へ、`CQS-ST-013`を公開Verification入口のPT／LT Authority Gateへ、`RDL-ST-002`を公開Runtime Data APIの清掃・回復保護・最終不存在へ接続した。さらに`ERB-IT-012`は、既存のDocker Desktop修復統合試験がexact Repair Identity、旧Effect非再発行、fresh観測および同一義務の継続をすでに確認していたため、試験を複製せず正方向Relationを補った。`CQS-ST-012`は公開Verification CLIでStatic、UT、IT、ST、UATの固定計画を実行し、UATを自動Passへ畳まず人間入力待ち、全体`blocked`、Exit 2として返すSystem Testへ接続した。`ERB-ST-015`は同じ公開入口で下位Gate成立時だけ次の境界へ進み、人間入力待ちの上位境界を開始しない独立Test Caseへ接続した。`RFD-IT-005`はdirtyな実Repositoryと同じPortを実装する差替Adapterで同じLocal Change Set操作を行い、Commit SHAおよびGit具象をCoreの成立条件へしない専用ITへ接続した。`ERB-IT-008`はPlatform AccessのHome分類結果をTask RuntimeのProcess Gateへ結合し、missing、regular file、link／reparse、異なるIdentity、権限不足および観測不能が初回観測・再観測のどちらで発生してもProvider Process Effect 0で停止する専用ITへ接続した。公式素材の判断完全性、Revision競合および収載Relationは、追加した専用Packageの`OAG-IT-005`、`OAG-IT-006`、`OAG-IT-007`、`OAG-UT-008`へ接続した。Project Operationは専用Packageを追加し、`PPR-IT-002`の部分状態投影とrestricted非開示、`CPR-IT-004`のAuthority／Relation不足拒否、`CPR-IT-006`の明示採用・非採用・Revision競合を独立したTest Caseへ接続した。CROSは専用Packageを追加し、local同等性、AI入口、Handoff、Tool Registry、Session Grant、非開示、Context Packageおよび再開Scenarioに加えて、`EST-IT-010`の四Surface共有Application Contractと`EST-ST-011`の相関付き結果帰還を接続した。`RCM-ST-012`は固定Snapshot上の全Consumer、公開、署名、ReleaseおよびRecovery経路のSystem Closureへ、`ERB-ST-011`は別Runtime間のDocker handoff／continuation chainと不正chain拒否へ接続した。機械化可能な未観測は0件となった。再計画中のHuman Decision試験は`PRL-IT-005`を補強するが、Objective／Milestone Acceptance Decisionを求める`PRL-IT-008`とは意味が異なるため、同項目は未観測を維持する。PT／LT実処理、全回帰および署名E2Eは実行していない。
+今回の局所Closureでは、`AIT-ST-010`、`CQS-ST-013`、`RDL-ST-002`、`ERB-IT-012`、`CQS-ST-012`、`ERB-ST-015`、`RFD-IT-005`および`ERB-IT-008`を、それぞれの実境界と専用試験へ接続した。公式素材の判断完全性、Revision競合および収載Relationも、専用Packageの`OAG-IT-005`、`OAG-IT-006`、`OAG-IT-007`、`OAG-UT-008`へ接続した。一方、`RCM-ST-012`の固定観測配列は実Consumer実行を、`ERB-ST-011`の別Process record試験はDocker Engine／Host資源の独立観測を証明しないため、対象Relationを保持したまま完成Evidenceへの算入を外してHybrid未観測へ戻した。`RFD-ST-003`と`RFD-ST-010`もv0.22の実境界を証明しないPrototype Relationとして同じ扱いにした。skipされた`CQS-UAT-007`はRelationを持たないManual未観測である。Group B以降に属する26件はv0.22へ移管したが、既存Prototypeを実際に検証する10件のRelationは現実記録として保持し、新CapabilityのRelease Evidenceへは数えない。PT／LT実処理は人間の明示許可がないため実行せず、署名E2Eは独立レビュー後に実行する。
 
 ### 12.1 初回のSubsystem別Snapshot
 
@@ -287,17 +294,36 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 
 同じLocal Itemが複数領域へ現れる場合は、各領域が所有する境界を別Relationとして数える。したがって48件は試験件数ではなく、設計領域と検証義務の初回接続数である。手動UATや工程判断を自動Test Symbolへ偽装せず、実Runtimeが存在しない領域もRelation追加だけで`Covered`へ変更しない。
 
-## 13. 未観測32件の処置
+## 13. 未観測38件の処置とRelease適用範囲
+
+### 13.1 v0.22へ移管する26件
+
+| Capability | Local Item | v0.21での処置 | 再開版 |
+|---|---|---|---|
+| 利用者所有Trust | `AIT-UAT-006` | 未観測を保持しRelease対象外 | v0.22 |
+| CROS Workspace／Repository境界 | `RFD-ST-003`、`RFD-ST-004`、`RFD-IT-009`、`RFD-ST-010`、`RFD-IT-011` | `RFD-ST-004`、`RFD-IT-009`、`RFD-IT-011`はPrototype Relationとして保持。`RFD-ST-003`、`RFD-ST-010`は未観測。いずれも新Capability完成へ数えない | v0.22 |
+| CROS Tool／Handoff境界 | `RCM-IT-010`、`ERB-IT-010`、`ERB-ST-013` | `RCM-IT-010`、`ERB-ST-013`は既存Capabilityの非後退Relationとして保持。`ERB-IT-010`は未観測 | v0.22 |
+| Workbench／四Surface／結果帰還 | `EST-IT-010`、`EST-ST-011` | Prototype Relationとして保持するが、実CLI／MCP／Workbench共有Ownerの完成へ数えない | v0.22 |
+| Project Operation基本境界 | `PPR-IT-002`、`CPR-IT-004`、`CPR-IT-006` | Prototypeの純粋関数・Memory試験Relationとして保持するが、永続Operation成立へ数えない | v0.22 |
+| Topic／Meeting候補昇格 | `CPR-ST-005`、`CPR-UAT-002`、`CPR-UAT-003`、`CPR-UAT-007` | 未観測を保持しRelease対象外 | v0.22 |
+| 複数入口・Context送信・再接続 | `EST-UAT-007`、`EST-UAT-008`、`EST-UAT-009` | 未観測を保持しRelease対象外 | v0.22 |
+| Project Projection | `PPR-ST-005`、`PPR-UAT-007`、`PPR-UAT-015` | 未観測を保持しRelease対象外 | v0.22 |
+| Objective／Milestone判断 | `PRL-UAT-010` | 未観測を保持しRelease対象外 | v0.22 |
+| 複数Repository範囲 | `RFD-UAT-007` | 未観測を保持しRelease対象外 | v0.22 |
+
+移管はQuality Definitionまたは既存Relationの削除、適用除外、完成認定ではない。v0.22で対応Capabilityの実装、実境界および人間受入を一体で再開する。
+
+### 13.2 v0.21で処置する22件
 
 | 実行形態 | 件数 | 現在の処置 |
 |---|---:|---|
 | Automated | 0 | 機械化可能な既知Gapは、実装、専用試験および正方向Relationまで接続した |
-| Hybrid | 14 | 自動部分と人間判断部分を分離し、自動部分だけのPassを全体成立へ畳まない |
-| Manual | 18 | 自動Test Symbolを捏造せず、参加条件、入力、判断、未判断範囲およびEvidenceを固定して実施する |
+| Hybrid | 12 | 自動部分と人間判断・実境界部分を分離し、自動部分だけのPassを全体成立へ畳まない |
+| Manual | 10 | skipまたは自動Test SymbolをEvidenceにせず、参加条件、入力、判断、未判断範囲およびEvidenceを固定して実施する |
 
-全回帰は、Automated／Hybridの実装・試験Gapを閉じ、Manual項目の実施条件と現在Releaseへの影響を固定した後に実行する。Phase 8完了前に各件の具体的Owner、処置、再評価契機および現在Releaseへの影響を固定する。Reality Auditは未実装Capabilityや未実行の手動評価を自分で補完せず、対応するQuality Mappingから再評価する。
+Automated Gapを閉じ、Manual／Hybrid項目の実施条件と現在Releaseへの影響を固定した。skip EvidenceのChecker搬送、既存Hash Chain復元および版境界を是正した同一候補で再実行し、Coordinatorは2015件中2010 Pass・失敗0・明示Skip 5、Windows Process Gateは通常ユーザー境界で8／8 Pass、Checkerは363／363 Passとなった。Phase 8の独立再レビューでは各件のOwner、処置、再評価契機および現在Releaseへの影響を確認し、Blocking Finding 0でPassした。Reality Auditは未実装Capabilityや未実行の手動評価を自分で補完せず、対応するQuality Mappingから再評価する。
 
-### 13.1 Hybrid項目の実施条件
+### 13.3 Hybrid項目の実施条件
 
 Hybrid項目は、機械化可能な前提確認と、独立した意味評価・人間判断・実境界観測の両方を必要とする。次表の前提確認が存在しても、Local Item自体を合格とは扱わない。実行時は固定した対象改訂版と[検証結果の記録形式](../template/07_Quality/99_Verification_Result_Format.md)を使い、直接証明するChangeまたはReleaseの`Evidence/`へ結果を保存する。
 
@@ -305,43 +331,33 @@ Hybrid項目は、機械化可能な前提確認と、独立した意味評価�
 |---|---|---|---|---|
 | `AUH-ST-004` | 独立読者／工程レビュー担当 | Checkerの文書構造確認と、固定した自己完結成果物・参照退避反例 | 参照先を使わず物語と固有条件を再構築する | 独立レビュー時。未成立なら成果物構造を再開し、Quality Readyを停止する |
 | `AUH-ST-005` | 下流工程を担当する独立確認者 | 固定した上流成果物、ID、制約、未確認事項、基本図 | 上流だけから下流成果物を再構築し、意味差を記録する | 工程Closureレビュー時。欠落は上流Gapとして戻し、Quality Readyを停止する |
-| `AUH-ST-006` | 入口実装を行っていない独立実行者 | `RFD-IT-011`の入口別規則・正本・Authority・差分理由 | 結果だけから共通意図、入口固有制約、選択理由、次工程を再構築する | AI入口の独立レビュー時。推測補完または入口差の説明不能ではQuality Readyを停止する |
-| `CPR-ST-005` | Project Operation担当と決定権限者 | `CPR-IT-004`／`CPR-IT-006`、固定Meeting候補集合 | 採用・不採用・保留を含む候補を人間判断へ通し、採用分だけ一度反映する | Candidate Promotion確認時。重複反映または未判断反映ではQuality Readyを停止する |
-| `CPR-UAT-002` | 採用の決定権限者 | Candidate Authority／Relation／Revisionの自動確認結果 | 対象Ownerと採用範囲を確認して採用判断する | Promotion UAT時。判断EvidenceなしではQuality Readyを停止する |
-| `CPR-UAT-003` | 採用の決定権限者 | 非採用・保留候補と再評価条件 | 却下または保留を選び、正本Effect 0を確認する | Promotion UAT時。理由または再評価条件の欠落ではQuality Readyを停止する |
+| `AUH-ST-006` | 入口実装を行っていない独立実行者 | 固定した入口別規則、同じ正本、Authority境界および差分理由 | 結果だけから共通意図、入口固有制約、選択理由、次工程を再構築する | AI入口の独立レビュー時。推測補完または入口差の説明不能ではQuality Readyを停止する |
 | `CQS-IT-001` | 変更担当から分離した独立レビュー担当 | 固定改訂版、必須監査集合、各確認結果、残存Risk | 結果を現在Gateへ統合し、判断先と未確認範囲を独立確認する | 独立レビュー集合の統合時。不整合では回帰・署名E2Eへ進まない |
 | `ERB-ST-009` | Docker Runtime運用担当 | `ERB-IT-012`／`ERB-ST-011`、署名済みCoordinator、exact Repair ID | 既知2領域の退避、Docker再起動、Engine readiness、再入場を実境界で観測する | 署名E2EのDocker修復時。Engine readyと終了後条件未確認ではQuality Readyを停止する |
+| `ERB-ST-011` | Docker Runtime運用担当と独立観測者 | record chain契約試験、署名済みCoordinator、Effect journal、Host資源Observer | 別Session継続、旧Effect非再発行、Engine／Host資源および終了後不存在を同一Identityで観測する | 署名E2Eのhandoff／recovery時。Worker自己申告だけではQuality Readyを停止する |
 | `OAG-ST-003` | 公式素材管理者と配布経路担当 | `OAG-IT-005`／`OAG-IT-006`／`OAG-IT-007`／`OAG-UT-008` | 用途拡張・対象外版・許可撤回で再配布を拒否し、影響範囲を特定する | 公式素材Governance確認時。新規配布Effectまたは影響先不明ではQuality Readyを停止する |
 | `OAG-UAT-001` | 公式収載の決定権限者 | 完全な素材Identity、出所、権利、用途、版、判断Authority | 許可範囲を確認して収載を判断する | 公式素材UAT時。判断EvidenceなしではQuality Readyを停止する |
 | `OAG-UAT-002` | 公式収載の決定権限者 | 権利未確認・第三者模倣疑義の固定候補 | 権利を推定せず隔離を判断する | 公式素材UAT時。公式収載Effect 0を確認できなければQuality Readyを停止する |
 | `OAG-UAT-004` | 公式収載の決定権限者 | 権利者・許可文言・判断者・対象版の不足候補 | 不足を明示して判断権限者へ戻す | 公式素材UAT時。候補変更・削除または不足の隠蔽ではQuality Readyを停止する |
-| `PPR-ST-005` | Project Projection担当とSecurity確認者 | `PPR-IT-002`、Grant内外Sourceを含む固定Projection入力 | 制限付き利用者の実Viewで値とSource存在の非開示を確認する | Project View実境界確認時。restricted Sourceの存在開示ではQuality Readyを停止する |
 | `PRL-UAT-002` | Project Runtime利用者と判断権限者 | 判断待ち状態、同一Task／Request Identity、再開Authority | 自動継続せず判断を返し、同じTaskを一度だけ再開する | Project Runtime UAT時。別Task結合または重複settleではQuality Readyを停止する |
+| `RCM-ST-012` | Release／移行担当と独立実行者 | 宣言済みConsumer集合、固定Snapshot、各production consumer probe | 公開・署名・Release・Recovery入口を実行し、実観測集合を宣言集合と照合する | 署名E2EとRelease Readiness時。手書き観測配列だけではQuality Readyを停止する |
 
-### 13.2 Manual項目の実施条件
+### 13.4 Manual項目の実施条件
 
-Manual項目は、人間の理解・選択・判断そのものがOracleの一部である。自動試験へ置き換えず、参加条件、提示入力、選択、理由、参照根拠、理解不能項目、未判断範囲および終了後Effectを記録する。全項目は現在のv0.21.0 Quality Readyを止める。実施不能の場合はPassへ畳まず、理由、影響、判断先および再評価契機をEvidenceへ`OPEN`として残す。
+Manual項目は、人間の理解・選択・判断そのものがOracleの一部である。自動試験へ置き換えず、参加条件、提示入力、選択、理由、参照根拠、理解不能項目、未判断範囲および終了後Effectを記録する。次表の10件は現在のv0.21.0 Quality Readyを止める。実施不能の場合はPassへ畳まず、理由、影響、判断先および再評価契機をEvidenceへ`OPEN`として残す。
 
 | Local Item | 実施責任 | 主な提示内容 | 再評価契機 |
 |---|---|---|---|
-| `AIT-UAT-006` | Trust Policy利用者 | 公式・組織・Fork・未署名Local開発物の根拠 | Trust判断UAT |
 | `AUH-UAT-001` | 対象工程を知らない代表読者 | 補足説明なしの固定成果物 | 人間可読性UAT |
-| `CPR-UAT-007` | Project Operation利用者 | Topic／Meeting／Communication候補、根拠、競合・不明 | Candidate Promotion UAT |
 | `CQS-UAT-006` | Release／品質判断権限者 | 残存Risk、未確認範囲、旧根拠を分けた現在品質表示 | 最終品質判断 |
+| `CQS-UAT-007` | Release／品質判断権限者 | 変更意味から導出した回帰計画、実行結果、未実行理由 | 回帰計画理解UAT。skip試験をEvidenceへ数えない |
 | `ERB-UAT-007` | 外部Runtime利用者 | 正常・部分故障・利用不能・未知構成の診断結果 | 外部Runtime UAT |
 | `ERP-UAT-007` | 実行記録の利用者 | 実行基盤差、欠測、観測不能、観測時点の異なる記録 | 実行記録UAT |
 | `EST-UAT-006` | 外部送信を判断する利用者 | 送信先、目的、情報分類、同意範囲、部分結果 | 外部送信UAT |
-| `EST-UAT-007` | 複数入口を使う利用者 | CLI・MCP stdio・MCP HTTP・Workbenchの同一依頼 | 入口同等性UAT |
-| `EST-UAT-008` | Context送信を判断する利用者 | 情報源、改訂版、利用範囲、欠測・競合、帰還結果 | Context Scope UAT |
-| `EST-UAT-009` | 切断後に再開する利用者 | 要求前切断、受理後切断、応答喪失、回復必要の各状態 | Reconnect UAT |
-| `PPR-UAT-007` | Project状況を判断する利用者 | complete・partial・restricted・stale・conflicting・unknown | Project View UAT |
 | `PPR-UAT-008` | 実行知を判断する利用者 | 観測済み・未観測・不明・評価候補 | Execution Intelligence UAT |
 | `PPR-UAT-009` | 現行情報と履歴を選ぶ利用者 | current・historical・superseded・unknown | History UAT |
-| `PPR-UAT-015` | Project運営者 | 不完全性を含むProject Projection | Project Projection UAT |
-| `PRL-UAT-010` | Objective／Milestone判断権限者 | Task完了・Objective差戻し・判断待ち・受入済み | Project Lifecycle UAT |
 | `RCM-UAT-006` | 標準Tool利用者 | fresh clone・submodule・版不一致・Runtime欠落・Manifest改ざん | Tool Discovery UAT |
 | `RDL-UAT-006` | Runtime Data運用者 | durable・temporary・recovery_required・cleanup_eligible・unknown | Runtime Data UAT |
-| `RFD-UAT-007` | Project／Repository利用者 | 単一／複数Repository、利用可能・非開示・判定不能 | Repository Scope UAT |
 
 ## Checklist
 
@@ -352,4 +368,4 @@ Manual項目は、人間の理解・選択・判断そのものがOracleの一�
 - [x] 未Commit状態とVersion Control Adapterの交換可能性を検証対象へ含めた
 - [x] 照合対象のRevision、実行条件および観測限界を固定した
 - [x] 不足Test、未実行項目およびEvidence Gapを追跡した
-- [x] PT／LTは人間の明示指定がある場合だけ実行した
+- [x] PT／LTの適用と実行Authorityを評価し、明示指定がない場合は実行していない

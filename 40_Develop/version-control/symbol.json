@@ -26,10 +26,9 @@
     },
     {
       "symbolId": "version-control.migration-closure",
-      "kind": "implementation",
+      "kind": "file",
       "path": "src/migration-closure.ts",
-      "archIds": ["ARCH-000002"],
-      "implements": ["version-control.migration-system-closure"]
+      "archIds": ["ARCH-000002"]
     },
     {
       "symbolId": "version-control.test.integration.repository-location",
@@ -121,7 +120,7 @@
       "kind": "test-suite",
       "path": "tests/system/migration-system-closure.contract.test.ts",
       "qaIds": ["QA-000001"],
-      "localTestIds": [],
+      "localTestIds": ["RCM-ST-012"],
       "verifies": ["version-control.migration-closure"]
     },
     {

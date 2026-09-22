@@ -7127,7 +7127,7 @@ function assertReleaseSigningProtectedPath(source: string) {
   const signature = uniqueOwnedCallIndex(
     "signEd25519Payload",
     "signReleaseManifest",
-    ["const", "signature", "="],
+    ["const", "signature", "=", "validateArtifactSignatureResult", "("],
   );
   const pinnedSigner = directProtectedCall(
     tokens,

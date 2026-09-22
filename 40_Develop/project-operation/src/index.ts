@@ -19,11 +19,3 @@ export {
   type ProjectOperationSource,
   type ProjectOperationSourceState,
 } from "./project-operation.ts";
-export {
-  createFileProjectOperationCandidateStore,
-  createFileProjectOperationOwnerWriter,
-  executeProjectOperationCandidateDecision,
-  type ProjectOperationAuthorityPort,
-  type ProjectOperationCandidateStore,
-  type ProjectOperationOwnerWriter,
-} from "./candidate-store.ts";

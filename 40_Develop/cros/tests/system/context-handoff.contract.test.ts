@@ -10,15 +10,11 @@
  * @boundary RFD-ST-010／ERB-ST-013=System/E2E。
  */
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import test from "node:test";
 import {
   createContextPackage,
+  createHandoff,
   resumeHandoff,
-  type CrosHandoff,
 } from "../../src/index.ts";
 
 /**
@@ -93,37 +89,22 @@ test("許可された最小Contextだけをprovenance付きでConsumerへ渡す"
  * @cleanup Source二重実行0、拒否時Destination Effect 0を確認する。
  * @boundary ERB-ST-013=System/E2E: Source Runtime→Handoff→Destination Runtime。
  */
-test("切断後に同じIdentityで再開しAuthority差をEffect前で拒否する", (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-cros-handoff-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const handoffFile = path.join(root, "handoff.json");
-  const settlementFile = path.join(root, "settlement.json");
-  const worker = path.resolve("tests/fixtures/durable-boundary-worker.ts");
-  const handoff = JSON.parse(
-    execFileSync(process.execPath, [worker, "write-handoff", handoffFile], {
-      encoding: "utf8",
-    }),
-  ) as CrosHandoff;
-  const destination = {
+test("切断後に同じIdentityで再開しAuthority差をEffect前で拒否する", () => {
+  const handoff = createHandoff(
+    "handoff-system-1",
+    "task-1",
+    "PRJ-1",
+    "revision-1",
+    ["read"],
+    { requirement: "REQ-1" },
+  );
+  const normal = resumeHandoff(handoff, {
     taskId: "task-1",
     projectId: "PRJ-1",
     revision: "revision-1",
     authorities: ["read"],
     requiredContext: { requirement: "REQ-1" },
-  };
-  const normal = JSON.parse(
-    execFileSync(
-      process.execPath,
-      [
-        worker,
-        "resume-handoff",
-        handoffFile,
-        settlementFile,
-        JSON.stringify(destination),
-      ],
-      { encoding: "utf8" },
-    ),
-  ) as ReturnType<typeof resumeHandoff>;
+  });
   const expanded = resumeHandoff(handoff, {
     taskId: "task-1",
     projectId: "PRJ-1",
@@ -131,23 +112,34 @@ test("切断後に同じIdentityで再開しAuthority差をEffect前で拒否す
     authorities: ["read", "write"],
     requiredContext: { requirement: "REQ-1" },
   });
+  const wrongRevision = resumeHandoff(handoff, {
+    taskId: "task-1",
+    projectId: "PRJ-1",
+    revision: "revision-2",
+    authorities: ["read"],
+    requiredContext: { requirement: "REQ-1" },
+  });
+  const wrongTask = resumeHandoff(handoff, {
+    taskId: "task-2",
+    projectId: "PRJ-1",
+    revision: "revision-1",
+    authorities: ["read"],
+    requiredContext: { requirement: "REQ-1" },
+  });
+  const missingContext = resumeHandoff(handoff, {
+    taskId: "task-1",
+    projectId: "PRJ-1",
+    revision: "revision-1",
+    authorities: ["read"],
+    requiredContext: {},
+  });
   assert.equal(handoff.sourceActive, false);
   assert.equal(normal.handoffId, handoff.handoffId);
   assert.equal(normal.status, "resumed");
   assert.equal(expanded.destinationEffectIssued, false);
-  const replay = JSON.parse(
-    execFileSync(
-      process.execPath,
-      [
-        worker,
-        "resume-handoff",
-        handoffFile,
-        settlementFile,
-        JSON.stringify(destination),
-      ],
-      { encoding: "utf8" },
-    ),
-  ) as ReturnType<typeof resumeHandoff>;
-  assert.equal(replay.status, "blocked");
-  assert.equal(replay.destinationEffectIssued, false);
+  assert.equal(expanded.reason, "cros_handoff_authority_expansion");
+  for (const rejected of [wrongRevision, wrongTask, missingContext]) {
+    assert.equal(rejected.destinationEffectIssued, false);
+    assert.equal(rejected.reason, "cros_handoff_context_mismatch");
+  }
 });

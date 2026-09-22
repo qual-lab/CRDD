@@ -225,6 +225,7 @@ const objectiveCountKeys = new Set([
   "executing",
   "integration_pending",
   "accepted",
+  "returned",
   "blocked",
   "cancelled",
 ] as const);

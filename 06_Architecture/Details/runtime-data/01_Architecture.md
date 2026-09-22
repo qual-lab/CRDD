@@ -334,7 +334,7 @@ ${XDG_RUNTIME_DIR}/qual-lab/cros/<trust-domain-id>/
 
 Directory探索だけでProjectを登録せず、Repository Manifest、検証済みRootおよびCROS側Bindingを一致させる。
 
-同じTrust Domain内の複数Repository、MCP接続および並行実行はSession IDとOperation IDで分離する。信頼するPublisher、Credentialまたは組織境界が異なる対象は別の`<trust-domain-id>/`へ分離し、v0.21では一つのCROS Processを一つのTrust Domainへだけ接続する。Process起動ごとのランダムなInstance Directoryは作らない。
+同じTrust Domain内の複数Repository、MCP接続および並行実行はSession IDとOperation IDで分離する。信頼するPublisher、Credentialまたは組織境界が異なる対象は別の`<trust-domain-id>/`へ分離し、v0.22では一つのCROS Processを一つのTrust Domainへだけ接続する。Process起動ごとのランダムなInstance Directoryは作らない。
 
 `trust-domains/`の中間Directoryは設けない。CROS Root直下の各DirectoryをTrust Domainとし、全Trust Domainで共有するRuntime状態、Repository Binding、CredentialまたはRecoveryを作らない。将来、複数Domainの入口だけを束ねるBrokerが必要になった場合は、CROS Rootへ共有領域を足さず、Authorityを持たない別Applicationの`qual-lab/cros-broker/`として設計する。
 

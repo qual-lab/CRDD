@@ -754,7 +754,8 @@ async function executeProjectRuntimePublicObjective(
   );
   if (
     integration.status === "completed" &&
-    integration.reason === "project_runtime_milestone_accepted"
+    (integration.reason === "project_runtime_milestone_accepted" ||
+      integration.reason === "project_runtime_acceptance_decision_required")
   ) {
     const latest = readProjectRuntimeState(
       repositoryRoot,
@@ -771,7 +772,10 @@ async function executeProjectRuntimePublicObjective(
         effectState: "unknown",
       });
     return createProjectRuntimeObjectiveResult(request, {
-      status: "completed",
+      status:
+        integration.reason === "project_runtime_milestone_accepted"
+          ? "completed"
+          : "blocked",
       reason: integration.reason,
       queueId: execution.queueId,
       projection: projectProjectRuntimeState(latest.value),

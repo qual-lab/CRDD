@@ -93,6 +93,7 @@ function typescriptFiles(root: string): readonly string[] {
 test("Package RootはCapability別の公開入口だけを束ねる", () => {
   assert.deepEqual(Object.keys(domainLibrary).sort(), [
     "artifact",
+    "filesystemStoreRoot",
     "qualityChangeControl",
     "realityTraceability",
     "repositoryObservation",

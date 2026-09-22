@@ -282,6 +282,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     requiredTags: ["boundary"],
     exportedModules: [
       "./artifact/index.ts",
+      "./filesystem-store-root/index.ts",
       "./outcome.ts",
       "./quality-change-control/index.ts",
       "./reality-traceability/index.ts",
@@ -289,6 +290,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     ],
     namespaceExports: {
       artifact: "./artifact/index.ts",
+      filesystemStoreRoot: "./filesystem-store-root/index.ts",
       qualityChangeControl: "./quality-change-control/index.ts",
       realityTraceability: "./reality-traceability/index.ts",
       repositoryObservation: "./repository-observation/index.ts",
@@ -362,7 +364,10 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     relativePath: "40_Develop/official-asset-governance/src/index.ts",
     expectedTrace: "ARCH-000017",
     requiredTags: ["boundary", "effect", "security"],
-    exportedModules: ["./official-asset-governance.ts"],
+    exportedModules: [
+      "./official-asset-governance.ts",
+      "./official-asset-store.ts",
+    ],
   },
   {
     relativePath: "40_Develop/project-operation/src/index.ts",
@@ -5083,6 +5088,7 @@ test("全Test SourceをQuality Local Itemへ責務単位で接続する", () => 
       readonly owner: string;
       readonly level: keyof typeof TEST_LEVEL_CODE;
       readonly path: string;
+      readonly humanInput: boolean;
     }[];
   };
   assert.ok(catalog.tests.length > 0, "Test Catalog population is empty");
@@ -5114,6 +5120,21 @@ test("全Test SourceをQuality Local Itemへ責務単位で接続する", () => 
     const symbols = manifest.symbols.filter(
       (symbol) => symbol.kind === "test-suite" && symbol.path === relativePath,
     );
+    const source = fs.readFileSync(
+      path.join(repositoryRoot, catalogTest.path),
+      "utf8",
+    );
+    if (
+      catalogTest.humanInput &&
+      /\b(?:test|it|describe)\.skip\s*\(/u.test(source)
+    ) {
+      assert.equal(
+        symbols.length,
+        0,
+        `Skipped human-input plan must not become Test Symbol evidence: ${catalogTest.id}`,
+      );
+      continue;
+    }
     assert.equal(
       symbols.length,
       1,
@@ -5163,10 +5184,6 @@ test("全Test SourceをQuality Local Itemへ責務単位で接続する", () => 
       `Test Symbol implementation relation missing: ${catalogTest.id}`,
     );
 
-    const source = fs.readFileSync(
-      path.join(repositoryRoot, catalogTest.path),
-      "utf8",
-    );
     const lines = source.split(/\r?\n/u);
     if (catalogTest.path.endsWith(".ts")) {
       const fileHeader = source.match(/^\/\*\*[\s\S]*?\*\//u)?.[0] ?? "";

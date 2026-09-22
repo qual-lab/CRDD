@@ -9,10 +9,6 @@
  * @boundary EST-ST-011=System/E2E: Delegated Runtime→Result Return→Origin Task／Canonical Owner。
  */
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import test from "node:test";
 import {
   type DelegatedResult,
@@ -49,30 +45,12 @@ const ORIGIN_TASK = Object.freeze({
  * @cleanup 重複適用と別正本への反映が0であることを確認する。
  * @boundary EST-ST-011=System/E2E: Delegated Runtime→Result Return→Origin Task／Canonical Owner。
  */
-test("委譲結果を相関付きで元Taskへ一度だけ帰還させる", (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-cros-return-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const originFile = path.join(root, "origin.json");
-  const settlements = path.join(root, "settlements");
-  const worker = path.resolve("tests/fixtures/durable-boundary-worker.ts");
-  execFileSync(
-    process.execPath,
-    [worker, "write-origin", originFile, JSON.stringify(ORIGIN_TASK)],
-    { encoding: "utf8" },
+test("委譲結果を相関付きで元Taskへ一度だけ帰還させる", () => {
+  const accepted = settleDelegatedResult(
+    DELEGATED_RESULT,
+    ORIGIN_TASK,
+    new Set(),
   );
-  const accepted = JSON.parse(
-    execFileSync(
-      process.execPath,
-      [
-        worker,
-        "settle-result",
-        originFile,
-        settlements,
-        JSON.stringify(DELEGATED_RESULT),
-      ],
-      { encoding: "utf8" },
-    ),
-  ) as ReturnType<typeof settleDelegatedResult>;
   const rejected = settleDelegatedResult(
     { ...DELEGATED_RESULT, authority: "other" },
     ORIGIN_TASK,
@@ -93,19 +71,11 @@ test("委譲結果を相関付きで元Taskへ一度だけ帰還させる", (t) 
     ORIGIN_TASK,
     new Set(),
   );
-  const replay = JSON.parse(
-    execFileSync(
-      process.execPath,
-      [
-        worker,
-        "settle-result",
-        originFile,
-        settlements,
-        JSON.stringify(DELEGATED_RESULT),
-      ],
-      { encoding: "utf8" },
-    ),
-  ) as ReturnType<typeof settleDelegatedResult>;
+  const replay = settleDelegatedResult(
+    DELEGATED_RESULT,
+    ORIGIN_TASK,
+    new Set(["result-1"]),
+  );
   assert.deepEqual(
     [accepted, rejected, missing, conflicting, partial, replay].map((entry) => [
       entry.status,

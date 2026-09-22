@@ -790,10 +790,12 @@
       "kind": "test-suite",
       "path": "tests/integration/project-runtime-full-flow.integration.test.ts",
       "qaIds": [
+        "QA-000003",
         "QA-000004"
       ],
       "localTestIds": [
-        "PPR-IT-001"
+        "PPR-IT-001",
+        "PRL-IT-008"
       ],
       "verifies": [
         "coordinator.source.src.security.execution.intelligence.adapter",
@@ -879,7 +881,8 @@
       ],
       "localTestIds": [
         "PPR-IT-001",
-        "PRL-IT-005"
+        "PRL-IT-005",
+        "PRL-IT-008"
       ],
       "verifies": [
         "coordinator.source.src.composition.project.runtime.composition.root",
@@ -1153,9 +1156,7 @@
       "qaIds": [
         "QA-000006"
       ],
-      "localTestIds": [
-        "ERB-ST-011"
-      ],
+      "localTestIds": ["ERB-ST-011"],
       "verifies": [
         "coordinator.source.src.security.docker.restart.continuation.record",
         "coordinator.source.src.security.docker.restart.handoff.record",

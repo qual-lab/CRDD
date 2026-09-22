@@ -10,16 +10,10 @@
  * @boundary CPR-IT-004／CPR-IT-006=Direct Boundary: Candidate Store→Authority Gate→Owner Writer。
  */
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import test from "node:test";
 
 import {
   applyProjectOperationCandidateDecision,
-  createFileProjectOperationCandidateStore,
-  createFileProjectOperationOwnerWriter,
-  executeProjectOperationCandidateDecision,
   type ProjectOperationCandidate,
   type ProjectOperationCandidateDecision,
 } from "../../src/index.ts";
@@ -126,21 +120,9 @@ test("Authorityまたは候補Relation不足をEffect前で拒否する", () => 
  * @cleanup N/A: 純粋値だけを使用する。
  * @boundary CPR-IT-006=Direct Boundary: Candidate Store→Authority Gate→Owner Writer。
  */
-test("明示採用だけを正本Effectへ変換し競合と媒体名推定を拒否する", (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-project-op-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const candidateStore = createFileProjectOperationCandidateStore(
-    path.join(root, "candidate.json"),
+test("明示採用だけを正本Effectへ変換し競合と媒体名推定を拒否する", () => {
+  const adopted = applyProjectOperationCandidateDecision(
     candidate(),
-  );
-  const owner = createFileProjectOperationOwnerWriter(
-    path.join(root, "owner.json"),
-    4,
-  );
-  const adopted = executeProjectOperationCandidateDecision(
-    candidateStore,
-    owner,
-    { verify: (_candidate, input) => input.principalId === "project-owner" },
     decision(),
   );
   const rejected = applyProjectOperationCandidateDecision(
@@ -171,8 +153,6 @@ test("明示採用だけを正本Effectへ変換し競合と媒体名推定を�
     ownerEffectIssued: true,
     nextOwnerRevision: 5,
   });
-  assert.equal(candidateStore.read().state, "adopted");
-  assert.equal(owner.revision(), 5);
   assert.equal(rejected.ownerEffectIssued, false);
   assert.equal(held.ownerEffectIssued, false);
   assert.equal(

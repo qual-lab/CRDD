@@ -116,13 +116,13 @@ export function inspectRegisteredTool(
  * @input request: 実行要求、registeredTools: 登録集合、signal: 取消Signal。
  * @returns 構造化した状態、実装Identity、出力および残存資源数。
  * @precondition request.surfaceは閉集合、signalは呼出し側lifecycleに属する。
- * @postcondition completed、blocked、cancelledの全経路でresidualResources=0となる。
+ * @postcondition completed、blocked、cancelledの各結果でEffectと残存資源の既知・不明を保持する。
  * @effect authorizedかつavailableな場合だけ共有実装を一回呼ぶ。
  * @failure 未登録、非公開、Host不可、未許可、取消をEffect 0または安全な取消へ閉じる。
  * @invariant Surfaceごとに別実装や別結果意味を作らない。
  * @boundary Human CLI／MCP／Coordinator／Workbench→Tool Registry→共有実装。
  * @security 未許可要求では共有実装を呼ばない。
- * @concurrency AbortSignalを同じ実行へ渡し、完了後の資源所有を残さない。
+ * @concurrency AbortSignalを同じ実行へ渡し、清掃を確認できない場合は残存資源をunknownへ保つ。
  */
 export async function executeRegisteredTool(
   request: ToolExecutionRequest,

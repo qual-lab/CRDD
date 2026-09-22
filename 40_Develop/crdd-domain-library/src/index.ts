@@ -6,6 +6,7 @@
  * @boundary Repository観測Capabilityを利用側へ限定公開するPackage境界。
  */
 export * as artifact from "./artifact/index.ts";
+export * as filesystemStoreRoot from "./filesystem-store-root/index.ts";
 export * as qualityChangeControl from "./quality-change-control/index.ts";
 export * as realityTraceability from "./reality-traceability/index.ts";
 export * as repositoryObservation from "./repository-observation/index.ts";

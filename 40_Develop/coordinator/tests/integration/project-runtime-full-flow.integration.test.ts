@@ -4,6 +4,7 @@
  * @packageDocumentation
  * @responsibility coordinator:integration:project-runtime-full-flowが所有する検証責務を実行する。
  * @trace PPR-IT-001
+ * @trace PRL-IT-008
  * @level IT
  * @scope project、runtime、full、flow、bounded、integration、execution-intelligence
  * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
@@ -32,6 +33,8 @@ import {
   resolveProjectRuntimeReplan as resolveProjectRuntimeReplanWithPort,
   integrateProjectRuntimeOperation,
   issueProjectRuntimeHumanDecision,
+  PROJECT_RUNTIME_ACCEPTANCE_DECISION_CONTRACT,
+  recordProjectRuntimeAcceptanceDecision,
   submitProjectRuntimeHumanDecision,
   type ProjectRuntimeDecisionRecord,
   type ProjectRuntimeReplanClassifier,
@@ -41,6 +44,8 @@ import { createProjectRuntimeIntegrationRecordAdapter } from "../../src/security
 import { runProjectRuntimeObjective } from "../../src/security/project-runtime-objective-intake.ts";
 import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
 import { createProjectRuntimeDecisionCapabilityAdapter } from "../../src/security/project-runtime-decision-capability-adapter.ts";
+import { createProjectRuntimeAcceptanceAuthorityAdapter } from "../../src/security/project-runtime-acceptance-authority-adapter.ts";
+import { createProjectRuntimeAcceptanceDecisionStore } from "../../src/security/project-runtime-acceptance-decision-store.ts";
 
 const revision = "a".repeat(40);
 
@@ -66,6 +71,76 @@ function resolveProjectRuntimeReplan(
     input.repositoryBindingId,
   );
   return resolveProjectRuntimeReplanWithPort(ports.state, input, classify);
+}
+
+/**
+ * 統合済み結果をObjective、Milestoneの順で明示受入する。
+ *
+ * @responsibility Task完了と上位受入を分離し、二つのAcceptance Decisionをexactな世代へ適用する。
+ * @trace PRL-IT-008
+ * @precondition 対象Projectは統合候補作成済みでObjectiveがintegration_pendingである。
+ * @stimulus Objective受入後に最新世代を再観測し、Milestone受入を要求する。
+ * @observation 二つのDecision Resultと最終Project Runtime Stateを観測する。
+ * @oracle ObjectiveとMilestoneが明示判断なしにacceptedへ昇格しない。
+ * @cleanup 親TestがRepository Rootを削除する。
+ * @boundary PRL-IT-008=Direct Boundary: Acceptance Decision Application→State／Decision Store
+ */
+function acceptIntegratedResult(
+  input: Readonly<{
+    root: string;
+    repositoryBindingId: string;
+    projectId: string;
+    milestoneId: string;
+    objectiveId: string;
+  }>,
+) {
+  const persistence = createProjectRuntimePersistencePorts(
+    input.root,
+    input.repositoryBindingId,
+  );
+  const dependencies = Object.freeze({
+    state: persistence.state,
+    authority: createProjectRuntimeAcceptanceAuthorityAdapter("operator-a"),
+    store: createProjectRuntimeAcceptanceDecisionStore(
+      input.root,
+      input.repositoryBindingId,
+    ),
+  });
+  const decide = (
+    target: "objective" | "milestone",
+    targetId: string,
+    suffix: string,
+  ) => {
+    const observed = readProjectRuntimeState(
+      input.root,
+      input.repositoryBindingId,
+      input.projectId,
+    );
+    assert.equal(observed.status, "completed");
+    assert.ok(observed.value);
+    return recordProjectRuntimeAcceptanceDecision(dependencies, {
+      contract: PROJECT_RUNTIME_ACCEPTANCE_DECISION_CONTRACT,
+      decisionId: `decision-${input.projectId}-${suffix}`,
+      sourceSpecId: "SPEC-000002",
+      projectId: input.projectId,
+      milestoneId: input.milestoneId,
+      repositoryRevision: revision,
+      expectedGeneration: observed.value.generation,
+      target,
+      targetId,
+      decision: "accept",
+      criterionEvidenceIds: [`evidence-${suffix}`],
+      principalId: "operator-a",
+    });
+  };
+  assert.equal(
+    decide("objective", input.objectiveId, "objective").status,
+    "completed",
+  );
+  assert.equal(
+    decide("milestone", input.milestoneId, "milestone").status,
+    "completed",
+  );
 }
 
 /**
@@ -276,7 +351,17 @@ test("public intake, bounded retry, progress and integration form one accepted f
       adoptionAuthorized: false,
     },
   );
-  assert.equal(integrated.reason, "project_runtime_milestone_accepted");
+  assert.equal(
+    integrated.reason,
+    "project_runtime_acceptance_decision_required",
+  );
+  acceptIntegratedResult({
+    root: context.root,
+    repositoryBindingId: "binding-full",
+    projectId: context.request.projectId,
+    milestoneId: context.request.milestoneId,
+    objectiveId: "objective-full",
+  });
   const finalState = readProjectRuntimeState(
     context.root,
     "binding-full",
@@ -475,7 +560,17 @@ test("bounded parallel attempts are evaluated by one integrated accepted result"
       adoptionAuthorized: false,
     },
   );
-  assert.equal(integrated.reason, "project_runtime_milestone_accepted");
+  assert.equal(
+    integrated.reason,
+    "project_runtime_acceptance_decision_required",
+  );
+  acceptIntegratedResult({
+    root,
+    repositoryBindingId: "binding-bounded-evaluation",
+    projectId: request.projectId,
+    milestoneId: request.milestoneId,
+    objectiveId: "objective-bounded-evaluation",
+  });
   const verified = verifyExecutionIntelligenceRepositoryRoot(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw new Error("root_not_verified");

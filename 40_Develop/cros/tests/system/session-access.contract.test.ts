@@ -83,47 +83,6 @@ test("許可Repositoryだけを解決し切断後にSession Grantを失効する
 });
 
 /**
- * Grant外Repositoryの存在を漏らさず管理能力をContent Accessへ昇格しないことを検証する。
- * @responsibility Grant外、古いExposure相当およびAdmin-only Sessionを同じ非開示拒否へ閉じる。
- * @trace RFD-ST-004
- * @precondition DEVのみGrantしたSessionとWorkspaceなしのAdmin Sessionを用意する。
- * @stimulus MGMT Repositoryの解決を要求する。
- * @observation 公開結果のkey集合と状態を観測する。
- * @oracle 両結果はstatus=restrictedだけを返しRepository Identity・Path・存在を含めない。
- * @cleanup N/A: 読取りだけで対象Repository Effectを発行しない。
- * @boundary RFD-ST-004=System/E2E: Session→Workspace→Exposure→Repository Projection。
- */
-test("Grant外Repositoryを非開示で拒否し管理能力を閲覧権限へ昇格しない", () => {
-  const developer = createCrosSession("session-dev", {
-    credentialId: "cred-dev",
-    workspaceIds: ["development"],
-    systemAdmin: false,
-    revoked: false,
-  });
-  const administrator = createCrosSession("session-admin", {
-    credentialId: "cred-admin",
-    workspaceIds: [],
-    systemAdmin: true,
-    revoked: false,
-  });
-  assert.ok(developer && administrator);
-  const devResult = resolveRepository(
-    developer,
-    "REPO-MGMT",
-    exposures,
-    repositories,
-  );
-  const adminResult = resolveRepository(
-    administrator,
-    "REPO-MGMT",
-    exposures,
-    repositories,
-  );
-  assert.deepEqual(devResult, { status: "restricted" });
-  assert.deepEqual(adminResult, { status: "restricted" });
-});
-
-/**
  * 古いExposure Revisionを非開示で拒否することを検証する。
  * @responsibility Session、Exposure、RepositoryのRevision相関を確認する。
  * @trace RFD-ST-004
@@ -167,4 +126,45 @@ test("古いExposure Revisionを非開示で拒否する", () => {
     ),
     { status: "restricted" },
   );
+});
+
+/**
+ * Grant外Repositoryの存在を漏らさず管理能力をContent Accessへ昇格しないことを検証する。
+ * @responsibility Grant外、古いExposure相当およびAdmin-only Sessionを同じ非開示拒否へ閉じる。
+ * @trace RFD-ST-004
+ * @precondition DEVのみGrantしたSessionとWorkspaceなしのAdmin Sessionを用意する。
+ * @stimulus MGMT Repositoryの解決を要求する。
+ * @observation 公開結果のkey集合と状態を観測する。
+ * @oracle 両結果はstatus=restrictedだけを返しRepository Identity・Path・存在を含めない。
+ * @cleanup N/A: 読取りだけで対象Repository Effectを発行しない。
+ * @boundary RFD-ST-004=System/E2E: Session→Workspace→Exposure→Repository Projection。
+ */
+test("Grant外Repositoryを非開示で拒否し管理能力を閲覧権限へ昇格しない", () => {
+  const developer = createCrosSession("session-dev", {
+    credentialId: "cred-dev",
+    workspaceIds: ["development"],
+    systemAdmin: false,
+    revoked: false,
+  });
+  const administrator = createCrosSession("session-admin", {
+    credentialId: "cred-admin",
+    workspaceIds: [],
+    systemAdmin: true,
+    revoked: false,
+  });
+  assert.ok(developer && administrator);
+  const devResult = resolveRepository(
+    developer,
+    "REPO-MGMT",
+    exposures,
+    repositories,
+  );
+  const adminResult = resolveRepository(
+    administrator,
+    "REPO-MGMT",
+    exposures,
+    repositories,
+  );
+  assert.deepEqual(devResult, { status: "restricted" });
+  assert.deepEqual(adminResult, { status: "restricted" });
 });

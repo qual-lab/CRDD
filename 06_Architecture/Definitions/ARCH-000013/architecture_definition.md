@@ -90,7 +90,7 @@ Architecture固有の追加人間判断はない。これは入力の未確認�
 
 | 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |
 |---|---|---|---|---|---|
-| 基準版なし | なし（v0.21新規） | CROS Session／Workspace Resolver | 新規 | 実装Evidence未作成 | Personal／Shared Server実装とRemote MCP実測が未接続 |
+| 基準版なし | なし（v0.22新規） | CROS Session／Workspace Resolver | 新規 | 実装Evidence未作成 | Personal／Shared Server実装とRemote MCP実測が未接続 |
 
 現行設計はこの比較だけに使い、UI／SPECにない望ましい意味を補わない。新規責務は基準版能力や実装Evidenceが存在するように表示しない。
 

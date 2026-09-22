@@ -358,7 +358,7 @@ Qual-Lab / CRDD公式リポジトリの非自明な変更は、`main`から作�
 
 「内部では小さく作る」と「不完全なCapabilityを完成として正式化する」を区別する。Spike、Prototype、垂直Slice、段階的結合試験および限定実測は、状態とAuthorityを明示して使用できる。部分実装を公開Capability、移行完了、Release可能または利用側閉包済みと表示してはならない。
 
-認証、外部Provider、OS／Container、署名、Recoveryその他の外部境界では、将来の一般的な交換可能性だけを理由に汎用Adapter契約を作らない。現在の承認済み利用形態に一つの方式で十分なら、その方式と必要な安全境界を完成させる。複数の成立済み方式または現在採用した複数利用側が同じ意味契約を必要とする場合だけ、共通CoreとAdapterの分離を行う。例えばv0.21のShared CROS ServerはBearer Token、Connection Credentialの`workspace_ids[]`／`system_admin`／`revoked`、Request単位の照合を採用し、未採用のIdP、Principal Directoryまたは汎用認証Evidence契約を先取りしない。
+認証、外部Provider、OS／Container、署名、Recoveryその他の外部境界では、将来の一般的な交換可能性だけを理由に汎用Adapter契約を作らない。現在の承認済み利用形態に一つの方式で十分なら、その方式と必要な安全境界を完成させる。複数の成立済み方式または現在採用した複数利用側が同じ意味契約を必要とする場合だけ、共通CoreとAdapterの分離を行う。例えばv0.22のShared CROS ServerはBearer Token、Connection Credentialの`workspace_ids[]`／`system_admin`／`revoked`、Request単位の照合を採用し、未採用のIdP、Principal Directoryまたは汎用認証Evidence契約を先取りしない。
 
 上記の対応で未確認、処置なしまたは新しい根拠なしの項目が残る間は、旧処理、旧所有者または旧検証を「不要」「置換済み」または「回帰不要」と判定しない。互換層の永久保持を要求するものではなく、新境界で同じCapabilityが成立した後は、承認済みの移行方針に従って旧実装を除去する。
 

@@ -2,7 +2,7 @@
 
 状態: Quality Design Ready — Reality Audit Pending（Released Baseline: v0.20.1）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-21
+最終更新日: 2026-09-22
 
 ## 設計集合
 
@@ -14,16 +14,16 @@
 
 ## 結論
 
-v0.21.0のQuality設計は13定義、154 Local Itemまで拡張した。全SubsystemのTest Symbolと再照合した現在値は、一意なLocal Item 154件中122件が観測済み、32件が未観測である。機械化可能な未観測は0件まで閉じ、残る32件はHybrid 14件、Manual 18件である。自動部分だけのPassを人間判断または実境界を含むLocal Item全体の成立へ読み替えず、工程Evidenceと人間受入を分けて扱う。
+Quality設計は13定義、154 Local Itemまで拡張した。Test Symbol Relationは120件に存在するが、完成Evidenceへ算入できるのは116件である。残る4件は対象Relationを保持したまま非完成・非Evidenceと判定し、Relationなし34件と合わせて品質判定上の未観測38件とする。このうちv0.21.0のRelease対象はGroup Aに属する128件で、106件が観測済み、22件が未観測（Hybrid 12件、Manual 10件）である。Project Operation、Workbench、CROS、複数Repositoryおよび利用者所有Trustに属する26件はv0.22.0へ移管した。移管範囲には既存PrototypeとのRelationが10件あるが、新Capabilityの完成Evidenceへ読み替えず、未観測16件と合わせてv0.22で実装・実境界・人間受入を再評価する。
 
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|
 | Canonical入力 | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18を全件Mapping済み | [Quality Integration](04_Quality_Integration.md) |
 | Quality Analysis | 6工程の全入力を、Source固有条件付きで13検証目標へ接続し独立レビュー済み | Reality Auditではこの設計集合を変更せず、現行実装との対応を照合する |
-| Quality Definitions | 13定義、154 Local ItemをCanonical化済み | 122件観測済み、32件未観測。機械化可能な未観測は0件。定義済みであることを実装済み・試験済みへ読み替えない |
+| Quality Definitions | 13定義、154 Local ItemをCanonical化済み | Test Relation 120件、完成Evidence算入116件、非完成Relation 4件、Relationなし34件。品質判定上は116件観測済み、38件未観測。v0.21対象128件は106件観測済み、22件未観測。v0.22移管26件はPrototype Relation 10件と未観測16件を区別し、完成済みへ読み替えない |
 | Architecture詳細設計 | 18領域を適用判定済み | 実装OwnerのないCapability、現実との不一致およびTest未接続をReality Auditで処置する |
-| Checker | 現在候補に対する構造・関係検査を実行 | Quality固定後にChecker安定化へ進み、責務分離後に再検証する |
-| Reality Audit | In Progress — Hybrid／Manual Evidence Pending | Coordinator／Project Runtime Pilotに加えて全Subsystemを照合し、残るHybrid 14件とManual 18件を処置する |
+| Checker | Repository検査と全契約試験がPass | 962 Markdown、16,216 link、1,965 anchorをError 0／Warning 0で検査し、Checker契約試験363／363 Passを確認した |
+| Reality Audit | In Review — Hybrid／Manual Evidence Pending | Checkerのskip Evidence誤算入と実境界未観測を是正し、v0.21に残るHybrid 12件とManual 10件を独立レビューと署名E2Eで処置する。v0.22移管26件は同版で再開する |
 
 ## 現在の品質投影
 
@@ -31,12 +31,12 @@ v0.21.0のQuality設計は13定義、154 Local Itemまで拡張した。全Subsy
 |---|---|---|
 | Designed | Canonical | 実装済みまたは試験可能とは主張しない |
 | Implemented | 部分照合 | 未実装CapabilityをRelation追加だけで成立へ変えない |
-| Executed | 部分実行 | 局所試験結果を未観測32 Local Itemの人間判断または実境界Evidenceへ数えない |
+| Executed | 独立レビュー是正後候補の自動回帰実行済み | Coordinatorは2015件中2010 Pass・失敗0・明示Skip 5、Checkerは363／363 Pass。自動回帰結果をv0.21未観測22 Local Itemの人間判断または実境界Evidenceへ数えない |
 | Passed | 未評価 | 過去版のPassをv0.21.0候補へ流用しない |
 | Evidence | 未収集 | 現在候補の対象改訂版・実行条件・結果を持つEvidenceがあるとは主張しない |
-| Reality Audit | In Progress | Relationの存在だけからImplemented／Passedを推定しない |
+| Reality Audit | In Review | Relationの存在だけからImplemented／Passedを推定しない |
 
-Coordinator／Project Runtimeの17意味Pilotに加えて全Subsystemへ照合範囲を広げた。17意味では自動観測16件、手動UAT待ち1件である。全Local Itemでは122件観測済み、32件未観測であり、Quality Readyへ昇格しない。PT／LTは人間の明示許可がないため実行しない。
+Coordinator／Project Runtimeの17意味Pilotに加えて全Subsystemへ照合範囲を広げた。skip、fixture自己再現および外部実境界の自己申告を観測済みから除外し、v0.21対象では106件観測済み、22件未観測である。Quality Readyへ昇格せず、PT／LTは人間の明示許可がないため実行しない。
 
 ## 公開済みBaselineと参照
 

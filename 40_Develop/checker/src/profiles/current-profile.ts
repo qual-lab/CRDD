@@ -1506,7 +1506,7 @@ export function runCurrentProfileChecker(
       "未Commit状態とVersion Control Adapterの交換可能性を検証対象へ含めた",
       "照合対象のRevision、実行条件および観測限界を固定した",
       "不足Test、未実行項目およびEvidence Gapを追跡した",
-      "PT／LTは人間の明示指定がある場合だけ実行した",
+      "PT／LTの適用と実行Authorityを評価し、明示指定がない場合は実行していない",
     ];
 
     const qualityVerificationResultChecklistItemTexts = [
@@ -11536,7 +11536,13 @@ export function runCurrentProfileChecker(
     }
 
     const currentProfileRegistry = new RuleRegistry();
-    if (repositoryMode === "official")
+    if (
+      repositoryMode === "official" &&
+      discovery.source === "git" &&
+      lstatIfPresent(path.join(root, "06_Architecture", "Definitions")) &&
+      lstatIfPresent(path.join(root, "07_Quality", "Definitions")) &&
+      lstatIfPresent(path.join(root, "40_Develop"))
+    )
       currentProfileRegistry.register(realitySymbolGraphRule(root));
     for (const rule of currentProfileRules({
       workLifecycle: checkWorkLifecycleNavigation,
@@ -11550,7 +11556,12 @@ export function runCurrentProfileChecker(
       phaseDiagrams: checkPhaseDiagramDispositionContracts,
     }))
       currentProfileRegistry.register(rule);
-    runCheckerPipeline({ sources: [], registry: currentProfileRegistry });
+    const currentProfilePipeline = runCheckerPipeline({
+      sources: [],
+      registry: currentProfileRegistry,
+    });
+    for (const finding of currentProfilePipeline.findings)
+      add(finding.severity, finding.code, finding.path, finding.message);
 
     for (const name of ["Evidence", "Decision", "Decisions"]) {
       if (lstatIfPresent(path.join(root, name))) {

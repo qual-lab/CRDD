@@ -50,6 +50,18 @@ test("別Runtimeへ同じDocker回復義務をhandoffし不正chainを拒否す�
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-docker-handoff-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const worker = path.resolve("tests/fixtures/docker-handoff-worker.ts");
+  /**
+   * 指定した段階のDocker引継ぎWorkerを別Processで実行する。
+   *
+   * @responsibility 引継ぎ段階ごとのProcess境界と構造化結果の取得を所有する。
+   * @trace ERB-ST-011
+   * @precondition Worker、試験一時Directoryおよび回復IdentityのBindingが利用可能である。
+   * @stimulus 段階名と対応するBindingをWorker Processへ渡す。
+   * @observation Workerが返したPID、Effect、資源数およびclosure状態を取得する。
+   * @oracle Workerが正常終了し、JSON結果が期待する観測契約へ変換できる。
+   * @cleanup Workerは同期終了し、生成Fileは親Testのafter hookが一括清掃する。
+   * @boundary ERB-ST-011=System/E2E: 親Test→別Node Process→耐久引継ぎFile→構造化結果。
+   */
   const runWorker = (command: string, workerBinding: typeof binding) =>
     JSON.parse(
       execFileSync(
