@@ -10,13 +10,13 @@
 
 | 項目 | 現在値 |
 |---|---|
-| 現在の変更状態 | Docker Setup 8段階の固定診断により、選択UserのCRDD専用Claude Provider HomeにあるSubscription OAuthの失効を確認した。通常Taskから分離したHuman-only再認証Lifecycleを実装し、Command世代Barrierを本番関数・別Process・実Kernel Lockの結合試験で固定した。固定候補`b38d0120`の独立再レビューはCritical／Major／Minor 0でPassした。その後の署名事前観測は、新しい再認証用子Processが署名対象Runtime能力Graphへ未登録であることをEffect 0で拒否した。初回Graph是正候補`2cc9d9d6`は独立レビューでMajor 1となり、Wrapperの5引数と実行ファイル、環境、固定作業Directory、Directory確認およびAuthorityの由来まで拘束する是正を再固定している |
+| 現在の変更状態 | Docker Setup 8段階の固定診断により、選択UserのCRDD専用Claude Provider HomeにあるSubscription OAuthの失効を確認した。通常Taskから分離したHuman-only再認証Lifecycleを実装し、Command世代Barrierを本番関数・別Process・実Kernel Lockの結合試験で固定した。固定候補`b38d0120`の独立再レビューはCritical／Major／Minor 0でPassした。その後の署名事前観測は、新しい再認証用子Processが署名対象Runtime能力Graphへ未登録であることをEffect 0で拒否した。初回Graph是正候補`2cc9d9d6`のMajor 1を是正した固定候補`290cd622`は、Wrapperの5引数と実行ファイル、環境、固定作業Directory、Directory確認およびAuthorityの由来まで拘束し、独立再レビューをCritical／Major／Minor 0でPassした |
 | Phase／Gate適用判断 | `Applicable`: Architecture、実装、Quality、MigrationおよびReality Auditを一括変更せず、局所Gateで成立確認する必要がある |
 | 現在Phase | `Phase 9 — Signed E2E／Release Gate`: Phase 2／4／7／8の独立再レビューはBlocking Finding 0でPassした。Claude再認証Lifecycleの検証義務を加えたCanonical設計集合156件のうち、v0.21対象を130件、v0.22移管を26件へ分けた。v0.21の未観測24件（Automated 2、Hybrid 12、Manual 10）は局所試験、署名E2Eと人間確認で処置する。移管26件は既存Prototype Relation 10件と未観測16件を区別し、いずれも新CapabilityのPass・実装済みへ変更しない |
-| 現在Gate | `Passed: Gate 0〜8`。`In Progress: Gate 9`。Human-only Claude再認証入口は独立再レビューをPassし、形式・型・Lint・Trace確認、局所14／14およびDevelopment E2E 341／341もPassした。Runtime能力Graphの初回是正に対するMajor 1を5引数の完全一致と由来証明の負例で修正し、再固定・独立再レビュー後に署名へ進む |
+| 現在Gate | `Passed: Gate 0〜8`。`In Progress: Gate 9`。Human-only Claude再認証入口とRuntime能力Graph是正は独立再レビューをPassした。形式・型・Lint・Trace確認、局所14／14、Graph差替え負例およびDevelopment E2E 341／341もPassした。次はこの内容を記録した固定Commitからexact stagingを作り、Coordinator署名へ進む |
 | 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 156件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 224件の責務別Local Item接続、Optionality Audit全数処置。既存範囲の独立再レビューはBlocking Finding 0、Coordinatorは2015件中2010 Pass・失敗0・5 Explicit Skip、Windows Process Gateは8／8 Pass、Checker全回帰は363／363 Pass。Claude再認証の局所単体試験12件と別Process回復結合試験2件もPassし、本番認証関数のEffect前`in_flight`耐久化、Command保留中の実Kernel Lock喪失、fresh Effect 0、正常close後だけの`idle`復帰を固定した |
 | 未成立 | v0.21未観測Local Item 24件（Automated 2、Hybrid 12、Manual 10）のうち、署名E2Eまたは人間受入を必要とするEvidence処置と、Gate 9のRelease Readiness判定。v0.22移管26件は同版の実装・実境界・人間受入で再開する |
-| 次のGate | Runtime能力Graph是正を局所試験、全回帰および独立レビューで固定する。その後Coordinatorを再署名し、人がHuman-only入口で一度Claude Subscriptionを再認証する。続いてRecovery Matrixと4経路E2Eを同じ固定候補で再実行し、結果を24件のEvidence義務へ対応付ける |
+| 次のGate | Coordinatorを再署名し、人がHuman-only入口で一度Claude Subscriptionを再認証する。続いてRecovery Matrixと4経路E2Eを同じ固定候補で再実行し、結果を24件のEvidence義務へ対応付ける |
 
 ## 1. 変更の目的
 
