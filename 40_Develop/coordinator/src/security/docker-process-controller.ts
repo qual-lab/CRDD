@@ -24,7 +24,10 @@ import {
   publicDockerRecoveryStartReason,
   publicVerifiedDockerRecoveryId,
 } from "./docker-recovery-public-projection.ts";
-import { DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS } from "./docker-process-controller-result-reasons.ts";
+import {
+  DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS,
+  type DockerProcessControllerPublicCompletionReason,
+} from "./docker-process-controller-result-reasons.ts";
 import {
   abandonRuntimeOwnedDockerRecovery,
   beginRuntimeOwnedDockerRecovery,
@@ -70,6 +73,32 @@ const CREATE_PURPOSES = new Set([
 const BLOCKED_COMPLETION_REASONS = new Set<string>(
   DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS,
 );
+type DockerProcessControllerFinalReason =
+  | DockerProcessControllerPublicCompletionReason
+  | "provider_operation_completed"
+  | "provider_operation_cancelled";
+
+/**
+ * 値がDocker Process Controllerの公開完了理由か判定する。
+ *
+ * @responsibility 下位結果の未知文字列をOwner Registry由来の固定理由から分離する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns 固定Registryにexact一致する場合だけtrueを返す。
+ * @precondition N/A: 任意の観測値を受け取る。
+ * @postcondition trueの場合、値をDockerProcessControllerPublicCompletionReasonとして扱える。
+ * @effect N/A: 不変Registryを参照するだけである。
+ * @failure N/A: 不正値はfalseへ閉じる。
+ * @invariant prefix、正規表現または部分一致で理由を許可しない。
+ * @boundary 下位Provider結果からDocker Process Controller公開結果への診断境界。
+ * @security 生出力または自由文を公開理由へ昇格しない。
+ * @concurrency N/A: 共有状態を変更しない同期判定である。
+ */
+function isDockerProcessControllerPublicCompletionReason(
+  value: unknown,
+): value is DockerProcessControllerPublicCompletionReason {
+  return typeof value === "string" && BLOCKED_COMPLETION_REASONS.has(value);
+}
 const SAFE_IDENTIFIER =
   /^crdd-(?:auth|internal|egress|proxy|claude|codex)-[a-f0-9]{16}$/u;
 
@@ -1129,9 +1158,9 @@ function settleInvalidRecoveryStart(
  *
  * @responsibility Final 結果の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
- * @input status: "completed" | "blocked" | "cancelled"、reason: string、plan: PreparedPlan、recoveryId: string、details: Readonly<{ providerRequestStarted: boolean; cancellationRequested: boolean; processTreeTerminationConfirmed: boolean; containersAbsent: boolean; networksAbsent: boolean; mountLeaseReleased: boolean; recoveryCompleted: boolean; resultSha256: string | null; resultBytes: number; normalizedResult: unknown | null; subscriptionAuthConfirmed: boolean; recoveryFinalizationCapability: object | null; }>
+ * @input status: "completed" | "blocked" | "cancelled"、reason: DockerProcessControllerFinalReason、plan: PreparedPlan、recoveryId: string、details: Readonly<{ providerRequestStarted: boolean; cancellationRequested: boolean; processTreeTerminationConfirmed: boolean; containersAbsent: boolean; networksAbsent: boolean; mountLeaseReleased: boolean; recoveryCompleted: boolean; resultSha256: string | null; resultBytes: number; normalizedResult: unknown | null; subscriptionAuthConfirmed: boolean; recoveryFinalizationCapability: object | null; }>
  * @returns createFinalResultの計算結果を返す。
- * @precondition 「status: "completed" | "blocked" | "cancelled"、reason: string、plan: PreparedPlan、recoveryId: string、details: Readonly<{ providerRequestStarted: boolean; cancellationRequested: boolean; processTreeTerminationConfirmed: boolean; containersAbsent: boolean; networksAbsent: boolean; mountLeaseReleased: boolean; recoveryCompleted: boolean; resultSha256: string | null; resultBytes: number; normalizedResult: unknown | null; subscriptionAuthConfirmed: boolean; recoveryFinalizationCapability: object | null; }>」がcreateFinalResultの入力契約を満たす。
+ * @precondition 「status: "completed" | "blocked" | "cancelled"、reason: DockerProcessControllerFinalReason、plan: PreparedPlan、recoveryId: string、details: Readonly<{ providerRequestStarted: boolean; cancellationRequested: boolean; processTreeTerminationConfirmed: boolean; containersAbsent: boolean; networksAbsent: boolean; mountLeaseReleased: boolean; recoveryCompleted: boolean; resultSha256: string | null; resultBytes: number; normalizedResult: unknown | null; subscriptionAuthConfirmed: boolean; recoveryFinalizationCapability: object | null; }>」がcreateFinalResultの入力契約を満たす。
  * @postcondition createFinalResultの責務を完了した結果だけを返す。
  * @effect N/A: createFinalResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: createFinalResultは独自の失敗分岐を所有しない。
@@ -1142,7 +1171,7 @@ function settleInvalidRecoveryStart(
  */
 function createFinalResult(
   status: "completed" | "blocked" | "cancelled",
-  reason: string,
+  reason: DockerProcessControllerFinalReason,
   plan: PreparedPlan,
   recoveryId: string,
   details: Readonly<{
@@ -1543,7 +1572,8 @@ async function executePlan(
   plan: PreparedPlan,
   recovery: Recovery,
 ) {
-  let reason = "provider_operation_completed";
+  let reason: DockerProcessControllerFinalReason =
+    "provider_operation_completed";
   let requestedStatus: "completed" | "blocked" | "cancelled" = "completed";
   let providerRequestStarted = false;
   let resultSha256: string | null = null;
@@ -1721,8 +1751,9 @@ async function executePlan(
           requestedStatus = "blocked";
           reason =
             "reason" in providerResult &&
-            typeof providerResult.reason === "string" &&
-            BLOCKED_COMPLETION_REASONS.has(providerResult.reason)
+            isDockerProcessControllerPublicCompletionReason(
+              providerResult.reason,
+            )
               ? providerResult.reason
               : "provider_result_invalid";
           break;
