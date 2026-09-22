@@ -29,6 +29,7 @@ import {
   createRuntimeOwnedCoordinatorOperation,
 } from "./coordinator-operation-creation-internal.ts";
 import { snapshotCoordinatorTaskRequest } from "./coordinator-task-request.ts";
+import { COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS } from "./coordinator-task-result-reasons.ts";
 import {
   issueRuntimeOwnedDelegationSelectionGrant,
   preflightRuntimeOwnedDelegationExecutionSlate,
@@ -1778,20 +1779,20 @@ function externalSendScopeRequest(request: RuntimeRecord) {
  */
 function projectProviderPreparationFailure(reason: unknown) {
   if (typeof reason !== "string")
-    return "coordinator_task_provider_prepare_failed";
+    return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.prepareFailed;
   if (reason.endsWith("_docker_runtime_model_selection_invalid"))
-    return "coordinator_task_provider_model_selection_invalid";
+    return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.modelSelectionInvalid;
   if (reason.endsWith("_docker_runtime_mount_authorization_invalid"))
-    return "coordinator_task_provider_mount_authorization_invalid";
+    return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.mountAuthorizationInvalid;
   if (reason.endsWith("_docker_runtime_task_packet_invalid"))
-    return "coordinator_task_provider_task_packet_invalid";
+    return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.taskPacketInvalid;
   if (reason.endsWith("_docker_runtime_plan_invalid"))
-    return "coordinator_task_provider_plan_invalid";
+    return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.planInvalid;
   if (reason.endsWith("_docker_runtime_authority_invalid"))
-    return "coordinator_task_provider_authority_invalid";
+    return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.authorityInvalid;
   if (reason.endsWith("_docker_runtime_recovery_correlation_invalid"))
-    return "coordinator_task_provider_recovery_correlation_invalid";
-  return "coordinator_task_provider_prepare_failed";
+    return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.recoveryCorrelationInvalid;
+  return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.prepareFailed;
 }
 
 /**
