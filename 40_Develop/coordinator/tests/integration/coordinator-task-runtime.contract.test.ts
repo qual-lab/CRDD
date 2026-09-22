@@ -29,7 +29,9 @@ import {
   projectDevelopmentTaskResultAfterOuterCleanup,
   startRuntimeOwnedCoordinatorTask,
 } from "../../src/security/coordinator-task-runtime.ts";
+import { COORDINATOR_TASK_PUBLIC_REASONS } from "../../src/security/coordinator-task-result-reasons.ts";
 import { selectDelegationRouteCandidate } from "../../src/security/delegation-route-selection.ts";
+import { DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS } from "../../src/security/docker-process-controller-result-reasons.ts";
 import {
   cleanupOwnedOperationDirectories,
   createIsolatedOwnedOperationDirectoryCreationFailureCandidate,
@@ -6378,6 +6380,25 @@ test("Task Runtime契約は実Host active binding残存時にcleanupを拒否し
   } finally {
     fs.rmSync(activeBinding, { force: true });
     cleanupOwnedOperationDirectories(owned);
+  }
+});
+
+/**
+ * Docker Process Controllerの公開失敗理由をTask公開Registryへ全数接続することを検証する。
+ *
+ * @responsibility 下位Producerが公開する固定診断理由とCoordinator Task投影の閉包を検証する。
+ * @trace CPR-IT-001
+ * @precondition 両Registryが固定値として初期化されている。
+ * @stimulus Docker Process Controllerの全公開理由をTask公開Registryと照合する。
+ * @observation 各理由のexact inclusionを取得する。
+ * @oracle 全理由が一件も代替理由へ欠落せずTask公開Registryに存在する。
+ * @cleanup N/A: 不変Registryだけを読み取り、資源を作成しない。
+ * @boundary CPR-IT-001=Direct Boundary: Docker Process Controller結果→Coordinator Task公開結果
+ */
+test("Docker Process Controllerの公開失敗理由をTask公開Registryへ全数接続する", () => {
+  const taskReasons = new Set<string>(COORDINATOR_TASK_PUBLIC_REASONS);
+  for (const reason of DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS) {
+    assert.equal(taskReasons.has(reason), true, reason);
   }
 });
 

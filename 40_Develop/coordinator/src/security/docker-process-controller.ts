@@ -24,6 +24,7 @@ import {
   publicDockerRecoveryStartReason,
   publicVerifiedDockerRecoveryId,
 } from "./docker-recovery-public-projection.ts";
+import { DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS } from "./docker-process-controller-result-reasons.ts";
 import {
   abandonRuntimeOwnedDockerRecovery,
   beginRuntimeOwnedDockerRecovery,
@@ -66,46 +67,9 @@ const CREATE_PURPOSES = new Set([
   "create_proxy",
   "create_provider",
 ]);
-const BLOCKED_COMPLETION_REASONS = new Set([
-  "provider_deadline_exceeded",
-  "docker_setup_deadline_exceeded",
-  "provider_output_limit_exceeded",
-  "provider_process_signalled",
-  "provider_process_exit_nonzero",
-  "provider_subscription_quota_exhausted",
-  "provider_authentication_expired",
-  "provider_operation_budget_exceeded",
-  "provider_turn_limit_exceeded",
-  "provider_structured_output_retry_exhausted",
-  "provider_invocation_rejected",
-  "provider_network_unavailable",
-  "provider_service_unavailable",
-  "docker_setup_command_failed",
-  "docker_resource_submission_record_unavailable",
-  "docker_resource_receipt_unavailable",
-  "docker_process_controller_execution_restricted",
-  "provider_subscription_auth_not_confirmed",
-  "provider_result_invalid",
-  "provider_task_result_input_invalid",
-  "provider_task_result_json_invalid",
-  "provider_task_result_envelope_status_invalid",
-  "provider_task_result_turn_count_invalid",
-  "provider_task_result_turn_limit_mismatch",
-  "provider_task_result_cost_metadata_invalid",
-  "provider_task_reviewer_result_transport_invalid",
-  "provider_task_executor_shape_invalid",
-  "provider_task_reviewer_shape_invalid",
-  "provider_task_reviewer_keys_invalid",
-  "provider_task_reviewer_decision_invalid",
-  "provider_task_reviewer_summary_invalid",
-  "provider_task_reviewer_findings_invalid",
-  "provider_task_reviewer_finding_invalid",
-  "provider_task_reviewer_decision_inconsistent",
-  "docker_process_controller_execution_failed_closed",
-  "docker_process_controller_provider_start_failed",
-  "docker_process_controller_provider_start_observation_failed",
-  "repository_revision_changed",
-]);
+const BLOCKED_COMPLETION_REASONS = new Set<string>(
+  DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS,
+);
 const SAFE_IDENTIFIER =
   /^crdd-(?:auth|internal|egress|proxy|claude|codex)-[a-f0-9]{16}$/u;
 

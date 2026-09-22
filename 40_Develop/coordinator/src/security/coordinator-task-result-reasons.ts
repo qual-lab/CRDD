@@ -14,6 +14,8 @@
  * @security exactな固定値だけを公開し、prefixまたは正規表現による許可へ拡張しない。
  * @concurrency N/A: 不変の固定値だけを公開する。
  */
+import { DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS } from "./docker-process-controller-result-reasons.ts";
+
 export const COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS = Object.freeze({
   prepareFailed: "coordinator_task_provider_prepare_failed",
   modelSelectionInvalid: "coordinator_task_provider_model_selection_invalid",
@@ -28,6 +30,7 @@ export const COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS = Object.freeze({
 
 export const COORDINATOR_TASK_PUBLIC_REASONS = Object.freeze([
   ...Object.values(COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS),
+  ...DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS,
   "coordinator_task_cancellation_protocol_failed_cleanup_confirmed",
   "coordinator_task_cancellation_protocol_failed_cleanup_unknown",
   "coordinator_task_cancellation_receipt_invalid",
@@ -127,38 +130,9 @@ export const COORDINATOR_TASK_PUBLIC_REASONS = Object.freeze([
   "docker_process_controller_recovery_identity_mismatch",
   "docker_process_controller_recovery_observation_unknown",
   "docker_process_controller_recovery_unavailable",
-  "provider_authentication_expired",
   "provider_cancellation_grace_exceeded",
   "provider_cancellation_requested",
-  "provider_deadline_exceeded",
-  "provider_invocation_rejected",
-  "provider_network_unavailable",
-  "provider_operation_budget_exceeded",
   "provider_operation_cancelled",
-  "provider_output_limit_exceeded",
-  "provider_process_exit_nonzero",
-  "provider_process_signalled",
-  "provider_result_invalid",
-  "provider_service_unavailable",
-  "provider_structured_output_retry_exhausted",
-  "provider_subscription_auth_not_confirmed",
-  "provider_subscription_quota_exhausted",
-  "provider_task_executor_shape_invalid",
-  "provider_task_result_cost_metadata_invalid",
-  "provider_task_result_envelope_status_invalid",
-  "provider_task_result_input_invalid",
-  "provider_task_result_json_invalid",
-  "provider_task_result_turn_count_invalid",
-  "provider_task_result_turn_limit_mismatch",
-  "provider_task_reviewer_decision_inconsistent",
-  "provider_task_reviewer_decision_invalid",
-  "provider_task_reviewer_finding_invalid",
-  "provider_task_reviewer_findings_invalid",
-  "provider_task_reviewer_keys_invalid",
-  "provider_task_reviewer_result_transport_invalid",
-  "provider_task_reviewer_shape_invalid",
-  "provider_task_reviewer_summary_invalid",
-  "provider_turn_limit_exceeded",
 ] as const);
 
 export type CoordinatorTaskPublicReason =
