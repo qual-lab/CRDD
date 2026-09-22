@@ -10,13 +10,13 @@
 
 | 項目 | 現在値 |
 |---|---|
-| 現在の変更状態 | Engineering Completenessの独立レビュー指摘を是正し、同一候補の再レビューと全回帰をPassした。署名E2Eへ渡す段階 |
+| 現在の変更状態 | Engineering Completenessの独立レビュー指摘を是正し、同一候補の再レビューと全回帰をPassした。署名Recovery MatrixはPassしたが、4経路E2Eの固定理由が保存Recordで`unknown`へ劣化する診断契約不足を検出したため、Gate 9を再開して是正中 |
 | Phase／Gate適用判断 | `Applicable`: Architecture、実装、Quality、MigrationおよびReality Auditを一括変更せず、局所Gateで成立確認する必要がある |
 | 現在Phase | `Phase 9 — Signed E2E／Release Gate`: Phase 2／4／7／8の独立再レビューはBlocking Finding 0でPassした。Canonical設計集合154件は維持し、v0.21対象を128件、v0.22移管を26件へ分けた。v0.21の未観測22件（Hybrid 12、Manual 10）は署名E2Eと人間確認で処置する。移管26件は既存Prototype Relation 10件と未観測16件を区別し、いずれも新CapabilityのPass・実装済みへ変更しない |
-| 現在Gate | `Passed: Gate 0〜8`。`In Progress: Gate 9`。同一候補のCoordinator全回帰、Windows Process Gate、Checker全回帰および独立再レビューはPassした。署名E2Eを実行してRelease Readinessを判定する |
+| 現在Gate | `Passed: Gate 0〜8`。`In Progress: Gate 9`。同一候補のCoordinator全回帰、Windows Process Gate、Checker全回帰および独立再レビューはPassした。署名Recovery MatrixもPassした。4経路E2Eで発生した固定Provider／Runner理由を保存Recordが古い許可集合により`unknown`へ落としたため、診断理由の安全な記録契約を是正し、再署名後に4経路E2Eを再実行する |
 | 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 154件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 223件の責務別Local Item接続、Optionality Audit全数処置。独立再レビューはBlocking Finding 0、Coordinatorは2015件中2010 Pass・失敗0・5 Explicit Skip、Windows Process Gateは8／8 Pass、Checker全回帰は363／363 Pass |
 | 未成立 | v0.21未観測Local Item 22件（Automated 0、Hybrid 12、Manual 10）のうち署名E2Eまたは人間受入を必要とするEvidence処置と、Gate 9のRelease Readiness判定。v0.22移管26件は同版の実装・実境界・人間受入で再開する |
-| 次のGate | Coordinatorを再署名し、Recovery Matrixと4経路E2Eを同じ固定候補で実行する。結果を22件のEvidence義務へ対応付け、残る人間受入をRelease判断へ提示する |
+| 次のGate | 診断Recordの固定理由許可集合をRuntimeの固定失敗理由へ同期し、未知の自由文を拒否する負例と関連E2EをPassさせる。Coordinatorを再署名し、Recovery Matrixと4経路E2Eを同じ固定候補で実行する。結果を22件のEvidence義務へ対応付け、残る人間受入をRelease判断へ提示する |
 
 ## 1. 変更の目的
 
@@ -148,6 +148,7 @@ PhaseはCHGを分割する別Identityではなく、一つの変更意図を安�
 | Local Itemに試験段階・条件区分・外部境界段階の不足があった | Required Verificationの母集合を閉じる同じ目的である | Phase 3へLocal Item再採番、細分化、日本語5条件区分を追加 | Level／Boundary／条件区分の集合差0を要求 | Quality Definition、Checker、全回帰 | Added |
 | 重要観点が「必要に応じて」で未評価のまま省略できる | AIの暗黙判断をFormatへ戻す同じ目的である | Phase 6としてOptionality Auditを追加 | C〜Fの必須評価化とSelf Migrationを完了条件へ追加 | CRDD正本、全ひな型、Checker、独立監査 | Added |
 | 同じIntentの不足発見ごとにCHGが細分化し得る | 本CHG自身を完成まで追跡するChange Management上の前提不足である | Phase 0としてPhase／Gate／Scope Extension契約を追加 | Gate 0通過前に以後のPhase完了を確定しない | Change正本、Maintenance、ひな型、Checker | Added |
+| 4経路E2Eの固定失敗理由が保存Recordで`unknown`へ劣化した | 外部境界を推測せず診断でき、Evidenceへ再現可能に接続する同じ完全性目的である | Phase 9へVerification Result Recorderの固定理由投影と負例を追加 | 実Provider再試行前に原因分類を耐久記録できることをGateへ追加 | 固定理由だけを許可し、自由文・秘密風文字列・Provider生出力を保存しない | Added |
 
 ### 途中見直しの記録
 
@@ -158,6 +159,7 @@ PhaseはCHGを分割する別Identityではなく、一つの変更意図を安�
 | 型宣言へFunction用の入出力・事前事後条件を要求すると、非該当説明が主となり型契約が読みにくくなった | 全Named Symbolへ単一Header Schemaを適用すれば責務を同じ精度で保存できるという前提 | Phase 2のHeaderを型契約、状態所有、実行責務の3 Schemaへ分離する | Schema別の正例・負例、全Production母集団、Formatter／型／Lint | Summary、責務、実在ARCH-IDへのTrace、必須評価原則は変更しない | Revised |
 | 既存Test Suite Relation 37件すべてで、物理配置の試験段階とLocal Item IDの段階が少なくとも1件不一致だった | 既存`symbol.json`のTest RelationをそのままHeader移行入力にできるという前提 | Phase 4でTest Catalog 197件と個別Test Case／Helper／Fixtureを再分析し、物理配置またはLocal Item Relationを正す | Test File段階、Local Item段階、実在ID、個別Test責務、全Test実行 | 既存Testの成立済み検証能力とQuality Local Itemの意味は、置換根拠なしに削除・改称しない | Revised |
 | Test Fileを一つの代表Local Itemへ縮約した結果、Semantic Coverageで17意味中16件のTest観測Relationが失われた | File、Case、HelperのRelationを同一の1件へ揃えればTest Source Contractを閉じられるという前提 | Phase 4／7を再開し、FileはCase／HelperのRelation和集合、Caseは対応する1件、Helperは支援する1件以上、`symbol.json`は和集合の正方向Ownerへ改訂する | Test Header契約試験、Symbol Graph、Semantic Coverage Pilot、全Test実行、独立意味レビュー | 試験段階付きLocal Item 150件、Test本体の振る舞いおよび旧Relationを根拠なくTest成立へ昇格しない原則は変更しない | Revised |
+| 署名4経路E2Eの内側結果がRuntime固定理由を返しても、保存Recordの手管理許可集合に未登録なら`unknown`へ劣化した | `reason`の追加時にVerification Recorderも同期済みであり、失敗後に安全な原因分類を再観測できるという前提 | Gate 9を再開し、Provider／署名Runnerの固定理由をRecordへ投影する。ただし未知の自由文は従来どおり`unknown`へ閉じる | Formatter、型、Lint、Recorder負例、Development E2E、再署名Recovery Matrix、署名4経路E2E | Provider生出力、Credential、Host Pathおよび未許可の自由文は記録しない | Revised |
 
 #### Production Header移行母集団
 
@@ -498,6 +500,7 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 - [`40_Develop/checker/src/profiles/current-profile.ts`](../../../40_Develop/checker/src/profiles/current-profile.ts)
 - [`40_Develop/checker/src/rules/reality-symbol-graph.ts`](../../../40_Develop/checker/src/rules/reality-symbol-graph.ts)
 - [`40_Develop/coordinator/src/composition/project-runtime-composition-root.ts`](../../../40_Develop/coordinator/src/composition/project-runtime-composition-root.ts)
+- [`40_Develop/coordinator/src/core/verification-result-record.ts`](../../../40_Develop/coordinator/src/core/verification-result-record.ts)
 - [`40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts`](../../../40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts)
 - [`40_Develop/coordinator/tests/fixtures/docker-handoff-worker.ts`](../../../40_Develop/coordinator/tests/fixtures/docker-handoff-worker.ts)
 - [`40_Develop/coordinator/tests/fixtures/project-runtime-public-process-probe.ts`](../../../40_Develop/coordinator/tests/fixtures/project-runtime-public-process-probe.ts)

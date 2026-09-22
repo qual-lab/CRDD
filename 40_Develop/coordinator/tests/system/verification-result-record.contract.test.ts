@@ -221,6 +221,35 @@ test("既知値だけ保存し、自由文・秘密風文字列・getter・proxy
 });
 
 /**
+ * Provider境界の固定診断理由を自由文へ戻さず保存することを検証する。
+ *
+ * @responsibility 署名E2Eで発生し得る固定Provider理由と未知の自由文を区別して記録する。
+ * @trace ERP-ST-004
+ * @precondition Runtime所有の固定理由と、許可されていない秘密風文字列を入力する。
+ * @stimulus projectVerificationResultで記録用投影を生成する。
+ * @observation 投影後のreasonを観測する。
+ * @oracle 固定理由は保持し、未知の自由文はunknownへ閉じる。
+ * @cleanup N/A: Process内の値だけを使用する。
+ * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
+ */
+test("Provider境界の固定診断理由を安全に保存する", () => {
+  assert.equal(
+    projectVerificationResult({
+      status: "blocked",
+      reason: "provider_task_executor_shape_invalid",
+    }).reason,
+    "provider_task_executor_shape_invalid",
+  );
+  assert.equal(
+    projectVerificationResult({
+      status: "blocked",
+      reason: "provider_secret_password_value",
+    }).reason,
+    "unknown",
+  );
+});
+
+/**
  * 配布Identityと作業対象Execution Identityと経路不一致分類を別々に保存するを検証する。
  *
  * @responsibility 配布Identityと作業対象Execution Identityと経路不一致分類を別々に保存するの合否判定を所有する。
