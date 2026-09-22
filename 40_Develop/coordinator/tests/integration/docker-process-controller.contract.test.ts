@@ -1298,7 +1298,7 @@ for (const outcome of [
       receipt_false: "docker_resource_receipt_unavailable",
       receipt_throw: "docker_process_controller_execution_failed_closed",
       null: "docker_setup_deadline_exceeded",
-      nonzero: "docker_setup_command_failed",
+      nonzero: "docker_setup_create_provider_failed",
       signal: "provider_process_signalled",
       output_limit: "provider_output_limit_exceeded",
     };
@@ -2167,7 +2167,20 @@ test("Provider非ゼロ終了は生出力を返さず既知の運用原因だけ
  */
 test("搬送失敗status:nullは出力上限やtimeoutでなく既存の実行失敗へ分類する", async () => {
   for (const [failedPurpose, expectedReason] of [
-    ["create_subscription_auth_probe", "docker_setup_command_failed"],
+    [
+      "create_subscription_auth_probe",
+      "docker_setup_create_subscription_auth_probe_failed",
+    ],
+    [
+      "start_subscription_auth_probe_attached",
+      "docker_setup_start_subscription_auth_probe_attached_failed",
+    ],
+    ["create_internal_network", "docker_setup_create_internal_network_failed"],
+    ["create_egress_network", "docker_setup_create_egress_network_failed"],
+    ["create_proxy", "docker_setup_create_proxy_failed"],
+    ["connect_proxy_egress", "docker_setup_connect_proxy_egress_failed"],
+    ["create_provider", "docker_setup_create_provider_failed"],
+    ["start_proxy", "docker_setup_start_proxy_failed"],
     ["start_provider_attached", "provider_process_exit_nonzero"],
   ] as const) {
     const commands: string[] = [];
@@ -3564,7 +3577,7 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 28);
+  assert.equal(contract.contractRevision, 29);
   assert.match(contract.subscriptionAuthentication, /required_before/u);
   assert.match(contract.subscriptionAuthentication, /stdout_stderr_shape/u);
   assert.match(contract.subscriptionOffering, /exact_match_required/u);

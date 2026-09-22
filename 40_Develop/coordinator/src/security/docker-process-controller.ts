@@ -45,7 +45,7 @@ import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-ru
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 28;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 29;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -62,7 +62,54 @@ const PURPOSES = Object.freeze([
   "create_provider",
   "start_proxy",
   "start_provider_attached",
-]);
+] as const);
+type DockerCommandPurpose = (typeof PURPOSES)[number];
+type DockerSetupCommandPurpose = Exclude<
+  DockerCommandPurpose,
+  "start_provider_attached"
+>;
+const SETUP_COMMAND_FAILURE_REASONS = Object.freeze({
+  create_subscription_auth_probe:
+    "docker_setup_create_subscription_auth_probe_failed",
+  start_subscription_auth_probe_attached:
+    "docker_setup_start_subscription_auth_probe_attached_failed",
+  create_internal_network: "docker_setup_create_internal_network_failed",
+  create_egress_network: "docker_setup_create_egress_network_failed",
+  create_proxy: "docker_setup_create_proxy_failed",
+  connect_proxy_egress: "docker_setup_connect_proxy_egress_failed",
+  create_provider: "docker_setup_create_provider_failed",
+  start_proxy: "docker_setup_start_proxy_failed",
+} satisfies Readonly<
+  Record<
+    DockerSetupCommandPurpose,
+    DockerProcessControllerPublicCompletionReason
+  >
+>);
+
+/**
+ * 値がDocker Process Controllerの固定Setup用途か判定する。
+ *
+ * @responsibility 任意文字列を固定Purpose集合とexact照合し、段階別診断へ安全に接続する。
+ * @trace ARCH-000008
+ * @input value: string
+ * @returns 固定Purposeにexact一致する場合だけtrueを返す。
+ * @precondition N/A: 任意の文字列を受け取る。
+ * @postcondition trueの場合、値をDockerSetupCommandPurposeとして扱える。
+ * @effect N/A: 不変Purpose集合を参照するだけである。
+ * @failure N/A: 未知値はfalseへ閉じる。
+ * @invariant prefix、正規表現または部分一致で用途を許可しない。
+ * @boundary Docker Command Planから公開診断理由への分類境界。
+ * @security Command引数や出力を返さず、固定Purposeだけを識別する。
+ * @concurrency N/A: 共有状態を変更しない同期判定である。
+ */
+function isDockerSetupCommandPurpose(
+  value: string,
+): value is DockerSetupCommandPurpose {
+  return (
+    value !== "start_provider_attached" &&
+    (PURPOSES as readonly string[]).includes(value)
+  );
+}
 const CREATE_PURPOSES = new Set([
   "create_subscription_auth_probe",
   "create_internal_network",
@@ -1377,9 +1424,9 @@ function subscriptionAuthConfirmed(
  *
  * @responsibility Executionの分類条件、相互排他的な結果、判断不能境界を所有する。
  * @trace ARCH-000008
- * @input execution: CommandExecution | null、isProvider: boolean、provider: "codex" | "claude"
+ * @input execution: CommandExecution | null、purpose: string、provider: "codex" | "claude"
  * @returns classifyExecutionの計算結果を返す。
- * @precondition 「execution: CommandExecution | null、isProvider: boolean、provider: "codex" | "claude"」がclassifyExecutionの入力契約を満たす。
+ * @precondition 「execution: CommandExecution | null、purpose: string、provider: "codex" | "claude"」がclassifyExecutionの入力契約を満たす。
  * @postcondition classifyExecutionの責務を完了した結果だけを返す。
  * @effect N/A: classifyExecutionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: classifyExecutionは独自の失敗分岐を所有しない。
@@ -1390,9 +1437,10 @@ function subscriptionAuthConfirmed(
  */
 function classifyExecution(
   execution: CommandExecution | null,
-  isProvider: boolean,
+  purpose: string,
   provider: "codex" | "claude",
 ) {
+  const isProvider = purpose === "start_provider_attached";
   if (execution === null)
     return Object.freeze({
       ok: false,
@@ -1419,7 +1467,9 @@ function classifyExecution(
       ok: false,
       reason: isProvider
         ? classifyProviderNonzeroExit(provider, execution)
-        : "docker_setup_command_failed",
+        : isDockerSetupCommandPurpose(purpose)
+          ? SETUP_COMMAND_FAILURE_REASONS[purpose]
+          : "docker_setup_command_failed",
     });
   return Object.freeze({
     ok: true,
@@ -1681,7 +1731,7 @@ async function executePlan(
       }
       const classified = classifyExecution(
         execution,
-        isProvider,
+        command.purpose,
         plan.provider,
       );
       if (command.purpose === "create_provider" && classified.ok)

@@ -10,13 +10,13 @@
 
 | 項目 | 現在値 |
 |---|---|
-| 現在の変更状態 | Engineering Completenessの独立レビュー指摘を是正し、再署名候補のRecovery MatrixもPassした。4経路E2Eの再実行では、保存Recordが`unknown`ではなく`coordinator_task_provider_failed`を保持するところまで改善したが、その下位Docker Process Controllerの固定セットアップ理由が上位Registryへ未接続だったため、Gate 9を継続して是正中 |
+| 現在の変更状態 | Engineering Completenessの独立レビュー指摘を是正し、再署名候補のRecovery MatrixもPassした。4経路E2Eの再実行では、保存Recordが`unknown`、汎用Task失敗を経て`docker_setup_command_failed`までexactに到達した。Docker Engine、固定ImageおよびCodex認証Probeは最小単位の手動確認で正常だったため、残るDocker Setup 8段階を目的別固定理由へ分離してGate 9を継続中 |
 | Phase／Gate適用判断 | `Applicable`: Architecture、実装、Quality、MigrationおよびReality Auditを一括変更せず、局所Gateで成立確認する必要がある |
 | 現在Phase | `Phase 9 — Signed E2E／Release Gate`: Phase 2／4／7／8の独立再レビューはBlocking Finding 0でPassした。Canonical設計集合154件は維持し、v0.21対象を128件、v0.22移管を26件へ分けた。v0.21の未観測22件（Hybrid 12、Manual 10）は署名E2Eと人間確認で処置する。移管26件は既存Prototype Relation 10件と未観測16件を区別し、いずれも新CapabilityのPass・実装済みへ変更しない |
-| 現在Gate | `Passed: Gate 0〜8`。`In Progress: Gate 9`。再署名候補のRecovery MatrixはPassした。4経路E2Eは最初のforward経路を`coordinator_task_provider_failed`で安全停止し、cleanup確認済み、Recovery不要、状態不明なしを保持した。Docker Process Controller Producerの公開完了理由を専用Registryへ分離し、Producerの完了理由型、Coordinator TaskおよびRecorderまで同じexact集合で搬送する是正後に、同一Gateの独立レビュー、再署名および4経路E2Eをやり直す |
+| 現在Gate | `Passed: Gate 0〜8`。`In Progress: Gate 9`。再署名候補のRecovery MatrixはPassした。4経路E2Eは最初のforward経路を`docker_setup_command_failed`で安全停止し、cleanup確認済み、Recovery不要、状態不明なしを保持した。認証Probe単体は同じ固定Image、Networkなし、読取専用Mountで成功した。次の再実行で失敗段階を直接識別できるよう、Docker Setup 8用途をexact固定理由へ分離し、独立レビュー、再署名および4経路E2Eをやり直す |
 | 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 154件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 223件の責務別Local Item接続、Optionality Audit全数処置。独立再レビューはBlocking Finding 0、Coordinatorは2015件中2010 Pass・失敗0・5 Explicit Skip、Windows Process Gateは8／8 Pass、Checker全回帰は363／363 Pass |
 | 未成立 | v0.21未観測Local Item 22件（Automated 0、Hybrid 12、Manual 10）のうち署名E2Eまたは人間受入を必要とするEvidence処置と、Gate 9のRelease Readiness判定。v0.22移管26件は同版の実装・実境界・人間受入で再開する |
-| 次のGate | Docker Process Controllerの公開完了理由全件がCoordinator TaskとRecorderへexact接続されることを契約試験と独立レビューで確認する。Coordinatorを再署名し、Recovery Matrixと4経路E2Eを同じ固定候補で再実行する。結果を22件のEvidence義務へ対応付け、残る人間受入をRelease判断へ提示する |
+| 次のGate | Docker Setup 8用途の非ゼロ終了が、生出力を持たず用途別固定理由としてCoordinator TaskとRecorderへexact接続されることを契約試験と独立レビューで確認する。Coordinatorを再署名し、Recovery Matrixと4経路E2Eを同じ固定候補で再実行する。結果を22件のEvidence義務へ対応付け、残る人間受入をRelease判断へ提示する |
 
 ## 1. 変更の目的
 
@@ -164,6 +164,7 @@ PhaseはCHGを分割する別Identityではなく、一つの変更意図を安�
 | Route Matrix理由を共有化した再レビューで、内側Coordinator TaskのProvider準備失敗7件がRecorder未登録と判明した | 外側RunnerだけをOwner Registryへ接続し、`results[]`が再帰投影する内側公開結果までProducer母集団を広げなかった | Provider準備失敗の公開語彙もOwner Registry化し、ProducerとRecorderを同じexact集合へ接続する | Registry全値のRecorder正例、未知値拒否負例、Coordinator Task契約試験、署名4経路E2Eの耐久Record再観測 | 内部Provider理由、自由文、生出力、Status／Recovery／Effect契約は変更しない | Revised |
 | Provider準備7件の是正後も、Coordinator Task公開Constructorが任意文字列を受け、直接blocked理由52件中48件以上がRecorder未登録だった | 個別失敗群ごとのRegistry追加で十分と見なし、公開Result Constructorと再帰投影全体を型境界にしていなかった | 全Coordinator Task公開理由とSigned General Task理由をOwner Registry＋導出Union型へ集約し、公開Constructorを型制約する。下位動的理由はexact Registry一致だけを投影し、未知値を固定fallbackへ閉じる | Typecheck、Registry全値保存、未知値拒否、Coordinator Task／Signed General／Route Matrix契約試験、同一固定候補の独立再レビュー | Prefix／正規表現許可、任意fixture理由の公開、Provider生出力、Status／Recovery／Effect契約変更は禁止 | Revised |
 | 再署名後の4経路E2Eで`unknown`は解消したが、forward経路が`coordinator_task_provider_failed`までしか分類されなかった | Coordinator Task内の直接理由を全数Registry化すれば、下位Process Controllerの固定理由もすべて包含できるという前提 | Docker Process Controllerが清掃後に公開できる固定完了理由38件を専用Owner Registryへ分離し、Producerの完了理由変数と結果構築引数をRegistry由来Union型へ制約した上で、Coordinator TaskおよびRecorderへ同じexact集合を接続する | Formatter、型、Lint、下位Registry全数閉包試験、Registry外Producer理由の型拒否、Recorder全Registry試験、独立レビュー、再署名Recovery Matrix、署名4経路E2E | Provider stderr／stdout、秘密値、自由文は公開せず、未知理由は`coordinator_task_provider_failed`へ閉じる | Revised |
+| 下位理由を接続した再署名E2Eで、失敗が`docker_setup_command_failed`まで到達したが、8個のSetup用途のどこで非ゼロ終了したかをRecordから区別できなかった | SetupをProvider開始前の一つの技術段階として扱い、各外部境界の用途を診断契約へ固定していなかった | `create_subscription_auth_probe`から`start_proxy`までの8用途を、Registry由来の用途別固定理由へ一対一対応させる。Engine、Image、Codex認証Probeは作り込み前の最小単位手動確認で正常を確認する | 8用途の非ゼロ終了Matrix、Registry型閉包、Recorder全Registry試験、独立レビュー、再署名Recovery Matrix、署名4経路E2E | Docker argv、Host Path、stdout／stderr、秘密値、自由文はRecordへ追加しない | Revised |
 
 #### Production Header移行母集団
 
