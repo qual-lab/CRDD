@@ -1517,6 +1517,21 @@
       ]
     },
     {
+      "symbolId": "coordinator.test.integration.claude-subscription-authentication-recovery",
+      "kind": "test-suite",
+      "path": "tests/integration/claude-subscription-authentication-recovery.integration.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-017"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.claude.subscription.authentication",
+        "coordinator.source.src.security.candidate.store.kernel.lock"
+      ]
+    },
+    {
       "symbolId": "coordinator.test.unit.claude-subscription-authentication",
       "kind": "test-suite",
       "path": "tests/unit/claude-subscription-authentication.contract.test.ts",

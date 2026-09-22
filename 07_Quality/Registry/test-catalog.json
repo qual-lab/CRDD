@@ -2858,6 +2858,29 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "coordinator:integration:claude-subscription-authentication-recovery",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/claude-subscription-authentication-recovery.integration.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "claude",
+        "subscription-authentication",
+        "durable-recovery",
+        "kernel-lock"
+      ],
+      "environment": "windows_process_and_repository_local_runtime",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "same_recovery_identity_preserved",
+        "kernel_lock_reacquired",
+        "recovery_record_settled",
+        "test_runtime_removed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "coordinator:unit:claude-subscription-authentication",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/unit/claude-subscription-authentication.contract.test.ts",

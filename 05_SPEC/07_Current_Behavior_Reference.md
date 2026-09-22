@@ -229,7 +229,7 @@ Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけ�
 
 - Local Personal一般Taskでは、selected-user binder、Mount Grant、Provider eligibility、Subscription OAuth preflight、固定Docker CLI Effect executor、限定Egressおよびdurable Recoveryを各操作へ接続する。
 - 永続的なRuntime有効化、共有Authority Root、Provisioning記録またはRepository単位のActivation Recordを、利用者が事前に作成する契約は持たない。
-- 一般Taskの公開CLIは`task`、`doctor`、`candidate`と機械可読な`capabilities --json`に限定する。署名済み保守入口`authenticate-claude`は、direct TTY、選択UserのClaude専用Provider Home、固定Image、限定Proxyおよび事後認証Probeへ閉じ、Repository、Workspace、Task Authorityまたは自動再認証へ接続しない。同じProvider Homeへの並行書込みはKernel Lockで拒否し、最初のDocker Effect前にexact Recovery Identityを耐久化する。Process loss後はfresh invocationが同じIdentityの旧資源を先に回収する。Docker観測不能を不存在として扱わない。`activate`、`disable`、`provision`、`doctor --enable-runtime`および`--runtime-root`は公開構文ではない。
+- 一般Taskの公開CLIは`task`、`doctor`、`candidate`と機械可読な`capabilities --json`に限定する。署名済み保守入口`authenticate-claude`は、direct TTY、選択UserのClaude専用Provider Home、固定Image、限定Proxyおよび事後認証Probeへ閉じ、Repository、Workspace、Task Authorityまたは自動再認証へ接続しない。同じProvider Homeへの並行書込みはKernel Lockで拒否し、最初のDocker Effect前にexact Recovery Identityを`active`として耐久化する。Process loss後はfresh invocationが同じIdentityの旧資源を先に回収する。成功時も記録を削除せず`settled`へ遷移させ、Lock解放を確認できない場合は同じRecovery IDを保持して停止する。同名Docker資源は所有Label一致を確認した場合だけ削除し、Docker観測不能を不存在として扱わない。`activate`、`disable`、`provision`、`doctor --enable-runtime`および`--runtime-root`は公開構文ではない。
 - `capabilities --json`は現在対応するLocal Personal Profileだけを返し、未実装候補や将来構想を利用可能な入口として列挙しない。
 - 将来、常設Serverや複数Repository Bindingに永続状態が必要になった場合も、実在するconsumerと利用者成果から新しい責務境界を設計する。
 - 未署名の開発branch、manifest欠落、改変checkoutまたは固定Native成果物欠落はEffect前に停止する。公式Release tagへ固定し、同梱manifestと必要なNative成果物を検証できるclone／submoduleは正式配布Rootになり得る。

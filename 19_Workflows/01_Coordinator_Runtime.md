@@ -126,7 +126,7 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 5. Process loss後は同じ入口をfresh Processから一度起動する。同じProvider Home Identityから同じRecovery IDを導き、旧資源のexact cleanupを認証Effectより先に行う。
 6. `blocked`、事後Probe不成立、cleanup不明または`manualRecoveryRequired: true`では自動再試行せず、固定理由を保持する。
 
-この入口はClaude Max専用であり、Codex、API key、Console API課金、Repository、Workspaceまたは外部送信Taskを扱わない。同じProvider Homeへの別Process実行はKernel LockでEffect前に拒否する。Docker daemon停止、権限不足またはTransport障害を資源不存在として扱わない。
+この入口はClaude Max専用であり、Codex、API key、Console API課金、Repository、Workspaceまたは外部送信Taskを扱わない。同じProvider Homeへの別Process実行はKernel LockでEffect前に拒否し、対話実行中のLock喪失でも後続Effectを止める。Docker EffectはRepository cwdを継承せず、同名資源はCRDD所有Labelが一致する場合だけ削除する。Docker daemon停止、権限不足またはTransport障害を資源不存在として扱わない。正常完了時の耐久記録は削除せず`settled`として保持し、Lock解放不明では同じRecovery IDを返す。
 
 
 ## 正常なDockerで作成結果不明のTaskを回復するとき

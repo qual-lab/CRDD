@@ -259,13 +259,13 @@ Claude専用Provider HomeのSubscription OAuthが失効した場合だけ、署�
 | Network | Provider Containerは内部Networkだけ。Claude allowlistを強制する固定Proxyだけが外部Networkへ接続 |
 | 非接続 | Repository、Workspace、Host既定Home、API key、別Provider Home、Task Packet |
 | 排他 | 検証済みLogical Provider Home IdentityのOS Kernel Lockを最初のEffect前に取得する。後発ProcessはEffect 0で停止する |
-| 回復記録 | OS管理CRDD Runtime Rootの`Recovery/claude-subscription-authentication`へ、Path・Credentialを含まないexact Recovery Identityと5資源名を最初のDocker Effect前に耐久化する |
+| 回復記録 | OS管理CRDD Runtime Rootの`Recovery/claude-subscription-authentication`へ、Path・Credentialを含まないexact Recovery Identity、所有Label、5資源名および`active`／`settled`状態を最初のDocker Effect前に耐久化する |
 | 成功条件 | `auth login --claudeai`完了後、networkなし・Provider Home read-onlyの`auth status --json`が`claude.ai`、`firstParty`、`max`を確認する |
-| 終了条件 | Login／Probe／Proxy Containerと内部／Egress Networkの明示的なexact不存在、回復記録削除およびKernel Lock解放を再観測する |
+| 終了条件 | 所有Labelが一致するLogin／Probe／Proxy Containerと内部／Egress Networkの明示的なexact不存在、回復記録の`settled`化およびKernel Lock解放を再観測する |
 
-認証用URL、PKCE値、code、token、email、組織情報、Provider Home実PathおよびProvider生出力を結果・Log・Evidenceへ保存してはならない（MUST NOT）。任意段階の失敗、事後Probe不成立またはcleanup観測不能では成功を公開せず、自動再試行しない。Docker CLIは固定Path、Docker Inc.のAuthenticode、同一実体Identityおよび最小Process環境をEffectごとに確認し、PATH、親EnvironmentまたはRepository cwdを実行Authorityにしない。`inspect`の任意非ゼロを不存在へ畳まず、対象名に対する明示的な`No such container/object/network`だけを不存在として受理する。
+認証用URL、PKCE値、code、token、email、組織情報、Provider Home実PathおよびProvider生出力を結果・Log・Evidenceへ保存してはならない（MUST NOT）。任意段階の失敗、事後Probe不成立またはcleanup観測不能では成功を公開せず、自動再試行しない。Docker CLIは固定Path、Docker Inc.のAuthenticode、同一実体Identity、最小Process環境およびOS System Directoryの固定cwdをEffectごとに確認し、PATH、親EnvironmentまたはRepository cwdを実行Authorityにしない。対話実行中もKernel Lockの生存を監視し、喪失時はDocker CLI子Processを終了して以後のEffectを止める。`inspect`の任意非ゼロを不存在へ畳まず、対象名に対する明示的な`No such container/object/network`だけを不存在として受理する。同名資源が存在しても所有Labelが一致しなければ削除せず、同じRecovery IDで停止する。
 
-Process loss後のfresh invocationは、同じLogical Provider Home Identityから同じRecovery IDとDocker資源名を再構成する。耐久記録がexact schemaと一致する場合だけ、認証Effectより先に5資源を回収して不存在を確認し、旧記録を閉じて新しいIntentを作る。記録の不一致、Docker観測不能、削除不能またはLock解放不明では`manualRecoveryRequired: true`、`effectStateUnknown: true`および同じRecovery IDを返し、新しい認証Effectを発行しない。通常Taskは認証失敗からこの入口を自動起動せず、人間へ固定理由を返す。
+Process loss後のfresh invocationは、同じLogical Provider Home Identityから同じRecovery ID、所有LabelおよびDocker資源名を再構成する。`active`な耐久記録がexact schemaと一致する場合だけ、認証Effectより先に所有資源を回収して不存在を確認し、同じ記録を`settled`へ閉じた後で新しい`active` Lifecycleを開始する。正常完了時も記録を削除せず`settled`として保持するため、Kernel Lock解放を確認できない結果からexact Recovery Identityを失わない。記録の不一致、Docker観測不能、所有不一致、削除不能またはLock解放不明では`manualRecoveryRequired: true`、`effectStateUnknown: true`および同じRecovery IDを返し、新しい認証Effectを発行しない。通常Taskは認証失敗からこの入口を自動起動せず、人間へ固定理由を返す。
 
 ### 7.4 Provider Homeマウント許可
 
