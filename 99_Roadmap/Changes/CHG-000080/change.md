@@ -10,13 +10,13 @@
 
 | 項目 | 現在値 |
 |---|---|
-| 現在の変更状態 | Docker Setup 8段階の固定診断により、選択UserのCRDD専用Claude Provider HomeにあるSubscription OAuthの失効を確認した。通常Taskから分離したHuman-only再認証Lifecycleを実装し、Command世代Barrierを本番関数・別Process・実Kernel Lockの結合試験で固定した。固定候補`b38d0120`の独立再レビューはCritical／Major／Minor 0でPassした |
+| 現在の変更状態 | Docker Setup 8段階の固定診断により、選択UserのCRDD専用Claude Provider HomeにあるSubscription OAuthの失効を確認した。通常Taskから分離したHuman-only再認証Lifecycleを実装し、Command世代Barrierを本番関数・別Process・実Kernel Lockの結合試験で固定した。固定候補`b38d0120`の独立再レビューはCritical／Major／Minor 0でPassした。その後の署名事前観測は、新しい再認証用子Processが署名対象Runtime能力Graphへ未登録であることをEffect 0で拒否したため、署名候補を再開して能力Graphと負例契約を是正している |
 | Phase／Gate適用判断 | `Applicable`: Architecture、実装、Quality、MigrationおよびReality Auditを一括変更せず、局所Gateで成立確認する必要がある |
 | 現在Phase | `Phase 9 — Signed E2E／Release Gate`: Phase 2／4／7／8の独立再レビューはBlocking Finding 0でPassした。Claude再認証Lifecycleの検証義務を加えたCanonical設計集合156件のうち、v0.21対象を130件、v0.22移管を26件へ分けた。v0.21の未観測24件（Automated 2、Hybrid 12、Manual 10）は局所試験、署名E2Eと人間確認で処置する。移管26件は既存Prototype Relation 10件と未観測16件を区別し、いずれも新CapabilityのPass・実装済みへ変更しない |
-| 現在Gate | `Passed: Gate 0〜8`。`In Progress: Gate 9`。Human-only Claude再認証入口は独立再レビューをPassした。形式・型・Lint・Trace確認、局所14／14およびDevelopment E2E 341／341もPassした。次は同じ固定内容をCoordinator署名候補へ反映し、実Docker／実Claude OAuth／System Browser境界を確認する |
+| 現在Gate | `Passed: Gate 0〜8`。`In Progress: Gate 9`。Human-only Claude再認証入口は独立再レビューをPassし、形式・型・Lint・Trace確認、局所14／14およびDevelopment E2E 341／341もPassした。署名事前観測で検出したRuntime能力Graph不足を正本、Checkerおよび負例試験で是正し、再固定・独立レビュー後に署名へ進む |
 | 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 156件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 224件の責務別Local Item接続、Optionality Audit全数処置。既存範囲の独立再レビューはBlocking Finding 0、Coordinatorは2015件中2010 Pass・失敗0・5 Explicit Skip、Windows Process Gateは8／8 Pass、Checker全回帰は363／363 Pass。Claude再認証の局所単体試験12件と別Process回復結合試験2件もPassし、本番認証関数のEffect前`in_flight`耐久化、Command保留中の実Kernel Lock喪失、fresh Effect 0、正常close後だけの`idle`復帰を固定した |
 | 未成立 | v0.21未観測Local Item 24件（Automated 2、Hybrid 12、Manual 10）のうち、署名E2Eまたは人間受入を必要とするEvidence処置と、Gate 9のRelease Readiness判定。v0.22移管26件は同版の実装・実境界・人間受入で再開する |
-| 次のGate | Coordinatorを再署名し、人がHuman-only入口で一度Claude Subscriptionを再認証する。その後、Recovery Matrixと4経路E2Eを同じ固定候補で再実行する。結果を24件のEvidence義務へ対応付け、残る人間受入をRelease判断へ提示する |
+| 次のGate | Runtime能力Graph是正を局所試験、全回帰および独立レビューで固定する。その後Coordinatorを再署名し、人がHuman-only入口で一度Claude Subscriptionを再認証する。続いてRecovery Matrixと4経路E2Eを同じ固定候補で再実行し、結果を24件のEvidence義務へ対応付ける |
 
 ## 1. 変更の目的
 
@@ -166,6 +166,7 @@ PhaseはCHGを分割する別Identityではなく、一つの変更意図を安�
 | Provider準備7件の是正後も、Coordinator Task公開Constructorが任意文字列を受け、直接blocked理由52件中48件以上がRecorder未登録だった | 個別失敗群ごとのRegistry追加で十分と見なし、公開Result Constructorと再帰投影全体を型境界にしていなかった | 全Coordinator Task公開理由とSigned General Task理由をOwner Registry＋導出Union型へ集約し、公開Constructorを型制約する。下位動的理由はexact Registry一致だけを投影し、未知値を固定fallbackへ閉じる | Typecheck、Registry全値保存、未知値拒否、Coordinator Task／Signed General／Route Matrix契約試験、同一固定候補の独立再レビュー | Prefix／正規表現許可、任意fixture理由の公開、Provider生出力、Status／Recovery／Effect契約変更は禁止 | Revised |
 | 再署名後の4経路E2Eで`unknown`は解消したが、forward経路が`coordinator_task_provider_failed`までしか分類されなかった | Coordinator Task内の直接理由を全数Registry化すれば、下位Process Controllerの固定理由もすべて包含できるという前提 | Docker Process Controllerが清掃後に公開できる固定完了理由38件を専用Owner Registryへ分離し、Producerの完了理由変数と結果構築引数をRegistry由来Union型へ制約した上で、Coordinator TaskおよびRecorderへ同じexact集合を接続する | Formatter、型、Lint、下位Registry全数閉包試験、Registry外Producer理由の型拒否、Recorder全Registry試験、独立レビュー、再署名Recovery Matrix、署名4経路E2E | Provider stderr／stdout、秘密値、自由文は公開せず、未知理由は`coordinator_task_provider_failed`へ閉じる | Revised |
 | 下位理由を接続した再署名E2Eで、失敗が`docker_setup_command_failed`まで到達したが、8個のSetup用途のどこで非ゼロ終了したかをRecordから区別できなかった | SetupをProvider開始前の一つの技術段階として扱い、各外部境界の用途を診断契約へ固定していなかった | `create_subscription_auth_probe`から`start_proxy`までの8用途を、Registry由来の用途別固定理由へ一対一対応させる。Engine、Image、Codex認証Probeは作り込み前の最小単位手動確認で正常を確認する | 8用途の非ゼロ終了Matrix、Registry型閉包、Recorder全Registry試験、独立レビュー、再署名Recovery Matrix、署名4経路E2E | Docker argv、Host Path、stdout／stderr、秘密値、自由文はRecordへ追加しない | Revised |
+| Human-only再認証を加えた固定候補の署名事前観測が`release_manifest_package_observation_failed`でEffect 0停止した | 再認証実装と局所試験へ子Process境界を追加した一方、署名者が検査するRuntime能力Graphのcallsite、exact call、実行ファイル由来、Process所有およびWrapper利用側を同時更新していなかった | `runDockerCommandWithAuthority`の実Process境界を署名前能力Graphへ登録し、exportされたasync関数を公開Wrapperとして認識する解析を補正する。実Sourceの正例に加え、実行ファイル差替えとclose所有削除の負例を固定する | 形式、型、Lint、Runtime能力Graph、署名Package観測、局所試験、Development E2E、独立レビュー、再署名 | Human-only境界、Docker引数、mount／network／secret、API key fallback、通常Task Authorityおよび署名対象範囲は変更しない | Revised |
 
 #### Production Header移行母集団
 

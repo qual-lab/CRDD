@@ -2012,6 +2012,13 @@ const runtimeExternalProcessCallsites = Object.freeze(
       ["[", "-NoLogo"],
     ],
     [
+      "src/security/claude-subscription-authentication.ts",
+      "runDockerCommandWithAuthority",
+      "spawn",
+      ["executable"],
+      ["command", ".", "argv"],
+    ],
+    [
       "src/security/docker-desktop-repair-native-process.ts",
       "acquireRuntimeOwnedDockerDesktopNativeHelper",
       "spawn",
@@ -2337,6 +2344,16 @@ const exactExternalProcessCalls = Object.freeze(
       "09c761c58f78148f769232a93aaf76c4d459ab14fdd6b5274a9f0b51fbcbdfb3",
       "2ece3abb0156af99dd93e3a70d5cac1f072f9c637215d0b5a3fb681c399eaf95",
       "result",
+    ],
+    [
+      "runtime",
+      "src/security/claude-subscription-authentication.ts",
+      "runDockerCommandWithAuthority",
+      "spawn",
+      1,
+      "cdc88c0549a2aead74bd1ff0f27eed114bed26257c88e5a613267bd39aad8a52",
+      "febd7cf3e75e0b6c4dc8c4872bc99716cfc07daccfbb3a7bc64ab2e823cd0402",
+      "child",
     ],
     [
       "runtime",
@@ -2804,6 +2821,16 @@ const exactAsyncProcessOwnership = Object.freeze(
       }),
     ],
     [
+      "src/security/claude-subscription-authentication.ts\0runDockerCommandWithAuthority",
+      Object.freeze({
+        classification: "immediate_owner",
+        proofs: Object.freeze([
+          Object.freeze(["child", ".", "once", "(", "error"]),
+          Object.freeze(["child", ".", "once", "(", "close"]),
+        ]),
+      }),
+    ],
+    [
       "src/security/docker-owned-process.ts\0startOwnedProcess",
       Object.freeze({
         classification: "immediate_owner",
@@ -3010,6 +3037,7 @@ const exactExecutableProvenance = Object.freeze(
     ...[
       "src/security/docker-owned-process.ts\0startOwnedProcess",
       "src/security/docker-isolation.ts\0startOwnedAttachedProcess",
+      "src/security/claude-subscription-authentication.ts\0runDockerCommandWithAuthority",
     ].map(
       (identity) =>
         [
@@ -3977,6 +4005,26 @@ const processWrapperConsumers = Object.freeze(
     }>
   >([
     [
+      "runDockerCommandWithAuthority",
+      Object.freeze({
+        target: "src/security/claude-subscription-authentication.ts",
+        exported: true,
+        uses: Object.freeze([
+          Object.freeze({
+            source: "src/security/claude-subscription-authentication.ts",
+            containingFunction: "run",
+            prefix: Object.freeze([
+              "runDockerCommandWithAuthority",
+              "(",
+              "executable",
+              ",",
+              "command",
+            ]),
+          }),
+        ]),
+      }),
+    ],
+    [
       "startOwnedProcess",
       Object.freeze({
         target: "src/security/docker-owned-process.ts",
@@ -4667,10 +4715,13 @@ function assertProcessWrapperConsumerBoundary(
         continue;
       if (importedIndices.get(symbol)?.has(index)) continue;
       if (tokens[index - 1]?.value === "function") {
+        const exportedDeclaration =
+          tokens[index - 2]?.value === "export" ||
+          (tokens[index - 2]?.value === "async" &&
+            tokens[index - 3]?.value === "export");
         if (
           sourcePath !== capability.target ||
-          (capability.exported && tokens[index - 2]?.value !== "export") ||
-          (!capability.exported && tokens[index - 2]?.value === "export")
+          capability.exported !== exportedDeclaration
         )
           throw new Error(
             "platform_provisioner_runtime_dependency_child_process_unbound",
@@ -5487,7 +5538,7 @@ function assertExactCapabilityGraphSourceUniverse(
   const expectedTokens = exactExternalProcessCalls.filter(
     (callsite) => callsite.graph === graph,
   );
-  const expectedCount = graph === "runtime" ? 17 : 6;
+  const expectedCount = graph === "runtime" ? 18 : 6;
   const stableIdentities = expectedTokens.map(
     (callsite) =>
       `${callsite.source}\u0000${callsite.containingFunction}\u0000${callsite.primitive}\u0000${callsite.occurrence}`,
@@ -5503,7 +5554,7 @@ function assertExactCapabilityGraphSourceUniverse(
     (flow) => `${flow.graph}\u0000${flow.source}\u0000${flow.functionName}`,
   );
   if (
-    exactExternalProcessCalls.length !== 23 ||
+    exactExternalProcessCalls.length !== 24 ||
     exactExecutableProvenance.size !== exactExternalProcessCalls.length ||
     exactExternalProcessCalls.some(
       (callsite) =>

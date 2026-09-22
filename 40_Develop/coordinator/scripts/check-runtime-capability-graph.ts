@@ -50,5 +50,5 @@ collectTypeScriptSources(scriptsRoot, "scripts");
 
 assertVerificationToolCapabilityGraphForVerification(Object.freeze(sources));
 process.stdout.write(
-  `${JSON.stringify({ status: "accepted", sourceCount: Object.keys(sources).length, externalProcessCallCount: 6 })}\n`,
+  `${JSON.stringify({ status: "accepted", sourceCount: Object.keys(sources).length, externalProcessCallCount: 6, runtimeExternalProcessCallCount: 18 })}\n`,
 );

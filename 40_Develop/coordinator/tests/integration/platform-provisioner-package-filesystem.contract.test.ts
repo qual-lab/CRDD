@@ -673,6 +673,45 @@ test("宣言済みProcess利用側は実ソースのcall・scope・引数から�
 });
 
 /**
+ * Claude再認証のProcess WrapperをRuntime能力Graphへ完全一致させることを検証する。
+ *
+ * @responsibility Human-only再認証で追加したDocker CLI子Processの実行点、検証済み実行ファイル搬送およびclose所有を署名前観測へ固定する。
+ * @trace AIT-IT-013
+ * @precondition 固定候補と同じClaude再認証Sourceを読み取る。
+ * @stimulus 現行Sourceと、実行ファイルまたはclose所有を改変した反例を宣言済みGraphへ照合する。
+ * @observation Runtime Source Graphの受理または固定拒否理由を観測する。
+ * @oracle 現行Sourceだけを受理し、Process実行境界の改変を拒否する。
+ * @cleanup N/A: 読取りとProcess内解析だけで永続資源を作成しない。
+ * @boundary AIT-IT-013=Adjacent 1 Block: Signer→Staging→Manifest配置
+ */
+test("Claude再認証のProcess Wrapperを署名前Runtime能力Graphへ固定する", () => {
+  const sourcePath = "src/security/claude-subscription-authentication.ts";
+  const source = fs.readFileSync(
+    path.join(coordinatorRoot, sourcePath),
+    "utf8",
+  );
+  assert.doesNotThrow(() =>
+    assertRuntimeSourceDeclaredGraphBoundaryForVerification(sourcePath, source),
+  );
+  for (const mutated of [
+    source.replace(
+      "spawn(executable, command.argv, {",
+      "spawn(process.execPath, command.argv, {",
+    ),
+    source.replace('child.once("close", finish);', "finish(null, null);"),
+  ]) {
+    assert.throws(
+      () =>
+        assertRuntimeSourceDeclaredGraphBoundaryForVerification(
+          sourcePath,
+          mutated,
+        ),
+      /runtime_dependency_child_process_(?:unbound|executable_unbound|ownership_unbound)/u,
+    );
+  }
+});
+
+/**
  * 検証Toolの全Sourceと実Process起動点を独立グラフとして完全一致させるを検証する。
  *
  * @responsibility 検証Toolの全Sourceと実Process起動点を独立グラフとして完全一致させるの合否判定を所有する。
@@ -3137,7 +3176,7 @@ test("非正規表記または実行集合外へのrelative importを署名候�
 test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを実行Identityへ含める", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-launch-closure-"));
   try {
-    for (const directory of ["bin", "src", "scripts"]) {
+    for (const directory of ["bin", "src", "src/security", "scripts"]) {
       fs.mkdirSync(path.join(root, directory), { recursive: true });
     }
     fs.writeFileSync(
@@ -3162,6 +3201,7 @@ test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを
         'await import("../scripts/verify-signed-recovery-matrix.ts");',
         'await import("../scripts/sign-release-manifest.ts");',
         'await import("../scripts/promote-release-manifest.ts");',
+        'await import("../scripts/authenticate-claude-subscription.ts");',
         "const target = new URL(plan.entryRelativePath, import.meta.url);",
         "process.argv = [process.execPath, fileURLToPath(target), ...plan.forwardedArgs];",
         "",
@@ -3200,6 +3240,19 @@ test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを
     fs.writeFileSync(
       path.join(root, "scripts", "release-manifest-promotion.ts"),
       "export const promotion = 1;\n",
+    );
+    fs.writeFileSync(
+      path.join(root, "scripts", "authenticate-claude-subscription.ts"),
+      'import "../src/security/claude-subscription-authentication.ts";\n',
+    );
+    fs.writeFileSync(
+      path.join(
+        root,
+        "src",
+        "security",
+        "claude-subscription-authentication.ts",
+      ),
+      "export const authentication = 1;\n",
     );
     const unrelated = path.join(root, "scripts", "unrelated.ts");
     fs.writeFileSync(unrelated, "export const unrelated = 1;\n");
@@ -3269,7 +3322,7 @@ test("共通Launcherの署名・4経路・Recovery入口と静的依存だけを
 test("実行Identityのmodule構文を字句解析し、コメント・非relative・未束縛dynamicによる閉包回避を拒否する", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-module-lexer-"));
   try {
-    for (const directory of ["bin", "src", "scripts"]) {
+    for (const directory of ["bin", "src", "src/security", "scripts"]) {
       fs.mkdirSync(path.join(root, directory), { recursive: true });
     }
     fs.writeFileSync(
@@ -3293,6 +3346,7 @@ test("実行Identityのmodule構文を字句解析し、コメント・非relati
         'await import("../scripts/verify-signed-recovery-matrix.ts");',
         'await import("../scripts/sign-release-manifest.ts");',
         'await import("../scripts/promote-release-manifest.ts");',
+        'await import("../scripts/authenticate-claude-subscription.ts");',
         "",
       ].join("\n"),
     );
@@ -3316,6 +3370,19 @@ test("実行Identityのmodule構文を字句解析し、コメント・非relati
     fs.writeFileSync(
       path.join(root, "scripts", "promote-release-manifest.ts"),
       "export const promote = true;\n",
+    );
+    fs.writeFileSync(
+      path.join(root, "scripts", "authenticate-claude-subscription.ts"),
+      'import "../src/security/claude-subscription-authentication.ts";\n',
+    );
+    fs.writeFileSync(
+      path.join(
+        root,
+        "src",
+        "security",
+        "claude-subscription-authentication.ts",
+      ),
+      "export const authentication = true;\n",
     );
     assert.equal(
       inspectPlatformProvisionerPackageFilesystemCandidate(root).status,
