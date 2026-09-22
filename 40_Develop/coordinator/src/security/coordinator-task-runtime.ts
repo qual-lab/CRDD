@@ -29,7 +29,11 @@ import {
   createRuntimeOwnedCoordinatorOperation,
 } from "./coordinator-operation-creation-internal.ts";
 import { snapshotCoordinatorTaskRequest } from "./coordinator-task-request.ts";
-import { COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS } from "./coordinator-task-result-reasons.ts";
+import {
+  COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS,
+  type CoordinatorTaskPublicReason,
+  projectCoordinatorTaskPublicReason,
+} from "./coordinator-task-result-reasons.ts";
 import {
   issueRuntimeOwnedDelegationSelectionGrant,
   preflightRuntimeOwnedDelegationExecutionSlate,
@@ -335,7 +339,7 @@ type InternalTaskOutcome = Readonly<{
 type TaskCompletionRecord = RuntimeRecord &
   Readonly<{
     status: string;
-    reason: string;
+    reason: CoordinatorTaskPublicReason;
     cleanupConfirmed: boolean;
     manualRecoveryRequired: boolean;
     processRestartRequired: boolean;
@@ -870,7 +874,7 @@ function finalProjectionFailure(
  * @concurrency N/A: createBlockedは共有非同期状態を持たない同期処理である。
  */
 function createBlocked(
-  reason: string,
+  reason: CoordinatorTaskPublicReason,
   manualRecoveryRequired = false,
   hostRecoveryId: string | null = null,
   dockerRecoveryId: string | null = null,
@@ -2195,7 +2199,10 @@ async function executeStageBody(
         process.manualRecoveryRequired === true ||
         dockerRecoveryId !== null;
       return blocked(
-        stringValue(process.reason) ?? "coordinator_task_process_start_failed",
+        projectCoordinatorTaskPublicReason(
+          process.reason,
+          "coordinator_task_process_start_failed",
+        ),
         manualRecoveryRequired,
         manualRecoveryRequired ? operation.hostRecoveryId : null,
         dockerRecoveryId,
@@ -2287,7 +2294,10 @@ async function executeStageBody(
       const dockerRecoveryIds = controlDockerRecoveryIds(control);
       return Object.freeze({
         ...blocked(
-          stringValue(result.reason) ?? "coordinator_task_provider_failed",
+          projectCoordinatorTaskPublicReason(
+            result.reason,
+            "coordinator_task_provider_failed",
+          ),
           manualRecoveryRequired,
           manualRecoveryRequired ? operation.hostRecoveryId : null,
           dockerRecoveryId,
@@ -2379,7 +2389,10 @@ async function runCoordinatorTaskCore(
     const manualRecoveryRequired =
       source.manualRecoveryRequired === true || dockerRecoveryIds.length > 0;
     return createBlocked(
-      String(source.reason),
+      projectCoordinatorTaskPublicReason(
+        source.reason,
+        "coordinator_task_failed_closed",
+      ),
       manualRecoveryRequired,
       stringValue(source.hostRecoveryId),
       dockerRecoveryIds.length === 1 ? (dockerRecoveryIds[0] ?? null) : null,
@@ -2418,7 +2431,10 @@ async function runCoordinatorTaskCore(
   const admission = projectDockerRecoveryAdmission(dockerRecoveryState);
   if (admission.status !== "completed") {
     return blocked(
-      admission.reason,
+      projectCoordinatorTaskPublicReason(
+        admission.reason,
+        "docker_process_controller_recovery_unavailable",
+      ),
       true,
       null,
       admission.dockerRecoveryId,
@@ -2597,7 +2613,14 @@ async function runCoordinatorTaskCore(
           : "coordinator_task_external_send_not_authorized";
       const manualRecoveryRequired =
         externalSendGrant?.manualRecoveryRequired === true;
-      return blocked(reason, manualRecoveryRequired, null);
+      return blocked(
+        projectCoordinatorTaskPublicReason(
+          reason,
+          "coordinator_task_external_send_not_authorized",
+        ),
+        manualRecoveryRequired,
+        null,
+      );
     }
     const externalSendAuthorizationMode = externalSendGrant.authorizationMode;
     if (
@@ -2994,7 +3017,10 @@ async function runCoordinatorTaskCore(
     if (creationFailure) {
       shouldRetainOperationRoot = !creationFailure.cleanupConfirmed;
       return blocked(
-        creationFailure.reason,
+        projectCoordinatorTaskPublicReason(
+          creationFailure.reason,
+          "coordinator_task_operation_creation_failed",
+        ),
         creationFailure.manualRecoveryRequired,
         creationFailure.hostRecoveryId,
         null,
@@ -3701,8 +3727,10 @@ function createRuntime(dependencies: RuntimeDependencies) {
                 ? state.dependencies.discardCandidate(candidateRecoveryId)
                 : null;
               return blocked(
-                stringValue(result.reason) ??
+                projectCoordinatorTaskPublicReason(
+                  result.reason,
                   "coordinator_task_docker_recovery_projection_invalid",
+                ),
                 true,
                 control.hostRecoveryId,
                 projectedDockerRecoveryIds.length === 1
@@ -3747,7 +3775,10 @@ function createRuntime(dependencies: RuntimeDependencies) {
                 });
               }
               return blocked(
-                String(result.reason),
+                projectCoordinatorTaskPublicReason(
+                  result.reason,
+                  "coordinator_task_failed_closed",
+                ),
                 true,
                 stringValue(result.hostRecoveryId),
                 stringValue(result.dockerRecoveryId),

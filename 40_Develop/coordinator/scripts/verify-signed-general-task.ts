@@ -15,6 +15,10 @@ import {
   MINIMUM_COORDINATOR_NODE_VERSION,
 } from "../src/core/node-runtime-version.ts";
 import {
+  SIGNED_GENERAL_TASK_PUBLIC_REASONS,
+  type SignedGeneralTaskPublicReason,
+} from "../src/core/verification-result-reasons.ts";
+import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../src/core/runtime-process-safety-state.ts";
@@ -26,6 +30,10 @@ import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,
 } from "../src/security/coordinator-task-runtime.ts";
+import {
+  COORDINATOR_TASK_PUBLIC_REASONS,
+  type CoordinatorTaskPublicReason,
+} from "../src/security/coordinator-task-result-reasons.ts";
 import { snapshotPlainArray } from "../src/security/plain-data-snapshot.ts";
 import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/security/platform-provisioner-package-filesystem.ts";
 import {
@@ -100,6 +108,13 @@ const TASK_SAFETY_SCHEMA = Object.freeze({
  * @compatibility RuntimeRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type RuntimeRecord = Readonly<Record<string, unknown>>;
+type SignedGeneralTaskResultReason =
+  | SignedGeneralTaskPublicReason
+  | CoordinatorTaskPublicReason;
+const SIGNED_GENERAL_TASK_RESULT_REASON_SET = new Set<string>([
+  ...SIGNED_GENERAL_TASK_PUBLIC_REASONS,
+  ...COORDINATOR_TASK_PUBLIC_REASONS,
+]);
 /**
  * verify-signed-general-taskで使用するSigned General Task Verification 結果の値契約を定義する。
  *
@@ -114,7 +129,7 @@ type RuntimeRecord = Readonly<Record<string, unknown>>;
 export type SignedGeneralTaskVerificationResult = RuntimeRecord &
   Readonly<{
     status: "completed" | "blocked";
-    reason: string;
+    reason: SignedGeneralTaskResultReason;
     cleanupConfirmed: boolean;
     manualRecoveryRequired: boolean;
     processRestartRequired: boolean;
@@ -670,9 +685,13 @@ function exactStringArray(value: unknown, expectedValues: readonly string[]) {
  * @security N/A: safeReasonはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: safeReasonは共有非同期状態を持たない同期処理である。
  */
-function safeReason(value: unknown, fallback: string) {
-  return typeof value === "string" && /^[a-z0-9_]+$/u.test(value)
-    ? value
+function safeReason(
+  value: unknown,
+  fallback: SignedGeneralTaskResultReason,
+): SignedGeneralTaskResultReason {
+  return typeof value === "string" &&
+    SIGNED_GENERAL_TASK_RESULT_REASON_SET.has(value)
+    ? (value as SignedGeneralTaskResultReason)
     : fallback;
 }
 
@@ -949,7 +968,7 @@ function recoveryProjection(...results: readonly (RuntimeRecord | null)[]) {
  * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
  */
 function blocked(
-  reason: string,
+  reason: SignedGeneralTaskResultReason,
   source: RuntimeRecord | null = null,
   extra: RuntimeRecord = Object.freeze({}),
   additionalRecoverySources: readonly (RuntimeRecord | null)[] = Object.freeze(
@@ -1001,7 +1020,7 @@ function blocked(
  * @concurrency N/A: blockedAfterExactCandidateDiscardは共有非同期状態を持たない同期処理である。
  */
 function blockedAfterExactCandidateDiscard(
-  reason: string,
+  reason: SignedGeneralTaskResultReason,
   taskResult: RuntimeRecord,
   extra: RuntimeRecord = Object.freeze({}),
 ) {
@@ -1047,7 +1066,7 @@ function blockedAfterExactCandidateDiscard(
  * @concurrency N/A: blockedAfterConfirmedCandidateNotIssuedは共有非同期状態を持たない同期処理である。
  */
 function blockedAfterConfirmedCandidateNotIssued(
-  reason: string,
+  reason: SignedGeneralTaskResultReason,
   taskResult: RuntimeRecord,
   extra: RuntimeRecord = Object.freeze({}),
 ) {
@@ -1154,7 +1173,7 @@ async function boundedSettlement<T>(promise: Promise<T>, timeoutMs: number) {
  * @concurrency N/A: postStartUnknownBlockedは共有非同期状態を持たない同期処理である。
  */
 function postStartUnknownBlocked(
-  reason: string,
+  reason: SignedGeneralTaskResultReason,
   taskResult: RuntimeRecord | null,
   discarded: RuntimeRecord | null,
   isCandidateDiscarded: boolean,
@@ -1655,7 +1674,7 @@ export async function runSignedGeneralTaskVerification(
   let cancellationRequested = false;
   let executionStateProjection: RuntimeRecord | null = null;
   let isPostStartUnknown = false;
-  let postStartUnknownReason =
+  let postStartUnknownReason: SignedGeneralTaskPublicReason =
     "signed_general_task_post_start_observation_unknown";
   let knownOutcome: SignedGeneralTaskVerificationResult | null = null;
   let cancellationReceipt: Readonly<{

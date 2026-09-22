@@ -162,6 +162,7 @@ PhaseはCHGを分割する別Identityではなく、一つの変更意図を安�
 | 署名4経路E2Eの内側結果がRuntime固定理由を返しても、保存Recordの手管理許可集合に未登録なら`unknown`へ劣化した | `reason`の追加時にVerification Recorderも同期済みであり、失敗後に安全な原因分類を再観測できるという前提 | Gate 9を再開し、Provider／署名Runnerの固定理由をRecordへ投影する。ただし未知の自由文は従来どおり`unknown`へ閉じる | Formatter、型、Lint、Recorder負例、Development E2E、再署名Recovery Matrix、署名4経路E2E | Provider生出力、Credential、Host Pathおよび未許可の自由文は記録しない | Revised |
 | 最初の診断Record是正候補でRoute Matrix自身の固定理由2件が未登録だった | Provider境界だけを確認し、同じProducer内のRunner例外・Process再起動分岐まで母集団へ含めなかった | Gate 9の独立レビューをFailとして維持し、`signed_route_matrix_route_runner_failed_closed`と`signed_route_matrix_process_restart_required`をexact追加する | Recorder正例・未知値拒否負例、Route Matrix契約試験、同一固定候補の独立再レビュー | Prefix一般許可、生出力保存、Status／Recovery／Effect契約変更は禁止 | Revised |
 | Route Matrix理由を共有化した再レビューで、内側Coordinator TaskのProvider準備失敗7件がRecorder未登録と判明した | 外側RunnerだけをOwner Registryへ接続し、`results[]`が再帰投影する内側公開結果までProducer母集団を広げなかった | Provider準備失敗の公開語彙もOwner Registry化し、ProducerとRecorderを同じexact集合へ接続する | Registry全値のRecorder正例、未知値拒否負例、Coordinator Task契約試験、署名4経路E2Eの耐久Record再観測 | 内部Provider理由、自由文、生出力、Status／Recovery／Effect契約は変更しない | Revised |
+| Provider準備7件の是正後も、Coordinator Task公開Constructorが任意文字列を受け、直接blocked理由52件中48件以上がRecorder未登録だった | 個別失敗群ごとのRegistry追加で十分と見なし、公開Result Constructorと再帰投影全体を型境界にしていなかった | 全Coordinator Task公開理由とSigned General Task理由をOwner Registry＋導出Union型へ集約し、公開Constructorを型制約する。下位動的理由はexact Registry一致だけを投影し、未知値を固定fallbackへ閉じる | Typecheck、Registry全値保存、未知値拒否、Coordinator Task／Signed General／Route Matrix契約試験、同一固定候補の独立再レビュー | Prefix／正規表現許可、任意fixture理由の公開、Provider生出力、Status／Recovery／Effect契約変更は禁止 | Revised |
 
 #### Production Header移行母集団
 
@@ -502,6 +503,7 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 - [`40_Develop/checker/src/profiles/current-profile.ts`](../../../40_Develop/checker/src/profiles/current-profile.ts)
 - [`40_Develop/checker/src/rules/reality-symbol-graph.ts`](../../../40_Develop/checker/src/rules/reality-symbol-graph.ts)
 - [`40_Develop/coordinator/scripts/verify-signed-route-matrix.ts`](../../../40_Develop/coordinator/scripts/verify-signed-route-matrix.ts)
+- [`40_Develop/coordinator/scripts/verify-signed-general-task.ts`](../../../40_Develop/coordinator/scripts/verify-signed-general-task.ts)
 - [`40_Develop/coordinator/src/composition/project-runtime-composition-root.ts`](../../../40_Develop/coordinator/src/composition/project-runtime-composition-root.ts)
 - [`40_Develop/coordinator/src/core/verification-result-reasons.ts`](../../../40_Develop/coordinator/src/core/verification-result-reasons.ts)
 - [`40_Develop/coordinator/src/core/verification-result-record.ts`](../../../40_Develop/coordinator/src/core/verification-result-record.ts)

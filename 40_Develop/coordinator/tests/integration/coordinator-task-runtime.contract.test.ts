@@ -3140,7 +3140,7 @@ test("清掃済みProvider失敗もHost cleanup後にDocker回復記録をfinali
     "2026-08-25T00:00:00.000Z",
   ).completion;
   assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "fixture_provider_failed");
+  assert.equal(result.reason, "coordinator_task_provider_failed");
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(result.manualRecoveryRequired, false);
   assert.equal(result.dockerRecoveryId, null);
@@ -4409,7 +4409,7 @@ test("Provider startがlower cleanup済みでも手動Recoveryとexact Docker ID
     "2026-08-25T00:00:00.000Z",
   ).completion;
   assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "fixture_start_failed");
+  assert.equal(result.reason, "coordinator_task_process_start_failed");
   assert.equal(result.cleanupConfirmed, false);
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
@@ -5369,7 +5369,7 @@ test("Task terminal分類はcleanup・手動Recovery・再起動・actionable ID
   const record = (overrides: Partial<TerminalRecord> = {}): TerminalRecord =>
     Object.freeze({
       status: "blocked",
-      reason: "fixture_terminal_projection",
+      reason: "coordinator_task_failed_closed",
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
       processRestartRequired: false,
