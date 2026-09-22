@@ -143,7 +143,7 @@ v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、�
 | Test Source Contract | 16／16 Pass | 197 File、2,125 Case、Helper、Manifest Relation和集合、Local Item実在および試験段階一致を確認 |
 | Symbol Graph Contract | 11／11 Pass | Test Relation、未知Symbol、未知Local Item、Catalog owner／pathをFail Closedで確認 |
 | Semantic Coverage Pilot | 17意味を全数生成。実装観測16、自動Test観測15、手動確認待ち1 | Runtime Trustの実装・Test不足と手動UAT待ちを空Relationのまま保持し、旧Relationや近似Testで補完していない |
-| Repository Checker | 1,691 files、962 Markdown、16,216 links、1,965 anchors、0 error、0 warning | 現行構造、版移管およびRelation更新後のRepository検査は成立 |
+| Repository Checker | 1,694 files、962 Markdown、16,273 links、1,965 anchors、0 error、0 warning | 現行構造、版移管およびRelation更新後のRepository検査は成立 |
 
 Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Process終了を猶予内に観測できなかった。同じ2条件を通常ユーザー境界で再実行すると2／2 Passしたため、製品回帰ではなく実行環境の不一致として分類する。Process／OS境界の成立は、必要な権限を持つ本番同等境界で確認し、Sandbox内の失敗も消さずに実行条件とともに残す。
 

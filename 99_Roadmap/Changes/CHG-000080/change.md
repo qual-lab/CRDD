@@ -131,13 +131,13 @@ PhaseはCHGを分割する別Identityではなく、一つの変更意図を安�
 |---|---|---|---|---|---|
 | Phase 0: CHG Model Extension | 途中拡張・途中見直しを履歴とGate付きで扱う | `12_Change.md`、`19_Maintenance.md`、CHGひな型、Checker、本CHG | 発火・非発火・境界・情報不足例と構造契約試験 | 正本・ひな型・Checker・Dogfoodが一致し、別CHG判定とGate再開を検査できる | Passed |
 | Phase 1: Architecture Completeness | 基本・詳細設計から必要構造と検証対象を導く | Canonical Model、実装構造、Component／Boundary／State／Flow／Failure | 全詳細設計領域の適用表と導出差分 | 全18領域を適用、理由付きN/AまたはOPENへ処置する | Passed |
-| Phase 2: Implementation Contract | Production Named Symbolを設計責務へ接続する | 固定Header Schema、ARCH Trace、Source Migration | Header構造、実在Trace、Architecture所有責務 | 対象Symbol全件がHeaderと実在ARCH-IDを持つ | In Review |
+| Phase 2: Implementation Contract | Production Named Symbolを設計責務へ接続する | 固定Header Schema、ARCH Trace、Source Migration | Header構造、実在Trace、Architecture所有責務 | 対象Symbol全件がHeaderと実在ARCH-IDを持つ | Passed |
 | Phase 3: Verification Completeness | 必要な試験義務とLocal Item集合を閉じる | UT／IT／ST／UAT、条件区分、外部境界段階、集合差 | Required／Defined／Level／Boundary差分 | Required - DefinedとLevel／Boundary不足が0件 | Passed |
-| Phase 4: Test Source Contract | Test実装をQuality Local Itemへ接続する | Test Case／Named Helper／Fixture Header、QA Trace | Header構造、Local Item実在、試験段階一致、File Relation和集合 | FileはCase／HelperのRelation和集合、Caseは対応する1件、Helperは支援する1件以上を持ち、Test Symbol全件が実在Local Itemと試験段階に一致する | In Review |
+| Phase 4: Test Source Contract | Test実装をQuality Local Itemへ接続する | Test Case／Named Helper／Fixture Header、QA Trace | Header構造、Local Item実在、試験段階一致、File Relation和集合 | FileはCase／HelperのRelation和集合、Caseは対応する1件、Helperは支援する1件以上を持ち、Test Symbol全件が実在Local Itemと試験段階に一致する | Passed |
 | Phase 5: UAT Pilot | 上流の受入意味からUAT義務を再現する | REQ／UX／IA Pilotから全Canonical Sourceへ展開 | Source別UAT ObligationとSame／New判断 | 推測なしで導出でき、重複・導出不能を処置する | Passed |
 | Phase 6: Optionality Audit | 重要評価の未記載をなくす | CRDD全体のOptional表現、Format、Checker | A〜F全数分類、理由付きN/A／OPEN、負例 | A〜F分類とC〜Fの必須評価化、理由なしN/A／OPEN 0件 | Passed |
-| Phase 7: CRDD Self Migration | 新ContractをCRDD自身へ適用する | Architecture、Source、Test、Quality、Traceability | 契約母集団と利用側母集団の全数照合 | Ruleと現実の未移行0件 | In Review |
-| Phase 8: Reality Audit | CanonicalからEvidenceまで照合する | Design→Obligation→Local Item→Test→Execution→Evidence | 欠落、矛盾、Orphan、Freshnessを全数判定 | 欠落・矛盾・Orphanを全数処置する | In Review |
+| Phase 7: CRDD Self Migration | 新ContractをCRDD自身へ適用する | Architecture、Source、Test、Quality、Traceability | 契約母集団と利用側母集団の全数照合 | Ruleと現実の未移行0件 | Passed |
+| Phase 8: Reality Audit | CanonicalからEvidenceまで照合する | Design→Obligation→Local Item→Test→Execution→Evidence | 欠落、矛盾、Orphan、Freshnessを全数判定 | 欠落・矛盾・Orphanを全数処置する | Passed |
 | Phase 9: Independent Review／Release Gate | 独立反証とRelease Readinessを閉じる | 必須監査、全回帰、署名E2E | 固定改訂版への独立レビュー、監査、署名E2E | Blocking Finding 0、必要な署名E2E Pass、人間のRelease判断へ引渡し可能 | In Progress |
 
 ### 途中拡張の記録

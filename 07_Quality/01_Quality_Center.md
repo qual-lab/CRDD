@@ -22,7 +22,7 @@ Quality設計は13定義、154 Local Itemまで拡張した。Test Symbol Relati
 | Quality Analysis | 6工程の全入力を、Source固有条件付きで13検証目標へ接続し独立レビュー済み | Reality Auditではこの設計集合を変更せず、現行実装との対応を照合する |
 | Quality Definitions | 13定義、154 Local ItemをCanonical化済み | Test Relation 120件、完成Evidence算入116件、非完成Relation 4件、Relationなし34件。品質判定上は116件観測済み、38件未観測。v0.21対象128件は106件観測済み、22件未観測。v0.22移管26件はPrototype Relation 10件と未観測16件を区別し、完成済みへ読み替えない |
 | Architecture詳細設計 | 18領域を適用判定済み | 実装OwnerのないCapability、現実との不一致およびTest未接続をReality Auditで処置する |
-| Checker | Repository検査と全契約試験がPass | 962 Markdown、16,216 link、1,965 anchorをError 0／Warning 0で検査し、Checker契約試験363／363 Passを確認した |
+| Checker | Repository検査と全契約試験がPass | 1,694 file、962 Markdown、16,273 link、1,965 anchorをError 0／Warning 0で検査し、Checker契約試験363／363 Passを確認した |
 | Reality Audit | In Review — Hybrid／Manual Evidence Pending | Checkerのskip Evidence誤算入と実境界未観測を是正し、v0.21に残るHybrid 12件とManual 10件を独立レビューと署名E2Eで処置する。v0.22移管26件は同版で再開する |
 
 ## 現在の品質投影
