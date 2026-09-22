@@ -39,7 +39,7 @@
       "responsibilities": ["reality_symbol_contract", "reality_relation_graph", "repository_regular_entry_observation"],
       "externalBoundaries": ["repository_filesystem"],
       "lifecycleProfile": "read_only_boundary",
-      "testIds": ["crdd-domain-library:unit:public-boundary", "crdd-domain-library:unit:repository-observation", "crdd-domain-library:integration:reality-repository"],
+      "testIds": ["crdd-domain-library:unit:public-boundary", "crdd-domain-library:unit:filesystem-store-root", "crdd-domain-library:unit:repository-observation", "crdd-domain-library:integration:reality-repository"],
       "postconditions": ["public_export_allowlist_exact", "domain_and_repository_owner_separated", "repository_outside_observation_absent", "opened_handle_location_proven_or_read_unobservable", "repository_content_unchanged"]
     },
     {
@@ -607,6 +607,19 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": ["public_export_allowlist_exact", "repository_effect_absent"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "crdd-domain-library:unit:filesystem-store-root",
+      "owner": "crdd-domain-library",
+      "path": "40_Develop/crdd-domain-library/tests/unit/filesystem-store-root.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["repository", "filesystem", "store-root", "capability", "boundary"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["verified_store_root_capability_required", "absolute_and_parent_path_rejected", "linked_path_rejected", "lock_scope_confined_to_store_root"],
       "mandatoryByDefault": true
     },
     {

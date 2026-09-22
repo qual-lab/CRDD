@@ -22,6 +22,7 @@ export {
 export {
   createFileProjectOperationCandidateStore,
   createFileProjectOperationOwnerWriter,
+  executeFileProjectOperationCandidateDecision,
   executeProjectOperationCandidateDecision,
   type ProjectOperationAuthorityPort,
   type ProjectOperationCandidateStore,

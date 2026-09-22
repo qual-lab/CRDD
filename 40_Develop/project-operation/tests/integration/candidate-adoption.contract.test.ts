@@ -19,10 +19,11 @@ import {
   applyProjectOperationCandidateDecision,
   createFileProjectOperationCandidateStore,
   createFileProjectOperationOwnerWriter,
-  executeProjectOperationCandidateDecision,
+  executeFileProjectOperationCandidateDecision,
   type ProjectOperationCandidate,
   type ProjectOperationCandidateDecision,
 } from "../../src/index.ts";
+import { createFilesystemStoreRoot } from "../../../crdd-domain-library/src/filesystem-store-root/index.ts";
 
 /**
  * 候補採否試験用の候補を構築する。
@@ -129,17 +130,23 @@ test("Authorityまたは候補Relation不足をEffect前で拒否する", () => 
 test("明示採用だけを正本Effectへ変換し競合と媒体名推定を拒否する", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-project-op-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const storeRoot = createFilesystemStoreRoot(root);
+  assert.ok(storeRoot);
   const candidateStore = createFileProjectOperationCandidateStore(
-    path.join(root, "candidate.json"),
+    storeRoot,
+    "candidate.json",
     candidate(),
   );
   const owner = createFileProjectOperationOwnerWriter(
-    path.join(root, "owner.json"),
+    storeRoot,
+    "owner.json",
     4,
   );
-  const adopted = executeProjectOperationCandidateDecision(
-    candidateStore,
-    owner,
+  const adopted = executeFileProjectOperationCandidateDecision(
+    storeRoot,
+    "candidate.json",
+    "owner.json",
+    "operations/candidate-001.json",
     { verify: (_candidate, input) => input.principalId === "project-owner" },
     decision(),
   );
@@ -182,4 +189,128 @@ test("明示採用だけを正本Effectへ変換し競合と媒体名推定を�
   assert.equal(conflicted.ownerEffectIssued, false);
   assert.equal(sameMediumDifferentIdentity.candidateState, "held");
   assert.equal(sameMediumDifferentIdentity.ownerEffectIssued, false);
+});
+
+/**
+ * Owner Effect後の未完了Journalを同じIdentityで回復することを検証する。
+ * @responsibility 部分成功をEffect 0へ畳まず、再入場でOwnerを二重更新せずCandidateだけを確定する。
+ * @trace CPR-IT-006
+ * @precondition Owner Revision 5とowner_applied Journal、created Candidateを用意する。
+ * @stimulus 同じCandidate判断をFile Operation入口へ再入場する。
+ * @observation 結果、Owner Revision、Candidate状態およびJournal不存在を観測する。
+ * @oracle Effect済みを保持してadoptedへ収束し、Owner Revisionは5のままとなる。
+ * @cleanup 一時Store Rootを削除する。
+ * @boundary CPR-IT-006=Direct Boundary: Journal→Owner→Candidate Recovery。
+ */
+test("Owner Effect後の未完了判断を二重更新せず回復する", (t) => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-project-op-recovery-"),
+  );
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const storeRoot = createFilesystemStoreRoot(root);
+  assert.ok(storeRoot);
+  fs.mkdirSync(path.join(root, "operations"));
+  fs.writeFileSync(
+    path.join(root, "candidate.json"),
+    JSON.stringify(candidate()),
+  );
+  fs.writeFileSync(
+    path.join(root, "owner.json"),
+    JSON.stringify({ revision: 5, adoptedCandidateId: "candidate-001" }),
+  );
+  fs.writeFileSync(
+    path.join(root, "operations", "candidate-001.json"),
+    JSON.stringify({
+      candidateId: "candidate-001",
+      expectedOwnerRevision: 4,
+      principalId: "project-owner",
+      decision: "adopt",
+      phase: "owner_applied",
+    }),
+  );
+  const recovered = executeFileProjectOperationCandidateDecision(
+    storeRoot,
+    "candidate.json",
+    "owner.json",
+    "operations/candidate-001.json",
+    { verify: () => true },
+    decision(),
+  );
+  assert.equal(recovered.status, "completed");
+  assert.equal(recovered.ownerEffectIssued, true);
+  assert.equal(
+    JSON.parse(fs.readFileSync(path.join(root, "owner.json"), "utf8")).revision,
+    5,
+  );
+  assert.equal(
+    JSON.parse(fs.readFileSync(path.join(root, "candidate.json"), "utf8"))
+      .state,
+    "adopted",
+  );
+  assert.equal(
+    fs.existsSync(path.join(root, "operations", "candidate-001.json")),
+    false,
+  );
+});
+
+/**
+ * Owner Effect前の準備Journalを同じIdentityで再開することを検証する。
+ * @responsibility 準備済み判断をAuthority再確認後に一度だけOwnerへ適用し、Candidate確定まで収束させる。
+ * @trace CPR-IT-006
+ * @precondition Owner Revision 4、prepared Journalおよびcreated Candidateを用意する。
+ * @stimulus 同じPrincipalと採用判断でFile Operation入口へ再入場する。
+ * @observation 結果、Owner Revision、Candidate状態およびJournal不存在を観測する。
+ * @oracle Ownerを一度だけRevision 5へ進め、Candidateをadoptedへ確定する。
+ * @cleanup 一時Store Rootを削除する。
+ * @boundary CPR-IT-006=Direct Boundary: Prepared Journal→Authority→Owner→Candidate Settlement。
+ */
+test("Owner Effect前の準備済み判断を一度だけ再開する", (t) => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-project-op-prepared-recovery-"),
+  );
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const storeRoot = createFilesystemStoreRoot(root);
+  assert.ok(storeRoot);
+  fs.mkdirSync(path.join(root, "operations"));
+  fs.writeFileSync(
+    path.join(root, "candidate.json"),
+    JSON.stringify(candidate()),
+  );
+  fs.writeFileSync(
+    path.join(root, "owner.json"),
+    JSON.stringify({ revision: 4, adoptedCandidateId: null }),
+  );
+  fs.writeFileSync(
+    path.join(root, "operations", "candidate-001.json"),
+    JSON.stringify({
+      candidateId: "candidate-001",
+      expectedOwnerRevision: 4,
+      principalId: "project-owner",
+      decision: "adopt",
+      phase: "prepared",
+    }),
+  );
+  const recovered = executeFileProjectOperationCandidateDecision(
+    storeRoot,
+    "candidate.json",
+    "owner.json",
+    "operations/candidate-001.json",
+    { verify: (_candidate, input) => input.principalId === "project-owner" },
+    decision(),
+  );
+  assert.equal(recovered.status, "completed");
+  assert.equal(recovered.ownerEffectIssued, true);
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(path.join(root, "owner.json"), "utf8")),
+    { revision: 5, adoptedCandidateId: "candidate-001" },
+  );
+  assert.equal(
+    JSON.parse(fs.readFileSync(path.join(root, "candidate.json"), "utf8"))
+      .state,
+    "adopted",
+  );
+  assert.equal(
+    fs.existsSync(path.join(root, "operations", "candidate-001.json")),
+    false,
+  );
 });

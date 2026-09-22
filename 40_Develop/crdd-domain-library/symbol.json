@@ -36,6 +36,14 @@
       ]
     },
     {
+      "symbolId": "crdd-domain-library.filesystem-store-root-entry",
+      "kind": "module",
+      "path": "src/filesystem-store-root/index.ts",
+      "archIds": [
+        "ARCH-000009"
+      ]
+    },
+    {
       "symbolId": "crdd-domain-library.quality-change-control-entry",
       "kind": "module",
       "path": "src/quality-change-control/index.ts",
@@ -124,6 +132,20 @@
       ],
       "verifies": [
         "crdd-domain-library.source.src.repository.observation.filesystem.repository.observer"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.test.unit.filesystem-store-root",
+      "kind": "test-suite",
+      "path": "tests/unit/filesystem-store-root.contract.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-UT-006"
+      ],
+      "verifies": [
+        "crdd-domain-library.filesystem-store-root-entry"
       ]
     },
     {

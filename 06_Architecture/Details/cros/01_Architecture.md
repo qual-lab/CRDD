@@ -62,6 +62,8 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | `cros.workspace-access-boundary` | Interface／Security Boundary | Bearer CredentialとWorkspace集合 | 許可されたBindingだけ解決 | 失効、Exposure外、Admin-only | IT／ST | Direct Boundary | Access Contextと非開示結果 | Request後Secret 0 | 敵対的multi-tenantのHost分離は対象外 |
 | `cros.repository-federation` | Flow／Consistency | 複数Repository Source | 根拠・欠測付きProjection | 競合Binding、部分取得不能 | IT／ST | Related 2 Blocks | Source Coverageとobserved_at | 正本変更0 | 物理保存形式はDevelopmentで選択 |
 | `cros.context-handoff` | Sequence／Transition | 構造化Task Context | 同じIdentityとRevisionで再開 | 未確認Context補完、Authority昇格 | IT／ST | Adjacent 1 Block | handoff stateとreason | 未許可Effect 0 | transport schemaはSPEC待ち |
+| `cros.surface-contract` | Interface／Consistency | CLI／MCP／Workbenchの同一操作 | 同じApplication ContractとCanonical Ownerへ接続 | 入口別の独自実装、Revision競合の上書き | IT | Direct Boundary | Surface、Operation、Revision、結果 | 競合時の追加Effect 0 | UI固有表示はUI工程が所有する |
+| `cros.result-return` | Sequence／Consistency | 委譲Taskの構造化結果 | 元Task／Revisionへ一度だけ帰還 | 別Task結合、部分結果採用、二重settle | ST | Related 2 Blocks | Result ID、Task、Revision、settlement | 重複帰還0 | Provider固有生出力は搬送しない |
 
 導出キーは本領域内でQualityが同じ設計項目を反復参照するための局所参照であり、CRDD全体の安定コンテキストIDではない。
 
@@ -515,6 +517,7 @@ Secret value -x Repository／.crdd／Prompt／Projection
 - 独立したInformation Classification System、汎用Policy EngineまたはGlobal Operation Permission RegistryをCROS Coreへ追加しない。
 - Read-only Projection、Repository内容を使うOperationおよびServer管理の必要条件を混同せず、各Capabilityが所有する既存AuthorityをCROSが代替発行しない。
 - 最小WorkbenchがCROS／Project Operationの公開契約からProject／PortfolioとSource Coverageを表示し、既存Command／Candidate入口への定型操作を一つ以上縦断する。
+- TS APIは型付け済みRequest、CLIは位置引数、MCPは未知入力のSchema検証、Workbenchは表示Commandからの明示変換をそれぞれ所有する。四つのAdapterはAuthority、Revision、結果意味またはStoreを所有せず、同じApplication ContractとCanonical Ownerへ接続する。
 - 単一Repository、Personal複数Repository、Shared DEV Credential、Shared MGMT Credential、Admin-only Credential、Credential失効、Workspace集合変更およびPolicy改訂を結合試験で反証する。
 
 ## 14. 後段で選択する物理詳細

@@ -11,31 +11,38 @@
     },
     {
       "symbolId": "cros.runtime",
-      "kind": "implementation",
+      "kind": "file",
       "path": "src/runtime.ts",
       "archIds": ["ARCH-000009", "ARCH-000013", "ARCH-000015"],
       "implements": ["cros.workspace-access-boundary", "cros.repository-federation", "cros.context-handoff"]
     },
     {
       "symbolId": "cros.tool-registry",
-      "kind": "implementation",
+      "kind": "file",
       "path": "src/tool-registry.ts",
       "archIds": ["ARCH-000010"],
       "implements": ["cros.tool-registry"]
     },
     {
       "symbolId": "cros.application-contract",
-      "kind": "implementation",
+      "kind": "file",
       "path": "src/application-contract.ts",
       "archIds": ["ARCH-000010", "ARCH-000015"],
       "implements": ["cros.surface-contract", "cros.result-return"]
     },
     {
+      "symbolId": "cros.surface-adapters",
+      "kind": "file",
+      "path": "src/surface-adapters.ts",
+      "archIds": ["ARCH-000010"],
+      "implements": ["cros.surface-contract"]
+    },
+    {
       "symbolId": "cros.durable-store",
-      "kind": "implementation",
+      "kind": "file",
       "path": "src/durable-store.ts",
-      "archIds": ["ARCH-000010", "ARCH-000015"],
-      "implements": ["cros.surface-contract", "cros.context-handoff", "cros.result-return"]
+      "archIds": ["ARCH-000010", "ARCH-000013", "ARCH-000015"],
+      "implements": ["cros.surface-contract", "cros.workspace-access-boundary", "cros.context-handoff", "cros.result-return"]
     },
     {
       "symbolId": "cros.test.integration.core",
@@ -58,16 +65,16 @@
       "kind": "test-suite",
       "path": "tests/system/session-access.contract.test.ts",
       "qaIds": ["QA-000007"],
-      "localTestIds": [],
-      "verifies": ["cros.runtime"]
+      "localTestIds": ["RFD-ST-003", "RFD-ST-004"],
+      "verifies": ["cros.runtime", "cros.durable-store"]
     },
     {
       "symbolId": "cros.test.system.context-handoff",
       "kind": "test-suite",
       "path": "tests/system/context-handoff.contract.test.ts",
       "qaIds": ["QA-000006", "QA-000007"],
-      "localTestIds": ["ERB-ST-013"],
-      "verifies": ["cros.runtime"]
+      "localTestIds": ["RFD-ST-010", "ERB-ST-013"],
+      "verifies": ["cros.runtime", "cros.durable-store"]
     },
     {
       "symbolId": "cros.test.integration.surface-contract",
@@ -75,7 +82,7 @@
       "path": "tests/integration/surface-contract.contract.test.ts",
       "qaIds": ["QA-000009"],
       "localTestIds": ["EST-IT-010"],
-      "verifies": ["cros.application-contract", "cros.durable-store"]
+      "verifies": ["cros.application-contract", "cros.surface-adapters", "cros.durable-store"]
     },
     {
       "symbolId": "cros.test.system.result-return",

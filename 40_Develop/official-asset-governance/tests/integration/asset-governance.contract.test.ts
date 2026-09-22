@@ -11,6 +11,7 @@
  * @boundary OAG-IT-005=Related 2 Blocks、OAG-IT-006／OAG-IT-007=Direct Boundary。
  */
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -24,6 +25,7 @@ import {
   type OfficialAssetRecord,
   verifyOfficialAssetInclusion,
 } from "../../src/index.ts";
+import { createFilesystemStoreRoot } from "../../../crdd-domain-library/src/filesystem-store-root/index.ts";
 
 /**
  * 統合試験用の候補素材を構築する。
@@ -133,8 +135,11 @@ test("完全な判断の収載先から根拠へ戻れる", () => {
 test("完全な判断だけが素材状態へ一回適用される", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-asset-store-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const storeRoot = createFilesystemStoreRoot(root);
+  assert.ok(storeRoot);
   const store = createFileOfficialAssetStore(
-    path.join(root, "asset.json"),
+    storeRoot,
+    "asset.json",
     candidate(),
   );
   const applied = executeOfficialAssetDecision(
@@ -188,35 +193,80 @@ test("不完全な判断を収載Effect前で拒否する", () => {
  * @cleanup N/A: 純粋値だけを使用する。
  * @boundary OAG-IT-006=Direct Boundary: Concurrent Decision→Official Asset Store。
  */
-test("競合する同一Revision判断の後着側を上書きせず拒否する", (t) => {
+test("競合する同一Revision判断は一方だけを確定する", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-asset-conflict-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const storeRoot = createFilesystemStoreRoot(root);
+  assert.ok(storeRoot);
+  const storeFile = path.join(root, "asset.json");
   const store = createFileOfficialAssetStore(
-    path.join(root, "asset.json"),
+    storeRoot,
+    "asset.json",
     candidate(),
   );
-  const authority = { verify: () => true };
-  const first = executeOfficialAssetDecision(store, authority, decision());
-  assert.equal(first.status, "completed");
-  if (first.status !== "completed") return;
-
-  const second = executeOfficialAssetDecision(
-    store,
-    authority,
-    decision({
-      decision: "restrict",
-      allowedPurposes: Object.freeze(["internal-review"]),
-    }),
+  const worker = path.resolve("tests/fixtures/asset-decision-worker.ts");
+  const startFile = path.join(root, "start");
+  const readyFiles = [
+    path.join(root, "ready-1"),
+    path.join(root, "ready-2"),
+  ] as const;
+  const resultFiles = [
+    path.join(root, "result-1"),
+    path.join(root, "result-2"),
+  ] as const;
+  const operations = [
+    { input: decision(), readyFile: readyFiles[0], resultFile: resultFiles[0] },
+    {
+      input: decision({
+        decision: "restrict",
+        allowedPurposes: Object.freeze(["internal-review"]),
+      }),
+      readyFile: readyFiles[1],
+      resultFile: resultFiles[1],
+    },
+  ];
+  const childProcesses = operations.map(({ input, readyFile, resultFile }) =>
+    spawn(process.execPath, [
+      worker,
+      root,
+      storeFile,
+      readyFile,
+      startFile,
+      resultFile,
+      JSON.stringify(input),
+    ]),
   );
-  assert.equal(first.record.state, "approved");
-  assert.equal(first.record.recordRevision, 2);
-  assert.equal(store.read().state, "approved");
-  assert.deepEqual(second, {
-    status: "blocked",
-    reason: "official_asset_decision_revision_conflict",
-    currentRecordRevision: 2,
-    storeEffectIssued: false,
-  });
+  while (!readyFiles.every((file) => fs.existsSync(file)))
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  fs.writeFileSync(startFile, "start\n", { flag: "wx" });
+  await Promise.all(
+    childProcesses.map(
+      (child) =>
+        new Promise<void>((resolve, reject) => {
+          child.once("error", reject);
+          child.once("exit", (code) =>
+            code === 0
+              ? resolve()
+              : reject(new Error(`asset worker exited ${String(code)}`)),
+          );
+        }),
+    ),
+  );
+  const results = resultFiles.map((file) =>
+    JSON.parse(fs.readFileSync(file, "utf8")),
+  );
+  assert.equal(
+    results.filter((result) => result.status === "completed").length,
+    1,
+  );
+  assert.equal(
+    results.filter(
+      (result) =>
+        result.status === "blocked" && result.storeEffectIssued === false,
+    ).length,
+    1,
+  );
+  assert.equal(store.read().recordRevision, 2);
 });
 
 /**

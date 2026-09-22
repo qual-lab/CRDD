@@ -272,7 +272,9 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     requiredTags: ["boundary", "effect", "security"],
     exportedModules: [
       "./application-contract.ts",
+      "./durable-store.ts",
       "./runtime.ts",
+      "./surface-adapters.ts",
       "./tool-registry.ts",
     ],
   },
@@ -282,6 +284,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     requiredTags: ["boundary"],
     exportedModules: [
       "./artifact/index.ts",
+      "./filesystem-store-root/index.ts",
       "./outcome.ts",
       "./quality-change-control/index.ts",
       "./reality-traceability/index.ts",
@@ -289,6 +292,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     ],
     namespaceExports: {
       artifact: "./artifact/index.ts",
+      filesystemStoreRoot: "./filesystem-store-root/index.ts",
       qualityChangeControl: "./quality-change-control/index.ts",
       realityTraceability: "./reality-traceability/index.ts",
       repositoryObservation: "./repository-observation/index.ts",

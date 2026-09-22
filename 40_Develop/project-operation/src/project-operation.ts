@@ -120,7 +120,7 @@ export type ProjectOperationCandidateDecision = Readonly<{
  * @responsibility 採否状態、正本Effect有無、次Revisionおよび拒否理由を一つの結果へ閉じる。
  * @trace ARCH-000006
  * @shape completedまたはblockedと、Candidate状態・Effect情報を表す。
- * @invariant blocked、reject、holdではownerEffectIssuedをfalseとする。
+ * @invariant blockedでも既にOwner Effectが発生した部分成功はtrueを保持し、Effectを隠さない。
  * @boundary Candidate Adoptionと所有正本Writerの結果境界。
  * @security 結果は採用Authorityまたは正本Writer Capabilityを含まない。
  * @compatibility reason値は利用側が安全な停止を識別する安定契約である。
@@ -134,6 +134,7 @@ export type ProjectOperationCandidateDecisionResult = Readonly<{
     | "project_operation_candidate_invalid"
     | "project_operation_candidate_authority_invalid"
     | "project_operation_candidate_revision_conflict"
+    | "project_operation_candidate_settlement_incomplete"
     | "project_operation_candidate_already_decided";
   candidateState: ProjectOperationCandidate["state"];
   ownerEffectIssued: boolean;

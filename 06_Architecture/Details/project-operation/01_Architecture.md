@@ -412,6 +412,26 @@ created ──→ under_review
 
 Candidateは`candidate_id`、source identity／revision、target owner、作成時点、状態、採否理由を持つ。本文または一時生成物はRuntime Dataの保持規則で清掃できるが、採否と正本へのrelationを再構成するための最小記録は保持する。Projectionは再生成可能であり正本化しない。清掃はOwner、参照、Recovery義務を確認した後にだけ行う。
 
+### 12.4 Candidate採否の耐久確定
+
+File-backedなCandidate採否では、Candidate、所有正本および判断Journalを同じ用途限定Store Rootと同じOperation Lockへ閉じる。採用前に`prepared`を記録し、所有正本更新後に`owner_applied`へ進め、Candidate確定後にJournalを削除する。
+
+```text
+Authority・Revision確認
+        ↓
+prepared Journal
+        ↓
+所有正本を一度だけ更新
+        ↓
+owner_applied Journal
+        ↓
+Candidateをadoptedへ確定
+        ↓
+Journal削除
+```
+
+`prepared`で停止した場合はAuthorityと判断Identityを再確認し、所有正本が未更新なら一度だけ更新する。`owner_applied`で停止した場合は所有正本を再発行せずCandidate確定だけを再開する。Journal、Candidate Identity、Principal、期待Revisionまたは所有正本状態が一致しない場合は、自動補正せず不正な部分状態として停止する。
+
 ## Implementation Structure
 
 | 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |

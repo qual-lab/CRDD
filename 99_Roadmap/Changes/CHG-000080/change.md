@@ -12,10 +12,10 @@
 |---|---|
 | 現在の変更状態 | Engineering CompletenessをRule、Format、Traceability、CheckerおよびCRDD自身の現実まで閉じる途中 |
 | Phase／Gate適用判断 | `Applicable`: Architecture、実装、Quality、MigrationおよびReality Auditを一括変更せず、局所Gateで成立確認する必要がある |
-| 現在Phase | `Phase 2／4／7／8 — Production Semantic Review／Test Relation再確認／Self Migration／Reality Audit`: 全Subsystemの現実照合で判明した未観測Local Itemを、Relation不足・試験不足・実装不足・工程Evidence・人間受入待ちへ分類して閉じている。実署名済み固定Snapshotの昇格System境界、公開Verification入口のPT／LT Authority Gate、公開Runtime Data APIの清掃・回復System lifecycle、Docker Desktop修復のexact Identity・旧Effect非再発行、公開Verification入口の固定段階計画とUAT人間入力待ち、未Commit状態と差替可能なVersion Control Portの同等操作、Provider Home不正・不明分類からProcess Effect 0への結合境界を接続した。Human Decision ITとObjective／Milestone Acceptance Decision ITは別義務として再分離し、Acceptance Decisionの公開Application、耐久Store、Authority Adapter、ITおよびSTを接続した。さらに、準備Record後にState更新または確定観測で停止した場合も、同じ判断Identityだけが未適用Effectを一度だけ再開し、適用済みStateではEffectを再発行せず確定できるexact再入場を接続した。公開Verification入口が下位Gate成立時だけ次の境界へ進む独立System観測を`ERB-ST-015`へ接続し、公式素材の判断完全性、Revision競合および収載Relationを専用Packageの4 Local Itemへ接続した。Project Operationの部分状態投影、restricted非開示、候補AuthorityおよびRevision競合を専用Packageの3 Local Itemへ接続した。CROSのlocal同等性、AI入口、Handoff、Tool Registry、Session Grant、非開示、Context Package、再開Scenario、四Surface共有契約および相関付き結果帰還を専用Packageへ接続した。固定Snapshot上の移行System Closureと別Runtime間のDocker recovery chainを追加し、機械化可能な未観測を0件まで閉じた。現在値は32件（Hybrid 14、Manual 18） |
-| 現在Gate | `Gate 0 — Passed`: Phase／Gate／途中拡張／途中見直し契約を正本、ひな型、Checkerおよび本CHGへ反映した。後続Gateの成立は示さない |
-| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 154件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 212件の責務別Local Item接続、Optionality Audit全数処置 |
-| 未成立 | Production Headerの独立意味確認、未観測Local Item 32件（Automated 0、Hybrid 14、Manual 18）のEvidence処置、独立レビュー、全回帰、署名E2E |
+| 現在Phase | `Phase 2／4／7／8 — Production Semantic Review／Test Relation再確認／Self Migration／Reality Audit`: 全Subsystemの現実照合で判明した未観測Local Itemを、Relation不足・試験不足・実装不足・工程Evidence・人間受入待ちへ分類して閉じている。用途限定Store Root、親Link拒否、Process間排他、CROS Credential認証・Grant外読取りEffect 0、実Repository Federation、Project OperationのOwner Effect前後の耐久再入場、公式素材のProcess間Revision競合、TS API／CLI／MCP／Workbenchの実Adapterを接続した。局所fixtureでは代替できない`RCM-ST-012`の全Consumer同一Snapshot回帰と`ERB-ST-011`の実Docker別Session回復はRelationを外し、全回帰／署名E2Eの実観測待ちへ戻した。現在値は35件（Automated 2、Hybrid 14、Manual 19） |
+| 現在Gate | `Passed: Gate 0／1／3／5／6`。`Open: Gate 2／4／7／8`。`Planned: Gate 9`。Production Headerの独立意味確認、Automated 2件を閉じる全回帰／署名E2E、Hybrid／Manual Evidenceおよび独立レビューは未成立である |
+| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 154件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 222件の責務別Local Item接続、Optionality Audit全数処置 |
+| 未成立 | Production Headerの独立意味確認、未観測Local Item 35件（Automated 2、Hybrid 14、Manual 19）のEvidence処置、独立レビュー、全回帰、署名E2E |
 | 次のGate | Gate 2／7／8の前にProduction Headerの意味妥当性、Rule／Format／Realityの未移行0件、および全Local Itemの処置を確認する。既知Gapを残したまま全回帰へ進まない |
 
 ## 1. 変更の目的
@@ -43,8 +43,8 @@ Architecture Details／実装構造 ──→ UT Obligation
 | 観点 | 現在判断 |
 |---|---|
 | 正本 | Architecture契約は`27_Architecture.md`、詳細設計とCoding規則は`06_Architecture`、Quality契約は`16_Quality_Assurance.md`と`07_Quality`が所有する |
-| 現在の母集団 | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18の計157 Canonical ID、Architecture Details 18領域、Quality Definition 13件 |
-| 成立済みCapability | 工程別Quality Analysis、13 Quality Definition、114 Local Item、UT／IT／ST／UAT適用表、外部境界の段階、PT／LT明示判断、Reality Audit Relationを維持する |
+| 着手時の母集団 | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18の計157 Canonical ID、Architecture Details 18領域、Quality Definition 13件 |
+| 着手時に保護した成立済みCapability | 工程別Quality Analysis、13 Quality Definition、114 Local Item、UT／IT／ST／UAT適用表、外部境界の段階、PT／LT明示判断、Reality Audit Relationを維持する。現在のLocal Item母集団は154件であり、着手時件数を現在値として使わない |
 | 実証済みGap | Local ItemからTestへの接続は観測できるが、Canonical Modelから必要Local Item母集合を決定論的に導く構造がない |
 | 追加する意味 | Canonical Model Item、導出Key、Required Verification Obligation、Implementation Structure Analysis、集合差Gate |
 | 追加しないもの | REQ／UX／IA内のUAT専用ID、試験段階別QA-ID、Design Patternの一律強制、巨大Matrixの手編集正本、SourceからのCanonical Meaning逆算、Sub-CHG |
@@ -67,7 +67,7 @@ Architecture Details／実装構造 ──→ UT Obligation
 | 根拠の主張軸（観測基盤） | Applicable | 静的解析、Checker、Runner、実境界では観測可能範囲が異なる | 検証結果ごとに取得範囲を記録する |
 | 根拠の主張軸（成果物Identity） | Applicable | Canonical ID、ARCH-ID、QA Local Item、SymbolおよびEvidenceの対応が必要である | Semantic CoverageとReality Auditで照合する |
 | 根拠の主張軸（lifecycle） | Applicable | 定義、実装、実行、回復および終了後状態を一つの成功へ畳まない | Quality CenterとE2Eで確認する |
-| 未解消の不一致 | OPEN | Production Headerの意味確認、Reality Audit、独立レビューおよび署名E2Eが残る。Test Header、OptionalityおよびRequired Verification差分は解消済み | Phase 2／7〜9を通過した時点で0件を再確認する |
+| 未解消の不一致 | OPEN | Production Headerの意味確認、Reality Audit、独立レビューおよび署名E2Eが残る。Test Header、OptionalityおよびRequired Verification差分は解消済み | Phase 2／4／7〜9を通過した時点で0件を再確認する |
 
 ## 3. 採用する責務境界
 
@@ -258,6 +258,10 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 - [`03_Documentation.md`](../../../03_Documentation.md)
 - [`05_Autonomous_Operation.md`](../../../05_Autonomous_Operation.md)
 - [`06_Architecture/Details/checker/01_Architecture.md`](../../../06_Architecture/Details/checker/01_Architecture.md)
+- [`06_Architecture/Details/cros/01_Architecture.md`](../../../06_Architecture/Details/cros/01_Architecture.md)
+- [`07_Quality/01_Quality_Center.md`](../../../07_Quality/01_Quality_Center.md)
+- [`07_Quality/04_Quality_Integration.md`](../../../07_Quality/04_Quality_Integration.md)
+- [`07_Quality/05_Current_Implementation_Reality_Audit.md`](../../../07_Quality/05_Current_Implementation_Reality_Audit.md)
 - [`10_Agent.md`](../../../10_Agent.md)
 - [`19_Maintenance.md`](../../../19_Maintenance.md)
 - [`25_UI.md`](../../../25_UI.md)
@@ -267,10 +271,14 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 - [`40_Develop/artifact-signing/symbol.json`](../../../40_Develop/artifact-signing/symbol.json)
 - [`40_Develop/artifact-signing/tests/integration/private-key-signing.integration.test.ts`](../../../40_Develop/artifact-signing/tests/integration/private-key-signing.integration.test.ts)
 - [`40_Develop/checker/symbol.json`](../../../40_Develop/checker/symbol.json)
+- [`40_Develop/checker/src/profiles/current-profile.ts`](../../../40_Develop/checker/src/profiles/current-profile.ts)
+- [`40_Develop/checker/src/rules/reality-symbol-graph.ts`](../../../40_Develop/checker/src/rules/reality-symbol-graph.ts)
 - [`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](../../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)
 - [`40_Develop/checker/tests/integration/tools-naming.contract.test.ts`](../../../40_Develop/checker/tests/integration/tools-naming.contract.test.ts)
 - [`40_Develop/checker/tests/unit/symbol-graph.contract.test.ts`](../../../40_Develop/checker/tests/unit/symbol-graph.contract.test.ts)
 - [`40_Develop/coordinator/symbol.json`](../../../40_Develop/coordinator/symbol.json)
+- [`40_Develop/coordinator/src/security/project-runtime-acceptance-decision-store.ts`](../../../40_Develop/coordinator/src/security/project-runtime-acceptance-decision-store.ts)
+- [`40_Develop/coordinator/tests/fixtures/docker-handoff-worker.ts`](../../../40_Develop/coordinator/tests/fixtures/docker-handoff-worker.ts)
 - [`40_Develop/coordinator/tests/integration/bounded-file-snapshot.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/bounded-file-snapshot.contract.test.ts)
 - [`40_Develop/coordinator/tests/integration/candidate-bundle-store.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/candidate-bundle-store.contract.test.ts)
 - [`40_Develop/coordinator/tests/integration/candidate-store-kernel-lock.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/candidate-store-kernel-lock.contract.test.ts)
@@ -344,10 +352,12 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 - [`40_Develop/coordinator/tests/integration/test-execution-profile.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/test-execution-profile.contract.test.ts)
 - [`40_Develop/coordinator/tests/system/coordinator-docker-recovery-cli.integration.test.ts`](../../../40_Develop/coordinator/tests/system/coordinator-docker-recovery-cli.integration.test.ts)
 - [`40_Develop/coordinator/tests/system/coordinator-launch.contract.test.ts`](../../../40_Develop/coordinator/tests/system/coordinator-launch.contract.test.ts)
+- [`40_Develop/coordinator/tests/system/docker-session-handoff.contract.test.ts`](../../../40_Develop/coordinator/tests/system/docker-session-handoff.contract.test.ts)
 - [`40_Develop/coordinator/tests/system/dynamic-fake-provider-cancellation-verification.contract.test.ts`](../../../40_Develop/coordinator/tests/system/dynamic-fake-provider-cancellation-verification.contract.test.ts)
 - [`40_Develop/coordinator/tests/system/dynamic-fake-provider-failure-verification.contract.test.ts`](../../../40_Develop/coordinator/tests/system/dynamic-fake-provider-failure-verification.contract.test.ts)
 - [`40_Develop/coordinator/tests/system/interaction-boundary-regression.contract.test.ts`](../../../40_Develop/coordinator/tests/system/interaction-boundary-regression.contract.test.ts)
 - [`40_Develop/coordinator/tests/system/project-runtime-real-provider-verification-script.contract.test.ts`](../../../40_Develop/coordinator/tests/system/project-runtime-real-provider-verification-script.contract.test.ts)
+- [`40_Develop/coordinator/tests/system/project-runtime-acceptance-decision.contract.test.ts`](../../../40_Develop/coordinator/tests/system/project-runtime-acceptance-decision.contract.test.ts)
 - [`40_Develop/coordinator/tests/system/signed-general-task-verification.contract.test.ts`](../../../40_Develop/coordinator/tests/system/signed-general-task-verification.contract.test.ts)
 - [`40_Develop/coordinator/tests/system/signed-recovery-matrix-verification.contract.test.ts`](../../../40_Develop/coordinator/tests/system/signed-recovery-matrix-verification.contract.test.ts)
 - [`40_Develop/coordinator/tests/system/signed-reviewer-boundary-verification.contract.test.ts`](../../../40_Develop/coordinator/tests/system/signed-reviewer-boundary-verification.contract.test.ts)
@@ -420,6 +430,17 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 - [`40_Develop/coordinator/tests/unit/runtime-trace-case.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/runtime-trace-case.contract.test.ts)
 - [`40_Develop/coordinator/tests/unit/secret-material-policy.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/secret-material-policy.contract.test.ts)
 - [`40_Develop/coordinator/tests/unit/signed-runner-safety-observation.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/signed-runner-safety-observation.contract.test.ts)
+- [`40_Develop/cros/src/durable-store.ts`](../../../40_Develop/cros/src/durable-store.ts)
+- [`40_Develop/cros/src/index.ts`](../../../40_Develop/cros/src/index.ts)
+- [`40_Develop/cros/src/runtime.ts`](../../../40_Develop/cros/src/runtime.ts)
+- [`40_Develop/cros/src/tool-registry.ts`](../../../40_Develop/cros/src/tool-registry.ts)
+- [`40_Develop/cros/symbol.json`](../../../40_Develop/cros/symbol.json)
+- [`40_Develop/cros/tests/fixtures/durable-boundary-worker.ts`](../../../40_Develop/cros/tests/fixtures/durable-boundary-worker.ts)
+- [`40_Develop/cros/tests/integration/surface-contract.contract.test.ts`](../../../40_Develop/cros/tests/integration/surface-contract.contract.test.ts)
+- [`40_Develop/cros/tests/integration/tool-registry.contract.test.ts`](../../../40_Develop/cros/tests/integration/tool-registry.contract.test.ts)
+- [`40_Develop/cros/tests/system/context-handoff.contract.test.ts`](../../../40_Develop/cros/tests/system/context-handoff.contract.test.ts)
+- [`40_Develop/cros/tests/system/result-return.contract.test.ts`](../../../40_Develop/cros/tests/system/result-return.contract.test.ts)
+- [`40_Develop/cros/tests/system/session-access.contract.test.ts`](../../../40_Develop/cros/tests/system/session-access.contract.test.ts)
 - [`40_Develop/crdd-domain-library/src/repository-observation/index.ts`](../../../40_Develop/crdd-domain-library/src/repository-observation/index.ts)
 - [`40_Develop/crdd-domain-library/symbol.json`](../../../40_Develop/crdd-domain-library/symbol.json)
 - [`40_Develop/crdd-domain-library/tests/integration/reality-repository.integration.test.ts`](../../../40_Develop/crdd-domain-library/tests/integration/reality-repository.integration.test.ts)
@@ -433,6 +454,11 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 - [`40_Develop/mcp/tests/system/stdio-transport.integration.test.ts`](../../../40_Develop/mcp/tests/system/stdio-transport.integration.test.ts)
 - [`40_Develop/mcp/tests/system/streamable-http-transport.integration.test.ts`](../../../40_Develop/mcp/tests/system/streamable-http-transport.integration.test.ts)
 - [`40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts`](../../../40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts)
+- [`40_Develop/official-asset-governance/src/index.ts`](../../../40_Develop/official-asset-governance/src/index.ts)
+- [`40_Develop/official-asset-governance/src/official-asset-governance.ts`](../../../40_Develop/official-asset-governance/src/official-asset-governance.ts)
+- [`40_Develop/official-asset-governance/src/official-asset-store.ts`](../../../40_Develop/official-asset-governance/src/official-asset-store.ts)
+- [`40_Develop/official-asset-governance/symbol.json`](../../../40_Develop/official-asset-governance/symbol.json)
+- [`40_Develop/official-asset-governance/tests/integration/asset-governance.contract.test.ts`](../../../40_Develop/official-asset-governance/tests/integration/asset-governance.contract.test.ts)
 - [`40_Develop/platform-access/src/docker_authenticode.rs`](../../../40_Develop/platform-access/src/docker_authenticode.rs)
 - [`40_Develop/platform-access/src/docker_repair.rs`](../../../40_Develop/platform-access/src/docker_repair.rs)
 - [`40_Develop/platform-access/src/main.rs`](../../../40_Develop/platform-access/src/main.rs)
@@ -442,6 +468,10 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 - [`40_Develop/platform-access/src/windows_owned_child.rs`](../../../40_Develop/platform-access/src/windows_owned_child.rs)
 - [`40_Develop/platform-access/symbol.json`](../../../40_Develop/platform-access/symbol.json)
 - [`40_Develop/platform-access/tests/cli.rs`](../../../40_Develop/platform-access/tests/cli.rs)
+- [`40_Develop/project-operation/src/candidate-store.ts`](../../../40_Develop/project-operation/src/candidate-store.ts)
+- [`40_Develop/project-operation/src/index.ts`](../../../40_Develop/project-operation/src/index.ts)
+- [`40_Develop/project-operation/symbol.json`](../../../40_Develop/project-operation/symbol.json)
+- [`40_Develop/project-operation/tests/integration/candidate-adoption.contract.test.ts`](../../../40_Develop/project-operation/tests/integration/candidate-adoption.contract.test.ts)
 - [`40_Develop/project-runtime/symbol.json`](../../../40_Develop/project-runtime/symbol.json)
 - [`40_Develop/project-runtime/tests/unit/execution-observation-port.contract.test.ts`](../../../40_Develop/project-runtime/tests/unit/execution-observation-port.contract.test.ts)
 - [`40_Develop/project-runtime/tests/unit/human-decision-application.contract.test.ts`](../../../40_Develop/project-runtime/tests/unit/human-decision-application.contract.test.ts)
@@ -469,13 +499,16 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 - [`40_Develop/verification-runner/tests/system/resource-intensive-gate.contract.test.ts`](../../../40_Develop/verification-runner/tests/system/resource-intensive-gate.contract.test.ts)
 - [`40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts`](../../../40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts)
 - [`40_Develop/version-control/symbol.json`](../../../40_Develop/version-control/symbol.json)
+- [`40_Develop/version-control/tests/fixtures/migration-consumer-declaration.json`](../../../40_Develop/version-control/tests/fixtures/migration-consumer-declaration.json)
 - [`40_Develop/version-control/tests/integration/consumer-closure.integration.test.ts`](../../../40_Develop/version-control/tests/integration/consumer-closure.integration.test.ts)
 - [`40_Develop/version-control/tests/integration/fixed-revision-and-ignore.integration.test.ts`](../../../40_Develop/version-control/tests/integration/fixed-revision-and-ignore.integration.test.ts)
 - [`40_Develop/version-control/tests/integration/fixed-snapshot.integration.test.ts`](../../../40_Develop/version-control/tests/integration/fixed-snapshot.integration.test.ts)
 - [`40_Develop/version-control/tests/integration/local-change-set.integration.test.ts`](../../../40_Develop/version-control/tests/integration/local-change-set.integration.test.ts)
 - [`40_Develop/version-control/tests/integration/repository-location.integration.test.ts`](../../../40_Develop/version-control/tests/integration/repository-location.integration.test.ts)
+- [`40_Develop/version-control/tests/system/migration-system-closure.contract.test.ts`](../../../40_Develop/version-control/tests/system/migration-system-closure.contract.test.ts)
 - [`99_Roadmap/Changes/CHG-000080/change.md`](change.md)
 - [`template/CLAUDE.md`](../../../template/CLAUDE.md)
+- [`template/07_Quality/05_Current_Implementation_Reality_Audit.md`](../../../template/07_Quality/05_Current_Implementation_Reality_Audit.md)
 
 </details>
 ## 7. 検証計画
@@ -501,7 +534,7 @@ ARCH-ID ──→ Quality Local Item ──→ Test Case／Helper／Fixture
 | 対象 | 正方向Relation | 現在状態 |
 |---|---|---|
 | Production Named Symbol | Summary、`@responsibility`、実在`ARCH-*`への`@trace` | Checkerの構造Gateと負例を実装済み。既存SourceをPackage単位で意味確認しながら移行中 |
-| Test File／Case／Helper／Fixture | 実在Quality Local Itemへの`@trace` | Test Catalog 204件を全12 Manifest Ownerへ接続し、2,151 Test CaseとNamed Helper／Fixtureへ必須Headerを適用した。FileはCase／Helper Relationの和集合、Caseは対応する1件、Helperは支援する1件以上を保持し、Local Item実在、Owner、試験段階および`verifies`をCheckerで照合する |
+| Test File／Case／Helper／Fixture | 実在Quality Local Itemへの`@trace` | Test Catalog 222件をManifest Ownerへ接続し、2,151 Test CaseとNamed Helper／Fixtureへ必須Headerを適用した。FileはCase／Helper Relationの和集合、Caseは対応する1件、Helperは支援する1件以上を保持し、Local Item実在、Owner、試験段階および`verifies`をCheckerで照合する |
 | Architecture Details | 7つのImplementation Structure観点 | 18領域とTemplateへ反映済み |
 | Quality Local Item | Architecture Meaning、試験段階、観測境界 | 154件へ細分化し、Required／Defined、試験段階および外部境界段階の差分0を確認済み |
 
@@ -517,6 +550,6 @@ Production母集団へGateを適用した初回観測では、`artifact-signing`
 - [x] Canonical Model ItemとImplementation StructureのTemplate差分を確定し、18領域へ適用した。
 - [x] UAT／IT導出Pilotを完了し、上流意味とArchitectureから決定論的に導出できることを確認した。
 - [x] Required ObligationとLocal Itemの集合差Gateを実装し、試験段階と外部境界段階の不足を検出可能にした。
-- [x] Test Catalog 207件と検出したTest Case全件を責務別Quality Local Itemへ接続し、File Relation和集合、Local Item実在および試験段階一致を機械確認した。
+- [x] Test Catalog 222件と検出したTest Case全件を責務別Quality Local Itemへ接続し、File Relation和集合、Local Item実在および試験段階一致を機械確認した。
 - [x] 全Unit回帰87件、安全なTypeScript結合試験86件およびRust結合試験1件を完了した。
-- [ ] OPEN: Production Headerの独立意味確認、Reality Audit、独立レビューおよび署名E2Eを完了する。理由: Phase 2／7〜9が未完了である。
+- [ ] OPEN: Production Headerの独立意味確認、Reality Audit、独立レビューおよび署名E2Eを完了する。理由: Phase 2／4／7〜9が未完了である。

@@ -10,13 +10,16 @@
  * @boundary RFD-ST-003／RFD-ST-004=System/E2E。
  */
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import crypto from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
-import {
-  closeCrosSession,
-  createCrosSession,
-  resolveRepository,
-  type CrosExposure,
-  type CrosRepository,
+import type {
+  CrosExposure,
+  CrosRepository,
+  CrosSession,
 } from "../../src/index.ts";
 
 const repositories: readonly CrosRepository[] = [
@@ -51,6 +54,15 @@ const exposures: readonly CrosExposure[] = [
     active: true,
   },
 ];
+const CREDENTIAL_TOKEN = "test-token-not-a-production-secret";
+const credentialRecord = (credential: Readonly<Record<string, unknown>>) => ({
+  credential,
+  expiresAt: "2099-01-01T00:00:00.000Z",
+  tokenSha256: crypto
+    .createHash("sha256")
+    .update(CREDENTIAL_TOKEN, "utf8")
+    .digest("hex"),
+});
 
 /**
  * 認証後に許可Repositoryだけを解決し切断後にGrantを失効することを検証する。
@@ -64,22 +76,80 @@ const exposures: readonly CrosExposure[] = [
  * @boundary RFD-ST-003=System/E2E: Credential→Session Grant→Workspace→Repository。
  */
 test("許可Repositoryだけを解決し切断後にSession Grantを失効する", () => {
-  const session = createCrosSession("session-1", {
-    credentialId: "cred-dev",
-    workspaceIds: ["development"],
-    systemAdmin: false,
-    revoked: false,
-  });
-  assert.ok(session);
-  assert.equal(
-    resolveRepository(session, "REPO-DEV", exposures, repositories).status,
-    "available",
-  );
-  const closed = closeCrosSession(session);
-  assert.equal(
-    resolveRepository(closed, "REPO-DEV", exposures, repositories).status,
-    "restricted",
-  );
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-cros-session-"));
+  const worker = path.resolve("tests/fixtures/durable-boundary-worker.ts");
+  const credentialFile = path.join(root, "credential.json");
+  const sessionFile = path.join(root, "session.json");
+  const exposureFile = path.join(root, "exposures.json");
+  const repositoryFile = path.join(root, "repositories.json");
+  try {
+    fs.writeFileSync(
+      credentialFile,
+      JSON.stringify(
+        credentialRecord({
+          credentialId: "cred-dev",
+          workspaceIds: ["development"],
+          systemAdmin: false,
+          revoked: false,
+        }),
+      ),
+    );
+    fs.writeFileSync(exposureFile, JSON.stringify(exposures));
+    fs.writeFileSync(repositoryFile, JSON.stringify(repositories));
+    const session = JSON.parse(
+      execFileSync(
+        process.execPath,
+        [
+          worker,
+          "create-session",
+          credentialFile,
+          sessionFile,
+          "session-1",
+          CREDENTIAL_TOKEN,
+        ],
+        { encoding: "utf8" },
+      ),
+    ) as CrosSession;
+    const available = JSON.parse(
+      execFileSync(
+        process.execPath,
+        [
+          worker,
+          "resolve-session",
+          sessionFile,
+          exposureFile,
+          repositoryFile,
+          "REPO-DEV",
+        ],
+        { encoding: "utf8" },
+      ),
+    ) as { status: string };
+    const closed = JSON.parse(
+      execFileSync(process.execPath, [worker, "close-session", sessionFile], {
+        encoding: "utf8",
+      }),
+    ) as CrosSession;
+    const afterClose = JSON.parse(
+      execFileSync(
+        process.execPath,
+        [
+          worker,
+          "resolve-session",
+          sessionFile,
+          exposureFile,
+          repositoryFile,
+          "REPO-DEV",
+        ],
+        { encoding: "utf8" },
+      ),
+    ) as { status: string };
+    assert.equal(session.active, true);
+    assert.equal(available.status, "available");
+    assert.equal(closed.active, false);
+    assert.equal(afterClose.status, "restricted");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 /**
@@ -94,33 +164,134 @@ test("許可Repositoryだけを解決し切断後にSession Grantを失効する
  * @boundary RFD-ST-004=System/E2E: Session→Workspace→Exposure→Repository Projection。
  */
 test("Grant外Repositoryを非開示で拒否し管理能力を閲覧権限へ昇格しない", () => {
-  const developer = createCrosSession("session-dev", {
-    credentialId: "cred-dev",
-    workspaceIds: ["development"],
-    systemAdmin: false,
-    revoked: false,
-  });
-  const administrator = createCrosSession("session-admin", {
-    credentialId: "cred-admin",
-    workspaceIds: [],
-    systemAdmin: true,
-    revoked: false,
-  });
-  assert.ok(developer && administrator);
-  const devResult = resolveRepository(
-    developer,
-    "REPO-MGMT",
-    exposures,
-    repositories,
-  );
-  const adminResult = resolveRepository(
-    administrator,
-    "REPO-MGMT",
-    exposures,
-    repositories,
-  );
-  assert.deepEqual(devResult, { status: "restricted" });
-  assert.deepEqual(adminResult, { status: "restricted" });
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-cros-access-"));
+  const worker = path.resolve("tests/fixtures/durable-boundary-worker.ts");
+  const exposureFile = path.join(root, "exposures.json");
+  const repositoryFile = path.join(root, "must-not-be-read.json");
+  try {
+    fs.writeFileSync(exposureFile, JSON.stringify(exposures));
+    const results = [
+      {
+        id: "dev",
+        credential: {
+          credentialId: "cred-dev",
+          workspaceIds: ["development"],
+          systemAdmin: false,
+          revoked: false,
+        },
+      },
+      {
+        id: "admin",
+        credential: {
+          credentialId: "cred-admin",
+          workspaceIds: [],
+          systemAdmin: true,
+          revoked: false,
+        },
+      },
+    ].map(({ id, credential }) => {
+      const credentialFile = path.join(root, `${id}-credential.json`);
+      const sessionFile = path.join(root, `${id}-session.json`);
+      fs.writeFileSync(
+        credentialFile,
+        JSON.stringify(credentialRecord(credential)),
+      );
+      execFileSync(process.execPath, [
+        worker,
+        "create-session",
+        credentialFile,
+        sessionFile,
+        `session-${id}`,
+        CREDENTIAL_TOKEN,
+      ]);
+      return JSON.parse(
+        execFileSync(
+          process.execPath,
+          [
+            worker,
+            "resolve-session",
+            sessionFile,
+            exposureFile,
+            repositoryFile,
+            "REPO-MGMT",
+          ],
+          { encoding: "utf8" },
+        ),
+      );
+    });
+    assert.deepEqual(results, [
+      { status: "restricted" },
+      { status: "restricted" },
+    ]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+/**
+ * 無効TokenをSession File作成前に拒否することを検証する。
+ * @responsibility Credential Recordの存在を認証成功として扱わない。
+ * @trace RFD-ST-003
+ * @precondition 有効Credential Recordと不一致Tokenを用意する。
+ * @stimulus 別ProcessのSession開始入口へ不一致Tokenを渡す。
+ * @observation Worker終了状態とSession File不存在を観測する。
+ * @oracle 認証は拒否され、Session Effectは0となる。
+ * @cleanup 一時Rootを削除する。
+ * @boundary RFD-ST-003=System/E2E: Remote入力→Credential Verifier→Session Store。
+ */
+test("無効・期限切れ・失効・破損CredentialではSessionを作成しない", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-cros-auth-"));
+  const worker = path.resolve("tests/fixtures/durable-boundary-worker.ts");
+  const credentialFile = path.join(root, "credential.json");
+  try {
+    const valid = credentialRecord({
+      credentialId: "cred-dev",
+      workspaceIds: ["development"],
+      systemAdmin: false,
+      revoked: false,
+    });
+    const cases = [
+      { name: "invalid-token", record: valid, token: "invalid-token" },
+      {
+        name: "expired",
+        record: { ...valid, expiresAt: "2020-01-01T00:00:00.000Z" },
+        token: CREDENTIAL_TOKEN,
+      },
+      {
+        name: "revoked",
+        record: {
+          ...valid,
+          credential: { ...valid.credential, revoked: true },
+        },
+        token: CREDENTIAL_TOKEN,
+      },
+      {
+        name: "malformed",
+        record: { ...valid, tokenSha256: "invalid" },
+        token: CREDENTIAL_TOKEN,
+      },
+    ];
+    for (const entry of cases) {
+      const sessionFile = path.join(root, `${entry.name}-session.json`);
+      fs.writeFileSync(credentialFile, JSON.stringify(entry.record));
+      const result = execFileSync(
+        process.execPath,
+        [
+          worker,
+          "create-session",
+          credentialFile,
+          sessionFile,
+          `session-${entry.name}`,
+          entry.token,
+        ],
+        { encoding: "utf8" },
+      );
+      assert.equal(result, "null");
+      assert.equal(fs.existsSync(sessionFile), false);
+    }
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 /**
@@ -135,36 +306,53 @@ test("Grant外Repositoryを非開示で拒否し管理能力を閲覧権限へ�
  * @boundary RFD-ST-004=System/E2E: Session Snapshot→Exposure Revision→Repository Revision。
  */
 test("古いExposure Revisionを非開示で拒否する", () => {
-  const session = createCrosSession(
-    "session-stale",
-    {
-      credentialId: "cred-dev",
-      workspaceIds: ["development"],
-      systemAdmin: false,
-      revoked: false,
-    },
-    "registry-2",
-  );
-  assert.ok(session);
-  assert.deepEqual(
-    resolveRepository(session, "REPO-DEV", exposures, repositories),
-    { status: "restricted" },
-  );
-  assert.deepEqual(
-    resolveRepository(
-      { ...session, registryRevision: "registry-1" },
-      "REPO-DEV",
-      [
-        {
-          workspaceId: "development",
-          repositoryId: "REPO-DEV",
-          repositoryRevision: "rev-old",
-          registryRevision: "registry-1",
-          active: true,
-        },
-      ],
-      repositories,
-    ),
-    { status: "restricted" },
-  );
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-cros-stale-"));
+  const worker = path.resolve("tests/fixtures/durable-boundary-worker.ts");
+  const credentialFile = path.join(root, "credential.json");
+  const sessionFile = path.join(root, "session.json");
+  const exposureFile = path.join(root, "exposures.json");
+  const repositoryFile = path.join(root, "repositories.json");
+  try {
+    fs.writeFileSync(
+      credentialFile,
+      JSON.stringify(
+        credentialRecord({
+          credentialId: "cred-dev",
+          workspaceIds: ["development"],
+          systemAdmin: false,
+          revoked: false,
+        }),
+      ),
+    );
+    fs.writeFileSync(
+      exposureFile,
+      JSON.stringify([{ ...exposures[0], repositoryRevision: "rev-old" }]),
+    );
+    fs.writeFileSync(repositoryFile, JSON.stringify(repositories));
+    execFileSync(process.execPath, [
+      worker,
+      "create-session",
+      credentialFile,
+      sessionFile,
+      "session-stale",
+      CREDENTIAL_TOKEN,
+    ]);
+    const stale = JSON.parse(
+      execFileSync(
+        process.execPath,
+        [
+          worker,
+          "resolve-session",
+          sessionFile,
+          exposureFile,
+          repositoryFile,
+          "REPO-DEV",
+        ],
+        { encoding: "utf8" },
+      ),
+    );
+    assert.deepEqual(stale, { status: "restricted" });
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });

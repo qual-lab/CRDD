@@ -46,6 +46,7 @@
 │     ├ index.ts                   Package全体の公開入口
 │     ├ outcome.ts                 Capability横断の中立な処理結果契約
 │     ├ artifact/                  Artifact解析・Schema・Relation Graph
+│     ├ filesystem-store-root/     用途限定Store Root Capabilityと排他
 │     ├ reality-traceability/      Symbol Manifest・Annotation・Graph
 │     └ repository-observation/    検証済みRoot内の安全なRepository観測
 │
@@ -136,6 +137,7 @@ Repository／Version Control Infrastructure
 | Package Root `crdd-domain-library/src/index.ts` | Capability別namespaceと共通Outcome型 | なし | 全実装Symbolの無差別な再公開 |
 | Common Outcome `crdd-domain-library/src/outcome.ts` | `DomainStatus`、`DomainIssue`、`DomainOutcome<T>`、`DomainLocation` | なし | Capability固有Issue種別、Checker code、severity、rule、exit code |
 | Artifact `crdd-domain-library/src/artifact/index.ts` | Artifact Model、Schema検証、Relation Graphの公開型と決定論的関数 | なし | Checker Finding、利用者向けmessage |
+| Filesystem Store Root `crdd-domain-library/src/filesystem-store-root/index.ts` | 検証済みRoot Capability、Root内Path解決、Kernel排他 | Root検証では読取り、排他操作ではLock File作成・削除 | 任意絶対PathのAuthority化、Link／Junction経由のRoot拡張、個別Domain判断 |
 | Reality Traceability `crdd-domain-library/src/reality-traceability/index.ts` | Symbol Manifest、Annotation解釈、Graphの公開型と決定論的な生成・検証関数 | なし。Path APIはRepository相対表記の構文検査だけに用いる | Repository走査、Checker Finding変換、Reality Audit実行、Test合格、実装完成 |
 | Repository Observation `crdd-domain-library/src/repository-observation/index.ts` | Repository観測Port、Root Capability、Reality Symbol Repository観測 | Filesystem読取り | CRDD意味、公開Effect、Checker code、採用判断 |
 | Semantic Coverage `semantic-coverage/src/index.ts` | Repository入力の編成、診断、Bundle生成・公開 | 明示したBundle公開 | Architecture・Quality・実装の意味採否、部分公開の成功扱い |

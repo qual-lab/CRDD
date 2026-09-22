@@ -16,6 +16,26 @@ import { verifyRepositoryRoot } from "../../../version-control/src/repository-id
 import type { CheckerRule } from "./rule-registry.ts";
 
 /**
+ * Test SourceがskipされたPlaceholderを含むか判定する。
+ *
+ * @responsibility Local Item Relationを実行されないTestへ接続する偽陽性を検出する。
+ * @trace ARCH-000001
+ * @input source: Test Source本文。
+ * @returns test.skip、it.skipまたはdescribe.skipがあればtrue。
+ * @precondition sourceは対象Test Fileから読み取った文字列である。
+ * @postcondition Sourceを変更せず決定論的な真偽値を返す。
+ * @effect N/A: 文字列を検査するだけである。
+ * @failure N/A: 任意文字列をfalseまたはtrueへ分類する。
+ * @invariant skipされないTest名やCommentだけを実行Evidenceと誤認しない。
+ * @boundary N/A: Process内の文字列検査で完結する。
+ * @security N/A: Authorityや秘密値を扱わない。
+ * @concurrency N/A: 共有状態を持たない同期処理である。
+ */
+export function hasSkippedTestDeclaration(source: string): boolean {
+  return /\b(?:test|it|describe)\.skip\s*\(/u.test(source);
+}
+
+/**
  * reality Symbol Graph Ruleを決定する。
  *
  * @responsibility reality Symbol Graph Ruleの導出に必要な入力、判定規則、返却結果の境界を所有する。
@@ -78,11 +98,13 @@ export function realitySymbolGraphRule(repositoryRoot: string): CheckerRule {
           const testPath = path.join(loaded.subsystemRoot, symbol.path);
           if (!fs.existsSync(testPath)) continue;
           const source = fs.readFileSync(testPath, "utf8");
-          if (/\b(?:test|it|describe)\.skip\s*\(/u.test(source))
+          if (hasSkippedTestDeclaration(source))
             add({
               severity: "error",
               code: "reality-symbol-skipped-test-evidence-forbidden",
-              path: path.relative(repositoryRoot, testPath).replaceAll("\\", "/"),
+              path: path
+                .relative(repositoryRoot, testPath)
+                .replaceAll("\\", "/"),
               rule: "current-profile.reality-symbol-graph",
               message:
                 "A skipped test placeholder cannot own Local Item relations or count as observed verification evidence.",

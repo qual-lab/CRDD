@@ -12,16 +12,44 @@ import fs from "node:fs";
 import path from "node:path";
 
 import {
+  resolveFilesystemStorePath,
+  withFilesystemStoreLock,
+  type FilesystemStoreRoot,
+} from "../../crdd-domain-library/src/filesystem-store-root/index.ts";
+
+import {
   applyOfficialAssetDecision,
   type OfficialAssetDecisionInput,
   type OfficialAssetDecisionResult,
   type OfficialAssetRecord,
 } from "./official-asset-governance.ts";
 
+/**
+ * 公式素材判断のAuthority確認Portを定義する。
+ *
+ * @responsibility 判断入力を、外部で管理された判断Authorityへ照合する。
+ * @trace ARCH-000017
+ * @shape 判断入力を受け取る検証関数だけを持つ。
+ * @invariant trueは当該判断入力に対するAuthority確認だけを表す。
+ * @boundary Official Asset Applicationと判断Authorityの境界。
+ * @security 判断内容や呼出し元IdentityからAuthorityを推測しない。
+ * @compatibility 実Authority方式を公開型へ固定しない。
+ */
 export type OfficialAssetAuthorityPort = Readonly<{
   verify(input: OfficialAssetDecisionInput): boolean;
 }>;
 
+/**
+ * 公式素材Recordの耐久Store契約を定義する。
+ *
+ * @responsibility 現行Recordの読取りとRevision付き比較交換を提供する。
+ * @trace ARCH-000017
+ * @shape readとcompareAndSetだけを持つ。
+ * @invariant 比較交換は期待Revision一致時だけ成功する。
+ * @boundary Official Asset Applicationと耐久Storeの境界。
+ * @security Authority判定をStore内部で生成しない。
+ * @compatibility Filesystem等の保存方式を公開契約へ固定しない。
+ */
 export type OfficialAssetStore = Readonly<{
   read(): OfficialAssetRecord;
   compareAndSet(expectedRevision: number, next: OfficialAssetRecord): boolean;
@@ -44,9 +72,12 @@ export type OfficialAssetStore = Readonly<{
  * @concurrency 更新直前の再読取りにより古いRevisionを拒否する。
  */
 export function createFileOfficialAssetStore(
-  file: string,
+  storeRoot: FilesystemStoreRoot,
+  relativePath: string,
   initial: OfficialAssetRecord,
 ): OfficialAssetStore {
+  const file = resolveFilesystemStorePath(storeRoot, relativePath);
+  const lockRelativePath = `${relativePath}.lock`;
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   if (!fs.existsSync(file))
     fs.writeFileSync(file, `${JSON.stringify(initial)}\n`, {
@@ -62,16 +93,39 @@ export function createFileOfficialAssetStore(
   };
   return Object.freeze({
     read,
+    /**
+     * 期待Revisionに一致する公式素材Recordを置換する。
+     *
+     * @responsibility 跨Process排他区間でread-check-writeを一回実行する。
+     * @trace ARCH-000017
+     * @input 期待Revisionと次の公式素材Record。
+     * @returns 更新成功時true、競合またはLock未取得時false。
+     * @precondition 次RecordはDomain判断済みである。
+     * @postcondition true時は再読取りで次Recordを観測できる。
+     * @effect true時だけStore Fileを一回置換する。
+     * @failure 競合またはLock未取得をfalseで拒否する。
+     * @invariant read-check-write全体を同じKernel Lock内で行う。
+     * @boundary Application RecordとFilesystem Storeの境界。
+     * @security Root Capability外へ書き込まない。
+     * @concurrency 跨Process Lockにより同時更新を直列化する。
+     */
     compareAndSet(expectedRevision, next) {
-      if (read().recordRevision !== expectedRevision) return false;
-      const temporary = `${file}.${process.pid}.tmp`;
-      fs.writeFileSync(temporary, `${JSON.stringify(next)}\n`, {
-        encoding: "utf8",
-        flag: "wx",
-        mode: 0o600,
-      });
-      fs.renameSync(temporary, file);
-      return true;
+      const locked = withFilesystemStoreLock(
+        storeRoot,
+        lockRelativePath,
+        () => {
+          if (read().recordRevision !== expectedRevision) return false;
+          const temporary = `${file}.${process.pid}.tmp`;
+          fs.writeFileSync(temporary, `${JSON.stringify(next)}\n`, {
+            encoding: "utf8",
+            flag: "wx",
+            mode: 0o600,
+          });
+          fs.renameSync(temporary, file);
+          return true;
+        },
+      );
+      return locked.acquired ? locked.value : false;
     },
   });
 }

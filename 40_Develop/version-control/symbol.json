@@ -26,7 +26,7 @@
     },
     {
       "symbolId": "version-control.migration-closure",
-      "kind": "implementation",
+      "kind": "file",
       "path": "src/migration-closure.ts",
       "archIds": ["ARCH-000002"],
       "implements": ["version-control.migration-system-closure"]

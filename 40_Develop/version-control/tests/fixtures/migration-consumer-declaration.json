@@ -1,0 +1,12 @@
+{
+  "contract": "crdd/migration-consumer-declaration",
+  "contractRevision": 1,
+  "consumerIds": [
+    "producer",
+    "runtime",
+    "public-cli",
+    "signed-runtime",
+    "release",
+    "recovery"
+  ]
+}

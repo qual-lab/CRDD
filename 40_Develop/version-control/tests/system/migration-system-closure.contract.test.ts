@@ -9,6 +9,8 @@
  * @boundary RCM-ST-012=System/E2E: 変更元→全Consumer→公開・署名・Release・Recovery。
  */
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
 import {
   inspectMigrationSystemClosure,
@@ -55,7 +57,13 @@ const OBSERVATIONS: readonly MigrationConsumerObservation[] = Object.freeze([
     snapshotId: SNAPSHOT_ID,
   },
 ]);
-const declaredConsumerIds = OBSERVATIONS.map((entry) => entry.consumerId);
+const declaration = JSON.parse(
+  fs.readFileSync(
+    path.resolve("tests/fixtures/migration-consumer-declaration.json"),
+    "utf8",
+  ),
+) as Readonly<{ consumerIds: readonly string[] }>;
+const declaredConsumerIds = declaration.consumerIds;
 
 /**
  * 同じ固定Snapshotで全宣言Consumerが新契約へ閉じることを検証する。
@@ -101,13 +109,30 @@ test("全Consumerを同じ固定Snapshotと新契約でSystem Closureする", ()
     declaredConsumerIds,
     OBSERVATIONS.filter((entry) => entry.consumerId !== "public-cli"),
   );
+  const undeclared = inspectMigrationSystemClosure(
+    SNAPSHOT_ID,
+    CONTRACT_ID,
+    declaredConsumerIds,
+    [
+      ...OBSERVATIONS,
+      {
+        consumerId: "unregistered-consumer",
+        role: "consumer",
+        contractId: CONTRACT_ID,
+        snapshotId: SNAPSHOT_ID,
+      },
+    ],
+  );
   assert.equal(complete.status, "complete");
   assert.deepEqual(complete.missingConsumerIds, []);
   assert.deepEqual(oldContract.oldContractConsumerIds, ["recovery"]);
   assert.deepEqual(mixedSnapshot.mixedSnapshotConsumerIds, ["signed-runtime"]);
   assert.deepEqual(missing.missingConsumerIds, ["public-cli"]);
+  assert.deepEqual(undeclared.undeclaredConsumerIds, ["unregistered-consumer"]);
   assert.deepEqual(
-    [oldContract, mixedSnapshot, missing].map((entry) => entry.status),
-    ["blocked", "blocked", "blocked"],
+    [oldContract, mixedSnapshot, missing, undeclared].map(
+      (entry) => entry.status,
+    ),
+    ["blocked", "blocked", "blocked", "blocked"],
   );
 });

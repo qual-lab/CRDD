@@ -1506,7 +1506,7 @@ export function runCurrentProfileChecker(
       "未Commit状態とVersion Control Adapterの交換可能性を検証対象へ含めた",
       "照合対象のRevision、実行条件および観測限界を固定した",
       "不足Test、未実行項目およびEvidence Gapを追跡した",
-      "PT／LTは人間の明示指定がある場合だけ実行した",
+      "PT／LTの適用と実行Authorityを評価し、明示指定がない場合は実行していない",
     ];
 
     const qualityVerificationResultChecklistItemTexts = [

@@ -11,21 +11,21 @@
     },
     {
       "symbolId": "project-operation.domain.project-projection",
-      "kind": "implementation",
+      "kind": "file",
       "path": "src/project-operation.ts",
       "archIds": ["ARCH-000005", "ARCH-000016"],
       "implements": ["project-operation.project-projection"]
     },
     {
       "symbolId": "project-operation.domain.candidate-lifecycle",
-      "kind": "implementation",
+      "kind": "file",
       "path": "src/project-operation.ts",
       "archIds": ["ARCH-000006", "ARCH-000016"],
       "implements": ["project-operation.context-lifecycle"]
     },
     {
       "symbolId": "project-operation.store.candidate-lifecycle",
-      "kind": "implementation",
+      "kind": "file",
       "path": "src/candidate-store.ts",
       "archIds": ["ARCH-000006", "ARCH-000016"],
       "implements": ["project-operation.context-lifecycle"]

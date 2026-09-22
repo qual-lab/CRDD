@@ -11,7 +11,7 @@
     },
     {
       "symbolId": "official-asset-governance.domain.asset-decision",
-      "kind": "implementation",
+      "kind": "file",
       "path": "src/official-asset-governance.ts",
       "archIds": ["ARCH-000017"],
       "implements": [
@@ -22,7 +22,7 @@
     },
     {
       "symbolId": "official-asset-governance.store.asset-decision",
-      "kind": "implementation",
+      "kind": "file",
       "path": "src/official-asset-store.ts",
       "archIds": ["ARCH-000017"],
       "implements": [

@@ -14,10 +14,14 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
-  bindOperationSurface,
   createFileCanonicalOperationOwner,
   createSurfaceApplicationContract,
+  executeCliSurfaceOperation,
+  executeMcpSurfaceOperation,
+  executeTsSurfaceOperation,
+  executeWorkbenchSurfaceOperation,
 } from "../../src/index.ts";
+import { createFilesystemStoreRoot } from "../../../crdd-domain-library/src/filesystem-store-root/index.ts";
 
 /**
  * TS API、CLI、MCP、Workbenchが同じApplication Contractへ接続することを検証する。
@@ -31,33 +35,66 @@ import {
  * @boundary EST-IT-010=Related 2 Blocks: Surface Adapter→Application Contract→Canonical Owner。
  */
 test("四入口が同じApplication ContractとCanonical Ownerを使用する", (t) => {
-  const surfaces = ["ts-api", "cli", "mcp", "workbench"] as const;
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-cros-surface-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const storeRoot = createFilesystemStoreRoot(root);
+  assert.ok(storeRoot);
   const owner = createFileCanonicalOperationOwner(
-    path.join(root, "canonical-owner.json"),
+    storeRoot,
+    "canonical-owner.json",
     "r1",
   );
   const contract = createSurfaceApplicationContract(owner, "write");
-  const adapters = surfaces.map((surface) =>
-    bindOperationSurface(surface, contract),
-  );
+  const adapters = [
+    {
+      surface: "ts-api",
+      execute: (request: Parameters<typeof executeTsSurfaceOperation>[1]) =>
+        executeTsSurfaceOperation(contract, request),
+    },
+    {
+      surface: "cli",
+      execute: (request: Parameters<typeof executeTsSurfaceOperation>[1]) =>
+        executeCliSurfaceOperation(contract, [
+          request.operationId,
+          request.revision,
+          request.authority,
+          request.action,
+          request.value ?? "null",
+        ]),
+    },
+    {
+      surface: "mcp",
+      execute: (request: Parameters<typeof executeTsSurfaceOperation>[1]) =>
+        executeMcpSurfaceOperation(contract, request),
+    },
+    {
+      surface: "workbench",
+      execute: (request: Parameters<typeof executeTsSurfaceOperation>[1]) =>
+        executeWorkbenchSurfaceOperation(contract, {
+          id: request.operationId,
+          expectedRevision: request.revision,
+          grantedAuthority: request.authority,
+          command: request.action,
+          proposedValue: request.value,
+        }),
+    },
+  ] as const;
   for (const adapter of adapters) {
-    const partial = adapter.performSurfaceOperation({
+    const partial = adapter.execute({
       operationId: `${adapter.surface}-inspect`,
       revision: "r1",
       authority: "read",
       action: "inspect",
       value: null,
     });
-    const rejected = adapter.performSurfaceOperation({
+    const rejected = adapter.execute({
       operationId: `${adapter.surface}-reject`,
       revision: "r1",
       authority: "read",
       action: "apply",
       value: "candidate",
     });
-    const cancelled = adapter.performSurfaceOperation({
+    const cancelled = adapter.execute({
       operationId: `${adapter.surface}-cancel`,
       revision: "r1",
       authority: "write",
@@ -69,7 +106,7 @@ test("四入口が同じApplication ContractとCanonical Ownerを使用する", 
     assert.equal(cancelled.residualResourceCount, 0);
   }
   const applications = adapters.map((adapter) =>
-    adapter.performSurfaceOperation({
+    adapter.execute({
       operationId: `${adapter.surface}-apply`,
       revision: "r1",
       authority: "write",

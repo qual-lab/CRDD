@@ -26,12 +26,41 @@ import {
   validateRealitySymbolManifest,
 } from "../../src/adapters/reality-traceability.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/repository-identity/index.ts";
+import { hasSkippedTestDeclaration } from "../../src/rules/reality-symbol-graph.ts";
 
 const checkerRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
 );
 const repositoryRoot = path.resolve(checkerRoot, "../..");
+
+/**
+ * skipされたTest Placeholderを観測済みEvidenceとして扱わない判定を検証する。
+ *
+ * @responsibility 実行されないTest宣言と通常Test宣言を決定論的に区別する。
+ * @trace PPR-UT-017
+ * @precondition test／it／describeのskip例と通常例を固定する。
+ * @stimulus skip検出関数へ各Sourceを渡す。
+ * @observation 返された真偽値を観測する。
+ * @oracle skip例だけtrueとなる。
+ * @cleanup N/A: 外部資源を作成しない。
+ * @boundary PPR-UT-017=N/A: 文字列判定だけで完結する。
+ */
+test("skipされたTest Placeholderを観測済みEvidenceとして扱わない", () => {
+  assert.equal(
+    hasSkippedTestDeclaration('test.skip("pending", () => {});'),
+    true,
+  );
+  assert.equal(
+    hasSkippedTestDeclaration('it.skip ("pending", () => {});'),
+    true,
+  );
+  assert.equal(
+    hasSkippedTestDeclaration('describe.skip("pending", () => {});'),
+    true,
+  );
+  assert.equal(hasSkippedTestDeclaration('test("active", () => {});'), false);
+});
 
 /**
  * Reality Domain IssueはChecker境界で明示変換し未知種別を拒否するを検証する。

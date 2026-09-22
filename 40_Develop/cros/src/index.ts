@@ -45,8 +45,23 @@ export {
   type SurfaceOperationResult,
 } from "./application-contract.ts";
 export {
+  closeDurableCrosSession,
+  consumeDurableContextPackage,
+  createDurableFederatedContextPackage,
+  createDurableCrosSession,
   createFileCanonicalOperationOwner,
+  resolveDurableRepository,
   resumeDurableHandoff,
   settleDurableDelegatedResult,
+  writeDurableContextPackage,
   writeDurableHandoff,
+  type DurableContextSourceRequest,
+  type DurableCrosCredentialRecord,
 } from "./durable-store.ts";
+export {
+  executeCliSurfaceOperation,
+  executeMcpSurfaceOperation,
+  executeTsSurfaceOperation,
+  executeWorkbenchSurfaceOperation,
+  type WorkbenchOperationCommand,
+} from "./surface-adapters.ts";
