@@ -24,6 +24,7 @@ const lifecycleDependencies = Object.freeze({
   acquireProviderHomeLock: () =>
     Object.freeze({ assertLive: () => true, release: () => true }),
   beginRecovery: () => "created" as const,
+  setRecoveryCommandState: () => true,
   completeRecovery: () => true,
 });
 
@@ -434,7 +435,7 @@ test("再認証は回復後の再入場失敗をcleanup完了へ畳まない", a
       ...lifecycleDependencies,
       beginRecovery: () => {
         beginCount += 1;
-        return beginCount === 1 ? "existing" : "unknown";
+        return beginCount === 1 ? "existing_idle" : "unknown";
       },
       randomHex: () => token,
       run: async (command) => {
@@ -586,7 +587,7 @@ test("再認証は耐久Intentから旧資源を回収してfresh Processで再�
       beginRecovery: () => {
         beginCount += 1;
         journalEvents.push(`begin-${beginCount}`);
-        return beginCount === 1 ? "existing" : "created";
+        return beginCount === 1 ? "existing_idle" : "created";
       },
       completeRecovery: () => {
         journalEvents.push("complete");

@@ -22,6 +22,7 @@ import {
   beginClaudeSubscriptionAuthenticationRecovery,
   createClaudeSubscriptionAuthenticationPlan,
   createClaudeSubscriptionAuthenticationRecoveryRecord,
+  setClaudeSubscriptionAuthenticationRecoveryCommandState,
   settleClaudeSubscriptionAuthenticationRecovery,
 } from "../../src/security/claude-subscription-authentication.ts";
 
@@ -75,7 +76,7 @@ test("Claude再認証はProcess喪失後に耐久Intentから再入場する", a
   try {
     const child = spawnSync(
       process.execPath,
-      [ownerFixture, hash, providerHome, suffix, token],
+      [ownerFixture, hash, providerHome, suffix, token, "idle"],
       {
         cwd: path.dirname(ownerFixture),
         env: {},
@@ -92,6 +93,8 @@ test("Claude再認証はProcess喪失後に耐久Intentから再入場する", a
       randomHex: () => token,
       acquireProviderHomeLock: acquireRuntimeOwnedLogicalProviderHomeKernelLock,
       beginRecovery: beginClaudeSubscriptionAuthenticationRecovery,
+      setRecoveryCommandState:
+        setClaudeSubscriptionAuthenticationRecoveryCommandState,
       completeRecovery: settleClaudeSubscriptionAuthenticationRecovery,
       run: async (command) => {
         purposes.push(command.purpose);
@@ -136,6 +139,92 @@ test("Claude再認証はProcess喪失後に耐久Intentから再入場する", a
       state?: unknown;
     };
     assert.equal(stored.state, "settled");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+/**
+ * 旧Commandの終了状態が不明な世代へfresh Ownerが再入場しないことを検証する。
+ *
+ * @responsibility 別Processが残したin-flight Command Barrierを新しいDocker Effectより前に強制する。
+ * @trace ERB-IT-017
+ * @precondition 子Processが同じProvider Homeへactiveかつin-flightの耐久記録を残して終了する。
+ * @stimulus fresh Processが同じProvider Homeの再認証を開始する。
+ * @observation Docker Adapter呼出し、公開Recovery ID、cleanupおよびEffect不明を観測する。
+ * @oracle fresh ProcessはDocker Effect 0で停止し、同じRecovery IDと手動回復義務を保持する。
+ * @cleanup 試験専用Rootをfinallyで削除する。
+ * @boundary ERB-IT-017=Integration: 別Process・耐久Command世代Barrier
+ */
+test("Claude再認証は旧Command世代がin-flightならfresh Effectを発行しない", async () => {
+  const inFlightHash = randomBytes(32).toString("hex");
+  const inFlightSuffix = inFlightHash.slice(0, 16);
+  const root = path.resolve(
+    "..",
+    "..",
+    ".crdd",
+    "tmp",
+    `claude-auth-in-flight-${process.pid}`,
+  );
+  const providerHome = path.join(root, "ProviderHomes", "claude");
+  fs.mkdirSync(providerHome, { recursive: true });
+  const ownerFixture = fileURLToPath(
+    new URL(
+      "../fixtures/claude-subscription-authentication-recovery-owner.ts",
+      import.meta.url,
+    ),
+  );
+  try {
+    const child = spawnSync(
+      process.execPath,
+      [
+        ownerFixture,
+        inFlightHash,
+        providerHome,
+        inFlightSuffix,
+        token,
+        "in_flight",
+      ],
+      {
+        cwd: path.dirname(ownerFixture),
+        env: {},
+        encoding: "utf8",
+        shell: false,
+        windowsHide: true,
+        timeout: 15_000,
+      },
+    );
+    assert.equal(child.status, 0, child.stderr);
+
+    let dockerEffectCount = 0;
+    const result = await authenticateClaudeSubscription(
+      providerHome,
+      inFlightHash,
+      {
+        randomHex: () => token,
+        acquireProviderHomeLock:
+          acquireRuntimeOwnedLogicalProviderHomeKernelLock,
+        beginRecovery: beginClaudeSubscriptionAuthenticationRecovery,
+        setRecoveryCommandState:
+          setClaudeSubscriptionAuthenticationRecoveryCommandState,
+        completeRecovery: settleClaudeSubscriptionAuthenticationRecovery,
+        run: async () => {
+          dockerEffectCount += 1;
+          throw new Error("unexpected_effect");
+        },
+      },
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      "claude_authentication_prior_command_in_flight",
+    );
+    assert.equal(result.cleanupConfirmed, false);
+    assert.equal(result.providerEffectIssued, false);
+    assert.equal(result.manualRecoveryRequired, true);
+    assert.equal(result.effectStateUnknown, true);
+    assert.equal(result.recoveryId, `claude-auth.${inFlightHash}`);
+    assert.equal(dockerEffectCount, 0);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

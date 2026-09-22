@@ -64,19 +64,26 @@ type Dependencies = Readonly<{
   ) => Readonly<{ assertLive: () => boolean; release: () => boolean }> | null;
   beginRecovery: (
     record: AuthenticationRecoveryRecord,
-  ) => "created" | "existing" | "unknown";
+  ) => "created" | "existing_idle" | "existing_in_flight" | "unknown";
+  setRecoveryCommandState: (
+    record: AuthenticationRecoveryRecord,
+    state: "idle" | "in_flight",
+    purpose: string | null,
+  ) => boolean;
   completeRecovery: (record: AuthenticationRecoveryRecord) => boolean;
 }>;
 
 export type AuthenticationRecoveryRecord = Readonly<{
   contract: "crdd-coordinator/claude-subscription-authentication-recovery";
-  contractRevision: 1;
+  contractRevision: 2;
   recoveryId: string;
   stableLogicalHomeBindingHash: string;
   suffix: string;
   resourceNames: readonly string[];
   ownershipLabel: string;
   state: "active" | "settled";
+  commandState: "idle" | "in_flight";
+  commandPurpose: string | null;
   recordPath: string;
 }>;
 
@@ -121,12 +128,14 @@ export function createClaudeSubscriptionAuthenticationRecoveryRecord(
   );
   return Object.freeze({
     contract: "crdd-coordinator/claude-subscription-authentication-recovery",
-    contractRevision: 1,
+    contractRevision: 2,
     recoveryId: `claude-auth.${stableLogicalHomeBindingHash}`,
     stableLogicalHomeBindingHash,
     suffix: plan.internalNetworkName.slice("crdd-internal-".length),
     ownershipLabel: plan.ownershipLabel,
     state: "active",
+    commandState: "idle",
+    commandPurpose: null,
     resourceNames: Object.freeze([
       plan.probeContainerName,
       plan.loginContainerName,
@@ -153,6 +162,9 @@ function sameRecoveryRecord(
     record.suffix === expected.suffix &&
     record.ownershipLabel === expected.ownershipLabel &&
     (record.state === "active" || record.state === "settled") &&
+    (record.commandState === "idle" || record.commandState === "in_flight") &&
+    (record.commandPurpose === null ||
+      typeof record.commandPurpose === "string") &&
     Array.isArray(record.resourceNames) &&
     record.resourceNames.length === expected.resourceNames.length &&
     record.resourceNames.every(
@@ -190,10 +202,13 @@ export function beginClaudeSubscriptionAuthenticationRecovery(
       ) as unknown;
       if (!sameRecoveryRecord(existing, record)) return "unknown";
       if ((existing as Record<string, unknown>).state === "active")
-        return "existing";
+        return (existing as Record<string, unknown>).commandState ===
+          "in_flight"
+          ? "existing_in_flight"
+          : "existing_idle";
       fs.writeFileSync(
         record.recordPath,
-        `${JSON.stringify({ ...record, recordPath: undefined, state: "active" })}\n`,
+        `${JSON.stringify({ ...record, recordPath: undefined, state: "active", commandState: "idle", commandPurpose: null })}\n`,
         { encoding: "utf8", flush: true },
       );
       return "created";
@@ -203,7 +218,7 @@ export function beginClaudeSubscriptionAuthenticationRecovery(
       const pending = JSON.parse(fs.readFileSync(temporary, "utf8")) as unknown;
       if (!sameRecoveryRecord(pending, record)) return "unknown";
       fs.renameSync(temporary, record.recordPath);
-      return "existing";
+      return "existing_idle";
     }
     fs.writeFileSync(
       temporary,
@@ -215,6 +230,8 @@ export function beginClaudeSubscriptionAuthenticationRecovery(
         suffix: record.suffix,
         ownershipLabel: record.ownershipLabel,
         state: "active",
+        commandState: "idle",
+        commandPurpose: null,
         resourceNames: record.resourceNames,
       })}\n`,
       { encoding: "utf8", flag: "wx", flush: true },
@@ -223,6 +240,74 @@ export function beginClaudeSubscriptionAuthenticationRecovery(
     return "created";
   } catch {
     return "unknown";
+  }
+}
+
+/**
+ * Claude再認証Commandの耐久実行状態を更新する。
+ *
+ * @responsibility Docker Effect前のin-flight Intentと子Process close後のidle settlementを同じRecovery IDへ耐久化する。
+ * @trace ARCH-000004
+ * @trace ARCH-000008
+ * @trace ARCH-000010
+ * @trace ARCH-000015
+ * @input record: exact回復記録、state: idleまたはin_flight、purpose: 固定Command用途またはnull
+ * @returns exact active記録の更新と再読取りが成立した場合だけtrueを返す。
+ * @precondition 呼出し側がLogical Provider Home Kernel Lockを保持し、in_flightはEffect前、idleは子Process close後である。
+ * @postcondition in_flightはCommand用途を保持し、idleは用途をnullへ戻す。
+ * @effect OS管理Runtime Rootのexact回復記録を同期更新する。
+ * @failure 記録不一致、状態組合せ不正または読書き失敗をfalseへ閉じる。
+ * @invariant in_flightが残る世代へfresh OwnerはDocker cleanupまたは新規認証Effectを発行しない。
+ * @boundary Filesystem耐久記録とDocker Command Processの世代Barrier。
+ * @security 固定Command用途だけを記録し、argv、Path、CredentialまたはProvider出力を記録しない。
+ * @concurrency Kernel Lockを保持する単一WriterだけがCommand状態を更新する。
+ */
+export function setClaudeSubscriptionAuthenticationRecoveryCommandState(
+  record: AuthenticationRecoveryRecord,
+  state: "idle" | "in_flight",
+  purpose: string | null,
+) {
+  if (
+    (state === "idle" && purpose !== null) ||
+    (state === "in_flight" &&
+      (typeof purpose !== "string" || !/^[a-z][a-z0-9_]{1,63}$/u.test(purpose)))
+  )
+    return false;
+  try {
+    const existing = JSON.parse(
+      fs.readFileSync(record.recordPath, "utf8"),
+    ) as unknown;
+    if (!sameRecoveryRecord(existing, record)) return false;
+    const current = existing as Record<string, unknown>;
+    if (
+      current.state !== "active" ||
+      (state === "in_flight" &&
+        (current.commandState !== "idle" || current.commandPurpose !== null)) ||
+      (state === "idle" && current.commandState !== "in_flight")
+    )
+      return false;
+    fs.writeFileSync(
+      record.recordPath,
+      `${JSON.stringify({
+        ...record,
+        recordPath: undefined,
+        state: "active",
+        commandState: state,
+        commandPurpose: purpose,
+      })}\n`,
+      { encoding: "utf8", flush: true },
+    );
+    const updated = JSON.parse(
+      fs.readFileSync(record.recordPath, "utf8"),
+    ) as Record<string, unknown>;
+    return (
+      sameRecoveryRecord(updated, record) &&
+      updated.state === "active" &&
+      updated.commandState === state &&
+      updated.commandPurpose === purpose
+    );
+  } catch {
+    return false;
   }
 }
 
@@ -251,7 +336,12 @@ export function settleClaudeSubscriptionAuthenticationRecovery(
     const existing = JSON.parse(
       fs.readFileSync(record.recordPath, "utf8"),
     ) as unknown;
-    if (!sameRecoveryRecord(existing, record)) return false;
+    if (
+      !sameRecoveryRecord(existing, record) ||
+      (existing as Record<string, unknown>).commandState !== "idle" ||
+      (existing as Record<string, unknown>).commandPurpose !== null
+    )
+      return false;
     fs.writeFileSync(
       record.recordPath,
       `${JSON.stringify({ ...record, recordPath: undefined, state: "settled" })}\n`,
@@ -384,6 +474,8 @@ function createProductionDependencies(): Dependencies {
     randomHex: (bytes) => randomBytes(bytes).toString("hex"),
     acquireProviderHomeLock: acquireRuntimeOwnedLogicalProviderHomeKernelLock,
     beginRecovery: beginClaudeSubscriptionAuthenticationRecovery,
+    setRecoveryCommandState:
+      setClaudeSubscriptionAuthenticationRecoveryCommandState,
     completeRecovery: settleClaudeSubscriptionAuthenticationRecovery,
     run: async (command, authorityLive) => {
       const executable = verifyTrustedDockerCliSnapshot(dockerCli);
@@ -831,7 +923,19 @@ export async function authenticateClaudeSubscription(
       effectStateUnknown: true,
     });
   }
-  if (recoveryState === "existing") {
+  if (recoveryState === "existing_in_flight") {
+    providerHomeLock.release();
+    return Object.freeze({
+      status: "blocked",
+      reason: "claude_authentication_prior_command_in_flight",
+      cleanupConfirmed: false,
+      providerEffectIssued: false,
+      recoveryId: recovery.recoveryId,
+      manualRecoveryRequired: true,
+      effectStateUnknown: true,
+    });
+  }
+  if (recoveryState === "existing_idle") {
     const recovered = await cleanAuthenticationResources(
       plan,
       activeDependencies,
@@ -872,6 +976,16 @@ export async function authenticateClaudeSubscription(
         reason = "claude_authentication_provider_home_lock_lost";
         break;
       }
+      if (
+        !activeDependencies.setRecoveryCommandState(
+          recovery,
+          "in_flight",
+          command.purpose,
+        )
+      ) {
+        reason = "claude_authentication_command_intent_unconfirmed";
+        break;
+      }
       const result = await activeDependencies.run(
         command,
         providerHomeLock.assertLive,
@@ -879,6 +993,10 @@ export async function authenticateClaudeSubscription(
       providerEffectIssued = true;
       if (!providerHomeLock.assertLive()) {
         reason = "claude_authentication_provider_home_lock_lost";
+        break;
+      }
+      if (!activeDependencies.setRecoveryCommandState(recovery, "idle", null)) {
+        reason = "claude_authentication_command_settlement_unconfirmed";
         break;
       }
       if (result.error || result.signal !== null || result.status !== 0) {
