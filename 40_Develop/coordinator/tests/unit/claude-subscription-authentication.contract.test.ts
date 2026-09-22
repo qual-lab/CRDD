@@ -14,6 +14,7 @@ import test from "node:test";
 import {
   authenticateClaudeSubscription,
   createClaudeSubscriptionAuthenticationPlan,
+  runDockerCommandWithAuthority,
 } from "../../src/security/claude-subscription-authentication.ts";
 
 const suffix = "0123456789abcdef";
@@ -330,6 +331,199 @@ test("再認証はProvider Home Lock喪失後のEffectを停止する", async ()
     `claude-auth.${stableLogicalHomeBindingHash}`,
   );
   assert.equal(result.manualRecoveryRequired, true);
+});
+
+/**
+ * 実行中の非対話ProcessでLockを失った場合にProcess closeまで待つことを検証する。
+ *
+ * @responsibility Docker CLI共通実行境界の実行中Authority監視と終了確認を検証する。
+ * @trace ERB-UT-016
+ * @precondition 長時間動作する固定Node子Processと、実行中にfalseへ遷移するLock観測を使う。
+ * @stimulus 非対話Command開始後にLock生存値をfalseへ変える。
+ * @observation 戻り理由、経過時間および子Process close後の結果を観測する。
+ * @oracle Lock喪失を返し、監視周期前に成功せず、子Process close後だけ完了する。
+ * @cleanup 実行境界が子Processへ終了要求を発行してcloseを待つ。
+ * @boundary ERB-UT-016=Unit: 実行中Process Authority監視境界
+ */
+test("再認証Docker Commandは実行中Lock喪失後に子Process closeを待つ", async () => {
+  let live = true;
+  const startedAt = Date.now();
+  const timer = setTimeout(() => {
+    live = false;
+  }, 50);
+  try {
+    const result = await runDockerCommandWithAuthority(
+      process.execPath,
+      {
+        purpose: "lock_loss_fixture",
+        argv: ["--eval", "setTimeout(() => {}, 5000)"],
+        interactive: false,
+      },
+      {},
+      process.cwd(),
+      () => live,
+    );
+    assert.equal(result.error?.message, "provider_home_lock_lost");
+    assert.ok(Date.now() - startedAt >= 200);
+    assert.notEqual(result.status, 0);
+  } finally {
+    clearTimeout(timer);
+  }
+});
+
+/**
+ * 回復在庫が不明な場合にLock解放だけでcleanup完了を返さないことを検証する。
+ *
+ * @responsibility Recovery inventory、資源不存在、settlement、Lock解放の積としてcleanup結果を固定する。
+ * @trace ERB-UT-016
+ * @precondition beginRecoveryはunknown、Lock releaseは成功を返す。
+ * @stimulus 再認証Lifecycleを開始する。
+ * @observation cleanup、手動回復、Effect不明およびRecovery IDを観測する。
+ * @oracle cleanupConfirmed=falseで同じRecovery IDと回復義務を保持する。
+ * @cleanup Docker Effectを発行しない。
+ * @boundary ERB-UT-016=Unit: Recovery inventory不明境界
+ */
+test("再認証は回復在庫不明をcleanup完了へ畳まない", async () => {
+  let runCount = 0;
+  const result = await authenticateClaudeSubscription(
+    "C:\\runtime-owned\\ProviderHomes\\claude",
+    stableLogicalHomeBindingHash,
+    {
+      ...lifecycleDependencies,
+      beginRecovery: () => "unknown",
+      randomHex: () => token,
+      run: async () => {
+        runCount += 1;
+        throw new Error("unexpected_effect");
+      },
+    },
+  );
+  assert.equal(
+    result.reason,
+    "claude_authentication_recovery_inventory_unknown",
+  );
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.effectStateUnknown, true);
+  assert.equal(
+    result.recoveryId,
+    `claude-auth.${stableLogicalHomeBindingHash}`,
+  );
+  assert.equal(runCount, 0);
+});
+
+/**
+ * 回復後のactive記録再作成失敗をcleanup完了へ畳まないことを検証する。
+ *
+ * @responsibility 回復済み記録と新しい認証Lifecycleの再入場境界を検証する。
+ * @trace ERB-UT-016
+ * @precondition 既存active記録の資源cleanupは完了するが、次のactive記録作成結果が不明になる。
+ * @stimulus 同じProvider Homeの認証Lifecycleへ再入場する。
+ * @observation cleanup、手動回復、Effect不明およびRecovery IDを観測する。
+ * @oracle cleanupConfirmed=falseで同じRecovery IDを保持し、新しい認証Commandを発行しない。
+ * @cleanup 所有資源の不存在確認まで完了し、追加Docker Effectを発行しない。
+ * @boundary ERB-UT-016=Unit: Recovery再入場境界
+ */
+test("再認証は回復後の再入場失敗をcleanup完了へ畳まない", async () => {
+  let beginCount = 0;
+  let authenticationCommandCount = 0;
+  const result = await authenticateClaudeSubscription(
+    "C:\\runtime-owned\\ProviderHomes\\claude",
+    stableLogicalHomeBindingHash,
+    {
+      ...lifecycleDependencies,
+      beginRecovery: () => {
+        beginCount += 1;
+        return beginCount === 1 ? "existing" : "unknown";
+      },
+      randomHex: () => token,
+      run: async (command) => {
+        if (command.purpose === "start_internal_network")
+          authenticationCommandCount += 1;
+        return {
+          status: command.purpose.startsWith("confirm_") ? 1 : 0,
+          signal: null,
+          stdout: command.purpose.startsWith("observe_")
+            ? ownershipOutput(command.purpose)
+            : "",
+          stderr: command.purpose.startsWith("confirm_")
+            ? absenceError(command.purpose)
+            : "",
+        };
+      },
+    },
+  );
+  assert.equal(result.reason, "claude_authentication_recovery_reentry_failed");
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.effectStateUnknown, false);
+  assert.equal(
+    result.recoveryId,
+    `claude-auth.${stableLogicalHomeBindingHash}`,
+  );
+  assert.equal(beginCount, 2);
+  assert.equal(authenticationCommandCount, 0);
+});
+
+/**
+ * 最終不存在観測後のLock喪失でsettledを書かないことを検証する。
+ *
+ * @responsibility cleanup観測と耐久settlementの間にあるLock生存Gateを検証する。
+ * @trace ERB-UT-016
+ * @precondition 全Docker資源の不存在確認は成功し、最後の確認中にLockを失う。
+ * @stimulus 認証Lifecycleを完了直前まで進める。
+ * @observation settlement呼出し回数、cleanup結果およびRecovery IDを観測する。
+ * @oracle completeRecoveryを呼ばずactive記録と同じRecovery IDを保持する。
+ * @cleanup Lock喪失後は追加Docker Effectを発行しない。
+ * @boundary ERB-UT-016=Unit: cleanup完了からsettlementへのAuthority境界
+ */
+test("再認証は最終不存在確認後のLock喪失でsettledを書かない", async () => {
+  let live = true;
+  let settlementCount = 0;
+  const result = await authenticateClaudeSubscription(
+    "C:\\runtime-owned\\ProviderHomes\\claude",
+    stableLogicalHomeBindingHash,
+    {
+      ...lifecycleDependencies,
+      acquireProviderHomeLock: () => ({
+        assertLive: () => live,
+        release: () => false,
+      }),
+      completeRecovery: () => {
+        settlementCount += 1;
+        return true;
+      },
+      randomHex: () => token,
+      run: async (command) => {
+        if (command.purpose === "confirm_egress_network_absent") live = false;
+        return {
+          status: command.purpose.startsWith("confirm_") ? 1 : 0,
+          signal: null,
+          stdout: command.purpose.startsWith("observe_")
+            ? ownershipOutput(command.purpose)
+            : command.purpose === "start_probe_attached"
+              ? JSON.stringify({
+                  loggedIn: true,
+                  authMethod: "claude.ai",
+                  apiProvider: "firstParty",
+                  subscriptionType: "max",
+                })
+              : "",
+          stderr: command.purpose.startsWith("confirm_")
+            ? absenceError(command.purpose)
+            : "",
+        };
+      },
+    },
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "claude_authentication_provider_home_lock_lost");
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(settlementCount, 0);
+  assert.equal(
+    result.recoveryId,
+    `claude-auth.${stableLogicalHomeBindingHash}`,
+  );
 });
 
 /**

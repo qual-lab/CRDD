@@ -8,7 +8,7 @@
  * @trace ARCH-000015
  */
 import { randomBytes } from "node:crypto";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -266,6 +266,111 @@ export function settleClaudeSubscriptionAuthenticationRecovery(
   }
 }
 
+/**
+ * Docker CLI CommandをProvider Home Lockの生存中だけ実行する。
+ *
+ * @responsibility 同期・対話Commandを共通の非同期Process監視へ閉じ、Lock喪失、timeout、出力上限およびProcess終了を区別する。
+ * @trace ARCH-000004
+ * @trace ARCH-000008
+ * @trace ARCH-000010
+ * @trace ARCH-000015
+ * @input executable: 検証済みDocker CLI、command: 固定Plan Command、environment: 最小環境、workingDirectory: 固定OS Directory、authorityLive: Lock生存観測
+ * @returns 子Processのclose後に、終了状態、限定出力および失敗理由を返す。
+ * @precondition executable、environmentおよびworkingDirectoryは同じEffect直前に検証済みである。
+ * @postcondition Lock喪失または非対話Commandのtimeout・出力超過時は終了要求後のchild closeまで完了を返さない。
+ * @effect 固定Docker CLI子Processを一つ起動し、必要時にそのProcessへ終了要求を発行する。
+ * @failure spawn失敗、Lock喪失、timeout、出力超過または異常終了を成功へ畳まない。
+ * @invariant 一つのCommand結果を一度だけ確定し、子Processがliveな間に上位へ完了を返さない。
+ * @boundary Windows Host ProcessからDocker CLIへの外部Process境界。
+ * @security 親EnvironmentとRepository cwdを継承せず、対話Provider出力を捕捉・保存しない。
+ * @concurrency Authority監視、stdout／stderr、Process errorおよびcloseを単一finalizerへ収束させる。
+ */
+export async function runDockerCommandWithAuthority(
+  executable: string,
+  command: Command,
+  environment: NodeJS.ProcessEnv,
+  workingDirectory: string,
+  authorityLive: () => boolean,
+): Promise<Execution> {
+  const authorityIsLive = () => {
+    try {
+      return authorityLive();
+    } catch {
+      return false;
+    }
+  };
+  if (!authorityIsLive())
+    return {
+      status: null,
+      signal: null,
+      stdout: "",
+      stderr: "",
+      error: new Error("provider_home_lock_lost"),
+    };
+  return await new Promise<Execution>((resolve) => {
+    let settled = false;
+    let stdout = "";
+    let stderr = "";
+    let terminalError: Error | undefined;
+    let authorityTimer: NodeJS.Timeout | undefined;
+    let timeoutTimer: NodeJS.Timeout | undefined;
+    const child = spawn(executable, command.argv, {
+      env: environment,
+      cwd: workingDirectory,
+      stdio: command.interactive ? "inherit" : ["ignore", "pipe", "pipe"],
+      shell: false,
+      windowsHide: !command.interactive,
+    });
+    const stop = (error: Error) => {
+      if (!terminalError) terminalError = error;
+      child.kill();
+    };
+    const append = (target: "stdout" | "stderr", chunk: string) => {
+      const next = target === "stdout" ? stdout + chunk : stderr + chunk;
+      if (Buffer.byteLength(next, "utf8") > 1_048_576) {
+        stop(new Error("docker_effect_output_too_large"));
+        return;
+      }
+      if (target === "stdout") stdout = next;
+      else stderr = next;
+    };
+    if (!command.interactive) {
+      child.stdout?.setEncoding("utf8");
+      child.stderr?.setEncoding("utf8");
+      child.stdout?.on("data", (chunk: string) => append("stdout", chunk));
+      child.stderr?.on("data", (chunk: string) => append("stderr", chunk));
+      timeoutTimer = setTimeout(
+        () => stop(new Error("docker_effect_timeout")),
+        30_000,
+      );
+    }
+    authorityTimer = setInterval(() => {
+      if (authorityIsLive()) return;
+      stop(new Error("provider_home_lock_lost"));
+    }, 250);
+    const finish = (status: number | null, signal: NodeJS.Signals | null) => {
+      if (settled) return;
+      settled = true;
+      if (authorityTimer) clearInterval(authorityTimer);
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+      resolve(
+        Object.freeze({
+          status,
+          signal,
+          stdout,
+          stderr,
+          ...(terminalError ? { error: terminalError } : {}),
+        }),
+      );
+    };
+    child.once("error", (error) => {
+      terminalError ??= error;
+      if (child.pid === undefined) finish(null, null);
+    });
+    child.once("close", finish);
+  });
+}
+
 function createProductionDependencies(): Dependencies {
   const dockerCli = observeTrustedDockerCli();
   const environment = createDockerProcessEnvironment();
@@ -281,72 +386,14 @@ function createProductionDependencies(): Dependencies {
     beginRecovery: beginClaudeSubscriptionAuthenticationRecovery,
     completeRecovery: settleClaudeSubscriptionAuthenticationRecovery,
     run: async (command, authorityLive) => {
-      if (!authorityLive())
-        return {
-          status: null,
-          signal: null,
-          stdout: "",
-          stderr: "",
-          error: new Error("provider_home_lock_lost"),
-        };
       const executable = verifyTrustedDockerCliSnapshot(dockerCli);
-      if (!command.interactive) {
-        const result = spawnSync(executable, command.argv, {
-          encoding: "utf8",
-          env: environment,
-          cwd: workingDirectory,
-          shell: false,
-          windowsHide: true,
-          timeout: 30_000,
-          maxBuffer: 1_048_576,
-        });
-        return Object.freeze({
-          status: result.status,
-          signal: result.signal,
-          stdout: result.stdout ?? "",
-          stderr: result.stderr ?? "",
-          ...(result.error ? { error: result.error } : {}),
-        });
-      }
-      return await new Promise<Execution>((resolve) => {
-        let settled = false;
-        const child = spawn(executable, command.argv, {
-          env: environment,
-          cwd: workingDirectory,
-          stdio: "inherit",
-          shell: false,
-          windowsHide: false,
-        });
-        const finish = (result: Execution) => {
-          if (settled) return;
-          settled = true;
-          clearInterval(authorityTimer);
-          resolve(result);
-        };
-        const authorityTimer = setInterval(() => {
-          if (authorityLive()) return;
-          child.kill();
-          finish({
-            status: null,
-            signal: null,
-            stdout: "",
-            stderr: "",
-            error: new Error("provider_home_lock_lost"),
-          });
-        }, 250);
-        child.once("error", (error) =>
-          finish({
-            status: null,
-            signal: null,
-            stdout: "",
-            stderr: "",
-            error,
-          }),
-        );
-        child.once("exit", (status, signal) =>
-          finish({ status, signal, stdout: "", stderr: "" }),
-        );
-      });
+      return await runDockerCommandWithAuthority(
+        executable,
+        command,
+        environment,
+        workingDirectory,
+        authorityLive,
+      );
     },
   });
 }
@@ -696,7 +743,7 @@ async function cleanAuthenticationResources(
       cleanupConfirmed = false;
     }
   }
-  return cleanupConfirmed;
+  return cleanupConfirmed && authorityLive();
 }
 
 /**
@@ -773,11 +820,11 @@ export async function authenticateClaudeSubscription(
   }
   let recoveryState = activeDependencies.beginRecovery(recovery);
   if (recoveryState === "unknown") {
-    const lockReleased = providerHomeLock.release();
+    providerHomeLock.release();
     return Object.freeze({
       status: "blocked",
       reason: "claude_authentication_recovery_inventory_unknown",
-      cleanupConfirmed: lockReleased,
+      cleanupConfirmed: false,
       providerEffectIssued: false,
       recoveryId: recovery.recoveryId,
       manualRecoveryRequired: true,
@@ -804,11 +851,11 @@ export async function authenticateClaudeSubscription(
     }
     recoveryState = activeDependencies.beginRecovery(recovery);
     if (recoveryState !== "created") {
-      const lockReleased = providerHomeLock.release();
+      providerHomeLock.release();
       return Object.freeze({
         status: "blocked",
         reason: "claude_authentication_recovery_reentry_failed",
-        cleanupConfirmed: lockReleased,
+        cleanupConfirmed: false,
         providerEffectIssued: false,
         recoveryId: recovery.recoveryId,
         manualRecoveryRequired: true,
@@ -830,8 +877,15 @@ export async function authenticateClaudeSubscription(
         providerHomeLock.assertLive,
       );
       providerEffectIssued = true;
+      if (!providerHomeLock.assertLive()) {
+        reason = "claude_authentication_provider_home_lock_lost";
+        break;
+      }
       if (result.error || result.signal !== null || result.status !== 0) {
-        reason = `claude_authentication_${command.purpose}_failed`;
+        reason =
+          result.error?.message === "provider_home_lock_lost"
+            ? "claude_authentication_provider_home_lock_lost"
+            : `claude_authentication_${command.purpose}_failed`;
         break;
       }
       if (command.purpose === "start_probe_attached") {
@@ -850,8 +904,12 @@ export async function authenticateClaudeSubscription(
     activeDependencies,
     providerHomeLock.assertLive,
   );
-  if (cleanupConfirmed)
+  const lockLiveAfterCleanup = providerHomeLock.assertLive();
+  if (!lockLiveAfterCleanup)
+    reason = "claude_authentication_provider_home_lock_lost";
+  if (cleanupConfirmed && lockLiveAfterCleanup)
     cleanupConfirmed = activeDependencies.completeRecovery(recovery);
+  else cleanupConfirmed = false;
   const lockReleased = providerHomeLock.release();
   cleanupConfirmed = cleanupConfirmed && lockReleased;
   return Object.freeze({
