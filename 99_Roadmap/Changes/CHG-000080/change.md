@@ -160,6 +160,7 @@ PhaseはCHGを分割する別Identityではなく、一つの変更意図を安�
 | 既存Test Suite Relation 37件すべてで、物理配置の試験段階とLocal Item IDの段階が少なくとも1件不一致だった | 既存`symbol.json`のTest RelationをそのままHeader移行入力にできるという前提 | Phase 4でTest Catalog 197件と個別Test Case／Helper／Fixtureを再分析し、物理配置またはLocal Item Relationを正す | Test File段階、Local Item段階、実在ID、個別Test責務、全Test実行 | 既存Testの成立済み検証能力とQuality Local Itemの意味は、置換根拠なしに削除・改称しない | Revised |
 | Test Fileを一つの代表Local Itemへ縮約した結果、Semantic Coverageで17意味中16件のTest観測Relationが失われた | File、Case、HelperのRelationを同一の1件へ揃えればTest Source Contractを閉じられるという前提 | Phase 4／7を再開し、FileはCase／HelperのRelation和集合、Caseは対応する1件、Helperは支援する1件以上、`symbol.json`は和集合の正方向Ownerへ改訂する | Test Header契約試験、Symbol Graph、Semantic Coverage Pilot、全Test実行、独立意味レビュー | 試験段階付きLocal Item 150件、Test本体の振る舞いおよび旧Relationを根拠なくTest成立へ昇格しない原則は変更しない | Revised |
 | 署名4経路E2Eの内側結果がRuntime固定理由を返しても、保存Recordの手管理許可集合に未登録なら`unknown`へ劣化した | `reason`の追加時にVerification Recorderも同期済みであり、失敗後に安全な原因分類を再観測できるという前提 | Gate 9を再開し、Provider／署名Runnerの固定理由をRecordへ投影する。ただし未知の自由文は従来どおり`unknown`へ閉じる | Formatter、型、Lint、Recorder負例、Development E2E、再署名Recovery Matrix、署名4経路E2E | Provider生出力、Credential、Host Pathおよび未許可の自由文は記録しない | Revised |
+| 最初の診断Record是正候補でRoute Matrix自身の固定理由2件が未登録だった | Provider境界だけを確認し、同じProducer内のRunner例外・Process再起動分岐まで母集団へ含めなかった | Gate 9の独立レビューをFailとして維持し、`signed_route_matrix_route_runner_failed_closed`と`signed_route_matrix_process_restart_required`をexact追加する | Recorder正例・未知値拒否負例、Route Matrix契約試験、同一固定候補の独立再レビュー | Prefix一般許可、生出力保存、Status／Recovery／Effect契約変更は禁止 | Revised |
 
 #### Production Header移行母集団
 
@@ -499,7 +500,9 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 - [`07_Quality/Registry/test-catalog.json`](../../../07_Quality/Registry/test-catalog.json)
 - [`40_Develop/checker/src/profiles/current-profile.ts`](../../../40_Develop/checker/src/profiles/current-profile.ts)
 - [`40_Develop/checker/src/rules/reality-symbol-graph.ts`](../../../40_Develop/checker/src/rules/reality-symbol-graph.ts)
+- [`40_Develop/coordinator/scripts/verify-signed-route-matrix.ts`](../../../40_Develop/coordinator/scripts/verify-signed-route-matrix.ts)
 - [`40_Develop/coordinator/src/composition/project-runtime-composition-root.ts`](../../../40_Develop/coordinator/src/composition/project-runtime-composition-root.ts)
+- [`40_Develop/coordinator/src/core/verification-result-reasons.ts`](../../../40_Develop/coordinator/src/core/verification-result-reasons.ts)
 - [`40_Develop/coordinator/src/core/verification-result-record.ts`](../../../40_Develop/coordinator/src/core/verification-result-record.ts)
 - [`40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts`](../../../40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts)
 - [`40_Develop/coordinator/tests/fixtures/docker-handoff-worker.ts`](../../../40_Develop/coordinator/tests/fixtures/docker-handoff-worker.ts)

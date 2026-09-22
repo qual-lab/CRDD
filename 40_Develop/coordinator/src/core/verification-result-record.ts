@@ -23,16 +23,14 @@ import { snapshotPlainArray } from "../security/plain-data-snapshot.ts";
 import { inspectRepositoryRevisionCandidate } from "../security/repository-operation-runtime.ts";
 import { isCanonicalSignedRunnerRecoveryId } from "../security/signed-runner-safety-observation.ts";
 import { isSupportedCoordinatorNodeRuntime } from "./node-runtime-version.ts";
+import { SIGNED_ROUTE_MATRIX_REASONS } from "./verification-result-reasons.ts";
 
 const CONTRACT = "crdd-coordinator/local-verification-record";
 const CONTRACT_REVISION = 3;
 const MAX_RECORD_BYTES = 32 * 1024;
 const MAX_EXISTING_ENTRIES = 256;
 const REASONS = new Set([
-  "signed_route_matrix_completed",
-  "signed_route_matrix_incomplete",
-  "signed_route_matrix_failed_closed",
-  "signed_route_matrix_arguments_invalid",
+  ...Object.values(SIGNED_ROUTE_MATRIX_REASONS),
   "signed_recovery_matrix_verified",
   "signed_recovery_matrix_failed_closed",
   "signed_recovery_matrix_node_version_unsupported",

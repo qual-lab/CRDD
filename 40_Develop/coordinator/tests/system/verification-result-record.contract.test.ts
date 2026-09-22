@@ -22,6 +22,7 @@ import {
   projectVerificationResult,
   runRecordedVerification,
 } from "../../src/core/verification-result-record.ts";
+import { SIGNED_ROUTE_MATRIX_REASONS } from "../../src/core/verification-result-reasons.ts";
 import {
   formatDockerIsolationRecoveryToken,
   isDockerIsolationRecoveryIdCandidate,
@@ -233,13 +234,15 @@ test("既知値だけ保存し、自由文・秘密風文字列・getter・proxy
  * @boundary ERP-ST-004=System/E2E: Producer→Writer→公開結果→再観測入口
  */
 test("Provider境界の固定診断理由を安全に保存する", () => {
-  assert.equal(
-    projectVerificationResult({
-      status: "blocked",
-      reason: "provider_task_executor_shape_invalid",
-    }).reason,
+  for (const reason of [
     "provider_task_executor_shape_invalid",
-  );
+    ...Object.values(SIGNED_ROUTE_MATRIX_REASONS),
+  ]) {
+    assert.equal(
+      projectVerificationResult({ status: "blocked", reason }).reason,
+      reason,
+    );
+  }
   assert.equal(
     projectVerificationResult({
       status: "blocked",

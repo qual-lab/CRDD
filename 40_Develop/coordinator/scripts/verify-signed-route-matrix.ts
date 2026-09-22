@@ -16,6 +16,7 @@ import {
   displayVerificationRecording,
   runRecordedVerification,
 } from "../src/core/verification-result-record.ts";
+import { SIGNED_ROUTE_MATRIX_REASONS } from "../src/core/verification-result-reasons.ts";
 import { snapshotPlainArray } from "../src/security/plain-data-snapshot.ts";
 import {
   isCanonicalCrddVersion,
@@ -448,7 +449,7 @@ function failedRouteResult(
     : emptyRouteRecovery(true);
   return Object.freeze({
     status: "blocked" as const,
-    reason: "signed_route_matrix_route_runner_failed_closed",
+    reason: SIGNED_ROUTE_MATRIX_REASONS.routeRunnerFailedClosed,
     requestedRouteProfile: route,
     cleanupConfirmed: false,
     manualRecoveryRequired: true,
@@ -526,7 +527,7 @@ function processRestartRequiredResult() {
     contract: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT,
     contractRevision: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION,
     status: "blocked" as const,
-    reason: "signed_route_matrix_process_restart_required",
+    reason: SIGNED_ROUTE_MATRIX_REASONS.processRestartRequired,
     requestedRoutes: ROUTES,
     attemptedRouteCount: 0,
     completedRouteCount: 0,
@@ -784,8 +785,8 @@ export async function runSignedRouteMatrixVerification(
     contractRevision: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION,
     status: isCompleted ? ("completed" as const) : ("blocked" as const),
     reason: isCompleted
-      ? "signed_route_matrix_completed"
-      : "signed_route_matrix_incomplete",
+      ? SIGNED_ROUTE_MATRIX_REASONS.completed
+      : SIGNED_ROUTE_MATRIX_REASONS.incomplete,
     requestedRoutes: ROUTES,
     attemptedRouteCount: results.length,
     completedRouteCount: verifiedRouteCount,
@@ -898,8 +899,8 @@ export function createSignedRouteMatrixCliFailureResult(
     status: "blocked" as const,
     reason:
       validationFailure === "arguments_invalid"
-        ? "signed_route_matrix_arguments_invalid"
-        : "signed_route_matrix_failed_closed",
+        ? SIGNED_ROUTE_MATRIX_REASONS.argumentsInvalid
+        : SIGNED_ROUTE_MATRIX_REASONS.failedClosed,
     requestedRoutes: ROUTES,
     attemptedRouteCount: 0,
     completedRouteCount: 0,
