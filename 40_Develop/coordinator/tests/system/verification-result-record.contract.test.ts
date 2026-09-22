@@ -22,7 +22,10 @@ import {
   projectVerificationResult,
   runRecordedVerification,
 } from "../../src/core/verification-result-record.ts";
-import { SIGNED_ROUTE_MATRIX_REASONS } from "../../src/core/verification-result-reasons.ts";
+import {
+  SIGNED_GENERAL_TASK_PUBLIC_REASONS,
+  SIGNED_ROUTE_MATRIX_REASONS,
+} from "../../src/core/verification-result-reasons.ts";
 import { COORDINATOR_TASK_PUBLIC_REASONS } from "../../src/security/coordinator-task-result-reasons.ts";
 import {
   formatDockerIsolationRecoveryToken,
@@ -238,6 +241,7 @@ test("Provider境界の固定診断理由を安全に保存する", () => {
   for (const reason of [
     "provider_task_executor_shape_invalid",
     ...Object.values(SIGNED_ROUTE_MATRIX_REASONS),
+    ...SIGNED_GENERAL_TASK_PUBLIC_REASONS,
     ...COORDINATOR_TASK_PUBLIC_REASONS,
   ]) {
     assert.equal(
