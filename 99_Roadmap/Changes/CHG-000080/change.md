@@ -536,6 +536,7 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 - [`99_Roadmap/Changes/CHG-000066/change.md`](../CHG-000066/change.md)
 - [`99_Roadmap/Changes/CHG-000067/change.md`](../CHG-000067/change.md)
 - [`template/07_Quality/05_Current_Implementation_Reality_Audit.md`](../../../template/07_Quality/05_Current_Implementation_Reality_Audit.md)
+- `template/tools/coordinator/coordinator-package-manifest.json`（削除）
 
 </details>
 ## 7. 検証計画
