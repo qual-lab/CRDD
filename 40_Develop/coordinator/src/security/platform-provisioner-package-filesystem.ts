@@ -3993,6 +3993,7 @@ type ProcessWrapperUse = Readonly<{
   source: string;
   containingFunction: string | null;
   prefix: readonly string[];
+  dominatingProofs?: readonly (readonly string[])[];
 }>;
 
 const processWrapperConsumers = Object.freeze(
@@ -4019,6 +4020,91 @@ const processWrapperConsumers = Object.freeze(
               "executable",
               ",",
               "command",
+              ",",
+              "environment",
+              ",",
+              "workingDirectory",
+              ",",
+              "authorityLive",
+              ",",
+              ")",
+            ]),
+            dominatingProofs: Object.freeze([
+              Object.freeze([
+                "const",
+                "executable",
+                "=",
+                "verifyTrustedDockerCliSnapshot",
+                "(",
+                "dockerCli",
+                ")",
+              ]),
+              Object.freeze([
+                "const",
+                "environment",
+                "=",
+                "createDockerProcessEnvironment",
+                "(",
+                ")",
+              ]),
+              Object.freeze([
+                "const",
+                "systemRoot",
+                "=",
+                "environment",
+                ".",
+                "SystemRoot",
+              ]),
+              Object.freeze([
+                "if",
+                "(",
+                "!",
+                "systemRoot",
+                ")",
+                "throw",
+                "new",
+                "Error",
+                "(",
+                "docker_effect_working_directory_unavailable",
+                ")",
+              ]),
+              Object.freeze([
+                "const",
+                "workingDirectory",
+                "=",
+                "path",
+                ".",
+                "win32",
+                ".",
+                "join",
+                "(",
+                "systemRoot",
+                ",",
+                "System32",
+                ")",
+              ]),
+              Object.freeze([
+                "if",
+                "(",
+                "!",
+                "fs",
+                ".",
+                "statSync",
+                "(",
+                "workingDirectory",
+                ")",
+                ".",
+                "isDirectory",
+                "(",
+                ")",
+                ")",
+                "throw",
+                "new",
+                "Error",
+                "(",
+                "docker_effect_working_directory_unavailable",
+                ")",
+              ]),
             ]),
           }),
         ]),
@@ -4744,6 +4830,14 @@ function assertProcessWrapperConsumerBoundary(
           "platform_provisioner_runtime_dependency_child_process_unbound",
         );
       const matched = matchingTokens[0] as ProcessWrapperUse;
+      if (
+        matched.dominatingProofs?.some(
+          (proof) => !hasUniqueDominatingProof(tokens, index, proof),
+        )
+      )
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_process_unbound",
+        );
       observed.set(matched, (observed.get(matched) ?? 0) + 1);
     }
     const expectedUses = capability.uses.filter(

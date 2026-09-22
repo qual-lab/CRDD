@@ -699,7 +699,32 @@ test("Claude再認証のProcess Wrapperを署名前Runtime能力Graphへ固定�
       "spawn(process.execPath, command.argv, {",
     ),
     source.replace('child.once("close", finish);', "finish(null, null);"),
+    source.replace(
+      "const executable = verifyTrustedDockerCliSnapshot(dockerCli);",
+      "const executable = dockerCli.executablePath;",
+    ),
+    source.replace(
+      "const environment = createDockerProcessEnvironment();",
+      "const environment = process.env;",
+    ),
+    source.replace(
+      'const workingDirectory = path.win32.join(systemRoot, "System32");',
+      "const workingDirectory = process.cwd();",
+    ),
+    source.replace(
+      'if (!systemRoot)\n    throw new Error("docker_effect_working_directory_unavailable");',
+      "void systemRoot;",
+    ),
+    source.replace(
+      'if (!fs.statSync(workingDirectory).isDirectory())\n    throw new Error("docker_effect_working_directory_unavailable");',
+      "void fs.statSync(workingDirectory);",
+    ),
+    source.replace(
+      "        authorityLive,\n      );",
+      "        () => true,\n      );",
+    ),
   ]) {
+    assert.notEqual(mutated, source);
     assert.throws(
       () =>
         assertRuntimeSourceDeclaredGraphBoundaryForVerification(
