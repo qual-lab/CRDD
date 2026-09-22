@@ -287,6 +287,7 @@ CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、
 - [`40_Develop/coordinator/src/core/coordinator-launch.ts`](../../../40_Develop/coordinator/src/core/coordinator-launch.ts)
 - [`40_Develop/coordinator/src/security/claude-subscription-authentication.ts`](../../../40_Develop/coordinator/src/security/claude-subscription-authentication.ts)
 - [`40_Develop/coordinator/tests/fixtures/claude-subscription-authentication-recovery-owner.ts`](../../../40_Develop/coordinator/tests/fixtures/claude-subscription-authentication-recovery-owner.ts)
+- [`40_Develop/coordinator/tests/fixtures/claude-subscription-authentication-command-owner.ts`](../../../40_Develop/coordinator/tests/fixtures/claude-subscription-authentication-command-owner.ts)
 - [`40_Develop/coordinator/tests/integration/claude-subscription-authentication-recovery.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/claude-subscription-authentication-recovery.integration.test.ts)
 - [`40_Develop/coordinator/tests/integration/bounded-file-snapshot.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/bounded-file-snapshot.contract.test.ts)
 - [`40_Develop/coordinator/tests/integration/candidate-bundle-store.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/candidate-bundle-store.contract.test.ts)

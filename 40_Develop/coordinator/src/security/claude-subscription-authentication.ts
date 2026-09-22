@@ -153,6 +153,11 @@ function sameRecoveryRecord(
 ) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
+  const commandStateIsValid =
+    (record.commandState === "idle" && record.commandPurpose === null) ||
+    (record.commandState === "in_flight" &&
+      typeof record.commandPurpose === "string" &&
+      /^[a-z][a-z0-9_]{1,63}$/u.test(record.commandPurpose));
   return (
     record.contract === expected.contract &&
     record.contractRevision === expected.contractRevision &&
@@ -162,9 +167,7 @@ function sameRecoveryRecord(
     record.suffix === expected.suffix &&
     record.ownershipLabel === expected.ownershipLabel &&
     (record.state === "active" || record.state === "settled") &&
-    (record.commandState === "idle" || record.commandState === "in_flight") &&
-    (record.commandPurpose === null ||
-      typeof record.commandPurpose === "string") &&
+    commandStateIsValid &&
     Array.isArray(record.resourceNames) &&
     record.resourceNames.length === expected.resourceNames.length &&
     record.resourceNames.every(

@@ -13,23 +13,11 @@ import {
   beginClaudeSubscriptionAuthenticationRecovery,
   createClaudeSubscriptionAuthenticationPlan,
   createClaudeSubscriptionAuthenticationRecoveryRecord,
-  setClaudeSubscriptionAuthenticationRecoveryCommandState,
 } from "../../src/security/claude-subscription-authentication.ts";
 
-const [
-  stableLogicalHomeBindingHash,
-  providerHome,
-  suffix,
-  token,
-  commandState,
-] = process.argv.slice(2);
-if (
-  !stableLogicalHomeBindingHash ||
-  !providerHome ||
-  !suffix ||
-  !token ||
-  (commandState !== "idle" && commandState !== "in_flight")
-)
+const [stableLogicalHomeBindingHash, providerHome, suffix, token] =
+  process.argv.slice(2);
+if (!stableLogicalHomeBindingHash || !providerHome || !suffix || !token)
   process.exit(70);
 const lock = acquireRuntimeOwnedLogicalProviderHomeKernelLock(
   stableLogicalHomeBindingHash,
@@ -49,12 +37,3 @@ const record = createClaudeSubscriptionAuthenticationRecoveryRecord(
 if (!record) process.exit(73);
 if (beginClaudeSubscriptionAuthenticationRecovery(record) !== "created")
   process.exit(74);
-if (
-  commandState === "in_flight" &&
-  !setClaudeSubscriptionAuthenticationRecoveryCommandState(
-    record,
-    "in_flight",
-    "create_internal_network",
-  )
-)
-  process.exit(75);
