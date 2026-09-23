@@ -5463,16 +5463,16 @@ test("現行署名版が新規作成した修復を複数Runtime領域の段階�
       }),
     });
     let latestOperation = operation;
-    let relaunched = false;
+    let wasRelaunched = false;
     let launches = 0;
     const renameCalls: string[] = [];
     const repairSession = Object.freeze({
       ...session(),
       inspectProcesses: async () =>
-        relaunched ? ("verified" as const) : ("absent" as const),
+        wasRelaunched ? ("verified" as const) : ("absent" as const),
       launchDesktop: async () => {
         launches += 1;
-        relaunched = true;
+        wasRelaunched = true;
         fs.mkdirSync(runDirectory);
         fs.writeFileSync(path.join(runDirectory, "dockerInference"), "new");
         fs.mkdirSync(secretsDirectory);
@@ -5485,7 +5485,7 @@ test("現行署名版が新規作成した修復を複数Runtime領域の段階�
       acquireHelper: async () =>
         Object.freeze({ status: "acquired" as const, session: repairSession }),
       observeEngine: () =>
-        relaunched ? ("ready" as const) : ("known_unavailable" as const),
+        wasRelaunched ? ("ready" as const) : ("known_unavailable" as const),
       observeKnownSocketFailure: () => null,
       observeRuntimeDirectoryLock: identityAt,
       renameRuntimeDirectory: (source, target, expected) => {
