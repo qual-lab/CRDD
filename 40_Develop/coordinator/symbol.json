@@ -315,7 +315,8 @@
         "QA-000006"
       ],
       "localTestIds": [
-        "ERB-IT-001"
+        "ERB-IT-001",
+        "ERB-IT-012"
       ],
       "verifies": [
         "coordinator.source.src.security.docker.desktop.repair.continuation.store",

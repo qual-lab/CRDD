@@ -181,11 +181,11 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 | 実装を持つ12領域のformat／type／lintまたはRust build | 全てPass | 静的成立を確認 |
 | 12 TypeScript library／runtime package | 358 Pass、1 Explicit Skip | artifact-signing、domain library、CROS、execution intelligence、MCP、official asset governance、project operation、project runtime、runtime data、semantic coverage、verification runner、version control。Skip 1件は人間入力を要するUAT計画 |
 | Platform Access | 29 Pass、8 Explicit Ignore | 8件はinstalled Docker等の明示実環境観測であり、未実行をPassへ畳まない |
-| Checker Repository検査 | 1,705 files、963 Markdown、16,281 links、1,964 anchors、0 error、0 warning | 現行Repository構造、版移管およびRelation更新後の構造は成立 |
+| Checker Repository検査 | 1,702 files、962 Markdown、16,294 links、1,965 anchors、0 error、0 warning | 現在のレビュー候補に対する同一検査結果。現行Repository構造、版移管およびRelation更新後の構造は成立した。Source A固定後はexact Commitを付与して再確認する |
 | Checker全試験 | 363／363 Pass | Current Profile、工程契約、Source／Test Header、Symbol GraphおよびReality Relationを同じ候補で確認した |
 | Coordinator静的確認 | Format／Type／Lint／3 Traceability GateすべてPass | Runtime Capability Graph、Coordinator Runtime Traceability、Project Runtime Design Traceabilityを確認した |
-| Coordinator Windows Process Gate | 通常ユーザー境界8／8 Pass | Windows Process、Sandbox、取消、出力上限およびDocker cleanup模擬を実境界で確認した |
-| Coordinator全回帰 | 2015件中2010 Pass、失敗0、5 Explicit Skip | Skipは明示実環境試験でありPassへ畳まない。Group Aの自動回帰に既知の失敗は残っていない |
+| Coordinator Windows Process Gate | 現候補は7／8 Pass、1 Blocked | Windows Process、取消、出力上限およびDocker cleanup模擬の7件は実境界で確認した。Codex Executor Sandboxの1件はDocker EngineのNamed Pipe不存在により未観測であり、失敗またはPassへ畳まない。EngineのNamed Pipeが利用可能になった後、同じ候補で8件すべてを再実行する。以前の固定候補で得た8／8 Passは履歴Evidenceとして保持するが、現候補の成立根拠へ流用しない |
+| Coordinator全回帰 | 2,037件中2,029 Pass、失敗0、8 Explicit Skip | Skip 3件はRelease manifestを保持しないSource Aでは非該当であり、Manifest-only Commit Bで必須実行する昇格System試験である。残り5件は明示実環境試験である。いずれもPassまたはEvidenceへ畳まず、Group AのSource A自動回帰に既知の失敗は残っていない |
 
 ## 11. 旧Runtime Traceability JSONの移行判定
 
@@ -263,7 +263,7 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 
 この38件は「新しい自動Testが38本必要」という意味ではない。v0.22移管範囲の未観測16件はAutomated 3件、Hybrid 4件、Manual 9件であり、v0.21範囲の未観測22件はHybrid 12件、Manual 10件である。Hybridは自動観測と独立した人間・実境界評価の両方、Manualは参加者の判断Evidenceを必要とする。自動部分だけを全体成立へ畳まず、名前や同じQuality領域だけを根拠にTest Symbolへ接続しない。
 
-今回の局所Closureでは、`AIT-ST-010`、`CQS-ST-013`、`RDL-ST-002`、`ERB-IT-012`、`CQS-ST-012`、`ERB-ST-015`、`RFD-IT-005`、`ERB-IT-008`、`ERB-UT-016`および`ERB-IT-017`を、それぞれの実境界と専用試験へ接続した。公式素材の判断完全性、Revision競合および収載Relationも、専用Packageの`OAG-IT-005`、`OAG-IT-006`、`OAG-IT-007`、`OAG-UT-008`へ接続した。一方、`RCM-ST-012`の固定観測配列は実Consumer実行を、`ERB-ST-011`の別Process record試験はDocker Engine／Host資源の独立観測を証明しないため、対象Relationを保持したまま完成Evidenceへの算入を外してHybrid未観測へ戻した。`RFD-ST-003`と`RFD-ST-010`もv0.22の実境界を証明しないPrototype Relationとして同じ扱いにした。skipされた`CQS-UAT-007`はRelationを持たないManual未観測である。Group B以降に属する26件はv0.22へ移管したが、既存Prototypeを実際に検証する10件のRelationは現実記録として保持し、新CapabilityのRelease Evidenceへは数えない。PT／LT実処理は人間の明示許可がないため実行していない。署名E2Eは独立レビュー後に実行済みであり、最終結果をRelease Evidenceへ固定した。
+今回の局所Closureでは、`AIT-ST-010`、`CQS-ST-013`、`RDL-ST-002`、`ERB-IT-012`、`CQS-ST-012`、`ERB-ST-015`、`RFD-IT-005`、`ERB-IT-008`、`ERB-UT-016`および`ERB-IT-017`を、それぞれの実境界と専用試験へ接続した。公式素材の判断完全性、Revision競合および収載Relationも、専用Packageの`OAG-IT-005`、`OAG-IT-006`、`OAG-IT-007`、`OAG-UT-008`へ接続した。一方、`RCM-ST-012`の固定観測配列は実Consumer実行を、`ERB-ST-011`の別Process record試験はDocker Engine／Host資源の独立観測を証明しないため、対象Relationを保持したまま完成Evidenceへの算入を外してHybrid未観測へ戻した。`RFD-ST-003`と`RFD-ST-010`もv0.22の実境界を証明しないPrototype Relationとして同じ扱いにした。skipされた`CQS-UAT-007`はRelationを持たないManual未観測である。Group B以降に属する26件はv0.22へ移管したが、既存Prototypeを実際に検証する10件のRelationは現実記録として保持し、新CapabilityのRelease Evidenceへは数えない。PT／LT実処理は人間の明示許可がないため実行していない。過去の固定候補では署名E2Eを実行済みだが、その結果を現候補のEvidenceへ算入しない。最終Source A／manifest carrier Bを固定した後、同じRuntime Identityで署名E2Eを再実行し、結果をRelease Evidenceへ固定する。
 
 ### 12.1 初回のSubsystem別Snapshot
 
@@ -321,7 +321,7 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 | Hybrid | 12 | 自動部分と人間判断・実境界部分を分離し、自動部分だけのPassを全体成立へ畳まない |
 | Manual | 10 | skipまたは自動Test SymbolをEvidenceにせず、参加条件、入力、判断、未判断範囲およびEvidenceを固定して実施する |
 
-Automated Gapを閉じ、Manual／Hybrid項目の実施条件と現在Releaseへの影響を固定した。skip EvidenceのChecker搬送、既存Hash Chain復元および版境界を是正した同一候補で再実行し、Coordinatorは2015件中2010 Pass・失敗0・明示Skip 5、Windows Process Gateは通常ユーザー境界で8／8 Pass、Checkerは363／363 Passとなった。Phase 8の独立再レビューでは各件のOwner、処置、再評価契機および現在Releaseへの影響を確認し、Blocking Finding 0でPassした。Reality Auditは未実装Capabilityや未実行の手動評価を自分で補完せず、対応するQuality Mappingから再評価する。
+Automated Gapを閉じ、Manual／Hybrid項目の実施条件と現在Releaseへの影響を固定した。skip EvidenceのChecker搬送、既存Hash Chain復元および版境界を是正した同一候補で再実行し、Coordinatorは2,037件中2,029 Pass・失敗0・明示Skip 8、Checkerは363／363 Passとなった。Windows Process Gateの現候補再実行は7／8 Passで、Codex Executor Sandboxの1件はDocker EngineのNamed Pipe不存在により未観測である。Engine利用可能後に同じ候補で8件すべてを再実行するまで、以前の固定候補に対する8／8 Passを現候補のEvidenceへ流用しない。Skip 8件のうち3件はSource Aで非該当、Manifest-only Commit Bで必須実行する昇格System試験であり、残り5件は明示実環境試験である。いずれも未実行をPassまたはEvidenceへ畳まない。Phase 8の独立再レビューでは各件のOwner、処置、再評価契機および現在Releaseへの影響を確認し、Blocking Finding 0でPassした。Reality Auditは未実装Capabilityや未実行の手動評価を自分で補完せず、対応するQuality Mappingから再評価する。
 
 ### 13.3 Hybrid項目の実施条件
 

@@ -273,6 +273,80 @@ export type DockerDesktopRepairLedgerSnapshot = Readonly<{
 }>;
 
 /**
+ * Docker Desktop修復の継続記録を発行できた検証済みSession／Releaseを表す。
+ *
+ * @responsibility 修復Operationの署名済み履歴から検証したSessionとReleaseの組を保持する。
+ * @trace ARCH-000008
+ * @shape localUserBindingHash、manifestHash、releaseSequence、runtimeExecutionIdentitySha256の完全な組を固定する。
+ * @invariant 一つのAuthorityは一つの検証済みSession／Releaseだけを表す。
+ * @boundary N/A: 検証済み履歴のProcess内Projectionであり、新しい外部境界を開かない。
+ * @security 未検証Manifestまたは履歴chain外のSessionを継続Authorityへ昇格しない。
+ * @compatibility 継続記録の利用側は完全な組の一致だけをAuthority根拠として使用する。
+ */
+export type DockerDesktopRepairContinuationAuthority = Readonly<{
+  localUserBindingHash: string;
+  manifestHash: string;
+  releaseSequence: number;
+  runtimeExecutionIdentitySha256: string;
+}>;
+
+/**
+ * Record Storeが署名済み履歴から再構成したOperationだけを保持する。
+ *
+ * @responsibility plain objectから偽造できないProcess-localな履歴検証済み境界を所有する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairOperation object identityの弱参照集合を保持する。
+ * @invariant readOperationが署名済み履歴全体を検証したOperationだけを登録する。
+ * @boundary N/A: Process内の非公開attestationであり、外部または耐久境界を開かない。
+ * @security tupleを手組みしたOperationを履歴検証済みAuthorityへ昇格しない。
+ * @compatibility Operationの公開JSON形状を変更せず、同一Process内のconsumerだけが検証結果を問い合わせる。
+ */
+const verifiedContinuationAuthorityOperations = new WeakSet<object>();
+
+/**
+ * Operationが検証したContinuation Authorityかを判定する。
+ *
+ * @responsibility Continuation発行元の完全なSession／Release tupleを、Record Storeが署名済み履歴から導出したOperationへ限定する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、authority: DockerDesktopRepairContinuationAuthority
+ * @returns Operationが履歴検証済みで、現在境界へ結合され、authorityがchain内にある場合だけtrueを返す。
+ * @precondition boundaryは現在Runtimeの検証済み境界、operationとauthorityはconsumerから渡された未信頼入力として扱う。
+ * @postcondition Process-local attestation、現在境界、四項目の完全一致をすべて確認する。
+ * @effect N/A: 検証済みobject identityと局所値だけを比較し、外部または共有Effectを発行しない。
+ * @failure 手組みOperation、chain外tuple、現在境界未結合または部分一致をfalseへ収束させる。
+ * @invariant 過去Releaseは旧Continuationの読取り根拠にだけ使い、現在の実行Authorityへ昇格しない。
+ * @boundary Record Storeの署名済み履歴検証結果とContinuation Storeの間のProcess内境界。
+ * @security plain fieldの構造一致だけでAuthorityを成立させない。
+ * @concurrency N/A: WeakSetと不変Operationの同期参照だけを行う。
+ */
+export function isDockerDesktopRepairContinuationAuthorityVerified(
+  boundary: DockerDesktopRepairRecordBoundary,
+  operation: DockerDesktopRepairOperation,
+  authority: DockerDesktopRepairContinuationAuthority,
+) {
+  const currentAuthority = operation.history?.continuationAuthorities?.at(-1);
+  return (
+    verifiedContinuationAuthorityOperations.has(operation) &&
+    operation.history?.currentSessionBound === true &&
+    operation.history.currentLocalUserBindingHash ===
+      boundary.localUserBindingHash &&
+    currentAuthority?.localUserBindingHash === boundary.localUserBindingHash &&
+    currentAuthority.manifestHash === boundary.crddManifestHash &&
+    currentAuthority.releaseSequence === boundary.crddReleaseSequence &&
+    currentAuthority.runtimeExecutionIdentitySha256 ===
+      boundary.runtimeExecutionIdentitySha256 &&
+    operation.history.continuationAuthorities?.some(
+      (candidate) =>
+        candidate.localUserBindingHash === authority.localUserBindingHash &&
+        candidate.manifestHash === authority.manifestHash &&
+        candidate.releaseSequence === authority.releaseSequence &&
+        candidate.runtimeExecutionIdentitySha256 ===
+          authority.runtimeExecutionIdentitySha256,
+    ) === true
+  );
+}
+
+/**
  * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Operationの値契約を定義する。
  *
  * @responsibility Docker Desktop Repair OperationのProperty、Identity、状態制約を型境界として所有する。
@@ -302,6 +376,7 @@ export type DockerDesktopRepairOperation = Readonly<{
     originLocalUserBindingHash?: string;
     currentLocalUserBindingHash?: string;
     currentSessionBound?: boolean;
+    continuationAuthorities?: readonly DockerDesktopRepairContinuationAuthority[];
     closed: boolean;
     liveRunIdentity: DockerDesktopRepairDirectoryIdentity | null;
     staleState: DockerDesktopRepairStaleState;
@@ -483,6 +558,37 @@ type HistoricalReleaseIdentity = Readonly<{
   crddTree: string;
   packageContentRootSha256: string;
 }>;
+
+/**
+ * 検証済みReleaseから継続Authorityを構築する。
+ *
+ * @responsibility 署名検証済みRelease IdentityとSession Bindingを一つの継続Authorityへ結合する。
+ * @trace ARCH-000008
+ * @input localUserBindingHash: string、release: HistoricalReleaseIdentity
+ * @returns DockerDesktopRepairContinuationAuthority、または必要なRuntime Identityがない場合はnullを返す。
+ * @precondition releaseは署名済み履歴検証を通過し、localUserBindingHashは対象Sessionを表す。
+ * @postcondition 完全なHashとRelease番号を持つAuthorityだけを返す。
+ * @effect N/A: 入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure Runtime Execution Identityを持たない旧Releaseはnullへ収束させる。
+ * @invariant Release IdentityまたはSession Bindingを推測・補完しない。
+ * @boundary N/A: Process内の検証済みIdentity変換で完結する。
+ * @security 未検証Releaseまたは不完全なIdentityをAuthorityへ昇格しない。
+ * @concurrency N/A: 共有非同期状態を持たない同期処理である。
+ */
+function continuationAuthorityForRelease(
+  localUserBindingHash: string,
+  release: HistoricalReleaseIdentity,
+): DockerDesktopRepairContinuationAuthority | null {
+  return hash64(localUserBindingHash) &&
+    hash64(release.runtimeExecutionIdentitySha256)
+    ? Object.freeze({
+        localUserBindingHash,
+        manifestHash: release.manifestHash,
+        releaseSequence: release.releaseSequence,
+        runtimeExecutionIdentitySha256: release.runtimeExecutionIdentitySha256,
+      })
+    : null;
+}
 
 /**
  * docker-desktop-repair-record-storeで使用するDocker Desktop Repair History Verifierの値契約を定義する。
@@ -2276,6 +2382,54 @@ function toOperation(
 }
 
 /**
+ * 継続Authority集合が有効か判定する。
+ *
+ * @responsibility 継続Authorityの完全な組、重複およびRelease順序の判定を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns valueが有効なDockerDesktopRepairContinuationAuthority配列かを返す。
+ * @precondition valueは外部または耐久記録から得た未検証値である。
+ * @postcondition 全Authorityの完全性、重複禁止およびRelease単調性を確認した場合だけtrueを返す。
+ * @effect N/A: 入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure 不正なProperty、Hash、Release順序または重複をfalseへ収束させる。
+ * @invariant 一部だけ一致するAuthorityを有効として返さない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security 未検証値を継続Authorityへ昇格しない。
+ * @concurrency N/A: 共有非同期状態を持たない同期処理である。
+ */
+function validContinuationAuthorities(
+  value: unknown,
+): value is readonly DockerDesktopRepairContinuationAuthority[] {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 10)
+    return false;
+  const identities = new Set<string>();
+  let previousReleaseSequence = -1;
+  for (const candidate of value) {
+    const authority = exactOwnDataValues(candidate, [
+      "localUserBindingHash",
+      "manifestHash",
+      "releaseSequence",
+      "runtimeExecutionIdentitySha256",
+    ]);
+    if (
+      !authority ||
+      !containsOnlyOwnDataDescriptors(candidate) ||
+      !hash64(authority.localUserBindingHash) ||
+      !hash64(authority.manifestHash) ||
+      !Number.isSafeInteger(authority.releaseSequence) ||
+      Number(authority.releaseSequence) < previousReleaseSequence ||
+      !hash64(authority.runtimeExecutionIdentitySha256)
+    )
+      return false;
+    const identity = `${authority.localUserBindingHash}:${authority.manifestHash}:${String(authority.releaseSequence)}:${authority.runtimeExecutionIdentitySha256}`;
+    if (identities.has(identity)) return false;
+    identities.add(identity);
+    previousReleaseSequence = Number(authority.releaseSequence);
+  }
+  return true;
+}
+
+/**
  * Canonical Repair History Session Fieldsが有効か判定する。
  *
  * @responsibility Canonical Repair History Session Fieldsの有効条件、拒否条件、判定結果境界を所有する。
@@ -2301,6 +2455,7 @@ function validCanonicalRepairHistorySessionFields(
   const originLocalUserBindingHash = history.originLocalUserBindingHash;
   const currentLocalUserBindingHash = history.currentLocalUserBindingHash;
   const currentSessionBound = history.currentSessionBound;
+  const continuationAuthorities = history.continuationAuthorities;
   return (
     hash64(adoptionSha256) &&
     hash64(handoffTipSha256) &&
@@ -2310,6 +2465,8 @@ function validCanonicalRepairHistorySessionFields(
     hash64(originLocalUserBindingHash) &&
     hash64(currentLocalUserBindingHash) &&
     typeof currentSessionBound === "boolean" &&
+    (continuationAuthorities === undefined ||
+      validContinuationAuthorities(continuationAuthorities)) &&
     currentSessionBound ===
       (currentLocalUserBindingHash === boundary.localUserBindingHash) &&
     (handoffCount === 0
@@ -2353,13 +2510,19 @@ function classifyCanonicalRepairHistory(
     "liveRunIdentity",
     "staleState",
   ] as const;
+  const extendedSessionKeys = [
+    ...sessionKeys,
+    "continuationAuthorities",
+  ] as const;
   const legacyClosedKeys = [
     "adoptionSha256",
     "closed",
     "liveRunIdentity",
     "staleState",
   ] as const;
-  const sessionFields = exactOwnDataValues(value, sessionKeys);
+  const sessionFields =
+    exactOwnDataValues(value, extendedSessionKeys) ??
+    exactOwnDataValues(value, sessionKeys);
   const legacyFields = sessionFields
     ? null
     : exactOwnDataValues(value, legacyClosedKeys);
@@ -3312,6 +3475,8 @@ function readOperation(
   const handoffNames = historyEntries.map((entry) => entry.name).sort();
   let handoffTipSha256 = adoptionSha256;
   let previousRelease = adopting;
+  const continuationAuthorities: DockerDesktopRepairContinuationAuthority[] =
+    [];
   const recordedOriginPolicySha256 = originalDockerPolicySha256(
     boundary.runtimeStateRoot,
     directoryName,
@@ -3325,6 +3490,25 @@ function readOperation(
     isAdoptionV2 || isAdoptionV3
       ? String(adoption.adoptingLocalUserBindingHash)
       : boundary.localUserBindingHash;
+  const originAuthority = continuationAuthorityForRelease(
+    isAdoptionV2 || isAdoptionV3
+      ? String(adoption.originLocalUserBindingHash)
+      : boundary.localUserBindingHash,
+    origin,
+  );
+  const adoptingAuthority = continuationAuthorityForRelease(
+    historySession,
+    adopting,
+  );
+  if (originAuthority) continuationAuthorities.push(originAuthority);
+  if (
+    adoptingAuthority &&
+    !continuationAuthorities.some(
+      (candidate) =>
+        JSON.stringify(candidate) === JSON.stringify(adoptingAuthority),
+    )
+  )
+    continuationAuthorities.push(adoptingAuthority);
   const visitedSessions = new Set<string>();
   if (isAdoptionV2 || isAdoptionV3) {
     if (
@@ -3392,6 +3576,12 @@ function readOperation(
       return null;
     previousRelease = handoffRelease;
     historySession = String(handoff.toLocalUserBindingHash);
+    const handoffAuthority = continuationAuthorityForRelease(
+      historySession,
+      handoffRelease,
+    );
+    if (!handoffAuthority) return null;
+    continuationAuthorities.push(handoffAuthority);
     visitedSessions.add(historySession);
     handoffTipSha256 = createHash("sha256").update(bytes).digest("hex");
   }
@@ -3496,7 +3686,7 @@ function readOperation(
   )
     return null;
   // Original stage and ledger are never rewritten or upgraded to confirmed.
-  return Object.freeze({
+  const validatedOperation: DockerDesktopRepairOperation = Object.freeze({
     ...operation,
     history: Object.freeze({
       adoptionSha256,
@@ -3506,11 +3696,16 @@ function readOperation(
         operation.originLocalUserBindingHash ?? boundary.localUserBindingHash,
       currentLocalUserBindingHash: historySession,
       currentSessionBound: isCurrentSessionBound,
+      ...(continuationAuthorities.length > 0
+        ? { continuationAuthorities: Object.freeze(continuationAuthorities) }
+        : {}),
       closed: closurePresent,
       liveRunIdentity,
       staleState,
     }),
   });
+  verifiedContinuationAuthorityOperations.add(validatedOperation);
+  return validatedOperation;
 }
 
 /**

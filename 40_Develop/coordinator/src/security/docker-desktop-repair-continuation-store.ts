@@ -7,11 +7,12 @@
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import type {
-  DockerDesktopRepairDirectoryIdentity,
-  DockerDesktopRepairEffectConfirmation,
-  DockerDesktopRepairOperation,
-  DockerDesktopRepairRecordBoundary,
+import {
+  type DockerDesktopRepairDirectoryIdentity,
+  type DockerDesktopRepairEffectConfirmation,
+  type DockerDesktopRepairOperation,
+  type DockerDesktopRepairRecordBoundary,
+  isDockerDesktopRepairContinuationAuthorityVerified,
 } from "./docker-desktop-repair-record-store.ts";
 
 export const DOCKER_DESKTOP_REPAIR_CONTINUATION_DIRECTORY =
@@ -334,6 +335,46 @@ function expectedNames(operationId: string) {
 }
 
 /**
+ * 継続記録のSession／Releaseが現在境界または検証済みHandoff chainに属するか判定する。
+ *
+ * @responsibility 継続記録の発行元を、現在Runtimeまたは修復Operationが検証した過去Session／Releaseへ限定する。
+ * @trace ARCH-000008
+ * @input value: StoredContinuation、boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation
+ * @returns 発行元の完全なSession／Release tupleが許可済みの場合だけtrueを返す。
+ * @precondition valueの構造、Hash形式およびOperation Identityは呼出し側で検証する。
+ * @postcondition 部分一致ではなく四項目の完全一致だけを受理する。
+ * @effect N/A: 入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure 現在境界にも検証済みHandoff chainにも属さない値をfalseへ収束させる。
+ * @invariant 過去Releaseは継続記録の検証根拠にだけ使い、現在の実行Authorityへ昇格しない。
+ * @boundary N/A: Process内の検証済みIdentity比較で完結する。
+ * @security 未検証Session、未署名Releaseまたは部分一致を継続Authorityとして受理しない。
+ * @concurrency N/A: 共有非同期状態を持たない同期処理である。
+ */
+function storedContinuationMatchesVerifiedAuthority(
+  value: StoredContinuation,
+  boundary: DockerDesktopRepairRecordBoundary,
+  operation: DockerDesktopRepairOperation,
+) {
+  const currentMatches =
+    value.localUserBindingHash === boundary.localUserBindingHash &&
+    value.crddManifestHash === boundary.crddManifestHash &&
+    value.crddReleaseSequence === boundary.crddReleaseSequence &&
+    value.runtimeExecutionIdentitySha256 ===
+      boundary.runtimeExecutionIdentitySha256;
+  if (!operation.history) return currentMatches;
+  return isDockerDesktopRepairContinuationAuthorityVerified(
+    boundary,
+    operation,
+    Object.freeze({
+      localUserBindingHash: value.localUserBindingHash,
+      manifestHash: value.crddManifestHash,
+      releaseSequence: value.crddReleaseSequence,
+      runtimeExecutionIdentitySha256: value.runtimeExecutionIdentitySha256,
+    }),
+  );
+}
+
+/**
  * Stored Continuationが有効か判定する。
  *
  * @responsibility Stored Continuationの有効条件、拒否条件、判定結果境界を所有する。
@@ -405,13 +446,13 @@ function validStoredContinuation(
     value.secretsEngineStaleName === names.secretsEngineStaleName &&
     value.runtimeStateIdentityHash === boundary.runtimeStateIdentityHash &&
     value.runtimeStateProtectionHash === boundary.runtimeStateProtectionHash &&
-    value.localUserBindingHash === boundary.localUserBindingHash &&
     value.runtimeStateBindingHash === boundary.runtimeStateBindingHash &&
     value.dockerPolicySha256 === boundary.dockerPolicySha256 &&
-    value.crddManifestHash === boundary.crddManifestHash &&
-    value.crddReleaseSequence === boundary.crddReleaseSequence &&
-    value.runtimeExecutionIdentitySha256 ===
-      boundary.runtimeExecutionIdentitySha256 &&
+    storedContinuationMatchesVerifiedAuthority(
+      value as StoredContinuation,
+      boundary,
+      operation,
+    ) &&
     validEffects(value.effects)
   );
 }
@@ -437,6 +478,45 @@ function effectEquals(
   right: DockerDesktopRepairContinuationEffect | null,
 ) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+/**
+ * Docker Desktop Repair Continuationが完全一致するか判定する。
+ *
+ * @responsibility 呼出し側が保持するContinuationと、Storeから検証済みで再読取りした最新Continuationの完全一致条件を所有する。
+ * @trace ARCH-000008
+ * @input left: DockerDesktopRepairContinuation、right: DockerDesktopRepairContinuation
+ * @returns 全PropertyとEffectが一致する場合だけtrueを返す。
+ * @precondition leftとrightはDockerDesktopRepairContinuationの型契約を満たす。
+ * @postcondition 比較対象を変更せず、完全一致の真偽だけを返す。
+ * @effect N/A: 入力と局所値だけを比較し、外部または共有Effectを発行しない。
+ * @failure N/A: 不一致はfalseとして返し、例外へ昇格しない。
+ * @invariant 一部Propertyだけの一致から同一Continuationと推定しない。
+ * @boundary Filesystemから再読取りした値とProcess内の呼出し値を接続する境界。
+ * @security 未検証の呼出し値を耐久記録の最新Tipへ昇格しない。
+ * @concurrency N/A: 共有非同期状態を持たない同期比較である。
+ */
+function continuationEquals(
+  left: DockerDesktopRepairContinuation,
+  right: DockerDesktopRepairContinuation,
+) {
+  return (
+    left.repairId === right.repairId &&
+    left.sequence === right.sequence &&
+    left.previousRecordSha256 === right.previousRecordSha256 &&
+    left.stage === right.stage &&
+    left.operationTipSha256 === right.operationTipSha256 &&
+    left.operationSequence === right.operationSequence &&
+    JSON.stringify(left.failedRunIdentity) ===
+      JSON.stringify(right.failedRunIdentity) &&
+    JSON.stringify(left.secretsEngineIdentity) ===
+      JSON.stringify(right.secretsEngineIdentity) &&
+    left.failedRunStaleName === right.failedRunStaleName &&
+    left.secretsEngineStaleName === right.secretsEngineStaleName &&
+    DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS.every((action) =>
+      effectEquals(left.effects[action], right.effects[action]),
+    )
+  );
 }
 
 /**
@@ -795,6 +875,28 @@ function persist(
   secretsEngineIdentity: DockerDesktopRepairDirectoryIdentity,
   effects: DockerDesktopRepairContinuation["effects"],
 ) {
+  if (
+    operation.history &&
+    !isDockerDesktopRepairContinuationAuthorityVerified(
+      boundary,
+      operation,
+      Object.freeze({
+        localUserBindingHash: boundary.localUserBindingHash,
+        manifestHash: boundary.crddManifestHash,
+        releaseSequence: boundary.crddReleaseSequence,
+        runtimeExecutionIdentitySha256: boundary.runtimeExecutionIdentitySha256,
+      }),
+    )
+  )
+    return null;
+  if (previous) {
+    const observedPrevious = readDockerDesktopRepairContinuation(
+      boundary,
+      operation,
+    );
+    if (!observedPrevious || !continuationEquals(previous, observedPrevious))
+      return null;
+  }
   const directory = continuationDirectory(operation);
   const sequence = (previous?.sequence ?? -1) + 1;
   const names = expectedNames(operation.operationId);

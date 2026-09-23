@@ -29,12 +29,34 @@ const manifestRelativePath = path.join(
   "coordinator",
   "coordinator-package-manifest.json",
 );
-const isReleaseManifestPresent = fs.existsSync(
-  path.join(repositoryRoot, manifestRelativePath),
-);
-const manifestCarrierOnlySkipReason = isReleaseManifestPresent
-  ? false
-  : "Source AではRelease manifestを保持せず、Manifest-only Commit Bで実行する。";
+const MANIFEST_CARRIER_ONLY_SKIP_MESSAGE =
+  "Source AではRelease manifestを保持せず、Manifest-only Commit Bで実行する。";
+
+/**
+ * Release manifestの明示的な不存在だけをSource Aの非適用として判定する。
+ *
+ * @responsibility 観測不能を不存在へ畳まず、Manifest carrier Bの昇格System試験をfail closedに保つ。
+ * @trace AIT-ST-010
+ * @precondition observerは対象Pathのlstat結果を返し、明示不存在だけをundefinedで表す。
+ * @stimulus Release manifestの固定Pathを観測する。
+ * @observation 明示不存在ではskip理由、entry観測時はfalseを返し、観測例外は呼出し元へ伝播する。
+ * @oracle ENOENT相当だけがSource Aの非適用となり、権限不足、I/O異常、link、directoryおよび不正fileはskipにならない。
+ * @cleanup N/A: 読取り観測だけを行い、資源または状態を生成しない。
+ * @boundary AIT-ST-010=System/E2E: Source A不存在判定→Manifest carrier B実行Gate
+ */
+function resolveManifestCarrierOnlySkipReason(
+  manifestPath: string,
+  observer: (candidate: string) => fs.Stats | undefined = (candidate) =>
+    fs.lstatSync(candidate, { throwIfNoEntry: false }),
+): string | false {
+  return observer(manifestPath) === undefined
+    ? MANIFEST_CARRIER_ONLY_SKIP_MESSAGE
+    : false;
+}
+
+const manifestPath = path.join(repositoryRoot, manifestRelativePath);
+const manifestCarrierOnlySkipReason =
+  resolveManifestCarrierOnlySkipReason(manifestPath);
 
 type PromotionFixture = Readonly<{
   parent: string;
@@ -46,6 +68,41 @@ type PromotionFixture = Readonly<{
   manifestBytes: Buffer;
   manifestSha256: string;
 }>;
+
+/**
+ * Source A/Bの適用判定が明示不存在と観測不能を区別することを検証する。
+ *
+ * @responsibility Manifest carrier Bで必要なSystem試験が観測失敗によってskipされないことを保証する。
+ * @trace AIT-ST-010
+ * @precondition 判定関数へ不存在、regular entryおよび観測例外を返す固定observerを渡せる。
+ * @stimulus 3種類の観測結果で適用判定を実行する。
+ * @observation 不存在のskip理由、entry存在時の実行判定および例外伝播を観測する。
+ * @oracle 明示不存在だけがskipとなり、entry存在時は実行し、観測不能はsuite failureになる。
+ * @cleanup N/A: 固定observerだけを使い、Filesystem Effectを発行しない。
+ * @boundary AIT-ST-010=System/E2E: Manifest観測→A/B適用判定
+ */
+test("Manifestの明示不存在だけをSource Aの非適用として扱う", () => {
+  assert.equal(
+    resolveManifestCarrierOnlySkipReason("manifest", () => undefined),
+    MANIFEST_CARRIER_ONLY_SKIP_MESSAGE,
+  );
+  assert.equal(
+    resolveManifestCarrierOnlySkipReason(
+      "manifest",
+      () => Object.freeze({}) as fs.Stats,
+    ),
+    false,
+  );
+  assert.throws(
+    () =>
+      resolveManifestCarrierOnlySkipReason("manifest", () => {
+        throw Object.assign(new Error("manifest observation denied"), {
+          code: "EACCES",
+        });
+      }),
+    /manifest observation denied/u,
+  );
+});
 
 /**
  * 現行の署名済みManifestが指す固定Commitを一時Repositoryと候補へ再構成する。

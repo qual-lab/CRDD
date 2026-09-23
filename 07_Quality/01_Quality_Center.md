@@ -2,7 +2,7 @@
 
 状態: Quality Design Ready — Reality Audit Pending（Released Baseline: v0.20.1）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-22
+最終更新日: 2026-09-23
 
 ## 設計集合
 
@@ -22,7 +22,7 @@ Quality設計は13定義、156 Local Itemまで拡張した。Test Symbol Relati
 | Quality Analysis | 6工程の全入力を、Source固有条件付きで13検証目標へ接続し独立レビュー済み | Reality Auditではこの設計集合を変更せず、現行実装との対応を照合する |
 | Quality Definitions | 13定義、156 Local ItemをCanonical化済み | Test Relation 122件、完成Evidence算入118件、非完成Relation 4件、Relationなし34件。品質判定上は118件観測済み、38件未観測。v0.21対象130件は108件観測済み、Hybrid／Manual 22件未観測。v0.22移管26件はPrototype Relation 10件と未観測16件を区別し、完成済みへ読み替えない |
 | Architecture詳細設計 | 18領域を適用判定済み | 実装OwnerのないCapability、現実との不一致およびTest未接続をReality Auditで処置する |
-| Checker | Repository検査と全契約試験がPass | 1,702 file、962 Markdown、16,292 link、1,965 anchorをError 0／Warning 0で検査し、Checker契約試験363／363 Passを確認した |
+| Checker | Repository検査と全契約試験がPass | 1,702 file、962 Markdown、16,294 link、1,965 anchorをError 0／Warning 0で検査し、Checker契約試験363／363 Passを確認した |
 | Reality Audit | In Review — Hybrid／Manual Evidence Pending | Checkerのskip Evidence誤算入と実境界未観測を是正し、v0.21に残るHybrid 12件とManual 10件を独立レビューと署名E2Eで処置する。v0.22移管26件は同版で再開する |
 
 ## 現在の品質投影
@@ -31,7 +31,7 @@ Quality設計は13定義、156 Local Itemまで拡張した。Test Symbol Relati
 |---|---|---|
 | Designed | Canonical | 実装済みまたは試験可能とは主張しない |
 | Implemented | 部分照合 | 未実装CapabilityをRelation追加だけで成立へ変えない |
-| Executed | 独立レビュー是正後候補の自動回帰実行済み | Coordinatorは2015件中2010 Pass・失敗0・明示Skip 5、Checkerは363／363 Pass。自動回帰結果をv0.21未観測22 Local Itemの人間判断または実境界Evidenceへ数えない |
+| Executed | 独立レビュー是正後候補の自動回帰実行済み | Coordinatorは2,037件中2,029 Pass・失敗0・明示Skip 8、Checkerは363／363 Pass。Skip 8件のうち3件はRelease manifestを保持しないSource Aでは非該当であり、Manifest-only Commit Bで必須実行する。残り5件は明示した実環境試験である。いずれの未実行もPassまたはEvidenceへ数えず、自動回帰結果をv0.21未観測22 Local Itemの人間判断または実境界Evidenceへ数えない |
 | Passed | 最終候補は未評価 | 新しいSource AとRuntime Identityに対する最終署名Recovery Matrixおよび4経路E2Eは未実施である。過去候補の結果を新候補へ流用しない |
 | Evidence | 最終候補Evidence未収集 | 新しいSource A、manifest carrier BおよびRuntime Identityを固定した後に、対象改訂版、固定結果、件数および根拠HashをRelease Evidenceへ保存する |
 | Reality Audit | In Review — 最終署名・残存Evidence待ち | Relationの存在や過去候補の署名E2E成功から、新候補または全Local ItemのImplemented／Passedを推定しない |
