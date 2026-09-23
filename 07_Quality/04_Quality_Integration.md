@@ -15,7 +15,7 @@ Canonical設計集合と個別Releaseの検証対象を分ける。Local Itemを
 | 対象 | Local Item数 | Release上の処置 |
 |---|---:|---|
 | Canonical設計集合 | 156 | 全件を保持する |
-| v0.21 Group A | 130 | v0.21のQuality Gateで評価する。106件観測済み、24件未観測 |
+| v0.21 Group A | 130 | v0.21のQuality Gateで評価する。108件観測済み、22件未観測 |
 | v0.22 Group B以降 | 26 | v0.21のGateから分離する。Prototype Relation 10件、未観測16件を区別し、v0.22で実装・実境界・人間受入を再評価する |
 
 v0.22へ移管する26件のうち、`RFD-IT-009`、`RFD-IT-011`、`RCM-IT-010`、`RFD-ST-004`、`ERB-ST-013`、`EST-IT-010`、`EST-ST-011`、`PPR-IT-002`、`CPR-IT-004`、`CPR-IT-006`は既存PrototypeとのRelationを持つ。未観測16件は、`AIT-UAT-006`、`CPR-ST-005`、`CPR-UAT-002`、`CPR-UAT-003`、`CPR-UAT-007`、`ERB-IT-010`、`EST-UAT-007`、`EST-UAT-008`、`EST-UAT-009`、`PPR-ST-005`、`PPR-UAT-007`、`PPR-UAT-015`、`PRL-UAT-010`、`RFD-ST-003`、`RFD-ST-010`、`RFD-UAT-007`である。既存Relationは現実の非後退確認として保持するが、[v0.22 Roadmap](../99_Roadmap/01_Roadmap.md#12-v0220--project運営信頼複数repository)が要求する永続化、実境界および利用者受入の完成根拠には使用しない。

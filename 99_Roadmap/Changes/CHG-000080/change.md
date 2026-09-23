@@ -15,7 +15,7 @@
 | Phase／Gate適用判断 | `Applicable`: Architecture、実装、Quality、MigrationおよびReality Auditを一括変更せず、局所Gateで成立確認する必要がある |
 | 現在Phase | `Phase 9 — Signed E2E／Release Gate`: Canonical設計集合156件のうちv0.21対象130件とv0.22移管26件を分け、Automated Gapを閉じた。最終署名IdentityのRecovery Matrixと4経路E2Eを完了し、未実施のHybrid／Manual義務をPassへ畳まずRelease Evidenceへ現在判定を固定した。移管26件は既存Prototype Relation 10件と未観測16件を区別し、新Capabilityの完成へ読み替えない |
 | 現在Gate | `Passed: Gate 0〜9 implementation and signed verification`。Commit Cの機械確認・独立監査、main統合後のexact Identity確認、および人間の最終Release判断はRelease運用の後続Gateとして残る |
-| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 156件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 224件の責務別Local Item接続、Optionality Audit全数処置。既存範囲の独立再レビューはBlocking Finding 0、Coordinatorは2015件中2010 Pass・失敗0・5 Explicit Skip、Windows Process Gateは8／8 Pass、Checker全回帰は363／363 Pass。Claude再認証の局所単体試験12件と別Process回復結合試験2件もPassした。最終署名RuntimeではRecovery Matrix 7シナリオと4経路E2E 4／4を完了し、cleanup、正本非変更および回復義務なしを確認した |
+| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 156件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 225件の責務別Local Item接続、Optionality Audit全数処置。既存範囲の独立再レビューはBlocking Finding 0、Coordinatorは2015件中2010 Pass・失敗0・5 Explicit Skip、Windows Process Gateは8／8 Pass、Checker全回帰は363／363 Pass。Claude再認証の局所単体試験12件と別Process回復結合試験2件もPassした。最終署名RuntimeではRecovery Matrix 7シナリオと4経路E2E 4／4を完了し、cleanup、正本非変更および回復義務なしを確認した |
 | 未成立 | Commit Cの閉集合・manifest不変・Checker確認、独立監査、main統合後のexact Identity確認および人間による最終Release判断。Hybrid 12件とManual 10件は自動的にPassへ畳まず、Ownerと再評価契機を維持する。v0.22移管26件は同版の実装・実境界・人間受入で再開する |
 | 次のGate | Commit Cを機械確認と独立監査へ渡し、manifestとRuntime Identityの不変、B→Cのexact allowlist、Release状態閉包およびEvidence接続を確認する。feature branchからmainへ統合した後、exact Identityを再確認して人間の最終Release判断へ渡す |
 
@@ -594,7 +594,7 @@ ARCH-ID ──→ Quality Local Item ──→ Test Case／Helper／Fixture
 | 対象 | 正方向Relation | 現在状態 |
 |---|---|---|
 | Production Named Symbol | Summary、`@responsibility`、実在`ARCH-*`への`@trace` | Checkerの構造Gateと負例を実装し、現行Production母集団の構造・実在Trace検査をPassした。意味妥当性も独立再レビューで確認し、Blocking Finding 0でPassした |
-| Test File／Case／Helper／Fixture | 実在Quality Local Itemへの`@trace` | Test Catalog 224件を全15 Manifest Ownerへ接続した。FileはCase／Helper Relationの和集合、Caseは対応する1件、Helperは支援する1件以上を保持し、Local Item実在、Owner、試験段階および`verifies`をCheckerで照合する |
+| Test File／Case／Helper／Fixture | 実在Quality Local Itemへの`@trace` | Test Catalog 225件を全15 Manifest Ownerへ接続した。FileはCase／Helper Relationの和集合、Caseは対応する1件、Helperは支援する1件以上を保持し、Local Item実在、Owner、試験段階および`verifies`をCheckerで照合する |
 | Architecture Details | 7つのImplementation Structure観点 | 18領域とTemplateへ反映済み |
 | Quality Local Item | Architecture Meaning、試験段階、観測境界 | 156件へ細分化し、Required／Defined、試験段階および外部境界段階の差分0を確認済み |
 
@@ -610,7 +610,7 @@ Production母集団へGateを適用した初回観測では、`artifact-signing`
 - [x] Canonical Model ItemとImplementation StructureのTemplate差分を確定し、18領域へ適用した。
 - [x] UAT／IT導出Pilotを完了し、上流意味とArchitectureから決定論的に導出できることを確認した。
 - [x] Required ObligationとLocal Itemの集合差Gateを実装し、試験段階と外部境界段階の不足を検出可能にした。
-- [x] Test Catalog 224件と検出したTest Case全件を責務別Quality Local Itemへ接続し、File Relation和集合、Local Item実在および試験段階一致を機械確認した。
+- [x] Test Catalog 225件と検出したTest Case全件を責務別Quality Local Itemへ接続し、File Relation和集合、Local Item実在および試験段階一致を機械確認した。
 - [x] 独立レビュー是正後の同一候補でCoordinator／Checker全回帰を再実行した。Coordinatorは2015件中2010 Pass・失敗0・明示Skip 5、Checkerは363／363 Passである。
 - [x] Production Header、Relation、Reality Auditおよび実装境界の独立再レビューを完了し、Blocking Finding 0を確認した。
 - [ ] OPEN: 署名E2Eと、人間受入を必要とするEvidence義務を完了する。理由: Phase 2／4／7／8はPassし、Phase 9だけが署名E2EとRelease判断待ちである。

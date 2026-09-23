@@ -143,7 +143,7 @@ v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、�
 | Test Source Contract | 16／16 Pass | 197 File、2,125 Case、Helper、Manifest Relation和集合、Local Item実在および試験段階一致を確認 |
 | Symbol Graph Contract | 11／11 Pass | Test Relation、未知Symbol、未知Local Item、Catalog owner／pathをFail Closedで確認 |
 | Semantic Coverage Pilot | 17意味を全数生成。実装観測16、自動Test観測15、手動確認待ち1 | Runtime Trustの実装・Test不足と手動UAT待ちを空Relationのまま保持し、旧Relationや近似Testで補完していない |
-| Repository Checker | 1,694 files、962 Markdown、16,273 links、1,965 anchors、0 error、0 warning | 現行構造、版移管およびRelation更新後のRepository検査は成立 |
+| Repository Checker | 1,705 files、963 Markdown、16,281 links、1,964 anchors、0 error、0 warning | 現行構造、版移管およびRelation更新後のRepository検査は成立 |
 
 Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Process終了を猶予内に観測できなかった。同じ2条件を通常ユーザー境界で再実行すると2／2 Passしたため、製品回帰ではなく実行環境の不一致として分類する。Process／OS境界の成立は、必要な権限を持つ本番同等境界で確認し、Sandbox内の失敗も消さずに実行条件とともに残す。
 
@@ -181,7 +181,7 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 | 実装を持つ12領域のformat／type／lintまたはRust build | 全てPass | 静的成立を確認 |
 | 12 TypeScript library／runtime package | 358 Pass、1 Explicit Skip | artifact-signing、domain library、CROS、execution intelligence、MCP、official asset governance、project operation、project runtime、runtime data、semantic coverage、verification runner、version control。Skip 1件は人間入力を要するUAT計画 |
 | Platform Access | 29 Pass、8 Explicit Ignore | 8件はinstalled Docker等の明示実環境観測であり、未実行をPassへ畳まない |
-| Checker Repository検査 | 1,694 files、962 Markdown、16,273 links、1,965 anchors、0 error、0 warning | 現行Repository構造、版移管およびRelation更新後の構造は成立 |
+| Checker Repository検査 | 1,705 files、963 Markdown、16,281 links、1,964 anchors、0 error、0 warning | 現行Repository構造、版移管およびRelation更新後の構造は成立 |
 | Checker全試験 | 363／363 Pass | Current Profile、工程契約、Source／Test Header、Symbol GraphおよびReality Relationを同じ候補で確認した |
 | Coordinator静的確認 | Format／Type／Lint／3 Traceability GateすべてPass | Runtime Capability Graph、Coordinator Runtime Traceability、Project Runtime Design Traceabilityを確認した |
 | Coordinator Windows Process Gate | 通常ユーザー境界8／8 Pass | Windows Process、Sandbox、取消、出力上限およびDocker cleanup模擬を実境界で確認した |
@@ -236,7 +236,7 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 
 ## 12. Relation是正結果
 
-現在のCanonical設計集合は、13件のQuality Definitionが所有する156個の一意なLocal Itemである。Test Sourceの`symbol.json`が所有する正方向Relationは122件に存在する。このうち116件を完成Evidenceへ算入し、6件はRelationを対象指示として保持したまま非完成・非Evidenceと判定する。Relationなし34件と非Evidence Relation 6件を合わせ、品質判定上の未観測は40件である。Test Symbol Relationは「その試験がLocal Itemを対象にする」ことを表すだけで、単独では観測済みEvidenceを意味しない。v0.21のRelease対象はGroup Aの130件で、106件が観測済み、24件が未観測（Automated 2件、Hybrid 12件、Manual 10件）である。v0.22へ移管した26件は、既存Prototype Relation 10件と未観測16件を区別し、いずれも新CapabilityのPass、実装済みまたはRelease可能へ変更しない。
+現在のCanonical設計集合は、13件のQuality Definitionが所有する156個の一意なLocal Itemである。Test Sourceの`symbol.json`が所有する正方向Relationは122件に存在する。このうち118件を完成Evidenceへ算入し、4件はRelationを対象指示として保持したまま非完成・非Evidenceと判定する。Relationなし34件と非Evidence Relation 4件を合わせ、品質判定上の未観測は38件である。Test Symbol Relationは「その試験がLocal Itemを対象にする」ことを表すだけで、単独では観測済みEvidenceを意味しない。v0.21のRelease対象はGroup Aの130件で、108件が観測済み、22件が未観測（Hybrid 12件、Manual 10件）である。v0.22へ移管した26件は、既存Prototype Relation 10件と未観測16件を区別し、いずれも新CapabilityのPass、実装済みまたはRelease可能へ変更しない。
 
 | 非完成・非Evidence Relation | Relationを保持する理由 | Evidenceへ算入しない理由 |
 |---|---|---|
@@ -251,7 +251,7 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 | AUH | 4 | Hybrid 3、Manual 1 |
 | CPR | 4 | Hybrid 3、Manual 1 |
 | CQS | 3 | Hybrid 1、Manual 2 |
-| ERB | 6 | Automated 3、Hybrid 2、Manual 1 |
+| ERB | 4 | Automated 1、Hybrid 2、Manual 1 |
 | ERP | 1 | Manual 1 |
 | EST | 4 | Manual 4 |
 | OAG | 4 | Hybrid 4 |
@@ -261,9 +261,9 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 | RDL | 1 | Manual 1 |
 | RFD | 3 | Automated 2、Manual 1 |
 
-この40件は「新しい自動Testが40本必要」という意味ではない。v0.22移管範囲の未観測16件はAutomated 3件、Hybrid 4件、Manual 9件であり、v0.21範囲の未観測24件はAutomated 2件、Hybrid 12件、Manual 10件である。Hybridは自動観測と独立した人間・実境界評価の両方、Manualは参加者の判断Evidenceを必要とする。自動部分だけを全体成立へ畳まず、名前や同じQuality領域だけを根拠にTest Symbolへ接続しない。
+この38件は「新しい自動Testが38本必要」という意味ではない。v0.22移管範囲の未観測16件はAutomated 3件、Hybrid 4件、Manual 9件であり、v0.21範囲の未観測22件はHybrid 12件、Manual 10件である。Hybridは自動観測と独立した人間・実境界評価の両方、Manualは参加者の判断Evidenceを必要とする。自動部分だけを全体成立へ畳まず、名前や同じQuality領域だけを根拠にTest Symbolへ接続しない。
 
-今回の局所Closureでは、`AIT-ST-010`、`CQS-ST-013`、`RDL-ST-002`、`ERB-IT-012`、`CQS-ST-012`、`ERB-ST-015`、`RFD-IT-005`および`ERB-IT-008`を、それぞれの実境界と専用試験へ接続した。公式素材の判断完全性、Revision競合および収載Relationも、専用Packageの`OAG-IT-005`、`OAG-IT-006`、`OAG-IT-007`、`OAG-UT-008`へ接続した。一方、`RCM-ST-012`の固定観測配列は実Consumer実行を、`ERB-ST-011`の別Process record試験はDocker Engine／Host資源の独立観測を証明しないため、対象Relationを保持したまま完成Evidenceへの算入を外してHybrid未観測へ戻した。`RFD-ST-003`と`RFD-ST-010`もv0.22の実境界を証明しないPrototype Relationとして同じ扱いにした。skipされた`CQS-UAT-007`はRelationを持たないManual未観測である。Group B以降に属する26件はv0.22へ移管したが、既存Prototypeを実際に検証する10件のRelationは現実記録として保持し、新CapabilityのRelease Evidenceへは数えない。PT／LT実処理は人間の明示許可がないため実行せず、署名E2Eは独立レビュー後に実行する。
+今回の局所Closureでは、`AIT-ST-010`、`CQS-ST-013`、`RDL-ST-002`、`ERB-IT-012`、`CQS-ST-012`、`ERB-ST-015`、`RFD-IT-005`、`ERB-IT-008`、`ERB-UT-016`および`ERB-IT-017`を、それぞれの実境界と専用試験へ接続した。公式素材の判断完全性、Revision競合および収載Relationも、専用Packageの`OAG-IT-005`、`OAG-IT-006`、`OAG-IT-007`、`OAG-UT-008`へ接続した。一方、`RCM-ST-012`の固定観測配列は実Consumer実行を、`ERB-ST-011`の別Process record試験はDocker Engine／Host資源の独立観測を証明しないため、対象Relationを保持したまま完成Evidenceへの算入を外してHybrid未観測へ戻した。`RFD-ST-003`と`RFD-ST-010`もv0.22の実境界を証明しないPrototype Relationとして同じ扱いにした。skipされた`CQS-UAT-007`はRelationを持たないManual未観測である。Group B以降に属する26件はv0.22へ移管したが、既存Prototypeを実際に検証する10件のRelationは現実記録として保持し、新CapabilityのRelease Evidenceへは数えない。PT／LT実処理は人間の明示許可がないため実行していない。署名E2Eは独立レビュー後に実行済みであり、最終結果をRelease Evidenceへ固定した。
 
 ### 12.1 初回のSubsystem別Snapshot
 

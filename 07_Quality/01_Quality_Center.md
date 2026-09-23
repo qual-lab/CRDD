@@ -14,15 +14,15 @@
 
 ## 結論
 
-Quality設計は13定義、156 Local Itemまで拡張した。Test Symbol Relationは122件に存在するが、完成Evidenceへ算入できるのは116件である。残る6件は対象Relationを保持したまま非完成・非Evidenceと判定し、Relationなし34件と合わせて品質判定上の未観測40件とする。このうちv0.21.0のRelease対象はGroup Aに属する130件で、106件が観測済み、22件が未観測（Hybrid 12件、Manual 10件）であり、機械化可能な既知Gapは0件である。Project Operation、Workbench、CROS、複数Repositoryおよび利用者所有Trustに属する26件はv0.22.0へ移管した。移管範囲には既存PrototypeとのRelationが10件あるが、新Capabilityの完成Evidenceへ読み替えず、未観測16件と合わせてv0.22で実装・実境界・人間受入を再評価する。
+Quality設計は13定義、156 Local Itemまで拡張した。Test Symbol Relationは122件に存在し、完成Evidenceへ算入できるのは118件である。残る4件は対象Relationを保持したまま非完成・非Evidenceと判定し、Relationなし34件と合わせて品質判定上の未観測38件とする。このうちv0.21.0のRelease対象はGroup Aに属する130件で、108件が観測済み、22件が未観測（Hybrid 12件、Manual 10件）であり、機械化可能な既知Gapは0件である。Project Operation、Workbench、CROS、複数Repositoryおよび利用者所有Trustに属する26件はv0.22.0へ移管した。移管範囲には既存PrototypeとのRelationが10件あるが、新Capabilityの完成Evidenceへ読み替えず、未観測16件と合わせてv0.22で実装・実境界・人間受入を再評価する。
 
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|
 | Canonical入力 | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18を全件Mapping済み | [Quality Integration](04_Quality_Integration.md) |
 | Quality Analysis | 6工程の全入力を、Source固有条件付きで13検証目標へ接続し独立レビュー済み | Reality Auditではこの設計集合を変更せず、現行実装との対応を照合する |
-| Quality Definitions | 13定義、156 Local ItemをCanonical化済み | Test Relation 122件、完成Evidence算入116件、非完成Relation 6件、Relationなし34件。品質判定上は116件観測済み、40件未観測。v0.21対象130件は106件観測済み、Hybrid／Manual 22件未観測。v0.22移管26件はPrototype Relation 10件と未観測16件を区別し、完成済みへ読み替えない |
+| Quality Definitions | 13定義、156 Local ItemをCanonical化済み | Test Relation 122件、完成Evidence算入118件、非完成Relation 4件、Relationなし34件。品質判定上は118件観測済み、38件未観測。v0.21対象130件は108件観測済み、Hybrid／Manual 22件未観測。v0.22移管26件はPrototype Relation 10件と未観測16件を区別し、完成済みへ読み替えない |
 | Architecture詳細設計 | 18領域を適用判定済み | 実装OwnerのないCapability、現実との不一致およびTest未接続をReality Auditで処置する |
-| Checker | Repository検査と全契約試験がPass | 1,694 file、962 Markdown、16,273 link、1,965 anchorをError 0／Warning 0で検査し、Checker契約試験363／363 Passを確認した |
+| Checker | Repository検査と全契約試験がPass | 1,705 file、963 Markdown、16,281 link、1,964 anchorをError 0／Warning 0で検査し、Checker契約試験363／363 Passを確認した |
 | Reality Audit | Release Candidate C — Hybrid／Manual未観測を明示 | Checkerのskip Evidence誤算入と実境界未観測を是正した。最終署名E2Eを同じRuntime Identityで完了したが、v0.21に残るHybrid 12件とManual 10件を自動的にPassへ変更しない。v0.22移管26件は同版で再開する |
 
 ## 現在の品質投影
@@ -32,11 +32,11 @@ Quality設計は13定義、156 Local Itemまで拡張した。Test Symbol Relati
 | Designed | Canonical | 実装済みまたは試験可能とは主張しない |
 | Implemented | 部分照合 | 未実装CapabilityをRelation追加だけで成立へ変えない |
 | Executed | 独立レビュー是正後候補の自動回帰実行済み | Coordinatorは2015件中2010 Pass・失敗0・明示Skip 5、Checkerは363／363 Pass。自動回帰結果をv0.21未観測22 Local Itemの人間判断または実境界Evidenceへ数えない |
-| Passed | 未評価 | 過去版のPassをv0.21.0候補へ流用しない |
-| Evidence | 未収集 | 現在候補の対象改訂版・実行条件・結果を持つEvidenceがあるとは主張しない |
-| Reality Audit | In Review | Relationの存在だけからImplemented／Passedを推定しない |
+| Passed | 限定範囲で確認済み | 最終署名Recovery Matrix 7シナリオと4経路4／4はPass。Hybrid 12件、Manual 10件および開いているLocal Itemを全体Passへ畠み込まない |
+| Evidence | 最終署名Evidence収集済み（限定範囲） | 対象改訂版、Runtime Identity、固定結果、件数および根拠HashをRelease Evidenceへ固定した。未実施のHybrid／Manual義務を証明するEvidenceではない |
+| Reality Audit | 最終署名結果反映済み — 残存Evidence待ち | Relationの存在と署名E2E成功だけから全Local ItemのImplemented／Passedを推定しない |
 
-Coordinator／Project Runtimeの17意味Pilotに加えて全Subsystemへ照合範囲を広げた。skip、fixture自己再現および外部実境界の自己申告を観測済みから除外し、v0.21対象では106件観測済み、22件未観測である。Quality Readyへ昇格せず、PT／LTは人間の明示許可がないため実行しない。
+Coordinator／Project Runtimeの17意味Pilotに加えて全Subsystemへ照合範囲を広げた。skip、fixture自己再現および外部実境界の自己申告を観測済みから除外し、v0.21対象では108件観測済み、22件未観測である。Quality Readyへ昇格せず、PT／LTは人間の明示許可がないため実行しない。
 
 ## 公開済みBaselineと参照
 

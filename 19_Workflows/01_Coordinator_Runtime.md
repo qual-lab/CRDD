@@ -256,7 +256,7 @@ exact Path一覧は変更許可の上限であり、状態利用側の完全な�
 | 現行Markdown入口 | 同じVersionの`Candidate`表示なし |
 | README | 正本と同じVersion、Candidate／Released Baseline表示なし |
 | CHANGELOG | 英日両区分に同じVersionと同じ公開日の日付付き見出しがある |
-| 対象CHG | `Released`、対象tagおよび公開日へ接続する |
+| 対象CHG | Commit Cの監査時は`Ready for Release Handoff`。main統合・最終Release判断・tag付与後の公開状態投影でだけ`Released`、対象tagおよび公開日へ接続する |
 | Quality Center | Release Gate完了と未評価範囲を区別する |
 | Roadmap | 公開済み項目を未完了作業として残さない |
 
