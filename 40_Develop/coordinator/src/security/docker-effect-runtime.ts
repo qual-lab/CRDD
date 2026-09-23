@@ -400,13 +400,13 @@ function expectedCommands(
     "--env",
     "TMPDIR=/tmp",
     "--env",
-    `HTTPS_PROXY=http://crdd:${proxyToken}@proxy:8080`,
+    `HTTPS_PROXY=http://crdd:${proxyToken}@proxy:${egress.containerPort}`,
     ...(plan.provider === "codex"
       ? [
           "--env",
-          `HTTP_PROXY=http://crdd:${proxyToken}@proxy:8080`,
+          `HTTP_PROXY=http://crdd:${proxyToken}@proxy:${egress.containerPort}`,
           "--env",
-          `ALL_PROXY=http://crdd:${proxyToken}@proxy:8080`,
+          `ALL_PROXY=http://crdd:${proxyToken}@proxy:${egress.containerPort}`,
           "--env",
           "NO_PROXY=",
         ]

@@ -458,6 +458,7 @@ test("IANA snapshot metadataと検証済みTopologyをRuntime未接続として�
   assert.equal(registry.ipv6NoAllocatedGlobalUnicastMatchDecision, "deny");
   assert.equal(registry.matchedUnknownValueDecision, "deny");
   const topology = describeEgressProxyTopology();
+  assert.equal(topology.containerPort, 8080);
   assert.equal(topology.providerNetworkInternal, true);
   assert.equal(topology.providerDirectExternalNetwork, false);
   assert.equal(topology.dockerSocketMounted, false);

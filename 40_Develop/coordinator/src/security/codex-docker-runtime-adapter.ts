@@ -38,7 +38,6 @@ const PREPARED_LIFETIME_MS = 30_000;
 const PROVIDER_HOME_DESTINATION = "/provider-home";
 const TMP_DESTINATION = "/tmp";
 const WORKSPACE_DESTINATION = "/work";
-const PROXY_PORT = 8080;
 const MAXIMUM_IDENTIFIER_LENGTH = 63;
 const FORBIDDEN_ENVIRONMENT_NAMES = new Set([
   "OPENAI_API_KEY",
@@ -626,7 +625,7 @@ function buildPlan(
   const ownershipLabel = `crdd.coordinator.runtime=${suffix}`;
   const providerImageDigest = codex.distributionBinding.fixedImageDigest;
   const proxyImageDigest = egress.verificationAdapter.imageDigest;
-  const proxyUrl = `http://crdd:${proxyToken}@proxy:${PROXY_PORT}`;
+  const proxyUrl = `http://crdd:${proxyToken}@proxy:${egress.containerPort}`;
   const providerEnvironmentEntries = [
     "--env",
     `HOME=${PROVIDER_HOME_DESTINATION}`,

@@ -10,13 +10,13 @@
 
 | 項目 | 現在値 |
 |---|---|
-| 現在の変更状態 | Docker Setup 8段階の固定診断により、選択UserのCRDD専用Claude Provider HomeにあるSubscription OAuthの失効を確認した。通常Taskから分離したHuman-only再認証Lifecycleを実装し、Command世代Barrierを本番関数・別Process・実Kernel Lockの結合試験で固定した。固定候補`b38d0120`の独立再レビューはCritical／Major／Minor 0でPassした。その後の署名事前観測は、新しい再認証用子Processが署名対象Runtime能力Graphへ未登録であることをEffect 0で拒否した。初回Graph是正候補`2cc9d9d6`のMajor 1を是正した固定候補`290cd622`は、Wrapperの5引数と実行ファイル、環境、固定作業Directory、Directory確認およびAuthorityの由来まで拘束し、独立再レビューをCritical／Major／Minor 0でPassした |
+| 現在の変更状態 | Docker Setup 8段階の固定診断により、選択UserのCRDD専用Claude Provider HomeにあるSubscription OAuthの失効を確認した。通常Taskから分離したHuman-only再認証Lifecycleを実装し、Command世代Barrierと署名前Runtime能力Graphの独立再レビューをPassした。署名済みHuman-only実行では、Proxy実装がcontainer port `8080`で待受ける一方、再認証Planだけが`proxy:18080`へ接続していた契約不一致を実境界で検出した。結果は`claude_authentication_start_login_attached_failed`、cleanup未確認、同じexact Recovery ID保持で停止している |
 | Phase／Gate適用判断 | `Applicable`: Architecture、実装、Quality、MigrationおよびReality Auditを一括変更せず、局所Gateで成立確認する必要がある |
 | 現在Phase | `Phase 9 — Signed E2E／Release Gate`: Phase 2／4／7／8の独立再レビューはBlocking Finding 0でPassした。Claude再認証Lifecycleの検証義務を加えたCanonical設計集合156件のうち、v0.21対象を130件、v0.22移管を26件へ分けた。v0.21の未観測24件（Automated 2、Hybrid 12、Manual 10）は局所試験、署名E2Eと人間確認で処置する。移管26件は既存Prototype Relation 10件と未観測16件を区別し、いずれも新CapabilityのPass・実装済みへ変更しない |
-| 現在Gate | `Passed: Gate 0〜8`。`In Progress: Gate 9`。Human-only Claude再認証入口とRuntime能力Graph是正は独立再レビューをPassした。形式・型・Lint・Trace確認、局所14／14、Graph差替え負例およびDevelopment E2E 341／341もPassした。次はこの内容を記録した固定Commitからexact stagingを作り、Coordinator署名へ進む |
+| 現在Gate | `Passed: Gate 0〜8`。`In Progress: Gate 9`。署名済みHuman-only実行は固定Proxy port不一致を検出してFailした。`8080`へ契約を統一し、局所反例、独立再レビュー、再署名、同じRecovery IDでの回収・再入場およびHuman-only実E2Eを再実行する |
 | 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 156件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 224件の責務別Local Item接続、Optionality Audit全数処置。既存範囲の独立再レビューはBlocking Finding 0、Coordinatorは2015件中2010 Pass・失敗0・5 Explicit Skip、Windows Process Gateは8／8 Pass、Checker全回帰は363／363 Pass。Claude再認証の局所単体試験12件と別Process回復結合試験2件もPassし、本番認証関数のEffect前`in_flight`耐久化、Command保留中の実Kernel Lock喪失、fresh Effect 0、正常close後だけの`idle`復帰を固定した |
 | 未成立 | v0.21未観測Local Item 24件（Automated 2、Hybrid 12、Manual 10）のうち、署名E2Eまたは人間受入を必要とするEvidence処置と、Gate 9のRelease Readiness判定。v0.22移管26件は同版の実装・実境界・人間受入で再開する |
-| 次のGate | Coordinatorを再署名し、人がHuman-only入口で一度Claude Subscriptionを再認証する。続いてRecovery Matrixと4経路E2Eを同じ固定候補で再実行し、結果を24件のEvidence義務へ対応付ける |
+| 次のGate | 固定Proxy port是正を独立再レビュー後にCoordinatorへ再署名し、既存のexact Recovery IDで所有資源を回収してからHuman-only再認証を完了する。続いてRecovery Matrixと4経路E2Eを同じ固定候補で再実行し、結果を24件のEvidence義務へ対応付ける |
 
 ## 1. 変更の目的
 
@@ -168,6 +168,7 @@ PhaseはCHGを分割する別Identityではなく、一つの変更意図を安�
 | 下位理由を接続した再署名E2Eで、失敗が`docker_setup_command_failed`まで到達したが、8個のSetup用途のどこで非ゼロ終了したかをRecordから区別できなかった | SetupをProvider開始前の一つの技術段階として扱い、各外部境界の用途を診断契約へ固定していなかった | `create_subscription_auth_probe`から`start_proxy`までの8用途を、Registry由来の用途別固定理由へ一対一対応させる。Engine、Image、Codex認証Probeは作り込み前の最小単位手動確認で正常を確認する | 8用途の非ゼロ終了Matrix、Registry型閉包、Recorder全Registry試験、独立レビュー、再署名Recovery Matrix、署名4経路E2E | Docker argv、Host Path、stdout／stderr、秘密値、自由文はRecordへ追加しない | Revised |
 | Human-only再認証を加えた固定候補の署名事前観測が`release_manifest_package_observation_failed`でEffect 0停止した | 再認証実装と局所試験へ子Process境界を追加した一方、署名者が検査するRuntime能力Graphのcallsite、exact call、実行ファイル由来、Process所有およびWrapper利用側を同時更新していなかった | `runDockerCommandWithAuthority`の実Process境界を署名前能力Graphへ登録し、exportされたasync関数を公開Wrapperとして認識する解析を補正する。実Sourceの正例に加え、実行ファイル差替えとclose所有削除の負例を固定する | 形式、型、Lint、Runtime能力Graph、署名Package観測、局所試験、Development E2E、独立レビュー、再署名 | Human-only境界、Docker引数、mount／network／secret、API key fallback、通常Task Authorityおよび署名対象範囲は変更しない | Revised |
 | 初回能力Graph是正の独立レビューで、Wrapper利用側の後半3引数と実行ファイル・環境・作業Directoryの生成根拠を危険値へ差し替えても検査が受理した | Wrapper定義側の`spawn`と利用側の先頭2引数を拘束すれば、呼出し元の安全な値生成も包含できるという前提 | 5引数を末尾まで完全一致させ、検証済みDocker CLI Snapshot、最小Process環境、`SystemRoot/System32`、Directory確認および加工しない`authorityLive`搬送を同じ利用点の支配的根拠へ結合する | 直接実行ファイル、親環境、Repository cwd、固定Directory確認削除、常時true Authorityへの差替え負例、形式、型、Lint、能力Graph、独立再レビュー | `spawn` exact call、error／close所有、認証scope、Docker mount／network、秘密非保存、API課金禁止および署名対象範囲は変更しない | Revised |
+| 署名済みHuman-only実行がClaude認証開始時にProxy接続を拒否された | 共通Proxy実装と通常Codex／Claude Runtime Adapterが`8080`を使用する一方、再認証Planだけが未検査の`18080`を埋め込んでいた。依存差替え試験はCommand成功を模擬し、実待受portとの一致を検査していなかった | Phase 9を再開し、再認証Planを固定container port `8080`へ統一する。Architectureへ内部接続契約、ERB-UT-016へ一致と別port反例を追加する | Plan局所試験、別port負例、形式、型、Lint、Development E2E、独立再レビュー、再署名、exact Recovery再入場、Human-only実E2E | Proxy allowlist、Network分離、Host port非公開、Provider Home、通常Task Authority、秘密非保存およびAPI課金禁止は変更しない | Revised |
 
 #### Production Header移行母集団
 

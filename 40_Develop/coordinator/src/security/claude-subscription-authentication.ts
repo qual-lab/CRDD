@@ -538,7 +538,7 @@ export function createClaudeSubscriptionAuthenticationPlan(
   const loginContainerName = `crdd-claude-${suffix}`;
   const probeContainerName = `crdd-auth-${suffix}`;
   const ownershipLabel = `crdd.coordinator.authentication=${suffix}`;
-  const proxyUrl = `http://crdd:${proxyToken}@proxy:18080`;
+  const proxyUrl = `http://crdd:${proxyToken}@proxy:${egress.containerPort}`;
   const homeMount = `type=bind,src=${providerHomeSourcePath},dst=/provider-home,bind-propagation=rprivate`;
   const fixedEnvironment = [
     "--env",

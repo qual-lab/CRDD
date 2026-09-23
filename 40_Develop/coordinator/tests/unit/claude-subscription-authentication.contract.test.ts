@@ -70,6 +70,8 @@ test("再認証Planは専用Provider Home以外をmountしない", () => {
   assert.match(serialized, /auth.*login.*--claudeai/u);
   assert.match(serialized, /auth.*status.*--json/u);
   assert.match(serialized, /--network=none/u);
+  assert.match(serialized, /http:\/\/crdd:[a-f0-9]{64}@proxy:8080/u);
+  assert.doesNotMatch(serialized, /proxy:18080/u);
   assert.doesNotMatch(serialized, /\/workspace|\/repository|C:\\project/u);
   assert.equal(
     plan.commands.some((command) => command.interactive),

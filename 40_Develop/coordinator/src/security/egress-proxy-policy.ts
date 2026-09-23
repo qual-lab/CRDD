@@ -823,6 +823,7 @@ export function describeEgressProxyTopology(
   return Object.freeze({
     provider,
     proxyProfile: provider,
+    containerPort: 8080,
     allowedHostnames,
     providerNetwork: "operation_internal",
     providerNetworkInternal: true,
