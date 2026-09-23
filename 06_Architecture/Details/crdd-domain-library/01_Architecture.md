@@ -2,7 +2,7 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: crdd-domain-library
-状態: Stable
+状態: Candidate
 
 ## 基本設計との関係
 

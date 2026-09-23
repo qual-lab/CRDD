@@ -1,6 +1,6 @@
 # `.crdd` Runtime Dataの現行Path棚卸し
 
-状態: Stable（v0.21.0）
+状態: Candidate（v0.21.0）
 担当責任者: Qual-Lab
 最終更新日: 2026-09-12
 

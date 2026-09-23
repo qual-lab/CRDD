@@ -2,7 +2,7 @@
 
 状態: Current Release Projection
 Owner: Qual-Lab
-Last Updated: 2026-09-23
+Last Updated: 2026-09-12
 Related:
 - [現在のCRDD](../00_Overview.md)
 - [CHANGELOG](../CHANGELOG.md)
@@ -15,10 +15,10 @@ Related:
 
 | 項目 | 現在値 | 正本 |
 |---|---|---|
-| 公開済みBaseline | `v0.20.1` | 公式tag更新前のため維持 |
-| 最終Release候補 | `v0.21.0` Commit C | [CHANGELOG](../CHANGELOG.md)、本書§2 |
-| 現在の作業状態 | 最終候補Cの監査・main統合待ち | [Roadmap](./01_Roadmap.md) |
-| リリース判断 | main統合後のexact Identity確認まで未実施 | [リリース規則](../13_Release.md) |
+| 公開済みBaseline | `v0.20.1` | [現在のCRDD](../00_Overview.md)、[CHANGELOG](../CHANGELOG.md) |
+| 次の対象 | `v0.21.0` | [Roadmap](./01_Roadmap.md) |
+| 現在の作業状態 | Featureで設計・実装・検証中 | [Roadmap](./01_Roadmap.md) |
+| リリース判断 | 未実施 | [リリース規則](../13_Release.md) |
 
 ## 2. Evidence Navigation
 
@@ -36,12 +36,6 @@ Related:
 | `v0.18.1` | [Runtime Identity](./Releases/v0.18.1/Evidence/260901_coordinator-v0181-runtime-identity.md) |
 | `v0.19.0` | [最終署名済みE2E](./Releases/v0.19.0/Evidence/260903_project-runtime-final-signed-e2e.md)、[機械結果](./Releases/v0.19.0/Evidence/260903_project-runtime-final-signed-e2e.json) |
 | `v0.20.0` | [公開Runtime・限定統合検証](./Releases/v0.20.0/Evidence/260906_v020-public-runtime-and-bounded-integration-verification.md) |
-
-### 最終Release候補のEvidence
-
-| Release候補 | Evidence | 公開状態 |
-|---|---|---|
-| `v0.21.0` | [最終署名検証](./Releases/v0.21.0/Evidence/260923_engineering-completeness-final-signed-e2e.md)、[機械結果](./Releases/v0.21.0/Evidence/260923_engineering-completeness-final-signed-e2e.json) | Commit Cの監査・main統合・人間の最終Release判断待ち |
 
 ## 3. 更新規則
 

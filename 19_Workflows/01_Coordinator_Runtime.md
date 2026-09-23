@@ -1,6 +1,6 @@
 # Coordinator Runtimeの利用・検証・発行手順
 
-Status: Stable (v0.21.0)
+Status: Candidate (v0.21.0, Released Baseline: v0.20.1)
 Owner: Qual-Lab
 Last Updated: 2026-09-11
 
@@ -244,7 +244,7 @@ v0.21.0では、Bの署名済みRuntimeに対する最終Recovery Matrix、4経�
 - v0.21の候補表示を持つ工程成果物: `04_UI/06_Current_Interface_Reference.md`、`05_SPEC/07_Current_Behavior_Reference.md`、`06_Architecture/01_Architecture.md`、`06_Architecture/02_Component_and_Responsibility_Model.md`、`06_Architecture/03_Boundary_and_Interface_Model.md`、`06_Architecture/04_Runtime_and_Data_Flow_Model.md`、`06_Architecture/05_Failure_Recovery_and_Resilience_Model.md`、`06_Architecture/06_Deployment_and_Execution_Model.md`、`06_Architecture/99_Coding_Standards.md`、`06_Architecture/Details/coordinator/02_Threat_Model.md`、`06_Architecture/Details/crdd-domain-library/01_Architecture.md`、`06_Architecture/Details/runtime-data/02_Current_Path_Reality_Audit.md`
 - Release対象CHG: `99_Roadmap/Changes/CHG-000066/change.md`、`99_Roadmap/Changes/CHG-000068/change.md`、`99_Roadmap/Changes/CHG-000070/change.md`、`99_Roadmap/Changes/CHG-000071/change.md`、`99_Roadmap/Changes/CHG-000072/change.md`、`99_Roadmap/Changes/CHG-000073/change.md`、`99_Roadmap/Changes/CHG-000074/change.md`、`99_Roadmap/Changes/CHG-000075/change.md`、`99_Roadmap/Changes/CHG-000076/change.md`、`99_Roadmap/Changes/CHG-000077/change.md`、`99_Roadmap/Changes/CHG-000078/change.md`、`99_Roadmap/Changes/CHG-000079/change.md`、`99_Roadmap/Changes/CHG-000080/change.md`
 
-正本と工程成果物の機械的遷移は、v0.21.0のCandidate表示をStableへ変え、`Released Baseline`を除去し、Release日または最終更新日だけを更新する。CHGは公式tag作成前のCommit Cでは`Ready for Release Handoff`を維持し、tag到達性を確認した後の公開状態投影だけを`Released`へ進める。Roadmapはv0.21完了項目を除去してv0.22以降の残件だけへ、CHANGELOGとREADMEは候補表示から公開版・公開日へ変える。QualityとReality Auditは、実行済みEvidenceへ接続した項目、未観測のまま残す項目およびv0.22へ移管した項目を分け、未実行項目をPassへ変更しない。ここにない本文変更、規範追加、実装変更、manifest変更、Runtime実行集合変更または新しい成果物はCommit Cへ含めない。
+正本と工程成果物の機械的遷移は、v0.21.0のCandidate表示をStableへ変え、`Released Baseline`を除去し、Release日または最終更新日だけを更新する。CHGは`Released`と対象tagへ、Roadmapはv0.21完了項目を除去してv0.22以降の残件だけへ、CHANGELOGとREADMEは候補表示から公開版・公開日へ変える。QualityとReality Auditは、実行済みEvidenceへ接続した項目、未観測のまま残す項目およびv0.22へ移管した項目を分け、未実行項目をPassへ変更しない。ここにない本文変更、規範追加、実装変更、manifest変更、Runtime実行集合変更または新しい成果物はCommit Cへ含めない。
 
 ### リリース状態の利用側閉包
 

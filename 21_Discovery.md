@@ -1,7 +1,8 @@
 # CRDD Discovery工程
 
 Version: v0.21.0
-Status: Stable
+Status: Candidate
+Released Baseline: v0.20.1
 Owner: Qual-Lab
 Skill ID: `skill.discovery.frame`
 Last Updated: 2026-09-13

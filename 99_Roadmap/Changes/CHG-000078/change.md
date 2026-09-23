@@ -1,11 +1,10 @@
 # Canonical設計と現行実装のReality Audit
 
 変更ID: `CHG-000078`
-状態: `Ready for Release Handoff`
+状態: `Ready for Release Handoff — Legacy Projection Retained`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `quality_reality_audit`
-公開対象: `v0.21.0`（2026-09-23）
 
 ## 1. 変更の目的
 

@@ -2,7 +2,7 @@
 
 Status: Non-normative Open Work Registry
 Owner: Qual-Lab
-Last Updated: 2026-09-23
+Last Updated: 2026-09-22
 Related:
 - [CRDD標準自身のDiscovery](../01_Discovery/01_Product_Discovery.md)
 - [Product候補登録](../01_Discovery/02_Product_Candidates.md)
@@ -23,11 +23,24 @@ Related:
 
 ## 1. 現在の未完了作業
 
-v0.21.0のGroup Aは、工程成果物Repository Pattern、Checker／Traceability、Domain Library、Reality AuditおよびEngineering Completenessを最終Release候補Cへ固定した。完了根拠は各CHGと[最終署名検証](Releases/v0.21.0/Evidence/260923_engineering-completeness-final-signed-e2e.md)が所有し、本登録簿にはmain統合後も継続するv0.22以降の作業だけを残す。
+2026-09-11、v0.20.0の試験体系、実行知、Runtime責務分離、限定分散実行、Project State投影、localhost MCP HTTPおよび文書構造改善を公開した。完了項目は根拠をCHG・品質記録・公式tagへ接続して本登録簿から除去し、本書にはv0.21以降に再評価または実行する項目だけを残す。
 
-<a id="11-v0210--設計構造化の共通gate"></a>
+### 1.1. v0.21.0 — 設計・構造化の共通Gate
 
-v0.21.0の完了内容はRoadmapの未完了作業から除去した。旧参照の到達点だけを維持し、現在の結果は各CHGとRelease Evidenceから確認する。
+Group Aは、完成済みのRuntime Data、図面、Evidence、Version Controlおよび署名境界に加え、Group BのDiscovery／UX Dogfoodingで判明した工程成果物の受渡し構造を閉じるため再開した。工程Patternの移行と独立確認が終わるまで、Group BのIAへ進まない。
+
+| 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
+|---|---|---|---|---|
+| v0.21 工程成果物Repository Pattern | Adopted | Ready for Release Handoff | [工程成果物のRepository Pattern](../03_Documentation.md#phase-repository-pattern)、[CHG-000073](Changes/CHG-000073/change.md) | DiscoveryからQualityまでの規則、ひな型、Checker、既存成果物、工程Handoffおよび独立レビューを閉じた。WorkbenchのPrototype／実画面評価とProduct UI Exitはv0.22の実装Gateで扱う |
+| v0.21 Checker安定化とReality Traceability基盤 | Adopted | Complete | [CHG-000074](Changes/CHG-000074/change.md)、[Checker詳細設計](../06_Architecture/Details/checker/01_Architecture.md) | Checker責務分割、9 Subsystemの`symbol.json`、共通Schema、Global Symbol Graphおよび独立レビューを完了した。Reality Auditは本項目から分離する |
+| v0.21 Semantic Coverage基盤 | Adopted | Complete | [CHG-000075](Changes/CHG-000075/change.md)、[Semantic Coverage基盤](../06_Architecture/Details/semantic-coverage/02_Semantic_IR_and_Relation_Design.md) | Coordinator／Project RuntimeのPilot、決定論的Semantic IR、完全修飾したQuality Relation、単一Bundle公開および独立レビューを完了した。Reality Auditは別Gateとして未開始を維持する |
+| v0.21 CRDD Domain Library責務分離 | Adopted | Complete | [CRDD Domain Libraryの責務境界](../06_Architecture/Details/crdd-domain-library/01_Architecture.md)、[CHG-000076](Changes/CHG-000076/change.md) | `40_Develop`を実装正本、`template/tools`を薄い起動入口／設定配置とするPhase 1〜6の移行、公開入口へのConsumer Closure、全回帰および独立レビューを完了した。Coordinatorだけを再署名し、実Docker修復、Recovery Matrixおよび4経路E2EもPassした。Reality Auditは本項目から分離した次のGateとして未開始を維持する |
+| v0.21 Canonical設計と現行実装のReality Audit | Adopted | Ready for Release Handoff — Legacy Projection Retained | [現行実装との照合](../07_Quality/05_Current_Implementation_Reality_Audit.md)、[CHG-000078](Changes/CHG-000078/change.md) | 全18詳細設計領域を照合し、118 Relation中60件を既存試験へ接続した。残る58件は所有工程へ移送済み。旧2 Runtime Traceability JSONは27 Propertyと全Consumerの棚卸し結果に基づきv0.21で保持し、後続移行の廃止Gateを固定した |
+| v0.21 Engineering Design／Implementation／Verificationの完全性 | Adopted | In Progress | [CHG-000080](Changes/CHG-000080/change.md) | Phase／Gate型CHGをDogfoodし、Architecture、Implementation Structure、Production／Test Header、Required Verification、Optionality Audit、Self MigrationおよびReality Auditを一つの変更意図として閉じる |
+
+既に完了したGroup Aの根拠は[CHG-000066](Changes/CHG-000066/change.md)、[CHG-000068](Changes/CHG-000068/change.md)、[CHG-000070](Changes/CHG-000070/change.md)、[CHG-000071](Changes/CHG-000071/change.md)および[CHG-000072](Changes/CHG-000072/change.md)が所有する。
+
+v0.21.0はGroup AだけをRelease範囲とする。Group B以降のCanonical設計は消去しないが、未実装Capability、対応するQuality Local Item、人間受入および実境界Evidenceをv0.21の欠落またはRelease Gateへ含めない。Group Aで成立済みの現行Capabilityを壊していないこと、工程・実装・検証の共通契約が再現可能であること、および後続Groupが同じ基盤から再開できることを確認して閉じる。
 
 ### 1.2. v0.22.0 — Project運営・信頼・複数Repository
 

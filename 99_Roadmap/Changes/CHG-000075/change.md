@@ -5,7 +5,6 @@
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `architecture_traceability_change`
-公開対象: `v0.21.0`（2026-09-23）
 
 ## 1. 変更の目的
 
