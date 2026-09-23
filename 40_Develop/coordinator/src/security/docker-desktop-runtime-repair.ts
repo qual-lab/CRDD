@@ -2383,9 +2383,9 @@ function freshReadyStateMatches(
  *
  * @responsibility historical Broken Runtime Can Be Retained For New Repairの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
- * @input state: FreshRuntimeState、lockedRunIdentity: DockerDesktopRepairDirectoryIdentity | null
+ * @input state: FreshRuntimeState、lockedRunIdentity: DockerDesktopRepairDirectoryIdentity | null、historicalStaleIdentity: DockerDesktopRepairDirectoryIdentity
  * @returns historicalBrokenRuntimeCanBeRetainedForNewRepairの計算結果を返す。
- * @precondition 「state: FreshRuntimeState、lockedRunIdentity: DockerDesktopRepairDirectoryIdentity | null」がhistoricalBrokenRuntimeCanBeRetainedForNewRepairの入力契約を満たす。
+ * @precondition 「state: FreshRuntimeState、lockedRunIdentity: DockerDesktopRepairDirectoryIdentity | null、historicalStaleIdentity: DockerDesktopRepairDirectoryIdentity」がhistoricalBrokenRuntimeCanBeRetainedForNewRepairの入力契約を満たす。
  * @postcondition historicalBrokenRuntimeCanBeRetainedForNewRepairの責務を完了した結果だけを返す。
  * @effect N/A: historicalBrokenRuntimeCanBeRetainedForNewRepairは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: historicalBrokenRuntimeCanBeRetainedForNewRepairは独自の失敗分岐を所有しない。
@@ -2397,14 +2397,20 @@ function freshReadyStateMatches(
 function historicalBrokenRuntimeCanBeRetainedForNewRepair(
   state: FreshRuntimeState,
   lockedRunIdentity: DockerDesktopRepairDirectoryIdentity | null,
+  historicalStaleIdentity: DockerDesktopRepairDirectoryIdentity,
 ) {
+  const isHistoricalStaleAbsentOrExactRetained =
+    state.stale.state === "confirmed_absent" ||
+    (state.stale.state === "present" &&
+      state.stale.identity !== null &&
+      sameIdentity(state.stale.identity, historicalStaleIdentity));
   return (
     state.boundaryState === "verified" &&
     state.engine === "known_unavailable" &&
     (state.processes === "verified" || state.processes === "absent") &&
     state.run.state === "present" &&
     state.run.identity !== null &&
-    state.stale.state === "confirmed_absent" &&
+    isHistoricalStaleAbsentOrExactRetained &&
     lockedRunIdentity !== null &&
     sameIdentity(lockedRunIdentity, state.run.identity)
   );
@@ -6360,6 +6366,14 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
             dependencies,
             operation.staleDirectory,
           );
+          const retainedHistoricalStaleState =
+            currentStale.state === "confirmed_absent"
+              ? ("absent" as const)
+              : currentStale.state === "present" &&
+                  currentStale.identity !== null &&
+                  sameIdentity(currentStale.identity, operation.runIdentity)
+                ? ("retained" as const)
+                : null;
           const noHostEffectWasIssued =
             historicalOperationHasNoIssuedHostEffect(operation);
           if (
@@ -6371,10 +6385,10 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
             currentRun.identity !== null &&
             fresh.run.identity !== null &&
             sameIdentity(currentRun.identity, fresh.run.identity) &&
-            currentStale.state === "confirmed_absent"
+            retainedHistoricalStaleState !== null
           ) {
             ledger.engineReady = fresh.engine === "ready";
-            ledger.staleState = "absent";
+            ledger.staleState = retainedHistoricalStaleState;
             ledger.hostSafety = "manual_recovery_required";
             ledger.evidenceState = "preserved";
             ledger.liveRunIdentity = currentRun.identity;
@@ -6382,7 +6396,7 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
               "historical_effect_unknown_retained_by_human_decision";
             closureObservation = Object.freeze({
               liveRunIdentity: currentRun.identity,
-              staleState: "absent" as const,
+              staleState: retainedHistoricalStaleState,
               reason:
                 "docker_desktop_repair_historical_no_host_effect_retained_for_new_repair",
             });
@@ -6390,6 +6404,7 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
             historicalBrokenRuntimeCanBeRetainedForNewRepair(
               fresh,
               lockedRunIdentity,
+              operation.runIdentity,
             ) &&
             currentBoundary !== null &&
             samePreparedAuthority(boundary, currentBoundary) &&
@@ -6397,14 +6412,14 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
             currentRun.identity !== null &&
             fresh.run.identity !== null &&
             sameIdentity(currentRun.identity, fresh.run.identity) &&
-            currentStale.state === "confirmed_absent"
+            retainedHistoricalStaleState !== null
           ) {
             const isSupersededRun = !sameIdentity(
               currentRun.identity,
               operation.runIdentity,
             );
             ledger.engineReady = false;
-            ledger.staleState = "absent";
+            ledger.staleState = retainedHistoricalStaleState;
             ledger.hostSafety = "manual_recovery_required";
             ledger.evidenceState = "preserved";
             ledger.liveRunIdentity = currentRun.identity;
@@ -6412,7 +6427,7 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
               "historical_effect_unknown_retained_by_human_decision";
             closureObservation = Object.freeze({
               liveRunIdentity: currentRun.identity,
-              staleState: "absent" as const,
+              staleState: retainedHistoricalStaleState,
               reason: isSupersededRun
                 ? "docker_desktop_repair_historical_superseded_state_retained_for_new_repair"
                 : "docker_desktop_repair_historical_broken_state_retained_for_new_repair",

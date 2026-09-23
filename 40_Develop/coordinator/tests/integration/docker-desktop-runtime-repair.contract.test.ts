@@ -1613,7 +1613,11 @@ test("既知のruntime directory lockを持つ引継ぎ済み履歴は証拠を�
     operation.repairId,
     state.dependencies,
   );
-  assert.equal(result.status, "historical_closed_retained");
+  assert.equal(
+    result.status,
+    "historical_closed_retained",
+    JSON.stringify(result),
+  );
   assert.equal(
     result.reason,
     "docker_desktop_repair_historical_broken_state_retained_for_new_repair",
@@ -1729,18 +1733,18 @@ test("Host Effect非発行を証明できる引継ぎ済み履歴は現在の故
 });
 
 /**
- * 旧runが新しい既知障害世代へ置換済みでも履歴を保持して新修復を許可するを検証する。
+ * 旧runが新しい既知障害世代へ置換済みでも旧stale Evidenceを保持して新修復を許可するを検証する。
  *
- * @responsibility 旧runが新しい既知障害世代へ置換済みでも履歴を保持して新修復を許可するの合否判定を所有する。
+ * @responsibility 旧runが新しい既知障害世代へ置換済みでも旧stale Evidenceを保持して新修復を許可するの合否判定を所有する。
  * @trace ERB-IT-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 旧runが新しい既知障害世代へ置換済みでも履歴を保持して新修復を許可するの対象操作を実行する。
+ * @stimulus 旧runが新しい既知障害世代へ置換済みで、旧staleが元OperationのIdentityと一致する状態を明示closeする。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
-test("旧runが新しい既知障害世代へ置換済みでも履歴を保持して新修復を許可する", async () => {
+test("旧runが新しい既知障害世代へ置換済みでも旧stale Evidenceを保持して新修復を許可する", async () => {
   const replacementRunIdentity = Object.freeze({
     dev: "9",
     ino: "8",
@@ -1784,7 +1788,9 @@ test("旧runが新しい既知障害世代へ置換済みでも履歴を保持�
     observePath: (target) =>
       target === boundary.runDirectory
         ? { state: "present", identity: replacementRunIdentity }
-        : { state: "confirmed_absent", identity: null },
+        : target === operation.staleDirectory
+          ? { state: "present", identity: operation.runIdentity }
+          : { state: "confirmed_absent", identity: null },
     history: {
       inspect: () => operation,
       loadOriginManifest: () => ({}),
@@ -1818,13 +1824,17 @@ test("旧runが新しい既知障害世代へ置換済みでも履歴を保持�
     operation.repairId,
     state.dependencies,
   );
-  assert.equal(result.status, "historical_closed_retained");
+  assert.equal(
+    result.status,
+    "historical_closed_retained",
+    JSON.stringify(result),
+  );
   assert.equal(
     result.reason,
     "docker_desktop_repair_historical_superseded_state_retained_for_new_repair",
   );
   assert.equal(result.engineReady, false);
-  assert.equal(result.staleRuntimeDirectory, "absent");
+  assert.equal(result.staleRuntimeDirectory, "retained");
   assert.equal(result.evidenceState, "preserved");
   assert.equal(result.newRepairPermitted, true);
   assert.equal(closureWrites, 1);
