@@ -1427,6 +1427,7 @@ test("履歴終了の異常境界は新規修復許可を出さず、既存Host�
     "process",
     "run",
     "stale",
+    "stale_unknown",
     "cancel",
     "write",
     "cleanup",
@@ -1466,13 +1467,15 @@ test("履歴終了の異常境界は新規修復許可を出さず、既存Host�
                 state: "present",
                 identity: { dev: "9", ino: "8", birthtimeNs: "7" },
               }
-          : {
-              state: "present",
-              identity:
-                failure === "stale"
-                  ? { ...RUN_IDENTITY, ino: "99" }
-                  : RUN_IDENTITY,
-            },
+          : failure === "stale_unknown"
+            ? { state: "unknown", identity: null }
+            : {
+                state: "present",
+                identity:
+                  failure === "stale"
+                    ? { ...RUN_IDENTITY, ino: "99" }
+                    : RUN_IDENTITY,
+              },
       registerCancellation: (listener) => {
         if (failure === "cancel") listener();
         return () => undefined;
@@ -1728,6 +1731,112 @@ test("Host Effect非発行を証明できる引継ぎ済み履歴は現在の故
   );
   assert.equal(result.newRepairPermitted, true);
   assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(closureWrites, 1);
+  assert.equal(hostEffects, 0);
+});
+
+/**
+ * Host Effect非発行を証明できる履歴はexactな旧stale Evidenceを保持して閉じることを検証する。
+ *
+ * @responsibility Host Effect非発行の履歴を閉じる際に、元Operationと完全一致する旧stale Evidenceを削除せず保持する判定の合否を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するHost Effect非発行Operationとexactな旧stale Identityを使用する。
+ * @stimulus 旧staleが元OperationのrunIdentityと一致する状態で明示closeする。
+ * @observation 終了状態、Evidence保持状態、closure書込み件数およびHost Effect件数を観測する。
+ * @oracle historical_closed_retained、stale=retained、closure 1件、Host Effect 0件となる。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
+test("Host Effect非発行履歴はexactな旧stale Evidenceを削除せず閉じる", async () => {
+  const original = operationFixture("prepared", {
+    processEffects: Object.freeze([
+      Object.freeze({
+        sequence: 0,
+        action: "official_shutdown",
+        phase: "settled",
+        issued: false,
+        confirmation: "not_issued",
+      }),
+    ]),
+    processEffectIssued: false,
+    processEffectConfirmation: "not_issued",
+    filesystemEffectIssued: true,
+    filesystemEffectConfirmation: "confirmed",
+    engineReady: false,
+    staleState: "retained",
+    hostSafety: "manual_recovery_required",
+    evidenceState: "preserved",
+    disposition: "historical_effect_unknown_pending_human_decision",
+  });
+  let operation: DockerDesktopRepairOperation = {
+    ...original,
+    history: {
+      adoptionSha256: "a".repeat(64),
+      handoffTipSha256: "b".repeat(64),
+      handoffCount: 1,
+      originLocalUserBindingHash: boundary.localUserBindingHash,
+      currentLocalUserBindingHash: boundary.localUserBindingHash,
+      currentSessionBound: true,
+      closed: false,
+      liveRunIdentity: null,
+      staleState: "retained",
+    },
+  };
+  let closureWrites = 0;
+  let hostEffects = 0;
+  const state = fixture({
+    inventory: () => ({ status: "verified", operations: [operation] }),
+    observeEngine: () => "unknown",
+    observeKnownSocketFailure: () => null,
+    observePath: (target) =>
+      target === boundary.runDirectory
+        ? { state: "present", identity: RUN_IDENTITY }
+        : target === operation.staleDirectory
+          ? { state: "present", identity: operation.runIdentity }
+          : { state: "confirmed_absent", identity: null },
+    history: {
+      inspect: () => operation,
+      loadOriginManifest: () => ({}),
+      loadCurrentManifest: () => ({}),
+      persistAdoption: () => assert.fail("already adopted"),
+      persistClosure: (_currentBoundary, current, observation) => {
+        closureWrites += 1;
+        assert.deepEqual(observation.liveRunIdentity, RUN_IDENTITY);
+        assert.equal(observation.staleState, "retained");
+        assert.ok(current.history);
+        operation = {
+          ...current,
+          history: { ...current.history, ...observation, closed: true },
+        };
+        return operation;
+      },
+    },
+    officialShutdown: () => {
+      hostEffects += 1;
+      throw new Error("unexpected host effect");
+    },
+    terminateDockerWsl: () => {
+      hostEffects += 1;
+      throw new Error("unexpected host effect");
+    },
+    renameRunDirectory: () => {
+      hostEffects += 1;
+      throw new Error("unexpected host effect");
+    },
+  });
+  const result = await closeWindowsDockerDesktopRepairUsingDependencies(
+    operation.repairId,
+    state.dependencies,
+  );
+  assert.equal(result.status, "historical_closed_retained");
+  assert.equal(
+    result.reason,
+    "docker_desktop_repair_historical_no_host_effect_retained_for_new_repair",
+  );
+  assert.equal(result.staleRuntimeDirectory, "retained");
+  assert.equal(result.newRepairPermitted, true);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.evidenceState, "preserved");
   assert.equal(closureWrites, 1);
   assert.equal(hostEffects, 0);
 });
