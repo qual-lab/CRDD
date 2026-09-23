@@ -25,6 +25,9 @@ export const CLAUDE_SUBSCRIPTION_AUTHENTICATION_CONTRACT =
   "crdd-coordinator/claude-subscription-authentication";
 export const CLAUDE_SUBSCRIPTION_AUTHENTICATION_CONTRACT_REVISION = 1;
 
+export const CLAUDE_SUBSCRIPTION_AUTHENTICATION_INPUT_NOTICE =
+  "PowerShellにコード貼付けを求められた場合、貼付けた文字は画面に表示されません。一度だけ貼り付けてEnterを押し、結果が出るまで再入力しないでください。";
+
 type Command = Readonly<{
   purpose: string;
   argv: readonly string[];
@@ -776,11 +779,12 @@ function escapeRegularExpression(value: string) {
 }
 
 function explicitDockerAbsence(command: Command, result: Execution) {
+  const normalizedStdout = result.stdout.trim();
   if (
     result.error ||
     result.signal !== null ||
     result.status !== 1 ||
-    result.stdout.trim().length !== 0
+    (normalizedStdout.length !== 0 && normalizedStdout !== "[]")
   )
     return false;
   const resourceName = command.argv.at(-1);

@@ -120,12 +120,13 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 ```
 
 1. 表示された公式Claude認証手順を外部system browserで完了する。
-2. `status: completed`、`authenticationConfirmed: true`、`cleanupConfirmed: true`を同じ結果で確認する。
-3. 認証用URL、code、tokenまたはProvider Home実Pathを記録・貼付しない。
-4. `blocked`でも`recoveryId`が返った場合は、そのIDを保持する。資源状態が不明なまま記録を手動削除・改名しない。
-5. Process loss後は同じ入口をfresh Processから一度起動する。耐久Command世代が`idle`なら、同じProvider Home Identityから同じRecovery IDを導き、旧資源のexact cleanupを認証Effectより先に行う。
-6. 耐久Command世代が`in_flight`なら、旧Docker Commandの終了を推定してcleanupまたは新規認証を行わない。同じRecovery IDと`manualRecoveryRequired: true`を保持し、Runtime運用担当者へ移送する。
-7. `blocked`、事後Probe不成立、cleanup不明または`manualRecoveryRequired: true`では自動再試行せず、固定理由を保持する。
+2. PowerShellにcode貼付けを求める表示が出た場合、貼付けた文字は画面に表示されない。一度だけ貼り付けてEnterを押し、結果が出るまで再入力しない。
+3. `status: completed`、`authenticationConfirmed: true`、`cleanupConfirmed: true`を同じ結果で確認する。
+4. 認証用URL、code、tokenまたはProvider Home実Pathを記録・貼付しない。
+5. `blocked`でも`recoveryId`が返った場合は、そのIDを保持する。資源状態が不明なまま記録を手動削除・改名しない。
+6. Process loss後は同じ入口をfresh Processから一度起動する。耐久Command世代が`idle`なら、同じProvider Home Identityから同じRecovery IDを導き、旧資源のexact cleanupを認証Effectより先に行う。
+7. 耐久Command世代が`in_flight`なら、旧Docker Commandの終了を推定してcleanupまたは新規認証を行わない。同じRecovery IDと`manualRecoveryRequired: true`を保持し、Runtime運用担当者へ移送する。
+8. `blocked`、事後Probe不成立、cleanup不明または`manualRecoveryRequired: true`では自動再試行せず、固定理由を保持する。
 
 この入口はClaude Max専用であり、Codex、API key、Console API課金、Repository、Workspaceまたは外部送信Taskを扱わない。同じProvider Homeへの別Process実行はKernel LockでEffect前に拒否し、対話実行中のLock喪失でも後続Effectを止める。各Docker CommandはEffect前に`in_flight`、子Process close後にだけ`idle`へ耐久遷移するため、fresh Processは終了不明な旧Command世代を越えてEffectを発行しない。Docker EffectはRepository cwdを継承せず、同名資源はCRDD所有Labelが一致する場合だけ削除する。Docker daemon停止、権限不足またはTransport障害を資源不存在として扱わない。正常完了時の耐久記録は削除せず`settled`として保持し、Lock解放不明では同じRecovery IDを返す。
 

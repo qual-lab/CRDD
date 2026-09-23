@@ -6,7 +6,10 @@
  * @trace ARCH-000010
  * @trace ARCH-000015
  */
-import { authenticateClaudeSubscription } from "../src/security/claude-subscription-authentication.ts";
+import {
+  authenticateClaudeSubscription,
+  CLAUDE_SUBSCRIPTION_AUTHENTICATION_INPUT_NOTICE,
+} from "../src/security/claude-subscription-authentication.ts";
 import {
   consumeRuntimeOwnedProviderHomeMountSourceCapability,
   consumeRuntimeOwnedProviderHomeObservationCapability,
@@ -41,7 +44,8 @@ if (process.stdin.isTTY !== true || process.stdout.isTTY !== true) {
       process.exitCode = 2;
     } else {
       process.stdout.write(
-        "Claude Maxの認証画面を開きます。表示された公式手順だけを完了してください。秘密値はCRDDへ保存・表示しません。\n",
+        "Claude Maxの認証画面を開きます。表示された公式手順だけを完了してください。秘密値はCRDDへ保存・表示しません。\n" +
+          `${CLAUDE_SUBSCRIPTION_AUTHENTICATION_INPUT_NOTICE}\n`,
       );
       const result = await authenticateClaudeSubscription(
         source,

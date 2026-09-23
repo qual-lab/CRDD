@@ -13,6 +13,7 @@ import test from "node:test";
 
 import {
   authenticateClaudeSubscription,
+  CLAUDE_SUBSCRIPTION_AUTHENTICATION_INPUT_NOTICE,
   createClaudeSubscriptionAuthenticationPlan,
   runDockerCommandWithAuthority,
 } from "../../src/security/claude-subscription-authentication.ts";
@@ -46,6 +47,33 @@ function absenceError(purpose: string) {
 function ownershipOutput(purpose: string) {
   return purpose.startsWith("observe_") ? `${suffix}\n` : "";
 }
+
+/**
+ * 秘密code入力前の固定案内が非表示と一回入力を明示することを検証する。
+ *
+ * @responsibility Human-only認証の誤った重複入力を防ぐ表示契約を検証する。
+ * @trace ERB-UT-016
+ * @precondition 案内は秘密値を受け取らない固定文字列である。
+ * @stimulus 公開された入力案内を取得する。
+ * @observation 非表示、一度だけ、結果まで再入力しないという三条件を観測する。
+ * @oracle 三条件が同じ案内に存在し、秘密code値やProvider出力を補間しない。
+ * @cleanup N/A: 固定文字列の検査で外部資源を作らない。
+ * @boundary ERB-UT-016=Unit: Human-only入力案内境界
+ */
+test("再認証は秘密codeの非表示と一回入力を事前案内する", () => {
+  assert.match(
+    CLAUDE_SUBSCRIPTION_AUTHENTICATION_INPUT_NOTICE,
+    /画面に表示されません/u,
+  );
+  assert.match(
+    CLAUDE_SUBSCRIPTION_AUTHENTICATION_INPUT_NOTICE,
+    /一度だけ貼り付け/u,
+  );
+  assert.match(
+    CLAUDE_SUBSCRIPTION_AUTHENTICATION_INPUT_NOTICE,
+    /結果が出るまで再入力しない/u,
+  );
+});
 
 /**
  * 再認証PlanがRepositoryを接続せず固定Imageと限定Proxyだけを使うことを検証する。
@@ -116,7 +144,9 @@ test("再認証は事後Probeとcleanupの両方で完了する", async () => {
                   apiProvider: "firstParty",
                   subscriptionType: "max",
                 })
-              : "",
+              : command.purpose.startsWith("confirm_")
+                ? "[]\n"
+                : "",
           stderr: command.purpose.startsWith("confirm_")
             ? absenceError(command.purpose)
             : "",
@@ -237,6 +267,50 @@ test("再認証はDocker観測失敗を資源不存在として受理しない",
       : false,
     true,
   );
+  assert.equal(result.cleanupConfirmed, false);
+});
+
+/**
+ * Docker不存在stderrに任意stdoutを組み合わせた結果を拒否することを検証する。
+ *
+ * @responsibility 空配列以外の観測内容を資源不存在へ畳まない境界を検証する。
+ * @trace ERB-UT-016
+ * @precondition 認証Probeは成功し、不存在確認の一件が正しいstderrと非空の任意stdoutを返す。
+ * @stimulus 注入Process境界で認証Lifecycleを実行する。
+ * @observation cleanup確認と公開結果を観測する。
+ * @oracle 明示stderrがあっても任意stdoutを伴う結果はcleanup未確認になる。
+ * @cleanup fixtureは外部資源を作らない。
+ * @boundary ERB-UT-016=Unit: Docker不存在stdout境界
+ */
+test("再認証は空配列以外のstdoutを資源不存在として受理しない", async () => {
+  const result = await authenticateClaudeSubscription(
+    "C:\\runtime-owned\\ProviderHomes\\claude",
+    stableLogicalHomeBindingHash,
+    {
+      ...lifecycleDependencies,
+      randomHex: (bytes) => (bytes === 8 ? suffix : token),
+      run: async (command) => ({
+        status: command.purpose.startsWith("confirm_") ? 1 : 0,
+        signal: null,
+        stdout: command.purpose.startsWith("observe_")
+          ? ownershipOutput(command.purpose)
+          : command.purpose === "start_probe_attached"
+            ? JSON.stringify({
+                loggedIn: true,
+                authMethod: "claude.ai",
+                apiProvider: "firstParty",
+                subscriptionType: "max",
+              })
+            : command.purpose === "confirm_proxy_absent"
+              ? '[{"unexpected":true}]'
+              : "[]",
+        stderr: command.purpose.startsWith("confirm_")
+          ? absenceError(command.purpose)
+          : "",
+      }),
+    },
+  );
+  assert.equal(result.status, "blocked");
   assert.equal(result.cleanupConfirmed, false);
 });
 
