@@ -85,7 +85,7 @@ Source File／Type／Function
 - [`40_Develop/version-control/src/checker-observation/index.ts`](../../../40_Develop/version-control/src/checker-observation/index.ts)
 - [`40_Develop/version-control/src/index.ts`](../../../40_Develop/version-control/src/index.ts)
 - [`40_Develop/version-control/src/repository-identity/index.ts`](../../../40_Develop/version-control/src/repository-identity/index.ts)
-- [`template/tools/coordinator/coordinator-package-manifest.json`](../../../template/tools/coordinator/coordinator-package-manifest.json)
+- `template/tools/coordinator/coordinator-package-manifest.json`（削除または旧Path）
 - [`99_Roadmap/02_Changes.md`](../../02_Changes.md)
 - [`99_Roadmap/Changes/CHG-000001/change.md`](../CHG-000001/change.md)
 - [`99_Roadmap/Changes/CHG-000002/change.md`](../CHG-000002/change.md)

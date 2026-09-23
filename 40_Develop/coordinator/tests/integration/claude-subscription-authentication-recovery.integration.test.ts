@@ -30,6 +30,18 @@ const hash = randomBytes(32).toString("hex");
 const suffix = hash.slice(0, 16);
 const token = "b".repeat(64);
 
+/**
+ * Docker不存在を表す固定stderrを構築する。
+ *
+ * @responsibility 再認証fixtureの資源種別と固定不存在文を対応付ける。
+ * @trace ERB-IT-017
+ * @precondition purposeは固定認証Planの確認用途である。
+ * @stimulus purposeから対象資源名とDocker不存在文を導く。
+ * @observation NetworkまたはContainer用の固定stderrを返す。
+ * @oracle 実装が受理するexact不存在形式と一致する。
+ * @cleanup N/A: 外部資源を作成しない純粋fixtureである。
+ * @boundary ERB-IT-017=Integration: Docker stderr fixture境界
+ */
 function absenceError(purpose: string) {
   const resource = purpose.includes("network")
     ? purpose.includes("internal")
@@ -165,14 +177,15 @@ test("Claude再認証はProcess喪失後に耐久Intentから再入場する", a
       acquireProviderHomeLock: acquireRuntimeOwnedLogicalProviderHomeKernelLock,
       beginRecovery: beginClaudeSubscriptionAuthenticationRecovery,
       setRecoveryCommandState: (record, state, purpose) => {
-        const updated = setClaudeSubscriptionAuthenticationRecoveryCommandState(
-          record,
-          state,
-          purpose,
-        );
-        if (updated)
+        const isUpdated =
+          setClaudeSubscriptionAuthenticationRecoveryCommandState(
+            record,
+            state,
+            purpose,
+          );
+        if (isUpdated)
           commandStateTransitions.push(Object.freeze({ state, purpose }));
-        return updated;
+        return isUpdated;
       },
       completeRecovery: settleClaudeSubscriptionAuthenticationRecovery,
       run: async (command) => {

@@ -28,7 +28,7 @@ export const COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS = Object.freeze({
     "coordinator_task_provider_recovery_correlation_invalid",
 } as const);
 
-export const COORDINATOR_TASK_PUBLIC_REASONS = Object.freeze([
+export const coordinatorTaskPublicReasons = Object.freeze([
   ...Object.values(COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS),
   ...DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS,
   "coordinator_task_cancellation_protocol_failed_cleanup_confirmed",
@@ -135,11 +135,22 @@ export const COORDINATOR_TASK_PUBLIC_REASONS = Object.freeze([
   "provider_operation_cancelled",
 ] as const);
 
+/**
+ * Coordinator Taskが公開できる理由を表す。
+ *
+ * @responsibility Task結果へ公開できる固定理由の型境界を所有する。
+ * @trace ARCH-000004
+ * @shape 固定Registry要素だけからなる文字列unionである。
+ * @invariant 内部理由、自由文およびProvider生出力を含まない。
+ * @boundary 下位Runtime結果からCoordinator Task公開結果への投影境界。
+ * @security exactな固定値だけを許可する。
+ * @compatibility 利用側は公開Registryに含まれる理由だけへ依存する。
+ */
 export type CoordinatorTaskPublicReason =
-  (typeof COORDINATOR_TASK_PUBLIC_REASONS)[number];
+  (typeof coordinatorTaskPublicReasons)[number];
 
-const COORDINATOR_TASK_PUBLIC_REASON_SET = new Set<string>(
-  COORDINATOR_TASK_PUBLIC_REASONS,
+const coordinatorTaskPublicReasonSet = new Set<string>(
+  coordinatorTaskPublicReasons,
 );
 
 /**
@@ -162,8 +173,7 @@ export function projectCoordinatorTaskPublicReason(
   value: unknown,
   fallback: CoordinatorTaskPublicReason,
 ): CoordinatorTaskPublicReason {
-  return typeof value === "string" &&
-    COORDINATOR_TASK_PUBLIC_REASON_SET.has(value)
+  return typeof value === "string" && coordinatorTaskPublicReasonSet.has(value)
     ? (value as CoordinatorTaskPublicReason)
     : fallback;
 }

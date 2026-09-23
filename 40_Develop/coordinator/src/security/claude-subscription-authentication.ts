@@ -28,12 +28,34 @@ export const CLAUDE_SUBSCRIPTION_AUTHENTICATION_CONTRACT_REVISION = 1;
 export const CLAUDE_SUBSCRIPTION_AUTHENTICATION_INPUT_NOTICE =
   "PowerShellにコード貼付けを求められた場合、貼付けた文字は画面に表示されません。一度だけ貼り付けてEnterを押し、結果が出るまで再入力しないでください。";
 
+/**
+ * Claude再認証で許可する一つのDocker Commandを表す。
+ *
+ * @responsibility 固定用途、引数および対話性の値境界を所有する。
+ * @trace ARCH-000010
+ * @shape purpose、argv、interactiveからなる読取り専用値である。
+ * @invariant 任意Shell文字列や暗黙の環境依存を含まない。
+ * @boundary 認証PlanからDocker CLI AdapterへのCommand境界。
+ * @security 秘密値を結果または診断へ公開しない。
+ * @compatibility 利用側は宣言済みPropertyだけへ依存する。
+ */
 type Command = Readonly<{
   purpose: string;
   argv: readonly string[];
   interactive: boolean;
 }>;
 
+/**
+ * Claude再認証の固定Docker Planを表す。
+ *
+ * @responsibility Image、資源名、所有LabelおよびCommand列の値境界を所有する。
+ * @trace ARCH-000010
+ * @shape Provider情報、Docker資源Identityおよび用途別Command列からなる読取り専用値である。
+ * @invariant RepositoryやWorkspaceのmountを含めない。
+ * @boundary Host Runtimeから隔離Docker認証環境へのPlan境界。
+ * @security 専用Provider Home以外のHost資源を接続しない。
+ * @compatibility 利用側は宣言済みPropertyと固定Command順だけへ依存する。
+ */
 export type ClaudeAuthenticationPlan = Readonly<{
   provider: "claude";
   providerHomeSourcePath: string;
@@ -51,6 +73,17 @@ export type ClaudeAuthenticationPlan = Readonly<{
   absenceCommands: readonly Command[];
 }>;
 
+/**
+ * 一つのDocker Command実行観測を表す。
+ *
+ * @responsibility 終了状態、出力および起動失敗の観測値境界を所有する。
+ * @trace ARCH-000010
+ * @shape status、signal、stdout、stderrおよび任意errorからなる読取り専用値である。
+ * @invariant 要求発行と完了観測を同一視しない。
+ * @boundary 子Processから再認証Lifecycleへの結果搬送境界。
+ * @security 生出力を公開結果へ直接搬送しない。
+ * @compatibility 利用側は宣言済み観測Propertyだけへ依存する。
+ */
 type Execution = Readonly<{
   status: number | null;
   signal: NodeJS.Signals | null;
@@ -59,6 +92,17 @@ type Execution = Readonly<{
   error?: Error;
 }>;
 
+/**
+ * Claude再認証Lifecycleが利用する外部境界を表す。
+ *
+ * @responsibility Random、Process、Kernel LockおよびRecovery StoreのPort集合を所有する。
+ * @trace ARCH-000010
+ * @shape 再認証Lifecycleに必要な関数Portだけからなる読取り専用値である。
+ * @invariant Repositoryや任意Filesystem Adapterを注入可能にしない。
+ * @boundary Domain LifecycleとOS／Docker／Recovery実装の境界。
+ * @security Test差替えを本番Authorityへ昇格させない。
+ * @compatibility 利用側は宣言済みPort signatureだけへ依存する。
+ */
 type Dependencies = Readonly<{
   randomHex: (bytes: number) => string;
   run: (command: Command, authorityLive: () => boolean) => Promise<Execution>;
@@ -76,6 +120,18 @@ type Dependencies = Readonly<{
   completeRecovery: (record: AuthenticationRecoveryRecord) => boolean;
 }>;
 
+/**
+ * Claude再認証の耐久回復記録を表す。
+ *
+ * @responsibility exact Recovery Identity、資源集合およびCommand状態の値境界を所有する。
+ * @trace ARCH-000010
+ * @trace ARCH-000015
+ * @shape revision 2の固定識別子、状態、資源名および記録Pathからなる読取り専用値である。
+ * @invariant 秘密値、CredentialおよびProvider生出力を含まない。
+ * @boundary 再認証LifecycleとOS管理Recovery Storeの境界。
+ * @security 回復に必要な最小Identityだけを耐久化する。
+ * @compatibility revision 2の宣言済みPropertyと状態語彙を維持する。
+ */
 export type AuthenticationRecoveryRecord = Readonly<{
   contract: "crdd-coordinator/claude-subscription-authentication-recovery";
   contractRevision: 2;
@@ -150,13 +206,30 @@ export function createClaudeSubscriptionAuthenticationRecoveryRecord(
   });
 }
 
+/**
+ * 保存済み回復記録が期待するIdentityと同じか判定する。
+ *
+ * @responsibility 未信頼JSONをrevision 2のexact Recovery Recordへ照合する。
+ * @trace ARCH-000010
+ * @trace ARCH-000015
+ * @input value: 未信頼の保存値、expected: 現在の期待回復記録
+ * @returns Identity、資源集合および状態語彙が一致する場合だけtrueを返す。
+ * @precondition expectedは現在のProvider Homeと固定Planから構築済みである。
+ * @postcondition trueの場合だけ既存記録を同じ回復Lifecycleへ利用できる。
+ * @effect N/A: 入力値だけを読み取る。
+ * @failure 不正形状、余分な状態またはIdentity不一致はfalseへ閉じる。
+ * @invariant Pathや秘密値の類似から同一性を推定しない。
+ * @boundary 未信頼Filesystem JSONからRecovery Domain値への検証境界。
+ * @security accessorや任意Prototypeを実行せず、固定Propertyだけを照合する。
+ * @concurrency N/A: 共有状態を変更しない同期判定である。
+ */
 function sameRecoveryRecord(
   value: unknown,
   expected: AuthenticationRecoveryRecord,
 ) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
-  const commandStateIsValid =
+  const isCommandStateValid =
     (record.commandState === "idle" && record.commandPurpose === null) ||
     (record.commandState === "in_flight" &&
       typeof record.commandPurpose === "string" &&
@@ -170,7 +243,7 @@ function sameRecoveryRecord(
     record.suffix === expected.suffix &&
     record.ownershipLabel === expected.ownershipLabel &&
     (record.state === "active" || record.state === "settled") &&
-    commandStateIsValid &&
+    isCommandStateValid &&
     Array.isArray(record.resourceNames) &&
     record.resourceNames.length === expected.resourceNames.length &&
     record.resourceNames.every(
@@ -467,6 +540,23 @@ export async function runDockerCommandWithAuthority(
   });
 }
 
+/**
+ * 本番Claude再認証Lifecycleの外部境界を構成する。
+ *
+ * @responsibility 検証済みDocker CLI、限定環境、Kernel LockおよびRecovery Storeを結合する。
+ * @trace ARCH-000010
+ * @trace ARCH-000015
+ * @input N/A: 固定Runtime構成と現在環境を観測する。
+ * @returns 本番境界へ閉じたDependenciesを返す。
+ * @precondition Docker CLIとSystemRootを安全に観測できる。
+ * @postcondition 各Command実行前にDocker CLI Identityを再検証する構成だけを返す。
+ * @effect Docker CLIとFilesystemの読取り観測を行う。
+ * @failure 境界を構成できない場合は例外でFail Closedする。
+ * @invariant 任意RunnerまたはRepository Pathを注入しない。
+ * @boundary Coordinator DomainとHost Docker／Recovery Runtimeの構成境界。
+ * @security 固定Environmentと検証済み実行ファイルだけを使用する。
+ * @concurrency 同じLogical Provider HomeはKernel Lockで直列化する。
+ */
 function createProductionDependencies(): Dependencies {
   const dockerCli = observeTrustedDockerCli();
   const environment = createDockerProcessEnvironment();
@@ -543,7 +633,7 @@ export function createClaudeSubscriptionAuthenticationPlan(
   const ownershipLabel = `crdd.coordinator.authentication=${suffix}`;
   const proxyUrl = `http://crdd:${proxyToken}@proxy:${egress.containerPort}`;
   const homeMount = `type=bind,src=${providerHomeSourcePath},dst=/provider-home,bind-propagation=rprivate`;
-  const fixedEnvironment = [
+  const fixedEnvironmentArguments = [
     "--env",
     "HOME=/provider-home",
     "--env",
@@ -564,8 +654,13 @@ export function createClaudeSubscriptionAuthenticationPlan(
   const command = (
     purpose: string,
     argv: readonly string[],
-    interactive = false,
-  ) => Object.freeze({ purpose, argv: Object.freeze([...argv]), interactive });
+    isInteractive = false,
+  ) =>
+    Object.freeze({
+      purpose,
+      argv: Object.freeze([...argv]),
+      interactive: isInteractive,
+    });
   const commands = Object.freeze([
     command("create_internal_network", [
       "network",
@@ -632,7 +727,7 @@ export function createClaudeSubscriptionAuthenticationPlan(
       "--pids-limit=64",
       "--user=65534:65534",
       "--workdir=/work",
-      ...fixedEnvironment,
+      ...fixedEnvironmentArguments,
       "--mount",
       homeMount,
       "--tmpfs",
@@ -760,6 +855,22 @@ export function createClaudeSubscriptionAuthenticationPlan(
   });
 }
 
+/**
+ * Claude認証ProbeがMax契約を確認したか判定する。
+ *
+ * @responsibility Provider出力を固定4 Propertyの成功条件へ縮約する。
+ * @trace ARCH-000010
+ * @input stdout: network-none ProbeのJSON出力
+ * @returns exactなClaude Max状態だけでtrueを返す。
+ * @precondition 出力は未信頼文字列として扱う。
+ * @postcondition trueは四つの固定値がすべて一致した場合に限る。
+ * @effect N/A: 入力文字列だけを解析する。
+ * @failure JSON不正や値不一致はfalseへ閉じる。
+ * @invariant 部分一致や追加の認証方式を成功へ昇格しない。
+ * @boundary Claude CLI出力から認証Domain判定への境界。
+ * @security 生出力を例外または公開結果へ含めない。
+ * @concurrency N/A: 共有状態を変更しない同期判定である。
+ */
 function probeConfirmed(stdout: string) {
   try {
     const value = JSON.parse(stdout) as Record<string, unknown>;
@@ -774,10 +885,43 @@ function probeConfirmed(stdout: string) {
   }
 }
 
+/**
+ * Docker資源名を正規表現literalへ変換する。
+ *
+ * @responsibility 固定資源名をstderr exact照合で安全に使用できる形へ変換する。
+ * @trace ARCH-000010
+ * @input value: 固定Planから得たDocker資源名
+ * @returns 正規表現meta文字をescapeした文字列を返す。
+ * @precondition valueはCommand末尾から取得した文字列である。
+ * @postcondition 返却値を正規表現へ埋めても元文字列のliteral一致になる。
+ * @effect N/A: 入力文字列だけを変換する。
+ * @failure N/A: 任意文字列を決定論的にescapeする。
+ * @invariant 文字を削除または意味変換しない。
+ * @boundary Docker資源Identityとstderr parserの表現境界。
+ * @security 正規表現注入を防ぐ。
+ * @concurrency N/A: 共有状態を変更しない同期変換である。
+ */
 function escapeRegularExpression(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
+/**
+ * Docker結果が対象資源の明示不存在を示すか判定する。
+ *
+ * @responsibility exit、stdout、stderrおよびexact資源名の積で不存在を確認する。
+ * @trace ARCH-000010
+ * @trace ARCH-000015
+ * @input command: 不存在確認Command、result: その実行観測
+ * @returns 明示不存在をすべて確認した場合だけtrueを返す。
+ * @precondition commandは固定PlanのabsenceCommands要素である。
+ * @postcondition 観測不能、任意stdoutまたは別資源の結果を不存在へ畳まない。
+ * @effect N/A: 入力値だけを読み取る。
+ * @failure 不正結果や未知形式はfalseへ閉じる。
+ * @invariant status 1と固定stderrの両方を必要とする。
+ * @boundary Docker CLI観測から資源不存在Domain判定への境界。
+ * @security stderr全体を公開せず固定形式だけを判定する。
+ * @concurrency N/A: 共有状態を変更しない同期判定である。
+ */
 function explicitDockerAbsence(command: Command, result: Execution) {
   const normalizedStdout = result.stdout.trim();
   if (
@@ -802,6 +946,23 @@ function explicitDockerAbsence(command: Command, result: Execution) {
   ).test(normalized);
 }
 
+/**
+ * Claude再認証が所有するDocker資源を確認付きで清掃する。
+ *
+ * @responsibility 所有権確認、対象限定削除、最終不存在観測およびAuthority生存確認を順序付ける。
+ * @trace ARCH-000010
+ * @trace ARCH-000015
+ * @input plan: 固定認証Plan、dependencies: 実行境界、authorityLive: Kernel Lock生存観測
+ * @returns 全対象の不存在とAuthority生存を確認した場合だけtrueを返す。
+ * @precondition planのcleanup、ownership、absence Commandが同じ順序で対応する。
+ * @postcondition 非所有資源を削除せず、観測不能をcleanup成功へ畳まない。
+ * @effect Docker inspect、removeおよびnetwork removeを対象限定で発行する。
+ * @failure Command失敗、所有不一致、Authority喪失または不存在未確認をfalseへ閉じる。
+ * @invariant Plan外の資源名へ削除Effectを発行しない。
+ * @boundary Coordinator cleanup LifecycleとDocker Engineの外部境界。
+ * @security 所有Label一致前に削除せず、生出力を公開しない。
+ * @concurrency Kernel Lockが生存する単一Lifecycleだけが清掃する。
+ */
 async function cleanAuthenticationResources(
   plan: ClaudeAuthenticationPlan,
   dependencies: Dependencies,
@@ -943,12 +1104,15 @@ export async function authenticateClaudeSubscription(
     });
   }
   if (recoveryState === "existing_idle") {
-    const recovered = await cleanAuthenticationResources(
+    const recoveryCleanupConfirmed = await cleanAuthenticationResources(
       plan,
       activeDependencies,
       providerHomeLock.assertLive,
     );
-    if (!recovered || !activeDependencies.completeRecovery(recovery)) {
+    if (
+      !recoveryCleanupConfirmed ||
+      !activeDependencies.completeRecovery(recovery)
+    ) {
       providerHomeLock.release();
       return Object.freeze({
         status: "blocked",
@@ -975,7 +1139,7 @@ export async function authenticateClaudeSubscription(
     }
   }
   let reason = "claude_subscription_authentication_completed";
-  let completed = false;
+  let authenticationConfirmed = false;
   let providerEffectIssued = false;
   try {
     for (const command of plan.commands) {
@@ -1018,7 +1182,7 @@ export async function authenticateClaudeSubscription(
           reason = "claude_subscription_authentication_not_confirmed";
           break;
         }
-        completed = true;
+        authenticationConfirmed = true;
       }
     }
   } catch {
@@ -1029,10 +1193,10 @@ export async function authenticateClaudeSubscription(
     activeDependencies,
     providerHomeLock.assertLive,
   );
-  const lockLiveAfterCleanup = providerHomeLock.assertLive();
-  if (!lockLiveAfterCleanup)
+  const isLockLiveAfterCleanup = providerHomeLock.assertLive();
+  if (!isLockLiveAfterCleanup)
     reason = "claude_authentication_provider_home_lock_lost";
-  if (cleanupConfirmed && lockLiveAfterCleanup)
+  if (cleanupConfirmed && isLockLiveAfterCleanup)
     cleanupConfirmed = activeDependencies.completeRecovery(recovery);
   else cleanupConfirmed = false;
   const lockReleased = providerHomeLock.release();
@@ -1040,9 +1204,10 @@ export async function authenticateClaudeSubscription(
   return Object.freeze({
     contract: CLAUDE_SUBSCRIPTION_AUTHENTICATION_CONTRACT,
     contractRevision: CLAUDE_SUBSCRIPTION_AUTHENTICATION_CONTRACT_REVISION,
-    status: completed && cleanupConfirmed ? "completed" : "blocked",
+    status:
+      authenticationConfirmed && cleanupConfirmed ? "completed" : "blocked",
     reason:
-      completed && cleanupConfirmed
+      authenticationConfirmed && cleanupConfirmed
         ? "claude_subscription_authentication_completed"
         : reason,
     provider: "claude",
@@ -1051,7 +1216,7 @@ export async function authenticateClaudeSubscription(
     repositoryMounted: false,
     workspaceMounted: false,
     providerEffectIssued,
-    authenticationConfirmed: completed,
+    authenticationConfirmed,
     cleanupConfirmed,
     recoveryId: cleanupConfirmed ? null : recovery.recoveryId,
     manualRecoveryRequired: !cleanupConfirmed,

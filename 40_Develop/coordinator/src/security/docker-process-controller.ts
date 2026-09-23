@@ -63,7 +63,29 @@ const PURPOSES = Object.freeze([
   "start_proxy",
   "start_provider_attached",
 ] as const);
+/**
+ * Docker Process Controllerが実行する固定Command用途を表す。
+ *
+ * @responsibility Command Planで許可する用途の型境界を所有する。
+ * @trace ARCH-000008
+ * @shape 固定Purpose配列の要素だけからなる文字列unionである。
+ * @invariant 任意Command用途を追加しない。
+ * @boundary Runtime PlanからDocker Command実行への用途境界。
+ * @security 固定用途以外のCommand発行を型境界へ昇格させない。
+ * @compatibility 利用側は固定Purpose配列の要素だけへ依存する。
+ */
 type DockerCommandPurpose = (typeof PURPOSES)[number];
+/**
+ * Provider本体起動を除くDocker準備Command用途を表す。
+ *
+ * @responsibility 段階別Setup診断へ対応する用途集合を所有する。
+ * @trace ARCH-000008
+ * @shape DockerCommandPurposeからProvider起動用途を除外した文字列unionである。
+ * @invariant Setup用途とProvider本体起動用途を混同しない。
+ * @boundary Docker SetupとProvider実行の診断境界。
+ * @security 固定Setup用途以外を診断理由へ変換しない。
+ * @compatibility 利用側は固定Setup理由Registryと一対一対応する用途だけへ依存する。
+ */
 type DockerSetupCommandPurpose = Exclude<
   DockerCommandPurpose,
   "start_provider_attached"
@@ -117,9 +139,20 @@ const CREATE_PURPOSES = new Set([
   "create_proxy",
   "create_provider",
 ]);
-const BLOCKED_COMPLETION_REASONS = new Set<string>(
+const blockedCompletionReasons = new Set<string>(
   DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS,
 );
+/**
+ * Docker Process Controllerの最終理由を表す。
+ *
+ * @responsibility 公開失敗理由と完了・取消理由の閉じた型境界を所有する。
+ * @trace ARCH-000008
+ * @shape 固定公開理由へ完了と取消の二状態を加えた文字列unionである。
+ * @invariant 未知理由またはProvider生出力を含まない。
+ * @boundary Docker Process Controller内部結果から最終公開結果への境界。
+ * @security 固定理由だけを公開する。
+ * @compatibility 利用側は宣言済みの最終理由だけへ依存する。
+ */
 type DockerProcessControllerFinalReason =
   | DockerProcessControllerPublicCompletionReason
   | "provider_operation_completed"
@@ -144,7 +177,7 @@ type DockerProcessControllerFinalReason =
 function isDockerProcessControllerPublicCompletionReason(
   value: unknown,
 ): value is DockerProcessControllerPublicCompletionReason {
-  return typeof value === "string" && BLOCKED_COMPLETION_REASONS.has(value);
+  return typeof value === "string" && blockedCompletionReasons.has(value);
 }
 const SAFE_IDENTIFIER =
   /^crdd-(?:auth|internal|egress|proxy|claude|codex)-[a-f0-9]{16}$/u;
@@ -1026,7 +1059,7 @@ export function projectDockerProcessControllerCompletionResult(
         cancellationRequested !== true)) ||
     (status === "blocked" &&
       cleanupConfirmed === true &&
-      !BLOCKED_COMPLETION_REASONS.has(reason))
+      !blockedCompletionReasons.has(reason))
   )
     return null;
   return Object.freeze({ ...record, recoveryId });

@@ -31,7 +31,7 @@ import {
   startRuntimeOwnedCoordinatorTask,
 } from "../src/security/coordinator-task-runtime.ts";
 import {
-  COORDINATOR_TASK_PUBLIC_REASONS,
+  coordinatorTaskPublicReasons,
   type CoordinatorTaskPublicReason,
 } from "../src/security/coordinator-task-result-reasons.ts";
 import { snapshotPlainArray } from "../src/security/plain-data-snapshot.ts";
@@ -108,12 +108,23 @@ const TASK_SAFETY_SCHEMA = Object.freeze({
  * @compatibility RuntimeRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type RuntimeRecord = Readonly<Record<string, unknown>>;
+/**
+ * 署名General Taskの最終結果理由を表す。
+ *
+ * @responsibility 署名RunnerとCoordinator Taskの公開理由を一つの閉じた型へ統合する。
+ * @trace ARCH-000004
+ * @shape 二つの公開理由unionだけからなる文字列unionである。
+ * @invariant 未知理由やProvider生出力を含まない。
+ * @boundary Coordinator Task結果から署名検証結果への投影境界。
+ * @security 固定公開理由だけを許可する。
+ * @compatibility 利用側は両公開Registryに含まれる理由だけへ依存する。
+ */
 type SignedGeneralTaskResultReason =
   | SignedGeneralTaskPublicReason
   | CoordinatorTaskPublicReason;
-const SIGNED_GENERAL_TASK_RESULT_REASON_SET = new Set<string>([
+const signedGeneralTaskResultReasonSet = new Set<string>([
   ...SIGNED_GENERAL_TASK_PUBLIC_REASONS,
-  ...COORDINATOR_TASK_PUBLIC_REASONS,
+  ...coordinatorTaskPublicReasons,
 ]);
 /**
  * verify-signed-general-taskで使用するSigned General Task Verification 結果の値契約を定義する。
@@ -690,7 +701,7 @@ function safeReason(
   fallback: SignedGeneralTaskResultReason,
 ): SignedGeneralTaskResultReason {
   return typeof value === "string" &&
-    SIGNED_GENERAL_TASK_RESULT_REASON_SET.has(value)
+    signedGeneralTaskResultReasonSet.has(value)
     ? (value as SignedGeneralTaskResultReason)
     : fallback;
 }

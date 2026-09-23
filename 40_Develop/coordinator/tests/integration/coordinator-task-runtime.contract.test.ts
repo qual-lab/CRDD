@@ -29,7 +29,7 @@ import {
   projectDevelopmentTaskResultAfterOuterCleanup,
   startRuntimeOwnedCoordinatorTask,
 } from "../../src/security/coordinator-task-runtime.ts";
-import { COORDINATOR_TASK_PUBLIC_REASONS } from "../../src/security/coordinator-task-result-reasons.ts";
+import { coordinatorTaskPublicReasons } from "../../src/security/coordinator-task-result-reasons.ts";
 import { selectDelegationRouteCandidate } from "../../src/security/delegation-route-selection.ts";
 import { DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS } from "../../src/security/docker-process-controller-result-reasons.ts";
 import {
@@ -6396,7 +6396,7 @@ test("Task Runtime契約は実Host active binding残存時にcleanupを拒否し
  * @boundary CPR-IT-001=Direct Boundary: Docker Process Controller結果→Coordinator Task公開結果
  */
 test("Docker Process Controllerの公開失敗理由をTask公開Registryへ全数接続する", () => {
-  const taskReasons = new Set<string>(COORDINATOR_TASK_PUBLIC_REASONS);
+  const taskReasons = new Set<string>(coordinatorTaskPublicReasons);
   for (const reason of DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS) {
     assert.equal(taskReasons.has(reason), true, reason);
   }

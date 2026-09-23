@@ -18,9 +18,9 @@ import {
   runDockerCommandWithAuthority,
 } from "../../src/security/claude-subscription-authentication.ts";
 
-const suffix = "0123456789abcdef";
+const AUTHENTICATION_SUFFIX = "0123456789abcdef";
 const token = "a".repeat(64);
-const stableLogicalHomeBindingHash = `${suffix}${suffix}${suffix}${suffix}`;
+const STABLE_LOGICAL_HOME_BINDING_HASH = `${AUTHENTICATION_SUFFIX}${AUTHENTICATION_SUFFIX}${AUTHENTICATION_SUFFIX}${AUTHENTICATION_SUFFIX}`;
 const lifecycleDependencies = Object.freeze({
   acquireProviderHomeLock: () =>
     Object.freeze({ assertLive: () => true, release: () => true }),
@@ -29,23 +29,47 @@ const lifecycleDependencies = Object.freeze({
   completeRecovery: () => true,
 });
 
+/**
+ * Docker不存在を表す固定stderrを構築する。
+ *
+ * @responsibility 再認証単体試験の資源種別と固定不存在文を対応付ける。
+ * @trace ERB-UT-016
+ * @precondition purposeは固定認証Planの確認用途である。
+ * @stimulus purposeから対象資源名とDocker不存在文を導く。
+ * @observation NetworkまたはContainer用の固定stderrを返す。
+ * @oracle 実装が受理するexact不存在形式と一致する。
+ * @cleanup N/A: 外部資源を作成しない純粋fixtureである。
+ * @boundary ERB-UT-016=Unit: Docker stderr fixture境界
+ */
 function absenceError(purpose: string) {
   const resource = purpose.includes("network")
     ? purpose.includes("internal")
-      ? `crdd-internal-${suffix}`
-      : `crdd-egress-${suffix}`
+      ? `crdd-internal-${AUTHENTICATION_SUFFIX}`
+      : `crdd-egress-${AUTHENTICATION_SUFFIX}`
     : purpose.includes("probe")
-      ? `crdd-auth-${suffix}`
+      ? `crdd-auth-${AUTHENTICATION_SUFFIX}`
       : purpose.includes("login")
-        ? `crdd-claude-${suffix}`
-        : `crdd-proxy-${suffix}`;
+        ? `crdd-claude-${AUTHENTICATION_SUFFIX}`
+        : `crdd-proxy-${AUTHENTICATION_SUFFIX}`;
   return purpose.includes("network")
     ? `Error response from daemon: network ${resource} not found`
     : `Error: No such container: ${resource}`;
 }
 
+/**
+ * Docker所有Labelの固定観測出力を構築する。
+ *
+ * @responsibility 所有確認用途だけへ期待suffixを返すfixture境界を所有する。
+ * @trace ERB-UT-016
+ * @precondition purposeは固定認証Planの用途である。
+ * @stimulus purposeが所有観測用途かを判定する。
+ * @observation 所有観測ではsuffix行、それ以外では空文字列を返す。
+ * @oracle 所有確認用途以外へ所有Labelを混入しない。
+ * @cleanup N/A: 外部資源を作成しない純粋fixtureである。
+ * @boundary ERB-UT-016=Unit: Docker所有Label fixture境界
+ */
 function ownershipOutput(purpose: string) {
-  return purpose.startsWith("observe_") ? `${suffix}\n` : "";
+  return purpose.startsWith("observe_") ? `${AUTHENTICATION_SUFFIX}\n` : "";
 }
 
 /**
@@ -90,7 +114,7 @@ test("再認証は秘密codeの非表示と一回入力を事前案内する", (
 test("再認証Planは専用Provider Home以外をmountしない", () => {
   const plan = createClaudeSubscriptionAuthenticationPlan(
     "C:\\runtime-owned\\ProviderHomes\\claude",
-    suffix,
+    AUTHENTICATION_SUFFIX,
     token,
   );
   assert.ok(plan);
@@ -126,10 +150,10 @@ test("再認証は事後Probeとcleanupの両方で完了する", async () => {
   const purposes: string[] = [];
   const result = await authenticateClaudeSubscription(
     "C:\\runtime-owned\\ProviderHomes\\claude",
-    stableLogicalHomeBindingHash,
+    STABLE_LOGICAL_HOME_BINDING_HASH,
     {
       ...lifecycleDependencies,
-      randomHex: (bytes) => (bytes === 8 ? suffix : token),
+      randomHex: (bytes) => (bytes === 8 ? AUTHENTICATION_SUFFIX : token),
       run: async (command) => {
         purposes.push(command.purpose);
         return {
@@ -189,10 +213,10 @@ test("再認証は途中失敗後にloginを開始せずcleanupする", async ()
   const purposes: string[] = [];
   const result = await authenticateClaudeSubscription(
     "C:\\runtime-owned\\ProviderHomes\\claude",
-    stableLogicalHomeBindingHash,
+    STABLE_LOGICAL_HOME_BINDING_HASH,
     {
       ...lifecycleDependencies,
-      randomHex: (bytes) => (bytes === 8 ? suffix : token),
+      randomHex: (bytes) => (bytes === 8 ? AUTHENTICATION_SUFFIX : token),
       run: async (command) => {
         purposes.push(command.purpose);
         return {
@@ -234,10 +258,10 @@ test("再認証は途中失敗後にloginを開始せずcleanupする", async ()
 test("再認証はDocker観測失敗を資源不存在として受理しない", async () => {
   const result = await authenticateClaudeSubscription(
     "C:\\runtime-owned\\ProviderHomes\\claude",
-    stableLogicalHomeBindingHash,
+    STABLE_LOGICAL_HOME_BINDING_HASH,
     {
       ...lifecycleDependencies,
-      randomHex: (bytes) => (bytes === 8 ? suffix : token),
+      randomHex: (bytes) => (bytes === 8 ? AUTHENTICATION_SUFFIX : token),
       run: async (command) => ({
         status: command.purpose.startsWith("confirm_") ? 1 : 0,
         signal: null,
@@ -285,10 +309,10 @@ test("再認証はDocker観測失敗を資源不存在として受理しない",
 test("再認証は空配列以外のstdoutを資源不存在として受理しない", async () => {
   const result = await authenticateClaudeSubscription(
     "C:\\runtime-owned\\ProviderHomes\\claude",
-    stableLogicalHomeBindingHash,
+    STABLE_LOGICAL_HOME_BINDING_HASH,
     {
       ...lifecycleDependencies,
-      randomHex: (bytes) => (bytes === 8 ? suffix : token),
+      randomHex: (bytes) => (bytes === 8 ? AUTHENTICATION_SUFFIX : token),
       run: async (command) => ({
         status: command.purpose.startsWith("confirm_") ? 1 : 0,
         signal: null,
@@ -330,7 +354,7 @@ test("再認証は同名の非所有Docker資源を削除しない", async () =>
   const purposes: string[] = [];
   const result = await authenticateClaudeSubscription(
     "C:\\runtime-owned\\ProviderHomes\\claude",
-    stableLogicalHomeBindingHash,
+    STABLE_LOGICAL_HOME_BINDING_HASH,
     {
       ...lifecycleDependencies,
       randomHex: () => token,
@@ -378,20 +402,20 @@ test("再認証は同名の非所有Docker資源を削除しない", async () =>
  */
 test("再認証はProvider Home Lock喪失後のEffectを停止する", async () => {
   const purposes: string[] = [];
-  let live = true;
+  let isLive = true;
   const result = await authenticateClaudeSubscription(
     "C:\\runtime-owned\\ProviderHomes\\claude",
-    stableLogicalHomeBindingHash,
+    STABLE_LOGICAL_HOME_BINDING_HASH,
     {
       ...lifecycleDependencies,
       acquireProviderHomeLock: () => ({
-        assertLive: () => live,
+        assertLive: () => isLive,
         release: () => false,
       }),
       randomHex: () => token,
       run: async (command) => {
         purposes.push(command.purpose);
-        if (command.purpose === "start_proxy") live = false;
+        if (command.purpose === "start_proxy") isLive = false;
         return { status: 0, signal: null, stdout: "", stderr: "" };
       },
     },
@@ -405,7 +429,7 @@ test("再認証はProvider Home Lock喪失後のEffectを停止する", async ()
   );
   assert.equal(
     result.recoveryId,
-    `claude-auth.${stableLogicalHomeBindingHash}`,
+    `claude-auth.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
   );
   assert.equal(result.manualRecoveryRequired, true);
 });
@@ -423,10 +447,10 @@ test("再認証はProvider Home Lock喪失後のEffectを停止する", async ()
  * @boundary ERB-UT-016=Unit: 実行中Process Authority監視境界
  */
 test("再認証Docker Commandは実行中Lock喪失後に子Process closeを待つ", async () => {
-  let live = true;
+  let isLive = true;
   const startedAt = Date.now();
   const timer = setTimeout(() => {
-    live = false;
+    isLive = false;
   }, 50);
   try {
     const result = await runDockerCommandWithAuthority(
@@ -438,7 +462,7 @@ test("再認証Docker Commandは実行中Lock喪失後に子Process closeを待�
       },
       {},
       process.cwd(),
-      () => live,
+      () => isLive,
     );
     assert.equal(result.error?.message, "provider_home_lock_lost");
     assert.ok(Date.now() - startedAt >= 200);
@@ -464,7 +488,7 @@ test("再認証は回復在庫不明をcleanup完了へ畳まない", async () =
   let runCount = 0;
   const result = await authenticateClaudeSubscription(
     "C:\\runtime-owned\\ProviderHomes\\claude",
-    stableLogicalHomeBindingHash,
+    STABLE_LOGICAL_HOME_BINDING_HASH,
     {
       ...lifecycleDependencies,
       beginRecovery: () => "unknown",
@@ -484,7 +508,7 @@ test("再認証は回復在庫不明をcleanup完了へ畳まない", async () =
   assert.equal(result.effectStateUnknown, true);
   assert.equal(
     result.recoveryId,
-    `claude-auth.${stableLogicalHomeBindingHash}`,
+    `claude-auth.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
   );
   assert.equal(runCount, 0);
 });
@@ -506,7 +530,7 @@ test("再認証は回復後の再入場失敗をcleanup完了へ畳まない", a
   let authenticationCommandCount = 0;
   const result = await authenticateClaudeSubscription(
     "C:\\runtime-owned\\ProviderHomes\\claude",
-    stableLogicalHomeBindingHash,
+    STABLE_LOGICAL_HOME_BINDING_HASH,
     {
       ...lifecycleDependencies,
       beginRecovery: () => {
@@ -536,7 +560,7 @@ test("再認証は回復後の再入場失敗をcleanup完了へ畳まない", a
   assert.equal(result.effectStateUnknown, false);
   assert.equal(
     result.recoveryId,
-    `claude-auth.${stableLogicalHomeBindingHash}`,
+    `claude-auth.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
   );
   assert.equal(beginCount, 2);
   assert.equal(authenticationCommandCount, 0);
@@ -555,15 +579,15 @@ test("再認証は回復後の再入場失敗をcleanup完了へ畳まない", a
  * @boundary ERB-UT-016=Unit: cleanup完了からsettlementへのAuthority境界
  */
 test("再認証は最終不存在確認後のLock喪失でsettledを書かない", async () => {
-  let live = true;
+  let isLive = true;
   let settlementCount = 0;
   const result = await authenticateClaudeSubscription(
     "C:\\runtime-owned\\ProviderHomes\\claude",
-    stableLogicalHomeBindingHash,
+    STABLE_LOGICAL_HOME_BINDING_HASH,
     {
       ...lifecycleDependencies,
       acquireProviderHomeLock: () => ({
-        assertLive: () => live,
+        assertLive: () => isLive,
         release: () => false,
       }),
       completeRecovery: () => {
@@ -572,7 +596,7 @@ test("再認証は最終不存在確認後のLock喪失でsettledを書かない
       },
       randomHex: () => token,
       run: async (command) => {
-        if (command.purpose === "confirm_egress_network_absent") live = false;
+        if (command.purpose === "confirm_egress_network_absent") isLive = false;
         return {
           status: command.purpose.startsWith("confirm_") ? 1 : 0,
           signal: null,
@@ -599,7 +623,7 @@ test("再認証は最終不存在確認後のLock喪失でsettledを書かない
   assert.equal(settlementCount, 0);
   assert.equal(
     result.recoveryId,
-    `claude-auth.${stableLogicalHomeBindingHash}`,
+    `claude-auth.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
   );
 });
 
@@ -619,7 +643,7 @@ test("再認証は同じProvider Homeの後発操作をEffect前に拒否する"
   let runCount = 0;
   const result = await authenticateClaudeSubscription(
     "C:\\runtime-owned\\ProviderHomes\\claude",
-    stableLogicalHomeBindingHash,
+    STABLE_LOGICAL_HOME_BINDING_HASH,
     {
       ...lifecycleDependencies,
       acquireProviderHomeLock: () => null,
@@ -657,7 +681,7 @@ test("再認証は耐久Intentから旧資源を回収してfresh Processで再�
   let beginCount = 0;
   const result = await authenticateClaudeSubscription(
     "C:\\runtime-owned\\ProviderHomes\\claude",
-    stableLogicalHomeBindingHash,
+    STABLE_LOGICAL_HOME_BINDING_HASH,
     {
       ...lifecycleDependencies,
       beginRecovery: () => {

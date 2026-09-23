@@ -20,7 +20,7 @@ import {
 } from "../../../version-control/src/repository-location.ts";
 import { isDockerIsolationRecoveryIdCandidate } from "../security/docker-isolation.ts";
 import { snapshotPlainArray } from "../security/plain-data-snapshot.ts";
-import { COORDINATOR_TASK_PUBLIC_REASONS } from "../security/coordinator-task-result-reasons.ts";
+import { coordinatorTaskPublicReasons } from "../security/coordinator-task-result-reasons.ts";
 import { inspectRepositoryRevisionCandidate } from "../security/repository-operation-runtime.ts";
 import { isCanonicalSignedRunnerRecoveryId } from "../security/signed-runner-safety-observation.ts";
 import { isSupportedCoordinatorNodeRuntime } from "./node-runtime-version.ts";
@@ -33,10 +33,10 @@ const CONTRACT = "crdd-coordinator/local-verification-record";
 const CONTRACT_REVISION = 3;
 const MAX_RECORD_BYTES = 32 * 1024;
 const MAX_EXISTING_ENTRIES = 256;
-const REASONS = new Set([
+const reasons = new Set([
   ...Object.values(SIGNED_ROUTE_MATRIX_REASONS),
   ...SIGNED_GENERAL_TASK_PUBLIC_REASONS,
-  ...COORDINATOR_TASK_PUBLIC_REASONS,
+  ...coordinatorTaskPublicReasons,
   "signed_recovery_matrix_verified",
   "signed_recovery_matrix_failed_closed",
   "signed_recovery_matrix_node_version_unsupported",
@@ -176,7 +176,7 @@ export function projectVerificationResult(
 ) {
   const summary: Record<string, unknown> = {
     status: known(ownValue(value, "status"), STATUSES),
-    reason: known(ownValue(value, "reason"), REASONS),
+    reason: known(ownValue(value, "reason"), reasons),
   };
   for (const field of booleanFields) {
     const observed = ownValue(value, field);

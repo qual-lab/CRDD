@@ -26,7 +26,7 @@ import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
   SIGNED_ROUTE_MATRIX_REASONS,
 } from "../../src/core/verification-result-reasons.ts";
-import { COORDINATOR_TASK_PUBLIC_REASONS } from "../../src/security/coordinator-task-result-reasons.ts";
+import { coordinatorTaskPublicReasons } from "../../src/security/coordinator-task-result-reasons.ts";
 import {
   formatDockerIsolationRecoveryToken,
   isDockerIsolationRecoveryIdCandidate,
@@ -242,7 +242,7 @@ test("Provider境界の固定診断理由を安全に保存する", () => {
     "provider_task_executor_shape_invalid",
     ...Object.values(SIGNED_ROUTE_MATRIX_REASONS),
     ...SIGNED_GENERAL_TASK_PUBLIC_REASONS,
-    ...COORDINATOR_TASK_PUBLIC_REASONS,
+    ...coordinatorTaskPublicReasons,
   ]) {
     assert.equal(
       projectVerificationResult({ status: "blocked", reason }).reason,

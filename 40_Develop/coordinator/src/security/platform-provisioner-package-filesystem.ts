@@ -4801,13 +4801,13 @@ function assertProcessWrapperConsumerBoundary(
         continue;
       if (importedIndices.get(symbol)?.has(index)) continue;
       if (tokens[index - 1]?.value === "function") {
-        const exportedDeclaration =
+        const isExportedDeclaration =
           tokens[index - 2]?.value === "export" ||
           (tokens[index - 2]?.value === "async" &&
             tokens[index - 3]?.value === "export");
         if (
           sourcePath !== capability.target ||
-          capability.exported !== exportedDeclaration
+          capability.exported !== isExportedDeclaration
         )
           throw new Error(
             "platform_provisioner_runtime_dependency_child_process_unbound",
@@ -4832,7 +4832,8 @@ function assertProcessWrapperConsumerBoundary(
       const matched = matchingTokens[0] as ProcessWrapperUse;
       if (
         matched.dominatingProofs?.some(
-          (proof) => !hasUniqueDominatingProof(tokens, index, proof),
+          (proofTokens) =>
+            !hasUniqueDominatingProof(tokens, index, proofTokens),
         )
       )
         throw new Error(

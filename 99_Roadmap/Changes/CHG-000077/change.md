@@ -63,7 +63,7 @@ Prompt、Validator、Controllerの結果分類、Architectureおよび変更台�
 - [`40_Develop/coordinator/tests/unit/provider-task-packet-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-task-packet-runtime.contract.test.ts)
 - [`40_Develop/coordinator/tests/unit/provider-task-structured-result.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-task-structured-result.contract.test.ts)
 - [`40_Develop/coordinator/tests/integration/docker-process-controller.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-process-controller.contract.test.ts)
-- [`template/tools/coordinator/coordinator-package-manifest.json`](../../../template/tools/coordinator/coordinator-package-manifest.json)
+- `template/tools/coordinator/coordinator-package-manifest.json`（削除または旧Path）
 - [`99_Roadmap/02_Changes.md`](../../02_Changes.md)
 - [`99_Roadmap/Changes/CHG-000077/change.md`](change.md)
 

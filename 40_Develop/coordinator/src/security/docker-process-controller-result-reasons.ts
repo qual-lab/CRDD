@@ -64,5 +64,16 @@ export const DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS =
     "repository_revision_changed",
   ] as const);
 
+/**
+ * Docker Process Controllerが公開できる完了理由を表す。
+ *
+ * @responsibility 清掃後に上位へ公開できる固定理由の型境界を所有する。
+ * @trace ARCH-000008
+ * @shape 固定Registry要素だけからなる文字列unionである。
+ * @invariant Provider生出力や未登録理由を含まない。
+ * @boundary Docker Process Controller結果から上位Coordinator結果への投影境界。
+ * @security 固定語彙だけを許可し、秘密値や自由文を搬送しない。
+ * @compatibility 利用側は公開Registryに含まれる理由だけへ依存する。
+ */
 export type DockerProcessControllerPublicCompletionReason =
   (typeof DOCKER_PROCESS_CONTROLLER_PUBLIC_COMPLETION_REASONS)[number];

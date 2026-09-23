@@ -29,6 +29,12 @@ const manifestRelativePath = path.join(
   "coordinator",
   "coordinator-package-manifest.json",
 );
+const isReleaseManifestPresent = fs.existsSync(
+  path.join(repositoryRoot, manifestRelativePath),
+);
+const manifestCarrierOnlySkipReason = isReleaseManifestPresent
+  ? false
+  : "Source AではRelease manifestを保持せず、Manifest-only Commit Bで実行する。";
 
 type PromotionFixture = Readonly<{
   parent: string;
@@ -130,7 +136,9 @@ function fixture(): PromotionFixture {
  * @cleanup 一時Repository全体を削除する。
  * @boundary AIT-ST-010=System/E2E: 署名済みDistribution→promotion→明示破棄
  */
-test("署名済み固定Snapshotを昇格し明示破棄後は最終Pathだけを残す", () => {
+test("署名済み固定Snapshotを昇格し明示破棄後は最終Pathだけを残す", {
+  skip: manifestCarrierOnlySkipReason,
+}, () => {
   const value = fixture();
   try {
     const result = executeVerifiedReleaseManifestPromotionForVerification(
@@ -179,7 +187,9 @@ test("署名済み固定Snapshotを昇格し明示破棄後は最終Pathだけ�
  * @cleanup 各一時Repository全体を削除する。
  * @boundary AIT-ST-010=System/E2E: 署名対象集合／Snapshot整合→promotion Gate
  */
-test("対象欠落と別Snapshot混入を配置Effect前に拒否する", () => {
+test("対象欠落と別Snapshot混入を配置Effect前に拒否する", {
+  skip: manifestCarrierOnlySkipReason,
+}, () => {
   for (const mode of ["missing", "mixed"] as const) {
     const value = fixture();
     try {
@@ -221,7 +231,9 @@ test("対象欠落と別Snapshot混入を配置Effect前に拒否する", () => 
  * @cleanup 一時Repository全体を削除する。
  * @boundary AIT-ST-010=System/E2E: Distribution Root→公開promotion入口
  */
-test("配置先外の候補Rootを公開昇格Topologyとして受理しない", () => {
+test("配置先外の候補Rootを公開昇格Topologyとして受理しない", {
+  skip: manifestCarrierOnlySkipReason,
+}, () => {
   const value = fixture();
   try {
     const outside = path.join(value.parent, "outside-candidate");

@@ -59,5 +59,16 @@ export const SIGNED_GENERAL_TASK_PUBLIC_REASONS = Object.freeze([
   "signed_general_task_verification_failed_closed",
 ] as const);
 
+/**
+ * 署名General Task検証が公開できる理由を表す。
+ *
+ * @responsibility 署名検証結果へ公開できる固定理由の型境界を所有する。
+ * @trace ARCH-000003
+ * @shape 固定Registry要素だけからなる文字列unionである。
+ * @invariant 未知値、自由文およびProvider生出力を含まない。
+ * @boundary 署名検証RunnerからVerification Recordへの投影境界。
+ * @security exactな固定値だけを許可する。
+ * @compatibility 利用側は公開Registryに含まれる理由だけへ依存する。
+ */
 export type SignedGeneralTaskPublicReason =
   (typeof SIGNED_GENERAL_TASK_PUBLIC_REASONS)[number];
