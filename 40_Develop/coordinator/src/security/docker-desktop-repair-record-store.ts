@@ -275,12 +275,12 @@ export type DockerDesktopRepairLedgerSnapshot = Readonly<{
 /**
  * Docker Desktop修復の継続記録を発行できた検証済みSession／Releaseを表す。
  *
- * @responsibility 修復Operationの署名済み履歴から検証したSessionとReleaseの組を保持する。
+ * @responsibility 修復Operationの署名済み履歴または現在の検証済み実行境界から確認したSessionとReleaseの組を保持する。
  * @trace ARCH-000008
  * @shape localUserBindingHash、manifestHash、releaseSequence、runtimeExecutionIdentitySha256の完全な組を固定する。
  * @invariant 一つのAuthorityは一つの検証済みSession／Releaseだけを表す。
  * @boundary N/A: 検証済み履歴のProcess内Projectionであり、新しい外部境界を開かない。
- * @security 未検証Manifestまたは履歴chain外のSessionを継続Authorityへ昇格しない。
+ * @security 未検証Manifest、履歴chain外の過去Sessionまたは現在境界と一致しないReleaseを継続Authorityへ昇格しない。
  * @compatibility 継続記録の利用側は完全な組の一致だけをAuthority根拠として使用する。
  */
 export type DockerDesktopRepairContinuationAuthority = Readonly<{
@@ -296,7 +296,7 @@ export type DockerDesktopRepairContinuationAuthority = Readonly<{
  * @responsibility plain objectから偽造できないProcess-localな履歴検証済み境界を所有する。
  * @trace ARCH-000008
  * @shape DockerDesktopRepairOperation object identityの弱参照集合を保持する。
- * @invariant readOperationが署名済み履歴全体を検証したOperationだけを登録する。
+ * @invariant readOperationが署名済み履歴全体と現在の実行境界を検証したOperationだけを登録する。
  * @boundary N/A: Process内の非公開attestationであり、外部または耐久境界を開かない。
  * @security tupleを手組みしたOperationを履歴検証済みAuthorityへ昇格しない。
  * @compatibility Operationの公開JSON形状を変更せず、同一Process内のconsumerだけが検証結果を問い合わせる。
@@ -306,7 +306,7 @@ const verifiedContinuationAuthorityOperations = new WeakSet<object>();
 /**
  * Operationが検証したContinuation Authorityかを判定する。
  *
- * @responsibility Continuation発行元の完全なSession／Release tupleを、Record Storeが署名済み履歴から導出したOperationへ限定する。
+ * @responsibility Continuation発行元の完全なSession／Release tupleを、Record Storeが署名済み履歴と現在境界から導出したOperationへ限定する。
  * @trace ARCH-000008
  * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、authority: DockerDesktopRepairContinuationAuthority
  * @returns Operationが履歴検証済みで、現在境界へ結合され、authorityがchain内にある場合だけtrueを返す。
@@ -316,7 +316,7 @@ const verifiedContinuationAuthorityOperations = new WeakSet<object>();
  * @failure 手組みOperation、chain外tuple、現在境界未結合または部分一致をfalseへ収束させる。
  * @invariant 過去Releaseは旧Continuationの読取り根拠にだけ使い、現在の実行Authorityへ昇格しない。
  * @boundary Record Storeの署名済み履歴検証結果とContinuation Storeの間のProcess内境界。
- * @security plain fieldの構造一致だけでAuthorityを成立させない。
+ * @security plain fieldの構造一致だけでAuthorityを成立させず、同一SessionのRelease更新も現在の検証済み境界へ完全一致させる。
  * @concurrency N/A: WeakSetと不変Operationの同期参照だけを行う。
  */
 export function isDockerDesktopRepairContinuationAuthorityVerified(
@@ -3679,6 +3679,28 @@ function readOperation(
     return null;
   const isCurrentSessionBound =
     historySession === boundary.localUserBindingHash;
+  if (isCurrentSessionBound) {
+    const currentBoundaryAuthority: DockerDesktopRepairContinuationAuthority =
+      Object.freeze({
+        localUserBindingHash: boundary.localUserBindingHash,
+        manifestHash: boundary.crddManifestHash,
+        releaseSequence: boundary.crddReleaseSequence,
+        runtimeExecutionIdentitySha256: boundary.runtimeExecutionIdentitySha256,
+      });
+    if (
+      !continuationAuthorities.some(
+        (candidate) =>
+          candidate.localUserBindingHash ===
+            currentBoundaryAuthority.localUserBindingHash &&
+          candidate.manifestHash === currentBoundaryAuthority.manifestHash &&
+          candidate.releaseSequence ===
+            currentBoundaryAuthority.releaseSequence &&
+          candidate.runtimeExecutionIdentitySha256 ===
+            currentBoundaryAuthority.runtimeExecutionIdentitySha256,
+      )
+    )
+      continuationAuthorities.push(currentBoundaryAuthority);
+  }
   if (
     !closurePresent &&
     !isCurrentSessionBound &&

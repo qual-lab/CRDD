@@ -29,6 +29,7 @@ import {
   type DockerDesktopRepairHistoryVerifier,
   type DockerDesktopRepairOperation,
   type DockerDesktopRepairRecordBoundary,
+  inventoryDockerDesktopRepairOperations,
   persistDockerDesktopRepairHistoricalAdoption,
   persistDockerDesktopRepairStage,
 } from "../../src/security/docker-desktop-repair-record-store.ts";
@@ -400,18 +401,18 @@ test("手組みHandoff Authorityでは旧Runtime／現在RuntimeのContinuation�
 });
 
 /**
- * 実Record Storeの署名済みHandoff chainから旧Continuationを検証して追記することを検証する。
+ * 実Record Storeの署名済みHandoff chainと同一SessionのRelease更新から旧Continuationを検証して追記することを検証する。
  *
- * @responsibility 検証済みRelease tuple、adoption、handoff、Process-local attestationおよびContinuation追記の結合を検証する。
+ * @responsibility 検証済みRelease tuple、adoption、handoff、同一SessionのRelease更新、Process-local attestationおよびContinuation追記の結合を検証する。
  * @trace ERB-IT-012
  * @precondition 旧RuntimeのContinuationと、検証可能なorigin／adoption／handoff記録を実Storeへ保存する。
- * @stimulus 現在SessionのRecord StoreからOperationを再読取りし、旧Continuationを確認して次段階を追記する。
- * @observation Authority順序、現在境界結合、旧段階の受理および現在tupleでの追記を観測する。
- * @oracle Record Storeが検証したOperationだけが旧Continuationを受理し、sequence 7を現在境界で追記する。
+ * @stimulus Handoff後と同じSessionでReleaseだけを更新し、Record StoreからOperationを再読取りして旧Continuationの次段階を追記する。
+ * @observation Authority順序、同一Sessionの現在Release境界、旧段階の受理および現在tupleでの追記を観測する。
+ * @oracle Record Storeが履歴と現在境界を検証したOperationだけが旧Continuationを受理し、sequence 7を更新後Releaseで追記する。
  * @cleanup Test本文が一時Runtime Stateを再帰削除する。
  * @boundary ERB-IT-012=Related 2 Blocks: Coordinator→Repair Record→Platform Adapter
  */
-test("実Record Storeの署名済みHandoff chainから旧Continuationを検証して追記する", () => {
+test("実Record Storeの署名済みHandoff chainと同一SessionのRelease更新から旧Continuationを検証して追記する", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repair-chain-"));
   const runtimeStateRoot = path.join(root, "RuntimeState");
   const localAppData = path.join(root, "LocalAppData");
@@ -578,9 +579,41 @@ test("実Record Storeの署名済みHandoff chainから旧Continuationを検証�
       inspectDockerDesktopRepairContinuation(currentBoundary, handedOff).status,
       "valid",
     );
+    const updatedBoundary: DockerDesktopRepairRecordBoundary = Object.freeze({
+      ...currentBoundary,
+      crddManifestHash: "1".repeat(64),
+      crddReleaseSequence: 4,
+      runtimeExecutionIdentitySha256: "2".repeat(64),
+    });
+    const updatedInventory = inventoryDockerDesktopRepairOperations(
+      updatedBoundary,
+      verifyHistory,
+    );
+    assert.ok(updatedInventory);
+    const updatedOperation = updatedInventory.operations.find(
+      (candidate) => candidate.repairId === handedOff.repairId,
+    );
+    assert.ok(updatedOperation);
+    assert.deepEqual(
+      updatedOperation.history?.continuationAuthorities?.map((value) => [
+        value.localUserBindingHash,
+        value.releaseSequence,
+      ]),
+      [
+        [boundary.localUserBindingHash, 1],
+        [adoptedBoundary.localUserBindingHash, 2],
+        [currentBoundary.localUserBindingHash, 3],
+        [updatedBoundary.localUserBindingHash, 4],
+      ],
+    );
+    assert.equal(
+      inspectDockerDesktopRepairContinuation(updatedBoundary, updatedOperation)
+        .status,
+      "valid",
+    );
     const recovered = persistDockerDesktopRepairContinuationRecovered(
-      currentBoundary,
-      handedOff,
+      updatedBoundary,
+      updatedOperation,
       continuation,
     );
     assert.ok(recovered);
@@ -588,7 +621,7 @@ test("実Record Storeの署名済みHandoff chainから旧Continuationを検証�
     const recoveredRecord = JSON.parse(
       fs.readFileSync(
         path.join(
-          handedOff.operationDirectory,
+          updatedOperation.operationDirectory,
           "runtime-continuation",
           "continuation-07-recovered.json",
         ),
@@ -597,11 +630,11 @@ test("実Record Storeの署名済みHandoff chainから旧Continuationを検証�
     );
     assert.equal(
       recoveredRecord.crddManifestHash,
-      currentBoundary.crddManifestHash,
+      updatedBoundary.crddManifestHash,
     );
     assert.equal(
       recoveredRecord.localUserBindingHash,
-      currentBoundary.localUserBindingHash,
+      updatedBoundary.localUserBindingHash,
     );
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
