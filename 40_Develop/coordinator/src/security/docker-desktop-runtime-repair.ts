@@ -4382,14 +4382,17 @@ async function executeRepair(
       reason = "docker_desktop_repair_native_helper_lost";
       return { status, reason, ledger, operation };
     }
-    if (operation?.history) {
+    if (operation) {
       const continuation = inspectDockerDesktopRepairContinuation(
         boundary,
         operation,
       );
+      const isContinuationAuthorityAvailable = operation.history
+        ? !operation.history.closed &&
+          operation.history.currentSessionBound === true
+        : true;
       if (
-        !operation.history.closed &&
-        operation.history.currentSessionBound === true &&
+        isContinuationAuthorityAvailable &&
         operation.stage === "renamed" &&
         (continuation.status !== "absent" ||
           failedLaunchContinuationRequired(operation))
@@ -4401,6 +4404,8 @@ async function executeRepair(
           cancellation,
           operation,
         );
+    }
+    if (operation?.history) {
       return observeHistoricalRepair(
         dependencies,
         boundary,

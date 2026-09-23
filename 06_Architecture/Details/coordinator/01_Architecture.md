@@ -399,7 +399,7 @@ Docker境界は一つのCLI呼出しとして扱わず、同じ状態、Authorit
 | `prepared`／`processes_stopped` | stale対象がなく、既知Effectまたは履歴Effect不明を分類 | `no_stale_known_effect_recovery_pending`または`no_stale_historical_effect_unknown_pending` | 推測で不存在へ畳まない |
 | `processes_stopped` | exactな`run` Directoryを同一親内へrenameし、新旧Identityを確認 | `renamed` | rename結果不明として同じ修復IDを保持 |
 | `renamed` | Desktopを起動し、Engine応答、Host安全性、Evidence保持を確認 | `recovered_pending_disposition` | 起動を盲目的に再発行せず停止 |
-| `renamed`かつ初回起動失敗 | 起動済みEffectを再発行せず、失敗起動が作った既知Runtime領域を同じ修復IDへ追記して一領域ずつ退避 | `failed_run_renamed`→`secrets_engine_renamed` | 一領域でもIdentity・lock・退避結果が不明なら同じ修復IDで停止 |
+| `renamed`かつ初回起動失敗 | 現行署名版が新規作成した修復と旧署名版から採用した修復の双方で、起動済みEffectを再発行せず、失敗起動が作った既知Runtime領域を同じ修復IDへ追記して一領域ずつ退避 | `failed_run_renamed`→`secrets_engine_renamed` | 一領域でもIdentity・lock・退避結果が不明なら同じ修復IDで停止 |
 | `secrets_engine_renamed` | 再起動意図を耐久化してDesktopを一回だけ再起動し、Engine、Process、新しいRuntime領域および退避領域をfresh観測 | `recovered_pending_disposition` | 起動結果不明なら再発行せず、同じ修復IDで停止 |
 | `recovered_pending_disposition` | 人間が残存Evidenceの保持を決定し、終了記録を耐久化 | `closed_retained` | 回復済みと表示しない |
 | `no_stale_known_effect_recovery_pending` | 既知EffectのEvidence保持を決定し終了記録を耐久化 | `closed_no_stale_known_effect_retained` | 回復義務を保持 |

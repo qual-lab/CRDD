@@ -3680,18 +3680,18 @@ test("renamed再開でEngineが既に回復済みならlauncherを二重起動�
 });
 
 /**
- * 現行の非履歴operationは旧履歴用Continuationを作らないを検証する。
+ * 現行の非履歴Operationも失敗起動Continuation能力を要求することを検証する。
  *
- * @responsibility 現行の非履歴operationは旧履歴用Continuationを作らないの合否判定を所有する。
+ * @responsibility 現行の非履歴Operationが複数Runtime領域の段階処置を迂回しないことを保証する。
  * @trace ERB-IT-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 現行の非履歴operationは旧履歴用Continuationを作らないの対象操作を実行する。
+ * @stimulus Continuation能力を持たない依存境界で現行の非履歴Operationへ再入場する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
+ * @oracle 単一領域の再起動判定へ戻らず、Continuation能力不足としてEffect 0で停止する。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
-test("現行の非履歴operationは旧履歴用Continuationを作らない", async () => {
+test("現行の非履歴Operationも失敗起動Continuation能力を要求する", async () => {
   const operationDirectory = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-current-repair-"),
   );
@@ -3750,7 +3750,10 @@ test("現行の非履歴operationは旧履歴用Continuationを作らない", as
       state.dependencies,
     );
     assert.equal(result.status, "blocked");
-    assert.equal(result.reason, "docker_desktop_engine_restart_unconfirmed");
+    assert.equal(
+      result.reason,
+      "docker_desktop_repair_continuation_capability_unavailable",
+    );
     assert.equal(state.calls.includes("start"), false);
     assert.equal(
       fs.existsSync(path.join(operationDirectory, "runtime-continuation")),
@@ -5292,6 +5295,58 @@ test("WSL未確認とEngine再起動失敗は成功へ昇格しない", async ()
   assert.equal(engine.status, "blocked");
   assert.equal(engine.reason, "docker_desktop_engine_restart_unconfirmed");
   assert.equal(engine.manualRecoveryRequired, true);
+});
+
+/**
+ * 現行署名版が新規作成した修復も失敗起動Continuationへ接続することを検証する。
+ *
+ * @responsibility 履歴採用の有無で複数Runtime領域の段階処置入口が分岐しないことを保証する。
+ * @trace ERB-IT-001
+ * @precondition 現行署名版が作成した非履歴Operationはrenamed段階で初回Desktop起動Effectを確定済みである。
+ * @stimulus 同じRepair IDへ再入場する。
+ * @observation 結果理由と追加Host Effectを観測する。
+ * @oracle 通常の単一領域再開へ戻らず、失敗起動Continuationの事前条件判定へ到達する。
+ * @cleanup N/A: Test Fixtureは実Host資源を変更しない。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
+test("現行署名版が新規作成した修復も失敗起動Continuationへ接続する", async () => {
+  const setup = fixture({
+    observeRuntimeDirectoryLock: () => null,
+    renameRuntimeDirectory: () =>
+      Object.freeze({
+        issued: false,
+        confirmation: "not_issued" as const,
+        staleState: "unknown" as const,
+      }),
+  });
+  setup.setOperation(
+    operationFixture("renamed", {
+      processEffects: Object.freeze([
+        Object.freeze({
+          sequence: 0,
+          action: "desktop_launch" as const,
+          phase: "settled" as const,
+          issued: true,
+          confirmation: "confirmed" as const,
+        }),
+      ]),
+      processEffectIssued: true,
+      processEffectConfirmation: "confirmed",
+    }),
+  );
+
+  const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
+    setup.dependencies,
+  );
+
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "docker_desktop_repair_continuation_precondition_unconfirmed",
+  );
+  assert.equal(result.repairId, `docker-desktop-repair.${"f".repeat(32)}`);
+  assert.equal(setup.calls.includes("start"), false);
+  assert.equal(setup.calls.includes("rename"), false);
 });
 
 /**
