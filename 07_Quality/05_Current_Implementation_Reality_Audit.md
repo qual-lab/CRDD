@@ -2,7 +2,7 @@
 
 成果物種別: Quality現実照合
 状態: In Progress
-進捗: Reality Assessment Complete — Remediation Routed; Legacy Migration Required
+進捗: Reality Assessment Complete — Automated Gap 0; Hybrid／Manual and v0.22 Deferred Tracked
 現在範囲: 全18 Architecture詳細設計領域
 維持責任者: Qual-Lab
 
@@ -321,7 +321,9 @@ Project RuntimeはArchitecture Detailsの構造化が進んでいるため、生
 | Hybrid | 12 | 自動部分と人間判断・実境界部分を分離し、自動部分だけのPassを全体成立へ畳まない |
 | Manual | 10 | skipまたは自動Test SymbolをEvidenceにせず、参加条件、入力、判断、未判断範囲およびEvidenceを固定して実施する |
 
-Automated Gapを閉じ、Manual／Hybrid項目の実施条件と現在Releaseへの影響を固定した。skip EvidenceのChecker搬送、既存Hash Chain復元および版境界を是正した同一候補で再実行し、Coordinatorは2015件中2010 Pass・失敗0・明示Skip 5、Windows Process Gateは通常ユーザー境界で8／8 Pass、Checkerは363／363 Passとなった。Phase 8の独立再レビューでは各件のOwner、処置、再評価契機および現在Releaseへの影響を確認し、Blocking Finding 0でPassした。Reality Auditは未実装Capabilityや未実行の手動評価を自分で補完せず、対応するQuality Mappingから再評価する。
+Automated Gapを閉じ、Manual／Hybrid項目の実施条件と現在Releaseへの影響を固定した。skip EvidenceのChecker搬送、既存Hash Chain復元および版境界を是正した同一候補で再実行し、Coordinatorは2015件中2010 Pass・失敗0・明示Skip 5、Windows Process Gateは通常ユーザー境界で8／8 Pass、Checkerは363／363 Passとなった。Phase 8の独立再レビューでは各件のOwner、処置、再評価契機および現在Releaseへの影響を確認し、Blocking Finding 0でPassした。最終Source A／manifest carrier Bと同じ署名Runtime Identityに対するRecovery Matrix 7シナリオおよび4経路4／4も[Release Evidence](../99_Roadmap/Releases/v0.21.0/Evidence/260923_engineering-completeness-final-signed-e2e.md)へ固定した。Reality Auditは未実装Capabilityや未実行の手動評価を自分で補完せず、対応するQuality Mappingから再評価する。
+
+最終署名検証は`EST-ST-003`と`EST-ST-005`を直接確認した。`RCM-ST-012`と`CQS-ST-005`はCommit C監査およびmain統合後の照合までPartial、`CQS-UAT-006`は人間の最終Release判断までOPEN、`ERB-ST-011`はDocker Engine／Host資源を独立観測する別Session handoff確認までOPENを維持する。このため、署名E2E成功だけから残るHybrid／Manual項目またはQuality Ready全体をPassへ変更しない。
 
 ### 13.3 Hybrid項目の実施条件
 

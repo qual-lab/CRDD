@@ -1,6 +1,6 @@
 # Component／責務モデル
 
-Status: Candidate (v0.21.0)
+Status: Stable (v0.21.0)
 Owner: Qual-Lab
 Last Updated: 2026-09-15
 

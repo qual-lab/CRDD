@@ -1,6 +1,6 @@
 # CRDD参照Toolのアーキテクチャ
 
-Status: Architecture Ready (v0.21.0, Released Baseline: v0.20.1)
+Status: Stable Architecture Ready (v0.21.0)
 Owner: Qual-Lab
 Last Updated: 2026-09-19
 

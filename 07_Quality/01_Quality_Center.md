@@ -1,8 +1,8 @@
 # CRDD内部ツールの品質の現在状態
 
-状態: Quality Design Ready — Reality Audit Pending（Released Baseline: v0.20.1）
+状態: Quality Design Ready — Reality Audit Pending
 担当責任者: Qual-Lab
-最終更新日: 2026-09-22
+最終更新日: 2026-09-23
 
 ## 設計集合
 
@@ -14,16 +14,16 @@
 
 ## 結論
 
-Quality設計は13定義、156 Local Itemまで拡張した。Test Symbol Relationは122件に存在するが、完成Evidenceへ算入できるのは116件である。残る6件は対象Relationを保持したまま非完成・非Evidenceと判定し、Relationなし34件と合わせて品質判定上の未観測40件とする。このうちv0.21.0のRelease対象はGroup Aに属する130件で、106件が観測済み、24件が未観測（Automated 2件、Hybrid 12件、Manual 10件）である。Project Operation、Workbench、CROS、複数Repositoryおよび利用者所有Trustに属する26件はv0.22.0へ移管した。移管範囲には既存PrototypeとのRelationが10件あるが、新Capabilityの完成Evidenceへ読み替えず、未観測16件と合わせてv0.22で実装・実境界・人間受入を再評価する。
+Quality設計は13定義、156 Local Itemまで拡張した。Test Symbol Relationは122件に存在するが、完成Evidenceへ算入できるのは116件である。残る6件は対象Relationを保持したまま非完成・非Evidenceと判定し、Relationなし34件と合わせて品質判定上の未観測40件とする。このうちv0.21.0のRelease対象はGroup Aに属する130件で、106件が観測済み、22件が未観測（Hybrid 12件、Manual 10件）であり、機械化可能な既知Gapは0件である。Project Operation、Workbench、CROS、複数Repositoryおよび利用者所有Trustに属する26件はv0.22.0へ移管した。移管範囲には既存PrototypeとのRelationが10件あるが、新Capabilityの完成Evidenceへ読み替えず、未観測16件と合わせてv0.22で実装・実境界・人間受入を再評価する。
 
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|
 | Canonical入力 | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18を全件Mapping済み | [Quality Integration](04_Quality_Integration.md) |
 | Quality Analysis | 6工程の全入力を、Source固有条件付きで13検証目標へ接続し独立レビュー済み | Reality Auditではこの設計集合を変更せず、現行実装との対応を照合する |
-| Quality Definitions | 13定義、156 Local ItemをCanonical化済み | Test Relation 122件、完成Evidence算入116件、非完成Relation 6件、Relationなし34件。品質判定上は116件観測済み、40件未観測。v0.21対象130件は106件観測済み、24件未観測。v0.22移管26件はPrototype Relation 10件と未観測16件を区別し、完成済みへ読み替えない |
+| Quality Definitions | 13定義、156 Local ItemをCanonical化済み | Test Relation 122件、完成Evidence算入116件、非完成Relation 6件、Relationなし34件。品質判定上は116件観測済み、40件未観測。v0.21対象130件は106件観測済み、Hybrid／Manual 22件未観測。v0.22移管26件はPrototype Relation 10件と未観測16件を区別し、完成済みへ読み替えない |
 | Architecture詳細設計 | 18領域を適用判定済み | 実装OwnerのないCapability、現実との不一致およびTest未接続をReality Auditで処置する |
 | Checker | Repository検査と全契約試験がPass | 1,694 file、962 Markdown、16,273 link、1,965 anchorをError 0／Warning 0で検査し、Checker契約試験363／363 Passを確認した |
-| Reality Audit | In Review — Hybrid／Manual Evidence Pending | Checkerのskip Evidence誤算入と実境界未観測を是正し、v0.21に残るHybrid 12件とManual 10件を独立レビューと署名E2Eで処置する。v0.22移管26件は同版で再開する |
+| Reality Audit | Release Candidate C — Hybrid／Manual未観測を明示 | Checkerのskip Evidence誤算入と実境界未観測を是正した。最終署名E2Eを同じRuntime Identityで完了したが、v0.21に残るHybrid 12件とManual 10件を自動的にPassへ変更しない。v0.22移管26件は同版で再開する |
 
 ## 現在の品質投影
 
@@ -46,6 +46,7 @@ Coordinator／Project Runtimeの17意味Pilotに加えて全Subsystemへ照合�
 |---|---|---|
 | v0.20.1 | v0.20.0の公開状態伝播漏れを修正。Runtime実行集合はv0.20.0から変更していない | [CHG-000069](../99_Roadmap/Changes/CHG-000069/change.md) |
 | v0.20.0 | 正式4経路4/4、Recovery Matrix 7/7、cleanup成立。Linux／macOSや任意規模・長時間負荷へ一般化しない | [v0.20.0固定結果](../99_Roadmap/Releases/v0.20.0/Evidence/260906_v020-public-runtime-and-bounded-integration-verification.md) |
+| v0.21.0 Release候補 | 最終署名IdentityでRecovery Matrix 7シナリオと4経路4/4を完了。未実施Hybrid／Manual項目とv0.22移管範囲はPassへ畳まない | [最終署名検証](../99_Roadmap/Releases/v0.21.0/Evidence/260923_engineering-completeness-final-signed-e2e.md) |
 | v0.19.0 | Project Runtime、取消、exact Recovery、fresh再入場の公開基準 | [v0.19.0最終署名E2E](../99_Roadmap/Releases/v0.19.0/Evidence/260903_project-runtime-final-signed-e2e.md) |
 | v0.18.1 | Coordinator採用入口と署名Identityの公開基準 | [v0.18.1 Runtime Identity](../99_Roadmap/Releases/v0.18.1/Evidence/260901_coordinator-v0181-runtime-identity.md) |
 

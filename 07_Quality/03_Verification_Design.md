@@ -1,8 +1,9 @@
 # CRDD検証設計
 
-状態: v0.21.0 Canonical（Released Baseline: v0.20.1）
+状態: v0.21.0 Canonical
+公開状態: Stable
 担当責任者: Qual-Lab
-最終更新日: 2026-09-19
+最終更新日: 2026-09-23
 
 ## 1. 本書の責務
 

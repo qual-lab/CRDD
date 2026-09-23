@@ -1,22 +1,23 @@
 # Engineering Design／Implementation／Verificationの完全性
 
 変更ID: `CHG-000080`
-状態: `In Progress`
+状態: `Ready for Release Handoff`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `engineering_completeness_contract_extension`
+公開対象: `v0.21.0`（2026-09-23）
 
 ## 0. 現在状態
 
 | 項目 | 現在値 |
 |---|---|
-| 現在の変更状態 | Human-only再認証Lifecycle、Command世代Barrier、署名前Runtime能力Graph、Proxy port `8080`統一、Docker不存在`inspect`の明示stderr＋空配列`[]`受理、および秘密code非表示・一回入力の事前案内を実装し、局所試験と独立再レビューをPassした。直前の署名済み候補ではClaude Max認証、事後Probe、所有Docker資源0件、Recovery Matrixおよび4経路E2Eを確認した。現在は、v0.21 Candidate版表示、Commit Cのexact閉集合、Release Evidence所有、移行注記およびRelease判断順序を署名前Source Aへ閉じ、最終Identityで同じ署名検証を再実行する段階である |
+| 現在の変更状態 | Human-only再認証Lifecycle、Command世代Barrier、署名前Runtime能力Graph、Proxy port `8080`統一、Docker不存在`inspect`の明示stderr＋空配列`[]`受理、および秘密code非表示・一回入力の事前案内を実装した。Source A `419fe21b`、manifest carrier B `aa97f584`を固定し、同じ最終Runtime IdentityでRecovery Matrix 7シナリオとCodex／Claude 4経路4／4を完了した。安全な結果をRelease Evidenceへ固定し、Commit Cの公開状態遷移を作成した |
 | Phase／Gate適用判断 | `Applicable`: Architecture、実装、Quality、MigrationおよびReality Auditを一括変更せず、局所Gateで成立確認する必要がある |
-| 現在Phase | `Phase 9 — Signed E2E／Release Gate`: Phase 2／4／7／8の独立再レビューはBlocking Finding 0でPassした。Canonical設計集合156件のうちv0.21対象130件とv0.22移管26件を分け、Automated Gapは閉じた。Hybrid／Manual義務は既存の独立レビュー、実境界観測および人間確認へ対応付け、未実施項目をPassへ畳まず最終Release Evidenceで現在判定を固定する。移管26件は既存Prototype Relation 10件と未観測16件を区別し、新Capabilityの完成へ読み替えない |
-| 現在Gate | `Passed: Gate 0〜8`。`In Progress: Gate 9`。署名済みHuman-only実行で検出した固定Proxy port不一致を`8080`へ統一した。局所54／54、Coordinator全回帰2,032件中2,027 Pass・失敗0・5 Explicit Skip、Repository Checker errors 0／warnings 0、独立再レビューCritical／Major／Minor 0でPassした。次は再署名後に同じRecovery IDで回収・再入場し、Human-only実E2Eを再実行する |
-| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 156件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 224件の責務別Local Item接続、Optionality Audit全数処置。既存範囲の独立再レビューはBlocking Finding 0、Coordinatorは2015件中2010 Pass・失敗0・5 Explicit Skip、Windows Process Gateは8／8 Pass、Checker全回帰は363／363 Pass。Claude再認証の局所単体試験12件と別Process回復結合試験2件もPassし、本番認証関数のEffect前`in_flight`耐久化、Command保留中の実Kernel Lock喪失、fresh Effect 0、正常close後だけの`idle`復帰を固定した |
-| 未成立 | 最終Source A／manifest carrier Bの固定、同じ最終Runtime Identityに対するRecovery Matrixと4経路E2E、Release EvidenceへのLocal Item対応、Commit Cの機械確認・独立監査およびmain統合後の人間による最終Release判断。v0.22移管26件は同版の実装・実境界・人間受入で再開する |
-| 次のGate | Candidate準備差分の独立レビューをPassし、manifestを除くSource Aを固定する。Coordinatorだけを再署名してmanifest-only Bを作成し、同じIdentityでRecovery Matrixと4経路E2Eを再実行する。結果をRelease Evidenceへ保存してexact allowlistだけのCommit Cを作り、機械確認・監査・main統合後のexact Identity確認を経て最終Release判断へ渡す |
+| 現在Phase | `Phase 9 — Signed E2E／Release Gate`: Canonical設計集合156件のうちv0.21対象130件とv0.22移管26件を分け、Automated Gapを閉じた。最終署名IdentityのRecovery Matrixと4経路E2Eを完了し、未実施のHybrid／Manual義務をPassへ畳まずRelease Evidenceへ現在判定を固定した。移管26件は既存Prototype Relation 10件と未観測16件を区別し、新Capabilityの完成へ読み替えない |
+| 現在Gate | `Passed: Gate 0〜9 implementation and signed verification`。Commit Cの機械確認・独立監査、main統合後のexact Identity確認、および人間の最終Release判断はRelease運用の後続Gateとして残る |
+| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 156件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 224件の責務別Local Item接続、Optionality Audit全数処置。既存範囲の独立再レビューはBlocking Finding 0、Coordinatorは2015件中2010 Pass・失敗0・5 Explicit Skip、Windows Process Gateは8／8 Pass、Checker全回帰は363／363 Pass。Claude再認証の局所単体試験12件と別Process回復結合試験2件もPassした。最終署名RuntimeではRecovery Matrix 7シナリオと4経路E2E 4／4を完了し、cleanup、正本非変更および回復義務なしを確認した |
+| 未成立 | Commit Cの閉集合・manifest不変・Checker確認、独立監査、main統合後のexact Identity確認および人間による最終Release判断。Hybrid 12件とManual 10件は自動的にPassへ畳まず、Ownerと再評価契機を維持する。v0.22移管26件は同版の実装・実境界・人間受入で再開する |
+| 次のGate | Commit Cを機械確認と独立監査へ渡し、manifestとRuntime Identityの不変、B→Cのexact allowlist、Release状態閉包およびEvidence接続を確認する。feature branchからmainへ統合した後、exact Identityを再確認して人間の最終Release判断へ渡す |
 
 ## 1. 変更の目的
 

@@ -1,6 +1,6 @@
 # 現行振る舞い参照
 
-Status: Candidate (v0.21.0, Released Baseline: v0.20.1)
+Status: Stable (v0.21.0)
 Owner: Qual-Lab
 Last Updated: 2026-09-06
 

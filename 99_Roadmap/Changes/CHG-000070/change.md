@@ -4,6 +4,7 @@
 状態: `Ready for Release Handoff`
 決定権限: Qual-Lab
 基準版: v0.20.1
+公開対象: `v0.21.0`（2026-09-23）
 
 ## 1. 変更の目的
 

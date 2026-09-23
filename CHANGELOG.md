@@ -11,9 +11,9 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 <a id="changelog-v0210-en"></a>
 
-### v0.21.0 Candidate — Unreleased
+### v0.21.0 — 2026-09-23
 
-This candidate restructures CRDD's phase artifacts from Discovery through Quality into explicit Analysis, Definitions, Details, and cross-cutting projections. It fixes canonical identity granularity, visible authoring checklists, mandatory applicability evaluation, phase handoff contracts, Architecture detail completeness, Quality Local Item derivation, and source/test traceability without making generated projections a second source of truth.
+This release restructures CRDD's phase artifacts from Discovery through Quality into explicit Analysis, Definitions, Details, and cross-cutting projections. It fixes canonical identity granularity, visible authoring checklists, mandatory applicability evaluation, phase handoff contracts, Architecture detail completeness, Quality Local Item derivation, and source/test traceability without making generated projections a second source of truth.
 
 The implementation is reorganized around subsystem-owned development packages and a reusable CRDD domain library. The checker validates current canonical structure, symbols, headers, relations, required verification stages, and release-state closure. Coordinator remains the only heavy signed Runtime closure. Signed Recovery Matrix and four-route Codex／Claude E2E are required on the exact final Runtime identity before release.
 
@@ -23,12 +23,13 @@ Migration note (v0.20.1 → v0.21.0):
 - `change_classification: breaking`
 - Changed contracts: phase artifacts now separate Analysis, Definitions, Details, and root projections; visible checklists and mandatory applicability evaluation are part of canonical Markdown; repository-local `.crdd` data follows the manifest/config, durable state, execution/recovery, release, and temporary-data ownership contract; production and test named symbols use the fixed header and trace schema; supported Tool entry points no longer include removed internal import paths.
 - Affected adopters: repositories that copy or customize CRDD templates, parse phase artifact locations, maintain `.crdd` writers or cleanup, import CRDD Tool internals, or generate/validate source and test symbol metadata. Repositories that only read the methodology still update the complete baseline but do not create non-applicable optional artifacts.
-- Required actions: update the complete clone or submodule as one unit; inventory locally customized phase artifacts and Tool imports; migrate applicable artifacts to the new owner paths without duplicating a second source of truth; evaluate every visible checklist and conditional applicability item; update `.crdd` writers/retention rules and named-symbol headers where those capabilities are used; run the current repository checker and all affected package tests.
-- Conditional actions: migrate Runtime state or recovery data only when an adopting repository already uses the affected Runtime capability; retain an old generated traceability projection until its consumers and equivalence checks have migrated; do not create Workbench, CROS federation, Communication, Commercial, PT, or LT artifacts when they are not applicable or authorized.
-- Verification after migration: repository checker has no error; local links and canonical IDs resolve; removed import paths have no consumers; applicable package format/type/lint/tests pass; signed Runtime adopters verify the manifest and native artifact and settle or recover every exact active operation before switching revision.
-- Rollback or recovery: stop new Runtime work, settle or retain every exact recovery obligation, and restore the complete clone or submodule to official `v0.20.1`. Do not mix v0.21 templates, Coordinator package, manifest, native artifact, schemas, or `.crdd` writers with the v0.20.1 baseline.
-- Risk if deferred: the repository can keep old artifact ownership, unchecked applicability, stale trace relations, or unsupported imports, causing later phases and the checker to disagree. A partial baseline update is unsupported.
-- Group B Workbench／CROS product implementation is deferred to v0.22.0 and is not established by this candidate.
+- Required: update the complete clone or submodule as one unit; inventory locally customized phase artifacts and Tool imports; migrate applicable artifacts to the new owner paths without duplicating a second source of truth; evaluate every visible checklist and conditional applicability item; update `.crdd` writers/retention rules and named-symbol headers where those capabilities are used; run the current repository checker and all affected package tests.
+- Not required: create Workbench, CROS federation, Communication, Commercial, PT, or LT artifacts when they are not applicable or authorized. Runtime state or recovery data migration is required only when an adopting repository already uses the affected Runtime capability.
+- Conditional: migrate Runtime state or recovery data only when an adopting repository already uses the affected capability; retain an old generated traceability projection until every consumer and equivalence check has migrated.
+- Rollback / recovery: stop new Runtime work, settle or retain every exact recovery obligation, and restore the complete clone or submodule to official `v0.20.1`. Do not mix v0.21 templates, Coordinator package, manifest, native artifact, schemas, or `.crdd` writers with the v0.20.1 baseline.
+- Known risk if deferred: the repository can keep old artifact ownership, unchecked applicability, stale trace relations, or unsupported imports, causing later phases and the checker to disagree. A partial baseline update is unsupported.
+- Verification: the repository checker has no error; local links and canonical IDs resolve; removed import paths have no consumers; applicable package format/type/lint/tests pass; signed Runtime adopters verify the manifest and native artifact and settle or recover every exact active operation before switching revision.
+- Known limitation: Group B Workbench／CROS product implementation, Remote MCP, multiple-Repository federation, Linux permanent operation, optional PT／LT, and unresolved Hybrid／Manual acceptance obligations are not established by this release. An old generated traceability projection remains until its consumers and equivalence checks have migrated.
 
 <a id="changelog-v0201-en"></a>
 
@@ -969,9 +970,9 @@ The following describes the historical v0.1.0 files and does not describe the cu
 
 <a id="changelog-v0210-ja"></a>
 
-### v0.21.0 Candidate — Unreleased
+### v0.21.0 — 2026-09-23
 
-本候補は、DiscoveryからQualityまでの工程成果物を、明示的なAnalysis、Definitions、Detailsおよび横断投影へ再構成する。Canonical Identityの粒度、可視Checklist、適用可否の必須評価、工程間Handoff契約、Architecture詳細設計の完全性、Quality Local Itemの導出、およびSource／Test Traceabilityを是正し、生成Projectionを第二の正本にしない。
+本リリースは、DiscoveryからQualityまでの工程成果物を、明示的なAnalysis、Definitions、Detailsおよび横断投影へ再構成する。Canonical Identityの粒度、可視Checklist、適用可否の必須評価、工程間Handoff契約、Architecture詳細設計の完全性、Quality Local Itemの導出、およびSource／Test Traceabilityを是正し、生成Projectionを第二の正本にしない。
 
 実装はSubsystemが所有する開発Packageと再利用可能なCRDD Domain Libraryを中心に再編した。Checkerは現行Canonical構造、Symbol、Header、Relation、必要な検証段階およびRelease状態閉包を検査する。重い署名対象はCoordinator Runtimeだけを維持する。公開前には、最終Runtime Identityに対する署名済みRecovery MatrixとCodex／Claude 4経路E2Eを要求する。
 
@@ -981,12 +982,13 @@ The following describes the historical v0.1.0 files and does not describe the cu
 - `change_classification: breaking`
 - 変更契約: 工程成果物はAnalysis、Definitions、DetailsおよびRoot投影を分離する。可視Checklistと適用可否の必須評価をCanonical Markdownへ含める。Repository-local `.crdd`はmanifest／config、耐久状態、実行／回復、Releaseおよび一時Dataの所有契約に従う。Production／TestのNamed Symbolは固定Header／Trace Schemaを使用し、削除済みのTool内部import Pathを公開入口として扱わない。
 - 影響する採用側: CRDD Templateを複製・変更するRepository、工程成果物Pathを解析するTool、`.crdd` Writer／Cleanup、CRDD Tool内部をimportする利用側、Source／Test Symbol metadataを生成・検査する利用側。方法論だけを読むRepositoryも基準版全体を更新するが、非該当の任意成果物は作らない。
-- 必須操作: cloneまたはsubmodule全体を一単位で更新する。Local変更した工程成果物とTool importを棚卸しし、第二の正本を作らず新Owner Pathへ移す。該当する可視Checklistと条件付き適用項目を評価する。利用中のCapabilityについて`.crdd` Writer／保持規則とNamed Symbol Headerを更新し、現行Repository Checkerと影響Package試験を実行する。
-- 条件付き操作: 採用Repositoryが対象Runtime Capabilityを既に使う場合だけRuntime状態／回復Dataを移行する。旧生成Traceability ProjectionはConsumer移行と同等性検査が終わるまで保持できる。Workbench、CROS federation、Communication、Commercial、PTまたはLTが非該当・未許可なら空成果物や実行を追加しない。
-- 移行後確認: Repository CheckerがError 0、Local LinkとCanonical IDが解決可能、削除PathのConsumer 0、該当Packageのformat／type／lint／testがPassすること。署名Runtime利用側はmanifestとNative成果物を検証し、切替前にactiveなexact Operationをsettleまたはrecoverする。
-- 切戻し／回復: 新しいRuntime作業を止め、すべてのexact Recovery義務を解消または保持して、clone／submodule全体を公式`v0.20.1`へ戻す。v0.21 Template、Coordinator package、manifest、Native成果物、Schemaまたは`.crdd` Writerをv0.20.1基準と混在させない。
-- 延期Risk: 旧成果物Owner、未評価の適用可否、古いTrace Relationまたは非対応importが残り、後続工程とCheckerの判断が分離し得る。一部だけの基準版更新はSupport対象外である。
-- Group BのWorkbench／CROS Product実装はv0.22.0へ移管しており、本候補では成立しない。
+- 必須: cloneまたはsubmodule全体を一単位で更新する。Local変更した工程成果物とTool importを棚卸しし、第二の正本を作らず新Owner Pathへ移す。該当する可視Checklistと条件付き適用項目を評価する。利用中のCapabilityについて`.crdd` Writer／保持規則とNamed Symbol Headerを更新し、現行Repository Checkerと影響Package試験を実行する。
+- 不要: Workbench、CROS federation、Communication、Commercial、PTまたはLTが非該当・未許可なら空成果物や実行を追加しない。対象Runtime Capabilityを使わない採用RepositoryではRuntime状態／回復Dataの移行は不要である。
+- 条件付き: 採用Repositoryが対象Capabilityを既に使う場合だけRuntime状態／回復Dataを移行する。旧生成Traceability Projectionは全Consumer移行と同等性検査が終わるまで保持する。
+- 復旧: 新しいRuntime作業を止め、すべてのexact Recovery義務を解消または保持して、clone／submodule全体を公式`v0.20.1`へ戻す。v0.21 Template、Coordinator package、manifest、Native成果物、Schemaまたは`.crdd` Writerをv0.20.1基準と混在させない。
+- 延期時の既知リスク: 旧成果物Owner、未評価の適用可否、古いTrace Relationまたは非対応importが残り、後続工程とCheckerの判断が分離し得る。一部だけの基準版更新はSupport対象外である。
+- 検証: Repository CheckerがError 0、Local LinkとCanonical IDが解決可能、削除PathのConsumer 0、該当Packageのformat／type／lint／testがPassすること。署名Runtime利用側はmanifestとNative成果物を検証し、切替前にactiveなexact Operationをsettleまたはrecoverする。
+- 既知の制限: Group BのWorkbench／CROS Product実装、Remote MCP、複数Repository Federation、Linux常設運用、任意のPT／LTおよび未解決のHybrid／Manual受入義務は本リリースでは成立しない。旧生成Traceability ProjectionはConsumer移行と同等性検査が終わるまで保持する。
 
 <a id="changelog-v0201-ja"></a>
 

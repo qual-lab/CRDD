@@ -5,6 +5,7 @@
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `external_boundary_contract_correction`
+公開対象: `v0.21.0`（2026-09-23）
 
 ## 1. 変更の目的
 

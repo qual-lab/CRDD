@@ -1,0 +1,91 @@
+{
+  "contract": "crdd/release-verification-evidence",
+  "contractRevision": 1,
+  "releaseVersion": "v0.21.0",
+  "observedAt": "2026-09-23T06:43:33.739Z",
+  "releaseSequence": 2026092305,
+  "sourceA": {
+    "commit": "419fe21b0601e902bde7163c1194f9f437cbd961",
+    "tree": "7475af191bf7e8ba5823d5fe5d025d412833f460"
+  },
+  "manifestCarrierB": {
+    "commit": "aa97f584593c1d7a9e818401e154a2accc4d6d1b",
+    "tree": "eee604907334ffe1c9b9a7a4b75ea540e56c4602"
+  },
+  "signedRuntime": {
+    "manifestFileSha256": "c09463a7790a854b824efdf7d28ffa2608f4ec738d55918eeca5ba27b2323c9e",
+    "manifestHash": "2b1513260da841b804e9965ef29f299ae6753eca870ca5de501f46c6c120f185",
+    "packageContentRootSha256": "e712a8daaf135d6482cb7faef0e0afdcf8e870bbfe180174602534aee6790235",
+    "runtimeExecutionIdentitySha256": "cf11ad32749f0856a91bbf1e18aebad0eff34e29018c77a080cf6340f237d433"
+  },
+  "recoveryMatrix": {
+    "status": "completed",
+    "reason": "signed_recovery_matrix_verified",
+    "scenarioCount": 7,
+    "cleanupConfirmed": true,
+    "manualRecoveryRequired": false,
+    "resultSha256": "fab813c86cde2c92f64d2e6e6c1566bb2726bdede1a12ce087dd4c9b8b0d517d"
+  },
+  "routeMatrix": {
+    "status": "completed",
+    "reason": "signed_route_matrix_completed",
+    "attemptedRouteCount": 4,
+    "completedRouteCount": 4,
+    "retryableRouteAttemptCount": 0,
+    "profiles": [
+      "forward",
+      "reverse",
+      "same-codex",
+      "same-claude"
+    ],
+    "cleanupConfirmed": true,
+    "manualRecoveryRequired": false,
+    "processRestartRequired": false,
+    "effectStateUnknown": false,
+    "recoveryIdentityAmbiguous": false,
+    "canonicalRepositoryChanged": false,
+    "resultSha256": "b7929ab931283d2ca0ec9b08504be78b33757b5a65c4f1b2675df0c5613fe944"
+  },
+  "qualityDisposition": [
+    {
+      "localItem": "EST-ST-003",
+      "status": "passed",
+      "basis": "four_route_signed_provider_execution"
+    },
+    {
+      "localItem": "EST-ST-005",
+      "status": "passed",
+      "basis": "signed_recovery_matrix_failure_and_recovery_scenarios"
+    },
+    {
+      "localItem": "RCM-ST-012",
+      "status": "partial",
+      "basis": "signing_promotion_recovery_and_provider_consumers_observed_commit_c_audit_and_main_integration_pending"
+    },
+    {
+      "localItem": "CQS-ST-005",
+      "status": "partial",
+      "basis": "release_candidate_gate_generated_commit_c_audit_and_final_human_decision_pending"
+    },
+    {
+      "localItem": "CQS-UAT-006",
+      "status": "open",
+      "basis": "final_human_release_decision_occurs_after_main_integration"
+    },
+    {
+      "localItem": "ERB-ST-011",
+      "status": "open",
+      "basis": "recovery_matrix_does_not_replace_independent_docker_engine_and_host_resource_observation"
+    }
+  ],
+  "security": {
+    "providerRawOutputStored": false,
+    "oauthUrlStored": false,
+    "authenticationCodeStored": false,
+    "secretStored": false,
+    "hostPathStored": false,
+    "recoveryAuthorityStored": false
+  },
+  "releaseState": "candidate_c_evidence_ready",
+  "finalHumanReleaseDecisionRequired": true
+}

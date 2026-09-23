@@ -1,6 +1,6 @@
 # 振る舞い仕様
 
-状態: Canonical（v0.21.0、公開済みの基準版: v0.20.1）
+状態: v0.21.0 Stable Canonical
 担当責任者: Qual-Lab
 対象版: v0.21.0
 工程規則: [振る舞い仕様](../26_Behavior_Specification.md)、[UIとSPECの対応](../24_UI_Behavior_Specification.md)
