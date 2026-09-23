@@ -1,7 +1,7 @@
 # Canonical設計と現行実装のReality Audit
 
 変更ID: `CHG-000078`
-状態: `Reality Assessment Complete — Remediation In Progress; Legacy Migration Required`
+状態: `Ready for Release Handoff — Legacy Projection Retained`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `quality_reality_audit`
@@ -137,4 +137,4 @@ Pilot入力の対象改訂版はCommit `3f2567bd54f00fe638bfc8ff9e7f3695fd8eba66
 - [x] 全Subsystemへ展開し、実Runtime欠落、工程／統制Owner、Relation不足およびGapを分けた。
 - [x] 旧2 Runtime Traceability JSONのProperty Ownerと廃止Gateを定義した。
 - [x] 既存試験と意味が一致するRelation不足および命名規則不一致を是正し、更新版を再実行した。
-- [ ] OPEN: 旧2 Runtime Traceability JSONの全Consumerを新しい生成入口へ移行する。理由: Coordinator固有の詳細な状態・資源・検証caseと、Project Runtimeの同等性を保つ生成投影が未実装である。
+- [x] 旧2 Runtime Traceability JSONは、27ルートPropertyと全現行Consumerの棚卸し結果に基づき、v0.21.0では検証用Projectionとして保持すると判断した。新しい生成入口が同等の状態・資源・検証caseを提供し、全Consumer移行と独立同等性確認が完了するまで削除しない。これは本Reality Assessmentの未完了ではなく、後続変更を開始するための明示的な移行条件である。

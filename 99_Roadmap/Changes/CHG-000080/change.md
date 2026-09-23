@@ -10,13 +10,13 @@
 
 | 項目 | 現在値 |
 |---|---|
-| 現在の変更状態 | Docker Setup 8段階の固定診断により、選択UserのCRDD専用Claude Provider HomeにあるSubscription OAuthの失効を確認した。Human-only再認証Lifecycle、Command世代Barrier、署名前Runtime能力GraphおよびProxy port `8080`統一を実装・独立再レビューした。修正後の署名済み実行ではClaude Max認証と事後Probeが成功し、所有Docker資源も実観測で0件だった。一方、現行Docker CLIの不存在`inspect`がstdoutへ`[]`を返すためcleanup確認だけが未成立となった。Phase 9を再開し、明示stderrと組み合わせた`[]`だけを空結果として受理する互換修正と、秘密code非表示・一回入力の事前案内を追加している |
+| 現在の変更状態 | Human-only再認証Lifecycle、Command世代Barrier、署名前Runtime能力Graph、Proxy port `8080`統一、Docker不存在`inspect`の明示stderr＋空配列`[]`受理、および秘密code非表示・一回入力の事前案内を実装し、局所試験と独立再レビューをPassした。直前の署名済み候補ではClaude Max認証、事後Probe、所有Docker資源0件、Recovery Matrixおよび4経路E2Eを確認した。現在は、v0.21 Candidate版表示、Commit Cのexact閉集合、Release Evidence所有、移行注記およびRelease判断順序を署名前Source Aへ閉じ、最終Identityで同じ署名検証を再実行する段階である |
 | Phase／Gate適用判断 | `Applicable`: Architecture、実装、Quality、MigrationおよびReality Auditを一括変更せず、局所Gateで成立確認する必要がある |
-| 現在Phase | `Phase 9 — Signed E2E／Release Gate`: Phase 2／4／7／8の独立再レビューはBlocking Finding 0でPassした。Claude再認証Lifecycleの検証義務を加えたCanonical設計集合156件のうち、v0.21対象を130件、v0.22移管を26件へ分けた。v0.21の未観測24件（Automated 2、Hybrid 12、Manual 10）は局所試験、署名E2Eと人間確認で処置する。移管26件は既存Prototype Relation 10件と未観測16件を区別し、いずれも新CapabilityのPass・実装済みへ変更しない |
+| 現在Phase | `Phase 9 — Signed E2E／Release Gate`: Phase 2／4／7／8の独立再レビューはBlocking Finding 0でPassした。Canonical設計集合156件のうちv0.21対象130件とv0.22移管26件を分け、Automated Gapは閉じた。Hybrid／Manual義務は既存の独立レビュー、実境界観測および人間確認へ対応付け、未実施項目をPassへ畳まず最終Release Evidenceで現在判定を固定する。移管26件は既存Prototype Relation 10件と未観測16件を区別し、新Capabilityの完成へ読み替えない |
 | 現在Gate | `Passed: Gate 0〜8`。`In Progress: Gate 9`。署名済みHuman-only実行で検出した固定Proxy port不一致を`8080`へ統一した。局所54／54、Coordinator全回帰2,032件中2,027 Pass・失敗0・5 Explicit Skip、Repository Checker errors 0／warnings 0、独立再レビューCritical／Major／Minor 0でPassした。次は再署名後に同じRecovery IDで回収・再入場し、Human-only実E2Eを再実行する |
 | 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 156件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 224件の責務別Local Item接続、Optionality Audit全数処置。既存範囲の独立再レビューはBlocking Finding 0、Coordinatorは2015件中2010 Pass・失敗0・5 Explicit Skip、Windows Process Gateは8／8 Pass、Checker全回帰は363／363 Pass。Claude再認証の局所単体試験12件と別Process回復結合試験2件もPassし、本番認証関数のEffect前`in_flight`耐久化、Command保留中の実Kernel Lock喪失、fresh Effect 0、正常close後だけの`idle`復帰を固定した |
-| 未成立 | v0.21未観測Local Item 24件（Automated 2、Hybrid 12、Manual 10）のうち、署名E2Eまたは人間受入を必要とするEvidence処置と、Gate 9のRelease Readiness判定。v0.22移管26件は同版の実装・実境界・人間受入で再開する |
-| 次のGate | Docker不存在観測と秘密入力案内の是正を局所試験・独立再レビュー後にCoordinatorへ再署名し、既存のexact Recovery IDを同じ認証Lifecycleでsettledへ閉じる。続いてHuman-only認証、Recovery Matrixと4経路E2Eを同じ固定候補で再実行し、結果を24件のEvidence義務へ対応付ける |
+| 未成立 | 最終Source A／manifest carrier Bの固定、同じ最終Runtime Identityに対するRecovery Matrixと4経路E2E、Release EvidenceへのLocal Item対応、Commit Cの機械確認・独立監査およびmain統合後の人間による最終Release判断。v0.22移管26件は同版の実装・実境界・人間受入で再開する |
+| 次のGate | Candidate準備差分の独立レビューをPassし、manifestを除くSource Aを固定する。Coordinatorだけを再署名してmanifest-only Bを作成し、同じIdentityでRecovery Matrixと4経路E2Eを再実行する。結果をRelease Evidenceへ保存してexact allowlistだけのCommit Cを作り、機械確認・監査・main統合後のexact Identity確認を経て最終Release判断へ渡す |
 
 ## 1. 変更の目的
 

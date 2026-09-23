@@ -1,6 +1,6 @@
 # Coordinator Runtimeの利用・検証・発行手順
 
-Status: Stable (v0.20.1)
+Status: Candidate (v0.21.0, Released Baseline: v0.20.1)
 Owner: Qual-Lab
 Last Updated: 2026-09-11
 
@@ -230,6 +230,21 @@ v0.20.0では、Bの署名済みRuntimeに対する最終E2Eと人間のRelease�
 - 公開案内と残件: `README.md`、`CHANGELOG.md`、`99_Roadmap/02_Changes.md`、`99_Roadmap/01_Roadmap.md`
 
 正本とTool表示の機械的遷移はCandidate表示をStableへ変え、`Released Baseline`を除去し、Release日または最終更新日だけを更新する。CHGは`Released`と対象tagへ、Roadmapはv0.20完了項目を除去してv0.21以降の残件だけへ、CHANGELOGとREADMEは候補表示から公開版・公開日へ変える。ここにない本文変更、規範追加、実装変更、manifest変更、Runtime実行集合変更または新しい成果物はCommit Cへ含めない。
+
+### v0.21.0のCommit C許可Path
+
+v0.21.0では、Bの署名済みRuntimeに対する最終Recovery Matrix、4経路E2E、独立レビューおよび人間による最終Release候補Cの作成許可後、次のexact PathだけをCommit Cで変更できる。Cを作成・監査してfeature branchからmainへ統合し、main上のexact Identityと全Release Gateを確認した後に、人間が最終Release判断を行い、同じIdentityへtagを付ける。C作成前の許可やBに対する判断を、Cの最終Release判断へ流用しない。検証結果はProvider生出力、OAuth URL、認証code、秘密、Host PathまたはRecovery Authorityを保存せず、固定結果、件数、公開可能なIdentityおよび根拠Hashだけを記録する。
+
+- 最終E2E記録: `99_Roadmap/Releases/v0.21.0/Evidence/260923_engineering-completeness-final-signed-e2e.md`、`99_Roadmap/Releases/v0.21.0/Evidence/260923_engineering-completeness-final-signed-e2e.json`
+- 公開入口と履歴: `README.md`、`CHANGELOG.md`、`99_Roadmap/01_Roadmap.md`、`99_Roadmap/02_Changes.md`、`99_Roadmap/03_Releases.md`
+- 品質とReality Audit: `07_Quality/01_Quality_Center.md`、`07_Quality/02_Quality_Strategy.md`、`07_Quality/03_Verification_Design.md`、`07_Quality/05_Current_Implementation_Reality_Audit.md`
+- 利用・検証手順: `19_Workflows/01_Coordinator_Runtime.md`、`19_Workflows/04_MCP_Server.md`
+- 工程の候補表示: `02_UX/01_User_Experience.md`、`02_UX/02_Personas.md`、`02_UX/03_Experience_Map.md`、`02_UX/04_Service_Blueprint.md`、`02_UX/05_Quality_Expectations.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`
+- v0.21の候補からStableへ機械的に遷移するCRDD正本: `00_Overview.md`、`01_Principles.md`、`02_Terminology.md`、`03_Documentation.md`、`04_Agent_Organization.md`、`05_Autonomous_Operation.md`、`10_Agent.md`、`11_Skill.md`、`12_Change.md`、`13_Release.md`、`14_Workflow.md`、`15_Progress.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`18_Context_Dependency.md`、`19_Maintenance.md`、`21_Discovery.md`、`22_UX.md`、`23_IA.md`、`24_UI_Behavior_Specification.md`、`25_UI.md`、`26_Behavior_Specification.md`、`27_Architecture.md`、`28_Implementation.md`、`29_Verification.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
+- v0.21の候補表示を持つ工程成果物: `04_UI/06_Current_Interface_Reference.md`、`05_SPEC/07_Current_Behavior_Reference.md`、`06_Architecture/01_Architecture.md`、`06_Architecture/02_Component_and_Responsibility_Model.md`、`06_Architecture/03_Boundary_and_Interface_Model.md`、`06_Architecture/04_Runtime_and_Data_Flow_Model.md`、`06_Architecture/05_Failure_Recovery_and_Resilience_Model.md`、`06_Architecture/06_Deployment_and_Execution_Model.md`、`06_Architecture/99_Coding_Standards.md`、`06_Architecture/Details/coordinator/02_Threat_Model.md`、`06_Architecture/Details/crdd-domain-library/01_Architecture.md`、`06_Architecture/Details/runtime-data/02_Current_Path_Reality_Audit.md`
+- Release対象CHG: `99_Roadmap/Changes/CHG-000066/change.md`、`99_Roadmap/Changes/CHG-000068/change.md`、`99_Roadmap/Changes/CHG-000070/change.md`、`99_Roadmap/Changes/CHG-000071/change.md`、`99_Roadmap/Changes/CHG-000072/change.md`、`99_Roadmap/Changes/CHG-000073/change.md`、`99_Roadmap/Changes/CHG-000074/change.md`、`99_Roadmap/Changes/CHG-000075/change.md`、`99_Roadmap/Changes/CHG-000076/change.md`、`99_Roadmap/Changes/CHG-000077/change.md`、`99_Roadmap/Changes/CHG-000078/change.md`、`99_Roadmap/Changes/CHG-000079/change.md`、`99_Roadmap/Changes/CHG-000080/change.md`
+
+正本と工程成果物の機械的遷移は、v0.21.0のCandidate表示をStableへ変え、`Released Baseline`を除去し、Release日または最終更新日だけを更新する。CHGは`Released`と対象tagへ、Roadmapはv0.21完了項目を除去してv0.22以降の残件だけへ、CHANGELOGとREADMEは候補表示から公開版・公開日へ変える。QualityとReality Auditは、実行済みEvidenceへ接続した項目、未観測のまま残す項目およびv0.22へ移管した項目を分け、未実行項目をPassへ変更しない。ここにない本文変更、規範追加、実装変更、manifest変更、Runtime実行集合変更または新しい成果物はCommit Cへ含めない。
 
 ### リリース状態の利用側閉包
 

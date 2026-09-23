@@ -1,6 +1,6 @@
 # CRDD内部ツール・コーディング規約
 
-Status: Stable (v0.20.1)
+Status: Candidate (v0.21.0, Released Baseline: v0.20.1)
 Owner: Qual-Lab
 Last Updated: 2026-09-06
 Scope: `40_Develop/**`の実装と、CRDDが配布する`template/tools/**`の現行Tool本体・起動入口・設定・Schema。v0.21移行目標は本文で区別する

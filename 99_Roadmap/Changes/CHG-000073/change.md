@@ -1,7 +1,7 @@
 # 工程成果物Repository Pattern
 
 変更ID: `CHG-000073`
-状態: `Implementation In Progress`
+状態: `Ready for Release Handoff`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `repository_structure_change`
@@ -1405,7 +1405,7 @@ IA工程を閉じた後、UIとSPECを別々の専門工程として見直し、
 | Discovery Analysis／Definition | 28／36 |
 | UX Analysis／Definition | 36／32。全要求分析とUX定義を自己完結させ、複数REQを統合する13定義では全入力の未確認事項を保持した。Root 5件を含む73成果物と7ひな型へ成果物別の可視Checklistを適用し、直後工程IA、伴走するQuality Analysis / UX、IA後のUI／SPEC Relationを区別した。初回4指摘と第2回Major 1件／Moderate 3件／Minor 1件を是正し、独立再レビューCritical／Major／Moderate／Minor 0でPass |
 | IA Analysis／Definition | 32／22。全入力UXの利用場面、対象、識別、関係、状態、可視性、時間差、導線、責任、判断権限、失敗および検証意図を保持した。209 Analysis Objectと157適用対象Source Identity行を全数照合し、DefinitionがAnalysisのIdentity／Relationを後付けで再解釈できないChecker契約を追加した。不一致0件、`Merge`／`Split` 0件、3横断投影は各22 IA-IDを一意に処置し、独立再レビューでIA工程を閉じた |
-| UI Analysis／Definition | UX観点32／IA観点22／Definition 20。正式入力に残る未確認事項を全54分析と20定義へ継承し、UI固有判断と分けた。UI契約は対応レビュー入力Readyだが、Prototype／実画面評価と人間によるUI工程Exit判断はOPEN |
+| UI Analysis／Definition | UX観点32／IA観点22／Definition 20。正式入力に残る未確認事項を全54分析と20定義へ継承し、UI固有判断と分けた。工程成果物Repository PatternとUI契約の対応レビュー入力はReadyである。WorkbenchのPrototype／実画面評価と人間によるProduct UI Exitは本変更の構造移行Gateへ含めず、v0.22.0のProduct実装で扱う |
 | SPEC Analysis／Definition | UX観点32／IA観点22／Definition 29。正式入力に残る未確認事項を全54分析と29定義へ継承した。全UX観点分析へSource固有の境界を明示し、外部送信のEffect成立後・結果不明・同一依頼再観測を独立契約として保持した。独立再レビューCritical／Major／Moderate／Minor 0でPass |
 | Architecture Analysis／Definition／Details | UI観点20／SPEC観点29／Definition 18。再レビューで、上流来歴を追加の正式入力と誤読できる表記、UI固有の失敗境界の取り落とし、`SPEC-000002`の実行受付と上位受入判断の重複、署名Authorizationの並行消費、CheckerのTiming、Coordinator詳細設計への現行状態混入、Checkerの表構造検査不足、および`ARCH-000005`の読取り投影と受入判断記録のOwner混在を検出した。49 Analysisの来歴表示と失敗境界、18 Definitionへの伝播、`ARCH-000004`／`ARCH-000005`の責務Slice、二つのPortとOwnerの横断モデル・Detail・Quality引渡しへの閉包、Artifact Signing／Checker／Coordinator詳細設計、Template Checkerと反証試験を是正した。固定Commit `03e16613`を契約、詳細設計、工程閉包の3系統で再レビューし、Critical／Major／Moderate／Minor 0を確認してArchitecture Readyとした |
 | 全体Checker | `errors: 0`、`warnings: 0` |
@@ -1423,9 +1423,9 @@ IA工程を閉じた後、UIとSPECを別々の専門工程として見直し、
 | UI／SPEC対応レビュー | 固定Commit `ab20ff4b`について、31組×8観点の248 Evidence行を全数確認した。入力→両分析→20 UI／29 SPEC Definition→31組→248 Evidenceの閉包と、Evidenceが第三仕様を作らないことを確認し、Critical／Major／Moderate／Minor 0でPass |
 | Architecture独立レビュー | 固定Commit `03e16613`について、20 UI／29 SPEC／18 Definition、5横断モデル、受入判断の開始・正常・差戻し・判断待ち・再入場・拒否およびQuality引渡しを確認し、Critical／Major／Moderate／Minor 0でPass |
 | Architecture詳細設計の独立レビュー | 固定Commit `03e16613`について、15領域の責務とQuality引渡しを全数確認した。Execution IntelligenceのCanonical詳細を読取り専用へ限定し、基準版Writer／Storeを非CanonicalなReality Auditへ分離した。契約移行にはCovered ownerを置き、全ARCH-IDが少なくとも一つのCovered詳細領域を持つことを機械反証した。Critical／Major／Moderate／Minor 0でPass |
-| Quality全件分析 | 157件のCanonical IDを13検証目標へ接続した。独立レビューで、目標名への接続だけではSource固有条件がLocal Itemへ届かず、実行記録の作成責務と成果物理解の検証が不足すると判明した。上流GapをUX-000032／IA-000022／UI-000020／SPEC-000030／ARCH-000018へ戻し、`Source ID → 検証目標`190関係、`Source ID → 検証目標 → Local Item`572関係と`詳細設計領域 → 検証目標`38関係をMapping・Definitionへ同じ集合で固定した。全81 Local Itemを11軸へ拡張し、検証目標ごとにUT／IT／ST／UATおよびRT／PT／LTの適用と外部境界の段階到達を固定した。独立レビューが見つけた、上流Mappingで必須の段階をDefinition側で任意化する不整合を、AIT-UT-005／06、CQS-ST-005／06、ERP-UAT-007、EST-UAT-006、PPR-UAT-007で是正した。さらに複数目標を持つSourceの段階を各目標へ一律適用していた曖昧さを解消し、`Source ID + 検証目標`ごとの試験段階、対応Local Item、Source全体行との和集合をCheckerで相互検査する。Quality Owner分離、Template、Current Profileおよび影響ファイル一覧を是正し、独立再レビュー中 |
+| Quality全件分析 | 157件のCanonical IDを13検証目標へ接続した。独立レビューで、目標名への接続だけではSource固有条件がLocal Itemへ届かず、実行記録の作成責務と成果物理解の検証が不足すると判明した。上流GapをUX-000032／IA-000022／UI-000020／SPEC-000030／ARCH-000018へ戻し、`Source ID → 検証目標`190関係、`Source ID → 検証目標 → Local Item`572関係と`詳細設計領域 → 検証目標`38関係をMapping・Definitionへ同じ集合で固定した。試験段階、外部境界段階、Quality Owner、TemplateおよびCurrent Profileを是正し、後続のEngineering Completeness変更でLocal Item 156件、Required Verification差分0および独立再レビューPassまで閉じた |
 
-固定Commit `d53875d8`までの工程間意味伝播は一度Passしたが、その後のArchitecture／Quality再構築で、取消・判断返却に加えて実行記録の作成側契約不足を検出した。いずれも下流で推測せず、UX／IAから導ける正式入力へ戻し、読取りと書込みのAuthority、Effect、失敗およびlifecycleを分離した。固定Commit `984aa466`と`eb544d6`へのArchitecture再レビューでは、現行UI／SPEC改訂のConsumer Closure、Checklist根拠、Detail Owner、Quality引渡し、Candidate／Ready Gateに続き、上流来歴の扱い、UI固有Failure、兄弟Architecture間の責務Slice、一回限りAuthorizationの並行消費、Timingおよび表構造の機械反証を検出した。現在は全指摘の是正候補を固定する段階であり、Architecture ReadyとQuality正式引渡しは停止している。現在、人間による追加判断は必要ない。
+固定Commit `d53875d8`までの工程間意味伝播は一度Passしたが、その後のArchitecture／Quality再構築で、取消・判断返却に加えて実行記録の作成側契約不足を検出した。いずれも下流で推測せず、UX／IAから導ける正式入力へ戻し、読取りと書込みのAuthority、Effect、失敗およびlifecycleを分離した。固定Commit `984aa466`と`eb544d6`へのArchitecture再レビュー時点では、現行UI／SPEC改訂のConsumer Closure、Checklist根拠、Detail Owner、Quality引渡し、Candidate／Ready Gateに続き、上流来歴の扱い、UI固有Failure、兄弟Architecture間の責務Slice、一回限りAuthorizationの並行消費、Timingおよび表構造の機械反証を検出し、Architecture ReadyとQuality正式引渡しを停止していた。これらは後続の固定Commit `03e16613`とEngineering Completeness変更で是正・再レビューし、本変更のRepository Patternと工程間HandoffはRelease引渡し可能になった。
 
 固定Commit `2a99893a`の再レビューでは、Objective受入・差戻し・判断待ちとMilestone受入判断を別状態として保持する是正、および`PRL-UT-007`〜`PRL-UAT-010`による専用検証項目を確認した。一方、横断状態図に開始からObjective判断待ちへの入口と厳密な遷移表がなく、`ARCH-000005`にObjective根拠からMilestone受入を判断する旧表現が一件残っていた。状態図へ開始・対象解決の入口を戻し、図の直後へ受入判断の正常・差戻し・判断待ち・再入場・拒否を網羅する遷移表を追加した。Milestone判断の根拠はObjective受入記録へ統一し、Objective差戻しまたは判断待ちではMilestone判断Authorityを発行しない。これにより、視覚的な理解を担う図と機械的に照合できる厳密な状態契約を同じ正本で分担する。
 

@@ -1,7 +1,8 @@
 # CRDD UI契約と振る舞い仕様の対応関係
 
-Version: v0.20.1
-Status: Stable
+Version: v0.21.0
+Status: Candidate
+Released Baseline: v0.20.1
 Owner: Qual-Lab
 Last Updated: 2026-09-06
 Related:
