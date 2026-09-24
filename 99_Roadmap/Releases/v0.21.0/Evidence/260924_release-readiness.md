@@ -130,7 +130,7 @@ Quality Centerではv0.21対象130件のうち108件が観測済み、Hybrid 12�
 
 Release決定権限者は、対象範囲がGroup Aへ限定されること、未観測22件、PT／LT未実施、Windows以外の実環境非対応、v0.22移管範囲、およびv0.20.1へ配布物単位で戻すRollbackを確認して、統合・Release・延期を判断する。本計画はそのリスク受容またはRelease承認を代替しない。
 
-### 5.1. 人間の最終Release判断へ渡す明示例外候補
+### 5.1. 人間の最終Release判断へ渡す明示的な品質例外候補
 
 未観測22件を残してReleaseする場合は、次の明示的な品質例外候補を、人間の決定権限者がmain統合後のexact Commit／Treeに対してRelease判断と同時に承認する必要がある。変更影響の伝播確認は完了済みであり、本候補を`propagation_exception`として扱わない。未承認の候補を例外成立またはRelease承認として扱わず、例外承認だけをRelease承認へ読み替えない。
 
@@ -168,6 +168,6 @@ Release決定権限者は、対象範囲がGroup Aへ限定されること、未
 - [ ] Stable遷移後の候補をCommit／Treeへ固定し、PRで外部固定する。
 - [ ] Repository Checkerと独立監査を最終候補へ実行する。
 - [ ] PR、main統合、統合後Identityおよび必須CIを確認する。
-- [ ] 未観測22件を含む残存リスクについて、人間の最終Release判断または明示例外を記録する。
+- [ ] 未観測22件を含む残存リスクについて人間の最終Release判断を記録し、22件を残してReleaseする場合は同時に明示的な品質例外も記録する。
 - [ ] 承認済みexact Identityへのtag付与とtag結果確認を完了する。
 - [ ] tag後のCHG、Release Projection、Roadmapおよび実Release結果を公開後状態の改訂版へ閉じる。
