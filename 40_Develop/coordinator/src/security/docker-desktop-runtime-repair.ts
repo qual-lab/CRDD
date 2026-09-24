@@ -3758,6 +3758,69 @@ async function continuationHostQuiescence(
 }
 
 /**
+ * 失敗起動の継続修復を同じ実行内で開始できるか判定する。
+ *
+ * @responsibility 初回Desktop起動のTimeout後に、既知の二Runtime領域とProcess停止を確認し、同じRepair IDの継続修復だけを許可する。
+ * @trace ARCH-000008
+ * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation
+ * @returns 継続修復の全事前条件が現在同時に成立する場合だけtrueを返す。
+ * @precondition operationは初回Desktop起動Effectをsettledとして保持するrenamed段階である。
+ * @postcondition 判定のための読取り観測だけを行い、耐久記録またはHost Effectを変更しない。
+ * @effect N/A: Engine、Process、Pathおよびlockを読取り観測するだけで、Host Effectを発行しない。
+ * @failure 観測不能、取消、Identity不一致または一領域でも未成立ならfalseを返す。
+ * @invariant Repair ID、既存Effect、退避済み世代および既知Runtime領域の閉集合を変更しない。
+ * @boundary Docker Engine、Native Helper Process観測および既知Runtime Directory lock観測の境界。
+ * @security 観測対象をDocker/runとdocker-secrets-engine以外へ拡張せず、Pathを公開結果へ搬送しない。
+ * @concurrency 取消通知後は継続修復を許可せず、同じHelper SessionのProcess観測へ収束させる。
+ */
+async function failedLaunchContinuationReady(
+  dependencies: RepairDependencies,
+  boundary: PreparedBoundary,
+  session: DockerDesktopRepairNativeHelperSession,
+  cancellation: ReturnType<typeof attachCancellation>,
+  operation: DockerDesktopRepairOperation,
+) {
+  const launch = operation.ledger.processEffects.find(
+    (entry) => entry.action === "desktop_launch",
+  );
+  if (
+    cancellation.shouldStop() ||
+    operation.stage !== "renamed" ||
+    launch?.phase !== "settled" ||
+    launch.issued !== true ||
+    launch.confirmation !== "confirmed" ||
+    dependencies.observeEngine(boundary) !== "known_unavailable"
+  )
+    return false;
+  const processes = await inspectProcessesWithinCancellation(
+    session,
+    cancellation,
+  );
+  if (processes !== "absent" || cancellation.shouldStop()) return false;
+  const observeLock = dependencies.observeRuntimeDirectoryLock;
+  if (!observeLock) return false;
+  const failedRun = observePathUsing(dependencies, boundary.runDirectory);
+  const secretsDirectory = path.win32.join(
+    boundary.localAppData,
+    "docker-secrets-engine",
+  );
+  const secrets = observePathUsing(dependencies, secretsDirectory);
+  const failedRunLock = observeLock(boundary.runDirectory);
+  const secretsLock = observeLock(secretsDirectory);
+  return (
+    failedRun.state === "present" &&
+    failedRun.identity !== null &&
+    !sameIdentity(failedRun.identity, operation.runIdentity) &&
+    failedRunLock !== null &&
+    sameIdentity(failedRunLock, failedRun.identity) &&
+    secrets.state === "present" &&
+    secrets.identity !== null &&
+    secretsLock !== null &&
+    sameIdentity(secretsLock, secrets.identity)
+  );
+}
+
+/**
  * continue Failed Docker Desktop Launchを決定する。
  *
  * @responsibility continue Failed Docker Desktop Launchの導出に必要な入力、判定規則、返却結果の境界を所有する。
@@ -6050,6 +6113,24 @@ async function executeRepair(
         );
       }
       if (engine !== "ready" || !cancellation.helperAvailable()) {
+        if (
+          engine === "startup_timeout" &&
+          cancellation.helperAvailable() &&
+          (await failedLaunchContinuationReady(
+            dependencies,
+            boundary,
+            session,
+            cancellation,
+            operation,
+          ))
+        )
+          return continueFailedDockerDesktopLaunch(
+            dependencies,
+            boundary,
+            session,
+            cancellation,
+            operation,
+          );
         if (engine === "unknown") markUnknown(ledger);
         else ledger.hostSafety = "manual_recovery_required";
         reason =

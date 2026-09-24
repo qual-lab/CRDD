@@ -5713,6 +5713,196 @@ test("現行署名版が新規作成した修復を複数Runtime領域の段階�
 });
 
 /**
+ * 初回起動失敗から同じ実行内で複数Runtime領域を修復することを検証する。
+ *
+ * @responsibility 初回Desktop起動がTimeoutして既知の二領域lockを残した場合に、人間の二回目実行なしで同じRepair IDのContinuationへ進むことを保証する。
+ * @trace ERB-IT-001
+ * @precondition Test専用Filesystem上で、初回起動だけが失敗世代とSecrets Engine lockを生成する。
+ * @stimulus 新規Repairを一回だけ実行する。
+ * @observation Repair ID、Desktop起動回数、二領域の退避、Engine状態および最終状態を観測する。
+ * @oracle 同じInvocation内で初回起動と一回のContinuation再起動が行われ、recovered_pending_closeへ到達する。
+ * @cleanup Test専用一時Rootをfinallyで削除する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
+test("初回起動失敗から同じ実行内で複数Runtime領域を修復する", async () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-current-docker-auto-regions-"),
+  );
+  try {
+    const localAppData = path.join(root, "local");
+    const runtimeStateRoot = path.join(root, "runtime-state");
+    const runDirectory = path.join(localAppData, "Docker", "run");
+    const secretsDirectory = path.join(localAppData, "docker-secrets-engine");
+    fs.mkdirSync(runtimeStateRoot, { recursive: true });
+    fs.mkdirSync(runDirectory, { recursive: true });
+    fs.writeFileSync(path.join(runDirectory, "dockerInference"), "origin");
+
+    const identityAt = (target: string) => {
+      try {
+        const metadata = fs.lstatSync(target, { bigint: true });
+        return metadata.isDirectory() &&
+          !metadata.isSymbolicLink() &&
+          metadata.dev > 0n &&
+          metadata.ino > 0n &&
+          metadata.birthtimeNs > 0n
+          ? Object.freeze({
+              dev: String(metadata.dev),
+              ino: String(metadata.ino),
+              birthtimeNs: String(metadata.birthtimeNs),
+            })
+          : null;
+      } catch {
+        return null;
+      }
+    };
+    const originalIdentity = identityAt(runDirectory);
+    assert.ok(originalIdentity);
+    const currentBoundary: PreparedBoundary = Object.freeze({
+      ...boundary,
+      runtimeStateRoot,
+      localAppData,
+      runDirectory,
+      socketPath: path.join(runDirectory, "dockerInference"),
+    });
+    let activeOperation: DockerDesktopRepairOperation | null = null;
+    let terminated = false;
+    let launches = 0;
+    let awaitCalls = 0;
+    const renameCalls: string[] = [];
+    const repairSession = Object.freeze({
+      ...session(),
+      inspectProcesses: async () =>
+        launches >= 2
+          ? ("verified" as const)
+          : terminated || launches === 1
+            ? ("absent" as const)
+            : ("verified" as const),
+      terminateProcesses: async () => {
+        terminated = true;
+        return "terminated" as const;
+      },
+      launchDesktop: async () => {
+        launches += 1;
+        if (launches === 1) {
+          fs.mkdirSync(runDirectory, { recursive: true });
+          fs.writeFileSync(
+            path.join(runDirectory, "sailor-ingest.sock"),
+            "failed",
+          );
+          fs.mkdirSync(secretsDirectory, { recursive: true });
+          fs.writeFileSync(
+            path.join(secretsDirectory, "engine.sock"),
+            "failed",
+          );
+        } else {
+          fs.mkdirSync(runDirectory, { recursive: true });
+          fs.writeFileSync(path.join(runDirectory, "dockerInference"), "new");
+          fs.mkdirSync(secretsDirectory, { recursive: true });
+          fs.writeFileSync(path.join(secretsDirectory, "engine.sock"), "new");
+        }
+        return "started" as const;
+      },
+    });
+    const dependencies: RepairDependencies = {
+      prepareBoundary: () => currentBoundary,
+      acquireHelper: async () =>
+        Object.freeze({ status: "acquired" as const, session: repairSession }),
+      inventory: () =>
+        Object.freeze({
+          status: "verified" as const,
+          operations: Object.freeze(activeOperation ? [activeOperation] : []),
+        }),
+      observeEngine: () =>
+        launches >= 2 ? ("ready" as const) : ("known_unavailable" as const),
+      observeKnownSocketFailure: () => originalIdentity,
+      observeRuntimeDirectoryLock: identityAt,
+      persistStage: (_boundary, current, stage, ledger) => {
+        if (current.sequence < 0)
+          fs.mkdirSync(current.operationDirectory, { recursive: false });
+        activeOperation = Object.freeze({
+          ...current,
+          stage,
+          sequence: current.sequence + 1,
+          previousRecordSha256: String(current.sequence + 1).padStart(64, "0"),
+          ledger: Object.freeze({ ...ledger }),
+        });
+        return activeOperation;
+      },
+      officialShutdown: () =>
+        Object.freeze({ issued: true, confirmation: "confirmed" as const }),
+      terminateDockerWsl: () =>
+        Object.freeze({ issued: true, confirmation: "confirmed" as const }),
+      renameRunDirectory: (_boundary, operation) => {
+        fs.renameSync(runDirectory, operation.staleDirectory);
+        renameCalls.push(runDirectory);
+        return Object.freeze({
+          issued: true,
+          confirmation: "confirmed" as const,
+          staleState: "retained" as const,
+        });
+      },
+      renameRuntimeDirectory: (source, target, expected) => {
+        assert.deepEqual(identityAt(source), expected);
+        fs.renameSync(source, target);
+        renameCalls.push(source);
+        return Object.freeze({
+          issued: true,
+          confirmation: "confirmed" as const,
+          staleState: "retained" as const,
+        });
+      },
+      awaitEngine: async () => {
+        awaitCalls += 1;
+        return awaitCalls === 1
+          ? ("startup_timeout" as const)
+          : ("ready" as const);
+      },
+      identityAt,
+      observePath: (target) => {
+        const observed = identityAt(target);
+        return observed
+          ? Object.freeze({ state: "present" as const, identity: observed })
+          : Object.freeze({
+              state: "confirmed_absent" as const,
+              identity: null,
+            });
+      },
+    };
+
+    const result =
+      await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
+
+    assert.equal(
+      result.status,
+      "recovered_pending_close",
+      JSON.stringify(result),
+    );
+    assert.equal(
+      result.reason,
+      "docker_desktop_repair_continuation_recovered_pending_close",
+    );
+    assert.equal(launches, 2);
+    assert.equal(awaitCalls, 2);
+    assert.deepEqual(renameCalls, [
+      runDirectory,
+      runDirectory,
+      secretsDirectory,
+    ]);
+    assert.ok(activeOperation);
+    const completedOperation = activeOperation as DockerDesktopRepairOperation;
+    const continuation = inspectDockerDesktopRepairContinuation(
+      currentBoundary,
+      completedOperation,
+    );
+    assert.equal(continuation.status, "valid");
+    assert.equal(continuation.continuation?.stage, "recovered");
+    assert.equal(result.repairId, completedOperation.repairId);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+/**
  * 署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engineを段階退避して回復するを検証する。
  *
  * @responsibility 署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engineを段階退避して回復するの合否判定を所有する。
