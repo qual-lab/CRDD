@@ -3772,17 +3772,17 @@ async function continuationHostQuiescence(
  * @responsibility 初回Desktop起動のTimeout後に、既知の二Runtime領域とProcess停止を確認し、同じRepair IDの継続修復だけを許可する。
  * @trace ARCH-000008
  * @input dependencies: RepairDependencies、boundary: PreparedBoundary、session: DockerDesktopRepairNativeHelperSession、cancellation: ReturnType<typeof attachCancellation>、operation: DockerDesktopRepairOperation
- * @returns 継続修復の全事前条件が現在同時に成立する場合だけtrueを返す。
+ * @returns 継続修復の可否と、不成立時に秘密値やHost Pathを含まない条件別理由を返す。
  * @precondition operationは初回Desktop起動Effectをsettledとして保持するrenamed段階である。
  * @postcondition 判定のための読取り観測だけを行い、耐久記録またはHost Effectを変更しない。
  * @effect N/A: Engine、Process、Pathおよびlockを読取り観測するだけで、Host Effectを発行しない。
- * @failure 観測不能、取消、Identity不一致または一領域でも未成立ならfalseを返す。
+ * @failure 観測不能、取消、Identity不一致または一領域でも未成立なら対応する理由を返す。
  * @invariant Repair ID、既存Effect、退避済み世代および既知Runtime領域の閉集合を変更しない。
  * @boundary Docker Engine、Native Helper Process観測および既知Runtime Directory lock観測の境界。
  * @security 観測対象をDocker/runとdocker-secrets-engine以外へ拡張せず、Pathを公開結果へ搬送しない。
  * @concurrency 取消通知後は継続修復を許可せず、同じHelper SessionのProcess観測へ収束させる。
  */
-async function failedLaunchContinuationReady(
+async function inspectFailedLaunchContinuationReadiness(
   dependencies: RepairDependencies,
   boundary: PreparedBoundary,
   session: DockerDesktopRepairNativeHelperSession,
@@ -3792,26 +3792,52 @@ async function failedLaunchContinuationReady(
   const launch = operation.ledger.processEffects.find(
     (entry) => entry.action === "desktop_launch",
   );
+  if (cancellation.shouldStop())
+    return Object.freeze({ ready: false as const, reason: "cancelled" });
+  if (operation.stage !== "renamed")
+    return Object.freeze({
+      ready: false as const,
+      reason: "operation_stage_invalid",
+    });
   if (
-    cancellation.shouldStop() ||
-    operation.stage !== "renamed" ||
     launch?.phase !== "settled" ||
     launch.issued !== true ||
-    launch.confirmation !== "confirmed" ||
-    dependencies.observeEngine(boundary) !== "known_unavailable"
+    launch.confirmation !== "confirmed"
   )
-    return false;
+    return Object.freeze({
+      ready: false as const,
+      reason: "launch_unconfirmed",
+    });
+  const engine = dependencies.observeEngine(boundary);
+  if (engine === "ready")
+    return Object.freeze({ ready: false as const, reason: "engine_ready" });
+  if (engine !== "known_unavailable" && engine !== "transient_unavailable")
+    return Object.freeze({
+      ready: false as const,
+      reason: "engine_observation_unknown",
+    });
   const processes = await inspectProcessesWithinCancellation(
     session,
     cancellation,
   );
-  if (
-    (processes !== "absent" && processes !== "verified") ||
-    cancellation.shouldStop()
-  )
-    return false;
+  if (cancellation.shouldStop())
+    return Object.freeze({ ready: false as const, reason: "cancelled" });
+  if (processes === "unknown" || processes === null)
+    return Object.freeze({
+      ready: false as const,
+      reason: "process_observation_unknown",
+    });
+  if (processes !== "absent" && processes !== "verified")
+    return Object.freeze({
+      ready: false as const,
+      reason: "process_scope_changed",
+    });
   const observeLock = dependencies.observeRuntimeDirectoryLock;
-  if (!observeLock) return false;
+  if (!observeLock)
+    return Object.freeze({
+      ready: false as const,
+      reason: "lock_observer_unavailable",
+    });
   const failedRun = observePathUsing(dependencies, boundary.runDirectory);
   const secretsDirectory = path.win32.join(
     boundary.localAppData,
@@ -3820,17 +3846,35 @@ async function failedLaunchContinuationReady(
   const secrets = observePathUsing(dependencies, secretsDirectory);
   const failedRunLock = observeLock(boundary.runDirectory);
   const secretsLock = observeLock(secretsDirectory);
-  return (
-    failedRun.state === "present" &&
-    failedRun.identity !== null &&
-    !sameIdentity(failedRun.identity, operation.runIdentity) &&
-    failedRunLock !== null &&
-    sameIdentity(failedRunLock, failedRun.identity) &&
-    secrets.state === "present" &&
-    secrets.identity !== null &&
-    secretsLock !== null &&
-    sameIdentity(secretsLock, secrets.identity)
-  );
+  if (failedRun.state !== "present" || failedRun.identity === null)
+    return Object.freeze({
+      ready: false as const,
+      reason: "failed_run_missing",
+    });
+  if (sameIdentity(failedRun.identity, operation.runIdentity))
+    return Object.freeze({
+      ready: false as const,
+      reason: "failed_run_identity_unchanged",
+    });
+  if (
+    failedRunLock === null ||
+    !sameIdentity(failedRunLock, failedRun.identity)
+  )
+    return Object.freeze({
+      ready: false as const,
+      reason: "failed_run_lock_unconfirmed",
+    });
+  if (secrets.state !== "present" || secrets.identity === null)
+    return Object.freeze({
+      ready: false as const,
+      reason: "secrets_missing",
+    });
+  if (secretsLock === null || !sameIdentity(secretsLock, secrets.identity))
+    return Object.freeze({
+      ready: false as const,
+      reason: "secrets_lock_unconfirmed",
+    });
+  return Object.freeze({ ready: true as const, reason: "ready" });
 }
 
 /**
@@ -3919,7 +3963,7 @@ async function continueFailedDockerDesktopLaunch(
       launch?.phase !== "settled" ||
       launch.issued !== true ||
       launch.confirmation !== "confirmed" ||
-      engine !== "known_unavailable" ||
+      (engine !== "known_unavailable" && engine !== "transient_unavailable") ||
       (processes !== "absent" && processes !== "verified") ||
       failedRun.state !== "present" ||
       !failedRun.identity ||
@@ -6286,24 +6330,31 @@ async function executeRepair(
         );
       }
       if (engine !== "ready" || !cancellation.helperAvailable()) {
-        if (
-          engine === "startup_timeout" &&
-          cancellation.helperAvailable() &&
-          (await failedLaunchContinuationReady(
-            dependencies,
-            boundary,
-            session,
-            cancellation,
-            operation,
-          ))
-        )
-          return continueFailedDockerDesktopLaunch(
-            dependencies,
-            boundary,
-            session,
-            cancellation,
-            operation,
-          );
+        if (engine === "startup_timeout" && cancellation.helperAvailable()) {
+          const continuationReadiness =
+            await inspectFailedLaunchContinuationReadiness(
+              dependencies,
+              boundary,
+              session,
+              cancellation,
+              operation,
+            );
+          if (continuationReadiness.ready)
+            return continueFailedDockerDesktopLaunch(
+              dependencies,
+              boundary,
+              session,
+              cancellation,
+              operation,
+            );
+          reason = `docker_desktop_failed_launch_continuation_${continuationReadiness.reason}`;
+          if (continuationReadiness.reason === "engine_ready")
+            ledger.hostSafety = "safe";
+          else if (continuationReadiness.reason === "cancelled")
+            markUnknown(ledger);
+          else ledger.hostSafety = "manual_recovery_required";
+          return { status, reason, ledger, operation };
+        }
         if (engine === "unknown") markUnknown(ledger);
         else ledger.hostSafety = "manual_recovery_required";
         reason =

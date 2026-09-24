@@ -399,7 +399,7 @@ Docker境界は一つのCLI呼出しとして扱わず、同じ状態、Authorit
 | `prepared`／`processes_stopped` | stale対象がなく、既知Effectまたは履歴Effect不明を分類 | `no_stale_known_effect_recovery_pending`または`no_stale_historical_effect_unknown_pending` | 推測で不存在へ畳まない |
 | `processes_stopped` | exactな`run` Directoryを同一親内へrenameし、新旧Identityを確認 | `renamed` | rename結果不明として同じ修復IDを保持 |
 | `renamed` | Desktopを起動し、Engine応答、Host安全性、Evidence保持を確認 | `recovered_pending_disposition` | 起動を盲目的に再発行せず停止 |
-| `renamed`かつ初回起動失敗 | confirmedな初回起動を期限まで再観測し、Docker Process不在、Engine既知停止および失敗起動が作った既知2領域のexact lockを同時に確認できた場合は、同じInvocation・同じ修復IDで継続記録を作成して一領域ずつ退避する。現行署名版が新規作成した修復と旧署名版から採用した修復の双方を対象とし、起動済みEffectを再発行しない | `failed_run_renamed`→`secrets_engine_renamed` | Process稼働中、未知領域、一領域でもIdentity・lock・退避結果が不明、または取消時は自動継続せず同じ修復IDで停止 |
+| `renamed`かつ初回起動失敗 | confirmedな初回起動を期限まで再観測する。Engine Probeが一時Timeoutでも、失敗起動が作った既知2領域のexact lockとDocker Process集合を確認できる場合は、同じInvocation・同じ修復IDで継続記録を作成する。Processを一回だけ停止し、Engine既知停止とProcess不在をfreshに確認した後にだけ一領域ずつ退避する。現行署名版が新規作成した修復と旧署名版から採用した修復の双方を対象とし、起動済みEffectを再発行しない | `failed_launch_process_stopped`→`failed_run_renamed`→`secrets_engine_renamed` | 未知領域、一領域でもIdentity・lock・停止・退避結果が不明、または取消時は自動継続せず、秘密値とHost Pathを含まない条件別理由を返して同じ修復IDで停止 |
 | `secrets_engine_renamed` | 再起動意図を耐久化してDesktopを一回だけ再起動し、Engine、Process、新しいRuntime領域および退避領域をfresh観測 | `recovered_pending_disposition` | 起動結果不明なら再発行せず、同じ修復IDで停止 |
 | `recovered_pending_disposition` | 人間が残存Evidenceの保持を決定し、終了記録を耐久化 | `closed_retained` | 回復済みと表示しない |
 | `no_stale_known_effect_recovery_pending` | 既知EffectのEvidence保持を決定し終了記録を耐久化 | `closed_no_stale_known_effect_retained` | 回復義務を保持 |
@@ -441,7 +441,7 @@ Docker境界は一つのCLI呼出しとして扱わず、同じ状態、Authorit
 
 継続記録の一部だけが成立しても修復成功にしない。各Host Effectの直前には、保存済み観測を流用せず、Engine停止、Docker Desktop Process不在、当該source Directoryとlockのexact Identity、退避先不存在、および先行退避結果をfreshに再観測する。意図の耐久化後からEffect発行前にも同じGateを再確認し、その間にDockerが再起動した、Processが再出現した、Identityが変化した、または観測不能になった場合は、そのEffectを発行せず同じ修復IDで停止する。
 
-confirmedな初回起動の全体期限が満了しても、それだけでは二回目の起動を発行しない。期限満了後にEngine既知停止、`Docker/run`失敗世代と`docker-secrets-engine`の両方のexact Identityおよび既知lockが同時に成立し、Docker Desktop Process集合が存在または不存在として確定した場合だけ、同じInvocation内で上記継続記録へ移る。Processが残存する場合は、退避より前に専用の停止意図を耐久化し、停止Effectを一回だけ発行してProcess不存在をfreshに確認する。停止が部分成功・観測不能、片側だけのlock、単なる低速起動または取消ではDirectoryを変更せず、同じRepair IDの回復義務を保持する。
+confirmedな初回起動の全体期限が満了しても、それだけでは二回目の起動を発行しない。期限満了後の単一Probeが`transient_unavailable`でも、`Docker/run`失敗世代と`docker-secrets-engine`の両方のexact Identityおよび既知lockが同時に成立し、Docker Desktop Process集合が存在または不存在として確定した場合だけ、同じInvocation内で上記継続記録へ移る。Processが残存する場合は、退避より前に専用の停止意図を耐久化し、停止Effectを一回だけ発行する。その後にEngine既知停止とProcess不存在をfreshに確認できた場合だけDirectory退避へ進む。Engine状態不明、停止の部分成功・観測不能、片側だけのlock、単なる低速起動または取消ではDirectoryを変更せず、どのGateが不成立かを条件別理由で返して同じRepair IDの回復義務を保持する。
 
 回復済み候補と明示closeは、現在Releaseへ結合した追記専用継続記録を利用側として検証する。3 Effectがすべて`settled`／`issued=true`／`confirmation=confirmed`であり、`Docker/run`と`docker-secrets-engine`の両方について、退避した旧世代がexactに残り、別Identityの新世代が現在位置へ存在し、Engine readyとProcess安全性がfreshに成立した場合だけ回復済みへ進める。継続記録の欠落、改変、別Release結合、部分settlement、いずれかの新世代欠落または観測不能ではcloseせず、同じ修復IDの回復義務を保持する。旧形式の修復記録に継続記録が存在しない場合だけ、従来の終了条件を独立して適用する。
 

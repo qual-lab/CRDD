@@ -5383,7 +5383,10 @@ test("WSL未確認とEngine再起動失敗は成功へ昇格しない", async ()
         .dependencies,
     );
   assert.equal(startupTimeout.status, "blocked");
-  assert.equal(startupTimeout.reason, "docker_desktop_engine_start_timeout");
+  assert.equal(
+    startupTimeout.reason,
+    "docker_desktop_failed_launch_continuation_engine_ready",
+  );
 });
 
 /**
@@ -5821,7 +5824,11 @@ test("初回起動失敗から同じ実行内で複数Runtime領域を修復す�
           operations: Object.freeze(activeOperation ? [activeOperation] : []),
         }),
       observeEngine: () =>
-        launches >= 2 ? ("ready" as const) : ("known_unavailable" as const),
+        launches >= 2
+          ? ("ready" as const)
+          : launches === 1 && terminationCalls < 2
+            ? ("transient_unavailable" as const)
+            : ("known_unavailable" as const),
       observeKnownSocketFailure: () => originalIdentity,
       observeRuntimeDirectoryLock: identityAt,
       persistStage: (_boundary, current, stage, ledger) => {
