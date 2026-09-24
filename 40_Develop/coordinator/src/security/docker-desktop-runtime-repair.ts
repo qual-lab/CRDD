@@ -439,7 +439,11 @@ function restoreLedger(
 function snapshotLedger(
   ledger: MutableLedger,
 ): DockerDesktopRepairLedgerSnapshot {
-  const { engineStartupDurationMs: _diagnosticOnly, ...durableLedger } = ledger;
+  const {
+    engineStartupDurationMs: diagnosticOnlyEngineStartupDurationMs,
+    ...durableLedger
+  } = ledger;
+  void diagnosticOnlyEngineStartupDurationMs;
   return Object.freeze({
     ...durableLedger,
     processEffects: Object.freeze([...ledger.processEffects]),

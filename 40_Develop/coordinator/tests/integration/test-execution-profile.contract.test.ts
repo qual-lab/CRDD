@@ -13,21 +13,22 @@ import fs from "node:fs";
 import test from "node:test";
 
 const HOST_WINDOWS_PREFIX = "Host Windows:";
+const PORTABLE_TEST_DIRECTORIES = ["unit", "integration", "system"] as const;
 const gateFiles = [
   {
-    file: "coordinator-task-process.integration.test.ts",
+    file: "integration/coordinator-task-process.integration.test.ts",
     prefixOccurrences: 1,
     expandedCases: 2,
     expansion: /for \(const cleanupConfirmed of \[true, false\]\)/,
   },
   {
-    file: "docker-owned-process.integration.test.ts",
+    file: "integration/docker-owned-process.integration.test.ts",
     prefixOccurrences: 5,
     expandedCases: 6,
     expansion: /for \(const mode of \["stdout-limit", "stderr-limit"\]\)/,
   },
   {
-    file: "docker-process-controller.contract.test.ts",
+    file: "integration/docker-process-controller.contract.test.ts",
     prefixOccurrences: 1,
     expandedCases: 2,
     expansion: /for \(const dockerCleanupConfirmed of \[true, false\]\)/,
@@ -72,7 +73,7 @@ function discoverGateFiles(
 ) {
   return files.filter(
     (file) =>
-      file !== "test-execution-profile.contract.test.ts" &&
+      file !== "integration/test-execution-profile.contract.test.ts" &&
       executableTestSource(read(file)).includes(HOST_WINDOWS_PREFIX),
   );
 }
@@ -91,32 +92,35 @@ function discoverGateFiles(
  */
 test("Portable試験とHost Windows試験は同じ10件の閉集合を重複なく所有する", () => {
   const scripts = packageJson.scripts ?? {};
-  assert.match(
-    scripts["test:portable"] ?? "",
-    /--test-skip-pattern=\^Host Windows:/,
+  assert.equal(
+    scripts["test:portable"],
+    'node --test --test-concurrency=1 "--test-skip-pattern=^Host Windows:" ./tests/unit/*.test.ts ./tests/integration/*.test.ts ./tests/system/*.test.ts',
   );
-  assert.match(
-    scripts["test:host-windows"] ?? "",
-    /--test-name-pattern=\^Host Windows:/,
+  assert.equal(
+    scripts["test:host-windows"],
+    'node --test --test-concurrency=1 "--test-name-pattern=^Host Windows:" ./tests/integration/coordinator-task-process.integration.test.ts ./tests/integration/docker-owned-process.integration.test.ts ./tests/integration/docker-process-controller.contract.test.ts',
   );
-  assert.equal(scripts.test, "npm run check && npm run test:portable");
+  assert.equal(scripts.test, "npm run check && npm run test:run");
   assert.equal(scripts["test:run"], "npm run test:portable");
   assert.equal(
     scripts["test:all"],
-    "npm run check && npm run test:portable && npm run test:host-windows",
+    "npm run check && npm run test:run && npm run test:host-windows",
   );
   assert.doesNotMatch(scripts.test ?? "", /test:host-windows/);
   assert.doesNotMatch(scripts["test:run"] ?? "", /test:host-windows/);
   assert.doesNotMatch(scripts.test ?? "", /test-(?:skip|name)-pattern/);
 
   let gateCount = 0;
-  const testDirectory = new URL(".", import.meta.url);
-  const allTestFiles = fs
-    .readdirSync(testDirectory)
-    .filter((file) => file.endsWith(".test.ts"));
+  const testsRoot = new URL("../", import.meta.url);
+  const allTestFiles = PORTABLE_TEST_DIRECTORIES.flatMap((directory) =>
+    fs
+      .readdirSync(new URL(`${directory}/`, testsRoot))
+      .filter((file) => file.endsWith(".test.ts"))
+      .map((file) => `${directory}/${file}`),
+  );
   const allowedGateFiles = new Set(gateFiles.map(({ file }) => file));
   const discoveredGateFiles = discoverGateFiles(allTestFiles, (file) =>
-    fs.readFileSync(new URL(file, testDirectory), "utf8"),
+    fs.readFileSync(new URL(file, testsRoot), "utf8"),
   );
   assert.deepEqual(discoveredGateFiles.sort(), [...allowedGateFiles].sort());
   for (const {
@@ -125,7 +129,7 @@ test("Portable試験とHost Windows試験は同じ10件の閉集合を重複な�
     expandedCases,
     expansion,
   } of gateFiles) {
-    const source = fs.readFileSync(new URL(file, import.meta.url), "utf8");
+    const source = fs.readFileSync(new URL(file, testsRoot), "utf8");
     const occurrences =
       executableTestSource(source).split(HOST_WINDOWS_PREFIX).length - 1;
     assert.equal(occurrences, prefixOccurrences);
@@ -150,14 +154,14 @@ test("Portable試験とHost Windows試験は同じ10件の閉集合を重複な�
  */
 test("未分類のHost Windows試験を別試験ファイルへ追加すると閉集合が不一致になる", () => {
   const files = [
-    "test-execution-profile.contract.test.ts",
+    "integration/test-execution-profile.contract.test.ts",
     ...gateFiles.map(({ file }) => file),
-    "unclassified-process.test.ts",
+    "unit/unclassified-process.test.ts",
   ];
   const discoveredItems = discoverGateFiles(files, (file) =>
-    file === "unclassified-process.test.ts" ? HOST_WINDOWS_PREFIX : "",
+    file === "unit/unclassified-process.test.ts" ? HOST_WINDOWS_PREFIX : "",
   );
-  assert.deepEqual(discoveredItems, ["unclassified-process.test.ts"]);
+  assert.deepEqual(discoveredItems, ["unit/unclassified-process.test.ts"]);
   assert.notDeepEqual(
     discoveredItems.sort(),
     gateFiles.map(({ file }) => file).sort(),

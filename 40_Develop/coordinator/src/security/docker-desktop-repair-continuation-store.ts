@@ -310,16 +310,16 @@ function validEffect(
  * @concurrency N/A: validEffectsは共有非同期状態を持たない同期処理である。
  */
 function validEffects(value: unknown): value is StoredContinuation["effects"] {
-  const keysAreCurrent =
+  const hasCurrentKeys =
     plainObject(value) &&
     exactKeys(value, DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS);
-  const keysAreLegacy =
+  const hasLegacyKeys =
     plainObject(value) &&
     exactKeys(value, LEGACY_DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS);
   return (
     plainObject(value) &&
-    (keysAreCurrent || keysAreLegacy) &&
-    (keysAreCurrent
+    (hasCurrentKeys || hasLegacyKeys) &&
+    (hasCurrentKeys
       ? DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS
       : LEGACY_DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS
     ).every((action) => value[action] === null || validEffect(value[action]))
@@ -631,12 +631,12 @@ function legalTransition(
     },
     { from: "relaunched", to: "recovered", action: null, phase: null },
   ];
-  const legacyPreparedTransition =
+  const isLegacyPreparedTransition =
     previous.stage === "prepared" &&
     next.stage === "failed_run_rename_intent" &&
     !("failed_launch_process_stop" in previous.effects) &&
     !("failed_launch_process_stop" in next.effects);
-  const expected = legacyPreparedTransition
+  const expected = isLegacyPreparedTransition
     ? {
         from: "prepared" as const,
         to: "failed_run_rename_intent" as const,

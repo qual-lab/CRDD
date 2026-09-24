@@ -347,7 +347,8 @@
       ],
       "localTestIds": [
         "ERB-IT-001",
-        "ERB-IT-012"
+        "ERB-IT-012",
+        "ERB-IT-014"
       ],
       "verifies": [
         "coordinator.docker-desktop-runtime-repair",

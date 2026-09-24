@@ -5,9 +5,10 @@
  * @responsibility coordinator:integration:docker-desktop-runtime-repairが所有する検証責務を実行する。
  * @trace ERB-IT-001
  * @trace ERB-IT-012
+ * @trace ERB-IT-014
  * @level IT
  * @scope docker、desktop、runtime、repair
- * @boundary ERB-IT-001／ERB-IT-012=Direct Boundary: Adapter→実CLI・Process・Container
+ * @boundary ERB-IT-001／ERB-IT-012=Direct Boundary: Adapter→実CLI・Process・Container。ERB-IT-014=Related 2 Blocks: Engine Observer／修復制御→待機結果
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -201,13 +202,13 @@ test("Docker停止時の空行またはJSON nullはCLI失敗とpipe不存在の�
  * Docker初回起動中のCLI TimeoutはHost操作を再発行せず期限内で再観測するを検証する。
  *
  * @responsibility Docker初回起動中の一時Timeout、期限超過、取消の待機契約を検証する。
- * @trace ERB-ST-009
+ * @trace ERB-IT-014
  * @precondition 決定論的な時計、待機、Engine観測を使用する。
  * @stimulus awaitDockerDesktopEngineUsingを実行する。
  * @observation 観測回数、待機時間および最終状態を取得する。
  * @oracle 一時Timeoutは再観測され、全体期限超過と取消は別の状態へ収束する。
  * @cleanup N/A: 外部資源を作成しない。
- * @boundary ERB-ST-009=System/E2E: 署名済み公開入口→Docker Desktop復旧→再観測
+ * @boundary ERB-IT-014=Related 2 Blocks: Engine Observer→待機制御
  */
 test("Docker初回起動中のCLI TimeoutはHost操作を再発行せず期限内で再観測する", async () => {
   let now = 0;
@@ -254,15 +255,15 @@ test("Docker初回起動中のCLI TimeoutはHost操作を再発行せず期限�
   assert.equal(timedOut, "startup_timeout");
   assert.equal(observations, 4);
 
-  let stopped = false;
+  let isStopped = false;
   const cancelled = await awaitDockerDesktopEngineUsing(
     () => "known_unavailable",
-    () => stopped,
+    () => isStopped,
     neverStops,
     {
       now: () => 0,
       sleep: async () => {
-        stopped = true;
+        isStopped = true;
       },
       timeoutMs: 180_000,
     },
@@ -5393,13 +5394,13 @@ test("WSL未確認とEngine再起動失敗は成功へ昇格しない", async ()
  * 同一実行でEngine起動を確認した場合だけ起動所要時間を参考値として返すを検証する。
  *
  * @responsibility Docker Desktop起動所要時間の計測範囲と非Authority性を検証する。
- * @trace ERB-ST-009
+ * @trace ERB-IT-014
  * @precondition 単調時計とEngine待機を決定論的に差し替える。
  * @stimulus 同一実行で起動する修復と、起動前に停止する修復を実行する。
  * @observation 構造化結果のengineStartupDurationMsを取得する。
  * @oracle 同一実行で起動した場合だけ実測値を返し、起動を観測していない場合は推測しない。
  * @cleanup fixtureが作成した一時資源を各Test終了時に清掃する。
- * @boundary ERB-ST-009=System/E2E: 署名済み公開入口→Docker Desktop復旧→再観測
+ * @boundary ERB-IT-014=Related 2 Blocks: 修復制御→Engine待機結果
  */
 test("同一実行でEngine起動を確認した場合だけ起動所要時間を参考値として返す", async () => {
   let now = 1_000;
@@ -5746,6 +5747,18 @@ test("初回起動失敗から同じ実行内で複数Runtime領域を修復す�
     fs.mkdirSync(runDirectory, { recursive: true });
     fs.writeFileSync(path.join(runDirectory, "dockerInference"), "origin");
 
+    /**
+     * 自動継続Test用Runtime領域のFilesystem Identityを観測する。
+     *
+     * @responsibility 初回起動失敗後の段階修復が元領域を別実体へ置換したことを判定するfixture観測値を生成する。
+     * @trace ERB-IT-001
+     * @precondition targetはTest専用一時Root内の観測対象Pathである。
+     * @stimulus targetをlstatで一回観測する。
+     * @observation directory種別、link有無、device、inodeおよび生成時刻を取得する。
+     * @oracle 通常Directoryの完全なIdentityだけを返し、欠落・link・不完全なIdentityはnullへ閉じる。
+     * @cleanup N/A: 読取り専用の観測であり資源を作成しない。
+     * @boundary ERB-IT-001=Direct Boundary: Test fixture→Filesystem metadata
+     */
     const identityAt = (target: string) => {
       try {
         const metadata = fs.lstatSync(target, { bigint: true });
