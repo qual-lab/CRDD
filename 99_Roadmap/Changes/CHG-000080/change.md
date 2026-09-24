@@ -1,7 +1,7 @@
 # Engineering Design／Implementation／Verificationの完全性
 
 変更ID: `CHG-000080`
-状態: `Completed`
+状態: `Ready for Release Handoff`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `engineering_completeness_contract_extension`
@@ -16,7 +16,7 @@
 | 現在Gate | `Passed: Gate 0〜9`。Source A `01eb00a63dcab09b4b32a41bf142bab70897cd8c`、Manifest carrier B `7362268eecbbc744fc08f809a3a0976fe16ac805`およびRuntime Execution Identity `9850722655b50fcf3d9e70064801729280ab1d0202a6f0472af590535df26f54`を固定した。Recovery Matrixは7シナリオ、署名4経路E2Eは4／4を同じIdentityで完了した。以前の署名結果は流用していない |
 | 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 156件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 225件の責務別Local Item接続、Optionality Audit全数処置。Coordinator Portable回帰2,041件中2,033 Pass・失敗0・明示Skip 8、Host Windows 10／10、Checker 363／363、Repository Checker error 0／warning 0、独立再レビューFinding 0を確認した。最終署名IdentityではRecovery Matrixの記録`8a651704-41ca-4290-948b-521f63008253`と4経路E2Eの記録`d7aa9851-0054-4d47-b021-1afb5d65b14d`を固定した |
 | 未成立 | CHGの技術Gateに未成立事項はない。main統合、統合後のexact Identity確認、Release採用およびtag付与は人間の最終Release判断が所有する。v0.22移管26件は同版の実装・実境界・人間受入で再開する |
-| 次のGate | Evidence Commit Cの機械確認と独立監査を完了し、main統合後のexact Identity確認と人間の最終Release判断へ渡す。CHG完了をv0.21.0の公開済み状態へ読み替えない |
+| 次のGate | Stable最終候補の機械確認と独立監査を完了し、内容変更なしのPR、main統合、統合後のexact Identity確認および人間のRelease判断後のtag付与へ渡す。CHG完了をv0.21.0の公開済み状態へ読み替えない |
 
 ## 1. 変更の目的
 

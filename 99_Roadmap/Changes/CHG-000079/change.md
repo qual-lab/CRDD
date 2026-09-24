@@ -1,7 +1,7 @@
 # Source責務命名と設計由来Documentation
 
 変更ID: `CHG-000079`
-状態: `Completed`
+状態: `Ready for Release Handoff`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `coding_standard_extension`

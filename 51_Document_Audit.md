@@ -3,8 +3,7 @@
 # CRDD文書監査（Document Audit）
 
 Version: v0.21.0
-Status: Candidate
-Released Baseline: v0.20.1
+Status: Stable
 Owner: Qual-Lab
 エージェントID: `agent.document.audit`
 Last Updated: 2026-09-07

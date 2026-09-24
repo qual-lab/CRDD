@@ -1,6 +1,6 @@
 # CRDD内部ツールの品質の現在状態
 
-状態: Quality Design Ready — Reality Audit Pending（Released Baseline: v0.20.1）
+状態: Quality Design Ready — Reality Audit Pending
 担当責任者: Qual-Lab
 最終更新日: 2026-09-24
 

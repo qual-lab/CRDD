@@ -2,7 +2,7 @@
 
 状態: Current Release Projection
 Owner: Qual-Lab
-Last Updated: 2026-09-12
+Last Updated: 2026-09-24
 Related:
 - [現在のCRDD](../00_Overview.md)
 - [CHANGELOG](../CHANGELOG.md)
@@ -17,7 +17,7 @@ Related:
 |---|---|---|
 | 公開済みBaseline | `v0.20.1` | [現在のCRDD](../00_Overview.md)、[CHANGELOG](../CHANGELOG.md) |
 | 次の対象 | `v0.21.0` | [Roadmap](./01_Roadmap.md) |
-| 現在の作業状態 | v0.21.0のStable遷移計画を固定。最終候補化前 | [Roadmap](./01_Roadmap.md) |
+| 現在の作業状態 | v0.21.0 Stable最終候補。PR作成待ち | [Roadmap](./01_Roadmap.md) |
 | リリース判断 | 未実施 | [リリース規則](../13_Release.md) |
 
 ## 2. Evidence Navigation
