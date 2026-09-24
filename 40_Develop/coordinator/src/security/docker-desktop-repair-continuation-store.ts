@@ -21,6 +21,12 @@ export const DOCKER_DESKTOP_REPAIR_CONTINUATION_SCHEMA =
   "crdd-coordinator/docker-desktop-repair-continuation/v1";
 
 export const DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS = Object.freeze([
+  "failed_launch_process_stop",
+  "failed_launch_run_directory_rename",
+  "secrets_engine_directory_rename",
+  "desktop_relaunch",
+] as const);
+const LEGACY_DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS = Object.freeze([
   "failed_launch_run_directory_rename",
   "secrets_engine_directory_rename",
   "desktop_relaunch",
@@ -41,6 +47,8 @@ export type DockerDesktopRepairContinuationAction =
 
 export const DOCKER_DESKTOP_REPAIR_CONTINUATION_STAGES = Object.freeze([
   "prepared",
+  "failed_launch_process_stop_intent",
+  "failed_launch_process_stopped",
   "failed_run_rename_intent",
   "failed_run_renamed",
   "secrets_engine_rename_intent",
@@ -145,7 +153,7 @@ type StoredContinuation = Readonly<{
   effects: DockerDesktopRepairContinuation["effects"];
 }>;
 
-const MAXIMUM_CONTINUATION_RECORDS = 8;
+const MAXIMUM_CONTINUATION_RECORDS = 10;
 const MAXIMUM_CONTINUATION_RECORD_BYTES = 32_768;
 
 /**
@@ -302,12 +310,19 @@ function validEffect(
  * @concurrency N/A: validEffectsは共有非同期状態を持たない同期処理である。
  */
 function validEffects(value: unknown): value is StoredContinuation["effects"] {
+  const keysAreCurrent =
+    plainObject(value) &&
+    exactKeys(value, DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS);
+  const keysAreLegacy =
+    plainObject(value) &&
+    exactKeys(value, LEGACY_DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS);
   return (
     plainObject(value) &&
-    exactKeys(value, DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS) &&
-    DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS.every(
-      (action) => value[action] === null || validEffect(value[action]),
-    )
+    (keysAreCurrent || keysAreLegacy) &&
+    (keysAreCurrent
+      ? DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS
+      : LEGACY_DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS
+    ).every((action) => value[action] === null || validEffect(value[action]))
   );
 }
 
@@ -568,6 +583,18 @@ function legalTransition(
   }>[] = [
     {
       from: "prepared",
+      to: "failed_launch_process_stop_intent",
+      action: "failed_launch_process_stop",
+      phase: "intent_recorded",
+    },
+    {
+      from: "failed_launch_process_stop_intent",
+      to: "failed_launch_process_stopped",
+      action: "failed_launch_process_stop",
+      phase: "settled",
+    },
+    {
+      from: "failed_launch_process_stopped",
       to: "failed_run_rename_intent",
       action: "failed_launch_run_directory_rename",
       phase: "intent_recorded",
@@ -604,13 +631,29 @@ function legalTransition(
     },
     { from: "relaunched", to: "recovered", action: null, phase: null },
   ];
-  const expected = transitions.find(
-    (candidate) =>
-      candidate.from === previous.stage && candidate.to === next.stage,
-  );
+  const legacyPreparedTransition =
+    previous.stage === "prepared" &&
+    next.stage === "failed_run_rename_intent" &&
+    !("failed_launch_process_stop" in previous.effects) &&
+    !("failed_launch_process_stop" in next.effects);
+  const expected = legacyPreparedTransition
+    ? {
+        from: "prepared" as const,
+        to: "failed_run_rename_intent" as const,
+        action: "failed_launch_run_directory_rename" as const,
+        phase: "intent_recorded" as const,
+      }
+    : transitions.find(
+        (candidate) =>
+          candidate.from === previous.stage && candidate.to === next.stage,
+      );
   if (!expected) return false;
   const changedActions = DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS.filter(
-    (action) => !effectEquals(previous.effects[action], next.effects[action]),
+    (action) =>
+      !effectEquals(
+        previous.effects[action] ?? null,
+        next.effects[action] ?? null,
+      ),
   );
   if (expected.action === null) return changedActions.length === 0;
   return (
@@ -679,18 +722,33 @@ function toContinuation(
   record: StoredContinuation,
   recordSha256: string,
 ): DockerDesktopRepairContinuation {
+  const legacyProcessStop = Object.freeze({
+    phase: "settled" as const,
+    issued: false,
+    confirmation: "not_issued" as const,
+  });
   return Object.freeze({
     repairId: record.repairId,
     sequence: record.sequence,
     previousRecordSha256: recordSha256,
-    stage: record.stage,
+    stage:
+      record.stage === "prepared" &&
+      !("failed_launch_process_stop" in record.effects)
+        ? "failed_launch_process_stopped"
+        : record.stage,
     operationTipSha256: record.operationTipSha256,
     operationSequence: record.operationSequence,
     failedRunIdentity: record.failedRunIdentity,
     secretsEngineIdentity: record.secretsEngineIdentity,
     failedRunStaleName: record.failedRunStaleName,
     secretsEngineStaleName: record.secretsEngineStaleName,
-    effects: record.effects,
+    effects: Object.freeze({
+      ...record.effects,
+      failed_launch_process_stop:
+        "failed_launch_process_stop" in record.effects
+          ? record.effects.failed_launch_process_stop
+          : legacyProcessStop,
+    }),
   });
 }
 
@@ -972,6 +1030,7 @@ function persist(
 
 const emptyEffects = () =>
   Object.freeze({
+    failed_launch_process_stop: null,
     failed_launch_run_directory_rename: null,
     secrets_engine_directory_rename: null,
     desktop_relaunch: null,
@@ -1033,6 +1092,7 @@ export function persistDockerDesktopRepairContinuationIntent(
   action: DockerDesktopRepairContinuationAction,
 ) {
   const mapping = {
+    failed_launch_process_stop: "failed_launch_process_stop_intent",
     failed_launch_run_directory_rename: "failed_run_rename_intent",
     secrets_engine_directory_rename: "secrets_engine_rename_intent",
     desktop_relaunch: "relaunch_intent",
@@ -1082,6 +1142,7 @@ export function persistDockerDesktopRepairContinuationSettlement(
   }>,
 ) {
   const mapping = {
+    failed_launch_process_stop: "failed_launch_process_stopped",
     failed_launch_run_directory_rename: "failed_run_renamed",
     secrets_engine_directory_rename: "secrets_engine_renamed",
     desktop_relaunch: "relaunched",
@@ -1124,6 +1185,12 @@ export function persistDockerDesktopRepairContinuationRecovered(
   if (
     !DOCKER_DESKTOP_REPAIR_CONTINUATION_ACTIONS.every((action) => {
       const effect = continuation.effects[action];
+      if (action === "failed_launch_process_stop")
+        return (
+          effect?.phase === "settled" &&
+          ((effect.issued === true && effect.confirmation === "confirmed") ||
+            (effect.issued === false && effect.confirmation === "not_issued"))
+        );
       return (
         effect?.phase === "settled" &&
         effect.issued === true &&

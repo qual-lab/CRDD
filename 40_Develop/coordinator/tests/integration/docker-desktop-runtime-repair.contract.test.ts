@@ -21,6 +21,7 @@ import {
   createDockerDesktopRepairContinuation,
   inspectDockerDesktopRepairContinuation,
   persistDockerDesktopRepairContinuationIntent,
+  persistDockerDesktopRepairContinuationSettlement,
 } from "../../src/security/docker-desktop-repair-continuation-store.ts";
 import type {
   DockerDesktopRepairLedgerSnapshot,
@@ -5671,6 +5672,11 @@ test("現行署名版が新規作成した修復を複数Runtime領域の段階�
       [
         Object.freeze({
           phase: "settled",
+          issued: false,
+          confirmation: "not_issued",
+        }),
+        Object.freeze({
+          phase: "settled",
           issued: true,
           confirmation: "confirmed",
         }),
@@ -5765,7 +5771,7 @@ test("初回起動失敗から同じ実行内で複数Runtime領域を修復す�
       socketPath: path.join(runDirectory, "dockerInference"),
     });
     let activeOperation: DockerDesktopRepairOperation | null = null;
-    let terminated = false;
+    let terminationCalls = 0;
     let launches = 0;
     let awaitCalls = 0;
     const renameCalls: string[] = [];
@@ -5774,11 +5780,13 @@ test("初回起動失敗から同じ実行内で複数Runtime領域を修復す�
       inspectProcesses: async () =>
         launches >= 2
           ? ("verified" as const)
-          : terminated || launches === 1
-            ? ("absent" as const)
-            : ("verified" as const),
+          : launches === 1 && terminationCalls < 2
+            ? ("verified" as const)
+            : terminationCalls >= 1
+              ? ("absent" as const)
+              : ("verified" as const),
       terminateProcesses: async () => {
-        terminated = true;
+        terminationCalls += 1;
         return "terminated" as const;
       },
       launchDesktop: async () => {
@@ -5882,6 +5890,7 @@ test("初回起動失敗から同じ実行内で複数Runtime領域を修復す�
       "docker_desktop_repair_continuation_recovered_pending_close",
     );
     assert.equal(launches, 2);
+    assert.equal(terminationCalls, 2);
     assert.equal(awaitCalls, 2);
     assert.deepEqual(renameCalls, [
       runDirectory,
@@ -6311,7 +6320,11 @@ test("署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engine�
     assert.equal(fs.existsSync(secretsDirectory), true);
     const replay =
       await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
-    assert.equal(replay.status, "historical_recovered_pending_close");
+    assert.equal(
+      replay.status,
+      "historical_recovered_pending_close",
+      JSON.stringify(replay),
+    );
     assert.equal(launches, 1);
 
     const migratedBoundary: PreparedBoundary = Object.freeze({
@@ -6436,7 +6449,7 @@ test("署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engine�
     assert.equal(activeReentry.status, "blocked");
     assert.equal(
       activeReentry.reason,
-      "docker_desktop_repair_continuation_effect_precondition_unconfirmed",
+      "docker_desktop_repair_continuation_process_stop_unconfirmed",
     );
     assert.equal(renameCalls.length, renameCountBeforeActiveReentry);
     const partialClose = await closeWindowsDockerDesktopRepairUsingDependencies(
@@ -6508,11 +6521,27 @@ test("署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engine�
       interruptedSecretsIdentity,
     );
     assert.ok(preparedContinuation);
+    const processStopIntent = persistDockerDesktopRepairContinuationIntent(
+      currentBoundary,
+      operation,
+      preparedContinuation,
+      "failed_launch_process_stop",
+    );
+    assert.ok(processStopIntent);
+    const processStopSettlement =
+      persistDockerDesktopRepairContinuationSettlement(
+        currentBoundary,
+        operation,
+        processStopIntent,
+        "failed_launch_process_stop",
+        Object.freeze({ issued: false, confirmation: "not_issued" }),
+      );
+    assert.ok(processStopSettlement);
     const interruptedContinuation =
       persistDockerDesktopRepairContinuationIntent(
         currentBoundary,
         operation,
-        preparedContinuation,
+        processStopSettlement,
         "failed_launch_run_directory_rename",
       );
     assert.ok(interruptedContinuation);

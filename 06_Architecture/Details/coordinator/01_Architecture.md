@@ -425,6 +425,9 @@ Docker境界は一つのCLI呼出しとして扱わず、同じ状態、Authorit
                          ↓
              同じRepair IDの継続記録
                          │
+              失敗起動Process停止
+              意図→停止→不存在確認
+                         │
           ┌──────────────┴──────────────┐
           ▼                             ▼
   Docker\run失敗世代            docker-secrets-engine
@@ -438,7 +441,7 @@ Docker境界は一つのCLI呼出しとして扱わず、同じ状態、Authorit
 
 継続記録の一部だけが成立しても修復成功にしない。各Host Effectの直前には、保存済み観測を流用せず、Engine停止、Docker Desktop Process不在、当該source Directoryとlockのexact Identity、退避先不存在、および先行退避結果をfreshに再観測する。意図の耐久化後からEffect発行前にも同じGateを再確認し、その間にDockerが再起動した、Processが再出現した、Identityが変化した、または観測不能になった場合は、そのEffectを発行せず同じ修復IDで停止する。
 
-confirmedな初回起動の全体期限が満了しても、それだけでは二回目の起動を発行しない。期限満了後にEngine既知停止、Docker Desktop Process不在、`Docker/run`失敗世代と`docker-secrets-engine`の両方のexact Identityおよび既知lockが同時に成立した場合だけ、同じInvocation内で上記継続記録へ移る。単なる低速起動、Process稼働中、片側だけのlockまたは観測不能では`docker_desktop_engine_start_timeout`として停止し、人間の再実行を自動処置で隠さない。
+confirmedな初回起動の全体期限が満了しても、それだけでは二回目の起動を発行しない。期限満了後にEngine既知停止、`Docker/run`失敗世代と`docker-secrets-engine`の両方のexact Identityおよび既知lockが同時に成立し、Docker Desktop Process集合が存在または不存在として確定した場合だけ、同じInvocation内で上記継続記録へ移る。Processが残存する場合は、退避より前に専用の停止意図を耐久化し、停止Effectを一回だけ発行してProcess不存在をfreshに確認する。停止が部分成功・観測不能、片側だけのlock、単なる低速起動または取消ではDirectoryを変更せず、同じRepair IDの回復義務を保持する。
 
 回復済み候補と明示closeは、現在Releaseへ結合した追記専用継続記録を利用側として検証する。3 Effectがすべて`settled`／`issued=true`／`confirmation=confirmed`であり、`Docker/run`と`docker-secrets-engine`の両方について、退避した旧世代がexactに残り、別Identityの新世代が現在位置へ存在し、Engine readyとProcess安全性がfreshに成立した場合だけ回復済みへ進める。継続記録の欠落、改変、別Release結合、部分settlement、いずれかの新世代欠落または観測不能ではcloseせず、同じ修復IDの回復義務を保持する。旧形式の修復記録に継続記録が存在しない場合だけ、従来の終了条件を独立して適用する。
 

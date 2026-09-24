@@ -3666,7 +3666,16 @@ function retainedDirectoryWithReplacement(
 function continuationEffectsConfirmed(
   continuation: DockerDesktopRepairContinuation,
 ) {
+  const processStop = continuationEffect(
+    continuation,
+    "failed_launch_process_stop",
+  );
   return (
+    processStop?.phase === "settled" &&
+    ((processStop.issued === true &&
+      processStop.confirmation === "confirmed") ||
+      (processStop.issued === false &&
+        processStop.confirmation === "not_issued")) &&
     continuationEffect(continuation, "failed_launch_run_directory_rename")
       ?.phase === "settled" &&
     continuationEffect(continuation, "failed_launch_run_directory_rename")
@@ -3796,7 +3805,11 @@ async function failedLaunchContinuationReady(
     session,
     cancellation,
   );
-  if (processes !== "absent" || cancellation.shouldStop()) return false;
+  if (
+    (processes !== "absent" && processes !== "verified") ||
+    cancellation.shouldStop()
+  )
+    return false;
   const observeLock = dependencies.observeRuntimeDirectoryLock;
   if (!observeLock) return false;
   const failedRun = observePathUsing(dependencies, boundary.runDirectory);
@@ -3907,7 +3920,7 @@ async function continueFailedDockerDesktopLaunch(
       launch.issued !== true ||
       launch.confirmation !== "confirmed" ||
       engine !== "known_unavailable" ||
-      processes !== "absent" ||
+      (processes !== "absent" && processes !== "verified") ||
       failedRun.state !== "present" ||
       !failedRun.identity ||
       sameIdentity(failedRun.identity, operation.runIdentity) ||
@@ -3952,6 +3965,166 @@ async function continueFailedDockerDesktopLaunch(
       return {
         status: "blocked" as const,
         reason: "docker_desktop_repair_continuation_record_unavailable",
+        ledger,
+        operation,
+      };
+    }
+  }
+
+  let failedLaunchProcessStop = continuationEffect(
+    continuation,
+    "failed_launch_process_stop",
+  );
+  if (failedLaunchProcessStop?.phase === "intent_recorded") {
+    processes = await inspectProcessesWithinCancellation(session, cancellation);
+    if (processes !== "absent") {
+      markUnknown(ledger);
+      return {
+        status: "blocked" as const,
+        reason:
+          processes === "unknown"
+            ? "docker_desktop_repair_continuation_process_state_unknown"
+            : "docker_desktop_repair_continuation_process_stop_effect_unknown",
+        ledger,
+        operation,
+      };
+    }
+    const settlement = persistDockerDesktopRepairContinuationSettlement(
+      boundary,
+      operation,
+      continuation,
+      "failed_launch_process_stop",
+      Object.freeze({ issued: null, confirmation: "unknown" as const }),
+    );
+    if (!settlement) {
+      markUnknown(ledger);
+      return {
+        status: "blocked" as const,
+        reason:
+          "docker_desktop_repair_continuation_process_stop_settlement_unknown",
+        ledger,
+        operation,
+      };
+    }
+    continuation = settlement;
+    markUnknown(ledger);
+    return {
+      status: "blocked" as const,
+      reason: "docker_desktop_repair_continuation_process_stop_effect_unknown",
+      ledger,
+      operation,
+    };
+  }
+  if (!failedLaunchProcessStop) {
+    const intent = persistDockerDesktopRepairContinuationIntent(
+      boundary,
+      operation,
+      continuation,
+      "failed_launch_process_stop",
+    );
+    if (!intent) {
+      markUnknown(ledger);
+      return {
+        status: "blocked" as const,
+        reason: "docker_desktop_repair_continuation_record_update_failed",
+        ledger,
+        operation,
+      };
+    }
+    continuation = intent;
+    processes = await inspectProcessesWithinCancellation(session, cancellation);
+    if (processes === "unknown" || cancellation.shouldStop()) {
+      markUnknown(ledger);
+      return {
+        status: "blocked" as const,
+        reason: cancellation.shouldStop()
+          ? "docker_desktop_repair_cancelled_before_host_effect"
+          : "docker_desktop_repair_continuation_process_state_unknown",
+        ledger,
+        operation,
+      };
+    }
+    const termination =
+      processes === "verified"
+        ? await session.terminateProcesses()
+        : ("absent" as const);
+    const outcome: TaggedEffect =
+      termination === "terminated"
+        ? Object.freeze({ issued: true, confirmation: "confirmed" as const })
+        : termination === "absent"
+          ? Object.freeze({
+              issued: false,
+              confirmation: "not_issued" as const,
+            })
+          : Object.freeze({
+              issued: termination === "partial_or_unknown" ? true : null,
+              confirmation: "unknown" as const,
+            });
+    const settlement = persistDockerDesktopRepairContinuationSettlement(
+      boundary,
+      operation,
+      continuation,
+      "failed_launch_process_stop",
+      outcome,
+    );
+    if (!settlement) {
+      markUnknown(ledger);
+      return {
+        status: "blocked" as const,
+        reason:
+          "docker_desktop_repair_continuation_process_stop_settlement_unknown",
+        ledger,
+        operation,
+      };
+    }
+    continuation = settlement;
+    if (termination !== "terminated" && termination !== "absent") {
+      markUnknown(ledger);
+      return {
+        status: "blocked" as const,
+        reason:
+          "docker_desktop_repair_continuation_process_termination_unknown",
+        ledger,
+        operation,
+      };
+    }
+    failedLaunchProcessStop = continuationEffect(
+      continuation,
+      "failed_launch_process_stop",
+    );
+  }
+  if (
+    failedLaunchProcessStop?.phase !== "settled" ||
+    !(
+      (failedLaunchProcessStop.issued === true &&
+        failedLaunchProcessStop.confirmation === "confirmed") ||
+      (failedLaunchProcessStop.issued === false &&
+        failedLaunchProcessStop.confirmation === "not_issued")
+    )
+  ) {
+    markUnknown(ledger);
+    return {
+      status: "blocked" as const,
+      reason: "docker_desktop_repair_continuation_process_stop_unconfirmed",
+      ledger,
+      operation,
+    };
+  }
+  if (continuation.stage === "failed_launch_process_stopped") {
+    const stoppedQuiescence = await continuationHostQuiescence(
+      dependencies,
+      boundary,
+      session,
+      cancellation,
+    );
+    if (stoppedQuiescence !== "verified") {
+      if (stoppedQuiescence === "unknown") markUnknown(ledger);
+      return {
+        status: "blocked" as const,
+        reason:
+          stoppedQuiescence === "unknown"
+            ? "docker_desktop_repair_continuation_host_state_unknown"
+            : "docker_desktop_repair_continuation_process_stop_unconfirmed",
         ledger,
         operation,
       };

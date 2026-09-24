@@ -127,6 +127,7 @@ test("失敗起動後の複数Runtime領域は同じ復旧IDへ追記し、Effec
     assert.ok(continuation);
     assert.equal(continuation.stage, "prepared");
     for (const action of [
+      "failed_launch_process_stop",
       "failed_launch_run_directory_rename",
       "secrets_engine_directory_rename",
       "desktop_relaunch",
@@ -161,7 +162,7 @@ test("失敗起動後の複数Runtime領域は同じ復旧IDへ追記し、Effec
       operation,
     );
     assert.equal(inspected.status, "valid");
-    assert.equal(inspected.continuation?.sequence, 7);
+    assert.equal(inspected.continuation?.sequence, 9);
     const paths = dockerDesktopRepairContinuationPaths(boundary, continuation);
     assert.equal(
       paths.failedRunStaleDirectory.endsWith(
@@ -213,6 +214,7 @@ test("手組みHandoff Authorityでは旧Runtime／現在RuntimeのContinuation�
     );
     assert.ok(continuation);
     for (const action of [
+      "failed_launch_process_stop",
       "failed_launch_run_directory_rename",
       "secrets_engine_directory_rename",
       "desktop_relaunch",
@@ -233,7 +235,7 @@ test("手組みHandoff Authorityでは旧Runtime／現在RuntimeのContinuation�
       );
       assert.ok(continuation);
     }
-    assert.equal(continuation.sequence, 6);
+    assert.equal(continuation.sequence, 8);
 
     const migratedBoundary: DockerDesktopRepairRecordBoundary = Object.freeze({
       ...boundary,
@@ -297,6 +299,7 @@ test("手組みHandoff Authorityでは旧Runtime／現在RuntimeのContinuation�
     );
     assert.ok(currentContinuation);
     for (const action of [
+      "failed_launch_process_stop",
       "failed_launch_run_directory_rename",
       "secrets_engine_directory_rename",
       "desktop_relaunch",
@@ -479,6 +482,7 @@ test("実Record Storeの署名済みHandoff chainと同一SessionのRelease更�
     );
     assert.ok(continuation);
     for (const action of [
+      "failed_launch_process_stop",
       "failed_launch_run_directory_rename",
       "secrets_engine_directory_rename",
       "desktop_relaunch",
@@ -617,13 +621,13 @@ test("実Record Storeの署名済みHandoff chainと同一SessionのRelease更�
       continuation,
     );
     assert.ok(recovered);
-    assert.equal(recovered.sequence, 7);
+    assert.equal(recovered.sequence, 9);
     const recoveredRecord = JSON.parse(
       fs.readFileSync(
         path.join(
           updatedOperation.operationDirectory,
           "runtime-continuation",
-          "continuation-07-recovered.json",
+          "continuation-09-recovered.json",
         ),
         "utf8",
       ),
@@ -710,6 +714,7 @@ test("全Host Effectがconfirmedでなければrecoveredを記録しない", () 
     );
     assert.ok(continuation);
     for (const action of [
+      "failed_launch_process_stop",
       "failed_launch_run_directory_rename",
       "secrets_engine_directory_rename",
       "desktop_relaunch",
