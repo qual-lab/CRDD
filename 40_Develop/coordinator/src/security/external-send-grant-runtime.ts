@@ -1,3 +1,9 @@
+/**
+ * external-send-grant-runtimeに属する責務をまとめる。
+ *
+ * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000015
+ */
 import { createHash, randomInt } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
@@ -57,13 +63,46 @@ const DERIVED_REMEDIATION_TRANSFER = Object.freeze({
   informationClassification: "same_as_original_task" as const,
 });
 
+/**
+ * external-send-grant-runtimeで使用するProviderの値契約を定義する。
+ *
+ * @responsibility ProviderのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000015
+ * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Providerで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Providerの宣言は外部境界を開かない。
+ * @security ProviderはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Providerの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Provider = "codex" | "claude";
+/**
+ * external-send-grant-runtimeで使用するScopeの値契約を定義する。
+ *
+ * @responsibility ScopeのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000015
+ * @shape Scopeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Scopeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Scopeの宣言は外部境界を開かない。
+ * @security ScopeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Scopeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Scope = Readonly<{
   objective: string;
   acceptanceCriteria: readonly string[];
   allowedPaths: readonly string[];
   readPaths: readonly string[];
 }>;
+/**
+ * external-send-grant-runtimeで使用するGrant 記録の値契約を定義する。
+ *
+ * @responsibility Grant 記録のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000015
+ * @shape GrantRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant GrantRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: GrantRecordの宣言は外部境界を開かない。
+ * @security GrantRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility GrantRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type GrantRecord = {
   managementCapability: object;
   repositoryBindingCapability: object;
@@ -77,6 +116,17 @@ type GrantRecord = {
   issuedWallClockMs: number;
   issuedMonotonicMs: number;
 };
+/**
+ * external-send-grant-runtimeで使用するRuntime Dependenciesの値契約を定義する。
+ *
+ * @responsibility Runtime DependenciesのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000015
+ * @shape RuntimeDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeDependenciesの宣言は外部境界を開かない。
+ * @security RuntimeDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimeDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimeDependencies = Readonly<{
   verifyOperation: typeof verifyOwnedOperationManagementCapability;
   verifyRepository: typeof verifyRuntimeOwnedRepositoryBindingCapability;
@@ -92,11 +142,38 @@ type RuntimeDependencies = Readonly<{
   resolveConsent?: typeof resolveRuntimeOwnedExternalSendConsent;
   persistConsent?: typeof persistRuntimeOwnedExternalSendConsent;
 }>;
+/**
+ * external-send-grant-runtimeで使用するRuntime 状態の値契約を定義する。
+ *
+ * @responsibility Runtime 状態のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000015
+ * @shape RuntimeStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeStateの宣言は外部境界を開かない。
+ * @security RuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimeStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimeState = Readonly<{
   dependencies: RuntimeDependencies;
   grants: WeakMap<object, GrantRecord>;
 }>;
 
+/**
+ * Stringsを固定Schemaへ正規化する。
+ *
+ * @responsibility Stringsの入力検証、正規化規則、不正値の拒否境界を所有する。
+ * @trace ARCH-000015
+ * @input value: unknown、maximum: number、maximumBytes: number
+ * @returns normalizedStringsの計算結果を返す。
+ * @precondition 「value: unknown、maximum: number、maximumBytes: number」がnormalizedStringsの入力契約を満たす。
+ * @postcondition normalizedStringsの責務を完了した結果だけを返す。
+ * @effect N/A: normalizedStringsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizedStringsは独自の失敗分岐を所有しない。
+ * @invariant normalizedStringsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizedStringsはProcess内の同一Subsystemで完結する。
+ * @security normalizedStringsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizedStringsは共有非同期状態を持たない同期処理である。
+ */
 function normalizedStrings(
   value: unknown,
   maximum: number,
@@ -120,6 +197,22 @@ function normalizedStrings(
   return Object.freeze([...snapshot.value]);
 }
 
+/**
+ * Scopeを固定Schemaへ正規化する。
+ *
+ * @responsibility Scopeの入力検証、正規化規則、不正値の拒否境界を所有する。
+ * @trace ARCH-000015
+ * @input rawScope: unknown
+ * @returns Scope | nullを返す。
+ * @precondition 「rawScope: unknown」がnormalizedScopeの入力契約を満たす。
+ * @postcondition normalizedScopeの責務を完了した結果だけを返す。
+ * @effect N/A: normalizedScopeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizedScopeは独自の失敗分岐を所有しない。
+ * @invariant normalizedScopeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizedScopeはProcess内の同一Subsystemで完結する。
+ * @security normalizedScopeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizedScopeは共有非同期状態を持たない同期処理である。
+ */
 function normalizedScope(rawScope: unknown): Scope | null {
   const value = snapshotPlainRecord(rawScope, SCOPE_KEYS);
   const acceptanceCriteria = value
@@ -162,6 +255,22 @@ function normalizedScope(rawScope: unknown): Scope | null {
   });
 }
 
+/**
+ * External Send Scope Hashを機械利用可能な契約へ変換する。
+ *
+ * @responsibility External Send Scope Hashの入力Schema、決定論的変換、変換不能時の拒否境界を所有する。
+ * @trace ARCH-000015
+ * @input rawScope: unknown
+ * @returns compileExternalSendScopeHashの計算結果を返す。
+ * @precondition 「rawScope: unknown」がcompileExternalSendScopeHashの入力契約を満たす。
+ * @postcondition compileExternalSendScopeHashの責務を完了した結果だけを返す。
+ * @effect N/A: compileExternalSendScopeHashは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: compileExternalSendScopeHashは独自の失敗分岐を所有しない。
+ * @invariant compileExternalSendScopeHashは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: compileExternalSendScopeHashはProcess内の同一Subsystemで完結する。
+ * @security compileExternalSendScopeHashはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: compileExternalSendScopeHashは共有非同期状態を持たない同期処理である。
+ */
 export function compileExternalSendScopeHash(rawScope: unknown) {
   const scope = normalizedScope(rawScope);
   return scope
@@ -180,6 +289,22 @@ export function compileExternalSendScopeHash(rawScope: unknown) {
     : null;
 }
 
+/**
+ * terminal Safe Jsonを決定する。
+ *
+ * @responsibility terminal Safe Jsonの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000015
+ * @input value: unknown
+ * @returns terminalSafeJsonの計算結果を返す。
+ * @precondition 「value: unknown」がterminalSafeJsonの入力契約を満たす。
+ * @postcondition terminalSafeJsonの責務を完了した結果だけを返す。
+ * @effect N/A: terminalSafeJsonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: terminalSafeJsonは独自の失敗分岐を所有しない。
+ * @invariant terminalSafeJsonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: terminalSafeJsonはProcess内の同一Subsystemで完結する。
+ * @security terminalSafeJsonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: terminalSafeJsonは共有非同期状態を持たない同期処理である。
+ */
 function terminalSafeJson(value: unknown) {
   return JSON.stringify(value, null, 2).replace(
     /[\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/gu,
@@ -188,6 +313,17 @@ function terminalSafeJson(value: unknown) {
   );
 }
 
+/**
+ * external-send-grant-runtimeで使用するConsole Confirmation Adapterの値契約を定義する。
+ *
+ * @responsibility Console Confirmation AdapterのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000015
+ * @shape ConsoleConfirmationAdapterが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ConsoleConfirmationAdapterで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ConsoleConfirmationAdapterの宣言は外部境界を開かない。
+ * @security ConsoleConfirmationAdapterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ConsoleConfirmationAdapterの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ConsoleConfirmationAdapter = Readonly<{
   writeText: (outputDescriptor: number, value: string) => Promise<boolean>;
   readLine: (
@@ -196,6 +332,17 @@ type ConsoleConfirmationAdapter = Readonly<{
   ) => Promise<string | null>;
 }>;
 
+/**
+ * external-send-grant-runtimeで使用するConsole Confirmation Outcomeの値契約を定義する。
+ *
+ * @responsibility Console Confirmation OutcomeのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000015
+ * @shape ConsoleConfirmationOutcomeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ConsoleConfirmationOutcomeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ConsoleConfirmationOutcomeの宣言は外部境界を開かない。
+ * @security ConsoleConfirmationOutcomeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ConsoleConfirmationOutcomeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ConsoleConfirmationOutcome = Readonly<{
   status:
     | "confirmed"
@@ -207,6 +354,17 @@ type ConsoleConfirmationOutcome = Readonly<{
     | "cleanup_unknown";
 }>;
 
+/**
+ * external-send-grant-runtimeで使用するConsole Confirmation Outcome Adapterの値契約を定義する。
+ *
+ * @responsibility Console Confirmation Outcome AdapterのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000015
+ * @shape ConsoleConfirmationOutcomeAdapterが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ConsoleConfirmationOutcomeAdapterで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ConsoleConfirmationOutcomeAdapterの宣言は外部境界を開かない。
+ * @security ConsoleConfirmationOutcomeAdapterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ConsoleConfirmationOutcomeAdapterの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ConsoleConfirmationOutcomeAdapter = Readonly<{
   writeText: (
     outputDescriptor: number,
@@ -218,6 +376,22 @@ type ConsoleConfirmationOutcomeAdapter = Readonly<{
   ) => Promise<InteractiveConsoleReadOutcome>;
 }>;
 
+/**
+ * Write Outcomeを表示文字列へ変換する。
+ *
+ * @responsibility Write Outcomeの入力値、文字列表現、機密を含めない結果境界を所有する。
+ * @trace ARCH-000015
+ * @input value: boolean | InteractiveConsoleTextWriteOutcome
+ * @returns InteractiveConsoleTextWriteOutcomeを返す。
+ * @precondition 「value: boolean | InteractiveConsoleTextWriteOutcome」がtextWriteOutcomeの入力契約を満たす。
+ * @postcondition textWriteOutcomeの責務を完了した結果だけを返す。
+ * @effect N/A: textWriteOutcomeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: textWriteOutcomeは独自の失敗分岐を所有しない。
+ * @invariant textWriteOutcomeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: textWriteOutcomeはProcess内の同一Subsystemで完結する。
+ * @security textWriteOutcomeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: textWriteOutcomeは共有非同期状態を持たない同期処理である。
+ */
 function textWriteOutcome(
   value: boolean | InteractiveConsoleTextWriteOutcome,
 ): InteractiveConsoleTextWriteOutcome {
@@ -226,10 +400,42 @@ function textWriteOutcome(
     : value;
 }
 
+/**
+ * Cancellation Signalかを判定する。
+ *
+ * @responsibility Cancellation Signalの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000015
+ * @input value: unknown
+ * @returns value is AbortSignalを返す。
+ * @precondition 「value: unknown」がisCancellationSignalの入力契約を満たす。
+ * @postcondition isCancellationSignalの責務を完了した結果だけを返す。
+ * @effect N/A: isCancellationSignalは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isCancellationSignalは独自の失敗分岐を所有しない。
+ * @invariant isCancellationSignalは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isCancellationSignalはProcess内の同一Subsystemで完結する。
+ * @security isCancellationSignalはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isCancellationSignalは共有非同期状態を持たない同期処理である。
+ */
 function isCancellationSignal(value: unknown): value is AbortSignal {
   return value instanceof AbortSignal;
 }
 
+/**
+ * Interactive Console Challenge Using Adapterを確認する。
+ *
+ * @responsibility Interactive Console Challenge Using Adapterの確認根拠、成立条件、観測不能境界を所有する。
+ * @trace ARCH-000015
+ * @input notice: string、challenge: string、handles: Readonly<{ input: number; output: number }>、cancellationSignal: AbortSignal、adapter: ConsoleConfirmationAdapter
+ * @returns confirmInteractiveConsoleChallengeUsingAdapterの計算結果を返す。
+ * @precondition 「notice: string、challenge: string、handles: Readonly<{ input: number; output: number }>、cancellationSignal: AbortSignal、adapter: ConsoleConfirmationAdapter」がconfirmInteractiveConsoleChallengeUsingAdapterの入力契約を満たす。
+ * @postcondition confirmInteractiveConsoleChallengeUsingAdapterの責務を完了した結果だけを返す。
+ * @effect N/A: confirmInteractiveConsoleChallengeUsingAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: confirmInteractiveConsoleChallengeUsingAdapterは独自の失敗分岐を所有しない。
+ * @invariant confirmInteractiveConsoleChallengeUsingAdapterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: confirmInteractiveConsoleChallengeUsingAdapterはProcess内の同一Subsystemで完結する。
+ * @security confirmInteractiveConsoleChallengeUsingAdapterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency confirmInteractiveConsoleChallengeUsingAdapterは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function confirmInteractiveConsoleChallengeUsingAdapter(
   notice: string,
   challenge: string,
@@ -257,6 +463,22 @@ export async function confirmInteractiveConsoleChallengeUsingAdapter(
   );
 }
 
+/**
+ * Interactive Console Challenge Outcome Using Adapterを確認する。
+ *
+ * @responsibility Interactive Console Challenge Outcome Using Adapterの確認根拠、成立条件、観測不能境界を所有する。
+ * @trace ARCH-000015
+ * @input notice: string、challenge: string、handles: Readonly<{ input: number; output: number }>、cancellationSignal: AbortSignal、adapter: ConsoleConfirmationOutcomeAdapter
+ * @returns Promise<ConsoleConfirmationOutcome>を返す。
+ * @precondition 「notice: string、challenge: string、handles: Readonly<{ input: number; output: number }>、cancellationSignal: AbortSignal、adapter: ConsoleConfirmationOutcomeAdapter」がconfirmInteractiveConsoleChallengeOutcomeUsingAdapterの入力契約を満たす。
+ * @postcondition confirmInteractiveConsoleChallengeOutcomeUsingAdapterの責務を完了した結果だけを返す。
+ * @effect N/A: confirmInteractiveConsoleChallengeOutcomeUsingAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure confirmInteractiveConsoleChallengeOutcomeUsingAdapterは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant confirmInteractiveConsoleChallengeOutcomeUsingAdapterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: confirmInteractiveConsoleChallengeOutcomeUsingAdapterはProcess内の同一Subsystemで完結する。
+ * @security confirmInteractiveConsoleChallengeOutcomeUsingAdapterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency confirmInteractiveConsoleChallengeOutcomeUsingAdapterは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function confirmInteractiveConsoleChallengeOutcomeUsingAdapter(
   notice: string,
   challenge: string,
@@ -308,6 +530,22 @@ export async function confirmInteractiveConsoleChallengeOutcomeUsingAdapter(
   return Object.freeze({ status });
 }
 
+/**
+ * Runtime 所有 Operation Using Consoleを確認する。
+ *
+ * @responsibility Runtime 所有 Operation Using Consoleの確認根拠、成立条件、観測不能境界を所有する。
+ * @trace ARCH-000015
+ * @input notice: string、challenge: string、cancellationSignal: AbortSignal
+ * @returns confirmRuntimeOwnedOperationUsingConsoleの計算結果を返す。
+ * @precondition 「notice: string、challenge: string、cancellationSignal: AbortSignal」がconfirmRuntimeOwnedOperationUsingConsoleの入力契約を満たす。
+ * @postcondition confirmRuntimeOwnedOperationUsingConsoleの責務を完了した結果だけを返す。
+ * @effect N/A: confirmRuntimeOwnedOperationUsingConsoleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure confirmRuntimeOwnedOperationUsingConsoleは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant confirmRuntimeOwnedOperationUsingConsoleは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: confirmRuntimeOwnedOperationUsingConsoleはProcess内の同一Subsystemで完結する。
+ * @security confirmRuntimeOwnedOperationUsingConsoleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency confirmRuntimeOwnedOperationUsingConsoleは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function confirmRuntimeOwnedOperationUsingConsole(
   notice: string,
   challenge: string,
@@ -377,6 +615,22 @@ async function confirmRuntimeOwnedOperationUsingConsole(
   return outcome;
 }
 
+/**
+ * Runtime 所有 External Send Using Consoleを確認する。
+ *
+ * @responsibility Runtime 所有 External Send Using Consoleの確認根拠、成立条件、観測不能境界を所有する。
+ * @trace ARCH-000015
+ * @input notice: string、challenge: string、cancellationSignal: AbortSignal
+ * @returns confirmRuntimeOwnedExternalSendUsingConsoleの計算結果を返す。
+ * @precondition 「notice: string、challenge: string、cancellationSignal: AbortSignal」がconfirmRuntimeOwnedExternalSendUsingConsoleの入力契約を満たす。
+ * @postcondition confirmRuntimeOwnedExternalSendUsingConsoleの責務を完了した結果だけを返す。
+ * @effect N/A: confirmRuntimeOwnedExternalSendUsingConsoleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: confirmRuntimeOwnedExternalSendUsingConsoleは独自の失敗分岐を所有しない。
+ * @invariant confirmRuntimeOwnedExternalSendUsingConsoleは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: confirmRuntimeOwnedExternalSendUsingConsoleはProcess内の同一Subsystemで完結する。
+ * @security confirmRuntimeOwnedExternalSendUsingConsoleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: confirmRuntimeOwnedExternalSendUsingConsoleは共有非同期状態を持たない同期処理である。
+ */
 export function confirmRuntimeOwnedExternalSendUsingConsole(
   notice: string,
   challenge: string,
@@ -389,6 +643,22 @@ export function confirmRuntimeOwnedExternalSendUsingConsole(
   );
 }
 
+/**
+ * 状態を構築する。
+ *
+ * @responsibility 状態の構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000015
+ * @input dependencies: RuntimeDependencies
+ * @returns RuntimeStateを返す。
+ * @precondition 「dependencies: RuntimeDependencies」がcreateStateの入力契約を満たす。
+ * @postcondition createStateの責務を完了した結果だけを返す。
+ * @effect N/A: createStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createStateは独自の失敗分岐を所有しない。
+ * @invariant createStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createStateはProcess内の同一Subsystemで完結する。
+ * @security createStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createStateは共有非同期状態を持たない同期処理である。
+ */
 function createState(dependencies: RuntimeDependencies): RuntimeState {
   return Object.freeze({ dependencies, grants: new WeakMap() });
 }
@@ -407,6 +677,22 @@ const productionState = createState(
   }),
 );
 
+/**
+ * Grantを要求する。
+ *
+ * @responsibility Grantの要求条件、受理結果、Effect未成立との分離境界を所有する。
+ * @trace ARCH-000015
+ * @input state: RuntimeState、managementCapability: unknown、repositoryBindingCapability: unknown、policyCapability: unknown、rawScope: unknown、rawProviders: unknown、cancellationSignal: AbortSignal
+ * @returns requestGrantの計算結果を返す。
+ * @precondition 「state: RuntimeState、managementCapability: unknown、repositoryBindingCapability: unknown、policyCapability: unknown、rawScope: unknown、rawProviders: unknown、cancellationSignal: AbortSignal」がrequestGrantの入力契約を満たす。
+ * @postcondition requestGrantの責務を完了した結果だけを返す。
+ * @effect N/A: requestGrantは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure requestGrantは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant requestGrantは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: requestGrantはProcess内の同一Subsystemで完結する。
+ * @security requestGrantはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency requestGrantは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function requestGrant(
   state: RuntimeState,
   managementCapability: unknown,
@@ -604,6 +890,22 @@ async function requestGrant(
   }
 }
 
+/**
+ * Grantを一回限りで消費する。
+ *
+ * @responsibility Grantの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
+ * @trace ARCH-000015
+ * @input state: RuntimeState、capability: unknown、managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、rawScope: unknown
+ * @returns consumeGrantの計算結果を返す。
+ * @precondition 「state: RuntimeState、capability: unknown、managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、rawScope: unknown」がconsumeGrantの入力契約を満たす。
+ * @postcondition consumeGrantの責務を完了した結果だけを返す。
+ * @effect N/A: consumeGrantは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure consumeGrantは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant consumeGrantは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: consumeGrantはProcess内の同一Subsystemで完結する。
+ * @security consumeGrantはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: consumeGrantは共有非同期状態を持たない同期処理である。
+ */
 function consumeGrant(
   state: RuntimeState,
   capability: unknown,
@@ -675,6 +977,22 @@ function consumeGrant(
   }
 }
 
+/**
+ * Runtime 所有 External Send Grantを要求する。
+ *
+ * @responsibility Runtime 所有 External Send Grantの要求条件、受理結果、Effect未成立との分離境界を所有する。
+ * @trace ARCH-000015
+ * @input managementCapability: unknown、repositoryBindingCapability: unknown、policyCapability: unknown、rawScope: unknown、rawProviders: unknown、cancellationSignal: AbortSignal
+ * @returns requestRuntimeOwnedExternalSendGrantの計算結果を返す。
+ * @precondition 「managementCapability: unknown、repositoryBindingCapability: unknown、policyCapability: unknown、rawScope: unknown、rawProviders: unknown、cancellationSignal: AbortSignal」がrequestRuntimeOwnedExternalSendGrantの入力契約を満たす。
+ * @postcondition requestRuntimeOwnedExternalSendGrantの責務を完了した結果だけを返す。
+ * @effect N/A: requestRuntimeOwnedExternalSendGrantは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: requestRuntimeOwnedExternalSendGrantは独自の失敗分岐を所有しない。
+ * @invariant requestRuntimeOwnedExternalSendGrantは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: requestRuntimeOwnedExternalSendGrantはProcess内の同一Subsystemで完結する。
+ * @security requestRuntimeOwnedExternalSendGrantはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency requestRuntimeOwnedExternalSendGrantは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export function requestRuntimeOwnedExternalSendGrant(
   managementCapability: unknown,
   repositoryBindingCapability: unknown,
@@ -708,6 +1026,22 @@ export function requestRuntimeOwnedExternalSendGrant(
   );
 }
 
+/**
+ * Runtime 所有 External Send Grantを一回限りで消費する。
+ *
+ * @responsibility Runtime 所有 External Send Grantの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
+ * @trace ARCH-000015
+ * @input capability: unknown、managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、rawScope: unknown
+ * @returns consumeRuntimeOwnedExternalSendGrantの計算結果を返す。
+ * @precondition 「capability: unknown、managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、rawScope: unknown」がconsumeRuntimeOwnedExternalSendGrantの入力契約を満たす。
+ * @postcondition consumeRuntimeOwnedExternalSendGrantの責務を完了した結果だけを返す。
+ * @effect N/A: consumeRuntimeOwnedExternalSendGrantは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: consumeRuntimeOwnedExternalSendGrantは独自の失敗分岐を所有しない。
+ * @invariant consumeRuntimeOwnedExternalSendGrantは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: consumeRuntimeOwnedExternalSendGrantはProcess内の同一Subsystemで完結する。
+ * @security consumeRuntimeOwnedExternalSendGrantはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: consumeRuntimeOwnedExternalSendGrantは共有非同期状態を持たない同期処理である。
+ */
 export function consumeRuntimeOwnedExternalSendGrant(
   capability: unknown,
   managementCapability: unknown,
@@ -729,6 +1063,22 @@ export function consumeRuntimeOwnedExternalSendGrant(
   );
 }
 
+/**
+ * Isolated External Send Grant Runtime 候補を構築する。
+ *
+ * @responsibility Isolated External Send Grant Runtime 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000015
+ * @input dependencies: RuntimeDependencies
+ * @returns createIsolatedExternalSendGrantRuntimeCandidateの計算結果を返す。
+ * @precondition 「dependencies: RuntimeDependencies」がcreateIsolatedExternalSendGrantRuntimeCandidateの入力契約を満たす。
+ * @postcondition createIsolatedExternalSendGrantRuntimeCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: createIsolatedExternalSendGrantRuntimeCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createIsolatedExternalSendGrantRuntimeCandidateは独自の失敗分岐を所有しない。
+ * @invariant createIsolatedExternalSendGrantRuntimeCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createIsolatedExternalSendGrantRuntimeCandidateはProcess内の同一Subsystemで完結する。
+ * @security createIsolatedExternalSendGrantRuntimeCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createIsolatedExternalSendGrantRuntimeCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function createIsolatedExternalSendGrantRuntimeCandidate(
   dependencies: RuntimeDependencies,
 ) {
@@ -774,6 +1124,22 @@ export function createIsolatedExternalSendGrantRuntimeCandidate(
   });
 }
 
+/**
+ * External Send Grant Runtime 契約の公開契約を記述する。
+ *
+ * @responsibility External Send Grant Runtime 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000015
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeExternalSendGrantRuntimeContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeExternalSendGrantRuntimeContractの入力契約を満たす。
+ * @postcondition describeExternalSendGrantRuntimeContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeExternalSendGrantRuntimeContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeExternalSendGrantRuntimeContractは独自の失敗分岐を所有しない。
+ * @invariant describeExternalSendGrantRuntimeContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeExternalSendGrantRuntimeContractはProcess内の同一Subsystemで完結する。
+ * @security describeExternalSendGrantRuntimeContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeExternalSendGrantRuntimeContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeExternalSendGrantRuntimeContract() {
   return Object.freeze({
     contract: EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT,

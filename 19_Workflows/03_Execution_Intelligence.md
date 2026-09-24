@@ -6,7 +6,7 @@
 
 ## 目的と対象
 
-この手順は、CRDD公式Repositoryまたは採用RepositoryのRuntime Adapterから実行知（Execution Intelligence）を利用し、決定論的な開発確認を行う担当者向けである。Event、保存、欠測、保持および完成条件は[実行知のアーキテクチャ](../06_Architecture/execution-intelligence/01_Architecture.md)、検証項目は[検証設計](../07_Quality/03_Verification_Design.md#execution-intelligence-verification)を正本とする。この手順の実行だけで品質受入、正本更新、外部送信またはReleaseを成立させない。
+この手順は、CRDD公式Repositoryまたは採用RepositoryのRuntime Adapterから実行知（Execution Intelligence）を利用し、決定論的な開発確認を行う担当者向けである。Event、保存、欠測、保持および完成条件は[実行知のアーキテクチャ](../06_Architecture/Details/execution-intelligence/01_Architecture.md)、検証項目は[実行記録の公開と再利用](../07_Quality/Definitions/QA-000012/quality_definition.md)と[投影と出所](../07_Quality/Definitions/QA-000004/quality_definition.md)を正本とする。この手順の実行だけで品質受入、正本更新、外部送信またはReleaseを成立させない。
 
 ## Runtime Adapterからの利用
 
@@ -83,4 +83,4 @@ npm test
 | Store読取り不能 | Event 0件と推定せず、観測不能として扱う |
 | 利用側回帰が失敗 | 共通packageだけを合格にせず、公開入口とConsumerの契約差を是正する |
 
-一時試験物はRepository Root直下のGit管理外`.crdd/test-tmp`等、確認済みの用途限定領域へ置き、package Directory直下へ作らない。終了後は試験が所有するexactな対象だけを回収し、回収不明を成功へ丸めない。
+一時試験物はRepository Root直下のGit管理外`.crdd/tests/execution-intelligence/<run-id>/`等、確認済みの実行単位へ置き、package Directory直下へ作らない。終了後は試験が所有するexactな対象だけを回収し、回収不明を成功へ丸めない。

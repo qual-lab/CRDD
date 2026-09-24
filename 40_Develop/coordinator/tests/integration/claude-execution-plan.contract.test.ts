@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:claude-execution-planの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:claude-execution-planが所有する検証責務を実行する。
+ * @trace ERB-IT-001
+ * @level IT
+ * @scope claude、execution、plan
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -11,6 +21,18 @@ import {
   planClaudeReadOnlyProbe,
 } from "../../src/security/claude-execution-plan.ts";
 
+/**
+ * Claude配布候補は固定絶対pathと同じexact artifact Identityへ結合するを検証する。
+ *
+ * @responsibility Claude配布候補は固定絶対pathと同じexact artifact Identityへ結合するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Claude配布候補は固定絶対pathと同じexact artifact Identityへ結合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ結合する", () => {
   const contract = describeClaudeExecutionPlanContract();
   const binding = contract.distribution.binding;
@@ -116,6 +138,18 @@ test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ�
   });
 });
 
+/**
+ * 配布物条件と認証service条件を別axisの未解決条件にするを検証する。
+ *
+ * @responsibility 配布物条件と認証service条件を別axisの未解決条件にするの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 配布物条件と認証service条件を別axisの未解決条件にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("配布物条件と認証service条件を別axisの未解決条件にする", () => {
   const contract = describeClaudeExecutionPlanContract();
   const distributionTerms = contract.distribution.binaryDistributionTerms;
@@ -218,6 +252,18 @@ test("配布物条件と認証service条件を別axisの未解決条件にする
   assert.equal("termsReview" in contract.distribution, false);
 });
 
+/**
+ * Claude認証はsubscription OAuth候補だけを残しAPI課金経路を拒否するを検証する。
+ *
+ * @responsibility Claude認証はsubscription OAuth候補だけを残しAPI課金経路を拒否するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Claude認証はsubscription OAuth候補だけを残しAPI課金経路を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("Claude認証はsubscription OAuth候補だけを残しAPI課金経路を拒否する", () => {
   const contract = describeClaudeExecutionPlanContract();
   const authentication = contract.authentication;
@@ -254,6 +300,18 @@ test("Claude認証はsubscription OAuth候補だけを残しAPI課金経路を�
   );
 });
 
+/**
+ * 読取専用probe候補は固定argv、環境置換要求、未検証制約を投影するを検証する。
+ *
+ * @responsibility 読取専用probe候補は固定argv、環境置換要求、未検証制約を投影するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 読取専用probe候補は固定argv、環境置換要求、未検証制約を投影するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("読取専用probe候補は固定argv、環境置換要求、未検証制約を投影する", () => {
   const contract = describeClaudeExecutionPlanContract();
   const plan = planClaudeReadOnlyProbe({
@@ -387,6 +445,18 @@ test("読取専用probe候補は固定argv、環境置換要求、未検証制�
   assert.equal(plan.operationCapabilityIssued, false);
 });
 
+/**
+ * Managed Settingsの固定byte列を検証済みimage identityへ結合するを検証する。
+ *
+ * @responsibility Managed Settingsの固定byte列を検証済みimage identityへ結合するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Managed Settingsの固定byte列を検証済みimage identityへ結合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("Managed Settingsの固定byte列を検証済みimage identityへ結合する", () => {
   const settings = readFileSync(
     new URL("../../runtime/claude-managed-settings.json", import.meta.url),
@@ -404,6 +474,18 @@ test("Managed Settingsの固定byte列を検証済みimage identityへ結合す�
   });
 });
 
+/**
+ * 一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定するを検証する。
+ *
+ * @responsibility 一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定する", () => {
   const executor = planClaudeIsolatedTask({
     provider: "claude",
@@ -512,6 +594,18 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
   }
 });
 
+/**
+ * Claude Task SettingsはProvider Homeと外部Toolをdenyするを検証する。
+ *
+ * @responsibility Claude Task SettingsはProvider Homeと外部Toolをdenyするの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Claude Task SettingsはProvider Homeと外部Toolをdenyするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("Claude Task SettingsはProvider Homeと外部Toolをdenyする", () => {
   const settings = JSON.parse(
     readFileSync(
@@ -534,6 +628,18 @@ test("Claude Task SettingsはProvider Homeと外部Toolをdenyする", () => {
   ]);
 });
 
+/**
+ * probeの任意Provider、mode、余分field、accessor、Proxyを拒否するを検証する。
+ *
+ * @responsibility probeの任意Provider、mode、余分field、accessor、Proxyを拒否するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus probeの任意Provider、mode、余分field、accessor、Proxyを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否する", () => {
   assert.equal(
     planClaudeReadOnlyProbe({ provider: "codex", mode: "read_only_probe" })
@@ -588,6 +694,18 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
   );
 });
 
+/**
+ * 全Task実行gateとPlan単体のEffect非発行を説明契約へ保持するを検証する。
+ *
+ * @responsibility 全Task実行gateとPlan単体のEffect非発行を説明契約へ保持するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 全Task実行gateとPlan単体のEffect非発行を説明契約へ保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("全Task実行gateとPlan単体のEffect非発行を説明契約へ保持する", () => {
   const contract = describeClaudeExecutionPlanContract();
   assert.equal(

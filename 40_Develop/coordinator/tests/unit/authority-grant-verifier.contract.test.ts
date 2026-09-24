@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:authority-grant-verifierの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:authority-grant-verifierが所有する検証責務を実行する。
+ * @trace PRL-UT-006
+ * @level UT
+ * @scope authority、grant、verifier
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -14,6 +24,18 @@ import {
   validateProviderIsolationProfile,
 } from "../../src/security/provider-isolation-profile.ts";
 
+/**
+ * profileのTest準備責務を実行する。
+ *
+ * @responsibility profileがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus profileを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 function profile(overrides = {}) {
   return {
     contract: PROVIDER_ISOLATION_CONTRACT,
@@ -36,6 +58,18 @@ function profile(overrides = {}) {
   };
 }
 
+/**
+ * registryのTest準備責務を実行する。
+ *
+ * @responsibility registryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus registryを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 function registry(
   rawProfile = profile(),
   grantOverrides: Record<string, unknown> = {},
@@ -85,6 +119,18 @@ const context = {
   now: "2026-08-11T00:30:00.000Z",
 };
 
+/**
+ * grantsのTest準備責務を実行する。
+ *
+ * @responsibility grantsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus grantsを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 function grants(
   count: number,
   originFactory: (index: number) => string[] = (index) => [
@@ -103,6 +149,18 @@ function grants(
   });
 }
 
+/**
+ * Registry候補を正規化して固定Hashを生成するを検証する。
+ *
+ * @responsibility Registry候補を正規化して固定Hashを生成するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Registry候補を正規化して固定Hashを生成するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Registry候補を正規化して固定Hashを生成する", () => {
   const result = validateAuthorityRegistryCandidate(registry());
   assert.equal(result.status, "candidate");
@@ -110,6 +168,18 @@ test("Registry候補を正規化して固定Hashを生成する", () => {
   assert.match(result.registryHash, /^[a-f0-9]{64}$/u);
 });
 
+/**
+ * Grant照合はOperationとScopeを含む候補根拠を返すを検証する。
+ *
+ * @responsibility Grant照合はOperationとScopeを含む候補根拠を返すの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Grant照合はOperationとScopeを含む候補根拠を返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Grant照合はOperationとScopeを含む候補根拠を返す", () => {
   const result = evaluateAuthorityGrantCandidate(
     profile(),
@@ -135,6 +205,18 @@ test("Grant照合はOperationとScopeを含む候補根拠を返す", () => {
   assert.equal(result.verification.validUntil, "2026-08-12T00:00:00.000Z");
 });
 
+/**
+ * Core候補はAuthority Capabilityを発行しないを検証する。
+ *
+ * @responsibility Core候補はAuthority Capabilityを発行しないの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Core候補はAuthority Capabilityを発行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Core候補はAuthority Capabilityを発行しない", () => {
   const contract = describeAuthorityGrantVerifierContract();
   assert.equal(contract.coreValidation, "implemented_candidate");
@@ -145,6 +227,18 @@ test("Core候補はAuthority Capabilityを発行しない", () => {
   assert.equal(contract.runtimeCapabilityIssued, false);
 });
 
+/**
+ * 未来Grant、期限切れ、取消および置換を拒否するを検証する。
+ *
+ * @responsibility 未来Grant、期限切れ、取消および置換を拒否するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 未来Grant、期限切れ、取消および置換を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("未来Grant、期限切れ、取消および置換を拒否する", () => {
   assert.equal(
     evaluateAuthorityGrantCandidate(
@@ -188,6 +282,18 @@ test("未来Grant、期限切れ、取消および置換を拒否する", () => 
   );
 });
 
+/**
+ * Provider、Origin、Mount Grant、Operation、Scope、Profile Hashの差を拒否するを検証する。
+ *
+ * @responsibility Provider、Origin、Mount Grant、Operation、Scope、Profile Hashの差を拒否するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Provider、Origin、Mount Grant、Operation、Scope、Profile Hashの差を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Provider、Origin、Mount Grant、Operation、Scope、Profile Hashの差を拒否する", () => {
   const cases = [
     [
@@ -255,6 +361,18 @@ test("Provider、Origin、Mount Grant、Operation、Scope、Profile Hashの差�
   }
 });
 
+/**
+ * 静的Authority要件を実行時の動的Mount Grant refへ結合するを検証する。
+ *
+ * @responsibility 静的Authority要件を実行時の動的Mount Grant refへ結合するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 静的Authority要件を実行時の動的Mount Grant refへ結合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("静的Authority要件を実行時の動的Mount Grant refへ結合する", () => {
   const result = evaluateAuthorityGrantCandidate(profile(), registry(), {
     ...context,
@@ -272,6 +390,18 @@ test("静的Authority要件を実行時の動的Mount Grant refへ結合する",
   );
 });
 
+/**
+ * Authority contextはMount Grant参照を必須exact keyとして検査するを検証する。
+ *
+ * @responsibility Authority contextはMount Grant参照を必須exact keyとして検査するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Authority contextはMount Grant参照を必須exact keyとして検査するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Authority contextはMount Grant参照を必須exact keyとして検査する", () => {
   const { providerHomeMountGrantRef: unusedRef, ...missing } = context;
   void unusedRef;
@@ -294,6 +424,18 @@ test("Authority contextはMount Grant参照を必須exact keyとして検査す�
   }
 });
 
+/**
+ * Registry参照差、重複Grant、非UTC時刻および不正nowをfail closedにするを検証する。
+ *
+ * @responsibility Registry参照差、重複Grant、非UTC時刻および不正nowをfail closedにするの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Registry参照差、重複Grant、非UTC時刻および不正nowをfail closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Registry参照差、重複Grant、非UTC時刻および不正nowをfail closedにする", () => {
   assert.equal(
     evaluateAuthorityGrantCandidate(
@@ -365,6 +507,18 @@ test("Registry参照差、重複Grant、非UTC時刻および不正nowをfail cl
   );
 });
 
+/**
+ * Registry revision、空Grant集合および不正Originを固定reasonへ閉じるを検証する。
+ *
+ * @responsibility Registry revision、空Grant集合および不正Originを固定reasonへ閉じるの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Registry revision、空Grant集合および不正Originを固定reasonへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Registry revision、空Grant集合および不正Originを固定reasonへ閉じる", () => {
   assert.equal(
     validateAuthorityRegistryCandidate(
@@ -385,6 +539,18 @@ test("Registry revision、空Grant集合および不正Originを固定reasonへ�
   );
 });
 
+/**
+ * 余分fieldと自己申告の承認者fieldを拒否するを検証する。
+ *
+ * @responsibility 余分fieldと自己申告の承認者fieldを拒否するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 余分fieldと自己申告の承認者fieldを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("余分fieldと自己申告の承認者fieldを拒否する", () => {
   assert.equal(
     validateAuthorityRegistryCandidate({
@@ -411,6 +577,18 @@ test("余分fieldと自己申告の承認者fieldを拒否する", () => {
   );
 });
 
+/**
+ * Registry入力budgetは最大件数を受理し1超過とcanonical byte超過を拒否するを検証する。
+ *
+ * @responsibility Registry入力budgetは最大件数を受理し1超過とcanonical byte超過を拒否するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Registry入力budgetは最大件数を受理し1超過とcanonical byte超過を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Registry入力budgetは最大件数を受理し1超過とcanonical byte超過を拒否する", () => {
   const maximum = registry(
     profile(),
@@ -454,6 +632,18 @@ test("Registry入力budgetは最大件数を受理し1超過とcanonical byte超
   );
 });
 
+/**
+ * Registryの巨大IDとOriginを正規化処理前に拒否するを検証する。
+ *
+ * @responsibility Registryの巨大IDとOriginを正規化処理前に拒否するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Registryの巨大IDとOriginを正規化処理前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Registryの巨大IDとOriginを正規化処理前に拒否する", () => {
   const identifier = registry(
     profile(),
@@ -497,6 +687,18 @@ test("Registryの巨大IDとOriginを正規化処理前に拒否する", () => {
   );
 });
 
+/**
+ * 評価時刻は有効なDateまたはcanonical UTC文字列だけを受理するを検証する。
+ *
+ * @responsibility 評価時刻は有効なDateまたはcanonical UTC文字列だけを受理するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 評価時刻は有効なDateまたはcanonical UTC文字列だけを受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("評価時刻は有効なDateまたはcanonical UTC文字列だけを受理する", () => {
   assert.equal(
     evaluateAuthorityGrantCandidate(profile(), registry(), {
@@ -531,6 +733,18 @@ test("評価時刻は有効なDateまたはcanonical UTC文字列だけを受理
   }
 });
 
+/**
+ * RegistryとContextのaccessorを実行せずblockedへ閉じるを検証する。
+ *
+ * @responsibility RegistryとContextのaccessorを実行せずblockedへ閉じるの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus RegistryとContextのaccessorを実行せずblockedへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("RegistryとContextのaccessorを実行せずblockedへ閉じる", () => {
   for (const location of ["top", "grant", "array", "context"]) {
     let calls = 0;

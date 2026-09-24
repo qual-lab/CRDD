@@ -1,9 +1,30 @@
+/**
+ * coordinator:integration:git-object-reader-integrationの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:git-object-reader-integrationが所有する検証責務を実行する。
+ * @trace RFD-IT-012
+ * @level IT
+ * @scope git、object、reader
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-
+import {
+  inspectGitCommitTreeCandidate,
+  materializeGitCommitTreeCandidate as materializeVersionControlTree,
+  readGitCommitFileCandidate,
+} from "../../../version-control/src/git/object-reader.ts";
+import { gitFixedSnapshotAdapter } from "../../../version-control/src/git/fixed-snapshot-adapter.ts";
+import {
+  materializeFixedSnapshotCandidate,
+  verifyCandidateOutputDirectory,
+} from "../../../version-control/src/fixed-snapshot.ts";
+import { resolveRepositoryGitLayout } from "../../../version-control/src/git/repository-layout.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";
 import {
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
@@ -13,22 +34,48 @@ import {
   verifyOwnedOperationManagementMountBinding,
 } from "../../src/security/execution-environment.ts";
 import {
-  inspectGitCommitTreeCandidate,
-  materializeGitCommitTreeCandidate,
-  readGitCommitFileCandidate,
-} from "../../src/security/git-object-reader.ts";
-import { resolveRepositoryGitLayout } from "../../src/security/repository-git-layout-internal.ts";
-import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedRepositorySource,
   inspectRepositoryRevisionCandidate,
 } from "../../src/security/repository-operation-runtime.ts";
+import { containsRecognizedSecretMaterial } from "../../src/security/secret-material-policy.ts";
 import {
   createGitPackedObjectFixture,
   mutateGitPackedObjectFixture,
 } from "../fixtures/git-packed-object-fixture.ts";
 
+/**
+ * materializeProtectedGitCommitTreeCandidateのTest準備責務を実行する。
+ *
+ * @responsibility materializeProtectedGitCommitTreeCandidateがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RFD-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus materializeProtectedGitCommitTreeCandidateを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
+function materializeProtectedGitCommitTreeCandidate(candidate: unknown) {
+  return materializeVersionControlTree(
+    candidate,
+    containsRecognizedSecretMaterial,
+  );
+}
+
 for (const kind of ["base", "ofs", "ref"] as const) {
+  /**
+   * Git生成pack-only ${kind}は公開3APIで完全bytesを復元するを検証する。
+   *
+   * @responsibility Git生成pack-only ${kind}は公開3APIで完全bytesを復元するの合否判定を所有する。
+   * @trace RFD-IT-012
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus Git生成pack-only ${kind}は公開3APIで完全bytesを復元するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+   */
   test(`Git生成pack-only ${kind}は公開3APIで完全bytesを復元する`, {
     skip: process.platform !== "win32",
   }, (t) => {
@@ -69,7 +116,7 @@ for (const kind of ["base", "ofs", "ref"] as const) {
     }
     const workspace = path.join(fixture.root, "workspace");
     fs.mkdirSync(workspace);
-    const result = materializeGitCommitTreeCandidate({
+    const result = materializeProtectedGitCommitTreeCandidate({
       commonDirectory,
       revision,
       workspace,
@@ -101,6 +148,18 @@ for (const mutation of [
   "result-size",
   "object-id",
 ] as const) {
+  /**
+   * Git pack破損 ${mutation}は公開読取り・投影で拒否するを検証する。
+   *
+   * @responsibility Git pack破損 ${mutation}は公開読取り・投影で拒否するの合否判定を所有する。
+   * @trace RFD-IT-012
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus Git pack破損 ${mutation}は公開読取り・投影で拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+   */
   test(`Git pack破損 ${mutation}は公開読取り・投影で拒否する`, {
     skip: process.platform !== "win32",
   }, (t) => {
@@ -133,7 +192,7 @@ for (const mutation of [
     const workspace = path.join(fixture.root, "workspace");
     fs.mkdirSync(workspace);
     assert.equal(
-      materializeGitCommitTreeCandidate({
+      materializeProtectedGitCommitTreeCandidate({
         commonDirectory,
         revision,
         workspace,
@@ -145,6 +204,18 @@ for (const mutation of [
   });
 }
 
+/**
+ * Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合するを検証する。
+ *
+ * @responsibility Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合するの合否判定を所有する。
+ * @trace RFD-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 test("Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合する", () => {
   const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
   const layout = resolveRepositoryGitLayout(repositoryRoot);
@@ -152,7 +223,7 @@ test("Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合
   assert.equal(repository?.status, "candidate");
   assert.equal(repository?.externalGitCliUsed, false);
   assert.equal(repository?.repositoryPathReported, false);
-  assert.equal(repository?.repositoryKind, layout.kind);
+  assert.equal(repository?.repositoryKind, "primary");
   const exact = inspectGitCommitTreeCandidate({
     commonDirectory: layout.commonDirectory.realPath,
     revision: repository?.commit,
@@ -164,6 +235,18 @@ test("Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合
   assert.equal(exact?.repositoryPathReported, false);
 });
 
+/**
+ * 現行CRDDのpacked objectから明示Read Projectionだけを隔離workspaceへ再構成するを検証する。
+ *
+ * @responsibility 現行CRDDのpacked objectから明示Read Projectionだけを隔離workspaceへ再構成するの合否判定を所有する。
+ * @trace RFD-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 現行CRDDのpacked objectから明示Read Projectionだけを隔離workspaceへ再構成するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 test("現行CRDDのpacked objectから明示Read Projectionだけを隔離workspaceへ再構成する", (t) => {
   const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
   const owned = createOwnedOperationDirectories();
@@ -188,14 +271,27 @@ test("現行CRDDのpacked objectから明示Read Projectionだけを隔離worksp
     managementCapability,
     mountCapability,
   );
-  const materialized = materializeGitCommitTreeCandidate({
-    commonDirectory: source.commonDirectory,
-    revision: source.revision,
-    workspace: binding.mounts.workspace,
-    readPaths: ["README.md"],
-  });
+  const verified = verifyRepositoryRoot(source.repositoryRoot);
+  assert.equal(verified.status, "completed");
+  if (verified.status !== "completed") return;
+  const output = verifyCandidateOutputDirectory(
+    binding.mounts.workspace,
+    mountCapability,
+    binding.mounts.workspace,
+  );
+  assert.equal(output.status, "completed");
+  if (output.status !== "completed") return;
+  const materialized = materializeFixedSnapshotCandidate(
+    verified.capability,
+    source.revision,
+    mountCapability,
+    output.capability,
+    ["README.md"],
+    containsRecognizedSecretMaterial,
+    gitFixedSnapshotAdapter,
+  );
   assert.equal(materialized?.status, "materialized");
-  assert.equal(materialized?.baseCommit, repository.revision);
+  assert.equal(materialized?.baseRevisionIdentity, repository.revision);
   assert.equal(materialized?.fileCount, 1);
   assert.equal(
     fs

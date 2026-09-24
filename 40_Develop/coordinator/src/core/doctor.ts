@@ -1,3 +1,9 @@
+/**
+ * doctorに属する責務をまとめる。
+ *
+ * @responsibility DoctorOperationInitializationFailureを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import fs from "node:fs";
 import path from "node:path";
 import { types as utilTypes } from "node:util";
@@ -5,6 +11,10 @@ import { describeAuthorityFileBundleContract } from "../security/authority-file-
 import { describeAuthorityGrantVerifierContract } from "../security/authority-grant-verifier.ts";
 import { describeAuthorityPrelaunchVerifierContract } from "../security/authority-prelaunch-verifier.ts";
 import { describeAuthorityTrustLoaderContract } from "../security/authority-trust-loader.ts";
+import {
+  classifyOwnedCoordinatorOperationCreationFailure,
+  createRuntimeOwnedCoordinatorOperation,
+} from "../security/coordinator-operation-creation-internal.ts";
 import {
   DOCKER_ISOLATION_PROFILE,
   runDockerIsolationProbe,
@@ -16,14 +26,10 @@ import {
   credentialEnvironmentNamesPresent,
   describeFilesystemPolicy,
 } from "../security/execution-environment.ts";
-import {
-  classifyOwnedCoordinatorOperationCreationFailure,
-  createRuntimeOwnedCoordinatorOperation,
-} from "../security/coordinator-operation-creation-internal.ts";
 import { snapshotPlainArray } from "../security/plain-data-snapshot.ts";
 import { describeProviderIsolationContract } from "../security/provider-isolation-profile.ts";
 import { describeProviderLifecycleContract } from "../security/provider-lifecycle.ts";
-import { describeRepositoryGitLayoutContract } from "../security/repository-git-layout.ts";
+import { describeRepositoryLocationContract } from "../../../version-control/src/repository-location.ts";
 import { inspectRepositoryRevisionCandidate } from "../security/repository-operation-runtime.ts";
 import { describeRootProtectionPolicyContract } from "../security/root-protection-policy.ts";
 import { isSupportedCoordinatorNodeRuntime } from "./node-runtime-version.ts";
@@ -35,6 +41,17 @@ export const CHECK_STATUS = Object.freeze([
   "unknown",
 ] as const);
 
+/**
+ * doctorで使用するDoctor Operation Initialization 失敗の値契約を定義する。
+ *
+ * @responsibility Doctor Operation Initialization 失敗のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape DoctorOperationInitializationFailureが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DoctorOperationInitializationFailureで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DoctorOperationInitializationFailureの宣言は外部境界を開かない。
+ * @security N/A: DoctorOperationInitializationFailureはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility DoctorOperationInitializationFailureの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type DoctorOperationInitializationFailure = Readonly<{
   reason: "doctor_operation_initialization_cleanup_unknown";
   manualRecoveryRequired: true;
@@ -45,12 +62,44 @@ const doctorOperationInitializationFailures = new WeakMap<
   DoctorOperationInitializationFailure
 >();
 
+/**
+ * Doctor Operation Initialization 失敗を分類する。
+ *
+ * @responsibility Doctor Operation Initialization 失敗の分類条件、相互排他的な結果、判断不能境界を所有する。
+ * @trace ARCH-000004
+ * @input error: unknown
+ * @returns classifyDoctorOperationInitializationFailureの計算結果を返す。
+ * @precondition 「error: unknown」がclassifyDoctorOperationInitializationFailureの入力契約を満たす。
+ * @postcondition classifyDoctorOperationInitializationFailureの責務を完了した結果だけを返す。
+ * @effect N/A: classifyDoctorOperationInitializationFailureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: classifyDoctorOperationInitializationFailureは独自の失敗分岐を所有しない。
+ * @invariant classifyDoctorOperationInitializationFailureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: classifyDoctorOperationInitializationFailureはProcess内の同一Subsystemで完結する。
+ * @security N/A: classifyDoctorOperationInitializationFailureはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: classifyDoctorOperationInitializationFailureは共有非同期状態を持たない同期処理である。
+ */
 export function classifyDoctorOperationInitializationFailure(error: unknown) {
   return error && typeof error === "object"
     ? (doctorOperationInitializationFailures.get(error) ?? null)
     : null;
 }
 
+/**
+ * Doctor Command 失敗を人間向け表示へ整形する。
+ *
+ * @responsibility Doctor Command 失敗の入力値、表示規則、機密を含めない出力境界を所有する。
+ * @trace ARCH-000004
+ * @input error: unknown
+ * @returns renderDoctorCommandFailureの計算結果を返す。
+ * @precondition 「error: unknown」がrenderDoctorCommandFailureの入力契約を満たす。
+ * @postcondition renderDoctorCommandFailureの責務を完了した結果だけを返す。
+ * @effect N/A: renderDoctorCommandFailureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: renderDoctorCommandFailureは独自の失敗分岐を所有しない。
+ * @invariant renderDoctorCommandFailureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: renderDoctorCommandFailureはProcess内の同一Subsystemで完結する。
+ * @security N/A: renderDoctorCommandFailureはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: renderDoctorCommandFailureは共有非同期状態を持たない同期処理である。
+ */
 export function renderDoctorCommandFailure(error: unknown) {
   const doctorCreation = classifyDoctorOperationInitializationFailure(error);
   const message = errorMessage(error);
@@ -71,6 +120,22 @@ export function renderDoctorCommandFailure(error: unknown) {
   });
 }
 
+/**
+ * throw Doctor Operation Initialization 失敗を決定する。
+ *
+ * @responsibility throw Doctor Operation Initialization 失敗の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input cause: unknown、hostRecoveryId: string | null
+ * @returns neverを返す。
+ * @precondition 「cause: unknown、hostRecoveryId: string | null」がthrowDoctorOperationInitializationFailureの入力契約を満たす。
+ * @postcondition throwDoctorOperationInitializationFailureの責務を完了した結果だけを返す。
+ * @effect N/A: throwDoctorOperationInitializationFailureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure throwDoctorOperationInitializationFailureは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant throwDoctorOperationInitializationFailureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: throwDoctorOperationInitializationFailureはProcess内の同一Subsystemで完結する。
+ * @security N/A: throwDoctorOperationInitializationFailureはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: throwDoctorOperationInitializationFailureは共有非同期状態を持たない同期処理である。
+ */
 function throwDoctorOperationInitializationFailure(
   cause: unknown,
   hostRecoveryId: string | null,
@@ -89,6 +154,22 @@ function throwDoctorOperationInitializationFailure(
   throw error;
 }
 
+/**
+ * Doctor Operation Creation 失敗を公開結果へ投影する。
+ *
+ * @responsibility Doctor Operation Creation 失敗の公開field、秘匿境界、投影不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input error: unknown
+ * @returns neverを返す。
+ * @precondition 「error: unknown」がprojectDoctorOperationCreationFailureの入力契約を満たす。
+ * @postcondition projectDoctorOperationCreationFailureの責務を完了した結果だけを返す。
+ * @effect N/A: projectDoctorOperationCreationFailureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure projectDoctorOperationCreationFailureは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant projectDoctorOperationCreationFailureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: projectDoctorOperationCreationFailureはProcess内の同一Subsystemで完結する。
+ * @security N/A: projectDoctorOperationCreationFailureはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: projectDoctorOperationCreationFailureは共有非同期状態を持たない同期処理である。
+ */
 export function projectDoctorOperationCreationFailure(error: unknown): never {
   const creation = classifyOwnedCoordinatorOperationCreationFailure(error);
   if (creation && !creation.cleanupConfirmed)
@@ -96,33 +177,120 @@ export function projectDoctorOperationCreationFailure(error: unknown): never {
   throw error;
 }
 
+/**
+ * doctorで使用するCheck Statusの値契約を定義する。
+ *
+ * @responsibility Check StatusのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape CheckStatusが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CheckStatusで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CheckStatusの宣言は外部境界を開かない。
+ * @security N/A: CheckStatusはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CheckStatusの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type CheckStatus = "confirmed" | "blocked" | "not_implemented" | "unknown";
+/**
+ * doctorで使用するDiagnostic Checkの値契約を定義する。
+ *
+ * @responsibility Diagnostic CheckのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape DiagnosticCheckが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DiagnosticCheckで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DiagnosticCheckの宣言は外部境界を開かない。
+ * @security N/A: DiagnosticCheckはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility DiagnosticCheckの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DiagnosticCheck = {
   id: string;
   status: CheckStatus;
   reason: string | null;
   followUp: string | null;
 };
+/**
+ * doctorで使用するDiscovery 結果の値契約を定義する。
+ *
+ * @responsibility Discovery 結果のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape DiscoveryResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DiscoveryResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DiscoveryResultの宣言は外部境界を開かない。
+ * @security N/A: DiscoveryResultはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility DiscoveryResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type DiscoveryResult = Readonly<{
   located: boolean;
   candidateCount: number;
   formats: readonly string[];
   reason: string | null;
 }>;
+/**
+ * doctorで使用するDoctor Optionsの値契約を定義する。
+ *
+ * @responsibility Doctor OptionsのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape DoctorOptionsが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DoctorOptionsで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DoctorOptionsの宣言は外部境界を開かない。
+ * @security N/A: DoctorOptionsはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility DoctorOptionsの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type DoctorOptions = Readonly<{
   activeIsolation: boolean;
   cwd: string;
 }>;
+/**
+ * doctorで使用するDiscovery Optionsの値契約を定義する。
+ *
+ * @responsibility Discovery OptionsのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape DiscoveryOptionsが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DiscoveryOptionsで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DiscoveryOptionsの宣言は外部境界を開かない。
+ * @security N/A: DiscoveryOptionsはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility DiscoveryOptionsの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type DiscoveryOptions = Readonly<{
   platform?: NodeJS.Platform;
   environment?: NodeJS.ProcessEnv;
   fileSystem?: typeof fs;
 }>;
 
+/**
+ * Objectかを判定する。
+ *
+ * @responsibility Objectの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is objectを返す。
+ * @precondition 「value: unknown」がisObjectの入力契約を満たす。
+ * @postcondition isObjectの責務を完了した結果だけを返す。
+ * @effect N/A: isObjectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isObjectは独自の失敗分岐を所有しない。
+ * @invariant isObjectは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isObjectはProcess内の同一Subsystemで完結する。
+ * @security N/A: isObjectはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isObjectは共有非同期状態を持たない同期処理である。
+ */
 function isObject(value: unknown): value is object {
   return typeof value === "object" && value !== null;
 }
 
+/**
+ * own Valueを決定する。
+ *
+ * @responsibility own Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: object、key: string
+ * @returns unknownを返す。
+ * @precondition 「value: object、key: string」がownValueの入力契約を満たす。
+ * @postcondition ownValueの責務を完了した結果だけを返す。
+ * @effect N/A: ownValueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: ownValueは独自の失敗分岐を所有しない。
+ * @invariant ownValueは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ownValueはProcess内の同一Subsystemで完結する。
+ * @security N/A: ownValueはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: ownValueは共有非同期状態を持たない同期処理である。
+ */
 function ownValue(value: object, key: string): unknown {
   const descriptor = Object.getOwnPropertyDescriptor(value, key);
   return descriptor &&
@@ -133,12 +301,44 @@ function ownValue(value: object, key: string): unknown {
     : undefined;
 }
 
+/**
+ * error Codeを決定する。
+ *
+ * @responsibility error Codeの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input error: unknown
+ * @returns string | nullを返す。
+ * @precondition 「error: unknown」がerrorCodeの入力契約を満たす。
+ * @postcondition errorCodeの責務を完了した結果だけを返す。
+ * @effect N/A: errorCodeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: errorCodeは独自の失敗分岐を所有しない。
+ * @invariant errorCodeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: errorCodeはProcess内の同一Subsystemで完結する。
+ * @security N/A: errorCodeはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: errorCodeは共有非同期状態を持たない同期処理である。
+ */
 function errorCode(error: unknown): string | null {
   if (!isObject(error)) return null;
   const value = ownValue(error, "code");
   return typeof value === "string" ? value : null;
 }
 
+/**
+ * error Messageを決定する。
+ *
+ * @responsibility error Messageの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input error: unknown
+ * @returns string | nullを返す。
+ * @precondition 「error: unknown」がerrorMessageの入力契約を満たす。
+ * @postcondition errorMessageの責務を完了した結果だけを返す。
+ * @effect N/A: errorMessageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: errorMessageは独自の失敗分岐を所有しない。
+ * @invariant errorMessageは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: errorMessageはProcess内の同一Subsystemで完結する。
+ * @security N/A: errorMessageはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: errorMessageは共有非同期状態を持たない同期処理である。
+ */
 function errorMessage(error: unknown): string | null {
   return error instanceof Error ? error.message : null;
 }
@@ -172,6 +372,22 @@ export const REQUIRED_CHECK_IDS = Object.freeze([
   "provider.claude.process_tree_termination",
 ]);
 
+/**
+ * doctorを検査する。
+ *
+ * @responsibility doctorの検査条件、違反分類、検査結果境界を所有する。
+ * @trace ARCH-000004
+ * @input id: string、status: CheckStatus、reason: string | null、followUp: string | null
+ * @returns DiagnosticCheckを返す。
+ * @precondition 「id: string、status: CheckStatus、reason: string | null、followUp: string | null」がcheckの入力契約を満たす。
+ * @postcondition checkの責務を完了した結果だけを返す。
+ * @effect N/A: checkは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: checkは独自の失敗分岐を所有しない。
+ * @invariant checkは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: checkはProcess内の同一Subsystemで完結する。
+ * @security N/A: checkはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: checkは共有非同期状態を持たない同期処理である。
+ */
 function check(
   id: string,
   status: CheckStatus,
@@ -181,6 +397,22 @@ function check(
   return { id, status, reason, followUp };
 }
 
+/**
+ * Readinessを評価する。
+ *
+ * @responsibility Readinessの評価入力、判定規則、判断不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input checks: unknown
+ * @returns evaluateReadinessの計算結果を返す。
+ * @precondition 「checks: unknown」がevaluateReadinessの入力契約を満たす。
+ * @postcondition evaluateReadinessの責務を完了した結果だけを返す。
+ * @effect N/A: evaluateReadinessは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: evaluateReadinessは独自の失敗分岐を所有しない。
+ * @invariant evaluateReadinessは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: evaluateReadinessはProcess内の同一Subsystemで完結する。
+ * @security N/A: evaluateReadinessはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: evaluateReadinessは共有非同期状態を持たない同期処理である。
+ */
 export function evaluateReadiness(checks: unknown) {
   const expected = new Set(REQUIRED_CHECK_IDS);
   const seen = new Set<string>();
@@ -236,10 +468,42 @@ export function evaluateReadiness(checks: unknown) {
   };
 }
 
+/**
+ * path Valueを決定する。
+ *
+ * @responsibility path Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input environment: NodeJS.ProcessEnv
+ * @returns stringを返す。
+ * @precondition 「environment: NodeJS.ProcessEnv」がpathValueの入力契約を満たす。
+ * @postcondition pathValueの責務を完了した結果だけを返す。
+ * @effect N/A: pathValueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: pathValueは独自の失敗分岐を所有しない。
+ * @invariant pathValueは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: pathValueはProcess内の同一Subsystemで完結する。
+ * @security N/A: pathValueはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: pathValueは共有非同期状態を持たない同期処理である。
+ */
 function pathValue(environment: NodeJS.ProcessEnv): string {
   return environment.PATH ?? environment.Path ?? "";
 }
 
+/**
+ * candidate Extensionsを決定する。
+ *
+ * @responsibility candidate Extensionsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input platform: NodeJS.Platform、environment: NodeJS.ProcessEnv
+ * @returns string[]を返す。
+ * @precondition 「platform: NodeJS.Platform、environment: NodeJS.ProcessEnv」がcandidateExtensionsの入力契約を満たす。
+ * @postcondition candidateExtensionsの責務を完了した結果だけを返す。
+ * @effect N/A: candidateExtensionsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: candidateExtensionsは独自の失敗分岐を所有しない。
+ * @invariant candidateExtensionsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: candidateExtensionsはProcess内の同一Subsystemで完結する。
+ * @security N/A: candidateExtensionsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: candidateExtensionsは共有非同期状態を持たない同期処理である。
+ */
 function candidateExtensions(
   platform: NodeJS.Platform,
   environment: NodeJS.ProcessEnv,
@@ -252,11 +516,43 @@ function candidateExtensions(
     .map((value) => value.toLowerCase());
 }
 
+/**
+ * command Formatを決定する。
+ *
+ * @responsibility command Formatの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input candidate: string
+ * @returns stringを返す。
+ * @precondition 「candidate: string」がcommandFormatの入力契約を満たす。
+ * @postcondition commandFormatの責務を完了した結果だけを返す。
+ * @effect N/A: commandFormatは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: commandFormatは独自の失敗分岐を所有しない。
+ * @invariant commandFormatは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: commandFormatはProcess内の同一Subsystemで完結する。
+ * @security N/A: commandFormatはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: commandFormatは共有非同期状態を持たない同期処理である。
+ */
 function commandFormat(candidate: string): string {
   const extension = path.extname(candidate).toLowerCase().replace(/^\./u, "");
   return extension || "native";
 }
 
+/**
+ * Commandを探索する。
+ *
+ * @responsibility Commandの探索Root、対象母集団、未観測境界を所有する。
+ * @trace ARCH-000004
+ * @input command: string、options: DiscoveryOptions
+ * @returns DiscoveryResultを返す。
+ * @precondition 「command: string、options: DiscoveryOptions」がdiscoverCommandの入力契約を満たす。
+ * @postcondition discoverCommandの責務を完了した結果だけを返す。
+ * @effect discoverCommandは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure discoverCommandは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant discoverCommandは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: discoverCommandはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: discoverCommandは共有非同期状態を持たない同期処理である。
+ */
 export function discoverCommand(
   command: string,
   options: DiscoveryOptions = {},
@@ -299,6 +595,22 @@ export function discoverCommand(
   };
 }
 
+/**
+ * probe Git Repositoryを決定する。
+ *
+ * @responsibility probe Git Repositoryの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input cwd: string
+ * @returns probeGitRepositoryの計算結果を返す。
+ * @precondition 「cwd: string」がprobeGitRepositoryの入力契約を満たす。
+ * @postcondition probeGitRepositoryの責務を完了した結果だけを返す。
+ * @effect N/A: probeGitRepositoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: probeGitRepositoryは独自の失敗分岐を所有しない。
+ * @invariant probeGitRepositoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: probeGitRepositoryはProcess内の同一Subsystemで完結する。
+ * @security N/A: probeGitRepositoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: probeGitRepositoryは共有非同期状態を持たない同期処理である。
+ */
 function probeGitRepository(cwd: string) {
   const identity = inspectRepositoryRevisionCandidate(cwd);
 
@@ -314,10 +626,42 @@ function probeGitRepository(cwd: string) {
 
 export const isSupportedNodeVersion = isSupportedCoordinatorNodeRuntime;
 
+/**
+ * node Supportedを決定する。
+ *
+ * @responsibility node Supportedの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns booleanを返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がnodeSupportedの入力契約を満たす。
+ * @postcondition nodeSupportedの責務を完了した結果だけを返す。
+ * @effect nodeSupportedは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: nodeSupportedは独自の失敗分岐を所有しない。
+ * @invariant nodeSupportedは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: nodeSupportedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: nodeSupportedは共有非同期状態を持たない同期処理である。
+ */
 function nodeSupported(): boolean {
   return isSupportedNodeVersion(process.versions.node);
 }
 
+/**
+ * provider Checksを決定する。
+ *
+ * @responsibility provider Checksの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input name: string、discovery: DiscoveryResult
+ * @returns DiagnosticCheck[]を返す。
+ * @precondition 「name: string、discovery: DiscoveryResult」がproviderChecksの入力契約を満たす。
+ * @postcondition providerChecksの責務を完了した結果だけを返す。
+ * @effect N/A: providerChecksは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: providerChecksは独自の失敗分岐を所有しない。
+ * @invariant providerChecksは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: providerChecksはProcess内の同一Subsystemで完結する。
+ * @security N/A: providerChecksはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: providerChecksは共有非同期状態を持たない同期処理である。
+ */
 function providerChecks(
   name: string,
   discovery: DiscoveryResult,
@@ -372,6 +716,22 @@ function providerChecks(
   ];
 }
 
+/**
+ * reportable Filesystem Policyを決定する。
+ *
+ * @responsibility reportable Filesystem Policyの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input policy: ReturnType<typeof describeFilesystemPolicy>、root: string
+ * @returns reportableFilesystemPolicyの計算結果を返す。
+ * @precondition 「policy: ReturnType<typeof describeFilesystemPolicy>、root: string」がreportableFilesystemPolicyの入力契約を満たす。
+ * @postcondition reportableFilesystemPolicyの責務を完了した結果だけを返す。
+ * @effect N/A: reportableFilesystemPolicyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: reportableFilesystemPolicyは独自の失敗分岐を所有しない。
+ * @invariant reportableFilesystemPolicyは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: reportableFilesystemPolicyはProcess内の同一Subsystemで完結する。
+ * @security N/A: reportableFilesystemPolicyはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: reportableFilesystemPolicyは共有非同期状態を持たない同期処理である。
+ */
 function reportableFilesystemPolicy(
   policy: ReturnType<typeof describeFilesystemPolicy>,
   root: string,
@@ -393,6 +753,22 @@ function reportableFilesystemPolicy(
 
 const DOCTOR_OPTION_KEYS = new Set(["activeIsolation", "cwd"]);
 
+/**
+ * Doctor Optionsを固定Schemaへ正規化する。
+ *
+ * @responsibility Doctor Optionsの入力検証、正規化規則、不正値の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input rawOptions: unknown
+ * @returns DoctorOptionsを返す。
+ * @precondition 「rawOptions: unknown」がnormalizeDoctorOptionsの入力契約を満たす。
+ * @postcondition normalizeDoctorOptionsの責務を完了した結果だけを返す。
+ * @effect normalizeDoctorOptionsは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure normalizeDoctorOptionsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant normalizeDoctorOptionsは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: normalizeDoctorOptionsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: normalizeDoctorOptionsは共有非同期状態を持たない同期処理である。
+ */
 function normalizeDoctorOptions(rawOptions: unknown): DoctorOptions {
   try {
     if (
@@ -447,6 +823,22 @@ function normalizeDoctorOptions(rawOptions: unknown): DoctorOptions {
   }
 }
 
+/**
+ * Doctorを実行する。
+ *
+ * @responsibility Doctorの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input options: unknown
+ * @returns runDoctorの計算結果を返す。
+ * @precondition 「options: unknown」がrunDoctorの入力契約を満たす。
+ * @postcondition runDoctorの責務を完了した結果だけを返す。
+ * @effect runDoctorは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure runDoctorは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runDoctorは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: runDoctorはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: runDoctorは共有非同期状態を持たない同期処理である。
+ */
 export function runDoctor(options: unknown = {}) {
   const normalizedOptions = normalizeDoctorOptions(options);
   const isIsolationActive = normalizedOptions.activeIsolation;
@@ -572,7 +964,7 @@ export function runDoctor(options: unknown = {}) {
     const readiness = evaluateReadiness(checks);
 
     const report = {
-      reportVersion: 11,
+      reportVersion: 12,
       diagnosticMode: isIsolationActive
         ? "docker_fake_provider_probe"
         : "passive_preflight",
@@ -599,7 +991,7 @@ export function runDoctor(options: unknown = {}) {
         profile: isIsolationActive ? DOCKER_ISOLATION_PROFILE : null,
       },
       rootProtectionPolicy: describeRootProtectionPolicyContract(),
-      repositoryGitLayout: describeRepositoryGitLayoutContract(),
+      repositoryLocation: describeRepositoryLocationContract(),
       providerLifecycle: describeProviderLifecycleContract(),
       fakeProviderLifecycle: isolation.fakeProviderLifecycle,
       egress: {

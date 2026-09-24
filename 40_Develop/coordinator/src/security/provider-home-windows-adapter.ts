@@ -1,3 +1,9 @@
+/**
+ * provider-home-windows-adapterに属する責務をまとめる。
+ *
+ * @responsibility runtimeOwnedProviderHomeMountSourceCandidateを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
@@ -56,6 +62,22 @@ const mountSourceCapabilities = new WeakMap<
   }>
 >();
 
+/**
+ * runtime 所有 Provider Home Mount Source 候補を決定する。
+ *
+ * @responsibility runtime 所有 Provider Home Mount Source 候補の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000010
+ * @input provider: unknown
+ * @returns runtimeOwnedProviderHomeMountSourceCandidateの計算結果を返す。
+ * @precondition 「provider: unknown」がruntimeOwnedProviderHomeMountSourceCandidateの入力契約を満たす。
+ * @postcondition runtimeOwnedProviderHomeMountSourceCandidateの責務を完了した結果だけを返す。
+ * @effect runtimeOwnedProviderHomeMountSourceCandidateは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: runtimeOwnedProviderHomeMountSourceCandidateは独自の失敗分岐を所有しない。
+ * @invariant runtimeOwnedProviderHomeMountSourceCandidateは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security runtimeOwnedProviderHomeMountSourceCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: runtimeOwnedProviderHomeMountSourceCandidateは共有非同期状態を持たない同期処理である。
+ */
 function runtimeOwnedProviderHomeMountSourceCandidate(provider: unknown) {
   if (provider !== "codex" && provider !== "claude") return null;
   const localAppData = process.env.LOCALAPPDATA;
@@ -78,6 +100,22 @@ function runtimeOwnedProviderHomeMountSourceCandidate(provider: unknown) {
     : null;
 }
 
+/**
+ * provider-home-windows-adapterを停止結果として構築する。
+ *
+ * @responsibility provider-home-windows-adapterの停止理由、未発行Effect、公開結果境界を所有する。
+ * @trace ARCH-000010
+ * @input reason: string、processEffectIssued、helperSpawned
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: string、processEffectIssued、helperSpawned」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(
   reason: string,
   processEffectIssued = false,
@@ -116,6 +154,17 @@ function blocked(
   });
 }
 
+/**
+ * provider-home-windows-adapterで使用するArtifactの値契約を定義する。
+ *
+ * @responsibility ArtifactのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000010
+ * @shape Artifactが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Artifactで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Artifactの宣言は外部境界を開かない。
+ * @security ArtifactはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Artifactの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Artifact = Readonly<{
   relativePath: string;
   target: string;
@@ -125,6 +174,22 @@ type Artifact = Readonly<{
   sha256: string;
 }>;
 
+/**
+ * Artifactが同一かを判定する。
+ *
+ * @responsibility Artifactの同一性Propertyと一致／不一致境界を所有する。
+ * @trace ARCH-000010
+ * @input left: unknown、right: unknown
+ * @returns booleanを返す。
+ * @precondition 「left: unknown、right: unknown」がsameArtifactの入力契約を満たす。
+ * @postcondition sameArtifactの責務を完了した結果だけを返す。
+ * @effect N/A: sameArtifactは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameArtifactは独自の失敗分岐を所有しない。
+ * @invariant sameArtifactは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security sameArtifactはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameArtifactは共有非同期状態を持たない同期処理である。
+ */
 function sameArtifact(left: unknown, right: unknown): boolean {
   if (
     !left ||
@@ -146,6 +211,22 @@ function sameArtifact(left: unknown, right: unknown): boolean {
   );
 }
 
+/**
+ * Runtime 所有 Windows Provider Home 候補を観測する。
+ *
+ * @responsibility Runtime 所有 Windows Provider Home 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000010
+ * @input provider: unknown、evaluationTime: unknown、developmentContext: unknown
+ * @returns inspectRuntimeOwnedWindowsProviderHomeCandidateの計算結果を返す。
+ * @precondition 「provider: unknown、evaluationTime: unknown、developmentContext: unknown」がinspectRuntimeOwnedWindowsProviderHomeCandidateの入力契約を満たす。
+ * @postcondition inspectRuntimeOwnedWindowsProviderHomeCandidateの責務を完了した結果だけを返す。
+ * @effect inspectRuntimeOwnedWindowsProviderHomeCandidateは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: inspectRuntimeOwnedWindowsProviderHomeCandidateは独自の失敗分岐を所有しない。
+ * @invariant inspectRuntimeOwnedWindowsProviderHomeCandidateは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security inspectRuntimeOwnedWindowsProviderHomeCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectRuntimeOwnedWindowsProviderHomeCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
   provider: unknown,
   evaluationTime: unknown,
@@ -324,6 +405,22 @@ export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
   });
 }
 
+/**
+ * Runtime 所有 Provider Home Observation Capabilityを一回限りで消費する。
+ *
+ * @responsibility Runtime 所有 Provider Home Observation Capabilityの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
+ * @trace ARCH-000010
+ * @input capability: unknown
+ * @returns consumeRuntimeOwnedProviderHomeObservationCapabilityの計算結果を返す。
+ * @precondition 「capability: unknown」がconsumeRuntimeOwnedProviderHomeObservationCapabilityの入力契約を満たす。
+ * @postcondition consumeRuntimeOwnedProviderHomeObservationCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: consumeRuntimeOwnedProviderHomeObservationCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: consumeRuntimeOwnedProviderHomeObservationCapabilityは独自の失敗分岐を所有しない。
+ * @invariant consumeRuntimeOwnedProviderHomeObservationCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security consumeRuntimeOwnedProviderHomeObservationCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: consumeRuntimeOwnedProviderHomeObservationCapabilityは共有非同期状態を持たない同期処理である。
+ */
 export function consumeRuntimeOwnedProviderHomeObservationCapability(
   capability: unknown,
 ) {
@@ -349,6 +446,22 @@ export function consumeRuntimeOwnedProviderHomeObservationCapability(
   return observation;
 }
 
+/**
+ * Runtime 所有 Provider Home Mount Source Capabilityを一回限りで消費する。
+ *
+ * @responsibility Runtime 所有 Provider Home Mount Source Capabilityの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
+ * @trace ARCH-000010
+ * @input capability: unknown、expectedProvider: unknown
+ * @returns consumeRuntimeOwnedProviderHomeMountSourceCapabilityの計算結果を返す。
+ * @precondition 「capability: unknown、expectedProvider: unknown」がconsumeRuntimeOwnedProviderHomeMountSourceCapabilityの入力契約を満たす。
+ * @postcondition consumeRuntimeOwnedProviderHomeMountSourceCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: consumeRuntimeOwnedProviderHomeMountSourceCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: consumeRuntimeOwnedProviderHomeMountSourceCapabilityは独自の失敗分岐を所有しない。
+ * @invariant consumeRuntimeOwnedProviderHomeMountSourceCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security consumeRuntimeOwnedProviderHomeMountSourceCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: consumeRuntimeOwnedProviderHomeMountSourceCapabilityは共有非同期状態を持たない同期処理である。
+ */
 export function consumeRuntimeOwnedProviderHomeMountSourceCapability(
   capability: unknown,
   expectedProvider: unknown,
@@ -361,6 +474,22 @@ export function consumeRuntimeOwnedProviderHomeMountSourceCapability(
     : null;
 }
 
+/**
+ * Runtime 所有 Provider Home Mount Source Capabilityを失効させる。
+ *
+ * @responsibility Runtime 所有 Provider Home Mount Source Capabilityの失効Authority、対象Identity、再利用防止境界を所有する。
+ * @trace ARCH-000010
+ * @input capability: unknown
+ * @returns revokeRuntimeOwnedProviderHomeMountSourceCapabilityの計算結果を返す。
+ * @precondition 「capability: unknown」がrevokeRuntimeOwnedProviderHomeMountSourceCapabilityの入力契約を満たす。
+ * @postcondition revokeRuntimeOwnedProviderHomeMountSourceCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: revokeRuntimeOwnedProviderHomeMountSourceCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: revokeRuntimeOwnedProviderHomeMountSourceCapabilityは独自の失敗分岐を所有しない。
+ * @invariant revokeRuntimeOwnedProviderHomeMountSourceCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security revokeRuntimeOwnedProviderHomeMountSourceCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: revokeRuntimeOwnedProviderHomeMountSourceCapabilityは共有非同期状態を持たない同期処理である。
+ */
 export function revokeRuntimeOwnedProviderHomeMountSourceCapability(
   capability: unknown,
 ) {
@@ -371,6 +500,22 @@ export function revokeRuntimeOwnedProviderHomeMountSourceCapability(
   );
 }
 
+/**
+ * Provider Home Windows Adapter 契約の公開契約を記述する。
+ *
+ * @responsibility Provider Home Windows Adapter 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000010
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProviderHomeWindowsAdapterContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProviderHomeWindowsAdapterContractの入力契約を満たす。
+ * @postcondition describeProviderHomeWindowsAdapterContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeProviderHomeWindowsAdapterContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProviderHomeWindowsAdapterContractは独自の失敗分岐を所有しない。
+ * @invariant describeProviderHomeWindowsAdapterContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security describeProviderHomeWindowsAdapterContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeProviderHomeWindowsAdapterContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeProviderHomeWindowsAdapterContract() {
   return Object.freeze({
     contract: PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT,

@@ -1,3 +1,13 @@
+/**
+ * mcp:system:streamable-httpの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility mcp:system:streamable-httpが所有する検証責務を実行する。
+ * @trace EST-ST-003
+ * @level ST
+ * @scope mcp、project、runtime、http、transport
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
@@ -22,6 +32,18 @@ const META = Object.freeze({
   "io.modelcontextprotocol/clientCapabilities": Object.freeze({}),
 });
 
+/**
+ * dependenciesのTest準備責務を実行する。
+ *
+ * @responsibility dependenciesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace EST-ST-003
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus dependenciesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 function dependencies(
   overrides: Partial<McpProjectRuntimeDependencies> = {},
 ): McpProjectRuntimeDependencies {
@@ -49,6 +71,18 @@ function dependencies(
   };
 }
 
+/**
+ * headersのTest準備責務を実行する。
+ *
+ * @responsibility headersがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace EST-ST-003
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus headersを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 function headers(method: string, name?: string) {
   return {
     authorization: `Bearer ${TOKEN}`,
@@ -60,6 +94,18 @@ function headers(method: string, name?: string) {
   };
 }
 
+/**
+ * sendRawのTest準備責務を実行する。
+ *
+ * @responsibility sendRawがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace EST-ST-003
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus sendRawを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 function sendRaw(
   url: URL,
   requestHeaders: Record<string, string>,
@@ -79,6 +125,18 @@ function sendRaw(
   });
 }
 
+/**
+ * waitForListeningPortのTest準備責務を実行する。
+ *
+ * @responsibility waitForListeningPortがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace EST-ST-003
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus waitForListeningPortを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 function waitForListeningPort(child: ReturnType<typeof spawn>) {
   return new Promise<number>((resolve, reject) => {
     let stderr = "";
@@ -109,6 +167,18 @@ function waitForListeningPort(child: ReturnType<typeof spawn>) {
   });
 }
 
+/**
+ * template toolsの公開入口はlocalhost HTTP discoveryへ到達するを検証する。
+ *
+ * @responsibility template toolsの公開入口はlocalhost HTTP discoveryへ到達するの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus template toolsの公開入口はlocalhost HTTP discoveryへ到達するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("template toolsの公開入口はlocalhost HTTP discoveryへ到達する", async () => {
   const entry = fileURLToPath(
     new URL("../../../../template/tools/crdd-mcp.ts", import.meta.url),
@@ -148,6 +218,18 @@ test("template toolsの公開入口はlocalhost HTTP discoveryへ到達する", 
   }
 });
 
+/**
+ * localhost HTTPは認証済み状態参照を同じ公開契約へ搬送するを検証する。
+ *
+ * @responsibility localhost HTTPは認証済み状態参照を同じ公開契約へ搬送するの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus localhost HTTPは認証済み状態参照を同じ公開契約へ搬送するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("localhost HTTPは認証済み状態参照を同じ公開契約へ搬送する", async () => {
   const server = await startMcpProjectRuntimeStreamableHttp(dependencies(), {
     port: 0,
@@ -192,6 +274,18 @@ test("localhost HTTPは認証済み状態参照を同じ公開契約へ搬送す
   }
 });
 
+/**
+ * HTTP終了は受信途中のbodyとidle socketを回収して冪等に完了するを検証する。
+ *
+ * @responsibility HTTP終了は受信途中のbodyとidle socketを回収して冪等に完了するの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus HTTP終了は受信途中のbodyとidle socketを回収して冪等に完了するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("HTTP終了は受信途中のbodyとidle socketを回収して冪等に完了する", async () => {
   let semanticEffects = 0;
   const server = await startMcpProjectRuntimeStreamableHttp(
@@ -245,6 +339,18 @@ test("HTTP終了は受信途中のbodyとidle socketを回収して冪等に完�
   assert.equal(semanticEffects, 0);
 });
 
+/**
+ * HTTPは認証・Origin・mirror header不一致をApplication前で拒否するを検証する。
+ *
+ * @responsibility HTTPは認証・Origin・mirror header不一致をApplication前で拒否するの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus HTTPは認証・Origin・mirror header不一致をApplication前で拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("HTTPは認証・Origin・mirror header不一致をApplication前で拒否する", async () => {
   let effects = 0;
   const server = await startMcpProjectRuntimeStreamableHttp(
@@ -303,6 +409,18 @@ test("HTTPは認証・Origin・mirror header不一致をApplication前で拒否�
   }
 });
 
+/**
+ * HTTPは不正UTF-8・重複key・容量超過を意味処理前に拒否するを検証する。
+ *
+ * @responsibility HTTPは不正UTF-8・重複key・容量超過を意味処理前に拒否するの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus HTTPは不正UTF-8・重複key・容量超過を意味処理前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("HTTPは不正UTF-8・重複key・容量超過を意味処理前に拒否する", async () => {
   let effects = 0;
   const server = await startMcpProjectRuntimeStreamableHttp(
@@ -335,6 +453,18 @@ test("HTTPは不正UTF-8・重複key・容量超過を意味処理前に拒否�
   }
 });
 
+/**
+ * HTTP response切断は進行中Objectiveへ取消を伝播して終了時にjoinするを検証する。
+ *
+ * @responsibility HTTP response切断は進行中Objectiveへ取消を伝播して終了時にjoinするの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus HTTP response切断は進行中Objectiveへ取消を伝播して終了時にjoinするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時にjoinする", async () => {
   let isCancellationObserved = false;
   let markStarted: (() => void) | null = null;
@@ -346,6 +476,18 @@ test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時�
       runObjective: async (_request, signal) =>
         new Promise((resolve) => {
           markStarted?.();
+          /**
+           * cancelのTest準備責務を実行する。
+           *
+           * @responsibility cancelがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+           * @trace EST-ST-003
+           * @precondition 呼出し元Test Caseが必要な入力を渡す。
+           * @stimulus cancelを呼び出す。
+           * @observation 返却値、生成fixtureまたは観測値を取得する。
+           * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+           * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+           * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+           */
           const cancel = () => {
             isCancellationObserved = true;
             resolve({
@@ -411,6 +553,18 @@ test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時�
   assert.equal(isCancellationObserved, true);
 });
 
+/**
+ * 公開Launcherのsignal所有は実行中Applicationの取消とjoin完了まで残るを検証する。
+ *
+ * @responsibility 公開Launcherのsignal所有は実行中Applicationの取消とjoin完了まで残るの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開Launcherのsignal所有は実行中Applicationの取消とjoin完了まで残るの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("公開Launcherのsignal所有は実行中Applicationの取消とjoin完了まで残る", async () => {
   let markStarted: (() => void) | null = null;
   let markAborted: (() => void) | null = null;
@@ -426,6 +580,18 @@ test("公開Launcherのsignal所有は実行中Applicationの取消とjoin完了
       runObjective: async (_request, signal) =>
         new Promise((resolve) => {
           markStarted?.();
+          /**
+           * cancelのTest準備責務を実行する。
+           *
+           * @responsibility cancelがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+           * @trace EST-ST-003
+           * @precondition 呼出し元Test Caseが必要な入力を渡す。
+           * @stimulus cancelを呼び出す。
+           * @observation 返却値、生成fixtureまたは観測値を取得する。
+           * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+           * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+           * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+           */
           const cancel = () => {
             markAborted?.();
             releaseHandler = () =>
@@ -516,6 +682,18 @@ test("公開Launcherのsignal所有は実行中Applicationの取消とjoin完了
   assert.equal(signals.listenerCount("SIGTERM"), 0);
 });
 
+/**
+ * 公開Launcherのsignal所有は終了失敗を成功へ変えずlistenerを解放するを検証する。
+ *
+ * @responsibility 公開Launcherのsignal所有は終了失敗を成功へ変えずlistenerを解放するの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開Launcherのsignal所有は終了失敗を成功へ変えずlistenerを解放するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("公開Launcherのsignal所有は終了失敗を成功へ変えずlistenerを解放する", async () => {
   const signals = new EventEmitter();
   const closing = closeMcpHttpOnProcessSignal(

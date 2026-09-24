@@ -1,3 +1,9 @@
+/**
+ * host-operation-lock-supervisorに属する責務をまとめる。
+ *
+ * @responsibility sendを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { createServer } from "node:net";
 
 const pipeName = process.argv[2];
@@ -20,6 +26,22 @@ let shouldReportRelease = false;
 let isFinishScheduled = false;
 let isDisconnectCommitted = false;
 
+/**
+ * sendを決定する。
+ *
+ * @responsibility sendの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input status: "acquired" | "ready" | "release-ready" | "released" | "unavailable"
+ * @returns sendの計算結果を返す。
+ * @precondition 「status: "acquired" | "ready" | "release-ready" | "released" | "unavailable"」がsendの入力契約を満たす。
+ * @postcondition sendの責務を完了した結果だけを返す。
+ * @effect sendは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure sendは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant sendは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security sendはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sendは共有非同期状態を持たない同期処理である。
+ */
 function send(
   status: "acquired" | "ready" | "release-ready" | "released" | "unavailable",
 ) {
@@ -32,6 +54,22 @@ function send(
   }
 }
 
+/**
+ * disconnect And Exitを決定する。
+ *
+ * @responsibility disconnect And Exitの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input exitCode: number
+ * @returns N/A: disconnectAndExitは戻り値を返さない。
+ * @precondition 「exitCode: number」がdisconnectAndExitの入力契約を満たす。
+ * @postcondition disconnectAndExitの責務を完了して呼出し元へ制御を戻す。
+ * @effect disconnectAndExitは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: disconnectAndExitは独自の失敗分岐を所有しない。
+ * @invariant disconnectAndExitは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security disconnectAndExitはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: disconnectAndExitは共有非同期状態を持たない同期処理である。
+ */
 function disconnectAndExit(exitCode: number) {
   process.exitCode = exitCode;
   if (process.connected) {
@@ -40,6 +78,22 @@ function disconnectAndExit(exitCode: number) {
   }
 }
 
+/**
+ * schedule Final Exitを決定する。
+ *
+ * @responsibility schedule Final Exitの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns scheduleFinalExitの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がscheduleFinalExitの入力契約を満たす。
+ * @postcondition scheduleFinalExitの責務を完了した結果だけを返す。
+ * @effect N/A: scheduleFinalExitは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: scheduleFinalExitは独自の失敗分岐を所有しない。
+ * @invariant scheduleFinalExitは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: scheduleFinalExitはProcess内の同一Subsystemで完結する。
+ * @security scheduleFinalExitはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: scheduleFinalExitは共有非同期状態を持たない同期処理である。
+ */
 function scheduleFinalExit() {
   if (isFinishScheduled) return;
   isFinishScheduled = true;
@@ -57,6 +111,22 @@ function scheduleFinalExit() {
   });
 }
 
+/**
+ * And Exitを終了する。
+ *
+ * @responsibility And Exitの終了条件、資源解放、終了不能時の境界を所有する。
+ * @trace ARCH-000004
+ * @input isReportRelease: boolean、exitCode: number
+ * @returns closeAndExitの計算結果を返す。
+ * @precondition 「isReportRelease: boolean、exitCode: number」がcloseAndExitの入力契約を満たす。
+ * @postcondition closeAndExitの責務を完了した結果だけを返す。
+ * @effect N/A: closeAndExitは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: closeAndExitは独自の失敗分岐を所有しない。
+ * @invariant closeAndExitは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: closeAndExitはProcess内の同一Subsystemで完結する。
+ * @security closeAndExitはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: closeAndExitは共有非同期状態を持たない同期処理である。
+ */
 function closeAndExit(isReportRelease: boolean, exitCode: number) {
   if (exitCode !== 0) {
     closeExitCode = exitCode;
@@ -77,6 +147,22 @@ function closeAndExit(isReportRelease: boolean, exitCode: number) {
   else finish();
 }
 
+/**
+ * Releaseを開始する。
+ *
+ * @responsibility Releaseの開始条件、初期状態、開始失敗境界を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns beginReleaseの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がbeginReleaseの入力契約を満たす。
+ * @postcondition beginReleaseの責務を完了した結果だけを返す。
+ * @effect N/A: beginReleaseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: beginReleaseは独自の失敗分岐を所有しない。
+ * @invariant beginReleaseは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: beginReleaseはProcess内の同一Subsystemで完結する。
+ * @security beginReleaseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: beginReleaseは共有非同期状態を持たない同期処理である。
+ */
 function beginRelease() {
   if (closeStarted) return closeAndExit(false, 65);
   closeStarted = true;

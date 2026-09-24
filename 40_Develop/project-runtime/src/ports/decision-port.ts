@@ -1,3 +1,20 @@
+/**
+ * decision-portに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeDecisionRecordを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
+/**
+ * decision-portで使用するProject Runtime Decision 記録の値契約を定義する。
+ *
+ * @responsibility Project Runtime Decision 記録のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeDecisionRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeDecisionRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeDecisionRecordの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimeDecisionRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimeDecisionRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeDecisionRecord = Readonly<{
   recordId: string;
   decisionId: string;
@@ -23,6 +40,17 @@ export type ProjectRuntimeDecisionRecord = Readonly<{
   replacementRequestId: string | null;
 }>;
 
+/**
+ * decision-portで使用するProject Runtime Decision Storeの値契約を定義する。
+ *
+ * @responsibility Project Runtime Decision StoreのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeDecisionStoreが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeDecisionStoreで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeDecisionStoreの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimeDecisionStoreはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimeDecisionStoreの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeDecisionStore = Readonly<{
   create: (record: ProjectRuntimeDecisionRecord) => unknown;
   read: (recordId: string) => unknown;
@@ -32,6 +60,17 @@ export type ProjectRuntimeDecisionStore = Readonly<{
   ) => unknown;
 }>;
 
+/**
+ * decision-portで使用するProject Runtime Decision 回復 Intentの値契約を定義する。
+ *
+ * @responsibility Project Runtime Decision 回復 IntentのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeDecisionRecoveryIntentが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeDecisionRecoveryIntentで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeDecisionRecoveryIntentの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimeDecisionRecoveryIntentはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimeDecisionRecoveryIntentの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeDecisionRecoveryIntent = Readonly<{
   recoveryId: string;
   recordId: string;
@@ -46,6 +85,17 @@ export type ProjectRuntimeDecisionRecoveryIntent = Readonly<{
   disposition: "required" | "settled";
 }>;
 
+/**
+ * decision-portで使用するProject Runtime Decision 回復 Storeの値契約を定義する。
+ *
+ * @responsibility Project Runtime Decision 回復 StoreのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeDecisionRecoveryStoreが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeDecisionRecoveryStoreで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeDecisionRecoveryStoreの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimeDecisionRecoveryStoreはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimeDecisionRecoveryStoreの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeDecisionRecoveryStore = Readonly<{
   create: (intent: ProjectRuntimeDecisionRecoveryIntent) => unknown;
   read: (recoveryId: string) => unknown;
@@ -55,6 +105,17 @@ export type ProjectRuntimeDecisionRecoveryStore = Readonly<{
   ) => unknown;
 }>;
 
+/**
+ * decision-portで使用するProject Runtime Decision Portの値契約を定義する。
+ *
+ * @responsibility Project Runtime Decision PortのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeDecisionPortが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeDecisionPortで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeDecisionPortの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimeDecisionPortはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimeDecisionPortの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeDecisionPort = Readonly<{
   store: ProjectRuntimeDecisionStore;
   recoveryStore?: ProjectRuntimeDecisionRecoveryStore;
@@ -82,11 +143,42 @@ const projectRuntimeDecisionRecordKeys = [
   "selectedOption",
 ].sort();
 
+/**
+ * Decision Idかを判定する。
+ *
+ * @responsibility Decision Idの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がisDecisionIdの入力契約を満たす。
+ * @postcondition isDecisionIdの責務を完了した結果だけを返す。
+ * @effect N/A: isDecisionIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isDecisionIdは独自の失敗分岐を所有しない。
+ * @invariant isDecisionIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isDecisionIdはProcess内の同一Subsystemで完結する。
+ * @security N/A: isDecisionIdはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isDecisionIdは共有非同期状態を持たない同期処理である。
+ */
 function isDecisionId(value: unknown): value is string {
   return typeof value === "string" && PROJECT_RUNTIME_DECISION_ID.test(value);
 }
 
-/** Validate the canonical record before a persistence adapter accepts it. */
+/**
+ * Validate the canonical record before a persistence adapter accepts it.
+ *
+ * @responsibility Project Runtime Decision 記録の判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown
+ * @returns raw is ProjectRuntimeDecisionRecordを返す。
+ * @precondition 「raw: unknown」がisProjectRuntimeDecisionRecordの入力契約を満たす。
+ * @postcondition isProjectRuntimeDecisionRecordの責務を完了した結果だけを返す。
+ * @effect N/A: isProjectRuntimeDecisionRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure isProjectRuntimeDecisionRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant isProjectRuntimeDecisionRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isProjectRuntimeDecisionRecordはProcess内の同一Subsystemで完結する。
+ * @security N/A: isProjectRuntimeDecisionRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isProjectRuntimeDecisionRecordは共有非同期状態を持たない同期処理である。
+ */
 export function isProjectRuntimeDecisionRecord(
   raw: unknown,
 ): raw is ProjectRuntimeDecisionRecord {

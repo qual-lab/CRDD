@@ -1,3 +1,9 @@
+/**
+ * provider-model-selection-runtimeに属する責務をまとめる。
+ *
+ * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 export const PROVIDER_MODEL_SELECTION_RUNTIME_CONTRACT =
@@ -43,9 +49,47 @@ const HIGH_COST_REASON_CODES = new Set([
   "compound_unresolved_cross_context_alignment",
 ]);
 
+/**
+ * provider-model-selection-runtimeで使用するProviderの値契約を定義する。
+ *
+ * @responsibility ProviderのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000010
+ * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Providerで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Providerの宣言は外部境界を開かない。
+ * @security ProviderはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Providerの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Provider = "codex" | "claude";
+/**
+ * provider-model-selection-runtimeで使用するEffortの値契約を定義する。
+ *
+ * @responsibility EffortのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000010
+ * @shape Effortが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Effortで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Effortの宣言は外部境界を開かない。
+ * @security EffortはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Effortの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Effort = "low" | "medium" | "high";
 
+/**
+ * Blocked 結果を構築する。
+ *
+ * @responsibility Blocked 結果の構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000010
+ * @input reason: string
+ * @returns createBlockedResultの計算結果を返す。
+ * @precondition 「reason: string」がcreateBlockedResultの入力契約を満たす。
+ * @postcondition createBlockedResultの責務を完了した結果だけを返す。
+ * @effect N/A: createBlockedResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createBlockedResultは独自の失敗分岐を所有しない。
+ * @invariant createBlockedResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createBlockedResultはProcess内の同一Subsystemで完結する。
+ * @security createBlockedResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createBlockedResultは共有非同期状態を持たない同期処理である。
+ */
 function createBlockedResult(reason: string) {
   return Object.freeze({
     status: "blocked" as const,
@@ -66,14 +110,62 @@ function createBlockedResult(reason: string) {
   });
 }
 
+/**
+ * Booleanかを判定する。
+ *
+ * @responsibility Booleanの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000010
+ * @input value: unknown
+ * @returns value is booleanを返す。
+ * @precondition 「value: unknown」がisBooleanの入力契約を満たす。
+ * @postcondition isBooleanの責務を完了した結果だけを返す。
+ * @effect N/A: isBooleanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isBooleanは独自の失敗分岐を所有しない。
+ * @invariant isBooleanは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isBooleanはProcess内の同一Subsystemで完結する。
+ * @security isBooleanはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isBooleanは共有非同期状態を持たない同期処理である。
+ */
 function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
 }
 
+/**
+ * Family Preferenceを選択する。
+ *
+ * @responsibility Family Preferenceの候補集合、選択理由、選択不能時の境界を所有する。
+ * @trace ARCH-000010
+ * @input provider: Provider
+ * @returns selectFamilyPreferenceの計算結果を返す。
+ * @precondition 「provider: Provider」がselectFamilyPreferenceの入力契約を満たす。
+ * @postcondition selectFamilyPreferenceの責務を完了した結果だけを返す。
+ * @effect N/A: selectFamilyPreferenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: selectFamilyPreferenceは独自の失敗分岐を所有しない。
+ * @invariant selectFamilyPreferenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: selectFamilyPreferenceはProcess内の同一Subsystemで完結する。
+ * @security selectFamilyPreferenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: selectFamilyPreferenceは共有非同期状態を持たない同期処理である。
+ */
 function selectFamilyPreference(provider: Provider) {
   return provider === "codex" ? "sol" : "opus";
 }
 
+/**
+ * Rationale Codesを選択する。
+ *
+ * @responsibility Rationale Codesの候補集合、選択理由、選択不能時の境界を所有する。
+ * @trace ARCH-000010
+ * @input value: Readonly<Record<string, unknown>>
+ * @returns selectRationaleCodesの計算結果を返す。
+ * @precondition 「value: Readonly<Record<string, unknown>>」がselectRationaleCodesの入力契約を満たす。
+ * @postcondition selectRationaleCodesの責務を完了した結果だけを返す。
+ * @effect N/A: selectRationaleCodesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: selectRationaleCodesは独自の失敗分岐を所有しない。
+ * @invariant selectRationaleCodesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: selectRationaleCodesはProcess内の同一Subsystemで完結する。
+ * @security selectRationaleCodesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: selectRationaleCodesは共有非同期状態を持たない同期処理である。
+ */
 function selectRationaleCodes(value: Readonly<Record<string, unknown>>) {
   const rationaleCodes: string[] = [];
   if (value.role === "coordinator") {
@@ -138,11 +230,43 @@ function selectRationaleCodes(value: Readonly<Record<string, unknown>>) {
   return Object.freeze(rationaleCodes);
 }
 
+/**
+ * Effortを選択する。
+ *
+ * @responsibility Effortの候補集合、選択理由、選択不能時の境界を所有する。
+ * @trace ARCH-000010
+ * @input rationaleCodes: readonly string[]
+ * @returns Effortを返す。
+ * @precondition 「rationaleCodes: readonly string[]」がselectEffortの入力契約を満たす。
+ * @postcondition selectEffortの責務を完了した結果だけを返す。
+ * @effect N/A: selectEffortは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: selectEffortは独自の失敗分岐を所有しない。
+ * @invariant selectEffortは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: selectEffortはProcess内の同一Subsystemで完結する。
+ * @security selectEffortはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: selectEffortは共有非同期状態を持たない同期処理である。
+ */
 function selectEffort(rationaleCodes: readonly string[]): Effort {
   if (rationaleCodes.includes("complete_bounded_local_plan")) return "low";
   return "medium";
 }
 
+/**
+ * Selection Noticeの公開契約を記述する。
+ *
+ * @responsibility Selection Noticeの公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000010
+ * @input provider: Provider、role: string、family: string、effort: Effort、rationaleCodes: readonly string[]
+ * @returns describeSelectionNoticeの計算結果を返す。
+ * @precondition 「provider: Provider、role: string、family: string、effort: Effort、rationaleCodes: readonly string[]」がdescribeSelectionNoticeの入力契約を満たす。
+ * @postcondition describeSelectionNoticeの責務を完了した結果だけを返す。
+ * @effect N/A: describeSelectionNoticeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeSelectionNoticeは独自の失敗分岐を所有しない。
+ * @invariant describeSelectionNoticeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeSelectionNoticeはProcess内の同一Subsystemで完結する。
+ * @security describeSelectionNoticeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeSelectionNoticeは共有非同期状態を持たない同期処理である。
+ */
 function describeSelectionNotice(
   provider: Provider,
   role: string,
@@ -158,6 +282,22 @@ function describeSelectionNotice(
   ].join("\n");
 }
 
+/**
+ * Provider Model 候補を選択する。
+ *
+ * @responsibility Provider Model 候補の候補集合、選択理由、選択不能時の境界を所有する。
+ * @trace ARCH-000010
+ * @input candidate: unknown
+ * @returns selectProviderModelCandidateの計算結果を返す。
+ * @precondition 「candidate: unknown」がselectProviderModelCandidateの入力契約を満たす。
+ * @postcondition selectProviderModelCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: selectProviderModelCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: selectProviderModelCandidateは独自の失敗分岐を所有しない。
+ * @invariant selectProviderModelCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: selectProviderModelCandidateはProcess内の同一Subsystemで完結する。
+ * @security selectProviderModelCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: selectProviderModelCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function selectProviderModelCandidate(candidate: unknown) {
   const value = snapshotPlainRecord(candidate, SELECTION_KEYS);
   if (!value)
@@ -237,6 +377,22 @@ export function selectProviderModelCandidate(candidate: unknown) {
   });
 }
 
+/**
+ * Provider Model Selection Runtime 契約の公開契約を記述する。
+ *
+ * @responsibility Provider Model Selection Runtime 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000010
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProviderModelSelectionRuntimeContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProviderModelSelectionRuntimeContractの入力契約を満たす。
+ * @postcondition describeProviderModelSelectionRuntimeContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeProviderModelSelectionRuntimeContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProviderModelSelectionRuntimeContractは独自の失敗分岐を所有しない。
+ * @invariant describeProviderModelSelectionRuntimeContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeProviderModelSelectionRuntimeContractはProcess内の同一Subsystemで完結する。
+ * @security describeProviderModelSelectionRuntimeContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeProviderModelSelectionRuntimeContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeProviderModelSelectionRuntimeContract() {
   return Object.freeze({
     contract: PROVIDER_MODEL_SELECTION_RUNTIME_CONTRACT,

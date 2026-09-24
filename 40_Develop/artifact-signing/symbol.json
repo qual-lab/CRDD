@@ -1,0 +1,77 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "artifact-signing",
+  "symbols": [
+    {
+      "symbolId": "artifact-signing.public-api",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "artifact-signing.test.integration.private-key-signing",
+      "kind": "test-suite",
+      "path": "tests/integration/private-key-signing.integration.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-IT-007",
+        "AIT-IT-008"
+      ],
+      "verifies": [
+        "artifact-signing.source.src.private.key.signing",
+        "artifact-signing.source.src.terminal.secret.input"
+      ]
+    },
+    {
+      "symbolId": "artifact-signing.test.unit.one-shot-authorization",
+      "kind": "test-suite",
+      "path": "tests/unit/one-shot-authorization.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-012"
+      ],
+      "verifies": [
+        "artifact-signing.one-shot-authorization"
+      ]
+    },
+    {
+      "symbolId": "artifact-signing.one-shot-authorization",
+      "kind": "file",
+      "path": "src/one-shot-authorization.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "artifact-signing.source.src.signature.result",
+      "kind": "file",
+      "path": "src/signature-result.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "artifact-signing.source.src.terminal.secret.input",
+      "kind": "file",
+      "path": "src/terminal-secret-input.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
+      "symbolId": "artifact-signing.source.src.private.key.signing",
+      "kind": "file",
+      "path": "src/private-key-signing.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    }
+  ]
+}

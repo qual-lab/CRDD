@@ -1,3 +1,13 @@
+/**
+ * project-runtime:unit:platform-contractの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility project-runtime:unit:platform-contractが所有する検証責務を実行する。
+ * @trace PRL-UT-014
+ * @level UT
+ * @scope project、runtime、platform
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -20,6 +30,18 @@ const resolvableBoundaries = Object.freeze(
   ),
 );
 
+/**
+ * canonicalOperationsのTest準備責務を実行する。
+ *
+ * @responsibility canonicalOperationsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-014
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus canonicalOperationsを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 function canonicalOperations(
   boundary: ProjectRuntimePlatformBoundary,
 ): Readonly<object> {
@@ -31,6 +53,18 @@ function canonicalOperations(
   return Object.freeze(group);
 }
 
+/**
+ * syntheticAdapterのTest準備責務を実行する。
+ *
+ * @responsibility syntheticAdapterがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-014
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus syntheticAdapterを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 function syntheticAdapter(
   platformFamily: string,
   supportedBoundaries: readonly ProjectRuntimePlatformBoundary[],
@@ -67,6 +101,18 @@ function syntheticAdapter(
   });
 }
 
+/**
+ * Platform契約は境界母集団・操作名対応・非fallbackを閉集合で公開するを検証する。
+ *
+ * @responsibility Platform契約は境界母集団・操作名対応・非fallbackを閉集合で公開するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Platform契約は境界母集団・操作名対応・非fallbackを閉集合で公開するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Platform契約は境界母集団・操作名対応・非fallbackを閉集合で公開する", () => {
   assert.deepEqual(describeProjectRuntimePlatformContract(), {
     contract: "crdd-coordinator/project-runtime-platform-contract",
@@ -132,6 +178,18 @@ test("Platform契約は境界母集団・操作名対応・非fallbackを閉集�
   });
 });
 
+/**
+ * Platform Identity不明はfallbackなしのEffect 0で停止するを検証する。
+ *
+ * @responsibility Platform Identity不明はfallbackなしのEffect 0で停止するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Platform Identity不明はfallbackなしのEffect 0で停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Platform Identity不明はfallbackなしのEffect 0で停止する", () => {
   const windows = syntheticAdapter("windows", resolvableBoundaries);
   for (const observedFamily of [
@@ -158,6 +216,18 @@ test("Platform Identity不明はfallbackなしのEffect 0で停止する", () =>
     );
 });
 
+/**
+ * Adapter不在の既知Platformは別PlatformへfallbackせずEffect 0で停止するを検証する。
+ *
+ * @responsibility Adapter不在の既知Platformは別PlatformへfallbackせずEffect 0で停止するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Adapter不在の既知Platformは別PlatformへfallbackせずEffect 0で停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Adapter不在の既知Platformは別PlatformへfallbackせずEffect 0で停止する", () => {
   const windows = syntheticAdapter("windows", resolvableBoundaries);
   const resolution = resolveProjectRuntimePlatformAdapter(
@@ -172,6 +242,18 @@ test("Adapter不在の既知Platformは別PlatformへfallbackせずEffect 0で�
   });
 });
 
+/**
+ * 必要境界の保証未成立はEffect 0で停止し未成立境界を返すを検証する。
+ *
+ * @responsibility 必要境界の保証未成立はEffect 0で停止し未成立境界を返すの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 必要境界の保証未成立はEffect 0で停止し未成立境界を返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("必要境界の保証未成立はEffect 0で停止し未成立境界を返す", () => {
   const partial = syntheticAdapter("windows", [
     "filesystem_repository",
@@ -189,6 +271,18 @@ test("必要境界の保証未成立はEffect 0で停止し未成立境界を返
   });
 });
 
+/**
+ * lock_leaseはowner観測のexact operationと全保証が揃った場合だけ解決するを検証する。
+ *
+ * @responsibility lock_leaseはowner観測のexact operationと全保証が揃った場合だけ解決するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus lock_leaseはowner観測のexact operationと全保証が揃った場合だけ解決するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("lock_leaseはowner観測のexact operationと全保証が揃った場合だけ解決する", () => {
   const claimingLockLease = syntheticAdapter(
     "windows",
@@ -207,6 +301,18 @@ test("lock_leaseはowner観測のexact operationと全保証が揃った場合�
   );
 });
 
+/**
+ * 宣言済み境界でも操作名がexact一致しない場合は保証未成立として停止するを検証する。
+ *
+ * @responsibility 宣言済み境界でも操作名がexact一致しない場合は保証未成立として停止するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 宣言済み境界でも操作名がexact一致しない場合は保証未成立として停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("宣言済み境界でも操作名がexact一致しない場合は保証未成立として停止する", () => {
   const missingOperation = syntheticAdapter(
     "windows",
@@ -260,6 +366,18 @@ test("宣言済み境界でも操作名がexact一致しない場合は保証未
     );
 });
 
+/**
+ * 同一Platformの複数Adapterは競合としてEffect 0で停止するを検証する。
+ *
+ * @responsibility 同一Platformの複数Adapterは競合としてEffect 0で停止するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 同一Platformの複数Adapterは競合としてEffect 0で停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("同一Platformの複数Adapterは競合としてEffect 0で停止する", () => {
   const first = syntheticAdapter("windows", resolvableBoundaries);
   const second = syntheticAdapter("windows", resolvableBoundaries);
@@ -277,6 +395,18 @@ test("同一Platformの複数Adapterは競合としてEffect 0で停止する", 
   );
 });
 
+/**
+ * 不正なresolve要求は入力拒否としてEffect 0で停止するを検証する。
+ *
+ * @responsibility 不正なresolve要求は入力拒否としてEffect 0で停止するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不正なresolve要求は入力拒否としてEffect 0で停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("不正なresolve要求は入力拒否としてEffect 0で停止する", () => {
   const windows = syntheticAdapter("windows", resolvableBoundaries);
   const invalidRequests: readonly (readonly [unknown, unknown])[] = [
@@ -301,6 +431,18 @@ test("不正なresolve要求は入力拒否としてEffect 0で停止する", ()
     );
 });
 
+/**
+ * 契約・改訂・Authority宣言が異なるAdapterへは解決しないを検証する。
+ *
+ * @responsibility 契約・改訂・Authority宣言が異なるAdapterへは解決しないの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 契約・改訂・Authority宣言が異なるAdapterへは解決しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("契約・改訂・Authority宣言が異なるAdapterへは解決しない", () => {
   const foreignContract: ProjectRuntimePlatformAdapter = Object.freeze({
     describe: () =>
@@ -384,6 +526,18 @@ test("契約・改訂・Authority宣言が異なるAdapterへは解決しない"
     );
 });
 
+/**
+ * describeは候補ごとに一度だけ呼ばれ、解決は検証済みsnapshotだけを使うを検証する。
+ *
+ * @responsibility describeは候補ごとに一度だけ呼ばれ、解決は検証済みsnapshotだけを使うの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus describeは候補ごとに一度だけ呼ばれ、解決は検証済みsnapshotだけを使うの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("describeは候補ごとに一度だけ呼ばれ、解決は検証済みsnapshotだけを使う", () => {
   let describeCallCount = 0;
   const counting: ProjectRuntimePlatformAdapter = Object.freeze({
@@ -424,6 +578,18 @@ test("describeは候補ごとに一度だけ呼ばれ、解決は検証済みsna
   assert.equal(describeCallCount, 1);
 });
 
+/**
+ * 解決結果は登録済みAdapterのexact一致だけを返すを検証する。
+ *
+ * @responsibility 解決結果は登録済みAdapterのexact一致だけを返すの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 解決結果は登録済みAdapterのexact一致だけを返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("解決結果は登録済みAdapterのexact一致だけを返す", () => {
   const windows = syntheticAdapter("windows", resolvableBoundaries);
   const linux = syntheticAdapter("linux", resolvableBoundaries);
@@ -448,8 +614,44 @@ test("解決結果は登録済みAdapterのexact一致だけを返す", () => {
   }
 });
 
+/**
+ * 解決後は検証済みoperation参照を固定し元Adapterの差替えを受けないを検証する。
+ *
+ * @responsibility 解決後は検証済みoperation参照を固定し元Adapterの差替えを受けないの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 解決後は検証済みoperation参照を固定し元Adapterの差替えを受けないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("解決後は検証済みoperation参照を固定し元Adapterの差替えを受けない", () => {
+  /**
+   * originalのTest準備責務を実行する。
+   *
+   * @responsibility originalがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace PRL-UT-014
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus originalを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+   */
   const original = () => Object.freeze({ status: "original" });
+  /**
+   * replacementのTest準備責務を実行する。
+   *
+   * @responsibility replacementがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace PRL-UT-014
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus replacementを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+   */
   const replacement = () => Object.freeze({ status: "replacement" });
   const group: { resolveRepositoryRoot: () => Readonly<{ status: string }> } = {
     resolveRepositoryRoot: original,

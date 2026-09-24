@@ -1,7 +1,19 @@
 /**
+ * docker-restart-stateに属する責務をまとめる。
+ *
+ * @responsibility DockerRestartPhaseを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
+/**
  * Pure progress classification only. This module neither authenticates evidence
- * nor issues restart authority. The host must validate and persist observations
- * before using a transition, and must retain the exact operation identity.
+ *
+ * @responsibility Docker Restart PhaseのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerRestartPhaseが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerRestartPhaseで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerRestartPhaseの宣言は外部境界を開かない。
+ * @security N/A: DockerRestartPhaseはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility DockerRestartPhaseの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type DockerRestartPhase =
   | "prepared"
@@ -11,6 +23,17 @@ export type DockerRestartPhase =
   | "ready"
   | "settled";
 
+/**
+ * docker-restart-stateで使用するDocker Restart Observationの値契約を定義する。
+ *
+ * @responsibility Docker Restart ObservationのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerRestartObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerRestartObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerRestartObservationの宣言は外部境界を開かない。
+ * @security N/A: DockerRestartObservationはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility DockerRestartObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerRestartObservation = Readonly<{
   boundaryMatches: boolean;
   cancellationRequested: boolean;
@@ -25,6 +48,17 @@ export type DockerRestartObservation = Readonly<{
   effectOutcomeUnknown: boolean;
 }>;
 
+/**
+ * docker-restart-stateで使用するDocker Restart Transitionの値契約を定義する。
+ *
+ * @responsibility Docker Restart TransitionのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerRestartTransitionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerRestartTransitionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerRestartTransitionの宣言は外部境界を開かない。
+ * @security N/A: DockerRestartTransitionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility DockerRestartTransitionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerRestartTransition = Readonly<{
   phase: DockerRestartPhase;
   status: "advance" | "blocked" | "complete";
@@ -41,7 +75,22 @@ const RESTART_PHASES: readonly DockerRestartPhase[] = Object.freeze([
   "settled",
 ]);
 
-/** Unknown or cancelled progress never grants permission to replay an effect. */
+/**
+ * Unknown or cancelled progress never grants permission to replay an effect.
+ *
+ * @responsibility Docker Restart Progressの分類条件、相互排他的な結果、判断不能境界を所有する。
+ * @trace ARCH-000008
+ * @input phase: DockerRestartPhase、observation: DockerRestartObservation
+ * @returns DockerRestartTransitionを返す。
+ * @precondition 「phase: DockerRestartPhase、observation: DockerRestartObservation」がclassifyDockerRestartProgressの入力契約を満たす。
+ * @postcondition classifyDockerRestartProgressの責務を完了した結果だけを返す。
+ * @effect N/A: classifyDockerRestartProgressは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: classifyDockerRestartProgressは独自の失敗分岐を所有しない。
+ * @invariant classifyDockerRestartProgressは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: classifyDockerRestartProgressはProcess内の同一Subsystemで完結する。
+ * @security N/A: classifyDockerRestartProgressはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: classifyDockerRestartProgressは共有非同期状態を持たない同期処理である。
+ */
 export function classifyDockerRestartProgress(
   phase: DockerRestartPhase,
   observation: DockerRestartObservation,

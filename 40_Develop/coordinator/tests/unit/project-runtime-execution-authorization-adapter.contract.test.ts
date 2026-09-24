@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:project-runtime-execution-authorization-adapterの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:project-runtime-execution-authorization-adapterが所有する検証責務を実行する。
+ * @trace PRL-UT-014
+ * @level UT
+ * @scope project、runtime、execution、authorization、adapter
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -13,6 +23,18 @@ const request = Object.freeze({
   repositoryRevision: "a".repeat(40),
 });
 
+/**
+ * 実行許可AdapterはRuntime package capabilityをTask Authorityと混同せず一回の発行へ閉じるを検証する。
+ *
+ * @responsibility 実行許可AdapterはRuntime package capabilityをTask Authorityと混同せず一回の発行へ閉じるの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実行許可AdapterはRuntime package capabilityをTask Authorityと混同せず一回の発行へ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("実行許可AdapterはRuntime package capabilityをTask Authorityと混同せず一回の発行へ閉じる", () => {
   const capability = Object.freeze({});
   let issueCount = 0;
@@ -35,6 +57,18 @@ test("実行許可AdapterはRuntime package capabilityをTask Authorityと混同
   });
 });
 
+/**
+ * 不正な相関・発行失敗・失効不明は閉じた結果となり例外を漏らさないを検証する。
+ *
+ * @responsibility 不正な相関・発行失敗・失効不明は閉じた結果となり例外を漏らさないの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不正な相関・発行失敗・失効不明は閉じた結果となり例外を漏らさないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("不正な相関・発行失敗・失効不明は閉じた結果となり例外を漏らさない", () => {
   let issueCount = 0;
   const invalid = createProjectRuntimeExecutionAuthorizationAdapter({

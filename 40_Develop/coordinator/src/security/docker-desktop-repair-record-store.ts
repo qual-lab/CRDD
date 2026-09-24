@@ -1,3 +1,9 @@
+/**
+ * docker-desktop-repair-record-storeに属する責務をまとめる。
+ *
+ * @responsibility parseDockerDesktopRepairDirectoryNameを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -12,6 +18,22 @@ import { verifyHistoricalPlatformProvisionerManifestCandidate } from "./platform
 export const DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA =
   "crdd-coordinator/docker-desktop-repair-record/v4";
 const OPERATION_PREFIX = "docker-desktop-repair-";
+/**
+ * Docker Desktop Repair Directory Nameを構造化値へ解析する。
+ *
+ * @responsibility Docker Desktop Repair Directory Nameの入力文法、解析結果、不正文法の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns parseDockerDesktopRepairDirectoryNameの計算結果を返す。
+ * @precondition 「value: unknown」がparseDockerDesktopRepairDirectoryNameの入力契約を満たす。
+ * @postcondition parseDockerDesktopRepairDirectoryNameの責務を完了した結果だけを返す。
+ * @effect N/A: parseDockerDesktopRepairDirectoryNameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: parseDockerDesktopRepairDirectoryNameは独自の失敗分岐を所有しない。
+ * @invariant parseDockerDesktopRepairDirectoryNameは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security parseDockerDesktopRepairDirectoryNameはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: parseDockerDesktopRepairDirectoryNameは共有非同期状態を持たない同期処理である。
+ */
 export function parseDockerDesktopRepairDirectoryName(value: unknown) {
   return typeof value === "string"
     ? (/^docker-desktop-repair-([a-f0-9]{32})$/u.exec(value)?.[1] ?? null)
@@ -50,18 +72,84 @@ export const DOCKER_DESKTOP_REPAIR_STAGES = Object.freeze([
   "closed_no_stale_known_effect_retained",
   "closed_historical_effect_unknown_retained",
 ] as const);
+/**
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Stageの値契約を定義する。
+ *
+ * @responsibility Docker Desktop Repair StageのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairStageが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairStageで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairStageの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairStageはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairStageの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairStage =
   (typeof DOCKER_DESKTOP_REPAIR_STAGES)[number];
+/**
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Tri 状態の値契約を定義する。
+ *
+ * @responsibility Docker Desktop Repair Tri 状態のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairTriStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairTriStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairTriStateの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairTriStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairTriStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairTriState = boolean | null;
+/**
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Stale 状態の値契約を定義する。
+ *
+ * @responsibility Docker Desktop Repair Stale 状態のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairStaleStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairStaleStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairStaleStateの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairStaleStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairStaleStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairStaleState = "absent" | "retained" | "unknown";
+/**
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Host Safetyの値契約を定義する。
+ *
+ * @responsibility Docker Desktop Repair Host SafetyのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairHostSafetyが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairHostSafetyで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairHostSafetyの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairHostSafetyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairHostSafetyの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairHostSafety =
   | "safe"
   | "manual_recovery_required"
   | "unknown";
+/**
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Evidence 状態の値契約を定義する。
+ *
+ * @responsibility Docker Desktop Repair Evidence 状態のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairEvidenceStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairEvidenceStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairEvidenceStateの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairEvidenceStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairEvidenceStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairEvidenceState =
   | "preserved"
   | "not_preserved"
   | "unknown";
+/**
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Dispositionの値契約を定義する。
+ *
+ * @responsibility Docker Desktop Repair DispositionのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairDispositionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairDispositionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairDispositionの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairDispositionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairDispositionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairDisposition =
   | "not_applicable"
   | "pending_human_decision"
@@ -70,6 +158,17 @@ export type DockerDesktopRepairDisposition =
   | "retained_by_human_decision"
   | "known_effect_recovery_retained_by_human_decision"
   | "historical_effect_unknown_retained_by_human_decision";
+/**
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Effect Confirmationの値契約を定義する。
+ *
+ * @responsibility Docker Desktop Repair Effect ConfirmationのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairEffectConfirmationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairEffectConfirmationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairEffectConfirmationの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairEffectConfirmationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairEffectConfirmationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairEffectConfirmation =
   | "not_issued"
   | "confirmed"
@@ -86,9 +185,42 @@ export const DOCKER_DESKTOP_REPAIR_EFFECT_ACTIONS = Object.freeze([
   "observed_runtime_directory_rename",
   "record_write",
 ] as const);
+/**
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Effect Actionの値契約を定義する。
+ *
+ * @responsibility Docker Desktop Repair Effect ActionのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairEffectActionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairEffectActionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairEffectActionの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairEffectActionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairEffectActionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairEffectAction =
   (typeof DOCKER_DESKTOP_REPAIR_EFFECT_ACTIONS)[number];
+/**
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Effect Phaseの値契約を定義する。
+ *
+ * @responsibility Docker Desktop Repair Effect PhaseのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairEffectPhaseが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairEffectPhaseで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairEffectPhaseの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairEffectPhaseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairEffectPhaseの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairEffectPhase = "intent_recorded" | "settled";
+/**
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Effect Entryの値契約を定義する。
+ *
+ * @responsibility Docker Desktop Repair Effect EntryのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairEffectEntryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairEffectEntryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairEffectEntryの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairEffectEntryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairEffectEntryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairEffectEntry = Readonly<{
   sequence: number;
   action: DockerDesktopRepairEffectAction;
@@ -97,12 +229,34 @@ export type DockerDesktopRepairEffectEntry = Readonly<{
   confirmation: DockerDesktopRepairEffectConfirmation;
 }>;
 
+/**
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Directory Identityの値契約を定義する。
+ *
+ * @responsibility Docker Desktop Repair Directory IdentityのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairDirectoryIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairDirectoryIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairDirectoryIdentityの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairDirectoryIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairDirectoryIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairDirectoryIdentity = Readonly<{
   dev: string;
   ino: string;
   birthtimeNs: string;
 }>;
 
+/**
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Ledger Snapshotの値契約を定義する。
+ *
+ * @responsibility Docker Desktop Repair Ledger SnapshotのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairLedgerSnapshotが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairLedgerSnapshotで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairLedgerSnapshotの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairLedgerSnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairLedgerSnapshotの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairLedgerSnapshot = Readonly<{
   processEffects: readonly DockerDesktopRepairEffectEntry[];
   processEffectIssued: DockerDesktopRepairTriState;
@@ -118,6 +272,91 @@ export type DockerDesktopRepairLedgerSnapshot = Readonly<{
   liveRunIdentity: DockerDesktopRepairDirectoryIdentity | null;
 }>;
 
+/**
+ * Docker Desktop修復の継続記録を発行できた検証済みSession／Releaseを表す。
+ *
+ * @responsibility 修復Operationの署名済み履歴または現在の検証済み実行境界から確認したSessionとReleaseの組を保持する。
+ * @trace ARCH-000008
+ * @shape localUserBindingHash、manifestHash、releaseSequence、runtimeExecutionIdentitySha256の完全な組を固定する。
+ * @invariant 一つのAuthorityは一つの検証済みSession／Releaseだけを表す。
+ * @boundary N/A: 検証済み履歴のProcess内Projectionであり、新しい外部境界を開かない。
+ * @security 未検証Manifest、履歴chain外の過去Sessionまたは現在境界と一致しないReleaseを継続Authorityへ昇格しない。
+ * @compatibility 継続記録の利用側は完全な組の一致だけをAuthority根拠として使用する。
+ */
+export type DockerDesktopRepairContinuationAuthority = Readonly<{
+  localUserBindingHash: string;
+  manifestHash: string;
+  releaseSequence: number;
+  runtimeExecutionIdentitySha256: string;
+}>;
+
+/**
+ * Record Storeが署名済み履歴から再構成したOperationだけを保持する。
+ *
+ * @responsibility plain objectから偽造できないProcess-localな履歴検証済み境界を所有する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairOperation object identityの弱参照集合を保持する。
+ * @invariant readOperationが署名済み履歴全体と現在の実行境界を検証したOperationだけを登録する。
+ * @boundary N/A: Process内の非公開attestationであり、外部または耐久境界を開かない。
+ * @security tupleを手組みしたOperationを履歴検証済みAuthorityへ昇格しない。
+ * @compatibility Operationの公開JSON形状を変更せず、同一Process内のconsumerだけが検証結果を問い合わせる。
+ */
+const verifiedContinuationAuthorityOperations = new WeakSet<object>();
+
+/**
+ * Operationが検証したContinuation Authorityかを判定する。
+ *
+ * @responsibility Continuation発行元の完全なSession／Release tupleを、Record Storeが署名済み履歴と現在境界から導出したOperationへ限定する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、authority: DockerDesktopRepairContinuationAuthority
+ * @returns Operationが履歴検証済みで、現在境界へ結合され、authorityがchain内にある場合だけtrueを返す。
+ * @precondition boundaryは現在Runtimeの検証済み境界、operationとauthorityはconsumerから渡された未信頼入力として扱う。
+ * @postcondition Process-local attestation、現在境界、四項目の完全一致をすべて確認する。
+ * @effect N/A: 検証済みobject identityと局所値だけを比較し、外部または共有Effectを発行しない。
+ * @failure 手組みOperation、chain外tuple、現在境界未結合または部分一致をfalseへ収束させる。
+ * @invariant 過去Releaseは旧Continuationの読取り根拠にだけ使い、現在の実行Authorityへ昇格しない。
+ * @boundary Record Storeの署名済み履歴検証結果とContinuation Storeの間のProcess内境界。
+ * @security plain fieldの構造一致だけでAuthorityを成立させず、同一SessionのRelease更新も現在の検証済み境界へ完全一致させる。
+ * @concurrency N/A: WeakSetと不変Operationの同期参照だけを行う。
+ */
+export function isDockerDesktopRepairContinuationAuthorityVerified(
+  boundary: DockerDesktopRepairRecordBoundary,
+  operation: DockerDesktopRepairOperation,
+  authority: DockerDesktopRepairContinuationAuthority,
+) {
+  const currentAuthority = operation.history?.continuationAuthorities?.at(-1);
+  return (
+    verifiedContinuationAuthorityOperations.has(operation) &&
+    operation.history?.currentSessionBound === true &&
+    operation.history.currentLocalUserBindingHash ===
+      boundary.localUserBindingHash &&
+    currentAuthority?.localUserBindingHash === boundary.localUserBindingHash &&
+    currentAuthority.manifestHash === boundary.crddManifestHash &&
+    currentAuthority.releaseSequence === boundary.crddReleaseSequence &&
+    currentAuthority.runtimeExecutionIdentitySha256 ===
+      boundary.runtimeExecutionIdentitySha256 &&
+    operation.history.continuationAuthorities?.some(
+      (candidate) =>
+        candidate.localUserBindingHash === authority.localUserBindingHash &&
+        candidate.manifestHash === authority.manifestHash &&
+        candidate.releaseSequence === authority.releaseSequence &&
+        candidate.runtimeExecutionIdentitySha256 ===
+          authority.runtimeExecutionIdentitySha256,
+    ) === true
+  );
+}
+
+/**
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Operationの値契約を定義する。
+ *
+ * @responsibility Docker Desktop Repair OperationのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairOperationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairOperationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairOperationの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairOperationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairOperation = Readonly<{
   operationId: string;
   repairId: string;
@@ -137,12 +376,24 @@ export type DockerDesktopRepairOperation = Readonly<{
     originLocalUserBindingHash?: string;
     currentLocalUserBindingHash?: string;
     currentSessionBound?: boolean;
+    continuationAuthorities?: readonly DockerDesktopRepairContinuationAuthority[];
     closed: boolean;
     liveRunIdentity: DockerDesktopRepairDirectoryIdentity | null;
     staleState: DockerDesktopRepairStaleState;
   }>;
 }>;
 
+/**
+ * docker-desktop-repair-record-storeで使用するCanonical Docker Desktop Repair History Modeの値契約を定義する。
+ *
+ * @responsibility Canonical Docker Desktop Repair History ModeのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape CanonicalDockerDesktopRepairHistoryModeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CanonicalDockerDesktopRepairHistoryModeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CanonicalDockerDesktopRepairHistoryModeの宣言は外部境界を開かない。
+ * @security CanonicalDockerDesktopRepairHistoryModeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility CanonicalDockerDesktopRepairHistoryModeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type CanonicalDockerDesktopRepairHistoryMode =
   | "invalid"
   | "no_history"
@@ -150,11 +401,38 @@ export type CanonicalDockerDesktopRepairHistoryMode =
   | "open_prior"
   | "closed";
 
+/**
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Expected Closureの値契約を定義する。
+ *
+ * @responsibility Docker Desktop Repair Expected ClosureのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairExpectedClosureが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairExpectedClosureで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairExpectedClosureの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairExpectedClosureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairExpectedClosureの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairExpectedClosure = Readonly<{
   liveRunIdentity: DockerDesktopRepairDirectoryIdentity;
   staleState: "absent" | "retained";
 }>;
 
+/**
+ * History Entryかを判定する。
+ *
+ * @responsibility History Entryの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000008
+ * @input name: string
+ * @returns isHistoryEntryの計算結果を返す。
+ * @precondition 「name: string」がisHistoryEntryの入力契約を満たす。
+ * @postcondition isHistoryEntryの責務を完了した結果だけを返す。
+ * @effect N/A: isHistoryEntryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isHistoryEntryは独自の失敗分岐を所有しない。
+ * @invariant isHistoryEntryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security isHistoryEntryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isHistoryEntryは共有非同期状態を持たない同期処理である。
+ */
 function isHistoryEntry(name: string) {
   return (
     HISTORY_FILES.includes(name) ||
@@ -163,10 +441,42 @@ function isHistoryEntry(name: string) {
   );
 }
 
+/**
+ * history Preparation Nameを決定する。
+ *
+ * @responsibility history Preparation Nameの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input name: string
+ * @returns historyPreparationNameの計算結果を返す。
+ * @precondition 「name: string」がhistoryPreparationNameの入力契約を満たす。
+ * @postcondition historyPreparationNameの責務を完了した結果だけを返す。
+ * @effect N/A: historyPreparationNameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: historyPreparationNameは独自の失敗分岐を所有しない。
+ * @invariant historyPreparationNameは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security historyPreparationNameはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: historyPreparationNameは共有非同期状態を持たない同期処理である。
+ */
 function historyPreparationName(name: string) {
   return `.crdd-history-${createHash("sha256").update(name).digest("hex")}.prepare`;
 }
 
+/**
+ * known History Target Namesを決定する。
+ *
+ * @responsibility known History Target Namesの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns knownHistoryTargetNamesの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がknownHistoryTargetNamesの入力契約を満たす。
+ * @postcondition knownHistoryTargetNamesの責務を完了した結果だけを返す。
+ * @effect N/A: knownHistoryTargetNamesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: knownHistoryTargetNamesは独自の失敗分岐を所有しない。
+ * @invariant knownHistoryTargetNamesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security knownHistoryTargetNamesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: knownHistoryTargetNamesは共有非同期状態を持たない同期処理である。
+ */
 function knownHistoryTargetNames() {
   return [
     ...HISTORY_FILES,
@@ -178,6 +488,22 @@ function knownHistoryTargetNames() {
   ];
 }
 
+/**
+ * known History Preparation Targetを決定する。
+ *
+ * @responsibility known History Preparation Targetの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input name: string
+ * @returns knownHistoryPreparationTargetの計算結果を返す。
+ * @precondition 「name: string」がknownHistoryPreparationTargetの入力契約を満たす。
+ * @postcondition knownHistoryPreparationTargetの責務を完了した結果だけを返す。
+ * @effect N/A: knownHistoryPreparationTargetは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: knownHistoryPreparationTargetは独自の失敗分岐を所有しない。
+ * @invariant knownHistoryPreparationTargetは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security knownHistoryPreparationTargetはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: knownHistoryPreparationTargetは共有非同期状態を持たない同期処理である。
+ */
 function knownHistoryPreparationTarget(name: string) {
   return (
     knownHistoryTargetNames().find(
@@ -186,6 +512,17 @@ function knownHistoryPreparationTarget(name: string) {
   );
 }
 
+/**
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair 記録 Boundaryの値契約を定義する。
+ *
+ * @responsibility Docker Desktop Repair 記録 BoundaryのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairRecordBoundaryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairRecordBoundaryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairRecordBoundaryの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairRecordBoundaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairRecordBoundaryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairRecordBoundary = Readonly<{
   runtimeStateRoot: string;
   runtimeStateIdentityHash: string;
@@ -203,6 +540,17 @@ export type DockerDesktopRepairRecordBoundary = Readonly<{
   }>;
 }>;
 
+/**
+ * docker-desktop-repair-record-storeで使用するHistorical Release Identityの値契約を定義する。
+ *
+ * @responsibility Historical Release IdentityのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape HistoricalReleaseIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant HistoricalReleaseIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: HistoricalReleaseIdentityの宣言は外部境界を開かない。
+ * @security HistoricalReleaseIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility HistoricalReleaseIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type HistoricalReleaseIdentity = Readonly<{
   manifestHash: string;
   releaseSequence: number;
@@ -211,10 +559,68 @@ type HistoricalReleaseIdentity = Readonly<{
   packageContentRootSha256: string;
 }>;
 
+/**
+ * 検証済みReleaseから継続Authorityを構築する。
+ *
+ * @responsibility 署名検証済みRelease IdentityとSession Bindingを一つの継続Authorityへ結合する。
+ * @trace ARCH-000008
+ * @input localUserBindingHash: string、release: HistoricalReleaseIdentity
+ * @returns DockerDesktopRepairContinuationAuthority、または必要なRuntime Identityがない場合はnullを返す。
+ * @precondition releaseは署名済み履歴検証を通過し、localUserBindingHashは対象Sessionを表す。
+ * @postcondition 完全なHashとRelease番号を持つAuthorityだけを返す。
+ * @effect N/A: 入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure Runtime Execution Identityを持たない旧Releaseはnullへ収束させる。
+ * @invariant Release IdentityまたはSession Bindingを推測・補完しない。
+ * @boundary N/A: Process内の検証済みIdentity変換で完結する。
+ * @security 未検証Releaseまたは不完全なIdentityをAuthorityへ昇格しない。
+ * @concurrency N/A: 共有非同期状態を持たない同期処理である。
+ */
+function continuationAuthorityForRelease(
+  localUserBindingHash: string,
+  release: HistoricalReleaseIdentity,
+): DockerDesktopRepairContinuationAuthority | null {
+  return hash64(localUserBindingHash) &&
+    hash64(release.runtimeExecutionIdentitySha256)
+    ? Object.freeze({
+        localUserBindingHash,
+        manifestHash: release.manifestHash,
+        releaseSequence: release.releaseSequence,
+        runtimeExecutionIdentitySha256: release.runtimeExecutionIdentitySha256,
+      })
+    : null;
+}
+
+/**
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair History Verifierの値契約を定義する。
+ *
+ * @responsibility Docker Desktop Repair History VerifierのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairHistoryVerifierが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairHistoryVerifierで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairHistoryVerifierの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairHistoryVerifierはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairHistoryVerifierの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairHistoryVerifier = (
   envelope: unknown,
 ) => HistoricalReleaseIdentity | null;
 
+/**
+ * Pinned Historyを検証する。
+ *
+ * @responsibility Pinned Historyの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input envelope: unknown
+ * @returns HistoricalReleaseIdentity | nullを返す。
+ * @precondition 「envelope: unknown」がverifyPinnedHistoryの入力契約を満たす。
+ * @postcondition verifyPinnedHistoryの責務を完了した結果だけを返す。
+ * @effect N/A: verifyPinnedHistoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: verifyPinnedHistoryは独自の失敗分岐を所有しない。
+ * @invariant verifyPinnedHistoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security verifyPinnedHistoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyPinnedHistoryは共有非同期状態を持たない同期処理である。
+ */
 function verifyPinnedHistory(
   envelope: unknown,
 ): HistoricalReleaseIdentity | null {
@@ -236,6 +642,17 @@ function verifyPinnedHistory(
     : null;
 }
 
+/**
+ * docker-desktop-repair-record-storeで使用するStored 記録の値契約を定義する。
+ *
+ * @responsibility Stored 記録のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape StoredRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant StoredRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: StoredRecordの宣言は外部境界を開かない。
+ * @security StoredRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility StoredRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type StoredRecord = Readonly<{
   schema: typeof DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA;
   contractRevision: 5;
@@ -256,6 +673,17 @@ type StoredRecord = Readonly<{
   ledger: DockerDesktopRepairLedgerSnapshot;
 }>;
 
+/**
+ * docker-desktop-repair-record-storeで使用するHistorical V4 Stored 記録の値契約を定義する。
+ *
+ * @responsibility Historical V4 Stored 記録のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape HistoricalV4StoredRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant HistoricalV4StoredRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: HistoricalV4StoredRecordの宣言は外部境界を開かない。
+ * @security HistoricalV4StoredRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility HistoricalV4StoredRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type HistoricalV4StoredRecord = Readonly<{
   schema: typeof DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA;
   contractRevision: 4;
@@ -277,8 +705,35 @@ type HistoricalV4StoredRecord = Readonly<{
   ledger: DockerDesktopRepairLedgerSnapshot;
 }>;
 
+/**
+ * docker-desktop-repair-record-storeで使用するReadable Stored 記録の値契約を定義する。
+ *
+ * @responsibility Readable Stored 記録のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape ReadableStoredRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ReadableStoredRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ReadableStoredRecordの宣言は外部境界を開かない。
+ * @security ReadableStoredRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ReadableStoredRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ReadableStoredRecord = StoredRecord | HistoricalV4StoredRecord;
 
+/**
+ * Keysが完全一致するか判定する。
+ *
+ * @responsibility Keysの比較対象、完全一致条件、判定結果境界を所有する。
+ * @trace ARCH-000008
+ * @input value: object、expectedItems: readonly string[]
+ * @returns exactKeysの計算結果を返す。
+ * @precondition 「value: object、expectedItems: readonly string[]」がexactKeysの入力契約を満たす。
+ * @postcondition exactKeysの責務を完了した結果だけを返す。
+ * @effect N/A: exactKeysは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: exactKeysは独自の失敗分岐を所有しない。
+ * @invariant exactKeysは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security exactKeysはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: exactKeysは共有非同期状態を持たない同期処理である。
+ */
 function exactKeys(value: object, expectedItems: readonly string[]) {
   const actualItems = Reflect.ownKeys(value);
   return (
@@ -287,6 +742,22 @@ function exactKeys(value: object, expectedItems: readonly string[]) {
   );
 }
 
+/**
+ * Own Data Valuesが完全一致するか判定する。
+ *
+ * @responsibility Own Data Valuesの比較対象、完全一致条件、判定結果境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、expectedItems: readonly string[]
+ * @returns Readonly<Record<string, unknown>> | nullを返す。
+ * @precondition 「value: unknown、expectedItems: readonly string[]」がexactOwnDataValuesの入力契約を満たす。
+ * @postcondition exactOwnDataValuesの責務を完了した結果だけを返す。
+ * @effect N/A: exactOwnDataValuesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure exactOwnDataValuesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant exactOwnDataValuesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security exactOwnDataValuesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: exactOwnDataValuesは共有非同期状態を持たない同期処理である。
+ */
 function exactOwnDataValues(
   value: unknown,
   expectedItems: readonly string[],
@@ -312,6 +783,22 @@ function exactOwnDataValues(
   }
 }
 
+/**
+ * Only Own Data Descriptorsを含むか判定する。
+ *
+ * @responsibility Only Own Data Descriptorsの探索範囲、包含条件、判定結果境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、seen
+ * @returns booleanを返す。
+ * @precondition 「value: unknown、seen」がcontainsOnlyOwnDataDescriptorsの入力契約を満たす。
+ * @postcondition containsOnlyOwnDataDescriptorsの責務を完了した結果だけを返す。
+ * @effect N/A: containsOnlyOwnDataDescriptorsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure containsOnlyOwnDataDescriptorsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant containsOnlyOwnDataDescriptorsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security containsOnlyOwnDataDescriptorsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: containsOnlyOwnDataDescriptorsは共有非同期状態を持たない同期処理である。
+ */
 function containsOnlyOwnDataDescriptors(
   value: unknown,
   seen = new Set<object>(),
@@ -337,6 +824,22 @@ function containsOnlyOwnDataDescriptors(
   }
 }
 
+/**
+ * dense Own Data Array Valuesを決定する。
+ *
+ * @responsibility dense Own Data Array Valuesの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、maximumLength: number
+ * @returns readonly unknown[] | nullを返す。
+ * @precondition 「value: unknown、maximumLength: number」がdenseOwnDataArrayValuesの入力契約を満たす。
+ * @postcondition denseOwnDataArrayValuesの責務を完了した結果だけを返す。
+ * @effect N/A: denseOwnDataArrayValuesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure denseOwnDataArrayValuesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant denseOwnDataArrayValuesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security denseOwnDataArrayValuesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: denseOwnDataArrayValuesは共有非同期状態を持たない同期処理である。
+ */
 function denseOwnDataArrayValues(
   value: unknown,
   maximumLength: number,
@@ -373,18 +876,82 @@ function denseOwnDataArrayValues(
   }
 }
 
+/**
+ * hash64を決定する。
+ *
+ * @responsibility hash64の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がhash64の入力契約を満たす。
+ * @postcondition hash64の責務を完了した結果だけを返す。
+ * @effect N/A: hash64は入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hash64は独自の失敗分岐を所有しない。
+ * @invariant hash64は入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security hash64はAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hash64は共有非同期状態を持たない同期処理である。
+ */
 function hash64(value: unknown): value is string {
   return typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
 }
 
+/**
+ * operation Idを決定する。
+ *
+ * @responsibility operation Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がoperationIdの入力契約を満たす。
+ * @postcondition operationIdの責務を完了した結果だけを返す。
+ * @effect N/A: operationIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: operationIdは独自の失敗分岐を所有しない。
+ * @invariant operationIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security operationIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: operationIdは共有非同期状態を持たない同期処理である。
+ */
 function operationId(value: unknown): value is string {
   return typeof value === "string" && /^[a-f0-9]{32}$/u.test(value);
 }
 
+/**
+ * Integer Stringを安全条件の下で処理する。
+ *
+ * @responsibility Integer Stringの安全条件、拒否条件、終了結果境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がsafeIntegerStringの入力契約を満たす。
+ * @postcondition safeIntegerStringの責務を完了した結果だけを返す。
+ * @effect N/A: safeIntegerStringは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: safeIntegerStringは独自の失敗分岐を所有しない。
+ * @invariant safeIntegerStringは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security safeIntegerStringはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: safeIntegerStringは共有非同期状態を持たない同期処理である。
+ */
 function safeIntegerString(value: unknown): value is string {
   return typeof value === "string" && /^(?:0|[1-9][0-9]{0,39})$/u.test(value);
 }
 
+/**
+ * Identityが有効か判定する。
+ *
+ * @responsibility Identityの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns value is DockerDesktopRepairDirectoryIdentityを返す。
+ * @precondition 「value: unknown」がvalidIdentityの入力契約を満たす。
+ * @postcondition validIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: validIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validIdentityは独自の失敗分岐を所有しない。
+ * @invariant validIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security validIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validIdentityは共有非同期状態を持たない同期処理である。
+ */
 function validIdentity(
   value: unknown,
 ): value is DockerDesktopRepairDirectoryIdentity {
@@ -400,10 +967,42 @@ function validIdentity(
   );
 }
 
+/**
+ * Tri 状態が有効か判定する。
+ *
+ * @responsibility Tri 状態の有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns value is DockerDesktopRepairTriStateを返す。
+ * @precondition 「value: unknown」がvalidTriStateの入力契約を満たす。
+ * @postcondition validTriStateの責務を完了した結果だけを返す。
+ * @effect N/A: validTriStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validTriStateは独自の失敗分岐を所有しない。
+ * @invariant validTriStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security validTriStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validTriStateは共有非同期状態を持たない同期処理である。
+ */
 function validTriState(value: unknown): value is DockerDesktopRepairTriState {
   return value === true || value === false || value === null;
 }
 
+/**
+ * Ledgerが有効か判定する。
+ *
+ * @responsibility Ledgerの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns value is DockerDesktopRepairLedgerSnapshotを返す。
+ * @precondition 「value: unknown」がvalidLedgerの入力契約を満たす。
+ * @postcondition validLedgerの責務を完了した結果だけを返す。
+ * @effect N/A: validLedgerは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validLedgerは独自の失敗分岐を所有しない。
+ * @invariant validLedgerは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security validLedgerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validLedgerは共有非同期状態を持たない同期処理である。
+ */
 function validLedger(
   value: unknown,
 ): value is DockerDesktopRepairLedgerSnapshot {
@@ -467,6 +1066,22 @@ function validLedger(
   );
 }
 
+/**
+ * Effect Entriesが有効か判定する。
+ *
+ * @responsibility Effect Entriesの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、kind: "process" | "filesystem"
+ * @returns value is readonly DockerDesktopRepairEffectEntry[]を返す。
+ * @precondition 「value: unknown、kind: "process" | "filesystem"」がvalidEffectEntriesの入力契約を満たす。
+ * @postcondition validEffectEntriesの責務を完了した結果だけを返す。
+ * @effect validEffectEntriesはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: validEffectEntriesは独自の失敗分岐を所有しない。
+ * @invariant validEffectEntriesは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security validEffectEntriesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validEffectEntriesは共有非同期状態を持たない同期処理である。
+ */
 function validEffectEntries(
   value: unknown,
   kind: "process" | "filesystem",
@@ -559,6 +1174,22 @@ function validEffectEntries(
   );
 }
 
+/**
+ * Effect Entriesを集約する。
+ *
+ * @responsibility Effect Entriesの集約入力、重複処理、集約結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input entries: readonly DockerDesktopRepairEffectEntry[]
+ * @returns aggregateEffectEntriesの計算結果を返す。
+ * @precondition 「entries: readonly DockerDesktopRepairEffectEntry[]」がaggregateEffectEntriesの入力契約を満たす。
+ * @postcondition aggregateEffectEntriesの責務を完了した結果だけを返す。
+ * @effect N/A: aggregateEffectEntriesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: aggregateEffectEntriesは独自の失敗分岐を所有しない。
+ * @invariant aggregateEffectEntriesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security aggregateEffectEntriesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: aggregateEffectEntriesは共有非同期状態を持たない同期処理である。
+ */
 function aggregateEffectEntries(
   entries: readonly DockerDesktopRepairEffectEntry[],
 ) {
@@ -579,6 +1210,22 @@ function aggregateEffectEntries(
   return { issued: isIssued, confirmation } as const;
 }
 
+/**
+ * Matchesを集約する。
+ *
+ * @responsibility Matchesの集約入力、重複処理、集約結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input entries: readonly DockerDesktopRepairEffectEntry[]、issued: unknown、confirmation: unknown
+ * @returns aggregateMatchesの計算結果を返す。
+ * @precondition 「entries: readonly DockerDesktopRepairEffectEntry[]、issued: unknown、confirmation: unknown」がaggregateMatchesの入力契約を満たす。
+ * @postcondition aggregateMatchesの責務を完了した結果だけを返す。
+ * @effect N/A: aggregateMatchesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: aggregateMatchesは独自の失敗分岐を所有しない。
+ * @invariant aggregateMatchesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security aggregateMatchesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: aggregateMatchesは共有非同期状態を持たない同期処理である。
+ */
 function aggregateMatches(
   entries: readonly DockerDesktopRepairEffectEntry[],
   issued: unknown,
@@ -588,6 +1235,22 @@ function aggregateMatches(
   return aggregate.issued === issued && aggregate.confirmation === confirmation;
 }
 
+/**
+ * Stored 記録が有効か判定する。
+ *
+ * @responsibility Stored 記録の有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、boundary: DockerDesktopRepairRecordBoundary
+ * @returns value is ReadableStoredRecordを返す。
+ * @precondition 「value: unknown、boundary: DockerDesktopRepairRecordBoundary」がvalidStoredRecordの入力契約を満たす。
+ * @postcondition validStoredRecordの責務を完了した結果だけを返す。
+ * @effect N/A: validStoredRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validStoredRecordは独自の失敗分岐を所有しない。
+ * @invariant validStoredRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security validStoredRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validStoredRecordは共有非同期状態を持たない同期処理である。
+ */
 function validStoredRecord(
   value: unknown,
   boundary: DockerDesktopRepairRecordBoundary,
@@ -680,6 +1343,22 @@ function validStoredRecord(
   );
 }
 
+/**
+ * confirmation Compatibleを決定する。
+ *
+ * @responsibility confirmation Compatibleの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input isIssued: DockerDesktopRepairTriState、confirmation: DockerDesktopRepairEffectConfirmation
+ * @returns confirmationCompatibleの計算結果を返す。
+ * @precondition 「isIssued: DockerDesktopRepairTriState、confirmation: DockerDesktopRepairEffectConfirmation」がconfirmationCompatibleの入力契約を満たす。
+ * @postcondition confirmationCompatibleの責務を完了した結果だけを返す。
+ * @effect N/A: confirmationCompatibleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: confirmationCompatibleは独自の失敗分岐を所有しない。
+ * @invariant confirmationCompatibleは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security confirmationCompatibleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: confirmationCompatibleは共有非同期状態を持たない同期処理である。
+ */
 function confirmationCompatible(
   isIssued: DockerDesktopRepairTriState,
   confirmation: DockerDesktopRepairEffectConfirmation,
@@ -689,6 +1368,22 @@ function confirmationCompatible(
   return confirmation === "unknown";
 }
 
+/**
+ * legal Effect Entries Transitionを決定する。
+ *
+ * @responsibility legal Effect Entries Transitionの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input previous: readonly DockerDesktopRepairEffectEntry[]、nextItems: readonly DockerDesktopRepairEffectEntry[]
+ * @returns legalEffectEntriesTransitionの計算結果を返す。
+ * @precondition 「previous: readonly DockerDesktopRepairEffectEntry[]、nextItems: readonly DockerDesktopRepairEffectEntry[]」がlegalEffectEntriesTransitionの入力契約を満たす。
+ * @postcondition legalEffectEntriesTransitionの責務を完了した結果だけを返す。
+ * @effect N/A: legalEffectEntriesTransitionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: legalEffectEntriesTransitionは独自の失敗分岐を所有しない。
+ * @invariant legalEffectEntriesTransitionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security legalEffectEntriesTransitionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: legalEffectEntriesTransitionは共有非同期状態を持たない同期処理である。
+ */
 function legalEffectEntriesTransition(
   previous: readonly DockerDesktopRepairEffectEntry[],
   nextItems: readonly DockerDesktopRepairEffectEntry[],
@@ -734,6 +1429,22 @@ const OBSERVATION_ACTIONS = new Set<DockerDesktopRepairEffectAction>([
   "observed_runtime_directory_rename",
 ]);
 
+/**
+ * changed Effect Countを決定する。
+ *
+ * @responsibility changed Effect Countの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input previous: readonly DockerDesktopRepairEffectEntry[]、nextItems: readonly DockerDesktopRepairEffectEntry[]
+ * @returns changedEffectCountの計算結果を返す。
+ * @precondition 「previous: readonly DockerDesktopRepairEffectEntry[]、nextItems: readonly DockerDesktopRepairEffectEntry[]」がchangedEffectCountの入力契約を満たす。
+ * @postcondition changedEffectCountの責務を完了した結果だけを返す。
+ * @effect N/A: changedEffectCountは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: changedEffectCountは独自の失敗分岐を所有しない。
+ * @invariant changedEffectCountは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security changedEffectCountはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: changedEffectCountは共有非同期状態を持たない同期処理である。
+ */
 function changedEffectCount(
   previous: readonly DockerDesktopRepairEffectEntry[],
   nextItems: readonly DockerDesktopRepairEffectEntry[],
@@ -754,6 +1465,22 @@ function changedEffectCount(
   return changed;
 }
 
+/**
+ * 記録 Write Deltaが有効か判定する。
+ *
+ * @responsibility 記録 Write Deltaの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000008
+ * @input previous: readonly DockerDesktopRepairEffectEntry[]、nextItems: readonly DockerDesktopRepairEffectEntry[]
+ * @returns validRecordWriteDeltaの計算結果を返す。
+ * @precondition 「previous: readonly DockerDesktopRepairEffectEntry[]、nextItems: readonly DockerDesktopRepairEffectEntry[]」がvalidRecordWriteDeltaの入力契約を満たす。
+ * @postcondition validRecordWriteDeltaの責務を完了した結果だけを返す。
+ * @effect N/A: validRecordWriteDeltaは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validRecordWriteDeltaは独自の失敗分岐を所有しない。
+ * @invariant validRecordWriteDeltaは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security validRecordWriteDeltaはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validRecordWriteDeltaは共有非同期状態を持たない同期処理である。
+ */
 function validRecordWriteDelta(
   previous: readonly DockerDesktopRepairEffectEntry[],
   nextItems: readonly DockerDesktopRepairEffectEntry[],
@@ -788,6 +1515,22 @@ function validRecordWriteDelta(
   );
 }
 
+/**
+ * legal Ledger Transitionを決定する。
+ *
+ * @responsibility legal Ledger Transitionの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input previous: DockerDesktopRepairLedgerSnapshot | null、next: DockerDesktopRepairLedgerSnapshot
+ * @returns legalLedgerTransitionの計算結果を返す。
+ * @precondition 「previous: DockerDesktopRepairLedgerSnapshot | null、next: DockerDesktopRepairLedgerSnapshot」がlegalLedgerTransitionの入力契約を満たす。
+ * @postcondition legalLedgerTransitionの責務を完了した結果だけを返す。
+ * @effect N/A: legalLedgerTransitionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: legalLedgerTransitionは独自の失敗分岐を所有しない。
+ * @invariant legalLedgerTransitionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security legalLedgerTransitionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: legalLedgerTransitionは共有非同期状態を持たない同期処理である。
+ */
 function legalLedgerTransition(
   previous: DockerDesktopRepairLedgerSnapshot | null,
   next: DockerDesktopRepairLedgerSnapshot,
@@ -935,6 +1678,22 @@ function legalLedgerTransition(
   return true;
 }
 
+/**
+ * effect Entryを決定する。
+ *
+ * @responsibility effect Entryの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input ledger: DockerDesktopRepairLedgerSnapshot、action: DockerDesktopRepairEffectAction
+ * @returns effectEntryの計算結果を返す。
+ * @precondition 「ledger: DockerDesktopRepairLedgerSnapshot、action: DockerDesktopRepairEffectAction」がeffectEntryの入力契約を満たす。
+ * @postcondition effectEntryの責務を完了した結果だけを返す。
+ * @effect N/A: effectEntryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: effectEntryは独自の失敗分岐を所有しない。
+ * @invariant effectEntryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security effectEntryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: effectEntryは共有非同期状態を持たない同期処理である。
+ */
 function effectEntry(
   ledger: DockerDesktopRepairLedgerSnapshot,
   action: DockerDesktopRepairEffectAction,
@@ -944,6 +1703,22 @@ function effectEntry(
   );
 }
 
+/**
+ * Settledかを判定する。
+ *
+ * @responsibility Settledの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000008
+ * @input ledger: DockerDesktopRepairLedgerSnapshot、action: DockerDesktopRepairEffectAction
+ * @returns isSettledの計算結果を返す。
+ * @precondition 「ledger: DockerDesktopRepairLedgerSnapshot、action: DockerDesktopRepairEffectAction」がisSettledの入力契約を満たす。
+ * @postcondition isSettledの責務を完了した結果だけを返す。
+ * @effect N/A: isSettledは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isSettledは独自の失敗分岐を所有しない。
+ * @invariant isSettledは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security isSettledはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isSettledは共有非同期状態を持たない同期処理である。
+ */
 function isSettled(
   ledger: DockerDesktopRepairLedgerSnapshot,
   action: DockerDesktopRepairEffectAction,
@@ -951,6 +1726,22 @@ function isSettled(
   return effectEntry(ledger, action)?.phase === "settled";
 }
 
+/**
+ * Settled Confirmedかを判定する。
+ *
+ * @responsibility Settled Confirmedの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000008
+ * @input ledger: DockerDesktopRepairLedgerSnapshot、action: DockerDesktopRepairEffectAction
+ * @returns isSettledConfirmedの計算結果を返す。
+ * @precondition 「ledger: DockerDesktopRepairLedgerSnapshot、action: DockerDesktopRepairEffectAction」がisSettledConfirmedの入力契約を満たす。
+ * @postcondition isSettledConfirmedの責務を完了した結果だけを返す。
+ * @effect N/A: isSettledConfirmedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isSettledConfirmedは独自の失敗分岐を所有しない。
+ * @invariant isSettledConfirmedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security isSettledConfirmedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isSettledConfirmedは共有非同期状態を持たない同期処理である。
+ */
 function isSettledConfirmed(
   ledger: DockerDesktopRepairLedgerSnapshot,
   action: DockerDesktopRepairEffectAction,
@@ -959,6 +1750,22 @@ function isSettledConfirmed(
   return entry?.phase === "settled" && entry.confirmation === "confirmed";
 }
 
+/**
+ * Settled Not Issuedかを判定する。
+ *
+ * @responsibility Settled Not Issuedの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000008
+ * @input ledger: DockerDesktopRepairLedgerSnapshot、action: DockerDesktopRepairEffectAction
+ * @returns isSettledNotIssuedの計算結果を返す。
+ * @precondition 「ledger: DockerDesktopRepairLedgerSnapshot、action: DockerDesktopRepairEffectAction」がisSettledNotIssuedの入力契約を満たす。
+ * @postcondition isSettledNotIssuedの責務を完了した結果だけを返す。
+ * @effect N/A: isSettledNotIssuedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isSettledNotIssuedは独自の失敗分岐を所有しない。
+ * @invariant isSettledNotIssuedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security isSettledNotIssuedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isSettledNotIssuedは共有非同期状態を持たない同期処理である。
+ */
 function isSettledNotIssued(
   ledger: DockerDesktopRepairLedgerSnapshot,
   action: DockerDesktopRepairEffectAction,
@@ -971,6 +1778,22 @@ function isSettledNotIssued(
   );
 }
 
+/**
+ * Unknown Reconciliationが存在するかを判定する。
+ *
+ * @responsibility Unknown Reconciliationの存在条件とtrue／false境界を所有する。
+ * @trace ARCH-000008
+ * @input ledger: DockerDesktopRepairLedgerSnapshot
+ * @returns hasUnknownReconciliationの計算結果を返す。
+ * @precondition 「ledger: DockerDesktopRepairLedgerSnapshot」がhasUnknownReconciliationの入力契約を満たす。
+ * @postcondition hasUnknownReconciliationの責務を完了した結果だけを返す。
+ * @effect N/A: hasUnknownReconciliationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hasUnknownReconciliationは独自の失敗分岐を所有しない。
+ * @invariant hasUnknownReconciliationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security hasUnknownReconciliationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hasUnknownReconciliationは共有非同期状態を持たない同期処理である。
+ */
 function hasUnknownReconciliation(ledger: DockerDesktopRepairLedgerSnapshot) {
   return ledger.processEffects.some(
     (entry) =>
@@ -982,6 +1805,22 @@ function hasUnknownReconciliation(ledger: DockerDesktopRepairLedgerSnapshot) {
   );
 }
 
+/**
+ * Unknown Host Effectが存在するかを判定する。
+ *
+ * @responsibility Unknown Host Effectの存在条件とtrue／false境界を所有する。
+ * @trace ARCH-000008
+ * @input ledger: DockerDesktopRepairLedgerSnapshot
+ * @returns hasUnknownHostEffectの計算結果を返す。
+ * @precondition 「ledger: DockerDesktopRepairLedgerSnapshot」がhasUnknownHostEffectの入力契約を満たす。
+ * @postcondition hasUnknownHostEffectの責務を完了した結果だけを返す。
+ * @effect N/A: hasUnknownHostEffectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hasUnknownHostEffectは独自の失敗分岐を所有しない。
+ * @invariant hasUnknownHostEffectは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security hasUnknownHostEffectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hasUnknownHostEffectは共有非同期状態を持たない同期処理である。
+ */
 function hasUnknownHostEffect(ledger: DockerDesktopRepairLedgerSnapshot) {
   return [...ledger.processEffects, ...ledger.filesystemEffects].some(
     (entry) =>
@@ -990,6 +1829,22 @@ function hasUnknownHostEffect(ledger: DockerDesktopRepairLedgerSnapshot) {
   );
 }
 
+/**
+ * Known Process Prefixが有効か判定する。
+ *
+ * @responsibility Known Process Prefixの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000008
+ * @input ledger: DockerDesktopRepairLedgerSnapshot
+ * @returns validKnownProcessPrefixの計算結果を返す。
+ * @precondition 「ledger: DockerDesktopRepairLedgerSnapshot」がvalidKnownProcessPrefixの入力契約を満たす。
+ * @postcondition validKnownProcessPrefixの責務を完了した結果だけを返す。
+ * @effect N/A: validKnownProcessPrefixは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validKnownProcessPrefixは独自の失敗分岐を所有しない。
+ * @invariant validKnownProcessPrefixは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security validKnownProcessPrefixはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validKnownProcessPrefixは共有非同期状態を持たない同期処理である。
+ */
 function validKnownProcessPrefix(ledger: DockerDesktopRepairLedgerSnapshot) {
   const shutdown = effectEntry(ledger, "official_shutdown");
   const native = effectEntry(ledger, "native_termination");
@@ -1010,6 +1865,22 @@ function validKnownProcessPrefix(ledger: DockerDesktopRepairLedgerSnapshot) {
   return true;
 }
 
+/**
+ * settled Stopped Prefixを決定する。
+ *
+ * @responsibility settled Stopped Prefixの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input ledger: DockerDesktopRepairLedgerSnapshot
+ * @returns settledStoppedPrefixの計算結果を返す。
+ * @precondition 「ledger: DockerDesktopRepairLedgerSnapshot」がsettledStoppedPrefixの入力契約を満たす。
+ * @postcondition settledStoppedPrefixの責務を完了した結果だけを返す。
+ * @effect N/A: settledStoppedPrefixは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: settledStoppedPrefixは独自の失敗分岐を所有しない。
+ * @invariant settledStoppedPrefixは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security settledStoppedPrefixはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: settledStoppedPrefixは共有非同期状態を持たない同期処理である。
+ */
 function settledStoppedPrefix(ledger: DockerDesktopRepairLedgerSnapshot) {
   return (
     validKnownProcessPrefix(ledger) &&
@@ -1019,6 +1890,22 @@ function settledStoppedPrefix(ledger: DockerDesktopRepairLedgerSnapshot) {
   );
 }
 
+/**
+ * stage Ledger Compatibleを決定する。
+ *
+ * @responsibility stage Ledger Compatibleの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input stage: DockerDesktopRepairStage、ledger: DockerDesktopRepairLedgerSnapshot
+ * @returns stageLedgerCompatibleの計算結果を返す。
+ * @precondition 「stage: DockerDesktopRepairStage、ledger: DockerDesktopRepairLedgerSnapshot」がstageLedgerCompatibleの入力契約を満たす。
+ * @postcondition stageLedgerCompatibleの責務を完了した結果だけを返す。
+ * @effect stageLedgerCompatibleはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: stageLedgerCompatibleは独自の失敗分岐を所有しない。
+ * @invariant stageLedgerCompatibleは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security stageLedgerCompatibleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: stageLedgerCompatibleは共有非同期状態を持たない同期処理である。
+ */
 function stageLedgerCompatible(
   stage: DockerDesktopRepairStage,
   ledger: DockerDesktopRepairLedgerSnapshot,
@@ -1204,6 +2091,22 @@ function stageLedgerCompatible(
   return true;
 }
 
+/**
+ * Bytesを安定Identityへ変換する。
+ *
+ * @responsibility Bytesの正規化条件、一意性、変換不能時の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input target: string
+ * @returns stableBytesの計算結果を返す。
+ * @precondition 「target: string」がstableBytesの入力契約を満たす。
+ * @postcondition stableBytesの責務を完了した結果だけを返す。
+ * @effect stableBytesはFilesystemの読取りまたは書込みを実行する。
+ * @failure stableBytesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant stableBytesは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security stableBytesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: stableBytesは共有非同期状態を持たない同期処理である。
+ */
 function stableBytes(target: string) {
   let handle: number | null = null;
   try {
@@ -1246,6 +2149,22 @@ function stableBytes(target: string) {
   }
 }
 
+/**
+ * legal Transitionを決定する。
+ *
+ * @responsibility legal Transitionの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input previous: DockerDesktopRepairStage | null、next: DockerDesktopRepairStage
+ * @returns legalTransitionの計算結果を返す。
+ * @precondition 「previous: DockerDesktopRepairStage | null、next: DockerDesktopRepairStage」がlegalTransitionの入力契約を満たす。
+ * @postcondition legalTransitionの責務を完了した結果だけを返す。
+ * @effect legalTransitionはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: legalTransitionは独自の失敗分岐を所有しない。
+ * @invariant legalTransitionは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security legalTransitionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: legalTransitionは共有非同期状態を持たない同期処理である。
+ */
 function legalTransition(
   previous: DockerDesktopRepairStage | null,
   next: DockerDesktopRepairStage,
@@ -1284,6 +2203,22 @@ function legalTransition(
   );
 }
 
+/**
+ * changed Semantic Actionsを決定する。
+ *
+ * @responsibility changed Semantic Actionsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input previous: DockerDesktopRepairLedgerSnapshot | null、next: DockerDesktopRepairLedgerSnapshot
+ * @returns changedSemanticActionsの計算結果を返す。
+ * @precondition 「previous: DockerDesktopRepairLedgerSnapshot | null、next: DockerDesktopRepairLedgerSnapshot」がchangedSemanticActionsの入力契約を満たす。
+ * @postcondition changedSemanticActionsの責務を完了した結果だけを返す。
+ * @effect N/A: changedSemanticActionsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: changedSemanticActionsは独自の失敗分岐を所有しない。
+ * @invariant changedSemanticActionsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security changedSemanticActionsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: changedSemanticActionsは共有非同期状態を持たない同期処理である。
+ */
 function changedSemanticActions(
   previous: DockerDesktopRepairLedgerSnapshot | null,
   next: DockerDesktopRepairLedgerSnapshot,
@@ -1317,6 +2252,22 @@ function changedSemanticActions(
   return changedItems;
 }
 
+/**
+ * legal Repair 記録 Transitionを決定する。
+ *
+ * @responsibility legal Repair 記録 Transitionの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input previousStage: DockerDesktopRepairStage | null、previousLedger: DockerDesktopRepairLedgerSnapshot | null、nextStage: DockerDesktopRepairStage、nextLedger: DockerDesktopRepairLedgerSnapshot
+ * @returns legalRepairRecordTransitionの計算結果を返す。
+ * @precondition 「previousStage: DockerDesktopRepairStage | null、previousLedger: DockerDesktopRepairLedgerSnapshot | null、nextStage: DockerDesktopRepairStage、nextLedger: DockerDesktopRepairLedgerSnapshot」がlegalRepairRecordTransitionの入力契約を満たす。
+ * @postcondition legalRepairRecordTransitionの責務を完了した結果だけを返す。
+ * @effect legalRepairRecordTransitionはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: legalRepairRecordTransitionは独自の失敗分岐を所有しない。
+ * @invariant legalRepairRecordTransitionは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security legalRepairRecordTransitionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: legalRepairRecordTransitionは共有非同期状態を持たない同期処理である。
+ */
 function legalRepairRecordTransition(
   previousStage: DockerDesktopRepairStage | null,
   previousLedger: DockerDesktopRepairLedgerSnapshot | null,
@@ -1386,6 +2337,22 @@ function legalRepairRecordTransition(
   return false;
 }
 
+/**
+ * to Operationを決定する。
+ *
+ * @responsibility to Operationの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、record: ReadableStoredRecord、recordSha256: string
+ * @returns DockerDesktopRepairOperationを返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary、record: ReadableStoredRecord、recordSha256: string」がtoOperationの入力契約を満たす。
+ * @postcondition toOperationの責務を完了した結果だけを返す。
+ * @effect N/A: toOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: toOperationは独自の失敗分岐を所有しない。
+ * @invariant toOperationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security toOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: toOperationは共有非同期状態を持たない同期処理である。
+ */
 function toOperation(
   boundary: DockerDesktopRepairRecordBoundary,
   record: ReadableStoredRecord,
@@ -1414,6 +2381,70 @@ function toOperation(
   });
 }
 
+/**
+ * 継続Authority集合が有効か判定する。
+ *
+ * @responsibility 継続Authorityの完全な組、重複およびRelease順序の判定を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns valueが有効なDockerDesktopRepairContinuationAuthority配列かを返す。
+ * @precondition valueは外部または耐久記録から得た未検証値である。
+ * @postcondition 全Authorityの完全性、重複禁止およびRelease単調性を確認した場合だけtrueを返す。
+ * @effect N/A: 入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure 不正なProperty、Hash、Release順序または重複をfalseへ収束させる。
+ * @invariant 一部だけ一致するAuthorityを有効として返さない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security 未検証値を継続Authorityへ昇格しない。
+ * @concurrency N/A: 共有非同期状態を持たない同期処理である。
+ */
+function validContinuationAuthorities(
+  value: unknown,
+): value is readonly DockerDesktopRepairContinuationAuthority[] {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 10)
+    return false;
+  const identities = new Set<string>();
+  let previousReleaseSequence = -1;
+  for (const candidate of value) {
+    const authority = exactOwnDataValues(candidate, [
+      "localUserBindingHash",
+      "manifestHash",
+      "releaseSequence",
+      "runtimeExecutionIdentitySha256",
+    ]);
+    if (
+      !authority ||
+      !containsOnlyOwnDataDescriptors(candidate) ||
+      !hash64(authority.localUserBindingHash) ||
+      !hash64(authority.manifestHash) ||
+      !Number.isSafeInteger(authority.releaseSequence) ||
+      Number(authority.releaseSequence) < previousReleaseSequence ||
+      !hash64(authority.runtimeExecutionIdentitySha256)
+    )
+      return false;
+    const identity = `${authority.localUserBindingHash}:${authority.manifestHash}:${String(authority.releaseSequence)}:${authority.runtimeExecutionIdentitySha256}`;
+    if (identities.has(identity)) return false;
+    identities.add(identity);
+    previousReleaseSequence = Number(authority.releaseSequence);
+  }
+  return true;
+}
+
+/**
+ * Canonical Repair History Session Fieldsが有効か判定する。
+ *
+ * @responsibility Canonical Repair History Session Fieldsの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000008
+ * @input history: Readonly<Record<string, unknown>>、boundary: DockerDesktopRepairRecordBoundary
+ * @returns validCanonicalRepairHistorySessionFieldsの計算結果を返す。
+ * @precondition 「history: Readonly<Record<string, unknown>>、boundary: DockerDesktopRepairRecordBoundary」がvalidCanonicalRepairHistorySessionFieldsの入力契約を満たす。
+ * @postcondition validCanonicalRepairHistorySessionFieldsの責務を完了した結果だけを返す。
+ * @effect N/A: validCanonicalRepairHistorySessionFieldsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validCanonicalRepairHistorySessionFieldsは独自の失敗分岐を所有しない。
+ * @invariant validCanonicalRepairHistorySessionFieldsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security validCanonicalRepairHistorySessionFieldsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validCanonicalRepairHistorySessionFieldsは共有非同期状態を持たない同期処理である。
+ */
 function validCanonicalRepairHistorySessionFields(
   history: Readonly<Record<string, unknown>>,
   boundary: DockerDesktopRepairRecordBoundary,
@@ -1424,6 +2455,7 @@ function validCanonicalRepairHistorySessionFields(
   const originLocalUserBindingHash = history.originLocalUserBindingHash;
   const currentLocalUserBindingHash = history.currentLocalUserBindingHash;
   const currentSessionBound = history.currentSessionBound;
+  const continuationAuthorities = history.continuationAuthorities;
   return (
     hash64(adoptionSha256) &&
     hash64(handoffTipSha256) &&
@@ -1433,6 +2465,8 @@ function validCanonicalRepairHistorySessionFields(
     hash64(originLocalUserBindingHash) &&
     hash64(currentLocalUserBindingHash) &&
     typeof currentSessionBound === "boolean" &&
+    (continuationAuthorities === undefined ||
+      validContinuationAuthorities(continuationAuthorities)) &&
     currentSessionBound ===
       (currentLocalUserBindingHash === boundary.localUserBindingHash) &&
     (handoffCount === 0
@@ -1441,6 +2475,22 @@ function validCanonicalRepairHistorySessionFields(
   );
 }
 
+/**
+ * Canonical Repair Historyを分類する。
+ *
+ * @responsibility Canonical Repair Historyの分類条件、相互排他的な結果、判断不能境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、boundary: DockerDesktopRepairRecordBoundary、expectedClosure: DockerDesktopRepairExpectedClosure | undefined
+ * @returns Exclude< CanonicalDockerDesktopRepairHistoryMode, "invalid" | "no_history" > | nullを返す。
+ * @precondition 「value: unknown、boundary: DockerDesktopRepairRecordBoundary、expectedClosure: DockerDesktopRepairExpectedClosure | undefined」がclassifyCanonicalRepairHistoryの入力契約を満たす。
+ * @postcondition classifyCanonicalRepairHistoryの責務を完了した結果だけを返す。
+ * @effect N/A: classifyCanonicalRepairHistoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: classifyCanonicalRepairHistoryは独自の失敗分岐を所有しない。
+ * @invariant classifyCanonicalRepairHistoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security classifyCanonicalRepairHistoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: classifyCanonicalRepairHistoryは共有非同期状態を持たない同期処理である。
+ */
 function classifyCanonicalRepairHistory(
   value: unknown,
   boundary: DockerDesktopRepairRecordBoundary,
@@ -1460,13 +2510,19 @@ function classifyCanonicalRepairHistory(
     "liveRunIdentity",
     "staleState",
   ] as const;
+  const extendedSessionKeys = [
+    ...sessionKeys,
+    "continuationAuthorities",
+  ] as const;
   const legacyClosedKeys = [
     "adoptionSha256",
     "closed",
     "liveRunIdentity",
     "staleState",
   ] as const;
-  const sessionFields = exactOwnDataValues(value, sessionKeys);
+  const sessionFields =
+    exactOwnDataValues(value, extendedSessionKeys) ??
+    exactOwnDataValues(value, sessionKeys);
   const legacyFields = sessionFields
     ? null
     : exactOwnDataValues(value, legacyClosedKeys);
@@ -1513,6 +2569,22 @@ function classifyCanonicalRepairHistory(
   return "closed";
 }
 
+/**
+ * Canonical Docker Desktop Repair Historical Operation Uncheckedを分類する。
+ *
+ * @responsibility Canonical Docker Desktop Repair Historical Operation Uncheckedの分類条件、相互排他的な結果、判断不能境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、boundary: DockerDesktopRepairRecordBoundary、expectedClosure: DockerDesktopRepairExpectedClosure
+ * @returns CanonicalDockerDesktopRepairHistoryModeを返す。
+ * @precondition 「value: unknown、boundary: DockerDesktopRepairRecordBoundary、expectedClosure: DockerDesktopRepairExpectedClosure」がclassifyCanonicalDockerDesktopRepairHistoricalOperationUncheckedの入力契約を満たす。
+ * @postcondition classifyCanonicalDockerDesktopRepairHistoricalOperationUncheckedの責務を完了した結果だけを返す。
+ * @effect N/A: classifyCanonicalDockerDesktopRepairHistoricalOperationUncheckedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: classifyCanonicalDockerDesktopRepairHistoricalOperationUncheckedは独自の失敗分岐を所有しない。
+ * @invariant classifyCanonicalDockerDesktopRepairHistoricalOperationUncheckedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security classifyCanonicalDockerDesktopRepairHistoricalOperationUncheckedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: classifyCanonicalDockerDesktopRepairHistoricalOperationUncheckedは共有非同期状態を持たない同期処理である。
+ */
 function classifyCanonicalDockerDesktopRepairHistoricalOperationUnchecked(
   value: unknown,
   boundary: DockerDesktopRepairRecordBoundary,
@@ -1568,6 +2640,22 @@ function classifyCanonicalDockerDesktopRepairHistoricalOperationUnchecked(
   );
 }
 
+/**
+ * Canonical Docker Desktop Repair Historical Operationを分類する。
+ *
+ * @responsibility Canonical Docker Desktop Repair Historical Operationの分類条件、相互排他的な結果、判断不能境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、boundary: DockerDesktopRepairRecordBoundary、expectedClosure: DockerDesktopRepairExpectedClosure
+ * @returns CanonicalDockerDesktopRepairHistoryModeを返す。
+ * @precondition 「value: unknown、boundary: DockerDesktopRepairRecordBoundary、expectedClosure: DockerDesktopRepairExpectedClosure」がclassifyCanonicalDockerDesktopRepairHistoricalOperationの入力契約を満たす。
+ * @postcondition classifyCanonicalDockerDesktopRepairHistoricalOperationの責務を完了した結果だけを返す。
+ * @effect N/A: classifyCanonicalDockerDesktopRepairHistoricalOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure classifyCanonicalDockerDesktopRepairHistoricalOperationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant classifyCanonicalDockerDesktopRepairHistoricalOperationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security classifyCanonicalDockerDesktopRepairHistoricalOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: classifyCanonicalDockerDesktopRepairHistoricalOperationは共有非同期状態を持たない同期処理である。
+ */
 export function classifyCanonicalDockerDesktopRepairHistoricalOperation(
   value: unknown,
   boundary: DockerDesktopRepairRecordBoundary,
@@ -1584,6 +2672,22 @@ export function classifyCanonicalDockerDesktopRepairHistoricalOperation(
   }
 }
 
+/**
+ * Original Operationを読み取る。
+ *
+ * @responsibility Original Operationの読取り元、上限、読取不能時の結果境界を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、directoryName: string、historyAllowed、logonMode: "current" | "terminal" | "closed_history"
+ * @returns readOriginalOperationの計算結果を返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary、directoryName: string、historyAllowed、logonMode: "current" | "terminal" | "closed_history"」がreadOriginalOperationの入力契約を満たす。
+ * @postcondition readOriginalOperationの責務を完了した結果だけを返す。
+ * @effect readOriginalOperationはFilesystemの読取りまたは書込みを実行する。
+ * @failure readOriginalOperationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readOriginalOperationは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security readOriginalOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readOriginalOperationは共有非同期状態を持たない同期処理である。
+ */
 function readOriginalOperation(
   boundary: DockerDesktopRepairRecordBoundary,
   directoryName: string,
@@ -1613,6 +2717,11 @@ function readOriginalOperation(
     const nonRecords = entries.filter(
       (entry) =>
         !(entry.isDirectory() && entry.name === "docker-config") &&
+        !(
+          entry.isDirectory() &&
+          entry.name === "runtime-continuation" &&
+          !entry.isSymbolicLink()
+        ) &&
         !entry.isFile(),
     );
     if (
@@ -1681,6 +2790,22 @@ function readOriginalOperation(
   }
 }
 
+/**
+ * Matches Boundaryを解放する。
+ *
+ * @responsibility Matches Boundaryの所有権、解放条件、終了後不存在の確認境界を所有する。
+ * @trace ARCH-000008
+ * @input release: HistoricalReleaseIdentity、boundary: DockerDesktopRepairRecordBoundary
+ * @returns releaseMatchesBoundaryの計算結果を返す。
+ * @precondition 「release: HistoricalReleaseIdentity、boundary: DockerDesktopRepairRecordBoundary」がreleaseMatchesBoundaryの入力契約を満たす。
+ * @postcondition releaseMatchesBoundaryの責務を完了した結果だけを返す。
+ * @effect N/A: releaseMatchesBoundaryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: releaseMatchesBoundaryは独自の失敗分岐を所有しない。
+ * @invariant releaseMatchesBoundaryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security releaseMatchesBoundaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: releaseMatchesBoundaryは共有非同期状態を持たない同期処理である。
+ */
 function releaseMatchesBoundary(
   release: HistoricalReleaseIdentity,
   boundary: DockerDesktopRepairRecordBoundary,
@@ -1698,6 +2823,22 @@ function releaseMatchesBoundary(
   );
 }
 
+/**
+ * Not After Boundaryを解放する。
+ *
+ * @responsibility Not After Boundaryの所有権、解放条件、終了後不存在の確認境界を所有する。
+ * @trace ARCH-000008
+ * @input release: HistoricalReleaseIdentity、boundary: DockerDesktopRepairRecordBoundary
+ * @returns releaseNotAfterBoundaryの計算結果を返す。
+ * @precondition 「release: HistoricalReleaseIdentity、boundary: DockerDesktopRepairRecordBoundary」がreleaseNotAfterBoundaryの入力契約を満たす。
+ * @postcondition releaseNotAfterBoundaryの責務を完了した結果だけを返す。
+ * @effect N/A: releaseNotAfterBoundaryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: releaseNotAfterBoundaryは独自の失敗分岐を所有しない。
+ * @invariant releaseNotAfterBoundaryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security releaseNotAfterBoundaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: releaseNotAfterBoundaryは共有非同期状態を持たない同期処理である。
+ */
 function releaseNotAfterBoundary(
   release: HistoricalReleaseIdentity,
   boundary: DockerDesktopRepairRecordBoundary,
@@ -1708,6 +2849,22 @@ function releaseNotAfterBoundary(
   );
 }
 
+/**
+ * historical Boundaryを決定する。
+ *
+ * @responsibility historical Boundaryの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、release: HistoricalReleaseIdentity、dockerPolicySha256
+ * @returns DockerDesktopRepairRecordBoundaryを返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary、release: HistoricalReleaseIdentity、dockerPolicySha256」がhistoricalBoundaryの入力契約を満たす。
+ * @postcondition historicalBoundaryの責務を完了した結果だけを返す。
+ * @effect N/A: historicalBoundaryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: historicalBoundaryは独自の失敗分岐を所有しない。
+ * @invariant historicalBoundaryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security historicalBoundaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: historicalBoundaryは共有非同期状態を持たない同期処理である。
+ */
 function historicalBoundary(
   boundary: DockerDesktopRepairRecordBoundary,
   release: HistoricalReleaseIdentity,
@@ -1737,6 +2894,22 @@ function historicalBoundary(
       });
 }
 
+/**
+ * original Docker Policy Sha256を決定する。
+ *
+ * @responsibility original Docker Policy Sha256の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input runtimeStateRoot: string、directoryName: string
+ * @returns originalDockerPolicySha256の計算結果を返す。
+ * @precondition 「runtimeStateRoot: string、directoryName: string」がoriginalDockerPolicySha256の入力契約を満たす。
+ * @postcondition originalDockerPolicySha256の責務を完了した結果だけを返す。
+ * @effect N/A: originalDockerPolicySha256は入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure originalDockerPolicySha256は入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant originalDockerPolicySha256は入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security originalDockerPolicySha256はAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: originalDockerPolicySha256は共有非同期状態を持たない同期処理である。
+ */
 function originalDockerPolicySha256(
   runtimeStateRoot: string,
   directoryName: string,
@@ -1758,6 +2931,22 @@ function originalDockerPolicySha256(
   }
 }
 
+/**
+ * History Bytesを構造化値へ解析する。
+ *
+ * @responsibility History Bytesの入力文法、解析結果、不正文法の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input bytes: Buffer | null
+ * @returns Record<string, unknown> | nullを返す。
+ * @precondition 「bytes: Buffer | null」がparseHistoryBytesの入力契約を満たす。
+ * @postcondition parseHistoryBytesの責務を完了した結果だけを返す。
+ * @effect N/A: parseHistoryBytesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure parseHistoryBytesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant parseHistoryBytesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security parseHistoryBytesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: parseHistoryBytesは共有非同期状態を持たない同期処理である。
+ */
 function parseHistoryBytes(
   bytes: Buffer | null,
 ): Record<string, unknown> | null {
@@ -1775,6 +2964,22 @@ function parseHistoryBytes(
   }
 }
 
+/**
+ * history File Presentを決定する。
+ *
+ * @responsibility history File Presentの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input directory: string、name: string
+ * @returns boolean | nullを返す。
+ * @precondition 「directory: string、name: string」がhistoryFilePresentの入力契約を満たす。
+ * @postcondition historyFilePresentの責務を完了した結果だけを返す。
+ * @effect historyFilePresentはFilesystemの読取りまたは書込みを実行する。
+ * @failure historyFilePresentは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant historyFilePresentは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security historyFilePresentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: historyFilePresentは共有非同期状態を持たない同期処理である。
+ */
 function historyFilePresent(directory: string, name: string): boolean | null {
   try {
     fs.lstatSync(path.win32.join(directory, name));
@@ -1788,12 +2993,39 @@ function historyFilePresent(directory: string, name: string): boolean | null {
   }
 }
 
+/**
+ * docker-desktop-repair-record-storeで使用するHistory Preparation 状態の値契約を定義する。
+ *
+ * @responsibility History Preparation 状態のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape HistoryPreparationStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant HistoryPreparationStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: HistoryPreparationStateの宣言は外部境界を開かない。
+ * @security HistoryPreparationStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility HistoryPreparationStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type HistoryPreparationState = Readonly<{
   targetName: string;
   preparationName: string;
   state: "prepared" | "published_residue";
 }>;
 
+/**
+ * Regular File Identityが同一かを判定する。
+ *
+ * @responsibility Regular File Identityの同一性Propertyと一致／不一致境界を所有する。
+ * @trace ARCH-000008
+ * @input left: string、right: string
+ * @returns sameRegularFileIdentityの計算結果を返す。
+ * @precondition 「left: string、right: string」がsameRegularFileIdentityの入力契約を満たす。
+ * @postcondition sameRegularFileIdentityの責務を完了した結果だけを返す。
+ * @effect sameRegularFileIdentityはFilesystemの読取りまたは書込みを実行する。
+ * @failure sameRegularFileIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant sameRegularFileIdentityは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security sameRegularFileIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameRegularFileIdentityは共有非同期状態を持たない同期処理である。
+ */
 function sameRegularFileIdentity(left: string, right: string) {
   try {
     const leftMetadata = fs.lstatSync(left, { bigint: true });
@@ -1812,6 +3044,22 @@ function sameRegularFileIdentity(left: string, right: string) {
   }
 }
 
+/**
+ * History Preparationsを分類する。
+ *
+ * @responsibility History Preparationsの分類条件、相互排他的な結果、判断不能境界を所有する。
+ * @trace ARCH-000008
+ * @input directory: string
+ * @returns readonly HistoryPreparationState[] | nullを返す。
+ * @precondition 「directory: string」がclassifyHistoryPreparationsの入力契約を満たす。
+ * @postcondition classifyHistoryPreparationsの責務を完了した結果だけを返す。
+ * @effect classifyHistoryPreparationsはFilesystemの読取りまたは書込みを実行する。
+ * @failure classifyHistoryPreparationsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant classifyHistoryPreparationsは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security classifyHistoryPreparationsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: classifyHistoryPreparationsは共有非同期状態を持たない同期処理である。
+ */
 function classifyHistoryPreparations(
   directory: string,
 ): readonly HistoryPreparationState[] | null {
@@ -1868,6 +3116,22 @@ const historyPublicationFs = Object.freeze({
   writeFileSync: fs.writeFileSync.bind(fs),
 });
 
+/**
+ * history Publication Stable Bytesを決定する。
+ *
+ * @responsibility history Publication Stable Bytesの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input target: string
+ * @returns historyPublicationStableBytesの計算結果を返す。
+ * @precondition 「target: string」がhistoryPublicationStableBytesの入力契約を満たす。
+ * @postcondition historyPublicationStableBytesの責務を完了した結果だけを返す。
+ * @effect historyPublicationStableBytesはFilesystemの読取りまたは書込みを実行する。
+ * @failure historyPublicationStableBytesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant historyPublicationStableBytesは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security historyPublicationStableBytesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: historyPublicationStableBytesは共有非同期状態を持たない同期処理である。
+ */
 function historyPublicationStableBytes(target: string) {
   let handle: number | null = null;
   try {
@@ -1913,6 +3177,22 @@ function historyPublicationStableBytes(target: string) {
   }
 }
 
+/**
+ * history Publication Presentを決定する。
+ *
+ * @responsibility history Publication Presentの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input target: string
+ * @returns boolean | nullを返す。
+ * @precondition 「target: string」がhistoryPublicationPresentの入力契約を満たす。
+ * @postcondition historyPublicationPresentの責務を完了した結果だけを返す。
+ * @effect N/A: historyPublicationPresentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure historyPublicationPresentは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant historyPublicationPresentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security historyPublicationPresentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: historyPublicationPresentは共有非同期状態を持たない同期処理である。
+ */
 function historyPublicationPresent(target: string): boolean | null {
   try {
     historyPublicationFs.lstatSync(target);
@@ -1926,6 +3206,22 @@ function historyPublicationPresent(target: string): boolean | null {
   }
 }
 
+/**
+ * history Publication Same Identityを決定する。
+ *
+ * @responsibility history Publication Same Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input left: string、right: string
+ * @returns historyPublicationSameIdentityの計算結果を返す。
+ * @precondition 「left: string、right: string」がhistoryPublicationSameIdentityの入力契約を満たす。
+ * @postcondition historyPublicationSameIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: historyPublicationSameIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure historyPublicationSameIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant historyPublicationSameIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security historyPublicationSameIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: historyPublicationSameIdentityは共有非同期状態を持たない同期処理である。
+ */
 function historyPublicationSameIdentity(left: string, right: string) {
   try {
     const leftMetadata = historyPublicationFs.lstatSync(left, { bigint: true });
@@ -1946,6 +3242,22 @@ function historyPublicationSameIdentity(left: string, right: string) {
   }
 }
 
+/**
+ * history Publication Directory Identityを決定する。
+ *
+ * @responsibility history Publication Directory Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input directory: string
+ * @returns historyPublicationDirectoryIdentityの計算結果を返す。
+ * @precondition 「directory: string」がhistoryPublicationDirectoryIdentityの入力契約を満たす。
+ * @postcondition historyPublicationDirectoryIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: historyPublicationDirectoryIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: historyPublicationDirectoryIdentityは独自の失敗分岐を所有しない。
+ * @invariant historyPublicationDirectoryIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security historyPublicationDirectoryIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: historyPublicationDirectoryIdentityは共有非同期状態を持たない同期処理である。
+ */
 function historyPublicationDirectoryIdentity(directory: string) {
   const metadata = historyPublicationFs.lstatSync(directory, { bigint: true });
   if (!metadata.isDirectory() || metadata.isSymbolicLink()) return null;
@@ -1956,6 +3268,22 @@ function historyPublicationDirectoryIdentity(directory: string) {
   });
 }
 
+/**
+ * history Publication Same Directory Identityを決定する。
+ *
+ * @responsibility history Publication Same Directory Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input left: unknown、right: unknown
+ * @returns historyPublicationSameDirectoryIdentityの計算結果を返す。
+ * @precondition 「left: unknown、right: unknown」がhistoryPublicationSameDirectoryIdentityの入力契約を満たす。
+ * @postcondition historyPublicationSameDirectoryIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: historyPublicationSameDirectoryIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: historyPublicationSameDirectoryIdentityは独自の失敗分岐を所有しない。
+ * @invariant historyPublicationSameDirectoryIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security historyPublicationSameDirectoryIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: historyPublicationSameDirectoryIdentityは共有非同期状態を持たない同期処理である。
+ */
 function historyPublicationSameDirectoryIdentity(
   left: unknown,
   right: unknown,
@@ -1969,6 +3297,22 @@ function historyPublicationSameDirectoryIdentity(
   );
 }
 
+/**
+ * History Publication Settlement For Current Invocationを確認する。
+ *
+ * @responsibility History Publication Settlement For Current Invocationの確認根拠、成立条件、観測不能境界を所有する。
+ * @trace ARCH-000008
+ * @input directory: string、initialDirectoryIdentity: unknown
+ * @returns confirmHistoryPublicationSettlementForCurrentInvocationの計算結果を返す。
+ * @precondition 「directory: string、initialDirectoryIdentity: unknown」がconfirmHistoryPublicationSettlementForCurrentInvocationの入力契約を満たす。
+ * @postcondition confirmHistoryPublicationSettlementForCurrentInvocationの責務を完了した結果だけを返す。
+ * @effect confirmHistoryPublicationSettlementForCurrentInvocationはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: confirmHistoryPublicationSettlementForCurrentInvocationは独自の失敗分岐を所有しない。
+ * @invariant confirmHistoryPublicationSettlementForCurrentInvocationは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security confirmHistoryPublicationSettlementForCurrentInvocationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: confirmHistoryPublicationSettlementForCurrentInvocationは共有非同期状態を持たない同期処理である。
+ */
 function confirmHistoryPublicationSettlementForCurrentInvocation(
   directory: string,
   initialDirectoryIdentity: unknown,
@@ -2007,6 +3351,22 @@ const productionHistoryPublicationOperations: RepairHistoryPublicationOperations
     injectFault: () => {},
   });
 
+/**
+ * Operationを読み取る。
+ *
+ * @responsibility Operationの読取り元、上限、読取不能時の結果境界を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、directoryName: string、verifyHistory: DockerDesktopRepairHistoryVerifier、shouldAllowPendingSessionHandoff、shouldAllowKnownHistoryPreparation
+ * @returns DockerDesktopRepairOperation | nullを返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary、directoryName: string、verifyHistory: DockerDesktopRepairHistoryVerifier、shouldAllowPendingSessionHandoff、shouldAllowKnownHistoryPreparation」がreadOperationの入力契約を満たす。
+ * @postcondition readOperationの責務を完了した結果だけを返す。
+ * @effect N/A: readOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: readOperationは独自の失敗分岐を所有しない。
+ * @invariant readOperationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security readOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readOperationは共有非同期状態を持たない同期処理である。
+ */
 function readOperation(
   boundary: DockerDesktopRepairRecordBoundary,
   directoryName: string,
@@ -2115,6 +3475,8 @@ function readOperation(
   const handoffNames = historyEntries.map((entry) => entry.name).sort();
   let handoffTipSha256 = adoptionSha256;
   let previousRelease = adopting;
+  const continuationAuthorities: DockerDesktopRepairContinuationAuthority[] =
+    [];
   const recordedOriginPolicySha256 = originalDockerPolicySha256(
     boundary.runtimeStateRoot,
     directoryName,
@@ -2128,6 +3490,25 @@ function readOperation(
     isAdoptionV2 || isAdoptionV3
       ? String(adoption.adoptingLocalUserBindingHash)
       : boundary.localUserBindingHash;
+  const originAuthority = continuationAuthorityForRelease(
+    isAdoptionV2 || isAdoptionV3
+      ? String(adoption.originLocalUserBindingHash)
+      : boundary.localUserBindingHash,
+    origin,
+  );
+  const adoptingAuthority = continuationAuthorityForRelease(
+    historySession,
+    adopting,
+  );
+  if (originAuthority) continuationAuthorities.push(originAuthority);
+  if (
+    adoptingAuthority &&
+    !continuationAuthorities.some(
+      (candidate) =>
+        JSON.stringify(candidate) === JSON.stringify(adoptingAuthority),
+    )
+  )
+    continuationAuthorities.push(adoptingAuthority);
   const visitedSessions = new Set<string>();
   if (isAdoptionV2 || isAdoptionV3) {
     if (
@@ -2195,6 +3576,12 @@ function readOperation(
       return null;
     previousRelease = handoffRelease;
     historySession = String(handoff.toLocalUserBindingHash);
+    const handoffAuthority = continuationAuthorityForRelease(
+      historySession,
+      handoffRelease,
+    );
+    if (!handoffAuthority) return null;
+    continuationAuthorities.push(handoffAuthority);
     visitedSessions.add(historySession);
     handoffTipSha256 = createHash("sha256").update(bytes).digest("hex");
   }
@@ -2292,6 +3679,28 @@ function readOperation(
     return null;
   const isCurrentSessionBound =
     historySession === boundary.localUserBindingHash;
+  if (isCurrentSessionBound) {
+    const currentBoundaryAuthority: DockerDesktopRepairContinuationAuthority =
+      Object.freeze({
+        localUserBindingHash: boundary.localUserBindingHash,
+        manifestHash: boundary.crddManifestHash,
+        releaseSequence: boundary.crddReleaseSequence,
+        runtimeExecutionIdentitySha256: boundary.runtimeExecutionIdentitySha256,
+      });
+    if (
+      !continuationAuthorities.some(
+        (candidate) =>
+          candidate.localUserBindingHash ===
+            currentBoundaryAuthority.localUserBindingHash &&
+          candidate.manifestHash === currentBoundaryAuthority.manifestHash &&
+          candidate.releaseSequence ===
+            currentBoundaryAuthority.releaseSequence &&
+          candidate.runtimeExecutionIdentitySha256 ===
+            currentBoundaryAuthority.runtimeExecutionIdentitySha256,
+      )
+    )
+      continuationAuthorities.push(currentBoundaryAuthority);
+  }
   if (
     !closurePresent &&
     !isCurrentSessionBound &&
@@ -2299,7 +3708,7 @@ function readOperation(
   )
     return null;
   // Original stage and ledger are never rewritten or upgraded to confirmed.
-  return Object.freeze({
+  const validatedOperation: DockerDesktopRepairOperation = Object.freeze({
     ...operation,
     history: Object.freeze({
       adoptionSha256,
@@ -2309,13 +3718,34 @@ function readOperation(
         operation.originLocalUserBindingHash ?? boundary.localUserBindingHash,
       currentLocalUserBindingHash: historySession,
       currentSessionBound: isCurrentSessionBound,
+      ...(continuationAuthorities.length > 0
+        ? { continuationAuthorities: Object.freeze(continuationAuthorities) }
+        : {}),
       closed: closurePresent,
       liveRunIdentity,
       staleState,
     }),
   });
+  verifiedContinuationAuthorityOperations.add(validatedOperation);
+  return validatedOperation;
 }
 
+/**
+ * Docker Desktop Repair Historical Operationを観測する。
+ *
+ * @responsibility Docker Desktop Repair Historical Operationの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、repairId: string、originManifest: unknown、verifyHistory: DockerDesktopRepairHistoryVerifier
+ * @returns DockerDesktopRepairOperation | nullを返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary、repairId: string、originManifest: unknown、verifyHistory: DockerDesktopRepairHistoryVerifier」がinspectDockerDesktopRepairHistoricalOperationの入力契約を満たす。
+ * @postcondition inspectDockerDesktopRepairHistoricalOperationの責務を完了した結果だけを返す。
+ * @effect N/A: inspectDockerDesktopRepairHistoricalOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectDockerDesktopRepairHistoricalOperationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectDockerDesktopRepairHistoricalOperationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security inspectDockerDesktopRepairHistoricalOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectDockerDesktopRepairHistoricalOperationは共有非同期状態を持たない同期処理である。
+ */
 export function inspectDockerDesktopRepairHistoricalOperation(
   boundary: DockerDesktopRepairRecordBoundary,
   repairId: string,
@@ -2366,6 +3796,22 @@ export function inspectDockerDesktopRepairHistoricalOperation(
   }
 }
 
+/**
+ * History Fileを書き込む。
+ *
+ * @responsibility History Fileの書込み先、確定条件、部分書込みの失敗境界を所有する。
+ * @trace ARCH-000008
+ * @input directory: string、name: string、bytes: Buffer
+ * @returns writeHistoryFileの計算結果を返す。
+ * @precondition 「directory: string、name: string、bytes: Buffer」がwriteHistoryFileの入力契約を満たす。
+ * @postcondition writeHistoryFileの責務を完了した結果だけを返す。
+ * @effect N/A: writeHistoryFileは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: writeHistoryFileは独自の失敗分岐を所有しない。
+ * @invariant writeHistoryFileは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security writeHistoryFileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: writeHistoryFileは共有非同期状態を持たない同期処理である。
+ */
 function writeHistoryFile(directory: string, name: string, bytes: Buffer) {
   const target = path.win32.join(directory, name);
   const preparation = path.win32.join(directory, historyPreparationName(name));
@@ -2379,6 +3825,22 @@ function writeHistoryFile(directory: string, name: string, bytes: Buffer) {
   );
 }
 
+/**
+ * Published History Residuesを終端状態へ確定する。
+ *
+ * @responsibility Published History Residuesの確定条件、最終状態、未解決義務の境界を所有する。
+ * @trace ARCH-000008
+ * @input directory: string
+ * @returns settlePublishedHistoryResiduesの計算結果を返す。
+ * @precondition 「directory: string」がsettlePublishedHistoryResiduesの入力契約を満たす。
+ * @postcondition settlePublishedHistoryResiduesの責務を完了した結果だけを返す。
+ * @effect N/A: settlePublishedHistoryResiduesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: settlePublishedHistoryResiduesは独自の失敗分岐を所有しない。
+ * @invariant settlePublishedHistoryResiduesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security settlePublishedHistoryResiduesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: settlePublishedHistoryResiduesは共有非同期状態を持たない同期処理である。
+ */
 function settlePublishedHistoryResidues(directory: string) {
   const states = classifyHistoryPreparations(directory);
   if (states === null) return false;
@@ -2391,6 +3853,22 @@ function settlePublishedHistoryResidues(directory: string) {
   return true;
 }
 
+/**
+ * Docker Desktop Repair Historical Adoptionを耐久保存する。
+ *
+ * @responsibility Docker Desktop Repair Historical Adoptionの保存Identity、確定条件、部分書込みの失敗境界を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、originManifest: unknown、adoptingManifest: unknown、verifyHistory: DockerDesktopRepairHistoryVerifier
+ * @returns DockerDesktopRepairOperation | nullを返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、originManifest: unknown、adoptingManifest: unknown、verifyHistory: DockerDesktopRepairHistoryVerifier」がpersistDockerDesktopRepairHistoricalAdoptionの入力契約を満たす。
+ * @postcondition persistDockerDesktopRepairHistoricalAdoptionの責務を完了した結果だけを返す。
+ * @effect N/A: persistDockerDesktopRepairHistoricalAdoptionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure persistDockerDesktopRepairHistoricalAdoptionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant persistDockerDesktopRepairHistoricalAdoptionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security persistDockerDesktopRepairHistoricalAdoptionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: persistDockerDesktopRepairHistoricalAdoptionは共有非同期状態を持たない同期処理である。
+ */
 export function persistDockerDesktopRepairHistoricalAdoption(
   boundary: DockerDesktopRepairRecordBoundary,
   operation: DockerDesktopRepairOperation,
@@ -2521,6 +3999,22 @@ export function persistDockerDesktopRepairHistoricalAdoption(
   }
 }
 
+/**
+ * Docker Desktop Repair Historical Closureを耐久保存する。
+ *
+ * @responsibility Docker Desktop Repair Historical Closureの保存Identity、確定条件、部分書込みの失敗境界を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、observation: Readonly<{ liveRunIdentity: DockerDesktopRepairDirectoryIdentity; staleState: "absent" | "retained"; }>、closingManifest: unknown、verifyHistory: DockerDesktopRepairHistoryVerifier
+ * @returns DockerDesktopRepairOperation | nullを返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、observation: Readonly<{ liveRunIdentity: DockerDesktopRepairDirectoryIdentity; staleState: "absent" | "retained"; }>、closingManifest: unknown、verifyHistory: DockerDesktopRepairHistoryVerifier」がpersistDockerDesktopRepairHistoricalClosureの入力契約を満たす。
+ * @postcondition persistDockerDesktopRepairHistoricalClosureの責務を完了した結果だけを返す。
+ * @effect N/A: persistDockerDesktopRepairHistoricalClosureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure persistDockerDesktopRepairHistoricalClosureは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant persistDockerDesktopRepairHistoricalClosureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security persistDockerDesktopRepairHistoricalClosureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: persistDockerDesktopRepairHistoricalClosureは共有非同期状態を持たない同期処理である。
+ */
 export function persistDockerDesktopRepairHistoricalClosure(
   boundary: DockerDesktopRepairRecordBoundary,
   operation: DockerDesktopRepairOperation,
@@ -2584,6 +4078,22 @@ export function persistDockerDesktopRepairHistoricalClosure(
   }
 }
 
+/**
+ * inventory Docker Desktop Repair Operationsを決定する。
+ *
+ * @responsibility inventory Docker Desktop Repair Operationsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、verifyHistory: DockerDesktopRepairHistoryVerifier
+ * @returns inventoryDockerDesktopRepairOperationsの計算結果を返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary、verifyHistory: DockerDesktopRepairHistoryVerifier」がinventoryDockerDesktopRepairOperationsの入力契約を満たす。
+ * @postcondition inventoryDockerDesktopRepairOperationsの責務を完了した結果だけを返す。
+ * @effect N/A: inventoryDockerDesktopRepairOperationsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inventoryDockerDesktopRepairOperationsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inventoryDockerDesktopRepairOperationsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security inventoryDockerDesktopRepairOperationsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inventoryDockerDesktopRepairOperationsは共有非同期状態を持たない同期処理である。
+ */
 export function inventoryDockerDesktopRepairOperations(
   boundary: DockerDesktopRepairRecordBoundary,
   verifyHistory: DockerDesktopRepairHistoryVerifier = verifyPinnedHistory,
@@ -2612,6 +4122,22 @@ export function inventoryDockerDesktopRepairOperations(
   }
 }
 
+/**
+ * can Create Docker Desktop Repair Operationを決定する。
+ *
+ * @responsibility can Create Docker Desktop Repair Operationの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary
+ * @returns canCreateDockerDesktopRepairOperationの計算結果を返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary」がcanCreateDockerDesktopRepairOperationの入力契約を満たす。
+ * @postcondition canCreateDockerDesktopRepairOperationの責務を完了した結果だけを返す。
+ * @effect N/A: canCreateDockerDesktopRepairOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: canCreateDockerDesktopRepairOperationは独自の失敗分岐を所有しない。
+ * @invariant canCreateDockerDesktopRepairOperationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security canCreateDockerDesktopRepairOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: canCreateDockerDesktopRepairOperationは共有非同期状態を持たない同期処理である。
+ */
 export function canCreateDockerDesktopRepairOperation(
   boundary: DockerDesktopRepairRecordBoundary,
 ) {
@@ -2622,6 +4148,22 @@ export function canCreateDockerDesktopRepairOperation(
   );
 }
 
+/**
+ * Docker Desktop Repair 記録 Capacityが存在するかを判定する。
+ *
+ * @responsibility Docker Desktop Repair 記録 Capacityの存在条件とtrue／false境界を所有する。
+ * @trace ARCH-000008
+ * @input operation: DockerDesktopRepairOperation、requiredRecords: number
+ * @returns hasDockerDesktopRepairRecordCapacityの計算結果を返す。
+ * @precondition 「operation: DockerDesktopRepairOperation、requiredRecords: number」がhasDockerDesktopRepairRecordCapacityの入力契約を満たす。
+ * @postcondition hasDockerDesktopRepairRecordCapacityの責務を完了した結果だけを返す。
+ * @effect N/A: hasDockerDesktopRepairRecordCapacityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hasDockerDesktopRepairRecordCapacityは独自の失敗分岐を所有しない。
+ * @invariant hasDockerDesktopRepairRecordCapacityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security hasDockerDesktopRepairRecordCapacityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hasDockerDesktopRepairRecordCapacityは共有非同期状態を持たない同期処理である。
+ */
 export function hasDockerDesktopRepairRecordCapacity(
   operation: DockerDesktopRepairOperation,
   requiredRecords: number,
@@ -2633,6 +4175,17 @@ export function hasDockerDesktopRepairRecordCapacity(
   );
 }
 
+/**
+ * docker-desktop-repair-record-storeで使用するDocker Desktop Repair Resume Classificationの値契約を定義する。
+ *
+ * @responsibility Docker Desktop Repair Resume ClassificationのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerDesktopRepairResumeClassificationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerDesktopRepairResumeClassificationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerDesktopRepairResumeClassificationの宣言は外部境界を開かない。
+ * @security DockerDesktopRepairResumeClassificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerDesktopRepairResumeClassificationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerDesktopRepairResumeClassification = Readonly<{
   state:
     | "manual_block"
@@ -2651,6 +4204,22 @@ export type DockerDesktopRepairResumeClassification = Readonly<{
   nextStage: DockerDesktopRepairStage | null;
 }>;
 
+/**
+ * Docker Desktop Repair Resumeを分類する。
+ *
+ * @responsibility Docker Desktop Repair Resumeの分類条件、相互排他的な結果、判断不能境界を所有する。
+ * @trace ARCH-000008
+ * @input operation: DockerDesktopRepairOperation
+ * @returns DockerDesktopRepairResumeClassificationを返す。
+ * @precondition 「operation: DockerDesktopRepairOperation」がclassifyDockerDesktopRepairResumeの入力契約を満たす。
+ * @postcondition classifyDockerDesktopRepairResumeの責務を完了した結果だけを返す。
+ * @effect classifyDockerDesktopRepairResumeはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: classifyDockerDesktopRepairResumeは独自の失敗分岐を所有しない。
+ * @invariant classifyDockerDesktopRepairResumeは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security classifyDockerDesktopRepairResumeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: classifyDockerDesktopRepairResumeは共有非同期状態を持たない同期処理である。
+ */
 export function classifyDockerDesktopRepairResume(
   operation: DockerDesktopRepairOperation,
 ): DockerDesktopRepairResumeClassification {
@@ -2733,6 +4302,22 @@ export function classifyDockerDesktopRepairResume(
   return result("manual_block");
 }
 
+/**
+ * required Docker Desktop Repair Records Through Safe Stageを決定する。
+ *
+ * @responsibility required Docker Desktop Repair Records Through Safe Stageの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input action: Extract< DockerDesktopRepairEffectAction, | "official_shutdown" | "native_termination" | "wsl_termination" | "runtime_directory_rename" | "desktop_launch" >
+ * @returns requiredDockerDesktopRepairRecordsThroughSafeStageの計算結果を返す。
+ * @precondition 「action: Extract< DockerDesktopRepairEffectAction, | "official_shutdown" | "native_termination" | "wsl_termination" | "runtime_directory_rename" | "desktop_launch" >」がrequiredDockerDesktopRepairRecordsThroughSafeStageの入力契約を満たす。
+ * @postcondition requiredDockerDesktopRepairRecordsThroughSafeStageの責務を完了した結果だけを返す。
+ * @effect requiredDockerDesktopRepairRecordsThroughSafeStageはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: requiredDockerDesktopRepairRecordsThroughSafeStageは独自の失敗分岐を所有しない。
+ * @invariant requiredDockerDesktopRepairRecordsThroughSafeStageは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security requiredDockerDesktopRepairRecordsThroughSafeStageはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: requiredDockerDesktopRepairRecordsThroughSafeStageは共有非同期状態を持たない同期処理である。
+ */
 export function requiredDockerDesktopRepairRecordsThroughSafeStage(
   action: Extract<
     DockerDesktopRepairEffectAction,
@@ -2761,6 +4346,22 @@ export function requiredDockerDesktopRepairRecordsThroughSafeStage(
   return remainingEffectRecords + remainingStageRecords;
 }
 
+/**
+ * Docker Desktop Repair Operationを構築する。
+ *
+ * @responsibility Docker Desktop Repair Operationの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、runIdentity: DockerDesktopRepairDirectoryIdentity、ledger: DockerDesktopRepairLedgerSnapshot
+ * @returns createDockerDesktopRepairOperationの計算結果を返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary、runIdentity: DockerDesktopRepairDirectoryIdentity、ledger: DockerDesktopRepairLedgerSnapshot」がcreateDockerDesktopRepairOperationの入力契約を満たす。
+ * @postcondition createDockerDesktopRepairOperationの責務を完了した結果だけを返す。
+ * @effect N/A: createDockerDesktopRepairOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createDockerDesktopRepairOperationは独自の失敗分岐を所有しない。
+ * @invariant createDockerDesktopRepairOperationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security createDockerDesktopRepairOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createDockerDesktopRepairOperationは共有非同期状態を持たない同期処理である。
+ */
 export function createDockerDesktopRepairOperation(
   boundary: DockerDesktopRepairRecordBoundary,
   runIdentity: DockerDesktopRepairDirectoryIdentity,
@@ -2789,6 +4390,22 @@ export function createDockerDesktopRepairOperation(
   });
 }
 
+/**
+ * Docker Desktop Repair Stageを耐久保存する。
+ *
+ * @responsibility Docker Desktop Repair Stageの保存Identity、確定条件、部分書込みの失敗境界を所有する。
+ * @trace ARCH-000008
+ * @input boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、stage: DockerDesktopRepairStage、ledger: DockerDesktopRepairLedgerSnapshot
+ * @returns persistDockerDesktopRepairStageの計算結果を返す。
+ * @precondition 「boundary: DockerDesktopRepairRecordBoundary、operation: DockerDesktopRepairOperation、stage: DockerDesktopRepairStage、ledger: DockerDesktopRepairLedgerSnapshot」がpersistDockerDesktopRepairStageの入力契約を満たす。
+ * @postcondition persistDockerDesktopRepairStageの責務を完了した結果だけを返す。
+ * @effect persistDockerDesktopRepairStageはFilesystemの読取りまたは書込みを実行する。
+ * @failure persistDockerDesktopRepairStageは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant persistDockerDesktopRepairStageは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security persistDockerDesktopRepairStageはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: persistDockerDesktopRepairStageは共有非同期状態を持たない同期処理である。
+ */
 export function persistDockerDesktopRepairStage(
   boundary: DockerDesktopRepairRecordBoundary,
   operation: DockerDesktopRepairOperation,
@@ -2882,6 +4499,22 @@ export function persistDockerDesktopRepairStage(
   }
 }
 
+/**
+ * Docker Desktop Repair Idを構造化値へ解析する。
+ *
+ * @responsibility Docker Desktop Repair Idの入力文法、解析結果、不正文法の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns parseDockerDesktopRepairIdの計算結果を返す。
+ * @precondition 「value: unknown」がparseDockerDesktopRepairIdの入力契約を満たす。
+ * @postcondition parseDockerDesktopRepairIdの責務を完了した結果だけを返す。
+ * @effect N/A: parseDockerDesktopRepairIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: parseDockerDesktopRepairIdは独自の失敗分岐を所有しない。
+ * @invariant parseDockerDesktopRepairIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security parseDockerDesktopRepairIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: parseDockerDesktopRepairIdは共有非同期状態を持たない同期処理である。
+ */
 export function parseDockerDesktopRepairId(value: unknown) {
   const matched =
     typeof value === "string"
@@ -2890,6 +4523,22 @@ export function parseDockerDesktopRepairId(value: unknown) {
   return matched?.[1] ?? null;
 }
 
+/**
+ * Docker Desktop Repair 記録 Store 契約の公開契約を記述する。
+ *
+ * @responsibility Docker Desktop Repair 記録 Store 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeDockerDesktopRepairRecordStoreContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeDockerDesktopRepairRecordStoreContractの入力契約を満たす。
+ * @postcondition describeDockerDesktopRepairRecordStoreContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeDockerDesktopRepairRecordStoreContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeDockerDesktopRepairRecordStoreContractは独自の失敗分岐を所有しない。
+ * @invariant describeDockerDesktopRepairRecordStoreContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security describeDockerDesktopRepairRecordStoreContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeDockerDesktopRepairRecordStoreContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeDockerDesktopRepairRecordStoreContract() {
   return Object.freeze({
     schema: DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA,

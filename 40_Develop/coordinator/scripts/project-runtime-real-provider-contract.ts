@@ -1,30 +1,90 @@
+/**
+ * project-runtime-real-provider-contractに属する責務をまとめる。
+ *
+ * @responsibility JsonRecordを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
-
-import { startOwnedWindowsProcessTreeTermination } from "../src/security/docker-owned-process.ts";
 import { inspectMcpProjectRuntimeObjectiveResult } from "../../mcp/src/index.ts";
+import { startOwnedWindowsProcessTreeTermination } from "../src/security/docker-owned-process.ts";
 import { inspectRepositoryIdentityCandidate } from "../src/security/repository-operation-runtime.ts";
 
+/**
+ * project-runtime-real-provider-contractで使用するJson 記録の値契約を定義する。
+ *
+ * @responsibility Json 記録のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape JsonRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant JsonRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: JsonRecordの宣言は外部境界を開かない。
+ * @security N/A: JsonRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility JsonRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type JsonRecord = Readonly<Record<string, unknown>>;
 
+/**
+ * project-runtime-real-provider-contractで使用するSelection Runtime Eventの値契約を定義する。
+ *
+ * @responsibility Selection Runtime EventのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape SelectionRuntimeEventが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SelectionRuntimeEventで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SelectionRuntimeEventの宣言は外部境界を開かない。
+ * @security N/A: SelectionRuntimeEventはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility SelectionRuntimeEventの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type SelectionRuntimeEvent = Readonly<{
   event: "selection";
   taskRole: "executor" | "reviewer";
   provider: "codex" | "claude";
   operationId: null;
 }>;
+/**
+ * project-runtime-real-provider-contractで使用するProcess Started Runtime Eventの値契約を定義する。
+ *
+ * @responsibility Process Started Runtime EventのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ProcessStartedRuntimeEventが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProcessStartedRuntimeEventで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProcessStartedRuntimeEventの宣言は外部境界を開かない。
+ * @security N/A: ProcessStartedRuntimeEventはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProcessStartedRuntimeEventの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ProcessStartedRuntimeEvent = Readonly<{
   event: "process_started";
   taskRole: "executor" | "reviewer";
   provider: "codex" | "claude";
   operationId: string;
 }>;
+/**
+ * project-runtime-real-provider-contractで使用するVerified Runtime Eventの値契約を定義する。
+ *
+ * @responsibility Verified Runtime EventのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape VerifiedRuntimeEventが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant VerifiedRuntimeEventで宣言した値と責務の対応を維持する。
+ * @boundary N/A: VerifiedRuntimeEventの宣言は外部境界を開かない。
+ * @security N/A: VerifiedRuntimeEventはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility VerifiedRuntimeEventの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type VerifiedRuntimeEvent =
   | SelectionRuntimeEvent
   | ProcessStartedRuntimeEvent;
+/**
+ * project-runtime-real-provider-contractで使用する回復 Eventの値契約を定義する。
+ *
+ * @responsibility 回復 EventのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape RecoveryEventが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RecoveryEventで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RecoveryEventの宣言は外部境界を開かない。
+ * @security N/A: RecoveryEventはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RecoveryEventの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RecoveryEvent = Readonly<{
   phase:
     | "required"
@@ -45,6 +105,17 @@ type RecoveryEvent = Readonly<{
 
 const PROJECT_OPERATION_ID = /^operation-[a-f0-9]{40}$/u;
 
+/**
+ * project-runtime-real-provider-contractで使用するPublic Process Observationの値契約を定義する。
+ *
+ * @responsibility Public Process ObservationのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape PublicProcessObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant PublicProcessObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: PublicProcessObservationの宣言は外部境界を開かない。
+ * @security N/A: PublicProcessObservationはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility PublicProcessObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type PublicProcessObservation = Readonly<{
   exit: Readonly<{ code: number | null; signal: string | null }> | null;
   launchError: string | null;
@@ -131,6 +202,22 @@ const RECOVERY_PHASES = new Set<RecoveryEvent["phase"]>([
   "retry_ready",
 ]);
 
+/**
+ * Keysが完全一致するか判定する。
+ *
+ * @responsibility Keysの比較対象、完全一致条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input record: JsonRecord、keys: readonly string[]
+ * @returns exactKeysの計算結果を返す。
+ * @precondition 「record: JsonRecord、keys: readonly string[]」がexactKeysの入力契約を満たす。
+ * @postcondition exactKeysの責務を完了した結果だけを返す。
+ * @effect N/A: exactKeysは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: exactKeysは独自の失敗分岐を所有しない。
+ * @invariant exactKeysは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: exactKeysはProcess内の同一Subsystemで完結する。
+ * @security N/A: exactKeysはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: exactKeysは共有非同期状態を持たない同期処理である。
+ */
 function exactKeys(record: JsonRecord, keys: readonly string[]) {
   return (
     Object.keys(record).length === keys.length &&
@@ -139,6 +226,22 @@ function exactKeys(record: JsonRecord, keys: readonly string[]) {
       .every((key, index) => key === keys[index])
   );
 }
+/**
+ * closed Idを決定する。
+ *
+ * @responsibility closed Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、maximum
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown、maximum」がclosedIdの入力契約を満たす。
+ * @postcondition closedIdの責務を完了した結果だけを返す。
+ * @effect N/A: closedIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: closedIdは独自の失敗分岐を所有しない。
+ * @invariant closedIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: closedIdはProcess内の同一Subsystemで完結する。
+ * @security N/A: closedIdはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: closedIdは共有非同期状態を持たない同期処理である。
+ */
 function closedId(value: unknown, maximum = 512): value is string {
   return (
     typeof value === "string" &&
@@ -147,12 +250,60 @@ function closedId(value: unknown, maximum = 512): value is string {
     /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value)
   );
 }
+/**
+ * roleを決定する。
+ *
+ * @responsibility roleの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is "executor" | "reviewer"を返す。
+ * @precondition 「value: unknown」がroleの入力契約を満たす。
+ * @postcondition roleの責務を完了した結果だけを返す。
+ * @effect N/A: roleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: roleは独自の失敗分岐を所有しない。
+ * @invariant roleは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: roleはProcess内の同一Subsystemで完結する。
+ * @security N/A: roleはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: roleは共有非同期状態を持たない同期処理である。
+ */
 function role(value: unknown): value is "executor" | "reviewer" {
   return value === "executor" || value === "reviewer";
 }
+/**
+ * providerを決定する。
+ *
+ * @responsibility providerの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is "codex" | "claude"を返す。
+ * @precondition 「value: unknown」がproviderの入力契約を満たす。
+ * @postcondition providerの責務を完了した結果だけを返す。
+ * @effect N/A: providerは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: providerは独自の失敗分岐を所有しない。
+ * @invariant providerは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: providerはProcess内の同一Subsystemで完結する。
+ * @security N/A: providerはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: providerは共有非同期状態を持たない同期処理である。
+ */
 function provider(value: unknown): value is "codex" | "claude" {
   return value === "codex" || value === "claude";
 }
+/**
+ * Json 記録を構造化値へ解析する。
+ *
+ * @responsibility Json 記録の入力文法、解析結果、不正文法の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input value: string
+ * @returns JsonRecord | nullを返す。
+ * @precondition 「value: string」がparseJsonRecordの入力契約を満たす。
+ * @postcondition parseJsonRecordの責務を完了した結果だけを返す。
+ * @effect N/A: parseJsonRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure parseJsonRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant parseJsonRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseJsonRecordはProcess内の同一Subsystemで完結する。
+ * @security N/A: parseJsonRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: parseJsonRecordは共有非同期状態を持たない同期処理である。
+ */
 function parseJsonRecord(value: string): JsonRecord | null {
   try {
     const parsed = JSON.parse(value) as unknown;
@@ -164,6 +315,22 @@ function parseJsonRecord(value: string): JsonRecord | null {
   }
 }
 
+/**
+ * Known Diagnostic Lineを構造化値へ解析する。
+ *
+ * @responsibility Known Diagnostic Lineの入力文法、解析結果、不正文法の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input line: string
+ * @returns | Readonly<{ kind: "ignored" }> | Readonly<{ kind: "violation" }> | Readonly<{ kind: "runtime"; event: VerifiedRuntimeEvent }> | Readonly<{ kind: "recovery"; event: RecoveryEvent }>を返す。
+ * @precondition 「line: string」がparseKnownDiagnosticLineの入力契約を満たす。
+ * @postcondition parseKnownDiagnosticLineの責務を完了した結果だけを返す。
+ * @effect N/A: parseKnownDiagnosticLineは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: parseKnownDiagnosticLineは独自の失敗分岐を所有しない。
+ * @invariant parseKnownDiagnosticLineは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseKnownDiagnosticLineはProcess内の同一Subsystemで完結する。
+ * @security N/A: parseKnownDiagnosticLineはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: parseKnownDiagnosticLineは共有非同期状態を持たない同期処理である。
+ */
 function parseKnownDiagnosticLine(
   line: string,
 ):
@@ -274,6 +441,22 @@ function parseKnownDiagnosticLine(
   });
 }
 
+/**
+ * Public Mcp Processを観測する。
+ *
+ * @responsibility Public Mcp Processの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input child: ChildProcessWithoutNullStreams、options: Readonly<{ maximumOutputBytes: number; timeoutMs: number; terminationGraceMs?: number; closeInputWhen?: (output: Readonly<{ stdout: string }>) => boolean; onVerifiedRuntimeEvent?: ( event: VerifiedRuntimeEvent, ) => "continue" | "close_input" | "terminate_process_tree"; startProcessTreeTermination?: typeof startOwnedWindowsProcessTreeTermination; }>
+ * @returns Promise<PublicProcessObservation>を返す。
+ * @precondition 「child: ChildProcessWithoutNullStreams、options: Readonly<{ maximumOutputBytes: number; timeoutMs: number; terminationGraceMs?: number; closeInputWhen?: (output: Readonly<{ stdout: string }>) => boolean; onVerifiedRuntimeEvent?: ( event: VerifiedRuntimeEvent, ) => "continue" | "close_input" | "terminate_process_tree"; startProcessTreeTermination?: typeof startOwnedWindowsProcessTreeTermination; }>」がobservePublicMcpProcessの入力契約を満たす。
+ * @postcondition observePublicMcpProcessの責務を完了した結果だけを返す。
+ * @effect N/A: observePublicMcpProcessは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure observePublicMcpProcessは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observePublicMcpProcessは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observePublicMcpProcessはProcess内の同一Subsystemで完結する。
+ * @security N/A: observePublicMcpProcessはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency observePublicMcpProcessは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function observePublicMcpProcess(
   child: ChildProcessWithoutNullStreams,
   options: Readonly<{
@@ -520,6 +703,22 @@ export async function observePublicMcpProcess(
     if (value === null) transferToTerminalErrorSinks();
     resolveClosed?.(value);
   };
+  /**
+   * on Child Closeを決定する。
+   *
+   * @responsibility on Child Closeの導出に必要な入力、判定規則、返却結果の境界を所有する。
+   * @trace ARCH-000004
+   * @input code: number | null、signal: string | null
+   * @returns N/A: onChildCloseは戻り値を返さない。
+   * @precondition 「code: number | null、signal: string | null」がonChildCloseの入力契約を満たす。
+   * @postcondition onChildCloseの責務を完了して呼出し元へ制御を戻す。
+   * @effect N/A: onChildCloseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @failure N/A: onChildCloseは独自の失敗分岐を所有しない。
+   * @invariant onChildCloseは入力から導いた結果以外の共有状態を変更しない。
+   * @boundary N/A: onChildCloseはProcess内の同一Subsystemで完結する。
+   * @security N/A: onChildCloseはAuthority、秘密値または信頼判断を扱わない。
+   * @concurrency N/A: onChildCloseは共有非同期状態を持たない同期処理である。
+   */
   function onChildClose(code: number | null, signal: string | null) {
     settleCloseObservation({ code, signal });
   }
@@ -606,6 +805,22 @@ export async function observePublicMcpProcess(
   });
 }
 
+/**
+ * Canonical Repository Snapshotを固定Snapshotとして取得する。
+ *
+ * @responsibility Canonical Repository Snapshotの観測範囲、Snapshot Identity、変更検出境界を所有する。
+ * @trace ARCH-000004
+ * @input repositoryRoot: string
+ * @returns captureCanonicalRepositorySnapshotの計算結果を返す。
+ * @precondition 「repositoryRoot: string」がcaptureCanonicalRepositorySnapshotの入力契約を満たす。
+ * @postcondition captureCanonicalRepositorySnapshotの責務を完了した結果だけを返す。
+ * @effect captureCanonicalRepositorySnapshotはFilesystemの読取りまたは書込みを実行する。
+ * @failure captureCanonicalRepositorySnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant captureCanonicalRepositorySnapshotは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: captureCanonicalRepositorySnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: captureCanonicalRepositorySnapshotは共有非同期状態を持たない同期処理である。
+ */
 export function captureCanonicalRepositorySnapshot(repositoryRoot: string) {
   const root = fs.realpathSync.native(repositoryRoot);
   const identity = inspectRepositoryIdentityCandidate(root);
@@ -658,6 +873,22 @@ export function captureCanonicalRepositorySnapshot(repositoryRoot: string) {
   });
 }
 
+/**
+ * semantic 結果を決定する。
+ *
+ * @responsibility semantic 結果の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input response: unknown、expectedId: string
+ * @returns JsonRecord | nullを返す。
+ * @precondition 「response: unknown、expectedId: string」がsemanticResultの入力契約を満たす。
+ * @postcondition semanticResultの責務を完了した結果だけを返す。
+ * @effect N/A: semanticResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: semanticResultは独自の失敗分岐を所有しない。
+ * @invariant semanticResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: semanticResultはProcess内の同一Subsystemで完結する。
+ * @security N/A: semanticResultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: semanticResultは共有非同期状態を持たない同期処理である。
+ */
 function semanticResult(
   response: unknown,
   expectedId: string,
@@ -678,6 +909,17 @@ function semanticResult(
   return inspectMcpProjectRuntimeObjectiveResult(structured);
 }
 
+/**
+ * project-runtime-real-provider-contractで使用するExpected Objectiveの値契約を定義する。
+ *
+ * @responsibility Expected ObjectiveのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ExpectedObjectiveが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ExpectedObjectiveで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ExpectedObjectiveの宣言は外部境界を開かない。
+ * @security N/A: ExpectedObjectiveはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ExpectedObjectiveの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ExpectedObjective = Readonly<{
   responseId: string;
   requestId: string;
@@ -686,6 +928,17 @@ type ExpectedObjective = Readonly<{
   executorProvider: "codex" | "claude";
   reviewerProvider?: "codex" | "claude";
 }>;
+/**
+ * project-runtime-real-provider-contractで使用するRepository Snapshotの値契約を定義する。
+ *
+ * @responsibility Repository SnapshotのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape RepositorySnapshotが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RepositorySnapshotで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RepositorySnapshotの宣言は外部境界を開かない。
+ * @security N/A: RepositorySnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RepositorySnapshotの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RepositorySnapshot = Readonly<{
   sha256: string;
   headCommit: string;
@@ -694,6 +947,17 @@ type RepositorySnapshot = Readonly<{
   excludedDirectoryNames?: readonly string[];
 }>;
 
+/**
+ * project-runtime-real-provider-contractで使用するNormal Objective Runの値契約を定義する。
+ *
+ * @responsibility Normal Objective RunのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape NormalObjectiveRunが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant NormalObjectiveRunで宣言した値と責務の対応を維持する。
+ * @boundary N/A: NormalObjectiveRunの宣言は外部境界を開かない。
+ * @security N/A: NormalObjectiveRunはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility NormalObjectiveRunの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type NormalObjectiveRun = Readonly<{
   observation: PublicProcessObservation;
   expected: ExpectedObjective;
@@ -703,6 +967,17 @@ type NormalObjectiveRun = Readonly<{
   expectedCanonicalStateObserved: boolean;
 }>;
 
+/**
+ * project-runtime-real-provider-contractで使用する回復 Settlement Runの値契約を定義する。
+ *
+ * @responsibility 回復 Settlement RunのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape RecoverySettlementRunが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RecoverySettlementRunで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RecoverySettlementRunの宣言は外部境界を開かない。
+ * @security N/A: RecoverySettlementRunはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RecoverySettlementRunの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RecoverySettlementRun = Readonly<{
   parentLoss: PublicProcessObservation;
   parentTerminationRequestedAfterProcessStart: boolean;
@@ -713,6 +988,22 @@ type RecoverySettlementRun = Readonly<{
   expectedCanonicalStateObserved: boolean;
 }>;
 
+/**
+ * changed Snapshot Pathsを決定する。
+ *
+ * @responsibility changed Snapshot Pathsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input before: RepositorySnapshot、after: RepositorySnapshot
+ * @returns changedSnapshotPathsの計算結果を返す。
+ * @precondition 「before: RepositorySnapshot、after: RepositorySnapshot」がchangedSnapshotPathsの入力契約を満たす。
+ * @postcondition changedSnapshotPathsの責務を完了した結果だけを返す。
+ * @effect N/A: changedSnapshotPathsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: changedSnapshotPathsは独自の失敗分岐を所有しない。
+ * @invariant changedSnapshotPathsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: changedSnapshotPathsはProcess内の同一Subsystemで完結する。
+ * @security N/A: changedSnapshotPathsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: changedSnapshotPathsは共有非同期状態を持たない同期処理である。
+ */
 function changedSnapshotPaths(
   before: RepositorySnapshot,
   after: RepositorySnapshot,
@@ -728,6 +1019,22 @@ function changedSnapshotPaths(
     .sort();
 }
 
+/**
+ * runtime Events Exactly Matchを決定する。
+ *
+ * @responsibility runtime Events Exactly Matchの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input events: PublicProcessObservation["runtimeEvents"]、expectedValues: readonly Readonly<{ event: "selection" | "process_started"; taskRole: string; provider: string; }>[]
+ * @returns runtimeEventsExactlyMatchの計算結果を返す。
+ * @precondition 「events: PublicProcessObservation["runtimeEvents"]、expectedValues: readonly Readonly<{ event: "selection" | "process_started"; taskRole: string; provider: string; }>[]」がruntimeEventsExactlyMatchの入力契約を満たす。
+ * @postcondition runtimeEventsExactlyMatchの責務を完了した結果だけを返す。
+ * @effect N/A: runtimeEventsExactlyMatchは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: runtimeEventsExactlyMatchは独自の失敗分岐を所有しない。
+ * @invariant runtimeEventsExactlyMatchは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runtimeEventsExactlyMatchはProcess内の同一Subsystemで完結する。
+ * @security N/A: runtimeEventsExactlyMatchはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: runtimeEventsExactlyMatchは共有非同期状態を持たない同期処理である。
+ */
 function runtimeEventsExactlyMatch(
   events: PublicProcessObservation["runtimeEvents"],
   expectedValues: readonly Readonly<{
@@ -754,6 +1061,22 @@ function runtimeEventsExactlyMatch(
   );
 }
 
+/**
+ * Project Runtime Real Provider Reportを構築する。
+ *
+ * @responsibility Project Runtime Real Provider Reportの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input input: Readonly<{ runId: string; sourceIdentity: JsonRecord; distributionIdentity: JsonRecord; normalRuns: readonly NormalObjectiveRun[]; cancellation: PublicProcessObservation; cancellationRequestedAfterProcessStart: boolean; cancellationExpected: ExpectedObjective; cancellationSnapshotBefore: RepositorySnapshot; cancellationSnapshotAfter: RepositorySnapshot; recoverySettlement: RecoverySettlementRun; dockerRecovery: JsonRecord; }>
+ * @returns buildProjectRuntimeRealProviderReportの計算結果を返す。
+ * @precondition 「input: Readonly<{ runId: string; sourceIdentity: JsonRecord; distributionIdentity: JsonRecord; normalRuns: readonly NormalObjectiveRun[]; cancellation: PublicProcessObservation; cancellationRequestedAfterProcessStart: boolean; cancellationExpected: ExpectedObjective; cancellationSnapshotBefore: RepositorySnapshot; cancellationSnapshotAfter: RepositorySnapshot; recoverySettlement: RecoverySettlementRun; dockerRecovery: JsonRecord; }>」がbuildProjectRuntimeRealProviderReportの入力契約を満たす。
+ * @postcondition buildProjectRuntimeRealProviderReportの責務を完了した結果だけを返す。
+ * @effect N/A: buildProjectRuntimeRealProviderReportは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: buildProjectRuntimeRealProviderReportは独自の失敗分岐を所有しない。
+ * @invariant buildProjectRuntimeRealProviderReportは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: buildProjectRuntimeRealProviderReportはProcess内の同一Subsystemで完結する。
+ * @security N/A: buildProjectRuntimeRealProviderReportはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: buildProjectRuntimeRealProviderReportは共有非同期状態を持たない同期処理である。
+ */
 export function buildProjectRuntimeRealProviderReport(
   input: Readonly<{
     runId: string;

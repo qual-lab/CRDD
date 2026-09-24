@@ -1,7 +1,24 @@
+/**
+ * signed-runner-safety-observationに属する責務をまとめる。
+ *
+ * @responsibility SignedRunnerSafetySchemaを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { types as utilTypes } from "node:util";
 
 import { snapshotPlainArray } from "./plain-data-snapshot.ts";
 
+/**
+ * signed-runner-safety-observationで使用するSigned Runner Safety Schemaの値契約を定義する。
+ *
+ * @responsibility Signed Runner Safety SchemaのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape SignedRunnerSafetySchemaが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SignedRunnerSafetySchemaで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SignedRunnerSafetySchemaの宣言は外部境界を開かない。
+ * @security SignedRunnerSafetySchemaはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility SignedRunnerSafetySchemaの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type SignedRunnerSafetySchema = Readonly<{
   booleanFields: readonly string[];
   nullableRecoveryFields: readonly Readonly<{
@@ -16,12 +33,34 @@ export type SignedRunnerSafetySchema = Readonly<{
   effectUnknownField?: string;
 }>;
 
+/**
+ * signed-runner-safety-observationで使用するSigned Runner 回復 Kindの値契約を定義する。
+ *
+ * @responsibility Signed Runner 回復 KindのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape SignedRunnerRecoveryKindが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SignedRunnerRecoveryKindで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SignedRunnerRecoveryKindの宣言は外部境界を開かない。
+ * @security SignedRunnerRecoveryKindはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility SignedRunnerRecoveryKindの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type SignedRunnerRecoveryKind =
   | "host"
   | "docker"
   | "candidate"
   | "candidate_store";
 
+/**
+ * signed-runner-safety-observationで使用するSigned Runner Safety Observationの値契約を定義する。
+ *
+ * @responsibility Signed Runner Safety ObservationのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape SignedRunnerSafetyObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SignedRunnerSafetyObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SignedRunnerSafetyObservationの宣言は外部境界を開かない。
+ * @security SignedRunnerSafetyObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility SignedRunnerSafetyObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type SignedRunnerSafetyObservation = Readonly<{
   status: "exact" | "unknown";
   booleans: Readonly<Record<string, boolean>> | null;
@@ -38,6 +77,22 @@ const RECOVERY_ID_PATTERNS: Readonly<Record<SignedRunnerRecoveryKind, RegExp>> =
     candidate_store: /^candidate-store-recovery\.[0-9a-f]{64}$/u,
   });
 
+/**
+ * Canonical Signed Runner 回復 Idかを判定する。
+ *
+ * @responsibility Canonical Signed Runner 回復 Idの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000014
+ * @input value: unknown、kind: SignedRunnerRecoveryKind
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown、kind: SignedRunnerRecoveryKind」がisCanonicalSignedRunnerRecoveryIdの入力契約を満たす。
+ * @postcondition isCanonicalSignedRunnerRecoveryIdの責務を完了した結果だけを返す。
+ * @effect N/A: isCanonicalSignedRunnerRecoveryIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isCanonicalSignedRunnerRecoveryIdは独自の失敗分岐を所有しない。
+ * @invariant isCanonicalSignedRunnerRecoveryIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isCanonicalSignedRunnerRecoveryIdはProcess内の同一Subsystemで完結する。
+ * @security isCanonicalSignedRunnerRecoveryIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isCanonicalSignedRunnerRecoveryIdは共有非同期状態を持たない同期処理である。
+ */
 export function isCanonicalSignedRunnerRecoveryId(
   value: unknown,
   kind: SignedRunnerRecoveryKind,
@@ -50,6 +105,22 @@ export function isCanonicalSignedRunnerRecoveryId(
   );
 }
 
+/**
+ * own Data Valueを決定する。
+ *
+ * @responsibility own Data Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input record: object、field: string
+ * @returns ownDataValueの計算結果を返す。
+ * @precondition 「record: object、field: string」がownDataValueの入力契約を満たす。
+ * @postcondition ownDataValueの責務を完了した結果だけを返す。
+ * @effect N/A: ownDataValueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: ownDataValueは独自の失敗分岐を所有しない。
+ * @invariant ownDataValueは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ownDataValueはProcess内の同一Subsystemで完結する。
+ * @security ownDataValueはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: ownDataValueは共有非同期状態を持たない同期処理である。
+ */
 function ownDataValue(record: object, field: string) {
   const descriptor = Object.getOwnPropertyDescriptor(record, field);
   return descriptor &&
@@ -61,6 +132,22 @@ function ownDataValue(record: object, field: string) {
     : Object.freeze({ status: "unknown" as const, value: null });
 }
 
+/**
+ * salvage Signed Runner Nullable 回復を決定する。
+ *
+ * @responsibility salvage Signed Runner Nullable 回復の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input value: unknown、field: string、kind: SignedRunnerRecoveryKind
+ * @returns salvageSignedRunnerNullableRecoveryの計算結果を返す。
+ * @precondition 「value: unknown、field: string、kind: SignedRunnerRecoveryKind」がsalvageSignedRunnerNullableRecoveryの入力契約を満たす。
+ * @postcondition salvageSignedRunnerNullableRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: salvageSignedRunnerNullableRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure salvageSignedRunnerNullableRecoveryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant salvageSignedRunnerNullableRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: salvageSignedRunnerNullableRecoveryはProcess内の同一Subsystemで完結する。
+ * @security salvageSignedRunnerNullableRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: salvageSignedRunnerNullableRecoveryは共有非同期状態を持たない同期処理である。
+ */
 export function salvageSignedRunnerNullableRecovery(
   value: unknown,
   field: string,
@@ -90,6 +177,22 @@ export function salvageSignedRunnerNullableRecovery(
   }
 }
 
+/**
+ * salvage Signed Runner 回復 Pairを決定する。
+ *
+ * @responsibility salvage Signed Runner 回復 Pairの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input value: unknown、pair: Readonly<{ singularField: string; pluralField: string; kind: SignedRunnerRecoveryKind; }>
+ * @returns salvageSignedRunnerRecoveryPairの計算結果を返す。
+ * @precondition 「value: unknown、pair: Readonly<{ singularField: string; pluralField: string; kind: SignedRunnerRecoveryKind; }>」がsalvageSignedRunnerRecoveryPairの入力契約を満たす。
+ * @postcondition salvageSignedRunnerRecoveryPairの責務を完了した結果だけを返す。
+ * @effect N/A: salvageSignedRunnerRecoveryPairは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure salvageSignedRunnerRecoveryPairは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant salvageSignedRunnerRecoveryPairは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: salvageSignedRunnerRecoveryPairはProcess内の同一Subsystemで完結する。
+ * @security salvageSignedRunnerRecoveryPairはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: salvageSignedRunnerRecoveryPairは共有非同期状態を持たない同期処理である。
+ */
 export function salvageSignedRunnerRecoveryPair(
   value: unknown,
   pair: Readonly<{
@@ -162,6 +265,22 @@ export function salvageSignedRunnerRecoveryPair(
   }
 }
 
+/**
+ * Signed Runner Safety Observationを評価する。
+ *
+ * @responsibility Signed Runner Safety Observationの評価入力、判定規則、判断不能結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input value: unknown、schema: SignedRunnerSafetySchema
+ * @returns SignedRunnerSafetyObservationを返す。
+ * @precondition 「value: unknown、schema: SignedRunnerSafetySchema」がevaluateSignedRunnerSafetyObservationの入力契約を満たす。
+ * @postcondition evaluateSignedRunnerSafetyObservationの責務を完了した結果だけを返す。
+ * @effect N/A: evaluateSignedRunnerSafetyObservationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure evaluateSignedRunnerSafetyObservationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant evaluateSignedRunnerSafetyObservationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: evaluateSignedRunnerSafetyObservationはProcess内の同一Subsystemで完結する。
+ * @security evaluateSignedRunnerSafetyObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: evaluateSignedRunnerSafetyObservationは共有非同期状態を持たない同期処理である。
+ */
 export function evaluateSignedRunnerSafetyObservation(
   value: unknown,
   schema: SignedRunnerSafetySchema,

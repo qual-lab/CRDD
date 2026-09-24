@@ -1,0 +1,187 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "checker",
+  "symbols": [
+    {
+      "symbolId": "checker.public-entry",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": [
+        "ARCH-000001",
+        "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "checker.artifact-relation-adapter",
+      "kind": "module",
+      "path": "src/adapters/artifact-relation.ts",
+      "archIds": [
+        "ARCH-000001",
+        "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "checker.pipeline",
+      "kind": "module",
+      "path": "src/pipeline/checker-pipeline.ts",
+      "archIds": [
+        "ARCH-000001",
+        "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "checker.finding-model",
+      "kind": "module",
+      "path": "src/findings/finding-model.ts",
+      "archIds": [
+        "ARCH-000001"
+      ]
+    },
+    {
+      "symbolId": "checker.rule-registry",
+      "kind": "module",
+      "path": "src/rules/rule-registry.ts",
+      "archIds": [
+        "ARCH-000001",
+        "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "checker.current-profile",
+      "kind": "module",
+      "path": "src/rules/current-profile.ts",
+      "archIds": [
+        "ARCH-000001"
+      ]
+    },
+    {
+      "symbolId": "checker.quality-design-state-rule",
+      "kind": "module",
+      "path": "src/rules/quality-design-state.ts",
+      "archIds": [
+        "ARCH-000001"
+      ]
+    },
+    {
+      "symbolId": "checker.reality-symbol-graph-rule",
+      "kind": "module",
+      "path": "src/rules/reality-symbol-graph.ts",
+      "archIds": [
+        "ARCH-000001",
+        "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "checker.test.integration.crdd-check",
+      "kind": "test-suite",
+      "path": "tests/integration/crdd-check.contract.test.ts",
+      "qaIds": [
+        "QA-000001",
+        "QA-000013"
+      ],
+      "localTestIds": [
+        "AUH-IT-002",
+        "AUH-IT-003",
+        "RCM-IT-005",
+        "RCM-IT-008"
+      ],
+      "verifies": [
+        "checker.artifact-relation-adapter",
+        "checker.pipeline",
+        "checker.rule-registry"
+      ]
+    },
+    {
+      "symbolId": "checker.test.integration.tools-naming",
+      "kind": "test-suite",
+      "path": "tests/integration/tools-naming.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-IT-005",
+        "RCM-IT-013",
+        "RCM-IT-015"
+      ],
+      "verifies": [
+        "checker.pipeline",
+        "checker.public-entry",
+        "checker.rule-registry"
+      ]
+    },
+    {
+      "symbolId": "checker.test.integration.domain-outcome-adapter",
+      "kind": "test-suite",
+      "path": "tests/integration/domain-outcome-adapter.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-IT-011"
+      ],
+      "verifies": [
+        "checker.domain-outcome-adapter",
+        "checker.source.src.adapters.reality.traceability",
+        "crdd-domain-library.common-outcome-entry"
+      ]
+    },
+    {
+      "symbolId": "checker.test.unit.checker-core",
+      "kind": "test-suite",
+      "path": "tests/unit/checker-core.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-001",
+        "RCM-UT-002"
+      ],
+      "verifies": [
+        "checker.finding-model",
+        "checker.pipeline"
+      ]
+    },
+    {
+      "symbolId": "checker.test.unit.symbol-graph",
+      "kind": "test-suite",
+      "path": "tests/unit/symbol-graph.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-UT-017"
+      ],
+      "verifies": [
+        "checker.source.src.adapters.reality.test.catalog",
+        "checker.source.src.adapters.reality.traceability",
+        "crdd-domain-library.source.src.reality.traceability.symbol.manifest.model",
+        "version-control.source.src.repository.location"
+      ]
+    },
+    {
+      "symbolId": "checker.domain-outcome-adapter",
+      "kind": "file",
+      "path": "src/adapters/domain-outcome.ts",
+      "archIds": [
+        "ARCH-000001"
+      ]
+    },
+    {
+      "symbolId": "checker.source.src.adapters.reality.test.catalog",
+      "kind": "file",
+      "path": "src/adapters/reality-test-catalog.ts",
+      "archIds": [
+        "ARCH-000001"
+      ]
+    },
+    {
+      "symbolId": "checker.source.src.adapters.reality.traceability",
+      "kind": "file",
+      "path": "src/adapters/reality-traceability.ts",
+      "archIds": [
+        "ARCH-000001"
+      ]
+    }
+  ]
+}

@@ -1,3 +1,9 @@
+/**
+ * native-runtime-traceに属する責務をまとめる。
+ *
+ * @responsibility NativeRuntimeTraceBlockedReasonを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import path from "node:path";
 
 const PROCESS_NAME = /^[a-z0-9][a-z0-9-]*\.exe$/u;
@@ -5,6 +11,17 @@ const LOST_BUFFERS = /^Total # Lost Buffers\s*:\s*(\d+)\s*$/gmu;
 const LOST_EVENTS = /^Total # Lost Events\s*:\s*(\d+)\s*$/gmu;
 const NETWORK_EVENT = /^(?:Microsoft-Windows-TCPIP\/|\s*(?:Tcp|Udp)Ip)/u;
 
+/**
+ * native-runtime-traceで使用するNative Runtime Trace Blocked Reasonの値契約を定義する。
+ *
+ * @responsibility Native Runtime Trace Blocked ReasonのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape NativeRuntimeTraceBlockedReasonが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant NativeRuntimeTraceBlockedReasonで宣言した値と責務の対応を維持する。
+ * @boundary N/A: NativeRuntimeTraceBlockedReasonの宣言は外部境界を開かない。
+ * @security NativeRuntimeTraceBlockedReasonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility NativeRuntimeTraceBlockedReasonの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type NativeRuntimeTraceBlockedReason =
   | "input_invalid"
   | "trace_summary_invalid"
@@ -19,6 +36,17 @@ export type NativeRuntimeTraceBlockedReason =
   | "network_control_effect_unobserved"
   | "network_control_scope_invalid";
 
+/**
+ * native-runtime-traceで使用するNative Runtime Trace Optionsの値契約を定義する。
+ *
+ * @responsibility Native Runtime Trace OptionsのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape NativeRuntimeTraceOptionsが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant NativeRuntimeTraceOptionsで宣言した値と責務の対応を維持する。
+ * @boundary N/A: NativeRuntimeTraceOptionsの宣言は外部境界を開かない。
+ * @security NativeRuntimeTraceOptionsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility NativeRuntimeTraceOptionsの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type NativeRuntimeTraceOptions = Readonly<{
   targetProcessName: string;
   networkControlProcessName: string;
@@ -26,18 +54,82 @@ type NativeRuntimeTraceOptions = Readonly<{
   windowsSystem32Directory: string;
 }>;
 
+/**
+ * native-runtime-traceを停止結果として構築する。
+ *
+ * @responsibility native-runtime-traceの停止理由、未発行Effect、公開結果境界を所有する。
+ * @trace ARCH-000008
+ * @input reason: NativeRuntimeTraceBlockedReason
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: NativeRuntimeTraceBlockedReason」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
+ * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(reason: NativeRuntimeTraceBlockedReason) {
   return Object.freeze({ status: "blocked" as const, reason });
 }
 
+/**
+ * escape Regular Expressionを決定する。
+ *
+ * @responsibility escape Regular Expressionの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input value: string
+ * @returns stringを返す。
+ * @precondition 「value: string」がescapeRegularExpressionの入力契約を満たす。
+ * @postcondition escapeRegularExpressionの責務を完了した結果だけを返す。
+ * @effect N/A: escapeRegularExpressionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: escapeRegularExpressionは独自の失敗分岐を所有しない。
+ * @invariant escapeRegularExpressionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: escapeRegularExpressionはProcess内の同一Subsystemで完結する。
+ * @security escapeRegularExpressionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: escapeRegularExpressionは共有非同期状態を持たない同期処理である。
+ */
 function escapeRegularExpression(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
+/**
+ * canonical Windows Pathを決定する。
+ *
+ * @responsibility canonical Windows Pathの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input value: string
+ * @returns stringを返す。
+ * @precondition 「value: string」がcanonicalWindowsPathの入力契約を満たす。
+ * @postcondition canonicalWindowsPathの責務を完了した結果だけを返す。
+ * @effect N/A: canonicalWindowsPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: canonicalWindowsPathは独自の失敗分岐を所有しない。
+ * @invariant canonicalWindowsPathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: canonicalWindowsPathはProcess内の同一Subsystemで完結する。
+ * @security canonicalWindowsPathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: canonicalWindowsPathは共有非同期状態を持たない同期処理である。
+ */
 function canonicalWindowsPath(value: string): string {
   return path.win32.normalize(value).toLowerCase();
 }
 
+/**
+ * Exact Loopback Addressかを判定する。
+ *
+ * @responsibility Exact Loopback Addressの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000008
+ * @input address: string
+ * @returns booleanを返す。
+ * @precondition 「address: string」がisExactLoopbackAddressの入力契約を満たす。
+ * @postcondition isExactLoopbackAddressの責務を完了した結果だけを返す。
+ * @effect N/A: isExactLoopbackAddressは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isExactLoopbackAddressは独自の失敗分岐を所有しない。
+ * @invariant isExactLoopbackAddressは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isExactLoopbackAddressはProcess内の同一Subsystemで完結する。
+ * @security isExactLoopbackAddressはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isExactLoopbackAddressは共有非同期状態を持たない同期処理である。
+ */
 function isExactLoopbackAddress(address: string): boolean {
   const canonical = address.toLowerCase();
   if (canonical === "[::1]" || canonical.startsWith("[::1]:")) return true;
@@ -57,6 +149,22 @@ function isExactLoopbackAddress(address: string): boolean {
   );
 }
 
+/**
+ * process Start Idsを決定する。
+ *
+ * @responsibility process Start Idsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input lines: readonly string[]、processName: string
+ * @returns processStartIdsの計算結果を返す。
+ * @precondition 「lines: readonly string[]、processName: string」がprocessStartIdsの入力契約を満たす。
+ * @postcondition processStartIdsの責務を完了した結果だけを返す。
+ * @effect N/A: processStartIdsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: processStartIdsは独自の失敗分岐を所有しない。
+ * @invariant processStartIdsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: processStartIdsはProcess内の同一Subsystemで完結する。
+ * @security processStartIdsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: processStartIdsは共有非同期状態を持たない同期処理である。
+ */
 function processStartIds(lines: readonly string[], processName: string) {
   const pattern = new RegExp(
     `^\\s*P-Start,\\s*\\d+,\\s*${escapeRegularExpression(processName)} \\(\\s*(\\d+)\\),`,
@@ -68,6 +176,22 @@ function processStartIds(lines: readonly string[], processName: string) {
   });
 }
 
+/**
+ * Exact Process Endが存在するかを判定する。
+ *
+ * @responsibility Exact Process Endの存在条件とtrue／false境界を所有する。
+ * @trace ARCH-000008
+ * @input lines: readonly string[]、processName: string、processId: number
+ * @returns booleanを返す。
+ * @precondition 「lines: readonly string[]、processName: string、processId: number」がhasExactProcessEndの入力契約を満たす。
+ * @postcondition hasExactProcessEndの責務を完了した結果だけを返す。
+ * @effect N/A: hasExactProcessEndは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hasExactProcessEndは独自の失敗分岐を所有しない。
+ * @invariant hasExactProcessEndは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: hasExactProcessEndはProcess内の同一Subsystemで完結する。
+ * @security hasExactProcessEndはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hasExactProcessEndは共有非同期状態を持たない同期処理である。
+ */
 function hasExactProcessEnd(
   lines: readonly string[],
   processName: string,
@@ -80,6 +204,22 @@ function hasExactProcessEnd(
   );
 }
 
+/**
+ * image Pathsを決定する。
+ *
+ * @responsibility image Pathsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input lines: readonly string[]、processName: string、processId: number
+ * @returns imagePathsの計算結果を返す。
+ * @precondition 「lines: readonly string[]、processName: string、processId: number」がimagePathsの入力契約を満たす。
+ * @postcondition imagePathsの責務を完了した結果だけを返す。
+ * @effect N/A: imagePathsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: imagePathsは独自の失敗分岐を所有しない。
+ * @invariant imagePathsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: imagePathsはProcess内の同一Subsystemで完結する。
+ * @security imagePathsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: imagePathsは共有非同期状態を持たない同期処理である。
+ */
 function imagePaths(
   lines: readonly string[],
   processName: string,
@@ -99,6 +239,22 @@ function imagePaths(
   );
 }
 
+/**
+ * network Event Linesを決定する。
+ *
+ * @responsibility network Event Linesの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input lines: readonly string[]、processName: string、processId: number
+ * @returns readonly string[]を返す。
+ * @precondition 「lines: readonly string[]、processName: string、processId: number」がnetworkEventLinesの入力契約を満たす。
+ * @postcondition networkEventLinesの責務を完了した結果だけを返す。
+ * @effect N/A: networkEventLinesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: networkEventLinesは独自の失敗分岐を所有しない。
+ * @invariant networkEventLinesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: networkEventLinesはProcess内の同一Subsystemで完結する。
+ * @security networkEventLinesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: networkEventLinesは共有非同期状態を持たない同期処理である。
+ */
 function networkEventLines(
   lines: readonly string[],
   processName: string,
@@ -110,6 +266,22 @@ function networkEventLines(
   );
 }
 
+/**
+ * Native Runtime Traceを観測する。
+ *
+ * @responsibility Native Runtime Traceの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input rawEvents: unknown、rawTraceStatistics: unknown、options: NativeRuntimeTraceOptions
+ * @returns inspectNativeRuntimeTraceの計算結果を返す。
+ * @precondition 「rawEvents: unknown、rawTraceStatistics: unknown、options: NativeRuntimeTraceOptions」がinspectNativeRuntimeTraceの入力契約を満たす。
+ * @postcondition inspectNativeRuntimeTraceの責務を完了した結果だけを返す。
+ * @effect N/A: inspectNativeRuntimeTraceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectNativeRuntimeTraceは独自の失敗分岐を所有しない。
+ * @invariant inspectNativeRuntimeTraceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectNativeRuntimeTraceはProcess内の同一Subsystemで完結する。
+ * @security inspectNativeRuntimeTraceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectNativeRuntimeTraceは共有非同期状態を持たない同期処理である。
+ */
 export function inspectNativeRuntimeTrace(
   rawEvents: unknown,
   rawTraceStatistics: unknown,

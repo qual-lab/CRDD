@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:egress-proxy-policyの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:egress-proxy-policyが所有する検証責務を実行する。
+ * @trace AIT-UT-005
+ * @level UT
+ * @scope egress、proxy、policy
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -14,6 +24,18 @@ import {
   evaluateResolvedAddressesForFixture,
 } from "../../src/security/egress-proxy-policy.ts";
 
+/**
+ * rawProfileのTest準備責務を実行する。
+ *
+ * @responsibility rawProfileがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-UT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus rawProfileを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 function rawProfile(overrides = {}) {
   return {
     contract: PROVIDER_ISOLATION_CONTRACT,
@@ -36,6 +58,18 @@ function rawProfile(overrides = {}) {
   };
 }
 
+/**
+ * 生Profileを内部検証してAuthority未確認のPolicy候補だけを作るを検証する。
+ *
+ * @responsibility 生Profileを内部検証してAuthority未確認のPolicy候補だけを作るの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 生Profileを内部検証してAuthority未確認のPolicy候補だけを作るの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("生Profileを内部検証してAuthority未確認のPolicy候補だけを作る", () => {
   const result = compileEgressProxyPolicyCandidate(rawProfile());
   assert.equal(result.status, "candidate");
@@ -44,6 +78,18 @@ test("生Profileを内部検証してAuthority未確認のPolicy候補だけを�
   assert.equal(result.policy.directProviderEgress, false);
 });
 
+/**
+ * 自己構築した検証結果やcaller指定HashをPolicy候補へ昇格しないを検証する。
+ *
+ * @responsibility 自己構築した検証結果やcaller指定HashをPolicy候補へ昇格しないの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 自己構築した検証結果やcaller指定HashをPolicy候補へ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("自己構築した検証結果やcaller指定HashをPolicy候補へ昇格しない", () => {
   const validation = validateProviderIsolationProfile(rawProfile());
   for (const forged of [
@@ -66,6 +112,18 @@ test("自己構築した検証結果やcaller指定HashをPolicy候補へ昇格�
     assert.equal(compileEgressProxyPolicyCandidate(forged).status, "blocked");
 });
 
+/**
+ * 不正ProfileとOriginは例外を漏らさずblockedへ閉じるを検証する。
+ *
+ * @responsibility 不正ProfileとOriginは例外を漏らさずblockedへ閉じるの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不正ProfileとOriginは例外を漏らさずblockedへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("不正ProfileとOriginは例外を漏らさずblockedへ閉じる", () => {
   for (const candidate of [
     null,
@@ -81,6 +139,18 @@ test("不正ProfileとOriginは例外を漏らさずblockedへ閉じる", () => 
   }
 });
 
+/**
+ * Profile budget超過はPolicy経路でも例外なくblockedにするを検証する。
+ *
+ * @responsibility Profile budget超過はPolicy経路でも例外なくblockedにするの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Profile budget超過はPolicy経路でも例外なくblockedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Profile budget超過はPolicy経路でも例外なくblockedにする", () => {
   const excessive = rawProfile();
   excessive.egress.origins = Array.from(
@@ -94,6 +164,18 @@ test("Profile budget超過はPolicy経路でも例外なくblockedにする", ()
   assert.equal(compileEgressProxyPolicyCandidate(excessive).status, "blocked");
 });
 
+/**
+ * Profile accessorはPolicy経路でも実行しないを検証する。
+ *
+ * @responsibility Profile accessorはPolicy経路でも実行しないの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Profile accessorはPolicy経路でも実行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Profile accessorはPolicy経路でも実行しない", () => {
   let calls = 0;
   const value = rawProfile();
@@ -108,6 +190,18 @@ test("Profile accessorはPolicy経路でも実行しない", () => {
   assert.equal(calls, 0);
 });
 
+/**
+ * CONNECTはcanonical hostnameと文字列443の完全一致だけを候補にするを検証する。
+ *
+ * @responsibility CONNECTはcanonical hostnameと文字列443の完全一致だけを候補にするの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CONNECTはcanonical hostnameと文字列443の完全一致だけを候補にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("CONNECTはcanonical hostnameと文字列443の完全一致だけを候補にする", () => {
   const policy = compileEgressProxyPolicyCandidate(rawProfile()).policy;
   assert.equal(
@@ -147,6 +241,18 @@ test("CONNECTはcanonical hostnameと文字列443の完全一致だけを候補�
   );
 });
 
+/**
+ * IANA最長prefixでglobal例外とspecial範囲を区別するを検証する。
+ *
+ * @responsibility IANA最長prefixでglobal例外とspecial範囲を区別するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IANA最長prefixでglobal例外とspecial範囲を区別するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("IANA最長prefixでglobal例外とspecial範囲を区別する", () => {
   for (const address of [
     "192.0.0.9",
@@ -193,6 +299,18 @@ test("IANA最長prefixでglobal例外とspecial範囲を区別する", () => {
     );
 });
 
+/**
+ * IPv6はGlobal Unicast RegistryのALLOCATED範囲だけを候補にするを検証する。
+ *
+ * @responsibility IPv6はGlobal Unicast RegistryのALLOCATED範囲だけを候補にするの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IPv6はGlobal Unicast RegistryのALLOCATED範囲だけを候補にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("IPv6はGlobal Unicast RegistryのALLOCATED範囲だけを候補にする", () => {
   for (const address of [
     "2001:200::",
@@ -223,6 +341,18 @@ test("IPv6はGlobal Unicast RegistryのALLOCATED範囲だけを候補にする",
     );
 });
 
+/**
+ * NAT64は圧縮・展開表記とも埋込みIPv4を再評価するを検証する。
+ *
+ * @responsibility NAT64は圧縮・展開表記とも埋込みIPv4を再評価するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus NAT64は圧縮・展開表記とも埋込みIPv4を再評価するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("NAT64は圧縮・展開表記とも埋込みIPv4を再評価する", () => {
   for (const address of ["64:ff9b::8.8.8.8", "64:ff9b::808:808"]) {
     assert.equal(
@@ -246,6 +376,18 @@ test("NAT64は圧縮・展開表記とも埋込みIPv4を再評価する", () =>
     );
 });
 
+/**
+ * IPv4とIPv6のspecial、mapped、compatible、zone表記を拒否するを検証する。
+ *
+ * @responsibility IPv4とIPv6のspecial、mapped、compatible、zone表記を拒否するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IPv4とIPv6のspecial、mapped、compatible、zone表記を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("IPv4とIPv6のspecial、mapped、compatible、zone表記を拒否する", () => {
   for (const address of [
     "10.0.0.1",
@@ -291,6 +433,18 @@ test("IPv4とIPv6のspecial、mapped、compatible、zone表記を拒否する", 
   );
 });
 
+/**
+ * IANA snapshot metadataと検証済みTopologyをRuntime未接続として区別するを検証する。
+ *
+ * @responsibility IANA snapshot metadataと検証済みTopologyをRuntime未接続として区別するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IANA snapshot metadataと検証済みTopologyをRuntime未接続として区別するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("IANA snapshot metadataと検証済みTopologyをRuntime未接続として区別する", () => {
   const registry = describeSpecialPurposeRegistrySnapshot();
   assert.equal(registry.matching, "longest_prefix");
@@ -304,6 +458,7 @@ test("IANA snapshot metadataと検証済みTopologyをRuntime未接続として�
   assert.equal(registry.ipv6NoAllocatedGlobalUnicastMatchDecision, "deny");
   assert.equal(registry.matchedUnknownValueDecision, "deny");
   const topology = describeEgressProxyTopology();
+  assert.equal(topology.containerPort, 8080);
   assert.equal(topology.providerNetworkInternal, true);
   assert.equal(topology.providerDirectExternalNetwork, false);
   assert.equal(topology.dockerSocketMounted, false);

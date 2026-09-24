@@ -1,3 +1,9 @@
+/**
+ * provider-isolation-profileに属する責務をまとめる。
+ *
+ * @responsibility blockedを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import { createHash } from "node:crypto";
 import {
   snapshotPlainArray,
@@ -30,6 +36,22 @@ const TOP_LEVEL_KEYS = new Set([
   "egress",
 ]);
 
+/**
+ * provider-isolation-profileを停止結果として構築する。
+ *
+ * @responsibility provider-isolation-profileの停止理由、未発行Effect、公開結果境界を所有する。
+ * @trace ARCH-000010
+ * @input reason: string
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: string」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
+ * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(reason: string) {
   return Object.freeze({
     status: "blocked",
@@ -39,6 +61,22 @@ function blocked(reason: string) {
   });
 }
 
+/**
+ * matchesを決定する。
+ *
+ * @responsibility matchesの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000010
+ * @input value: unknown、pattern: RegExp
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown、pattern: RegExp」がmatchesの入力契約を満たす。
+ * @postcondition matchesの責務を完了した結果だけを返す。
+ * @effect N/A: matchesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: matchesは独自の失敗分岐を所有しない。
+ * @invariant matchesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: matchesはProcess内の同一Subsystemで完結する。
+ * @security matchesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: matchesは共有非同期状態を持たない同期処理である。
+ */
 function matches(value: unknown, pattern: RegExp): value is string {
   return (
     typeof value === "string" &&
@@ -47,6 +85,22 @@ function matches(value: unknown, pattern: RegExp): value is string {
   );
 }
 
+/**
+ * Originを固定Schemaへ正規化する。
+ *
+ * @responsibility Originの入力検証、正規化規則、不正値の拒否境界を所有する。
+ * @trace ARCH-000010
+ * @input value: unknown
+ * @returns normalizeOriginの計算結果を返す。
+ * @precondition 「value: unknown」がnormalizeOriginの入力契約を満たす。
+ * @postcondition normalizeOriginの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeOriginは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure normalizeOriginは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant normalizeOriginは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeOriginはProcess内の同一Subsystemで完結する。
+ * @security normalizeOriginはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeOriginは共有非同期状態を持たない同期処理である。
+ */
 function normalizeOrigin(value: unknown) {
   if (typeof value !== "string" || value.includes("*")) return null;
   let parsed: URL;
@@ -77,6 +131,22 @@ function normalizeOrigin(value: unknown) {
   return `https://${hostname}`;
 }
 
+/**
+ * canonical Jsonを決定する。
+ *
+ * @responsibility canonical Jsonの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000010
+ * @input value: unknown
+ * @returns stringを返す。
+ * @precondition 「value: unknown」がcanonicalJsonの入力契約を満たす。
+ * @postcondition canonicalJsonの責務を完了した結果だけを返す。
+ * @effect N/A: canonicalJsonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure canonicalJsonは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant canonicalJsonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: canonicalJsonはProcess内の同一Subsystemで完結する。
+ * @security canonicalJsonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: canonicalJsonは共有非同期状態を持たない同期処理である。
+ */
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value && typeof value === "object") {
@@ -92,6 +162,22 @@ function canonicalJson(value: unknown): string {
   return serialized;
 }
 
+/**
+ * Provider Isolation Profile Internalの契約を検証する。
+ *
+ * @responsibility Provider Isolation Profile Internalの必須Property、拒否条件、検証結果の境界を所有する。
+ * @trace ARCH-000010
+ * @input candidate: unknown
+ * @returns validateProviderIsolationProfileInternalの計算結果を返す。
+ * @precondition 「candidate: unknown」がvalidateProviderIsolationProfileInternalの入力契約を満たす。
+ * @postcondition validateProviderIsolationProfileInternalの責務を完了した結果だけを返す。
+ * @effect N/A: validateProviderIsolationProfileInternalは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validateProviderIsolationProfileInternalは独自の失敗分岐を所有しない。
+ * @invariant validateProviderIsolationProfileInternalは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateProviderIsolationProfileInternalはProcess内の同一Subsystemで完結する。
+ * @security validateProviderIsolationProfileInternalはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateProviderIsolationProfileInternalは共有非同期状態を持たない同期処理である。
+ */
 function validateProviderIsolationProfileInternal(candidate: unknown) {
   const top = snapshotPlainRecord(candidate, TOP_LEVEL_KEYS);
   if (!top) return blocked("profile_shape_invalid");
@@ -221,6 +307,22 @@ function validateProviderIsolationProfileInternal(candidate: unknown) {
   });
 }
 
+/**
+ * Provider Isolation Profileの契約を検証する。
+ *
+ * @responsibility Provider Isolation Profileの必須Property、拒否条件、検証結果の境界を所有する。
+ * @trace ARCH-000010
+ * @input candidate: unknown
+ * @returns validateProviderIsolationProfileの計算結果を返す。
+ * @precondition 「candidate: unknown」がvalidateProviderIsolationProfileの入力契約を満たす。
+ * @postcondition validateProviderIsolationProfileの責務を完了した結果だけを返す。
+ * @effect N/A: validateProviderIsolationProfileは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure validateProviderIsolationProfileは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant validateProviderIsolationProfileは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateProviderIsolationProfileはProcess内の同一Subsystemで完結する。
+ * @security validateProviderIsolationProfileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateProviderIsolationProfileは共有非同期状態を持たない同期処理である。
+ */
 export function validateProviderIsolationProfile(candidate: unknown) {
   try {
     return validateProviderIsolationProfileInternal(candidate);
@@ -229,6 +331,22 @@ export function validateProviderIsolationProfile(candidate: unknown) {
   }
 }
 
+/**
+ * Provider Isolation 契約の公開契約を記述する。
+ *
+ * @responsibility Provider Isolation 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000010
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProviderIsolationContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProviderIsolationContractの入力契約を満たす。
+ * @postcondition describeProviderIsolationContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeProviderIsolationContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProviderIsolationContractは独自の失敗分岐を所有しない。
+ * @invariant describeProviderIsolationContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeProviderIsolationContractはProcess内の同一Subsystemで完結する。
+ * @security describeProviderIsolationContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeProviderIsolationContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeProviderIsolationContract() {
   return Object.freeze({
     contract: PROVIDER_ISOLATION_CONTRACT,

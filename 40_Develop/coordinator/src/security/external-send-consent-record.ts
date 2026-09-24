@@ -1,3 +1,9 @@
+/**
+ * external-send-consent-recordに属する責務をまとめる。
+ *
+ * @responsibility exactKeysを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000015
+ */
 export const EXTERNAL_SEND_ACTIVE_CONSENT_PREFIX =
   "external-send-consent-active-v2-";
 export const EXTERNAL_SEND_CONSENT_SCHEMA =
@@ -29,6 +35,22 @@ const RECORD_KEYS = Object.freeze([
   "expiresAtEpochMs",
 ]);
 
+/**
+ * Keysが完全一致するか判定する。
+ *
+ * @responsibility Keysの比較対象、完全一致条件、判定結果境界を所有する。
+ * @trace ARCH-000015
+ * @input value: unknown、keys: readonly string[]
+ * @returns exactKeysの計算結果を返す。
+ * @precondition 「value: unknown、keys: readonly string[]」がexactKeysの入力契約を満たす。
+ * @postcondition exactKeysの責務を完了した結果だけを返す。
+ * @effect N/A: exactKeysは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: exactKeysは独自の失敗分岐を所有しない。
+ * @invariant exactKeysは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: exactKeysはProcess内の同一Subsystemで完結する。
+ * @security exactKeysはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: exactKeysは共有非同期状態を持たない同期処理である。
+ */
 function exactKeys(value: unknown, keys: readonly string[]) {
   return (
     value !== null &&
@@ -41,6 +63,22 @@ function exactKeys(value: unknown, keys: readonly string[]) {
   );
 }
 
+/**
+ * External Send Consent Active Entry Nameを構造化値へ解析する。
+ *
+ * @responsibility External Send Consent Active Entry Nameの入力文法、解析結果、不正文法の拒否境界を所有する。
+ * @trace ARCH-000015
+ * @input value: unknown
+ * @returns parseExternalSendConsentActiveEntryNameの計算結果を返す。
+ * @precondition 「value: unknown」がparseExternalSendConsentActiveEntryNameの入力契約を満たす。
+ * @postcondition parseExternalSendConsentActiveEntryNameの責務を完了した結果だけを返す。
+ * @effect N/A: parseExternalSendConsentActiveEntryNameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: parseExternalSendConsentActiveEntryNameは独自の失敗分岐を所有しない。
+ * @invariant parseExternalSendConsentActiveEntryNameは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseExternalSendConsentActiveEntryNameはProcess内の同一Subsystemで完結する。
+ * @security parseExternalSendConsentActiveEntryNameはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: parseExternalSendConsentActiveEntryNameは共有非同期状態を持たない同期処理である。
+ */
 export function parseExternalSendConsentActiveEntryName(value: unknown) {
   if (typeof value !== "string") return null;
   const match = ACTIVE_ENTRY.exec(value);
@@ -54,6 +92,22 @@ export function parseExternalSendConsentActiveEntryName(value: unknown) {
   });
 }
 
+/**
+ * external Send Consent Active 記録 Nameを決定する。
+ *
+ * @responsibility external Send Consent Active 記録 Nameの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000015
+ * @input boundaryHash: unknown、generation: unknown
+ * @returns externalSendConsentActiveRecordNameの計算結果を返す。
+ * @precondition 「boundaryHash: unknown、generation: unknown」がexternalSendConsentActiveRecordNameの入力契約を満たす。
+ * @postcondition externalSendConsentActiveRecordNameの責務を完了した結果だけを返す。
+ * @effect N/A: externalSendConsentActiveRecordNameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: externalSendConsentActiveRecordNameは独自の失敗分岐を所有しない。
+ * @invariant externalSendConsentActiveRecordNameは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: externalSendConsentActiveRecordNameはProcess内の同一Subsystemで完結する。
+ * @security externalSendConsentActiveRecordNameはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: externalSendConsentActiveRecordNameは共有非同期状態を持たない同期処理である。
+ */
 export function externalSendConsentActiveRecordName(
   boundaryHash: unknown,
   generation: unknown,
@@ -66,6 +120,22 @@ export function externalSendConsentActiveRecordName(
     : null;
 }
 
+/**
+ * External Send Consent 記録 Shapeかを判定する。
+ *
+ * @responsibility External Send Consent 記録 Shapeの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000015
+ * @input value: unknown
+ * @returns isExternalSendConsentRecordShapeの計算結果を返す。
+ * @precondition 「value: unknown」がisExternalSendConsentRecordShapeの入力契約を満たす。
+ * @postcondition isExternalSendConsentRecordShapeの責務を完了した結果だけを返す。
+ * @effect N/A: isExternalSendConsentRecordShapeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isExternalSendConsentRecordShapeは独自の失敗分岐を所有しない。
+ * @invariant isExternalSendConsentRecordShapeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isExternalSendConsentRecordShapeはProcess内の同一Subsystemで完結する。
+ * @security isExternalSendConsentRecordShapeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isExternalSendConsentRecordShapeは共有非同期状態を持たない同期処理である。
+ */
 export function isExternalSendConsentRecordShape(value: unknown) {
   if (!exactKeys(value, RECORD_KEYS)) return false;
   const record = value as Record<string, unknown>;

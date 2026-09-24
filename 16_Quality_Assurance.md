@@ -2,7 +2,7 @@
 
 # CRDD品質保証（Quality Assurance）
 
-Version: v0.20.1
+Version: v0.21.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-09-06
@@ -97,6 +97,10 @@ CRDDにおける検証（Verification）は、テストだけを意味しない�
 - 移行またはロールバック演習
 
 **検証手順（Verification Procedure）**は、検証項目を実施するための条件、入力、操作、観測方法、使用するツールおよび判定方法である。再現性が必要な検証項目では、別の実行者が重要な条件を再現できる詳細さを持たせる。
+
+検証項目の標準表は、`Local ID`、`分類`、`試験段階`、`試験種別`、`対象／境界`、`外部境界の段階`、`事前状態／入力`、`操作／刺激`、`観測と期待結果`、`終了後条件`、`実行形態`の11軸を持つ。試験、専門家レビュー、計測または利用者評価の違いにかかわらず、適用する軸を空欄にせず、定型操作がない場合も何を入力・観測し、どの状態で終えるかを平易に示す。実行形態は`Automated`、`Manual`、`Hybrid`のいずれかとし、UT／IT／ST等の試験段階やReview／Security等の担当観点を同じ値へ混在させない。
+
+検証目標ごとにUT／IT／ST／UATの適用を`Required`、`Conditional`または`N/A`で判断し、対象範囲と理由を残す。`Required`には同じ試験段階のLocal Itemを一件以上持たせ、`N/A`には同じ試験段階のLocal Itemを置かない。外部境界または複数blockの結合が関係する場合は、Local Itemごとに`Direct Boundary`、`Adjacent 1 Block`、`Related 2 Blocks`、`System/E2E`または`User Acceptance`のどこまで到達する必要があるかを示す。適用表の到達範囲は同じ試験段階で必要な最大範囲とし、Local Itemがその範囲を越えないようにする。外部境界を持たない項目は`N/A`とし、`対象／境界`に非該当理由を示す。下位境界の確認を省いて最終E2Eだけへ接続せず、直接境界、隣接一段、意味伝播に必要な二段、System／E2Eの順で得られる根拠を区別する。
 
 ```text
 検証項目 = 何を一つの検証活動として実施し、結果を記録するか
@@ -285,7 +289,7 @@ AIを実行者または確認者に含む合成E2Eでは、試験用Candidateの
 
 非自明な状態または外部境界を持つ対象では、アーキテクチャのテキスト図、状態遷移表、実装所有者および検証項目を双方向に照合する。図の各ブロックと境界は一つ以上の成立確認または理由付き非該当へ、状態遷移表の各遷移は原因層の試験と必要な結合試験へ接続する。試験名や件数だけで対応を推定せず、図または遷移表にない実装経路と、試験へ接続しない失敗、取消、cleanup、Recoveryおよび再入場を固定候補前に不整合として扱う。
 
-回帰試験（RT）は独立した試験レベルや試験本体ではない。変更した意味と利用側から必要なUT、IT、ST等を選択し、再実行する方式である。変更fileだけでなく、契約、状態、資源、Authority、Identity、Effect、Recovery、永続化、公開投影および利用者経路から選択する。実在試験、登録試験およびrunner到達集合を別々に取得し、未分類、欠落、余剰および重複を機械検出する。依存関係を機械的に完全証明できない範囲では、production code、support、fixtureまたは設定の変更から、対象を所有するUT・IT・STの安全側の閉包を選ぶ。filenameや任意tagの語句一致、変更済みCommitだけ、または未追跡fileを除いた差分を網羅性の根拠にしない。静的検査、UT、IT、STを低い層から順に実行し、前段が失敗した場合は後段を未実行理由付きで停止する。
+回帰試験（RT）は独立した試験レベルや試験本体ではない。変更した意味と利用側から必要なUT、IT、ST等を選択し、再実行する方式である。変更fileだけでなく、契約、状態、資源、Authority、Identity、Effect、Recovery、永続化、公開投影および利用者経路から選択する。実在試験、登録試験およびrunner到達集合を別々に取得し、未分類、欠落、余剰および重複を機械検出する。依存関係を機械的に完全証明できない範囲では、production code、support、fixtureまたは設定の変更から、対象を所有するUT・IT・STの安全側の閉包を選ぶ。filenameや任意tagの語句一致、変更済みCommitだけ、または未追跡fileを除いた差分を網羅性の根拠にしない。静的検査、UT、IT、STを低い層から順に実行し、前段が失敗した場合は後段を未実行理由付きで停止する。Sourceまたは人間可読成果物を対象とする静的段階では、適用対象のFormatter確認、型検査、Lint、構造・契約Checkerを、存在する範囲で費用の低い確認から実行する。Formatter差分、型不整合、Lint違反または構造不整合を残したまま、時間の長い試験を先に完走させない。
 
 結合単位の契約、外部境界、状態、Authority、資源またはlifecycleを変更した回帰では、その結合単位の主要経路だけでなく、同じ所有範囲にある失敗、取消、cleanup、Recoveryおよび再入場の結合試験を選択する。前版で成立していた結合単位を置換または再構成する場合は、前版の成立済みCapabilityと実境界Evidenceを列挙し、置換後の所有者と対応する結合試験が揃うまで旧実装を不要と判定しない。
 
@@ -655,23 +659,73 @@ Quality Centerでは、少なくとも次の異なる分母を混同しない。
 ├── 01_Quality_Center.md
 ├── 02_Quality_Strategy.md
 ├── 03_Verification_Design.md
-└── Verification_Results/
+├── 04_Quality_Integration.md
+├── 05_Current_Implementation_Reality_Audit.md
+├── Analysis/
+│   ├── REQ/quality_analysis.md
+│   ├── UX/quality_analysis.md
+│   ├── IA/quality_analysis.md
+│   ├── UI/quality_analysis.md
+│   ├── SPEC/quality_analysis.md
+│   └── ARCH/quality_analysis.md
+├── Definitions/
+│   └── QA-XXXXXX/quality_definition.md
+└── Registry/
 ```
+
+`Registry/`は、利用側が必要とする場合だけ置く機械可読なTool契約である。
+`template/07_Quality/99_Verification_Result_Format.md`は、ChangeまたはReleaseの`Evidence/`へ個別の検証結果を作るための補助ひな型であり、Quality工程の番号付き正本には含めない。
 
 | 配置 | 責務 |
 |---|---|
 | `01_Quality_Center.md` | 現在の品質状態、計画対実績、差異理由、割合、重大な問題、残存リスク、リリース準備状態への入口 |
 | `02_Quality_Strategy.md` | 品質目標、品質リスク、検証方針、環境、独立性、根拠方針、リスク受容方針 |
-| `03_Verification_Design.md` | 検証意図、検証項目、観測要件、検証手順、網羅規則、評価規則、必要な根拠 |
-| `Verification_Results/` | 確定した検証結果の履歴 |
+| `03_Verification_Design.md` | 検証設計全体の入口、網羅状態、共通評価規則、個別AnalysisとDefinitionへの案内 |
+| `04_Quality_Integration.md` | 6工程のQuality分析を`Same／New／Merge`し、独立したQuality Contractへ統合した横断投影 |
+| `05_Current_Implementation_Reality_Audit.md` | CanonicalなQuality設計と現行Source、Test、Evidenceの対応状態を照合する横断監査 |
+| `Analysis/` | REQ、UX、IA、UI、SPEC、ARCHごとに、当該工程のCanonical ID全件を成功の意味、Risk、検証義務およびQA候補へ変換した伴走分析 |
+| `Definitions/` | `QA-*`で識別する独立したQuality Contractと、再利用可能なScenario、事前条件、操作・観測、期待結果、実行形態、Evidence要件 |
+| `Registry/` | Test runnerや機械検査が必要とする試験Catalog・Traceability等の機械可読契約。人間可読な設計正本ではなく、利用側がある場合だけ置く |
+先頭番号は品質フォルダ内の探索順を示すものであり、工程の実行順や安定コンテキストIDではない。個別の検証結果は、直接証明するChangeまたはReleaseの`Evidence/`へ置き、対象と日付・改訂版を識別できる名称で管理する。
 
-先頭番号は品質フォルダ内の探索順を示すものであり、工程の実行順や安定コンテキストIDではない。`Verification_Results/`内の記録へ、この3文書と同じ連番を機械的に付与しない。記録は対象と日付・改訂版を識別できる名称で管理する。
+検証義務の正本は各工程成果物へ残す。`Analysis/<工程>/quality_analysis.md`は、その工程のDefinition作成と並行して全Canonical IDを処置し、成立確認方法を説明できる状態を工程Readyの一部とする。`04_Quality_Integration.md`は工程別分析を横断統合し、`Definitions/QA-*/quality_definition.md`は再利用可能な検証方法を所有する。ルートMDは横断投影、子FolderのMDは対象固有の自己完結した分析または定義とし、中央の検証義務登録簿を第二の正本として作らない。
 
-検証義務の正本は各工程成果物へ残し、`03_Verification_Design.md`から参照する。中央の検証義務登録簿を第二の正本として作らない。必要な一覧は、正本への参照と現在状態だけを持つ索引または派生表示として扱う。
+Quality Analysisは、`REQ-*`、`UX-*`、`IA-*`、`UI-*`、`SPEC-*`および`ARCH-*`のCanonical集合を工程別の正式入力とし、各IDを対応する`Analysis/<工程>/quality_analysis.md`で一行以上処置しなければならない。個別処置はID別文書の作成を意味しない。各行から、成功の意味、失敗またはRisk、検証義務、統合候補、試験段階・種別および現在の処置状態を取得可能にする。Canonical集合と工程別Analysis集合を独立に導出して比較し、欠落、未知IDおよび重複による曖昧さを機械検査する。
+
+Quality AnalysisとQuality Definitionは1対1に固定しない。複数のCanonical IDから導出した検証義務を`04_Quality_Integration.md`で同じQuality Contractへ`Same／New／Merge`でき、一つのCanonical IDを複数の`QA-*`へ接続できる。`QA-*`は独立した品質の意味、成功・失敗境界および検証戦略を持つ長期参照可能なCanonical Identityであり、Test Case、Test file、Local ItemまたはSource IDの単純な複製には発行しない。統合時は判断と理由を取得可能にし、対象集合、ID固有の成立条件、対応する検証項目および未処置の差分を全数追跡する。
+
+Quality Analysisは、`Source ID → 検証目標 → 試験段階 → Definition内Local Item`と`Architecture詳細設計領域 → 検証目標`を明示する。各Definitionは同じSource固有条件、試験段階、Local Itemおよび詳細設計入力を保持する。宣言集合と、Canonical Definition、Architecture詳細設計領域およびDefinition実体から導出した集合を比較し、欠落、未知Relation、別目標への移動および説明だけを変えた重複を不整合として扱う。Source固有条件は空欄でないことだけでなく、Quality AnalysisとDefinitionの間で空白差を除いて一致させる。全件MappingのSource行に示す試験段階は、そのSourceを複数の検証目標へ分けた各関係の試験段階の和集合と一致させる。各`Source ID + 検証目標`関係に示した試験段階は、同じ関係へ結び付けたLocal Itemに同じ段階が一件以上なければならない。別Source、別の検証目標、別段階のLocal Itemまたは検証目標全体の適用表で代替しない。検証項目の閉包はLocal Itemの全体集合だけでなく、`検証目標 → Local Item`の組を完全一致させ、別目標との入替を許容しない。検証目標名だけへの接続、代表Sourceだけの試験またはLocal Item一覧だけでは全件処置としない。
+
+検証項目の完全性は、既に存在するLocal ItemやTestの一覧から逆算しない。Quality Analysisは、正本成果物から導出した必要検証義務（Required Verification Obligation）の集合と、Quality Definitionが定義したLocal Itemの集合を別に扱い、次の差を判定できるようにする。
+
+```text
+Canonical Definition／Architecture Model Item
+                    ↓
+       Required Verification Obligation
+                    ↓  Same／New／Merge
+             Quality Definition
+                    ↓
+             Defined Local Item
+                    ↓
+          Test／Execution／Evidence
+```
+
+| 差分 | 意味 | 処置 |
+|---|---|---|
+| Required - Defined | 必要だがLocal Itemがない | Quality Definitionを追加・更新するか、上流の導出誤りを是正する |
+| Defined - Required | 正本上の必要性へ戻れないLocal Item | Legacy、重複、実装都合または上流Gapとして分類する |
+| Level不一致 | 必要な観測境界とLocal Itemの試験段階が違う | 同じ意味でも観測境界ごとにLocal Itemを分ける |
+| Relation不明 | Source、設計項目または検証目標へ一意に戻れない | 推測で接続せずGapとする |
+
+REQ／UX／IAはUAT専用のLocal Itemや新しい安定IDを所有しない。要求の受入条件、UXの利用者成果・重要場面・失敗、IAの情報発見・理解・関連付けをQuality Analysisが受入検証義務へ変換し、Quality DefinitionがUAT Local Itemを所有する。UI／SPECからは主にSystemとして観測する成立条件を、Architectureからは主にComponent・Boundary・State・Sequence・Failure／Recoveryの結合条件を、Architecture Detailsと実装構造からは主に局所責務・分岐・不変条件・Error処置を導出する。この対応は試験段階の固定割当ではなく、同じ条件が複数の観測境界を必要とする場合は複数段階へ展開する。
+
+品質工程は直前のArchitectureだけを正式入力としない。各工程は異なる種類の成立条件を所有するため、要求は課題解決、UXは利用者成果、IAは情報の理解・識別・追跡、UIは認識・操作・Feedback、SPECは振る舞い契約、Architectureは構造・境界・故障・回復の観点から横断分析する。試験段階は情報源となる工程へ固定対応させず、検証義務と観測境界から判断する。
 
 根拠は、対象成果物内または最も近い親フォルダの`Evidence/`に置く。実装コード、テストコード、構成、再現手順等は、それぞれの通常配置を正本とし、検証結果とQuality Centerから参照する。根拠を`07_Quality`へ集め直さない。
 
 CRDDの品質保証記録は、リポジトリ内だけで現在状態、判断理由、未検証範囲、残存リスクおよび再現方法を理解できるようにする。CI、計測基盤またはテスト実行ツールを使用しても、それらを品質保証記録の唯一の正本にしない。判断に使用した結果の要約、対象改訂版、実行条件、実行方法、主要な根拠、未取得範囲を検証結果へ反映する。
+
+Git管理対象の一覧、Blob Identityまたは機械的な属性分類を固定Commitと抽出条件から同じ結果として再構成できる場合は、全件Inventoryを共通JSONとして永続化しない。検証結果には固定改訂版、抽出条件、件数、必要な集合Hashおよび結果を残し、対象集合そのものはGitから再構成する。人間または専門レビューによる`currentness`、処置、理由、正本Owner等の判断集合はGit Treeから再構成できないため、監査結論を支える場合は現在状態の台帳ではなく固定Evidenceとして保持する。外部Provider、OS、Network、実Process、人間評価その他のGit外観測も再構成可能とみなさず、判断に必要なEvidenceを情報最小化して保持する。
 
 容量、機密性または生成物の性質により生のログ、動画、計測ファイル等を保存しない場合は、リポジトリ内に要約、生成手順、対象改訂版、チェックサム等の再識別情報、保持しない理由、判断への影響を残す。外部リンクまたは外部IDだけでなければ品質状態を理解・再確認できない構造にしない。外部サービスへの参照は補助情報として追加できるが、CRDD内の品質保証契約を代替しない。
 
@@ -680,6 +734,8 @@ CRDDの品質保証記録は、リポジトリ内だけで現在状態、判断�
 ## 4.3. 空欄による準拠を求めない
 
 固定構成は、すべての対象へ同じ文章量、検証方法または項目数を要求するものではない。適用しない項目は理由付き`Not Applicable`、まだ判断または実施が必要な項目は未決または未検証として、担当責任者と追跡先を示す。
+
+[任意機能と必須評価](03_Documentation.md#mandatory-applicability-evaluation)に従い、品質上重要な評価項目自体を任意にしない。検証結果では、少なくとも層間搬送、耐久状態のAuthority分類、残存資源／Recovery、根拠の主張軸、PT／LT、未取得範囲および人間判断の適用可否を全数評価し、`Applicable`、理由付き`N/A`または理由付き`OPEN`へ処置する。補助ツールの利用、外部リンクの追加または生ログ保存等の任意機能まで強制しない。
 
 長い空のひな型、意味のない`N/A`の列、実施しない方法の一覧を埋めることを品質保証の完了条件にしない。短い記録でも、責務境界、対象、理由、結果、未保証範囲および判断先を理解できればよい。
 
@@ -824,6 +880,58 @@ CRDDは確認量の最大化を品質保証とはしない。現在残る不確�
 この確認は専門判断の正しさを件数または形式だけで自動判定せず、工程固有の専門品質確認を代替しない。記録更新だけの対象に存在しない専門探索結果を要求しない。
 
 各工程は、自身が所有する品質条件に対する検証観点を追加・更新する。実装は開発者テストと観測手段を具体化し、検証は独立検証を実行可能な状態へ確定する。作成担当の違いを理由に、別々の競合する検証設計を作らない。
+
+### 品質工程のRepository Pattern
+
+品質工程へ[工程成果物のRepository Pattern](03_Documentation.md#phase-repository-pattern)を適用する場合、`Analysis/`は何を・なぜ・どのRiskとTest Levelで検証するかを所有し、`Definitions/`は再利用可能な検証設計として、どう検証するかを所有する。Quality Centerは両者、試験実装およびEvidenceから現在状態を横断投影し、第二の正本を作らない。
+
+```text
+上流工程のDefinitions
+        │ 成立条件・品質・検証意図
+        ▼
+Quality Analysis
+  何を／なぜ／どのRisk・Test Levelで確認するか
+        ▼
+Quality Definitions
+  Scenario／Precondition／Expected／Evidence要件
+        ├──────────────┐
+        ▼              ▼
+  Automated Test     Manual／Hybrid
+   40_Develop          人間による実行
+        └───────┬──────┘
+                ▼
+         CHG／Release Evidence
+                ▼
+          Quality Center
+```
+
+| 所有者 | 所有する情報 |
+|---|---|
+| Quality Analysis | 対象、理由、Risk、Failure、Test Level、Manual／Automated／Hybrid分類、Coverage Gap |
+| Quality Definition | Goal、Scenario、Precondition、操作・観測、Expected Result、実行形態、Evidence要件 |
+| `40_Develop` | 自動検証の実装と自然なCode／Test asset Identity |
+| CHG／Release Evidence | 対象改訂版で実際に実行した結果 |
+| Quality Center | Coverage、Freshness、Pass／Fail／Blocked、未確認範囲へのNavigation |
+
+Quality Definitionは特定CHGに閉じず、複数の変更・改訂版から再利用できる検証項目書とする。実行結果を同じDefinitionへ書き込まず、項目書と成績を分離する。Test Caseへ意味の薄いGlobal IDを一律発行せず、必要ならCanonical Definitionと文書内Local Itemの組で識別する。
+
+Test SourceはArchitecture IDへ直接接続せず、検証するQuality Local Itemへ接続する。Test Fileは扱うLocal Item集合をFile Headerに示し、個別Test Case、責務を持つ名前付きTest HelperおよびFixtureは対応するLocal Itemを`@trace`で示す。匿名Callback一般はSymbol Header対象外だが、`test`／`it`等で宣言する個別Test Caseは検証責務を持つため、呼出し直前の可視HeaderでSummary、`@responsibility`および`@trace`を保持する。Local Item側がArchitecture MeaningとのRelationを所有し、Test側へ`ARCH-*`を重複記録しない。
+
+```text
+Architecture Meaning
+        ↓
+Quality Local Item
+        ↓
+Test Case／Named Helper／Fixture
+        ↓
+Execution／Evidence
+```
+
+Local Item IDが試験段階を含む場合、Test Fileの論理配置およびTest kindは同じ段階と一致させる。同じ検証意図が複数の観測境界を必要とする場合は、一つのLocal Itemを複数段階へ流用せず、Quality Definitionで観測境界ごとのLocal Itemへ分ける。既存Local Itemが複数段階を同時に持つ移行前構造では、Test Headerを先に推測で付けず、Local Item細分化と利用側移行を完了してから必須Gateを有効化する。
+
+`07_Quality`は、上記の固定構造を用いる。`Analysis/`は意味のある横断分析単位、`Definitions/`は独立した検証目標で整理する。全Canonical IDはMappingで個別処置するが、ID別Directoryや薄い文書を既定にしない。試験段階はDirectory、上流工程または検証目標へ固定せず、各検証義務と観測境界の適用判定として保持する。各DefinitionはUT／IT／ST／UATの適用表と、Local Itemごとの試験段階、試験種別、対象境界および外部境界の段階を持ち、試験段階別の人間向けViewはこの正本から投影する。既存成果物を移行するときは、利用側とEvidenceを棚卸しし、同じ意味を複製せずに現行の分析・定義・Evidenceへ接続する。空Directoryや中身のない準拠文書は作成しない。
+
+Quality設計は、全Canonical IDのAnalysisと検証目標への統合が完了するまで、既存SourceまたはTestを正解として逆算しない。Canonicalな検証設計を固定した後にReality Auditを行い、必要な検証と既存Source／Testを照合する。不足する検証を実装・実行してEvidenceへ接続した後にQuality Readyを判定する。
 
 単体試験の対象となる実装では、分岐網羅率（Branch Coverage）`100%`を品質戦略上の既定目標とする。これは、到達可能な判断分岐を確認対象から無意識に落とさないための目標であり、数値だけで品質成立またはリリース可否を決定する合格条件ではない。
 

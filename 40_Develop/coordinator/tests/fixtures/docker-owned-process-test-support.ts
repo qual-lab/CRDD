@@ -7,6 +7,7 @@ import {
   startOwnedProcess,
   type OwnedCommandHandle,
 } from "../../src/security/docker-owned-process.ts";
+import { createRepositoryTestTemporaryDirectory } from "./repository-test-directory-fixture.ts";
 
 const repositoryRoot = fileURLToPath(new URL("../../../../", import.meta.url));
 export const ownedProcessWorker = fileURLToPath(
@@ -32,17 +33,12 @@ export async function waitForCondition(condition: () => boolean) {
 }
 
 export function createOwnedProcessTreeFixture() {
-  for (const target of [
+  const temporaryDirectory = createRepositoryTestTemporaryDirectory(
     repositoryRoot,
-    path.join(repositoryRoot, ".crdd"),
-    path.join(repositoryRoot, ".crdd", "test-tmp"),
-  ]) {
-    const metadata = fs.lstatSync(target);
-    assert.ok(metadata.isDirectory() && !metadata.isSymbolicLink());
-  }
-  const directory = fs.mkdtempSync(
-    path.join(repositoryRoot, ".crdd", "test-tmp", "owned-process-"),
+    "docker-owned-process",
+    "owned-process-",
   );
+  const { directory } = temporaryDirectory;
   const readinessPath = path.join(directory, "ready.json");
   let handle: OwnedCommandHandle | null = null;
   let observedPids: number[] = [];
@@ -91,12 +87,13 @@ export function createOwnedProcessTreeFixture() {
           observedPids.every((pid) => !isProcessPresent(pid)),
         );
       }
+      const directoryMetadata = fs.lstatSync(directory);
       assert.ok(
-        fs.lstatSync(directory).isDirectory() &&
-          !fs.lstatSync(directory).isSymbolicLink(),
+        directoryMetadata.isDirectory() && !directoryMetadata.isSymbolicLink(),
       );
       fs.rmSync(directory, { recursive: true });
       assert.equal(fs.existsSync(directory), false);
+      temporaryDirectory.releaseNamespace();
     },
   };
 }

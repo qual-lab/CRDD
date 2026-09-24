@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:delegation-route-selectionの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:delegation-route-selectionが所有する検証責務を実行する。
+ * @trace PRL-UT-014
+ * @level UT
+ * @scope delegation、route、selection
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -7,6 +17,18 @@ import {
   selectDelegationRouteCandidate,
 } from "../../src/security/delegation-route-selection.ts";
 
+/**
+ * createRequestのTest準備責務を実行する。
+ *
+ * @responsibility createRequestがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-014
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus createRequestを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 function createRequest(
   frontProvider: "codex" | "claude",
   overrides: Record<string, unknown> = {},
@@ -42,6 +64,18 @@ const BOTH_ELIGIBLE = Object.freeze({
   ]),
 });
 
+/**
+ * Front Codexから具体実装をClaude Executorへ選ぶ②経路を検証する。
+ *
+ * @responsibility Front Codexから具体実装をClaude Executorへ選ぶ②経路の合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Front Codexから具体実装をClaude Executorへ選ぶ②経路の対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Front Codexから具体実装をClaude Executorへ選ぶ②経路", () => {
   const selected = selectDelegationRouteCandidate(
     createRequest("codex"),
@@ -55,6 +89,18 @@ test("Front Codexから具体実装をClaude Executorへ選ぶ②経路", () => 
   assert.equal(selected.providerEffectAllowed, false);
 });
 
+/**
+ * 移譲不要ならProvider eligibilityなしでFront Agentだけに保持するを検証する。
+ *
+ * @responsibility 移譲不要ならProvider eligibilityなしでFront Agentだけに保持するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 移譲不要ならProvider eligibilityなしでFront Agentだけに保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("移譲不要ならProvider eligibilityなしでFront Agentだけに保持する", () => {
   const selected = selectDelegationRouteCandidate(
     createRequest("codex", {
@@ -73,6 +119,18 @@ test("移譲不要ならProvider eligibilityなしでFront Agentだけに保持�
   assert.match(selected.selectionNotice ?? "", /子Agent費用=no/);
 });
 
+/**
+ * Front Claudeから独立レビューをCodexへ選ぶ③経路を検証する。
+ *
+ * @responsibility Front Claudeから独立レビューをCodexへ選ぶ③経路の合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Front Claudeから独立レビューをCodexへ選ぶ③経路の対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Front Claudeから独立レビューをCodexへ選ぶ③経路", () => {
   const selected = selectDelegationRouteCandidate(
     createRequest("claude", {
@@ -98,6 +156,18 @@ test("Front Claudeから独立レビューをCodexへ選ぶ③経路", () => {
   );
 });
 
+/**
+ * Codex向きの検証特性ならFront CodexからCodexへ委譲する①経路を検証する。
+ *
+ * @responsibility Codex向きの検証特性ならFront CodexからCodexへ委譲する①経路の合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Codex向きの検証特性ならFront CodexからCodexへ委譲する①経路の対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Codex向きの検証特性ならFront CodexからCodexへ委譲する①経路", () => {
   const selected = selectDelegationRouteCandidate(
     createRequest("codex", {
@@ -117,6 +187,18 @@ test("Codex向きの検証特性ならFront CodexからCodexへ委譲する①�
   );
 });
 
+/**
+ * Front Claudeから具体実装をCodexへ分散する③経路を検証する。
+ *
+ * @responsibility Front Claudeから具体実装をCodexへ分散する③経路の合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Front Claudeから具体実装をCodexへ分散する③経路の対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Front Claudeから具体実装をCodexへ分散する③経路", () => {
   const selected = selectDelegationRouteCandidate(
     createRequest("claude"),
@@ -131,6 +213,18 @@ test("Front Claudeから具体実装をCodexへ分散する③経路", () => {
   );
 });
 
+/**
+ * 明示Executor制約を優先し利用不能時に無言で変更しないを検証する。
+ *
+ * @responsibility 明示Executor制約を優先し利用不能時に無言で変更しないの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 明示Executor制約を優先し利用不能時に無言で変更しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("明示Executor制約を優先し利用不能時に無言で変更しない", () => {
   const explicit = selectDelegationRouteCandidate(
     createRequest("codex", { requestedExecutorProvider: "codex" }),
@@ -158,6 +252,18 @@ test("明示Executor制約を優先し利用不能時に無言で変更しない
   assert.equal(unavailable.reason, "delegation_route_executor_unavailable");
 });
 
+/**
+ * 反対ProviderのSubscription quota不足時だけ同一Providerへ戻すを検証する。
+ *
+ * @responsibility 反対ProviderのSubscription quota不足時だけ同一Providerへ戻すの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 反対ProviderのSubscription quota不足時だけ同一Providerへ戻すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("反対ProviderのSubscription quota不足時だけ同一Providerへ戻す", () => {
   const selected = selectDelegationRouteCandidate(createRequest("codex"), {
     providerEligibility: [
@@ -187,6 +293,18 @@ test("反対ProviderのSubscription quota不足時だけ同一Providerへ戻す"
   );
 });
 
+/**
+ * 反対Providerのeligibilityが不明なら同一Providerへ推測fallbackしないを検証する。
+ *
+ * @responsibility 反対Providerのeligibilityが不明なら同一Providerへ推測fallbackしないの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 反対Providerのeligibilityが不明なら同一Providerへ推測fallbackしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("反対Providerのeligibilityが不明なら同一Providerへ推測fallbackしない", () => {
   const selected = selectDelegationRouteCandidate(createRequest("codex"), {
     providerEligibility: [
@@ -202,6 +320,18 @@ test("反対Providerのeligibilityが不明なら同一Providerへ推測fallback
   assert.equal(selected.reason, "delegation_route_executor_unavailable");
 });
 
+/**
+ * 反対Providerに必要CapabilityがなければFront ClaudeからClaudeへ戻す④経路を検証する。
+ *
+ * @responsibility 反対Providerに必要CapabilityがなければFront ClaudeからClaudeへ戻す④経路の合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 反対Providerに必要CapabilityがなければFront ClaudeからClaudeへ戻す④経路の対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("反対Providerに必要CapabilityがなければFront ClaudeからClaudeへ戻す④経路", () => {
   const selected = selectDelegationRouteCandidate(createRequest("claude"), {
     providerEligibility: [
@@ -222,6 +352,18 @@ test("反対Providerに必要CapabilityがなければFront ClaudeからClaude�
   );
 });
 
+/**
+ * 独立Provider欠落、循環、深度超過と不正eligibilityをfail closedにするを検証する。
+ *
+ * @responsibility 独立Provider欠落、循環、深度超過と不正eligibilityをfail closedにするの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 独立Provider欠落、循環、深度超過と不正eligibilityをfail closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("独立Provider欠落、循環、深度超過と不正eligibilityをfail closedにする", () => {
   const noIndependent = selectDelegationRouteCandidate(
     createRequest("claude", {
@@ -273,6 +415,18 @@ test("独立Provider欠落、循環、深度超過と不正eligibilityをfail cl
   );
 });
 
+/**
+ * 独立Reviewerはsubject Providerと独立性要求を必須にするを検証する。
+ *
+ * @responsibility 独立Reviewerはsubject Providerと独立性要求を必須にするの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 独立Reviewerはsubject Providerと独立性要求を必須にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("独立Reviewerはsubject Providerと独立性要求を必須にする", () => {
   assert.equal(
     selectDelegationRouteCandidate(
@@ -352,6 +506,18 @@ test("独立Reviewerはsubject Providerと独立性要求を必須にする", ()
   );
 });
 
+/**
+ * 公開契約は4経路とCoordinator Gateを固定するを検証する。
+ *
+ * @responsibility 公開契約は4経路とCoordinator Gateを固定するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開契約は4経路とCoordinator Gateを固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("公開契約は4経路とCoordinator Gateを固定する", () => {
   const contract = describeDelegationRouteSelectionContract();
   assert.deepEqual(contract.supportedRoutes, [
@@ -389,6 +555,18 @@ test("公開契約は4経路とCoordinator Gateを固定する", () => {
   assert.equal(contract.providerEffectAllowed, false);
 });
 
+/**
+ * Execution SlateはExecutor Effect前に別Provider Reviewerまで固定するを検証する。
+ *
+ * @responsibility Execution SlateはExecutor Effect前に別Provider Reviewerまで固定するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Execution SlateはExecutor Effect前に別Provider Reviewerまで固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Execution SlateはExecutor Effect前に別Provider Reviewerまで固定する", () => {
   const slate = selectDelegationExecutionSlateCandidate(
     createRequest("codex"),
@@ -401,6 +579,18 @@ test("Execution SlateはExecutor Effect前に別Provider Reviewerまで固定す
   assert.equal(slate.providerEffectAllowed, false);
 });
 
+/**
+ * 低リスクLocal Taskだけ反対Provider不能時に別実行Contextの同一Provider Reviewerへ閉じるを検証する。
+ *
+ * @responsibility 低リスクLocal Taskだけ反対Provider不能時に別実行Contextの同一Provider Reviewerへ閉じるの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 低リスクLocal Taskだけ反対Provider不能時に別実行Contextの同一Provider Reviewerへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("低リスクLocal Taskだけ反対Provider不能時に別実行Contextの同一Provider Reviewerへ閉じる", () => {
   const observation = {
     providerEligibility: [

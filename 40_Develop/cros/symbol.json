@@ -1,0 +1,79 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "cros",
+  "symbols": [
+    {
+      "symbolId": "cros.public-api",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": ["ARCH-000010"]
+    },
+    {
+      "symbolId": "cros.runtime",
+      "kind": "file",
+      "path": "src/runtime.ts",
+      "archIds": ["ARCH-000009", "ARCH-000015"]
+    },
+    {
+      "symbolId": "cros.tool-registry",
+      "kind": "file",
+      "path": "src/tool-registry.ts",
+      "archIds": ["ARCH-000010"]
+    },
+    {
+      "symbolId": "cros.application-contract",
+      "kind": "file",
+      "path": "src/application-contract.ts",
+      "archIds": ["ARCH-000010", "ARCH-000015"]
+    },
+    {
+      "symbolId": "cros.test.integration.core",
+      "kind": "test-suite",
+      "path": "tests/integration/cros-core.contract.test.ts",
+      "qaIds": ["QA-000007"],
+      "localTestIds": ["RFD-IT-009", "RFD-IT-011"],
+      "verifies": ["cros.runtime"]
+    },
+    {
+      "symbolId": "cros.test.integration.tool-registry",
+      "kind": "test-suite",
+      "path": "tests/integration/tool-registry.contract.test.ts",
+      "qaIds": ["QA-000001"],
+      "localTestIds": ["RCM-IT-010"],
+      "verifies": ["cros.tool-registry"]
+    },
+    {
+      "symbolId": "cros.test.system.session-access",
+      "kind": "test-suite",
+      "path": "tests/system/session-access.contract.test.ts",
+      "qaIds": ["QA-000007"],
+      "localTestIds": ["RFD-ST-003", "RFD-ST-004"],
+      "verifies": ["cros.runtime"]
+    },
+    {
+      "symbolId": "cros.test.system.context-handoff",
+      "kind": "test-suite",
+      "path": "tests/system/context-handoff.contract.test.ts",
+      "qaIds": ["QA-000006", "QA-000007"],
+      "localTestIds": ["ERB-ST-013", "RFD-ST-010"],
+      "verifies": ["cros.runtime"]
+    },
+    {
+      "symbolId": "cros.test.integration.surface-contract",
+      "kind": "test-suite",
+      "path": "tests/integration/surface-contract.contract.test.ts",
+      "qaIds": ["QA-000009"],
+      "localTestIds": ["EST-IT-010"],
+      "verifies": ["cros.application-contract"]
+    },
+    {
+      "symbolId": "cros.test.system.result-return",
+      "kind": "test-suite",
+      "path": "tests/system/result-return.contract.test.ts",
+      "qaIds": ["QA-000009"],
+      "localTestIds": ["EST-ST-011"],
+      "verifies": ["cros.application-contract"]
+    }
+  ]
+}

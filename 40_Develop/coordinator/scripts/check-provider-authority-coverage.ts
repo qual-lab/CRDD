@@ -1,3 +1,9 @@
+/**
+ * check-provider-authority-coverageに属する責務をまとめる。
+ *
+ * @responsibility obligationを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -42,6 +48,22 @@ const NODE_OPTIONS = Object.freeze([
   "--test-reporter=lcov",
 ]);
 
+/**
+ * obligationを決定する。
+ *
+ * @responsibility obligationの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input reason: string、risk: string、alternativeVerification: string、recheck: string
+ * @returns CoverageObligationを返す。
+ * @precondition 「reason: string、risk: string、alternativeVerification: string、recheck: string」がobligationの入力契約を満たす。
+ * @postcondition obligationの責務を完了した結果だけを返す。
+ * @effect N/A: obligationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: obligationは独自の失敗分岐を所有しない。
+ * @invariant obligationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: obligationはProcess内の同一Subsystemで完結する。
+ * @security obligationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: obligationは共有非同期状態を持たない同期処理である。
+ */
 function obligation(
   reason: string,
   risk: string,
@@ -102,6 +124,22 @@ const coverageObligations = Object.freeze({
   ),
 } satisfies Readonly<Record<string, CoverageObligation>>);
 
+/**
+ * fixed Environmentを決定する。
+ *
+ * @responsibility fixed Environmentの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns fixedEnvironmentの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がfixedEnvironmentの入力契約を満たす。
+ * @postcondition fixedEnvironmentの責務を完了した結果だけを返す。
+ * @effect fixedEnvironmentは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: fixedEnvironmentは独自の失敗分岐を所有しない。
+ * @invariant fixedEnvironmentは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security fixedEnvironmentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: fixedEnvironmentは共有非同期状態を持たない同期処理である。
+ */
 function fixedEnvironment() {
   const environment: NodeJS.ProcessEnv = {};
   for (const name of ["SYSTEMROOT", "SystemRoot", "WINDIR", "TEMP", "TMP"]) {
@@ -111,6 +149,22 @@ function fixedEnvironment() {
   return environment;
 }
 
+/**
+ * Onceを観測する。
+ *
+ * @responsibility Onceの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns inspectOnceの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がinspectOnceの入力契約を満たす。
+ * @postcondition inspectOnceの責務を完了した結果だけを返す。
+ * @effect inspectOnceは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure inspectOnceは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectOnceは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security inspectOnceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectOnceは共有非同期状態を持たない同期処理である。
+ */
 function inspectOnce() {
   const result = spawnSync(
     process.execPath,
@@ -148,6 +202,22 @@ function inspectOnce() {
   });
 }
 
+/**
+ * Provider Authority Coverageを観測する。
+ *
+ * @responsibility Provider Authority Coverageの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns inspectProviderAuthorityCoverageの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がinspectProviderAuthorityCoverageの入力契約を満たす。
+ * @postcondition inspectProviderAuthorityCoverageの責務を完了した結果だけを返す。
+ * @effect inspectProviderAuthorityCoverageはFilesystemの読取りまたは書込みを実行する。
+ * @failure inspectProviderAuthorityCoverageは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectProviderAuthorityCoverageは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security inspectProviderAuthorityCoverageはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectProviderAuthorityCoverageは共有非同期状態を持たない同期処理である。
+ */
 export function inspectProviderAuthorityCoverage() {
   const rootMetadata = fs.lstatSync(repositoryRoot);
   if (
@@ -174,6 +244,22 @@ export function inspectProviderAuthorityCoverage() {
   });
 }
 
+/**
+ * Provider Authority Coverageを固定byte表現へ直列化する。
+ *
+ * @responsibility Provider Authority Coverageの入力値、直列化規則、出力境界を所有する。
+ * @trace ARCH-000014
+ * @input value: ReturnType<typeof inspectProviderAuthorityCoverage>
+ * @returns serializeProviderAuthorityCoverageの計算結果を返す。
+ * @precondition 「value: ReturnType<typeof inspectProviderAuthorityCoverage>」がserializeProviderAuthorityCoverageの入力契約を満たす。
+ * @postcondition serializeProviderAuthorityCoverageの責務を完了した結果だけを返す。
+ * @effect N/A: serializeProviderAuthorityCoverageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: serializeProviderAuthorityCoverageは独自の失敗分岐を所有しない。
+ * @invariant serializeProviderAuthorityCoverageは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: serializeProviderAuthorityCoverageはProcess内の同一Subsystemで完結する。
+ * @security serializeProviderAuthorityCoverageはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: serializeProviderAuthorityCoverageは共有非同期状態を持たない同期処理である。
+ */
 export function serializeProviderAuthorityCoverage(
   value: ReturnType<typeof inspectProviderAuthorityCoverage>,
 ) {

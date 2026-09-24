@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:development-native-observationの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:development-native-observationが所有する検証責務を実行する。
+ * @trace ERB-IT-004
+ * @level IT
+ * @scope development、native、observation
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
+ */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -29,6 +39,18 @@ const scenarios = [
   "cleanup-expiry",
 ];
 
+/**
+ * runProbeのTest準備責務を実行する。
+ *
+ * @responsibility runProbeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-004
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus runProbeを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
+ */
 async function runProbe(target: string, scenario: string) {
   const realNow = Date.now;
   let simulatedTime: number | null = null;
@@ -52,6 +74,18 @@ async function runProbe(target: string, scenario: string) {
   const verifications: object[] = [];
   const management = Object.freeze({});
   const repositoryBinding = Object.freeze({});
+  /**
+   * moduleUrlのTest準備責務を実行する。
+   *
+   * @responsibility moduleUrlがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERB-IT-004
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus moduleUrlを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
+   */
   const moduleUrl = (name: string) =>
     new URL(`../../src/security/${name}.ts`, import.meta.url).href;
   await mock.module(moduleUrl("repository-operation-runtime"), {
@@ -361,6 +395,18 @@ if (process.argv[2] === "--probe") {
 } else {
   for (const target of targets)
     for (const scenario of scenarios) {
+      /**
+       * 本番sessionとnative Adapterの結合: ${target} / ${scenario}を検証する。
+       *
+       * @responsibility 本番sessionとnative Adapterの結合: ${target} / ${scenario}の合否判定を所有する。
+       * @trace ERB-IT-004
+       * @precondition Test Fileが構築するfixtureと入力を使用する。
+       * @stimulus 本番sessionとnative Adapterの結合: ${target} / ${scenario}の対象操作を実行する。
+       * @observation 結果、状態、Effectおよび終了後条件を観測する。
+       * @oracle Test本文のassertionが期待条件を満たす。
+       * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+       * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
+       */
       test(`本番sessionとnative Adapterの結合: ${target} / ${scenario}`, (context) => {
         if (process.platform !== "win32") {
           context.skip("Windows native adapter");

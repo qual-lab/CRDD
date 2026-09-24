@@ -1,3 +1,9 @@
+/**
+ * provider-model-profile-runtimeに属する責務をまとめる。
+ *
+ * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 export const PROVIDER_MODEL_PROFILE_RUNTIME_CONTRACT =
@@ -20,8 +26,35 @@ const ROLES = new Set([
   "result_integration",
 ]);
 
+/**
+ * provider-model-profile-runtimeで使用するProviderの値契約を定義する。
+ *
+ * @responsibility ProviderのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000010
+ * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Providerで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Providerの宣言は外部境界を開かない。
+ * @security ProviderはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Providerの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Provider = "codex" | "claude";
 
+/**
+ * Profileを一意に解決する。
+ *
+ * @responsibility Profileの候補集合、解決規則、曖昧時の拒否境界を所有する。
+ * @trace ARCH-000010
+ * @input provider: Provider、family: "sol" | "opus"、role: | "coordinator" | "executor" | "independent_reviewer" | "result_integration"、modelTier: "preferred" | "upper_allowed"
+ * @returns resolveProfileの計算結果を返す。
+ * @precondition 「provider: Provider、family: "sol" | "opus"、role: | "coordinator" | "executor" | "independent_reviewer" | "result_integration"、modelTier: "preferred" | "upper_allowed"」がresolveProfileの入力契約を満たす。
+ * @postcondition resolveProfileの責務を完了した結果だけを返す。
+ * @effect N/A: resolveProfileは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveProfileは独自の失敗分岐を所有しない。
+ * @invariant resolveProfileは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveProfileはProcess内の同一Subsystemで完結する。
+ * @security resolveProfileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resolveProfileは共有非同期状態を持たない同期処理である。
+ */
 function resolveProfile(
   provider: Provider,
   family: "sol" | "opus",
@@ -72,6 +105,22 @@ function resolveProfile(
   return null;
 }
 
+/**
+ * Runtime 所有 Provider Model Profileを一意に解決する。
+ *
+ * @responsibility Runtime 所有 Provider Model Profileの候補集合、解決規則、曖昧時の拒否境界を所有する。
+ * @trace ARCH-000010
+ * @input rawRequest: unknown
+ * @returns resolveRuntimeOwnedProviderModelProfileの計算結果を返す。
+ * @precondition 「rawRequest: unknown」がresolveRuntimeOwnedProviderModelProfileの入力契約を満たす。
+ * @postcondition resolveRuntimeOwnedProviderModelProfileの責務を完了した結果だけを返す。
+ * @effect N/A: resolveRuntimeOwnedProviderModelProfileは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveRuntimeOwnedProviderModelProfileは独自の失敗分岐を所有しない。
+ * @invariant resolveRuntimeOwnedProviderModelProfileは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveRuntimeOwnedProviderModelProfileはProcess内の同一Subsystemで完結する。
+ * @security resolveRuntimeOwnedProviderModelProfileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resolveRuntimeOwnedProviderModelProfileは共有非同期状態を持たない同期処理である。
+ */
 export function resolveRuntimeOwnedProviderModelProfile(rawRequest: unknown) {
   const request = snapshotPlainRecord(rawRequest, REQUEST_KEYS);
   if (
@@ -98,6 +147,22 @@ export function resolveRuntimeOwnedProviderModelProfile(rawRequest: unknown) {
   );
 }
 
+/**
+ * Provider Model Profile Runtime 契約の公開契約を記述する。
+ *
+ * @responsibility Provider Model Profile Runtime 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000010
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProviderModelProfileRuntimeContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProviderModelProfileRuntimeContractの入力契約を満たす。
+ * @postcondition describeProviderModelProfileRuntimeContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeProviderModelProfileRuntimeContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProviderModelProfileRuntimeContractは独自の失敗分岐を所有しない。
+ * @invariant describeProviderModelProfileRuntimeContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeProviderModelProfileRuntimeContractはProcess内の同一Subsystemで完結する。
+ * @security describeProviderModelProfileRuntimeContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeProviderModelProfileRuntimeContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeProviderModelProfileRuntimeContract() {
   return Object.freeze({
     contract: PROVIDER_MODEL_PROFILE_RUNTIME_CONTRACT,

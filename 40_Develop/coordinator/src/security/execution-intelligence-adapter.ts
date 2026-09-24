@@ -1,11 +1,17 @@
+/**
+ * execution-intelligence-adapterに属する責務をまとめる。
+ *
+ * @responsibility createProjectRuntimeTaskAttemptEventを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000007
+ */
 import {
   createTaskAttemptSettledEvent,
-  usageNotObserved,
-  verifyExecutionIntelligenceRepositoryRoot,
   type ExecutionIntelligenceEvent,
   type ExecutionIntelligencePublicationResult,
+  usageNotObserved,
+  verifyExecutionIntelligenceRepositoryRoot,
+  writeExecutionIntelligenceEvent,
 } from "../../../execution-intelligence/src/index.ts";
-import { writeExecutionIntelligenceEvent } from "../../../execution-intelligence/src/index.ts";
 import type {
   ProjectRuntimeExecutionObservationPublication,
   ProjectRuntimeTaskAttemptObservation,
@@ -13,7 +19,19 @@ import type {
 
 /**
  * Coordinator-specific projection into the shared Execution Intelligence
- * contract. The shared component does not know Single Task Runtime semantics.
+ *
+ * @responsibility Project Runtime Task Attempt Eventの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000007
+ * @input input: ProjectRuntimeTaskAttemptObservation
+ * @returns ExecutionIntelligenceEventを返す。
+ * @precondition 「input: ProjectRuntimeTaskAttemptObservation」がcreateProjectRuntimeTaskAttemptEventの入力契約を満たす。
+ * @postcondition createProjectRuntimeTaskAttemptEventの責務を完了した結果だけを返す。
+ * @effect N/A: createProjectRuntimeTaskAttemptEventは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createProjectRuntimeTaskAttemptEventは独自の失敗分岐を所有しない。
+ * @invariant createProjectRuntimeTaskAttemptEventは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security createProjectRuntimeTaskAttemptEventはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createProjectRuntimeTaskAttemptEventは共有非同期状態を持たない同期処理である。
  */
 export function createProjectRuntimeTaskAttemptEvent(
   input: ProjectRuntimeTaskAttemptObservation,
@@ -72,6 +90,22 @@ export function createProjectRuntimeTaskAttemptEvent(
   });
 }
 
+/**
+ * record Project Runtime Execution Eventを決定する。
+ *
+ * @responsibility record Project Runtime Execution Eventの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000007
+ * @input repositoryRoot: string、observation: ProjectRuntimeTaskAttemptObservation
+ * @returns ProjectRuntimeExecutionObservationPublicationを返す。
+ * @precondition 「repositoryRoot: string、observation: ProjectRuntimeTaskAttemptObservation」がrecordProjectRuntimeExecutionEventの入力契約を満たす。
+ * @postcondition recordProjectRuntimeExecutionEventの責務を完了した結果だけを返す。
+ * @effect N/A: recordProjectRuntimeExecutionEventは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: recordProjectRuntimeExecutionEventは独自の失敗分岐を所有しない。
+ * @invariant recordProjectRuntimeExecutionEventは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security recordProjectRuntimeExecutionEventはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recordProjectRuntimeExecutionEventは共有非同期状態を持たない同期処理である。
+ */
 export function recordProjectRuntimeExecutionEvent(
   repositoryRoot: string,
   observation: ProjectRuntimeTaskAttemptObservation,

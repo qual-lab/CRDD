@@ -1,3 +1,9 @@
+/**
+ * launchに属する責務をまとめる。
+ *
+ * @responsibility このFileに属する実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { fileURLToPath } from "node:url";
 import {
   coordinatorLaunchFailureMessage,
@@ -16,6 +22,7 @@ if (args.length === 1 && args[0] === "--help") {
       "verify-recovery : 署名済み復旧E2E。端末不要",
       "sign-release <署名引数> : 配布担当用。端末で秘密入力",
       "promote-release : この署名済みstaging自身のManifestをbyte-for-byteで作業Repositoryへ昇格",
+      "authenticate-claude : 人がClaude Maxの専用Provider Homeを再認証。Repositoryは接続しない",
       "同じ配布物の既存入口へ接続します。起動用途の選択は実行許可や署名検証を代替しません。",
       "通常Taskは必要な実行条件をOperationごとに検証します。",
       "入出力・環境・作業Directoryは変更しません。秘密入力の記録や自動入力は行いません。",
@@ -61,6 +68,9 @@ if (args.length === 1 && args[0] === "--help") {
           break;
         case "promote-release":
           await import("../scripts/promote-release-manifest.ts");
+          break;
+        case "authenticate-claude":
+          await import("../scripts/authenticate-claude-subscription.ts");
           break;
       }
     } catch {

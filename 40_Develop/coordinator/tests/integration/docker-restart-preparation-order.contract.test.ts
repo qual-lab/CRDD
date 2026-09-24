@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:docker-restart-preparation-orderの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:docker-restart-preparation-orderが所有する検証責務を実行する。
+ * @trace ERB-IT-014
+ * @level IT
+ * @scope docker、restart、preparation、order
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
@@ -35,6 +45,18 @@ assert.ok(start >= 0 && end > start);
 const body = stripTypeScriptTypes(
   source.slice(start, end).replace("export function", "function"),
 );
+/**
+ * runPreparationのTest準備責務を実行する。
+ *
+ * @responsibility runPreparationがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-014
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus runPreparationを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 function runPreparation(isHistoryValid: boolean) {
   const h = "a".repeat(64);
   const token = `docker-task.${h}.${h}.${h}`;
@@ -58,6 +80,18 @@ function runPreparation(isHistoryValid: boolean) {
   const origin = createDockerRestartRecord(binding, "stop_intent");
   let writes = 0;
   let releases = 0;
+  /**
+   * lockのTest準備責務を実行する。
+   *
+   * @responsibility lockがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERB-IT-014
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus lockを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+   */
   const lock = () => ({
     assertLive: () => true,
     release: () => {
@@ -138,6 +172,18 @@ function runPreparation(isHistoryValid: boolean) {
   );
   return { result, writes, releases };
 }
+/**
+ * invalid historical signature blocks before protected-root session handoffを検証する。
+ *
+ * @responsibility invalid historical signature blocks before protected-root session handoffの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus invalid historical signature blocks before protected-root session handoffの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("invalid historical signature blocks before protected-root session handoff", () => {
   const { result, writes, releases } = runPreparation(false);
   assert.equal(result.status, "blocked");
@@ -145,6 +191,18 @@ test("invalid historical signature blocks before protected-root session handoff"
   assert.equal(writes, 0);
   assert.equal(releases, 3);
 });
+/**
+ * same stable user re-logon preserves the durable restart principal while preparing a fresh continuationを検証する。
+ *
+ * @responsibility same stable user re-logon preserves the durable restart principal while preparing a fresh continuationの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus same stable user re-logon preserves the durable restart principal while preparing a fresh continuationの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("same stable user re-logon preserves the durable restart principal while preparing a fresh continuation", () => {
   const { result, writes } = runPreparation(true);
   assert.equal(result.status, "prepared");
@@ -155,6 +213,18 @@ test("same stable user re-logon preserves the durable restart principal while pr
   assert.equal(writes, 1);
 });
 
+/**
+ * restart revalidation consumes validated record inventory, not publication companionsを検証する。
+ *
+ * @responsibility restart revalidation consumes validated record inventory, not publication companionsの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus restart revalidation consumes validated record inventory, not publication companionsの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("restart revalidation consumes validated record inventory, not publication companions", () => {
   const verifierEnd = source.indexOf(
     "export function persistRuntimeOwnedDockerRestartPhase(",
@@ -222,6 +292,18 @@ test("restart revalidation consumes validated record inventory, not publication 
         : "handoff\n",
     }),
   };
+  /**
+   * verifyのTest準備責務を実行する。
+   *
+   * @responsibility verifyがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERB-IT-014
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus verifyを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+   */
   const verify = () =>
     runInNewContext(
       `${verifierBody}\nverifyRuntimeOwnedDockerRestartPreparation(capability);`,
@@ -234,6 +316,18 @@ test("restart revalidation consumes validated record inventory, not publication 
   assert.equal(inventoryReads, 2);
 });
 
+/**
+ * recorded restart recovery resolves the immutable operation principal after same-user re-logonを検証する。
+ *
+ * @responsibility recorded restart recovery resolves the immutable operation principal after same-user re-logonの合否判定を所有する。
+ * @trace ERB-IT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus recorded restart recovery resolves the immutable operation principal after same-user re-logonの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
+ */
 test("recorded restart recovery resolves the immutable operation principal after same-user re-logon", () => {
   const recoveryStart = source.indexOf(
     "export function recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart(",

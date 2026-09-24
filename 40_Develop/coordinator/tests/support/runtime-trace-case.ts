@@ -40,7 +40,7 @@ export type RuntimeTraceCase = RuntimeTraceCommonObservation &
 const runtimeTrace = JSON.parse(
   fs.readFileSync(
     new URL(
-      "../../../../07_Quality/05_Coordinator_Runtime_Traceability.json",
+      "../../../../07_Quality/Registry/coordinator-runtime-traceability.json",
       import.meta.url,
     ),
     "utf8",

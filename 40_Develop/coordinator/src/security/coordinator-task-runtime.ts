@@ -1,3 +1,9 @@
+/**
+ * coordinator-task-runtimeに属する責務をまとめる。
+ *
+ * @responsibility projectRuntimeOwnedDockerProcessStartForTaskを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { types as utilTypes } from "node:util";
 import {
   createDevelopmentExecutionTiming,
@@ -23,6 +29,11 @@ import {
   createRuntimeOwnedCoordinatorOperation,
 } from "./coordinator-operation-creation-internal.ts";
 import { snapshotCoordinatorTaskRequest } from "./coordinator-task-request.ts";
+import {
+  COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS,
+  type CoordinatorTaskPublicReason,
+  projectCoordinatorTaskPublicReason,
+} from "./coordinator-task-result-reasons.ts";
 import {
   issueRuntimeOwnedDelegationSelectionGrant,
   preflightRuntimeOwnedDelegationExecutionSlate,
@@ -84,6 +95,22 @@ import {
   verifyRuntimeOwnedCandidateRevision,
 } from "./repository-workspace-runtime.ts";
 
+/**
+ * Runtime 所有 Docker Process Start For Taskを公開結果へ投影する。
+ *
+ * @responsibility Runtime 所有 Docker Process Start For Taskの公開field、秘匿境界、投影不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、recoveryId: unknown、operationId: unknown
+ * @returns projectRuntimeOwnedDockerProcessStartForTaskの計算結果を返す。
+ * @precondition 「value: unknown、recoveryId: unknown、operationId: unknown」がprojectRuntimeOwnedDockerProcessStartForTaskの入力契約を満たす。
+ * @postcondition projectRuntimeOwnedDockerProcessStartForTaskの責務を完了した結果だけを返す。
+ * @effect N/A: projectRuntimeOwnedDockerProcessStartForTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: projectRuntimeOwnedDockerProcessStartForTaskは独自の失敗分岐を所有しない。
+ * @invariant projectRuntimeOwnedDockerProcessStartForTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: projectRuntimeOwnedDockerProcessStartForTaskはProcess内の同一Subsystemで完結する。
+ * @security projectRuntimeOwnedDockerProcessStartForTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: projectRuntimeOwnedDockerProcessStartForTaskは共有非同期状態を持たない同期処理である。
+ */
 export function projectRuntimeOwnedDockerProcessStartForTask(
   value: unknown,
   recoveryId: unknown,
@@ -96,6 +123,22 @@ export function projectRuntimeOwnedDockerProcessStartForTask(
   );
 }
 
+/**
+ * Runtime 所有 Docker Process Completion For Taskを公開結果へ投影する。
+ *
+ * @responsibility Runtime 所有 Docker Process Completion For Taskの公開field、秘匿境界、投影不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、recoveryId: unknown、operationId: unknown
+ * @returns projectRuntimeOwnedDockerProcessCompletionForTaskの計算結果を返す。
+ * @precondition 「value: unknown、recoveryId: unknown、operationId: unknown」がprojectRuntimeOwnedDockerProcessCompletionForTaskの入力契約を満たす。
+ * @postcondition projectRuntimeOwnedDockerProcessCompletionForTaskの責務を完了した結果だけを返す。
+ * @effect N/A: projectRuntimeOwnedDockerProcessCompletionForTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: projectRuntimeOwnedDockerProcessCompletionForTaskは独自の失敗分岐を所有しない。
+ * @invariant projectRuntimeOwnedDockerProcessCompletionForTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: projectRuntimeOwnedDockerProcessCompletionForTaskはProcess内の同一Subsystemで完結する。
+ * @security projectRuntimeOwnedDockerProcessCompletionForTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: projectRuntimeOwnedDockerProcessCompletionForTaskは共有非同期状態を持たない同期処理である。
+ */
 export function projectRuntimeOwnedDockerProcessCompletionForTask(
   value: unknown,
   recoveryId: unknown,
@@ -199,8 +242,41 @@ const INVALID_CONTROL_CANCELLATION_RESULT = Object.freeze({
   reason: "coordinator_task_control_invalid" as const,
 });
 
+/**
+ * coordinator-task-runtimeで使用するProviderの値契約を定義する。
+ *
+ * @responsibility ProviderのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Providerで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Providerの宣言は外部境界を開かない。
+ * @security ProviderはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Providerの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Provider = "codex" | "claude";
+/**
+ * coordinator-task-runtimeで使用するTask Roleの値契約を定義する。
+ *
+ * @responsibility Task RoleのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape TaskRoleが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant TaskRoleで宣言した値と責務の対応を維持する。
+ * @boundary N/A: TaskRoleの宣言は外部境界を開かない。
+ * @security TaskRoleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility TaskRoleの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type TaskRole = "executor" | "reviewer";
+/**
+ * coordinator-task-runtimeで使用するRuntime Lifecycle 状態の値契約を定義する。
+ *
+ * @responsibility Runtime Lifecycle 状態のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape RuntimeLifecycleStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeLifecycleStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeLifecycleStateの宣言は外部境界を開かない。
+ * @security RuntimeLifecycleStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimeLifecycleStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimeLifecycleState =
   | "STATE-ADMISSION"
   | "STATE-OPERATION-ACQUIRING"
@@ -220,17 +296,50 @@ type RuntimeLifecycleState =
   | "STATE-PROCESS-RESTART-REQUIRED"
   | "STATE-RECOVERY-REQUIRED"
   | "STATE-OPERATOR-TRANSFER-REQUIRED";
+/**
+ * coordinator-task-runtimeで使用するRuntime 記録の値契約を定義する。
+ *
+ * @responsibility Runtime 記録のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape RuntimeRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeRecordの宣言は外部境界を開かない。
+ * @security RuntimeRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimeRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimeRecord = Readonly<Record<string, unknown>>;
 const INTERNAL_TASK_OUTCOME = Symbol("internalTaskOutcome");
+/**
+ * coordinator-task-runtimeで使用するInternal Task Outcomeの値契約を定義する。
+ *
+ * @responsibility Internal Task OutcomeのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape InternalTaskOutcomeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant InternalTaskOutcomeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: InternalTaskOutcomeの宣言は外部境界を開かない。
+ * @security InternalTaskOutcomeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility InternalTaskOutcomeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type InternalTaskOutcome = Readonly<{
   [INTERNAL_TASK_OUTCOME]: true;
   publicResult: RuntimeRecord;
   dockerCleanupEligible: boolean;
 }>;
+/**
+ * coordinator-task-runtimeで使用するTask Completion 記録の値契約を定義する。
+ *
+ * @responsibility Task Completion 記録のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape TaskCompletionRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant TaskCompletionRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: TaskCompletionRecordの宣言は外部境界を開かない。
+ * @security TaskCompletionRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility TaskCompletionRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type TaskCompletionRecord = RuntimeRecord &
   Readonly<{
     status: string;
-    reason: string;
+    reason: CoordinatorTaskPublicReason;
     cleanupConfirmed: boolean;
     manualRecoveryRequired: boolean;
     processRestartRequired: boolean;
@@ -248,6 +357,17 @@ type TaskCompletionRecord = RuntimeRecord &
     reviewerProvider: unknown;
     canonicalRepositoryChanged: boolean;
   }>;
+/**
+ * coordinator-task-runtimeで使用するOperationの値契約を定義する。
+ *
+ * @responsibility OperationのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape Operationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Operationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Operationの宣言は外部境界を開かない。
+ * @security OperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Operationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Operation = Readonly<{
   owned: object;
   mountCapability: object;
@@ -258,7 +378,29 @@ type Operation = Readonly<{
   hostGenerationLoss?: Promise<"cleanup_confirmed_failure" | "cleanup_unknown">;
   releaseHostGenerationDrain?: () => boolean;
 }>;
+/**
+ * coordinator-task-runtimeで使用するHost 清掃 Statusの値契約を定義する。
+ *
+ * @responsibility Host 清掃 StatusのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape HostCleanupStatusが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant HostCleanupStatusで宣言した値と責務の対応を維持する。
+ * @boundary N/A: HostCleanupStatusの宣言は外部境界を開かない。
+ * @security HostCleanupStatusはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility HostCleanupStatusの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type HostCleanupStatus = "completed" | "protocol_failure_cleanup_confirmed";
+/**
+ * coordinator-task-runtimeで使用するProduction Operation 失敗の値契約を定義する。
+ *
+ * @responsibility Production Operation 失敗のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ProductionOperationFailureが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProductionOperationFailureで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProductionOperationFailureの宣言は外部境界を開かない。
+ * @security ProductionOperationFailureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ProductionOperationFailureの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ProductionOperationFailure = Readonly<{
   reason: string;
   hostRecoveryId: string | null;
@@ -270,12 +412,44 @@ const productionOperationFailures = new WeakMap<
   ProductionOperationFailure
 >();
 
+/**
+ * production Operation 失敗を決定する。
+ *
+ * @responsibility production Operation 失敗の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input error: unknown
+ * @returns productionOperationFailureの計算結果を返す。
+ * @precondition 「error: unknown」がproductionOperationFailureの入力契約を満たす。
+ * @postcondition productionOperationFailureの責務を完了した結果だけを返す。
+ * @effect N/A: productionOperationFailureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: productionOperationFailureは独自の失敗分岐を所有しない。
+ * @invariant productionOperationFailureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: productionOperationFailureはProcess内の同一Subsystemで完結する。
+ * @security productionOperationFailureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: productionOperationFailureは共有非同期状態を持たない同期処理である。
+ */
 function productionOperationFailure(error: unknown) {
   return error && typeof error === "object"
     ? (productionOperationFailures.get(error) ?? null)
     : null;
 }
 
+/**
+ * throw Production Operation 失敗を決定する。
+ *
+ * @responsibility throw Production Operation 失敗の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input details: ProductionOperationFailure
+ * @returns neverを返す。
+ * @precondition 「details: ProductionOperationFailure」がthrowProductionOperationFailureの入力契約を満たす。
+ * @postcondition throwProductionOperationFailureの責務を完了した結果だけを返す。
+ * @effect N/A: throwProductionOperationFailureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure throwProductionOperationFailureは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant throwProductionOperationFailureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: throwProductionOperationFailureはProcess内の同一Subsystemで完結する。
+ * @security throwProductionOperationFailureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: throwProductionOperationFailureは共有非同期状態を持たない同期処理である。
+ */
 function throwProductionOperationFailure(
   details: ProductionOperationFailure,
 ): never {
@@ -284,6 +458,22 @@ function throwProductionOperationFailure(
   throw error;
 }
 
+/**
+ * Production Operation Rootを構築する。
+ *
+ * @responsibility Production Operation Rootの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input createOperation: () => Operation、poisonAfterCleanupUnknown: () => void
+ * @returns createProductionOperationRootの計算結果を返す。
+ * @precondition 「createOperation: () => Operation、poisonAfterCleanupUnknown: () => void」がcreateProductionOperationRootの入力契約を満たす。
+ * @postcondition createProductionOperationRootの責務を完了した結果だけを返す。
+ * @effect N/A: createProductionOperationRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createProductionOperationRootは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createProductionOperationRootは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createProductionOperationRootはProcess内の同一Subsystemで完結する。
+ * @security createProductionOperationRootはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createProductionOperationRootは共有非同期状態を持たない同期処理である。
+ */
 function createProductionOperationRoot(
   createOperation: () => Operation,
   poisonAfterCleanupUnknown: () => void,
@@ -309,7 +499,22 @@ function createProductionOperationRoot(
   }
 }
 
-/** Test-only seam for the exact production operation-root failure wrapper. */
+/**
+ * Test-only seam for the exact production operation-root failure wrapper.
+ *
+ * @responsibility Isolated Coordinator Task Operation Creation 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input createOperation: () => Operation
+ * @returns createIsolatedCoordinatorTaskOperationCreationCandidateの計算結果を返す。
+ * @precondition 「createOperation: () => Operation」がcreateIsolatedCoordinatorTaskOperationCreationCandidateの入力契約を満たす。
+ * @postcondition createIsolatedCoordinatorTaskOperationCreationCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: createIsolatedCoordinatorTaskOperationCreationCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createIsolatedCoordinatorTaskOperationCreationCandidateは独自の失敗分岐を所有しない。
+ * @invariant createIsolatedCoordinatorTaskOperationCreationCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createIsolatedCoordinatorTaskOperationCreationCandidateはProcess内の同一Subsystemで完結する。
+ * @security createIsolatedCoordinatorTaskOperationCreationCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createIsolatedCoordinatorTaskOperationCreationCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function createIsolatedCoordinatorTaskOperationCreationCandidate(
   createOperation: () => Operation,
 ) {
@@ -324,6 +529,17 @@ export function createIsolatedCoordinatorTaskOperationCreationCandidate(
     isProcessPoisoned: () => isPoisoned,
   });
 }
+/**
+ * coordinator-task-runtimeで使用するRuntime Dependenciesの値契約を定義する。
+ *
+ * @responsibility Runtime DependenciesのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape RuntimeDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeDependenciesの宣言は外部境界を開かない。
+ * @security RuntimeDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimeDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimeDependencies = Readonly<{
   beginInvocation?: (
     provider: Provider,
@@ -471,6 +687,17 @@ type RuntimeDependencies = Readonly<{
   abandonDockerRecovery?: (capability: object) => boolean;
   isolatedCancellationAckTimeoutMs?: number;
 }>;
+/**
+ * coordinator-task-runtimeで使用するControl 記録の値契約を定義する。
+ *
+ * @responsibility Control 記録のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ControlRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ControlRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ControlRecordの宣言は外部境界を開かない。
+ * @security ControlRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ControlRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ControlRecord = {
   lifecycleState: RuntimeLifecycleState;
   managementCapability: object;
@@ -506,11 +733,38 @@ type ControlRecord = {
   }>;
   recoveryCorrelationId: string | null;
 };
+/**
+ * coordinator-task-runtimeで使用するRuntime 状態の値契約を定義する。
+ *
+ * @responsibility Runtime 状態のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape RuntimeStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeStateの宣言は外部境界を開かない。
+ * @security RuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimeStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimeState = Readonly<{
   dependencies: RuntimeDependencies;
   controls: WeakMap<object, ControlRecord>;
 }>;
 
+/**
+ * Lifecycle 状態を次の状態へ進める。
+ *
+ * @responsibility Lifecycle 状態の遷移条件、次状態、無効遷移の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input state: RuntimeState、control: ControlRecord、next: RuntimeLifecycleState
+ * @returns advanceLifecycleStateの計算結果を返す。
+ * @precondition 「state: RuntimeState、control: ControlRecord、next: RuntimeLifecycleState」がadvanceLifecycleStateの入力契約を満たす。
+ * @postcondition advanceLifecycleStateの責務を完了した結果だけを返す。
+ * @effect N/A: advanceLifecycleStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure advanceLifecycleStateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant advanceLifecycleStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: advanceLifecycleStateはProcess内の同一Subsystemで完結する。
+ * @security advanceLifecycleStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: advanceLifecycleStateは共有非同期状態を持たない同期処理である。
+ */
 function advanceLifecycleState(
   state: RuntimeState,
   control: ControlRecord,
@@ -525,6 +779,22 @@ function advanceLifecycleState(
   }
 }
 
+/**
+ * Coordinator Task Terminal Lifecycle 状態を分類する。
+ *
+ * @responsibility Coordinator Task Terminal Lifecycle 状態の分類条件、相互排他的な結果、判断不能境界を所有する。
+ * @trace ARCH-000004
+ * @input result: TaskCompletionRecord
+ * @returns RuntimeLifecycleStateを返す。
+ * @precondition 「result: TaskCompletionRecord」がclassifyCoordinatorTaskTerminalLifecycleStateの入力契約を満たす。
+ * @postcondition classifyCoordinatorTaskTerminalLifecycleStateの責務を完了した結果だけを返す。
+ * @effect N/A: classifyCoordinatorTaskTerminalLifecycleStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: classifyCoordinatorTaskTerminalLifecycleStateは独自の失敗分岐を所有しない。
+ * @invariant classifyCoordinatorTaskTerminalLifecycleStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: classifyCoordinatorTaskTerminalLifecycleStateはProcess内の同一Subsystemで完結する。
+ * @security classifyCoordinatorTaskTerminalLifecycleStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: classifyCoordinatorTaskTerminalLifecycleStateは共有非同期状態を持たない同期処理である。
+ */
 export function classifyCoordinatorTaskTerminalLifecycleState(
   result: TaskCompletionRecord,
 ): RuntimeLifecycleState {
@@ -547,6 +817,22 @@ export function classifyCoordinatorTaskTerminalLifecycleState(
   return "STATE-BLOCKED-CLEAN" as const;
 }
 
+/**
+ * final Projection 失敗を決定する。
+ *
+ * @responsibility final Projection 失敗の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input result: TaskCompletionRecord、control: ControlRecord
+ * @returns finalProjectionFailureの計算結果を返す。
+ * @precondition 「result: TaskCompletionRecord、control: ControlRecord」がfinalProjectionFailureの入力契約を満たす。
+ * @postcondition finalProjectionFailureの責務を完了した結果だけを返す。
+ * @effect N/A: finalProjectionFailureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: finalProjectionFailureは独自の失敗分岐を所有しない。
+ * @invariant finalProjectionFailureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: finalProjectionFailureはProcess内の同一Subsystemで完結する。
+ * @security finalProjectionFailureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: finalProjectionFailureは共有非同期状態を持たない同期処理である。
+ */
 function finalProjectionFailure(
   result: TaskCompletionRecord,
   control: ControlRecord,
@@ -571,8 +857,24 @@ function finalProjectionFailure(
   }) as TaskCompletionRecord;
 }
 
+/**
+ * Blockedを構築する。
+ *
+ * @responsibility Blockedの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input reason: string、manualRecoveryRequired、hostRecoveryId: string | null、dockerRecoveryId: string | null、candidateRecoveryId: string | null、isCleanupConfirmedOverride: boolean | null、candidateStoreRecoveryId: string | null、dockerRecoveryIds: readonly string[]
+ * @returns createBlockedの計算結果を返す。
+ * @precondition 「reason: string、manualRecoveryRequired、hostRecoveryId: string | null、dockerRecoveryId: string | null、candidateRecoveryId: string | null、isCleanupConfirmedOverride: boolean | null、candidateStoreRecoveryId: string | null、dockerRecoveryIds: readonly string[]」がcreateBlockedの入力契約を満たす。
+ * @postcondition createBlockedの責務を完了した結果だけを返す。
+ * @effect N/A: createBlockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createBlockedは独自の失敗分岐を所有しない。
+ * @invariant createBlockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createBlockedはProcess内の同一Subsystemで完結する。
+ * @security createBlockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createBlockedは共有非同期状態を持たない同期処理である。
+ */
 function createBlocked(
-  reason: string,
+  reason: CoordinatorTaskPublicReason,
   manualRecoveryRequired = false,
   hostRecoveryId: string | null = null,
   dockerRecoveryId: string | null = null,
@@ -618,14 +920,62 @@ function createBlocked(
 
 const blocked = createBlocked;
 
+/**
+ * object Capabilityを決定する。
+ *
+ * @responsibility object Capabilityの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns objectCapabilityの計算結果を返す。
+ * @precondition 「value: unknown」がobjectCapabilityの入力契約を満たす。
+ * @postcondition objectCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: objectCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: objectCapabilityは独自の失敗分岐を所有しない。
+ * @invariant objectCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: objectCapabilityはProcess内の同一Subsystemで完結する。
+ * @security objectCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: objectCapabilityは共有非同期状態を持たない同期処理である。
+ */
 function objectCapability(value: unknown) {
   return value && typeof value === "object" ? (value as object) : null;
 }
 
+/**
+ * string Valueを決定する。
+ *
+ * @responsibility string Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns stringValueの計算結果を返す。
+ * @precondition 「value: unknown」がstringValueの入力契約を満たす。
+ * @postcondition stringValueの責務を完了した結果だけを返す。
+ * @effect N/A: stringValueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: stringValueは独自の失敗分岐を所有しない。
+ * @invariant stringValueは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: stringValueはProcess内の同一Subsystemで完結する。
+ * @security stringValueはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: stringValueは共有非同期状態を持たない同期処理である。
+ */
 function stringValue(value: unknown) {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
+/**
+ * own Plain Data Valueを決定する。
+ *
+ * @responsibility own Plain Data Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、key: string
+ * @returns ownPlainDataValueの計算結果を返す。
+ * @precondition 「value: unknown、key: string」がownPlainDataValueの入力契約を満たす。
+ * @postcondition ownPlainDataValueの責務を完了した結果だけを返す。
+ * @effect N/A: ownPlainDataValueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure ownPlainDataValueは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant ownPlainDataValueは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ownPlainDataValueはProcess内の同一Subsystemで完結する。
+ * @security ownPlainDataValueはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: ownPlainDataValueは共有非同期状態を持たない同期処理である。
+ */
 function ownPlainDataValue(value: unknown, key: string) {
   try {
     if (
@@ -650,6 +1000,22 @@ function ownPlainDataValue(value: unknown, key: string) {
   }
 }
 
+/**
+ * Provider Turn Observationを公開結果へ投影する。
+ *
+ * @responsibility Provider Turn Observationの公開field、秘匿境界、投影不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns projectProviderTurnObservationの計算結果を返す。
+ * @precondition 「value: unknown」がprojectProviderTurnObservationの入力契約を満たす。
+ * @postcondition projectProviderTurnObservationの責務を完了した結果だけを返す。
+ * @effect N/A: projectProviderTurnObservationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: projectProviderTurnObservationは独自の失敗分岐を所有しない。
+ * @invariant projectProviderTurnObservationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: projectProviderTurnObservationはProcess内の同一Subsystemで完結する。
+ * @security projectProviderTurnObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: projectProviderTurnObservationは共有非同期状態を持たない同期処理である。
+ */
 function projectProviderTurnObservation(value: unknown) {
   const record = snapshotPlainRecord(value, PROVIDER_TURN_OBSERVATION_KEYS);
   if (!record) return null;
@@ -689,10 +1055,42 @@ function projectProviderTurnObservation(value: unknown) {
   });
 }
 
+/**
+ * sha256 Valueを決定する。
+ *
+ * @responsibility sha256 Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がsha256Valueの入力契約を満たす。
+ * @postcondition sha256Valueの責務を完了した結果だけを返す。
+ * @effect N/A: sha256Valueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sha256Valueは独自の失敗分岐を所有しない。
+ * @invariant sha256Valueは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sha256ValueはProcess内の同一Subsystemで完結する。
+ * @security sha256ValueはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sha256Valueは共有非同期状態を持たない同期処理である。
+ */
 function sha256Value(value: unknown): value is string {
   return typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
 }
 
+/**
+ * Reviewer 結果 Diagnosticsを公開結果へ投影する。
+ *
+ * @responsibility Reviewer 結果 Diagnosticsの公開field、秘匿境界、投影不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns projectReviewerResultDiagnosticsの計算結果を返す。
+ * @precondition 「value: unknown」がprojectReviewerResultDiagnosticsの入力契約を満たす。
+ * @postcondition projectReviewerResultDiagnosticsの責務を完了した結果だけを返す。
+ * @effect N/A: projectReviewerResultDiagnosticsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: projectReviewerResultDiagnosticsは独自の失敗分岐を所有しない。
+ * @invariant projectReviewerResultDiagnosticsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: projectReviewerResultDiagnosticsはProcess内の同一Subsystemで完結する。
+ * @security projectReviewerResultDiagnosticsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: projectReviewerResultDiagnosticsは共有非同期状態を持たない同期処理である。
+ */
 function projectReviewerResultDiagnostics(value: unknown) {
   const decision = ownPlainDataValue(value, "decision");
   const findingCount = ownPlainDataValue(value, "findingCount");
@@ -735,6 +1133,22 @@ function projectReviewerResultDiagnostics(value: unknown) {
   });
 }
 
+/**
+ * Executor 結果 Diagnosticsを公開結果へ投影する。
+ *
+ * @responsibility Executor 結果 Diagnosticsの公開field、秘匿境界、投影不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns projectExecutorResultDiagnosticsの計算結果を返す。
+ * @precondition 「value: unknown」がprojectExecutorResultDiagnosticsの入力契約を満たす。
+ * @postcondition projectExecutorResultDiagnosticsの責務を完了した結果だけを返す。
+ * @effect N/A: projectExecutorResultDiagnosticsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: projectExecutorResultDiagnosticsは独自の失敗分岐を所有しない。
+ * @invariant projectExecutorResultDiagnosticsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: projectExecutorResultDiagnosticsはProcess内の同一Subsystemで完結する。
+ * @security projectExecutorResultDiagnosticsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: projectExecutorResultDiagnosticsは共有非同期状態を持たない同期処理である。
+ */
 function projectExecutorResultDiagnostics(value: unknown) {
   const status = ownPlainDataValue(value, "status");
   const changedPaths = snapshotPlainArray<unknown>(
@@ -807,6 +1221,22 @@ function projectExecutorResultDiagnostics(value: unknown) {
   });
 }
 
+/**
+ * Reviewer Projection Evidenceを公開結果へ投影する。
+ *
+ * @responsibility Reviewer Projection Evidenceの公開field、秘匿境界、投影不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns projectReviewerProjectionEvidenceの計算結果を返す。
+ * @precondition 「value: unknown」がprojectReviewerProjectionEvidenceの入力契約を満たす。
+ * @postcondition projectReviewerProjectionEvidenceの責務を完了した結果だけを返す。
+ * @effect N/A: projectReviewerProjectionEvidenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: projectReviewerProjectionEvidenceは独自の失敗分岐を所有しない。
+ * @invariant projectReviewerProjectionEvidenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: projectReviewerProjectionEvidenceはProcess内の同一Subsystemで完結する。
+ * @security projectReviewerProjectionEvidenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: projectReviewerProjectionEvidenceは共有非同期状態を持たない同期処理である。
+ */
 function projectReviewerProjectionEvidence(value: unknown) {
   const record = snapshotPlainRecord(value, REVIEWER_PROJECTION_KEYS);
   const files = record
@@ -854,6 +1284,22 @@ function projectReviewerProjectionEvidence(value: unknown) {
   });
 }
 
+/**
+ * Runtime 記録を所有Snapshotへ変換する。
+ *
+ * @responsibility Runtime 記録の取得範囲、plain-data制約、拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns RuntimeRecord | nullを返す。
+ * @precondition 「value: unknown」がsnapshotRuntimeRecordの入力契約を満たす。
+ * @postcondition snapshotRuntimeRecordの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotRuntimeRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure snapshotRuntimeRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant snapshotRuntimeRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: snapshotRuntimeRecordはProcess内の同一Subsystemで完結する。
+ * @security snapshotRuntimeRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: snapshotRuntimeRecordは共有非同期状態を持たない同期処理である。
+ */
 function snapshotRuntimeRecord(value: unknown): RuntimeRecord | null {
   try {
     if (
@@ -891,6 +1337,22 @@ function snapshotRuntimeRecord(value: unknown): RuntimeRecord | null {
   }
 }
 
+/**
+ * Process Cancellation Receiptが完全一致するか判定する。
+ *
+ * @responsibility Process Cancellation Receiptの比較対象、完全一致条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns exactProcessCancellationReceiptの計算結果を返す。
+ * @precondition 「value: unknown」がexactProcessCancellationReceiptの入力契約を満たす。
+ * @postcondition exactProcessCancellationReceiptの責務を完了した結果だけを返す。
+ * @effect N/A: exactProcessCancellationReceiptは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: exactProcessCancellationReceiptは独自の失敗分岐を所有しない。
+ * @invariant exactProcessCancellationReceiptは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: exactProcessCancellationReceiptはProcess内の同一Subsystemで完結する。
+ * @security exactProcessCancellationReceiptはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: exactProcessCancellationReceiptは共有非同期状態を持たない同期処理である。
+ */
 function exactProcessCancellationReceipt(value: unknown) {
   const receipt = snapshotPlainRecord(value, PROCESS_CANCELLATION_RESULT_KEYS);
   if (
@@ -906,6 +1368,22 @@ function exactProcessCancellationReceipt(value: unknown) {
   return Object.freeze({ ...receipt });
 }
 
+/**
+ * Control Cancellationを要求する。
+ *
+ * @responsibility Control Cancellationの要求条件、受理結果、Effect未成立との分離境界を所有する。
+ * @trace ARCH-000004
+ * @input state: RuntimeState、control: ControlRecord
+ * @returns requestControlCancellationの計算結果を返す。
+ * @precondition 「state: RuntimeState、control: ControlRecord」がrequestControlCancellationの入力契約を満たす。
+ * @postcondition requestControlCancellationの責務を完了した結果だけを返す。
+ * @effect N/A: requestControlCancellationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure requestControlCancellationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant requestControlCancellationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: requestControlCancellationはProcess内の同一Subsystemで完結する。
+ * @security requestControlCancellationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency requestControlCancellationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function requestControlCancellation(
   state: RuntimeState,
   control: ControlRecord,
@@ -970,6 +1448,22 @@ function requestControlCancellation(
   return receipt;
 }
 
+/**
+ * control Docker 回復 Idsを決定する。
+ *
+ * @responsibility control Docker 回復 Idsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input control: ControlRecord
+ * @returns controlDockerRecoveryIdsの計算結果を返す。
+ * @precondition 「control: ControlRecord」がcontrolDockerRecoveryIdsの入力契約を満たす。
+ * @postcondition controlDockerRecoveryIdsの責務を完了した結果だけを返す。
+ * @effect N/A: controlDockerRecoveryIdsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: controlDockerRecoveryIdsは独自の失敗分岐を所有しない。
+ * @invariant controlDockerRecoveryIdsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: controlDockerRecoveryIdsはProcess内の同一Subsystemで完結する。
+ * @security controlDockerRecoveryIdsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: controlDockerRecoveryIdsは共有非同期状態を持たない同期処理である。
+ */
 function controlDockerRecoveryIds(control: ControlRecord) {
   return Object.freeze([
     ...new Set(
@@ -980,6 +1474,22 @@ function controlDockerRecoveryIds(control: ControlRecord) {
   ]);
 }
 
+/**
+ * actionable Docker 回復 Idsを決定する。
+ *
+ * @responsibility actionable Docker 回復 Idsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input control: ControlRecord、preferredRecoveryIds: readonly string[]
+ * @returns actionableDockerRecoveryIdsの計算結果を返す。
+ * @precondition 「control: ControlRecord、preferredRecoveryIds: readonly string[]」がactionableDockerRecoveryIdsの入力契約を満たす。
+ * @postcondition actionableDockerRecoveryIdsの責務を完了した結果だけを返す。
+ * @effect N/A: actionableDockerRecoveryIdsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: actionableDockerRecoveryIdsは独自の失敗分岐を所有しない。
+ * @invariant actionableDockerRecoveryIdsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: actionableDockerRecoveryIdsはProcess内の同一Subsystemで完結する。
+ * @security actionableDockerRecoveryIdsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: actionableDockerRecoveryIdsは共有非同期状態を持たない同期処理である。
+ */
 function actionableDockerRecoveryIds(
   control: ControlRecord,
   preferredRecoveryIds: readonly string[] = [],
@@ -989,6 +1499,22 @@ function actionableDockerRecoveryIds(
   ]);
 }
 
+/**
+ * can Run Managed Docker 清掃を決定する。
+ *
+ * @responsibility can Run Managed Docker 清掃の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input result: RuntimeRecord、control: ControlRecord
+ * @returns canRunManagedDockerCleanupの計算結果を返す。
+ * @precondition 「result: RuntimeRecord、control: ControlRecord」がcanRunManagedDockerCleanupの入力契約を満たす。
+ * @postcondition canRunManagedDockerCleanupの責務を完了した結果だけを返す。
+ * @effect N/A: canRunManagedDockerCleanupは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure canRunManagedDockerCleanupは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant canRunManagedDockerCleanupは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: canRunManagedDockerCleanupはProcess内の同一Subsystemで完結する。
+ * @security canRunManagedDockerCleanupはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: canRunManagedDockerCleanupは共有非同期状態を持たない同期処理である。
+ */
 function canRunManagedDockerCleanup(
   result: RuntimeRecord,
   control: ControlRecord,
@@ -1041,11 +1567,43 @@ function canRunManagedDockerCleanup(
   }
 }
 
+/**
+ * poison Runtime Processを決定する。
+ *
+ * @responsibility poison Runtime Processの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input state: RuntimeState、control: ControlRecord
+ * @returns N/A: poisonRuntimeProcessは戻り値を返さない。
+ * @precondition 「state: RuntimeState、control: ControlRecord」がpoisonRuntimeProcessの入力契約を満たす。
+ * @postcondition poisonRuntimeProcessの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: poisonRuntimeProcessは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: poisonRuntimeProcessは独自の失敗分岐を所有しない。
+ * @invariant poisonRuntimeProcessは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: poisonRuntimeProcessはProcess内の同一Subsystemで完結する。
+ * @security poisonRuntimeProcessはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: poisonRuntimeProcessは共有非同期状態を持たない同期処理である。
+ */
 function poisonRuntimeProcess(state: RuntimeState, control: ControlRecord) {
   control.processPoisoned = true;
   state.dependencies.poisonProcessAfterCleanupUnknown?.();
 }
 
+/**
+ * Current Docker 回復を公開結果へ投影する。
+ *
+ * @responsibility Current Docker 回復の公開field、秘匿境界、投影不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input result: T、control: ControlRecord
+ * @returns projectCurrentDockerRecoveryの計算結果を返す。
+ * @precondition 「result: T、control: ControlRecord」がprojectCurrentDockerRecoveryの入力契約を満たす。
+ * @postcondition projectCurrentDockerRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: projectCurrentDockerRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: projectCurrentDockerRecoveryは独自の失敗分岐を所有しない。
+ * @invariant projectCurrentDockerRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: projectCurrentDockerRecoveryはProcess内の同一Subsystemで完結する。
+ * @security projectCurrentDockerRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: projectCurrentDockerRecoveryは共有非同期状態を持たない同期処理である。
+ */
 function projectCurrentDockerRecovery<T extends RuntimeRecord>(
   result: T,
   control: ControlRecord,
@@ -1098,6 +1656,22 @@ function projectCurrentDockerRecovery<T extends RuntimeRecord>(
   });
 }
 
+/**
+ * selection Requestを決定する。
+ *
+ * @responsibility selection Requestの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input request: RuntimeRecord、operationId: string、role: "executor" | "independent_reviewer"、subjectProvider: Provider | null、requestedProvider: Provider | null、isRequiresIndependentProvider: boolean
+ * @returns selectionRequestの計算結果を返す。
+ * @precondition 「request: RuntimeRecord、operationId: string、role: "executor" | "independent_reviewer"、subjectProvider: Provider | null、requestedProvider: Provider | null、isRequiresIndependentProvider: boolean」がselectionRequestの入力契約を満たす。
+ * @postcondition selectionRequestの責務を完了した結果だけを返す。
+ * @effect N/A: selectionRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: selectionRequestは独自の失敗分岐を所有しない。
+ * @invariant selectionRequestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: selectionRequestはProcess内の同一Subsystemで完結する。
+ * @security selectionRequestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: selectionRequestは共有非同期状態を持たない同期処理である。
+ */
 function selectionRequest(
   request: RuntimeRecord,
   operationId: string,
@@ -1137,6 +1711,22 @@ function selectionRequest(
   });
 }
 
+/**
+ * packet Requestを決定する。
+ *
+ * @responsibility packet Requestの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input request: RuntimeRecord、reviewerReadProjection: RuntimeRecord | null
+ * @returns packetRequestの計算結果を返す。
+ * @precondition 「request: RuntimeRecord、reviewerReadProjection: RuntimeRecord | null」がpacketRequestの入力契約を満たす。
+ * @postcondition packetRequestの責務を完了した結果だけを返す。
+ * @effect N/A: packetRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: packetRequestは独自の失敗分岐を所有しない。
+ * @invariant packetRequestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: packetRequestはProcess内の同一Subsystemで完結する。
+ * @security packetRequestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: packetRequestは共有非同期状態を持たない同期処理である。
+ */
 function packetRequest(
   request: RuntimeRecord,
   reviewerReadProjection: RuntimeRecord | null,
@@ -1150,6 +1740,22 @@ function packetRequest(
   });
 }
 
+/**
+ * external Send Scope Requestを決定する。
+ *
+ * @responsibility external Send Scope Requestの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input request: RuntimeRecord
+ * @returns externalSendScopeRequestの計算結果を返す。
+ * @precondition 「request: RuntimeRecord」がexternalSendScopeRequestの入力契約を満たす。
+ * @postcondition externalSendScopeRequestの責務を完了した結果だけを返す。
+ * @effect N/A: externalSendScopeRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: externalSendScopeRequestは独自の失敗分岐を所有しない。
+ * @invariant externalSendScopeRequestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: externalSendScopeRequestはProcess内の同一Subsystemで完結する。
+ * @security externalSendScopeRequestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: externalSendScopeRequestは共有非同期状態を持たない同期処理である。
+ */
 function externalSendScopeRequest(request: RuntimeRecord) {
   return Object.freeze({
     objective: request.objective,
@@ -1159,24 +1765,56 @@ function externalSendScopeRequest(request: RuntimeRecord) {
   });
 }
 
+/**
+ * Provider Preparation 失敗を公開結果へ投影する。
+ *
+ * @responsibility Provider Preparation 失敗の公開field、秘匿境界、投影不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input reason: unknown
+ * @returns projectProviderPreparationFailureの計算結果を返す。
+ * @precondition 「reason: unknown」がprojectProviderPreparationFailureの入力契約を満たす。
+ * @postcondition projectProviderPreparationFailureの責務を完了した結果だけを返す。
+ * @effect N/A: projectProviderPreparationFailureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: projectProviderPreparationFailureは独自の失敗分岐を所有しない。
+ * @invariant projectProviderPreparationFailureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: projectProviderPreparationFailureはProcess内の同一Subsystemで完結する。
+ * @security projectProviderPreparationFailureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: projectProviderPreparationFailureは共有非同期状態を持たない同期処理である。
+ */
 function projectProviderPreparationFailure(reason: unknown) {
   if (typeof reason !== "string")
-    return "coordinator_task_provider_prepare_failed";
+    return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.prepareFailed;
   if (reason.endsWith("_docker_runtime_model_selection_invalid"))
-    return "coordinator_task_provider_model_selection_invalid";
+    return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.modelSelectionInvalid;
   if (reason.endsWith("_docker_runtime_mount_authorization_invalid"))
-    return "coordinator_task_provider_mount_authorization_invalid";
+    return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.mountAuthorizationInvalid;
   if (reason.endsWith("_docker_runtime_task_packet_invalid"))
-    return "coordinator_task_provider_task_packet_invalid";
+    return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.taskPacketInvalid;
   if (reason.endsWith("_docker_runtime_plan_invalid"))
-    return "coordinator_task_provider_plan_invalid";
+    return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.planInvalid;
   if (reason.endsWith("_docker_runtime_authority_invalid"))
-    return "coordinator_task_provider_authority_invalid";
+    return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.authorityInvalid;
   if (reason.endsWith("_docker_runtime_recovery_correlation_invalid"))
-    return "coordinator_task_provider_recovery_correlation_invalid";
-  return "coordinator_task_provider_prepare_failed";
+    return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.recoveryCorrelationInvalid;
+  return COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS.prepareFailed;
 }
 
+/**
+ * Provider Selectionが同一かを判定する。
+ *
+ * @responsibility Provider Selectionの同一性Propertyと一致／不一致境界を所有する。
+ * @trace ARCH-000004
+ * @input left: RuntimeRecord、right: RuntimeRecord
+ * @returns sameProviderSelectionの計算結果を返す。
+ * @precondition 「left: RuntimeRecord、right: RuntimeRecord」がsameProviderSelectionの入力契約を満たす。
+ * @postcondition sameProviderSelectionの責務を完了した結果だけを返す。
+ * @effect N/A: sameProviderSelectionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameProviderSelectionは独自の失敗分岐を所有しない。
+ * @invariant sameProviderSelectionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sameProviderSelectionはProcess内の同一Subsystemで完結する。
+ * @security sameProviderSelectionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameProviderSelectionは共有非同期状態を持たない同期処理である。
+ */
 function sameProviderSelection(left: RuntimeRecord, right: RuntimeRecord) {
   return (
     left.executorProvider === right.executorProvider &&
@@ -1188,6 +1826,22 @@ function sameProviderSelection(left: RuntimeRecord, right: RuntimeRecord) {
   );
 }
 
+/**
+ * Pathsが同一かを判定する。
+ *
+ * @responsibility Pathsの同一性Propertyと一致／不一致境界を所有する。
+ * @trace ARCH-000004
+ * @input left: unknown、right: unknown
+ * @returns samePathsの計算結果を返す。
+ * @precondition 「left: unknown、right: unknown」がsamePathsの入力契約を満たす。
+ * @postcondition samePathsの責務を完了した結果だけを返す。
+ * @effect N/A: samePathsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: samePathsは独自の失敗分岐を所有しない。
+ * @invariant samePathsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: samePathsはProcess内の同一Subsystemで完結する。
+ * @security samePathsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: samePathsは共有非同期状態を持たない同期処理である。
+ */
 function samePaths(left: unknown, right: unknown) {
   if (!Array.isArray(left) || !Array.isArray(right)) return false;
   const normalize = (values: unknown[]) =>
@@ -1208,6 +1862,22 @@ function samePaths(left: unknown, right: unknown) {
   );
 }
 
+/**
+ * Stageを実行する。
+ *
+ * @responsibility Stageの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input args: Parameters<typeof executeStageBody>
+ * @returns executeStageの計算結果を返す。
+ * @precondition 「args: Parameters<typeof executeStageBody>」がexecuteStageの入力契約を満たす。
+ * @postcondition executeStageの責務を完了した結果だけを返す。
+ * @effect N/A: executeStageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: executeStageは独自の失敗分岐を所有しない。
+ * @invariant executeStageは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: executeStageはProcess内の同一Subsystemで完結する。
+ * @security executeStageはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency executeStageは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function executeStage(...args: Parameters<typeof executeStageBody>) {
   const dependencies = args[0].dependencies;
   const invocation = dependencies.beginInvocation?.(args[9], args[6]);
@@ -1226,6 +1896,22 @@ async function executeStage(...args: Parameters<typeof executeStageBody>) {
     : result;
 }
 
+/**
+ * Stage Bodyを実行する。
+ *
+ * @responsibility Stage Bodyの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendGrantCapability: object、evaluationTime: unknown、role: TaskRole、taskAttempt: 0 | 1、subjectProvider: Provider | null、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction: unknown、reviewerReadProjection: RuntimeRecord | null
+ * @returns executeStageBodyの計算結果を返す。
+ * @precondition 「state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendGrantCapability: object、evaluationTime: unknown、role: TaskRole、taskAttempt: 0 | 1、subjectProvider: Provider | null、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction: unknown、reviewerReadProjection: RuntimeRecord | null」がexecuteStageBodyの入力契約を満たす。
+ * @postcondition executeStageBodyの責務を完了した結果だけを返す。
+ * @effect executeStageBodyは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure executeStageBodyは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant executeStageBodyは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security executeStageBodyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency executeStageBodyは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function executeStageBody(
   state: RuntimeState,
   operation: Operation,
@@ -1513,7 +2199,10 @@ async function executeStageBody(
         process.manualRecoveryRequired === true ||
         dockerRecoveryId !== null;
       return blocked(
-        stringValue(process.reason) ?? "coordinator_task_process_start_failed",
+        projectCoordinatorTaskPublicReason(
+          process.reason,
+          "coordinator_task_process_start_failed",
+        ),
         manualRecoveryRequired,
         manualRecoveryRequired ? operation.hostRecoveryId : null,
         dockerRecoveryId,
@@ -1605,7 +2294,10 @@ async function executeStageBody(
       const dockerRecoveryIds = controlDockerRecoveryIds(control);
       return Object.freeze({
         ...blocked(
-          stringValue(result.reason) ?? "coordinator_task_provider_failed",
+          projectCoordinatorTaskPublicReason(
+            result.reason,
+            "coordinator_task_provider_failed",
+          ),
           manualRecoveryRequired,
           manualRecoveryRequired ? operation.hostRecoveryId : null,
           dockerRecoveryId,
@@ -1663,6 +2355,22 @@ async function executeStageBody(
   }
 }
 
+/**
+ * Coordinator Task Coreを実行する。
+ *
+ * @responsibility Coordinator Task Coreの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input state: RuntimeState、rawRequest: unknown、repositoryRoot: unknown、evaluationTime: unknown、control: ControlRecord
+ * @returns runCoordinatorTaskCoreの計算結果を返す。
+ * @precondition 「state: RuntimeState、rawRequest: unknown、repositoryRoot: unknown、evaluationTime: unknown、control: ControlRecord」がrunCoordinatorTaskCoreの入力契約を満たす。
+ * @postcondition runCoordinatorTaskCoreの責務を完了した結果だけを返す。
+ * @effect N/A: runCoordinatorTaskCoreは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure runCoordinatorTaskCoreは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runCoordinatorTaskCoreは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runCoordinatorTaskCoreはProcess内の同一Subsystemで完結する。
+ * @security runCoordinatorTaskCoreはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency runCoordinatorTaskCoreは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function runCoordinatorTaskCore(
   state: RuntimeState,
   rawRequest: unknown,
@@ -1681,7 +2389,10 @@ async function runCoordinatorTaskCore(
     const manualRecoveryRequired =
       source.manualRecoveryRequired === true || dockerRecoveryIds.length > 0;
     return createBlocked(
-      String(source.reason),
+      projectCoordinatorTaskPublicReason(
+        source.reason,
+        "coordinator_task_failed_closed",
+      ),
       manualRecoveryRequired,
       stringValue(source.hostRecoveryId),
       dockerRecoveryIds.length === 1 ? (dockerRecoveryIds[0] ?? null) : null,
@@ -1720,7 +2431,10 @@ async function runCoordinatorTaskCore(
   const admission = projectDockerRecoveryAdmission(dockerRecoveryState);
   if (admission.status !== "completed") {
     return blocked(
-      admission.reason,
+      projectCoordinatorTaskPublicReason(
+        admission.reason,
+        "docker_process_controller_recovery_unavailable",
+      ),
       true,
       null,
       admission.dockerRecoveryId,
@@ -1899,7 +2613,14 @@ async function runCoordinatorTaskCore(
           : "coordinator_task_external_send_not_authorized";
       const manualRecoveryRequired =
         externalSendGrant?.manualRecoveryRequired === true;
-      return blocked(reason, manualRecoveryRequired, null);
+      return blocked(
+        projectCoordinatorTaskPublicReason(
+          reason,
+          "coordinator_task_external_send_not_authorized",
+        ),
+        manualRecoveryRequired,
+        null,
+      );
     }
     const externalSendAuthorizationMode = externalSendGrant.authorizationMode;
     if (
@@ -2296,7 +3017,10 @@ async function runCoordinatorTaskCore(
     if (creationFailure) {
       shouldRetainOperationRoot = !creationFailure.cleanupConfirmed;
       return blocked(
-        creationFailure.reason,
+        projectCoordinatorTaskPublicReason(
+          creationFailure.reason,
+          "coordinator_task_operation_creation_failed",
+        ),
         creationFailure.manualRecoveryRequired,
         creationFailure.hostRecoveryId,
         null,
@@ -2315,6 +3039,22 @@ async function runCoordinatorTaskCore(
   }
 }
 
+/**
+ * Coordinator Taskを実行する。
+ *
+ * @responsibility Coordinator Taskの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input state: RuntimeState、rawRequest: unknown、repositoryRoot: unknown、evaluationTime: unknown、control: ControlRecord
+ * @returns Promise<InternalTaskOutcome>を返す。
+ * @precondition 「state: RuntimeState、rawRequest: unknown、repositoryRoot: unknown、evaluationTime: unknown、control: ControlRecord」がrunCoordinatorTaskの入力契約を満たす。
+ * @postcondition runCoordinatorTaskの責務を完了した結果だけを返す。
+ * @effect N/A: runCoordinatorTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: runCoordinatorTaskは独自の失敗分岐を所有しない。
+ * @invariant runCoordinatorTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runCoordinatorTaskはProcess内の同一Subsystemで完結する。
+ * @security runCoordinatorTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency runCoordinatorTaskは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function runCoordinatorTask(
   state: RuntimeState,
   rawRequest: unknown,
@@ -2409,6 +3149,22 @@ async function runCoordinatorTask(
   });
 }
 
+/**
+ * Production Operationを構築する。
+ *
+ * @responsibility Production Operationの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns createProductionOperationの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がcreateProductionOperationの入力契約を満たす。
+ * @postcondition createProductionOperationの責務を完了した結果だけを返す。
+ * @effect N/A: createProductionOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createProductionOperationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createProductionOperationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createProductionOperationはProcess内の同一Subsystemで完結する。
+ * @security createProductionOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency createProductionOperationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function createProductionOperation() {
   const operation = createProductionOperationRoot(
     createRuntimeOwnedCoordinatorOperation,
@@ -2573,6 +3329,22 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
   abandonDockerRecovery: abandonRuntimeOwnedDockerRecovery,
 });
 
+/**
+ * retain Runtime 回復 状態を決定する。
+ *
+ * @responsibility retain Runtime 回復 状態の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input state: RuntimeState、control: ControlRecord
+ * @returns N/A: retainRuntimeRecoveryStateは戻り値を返さない。
+ * @precondition 「state: RuntimeState、control: ControlRecord」がretainRuntimeRecoveryStateの入力契約を満たす。
+ * @postcondition retainRuntimeRecoveryStateの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: retainRuntimeRecoveryStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: retainRuntimeRecoveryStateは独自の失敗分岐を所有しない。
+ * @invariant retainRuntimeRecoveryStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: retainRuntimeRecoveryStateはProcess内の同一Subsystemで完結する。
+ * @security retainRuntimeRecoveryStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency retainRuntimeRecoveryStateは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function retainRuntimeRecoveryState(
   state: RuntimeState,
   control: ControlRecord,
@@ -2588,6 +3360,22 @@ async function retainRuntimeRecoveryState(
     await state.dependencies.abandonOperation(control.managementCapability);
 }
 
+/**
+ * Runtimeを構築する。
+ *
+ * @responsibility Runtimeの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input dependencies: RuntimeDependencies
+ * @returns createRuntimeの計算結果を返す。
+ * @precondition 「dependencies: RuntimeDependencies」がcreateRuntimeの入力契約を満たす。
+ * @postcondition createRuntimeの責務を完了した結果だけを返す。
+ * @effect N/A: createRuntimeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createRuntimeは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createRuntimeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createRuntimeはProcess内の同一Subsystemで完結する。
+ * @security createRuntimeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency createRuntimeは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function createRuntime(dependencies: RuntimeDependencies) {
   const state: RuntimeState = Object.freeze({
     dependencies: Object.freeze(dependencies),
@@ -2939,8 +3727,10 @@ function createRuntime(dependencies: RuntimeDependencies) {
                 ? state.dependencies.discardCandidate(candidateRecoveryId)
                 : null;
               return blocked(
-                stringValue(result.reason) ??
+                projectCoordinatorTaskPublicReason(
+                  result.reason,
                   "coordinator_task_docker_recovery_projection_invalid",
+                ),
                 true,
                 control.hostRecoveryId,
                 projectedDockerRecoveryIds.length === 1
@@ -2985,7 +3775,10 @@ function createRuntime(dependencies: RuntimeDependencies) {
                 });
               }
               return blocked(
-                String(result.reason),
+                projectCoordinatorTaskPublicReason(
+                  result.reason,
+                  "coordinator_task_failed_closed",
+                ),
                 true,
                 stringValue(result.hostRecoveryId),
                 stringValue(result.dockerRecoveryId),
@@ -3134,6 +3927,22 @@ function createRuntime(dependencies: RuntimeDependencies) {
 
 const productionRuntime = createRuntime(productionDependencies);
 
+/**
+ * Runtime 所有 Coordinator Taskを開始する。
+ *
+ * @responsibility Runtime 所有 Coordinator Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
+ * @trace ARCH-000004
+ * @input rawRequest: unknown、repositoryRoot: unknown、verifiedPackageCapability: unknown、recoveryCorrelationId: unknown
+ * @returns startRuntimeOwnedCoordinatorTaskの計算結果を返す。
+ * @precondition 「rawRequest: unknown、repositoryRoot: unknown、verifiedPackageCapability: unknown、recoveryCorrelationId: unknown」がstartRuntimeOwnedCoordinatorTaskの入力契約を満たす。
+ * @postcondition startRuntimeOwnedCoordinatorTaskの責務を完了した結果だけを返す。
+ * @effect N/A: startRuntimeOwnedCoordinatorTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure startRuntimeOwnedCoordinatorTaskは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant startRuntimeOwnedCoordinatorTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: startRuntimeOwnedCoordinatorTaskはProcess内の同一Subsystemで完結する。
+ * @security startRuntimeOwnedCoordinatorTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: startRuntimeOwnedCoordinatorTaskは共有非同期状態を持たない同期処理である。
+ */
 export function startRuntimeOwnedCoordinatorTask(
   rawRequest: unknown,
   repositoryRoot: unknown,
@@ -3162,6 +3971,22 @@ export function startRuntimeOwnedCoordinatorTask(
   );
 }
 
+/**
+ * Runtime 所有 Coordinator Taskを取り消す。
+ *
+ * @responsibility Runtime 所有 Coordinator Taskの取消条件、終了状態、残存Effectの境界を所有する。
+ * @trace ARCH-000004
+ * @input controlCapability: unknown
+ * @returns cancelRuntimeOwnedCoordinatorTaskの計算結果を返す。
+ * @precondition 「controlCapability: unknown」がcancelRuntimeOwnedCoordinatorTaskの入力契約を満たす。
+ * @postcondition cancelRuntimeOwnedCoordinatorTaskの責務を完了した結果だけを返す。
+ * @effect N/A: cancelRuntimeOwnedCoordinatorTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: cancelRuntimeOwnedCoordinatorTaskは独自の失敗分岐を所有しない。
+ * @invariant cancelRuntimeOwnedCoordinatorTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: cancelRuntimeOwnedCoordinatorTaskはProcess内の同一Subsystemで完結する。
+ * @security cancelRuntimeOwnedCoordinatorTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: cancelRuntimeOwnedCoordinatorTaskは共有非同期状態を持たない同期処理である。
+ */
 export function cancelRuntimeOwnedCoordinatorTask(controlCapability: unknown) {
   return productionRuntime.cancel(controlCapability);
 }
@@ -3172,7 +3997,22 @@ const developmentProjectRuntimeCancellations = new WeakMap<
   () => Promise<unknown>
 >();
 
-/** Testable projection used only after the outer development cleanup settles. */
+/**
+ * Testable projection used only after the outer development cleanup settles.
+ *
+ * @responsibility Development Task 結果 After Outer 清掃の公開field、秘匿境界、投影不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input taskResult: Readonly<Record<string, unknown>>、cleanupConfirmed: boolean
+ * @returns projectDevelopmentTaskResultAfterOuterCleanupの計算結果を返す。
+ * @precondition 「taskResult: Readonly<Record<string, unknown>>、cleanupConfirmed: boolean」がprojectDevelopmentTaskResultAfterOuterCleanupの入力契約を満たす。
+ * @postcondition projectDevelopmentTaskResultAfterOuterCleanupの責務を完了した結果だけを返す。
+ * @effect N/A: projectDevelopmentTaskResultAfterOuterCleanupは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure projectDevelopmentTaskResultAfterOuterCleanupは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant projectDevelopmentTaskResultAfterOuterCleanupは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: projectDevelopmentTaskResultAfterOuterCleanupはProcess内の同一Subsystemで完結する。
+ * @security projectDevelopmentTaskResultAfterOuterCleanupはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: projectDevelopmentTaskResultAfterOuterCleanupは共有非同期状態を持たない同期処理である。
+ */
 export function projectDevelopmentTaskResultAfterOuterCleanup(
   taskResult: Readonly<Record<string, unknown>>,
   cleanupConfirmed: boolean,
@@ -3198,6 +4038,22 @@ export function projectDevelopmentTaskResultAfterOuterCleanup(
   return Object.freeze(snapshot);
 }
 
+/**
+ * Runtime 所有 Development Taskを開始する。
+ *
+ * @responsibility Runtime 所有 Development Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
+ * @trace ARCH-000004
+ * @input rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object、candidateDisposition: "discard" | "project_runtime_owned"、recoveryCorrelationId: unknown
+ * @returns startRuntimeOwnedDevelopmentTaskの計算結果を返す。
+ * @precondition 「rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object、candidateDisposition: "discard" | "project_runtime_owned"、recoveryCorrelationId: unknown」がstartRuntimeOwnedDevelopmentTaskの入力契約を満たす。
+ * @postcondition startRuntimeOwnedDevelopmentTaskの責務を完了した結果だけを返す。
+ * @effect N/A: startRuntimeOwnedDevelopmentTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure startRuntimeOwnedDevelopmentTaskは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant startRuntimeOwnedDevelopmentTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: startRuntimeOwnedDevelopmentTaskはProcess内の同一Subsystemで完結する。
+ * @security startRuntimeOwnedDevelopmentTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency startRuntimeOwnedDevelopmentTaskは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function startRuntimeOwnedDevelopmentTask(
   rawRequest: unknown,
   repositoryRoot: unknown,
@@ -3217,6 +4073,22 @@ function startRuntimeOwnedDevelopmentTask(
   if (!boundary)
     throw new Error("coordinator_task_development_permission_required");
   let managementCapability: object | undefined;
+  /**
+   * guardを決定する。
+   *
+   * @responsibility guardの導出に必要な入力、判定規則、返却結果の境界を所有する。
+   * @trace ARCH-000004
+   * @input action: (...args: Args) => Result
+   * @returns guardの計算結果を返す。
+   * @precondition 「action: (...args: Args) => Result」がguardの入力契約を満たす。
+   * @postcondition guardの責務を完了した結果だけを返す。
+   * @effect N/A: guardは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @failure guardは入力不正または下位処理の失敗を呼出し側へ返す。
+   * @invariant guardは入力から導いた結果以外の共有状態を変更しない。
+   * @boundary N/A: guardはProcess内の同一Subsystemで完結する。
+   * @security guardはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+   * @concurrency N/A: guardは共有非同期状態を持たない同期処理である。
+   */
   function guard<Args extends unknown[], Result>(
     action: (...args: Args) => Result,
   ) {
@@ -3350,7 +4222,22 @@ function startRuntimeOwnedDevelopmentTask(
   });
 }
 
-/** Comparison-only development Tasks discard their candidates on completion. */
+/**
+ * Comparison-only development Tasks discard their candidates on completion.
+ *
+ * @responsibility Runtime 所有 Development Coordinator Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
+ * @trace ARCH-000004
+ * @input rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object
+ * @returns startRuntimeOwnedDevelopmentCoordinatorTaskの計算結果を返す。
+ * @precondition 「rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object」がstartRuntimeOwnedDevelopmentCoordinatorTaskの入力契約を満たす。
+ * @postcondition startRuntimeOwnedDevelopmentCoordinatorTaskの責務を完了した結果だけを返す。
+ * @effect N/A: startRuntimeOwnedDevelopmentCoordinatorTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: startRuntimeOwnedDevelopmentCoordinatorTaskは独自の失敗分岐を所有しない。
+ * @invariant startRuntimeOwnedDevelopmentCoordinatorTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: startRuntimeOwnedDevelopmentCoordinatorTaskはProcess内の同一Subsystemで完結する。
+ * @security startRuntimeOwnedDevelopmentCoordinatorTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: startRuntimeOwnedDevelopmentCoordinatorTaskは共有非同期状態を持たない同期処理である。
+ */
 export function startRuntimeOwnedDevelopmentCoordinatorTask(
   rawRequest: unknown,
   repositoryRoot: unknown,
@@ -3365,7 +4252,22 @@ export function startRuntimeOwnedDevelopmentCoordinatorTask(
   );
 }
 
-/** Project Runtime owns candidate integration and cleanup after Task completion. */
+/**
+ * Project Runtime owns candidate integration and cleanup after Task completion.
+ *
+ * @responsibility Runtime 所有 Development Project Runtime Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
+ * @trace ARCH-000004
+ * @input rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object、recoveryCorrelationId: unknown
+ * @returns startRuntimeOwnedDevelopmentProjectRuntimeTaskの計算結果を返す。
+ * @precondition 「rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object、recoveryCorrelationId: unknown」がstartRuntimeOwnedDevelopmentProjectRuntimeTaskの入力契約を満たす。
+ * @postcondition startRuntimeOwnedDevelopmentProjectRuntimeTaskの責務を完了した結果だけを返す。
+ * @effect N/A: startRuntimeOwnedDevelopmentProjectRuntimeTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: startRuntimeOwnedDevelopmentProjectRuntimeTaskは独自の失敗分岐を所有しない。
+ * @invariant startRuntimeOwnedDevelopmentProjectRuntimeTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: startRuntimeOwnedDevelopmentProjectRuntimeTaskはProcess内の同一Subsystemで完結する。
+ * @security startRuntimeOwnedDevelopmentProjectRuntimeTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: startRuntimeOwnedDevelopmentProjectRuntimeTaskは共有非同期状態を持たない同期処理である。
+ */
 export function startRuntimeOwnedDevelopmentProjectRuntimeTask(
   rawRequest: unknown,
   repositoryRoot: unknown,
@@ -3386,6 +4288,22 @@ export function startRuntimeOwnedDevelopmentProjectRuntimeTask(
   });
 }
 
+/**
+ * Runtime 所有 Development Project Runtime Taskを取り消す。
+ *
+ * @responsibility Runtime 所有 Development Project Runtime Taskの取消条件、終了状態、残存Effectの境界を所有する。
+ * @trace ARCH-000004
+ * @input controlCapability: object
+ * @returns cancelRuntimeOwnedDevelopmentProjectRuntimeTaskの計算結果を返す。
+ * @precondition 「controlCapability: object」がcancelRuntimeOwnedDevelopmentProjectRuntimeTaskの入力契約を満たす。
+ * @postcondition cancelRuntimeOwnedDevelopmentProjectRuntimeTaskの責務を完了した結果だけを返す。
+ * @effect N/A: cancelRuntimeOwnedDevelopmentProjectRuntimeTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: cancelRuntimeOwnedDevelopmentProjectRuntimeTaskは独自の失敗分岐を所有しない。
+ * @invariant cancelRuntimeOwnedDevelopmentProjectRuntimeTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: cancelRuntimeOwnedDevelopmentProjectRuntimeTaskはProcess内の同一Subsystemで完結する。
+ * @security cancelRuntimeOwnedDevelopmentProjectRuntimeTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency cancelRuntimeOwnedDevelopmentProjectRuntimeTaskは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export function cancelRuntimeOwnedDevelopmentProjectRuntimeTask(
   controlCapability: object,
 ) {
@@ -3393,6 +4311,22 @@ export function cancelRuntimeOwnedDevelopmentProjectRuntimeTask(
   return cancel ? cancel() : Promise.resolve(false);
 }
 
+/**
+ * Isolated Coordinator Task Runtime 候補を構築する。
+ *
+ * @responsibility Isolated Coordinator Task Runtime 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input dependencies: RuntimeDependencies
+ * @returns createIsolatedCoordinatorTaskRuntimeCandidateの計算結果を返す。
+ * @precondition 「dependencies: RuntimeDependencies」がcreateIsolatedCoordinatorTaskRuntimeCandidateの入力契約を満たす。
+ * @postcondition createIsolatedCoordinatorTaskRuntimeCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: createIsolatedCoordinatorTaskRuntimeCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createIsolatedCoordinatorTaskRuntimeCandidateは独自の失敗分岐を所有しない。
+ * @invariant createIsolatedCoordinatorTaskRuntimeCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createIsolatedCoordinatorTaskRuntimeCandidateはProcess内の同一Subsystemで完結する。
+ * @security createIsolatedCoordinatorTaskRuntimeCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createIsolatedCoordinatorTaskRuntimeCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function createIsolatedCoordinatorTaskRuntimeCandidate(
   dependencies: RuntimeDependencies,
 ) {
@@ -3402,6 +4336,22 @@ export function createIsolatedCoordinatorTaskRuntimeCandidate(
   });
 }
 
+/**
+ * Coordinator Task Runtime 契約の公開契約を記述する。
+ *
+ * @responsibility Coordinator Task Runtime 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeCoordinatorTaskRuntimeContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeCoordinatorTaskRuntimeContractの入力契約を満たす。
+ * @postcondition describeCoordinatorTaskRuntimeContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeCoordinatorTaskRuntimeContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeCoordinatorTaskRuntimeContractは独自の失敗分岐を所有しない。
+ * @invariant describeCoordinatorTaskRuntimeContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeCoordinatorTaskRuntimeContractはProcess内の同一Subsystemで完結する。
+ * @security describeCoordinatorTaskRuntimeContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeCoordinatorTaskRuntimeContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeCoordinatorTaskRuntimeContract() {
   return Object.freeze({
     contract: COORDINATOR_TASK_RUNTIME_CONTRACT,

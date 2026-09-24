@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:candidate-store-windows-adapterの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:candidate-store-windows-adapterが所有する検証責務を実行する。
+ * @trace PPR-UT-014
+ * @level UT
+ * @scope candidate、store、windows、adapter
+ * @boundary PPR-UT-014=N/A: 事実／評価候補分類規則は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -8,6 +18,18 @@ import {
 } from "../../src/security/candidate-store-windows-adapter.ts";
 import { WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE } from "../../src/core/windows-child-environment.ts";
 
+/**
+ * source checkoutは署名済みRelease確認前にCandidate Store Effectを開始しないを検証する。
+ *
+ * @responsibility source checkoutは署名済みRelease確認前にCandidate Store Effectを開始しないの合否判定を所有する。
+ * @trace PPR-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus source checkoutは署名済みRelease確認前にCandidate Store Effectを開始しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-014=N/A: 事実／評価候補分類規則は外部実行境界を持たない。
+ */
 test("source checkoutは署名済みRelease確認前にCandidate Store Effectを開始しない", () => {
   const result = inspectRuntimeOwnedWindowsCandidateStore(
     true,
@@ -25,6 +47,18 @@ test("source checkoutは署名済みRelease確認前にCandidate Store Effectを
   );
 });
 
+/**
+ * Candidate Store adapterは環境由来の相対Rootをnative照合前に拒否するを検証する。
+ *
+ * @responsibility Candidate Store adapterは環境由来の相対Rootをnative照合前に拒否するの合否判定を所有する。
+ * @trace PPR-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Candidate Store adapterは環境由来の相対Rootをnative照合前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-014=N/A: 事実／評価候補分類規則は外部実行境界を持たない。
+ */
 test("Candidate Store adapterは環境由来の相対Rootをnative照合前に拒否する", () => {
   const original = process.env.LOCALAPPDATA;
   try {
@@ -43,6 +77,18 @@ test("Candidate Store adapterは環境由来の相対Rootをnative照合前に�
   }
 });
 
+/**
+ * Candidate Store adapterは固定Known Folderとexact保護観測だけをAuthority候補にするを検証する。
+ *
+ * @responsibility Candidate Store adapterは固定Known Folderとexact保護観測だけをAuthority候補にするの合否判定を所有する。
+ * @trace PPR-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Candidate Store adapterは固定Known Folderとexact保護観測だけをAuthority候補にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-014=N/A: 事実／評価候補分類規則は外部実行境界を持たない。
+ */
 test("Candidate Store adapterは固定Known Folderとexact保護観測だけをAuthority候補にする", () => {
   const contract = describeCandidateStoreWindowsAdapterContract();
   assert.deepEqual(contract.fixedSegments, [

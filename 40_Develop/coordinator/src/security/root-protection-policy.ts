@@ -1,3 +1,9 @@
+/**
+ * root-protection-policyに属する責務をまとめる。
+ *
+ * @responsibility responseを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { describeRootObservationContract } from "./root-observation.ts";
 
@@ -29,6 +35,22 @@ const WRITE_AUTHORITIES = new Set([
 ]);
 const INPUT_TOKEN_LENGTH = 32;
 
+/**
+ * responseを決定する。
+ *
+ * @responsibility responseの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input status: S、reason: string、policy: T | null
+ * @returns responseの計算結果を返す。
+ * @precondition 「status: S、reason: string、policy: T | null」がresponseの入力契約を満たす。
+ * @postcondition responseの責務を完了した結果だけを返す。
+ * @effect N/A: responseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: responseは独自の失敗分岐を所有しない。
+ * @invariant responseは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: responseはProcess内の同一Subsystemで完結する。
+ * @security responseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: responseは共有非同期状態を持たない同期処理である。
+ */
 function response<const S extends string, T>(
   status: S,
   reason: string,
@@ -43,6 +65,22 @@ function response<const S extends string, T>(
   });
 }
 
+/**
+ * Observationsを固定Schemaへ正規化する。
+ *
+ * @responsibility Observationsの入力検証、正規化規則、不正値の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input rawObservations: unknown
+ * @returns normalizeObservationsの計算結果を返す。
+ * @precondition 「rawObservations: unknown」がnormalizeObservationsの入力契約を満たす。
+ * @postcondition normalizeObservationsの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeObservationsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizeObservationsは独自の失敗分岐を所有しない。
+ * @invariant normalizeObservationsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeObservationsはProcess内の同一Subsystemで完結する。
+ * @security normalizeObservationsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeObservationsは共有非同期状態を持たない同期処理である。
+ */
 function normalizeObservations(rawObservations: unknown) {
   const observations = snapshotPlainRecord(rawObservations, OBSERVATION_KEYS);
   if (
@@ -68,6 +106,22 @@ function normalizeObservations(rawObservations: unknown) {
   });
 }
 
+/**
+ * policy Summaryを決定する。
+ *
+ * @responsibility policy Summaryの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input rootRole: string、platformFamily: string、filesystemClass: string、requiredWriteAuthority: string
+ * @returns policySummaryの計算結果を返す。
+ * @precondition 「rootRole: string、platformFamily: string、filesystemClass: string、requiredWriteAuthority: string」がpolicySummaryの入力契約を満たす。
+ * @postcondition policySummaryの責務を完了した結果だけを返す。
+ * @effect N/A: policySummaryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: policySummaryは独自の失敗分岐を所有しない。
+ * @invariant policySummaryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: policySummaryはProcess内の同一Subsystemで完結する。
+ * @security policySummaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: policySummaryは共有非同期状態を持たない同期処理である。
+ */
 function policySummary(
   rootRole: string,
   platformFamily: string,
@@ -85,6 +139,22 @@ function policySummary(
   });
 }
 
+/**
+ * Root Protection Policy 候補を評価する。
+ *
+ * @responsibility Root Protection Policy 候補の評価入力、判定規則、判断不能結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input rawInput: unknown
+ * @returns evaluateRootProtectionPolicyCandidateの計算結果を返す。
+ * @precondition 「rawInput: unknown」がevaluateRootProtectionPolicyCandidateの入力契約を満たす。
+ * @postcondition evaluateRootProtectionPolicyCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: evaluateRootProtectionPolicyCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure evaluateRootProtectionPolicyCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant evaluateRootProtectionPolicyCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: evaluateRootProtectionPolicyCandidateはProcess内の同一Subsystemで完結する。
+ * @security evaluateRootProtectionPolicyCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: evaluateRootProtectionPolicyCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function evaluateRootProtectionPolicyCandidate(rawInput: unknown) {
   try {
     const input = snapshotPlainRecord(rawInput, INPUT_KEYS);
@@ -159,6 +229,22 @@ export function evaluateRootProtectionPolicyCandidate(rawInput: unknown) {
   }
 }
 
+/**
+ * Root Protection Policy 契約の公開契約を記述する。
+ *
+ * @responsibility Root Protection Policy 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000014
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeRootProtectionPolicyContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeRootProtectionPolicyContractの入力契約を満たす。
+ * @postcondition describeRootProtectionPolicyContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeRootProtectionPolicyContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeRootProtectionPolicyContractは独自の失敗分岐を所有しない。
+ * @invariant describeRootProtectionPolicyContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeRootProtectionPolicyContractはProcess内の同一Subsystemで完結する。
+ * @security describeRootProtectionPolicyContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeRootProtectionPolicyContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeRootProtectionPolicyContract() {
   const rootObservation = describeRootObservationContract();
   return Object.freeze({

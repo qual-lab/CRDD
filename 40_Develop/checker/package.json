@@ -4,17 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "npm run typecheck && npm run lint && npm run format:check",
-    "documentation-disposition:update": "node ./scripts/update-document-disposition-inventory.ts",
+    "check": "npm run format:check && npm run typecheck && npm run lint",
     "format": "biome format --write ../..",
     "format:check": "biome format ../..",
     "lint": "biome lint ../.. --error-on-warnings",
-    "test": "node ./test-runner.ts",
-    "test:catalog": "node --test ./tests/unit/test-catalog.contract.test.ts",
-    "test:regression:plan": "node ./regression-runner.ts --base main --plan",
-    "test:regression": "node ./regression-runner.ts --base main",
+    "test": "npm run check && npm run verify:repository && npm run test:run",
+    "test:run": "node ./tests/test-runner.ts",
     "typecheck": "tsc -p ./tsconfig.json && tsc -p ./template-tools-tsconfig.json",
-    "verify:repository": "node ./crdd-check.ts --root ../.. --json --summary"
+    "verify:repository": "node ./bin/crdd-check.ts --root ../.. --json --summary"
   },
   "engines": {
     "node": ">=24.12"

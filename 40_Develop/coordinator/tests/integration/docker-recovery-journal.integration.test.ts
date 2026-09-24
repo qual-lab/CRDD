@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:docker-recovery-journalの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:docker-recovery-journalが所有する検証責務を実行する。
+ * @trace PRL-IT-013
+ * @level IT
+ * @scope docker、recovery、journal
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -30,10 +40,34 @@ const scopedRuntimeStateBinding = Object.freeze({
   runtimeStateBindingHash: "4".repeat(64),
 });
 
+/**
+ * temporaryDirectoryのTest準備責務を実行する。
+ *
+ * @responsibility temporaryDirectoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-013
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus temporaryDirectoryを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 function temporaryDirectory() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "crdd-docker-journal-test-"));
 }
 
+/**
+ * crashWriterのTest準備責務を実行する。
+ *
+ * @responsibility crashWriterがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-013
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus crashWriterを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 function crashWriter(
   directory: string,
   boundary: "fsync" | "rename-1" | "rename-2",
@@ -83,6 +117,18 @@ function crashWriter(
   );
 }
 
+/**
+ * crashMutationのTest準備責務を実行する。
+ *
+ * @responsibility crashMutationがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-013
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus crashMutationを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 function crashMutation(
   root: string,
   operation: "delete" | "move" | "cleanup",
@@ -186,6 +232,18 @@ function crashMutation(
   );
 }
 
+/**
+ * deletionObservationFailureのTest準備責務を実行する。
+ *
+ * @responsibility deletionObservationFailureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-013
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus deletionObservationFailureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 function deletionObservationFailure(directory: string) {
   const moduleUrl = pathToFileURL(
     path.resolve("src/security/docker-recovery-journal.ts"),
@@ -244,6 +302,18 @@ function deletionObservationFailure(directory: string) {
   );
 }
 
+/**
+ * crashScopedCleanupのTest準備責務を実行する。
+ *
+ * @responsibility crashScopedCleanupがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-013
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus crashScopedCleanupを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 function crashScopedCleanup(root: string, discriminator: "a" | "b") {
   const moduleUrl = pathToFileURL(
     path.resolve("src/security/docker-recovery-journal.ts"),
@@ -282,6 +352,18 @@ function crashScopedCleanup(root: string, discriminator: "a" | "b") {
   );
 }
 
+/**
+ * crashRecoveryIdentityIntentのTest準備責務を実行する。
+ *
+ * @responsibility crashRecoveryIdentityIntentがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-013
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus crashRecoveryIdentityIntentを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 function crashRecoveryIdentityIntent(
   root: string,
   operation: "base_move" | "base_commit_move" | "pointer_delete",
@@ -387,6 +469,18 @@ function crashRecoveryIdentityIntent(
   );
 }
 
+/**
+ * fsync済みtargetとcommit sidecarの完全な組だけをAuthorityとして読むを検証する。
+ *
+ * @responsibility fsync済みtargetとcommit sidecarの完全な組だけをAuthorityとして読むの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fsync済みtargetとcommit sidecarの完全な組だけをAuthorityとして読むの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("fsync済みtargetとcommit sidecarの完全な組だけをAuthorityとして読む", () => {
   const directory = temporaryDirectory();
   try {
@@ -412,6 +506,18 @@ test("fsync済みtargetとcommit sidecarの完全な組だけをAuthorityとし�
   }
 });
 
+/**
+ * delete後の存在観測不能は不存在へ縮退せずanchorを保持して再開可能にするを検証する。
+ *
+ * @responsibility delete後の存在観測不能は不存在へ縮退せずanchorを保持して再開可能にするの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus delete後の存在観測不能は不存在へ縮退せずanchorを保持して再開可能にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("delete後の存在観測不能は不存在へ縮退せずanchorを保持して再開可能にする", () => {
   const directory = temporaryDirectory();
   try {
@@ -432,6 +538,18 @@ test("delete後の存在観測不能は不存在へ縮退せずanchorを保持�
   }
 });
 
+/**
+ * target temp fsync直後のprocess killはorphan tempを保持して採用しないを検証する。
+ *
+ * @responsibility target temp fsync直後のprocess killはorphan tempを保持して採用しないの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus target temp fsync直後のprocess killはorphan tempを保持して採用しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("target temp fsync直後のprocess killはorphan tempを保持して採用しない", () => {
   const directory = temporaryDirectory();
   try {
@@ -446,6 +564,18 @@ test("target temp fsync直後のprocess killはorphan tempを保持して採用�
   }
 });
 
+/**
+ * target rename直後のprocess killは未commit finalを保持してFail Closedにするを検証する。
+ *
+ * @responsibility target rename直後のprocess killは未commit finalを保持してFail Closedにするの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus target rename直後のprocess killは未commit finalを保持してFail Closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("target rename直後のprocess killは未commit finalを保持してFail Closedにする", () => {
   const directory = temporaryDirectory();
   try {
@@ -469,6 +599,18 @@ test("target rename直後のprocess killは未commit finalを保持してFail Cl
   }
 });
 
+/**
+ * exactなcreate側はcontent rename後のprocess killから同じpairを完成できるを検証する。
+ *
+ * @responsibility exactなcreate側はcontent rename後のprocess killから同じpairを完成できるの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus exactなcreate側はcontent rename後のprocess killから同じpairを完成できるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("exactなcreate側はcontent rename後のprocess killから同じpairを完成できる", () => {
   const directory = temporaryDirectory();
   try {
@@ -500,6 +642,18 @@ test("exactなcreate側はcontent rename後のprocess killから同じpairを完
   }
 });
 
+/**
+ * Effect前のexact未commit finalだけを決定論的rollbackできるを検証する。
+ *
+ * @responsibility Effect前のexact未commit finalだけを決定論的rollbackできるの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Effect前のexact未commit finalだけを決定論的rollbackできるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("Effect前のexact未commit finalだけを決定論的rollbackできる", () => {
   const directory = temporaryDirectory();
   try {
@@ -519,6 +673,18 @@ test("Effect前のexact未commit finalだけを決定論的rollbackできる", (
   }
 });
 
+/**
+ * 未commit finalの内容不一致と完全commit pairはrollbackしないを検証する。
+ *
+ * @responsibility 未commit finalの内容不一致と完全commit pairはrollbackしないの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 未commit finalの内容不一致と完全commit pairはrollbackしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("未commit finalの内容不一致と完全commit pairはrollbackしない", () => {
   const directory = temporaryDirectory();
   const committedDirectory = temporaryDirectory();
@@ -563,6 +729,18 @@ test("未commit finalの内容不一致と完全commit pairはrollbackしない"
   }
 });
 
+/**
+ * commit rename直後のprocess killでも親processが完全な組を再検証できるを検証する。
+ *
+ * @responsibility commit rename直後のprocess killでも親processが完全な組を再検証できるの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus commit rename直後のprocess killでも親processが完全な組を再検証できるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("commit rename直後のprocess killでも親processが完全な組を再検証できる", () => {
   const directory = temporaryDirectory();
   try {
@@ -577,6 +755,18 @@ test("commit rename直後のprocess killでも親processが完全な組を再検
   }
 });
 
+/**
+ * delete intentは全process-kill境界からexact pair削除を再開するを検証する。
+ *
+ * @responsibility delete intentは全process-kill境界からexact pair削除を再開するの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus delete intentは全process-kill境界からexact pair削除を再開するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("delete intentは全process-kill境界からexact pair削除を再開する", () => {
   for (const boundary of ["fsync", "rename-1", "rm-1", "rm-2"] as const) {
     const root = temporaryDirectory();
@@ -592,6 +782,18 @@ test("delete intentは全process-kill境界からexact pair削除を再開する
   }
 });
 
+/**
+ * move intentはsource／targetの全既知中間状態からexact targetへ収束するを検証する。
+ *
+ * @responsibility move intentはsource／targetの全既知中間状態からexact targetへ収束するの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus move intentはsource／targetの全既知中間状態からexact targetへ収束するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("move intentはsource／targetの全既知中間状態からexact targetへ収束する", () => {
   for (const boundary of [
     "fsync",
@@ -618,6 +820,18 @@ test("move intentはsource／targetの全既知中間状態からexact targetへ
   }
 });
 
+/**
+ * cleanup root anchorはpayload部分削除からdirectory residue 0へ再開するを検証する。
+ *
+ * @responsibility cleanup root anchorはpayload部分削除からdirectory residue 0へ再開するの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus cleanup root anchorはpayload部分削除からdirectory residue 0へ再開するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("cleanup root anchorはpayload部分削除からdirectory residue 0へ再開する", () => {
   for (const boundary of ["fsync", "rename-1", "rm-1", "rm-2"] as const) {
     const root = temporaryDirectory();
@@ -632,6 +846,18 @@ test("cleanup root anchorはpayload部分削除からdirectory residue 0へ再�
   }
 });
 
+/**
+ * 対象限定resumeは別Recovery IDのanchorをbyte／Identityとも変更しないを検証する。
+ *
+ * @responsibility 対象限定resumeは別Recovery IDのanchorをbyte／Identityとも変更しないの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 対象限定resumeは別Recovery IDのanchorをbyte／Identityとも変更しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("対象限定resumeは別Recovery IDのanchorをbyte／Identityとも変更しない", () => {
   const root = temporaryDirectory();
   try {
@@ -674,6 +900,18 @@ test("対象限定resumeは別Recovery IDのanchorをbyte／Identityとも変更
   }
 });
 
+/**
+ * 対象限定resumeは同一Recovery IDの作成時binding不一致をmutation前に拒否するを検証する。
+ *
+ * @responsibility 対象限定resumeは同一Recovery IDの作成時binding不一致をmutation前に拒否するの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 対象限定resumeは同一Recovery IDの作成時binding不一致をmutation前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("対象限定resumeは同一Recovery IDの作成時binding不一致をmutation前に拒否する", () => {
   const root = temporaryDirectory();
   try {
@@ -707,6 +945,18 @@ test("対象限定resumeは同一Recovery IDの作成時binding不一致をmutat
   }
 });
 
+/**
+ * delete／moveの第三状態は上書きせずintentと観測物を保持するを検証する。
+ *
+ * @responsibility delete／moveの第三状態は上書きせずintentと観測物を保持するの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus delete／moveの第三状態は上書きせずintentと観測物を保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("delete／moveの第三状態は上書きせずintentと観測物を保持する", () => {
   for (const [operation, boundary, replacement] of [
     ["delete", "rm-1", path.join("source", "record.json.crdd-commit.json")],
@@ -741,6 +991,18 @@ test("delete／moveの第三状態は上書きせずintentと観測物を保持�
   }
 });
 
+/**
+ * cleanup第三状態はrecursive deleteせずanchorとunknownを保持するを検証する。
+ *
+ * @responsibility cleanup第三状態はrecursive deleteせずanchorとunknownを保持するの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus cleanup第三状態はrecursive deleteせずanchorとunknownを保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("cleanup第三状態はrecursive deleteせずanchorとunknownを保持する", () => {
   const root = temporaryDirectory();
   try {
@@ -765,6 +1027,18 @@ test("cleanup第三状態はrecursive deleteせずanchorとunknownを保持す�
   }
 });
 
+/**
+ * read-only intent inventoryはdelete／move／cleanupのAuthorityを厳密投影するを検証する。
+ *
+ * @responsibility read-only intent inventoryはdelete／move／cleanupのAuthorityを厳密投影するの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus read-only intent inventoryはdelete／move／cleanupのAuthorityを厳密投影するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("read-only intent inventoryはdelete／move／cleanupのAuthorityを厳密投影する", () => {
   for (const [operation, boundary] of [
     ["delete", "rm-1"],
@@ -813,6 +1087,18 @@ test("read-only intent inventoryはdelete／move／cleanupのAuthorityを厳密�
   }
 });
 
+/**
+ * 同じ論理KeyとRecovery IDの複数intentは発見だけでも第三状態として保持するを検証する。
+ *
+ * @responsibility 同じ論理KeyとRecovery IDの複数intentは発見だけでも第三状態として保持するの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 同じ論理KeyとRecovery IDの複数intentは発見だけでも第三状態として保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("同じ論理KeyとRecovery IDの複数intentは発見だけでも第三状態として保持する", (context) => {
   const root = temporaryDirectory();
   const originalRemove = fs.rmSync;
@@ -892,6 +1178,18 @@ test("同じ論理KeyとRecovery IDの複数intentは発見だけでも第三状
   }
 });
 
+/**
+ * journal contractはprocess-crash回復とpower-loss非保証を分離するを検証する。
+ *
+ * @responsibility journal contractはprocess-crash回復とpower-loss非保証を分離するの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus journal contractはprocess-crash回復とpower-loss非保証を分離するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("journal contractはprocess-crash回復とpower-loss非保証を分離する", () => {
   assert.deepEqual(describeDockerRecoveryJournalContract(), {
     commitSchema: "crdd-coordinator-durable-json-commit/v1",
@@ -907,6 +1205,18 @@ test("journal contractはprocess-crash回復とpower-loss非保証を分離す�
   });
 });
 
+/**
+ * pending intent再入、cleanup rmdir後、競合anchorを決定的に分類するを検証する。
+ *
+ * @responsibility pending intent再入、cleanup rmdir後、競合anchorを決定的に分類するの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus pending intent再入、cleanup rmdir後、競合anchorを決定的に分類するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("pending intent再入、cleanup rmdir後、競合anchorを決定的に分類する", () => {
   {
     const root = temporaryDirectory();
@@ -956,6 +1266,18 @@ test("pending intent再入、cleanup rmdir後、競合anchorを決定的に分�
   }
 });
 
+/**
+ * 不正intent schemaと変更されたempty directoryをEvidenceとして保持するを検証する。
+ *
+ * @responsibility 不正intent schemaと変更されたempty directoryをEvidenceとして保持するの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不正intent schemaと変更されたempty directoryをEvidenceとして保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("不正intent schemaと変更されたempty directoryをEvidenceとして保持する", () => {
   {
     const root = temporaryDirectory();
@@ -987,6 +1309,18 @@ test("不正intent schemaと変更されたempty directoryをEvidenceとして�
   }
 });
 
+/**
+ * intent anchorの改名、複製、commit semantic差を保持して拒否するを検証する。
+ *
+ * @responsibility intent anchorの改名、複製、commit semantic差を保持して拒否するの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus intent anchorの改名、複製、commit semantic差を保持して拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("intent anchorの改名、複製、commit semantic差を保持して拒否する", () => {
   for (const mutation of ["rename", "duplicate", "commit"] as const) {
     const root = temporaryDirectory();
@@ -1032,6 +1366,18 @@ test("intent anchorの改名、複製、commit semantic差を保持して拒否�
   }
 });
 
+/**
+ * root base／base-commit moveとpointer deleteのkill後もexact Recovery IDを再発見するを検証する。
+ *
+ * @responsibility root base／base-commit moveとpointer deleteのkill後もexact Recovery IDを再発見するの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus root base／base-commit moveとpointer deleteのkill後もexact Recovery IDを再発見するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("root base／base-commit moveとpointer deleteのkill後もexact Recovery IDを再発見する", () => {
   for (const operation of [
     "base_move",
@@ -1053,6 +1399,18 @@ test("root base／base-commit moveとpointer deleteのkill後もexact Recovery I
   }
 });
 
+/**
+ * Root-level intent探索とresumeは全schemaでRecovery ID別にAだけを進めBを不変にするを検証する。
+ *
+ * @responsibility Root-level intent探索とresumeは全schemaでRecovery ID別にAだけを進めBを不変にするの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Root-level intent探索とresumeは全schemaでRecovery ID別にAだけを進めBを不変にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("Root-level intent探索とresumeは全schemaでRecovery ID別にAだけを進めBを不変にする", () => {
   for (const operation of [
     "base_move",
@@ -1125,6 +1483,18 @@ test("Root-level intent探索とresumeは全schemaでRecovery ID別にAだけを
   }
 });
 
+/**
+ * Root-level base／base-commit／pointer intentはbinding不一致時に全anchorを保持するを検証する。
+ *
+ * @responsibility Root-level base／base-commit／pointer intentはbinding不一致時に全anchorを保持するの合否判定を所有する。
+ * @trace PRL-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Root-level base／base-commit／pointer intentはbinding不一致時に全anchorを保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
+ */
 test("Root-level base／base-commit／pointer intentはbinding不一致時に全anchorを保持する", () => {
   for (const operation of [
     "base_move",

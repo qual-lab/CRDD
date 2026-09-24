@@ -1,0 +1,635 @@
+# Engineering Design／Implementation／Verificationの完全性
+
+変更ID: `CHG-000080`
+状態: `Ready for Release Handoff`
+決定権限: Qual-Lab
+対象版: `v0.21.0`
+変更分類: `engineering_completeness_contract_extension`
+
+## 0. 現在状態
+
+| 項目 | 現在値 |
+|---|---|
+| 現在の変更状態 | Human-only再認証Lifecycle、Command世代Barrier、署名前Runtime能力Graph、Proxy port `8080`統一、Docker不存在`inspect`の明示stderr＋空配列`[]`受理、および秘密code非表示・一回入力の事前案内を実装した。署名済み実境界で検出した、同一Session内のRelease更新がContinuation Authorityへ入らない欠落と、現行署名版が新規作成したDocker修復から複数Runtime領域の段階処置へ入れない欠落を是正した。Docker冷間起動は、個別Probe Timeoutと最大180秒の全体起動期限を分離し、Host Effectを再発行せず同一実行で再観測する。検証入口もPortableとHost Windowsへ分け、既定回帰が既知の実環境制限へ入らないようにした。最終Source A、Manifest carrier B、署名済みRecovery Matrixおよび4経路E2Eを同じRuntime Identityで固定し、CHGの技術Gateを完了した |
+| Phase／Gate適用判断 | `Applicable`: Architecture、実装、Quality、MigrationおよびReality Auditを一括変更せず、局所Gateで成立確認する必要がある |
+| 現在Phase | `Phase 9 — Signed E2E／Release Gate: Completed`。Canonical設計集合156件のうちv0.21対象130件とv0.22移管26件を分け、Automated Gapを閉じた。Hybrid／Manual義務は独立レビュー、実境界観測および人間確認へ対応付け、未実施項目をPassへ畳まずRelease Evidenceへ現在判定を固定した。移管26件は既存Prototype Relation 10件と未観測16件を区別し、新Capabilityの完成へ読み替えない |
+| 現在Gate | `Passed: Gate 0〜9`。Source A `01eb00a63dcab09b4b32a41bf142bab70897cd8c`、Manifest carrier B `7362268eecbbc744fc08f809a3a0976fe16ac805`およびRuntime Execution Identity `9850722655b50fcf3d9e70064801729280ab1d0202a6f0472af590535df26f54`を固定した。Recovery Matrixは7シナリオ、署名4経路E2Eは4／4を同じIdentityで完了した。以前の署名結果は流用していない |
+| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 156件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 225件の責務別Local Item接続、Optionality Audit全数処置。Coordinator Portable回帰2,041件中2,033 Pass・失敗0・明示Skip 8、Host Windows 10／10、Checker 363／363、Repository Checker error 0／warning 0、独立再レビューFinding 0を確認した。最終署名IdentityではRecovery Matrixの記録`8a651704-41ca-4290-948b-521f63008253`と4経路E2Eの記録`d7aa9851-0054-4d47-b021-1afb5d65b14d`を固定した |
+| 未成立 | CHGの技術Gateに未成立事項はない。main統合、統合後のexact Identity確認、Release採用およびtag付与は人間の最終Release判断が所有する。v0.22移管26件は同版の実装・実境界・人間受入で再開する |
+| 次のGate | Stable最終候補の機械確認と独立監査を完了し、内容変更なしのPR、main統合、統合後のexact Identity確認および人間のRelease判断後のtag付与へ渡す。CHG完了をv0.21.0の公開済み状態へ読み替えない |
+
+## 1. 変更の目的
+
+重要な設計・実装・検証観点をAIの暗黙判断へ残さず、Canonical DesignからSource、TestおよびEvidenceまで完全性を追跡可能にする。Canonicalな工程成果物から必要な検証義務の母集合を導き、定義済みLocal Itemや既存Testの件数から試験十分性を逆算しない構造へ強化する。同時に、Architecture、Implementation Structure、Source／Test Contract、OptionalityおよびMigrationを一つのEngineering Contractとして閉じる。
+
+```text
+REQ／UX／IA              ──→ UAT Obligation
+UI／SPEC                 ──→ ST Obligation
+Architecture             ──→ IT Obligation
+Architecture Details／実装構造 ──→ UT Obligation
+                                 │
+                                 ▼
+                    QA-ID／Quality Local Item
+                                 ↓
+                              Test
+                                 ↓
+                             Evidence
+```
+
+この対応は試験段階の固定割当ではない。各工程が主に所有する成立条件を示し、同じ条件が異なる観測境界を必要とする場合はQuality Analysisで複数段階へ展開する。
+
+## 2. 着手前整合確認
+
+| 観点 | 現在判断 |
+|---|---|
+| 正本 | Architecture契約は`27_Architecture.md`、詳細設計とCoding規則は`06_Architecture`、Quality契約は`16_Quality_Assurance.md`と`07_Quality`が所有する |
+| 現在の母集団 | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18の計157 Canonical ID、Architecture Details 18領域、Quality Definition 13件 |
+| 成立済みCapability | 工程別Quality Analysis、13 Quality Definition、114 Local Item、UT／IT／ST／UAT適用表、外部境界の段階、PT／LT明示判断、Reality Audit Relationを維持する |
+| 実証済みGap | Local ItemからTestへの接続は観測できるが、Canonical Modelから必要Local Item母集合を決定論的に導く構造がない |
+| 追加する意味 | Canonical Model Item、導出Key、Required Verification Obligation、Implementation Structure Analysis、集合差Gate |
+| 追加しないもの | REQ／UX／IA内のUAT専用ID、試験段階別QA-ID、Design Patternの一律強制、巨大Matrixの手編集正本、SourceからのCanonical Meaning逆算、Sub-CHG |
+| 外部Effect | 文書、Template、Checkerおよび局所生成・検査に限定する。PT／LT、Provider送信、署名Runtime変更は別途判定する |
+
+## 固定前の収束確認
+
+| 評価対象 | 判定 | 内容／理由 | 参照／再評価契機 |
+|---|---|---|---|
+| 非自明な変更としての収束確認 | Applicable | 複数工程、実装、Checker、移行およびQualityへ影響する | 本CHGのPhase／Gateと独立レビューで再評価する |
+| 変更する契約母集団 | Applicable | Architecture Details 18領域、Quality Definition 13件、Production／Test Named Symbolおよび関連ひな型・Checker | Phase 1〜7の母集団固定時に再確認する |
+| 既知の利用側母集団と対象別の予定処置 | Applicable | CRDD公式成果物、配布ひな型、Checker、Source、TestおよびReality Auditが利用側である | Phase 7のSelf Migrationで全数照合する |
+| 安全上重要な層間搬送 | Applicable | Canonical DesignからLocal Item、Test、Evidenceへの搬送が完成主張を決める | Phase 3、4、8でproducer／transport／consumerを照合する |
+| 保護対象Effect／Recoveryの耐久Authority | Applicable | Source Header、Architectureおよび検証義務にAuthority／Effect／Recovery条件を保持する | 該当SubsystemのArchitecture DetailsとQA Local Itemで再確認する |
+| 残存資源／Recovery／Authority義務を伴う取得transaction | Applicable | 外部境界を持つSubsystemでは取得、失敗、cleanupおよび回復の完全性が必要である | Phase 1、3、8の境界別監査で再評価する |
+| 発火例／非発火例／境界例／情報不足例 | Applicable | Optionality、Header、Local Item、Phase／Gateの各分岐で過剰適用と未評価を反証する | Checker契約試験と独立レビューで確認する |
+| 定義・発火条件・判定不能・正式結果の分離 | Applicable | 未記載、N/A、OPEN、FAILおよびPassを同一視しない | Phase 6のOptionality Auditで全数確認する |
+| 固定前の実差分照合 | Applicable | 正本、ひな型、Checker、CRDD自身の成果物を同じ固定候補で照合する | 各Phase Gateと独立レビュー前に再実行する |
+| 根拠の主張軸（入口形態） | Applicable | 公開入口、Source入口およびTest入口の差が成立主張へ影響する | Reality AuditとE2Eで確認する |
+| 根拠の主張軸（観測基盤） | Applicable | 静的解析、Checker、Runner、実境界では観測可能範囲が異なる | 検証結果ごとに取得範囲を記録する |
+| 根拠の主張軸（成果物Identity） | Applicable | Canonical ID、ARCH-ID、QA Local Item、SymbolおよびEvidenceの対応が必要である | Semantic CoverageとReality Auditで照合する |
+| 根拠の主張軸（lifecycle） | Applicable | 定義、実装、実行、回復および終了後状態を一つの成功へ畳まない | Quality CenterとE2Eで確認する |
+| 未解消の不一致 | OPEN | CHGが所有するProduction Header、Relation、Optionality、Required Verification、自動回帰および最終署名E2Eは完了した。Quality正本にはv0.21対象のHybrid 12件・Manual 10件を未観測として保持し、Release採用等の人間判断を未完了のまま残す | 未観測22件を本E2Eの一括成功でPassへ変更せず、Quality CenterとReality Auditから最終Release判断へ渡す |
+
+## 3. 採用する責務境界
+
+### 3.1. 上流工程とQuality
+
+- REQ／UX／IAは受入に必要な意味の正本を維持し、UAT専用Local Itemを所有しない。
+- Quality Analysisは上流の成立条件からRequired Verification Obligationを導出する。
+- Quality DefinitionだけがLocal Itemを所有する。
+- QA-IDは検証目標を表し、UT／IT／ST／UATごとに分割しない。
+- 実行結果とEvidenceをDefinitionへ書き込まない。
+
+### 3.2. Architectureと実装構造
+
+- Architecture DetailsはComponent、Interface、State、Sequence、Data／Resource Flow、Failure／Recovery等を構造化されたCanonical Modelとして保持する。
+- 図は人間可読な投影であり、機械導出の唯一の入力にしない。
+- Variation、生成・選択、状態依存、構成、Lifecycleおよび外部境界を適用判定する。
+- 同一責務の2つ目の具象実装を追加する場合は、Common Contractへの昇格を評価する。
+- Pattern名の採用自体を品質条件にしない。
+
+### 3.3. Quality Coverage
+
+```text
+Canonical Model Item
+        ↓
+Required Verification Obligation
+        ↓
+Defined Local Item
+        ↓
+Test Connected
+        ↓
+Executed／Passed／Evidence
+```
+
+各段階を別の状態として扱う。後段の存在から前段の完全性を推定しない。
+
+## 4. 実装順序
+
+1. 現行Templateと157 Canonical IDの表現能力を棚卸しする。
+2. Architecture DetailsへCanonical Model ItemとImplementation StructureのTemplateを追加する。
+3. Quality Analysis／Definitionへ導出元、条件区分、Integration Scopeおよび集合差を固定する。
+4. REQ／UX／IAからUAT ObligationをPilot導出する。
+5. Coordinator／Project RuntimeのArchitecture DetailsからIT ObligationをPilot導出する。
+6. 導出不能な意味だけを上流TemplateのGapとして是正する。
+7. Checkerまたは決定論的CompilerでRequired／Definedの集合差を検査する。
+8. 現行13 Quality DefinitionとReality Audit Relationを移行する。
+9. Formatter、型、Lint、局所試験、全回帰、Repository Checkerおよび独立レビューを完了する。
+
+## Phase／Gateと途中拡張
+
+### 適用判断
+
+| 評価対象 | 判定 | 理由 |
+|---|---|---|
+| Phase／Gate | Applicable | Architecture、実装、Quality、MigrationおよびReality Auditを一括変更せず、同じ変更意図の局所成立を確認する必要がある |
+
+### PhaseとGate
+
+PhaseはCHGを分割する別Identityではなく、一つの変更意図を安全に成立させる内部段階である。各Gateの通過は局所成立だけを示し、CHG全体の採用、Releaseまたは完了を意味しない。
+
+| Phase | 目的 | 変更範囲 | 検証 | Gate／通過条件 | 状態 |
+|---|---|---|---|---|---|
+| Phase 0: CHG Model Extension | 途中拡張・途中見直しを履歴とGate付きで扱う | `12_Change.md`、`19_Maintenance.md`、CHGひな型、Checker、本CHG | 発火・非発火・境界・情報不足例と構造契約試験 | 正本・ひな型・Checker・Dogfoodが一致し、別CHG判定とGate再開を検査できる | Passed |
+| Phase 1: Architecture Completeness | 基本・詳細設計から必要構造と検証対象を導く | Canonical Model、実装構造、Component／Boundary／State／Flow／Failure | 全詳細設計領域の適用表と導出差分 | 全18領域を適用、理由付きN/AまたはOPENへ処置する | Passed |
+| Phase 2: Implementation Contract | Production Named Symbolを設計責務へ接続する | 固定Header Schema、ARCH Trace、Source Migration | Header構造、実在Trace、Architecture所有責務 | 対象Symbol全件がHeaderと実在ARCH-IDを持つ | Passed |
+| Phase 3: Verification Completeness | 必要な試験義務とLocal Item集合を閉じる | UT／IT／ST／UAT、条件区分、外部境界段階、集合差 | Required／Defined／Level／Boundary差分 | Required - DefinedとLevel／Boundary不足が0件 | Passed |
+| Phase 4: Test Source Contract | Test実装をQuality Local Itemへ接続する | Test Case／Named Helper／Fixture Header、QA Trace | Header構造、Local Item実在、試験段階一致、File Relation和集合 | FileはCase／HelperのRelation和集合、Caseは対応する1件、Helperは支援する1件以上を持ち、Test Symbol全件が実在Local Itemと試験段階に一致する | Passed |
+| Phase 5: UAT Pilot | 上流の受入意味からUAT義務を再現する | REQ／UX／IA Pilotから全Canonical Sourceへ展開 | Source別UAT ObligationとSame／New判断 | 推測なしで導出でき、重複・導出不能を処置する | Passed |
+| Phase 6: Optionality Audit | 重要評価の未記載をなくす | CRDD全体のOptional表現、Format、Checker | A〜F全数分類、理由付きN/A／OPEN、負例 | A〜F分類とC〜Fの必須評価化、理由なしN/A／OPEN 0件 | Passed |
+| Phase 7: CRDD Self Migration | 新ContractをCRDD自身へ適用する | Architecture、Source、Test、Quality、Traceability | 契約母集団と利用側母集団の全数照合 | Ruleと現実の未移行0件 | Passed |
+| Phase 8: Reality Audit | CanonicalからEvidenceまで照合する | Design→Obligation→Local Item→Test→Execution→Evidence | 欠落、矛盾、Orphan、Freshnessを全数判定 | 欠落・矛盾・Orphanを全数処置する | Passed |
+| Phase 9: Independent Review／Release Gate | 独立反証とRelease Readinessを閉じる | 必須監査、全回帰、署名E2E | 固定改訂版への独立レビュー、監査、署名E2E | Blocking Finding 0、必要な署名E2E Pass、人間のRelease判断へ引渡し可能 | Completed |
+
+### 途中拡張の記録
+
+| Finding／契機 | 同じIntentと判断した理由 | 追加Phase／範囲 | Gate・完了条件への影響 | 追加確認／人間判断 | 処置 |
+|---|---|---|---|---|---|
+| Production Headerの必須tagだけでは既存Source全体を閉じられない | Canonical DesignからSourceまで完全性を追跡する同じ目的であり、単独Releaseしない | Phase 2へ全Named Symbolと全固定tagを追加 | Production母集団の全数移行をGateへ追加 | Coding Standards、Checker負例、独立レビュー | Added |
+| Local Itemに試験段階・条件区分・外部境界段階の不足があった | Required Verificationの母集合を閉じる同じ目的である | Phase 3へLocal Item再採番、細分化、日本語5条件区分を追加 | Level／Boundary／条件区分の集合差0を要求 | Quality Definition、Checker、全回帰 | Added |
+| 重要観点が「必要に応じて」で未評価のまま省略できる | AIの暗黙判断をFormatへ戻す同じ目的である | Phase 6としてOptionality Auditを追加 | C〜Fの必須評価化とSelf Migrationを完了条件へ追加 | CRDD正本、全ひな型、Checker、独立監査 | Added |
+| 同じIntentの不足発見ごとにCHGが細分化し得る | 本CHG自身を完成まで追跡するChange Management上の前提不足である | Phase 0としてPhase／Gate／Scope Extension契約を追加 | Gate 0通過前に以後のPhase完了を確定しない | Change正本、Maintenance、ひな型、Checker | Added |
+| 4経路E2Eの固定失敗理由が保存Recordで`unknown`へ劣化した | 外部境界を推測せず診断でき、Evidenceへ再現可能に接続する同じ完全性目的である | Phase 9へVerification Result Recorderの固定理由投影と負例を追加 | 実Provider再試行前に原因分類を耐久記録できることをGateへ追加 | 固定理由だけを許可し、自由文・秘密風文字列・Provider生出力を保存しない | Added |
+| 段階別診断によりCRDD専用Claude Provider HomeのOAuth失効を確認した | 署名4経路E2Eを成立させる既存Capabilityの認証Lifecycleが、準備だけを要求して回復入口を欠いていた | Phase 9へHuman-only `authenticate-claude`入口、事後Probe、cleanup確認および利用手順を追加 | 再署名後の実再認証と同一候補4経路E2E PassをGateへ追加 | 通常Task Authority、自動再認証、Repository mount、API key fallbackは追加しない | Added |
+
+### 途中見直しの記録
+
+| 契機 | 崩れた前提／旧判断 | 改訂後のPhase／Gate | 再実行する検証 | 不変範囲 | 処置 |
+|---|---|---|---|---|---|
+| 新しいLocal Item IDをSchemaだけが受理し、Domain Validatorが旧形式を要求していた | Local Item再採番後もSymbol Graph契約はそのまま成立するという前提 | Phase 3／7のValidator移行を追加し、Gate 3は新旧二重契約解消後に判定する | Symbol Manifest Validator局所試験、Schema整合、全Symbol Graph試験 | QA-ID、Local Itemの意味、Architecture Relationは変更しない | Revised |
+| Production Header Gateが約3.8万のtag単位指摘を検出した | 一部PackageのHeader補強だけでPhase 2を閉じられるという見込み | Gate 2を未通過のまま維持し、全Production Named SymbolをPackage単位で移行する | Header母集団、実在ARCH-ID、全固定tag、Formatter／型／Lint／全回帰 | Header Schemaと「Public／privateを分けない」原則は変更しない | Revised |
+| 型宣言へFunction用の入出力・事前事後条件を要求すると、非該当説明が主となり型契約が読みにくくなった | 全Named Symbolへ単一Header Schemaを適用すれば責務を同じ精度で保存できるという前提 | Phase 2のHeaderを型契約、状態所有、実行責務の3 Schemaへ分離する | Schema別の正例・負例、全Production母集団、Formatter／型／Lint | Summary、責務、実在ARCH-IDへのTrace、必須評価原則は変更しない | Revised |
+| 既存Test Suite Relation 37件すべてで、物理配置の試験段階とLocal Item IDの段階が少なくとも1件不一致だった | 既存`symbol.json`のTest RelationをそのままHeader移行入力にできるという前提 | Phase 4でTest Catalog 197件と個別Test Case／Helper／Fixtureを再分析し、物理配置またはLocal Item Relationを正す | Test File段階、Local Item段階、実在ID、個別Test責務、全Test実行 | 既存Testの成立済み検証能力とQuality Local Itemの意味は、置換根拠なしに削除・改称しない | Revised |
+| Test Fileを一つの代表Local Itemへ縮約した結果、Semantic Coverageで17意味中16件のTest観測Relationが失われた | File、Case、HelperのRelationを同一の1件へ揃えればTest Source Contractを閉じられるという前提 | Phase 4／7を再開し、FileはCase／HelperのRelation和集合、Caseは対応する1件、Helperは支援する1件以上、`symbol.json`は和集合の正方向Ownerへ改訂する | Test Header契約試験、Symbol Graph、Semantic Coverage Pilot、全Test実行、独立意味レビュー | 試験段階付きLocal Item 150件、Test本体の振る舞いおよび旧Relationを根拠なくTest成立へ昇格しない原則は変更しない | Revised |
+| 署名4経路E2Eの内側結果がRuntime固定理由を返しても、保存Recordの手管理許可集合に未登録なら`unknown`へ劣化した | `reason`の追加時にVerification Recorderも同期済みであり、失敗後に安全な原因分類を再観測できるという前提 | Gate 9を再開し、Provider／署名Runnerの固定理由をRecordへ投影する。ただし未知の自由文は従来どおり`unknown`へ閉じる | Formatter、型、Lint、Recorder負例、Development E2E、再署名Recovery Matrix、署名4経路E2E | Provider生出力、Credential、Host Pathおよび未許可の自由文は記録しない | Revised |
+| 最初の診断Record是正候補でRoute Matrix自身の固定理由2件が未登録だった | Provider境界だけを確認し、同じProducer内のRunner例外・Process再起動分岐まで母集団へ含めなかった | Gate 9の独立レビューをFailとして維持し、`signed_route_matrix_route_runner_failed_closed`と`signed_route_matrix_process_restart_required`をexact追加する | Recorder正例・未知値拒否負例、Route Matrix契約試験、同一固定候補の独立再レビュー | Prefix一般許可、生出力保存、Status／Recovery／Effect契約変更は禁止 | Revised |
+| Route Matrix理由を共有化した再レビューで、内側Coordinator TaskのProvider準備失敗7件がRecorder未登録と判明した | 外側RunnerだけをOwner Registryへ接続し、`results[]`が再帰投影する内側公開結果までProducer母集団を広げなかった | Provider準備失敗の公開語彙もOwner Registry化し、ProducerとRecorderを同じexact集合へ接続する | Registry全値のRecorder正例、未知値拒否負例、Coordinator Task契約試験、署名4経路E2Eの耐久Record再観測 | 内部Provider理由、自由文、生出力、Status／Recovery／Effect契約は変更しない | Revised |
+| Provider準備7件の是正後も、Coordinator Task公開Constructorが任意文字列を受け、直接blocked理由52件中48件以上がRecorder未登録だった | 個別失敗群ごとのRegistry追加で十分と見なし、公開Result Constructorと再帰投影全体を型境界にしていなかった | 全Coordinator Task公開理由とSigned General Task理由をOwner Registry＋導出Union型へ集約し、公開Constructorを型制約する。下位動的理由はexact Registry一致だけを投影し、未知値を固定fallbackへ閉じる | Typecheck、Registry全値保存、未知値拒否、Coordinator Task／Signed General／Route Matrix契約試験、同一固定候補の独立再レビュー | Prefix／正規表現許可、任意fixture理由の公開、Provider生出力、Status／Recovery／Effect契約変更は禁止 | Revised |
+| 再署名後の4経路E2Eで`unknown`は解消したが、forward経路が`coordinator_task_provider_failed`までしか分類されなかった | Coordinator Task内の直接理由を全数Registry化すれば、下位Process Controllerの固定理由もすべて包含できるという前提 | Docker Process Controllerが清掃後に公開できる固定完了理由38件を専用Owner Registryへ分離し、Producerの完了理由変数と結果構築引数をRegistry由来Union型へ制約した上で、Coordinator TaskおよびRecorderへ同じexact集合を接続する | Formatter、型、Lint、下位Registry全数閉包試験、Registry外Producer理由の型拒否、Recorder全Registry試験、独立レビュー、再署名Recovery Matrix、署名4経路E2E | Provider stderr／stdout、秘密値、自由文は公開せず、未知理由は`coordinator_task_provider_failed`へ閉じる | Revised |
+| 下位理由を接続した再署名E2Eで、失敗が`docker_setup_command_failed`まで到達したが、8個のSetup用途のどこで非ゼロ終了したかをRecordから区別できなかった | SetupをProvider開始前の一つの技術段階として扱い、各外部境界の用途を診断契約へ固定していなかった | `create_subscription_auth_probe`から`start_proxy`までの8用途を、Registry由来の用途別固定理由へ一対一対応させる。Engine、Image、Codex認証Probeは作り込み前の最小単位手動確認で正常を確認する | 8用途の非ゼロ終了Matrix、Registry型閉包、Recorder全Registry試験、独立レビュー、再署名Recovery Matrix、署名4経路E2E | Docker argv、Host Path、stdout／stderr、秘密値、自由文はRecordへ追加しない | Revised |
+| Human-only再認証を加えた固定候補の署名事前観測が`release_manifest_package_observation_failed`でEffect 0停止した | 再認証実装と局所試験へ子Process境界を追加した一方、署名者が検査するRuntime能力Graphのcallsite、exact call、実行ファイル由来、Process所有およびWrapper利用側を同時更新していなかった | `runDockerCommandWithAuthority`の実Process境界を署名前能力Graphへ登録し、exportされたasync関数を公開Wrapperとして認識する解析を補正する。実Sourceの正例に加え、実行ファイル差替えとclose所有削除の負例を固定する | 形式、型、Lint、Runtime能力Graph、署名Package観測、局所試験、Development E2E、独立レビュー、再署名 | Human-only境界、Docker引数、mount／network／secret、API key fallback、通常Task Authorityおよび署名対象範囲は変更しない | Revised |
+| 初回能力Graph是正の独立レビューで、Wrapper利用側の後半3引数と実行ファイル・環境・作業Directoryの生成根拠を危険値へ差し替えても検査が受理した | Wrapper定義側の`spawn`と利用側の先頭2引数を拘束すれば、呼出し元の安全な値生成も包含できるという前提 | 5引数を末尾まで完全一致させ、検証済みDocker CLI Snapshot、最小Process環境、`SystemRoot/System32`、Directory確認および加工しない`authorityLive`搬送を同じ利用点の支配的根拠へ結合する | 直接実行ファイル、親環境、Repository cwd、固定Directory確認削除、常時true Authorityへの差替え負例、形式、型、Lint、能力Graph、独立再レビュー | `spawn` exact call、error／close所有、認証scope、Docker mount／network、秘密非保存、API課金禁止および署名対象範囲は変更しない | Revised |
+| 署名済みHuman-only実行がClaude認証開始時にProxy接続を拒否された | 共通Proxy実装と通常Codex／Claude Runtime Adapterが`8080`を使用する一方、再認証Planだけが未検査の`18080`を埋め込んでいた。依存差替え試験はCommand成功を模擬し、実待受portとの一致を検査していなかった | Phase 9を再開し、再認証Planを固定container port `8080`へ統一する。Architectureへ内部接続契約、ERB-UT-016へ一致と別port反例を追加する | Plan局所試験、別port負例、形式、型、Lint、Development E2E、独立再レビュー、再署名、exact Recovery再入場、Human-only実E2E | Proxy allowlist、Network分離、Host port非公開、Provider Home、通常Task Authority、秘密非保存およびAPI課金禁止は変更しない | Revised |
+| 修正後の署名済みHuman-only実行はClaude Max認証を確認したが、全Docker資源0件にもかかわらずcleanup未確認で停止した | 現行Docker CLIの不存在`inspect`は終了code 1と明示stderrに加えてstdoutへ空配列`[]`を返す。実装はstdout完全空だけを受理していた | 明示的な不存在stderrと組み合わされた空stdoutまたは`[]`だけを受理し、その他のstdout・stderr・終了codeは引き続き拒否する。秘密codeはProvider CLIのdirect TTYへ委ねたまま、非表示・一回貼付けを開始前に案内する | Docker Desktop実境界の残存数0、`[]`正例、任意stdout負例、局所試験、独立再レビュー、再署名、exact Recovery再入場 | 資源名、所有Label、削除順、Recovery Identity、秘密入力の非保存、Provider CLIのTTY所有および通常Task Authorityは変更しない | Revised |
+| Phase 9の理由RegistryとClaude再認証是正後にProduction／Test Header・命名契約193件が再び不成立になった | Gate 2通過後のSource追加にも同じHeader Schemaと命名Gateが継続適用されるが、局所試験だけでは全Source母集団を再評価できるという前提が崩れた | Gate 2を一時再開し、追加した型・関数・Test Helperへ責務別Headerと実在Traceを付与し、predicate／集合名もCoding Standardsへ統一する | Header・命名の局所契約、Test Local Item接続、Formatter、型、Lint、Coordinator全回帰、Checker全回帰、Repository Checker | Header Schema、ARCH／QA Identity、Claude再認証の実挙動および理由Registryの公開語彙は変更しない | Revised |
+| 署名済みDocker修復Operationの引継ぎ後に、旧Runtimeが作成した配下Continuationだけが不正扱いになった | 同じ修復ID、確認済みEffect、引継ぎ連鎖を保ったまま現在Runtimeへ回復する既存Capabilityの閉包不足であり、別の利用者価値やReleaseとして分離できない | Phase 9を再開し、検証済みOperation引継ぎ連鎖からContinuation発行元の完全なSession／Release tupleを導出する。読取りはchain内tuple、追記は現在境界だけに限定する | Store契約試験、Runtime経路試験、実在`cf13...`記録のread-only観測、形式・型・Lint、全回帰、独立レビュー、再署名、exact Recovery再入場、Recovery Matrix、署名4経路E2E | 旧記録の上書き、chain外tuple、部分一致、旧Runtimeからの追記、Host Effectの再発行、秘密値・Host Pathの公開は禁止 | Revised |
+| 上記是正後の署名実境界で、同じSessionのRelease更新は新しいhandoff記録を作らず、現ReleaseがContinuation Authorityへ入らなかった | Session handoff chainを検証すれば、同一Session内のRelease更新もchain末尾へ自動的に現れるという前提 | Phase 9を継続し、Operation履歴が現在Sessionへ結合済みの場合だけ、署名検証済みの現在実行境界をProcess-local Authority列の末尾へ追加する。過去Authorityは履歴由来、新規追記は現Release由来に分離する | 同一SessionでReleaseだけを更新する実Store正例、手組み・chain外・現在未結合の負例、局所61件、全回帰、独立再レビュー、新しいSource Aからの再署名、実在`cf13...`再入場 | 新しいhandoff recordの捏造、過去記録の改変、Release番号だけの一致、plain OperationのAuthority化、旧Releaseからの追記およびHost Effect再発行は禁止 | Revised |
+| 同じRepair IDの継続は成立したが、再起動後の新しい故障世代を修復するための旧履歴closeが、保持済み旧stale Evidenceを理由に停止した | 新修復を許可する明示closeでは、旧stale対象が不存在でなければならず、exact Identityで保持されたEvidenceも未処置残存と同じに扱っていた | Phase 9を継続し、旧stale対象が不存在または旧Operationの`runIdentity`とexact一致する場合だけ、物理Evidenceを保持したまま旧履歴をcloseできるようにする。別Identity・観測不能は拒否する | 保持済みexact旧staleの正例、別Identity・観測不能の負例、実在`cf13...`close、新Repair IDでの現在世代修復、全回帰、独立再レビュー、再署名 | 旧stale Evidenceの削除・改名、別Identityの採用、Engine readyの捏造、旧Effectの再発行および新旧Repair Identityの混同は禁止 | Revised |
+| Source Aの全回帰が、Aには存在してはならないRelease manifestをSystem試験fixtureとして要求した | Manifest昇格System試験を通常Source回帰として無条件実行できるという前提が、A／B／Cの自己参照回避Lifecycleと矛盾した | 3件の昇格System試験をManifest-only Commit Bで実行する契約へ限定し、Source Aでは理由付きExplicit Skipにする。Bでは同じ試験を自動的に実行し、昇格、反例、Topologyを検証する | Source A全回帰、Bでの3 System試験、A→B manifest一件差分、署名済み昇格入口 | ManifestをAへ戻さず、偽署名fixtureや手動コピーで代替せず、Bの実署名済みbyteを検証する | Revised |
+| 新しいRepair IDの署名実境界が、最初のDocker再起動不成立後に複数Runtime領域のContinuationへ進まず、`docker_desktop_engine_restart_unconfirmed`を反復した | 複数領域Continuationの実装と契約試験は存在したが、`executeRepair`の入口が履歴採用Operationだけを対象にし、現行署名版が新規作成したOperationを接続していなかった | Phase 9を継続し、現行・履歴の両Operationを同じContinuation適格性判定へ通す。現行Operationは履歴chainを要求せず、履歴Operationは従来どおりcurrent-session bindingと未closeを要求する | 現行Operationの完走正例・Capability欠落負例・前提不成立負例、Docker修復契約59件、Coordinator全回帰2,040件、Checker全回帰363件、独立再レビュー、再署名後の同じ`f530...`への実境界再入場 | 既存復旧記録の削除・改名、新しいRepair IDへの逃避、履歴OperationのAuthority緩和、観測不能をreadyへ昇格する処理は禁止する。再署名後も同じ実境界で失敗する場合は、全回帰を先行せず、失敗分岐の診断・局所再現・最小実境界確認を先に行う | Revised |
+| 同じRepair IDで再起動を一回発行した後、Docker CLIの5秒Probe Timeoutが即座に`engine_state_unknown`へ畳まれ、二回目の手動再入場でだけReadyを確認できた | 個別Probe Timeoutと全体の冷間起動期限を分けず、`unknown`を即時終了する待機契約にしていた。耐久ContinuationによりEffect再発行は防げたが、同一実行で自動収束しなかった | Phase 9を継続し、confirmedな再起動後の既知未起動とProbe TimeoutだけをHost Effectなしで最大180秒再観測する。全体期限超過を専用理由に分け、同一実行内でReadyになった場合は起動所要時間を診断用参考値として結果へ残す | Timeout分類正例・一般エラー負例、再観測後Ready、全体期限超過、取消、Host Effect再発行0、起動所要時間／未計測、局所契約試験、独立再レビュー、再署名後の最小実境界確認 | 取消・Trust変化・一般エラーの再試行、観測不能からReadyの推定、Host Effect再発行、再入場をまたぐ開始時刻の推測、既存Evidenceの削除は禁止 | Revised |
+| 既定Coordinator回帰がSandbox内からHost Windows試験を先に開始し、既知のDocker Named Pipe拒否と実子Process終了観測不能へ毎回到達した。さらにHost閉集合8件の外に実Windows子Process試験2件が混入していた | 試験段階と実行環境Profileを分離せず、同一file内の試験名prefixと既定`npm test`の実行順だけで安全な入口を表現していた | `npm test`／`test:portable`をHost Effect 0の既定入口、`test:host-windows`を実環境専用入口、`test:all`をRelease用全回帰へ分ける。漏れていた2件を含む10件をHost閉集合へ再分類し、契約試験で既定入口からの除外と明示全回帰への包含を固定する | Profile契約試験、Portable全回帰、権限付きHost Windows 10件、形式・型・Lint、Repository Checker | Host試験の削除、Skipによる成立主張、Portable失敗の環境差扱い、およびHost失敗の実装成功扱いは禁止 | Revised |
+| 実行Profile分離後のRepository Checkerが、公開`test`入口の`test:run`非経由、追加Symbolの命名・Header不足、およびDocker修復ITをST Local Itemへ接続した不一致を検出した | 局所試験の成立だけで、公開試験入口、全Named SymbolおよびTest Level Relationも同時に成立すると見込んだ | 公開`test`を`check && test:run`へ統一し、`test:run`だけがPortable実体を所有する。追加SymbolをCoding Standardsへ合わせ、Docker修復の実境界試験を`ERB-IT-014`へ接続する | 該当契約試験、形式・型・Lint、Repository Checker 363／363、Coordinator Portable全回帰2,041件、Host Windows 10件 | Checker規則の弱化、STへの誤接続維持、Host試験のPortable混入、および局所Passだけの完了主張は禁止 | Revised |
+| 180秒の起動待機を署名実境界で確認すると、初回起動は`docker-secrets-engine`のlockで異常終了し、期限後の二回目手動実行でだけ複数領域Continuationが完了した | Probe Timeoutを待機へ変えれば同一実行で自動収束するという前提。低速起動と、初回起動が新しい既知故障世代を作って終了した状態を区別していなかった | confirmedな初回起動の期限満了後、Engine既知停止、Docker Process不在、`Docker/run`失敗世代と`docker-secrets-engine`のexact lockが揃う場合だけ、同じInvocation・同じRepair IDで既存Continuationへ移る | 同一実行の初回失敗→二領域退避→再起動→Ready、低速起動で自動継続しない負例、局所契約試験、署名済み最小実境界、起動時間記録 | 未確認の二回目起動、既知2領域外への拡張、Process稼働中の退避、Repair ID変更、保持Evidence削除は禁止 | Revised |
+| 上記候補の署名実境界では、起動期限後もDocker Processがハング状態で残り、Process不在を要求するContinuation Gateへ入れなかった | 異常終了した起動世代は期限内にProcess不在へ収束するという前提。実環境ではEngine未準備のままProcessだけが残存した | 同じRepair IDのContinuationへ失敗起動Process停止を独立した耐久Effectとして追加する。既知2領域のexact lockとProcess存在が確定した場合だけ停止を一回発行し、不存在を再確認してから退避する | 残存Processの同一Invocation正例、既に不存在のEffect 0正例、停止部分成功・観測不能の負例、旧3 Effect継続記録の読取り互換、局所試験、署名済み最小実境界 | Process稼働中のrename、停止Effectの再発行、観測不能の不存在扱い、新しいRepair IDへの逃避、保持Evidence削除は禁止 | Revised |
+| Process停止Effect追加後の署名実境界でも継続処理へ入らず、全体起動期限超過を反復した | 起動期限後の継続入口と継続記録作成の双方が、停止Effectより前にEngineを`known_unavailable`と断定できることを要求していた。実観測はCLI Probeが5秒で`ETIMEDOUT`となる`transient_unavailable`、既知2領域の全socketは`EACCES`でexact lock確認可能、Docker Processは残存だったため、安全な停止処理へ到達できなかった | Phase 9を継続し、confirmedな初回起動の期限超過と既知2領域のexact lock、Process集合が揃う場合は、停止前の`transient_unavailable`を継続候補として受理する。停止を一回発行した後は従来どおりEngine既知停止とProcess不在を必須にしてから退避する。継続不成立はBooleanへ畳まず、秘密値とHost Pathを含まない条件別理由を返す | 実観測と同じ`transient_unavailable`→Process停止→`known_unavailable`→二領域退避→再起動の局所正例、Engine ready／unknown、lock不成立、Process観測不能の負例、Docker修復契約62件、署名済み同一`0dae...`最小実境界 | Engine状態不明からの停止、停止後のEngine停止推定、Process稼働中のrename、既知2領域外への拡張、新しいRepair IDへの逃避、全回帰先行は禁止 | Revised |
+
+#### Production Header移行母集団
+
+`tools-naming.contract.test.ts`がTypeScript Projectから取得したProduction Named Symbolを同じ固定改訂版で集計した。違反件数はtag単位であり、Symbol件数とは分ける。
+
+| Package | 未移行Symbol | tag単位指摘 | 現在処置 |
+|---|---:|---:|---|
+| coordinator | 2166 | 28086 | 3 Schemaへ移行し、実在ARCH-IDを領域別に接続。構造違反0 |
+| project-runtime | 209 | 2682 | 3 Schemaへ移行。構造違反0 |
+| version-control | 140 | 1818 | 3 Schemaへ移行。構造違反0 |
+| checker | 113 | 1456 | 3 Schemaへ移行。構造違反0 |
+| crdd-domain-library | 74 | 958 | 3 Schemaへ移行。構造違反0 |
+| execution-intelligence | 63 | 818 | 3 Schemaへ移行。構造違反0 |
+| runtime-data | 58 | 746 | 3 Schemaへ移行。構造違反0 |
+| mcp | 52 | 672 | 3 Schemaへ移行。構造違反0 |
+| verification-runner | 52 | 676 | 3 Schemaへ移行。構造違反0 |
+| semantic-coverage | 48 | 456 | 3 Schemaへ移行。構造違反0 |
+| artifact-signing | 12 | 90 | 3 Schemaへ移行。構造違反0 |
+| 合計 | 2987 | 38458 | 全2987 Symbolの構造移行済み。意味妥当性の独立レビュー待ち |
+
+### Optionality Auditの現在結果
+
+検索語の件数は問題件数ではない。`任意byte列`、`任意Path`、固定履歴中の記述、規範語彙の定義等も含むため、各該当箇所をA〜Fへ分類してから処置する。
+
+| 母集団 | 観測結果 | 現在の処置 |
+|---|---:|---|
+| Markdown全体 | 137ファイル、314一致 | 検索語だけを問題判定へ使わず、固定履歴と現行文書を分けて確認した |
+| 固定履歴（Change／Release／Evidence／CHANGELOG） | 58ファイル、134一致 | 当時の記録を現在形へ書き換えず、現行正本・ひな型・Checkerへの移行要否を確認した |
+| 現行文書（固定履歴を除く） | 79ファイル、180一致 | 180件を全数分類し、曖昧な任意評価21件を発火条件または必須適用判断へ変更した |
+| 配布ひな型 | 5一致 | 任意機能2件、条件付き適用2件、禁止する任意Path 1件であり、未評価を許す欄は0件 |
+
+現行文書180一致の分類結果は次のとおりである。分類は検索語の字面ではなく、その文が許可する選択と必要な評価で判定した。`語彙・否定用途`は、`任意Pathを許可しない`、規範語彙の定義、または任意性という概念説明であり、Optionalityの適用判断ではない。
+
+| 分類 | 件数 | 最終処置 |
+|---|---:|---|
+| A. Optional Feature | 63 | 機能を選択可能なまま維持し、必須能力または必須評価と混同しない |
+| B. Optional Artifact | 17 | 作成を一律必須にせず、適用判断を要求する成果物では作成／既存参照／理由付き`N/A`へ接続した |
+| C. Optional Evaluation | 0 | 曖昧な省略を許す箇所を残していない |
+| D. Optional Safety／Quality Check | 0 | 重要確認を必須適用判断へ昇格したため、任意確認として残していない |
+| E. Conditional Applicability | 15 | 発火条件と、`Applicable`／理由付き`N/A`／理由・確認先・再評価契機付き`OPEN`を明示した |
+| F. Human Judgment／Authority | 16 | 判断主体、移送条件または例外Authorityを明示した |
+| Optionalityではない語彙・否定用途 | 69 | 禁止境界、説明または規範語彙として維持した |
+
+優先対象では、Quality結果の層間搬送、耐久Authority、残存資源／Recovery、四つの根拠軸、PT／LTおよび人間判断を11件の必須適用判断へ昇格した。Architecture Detailsの7実装構造観点は判定理由列と`OPEN`を持つ全数評価へ変更した。UI／Architecture固定入口は維持責任者、基本決定権限、項目別例外Authorityを分離した。Communicationの認知意図、市場・採用探索および人間対象調査、SPECの要求から終了までの段階分離、CHGの固定前収束確認も、曖昧な「該当する場合」から理由付き適用判断へ変更した。
+
+Phase 6は、現行文書180一致の全数分類、曖昧な21件の是正、正本・ひな型・Checkerの接続およびCRDD自身の利用側確認を完了した。Test HeaderはPhase 4、全SubsystemのRequired Verification差分はPhase 3、Reality AuditはPhase 8が所有するため、これらをPhase 6の完了条件へ重複させない。
+
+CHG-000079で成立したSource命名、公開入口および限定Header契約は、本CHGのPhase 2が引き継ぐ基準Capabilityである。CHG-000079の完了履歴と署名Evidenceは変更せず、本CHGはそこから判明した全Named Symbol、固定Header SchemaおよびSource／Test Traceability不足を追加範囲として所有する。
+
+## 5. Pilotの判定基準
+
+| 確認 | 完了条件 |
+|---|---|
+| UAT導出 | REQの受入条件、UXの利用者成果・重要場面・失敗、IAの情報発見・理解・関連付けから、AI推測なしに義務を導ける |
+| IT導出 | Component、Boundary、State Transition、Sequence、Failure／Recoveryの各適用項目から義務を列挙できる |
+| UT補完 | Architecture DetailsとImplementation Structureから局所責務、分岐、不変条件およびErrorの義務を導ける |
+| 統合 | 同じ意味を重複Local Item化せず、Same／New／Mergeの理由を説明できる |
+| 完全性 | Required ObligationとLocal Itemの集合差を機械的に検出できる |
+| 非該当 | N/Aに理由があり、未検討または後工程送りへ使われていない |
+
+## 6. 現在状態と構造変更
+
+### 6.1. UAT導出Pilot
+
+Project Viewの受入を代表例として、既存TestやLocal Itemを先に見ず、上流Definitionから必要義務を導出した。
+
+| Source | Obligation Key | 導出したUAT義務 | 対応Local Item | 差分 |
+|---|---|---|---|---|
+| [REQ-000007](../../../01_Discovery/Definitions/REQ-000007/requirement.md) | `req-000007.acceptance` | 欠測、制限、競合、古さを完全な現在値へ畳まず、根拠または次の判断対象へ進める。 | `PPR-UAT-007` | なし |
+| [UX-000009](../../../02_UX/Definitions/UX-000009/ux_definition.md) | `ux-000009.current-view` | 現在の表示を信じる直前に、根拠、不完全性、観測時点を理解し、確認先を選べる。 | `PPR-UAT-007` | なし |
+| [IA-000006](../../../03_IA/Definitions/IA-000006/ia_definition.md) | `ia-000006.find-understand` | Project、Repository、Binding、Source、Coverage、状態を発見・識別・関連付けできる。 | `PPR-UAT-007` | なし |
+
+REQの成立条件・検証意図、UXの利用者成果・重要場面・失敗、IAの対象・Relation・状態・見つけ方から導出できたため、このPilotでは上流TemplateへUAT専用Propertyを追加しない。
+
+### 6.2. ArchitectureからITへの導出結果
+
+CoordinatorとProject Runtimeでは、詳細設計の境界、状態、順序、故障および終了後条件を局所導出キーへ接続した。8キーを先に導出し、既存Quality Definitionとの集合差を後から比較した。
+
+| 詳細設計領域 | 導出キー | 対応する主なLocal Item | Required - Defined |
+|---|---|---|---:|
+| Coordinator | `coord.provider-selection` | `ERB-IT-006`、`ERB-IT-008` | 0 |
+| Coordinator | `coord.provider-attempt` | `ERB-IT-001`、`ERB-IT-002`、`ERB-ST-005`、`EST-ST-003`、`EST-ST-005`、`CPR-IT-001` | 0 |
+| Coordinator | `coord.signed-promotion` | `AIT-ST-010` | 0 |
+| Coordinator | `coord.task-recovery` | `PRL-ST-003`、`PRL-ST-004` | 0 |
+| Coordinator | `coord.docker-repair-handoff` | `PRL-ST-004`、`ERB-ST-009`、`ERB-ST-011` | 0 |
+| Project Runtime | `project-runtime.task-lifecycle` | `PRL-ST-001`〜`PRL-UT-006`、`PRL-IT-011` | 0 |
+| Project Runtime | `project-runtime.acceptance-decision` | `PRL-UT-007`〜`PRL-UAT-010` | 0 |
+| Project Runtime | `project-runtime.public-application` | `PRL-ST-001`、`PRL-IT-012`、`EST-IT-001` | 0 |
+
+8件の代表導出キーで変換方法を固定した後、18のArchitecture Definitionと18の詳細設計領域へ展開した。REQ 36件、UX 32件、IA 22件、UI 20件、SPEC 29件およびARCH 18件をQuality Analysisで全数処置し、156の一意なLocal Itemへ統合した。各工程の`Required - Defined`、Level不一致およびRelation不明は0件である。Architecture DetailsのLevel／外部境界段階不足もChecker上0件であり、初回に検出した試験段階不足35件・外部境界段階不足17件を期待値緩和せず解消した。
+
+### 影響ファイル
+
+<details>
+<summary>全ファイルを表示</summary>
+
+- [`01_Principles.md`](../../../01_Principles.md)
+- [`03_Documentation.md`](../../../03_Documentation.md)
+- [`05_Autonomous_Operation.md`](../../../05_Autonomous_Operation.md)
+- [`06_Architecture/Details/checker/01_Architecture.md`](../../../06_Architecture/Details/checker/01_Architecture.md)
+- [`06_Architecture/Details/coordinator/01_Architecture.md`](../../../06_Architecture/Details/coordinator/01_Architecture.md)
+- [`10_Agent.md`](../../../10_Agent.md)
+- [`19_Maintenance.md`](../../../19_Maintenance.md)
+- [`19_Workflows/01_Coordinator_Runtime.md`](../../../19_Workflows/01_Coordinator_Runtime.md)
+- [`25_UI.md`](../../../25_UI.md)
+- [`26_Behavior_Specification.md`](../../../26_Behavior_Specification.md)
+- [`27_Architecture.md`](../../../27_Architecture.md)
+- [`28_Implementation.md`](../../../28_Implementation.md)
+- [`40_Develop/artifact-signing/symbol.json`](../../../40_Develop/artifact-signing/symbol.json)
+- [`40_Develop/artifact-signing/tests/integration/private-key-signing.integration.test.ts`](../../../40_Develop/artifact-signing/tests/integration/private-key-signing.integration.test.ts)
+- [`40_Develop/checker/symbol.json`](../../../40_Develop/checker/symbol.json)
+- [`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](../../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)
+- [`40_Develop/checker/tests/integration/tools-naming.contract.test.ts`](../../../40_Develop/checker/tests/integration/tools-naming.contract.test.ts)
+- [`40_Develop/checker/tests/unit/symbol-graph.contract.test.ts`](../../../40_Develop/checker/tests/unit/symbol-graph.contract.test.ts)
+- [`40_Develop/coordinator/symbol.json`](../../../40_Develop/coordinator/symbol.json)
+- [`40_Develop/coordinator/bin/launch.ts`](../../../40_Develop/coordinator/bin/launch.ts)
+- [`40_Develop/coordinator/package.json`](../../../40_Develop/coordinator/package.json)
+- [`40_Develop/coordinator/scripts/authenticate-claude-subscription.ts`](../../../40_Develop/coordinator/scripts/authenticate-claude-subscription.ts)
+- [`40_Develop/coordinator/src/core/coordinator-launch.ts`](../../../40_Develop/coordinator/src/core/coordinator-launch.ts)
+- [`40_Develop/coordinator/src/security/claude-subscription-authentication.ts`](../../../40_Develop/coordinator/src/security/claude-subscription-authentication.ts)
+- [`40_Develop/coordinator/src/security/docker-desktop-repair-continuation-store.ts`](../../../40_Develop/coordinator/src/security/docker-desktop-repair-continuation-store.ts)
+- [`40_Develop/coordinator/src/security/docker-desktop-repair-record-store.ts`](../../../40_Develop/coordinator/src/security/docker-desktop-repair-record-store.ts)
+- [`40_Develop/coordinator/tests/fixtures/claude-subscription-authentication-recovery-owner.ts`](../../../40_Develop/coordinator/tests/fixtures/claude-subscription-authentication-recovery-owner.ts)
+- [`40_Develop/coordinator/tests/fixtures/claude-subscription-authentication-command-owner.ts`](../../../40_Develop/coordinator/tests/fixtures/claude-subscription-authentication-command-owner.ts)
+- [`40_Develop/coordinator/tests/integration/claude-subscription-authentication-recovery.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/claude-subscription-authentication-recovery.integration.test.ts)
+- [`40_Develop/coordinator/tests/integration/bounded-file-snapshot.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/bounded-file-snapshot.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/candidate-bundle-store.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/candidate-bundle-store.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/candidate-store-kernel-lock.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/candidate-store-kernel-lock.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/claude-execution-plan.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/claude-execution-plan.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/claude-subscription-authentication.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/claude-subscription-authentication.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/cli-options.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/cli-options.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/codex-execution-plan.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/codex-execution-plan.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/coordinator-claude-delegation.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/coordinator-claude-delegation.integration.test.ts)
+- [`40_Develop/coordinator/tests/integration/coordinator-task-process.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/coordinator-task-process.integration.test.ts)
+- [`40_Develop/coordinator/tests/integration/coordinator-task-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/coordinator-task-runtime.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/development-execution-timing.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/development-execution-timing.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/development-native-observation.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/development-native-observation.integration.test.ts)
+- [`40_Develop/coordinator/tests/integration/development-package-scripts.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/development-package-scripts.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-desktop-native-helper.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-desktop-native-helper.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-desktop-repair-continuation-store.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-desktop-repair-continuation-store.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-desktop-repair-history-publication.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-desktop-repair-history-publication.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-desktop-repair-record-store.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-desktop-repair-record-store.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-desktop-runtime-repair.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-desktop-runtime-repair.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-effect-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-effect-runtime.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-owned-process.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-owned-process.integration.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-process-controller.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-process-controller.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-recovery-journal.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-recovery-journal.integration.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-recovery-lock-controller.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-recovery-lock-controller.integration.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-recovery-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-recovery-runtime.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-restart-execution.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-restart-execution.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-restart-machine.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-restart-machine.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-restart-preparation-order.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-restart-preparation-order.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-restart-real-observation.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-restart-real-observation.integration.test.ts)
+- [`40_Develop/coordinator/tests/integration/docker-restart-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/docker-restart-runtime.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/external-send-consent-docker-recovery.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/external-send-consent-docker-recovery.integration.test.ts)
+- [`40_Develop/coordinator/tests/integration/external-send-consent-revocation.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/external-send-consent-revocation.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/external-send-consent-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/external-send-consent-runtime.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/external-send-policy-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/external-send-policy-runtime.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/generate-release-key.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/generate-release-key.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/git-object-reader.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/git-object-reader.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/git-object-reader.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/git-object-reader.integration.test.ts)
+- [`40_Develop/coordinator/tests/integration/native-runtime-trace.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/native-runtime-trace.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/platform-access-coverage.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/platform-access-coverage.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/platform-access-release.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/platform-access-release.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/platform-provisioner-manifest-loader.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/platform-provisioner-manifest-loader.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/platform-provisioner-package-filesystem.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/platform-provisioner-package-filesystem.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/platform-provisioner-release-identity.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/platform-provisioner-release-identity.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/project-runtime-candidate-integration-adapter.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/project-runtime-candidate-integration-adapter.integration.test.ts)
+- [`40_Develop/coordinator/tests/integration/project-runtime-composition-root.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/project-runtime-composition-root.integration.test.ts)
+- [`40_Develop/coordinator/tests/integration/project-runtime-decision-recovery-store.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/project-runtime-decision-recovery-store.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/project-runtime-design-traceability.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/project-runtime-design-traceability.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/project-runtime-durable-foundation.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/project-runtime-durable-foundation.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/project-runtime-execution.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/project-runtime-execution.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/project-runtime-full-flow.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/project-runtime-full-flow.integration.test.ts)
+- [`40_Develop/coordinator/tests/integration/project-runtime-integration-record-adapter.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/project-runtime-integration-record-adapter.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/project-runtime-integration.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/project-runtime-integration.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/project-runtime-objective-intake.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/project-runtime-objective-intake.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/project-runtime-platform-independence.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/project-runtime-platform-independence.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/project-runtime-queue-priority.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/project-runtime-queue-priority.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/project-runtime-replanning-and-decision.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/project-runtime-replanning-and-decision.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/project-runtime-single-task-adapter.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/project-runtime-single-task-adapter.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/project-runtime-windows-decision-store.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/project-runtime-windows-decision-store.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/provider-authority-coverage.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/provider-authority-coverage.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/provider-execution-boundary-matrix.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/provider-execution-boundary-matrix.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/release-candidate-preparation.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/release-candidate-preparation.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/release-manifest-promotion.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/release-manifest-promotion.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/repository-git-layout.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/repository-git-layout.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/repository-operation-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/repository-operation-runtime.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/repository-root-resolution.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/repository-root-resolution.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/repository-workspace-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/repository-workspace-runtime.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/runtime-process-safety-state.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/runtime-process-safety-state.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/runtime-traceability.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/runtime-traceability.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/sign-release-manifest.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/sign-release-manifest.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/signed-reviewer-real-boundary.integration.test.ts`](../../../40_Develop/coordinator/tests/integration/signed-reviewer-real-boundary.integration.test.ts)
+- [`40_Develop/coordinator/tests/integration/task-cli-cancellation.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/task-cli-cancellation.contract.test.ts)
+- [`40_Develop/coordinator/tests/integration/test-execution-profile.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/test-execution-profile.contract.test.ts)
+- [`40_Develop/coordinator/tests/system/coordinator-docker-recovery-cli.integration.test.ts`](../../../40_Develop/coordinator/tests/system/coordinator-docker-recovery-cli.integration.test.ts)
+- [`40_Develop/coordinator/tests/system/coordinator-launch.contract.test.ts`](../../../40_Develop/coordinator/tests/system/coordinator-launch.contract.test.ts)
+- [`40_Develop/coordinator/tests/system/dynamic-fake-provider-cancellation-verification.contract.test.ts`](../../../40_Develop/coordinator/tests/system/dynamic-fake-provider-cancellation-verification.contract.test.ts)
+- [`40_Develop/coordinator/tests/system/dynamic-fake-provider-failure-verification.contract.test.ts`](../../../40_Develop/coordinator/tests/system/dynamic-fake-provider-failure-verification.contract.test.ts)
+- [`40_Develop/coordinator/tests/system/interaction-boundary-regression.contract.test.ts`](../../../40_Develop/coordinator/tests/system/interaction-boundary-regression.contract.test.ts)
+- [`40_Develop/coordinator/tests/system/project-runtime-real-provider-verification-script.contract.test.ts`](../../../40_Develop/coordinator/tests/system/project-runtime-real-provider-verification-script.contract.test.ts)
+- [`40_Develop/coordinator/tests/system/release-manifest-promotion.contract.test.ts`](../../../40_Develop/coordinator/tests/system/release-manifest-promotion.contract.test.ts)
+- [`40_Develop/coordinator/tests/system/signed-general-task-verification.contract.test.ts`](../../../40_Develop/coordinator/tests/system/signed-general-task-verification.contract.test.ts)
+- [`40_Develop/coordinator/tests/system/signed-recovery-matrix-verification.contract.test.ts`](../../../40_Develop/coordinator/tests/system/signed-recovery-matrix-verification.contract.test.ts)
+- [`40_Develop/coordinator/tests/system/signed-reviewer-boundary-verification.contract.test.ts`](../../../40_Develop/coordinator/tests/system/signed-reviewer-boundary-verification.contract.test.ts)
+- [`40_Develop/coordinator/tests/system/signed-route-matrix-verification.contract.test.ts`](../../../40_Develop/coordinator/tests/system/signed-route-matrix-verification.contract.test.ts)
+- [`40_Develop/coordinator/tests/system/terminal-interaction-probe.contract.test.ts`](../../../40_Develop/coordinator/tests/system/terminal-interaction-probe.contract.test.ts)
+- [`40_Develop/coordinator/tests/system/verification-result-record.contract.test.ts`](../../../40_Develop/coordinator/tests/system/verification-result-record.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/authority-file-bundle.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/authority-file-bundle.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/authority-grant-verifier.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/authority-grant-verifier.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/authority-prelaunch-verifier.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/authority-prelaunch-verifier.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/authority-root-path-lexical.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/authority-root-path-lexical.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/authority-trust-loader.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/authority-trust-loader.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/candidate-store-windows-adapter.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/candidate-store-windows-adapter.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/claude-docker-runtime-adapter.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/claude-docker-runtime-adapter.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/claude-structured-result.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/claude-structured-result.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/codex-docker-runtime-adapter.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/codex-docker-runtime-adapter.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/codex-structured-result.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/codex-structured-result.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/command-report.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/command-report.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/coordinator-operation-creation-internal.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/coordinator-operation-creation-internal.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/delegation-route-selection.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/delegation-route-selection.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/delegation-selection-grant-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/delegation-selection-grant-runtime.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/development-measurement-constraints.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/development-measurement-constraints.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/development-measurement-session.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/development-measurement-session.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/development-provider-measurement.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/development-provider-measurement.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/docker-cleanup-eligibility.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/docker-cleanup-eligibility.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/docker-host-transition-state.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/docker-host-transition-state.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/docker-recovery-public-projection.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/docker-recovery-public-projection.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/docker-recovery-state-machine.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/docker-recovery-state-machine.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/docker-restart-continuation-record.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/docker-restart-continuation-record.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/docker-restart-handoff-record.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/docker-restart-handoff-record.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/docker-restart-record.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/docker-restart-record.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/docker-restart-state.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/docker-restart-state.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/docker-runtime-state-binding.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/docker-runtime-state-binding.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/docker-wsl-state.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/docker-wsl-state.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/doctor.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/doctor.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/dynamic-fake-provider-coverage.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/dynamic-fake-provider-coverage.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/egress-proxy-policy.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/egress-proxy-policy.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/external-send-grant-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/external-send-grant-runtime.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/host-generation-loss-transition.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/host-generation-loss-transition.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/local-personal-authority-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/local-personal-authority-runtime.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/node-runtime-version.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/node-runtime-version.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/platform-access-adapter.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/platform-access-adapter.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/platform-key-storage-policy.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/platform-key-storage-policy.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/platform-provisioner-package-gate.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/platform-provisioner-package-gate.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/platform-provisioner-policy-identity.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/platform-provisioner-policy-identity.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/platform-provisioner-release-trust.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/platform-provisioner-release-trust.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/platform-provisioner-trust-core.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/platform-provisioner-trust-core.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/project-runtime-decision-capability-adapter.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/project-runtime-decision-capability-adapter.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/project-runtime-execution-authorization-adapter.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/project-runtime-execution-authorization-adapter.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/project-runtime-execution-host-adapter.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/project-runtime-execution-host-adapter.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/project-runtime-windows-platform-adapter.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/project-runtime-windows-platform-adapter.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/provider-authority-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-authority-runtime.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/provider-billing-policy.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-billing-policy.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/provider-eligibility-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-eligibility-runtime.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/provider-home-coverage.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-home-coverage.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/provider-home-mount-grant-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-home-mount-grant-runtime.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/provider-home-mount-grant.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-home-mount-grant.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/provider-home-observation.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-home-observation.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/provider-home.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-home.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/provider-isolation-profile.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-isolation-profile.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/provider-lifecycle.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-lifecycle.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/provider-model-profile-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-model-profile-runtime.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/provider-model-selection-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-model-selection-runtime.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/provider-task-packet-runtime.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-task-packet-runtime.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/provider-task-structured-result.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provider-task-structured-result.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/provisioning-signature-primitives.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/provisioning-signature-primitives.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/release-identity-grammar.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/release-identity-grammar.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/root-observation.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/root-observation.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/root-protection-policy.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/root-protection-policy.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/runtime-trace-case.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/runtime-trace-case.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/secret-material-policy.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/secret-material-policy.contract.test.ts)
+- [`40_Develop/coordinator/tests/unit/signed-runner-safety-observation.contract.test.ts`](../../../40_Develop/coordinator/tests/unit/signed-runner-safety-observation.contract.test.ts)
+- [`40_Develop/crdd-domain-library/src/repository-observation/index.ts`](../../../40_Develop/crdd-domain-library/src/repository-observation/index.ts)
+- [`40_Develop/crdd-domain-library/symbol.json`](../../../40_Develop/crdd-domain-library/symbol.json)
+- [`40_Develop/crdd-domain-library/tests/integration/reality-repository.integration.test.ts`](../../../40_Develop/crdd-domain-library/tests/integration/reality-repository.integration.test.ts)
+- [`40_Develop/crdd-domain-library/tests/unit/public-boundary.contract.test.ts`](../../../40_Develop/crdd-domain-library/tests/unit/public-boundary.contract.test.ts)
+- [`40_Develop/crdd-domain-library/tests/unit/repository-observation.contract.test.ts`](../../../40_Develop/crdd-domain-library/tests/unit/repository-observation.contract.test.ts)
+- [`40_Develop/execution-intelligence/symbol.json`](../../../40_Develop/execution-intelligence/symbol.json)
+- [`40_Develop/execution-intelligence/tests/integration/execution-intelligence-store.contract.test.ts`](../../../40_Develop/execution-intelligence/tests/integration/execution-intelligence-store.contract.test.ts)
+- [`40_Develop/execution-intelligence/tests/unit/execution-intelligence.contract.test.ts`](../../../40_Develop/execution-intelligence/tests/unit/execution-intelligence.contract.test.ts)
+- [`40_Develop/mcp/symbol.json`](../../../40_Develop/mcp/symbol.json)
+- [`40_Develop/mcp/tests/integration/transport-lifecycle.contract.test.ts`](../../../40_Develop/mcp/tests/integration/transport-lifecycle.contract.test.ts)
+- [`40_Develop/mcp/tests/system/stdio-transport.integration.test.ts`](../../../40_Develop/mcp/tests/system/stdio-transport.integration.test.ts)
+- [`40_Develop/mcp/tests/system/streamable-http-transport.integration.test.ts`](../../../40_Develop/mcp/tests/system/streamable-http-transport.integration.test.ts)
+- [`40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts`](../../../40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts)
+- [`40_Develop/platform-access/src/docker_authenticode.rs`](../../../40_Develop/platform-access/src/docker_authenticode.rs)
+- [`40_Develop/platform-access/src/docker_repair.rs`](../../../40_Develop/platform-access/src/docker_repair.rs)
+- [`40_Develop/platform-access/src/main.rs`](../../../40_Develop/platform-access/src/main.rs)
+- [`40_Develop/platform-access/src/protocol.rs`](../../../40_Develop/platform-access/src/protocol.rs)
+- [`40_Develop/platform-access/src/windows.rs`](../../../40_Develop/platform-access/src/windows.rs)
+- [`40_Develop/platform-access/src/windows_directory.rs`](../../../40_Develop/platform-access/src/windows_directory.rs)
+- [`40_Develop/platform-access/src/windows_owned_child.rs`](../../../40_Develop/platform-access/src/windows_owned_child.rs)
+- [`40_Develop/platform-access/symbol.json`](../../../40_Develop/platform-access/symbol.json)
+- [`40_Develop/platform-access/tests/cli.rs`](../../../40_Develop/platform-access/tests/cli.rs)
+- [`40_Develop/project-runtime/symbol.json`](../../../40_Develop/project-runtime/symbol.json)
+- [`40_Develop/project-runtime/tests/unit/execution-observation-port.contract.test.ts`](../../../40_Develop/project-runtime/tests/unit/execution-observation-port.contract.test.ts)
+- [`40_Develop/project-runtime/tests/unit/human-decision-application.contract.test.ts`](../../../40_Develop/project-runtime/tests/unit/human-decision-application.contract.test.ts)
+- [`40_Develop/project-runtime/tests/unit/integration-application.contract.test.ts`](../../../40_Develop/project-runtime/tests/unit/integration-application.contract.test.ts)
+- [`40_Develop/project-runtime/tests/unit/objective-intake.contract.test.ts`](../../../40_Develop/project-runtime/tests/unit/objective-intake.contract.test.ts)
+- [`40_Develop/project-runtime/tests/unit/platform-contract.contract.test.ts`](../../../40_Develop/project-runtime/tests/unit/platform-contract.contract.test.ts)
+- [`40_Develop/project-runtime/tests/unit/project-runtime-state.contract.test.ts`](../../../40_Develop/project-runtime/tests/unit/project-runtime-state.contract.test.ts)
+- [`40_Develop/project-runtime/tests/unit/project-state-query.contract.test.ts`](../../../40_Develop/project-runtime/tests/unit/project-state-query.contract.test.ts)
+- [`40_Develop/project-runtime/tests/unit/public-contract.contract.test.ts`](../../../40_Develop/project-runtime/tests/unit/public-contract.contract.test.ts)
+- [`40_Develop/runtime-data/symbol.json`](../../../40_Develop/runtime-data/symbol.json)
+- [`40_Develop/runtime-data/tests/integration/repository-runtime-data-paths.integration.test.ts`](../../../40_Develop/runtime-data/tests/integration/repository-runtime-data-paths.integration.test.ts)
+- [`40_Develop/runtime-data/tests/integration/runtime-data-consumer-closure.integration.test.ts`](../../../40_Develop/runtime-data/tests/integration/runtime-data-consumer-closure.integration.test.ts)
+- [`40_Develop/runtime-data/tests/integration/temporary-operation-lifecycle.integration.test.ts`](../../../40_Develop/runtime-data/tests/integration/temporary-operation-lifecycle.integration.test.ts)
+- [`40_Develop/runtime-data/tests/unit/runtime-data-contract.contract.test.ts`](../../../40_Develop/runtime-data/tests/unit/runtime-data-contract.contract.test.ts)
+- [`40_Develop/runtime-data/tests/unit/runtime-data-path-resolver.contract.test.ts`](../../../40_Develop/runtime-data/tests/unit/runtime-data-path-resolver.contract.test.ts)
+- [`40_Develop/semantic-coverage/symbol.json`](../../../40_Develop/semantic-coverage/symbol.json)
+- [`40_Develop/semantic-coverage/tests/integration/semantic-bundle-publisher.integration.test.ts`](../../../40_Develop/semantic-coverage/tests/integration/semantic-bundle-publisher.integration.test.ts)
+- [`40_Develop/semantic-coverage/tests/unit/public-boundary.contract.test.ts`](../../../40_Develop/semantic-coverage/tests/unit/public-boundary.contract.test.ts)
+- [`40_Develop/semantic-coverage/tests/unit/semantic-coverage-pilot.contract.test.ts`](../../../40_Develop/semantic-coverage/tests/unit/semantic-coverage-pilot.contract.test.ts)
+- [`40_Develop/verification-runner/symbol.json`](../../../40_Develop/verification-runner/symbol.json)
+- [`40_Develop/verification-runner/src/application/regression-runner.ts`](../../../40_Develop/verification-runner/src/application/regression-runner.ts)
+- [`40_Develop/verification-runner/src/execution/regression-execution.ts`](../../../40_Develop/verification-runner/src/execution/regression-execution.ts)
+- [`40_Develop/verification-runner/tests/acceptance/regression-plan-understanding.contract.test.ts`](../../../40_Develop/verification-runner/tests/acceptance/regression-plan-understanding.contract.test.ts)
+- [`40_Develop/verification-runner/tests/integration/regression-runner.contract.test.ts`](../../../40_Develop/verification-runner/tests/integration/regression-runner.contract.test.ts)
+- [`40_Develop/verification-runner/tests/system/resource-intensive-gate.contract.test.ts`](../../../40_Develop/verification-runner/tests/system/resource-intensive-gate.contract.test.ts)
+- [`40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts`](../../../40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts)
+- [`40_Develop/version-control/symbol.json`](../../../40_Develop/version-control/symbol.json)
+- [`40_Develop/version-control/tests/integration/consumer-closure.integration.test.ts`](../../../40_Develop/version-control/tests/integration/consumer-closure.integration.test.ts)
+- [`40_Develop/version-control/tests/integration/fixed-revision-and-ignore.integration.test.ts`](../../../40_Develop/version-control/tests/integration/fixed-revision-and-ignore.integration.test.ts)
+- [`40_Develop/version-control/tests/integration/fixed-snapshot.integration.test.ts`](../../../40_Develop/version-control/tests/integration/fixed-snapshot.integration.test.ts)
+- [`40_Develop/version-control/tests/integration/local-change-set.integration.test.ts`](../../../40_Develop/version-control/tests/integration/local-change-set.integration.test.ts)
+- [`40_Develop/version-control/tests/integration/repository-location.integration.test.ts`](../../../40_Develop/version-control/tests/integration/repository-location.integration.test.ts)
+- [`99_Roadmap/Changes/CHG-000080/change.md`](change.md)
+- [`template/CLAUDE.md`](../../../template/CLAUDE.md)
+- [`02_UX/01_User_Experience.md`](../../../02_UX/01_User_Experience.md)
+- [`04_UI/04_Visual_and_Accessibility_Direction.md`](../../../04_UI/04_Visual_and_Accessibility_Direction.md)
+- [`04_UI/06_Current_Interface_Reference.md`](../../../04_UI/06_Current_Interface_Reference.md)
+- [`05_SPEC/07_Current_Behavior_Reference.md`](../../../05_SPEC/07_Current_Behavior_Reference.md)
+- [`06_Architecture/99_Coding_Standards.md`](../../../06_Architecture/99_Coding_Standards.md)
+- [`06_Architecture/Definitions/ARCH-000005/architecture_definition.md`](../../../06_Architecture/Definitions/ARCH-000005/architecture_definition.md)
+- [`06_Architecture/Definitions/ARCH-000006/architecture_definition.md`](../../../06_Architecture/Definitions/ARCH-000006/architecture_definition.md)
+- [`06_Architecture/Definitions/ARCH-000013/architecture_definition.md`](../../../06_Architecture/Definitions/ARCH-000013/architecture_definition.md)
+- [`06_Architecture/Details/crdd-domain-library/01_Architecture.md`](../../../06_Architecture/Details/crdd-domain-library/01_Architecture.md)
+- [`06_Architecture/Details/cros/01_Architecture.md`](../../../06_Architecture/Details/cros/01_Architecture.md)
+- [`06_Architecture/Details/official-asset-governance/01_Architecture.md`](../../../06_Architecture/Details/official-asset-governance/01_Architecture.md)
+- [`06_Architecture/Details/project-operation/01_Architecture.md`](../../../06_Architecture/Details/project-operation/01_Architecture.md)
+- [`06_Architecture/Details/runtime-data/01_Architecture.md`](../../../06_Architecture/Details/runtime-data/01_Architecture.md)
+- [`07_Quality/01_Quality_Center.md`](../../../07_Quality/01_Quality_Center.md)
+- [`07_Quality/04_Quality_Integration.md`](../../../07_Quality/04_Quality_Integration.md)
+- [`07_Quality/05_Current_Implementation_Reality_Audit.md`](../../../07_Quality/05_Current_Implementation_Reality_Audit.md)
+- [`07_Quality/Analysis/ARCH/quality_analysis.md`](../../../07_Quality/Analysis/ARCH/quality_analysis.md)
+- [`07_Quality/Definitions/QA-000001/quality_definition.md`](../../../07_Quality/Definitions/QA-000001/quality_definition.md)
+- [`07_Quality/Definitions/QA-000006/quality_definition.md`](../../../07_Quality/Definitions/QA-000006/quality_definition.md)
+- [`07_Quality/Registry/test-catalog.json`](../../../07_Quality/Registry/test-catalog.json)
+- [`40_Develop/checker/src/profiles/current-profile.ts`](../../../40_Develop/checker/src/profiles/current-profile.ts)
+- [`40_Develop/checker/src/rules/reality-symbol-graph.ts`](../../../40_Develop/checker/src/rules/reality-symbol-graph.ts)
+- [`40_Develop/coordinator/scripts/verify-signed-route-matrix.ts`](../../../40_Develop/coordinator/scripts/verify-signed-route-matrix.ts)
+- [`40_Develop/coordinator/scripts/verify-signed-general-task.ts`](../../../40_Develop/coordinator/scripts/verify-signed-general-task.ts)
+- [`40_Develop/coordinator/src/composition/project-runtime-composition-root.ts`](../../../40_Develop/coordinator/src/composition/project-runtime-composition-root.ts)
+- [`40_Develop/coordinator/src/core/verification-result-reasons.ts`](../../../40_Develop/coordinator/src/core/verification-result-reasons.ts)
+- [`40_Develop/coordinator/src/core/verification-result-record.ts`](../../../40_Develop/coordinator/src/core/verification-result-record.ts)
+- [`40_Develop/coordinator/src/security/coordinator-task-result-reasons.ts`](../../../40_Develop/coordinator/src/security/coordinator-task-result-reasons.ts)
+- [`40_Develop/coordinator/src/security/docker-process-controller.ts`](../../../40_Develop/coordinator/src/security/docker-process-controller.ts)
+- [`40_Develop/coordinator/src/security/docker-process-controller-result-reasons.ts`](../../../40_Develop/coordinator/src/security/docker-process-controller-result-reasons.ts)
+- [`40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts`](../../../40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts)
+- [`40_Develop/coordinator/tests/fixtures/docker-handoff-worker.ts`](../../../40_Develop/coordinator/tests/fixtures/docker-handoff-worker.ts)
+- [`40_Develop/coordinator/tests/fixtures/project-runtime-public-process-probe.ts`](../../../40_Develop/coordinator/tests/fixtures/project-runtime-public-process-probe.ts)
+- [`40_Develop/coordinator/tests/system/docker-session-handoff.contract.test.ts`](../../../40_Develop/coordinator/tests/system/docker-session-handoff.contract.test.ts)
+- [`40_Develop/crdd-domain-library/package.json`](../../../40_Develop/crdd-domain-library/package.json)
+- [`40_Develop/crdd-domain-library/src/filesystem-store-root/index.ts`](../../../40_Develop/crdd-domain-library/src/filesystem-store-root/index.ts)
+- [`40_Develop/crdd-domain-library/src/filesystem-store-root/filesystem-store-kernel-lock-worker.ts`](../../../40_Develop/crdd-domain-library/src/filesystem-store-root/filesystem-store-kernel-lock-worker.ts)
+- [`40_Develop/crdd-domain-library/src/index.ts`](../../../40_Develop/crdd-domain-library/src/index.ts)
+- [`40_Develop/crdd-domain-library/tests/fixtures/filesystem-store-lock-owner.ts`](../../../40_Develop/crdd-domain-library/tests/fixtures/filesystem-store-lock-owner.ts)
+- [`40_Develop/crdd-domain-library/tests/unit/filesystem-store-root.contract.test.ts`](../../../40_Develop/crdd-domain-library/tests/unit/filesystem-store-root.contract.test.ts)
+- [`40_Develop/crdd-domain-library/tests/fixtures/filesystem-store-lock-contender.ts`](../../../40_Develop/crdd-domain-library/tests/fixtures/filesystem-store-lock-contender.ts)
+- `40_Develop/cros/src/durable-store.ts`（削除）
+- [`40_Develop/cros/src/index.ts`](../../../40_Develop/cros/src/index.ts)
+- [`40_Develop/cros/src/tool-registry.ts`](../../../40_Develop/cros/src/tool-registry.ts)
+- [`40_Develop/cros/symbol.json`](../../../40_Develop/cros/symbol.json)
+- `40_Develop/cros/tests/fixtures/durable-boundary-worker.ts`（削除）
+- [`40_Develop/cros/tests/integration/cros-core.contract.test.ts`](../../../40_Develop/cros/tests/integration/cros-core.contract.test.ts)
+- [`40_Develop/cros/tests/integration/surface-contract.contract.test.ts`](../../../40_Develop/cros/tests/integration/surface-contract.contract.test.ts)
+- [`40_Develop/cros/tests/system/context-handoff.contract.test.ts`](../../../40_Develop/cros/tests/system/context-handoff.contract.test.ts)
+- [`40_Develop/cros/tests/system/result-return.contract.test.ts`](../../../40_Develop/cros/tests/system/result-return.contract.test.ts)
+- [`40_Develop/cros/tests/system/session-access.contract.test.ts`](../../../40_Develop/cros/tests/system/session-access.contract.test.ts)
+- [`40_Develop/mcp/src/adapters/project-runtime-adapter.ts`](../../../40_Develop/mcp/src/adapters/project-runtime-adapter.ts)
+- [`40_Develop/official-asset-governance/src/official-asset-governance.ts`](../../../40_Develop/official-asset-governance/src/official-asset-governance.ts)
+- [`40_Develop/official-asset-governance/src/official-asset-store.ts`](../../../40_Develop/official-asset-governance/src/official-asset-store.ts)
+- [`40_Develop/official-asset-governance/symbol.json`](../../../40_Develop/official-asset-governance/symbol.json)
+- [`40_Develop/official-asset-governance/tests/fixtures/asset-decision-worker.ts`](../../../40_Develop/official-asset-governance/tests/fixtures/asset-decision-worker.ts)
+- [`40_Develop/official-asset-governance/tests/integration/asset-governance.contract.test.ts`](../../../40_Develop/official-asset-governance/tests/integration/asset-governance.contract.test.ts)
+- `40_Develop/project-operation/src/candidate-store.ts`（削除）
+- [`40_Develop/project-operation/src/index.ts`](../../../40_Develop/project-operation/src/index.ts)
+- [`40_Develop/project-operation/symbol.json`](../../../40_Develop/project-operation/symbol.json)
+- [`40_Develop/project-operation/tests/integration/candidate-adoption.contract.test.ts`](../../../40_Develop/project-operation/tests/integration/candidate-adoption.contract.test.ts)
+- [`40_Develop/version-control/tests/fixtures/migration-consumer-declaration.json`](../../../40_Develop/version-control/tests/fixtures/migration-consumer-declaration.json)
+- [`40_Develop/version-control/tests/system/migration-system-closure.contract.test.ts`](../../../40_Develop/version-control/tests/system/migration-system-closure.contract.test.ts)
+- [`99_Roadmap/01_Roadmap.md`](../../01_Roadmap.md)
+- [`99_Roadmap/02_Changes.md`](../../02_Changes.md)
+- [`99_Roadmap/Changes/CHG-000066/change.md`](../CHG-000066/change.md)
+- [`99_Roadmap/Changes/CHG-000067/change.md`](../CHG-000067/change.md)
+- [`template/07_Quality/05_Current_Implementation_Reality_Audit.md`](../../../template/07_Quality/05_Current_Implementation_Reality_Audit.md)
+- `template/tools/coordinator/coordinator-package-manifest.json`（削除）
+
+</details>
+## 7. 検証計画
+
+| 確認 | 目的 |
+|---|---|
+| Template契約試験 | 必須Property、可視Checklist、理由付きN/Aおよび工程Handoffを固定する |
+| 導出Pilot | 上流Canonical MeaningからRequired Obligationを再現できることを確認する |
+| 負例 | Model Item欠落、導出元なしLocal Item、Level不整合、RequiredなのにN/A、理由なしN/Aを拒否する |
+| Reality移行 | 既存Local ItemとTest Relationを新しい母集合へ接続し、成立済みCoverageを失わない |
+| 独立レビュー | Architecture、Quality、工程間Contextおよび利用側の意味を別実行者が反証する |
+
+## 8. Source／Test Traceabilityへの展開
+
+設計と実装、品質設計とTest実装を対称に追跡する。ただしRelation Ownerを重複させない。
+
+```text
+ARCH-ID ──→ Production Named Symbol
+
+ARCH-ID ──→ Quality Local Item ──→ Test Case／Helper／Fixture
+```
+
+| 対象 | 正方向Relation | 現在状態 |
+|---|---|---|
+| Production Named Symbol | Summary、`@responsibility`、実在`ARCH-*`への`@trace` | Checkerの構造Gateと負例を実装し、現行Production母集団の構造・実在Trace検査をPassした。意味妥当性も独立再レビューで確認し、Blocking Finding 0でPassした |
+| Test File／Case／Helper／Fixture | 実在Quality Local Itemへの`@trace` | Test Catalog 225件を全15 Manifest Ownerへ接続した。FileはCase／Helper Relationの和集合、Caseは対応する1件、Helperは支援する1件以上を保持し、Local Item実在、Owner、試験段階および`verifies`をCheckerで照合する |
+| Architecture Details | 7つのImplementation Structure観点 | 18領域とTemplateへ反映済み |
+| Quality Local Item | Architecture Meaning、試験段階、観測境界 | 156件へ細分化し、Required／Defined、試験段階および外部境界段階の差分0を確認済み |
+
+Production母集団へGateを適用した初回観測では、`artifact-signing`を除く既存PackageにHeaderまたはTrace不足が残った。各PackageのArchitecture所有責務へ接続して是正し、現在の構造GateはPassした。接続不能なSymbolをDocumentation例外へ退避しない原則を維持し、独立再レビューでも意味妥当性を確認した。
+
+## Checklist
+
+- [x] 現在の157 Canonical IDと18詳細設計領域を母集団として固定した。
+- [x] 既存Quality CapabilityとReality Audit Relationを移行対象として保持した。
+- [x] QA-IDとLocal ItemのOwnerを変更していない。
+- [x] UAT専用情報をREQ／UX／IAへ重複保持しない方針を固定した。
+- [x] Design Pattern自体を必須化しない方針を固定した。
+- [x] Canonical Model ItemとImplementation StructureのTemplate差分を確定し、18領域へ適用した。
+- [x] UAT／IT導出Pilotを完了し、上流意味とArchitectureから決定論的に導出できることを確認した。
+- [x] Required ObligationとLocal Itemの集合差Gateを実装し、試験段階と外部境界段階の不足を検出可能にした。
+- [x] Test Catalog 225件と検出したTest Case全件を責務別Quality Local Itemへ接続し、File Relation和集合、Local Item実在および試験段階一致を機械確認した。
+- [x] 現在ツリーでCoordinator／Checker全回帰を再実行した。Coordinatorは2,041件中2,033 Pass・失敗0・明示Skip 8、Checkerは363／363 Passであり、Host Windows専用試験も10／10 Passした。Source Aで非該当のManifest昇格System試験3件は、Manifest-only Commit Bで実行する。
+- [x] Production Header、Relation、Reality Auditおよび実装境界の独立再レビューを完了し、Blocking Finding 0を確認した。
+- [x] 実行Profile閉集合の独立レビュー指摘を是正し、`unit`／`integration`／`system`全体のHost試験Source集合を許可3ファイルへexact固定した。再レビューはBlocking／Non-blocking Finding 0でPassした。
+- [x] 最終Source A／Manifest carrier Bを固定し、同じ署名IdentityでRecovery Matrixと4経路E2Eを完了した。人間のRelease判断はCHGの技術完了と分離した。
+
+## 9. 最終署名検証
+
+[Engineering Completeness最終署名E2E](Evidence/260924-1930_signed-e2e.md)に、Source A、Manifest carrier B、署名Identity、Recovery Matrix、4経路E2E、終了後状態およびQuality Local Itemとの対応を記録した。実行時の詳細はRepository-local `.crdd`が所有し、本変更には非秘密のIdentityと集約結果だけを残す。

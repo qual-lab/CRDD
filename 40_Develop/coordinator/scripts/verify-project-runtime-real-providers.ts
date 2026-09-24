@@ -1,22 +1,31 @@
+/**
+ * verify-project-runtime-real-providersに属する責務をまとめる。
+ *
+ * @responsibility stableDirectoryを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-
+import { resolveRepositoryRuntimeDataPaths } from "../../runtime-data/src/index.ts";
+import {
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
+  verifyRepositoryRoot,
+} from "../../version-control/src/repository-location.ts";
+import { inspectRuntimeOwnedDockerTaskRecoveryState } from "../src/security/docker-recovery-runtime.ts";
 import {
   inspectBundledCoordinatorPackageFilesystemCandidate,
   inspectVerifiedNativeDistributionCandidate,
 } from "../src/security/platform-provisioner-package-filesystem.ts";
-import { inspectRuntimeOwnedDockerTaskRecoveryState } from "../src/security/docker-recovery-runtime.ts";
 import { inspectRepositoryIdentityCandidate } from "../src/security/repository-operation-runtime.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
 import {
   buildProjectRuntimeRealProviderReport,
   captureCanonicalRepositorySnapshot,
-  observePublicMcpProcess,
   type JsonRecord,
+  observePublicMcpProcess,
 } from "./project-runtime-real-provider-contract.ts";
 
 const MARKER =
@@ -28,12 +37,44 @@ const FINAL = "CRDD_PROJECT_RUNTIME_REAL_PROVIDER_OK\n";
 const MAXIMUM_OUTPUT_BYTES = 4 * 1024 * 1024;
 const PROCESS_TIMEOUT_MS = 45 * 60_000;
 
+/**
+ * Directoryを安定Identityへ変換する。
+ *
+ * @responsibility Directoryの正規化条件、一意性、変換不能時の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input value: string
+ * @returns N/A: stableDirectoryは戻り値を返さない。
+ * @precondition 「value: string」がstableDirectoryの入力契約を満たす。
+ * @postcondition stableDirectoryの責務を完了して呼出し元へ制御を戻す。
+ * @effect stableDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: stableDirectoryは独自の失敗分岐を所有しない。
+ * @invariant stableDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: stableDirectoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: stableDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function stableDirectory(value: string) {
   const metadata = fs.lstatSync(value);
   assert.equal(metadata.isDirectory() && !metadata.isSymbolicLink(), true);
   assert.equal(fs.realpathSync.native(value), value);
 }
 
+/**
+ * mcp Envelopeを決定する。
+ *
+ * @responsibility mcp Envelopeの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input id: string、request: unknown
+ * @returns mcpEnvelopeの計算結果を返す。
+ * @precondition 「id: string、request: unknown」がmcpEnvelopeの入力契約を満たす。
+ * @postcondition mcpEnvelopeの責務を完了した結果だけを返す。
+ * @effect N/A: mcpEnvelopeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: mcpEnvelopeは独自の失敗分岐を所有しない。
+ * @invariant mcpEnvelopeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: mcpEnvelopeはProcess内の同一Subsystemで完結する。
+ * @security N/A: mcpEnvelopeはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: mcpEnvelopeは共有非同期状態を持たない同期処理である。
+ */
 function mcpEnvelope(id: string, request: unknown) {
   return `${JSON.stringify({
     jsonrpc: "2.0",
@@ -50,6 +91,22 @@ function mcpEnvelope(id: string, request: unknown) {
   })}\n`;
 }
 
+/**
+ * Public Mcp Processを開始する。
+ *
+ * @responsibility Public Mcp Processの開始条件、Effect発行、開始失敗時の終了境界を所有する。
+ * @trace ARCH-000004
+ * @input distributionRoot: string、repositoryRoot: string
+ * @returns startPublicMcpProcessの計算結果を返す。
+ * @precondition 「distributionRoot: string、repositoryRoot: string」がstartPublicMcpProcessの入力契約を満たす。
+ * @postcondition startPublicMcpProcessの責務を完了した結果だけを返す。
+ * @effect startPublicMcpProcessは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: startPublicMcpProcessは独自の失敗分岐を所有しない。
+ * @invariant startPublicMcpProcessは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: startPublicMcpProcessはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: startPublicMcpProcessは共有非同期状態を持たない同期処理である。
+ */
 function startPublicMcpProcess(
   distributionRoot: string,
   repositoryRoot: string,
@@ -68,6 +125,22 @@ function startPublicMcpProcess(
   );
 }
 
+/**
+ * objectiveを決定する。
+ *
+ * @responsibility objectiveの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input commonFields: JsonRecord、runId: string、provider: "codex" | "claude"、shouldAdoptResult: boolean
+ * @returns objectiveの計算結果を返す。
+ * @precondition 「commonFields: JsonRecord、runId: string、provider: "codex" | "claude"、shouldAdoptResult: boolean」がobjectiveの入力契約を満たす。
+ * @postcondition objectiveの責務を完了した結果だけを返す。
+ * @effect N/A: objectiveは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: objectiveは独自の失敗分岐を所有しない。
+ * @invariant objectiveは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: objectiveはProcess内の同一Subsystemで完結する。
+ * @security N/A: objectiveはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: objectiveは共有非同期状態を持たない同期処理である。
+ */
 function objective(
   commonFields: JsonRecord,
   runId: string,
@@ -84,6 +157,22 @@ function objective(
   });
 }
 
+/**
+ * verify-project-runtime-real-providersのCommand処理を開始する。
+ *
+ * @responsibility verify-project-runtime-real-providersの引数受付、終了Code、診断出力境界を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns mainの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がmainの入力契約を満たす。
+ * @postcondition mainの責務を完了した結果だけを返す。
+ * @effect mainはFilesystemの読取りまたは書込みを実行する。
+ * @failure mainは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant mainは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: mainはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency mainは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function main() {
   if (process.argv.length !== 3)
     throw new Error(
@@ -106,11 +195,14 @@ async function main() {
       BASE,
     );
 
-  const verificationRoot = path.join(
-    repositoryRoot,
-    ".crdd",
-    "verification-results",
-  );
+  const verifiedRuntimeRoot = verifyRepositoryRoot(repositoryRoot);
+  const runtimePaths =
+    verifiedRuntimeRoot.status === "completed"
+      ? resolveRepositoryRuntimeDataPaths(verifiedRuntimeRoot.capability)
+      : null;
+  if (!runtimePaths)
+    throw new Error("project_runtime_verification_path_invalid");
+  const verificationRoot = runtimePaths.verification;
   fs.mkdirSync(verificationRoot, { recursive: true, mode: 0o700 });
   stableDirectory(verificationRoot);
 
@@ -173,7 +265,7 @@ async function main() {
     allowedPaths: Object.freeze([MARKER]),
     readPaths: Object.freeze([
       MARKER,
-      "06_Architecture/coordinator/03_Project_Runtime_Design.md",
+      "06_Architecture/Details/project-runtime/02_Detailed_Design.md",
     ]),
     maximumConcurrency: 1,
     maximumReplans: 0,
@@ -243,7 +335,7 @@ async function main() {
     allowedPaths: Object.freeze([CANCELLATION_MARKER]),
     readPaths: Object.freeze([
       CANCELLATION_MARKER,
-      "06_Architecture/coordinator/03_Project_Runtime_Design.md",
+      "06_Architecture/Details/project-runtime/02_Detailed_Design.md",
     ]),
     adoptResult: false,
   });
@@ -289,7 +381,7 @@ async function main() {
     allowedPaths: Object.freeze([CANCELLATION_MARKER]),
     readPaths: Object.freeze([
       CANCELLATION_MARKER,
-      "06_Architecture/coordinator/03_Project_Runtime_Design.md",
+      "06_Architecture/Details/project-runtime/02_Detailed_Design.md",
     ]),
     adoptResult: false,
   });
@@ -408,11 +500,14 @@ try {
     process.cwd(),
   );
   const repository = inspectRepositoryIdentityCandidate(repositoryRoot);
-  const verificationRoot = path.join(
-    repositoryRoot,
-    ".crdd",
-    "verification-results",
-  );
+  const verifiedRuntimeRoot = verifyRepositoryRoot(repositoryRoot);
+  const runtimePaths =
+    verifiedRuntimeRoot.status === "completed"
+      ? resolveRepositoryRuntimeDataPaths(verifiedRuntimeRoot.capability)
+      : null;
+  if (!runtimePaths)
+    throw new Error("project_runtime_verification_path_invalid");
+  const verificationRoot = runtimePaths.verification;
   fs.mkdirSync(verificationRoot, { recursive: true, mode: 0o700 });
   const report = Object.freeze({
     contract: "crdd-coordinator/project-runtime-real-provider-verification",

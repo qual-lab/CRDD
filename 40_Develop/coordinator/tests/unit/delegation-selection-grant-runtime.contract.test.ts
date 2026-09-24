@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:delegation-selection-grant-runtimeの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:delegation-selection-grant-runtimeが所有する検証責務を実行する。
+ * @trace PRL-UT-006
+ * @level UT
+ * @scope delegation、selection、grant、runtime
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -10,6 +20,18 @@ import {
   supersedeRuntimeOwnedDelegationSelectionGrant,
 } from "../../src/security/delegation-selection-grant-runtime.ts";
 
+/**
+ * createRequestのTest準備責務を実行する。
+ *
+ * @responsibility createRequestがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus createRequestを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 function createRequest(overrides: Record<string, unknown> = {}) {
   return {
     frontProvider: "codex",
@@ -35,6 +57,18 @@ function createRequest(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/**
+ * createFixtureのTest準備責務を実行する。
+ *
+ * @responsibility createFixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus createFixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 function createFixture(
   overrides: Partial<
     Parameters<typeof createIsolatedDelegationSelectionGrantRuntimeCandidate>[0]
@@ -102,6 +136,18 @@ function createFixture(
   });
 }
 
+/**
+ * 4経路候補をOperationとProfileへ結合した一回限りSelection Grantにするを検証する。
+ *
+ * @responsibility 4経路候補をOperationとProfileへ結合した一回限りSelection Grantにするの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 4経路候補をOperationとProfileへ結合した一回限りSelection Grantにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("4経路候補をOperationとProfileへ結合した一回限りSelection Grantにする", () => {
   const fixture = createFixture();
   const issued = fixture.runtime.issue(
@@ -136,6 +182,18 @@ test("4経路候補をOperationとProfileへ結合した一回限りSelection Gr
   );
 });
 
+/**
+ * control aliasは未使用Selection Grantを全aliasごと失効するを検証する。
+ *
+ * @responsibility control aliasは未使用Selection Grantを全aliasごと失効するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus control aliasは未使用Selection Grantを全aliasごと失効するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("control aliasは未使用Selection Grantを全aliasごと失効する", () => {
   const fixture = createFixture();
   const issued = fixture.runtime.issue(
@@ -160,6 +218,18 @@ test("control aliasは未使用Selection Grantを全aliasごと失効する", ()
   );
 });
 
+/**
+ * Front Agent retained結果へSelection Grantを発行しないを検証する。
+ *
+ * @responsibility Front Agent retained結果へSelection Grantを発行しないの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Front Agent retained結果へSelection Grantを発行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Front Agent retained結果へSelection Grantを発行しない", () => {
   const fixture = createFixture();
   const retained = fixture.runtime.issue(
@@ -176,6 +246,18 @@ test("Front Agent retained結果へSelection Grantを発行しない", () => {
   assert.equal(retained.providerEffectAllowed, false);
 });
 
+/**
+ * 再選定はreplacement検証後にだけ旧Grantを失効するを検証する。
+ *
+ * @responsibility 再選定はreplacement検証後にだけ旧Grantを失効するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 再選定はreplacement検証後にだけ旧Grantを失効するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("再選定はreplacement検証後にだけ旧Grantを失効する", () => {
   const fixture = createFixture();
   const issued = fixture.runtime.issue(
@@ -207,6 +289,18 @@ test("再選定はreplacement検証後にだけ旧Grantを失効する", () => {
   );
 });
 
+/**
+ * replacement検証失敗時は旧Grantを保持するを検証する。
+ *
+ * @responsibility replacement検証失敗時は旧Grantを保持するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus replacement検証失敗時は旧Grantを保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("replacement検証失敗時は旧Grantを保持する", () => {
   let profileResolutionAllowed = true;
   const fixture = createFixture({
@@ -244,6 +338,18 @@ test("replacement検証失敗時は旧Grantを保持する", () => {
   );
 });
 
+/**
+ * 別Operation、利用不能ProviderとProfile差をGrant発行前に拒否するを検証する。
+ *
+ * @responsibility 別Operation、利用不能ProviderとProfile差をGrant発行前に拒否するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 別Operation、利用不能ProviderとProfile差をGrant発行前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("別Operation、利用不能ProviderとProfile差をGrant発行前に拒否する", () => {
   const fixture = createFixture();
   assert.equal(
@@ -296,6 +402,18 @@ test("別Operation、利用不能ProviderとProfile差をGrant発行前に拒否
   );
 });
 
+/**
+ * 30秒期限、clock rollbackと乱数衝突をfail closedにするを検証する。
+ *
+ * @responsibility 30秒期限、clock rollbackと乱数衝突をfail closedにするの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 30秒期限、clock rollbackと乱数衝突をfail closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("30秒期限、clock rollbackと乱数衝突をfail closedにする", () => {
   const fixture = createFixture();
   const issued = fixture.runtime.issue(
@@ -337,6 +455,18 @@ test("30秒期限、clock rollbackと乱数衝突をfail closedにする", () =>
   );
 });
 
+/**
+ * production入口はRuntime-owned Eligibilityでも偽造Capabilityを拒否するを検証する。
+ *
+ * @responsibility production入口はRuntime-owned Eligibilityでも偽造Capabilityを拒否するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus production入口はRuntime-owned Eligibilityでも偽造Capabilityを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("production入口はRuntime-owned Eligibilityでも偽造Capabilityを拒否する", () => {
   const issued = issueRuntimeOwnedDelegationSelectionGrant({}, createRequest());
   assert.equal(issued.status, "blocked");
@@ -353,6 +483,18 @@ test("production入口はRuntime-owned Eligibilityでも偽造Capabilityを拒�
   );
 });
 
+/**
+ * 公開契約は短命Grant、Subscription、通常速度と再選定境界を固定するを検証する。
+ *
+ * @responsibility 公開契約は短命Grant、Subscription、通常速度と再選定境界を固定するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開契約は短命Grant、Subscription、通常速度と再選定境界を固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("公開契約は短命Grant、Subscription、通常速度と再選定境界を固定する", () => {
   const contract = describeDelegationSelectionGrantRuntimeContract();
   assert.equal(contract.contractRevision, 4);

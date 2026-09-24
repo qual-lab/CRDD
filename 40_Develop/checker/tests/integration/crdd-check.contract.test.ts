@@ -1,12 +1,29 @@
+/**
+ * checker:integration:crdd-checkの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility checker:integration:crdd-checkが所有する検証責務を実行する。
+ * @trace AUH-IT-002
+ * @trace AUH-IT-003
+ * @trace RCM-IT-005
+ * @trace RCM-IT-008
+ * @level IT
+ * @scope crdd、check
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。 / AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。 / RCM-IT-005=Direct Boundary: Producer→Consumer / RCM-IT-008=Direct Boundary: Repository入口・Package入口→同一Checker Core／Profile
+ */
 import assert from "node:assert/strict";
+import type { SpawnSyncReturns } from "node:child_process";
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
-import type { SpawnSyncReturns } from "node:child_process";
-import { createHash } from "node:crypto";
 import test, { after } from "node:test";
 import { pathToFileURL } from "node:url";
+
+import { mapArtifactDomainIssueToCheckerFinding } from "../../src/adapters/artifact-relation.ts";
+import { runCheckerPipeline } from "../../src/pipeline/checker-pipeline.ts";
+import { RuleRegistry } from "../../src/rules/rule-registry.ts";
 
 const testEntry = process.argv[1];
 if (testEntry === undefined) throw new Error("checker_test_entry_missing");
@@ -17,10 +34,251 @@ const checkerRoot = path.resolve(
 const repositoryRoot = path.resolve(checkerRoot, "../..");
 const checker = path.join(repositoryRoot, "template", "tools", "crdd-check.ts");
 const faultInjector = pathToFileURL(
-  path.join(checkerRoot, "fault-injector.ts"),
+  path.join(checkerRoot, "tests", "support", "fault-injector.ts"),
 ).href;
 
-test("主要工程ひな型は構造を先に選ぶ共通骨格を維持する", () => {
+/**
+ * Checker固有Moduleは40_Develop/checkerだけが所有するを検証する。
+ *
+ * @responsibility Checker固有Moduleは40_Develop/checkerだけが所有するの合否判定を所有する。
+ * @trace AUH-IT-002
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Checker固有Moduleは40_Develop/checkerだけが所有するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Checker固有Moduleは40_Develop/checkerだけが所有する", () => {
+  const expectedModules = [
+    "src/findings/finding-model.ts",
+    "src/pipeline/checker-pipeline.ts",
+    "src/rules/current-profile.ts",
+    "src/rules/quality-design-state.ts",
+    "src/rules/reality-symbol-graph.ts",
+    "src/rules/rule-registry.ts",
+  ] as const;
+  for (const modulePath of expectedModules)
+    assert.equal(
+      fs.statSync(path.join(checkerRoot, modulePath)).isFile(),
+      true,
+      modulePath,
+    );
+  assert.equal(
+    fs.existsSync(
+      path.join(repositoryRoot, "template", "tools", "internal", "checker"),
+    ),
+    false,
+  );
+  const launcher = fs.readFileSync(checker, "utf8");
+  assert.equal(launcher.includes("./internal/checker/"), false);
+  assert.match(launcher, /40_Develop[/\\]checker[/\\]bin[/\\]crdd-check\.ts/u);
+  assert.doesNotMatch(launcher, /40_Develop[/\\]checker[/\\]src/u);
+  const officialCli = fs.readFileSync(
+    path.join(checkerRoot, "bin", "crdd-check.ts"),
+    "utf8",
+  );
+  assert.match(officialCli, /\.\.\/src\/index\.ts/u);
+  assert.doesNotMatch(officialCli, /pipeline|rules|findings/u);
+});
+
+/**
+ * Checker PipelineはMarkdownをArtifact Modelへ変換し固定順のRuleを実行するを検証する。
+ *
+ * @responsibility Checker PipelineはMarkdownをArtifact Modelへ変換し固定順のRuleを実行するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Checker PipelineはMarkdownをArtifact Modelへ変換し固定順のRuleを実行するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Checker PipelineはMarkdownをArtifact Modelへ変換し固定順のRuleを実行する", () => {
+  const registry = new RuleRegistry();
+  const executedRuleIds: string[] = [];
+  registry.register({
+    id: "special.z",
+    stage: "special-rules",
+    run: () => executedRuleIds.push("z"),
+  });
+  registry.register({
+    id: "special.a",
+    stage: "special-rules",
+    run: () => executedRuleIds.push("a"),
+  });
+  registry.register({
+    id: "special.finding",
+    stage: "special-rules",
+    run: ({ add }) =>
+      add({
+        severity: "error",
+        code: "pipeline-finding-propagated",
+        path: "sample.md",
+        rule: "special.finding",
+        message: "Rule finding reaches the pipeline result.",
+      }),
+  });
+  const result = runCheckerPipeline({
+    sources: [
+      {
+        path: "sample.md",
+        content: `# UX-000001 Sample
+
+成果物種別: UX定義
+UX ID: UX-000001
+状態: Canonical
+正式入力: REQ-000001
+
+## Goal
+
+[REQ-000001](../REQ-000001/requirement.md)
+
+\`\`\`text
+状態: Hidden
+\`\`\`
+
+<!-- 状態: Hidden -->
+
+## Checklist
+
+- [x] 意味を保持した
+- OPEN: 人間確認待ち — 実利用を確認した
+`,
+      },
+    ],
+    schemas: [
+      {
+        id: "ux-definition",
+        matches: (artifact) => artifact.artifactType === "UX定義",
+        requiredProperties: ["artifactType", "canonicalId", "status"],
+        requiredSections: ["Goal", "Checklist"],
+        allowedStatuses: ["Canonical"],
+      },
+    ],
+    registry,
+  });
+  assert.deepEqual(
+    result.findings.map(({ code }) => code),
+    ["pipeline-finding-propagated"],
+  );
+  assert.deepEqual(executedRuleIds, ["a", "z"]);
+  assert.equal(result.artifacts[0]?.canonicalId, "UX-000001");
+  assert.deepEqual(result.artifacts[0]?.formalInputs, ["REQ-000001"]);
+  assert.equal(result.artifacts[0]?.status, "Canonical");
+  assert.deepEqual(
+    result.artifacts[0]?.checklist.map(
+      ({ result: checklistResult }) => checklistResult,
+    ),
+    ["passed", "open"],
+  );
+  assert.equal(
+    result.graph.artifactsById.get("UX-000001"),
+    result.artifacts[0],
+  );
+});
+
+/**
+ * Checker PipelineはSchema不整合とCanonical ID重複を共通Findingで返すを検証する。
+ *
+ * @responsibility Checker PipelineはSchema不整合とCanonical ID重複を共通Findingで返すの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Checker PipelineはSchema不整合とCanonical ID重複を共通Findingで返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ */
+test("Checker PipelineはSchema不整合とCanonical ID重複を共通Findingで返す", () => {
+  const source = {
+    path: "duplicate.md",
+    content: "# REQ-000001 Duplicate\n\n成果物種別: Discovery定義\n",
+  };
+  const result = runCheckerPipeline({
+    sources: [source, { ...source, path: "duplicate-2.md" }],
+    schemas: [
+      {
+        id: "requirement-definition",
+        matches: () => true,
+        requiredProperties: ["status"],
+      },
+    ],
+  });
+  assert.deepEqual(result.findings.map(({ code }) => code).sort(), [
+    "artifact-canonical-id-duplicate",
+    "artifact-schema-property-missing",
+    "artifact-schema-property-missing",
+  ]);
+  assert.ok(result.findings.every(({ rule }) => rule.length > 0));
+});
+
+/**
+ * Artifact Domain IssueはChecker境界で明示変換し未知種別を拒否するを検証する。
+ *
+ * @responsibility Artifact Domain IssueはChecker境界で明示変換し未知種別を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Artifact Domain IssueはChecker境界で明示変換し未知種別を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Artifact Domain IssueはChecker境界で明示変換し未知種別を拒否する", () => {
+  assert.deepEqual(
+    mapArtifactDomainIssueToCheckerFinding({
+      kind: "artifact.schema.property-missing",
+      targetIdentity: "REQ-000001",
+      location: { path: "requirement.md", line: 1 },
+      reason: "required_property_missing",
+      details: { schemaId: "requirement-definition", property: "status" },
+    }),
+    {
+      severity: "error",
+      code: "artifact-schema-property-missing",
+      path: "requirement.md",
+      rule: "requirement-definition",
+      message: "Required artifact property is missing: status.",
+    },
+  );
+  assert.throws(
+    () =>
+      mapArtifactDomainIssueToCheckerFinding({
+        kind: "artifact.future.issue",
+        targetIdentity: "REQ-000001",
+        location: { path: "requirement.md", line: 1 },
+        reason: "future_reason",
+        details: {},
+      }),
+    /unknown_artifact_domain_issue:artifact\.future\.issue/u,
+  );
+  assert.throws(
+    () =>
+      mapArtifactDomainIssueToCheckerFinding({
+        kind: "artifact.schema.property-missing",
+        targetIdentity: "REQ-000001",
+        location: { path: "requirement.md", line: 1 },
+        reason: "required_property_missing",
+        details: { schemaId: "requirement-definition" },
+      }),
+    /invalid_artifact_domain_issue_detail:artifact\.schema\.property-missing:property/u,
+  );
+});
+
+/**
+ * 主要工程ひな型は工程責務と構造表現を維持するを検証する。
+ *
+ * @responsibility 主要工程ひな型は工程責務と構造表現を維持するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 主要工程ひな型は工程責務と構造表現を維持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("主要工程ひな型は工程責務と構造表現を維持する", () => {
   const phaseTemplates = [
     "template/01_Discovery/01_Product_Discovery.md",
     "template/02_UX/01_User_Experience.md",
@@ -29,19 +287,300 @@ test("主要工程ひな型は構造を先に選ぶ共通骨格を維持する",
     "template/05_SPEC/01_Behavior_Specification.md",
     "template/06_Architecture/01_Architecture.md",
   ];
-  const tableHeader = "| 項目 | 記載内容 |";
-
   for (const relativePath of phaseTemplates) {
     const content = fs.readFileSync(
       path.join(repositoryRoot, relativePath),
       "utf8",
     );
-    assert.ok(content.includes("文章形式を要求しない"), relativePath);
-    assert.ok(content.includes("## 対象範囲と現在状態"), relativePath);
-    assert.ok(content.includes("## 判断"), relativePath);
+    if (relativePath === "template/01_Discovery/01_Product_Discovery.md") {
+      assert.ok(
+        content.includes("```text"),
+        `${relativePath}: visual structure`,
+      );
+      assert.ok(content.includes("|"), `${relativePath}: structured mapping`);
+      assert.ok(content.includes("## 探索台帳"), relativePath);
+      assert.ok(content.includes("## 要求台帳"), relativePath);
+      assert.ok(content.includes("## 次工程への入口と戻り方"), relativePath);
+      assert.ok(content.includes("## Checklist"), relativePath);
+      assert.ok(content.includes("- [ ] "), relativePath);
+    } else if (relativePath === "template/02_UX/01_User_Experience.md") {
+      assert.ok(
+        content.includes("```text"),
+        `${relativePath}: visual structure`,
+      );
+      assert.ok(content.includes("|"), `${relativePath}: structured mapping`);
+      assert.ok(
+        content.includes("## 1. 製品全体で目指す利用体験"),
+        relativePath,
+      );
+      assert.ok(content.includes("## 2. UX成果台帳"), relativePath);
+      assert.ok(content.includes("## 3. 要求とUX成果の網羅状況"), relativePath);
+      assert.ok(content.includes("## 5. 詳細成果物への案内"), relativePath);
+    } else if (
+      relativePath === "template/03_IA/01_Information_Architecture.md"
+    ) {
+      assert.ok(
+        content.includes("```text"),
+        `${relativePath}: visual structure`,
+      );
+      assert.ok(content.includes("|"), `${relativePath}: structured mapping`);
+      assert.ok(content.includes("## 1. 何を分かりやすくするか"), relativePath);
+      assert.ok(content.includes("## 2. 入力と網羅状況"), relativePath);
+      assert.ok(content.includes("## 3. IA定義台帳"), relativePath);
+      assert.ok(content.includes("## 5. 基本図の処置"), relativePath);
+    } else if (
+      relativePath === "template/05_SPEC/01_Behavior_Specification.md"
+    ) {
+      assert.ok(
+        content.includes("```text"),
+        `${relativePath}: visual structure`,
+      );
+      assert.ok(content.includes("|"), `${relativePath}: structured mapping`);
+      assert.ok(content.includes("## 1. SPEC工程で解くこと"), relativePath);
+      assert.ok(content.includes("## 2. 入力と網羅状況"), relativePath);
+      assert.ok(content.includes("## 3. SPEC定義台帳"), relativePath);
+      assert.ok(content.includes("## 5. 基本図の処置"), relativePath);
+    } else {
+      assert.ok(content.includes("文章形式を要求しない"), relativePath);
+      assert.ok(content.includes("## 対象範囲と現在状態"), relativePath);
+      assert.ok(content.includes("## 判断"), relativePath);
+    }
+  }
+
+  const discoveryTemplate = fs.readFileSync(
+    path.join(repositoryRoot, "template/01_Discovery/01_Product_Discovery.md"),
+    "utf8",
+  );
+  for (const required of [
+    "## 人間理解の確認",
+    "| 発火判定と理由 |",
+    "| 人間の確認または修正 |",
+    "理解確認を要求採用の判断へ読み替えず",
+  ])
+    assert.ok(discoveryTemplate.includes(required), required);
+
+  const phaseOwnedArtifactTypes = new Map<string, string>([
+    [
+      "template/01_Discovery/Analysis/EXP-XXXXXX/exploration.md",
+      "成果物種別: Discovery分析",
+    ],
+    [
+      "template/01_Discovery/Definitions/REQ-XXXXXX/requirement.md",
+      "成果物種別: Discovery定義",
+    ],
+    ["template/02_UX/Analysis/REQ-XXXXXX/ux_analysis.md", "成果物種別: UX分析"],
+    [
+      "template/02_UX/Definitions/UX-XXXXXX/ux_definition.md",
+      "成果物種別: UX定義",
+    ],
+    ["template/03_IA/Analysis/UX-XXXXXX/ia_analysis.md", "成果物種別: IA分析"],
+    [
+      "template/03_IA/Definitions/IA-XXXXXX/ia_definition.md",
+      "成果物種別: IA定義",
+    ],
+    [
+      "template/06_Architecture/Analysis/UI-XXXXXX/architecture_analysis.md",
+      "成果物種別: Architecture分析（UI観点）",
+    ],
+    [
+      "template/06_Architecture/Analysis/SPEC-XXXXXX/architecture_analysis.md",
+      "成果物種別: Architecture分析（SPEC観点）",
+    ],
+    [
+      "template/06_Architecture/Definitions/ARCH-XXXXXX/architecture_definition.md",
+      "成果物種別: Architecture定義",
+    ],
+  ]);
+  for (const [relativePath, expectedType] of phaseOwnedArtifactTypes) {
+    const content = fs.readFileSync(
+      path.join(repositoryRoot, relativePath),
+      "utf8",
+    );
     assert.ok(
-      content.split(tableHeader).length - 1 >= 2,
-      `${relativePath}: structured state and handoff tables are required`,
+      content.includes(expectedType),
+      `${relativePath}: ${expectedType}`,
+    );
+  }
+
+  const uxRequirementTemplatePath =
+    "template/02_UX/Analysis/REQ-XXXXXX/ux_analysis.md";
+  const uxRequirementTemplate = fs.readFileSync(
+    path.join(repositoryRoot, uxRequirementTemplatePath),
+    "utf8",
+  );
+  for (const required of [
+    "## 1. 要求の一次分析",
+    "解決したい問題",
+    "人の体験として扱う",
+    "## 2. 利用者・目標・成果",
+    "主な想定利用者",
+    "目的",
+    "得られる結果",
+    "## 3. 利用者に起きる変化",
+    "変更前",
+    "変更後",
+    "## 4. 利用者成果への統合",
+    "要求とUXは多対多を許容する",
+    "| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |",
+    "### Same判断の比較",
+    "| 担い手 |",
+    "| 利用のきっかけ |",
+    "| 得られる結果 |",
+    "| 避ける失敗 |",
+    "## 5. 重要な体験",
+    "重要場面",
+    "失敗",
+    "守る品質",
+    "### この要求での利用の流れ",
+    "### サービス提供の流れの処置",
+    "処置: `作成`／`非該当`",
+    "### 製品全体の整理への接続",
+    "### この要求での責任境界",
+    "### 補足する品質",
+    "## 6. 下流への引き渡し",
+    "### 妥当性確認と未確認事項",
+    "現在判定:",
+    "確認事項:",
+    "判断者:",
+    "未確認時の影響:",
+    "Discoveryへ戻す条件",
+  ])
+    assert.ok(
+      uxRequirementTemplate.includes(required),
+      `${uxRequirementTemplatePath}: ${required}`,
+    );
+
+  const phaseDiagramProfiles = new Map<string, readonly string[]>([
+    [
+      "template/01_Discovery/01_Product_Discovery.md",
+      [
+        "業務範囲／入出力（SIPOC）",
+        "担い手別の仕事の流れ（Swimlane）",
+        "価値が届くまでの流れ",
+        "現状／変更後",
+      ],
+    ],
+    [
+      "template/02_UX/01_User_Experience.md",
+      ["利用の流れ", "重要場面・失敗／回復体験図", "サービス提供の流れ"],
+    ],
+    [
+      "template/03_IA/01_Information_Architecture.md",
+      [
+        "オブジェクト／関係図",
+        "情報階層図",
+        "Navigation図",
+        "可視性／状態概念図",
+      ],
+    ],
+    [
+      "template/04_UI/01_User_Interface.md",
+      [
+        "論理画面／領域構成図",
+        "画面／操作Flow",
+        "表示状態／Variant図",
+        "主要Component関係図",
+        "UI／SPEC対応図",
+      ],
+    ],
+    [
+      "template/05_SPEC/01_Behavior_Specification.md",
+      [
+        "Use Case／振る舞いFlow",
+        "状態遷移表／状態遷移図",
+        "Actor／System間Sequence図",
+        "Error／Effect分岐図",
+        "UI／SPEC対応図",
+      ],
+    ],
+    [
+      "template/06_Architecture/01_Architecture.md",
+      [
+        "全体／内部ブロック図",
+        "状態遷移表／状態遷移図",
+        "ブロック間シーケンス図",
+        "クラス／型関係図",
+        "データフロー図（DFD）",
+        "エンティティ関係図（ER図）",
+        "スキーマ責務図（Schema Responsibility Map）",
+      ],
+    ],
+    [
+      "template/07_Quality/03_Verification_Design.md",
+      [
+        "検証義務・試験Level／Boundary対応図",
+        "状態・分岐・Block別Coverage図",
+        "検証結果・判断接続図",
+      ],
+    ],
+  ]);
+  const dispositionHeader =
+    "| 基本図 | 対象 | 目的 | 処置 | 現行図／一意な参照／理由 | 投影元改訂版 | 現在状態 | 未確認範囲 | 次の処置・再評価契機 |";
+  const dispositionValues = ["`作成`", "`既存参照`", "`非該当`", "`作成不能`"];
+  for (const [relativePath, diagrams] of phaseDiagramProfiles) {
+    const content = fs.readFileSync(
+      path.join(repositoryRoot, relativePath),
+      "utf8",
+    );
+    assert.ok(
+      /^## (?:[0-9]+\.\s+)?基本図の処置$/mu.test(content),
+      `${relativePath}: diagram disposition missing`,
+    );
+    assert.ok(
+      content.includes(dispositionHeader),
+      `${relativePath}: complete disposition semantics missing`,
+    );
+    for (const disposition of dispositionValues)
+      assert.ok(
+        content.includes(disposition),
+        `${relativePath}: ${disposition}`,
+      );
+    for (const diagram of diagrams)
+      assert.ok(
+        content.includes(`| ${diagram} |`),
+        `${relativePath}: ${diagram}`,
+      );
+  }
+
+  const architectureTemplate = fs.readFileSync(
+    path.join(repositoryRoot, "template/06_Architecture/01_Architecture.md"),
+    "utf8",
+  );
+  assert.ok(
+    architectureTemplate.includes("## 基本図の処置"),
+    "architecture_diagram_disposition_missing",
+  );
+  for (const diagram of [
+    "全体／内部ブロック図",
+    "状態遷移表／状態遷移図",
+    "ブロック間シーケンス図",
+    "クラス／型関係図",
+    "データフロー図（DFD）",
+    "エンティティ関係図（ER図）",
+    "スキーマ責務図（Schema Responsibility Map）",
+  ]) {
+    assert.ok(
+      architectureTemplate.includes(`| ${diagram} |`),
+      `architecture_diagram_disposition_missing: ${diagram}`,
+    );
+  }
+
+  const architectureRule = fs.readFileSync(
+    path.join(repositoryRoot, "27_Architecture.md"),
+    "utf8",
+  );
+  for (const requiredRule of [
+    "**エンティティ関係図（ER図）**",
+    "[ER1: Entity名]",
+    "**スキーマ責務図（Schema Responsibility Map）**",
+    "[SR1: 責務領域名]",
+    "Canonical Owner",
+    "Must Not Own",
+    "単一Entity／Schema内でOwnerと利用側が一意な局所表現変更",
+  ]) {
+    assert.ok(
+      architectureRule.includes(requiredRule),
+      `schema_responsibility_rule_missing: ${requiredRule}`,
     );
   }
 
@@ -63,7 +602,7 @@ test("主要工程ひな型は構造を先に選ぶ共通骨格を維持する",
     "Architecture",
     "Implementation",
     "Verification",
-    "Quality",
+    "品質保証（Quality）",
     "Communication",
   ]) {
     assert.ok(structuredFirst.includes(lifecycle), lifecycle);
@@ -101,14 +640,29 @@ type CheckerReport = Readonly<{
   unchecked: readonly string[];
 }>;
 
+/**
+ * 品質固定構成は規則・公式文書・ひな型の番号付き名称と一致するを検証する。
+ *
+ * @responsibility 品質固定構成は規則・公式文書・ひな型の番号付き名称と一致するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 品質固定構成は規則・公式文書・ひな型の番号付き名称と一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("品質固定構成は規則・公式文書・ひな型の番号付き名称と一致する", () => {
   const names = [
     "01_Quality_Center.md",
     "02_Quality_Strategy.md",
     "03_Verification_Design.md",
+    "04_Quality_Integration.md",
+    "05_Current_Implementation_Reality_Audit.md",
   ];
+  const directoryNames = ["Analysis", "Definitions"];
   const oldNames = names.map((name) => name.slice(3));
-  const expectedEntries = [...names, "Verification_Results/"];
+  const expectedEntries = [...names, "Analysis/", "Definitions/", "Registry/"];
   const rule = fs
     .readFileSync(path.join(repositoryRoot, "16_Quality_Assurance.md"), "utf8")
     .split('<a id="42-fixed-quality-structure"></a>')[1]
@@ -139,8 +693,10 @@ test("品質固定構成は規則・公式文書・ひな型の番号付き名�
     assert.equal(directories.length, 2);
     for (const entries of directories) {
       for (const name of names) assert.ok(entries.includes(name), name);
+      for (const name of directoryNames)
+        assert.ok(entries.includes(name), name);
       for (const name of oldNames) assert.ok(!entries.includes(name), name);
-      assert.ok(entries.includes("Verification_Results"));
+      assert.ok(!entries.includes("Verification_Results"));
     }
     for (const name of names) assert.ok(entry.includes(name), name);
   };
@@ -153,11 +709,12 @@ test("品質固定構成は規則・公式文書・ひな型の番号付き名�
     for (const name of names) {
       assert.ok(fs.lstatSync(path.join(root, name)).isFile(), name);
     }
-    assert.ok(
-      fs.lstatSync(path.join(root, "Verification_Results")).isDirectory(),
-    );
+    for (const name of directoryNames) {
+      assert.ok(fs.lstatSync(path.join(root, name)).isDirectory(), name);
+    }
+    assert.ok(!fs.existsSync(path.join(root, "Verification_Results")));
   }
-  const completeEntries = [...names, "Verification_Results"];
+  const completeEntries = [...names, ...directoryNames];
   assert.throws(() =>
     check(
       rule.replace("01_Quality_Center.md", "Quality_Center.md"),
@@ -196,6 +753,18 @@ test("品質固定構成は規則・公式文書・ひな型の番号付き名�
   );
 });
 
+/**
+ * checker packageのRepository検証はRepository rootを明示するを検証する。
+ *
+ * @responsibility checker packageのRepository検証はRepository rootを明示するの合否判定を所有する。
+ * @trace RCM-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus checker packageのRepository検証はRepository rootを明示するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-IT-008=Direct Boundary: Repository入口・Package入口→同一Checker Core／Profile
+ */
 test("checker packageのRepository検証はRepository rootを明示する", () => {
   const packageJson: unknown = JSON.parse(
     fs.readFileSync(path.join(checkerRoot, "package.json"), "utf8"),
@@ -214,29 +783,123 @@ test("checker packageのRepository検証はRepository rootを明示する", () =
   );
   assert.equal(
     Object.getOwnPropertyDescriptor(scripts, "verify:repository")?.value,
-    "node ./crdd-check.ts --root ../.. --json --summary",
+    "node ./bin/crdd-check.ts --root ../.. --json --summary",
   );
   assert.equal(path.resolve(checkerRoot, "../.."), repositoryRoot);
 });
 
-test("両private packageのLintはWarningを検査失敗にする", () => {
-  for (const packageRoot of [
-    checkerRoot,
-    path.join(repositoryRoot, "40_Develop", "coordinator"),
-  ]) {
+/**
+ * Checker packageのLintはWarningを検査失敗にするを検証する。
+ *
+ * @responsibility Checker packageのLintはWarningを検査失敗にするの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Checker packageのLintはWarningを検査失敗にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Checker packageのLintはWarningを検査失敗にする", () => {
+  const packageJson: unknown = JSON.parse(
+    fs.readFileSync(path.join(checkerRoot, "package.json"), "utf8"),
+  );
+  const packageRecord = record(packageJson);
+  const scripts = packageRecord && record(packageRecord.scripts);
+  assert.equal(scripts?.lint, "biome lint ../.. --error-on-warnings");
+});
+
+/**
+ * CRDD所有packageの全回帰入口は静的検査後にだけ試験本体を開始するを検証する。
+ *
+ * @responsibility CRDD所有packageの全回帰入口は静的検査後にだけ試験本体を開始するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CRDD所有packageの全回帰入口は静的検査後にだけ試験本体を開始するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("CRDD所有packageの全回帰入口は静的検査後にだけ試験本体を開始する", () => {
+  const packageRoots = [
+    "artifact-signing",
+    "checker",
+    "coordinator",
+    "execution-intelligence",
+    "mcp",
+    "project-runtime",
+    "runtime-data",
+    "version-control",
+  ];
+  for (const packageRoot of packageRoots) {
     const packageJson: unknown = JSON.parse(
-      fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"),
+      fs.readFileSync(
+        path.join(repositoryRoot, "40_Develop", packageRoot, "package.json"),
+        "utf8",
+      ),
     );
     const packageRecord = record(packageJson);
     const scripts = packageRecord && record(packageRecord.scripts);
-    assert.equal(
-      scripts?.lint,
-      "biome lint ../.. --error-on-warnings",
+    assert.ok(scripts, packageRoot);
+    const check = scripts.check;
+    const regression = scripts.test;
+    const testRun = scripts["test:run"];
+    assert.ok(typeof check === "string", packageRoot);
+    assert.deepEqual(
+      check.split(" && ").slice(0, 3),
+      ["npm run format:check", "npm run typecheck", "npm run lint"],
       packageRoot,
     );
+    assert.ok(typeof testRun === "string", packageRoot);
+    assert.ok(typeof regression === "string", packageRoot);
+    const regressionSteps = regression.split(" && ");
+    assert.equal(regressionSteps[0], "npm run check", packageRoot);
+    if (packageRoot === "checker") {
+      assert.equal(
+        regressionSteps[1],
+        "npm run verify:repository",
+        packageRoot,
+      );
+      assert.equal(regressionSteps[2], "npm run test:run", packageRoot);
+    } else {
+      assert.equal(regressionSteps[1], "npm run test:run", packageRoot);
+    }
+    for (const step of regressionSteps.slice(
+      packageRoot === "checker" ? 3 : 2,
+    )) {
+      assert.match(step, /^npm run test:[a-z0-9:-]+$/u, packageRoot);
+    }
   }
+  const agentContract = fs.readFileSync(
+    path.join(repositoryRoot, "AGENTS.md"),
+    "utf8",
+  );
+  const checkIndex = agentContract.indexOf("最初に`npm run check`を成功させ");
+  const restrictedIndex = agentContract.indexOf(
+    "`npm run test:restricted-process`",
+  );
+  const windowsIndex = agentContract.indexOf("`npm run test:windows-process`");
+  assert.ok(checkIndex >= 0, "AGENTS must require static checks first");
+  assert.ok(
+    restrictedIndex > checkIndex,
+    "restricted tests must follow checks",
+  );
+  assert.ok(windowsIndex > restrictedIndex, "Windows tests must follow checks");
 });
 
+/**
+ * Biomeは.crdd内の入れ子設定を探索せず両所有sourceを検査するを検証する。
+ *
+ * @responsibility Biomeは.crdd内の入れ子設定を探索せず両所有sourceを検査するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Biomeは.crdd内の入れ子設定を探索せず両所有sourceを検査するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("Biomeは.crdd内の入れ子設定を探索せず両所有sourceを検査する", () => {
   const root = fixture();
   write(
@@ -259,6 +922,18 @@ test("Biomeは.crdd内の入れ子設定を探索せず両所有sourceを検査�
     write(path.join(root, relativePath, "broken.ts"), "invalid {{{");
   }
   const biome = path.join(checkerRoot, "node_modules/@biomejs/biome/bin/biome");
+  /**
+   * inspectLintのTest準備責務を実行する。
+   *
+   * @responsibility inspectLintがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace AUH-IT-002
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus inspectLintを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+   */
   const inspectLint = () =>
     spawnSync(process.execPath, [biome, "lint", ".", "--error-on-warnings"], {
       cwd: root,
@@ -277,48 +952,20 @@ test("Biomeは.crdd内の入れ子設定を探索せず両所有sourceを検査�
   }
 });
 
-test("Rust platform accessの開発入口は固定Cargo commandだけを使う", () => {
-  const coordinatorRoot = path.join(
-    repositoryRoot,
-    "40_Develop",
-    "coordinator",
-  );
-  const packageJson: unknown = JSON.parse(
-    fs.readFileSync(path.join(coordinatorRoot, "package.json"), "utf8"),
-  );
-  const packageRecord = record(packageJson);
-  const scripts = packageRecord && record(packageRecord.scripts);
-  assert.deepEqual(
-    scripts &&
-      Object.fromEntries(
-        [
-          "platform-access:build",
-          "platform-access:coverage",
-          "platform-access:format:check",
-          "platform-access:lint",
-          "platform-access:test",
-          "platform-access:worker-build",
-          "platform-access:worker-lint",
-        ].map((name) => [name, scripts[name]]),
-      ),
-    {
-      "platform-access:build": "npm run platform-access:worker-build",
-      "platform-access:coverage":
-        "node ./scripts/check-platform-access-coverage.ts",
-      "platform-access:format:check":
-        "cargo fmt --manifest-path ../platform-access/Cargo.toml --check",
-      "platform-access:lint": "npm run platform-access:worker-lint",
-      "platform-access:test":
-        "cargo +1.94.1-x86_64-pc-windows-msvc test --manifest-path ../platform-access/Cargo.toml --frozen --all-features --target x86_64-pc-windows-msvc",
-      "platform-access:worker-build":
-        "cargo +1.94.1-x86_64-pc-windows-msvc build --manifest-path ../platform-access/Cargo.toml --frozen --release --target x86_64-pc-windows-msvc --bin crdd-platform-access",
-      "platform-access:worker-lint":
-        "cargo +1.94.1-x86_64-pc-windows-msvc clippy --manifest-path ../platform-access/Cargo.toml --frozen --target x86_64-pc-windows-msvc --bin crdd-platform-access -- -D warnings",
-    },
-  );
-});
 type CheckerRun = SpawnSyncReturns<string> & { report: CheckerReport };
 
+/**
+ * recordのTest準備責務を実行する。
+ *
+ * @responsibility recordがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus recordを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function record(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? Object.fromEntries(
@@ -329,6 +976,18 @@ function record(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+/**
+ * reportStringのTest準備責務を実行する。
+ *
+ * @responsibility reportStringがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus reportStringを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function reportString(value: Record<string, unknown>, key: string): string {
   const candidate = value[key];
   if (typeof candidate !== "string")
@@ -336,6 +995,18 @@ function reportString(value: Record<string, unknown>, key: string): string {
   return candidate;
 }
 
+/**
+ * reportBooleanのTest準備責務を実行する。
+ *
+ * @responsibility reportBooleanがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus reportBooleanを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function reportBoolean(value: Record<string, unknown>, key: string): boolean {
   const candidate = value[key];
   if (typeof candidate !== "boolean")
@@ -343,6 +1014,18 @@ function reportBoolean(value: Record<string, unknown>, key: string): boolean {
   return candidate;
 }
 
+/**
+ * reportNullableBooleanのTest準備責務を実行する。
+ *
+ * @responsibility reportNullableBooleanがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus reportNullableBooleanを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function reportNullableBoolean(
   value: Record<string, unknown>,
   key: string,
@@ -354,6 +1037,18 @@ function reportNullableBoolean(
   return candidate;
 }
 
+/**
+ * reportNullableStringのTest準備責務を実行する。
+ *
+ * @responsibility reportNullableStringがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus reportNullableStringを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function reportNullableString(
   value: Record<string, unknown>,
   key: string,
@@ -365,6 +1060,18 @@ function reportNullableString(
   return candidate;
 }
 
+/**
+ * reportStringArrayのTest準備責務を実行する。
+ *
+ * @responsibility reportStringArrayがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus reportStringArrayを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function reportStringArray(
   value: Record<string, unknown>,
   key: string,
@@ -383,6 +1090,18 @@ function reportStringArray(
   });
 }
 
+/**
+ * reportNumberRecordのTest準備責務を実行する。
+ *
+ * @responsibility reportNumberRecordがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus reportNumberRecordを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function reportNumberRecord(
   value: Record<string, unknown>,
   key: string,
@@ -399,6 +1118,18 @@ function reportNumberRecord(
   return result;
 }
 
+/**
+ * reportStateのTest準備責務を実行する。
+ *
+ * @responsibility reportStateがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus reportStateを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function reportState(
   value: Record<string, unknown>,
   key: string,
@@ -419,6 +1150,18 @@ function reportState(
   return result;
 }
 
+/**
+ * reportFindingsのTest準備責務を実行する。
+ *
+ * @responsibility reportFindingsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus reportFindingsを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function reportFindings(value: Record<string, unknown>): CheckerFinding[] {
   const findings = value.findings;
   if (!Array.isArray(findings))
@@ -435,6 +1178,18 @@ function reportFindings(value: Record<string, unknown>): CheckerFinding[] {
   });
 }
 
+/**
+ * reportReferencesのTest準備責務を実行する。
+ *
+ * @responsibility reportReferencesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus reportReferencesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function reportReferences(
   value: Record<string, unknown>,
 ): CheckerReport["references"] {
@@ -471,6 +1226,18 @@ function reportReferences(
   });
 }
 
+/**
+ * parseCheckerReportのTest準備責務を実行する。
+ *
+ * @responsibility parseCheckerReportがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus parseCheckerReportを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function parseCheckerReport(source: string): CheckerReport {
   if (source === "") {
     return Object.freeze({
@@ -543,15 +1310,4954 @@ const requiredFolders = [
   "07_Quality",
   "19_Workflows",
   "40_Develop",
-  "90_Release",
   "99_Roadmap",
 ];
 
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-check-"));
   fixtures.push(root);
   return root;
 }
+
+/**
+ * 工程基本図の必須列または閉じた処置語彙の欠落を拒否するを検証する。
+ *
+ * @responsibility 工程基本図の必須列または閉じた処置語彙の欠落を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 工程基本図の必須列または閉じた処置語彙の欠落を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("工程基本図の必須列または閉じた処置語彙の欠落を拒否する", () => {
+  const sourcePath = path.join(
+    repositoryRoot,
+    "template/02_UX/01_User_Experience.md",
+  );
+  const original = fs.readFileSync(sourcePath, "utf8");
+  const mutations = [
+    original.replace("| 基本図 | 対象 | 目的 | 処置 |", "| 基本図 | 処置 |"),
+    original.replace(/(\| 利用の流れ \|[^\n]*\| )`既存参照`( \|)/, "$1保留$2"),
+    original.replace(/^\| サービス提供の流れ \|.*\r?\n/m, ""),
+  ];
+  for (const mutated of mutations) {
+    const root = fixture();
+    fs.mkdirSync(path.join(root, "template", "02_UX"), { recursive: true });
+    fs.writeFileSync(path.join(root, "01_Principles.md"), "# Principles\n");
+    fs.writeFileSync(
+      path.join(root, "template", "02_UX", "01_User_Experience.md"),
+      mutated,
+      "utf8",
+    );
+    const result = runChecker(root);
+    assert.equal(result.report.repository_mode, "official");
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "phase_diagram_disposition_contract_invalid" &&
+          finding.path === "template/02_UX/01_User_Experience.md",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * Discoveryひな型から人間理解の確認契約を除去できないを検証する。
+ *
+ * @responsibility Discoveryひな型から人間理解の確認契約を除去できないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Discoveryひな型から人間理解の確認契約を除去できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Discoveryひな型から人間理解の確認契約を除去できない", () => {
+  const sourcePath = path.join(
+    repositoryRoot,
+    "template/01_Discovery/01_Product_Discovery.md",
+  );
+  const original = fs.readFileSync(sourcePath, "utf8");
+  const root = fixture();
+  fs.mkdirSync(path.join(root, "template", "01_Discovery"), {
+    recursive: true,
+  });
+  fs.writeFileSync(path.join(root, "01_Principles.md"), "# Principles\n");
+  fs.writeFileSync(
+    path.join(root, "template", "01_Discovery", "01_Product_Discovery.md"),
+    original.replace("## 人間理解の確認", "## 理解記録"),
+    "utf8",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "phase_diagram_disposition_contract_invalid" &&
+        finding.path === "template/01_Discovery/01_Product_Discovery.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * IA分析は全UX定義を一件ずつ覆うを検証する。
+ *
+ * @responsibility IA分析は全UX定義を一件ずつ覆うの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA分析は全UX定義を一件ずつ覆うの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("IA分析は全UX定義を一件ずつ覆う", () => {
+  const root = iaReconstructionFixtureRoot();
+  fs.rmSync(path.join(root, "03_IA", "Analysis", "UX-000001"), {
+    recursive: true,
+    force: true,
+  });
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ia-analysis-coverage-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * IA分析は同じUX定義を正式入力にするを検証する。
+ *
+ * @responsibility IA分析は同じUX定義を正式入力にするの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA分析は同じUX定義を正式入力にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("IA分析は同じUX定義を正式入力にする", () => {
+  const root = iaReconstructionFixtureRoot();
+  const analysisPath = path.join(
+    root,
+    "03_IA",
+    "Analysis",
+    "UX-000001",
+    "ia_analysis.md",
+  );
+  const analysis = fs.readFileSync(analysisPath, "utf8");
+  write(
+    analysisPath,
+    analysis.replaceAll(
+      "UX-000001/ux_definition.md",
+      "UX-000002/ux_definition.md",
+    ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ia-analysis-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * IA分析の実ひな型を埋めた成果物を受理するを検証する。
+ *
+ * @responsibility IA分析の実ひな型を埋めた成果物を受理するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA分析の実ひな型を埋めた成果物を受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("IA分析の実ひな型を埋めた成果物を受理する", () => {
+  const root = iaReconstructionFixtureRoot();
+  const template = fs.readFileSync(
+    path.join(
+      repositoryRoot,
+      "template",
+      "03_IA",
+      "Analysis",
+      "UX-XXXXXX",
+      "ia_analysis.md",
+    ),
+    "utf8",
+  );
+  const filled = template
+    .replaceAll("UX-XXXXXX", "UX-000001")
+    .replace("[分析名]", "試験用")
+    .replace("[このUXの利用者]", "試験利用者")
+    .replace("[このUXが必要になる場面]", "判断する時")
+    .replace("[利用者が達成したいこと]", "対象を理解する")
+    .replace("[利用者に起きる変化]", "次の行動を選べる")
+    .replace("[誤認や判断が生じる重要な時点]", "判断する直前")
+    .replace("[このUXで防ぐ失敗]", "不明を正常と誤認する")
+    .replace("[利用者成果を守る品質]", "根拠を失わない")
+    .replaceAll("[object A]", "対象")
+    .replaceAll("[object B]", "根拠")
+    .replace("[利用者がこの情報を見分ける理由]", "判断対象")
+    .replace("[同じものと別のものを区別する条件]", "安定IDで識別する")
+    .replace("[object Aとの関係、所属、情報源または時点]", "対象と情報源へ結ぶ")
+    .replace(
+      "| IA-XXXXXX | [分析で見つけたObject] | [Canonical候補] | Same／Rename／Merge／Split | [意味を維持して統合・分離する理由] |",
+      "| IA-000001 | 対象 | 対象 | Same | 同じ意味を保持する |\n| IA-000001 | 根拠 | 根拠 | Same | 同じ意味を保持する |",
+    )
+    .replace(
+      "[New／Same、接続するIA-ID、判断理由、未確認事項を記す。]",
+      "[IA-000001](../../Definitions/IA-000001/ia_definition.md)へ接続する。",
+    )
+    .replace(
+      "ひな型では`[ ]`を未評価として残す。完成時は、処置済みを`[x]`、未完了を`OPEN: 理由 — 項目`、不適合を`FAIL: 理由 — 項目`、非該当を`N/A: 理由 — 項目`として評価する。\n\n",
+      "",
+    )
+    .replaceAll("- [ ] ", "- [x] ");
+  write(
+    path.join(root, "03_IA", "Analysis", "UX-000001", "ia_analysis.md"),
+    filled,
+  );
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) => finding.code === "ia-analysis-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * IA分析の縮小見出しと三列契約の欠落を拒否するを検証する。
+ *
+ * @responsibility IA分析の縮小見出しと三列契約の欠落を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA分析の縮小見出しと三列契約の欠落を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("IA分析の縮小見出しと三列契約の欠落を拒否する", () => {
+  for (const mutate of [
+    (value: string) =>
+      value.replace("## 3. 状態・可視性・導線・責任", "## 3. 可視性と責任"),
+    (value: string) =>
+      value.replace(
+        "| 情報Object | 利用者にとっての意味 | 同一性と関係の基準 |",
+        "| 情報Object | 分析結果 |",
+      ),
+    (value: string) => value.replace(/^\| 守る品質 \|.*\r?\n/mu, ""),
+  ]) {
+    const root = iaReconstructionFixtureRoot();
+    const analysisPath = path.join(
+      root,
+      "03_IA",
+      "Analysis",
+      "UX-000001",
+      "ia_analysis.md",
+    );
+    write(analysisPath, mutate(fs.readFileSync(analysisPath, "utf8")));
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "ia-analysis-contract-invalid",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * IA正本は成果物別の可視で評価済みChecklistを必要とするを検証する。
+ *
+ * @responsibility IA正本は成果物別の可視で評価済みChecklistを必要とするの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA正本は成果物別の可視で評価済みChecklistを必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("IA正本は成果物別の可視で評価済みChecklistを必要とする", () => {
+  const cases: Array<[string, string]> = [
+    [
+      path.join("03_IA", "01_Information_Architecture.md"),
+      "ia-artifact-checklist-invalid",
+    ],
+    [
+      path.join("03_IA", "Analysis", "UX-000001", "ia_analysis.md"),
+      "ia-analysis-contract-invalid",
+    ],
+    [
+      path.join("03_IA", "Definitions", "IA-000001", "ia_definition.md"),
+      "ia-definition-contract-invalid",
+    ],
+  ];
+  for (const [relativePath, findingCode] of cases) {
+    const root = iaReconstructionFixtureRoot();
+    const artifactPath = path.join(root, relativePath);
+    write(
+      artifactPath,
+      fs
+        .readFileSync(artifactPath, "utf8")
+        .replace(/\n## Checklist[\s\S]*$/u, ""),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some((finding) => finding.code === findingCode),
+      `${relativePath}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * IAひな型は未評価の正確なChecklist項目集合を持つを検証する。
+ *
+ * @responsibility IAひな型は未評価の正確なChecklist項目集合を持つの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IAひな型は未評価の正確なChecklist項目集合を持つの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("IAひな型は未評価の正確なChecklist項目集合を持つ", () => {
+  for (const mutate of [
+    (value: string) => value.replace("- [ ] StateとVisibilityを定義した\n", ""),
+    (value: string) =>
+      value.replace(
+        "- [ ] StateとVisibilityを定義した",
+        "- [x] StateとVisibilityを定義した",
+      ),
+  ]) {
+    const root = iaReconstructionFixtureRoot();
+    const templatePath = path.join(
+      root,
+      "template",
+      "03_IA",
+      "Definitions",
+      "IA-XXXXXX",
+      "ia_definition.md",
+    );
+    write(templatePath, mutate(fs.readFileSync(templatePath, "utf8")));
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "ia-template-checklist-invalid",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * IAの後続関係表へArchitectureその他の直接Handoffを追加できないを検証する。
+ *
+ * @responsibility IAの後続関係表へArchitectureその他の直接Handoffを追加できないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IAの後続関係表へArchitectureその他の直接Handoffを追加できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("IAの後続関係表へArchitectureその他の直接Handoffを追加できない", () => {
+  for (const relativePath of [
+    path.join("03_IA", "Analysis", "UX-000001", "ia_analysis.md"),
+    path.join("03_IA", "Definitions", "IA-000001", "ia_definition.md"),
+  ]) {
+    const root = iaReconstructionFixtureRoot();
+    const artifactPath = path.join(root, relativePath);
+    write(
+      artifactPath,
+      fs
+        .readFileSync(artifactPath, "utf8")
+        .replace(
+          "| Quality Analysis / IA（伴走） | 成立条件を保持する |",
+          "| Quality Analysis / IA（伴走） | 成立条件を保持する |\n| Architecture | Componentへ直接渡す |",
+        ),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some((finding) =>
+        [
+          "ia-analysis-contract-invalid",
+          "ia-definition-contract-invalid",
+        ].includes(finding.code),
+      ),
+      `${relativePath}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * IA横断投影は全Canonical IA IDを一件ずつ処置するを検証する。
+ *
+ * @responsibility IA横断投影は全Canonical IA IDを一件ずつ処置するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA横断投影は全Canonical IA IDを一件ずつ処置するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ */
+test("IA横断投影は全Canonical IA IDを一件ずつ処置する", () => {
+  for (const replacement of [
+    "",
+    "| [IA-000001](Definitions/IA-000001/ia_definition.md) | 適用 | 重複 |\n| [IA-000001](Definitions/IA-000001/ia_definition.md) | 適用 | 重複 |",
+  ]) {
+    const root = iaReconstructionFixtureRoot();
+    const artifactPath = path.join(
+      root,
+      "03_IA",
+      "02_Object_and_Relation_Model.md",
+    );
+    write(
+      artifactPath,
+      fs
+        .readFileSync(artifactPath, "utf8")
+        .replace(
+          "| [IA-000001](Definitions/IA-000001/ia_definition.md) | 適用 | 試験用の横断投影へ接続 |",
+          replacement,
+        ),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "ia-cross-projection-coverage-mismatch",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * IA分析Objectは全件を一意に処置するを検証する。
+ *
+ * @responsibility IA分析Objectは全件を一意に処置するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA分析Objectは全件を一意に処置するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("IA分析Objectは全件を一意に処置する", () => {
+  for (const mutate of [
+    (value: string) =>
+      value.replace(
+        "| IA-000001 | 根拠 | 根拠 | Same | 同じ意味を保持する |\n",
+        "",
+      ),
+    (value: string) =>
+      value.replace(
+        "| IA-000001 | 根拠 | 根拠 | Same | 同じ意味を保持する |",
+        "| IA-000001 | 根拠 | 根拠 | Same | 同じ意味を保持する |\n| IA-000001 | 根拠 | 根拠 | Same | 重複処置 |",
+      ),
+    (value: string) => value.replace("| Same | 同じ意味", "| New | 同じ意味"),
+    (value: string) =>
+      value.replace(
+        "| IA-000001 | 根拠 | 根拠 | Same | 同じ意味を保持する |",
+        "| IA-000001 | 根拠 | 根拠 | Not Applicable | 対象外と誤記する |",
+      ),
+  ]) {
+    const root = iaReconstructionFixtureRoot();
+    const analysisPath = path.join(
+      root,
+      "03_IA",
+      "Analysis",
+      "UX-000001",
+      "ia_analysis.md",
+    );
+    write(analysisPath, mutate(fs.readFileSync(analysisPath, "utf8")));
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "ia-analysis-contract-invalid" ||
+          finding.code === "ia-object-mapping-closure-mismatch",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * IA定義Mappingは実在する分析ObjectとCanonical Objectだけを使うを検証する。
+ *
+ * @responsibility IA定義Mappingは実在する分析ObjectとCanonical Objectだけを使うの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA定義Mappingは実在する分析ObjectとCanonical Objectだけを使うの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ */
+test("IA定義Mappingは実在する分析ObjectとCanonical Objectだけを使う", () => {
+  for (const mutate of [
+    (value: string) => value.replace("UX-000001: 根拠", "UX-000001: 偽Object"),
+    (value: string) =>
+      value.replace(
+        "| 根拠 | 判断を支える情報 | 対象と情報源へ結ぶ |",
+        "| 根拠 | 判断を支える情報 | 対象と情報源へ結ぶ |\n| 追加対象 | Mappingのない対象 | 識別不能 |",
+      ),
+    (value: string) => value.replace("| Same | 同じ意味", "| New | 同じ意味"),
+    (value: string) => value.replace("[O: 根拠]", "[O: 偽Object]"),
+    (value: string) =>
+      value.replace(
+        "| UX-000001: 根拠 | 対象と情報源へ結ぶ | 根拠 | 対象と情報源へ結ぶ | Same。関係を維持する |\n",
+        "",
+      ),
+    (value: string) =>
+      value.replace(
+        "| UX-000001: 根拠 | 対象と情報源へ結ぶ | 根拠 | 対象と情報源へ結ぶ | Same。関係を維持する |",
+        "| UX-000001: 根拠 | 対象と情報源へ結ぶ | 根拠 | 対象と情報源へ結ぶ | Same。関係を維持する |\n| UX-000001: 根拠 | 対象と情報源へ結ぶ | 根拠 | 対象と情報源へ結ぶ | Same。重複行 |",
+      ),
+    (value: string) =>
+      value.replace(
+        "| UX-000001: 根拠 | 対象と情報源へ結ぶ | 根拠 | 対象と情報源へ結ぶ | Same。関係を維持する |",
+        "| UX-000001: 根拠 | 別の対象へ結ぶ | 根拠 | 対象と情報源へ結ぶ | Same。関係を維持する |",
+      ),
+    (value: string) =>
+      value.replace("[O: 対象] --支えられる--> [O: 根拠]", "[O: 対象]"),
+  ]) {
+    const root = iaReconstructionFixtureRoot();
+    const definitionPath = path.join(
+      root,
+      "03_IA",
+      "Definitions",
+      "IA-000001",
+      "ia_definition.md",
+    );
+    write(definitionPath, mutate(fs.readFileSync(definitionPath, "utf8")));
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "ia-definition-contract-invalid",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * REQ表示をDiscovery分析へ偽装接続できないを検証する。
+ *
+ * @responsibility REQ表示をDiscovery分析へ偽装接続できないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus REQ表示をDiscovery分析へ偽装接続できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("REQ表示をDiscovery分析へ偽装接続できない", () => {
+  const root = iaReconstructionFixtureRoot();
+  write(
+    path.join(root, "06_Architecture", "sample.md"),
+    "# Sample\n\n要求: [`REQ-000001`](../01_Discovery/Analysis/EXP-000001/exploration.md)\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "discovery-identity-link-owner-mismatch" &&
+        finding.path === "06_Architecture/sample.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * IA台帳とIA定義Directoryは同じ集合を持つを検証する。
+ *
+ * @responsibility IA台帳とIA定義Directoryは同じ集合を持つの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA台帳とIA定義Directoryは同じ集合を持つの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("IA台帳とIA定義Directoryは同じ集合を持つ", () => {
+  const root = iaReconstructionFixtureRoot();
+  const indexPath = path.join(root, "03_IA", "01_Information_Architecture.md");
+  write(indexPath, "# IA\n");
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ia-definition-index-coverage-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * IA分析の処置とIA定義の情報源はUXとIAの組で閉じるを検証する。
+ *
+ * @responsibility IA分析の処置とIA定義の情報源はUXとIAの組で閉じるの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA分析の処置とIA定義の情報源はUXとIAの組で閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("IA分析の処置とIA定義の情報源はUXとIAの組で閉じる", () => {
+  const root = iaReconstructionFixtureRoot();
+  const indexPath = path.join(root, "03_IA", "01_Information_Architecture.md");
+  write(
+    indexPath,
+    `${fs.readFileSync(indexPath, "utf8")}| [IA-000002](Definitions/IA-000002/ia_definition.md) | 追加情報 | UX-000001 |\n`,
+  );
+  write(
+    path.join(root, "03_IA", "Definitions", "IA-000002", "ia_definition.md"),
+    iaDefinition("IA-000002", "UX-000001"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ia-analysis-definition-closure-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * IA台帳の入力UXも分析処置と定義情報源へ完全一致するを検証する。
+ *
+ * @responsibility IA台帳の入力UXも分析処置と定義情報源へ完全一致するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA台帳の入力UXも分析処置と定義情報源へ完全一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("IA台帳の入力UXも分析処置と定義情報源へ完全一致する", () => {
+  const root = iaReconstructionFixtureRoot();
+  const indexPath = path.join(root, "03_IA", "01_Information_Architecture.md");
+  write(
+    indexPath,
+    fs
+      .readFileSync(indexPath, "utf8")
+      .replace("| UX-000001 |", "| UX-000002 |"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ia-analysis-definition-closure-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * IA関係は分析処置節と定義情報源節の外へ移せないを検証する。
+ *
+ * @responsibility IA関係は分析処置節と定義情報源節の外へ移せないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA関係は分析処置節と定義情報源節の外へ移せないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("IA関係は分析処置節と定義情報源節の外へ移せない", () => {
+  for (const target of ["analysis", "definition"] as const) {
+    const root = iaReconstructionFixtureRoot();
+    const filePath =
+      target === "analysis"
+        ? path.join(root, "03_IA", "Analysis", "UX-000001", "ia_analysis.md")
+        : path.join(
+            root,
+            "03_IA",
+            "Definitions",
+            "IA-000001",
+            "ia_definition.md",
+          );
+    const source = fs.readFileSync(filePath, "utf8");
+    const moved =
+      target === "analysis"
+        ? source.replace(
+            "## 5. IA処置\n\n[IA-000001](../../Definitions/IA-000001/ia_definition.md)へ接続する。",
+            "[IA-000001](../../Definitions/IA-000001/ia_definition.md)\n\n## 5. IA処置\n\n処置先を本文外へ移した。",
+          )
+        : source.replace(
+            "## 情報源\n\n- [UX-000001のIA分析](../../Analysis/UX-000001/ia_analysis.md)",
+            "- [UX-000001のIA分析](../../Analysis/UX-000001/ia_analysis.md)\n\n## 情報源\n\n情報源を本文外へ移した。",
+          );
+    write(filePath, moved);
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "ia-analysis-definition-closure-mismatch",
+      ),
+      `${target}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * IA関係の重複行または対象節の重複を拒否するを検証する。
+ *
+ * @responsibility IA関係の重複行または対象節の重複を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA関係の重複行または対象節の重複を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("IA関係の重複行または対象節の重複を拒否する", () => {
+  for (const mutate of [
+    (root: string) => {
+      const indexPath = path.join(
+        root,
+        "03_IA",
+        "01_Information_Architecture.md",
+      );
+      const source = fs.readFileSync(indexPath, "utf8");
+      const row = source
+        .split(/\r?\n/u)
+        .find((line) => line.startsWith("| [IA-000001]"));
+      write(indexPath, `${source}${row}\n`);
+    },
+    (root: string) => {
+      const analysisPath = path.join(
+        root,
+        "03_IA",
+        "Analysis",
+        "UX-000001",
+        "ia_analysis.md",
+      );
+      write(
+        analysisPath,
+        `${fs.readFileSync(analysisPath, "utf8")}\n## 5. IA処置\n\n[IA-000001](../../Definitions/IA-000001/ia_definition.md)へ接続する。\n`,
+      );
+    },
+    (root: string) => {
+      const definitionPath = path.join(
+        root,
+        "03_IA",
+        "Definitions",
+        "IA-000001",
+        "ia_definition.md",
+      );
+      write(
+        definitionPath,
+        `${fs.readFileSync(definitionPath, "utf8")}\n## 情報源\n\n- [UX-000001のIA分析](../../Analysis/UX-000001/ia_analysis.md)\n`,
+      );
+    },
+  ]) {
+    const root = iaReconstructionFixtureRoot();
+    mutate(root);
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "ia-analysis-definition-closure-mismatch",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * 非表示Markdownだけに置かれたIA台帳・処置・情報源を拒否するを検証する。
+ *
+ * @responsibility 非表示Markdownだけに置かれたIA台帳・処置・情報源を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 非表示Markdownだけに置かれたIA台帳・処置・情報源を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("非表示Markdownだけに置かれたIA台帳・処置・情報源を拒否する", () => {
+  const cases: Array<{
+    file: (root: string) => string;
+    canonical: string;
+    replacement: string;
+    hide: (value: string) => string;
+  }> = [
+    {
+      file: (root) =>
+        path.join(root, "03_IA", "01_Information_Architecture.md"),
+      canonical:
+        "| [IA-000001](Definitions/IA-000001/ia_definition.md) | 試験用情報 | UX-000001 |",
+      replacement: "台帳関係は表示されない例だけに置く。",
+      hide: (value) => `\n\`\`\`text\n${value}\n\`\`\`\n`,
+    },
+    {
+      file: (root) =>
+        path.join(root, "03_IA", "Analysis", "UX-000001", "ia_analysis.md"),
+      canonical:
+        "## 5. IA処置\n\n[IA-000001](../../Definitions/IA-000001/ia_definition.md)へ接続する。",
+      replacement: "## 5. 処置記録\n\n正式な処置節はない。",
+      hide: (value) => `\n~~~text\n${value}\n~~~\n`,
+    },
+    {
+      file: (root) =>
+        path.join(
+          root,
+          "03_IA",
+          "Definitions",
+          "IA-000001",
+          "ia_definition.md",
+        ),
+      canonical:
+        "## 情報源\n\n- [UX-000001のIA分析](../../Analysis/UX-000001/ia_analysis.md)",
+      replacement: "## 参考記録\n\n正式な情報源節はない。",
+      hide: (value) => `\n<!--\n${value}\n-->\n`,
+    },
+  ];
+
+  for (const item of cases) {
+    const root = iaReconstructionFixtureRoot();
+    const filePath = item.file(root);
+    const source = fs.readFileSync(filePath, "utf8");
+    write(
+      filePath,
+      source.replace(item.canonical, item.replacement) +
+        item.hide(item.canonical),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some((finding) =>
+        [
+          "ia-definition-index-coverage-mismatch",
+          "ia-analysis-contract-invalid",
+          "ia-definition-contract-invalid",
+          "ia-analysis-definition-closure-mismatch",
+        ].includes(finding.code),
+      ),
+      `${filePath}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * 表示されるIA構造が正しければ非表示の偽構造を関係として数えないを検証する。
+ *
+ * @responsibility 表示されるIA構造が正しければ非表示の偽構造を関係として数えないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 表示されるIA構造が正しければ非表示の偽構造を関係として数えないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("表示されるIA構造が正しければ非表示の偽構造を関係として数えない", () => {
+  const root = iaReconstructionFixtureRoot();
+  const indexPath = path.join(root, "03_IA", "01_Information_Architecture.md");
+  const analysisPath = path.join(
+    root,
+    "03_IA",
+    "Analysis",
+    "UX-000001",
+    "ia_analysis.md",
+  );
+  const definitionPath = path.join(
+    root,
+    "03_IA",
+    "Definitions",
+    "IA-000001",
+    "ia_definition.md",
+  );
+  write(
+    indexPath,
+    `${fs.readFileSync(indexPath, "utf8")}\n\`\`\`text\n| [IA-000001](Definitions/IA-000001/ia_definition.md) | 重複 | UX-000001 |\n\`\`\`\n`,
+  );
+  write(
+    analysisPath,
+    `${fs.readFileSync(analysisPath, "utf8")}\n~~~text\n## 5. IA処置\n\n[IA-000002](../../Definitions/IA-000002/ia_definition.md)へ接続する。\n~~~\n`,
+  );
+  write(
+    definitionPath,
+    `${fs.readFileSync(definitionPath, "utf8")}\n<!--\n## 情報源\n\n- [UX-000002のIA分析](../../Analysis/UX-000002/ia_analysis.md)\n-->\n`,
+  );
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some((finding) =>
+      [
+        "ia-definition-index-coverage-mismatch",
+        "ia-analysis-contract-invalid",
+        "ia-definition-contract-invalid",
+        "ia-analysis-definition-closure-mismatch",
+      ].includes(finding.code),
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * 未閉鎖HTMLコメントだけに置かれたIA構造を成立根拠にしないを検証する。
+ *
+ * @responsibility 未閉鎖HTMLコメントだけに置かれたIA構造を成立根拠にしないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 未閉鎖HTMLコメントだけに置かれたIA構造を成立根拠にしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("未閉鎖HTMLコメントだけに置かれたIA構造を成立根拠にしない", () => {
+  const cases = [
+    {
+      file: (root: string) =>
+        path.join(root, "03_IA", "01_Information_Architecture.md"),
+      canonical:
+        "| [IA-000001](Definitions/IA-000001/ia_definition.md) | 試験用情報 | UX-000001 |",
+      replacement: "台帳関係は未閉鎖コメント内だけに置く。",
+    },
+    {
+      file: (root: string) =>
+        path.join(root, "03_IA", "Analysis", "UX-000001", "ia_analysis.md"),
+      canonical:
+        "## 5. IA処置\n\n[IA-000001](../../Definitions/IA-000001/ia_definition.md)へ接続する。",
+      replacement: "## 5. 処置記録\n\n正式な処置節はない。",
+    },
+    {
+      file: (root: string) =>
+        path.join(
+          root,
+          "03_IA",
+          "Definitions",
+          "IA-000001",
+          "ia_definition.md",
+        ),
+      canonical:
+        "## 情報源\n\n- [UX-000001のIA分析](../../Analysis/UX-000001/ia_analysis.md)",
+      replacement: "## 参考記録\n\n正式な情報源節はない。",
+    },
+  ];
+
+  for (const item of cases) {
+    const root = iaReconstructionFixtureRoot();
+    const filePath = item.file(root);
+    const source = fs.readFileSync(filePath, "utf8");
+    write(
+      filePath,
+      `${source.replace(item.canonical, item.replacement)}\n<!--\n${item.canonical}\n`,
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some((finding) =>
+        [
+          "ia-definition-index-coverage-mismatch",
+          "ia-analysis-contract-invalid",
+          "ia-definition-contract-invalid",
+          "ia-analysis-definition-closure-mismatch",
+        ].includes(finding.code),
+      ),
+      `${filePath}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * コメントとコードフェンスの入れ子は後続の正式IA構造を隠さないを検証する。
+ *
+ * @responsibility コメントとコードフェンスの入れ子は後続の正式IA構造を隠さないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus コメントとコードフェンスの入れ子は後続の正式IA構造を隠さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("コメントとコードフェンスの入れ子は後続の正式IA構造を隠さない", () => {
+  for (const prefix of [
+    "<!--\n```text\n~~~text\n-->\n",
+    "```text\n<!--\n~~~text\n```\n",
+    "~~~text\n<!--\n```text\n~~~\n",
+  ]) {
+    const root = iaReconstructionFixtureRoot();
+    for (const filePath of [
+      path.join(root, "03_IA", "01_Information_Architecture.md"),
+      path.join(root, "03_IA", "Analysis", "UX-000001", "ia_analysis.md"),
+      path.join(root, "03_IA", "Definitions", "IA-000001", "ia_definition.md"),
+    ])
+      write(filePath, prefix + fs.readFileSync(filePath, "utf8"));
+
+    const result = runChecker(root);
+    assert.ok(
+      !result.report.findings.some((finding) =>
+        [
+          "ia-definition-index-coverage-mismatch",
+          "ia-analysis-contract-invalid",
+          "ia-definition-contract-invalid",
+          "ia-analysis-definition-closure-mismatch",
+        ].includes(finding.code),
+      ),
+      `${prefix}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * UX要求分析Directoryの全欠落を拒否するを検証する。
+ *
+ * @responsibility UX要求分析Directoryの全欠落を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX要求分析Directoryの全欠落を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX要求分析Directoryの全欠落を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  fs.mkdirSync(path.join(root, "01_Discovery"), { recursive: true });
+  fs.mkdirSync(path.join(root, "02_UX"), { recursive: true });
+  fs.writeFileSync(path.join(root, "01_Principles.md"), "# Principles\n");
+  fs.writeFileSync(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n",
+  );
+  fs.writeFileSync(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  fs.rmSync(path.join(root, "02_UX", "Analysis"), {
+    recursive: true,
+    force: true,
+  });
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "ux-requirement-analysis-root-missing" &&
+        finding.path === "02_UX/Analysis",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Discoveryひな型へ空の共通Evidence Rootを再導入できないを検証する。
+ *
+ * @responsibility Discoveryひな型へ空の共通Evidence Rootを再導入できないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Discoveryひな型へ空の共通Evidence Rootを再導入できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Discoveryひな型へ空の共通Evidence Rootを再導入できない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+  write(
+    path.join(root, "template", "01_Discovery", "Evidence", ".gitkeep"),
+    "",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "phase-repository-legacy-root-present" &&
+        finding.path === "template/01_Discovery/Evidence",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Discovery分析は工程と役割を識別できる成果物種別を宣言するを検証する。
+ *
+ * @responsibility Discovery分析は工程と役割を識別できる成果物種別を宣言するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Discovery分析は工程と役割を識別できる成果物種別を宣言するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Discovery分析は工程と役割を識別できる成果物種別を宣言する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+  write(
+    path.join(root, "01_Discovery", "Analysis", "EXP-000001", "exploration.md"),
+    "# 探索\n\n成果物種別: 探索記録\n\n探索ID: `EXP-000001`\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "discovery-analysis-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Discovery正本は可視で評価済みのChecklistを必要とするを検証する。
+ *
+ * @responsibility Discovery正本は可視で評価済みのChecklistを必要とするの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Discovery正本は可視で評価済みのChecklistを必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Discovery正本は可視で評価済みのChecklistを必要とする", () => {
+  for (const checklist of [
+    "<!--\n## Checklist\n\n- [x] 本文を確認した。\n-->",
+    "## Checklist\n\n- [ ] 本文を確認した。",
+    "## Checklist\n\n- 確認した。",
+  ]) {
+    const root = dispositionFixtureRoot();
+    write(
+      path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+      `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+    );
+    write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+    fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+    const analysisPath = path.join(
+      root,
+      "01_Discovery",
+      "Analysis",
+      "EXP-000001",
+      "exploration.md",
+    );
+    write(
+      analysisPath,
+      `# 探索\n\n成果物種別: Discovery分析\n探索ID: \`EXP-000001\`\n\n${checklist}\n`,
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "discovery-checklist-contract-invalid" &&
+          finding.path === "01_Discovery/Analysis/EXP-000001/exploration.md",
+      ),
+      `${checklist}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * Discovery正本は理由付きのOPEN・FAIL・N/Aを受け付けるを検証する。
+ *
+ * @responsibility Discovery正本は理由付きのOPEN・FAIL・N/Aを受け付けるの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Discovery正本は理由付きのOPEN・FAIL・N/Aを受け付けるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Discovery正本は理由付きのOPEN・FAIL・N/Aを受け付ける", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    `# Discovery\n\n${evaluatedChecklist(
+      discoveryRootChecklistTestItems,
+      new Map([
+        [1, ["OPEN", "人間確認を待っている"]],
+        [2, ["FAIL", "関係の根拠が不足している"]],
+        [4, ["N/A", "基本図の対象が存在しない"]],
+      ]),
+    )}\n`,
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) =>
+        finding.code === "discovery-checklist-contract-invalid" &&
+        finding.path === "01_Discovery/01_Product_Discovery.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Discovery Checklistは末尾と成果物種別固有の項目集合を必要とするを検証する。
+ *
+ * @responsibility Discovery Checklistは末尾と成果物種別固有の項目集合を必要とするの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Discovery Checklistは末尾と成果物種別固有の項目集合を必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Discovery Checklistは末尾と成果物種別固有の項目集合を必要とする", () => {
+  const invalidChecklists = [
+    `${evaluatedChecklist(discoveryExplorationChecklistTestItems)}\n\n## 補足\n\nChecklist後の本文。`,
+    `${evaluatedChecklist(discoveryExplorationChecklistTestItems)}\n\nChecklist後の通常段落。`,
+    `${evaluatedChecklist(discoveryExplorationChecklistTestItems)}\n\n### 小見出し\n\n補足。`,
+    `${evaluatedChecklist(discoveryExplorationChecklistTestItems)}\n\n> Checklist後の引用。`,
+    `${evaluatedChecklist(discoveryExplorationChecklistTestItems)}\n\n| 項目 | 値 |\n|---|---|\n| 補足 | 不可 |`,
+    evaluatedChecklist(discoveryRootChecklistTestItems),
+    "## Checklist\n\n- [x] 要求定義を確認した。",
+  ];
+  for (const checklist of invalidChecklists) {
+    const root = dispositionFixtureRoot();
+    write(
+      path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+      `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+    );
+    write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+    fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+    const analysisPath = path.join(
+      root,
+      "01_Discovery",
+      "Analysis",
+      "EXP-000001",
+      "exploration.md",
+    );
+    write(
+      analysisPath,
+      `# 探索\n\n成果物種別: Discovery分析\n探索ID: \`EXP-000001\`\n\n${checklist}\n`,
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "discovery-checklist-contract-invalid" &&
+          finding.path === "01_Discovery/Analysis/EXP-000001/exploration.md",
+      ),
+      `${checklist}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * Discoveryひな型のChecklist項目を後続Sectionへ移せないを検証する。
+ *
+ * @responsibility Discoveryひな型のChecklist項目を後続Sectionへ移せないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Discoveryひな型のChecklist項目を後続Sectionへ移せないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Discoveryひな型のChecklist項目を後続Sectionへ移せない", () => {
+  for (const heading of [
+    "## 補足",
+    "### 小見出し",
+    "   ## 字下げした補足",
+    "  ### 字下げした小見出し",
+    "補足\n---",
+  ]) {
+    const root = dispositionFixtureRoot();
+    write(
+      path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+      `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+    );
+    write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+    fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+    const templatePath = path.join(
+      root,
+      "template",
+      "01_Discovery",
+      "Analysis",
+      "EXP-XXXXXX",
+      "exploration.md",
+    );
+    const template = fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template",
+        "01_Discovery",
+        "Analysis",
+        "EXP-XXXXXX",
+        "exploration.md",
+      ),
+      "utf8",
+    );
+    write(
+      templatePath,
+      template.replace("\n- [ ] 情報源", `\n${heading}\n\n- [ ] 情報源`),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "discovery-checklist-template-invalid" &&
+          finding.path ===
+            "template/01_Discovery/Analysis/EXP-XXXXXX/exploration.md",
+      ),
+      `${heading}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * UX正本は成果物別の可視で評価済みのChecklistを必要とするを検証する。
+ *
+ * @responsibility UX正本は成果物別の可視で評価済みのChecklistを必要とするの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX正本は成果物別の可視で評価済みのChecklistを必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX正本は成果物別の可視で評価済みのChecklistを必要とする", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    `# UX\n\n${evaluatedChecklist(uxIndexChecklistTestItems)}\n`,
+  );
+  const analysisPath = path.join(
+    root,
+    "02_UX",
+    "Analysis",
+    "REQ-000001",
+    "ux_analysis.md",
+  );
+  write(
+    analysisPath,
+    `# UX分析\n\n成果物種別: UX分析\n\n## Checklist\n\n- [ ] 未評価のまま残した\n`,
+  );
+  const definitionPath = path.join(
+    root,
+    "02_UX",
+    "Definitions",
+    "UX-000001",
+    "ux_definition.md",
+  );
+  write(
+    definitionPath,
+    `# UX定義\n\n成果物種別: UX定義\nUX ID: \`UX-000001\`\n状態: Canonical\n\n${evaluatedChecklist(uxDefinitionChecklistTestItems)}\n\nChecklist後の本文。\n`,
+  );
+  const result = runChecker(root);
+  for (const expectedPath of [
+    "02_UX/Analysis/REQ-000001/ux_analysis.md",
+    "02_UX/Definitions/UX-000001/ux_definition.md",
+  ])
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "ux-checklist-contract-invalid" &&
+          finding.path === expectedPath,
+      ),
+      `${expectedPath}\n${result.stdout}\n${result.stderr}`,
+    );
+});
+
+/**
+ * UX Checklistは末尾と成果物種別固有の項目集合を必要とするを検証する。
+ *
+ * @responsibility UX Checklistは末尾と成果物種別固有の項目集合を必要とするの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX Checklistは末尾と成果物種別固有の項目集合を必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX Checklistは末尾と成果物種別固有の項目集合を必要とする", () => {
+  for (const invalidChecklist of [
+    evaluatedChecklist(uxIndexChecklistTestItems),
+    `${evaluatedChecklist(uxAnalysisChecklistTestItems)}\n\n## 補足\n\n後続本文。`,
+    `${evaluatedChecklist(uxAnalysisChecklistTestItems)}\n\n> 後続の引用。`,
+    "## Checklist\n\n- [x] UXを確認した",
+  ]) {
+    const root = dispositionFixtureRoot();
+    write(
+      path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+      `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+    );
+    write(
+      path.join(root, "02_UX", "01_User_Experience.md"),
+      `# UX\n\n${evaluatedChecklist(uxIndexChecklistTestItems)}\n`,
+    );
+    write(
+      path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+      `# UX分析\n\n成果物種別: UX分析\n\n${invalidChecklist}\n`,
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "ux-checklist-contract-invalid" &&
+          finding.path === "02_UX/Analysis/REQ-000001/ux_analysis.md",
+      ),
+      `${invalidChecklist}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * UXひな型のChecklist項目を後続Sectionへ移せないを検証する。
+ *
+ * @responsibility UXひな型のChecklist項目を後続Sectionへ移せないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UXひな型のChecklist項目を後続Sectionへ移せないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UXひな型のChecklist項目を後続Sectionへ移せない", () => {
+  for (const heading of ["## 補足", "   ### 字下げ", "補足\n---"]) {
+    const root = dispositionFixtureRoot();
+    write(
+      path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+      `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+    );
+    write(
+      path.join(root, "02_UX", "01_User_Experience.md"),
+      `# UX\n\n${evaluatedChecklist(uxIndexChecklistTestItems)}\n`,
+    );
+    fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+    const templatePath = path.join(
+      root,
+      "template",
+      "02_UX",
+      "Analysis",
+      "REQ-XXXXXX",
+      "ux_analysis.md",
+    );
+    const template = fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template",
+        "02_UX",
+        "Analysis",
+        "REQ-XXXXXX",
+        "ux_analysis.md",
+      ),
+      "utf8",
+    );
+    write(
+      templatePath,
+      template.replace("\n- [ ] 同じREQ", `\n${heading}\n\n- [ ] 同じREQ`),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "ux-checklist-template-invalid" &&
+          finding.path === "template/02_UX/Analysis/REQ-XXXXXX/ux_analysis.md",
+      ),
+      `${heading}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * UXの正本投影と七つのひな型を欠落させられないを検証する。
+ *
+ * @responsibility UXの正本投影と七つのひな型を欠落させられないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UXの正本投影と七つのひな型を欠落させられないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UXの正本投影と七つのひな型を欠落させられない", () => {
+  const root = dispositionFixtureRoot();
+  fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    `# UX\n\n${evaluatedChecklist(uxIndexChecklistTestItems)}\n`,
+  );
+
+  const result = runChecker(root);
+  for (const expectedPath of [
+    "02_UX/02_Personas.md",
+    "02_UX/03_Experience_Map.md",
+    "02_UX/04_Service_Blueprint.md",
+    "02_UX/05_Quality_Expectations.md",
+  ])
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "ux-canonical-projection-missing" &&
+          finding.path === expectedPath,
+      ),
+      `${expectedPath}\n${result.stdout}\n${result.stderr}`,
+    );
+
+  for (const expectedPath of [
+    "template/02_UX/01_User_Experience.md",
+    "template/02_UX/02_Personas.md",
+    "template/02_UX/03_Experience_Map.md",
+    "template/02_UX/04_Service_Blueprint.md",
+    "template/02_UX/05_Quality_Expectations.md",
+    "template/02_UX/Analysis/REQ-XXXXXX/ux_analysis.md",
+    "template/02_UX/Definitions/UX-XXXXXX/ux_definition.md",
+  ])
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "ux-template-missing" &&
+          finding.path === expectedPath,
+      ),
+      `${expectedPath}\n${result.stdout}\n${result.stderr}`,
+    );
+});
+
+/**
+ * 横断UX成果物は全UX IDを重複なく投影するを検証する。
+ *
+ * @responsibility 横断UX成果物は全UX IDを重複なく投影するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 横断UX成果物は全UX IDを重複なく投影するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("横断UX成果物は全UX IDを重複なく投影する", () => {
+  const root = dispositionFixtureRoot();
+  fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    `# UX\n\n| UX ID | 元の要求 |\n|---|---|\n| \`UX-000001\` | \`REQ-000001\` |\n| \`UX-000002\` | \`REQ-000002\` |\n\n${evaluatedChecklist(uxIndexChecklistTestItems)}\n`,
+  );
+  write(
+    path.join(root, "02_UX", "02_Personas.md"),
+    "# Personas\n\n## 3. UX成果との対応\n\n| UX ID | 対応 |\n|---|---|\n| [UX-000001](Definitions/UX-000001/ux_definition.md) | 対応 |\n| [UX-000001](Definitions/UX-000001/ux_definition.md) | 重複 |\n",
+  );
+
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "ux-cross-cutting-projection-incomplete" &&
+        finding.path === "02_UX/02_Personas.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UXからIAを飛び越える旧Handoffを再導入できないを検証する。
+ *
+ * @responsibility UXからIAを飛び越える旧Handoffを再導入できないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UXからIAを飛び越える旧Handoffを再導入できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UXからIAを飛び越える旧Handoffを再導入できない", () => {
+  const root = dispositionFixtureRoot();
+  fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    `# UX\n\nIA／UI／SPEC／Verificationへ直接Handoffする。\n\n${evaluatedChecklist(uxIndexChecklistTestItems)}\n`,
+  );
+
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "ux-direct-downstream-handoff-reintroduced" &&
+        finding.path === "02_UX/01_User_Experience.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UXの正規Handoffへ言い換えた直接接続を追加できないを検証する。
+ *
+ * @responsibility UXの正規Handoffへ言い換えた直接接続を追加できないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UXの正規Handoffへ言い換えた直接接続を追加できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UXの正規Handoffへ言い換えた直接接続を追加できない", () => {
+  for (const [relativePath, insertionPoint] of [
+    ["02_UX/01_User_Experience.md", "| IAへの正式な引き渡し |"],
+    [
+      "02_UX/Analysis/REQ-000001/ux_analysis.md",
+      "| SPEC（後続Contract Relation） |",
+    ],
+    [
+      "02_UX/Definitions/UX-000001/ux_definition.md",
+      "| SPEC（後続Contract Relation） |",
+    ],
+  ] as const) {
+    const root = dispositionFixtureRoot();
+    fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+    write(
+      path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+      `# Discovery\n\n${evaluatedChecklist(discoveryRootChecklistTestItems)}\n`,
+    );
+    write(
+      path.join(root, "02_UX", "01_User_Experience.md"),
+      fs.readFileSync(
+        path.join(repositoryRoot, "02_UX", "01_User_Experience.md"),
+        "utf8",
+      ),
+    );
+    const sourcePath = path.join(repositoryRoot, relativePath);
+    const targetPath = path.join(root, relativePath);
+    const source = fs.readFileSync(sourcePath, "utf8");
+    const line = source
+      .split(/\r?\n/u)
+      .find((candidate) => candidate.startsWith(insertionPoint));
+    assert.ok(line, `${relativePath}: insertion point`);
+    const invalidHandoff =
+      relativePath === "02_UX/01_User_Experience.md"
+        ? "| Developmentへの直接引き渡し | IAを経由せず実装へ渡す |"
+        : "| Architecture（直接Handoff） | UI／SPECを経由せず設計へ渡す |";
+    write(targetPath, source.replace(line, `${line}\n${invalidHandoff}`));
+
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "ux-direct-downstream-handoff-reintroduced" &&
+          finding.path === relativePath,
+      ),
+      `${relativePath}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * UXひな型へ空の共通Evidence Rootを再導入できないを検証する。
+ *
+ * @responsibility UXひな型へ空の共通Evidence Rootを再導入できないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UXひな型へ空の共通Evidence Rootを再導入できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UXひな型へ空の共通Evidence Rootを再導入できない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+  write(path.join(root, "template", "02_UX", "Evidence", ".gitkeep"), "");
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "phase-repository-legacy-root-present" &&
+        finding.path === "template/02_UX/Evidence",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UXを主な関係領域に持たない採用要求もUX分析から省略できないを検証する。
+ *
+ * @responsibility UXを主な関係領域に持たない採用要求もUX分析から省略できないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UXを主な関係領域に持たない採用要求もUX分析から省略できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UXを主な関係領域に持たない採用要求もUX分析から省略できない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | Checker | EXP | 要求採用 | Quality、Maintenance |\n| `REQ-000003` | Runtime | EXP | 要求採用 | UX、Architecture |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000003](Analysis/REQ-000003/ux_analysis.md)\n",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000003", "ux_analysis.md"),
+    "# Analysis\n\n要求: `REQ-000003`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| Milestone | `New → UX-000001` | 利用者が目的を委ねられる独立成果である。 | 受入条件による委任を補う。 |\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "ux-requirement-analysis-coverage-mismatch" &&
+        finding.path === "02_UX/01_User_Experience.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UX分析は探索記録だけでなく同じREQのDefinitionを正式入力にするを検証する。
+ *
+ * @responsibility UX分析は探索記録だけでなく同じREQのDefinitionを正式入力にするの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析は探索記録だけでなく同じREQのDefinitionを正式入力にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX分析は探索記録だけでなく同じREQのDefinitionを正式入力にする", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  write(
+    path.join(
+      root,
+      "01_Discovery",
+      "Definitions",
+      "REQ-000001",
+      "requirement.md",
+    ),
+    discoveryDefinition("REQ-000001", "EXP-000001", "固有A"),
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n要求: `REQ-000001`\n探索元: [EXP-000001](../../../01_Discovery/Analysis/EXP-000001/exploration.md)\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ux-requirement-formal-input-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UX分析は別REQのDefinitionを正式入力にできないを検証する。
+ *
+ * @responsibility UX分析は別REQのDefinitionを正式入力にできないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析は別REQのDefinitionを正式入力にできないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX分析は別REQのDefinitionを正式入力にできない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  write(
+    path.join(
+      root,
+      "01_Discovery",
+      "Definitions",
+      "REQ-000001",
+      "requirement.md",
+    ),
+    discoveryDefinition("REQ-000001", "EXP-000001", "固有A"),
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n分析対象: [REQ-000002 別要求](../../../01_Discovery/Definitions/REQ-000002/requirement.md)\n判断根拠: [EXP-000001 探索](../../../01_Discovery/Analysis/EXP-000001/exploration.md)\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ux-requirement-formal-input-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UX分析の正式入力Headerは可視本文のHeader自身へ結合するを検証する。
+ *
+ * @responsibility UX分析の正式入力Headerは可視本文のHeader自身へ結合するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析の正式入力Headerは可視本文のHeader自身へ結合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX分析の正式入力Headerは可視本文のHeader自身へ結合する", () => {
+  const invalidVariants = [
+    "<!-- 分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md) -->\n\n参考: [同じ要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)",
+    "```text\n分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n```\n\n参考: [同じ要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)",
+    "~~~text\n分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n~~~\n\n参考: [同じ要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)",
+  ];
+  for (const body of invalidVariants) {
+    const root = dispositionFixtureRoot();
+    write(
+      path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+      "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+    );
+    write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+    write(
+      path.join(
+        root,
+        "01_Discovery",
+        "Definitions",
+        "REQ-000001",
+        "requirement.md",
+      ),
+      discoveryDefinition("REQ-000001", "EXP-000001", "固有A"),
+    );
+    write(
+      path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+      `# Analysis\n\n${body}\n`,
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "ux-requirement-formal-input-invalid",
+      ),
+      `${body}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  write(
+    path.join(
+      root,
+      "01_Discovery",
+      "Definitions",
+      "REQ-000001",
+      "requirement.md",
+    ),
+    discoveryDefinition("REQ-000001", "EXP-000001", "固有A"),
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n\n<!-- 分析対象: [REQ-000001 重複例](../../../01_Discovery/Definitions/REQ-000001/requirement.md) -->\n\n```text\n分析対象: [REQ-000001 重複例](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n```\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) => finding.code === "ux-requirement-formal-input-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UX分析は全CommonMark参照形式のSource Analysis参照でDefinitionを補完できないを検証する。
+ *
+ * @responsibility UX分析は全CommonMark参照形式のSource Analysis参照でDefinitionを補完できないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析は全CommonMark参照形式のSource Analysis参照でDefinitionを補完できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX分析は全CommonMark参照形式のSource Analysis参照でDefinitionを補完できない", () => {
+  const variants = [
+    "不足する意味は[過去の探索](../../../01_Discovery/Analysis/EXP-000001/exploration.md)から補う。",
+    "不足する意味は[過去の探索](../../../01_Discovery/Analysis/EXP-000001/exploration.md#仮説)から補う。",
+    "不足する意味は[過去の探索][src]から補う。\n\n[src]: ../../../01_Discovery/Analysis/EXP-000001/exploration.md",
+    "不足する意味は[過去の探索][]から補う。\n\n[過去の探索]: ../../../01_Discovery/Analysis/EXP-000001/exploration.md",
+    "不足する意味は[過去の探索]から補う。\n\n[過去の探索]: ../../../01_Discovery/Analysis/EXP-000001/exploration.md",
+    "不足する意味は[^根拠]から補う。\n\n[^根拠]: ../../../01_Discovery/Analysis/EXP-000001/exploration.md",
+    '不足する意味は<a href="../../../01_Discovery/Analysis/EXP-000001/exploration.md">過去の探索</a>から補う。',
+    "不足する意味は`../../../01_Discovery/Analysis/EXP-000001/exploration.md`から補う。",
+    "不足する意味は ../../../01_Discovery/Analysis/EXP-000001/exploration.md から補う。",
+    "不足する意味は ./../../../01_Discovery/Analysis/EXP-000001/exploration.md から補う。",
+    "不足する意味は 01_Discovery/Analysis/EXP-000001/exploration.md から補う。",
+    '<a href="../../../../outside/requirement.md">ルート外入力</a>',
+    "<a href=../../../01_Discovery/Analysis/EXP-000001/exploration.md>過去の探索</a>",
+    '<a href="../../../01_Discovery/Analysis/EXP-000001/exploration%ZZ.md">不正符号化入力</a>',
+    "不足する意味は 01_Discovery/Analysis/EXP-INVALID/exploration.md から補う。",
+    '<a href="../../../01_Discovery/Analysis/EXP-000001/exploration%252emd">二重符号化入力</a>',
+    '<a href="..&sol;..&sol;..&sol;01&lowbar;Discovery&sol;Analysis&sol;EXP-000001&sol;exploration&period;md">entity化した探索入力</a>',
+    '<a href="../../../01_Discovery/Analysis/EXP-000001/exploration&#46;md">数値entity化した探索入力</a>',
+    '<a href="../../../01_Discovery/Analysis/EXP-000001/exploration&#999999999999;md">範囲外entity入力</a>',
+    '<a href="../../../01_Discovery/Analysis/EXP-000001/exploration&#xD800;md">surrogate entity入力</a>',
+    '<a href="../../../01_Discovery/Analysis/EXP-000001/exploration&solmd">不完全entity入力</a>',
+    "[entity化inline](..&sol;..&sol;..&sol;01&lowbar;Discovery&sol;Analysis&sol;EXP-000001&sol;exploration&period;md)",
+    "[未知entity inline](../../../01&bogus;_Discovery/Analysis/EXP-000001/exploration.md)",
+    "[未知entity full][src]\n\n[src]: ../../../01_Discovery&bogus;/Analysis/EXP-000001/exploration.md",
+    "[未知entity collapsed][]\n\n[未知entity collapsed]: ../../../01_Discovery/&bogus;Analysis/EXP-000001/exploration.md",
+    "[未知entity shortcut]\n\n[未知entity shortcut]: ../../../01_Discovery/Analysis&bogus;/EXP-000001/exploration.md",
+    "[^未知entity]\n\n[^未知entity]: ../../../01_Discovery/Analysis/EXP-000001/exploration&bogus;.md",
+    "[複合未知entity inline](../../../01&u;Discovery&v;Analysis&sol;EXP-000001&sol;exploration&period;md)",
+    "[複合未知entity full][multi]\n\n[multi]: ../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md",
+    "[複合未知entity collapsed][]\n\n[複合未知entity collapsed]: ../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md",
+    "[複合未知entity shortcut]\n\n[複合未知entity shortcut]: ../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md",
+    "[^複合未知entity]\n\n[^複合未知entity]: ../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md",
+    '<a href="../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md">複合未知entity HTML</a>',
+    "<a href=../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md>複合未知entity非引用HTML</a>",
+    "不足する意味は ../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md から補う。",
+    "不足する意味は ../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md\\&literal; から補う。",
+    "不足する意味は \\&literal;../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md から補う。",
+    "不足する意味は ../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration&x;.md\\&literal; から補う。",
+    "不足する意味は \\&sol;note:../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md から補う。",
+    "不足する意味は \\&sol;,..&sol;..&sol;..&sol;01&lowbar;Discovery&sol;Analysis&sol;EXP-000001&sol;exploration&period;md から補う。",
+    "不足する意味は \\&bsol;note:../../../01&u;Discovery&v;Definitions&w;REQ-000002/requirement.md から補う。",
+    "不足する意味は \\&sol;&#58;../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md から補う。",
+    "不足する意味は \\&bsol;&colon;../../../01&u;Discovery&v;Analysis&w;EXP-000001/exploration.md から補う。",
+    "不足する意味は ..&sol;..&sol;..&sol;&#48;&#49;&lowbar;Discovery&sol;Analysis&sol;EXP-000001&sol;exploration&period;md から補う。",
+    "不足する意味は ..&sol;..&sol;..&sol;&#x30;&#x31;&lowbar;Discovery&sol;Definitions&sol;REQ-000002&sol;requirement&period;md から補う。",
+    "不足する意味は ..&sol;..&sol;..&sol;0&#49;&lowbar;Discovery&sol;Analysis&sol;EXP-000001&sol;exploration&period;md から補う。",
+    '<a href="../../../01_Discovery/Analysis/EXP-000001/exploration&bogus;.md>閉じていないHTML入力',
+    "<a href=../../../01_Discovery/Analysis/EXP-000001/exploration&bogus;.md>未知entity非引用HTML</a>",
+    "不足する意味は ..&sol;..&sol;..&sol;01&lowbar;Discovery&sol;Analysis&sol;EXP-000001&sol;exploration&period;md から補う。",
+    "不足する意味は ../../../01_Discovery/Analysis/EXP-000001/exploration%252e&sol;md から補う。",
+  ];
+  for (const supplementalLink of variants) {
+    const root = dispositionFixtureRoot();
+    write(
+      path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+      "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+    );
+    write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+    write(
+      path.join(
+        root,
+        "01_Discovery",
+        "Definitions",
+        "REQ-000001",
+        "requirement.md",
+      ),
+      discoveryDefinition("REQ-000001", "EXP-000001", "固有A"),
+    );
+    write(
+      path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+      `# Analysis\n\n分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n\n## 補足\n\n${supplementalLink}\n`,
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "ux-requirement-formal-input-invalid",
+      ),
+      `${supplementalLink}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * UX分析の例示内にある探索Pathは正式入力へ昇格しないを検証する。
+ *
+ * @responsibility UX分析の例示内にある探索Pathは正式入力へ昇格しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析の例示内にある探索Pathは正式入力へ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX分析の例示内にある探索Pathは正式入力へ昇格しない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  write(
+    path.join(
+      root,
+      "01_Discovery",
+      "Definitions",
+      "REQ-000001",
+      "requirement.md",
+    ),
+    discoveryDefinition("REQ-000001", "EXP-000001", "固有A"),
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n\n<!-- ../../../01_Discovery/Analysis/EXP-000001/exploration.md -->\n\n```text\n../../../01_Discovery/Analysis/EXP-000001/exploration.md\n```\n\n~~~text\n01_Discovery/Analysis/EXP-000001/exploration.md\n~~~\n\n\\[例示](../../../01_Discovery/Analysis/EXP-000001/exploration.md)\n\n\\../../../01_Discovery/Analysis/EXP-000001/exploration.md\n\n\\..&sol;..&sol;..&sol;01&lowbar;Discovery&sol;Analysis&sol;EXP-000001&sol;exploration&period;md\n\n..\\&sol;..&sol;..&sol;01&lowbar;Discovery&sol;Analysis&sol;EXP-000001&sol;exploration&period;md\n\n..\\&sol;&#47;..&sol;..&sol;01&lowbar;Discovery&sol;Analysis&sol;EXP-000001&sol;exploration&period;md\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) => finding.code === "ux-requirement-formal-input-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UX分析の通常本文にあるentity付き一般語をPathと誤認しないを検証する。
+ *
+ * @responsibility UX分析の通常本文にあるentity付き一般語をPathと誤認しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析の通常本文にあるentity付き一般語をPathと誤認しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX分析の通常本文にあるentity付き一般語をPathと誤認しない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  write(
+    path.join(
+      root,
+      "01_Discovery",
+      "Definitions",
+      "REQ-000001",
+      "requirement.md",
+    ),
+    discoveryDefinition("REQ-000001", "EXP-000001", "固有A"),
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n\nDiscovery&amp;UX、Analysis&Design、Analysis&copy;、REQ-000001&REQ-000002は通常の説明であり、Pathではない。\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) => finding.code === "ux-requirement-formal-input-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UX分析は絶対PathのSource Analysis参照でDefinitionを補完できないを検証する。
+ *
+ * @responsibility UX分析は絶対PathのSource Analysis参照でDefinitionを補完できないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析は絶対PathのSource Analysis参照でDefinitionを補完できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX分析は絶対PathのSource Analysis参照でDefinitionを補完できない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  write(
+    path.join(
+      root,
+      "01_Discovery",
+      "Definitions",
+      "REQ-000001",
+      "requirement.md",
+    ),
+    discoveryDefinition("REQ-000001", "EXP-000001", "固有A"),
+  );
+  const sourceAnalysisPath = path.join(
+    root,
+    "01_Discovery",
+    "Analysis",
+    "EXP-000001",
+    "exploration.md",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    `# Analysis\n\n分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n\n補助入力: ${sourceAnalysisPath}\n`,
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ux-requirement-formal-input-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UX分析は正しいHeaderに任意参照形式の別REQ Definitionを追加できないを検証する。
+ *
+ * @responsibility UX分析は正しいHeaderに任意参照形式の別REQ Definitionを追加できないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析は正しいHeaderに任意参照形式の別REQ Definitionを追加できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX分析は正しいHeaderに任意参照形式の別REQ Definitionを追加できない", () => {
+  const variants = [
+    "補助入力: [別要求](../../../01_Discovery/Definitions/REQ-000002/requirement.md)",
+    "補助入力: [別要求]\n\n[別要求]: ../../../01_Discovery/Definitions/REQ-000002/requirement.md",
+    "補助入力: [^別要求]\n\n[^別要求]: ../../../01_Discovery/Definitions/REQ-000002/requirement.md",
+    '補助入力: <a href="../../../01_Discovery/Definitions/REQ-000002/requirement.md">別要求</a>',
+    "補助入力: `../../../01_Discovery/Definitions/REQ-000002/requirement.md`",
+  ];
+  for (const supplementalLink of variants) {
+    const root = dispositionFixtureRoot();
+    write(
+      path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+      "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n| `REQ-000002` | B | EXP | 要求採用 | UX |\n",
+    );
+    write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+    for (const [id, marker] of [
+      ["REQ-000001", "固有A"],
+      ["REQ-000002", "固有B"],
+    ])
+      write(
+        path.join(root, "01_Discovery", "Definitions", id, "requirement.md"),
+        discoveryDefinition(id, "EXP-000001", marker),
+      );
+    write(
+      path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+      `# Analysis\n\n分析対象: [REQ-000001 要求](../../../01_Discovery/Definitions/REQ-000001/requirement.md)\n\n${supplementalLink}\n`,
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "ux-requirement-formal-input-invalid",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * CheckerはUX定義の意味重複を機械的な不正と断定しないを検証する。
+ *
+ * @responsibility CheckerはUX定義の意味重複を機械的な不正と断定しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CheckerはUX定義の意味重複を機械的な不正と断定しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("CheckerはUX定義の意味重複を機械的な不正と断定しない", () => {
+  const root = dispositionFixtureRoot();
+  fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n| `UX-000002` B | `REQ-000001` |\n",
+  );
+  const sharedDefinitionBody =
+    "\n## 利用者成果\n\n独立成果。\n\n## 利用者・状況・目的\n\n| 項目 | 内容 |\n|---|---|\n| 主な想定利用者／利用状況 | 利用者 |\n| 利用のきっかけ／場面 | 開始時 |\n| 目的 | 状態を理解する |\n| 得られる結果 | 次へ進める |\n\n## 成立条件\n\n- 成立する。\n\n## 重要な体験と品質期待\n\n```text\n開始 → 理解 → 次へ\n```\n\n## 検証意図\n\n反証する。\n\n## 関係\n\n- Source REQ Analysis: REQ-000001\n";
+  for (const id of ["UX-000001", "UX-000002"])
+    write(
+      path.join(root, "02_UX", "Definitions", id, "ux_definition.md"),
+      `# ${id}\n\n成果物種別: UX定義\nUX ID: \`${id}\`\n${sharedDefinitionBody}`,
+    );
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) =>
+        finding.code === "ux-definition-semantic-boilerplate-duplicate",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UX定義はCanonicalまたはSuperseded以外の翻訳状態を拒否するを検証する。
+ *
+ * @responsibility UX定義はCanonicalまたはSuperseded以外の翻訳状態を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX定義はCanonicalまたはSuperseded以外の翻訳状態を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ */
+test("UX定義はCanonicalまたはSuperseded以外の翻訳状態を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n",
+  );
+  write(
+    path.join(root, "02_UX", "Definitions", "UX-000001", "ux_definition.md"),
+    "# UX-000001\n\n成果物種別: UX定義\nUX ID: `UX-000001`\n状態: 現行正本\n\n## 利用者成果\n\n成果。\n\n## 成立条件\n\n- 成立する。\n\n## 検証意図\n\n反証する。\n\n## 関係\n\n- 元の要求分析: REQ-000001\n",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# UX分析\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ux-definition-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UX定義は状態Headerの重複を拒否するを検証する。
+ *
+ * @responsibility UX定義は状態Headerの重複を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX定義は状態Headerの重複を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX定義は状態Headerの重複を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n",
+  );
+  write(
+    path.join(root, "02_UX", "Definitions", "UX-000001", "ux_definition.md"),
+    "# UX-000001\n\n成果物種別: UX定義\nUX ID: `UX-000001`\n状態: Canonical\n状態: 現行正本\n\n## 利用者成果\n\n成果。\n\n## 成立条件\n\n- 成立する。\n\n## 検証意図\n\n反証する。\n\n## 関係\n\n- 元の要求分析: REQ-000001\n",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# UX分析\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ux-definition-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * CheckerはDiscovery定義の意味重複を機械的な不正と断定しないを検証する。
+ *
+ * @responsibility CheckerはDiscovery定義の意味重複を機械的な不正と断定しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CheckerはDiscovery定義の意味重複を機械的な不正と断定しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("CheckerはDiscovery定義の意味重複を機械的な不正と断定しない", () => {
+  const root = dispositionFixtureRoot();
+  fs.mkdirSync(path.join(root, "02_UX", "Analysis"), { recursive: true });
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n| `REQ-000002` | B | EXP | 要求採用 | UX |\n",
+  );
+  write(path.join(root, "02_UX", "01_User_Experience.md"), "# UX\n");
+  for (const id of ["REQ-000001", "REQ-000002"])
+    write(
+      path.join(root, "01_Discovery", "Definitions", id, "requirement.md"),
+      discoveryDefinition(id, "EXP-000001", "全要求で同じ定型説明"),
+    );
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) =>
+        finding.code ===
+        "discovery-requirement-definition-boilerplate-duplicate",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UXのSame判断は要求固有の理由を必要とするを検証する。
+ *
+ * @responsibility UXのSame判断は要求固有の理由を必要とするの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UXのSame判断は要求固有の理由を必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UXのSame判断は要求固有の理由を必要とする", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | Checker | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 同じ成果 | `REQ-000001` |\n",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 同じ成果 | `Same → UX-000001` | 同じ。 | 補完。 |\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "ux-requirement-analysis-relation-invalid" &&
+        finding.path === "02_UX/Analysis/REQ-000001/ux_analysis.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UXのSame判断は4軸比較を揃えた構造を受け付けるを検証する。
+ *
+ * @responsibility UXのSame判断は4軸比較を揃えた構造を受け付けるの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UXのSame判断は4軸比較を揃えた構造を受け付けるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UXのSame判断は4軸比較を揃えた構造を受け付ける", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | Checker | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 同じ成果 | `REQ-000001` |\n",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n```text\nREQ-000001\n   └─ Same → UX-000001 同じ成果\n```\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 同じ成果 | `Same → UX-000001` | 4軸比較を参照。 | 要求固有の条件を補う。 |\n\n### Same判断の比較\n\n#### 同じ成果\n\n比較対象: `UX-000001`\n\n| 比較軸 | 既存UX | 現在の要求 | 差と統合判断 |\n|---|---|---|---|\n| 担い手 | 運用者 | 運用者 | 同じ担い手 |\n| 利用のきっかけ | 状態確認時 | 状態確認時 | 同じ場面 |\n| 得られる結果 | 判断できる | 判断できる | 同じ成果 |\n| 避ける失敗 | 誤認する | 誤認する | 同じ失敗 |\n\n統合理由: 4軸に独立した差がない。\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) =>
+        finding.code === "ux-requirement-analysis-relation-invalid" &&
+        finding.path === "02_UX/Analysis/REQ-000001/ux_analysis.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UX統合図と正式関係表のNewとSameは完全一致するを検証する。
+ *
+ * @responsibility UX統合図と正式関係表のNewとSameは完全一致するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX統合図と正式関係表のNewとSameは完全一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX統合図と正式関係表のNewとSameは完全一致する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n## 4. 利用者成果への統合\n\n```text\nREQ-000001\n   ├─ Same → UX-000001 同じ成果\n   └─ New  → UX-000002 残存した成果\n```\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 同じ成果 | `Same → UX-000001` | 4軸比較を参照。 | 条件を補う。 |\n\n#### 同じ成果\n\n比較対象: `UX-000001`\n\n| 比較軸 | 既存UX | 現在の要求 | 差と統合判断 |\n|---|---|---|---|\n| 担い手 | 運用者 | 運用者 | 同じ |\n| 利用のきっかけ | 開始時 | 開始時 | 同じ |\n| 得られる結果 | 判断できる | 判断できる | 同じ |\n| 避ける失敗 | 誤認 | 誤認 | 同じ |\n\n統合理由: 同じ成果である。\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "ux-requirement-analysis-relation-invalid" &&
+        finding.path === "02_UX/Analysis/REQ-000001/ux_analysis.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UX分析の責任境界表は正式な三列見出しを一件だけ持つを検証する。
+ *
+ * @responsibility UX分析の責任境界表は正式な三列見出しを一件だけ持つの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析の責任境界表は正式な三列見出しを一件だけ持つの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX分析の責任境界表は正式な三列見出しを一件だけ持つ", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n### この要求での責任境界\n\n| 担い手 | 運用者 | 越えてはならない境界 |\n|---|---|---|\n| 運用者 | 判断する | 推測しない |\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code ===
+          "ux-requirement-analysis-responsibility-header-invalid" &&
+        finding.path === "02_UX/Analysis/REQ-000001/ux_analysis.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UX分析は責任境界節または責任表を重複できないを検証する。
+ *
+ * @responsibility UX分析は責任境界節または責任表を重複できないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX分析は責任境界節または責任表を重複できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX分析は責任境界節または責任表を重複できない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n### この要求での責任境界\n\n| 担い手 | この要求で担うこと | 越えてはならない境界 |\n|---|---|---|\n| 運用者 | 判断する | 推測しない |\n\n| Actor | Responsibility | Boundary |\n|---|---|---|\n| System | 提供する | 越えない |\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code ===
+          "ux-requirement-analysis-responsibility-header-invalid" &&
+        finding.path === "02_UX/Analysis/REQ-000001/ux_analysis.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UX統合の理由付きNot ApplicableをRelation不正にしないを検証する。
+ *
+ * @responsibility UX統合の理由付きNot ApplicableをRelation不正にしないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX統合の理由付きNot ApplicableをRelation不正にしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX統合の理由付きNot ApplicableをRelation不正にしない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| UX成果なし | `Not Applicable` | 利用者のGoalまたはOutcomeを変更せず、既存体験の成立条件にも追加差分がない。 | Canonical UX成果へ追加する内容はない。 |\n\n### サービス提供の流れの処置\n\n処置: `非該当`\n\n複数主体間のHandoffは体験成立条件ではないため作成せず、条件が変わった時に再評価する。\n\n### 製品全体の整理への接続\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) =>
+        finding.code === "ux-requirement-analysis-relation-invalid" &&
+        finding.path === "02_UX/Analysis/REQ-000001/ux_analysis.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * サービス提供の流れの作成と非該当を処置なしで済ませないを検証する。
+ *
+ * @responsibility サービス提供の流れの作成と非該当を処置なしで済ませないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus サービス提供の流れの作成と非該当を処置なしで済ませないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("サービス提供の流れの作成と非該当を処置なしで済ませない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | Checker | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 成果 | `REQ-000001` |\n",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 成果 | `New → UX-000001` | 利用者成果を独立して変更し確認する必要がある。 | 要求固有の条件を補う。 |\n\n### サービス提供の流れの処置\n\n共同サービス提供の流れを参照する。\n\n### 製品全体の整理への接続\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code ===
+          "ux-requirement-analysis-blueprint-disposition-invalid" &&
+        finding.path === "02_UX/Analysis/REQ-000001/ux_analysis.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * 作成するサービス提供の流れは主体・時間関係・完了情報・失敗時の判断を閉じるを検証する。
+ *
+ * @responsibility 作成するサービス提供の流れは主体・時間関係・完了情報・失敗時の判断を閉じるの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 作成するサービス提供の流れは主体・時間関係・完了情報・失敗時の判断を閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("作成するサービス提供の流れは主体・時間関係・完了情報・失敗時の判断を閉じる", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | Checker | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 成果 | `REQ-000001` |\n",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 成果 | `New → UX-000001` | 利用者成果を独立して変更し確認する必要がある。 | 要求固有の条件を補う。 |\n\n### サービス提供の流れの処置\n\n処置: `作成`\n\n```text\n利用者 [接点] 結果\n  └─ 失敗時: 担当者へ戻す\n```\n\n### 製品全体の整理への接続\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code ===
+          "ux-requirement-analysis-blueprint-disposition-invalid" &&
+        finding.path === "02_UX/Analysis/REQ-000001/ux_analysis.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * 作成するサービス提供の流れは完了時に返る情報を省略できないを検証する。
+ *
+ * @responsibility 作成するサービス提供の流れは完了時に返る情報を省略できないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 作成するサービス提供の流れは完了時に返る情報を省略できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("作成するサービス提供の流れは完了時に返る情報を省略できない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | Checker | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` 成果 | `REQ-000001` |\n",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 成果 | `New → UX-000001` | 利用者成果を独立して変更し確認する必要がある。 | 要求固有の条件を補う。 |\n\n### サービス提供の流れの処置\n\n処置: `作成`\n\n```text\n【利用者・責任者】利用者\n  ▼\n【利用者接点】入力\n  ├─ 時間差: 同期確認\n  └─ 失敗時: 判断不能範囲を返す\n       ▼\n【回復・判断する人】判断者\n  └─ 次の行動: 入力を直す\n--- 可視境界 ---\n【提供側】提供システム\n```\n\n### 製品全体の整理への接続\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code ===
+          "ux-requirement-analysis-blueprint-disposition-invalid" &&
+        finding.path === "02_UX/Analysis/REQ-000001/ux_analysis.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UX台帳と要求分析のRelationが閉じていない状態を拒否するを検証する。
+ *
+ * @responsibility UX台帳と要求分析のRelationが閉じていない状態を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX台帳と要求分析のRelationが閉じていない状態を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX台帳と要求分析のRelationが閉じていない状態を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | Checker | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000002` 台帳だけの成果 | `REQ-000001` |\n",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 分析だけの成果 | `New → UX-000001` | 利用者の成果と失敗条件が独立しているため新規成果として確定する。 | 要求固有の条件を補う。 |\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "ux-outcome-relation-closure-mismatch" &&
+        finding.path === "02_UX/01_User_Experience.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UX台帳と要求分析はID集合でなくREQとUXの組で閉じるを検証する。
+ *
+ * @responsibility UX台帳と要求分析はID集合でなくREQとUXの組で閉じるの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX台帳と要求分析はID集合でなくREQとUXの組で閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX台帳と要求分析はID集合でなくREQとUXの組で閉じる", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n| `REQ-000002` | B | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n[REQ-000002](Analysis/REQ-000002/ux_analysis.md)\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n| `UX-000002` B | `REQ-000002` |\n",
+  );
+  for (const [req, ux] of [
+    ["REQ-000001", "UX-000002"],
+    ["REQ-000002", "UX-000001"],
+  ])
+    write(
+      path.join(root, "02_UX", "Analysis", req, "ux_analysis.md"),
+      `# Analysis\n\n要求: \`${req}\`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| 得られる結果 | \`New → ${ux}\` | 独立して変更し確認する利用者成果として扱う。 | この要求の利用場面を補う。 |\n`,
+    );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ux-outcome-relation-closure-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Canonical UX台帳の同一ID二重定義を拒否するを検証する。
+ *
+ * @responsibility Canonical UX台帳の同一ID二重定義を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Canonical UX台帳の同一ID二重定義を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ */
+test("Canonical UX台帳の同一ID二重定義を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n| `UX-000001` B | `REQ-000002` |\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "duplicate-stable-id-definition" &&
+        finding.path.includes("02_UX/01_User_Experience.md"),
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Experience Mapと要求分析のJourney割当不一致を拒否するを検証する。
+ *
+ * @responsibility Experience Mapと要求分析のJourney割当不一致を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Experience Mapと要求分析のJourney割当不一致を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Experience Mapと要求分析のJourney割当不一致を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "01_Discovery", "01_Product_Discovery.md"),
+    "# Discovery\n\n| 要求 | 要約 | 探索元 | Discovery判断 | 主な関係領域 |\n|---|---|---|---|---|\n| `REQ-000001` | A | EXP | 要求採用 | UX |\n",
+  );
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n[REQ-000001](Analysis/REQ-000001/ux_analysis.md)\n\n| 利用者成果 | Discovery要求候補 |\n|---|---|\n| `UX-000001` A | `REQ-000001` |\n",
+  );
+  write(
+    path.join(root, "02_UX", "03_Experience_Map.md"),
+    "# Map\n\n| Journey | 主な想定利用者 | 起点 | 望むOutcome | 関係する主なREQ |\n|---|---|---|---|---|\n| Projectの現在地を判断する | PM | 起点 | 成果 | `REQ-000001` |\n",
+  );
+  write(
+    path.join(root, "02_UX", "Analysis", "REQ-000001", "ux_analysis.md"),
+    "# Analysis\n\n要求: `REQ-000001`\n\n## 4. 利用者成果への統合\n\n| 利用者成果 | 処置 | 判断理由 | この要求が補う内容 |\n|---|---|---|---|\n| A | `New → UX-000001` | 独立して確認する利用者成果として扱う。 | この要求の利用場面を補う。 |\n\n- 利用の流れの統合先: [Runtimeを導入する](../../03_Experience_Map.md#runtimeを導入する)\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ux-journey-relation-closure-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UI分析は全UX定義と全IA定義の構造・入力・関係を別々に閉じるを検証する。
+ *
+ * @responsibility UI分析は全UX定義と全IA定義の構造・入力・関係を別々に閉じるの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UI分析は全UX定義と全IA定義の構造・入力・関係を別々に閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UI分析は全UX定義と全IA定義の構造・入力・関係を別々に閉じる", () => {
+  const root = uiReconstructionFixtureRoot();
+  const valid = runChecker(root);
+  assert.ok(
+    !valid.report.findings.some((finding) => finding.code.startsWith("ui-")),
+    `${valid.stdout}\n${valid.stderr}`,
+  );
+
+  fs.rmSync(path.join(root, "04_UI", "Analysis", "UX-000001"), {
+    recursive: true,
+    force: true,
+  });
+  const missing = runChecker(root);
+  assert.ok(
+    missing.report.findings.some(
+      (finding) => finding.code === "ui-ux-analysis-coverage-mismatch",
+    ),
+    `${missing.stdout}\n${missing.stderr}`,
+  );
+});
+
+/**
+ * UI分析・定義とひな型は成果物別の可視Checklistを必要とするを検証する。
+ *
+ * @responsibility UI分析・定義とひな型は成果物別の可視Checklistを必要とするの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UI分析・定義とひな型は成果物別の可視Checklistを必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UI分析・定義とひな型は成果物別の可視Checklistを必要とする", () => {
+  const root = uiReconstructionFixtureRoot();
+  for (const [relativePath, expectedCode] of [
+    [
+      "04_UI/Analysis/UX-000001/ui_analysis.md",
+      "ui-analysis-checklist-invalid",
+    ],
+    [
+      "04_UI/Definitions/UI-000001/ui_definition.md",
+      "ui-definition-checklist-invalid",
+    ],
+    [
+      "template/04_UI/Analysis/IA-XXXXXX/ui_analysis.md",
+      "ui-template-checklist-invalid",
+    ],
+  ] as const) {
+    const file = path.join(root, relativePath);
+    write(
+      file,
+      fs.readFileSync(file, "utf8").replace("## Checklist", "## 確認メモ"),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === expectedCode && finding.path === relativePath,
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * UIからSPECへの引き渡しは可視Checklistを必要とするを検証する。
+ *
+ * @responsibility UIからSPECへの引き渡しは可視Checklistを必要とするの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UIからSPECへの引き渡しは可視Checklistを必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UIからSPECへの引き渡しは可視Checklistを必要とする", () => {
+  const root = uiReconstructionFixtureRoot();
+  const relativePath = "04_UI/05_UI_SPEC_Handoff.md";
+  const file = path.join(root, relativePath);
+  write(
+    file,
+    fs.readFileSync(file, "utf8").replace("## Checklist", "## 確認メモ"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "ui-spec-handoff-checklist-invalid" &&
+        finding.path === relativePath,
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UX観点のUI分析はIAまたはREQを正式入力へ追加できないを検証する。
+ *
+ * @responsibility UX観点のUI分析はIAまたはREQを正式入力へ追加できないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX観点のUI分析はIAまたはREQを正式入力へ追加できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX観点のUI分析はIAまたはREQを正式入力へ追加できない", () => {
+  const root = uiReconstructionFixtureRoot();
+  const analysisPath = path.join(
+    root,
+    "04_UI",
+    "Analysis",
+    "UX-000001",
+    "ui_analysis.md",
+  );
+  write(
+    analysisPath,
+    fs
+      .readFileSync(analysisPath, "utf8")
+      .replace("- UX定義:", "- 要求: REQ-000001\n- UX定義:"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ui-ux-analysis-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * IA観点のUI分析はUXまたはREQを正式入力へ追加できないを検証する。
+ *
+ * @responsibility IA観点のUI分析はUXまたはREQを正式入力へ追加できないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA観点のUI分析はUXまたはREQを正式入力へ追加できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("IA観点のUI分析はUXまたはREQを正式入力へ追加できない", () => {
+  const root = uiReconstructionFixtureRoot();
+  const analysisPath = path.join(
+    root,
+    "04_UI",
+    "Analysis",
+    "IA-000001",
+    "ui_analysis.md",
+  );
+  write(
+    analysisPath,
+    fs
+      .readFileSync(analysisPath, "utf8")
+      .replace(
+        "- IA定義:",
+        "- 要求: REQ-000001\n- UX定義: UX-000001\n- IA定義:",
+      ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ui-ia-analysis-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * IA観点のUI分析が欠けると全数再構築を満たさないを検証する。
+ *
+ * @responsibility IA観点のUI分析が欠けると全数再構築を満たさないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus IA観点のUI分析が欠けると全数再構築を満たさないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("IA観点のUI分析が欠けると全数再構築を満たさない", () => {
+  const root = uiReconstructionFixtureRoot();
+  fs.rmSync(path.join(root, "04_UI", "Analysis", "IA-000001"), {
+    recursive: true,
+    force: true,
+  });
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ui-ia-analysis-coverage-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UI定義はUX観点とIA観点の両方を統合するを検証する。
+ *
+ * @responsibility UI定義はUX観点とIA観点の両方を統合するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UI定義はUX観点とIA観点の両方を統合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UI定義はUX観点とIA観点の両方を統合する", () => {
+  const root = uiReconstructionFixtureRoot();
+  const definitionPath = path.join(
+    root,
+    "04_UI",
+    "Definitions",
+    "UI-000001",
+    "ui_definition.md",
+  );
+  write(
+    definitionPath,
+    fs
+      .readFileSync(definitionPath, "utf8")
+      .replace("## IA観点の分析結果", "## IA入力（誤った見出し）"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ui-definition-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UI台帳・分析・定義のUXとIA対応は完全一致するを検証する。
+ *
+ * @responsibility UI台帳・分析・定義のUXとIA対応は完全一致するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UI台帳・分析・定義のUXとIA対応は完全一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UI台帳・分析・定義のUXとIA対応は完全一致する", () => {
+  const root = uiReconstructionFixtureRoot();
+  const definitionPath = path.join(
+    root,
+    "04_UI",
+    "Definitions",
+    "UI-000001",
+    "ui_definition.md",
+  );
+  write(
+    definitionPath,
+    fs.readFileSync(definitionPath, "utf8").replace("IA-000001", "IA-000002"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ui-analysis-definition-closure-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * SPEC分析はUX観点とIA観点を分けて全入力を閉じるを検証する。
+ *
+ * @responsibility SPEC分析はUX観点とIA観点を分けて全入力を閉じるの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus SPEC分析はUX観点とIA観点を分けて全入力を閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("SPEC分析はUX観点とIA観点を分けて全入力を閉じる", () => {
+  const root = specReconstructionFixtureRoot();
+  const valid = runChecker(root);
+  assert.ok(
+    !valid.report.findings.some((finding) => finding.code.startsWith("spec-")),
+    `${valid.stdout}\n${valid.stderr}`,
+  );
+  fs.rmSync(path.join(root, "05_SPEC", "Analysis", "UX-000001"), {
+    recursive: true,
+    force: true,
+  });
+  const missing = runChecker(root);
+  assert.ok(
+    missing.report.findings.some(
+      (finding) => finding.code === "spec-ux-analysis-coverage-mismatch",
+    ),
+    `${missing.stdout}\n${missing.stderr}`,
+  );
+});
+
+/**
+ * SPEC分析・定義とひな型は成果物別の可視Checklistを必要とするを検証する。
+ *
+ * @responsibility SPEC分析・定義とひな型は成果物別の可視Checklistを必要とするの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus SPEC分析・定義とひな型は成果物別の可視Checklistを必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("SPEC分析・定義とひな型は成果物別の可視Checklistを必要とする", () => {
+  const root = specReconstructionFixtureRoot();
+  for (const [relativePath, expectedCode] of [
+    [
+      "05_SPEC/Analysis/UX-000001/spec_analysis.md",
+      "spec-analysis-checklist-invalid",
+    ],
+    [
+      "05_SPEC/Definitions/SPEC-000001/spec_definition.md",
+      "spec-definition-checklist-invalid",
+    ],
+    [
+      "template/05_SPEC/Analysis/IA-XXXXXX/spec_analysis.md",
+      "spec-template-checklist-invalid",
+    ],
+  ] as const) {
+    const file = path.join(root, relativePath);
+    write(
+      file,
+      fs.readFileSync(file, "utf8").replace("## Checklist", "## 確認メモ"),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === expectedCode && finding.path === relativePath,
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * UIとSPECの対応レビューは可視Checklistと全対応閉包を必要とするを検証する。
+ *
+ * @responsibility UIとSPECの対応レビューは可視Checklistと全対応閉包を必要とするの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UIとSPECの対応レビューは可視Checklistと全対応閉包を必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UIとSPECの対応レビューは可視Checklistと全対応閉包を必要とする", () => {
+  const checklistRoot = specReconstructionFixtureRoot();
+  const relativePath = "05_SPEC/06_UI_SPEC_Correspondence.md";
+  const checklistFile = path.join(checklistRoot, relativePath);
+  write(
+    checklistFile,
+    fs
+      .readFileSync(checklistFile, "utf8")
+      .replace("## Checklist", "## 確認メモ"),
+  );
+  const checklistResult = runChecker(checklistRoot);
+  assert.ok(
+    checklistResult.report.findings.some(
+      (finding) =>
+        finding.code === "ui-spec-correspondence-checklist-invalid" &&
+        finding.path === relativePath,
+    ),
+    `${checklistResult.stdout}\n${checklistResult.stderr}`,
+  );
+
+  const closureRoot = specReconstructionFixtureRoot();
+  const closureFile = path.join(closureRoot, relativePath);
+  write(
+    closureFile,
+    fs
+      .readFileSync(closureFile, "utf8")
+      .replace(
+        /^\| \[UI-000001\]\(\.\.\/04_UI\/Definitions\/UI-000001\/ui_definition\.md\).*$/mu,
+        "",
+      ),
+  );
+  const closureResult = runChecker(closureRoot);
+  assert.ok(
+    closureResult.report.findings.some(
+      (finding) => finding.code === "ui-spec-correspondence-closure-mismatch",
+    ),
+    `${closureResult.stdout}\n${closureResult.stderr}`,
+  );
+
+  const evidenceRoot = specReconstructionFixtureRoot();
+  const evidenceFile = path.join(evidenceRoot, relativePath);
+  write(
+    evidenceFile,
+    fs
+      .readFileSync(evidenceFile, "utf8")
+      .replace(
+        "[UI](../04_UI/Definitions/UI-000001/ui_definition.md#状態と表示差)",
+        "UI根拠なし",
+      ),
+  );
+  const evidenceResult = runChecker(evidenceRoot);
+  assert.ok(
+    evidenceResult.report.findings.some(
+      (finding) => finding.code === "ui-spec-correspondence-evidence-invalid",
+    ),
+    `${evidenceResult.stdout}\n${evidenceResult.stderr}`,
+  );
+});
+
+/**
+ * UI定義は正式入力と分析根拠を同じ集合で保持するを検証する。
+ *
+ * @responsibility UI定義は正式入力と分析根拠を同じ集合で保持するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UI定義は正式入力と分析根拠を同じ集合で保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UI定義は正式入力と分析根拠を同じ集合で保持する", () => {
+  const root = uiReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "04_UI",
+    "Definitions",
+    "UI-000001",
+    "ui_definition.md",
+  );
+  write(
+    file,
+    fs
+      .readFileSync(file, "utf8")
+      .replace(
+        "- 正式入力: [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md)",
+        "",
+      ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ui-definition-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * SPEC定義は正式入力・分析根拠・対応UI受入条件を同じ集合で保持するを検証する。
+ *
+ * @responsibility SPEC定義は正式入力・分析根拠・対応UI受入条件を同じ集合で保持するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus SPEC定義は正式入力・分析根拠・対応UI受入条件を同じ集合で保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("SPEC定義は正式入力・分析根拠・対応UI受入条件を同じ集合で保持する", () => {
+  for (const mutation of [
+    [
+      "- 正式入力: [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md)",
+      "",
+    ],
+    [
+      "| 対応UI | [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md)の操作と結果が一致する |",
+      "| 対応UI | 記載なし |",
+    ],
+  ] as const) {
+    const root = specReconstructionFixtureRoot();
+    const file = path.join(
+      root,
+      "05_SPEC",
+      "Definitions",
+      "SPEC-000001",
+      "spec_definition.md",
+    );
+    write(
+      file,
+      fs.readFileSync(file, "utf8").replace(mutation[0], mutation[1]),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "spec-definition-contract-invalid",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * SPEC RootのCoverage件数は現行集合と一致するを検証する。
+ *
+ * @responsibility SPEC RootのCoverage件数は現行集合と一致するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus SPEC RootのCoverage件数は現行集合と一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("SPEC RootのCoverage件数は現行集合と一致する", () => {
+  const root = specReconstructionFixtureRoot();
+  const file = path.join(root, "05_SPEC", "01_Behavior_Specification.md");
+  write(
+    file,
+    fs.readFileSync(file, "utf8").replace("| UX定義 | 1 |", "| UX定義 | 2 |"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "spec-root-coverage-count-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UI／SPEC対応Evidenceは共有集合・両側Anchor・固定改訂版を必要とするを検証する。
+ *
+ * @responsibility UI／SPEC対応Evidenceは共有集合・両側Anchor・固定改訂版を必要とするの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UI／SPEC対応Evidenceは共有集合・両側Anchor・固定改訂版を必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UI／SPEC対応Evidenceは共有集合・両側Anchor・固定改訂版を必要とする", () => {
+  const mutations = [
+    ["UX-000001／IA-000001 | Shared", "UX-000001 | Shared"],
+    ["UI／SPEC Definition集合 SHA-256:", "曖昧な対象改訂版:"],
+    [
+      "[SPEC](Definitions/SPEC-000001/spec_definition.md#振る舞い状態結果)",
+      "SPEC根拠なし",
+    ],
+    [
+      "UI事実（UI-000001）「検査前と不備ありを区別する」／SPEC事実（SPEC-000001）「対象と条件を固定して検査結果を返す」／対応: 検査結果をUIの区別状態へ表示する",
+      "UI-000001の表示状態をSPEC-000001の振る舞い状態へ対応付ける",
+    ],
+    [
+      "UI事実（UI-000001）「検査前と不備ありを区別する」／SPEC事実（SPEC-000001）",
+      "UI事実（UI-000001）「検査前と不備ありを区別する」／SPEC補足（SPEC-000001）",
+    ],
+    [
+      "UI事実（UI-000001）「検査前と不備ありを区別する」／SPEC事実（SPEC-000001）",
+      "UI事実（UI-000002）「検査前と不備ありを区別する」／SPEC事実（SPEC-000001）",
+    ],
+    [
+      "UI事実（UI-000001）「検査前と不備ありを区別する」／SPEC事実（SPEC-000001）「対象と条件を固定して検査結果を返す」／対応: 検査結果をUIの区別状態へ表示する",
+      "UI事実（UI-000001）「試験用Interface」／SPEC事実（SPEC-000001）「試験用」／対応: 題名だけで一致を主張する",
+    ],
+    [
+      "UI事実（UI-000001）「検査前と不備ありを区別する」／SPEC事実（SPEC-000001）「対象と条件を固定して検査結果を返す」／対応: 検査結果をUIの区別状態へ表示する",
+      "UI事実（UI-000001）「検査前と不備ありを区別する…」／SPEC事実（SPEC-000001）「対象と条件を固定して検査結果を返す」／対応: 省略した事実で一致を主張する",
+    ],
+  ] as const;
+  for (const mutation of mutations) {
+    const root = specReconstructionFixtureRoot();
+    const file = path.join(root, "05_SPEC", "06_UI_SPEC_Correspondence.md");
+    write(
+      file,
+      fs.readFileSync(file, "utf8").replace(mutation[0], mutation[1]),
+    );
+    const result = runChecker(root);
+    const expectedCode = mutation[0].includes("SHA-256")
+      ? "ui-spec-correspondence-revision-invalid"
+      : "ui-spec-correspondence-evidence-invalid";
+    assert.ok(
+      result.report.findings.some((finding) => finding.code === expectedCode),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+
+  const staleRoot = specReconstructionFixtureRoot();
+  const staleDefinition = path.join(
+    staleRoot,
+    "04_UI",
+    "Definitions",
+    "UI-000001",
+    "ui_definition.md",
+  );
+  write(
+    staleDefinition,
+    `${fs.readFileSync(staleDefinition, "utf8")}\n\n対象改訂後の未反映変更。\n`,
+  );
+  const staleResult = runChecker(staleRoot);
+  assert.ok(
+    staleResult.report.findings.some(
+      (finding) => finding.code === "ui-spec-correspondence-revision-invalid",
+    ),
+    `${staleResult.stdout}\n${staleResult.stderr}`,
+  );
+});
+
+/**
+ * UX観点のSPEC分析はIAまたはREQを正式入力へ追加できないを検証する。
+ *
+ * @responsibility UX観点のSPEC分析はIAまたはREQを正式入力へ追加できないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UX観点のSPEC分析はIAまたはREQを正式入力へ追加できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UX観点のSPEC分析はIAまたはREQを正式入力へ追加できない", () => {
+  const root = specReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "05_SPEC",
+    "Analysis",
+    "UX-000001",
+    "spec_analysis.md",
+  );
+  write(
+    file,
+    fs
+      .readFileSync(file, "utf8")
+      .replace(
+        "- UX定義:",
+        "- 要求: REQ-000001\n- IA定義: IA-000001\n- UX定義:",
+      ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "spec-ux-analysis-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * SPEC台帳・分析・定義の入力関係は完全一致するを検証する。
+ *
+ * @responsibility SPEC台帳・分析・定義の入力関係は完全一致するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus SPEC台帳・分析・定義の入力関係は完全一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("SPEC台帳・分析・定義の入力関係は完全一致する", () => {
+  const root = specReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "05_SPEC",
+    "Definitions",
+    "SPEC-000001",
+    "spec_definition.md",
+  );
+  write(
+    file,
+    fs.readFileSync(file, "utf8").replaceAll("IA-000001", "IA-000002"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "spec-analysis-definition-closure-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UIとSPECのpairs_with関係は双方と台帳で完全一致するを検証する。
+ *
+ * @responsibility UIとSPECのpairs_with関係は双方と台帳で完全一致するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UIとSPECのpairs_with関係は双方と台帳で完全一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UIとSPECのpairs_with関係は双方と台帳で完全一致する", () => {
+  const root = specReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "04_UI",
+    "Definitions",
+    "UI-000001",
+    "ui_definition.md",
+  );
+  write(
+    file,
+    fs.readFileSync(file, "utf8").replace("SPEC-000001", "SPEC-000002"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ui-spec-pair-closure-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Architecture分析はUIとSPECを分けて全入力を閉じるを検証する。
+ *
+ * @responsibility Architecture分析はUIとSPECを分けて全入力を閉じるの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture分析はUIとSPECを分けて全入力を閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Architecture分析はUIとSPECを分けて全入力を閉じる", () => {
+  const root = architectureReconstructionFixtureRoot();
+  const valid = runChecker(root);
+  assert.ok(
+    !valid.report.findings.some((finding) =>
+      finding.code.startsWith("architecture-"),
+    ),
+    `${valid.stdout}\n${valid.stderr}`,
+  );
+  fs.rmSync(path.join(root, "06_Architecture", "Analysis", "UI-000001"), {
+    recursive: true,
+    force: true,
+  });
+  const missing = runChecker(root);
+  assert.ok(
+    missing.report.findings.some(
+      (finding) => finding.code === "architecture-analysis-missing",
+    ),
+    `${missing.stdout}\n${missing.stderr}`,
+  );
+});
+
+/**
+ * Architecture横断モデルは責務・境界・流れ・故障・配置をQualityへ引き渡すを検証する。
+ *
+ * @responsibility Architecture横断モデルは責務・境界・流れ・故障・配置をQualityへ引き渡すの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture横断モデルは責務・境界・流れ・故障・配置をQualityへ引き渡すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Architecture横断モデルは責務・境界・流れ・故障・配置をQualityへ引き渡す", () => {
+  let root = architectureReconstructionFixtureRoot();
+  const valid = runChecker(root);
+  assert.ok(
+    !valid.report.findings.some((finding) =>
+      finding.code.startsWith("architecture-cross-model-"),
+    ),
+    `${valid.stdout}\n${valid.stderr}`,
+  );
+
+  root = architectureReconstructionFixtureRoot();
+  fs.rmSync(
+    path.join(
+      root,
+      "06_Architecture",
+      "05_Failure_Recovery_and_Resilience_Model.md",
+    ),
+  );
+  const missing = runChecker(root);
+  assert.ok(
+    missing.report.findings.some(
+      (finding) => finding.code === "architecture-cross-model-missing",
+    ),
+    `${missing.stdout}\n${missing.stderr}`,
+  );
+
+  root = architectureReconstructionFixtureRoot();
+  const indexPath = path.join(root, "06_Architecture", "01_Architecture.md");
+  write(
+    indexPath,
+    fs
+      .readFileSync(indexPath, "utf8")
+      .replace(/\n## Architecture横断モデル[\s\S]*$/u, ""),
+  );
+  const missingSection = runChecker(root);
+  assert.ok(
+    missingSection.report.findings.some(
+      (finding) => finding.code === "architecture-cross-model-section-missing",
+    ),
+    `${missingSection.stdout}\n${missingSection.stderr}`,
+  );
+
+  const componentMutations = [
+    [
+      "Definitions/ARCH-000001/architecture_definition.md",
+      "Definitions/ARCH-999999/architecture_definition.md",
+    ],
+    ["Definitions/ARCH-000001/architecture_definition.md", ""],
+    [
+      "[定義名](Definitions/ARCH-000001/architecture_definition.md)",
+      "[定義名](Definitions/ARCH-000001/architecture_definition.md)<br>[重複](Definitions/ARCH-000001/architecture_definition.md)",
+    ],
+    [
+      "| Component | 含むArchitecture定義 | 状態Owner | 所有すること | 所有しないこと | 主要Port |",
+      "| Component | 含むArchitecture定義 | 状態Owner | 所有すること | 主要Port |",
+    ],
+  ] as const;
+  for (const [before, after] of componentMutations) {
+    root = architectureReconstructionFixtureRoot();
+    const componentPath = path.join(
+      root,
+      "06_Architecture",
+      "02_Component_and_Responsibility_Model.md",
+    );
+    write(
+      componentPath,
+      fs.readFileSync(componentPath, "utf8").replace(before, after),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code ===
+            "architecture-component-definition-coverage-mismatch" ||
+          finding.code === "architecture-cross-model-contract-invalid",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+
+  for (const [file, marker] of [
+    [
+      "02_Component_and_Responsibility_Model.md",
+      "| Component | 含むArchitecture定義 | 状態Owner | 所有すること | 所有しないこと | 主要Port |",
+    ],
+    [
+      "03_Boundary_and_Interface_Model.md",
+      "| 境界 | 呼出し側 | 受け側 | 越えるもの | 越えないもの | 不明時 |",
+    ],
+    [
+      "04_Runtime_and_Data_Flow_Model.md",
+      "| 対象 | 必須の相関 | 禁止する畳み込み |",
+    ],
+    [
+      "05_Failure_Recovery_and_Resilience_Model.md",
+      "| 故障領域 | 対象Component | 守る対象 | 即時処置 | 回復／終了条件 |",
+    ],
+    [
+      "06_Deployment_and_Execution_Model.md",
+      "| 論理単位 | 主なResource | 並行性の境界 | 終了条件 |",
+    ],
+  ] as const) {
+    root = architectureReconstructionFixtureRoot();
+    const modelPath = path.join(root, "06_Architecture", file);
+    const source = fs.readFileSync(modelPath, "utf8");
+    write(modelPath, `${source.replace(marker, "")}\n## 別の節\n\n${marker}\n`);
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "architecture-cross-model-contract-invalid",
+      ),
+      `${file}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+
+  root = architectureReconstructionFixtureRoot();
+  const flowPath = path.join(
+    root,
+    "06_Architecture",
+    "04_Runtime_and_Data_Flow_Model.md",
+  );
+  write(
+    flowPath,
+    "# Model\n\n## 2. 主要データフロー\n\n## 3. 横断状態遷移\n\n## 4. 概念Entity関係\n\n## 6. Qualityへの引渡し\n",
+  );
+  const empty = runChecker(root);
+  assert.ok(
+    empty.report.findings.some(
+      (finding) => finding.code === "architecture-cross-model-contract-invalid",
+    ),
+    `${empty.stdout}\n${empty.stderr}`,
+  );
+});
+
+/**
+ * Architecture詳細設計はARCH-IDとの多対多Relationと適用判断を閉じるを検証する。
+ *
+ * @responsibility Architecture詳細設計はARCH-IDとの多対多Relationと適用判断を閉じるの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture詳細設計はARCH-IDとの多対多Relationと適用判断を閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Architecture詳細設計はARCH-IDとの多対多Relationと適用判断を閉じる", () => {
+  let root = architectureReconstructionFixtureRoot();
+  const valid = runChecker(root);
+  assert.ok(
+    !valid.report.findings.some((finding) =>
+      finding.code.startsWith("architecture-detail-"),
+    ),
+    `${valid.stdout}\n${valid.stderr}`,
+  );
+
+  root = architectureReconstructionFixtureRoot();
+  fs.rmSync(
+    path.join(
+      root,
+      "06_Architecture",
+      "Details",
+      "sample",
+      "01_Architecture.md",
+    ),
+  );
+  const missing = runChecker(root);
+  assert.ok(
+    missing.report.findings.some(
+      (finding) => finding.code === "architecture-detail-document-missing",
+    ),
+    `${missing.stdout}\n${missing.stderr}`,
+  );
+
+  root = architectureReconstructionFixtureRoot();
+  const detailPath = path.join(
+    root,
+    "06_Architecture",
+    "Details",
+    "sample",
+    "01_Architecture.md",
+  );
+  write(
+    detailPath,
+    fs
+      .readFileSync(detailPath, "utf8")
+      .replace(
+        "| Component Model | Required | 責務を分ける | [§1](#1-component-model) |",
+        "| Component Model | Optional | | |",
+      ),
+  );
+  const invalidApplicability = runChecker(root);
+  assert.ok(
+    invalidApplicability.report.findings.some(
+      (finding) => finding.code === "architecture-detail-contract-invalid",
+    ),
+    `${invalidApplicability.stdout}\n${invalidApplicability.stderr}`,
+  );
+
+  root = architectureReconstructionFixtureRoot();
+  const incompleteDetailPath = path.join(
+    root,
+    "06_Architecture",
+    "Details",
+    "sample",
+    "01_Architecture.md",
+  );
+  write(
+    incompleteDetailPath,
+    fs
+      .readFileSync(incompleteDetailPath, "utf8")
+      .replace(
+        "| Security Boundary | Required | Authorityを分ける | [§9](#9-security-boundary) |\n",
+        "",
+      ),
+  );
+  const incompleteApplicability = runChecker(root);
+  assert.ok(
+    incompleteApplicability.report.findings.some(
+      (finding) => finding.code === "architecture-detail-contract-invalid",
+    ),
+    `${incompleteApplicability.stdout}\n${incompleteApplicability.stderr}`,
+  );
+
+  root = architectureReconstructionFixtureRoot();
+  const weakQualityPath = path.join(
+    root,
+    "06_Architecture",
+    "Details",
+    "sample",
+    "01_Architecture.md",
+  );
+  write(
+    weakQualityPath,
+    fs
+      .readFileSync(weakQualityPath, "utf8")
+      .replace(
+        "| `sample.core` | Component／Interface | Core | 根拠付き結果 | 欠測補完 | IT | Direct Boundary | result | Effect 0 | なし |",
+        "境界を検証する。",
+      ),
+  );
+  const weakQuality = runChecker(root);
+  assert.ok(
+    weakQuality.report.findings.some(
+      (finding) => finding.code === "architecture-detail-contract-invalid",
+    ),
+    `${weakQuality.stdout}\n${weakQuality.stderr}`,
+  );
+
+  root = architectureReconstructionFixtureRoot();
+  const duplicatePath = path.join(
+    root,
+    "06_Architecture",
+    "Details",
+    "sample",
+    "01_Architecture.md",
+  );
+  write(
+    duplicatePath,
+    fs
+      .readFileSync(duplicatePath, "utf8")
+      .replace(
+        "| Interface Model | Required | 契約を分ける | [§2](#2-interface-model) |",
+        "| Component Model | Required | 契約を分ける | [§2](#2-interface-model) |",
+      ),
+  );
+  const duplicateApplicability = runChecker(root);
+  assert.ok(
+    duplicateApplicability.report.findings.some(
+      (finding) => finding.code === "architecture-detail-contract-invalid",
+    ),
+    `${duplicateApplicability.stdout}\n${duplicateApplicability.stderr}`,
+  );
+
+  root = architectureReconstructionFixtureRoot();
+  const reverseMapPath = path.join(
+    root,
+    "06_Architecture",
+    "07_Detail_Architecture_Map.md",
+  );
+  write(
+    reverseMapPath,
+    fs
+      .readFileSync(reverseMapPath, "utf8")
+      .replace(
+        "| ARCH-000001 | [試験責務](Definitions/ARCH-000001/architecture_definition.md) | sample |",
+        "| ARCH-000001 | [試験責務](Definitions/ARCH-000001/architecture_definition.md) | other |",
+      ),
+  );
+  const reverseMismatch = runChecker(root);
+  assert.ok(
+    reverseMismatch.report.findings.some(
+      (finding) =>
+        finding.code === "architecture-detail-relation-closure-mismatch",
+    ),
+    `${reverseMismatch.stdout}\n${reverseMismatch.stderr}`,
+  );
+
+  root = architectureReconstructionFixtureRoot();
+  const readyRootPath = path.join(
+    root,
+    "06_Architecture",
+    "01_Architecture.md",
+  );
+  write(
+    readyRootPath,
+    fs
+      .readFileSync(readyRootPath, "utf8")
+      .replace("Status: Candidate", "Status: Architecture Ready"),
+  );
+  const readyDetailPath = path.join(
+    root,
+    "06_Architecture",
+    "Details",
+    "sample",
+    "01_Architecture.md",
+  );
+  write(
+    readyDetailPath,
+    fs
+      .readFileSync(readyDetailPath, "utf8")
+      .replace(
+        "| Resource Lifecycle | PASS | Run単位で回収する |",
+        "| Resource Lifecycle | OPEN | 回収方式が未確定 |",
+      ),
+  );
+  const readyWithOpen = runChecker(root);
+  assert.ok(
+    readyWithOpen.report.findings.some(
+      (finding) => finding.code === "architecture-detail-contract-invalid",
+    ),
+    `${readyWithOpen.stdout}\n${readyWithOpen.stderr}`,
+  );
+
+  root = architectureReconstructionFixtureRoot();
+  const readyWithoutCoveredRootPath = path.join(
+    root,
+    "06_Architecture",
+    "01_Architecture.md",
+  );
+  write(
+    readyWithoutCoveredRootPath,
+    fs
+      .readFileSync(readyWithoutCoveredRootPath, "utf8")
+      .replace("Status: Candidate", "Status: Architecture Ready"),
+  );
+  const partialOnlyDetailPath = path.join(
+    root,
+    "06_Architecture",
+    "Details",
+    "sample",
+    "01_Architecture.md",
+  );
+  write(
+    partialOnlyDetailPath,
+    fs
+      .readFileSync(partialOnlyDetailPath, "utf8")
+      .replace("| Covered |", "| Partial |"),
+  );
+  const readyWithoutCoveredOwner = runChecker(root);
+  assert.ok(
+    readyWithoutCoveredOwner.report.findings.some(
+      (finding) => finding.code === "architecture-detail-covered-owner-missing",
+    ),
+    `${readyWithoutCoveredOwner.stdout}\n${readyWithoutCoveredOwner.stderr}`,
+  );
+
+  root = architectureReconstructionFixtureRoot();
+  const fakeAnchorPath = path.join(
+    root,
+    "06_Architecture",
+    "Details",
+    "sample",
+    "01_Architecture.md",
+  );
+  write(
+    fakeAnchorPath,
+    fs
+      .readFileSync(fakeAnchorPath, "utf8")
+      .replace("[§1](#1-component-model)", "[§1](#missing-model)"),
+  );
+  const fakeAnchor = runChecker(root);
+  assert.ok(
+    fakeAnchor.report.findings.some(
+      (finding) => finding.code === "broken-anchor",
+    ),
+    `${fakeAnchor.stdout}\n${fakeAnchor.stderr}`,
+  );
+
+  root = architectureReconstructionFixtureRoot();
+  const mapPath = path.join(
+    root,
+    "06_Architecture",
+    "07_Detail_Architecture_Map.md",
+  );
+  write(
+    mapPath,
+    fs
+      .readFileSync(mapPath, "utf8")
+      .replace(
+        "| [sample](Details/sample/01_Architecture.md) | ARCH-000001 |",
+        "| [sample](Details/sample/01_Architecture.md) | ARCH-999999 |",
+      ),
+  );
+  const relationMismatch = runChecker(root);
+  assert.ok(
+    relationMismatch.report.findings.some(
+      (finding) =>
+        finding.code === "architecture-detail-relation-closure-mismatch",
+    ),
+    `${relationMismatch.stdout}\n${relationMismatch.stderr}`,
+  );
+});
+
+/**
+ * Architecture成果物は責務別の可視Checklistを必要とするを検証する。
+ *
+ * @responsibility Architecture成果物は責務別の可視Checklistを必要とするの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture成果物は責務別の可視Checklistを必要とするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Architecture成果物は責務別の可視Checklistを必要とする", () => {
+  for (const relativePath of [
+    "06_Architecture/Analysis/UI-000001/architecture_analysis.md",
+    "06_Architecture/Analysis/SPEC-000001/architecture_analysis.md",
+    "06_Architecture/Definitions/ARCH-000001/architecture_definition.md",
+    "06_Architecture/Details/sample/01_Architecture.md",
+  ]) {
+    const root = architectureReconstructionFixtureRoot();
+    const target = path.join(root, relativePath);
+    write(
+      target,
+      fs
+        .readFileSync(target, "utf8")
+        .replace(/^## Checklist\s*$[\s\S]*$/mu, ""),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some((finding) =>
+        finding.code.startsWith("architecture-"),
+      ),
+      `${relativePath}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * Architecture詳細設計は8種類のEngineering Concernを全数評価するを検証する。
+ *
+ * @responsibility Architecture詳細設計は8種類のEngineering Concernを全数評価するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture詳細設計は8種類のEngineering Concernを全数評価するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Architecture詳細設計は8種類のEngineering Concernを全数評価する", () => {
+  const root = architectureReconstructionFixtureRoot();
+  const target = path.join(
+    root,
+    "06_Architecture",
+    "Details",
+    "sample",
+    "01_Architecture.md",
+  );
+  write(
+    target,
+    fs
+      .readFileSync(target, "utf8")
+      .replace(/^\| Observability \|.*\r?\n/mu, ""),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "architecture-detail-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Architecture詳細設計のConcern根拠は実在節へ接続するを検証する。
+ *
+ * @responsibility Architecture詳細設計のConcern根拠は実在節へ接続するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture詳細設計のConcern根拠は実在節へ接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Architecture詳細設計のConcern根拠は実在節へ接続する", () => {
+  const root = architectureReconstructionFixtureRoot();
+  const target = path.join(
+    root,
+    "06_Architecture",
+    "Details",
+    "sample",
+    "01_Architecture.md",
+  );
+  write(
+    target,
+    fs
+      .readFileSync(target, "utf8")
+      .replace("[§2](#2-interface-model)", "後で追加する"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "architecture-detail-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Architecture詳細設計のImplementation Structureは全観点に判定理由を要求するを検証する。
+ *
+ * @responsibility Architecture詳細設計のImplementation Structureは全観点に判定理由を要求するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture詳細設計のImplementation Structureは全観点に判定理由を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Architecture詳細設計のImplementation Structureは全観点に判定理由を要求する", () => {
+  const root = architectureReconstructionFixtureRoot();
+  const target = path.join(
+    root,
+    "06_Architecture",
+    "Details",
+    "sample",
+    "01_Architecture.md",
+  );
+  write(
+    target,
+    fs
+      .readFileSync(target, "utf8")
+      .replace(
+        "| Variation | N/A | 単一実装であるため |",
+        "| Variation | N/A |  |",
+      ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "architecture-detail-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Architecture候補は理由付きOPEN／FAILを保持でき、Readyでは拒否するを検証する。
+ *
+ * @responsibility Architecture候補は理由付きOPEN／FAILを保持でき、Readyでは拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture候補は理由付きOPEN／FAILを保持でき、Readyでは拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Architecture候補は理由付きOPEN／FAILを保持でき、Readyでは拒否する", () => {
+  const cases = [
+    [
+      "06_Architecture/Analysis/UI-000001/architecture_analysis.md",
+      "architecture-analysis-contract-invalid",
+    ],
+    [
+      "06_Architecture/Analysis/SPEC-000001/architecture_analysis.md",
+      "architecture-analysis-contract-invalid",
+    ],
+    [
+      "06_Architecture/Definitions/ARCH-000001/architecture_definition.md",
+      "architecture-definition-contract-invalid",
+    ],
+    [
+      "06_Architecture/Details/sample/01_Architecture.md",
+      "architecture-detail-contract-invalid",
+    ],
+  ] as const;
+  for (const [relativePath, expectedCode] of cases) {
+    for (const result of ["OPEN", "FAIL"] as const) {
+      const root = architectureReconstructionFixtureRoot();
+      const target = path.join(root, relativePath);
+      const source = fs.readFileSync(target, "utf8");
+      write(
+        target,
+        source.replace(
+          /^- \[x\] (?<item>.+)$/mu,
+          `- ${result}: 再レビュー待ち — $<item>`,
+        ),
+      );
+      const candidate = runChecker(root);
+      assert.ok(
+        !candidate.report.findings.some(
+          (finding) => finding.code === expectedCode,
+        ),
+        `${result} ${relativePath}\n${candidate.stdout}\n${candidate.stderr}`,
+      );
+      const indexPath = path.join(
+        root,
+        "06_Architecture",
+        "01_Architecture.md",
+      );
+      write(
+        indexPath,
+        fs
+          .readFileSync(indexPath, "utf8")
+          .replace("Status: Candidate", "Status: Architecture Ready"),
+      );
+      const ready = runChecker(root);
+      assert.ok(
+        ready.report.findings.some((finding) => finding.code === expectedCode),
+        `${result} ${relativePath}\n${ready.stdout}\n${ready.stderr}`,
+      );
+    }
+  }
+});
+
+/**
+ * Architecture分析の9観点表は完全な3列・閉じた判定語彙・根拠を要求するを検証する。
+ *
+ * @responsibility Architecture分析の9観点表は完全な3列・閉じた判定語彙・根拠を要求するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture分析の9観点表は完全な3列・閉じた判定語彙・根拠を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Architecture分析の9観点表は完全な3列・閉じた判定語彙・根拠を要求する", () => {
+  const mutations = [
+    (source: string) => source.replace(/^\| Responsibility \|.*\r?\n/mu, ""),
+    (source: string) =>
+      source.replace(
+        "| Responsibility | 評価済み | 試験Coreが所有する |",
+        "| Responsibility | 未判定 | 試験Coreが所有する |",
+      ),
+    (source: string) =>
+      source.replace(
+        "| Responsibility | 評価済み | 試験Coreが所有する |",
+        "| Responsibility | 評価済み |  |",
+      ),
+    (source: string) =>
+      source.replace(
+        "| Responsibility | 評価済み | 試験Coreが所有する |",
+        "| Responsibility | 評価済み | 試験Coreが所有する | 余分 |",
+      ),
+  ];
+  for (const mutate of mutations) {
+    const root = architectureReconstructionFixtureRoot();
+    const target = path.join(
+      root,
+      "06_Architecture/Analysis/UI-000001/architecture_analysis.md",
+    );
+    write(target, mutate(fs.readFileSync(target, "utf8")));
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "architecture-analysis-contract-invalid",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * Architecture定義の未確認表は入力集合と完全一致する5列を要求するを検証する。
+ *
+ * @responsibility Architecture定義の未確認表は入力集合と完全一致する5列を要求するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture定義の未確認表は入力集合と完全一致する5列を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Architecture定義の未確認表は入力集合と完全一致する5列を要求する", () => {
+  const mutations = [
+    (source: string) =>
+      source.replace(
+        "| SPEC-000001 | なし | 不要 | 解消済み | 上流契約変更時 |\n",
+        "",
+      ),
+    (source: string) =>
+      source.replace(
+        "| SPEC-000001 | なし | 不要 | 解消済み | 上流契約変更時 |",
+        "| SPEC-999999 | なし | 不要 | 解消済み | 上流契約変更時 |",
+      ),
+    (source: string) =>
+      source.replace(
+        "| SPEC-000001 | なし | 不要 | 解消済み | 上流契約変更時 |",
+        "| SPEC-000001 |  | 不要 | 解消済み | 上流契約変更時 |",
+      ),
+    (source: string) =>
+      source.replace(
+        "| SPEC-000001 | なし | 不要 | 解消済み | 上流契約変更時 |",
+        "| SPEC-000001 | なし | 不要 | 解消済み | 上流契約変更時 | 余分 |",
+      ),
+  ];
+  for (const mutate of mutations) {
+    const root = architectureReconstructionFixtureRoot();
+    const target = path.join(
+      root,
+      "06_Architecture/Definitions/ARCH-000001/architecture_definition.md",
+    );
+    write(target, mutate(fs.readFileSync(target, "utf8")));
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "architecture-definition-contract-invalid",
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * Architecture詳細設計のConcern OPEN／FAILは候補で保持しReadyで拒否するを検証する。
+ *
+ * @responsibility Architecture詳細設計のConcern OPEN／FAILは候補で保持しReadyで拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture詳細設計のConcern OPEN／FAILは候補で保持しReadyで拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Architecture詳細設計のConcern OPEN／FAILは候補で保持しReadyで拒否する", () => {
+  for (const decision of ["OPEN", "FAIL"] as const) {
+    const root = architectureReconstructionFixtureRoot();
+    const target = path.join(
+      root,
+      "06_Architecture/Details/sample/01_Architecture.md",
+    );
+    write(
+      target,
+      fs
+        .readFileSync(target, "utf8")
+        .replace(
+          "| Concurrency | N/A | 共有状態がない |",
+          `| Concurrency | ${decision} | 理由付きで未解決 |`,
+        ),
+    );
+    const candidate = runChecker(root);
+    assert.ok(
+      !candidate.report.findings.some(
+        (finding) => finding.code === "architecture-detail-contract-invalid",
+      ),
+      `${decision}\n${candidate.stdout}\n${candidate.stderr}`,
+    );
+    const indexPath = path.join(root, "06_Architecture/01_Architecture.md");
+    write(
+      indexPath,
+      fs
+        .readFileSync(indexPath, "utf8")
+        .replace("Status: Candidate", "Status: Architecture Ready"),
+    );
+    const ready = runChecker(root);
+    assert.ok(
+      ready.report.findings.some(
+        (finding) => finding.code === "architecture-detail-contract-invalid",
+      ),
+      `${decision}\n${ready.stdout}\n${ready.stderr}`,
+    );
+  }
+});
+
+/**
+ * Architecture分析・定義・詳細設計の意味構造欠落を拒否するを検証する。
+ *
+ * @responsibility Architecture分析・定義・詳細設計の意味構造欠落を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture分析・定義・詳細設計の意味構造欠落を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Architecture分析・定義・詳細設計の意味構造欠落を拒否する", () => {
+  const mutations = [
+    [
+      "06_Architecture/Analysis/UI-000001/architecture_analysis.md",
+      /^\| Human Input \|.*\r?\n/mu,
+      "architecture-analysis-contract-invalid",
+    ],
+    [
+      "06_Architecture/Definitions/ARCH-000001/architecture_definition.md",
+      /^### 未確認事項・人間判断・戻り条件\s*$[\s\S]*?(?=^## 9\.)/mu,
+      "architecture-definition-contract-invalid",
+    ],
+    [
+      "06_Architecture/Details/sample/01_Architecture.md",
+      /^- `PASS`:.*\r?\n/mu,
+      "architecture-detail-contract-invalid",
+    ],
+  ] as const;
+  for (const [relativePath, removal, expectedCode] of mutations) {
+    const root = architectureReconstructionFixtureRoot();
+    const target = path.join(root, relativePath);
+    write(target, fs.readFileSync(target, "utf8").replace(removal, ""));
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some((finding) => finding.code === expectedCode),
+      `${relativePath}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * UI観点のArchitecture分析はSPECや上流工程を正式入力にできないを検証する。
+ *
+ * @responsibility UI観点のArchitecture分析はSPECや上流工程を正式入力にできないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus UI観点のArchitecture分析はSPECや上流工程を正式入力にできないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("UI観点のArchitecture分析はSPECや上流工程を正式入力にできない", () => {
+  const root = architectureReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "06_Architecture",
+    "Analysis",
+    "UI-000001",
+    "architecture_analysis.md",
+  );
+  write(
+    file,
+    fs
+      .readFileSync(file, "utf8")
+      .replace("- UI定義:", "- SPEC: 05_SPEC\n- 要求: 01_Discovery\n- UI定義:"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "architecture-analysis-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Architecture台帳・分析・定義の責務関係は完全一致するを検証する。
+ *
+ * @responsibility Architecture台帳・分析・定義の責務関係は完全一致するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture台帳・分析・定義の責務関係は完全一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Architecture台帳・分析・定義の責務関係は完全一致する", () => {
+  const root = architectureReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "06_Architecture",
+    "Definitions",
+    "ARCH-000001",
+    "architecture_definition.md",
+  );
+  write(
+    file,
+    fs.readFileSync(file, "utf8").replaceAll("SPEC-000001", "SPEC-000002"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "architecture-analysis-definition-closure-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Architecture台帳の入力関係も分析・定義と完全一致するを検証する。
+ *
+ * @responsibility Architecture台帳の入力関係も分析・定義と完全一致するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture台帳の入力関係も分析・定義と完全一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Architecture台帳の入力関係も分析・定義と完全一致する", () => {
+  const root = architectureReconstructionFixtureRoot();
+  const file = path.join(root, "06_Architecture", "01_Architecture.md");
+  write(
+    file,
+    fs.readFileSync(file, "utf8").replace("SPEC-000001 |", "SPEC-000002 |"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "architecture-registry-relation-closure-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Architecture定義は責務・入力別契約・品質・移行の構造を自己完結して持つを検証する。
+ *
+ * @responsibility Architecture定義は責務・入力別契約・品質・移行の構造を自己完結して持つの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture定義は責務・入力別契約・品質・移行の構造を自己完結して持つの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Architecture定義は責務・入力別契約・品質・移行の構造を自己完結して持つ", () => {
+  const root = architectureReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "06_Architecture",
+    "Definitions",
+    "ARCH-000001",
+    "architecture_definition.md",
+  );
+  write(
+    file,
+    fs
+      .readFileSync(file, "utf8")
+      .replace(
+        "| 入力 | State Owner | Authority | Effect／非該当 |",
+        "| 入力 | 状態 | 権限 | 作用 |",
+      ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "architecture-definition-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Architecture定義の説明用placeholderを完成契約として受理しないを検証する。
+ *
+ * @responsibility Architecture定義の説明用placeholderを完成契約として受理しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture定義の説明用placeholderを完成契約として受理しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Architecture定義の説明用placeholderを完成契約として受理しない", () => {
+  const root = architectureReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "06_Architecture",
+    "Definitions",
+    "ARCH-000001",
+    "architecture_definition.md",
+  );
+  write(
+    file,
+    fs
+      .readFileSync(file, "utf8")
+      .replace(
+        "利用者へ根拠付き状態を返し、表示と状態更新を分離する。\n\n| 観点 | 契約 |",
+        "責務。\n\n| 観点 | 契約 |",
+      ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "architecture-definition-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Architecture入力関係はCanonical入力節の外へ移しても成立しないを検証する。
+ *
+ * @responsibility Architecture入力関係はCanonical入力節の外へ移しても成立しないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture入力関係はCanonical入力節の外へ移しても成立しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ */
+test("Architecture入力関係はCanonical入力節の外へ移しても成立しない", () => {
+  const root = architectureReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "06_Architecture",
+    "Definitions",
+    "ARCH-000001",
+    "architecture_definition.md",
+  );
+  write(
+    file,
+    fs
+      .readFileSync(file, "utf8")
+      .replace(
+        "[UI-000001](../../Analysis/UI-000001/architecture_analysis.md)",
+        "正式なUI入力は次の照合節に記録する。",
+      )
+      .replace(
+        "正式入力は第2節と第3節の分析であり、現行実装は能力比較だけに使う。",
+        "正式入力は第2節と第3節の分析である。参考: [UI-000001](../../Analysis/UI-000001/architecture_analysis.md)",
+      ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "architecture-definition-contract-invalid" ||
+        finding.code === "architecture-analysis-definition-closure-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * 同じ入力とArchitecture責務の重複関係を拒否するを検証する。
+ *
+ * @responsibility 同じ入力とArchitecture責務の重複関係を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 同じ入力とArchitecture責務の重複関係を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("同じ入力とArchitecture責務の重複関係を拒否する", () => {
+  const root = architectureReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "06_Architecture",
+    "Definitions",
+    "ARCH-000001",
+    "architecture_definition.md",
+  );
+  write(
+    file,
+    fs
+      .readFileSync(file, "utf8")
+      .replace(
+        "[UI-000001](../../Analysis/UI-000001/architecture_analysis.md)",
+        "[UI-000001](../../Analysis/UI-000001/architecture_analysis.md)\n\n[UI-000001](../../Analysis/UI-000001/architecture_analysis.md)",
+      ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "architecture-relation-duplicate",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Canonical定義に対応しない余分なArchitecture分析を拒否するを検証する。
+ *
+ * @responsibility Canonical定義に対応しない余分なArchitecture分析を拒否するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Canonical定義に対応しない余分なArchitecture分析を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ */
+test("Canonical定義に対応しない余分なArchitecture分析を拒否する", () => {
+  const root = architectureReconstructionFixtureRoot();
+  write(
+    path.join(
+      root,
+      "06_Architecture",
+      "Analysis",
+      "UI-999999",
+      "architecture_analysis.md",
+    ),
+    "# 余分な分析\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "architecture-analysis-directory-coverage-mismatch",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * SPEC処置の重複関係を拒否するを検証する。
+ *
+ * @responsibility SPEC処置の重複関係を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus SPEC処置の重複関係を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("SPEC処置の重複関係を拒否する", () => {
+  const root = specReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "05_SPEC",
+    "Analysis",
+    "UX-000001",
+    "spec_analysis.md",
+  );
+  write(
+    file,
+    fs
+      .readFileSync(file, "utf8")
+      .replace(
+        "| [SPEC-000001](../../Definitions/SPEC-000001/spec_definition.md) | New | 独立契約 |",
+        "| [SPEC-000001](../../Definitions/SPEC-000001/spec_definition.md) | New | 独立契約 |\n| [SPEC-000001](../../Definitions/SPEC-000001/spec_definition.md) | Same | 重複 |",
+      ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "spec-analysis-relation-duplicate",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * 対応UI節外のリンクをpairs_withとして数えないを検証する。
+ *
+ * @responsibility 対応UI節外のリンクをpairs_withとして数えないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 対応UI節外のリンクをpairs_withとして数えないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("対応UI節外のリンクをpairs_withとして数えない", () => {
+  const root = specReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "05_SPEC",
+    "Definitions",
+    "SPEC-000001",
+    "spec_definition.md",
+  );
+  write(
+    file,
+    fs.readFileSync(file, "utf8").replace("- pairs_with:", "- 参考UI:"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "spec-definition-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * 直接UIなしは理由・運用Feedback・人間確認を必須にするを検証する。
+ *
+ * @responsibility 直接UIなしは理由・運用Feedback・人間確認を必須にするの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 直接UIなしは理由・運用Feedback・人間確認を必須にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("直接UIなしは理由・運用Feedback・人間確認を必須にする", () => {
+  const root = specReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "05_SPEC",
+    "Definitions",
+    "SPEC-000001",
+    "spec_definition.md",
+  );
+  write(
+    file,
+    fs
+      .readFileSync(file, "utf8")
+      .replace(
+        "- pairs_with: [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md)",
+        "- pairs_with: Not Applicable",
+      ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "spec-definition-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * 理由付きの直接UIなし契約を受理するを検証する。
+ *
+ * @responsibility 理由付きの直接UIなし契約を受理するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 理由付きの直接UIなし契約を受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("理由付きの直接UIなし契約を受理する", () => {
+  const root = specReconstructionFixtureRoot();
+  const definition = path.join(
+    root,
+    "05_SPEC",
+    "Definitions",
+    "SPEC-000001",
+    "spec_definition.md",
+  );
+  write(
+    definition,
+    fs
+      .readFileSync(definition, "utf8")
+      .replace(
+        "- pairs_with: [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md)",
+        "- pairs_with: Not Applicable\n- 理由: 背景処理である\n- 運用Feedback: 構造化結果で確認する\n- 人間確認: 試験責任者が確認済み",
+      ),
+  );
+  const index = path.join(root, "05_SPEC", "01_Behavior_Specification.md");
+  write(
+    index,
+    fs
+      .readFileSync(index, "utf8")
+      .replace("| UI-000001 |", "| Not Applicable |"),
+  );
+  const ui = path.join(
+    root,
+    "04_UI",
+    "Definitions",
+    "UI-000001",
+    "ui_definition.md",
+  );
+  write(
+    ui,
+    fs
+      .readFileSync(ui, "utf8")
+      .replace(
+        "- pairs_with: [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md)",
+        "- 直接SPECなし: この試験では背景処理として扱う",
+      ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some((finding) => finding.code.startsWith("spec-")),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * 直接UIありとなしの同時宣言を拒否するを検証する。
+ *
+ * @responsibility 直接UIありとなしの同時宣言を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 直接UIありとなしの同時宣言を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("直接UIありとなしの同時宣言を拒否する", () => {
+  const root = specReconstructionFixtureRoot();
+  const file = path.join(
+    root,
+    "05_SPEC",
+    "Definitions",
+    "SPEC-000001",
+    "spec_definition.md",
+  );
+  write(
+    file,
+    fs
+      .readFileSync(file, "utf8")
+      .replace("- pairs_with:", "- pairs_with: Not Applicable、"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "spec-definition-contract-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * SPEC工程直下の共通Evidence箱を拒否するを検証する。
+ *
+ * @responsibility SPEC工程直下の共通Evidence箱を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus SPEC工程直下の共通Evidence箱を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("SPEC工程直下の共通Evidence箱を拒否する", () => {
+  const root = specReconstructionFixtureRoot();
+  write(path.join(root, "05_SPEC", "Evidence", ".gitkeep"));
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "spec-shared-evidence-root-forbidden",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
 
 after(() => {
   for (const root of fixtures) {
@@ -564,27 +6270,2328 @@ after(() => {
   }
 });
 
+/**
+ * makeStructureのTest準備責務を実行する。
+ *
+ * @responsibility makeStructureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus makeStructureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function makeStructure(root: string): void {
   for (const folder of requiredFolders) {
     fs.mkdirSync(path.join(root, folder), { recursive: true });
   }
 }
 
+/**
+ * writeのTest準備責務を実行する。
+ *
+ * @responsibility writeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus writeを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function write(file: string, content = ""): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, content, "utf8");
 }
 
-type DispositionFixtureEntry = Record<string, unknown> & { path: string };
+const discoveryRootChecklistTestItems = [
+  "すべての探索記録と採用要求を台帳から一意に辿れる。",
+  "採用済みの判断、探索中の候補、保留、棄却および未確認事項を区別した。",
+  "複数探索の関係、競合または合流候補を、個別記録の第二の正本を作らず示した。",
+  "Version別の作業予定や未完了TaskをDiscoveryの判断として複製していない。",
+  "基本図を現行図、既存参照、理由付き非該当または作成不能として処置した。",
+  "UXその他へ渡す現在の判断、保持条件およびDiscoveryへ戻す条件が分かる。",
+  "人間理解の確認が必要な探索について、理解確認と要求採用を区別した。",
+  "補足情報や台帳が個別探索・要求定義の第二の正本になっていない。",
+];
 
-function fixtureBlobOid(file: string): string {
-  const bytes = fs.readFileSync(file);
-  return createHash("sha1")
-    .update(Buffer.from(`blob ${bytes.length}\0`, "utf8"))
-    .update(bytes)
-    .digest("hex");
+const discoveryExplorationChecklistTestItems = [
+  "情報源と、情報源から確認できる範囲を示した。",
+  "確認できた事実と、そこから導いた解釈・仮説を区別した。",
+  "解決策ではなく、本質的な問題を説明した。",
+  "技術名称を除いても、誰が何に困っているか理解できる。",
+  "影響を受ける人または判断する人を特定した。",
+  "どのような変化を期待するか説明した。",
+  "原因と解決に関する仮説を、事実として扱っていない。",
+  "未確認事項と不確実性を明示した。",
+  "人間による確認または判断が必要かを評価した。",
+  "情報不足をAIの推測だけで補っていない。",
+  "失敗、リスク、制約および対象外を評価した。",
+  "採用、不採用、保留を区別した。",
+  "次工程が保持すべき問題、変化および条件を示した。",
+  "情報不足時にDiscoveryへ戻す条件を示した。",
+  "因果、比較または時系列を図示する必要性を判定し、作成または理由付きN/Aとして処置した。",
+  "補足分析へ必須情報を退避していない。",
+];
+
+const discoveryRequirementChecklistTestItems = [
+  "要求だけを読んでも、必要な変化を理解できる。",
+  "探索元と採用判断を一意に辿れる。",
+  "対象、利用状況、問題および望ましい変化を説明した。",
+  "特定の画面、実装または技術方式へ不要に固定していない。",
+  "要求として採用した理由と主要な代替を示した。",
+  "正常時の成立条件を判定可能な形で示した。",
+  "不完全・異常・境界時にも守る条件を示した。",
+  "成立主張を破る反証条件を示した。",
+  "失敗、リスクおよび制約を評価した。",
+  "対象外を明示した。",
+  "未確認事項と人間確認の必要性を評価した。",
+  "情報不足をAIの推測だけで補っていない。",
+  "検証意図を、具体的な試験項目を先取りせず説明した。",
+  "UXが探索記録を直接読まず、この定義だけから分析を開始できる。",
+  "下流工程の結論をDiscoveryへ逆輸入していない。",
+  "補足分析へ必須情報を退避していない。",
+];
+
+const uxIndexChecklistTestItems = [
+  "誰の何をなぜ良くする製品かを冒頭から短時間で理解できる",
+  "全REQに個別分析とUX処置があり全UX定義へ到達できる",
+  "UX成果と入力REQの関係および網羅状況を説明できる",
+  "個別分析と横断合成の詳細を複製せず関係と現在状態を示した",
+  "想定利用者、利用の流れ、提供責務および品質期待の横断成果物へ到達できる",
+  "未確認事項、戻り先および工程移行判断を区別した",
+  "IAへの正式な引き渡しを明示した",
+  "Quality Analysis / UXへの伴走入力を明示した",
+  "UIとSPECが後続で保持するUX ContractをIAへの工程移行と区別した",
+  "基本図を作成、既存参照、非該当または作成不能として理由付きで処置した",
+  "横断成果物が個別Definitionの第二の正本になっていない",
+  "補足へ台帳、網羅状況または必須の引き渡しを退避していない",
+];
+
+const uxAnalysisChecklistTestItems = [
+  "同じREQのDiscovery定義を正式入力として一意に特定した",
+  "REQの問題、望ましい変化、制約および未確認事項を保持した",
+  "REQにない意味をAIの推測だけで追加していない",
+  "利用者、判断する人および関係する利用者を必要な範囲で特定した",
+  "利用場面と前後の状況を特定した",
+  "現在の体験、困りごとまたは回避方法を説明した",
+  "目的を解決策の操作ではなく利用者の目的として表現した",
+  "利用前後の仕事、理解、判断または行動の変化を説明した",
+  "得られる結果を独立した利用者成果として定義した",
+  "重要場面を評価した",
+  "避ける失敗を評価した",
+  "体験品質への期待を評価した",
+  "人間による評価または確認が必要な事項を評価した",
+  "IA、UI、SPECまたはArchitectureの結論を先取りしていない",
+  "New、SameまたはNot Applicableを利用者成果の同一性から判断した",
+  "統合判断の理由を追跡できる",
+  "未確認事項と影響を明示した",
+  "IAへの正式な引き渡しを明示した",
+  "Quality Analysis / UXへの伴走入力を明示した",
+  "UIとSPECが後続で保持するUX ContractをIAへの工程移行と区別した",
+  "DiscoveryまたはUXへ戻す条件を明示した",
+  "補足分析へ必須情報を退避していない",
+];
+
+const uxDefinitionChecklistTestItems = [
+  "UX IDと表題から独立した利用者成果を識別できる",
+  "定義単独で利用者、利用場面および前後の状況を理解できる",
+  "利用者の目的を理解できる",
+  "得られる結果をUI操作ではなく独立した利用者成果として表現した",
+  "利用前後の変化を必要な範囲で説明した",
+  "成立条件を観察可能な意味で説明した",
+  "重要場面を処置した",
+  "重要な失敗を処置した",
+  "体験品質への期待と必要性を処置した",
+  "必要な情報をIAへ引き渡せる",
+  "UXが所有する責任と下流へ残す判断を区別した",
+  "制約と対象外を保持した",
+  "未確認事項と影響を明示した",
+  "人間による評価または確認の必要性を評価した",
+  "検証意図を具体的なTest Caseへ先取りせず定義した",
+  "IAへの正式な引き渡しを明示した",
+  "Quality Analysis / UXへの伴走入力を明示した",
+  "UIとSPECが後続で保持するUX ContractをIAへの工程移行と区別した",
+  "IAがUX Analysisを読み直さずDefinitionから開始できる",
+  "下流成果物、Architectureまたは現行実装をUXへ逆輸入していない",
+  "DiscoveryまたはUX分析へ戻す条件を明示した",
+  "補足定義へ必須情報を退避していない",
+];
+
+/**
+ * evaluatedChecklistのTest準備責務を実行する。
+ *
+ * @responsibility evaluatedChecklistがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus evaluatedChecklistを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
+function evaluatedChecklist(
+  items: readonly string[],
+  overrides: ReadonlyMap<number, readonly [string, string]> = new Map(),
+): string {
+  const lines = items.map((item, index) => {
+    const override = overrides.get(index);
+    return override
+      ? `- ${override[0]}: ${override[1]} — ${item}`
+      : `- [x] ${item}`;
+  });
+  return `## Checklist\n\n${lines.join("\n")}`;
 }
 
+/**
+ * checklistItemsFromTemplateのTest準備責務を実行する。
+ *
+ * @responsibility checklistItemsFromTemplateがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus checklistItemsFromTemplateを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
+function checklistItemsFromTemplate(relativePath: string): string[] {
+  return fs
+    .readFileSync(path.join(repositoryRoot, relativePath), "utf8")
+    .split(/\r?\n/u)
+    .flatMap((line) => {
+      const item = /^- \[ \] (?<text>\S.*)$/u.exec(line)?.groups?.text;
+      return item ? [item] : [];
+    });
+}
+
+/**
+ * discoveryDefinitionのTest準備責務を実行する。
+ *
+ * @responsibility discoveryDefinitionがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus discoveryDefinitionを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
+function discoveryDefinition(
+  requirementId: string,
+  explorationId: string,
+  marker: string,
+): string {
+  return `# ${requirementId} 要求\n\n成果物種別: Discovery定義\n要求ID: \`${requirementId}\`\n\n## 要求\n\n${marker}として利用者が望む結果を得られる要求である。\n\n## 対象と利用状況\n\n${marker}の対象者が、判断に必要な情報を確認する具体的な状況を扱う。\n\n## 解く問題と望ましい変化\n\n${marker}により現在の問題を識別し、再現可能な望ましい状態へ変える。\n\n## 採用理由と比較\n\n${marker}では代替案との違いと、採用した理由および残る弱点を比較する。\n\n## 成立条件\n\n- ${marker}の正常結果を確認できる\n- ${marker}の不完全状態を正常へ丸めない\n- ${marker}を破る反証を拒否できる\n\n## 制約\n\n- ${marker}の決定権限を下流へ移さない\n- ${marker}の対象外を完成扱いしない\n\n## 検証意図\n\n${marker}の正常、境界、失敗を実際の観測結果で区別できることを確認する。\n\n## 工程引渡し\n\n| 引渡し先 | 失ってはならない意味 | 下流で決めること |\n|---|---|---|\n| UX | ${marker}の利用者、状況、問題、変化 | 目的と得られる結果 |\n| IA以降 | ${marker}の状態と制約 | 工程固有設計 |\n\n## 関係\n\n- 元の探索記録: [${explorationId}](../../Analysis/${explorationId}/exploration.md)\n\n${evaluatedChecklist(discoveryRequirementChecklistTestItems)}\n`;
+}
+
+/**
+ * iaAnalysisのTest準備責務を実行する。
+ *
+ * @responsibility iaAnalysisがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus iaAnalysisを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
+function iaAnalysis(uxId: string, iaId: string): string {
+  return `# IA分析: 試験用\n\n成果物種別: IA分析\n分析対象: [${uxId}](../../../02_UX/Definitions/${uxId}/ux_definition.md)\n状態: 分析済み\n\n## 1. UXから受け取る意味\n\n| 観点 | この分析で受け取る内容 |\n|---|---|\n| 利用者 | 試験利用者 |\n| 場面 | 判断する時 |\n| 目的 | 対象を理解する |\n| 得たい結果 | 次の行動を選べる |\n| 重要場面 | 判断する直前 |\n| 避ける失敗 | 不明を正常と誤認する |\n| 守る品質 | 根拠を失わない |\n\n## 2. 情報候補と関係\n\n| 情報Object | 利用者にとっての意味 | 同一性と関係の基準 |\n|---|---|---|\n| 対象 | 判断対象 | 安定IDで識別する |\n| 根拠 | 判断を支える情報 | 対象と情報源へ結ぶ |\n\n\`\`\`text\n[O: 対象]\n   └─ 支えられる → [O: 根拠]\n\`\`\`\n\n図中の\`[O:]\`は情報Objectだけを表す。\n\n### Canonical化候補\n\n| 接続先 | 分析Object | Canonical Object | 処置 | 判断理由 |\n|---|---|---|---|---|\n| ${iaId} | 対象 | 対象 | Same | 同じ意味を保持する |\n| ${iaId} | 根拠 | 根拠 | Same | 同じ意味を保持する |\n\n## 3. 状態・可視性・導線・責任\n\n| 観点 | 分析結果 |\n|---|---|\n| 状態 | 未確認と確認済みを分ける |\n| 可視性 | 判断時に示す |\n| 導線 | 対象から根拠へ進む |\n| 責任 | 試験情報管理者が対象と根拠の同一性を保つ |\n| 時間的な意味 | 現在と不明を分ける |\n| 情報の優先度 | 判断対象を先に示す |\n| 情報のまとまり | 対象と根拠をまとめる |\n| 判断権限 | 試験承認者が意味と状態を確定し、利用者が次の行動を選ぶ |\n| 重要な失敗 | 不明を正常と誤認する |\n| 制約・対象外 | UIと実装を決めない |\n| 人間判断 | UXから継承する判断だけを保持する |\n| IAへ戻す条件 | 情報契約が不足した時 |\n| 検証意図 | 対象と根拠を区別できること |\n\n### 未確認事項と判断\n\n| 区分 | 内容 |\n|---|---|\n| UXから継承する確認事項 | 利用者が理解できるか |\n| 判断者 | 代表利用者 |\n| 現在判定 | 後続確認が必要 |\n| 未確認時の影響 | 定量条件を確定しない |\n| IAで追加した未確認事項 | なし |\n| IA固有の追加人間判断 | なし |\n\n## 4. 現実照合の参考情報（正式入力ではない）\n\nこの節は後続のReality Auditへ引き継ぐ参考情報であり、IA Candidateを導く正式入力ではない。\n\nなし。\n\n## 5. IA処置\n\n[${iaId}](../../Definitions/${iaId}/ia_definition.md)へ接続する。\n\n## 6. 後続工程が保持する意味\n\n| 接続先 | 保持する意味 |\n|---|---|\n| UI（UX＋IAの正式入力） | 情報の優先度を保持する |\n| SPEC（UX＋IAの正式入力） | 識別と状態を保持する |\n| Quality Analysis / IA（伴走） | 成立条件を保持する |\n\nArchitectureやSourceへ直接引き渡さない。\n\n## 7. 補足分析\n\nなし。\n\n${evaluatedChecklist(checklistItemsFromTemplate("template/03_IA/Analysis/UX-XXXXXX/ia_analysis.md"))}\n`;
+}
+
+/**
+ * iaDefinitionのTest準備責務を実行する。
+ *
+ * @responsibility iaDefinitionがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus iaDefinitionを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
+function iaDefinition(iaId: string, uxId: string): string {
+  return `# ${iaId} 試験用情報\n\n成果物種別: IA定義\nIA ID: \`${iaId}\`\n\n## 意味と利用者成果\n\n利用者が情報を見分けられる。\n\n## 対象・識別・関係\n\n### 分析ObjectからCanonical Objectへの対応\n\n| Source Analysis Object | Canonical Object | 処置 | 判断理由 |\n|---|---|---|---|\n| ${uxId}: 対象 | 対象 | Same | 同じ意味を保持する |\n\n対象と関係を定義する。\n\n## 状態・可視性・時間的な意味\n\n状態と時間差を区別する。\n\n## 情報の優先度・まとまり・見つけ方・責任\n\n対象から根拠へ進める。\n\n### 責任と判断権限\n\n| 入力UX | 情報を作成・更新・提供する責任 | 意味・状態・次の行動を決める権限 |\n|---|---|---|\n| ${uxId} | 試験情報管理者が対象と根拠を正確に保つ | 試験承認者が意味と状態を確定し、利用者が次の行動を決める |\n\n## 失敗・制約・未確認事項\n\n不明を正常へ丸めず、実装を先取りしない。\n\n## 検証意図\n\n| 入力UX | 重要場面 | 避ける失敗 | 品質期待 |\n|---|---|---|---|\n| ${uxId} | 判断前 | 誤認 | 根拠を示す |\n\n### 人間判断・未確認事項・戻り条件\n\n| 入力UX | UXから継承する確認事項 | 判断者 | 現在判定 | 未確認時の影響 |\n|---|---|---|---|---|\n| ${uxId} | 理解できるか | 代表利用者 | 後続確認が必要 | 定量条件を確定しない |\n\n## 後続工程との関係\n\n| 接続先 | 保持する意味 |\n|---|---|\n| UI（UX＋IAの正式入力） | 情報の優先度を保持する |\n| SPEC（UX＋IAの正式入力） | 識別と状態を保持する |\n| Quality Analysis / IA（伴走） | 成立条件を保持する |\n\n## 情報源\n\n- [${uxId}のIA分析](../../Analysis/${uxId}/ia_analysis.md)\n\n## 補足分析\n\nなし。\n\n${evaluatedChecklist(checklistItemsFromTemplate("template/03_IA/Definitions/IA-XXXXXX/ia_definition.md"))}\n`;
+}
+
+/**
+ * iaCrossArtifactのTest準備責務を実行する。
+ *
+ * @responsibility iaCrossArtifactがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus iaCrossArtifactを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
+function iaCrossArtifact(title: string, checklistTemplatePath: string): string {
+  return `# ${title}\n\n## 4. IA定義への適用\n\n| IA定義 | 処置 | 横断投影での扱い |\n|---|---|---|\n| [IA-000001](Definitions/IA-000001/ia_definition.md) | 適用 | 試験用の横断投影へ接続 |\n\n${evaluatedChecklist(checklistItemsFromTemplate(checklistTemplatePath))}\n`;
+}
+
+/**
+ * iaReconstructionFixtureRootのTest準備責務を実行する。
+ *
+ * @responsibility iaReconstructionFixtureRootがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus iaReconstructionFixtureRootを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
+function iaReconstructionFixtureRoot(): string {
+  const root = fixture();
+  makeStructure(root);
+  fs.rmSync(path.join(root, "00_CRDD"), { recursive: true, force: true });
+  write(path.join(root, "01_Principles.md"), "# Principles\n");
+  write(
+    path.join(root, "02_UX", "Definitions", "UX-000001", "ux_definition.md"),
+    "# UX-000001 試験用利用者成果\n",
+  );
+  write(
+    path.join(root, "03_IA", "01_Information_Architecture.md"),
+    `# IA\n\n| IA | 利用者が見分ける情報 | 主な入力UX |\n|---|---|---|\n| [IA-000001](Definitions/IA-000001/ia_definition.md) | 試験用情報 | UX-000001 |\n\n${evaluatedChecklist(checklistItemsFromTemplate("template/03_IA/01_Information_Architecture.md"))}\n`,
+  );
+  write(
+    path.join(root, "03_IA", "02_Object_and_Relation_Model.md"),
+    iaCrossArtifact(
+      "情報オブジェクトと関係",
+      "template/03_IA/02_Object_and_Relation_Model.md",
+    ),
+  );
+  write(
+    path.join(root, "03_IA", "03_Information_Structure_and_Navigation.md"),
+    iaCrossArtifact(
+      "情報のまとまりと導線",
+      "template/03_IA/03_Information_Structure_and_Navigation.md",
+    ),
+  );
+  write(
+    path.join(root, "03_IA", "04_State_Visibility_and_Responsibility.md"),
+    iaCrossArtifact(
+      "状態・可視性・責任",
+      "template/03_IA/04_State_Visibility_and_Responsibility.md",
+    ),
+  );
+  write(
+    path.join(root, "03_IA", "Analysis", "UX-000001", "ia_analysis.md"),
+    iaAnalysis("UX-000001", "IA-000001").replace(
+      "### 未確認事項と判断",
+      "ここで示す主体は、情報契約上必要な機能責任を表し、特定の人物・組織・Componentへの割当を確定しない。後続工程は、この責任境界を保ったまま実際の主体へ割り当てる。\n\n### 未確認事項と判断",
+    ),
+  );
+  write(
+    path.join(root, "03_IA", "Definitions", "IA-000001", "ia_definition.md"),
+    iaDefinition("IA-000001", "UX-000001")
+      .replace(
+        "## 失敗・制約・未確認事項",
+        "ここで示す主体は、情報契約上必要な機能責任を表し、特定の人物・組織・Componentへの割当を確定しない。後続工程は、この責任境界を保ったまま実際の主体へ割り当てる。\n\n## 失敗・制約・未確認事項",
+      )
+      .replace(
+        "| UX-000001: 対象 | 対象 | Same | 同じ意味を保持する |",
+        "| UX-000001: 対象 | 対象 | Same | 同じ意味を保持する |\n| UX-000001: 根拠 | 根拠 | Same | 判断を支える情報を保持する |",
+      )
+      .replace(
+        "対象と関係を定義する。",
+        "### Identity／Relationの変換\n\n| Source Analysis Object | AnalysisのIdentity／Relation | Canonical Object | CanonicalのIdentity／Relation | 処置と理由 |\n|---|---|---|---|---|\n| UX-000001: 対象 | 安定IDで識別する | 対象 | 安定IDで識別する | Same。識別条件を維持する |\n| UX-000001: 根拠 | 対象と情報源へ結ぶ | 根拠 | 対象と情報源へ結ぶ | Same。関係を維持する |\n\n| 対象 | 利用者にとっての意味 | 識別・関係 |\n|---|---|---|\n| 対象 | 判断する対象 | 安定IDで識別する |\n| 根拠 | 判断を支える情報 | 対象と情報源へ結ぶ |\n\n```text\n[O: 対象] --支えられる--> [O: 根拠]\n```",
+      ),
+  );
+  for (const relativePath of [
+    "template/03_IA/01_Information_Architecture.md",
+    "template/03_IA/02_Object_and_Relation_Model.md",
+    "template/03_IA/03_Information_Structure_and_Navigation.md",
+    "template/03_IA/04_State_Visibility_and_Responsibility.md",
+    "template/03_IA/Analysis/UX-XXXXXX/ia_analysis.md",
+    "template/03_IA/Definitions/IA-XXXXXX/ia_definition.md",
+  ])
+    write(
+      path.join(root, relativePath),
+      fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8"),
+    );
+  return root;
+}
+
+/**
+ * completedChecklistのTest準備責務を実行する。
+ *
+ * @responsibility completedChecklistがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus completedChecklistを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
+function completedChecklist(relativePath: string): string {
+  const source = fs.readFileSync(
+    path.join(repositoryRoot, relativePath),
+    "utf8",
+  );
+  const checklist = source.match(/^## Checklist\s*$[\s\S]*$/mu)?.[0] ?? "";
+  const lines = checklist
+    .split(/\r?\n/u)
+    .filter((line) => line === "## Checklist" || line.startsWith("- [ ] "))
+    .map((line) => line.replace("- [ ] ", "- [x] "));
+  return `${lines.join("\n")}\n`;
+}
+
+/**
+ * uxViewUiAnalysisのTest準備責務を実行する。
+ *
+ * @responsibility uxViewUiAnalysisがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus uxViewUiAnalysisを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
+function uxViewUiAnalysis(uxId: string, uiId: string): string {
+  return `# ${uxId}のUI分析\n\n成果物種別: UI分析（UX観点）\n分析単位: \`${uxId}\`\n状態: Candidate\n\n## 1. 正式入力\n\n- UX定義: [${uxId} 試験用](../../../02_UX/Definitions/${uxId}/ux_definition.md)\n\n## 2. UIへ引き継ぐ利用者成果\n\n利用者が対象を理解する。\n\n## 3. 必要な認識・操作・Feedback\n\n対象、操作、Feedbackを示す。\n\n## 4. 状況による体験差\n\nこのUXに必要な状況だけを区別する。\n\n## 5. UI処置\n\n- [${uiId} 試験用](../../Definitions/${uiId}/ui_definition.md) — \`New\`。独立した利用者成果として扱う。\n\n## 6. IA観点との統合時に確認すること\n\n情報構造と利用者成果が矛盾しないことを確認する。\n\n${completedChecklist("template/04_UI/Analysis/UX-XXXXXX/ui_analysis.md")}`;
+}
+
+/**
+ * iaViewUiAnalysisのTest準備責務を実行する。
+ *
+ * @responsibility iaViewUiAnalysisがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus iaViewUiAnalysisを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
+function iaViewUiAnalysis(iaId: string, uiId: string): string {
+  return `# ${iaId}のUI分析\n\n成果物種別: UI分析（IA観点）\n分析単位: \`${iaId}\`\n状態: Candidate\n\n## 1. 正式入力\n\n- IA定義: [${iaId} 試験用](../../../03_IA/Definitions/${iaId}/ia_definition.md)\n\n## 2. UIへ引き継ぐ情報構造\n\n対象、状態、関係を示す。\n\n## 3. 表示の優先順位とNavigation\n\n対象、状態、根拠の順に示す。\n\n## 4. 表示差と開示境界\n\n通常、停止、結果不明を区別する。\n\n## 5. UI処置\n\n- [${uiId} 試験用](../../Definitions/${uiId}/ui_definition.md) — \`New\`。独立した情報構造として扱う。\n\n## 6. UX観点との統合時に確認すること\n\n情報構造と利用者成果が矛盾しないことを確認する。\n\n${completedChecklist("template/04_UI/Analysis/IA-XXXXXX/ui_analysis.md")}`;
+}
+
+/**
+ * uiDefinitionのTest準備責務を実行する。
+ *
+ * @responsibility uiDefinitionがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus uiDefinitionを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
+function uiDefinition(uiId: string, uxId: string, iaId: string): string {
+  return `# ${uiId} 試験用Interface\n\n成果物種別: UI定義\nUI ID: \`${uiId}\`\n状態: Candidate\n\n## 利用者成果\n\n対象を理解できる。\n\n## UX観点の分析結果\n\n| UX分析 | このUIで保持する利用者成果 |\n|---|---|\n| [${uxId}](../../Analysis/${uxId}/ui_analysis.md) | 対象を理解する |\n\n## IA観点の分析結果\n\n| IA分析 | このUIで保持する情報構造 |\n|---|---|\n| [${iaId}](../../Analysis/${iaId}/ui_analysis.md) | 対象と状態を見分ける |\n\n## 両観点の統合判断\n\n利用者成果を情報構造によって判断可能にする。\n\n## 表示面と情報の優先順位\n\n対象、状態、根拠、行動の順に示す。\n\n## 操作とFeedback\n\n主要操作と結果を示す。\n\n## 状態と表示差\n\n通常と停止を区別する。\n\n## 視覚表現とアクセシビリティ\n\n色以外でも区別する。\n\n## 制約\n\n正本を複製しない。\n\n## UI／SPEC対応レビューへ渡す項目\n\n同じUXとIAについて、UIの観測点とSPEC側の未確定事項を渡す。\n\n## 正式入力と変換根拠\n\n- 正式入力: [${uxId}](../../../02_UX/Definitions/${uxId}/ux_definition.md)\n- 正式入力: [${iaId}](../../../03_IA/Definitions/${iaId}/ia_definition.md)\n\n以下は正式入力をUIの責務へ変換した根拠であり、正式入力そのものではない。\n\n- [${uxId}のUI分析](../../Analysis/${uxId}/ui_analysis.md)\n- [${iaId}のUI分析](../../Analysis/${iaId}/ui_analysis.md)\n\n${completedChecklist("template/04_UI/Definitions/UI-XXXXXX/ui_definition.md")}`;
+}
+
+/**
+ * uiReconstructionFixtureRootのTest準備責務を実行する。
+ *
+ * @responsibility uiReconstructionFixtureRootがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus uiReconstructionFixtureRootを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
+function uiReconstructionFixtureRoot(): string {
+  const root = iaReconstructionFixtureRoot();
+  write(
+    path.join(root, "04_UI", "01_User_Interface.md"),
+    "# UI\n\n| UI | 利用者が使うInterface契約 | 主な入力UX | 主な入力IA |\n|---|---|---|---|\n| [UI-000001](Definitions/UI-000001/ui_definition.md) | 試験用 | UX-000001 | IA-000001 |\n",
+  );
+  write(
+    path.join(root, "04_UI", "Analysis", "UX-000001", "ui_analysis.md"),
+    uxViewUiAnalysis("UX-000001", "UI-000001"),
+  );
+  write(
+    path.join(root, "04_UI", "Analysis", "IA-000001", "ui_analysis.md"),
+    iaViewUiAnalysis("IA-000001", "UI-000001"),
+  );
+  write(
+    path.join(root, "04_UI", "Definitions", "UI-000001", "ui_definition.md"),
+    uiDefinition("UI-000001", "UX-000001", "IA-000001"),
+  );
+  write(
+    path.join(root, "04_UI", "05_UI_SPEC_Handoff.md"),
+    `# UIとSPECの引き渡し\n\nUI側の責任境界を示す。\n\n${completedChecklist("template/04_UI/05_UI_SPEC_Handoff.md")}`,
+  );
+  write(
+    path.join(
+      root,
+      "template",
+      "04_UI",
+      "Analysis",
+      "IA-XXXXXX",
+      "ui_analysis.md",
+    ),
+    fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template/04_UI/Analysis/IA-XXXXXX/ui_analysis.md",
+      ),
+      "utf8",
+    ),
+  );
+  write(
+    path.join(
+      root,
+      "template",
+      "04_UI",
+      "Analysis",
+      "UX-XXXXXX",
+      "ui_analysis.md",
+    ),
+    fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template/04_UI/Analysis/UX-XXXXXX/ui_analysis.md",
+      ),
+      "utf8",
+    ),
+  );
+  write(
+    path.join(
+      root,
+      "template",
+      "04_UI",
+      "Definitions",
+      "UI-XXXXXX",
+      "ui_definition.md",
+    ),
+    fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template/04_UI/Definitions/UI-XXXXXX/ui_definition.md",
+      ),
+      "utf8",
+    ),
+  );
+  for (const relativePath of [
+    "template/04_UI/01_User_Interface.md",
+    "template/04_UI/02_Surface_and_Region_Model.md",
+    "template/04_UI/03_Interaction_and_State_Model.md",
+    "template/04_UI/04_Visual_and_Accessibility_Direction.md",
+    "template/04_UI/05_UI_SPEC_Handoff.md",
+  ])
+    write(
+      path.join(root, relativePath),
+      fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8"),
+    );
+  return root;
+}
+
+/**
+ * specReconstructionFixtureRootのTest準備責務を実行する。
+ *
+ * @responsibility specReconstructionFixtureRootがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus specReconstructionFixtureRootを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
+function specReconstructionFixtureRoot(): string {
+  const root = uiReconstructionFixtureRoot();
+  const uxAnalysis = `# UX-000001のSPEC分析\n\n成果物種別: SPEC分析（UX観点）\n分析単位: \`UX-000001\`\n\n## 1. 正式入力\n\n- UX定義: [UX-000001 試験用](../../../02_UX/Definitions/UX-000001/ux_definition.md)\n\n## 2. 振る舞いへ引き継ぐ利用者成果\n\n成果を示す。\n\n## 3. 観測可能にする契機・結果・失敗\n\n結果を示す。\n\n## 4. 受入条件と適用範囲\n\n適用範囲を示す。\n\n## 5. SPEC処置\n\n| SPEC候補 | 処置 | 判断理由 |\n|---|---|---|\n| [SPEC-000001](../../Definitions/SPEC-000001/spec_definition.md) | New | 独立契約 |\n\n## 6. IA観点との統合時に確認すること\n\n情報構造と統合する。\n\n\n${completedChecklist("template/05_SPEC/Analysis/UX-XXXXXX/spec_analysis.md")}`;
+  const iaAnalysis = `# IA-000001のSPEC分析\n\n成果物種別: SPEC分析（IA観点）\n分析単位: \`IA-000001\`\n\n## 1. 正式入力\n\n- IA定義: [IA-000001 試験用](../../../03_IA/Definitions/IA-000001/ia_definition.md)\n\n## 2. 利用場面ごとに保持する意味\n\n利用場面を示す。\n\n## 3. 対象・識別・関係\n\n情報を示す。\n\n## 4. 状態・可視性・時間的意味\n\n状態を示す。\n\n## 5. 導線・責任・失敗時の保持\n\n保持を示す。\n\n## 6. SPEC処置\n\n| SPEC候補 | 処置 | 判断理由 |\n|---|---|---|\n| [SPEC-000001](../../Definitions/SPEC-000001/spec_definition.md) | New | 独立契約 |\n\n## 7. UX観点との統合時に確認すること\n\n利用者成果と統合する。\n\n\n${completedChecklist("template/05_SPEC/Analysis/IA-XXXXXX/spec_analysis.md")}`;
+  const definition = `# SPEC-000001 試験用\n\n成果物種別: SPEC定義\nSPEC ID: \`SPEC-000001\`\n\n## 振る舞いの目的\n\n目的。\n\n## UX観点の分析結果\n\n[UX-000001](../../Analysis/UX-000001/spec_analysis.md)\n\n## IA観点の分析結果\n\n[IA-000001](../../Analysis/IA-000001/spec_analysis.md)\n\n## 両観点の統合判断\n\n統合する。\n\n## 契機・事前条件・Authority\n\n条件。\n\n## 振る舞い・状態・結果\n\n結果。\n\n## 失敗・回復・副作用\n\n失敗。\n\n## 受入条件と検証義務\n\n| 観点 | 受入条件 |\n|---|---|\n| 対応UI | [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md)の操作と結果が一致する |\n\n## 対応するUI\n\n- pairs_with: [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md)\n\n## 制約\n\n制約。\n\n## 正式入力と変換根拠\n\n- 正式入力: [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md)\n- 正式入力: [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md)\n\n以下は正式入力をSPECの責務へ変換した根拠であり、正式入力そのものではない。\n\n- [UX-000001のSPEC分析](../../Analysis/UX-000001/spec_analysis.md)\n- [IA-000001のSPEC分析](../../Analysis/IA-000001/spec_analysis.md)\n\n${completedChecklist("template/05_SPEC/Definitions/SPEC-XXXXXX/spec_definition.md")}`;
+  write(
+    path.join(root, "05_SPEC", "01_Behavior_Specification.md"),
+    "# SPEC\n\n| 入力／成果 | 件数 | 現在の処置 |\n|---|---:|---|\n| UX定義 | 1 | 全件分析 |\n| IA定義 | 1 | 全件分析 |\n| SPEC分析 | 2 | 観点別 |\n| SPEC定義 | 1 | 統合 |\n| UI定義 | 1 | 対応 |\n\n| SPEC | 観測可能な振る舞い契約 | 主な入力UX | 主な入力IA | 対応UI |\n|---|---|---|---|---|\n| [SPEC-000001](Definitions/SPEC-000001/spec_definition.md) | 試験用 | UX-000001 | IA-000001 | UI-000001 |\n",
+  );
+  write(
+    path.join(root, "05_SPEC", "Analysis", "UX-000001", "spec_analysis.md"),
+    uxAnalysis,
+  );
+  write(
+    path.join(root, "05_SPEC", "Analysis", "IA-000001", "spec_analysis.md"),
+    iaAnalysis,
+  );
+  write(
+    path.join(
+      root,
+      "05_SPEC",
+      "Definitions",
+      "SPEC-000001",
+      "spec_definition.md",
+    ),
+    definition,
+  );
+  write(
+    path.join(root, "05_SPEC", "06_UI_SPEC_Correspondence.md"),
+    `# UI／SPEC対応\n\n## 1. レビュー対象\n\n| 項目 | 対象 |\n|---|---|\n| 対象改訂版 | UI／SPEC Definition集合 SHA-256: \`__FINGERPRINT__\` |\n\n| UI | SPEC | Shared UX／IA Context | Coverage分類 | 確認した観点 | 結果 | Gap Owner／人間判断 | Evidence |\n|---|---|---|---|---|---|---|---|\n| [UI-000001](../04_UI/Definitions/UI-000001/ui_definition.md) | [SPEC-000001](Definitions/SPEC-000001/spec_definition.md) | UX-000001／IA-000001 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし | [組別Evidence](#ui-000001spec-000001) |\n\n### UI-000001／SPEC-000001\n\n| 観点 | UI側の根拠 | SPEC側の根拠 | 判定 | 理由 |\n|---|---|---|---|---|\n| State | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#状態と表示差) | [SPEC](Definitions/SPEC-000001/spec_definition.md#振る舞い状態結果) | 一致 | UI-000001の表示状態をSPEC-000001の振る舞い状態へ対応付ける |\n| Trigger | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#操作とfeedback) | [SPEC](Definitions/SPEC-000001/spec_definition.md#契機事前条件authority) | 一致 | UI-000001の操作をSPEC-000001の契機と事前条件へ対応付ける |\n| Result | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#操作とfeedback) | [SPEC](Definitions/SPEC-000001/spec_definition.md#振る舞い状態結果) | 一致 | SPEC-000001の結果をUI-000001のFeedbackとして示す |\n| Failure | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#操作とfeedback) | [SPEC](Definitions/SPEC-000001/spec_definition.md#失敗回復副作用) | 一致 | SPEC-000001の失敗をUI-000001で成功へ丸めない |\n| Recovery | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#状態と表示差) | [SPEC](Definitions/SPEC-000001/spec_definition.md#失敗回復副作用) | 一致 | SPEC-000001の戻り先をUI-000001の次の行動へ対応付ける |\n| Authority | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#制約) | [SPEC](Definitions/SPEC-000001/spec_definition.md#契機事前条件authority) | 一致 | UI-000001の操作をSPEC-000001のAuthority内に限定する |\n| Visibility | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#表示面と情報の優先順位) | [SPEC](Definitions/SPEC-000001/spec_definition.md#受入条件と検証義務) | 一致 | SPEC-000001の不足をUI-000001が隠さず示す |\n| Constraint | [UI](../04_UI/Definitions/UI-000001/ui_definition.md#制約) | [SPEC](Definitions/SPEC-000001/spec_definition.md#制約) | 一致 | UI-000001とSPEC-000001で上流制約を弱めない |\n\n${completedChecklist("template/05_SPEC/06_UI_SPEC_Correspondence.md")}`,
+  );
+  const correspondenceFixture = path.join(
+    root,
+    "05_SPEC",
+    "06_UI_SPEC_Correspondence.md",
+  );
+  let concreteCorrespondence = fs.readFileSync(correspondenceFixture, "utf8");
+  for (const [genericReason, concreteReason] of [
+    [
+      "UI-000001の表示状態をSPEC-000001の振る舞い状態へ対応付ける",
+      "UI事実（UI-000001）「検査前と不備ありを区別する」／SPEC事実（SPEC-000001）「対象と条件を固定して検査結果を返す」／対応: 検査結果をUIの区別状態へ表示する",
+    ],
+    [
+      "UI-000001の操作をSPEC-000001の契機と事前条件へ対応付ける",
+      "UI事実（UI-000001）「検査を実行する」／SPEC事実（SPEC-000001）「対象と条件が揃った時に検査する」／対応: 事前条件成立後だけUI操作を発火する",
+    ],
+    [
+      "SPEC-000001の結果をUI-000001のFeedbackとして示す",
+      "UI事実（UI-000001）「同じ入力へ同じ指摘を返す」／SPEC事実（SPEC-000001）「同一入力で同じ検査結果を返す」／対応: SPEC結果を判断可能なFeedbackとして示す",
+    ],
+    [
+      "SPEC-000001の失敗をUI-000001で成功へ丸めない",
+      "UI事実（UI-000001）「検査不能を正常と表示しない」／SPEC事実（SPEC-000001）「入力不備や検査不能を成功へ畳まない」／対応: 失敗を成功へ丸めず示す",
+    ],
+    [
+      "SPEC-000001の戻り先をUI-000001の次の行動へ対応付ける",
+      "UI事実（UI-000001）「指摘から所有成果物へ戻れる」／SPEC事実（SPEC-000001）「失敗理由と安全な戻り先を返す」／対応: 戻り先をUIの次の行動へ接続する",
+    ],
+    [
+      "UI-000001の操作をSPEC-000001のAuthority内に限定する",
+      "UI事実（UI-000001）「UIに修正採用権限を持たせない」／SPEC事実（SPEC-000001）「検査実行者へ意味判断の権限を発行しない」／対応: 操作をSPECのAuthority内に限定する",
+    ],
+    [
+      "SPEC-000001の不足をUI-000001が隠さず示す",
+      "UI事実（UI-000001）「検査対象と指摘理由を表示する」／SPEC事実（SPEC-000001）「不明を正常や完了へ丸めない」／対応: 不足をUIで隠さず示す",
+    ],
+    [
+      "UI-000001とSPEC-000001で上流制約を弱めない",
+      "UI事実（UI-000001）「表示都合で状態や根拠を弱めない」／SPEC事実（SPEC-000001）「APIや実装技術を確定しない」／対応: 両契約を保持し実装方式を拡張しない",
+    ],
+  ] as const)
+    concreteCorrespondence = concreteCorrespondence.replace(
+      genericReason,
+      concreteReason,
+    );
+  write(correspondenceFixture, concreteCorrespondence);
+  const uiFile = path.join(
+    root,
+    "04_UI",
+    "Definitions",
+    "UI-000001",
+    "ui_definition.md",
+  );
+  write(
+    uiFile,
+    fs
+      .readFileSync(uiFile, "utf8")
+      .replace(
+        "## 正式入力と変換根拠",
+        "## 対応するSPEC\n\n- pairs_with: [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md)\n\n## 正式入力と変換根拠",
+      ),
+  );
+  const fingerprintInputs = [
+    ["04_UI/Definitions/UI-000001/ui_definition.md", uiFile],
+    [
+      "05_SPEC/Definitions/SPEC-000001/spec_definition.md",
+      path.join(
+        root,
+        "05_SPEC",
+        "Definitions",
+        "SPEC-000001",
+        "spec_definition.md",
+      ),
+    ],
+  ].map(
+    ([relativePath, absolutePath]) =>
+      `${relativePath}\n${fs.readFileSync(absolutePath, "utf8")}`,
+  );
+  const fixtureFingerprint = createHash("sha256")
+    .update(fingerprintInputs.join("\n\u0000\n"), "utf8")
+    .digest("hex");
+  const correspondenceFile = path.join(
+    root,
+    "05_SPEC",
+    "06_UI_SPEC_Correspondence.md",
+  );
+  write(
+    correspondenceFile,
+    fs
+      .readFileSync(correspondenceFile, "utf8")
+      .replace("__FINGERPRINT__", fixtureFingerprint),
+  );
+  write(
+    path.join(
+      root,
+      "template",
+      "05_SPEC",
+      "Analysis",
+      "UX-XXXXXX",
+      "spec_analysis.md",
+    ),
+    fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template/05_SPEC/Analysis/UX-XXXXXX/spec_analysis.md",
+      ),
+      "utf8",
+    ),
+  );
+  write(
+    path.join(
+      root,
+      "template",
+      "05_SPEC",
+      "Analysis",
+      "IA-XXXXXX",
+      "spec_analysis.md",
+    ),
+    fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template/05_SPEC/Analysis/IA-XXXXXX/spec_analysis.md",
+      ),
+      "utf8",
+    ),
+  );
+  write(
+    path.join(
+      root,
+      "template",
+      "05_SPEC",
+      "Definitions",
+      "SPEC-XXXXXX",
+      "spec_definition.md",
+    ),
+    fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template/05_SPEC/Definitions/SPEC-XXXXXX/spec_definition.md",
+      ),
+      "utf8",
+    ),
+  );
+  for (const relativePath of [
+    "template/05_SPEC/01_Behavior_Specification.md",
+    "template/05_SPEC/02_Use_Case_and_Behavior_Flow.md",
+    "template/05_SPEC/03_State_Transition_Model.md",
+    "template/05_SPEC/04_Actor_System_Sequence.md",
+    "template/05_SPEC/05_Error_Effect_and_Recovery.md",
+    "template/05_SPEC/06_UI_SPEC_Correspondence.md",
+  ])
+    write(
+      path.join(root, relativePath),
+      fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8"),
+    );
+  return root;
+}
+
+/**
+ * architectureReconstructionFixtureRootのTest準備責務を実行する。
+ *
+ * @responsibility architectureReconstructionFixtureRootがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus architectureReconstructionFixtureRootを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
+function architectureReconstructionFixtureRoot(): string {
+  const root = specReconstructionFixtureRoot();
+  const architectureLensEvaluation = `### 観点別評価
+
+| 観点 | 判定 | 根拠・引渡し |
+|---|---|---|
+| Responsibility | 評価済み | 試験Coreが所有する |
+| Boundary／Component／Interface | 評価済み | 利用側と状態Sourceを分ける |
+| Data／State Ownership | 評価済み | 試験Coreが状態を所有する |
+| Failure／Recovery | 評価済み | 欠測を補完せず安全に返す |
+| Security／Trust | 評価済み | 閲覧Authorityだけを受け付ける |
+| Quality Constraint | 評価済み | 不完全性を保持する |
+| Human Input | なし | Architecture固有の人間判断はない |
+| Open／Gap | なし | 上流へ戻す未解決事項はない |
+| Verification Intent | 評価済み | 状態差とEffect 0を反証する |
+
+Human Inputの判断者は不要である。再評価契機は上流契約が変わった時である。
+`;
+  /**
+   * withArchitectureAnalysisContractsのTest準備責務を実行する。
+   *
+   * @responsibility withArchitectureAnalysisContractsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace AUH-IT-002
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus withArchitectureAnalysisContractsを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+   */
+  const withArchitectureAnalysisContracts = (source: string) =>
+    source.replace(
+      "\n\n## 4. Architecture処置",
+      `\n\n${architectureLensEvaluation}\n## 4. Architecture処置`,
+    );
+  /**
+   * withArchitectureDefinitionContractsのTest準備責務を実行する。
+   *
+   * @responsibility withArchitectureDefinitionContractsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace AUH-IT-002
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus withArchitectureDefinitionContractsを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+   */
+  const withArchitectureDefinitionContracts = (source: string) =>
+    source
+      .replace(
+        "| 入力 | 保護する失敗境界 | 検証可能性 |",
+        "| 入力 | 保護する失敗境界 | 検証意図 |",
+      )
+      .replace(
+        "\n## 9. 互換性・移行・成立済み能力",
+        `\n### 未確認事項・人間判断・戻り条件
+
+| 入力 | 継承する未確認事項 | 判断者 | 現在判定 | 再評価契機 |
+|---|---|---|---|---|
+| UI-000001 | なし | 不要 | 解消済み | 上流契約変更時 |
+| SPEC-000001 | なし | 不要 | 解消済み | 上流契約変更時 |
+
+Architecture固有の追加人間判断はない。入力契約が変わる場合はUI／SPEC工程へ戻す。
+
+## 9. 互換性・移行・成立済み能力`,
+      );
+  const uiAnalysis = `# UI-000001のArchitecture分析\n\n成果物種別: Architecture分析（UI観点）\n分析単位: \`UI-000001\`\n\n## 1. 正式入力\n\n- UI定義: [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md)\n\n## 2. Architectureへ引き継ぐUI契約\n\n利用者が結果と不完全性を区別し、安全な次の行動を選べること。\n\n## 3. Architecture観点の分析\n\n状態Owner、Authority、Effect、失敗境界を分ける。\n\n## 4. Architecture処置\n\n| 定義 | 処置 | 理由 |\n|---|---|---|\n| [試験責務](../../Definitions/ARCH-000001/architecture_definition.md) | New | 利用者向け状態を独立して成立させる責務 |\n\n## 5. SPEC観点との統合時に確認すること\n\n状態差と結果契約を照合する。\n\n${evaluatedChecklist(checklistItemsFromTemplate("template/06_Architecture/Analysis/UI-XXXXXX/architecture_analysis.md"))}\n`;
+  const specAnalysis = `# SPEC-000001のArchitecture分析\n\n成果物種別: Architecture分析（SPEC観点）\n分析単位: \`SPEC-000001\`\n\n## 1. 正式入力\n\n- SPEC定義: [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md)\n\n## 2. Architectureへ引き継ぐSPEC契約\n\n契機、事前条件、Authority、結果、副作用、検証義務を保持する。\n\n## 3. Architecture観点の分析\n\n状態Owner、Authority、Effect、失敗境界を分ける。\n\n## 4. Architecture処置\n\n| 定義 | 処置 | 理由 |\n|---|---|---|\n| [試験責務](../../Definitions/ARCH-000001/architecture_definition.md) | New | 振る舞い契約を独立して成立させる責務 |\n\n## 5. UI観点との統合時に確認すること\n\n結果契約と利用者が認識する状態差を照合する。\n\n${evaluatedChecklist(checklistItemsFromTemplate("template/06_Architecture/Analysis/SPEC-XXXXXX/architecture_analysis.md"))}\n`;
+  const definition = `# 試験責務のArchitecture定義\n\n成果物種別: Architecture定義\nArchitecture ID: \`ARCH-000001\`\n\n## 1. 責務と境界\n\n利用者へ根拠付き状態を返し、表示と状態更新を分離する。\n\n| 観点 | 契約 |\n|---|---|\n| 状態Owner | 試験Core |\n| 所有する責務 | 状態の読取りと根拠付き結果 |\n| 所有しない責務 | UI表示と外部Effect |\n| 主な外部境界 | 状態Sourceと利用側 |\n\n## 2. UI観点の入力\n\n[UI-000001](../../Analysis/UI-000001/architecture_analysis.md)\n\n## 3. SPEC観点の入力\n\n[SPEC-000001](../../Analysis/SPEC-000001/architecture_analysis.md)\n\n## 4. 両観点の統合判断\n\n| 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |\n|---|---|---|---|---|---|---|\n| UI-000001 | UI | 試験Core | Authorityを発行しない | 表示だけ | 不完全性を隠さない | 確認→判断 |\n| SPEC-000001 | SPEC | 試験Core | 閲覧Authority | 読取りだけ | 欠測を補完しない | 要求→読取り→結果 |\n\n## 5. 構造と依存方向\n\n\`\`\`text\n[利用側] -> [試験Core] -> [状態Source]\n\`\`\`\n\n## 6. データ・状態・Interface\n\n| 入力 | State Owner | Authority | Effect／非該当 |\n|---|---|---|---|\n| UI-000001 | 試験Core | なし | 表示だけ |\n| SPEC-000001 | 試験Core | 閲覧 | 読取りだけ |\n\n## 7. 失敗・回復・観測\n\n欠測と観測不能を分け、入力固有の失敗理由を返す。\n\n## 8. 品質・保護・運用\n\n| 入力 | 保護する失敗境界 | 検証可能性 |\n|---|---|---|\n| UI-000001 | 不完全性の隠蔽 | 状態差を確認 |\n| SPEC-000001 | 欠測の補完 | Effect 0を確認 |\n\n## 9. 互換性・移行・成立済み能力\n\n| 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |\n|---|---|---|---|---|---|\n| 基準版なし | なし | 試験Core | 新規 | 未作成 | 実装待ち |\n\n## 10. 実装と検証への引き渡し\n\n入力ごとのAuthority、Effect、失敗理由および終了状態を理由別に反証する。\n\n## 11. 情報源と現行照合\n\n正式入力は第2節と第3節の分析であり、現行実装は能力比較だけに使う。\n`;
+  const definitionWithChecklist = `${withArchitectureDefinitionContracts(definition)}\n${evaluatedChecklist(checklistItemsFromTemplate("template/06_Architecture/Definitions/ARCH-XXXXXX/architecture_definition.md"))}\n`;
+  write(
+    path.join(root, "06_Architecture", "01_Architecture.md"),
+    "# Architecture\n\nStatus: Candidate\n\n## Architecture定義台帳\n\n| Architecture定義 | 責務 | UI入力 | SPEC入力 |\n|---|---|---|---|\n| [試験責務](Definitions/ARCH-000001/architecture_definition.md) | 試験 | UI-000001 | SPEC-000001 |\n\n## Architecture横断モデル\n\n| 成果物 |\n|---|\n| [Component](02_Component_and_Responsibility_Model.md) |\n| [Boundary](03_Boundary_and_Interface_Model.md) |\n| [Flow](04_Runtime_and_Data_Flow_Model.md) |\n| [Failure](05_Failure_Recovery_and_Resilience_Model.md) |\n| [Deployment](06_Deployment_and_Execution_Model.md) |\n",
+  );
+  write(
+    path.join(
+      root,
+      "06_Architecture",
+      "Analysis",
+      "UI-000001",
+      "architecture_analysis.md",
+    ),
+    withArchitectureAnalysisContracts(uiAnalysis),
+  );
+  write(
+    path.join(
+      root,
+      "06_Architecture",
+      "Analysis",
+      "SPEC-000001",
+      "architecture_analysis.md",
+    ),
+    withArchitectureAnalysisContracts(specAnalysis),
+  );
+  write(
+    path.join(
+      root,
+      "06_Architecture",
+      "Definitions",
+      "ARCH-000001",
+      "architecture_definition.md",
+    ),
+    definitionWithChecklist,
+  );
+  write(
+    path.join(root, "06_Architecture", "07_Detail_Architecture_Map.md"),
+    "# Detail Map\n\n成果物種別: Architecture詳細設計の統合投影\n\n## 2. 詳細設計領域\n\n| 詳細設計領域 | 対応Architecture定義 | 責務 | 状態 |\n|---|---|---|---|\n| [sample](Details/sample/01_Architecture.md) | ARCH-000001 | 試験責務 | Candidate |\n\n## 3. Architecture定義の閉包\n\n| Architecture定義 | 基本設計 | 接続する詳細設計領域 |\n|---|---|---|\n| ARCH-000001 | [試験責務](Definitions/ARCH-000001/architecture_definition.md) | sample |\n\n## 4. Qualityへの引渡し\n\n検証対象を渡す。\n\n## 5. Reality Audit境界\n\n実装は後から照合する。\n",
+  );
+  write(
+    path.join(
+      root,
+      "06_Architecture",
+      "Details",
+      "sample",
+      "01_Architecture.md",
+    ),
+    "# Sample Detail\n\n成果物種別: Architecture詳細設計\n詳細設計領域: sample\n状態: Candidate\n\n## 基本設計との関係\n\n| Architecture定義 | この領域が具体化する責務 | Relation状態 |\n|---|---|---|\n| [ARCH-000001](../../Definitions/ARCH-000001/architecture_definition.md) | 試験責務 | Covered |\n\n## 詳細成果物の適用判断\n\n| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |\n|---|---|---|---|\n| Component Model | Required | 責務を分ける | [§1](#1-component-model) |\n| Interface Model | Required | 契約を分ける | [§2](#2-interface-model) |\n| Data Flow | Required | Dataを追跡する | [§3](#3-data-flow) |\n| State Model | Required | 状態を分ける | [§4](#4-state-model) |\n| Sequence | Required | 順序を固定する | [§5](#5-sequence) |\n| Failure／Recovery | Required | 失敗を分ける | [§6](#6-failurerecovery) |\n| Deployment | N/A | Process配置を持たない | [§7](#7-deployment) |\n| Observability | Required | 結果を観測する | [§8](#8-observability) |\n| Security Boundary | Required | Authorityを分ける | [§9](#9-security-boundary) |\n| Implementation Structure | Required | 実装責務を分ける | [§10](#10-implementation-structure) |\n\n## Engineering Concern評価\n\n| Concern | Result | Rationale | Evidence／Related ID |\n|---|---|---|---|\n| Concurrency | N/A | 共有状態がない | [§1](#1-component-model) |\n| Timing | N/A | 時間制約がない | [§5](#5-sequence) |\n| Resource Lifecycle | PASS | Run単位で回収する | [§4](#4-state-model) |\n| External Boundary | PASS | 境界を分ける | [§2](#2-interface-model) |\n| Failure／Recovery | PASS | 失敗を返す | [§6](#6-failurerecovery) |\n\n## Qualityへの引渡し\n\n| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |\n|---|---|---|---|---|---|---|---|---|---|\n| `sample.core` | Component／Interface | Core | 根拠付き結果 | 欠測補完 | IT | Direct Boundary | result | Effect 0 | なし |\n\n## 現行実装との照合\n\n実装は後から照合する。\n\n## 1. Component Model\n\nCore。\n\n## 2. Interface Model\n\n契約。\n\n## 3. Data Flow\n\nFlow。\n\n## 4. State Model\n\nState。\n\n## 5. Sequence\n\nSequence。\n\n## 6. Failure／Recovery\n\nFailure。\n\n## 7. Deployment\n\nN/A。\n\n## 8. Observability\n\nObservation。\n\n## 9. Security Boundary\n\nBoundary。\n\n## 10. Implementation Structure\n\n| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |\n|---|---|---|---|---|---|---|\n| Variation | N/A | 単一実装であるため | 単一実装 | 代替実装を持たない | なし | `sample.core` |\n| Common Contract | N/A | 同一責務の複数具象を持たないため | 単一実装だけであり、共通契約へ昇格する具象差を持たない | Coreの責務を局所契約として保つ | 二つ目の同一責務実装を追加する場合に再評価する | N/A |\n| Creation／Selection | Required | 具象選択責務があるため | Factory | 正しいCoreを生成する | 不正Coreを拒否する | `sample.core` |\n| State-dependent Behavior | N/A | 状態分岐を持たないため | 状態分岐なし | 入力だけで決まる | なし | `sample.core` |\n| Composition／Recursion | N/A | 再帰構造を持たないため | 再帰構造なし | 単一Core | なし | `sample.core` |\n| Lifecycle Ownership | Required | Run資源を所有するため | Run owner | Run終了時に回収する | 資源残存 | `sample.core` |\n| External Boundary | Required | 外部Portを所有するため | Port | 外部境界をPortへ限定する | 境界逸脱 | `sample.core` |\n",
+  );
+  const detailFixturePath = path.join(
+    root,
+    "06_Architecture",
+    "Details",
+    "sample",
+    "01_Architecture.md",
+  );
+  write(
+    detailFixturePath,
+    `${fs
+      .readFileSync(detailFixturePath, "utf8")
+      .replace(
+        "| Failure／Recovery | PASS | 失敗を返す | [§6](#6-failurerecovery) |",
+        "| State／Consistency | PASS | 状態と整合条件を分ける | [§4](#4-state-model) |\n| Failure／Recovery | PASS | 失敗を返す | [§6](#6-failurerecovery) |\n| Observability | PASS | 結果を相関して観測する | [§8](#8-observability) |\n| Security／Trust | PASS | AuthorityとTrustを分ける | [§9](#9-security-boundary) |",
+      )
+      .replace(
+        "\n## Qualityへの引渡し",
+        "\n結果語彙は次の意味に限定する。\n\n- `PASS`: 詳細設計上の処置と根拠節が揃った状態。実装済み・試験済みを意味しない。\n- `N/A`: Architecture上、そのConcern自体が存在しない状態。未検討や後工程送りを意味しない。\n- `OPEN`: 未解決の設計事項が残る状態。\n- `FAIL`: 必須設計と矛盾する、または必要な設計が未充足の状態。\n\n## Qualityへの引渡し",
+      )}\n${evaluatedChecklist(checklistItemsFromTemplate("template/06_Architecture/Details/area/01_Architecture.md"))}\n`,
+  );
+  for (const model of [
+    "02_Component_and_Responsibility_Model.md",
+    "03_Boundary_and_Interface_Model.md",
+    "04_Runtime_and_Data_Flow_Model.md",
+    "05_Failure_Recovery_and_Resilience_Model.md",
+    "06_Deployment_and_Execution_Model.md",
+  ]) {
+    const source = fs
+      .readFileSync(
+        path.join(repositoryRoot, "template", "06_Architecture", model),
+        "utf8",
+      )
+      .replaceAll("Definitions/ARCH-XXXXXX/", "Definitions/ARCH-000001/");
+    write(path.join(root, "06_Architecture", model), source);
+  }
+  for (const relativePath of [
+    "template/06_Architecture/Analysis/UI-XXXXXX/architecture_analysis.md",
+    "template/06_Architecture/Analysis/SPEC-XXXXXX/architecture_analysis.md",
+    "template/06_Architecture/Definitions/ARCH-XXXXXX/architecture_definition.md",
+    "template/06_Architecture/07_Detail_Architecture_Map.md",
+    "template/06_Architecture/Details/area/01_Architecture.md",
+  ])
+    write(
+      path.join(root, relativePath),
+      fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8"),
+    );
+  return root;
+}
+
+/**
+ * Architecture Readyは全Canonical IDのQuality Mappingと検証定義の閉包を要求するを検証する。
+ *
+ * @responsibility Architecture Readyは全Canonical IDのQuality Mappingと検証定義の閉包を要求するの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Architecture Readyは全Canonical IDのQuality Mappingと検証定義の閉包を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ */
+test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の閉包を要求する", () => {
+  const root = architectureReconstructionFixtureRoot();
+  const architectureIndexPath = path.join(
+    root,
+    "06_Architecture",
+    "01_Architecture.md",
+  );
+  write(
+    architectureIndexPath,
+    fs
+      .readFileSync(architectureIndexPath, "utf8")
+      .replace("Status: Candidate", "Status: Architecture Ready"),
+  );
+  for (const relativeDirectory of [
+    "07_Quality/Definitions/QA-000001",
+    "07_Quality/Registry",
+    "template/07_Quality/Analysis/PHASE",
+    "template/07_Quality/Definitions/QA-XXXXXX",
+  ])
+    fs.mkdirSync(path.join(root, relativeDirectory), { recursive: true });
+  const requiredQualityFiles = [
+    "01_Quality_Center.md",
+    "02_Quality_Strategy.md",
+    "03_Verification_Design.md",
+    "04_Quality_Integration.md",
+    "05_Current_Implementation_Reality_Audit.md",
+  ];
+  const requiredTemplateQualityFiles = [
+    ...requiredQualityFiles,
+    "99_Verification_Result_Format.md",
+  ];
+  for (const fileName of requiredQualityFiles)
+    if (fileName !== "04_Quality_Integration.md")
+      write(
+        path.join(root, "07_Quality", fileName),
+        `# ${fileName}\n\n${fileName === "01_Quality_Center.md" ? "状態: Quality Design Under Review — Reality Audit Blocked\n\n" : fileName === "05_Current_Implementation_Reality_Audit.md" ? "状態: Blocked — Quality Design Review Pending\n\n" : ""}${fileName === "01_Quality_Center.md" || fileName === "05_Current_Implementation_Reality_Audit.md" ? "## 設計集合\n\n| 項目 | 件数 |\n|---|---:|\n| Local Item数 | 4 |\n\n" : ""}${evaluatedChecklist(checklistItemsFromTemplate(`template/07_Quality/${fileName}`))}\n`,
+      );
+  for (const fileName of requiredTemplateQualityFiles)
+    write(
+      path.join(root, "template", "07_Quality", fileName),
+      fs.readFileSync(
+        path.join(repositoryRoot, "template", "07_Quality", fileName),
+        "utf8",
+      ),
+    );
+  for (const relativePath of [
+    "template/07_Quality/Analysis/PHASE/quality_analysis.md",
+    "template/07_Quality/Definitions/QA-XXXXXX/quality_definition.md",
+  ])
+    write(
+      path.join(root, relativePath),
+      fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8"),
+    );
+  for (const fileName of [
+    "test-catalog.json",
+    "coordinator-runtime-traceability.json",
+    "project-runtime-design-traceability.json",
+  ])
+    write(path.join(root, "07_Quality", "Registry", fileName), "{}\n");
+  const mappingPath = path.join(
+    root,
+    "07_Quality",
+    "04_Quality_Integration.md",
+  );
+  const mapping = `# Quality Analysis
+
+## 3. 全件Mapping
+
+| Source ID | 検証すべき意味 | 検証義務 | 検証目標 | Level | Type | 処置状態 |
+|---|---|---|---|---|---|---|
+| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | 体験 | 保証 | [sample](../../Definitions/QA-000001/quality_definition.md) | ST／UAT | Experience | Mapped |
+| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | 情報 | 保証 | [sample](../../Definitions/QA-000001/quality_definition.md) | IT／ST | Information | Mapped |
+| [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md) | UI | 保証 | [sample](../../Definitions/QA-000001/quality_definition.md) | IT／ST | Interface | Mapped |
+| [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md) | 振る舞い | 保証 | [sample](../../Definitions/QA-000001/quality_definition.md) | UT／IT | Behavior | Mapped |
+| [ARCH-000001](../../../06_Architecture/Definitions/ARCH-000001/architecture_definition.md) | 構造 | 保証 | [sample](../../Definitions/QA-000001/quality_definition.md) | IT／ST | Architecture | Mapped |
+
+## 4. 統合
+
+### 4.0. Source固有条件と検証項目の関係
+
+| Source ID | Obligation Key | 導出元 | 検証目標 | 保持する固有条件 | 試験段階 | 外部境界の段階 | 対応Local Item |
+|---|---|---|---|---|---|---|---|
+| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | \`ux-000001.qa-000001\` | UX Definition | [sample](../../Definitions/QA-000001/quality_definition.md) | 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | \`SAMPLE-ST-010\`、\`SAMPLE-UAT-011\` |
+| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | \`ia-000001.qa-000001\` | IA Definition | [sample](../../Definitions/QA-000001/quality_definition.md) | 情報を保証する | IT／ST | IT: Direct Boundary<br>ST: System/E2E | \`SAMPLE-IT-001\`、\`SAMPLE-ST-010\` |
+| [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md) | \`ui-000001.qa-000001\` | UI Definition | [sample](../../Definitions/QA-000001/quality_definition.md) | UIを保証する | IT／ST | IT: Direct Boundary<br>ST: System/E2E | \`SAMPLE-IT-001\`、\`SAMPLE-ST-010\` |
+| [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md) | \`spec-000001.qa-000001\` | SPEC Definition | [sample](../../Definitions/QA-000001/quality_definition.md) | 振る舞いを保証する | UT／IT | UT: N/A<br>IT: Direct Boundary | \`SAMPLE-UT-012\`、\`SAMPLE-IT-001\` |
+| [ARCH-000001](../../../06_Architecture/Definitions/ARCH-000001/architecture_definition.md) | \`arch-000001.qa-000001\` | Architecture Definition | [sample](../../Definitions/QA-000001/quality_definition.md) | 構造を保証する | IT／ST | IT: Direct Boundary<br>ST: System/E2E | \`SAMPLE-IT-001\`、\`SAMPLE-ST-010\` |
+
+### 4.1. Architecture横断モデルの処置
+
+| 検証目標 | [Component](../../../06_Architecture/02_Component_and_Responsibility_Model.md) | [Boundary](../../../06_Architecture/03_Boundary_and_Interface_Model.md) | [Flow](../../../06_Architecture/04_Runtime_and_Data_Flow_Model.md) | [Failure](../../../06_Architecture/05_Failure_Recovery_and_Resilience_Model.md) | [Deployment](../../../06_Architecture/06_Deployment_and_Execution_Model.md) |
+|---|---|---|---|---|---|
+| sample | Required | Required | Required | Required | N/A: 配置差なし |
+
+### 4.2. Architecture詳細設計領域の処置
+
+| 詳細設計領域 | 検証単位 | 接続する検証目標 | Local Item | 処置状態 | 未確認／再評価条件 |
+|---|---|---|---|---|---|
+| [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | \`sample.core\` | [sample](../../Definitions/QA-000001/quality_definition.md) | \`SAMPLE-IT-001\` | Covered | なし |
+
+### 4.3. 検証項目の閉包
+
+| 検証目標 | Local Item集合 | 入力Coverage | Architecture入力 |
+|---|---|---|---|
+| [sample](../../Definitions/QA-000001/quality_definition.md) | \`SAMPLE-IT-001\`、\`SAMPLE-ST-010\`、\`SAMPLE-UAT-011\`、\`SAMPLE-UT-012\` | §3の全入力 | §4.1と§4.2 |
+`;
+  const writeQualityMapping = function writeQualityMappingFixture(
+    mappingValue: string,
+  ) {
+    const summaryBlock =
+      mappingValue.match(
+        /^## 3\. 全件Mapping\s*$([\s\S]*?)(?=^## 4\.)/mu,
+      )?.[1] ?? "";
+    const summaryRows = summaryBlock
+      .split(/\r?\n/u)
+      .filter((line: string) =>
+        /^\|\s*\[(?:REQ|UX|IA|UI|SPEC|ARCH)-[0-9]{6}\]\(/u.test(line),
+      );
+    const relationBlock =
+      mappingValue.match(
+        /^### 4\.0\. Source固有条件と検証項目の関係\s*$([\s\S]*?)(?=^### 4\.1\.)/mu,
+      )?.[1] ?? "";
+    const relationRows = relationBlock
+      .split(/\r?\n/u)
+      .filter((line: string) =>
+        /^\|\s*\[(?:REQ|UX|IA|UI|SPEC|ARCH)-[0-9]{6}\]\(/u.test(line),
+      );
+    for (const prefix of ["REQ", "UX", "IA", "UI", "SPEC", "ARCH"]) {
+      const phasePath = path.join(
+        root,
+        "07_Quality",
+        "Analysis",
+        prefix,
+        "quality_analysis.md",
+      );
+      const phaseSummaries = summaryRows.filter((line: string) =>
+        line.startsWith(`| [${prefix}-`),
+      );
+      const phaseRelations = relationRows.filter((line: string) =>
+        line.startsWith(`| [${prefix}-`),
+      );
+      write(
+        phasePath,
+        [
+          `# ${prefix} Quality Analysis`,
+          "",
+          "## 2. 全件Coverage Index",
+          "",
+          "| Source ID | 成功の意味 | 検証義務 | 統合先の検証目標 | 試験段階 | 試験種別 | 処置状態 |",
+          "|---|---|---|---|---|---|---|",
+          ...phaseSummaries,
+          "",
+          "## 3. 検証目標への統合",
+          "",
+          "| Source ID | Obligation Key | 導出元 | 検証目標 | 保持する固有条件 | 試験段階 | 外部境界の段階 | 対応Local Item |",
+          "|---|---|---|---|---|---|---|---|",
+          ...phaseRelations,
+          "",
+          "## 4. 必要義務と定義済み項目の差分",
+          "",
+          "| 区分 | 件数 | 対象 | 処置 |",
+          "|---|---:|---|---|",
+          "| Required - Defined | 0 | なし | 閉じている |",
+          "| Defined - Required | 0 | なし | 閉じている |",
+          "| Level不一致 | 0 | なし | 閉じている |",
+          "| Relation不明 | 0 | なし | 閉じている |",
+          "",
+          "## 5. 未解決事項",
+          "",
+          "なし",
+          "",
+          evaluatedChecklist(
+            checklistItemsFromTemplate(
+              "template/07_Quality/Analysis/PHASE/quality_analysis.md",
+            ),
+          ),
+          "",
+        ].join("\n"),
+      );
+    }
+    const cross =
+      mappingValue.match(
+        /^### 4\.1\. Architecture横断モデルの処置\s*$([\s\S]*?)(?=^### 4\.2\.)/mu,
+      )?.[1] ?? "";
+    const detail =
+      mappingValue.match(
+        /^### 4\.2\. Architecture詳細設計領域の処置\s*$([\s\S]*?)(?=^### 4\.3\.)/mu,
+      )?.[1] ?? "";
+    const local =
+      mappingValue.match(
+        /^### 4\.3\. 検証項目の閉包\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/mu,
+      )?.[1] ?? "";
+    const integration = [
+      "# Quality Integration",
+      "",
+      "## 1. 統合の責務",
+      "",
+      "## 2. Architecture横断モデルの処置",
+      cross,
+      "## 3. Architecture詳細設計領域の処置",
+      detail,
+      "## 4. 検証項目の閉包",
+      local,
+      evaluatedChecklist(
+        checklistItemsFromTemplate(
+          "template/07_Quality/04_Quality_Integration.md",
+        ),
+      ),
+    ]
+      .join("\n")
+      .replaceAll("../../../06_Architecture/", "../06_Architecture/")
+      .replaceAll("../../Definitions/", "Definitions/");
+    write(mappingPath, integration);
+  };
+
+  writeQualityMapping(mapping);
+  const definitionPath = path.join(
+    root,
+    "07_Quality",
+    "Definitions",
+    "QA-000001",
+    "quality_definition.md",
+  );
+  const definition = `# QA-000001 Verification
+
+成果物種別: Quality定義
+Quality ID: \`QA-000001\`
+主な試験段階: Unit／Integration／System／User Acceptance
+
+## 1. 情報源と網羅条件
+
+| Source ID | Obligation Key | 導出元 | 保持する固有条件 | 試験段階 | 対応Local Item |
+|---|---|---|---|---|---|
+| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | \`ux-000001.qa-000001\` | UX Definition | 体験を保証する | ST／UAT | \`SAMPLE-ST-010\`、\`SAMPLE-UAT-011\` |
+| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | \`ia-000001.qa-000001\` | IA Definition | 情報を保証する | IT／ST | \`SAMPLE-IT-001\`、\`SAMPLE-ST-010\` |
+| [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md) | \`ui-000001.qa-000001\` | UI Definition | UIを保証する | IT／ST | \`SAMPLE-IT-001\`、\`SAMPLE-ST-010\` |
+| [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md) | \`spec-000001.qa-000001\` | SPEC Definition | 振る舞いを保証する | UT／IT | \`SAMPLE-UT-012\`、\`SAMPLE-IT-001\` |
+| [ARCH-000001](../../../06_Architecture/Definitions/ARCH-000001/architecture_definition.md) | \`arch-000001.qa-000001\` | Architecture Definition | 構造を保証する | IT／ST | \`SAMPLE-IT-001\`、\`SAMPLE-ST-010\` |
+
+### Architecture詳細設計入力
+
+| 詳細設計領域 | 受け取る成立条件 |
+|---|---|
+| [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | 境界を確認する |
+
+## 2. 試験段階と外部境界の適用
+
+| 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |
+|---|---|---|---|---|
+| UT | Required | 最小責務 | N/A | 局所判定を確認する |
+| IT | Required | 境界 | Direct Boundary | 直接境界を確認する |
+| ST | Required | System | System/E2E | 上位経路を確認する |
+| UAT | Required | 利用者受入 | User Acceptance | 利用者判断を確認する |
+
+### 条件区分の適用
+
+| 条件区分 | 適用 | 対応Local Item | 判断理由 |
+|---|---|---|---|
+| 正常 | Required | SAMPLE-IT-001、SAMPLE-ST-010 | 正常経路を確認する |
+| 境界 | Required | SAMPLE-UAT-011、SAMPLE-UT-012 | 利用者判断と局所境界を確認する |
+| 準正常 | N/A | - | 継続可能な分岐を持たない |
+| 異常 | N/A | - | このfixtureでは対象外 |
+| 回復 | N/A | - | 回復経路を持たない |
+
+## 3. 検証項目
+
+| Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| \`SAMPLE-IT-001\` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |
+| \`SAMPLE-ST-010\` | 正常 | ST | Scenario | Entry→System | System/E2E | 有効な経路 | 実行する | 完成状態を記録する | 完成結果を返す | 入力、観測値、判定 | 未解消状態なし | Automated |
+| \`SAMPLE-UAT-011\` | 境界 | UAT | Acceptance | Result→User | User Acceptance | 完成結果 | 判断する | 利用者判断を記録する | 意味を理解できる | 判断条件、観測、結論 | 未解消状態なし | Manual |
+| \`SAMPLE-UT-012\` | 境界 | UT | Contract | Core | N/A | 入力値 | 判定する | 局所結果を記録する | 局所契約に一致する | 入力、観測値、判定 | 外部Effect 0 | Automated |
+## 追加試験種別の適用
+
+| 種別 | 適用 | 確認する範囲 | 実行許可 | 未実行時の扱い |
+|---|---|---|---|---|
+| RT | Required | 変更影響で既存項目を選ぶ | Changeの通常検証範囲 | 未選択範囲を明示する |
+| PT | N/A | 性能条件なし | N/A | 未実行をPassにしない |
+| LT | N/A | 長時間条件なし | N/A | 未実行をPassにしない |
+
+${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions/QA-XXXXXX/quality_definition.md"))}
+`;
+  write(definitionPath, definition);
+
+  let result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some((finding) =>
+      finding.code.startsWith("quality-"),
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(
+    definitionPath,
+    definition.replace(
+      /^### 条件区分の適用\s*$[\s\S]*?(?=^## 3\. 検証項目)/mu,
+      "",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-verification-state-applicability-incomplete",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(definitionPath, definition);
+
+  write(
+    definitionPath,
+    definition.replace(
+      "| 観測 | Oracle | Evidence |",
+      "| 観測／Oracle | Evidence |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-verification-item-schema-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(definitionPath, definition);
+
+  const qualityCenterPath = path.join(
+    root,
+    "07_Quality",
+    "01_Quality_Center.md",
+  );
+  const qualityCenter = fs.readFileSync(qualityCenterPath, "utf8");
+  write(
+    qualityCenterPath,
+    qualityCenter.replace(/^## Checklist\s*$[\s\S]*$/mu, ""),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-visible-checklist-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(qualityCenterPath, qualityCenter);
+
+  const qualityStrategyTemplatePath = path.join(
+    root,
+    "template",
+    "07_Quality",
+    "02_Quality_Strategy.md",
+  );
+  const qualityStrategyTemplate = fs.readFileSync(
+    qualityStrategyTemplatePath,
+    "utf8",
+  );
+  write(
+    qualityStrategyTemplatePath,
+    qualityStrategyTemplate.replace(
+      "- [ ] Productと利用者にとって守る品質を説明した",
+      "- [ ] Product品質を説明した",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-template-visible-checklist-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(qualityStrategyTemplatePath, qualityStrategyTemplate);
+
+  write(
+    qualityCenterPath,
+    qualityCenter
+      .replace(
+        "状態: Quality Design Under Review — Reality Audit Blocked",
+        "状態: Quality Ready",
+      )
+      .replace(
+        "- [x] 現在の品質状態と結論を履歴より先に示した",
+        "- OPEN: 現在状態の確認が残る — 現在の品質状態と結論を履歴より先に示した",
+      ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-ready-with-open-checklist-result",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(qualityCenterPath, qualityCenter);
+
+  write(qualityCenterPath, qualityCenter.replace(/^状態:.*\n/mu, ""));
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-state-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(qualityCenterPath, qualityCenter);
+
+  const qualityDesignArtifactPaths = [
+    ...[
+      "02_Quality_Strategy.md",
+      "03_Verification_Design.md",
+      "04_Quality_Integration.md",
+    ].map((fileName) => path.join(root, "07_Quality", fileName)),
+    ...["REQ", "UX", "IA", "UI", "SPEC", "ARCH"].map((phase) =>
+      path.join(root, "07_Quality", "Analysis", phase, "quality_analysis.md"),
+    ),
+    path.join(
+      root,
+      "07_Quality",
+      "Definitions",
+      "QA-000001",
+      "quality_definition.md",
+    ),
+  ];
+  for (const artifactPath of qualityDesignArtifactPaths) {
+    const artifact = fs.readFileSync(artifactPath, "utf8");
+    write(
+      artifactPath,
+      /^状態:/mu.test(artifact)
+        ? artifact.replace(/^状態:.*$/mu, "状態: Canonical")
+        : artifact.replace(/^(# .+)$/mu, "$1\n\n状態: Canonical"),
+    );
+  }
+
+  write(
+    qualityCenterPath,
+    qualityCenter.replace(
+      "状態: Quality Design Under Review — Reality Audit Blocked",
+      "状態: Quality Finished",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-state-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(qualityCenterPath, qualityCenter);
+
+  write(
+    qualityCenterPath,
+    qualityCenter
+      .replace(
+        "状態: Quality Design Under Review — Reality Audit Blocked",
+        "状態: Quality Design Ready — Reality Audit Pending",
+      )
+      .replace(
+        "- [x] 現在の品質状態と結論を履歴より先に示した",
+        "- OPEN: 設計確認が残る — 現在の品質状態と結論を履歴より先に示した",
+      ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-ready-with-open-checklist-result",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(qualityCenterPath, qualityCenter);
+
+  write(
+    qualityCenterPath,
+    qualityCenter.replace(
+      "状態: Quality Design Under Review — Reality Audit Blocked",
+      "状態: Quality Design Ready — Reality Audit Pending",
+    ),
+  );
+  const designReadyRealityAuditPath = path.join(
+    root,
+    "07_Quality",
+    "05_Current_Implementation_Reality_Audit.md",
+  );
+  const designReadyRealityAudit = fs.readFileSync(
+    designReadyRealityAuditPath,
+    "utf8",
+  );
+  write(
+    designReadyRealityAuditPath,
+    designReadyRealityAudit.replace(
+      "状態: Blocked — Quality Design Review Pending",
+      "状態: Pending — Not Started",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-state-invalid" ||
+        finding.code === "quality-design-artifact-state-invalid" ||
+        finding.code === "quality-ready-with-open-checklist-result",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  const nonCanonicalDesignArtifactPath = qualityDesignArtifactPaths[3];
+  const canonicalDesignArtifact = fs.readFileSync(
+    nonCanonicalDesignArtifactPath,
+    "utf8",
+  );
+  write(
+    nonCanonicalDesignArtifactPath,
+    canonicalDesignArtifact.replace(
+      "状態: Canonical",
+      "状態: Review Candidate",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-design-artifact-state-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(nonCanonicalDesignArtifactPath, canonicalDesignArtifact);
+
+  write(designReadyRealityAuditPath, designReadyRealityAudit);
+  write(qualityCenterPath, qualityCenter);
+
+  write(
+    qualityCenterPath,
+    qualityCenter.replace(
+      "状態: Quality Design Under Review — Reality Audit Blocked",
+      "状態: Quality Design Ready — Reality Audit Pending",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-state-reality-audit-state-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(qualityCenterPath, qualityCenter);
+
+  write(
+    designReadyRealityAuditPath,
+    designReadyRealityAudit.replace(/^状態:.*\n/mu, ""),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-reality-audit-state-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(designReadyRealityAuditPath, designReadyRealityAudit);
+
+  write(
+    designReadyRealityAuditPath,
+    designReadyRealityAudit.replace(
+      "状態: Blocked — Quality Design Review Pending",
+      "状態: Reality Audit Finished",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-reality-audit-state-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(designReadyRealityAuditPath, designReadyRealityAudit);
+
+  write(
+    qualityCenterPath,
+    qualityCenter.replace(
+      "状態: Quality Design Under Review — Reality Audit Blocked",
+      "状態: Quality Design Ready — Reality Audit Pending",
+    ),
+  );
+  write(
+    designReadyRealityAuditPath,
+    designReadyRealityAudit.replace(
+      "状態: Blocked — Quality Design Review Pending",
+      "状態: In Progress",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-state-invalid" ||
+        finding.code === "quality-state-reality-audit-state-mismatch" ||
+        finding.code === "quality-ready-with-open-checklist-result",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(designReadyRealityAuditPath, designReadyRealityAudit);
+  write(qualityCenterPath, qualityCenter);
+
+  const realityAuditPath = path.join(
+    root,
+    "07_Quality",
+    "05_Current_Implementation_Reality_Audit.md",
+  );
+  const realityAudit = fs.readFileSync(realityAuditPath, "utf8");
+  write(
+    qualityCenterPath,
+    qualityCenter.replace(
+      "状態: Quality Design Under Review — Reality Audit Blocked",
+      "状態: Quality Ready",
+    ),
+  );
+  write(
+    realityAuditPath,
+    realityAudit
+      .replace(
+        "状態: Blocked — Quality Design Review Pending",
+        "状態: Complete",
+      )
+      .replace(
+        "- [x] Canonical Quality設計の固定後にだけReality Auditを開始した",
+        "- OPEN: Reality Audit未完了 — Canonical Quality設計の固定後にだけReality Auditを開始した",
+      ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-ready-with-open-checklist-result",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(realityAuditPath, realityAudit);
+  write(qualityCenterPath, qualityCenter);
+
+  write(
+    qualityCenterPath,
+    qualityCenter.replace(
+      "状態: Quality Design Under Review — Reality Audit Blocked",
+      "状態: Quality Ready",
+    ),
+  );
+  write(
+    realityAuditPath,
+    realityAudit.replace(
+      "状態: Blocked — Quality Design Review Pending",
+      "状態: Pending — Not Started",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-state-reality-audit-state-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(realityAuditPath, realityAudit);
+  write(qualityCenterPath, qualityCenter);
+
+  write(
+    qualityCenterPath,
+    qualityCenter.replace("| Local Item数 | 4 |", "| Local Item数 | 3 |"),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-local-verification-item-count-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(qualityCenterPath, qualityCenter);
+
+  const verificationResultTemplatePath = path.join(
+    root,
+    "template",
+    "07_Quality",
+    "99_Verification_Result_Format.md",
+  );
+  const verificationResultTemplate = fs.readFileSync(
+    verificationResultTemplatePath,
+    "utf8",
+  );
+  write(
+    verificationResultTemplatePath,
+    verificationResultTemplate.replace(
+      "- [ ] 対象改訂版と実行条件を固定した",
+      "- [ ] 対象だけを固定した",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-template-visible-checklist-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(verificationResultTemplatePath, verificationResultTemplate);
+
+  for (const [relativePath, expectedCode] of [
+    [
+      "07_Quality/05_Current_Implementation_Reality_Audit.md",
+      "quality-current-profile-file-missing",
+    ],
+    [
+      "template/07_Quality/99_Verification_Result_Format.md",
+      "quality-current-profile-file-missing",
+    ],
+    [
+      "07_Quality/Registry/test-catalog.json",
+      "quality-current-profile-registry-missing",
+    ],
+  ] as const) {
+    const targetPath = path.join(root, relativePath);
+    const original = fs.readFileSync(targetPath, "utf8");
+    fs.rmSync(targetPath);
+    result = runChecker(root);
+    assert.ok(
+      result.report.findings.some((finding) => finding.code === expectedCode),
+      `${relativePath}\n${result.stderr}\n${result.stdout}`,
+    );
+    write(targetPath, original);
+  }
+  const legacyQualityPath = path.join(
+    root,
+    "07_Quality",
+    "04_Test_Catalog.json",
+  );
+  write(legacyQualityPath, "{}\n");
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-legacy-layout-reintroduced",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  fs.rmSync(legacyQualityPath);
+
+  writeQualityMapping(
+    mapping.replace(
+      "[sample](../../Definitions/QA-000001/quality_definition.md) | ST／UAT | Experience",
+      "[sample](../../Definitions/QA-000001/quality_definition.md) | ST | Experience",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-source-test-level-decomposition-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(mapping);
+  write(
+    definitionPath,
+    definition.replace(
+      "| 体験を保証する | ST／UAT | `SAMPLE-ST-010`、`SAMPLE-UAT-011` |",
+      "| 体験を保証する | ST | `SAMPLE-ST-010`、`SAMPLE-UAT-011` |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code ===
+        "quality-definition-source-test-level-closure-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  write(definitionPath, definition);
+
+  writeQualityMapping(
+    mapping.replace(
+      "| 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-011` |",
+      "| 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010` |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-source-test-level-coverage-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(
+    mapping.replace(
+      "| 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-011` |",
+      "| 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-UAT-011` |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-source-test-level-coverage-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(
+    mapping.replace(
+      "| 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-011` |",
+      "| 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-IT-001`、`SAMPLE-UT-012` |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-source-test-level-coverage-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(
+    mapping.replace(/^\| \[UX-000001\].*\| UX Definition \|.*\r?\n/mu, ""),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-source-goal-relation-closure-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(
+    mapping.replace(
+      "| 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-011` |",
+      "| 別表現の体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-011` |\n| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | `ux-000001.qa-000001` | UX Definition | [sample](../../Definitions/QA-000001/quality_definition.md) | 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-011` |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-source-relation-duplicate",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(
+    mapping.replace(
+      "| 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-011` |",
+      "| 体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-099` |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-source-local-relation-closure-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(
+    mapping.replace(
+      "`ux-000001.qa-000001` | UX Definition |",
+      "`ux-000001.qa-000099` | UX Definition |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-source-local-relation-incomplete",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(
+    mapping.replace(
+      "`ux-000001.qa-000001` | UX Definition |",
+      "`ux-000001.qa-000001` |  |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-source-local-relation-incomplete",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(mapping);
+  write(
+    definitionPath,
+    definition.replace(
+      "`ux-000001.qa-000001` | UX Definition |",
+      "`ux-000001.qa-000099` | UX Definition |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-definition-source-local-relation-incomplete",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(mapping);
+  write(definitionPath, definition);
+  writeQualityMapping(
+    mapping.replace(
+      "体験を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-011`",
+      "体験の別条件 | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-010`、`SAMPLE-UAT-011`",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-source-condition-closure-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(mapping);
+  write(
+    definitionPath,
+    definition.replace(
+      "体験を保証する | ST／UAT | `SAMPLE-ST-010`、`SAMPLE-UAT-011`",
+      "体験の別条件 | ST／UAT | `SAMPLE-ST-010`、`SAMPLE-UAT-011`",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-source-condition-closure-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(mapping);
+  write(
+    definitionPath,
+    definition.replace(
+      "| `SAMPLE-IT-001` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
+      "| `SAMPLE-IT-001` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | | 未解消状態なし | Automated |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-verification-item-axis-missing",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(mapping);
+  write(
+    definitionPath,
+    definition.replace(
+      "| `SAMPLE-IT-001` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
+      "| `SAMPLE-IT-001` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-verification-item-axis-missing",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(mapping);
+  write(
+    definitionPath,
+    definition.replace(
+      "| `SAMPLE-IT-001` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
+      "| `SAMPLE-IT-001` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated／ST |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-verification-item-execution-mode-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(mapping);
+  write(
+    definitionPath,
+    definition.replace(
+      "| `SAMPLE-IT-001` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
+      "| `SAMPLE-IT-001` | 正常 | Component | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-verification-item-test-level-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(
+    definitionPath,
+    definition.replace(
+      "| `SAMPLE-IT-001` | 正常 | IT | Contract | Adapter→Core | Direct Boundary | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
+      "| `SAMPLE-IT-001` | 正常 | IT | Contract | Adapter→Core | Full Stack | 有効な入力 | 入力する | 構造化結果を記録する | 結果が契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code ===
+        "quality-verification-item-external-boundary-stage-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(
+    definitionPath,
+    definition.replace(
+      "| UAT | Required | 利用者受入 | User Acceptance | 利用者判断を確認する |\n",
+      "",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-test-level-applicability-incomplete",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(
+    definitionPath,
+    definition.replace(
+      "| IT | Required | 境界 | Direct Boundary | 直接境界を確認する |",
+      "| IT | N/A | 外部境界なし | N/A | 外部境界を持たない |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-test-level-applicability-conflict",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(
+    definitionPath,
+    definition.replace(
+      "| IT | Required | 境界 | Direct Boundary | 直接境界を確認する |",
+      "| IT | Required | 境界 | N/A | 直接境界を確認する |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-test-level-applicability-conflict",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(mapping);
+  write(
+    definitionPath,
+    definition.replace(
+      "主な試験段階: Unit／Integration／System／User Acceptance",
+      "主な試験段階: Unit／Integration／System",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-primary-test-level-summary-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(definitionPath, definition.replace(/^\| LT \|.*\r?\n/mu, ""));
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code ===
+        "quality-additional-test-type-applicability-incomplete",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(
+    definitionPath,
+    definition.replace(
+      "| PT | N/A | 性能条件なし | N/A | 未実行をPassにしない |",
+      "| PT | Conditional | 性能条件がある場合 | Changeの通常検証範囲 | 未実行をPassにしない |",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-expensive-test-authorization-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(
+    definitionPath,
+    definition.replace("Quality ID: `QA-000001`", "Quality ID: `QA-999999`"),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-definition-identity-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(mapping);
+  write(definitionPath, definition);
+  fs.rmSync(
+    path.join(root, "07_Quality", "Analysis", "REQ", "quality_analysis.md"),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-canonical-mapping-missing",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  writeQualityMapping(mapping);
+
+  const secondDefinitionPath = path.join(
+    root,
+    "07_Quality",
+    "Definitions",
+    "QA-000002",
+    "quality_definition.md",
+  );
+  const secondDefinition = `# QA-000002 Verification Two
+
+成果物種別: Quality定義
+Quality ID: \`QA-000002\`
+主な試験段階: System／User Acceptance
+
+## 1. 情報源と網羅条件
+
+| Source ID | Obligation Key | 導出元 | 保持する固有条件 | 試験段階 | 対応Local Item |
+|---|---|---|---|---|---|
+| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | \`ux-000001.qa-000002\` | UX Definition | 第二の体験条件を保証する | ST／UAT | \`SAMPLE-ST-002\`、\`SAMPLE-UAT-003\` |
+
+### Architecture詳細設計入力
+
+| 詳細設計領域 | 受け取る成立条件 |
+|---|---|
+| [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | 第二の境界を確認する |
+
+## 2. 試験段階と外部境界の適用
+
+| 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |
+|---|---|---|---|---|
+| UT | Conditional | 最小責務 | N/A | 局所判定を独立実装する場合に確認する |
+| IT | Conditional | 境界 | Adjacent 1 Block | 隣接境界を実装する場合に確認する |
+| ST | Required | System | System/E2E | 上位経路を確認する |
+| UAT | Required | 利用者受入 | User Acceptance | 利用者判断を確認する |
+
+### 条件区分の適用
+
+| 条件区分 | 適用 | 対応Local Item | 判断理由 |
+|---|---|---|---|
+| 正常 | Required | SAMPLE-ST-002 | 正常経路を確認する |
+| 境界 | Required | SAMPLE-UAT-003 | 利用者判断の境界を確認する |
+| 準正常 | N/A | - | 継続可能な分岐を持たない |
+| 異常 | N/A | - | このfixtureでは対象外 |
+| 回復 | N/A | - | 回復経路を持たない |
+
+## 3. 検証項目
+
+| Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| \`SAMPLE-ST-002\` | 正常 | ST | Scenario | Entry→Consumer | System/E2E | 第二の入力 | 入力する | 第二の結果を記録する | 第二の契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |
+| \`SAMPLE-UAT-003\` | 境界 | UAT | Acceptance | Result→User | User Acceptance | 第二の結果 | 判断する | 利用者判断を記録する | 意味を理解できる | 判断条件、観測、結論 | 未解消状態なし | Manual |
+## 追加試験種別の適用
+
+| 種別 | 適用 | 確認する範囲 | 実行許可 | 未実行時の扱い |
+|---|---|---|---|---|
+| RT | Required | 変更影響で既存項目を選ぶ | Changeの通常検証範囲 | 未選択範囲を明示する |
+| PT | N/A | 性能条件なし | N/A | 未実行をPassにしない |
+| LT | N/A | 長時間条件なし | N/A | 未実行をPassにしない |
+
+${evaluatedChecklist(checklistItemsFromTemplate("template/07_Quality/Definitions/QA-XXXXXX/quality_definition.md"))}
+`;
+  write(secondDefinitionPath, secondDefinition);
+  for (const countPath of [
+    path.join(root, "07_Quality", "01_Quality_Center.md"),
+    path.join(root, "07_Quality", "05_Current_Implementation_Reality_Audit.md"),
+  ])
+    write(
+      countPath,
+      fs
+        .readFileSync(countPath, "utf8")
+        .replace("| Local Item数 | 4 |", "| Local Item数 | 6 |"),
+    );
+  const mappingTwoGoals = mapping
+    .replace(
+      "[sample](../../Definitions/QA-000001/quality_definition.md) | ST／UAT",
+      "[sample](../../Definitions/QA-000001/quality_definition.md)、[sample two](../../Definitions/QA-000002/quality_definition.md) | ST／UAT",
+    )
+    .replace(
+      "| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | `ia-000001.qa-000001` | IA Definition | [sample](../../Definitions/QA-000001/quality_definition.md) | 情報を保証する | IT／ST | IT: Direct Boundary<br>ST: System/E2E | `SAMPLE-IT-001`、`SAMPLE-ST-010` |",
+      "| [UX-000001](../../../02_UX/Definitions/UX-000001/ux_definition.md) | `ux-000001.qa-000002` | UX Definition | [sample two](../../Definitions/QA-000002/quality_definition.md) | 第二の体験条件を保証する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `SAMPLE-ST-002`、`SAMPLE-UAT-003` |\n| [IA-000001](../../../03_IA/Definitions/IA-000001/ia_definition.md) | `ia-000001.qa-000001` | IA Definition | [sample](../../Definitions/QA-000001/quality_definition.md) | 情報を保証する | IT／ST | IT: Direct Boundary<br>ST: System/E2E | `SAMPLE-IT-001`、`SAMPLE-ST-010` |",
+    )
+    .replace(
+      "| sample | Required | Required | Required | Required | N/A: 配置差なし |",
+      "| sample | Required | Required | Required | Required | N/A: 配置差なし |\n| sample two | Required | Required | Required | Required | N/A: 配置差なし |",
+    )
+    .replace(
+      "`sample.core` | [sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-IT-001` | Covered | なし",
+      "`sample.core` | [sample](../../Definitions/QA-000001/quality_definition.md)<br>[sample two](../../Definitions/QA-000002/quality_definition.md) | `SAMPLE-IT-001`、`SAMPLE-ST-002` | Covered | なし",
+    )
+    .replace(
+      "| [sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-IT-001`、`SAMPLE-ST-010`、`SAMPLE-UAT-011`、`SAMPLE-UT-012` | §3の全入力 | §4.1と§4.2 |",
+      "| [sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-IT-001`、`SAMPLE-ST-010`、`SAMPLE-UAT-011`、`SAMPLE-UT-012` | §3の全入力 | §4.1と§4.2 |\n| [sample two](../../Definitions/QA-000002/quality_definition.md) | `SAMPLE-ST-002`、`SAMPLE-UAT-003` | §3の全入力 | §4.1と§4.2 |",
+    );
+  writeQualityMapping(mappingTwoGoals);
+  write(definitionPath, definition);
+  result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some((finding) =>
+      finding.code.startsWith("quality-"),
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(
+    mappingTwoGoals
+      .replace(
+        "| [sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-IT-001`、`SAMPLE-ST-010`、`SAMPLE-UAT-011`、`SAMPLE-UT-012` | §3の全入力 | §4.1と§4.2 |",
+        "| [sample](../../Definitions/QA-000001/quality_definition.md) | `SAMPLE-ST-002`、`SAMPLE-ST-010`、`SAMPLE-UAT-011`、`SAMPLE-UT-012` | §3の全入力 | §4.1と§4.2 |",
+      )
+      .replace(
+        "| [sample two](../../Definitions/QA-000002/quality_definition.md) | `SAMPLE-ST-002`、`SAMPLE-UAT-003` | §3の全入力 | §4.1と§4.2 |",
+        "| [sample two](../../Definitions/QA-000002/quality_definition.md) | `SAMPLE-IT-001`、`SAMPLE-UAT-003` | §3の全入力 | §4.1と§4.2 |",
+      ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-goal-local-relation-closure-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+  fs.rmSync(path.dirname(secondDefinitionPath), { recursive: true });
+
+  writeQualityMapping(mapping.replace("N/A: 配置差なし", "N/A"));
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-cross-model-disposition-invalid",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(mapping);
+  write(
+    definitionPath,
+    definition.replace(
+      "| [sample](../../../06_Architecture/Details/sample/01_Architecture.md) | 境界を確認する |\n",
+      "",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-detail-goal-relation-closure-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(mapping);
+  write(definitionPath, definition);
+
+  writeQualityMapping(
+    mapping
+      .replace(/^\| \[UX-000001\].*\r?\n/mu, "")
+      .replace("## 4. 統合", "REQ-999999\n\n## 4. 統合"),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-canonical-mapping-coverage-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  const firstMappingRow = mapping.match(/^\| \[UX-000001\].*$/mu)?.[0];
+  assert.ok(firstMappingRow);
+  writeQualityMapping(
+    mapping.replace(firstMappingRow, `${firstMappingRow}\n${firstMappingRow}`),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-canonical-mapping-duplicate-row",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(mapping);
+  fs.rmSync(definitionPath);
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-definition-missing",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  write(definitionPath, definition);
+  writeQualityMapping(
+    mapping.replace(
+      "../../../06_Architecture/02_Component_and_Responsibility_Model.md",
+      "../../../06_Architecture/03_Boundary_and_Interface_Model.md",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-architecture-cross-model-coverage-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(
+    mapping.replace(
+      "../../../06_Architecture/Details/sample/01_Architecture.md",
+      "../../../06_Architecture/Details/unknown/01_Architecture.md",
+    ),
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "quality-architecture-detail-coverage-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  writeQualityMapping(mapping);
+  write(
+    path.join(
+      root,
+      "07_Quality",
+      "Definitions",
+      "QA-999999",
+      "quality_definition.md",
+    ),
+    "# Orphan\n\n## 1. 試験段階と外部境界の適用\n\n| 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |\n|---|---|---|---|---|\n| UT | Required | 最小責務 | N/A | 局所判定を確認する |\n| IT | N/A | 外部境界なし | N/A | 外部境界を持たない |\n| ST | N/A | System対象なし | N/A | 上位経路を持たない |\n| UAT | N/A | 利用者受入なし | N/A | 利用者判断を含まない |\n\n### 条件区分の適用\n\n| 条件区分 | 適用 | 対応Local Item | 判断理由 |\n|---|---|---|---|\n| 正常 | Required | `ORPHAN-UT-001` | 正常成立を確認する |\n| 境界 | N/A | - | 境界値を持たない |\n| 準正常 | N/A | - | 継続可能な分岐を持たない |\n| 異常 | N/A | - | このfixtureでは対象外 |\n| 回復 | N/A | - | 回復経路を持たない |\n\n## 2. 検証項目\n\n| Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|\n| `ORPHAN-UT-001` | 正常 | UT | Functional | 局所責務 | N/A | 入力あり | 入力する | 結果を記録する | 契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |\n",
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-definition-set-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+
+  fs.rmSync(
+    path.dirname(
+      path.join(
+        root,
+        "07_Quality",
+        "Definitions",
+        "QA-999999",
+        "quality_definition.md",
+      ),
+    ),
+    {
+      recursive: true,
+    },
+  );
+  write(
+    definitionPath,
+    "# Verification\n\n## 1. 試験段階と外部境界の適用\n\n| 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |\n|---|---|---|---|---|\n| UT | Required | 最小責務 | N/A | 局所判定を確認する |\n| IT | N/A | 外部境界なし | N/A | 外部境界を持たない |\n| ST | N/A | System対象なし | N/A | 上位経路を持たない |\n| UAT | N/A | 利用者受入なし | N/A | 利用者判断を含まない |\n\n### 条件区分の適用\n\n| 条件区分 | 適用 | 対応Local Item | 判断理由 |\n|---|---|---|---|\n| 正常 | Required | `SAMPLE-IT-001` | 正常成立を確認する |\n| 境界 | N/A | - | 境界値を持たない |\n| 準正常 | N/A | - | 継続可能な分岐を持たない |\n| 異常 | Required | `SAMPLE-IT-001` | 拒否を確認する |\n| 回復 | N/A | - | 回復経路を持たない |\n\n## 2. 検証項目\n\n| Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|\n| `SAMPLE-IT-001` | 正常 | UT | Functional | 局所責務 | N/A | 入力あり | 入力する | 結果を記録する | 契約に一致する | 入力、観測値、判定 | 未解消状態なし | Automated |\n| `SAMPLE-IT-001` | 異常 | UT | Functional | 局所責務 | N/A | 壊れた入力 | 壊す | 拒否結果を記録する | 拒否する | 入力、観測値、判定 | Effect 0 | Automated |\n",
+  );
+  result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "quality-local-verification-id-duplicate",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+});
+
+/**
+ * dispositionFixtureRootのTest準備責務を実行する。
+ *
+ * @responsibility dispositionFixtureRootがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus dispositionFixtureRootを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function dispositionFixtureRoot(hasFixedEvidence = false): string {
   const root = fixture();
   makeStructure(root);
@@ -615,7 +8622,7 @@ function dispositionFixtureRoot(hasFixedEvidence = false): string {
   );
   write(
     path.join(root, "07_Quality", "01_Quality_Center.md"),
-    "# Quality Center\n\n現在候補\n\n前の署名候補\n\n現在候補の技術Gate: 再署名待ち\n\nv0.20全体の残るGate: 再署名と影響E2E\n\n[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)\n",
+    "# Quality Center\n\n現在候補\n\n前の署名候補\n\n現在候補の技術Gate: 再署名待ち\n\nv0.20全体の残るGate: 再署名と影響E2E\n\n[検証結果](../99_Roadmap/Releases/v0.20.0/Evidence/260906_v020-public-runtime-and-bounded-integration-verification.md)\n",
   );
   write(
     path.join(
@@ -627,13 +8634,21 @@ function dispositionFixtureRoot(hasFixedEvidence = false): string {
     "# Verification\n\n前候補。現在のGateはQuality Centerが所有する。\n\n現在候補は再署名と影響E2E待ち。\n",
   );
   write(
-    path.join(root, "99_Roadmap", "01_Product_Roadmap.md"),
+    path.join(root, "99_Roadmap", "01_Roadmap.md"),
     "# Roadmap\n\n| 作業 | 判断状態 | 対応状態 | 次の処置 |\n|---|---|---|---|\n| v0.20 Runtime責務分離 | Adopted | Signed Verification Pending | 再署名と影響E2E |\n",
+  );
+  write(
+    path.join(root, "99_Roadmap", "02_Changes.md"),
+    "# Changes\n\n| 項目 | 内容 |\n|---|---|\n| 現在状態の正本 | [品質の現在状態](../07_Quality/01_Quality_Center.md) |\n| 過去本文の固定Identity | Git上の固定履歴 |\n\n## 目的から読む場所を選ぶ\n\n取得方法: `git --no-replace-objects show <ref>:<path>`\n",
   );
   if (hasFixedEvidence) {
     write(
       path.join(root, "90_Release", "Changes", "Evidence", "fixed.md"),
-      "# Fixed Evidence\n",
+      "# Fixed Evidence\n\n[当時の検証結果](../../../07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)\n",
+    );
+    write(
+      path.join(root, "90_Release", "Changes", "Evidence", "fixed.json"),
+      '{"observedPath":"90_Release/Changes/Evidence/fixed.md"}\n',
     );
   }
   initializeGit(root);
@@ -673,81 +8688,159 @@ function dispositionFixtureRoot(hasFixedEvidence = false): string {
     encoding: "utf8",
   });
   assert.equal(tag.status, 0, tag.stderr);
-  writeDispositionFixture(root);
-  return root;
-}
-
-function writeDispositionFixture(
-  root: string,
-  mutate?: (entries: DispositionFixtureEntry[]) => void,
-  setHash?: string,
-): void {
-  const markdownPaths = spawnSync(
-    "git",
-    ["-C", root, "ls-files", "--", "*.md"],
-    { encoding: "utf8" },
-  )
-    .stdout.trim()
-    .split(/\r?\n/u)
-    .filter(Boolean)
-    .sort();
-  const entries: DispositionFixtureEntry[] = markdownPaths.map(
-    (relativePath) => {
-      const oid = fixtureBlobOid(path.join(root, relativePath));
-      if (relativePath.includes("/Evidence/")) {
-        return {
-          path: relativePath,
-          artifactRole: "release_evidence",
-          currentness: "fixed_history",
-          disposition: "fixed_original_with_structured_index",
-          reasonCode: "published_bytes_preserved",
-          historicalIdentity: {
-            refKind: "tag",
-            ref: "v0.19.0",
-            path: relativePath,
-            blobOid: oid,
-          },
-          currentTreeBlobOid: oid,
-          currentRoute: "90_Release/Changes/README.md",
-        };
-      }
-      return {
-        path: relativePath,
-        artifactRole: relativePath.startsWith("template/")
-          ? "template"
-          : "principle",
-        currentness: "current",
-        disposition: "already_structured",
-        reasonCode: "existing_structure_sufficient",
-        canonicalOwnerPath: relativePath,
-        currentBlobOid: oid,
-      };
-    },
+  write(
+    path.join(root, "99_Roadmap", "Changes", "CHG-000063", "change.md"),
+    `# Runtime Responsibility\n\n変更ID: CHG-000063\n\n### 影響ファイル\n\n<details>\n<summary>全ファイルを表示</summary>\n\n- [\`99_Roadmap/Changes/CHG-000063/change.md\`](./change.md)\n\n</details>\n\n${fs.readFileSync(
+      path.join(
+        root,
+        "90_Release",
+        "Changes",
+        "CHG-000063_Runtime_Responsibility_Separation.md",
+      ),
+      "utf8",
+    )}`,
   );
-  mutate?.(entries);
-  const canonical = markdownPaths
-    .map((relativePath) => {
-      const oid = fixtureBlobOid(path.join(root, relativePath));
-      return `${relativePath}\0${oid}\n`;
-    })
-    .join("");
-  const value = {
-    schemaRevision: 1,
-    populationSource: "git_worktree_markdown",
-    evaluatedDocumentationSetSha256:
-      setHash ?? createHash("sha256").update(canonical).digest("hex"),
-    entries,
-  };
+  write(
+    path.join(root, "99_Roadmap", "Changes", "CHG-000065", "change.md"),
+    "# Structured-first Documentation\n\n変更ID: CHG-000065\n\n### 影響ファイル\n\n<details>\n<summary>全ファイルを表示</summary>\n\n- [`99_Roadmap/Changes/CHG-000065/change.md`](./change.md)\n\n</details>\n",
+  );
   write(
     path.join(
       root,
-      "07_Quality",
-      "07_Structured_Document_Disposition_Inventory.json",
+      "99_Roadmap",
+      "Releases",
+      "v0.20.0",
+      "Evidence",
+      "260906_v020-public-runtime-and-bounded-integration-verification.md",
     ),
-    `${JSON.stringify(value, null, 2)}\n`,
+    fs.readFileSync(
+      path.join(
+        root,
+        "07_Quality",
+        "Verification_Results",
+        "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+      ),
+      "utf8",
+    ),
   );
+  if (hasFixedEvidence) {
+    write(
+      path.join(
+        root,
+        "99_Roadmap",
+        "Changes",
+        "CHG-000063",
+        "Evidence",
+        "260906_fixed.md",
+      ),
+      fs.readFileSync(
+        path.join(root, "90_Release", "Changes", "Evidence", "fixed.md"),
+        "utf8",
+      ),
+    );
+    fs.copyFileSync(
+      path.join(root, "90_Release", "Changes", "Evidence", "fixed.json"),
+      path.join(
+        root,
+        "99_Roadmap",
+        "Changes",
+        "CHG-000063",
+        "Evidence",
+        "260906_fixed.json",
+      ),
+    );
+  }
+  fs.rmSync(path.join(root, "90_Release"), { recursive: true, force: true });
+  fs.rmSync(path.join(root, "07_Quality", "Verification_Results"), {
+    recursive: true,
+    force: true,
+  });
+  const sourceCommit = spawnSync("git", ["-C", root, "rev-parse", "HEAD"], {
+    encoding: "utf8",
+  }).stdout.trim();
+  const sourceTree = spawnSync(
+    "git",
+    ["-C", root, "show", "-s", "--format=%T", sourceCommit],
+    { encoding: "utf8" },
+  ).stdout.trim();
+  const migratedEvidence = [
+    {
+      source:
+        "07_Quality/Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
+      target:
+        "99_Roadmap/Releases/v0.20.0/Evidence/260906_v020-public-runtime-and-bounded-integration-verification.md",
+    },
+    ...(hasFixedEvidence
+      ? [
+          {
+            source: "90_Release/Changes/Evidence/fixed.md",
+            target: "99_Roadmap/Changes/CHG-000063/Evidence/260906_fixed.md",
+          },
+          {
+            source: "90_Release/Changes/Evidence/fixed.json",
+            target: "99_Roadmap/Changes/CHG-000063/Evidence/260906_fixed.json",
+          },
+        ]
+      : []),
+  ].map(({ source, target }) => {
+    const targetBytes = fs.readFileSync(path.join(root, target));
+    return {
+      source,
+      target,
+      sourceSha256: createHash("sha256").update(targetBytes).digest("hex"),
+      sourceBytes: targetBytes.length,
+      targetSha256: createHash("sha256").update(targetBytes).digest("hex"),
+      targetBytes: targetBytes.length,
+      currentnessAtMigration: "fixed_history",
+    };
+  });
+  write(
+    path.join(
+      root,
+      "99_Roadmap",
+      "Changes",
+      "CHG-000070",
+      "Evidence",
+      "260912-2142_migration-map.json",
+    ),
+    `${JSON.stringify(
+      {
+        contract: "crdd/work-lifecycle-migration-map",
+        contractRevision: 1,
+        sourceCommit,
+        sourceTree,
+        transformationContract: "fixed-history-byte-preserving-v3",
+        status: "migrated",
+        changes: 0,
+        changeEvidence: hasFixedEvidence ? 2 : 0,
+        verificationResults: 1,
+        releases: ["v0.20.0"],
+        totalMoves: migratedEvidence.length,
+        entries: migratedEvidence,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  const stagedCurrentLayout = spawnSync("git", ["-C", root, "add", "-A"], {
+    encoding: "utf8",
+  });
+  assert.equal(stagedCurrentLayout.status, 0, stagedCurrentLayout.stderr);
+  return root;
 }
 
+/**
+ * initializeGitのTest準備責務を実行する。
+ *
+ * @responsibility initializeGitがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus initializeGitを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function initializeGit(root: string): void {
   const initialized = spawnSync("git", ["init", "--quiet", root], {
     encoding: "utf8",
@@ -755,6 +8848,18 @@ function initializeGit(root: string): void {
   assert.equal(initialized.status, 0, initialized.stderr);
 }
 
+/**
+ * addGitlinkのTest準備責務を実行する。
+ *
+ * @responsibility addGitlinkがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus addGitlinkを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function addGitlink(root: string, relativePath: string): void {
   const tree = spawnSync("git", ["-C", root, "mktree"], {
     encoding: "utf8",
@@ -795,6 +8900,18 @@ function addGitlink(root: string, relativePath: string): void {
   assert.equal(updated.status, 0, updated.stderr);
 }
 
+/**
+ * runCheckerのTest準備責務を実行する。
+ *
+ * @responsibility runCheckerがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus runCheckerを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function runChecker(root: string, ...extraArguments: string[]): CheckerRun {
   const result = spawnSync(
     process.execPath,
@@ -807,574 +8924,409 @@ function runChecker(root: string, ...extraArguments: string[]): CheckerRun {
   };
 }
 
-test("文書Disposition InventoryはMarkdown母集団の欠落・余分・重複を拒否する", () => {
-  for (const mutation of ["missing", "extra", "duplicate"] as const) {
-    const root = dispositionFixtureRoot();
-    writeDispositionFixture(root, (entries) => {
-      if (mutation === "missing") entries.pop();
-      if (mutation === "extra") {
-        entries.push({ ...entries[0], path: "missing.md" });
-      }
-      if (mutation === "duplicate") entries.push({ ...entries[0] });
-    });
-    const result = runChecker(root);
-    assert.ok(
-      result.report.findings.some(
-        (finding) =>
-          finding.code === "document-disposition-population-mismatch",
-      ),
-      `${mutation}\n${result.stderr}\n${result.stdout}`,
-    );
-  }
-});
-
-test("文書変更後の古いDisposition集合Hashを拒否する", () => {
+/**
+ * Canonical案内文書の名称移行後に旧表題を残さないを検証する。
+ *
+ * @responsibility Canonical案内文書の名称移行後に旧表題を残さないの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Canonical案内文書の名称移行後に旧表題を残さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ */
+test("Canonical案内文書の名称移行後に旧表題を残さない", () => {
   const root = dispositionFixtureRoot();
-  fs.appendFileSync(path.join(root, "01_Principles.md"), "\nupdate\n", "utf8");
+  const roadmapPath = path.join(root, "99_Roadmap", "01_Roadmap.md");
+  write(
+    roadmapPath,
+    fs
+      .readFileSync(roadmapPath, "utf8")
+      .replace("# Roadmap", "# CRDD Product Roadmap"),
+  );
   const result = runChecker(root);
   assert.ok(
     result.report.findings.some(
-      (finding) => finding.code === "stale-document-disposition-inventory",
-    ),
-  );
-});
-
-test("Dispositionの有限enum外を拒否する", () => {
-  const root = dispositionFixtureRoot();
-  writeDispositionFixture(root, (entries) => {
-    entries[0].disposition = "reviewed_somehow";
-  });
-  const result = runChecker(root);
-  assert.ok(
-    result.report.findings.some(
-      (finding) => finding.code === "invalid-document-disposition-entry",
-    ),
-  );
-});
-
-test("Dispositionと理由の意味上不正な組合せを拒否する", () => {
-  const root = dispositionFixtureRoot(true);
-  writeDispositionFixture(root, (entries) => {
-    const current = entries.find((entry) => entry.path === "01_Principles.md");
-    const fixed = entries.find(
-      (entry) => entry.currentness === "fixed_history",
-    );
-    assert.ok(current);
-    assert.ok(fixed);
-    [current.disposition, fixed.disposition] = [
-      fixed.disposition,
-      current.disposition,
-    ];
-    [current.reasonCode, fixed.reasonCode] = [
-      fixed.reasonCode,
-      current.reasonCode,
-    ];
-  });
-  const result = runChecker(root);
-  assert.equal(
-    result.report.findings.filter(
       (finding) =>
-        finding.code === "document-disposition-semantic-combination-invalid",
-    ).length,
-    2,
+        finding.code === "canonical-document-title-mismatch" &&
+        finding.path === "99_Roadmap/01_Roadmap.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Work Lifecycle契約は旧Evidence集約Pathの再導入を拒否するを検証する。
+ *
+ * @responsibility Work Lifecycle契約は旧Evidence集約Pathの再導入を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Work Lifecycle契約は旧Evidence集約Pathの再導入を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Work Lifecycle契約は旧Evidence集約Pathの再導入を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "07_Quality", "Verification_Results", "restored.md"),
+    "# Restored legacy evidence\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "legacy-work-lifecycle-path-present" &&
+        finding.path === "07_Quality/Verification_Results",
+    ),
     `${result.stderr}\n${result.stdout}`,
   );
 });
 
-test("Disposition案内の必須構造または正本Link欠落を拒否する", () => {
-  for (const target of ["changes", "quality"] as const) {
-    const root = dispositionFixtureRoot();
-    const file =
-      target === "changes"
-        ? path.join(root, "90_Release", "Changes", "README.md")
-        : path.join(root, "07_Quality", "01_Quality_Center.md");
-    const content = fs.readFileSync(file, "utf8");
-    fs.writeFileSync(
-      file,
-      target === "changes"
-        ? content.replace("## 目的から読む場所を選ぶ", "## 案内")
-        : content.replace(
-            "Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
-            "missing.md",
-          ),
-      "utf8",
-    );
-    writeDispositionFixture(root);
-    const result = runChecker(root);
+/**
+ * Work Lifecycle契約は全Change aggregateの案内欠落を拒否するを検証する。
+ *
+ * @responsibility Work Lifecycle契約は全Change aggregateの案内欠落を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Work Lifecycle契約は全Change aggregateの案内欠落を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Work Lifecycle契約は全Change aggregateの案内欠落を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "change-navigation-population-mismatch",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+});
+
+/**
+ * Change契約は影響ファイルの全数表示区画を要求するを検証する。
+ *
+ * @responsibility Change契約は影響ファイルの全数表示区画を要求するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Change契約は影響ファイルの全数表示区画を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Change契約は影響ファイルの全数表示区画を要求する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "99_Roadmap", "Changes", "CHG-000065", "change.md"),
+    "# Change\n\n変更ID: CHG-000065\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "change-impact-files-section-mismatch" &&
+        finding.path === "99_Roadmap/Changes/CHG-000065/change.md",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+});
+
+/**
+ * Change契約は代表ファイルだけを示す旧表示を拒否するを検証する。
+ *
+ * @responsibility Change契約は代表ファイルだけを示す旧表示を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Change契約は代表ファイルだけを示す旧表示を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Change契約は代表ファイルだけを示す旧表示を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "99_Roadmap", "Changes", "CHG-000065", "change.md"),
+    "# Change\n\n変更ID: CHG-000065\n\n### 影響ファイル\n\n<details>\n<summary>代表ファイルを表示</summary>\n\n- [`change.md`](./change.md)\n\n</details>\n\n### 主な反映ファイル\n",
+  );
+  const result = runChecker(root);
+  for (const expectedCode of [
+    "change-impact-files-contract-invalid",
+    "legacy-change-impact-heading",
+  ])
     assert.ok(
       result.report.findings.some(
         (finding) =>
-          finding.code === "document-disposition-route-contract-incomplete",
+          finding.code === expectedCode &&
+          finding.path === "99_Roadmap/Changes/CHG-000065/change.md",
       ),
-      `${target}\n${result.stderr}\n${result.stdout}`,
+      `${expectedCode}\n${result.stderr}\n${result.stdout}`,
     );
-  }
 });
 
-test("固定履歴のref種別・path・blob不一致と不正な現行Routeを拒否する", () => {
-  for (const mutation of ["identity", "ref_kind", "route"] as const) {
-    const root = dispositionFixtureRoot(true);
-    writeDispositionFixture(root, (entries) => {
-      const fixed = entries.find(
-        (entry) => entry.currentness === "fixed_history",
-      );
-      assert.ok(fixed);
-      if (mutation === "identity") {
-        fixed.historicalIdentity = {
-          ...(fixed.historicalIdentity as Record<string, unknown>),
-          blobOid: "0".repeat(40),
-        };
-      } else if (mutation === "ref_kind") {
-        fixed.historicalIdentity = {
-          ...(fixed.historicalIdentity as Record<string, unknown>),
-          refKind: "commit",
-        };
-      } else {
-        fixed.currentRoute = "07_Quality/01_Quality_Center.md";
-      }
-    });
+/**
+ * Change契約は影響ファイルへ重複分類の親子階層を作らないを検証する。
+ *
+ * @responsibility Change契約は影響ファイルへ重複分類の親子階層を作らないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Change契約は影響ファイルへ重複分類の親子階層を作らないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Change契約は影響ファイルへ重複分類の親子階層を作らない", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "99_Roadmap", "Changes", "CHG-000065", "change.md"),
+    "# Change\n\n変更ID: CHG-000065\n\n### 影響ファイル\n\n<details>\n<summary>全ファイルを表示</summary>\n\n- 構造変更A\n  - [`change.md`](./change.md)\n\n</details>\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "change-impact-files-contract-invalid" &&
+        finding.path === "99_Roadmap/Changes/CHG-000065/change.md",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+});
+
+/**
+ * CHG-000080以降はPhase／Gateと固定前収束の必須評価を要求するを検証する。
+ *
+ * @responsibility CHG-000080以降はPhase／Gateと固定前収束の必須評価を要求するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CHG-000080以降はPhase／Gateと固定前収束の必須評価を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("CHG-000080以降はPhase／Gateと固定前収束の必須評価を要求する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "99_Roadmap", "Changes", "CHG-000080", "change.md"),
+    "# Change\n\n変更ID: CHG-000080\n\n### 影響ファイル\n\n<details>\n<summary>全ファイルを表示</summary>\n\n- [`change.md`](./change.md)\n\n</details>\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "change-phase-gate-contract-incomplete" &&
+        finding.path === "99_Roadmap/Changes/CHG-000080/change.md",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+});
+
+/**
+ * Work Lifecycle契約はRelease Evidenceの案内欠落を拒否するを検証する。
+ *
+ * @responsibility Work Lifecycle契約はRelease Evidenceの案内欠落を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Work Lifecycle契約はRelease Evidenceの案内欠落を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Work Lifecycle契約はRelease Evidenceの案内欠落を拒否する", () => {
+  const root = dispositionFixtureRoot();
+  write(path.join(root, "99_Roadmap", "03_Releases.md"), "# Releases\n");
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "release-evidence-navigation-incomplete",
+    ),
+    `${result.stderr}\n${result.stdout}`,
+  );
+});
+
+/**
+ * Change記録とWork Lifecycle Evidenceの通常リンク切れを検出するを検証する。
+ *
+ * @responsibility Change記録とWork Lifecycle Evidenceの通常リンク切れを検出するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Change記録とWork Lifecycle Evidenceの通常リンク切れを検出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("Change記録とWork Lifecycle Evidenceの通常リンク切れを検出する", () => {
+  const root = dispositionFixtureRoot();
+  write(
+    path.join(root, "99_Roadmap", "Changes", "CHG-000070", "change.md"),
+    "# Change\n\n[固定時点の参照](../../old-location.md)\n",
+  );
+  write(
+    path.join(
+      root,
+      "99_Roadmap",
+      "Changes",
+      "CHG-000070",
+      "Evidence",
+      "260913_audit.md",
+    ),
+    "# Evidence\n\n[固定時点の参照](../../../old-evidence.md)\n",
+  );
+  const result = runChecker(root);
+  for (const expectedPath of [
+    "99_Roadmap/Changes/CHG-000070/change.md",
+    "99_Roadmap/Changes/CHG-000070/Evidence/260913_audit.md",
+  ])
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "broken-link" && finding.path === expectedPath,
+      ),
+      `${expectedPath}\n${JSON.stringify(result.report.findings)}`,
+    );
+});
+
+/**
+ * 固定履歴本文の旧リンクを移行表から解決し本文変更を要求しないを検証する。
+ *
+ * @responsibility 固定履歴本文の旧リンクを移行表から解決し本文変更を要求しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定履歴本文の旧リンクを移行表から解決し本文変更を要求しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("固定履歴本文の旧リンクを移行表から解決し本文変更を要求しない", () => {
+  const root = dispositionFixtureRoot(true);
+  const result = runChecker(root);
+  assert.equal(
+    result.report.findings.some(
+      (finding) =>
+        finding.path ===
+          "99_Roadmap/Changes/CHG-000063/Evidence/260906_fixed.md" &&
+        finding.code === "broken-link",
+    ),
+    false,
+    JSON.stringify(result.report.findings),
+  );
+});
+
+/**
+ * 固定履歴本文が移行表のHashから変化した場合は拒否するを検証する。
+ *
+ * @responsibility 固定履歴本文が移行表のHashから変化した場合は拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定履歴本文が移行表のHashから変化した場合は拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("固定履歴本文が移行表のHashから変化した場合は拒否する", () => {
+  const root = dispositionFixtureRoot(true);
+  fs.appendFileSync(
+    path.join(
+      root,
+      "99_Roadmap",
+      "Changes",
+      "CHG-000063",
+      "Evidence",
+      "260906_fixed.md",
+    ),
+    "改変\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "fixed-history-content-mismatch" &&
+        finding.path ===
+          "99_Roadmap/Changes/CHG-000063/Evidence/260906_fixed.md",
+    ),
+    JSON.stringify(result.report.findings),
+  );
+});
+
+/**
+ * 移行表の重複・Root外Path・不正Hashを拒否するを検証する。
+ *
+ * @responsibility 移行表の重複・Root外Path・不正Hashを拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 移行表の重複・Root外Path・不正Hashを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("移行表の重複・Root外Path・不正Hashを拒否する", () => {
+  const firstEntry = (manifest: {
+    entries: Array<Record<string, unknown>>;
+  }): Record<string, unknown> => {
+    const [entry] = manifest.entries;
+    assert.ok(entry);
+    return entry;
+  };
+  const mutations = [
+    (manifest: { entries: Array<Record<string, unknown>> }) => {
+      manifest.entries.push({ ...firstEntry(manifest) });
+    },
+    (manifest: { entries: Array<Record<string, unknown>> }) => {
+      firstEntry(manifest).source = "../outside.md";
+    },
+    (manifest: { entries: Array<Record<string, unknown>> }) => {
+      firstEntry(manifest).targetSha256 = "not-a-sha256";
+    },
+  ];
+  for (const mutate of mutations) {
+    const root = dispositionFixtureRoot();
+    const manifestPath = path.join(
+      root,
+      "99_Roadmap",
+      "Changes",
+      "CHG-000070",
+      "Evidence",
+      "260912-2142_migration-map.json",
+    );
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
+      entries: Array<Record<string, unknown>>;
+    };
+    mutate(manifest);
+    write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     const result = runChecker(root);
     assert.ok(
-      result.report.findings.some((finding) =>
-        [
-          "document-disposition-historical-identity-mismatch",
-          "document-disposition-historical-ref-kind-mismatch",
-          "invalid-fixed-document-disposition",
-        ].includes(finding.code),
+      result.report.findings.some(
+        (finding) => finding.code === "fixed-history-migration-map-invalid",
       ),
-      mutation,
+      JSON.stringify(result.report.findings),
     );
   }
 });
 
-test("現行文書と固定履歴のcurrentness誤分類を拒否する", () => {
-  const currentAsFixed = dispositionFixtureRoot();
-  writeDispositionFixture(currentAsFixed, (entries) => {
-    const current = entries.find((entry) => entry.path === "01_Principles.md");
-    assert.ok(current);
-    const oid = current.currentBlobOid;
-    delete current.canonicalOwnerPath;
-    delete current.currentBlobOid;
-    current.currentness = "fixed_history";
-    current.disposition = "fixed_original_with_structured_index";
-    current.reasonCode = "published_bytes_preserved";
-    current.historicalIdentity = {
-      refKind: "tag",
-      ref: "v0.19.0",
-      path: current.path,
-      blobOid: oid,
-    };
-    current.currentTreeBlobOid = oid;
-    current.currentRoute = "90_Release/Changes/README.md";
-  });
-  assert.ok(
-    runChecker(currentAsFixed).report.findings.some(
-      (finding) => finding.code === "document-disposition-currentness-mismatch",
-    ),
-  );
-
-  const fixedAsCurrent = dispositionFixtureRoot(true);
-  writeDispositionFixture(fixedAsCurrent, (entries) => {
-    const fixed = entries.find(
-      (entry) => entry.currentness === "fixed_history",
-    );
-    assert.ok(fixed);
-    const oid = fixed.currentTreeBlobOid;
-    delete fixed.historicalIdentity;
-    delete fixed.currentTreeBlobOid;
-    delete fixed.currentRoute;
-    fixed.currentness = "current";
-    fixed.disposition = "already_structured";
-    fixed.reasonCode = "existing_structure_sufficient";
-    fixed.canonicalOwnerPath = fixed.path;
-    fixed.currentBlobOid = oid;
-  });
-  assert.ok(
-    runChecker(fixedAsCurrent).report.findings.some(
-      (finding) => finding.code === "document-disposition-currentness-mismatch",
-    ),
-  );
-});
-
-type V020GateFixtureState =
-  | "Signed Verification Pending"
-  | "Final Audit Pending"
-  | "Release Decision Pending";
-
-function writeV020GateFixture(root: string, state: V020GateFixtureState): void {
-  const changePath = path.join(
-    root,
-    "90_Release",
-    "Changes",
-    "CHG-000063_Runtime_Responsibility_Separation.md",
-  );
-  const qualityPath = path.join(root, "07_Quality", "01_Quality_Center.md");
-  const verificationPath = path.join(
-    root,
-    "07_Quality",
-    "Verification_Results",
-    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
-  );
-  const roadmapPath = path.join(root, "99_Roadmap", "01_Product_Roadmap.md");
-  const qualityLink =
-    "[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)";
-
-  if (state === "Signed Verification Pending") {
-    write(
-      changePath,
-      `# Runtime Responsibility\n\n状態: \`${state}\`\n\n前の署名候補\n\n現在候補\n\n現行Gate: 再署名と影響E2E待ち\n`,
-    );
-    write(
-      qualityPath,
-      `# Quality Center\n\n現在候補\n\n前の署名候補\n\n現在候補の技術Gate: 再署名待ち\n\nv0.20全体の残るGate: 再署名と影響E2E\n\n${qualityLink}\n`,
-    );
-    write(
-      verificationPath,
-      "# Verification\n\n前候補。現在のGateはQuality Centerが所有する。\n\n現在候補は再署名と影響E2E待ち。\n",
-    );
-    write(
-      roadmapPath,
-      `# Roadmap\n\n| 作業 | 判断状態 | 対応状態 | 次の処置 |\n|---|---|---|---|\n| v0.20 Runtime責務分離 | Adopted | ${state} | 再署名と影響E2E |\n`,
-    );
-    return;
-  }
-
-  const currentCandidate =
-    "現在候補: Runtime Source `source`、manifest carrier `carrier`。Release sequence `1`";
-  const verificationIdentity =
-    "| Runtime Source | source |\n| Manifest carrier | carrier |\n| Release sequence | 1 |\n| Runtime実行Identity | identity |\n| 正式4経路E2E | 4/4 |\n| Recovery Matrix | 7/7 |";
-  if (state === "Final Audit Pending") {
-    write(
-      changePath,
-      `# Runtime Responsibility\n\n状態: \`${state}\`\n\n前の署名候補\n\n${currentCandidate}\n\n正式E2E: 4経路4/4\n\nRecovery Matrix: 7シナリオ完了\n\n残るGate: 最終Evidence反映後の一括独立監査\n`,
-    );
-    write(
-      qualityPath,
-      `# Quality Center\n\n${currentCandidate}\n\n前の署名候補\n\n現在候補の技術Gate: 正式4経路4/4とRecovery Matrix 7/7が成立\n\nv0.20全体の残るGate: 最終Evidence反映後の一括独立監査\n\n${qualityLink}\n`,
-    );
-    write(
-      verificationPath,
-      `# Verification\n\n前候補。現在のGateはQuality Centerが所有する。\n\n## 文書全体是正後の最終固定候補\n\n${verificationIdentity}\n`,
-    );
-    write(
-      roadmapPath,
-      `# Roadmap\n\n| 作業 | 判断状態 | 対応状態 | 次の処置 |\n|---|---|---|---|\n| v0.20 Runtime責務分離 | Adopted | ${state} | 正式4経路4/4、Recovery Matrix 7/7。正式E2E結果を反映した現在Treeの一括監査 |\n`,
-    );
-    return;
-  }
-
-  write(
-    changePath,
-    `# Runtime Responsibility\n\n状態: \`${state}\`\n\n前の署名候補\n\n${currentCandidate}\n\n正式E2E: 4経路4/4\n\nRecovery Matrix: 7シナリオ完了\n\n最終一括監査: Critical 0、Major 0で成立\n\n残るGate: 人間によるRelease判断\n`,
-  );
-  write(
-    qualityPath,
-    `# Quality Center\n\n${currentCandidate}\n\n前の署名候補\n\n現在候補の技術Gate: 正式4経路4/4とRecovery Matrix 7/7が成立\n\n最終一括監査: Critical 0、Major 0で成立\n\nv0.20全体の残るGate: 人間によるRelease判断\n\n${qualityLink}\n`,
-  );
-  write(
-    verificationPath,
-    `# Verification\n\n前候補。現在のGateはQuality Centerが所有する。\n\n## 文書全体是正後の最終固定候補\n\n${verificationIdentity}\n\n最終一括監査: Critical 0、Major 0で成立\n`,
-  );
-  write(
-    roadmapPath,
-    `# Roadmap\n\n| 作業 | 判断状態 | 対応状態 | 次の処置 |\n|---|---|---|---|\n| v0.20 Runtime責務分離 | Adopted | ${state} | 正式4経路4/4、Recovery Matrix 7/7。人間によるRelease判断 |\n`,
-  );
-}
-
-function hasV020GateFinding(root: string): boolean {
-  return runChecker(root).report.findings.some((finding) =>
-    [
-      "v020-release-gate-ownership-incomplete",
-      "v020-release-gate-evidence-incomplete",
-    ].includes(finding.code),
-  );
-}
-
-test("v0.20の各Release Gate状態は4文書の根拠が揃った場合だけ成立する", () => {
-  for (const state of [
-    "Signed Verification Pending",
-    "Final Audit Pending",
-    "Release Decision Pending",
-  ] as const) {
-    const root = dispositionFixtureRoot();
-    writeV020GateFixture(root, state);
-    assert.equal(hasV020GateFinding(root), false, state);
-  }
-});
-
-test("公開済みv0.20は未完了Gateを再要求せず公開根拠の閉包を検証する", () => {
-  const root = dispositionFixtureRoot();
-  const changePath = path.join(
-    root,
-    "90_Release",
-    "Changes",
-    "CHG-000063_Runtime_Responsibility_Separation.md",
-  );
-  const qualityPath = path.join(root, "07_Quality", "01_Quality_Center.md");
-  const verificationPath = path.join(
-    root,
-    "07_Quality",
-    "Verification_Results",
-    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
-  );
-  const roadmapPath = path.join(root, "99_Roadmap", "01_Product_Roadmap.md");
-  const workflowPath = path.join(
-    root,
-    "19_Workflows",
-    "01_Coordinator_Runtime.md",
-  );
-  write(
-    changePath,
-    "# Change\n\n状態: `Released`\nリリース: `v0.20.0`（2026-09-11）\n\n| 現行Gate | 完了。公式tag `v0.20.0`へ収載済み |\n",
-  );
-  write(
-    qualityPath,
-    "# Quality\n\n| v0.20.0の技術Gate | 正式4経路4/4とRecovery Matrix 7/7が成立 |\n| v0.20.0公開 | 2026-09-11、公式tag `v0.20.0`へ収載済み |\n| v0.20.1修正 | 公開状態の伝播漏れを文書だけで是正 |\n\n[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)\n",
-  );
-  write(
-    verificationPath,
-    "# Verification\n\n前候補と公開候補を分離する。現在状態はQuality Centerを参照する。\n",
-  );
-  write(roadmapPath, "# Roadmap\n\n2026-09-11、v0.20.0を公開した。\n");
-  write(
-    workflowPath,
-    "# Coordinator Runtime\n\nこの経路はv0.20.0で正式4経路E2EとRecovery Matrixを完了し、公式tagへ収載した。\n",
-  );
-
-  const publishedResult = runChecker(root);
-  assert.equal(
-    hasV020GateFinding(root),
-    false,
-    JSON.stringify(publishedResult.report.findings),
-  );
-
-  write(
-    qualityPath,
-    fs.readFileSync(qualityPath, "utf8").replace("v0.20.0公開", "公開記録"),
-  );
-  const missingPublishedEvidence = runChecker(root);
-  assert.equal(
-    hasV020GateFinding(root),
-    true,
-    JSON.stringify(missingPublishedEvidence.report.findings),
-  );
-
-  write(
-    qualityPath,
-    fs.readFileSync(qualityPath, "utf8").replace("公開記録", "v0.20.0公開"),
-  );
-  write(
-    workflowPath,
-    "# Coordinator Runtime\n\nこの経路はv0.20候補で接続中である。\n",
-  );
-  const staleWorkflow = runChecker(root);
-  assert.equal(
-    hasV020GateFinding(root),
-    true,
-    JSON.stringify(staleWorkflow.report.findings),
-  );
-});
-
-test("v0.20のRelease Gate状態が複数提示された場合は拒否する", () => {
-  const root = dispositionFixtureRoot();
-  const changePath = path.join(
-    root,
-    "90_Release",
-    "Changes",
-    "CHG-000063_Runtime_Responsibility_Separation.md",
-  );
-  fs.appendFileSync(changePath, "\n状態: `Release Decision Pending`\n", "utf8");
-  assert.equal(hasV020GateFinding(root), true);
-});
-
-test("CHGとRoadmapだけを署名後状態へ昇格できない", () => {
-  const root = dispositionFixtureRoot();
-  for (const relativePath of [
-    "90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md",
-    "99_Roadmap/01_Product_Roadmap.md",
-  ]) {
-    const target = path.join(root, relativePath);
-    fs.writeFileSync(
-      target,
-      fs
-        .readFileSync(target, "utf8")
-        .replaceAll("Signed Verification Pending", "Final Audit Pending"),
-      "utf8",
-    );
-  }
-  assert.equal(hasV020GateFinding(root), true);
-});
-
-test("Quality Centerが旧Gateのままなら最終監査待ちへ進めない", () => {
-  const root = dispositionFixtureRoot();
-  writeV020GateFixture(root, "Final Audit Pending");
-  const qualityPath = path.join(root, "07_Quality", "01_Quality_Center.md");
-  fs.writeFileSync(
-    qualityPath,
-    fs
-      .readFileSync(qualityPath, "utf8")
-      .replace(
-        "v0.20全体の残るGate: 最終Evidence反映後の一括独立監査",
-        "v0.20全体の残るGate: 再署名と影響E2E",
-      ),
-    "utf8",
-  );
-  assert.equal(hasV020GateFinding(root), true);
-});
-
-test("Verificationが前候補だけなら最終監査待ちへ進めない", () => {
-  const root = dispositionFixtureRoot();
-  writeV020GateFixture(root, "Final Audit Pending");
-  const verificationPath = path.join(
-    root,
-    "07_Quality",
-    "Verification_Results",
-    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
-  );
-  write(
-    verificationPath,
-    "# Verification\n\n前候補。現在のGateはQuality Centerが所有する。\n",
-  );
-  assert.equal(hasV020GateFinding(root), true);
-});
-
-test("最終監査EvidenceなしにRelease判断待ちへ進めない", () => {
-  const root = dispositionFixtureRoot();
-  writeV020GateFixture(root, "Final Audit Pending");
-  for (const relativePath of [
-    "90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md",
-    "99_Roadmap/01_Product_Roadmap.md",
-  ]) {
-    const target = path.join(root, relativePath);
-    fs.writeFileSync(
-      target,
-      fs
-        .readFileSync(target, "utf8")
-        .replaceAll("Final Audit Pending", "Release Decision Pending"),
-      "utf8",
-    );
-  }
-  assert.equal(hasV020GateFinding(root), true);
-});
-
-test("最終監査語句だけでは現在候補の署名Evidenceを代替できない", () => {
-  const root = dispositionFixtureRoot();
-  const changePath = path.join(
-    root,
-    "90_Release",
-    "Changes",
-    "CHG-000063_Runtime_Responsibility_Separation.md",
-  );
-  const qualityPath = path.join(root, "07_Quality", "01_Quality_Center.md");
-  const verificationPath = path.join(
-    root,
-    "07_Quality",
-    "Verification_Results",
-    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
-  );
-  const roadmapPath = path.join(root, "99_Roadmap", "01_Product_Roadmap.md");
-  write(
-    changePath,
-    "# Change\n\n状態: `Release Decision Pending`\n\n前の署名候補\n\n最終一括監査: Critical 0、Major 0で成立\n\n残るGate: 人間によるRelease判断\n",
-  );
-  write(
-    qualityPath,
-    "# Quality\n\n現在候補\n\n前の署名候補\n\n最終一括監査: Critical 0、Major 0で成立\n\nv0.20全体の残るGate: 人間によるRelease判断\n\n[検証結果](Verification_Results/2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md)\n",
-  );
-  write(
-    verificationPath,
-    "# Verification\n\n前候補。Quality Centerを参照。\n\n## 文書全体是正後の最終固定候補\n\n最終一括監査: Critical 0、Major 0で成立\n",
-  );
-  write(
-    roadmapPath,
-    "# Roadmap\n\n| 作業 | 判断状態 | 対応状態 | 次の処置 |\n|---|---|---|---|\n| v0.20 Runtime責務分離 | Adopted | Release Decision Pending | 人間によるRelease判断 |\n",
-  );
-  assert.equal(hasV020GateFinding(root), true);
-});
-
-test("Critical 0でもMajorが残る最終監査結果を拒否する", () => {
-  const root = dispositionFixtureRoot();
-  writeV020GateFixture(root, "Release Decision Pending");
-  const verificationPath = path.join(
-    root,
-    "07_Quality",
-    "Verification_Results",
-    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
-  );
-  fs.writeFileSync(
-    verificationPath,
-    fs
-      .readFileSync(verificationPath, "utf8")
-      .replace("Critical 0、Major 0", "Critical 0、Major 1"),
-    "utf8",
-  );
-  assert.equal(hasV020GateFinding(root), true);
-});
-
-test("監査件数に0を含む二桁の値を成功と誤認しない", () => {
-  for (const invalidResult of [
-    "Critical 10、Major 10",
-    "Critical 0、Major 20",
-  ]) {
-    const root = dispositionFixtureRoot();
-    writeV020GateFixture(root, "Release Decision Pending");
-    const verificationPath = path.join(
-      root,
-      "07_Quality",
-      "Verification_Results",
-      "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
-    );
-    fs.writeFileSync(
-      verificationPath,
-      fs
-        .readFileSync(verificationPath, "utf8")
-        .replace("Critical 0、Major 0", invalidResult),
-      "utf8",
-    );
-    assert.equal(hasV020GateFinding(root), true, invalidResult);
-  }
-});
-
-test("否定された監査成立表現を成功と誤認しない", () => {
-  for (const invalidResult of [
-    "Critical 0、Major 0だが未成立",
-    "Critical 0、Major 0で不成立",
-  ]) {
-    const root = dispositionFixtureRoot();
-    writeV020GateFixture(root, "Release Decision Pending");
-    const verificationPath = path.join(
-      root,
-      "07_Quality",
-      "Verification_Results",
-      "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
-    );
-    fs.writeFileSync(
-      verificationPath,
-      fs
-        .readFileSync(verificationPath, "utf8")
-        .replace("Critical 0、Major 0で成立", invalidResult),
-      "utf8",
-    );
-    assert.equal(hasV020GateFinding(root), true, invalidResult);
-  }
-});
-
-test("空の現在候補節へ前候補節の署名Evidenceを流用できない", () => {
-  const root = dispositionFixtureRoot();
-  writeV020GateFixture(root, "Final Audit Pending");
-  const verificationPath = path.join(
-    root,
-    "07_Quality",
-    "Verification_Results",
-    "2026-09-06_V020_Public_Runtime_and_Bounded_Integration_Verification.md",
-  );
-  write(
-    verificationPath,
-    "# Verification\n\n前候補。Quality Centerを参照。\n\n## 文書全体是正後の最終固定候補\n\n現在候補の説明だけ。\n\n## 前候補の詳細\n\n| Runtime Source | source |\n| Manifest carrier | carrier |\n| Release sequence | 1 |\n| Runtime実行Identity | identity |\n| 正式4経路E2E | 4/4 |\n| Recovery Matrix | 7/7 |\n",
-  );
-  assert.equal(hasV020GateFinding(root), true);
-});
-
+/**
+ * runWithEnvのTest準備責務を実行する。
+ *
+ * @responsibility runWithEnvがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus runWithEnvを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function runWithEnv(
   root: string,
   env: Readonly<Record<string, string>>,
@@ -1391,6 +9343,18 @@ function runWithEnv(
   };
 }
 
+/**
+ * runWithFaultのTest準備責務を実行する。
+ *
+ * @responsibility runWithFaultがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus runWithFaultを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function runWithFault(
   root: string,
   fault: string,
@@ -1414,12 +9378,36 @@ function runWithFault(
   );
 }
 
+/**
+ * runRawのTest準備責務を実行する。
+ *
+ * @responsibility runRawがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus runRawを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function runRaw(...checkerArguments: string[]) {
   return spawnSync(process.execPath, [checker, ...checkerArguments], {
     encoding: "utf8",
   });
 }
 
+/**
+ * 公式リポジトリではREADMEと正本文書の版を比較するを検証する。
+ *
+ * @responsibility 公式リポジトリではREADMEと正本文書の版を比較するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公式リポジトリではREADMEと正本文書の版を比較するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("公式リポジトリではREADMEと正本文書の版を比較する", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -1437,6 +9425,18 @@ test("公式リポジトリではREADMEと正本文書の版を比較する", ()
 for (const label of ["Version", "Status"]) {
   for (const suffix of ["", " — 版の説明"]) {
     for (const version of ["v0.16.0", "v0.15.0"]) {
+      /**
+       * README先頭の版表示を照合する: ${label}/${version}/${suffix}を検証する。
+       *
+       * @responsibility README先頭の版表示を照合する: ${label}/${version}/${suffix}の合否判定を所有する。
+       * @trace AUH-IT-003
+       * @precondition Test Fileが構築するfixtureと入力を使用する。
+       * @stimulus README先頭の版表示を照合する: ${label}/${version}/${suffix}の対象操作を実行する。
+       * @observation 結果、状態、Effectおよび終了後条件を観測する。
+       * @oracle Test本文のassertionが期待条件を満たす。
+       * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+       * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+       */
       test(`README先頭の版表示を照合する: ${label}/${version}/${suffix}`, () => {
         const root = currentChangelogFixture(
           ["- `migration_required: false`"],
@@ -1475,6 +9475,18 @@ for (const body of [
   "~~~markdown\nStatus: **v9.0.0**\n~~~",
   "```markdown\nVersion: **v9.0.0**",
 ]) {
+  /**
+   * \nを検証する。
+   *
+   * @responsibility \nの合否判定を所有する。
+   * @trace AUH-IT-003
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus \nの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+   */
   test(`README先頭にない版を本文やfenceから補完しない: ${body.split("\n")[0]}`, () => {
     const root = currentChangelogFixture(
       ["- `migration_required: false`"],
@@ -1486,6 +9498,18 @@ for (const body of [
   });
 }
 
+/**
+ * READMEの太字でないVersion表示も現行版比較へ接続するを検証する。
+ *
+ * @responsibility READMEの太字でないVersion表示も現行版比較へ接続するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus READMEの太字でないVersion表示も現行版比較へ接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("READMEの太字でないVersion表示も現行版比較へ接続する", () => {
   const root = currentChangelogFixture(
     ["- `migration_required: false`"],
@@ -1500,6 +9524,18 @@ test("READMEの太字でないVersion表示も現行版比較へ接続する", (
   );
 });
 
+/**
+ * currentChangelogFixtureのTest準備責務を実行する。
+ *
+ * @responsibility currentChangelogFixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus currentChangelogFixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function currentChangelogFixture(
   englishLines: readonly string[],
   japaneseLines: readonly string[],
@@ -1526,6 +9562,18 @@ function currentChangelogFixture(
   return root;
 }
 
+/**
+ * 公式CHANGELOGの現行移行注記に英日必須境界を要求するを検証する。
+ *
+ * @responsibility 公式CHANGELOGの現行移行注記に英日必須境界を要求するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公式CHANGELOGの現行移行注記に英日必須境界を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("公式CHANGELOGの現行移行注記に英日必須境界を要求する", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -1568,6 +9616,18 @@ test("公式CHANGELOGの現行移行注記に英日必須境界を要求する",
   assert.match(finding.message, /Known risk if deferred/);
 });
 
+/**
+ * 公式CHANGELOGの完全な英日移行注記を受け入れるを検証する。
+ *
+ * @responsibility 公式CHANGELOGの完全な英日移行注記を受け入れるの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公式CHANGELOGの完全な英日移行注記を受け入れるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("公式CHANGELOGの完全な英日移行注記を受け入れる", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -1617,6 +9677,18 @@ for (const body of [
   "本文の例です。\nVersion: v9.0.0\nStatus: Candidate\nReleased Baseline: v8.0.0",
   "## 本文\nVersion: v9.0.0\nStatus: Candidate\nReleased Baseline: v8.0.0",
 ]) {
+  /**
+   * \nを検証する。
+   *
+   * @responsibility \nの合否判定を所有する。
+   * @trace AUH-IT-003
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus \nの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+   */
   test(`標準ヘッダーはStableと本文例を分離する: ${body.split("\n")[0]}/${body.split("\n")[1]}`, () => {
     const root = currentChangelogFixture(
       ["- `migration_required: false`"],
@@ -1637,6 +9709,18 @@ for (const body of [
   "本文の例です。\nReleased Baseline: v0.16.0",
   "## 本文\nReleased Baseline: v0.16.0",
 ]) {
+  /**
+   * \nを検証する。
+   *
+   * @responsibility \nの合否判定を所有する。
+   * @trace AUH-IT-003
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus \nの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+   */
   test(`標準ヘッダーのCandidate基準版を本文から補完しない: ${body.split("\n")[0]}`, () => {
     const root = fixture();
     makeStructure(path.join(root, "template"));
@@ -1653,6 +9737,18 @@ for (const body of [
   });
 }
 
+/**
+ * 標準ヘッダーにないVersionとStatusを本文から補完しないを検証する。
+ *
+ * @responsibility 標準ヘッダーにないVersionとStatusを本文から補完しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 標準ヘッダーにないVersionとStatusを本文から補完しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("標準ヘッダーにないVersionとStatusを本文から補完しない", () => {
   const root = currentChangelogFixture(
     ["- `migration_required: false`"],
@@ -1669,6 +9765,18 @@ test("標準ヘッダーにないVersionとStatusを本文から補完しない"
 
 for (const labelStyle of ["旧表現", "新表現"]) {
   for (const placement of ["本文", "欠落", "fence", "引用", "過去版"]) {
+    /**
+     * 移行注記の閉じた同義表現: ${labelStyle}/${placement}を検証する。
+     *
+     * @responsibility 移行注記の閉じた同義表現: ${labelStyle}/${placement}の合否判定を所有する。
+     * @trace AUH-IT-003
+     * @precondition Test Fileが構築するfixtureと入力を使用する。
+     * @stimulus 移行注記の閉じた同義表現: ${labelStyle}/${placement}の対象操作を実行する。
+     * @observation 結果、状態、Effectおよび終了後条件を観測する。
+     * @oracle Test本文のassertionが期待条件を満たす。
+     * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+     * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+     */
     test(`移行注記の閉じた同義表現: ${labelStyle}/${placement}`, () => {
       const englishMarkers = [
         labelStyle === "旧表現"
@@ -1775,6 +9883,18 @@ for (const labelStyle of ["旧表現", "新表現"]) {
     日本語: japaneseLabels,
   })) {
     for (const label of labels) {
+      /**
+       * 移行注記の説明を単独で要求する: ${labelStyle}/${language}/${label}を検証する。
+       *
+       * @responsibility 移行注記の説明を単独で要求する: ${labelStyle}/${language}/${label}の合否判定を所有する。
+       * @trace AUH-IT-003
+       * @precondition Test Fileが構築するfixtureと入力を使用する。
+       * @stimulus 移行注記の説明を単独で要求する: ${labelStyle}/${language}/${label}の対象操作を実行する。
+       * @observation 結果、状態、Effectおよび終了後条件を観測する。
+       * @oracle Test本文のassertionが期待条件を満たす。
+       * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+       * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+       */
       test(`移行注記の説明を単独で要求する: ${labelStyle}/${language}/${label}`, () => {
         for (const explanation of ["", " \t　 ", " 説明あり"]) {
           const createLines = (
@@ -1826,11 +9946,29 @@ for (const labelStyle of ["旧表現", "新表現"]) {
             );
           }
         }
+        assert.ok(
+          fs
+            .lstatSync(path.join(repositoryRoot, "07_Quality", "Registry"))
+            .isDirectory(),
+          "Registry",
+        );
       });
     }
   }
 }
 
+/**
+ * Candidate文書ではReleased BaselineのCHANGELOGを検査するを検証する。
+ *
+ * @responsibility Candidate文書ではReleased BaselineのCHANGELOGを検査するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Candidate文書ではReleased BaselineのCHANGELOGを検査するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("Candidate文書ではReleased BaselineのCHANGELOGを検査する", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -1883,6 +10021,18 @@ test("Candidate文書ではReleased BaselineのCHANGELOGを検査する", () => 
   );
 });
 
+/**
+ * Candidate文書のReleased Baseline欠落を拒否するを検証する。
+ *
+ * @responsibility Candidate文書のReleased Baseline欠落を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Candidate文書のReleased Baseline欠落を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("Candidate文書のReleased Baseline欠落を拒否する", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -1898,6 +10048,18 @@ test("Candidate文書のReleased Baseline欠落を拒否する", () => {
   );
 });
 
+/**
+ * stableReleaseClosureFixtureのTest準備責務を実行する。
+ *
+ * @responsibility stableReleaseClosureFixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AUH-IT-002
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus stableReleaseClosureFixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+ */
 function stableReleaseClosureFixture() {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -1922,6 +10084,18 @@ function stableReleaseClosureFixture() {
   return root;
 }
 
+/**
+ * Stable最終候補に残った現行MarkdownのCandidate表示を拒否するを検証する。
+ *
+ * @responsibility Stable最終候補に残った現行MarkdownのCandidate表示を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Stable最終候補に残った現行MarkdownのCandidate表示を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("Stable最終候補に残った現行MarkdownのCandidate表示を拒否する", () => {
   const root = stableReleaseClosureFixture();
   write(
@@ -1937,6 +10111,18 @@ test("Stable最終候補に残った現行MarkdownのCandidate表示を拒否す
   );
 });
 
+/**
+ * Stable最終候補のREADME版と英日Release見出しを相関検査するを検証する。
+ *
+ * @responsibility Stable最終候補のREADME版と英日Release見出しを相関検査するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Stable最終候補のREADME版と英日Release見出しを相関検査するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("Stable最終候補のREADME版と英日Release見出しを相関検査する", () => {
   const root = stableReleaseClosureFixture();
   write(path.join(root, "README.md"), "Version: **v0.16.0**\n");
@@ -1959,6 +10145,18 @@ test("Stable最終候補のREADME版と英日Release見出しを相関検査す�
   );
 });
 
+/**
+ * Stable最終候補では全CRDD正本の版と状態を閉包検査するを検証する。
+ *
+ * @responsibility Stable最終候補では全CRDD正本の版と状態を閉包検査するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Stable最終候補では全CRDD正本の版と状態を閉包検査するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("Stable最終候補では全CRDD正本の版と状態を閉包検査する", () => {
   const root = stableReleaseClosureFixture();
   write(
@@ -1974,13 +10172,26 @@ test("Stable最終候補では全CRDD正本の版と状態を閉包検査する"
   );
 });
 
+/**
+ * Change Traceは公式tag前にReleasedを名乗らず引渡し可能状態を保持するを検証する。
+ *
+ * @responsibility Change Traceは公式tag前にReleasedを名乗らず引渡し可能状態を保持するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Change Traceは公式tag前にReleasedを名乗らず引渡し可能状態を保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("Change Traceは公式tag前にReleasedを名乗らず引渡し可能状態を保持する", () => {
   const root = stableReleaseClosureFixture();
   const changePath = path.join(
     root,
-    "90_Release",
+    "99_Roadmap",
     "Changes",
-    "CHG-000001_Release_State.md",
+    "CHG-000001",
+    "change.md",
   );
   write(
     changePath,
@@ -2011,9 +10222,33 @@ test("Change Traceは公式tag前にReleasedを名乗らず引渡し可能状態
   );
 });
 
+/**
+ * 既存の公式tagが現在HEAD以外を指すStable状態を拒否するを検証する。
+ *
+ * @responsibility 既存の公式tagが現在HEAD以外を指すStable状態を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 既存の公式tagが現在HEAD以外を指すStable状態を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("既存の公式tagが現在HEAD以外を指すStable状態を拒否する", () => {
   const root = stableReleaseClosureFixture();
   initializeGit(root);
+  /**
+   * commitのTest準備責務を実行する。
+   *
+   * @responsibility commitがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace AUH-IT-002
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus commitを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+   */
   const commit = (message: string) => {
     const added = spawnSync("git", ["-C", root, "add", "."], {
       encoding: "utf8",
@@ -2054,7 +10289,93 @@ test("既存の公式tagが現在HEAD以外を指すStable状態を拒否する"
   );
 });
 
+/**
+ * 次版Candidateは公開済み基準版のtag不一致や候補残存として扱わないを検証する。
+ *
+ * @responsibility 次版Candidateは公開済み基準版のtag不一致や候補残存として扱わないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 次版Candidateは公開済み基準版のtag不一致や候補残存として扱わないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("次版Candidateは公開済み基準版のtag不一致や候補残存として扱わない", () => {
+  const root = stableReleaseClosureFixture();
+  initializeGit(root);
+  /**
+   * commitのTest準備責務を実行する。
+   *
+   * @responsibility commitがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace AUH-IT-002
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus commitを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary AUH-IT-002=N/A: 構造化表現と意味レビュー。外部実行境界なしは外部実行境界を持たない。
+   */
+  const commit = (message: string) => {
+    const added = spawnSync("git", ["-C", root, "add", "."], {
+      encoding: "utf8",
+    });
+    assert.equal(added.status, 0, added.stderr);
+    const committed = spawnSync(
+      "git",
+      [
+        "-C",
+        root,
+        "-c",
+        "user.name=CRDD Test",
+        "-c",
+        "user.email=crdd-test@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        message,
+      ],
+      { encoding: "utf8" },
+    );
+    assert.equal(committed.status, 0, committed.stderr);
+  };
+  commit("v0.17.0 release");
+  const tagged = spawnSync("git", ["-C", root, "tag", "v0.17.0"], {
+    encoding: "utf8",
+  });
+  assert.equal(tagged.status, 0, tagged.stderr);
+  write(
+    path.join(root, "06_Architecture", "01_Architecture.md"),
+    "# 設計\n\n状態: Candidate（v0.18.0、Released Baseline: v0.17.0）\n",
+  );
+  commit("start v0.18.0");
+
+  const result = runChecker(root);
+  assert.equal(
+    result.report.findings.some((item) =>
+      [
+        "stable-release-candidate-residue",
+        "stable-release-tag-identity-mismatch",
+      ].includes(item.code),
+    ),
+    false,
+    JSON.stringify(result.report),
+  );
+});
+
 for (const status of ["Draft", "Stable"]) {
+  /**
+   * ${status}文書に残ったReleased Baselineを拒否するを検証する。
+   *
+   * @responsibility ${status}文書に残ったReleased Baselineを拒否するの合否判定を所有する。
+   * @trace AUH-IT-003
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus ${status}文書に残ったReleased Baselineを拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+   */
   test(`${status}文書に残ったReleased Baselineを拒否する`, () => {
     const root = fixture();
     makeStructure(path.join(root, "template"));
@@ -2071,6 +10392,18 @@ for (const status of ["Draft", "Stable"]) {
   });
 }
 
+/**
+ * 公式CHANGELOGに日本語区分がない場合は現行リリース欠落を返すを検証する。
+ *
+ * @responsibility 公式CHANGELOGに日本語区分がない場合は現行リリース欠落を返すの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公式CHANGELOGに日本語区分がない場合は現行リリース欠落を返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("公式CHANGELOGに日本語区分がない場合は現行リリース欠落を返す", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -2095,6 +10428,18 @@ test("公式CHANGELOGに日本語区分がない場合は現行リリース欠�
   );
 });
 
+/**
+ * 公式CHANGELOGの日本語区分に現行リリースがない場合は欠落を返すを検証する。
+ *
+ * @responsibility 公式CHANGELOGの日本語区分に現行リリースがない場合は欠落を返すの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公式CHANGELOGの日本語区分に現行リリースがない場合は欠落を返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("公式CHANGELOGの日本語区分に現行リリースがない場合は欠落を返す", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -2122,6 +10467,18 @@ test("公式CHANGELOGの日本語区分に現行リリースがない場合は�
   );
 });
 
+/**
+ * 移行不要の現行英日リリースには移行注記区分を要求しないを検証する。
+ *
+ * @responsibility 移行不要の現行英日リリースには移行注記区分を要求しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 移行不要の現行英日リリースには移行注記区分を要求しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("移行不要の現行英日リリースには移行注記区分を要求しない", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -2147,6 +10504,18 @@ test("移行不要の現行英日リリースには移行注記区分を要求�
   );
 });
 
+/**
+ * 現行移行要否の欠落を判定不能として返すを検証する。
+ *
+ * @responsibility 現行移行要否の欠落を判定不能として返すの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 現行移行要否の欠落を判定不能として返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("現行移行要否の欠落を判定不能として返す", () => {
   const root = currentChangelogFixture([], ["- `migration_required: false`"]);
   const result = runChecker(root);
@@ -2159,6 +10528,18 @@ test("現行移行要否の欠落を判定不能として返す", () => {
   );
 });
 
+/**
+ * 現行移行要否の不正値を判定不能として返すを検証する。
+ *
+ * @responsibility 現行移行要否の不正値を判定不能として返すの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 現行移行要否の不正値を判定不能として返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("現行移行要否の不正値を判定不能として返す", () => {
   const root = currentChangelogFixture(
     ["- `migration_required: maybe`"],
@@ -2172,6 +10553,18 @@ test("現行移行要否の不正値を判定不能として返す", () => {
   );
 });
 
+/**
+ * 現行移行要否の同値重複を判定不能として返すを検証する。
+ *
+ * @responsibility 現行移行要否の同値重複を判定不能として返すの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 現行移行要否の同値重複を判定不能として返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("現行移行要否の同値重複を判定不能として返す", () => {
   const root = currentChangelogFixture(
     ["- `migration_required: false`", "- `migration_required: false`"],
@@ -2185,6 +10578,18 @@ test("現行移行要否の同値重複を判定不能として返す", () => {
   );
 });
 
+/**
+ * 現行移行要否の競合宣言を判定不能として返すを検証する。
+ *
+ * @responsibility 現行移行要否の競合宣言を判定不能として返すの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 現行移行要否の競合宣言を判定不能として返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("現行移行要否の競合宣言を判定不能として返す", () => {
   const root = currentChangelogFixture(
     ["- `migration_required: true`", "- `migration_required: false`"],
@@ -2198,6 +10603,18 @@ test("現行移行要否の競合宣言を判定不能として返す", () => {
   );
 });
 
+/**
+ * 現行英日移行要否の不一致を返すを検証する。
+ *
+ * @responsibility 現行英日移行要否の不一致を返すの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 現行英日移行要否の不一致を返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("現行英日移行要否の不一致を返す", () => {
   const root = currentChangelogFixture(
     ["- `migration_required: true`"],
@@ -2211,6 +10628,18 @@ test("現行英日移行要否の不一致を返す", () => {
   );
 });
 
+/**
+ * 閉じたYAML fenceの現行移行宣言を受け入れるを検証する。
+ *
+ * @responsibility 閉じたYAML fenceの現行移行宣言を受け入れるの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 閉じたYAML fenceの現行移行宣言を受け入れるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("閉じたYAML fenceの現行移行宣言を受け入れる", () => {
   const englishCategories = [
     "- Required: example",
@@ -2259,6 +10688,18 @@ test("閉じたYAML fenceの現行移行宣言を受け入れる", () => {
   );
 });
 
+/**
+ * 説明文中の移行語を宣言として扱わないを検証する。
+ *
+ * @responsibility 説明文中の移行語を宣言として扱わないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 説明文中の移行語を宣言として扱わないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("説明文中の移行語を宣言として扱わない", () => {
   const root = currentChangelogFixture(
     ["This example says migration_required: false in prose."],
@@ -2273,6 +10714,18 @@ test("説明文中の移行語を宣言として扱わない", () => {
   );
 });
 
+/**
+ * 非YAML fence内の移行宣言を判定データとして扱わないを検証する。
+ *
+ * @responsibility 非YAML fence内の移行宣言を判定データとして扱わないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 非YAML fence内の移行宣言を判定データとして扱わないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("非YAML fence内の移行宣言を判定データとして扱わない", () => {
   const root = currentChangelogFixture(
     ["```text", "- `migration_required: false`", "```"],
@@ -2287,6 +10740,18 @@ test("非YAML fence内の移行宣言を判定データとして扱わない", (
   );
 });
 
+/**
+ * 非YAML fence内の移行注記区分を成立根拠へ流用しないを検証する。
+ *
+ * @responsibility 非YAML fence内の移行注記区分を成立根拠へ流用しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 非YAML fence内の移行注記区分を成立根拠へ流用しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("非YAML fence内の移行注記区分を成立根拠へ流用しない", () => {
   const fencedEnglishLines = [
     "```text",
@@ -2332,6 +10797,18 @@ test("非YAML fence内の移行注記区分を成立根拠へ流用しない", (
   );
 });
 
+/**
+ * fence外の有効宣言と非YAML例示を重複扱いしないを検証する。
+ *
+ * @responsibility fence外の有効宣言と非YAML例示を重複扱いしないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fence外の有効宣言と非YAML例示を重複扱いしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("fence外の有効宣言と非YAML例示を重複扱いしない", () => {
   const exampleLines = ["```", "- `migration_required: true`", "```"];
   const result = runChecker(
@@ -2350,6 +10827,18 @@ test("fence外の有効宣言と非YAML例示を重複扱いしない", () => {
   );
 });
 
+/**
+ * チルダと大文字YAML fenceの宣言を受け入れるを検証する。
+ *
+ * @responsibility チルダと大文字YAML fenceの宣言を受け入れるの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus チルダと大文字YAML fenceの宣言を受け入れるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("チルダと大文字YAML fenceの宣言を受け入れる", () => {
   const root = currentChangelogFixture(
     ["   ~~~YAML", "migration_required: false", "   ~~~"],
@@ -2364,6 +10853,18 @@ test("チルダと大文字YAML fenceの宣言を受け入れる", () => {
   );
 });
 
+/**
+ * 長いbacktick fence内の短いbacktick列でfenceを閉じないを検証する。
+ *
+ * @responsibility 長いbacktick fence内の短いbacktick列でfenceを閉じないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 長いbacktick fence内の短いbacktick列でfenceを閉じないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("長いbacktick fence内の短いbacktick列でfenceを閉じない", () => {
   const exampleLines = [
     "````text",
@@ -2385,6 +10886,18 @@ test("長いbacktick fence内の短いbacktick列でfenceを閉じない", () =>
   );
 });
 
+/**
+ * 閉じていない非YAML fence内の見出しや宣言を構造へ戻さないを検証する。
+ *
+ * @responsibility 閉じていない非YAML fence内の見出しや宣言を構造へ戻さないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 閉じていない非YAML fence内の見出しや宣言を構造へ戻さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("閉じていない非YAML fence内の見出しや宣言を構造へ戻さない", () => {
   const root = currentChangelogFixture(
     ["```text", "- `migration_required: false`"],
@@ -2400,6 +10913,18 @@ test("閉じていない非YAML fence内の見出しや宣言を構造へ戻さ�
   );
 });
 
+/**
+ * YAML fence内の言語見出しと現行Release見出しを構造として扱わないを検証する。
+ *
+ * @responsibility YAML fence内の言語見出しと現行Release見出しを構造として扱わないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus YAML fence内の言語見出しと現行Release見出しを構造として扱わないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("YAML fence内の言語見出しと現行Release見出しを構造として扱わない", () => {
   const root = currentChangelogFixture(
     [
@@ -2421,6 +10946,18 @@ test("YAML fence内の言語見出しと現行Release見出しを構造として
   );
 });
 
+/**
+ * 同じ言語区分の重複を一部採用せずエラーにするを検証する。
+ *
+ * @responsibility 同じ言語区分の重複を一部採用せずエラーにするの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 同じ言語区分の重複を一部採用せずエラーにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("同じ言語区分の重複を一部採用せずエラーにする", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -2460,6 +10997,18 @@ test("同じ言語区分の重複を一部採用せずエラーにする", () =>
   );
 });
 
+/**
+ * 非YAML fence内の言語見出しと現行Release見出しを無視するを検証する。
+ *
+ * @responsibility 非YAML fence内の言語見出しと現行Release見出しを無視するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 非YAML fence内の言語見出しと現行Release見出しを無視するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("非YAML fence内の言語見出しと現行Release見出しを無視する", () => {
   const root = currentChangelogFixture(
     [
@@ -2488,6 +11037,18 @@ test("非YAML fence内の言語見出しと現行Release見出しを無視する
   );
 });
 
+/**
+ * 現行リリース節の重複をエラーにするを検証する。
+ *
+ * @responsibility 現行リリース節の重複をエラーにするの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 現行リリース節の重複をエラーにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("現行リリース節の重複をエラーにする", () => {
   const root = currentChangelogFixture(
     [
@@ -2507,6 +11068,18 @@ test("現行リリース節の重複をエラーにする", () => {
   );
 });
 
+/**
+ * 過去リリースの宣言を現行リリースへ流用しないを検証する。
+ *
+ * @responsibility 過去リリースの宣言を現行リリースへ流用しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 過去リリースの宣言を現行リリースへ流用しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("過去リリースの宣言を現行リリースへ流用しない", () => {
   const root = currentChangelogFixture([], []);
   const result = runChecker(root);
@@ -2518,6 +11091,18 @@ test("過去リリースの宣言を現行リリースへ流用しない", () =>
   );
 });
 
+/**
+ * 現行英日変更分類の不一致を返すを検証する。
+ *
+ * @responsibility 現行英日変更分類の不一致を返すの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 現行英日変更分類の不一致を返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("現行英日変更分類の不一致を返す", () => {
   const completeEnglishLines = [
     "- `migration_required: true`",
@@ -2551,6 +11136,18 @@ test("現行英日変更分類の不一致を返す", () => {
   );
 });
 
+/**
+ * 移行が必要な現行節の変更分類欠落を判定不能として返すを検証する。
+ *
+ * @responsibility 移行が必要な現行節の変更分類欠落を判定不能として返すの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 移行が必要な現行節の変更分類欠落を判定不能として返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("移行が必要な現行節の変更分類欠落を判定不能として返す", () => {
   const englishCategories = [
     "- `migration_required: true`",
@@ -2585,6 +11182,18 @@ test("移行が必要な現行節の変更分類欠落を判定不能として�
   );
 });
 
+/**
+ * 移行が必要な現行節の変更分類重複を判定不能として返すを検証する。
+ *
+ * @responsibility 移行が必要な現行節の変更分類重複を判定不能として返すの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 移行が必要な現行節の変更分類重複を判定不能として返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("移行が必要な現行節の変更分類重複を判定不能として返す", () => {
   const englishCategories = [
     "- `migration_required: true`",
@@ -2621,6 +11230,18 @@ test("移行が必要な現行節の変更分類重複を判定不能として�
   );
 });
 
+/**
+ * 閉じていないYAML宣言を判定不能として返すを検証する。
+ *
+ * @responsibility 閉じていないYAML宣言を判定不能として返すの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 閉じていないYAML宣言を判定不能として返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("閉じていないYAML宣言を判定不能として返す", () => {
   const root = currentChangelogFixture(
     ["```yaml", "migration_required: false"],
@@ -2636,6 +11257,18 @@ test("閉じていないYAML宣言を判定不能として返す", () => {
   );
 });
 
+/**
+ * Git管理された公式リポジトリではbaseline状態を非該当として返すを検証する。
+ *
+ * @responsibility Git管理された公式リポジトリではbaseline状態を非該当として返すの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Git管理された公式リポジトリではbaseline状態を非該当として返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("Git管理された公式リポジトリではbaseline状態を非該当として返す", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -2650,6 +11283,18 @@ test("Git管理された公式リポジトリではbaseline状態を非該当と
   assert.equal(result.report.baseline_submodule_state.worktree_present, null);
 });
 
+/**
+ * 採用先の製品READMEはCRDD基準版と比較しないを検証する。
+ *
+ * @responsibility 採用先の製品READMEはCRDD基準版と比較しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 採用先の製品READMEはCRDD基準版と比較しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("採用先の製品READMEはCRDD基準版と比較しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -2660,6 +11305,18 @@ test("採用先の製品READMEはCRDD基準版と比較しない", () => {
   assert.equal(result.report.findings.length, 0);
 });
 
+/**
+ * 採用先では公式CHANGELOG専用の移行宣言検査を発火しないを検証する。
+ *
+ * @responsibility 採用先では公式CHANGELOG専用の移行宣言検査を発火しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 採用先では公式CHANGELOG専用の移行宣言検査を発火しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("採用先では公式CHANGELOG専用の移行宣言検査を発火しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -2688,6 +11345,18 @@ test("採用先では公式CHANGELOG専用の移行宣言検査を発火しな�
   );
 });
 
+/**
+ * 採用先のCRDD正本文書間の版不一致は検出するを検証する。
+ *
+ * @responsibility 採用先のCRDD正本文書間の版不一致は検出するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 採用先のCRDD正本文書間の版不一致は検出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("採用先のCRDD正本文書間の版不一致は検出する", () => {
   const root = fixture();
   makeStructure(root);
@@ -2702,6 +11371,18 @@ test("採用先のCRDD正本文書間の版不一致は検出する", () => {
   );
 });
 
+/**
+ * 安定コンテキストIDを含むファイル名を拒否するを検証する。
+ *
+ * @responsibility 安定コンテキストIDを含むファイル名を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 安定コンテキストIDを含むファイル名を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("安定コンテキストIDを含むファイル名を拒否する", () => {
   const root = fixture();
   makeStructure(root);
@@ -2715,6 +11396,46 @@ test("安定コンテキストIDを含むファイル名を拒否する", () => 
   );
 });
 
+/**
+ * 安定コンテキストIDへ手動改訂番号を結合した表記を拒否するを検証する。
+ *
+ * @responsibility 安定コンテキストIDへ手動改訂番号を結合した表記を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 安定コンテキストIDへ手動改訂番号を結合した表記を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
+test("安定コンテキストIDへ手動改訂番号を結合した表記を拒否する", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(root, "02_UX", "01_User_Experience.md"),
+    "# UX\n\n| 利用者成果 |\n|---|\n| UX-000001@2 |\n",
+  );
+  const result = runChecker(root);
+  assert.equal(result.status, 1);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "stable-id-manual-revision",
+    ),
+  );
+});
+
+/**
+ * 範囲指定でも全体不変条件を確認し、部分確認を明示するを検証する。
+ *
+ * @responsibility 範囲指定でも全体不変条件を確認し、部分確認を明示するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 範囲指定でも全体不変条件を確認し、部分確認を明示するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("範囲指定でも全体不変条件を確認し、部分確認を明示する", () => {
   const root = fixture();
   makeStructure(root);
@@ -2734,6 +11455,18 @@ test("範囲指定でも全体不変条件を確認し、部分確認を明示�
   );
 });
 
+/**
+ * 全体確認は実行情報と件数を返すを検証する。
+ *
+ * @responsibility 全体確認は実行情報と件数を返すの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 全体確認は実行情報と件数を返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("全体確認は実行情報と件数を返す", () => {
   const root = fixture();
   makeStructure(root);
@@ -2749,6 +11482,18 @@ test("全体確認は実行情報と件数を返す", () => {
   assert.ok(result.report.metrics.markdown_files_checked >= 1);
 });
 
+/**
+ * 明示された安定コンテキストID定義の重複を検出するを検証する。
+ *
+ * @responsibility 明示された安定コンテキストID定義の重複を検出するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 明示された安定コンテキストID定義の重複を検出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("明示された安定コンテキストID定義の重複を検出する", () => {
   const root = fixture();
   makeStructure(root);
@@ -2763,1937 +11508,18 @@ test("明示された安定コンテキストID定義の重複を検出する", 
   );
 });
 
-test("変更トレースの誤配置を検出する", () => {
-  const root = fixture();
-  makeStructure(root);
-  write(path.join(root, "01_Discovery", "CHG-000001.md"), "# change\n");
-  const result = runChecker(root);
-  assert.equal(result.status, 1);
-  assert.ok(
-    result.report.findings.some(
-      (finding) => finding.code === "change-trace-placement",
-    ),
-  );
-});
-
-test("90_Release配下でもChangesツリー外の変更トレースを拒否する", () => {
-  const root = fixture();
-  makeStructure(root);
-  write(
-    path.join(root, "90_Release", "product-a", "archive", "CHG-000001.md"),
-    "# change\n",
-  );
-  const result = runChecker(root);
-  assert.equal(result.status, 1);
-  assert.ok(
-    result.report.findings.some(
-      (finding) => finding.code === "change-trace-placement",
-    ),
-  );
-});
-
-test("階層化した変更領域の変更トレースと近接根拠を機械確認できる", () => {
-  const root = fixture();
-  makeStructure(root);
-  write(
-    path.join(root, "90_Release", "product-a", "Changes", "CHG-000001.md"),
-    "# change\n",
-  );
-  write(
-    path.join(
-      root,
-      "90_Release",
-      "product-a",
-      "Changes",
-      "Evidence",
-      "CHG-000001_Verification.md",
-    ),
-    "# evidence\n",
-  );
-  const result = runChecker(root);
-  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
-  assert.equal(result.report.change_trace_layout, "hierarchy-tolerant");
-  assert.deepEqual(result.report.recognized_change_trace_paths, [
-    "90_Release/**/Changes/**/CHG-*.md",
-  ]);
-  assert.ok(
-    result.report.global_checks.includes(
-      "Change Trace inspection-path recognition (not canonical placement validation)",
-    ),
-  );
-});
-
-function officialConsolidationLedgerFixture(): string {
-  const root = fixture();
-  makeStructure(path.join(root, "template"));
-  write(path.join(root, "01_Principles.md"), "Version: v0.11.4\n");
-  write(path.join(root, "README.md"), "Status: v0.11.4\n");
-  write(
-    path.join(root, "90_Release", "Changes", "CHG-000002_Canonical.md"),
-    "# 変更トレース: Canonical\n\n変更ID: CHG-000002\n",
-  );
-  const oldPath = path.join(root, "90_Release", "Changes", "CHG-000001_Old.md");
-  const oldContent = "# 変更トレース: Old\n\n変更ID: CHG-000001\n";
-  write(oldPath, oldContent);
-  initializeGit(root);
-  assert.equal(
-    spawnSync("git", ["-C", root, "add", "."], { encoding: "utf8" }).status,
-    0,
-  );
-  assert.equal(
-    spawnSync(
-      "git",
-      [
-        "-C",
-        root,
-        "-c",
-        "user.name=CRDD Test",
-        "-c",
-        "user.email=crdd-test@example.invalid",
-        "commit",
-        "--quiet",
-        "-m",
-        "consolidation base fixture",
-      ],
-      { encoding: "utf8" },
-    ).status,
-    0,
-  );
-  const commit = spawnSync("git", ["-C", root, "rev-parse", "HEAD"], {
-    encoding: "utf8",
-  }).stdout.trim();
-  const tree = spawnSync(
-    "git",
-    ["-C", root, "show", "-s", "--format=%T", "HEAD"],
-    {
-      encoding: "utf8",
-    },
-  ).stdout.trim();
-  const oldBytes = Buffer.from(oldContent, "utf8");
-  const oldSha256 = createHash("sha256").update(oldBytes).digest("hex");
-  fs.rmSync(oldPath);
-  write(
-    path.join(root, "90_Release", "Changes", "README.md"),
-    [
-      "# 未リリース変更トレース統合台帳",
-      "",
-      "<!-- crdd-change-trace-ledger-schema: 1 -->",
-      "",
-      `- 統合直前Commit: \`${commit}\``,
-      `- 統合直前Tree: \`${tree}\``,
-      "- 公式公開tag固定集合: 0件",
-      "- 不変・非active歴史参照固定集合: 0 pair、0 source、0 target",
-      "- 統合前の未リリースCHG: `CHG-000001`～`CHG-000002`の2件",
-      "- 統合後: Canonical CHG 1件、統合済み旧ID 1件",
-      "- Canonical CHG: `CHG-000002`",
-      "",
-      "## 公式公開tag固定集合",
-      "",
-      "| Tag | Ref Object Type | Ref Object OID | Peeled Commit OID | Peeled Tree OID |",
-      "|---|---|---|---|---|",
-      "",
-      "## 不変・非active歴史参照固定集合",
-      "",
-      "| Source Evidence | Target Old Path |",
-      "|---|---|",
-      "",
-      "## 統合済み旧ID",
-      "",
-      '<a id="consolidated-chg-000001"></a>',
-      "",
-      "### CHG-000001 → CHG-000002",
-      "",
-      "- 旧題名: fixture old",
-      "- 旧Path: `90_Release/Changes/CHG-000001_Old.md`",
-      "- 統合前判断: fixture",
-      "- 変更分類: `non-breaking`",
-      "- 移行／Release境界: fixture",
-      "- Canonical CHG: [CHG-000002](CHG-000002_Canonical.md)",
-      "- 統合理由: 同じ変更意図の途中段階",
-      `- 固定原文: Commit \`${commit}\`、Tree \`${tree}\`、${oldBytes.length} byte、SHA-256 \`${oldSha256}\``,
-      "- 関連Evidence: 専用Evidenceなし",
-      "- 旧ID処置: 統合済み・永久欠番",
-      "",
-    ].join("\n"),
-  );
-  assert.equal(
-    spawnSync("git", ["-C", root, "add", "-A"], { encoding: "utf8" }).status,
-    0,
-  );
-  return root;
-}
-
-type ToolLayoutReference = {
-  sourcePath: string;
-  sourceSha256: string;
-  targetPath: string;
-  targetCommit: string;
-  targetBlobOid: string;
-  targetSha256: string;
-  successorPath: string;
-  anchor: string | null;
-};
-
-function toolLayoutHistoryFixture(hasOldAnchor = true) {
-  const root = fixture();
-  makeStructure(path.join(root, "template"));
-  write(path.join(root, "01_Principles.md"), "Version: v0.11.4\n");
-  write(path.join(root, "README.md"), "Status: v0.11.4\n");
-  const sourcePath = "90_Release/Changes/Evidence/CHG-000017_Fixed.md";
-  const sourceContent =
-    "# fixed evidence\n\n[design](../../../tools/coordinator/architecture/README.md#old-anchor)\n[script](../../../tools/checker/example.ts)\n";
-  const targets = [
-    {
-      targetPath: "tools/coordinator/architecture/README.md",
-      content: hasOldAnchor
-        ? '# old design\n\n<a id="old-anchor"></a>\n'
-        : "# old design\n",
-      successorPath: "06_Architecture/coordinator/01_Architecture.md",
-      anchor: "old-anchor",
-    },
-    {
-      targetPath: "tools/checker/example.ts",
-      content: "export const VALUE = 1;\n",
-      successorPath: "40_Develop/checker/example.ts",
-      anchor: null,
-    },
-  ];
-  write(path.join(root, sourcePath), sourceContent);
-  for (const target of targets)
-    write(path.join(root, target.targetPath), target.content);
-  initializeGit(root);
-  const git = (...args: string[]) => {
-    const result = spawnSync("git", ["-C", root, ...args], {
-      encoding: "utf8",
-    });
-    assert.equal(result.status, 0, result.stderr);
-    return result.stdout.trim();
-  };
-  git("config", "core.autocrlf", "false");
-  git("add", ".");
-  git(
-    "-c",
-    "user.name=CRDD Test",
-    "-c",
-    "user.email=crdd-test@example.invalid",
-    "commit",
-    "--quiet",
-    "-m",
-    "fixed evidence before relocation",
-  );
-  const commit = git("rev-parse", "HEAD");
-  const sha256 = (text: string) =>
-    createHash("sha256").update(text).digest("hex");
-  const references: ToolLayoutReference[] = targets.map((target) => ({
-    sourcePath,
-    sourceSha256: sha256(sourceContent),
-    targetPath: target.targetPath,
-    targetCommit: commit,
-    targetBlobOid: git("rev-parse", `${commit}:${target.targetPath}`),
-    targetSha256: sha256(target.content),
-    successorPath: target.successorPath,
-    anchor: target.anchor,
-  }));
-  for (const target of targets) {
-    fs.rmSync(path.join(root, target.targetPath));
-    write(path.join(root, target.successorPath), target.content);
-  }
-  git("add", "-u", "--", "tools");
-  const record = { schemaRevision: 1, evidenceCommit: commit, references };
-  const ledgerPath = path.join(
-    root,
-    "90_Release/Changes/CHG-000017_Tools_Coding_Standards.md",
-  );
-  const save = () =>
-    write(
-      ledgerPath,
-      `# 配置移行\n\n<!-- crdd-tool-layout-historical-references: 1 -->\n\x60\x60\x60json\n${JSON.stringify(record)}\n\x60\x60\x60\n`,
-    );
-  save();
-  return {
-    root,
-    sourcePath,
-    sourceContent,
-    references,
-    record,
-    ledgerPath,
-    git,
-    save,
-  };
-}
-
-test("配置移行の固定歴史参照はGit blobと旧anchorと非Markdown後継を照合する", () => {
-  const state = toolLayoutHistoryFixture();
-  const result = runChecker(state.root);
-  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
-  assert.equal(
-    result.report.metrics.historical_references_identity_verified,
-    2,
-  );
-  assert.equal(result.report.metrics.historical_references_active, 0);
-  assert.equal(result.report.metrics.historical_references_indexed, 0);
-});
-
-test("配置移行の旧対象はindexだけに残っても拒否しstaged削除後に通す", () => {
-  const state = toolLayoutHistoryFixture();
-  const target = state.references[1];
-  state.git(
-    "update-index",
-    "--add",
-    "--cacheinfo",
-    "100644",
-    target.targetBlobOid,
-    target.targetPath,
-  );
-  assert.equal(fs.existsSync(path.join(state.root, target.targetPath)), false);
-  const blocked = runChecker(state.root);
-  assert.equal(blocked.status, 1);
-  assert.equal(blocked.report.metrics.historical_references_active, 0);
-  assert.equal(blocked.report.metrics.historical_references_indexed, 1);
-  assert.equal(
-    blocked.report.metrics.historical_references_identity_verified,
-    0,
-  );
-  assert.ok(
-    blocked.report.findings.some(
-      (finding) => finding.code === "invalid-tool-layout-historical-references",
-    ),
-  );
-  state.git("add", "-u", "--", "tools");
-  const completed = runChecker(state.root);
-  assert.equal(completed.status, 0, JSON.stringify(completed.report.findings));
-  assert.equal(completed.report.metrics.historical_references_indexed, 0);
-  assert.equal(
-    completed.report.metrics.historical_references_identity_verified,
-    2,
-  );
-});
-
-test("配置移行の旧対象がworktreeに再出現した場合はactiveとして観測する", () => {
-  const state = toolLayoutHistoryFixture();
-  write(
-    path.join(state.root, state.references[1].targetPath),
-    "export const VALUE = 2;\n",
-  );
-  const result = runChecker(state.root);
-  assert.equal(result.status, 1);
-  assert.equal(result.report.metrics.historical_references_active, 1);
-  assert.equal(result.report.metrics.historical_references_indexed, 0);
-  assert.equal(
-    result.report.metrics.historical_references_identity_verified,
-    0,
-  );
-  assert.ok(
-    result.report.findings.some(
-      (finding) => finding.code === "invalid-tool-layout-historical-references",
-    ),
-  );
-});
-
-const layoutHistoryFailures: readonly [
-  string,
-  (state: ReturnType<typeof toolLayoutHistoryFixture>) => void,
-][] = [
-  [
-    "原文変更",
-    (state) =>
-      write(
-        path.join(state.root, state.sourcePath),
-        `${state.sourceContent}\nchanged\n`,
-      ),
-  ],
-  [
-    "未知のsource-target組",
-    (state) => {
-      state.references[0].targetPath = "tools/checker/example.ts";
-      state.references[0].anchor = "unknown";
-    },
-  ],
-  [
-    "存在しないGit commit",
-    (state) => {
-      state.record.evidenceCommit = "0".repeat(40);
-    },
-  ],
-  [
-    "target commit不足",
-    (state) => {
-      state.references[0].targetCommit = "0".repeat(40);
-    },
-  ],
-  [
-    "blob OID差",
-    (state) => {
-      state.references[0].targetBlobOid = state.references[1].targetBlobOid;
-    },
-  ],
-  [
-    "target hash差",
-    (state) => {
-      state.references[0].targetSha256 = "0".repeat(64);
-    },
-  ],
-  [
-    "source hash差",
-    (state) => {
-      state.references[0].sourceSha256 = "0".repeat(64);
-    },
-  ],
-  [
-    "後継欠落",
-    (state) =>
-      fs.rmSync(path.join(state.root, state.references[0].successorPath)),
-  ],
-  [
-    "旧anchor差",
-    (state) => {
-      state.references[0].anchor = "absent-anchor";
-    },
-  ],
-  [
-    "重複登録",
-    (state) => {
-      state.references.push({ ...state.references[0] });
-    },
-  ],
-  [
-    "現行CHGへの例外拡張",
-    (state) => {
-      state.references[0].sourcePath =
-        "90_Release/Changes/CHG-000017_Tools_Coding_Standards.md";
-    },
-  ],
-  [
-    "旧対象の再出現",
-    (state) =>
-      write(
-        path.join(state.root, state.references[0].targetPath),
-        "# old design\n",
-      ),
-  ],
-];
-for (const [label, mutate] of layoutHistoryFailures) {
-  test(`配置移行の固定歴史参照は${label}を拒否する`, () => {
-    const state = toolLayoutHistoryFixture();
-    mutate(state);
-    state.save();
-    const result = runChecker(state.root);
-    assert.equal(result.status, 1);
-    assert.ok(
-      result.report.findings.some(
-        (finding) =>
-          finding.code === "invalid-tool-layout-historical-references",
-      ),
-      JSON.stringify(result.report.findings),
-    );
-    assert.equal(
-      result.report.metrics.historical_references_identity_verified,
-      0,
-    );
-  });
-}
-
-test("配置移行の固定歴史参照は後継のjunction境界を拒否する", () => {
-  const state = toolLayoutHistoryFixture();
-  const successorDirectory = path.join(
-    state.root,
-    "06_Architecture/coordinator",
-  );
-  const actualDirectory = path.join(state.root, "06_Architecture/actual");
-  fs.renameSync(successorDirectory, actualDirectory);
-  fs.symlinkSync(actualDirectory, successorDirectory, "junction");
-  const result = runChecker(state.root);
-  assert.equal(result.status, 1);
-  assert.ok(
-    result.report.findings.some(
-      (finding) => finding.code === "invalid-tool-layout-historical-references",
-    ),
-  );
-  assert.equal(
-    result.report.metrics.historical_references_identity_verified,
-    0,
-  );
-});
-
-test("配置移行の台帳にない新しいリンクは通常のbroken-linkのまま", () => {
-  const state = toolLayoutHistoryFixture();
-  write(path.join(state.root, "current.md"), "[unknown](tools/missing.ts)\n");
-  const result = runChecker(state.root);
-  assert.equal(result.status, 1);
-  assert.equal(
-    result.report.metrics.historical_references_identity_verified,
-    2,
-  );
-  assert.ok(
-    result.report.findings.some(
-      (finding) =>
-        finding.code === "broken-link" && finding.path === "current.md",
-    ),
-  );
-});
-
-test("配置移行は参照組が一致してもGit版に存在しないanchorを拒否する", () => {
-  const state = toolLayoutHistoryFixture(false);
-  const result = runChecker(state.root);
-  assert.equal(result.status, 1);
-  assert.ok(
-    result.report.findings.some(
-      (finding) =>
-        finding.code === "invalid-tool-layout-historical-references" &&
-        finding.message ===
-          "Reference pair or historical anchor does not match.",
-    ),
-  );
-  assert.equal(
-    result.report.metrics.historical_references_identity_verified,
-    0,
-  );
-});
-
-for (const mode of ["generic", "adopter"] as const) {
-  test(`配置移行の公式台帳を${mode}へコピーしても歴史例外を発火しない`, () => {
-    const state = toolLayoutHistoryFixture();
-    if (mode === "generic")
-      fs.rmSync(path.join(state.root, "01_Principles.md"));
-    else fs.mkdirSync(path.join(state.root, "00_CRDD"));
-    const result = runChecker(state.root);
-    assert.equal(result.report.repository_mode, mode);
-    assert.equal(
-      result.report.metrics.historical_references_identity_verified,
-      0,
-    );
-    assert.equal(
-      result.report.findings.filter(
-        (finding) =>
-          finding.code === "broken-link" && finding.path === state.sourcePath,
-      ).length,
-      2,
-    );
-  });
-}
-
-function officialVirtualResolutionFixture(): string {
-  const root = fixture();
-  makeStructure(path.join(root, "template"));
-  write(path.join(root, "01_Principles.md"), "Version: v0.11.4\n");
-  write(path.join(root, "README.md"), "Status: v0.11.4\n");
-  write(
-    path.join(
-      root,
-      "90_Release",
-      "Changes",
-      "CHG-000015_Coordinator_Runtime_1_0.md",
-    ),
-    "# 変更トレース: Canonical\n\n変更ID: CHG-000015\n",
-  );
-  const oldRecords: Array<
-    Readonly<{ id: string; path: string; content: string }>
-  > = [];
-  for (let numericId = 16; numericId <= 35; numericId += 1) {
-    const id = `CHG-${numericId.toString().padStart(6, "0")}`;
-    const relativePath =
-      id === "CHG-000035"
-        ? "90_Release/Changes/CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md"
-        : `90_Release/Changes/${id}_Old.md`;
-    const content = `# 変更トレース: ${id}\n\n変更ID: ${id}\n`;
-    write(path.join(root, ...relativePath.split("/")), content);
-    oldRecords.push({ id, path: relativePath, content });
-  }
-  write(
-    path.join(root, "90_Release", "Changes", "Evidence", "fixed.md"),
-    "[fixed](../CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md)\n",
-  );
-  initializeGit(root);
-  assert.equal(
-    spawnSync("git", ["-C", root, "add", "."], { encoding: "utf8" }).status,
-    0,
-  );
-  assert.equal(
-    spawnSync(
-      "git",
-      [
-        "-C",
-        root,
-        "-c",
-        "user.name=CRDD Test",
-        "-c",
-        "user.email=crdd-test@example.invalid",
-        "commit",
-        "--quiet",
-        "-m",
-        "locator base fixture",
-      ],
-      { encoding: "utf8" },
-    ).status,
-    0,
-  );
-  const commit = spawnSync("git", ["-C", root, "rev-parse", "HEAD"], {
-    encoding: "utf8",
-  }).stdout.trim();
-  const tree = spawnSync(
-    "git",
-    ["-C", root, "show", "-s", "--format=%T", "HEAD"],
-    {
-      encoding: "utf8",
-    },
-  ).stdout.trim();
-  for (const record of oldRecords)
-    fs.rmSync(path.join(root, ...record.path.split("/")));
-  const ledgerLines = [
-    "# 未リリース変更トレース統合台帳",
-    "",
-    "<!-- crdd-change-trace-ledger-schema: 1 -->",
-    "",
-    `- 統合直前Commit: \`${commit}\``,
-    `- 統合直前Tree: \`${tree}\``,
-    "- 公式公開tag固定集合: 0件",
-    "- 不変・非active歴史参照固定集合: 1 pair、1 source、1 target",
-    "- 統合前の未リリースCHG: `CHG-000015`～`CHG-000035`の21件",
-    "- 統合後: Canonical CHG 1件、統合済み旧ID 20件",
-    "- Canonical CHG: `CHG-000015`",
-    "",
-    "## 公式公開tag固定集合",
-    "",
-    "| Tag | Ref Object Type | Ref Object OID | Peeled Commit OID | Peeled Tree OID |",
-    "|---|---|---|---|---|",
-    "",
-    "## 統合済み旧ID",
-    "",
-  ];
-  for (const record of oldRecords) {
-    const bytes = Buffer.from(record.content, "utf8");
-    const sha256 = createHash("sha256").update(bytes).digest("hex");
-    ledgerLines.push(
-      `<a id="consolidated-${record.id.toLocaleLowerCase("en-US")}"></a>`,
-      "",
-      `### ${record.id} → CHG-000015`,
-      "",
-      `- 旧題名: fixture ${record.id}`,
-      `- 旧Path: \`${record.path}\``,
-      "- 統合前判断: fixture",
-      "- 変更分類: `non-breaking`",
-      "- 移行／Release境界: fixture",
-      "- Canonical CHG: [CHG-000015](CHG-000015_Coordinator_Runtime_1_0.md)",
-      "- 統合理由: locator fixture",
-      `- 固定原文: Commit \`${commit}\`、Tree \`${tree}\`、${bytes.length} byte、SHA-256 \`${sha256}\``,
-      record.id === "CHG-000035"
-        ? "- 関連Evidence: [fixed.md](Evidence/fixed.md)"
-        : "- 関連Evidence: 専用Evidenceなし",
-      "- 旧ID処置: 統合済み・永久欠番",
-      "",
-    );
-  }
-  ledgerLines.push(
-    "## 不変・非active歴史参照固定集合",
-    "",
-    "| Source Evidence | Target Old Path |",
-    "|---|---|",
-    "| `90_Release/Changes/Evidence/fixed.md` | `90_Release/Changes/CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md` |",
-    "",
-  );
-  write(
-    path.join(root, "90_Release", "Changes", "README.md"),
-    ledgerLines.join("\n"),
-  );
-  assert.equal(
-    spawnSync("git", ["-C", root, "add", "."], { encoding: "utf8" }).status,
-    0,
-  );
-  assert.equal(
-    spawnSync(
-      "git",
-      [
-        "-C",
-        root,
-        "-c",
-        "user.name=CRDD Test",
-        "-c",
-        "user.email=crdd-test@example.invalid",
-        "commit",
-        "--quiet",
-        "-m",
-        "virtual resolution candidate fixture",
-      ],
-      { encoding: "utf8" },
-    ).status,
-    0,
-  );
-  assert.equal(
-    spawnSync("git", ["-C", root, "tag", "fixture-v0.18.0"], {
-      encoding: "utf8",
-    }).status,
-    0,
-  );
-  return root;
-}
-
-test("公式統合台帳は旧IDをCanonicalと固定原文へ一意に予約する", () => {
-  const root = officialConsolidationLedgerFixture();
-  const result = runChecker(root);
-  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
-  assert.ok(
-    result.report.global_checks.includes(
-      "unreleased Change Trace consolidation ledger identity and reservation",
-    ),
-  );
-});
-
-test("公式統合台帳はGit object、内容Identity、祖先性とGit取得失敗をfail closedにする", () => {
-  const cases: ReadonlyArray<
-    readonly [string, (root: string, ledger: string) => string, string]
-  > = [
-    [
-      "missing commit",
-      (_root, ledger) =>
-        ledger.replace(/Commit `[^`]+`/u, `Commit \`${"0".repeat(40)}\``),
-      "invalid-consolidated-change-trace-commit",
-    ],
-    [
-      "non-commit object",
-      (root, ledger) => {
-        const blob = spawnSync(
-          "git",
-          [
-            "-C",
-            root,
-            "rev-parse",
-            "HEAD:90_Release/Changes/CHG-000001_Old.md",
-          ],
-          { encoding: "utf8" },
-        ).stdout.trim();
-        return ledger.replace(/Commit `[^`]+`/u, `Commit \`${blob}\``);
-      },
-      "invalid-consolidated-change-trace-commit",
-    ],
-    [
-      "wrong tree",
-      (_root, ledger) =>
-        ledger.replace(/Tree `[^`]+`/u, `Tree \`${"0".repeat(40)}\``),
-      "consolidated-change-trace-tree-mismatch",
-    ],
-    [
-      "missing blob",
-      (_root, ledger) =>
-        ledger.replace("CHG-000001_Old.md", "CHG-000001_Missing.md"),
-      "invalid-consolidated-change-trace-blob",
-    ],
-    [
-      "wrong byte count",
-      (_root, ledger) =>
-        ledger.replace(
-          /、([1-9][0-9]*) byte、/u,
-          (_match, bytes: string) =>
-            `、${Number.parseInt(bytes, 10) + 1} byte、`,
-        ),
-      "consolidated-change-trace-content-mismatch",
-    ],
-    [
-      "wrong sha256",
-      (_root, ledger) =>
-        ledger.replace(/SHA-256 `[^`]+`/u, `SHA-256 \`${"0".repeat(64)}\``),
-      "consolidated-change-trace-content-mismatch",
-    ],
-    [
-      "non-ancestor commit",
-      (root, ledger) => {
-        const tree = ledger.match(/Tree `([0-9a-f]{40})`/u)?.[1] ?? "";
-        const orphan = spawnSync(
-          "git",
-          ["-C", root, "commit-tree", tree, "-m", "orphan fixture"],
-          {
-            encoding: "utf8",
-            env: {
-              ...process.env,
-              GIT_AUTHOR_NAME: "CRDD Test",
-              GIT_AUTHOR_EMAIL: "crdd-test@example.invalid",
-              GIT_COMMITTER_NAME: "CRDD Test",
-              GIT_COMMITTER_EMAIL: "crdd-test@example.invalid",
-            },
-          },
-        ).stdout.trim();
-        return ledger.replace(/Commit `[^`]+`/u, `Commit \`${orphan}\``);
-      },
-      "consolidated-change-trace-base-not-ancestor",
-    ],
-  ];
-
-  for (const [label, mutate, expectedCode] of cases) {
-    const root = officialConsolidationLedgerFixture();
-    const ledgerPath = path.join(root, "90_Release", "Changes", "README.md");
-    fs.writeFileSync(
-      ledgerPath,
-      mutate(root, fs.readFileSync(ledgerPath, "utf8")),
-      "utf8",
-    );
-    const result = runChecker(root);
-    assert.ok(
-      result.report.findings.some((finding) => finding.code === expectedCode),
-      `${label}: ${JSON.stringify(result.report.findings)}`,
-    );
-  }
-
-  const gitUnavailableRoot = officialConsolidationLedgerFixture();
-  const emptyPath = path.join(gitUnavailableRoot, "empty-path");
-  fs.mkdirSync(emptyPath);
-  const gitUnavailable = runWithEnv(gitUnavailableRoot, { PATH: emptyPath });
-  assert.ok(
-    gitUnavailable.report.findings.some(
-      (finding) =>
-        finding.code === "invalid-consolidated-change-trace-commit" ||
-        finding.code === "change-trace-tag-inspection-failed",
-    ),
-  );
-
-  const shallowRoot = officialConsolidationLedgerFixture();
-  const shallowHead = spawnSync(
-    "git",
-    ["-C", shallowRoot, "rev-parse", "HEAD"],
-    {
-      encoding: "utf8",
-    },
-  ).stdout.trim();
-  fs.writeFileSync(
-    path.join(shallowRoot, ".git", "shallow"),
-    `${shallowHead}\n`,
-  );
-  const shallowResult = runChecker(shallowRoot);
-  assert.ok(
-    shallowResult.report.findings.some(
-      (finding) =>
-        finding.code === "change-trace-ledger-git-snapshot-unavailable",
-    ),
-  );
-
-  const nonFileLedgerRoot = officialConsolidationLedgerFixture();
-  const nonFileLedger = path.join(
-    nonFileLedgerRoot,
-    "90_Release",
-    "Changes",
-    "README.md",
-  );
-  fs.rmSync(nonFileLedger);
-  fs.mkdirSync(nonFileLedger);
-  const nonFileLedgerResult = runChecker(nonFileLedgerRoot);
-  assert.ok(
-    nonFileLedgerResult.report.findings.some(
-      (finding) =>
-        finding.code === "invalid-change-trace-consolidation-ledger-file",
-    ),
-  );
-});
-
-test("統合直前baseは一意なCommitと実Treeへ固定し全旧entryで共有する", () => {
-  const cases: ReadonlyArray<readonly [string, (ledger: string) => string]> = [
-    [
-      "duplicate base",
-      (ledger) =>
-        ledger.replace(
-          /^- 統合直前Commit: (`[0-9a-f]{40}`)$/mu,
-          "- 統合直前Commit: $1\n- 統合直前Commit: $1",
-        ),
-    ],
-    [
-      "wrong base tree",
-      (ledger) =>
-        ledger.replace(
-          /^- 統合直前Tree: `[0-9a-f]{40}`$/mu,
-          `- 統合直前Tree: \`${"0".repeat(40)}\``,
-        ),
-    ],
-    [
-      "entry base divergence",
-      (ledger) =>
-        ledger.replace(
-          /(- 固定原文: Commit )`[0-9a-f]{40}`/u,
-          `$1\`${"0".repeat(40)}\``,
-        ),
-    ],
-  ];
-  for (const [label, mutate] of cases) {
-    const root = officialConsolidationLedgerFixture();
-    const ledgerPath = path.join(root, "90_Release", "Changes", "README.md");
-    fs.writeFileSync(
-      ledgerPath,
-      mutate(fs.readFileSync(ledgerPath, "utf8")),
-      "utf8",
-    );
-    const result = runChecker(root);
-    assert.equal(result.status, 1, label);
-    assert.ok(
-      result.report.findings.some(
-        (finding) =>
-          finding.code === "invalid-change-trace-integration-base" ||
-          finding.code === "change-trace-entry-base-mismatch",
-      ),
-      `${label}: ${JSON.stringify(result.report.findings)}`,
-    );
-  }
-});
-
-test("公式統合台帳は未リリースID集合の欠落と重複を拒否する", () => {
-  const root = officialConsolidationLedgerFixture();
-  const ledger = path.join(root, "90_Release", "Changes", "README.md");
-  fs.writeFileSync(
-    ledger,
-    fs
-      .readFileSync(ledger, "utf8")
-      .replace(
-        "Canonical CHG 1件、統合済み旧ID 1件",
-        "Canonical CHG 2件、統合済み旧ID 0件",
-      )
-      .replace(
-        "Canonical CHG: `CHG-000002`",
-        "Canonical CHG: `CHG-000001`、`CHG-000002`",
-      ),
-    "utf8",
-  );
-  const result = runChecker(root);
-  assert.equal(result.status, 1);
-  assert.ok(
-    result.report.findings.some(
-      (finding) =>
-        finding.code === "invalid-change-trace-consolidation-set-arithmetic" ||
-        finding.code === "consolidated-id-declared-canonical",
-    ),
-  );
-});
-
-test("将来の公式公開tagも統合済み旧Pathへの到達を拒否する", () => {
-  const root = officialConsolidationLedgerFixture();
-  write(
-    path.join(root, "90_Release", "Changes", "CHG-000001_Old.md"),
-    "# 変更トレース: Published old\n\n変更ID: CHG-000001\n",
-  );
-  assert.equal(
-    spawnSync("git", ["-C", root, "add", "."], { encoding: "utf8" }).status,
-    0,
-  );
-  assert.equal(
-    spawnSync(
-      "git",
-      [
-        "-C",
-        root,
-        "-c",
-        "user.name=CRDD Test",
-        "-c",
-        "user.email=crdd-test@example.invalid",
-        "commit",
-        "--quiet",
-        "-m",
-        "published fixture",
-      ],
-      { encoding: "utf8" },
-    ).status,
-    0,
-  );
-  assert.equal(
-    spawnSync("git", ["-C", root, "tag", "v0.1.0"], {
-      encoding: "utf8",
-    }).status,
-    0,
-  );
-  fs.rmSync(path.join(root, "90_Release", "Changes", "CHG-000001_Old.md"));
-  const result = runChecker(root);
-  assert.equal(result.status, 1);
-  assert.ok(
-    result.report.findings.some(
-      (finding) => finding.code === "released-change-trace-consolidated",
-    ),
-    `${JSON.stringify(result.report.findings)}\n${result.stderr}`,
-  );
-});
-
-test("将来の公式公開tagは旧Pathへ到達しなければ自己参照なしで許容する", () => {
-  const root = officialVirtualResolutionFixture();
-  assert.equal(
-    spawnSync("git", ["-C", root, "tag", "v0.18.0"], {
-      encoding: "utf8",
-    }).status,
-    0,
-  );
-  const result = runChecker(root);
-  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
-});
-
-test("将来の公式公開tagはcommitへpeelできなければ拒否する", () => {
-  const root = officialVirtualResolutionFixture();
-  const blob = spawnSync(
-    "git",
-    ["-C", root, "rev-parse", "HEAD:90_Release/Changes/README.md"],
-    { encoding: "utf8" },
-  ).stdout.trim();
-  assert.equal(
-    spawnSync("git", ["-C", root, "update-ref", "refs/tags/v0.18.0", blob], {
-      encoding: "utf8",
-    }).status,
-    0,
-  );
-  const result = runChecker(root);
-  assert.equal(result.status, 1);
-  assert.ok(
-    result.report.findings.some(
-      (finding) => finding.code === "official-published-tag-not-commit",
-    ),
-  );
-});
-
-test("固定Evidenceの欠落旧Pathは物理stubなしで統合台帳から解決する", () => {
-  const root = officialVirtualResolutionFixture();
-  const result = runChecker(root);
-  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
-  assert.equal(result.report.metrics.historical_references_observed, 1);
-  assert.equal(
-    result.report.metrics.historical_references_identity_verified,
-    1,
-  );
-  assert.equal(result.report.metrics.historical_references_active, 0);
-});
-
-test("不変歴史参照は新規または改変Evidenceへ拡張しない", () => {
-  const newEvidenceRoot = officialVirtualResolutionFixture();
-  write(
-    path.join(newEvidenceRoot, "90_Release", "Changes", "Evidence", "new.md"),
-    "[new](../CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md)\n",
-  );
-  const newEvidenceResult = runChecker(newEvidenceRoot);
-  assert.equal(newEvidenceResult.status, 1);
-  assert.ok(
-    newEvidenceResult.report.findings.some(
-      (finding) =>
-        finding.code === "broken-link" && finding.path.endsWith("new.md"),
-    ),
-  );
-
-  const changedEvidenceRoot = officialVirtualResolutionFixture();
-  const fixedEvidence = path.join(
-    changedEvidenceRoot,
-    "90_Release",
-    "Changes",
-    "Evidence",
-    "fixed.md",
-  );
-  fs.appendFileSync(fixedEvidence, "changed\n", "utf8");
-  const changedEvidenceResult = runChecker(changedEvidenceRoot);
-  assert.equal(changedEvidenceResult.status, 1);
-  assert.ok(
-    changedEvidenceResult.report.findings.some(
-      (finding) => finding.code === "historical-reference-identity-mismatch",
-    ),
-  );
-  assert.equal(
-    changedEvidenceResult.report.metrics
-      .historical_references_identity_verified,
-    0,
-  );
-  assert.equal(
-    changedEvidenceResult.report.metrics.historical_references_observed,
-    1,
-  );
-});
-
-test("統合台帳の孤立fieldと重複fieldは歴史参照を許可しない", () => {
-  for (const mutate of [
-    (ledger: string) =>
-      ledger.replace(
-        "<!-- crdd-change-trace-ledger-schema: 1 -->",
-        "<!-- crdd-change-trace-ledger-schema: 1 -->\n- 旧Path: `90_Release/Changes/CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md`",
-      ),
-    (ledger: string) =>
-      ledger.replace(
-        "- 旧題名: fixture CHG-000016",
-        "- 旧題名: fixture CHG-000016\n- 旧題名: duplicate",
-      ),
-  ]) {
-    const root = officialVirtualResolutionFixture();
-    const ledger = path.join(root, "90_Release", "Changes", "README.md");
-    fs.writeFileSync(ledger, mutate(fs.readFileSync(ledger, "utf8")), "utf8");
-    const result = runChecker(root);
-    assert.equal(result.status, 1);
-    assert.equal(
-      result.report.metrics.historical_references_identity_verified,
-      0,
-    );
-    assert.equal(result.report.metrics.historical_references_observed, 1);
-    assert.ok(
-      result.report.findings.some(
-        (finding) =>
-          finding.code === "orphan-change-trace-ledger-old-path" ||
-          finding.code === "invalid-change-trace-ledger-entry-schema",
-      ),
-      JSON.stringify(result.report.findings),
-    );
-  }
-});
-
-test("統合済み旧Pathへの物理stub再導入を拒否する", () => {
-  const root = officialVirtualResolutionFixture();
-  write(
-    path.join(
-      root,
-      "90_Release",
-      "Changes",
-      "CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md",
-    ),
-    "# compatibility stub\n",
-  );
-  const result = runChecker(root);
-  assert.equal(result.status, 1);
-  assert.equal(result.report.metrics.historical_references_observed, 1);
-  assert.equal(result.report.metrics.historical_references_active, 1);
-  assert.ok(
-    result.report.findings.some(
-      (finding) => finding.code === "physical-consolidated-change-trace-path",
-    ),
-  );
-});
-
-test("統合済み旧Pathのdirectory・symlink・index再出現をmetricsから隠さない", () => {
-  const oldRelative =
-    "90_Release/Changes/CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md";
-  for (const kind of ["directory", "junction"] as const) {
-    const root = officialVirtualResolutionFixture();
-    const oldPath = path.join(root, ...oldRelative.split("/"));
-    if (kind === "directory") {
-      fs.mkdirSync(oldPath);
-    } else {
-      const junctionTarget = path.join(root, "junction-target");
-      fs.mkdirSync(junctionTarget);
-      fs.symlinkSync(junctionTarget, oldPath, "junction");
-    }
-    const result = runChecker(root);
-    assert.equal(result.status, 1);
-    assert.equal(result.report.metrics.historical_references_observed, 1);
-    assert.equal(result.report.metrics.historical_references_active, 1);
-    assert.equal(
-      result.report.metrics.historical_references_identity_verified,
-      0,
-    );
-  }
-
-  const indexRoot = officialVirtualResolutionFixture();
-  const indexedOldPath = path.join(indexRoot, ...oldRelative.split("/"));
-  write(indexedOldPath, "# indexed old path\n");
-  assert.equal(
-    spawnSync("git", ["-C", indexRoot, "add", oldRelative], {
-      encoding: "utf8",
-    }).status,
-    0,
-  );
-  fs.rmSync(indexedOldPath);
-  const indexResult = runChecker(indexRoot);
-  assert.equal(indexResult.status, 1);
-  assert.equal(indexResult.report.metrics.historical_references_observed, 1);
-  assert.equal(indexResult.report.metrics.historical_references_active, 0);
-  assert.equal(indexResult.report.metrics.historical_references_indexed, 1);
-  assert.equal(
-    indexResult.report.metrics.historical_references_identity_verified,
-    0,
-  );
-  assert.ok(
-    indexResult.report.findings.some(
-      (finding) => finding.code === "indexed-consolidated-change-trace-id",
-    ),
-  );
-});
-
-test("非公式local tagは公開tag固定集合へ混入させない", () => {
-  const root = officialConsolidationLedgerFixture();
-  assert.equal(
-    spawnSync("git", ["-C", root, "tag", "scratch-local"], {
-      encoding: "utf8",
-    }).status,
-    0,
-  );
-  const commitResult = runChecker(root);
-  assert.equal(
-    commitResult.status,
-    0,
-    JSON.stringify(commitResult.report.findings),
-  );
-
-  const blob = spawnSync(
-    "git",
-    ["-C", root, "rev-parse", "HEAD:90_Release/Changes/CHG-000001_Old.md"],
-    { encoding: "utf8" },
-  ).stdout.trim();
-  assert.equal(
-    spawnSync(
-      "git",
-      ["-C", root, "update-ref", "refs/tags/scratch-blob", blob],
-      { encoding: "utf8" },
-    ).status,
-    0,
-  );
-  const blobResult = runChecker(root);
-  assert.equal(
-    blobResult.status,
-    0,
-    JSON.stringify(blobResult.report.findings),
-  );
-});
-
-test("統合台帳の機械所有tableは余分・重複rowを拒否する", () => {
-  for (const extra of [
-    "  | malformed |",
-    "malformed | value",
-    "| Tag | Ref Object Type | Ref Object OID | Peeled Commit OID | Peeled Tree OID |\n|---|---|---|---|---|",
-    "```text\n| malformed |\n```",
-  ]) {
-    const tagRoot = officialConsolidationLedgerFixture();
-    const tagLedger = path.join(tagRoot, "90_Release", "Changes", "README.md");
-    fs.writeFileSync(
-      tagLedger,
-      fs
-        .readFileSync(tagLedger, "utf8")
-        .replace("|---|---|---|---|---|", `|---|---|---|---|---|\n${extra}`),
-      "utf8",
-    );
-    const tagResult = runChecker(tagRoot);
-    assert.ok(
-      tagResult.report.findings.some(
-        (finding) =>
-          finding.code === "invalid-published-tag-inventory-table-schema",
-      ),
-      `${extra}: ${JSON.stringify(tagResult.report.findings)}`,
-    );
-  }
-
-  const historicalRoot = officialVirtualResolutionFixture();
-  const historicalLedger = path.join(
-    historicalRoot,
-    "90_Release",
-    "Changes",
-    "README.md",
-  );
-  const historicalRow =
-    "| `90_Release/Changes/Evidence/fixed.md` | `90_Release/Changes/CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md` |";
-  fs.writeFileSync(
-    historicalLedger,
-    fs
-      .readFileSync(historicalLedger, "utf8")
-      .replace(historicalRow, `${historicalRow}\n${historicalRow}`),
-    "utf8",
-  );
-  const historicalResult = runChecker(historicalRoot);
-  assert.ok(
-    historicalResult.report.findings.some(
-      (finding) =>
-        finding.code === "invalid-historical-reference-table-schema" ||
-        finding.code === "invalid-historical-reference-set",
-    ),
-  );
-
-  const releasedRoot = officialConsolidationLedgerFixture();
-  const releasedLedger = path.join(
-    releasedRoot,
-    "90_Release",
-    "Changes",
-    "README.md",
-  );
-  fs.writeFileSync(
-    releasedLedger,
-    fs
-      .readFileSync(releasedLedger, "utf8")
-      .replace(
-        "## 統合済み旧ID",
-        [
-          "- 公開済み固定履歴: `CHG-000003`～`CHG-000003`の1件。公開tag到達性を確認",
-          "",
-          "## 公開済み固定履歴",
-          "",
-          "| CHG | Path | 固定Commit | byte | SHA-256 |",
-          "|---|---|---|---:|---|",
-          "| malformed |",
-          "",
-          "## 統合済み旧ID",
-        ].join("\n"),
-      ),
-    "utf8",
-  );
-  const releasedResult = runChecker(releasedRoot);
-  assert.ok(
-    releasedResult.report.findings.some(
-      (finding) =>
-        finding.code === "invalid-released-change-trace-table-schema",
-    ),
-  );
-
-  const entryRoot = officialConsolidationLedgerFixture();
-  const entryLedger = path.join(
-    entryRoot,
-    "90_Release",
-    "Changes",
-    "README.md",
-  );
-  fs.writeFileSync(
-    entryLedger,
-    fs.readFileSync(entryLedger, "utf8").replace("- 旧題名:", "  - 旧題名:"),
-    "utf8",
-  );
-  const entryResult = runChecker(entryRoot);
-  assert.ok(
-    entryResult.report.findings.some(
-      (finding) => finding.code === "invalid-change-trace-ledger-entry-schema",
-    ),
-  );
-});
-
-test("統合済み旧IDは別suffixかつID宣言なしでも再利用を拒否する", () => {
-  const root = officialConsolidationLedgerFixture();
-  write(
-    path.join(root, "90_Release", "Changes", "CHG-000001_Alternate.md"),
-    "# no Change ID declaration\n",
-  );
-  const result = runChecker(root);
-  assert.equal(result.status, 1);
-  assert.ok(
-    result.report.findings.some(
-      (finding) =>
-        finding.code === "physical-consolidated-change-trace-id" &&
-        finding.path.endsWith("CHG-000001_Alternate.md"),
-    ),
-  );
-});
-
-test("固定公開tag inventoryの欠落または移動を拒否する", () => {
-  const root = officialConsolidationLedgerFixture();
-  const ledger = path.join(root, "90_Release", "Changes", "README.md");
-  const head = spawnSync("git", ["-C", root, "rev-parse", "HEAD"], {
-    encoding: "utf8",
-  }).stdout.trim();
-  const tree = spawnSync(
-    "git",
-    ["-C", root, "show", "-s", "--format=%T", head],
-    {
-      encoding: "utf8",
-    },
-  ).stdout.trim();
-  fs.writeFileSync(
-    ledger,
-    fs
-      .readFileSync(ledger, "utf8")
-      .replace("- 公式公開tag固定集合: 0件", "- 公式公開tag固定集合: 1件")
-      .replace(
-        "- 不変・非active歴史参照固定集合:",
-        `| Tag | Ref Object Type | Ref Object OID | Peeled Commit OID | Peeled Tree OID |\n|---|---|---|---|---|\n| \`v9.9.9\` | \`commit\` | \`${head}\` | \`${head}\` | \`${tree}\` |\n\n- 不変・非active歴史参照固定集合:`,
-      ),
-    "utf8",
-  );
-  const result = runChecker(root);
-  assert.equal(result.status, 1);
-  assert.ok(
-    result.report.findings.some(
-      (finding) => finding.code === "published-tag-inventory-mismatch",
-    ),
-  );
-});
-
-test("公式統合台帳は公開済みCHGの固定Identity差を拒否する", () => {
-  const root = officialConsolidationLedgerFixture();
-  const releasedPath = path.join(
-    root,
-    "90_Release",
-    "Changes",
-    "CHG-000003_Released.md",
-  );
-  const releasedContent = "# 変更トレース: Released\n\n変更ID: CHG-000003\n";
-  write(releasedPath, releasedContent);
-  const releasedBytes = Buffer.from(releasedContent, "utf8");
-  const releasedSha256 = createHash("sha256")
-    .update(releasedBytes)
-    .digest("hex");
-  const ledger = path.join(root, "90_Release", "Changes", "README.md");
-  fs.writeFileSync(
-    ledger,
-    fs
-      .readFileSync(ledger, "utf8")
-      .replace(
-        "- 統合前の未リリースCHG:",
-        [
-          "- 公開済み固定履歴: `CHG-000003`～`CHG-000003`の1件。公開tag到達性を確認",
-          "",
-          "## 公開済み固定履歴",
-          "",
-          "| CHG | Path | 固定Commit | byte | SHA-256 |",
-          "|---|---|---|---:|---|",
-          `| \`CHG-000003\` | \`90_Release/Changes/CHG-000003_Released.md\` | \`1111111111111111111111111111111111111111\` | ${releasedBytes.length} | \`${releasedSha256}\` |`,
-          "",
-          "- 統合前の未リリースCHG:",
-        ].join("\n"),
-      ),
-    "utf8",
-  );
-  assert.equal(
-    spawnSync("git", ["-C", root, "add", "."], { encoding: "utf8" }).status,
-    0,
-  );
-  assert.equal(
-    spawnSync(
-      "git",
-      [
-        "-C",
-        root,
-        "-c",
-        "user.name=CRDD Test",
-        "-c",
-        "user.email=crdd-test@example.invalid",
-        "commit",
-        "--quiet",
-        "-m",
-        "released identity fixture",
-      ],
-      { encoding: "utf8" },
-    ).status,
-    0,
-  );
-  assert.equal(
-    spawnSync("git", ["-C", root, "tag", "v0.2.0"], {
-      encoding: "utf8",
-    }).status,
-    0,
-  );
-  const releasedCommit = spawnSync("git", ["-C", root, "rev-parse", "HEAD"], {
-    encoding: "utf8",
-  }).stdout.trim();
-  const releasedTree = spawnSync(
-    "git",
-    ["-C", root, "show", "-s", "--format=%T", releasedCommit],
-    { encoding: "utf8" },
-  ).stdout.trim();
-  const replaceReleasedFixedCommit = (content: string, commit: string) =>
-    content.replace(
-      /^(\| `CHG-000003` \| `90_Release\/Changes\/CHG-000003_Released\.md` \| )`[0-9a-f]{40}`( \| [1-9][0-9]* \| `[0-9a-f]{64}` \|)$/mu,
-      `$1\`${commit}\`$2`,
-    );
-  const withFixedPublishedTag = fs
-    .readFileSync(ledger, "utf8")
-    .replace("- 公式公開tag固定集合: 0件", "- 公式公開tag固定集合: 1件")
-    .replace(
-      "|---|---|---|---|---|",
-      `|---|---|---|---|---|\n| \`v0.2.0\` | \`commit\` | \`${releasedCommit}\` | \`${releasedCommit}\` | \`${releasedTree}\` |`,
-    );
-  fs.writeFileSync(
-    ledger,
-    replaceReleasedFixedCommit(withFixedPublishedTag, releasedTree),
-    "utf8",
-  );
-  const treeObjectResult = runChecker(root);
-  assert.equal(treeObjectResult.status, 1);
-  assert.ok(
-    treeObjectResult.report.findings.some(
-      (finding) =>
-        finding.code === "invalid-released-change-trace-fixed-commit",
-    ),
-    `${JSON.stringify(treeObjectResult.report.findings)}\n${treeObjectResult.stderr}`,
-  );
-  const orphanCommit = spawnSync(
-    "git",
-    ["-C", root, "commit-tree", releasedTree, "-m", "orphan published fixture"],
-    {
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        GIT_AUTHOR_NAME: "CRDD Test",
-        GIT_AUTHOR_EMAIL: "crdd-test@example.invalid",
-        GIT_COMMITTER_NAME: "CRDD Test",
-        GIT_COMMITTER_EMAIL: "crdd-test@example.invalid",
-      },
-    },
-  ).stdout.trim();
-  fs.writeFileSync(
-    ledger,
-    replaceReleasedFixedCommit(fs.readFileSync(ledger, "utf8"), orphanCommit),
-    "utf8",
-  );
-  const orphanResult = runChecker(root);
-  assert.equal(orphanResult.status, 1);
-  assert.ok(
-    orphanResult.report.findings.some(
-      (finding) =>
-        finding.code === "invalid-released-change-trace-fixed-commit",
-    ),
-  );
-  fs.writeFileSync(
-    ledger,
-    replaceReleasedFixedCommit(fs.readFileSync(ledger, "utf8"), releasedCommit),
-    "utf8",
-  );
-  assert.equal(
-    spawnSync("git", ["-C", root, "add", ledger], { encoding: "utf8" }).status,
-    0,
-  );
-  write(releasedPath, `${releasedContent}\nchanged\n`);
-  const result = runChecker(root);
-  assert.equal(result.status, 1);
-  assert.ok(
-    result.report.findings.some(
-      (finding) => finding.code === "released-change-trace-content-changed",
-    ),
-  );
-});
-
-function releasedNavigationFixture() {
-  const root = officialConsolidationLedgerFixture();
-  const git = (...args: string[]) => {
-    const result = spawnSync("git", ["-C", root, ...args], {
-      encoding: "utf8",
-    });
-    assert.equal(result.status, 0, result.stderr);
-    return result.stdout.trim();
-  };
-  git("config", "core.autocrlf", "false");
-  const commit = () => {
-    git("add", ".");
-    git(
-      "-c",
-      "user.name=CRDD Test",
-      "-c",
-      "user.email=crdd-test@example.invalid",
-      "commit",
-      "--quiet",
-      "-m",
-      "navigation fixture",
-    );
-  };
-  const sourcePath = "90_Release/Changes/CHG-000003_Released.md";
-  const before = "[`tools/checker/example.ts`](../../tools/checker/example.ts)";
-  const via = before.replaceAll("tools/checker/", "40_Develop/checker/");
-  const after = via.replaceAll(
-    "40_Develop/checker/",
-    "40_Develop/checker/tests/integration/",
-  );
-  const historicalBefore = "[当時の設計](../../06_Architecture/old-design.md)";
-  const oldText = `# 変更トレース: Released\n\n変更ID: CHG-000003\n\n当時の判断は維持。現在の案内: ${before}\nもう一つの案内: ${before}\n歴史的述語: ${historicalBefore}\n`;
-  const viaText = oldText.replaceAll(before, via);
-  const expectedText = oldText.replaceAll(before, after);
-  write(path.join(root, sourcePath), oldText);
-  write(
-    path.join(root, "tools/checker/example.ts"),
-    "export const VALUE = 1;\n",
-  );
-  write(path.join(root, "06_Architecture/old-design.md"), "# 当時の設計\n");
-  commit();
-  git("tag", "v0.2.0");
-  const fixedCommit = git("rev-parse", "HEAD");
-  const fixedTree = git("show", "-s", "--format=%T", fixedCommit);
-  const sourceSha256 = createHash("sha256").update(oldText).digest("hex");
-  const ledgerPath = path.join(root, "90_Release/Changes/README.md");
-  let ledgerText = fs.readFileSync(ledgerPath, "utf8");
-  ledgerText = ledgerText
-    .replace("- 公式公開tag固定集合: 0件", "- 公式公開tag固定集合: 1件")
-    .replace(
-      "|---|---|---|---|---|",
-      `|---|---|---|---|---|\n| \`v0.2.0\` | \`commit\` | \`${fixedCommit}\` | \`${fixedCommit}\` | \`${fixedTree}\` |`,
-    );
-  ledgerText = ledgerText.replace(
-    "- 統合前の未リリースCHG:",
-    [
-      "- 公開済み固定履歴: `CHG-000003`～`CHG-000003`の1件。公開tag到達性を確認",
-      "",
-      "## 公開済み固定履歴",
-      "",
-      "| CHG | Path | 固定Commit | byte | SHA-256 |",
-      "|---|---|---|---:|---|",
-      `| \`CHG-000003\` | \`${sourcePath}\` | \`${fixedCommit}\` | ${Buffer.byteLength(oldText)} | \`${sourceSha256}\` |`,
-      "",
-      "- 統合前の未リリースCHG:",
-    ].join("\n"),
-  );
-  write(ledgerPath, ledgerText);
-  git("add", "90_Release/Changes/README.md");
-  fs.rmSync(path.join(root, "tools/checker/example.ts"));
-  write(
-    path.join(root, "40_Develop/checker/tests/integration/example.ts"),
-    "export const VALUE = 1;\n",
-  );
-  write(path.join(root, sourcePath), expectedText);
-  const record = {
-    schemaRevision: 2,
-    sources: [
-      {
-        sourcePath,
-        sourceSha256,
-        replacements: [{ before, via, after, count: 2 }],
-      },
-    ],
-  };
-  const correctionRecord = {
-    schemaRevision: 1,
-    sourceRelease: "v0.2.0",
-    sourcePath,
-    sourceSha256,
-    replacements: [{ before, via, after, count: 2 }],
-  };
-  const recordPath = path.join(
-    root,
-    "90_Release/Changes/CHG-000017_Tools_Coding_Standards.md",
-  );
-  const save = () =>
-    write(
-      recordPath,
-      `# 現行案内移行\n\n<!-- crdd-released-navigation-migration: 1 -->\n\x60\x60\x60json\n${JSON.stringify(record)}\n\x60\x60\x60\n\n<!-- crdd-released-navigation-correction: 1 -->\n\x60\x60\x60json\n${JSON.stringify(correctionRecord)}\n\x60\x60\x60\n`,
-    );
-  save();
-  return {
-    root,
-    sourcePath,
-    oldText,
-    viaText,
-    expectedText,
-    historicalBefore,
-    record,
-    correctionRecord,
-    recordPath,
-    save,
-    commit,
-    git,
-  };
-}
-
-test("公開済み案内の限定移行はHEAD旧版とcommit後新版を厳密に検証する", () => {
-  const state = releasedNavigationFixture();
-  const beforeCommit = runChecker(state.root);
-  assert.equal(
-    beforeCommit.status,
-    0,
-    JSON.stringify({
-      findings: beforeCommit.report.findings,
-      stderr: beforeCommit.stderr,
-      stdout: beforeCommit.stdout,
-    }),
-  );
-  assert.equal(
-    beforeCommit.report.metrics.historical_references_identity_verified,
-    0,
-  );
-  write(path.join(state.root, state.sourcePath), state.viaText);
-  state.commit();
-  write(path.join(state.root, state.sourcePath), state.expectedText);
-  const intermediateHead = runChecker(state.root);
-  assert.equal(
-    intermediateHead.status,
-    0,
-    JSON.stringify(intermediateHead.report.findings),
-  );
-  state.commit();
-  const afterCommit = runChecker(state.root);
-  assert.equal(
-    afterCommit.status,
-    0,
-    JSON.stringify(afterCommit.report.findings),
-  );
-  write(
-    path.join(state.root, state.sourcePath),
-    state.expectedText.replaceAll("\n", "\r\n"),
-  );
-  const checkout = runChecker(state.root);
-  assert.equal(checkout.status, 0, JSON.stringify(checkout.report.findings));
-  write(
-    path.join(state.root, state.sourcePath),
-    `${state.expectedText}本文の未承認変更\n`,
-  );
-  const changed = runChecker(state.root);
-  assert.equal(changed.status, 1);
-  assert.ok(
-    changed.report.findings.some(
-      (finding) => finding.code === "released-change-trace-content-changed",
-    ),
-  );
-});
-
-test("公開済み案内の一般補正は公開tagの原文Identity差を拒否する", () => {
-  const state = releasedNavigationFixture();
-  state.correctionRecord.sourceSha256 = "0".repeat(64);
-  state.save();
-  const result = runChecker(state.root);
-  assert.equal(result.status, 1);
-  assert.ok(
-    result.report.findings.some(
-      (finding) => finding.code === "invalid-released-navigation-correction",
-    ),
-    JSON.stringify(result.report.findings),
-  );
-});
-
-test("公開済み案内の歴史的述語は検証済みtag上のexact pathだけを受理する", () => {
-  const state = releasedNavigationFixture();
-  const exactReference =
-    "Git tag `v0.2.0` のexact path `06_Architecture/old-design.md`";
-  state.correctionRecord.replacements.push({
-    before: state.historicalBefore,
-    via: state.historicalBefore,
-    after: exactReference,
-    count: 1,
-  });
-  write(
-    path.join(state.root, state.sourcePath),
-    state.expectedText.replaceAll(state.historicalBefore, exactReference),
-  );
-  state.save();
-  const accepted = runChecker(state.root);
-  assert.ok(
-    !accepted.report.findings.some(
-      (finding) => finding.code === "invalid-released-navigation-correction",
-    ),
-    JSON.stringify(accepted.report.findings),
-  );
-
-  state.correctionRecord.replacements[1].after =
-    "Git tag `HEAD` のexact path `06_Architecture/old-design.md`";
-  state.save();
-  const movingReference = runChecker(state.root);
-  assert.equal(movingReference.status, 1);
-  assert.ok(
-    movingReference.report.findings.some(
-      (finding) => finding.code === "invalid-released-navigation-correction",
-    ),
-  );
-
-  state.correctionRecord.replacements[1].after =
-    "Git tag `v0.2.0` のexact path `missing.md`";
-  state.save();
-  const missingObject = runChecker(state.root);
-  assert.equal(missingObject.status, 1);
-  assert.ok(
-    missingObject.report.findings.some(
-      (finding) => finding.code === "invalid-released-navigation-correction",
-    ),
-  );
-
-  state.correctionRecord.replacements[1].after = `Git tag \`v0.2.0\` のexact path \`${state.sourcePath}\``;
-  state.save();
-  const unrelatedObject = runChecker(state.root);
-  assert.equal(unrelatedObject.status, 1);
-  assert.ok(
-    unrelatedObject.report.findings.some(
-      (finding) => finding.code === "invalid-released-navigation-correction",
-    ),
-  );
-
-  state.correctionRecord.replacements[1].after = exactReference;
-  state.save();
-  state.git("tag", "-d", "v0.2.0");
-  state.git("branch", "v0.2.0", "HEAD");
-  const branchOnly = runChecker(state.root);
-  assert.equal(branchOnly.status, 1);
-  assert.ok(
-    branchOnly.report.findings.some(
-      (finding) => finding.code === "invalid-released-navigation-correction",
-    ),
-  );
-});
-
-const releasedNavigationFailures: readonly [
-  string,
-  (state: ReturnType<typeof releasedNavigationFixture>) => void,
-][] = [
-  [
-    "本文変更",
-    (state) =>
-      write(
-        path.join(state.root, state.sourcePath),
-        `${state.expectedText}changed\n`,
-      ),
-  ],
-  [
-    "0件",
-    (state) => {
-      state.record.sources[0].replacements[0].count = 0;
-    },
-  ],
-  [
-    "置換過不足",
-    (state) => {
-      state.record.sources[0].replacements[0].count = 1;
-    },
-  ],
-  [
-    "未知source",
-    (state) => {
-      state.record.sources[0].sourcePath =
-        "90_Release/Changes/CHG-000004_Unknown.md";
-    },
-  ],
-  [
-    "固定hash差",
-    (state) => {
-      state.record.sources[0].sourceSha256 = "0".repeat(64);
-    },
-  ],
-  [
-    "任意本文置換",
-    (state) => {
-      state.record.sources[0].replacements[0].before = "当時の判断";
-    },
-  ],
-  [
-    "重複source",
-    (state) => {
-      state.record.sources.push(state.record.sources[0]);
-    },
-  ],
-  [
-    "後継欠落",
-    (state) =>
-      fs.rmSync(
-        path.join(
-          state.root,
-          "40_Develop/checker/tests/integration/example.ts",
-        ),
-      ),
-  ],
-  [
-    "後継junction",
-    (state) => {
-      fs.renameSync(
-        path.join(state.root, "40_Develop/checker"),
-        path.join(state.root, "40_Develop/actual"),
-      );
-      fs.symlinkSync(
-        path.join(state.root, "40_Develop/actual"),
-        path.join(state.root, "40_Develop/checker"),
-        "junction",
-      );
-    },
-  ],
-];
-for (const [label, mutate] of releasedNavigationFailures) {
-  test(`公開済み案内の限定移行は${label}を拒否する`, () => {
-    const state = releasedNavigationFixture();
-    mutate(state);
-    state.save();
-    const result = runChecker(state.root);
-    assert.equal(result.status, 1);
-    assert.ok(
-      result.report.findings.some(
-        (finding) =>
-          finding.code === "invalid-released-navigation-migration" ||
-          finding.code === "released-change-trace-content-changed",
-      ),
-      JSON.stringify(result.report.findings),
-    );
-  });
-}
-
-test("公開済み案内の移行記録がなければ従来の全文不変を要求する", () => {
-  const state = releasedNavigationFixture();
-  fs.rmSync(state.recordPath);
-  const result = runChecker(state.root);
-  assert.equal(result.status, 1);
-  assert.ok(
-    result.report.findings.some(
-      (finding) => finding.code === "released-change-trace-content-changed",
-    ),
-  );
-});
-
-for (const kind of ["record", "source"] as const) {
-  test(`公開済み案内の${kind}がjunctionなら本文読取り前に拒否する`, () => {
-    const state = releasedNavigationFixture();
-    const target =
-      kind === "record"
-        ? state.recordPath
-        : path.join(state.root, state.sourcePath);
-    const actualDirectory = path.join(state.root, `unsafe-${kind}`);
-    fs.mkdirSync(actualDirectory);
-    fs.rmSync(target);
-    fs.symlinkSync(actualDirectory, target, "junction");
-    // 読取りを試みれば例外となる。構造化結果まで返ることと境界違反を確認する。
-    const result = runWithFault(state.root, "read-file-error", target);
-    assert.equal(result.status, 1);
-    assert.ok(
-      result.report.findings.some(
-        (finding) =>
-          finding.code === "invalid-released-navigation-migration" ||
-          finding.code === "missing-released-change-trace-file",
-      ),
-      JSON.stringify(result.report.findings),
-    );
-  });
-}
-
-test("公式統合台帳に記録した旧IDの再利用を拒否する", () => {
-  const root = officialConsolidationLedgerFixture();
-  write(
-    path.join(root, "90_Release", "Changes", "CHG-000001_Reused.md"),
-    "# 変更トレース: Reused\n\n変更ID: CHG-000001\n",
-  );
-  const result = runChecker(root);
-  assert.equal(result.status, 1);
-  assert.ok(
-    result.report.findings.some(
-      (finding) => finding.code === "reused-consolidated-change-trace-id",
-    ),
-  );
-});
-
-test("公式統合台帳は欠落Canonicalと不完全な固定Identityを拒否する", () => {
-  const root = officialConsolidationLedgerFixture();
-  const ledger = path.join(root, "90_Release", "Changes", "README.md");
-  fs.writeFileSync(
-    ledger,
-    fs
-      .readFileSync(ledger, "utf8")
-      .replaceAll("CHG-000002", "CHG-000003")
-      .replace(/、[1-9][0-9]* byte、/u, "、0 byte、"),
-    "utf8",
-  );
-  const result = runChecker(root);
-  assert.equal(result.status, 1);
-  assert.ok(
-    result.report.findings.some(
-      (finding) => finding.code === "missing-canonical-change-trace-id",
-    ),
-  );
-  assert.ok(
-    result.report.findings.some(
-      (finding) =>
-        finding.code === "invalid-consolidated-change-trace-identity",
-    ),
-  );
-});
-
-test("公式統合台帳は重複旧IDと統合cycleを拒否する", () => {
-  const root = officialConsolidationLedgerFixture();
-  const ledger = path.join(root, "90_Release", "Changes", "README.md");
-  const entry = fs.readFileSync(ledger, "utf8").split("\n").slice(2).join("\n");
-  fs.appendFileSync(ledger, entry, "utf8");
-  fs.appendFileSync(
-    ledger,
-    [
-      '<a id="consolidated-chg-000004"></a>',
-      "",
-      "### CHG-000004 → CHG-000001",
-      "",
-      "- 旧Path: `90_Release/Changes/CHG-000004_Old.md`",
-      "- Canonical CHG: [CHG-000001](CHG-000001_Canonical.md)",
-      "- 統合理由: cycle fixture",
-      "- 固定原文: Commit `1111111111111111111111111111111111111111`、Tree `2222222222222222222222222222222222222222`、1 byte、SHA-256 `3333333333333333333333333333333333333333333333333333333333333333`",
-      "- 関連Evidence: 専用Evidenceなし",
-      "- 旧ID処置: 統合済み・永久欠番",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-  write(
-    path.join(root, "90_Release", "Changes", "CHG-000001_Canonical.md"),
-    "# 変更トレース: Old canonical\n\n変更ID: CHG-000001\n",
-  );
-  const result = runChecker(root);
-  assert.equal(result.status, 1);
-  assert.ok(
-    result.report.findings.some(
-      (finding) => finding.code === "duplicate-consolidated-change-trace-id",
-    ),
-  );
-  assert.ok(
-    result.report.findings.some(
-      (finding) => finding.code === "cyclic-change-trace-consolidation",
-    ),
-  );
-});
-
+/**
+ * 深いEvidence階層のMarkdownも内容を検査するを検証する。
+ *
+ * @responsibility 深いEvidence階層のMarkdownも内容を検査するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 深いEvidence階層のMarkdownも内容を検査するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("深いEvidence階層のMarkdownも内容を検査する", () => {
   const root = fixture();
   makeStructure(root);
@@ -4720,130 +11546,18 @@ test("深いEvidence階層のMarkdownも内容を検査する", () => {
   );
 });
 
-test("Changes配下へ入れ子にした変更トレース定義を検査できる", () => {
-  const root = fixture();
-  makeStructure(root);
-  write(
-    path.join(
-      root,
-      "90_Release",
-      "product-a",
-      "Changes",
-      "archive",
-      "CHG-000001.md",
-    ),
-    "# change\n",
-  );
-  const result = runChecker(root);
-  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
-});
-
-test("二段以上の階層にある変更トレースを検査できる", () => {
-  const root = fixture();
-  makeStructure(root);
-  write(
-    path.join(
-      root,
-      "90_Release",
-      "group-a",
-      "product-a",
-      "Changes",
-      "CHG-000001.md",
-    ),
-    "# change\n",
-  );
-  const result = runChecker(root);
-  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
-});
-
-test("Evidence配下のCHG名ファイルを変更トレース定義と誤認しない", () => {
-  const root = fixture();
-  makeStructure(root);
-  const evidenceFiles = [
-    [
-      "CHG-000001_Interview.md",
-      "# 変更トレース検証結果\n\nChange ID: CHG-000001\n状態（Status）: Verified\n",
-    ],
-    ["CHG-000002_Review.md", "# 変更トレース レビュー\n\n変更ID: CHG-000002\n"],
-    [
-      "CHG-000003_Verification.md",
-      "# Change Trace verification result\n\nChange ID: CHG-000003\n",
-    ],
-  ];
-  for (const [name, content] of evidenceFiles) {
-    write(
-      path.join(root, "01_Discovery", "Evidence", "interviews", name),
-      content,
-    );
-  }
-  const result = runChecker(root);
-  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
-});
-
-test("Evidence配下へ誤配置した変更トレース本文を検出する", () => {
-  const root = fixture();
-  makeStructure(root);
-  const definitions = [
-    ["CHG-000001_Heading.md", "# Change Trace\n\nChange ID: CHG-000001\n"],
-    [
-      "CHG-000002_Localized.md",
-      "# 変更トレース（Change Trace）: example\n\n変更ID: CHG-000002\n",
-    ],
-  ];
-  for (const [name, content] of definitions) {
-    write(
-      path.join(root, "90_Release", "product-a", "Changes", "Evidence", name),
-      content,
-    );
-  }
-  const result = runChecker(root);
-  assert.equal(result.status, 1);
-  assert.equal(
-    result.report.findings.filter(
-      (finding) => finding.code === "change-trace-placement",
-    ).length,
-    2,
-  );
-});
-
-test("公式リポジトリ自身の変更トレースを正規配置として扱う", () => {
-  const root = fixture();
-  makeStructure(path.join(root, "template"));
-  write(path.join(root, "01_Principles.md"), "Version: v0.11.0\n");
-  write(path.join(root, "README.md"), "Status: v0.11.0\n");
-  write(
-    path.join(root, "90_Release", "Changes", "CHG-000001.md"),
-    "# change\n",
-  );
-  const result = runChecker(root);
-  assert.equal(result.status, 0, JSON.stringify(result.report?.findings));
-  assert.equal(result.report.findings.length, 0);
-});
-
-test("公式リポジトリの配布ひな型変更トレースを正規配置として扱う", () => {
-  const root = fixture();
-  makeStructure(path.join(root, "template"));
-  write(path.join(root, "01_Principles.md"), "Version: v0.11.0\n");
-  write(path.join(root, "README.md"), "Status: v0.11.0\n");
-  write(
-    path.join(root, "90_Release", "Changes", "CHG-XXXXXX_Official.md"),
-    "# official change\n",
-  );
-  write(
-    path.join(
-      root,
-      "template",
-      "90_Release",
-      "Changes",
-      "CHG-XXXXXX_Template.md",
-    ),
-    "# change template\n",
-  );
-  const result = runChecker(root);
-  assert.equal(result.status, 0, JSON.stringify(result.report?.findings));
-  assert.equal(result.report.findings.length, 0);
-});
-
+/**
+ * 参照関係を重複回数付きで集約するを検証する。
+ *
+ * @responsibility 参照関係を重複回数付きで集約するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 参照関係を重複回数付きで集約するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("参照関係を重複回数付きで集約する", () => {
   const root = fixture();
   makeStructure(root);
@@ -4857,6 +11571,18 @@ test("参照関係を重複回数付きで集約する", () => {
   assert.equal(references.outbound[0].target, "01_Discovery/A.md");
 });
 
+/**
+ * 分岐網羅率の分母・分子・割合の不整合を検出するを検証する。
+ *
+ * @responsibility 分岐網羅率の分母・分子・割合の不整合を検出するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 分岐網羅率の分母・分子・割合の不整合を検出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("分岐網羅率の分母・分子・割合の不整合を検出する", () => {
   const root = fixture();
   makeStructure(root);
@@ -4877,6 +11603,18 @@ test("分岐網羅率の分母・分子・割合の不整合を検出する", ()
   );
 });
 
+/**
+ * 不正なCLI入力を終了コード2で拒否するを検証する。
+ *
+ * @responsibility 不正なCLI入力を終了コード2で拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不正なCLI入力を終了コード2で拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("不正なCLI入力を終了コード2で拒否する", () => {
   const file = path.join(fixture(), "root.txt");
   write(file, "not a directory");
@@ -4891,6 +11629,18 @@ test("不正なCLI入力を終了コード2で拒否する", () => {
   }
 });
 
+/**
+ * 適用先では無関係なtemplateフォルダより00_CRDDを優先するを検証する。
+ *
+ * @responsibility 適用先では無関係なtemplateフォルダより00_CRDDを優先するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 適用先では無関係なtemplateフォルダより00_CRDDを優先するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("適用先では無関係なtemplateフォルダより00_CRDDを優先する", () => {
   const root = fixture();
   makeStructure(root);
@@ -4902,6 +11652,18 @@ test("適用先では無関係なtemplateフォルダより00_CRDDを優先す�
   assert.equal(result.report.repository_mode, "adopter");
 });
 
+/**
+ * 同一ファイル内の安定コンテキストID重複定義を検出するを検証する。
+ *
+ * @responsibility 同一ファイル内の安定コンテキストID重複定義を検出するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 同一ファイル内の安定コンテキストID重複定義を検出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("同一ファイル内の安定コンテキストID重複定義を検出する", () => {
   const root = fixture();
   makeStructure(root);
@@ -4918,6 +11680,18 @@ test("同一ファイル内の安定コンテキストID重複定義を検出す
   );
 });
 
+/**
+ * ルート外リンクを読み取らず未確認として返すを検証する。
+ *
+ * @responsibility ルート外リンクを読み取らず未確認として返すの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus ルート外リンクを読み取らず未確認として返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("ルート外リンクを読み取らず未確認として返す", () => {
   const root = fixture();
   makeStructure(root);
@@ -4937,6 +11711,18 @@ test("ルート外リンクを読み取らず未確認として返す", () => {
   );
 });
 
+/**
+ * Git無視ファイルを除外し未追跡・非無視ファイルを確認するを検証する。
+ *
+ * @responsibility Git無視ファイルを除外し未追跡・非無視ファイルを確認するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Git無視ファイルを除外し未追跡・非無視ファイルを確認するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("Git無視ファイルを除外し未追跡・非無視ファイルを確認する", () => {
   const root = fixture();
   makeStructure(root);
@@ -4960,6 +11746,18 @@ test("Git無視ファイルを除外し未追跡・非無視ファイルを確�
   );
 });
 
+/**
+ * 英語の分岐網羅率と不正な測定値を検出するを検証する。
+ *
+ * @responsibility 英語の分岐網羅率と不正な測定値を検出するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 英語の分岐網羅率と不正な測定値を検出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("英語の分岐網羅率と不正な測定値を検出する", () => {
   const root = fixture();
   makeStructure(root);
@@ -4979,6 +11777,18 @@ test("英語の分岐網羅率と不正な測定値を検出する", () => {
   );
 });
 
+/**
+ * コードフェンス内の疑似リンクと表を検査しないを検証する。
+ *
+ * @responsibility コードフェンス内の疑似リンクと表を検査しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus コードフェンス内の疑似リンクと表を検査しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("コードフェンス内の疑似リンクと表を検査しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -4997,6 +11807,18 @@ test("コードフェンス内の疑似リンクと表を検査しない", () =>
   assert.equal(result.report.findings.length, 0);
 });
 
+/**
+ * 旧JSON配列と非JSONサマリーの互換性を維持するを検証する。
+ *
+ * @responsibility 旧JSON配列と非JSONサマリーの互換性を維持するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 旧JSON配列と非JSONサマリーの互換性を維持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("旧JSON配列と非JSONサマリーの互換性を維持する", () => {
   const root = fixture();
   makeStructure(root);
@@ -5013,6 +11835,18 @@ test("旧JSON配列と非JSONサマリーの互換性を維持する", () => {
   assert.match(summary.stdout, /Unchecked=/u);
 });
 
+/**
+ * 不正なURIエンコードを例外にせず警告するを検証する。
+ *
+ * @responsibility 不正なURIエンコードを例外にせず警告するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不正なURIエンコードを例外にせず警告するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("不正なURIエンコードを例外にせず警告する", () => {
   const root = fixture();
   makeStructure(root);
@@ -5026,6 +11860,18 @@ test("不正なURIエンコードを例外にせず警告する", () => {
   );
 });
 
+/**
+ * 存在しない参照マップ対象を終了コード2で拒否するを検証する。
+ *
+ * @responsibility 存在しない参照マップ対象を終了コード2で拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 存在しない参照マップ対象を終了コード2で拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("存在しない参照マップ対象を終了コード2で拒否する", () => {
   const root = fixture();
   makeStructure(root);
@@ -5040,6 +11886,18 @@ test("存在しない参照マップ対象を終了コード2で拒否する", (
   assert.equal(result.status, 2);
 });
 
+/**
+ * リポジトリ内のディレクトリリンクを検査対象外と誤認しないを検証する。
+ *
+ * @responsibility リポジトリ内のディレクトリリンクを検査対象外と誤認しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus リポジトリ内のディレクトリリンクを検査対象外と誤認しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("リポジトリ内のディレクトリリンクを検査対象外と誤認しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -5054,6 +11912,18 @@ test("リポジトリ内のディレクトリリンクを検査対象外と誤�
   );
 });
 
+/**
+ * Git未導入と非Git対象のフォールバック理由を区別するを検証する。
+ *
+ * @responsibility Git未導入と非Git対象のフォールバック理由を区別するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Git未導入と非Git対象のフォールバック理由を区別するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("Git未導入と非Git対象のフォールバック理由を区別する", () => {
   const root = fixture();
   makeStructure(root);
@@ -5066,6 +11936,18 @@ test("Git未導入と非Git対象のフォールバック理由を区別する",
   assert.equal(notInstalled.report.discovery_git_failure, "not-installed");
 });
 
+/**
+ * Git一覧取得失敗を生の標準エラーなしで分類するを検証する。
+ *
+ * @responsibility Git一覧取得失敗を生の標準エラーなしで分類するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Git一覧取得失敗を生の標準エラーなしで分類するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("Git一覧取得失敗を生の標準エラーなしで分類する", () => {
   const root = fixture();
   makeStructure(root);
@@ -5080,6 +11962,18 @@ test("Git一覧取得失敗を生の標準エラーなしで分類する", () =>
   assert.doesNotMatch(result.stdout, /index file|fatal:/iu);
 });
 
+/**
+ * gitlinkでない入れ子Gitリポジトリをサブモジュールと誤認しないを検証する。
+ *
+ * @responsibility gitlinkでない入れ子Gitリポジトリをサブモジュールと誤認しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus gitlinkでない入れ子Gitリポジトリをサブモジュールと誤認しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("gitlinkでない入れ子Gitリポジトリをサブモジュールと誤認しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -5141,6 +12035,18 @@ test("gitlinkでない入れ子Gitリポジトリをサブモジュールと誤�
   assert.equal(scope.status, 0, scope.stderr);
 });
 
+/**
+ * 未初期化の00_CRDDサブモジュールを成功扱いしないを検証する。
+ *
+ * @responsibility 未初期化の00_CRDDサブモジュールを成功扱いしないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 未初期化の00_CRDDサブモジュールを成功扱いしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("未初期化の00_CRDDサブモジュールを成功扱いしない", () => {
   const root = fixture();
   for (const folder of requiredFolders.filter((name) => name !== "00_CRDD")) {
@@ -5179,6 +12085,18 @@ test("未初期化の00_CRDDサブモジュールを成功扱いしない", () =
   );
 });
 
+/**
+ * 00_CRDDのgitlinkとgitmodules宣言を別々に検証するを検証する。
+ *
+ * @responsibility 00_CRDDのgitlinkとgitmodules宣言を別々に検証するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 00_CRDDのgitlinkとgitmodules宣言を別々に検証するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("00_CRDDのgitlinkとgitmodules宣言を別々に検証する", () => {
   const root = fixture();
   makeStructure(root);
@@ -5198,6 +12116,18 @@ test("00_CRDDのgitlinkとgitmodules宣言を別々に検証する", () => {
   );
 });
 
+/**
+ * worktreeと宣言がなくても親indexの00_CRDD gitlinkを検出するを検証する。
+ *
+ * @responsibility worktreeと宣言がなくても親indexの00_CRDD gitlinkを検出するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus worktreeと宣言がなくても親indexの00_CRDD gitlinkを検出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("worktreeと宣言がなくても親indexの00_CRDD gitlinkを検出する", () => {
   const root = fixture();
   makeStructure(root);
@@ -5225,6 +12155,18 @@ test("worktreeと宣言がなくても親indexの00_CRDD gitlinkを検出する"
   );
 });
 
+/**
+ * gitlink位置の通常ディレクトリから親GitのHEADを読まないを検証する。
+ *
+ * @responsibility gitlink位置の通常ディレクトリから親GitのHEADを読まないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus gitlink位置の通常ディレクトリから親GitのHEADを読まないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("gitlink位置の通常ディレクトリから親GitのHEADを読まない", () => {
   const root = fixture();
   makeStructure(root);
@@ -5261,6 +12203,18 @@ test("gitlink位置の通常ディレクトリから親GitのHEADを読まない
   );
 });
 
+/**
+ * submodule節外のpathをgitmodules宣言と誤認しないを検証する。
+ *
+ * @responsibility submodule節外のpathをgitmodules宣言と誤認しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus submodule節外のpathをgitmodules宣言と誤認しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("submodule節外のpathをgitmodules宣言と誤認しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -5281,6 +12235,18 @@ test("submodule節外のpathをgitmodules宣言と誤認しない", () => {
   );
 });
 
+/**
+ * gitmodulesのコメント開始をGit自身の解釈で判定するを検証する。
+ *
+ * @responsibility gitmodulesのコメント開始をGit自身の解釈で判定するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus gitmodulesのコメント開始をGit自身の解釈で判定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("gitmodulesのコメント開始をGit自身の解釈で判定する", () => {
   const root = fixture();
   makeStructure(root);
@@ -5302,6 +12268,18 @@ test("gitmodulesのコメント開始をGit自身の解釈で判定する", () =
   );
 });
 
+/**
+ * gitmodulesの引用値に続く文字を切り捨てないを検証する。
+ *
+ * @responsibility gitmodulesの引用値に続く文字を切り捨てないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus gitmodulesの引用値に続く文字を切り捨てないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("gitmodulesの引用値に続く文字を切り捨てない", () => {
   const root = fixture();
   makeStructure(root);
@@ -5322,6 +12300,18 @@ test("gitmodulesの引用値に続く文字を切り捨てない", () => {
   );
 });
 
+/**
+ * gitmodulesの空値・不正な引用符・行末コメントを安全に解釈するを検証する。
+ *
+ * @responsibility gitmodulesの空値・不正な引用符・行末コメントを安全に解釈するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus gitmodulesの空値・不正な引用符・行末コメントを安全に解釈するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("gitmodulesの空値・不正な引用符・行末コメントを安全に解釈する", () => {
   const root = fixture();
   makeStructure(root);
@@ -5363,6 +12353,18 @@ test("gitmodulesの空値・不正な引用符・行末コメントを安全に�
   ]);
 });
 
+/**
+ * gitmodules宣言だけの通常ディレクトリをgitlinkと誤認しないを検証する。
+ *
+ * @responsibility gitmodules宣言だけの通常ディレクトリをgitlinkと誤認しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus gitmodules宣言だけの通常ディレクトリをgitlinkと誤認しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("gitmodules宣言だけの通常ディレクトリをgitlinkと誤認しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -5389,6 +12391,18 @@ test("gitmodules宣言だけの通常ディレクトリをgitlinkと誤認しな
   );
 });
 
+/**
+ * 親indexのmodeを読めない場合はgitlink欠落と断定しないを検証する。
+ *
+ * @responsibility 親indexのmodeを読めない場合はgitlink欠落と断定しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 親indexのmodeを読めない場合はgitlink欠落と断定しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("親indexのmodeを読めない場合はgitlink欠落と断定しない", () => {
   const source = fixture();
   initializeGit(source);
@@ -5455,6 +12469,18 @@ test("親indexのmodeを読めない場合はgitlink欠落と断定しない", (
   );
 });
 
+/**
+ * 競合中のgitlinkを確定Revisionとして扱わないを検証する。
+ *
+ * @responsibility 競合中のgitlinkを確定Revisionとして扱わないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 競合中のgitlinkを確定Revisionとして扱わないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("競合中のgitlinkを確定Revisionとして扱わない", () => {
   const root = fixture();
   makeStructure(root);
@@ -5492,6 +12518,18 @@ test("競合中のgitlinkを確定Revisionとして扱わない", () => {
   );
 });
 
+/**
+ * gitmodulesを検証できない場合は宣言欠落と断定しないを検証する。
+ *
+ * @responsibility gitmodulesを検証できない場合は宣言欠落と断定しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus gitmodulesを検証できない場合は宣言欠落と断定しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("gitmodulesを検証できない場合は宣言欠落と断定しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -5524,6 +12562,18 @@ test("gitmodulesを検証できない場合は宣言欠落と断定しない", (
   );
 });
 
+/**
+ * git configの不正な出力をsubmodule宣言として採用しないを検証する。
+ *
+ * @responsibility git configの不正な出力をsubmodule宣言として採用しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus git configの不正な出力をsubmodule宣言として採用しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("git configの不正な出力をsubmodule宣言として採用しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -5555,6 +12605,18 @@ test("git configの不正な出力をsubmodule宣言として採用しない", (
   );
 });
 
+/**
+ * 未初期化gitlink配下へのリンクを破損リンクと誤認しないを検証する。
+ *
+ * @responsibility 未初期化gitlink配下へのリンクを破損リンクと誤認しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 未初期化gitlink配下へのリンクを破損リンクと誤認しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("未初期化gitlink配下へのリンクを破損リンクと誤認しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -5608,6 +12670,18 @@ test("未初期化gitlink配下へのリンクを破損リンクと誤認しな�
   assert.match(references.stderr, /Gitlink submodule/u);
 });
 
+/**
+ * index modeを読めなくても宣言済みsubmodule境界を破損リンクにしないを検証する。
+ *
+ * @responsibility index modeを読めなくても宣言済みsubmodule境界を破損リンクにしないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus index modeを読めなくても宣言済みsubmodule境界を破損リンクにしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("index modeを読めなくても宣言済みsubmodule境界を破損リンクにしない", () => {
   const root = fixture();
   makeStructure(root);
@@ -5640,6 +12714,18 @@ test("index modeを読めなくても宣言済みsubmodule境界を破損リン�
   );
 });
 
+/**
+ * 必須領域自体が未初期化gitlinkでも欠落と誤認しないを検証する。
+ *
+ * @responsibility 必須領域自体が未初期化gitlinkでも欠落と誤認しないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 必須領域自体が未初期化gitlinkでも欠落と誤認しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("必須領域自体が未初期化gitlinkでも欠落と誤認しない", () => {
   const root = fixture();
   makeStructure(root);
@@ -5664,6 +12750,18 @@ test("必須領域自体が未初期化gitlinkでも欠落と誤認しない", (
   );
 });
 
+/**
+ * シンボリックリンク経由のルート外参照を読み取らないを検証する。
+ *
+ * @responsibility シンボリックリンク経由のルート外参照を読み取らないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus シンボリックリンク経由のルート外参照を読み取らないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("シンボリックリンク経由のルート外参照を読み取らない", () => {
   const root = fixture();
   const outside = fixture();
@@ -5715,6 +12813,18 @@ test("シンボリックリンク経由のルート外参照を読み取らな�
   assert.equal(references.status, 2);
 });
 
+/**
+ * 実物のGitサブモジュール内チェッカーから適用先を確認するを検証する。
+ *
+ * @responsibility 実物のGitサブモジュール内チェッカーから適用先を確認するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実物のGitサブモジュール内チェッカーから適用先を確認するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("実物のGitサブモジュール内チェッカーから適用先を確認する", () => {
   const source = fixture();
   write(
@@ -5726,6 +12836,26 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
   write(
     path.join(source, "template", "tools", "crdd-check.ts"),
     fs.readFileSync(checker, "utf8"),
+  );
+  fs.cpSync(
+    path.join(repositoryRoot, "40_Develop", "checker", "src"),
+    path.join(source, "40_Develop", "checker", "src"),
+    { recursive: true },
+  );
+  fs.cpSync(
+    path.join(repositoryRoot, "40_Develop", "checker", "bin"),
+    path.join(source, "40_Develop", "checker", "bin"),
+    { recursive: true },
+  );
+  fs.cpSync(
+    path.join(repositoryRoot, "40_Develop", "crdd-domain-library", "src"),
+    path.join(source, "40_Develop", "crdd-domain-library", "src"),
+    { recursive: true },
+  );
+  fs.cpSync(
+    path.join(repositoryRoot, "40_Develop", "version-control", "src"),
+    path.join(source, "40_Develop", "version-control", "src"),
+    { recursive: true },
   );
   assert.equal(
     spawnSync("git", ["init", "--quiet", source], { encoding: "utf8" }).status,
@@ -5918,6 +13048,18 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
   );
 });
 
+/**
+ * 構造上の欠落・旧配置・予約領域・中央集約をまとめて検出するを検証する。
+ *
+ * @responsibility 構造上の欠落・旧配置・予約領域・中央集約をまとめて検出するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 構造上の欠落・旧配置・予約領域・中央集約をまとめて検出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("構造上の欠落・旧配置・予約領域・中央集約をまとめて検出する", () => {
   const root = fixture();
   makeStructure(root);
@@ -5940,6 +13082,18 @@ test("構造上の欠落・旧配置・予約領域・中央集約をまとめ�
   }
 });
 
+/**
+ * 外部リンクと山括弧リンクと公式ひな型の正本読替えを扱うを検証する。
+ *
+ * @responsibility 外部リンクと山括弧リンクと公式ひな型の正本読替えを扱うの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 外部リンクと山括弧リンクと公式ひな型の正本読替えを扱うの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("外部リンクと山括弧リンクと公式ひな型の正本読替えを扱う", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -5966,6 +13120,18 @@ test("外部リンクと山括弧リンクと公式ひな型の正本読替え�
   assert.equal(result.report.metrics.errors, 0);
 });
 
+/**
+ * 範囲指定を直接の参照元と参照先へ広げるを検証する。
+ *
+ * @responsibility 範囲指定を直接の参照元と参照先へ広げるの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 範囲指定を直接の参照元と参照先へ広げるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("範囲指定を直接の参照元と参照先へ広げる", () => {
   const root = fixture();
   makeStructure(root);
@@ -5984,6 +13150,18 @@ test("範囲指定を直接の参照元と参照先へ広げる", () => {
   );
 });
 
+/**
+ * 正本文書ルートのジャンクションを拒否するを検証する。
+ *
+ * @responsibility 正本文書ルートのジャンクションを拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 正本文書ルートのジャンクションを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("正本文書ルートのジャンクションを拒否する", () => {
   const root = fixture();
   const outside = fixture();
@@ -6005,6 +13183,18 @@ test("正本文書ルートのジャンクションを拒否する", () => {
   assert.equal(result.report.metrics.versioned_documents_checked, 0);
 });
 
+/**
+ * 範囲指定のルート外と存在しない対象を拒否するを検証する。
+ *
+ * @responsibility 範囲指定のルート外と存在しない対象を拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 範囲指定のルート外と存在しない対象を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("範囲指定のルート外と存在しない対象を拒否する", () => {
   const root = fixture();
   makeStructure(root);
@@ -6021,6 +13211,18 @@ test("範囲指定のルート外と存在しない対象を拒否する", () =>
   }
 });
 
+/**
+ * 参照マップのルート外とGit対象外ファイルを拒否するを検証する。
+ *
+ * @responsibility 参照マップのルート外とGit対象外ファイルを拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 参照マップのルート外とGit対象外ファイルを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("参照マップのルート外とGit対象外ファイルを拒否する", () => {
   const root = fixture();
   makeStructure(root);
@@ -6043,6 +13245,18 @@ test("参照マップのルート外とGit対象外ファイルを拒否する",
   }
 });
 
+/**
+ * 公式ひな型ルートのジャンクションを拒否するを検証する。
+ *
+ * @responsibility 公式ひな型ルートのジャンクションを拒否するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公式ひな型ルートのジャンクションを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("公式ひな型ルートのジャンクションを拒否する", () => {
   const root = fixture();
   const outside = fixture();
@@ -6064,6 +13278,18 @@ test("公式ひな型ルートのジャンクションを拒否する", () => {
   );
 });
 
+/**
+ * 非JSON出力に指摘と参照マップを表示するを検証する。
+ *
+ * @responsibility 非JSON出力に指摘と参照マップを表示するの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 非JSON出力に指摘と参照マップを表示するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("非JSON出力に指摘と参照マップを表示する", () => {
   const root = fixture();
   makeStructure(root);
@@ -6080,6 +13306,18 @@ test("非JSON出力に指摘と参照マップを表示する", () => {
   assert.match(result.stdout, /"target": "01_Discovery\/A.md"/u);
 });
 
+/**
+ * checker root must be a real directory rather than a junctionを検証する。
+ *
+ * @responsibility checker root must be a real directory rather than a junctionの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus checker root must be a real directory rather than a junctionの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("checker root must be a real directory rather than a junction", () => {
   const realRoot = fixture();
   const holder = fixture();
@@ -6097,6 +13335,18 @@ test("checker root must be a real directory rather than a junction", () => {
   assert.doesNotMatch(result.stdout, /Secret\.md/u);
 });
 
+/**
+ * a regular file at 00_CRDD is reported without traversalを検証する。
+ *
+ * @responsibility a regular file at 00_CRDD is reported without traversalの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus a regular file at 00_CRDD is reported without traversalの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("a regular file at 00_CRDD is reported without traversal", () => {
   const root = fixture();
   for (const folder of requiredFolders.filter((name) => name !== "00_CRDD")) {
@@ -6111,6 +13361,18 @@ test("a regular file at 00_CRDD is reported without traversal", () => {
   assert.ok(codes.has("invalid-structure-entry"));
 });
 
+/**
+ * a regular file at the official template root is reported without traversalを検証する。
+ *
+ * @responsibility a regular file at the official template root is reported without traversalの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus a regular file at the official template root is reported without traversalの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("a regular file at the official template root is reported without traversal", () => {
   const root = fixture();
   write(path.join(root, "01_Principles.md"), "Version: v0.10.0\n");
@@ -6126,6 +13388,18 @@ test("a regular file at the official template root is reported without traversal
   );
 });
 
+/**
+ * a required CRDD structure entry must be a directoryを検証する。
+ *
+ * @responsibility a required CRDD structure entry must be a directoryの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus a required CRDD structure entry must be a directoryの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("a required CRDD structure entry must be a directory", () => {
   const root = fixture();
   makeStructure(root);
@@ -6142,6 +13416,18 @@ test("a required CRDD structure entry must be a directory", () => {
   );
 });
 
+/**
+ * fallbackではgitdirが読めても親indexのgitlinkを検証済みにしないを検証する。
+ *
+ * @responsibility fallbackではgitdirが読めても親indexのgitlinkを検証済みにしないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallbackではgitdirが読めても親indexのgitlinkを検証済みにしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("fallbackではgitdirが読めても親indexのgitlinkを検証済みにしない", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -6177,6 +13463,18 @@ test("fallbackではgitdirが読めても親indexのgitlinkを検証済みにし
   assert.equal(result.report.discovery_source, "walk-fallback");
 });
 
+/**
+ * gitmodulesを読めないfallbackは例外終了せず未確認にするを検証する。
+ *
+ * @responsibility gitmodulesを読めないfallbackは例外終了せず未確認にするの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus gitmodulesを読めないfallbackは例外終了せず未確認にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("gitmodulesを読めないfallbackは例外終了せず未確認にする", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -6199,6 +13497,18 @@ test("gitmodulesを読めないfallbackは例外終了せず未確認にする",
   );
 });
 
+/**
+ * fallback rejects an invalid submodule gitdir fileを検証する。
+ *
+ * @responsibility fallback rejects an invalid submodule gitdir fileの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback rejects an invalid submodule gitdir fileの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("fallback rejects an invalid submodule gitdir file", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -6223,6 +13533,18 @@ test("fallback rejects an invalid submodule gitdir file", () => {
   );
 });
 
+/**
+ * fallback rejects a linked submodule git markerを検証する。
+ *
+ * @responsibility fallback rejects a linked submodule git markerの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback rejects a linked submodule git markerの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("fallback rejects a linked submodule git marker", () => {
   const root = fixture();
   const outside = fixture();
@@ -6253,6 +13575,18 @@ test("fallback rejects a linked submodule git marker", () => {
   );
 });
 
+/**
+ * a generic repository does not require the CRDD template structureを検証する。
+ *
+ * @responsibility a generic repository does not require the CRDD template structureの合否判定を所有する。
+ * @trace RCM-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus a generic repository does not require the CRDD template structureの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-IT-008=Direct Boundary: Repository入口・Package入口→同一Checker Core／Profile
+ */
 test("a generic repository does not require the CRDD template structure", () => {
   const root = fixture();
 
@@ -6262,6 +13596,18 @@ test("a generic repository does not require the CRDD template structure", () => 
   assert.equal(result.report.findings.length, 0);
 });
 
+/**
+ * duplicate headings use the same suffixes as GitHub anchorsを検証する。
+ *
+ * @responsibility duplicate headings use the same suffixes as GitHub anchorsの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus duplicate headings use the same suffixes as GitHub anchorsの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("duplicate headings use the same suffixes as GitHub anchors", () => {
   const root = fixture();
   makeStructure(root);
@@ -6279,6 +13625,18 @@ test("duplicate headings use the same suffixes as GitHub anchors", () => {
   assert.equal(result.report.metrics.anchors_checked, 1);
 });
 
+/**
+ * heading anchors remove Japanese punctuation without removing Japanese textを検証する。
+ *
+ * @responsibility heading anchors remove Japanese punctuation without removing Japanese textの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus heading anchors remove Japanese punctuation without removing Japanese textの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("heading anchors remove Japanese punctuation without removing Japanese text", () => {
   const root = fixture();
   makeStructure(root);
@@ -6293,6 +13651,18 @@ test("heading anchors remove Japanese punctuation without removing Japanese text
   assert.equal(result.report.metrics.anchors_checked, 1);
 });
 
+/**
+ * heading anchors preserve consecutive, leading, and trailing hyphensを検証する。
+ *
+ * @responsibility heading anchors preserve consecutive, leading, and trailing hyphensの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus heading anchors preserve consecutive, leading, and trailing hyphensの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("heading anchors preserve consecutive, leading, and trailing hyphens", () => {
   const root = fixture();
   makeStructure(root);
@@ -6314,6 +13684,18 @@ test("heading anchors preserve consecutive, leading, and trailing hyphens", () =
   assert.equal(result.report.metrics.anchors_checked, 3);
 });
 
+/**
+ * heading anchors use rendered Markdown textを検証する。
+ *
+ * @responsibility heading anchors use rendered Markdown textの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus heading anchors use rendered Markdown textの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("heading anchors use rendered Markdown text", () => {
   const root = fixture();
   makeStructure(root);
@@ -6331,6 +13713,18 @@ test("heading anchors use rendered Markdown text", () => {
   assert.equal(result.report.metrics.anchors_checked, 1);
 });
 
+/**
+ * heading anchors preserve literal underscores outside emphasisを検証する。
+ *
+ * @responsibility heading anchors preserve literal underscores outside emphasisの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus heading anchors preserve literal underscores outside emphasisの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("heading anchors preserve literal underscores outside emphasis", () => {
   const root = fixture();
   makeStructure(root);
@@ -6390,6 +13784,18 @@ test("heading anchors preserve literal underscores outside emphasis", () => {
   assert.equal(result.report.metrics.anchors_checked, 20);
 });
 
+/**
+ * heading anchors use visible labels from common inline Markdownを検証する。
+ *
+ * @responsibility heading anchors use visible labels from common inline Markdownの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus heading anchors use visible labels from common inline Markdownの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("heading anchors use visible labels from common inline Markdown", () => {
   const root = fixture();
   makeStructure(root);
@@ -6425,6 +13831,18 @@ test("heading anchors use visible labels from common inline Markdown", () => {
   assert.equal(result.report.metrics.anchors_checked, 8);
 });
 
+/**
+ * duplicate heading suffixes avoid anchors generated by another headingを検証する。
+ *
+ * @responsibility duplicate heading suffixes avoid anchors generated by another headingの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus duplicate heading suffixes avoid anchors generated by another headingの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("duplicate heading suffixes avoid anchors generated by another heading", () => {
   const root = fixture();
   makeStructure(root);
@@ -6439,6 +13857,18 @@ test("duplicate heading suffixes avoid anchors generated by another heading", ()
   assert.equal(result.report.metrics.anchors_checked, 1);
 });
 
+/**
+ * an anchor-only Markdown link resolves to its source fileを検証する。
+ *
+ * @responsibility an anchor-only Markdown link resolves to its source fileの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus an anchor-only Markdown link resolves to its source fileの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("an anchor-only Markdown link resolves to its source file", () => {
   const root = fixture();
   makeStructure(root);
@@ -6452,6 +13882,18 @@ test("an anchor-only Markdown link resolves to its source file", () => {
   assert.equal(result.report.metrics.anchors_checked, 1);
 });
 
+/**
+ * fallbackではGit metadataディレクトリだけで初期化済みにしないを検証する。
+ *
+ * @responsibility fallbackではGit metadataディレクトリだけで初期化済みにしないの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallbackではGit metadataディレクトリだけで初期化済みにしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("fallbackではGit metadataディレクトリだけで初期化済みにしない", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -6477,6 +13919,18 @@ test("fallbackではGit metadataディレクトリだけで初期化済みにし
   );
 });
 
+/**
+ * fallback rejects a gitdir reference outside the target rootを検証する。
+ *
+ * @responsibility fallback rejects a gitdir reference outside the target rootの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback rejects a gitdir reference outside the target rootの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("fallback rejects a gitdir reference outside the target root", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -6496,6 +13950,18 @@ test("fallback rejects a gitdir reference outside the target root", () => {
   assert.equal(result.report.baseline_submodule_initialized, null);
 });
 
+/**
+ * fallback rejects a gitdir reference that is not a directoryを検証する。
+ *
+ * @responsibility fallback rejects a gitdir reference that is not a directoryの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback rejects a gitdir reference that is not a directoryの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("fallback rejects a gitdir reference that is not a directory", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -6519,6 +13985,18 @@ test("fallback rejects a gitdir reference that is not a directory", () => {
   assert.equal(result.report.baseline_submodule_initialized, null);
 });
 
+/**
+ * clean non-JSON summary output does not require a reference mapを検証する。
+ *
+ * @responsibility clean non-JSON summary output does not require a reference mapの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus clean non-JSON summary output does not require a reference mapの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("clean non-JSON summary output does not require a reference map", () => {
   const root = fixture();
   makeStructure(root);
@@ -6529,6 +14007,18 @@ test("clean non-JSON summary output does not require a reference map", () => {
   assert.match(result.stdout, /Repository=adopter/u);
 });
 
+/**
+ * unexpected filesystem metadata failures are not treated as missing filesを検証する。
+ *
+ * @responsibility unexpected filesystem metadata failures are not treated as missing filesの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus unexpected filesystem metadata failures are not treated as missing filesの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("unexpected filesystem metadata failures are not treated as missing files", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -6548,6 +14038,18 @@ test("unexpected filesystem metadata failures are not treated as missing files",
   assert.match(result.stderr, /injected metadata failure/u);
 });
 
+/**
+ * a structure root removed during inspection becomes a structured findingを検証する。
+ *
+ * @responsibility a structure root removed during inspection becomes a structured findingの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus a structure root removed during inspection becomes a structured findingの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("a structure root removed during inspection becomes a structured finding", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -6563,6 +14065,18 @@ test("a structure root removed during inspection becomes a structured finding", 
   );
 });
 
+/**
+ * a special filesystem object cannot initialize a fallback baselineを検証する。
+ *
+ * @responsibility a special filesystem object cannot initialize a fallback baselineの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus a special filesystem object cannot initialize a fallback baselineの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("a special filesystem object cannot initialize a fallback baseline", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -6584,6 +14098,18 @@ test("a special filesystem object cannot initialize a fallback baseline", () => 
   assert.equal(result.report.baseline_submodule_initialized, null);
 });
 
+/**
+ * a special filesystem object is not accepted as a reference targetを検証する。
+ *
+ * @responsibility a special filesystem object is not accepted as a reference targetの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus a special filesystem object is not accepted as a reference targetの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("a special filesystem object is not accepted as a reference target", () => {
   const root = fixture();
   makeStructure(root);
@@ -6602,6 +14128,18 @@ test("a special filesystem object is not accepted as a reference target", () => 
   assert.match(result.stderr, /is not a file or directory/u);
 });
 
+/**
+ * Git repository discovery failures use the explicit fallback reasonを検証する。
+ *
+ * @responsibility Git repository discovery failures use the explicit fallback reasonの合否判定を所有する。
+ * @trace RCM-IT-008
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Git repository discovery failures use the explicit fallback reasonの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-IT-008=Direct Boundary: Repository入口・Package入口→同一Checker Core／Profile
+ */
 test("Git repository discovery failures use the explicit fallback reason", () => {
   for (const fault of ["git-root-failed", "git-root-failed-no-stderr"]) {
     const root = fixture();
@@ -6616,6 +14154,18 @@ test("Git repository discovery failures use the explicit fallback reason", () =>
   }
 });
 
+/**
+ * Git file discovery rejects outside, missing, and linked entriesを検証する。
+ *
+ * @responsibility Git file discovery rejects outside, missing, and linked entriesの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Git file discovery rejects outside, missing, and linked entriesの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("Git file discovery rejects outside, missing, and linked entries", () => {
   const root = fixture();
   const outside = fixture();
@@ -6652,6 +14202,18 @@ test("Git file discovery rejects outside, missing, and linked entries", () => {
   );
 });
 
+/**
+ * symbolic-boundary helper fails closed when a target resolves outsideを検証する。
+ *
+ * @responsibility symbolic-boundary helper fails closed when a target resolves outsideの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus symbolic-boundary helper fails closed when a target resolves outsideの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ */
 test("symbolic-boundary helper fails closed when a target resolves outside", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -6673,6 +14235,18 @@ test("symbolic-boundary helper fails closed when a target resolves outside", () 
   assert.equal(result.report.baseline_submodule, true);
 });
 
+/**
+ * fallback rejects a gitdir directory reached through a junctionを検証する。
+ *
+ * @responsibility fallback rejects a gitdir directory reached through a junctionの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback rejects a gitdir directory reached through a junctionの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("fallback rejects a gitdir directory reached through a junction", () => {
   const root = fixture();
   const outside = fixture();
@@ -6699,6 +14273,18 @@ test("fallback rejects a gitdir directory reached through a junction", () => {
   assert.equal(result.report.baseline_submodule_initialized, null);
 });
 
+/**
+ * empty heading anchors are ignoredを検証する。
+ *
+ * @responsibility empty heading anchors are ignoredの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus empty heading anchors are ignoredの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("empty heading anchors are ignored", () => {
   const root = fixture();
   makeStructure(root);
@@ -6712,6 +14298,18 @@ test("empty heading anchors are ignored", () => {
   );
 });
 
+/**
+ * finding order falls back to the message when other keys are equalを検証する。
+ *
+ * @responsibility finding order falls back to the message when other keys are equalの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus finding order falls back to the message when other keys are equalの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("finding order falls back to the message when other keys are equal", () => {
   const root = fixture();
   makeStructure(root);
@@ -6730,6 +14328,18 @@ test("finding order falls back to the message when other keys are equal", () => 
   );
 });
 
+/**
+ * clean Git summary renders a null discovery failure as noneを検証する。
+ *
+ * @responsibility clean Git summary renders a null discovery failure as noneの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus clean Git summary renders a null discovery failure as noneの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("clean Git summary renders a null discovery failure as none", () => {
   const root = fixture();
   makeStructure(root);
@@ -6743,6 +14353,18 @@ test("clean Git summary renders a null discovery failure as none", () => {
   assert.match(result.stdout, /git_failure=none/u);
 });
 
+/**
+ * fallback fails closed when the root disappears before directory walkingを検証する。
+ *
+ * @responsibility fallback fails closed when the root disappears before directory walkingの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback fails closed when the root disappears before directory walkingの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("fallback fails closed when the root disappears before directory walking", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -6766,6 +14388,18 @@ test("fallback fails closed when the root disappears before directory walking", 
   );
 });
 
+/**
+ * reference maps omit external linksを検証する。
+ *
+ * @responsibility reference maps omit external linksの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus reference maps omit external linksの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("reference maps omit external links", () => {
   const root = fixture();
   makeStructure(root);
@@ -6783,6 +14417,18 @@ test("reference maps omit external links", () => {
   assert.equal(references.outbound[0].target, "01_Discovery/B.md");
 });
 
+/**
+ * fallback reports a nested directory that disappears before recursionを検証する。
+ *
+ * @responsibility fallback reports a nested directory that disappears before recursionの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback reports a nested directory that disappears before recursionの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("fallback reports a nested directory that disappears before recursion", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -6805,6 +14451,18 @@ test("fallback reports a nested directory that disappears before recursion", () 
   );
 });
 
+/**
+ * fallback distinguishes nested metadata, type, and link racesを検証する。
+ *
+ * @responsibility fallback distinguishes nested metadata, type, and link racesの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback distinguishes nested metadata, type, and link racesの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("fallback distinguishes nested metadata, type, and link races", () => {
   const cases = [
     ["lstat-error", "discovery-directory-metadata-failed"],
@@ -6834,6 +14492,18 @@ test("fallback distinguishes nested metadata, type, and link races", () => {
   }
 });
 
+/**
+ * fallback distinguishes directory-list failuresを検証する。
+ *
+ * @responsibility fallback distinguishes directory-list failuresの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback distinguishes directory-list failuresの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("fallback distinguishes directory-list failures", () => {
   const cases = [
     ["ENOENT", "discovery-directory-missing"],
@@ -6861,6 +14531,18 @@ test("fallback distinguishes directory-list failures", () => {
   }
 });
 
+/**
+ * fallback rejects a directory removed after its entries are readを検証する。
+ *
+ * @responsibility fallback rejects a directory removed after its entries are readの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fallback rejects a directory removed after its entries are readの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("fallback rejects a directory removed after its entries are read", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -6881,6 +14563,18 @@ test("fallback rejects a directory removed after its entries are read", () => {
   );
 });
 
+/**
+ * reference maps aggregate links for a directory targetを検証する。
+ *
+ * @responsibility reference maps aggregate links for a directory targetの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus reference maps aggregate links for a directory targetの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("reference maps aggregate links for a directory target", () => {
   const root = fixture();
   makeStructure(root);
@@ -6895,6 +14589,18 @@ test("reference maps aggregate links for a directory target", () => {
   assert.equal(references.inbound.length, 1);
 });
 
+/**
+ * child-process fault injection records a directory replacementを検証する。
+ *
+ * @responsibility child-process fault injection records a directory replacementの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus child-process fault injection records a directory replacementの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("child-process fault injection records a directory replacement", () => {
   const root = fixture();
   const noGitPath = fixture();
@@ -6923,11 +14629,23 @@ test("child-process fault injection records a directory replacement", () => {
   );
 });
 
+/**
+ * recognizable remediation tables validate a resolved rowを検証する。
+ *
+ * @responsibility recognizable remediation tables validate a resolved rowの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus recognizable remediation tables validate a resolved rowの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("recognizable remediation tables validate a resolved row", () => {
   const root = fixture();
   makeStructure(root);
   write(
-    path.join(root, "90_Release", "Changes", "Remediation.md"),
+    path.join(root, "07_Quality", "Remediation.md"),
     [
       "# 是正対象一覧",
       "",
@@ -6942,11 +14660,23 @@ test("recognizable remediation tables validate a resolved row", () => {
   assert.equal(result.report.metrics.remediation_rows_checked, 1);
 });
 
+/**
+ * recognizable remediation tables reject fixed and premature resolutionを検証する。
+ *
+ * @responsibility recognizable remediation tables reject fixed and premature resolutionの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus recognizable remediation tables reject fixed and premature resolutionの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("recognizable remediation tables reject fixed and premature resolution", () => {
   const root = fixture();
   makeStructure(root);
   write(
-    path.join(root, "90_Release", "Changes", "Remediation.md"),
+    path.join(root, "07_Quality", "Remediation.md"),
     [
       "# Remediation Target Inventory",
       "",
@@ -6979,11 +14709,23 @@ test("recognizable remediation tables reject fixed and premature resolution", ()
   );
 });
 
+/**
+ * recognizable remediation tables require restart information for blockersを検証する。
+ *
+ * @responsibility recognizable remediation tables require restart information for blockersの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus recognizable remediation tables require restart information for blockersの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("recognizable remediation tables require restart information for blockers", () => {
   const root = fixture();
   makeStructure(root);
   write(
-    path.join(root, "90_Release", "Changes", "Remediation.md"),
+    path.join(root, "07_Quality", "Remediation.md"),
     [
       "# 是正対象一覧",
       "",
@@ -7002,11 +14744,23 @@ test("recognizable remediation tables require restart information for blockers",
   );
 });
 
+/**
+ * remediation tables support outer-pipe-free GFM and pipes inside cellsを検証する。
+ *
+ * @responsibility remediation tables support outer-pipe-free GFM and pipes inside cellsの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus remediation tables support outer-pipe-free GFM and pipes inside cellsの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("remediation tables support outer-pipe-free GFM and pipes inside cells", () => {
   const root = fixture();
   makeStructure(root);
   write(
-    path.join(root, "90_Release", "Changes", "Remediation.md"),
+    path.join(root, "07_Quality", "Remediation.md"),
     [
       "# 是正対象一覧",
       "",
@@ -7021,11 +14775,23 @@ test("remediation tables support outer-pipe-free GFM and pipes inside cells", ()
   assert.equal(result.report.metrics.remediation_rows_checked, 1);
 });
 
+/**
+ * remediation tables report a missing state axisを検証する。
+ *
+ * @responsibility remediation tables report a missing state axisの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus remediation tables report a missing state axisの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("remediation tables report a missing state axis", () => {
   const root = fixture();
   makeStructure(root);
   write(
-    path.join(root, "90_Release", "Changes", "Remediation.md"),
+    path.join(root, "07_Quality", "Remediation.md"),
     [
       "# 是正対象一覧",
       "",
@@ -7044,13 +14810,25 @@ test("remediation tables report a missing state axis", () => {
   );
 });
 
+/**
+ * resolved remediation rejects inconsistent progress and blocker axesを検証する。
+ *
+ * @responsibility resolved remediation rejects inconsistent progress and blocker axesの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus resolved remediation rejects inconsistent progress and blocker axesの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("resolved remediation rejects inconsistent progress and blocker axes", () => {
   const root = fixture();
   makeStructure(root);
   const closure =
     "| observed | comparison | Result.md | reviewer: Pass | Current.md |";
   write(
-    path.join(root, "90_Release", "Changes", "Remediation.md"),
+    path.join(root, "07_Quality", "Remediation.md"),
     [
       "# Remediation Target Inventory",
       "",
@@ -7073,6 +14851,18 @@ test("resolved remediation rejects inconsistent progress and blocker axes", () =
   );
 });
 
+/**
+ * generic review tables are not treated as remediation tablesを検証する。
+ *
+ * @responsibility generic review tables are not treated as remediation tablesの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus generic review tables are not treated as remediation tablesの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("generic review tables are not treated as remediation tables", () => {
   const root = fixture();
   makeStructure(root);
@@ -7092,6 +14882,18 @@ test("generic review tables are not treated as remediation tables", () => {
   assert.equal(result.report.metrics.remediation_rows_checked, 0);
 });
 
+/**
+ * generic tables with two short state aliases are not remediation tablesを検証する。
+ *
+ * @responsibility generic tables with two short state aliases are not remediation tablesの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus generic tables with two short state aliases are not remediation tablesの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("generic tables with two short state aliases are not remediation tables", () => {
   const root = fixture();
   makeStructure(root);
@@ -7111,11 +14913,23 @@ test("generic tables with two short state aliases are not remediation tables", (
   assert.equal(result.report.metrics.remediation_rows_checked, 0);
 });
 
+/**
+ * explicit remediation context detects a missing state axis without auxiliary columnsを検証する。
+ *
+ * @responsibility explicit remediation context detects a missing state axis without auxiliary columnsの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus explicit remediation context detects a missing state axis without auxiliary columnsの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("explicit remediation context detects a missing state axis without auxiliary columns", () => {
   const root = fixture();
   makeStructure(root);
   write(
-    path.join(root, "90_Release", "Changes", "Remediation.md"),
+    path.join(root, "07_Quality", "Remediation.md"),
     [
       "# Remediation Target Inventory",
       "",
@@ -7134,11 +14948,23 @@ test("explicit remediation context detects a missing state axis without auxiliar
   assert.match(finding.message, /阻害状態/u);
 });
 
+/**
+ * canonical English remediation headers are recognizedを検証する。
+ *
+ * @responsibility canonical English remediation headers are recognizedの合否判定を所有する。
+ * @trace RCM-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus canonical English remediation headers are recognizedの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-IT-005=Direct Boundary: Producer→Consumer
+ */
 test("canonical English remediation headers are recognized", () => {
   const root = fixture();
   makeStructure(root);
   write(
-    path.join(root, "90_Release", "Changes", "Remediation.md"),
+    path.join(root, "07_Quality", "Remediation.md"),
     [
       "# Remediation Target Inventory",
       "",
@@ -7153,6 +14979,18 @@ test("canonical English remediation headers are recognized", () => {
   assert.equal(result.report.metrics.remediation_rows_checked, 1);
 });
 
+/**
+ * branch coverage tables use one parser for GFM headers and rowsを検証する。
+ *
+ * @responsibility branch coverage tables use one parser for GFM headers and rowsの合否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus branch coverage tables use one parser for GFM headers and rowsの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: 成果物と図記法Checker。外部実行境界なしは外部実行境界を持たない。
+ */
 test("branch coverage tables use one parser for GFM headers and rows", () => {
   const root = fixture();
   makeStructure(root);

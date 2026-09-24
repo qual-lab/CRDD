@@ -1,3 +1,9 @@
+/**
+ * secret-material-policyに属する責務をまとめる。
+ *
+ * @responsibility textFromを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 export const SECRET_MATERIAL_POLICY_CONTRACT =
   "crdd-coordinator/secret-material-policy";
 export const SECRET_MATERIAL_POLICY_CONTRACT_REVISION = 1;
@@ -46,12 +52,44 @@ const SOURCE_CODE_EXTENSIONS = new Set([
   ".ts",
 ]);
 
+/**
+ * Fromを表示文字列へ変換する。
+ *
+ * @responsibility Fromの入力値、文字列表現、機密を含めない結果境界を所有する。
+ * @trace ARCH-000014
+ * @input value: string | Uint8Array
+ * @returns textFromの計算結果を返す。
+ * @precondition 「value: string | Uint8Array」がtextFromの入力契約を満たす。
+ * @postcondition textFromの責務を完了した結果だけを返す。
+ * @effect N/A: textFromは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: textFromは独自の失敗分岐を所有しない。
+ * @invariant textFromは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: textFromはProcess内の同一Subsystemで完結する。
+ * @security textFromはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: textFromは共有非同期状態を持たない同期処理である。
+ */
 function textFrom(value: string | Uint8Array) {
   return typeof value === "string"
     ? value
     : Buffer.from(value).toString("utf8");
 }
 
+/**
+ * secret Key Nameを決定する。
+ *
+ * @responsibility secret Key Nameの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input value: string
+ * @returns secretKeyNameの計算結果を返す。
+ * @precondition 「value: string」がsecretKeyNameの入力契約を満たす。
+ * @postcondition secretKeyNameの責務を完了した結果だけを返す。
+ * @effect N/A: secretKeyNameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: secretKeyNameは独自の失敗分岐を所有しない。
+ * @invariant secretKeyNameは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: secretKeyNameはProcess内の同一Subsystemで完結する。
+ * @security secretKeyNameはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: secretKeyNameは共有非同期状態を持たない同期処理である。
+ */
 function secretKeyName(value: string) {
   const normalized = value
     .replace(/([a-z0-9])([A-Z])/gu, "$1_$2")
@@ -60,6 +98,22 @@ function secretKeyName(value: string) {
   return SECRET_KEY_SUFFIX.test(normalized);
 }
 
+/**
+ * assignment Keyを決定する。
+ *
+ * @responsibility assignment Keyの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input doubleQuotedKey: string | undefined、singleQuotedKey: string | undefined、target: string | undefined
+ * @returns assignmentKeyの計算結果を返す。
+ * @precondition 「doubleQuotedKey: string | undefined、singleQuotedKey: string | undefined、target: string | undefined」がassignmentKeyの入力契約を満たす。
+ * @postcondition assignmentKeyの責務を完了した結果だけを返す。
+ * @effect N/A: assignmentKeyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: assignmentKeyは独自の失敗分岐を所有しない。
+ * @invariant assignmentKeyは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: assignmentKeyはProcess内の同一Subsystemで完結する。
+ * @security assignmentKeyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assignmentKeyは共有非同期状態を持たない同期処理である。
+ */
 function assignmentKey(
   doubleQuotedKey: string | undefined,
   singleQuotedKey: string | undefined,
@@ -74,6 +128,22 @@ function assignmentKey(
   return segments.at(-1) ?? "";
 }
 
+/**
+ * source Indirectionを決定する。
+ *
+ * @responsibility source Indirectionの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input value: string、isSourceFileContext: boolean
+ * @returns sourceIndirectionの計算結果を返す。
+ * @precondition 「value: string、isSourceFileContext: boolean」がsourceIndirectionの入力契約を満たす。
+ * @postcondition sourceIndirectionの責務を完了した結果だけを返す。
+ * @effect N/A: sourceIndirectionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sourceIndirectionは独自の失敗分岐を所有しない。
+ * @invariant sourceIndirectionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sourceIndirectionはProcess内の同一Subsystemで完結する。
+ * @security sourceIndirectionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sourceIndirectionは共有非同期状態を持たない同期処理である。
+ */
 function sourceIndirection(value: string, isSourceFileContext: boolean) {
   const expression = value.replace(/!+(?=(?:\?\.|\.|\[))/gu, "");
   const withoutTerminalAssertion = expression.endsWith("!")
@@ -94,6 +164,22 @@ function sourceIndirection(value: string, isSourceFileContext: boolean) {
   );
 }
 
+/**
+ * Recognized Secret Path Segmentを含むか判定する。
+ *
+ * @responsibility Recognized Secret Path Segmentの探索範囲、包含条件、判定結果境界を所有する。
+ * @trace ARCH-000014
+ * @input segment: string
+ * @returns containsRecognizedSecretPathSegmentの計算結果を返す。
+ * @precondition 「segment: string」がcontainsRecognizedSecretPathSegmentの入力契約を満たす。
+ * @postcondition containsRecognizedSecretPathSegmentの責務を完了した結果だけを返す。
+ * @effect N/A: containsRecognizedSecretPathSegmentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: containsRecognizedSecretPathSegmentは独自の失敗分岐を所有しない。
+ * @invariant containsRecognizedSecretPathSegmentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: containsRecognizedSecretPathSegmentはProcess内の同一Subsystemで完結する。
+ * @security containsRecognizedSecretPathSegmentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: containsRecognizedSecretPathSegmentは共有非同期状態を持たない同期処理である。
+ */
 function containsRecognizedSecretPathSegment(segment: string) {
   if (containsRecognizedSecretText(segment)) return true;
   const match = PATH_SEGMENT_ASSIGNMENT_PATTERN.exec(segment);
@@ -108,10 +194,42 @@ function containsRecognizedSecretPathSegment(segment: string) {
   );
 }
 
+/**
+ * Path Or Nested Suffixかを判定する。
+ *
+ * @responsibility Path Or Nested Suffixの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000014
+ * @input normalized: string、suffix: string
+ * @returns isPathOrNestedSuffixの計算結果を返す。
+ * @precondition 「normalized: string、suffix: string」がisPathOrNestedSuffixの入力契約を満たす。
+ * @postcondition isPathOrNestedSuffixの責務を完了した結果だけを返す。
+ * @effect N/A: isPathOrNestedSuffixは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isPathOrNestedSuffixは独自の失敗分岐を所有しない。
+ * @invariant isPathOrNestedSuffixは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isPathOrNestedSuffixはProcess内の同一Subsystemで完結する。
+ * @security isPathOrNestedSuffixはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isPathOrNestedSuffixは共有非同期状態を持たない同期処理である。
+ */
 function isPathOrNestedSuffix(normalized: string, suffix: string) {
   return normalized === suffix || normalized.endsWith(`/${suffix}`);
 }
 
+/**
+ * Java Script Code Positionかを判定する。
+ *
+ * @responsibility Java Script Code Positionの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000014
+ * @input text: string、targetIndex: number
+ * @returns isJavaScriptCodePositionの計算結果を返す。
+ * @precondition 「text: string、targetIndex: number」がisJavaScriptCodePositionの入力契約を満たす。
+ * @postcondition isJavaScriptCodePositionの責務を完了した結果だけを返す。
+ * @effect N/A: isJavaScriptCodePositionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isJavaScriptCodePositionは独自の失敗分岐を所有しない。
+ * @invariant isJavaScriptCodePositionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isJavaScriptCodePositionはProcess内の同一Subsystemで完結する。
+ * @security isJavaScriptCodePositionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isJavaScriptCodePositionは共有非同期状態を持たない同期処理である。
+ */
 function isJavaScriptCodePosition(text: string, targetIndex: number) {
   let state: "code" | "single" | "double" | "template" | "line" | "block" =
     "code";
@@ -154,10 +272,42 @@ function isJavaScriptCodePosition(text: string, targetIndex: number) {
   return state === "code";
 }
 
+/**
+ * Block Comment Payloadを固定Schemaへ正規化する。
+ *
+ * @responsibility Block Comment Payloadの入力検証、正規化規則、不正値の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input value: string
+ * @returns normalizeBlockCommentPayloadの計算結果を返す。
+ * @precondition 「value: string」がnormalizeBlockCommentPayloadの入力契約を満たす。
+ * @postcondition normalizeBlockCommentPayloadの責務を完了した結果だけを返す。
+ * @effect N/A: normalizeBlockCommentPayloadは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: normalizeBlockCommentPayloadは独自の失敗分岐を所有しない。
+ * @invariant normalizeBlockCommentPayloadは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: normalizeBlockCommentPayloadはProcess内の同一Subsystemで完結する。
+ * @security normalizeBlockCommentPayloadはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeBlockCommentPayloadは共有非同期状態を持たない同期処理である。
+ */
 function normalizeBlockCommentPayload(value: string) {
   return value.replace(/(^|[\r\n])[\t ]*[*!]+/gu, "$1");
 }
 
+/**
+ * javascript Non Code Fragmentsを決定する。
+ *
+ * @responsibility javascript Non Code Fragmentsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input text: string
+ * @returns javascriptNonCodeFragmentsの計算結果を返す。
+ * @precondition 「text: string」がjavascriptNonCodeFragmentsの入力契約を満たす。
+ * @postcondition javascriptNonCodeFragmentsの責務を完了した結果だけを返す。
+ * @effect N/A: javascriptNonCodeFragmentsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: javascriptNonCodeFragmentsは独自の失敗分岐を所有しない。
+ * @invariant javascriptNonCodeFragmentsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: javascriptNonCodeFragmentsはProcess内の同一Subsystemで完結する。
+ * @security javascriptNonCodeFragmentsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: javascriptNonCodeFragmentsは共有非同期状態を持たない同期処理である。
+ */
 function javascriptNonCodeFragments(text: string) {
   const fragments: string[] = [];
   let state: "code" | "single" | "double" | "template" | "line" | "block" =
@@ -228,6 +378,22 @@ function javascriptNonCodeFragments(text: string) {
   return fragments;
 }
 
+/**
+ * literal Secret Valueを決定する。
+ *
+ * @responsibility literal Secret Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input value: string、isQuoted: boolean、isSourceFileContext: boolean
+ * @returns literalSecretValueの計算結果を返す。
+ * @precondition 「value: string、isQuoted: boolean、isSourceFileContext: boolean」がliteralSecretValueの入力契約を満たす。
+ * @postcondition literalSecretValueの責務を完了した結果だけを返す。
+ * @effect N/A: literalSecretValueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: literalSecretValueは独自の失敗分岐を所有しない。
+ * @invariant literalSecretValueは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: literalSecretValueはProcess内の同一Subsystemで完結する。
+ * @security literalSecretValueはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: literalSecretValueは共有非同期状態を持たない同期処理である。
+ */
 function literalSecretValue(
   value: string,
   isQuoted: boolean,
@@ -250,6 +416,22 @@ function literalSecretValue(
   );
 }
 
+/**
+ * Recognized Secret Text In Contextを含むか判定する。
+ *
+ * @responsibility Recognized Secret Text In Contextの探索範囲、包含条件、判定結果境界を所有する。
+ * @trace ARCH-000014
+ * @input value: string | Uint8Array、isJavascriptSourceContext: boolean
+ * @returns containsRecognizedSecretTextInContextの計算結果を返す。
+ * @precondition 「value: string | Uint8Array、isJavascriptSourceContext: boolean」がcontainsRecognizedSecretTextInContextの入力契約を満たす。
+ * @postcondition containsRecognizedSecretTextInContextの責務を完了した結果だけを返す。
+ * @effect N/A: containsRecognizedSecretTextInContextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: containsRecognizedSecretTextInContextは独自の失敗分岐を所有しない。
+ * @invariant containsRecognizedSecretTextInContextは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: containsRecognizedSecretTextInContextはProcess内の同一Subsystemで完結する。
+ * @security containsRecognizedSecretTextInContextはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: containsRecognizedSecretTextInContextは共有非同期状態を持たない同期処理である。
+ */
 function containsRecognizedSecretTextInContext(
   value: string | Uint8Array,
   isJavascriptSourceContext: boolean,
@@ -308,10 +490,42 @@ function containsRecognizedSecretTextInContext(
   return false;
 }
 
+/**
+ * Recognized Secret Textを含むか判定する。
+ *
+ * @responsibility Recognized Secret Textの探索範囲、包含条件、判定結果境界を所有する。
+ * @trace ARCH-000014
+ * @input value: string | Uint8Array
+ * @returns containsRecognizedSecretTextの計算結果を返す。
+ * @precondition 「value: string | Uint8Array」がcontainsRecognizedSecretTextの入力契約を満たす。
+ * @postcondition containsRecognizedSecretTextの責務を完了した結果だけを返す。
+ * @effect N/A: containsRecognizedSecretTextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: containsRecognizedSecretTextは独自の失敗分岐を所有しない。
+ * @invariant containsRecognizedSecretTextは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: containsRecognizedSecretTextはProcess内の同一Subsystemで完結する。
+ * @security containsRecognizedSecretTextはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: containsRecognizedSecretTextは共有非同期状態を持たない同期処理である。
+ */
 export function containsRecognizedSecretText(value: string | Uint8Array) {
   return containsRecognizedSecretTextInContext(value, false);
 }
 
+/**
+ * Recognized Source Code Pathかを判定する。
+ *
+ * @responsibility Recognized Source Code Pathの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string
+ * @returns isRecognizedSourceCodePathの計算結果を返す。
+ * @precondition 「relativePath: string」がisRecognizedSourceCodePathの入力契約を満たす。
+ * @postcondition isRecognizedSourceCodePathの責務を完了した結果だけを返す。
+ * @effect N/A: isRecognizedSourceCodePathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isRecognizedSourceCodePathは独自の失敗分岐を所有しない。
+ * @invariant isRecognizedSourceCodePathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isRecognizedSourceCodePathはProcess内の同一Subsystemで完結する。
+ * @security isRecognizedSourceCodePathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isRecognizedSourceCodePathは共有非同期状態を持たない同期処理である。
+ */
 function isRecognizedSourceCodePath(relativePath: string) {
   const normalized = relativePath.replaceAll("\\", "/").toLowerCase();
   const basename = normalized.slice(normalized.lastIndexOf("/") + 1);
@@ -322,6 +536,22 @@ function isRecognizedSourceCodePath(relativePath: string) {
   );
 }
 
+/**
+ * Recognized Secret Bearing Pathかを判定する。
+ *
+ * @responsibility Recognized Secret Bearing Pathの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string
+ * @returns isRecognizedSecretBearingPathの計算結果を返す。
+ * @precondition 「relativePath: string」がisRecognizedSecretBearingPathの入力契約を満たす。
+ * @postcondition isRecognizedSecretBearingPathの責務を完了した結果だけを返す。
+ * @effect N/A: isRecognizedSecretBearingPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isRecognizedSecretBearingPathは独自の失敗分岐を所有しない。
+ * @invariant isRecognizedSecretBearingPathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isRecognizedSecretBearingPathはProcess内の同一Subsystemで完結する。
+ * @security isRecognizedSecretBearingPathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isRecognizedSecretBearingPathは共有非同期状態を持たない同期処理である。
+ */
 export function isRecognizedSecretBearingPath(relativePath: string) {
   const normalized = relativePath.replaceAll("\\", "/").toLowerCase();
   const basename = normalized.slice(normalized.lastIndexOf("/") + 1);
@@ -350,6 +580,22 @@ export function isRecognizedSecretBearingPath(relativePath: string) {
   );
 }
 
+/**
+ * Recognized Secret Scopeを含むか判定する。
+ *
+ * @responsibility Recognized Secret Scopeの探索範囲、包含条件、判定結果境界を所有する。
+ * @trace ARCH-000014
+ * @input objective: string、acceptanceCriteria: readonly string[]、allowedPaths: readonly string[]、readPaths: readonly string[]
+ * @returns containsRecognizedSecretScopeの計算結果を返す。
+ * @precondition 「objective: string、acceptanceCriteria: readonly string[]、allowedPaths: readonly string[]、readPaths: readonly string[]」がcontainsRecognizedSecretScopeの入力契約を満たす。
+ * @postcondition containsRecognizedSecretScopeの責務を完了した結果だけを返す。
+ * @effect N/A: containsRecognizedSecretScopeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: containsRecognizedSecretScopeは独自の失敗分岐を所有しない。
+ * @invariant containsRecognizedSecretScopeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: containsRecognizedSecretScopeはProcess内の同一Subsystemで完結する。
+ * @security containsRecognizedSecretScopeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: containsRecognizedSecretScopeは共有非同期状態を持たない同期処理である。
+ */
 export function containsRecognizedSecretScope(
   objective: string,
   acceptanceCriteria: readonly string[],
@@ -368,6 +614,22 @@ export function containsRecognizedSecretScope(
   );
 }
 
+/**
+ * Recognized Secret Materialを含むか判定する。
+ *
+ * @responsibility Recognized Secret Materialの探索範囲、包含条件、判定結果境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string | null、value: string | Uint8Array
+ * @returns containsRecognizedSecretMaterialの計算結果を返す。
+ * @precondition 「relativePath: string | null、value: string | Uint8Array」がcontainsRecognizedSecretMaterialの入力契約を満たす。
+ * @postcondition containsRecognizedSecretMaterialの責務を完了した結果だけを返す。
+ * @effect N/A: containsRecognizedSecretMaterialは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: containsRecognizedSecretMaterialは独自の失敗分岐を所有しない。
+ * @invariant containsRecognizedSecretMaterialは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: containsRecognizedSecretMaterialはProcess内の同一Subsystemで完結する。
+ * @security containsRecognizedSecretMaterialはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: containsRecognizedSecretMaterialは共有非同期状態を持たない同期処理である。
+ */
 export function containsRecognizedSecretMaterial(
   relativePath: string | null,
   value: string | Uint8Array,
@@ -386,6 +648,22 @@ export function containsRecognizedSecretMaterial(
   );
 }
 
+/**
+ * Secret Material Policy 契約の公開契約を記述する。
+ *
+ * @responsibility Secret Material Policy 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000014
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeSecretMaterialPolicyContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeSecretMaterialPolicyContractの入力契約を満たす。
+ * @postcondition describeSecretMaterialPolicyContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeSecretMaterialPolicyContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeSecretMaterialPolicyContractは独自の失敗分岐を所有しない。
+ * @invariant describeSecretMaterialPolicyContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeSecretMaterialPolicyContractはProcess内の同一Subsystemで完結する。
+ * @security describeSecretMaterialPolicyContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeSecretMaterialPolicyContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeSecretMaterialPolicyContract() {
   return Object.freeze({
     contract: SECRET_MATERIAL_POLICY_CONTRACT,

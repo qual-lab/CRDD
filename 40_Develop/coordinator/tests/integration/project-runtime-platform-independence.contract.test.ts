@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:project-runtime-platform-independenceの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:project-runtime-platform-independenceが所有する検証責務を実行する。
+ * @trace PRL-IT-012
+ * @level IT
+ * @scope project、runtime、platform、independence
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -10,6 +20,15 @@ const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
  * Core depends only on IF-PLATFORM and IF-TRANSPORT contracts; the machine
  * check below rejects any transitive import that leaves this closed set or
  * reaches an OS-specific module (01_Architecture.md 14.9, PR-A-07 companion).
+ *
+ * @responsibility discoverProjectRuntimeModulesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus discoverProjectRuntimeModulesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 function discoverProjectRuntimeModules(): readonly string[] {
   const sourceRoot = path.join(
@@ -57,12 +76,36 @@ const FORBIDDEN_SOURCE_PATTERNS = Object.freeze([
   /import\s*`/u,
 ] as const);
 
+/**
+ * normalizeのTest準備責務を実行する。
+ *
+ * @responsibility normalizeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus normalizeを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function normalize(relativePath: string): string {
   return relativePath.replaceAll("\\", "/");
 }
 
 const coreModules = discoverProjectRuntimeModules();
 
+/**
+ * readRuntimeSourceのTest準備責務を実行する。
+ *
+ * @responsibility readRuntimeSourceがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus readRuntimeSourceを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function readRuntimeSource(relativePath: string): string {
   return fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8");
 }
@@ -73,6 +116,15 @@ function readRuntimeSource(relativePath: string): string {
  * capture (a second import on one line, a comment-prefixed import, an
  * unexpected spelling) makes the scan inconsistent, so unparseable intake
  * syntax fails closed instead of passing unscanned.
+ *
+ * @responsibility importSpecifierScanがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus importSpecifierScanを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
  */
 function importSpecifierScan(source: string): Readonly<{
   specifiers: readonly string[];
@@ -103,6 +155,18 @@ function importSpecifierScan(source: string): Readonly<{
   });
 }
 
+/**
+ * Project Runtime CoreのimportはPlatform非依存の閉集合に一致するを検証する。
+ *
+ * @responsibility Project Runtime CoreのimportはPlatform非依存の閉集合に一致するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Project Runtime CoreのimportはPlatform非依存の閉集合に一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Project Runtime CoreのimportはPlatform非依存の閉集合に一致する", () => {
   const allowedModules = new Set(coreModules);
   const allowedBuiltins = new Set(ALLOWED_NODE_BUILTINS);
@@ -155,6 +219,18 @@ test("Project Runtime CoreのimportはPlatform非依存の閉集合に一致す�
   );
 });
 
+/**
+ * Project Runtime CoreはOS固有tokenとOS Path実値を含まないを検証する。
+ *
+ * @responsibility Project Runtime CoreはOS固有tokenとOS Path実値を含まないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Project Runtime CoreはOS固有tokenとOS Path実値を含まないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Project Runtime CoreはOS固有tokenとOS Path実値を含まない", () => {
   for (const moduleRelativePath of coreModules) {
     const source = readRuntimeSource(moduleRelativePath);
@@ -167,6 +243,18 @@ test("Project Runtime CoreはOS固有tokenとOS Path実値を含まない", () =
   }
 });
 
+/**
+ * import走査は解釈できない取り込み構文をFail Closedで検出するを検証する。
+ *
+ * @responsibility import走査は解釈できない取り込み構文をFail Closedで検出するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus import走査は解釈できない取り込み構文をFail Closedで検出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("import走査は解釈できない取り込み構文をFail Closedで検出する", () => {
   const evasionForms = [
     'import a from "./x.ts"; import b from "./evil.ts";',
@@ -187,6 +275,18 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
   );
 });
 
+/**
+ * Windows AdapterはCore閉集合の外にあり、CoreはAdapterを参照しないを検証する。
+ *
+ * @responsibility Windows AdapterはCore閉集合の外にあり、CoreはAdapterを参照しないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Windows AdapterはCore閉集合の外にあり、CoreはAdapterを参照しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Windows AdapterはCore閉集合の外にあり、CoreはAdapterを参照しない", () => {
   const windowsAdapterPath =
     "40_Develop/coordinator/src/security/project-runtime-windows-platform-adapter.ts";

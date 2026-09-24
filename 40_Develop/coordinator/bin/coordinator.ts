@@ -1,7 +1,14 @@
 #!/usr/bin/env node
+/**
+ * coordinatorに属する責務をまとめる。
+ *
+ * @responsibility UsageErrorを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 
 import fs from "node:fs";
 import { types as utilTypes } from "node:util";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/repository-location.ts";
 import { runProjectRuntimePublicObjective } from "../src/composition/project-runtime-composition-root.ts";
 import {
   parseCandidateArguments,
@@ -46,14 +53,43 @@ import {
 import { restartRuntimeOwnedDockerForRecovery } from "../src/security/docker-restart-runtime.ts";
 import { recoverOwnedOperationDirectories } from "../src/security/execution-environment.ts";
 import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/security/platform-provisioner-package-filesystem.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
 
+/**
+ * UsageErrorが担う状態と操作を提供する。
+ *
+ * @responsibility UsageErrorに属する状態と操作の所有境界をまとめる。
+ * @trace ARCH-000004
+ * @construction UsageErrorの生成に必要な依存と初期状態をConstructor契約で固定する。
+ * @lifecycle UsageErrorが所有する状態と資源を生成から終了まで同じInstanceで管理する。
+ * @effect N/A: UsageErrorの宣言自体は実行時Effectを発行しない。
+ * @failure N/A: UsageErrorの宣言自体は実行時失敗を所有しない。
+ * @invariant UsageErrorで宣言した値と責務の対応を維持する。
+ * @boundary N/A: UsageErrorの宣言は外部境界を開かない。
+ * @security N/A: UsageErrorはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: UsageErrorは共有非同期状態を持たない同期処理である。
+ */
 class UsageError extends Error {
   readonly usage = true;
 }
 
 const MAXIMUM_TASK_REQUEST_BYTES = 128 * 1024;
 
+/**
+ * 記録をPlain Dataとして検証する。
+ *
+ * @responsibility 記録の許可Property、入れ子値、拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown
+ * @returns Readonly<Record<string, unknown>> | nullを返す。
+ * @precondition 「raw: unknown」がplainRecordの入力契約を満たす。
+ * @postcondition plainRecordの責務を完了した結果だけを返す。
+ * @effect N/A: plainRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: plainRecordは独自の失敗分岐を所有しない。
+ * @invariant plainRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: plainRecordはProcess内の同一Subsystemで完結する。
+ * @security N/A: plainRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: plainRecordは共有非同期状態を持たない同期処理である。
+ */
 function plainRecord(raw: unknown): Readonly<Record<string, unknown>> | null {
   if (
     !raw ||
@@ -81,6 +117,22 @@ function plainRecord(raw: unknown): Readonly<Record<string, unknown>> | null {
   return Object.freeze(result);
 }
 
+/**
+ * Helpを人間向け表示へ出力する。
+ *
+ * @responsibility Helpの表示内容、機密除外、出力先境界を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns N/A: printHelpは戻り値を返さない。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がprintHelpの入力契約を満たす。
+ * @postcondition printHelpの責務を完了して呼出し元へ制御を戻す。
+ * @effect printHelpは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: printHelpは独自の失敗分岐を所有しない。
+ * @invariant printHelpは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: printHelpはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: printHelpは共有非同期状態を持たない同期処理である。
+ */
 function printHelp() {
   process.stdout.write(`Coordinator Runtime 1.0\n\n`);
   process.stdout.write(`Usage:\n`);
@@ -131,6 +183,22 @@ function printHelp() {
   process.stdout.write(`\nNormal Task use starts with task.\n`);
 }
 
+/**
+ * Capabilities Commandを実行する。
+ *
+ * @responsibility Capabilities Commandの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input args: readonly string[]
+ * @returns runCapabilitiesCommandの計算結果を返す。
+ * @precondition 「args: readonly string[]」がrunCapabilitiesCommandの入力契約を満たす。
+ * @postcondition runCapabilitiesCommandの責務を完了した結果だけを返す。
+ * @effect runCapabilitiesCommandは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: runCapabilitiesCommandは独自の失敗分岐を所有しない。
+ * @invariant runCapabilitiesCommandは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: runCapabilitiesCommandはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: runCapabilitiesCommandは共有非同期状態を持たない同期処理である。
+ */
 function runCapabilitiesCommand(args: readonly string[]) {
   if (args.length !== 1 || args[0] !== "--json") {
     process.stderr.write("Usage: coordinator capabilities --json\n");
@@ -161,6 +229,22 @@ function runCapabilitiesCommand(args: readonly string[]) {
   process.exitCode = 0;
 }
 
+/**
+ * Project Commandを実行する。
+ *
+ * @responsibility Project Commandの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input args: readonly string[]
+ * @returns runProjectCommandの計算結果を返す。
+ * @precondition 「args: readonly string[]」がrunProjectCommandの入力契約を満たす。
+ * @postcondition runProjectCommandの責務を完了した結果だけを返す。
+ * @effect runProjectCommandは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure runProjectCommandは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runProjectCommandは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: runProjectCommandはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency runProjectCommandは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function runProjectCommand(args: readonly string[]) {
   if (
     args.length !== 2 ||
@@ -227,6 +311,22 @@ async function runProjectCommand(args: readonly string[]) {
   process.exitCode = result.status === "completed" ? 0 : 2;
 }
 
+/**
+ * Bounded Task Request From Stdinを読み取る。
+ *
+ * @responsibility Bounded Task Request From Stdinの読取り元、上限、読取不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns readBoundedTaskRequestFromStdinの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がreadBoundedTaskRequestFromStdinの入力契約を満たす。
+ * @postcondition readBoundedTaskRequestFromStdinの責務を完了した結果だけを返す。
+ * @effect readBoundedTaskRequestFromStdinはFilesystemの読取りまたは書込みを実行する。
+ * @failure readBoundedTaskRequestFromStdinは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readBoundedTaskRequestFromStdinは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: readBoundedTaskRequestFromStdinはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readBoundedTaskRequestFromStdinは共有非同期状態を持たない同期処理である。
+ */
 function readBoundedTaskRequestFromStdin() {
   const chunks: Buffer[] = [];
   let totalBytes = 0;
@@ -253,6 +353,22 @@ function readBoundedTaskRequestFromStdin() {
   return parsed;
 }
 
+/**
+ * Task Commandを実行する。
+ *
+ * @responsibility Task Commandの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input args: readonly string[]
+ * @returns runTaskCommandの計算結果を返す。
+ * @precondition 「args: readonly string[]」がrunTaskCommandの入力契約を満たす。
+ * @postcondition runTaskCommandの責務を完了した結果だけを返す。
+ * @effect runTaskCommandは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure runTaskCommandは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runTaskCommandは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: runTaskCommandはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency runTaskCommandは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function runTaskCommand(args: readonly string[]) {
   const parsed = parseTaskArguments(args);
   const options = plainRecord(parsed.value);
@@ -364,6 +480,22 @@ async function runTaskCommand(args: readonly string[]) {
   process.exitCode = result.status === "completed" ? 0 : 2;
 }
 
+/**
+ * 候補 Commandを実行する。
+ *
+ * @responsibility 候補 Commandの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input args: readonly string[]
+ * @returns runCandidateCommandの計算結果を返す。
+ * @precondition 「args: readonly string[]」がrunCandidateCommandの入力契約を満たす。
+ * @postcondition runCandidateCommandの責務を完了した結果だけを返す。
+ * @effect runCandidateCommandは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: runCandidateCommandは独自の失敗分岐を所有しない。
+ * @invariant runCandidateCommandは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: runCandidateCommandはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: runCandidateCommandは共有非同期状態を持たない同期処理である。
+ */
 function runCandidateCommand(args: readonly string[]) {
   const parsed = parseCandidateArguments(args);
   const options = plainRecord(parsed.value);
@@ -459,6 +591,22 @@ function runCandidateCommand(args: readonly string[]) {
     : 2;
 }
 
+/**
+ * Command Reportを人間向け表示へ出力する。
+ *
+ * @responsibility Command Reportの表示内容、機密除外、出力先境界を所有する。
+ * @trace ARCH-000004
+ * @input report: SafeCommandReport、shouldOutputJson: boolean
+ * @returns N/A: printCommandReportは戻り値を返さない。
+ * @precondition 「report: SafeCommandReport、shouldOutputJson: boolean」がprintCommandReportの入力契約を満たす。
+ * @postcondition printCommandReportの責務を完了して呼出し元へ制御を戻す。
+ * @effect printCommandReportは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: printCommandReportは独自の失敗分岐を所有しない。
+ * @invariant printCommandReportは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: printCommandReportはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: printCommandReportは共有非同期状態を持たない同期処理である。
+ */
 function printCommandReport(
   report: SafeCommandReport,
   shouldOutputJson: boolean,

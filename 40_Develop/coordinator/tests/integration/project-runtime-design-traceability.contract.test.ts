@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:project-runtime-design-traceabilityの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:project-runtime-design-traceabilityが所有する検証責務を実行する。
+ * @trace AIT-IT-008
+ * @level IT
+ * @scope project、runtime、design、traceability
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -10,6 +20,18 @@ const repositoryRoot = path.resolve(
   "../../../..",
 );
 
+/**
+ * repositoryReaderのTest準備責務を実行する。
+ *
+ * @responsibility repositoryReaderがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus repositoryReaderを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 function repositoryReader(repositoryRelativePath: string): string | null {
   try {
     return fs.readFileSync(
@@ -21,12 +43,24 @@ function repositoryReader(repositoryRelativePath: string): string | null {
   }
 }
 
+/**
+ * currentTraceのTest準備責務を実行する。
+ *
+ * @responsibility currentTraceがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-IT-008
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus currentTraceを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+ */
 function currentTrace(): Record<string, unknown> {
   return JSON.parse(
     fs.readFileSync(
       path.join(
         repositoryRoot,
-        "07_Quality/06_Project_Runtime_Design_Traceability.json",
+        "07_Quality/Registry/project-runtime-design-traceability.json",
       ),
       "utf8",
     ),
@@ -34,6 +68,18 @@ function currentTrace(): Record<string, unknown> {
 }
 
 describe("Project Runtime design traceability", () => {
+  /**
+   * Interfaceから失敗注入・実装段階・検証までを閉じるを検証する。
+   *
+   * @responsibility Interfaceから失敗注入・実装段階・検証までを閉じるの合否判定を所有する。
+   * @trace AIT-IT-008
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus Interfaceから失敗注入・実装段階・検証までを閉じるの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   */
   it("Interfaceから失敗注入・実装段階・検証までを閉じる", () => {
     assert.deepEqual(
       inspectProjectRuntimeDesignTraceability(currentTrace(), repositoryReader),
@@ -56,7 +102,19 @@ describe("Project Runtime design traceability", () => {
     );
   });
 
-  it("孤立Interface、未知遷移、検証文書との不一致を一括拒否する", () => {
+  /**
+   * 孤立Interface、未知遷移、詳細設計の検証接続との不一致を一括拒否するを検証する。
+   *
+   * @responsibility 孤立Interface、未知遷移、詳細設計の検証接続との不一致を一括拒否するの合否判定を所有する。
+   * @trace AIT-IT-008
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 孤立Interface、未知遷移、詳細設計の検証接続との不一致を一括拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   */
+  it("孤立Interface、未知遷移、詳細設計の検証接続との不一致を一括拒否する", () => {
     const trace = structuredClone(currentTrace());
     const interfaces = trace.interfaces as Record<string, unknown>[];
     interfaces.push({
@@ -99,6 +157,18 @@ describe("Project Runtime design traceability", () => {
     }
   });
 
+  /**
+   * 部分実装へ接続済みのInterfaceをplanned表示へ戻せないを検証する。
+   *
+   * @responsibility 部分実装へ接続済みのInterfaceをplanned表示へ戻せないの合否判定を所有する。
+   * @trace AIT-IT-008
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 部分実装へ接続済みのInterfaceをplanned表示へ戻せないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   */
   it("部分実装へ接続済みのInterfaceをplanned表示へ戻せない", () => {
     const trace = structuredClone(currentTrace());
     const interfaces = trace.interfaces as Record<string, unknown>[];
@@ -118,17 +188,26 @@ describe("Project Runtime design traceability", () => {
       );
   });
 
+  /**
+   * 人間向け正本だけにある設計・検証IDを双方向で拒否するを検証する。
+   *
+   * @responsibility 人間向け正本だけにある設計・検証IDを双方向で拒否するの合否判定を所有する。
+   * @trace AIT-IT-008
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 人間向け正本だけにある設計・検証IDを双方向で拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   */
   it("人間向け正本だけにある設計・検証IDを双方向で拒否する", () => {
     const trace = currentTrace();
     const designPath = String(trace.designDocument);
-    const verificationPath = String(trace.verificationDocument);
     const reader = (repositoryRelativePath: string): string | null => {
       const source = repositoryReader(repositoryRelativePath);
       if (source === null) return null;
       if (repositoryRelativePath === designPath)
-        return `${source}\n| \`FAIL-HUMAN-ONLY\` | 人間向け文書だけの試験ID |`;
-      if (repositoryRelativePath === verificationPath)
-        return `${source}\n| PR-A-99 | 異常 | 人間向け文書だけの検証ID | 拒否 |`;
+        return `${source}\n| \`FAIL-HUMAN-ONLY\` | 人間向け文書だけの試験ID |\n| PR-A-99 | 異常 | 人間向け文書だけの検証ID | 拒否 |`;
       return source;
     };
     const result = inspectProjectRuntimeDesignTraceability(trace, reader);
@@ -143,6 +222,18 @@ describe("Project Runtime design traceability", () => {
     }
   });
 
+  /**
+   * 状態・資源・不変条件・実在Pathの参照切れを拒否するを検証する。
+   *
+   * @responsibility 状態・資源・不変条件・実在Pathの参照切れを拒否するの合否判定を所有する。
+   * @trace AIT-IT-008
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 状態・資源・不変条件・実在Pathの参照切れを拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   */
   it("状態・資源・不変条件・実在Pathの参照切れを拒否する", () => {
     const trace = structuredClone(currentTrace());
     const machines = trace.stateMachines as Record<string, unknown>[];
@@ -190,6 +281,18 @@ describe("Project Runtime design traceability", () => {
     }
   });
 
+  /**
+   * 遷移とLock・Authority・Effectの対応切れを一括拒否するを検証する。
+   *
+   * @responsibility 遷移とLock・Authority・Effectの対応切れを一括拒否するの合否判定を所有する。
+   * @trace AIT-IT-008
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 遷移とLock・Authority・Effectの対応切れを一括拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   */
   it("遷移とLock・Authority・Effectの対応切れを一括拒否する", () => {
     const trace = structuredClone(currentTrace());
     const bindings = trace.actionBindings as Record<string, unknown>[];
@@ -229,6 +332,18 @@ describe("Project Runtime design traceability", () => {
     }
   });
 
+  /**
+   * 異質な遷移の和集合化とRecord時間関係の逆転を拒否するを検証する。
+   *
+   * @responsibility 異質な遷移の和集合化とRecord時間関係の逆転を拒否するの合否判定を所有する。
+   * @trace AIT-IT-008
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 異質な遷移の和集合化とRecord時間関係の逆転を拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   */
   it("異質な遷移の和集合化とRecord時間関係の逆転を拒否する", () => {
     const trace = structuredClone(currentTrace());
     const bindings = trace.actionBindings as Record<string, unknown>[];
@@ -280,6 +395,18 @@ describe("Project Runtime design traceability", () => {
     }
   });
 
+  /**
+   * 未解決Recoveryからの通常復帰とEffect種別の混入を拒否するを検証する。
+   *
+   * @responsibility 未解決Recoveryからの通常復帰とEffect種別の混入を拒否するの合否判定を所有する。
+   * @trace AIT-IT-008
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 未解決Recoveryからの通常復帰とEffect種別の混入を拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   */
   it("未解決Recoveryからの通常復帰とEffect種別の混入を拒否する", () => {
     const trace = structuredClone(currentTrace());
     const machines = trace.stateMachines as Record<string, unknown>[];
@@ -324,6 +451,18 @@ describe("Project Runtime design traceability", () => {
     }
   });
 
+  /**
+   * 遷移IDの名称ではなく状態構造からRecovery・取消・採用Effectを判定するを検証する。
+   *
+   * @responsibility 遷移IDの名称ではなく状態構造からRecovery・取消・採用Effectを判定するの合否判定を所有する。
+   * @trace AIT-IT-008
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 遷移IDの名称ではなく状態構造からRecovery・取消・採用Effectを判定するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   */
   it("遷移IDの名称ではなく状態構造からRecovery・取消・採用Effectを判定する", () => {
     const trace = structuredClone(currentTrace());
     const machines = trace.stateMachines as Record<string, unknown>[];
@@ -378,6 +517,18 @@ describe("Project Runtime design traceability", () => {
     }
   });
 
+  /**
+   * 判断待ちからの再開とDecision lifecycleのAuthority迂回を拒否するを検証する。
+   *
+   * @responsibility 判断待ちからの再開とDecision lifecycleのAuthority迂回を拒否するの合否判定を所有する。
+   * @trace AIT-IT-008
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 判断待ちからの再開とDecision lifecycleのAuthority迂回を拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   */
   it("判断待ちからの再開とDecision lifecycleのAuthority迂回を拒否する", () => {
     const trace = structuredClone(currentTrace());
     const machines = trace.stateMachines as Record<string, unknown>[];
@@ -435,6 +586,18 @@ describe("Project Runtime design traceability", () => {
     }
   });
 
+  /**
+   * 判断適用の原子性と継続Capability lifecycleの欠落を拒否するを検証する。
+   *
+   * @responsibility 判断適用の原子性と継続Capability lifecycleの欠落を拒否するの合否判定を所有する。
+   * @trace AIT-IT-008
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 判断適用の原子性と継続Capability lifecycleの欠落を拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   */
   it("判断適用の原子性と継続Capability lifecycleの欠落を拒否する", () => {
     const trace = structuredClone(currentTrace());
     const bindings = trace.actionBindings as Record<string, unknown>[];
@@ -513,6 +676,18 @@ describe("Project Runtime design traceability", () => {
     }
   });
 
+  /**
+   * 保護Record protocolの段階欠落・順序逆転・Queue観測欠落を拒否するを検証する。
+   *
+   * @responsibility 保護Record protocolの段階欠落・順序逆転・Queue観測欠落を拒否するの合否判定を所有する。
+   * @trace AIT-IT-008
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 保護Record protocolの段階欠落・順序逆転・Queue観測欠落を拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   */
   it("保護Record protocolの段階欠落・順序逆転・Queue観測欠落を拒否する", () => {
     const trace = structuredClone(currentTrace());
     const resources = trace.resources as Record<string, unknown>[];
@@ -614,6 +789,18 @@ describe("Project Runtime design traceability", () => {
     }
   });
 
+  /**
+   * 保護Root観測不能時の独立Recovery Store欠落と架空遷移を拒否するを検証する。
+   *
+   * @responsibility 保護Root観測不能時の独立Recovery Store欠落と架空遷移を拒否するの合否判定を所有する。
+   * @trace AIT-IT-008
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 保護Root観測不能時の独立Recovery Store欠落と架空遷移を拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   */
   it("保護Root観測不能時の独立Recovery Store欠落と架空遷移を拒否する", () => {
     const trace = structuredClone(currentTrace());
     const records = trace.persistentRecords as Record<string, unknown>[];
@@ -667,6 +854,18 @@ describe("Project Runtime design traceability", () => {
     }
   });
 
+  /**
+   * 回復意図の三者照合と継続Record先行収束の欠落を個別に拒否するを検証する。
+   *
+   * @responsibility 回復意図の三者照合と継続Record先行収束の欠落を個別に拒否するの合否判定を所有する。
+   * @trace AIT-IT-008
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 回復意図の三者照合と継続Record先行収束の欠落を個別に拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary AIT-IT-008=Direct Boundary: Key Capability→Secret Buffer observer→Signer→Publisher結果
+   */
   it("回復意図の三者照合と継続Record先行収束の欠落を個別に拒否する", () => {
     const cases: Array<{
       name: string;

@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:repository-operation-runtimeの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:repository-operation-runtimeが所有する検証責務を実行する。
+ * @trace PRL-IT-012
+ * @level IT
+ * @scope repository、operation、runtime
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -23,6 +33,18 @@ import {
 const firstRevision = "1".repeat(40);
 const secondRevision = "2".repeat(40);
 
+/**
+ * temporaryRepositoryのTest準備責務を実行する。
+ *
+ * @responsibility temporaryRepositoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus temporaryRepositoryを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function temporaryRepository(t: TestContext) {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-operation-repository-"),
@@ -45,6 +67,18 @@ function temporaryRepository(t: TestContext) {
   return root;
 }
 
+/**
+ * linkedRepositoryのTest準備責務を実行する。
+ *
+ * @responsibility linkedRepositoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus linkedRepositoryを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function linkedRepository(t: TestContext) {
   const parent = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-operation-linked-repository-"),
@@ -74,6 +108,18 @@ function linkedRepository(t: TestContext) {
   return { root, commonGitDirectory };
 }
 
+/**
+ * operationのTest準備責務を実行する。
+ *
+ * @responsibility operationがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus operationを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 function operation(t: TestContext) {
   const owned = createOwnedOperationDirectories();
   t.after(() => cleanupOwnedOperationDirectories(owned));
@@ -82,6 +128,18 @@ function operation(t: TestContext) {
   return createOwnedOperationManagementCapability(context, mount);
 }
 
+/**
+ * Repository実体と開始Revisionをopaque capabilityへ固定して再照合するを検証する。
+ *
+ * @responsibility Repository実体と開始Revisionをopaque capabilityへ固定して再照合するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Repository実体と開始Revisionをopaque capabilityへ固定して再照合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("Repository実体と開始Revisionをopaque capabilityへ固定して再照合する", (t) => {
   const repository = temporaryRepository(t);
   const management = operation(t);
@@ -121,6 +179,18 @@ test("Repository実体と開始Revisionをopaque capabilityへ固定して再照
   );
 });
 
+/**
+ * 開始後にHEAD参照先が変わればEffectと結果公開の双方で失効するを検証する。
+ *
+ * @responsibility 開始後にHEAD参照先が変わればEffectと結果公開の双方で失効するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 開始後にHEAD参照先が変わればEffectと結果公開の双方で失効するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("開始後にHEAD参照先が変わればEffectと結果公開の双方で失効する", (t) => {
   const repository = temporaryRepository(t);
   const management = operation(t);
@@ -141,6 +211,18 @@ test("開始後にHEAD参照先が変わればEffectと結果公開の双方で�
   );
 });
 
+/**
+ * detached HEADとpacked refを限定形式で解決し不正入力を拒否するを検証する。
+ *
+ * @responsibility detached HEADとpacked refを限定形式で解決し不正入力を拒否するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus detached HEADとpacked refを限定形式で解決し不正入力を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("detached HEADとpacked refを限定形式で解決し不正入力を拒否する", (t) => {
   const detached = temporaryRepository(t);
   fs.writeFileSync(
@@ -177,6 +259,18 @@ test("detached HEADとpacked refを限定形式で解決し不正入力を拒否
   );
 });
 
+/**
+ * SHA-256 RepositoryはOperation capability発行前の専用preflightで拒否するを検証する。
+ *
+ * @responsibility SHA-256 RepositoryはOperation capability発行前の専用preflightで拒否するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus SHA-256 RepositoryはOperation capability発行前の専用preflightで拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("SHA-256 RepositoryはOperation capability発行前の専用preflightで拒否する", (t) => {
   const repository = temporaryRepository(t);
   const revision = "a".repeat(64);
@@ -203,6 +297,18 @@ test("SHA-256 RepositoryはOperation capability発行前の専用preflightで拒
   );
 });
 
+/**
+ * 宣言Object Formatとdetached／loose／packed Revision幅の不一致をpreflightで拒否するを検証する。
+ *
+ * @responsibility 宣言Object Formatとdetached／loose／packed Revision幅の不一致をpreflightで拒否するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 宣言Object Formatとdetached／loose／packed Revision幅の不一致をpreflightで拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("宣言Object Formatとdetached／loose／packed Revision幅の不一致をpreflightで拒否する", (t) => {
   const detached = temporaryRepository(t);
   fs.writeFileSync(
@@ -246,6 +352,18 @@ test("宣言Object Formatとdetached／loose／packed Revision幅の不一致を
   );
 });
 
+/**
+ * loose refの中間junctionと最終symlinkをRepository境界外としてpreflightで拒否するを検証する。
+ *
+ * @responsibility loose refの中間junctionと最終symlinkをRepository境界外としてpreflightで拒否するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus loose refの中間junctionと最終symlinkをRepository境界外としてpreflightで拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("loose refの中間junctionと最終symlinkをRepository境界外としてpreflightで拒否する", (t) => {
   for (const linkedSegment of ["refs", "refs/heads"] as const) {
     const repository = temporaryRepository(t);
@@ -287,6 +405,18 @@ test("loose refの中間junctionと最終symlinkをRepository境界外としてp
   assert.equal(inspectRepositoryObjectFormatCandidate(repository), null);
 });
 
+/**
+ * linked worktreeのCommon Git Directoryでもloose ref junctionをpreflightで拒否するを検証する。
+ *
+ * @responsibility linked worktreeのCommon Git Directoryでもloose ref junctionをpreflightで拒否するの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus linked worktreeのCommon Git Directoryでもloose ref junctionをpreflightで拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("linked worktreeのCommon Git Directoryでもloose ref junctionをpreflightで拒否する", (t) => {
   const repository = linkedRepository(t);
   const external = fs.mkdtempSync(
@@ -304,6 +434,18 @@ test("linked worktreeのCommon Git Directoryでもloose ref junctionをpreflight
   assert.equal(inspectRepositoryObjectFormatCandidate(repository.root), null);
 });
 
+/**
+ * 公開契約はcaller supplied identityを採用せずPathを返さないを検証する。
+ *
+ * @responsibility 公開契約はcaller supplied identityを採用せずPathを返さないの合否判定を所有する。
+ * @trace PRL-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開契約はcaller supplied identityを採用せずPathを返さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Project Runtime Application Port→Core
+ */
 test("公開契約はcaller supplied identityを採用せずPathを返さない", () => {
   const contract = describeRepositoryOperationRuntimeContract();
   assert.equal(contract.contractRevision, 2);

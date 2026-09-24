@@ -1,3 +1,15 @@
+/**
+ * coordinator:integration:project-runtime-composition-rootの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:project-runtime-composition-rootが所有する検証責務を実行する。
+ * @trace PRL-IT-005
+ * @trace PRL-IT-008
+ * @trace PPR-IT-001
+ * @level IT
+ * @scope project、runtime、public、state、mcp
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -16,8 +28,11 @@ import {
   createDevelopmentProjectRuntimePublicObjectiveCandidate,
   createProjectRuntimeExecutionIntelligenceDiagnosticReporter,
   createProjectRuntimeRecoveryDiagnosticReporter,
+  executeProjectRuntimePublicAcceptanceDecision,
+  projectRuntimeDataBoundaryBlocked,
   PROJECT_RUNTIME_EXECUTION_INTELLIGENCE_PREFIX,
 } from "../../src/composition/project-runtime-composition-root.ts";
+import { RepositoryRuntimeDataAreaBlockedError } from "../../../runtime-data/src/index.ts";
 import { recordProjectRuntimeExecutionEvent } from "../../src/security/execution-intelligence-adapter.ts";
 import { createProjectRuntimeWindowsDecisionStoreTestingAdapter } from "../../src/security/project-runtime-windows-decision-store.ts";
 import {
@@ -25,6 +40,56 @@ import {
   verifyExecutionIntelligenceRepositoryRoot,
 } from "../../../execution-intelligence/src/index.ts";
 
+/**
+ * Runtime Data失敗を公開Project Runtime結果まで意味変更せず投影するを検証する。
+ *
+ * @responsibility Runtime Data失敗を公開Project Runtime結果まで意味変更せず投影するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Runtime Data失敗を公開Project Runtime結果まで意味変更せず投影するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
+test("Runtime Data失敗を公開Project Runtime結果まで意味変更せず投影する", () => {
+  const error = new RepositoryRuntimeDataAreaBlockedError({
+    status: "blocked",
+    reason: "repository_runtime_data_ignore_registration_blocked",
+    effectIssued: true,
+    effectStateUnknown: true,
+    effectConfirmation: "unknown",
+    cleanupConfirmed: false,
+    retryAllowed: false,
+    recoveryReference: "repository-local-ignore.test-reference",
+    repositoryPathReported: false,
+  });
+  assert.deepEqual(projectRuntimeDataBoundaryBlocked(error), {
+    contract: "crdd-coordinator/project-runtime-public-runtime/v1",
+    status: "blocked",
+    reason: "repository_runtime_data_ignore_registration_blocked",
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    effectState: "unknown",
+    effectIssued: true,
+    effectStateUnknown: true,
+    retryAllowed: false,
+    recoveryIds: ["repository-local-ignore.test-reference"],
+  });
+});
+
+/**
+ * development composition uses the explicitly supplied candidate integration boundaryを検証する。
+ *
+ * @responsibility development composition uses the explicitly supplied candidate integration boundaryの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus development composition uses the explicitly supplied candidate integration boundaryの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("development composition uses the explicitly supplied candidate integration boundary", async (t) => {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-project-public-runtime-"),
@@ -60,6 +125,7 @@ test("development composition uses the explicitly supplied candidate integration
   let taskStarts = 0;
   let shouldBlockExecutionPublication = false;
   let shouldThrowFromPublicationObserver = false;
+  let shouldBlockCandidateObservation = false;
   const publicationObservations: object[] = [];
   const runtime = createDevelopmentProjectRuntimePublicObjectiveCandidate({
     issueRuntimeExecutionAuthorization: () => Object.freeze({}),
@@ -153,12 +219,22 @@ test("development composition uses the explicitly supplied candidate integration
             cleanupConfirmed: true,
           }),
         observeCanonicalRepository: () =>
-          Object.freeze({
-            status: "observed" as const,
-            repositoryRevision: revision,
-            dirty: false,
-            observedPaths: Object.freeze([]),
-          }),
+          shouldBlockCandidateObservation
+            ? Object.freeze({
+                status: "blocked" as const,
+                reason: "project_runtime_candidate_base_cleanup_unconfirmed",
+                effectIssued: false,
+                effectStateUnknown: false,
+                cleanupConfirmed: false,
+                retryAllowed: false,
+                recoveryReference: null,
+              })
+            : Object.freeze({
+                status: "observed" as const,
+                repositoryRevision: revision,
+                dirty: false,
+                observedPaths: Object.freeze([]),
+              }),
         adoptCandidate: async () => {
           throw new Error("adoption_must_not_be_used");
         },
@@ -196,6 +272,107 @@ test("development composition uses the explicitly supplied candidate integration
     root,
     Object.freeze({ principalId: "local-user-test-user" }),
   );
+  assert.equal(result.status, "blocked", JSON.stringify(result));
+  assert.equal(result.reason, "project_runtime_acceptance_decision_required");
+  let pending = runtime.runStateQuery(
+    {
+      requestId: "query-acceptance-pending",
+      projectId: "project-public-runtime",
+      repositoryRevision: revision,
+    },
+    root,
+    { principalId: "local-user-test-user" },
+  );
+  assert.equal(pending.status, "completed");
+  if (!("projection" in pending) || pending.projection === null)
+    throw new Error("acceptance_pending_projection_missing");
+  const objectiveId = pending.projection.objectiveTaskSummaries[0]?.objectiveId;
+  assert.ok(objectiveId);
+  let expectedGeneration = pending.projection.generation;
+  /**
+   * 受入判断用の認証済みPrincipalを返す。
+   *
+   * @responsibility 明示的な受入判断を実行する認証主体を固定する。
+   * @trace PRL-IT-008
+   * @precondition 試験用Principalが受入判断Authorityを持つ。
+   * @stimulus 受入判断入口から認証処理を呼び出す。
+   * @observation completed状態とPrincipal IDを返す。
+   * @oracle 未認証または別Principalへ置き換えない。
+   * @cleanup N/A: 認証状態を永続化しない。
+   * @boundary PRL-IT-008=Direct Boundary: Public Acceptance Entry→Authentication
+   */
+  const authenticate = () =>
+    Object.freeze({
+      status: "completed" as const,
+      principalId: "local-user-test-user",
+    });
+  /**
+   * 指定対象へ明示的な受入判断を記録する。
+   *
+   * @responsibility ObjectiveとMilestoneの受入判断を同じPublic Contractで実行する。
+   * @trace PRL-IT-008
+   * @precondition 対象IDと現在Generationが取得済みである。
+   * @stimulus accept判断とEvidence IDを受入判断入口へ渡す。
+   * @observation 判断結果と更新後Generationを取得する。
+   * @oracle 明示判断なしに受入状態へ遷移しない。
+   * @cleanup N/A: 試験の一時Repositoryは外側のcleanupが回収する。
+   * @boundary PRL-IT-008=Adjacent 1 Block: Public Acceptance Entry→Durable Decision Store
+   */
+  const decide = (
+    target: "objective" | "milestone",
+    targetId: string,
+    decisionId: string,
+    evidenceId: string,
+  ) =>
+    executeProjectRuntimePublicAcceptanceDecision(
+      authenticate,
+      {
+        contract: "crdd-coordinator/project-runtime-acceptance-decision/v1",
+        decisionId,
+        sourceSpecId: "SPEC-000002",
+        projectId: "project-public-runtime",
+        milestoneId: "milestone-public-runtime",
+        repositoryRevision: revision,
+        expectedGeneration,
+        target,
+        targetId,
+        decision: "accept",
+        criterionEvidenceIds: [evidenceId],
+        principalId: "local-user-test-user",
+      },
+      root,
+      { principalId: "local-user-test-user" },
+    );
+  assert.equal(
+    decide(
+      "objective",
+      objectiveId,
+      "decision-objective-public-runtime",
+      "evidence-objective",
+    ).status,
+    "completed",
+  );
+  pending = runtime.runStateQuery(
+    {
+      requestId: "query-objective-accepted",
+      projectId: "project-public-runtime",
+      repositoryRevision: revision,
+    },
+    root,
+    { principalId: "local-user-test-user" },
+  );
+  if (!("projection" in pending) || pending.projection === null)
+    throw new Error("objective_accepted_projection_missing");
+  expectedGeneration = pending.projection.generation;
+  assert.equal(
+    decide(
+      "milestone",
+      "milestone-public-runtime",
+      "decision-milestone-public-runtime",
+      "evidence-milestone",
+    ).status,
+    "completed",
+  );
   const after = runtime.runStateQuery(
     {
       requestId: "query-after",
@@ -208,8 +385,6 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(after.status, "completed");
   assert.equal(after.observationState, "observed");
   assert.equal(after.projection?.milestoneState, "accepted");
-  assert.equal(result.status, "completed", JSON.stringify(result));
-  assert.equal(result.reason, "project_runtime_milestone_accepted");
   assert.equal(
     result.contract,
     "crdd-coordinator/project-runtime-objective-intake/v1",
@@ -217,25 +392,62 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(result.requestId, "request-public-runtime");
   assert.equal(result.projectId, "project-public-runtime");
   assert.equal(result.milestoneId, "milestone-public-runtime");
-  assert.equal(result.projection?.milestoneState, "accepted");
+  assert.equal(result.projection?.milestoneState, "executing");
   assert.equal(result.effectState, "settled");
   assert.equal(integrationAdapterCalls, 1);
   assert.equal(taskStarts, 1);
+  shouldBlockCandidateObservation = true;
+  const cleanupBlocked = await runtime.run(
+    {
+      requestId: "request-candidate-cleanup-blocked",
+      projectId: "project-candidate-cleanup-blocked",
+      milestoneId: "milestone-candidate-cleanup-blocked",
+      repositoryRevision: revision,
+      objective: "Confirm cleanup failure projection.",
+      acceptanceCriteria: ["cleanup failure is preserved"],
+      allowedPaths: ["result.txt"],
+      readPaths: ["result.txt"],
+      maximumConcurrency: 1,
+      maximumReplans: 0,
+      originLane: "interactive",
+      requestedExecutorProvider: "codex",
+      adoptResult: true,
+    },
+    new AbortController().signal,
+    root,
+    Object.freeze({ principalId: "local-user-test-user" }),
+  );
+  assert.equal(
+    cleanupBlocked.reason,
+    "project_runtime_candidate_base_cleanup_unconfirmed",
+  );
+  const cleanupBlockedDetails = cleanupBlocked as Record<string, unknown>;
+  assert.equal(cleanupBlockedDetails.effectIssued, false);
+  assert.equal(cleanupBlockedDetails.effectStateUnknown, false);
+  assert.equal(cleanupBlocked.cleanupConfirmed, false);
+  assert.equal(cleanupBlockedDetails.retryAllowed, false);
+  assert.equal(cleanupBlocked.manualRecoveryRequired, true);
+  assert.deepEqual(cleanupBlocked.recoveryIds, []);
   const verifiedRoot = verifyExecutionIntelligenceRepositoryRoot(root);
   assert.equal(verifiedRoot.status, "completed");
   if (verifiedRoot.status !== "completed")
     throw new Error("execution_intelligence_root_not_verified");
-  const executionIntelligence = readExecutionIntelligence(verifiedRoot.root);
-  assert.equal(executionIntelligence.status, "completed");
-  if (executionIntelligence.status !== "completed")
+  const executionIntelligenceResult = readExecutionIntelligence(
+    verifiedRoot.root,
+  );
+  assert.equal(executionIntelligenceResult.status, "completed");
+  if (executionIntelligenceResult.status !== "completed")
     throw new Error("execution_intelligence_observation_failed");
-  assert.equal(executionIntelligence.events.length, 1);
+  assert.equal(executionIntelligenceResult.events.length, 2);
+  const primaryExecutionEvent = executionIntelligenceResult.events.find(
+    (entry) => entry.identity.projectId === "project-public-runtime",
+  );
   assert.equal(
-    executionIntelligence.events[0]?.identity.projectId,
+    primaryExecutionEvent?.identity.projectId,
     "project-public-runtime",
   );
-  assert.equal(executionIntelligence.events[0]?.outcome.status, "completed");
-  assert.deepEqual(executionIntelligence.events[0]?.execution.provider, {
+  assert.equal(primaryExecutionEvent?.outcome.status, "completed");
+  assert.deepEqual(primaryExecutionEvent?.execution.provider, {
     state: "observed",
     value: "codex",
     source: "single_task_verified_completion",
@@ -291,11 +503,11 @@ test("development composition uses the explicitly supplied candidate integration
     };
     isError: boolean;
   };
-  assert.equal(mcpResult.isError, false);
-  assert.equal(mcpResult.structuredContent.status, "completed");
+  assert.equal(mcpResult.isError, true);
+  assert.equal(mcpResult.structuredContent.status, "blocked");
   assert.equal(
     mcpResult.structuredContent.reason,
-    "project_runtime_milestone_accepted",
+    "project_runtime_acceptance_decision_required",
   );
   assert.deepEqual(mcpResult.structuredContent.recoveryIds, []);
 
@@ -371,8 +583,8 @@ test("development composition uses the explicitly supplied candidate integration
   );
   assert.equal(replay.status, "completed", JSON.stringify(replay));
   assert.equal(replay.reason, "project_runtime_objective_already_accepted");
-  assert.equal(taskStarts, 1);
-  assert.equal(integrationAdapterCalls, 1);
+  assert.equal(taskStarts, 2);
+  assert.equal(integrationAdapterCalls, 2);
 
   shouldBlockExecutionPublication = true;
   const publicationBlocked = await runtime.run(
@@ -395,13 +607,16 @@ test("development composition uses the explicitly supplied candidate integration
     root,
     Object.freeze({ principalId: "local-user-test-user" }),
   );
-  assert.equal(publicationBlocked.status, "completed");
-  assert.equal(publicationBlocked.reason, "project_runtime_milestone_accepted");
+  assert.equal(publicationBlocked.status, "blocked");
+  assert.equal(
+    publicationBlocked.reason,
+    "project_runtime_acceptance_decision_required",
+  );
   assert.equal(
     (publicationObservations.at(-1) as { status?: unknown }).status,
     "blocked",
   );
-  assert.equal(taskStarts, 2);
+  assert.equal(taskStarts, 3);
 
   shouldThrowFromPublicationObserver = true;
   const diagnosticFailed = await runtime.run(
@@ -424,9 +639,12 @@ test("development composition uses the explicitly supplied candidate integration
     root,
     Object.freeze({ principalId: "local-user-test-user" }),
   );
-  assert.equal(diagnosticFailed.status, "completed");
-  assert.equal(diagnosticFailed.reason, "project_runtime_milestone_accepted");
-  assert.equal(taskStarts, 3);
+  assert.equal(diagnosticFailed.status, "blocked");
+  assert.equal(
+    diagnosticFailed.reason,
+    "project_runtime_acceptance_decision_required",
+  );
+  assert.equal(taskStarts, 4);
 });
 
 class ControlledDiagnosticStream extends Writable {
@@ -445,6 +663,18 @@ class ControlledDiagnosticStream extends Writable {
   }
 }
 
+/**
+ * 回復診断を直列化しcallback成功だけを成功として扱うを検証する。
+ *
+ * @responsibility 回復診断を直列化しcallback成功だけを成功として扱うの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 回復診断を直列化しcallback成功だけを成功として扱うの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("回復診断を直列化しcallback成功だけを成功として扱う", async () => {
   const stream = new ControlledDiagnosticStream({ highWaterMark: 1 });
   const reporter = createProjectRuntimeRecoveryDiagnosticReporter(stream, 200);
@@ -462,6 +692,18 @@ test("回復診断を直列化しcallback成功だけを成功として扱う", 
   reporter.dispose();
 });
 
+/**
+ * 実行Event発行診断は回復診断と別の閉じた識別子で出力するを検証する。
+ *
+ * @responsibility 実行Event発行診断は回復診断と別の閉じた識別子で出力するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実行Event発行診断は回復診断と別の閉じた識別子で出力するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("実行Event発行診断は回復診断と別の閉じた識別子で出力する", async () => {
   const stream = new ControlledDiagnosticStream();
   const reporter = createProjectRuntimeExecutionIntelligenceDiagnosticReporter(
@@ -487,6 +729,18 @@ test("実行Event発行診断は回復診断と別の閉じた識別子で出力
   reporter.dispose();
 });
 
+/**
+ * 回復診断の各終端を区別し失敗後の書込みを停止するを検証する。
+ *
+ * @responsibility 回復診断の各終端を区別し失敗後の書込みを停止するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 回復診断の各終端を区別し失敗後の書込みを停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("回復診断の各終端を区別し失敗後の書込みを停止する", async (t) => {
   const cases = [
     {
@@ -529,6 +783,18 @@ test("回復診断の各終端を区別し失敗後の書込みを停止する",
   }
 });
 
+/**
+ * 回復診断timeout後の遅延callbackとerrorを二重完了にしないを検証する。
+ *
+ * @responsibility 回復診断timeout後の遅延callbackとerrorを二重完了にしないの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 回復診断timeout後の遅延callbackとerrorを二重完了にしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("回復診断timeout後の遅延callbackとerrorを二重完了にしない", async () => {
   const stream = new ControlledDiagnosticStream();
   const reporter = createProjectRuntimeRecoveryDiagnosticReporter(stream, 10);
@@ -540,6 +806,18 @@ test("回復診断timeout後の遅延callbackとerrorを二重完了にしない
   reporter.dispose();
 });
 
+/**
+ * 回復診断の同期throwと明示disposeを閉じた結果へ変換するを検証する。
+ *
+ * @responsibility 回復診断の同期throwと明示disposeを閉じた結果へ変換するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 回復診断の同期throwと明示disposeを閉じた結果へ変換するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("回復診断の同期throwと明示disposeを閉じた結果へ変換する", async () => {
   class ThrowingDiagnosticStream extends Writable {
     override write(): boolean {

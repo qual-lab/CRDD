@@ -1,10 +1,16 @@
+/**
+ * provider-homeに属する責務をまとめる。
+ *
+ * @responsibility blockedを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import path from "node:path";
 
 import { isSupportedWindowsAbsolutePathCandidate } from "./authority-root-path-lexical.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
-import { describeProviderHomeObservationContract } from "./provider-home-observation.ts";
 import { describeProviderHomeMountGrantContract } from "./provider-home-mount-grant.ts";
 import { describeProviderHomeMountGrantRuntimeContract } from "./provider-home-mount-grant-runtime.ts";
+import { describeProviderHomeObservationContract } from "./provider-home-observation.ts";
 import {
   describeProviderHomeWindowsAdapterContract,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
@@ -22,6 +28,22 @@ export const PROVIDER_HOME_ROOT_SEGMENTS = Object.freeze([
 const PROVIDERS = Object.freeze(["codex", "claude"] as const);
 const INPUT_KEYS = new Set(["provider", "localAppDataRoot"]);
 
+/**
+ * provider-homeを停止結果として構築する。
+ *
+ * @responsibility provider-homeの停止理由、未発行Effect、公開結果境界を所有する。
+ * @trace ARCH-000010
+ * @input reason: string
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: string」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
+ * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(reason: string) {
   return Object.freeze({
     status: "blocked" as const,
@@ -38,6 +60,22 @@ function blocked(reason: string) {
   });
 }
 
+/**
+ * providerを決定する。
+ *
+ * @responsibility providerの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000010
+ * @input value: unknown
+ * @returns (typeof PROVIDERS)[number] | nullを返す。
+ * @precondition 「value: unknown」がproviderの入力契約を満たす。
+ * @postcondition providerの責務を完了した結果だけを返す。
+ * @effect N/A: providerは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: providerは独自の失敗分岐を所有しない。
+ * @invariant providerは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: providerはProcess内の同一Subsystemで完結する。
+ * @security providerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: providerは共有非同期状態を持たない同期処理である。
+ */
 function provider(value: unknown): (typeof PROVIDERS)[number] | null {
   return typeof value === "string" &&
     PROVIDERS.some((candidate) => candidate === value)
@@ -45,6 +83,22 @@ function provider(value: unknown): (typeof PROVIDERS)[number] | null {
     : null;
 }
 
+/**
+ * Layout For Validationを一意に解決する。
+ *
+ * @responsibility Layout For Validationの候補集合、解決規則、曖昧時の拒否境界を所有する。
+ * @trace ARCH-000010
+ * @input localAppDataRoot: string、selectedProvider: (typeof PROVIDERS)[number]
+ * @returns resolveLayoutForValidationの計算結果を返す。
+ * @precondition 「localAppDataRoot: string、selectedProvider: (typeof PROVIDERS)[number]」がresolveLayoutForValidationの入力契約を満たす。
+ * @postcondition resolveLayoutForValidationの責務を完了した結果だけを返す。
+ * @effect N/A: resolveLayoutForValidationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveLayoutForValidationは独自の失敗分岐を所有しない。
+ * @invariant resolveLayoutForValidationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveLayoutForValidationはProcess内の同一Subsystemで完結する。
+ * @security resolveLayoutForValidationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resolveLayoutForValidationは共有非同期状態を持たない同期処理である。
+ */
 function resolveLayoutForValidation(
   localAppDataRoot: string,
   selectedProvider: (typeof PROVIDERS)[number],
@@ -59,6 +113,22 @@ function resolveLayoutForValidation(
   });
 }
 
+/**
+ * Windows Provider Home Layout 候補を評価する。
+ *
+ * @responsibility Windows Provider Home Layout 候補の評価入力、判定規則、判断不能結果の境界を所有する。
+ * @trace ARCH-000010
+ * @input raw: unknown
+ * @returns evaluateWindowsProviderHomeLayoutCandidateの計算結果を返す。
+ * @precondition 「raw: unknown」がevaluateWindowsProviderHomeLayoutCandidateの入力契約を満たす。
+ * @postcondition evaluateWindowsProviderHomeLayoutCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: evaluateWindowsProviderHomeLayoutCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: evaluateWindowsProviderHomeLayoutCandidateは独自の失敗分岐を所有しない。
+ * @invariant evaluateWindowsProviderHomeLayoutCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: evaluateWindowsProviderHomeLayoutCandidateはProcess内の同一Subsystemで完結する。
+ * @security evaluateWindowsProviderHomeLayoutCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: evaluateWindowsProviderHomeLayoutCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function evaluateWindowsProviderHomeLayoutCandidate(raw: unknown) {
   const input = snapshotPlainRecord(raw, INPUT_KEYS);
   if (!input) return blocked("provider_home_layout_input_invalid");
@@ -101,6 +171,22 @@ export function evaluateWindowsProviderHomeLayoutCandidate(raw: unknown) {
   });
 }
 
+/**
+ * Runtime 所有 Windows Provider Home 候補を観測する。
+ *
+ * @responsibility Runtime 所有 Windows Provider Home 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000010
+ * @input provider: unknown、evaluationTime: unknown
+ * @returns observeRuntimeOwnedWindowsProviderHomeCandidateの計算結果を返す。
+ * @precondition 「provider: unknown、evaluationTime: unknown」がobserveRuntimeOwnedWindowsProviderHomeCandidateの入力契約を満たす。
+ * @postcondition observeRuntimeOwnedWindowsProviderHomeCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: observeRuntimeOwnedWindowsProviderHomeCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: observeRuntimeOwnedWindowsProviderHomeCandidateは独自の失敗分岐を所有しない。
+ * @invariant observeRuntimeOwnedWindowsProviderHomeCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observeRuntimeOwnedWindowsProviderHomeCandidateはProcess内の同一Subsystemで完結する。
+ * @security observeRuntimeOwnedWindowsProviderHomeCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeRuntimeOwnedWindowsProviderHomeCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function observeRuntimeOwnedWindowsProviderHomeCandidate(
   provider: unknown,
   evaluationTime: unknown,
@@ -111,6 +197,22 @@ export function observeRuntimeOwnedWindowsProviderHomeCandidate(
   );
 }
 
+/**
+ * Provider Home 契約の公開契約を記述する。
+ *
+ * @responsibility Provider Home 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000010
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProviderHomeContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProviderHomeContractの入力契約を満たす。
+ * @postcondition describeProviderHomeContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeProviderHomeContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProviderHomeContractは独自の失敗分岐を所有しない。
+ * @invariant describeProviderHomeContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeProviderHomeContractはProcess内の同一Subsystemで完結する。
+ * @security describeProviderHomeContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeProviderHomeContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeProviderHomeContract() {
   const observation = describeProviderHomeObservationContract();
   const windowsAdapter = describeProviderHomeWindowsAdapterContract();

@@ -1,3 +1,15 @@
+/**
+ * coordinator:integration:docker-desktop-runtime-repairの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:docker-desktop-runtime-repairが所有する検証責務を実行する。
+ * @trace ERB-IT-001
+ * @trace ERB-IT-012
+ * @trace ERB-IT-014
+ * @level IT
+ * @scope docker、desktop、runtime、repair
+ * @boundary ERB-IT-001／ERB-IT-012=Direct Boundary: Adapter→実CLI・Process・Container。ERB-IT-014=Related 2 Blocks: Engine Observer／修復制御→待機結果
+ */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -6,6 +18,12 @@ import path from "node:path";
 import test from "node:test";
 
 import { renderDockerRecoveryDoctorReport } from "../../src/core/docker-recovery-command-report.ts";
+import {
+  createDockerDesktopRepairContinuation,
+  inspectDockerDesktopRepairContinuation,
+  persistDockerDesktopRepairContinuationIntent,
+  persistDockerDesktopRepairContinuationSettlement,
+} from "../../src/security/docker-desktop-repair-continuation-store.ts";
 import type {
   DockerDesktopRepairLedgerSnapshot,
   DockerDesktopRepairOperation,
@@ -23,11 +41,12 @@ import {
 } from "../../src/security/docker-desktop-repair-record-store.ts";
 import {
   adoptWindowsDockerDesktopRepairUsingDependencies,
+  awaitDockerDesktopEngineUsing,
   classifyDockerDesktopRepairHistoricalAdoptionRoute,
   closeWindowsDockerDesktopRepairUsingDependencies,
   describeDockerDesktopRuntimeRepairContract,
-  observeDockerDesktopRuntimeDirectoryLockUsingDependencies,
   observeDockerDesktopEngineResult,
+  observeDockerDesktopRuntimeDirectoryLockUsingDependencies,
   type PreparedBoundary,
   type RepairDependencies,
   repairWindowsDockerDesktopRuntimeUsingDependencies,
@@ -48,8 +67,32 @@ const executedRepairRuntimeTraceCases = new Set<string>();
 
 const RUN_IDENTITY = Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" });
 
+/**
+ * snapshotDirectoryBytesのTest準備責務を実行する。
+ *
+ * @responsibility snapshotDirectoryBytesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus snapshotDirectoryBytesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 function snapshotDirectoryBytes(root: string) {
   const result = new Map<string, string>();
+  /**
+   * visitのTest準備責務を実行する。
+   *
+   * @responsibility visitがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERB-IT-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus visitを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+   */
   const visit = (directory: string) => {
     for (const name of fs.readdirSync(directory).sort()) {
       const target = path.join(directory, name);
@@ -66,6 +109,18 @@ function snapshotDirectoryBytes(root: string) {
   return result;
 }
 
+/**
+ * Docker停止時の空行またはJSON nullはCLI失敗とpipe不存在の両方がある場合だけ受理するを検証する。
+ *
+ * @responsibility Docker停止時の空行またはJSON nullはCLI失敗とpipe不存在の両方がある場合だけ受理するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Docker停止時の空行またはJSON nullはCLI失敗とpipe不存在の両方がある場合だけ受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("Docker停止時の空行またはJSON nullはCLI失敗とpipe不存在の両方がある場合だけ受理する", () => {
   const base = {
     pid: 123,
@@ -113,7 +168,12 @@ test("Docker停止時の空行またはJSON nullはCLI失敗とpipe不存在の�
       "28.1.1",
       () => assert.fail("判定不能なCLI応答からpipe確認へ進まない"),
     );
-    assert.equal(result, "unknown");
+    assert.equal(
+      result,
+      "error" in overrides && overrides.error?.code === "ETIMEDOUT"
+        ? "transient_unavailable"
+        : "unknown",
+    );
   }
   assert.equal(
     observeDockerDesktopEngineResult(
@@ -138,6 +198,91 @@ test("Docker停止時の空行またはJSON nullはCLI失敗とpipe不存在の�
   }
 });
 
+/**
+ * Docker初回起動中のCLI TimeoutはHost操作を再発行せず期限内で再観測するを検証する。
+ *
+ * @responsibility Docker初回起動中の一時Timeout、期限超過、取消の待機契約を検証する。
+ * @trace ERB-IT-014
+ * @precondition 決定論的な時計、待機、Engine観測を使用する。
+ * @stimulus awaitDockerDesktopEngineUsingを実行する。
+ * @observation 観測回数、待機時間および最終状態を取得する。
+ * @oracle 一時Timeoutは再観測され、全体期限超過と取消は別の状態へ収束する。
+ * @cleanup N/A: 外部資源を作成しない。
+ * @boundary ERB-IT-014=Related 2 Blocks: Engine Observer→待機制御
+ */
+test("Docker初回起動中のCLI TimeoutはHost操作を再発行せず期限内で再観測する", async () => {
+  let now = 0;
+  let observations = 0;
+  const neverStops = new Promise<void>(() => undefined);
+  const ready = await awaitDockerDesktopEngineUsing(
+    () => {
+      observations += 1;
+      return observations < 3 ? "transient_unavailable" : "ready";
+    },
+    () => false,
+    neverStops,
+    {
+      now: () => now,
+      sleep: async (milliseconds) => {
+        now += milliseconds;
+      },
+      timeoutMs: 180_000,
+      pollIntervalMs: 1_000,
+    },
+  );
+  assert.equal(ready, "ready");
+  assert.equal(observations, 3);
+  assert.equal(now, 2_000);
+
+  now = 0;
+  observations = 0;
+  const timedOut = await awaitDockerDesktopEngineUsing(
+    () => {
+      observations += 1;
+      return "transient_unavailable";
+    },
+    () => false,
+    neverStops,
+    {
+      now: () => now,
+      sleep: async (milliseconds) => {
+        now += milliseconds;
+      },
+      timeoutMs: 3_000,
+      pollIntervalMs: 1_000,
+    },
+  );
+  assert.equal(timedOut, "startup_timeout");
+  assert.equal(observations, 4);
+
+  let isStopped = false;
+  const cancelled = await awaitDockerDesktopEngineUsing(
+    () => "known_unavailable",
+    () => isStopped,
+    neverStops,
+    {
+      now: () => 0,
+      sleep: async () => {
+        isStopped = true;
+      },
+      timeoutMs: 180_000,
+    },
+  );
+  assert.equal(cancelled, "unknown");
+});
+
+/**
+ * 実子Processの空行・JSON null・非zero終了を停止判定へ搬送するを検証する。
+ *
+ * @responsibility 実子Processの空行・JSON null・非zero終了を停止判定へ搬送するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実子Processの空行・JSON null・非zero終了を停止判定へ搬送するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("実子Processの空行・JSON null・非zero終了を停止判定へ搬送する", () => {
   for (const stdout of ["\n", "\r\n", "null\n", "null\r\n", "unexpected\n"]) {
     const result = spawnSync(
@@ -160,6 +305,18 @@ test("実子Processの空行・JSON null・非zero終了を停止判定へ搬送
   }
 });
 
+/**
+ * Docker runtime directoryのlock観測は特定socket名に依存せず、境界変化を拒否するを検証する。
+ *
+ * @responsibility Docker runtime directoryのlock観測は特定socket名に依存せず、境界変化を拒否するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Docker runtime directoryのlock観測は特定socket名に依存せず、境界変化を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("Docker runtime directoryのlock観測は特定socket名に依存せず、境界変化を拒否する", () => {
   const entries = [
     { name: "sailor-ingest.sock", isDirectory: false, isSymbolicLink: false },
@@ -285,6 +442,18 @@ const boundary: PreparedBoundary = Object.freeze({
   policy,
 });
 
+/**
+ * sessionのTest準備責務を実行する。
+ *
+ * @responsibility sessionがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus sessionを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 function session(
   options: {
     release?: "released" | "protocol_failed" | "cleanup_unknown";
@@ -330,6 +499,18 @@ function session(
   });
 }
 
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 function fixture(overrides: Partial<RepairDependencies> = {}) {
   const calls: string[] = [];
   let operation: DockerDesktopRepairOperation | null = null;
@@ -492,6 +673,18 @@ function fixture(overrides: Partial<RepairDependencies> = {}) {
   });
 }
 
+/**
+ * persistActualRepairRecordのTest準備責務を実行する。
+ *
+ * @responsibility persistActualRepairRecordがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus persistActualRepairRecordを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 function persistActualRepairRecord(
   currentBoundary: PreparedBoundary,
   current: DockerDesktopRepairOperation,
@@ -530,6 +723,18 @@ function persistActualRepairRecord(
   );
 }
 
+/**
+ * persistActualProcessEffectのTest準備責務を実行する。
+ *
+ * @responsibility persistActualProcessEffectがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus persistActualProcessEffectを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 function persistActualProcessEffect(
   currentBoundary: PreparedBoundary,
   current: DockerDesktopRepairOperation,
@@ -592,6 +797,18 @@ function persistActualProcessEffect(
   return settled;
 }
 
+/**
+ * operationFixtureのTest準備責務を実行する。
+ *
+ * @responsibility operationFixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus operationFixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 function operationFixture(
   stage: DockerDesktopRepairOperation["stage"],
   ledgerOverrides: Partial<DockerDesktopRepairLedgerSnapshot> = {},
@@ -642,6 +859,18 @@ function operationFixture(
   });
 }
 
+/**
+ * 履歴引継ぎrouteは不正・履歴なし・終了済み・同一Session・新Sessionを排他的に分類するを検証する。
+ *
+ * @responsibility 履歴引継ぎrouteは不正・履歴なし・終了済み・同一Session・新Sessionを排他的に分類するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 履歴引継ぎrouteは不正・履歴なし・終了済み・同一Session・新Sessionを排他的に分類するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("履歴引継ぎrouteは不正・履歴なし・終了済み・同一Session・新Sessionを排他的に分類する", () => {
   const original = operationFixture("prepared");
   assert.equal(
@@ -736,6 +965,18 @@ test("履歴引継ぎrouteは不正・履歴なし・終了済み・同一Sessio
     );
 });
 
+/**
+ * 履歴引継ぎ結果は元chain不変fieldと許可されたSession差分を全数検証するを検証する。
+ *
+ * @responsibility 履歴引継ぎ結果は元chain不変fieldと許可されたSession差分を全数検証するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 履歴引継ぎ結果は元chain不変fieldと許可されたSession差分を全数検証するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("履歴引継ぎ結果は元chain不変fieldと許可されたSession差分を全数検証する", () => {
   const before = operationFixture("prepared");
   const adopted: DockerDesktopRepairOperation = {
@@ -954,6 +1195,18 @@ test("履歴引継ぎ結果は元chain不変fieldと許可されたSession差分
     );
 });
 
+/**
+ * Canonical履歴分類は全modeと非plain・余分field・疎配列・nested Proxyを一つのOwnerで閉じるを検証する。
+ *
+ * @responsibility Canonical履歴分類は全modeと非plain・余分field・疎配列・nested Proxyを一つのOwnerで閉じるの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Canonical履歴分類は全modeと非plain・余分field・疎配列・nested Proxyを一つのOwnerで閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("Canonical履歴分類は全modeと非plain・余分field・疎配列・nested Proxyを一つのOwnerで閉じる", () => {
   const original = operationFixture("prepared");
   const openCurrent: DockerDesktopRepairOperation = {
@@ -1112,6 +1365,18 @@ test("Canonical履歴分類は全modeと非plain・余分field・疎配列・nes
   );
 });
 
+/**
+ * 引継ぎ済みの全旧stageはHost操作を再発行せず、現在観測と明示終了だけへ接続するを検証する。
+ *
+ * @responsibility 引継ぎ済みの全旧stageはHost操作を再発行せず、現在観測と明示終了だけへ接続するの合否判定を所有する。
+ * @trace ERB-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 引継ぎ済みの全旧stageはHost操作を再発行せず、現在観測と明示終了だけへ接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-012=Related 2 Blocks: Coordinator→Repair Record→Platform Adapter
+ */
 test("引継ぎ済みの全旧stageはHost操作を再発行せず、現在観測と明示終了だけへ接続する", async () => {
   for (const stage of DOCKER_DESKTOP_REPAIR_STAGES) {
     const isNoStale =
@@ -1138,6 +1403,18 @@ test("引継ぎ済みの全旧stageはHost操作を再発行せず、現在観�
     };
     let hostCalls = 0;
     let closureWrites = 0;
+    /**
+     * rejectHostのTest準備責務を実行する。
+     *
+     * @responsibility rejectHostがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+     * @trace ERB-IT-012
+     * @precondition 呼出し元Test Caseが必要な入力を渡す。
+     * @stimulus rejectHostを呼び出す。
+     * @observation 返却値、生成fixtureまたは観測値を取得する。
+     * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+     * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+     * @boundary ERB-IT-012=Related 2 Blocks: Coordinator→Repair Record→Platform Adapter
+     */
     const rejectHost = () => {
       hostCalls += 1;
       throw new Error("unexpected Host action");
@@ -1214,12 +1491,25 @@ test("引継ぎ済みの全旧stageはHost操作を再発行せず、現在観�
   }
 });
 
+/**
+ * 履歴終了の異常境界は新規修復許可を出さず、既存Host操作を発行しないを検証する。
+ *
+ * @responsibility 履歴終了の異常境界は新規修復許可を出さず、既存Host操作を発行しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 履歴終了の異常境界は新規修復許可を出さず、既存Host操作を発行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("履歴終了の異常境界は新規修復許可を出さず、既存Host操作を発行しない", async () => {
   for (const failure of [
     "engine",
     "process",
     "run",
     "stale",
+    "stale_unknown",
     "cancel",
     "write",
     "cleanup",
@@ -1259,13 +1549,15 @@ test("履歴終了の異常境界は新規修復許可を出さず、既存Host�
                 state: "present",
                 identity: { dev: "9", ino: "8", birthtimeNs: "7" },
               }
-          : {
-              state: "present",
-              identity:
-                failure === "stale"
-                  ? { ...RUN_IDENTITY, ino: "99" }
-                  : RUN_IDENTITY,
-            },
+          : failure === "stale_unknown"
+            ? { state: "unknown", identity: null }
+            : {
+                state: "present",
+                identity:
+                  failure === "stale"
+                    ? { ...RUN_IDENTITY, ino: "99" }
+                    : RUN_IDENTITY,
+              },
       registerCancellation: (listener) => {
         if (failure === "cancel") listener();
         return () => undefined;
@@ -1326,6 +1618,18 @@ test("履歴終了の異常境界は新規修復許可を出さず、既存Host�
   }
 });
 
+/**
+ * 既知のruntime directory lockを持つ引継ぎ済み履歴は証拠を閉じ、新修復を許可するを検証する。
+ *
+ * @responsibility 既知のruntime directory lockを持つ引継ぎ済み履歴は証拠を閉じ、新修復を許可するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 既知のruntime directory lockを持つ引継ぎ済み履歴は証拠を閉じ、新修復を許可するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("既知のruntime directory lockを持つ引継ぎ済み履歴は証拠を閉じ、新修復を許可する", async () => {
   const original = operationFixture("prepared", {
     processEffectIssued: null,
@@ -1394,7 +1698,11 @@ test("既知のruntime directory lockを持つ引継ぎ済み履歴は証拠を�
     operation.repairId,
     state.dependencies,
   );
-  assert.equal(result.status, "historical_closed_retained");
+  assert.equal(
+    result.status,
+    "historical_closed_retained",
+    JSON.stringify(result),
+  );
   assert.equal(
     result.reason,
     "docker_desktop_repair_historical_broken_state_retained_for_new_repair",
@@ -1408,6 +1716,18 @@ test("既知のruntime directory lockを持つ引継ぎ済み履歴は証拠を�
   assert.equal(hostEffects, 0);
 });
 
+/**
+ * Host Effect非発行を証明できる引継ぎ済み履歴は現在の故障推定なしで閉じるを検証する。
+ *
+ * @responsibility Host Effect非発行を証明できる引継ぎ済み履歴は現在の故障推定なしで閉じるの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host Effect非発行を証明できる引継ぎ済み履歴は現在の故障推定なしで閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("Host Effect非発行を証明できる引継ぎ済み履歴は現在の故障推定なしで閉じる", async () => {
   const original = operationFixture("prepared", {
     processEffects: Object.freeze([
@@ -1497,7 +1817,125 @@ test("Host Effect非発行を証明できる引継ぎ済み履歴は現在の故
   assert.equal(hostEffects, 0);
 });
 
-test("旧runが新しい既知障害世代へ置換済みでも履歴を保持して新修復を許可する", async () => {
+/**
+ * Host Effect非発行を証明できる履歴はexactな旧stale Evidenceを保持して閉じることを検証する。
+ *
+ * @responsibility Host Effect非発行の履歴を閉じる際に、元Operationと完全一致する旧stale Evidenceを削除せず保持する判定の合否を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するHost Effect非発行Operationとexactな旧stale Identityを使用する。
+ * @stimulus 旧staleが元OperationのrunIdentityと一致する状態で明示closeする。
+ * @observation 終了状態、Evidence保持状態、closure書込み件数およびHost Effect件数を観測する。
+ * @oracle historical_closed_retained、stale=retained、closure 1件、Host Effect 0件となる。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
+test("Host Effect非発行履歴はexactな旧stale Evidenceを削除せず閉じる", async () => {
+  const original = operationFixture("prepared", {
+    processEffects: Object.freeze([
+      Object.freeze({
+        sequence: 0,
+        action: "official_shutdown",
+        phase: "settled",
+        issued: false,
+        confirmation: "not_issued",
+      }),
+    ]),
+    processEffectIssued: false,
+    processEffectConfirmation: "not_issued",
+    filesystemEffectIssued: true,
+    filesystemEffectConfirmation: "confirmed",
+    engineReady: false,
+    staleState: "retained",
+    hostSafety: "manual_recovery_required",
+    evidenceState: "preserved",
+    disposition: "historical_effect_unknown_pending_human_decision",
+  });
+  let operation: DockerDesktopRepairOperation = {
+    ...original,
+    history: {
+      adoptionSha256: "a".repeat(64),
+      handoffTipSha256: "b".repeat(64),
+      handoffCount: 1,
+      originLocalUserBindingHash: boundary.localUserBindingHash,
+      currentLocalUserBindingHash: boundary.localUserBindingHash,
+      currentSessionBound: true,
+      closed: false,
+      liveRunIdentity: null,
+      staleState: "retained",
+    },
+  };
+  let closureWrites = 0;
+  let hostEffects = 0;
+  const state = fixture({
+    inventory: () => ({ status: "verified", operations: [operation] }),
+    observeEngine: () => "unknown",
+    observeKnownSocketFailure: () => null,
+    observePath: (target) =>
+      target === boundary.runDirectory
+        ? { state: "present", identity: RUN_IDENTITY }
+        : target === operation.staleDirectory
+          ? { state: "present", identity: operation.runIdentity }
+          : { state: "confirmed_absent", identity: null },
+    history: {
+      inspect: () => operation,
+      loadOriginManifest: () => ({}),
+      loadCurrentManifest: () => ({}),
+      persistAdoption: () => assert.fail("already adopted"),
+      persistClosure: (_currentBoundary, current, observation) => {
+        closureWrites += 1;
+        assert.deepEqual(observation.liveRunIdentity, RUN_IDENTITY);
+        assert.equal(observation.staleState, "retained");
+        assert.ok(current.history);
+        operation = {
+          ...current,
+          history: { ...current.history, ...observation, closed: true },
+        };
+        return operation;
+      },
+    },
+    officialShutdown: () => {
+      hostEffects += 1;
+      throw new Error("unexpected host effect");
+    },
+    terminateDockerWsl: () => {
+      hostEffects += 1;
+      throw new Error("unexpected host effect");
+    },
+    renameRunDirectory: () => {
+      hostEffects += 1;
+      throw new Error("unexpected host effect");
+    },
+  });
+  const result = await closeWindowsDockerDesktopRepairUsingDependencies(
+    operation.repairId,
+    state.dependencies,
+  );
+  assert.equal(result.status, "historical_closed_retained");
+  assert.equal(
+    result.reason,
+    "docker_desktop_repair_historical_no_host_effect_retained_for_new_repair",
+  );
+  assert.equal(result.staleRuntimeDirectory, "retained");
+  assert.equal(result.newRepairPermitted, true);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.evidenceState, "preserved");
+  assert.equal(closureWrites, 1);
+  assert.equal(hostEffects, 0);
+});
+
+/**
+ * 旧runが新しい既知障害世代へ置換済みでも旧stale Evidenceを保持して新修復を許可するを検証する。
+ *
+ * @responsibility 旧runが新しい既知障害世代へ置換済みでも旧stale Evidenceを保持して新修復を許可するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 旧runが新しい既知障害世代へ置換済みで、旧staleが元OperationのIdentityと一致する状態を明示closeする。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
+test("旧runが新しい既知障害世代へ置換済みでも旧stale Evidenceを保持して新修復を許可する", async () => {
   const replacementRunIdentity = Object.freeze({
     dev: "9",
     ino: "8",
@@ -1541,7 +1979,9 @@ test("旧runが新しい既知障害世代へ置換済みでも履歴を保持�
     observePath: (target) =>
       target === boundary.runDirectory
         ? { state: "present", identity: replacementRunIdentity }
-        : { state: "confirmed_absent", identity: null },
+        : target === operation.staleDirectory
+          ? { state: "present", identity: operation.runIdentity }
+          : { state: "confirmed_absent", identity: null },
     history: {
       inspect: () => operation,
       loadOriginManifest: () => ({}),
@@ -1575,19 +2015,35 @@ test("旧runが新しい既知障害世代へ置換済みでも履歴を保持�
     operation.repairId,
     state.dependencies,
   );
-  assert.equal(result.status, "historical_closed_retained");
+  assert.equal(
+    result.status,
+    "historical_closed_retained",
+    JSON.stringify(result),
+  );
   assert.equal(
     result.reason,
     "docker_desktop_repair_historical_superseded_state_retained_for_new_repair",
   );
   assert.equal(result.engineReady, false);
-  assert.equal(result.staleRuntimeDirectory, "absent");
+  assert.equal(result.staleRuntimeDirectory, "retained");
   assert.equal(result.evidenceState, "preserved");
   assert.equal(result.newRepairPermitted, true);
   assert.equal(closureWrites, 1);
   assert.equal(hostEffects, 0);
 });
 
+/**
+ * 履歴引継ぎの保存不明は同じIDを返し、過去操作を再実行しないを検証する。
+ *
+ * @responsibility 履歴引継ぎの保存不明は同じIDを返し、過去操作を再実行しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 履歴引継ぎの保存不明は同じIDを返し、過去操作を再実行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("履歴引継ぎの保存不明は同じIDを返し、過去操作を再実行しない", async () => {
   const operation = operationFixture("renamed", {
     processEffects: Object.freeze([
@@ -1633,6 +2089,18 @@ test("履歴引継ぎの保存不明は同じIDを返し、過去操作を再実
   );
 });
 
+/**
+ * 旧Sessionで終了済みの修復は現在Dockerを観測せずEffect 0で引継ぎと終了を完了するを検証する。
+ *
+ * @responsibility 旧Sessionで終了済みの修復は現在Dockerを観測せずEffect 0で引継ぎと終了を完了するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 旧Sessionで終了済みの修復は現在Dockerを観測せずEffect 0で引継ぎと終了を完了するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("旧Sessionで終了済みの修復は現在Dockerを観測せずEffect 0で引継ぎと終了を完了する", async () => {
   const original = operationFixture("closed_retained", {
     engineReady: true,
@@ -1710,6 +2178,18 @@ test("旧Sessionで終了済みの修復は現在Dockerを観測せずEffect 0�
   );
 });
 
+/**
+ * 実Runtime利用側は実Storeのadoptionから再ログオンhandoffとclosureまで同じ履歴を収束するを検証する。
+ *
+ * @responsibility 実Runtime利用側は実Storeのadoptionから再ログオンhandoffとclosureまで同じ履歴を収束するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実Runtime利用側は実Storeのadoptionから再ログオンhandoffとclosureまで同じ履歴を収束するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("実Runtime利用側は実Storeのadoptionから再ログオンhandoffとclosureまで同じ履歴を収束する", async (t) => {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-repair-runtime-history-"),
@@ -1770,6 +2250,18 @@ test("実Runtime利用側は実Storeのadoptionから再ログオンhandoffとcl
   assert.ok(original);
   const originManifest = { release: "origin" };
   const currentManifest = { release: "current" };
+  /**
+   * verifyHistoryのTest準備責務を実行する。
+   *
+   * @responsibility verifyHistoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERB-IT-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus verifyHistoryを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+   */
   const verifyHistory: DockerDesktopRepairHistoryVerifier = (value) => {
     const selected =
       JSON.stringify(value) === JSON.stringify(originManifest)
@@ -1845,6 +2337,18 @@ test("実Runtime利用側は実Storeのadoptionから再ログオンhandoffとcl
     loadOriginManifest: () => originManifest,
     loadCurrentManifest: () => currentManifest,
   });
+  /**
+   * createFailureCandidateのTest準備責務を実行する。
+   *
+   * @responsibility createFailureCandidateがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERB-IT-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus createFailureCandidateを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+   */
   const createFailureCandidate = () => {
     const candidate = createDockerDesktopRepairOperation(
       originBoundary,
@@ -2118,6 +2622,18 @@ test("実Runtime利用側は実Storeのadoptionから再ログオンhandoffとcl
   assert.equal(inventory.operations[0]?.history?.handoffCount, 1);
 });
 
+/**
+ * Docker Desktop修復Runtimeの設計Traceを全実行するを検証する。
+ *
+ * @responsibility Docker Desktop修復Runtimeの設計Traceを全実行するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Docker Desktop修復Runtimeの設計Traceを全実行するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("Docker Desktop修復Runtimeの設計Traceを全実行する", () => {
   assertRuntimeTraceExecutionCoverage(
     "40_Develop/coordinator/tests/integration/docker-desktop-runtime-repair.contract.test.ts",
@@ -2126,6 +2642,18 @@ test("Docker Desktop修復Runtimeの設計Traceを全実行する", () => {
   );
 });
 
+/**
+ * 既知障害だけを順序付きで処置し明示closeを要求するを検証する。
+ *
+ * @responsibility 既知障害だけを順序付きで処置し明示closeを要求するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 既知障害だけを順序付きで処置し明示closeを要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("既知障害だけを順序付きで処置し明示closeを要求する", async () => {
   const state = fixture();
   const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
@@ -2187,6 +2715,18 @@ test("既知障害だけを順序付きで処置し明示closeを要求する", 
   assert.equal(close.deletionPerformed, false);
 });
 
+/**
+ * Engine ready・unknown・socket根拠なしではDocker Host Effectを発行しないを検証する。
+ *
+ * @responsibility Engine ready・unknown・socket根拠なしではDocker Host Effectを発行しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Engine ready・unknown・socket根拠なしではDocker Host Effectを発行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("Engine ready・unknown・socket根拠なしではDocker Host Effectを発行しない", async () => {
   for (const scenario of [
     ...["EACCES", "present"].map((pipe) => ({
@@ -2231,6 +2771,18 @@ test("Engine ready・unknown・socket根拠なしではDocker Host Effectを発�
   }
 });
 
+/**
+ * intent耐久化後のEngine回復・不明はHost関数を呼ばずsettlementへ閉じるを検証する。
+ *
+ * @responsibility intent耐久化後のEngine回復・不明はHost関数を呼ばずsettlementへ閉じるの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus intent耐久化後のEngine回復・不明はHost関数を呼ばずsettlementへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("intent耐久化後のEngine回復・不明はHost関数を呼ばずsettlementへ閉じる", async () => {
   for (const afterIntent of ["ready", "unknown"] as const) {
     let observations = 0;
@@ -2261,6 +2813,18 @@ test("intent耐久化後のEngine回復・不明はHost関数を呼ばずsettlem
   }
 });
 
+/**
+ * 自然回復settlement後のEngine再停止をpendingへ永続化しないを検証する。
+ *
+ * @responsibility 自然回復settlement後のEngine再停止をpendingへ永続化しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 自然回復settlement後のEngine再停止をpendingへ永続化しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("自然回復settlement後のEngine再停止をpendingへ永続化しない", async () => {
   let observations = 0;
   const state = fixture({
@@ -2286,6 +2850,18 @@ test("自然回復settlement後のEngine再停止をpendingへ永続化しない
   );
 });
 
+/**
+ * 最終artifact await中のEngine回復はfresh行列で公式shutdown Effect 0にするを検証する。
+ *
+ * @responsibility 最終artifact await中のEngine回復はfresh行列で公式shutdown Effect 0にするの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 最終artifact await中のEngine回復はfresh行列で公式shutdown Effect 0にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("最終artifact await中のEngine回復はfresh行列で公式shutdown Effect 0にする", async () => {
   let verifyCalls = 0;
   let isEngineReady = false;
@@ -2323,6 +2899,18 @@ test("最終artifact await中のEngine回復はfresh行列で公式shutdown Effe
   );
 });
 
+/**
+ * Effect別fresh行列はWSL／rename直前のProcess再出現をEffect 0へ閉じるを検証する。
+ *
+ * @responsibility Effect別fresh行列はWSL／rename直前のProcess再出現をEffect 0へ閉じるの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Effect別fresh行列はWSL／rename直前のProcess再出現をEffect 0へ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("Effect別fresh行列はWSL／rename直前のProcess再出現をEffect 0へ閉じる", async () => {
   let inspections = 0;
   let wslCalls = 0;
@@ -2415,6 +3003,18 @@ test("Effect別fresh行列はWSL／rename直前のProcess再出現をEffect 0へ
   assert.equal(renameCalls, 0);
 });
 
+/**
+ * 64 retained operationでは新規operation directory／recordを作らないを検証する。
+ *
+ * @responsibility 64 retained operationでは新規operation directory／recordを作らないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 64 retained operationでは新規operation directory／recordを作らないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("64 retained operationでは新規operation directory／recordを作らない", async () => {
   const retained = operationFixture("closed_retained", {
     engineReady: true,
@@ -2452,6 +3052,18 @@ test("64 retained operationでは新規operation directory／recordを作らな�
   assert.match(rendered.stdout, /再試行や復旧記録の削除・圧縮をしない/u);
 });
 
+/**
+ * 復旧記録の残枠不足では次のHost Effectを発行しないを検証する。
+ *
+ * @responsibility 復旧記録の残枠不足では次のHost Effectを発行しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 復旧記録の残枠不足では次のHost Effectを発行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("復旧記録の残枠不足では次のHost Effectを発行しない", async () => {
   let terminationCalls = 0;
   const prepared = Object.freeze({
@@ -2502,6 +3114,18 @@ test("復旧記録の残枠不足では次のHost Effectを発行しない", asy
   assert.equal(state.calls.includes("wsl"), false);
 });
 
+/**
+ * 境界・lock不成立とhelper cleanup不明を区別するを検証する。
+ *
+ * @responsibility 境界・lock不成立とhelper cleanup不明を区別するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 境界・lock不成立とhelper cleanup不明を区別するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("境界・lock不成立とhelper cleanup不明を区別する", async () => {
   const boundaryResult =
     await repairWindowsDockerDesktopRuntimeUsingDependencies(
@@ -2534,6 +3158,18 @@ test("境界・lock不成立とhelper cleanup不明を区別する", async () =>
   assert.equal(cleanupResult.effectStateUnknown, true);
 });
 
+/**
+ * 記録・process inventory・rename・restartの不明を成功へ昇格しないを検証する。
+ *
+ * @responsibility 記録・process inventory・rename・restartの不明を成功へ昇格しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 記録・process inventory・rename・restartの不明を成功へ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("記録・process inventory・rename・restartの不明を成功へ昇格しない", async () => {
   const scenarios: readonly [Partial<RepairDependencies>, string][] = [
     [
@@ -2600,6 +3236,18 @@ test("記録・process inventory・rename・restartの不明を成功へ昇格�
   }
 });
 
+/**
+ * K/Nとrun path unknownは後続WSL／launcher Effectを発行しないを検証する。
+ *
+ * @responsibility K/Nとrun path unknownは後続WSL／launcher Effectを発行しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus K/Nとrun path unknownは後続WSL／launcher Effectを発行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("K/Nとrun path unknownは後続WSL／launcher Effectを発行しない", async () => {
   const unknownTermination = fixture({
     acquireHelper: async () =>
@@ -2636,6 +3284,18 @@ test("K/Nとrun path unknownは後続WSL／launcher Effectを発行しない", a
   assert.equal(unknownPath.calls.includes("start"), false);
 });
 
+/**
+ * helper解放不明は回復後も成功へ昇格しないを検証する。
+ *
+ * @responsibility helper解放不明は回復後も成功へ昇格しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus helper解放不明は回復後も成功へ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("helper解放不明は回復後も成功へ昇格しない", async () => {
   const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
     fixture({
@@ -2652,6 +3312,18 @@ test("helper解放不明は回復後も成功へ昇格しない", async () => {
   assert.equal(result.nativeHelperCleanupConfirmed, false);
 });
 
+/**
+ * repairはhelper解放後のpackage世代変更をpending成功へ投影しないを検証する。
+ *
+ * @responsibility repairはhelper解放後のpackage世代変更をpending成功へ投影しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus repairはhelper解放後のpackage世代変更をpending成功へ投影しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("repairはhelper解放後のpackage世代変更をpending成功へ投影しない", async () => {
   let released = false;
   let wasLaunched = false;
@@ -2728,6 +3400,18 @@ test("repairはhelper解放後のpackage世代変更をpending成功へ投影し
   );
 });
 
+/**
+ * helper解放後のboundary例外は取得済みrepair Evidenceを保持して正規化するを検証する。
+ *
+ * @responsibility helper解放後のboundary例外は取得済みrepair Evidenceを保持して正規化するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus helper解放後のboundary例外は取得済みrepair Evidenceを保持して正規化するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("helper解放後のboundary例外は取得済みrepair Evidenceを保持して正規化する", async () => {
   let released = false;
   let isHelperLaunched = false;
@@ -2804,6 +3488,18 @@ test("helper解放後のboundary例外は取得済みrepair Evidenceを保持し
   assert.equal(result.newRepairPermitted, false);
 });
 
+/**
+ * prepared再開は過去Process EffectをEffect 0へ誤投影しないを検証する。
+ *
+ * @responsibility prepared再開は過去Process EffectをEffect 0へ誤投影しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus prepared再開は過去Process EffectをEffect 0へ誤投影しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("prepared再開は過去Process EffectをEffect 0へ誤投影しない", async () => {
   const ledger: DockerDesktopRepairLedgerSnapshot = Object.freeze({
     processEffects: Object.freeze([]),
@@ -2857,6 +3553,18 @@ test("prepared再開は過去Process EffectをEffect 0へ誤投影しない", as
   );
 });
 
+/**
+ * preparedの既知Effect自然回復も観測Recordとpending stageを分離するを検証する。
+ *
+ * @responsibility preparedの既知Effect自然回復も観測Recordとpending stageを分離するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus preparedの既知Effect自然回復も観測Recordとpending stageを分離するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("preparedの既知Effect自然回復も観測Recordとpending stageを分離する", async () => {
   const operation = operationFixture("prepared", {
     processEffects: Object.freeze([
@@ -2901,6 +3609,18 @@ test("preparedの既知Effect自然回復も観測Recordとpending stageを分�
   );
 });
 
+/**
+ * preparedはsettlement済みshutdown／K／WSLを再発行せず次の状態へ進むを検証する。
+ *
+ * @responsibility preparedはsettlement済みshutdown／K／WSLを再発行せず次の状態へ進むの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus preparedはsettlement済みshutdown／K／WSLを再発行せず次の状態へ進むの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("preparedはsettlement済みshutdown／K／WSLを再発行せず次の状態へ進む", async () => {
   for (const actions of [
     ["official_shutdown"],
@@ -2956,6 +3676,18 @@ test("preparedはsettlement済みshutdown／K／WSLを再発行せず次の状�
   }
 });
 
+/**
+ * renamed再開でEngineが既に回復済みならlauncherを二重起動しないを検証する。
+ *
+ * @responsibility renamed再開でEngineが既に回復済みならlauncherを二重起動しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus renamed再開でEngineが既に回復済みならlauncherを二重起動しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("renamed再開でEngineが既に回復済みならlauncherを二重起動しない", async () => {
   const recoveredRunIdentity = Object.freeze({
     dev: "7",
@@ -3029,6 +3761,103 @@ test("renamed再開でEngineが既に回復済みならlauncherを二重起動�
   );
 });
 
+/**
+ * 現行の非履歴Operationも失敗起動Continuation能力を要求することを検証する。
+ *
+ * @responsibility 現行の非履歴Operationが複数Runtime領域の段階処置を迂回しないことを保証する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Continuation能力を持たない依存境界で現行の非履歴Operationへ再入場する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle 単一領域の再起動判定へ戻らず、Continuation能力不足としてEffect 0で停止する。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
+test("現行の非履歴Operationも失敗起動Continuation能力を要求する", async () => {
+  const operationDirectory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-current-repair-"),
+  );
+  try {
+    const ledger: DockerDesktopRepairLedgerSnapshot = Object.freeze({
+      processEffects: Object.freeze([
+        Object.freeze({
+          sequence: 0,
+          action: "native_termination" as const,
+          phase: "settled" as const,
+          issued: true,
+          confirmation: "confirmed" as const,
+        }),
+        Object.freeze({
+          sequence: 1,
+          action: "desktop_launch" as const,
+          phase: "settled" as const,
+          issued: true,
+          confirmation: "confirmed" as const,
+        }),
+      ]),
+      processEffectIssued: true,
+      processEffectConfirmation: "confirmed",
+      filesystemEffects: Object.freeze([]),
+      filesystemEffectIssued: false,
+      filesystemEffectConfirmation: "not_issued",
+      engineReady: false,
+      staleState: "retained",
+      hostSafety: "manual_recovery_required",
+      evidenceState: "preserved",
+      disposition: "not_applicable",
+      liveRunIdentity: null,
+    });
+    const operation: DockerDesktopRepairOperation = Object.freeze({
+      operationId: "e".repeat(32),
+      repairId: `docker-desktop-repair.${"e".repeat(32)}`,
+      operationDirectory,
+      staleName: `run.crdd-stale-${"e".repeat(32)}`,
+      staleDirectory: `C:\\local\\Docker\\run.crdd-stale-${"e".repeat(32)}`,
+      runIdentity: RUN_IDENTITY,
+      stage: "renamed",
+      sequence: 2,
+      previousRecordSha256: "8".repeat(64),
+      ledger,
+    });
+    const state = fixture({
+      acquireHelper: async () =>
+        Object.freeze({
+          status: "acquired" as const,
+          session: session({ processes: "absent" }),
+        }),
+      awaitEngine: async () => "known_unavailable" as const,
+    });
+    state.setOperation(operation);
+    const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
+      state.dependencies,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      "docker_desktop_repair_continuation_capability_unavailable",
+    );
+    assert.equal(state.calls.includes("start"), false);
+    assert.equal(
+      fs.existsSync(path.join(operationDirectory, "runtime-continuation")),
+      false,
+    );
+  } finally {
+    fs.rmSync(operationDirectory, { recursive: true, force: true });
+  }
+});
+
+/**
+ * processes_stopped再開は既知issuedを保持してno-stale pendingへ進むを検証する。
+ *
+ * @responsibility processes_stopped再開は既知issuedを保持してno-stale pendingへ進むの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus processes_stopped再開は既知issuedを保持してno-stale pendingへ進むの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("processes_stopped再開は既知issuedを保持してno-stale pendingへ進む", async () => {
   const ledger: DockerDesktopRepairLedgerSnapshot = Object.freeze({
     processEffects: Object.freeze([
@@ -3087,6 +3916,18 @@ test("processes_stopped再開は既知issuedを保持してno-stale pendingへ�
   assert.equal(result.effectStateUnknown, false);
 });
 
+/**
+ * processes_stopped再開はProcess不明または置換runをpendingへ昇格しないを検証する。
+ *
+ * @responsibility processes_stopped再開はProcess不明または置換runをpendingへ昇格しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus processes_stopped再開はProcess不明または置換runをpendingへ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("processes_stopped再開はProcess不明または置換runをpendingへ昇格しない", async () => {
   const ledger: DockerDesktopRepairLedgerSnapshot = Object.freeze({
     processEffects: Object.freeze([]),
@@ -3152,6 +3993,18 @@ test("processes_stopped再開はProcess不明または置換runをpendingへ昇�
   assert.equal(replacedResult.status, "blocked");
 });
 
+/**
+ * rename Effect後settlement前の再開はexact staleをadoptし再renameしないを検証する。
+ *
+ * @responsibility rename Effect後settlement前の再開はexact staleをadoptし再renameしないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus rename Effect後settlement前の再開はexact staleをadoptし再renameしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("rename Effect後settlement前の再開はexact staleをadoptし再renameしない", async () => {
   const ledger: DockerDesktopRepairLedgerSnapshot = Object.freeze({
     processEffects: Object.freeze([]),
@@ -3205,6 +4058,18 @@ test("rename Effect後settlement前の再開はexact staleをadoptし再rename�
   assert.equal(state.calls.includes("persist:renamed"), true);
 });
 
+/**
+ * rename adoptionのfresh snapshot変化をsettlement stageへ永続化しないを検証する。
+ *
+ * @responsibility rename adoptionのfresh snapshot変化をsettlement stageへ永続化しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus rename adoptionのfresh snapshot変化をsettlement stageへ永続化しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("rename adoptionのfresh snapshot変化をsettlement stageへ永続化しない", async () => {
   const operation = operationFixture("processes_stopped", {
     filesystemEffects: Object.freeze([
@@ -3248,6 +4113,18 @@ test("rename adoptionのfresh snapshot変化をsettlement stageへ永続化し�
   assert.equal(state.calls.includes("persist:renamed"), false);
 });
 
+/**
+ * processes_stopped再開は実rev4 Storeでも単調にpersistできるを検証する。
+ *
+ * @responsibility processes_stopped再開は実rev4 Storeでも単調にpersistできるの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus processes_stopped再開は実rev4 Storeでも単調にpersistできるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("processes_stopped再開は実rev4 Storeでも単調にpersistできる", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repair-resume-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -3385,6 +4262,18 @@ test("processes_stopped再開は実rev4 Storeでも単調にpersistできる", a
   const wsl = addProcessEffect(nativeAbsent, "wsl_termination");
   const stopped = writeRecord(wsl, "processes_stopped", wsl.ledger);
   assert.ok(stopped);
+  /**
+   * actualIdentityAtのTest準備責務を実行する。
+   *
+   * @responsibility actualIdentityAtがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERB-IT-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus actualIdentityAtを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+   */
   const actualIdentityAt = (target: string) => {
     try {
       const value = fs.lstatSync(target, { bigint: true });
@@ -3486,6 +4375,18 @@ test("processes_stopped再開は実rev4 Storeでも単調にpersistできる", a
   );
 });
 
+/**
+ * 全5 Host Effectのwriter ack不明とdurable intent crashを実rev4 Storeで分離するを検証する。
+ *
+ * @responsibility 全5 Host Effectのwriter ack不明とdurable intent crashを実rev4 Storeで分離するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 全5 Host Effectのwriter ack不明とdurable intent crashを実rev4 Storeで分離するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("全5 Host Effectのwriter ack不明とdurable intent crashを実rev4 Storeで分離する", async (t) => {
   const actions = [
     "official_shutdown",
@@ -3510,6 +4411,18 @@ test("全5 Host Effectのwriter ack不明とdurable intent crashを実rev4 Store
       const runDirectory = path.join(localAppData, "Docker", "run");
       fs.mkdirSync(runtimeStateRoot);
       fs.mkdirSync(runDirectory, { recursive: true });
+      /**
+       * identityAtのTest準備責務を実行する。
+       *
+       * @responsibility identityAtがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+       * @trace ERB-IT-001
+       * @precondition 呼出し元Test Caseが必要な入力を渡す。
+       * @stimulus identityAtを呼び出す。
+       * @observation 返却値、生成fixtureまたは観測値を取得する。
+       * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+       * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+       * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+       */
       const identityAt = (target: string) => {
         try {
           const value = fs.lstatSync(target, { bigint: true });
@@ -3536,6 +4449,18 @@ test("全5 Host Effectのwriter ack不明とdurable intent crashを実rev4 Store
       let wasInjected = false;
       const unexpectedPersistFailures: string[] = [];
       const calls = new Map<string, number>();
+      /**
+       * countのTest準備責務を実行する。
+       *
+       * @responsibility countがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+       * @trace ERB-IT-001
+       * @precondition 呼出し元Test Caseが必要な入力を渡す。
+       * @stimulus countを呼び出す。
+       * @observation 返却値、生成fixtureまたは観測値を取得する。
+       * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+       * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+       * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+       */
       const count = (name: string) =>
         calls.set(name, (calls.get(name) ?? 0) + 1);
       const dependencies: RepairDependencies = {
@@ -3703,6 +4628,18 @@ test("全5 Host Effectのwriter ack不明とdurable intent crashを実rev4 Store
   }
 });
 
+/**
+ * official shutdown未確認のactual Store再開は全後続Host Effectを0にするを検証する。
+ *
+ * @responsibility official shutdown未確認のactual Store再開は全後続Host Effectを0にするの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus official shutdown未確認のactual Store再開は全後続Host Effectを0にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("official shutdown未確認のactual Store再開は全後続Host Effectを0にする", async (t) => {
   for (const observed of [
     Object.freeze({ issued: true, confirmation: "unknown" as const }),
@@ -3819,6 +4756,18 @@ test("official shutdown未確認のactual Store再開は全後続Host Effectを0
   }
 });
 
+/**
+ * 実rev4 StoreのK/Aはshutdown・native Host call 0で保存失敗後も再観測してWSLへ進むを検証する。
+ *
+ * @responsibility 実rev4 StoreのK/Aはshutdown・native Host call 0で保存失敗後も再観測してWSLへ進むの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実rev4 StoreのK/Aはshutdown・native Host call 0で保存失敗後も再観測してWSLへ進むの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("実rev4 StoreのK/Aはshutdown・native Host call 0で保存失敗後も再観測してWSLへ進む", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repair-ka-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -3827,6 +4776,18 @@ test("実rev4 StoreのK/Aはshutdown・native Host call 0で保存失敗後も�
   const runDirectory = path.join(localAppData, "Docker", "run");
   fs.mkdirSync(runtimeStateRoot);
   fs.mkdirSync(runDirectory, { recursive: true });
+  /**
+   * identityAtのTest準備責務を実行する。
+   *
+   * @responsibility identityAtがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERB-IT-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus identityAtを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+   */
   const identityAt = (target: string) => {
     try {
       const value = fs.lstatSync(target, { bigint: true });
@@ -3973,6 +4934,18 @@ test("実rev4 StoreのK/Aはshutdown・native Host call 0で保存失敗後も�
   });
 });
 
+/**
+ * preparedからの自然復旧は実rev4 Storeへ観測Recordとstage Recordを分離するを検証する。
+ *
+ * @responsibility preparedからの自然復旧は実rev4 Storeへ観測Recordとstage Recordを分離するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus preparedからの自然復旧は実rev4 Storeへ観測Recordとstage Recordを分離するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("preparedからの自然復旧は実rev4 Storeへ観測Recordとstage Recordを分離する", async (t) => {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-repair-natural-recovery-"),
@@ -3983,6 +4956,18 @@ test("preparedからの自然復旧は実rev4 Storeへ観測Recordとstage Recor
   const runDirectory = path.join(localAppData, "Docker", "run");
   fs.mkdirSync(runtimeStateRoot);
   fs.mkdirSync(runDirectory, { recursive: true });
+  /**
+   * identityAtのTest準備責務を実行する。
+   *
+   * @responsibility identityAtがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERB-IT-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus identityAtを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+   */
   const identityAt = (target: string) => {
     try {
       const value = fs.lstatSync(target, { bigint: true });
@@ -4075,6 +5060,18 @@ test("preparedからの自然復旧は実rev4 Storeへ観測Recordとstage Recor
   assert.equal(recovered?.ledger.evidenceState, "preserved");
 });
 
+/**
+ * 過去Effect不明かつstaleなしは専用close後も履歴不明を保持するを検証する。
+ *
+ * @responsibility 過去Effect不明かつstaleなしは専用close後も履歴不明を保持するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 過去Effect不明かつstaleなしは専用close後も履歴不明を保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("過去Effect不明かつstaleなしは専用close後も履歴不明を保持する", async () => {
   const ledger: DockerDesktopRepairLedgerSnapshot = Object.freeze({
     processEffects: Object.freeze([
@@ -4137,6 +5134,18 @@ test("過去Effect不明かつstaleなしは専用close後も履歴不明を保�
   assert.equal(result.newRepairPermitted, true);
 });
 
+/**
+ * 非同期境界中の取消後はsettlement Evidence以外の新Host Effectを発行しないを検証する。
+ *
+ * @responsibility 非同期境界中の取消後はsettlement Evidence以外の新Host Effectを発行しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 非同期境界中の取消後はsettlement Evidence以外の新Host Effectを発行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("非同期境界中の取消後はsettlement Evidence以外の新Host Effectを発行しない", async () => {
   let cancel: () => void = () => undefined;
   let terminationCalls = 0;
@@ -4181,6 +5190,18 @@ test("非同期境界中の取消後はsettlement Evidence以外の新Host Effec
   );
 });
 
+/**
+ * helper喪失をawait中に検出した後はprocess terminationへ進まないを検証する。
+ *
+ * @responsibility helper喪失をawait中に検出した後はprocess terminationへ進まないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus helper喪失をawait中に検出した後はprocess terminationへ進まないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("helper喪失をawait中に検出した後はprocess terminationへ進まない", async () => {
   let helperFailure: () => void = () => undefined;
   let terminationCalls = 0;
@@ -4212,6 +5233,18 @@ test("helper喪失をawait中に検出した後はprocess terminationへ進ま�
   assert.equal(state.calls.includes("wsl"), false);
 });
 
+/**
+ * cleanup settlementはpackage再計算後のhelper喪失をRecord Effect 0へ閉じるを検証する。
+ *
+ * @responsibility cleanup settlementはpackage再計算後のhelper喪失をRecord Effect 0へ閉じるの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus cleanup settlementはpackage再計算後のhelper喪失をRecord Effect 0へ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("cleanup settlementはpackage再計算後のhelper喪失をRecord Effect 0へ閉じる", async () => {
   let isLive = true;
   let hostEffectIssued = false;
@@ -4249,6 +5282,18 @@ test("cleanup settlementはpackage再計算後のhelper喪失をRecord Effect 0�
   assert.equal(state.calls.includes("start"), false);
 });
 
+/**
+ * package tupleがawait中に変化した場合は直後Effectを発行しないを検証する。
+ *
+ * @responsibility package tupleがawait中に変化した場合は直後Effectを発行しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus package tupleがawait中に変化した場合は直後Effectを発行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("package tupleがawait中に変化した場合は直後Effectを発行しない", async () => {
   let isPackageChanged = false;
   let verificationCalls = 0;
@@ -4276,6 +5321,18 @@ test("package tupleがawait中に変化した場合は直後Effectを発行し�
   assert.equal(state.calls.includes("shutdown"), false);
 });
 
+/**
+ * 後続Process Effect不明を以前のconfirmedで隠さないを検証する。
+ *
+ * @responsibility 後続Process Effect不明を以前のconfirmedで隠さないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 後続Process Effect不明を以前のconfirmedで隠さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("後続Process Effect不明を以前のconfirmedで隠さない", async () => {
   const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
     fixture({
@@ -4290,6 +5347,18 @@ test("後続Process Effect不明を以前のconfirmedで隠さない", async () 
   assert.equal(result.effectStateUnknown, true);
 });
 
+/**
+ * WSL未確認とEngine再起動失敗は成功へ昇格しないを検証する。
+ *
+ * @responsibility WSL未確認とEngine再起動失敗は成功へ昇格しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus WSL未確認とEngine再起動失敗は成功へ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("WSL未確認とEngine再起動失敗は成功へ昇格しない", async () => {
   const wsl = await repairWindowsDockerDesktopRuntimeUsingDependencies(
     fixture({
@@ -4308,8 +5377,1251 @@ test("WSL未確認とEngine再起動失敗は成功へ昇格しない", async ()
   assert.equal(engine.status, "blocked");
   assert.equal(engine.reason, "docker_desktop_engine_restart_unconfirmed");
   assert.equal(engine.manualRecoveryRequired, true);
+
+  const startupTimeout =
+    await repairWindowsDockerDesktopRuntimeUsingDependencies(
+      fixture({ awaitEngine: async () => "startup_timeout" as const })
+        .dependencies,
+    );
+  assert.equal(startupTimeout.status, "blocked");
+  assert.equal(
+    startupTimeout.reason,
+    "docker_desktop_failed_launch_continuation_engine_ready",
+  );
 });
 
+/**
+ * 同一実行でEngine起動を確認した場合だけ起動所要時間を参考値として返すを検証する。
+ *
+ * @responsibility Docker Desktop起動所要時間の計測範囲と非Authority性を検証する。
+ * @trace ERB-IT-014
+ * @precondition 単調時計とEngine待機を決定論的に差し替える。
+ * @stimulus 同一実行で起動する修復と、起動前に停止する修復を実行する。
+ * @observation 構造化結果のengineStartupDurationMsを取得する。
+ * @oracle 同一実行で起動した場合だけ実測値を返し、起動を観測していない場合は推測しない。
+ * @cleanup fixtureが作成した一時資源を各Test終了時に清掃する。
+ * @boundary ERB-IT-014=Related 2 Blocks: 修復制御→Engine待機結果
+ */
+test("同一実行でEngine起動を確認した場合だけ起動所要時間を参考値として返す", async () => {
+  let now = 1_000;
+  const measured = await repairWindowsDockerDesktopRuntimeUsingDependencies(
+    fixture({
+      monotonicNow: () => now,
+      awaitEngine: async () => {
+        now = 7_421;
+        return "ready" as const;
+      },
+    }).dependencies,
+  );
+  assert.equal(measured.status, "recovered_pending_close");
+  assert.equal(measured.engineStartupDurationMs, 6_421);
+
+  const notMeasured = await repairWindowsDockerDesktopRuntimeUsingDependencies(
+    fixture({
+      monotonicNow: () => 50_000,
+      observeEngine: () => "unknown" as const,
+    }).dependencies,
+  );
+  assert.equal(notMeasured.engineStartupDurationMs, null);
+});
+
+/**
+ * 現行署名版が新規作成した修復も失敗起動Continuationへ接続することを検証する。
+ *
+ * @responsibility 履歴採用の有無で複数Runtime領域の段階処置入口が分岐しないことを保証する。
+ * @trace ERB-IT-001
+ * @precondition 現行署名版が作成した非履歴Operationはrenamed段階で初回Desktop起動Effectを確定済みである。
+ * @stimulus 同じRepair IDへ再入場する。
+ * @observation 結果理由と追加Host Effectを観測する。
+ * @oracle 通常の単一領域再開へ戻らず、失敗起動Continuationの事前条件判定へ到達する。
+ * @cleanup N/A: Test Fixtureは実Host資源を変更しない。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
+test("現行署名版が新規作成した修復も失敗起動Continuationへ接続する", async () => {
+  const setup = fixture({
+    observeRuntimeDirectoryLock: () => null,
+    renameRuntimeDirectory: () =>
+      Object.freeze({
+        issued: false,
+        confirmation: "not_issued" as const,
+        staleState: "unknown" as const,
+      }),
+  });
+  setup.setOperation(
+    operationFixture("renamed", {
+      processEffects: Object.freeze([
+        Object.freeze({
+          sequence: 0,
+          action: "desktop_launch" as const,
+          phase: "settled" as const,
+          issued: true,
+          confirmation: "confirmed" as const,
+        }),
+      ]),
+      processEffectIssued: true,
+      processEffectConfirmation: "confirmed",
+    }),
+  );
+
+  const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
+    setup.dependencies,
+  );
+
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "docker_desktop_repair_continuation_precondition_unconfirmed",
+  );
+  assert.equal(result.repairId, `docker-desktop-repair.${"f".repeat(32)}`);
+  assert.equal(setup.calls.includes("start"), false);
+  assert.equal(setup.calls.includes("rename"), false);
+});
+
+/**
+ * 現行署名版が新規作成した修復を複数Runtime領域の段階処置で完了することを検証する。
+ *
+ * @responsibility 現行の非履歴Operationが同じRepair IDのContinuationを作成し、二領域の退避とDesktop再起動を完了できることを保証する。
+ * @trace ERB-IT-001
+ * @precondition 現行署名版が作成したOperationはrenamed段階であり、初回Desktop起動Effect、失敗起動世代およびSecrets Engineを確認済みである。
+ * @stimulus 同じRepair IDへ再入場し、複数Runtime領域のContinuationを実行する。
+ * @observation Repair ID、Continuation Effect、退避先、Desktop起動回数、Engine状態および最終状態を観測する。
+ * @oracle 二つのrenameと一つのrelaunchが順序付きで各一回だけconfirmedになり、recovered_pending_closeへ到達する。
+ * @cleanup Test専用一時Rootをfinallyで削除する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
+test("現行署名版が新規作成した修復を複数Runtime領域の段階処置で完了する", async () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-current-docker-regions-"),
+  );
+  try {
+    const localAppData = path.join(root, "local");
+    const runtimeStateRoot = path.join(root, "runtime-state");
+    const runDirectory = path.join(localAppData, "Docker", "run");
+    const secretsDirectory = path.join(localAppData, "docker-secrets-engine");
+    const operationId = "c".repeat(32);
+    const operationDirectory = path.join(
+      runtimeStateRoot,
+      `docker-desktop-repair-${operationId}`,
+    );
+    const staleDirectory = path.join(
+      localAppData,
+      "Docker",
+      `run.crdd-stale-${operationId}`,
+    );
+    fs.mkdirSync(operationDirectory, { recursive: true });
+    fs.mkdirSync(staleDirectory, { recursive: true });
+    fs.mkdirSync(runDirectory, { recursive: true });
+    fs.mkdirSync(secretsDirectory, { recursive: true });
+    fs.writeFileSync(path.join(staleDirectory, "dockerInference"), "origin");
+    fs.writeFileSync(path.join(runDirectory, "sailor-ingest.sock"), "failed");
+    fs.writeFileSync(path.join(secretsDirectory, "engine.sock"), "failed");
+
+    /**
+     * identityAtのTest準備責務を実行する。
+     *
+     * @responsibility 現行OperationのRuntime領域Identityを実Filesystemから決定論的に観測する。
+     * @trace ERB-IT-001
+     * @precondition 対象はTest専用一時Root内にある。
+     * @stimulus 対象Pathのmetadataを観測する。
+     * @observation Directory Identityまたは不存在を返す。
+     * @oracle 実在する通常DirectoryだけがIdentityを持つ。
+     * @cleanup 呼出し元Test Caseが一時Rootを削除する。
+     * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+     */
+    const identityAt = (target: string) => {
+      try {
+        const metadata = fs.lstatSync(target, { bigint: true });
+        return metadata.isDirectory() &&
+          !metadata.isSymbolicLink() &&
+          metadata.dev > 0n &&
+          metadata.ino > 0n &&
+          metadata.birthtimeNs > 0n
+          ? Object.freeze({
+              dev: String(metadata.dev),
+              ino: String(metadata.ino),
+              birthtimeNs: String(metadata.birthtimeNs),
+            })
+          : null;
+      } catch {
+        return null;
+      }
+    };
+    const originIdentity = identityAt(staleDirectory);
+    assert.ok(originIdentity);
+    const currentBoundary: PreparedBoundary = Object.freeze({
+      ...boundary,
+      runtimeStateRoot,
+      localAppData,
+      runDirectory,
+      socketPath: path.join(runDirectory, "dockerInference"),
+    });
+    const operation: DockerDesktopRepairOperation = Object.freeze({
+      operationId,
+      repairId: `docker-desktop-repair.${operationId}`,
+      originLocalUserBindingHash: currentBoundary.localUserBindingHash,
+      operationDirectory,
+      staleName: path.basename(staleDirectory),
+      staleDirectory,
+      runIdentity: originIdentity,
+      stage: "renamed",
+      sequence: 2,
+      previousRecordSha256: "8".repeat(64),
+      ledger: Object.freeze({
+        processEffects: Object.freeze([
+          Object.freeze({
+            sequence: 0,
+            action: "desktop_launch" as const,
+            phase: "settled" as const,
+            issued: true,
+            confirmation: "confirmed" as const,
+          }),
+        ]),
+        processEffectIssued: true,
+        processEffectConfirmation: "confirmed" as const,
+        filesystemEffects: Object.freeze([]),
+        filesystemEffectIssued: false,
+        filesystemEffectConfirmation: "not_issued" as const,
+        engineReady: false,
+        staleState: "retained" as const,
+        hostSafety: "manual_recovery_required" as const,
+        evidenceState: "preserved" as const,
+        disposition: "not_applicable" as const,
+        liveRunIdentity: null,
+      }),
+    });
+    let latestOperation = operation;
+    let wasRelaunched = false;
+    let launches = 0;
+    const renameCalls: string[] = [];
+    const repairSession = Object.freeze({
+      ...session(),
+      inspectProcesses: async () =>
+        wasRelaunched ? ("verified" as const) : ("absent" as const),
+      launchDesktop: async () => {
+        launches += 1;
+        wasRelaunched = true;
+        fs.mkdirSync(runDirectory);
+        fs.writeFileSync(path.join(runDirectory, "dockerInference"), "new");
+        fs.mkdirSync(secretsDirectory);
+        fs.writeFileSync(path.join(secretsDirectory, "engine.sock"), "new");
+        return "started" as const;
+      },
+    });
+    const setup = fixture({
+      prepareBoundary: () => currentBoundary,
+      acquireHelper: async () =>
+        Object.freeze({ status: "acquired" as const, session: repairSession }),
+      observeEngine: () =>
+        wasRelaunched ? ("ready" as const) : ("known_unavailable" as const),
+      observeKnownSocketFailure: () => null,
+      observeRuntimeDirectoryLock: identityAt,
+      renameRuntimeDirectory: (source, target, expected) => {
+        assert.deepEqual(identityAt(source), expected);
+        renameCalls.push(source);
+        fs.renameSync(source, target);
+        return Object.freeze({
+          issued: true,
+          confirmation: "confirmed" as const,
+          staleState: "retained" as const,
+        });
+      },
+      awaitEngine: async () => "ready" as const,
+      identityAt,
+      persistStage: (_boundary, current, stage, ledger) => {
+        latestOperation = Object.freeze({
+          ...current,
+          stage,
+          sequence: current.sequence + 1,
+          previousRecordSha256: String(current.sequence + 1).padStart(64, "0"),
+          ledger: Object.freeze({ ...ledger }),
+        });
+        return latestOperation;
+      },
+    });
+    setup.setOperation(operation);
+
+    const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
+      setup.dependencies,
+    );
+
+    assert.equal(
+      result.status,
+      "recovered_pending_close",
+      JSON.stringify(result),
+    );
+    assert.equal(
+      result.reason,
+      "docker_desktop_repair_continuation_recovered_pending_close",
+    );
+    assert.equal(result.repairId, operation.repairId);
+    assert.equal(launches, 1);
+    assert.deepEqual(renameCalls, [runDirectory, secretsDirectory]);
+    const continuation = inspectDockerDesktopRepairContinuation(
+      currentBoundary,
+      latestOperation,
+    );
+    assert.equal(continuation.status, "valid");
+    assert.equal(continuation.continuation?.repairId, operation.repairId);
+    assert.equal(continuation.continuation?.stage, "recovered");
+    assert.deepEqual(
+      Object.values(continuation.continuation?.effects ?? {}).map((effect) =>
+        effect
+          ? Object.freeze({
+              phase: effect.phase,
+              issued: effect.issued,
+              confirmation: effect.confirmation,
+            })
+          : null,
+      ),
+      [
+        Object.freeze({
+          phase: "settled",
+          issued: false,
+          confirmation: "not_issued",
+        }),
+        Object.freeze({
+          phase: "settled",
+          issued: true,
+          confirmation: "confirmed",
+        }),
+        Object.freeze({
+          phase: "settled",
+          issued: true,
+          confirmation: "confirmed",
+        }),
+        Object.freeze({
+          phase: "settled",
+          issued: true,
+          confirmation: "confirmed",
+        }),
+      ],
+    );
+    assert.equal(
+      fs.existsSync(
+        path.join(
+          localAppData,
+          "Docker",
+          `run.crdd-stale-${operationId}-restart`,
+        ),
+      ),
+      true,
+    );
+    assert.equal(
+      fs.existsSync(
+        path.join(
+          localAppData,
+          `docker-secrets-engine.crdd-stale-${operationId}`,
+        ),
+      ),
+      true,
+    );
+    assert.equal(fs.existsSync(runDirectory), true);
+    assert.equal(fs.existsSync(secretsDirectory), true);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+/**
+ * 初回起動失敗から同じ実行内で複数Runtime領域を修復することを検証する。
+ *
+ * @responsibility 初回Desktop起動がTimeoutして既知の二領域lockを残した場合に、人間の二回目実行なしで同じRepair IDのContinuationへ進むことを保証する。
+ * @trace ERB-IT-001
+ * @precondition Test専用Filesystem上で、初回起動だけが失敗世代とSecrets Engine lockを生成する。
+ * @stimulus 新規Repairを一回だけ実行する。
+ * @observation Repair ID、Desktop起動回数、二領域の退避、Engine状態および最終状態を観測する。
+ * @oracle 同じInvocation内で初回起動と一回のContinuation再起動が行われ、recovered_pending_closeへ到達する。
+ * @cleanup Test専用一時Rootをfinallyで削除する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
+test("初回起動失敗から同じ実行内で複数Runtime領域を修復する", async () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-current-docker-auto-regions-"),
+  );
+  try {
+    const localAppData = path.join(root, "local");
+    const runtimeStateRoot = path.join(root, "runtime-state");
+    const runDirectory = path.join(localAppData, "Docker", "run");
+    const secretsDirectory = path.join(localAppData, "docker-secrets-engine");
+    fs.mkdirSync(runtimeStateRoot, { recursive: true });
+    fs.mkdirSync(runDirectory, { recursive: true });
+    fs.writeFileSync(path.join(runDirectory, "dockerInference"), "origin");
+
+    /**
+     * 自動継続Test用Runtime領域のFilesystem Identityを観測する。
+     *
+     * @responsibility 初回起動失敗後の段階修復が元領域を別実体へ置換したことを判定するfixture観測値を生成する。
+     * @trace ERB-IT-001
+     * @precondition targetはTest専用一時Root内の観測対象Pathである。
+     * @stimulus targetをlstatで一回観測する。
+     * @observation directory種別、link有無、device、inodeおよび生成時刻を取得する。
+     * @oracle 通常Directoryの完全なIdentityだけを返し、欠落・link・不完全なIdentityはnullへ閉じる。
+     * @cleanup N/A: 読取り専用の観測であり資源を作成しない。
+     * @boundary ERB-IT-001=Direct Boundary: Test fixture→Filesystem metadata
+     */
+    const identityAt = (target: string) => {
+      try {
+        const metadata = fs.lstatSync(target, { bigint: true });
+        return metadata.isDirectory() &&
+          !metadata.isSymbolicLink() &&
+          metadata.dev > 0n &&
+          metadata.ino > 0n &&
+          metadata.birthtimeNs > 0n
+          ? Object.freeze({
+              dev: String(metadata.dev),
+              ino: String(metadata.ino),
+              birthtimeNs: String(metadata.birthtimeNs),
+            })
+          : null;
+      } catch {
+        return null;
+      }
+    };
+    const originalIdentity = identityAt(runDirectory);
+    assert.ok(originalIdentity);
+    const currentBoundary: PreparedBoundary = Object.freeze({
+      ...boundary,
+      runtimeStateRoot,
+      localAppData,
+      runDirectory,
+      socketPath: path.join(runDirectory, "dockerInference"),
+    });
+    let activeOperation: DockerDesktopRepairOperation | null = null;
+    let terminationCalls = 0;
+    let launches = 0;
+    let awaitCalls = 0;
+    const renameCalls: string[] = [];
+    const repairSession = Object.freeze({
+      ...session(),
+      inspectProcesses: async () =>
+        launches >= 2
+          ? ("verified" as const)
+          : launches === 1 && terminationCalls < 2
+            ? ("verified" as const)
+            : terminationCalls >= 1
+              ? ("absent" as const)
+              : ("verified" as const),
+      terminateProcesses: async () => {
+        terminationCalls += 1;
+        return "terminated" as const;
+      },
+      launchDesktop: async () => {
+        launches += 1;
+        if (launches === 1) {
+          fs.mkdirSync(runDirectory, { recursive: true });
+          fs.writeFileSync(
+            path.join(runDirectory, "sailor-ingest.sock"),
+            "failed",
+          );
+          fs.mkdirSync(secretsDirectory, { recursive: true });
+          fs.writeFileSync(
+            path.join(secretsDirectory, "engine.sock"),
+            "failed",
+          );
+        } else {
+          fs.mkdirSync(runDirectory, { recursive: true });
+          fs.writeFileSync(path.join(runDirectory, "dockerInference"), "new");
+          fs.mkdirSync(secretsDirectory, { recursive: true });
+          fs.writeFileSync(path.join(secretsDirectory, "engine.sock"), "new");
+        }
+        return "started" as const;
+      },
+    });
+    const dependencies: RepairDependencies = {
+      prepareBoundary: () => currentBoundary,
+      acquireHelper: async () =>
+        Object.freeze({ status: "acquired" as const, session: repairSession }),
+      inventory: () =>
+        Object.freeze({
+          status: "verified" as const,
+          operations: Object.freeze(activeOperation ? [activeOperation] : []),
+        }),
+      observeEngine: () =>
+        launches >= 2
+          ? ("ready" as const)
+          : launches === 1 && terminationCalls < 2
+            ? ("transient_unavailable" as const)
+            : ("known_unavailable" as const),
+      observeKnownSocketFailure: () => originalIdentity,
+      observeRuntimeDirectoryLock: identityAt,
+      persistStage: (_boundary, current, stage, ledger) => {
+        if (current.sequence < 0)
+          fs.mkdirSync(current.operationDirectory, { recursive: false });
+        activeOperation = Object.freeze({
+          ...current,
+          stage,
+          sequence: current.sequence + 1,
+          previousRecordSha256: String(current.sequence + 1).padStart(64, "0"),
+          ledger: Object.freeze({ ...ledger }),
+        });
+        return activeOperation;
+      },
+      officialShutdown: () =>
+        Object.freeze({ issued: true, confirmation: "confirmed" as const }),
+      terminateDockerWsl: () =>
+        Object.freeze({ issued: true, confirmation: "confirmed" as const }),
+      renameRunDirectory: (_boundary, operation) => {
+        fs.renameSync(runDirectory, operation.staleDirectory);
+        renameCalls.push(runDirectory);
+        return Object.freeze({
+          issued: true,
+          confirmation: "confirmed" as const,
+          staleState: "retained" as const,
+        });
+      },
+      renameRuntimeDirectory: (source, target, expected) => {
+        assert.deepEqual(identityAt(source), expected);
+        fs.renameSync(source, target);
+        renameCalls.push(source);
+        return Object.freeze({
+          issued: true,
+          confirmation: "confirmed" as const,
+          staleState: "retained" as const,
+        });
+      },
+      awaitEngine: async () => {
+        awaitCalls += 1;
+        return awaitCalls === 1
+          ? ("startup_timeout" as const)
+          : ("ready" as const);
+      },
+      identityAt,
+      observePath: (target) => {
+        const observed = identityAt(target);
+        return observed
+          ? Object.freeze({ state: "present" as const, identity: observed })
+          : Object.freeze({
+              state: "confirmed_absent" as const,
+              identity: null,
+            });
+      },
+    };
+
+    const result =
+      await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
+
+    assert.equal(
+      result.status,
+      "recovered_pending_close",
+      JSON.stringify(result),
+    );
+    assert.equal(
+      result.reason,
+      "docker_desktop_repair_continuation_recovered_pending_close",
+    );
+    assert.equal(launches, 2);
+    assert.equal(terminationCalls, 2);
+    assert.equal(awaitCalls, 2);
+    assert.deepEqual(renameCalls, [
+      runDirectory,
+      runDirectory,
+      secretsDirectory,
+    ]);
+    assert.ok(activeOperation);
+    const completedOperation = activeOperation as DockerDesktopRepairOperation;
+    const continuation = inspectDockerDesktopRepairContinuation(
+      currentBoundary,
+      completedOperation,
+    );
+    assert.equal(continuation.status, "valid");
+    assert.equal(continuation.continuation?.stage, "recovered");
+    assert.equal(result.repairId, completedOperation.repairId);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+/**
+ * 署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engineを段階退避して回復するを検証する。
+ *
+ * @responsibility 署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engineを段階退避して回復するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engineを段階退避して回復するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
+test("署名版更新後も同じ復旧IDで失敗起動世代とSecrets Engineを段階退避して回復する", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-docker-regions-"));
+  try {
+    const localAppData = path.join(root, "local");
+    const runtimeStateRoot = path.join(root, "runtime-state");
+    const runDirectory = path.join(localAppData, "Docker", "run");
+    const secretsDirectory = path.join(localAppData, "docker-secrets-engine");
+    fs.mkdirSync(runtimeStateRoot, { recursive: true });
+    fs.mkdirSync(runDirectory, { recursive: true });
+    fs.writeFileSync(path.join(runDirectory, "dockerInference"), "old");
+    /**
+     * directoryIdentityのTest準備責務を実行する。
+     *
+     * @responsibility directoryIdentityがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+     * @trace ERB-IT-001
+     * @precondition 呼出し元Test Caseが必要な入力を渡す。
+     * @stimulus directoryIdentityを呼び出す。
+     * @observation 返却値、生成fixtureまたは観測値を取得する。
+     * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+     * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+     * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+     */
+    const directoryIdentity = (target: string) => {
+      try {
+        const metadata = fs.lstatSync(target, { bigint: true });
+        return metadata.isDirectory() &&
+          !metadata.isSymbolicLink() &&
+          metadata.dev > 0n &&
+          metadata.ino > 0n &&
+          metadata.birthtimeNs > 0n
+          ? Object.freeze({
+              dev: String(metadata.dev),
+              ino: String(metadata.ino),
+              birthtimeNs: String(metadata.birthtimeNs),
+            })
+          : null;
+      } catch {
+        return null;
+      }
+    };
+    const originalIdentity = directoryIdentity(runDirectory);
+    assert.ok(originalIdentity);
+    const originBoundary: PreparedBoundary = Object.freeze({
+      ...boundary,
+      runtimeStateRoot,
+      localAppData,
+      runDirectory,
+      socketPath: path.join(runDirectory, "dockerInference"),
+      crddManifestHash: "1".repeat(64),
+      crddReleaseSequence: 1,
+      runtimeExecutionIdentitySha256: "2".repeat(64),
+    });
+    const currentBoundary: PreparedBoundary = Object.freeze({
+      ...originBoundary,
+      crddManifestHash: "3".repeat(64),
+      crddReleaseSequence: 2,
+      runtimeExecutionIdentitySha256: "4".repeat(64),
+    });
+    const baseLedger: DockerDesktopRepairLedgerSnapshot = Object.freeze({
+      processEffects: Object.freeze([]),
+      processEffectIssued: false,
+      processEffectConfirmation: "not_issued",
+      filesystemEffects: Object.freeze([]),
+      filesystemEffectIssued: false,
+      filesystemEffectConfirmation: "not_issued",
+      engineReady: false,
+      staleState: "absent",
+      hostSafety: "safe",
+      evidenceState: "not_preserved",
+      disposition: "not_applicable",
+      liveRunIdentity: null,
+    });
+    const created = createDockerDesktopRepairOperation(
+      originBoundary,
+      originalIdentity,
+      baseLedger,
+    );
+    let stored = persistActualRepairRecord(
+      originBoundary,
+      created,
+      "prepared",
+      baseLedger,
+    );
+    assert.ok(stored);
+    stored = persistActualProcessEffect(
+      originBoundary,
+      stored,
+      "official_shutdown",
+      {
+        issued: false,
+        confirmation: "not_issued",
+      },
+    );
+    stored = persistActualProcessEffect(
+      originBoundary,
+      stored,
+      "native_termination",
+      {
+        issued: false,
+        confirmation: "not_issued",
+      },
+    );
+    stored = persistActualProcessEffect(
+      originBoundary,
+      stored,
+      "wsl_termination",
+      {
+        issued: true,
+        confirmation: "confirmed",
+      },
+    );
+    stored = persistActualRepairRecord(
+      originBoundary,
+      stored,
+      "processes_stopped",
+      stored.ledger,
+    );
+    assert.ok(stored);
+    const renameIntent = persistActualRepairRecord(
+      originBoundary,
+      stored,
+      stored.stage,
+      Object.freeze({
+        ...stored.ledger,
+        filesystemEffects: Object.freeze([
+          ...stored.ledger.filesystemEffects,
+          Object.freeze({
+            sequence: stored.ledger.filesystemEffects.length,
+            action: "runtime_directory_rename" as const,
+            phase: "intent_recorded" as const,
+            issued: null,
+            confirmation: "unknown" as const,
+          }),
+        ]),
+        filesystemEffectIssued: null,
+        filesystemEffectConfirmation: "unknown" as const,
+      }),
+    );
+    assert.ok(renameIntent);
+    fs.renameSync(runDirectory, stored.staleDirectory);
+    const renameEffects = renameIntent.ledger.filesystemEffects.map((entry) =>
+      entry.action === "runtime_directory_rename"
+        ? Object.freeze({
+            ...entry,
+            phase: "settled" as const,
+            issued: true,
+            confirmation: "confirmed" as const,
+          })
+        : entry,
+    );
+    stored = persistActualRepairRecord(
+      originBoundary,
+      renameIntent,
+      renameIntent.stage,
+      Object.freeze({
+        ...renameIntent.ledger,
+        filesystemEffects: Object.freeze(renameEffects),
+        filesystemEffectIssued: true,
+        filesystemEffectConfirmation: "confirmed" as const,
+      }),
+    );
+    assert.ok(stored);
+    stored = persistActualRepairRecord(
+      originBoundary,
+      stored,
+      "renamed",
+      Object.freeze({ ...stored.ledger, staleState: "retained" as const }),
+    );
+    assert.ok(stored);
+    const launchIntent = persistActualRepairRecord(
+      originBoundary,
+      stored,
+      stored.stage,
+      Object.freeze({
+        ...stored.ledger,
+        processEffects: Object.freeze([
+          ...stored.ledger.processEffects,
+          Object.freeze({
+            sequence: stored.ledger.processEffects.length,
+            action: "desktop_launch" as const,
+            phase: "intent_recorded" as const,
+            issued: null,
+            confirmation: "unknown" as const,
+          }),
+        ]),
+        processEffectIssued: true,
+        processEffectConfirmation: "unknown" as const,
+      }),
+    );
+    assert.ok(launchIntent);
+    const launchEffects = launchIntent.ledger.processEffects.map((entry) =>
+      entry.action === "desktop_launch"
+        ? Object.freeze({
+            ...entry,
+            phase: "settled" as const,
+            issued: true,
+            confirmation: "confirmed" as const,
+          })
+        : entry,
+    );
+    stored = persistActualRepairRecord(
+      originBoundary,
+      launchIntent,
+      launchIntent.stage,
+      Object.freeze({
+        ...launchIntent.ledger,
+        processEffects: Object.freeze(launchEffects),
+        processEffectIssued: true,
+        processEffectConfirmation: "confirmed" as const,
+      }),
+    );
+    assert.ok(stored);
+    const originManifest = Object.freeze({ release: "origin" });
+    const currentManifest = Object.freeze({ release: "current" });
+    /**
+     * verifyHistoryのTest準備責務を実行する。
+     *
+     * @responsibility 署名版更新fixtureのRelease Identityを決定論的に検証する。
+     * @trace ERB-IT-012
+     * @precondition originまたはcurrentの固定manifestを受け取る。
+     * @stimulus verifyHistoryをmanifest候補で呼び出す。
+     * @observation 対応するRelease Identityまたはnullを取得する。
+     * @oracle 既知manifestだけが対応するRelease Identityへ解決される。
+     * @cleanup N/A: Test Helperは永続資源を作成しない。
+     * @boundary ERB-IT-012=Related 2 Blocks: Coordinator→Repair Record→Platform Adapter
+     */
+    const verifyHistory: DockerDesktopRepairHistoryVerifier = (value) => {
+      const selected =
+        JSON.stringify(value) === JSON.stringify(originManifest)
+          ? originBoundary
+          : JSON.stringify(value) === JSON.stringify(currentManifest)
+            ? currentBoundary
+            : null;
+      return selected
+        ? Object.freeze({
+            manifestHash: selected.crddManifestHash,
+            releaseSequence: selected.crddReleaseSequence,
+            runtimeExecutionIdentitySha256:
+              selected.runtimeExecutionIdentitySha256,
+            crddTree: "5".repeat(40),
+            packageContentRootSha256: "6".repeat(64),
+          })
+        : null;
+    };
+    assert.ok(
+      persistDockerDesktopRepairHistoricalAdoption(
+        currentBoundary,
+        stored,
+        originManifest,
+        currentManifest,
+        verifyHistory,
+      ),
+    );
+    const adoptedInventory = inventoryDockerDesktopRepairOperations(
+      currentBoundary,
+      verifyHistory,
+    );
+    assert.equal(adoptedInventory.status, "verified");
+    const operation = adoptedInventory.operations[0];
+    assert.ok(operation?.history);
+    const operationId = operation.operationId;
+    const operationDirectory = operation.operationDirectory;
+    const originalStale = operation.staleDirectory;
+    fs.mkdirSync(runDirectory, { recursive: true });
+    fs.mkdirSync(secretsDirectory, { recursive: true });
+    fs.writeFileSync(path.join(runDirectory, "sailor-ingest.sock"), "run");
+    fs.writeFileSync(path.join(secretsDirectory, "engine.sock"), "secret");
+    let activeOperation = operation;
+    let wasRestarted = false;
+    let externallyActive = false;
+    let shouldActivateAfterRunRename = false;
+    let launches = 0;
+    let closureWrites = 0;
+    const renameCalls: string[] = [];
+    const repairSession = Object.freeze({
+      ...session(),
+      inspectProcesses: async () =>
+        wasRestarted || externallyActive
+          ? ("verified" as const)
+          : ("absent" as const),
+      launchDesktop: async () => {
+        launches += 1;
+        wasRestarted = true;
+        fs.mkdirSync(runDirectory);
+        fs.writeFileSync(path.join(runDirectory, "dockerInference"), "new");
+        fs.mkdirSync(secretsDirectory);
+        fs.writeFileSync(path.join(secretsDirectory, "engine.sock"), "new");
+        return "started" as const;
+      },
+    });
+    /**
+     * observePathのTest準備責務を実行する。
+     *
+     * @responsibility observePathがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+     * @trace ERB-IT-001
+     * @precondition 呼出し元Test Caseが必要な入力を渡す。
+     * @stimulus observePathを呼び出す。
+     * @observation 返却値、生成fixtureまたは観測値を取得する。
+     * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+     * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+     * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+     */
+    const observePath = (target: string) => {
+      const observed = directoryIdentity(target);
+      return observed
+        ? Object.freeze({ state: "present" as const, identity: observed })
+        : Object.freeze({
+            state: "confirmed_absent" as const,
+            identity: null,
+          });
+    };
+    let activeBoundary = currentBoundary;
+    const dependencies: RepairDependencies = {
+      prepareBoundary: () => activeBoundary,
+      acquireHelper: async () =>
+        Object.freeze({ status: "acquired" as const, session: repairSession }),
+      inventory: () =>
+        Object.freeze({
+          status: "verified" as const,
+          operations: Object.freeze([activeOperation]),
+        }),
+      observeEngine: () =>
+        wasRestarted || externallyActive ? "ready" : "known_unavailable",
+      observeKnownSocketFailure: () => null,
+      observeRuntimeDirectoryLock: (target) => directoryIdentity(target),
+      persistStage: () => assert.fail("historical chain must remain immutable"),
+      officialShutdown: () =>
+        Object.freeze({ issued: false, confirmation: "not_issued" as const }),
+      terminateDockerWsl: () =>
+        Object.freeze({ issued: false, confirmation: "not_issued" as const }),
+      renameRunDirectory: () =>
+        assert.fail("original runtime directory must not be renamed again"),
+      renameRuntimeDirectory: (source, target, expected) => {
+        renameCalls.push(source);
+        const before = directoryIdentity(source);
+        assert.deepEqual(before, expected);
+        fs.renameSync(source, target);
+        if (shouldActivateAfterRunRename && source === runDirectory)
+          externallyActive = true;
+        return Object.freeze({
+          issued: true,
+          confirmation: "confirmed" as const,
+          staleState: "retained" as const,
+        });
+      },
+      awaitEngine: async () =>
+        wasRestarted || externallyActive ? "ready" : "known_unavailable",
+      identityAt: directoryIdentity,
+      observePath,
+      history: {
+        inspect: () => activeOperation,
+        loadOriginManifest: () => ({}),
+        loadCurrentManifest: () => ({}),
+        persistAdoption: () => assert.fail("already adopted"),
+        persistClosure: () => {
+          closureWrites += 1;
+          return null;
+        },
+      },
+    };
+    const result =
+      await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
+    assert.equal(
+      result.status,
+      "historical_recovered_pending_close",
+      JSON.stringify(result),
+    );
+    assert.equal(
+      result.reason,
+      "docker_desktop_repair_continuation_recovered_pending_close",
+    );
+    assert.equal(result.repairId, operation.repairId);
+    assert.equal(launches, 1);
+    assert.equal(fs.existsSync(originalStale), true);
+    assert.equal(
+      fs.existsSync(
+        path.join(
+          localAppData,
+          "Docker",
+          `run.crdd-stale-${operationId}-restart`,
+        ),
+      ),
+      true,
+    );
+    assert.equal(
+      fs.existsSync(
+        path.join(
+          localAppData,
+          `docker-secrets-engine.crdd-stale-${operationId}`,
+        ),
+      ),
+      true,
+    );
+    assert.equal(fs.existsSync(runDirectory), true);
+    assert.equal(fs.existsSync(secretsDirectory), true);
+    const replay =
+      await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
+    assert.equal(
+      replay.status,
+      "historical_recovered_pending_close",
+      JSON.stringify(replay),
+    );
+    assert.equal(launches, 1);
+
+    const migratedBoundary: PreparedBoundary = Object.freeze({
+      ...currentBoundary,
+      localUserBindingHash: "9".repeat(64),
+      crddManifestHash: "a".repeat(64),
+      crddReleaseSequence: currentBoundary.crddReleaseSequence + 1,
+      runtimeExecutionIdentitySha256: "b".repeat(64),
+    });
+    const operationHistory = operation.history;
+    assert.ok(operationHistory);
+    const migratedOperation: DockerDesktopRepairOperation = Object.freeze({
+      ...operation,
+      history: Object.freeze({
+        ...operationHistory,
+        handoffTipSha256: "d".repeat(64),
+        handoffCount: 1,
+        currentLocalUserBindingHash: migratedBoundary.localUserBindingHash,
+        currentSessionBound: true,
+        continuationAuthorities: Object.freeze([
+          Object.freeze({
+            localUserBindingHash: currentBoundary.localUserBindingHash,
+            manifestHash: currentBoundary.crddManifestHash,
+            releaseSequence: currentBoundary.crddReleaseSequence,
+            runtimeExecutionIdentitySha256:
+              currentBoundary.runtimeExecutionIdentitySha256,
+          }),
+          Object.freeze({
+            localUserBindingHash: migratedBoundary.localUserBindingHash,
+            manifestHash: migratedBoundary.crddManifestHash,
+            releaseSequence: migratedBoundary.crddReleaseSequence,
+            runtimeExecutionIdentitySha256:
+              migratedBoundary.runtimeExecutionIdentitySha256,
+          }),
+        ]),
+      }),
+    });
+    activeBoundary = migratedBoundary;
+    activeOperation = migratedOperation;
+    const migratedReplay =
+      await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
+    assert.equal(
+      migratedReplay.status,
+      "blocked",
+      JSON.stringify(migratedReplay),
+    );
+    assert.equal(
+      migratedReplay.reason,
+      "docker_desktop_repair_continuation_record_invalid",
+    );
+    assert.equal(migratedReplay.repairId, operation.repairId);
+    assert.equal(launches, 1);
+    activeBoundary = currentBoundary;
+    activeOperation = operation;
+
+    const hiddenSecretsDirectory = `${secretsDirectory}.missing-fixture`;
+    fs.renameSync(secretsDirectory, hiddenSecretsDirectory);
+    const missingSecretsClose =
+      await closeWindowsDockerDesktopRepairUsingDependencies(
+        operation.repairId,
+        dependencies,
+      );
+    assert.equal(missingSecretsClose.status, "blocked");
+    assert.equal(closureWrites, 0);
+    fs.renameSync(hiddenSecretsDirectory, secretsDirectory);
+    const continuationDirectory = path.join(
+      operationDirectory,
+      "runtime-continuation",
+    );
+    const hiddenContinuationDirectory = `${continuationDirectory}.missing-fixture`;
+    fs.renameSync(continuationDirectory, hiddenContinuationDirectory);
+    const missingContinuationClose =
+      await closeWindowsDockerDesktopRepairUsingDependencies(
+        operation.repairId,
+        dependencies,
+      );
+    assert.equal(missingContinuationClose.status, "blocked");
+    assert.equal(missingContinuationClose.repairId, operation.repairId);
+    assert.equal(closureWrites, 0);
+    fs.renameSync(hiddenContinuationDirectory, continuationDirectory);
+    const originalContinuationRecord = path.join(
+      operationDirectory,
+      "runtime-continuation",
+      "continuation-00-prepared.json",
+    );
+    const releaseMismatchedContinuation = JSON.parse(
+      fs.readFileSync(originalContinuationRecord, "utf8"),
+    );
+    releaseMismatchedContinuation.crddManifestHash = "f".repeat(64);
+    fs.writeFileSync(
+      originalContinuationRecord,
+      `${JSON.stringify(releaseMismatchedContinuation)}\n`,
+      "utf8",
+    );
+    const releaseMismatchedClose =
+      await closeWindowsDockerDesktopRepairUsingDependencies(
+        operation.repairId,
+        dependencies,
+      );
+    assert.equal(releaseMismatchedClose.status, "blocked");
+    assert.equal(closureWrites, 0);
+
+    fs.rmSync(continuationDirectory, { recursive: true, force: true });
+    const externallyActiveRunIdentity = directoryIdentity(runDirectory);
+    const externallyActiveSecretsIdentity = directoryIdentity(secretsDirectory);
+    assert.ok(externallyActiveRunIdentity);
+    assert.ok(externallyActiveSecretsIdentity);
+    assert.ok(
+      createDockerDesktopRepairContinuation(
+        currentBoundary,
+        operation,
+        externallyActiveRunIdentity,
+        externallyActiveSecretsIdentity,
+      ),
+    );
+    activeOperation = operation;
+    wasRestarted = false;
+    externallyActive = true;
+    const renameCountBeforeActiveReentry = renameCalls.length;
+    const activeReentry =
+      await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
+    assert.equal(activeReentry.status, "blocked");
+    assert.equal(
+      activeReentry.reason,
+      "docker_desktop_repair_continuation_process_stop_unconfirmed",
+    );
+    assert.equal(renameCalls.length, renameCountBeforeActiveReentry);
+    const partialClose = await closeWindowsDockerDesktopRepairUsingDependencies(
+      operation.repairId,
+      dependencies,
+    );
+    assert.equal(partialClose.status, "blocked");
+    assert.equal(closureWrites, 0);
+    externallyActive = false;
+
+    fs.rmSync(continuationDirectory, { recursive: true, force: true });
+    const failedRunStale = path.join(
+      localAppData,
+      "Docker",
+      `run.crdd-stale-${operationId}-restart`,
+    );
+    const secretsStale = path.join(
+      localAppData,
+      `docker-secrets-engine.crdd-stale-${operationId}`,
+    );
+    fs.rmSync(failedRunStale, { recursive: true, force: true });
+    fs.rmSync(secretsStale, { recursive: true, force: true });
+    const effectBoundaryRunIdentity = directoryIdentity(runDirectory);
+    const effectBoundarySecretsIdentity = directoryIdentity(secretsDirectory);
+    assert.ok(effectBoundaryRunIdentity);
+    assert.ok(effectBoundarySecretsIdentity);
+    assert.ok(
+      createDockerDesktopRepairContinuation(
+        currentBoundary,
+        operation,
+        effectBoundaryRunIdentity,
+        effectBoundarySecretsIdentity,
+      ),
+    );
+    activeOperation = operation;
+    shouldActivateAfterRunRename = true;
+    const effectBoundaryResult =
+      await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
+    assert.equal(effectBoundaryResult.status, "blocked");
+    assert.equal(
+      effectBoundaryResult.reason,
+      "docker_desktop_repair_continuation_effect_precondition_unconfirmed",
+    );
+    assert.equal(fs.existsSync(secretsDirectory), true);
+    assert.equal(
+      fs.existsSync(
+        path.join(
+          localAppData,
+          `docker-secrets-engine.crdd-stale-${operationId}`,
+        ),
+      ),
+      false,
+    );
+    shouldActivateAfterRunRename = false;
+    externallyActive = false;
+    fs.mkdirSync(runDirectory);
+    fs.writeFileSync(path.join(runDirectory, "dockerInference"), "newer");
+
+    fs.rmSync(continuationDirectory, { recursive: true, force: true });
+    fs.rmSync(failedRunStale, { recursive: true, force: true });
+    const interruptedRunIdentity = directoryIdentity(runDirectory);
+    const interruptedSecretsIdentity = directoryIdentity(secretsDirectory);
+    assert.ok(interruptedRunIdentity);
+    assert.ok(interruptedSecretsIdentity);
+    const preparedContinuation = createDockerDesktopRepairContinuation(
+      currentBoundary,
+      operation,
+      interruptedRunIdentity,
+      interruptedSecretsIdentity,
+    );
+    assert.ok(preparedContinuation);
+    const processStopIntent = persistDockerDesktopRepairContinuationIntent(
+      currentBoundary,
+      operation,
+      preparedContinuation,
+      "failed_launch_process_stop",
+    );
+    assert.ok(processStopIntent);
+    const processStopSettlement =
+      persistDockerDesktopRepairContinuationSettlement(
+        currentBoundary,
+        operation,
+        processStopIntent,
+        "failed_launch_process_stop",
+        Object.freeze({ issued: false, confirmation: "not_issued" }),
+      );
+    assert.ok(processStopSettlement);
+    const interruptedContinuation =
+      persistDockerDesktopRepairContinuationIntent(
+        currentBoundary,
+        operation,
+        processStopSettlement,
+        "failed_launch_run_directory_rename",
+      );
+    assert.ok(interruptedContinuation);
+    activeOperation = operation;
+    wasRestarted = false;
+    const renameCountBeforeInterruptedReentry = renameCalls.length;
+    const runRenameCountBeforeInterruptedReentry = renameCalls.filter(
+      (source) => source === runDirectory,
+    ).length;
+    const interruptedReentry =
+      await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
+    assert.equal(interruptedReentry.status, "blocked");
+    assert.equal(
+      interruptedReentry.reason,
+      "docker_desktop_repair_continuation_effect_unknown",
+    );
+    assert.equal(renameCalls.length, renameCountBeforeInterruptedReentry);
+
+    fs.renameSync(runDirectory, failedRunStale);
+    const observedEffectReentry =
+      await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
+    assert.equal(
+      observedEffectReentry.status,
+      "historical_recovered_pending_close",
+      JSON.stringify(observedEffectReentry),
+    );
+    assert.equal(observedEffectReentry.repairId, operation.repairId);
+    assert.equal(launches, 2);
+    assert.equal(
+      renameCalls.filter((source) => source === runDirectory).length,
+      runRenameCountBeforeInterruptedReentry,
+      "意図記録後に外部Effectを観測した再入場では同じrenameを再発行しない",
+    );
+    assert.equal(fs.existsSync(failedRunStale), true);
+    assert.equal(
+      fs.existsSync(
+        path.join(
+          localAppData,
+          `docker-secrets-engine.crdd-stale-${operationId}`,
+        ),
+      ),
+      true,
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+/**
+ * terminal再表示はstale exact identityと解放後package世代を再確認するを検証する。
+ *
+ * @responsibility terminal再表示はstale exact identityと解放後package世代を再確認するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus terminal再表示はstale exact identityと解放後package世代を再確認するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("terminal再表示はstale exact identityと解放後package世代を再確認する", async () => {
   const ledger: DockerDesktopRepairLedgerSnapshot = Object.freeze({
     processEffects: Object.freeze([
@@ -4404,6 +6716,18 @@ test("terminal再表示はstale exact identityと解放後package世代を再確
   assert.equal(changedResult.newRepairPermitted, false);
 });
 
+/**
+ * Contractは自動fallback・全WSL停止・削除・PID killを許可しないを検証する。
+ *
+ * @responsibility Contractは自動fallback・全WSL停止・削除・PID killを許可しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Contractは自動fallback・全WSL停止・削除・PID killを許可しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("Contractは自動fallback・全WSL停止・削除・PID killを許可しない", () => {
   const contract = describeDockerDesktopRuntimeRepairContract();
   assert.equal(contract.platform, "windows");
@@ -4444,6 +6768,18 @@ test("Contractは自動fallback・全WSL停止・削除・PID killを許可し�
   );
 });
 
+/**
+ * 人間表示はtri-stateと明示closeを示しPathを報告しないを検証する。
+ *
+ * @responsibility 人間表示はtri-stateと明示closeを示しPathを報告しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 人間表示はtri-stateと明示closeを示しPathを報告しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("人間表示はtri-stateと明示closeを示しPathを報告しない", () => {
   const repairId = `docker-desktop-repair.${"a".repeat(32)}`;
   const rendered = renderDockerRecoveryDoctorReport(
@@ -4454,6 +6790,7 @@ test("人間表示はtri-stateと明示closeを示しPathを報告しない", ()
       repairId,
       manualRecoveryRequired: false,
       engineReady: true,
+      engineStartupDurationMs: 6_421,
       processEffectIssued: true,
       filesystemEffectIssued: true,
       staleRuntimeDirectory: "retained",
@@ -4463,6 +6800,10 @@ test("人間表示はtri-stateと明示closeを示しPathを報告しない", ()
   );
   assert.equal(rendered.exitCode, 2);
   assert.match(rendered.stdout, /Docker Engineの準備完了: はい/u);
+  assert.match(
+    rendered.stdout,
+    /Docker Engine起動所要時間（参考値）: 6421 ms/u,
+  );
   assert.match(rendered.stdout, /退避した実行時フォルダの状態: retained/u);
   assert.match(
     rendered.stdout,

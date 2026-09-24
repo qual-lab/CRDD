@@ -1,25 +1,40 @@
-import { createHash } from "node:crypto";
+/**
+ * repository-operation-runtimeに属する責務をまとめる。
+ *
+ * @responsibility Bindingを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000009
+ */
 import fs from "node:fs";
 import path from "node:path";
-
-import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
-import { inspectGitCommitTreeCandidate } from "./git-object-reader.ts";
-import { isSupportedCrddRuntimeGitObjectId } from "./release-identity-grammar.ts";
+import { observeFixedRevisionIdentity } from "../../../version-control/src/fixed-revision.ts";
 import {
-  inspectRepositoryGitObjectFormatCandidate,
-  type RepositoryGitLayout,
-  resolveRepositoryGitLayout,
-} from "./repository-git-layout-internal.ts";
+  gitFixedRevisionIdentityAdapter,
+  gitRepositoryFormatAdapter,
+  gitRepositoryRevisionAdapter,
+} from "../../../version-control/src/git/fixed-revision-adapter.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";
+import {
+  inspectRepositoryFormat,
+  observeRepositoryRevision,
+} from "../../../version-control/src/repository-revision.ts";
+import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
+import { isSupportedCrddRuntimeGitObjectId } from "./release-identity-grammar.ts";
 
 export const REPOSITORY_OPERATION_RUNTIME_CONTRACT =
   "crdd-coordinator/repository-operation-runtime";
 export const REPOSITORY_OPERATION_RUNTIME_CONTRACT_REVISION = 2;
 
-const MAX_HEAD_BYTES = 4_096;
-const MAX_PACKED_REFS_BYTES = 4 * 1024 * 1024;
-const OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u;
-const SAFE_REF = /^refs\/(?:heads|tags)\/[A-Za-z0-9._/-]{1,1024}$/u;
-
+/**
+ * repository-operation-runtimeで使用するBindingの値契約を定義する。
+ *
+ * @responsibility BindingのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000009
+ * @shape Bindingが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Bindingで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Bindingの宣言は外部境界を開かない。
+ * @security BindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Bindingの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Binding = Readonly<{
   managementCapability: object;
   operationId: string;
@@ -33,148 +48,55 @@ type Binding = Readonly<{
 const bindings = new WeakMap<object, Binding>();
 const capabilities = new WeakMap<object, Binding>();
 
-function stableFile(target: string, maximumBytes: number) {
-  const handle = fs.openSync(target, "r");
-  try {
-    const before = fs.fstatSync(handle, { bigint: true });
-    if (
-      !before.isFile() ||
-      before.isSymbolicLink() ||
-      before.size < 1n ||
-      before.size > BigInt(maximumBytes)
-    ) {
-      throw new Error("repository_revision_file_invalid");
-    }
-    const bytes = Buffer.alloc(Number(before.size));
-    let offset = 0;
-    while (offset < bytes.byteLength) {
-      const read = fs.readSync(
-        handle,
-        bytes,
-        offset,
-        bytes.byteLength - offset,
-        offset,
-      );
-      if (read <= 0) throw new Error("repository_revision_file_changed");
-      offset += read;
-    }
-    const after = fs.fstatSync(handle, { bigint: true });
-    if (
-      before.dev !== after.dev ||
-      before.ino !== after.ino ||
-      before.birthtimeNs !== after.birthtimeNs ||
-      before.size !== after.size ||
-      before.mtimeNs !== after.mtimeNs ||
-      before.ctimeNs !== after.ctimeNs
-    ) {
-      throw new Error("repository_revision_file_changed");
-    }
-    const metadata = fs.lstatSync(target, { bigint: true });
-    if (
-      !metadata.isFile() ||
-      metadata.isSymbolicLink() ||
-      metadata.dev !== before.dev ||
-      metadata.ino !== before.ino ||
-      metadata.birthtimeNs !== before.birthtimeNs ||
-      fs.realpathSync.native(target) !== target
-    ) {
-      throw new Error("repository_revision_file_changed");
-    }
-    return bytes;
-  } finally {
-    fs.closeSync(handle);
-  }
-}
-
-function decodeControl(bytes: Buffer) {
-  const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-  if (/\0|\r(?!\n)/u.test(source))
-    throw new Error("repository_revision_file_invalid");
-  return source.replace(/\r?\n$/u, "");
-}
-
-function validRef(value: string) {
-  return (
-    SAFE_REF.test(value) &&
-    !value.includes("..") &&
-    !value.includes("//") &&
-    !value.endsWith("/")
-  );
-}
-
-function packedRevision(commonDirectory: string, ref: string) {
-  const source = decodeControl(
-    stableFile(
-      path.join(commonDirectory, "packed-refs"),
-      MAX_PACKED_REFS_BYTES,
-    ),
-  );
-  const matches = source
-    .split("\n")
-    .filter((line) => !line.startsWith("#") && !line.startsWith("^"))
-    .map((line) => line.split(" "))
-    .filter((parts) => parts.length === 2 && parts[1] === ref);
-  if (matches.length !== 1 || !OBJECT_ID.test(matches[0]?.[0] ?? ""))
-    throw new Error("repository_revision_ref_invalid");
-  return matches[0]?.[0] as string;
-}
-
-function readRevision(layout: RepositoryGitLayout) {
-  const head = decodeControl(
-    stableFile(path.join(layout.gitDirectory.realPath, "HEAD"), MAX_HEAD_BYTES),
-  );
-  if (OBJECT_ID.test(head)) return head;
-  if (!head.startsWith("ref: "))
-    throw new Error("repository_revision_head_invalid");
-  const ref = head.slice("ref: ".length);
-  if (!validRef(ref)) throw new Error("repository_revision_ref_invalid");
-  const loose = path.join(layout.commonDirectory.realPath, ...ref.split("/"));
-  try {
-    const revision = decodeControl(stableFile(loose, MAX_HEAD_BYTES));
-    if (!OBJECT_ID.test(revision))
-      throw new Error("repository_revision_ref_invalid");
-    return revision;
-  } catch (error) {
-    if (
-      !error ||
-      typeof error !== "object" ||
-      !("code" in error) ||
-      error.code !== "ENOENT"
-    ) {
-      throw error;
-    }
-    return packedRevision(layout.commonDirectory.realPath, ref);
-  }
-}
-
-function entityIdentity(domain: string, entity: RepositoryGitLayout["root"]) {
-  return createHash("sha256")
-    .update(domain)
-    .update("\0")
-    .update(entity.identity.dev.toString())
-    .update("\0")
-    .update(entity.identity.ino.toString())
-    .update("\0")
-    .update(entity.identity.birthtimeNs.toString())
-    .digest("hex");
-}
-
+/**
+ * repository-operation-runtimeを観測する。
+ *
+ * @responsibility repository-operation-runtimeの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000009
+ * @input repositoryRoot: string
+ * @returns observeの計算結果を返す。
+ * @precondition 「repositoryRoot: string」がobserveの入力契約を満たす。
+ * @postcondition observeの責務を完了した結果だけを返す。
+ * @effect N/A: observeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure observeは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observeはProcess内の同一Subsystemで完結する。
+ * @security observeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeは共有非同期状態を持たない同期処理である。
+ */
 function observe(repositoryRoot: string) {
-  const layout = resolveRepositoryGitLayout(repositoryRoot);
+  const verified = verifyRepositoryRoot(repositoryRoot);
+  if (verified.status !== "completed")
+    throw new Error("repository_root_invalid");
+  const observed = observeRepositoryRevision(
+    verified.capability,
+    gitRepositoryRevisionAdapter,
+  );
+  if (!observed) throw new Error("repository_revision_invalid");
   return Object.freeze({
-    repositoryKind: layout.kind,
-    logicalRepositoryIdentity: entityIdentity(
-      "crdd-logical-repository-v1",
-      layout.commonDirectory,
-    ),
-    repositoryInstanceIdentity: entityIdentity(
-      "crdd-repository-instance-v1",
-      layout.root,
-    ),
-    revision: readRevision(layout),
+    repositoryKind: observed.repositoryForm,
+    logicalRepositoryIdentity: observed.repositoryIdentity,
+    repositoryInstanceIdentity: observed.repositoryInstanceIdentity,
+    revision: observed.revisionIdentity,
   });
 }
 
+/**
+ * Repository Object Format 候補を観測する。
+ *
+ * @responsibility Repository Object Format 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000009
+ * @input repositoryRoot: unknown
+ * @returns inspectRepositoryObjectFormatCandidateの計算結果を返す。
+ * @precondition 「repositoryRoot: unknown」がinspectRepositoryObjectFormatCandidateの入力契約を満たす。
+ * @postcondition inspectRepositoryObjectFormatCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectRepositoryObjectFormatCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectRepositoryObjectFormatCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectRepositoryObjectFormatCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectRepositoryObjectFormatCandidateはProcess内の同一Subsystemで完結する。
+ * @security inspectRepositoryObjectFormatCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectRepositoryObjectFormatCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectRepositoryObjectFormatCandidate(
   repositoryRoot: unknown,
 ) {
@@ -187,8 +109,11 @@ export function inspectRepositoryObjectFormatCandidate(
     ) {
       return null;
     }
-    const format = inspectRepositoryGitObjectFormatCandidate(repositoryRoot);
-    if (format?.status !== "candidate") return null;
+    const format = inspectRepositoryFormat(
+      repositoryRoot,
+      gitRepositoryFormatAdapter,
+    );
+    if (!format) return null;
     return Object.freeze({
       status: "candidate" as const,
       objectFormat: format.objectFormat,
@@ -201,6 +126,22 @@ export function inspectRepositoryObjectFormatCandidate(
   }
 }
 
+/**
+ * Repository Revision 候補を観測する。
+ *
+ * @responsibility Repository Revision 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000009
+ * @input repositoryRoot: unknown
+ * @returns inspectRepositoryRevisionCandidateの計算結果を返す。
+ * @precondition 「repositoryRoot: unknown」がinspectRepositoryRevisionCandidateの入力契約を満たす。
+ * @postcondition inspectRepositoryRevisionCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectRepositoryRevisionCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectRepositoryRevisionCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectRepositoryRevisionCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectRepositoryRevisionCandidateはProcess内の同一Subsystemで完結する。
+ * @security inspectRepositoryRevisionCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectRepositoryRevisionCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectRepositoryRevisionCandidate(repositoryRoot: unknown) {
   try {
     if (
@@ -211,18 +152,18 @@ export function inspectRepositoryRevisionCandidate(repositoryRoot: unknown) {
     ) {
       return null;
     }
-    const layout = resolveRepositoryGitLayout(repositoryRoot);
-    const revision = readRevision(layout);
-    const identity = inspectGitCommitTreeCandidate({
-      commonDirectory: layout.commonDirectory.realPath,
-      revision,
-    });
-    return identity?.status === "candidate" && identity.commit === revision
+    const verified = verifyRepositoryRoot(repositoryRoot);
+    if (verified.status !== "completed") return null;
+    const identity = observeFixedRevisionIdentity(
+      verified.capability,
+      gitFixedRevisionIdentityAdapter,
+    );
+    return identity
       ? Object.freeze({
           status: "candidate" as const,
-          commit: identity.commit,
-          tree: identity.tree,
-          repositoryKind: layout.kind,
+          commit: identity.revisionIdentity,
+          tree: identity.snapshotIdentity,
+          repositoryKind: identity.repositoryForm,
           externalGitCliUsed: false,
           repositoryPathReported: false,
         })
@@ -232,7 +173,22 @@ export function inspectRepositoryRevisionCandidate(repositoryRoot: unknown) {
   }
 }
 
-/** Read-only identity and HEAD/tree observation for bounded admission. */
+/**
+ * Read-only identity and HEAD/tree observation for bounded admission.
+ *
+ * @responsibility Repository Identity 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000009
+ * @input repositoryRoot: unknown
+ * @returns inspectRepositoryIdentityCandidateの計算結果を返す。
+ * @precondition 「repositoryRoot: unknown」がinspectRepositoryIdentityCandidateの入力契約を満たす。
+ * @postcondition inspectRepositoryIdentityCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectRepositoryIdentityCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectRepositoryIdentityCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectRepositoryIdentityCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectRepositoryIdentityCandidateはProcess内の同一Subsystemで完結する。
+ * @security inspectRepositoryIdentityCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectRepositoryIdentityCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectRepositoryIdentityCandidate(repositoryRoot: unknown) {
   try {
     if (typeof repositoryRoot !== "string") return null;
@@ -251,6 +207,22 @@ export function inspectRepositoryIdentityCandidate(repositoryRoot: unknown) {
   }
 }
 
+/**
+ * Runtime 所有 Repository OperationをIdentityへ結合する。
+ *
+ * @responsibility Runtime 所有 Repository Operationの結合条件、相関Identity、不一致の拒否境界を所有する。
+ * @trace ARCH-000009
+ * @input managementCapability: unknown、repositoryRoot: unknown
+ * @returns bindRuntimeOwnedRepositoryOperationの計算結果を返す。
+ * @precondition 「managementCapability: unknown、repositoryRoot: unknown」がbindRuntimeOwnedRepositoryOperationの入力契約を満たす。
+ * @postcondition bindRuntimeOwnedRepositoryOperationの責務を完了した結果だけを返す。
+ * @effect bindRuntimeOwnedRepositoryOperationはFilesystemの読取りまたは書込みを実行する。
+ * @failure bindRuntimeOwnedRepositoryOperationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant bindRuntimeOwnedRepositoryOperationは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security bindRuntimeOwnedRepositoryOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: bindRuntimeOwnedRepositoryOperationは共有非同期状態を持たない同期処理である。
+ */
 export function bindRuntimeOwnedRepositoryOperation(
   managementCapability: unknown,
   repositoryRoot: unknown,
@@ -292,6 +264,22 @@ export function bindRuntimeOwnedRepositoryOperation(
   }
 }
 
+/**
+ * current Bindingを決定する。
+ *
+ * @responsibility current Bindingの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000009
+ * @input managementCapability: unknown
+ * @returns currentBindingの計算結果を返す。
+ * @precondition 「managementCapability: unknown」がcurrentBindingの入力契約を満たす。
+ * @postcondition currentBindingの責務を完了した結果だけを返す。
+ * @effect N/A: currentBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: currentBindingは独自の失敗分岐を所有しない。
+ * @invariant currentBindingは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: currentBindingはProcess内の同一Subsystemで完結する。
+ * @security currentBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: currentBindingは共有非同期状態を持たない同期処理である。
+ */
 function currentBinding(managementCapability: unknown) {
   if (!managementCapability || typeof managementCapability !== "object")
     return null;
@@ -309,6 +297,22 @@ function currentBinding(managementCapability: unknown) {
     : null;
 }
 
+/**
+ * Runtime 所有 Repository Operationを検証する。
+ *
+ * @responsibility Runtime 所有 Repository Operationの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000009
+ * @input managementCapability: unknown
+ * @returns verifyRuntimeOwnedRepositoryOperationの計算結果を返す。
+ * @precondition 「managementCapability: unknown」がverifyRuntimeOwnedRepositoryOperationの入力契約を満たす。
+ * @postcondition verifyRuntimeOwnedRepositoryOperationの責務を完了した結果だけを返す。
+ * @effect N/A: verifyRuntimeOwnedRepositoryOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyRuntimeOwnedRepositoryOperationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyRuntimeOwnedRepositoryOperationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyRuntimeOwnedRepositoryOperationはProcess内の同一Subsystemで完結する。
+ * @security verifyRuntimeOwnedRepositoryOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyRuntimeOwnedRepositoryOperationは共有非同期状態を持たない同期処理である。
+ */
 export function verifyRuntimeOwnedRepositoryOperation(
   managementCapability: unknown,
 ) {
@@ -327,6 +331,22 @@ export function verifyRuntimeOwnedRepositoryOperation(
   }
 }
 
+/**
+ * Runtime 所有 Repository Binding Capabilityを検証する。
+ *
+ * @responsibility Runtime 所有 Repository Binding Capabilityの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000009
+ * @input repositoryBindingCapability: unknown、managementCapability: unknown
+ * @returns verifyRuntimeOwnedRepositoryBindingCapabilityの計算結果を返す。
+ * @precondition 「repositoryBindingCapability: unknown、managementCapability: unknown」がverifyRuntimeOwnedRepositoryBindingCapabilityの入力契約を満たす。
+ * @postcondition verifyRuntimeOwnedRepositoryBindingCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: verifyRuntimeOwnedRepositoryBindingCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyRuntimeOwnedRepositoryBindingCapabilityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyRuntimeOwnedRepositoryBindingCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyRuntimeOwnedRepositoryBindingCapabilityはProcess内の同一Subsystemで完結する。
+ * @security verifyRuntimeOwnedRepositoryBindingCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyRuntimeOwnedRepositoryBindingCapabilityは共有非同期状態を持たない同期処理である。
+ */
 export function verifyRuntimeOwnedRepositoryBindingCapability(
   repositoryBindingCapability: unknown,
   managementCapability: unknown,
@@ -355,6 +375,22 @@ export function verifyRuntimeOwnedRepositoryBindingCapability(
   }
 }
 
+/**
+ * Runtime 所有 Repository Sourceを一時参照として取得する。
+ *
+ * @responsibility Runtime 所有 Repository Sourceの参照条件、lifetime、所有権を移さない境界を所有する。
+ * @trace ARCH-000009
+ * @input repositoryBindingCapability: unknown、managementCapability: unknown
+ * @returns borrowRuntimeOwnedRepositorySourceの計算結果を返す。
+ * @precondition 「repositoryBindingCapability: unknown、managementCapability: unknown」がborrowRuntimeOwnedRepositorySourceの入力契約を満たす。
+ * @postcondition borrowRuntimeOwnedRepositorySourceの責務を完了した結果だけを返す。
+ * @effect N/A: borrowRuntimeOwnedRepositorySourceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure borrowRuntimeOwnedRepositorySourceは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant borrowRuntimeOwnedRepositorySourceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: borrowRuntimeOwnedRepositorySourceはProcess内の同一Subsystemで完結する。
+ * @security borrowRuntimeOwnedRepositorySourceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: borrowRuntimeOwnedRepositorySourceは共有非同期状態を持たない同期処理である。
+ */
 export function borrowRuntimeOwnedRepositorySource(
   repositoryBindingCapability: unknown,
   managementCapability: unknown,
@@ -377,12 +413,9 @@ export function borrowRuntimeOwnedRepositorySource(
     ) {
       return null;
     }
-    const layout = resolveRepositoryGitLayout(binding.repositoryRoot);
     return Object.freeze({
       operationId: binding.operationId,
       repositoryRoot: binding.repositoryRoot,
-      gitDirectory: layout.gitDirectory.realPath,
-      commonDirectory: layout.commonDirectory.realPath,
       revision: binding.revision,
     });
   } catch {
@@ -390,6 +423,22 @@ export function borrowRuntimeOwnedRepositorySource(
   }
 }
 
+/**
+ * Repository Operation Runtime 契約の公開契約を記述する。
+ *
+ * @responsibility Repository Operation Runtime 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000009
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeRepositoryOperationRuntimeContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeRepositoryOperationRuntimeContractの入力契約を満たす。
+ * @postcondition describeRepositoryOperationRuntimeContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeRepositoryOperationRuntimeContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeRepositoryOperationRuntimeContractは独自の失敗分岐を所有しない。
+ * @invariant describeRepositoryOperationRuntimeContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeRepositoryOperationRuntimeContractはProcess内の同一Subsystemで完結する。
+ * @security describeRepositoryOperationRuntimeContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeRepositoryOperationRuntimeContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeRepositoryOperationRuntimeContract() {
   return Object.freeze({
     contract: REPOSITORY_OPERATION_RUNTIME_CONTRACT,

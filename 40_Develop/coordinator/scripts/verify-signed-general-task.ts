@@ -1,12 +1,23 @@
+/**
+ * verify-signed-general-taskに属する責務をまとめる。
+ *
+ * @responsibility RuntimeRecordを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/repository-location.ts";
 import {
   isSupportedCoordinatorNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
 } from "../src/core/node-runtime-version.ts";
+import {
+  SIGNED_GENERAL_TASK_PUBLIC_REASONS,
+  type SignedGeneralTaskPublicReason,
+} from "../src/core/verification-result-reasons.ts";
 import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
@@ -19,6 +30,10 @@ import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,
 } from "../src/security/coordinator-task-runtime.ts";
+import {
+  coordinatorTaskPublicReasons,
+  type CoordinatorTaskPublicReason,
+} from "../src/security/coordinator-task-result-reasons.ts";
 import { snapshotPlainArray } from "../src/security/plain-data-snapshot.ts";
 import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/security/platform-provisioner-package-filesystem.ts";
 import {
@@ -26,13 +41,12 @@ import {
   isCanonicalCrddVersion,
   isSupportedCrddRuntimeGitObjectId,
 } from "../src/security/release-identity-grammar.ts";
+import { inspectRepositoryRevisionCandidate } from "../src/security/repository-operation-runtime.ts";
 import {
   evaluateSignedRunnerSafetyObservation,
   salvageSignedRunnerNullableRecovery,
   salvageSignedRunnerRecoveryPair,
 } from "../src/security/signed-runner-safety-observation.ts";
-import { inspectRepositoryRevisionCandidate } from "../src/security/repository-operation-runtime.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
@@ -82,11 +96,51 @@ const TASK_SAFETY_SCHEMA = Object.freeze({
   ]),
 });
 
+/**
+ * verify-signed-general-taskで使用するRuntime 記録の値契約を定義する。
+ *
+ * @responsibility Runtime 記録のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape RuntimeRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeRecordの宣言は外部境界を開かない。
+ * @security N/A: RuntimeRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RuntimeRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimeRecord = Readonly<Record<string, unknown>>;
+/**
+ * 署名General Taskの最終結果理由を表す。
+ *
+ * @responsibility 署名RunnerとCoordinator Taskの公開理由を一つの閉じた型へ統合する。
+ * @trace ARCH-000004
+ * @shape 二つの公開理由unionだけからなる文字列unionである。
+ * @invariant 未知理由やProvider生出力を含まない。
+ * @boundary Coordinator Task結果から署名検証結果への投影境界。
+ * @security 固定公開理由だけを許可する。
+ * @compatibility 利用側は両公開Registryに含まれる理由だけへ依存する。
+ */
+type SignedGeneralTaskResultReason =
+  | SignedGeneralTaskPublicReason
+  | CoordinatorTaskPublicReason;
+const signedGeneralTaskResultReasonSet = new Set<string>([
+  ...SIGNED_GENERAL_TASK_PUBLIC_REASONS,
+  ...coordinatorTaskPublicReasons,
+]);
+/**
+ * verify-signed-general-taskで使用するSigned General Task Verification 結果の値契約を定義する。
+ *
+ * @responsibility Signed General Task Verification 結果のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape SignedGeneralTaskVerificationResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SignedGeneralTaskVerificationResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SignedGeneralTaskVerificationResultの宣言は外部境界を開かない。
+ * @security N/A: SignedGeneralTaskVerificationResultはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility SignedGeneralTaskVerificationResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type SignedGeneralTaskVerificationResult = RuntimeRecord &
   Readonly<{
     status: "completed" | "blocked";
-    reason: string;
+    reason: SignedGeneralTaskResultReason;
     cleanupConfirmed: boolean;
     manualRecoveryRequired: boolean;
     processRestartRequired: boolean;
@@ -133,11 +187,33 @@ export type SignedGeneralTaskVerificationResult = RuntimeRecord &
       | "other_bytes"
       | null;
   }>;
+/**
+ * verify-signed-general-taskで使用するSigned General Task Route Profileの値契約を定義する。
+ *
+ * @responsibility Signed General Task Route ProfileのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape SignedGeneralTaskRouteProfileが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SignedGeneralTaskRouteProfileで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SignedGeneralTaskRouteProfileの宣言は外部境界を開かない。
+ * @security N/A: SignedGeneralTaskRouteProfileはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility SignedGeneralTaskRouteProfileの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type SignedGeneralTaskRouteProfile =
   | "forward"
   | "reverse"
   | "same-codex"
   | "same-claude";
+/**
+ * verify-signed-general-taskで使用するRoute Expectationの値契約を定義する。
+ *
+ * @responsibility Route ExpectationのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape RouteExpectationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RouteExpectationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RouteExpectationの宣言は外部境界を開かない。
+ * @security N/A: RouteExpectationはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RouteExpectationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RouteExpectation = Readonly<{
   profile: SignedGeneralTaskRouteProfile;
   frontProvider: "codex" | "claude";
@@ -145,6 +221,17 @@ type RouteExpectation = Readonly<{
   reviewerProvider: "codex" | "claude";
   route: string;
 }>;
+/**
+ * verify-signed-general-taskで使用するRelease Identityの値契約を定義する。
+ *
+ * @responsibility Release IdentityのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ReleaseIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ReleaseIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ReleaseIdentityの宣言は外部境界を開かない。
+ * @security N/A: ReleaseIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ReleaseIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ReleaseIdentity = RuntimeRecord &
   Readonly<{
     manifestHash: string;
@@ -155,15 +242,48 @@ type ReleaseIdentity = RuntimeRecord &
     crddCommit: string;
     crddTree: string;
   }>;
+/**
+ * verify-signed-general-taskで使用するExecution Revisionの値契約を定義する。
+ *
+ * @responsibility Execution RevisionのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ExecutionRevisionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ExecutionRevisionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ExecutionRevisionの宣言は外部境界を開かない。
+ * @security N/A: ExecutionRevisionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ExecutionRevisionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ExecutionRevision = Readonly<{
   commit: string;
   tree: string;
 }>;
+/**
+ * verify-signed-general-taskで使用するCancellation Bindingの値契約を定義する。
+ *
+ * @responsibility Cancellation BindingのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape CancellationBindingが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CancellationBindingで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CancellationBindingの宣言は外部境界を開かない。
+ * @security N/A: CancellationBindingはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CancellationBindingの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type CancellationBinding = Readonly<{
   unbind: () => void;
   requested: () => boolean;
   requestedPromise: Promise<void>;
 }>;
+/**
+ * verify-signed-general-taskで使用するCancellation Signal Sourceの値契約を定義する。
+ *
+ * @responsibility Cancellation Signal SourceのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape CancellationSignalSourceが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CancellationSignalSourceで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CancellationSignalSourceの宣言は外部境界を開かない。
+ * @security N/A: CancellationSignalSourceはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CancellationSignalSourceの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type CancellationSignalSource = Readonly<{
   on: (signal: "SIGINT" | "SIGTERM", listener: () => void) => unknown;
   removeListener: (
@@ -171,6 +291,17 @@ type CancellationSignalSource = Readonly<{
     listener: () => void,
   ) => unknown;
 }>;
+/**
+ * verify-signed-general-taskで使用するVerification Dependenciesの値契約を定義する。
+ *
+ * @responsibility Verification DependenciesのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape VerificationDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant VerificationDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: VerificationDependenciesの宣言は外部境界を開かない。
+ * @security N/A: VerificationDependenciesはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility VerificationDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type VerificationDependencies = Readonly<{
   issuePackageCapability: (
     input: Readonly<{ evaluationTime: string }>,
@@ -198,6 +329,22 @@ type VerificationDependencies = Readonly<{
   }>;
 }>;
 
+/**
+ * Signed General Task CancellationをIdentityへ結合する。
+ *
+ * @responsibility Signed General Task Cancellationの結合条件、相関Identity、不一致の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input signalSource: CancellationSignalSource、_controlCapability: object、_cancel: (controlCapability: object) => unknown
+ * @returns CancellationBindingを返す。
+ * @precondition 「signalSource: CancellationSignalSource、_controlCapability: object、_cancel: (controlCapability: object) => unknown」がbindSignedGeneralTaskCancellationの入力契約を満たす。
+ * @postcondition bindSignedGeneralTaskCancellationの責務を完了した結果だけを返す。
+ * @effect N/A: bindSignedGeneralTaskCancellationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure bindSignedGeneralTaskCancellationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant bindSignedGeneralTaskCancellationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: bindSignedGeneralTaskCancellationはProcess内の同一Subsystemで完結する。
+ * @security N/A: bindSignedGeneralTaskCancellationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency bindSignedGeneralTaskCancellationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export function bindSignedGeneralTaskCancellation(
   signalSource: CancellationSignalSource,
   _controlCapability: object,
@@ -270,6 +417,22 @@ const productionDependencies: VerificationDependencies = Object.freeze({
     bindSignedGeneralTaskCancellation(process, controlCapability, cancel),
 });
 
+/**
+ * settlement Timingを決定する。
+ *
+ * @responsibility settlement Timingの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input dependencies: VerificationDependencies
+ * @returns settlementTimingの計算結果を返す。
+ * @precondition 「dependencies: VerificationDependencies」がsettlementTimingの入力契約を満たす。
+ * @postcondition settlementTimingの責務を完了した結果だけを返す。
+ * @effect N/A: settlementTimingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: settlementTimingは独自の失敗分岐を所有しない。
+ * @invariant settlementTimingは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: settlementTimingはProcess内の同一Subsystemで完結する。
+ * @security N/A: settlementTimingはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: settlementTimingは共有非同期状態を持たない同期処理である。
+ */
 function settlementTiming(dependencies: VerificationDependencies) {
   const production = Object.freeze({
     cancelAckTimeoutMs: PRODUCTION_CANCEL_ACK_TIMEOUT_MS,
@@ -290,6 +453,22 @@ function settlementTiming(dependencies: VerificationDependencies) {
     : production;
 }
 
+/**
+ * 記録をPlain Dataとして検証する。
+ *
+ * @responsibility 記録の許可Property、入れ子値、拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns RuntimeRecord | nullを返す。
+ * @precondition 「value: unknown」がplainRecordの入力契約を満たす。
+ * @postcondition plainRecordの責務を完了した結果だけを返す。
+ * @effect N/A: plainRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure plainRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant plainRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: plainRecordはProcess内の同一Subsystemで完結する。
+ * @security N/A: plainRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: plainRecordは共有非同期状態を持たない同期処理である。
+ */
 function plainRecord(value: unknown): RuntimeRecord | null {
   try {
     if (
@@ -324,6 +503,22 @@ function plainRecord(value: unknown): RuntimeRecord | null {
   }
 }
 
+/**
+ * Started Taskを所有Snapshotへ変換する。
+ *
+ * @responsibility Started Taskの取得範囲、plain-data制約、拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns snapshotStartedTaskの計算結果を返す。
+ * @precondition 「value: unknown」がsnapshotStartedTaskの入力契約を満たす。
+ * @postcondition snapshotStartedTaskの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotStartedTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure snapshotStartedTaskは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant snapshotStartedTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: snapshotStartedTaskはProcess内の同一Subsystemで完結する。
+ * @security N/A: snapshotStartedTaskはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency snapshotStartedTaskは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function snapshotStartedTask(value: unknown) {
   let controlCapability: object | null = null;
   let completionObservation: ReturnType<typeof observeNativeCompletion> | null =
@@ -395,6 +590,22 @@ function snapshotStartedTask(value: unknown) {
   });
 }
 
+/**
+ * Native Completionを観測する。
+ *
+ * @responsibility Native Completionの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input completion: Promise<RuntimeRecord>
+ * @returns observeNativeCompletionの計算結果を返す。
+ * @precondition 「completion: Promise<RuntimeRecord>」がobserveNativeCompletionの入力契約を満たす。
+ * @postcondition observeNativeCompletionの責務を完了した結果だけを返す。
+ * @effect N/A: observeNativeCompletionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: observeNativeCompletionは独自の失敗分岐を所有しない。
+ * @invariant observeNativeCompletionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observeNativeCompletionはProcess内の同一Subsystemで完結する。
+ * @security N/A: observeNativeCompletionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency observeNativeCompletionは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function observeNativeCompletion(completion: Promise<RuntimeRecord>) {
   return intrinsicPromiseThen.call(
     completion,
@@ -408,6 +619,22 @@ function observeNativeCompletion(completion: Promise<RuntimeRecord>) {
   >;
 }
 
+/**
+ * Cancellation Receiptが完全一致するか判定する。
+ *
+ * @responsibility Cancellation Receiptの比較対象、完全一致条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns exactCancellationReceiptの計算結果を返す。
+ * @precondition 「value: unknown」がexactCancellationReceiptの入力契約を満たす。
+ * @postcondition exactCancellationReceiptの責務を完了した結果だけを返す。
+ * @effect N/A: exactCancellationReceiptは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: exactCancellationReceiptは独自の失敗分岐を所有しない。
+ * @invariant exactCancellationReceiptは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: exactCancellationReceiptはProcess内の同一Subsystemで完結する。
+ * @security N/A: exactCancellationReceiptはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: exactCancellationReceiptは共有非同期状態を持たない同期処理である。
+ */
 function exactCancellationReceipt(value: unknown) {
   const receipt = plainRecord(value);
   if (
@@ -428,6 +655,22 @@ function exactCancellationReceipt(value: unknown) {
   });
 }
 
+/**
+ * String Arrayが完全一致するか判定する。
+ *
+ * @responsibility String Arrayの比較対象、完全一致条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、expectedValues: readonly string[]
+ * @returns exactStringArrayの計算結果を返す。
+ * @precondition 「value: unknown、expectedValues: readonly string[]」がexactStringArrayの入力契約を満たす。
+ * @postcondition exactStringArrayの責務を完了した結果だけを返す。
+ * @effect N/A: exactStringArrayは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: exactStringArrayは独自の失敗分岐を所有しない。
+ * @invariant exactStringArrayは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: exactStringArrayはProcess内の同一Subsystemで完結する。
+ * @security N/A: exactStringArrayはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: exactStringArrayは共有非同期状態を持たない同期処理である。
+ */
 function exactStringArray(value: unknown, expectedValues: readonly string[]) {
   const snapshot = snapshotPlainArray<unknown>(value, expectedValues.length);
   return (
@@ -437,16 +680,68 @@ function exactStringArray(value: unknown, expectedValues: readonly string[]) {
   );
 }
 
-function safeReason(value: unknown, fallback: string) {
-  return typeof value === "string" && /^[a-z0-9_]+$/u.test(value)
-    ? value
+/**
+ * Reasonを安全条件の下で処理する。
+ *
+ * @responsibility Reasonの安全条件、拒否条件、終了結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、fallback: string
+ * @returns safeReasonの計算結果を返す。
+ * @precondition 「value: unknown、fallback: string」がsafeReasonの入力契約を満たす。
+ * @postcondition safeReasonの責務を完了した結果だけを返す。
+ * @effect N/A: safeReasonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: safeReasonは独自の失敗分岐を所有しない。
+ * @invariant safeReasonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: safeReasonはProcess内の同一Subsystemで完結する。
+ * @security N/A: safeReasonはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: safeReasonは共有非同期状態を持たない同期処理である。
+ */
+function safeReason(
+  value: unknown,
+  fallback: SignedGeneralTaskResultReason,
+): SignedGeneralTaskResultReason {
+  return typeof value === "string" &&
+    signedGeneralTaskResultReasonSet.has(value)
+    ? (value as SignedGeneralTaskResultReason)
     : fallback;
 }
 
+/**
+ * sha256を決定する。
+ *
+ * @responsibility sha256の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がsha256の入力契約を満たす。
+ * @postcondition sha256の責務を完了した結果だけを返す。
+ * @effect N/A: sha256は入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sha256は独自の失敗分岐を所有しない。
+ * @invariant sha256は入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sha256はProcess内の同一Subsystemで完結する。
+ * @security N/A: sha256はAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: sha256は共有非同期状態を持たない同期処理である。
+ */
 function sha256(value: unknown): value is string {
   return typeof value === "string" && /^[0-9a-f]{64}$/u.test(value);
 }
 
+/**
+ * reviewer Diagnosis Projectionを決定する。
+ *
+ * @responsibility reviewer Diagnosis Projectionの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input result: RuntimeRecord | null
+ * @returns reviewerDiagnosisProjectionの計算結果を返す。
+ * @precondition 「result: RuntimeRecord | null」がreviewerDiagnosisProjectionの入力契約を満たす。
+ * @postcondition reviewerDiagnosisProjectionの責務を完了した結果だけを返す。
+ * @effect N/A: reviewerDiagnosisProjectionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: reviewerDiagnosisProjectionは独自の失敗分岐を所有しない。
+ * @invariant reviewerDiagnosisProjectionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: reviewerDiagnosisProjectionはProcess内の同一Subsystemで完結する。
+ * @security N/A: reviewerDiagnosisProjectionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: reviewerDiagnosisProjectionは共有非同期状態を持たない同期処理である。
+ */
 function reviewerDiagnosisProjection(result: RuntimeRecord | null) {
   const reviewerResult = plainRecord(result?.reviewerResult);
   const evidence = plainRecord(result?.reviewerProjectionEvidence);
@@ -529,6 +824,22 @@ function reviewerDiagnosisProjection(result: RuntimeRecord | null) {
   });
 }
 
+/**
+ * bounded 回復 Idsを決定する。
+ *
+ * @responsibility bounded 回復 Idsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input results: readonly (RuntimeRecord | null)[]、singularField: string、kind: "host" | "docker" | "candidate" | "candidate_store"、pluralField: string
+ * @returns boundedRecoveryIdsの計算結果を返す。
+ * @precondition 「results: readonly (RuntimeRecord | null)[]、singularField: string、kind: "host" | "docker" | "candidate" | "candidate_store"、pluralField: string」がboundedRecoveryIdsの入力契約を満たす。
+ * @postcondition boundedRecoveryIdsの責務を完了した結果だけを返す。
+ * @effect N/A: boundedRecoveryIdsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: boundedRecoveryIdsは独自の失敗分岐を所有しない。
+ * @invariant boundedRecoveryIdsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: boundedRecoveryIdsはProcess内の同一Subsystemで完結する。
+ * @security N/A: boundedRecoveryIdsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: boundedRecoveryIdsは共有非同期状態を持たない同期処理である。
+ */
 function boundedRecoveryIds(
   results: readonly (RuntimeRecord | null)[],
   singularField: string,
@@ -570,6 +881,22 @@ function boundedRecoveryIds(
   });
 }
 
+/**
+ * recovery Projectionを決定する。
+ *
+ * @responsibility recovery Projectionの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input results: readonly (RuntimeRecord | null)[]
+ * @returns recoveryProjectionの計算結果を返す。
+ * @precondition 「results: readonly (RuntimeRecord | null)[]」がrecoveryProjectionの入力契約を満たす。
+ * @postcondition recoveryProjectionの責務を完了した結果だけを返す。
+ * @effect N/A: recoveryProjectionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: recoveryProjectionは独自の失敗分岐を所有しない。
+ * @invariant recoveryProjectionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recoveryProjectionはProcess内の同一Subsystemで完結する。
+ * @security N/A: recoveryProjectionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: recoveryProjectionは共有非同期状態を持たない同期処理である。
+ */
 function recoveryProjection(...results: readonly (RuntimeRecord | null)[]) {
   const sources = results.filter((result) => result !== null);
   if (
@@ -635,8 +962,24 @@ function recoveryProjection(...results: readonly (RuntimeRecord | null)[]) {
   });
 }
 
+/**
+ * verify-signed-general-taskを停止結果として構築する。
+ *
+ * @responsibility verify-signed-general-taskの停止理由、未発行Effect、公開結果境界を所有する。
+ * @trace ARCH-000004
+ * @input reason: string、source: RuntimeRecord | null、extra: RuntimeRecord、additionalRecoverySources: readonly (RuntimeRecord | null)[]
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: string、source: RuntimeRecord | null、extra: RuntimeRecord、additionalRecoverySources: readonly (RuntimeRecord | null)[]」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
+ * @security N/A: blockedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(
-  reason: string,
+  reason: SignedGeneralTaskResultReason,
   source: RuntimeRecord | null = null,
   extra: RuntimeRecord = Object.freeze({}),
   additionalRecoverySources: readonly (RuntimeRecord | null)[] = Object.freeze(
@@ -671,8 +1014,24 @@ function blocked(
   });
 }
 
+/**
+ * After Exact 候補 Discardを停止結果として構築する。
+ *
+ * @responsibility After Exact 候補 Discardの停止理由、未発行Effect、公開結果境界を所有する。
+ * @trace ARCH-000004
+ * @input reason: string、taskResult: RuntimeRecord、extra: RuntimeRecord
+ * @returns blockedAfterExactCandidateDiscardの計算結果を返す。
+ * @precondition 「reason: string、taskResult: RuntimeRecord、extra: RuntimeRecord」がblockedAfterExactCandidateDiscardの入力契約を満たす。
+ * @postcondition blockedAfterExactCandidateDiscardの責務を完了した結果だけを返す。
+ * @effect N/A: blockedAfterExactCandidateDiscardは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedAfterExactCandidateDiscardは独自の失敗分岐を所有しない。
+ * @invariant blockedAfterExactCandidateDiscardは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedAfterExactCandidateDiscardはProcess内の同一Subsystemで完結する。
+ * @security N/A: blockedAfterExactCandidateDiscardはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: blockedAfterExactCandidateDiscardは共有非同期状態を持たない同期処理である。
+ */
 function blockedAfterExactCandidateDiscard(
-  reason: string,
+  reason: SignedGeneralTaskResultReason,
   taskResult: RuntimeRecord,
   extra: RuntimeRecord = Object.freeze({}),
 ) {
@@ -701,8 +1060,24 @@ function blockedAfterExactCandidateDiscard(
   );
 }
 
+/**
+ * After Confirmed 候補 Not Issuedを停止結果として構築する。
+ *
+ * @responsibility After Confirmed 候補 Not Issuedの停止理由、未発行Effect、公開結果境界を所有する。
+ * @trace ARCH-000004
+ * @input reason: string、taskResult: RuntimeRecord、extra: RuntimeRecord
+ * @returns blockedAfterConfirmedCandidateNotIssuedの計算結果を返す。
+ * @precondition 「reason: string、taskResult: RuntimeRecord、extra: RuntimeRecord」がblockedAfterConfirmedCandidateNotIssuedの入力契約を満たす。
+ * @postcondition blockedAfterConfirmedCandidateNotIssuedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedAfterConfirmedCandidateNotIssuedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedAfterConfirmedCandidateNotIssuedは独自の失敗分岐を所有しない。
+ * @invariant blockedAfterConfirmedCandidateNotIssuedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedAfterConfirmedCandidateNotIssuedはProcess内の同一Subsystemで完結する。
+ * @security N/A: blockedAfterConfirmedCandidateNotIssuedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: blockedAfterConfirmedCandidateNotIssuedは共有非同期状態を持たない同期処理である。
+ */
 function blockedAfterConfirmedCandidateNotIssued(
-  reason: string,
+  reason: SignedGeneralTaskResultReason,
   taskResult: RuntimeRecord,
   extra: RuntimeRecord = Object.freeze({}),
 ) {
@@ -734,12 +1109,44 @@ function blockedAfterConfirmedCandidateNotIssued(
   );
 }
 
+/**
+ * Runtime Process Poisonedが成立する状態を確保する。
+ *
+ * @responsibility Runtime Process Poisonedの成立条件、作成または再利用、失敗時の非成立境界を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns N/A: ensureRuntimeProcessPoisonedは戻り値を返さない。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がensureRuntimeProcessPoisonedの入力契約を満たす。
+ * @postcondition ensureRuntimeProcessPoisonedの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: ensureRuntimeProcessPoisonedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure ensureRuntimeProcessPoisonedは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant ensureRuntimeProcessPoisonedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ensureRuntimeProcessPoisonedはProcess内の同一Subsystemで完結する。
+ * @security N/A: ensureRuntimeProcessPoisonedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: ensureRuntimeProcessPoisonedは共有非同期状態を持たない同期処理である。
+ */
 function ensureRuntimeProcessPoisoned() {
   poisonRuntimeProcessAfterCleanupUnknown();
   if (!isRuntimeProcessPoisoned())
     throw new Error("runtime_process_poison_transition_failed");
 }
 
+/**
+ * bounded Settlementを決定する。
+ *
+ * @responsibility bounded Settlementの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input promise: Promise<T>、timeoutMs: number
+ * @returns boundedSettlementの計算結果を返す。
+ * @precondition 「promise: Promise<T>、timeoutMs: number」がboundedSettlementの入力契約を満たす。
+ * @postcondition boundedSettlementの責務を完了した結果だけを返す。
+ * @effect N/A: boundedSettlementは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: boundedSettlementは独自の失敗分岐を所有しない。
+ * @invariant boundedSettlementは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: boundedSettlementはProcess内の同一Subsystemで完結する。
+ * @security N/A: boundedSettlementはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency boundedSettlementは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function boundedSettlement<T>(promise: Promise<T>, timeoutMs: number) {
   let timeout: NodeJS.Timeout | null = null;
   try {
@@ -760,8 +1167,24 @@ async function boundedSettlement<T>(promise: Promise<T>, timeoutMs: number) {
   }
 }
 
+/**
+ * post Start Unknown Blockedを決定する。
+ *
+ * @responsibility post Start Unknown Blockedの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input reason: string、taskResult: RuntimeRecord | null、discarded: RuntimeRecord | null、isCandidateDiscarded: boolean、executionStateProjection: RuntimeRecord | null
+ * @returns postStartUnknownBlockedの計算結果を返す。
+ * @precondition 「reason: string、taskResult: RuntimeRecord | null、discarded: RuntimeRecord | null、isCandidateDiscarded: boolean、executionStateProjection: RuntimeRecord | null」がpostStartUnknownBlockedの入力契約を満たす。
+ * @postcondition postStartUnknownBlockedの責務を完了した結果だけを返す。
+ * @effect N/A: postStartUnknownBlockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: postStartUnknownBlockedは独自の失敗分岐を所有しない。
+ * @invariant postStartUnknownBlockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: postStartUnknownBlockedはProcess内の同一Subsystemで完結する。
+ * @security N/A: postStartUnknownBlockedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: postStartUnknownBlockedは共有非同期状態を持たない同期処理である。
+ */
 function postStartUnknownBlocked(
-  reason: string,
+  reason: SignedGeneralTaskResultReason,
   taskResult: RuntimeRecord | null,
   discarded: RuntimeRecord | null,
   isCandidateDiscarded: boolean,
@@ -820,6 +1243,22 @@ const ROUTE_EXPECTATIONS: Readonly<
   }),
 });
 
+/**
+ * Signed General Task Verification Requestを構築する。
+ *
+ * @responsibility Signed General Task Verification Requestの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input routeProfile: SignedGeneralTaskRouteProfile
+ * @returns createSignedGeneralTaskVerificationRequestの計算結果を返す。
+ * @precondition 「routeProfile: SignedGeneralTaskRouteProfile」がcreateSignedGeneralTaskVerificationRequestの入力契約を満たす。
+ * @postcondition createSignedGeneralTaskVerificationRequestの責務を完了した結果だけを返す。
+ * @effect N/A: createSignedGeneralTaskVerificationRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createSignedGeneralTaskVerificationRequestは独自の失敗分岐を所有しない。
+ * @invariant createSignedGeneralTaskVerificationRequestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createSignedGeneralTaskVerificationRequestはProcess内の同一Subsystemで完結する。
+ * @security N/A: createSignedGeneralTaskVerificationRequestはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createSignedGeneralTaskVerificationRequestは共有非同期状態を持たない同期処理である。
+ */
 export function createSignedGeneralTaskVerificationRequest(
   routeProfile: SignedGeneralTaskRouteProfile = "forward",
 ) {
@@ -836,7 +1275,7 @@ export function createSignedGeneralTaskVerificationRequest(
     ]),
     allowedPaths: Object.freeze([TARGET_PATH]),
     readPaths: Object.freeze([
-      "06_Architecture/coordinator/01_Architecture.md",
+      "06_Architecture/Details/coordinator/01_Architecture.md",
       TARGET_PATH,
     ]),
     workClass:
@@ -853,6 +1292,22 @@ export function createSignedGeneralTaskVerificationRequest(
   });
 }
 
+/**
+ * verified Packageを決定する。
+ *
+ * @responsibility verified Packageの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input release: RuntimeRecord | null
+ * @returns release is ReleaseIdentityを返す。
+ * @precondition 「release: RuntimeRecord | null」がverifiedPackageの入力契約を満たす。
+ * @postcondition verifiedPackageの責務を完了した結果だけを返す。
+ * @effect N/A: verifiedPackageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: verifiedPackageは独自の失敗分岐を所有しない。
+ * @invariant verifiedPackageは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifiedPackageはProcess内の同一Subsystemで完結する。
+ * @security N/A: verifiedPackageはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: verifiedPackageは共有非同期状態を持たない同期処理である。
+ */
 function verifiedPackage(
   release: RuntimeRecord | null,
 ): release is ReleaseIdentity {
@@ -875,6 +1330,22 @@ function verifiedPackage(
   );
 }
 
+/**
+ * task 結果 契約 Mismatchを決定する。
+ *
+ * @responsibility task 結果 契約 Mismatchの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input result: RuntimeRecord | null、executionRevision: ExecutionRevision、executionRevisionMismatch: string | null、route: RouteExpectation
+ * @returns taskResultContractMismatchの計算結果を返す。
+ * @precondition 「result: RuntimeRecord | null、executionRevision: ExecutionRevision、executionRevisionMismatch: string | null、route: RouteExpectation」がtaskResultContractMismatchの入力契約を満たす。
+ * @postcondition taskResultContractMismatchの責務を完了した結果だけを返す。
+ * @effect N/A: taskResultContractMismatchは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: taskResultContractMismatchは独自の失敗分岐を所有しない。
+ * @invariant taskResultContractMismatchは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: taskResultContractMismatchはProcess内の同一Subsystemで完結する。
+ * @security N/A: taskResultContractMismatchはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: taskResultContractMismatchは共有非同期状態を持たない同期処理である。
+ */
 function taskResultContractMismatch(
   result: RuntimeRecord | null,
   executionRevision: ExecutionRevision,
@@ -933,6 +1404,22 @@ function taskResultContractMismatch(
   return null;
 }
 
+/**
+ * candidate 契約 Mismatchを決定する。
+ *
+ * @responsibility candidate 契約 Mismatchの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input candidate: RuntimeRecord | null、candidateId: string、taskResult: RuntimeRecord | null
+ * @returns candidateContractMismatchの計算結果を返す。
+ * @precondition 「candidate: RuntimeRecord | null、candidateId: string、taskResult: RuntimeRecord | null」がcandidateContractMismatchの入力契約を満たす。
+ * @postcondition candidateContractMismatchの責務を完了した結果だけを返す。
+ * @effect N/A: candidateContractMismatchは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: candidateContractMismatchは独自の失敗分岐を所有しない。
+ * @invariant candidateContractMismatchは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: candidateContractMismatchはProcess内の同一Subsystemで完結する。
+ * @security N/A: candidateContractMismatchはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: candidateContractMismatchは共有非同期状態を持たない同期処理である。
+ */
 function candidateContractMismatch(
   candidate: RuntimeRecord | null,
   candidateId: string,
@@ -1011,6 +1498,22 @@ function candidateContractMismatch(
   return null;
 }
 
+/**
+ * Signed General Task Verificationを実行する。
+ *
+ * @responsibility Signed General Task Verificationの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input repositoryRoot: string、dependencies: VerificationDependencies、routeProfile: SignedGeneralTaskRouteProfile
+ * @returns Promise<SignedGeneralTaskVerificationResult>を返す。
+ * @precondition 「repositoryRoot: string、dependencies: VerificationDependencies、routeProfile: SignedGeneralTaskRouteProfile」がrunSignedGeneralTaskVerificationの入力契約を満たす。
+ * @postcondition runSignedGeneralTaskVerificationの責務を完了した結果だけを返す。
+ * @effect N/A: runSignedGeneralTaskVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure runSignedGeneralTaskVerificationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runSignedGeneralTaskVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runSignedGeneralTaskVerificationはProcess内の同一Subsystemで完結する。
+ * @security N/A: runSignedGeneralTaskVerificationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency runSignedGeneralTaskVerificationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function runSignedGeneralTaskVerification(
   repositoryRoot: string,
   dependencies: VerificationDependencies = productionDependencies,
@@ -1182,7 +1685,7 @@ export async function runSignedGeneralTaskVerification(
   let cancellationRequested = false;
   let executionStateProjection: RuntimeRecord | null = null;
   let isPostStartUnknown = false;
-  let postStartUnknownReason =
+  let postStartUnknownReason: SignedGeneralTaskPublicReason =
     "signed_general_task_post_start_observation_unknown";
   let knownOutcome: SignedGeneralTaskVerificationResult | null = null;
   let cancellationReceipt: Readonly<{
@@ -1590,6 +2093,22 @@ export async function runSignedGeneralTaskVerification(
   return knownOutcome;
 }
 
+/**
+ * Signed General Task Verification 契約の公開契約を記述する。
+ *
+ * @responsibility Signed General Task Verification 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeSignedGeneralTaskVerificationContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeSignedGeneralTaskVerificationContractの入力契約を満たす。
+ * @postcondition describeSignedGeneralTaskVerificationContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeSignedGeneralTaskVerificationContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeSignedGeneralTaskVerificationContractは独自の失敗分岐を所有しない。
+ * @invariant describeSignedGeneralTaskVerificationContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeSignedGeneralTaskVerificationContractはProcess内の同一Subsystemで完結する。
+ * @security N/A: describeSignedGeneralTaskVerificationContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeSignedGeneralTaskVerificationContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeSignedGeneralTaskVerificationContract() {
   return Object.freeze({
     contract: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
@@ -1653,6 +2172,22 @@ export function describeSignedGeneralTaskVerificationContract() {
   });
 }
 
+/**
+ * verify-signed-general-taskのCommand処理を開始する。
+ *
+ * @responsibility verify-signed-general-taskの引数受付、終了Code、診断出力境界を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns N/A: mainは戻り値を返さない。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がmainの入力契約を満たす。
+ * @postcondition mainの責務を完了して呼出し元へ制御を戻す。
+ * @effect mainは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure mainは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant mainは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: mainはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency mainは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function main() {
   const args = process.argv.slice(2);
   if (

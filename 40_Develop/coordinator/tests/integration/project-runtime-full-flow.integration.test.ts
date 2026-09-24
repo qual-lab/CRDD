@@ -1,3 +1,14 @@
+/**
+ * coordinator:integration:project-runtime-full-flowの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:project-runtime-full-flowが所有する検証責務を実行する。
+ * @trace PPR-IT-001
+ * @trace PRL-IT-008
+ * @level IT
+ * @scope project、runtime、full、flow、bounded、integration、execution-intelligence
+ * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
+ */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -22,6 +33,8 @@ import {
   resolveProjectRuntimeReplan as resolveProjectRuntimeReplanWithPort,
   integrateProjectRuntimeOperation,
   issueProjectRuntimeHumanDecision,
+  PROJECT_RUNTIME_ACCEPTANCE_DECISION_CONTRACT,
+  recordProjectRuntimeAcceptanceDecision,
   submitProjectRuntimeHumanDecision,
   type ProjectRuntimeDecisionRecord,
   type ProjectRuntimeReplanClassifier,
@@ -31,9 +44,23 @@ import { createProjectRuntimeIntegrationRecordAdapter } from "../../src/security
 import { runProjectRuntimeObjective } from "../../src/security/project-runtime-objective-intake.ts";
 import { createProjectRuntimeExecutionAuthorizationAdapter } from "../../src/security/project-runtime-execution-authorization-adapter.ts";
 import { createProjectRuntimeDecisionCapabilityAdapter } from "../../src/security/project-runtime-decision-capability-adapter.ts";
+import { createProjectRuntimeAcceptanceAuthorityAdapter } from "../../src/security/project-runtime-acceptance-authority-adapter.ts";
+import { createProjectRuntimeAcceptanceDecisionStore } from "../../src/security/project-runtime-acceptance-decision-store.ts";
 
 const revision = "a".repeat(40);
 
+/**
+ * resolveProjectRuntimeReplanのTest準備責務を実行する。
+ *
+ * @responsibility resolveProjectRuntimeReplanがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus resolveProjectRuntimeReplanを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
+ */
 function resolveProjectRuntimeReplan(
   input: ProjectRuntimeReplanInput &
     Readonly<{ workingDirectory: string; repositoryBindingId: string }>,
@@ -46,6 +73,88 @@ function resolveProjectRuntimeReplan(
   return resolveProjectRuntimeReplanWithPort(ports.state, input, classify);
 }
 
+/**
+ * 統合済み結果をObjective、Milestoneの順で明示受入する。
+ *
+ * @responsibility Task完了と上位受入を分離し、二つのAcceptance Decisionをexactな世代へ適用する。
+ * @trace PRL-IT-008
+ * @precondition 対象Projectは統合候補作成済みでObjectiveがintegration_pendingである。
+ * @stimulus Objective受入後に最新世代を再観測し、Milestone受入を要求する。
+ * @observation 二つのDecision Resultと最終Project Runtime Stateを観測する。
+ * @oracle ObjectiveとMilestoneが明示判断なしにacceptedへ昇格しない。
+ * @cleanup 親TestがRepository Rootを削除する。
+ * @boundary PRL-IT-008=Direct Boundary: Acceptance Decision Application→State／Decision Store
+ */
+function acceptIntegratedResult(
+  input: Readonly<{
+    root: string;
+    repositoryBindingId: string;
+    projectId: string;
+    milestoneId: string;
+    objectiveId: string;
+  }>,
+) {
+  const persistence = createProjectRuntimePersistencePorts(
+    input.root,
+    input.repositoryBindingId,
+  );
+  const dependencies = Object.freeze({
+    state: persistence.state,
+    authority: createProjectRuntimeAcceptanceAuthorityAdapter("operator-a"),
+    store: createProjectRuntimeAcceptanceDecisionStore(
+      input.root,
+      input.repositoryBindingId,
+    ),
+  });
+  const decide = (
+    target: "objective" | "milestone",
+    targetId: string,
+    suffix: string,
+  ) => {
+    const observed = readProjectRuntimeState(
+      input.root,
+      input.repositoryBindingId,
+      input.projectId,
+    );
+    assert.equal(observed.status, "completed");
+    assert.ok(observed.value);
+    return recordProjectRuntimeAcceptanceDecision(dependencies, {
+      contract: PROJECT_RUNTIME_ACCEPTANCE_DECISION_CONTRACT,
+      decisionId: `decision-${input.projectId}-${suffix}`,
+      sourceSpecId: "SPEC-000002",
+      projectId: input.projectId,
+      milestoneId: input.milestoneId,
+      repositoryRevision: revision,
+      expectedGeneration: observed.value.generation,
+      target,
+      targetId,
+      decision: "accept",
+      criterionEvidenceIds: [`evidence-${suffix}`],
+      principalId: "operator-a",
+    });
+  };
+  assert.equal(
+    decide("objective", input.objectiveId, "objective").status,
+    "completed",
+  );
+  assert.equal(
+    decide("milestone", input.milestoneId, "milestone").status,
+    "completed",
+  );
+}
+
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
+ */
 function fixture(t: test.TestContext) {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-project-full-flow-"),
@@ -155,6 +264,18 @@ function fixture(t: test.TestContext) {
   };
 }
 
+/**
+ * public intake, bounded retry, progress and integration form one accepted flowを検証する。
+ *
+ * @responsibility public intake, bounded retry, progress and integration form one accepted flowの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus public intake, bounded retry, progress and integration form one accepted flowの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("public intake, bounded retry, progress and integration form one accepted flow", async (t) => {
   const context = fixture(t);
   const first = await runProjectRuntimeObjective(
@@ -230,7 +351,17 @@ test("public intake, bounded retry, progress and integration form one accepted f
       adoptionAuthorized: false,
     },
   );
-  assert.equal(integrated.reason, "project_runtime_milestone_accepted");
+  assert.equal(
+    integrated.reason,
+    "project_runtime_acceptance_decision_required",
+  );
+  acceptIntegratedResult({
+    root: context.root,
+    repositoryBindingId: "binding-full",
+    projectId: context.request.projectId,
+    milestoneId: context.request.milestoneId,
+    objectiveId: "objective-full",
+  });
   const finalState = readProjectRuntimeState(
     context.root,
     "binding-full",
@@ -242,6 +373,18 @@ test("public intake, bounded retry, progress and integration form one accepted f
   );
 });
 
+/**
+ * bounded parallel attempts are evaluated by one integrated accepted resultを検証する。
+ *
+ * @responsibility bounded parallel attempts are evaluated by one integrated accepted resultの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus bounded parallel attempts are evaluated by one integrated accepted resultの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("bounded parallel attempts are evaluated by one integrated accepted result", async (t) => {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-project-bounded-evaluation-"),
@@ -417,13 +560,23 @@ test("bounded parallel attempts are evaluated by one integrated accepted result"
       adoptionAuthorized: false,
     },
   );
-  assert.equal(integrated.reason, "project_runtime_milestone_accepted");
+  assert.equal(
+    integrated.reason,
+    "project_runtime_acceptance_decision_required",
+  );
+  acceptIntegratedResult({
+    root,
+    repositoryBindingId: "binding-bounded-evaluation",
+    projectId: request.projectId,
+    milestoneId: request.milestoneId,
+    objectiveId: "objective-bounded-evaluation",
+  });
   const verified = verifyExecutionIntelligenceRepositoryRoot(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw new Error("root_not_verified");
-  const intelligence = readExecutionIntelligence(verified.root);
-  assert.equal(intelligence.status, "completed");
-  if (intelligence.status !== "completed")
+  const intelligenceResult = readExecutionIntelligence(verified.root);
+  assert.equal(intelligenceResult.status, "completed");
+  if (intelligenceResult.status !== "completed")
     throw new Error("execution_events_not_observed");
   const evaluation = evaluateBoundedIntegratedResult({
     contract: BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT,
@@ -431,7 +584,7 @@ test("bounded parallel attempts are evaluated by one integrated accepted result"
     projectId: request.projectId,
     milestoneId: request.milestoneId,
     expectedTaskIds: ["task-a", "task-b"],
-    taskAttemptEvents: intelligence.events,
+    taskAttemptEvents: intelligenceResult.events,
     integratedResult: observed(
       { result: "accepted", evidenceIds: ["evidence-milestone"] },
       "project_runtime_integration_result",
@@ -457,6 +610,18 @@ test("bounded parallel attempts are evaluated by one integrated accepted result"
   assert.equal(evaluation?.taskSuccessIsIntegrationAcceptance, false);
 });
 
+/**
+ * human decision is one-time and resumes only through a fresh bounded planを検証する。
+ *
+ * @responsibility human decision is one-time and resumes only through a fresh bounded planの合否判定を所有する。
+ * @trace PPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus human decision is one-time and resumes only through a fresh bounded planの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
+ */
 test("human decision is one-time and resumes only through a fresh bounded plan", async (t) => {
   const context = fixture(t);
   const first = await runProjectRuntimeObjective(

@@ -1,7 +1,13 @@
+/**
+ * project-runtime-adapterに属する責務をまとめる。
+ *
+ * @responsibility McpProjectRuntimeDependenciesを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000012
+ */
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../internal/plain-data-snapshot.ts";
+} from "../boundary/plain-data-snapshot.ts";
 import {
   inspectProjectRuntimeIntegrationResult,
   inspectProjectRuntimeDecisionRequest,
@@ -11,7 +17,8 @@ import {
   isProjectRuntimeObjectiveProjectionCorrelationValid,
   isProjectRuntimeProjectionSemanticallyValid,
   PROJECT_RUNTIME_HUMAN_DECISION_CONTRACT,
-  PROJECT_RUNTIME_INTEGRATION_RESULT_FIELDS,
+  PROJECT_RUNTIME_INTEGRATION_BASE_RESULT_FIELDS,
+  projectRuntimeIntegrationResultFields,
   PROJECT_RUNTIME_MAXIMUM_OBJECTIVES,
   PROJECT_RUNTIME_MAXIMUM_TASKS,
   PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,
@@ -44,6 +51,17 @@ export {
 
 export const MCP_PROJECT_RUNTIME_ADAPTER_CONTRACT =
   "crdd-mcp/project-runtime-adapter/v2" as const;
+/**
+ * project-runtime-adapterで使用するMcp Project Runtime Dependenciesの値契約を定義する。
+ *
+ * @responsibility Mcp Project Runtime DependenciesのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000012
+ * @shape McpProjectRuntimeDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant McpProjectRuntimeDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: McpProjectRuntimeDependenciesの宣言は外部境界を開かない。
+ * @security N/A: McpProjectRuntimeDependenciesはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility McpProjectRuntimeDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type McpProjectRuntimeDependencies = Readonly<{
   authenticateClient: () => unknown;
   runObjective: (
@@ -77,8 +95,12 @@ const OBJECTIVE_RESULT_KEYS = new Set([
   "recoveryObligations",
   "effectState",
 ]);
-const integrationResultWithDecisionKeys = new Set([
-  ...PROJECT_RUNTIME_INTEGRATION_RESULT_FIELDS,
+const integrationBaseResultWithDecisionKeys = new Set([
+  ...PROJECT_RUNTIME_INTEGRATION_BASE_RESULT_FIELDS,
+  "decision",
+]);
+const integrationExtendedResultWithDecisionKeys = new Set([
+  ...projectRuntimeIntegrationResultFields,
   "decision",
 ]);
 const PUBLIC_BLOCKED_RESULT_KEYS = new Set([
@@ -133,12 +155,44 @@ const decisionRecoveredResultKeys = new Set([
   "effectState",
 ] as const);
 
+/**
+ * project-runtime-adapterを安定Identityへ変換する。
+ *
+ * @responsibility project-runtime-adapterの正規化条件、一意性、変換不能時の拒否境界を所有する。
+ * @trace ARCH-000012
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がstableの入力契約を満たす。
+ * @postcondition stableの責務を完了した結果だけを返す。
+ * @effect N/A: stableは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: stableは独自の失敗分岐を所有しない。
+ * @invariant stableは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: stableはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: stableは共有非同期状態を持たない同期処理である。
+ */
 function stable(value: unknown): value is string {
   return (
     typeof value === "string" &&
     /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(value)
   );
 }
+/**
+ * project-runtime-adapterを表示文字列へ変換する。
+ *
+ * @responsibility project-runtime-adapterの入力値、文字列表現、機密を含めない結果境界を所有する。
+ * @trace ARCH-000012
+ * @input value: unknown、maximum: number
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown、maximum: number」がtextの入力契約を満たす。
+ * @postcondition textの責務を完了した結果だけを返す。
+ * @effect N/A: textは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: textは独自の失敗分岐を所有しない。
+ * @invariant textは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: textはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: textは共有非同期状態を持たない同期処理である。
+ */
 function text(value: unknown, maximum: number): value is string {
   return (
     typeof value === "string" &&
@@ -147,6 +201,22 @@ function text(value: unknown, maximum: number): value is string {
     !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value)
   );
 }
+/**
+ * objectiveを決定する。
+ *
+ * @responsibility objectiveの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000012
+ * @input value: unknown
+ * @returns Readonly<Record<string, unknown>> | nullを返す。
+ * @precondition 「value: unknown」がobjectiveの入力契約を満たす。
+ * @postcondition objectiveの責務を完了した結果だけを返す。
+ * @effect N/A: objectiveは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: objectiveは独自の失敗分岐を所有しない。
+ * @invariant objectiveは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: objectiveはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: objectiveは共有非同期状態を持たない同期処理である。
+ */
 function objective(value: unknown): Readonly<Record<string, unknown>> | null {
   return inspectProjectRuntimeObjectiveRequest(value);
 }
@@ -155,6 +225,7 @@ const objectiveCountKeys = new Set([
   "executing",
   "integration_pending",
   "accepted",
+  "returned",
   "blocked",
   "cancelled",
 ] as const);
@@ -186,6 +257,22 @@ const projectionKeys = new Set([
   "nextAction",
 ] as const);
 
+/**
+ * Snapshotの件数を算出する。
+ *
+ * @responsibility Snapshotの計数対象、集計規則、件数結果境界を所有する。
+ * @trace ARCH-000012
+ * @input value: unknown、keys: ReadonlySet<string>、maximumTotal: number
+ * @returns countSnapshotの計算結果を返す。
+ * @precondition 「value: unknown、keys: ReadonlySet<string>、maximumTotal: number」がcountSnapshotの入力契約を満たす。
+ * @postcondition countSnapshotの責務を完了した結果だけを返す。
+ * @effect N/A: countSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: countSnapshotは独自の失敗分岐を所有しない。
+ * @invariant countSnapshotは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: countSnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: countSnapshotは共有非同期状態を持たない同期処理である。
+ */
 function countSnapshot(
   value: unknown,
   keys: ReadonlySet<string>,
@@ -209,6 +296,22 @@ function countSnapshot(
   );
 }
 
+/**
+ * projection Snapshotを決定する。
+ *
+ * @responsibility projection Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000012
+ * @input value: unknown
+ * @returns projectionSnapshotの計算結果を返す。
+ * @precondition 「value: unknown」がprojectionSnapshotの入力契約を満たす。
+ * @postcondition projectionSnapshotの責務を完了した結果だけを返す。
+ * @effect N/A: projectionSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: projectionSnapshotは独自の失敗分岐を所有しない。
+ * @invariant projectionSnapshotは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: projectionSnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: projectionSnapshotは共有非同期状態を持たない同期処理である。
+ */
 function projectionSnapshot(value: unknown) {
   const record = snapshotPlainRecord(value, projectionKeys);
   if (!record) return null;
@@ -309,6 +412,22 @@ function projectionSnapshot(value: unknown) {
     : null;
 }
 
+/**
+ * recovery Snapshotを決定する。
+ *
+ * @responsibility recovery Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000012
+ * @input rawIds: unknown、rawObligations: unknown
+ * @returns recoverySnapshotの計算結果を返す。
+ * @precondition 「rawIds: unknown、rawObligations: unknown」がrecoverySnapshotの入力契約を満たす。
+ * @postcondition recoverySnapshotの責務を完了した結果だけを返す。
+ * @effect N/A: recoverySnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: recoverySnapshotは独自の失敗分岐を所有しない。
+ * @invariant recoverySnapshotは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: recoverySnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: recoverySnapshotは共有非同期状態を持たない同期処理である。
+ */
 function recoverySnapshot(rawIds: unknown, rawObligations: unknown) {
   const ids = snapshotPlainArray(rawIds, 128);
   const obligations = snapshotPlainArray(rawObligations, 128);
@@ -361,6 +480,22 @@ function recoverySnapshot(rawIds: unknown, rawObligations: unknown) {
   });
 }
 
+/**
+ * public Blocked Snapshotを決定する。
+ *
+ * @responsibility public Blocked Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000012
+ * @input raw: unknown、expectedContracts: ReadonlySet<string>
+ * @returns publicBlockedSnapshotの計算結果を返す。
+ * @precondition 「raw: unknown、expectedContracts: ReadonlySet<string>」がpublicBlockedSnapshotの入力契約を満たす。
+ * @postcondition publicBlockedSnapshotの責務を完了した結果だけを返す。
+ * @effect N/A: publicBlockedSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: publicBlockedSnapshotは独自の失敗分岐を所有しない。
+ * @invariant publicBlockedSnapshotは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: publicBlockedSnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: publicBlockedSnapshotは共有非同期状態を持たない同期処理である。
+ */
 function publicBlockedSnapshot(
   raw: unknown,
   expectedContracts: ReadonlySet<string>,
@@ -385,6 +520,22 @@ function publicBlockedSnapshot(
   return Object.freeze({ ...record });
 }
 
+/**
+ * decision Snapshotを決定する。
+ *
+ * @responsibility decision Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000012
+ * @input raw: unknown
+ * @returns Readonly<Record<string, unknown>> | nullを返す。
+ * @precondition 「raw: unknown」がdecisionSnapshotの入力契約を満たす。
+ * @postcondition decisionSnapshotの責務を完了した結果だけを返す。
+ * @effect N/A: decisionSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: decisionSnapshotは独自の失敗分岐を所有しない。
+ * @invariant decisionSnapshotは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: decisionSnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: decisionSnapshotは共有非同期状態を持たない同期処理である。
+ */
 function decisionSnapshot(
   raw: unknown,
 ): Readonly<Record<string, unknown>> | null {
@@ -472,6 +623,22 @@ function decisionSnapshot(
   return null;
 }
 
+/**
+ * objective Snapshotを決定する。
+ *
+ * @responsibility objective Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000012
+ * @input raw: unknown
+ * @returns Readonly<Record<string, unknown>> | nullを返す。
+ * @precondition 「raw: unknown」がobjectiveSnapshotの入力契約を満たす。
+ * @postcondition objectiveSnapshotの責務を完了した結果だけを返す。
+ * @effect N/A: objectiveSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: objectiveSnapshotは独自の失敗分岐を所有しない。
+ * @invariant objectiveSnapshotは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: objectiveSnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: objectiveSnapshotは共有非同期状態を持たない同期処理である。
+ */
 function objectiveSnapshot(
   raw: unknown,
 ): Readonly<Record<string, unknown>> | null {
@@ -573,18 +740,16 @@ function objectiveSnapshot(
   }
   const directIntegration = inspectProjectRuntimeIntegrationResult(raw);
   if (directIntegration) return directIntegration;
-  const integratedWithDecision = snapshotPlainRecord(
-    raw,
-    integrationResultWithDecisionKeys,
-  );
+  const integratedWithDecision =
+    snapshotPlainRecord(raw, integrationBaseResultWithDecisionKeys) ??
+    snapshotPlainRecord(raw, integrationExtendedResultWithDecisionKeys);
   if (!integratedWithDecision) return null;
   const decision = decisionSnapshot(integratedWithDecision.decision);
   if (!decision) return null;
   const integrationInput = Object.fromEntries(
-    PROJECT_RUNTIME_INTEGRATION_RESULT_FIELDS.map((field) => [
-      field,
-      integratedWithDecision[field],
-    ]),
+    projectRuntimeIntegrationResultFields
+      .filter((field) => Object.hasOwn(integratedWithDecision, field))
+      .map((field) => [field, integratedWithDecision[field]]),
   );
   const integration = inspectProjectRuntimeIntegrationResult(integrationInput);
   if (!integration) return null;
@@ -594,11 +759,42 @@ function objectiveSnapshot(
   });
 }
 
-/** Closed public result validator shared with release E2E verification. */
+/**
+ * Closed public result validator shared with release E2E verification.
+ *
+ * @responsibility Mcp Project Runtime Objective 結果の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000012
+ * @input raw: unknown
+ * @returns inspectMcpProjectRuntimeObjectiveResultの計算結果を返す。
+ * @precondition 「raw: unknown」がinspectMcpProjectRuntimeObjectiveResultの入力契約を満たす。
+ * @postcondition inspectMcpProjectRuntimeObjectiveResultの責務を完了した結果だけを返す。
+ * @effect N/A: inspectMcpProjectRuntimeObjectiveResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectMcpProjectRuntimeObjectiveResultは独自の失敗分岐を所有しない。
+ * @invariant inspectMcpProjectRuntimeObjectiveResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: inspectMcpProjectRuntimeObjectiveResultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectMcpProjectRuntimeObjectiveResultは共有非同期状態を持たない同期処理である。
+ */
 export function inspectMcpProjectRuntimeObjectiveResult(raw: unknown) {
   return objectiveSnapshot(raw);
 }
 
+/**
+ * Mcp Project Runtime Requestを処理する。
+ *
+ * @responsibility Mcp Project Runtime Requestの受付条件、処理結果、失敗時の戻り境界を所有する。
+ * @trace ARCH-000012
+ * @input rawRequest: unknown、dependencies: McpProjectRuntimeDependencies、signal: AbortSignal
+ * @returns Promise<McpResponse>を返す。
+ * @precondition 「rawRequest: unknown、dependencies: McpProjectRuntimeDependencies、signal: AbortSignal」がhandleMcpProjectRuntimeRequestの入力契約を満たす。
+ * @postcondition handleMcpProjectRuntimeRequestの責務を完了した結果だけを返す。
+ * @effect N/A: handleMcpProjectRuntimeRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure handleMcpProjectRuntimeRequestは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant handleMcpProjectRuntimeRequestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: handleMcpProjectRuntimeRequestはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency handleMcpProjectRuntimeRequestは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function handleMcpProjectRuntimeRequest(
   rawRequest: unknown,
   dependencies: McpProjectRuntimeDependencies,
@@ -731,6 +927,22 @@ export async function handleMcpProjectRuntimeRequest(
   });
 }
 
+/**
+ * Mcp Project Runtime Adapter 契約の公開契約を記述する。
+ *
+ * @responsibility Mcp Project Runtime Adapter 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000012
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeMcpProjectRuntimeAdapterContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeMcpProjectRuntimeAdapterContractの入力契約を満たす。
+ * @postcondition describeMcpProjectRuntimeAdapterContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeMcpProjectRuntimeAdapterContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeMcpProjectRuntimeAdapterContractは独自の失敗分岐を所有しない。
+ * @invariant describeMcpProjectRuntimeAdapterContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: describeMcpProjectRuntimeAdapterContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeMcpProjectRuntimeAdapterContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeMcpProjectRuntimeAdapterContract() {
   return Object.freeze({
     contract: MCP_PROJECT_RUNTIME_ADAPTER_CONTRACT,

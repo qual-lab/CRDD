@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:release-candidate-preparationの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:release-candidate-preparationが所有する検証責務を実行する。
+ * @trace CPR-IT-001
+ * @level IT
+ * @scope release、candidate、preparation、filesystem
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -10,6 +20,18 @@ import {
   prepareReleaseCandidate,
 } from "../../scripts/prepare-release-candidate.ts";
 
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace CPR-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ */
 function fixture() {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-release-candidate-"),
@@ -39,6 +61,18 @@ function fixture() {
   return { root, revision, tree };
 }
 
+/**
+ * 固定Commitをshellなしで準備Directoryから完成候補へ公開するを検証する。
+ *
+ * @responsibility 固定Commitをshellなしで準備Directoryから完成候補へ公開するの合否判定を所有する。
+ * @trace CPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定Commitをshellなしで準備Directoryから完成候補へ公開するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ */
 test("固定Commitをshellなしで準備Directoryから完成候補へ公開する", () => {
   const value = fixture();
   try {
@@ -55,25 +89,14 @@ test("固定Commitをshellなしで準備Directoryから完成候補へ公開す
     assert.equal(result.shellUsed, false);
     assert.equal(
       fs.readFileSync(
-        path.join(
-          value.root,
-          ".crdd",
-          "release-staging",
-          "candidate-01",
-          "README.md",
-        ),
+        path.join(value.root, ".crdd", "release", "candidate-01", "README.md"),
         "utf8",
       ),
       "candidate\n",
     );
     assert.equal(
       fs.existsSync(
-        path.join(
-          value.root,
-          ".crdd",
-          "release-staging",
-          "candidate-01.preparing",
-        ),
+        path.join(value.root, ".crdd", "release", "candidate-01.preparing"),
       ),
       false,
     );
@@ -82,6 +105,18 @@ test("固定Commitをshellなしで準備Directoryから完成候補へ公開す
   }
 });
 
+/**
+ * 既存候補と準備残存を上書きせず不正RevisionをEffect前に拒否するを検証する。
+ *
+ * @responsibility 既存候補と準備残存を上書きせず不正RevisionをEffect前に拒否するの合否判定を所有する。
+ * @trace CPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 既存候補と準備残存を上書きせず不正RevisionをEffect前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ */
 test("既存候補と準備残存を上書きせず不正RevisionをEffect前に拒否する", () => {
   const value = fixture();
   try {
@@ -106,9 +141,7 @@ test("既存候補と準備残存を上書きせず不正RevisionをEffect前に
     assert.equal(invalid.status, "blocked");
     assert.equal(invalid.reason, "release_candidate_revision_invalid");
     assert.equal(
-      fs.existsSync(
-        path.join(value.root, ".crdd", "release-staging", "candidate-03"),
-      ),
+      fs.existsSync(path.join(value.root, ".crdd", "release", "candidate-03")),
       false,
     );
   } finally {
@@ -116,6 +149,18 @@ test("既存候補と準備残存を上書きせず不正RevisionをEffect前に
   }
 });
 
+/**
+ * CLI引数は3組のexact値だけを受理するを検証する。
+ *
+ * @responsibility CLI引数は3組のexact値だけを受理するの合否判定を所有する。
+ * @trace CPR-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CLI引数は3組のexact値だけを受理するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ */
 test("CLI引数は3組のexact値だけを受理する", () => {
   const root = path.resolve("fixture");
   const revision = "a".repeat(40);

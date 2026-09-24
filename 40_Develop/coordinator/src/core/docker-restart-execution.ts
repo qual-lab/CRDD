@@ -1,11 +1,38 @@
+/**
+ * docker-restart-executionに属する責務をまとめる。
+ *
+ * @responsibility DockerRestartContextを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import {
   classifyDockerRestartProgress,
   type DockerRestartObservation,
   type DockerRestartPhase,
 } from "./docker-restart-state.ts";
 
-/** Host-owned opaque context. The driver cannot authenticate or mint it. */
+/**
+ * Host-owned opaque context. The driver cannot authenticate or mint it.
+ *
+ * @responsibility Docker Restart ContextのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerRestartContextが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerRestartContextで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerRestartContextの宣言は外部境界を開かない。
+ * @security N/A: DockerRestartContextはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility DockerRestartContextの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerRestartContext = object;
+/**
+ * docker-restart-executionで使用するDocker Restart Portsの値契約を定義する。
+ *
+ * @responsibility Docker Restart PortsのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerRestartPortsが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerRestartPortsで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerRestartPortsの宣言は外部境界を開かない。
+ * @security N/A: DockerRestartPortsはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility DockerRestartPortsの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerRestartPorts = Readonly<{
   verifyBoundary: (context: DockerRestartContext) => Promise<boolean>;
   persist: (
@@ -31,6 +58,17 @@ export type DockerRestartPorts = Readonly<{
   observeStopped?: () => Promise<boolean>;
   observeReady?: () => Promise<boolean>;
 }>;
+/**
+ * docker-restart-executionで使用するDocker Restart Execution 結果の値契約を定義する。
+ *
+ * @responsibility Docker Restart Execution 結果のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerRestartExecutionResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerRestartExecutionResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerRestartExecutionResultの宣言は外部境界を開かない。
+ * @security N/A: DockerRestartExecutionResultはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility DockerRestartExecutionResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type DockerRestartExecutionResult = Readonly<{
   status: "completed" | "blocked";
   reason: string;
@@ -44,7 +82,22 @@ export type DockerRestartExecutionResult = Readonly<{
 
 const consumedContexts = new WeakSet<DockerRestartContext>();
 
-/** Injected driver only; no production Native or filesystem adapter is connected. */
+/**
+ * Injected driver only; no production Native or filesystem adapter is connected.
+ *
+ * @responsibility Docker Restartの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input context: DockerRestartContext、ports: DockerRestartPorts、signal: AbortSignal、resumePhase: DockerRestartPhase
+ * @returns Promise<DockerRestartExecutionResult>を返す。
+ * @precondition 「context: DockerRestartContext、ports: DockerRestartPorts、signal: AbortSignal、resumePhase: DockerRestartPhase」がexecuteDockerRestartの入力契約を満たす。
+ * @postcondition executeDockerRestartの責務を完了した結果だけを返す。
+ * @effect N/A: executeDockerRestartは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure executeDockerRestartは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant executeDockerRestartは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: executeDockerRestartはProcess内の同一Subsystemで完結する。
+ * @security N/A: executeDockerRestartはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency executeDockerRestartは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function executeDockerRestart(
   context: DockerRestartContext,
   ports: DockerRestartPorts,

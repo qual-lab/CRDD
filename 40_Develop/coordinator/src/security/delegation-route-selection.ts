@@ -1,3 +1,9 @@
+/**
+ * delegation-route-selectionに属する責務をまとめる。
+ *
+ * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -79,7 +85,29 @@ const RISKS = new Set(["low", "material", "high"]);
 const DIFFICULTIES = new Set(["low", "medium", "high"]);
 const DECISION_IMPACTS = new Set(["limited", "material", "critical"]);
 
+/**
+ * delegation-route-selectionで使用するProviderの値契約を定義する。
+ *
+ * @responsibility ProviderのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000010
+ * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Providerで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Providerの宣言は外部境界を開かない。
+ * @security ProviderはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Providerの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Provider = "codex" | "claude";
+/**
+ * delegation-route-selectionで使用するProvider Eligibilityの値契約を定義する。
+ *
+ * @responsibility Provider EligibilityのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000010
+ * @shape ProviderEligibilityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProviderEligibilityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProviderEligibilityの宣言は外部境界を開かない。
+ * @security ProviderEligibilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ProviderEligibilityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ProviderEligibility = Readonly<{
   provider: Provider;
   status: "eligible" | "ineligible";
@@ -95,6 +123,22 @@ type ProviderEligibility = Readonly<{
     | "observation_unavailable";
 }>;
 
+/**
+ * Blocked 結果を構築する。
+ *
+ * @responsibility Blocked 結果の構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000010
+ * @input reason: string
+ * @returns createBlockedResultの計算結果を返す。
+ * @precondition 「reason: string」がcreateBlockedResultの入力契約を満たす。
+ * @postcondition createBlockedResultの責務を完了した結果だけを返す。
+ * @effect N/A: createBlockedResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createBlockedResultは独自の失敗分岐を所有しない。
+ * @invariant createBlockedResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createBlockedResultはProcess内の同一Subsystemで完結する。
+ * @security createBlockedResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createBlockedResultは共有非同期状態を持たない同期処理である。
+ */
 function createBlockedResult(reason: string) {
   return Object.freeze({
     status: "blocked" as const,
@@ -114,6 +158,22 @@ function createBlockedResult(reason: string) {
   });
 }
 
+/**
+ * Blocked Slateを構築する。
+ *
+ * @responsibility Blocked Slateの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000010
+ * @input reason: string
+ * @returns createBlockedSlateの計算結果を返す。
+ * @precondition 「reason: string」がcreateBlockedSlateの入力契約を満たす。
+ * @postcondition createBlockedSlateの責務を完了した結果だけを返す。
+ * @effect N/A: createBlockedSlateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createBlockedSlateは独自の失敗分岐を所有しない。
+ * @invariant createBlockedSlateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createBlockedSlateはProcess内の同一Subsystemで完結する。
+ * @security createBlockedSlateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createBlockedSlateは共有非同期状態を持たない同期処理である。
+ */
 function createBlockedSlate(reason: string) {
   return Object.freeze({
     status: "blocked" as const,
@@ -129,14 +189,62 @@ function createBlockedSlate(reason: string) {
   });
 }
 
+/**
+ * Providerかを判定する。
+ *
+ * @responsibility Providerの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000010
+ * @input value: unknown
+ * @returns value is Providerを返す。
+ * @precondition 「value: unknown」がisProviderの入力契約を満たす。
+ * @postcondition isProviderの責務を完了した結果だけを返す。
+ * @effect N/A: isProviderは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isProviderは独自の失敗分岐を所有しない。
+ * @invariant isProviderは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isProviderはProcess内の同一Subsystemで完結する。
+ * @security isProviderはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isProviderは共有非同期状態を持たない同期処理である。
+ */
 function isProvider(value: unknown): value is Provider {
   return typeof value === "string" && PROVIDERS.has(value);
 }
 
+/**
+ * Booleanかを判定する。
+ *
+ * @responsibility Booleanの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000010
+ * @input value: unknown
+ * @returns value is booleanを返す。
+ * @precondition 「value: unknown」がisBooleanの入力契約を満たす。
+ * @postcondition isBooleanの責務を完了した結果だけを返す。
+ * @effect N/A: isBooleanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isBooleanは独自の失敗分岐を所有しない。
+ * @invariant isBooleanは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isBooleanはProcess内の同一Subsystemで完結する。
+ * @security isBooleanはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isBooleanは共有非同期状態を持たない同期処理である。
+ */
 function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
 }
 
+/**
+ * Delegation Disposition Validかを判定する。
+ *
+ * @responsibility Delegation Disposition Validの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000010
+ * @input need: unknown、reason: unknown、role: unknown
+ * @returns isDelegationDispositionValidの計算結果を返す。
+ * @precondition 「need: unknown、reason: unknown、role: unknown」がisDelegationDispositionValidの入力契約を満たす。
+ * @postcondition isDelegationDispositionValidの責務を完了した結果だけを返す。
+ * @effect N/A: isDelegationDispositionValidは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isDelegationDispositionValidは独自の失敗分岐を所有しない。
+ * @invariant isDelegationDispositionValidは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isDelegationDispositionValidはProcess内の同一Subsystemで完結する。
+ * @security isDelegationDispositionValidはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isDelegationDispositionValidは共有非同期状態を持たない同期処理である。
+ */
 function isDelegationDispositionValid(
   need: unknown,
   reason: unknown,
@@ -162,6 +270,22 @@ function isDelegationDispositionValid(
   );
 }
 
+/**
+ * Preferred Providerを選択する。
+ *
+ * @responsibility Preferred Providerの候補集合、選択理由、選択不能時の境界を所有する。
+ * @trace ARCH-000010
+ * @input frontProvider: Provider、role: unknown、workClass: unknown、subjectProvider: Provider | null、shouldUseIndependentProvider: boolean
+ * @returns Readonly<{ provider: Provider; reason: string }>を返す。
+ * @precondition 「frontProvider: Provider、role: unknown、workClass: unknown、subjectProvider: Provider | null、shouldUseIndependentProvider: boolean」がselectPreferredProviderの入力契約を満たす。
+ * @postcondition selectPreferredProviderの責務を完了した結果だけを返す。
+ * @effect N/A: selectPreferredProviderは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: selectPreferredProviderは独自の失敗分岐を所有しない。
+ * @invariant selectPreferredProviderは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: selectPreferredProviderはProcess内の同一Subsystemで完結する。
+ * @security selectPreferredProviderはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: selectPreferredProviderは共有非同期状態を持たない同期処理である。
+ */
 function selectPreferredProvider(
   frontProvider: Provider,
   role: unknown,
@@ -206,6 +330,22 @@ function selectPreferredProvider(
   });
 }
 
+/**
+ * Provider Eligibilityを所有Snapshotへ変換する。
+ *
+ * @responsibility Provider Eligibilityの取得範囲、plain-data制約、拒否境界を所有する。
+ * @trace ARCH-000010
+ * @input raw: unknown
+ * @returns snapshotProviderEligibilityの計算結果を返す。
+ * @precondition 「raw: unknown」がsnapshotProviderEligibilityの入力契約を満たす。
+ * @postcondition snapshotProviderEligibilityの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotProviderEligibilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: snapshotProviderEligibilityは独自の失敗分岐を所有しない。
+ * @invariant snapshotProviderEligibilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: snapshotProviderEligibilityはProcess内の同一Subsystemで完結する。
+ * @security snapshotProviderEligibilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: snapshotProviderEligibilityは共有非同期状態を持たない同期処理である。
+ */
 function snapshotProviderEligibility(raw: unknown) {
   const values = snapshotPlainArray<unknown>(raw, PROVIDERS.size);
   if (values.status !== "ok" || values.value.length !== PROVIDERS.size) {
@@ -236,6 +376,22 @@ function snapshotProviderEligibility(raw: unknown) {
   return new Map(entries.map((entry) => [entry.provider, entry]));
 }
 
+/**
+ * Executor Providerを選択する。
+ *
+ * @responsibility Executor Providerの候補集合、選択理由、選択不能時の境界を所有する。
+ * @trace ARCH-000010
+ * @input requestedProvider: "auto" | Provider、preferredProvider: Provider、preferredReason: string、frontProvider: Provider、providerEligibility: ReadonlyMap<Provider, ProviderEligibility>、subjectProvider: Provider | null、shouldUseIndependentProvider: boolean
+ * @returns selectExecutorProviderの計算結果を返す。
+ * @precondition 「requestedProvider: "auto" | Provider、preferredProvider: Provider、preferredReason: string、frontProvider: Provider、providerEligibility: ReadonlyMap<Provider, ProviderEligibility>、subjectProvider: Provider | null、shouldUseIndependentProvider: boolean」がselectExecutorProviderの入力契約を満たす。
+ * @postcondition selectExecutorProviderの責務を完了した結果だけを返す。
+ * @effect N/A: selectExecutorProviderは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: selectExecutorProviderは独自の失敗分岐を所有しない。
+ * @invariant selectExecutorProviderは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: selectExecutorProviderはProcess内の同一Subsystemで完結する。
+ * @security selectExecutorProviderはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: selectExecutorProviderは共有非同期状態を持たない同期処理である。
+ */
 function selectExecutorProvider(
   requestedProvider: "auto" | Provider,
   preferredProvider: Provider,
@@ -288,6 +444,22 @@ function selectExecutorProvider(
     : null;
 }
 
+/**
+ * Operation Chainの契約を検証する。
+ *
+ * @responsibility Operation Chainの必須Property、拒否条件、検証結果の境界を所有する。
+ * @trace ARCH-000010
+ * @input operationId: unknown、parentOperationId: unknown、rawAncestorOperationIds: unknown、delegationDepth: unknown
+ * @returns validateOperationChainの計算結果を返す。
+ * @precondition 「operationId: unknown、parentOperationId: unknown、rawAncestorOperationIds: unknown、delegationDepth: unknown」がvalidateOperationChainの入力契約を満たす。
+ * @postcondition validateOperationChainの責務を完了した結果だけを返す。
+ * @effect N/A: validateOperationChainは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validateOperationChainは独自の失敗分岐を所有しない。
+ * @invariant validateOperationChainは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateOperationChainはProcess内の同一Subsystemで完結する。
+ * @security validateOperationChainはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateOperationChainは共有非同期状態を持たない同期処理である。
+ */
 function validateOperationChain(
   operationId: unknown,
   parentOperationId: unknown,
@@ -336,6 +508,22 @@ function validateOperationChain(
   });
 }
 
+/**
+ * Selection Noticeの公開契約を記述する。
+ *
+ * @responsibility Selection Noticeの公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000010
+ * @input frontProvider: Provider、executorProvider: Provider、route: string、reasonCodes: readonly string[]、modelNotice: string
+ * @returns describeSelectionNoticeの計算結果を返す。
+ * @precondition 「frontProvider: Provider、executorProvider: Provider、route: string、reasonCodes: readonly string[]、modelNotice: string」がdescribeSelectionNoticeの入力契約を満たす。
+ * @postcondition describeSelectionNoticeの責務を完了した結果だけを返す。
+ * @effect N/A: describeSelectionNoticeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeSelectionNoticeは独自の失敗分岐を所有しない。
+ * @invariant describeSelectionNoticeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeSelectionNoticeはProcess内の同一Subsystemで完結する。
+ * @security describeSelectionNoticeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeSelectionNoticeは共有非同期状態を持たない同期処理である。
+ */
 function describeSelectionNotice(
   frontProvider: Provider,
   executorProvider: Provider,
@@ -351,6 +539,22 @@ function describeSelectionNotice(
   ].join("\n");
 }
 
+/**
+ * Delegation Route 候補を選択する。
+ *
+ * @responsibility Delegation Route 候補の候補集合、選択理由、選択不能時の境界を所有する。
+ * @trace ARCH-000010
+ * @input rawRequest: unknown、rawRuntimeObservation: unknown
+ * @returns selectDelegationRouteCandidateの計算結果を返す。
+ * @precondition 「rawRequest: unknown、rawRuntimeObservation: unknown」がselectDelegationRouteCandidateの入力契約を満たす。
+ * @postcondition selectDelegationRouteCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: selectDelegationRouteCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: selectDelegationRouteCandidateは独自の失敗分岐を所有しない。
+ * @invariant selectDelegationRouteCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: selectDelegationRouteCandidateはProcess内の同一Subsystemで完結する。
+ * @security selectDelegationRouteCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: selectDelegationRouteCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function selectDelegationRouteCandidate(
   rawRequest: unknown,
   rawRuntimeObservation: unknown,
@@ -528,6 +732,22 @@ export function selectDelegationRouteCandidate(
   });
 }
 
+/**
+ * Provider Reviewer Allowedが同一かを判定する。
+ *
+ * @responsibility Provider Reviewer Allowedの同一性Propertyと一致／不一致境界を所有する。
+ * @trace ARCH-000010
+ * @input request: Readonly<Record<string, unknown>>
+ * @returns sameProviderReviewerAllowedの計算結果を返す。
+ * @precondition 「request: Readonly<Record<string, unknown>>」がsameProviderReviewerAllowedの入力契約を満たす。
+ * @postcondition sameProviderReviewerAllowedの責務を完了した結果だけを返す。
+ * @effect N/A: sameProviderReviewerAllowedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameProviderReviewerAllowedは独自の失敗分岐を所有しない。
+ * @invariant sameProviderReviewerAllowedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sameProviderReviewerAllowedはProcess内の同一Subsystemで完結する。
+ * @security sameProviderReviewerAllowedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameProviderReviewerAllowedは共有非同期状態を持たない同期処理である。
+ */
 function sameProviderReviewerAllowed(
   request: Readonly<Record<string, unknown>>,
 ) {
@@ -544,6 +764,22 @@ function sameProviderReviewerAllowed(
   );
 }
 
+/**
+ * Delegation Execution Slate 候補を選択する。
+ *
+ * @responsibility Delegation Execution Slate 候補の候補集合、選択理由、選択不能時の境界を所有する。
+ * @trace ARCH-000010
+ * @input rawExecutorRequest: unknown、rawRuntimeObservation: unknown
+ * @returns selectDelegationExecutionSlateCandidateの計算結果を返す。
+ * @precondition 「rawExecutorRequest: unknown、rawRuntimeObservation: unknown」がselectDelegationExecutionSlateCandidateの入力契約を満たす。
+ * @postcondition selectDelegationExecutionSlateCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: selectDelegationExecutionSlateCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: selectDelegationExecutionSlateCandidateは独自の失敗分岐を所有しない。
+ * @invariant selectDelegationExecutionSlateCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: selectDelegationExecutionSlateCandidateはProcess内の同一Subsystemで完結する。
+ * @security selectDelegationExecutionSlateCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: selectDelegationExecutionSlateCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function selectDelegationExecutionSlateCandidate(
   rawExecutorRequest: unknown,
   rawRuntimeObservation: unknown,
@@ -624,6 +860,22 @@ export function selectDelegationExecutionSlateCandidate(
   });
 }
 
+/**
+ * Delegation Route Selection 契約の公開契約を記述する。
+ *
+ * @responsibility Delegation Route Selection 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000010
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeDelegationRouteSelectionContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeDelegationRouteSelectionContractの入力契約を満たす。
+ * @postcondition describeDelegationRouteSelectionContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeDelegationRouteSelectionContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeDelegationRouteSelectionContractは独自の失敗分岐を所有しない。
+ * @invariant describeDelegationRouteSelectionContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeDelegationRouteSelectionContractはProcess内の同一Subsystemで完結する。
+ * @security describeDelegationRouteSelectionContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeDelegationRouteSelectionContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeDelegationRouteSelectionContract() {
   return Object.freeze({
     contract: DELEGATION_ROUTE_SELECTION_CONTRACT,

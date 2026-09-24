@@ -1,0 +1,19 @@
+{
+  "schema": "crdd/repository-manifest/v1",
+  "projectId": "qual-lab.crdd",
+  "displayName": "CRDD",
+  "repositoryRole": "crdd-standard",
+  "capabilities": [
+    "project-runtime",
+    "coordinator",
+    "mcp",
+    "execution-intelligence",
+    "runtime-data",
+    "checker",
+    "platform-access"
+  ],
+  "contextSurfaces": [
+    "crdd-context"
+  ],
+  "externalSendPolicy": "config/external-send-policy.json"
+}

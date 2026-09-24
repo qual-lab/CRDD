@@ -1,9 +1,48 @@
+/**
+ * project-runtime-design-traceabilityに属する責務をまとめる。
+ *
+ * @responsibility JsonRecordを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000002
+ */
 const TRACE_SCHEMA = "crdd-coordinator/project-runtime-design-traceability";
-const TRACE_SCHEMA_REVISION = 1;
+const TRACE_SCHEMA_REVISION = 2;
 
+/**
+ * project-runtime-design-traceabilityで使用するJson 記録の値契約を定義する。
+ *
+ * @responsibility Json 記録のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000002
+ * @shape JsonRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant JsonRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: JsonRecordの宣言は外部境界を開かない。
+ * @security N/A: JsonRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility JsonRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type JsonRecord = Record<string, unknown>;
+/**
+ * project-runtime-design-traceabilityで使用するText Readerの値契約を定義する。
+ *
+ * @responsibility Text ReaderのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000002
+ * @shape TextReaderが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant TextReaderで宣言した値と責務の対応を維持する。
+ * @boundary N/A: TextReaderの宣言は外部境界を開かない。
+ * @security N/A: TextReaderはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility TextReaderの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type TextReader = (repositoryRelativePath: string) => string | null;
 
+/**
+ * project-runtime-design-traceabilityで使用するProject Runtime Design Traceability Inspectionの値契約を定義する。
+ *
+ * @responsibility Project Runtime Design Traceability InspectionのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000002
+ * @shape ProjectRuntimeDesignTraceabilityInspectionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeDesignTraceabilityInspectionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeDesignTraceabilityInspectionの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimeDesignTraceabilityInspectionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimeDesignTraceabilityInspectionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeDesignTraceabilityInspection =
   | Readonly<{
       status: "accepted";
@@ -27,20 +66,84 @@ export type ProjectRuntimeDesignTraceabilityInspection =
       issues: readonly string[];
     }>;
 
+/**
+ * 記録かを判定する。
+ *
+ * @responsibility 記録の判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000002
+ * @input value: unknown
+ * @returns value is JsonRecordを返す。
+ * @precondition 「value: unknown」がisRecordの入力契約を満たす。
+ * @postcondition isRecordの責務を完了した結果だけを返す。
+ * @effect N/A: isRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isRecordは独自の失敗分岐を所有しない。
+ * @invariant isRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isRecordはProcess内の同一Subsystemで完結する。
+ * @security N/A: isRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isRecordは共有非同期状態を持たない同期処理である。
+ */
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * project-runtime-design-traceabilityを表示文字列へ変換する。
+ *
+ * @responsibility project-runtime-design-traceabilityの入力値、文字列表現、機密を含めない結果境界を所有する。
+ * @trace ARCH-000002
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がtextの入力契約を満たす。
+ * @postcondition textの責務を完了した結果だけを返す。
+ * @effect N/A: textは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: textは独自の失敗分岐を所有しない。
+ * @invariant textは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: textはProcess内の同一Subsystemで完結する。
+ * @security N/A: textはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: textは共有非同期状態を持たない同期処理である。
+ */
 function text(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
 }
 
+/**
+ * stringsを決定する。
+ *
+ * @responsibility stringsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000002
+ * @input value: unknown
+ * @returns value is string[]を返す。
+ * @precondition 「value: unknown」がstringsの入力契約を満たす。
+ * @postcondition stringsの責務を完了した結果だけを返す。
+ * @effect N/A: stringsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: stringsは独自の失敗分岐を所有しない。
+ * @invariant stringsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: stringsはProcess内の同一Subsystemで完結する。
+ * @security N/A: stringsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: stringsは共有非同期状態を持たない同期処理である。
+ */
 function strings(value: unknown): value is string[] {
   return (
     Array.isArray(value) && value.every((item) => typeof item === "string")
   );
 }
 
+/**
+ * populationを決定する。
+ *
+ * @responsibility populationの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000002
+ * @input value: unknown、label: string、prefix: string、issues: string[]
+ * @returns populationの計算結果を返す。
+ * @precondition 「value: unknown、label: string、prefix: string、issues: string[]」がpopulationの入力契約を満たす。
+ * @postcondition populationの責務を完了した結果だけを返す。
+ * @effect N/A: populationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: populationは独自の失敗分岐を所有しない。
+ * @invariant populationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: populationはProcess内の同一Subsystemで完結する。
+ * @security N/A: populationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: populationは共有非同期状態を持たない同期処理である。
+ */
 function population(
   value: unknown,
   label: string,
@@ -65,6 +168,22 @@ function population(
   return { entries, ids };
 }
 
+/**
+ * referencesを決定する。
+ *
+ * @responsibility referencesの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000002
+ * @input value: unknown、known: ReadonlySet<string>、label: string、issues: string[]
+ * @returns referencesの計算結果を返す。
+ * @precondition 「value: unknown、known: ReadonlySet<string>、label: string、issues: string[]」がreferencesの入力契約を満たす。
+ * @postcondition referencesの責務を完了した結果だけを返す。
+ * @effect N/A: referencesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: referencesは独自の失敗分岐を所有しない。
+ * @invariant referencesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: referencesはProcess内の同一Subsystemで完結する。
+ * @security N/A: referencesはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: referencesは共有非同期状態を持たない同期処理である。
+ */
 function references(
   value: unknown,
   known: ReadonlySet<string>,
@@ -81,6 +200,22 @@ function references(
   return value;
 }
 
+/**
+ * Pathを安全条件の下で処理する。
+ *
+ * @responsibility Pathの安全条件、拒否条件、終了結果境界を所有する。
+ * @trace ARCH-000002
+ * @input value: string
+ * @returns safePathの計算結果を返す。
+ * @precondition 「value: string」がsafePathの入力契約を満たす。
+ * @postcondition safePathの責務を完了した結果だけを返す。
+ * @effect N/A: safePathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: safePathは独自の失敗分岐を所有しない。
+ * @invariant safePathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: safePathはProcess内の同一Subsystemで完結する。
+ * @security N/A: safePathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: safePathは共有非同期状態を持たない同期処理である。
+ */
 function safePath(value: string) {
   return (
     !value.startsWith("/") &&
@@ -92,6 +227,22 @@ function safePath(value: string) {
   );
 }
 
+/**
+ * backtick Canonical Idsを決定する。
+ *
+ * @responsibility backtick Canonical Idsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000002
+ * @input source: string、prefixes: readonly string[]
+ * @returns Set<string>を返す。
+ * @precondition 「source: string、prefixes: readonly string[]」がbacktickCanonicalIdsの入力契約を満たす。
+ * @postcondition backtickCanonicalIdsの責務を完了した結果だけを返す。
+ * @effect N/A: backtickCanonicalIdsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: backtickCanonicalIdsは独自の失敗分岐を所有しない。
+ * @invariant backtickCanonicalIdsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: backtickCanonicalIdsはProcess内の同一Subsystemで完結する。
+ * @security N/A: backtickCanonicalIdsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: backtickCanonicalIdsは共有非同期状態を持たない同期処理である。
+ */
 function backtickCanonicalIds(
   source: string,
   prefixes: readonly string[],
@@ -106,9 +257,25 @@ function backtickCanonicalIds(
   return ids;
 }
 
+/**
+ * verification Table Idsを決定する。
+ *
+ * @responsibility verification Table Idsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000002
+ * @input source: string
+ * @returns Set<string>を返す。
+ * @precondition 「source: string」がverificationTableIdsの入力契約を満たす。
+ * @postcondition verificationTableIdsの責務を完了した結果だけを返す。
+ * @effect N/A: verificationTableIdsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: verificationTableIdsは独自の失敗分岐を所有しない。
+ * @invariant verificationTableIdsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verificationTableIdsはProcess内の同一Subsystemで完結する。
+ * @security N/A: verificationTableIdsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: verificationTableIdsは共有非同期状態を持たない同期処理である。
+ */
 function verificationTableIds(source: string): Set<string> {
   const ids = new Set<string>();
-  const pattern = /^\|\s*(PR-[A-Z0-9-]+)\s*\|/gm;
+  const pattern = /^\|\s*`?(PR-[A-Z0-9-]+)`?\s*\|/gm;
   for (const match of source.matchAll(pattern)) {
     const id = match[1];
     if (id !== undefined) ids.add(id);
@@ -116,6 +283,22 @@ function verificationTableIds(source: string): Set<string> {
   return ids;
 }
 
+/**
+ * Project Runtime Design Traceabilityを観測する。
+ *
+ * @responsibility Project Runtime Design Traceabilityの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000002
+ * @input input: unknown、readRepositoryText: TextReader
+ * @returns ProjectRuntimeDesignTraceabilityInspectionを返す。
+ * @precondition 「input: unknown、readRepositoryText: TextReader」がinspectProjectRuntimeDesignTraceabilityの入力契約を満たす。
+ * @postcondition inspectProjectRuntimeDesignTraceabilityの責務を完了した結果だけを返す。
+ * @effect N/A: inspectProjectRuntimeDesignTraceabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectProjectRuntimeDesignTraceabilityは独自の失敗分岐を所有しない。
+ * @invariant inspectProjectRuntimeDesignTraceabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectProjectRuntimeDesignTraceabilityはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectProjectRuntimeDesignTraceabilityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectProjectRuntimeDesignTraceabilityは共有非同期状態を持たない同期処理である。
+ */
 export function inspectProjectRuntimeDesignTraceability(
   input: unknown,
   readRepositoryText: TextReader,
@@ -132,11 +315,7 @@ export function inspectProjectRuntimeDesignTraceability(
   if (input.schemaRevision !== TRACE_SCHEMA_REVISION)
     issues.push("trace_schema_revision_invalid");
 
-  const documentKeys = [
-    "architectureDocument",
-    "designDocument",
-    "verificationDocument",
-  ] as const;
+  const documentKeys = ["architectureDocument", "designDocument"] as const;
   const documents = new Map<string, string>();
   for (const key of documentKeys) {
     const path = input[key];
@@ -229,8 +408,7 @@ export function inspectProjectRuntimeDesignTraceability(
       if (!designIds.has(id)) issues.push(`design_document_id_missing:${id}`);
     }
   }
-  const verificationSource = documents.get("verificationDocument") ?? "";
-  const documentedVerificationIds = verificationTableIds(verificationSource);
+  const documentedVerificationIds = verificationTableIds(designSource);
   for (const id of verifications.ids) {
     if (!documentedVerificationIds.has(id))
       issues.push(`verification_document_id_missing:${id}`);

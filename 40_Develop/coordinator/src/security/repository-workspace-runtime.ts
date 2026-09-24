@@ -1,10 +1,22 @@
+/**
+ * repository-workspace-runtimeに属する責務をまとめる。
+ *
+ * @responsibility InventoryEntryを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000013
+ */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import {
+  materializeFixedSnapshotCandidate,
+  verifyCandidateOutputDirectory,
+} from "../../../version-control/src/fixed-snapshot.ts";
+import { gitFixedSnapshotAdapter } from "../../../version-control/src/git/fixed-snapshot-adapter.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/repository-location.ts";
+
 import { persistRuntimeOwnedCandidateBundle } from "./candidate-bundle-store.ts";
 import { verifyOwnedOperationManagementMountBinding } from "./execution-environment.ts";
-import { materializeGitCommitTreeCandidate } from "./git-object-reader.ts";
 import {
   borrowRuntimeOwnedRepositorySource,
   verifyRuntimeOwnedRepositoryBindingCapability,
@@ -28,11 +40,33 @@ const RESERVED_WINDOWS_SEGMENT =
   /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu;
 const INVALID_WINDOWS_CHARACTER = /[<>:"|?*\\\x00-\x1f\x7f]/u;
 
+/**
+ * repository-workspace-runtimeで使用するInventory Entryの値契約を定義する。
+ *
+ * @responsibility Inventory EntryのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000013
+ * @shape InventoryEntryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant InventoryEntryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: InventoryEntryの宣言は外部境界を開かない。
+ * @security InventoryEntryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility InventoryEntryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type InventoryEntry = Readonly<{
   relativePath: string;
   byteLength: number;
   sha256: string;
 }>;
+/**
+ * repository-workspace-runtimeで使用するWorkspace 記録の値契約を定義する。
+ *
+ * @responsibility Workspace 記録のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000013
+ * @shape WorkspaceRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant WorkspaceRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: WorkspaceRecordの宣言は外部境界を開かない。
+ * @security WorkspaceRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility WorkspaceRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type WorkspaceRecord = Readonly<{
   managementCapability: object;
   mountCapability: object;
@@ -43,6 +77,17 @@ type WorkspaceRecord = Readonly<{
   baseManifestHash: string;
   baseEntries: ReadonlyMap<string, InventoryEntry>;
 }>;
+/**
+ * repository-workspace-runtimeで使用する候補 記録の値契約を定義する。
+ *
+ * @responsibility 候補 記録のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000013
+ * @shape CandidateRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CandidateRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CandidateRecordの宣言は外部境界を開かない。
+ * @security CandidateRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility CandidateRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type CandidateRecord = Readonly<{
   workspaceRecord: WorkspaceRecord;
   allowedPathsHash: string;
@@ -54,6 +99,22 @@ type CandidateRecord = Readonly<{
 const workspaces = new WeakMap<object, WorkspaceRecord>();
 const candidates = new WeakMap<object, CandidateRecord>();
 
+/**
+ * Segmentが有効か判定する。
+ *
+ * @responsibility Segmentの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000013
+ * @input segment: string
+ * @returns validSegmentの計算結果を返す。
+ * @precondition 「segment: string」がvalidSegmentの入力契約を満たす。
+ * @postcondition validSegmentの責務を完了した結果だけを返す。
+ * @effect N/A: validSegmentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validSegmentは独自の失敗分岐を所有しない。
+ * @invariant validSegmentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validSegmentはProcess内の同一Subsystemで完結する。
+ * @security validSegmentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validSegmentは共有非同期状態を持たない同期処理である。
+ */
 function validSegment(segment: string) {
   return !(
     segment.length === 0 ||
@@ -68,6 +129,22 @@ function validSegment(segment: string) {
   );
 }
 
+/**
+ * Relative Pathが有効か判定する。
+ *
+ * @responsibility Relative Pathの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000013
+ * @input relativePath: string
+ * @returns validRelativePathの計算結果を返す。
+ * @precondition 「relativePath: string」がvalidRelativePathの入力契約を満たす。
+ * @postcondition validRelativePathの責務を完了した結果だけを返す。
+ * @effect N/A: validRelativePathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validRelativePathは独自の失敗分岐を所有しない。
+ * @invariant validRelativePathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validRelativePathはProcess内の同一Subsystemで完結する。
+ * @security validRelativePathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validRelativePathは共有非同期状態を持たない同期処理である。
+ */
 function validRelativePath(relativePath: string) {
   return (
     relativePath.length > 0 &&
@@ -78,6 +155,22 @@ function validRelativePath(relativePath: string) {
   );
 }
 
+/**
+ * Fileを安定Identityへ変換する。
+ *
+ * @responsibility Fileの正規化条件、一意性、変換不能時の拒否境界を所有する。
+ * @trace ARCH-000013
+ * @input target: string、maximumBytes: number
+ * @returns stableFileの計算結果を返す。
+ * @precondition 「target: string、maximumBytes: number」がstableFileの入力契約を満たす。
+ * @postcondition stableFileの責務を完了した結果だけを返す。
+ * @effect stableFileはFilesystemの読取りまたは書込みを実行する。
+ * @failure stableFileは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant stableFileは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security stableFileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: stableFileは共有非同期状態を持たない同期処理である。
+ */
 function stableFile(target: string, maximumBytes: number) {
   const handle = fs.openSync(target, "r");
   try {
@@ -134,6 +227,22 @@ function stableFile(target: string, maximumBytes: number) {
   }
 }
 
+/**
+ * File Contentを安定Identityへ変換する。
+ *
+ * @responsibility File Contentの正規化条件、一意性、変換不能時の拒否境界を所有する。
+ * @trace ARCH-000013
+ * @input target: string、maximumBytes: number
+ * @returns stableFileContentの計算結果を返す。
+ * @precondition 「target: string、maximumBytes: number」がstableFileContentの入力契約を満たす。
+ * @postcondition stableFileContentの責務を完了した結果だけを返す。
+ * @effect stableFileContentはFilesystemの読取りまたは書込みを実行する。
+ * @failure stableFileContentは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant stableFileContentは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security stableFileContentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: stableFileContentは共有非同期状態を持たない同期処理である。
+ */
 function stableFileContent(target: string, maximumBytes: number) {
   const handle = fs.openSync(target, "r");
   try {
@@ -185,6 +294,22 @@ function stableFileContent(target: string, maximumBytes: number) {
   }
 }
 
+/**
+ * inventoryを決定する。
+ *
+ * @responsibility inventoryの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000013
+ * @input workspace: string
+ * @returns inventoryの計算結果を返す。
+ * @precondition 「workspace: string」がinventoryの入力契約を満たす。
+ * @postcondition inventoryの責務を完了した結果だけを返す。
+ * @effect inventoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure inventoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inventoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security inventoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inventoryは共有非同期状態を持たない同期処理である。
+ */
 function inventory(workspace: string) {
   const root = fs.realpathSync.native(workspace);
   const rootMetadata = fs.lstatSync(root);
@@ -194,6 +319,22 @@ function inventory(workspace: string) {
   const comparisonPaths = new Set<string>();
   let totalBytes = 0;
 
+  /**
+   * visitを決定する。
+   *
+   * @responsibility visitの導出に必要な入力、判定規則、返却結果の境界を所有する。
+   * @trace ARCH-000013
+   * @input directory: string、parentPath: string、depth: number
+   * @returns N/A: visitは戻り値を返さない。
+   * @precondition 「directory: string、parentPath: string、depth: number」がvisitの入力契約を満たす。
+   * @postcondition visitの責務を完了して呼出し元へ制御を戻す。
+   * @effect visitはFilesystemの読取りまたは書込みを実行する。
+   * @failure visitは入力不正または下位処理の失敗を呼出し側へ返す。
+   * @invariant visitは宣言した境界以外へEffectを拡張しない。
+   * @boundary FilesystemとProcess内Domain処理の境界。
+   * @security visitはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+   * @concurrency N/A: visitは共有非同期状態を持たない同期処理である。
+   */
   function visit(directory: string, parentPath: string, depth: number) {
     if (depth > 64) throw new Error("repository_workspace_depth_exceeded");
     const directoryEntries = fs.readdirSync(directory, { withFileTypes: true });
@@ -249,6 +390,22 @@ function inventory(workspace: string) {
   return Object.freeze(entries);
 }
 
+/**
+ * manifest Hashを決定する。
+ *
+ * @responsibility manifest Hashの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000013
+ * @input entries: readonly InventoryEntry[]
+ * @returns manifestHashの計算結果を返す。
+ * @precondition 「entries: readonly InventoryEntry[]」がmanifestHashの入力契約を満たす。
+ * @postcondition manifestHashの責務を完了した結果だけを返す。
+ * @effect N/A: manifestHashは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: manifestHashは独自の失敗分岐を所有しない。
+ * @invariant manifestHashは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: manifestHashはProcess内の同一Subsystemで完結する。
+ * @security manifestHashはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: manifestHashは共有非同期状態を持たない同期処理である。
+ */
 function manifestHash(entries: readonly InventoryEntry[]) {
   const hash = createHash("sha256").update("crdd-workspace-inventory-v1\0");
   for (const entry of entries) {
@@ -263,10 +420,42 @@ function manifestHash(entries: readonly InventoryEntry[]) {
   return hash.digest("hex");
 }
 
+/**
+ * entry Mapを決定する。
+ *
+ * @responsibility entry Mapの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000013
+ * @input entries: readonly InventoryEntry[]
+ * @returns entryMapの計算結果を返す。
+ * @precondition 「entries: readonly InventoryEntry[]」がentryMapの入力契約を満たす。
+ * @postcondition entryMapの責務を完了した結果だけを返す。
+ * @effect N/A: entryMapは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: entryMapは独自の失敗分岐を所有しない。
+ * @invariant entryMapは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: entryMapはProcess内の同一Subsystemで完結する。
+ * @security entryMapはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: entryMapは共有非同期状態を持たない同期処理である。
+ */
 function entryMap(entries: readonly InventoryEntry[]) {
   return new Map(entries.map((entry) => [entry.relativePath, entry]));
 }
 
+/**
+ * Pathsが許可範囲内か判定する。
+ *
+ * @responsibility Pathsの許可条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000013
+ * @input rawAllowedPaths: unknown
+ * @returns allowedPathsの計算結果を返す。
+ * @precondition 「rawAllowedPaths: unknown」がallowedPathsの入力契約を満たす。
+ * @postcondition allowedPathsの責務を完了した結果だけを返す。
+ * @effect N/A: allowedPathsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure allowedPathsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant allowedPathsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: allowedPathsはProcess内の同一Subsystemで完結する。
+ * @security allowedPathsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: allowedPathsは共有非同期状態を持たない同期処理である。
+ */
 function allowedPaths(rawAllowedPaths: unknown) {
   if (
     !Array.isArray(rawAllowedPaths) ||
@@ -305,6 +494,22 @@ function allowedPaths(rawAllowedPaths: unknown) {
     : null;
 }
 
+/**
+ * Allowedかを判定する。
+ *
+ * @responsibility Allowedの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000013
+ * @input relativePath: string、paths: readonly string[]
+ * @returns isAllowedの計算結果を返す。
+ * @precondition 「relativePath: string、paths: readonly string[]」がisAllowedの入力契約を満たす。
+ * @postcondition isAllowedの責務を完了した結果だけを返す。
+ * @effect N/A: isAllowedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isAllowedは独自の失敗分岐を所有しない。
+ * @invariant isAllowedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isAllowedはProcess内の同一Subsystemで完結する。
+ * @security isAllowedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isAllowedは共有非同期状態を持たない同期処理である。
+ */
 function isAllowed(relativePath: string, paths: readonly string[]) {
   return paths.some((allowedPath) =>
     allowedPath.endsWith("/")
@@ -313,6 +518,22 @@ function isAllowed(relativePath: string, paths: readonly string[]) {
   );
 }
 
+/**
+ * changed Pathsを決定する。
+ *
+ * @responsibility changed Pathsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000013
+ * @input baseEntries: ReadonlyMap<string, InventoryEntry>、currentEntries: ReadonlyMap<string, InventoryEntry>
+ * @returns changedPathsの計算結果を返す。
+ * @precondition 「baseEntries: ReadonlyMap<string, InventoryEntry>、currentEntries: ReadonlyMap<string, InventoryEntry>」がchangedPathsの入力契約を満たす。
+ * @postcondition changedPathsの責務を完了した結果だけを返す。
+ * @effect N/A: changedPathsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: changedPathsは独自の失敗分岐を所有しない。
+ * @invariant changedPathsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: changedPathsはProcess内の同一Subsystemで完結する。
+ * @security changedPathsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: changedPathsは共有非同期状態を持たない同期処理である。
+ */
 function changedPaths(
   baseEntries: ReadonlyMap<string, InventoryEntry>,
   currentEntries: ReadonlyMap<string, InventoryEntry>,
@@ -332,6 +553,22 @@ function changedPaths(
     .sort((left, right) => Buffer.from(left).compare(Buffer.from(right)));
 }
 
+/**
+ * Runtime 所有 Repository WorkspaceをFilesystem上の候補として具体化する。
+ *
+ * @responsibility Runtime 所有 Repository Workspaceの入力Snapshot、書込み範囲、部分生成の失敗境界を所有する。
+ * @trace ARCH-000013
+ * @input repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、rawReadPaths: unknown
+ * @returns materializeRuntimeOwnedRepositoryWorkspaceの計算結果を返す。
+ * @precondition 「repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、rawReadPaths: unknown」がmaterializeRuntimeOwnedRepositoryWorkspaceの入力契約を満たす。
+ * @postcondition materializeRuntimeOwnedRepositoryWorkspaceの責務を完了した結果だけを返す。
+ * @effect N/A: materializeRuntimeOwnedRepositoryWorkspaceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure materializeRuntimeOwnedRepositoryWorkspaceは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant materializeRuntimeOwnedRepositoryWorkspaceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: materializeRuntimeOwnedRepositoryWorkspaceはProcess内の同一Subsystemで完結する。
+ * @security materializeRuntimeOwnedRepositoryWorkspaceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: materializeRuntimeOwnedRepositoryWorkspaceは共有非同期状態を持たない同期処理である。
+ */
 export function materializeRuntimeOwnedRepositoryWorkspace(
   repositoryBindingCapability: unknown,
   managementCapability: unknown,
@@ -361,18 +598,47 @@ export function materializeRuntimeOwnedRepositoryWorkspace(
     const readPaths =
       rawReadPaths === undefined ? null : allowedPaths(rawReadPaths);
     if (rawReadPaths !== undefined && !readPaths) return null;
-    const materialized = materializeGitCommitTreeCandidate({
-      commonDirectory: source.commonDirectory,
-      revision: source.revision,
-      workspace: binding.mounts.workspace,
-      ...(readPaths ? { readPaths } : {}),
-    });
+    const verified = verifyRepositoryRoot(source.repositoryRoot);
+    if (verified.status !== "completed") return null;
+    const output = verifyCandidateOutputDirectory(
+      binding.mounts.workspace,
+      mountCapability,
+      binding.mounts.workspace,
+    );
+    if (output.status !== "completed")
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "repository_workspace_candidate_output_invalid" as const,
+        effectIssued: false,
+        effectStateUnknown: false,
+        cleanupConfirmed: true,
+        recoveryReference: null,
+        pathReported: false,
+      });
+    const materialized = materializeFixedSnapshotCandidate(
+      verified.capability,
+      source.revision,
+      mountCapability,
+      output.capability,
+      readPaths,
+      containsRecognizedSecretMaterial,
+      gitFixedSnapshotAdapter,
+    );
     if (!materialized) return null;
     if (materialized.status === "blocked") {
       return Object.freeze({
         status: "blocked" as const,
         reason:
-          "repository_read_projection_recognized_secret_rejected" as const,
+          materialized.reason === "fixed_snapshot_content_policy_rejected"
+            ? ("repository_read_projection_recognized_secret_rejected" as const)
+            : materialized.reason,
+        effectIssued: materialized.effectIssued,
+        effectStateUnknown: materialized.effectStateUnknown,
+        cleanupConfirmed: materialized.cleanupConfirmed,
+        recoveryReference:
+          materialized.effectStateUnknown || !materialized.cleanupConfirmed
+            ? `repository-workspace.${binding.operationId}`
+            : null,
         pathReported: false,
       });
     }
@@ -389,8 +655,8 @@ export function materializeRuntimeOwnedRepositoryWorkspace(
       mountCapability,
       repositoryBindingCapability,
       operationId: binding.operationId,
-      baseCommit: materialized.baseCommit,
-      baseTree: materialized.baseTree,
+      baseCommit: materialized.baseRevisionIdentity,
+      baseTree: materialized.baseSnapshotIdentity,
       baseManifestHash,
       baseEntries: entryMap(baseInventory),
     });
@@ -416,6 +682,22 @@ export function materializeRuntimeOwnedRepositoryWorkspace(
   }
 }
 
+/**
+ * current Workspace 記録を決定する。
+ *
+ * @responsibility current Workspace 記録の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000013
+ * @input workspaceCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown
+ * @returns currentWorkspaceRecordの計算結果を返す。
+ * @precondition 「workspaceCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown」がcurrentWorkspaceRecordの入力契約を満たす。
+ * @postcondition currentWorkspaceRecordの責務を完了した結果だけを返す。
+ * @effect N/A: currentWorkspaceRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: currentWorkspaceRecordは独自の失敗分岐を所有しない。
+ * @invariant currentWorkspaceRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: currentWorkspaceRecordはProcess内の同一Subsystemで完結する。
+ * @security currentWorkspaceRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: currentWorkspaceRecordは共有非同期状態を持たない同期処理である。
+ */
 function currentWorkspaceRecord(
   workspaceCapability: unknown,
   repositoryBindingCapability: unknown,
@@ -457,6 +739,22 @@ function currentWorkspaceRecord(
     : null;
 }
 
+/**
+ * Runtime 所有 候補 Revisionを固定Snapshotとして取得する。
+ *
+ * @responsibility Runtime 所有 候補 Revisionの観測範囲、Snapshot Identity、変更検出境界を所有する。
+ * @trace ARCH-000013
+ * @input workspaceCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、rawAllowedPaths: unknown
+ * @returns captureRuntimeOwnedCandidateRevisionの計算結果を返す。
+ * @precondition 「workspaceCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、rawAllowedPaths: unknown」がcaptureRuntimeOwnedCandidateRevisionの入力契約を満たす。
+ * @postcondition captureRuntimeOwnedCandidateRevisionの責務を完了した結果だけを返す。
+ * @effect N/A: captureRuntimeOwnedCandidateRevisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure captureRuntimeOwnedCandidateRevisionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant captureRuntimeOwnedCandidateRevisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: captureRuntimeOwnedCandidateRevisionはProcess内の同一Subsystemで完結する。
+ * @security captureRuntimeOwnedCandidateRevisionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: captureRuntimeOwnedCandidateRevisionは共有非同期状態を持たない同期処理である。
+ */
 export function captureRuntimeOwnedCandidateRevision(
   workspaceCapability: unknown,
   repositoryBindingCapability: unknown,
@@ -565,6 +863,22 @@ export function captureRuntimeOwnedCandidateRevision(
   }
 }
 
+/**
+ * Runtime 所有 候補 Read Contentを公開結果へ投影する。
+ *
+ * @responsibility Runtime 所有 候補 Read Contentの公開field、秘匿境界、投影不能時の結果境界を所有する。
+ * @trace ARCH-000013
+ * @input workspaceCapability: unknown、candidateCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、rawReadPaths: unknown
+ * @returns projectRuntimeOwnedCandidateReadContentの計算結果を返す。
+ * @precondition 「workspaceCapability: unknown、candidateCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、rawReadPaths: unknown」がprojectRuntimeOwnedCandidateReadContentの入力契約を満たす。
+ * @postcondition projectRuntimeOwnedCandidateReadContentの責務を完了した結果だけを返す。
+ * @effect N/A: projectRuntimeOwnedCandidateReadContentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure projectRuntimeOwnedCandidateReadContentは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant projectRuntimeOwnedCandidateReadContentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: projectRuntimeOwnedCandidateReadContentはProcess内の同一Subsystemで完結する。
+ * @security projectRuntimeOwnedCandidateReadContentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: projectRuntimeOwnedCandidateReadContentは共有非同期状態を持たない同期処理である。
+ */
 export function projectRuntimeOwnedCandidateReadContent(
   workspaceCapability: unknown,
   candidateCapability: unknown,
@@ -675,6 +989,22 @@ export function projectRuntimeOwnedCandidateReadContent(
   }
 }
 
+/**
+ * Runtime 所有 候補 Revisionを検証する。
+ *
+ * @responsibility Runtime 所有 候補 Revisionの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000013
+ * @input candidateCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown
+ * @returns verifyRuntimeOwnedCandidateRevisionの計算結果を返す。
+ * @precondition 「candidateCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown」がverifyRuntimeOwnedCandidateRevisionの入力契約を満たす。
+ * @postcondition verifyRuntimeOwnedCandidateRevisionの責務を完了した結果だけを返す。
+ * @effect N/A: verifyRuntimeOwnedCandidateRevisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyRuntimeOwnedCandidateRevisionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyRuntimeOwnedCandidateRevisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyRuntimeOwnedCandidateRevisionはProcess内の同一Subsystemで完結する。
+ * @security verifyRuntimeOwnedCandidateRevisionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyRuntimeOwnedCandidateRevisionは共有非同期状態を持たない同期処理である。
+ */
 export function verifyRuntimeOwnedCandidateRevision(
   candidateCapability: unknown,
   repositoryBindingCapability: unknown,
@@ -722,6 +1052,22 @@ export function verifyRuntimeOwnedCandidateRevision(
   }
 }
 
+/**
+ * Runtime 所有 候補 Revisionを耐久保存する。
+ *
+ * @responsibility Runtime 所有 候補 Revisionの保存Identity、確定条件、部分書込みの失敗境界を所有する。
+ * @trace ARCH-000013
+ * @input candidateCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、persistencePolicy: unknown
+ * @returns persistRuntimeOwnedCandidateRevisionの計算結果を返す。
+ * @precondition 「candidateCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、persistencePolicy: unknown」がpersistRuntimeOwnedCandidateRevisionの入力契約を満たす。
+ * @postcondition persistRuntimeOwnedCandidateRevisionの責務を完了した結果だけを返す。
+ * @effect N/A: persistRuntimeOwnedCandidateRevisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure persistRuntimeOwnedCandidateRevisionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant persistRuntimeOwnedCandidateRevisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: persistRuntimeOwnedCandidateRevisionはProcess内の同一Subsystemで完結する。
+ * @security persistRuntimeOwnedCandidateRevisionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: persistRuntimeOwnedCandidateRevisionは共有非同期状態を持たない同期処理である。
+ */
 export function persistRuntimeOwnedCandidateRevision(
   candidateCapability: unknown,
   repositoryBindingCapability: unknown,
@@ -824,6 +1170,22 @@ export function persistRuntimeOwnedCandidateRevision(
   }
 }
 
+/**
+ * Repository Workspace Runtime 契約の公開契約を記述する。
+ *
+ * @responsibility Repository Workspace Runtime 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000013
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeRepositoryWorkspaceRuntimeContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeRepositoryWorkspaceRuntimeContractの入力契約を満たす。
+ * @postcondition describeRepositoryWorkspaceRuntimeContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeRepositoryWorkspaceRuntimeContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeRepositoryWorkspaceRuntimeContractは独自の失敗分岐を所有しない。
+ * @invariant describeRepositoryWorkspaceRuntimeContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeRepositoryWorkspaceRuntimeContractはProcess内の同一Subsystemで完結する。
+ * @security describeRepositoryWorkspaceRuntimeContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeRepositoryWorkspaceRuntimeContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeRepositoryWorkspaceRuntimeContract() {
   return Object.freeze({
     contract: REPOSITORY_WORKSPACE_RUNTIME_CONTRACT,

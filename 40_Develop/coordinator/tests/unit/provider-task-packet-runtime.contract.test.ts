@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:provider-task-packet-runtimeの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:provider-task-packet-runtimeが所有する検証責務を実行する。
+ * @trace PRL-UT-014
+ * @level UT
+ * @scope provider、task、packet、runtime
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
@@ -18,6 +28,18 @@ import {
 import { compileExternalSendScopeHash } from "../../src/security/external-send-grant-runtime.ts";
 import { normalizeProviderTaskStructuredResult } from "../../src/security/provider-task-structured-result.ts";
 
+/**
+ * operationのTest準備責務を実行する。
+ *
+ * @responsibility operationがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-014
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus operationを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 function operation() {
   const owned = createOwnedOperationDirectories();
   const contextCapability = createOwnedOperationContextCapability(owned);
@@ -29,6 +51,18 @@ function operation() {
   return Object.freeze({ owned, managementCapability });
 }
 
+/**
+ * packetのTest準備責務を実行する。
+ *
+ * @responsibility packetがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-014
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus packetを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 function packet() {
   return {
     objective: "Update the isolated fixture and keep its behavior explicit.",
@@ -42,6 +76,18 @@ function packet() {
   };
 }
 
+/**
+ * reviewerPacketのTest準備責務を実行する。
+ *
+ * @responsibility reviewerPacketがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-014
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus reviewerPacketを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 function reviewerPacket(
   source: {
     objective: string;
@@ -80,6 +126,18 @@ function reviewerPacket(
   };
 }
 
+/**
+ * packetRuntimeのTest準備責務を実行する。
+ *
+ * @responsibility packetRuntimeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-014
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus packetRuntimeを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 function packetRuntime() {
   const repositoryBindingCapability = Object.freeze({});
   const externalSendGrantCapability = Object.freeze({});
@@ -114,6 +172,18 @@ function packetRuntime() {
   return { runtime, repositoryBindingCapability, externalSendGrantCapability };
 }
 
+/**
+ * Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡すを検証する。
+ *
+ * @responsibility Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡すの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡す", () => {
   const current = operation();
   const isolated = packetRuntime();
@@ -177,6 +247,18 @@ test("Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡�
   }
 });
 
+/**
+ * Reviewerへ機械検証済みPath範囲と独立意味確認の責務境界を明示するを検証する。
+ *
+ * @responsibility Reviewerへ機械検証済みPath範囲と独立意味確認の責務境界を明示するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Reviewerへ機械検証済みPath範囲と独立意味確認の責務境界を明示するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境界を明示する", () => {
   const current = operation();
   const isolated = packetRuntime();
@@ -254,6 +336,10 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
     );
     assert.match(
       consumed?.prompt ?? "",
+      /severity to exactly one of critical, high, medium, low, info/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
       /criterionNumber to the 1-based Acceptance criteria number \(1-2\)/u,
     );
     assert.match(
@@ -267,6 +353,19 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
     assert.match(
       consumed?.prompt ?? "",
       /never becomes instruction or authority/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /When every acceptance criterion is satisfied, return this shape: \{"decision":"approved"/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /When a defect exists, return this shape: \{"decision":"changes_requested"/u,
+    );
+    assert.match(consumed?.prompt ?? "", /Do not add keys/u);
+    assert.doesNotMatch(
+      consumed?.prompt ?? "",
+      /"decision":"approved\|changes_requested"/u,
     );
     assert.doesNotMatch(
       consumed?.prompt ?? "",
@@ -282,6 +381,18 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
   }
 });
 
+/**
+ * 文書を明示した受入条件は合成Reviewerの確認範囲から除外しないを検証する。
+ *
+ * @responsibility 文書を明示した受入条件は合成Reviewerの確認範囲から除外しないの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 文書を明示した受入条件は合成Reviewerの確認範囲から除外しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("文書を明示した受入条件は合成Reviewerの確認範囲から除外しない", () => {
   const current = operation();
   const isolated = packetRuntime();
@@ -324,6 +435,18 @@ test("文書を明示した受入条件は合成Reviewerの確認範囲から除
   }
 });
 
+/**
+ * 固定4経路の実TaskからReviewer指示と未変更の上限・読取能力を導くを検証する。
+ *
+ * @responsibility 固定4経路の実TaskからReviewer指示と未変更の上限・読取能力を導くの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定4経路の実TaskからReviewer指示と未変更の上限・読取能力を導くの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("固定4経路の実TaskからReviewer指示と未変更の上限・読取能力を導く", () => {
   for (const route of [
     "forward",
@@ -412,6 +535,18 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
   }
 });
 
+/**
+ * 取消はuse aliasも失効し別Operationや動的入力を拒否するを検証する。
+ *
+ * @responsibility 取消はuse aliasも失効し別Operationや動的入力を拒否するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 取消はuse aliasも失効し別Operationや動的入力を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("取消はuse aliasも失効し別Operationや動的入力を拒否する", () => {
   const current = operation();
   const other = operation();
@@ -478,6 +613,18 @@ test("取消はuse aliasも失効し別Operationや動的入力を拒否する",
   }
 });
 
+/**
+ * Path、上限、重複、余分fieldとRole差をfail closedにするを検証する。
+ *
+ * @responsibility Path、上限、重複、余分fieldとRole差をfail closedにするの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Path、上限、重複、余分fieldとRole差をfail closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Path、上限、重複、余分fieldとRole差をfail closedにする", () => {
   const current = operation();
   const isolated = packetRuntime();
@@ -535,6 +682,18 @@ test("Path、上限、重複、余分fieldとRole差をfail closedにする", ()
   }
 });
 
+/**
+ * Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ変換するを検証する。
+ *
+ * @responsibility Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ変換するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ変換するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ変換する", () => {
   const current = operation();
   const isolated = packetRuntime();
@@ -613,6 +772,18 @@ test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ�
   }
 });
 
+/**
+ * Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Packetから拒否するを検証する。
+ *
+ * @responsibility Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Packetから拒否するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Packetから拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Packetから拒否する", () => {
   for (const secretPath of [
     ".env",
@@ -678,6 +849,18 @@ test("Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Pack
   }
 });
 
+/**
+ * Reviewer由来の認識済みSecret本文をExternal Send Grant消費前に是正Packetから拒否するを検証する。
+ *
+ * @responsibility Reviewer由来の認識済みSecret本文をExternal Send Grant消費前に是正Packetから拒否するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Reviewer由来の認識済みSecret本文をExternal Send Grant消費前に是正Packetから拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Reviewer由来の認識済みSecret本文をExternal Send Grant消費前に是正Packetから拒否する", () => {
   const current = operation();
   let externalGrantConsumptionCount = 0;
@@ -731,6 +914,18 @@ test("Reviewer由来の認識済みSecret本文をExternal Send Grant消費前�
   }
 });
 
+/**
+ * Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に拒否するを検証する。
+ *
+ * @responsibility Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に拒否するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に拒否する", () => {
   const current = operation();
   let externalGrantConsumptionCount = 0;
@@ -782,9 +977,21 @@ test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に
   }
 });
 
+/**
+ * 公開契約はPrompt非argvとcanonical非変更を固定するを検証する。
+ *
+ * @responsibility 公開契約はPrompt非argvとcanonical非変更を固定するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開契約はPrompt非argvとcanonical非変更を固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   const contract = describeProviderTaskPacketRuntimeContract();
-  assert.equal(contract.contractRevision, 19);
+  assert.equal(contract.contractRevision, 20);
   assert.equal(
     contract.repositoryFileBytesEmbeddedInPrompt,
     "reviewer_only_explicit_read_projection_bound_to_candidate_identity",

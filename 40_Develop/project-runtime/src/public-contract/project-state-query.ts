@@ -1,7 +1,13 @@
+/**
+ * project-state-queryに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeStateQueryを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../internal/plain-data-snapshot.ts";
+} from "../boundary/plain-data-snapshot.ts";
 import {
   isProjectRuntimeProjectionSemanticallyValid,
   PROJECT_RUNTIME_MAXIMUM_OBJECTIVES,
@@ -12,12 +18,34 @@ import {
 export const PROJECT_RUNTIME_STATE_QUERY_CONTRACT =
   "crdd-coordinator/project-runtime-state-query/v1" as const;
 
+/**
+ * project-state-queryで使用するProject Runtime 状態 Queryの値契約を定義する。
+ *
+ * @responsibility Project Runtime 状態 QueryのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeStateQueryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeStateQueryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeStateQueryの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimeStateQueryはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimeStateQueryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeStateQuery = Readonly<{
   requestId: string;
   projectId: string;
   repositoryRevision: string;
 }>;
 
+/**
+ * project-state-queryで使用するProject Runtime 状態 Query 結果の値契約を定義する。
+ *
+ * @responsibility Project Runtime 状態 Query 結果のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeStateQueryResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeStateQueryResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeStateQueryResultの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimeStateQueryResultはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimeStateQueryResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeStateQueryResult = Readonly<{
   contract: typeof PROJECT_RUNTIME_STATE_QUERY_CONTRACT;
   status: "completed" | "blocked";
@@ -69,6 +97,7 @@ const OBJECTIVE_STATES = Object.freeze([
   "executing",
   "integration_pending",
   "accepted",
+  "returned",
   "blocked",
   "cancelled",
 ] as const);
@@ -86,6 +115,22 @@ const TASK_STATES = Object.freeze([
   "superseded",
 ] as const);
 
+/**
+ * Idが有効か判定する。
+ *
+ * @responsibility Idの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidIdの入力契約を満たす。
+ * @postcondition validIdの責務を完了した結果だけを返す。
+ * @effect N/A: validIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validIdは独自の失敗分岐を所有しない。
+ * @invariant validIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validIdはProcess内の同一Subsystemで完結する。
+ * @security N/A: validIdはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validIdは共有非同期状態を持たない同期処理である。
+ */
 function validId(value: unknown): value is string {
   return (
     typeof value === "string" &&
@@ -93,10 +138,42 @@ function validId(value: unknown): value is string {
   );
 }
 
+/**
+ * Revisionが有効か判定する。
+ *
+ * @responsibility Revisionの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidRevisionの入力契約を満たす。
+ * @postcondition validRevisionの責務を完了した結果だけを返す。
+ * @effect N/A: validRevisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validRevisionは独自の失敗分岐を所有しない。
+ * @invariant validRevisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validRevisionはProcess内の同一Subsystemで完結する。
+ * @security N/A: validRevisionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validRevisionは共有非同期状態を持たない同期処理である。
+ */
 function validRevision(value: unknown): value is string {
   return typeof value === "string" && /^[0-9a-f]{40,64}$/u.test(value);
 }
 
+/**
+ * Reasonが有効か判定する。
+ *
+ * @responsibility Reasonの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidReasonの入力契約を満たす。
+ * @postcondition validReasonの責務を完了した結果だけを返す。
+ * @effect N/A: validReasonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validReasonは独自の失敗分岐を所有しない。
+ * @invariant validReasonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validReasonはProcess内の同一Subsystemで完結する。
+ * @security N/A: validReasonはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validReasonは共有非同期状態を持たない同期処理である。
+ */
 function validReason(value: unknown): value is string {
   return (
     typeof value === "string" &&
@@ -106,6 +183,22 @@ function validReason(value: unknown): value is string {
   );
 }
 
+/**
+ * Snapshotの件数を算出する。
+ *
+ * @responsibility Snapshotの計数対象、集計規則、件数結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、states: readonly T[]、maximum: number
+ * @returns Readonly<Record<T, number>> | nullを返す。
+ * @precondition 「value: unknown、states: readonly T[]、maximum: number」がcountSnapshotの入力契約を満たす。
+ * @postcondition countSnapshotの責務を完了した結果だけを返す。
+ * @effect N/A: countSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: countSnapshotは独自の失敗分岐を所有しない。
+ * @invariant countSnapshotは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: countSnapshotはProcess内の同一Subsystemで完結する。
+ * @security N/A: countSnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: countSnapshotは共有非同期状態を持たない同期処理である。
+ */
 function countSnapshot<T extends string>(
   value: unknown,
   states: readonly T[],
@@ -127,7 +220,22 @@ function countSnapshot<T extends string>(
   >;
 }
 
-/** Snapshot and validate the canonical public projection at trust boundaries. */
+/**
+ * Snapshot and validate the canonical public projection at trust boundaries.
+ *
+ * @responsibility Project Runtime Projectionの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns ProjectRuntimeProjection | nullを返す。
+ * @precondition 「value: unknown」がinspectProjectRuntimeProjectionの入力契約を満たす。
+ * @postcondition inspectProjectRuntimeProjectionの責務を完了した結果だけを返す。
+ * @effect N/A: inspectProjectRuntimeProjectionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectProjectRuntimeProjectionは独自の失敗分岐を所有しない。
+ * @invariant inspectProjectRuntimeProjectionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectProjectRuntimeProjectionはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectProjectRuntimeProjectionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectProjectRuntimeProjectionは共有非同期状態を持たない同期処理である。
+ */
 export function inspectProjectRuntimeProjection(
   value: unknown,
 ): ProjectRuntimeProjection | null {
@@ -189,6 +297,7 @@ export function inspectProjectRuntimeProjection(
       "human_decision_required",
       "recovery_required",
       "accepted",
+      "returned",
       "cancelled",
     ].includes(String(record.milestoneState)) ||
     !["not_started", "in_progress", "tasks_complete"].includes(
@@ -229,6 +338,22 @@ export function inspectProjectRuntimeProjection(
     : null;
 }
 
+/**
+ * Project Runtime 状態 Queryを観測する。
+ *
+ * @responsibility Project Runtime 状態 Queryの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns ProjectRuntimeStateQuery | nullを返す。
+ * @precondition 「value: unknown」がinspectProjectRuntimeStateQueryの入力契約を満たす。
+ * @postcondition inspectProjectRuntimeStateQueryの責務を完了した結果だけを返す。
+ * @effect N/A: inspectProjectRuntimeStateQueryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectProjectRuntimeStateQueryは独自の失敗分岐を所有しない。
+ * @invariant inspectProjectRuntimeStateQueryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectProjectRuntimeStateQueryはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectProjectRuntimeStateQueryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectProjectRuntimeStateQueryは共有非同期状態を持たない同期処理である。
+ */
 export function inspectProjectRuntimeStateQuery(
   value: unknown,
 ): ProjectRuntimeStateQuery | null {
@@ -243,6 +368,22 @@ export function inspectProjectRuntimeStateQuery(
   return Object.freeze({ ...request }) as ProjectRuntimeStateQuery;
 }
 
+/**
+ * Project Runtime 状態 Query 結果を観測する。
+ *
+ * @responsibility Project Runtime 状態 Query 結果の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns ProjectRuntimeStateQueryResult | nullを返す。
+ * @precondition 「value: unknown」がinspectProjectRuntimeStateQueryResultの入力契約を満たす。
+ * @postcondition inspectProjectRuntimeStateQueryResultの責務を完了した結果だけを返す。
+ * @effect N/A: inspectProjectRuntimeStateQueryResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectProjectRuntimeStateQueryResultは独自の失敗分岐を所有しない。
+ * @invariant inspectProjectRuntimeStateQueryResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectProjectRuntimeStateQueryResultはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectProjectRuntimeStateQueryResultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectProjectRuntimeStateQueryResultは共有非同期状態を持たない同期処理である。
+ */
 export function inspectProjectRuntimeStateQueryResult(
   value: unknown,
 ): ProjectRuntimeStateQueryResult | null {

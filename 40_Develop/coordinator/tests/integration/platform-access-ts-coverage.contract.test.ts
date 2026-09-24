@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:platform-access-ts-coverageの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:platform-access-ts-coverageが所有する検証責務を実行する。
+ * @trace ERB-IT-001
+ * @level IT
+ * @scope platform、access、ts、coverage
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -11,6 +21,18 @@ import {
   serializePlatformAccessTsCoverage,
 } from "../../scripts/check-platform-access-ts-coverage.ts";
 
+/**
+ * recordのTest準備責務を実行する。
+ *
+ * @responsibility recordがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus recordを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 function record(source: string, taken = "1") {
   return [
     "TN:",
@@ -29,12 +51,36 @@ function record(source: string, taken = "1") {
   ].join("\n");
 }
 
+/**
+ * exactLcovのTest準備責務を実行する。
+ *
+ * @responsibility exactLcovがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus exactLcovを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 function exactLcov() {
   return PLATFORM_ACCESS_TS_COVERAGE_SOURCES.map((source, index) =>
     record(source, index === 0 ? "-" : "1"),
   ).join("\n");
 }
 
+/**
+ * TypeScript coverageは固定sourceとtest母集団を所有するを検証する。
+ *
+ * @responsibility TypeScript coverageは固定sourceとtest母集団を所有するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus TypeScript coverageは固定sourceとtest母集団を所有するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("TypeScript coverageは固定sourceとtest母集団を所有する", () => {
   assert.equal(PLATFORM_ACCESS_TS_COVERAGE_SOURCES.length, 15);
   assert.equal(PLATFORM_ACCESS_TS_COVERAGE_TESTS.length, 13);
@@ -101,6 +147,18 @@ test("TypeScript coverageは固定sourceとtest母集団を所有する", () => 
   );
 });
 
+/**
+ * LCOV parserは分母分子と未到達branchを割合へ縮約しないを検証する。
+ *
+ * @responsibility LCOV parserは分母分子と未到達branchを割合へ縮約しないの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus LCOV parserは分母分子と未到達branchを割合へ縮約しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("LCOV parserは分母分子と未到達branchを割合へ縮約しない", () => {
   const result = parsePlatformAccessTsCoverageLcov(exactLcov());
   assert.deepEqual(result.totals, {
@@ -132,6 +190,18 @@ test("LCOV parserは分母分子と未到達branchを割合へ縮約しない", 
   });
 });
 
+/**
+ * coverage CLI serializerはcompact JSONと末尾LF exact 1件を固定するを検証する。
+ *
+ * @responsibility coverage CLI serializerはcompact JSONと末尾LF exact 1件を固定するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus coverage CLI serializerはcompact JSONと末尾LF exact 1件を固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("coverage CLI serializerはcompact JSONと末尾LF exact 1件を固定する", () => {
   const value = parsePlatformAccessTsCoverageLcov(exactLcov());
   const serialized = serializePlatformAccessTsCoverage(value);
@@ -143,6 +213,18 @@ test("coverage CLI serializerはcompact JSONと末尾LF exact 1件を固定す�
   assert.deepEqual(JSON.parse(serialized), value);
 });
 
+/**
+ * LCOV parserはmissing、extra、duplicateおよびsummary不一致を拒否するを検証する。
+ *
+ * @responsibility LCOV parserはmissing、extra、duplicateおよびsummary不一致を拒否するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus LCOV parserはmissing、extra、duplicateおよびsummary不一致を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("LCOV parserはmissing、extra、duplicateおよびsummary不一致を拒否する", () => {
   const exact = exactLcov();
   const first = PLATFORM_ACCESS_TS_COVERAGE_SOURCES[0] ?? "";
@@ -214,6 +296,18 @@ test("LCOV parserはmissing、extra、duplicateおよびsummary不一致を拒�
   );
 });
 
+/**
+ * LCOV parserはrecord grammar、正の行Identityおよびfunction対応をexactにするを検証する。
+ *
+ * @responsibility LCOV parserはrecord grammar、正の行Identityおよびfunction対応をexactにするの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus LCOV parserはrecord grammar、正の行Identityおよびfunction対応をexactにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("LCOV parserはrecord grammar、正の行Identityおよびfunction対応をexactにする", () => {
   const exact = exactLcov();
   assert.throws(

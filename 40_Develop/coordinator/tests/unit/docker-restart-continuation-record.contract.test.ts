@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:docker-restart-continuation-recordの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:docker-restart-continuation-recordが所有する検証責務を実行する。
+ * @trace ERP-UT-006
+ * @level UT
+ * @scope docker、restart、continuation、record
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
@@ -23,6 +33,18 @@ const binding = {
   pendingSubmissionSha256: hash,
 };
 
+/**
+ * A to B to C preserves prior bytes and completes one mixed-generation phase chainを検証する。
+ *
+ * @responsibility A to B to C preserves prior bytes and completes one mixed-generation phase chainの合否判定を所有する。
+ * @trace ERP-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus A to B to C preserves prior bytes and completes one mixed-generation phase chainの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 test("A to B to C preserves prior bytes and completes one mixed-generation phase chain", () => {
   const originRecords = [createDockerRestartRecord(binding, "stop_intent")];
   const b = { ...binding, runtimeExecutionIdentitySha256: "b".repeat(64) };
@@ -128,6 +150,18 @@ test("A to B to C preserves prior bytes and completes one mixed-generation phase
   );
 });
 
+/**
+ * migration boundary tampering and repeat migration without progress remain explicitを検証する。
+ *
+ * @responsibility migration boundary tampering and repeat migration without progress remain explicitの合否判定を所有する。
+ * @trace ERP-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus migration boundary tampering and repeat migration without progress remain explicitの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 test("migration boundary tampering and repeat migration without progress remain explicit", () => {
   const originRecords = [createDockerRestartRecord(binding, "stop_intent")];
   const b = { ...binding, runtimeExecutionIdentitySha256: "b".repeat(64) };
@@ -158,6 +192,18 @@ test("migration boundary tampering and repeat migration without progress remain 
     );
   }
 });
+/**
+ * continuation binds exact handoff and preserves phase predecessor contractを検証する。
+ *
+ * @responsibility continuation binds exact handoff and preserves phase predecessor contractの合否判定を所有する。
+ * @trace ERP-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus continuation binds exact handoff and preserves phase predecessor contractの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-UT-006=N/A: Canonical Eventの検査・Identity生成規則は外部実行境界を持たない。
+ */
 test("continuation binds exact handoff and preserves phase predecessor contract", () => {
   const handoff = Buffer.from("test history bytes");
   const tip = createHash("sha256").update(handoff).digest("hex");

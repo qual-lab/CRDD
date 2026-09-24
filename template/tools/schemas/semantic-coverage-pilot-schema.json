@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qual-lab.org/crdd/schemas/semantic-coverage-pilot.schema.json",
+  "title": "CRDD Semantic Coverage Pilot Bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "contractRevision", "stability", "semanticIrs", "coverage"],
+  "properties": {
+    "contract": { "const": "crdd/semantic-coverage-pilot-bundle" },
+    "contractRevision": { "const": 0 },
+    "stability": { "const": "pilot" },
+    "semanticIrs": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/semanticIr" }
+    },
+    "coverage": { "$ref": "#/$defs/coverage" }
+  },
+  "$defs": {
+    "semanticIr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract", "contractRevision", "stability", "subsystem", "sourceDocument", "sourceSha256", "meanings"],
+      "properties": {
+        "contract": { "const": "crdd/semantic-ir-pilot" },
+        "contractRevision": { "const": 0 },
+        "stability": { "const": "pilot" },
+        "subsystem": { "enum": ["coordinator", "project-runtime"] },
+        "sourceDocument": { "type": "string" },
+        "sourceSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "meanings": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/meaning" } }
+      }
+    },
+    "meaning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["semanticKey", "kind", "statement", "archIds", "verification", "sourceSection", "notApplicableReason"],
+      "properties": {
+        "semanticKey": { "type": "string", "pattern": "^(?:coordinator|project-runtime)\\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" },
+        "kind": { "type": "string", "minLength": 1 },
+        "statement": { "type": "string", "minLength": 1 },
+        "archIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^ARCH-[0-9]{6}$" } },
+        "verification": { "enum": ["required", "not-applicable"] },
+        "sourceSection": { "type": "string", "pattern": "^#{2,3} " },
+        "notApplicableReason": { "type": ["string", "null"] }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract", "contractRevision", "stability", "meanings"],
+      "properties": {
+        "contract": { "const": "crdd/semantic-coverage-pilot" },
+        "contractRevision": { "const": 0 },
+        "stability": { "const": "pilot" },
+        "meanings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["semanticKey", "archIds", "implementationSymbolIds", "implementationObservation", "qualityLocalIds", "testSymbolIds", "testObservation"],
+            "properties": {
+              "semanticKey": { "type": "string" },
+              "archIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } },
+              "implementationSymbolIds": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+              "implementationObservation": { "enum": ["observed", "unobserved"] },
+              "qualityLocalIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^QA-[0-9]{6}/[A-Z]{3}-(UT|IT|ST|UAT)-[0-9]{3}$" } },
+              "testSymbolIds": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+              "testObservation": { "enum": ["observed", "unobserved"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

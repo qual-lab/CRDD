@@ -1,3 +1,9 @@
+/**
+ * windows-child-environmentに属する責務をまとめる。
+ *
+ * @responsibility fixedWindowsEnvironmentを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -45,6 +51,22 @@ const NEUTRAL_NAMES = Object.freeze([
   "USERPROFILE",
 ] as const);
 
+/**
+ * fixed Windows Environmentを決定する。
+ *
+ * @responsibility fixed Windows Environmentの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input additions: Readonly<Record<string, string>>
+ * @returns fixedWindowsEnvironmentの計算結果を返す。
+ * @precondition 「additions: Readonly<Record<string, string>>」がfixedWindowsEnvironmentの入力契約を満たす。
+ * @postcondition fixedWindowsEnvironmentの責務を完了した結果だけを返す。
+ * @effect fixedWindowsEnvironmentは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: fixedWindowsEnvironmentは独自の失敗分岐を所有しない。
+ * @invariant fixedWindowsEnvironmentは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: fixedWindowsEnvironmentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: fixedWindowsEnvironmentは共有非同期状態を持たない同期処理である。
+ */
 function fixedWindowsEnvironment(additions: Readonly<Record<string, string>>) {
   if (process.platform !== "win32") return null;
   const windowsDirectory = observedWindowsDirectoryFromNative();
@@ -73,6 +95,22 @@ function fixedWindowsEnvironment(additions: Readonly<Record<string, string>>) {
   return Object.freeze(environment);
 }
 
+/**
+ * observed Windows Directory From Nativeを決定する。
+ *
+ * @responsibility observed Windows Directory From Nativeの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns observedWindowsDirectoryFromNativeの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がobservedWindowsDirectoryFromNativeの入力契約を満たす。
+ * @postcondition observedWindowsDirectoryFromNativeの責務を完了した結果だけを返す。
+ * @effect observedWindowsDirectoryFromNativeはFilesystemの読取りまたは書込みを実行する。
+ * @failure observedWindowsDirectoryFromNativeは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observedWindowsDirectoryFromNativeは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: observedWindowsDirectoryFromNativeはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: observedWindowsDirectoryFromNativeは共有非同期状態を持たない同期処理である。
+ */
 function observedWindowsDirectoryFromNative() {
   try {
     const directory = observeSystemWindowsDirectory();
@@ -103,6 +141,22 @@ function observedWindowsDirectoryFromNative() {
   }
 }
 
+/**
+ * observed Windows User Profile From Osを決定する。
+ *
+ * @responsibility observed Windows User Profile From Osの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns observedWindowsUserProfileFromOsの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がobservedWindowsUserProfileFromOsの入力契約を満たす。
+ * @postcondition observedWindowsUserProfileFromOsの責務を完了した結果だけを返す。
+ * @effect observedWindowsUserProfileFromOsはFilesystemの読取りまたは書込みを実行する。
+ * @failure observedWindowsUserProfileFromOsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observedWindowsUserProfileFromOsは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: observedWindowsUserProfileFromOsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: observedWindowsUserProfileFromOsは共有非同期状態を持たない同期処理である。
+ */
 function observedWindowsUserProfileFromOs() {
   try {
     const candidate = path.win32.normalize(os.userInfo().homedir);
@@ -128,6 +182,22 @@ function observedWindowsUserProfileFromOs() {
   }
 }
 
+/**
+ * Interactive Console Reader Environmentを構築する。
+ *
+ * @responsibility Interactive Console Reader Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input platform: NodeJS.Platform
+ * @returns createInteractiveConsoleReaderEnvironmentの計算結果を返す。
+ * @precondition 「platform: NodeJS.Platform」がcreateInteractiveConsoleReaderEnvironmentの入力契約を満たす。
+ * @postcondition createInteractiveConsoleReaderEnvironmentの責務を完了した結果だけを返す。
+ * @effect N/A: createInteractiveConsoleReaderEnvironmentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createInteractiveConsoleReaderEnvironmentは独自の失敗分岐を所有しない。
+ * @invariant createInteractiveConsoleReaderEnvironmentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createInteractiveConsoleReaderEnvironmentはProcess内の同一Subsystemで完結する。
+ * @security N/A: createInteractiveConsoleReaderEnvironmentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createInteractiveConsoleReaderEnvironmentは共有非同期状態を持たない同期処理である。
+ */
 export function createInteractiveConsoleReaderEnvironment(
   platform: NodeJS.Platform = process.platform,
 ) {
@@ -135,14 +205,62 @@ export function createInteractiveConsoleReaderEnvironment(
   return Object.freeze({});
 }
 
+/**
+ * Windows Node Console Reader Environmentを構築する。
+ *
+ * @responsibility Windows Node Console Reader Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns createWindowsNodeConsoleReaderEnvironmentの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がcreateWindowsNodeConsoleReaderEnvironmentの入力契約を満たす。
+ * @postcondition createWindowsNodeConsoleReaderEnvironmentの責務を完了した結果だけを返す。
+ * @effect N/A: createWindowsNodeConsoleReaderEnvironmentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createWindowsNodeConsoleReaderEnvironmentは独自の失敗分岐を所有しない。
+ * @invariant createWindowsNodeConsoleReaderEnvironmentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createWindowsNodeConsoleReaderEnvironmentはProcess内の同一Subsystemで完結する。
+ * @security N/A: createWindowsNodeConsoleReaderEnvironmentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createWindowsNodeConsoleReaderEnvironmentは共有非同期状態を持たない同期処理である。
+ */
 export function createWindowsNodeConsoleReaderEnvironment() {
   return createInteractiveConsoleReaderEnvironment("win32");
 }
 
+/**
+ * Windows Host Operation Supervisor Environmentを構築する。
+ *
+ * @responsibility Windows Host Operation Supervisor Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns createWindowsHostOperationSupervisorEnvironmentの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がcreateWindowsHostOperationSupervisorEnvironmentの入力契約を満たす。
+ * @postcondition createWindowsHostOperationSupervisorEnvironmentの責務を完了した結果だけを返す。
+ * @effect N/A: createWindowsHostOperationSupervisorEnvironmentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createWindowsHostOperationSupervisorEnvironmentは独自の失敗分岐を所有しない。
+ * @invariant createWindowsHostOperationSupervisorEnvironmentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createWindowsHostOperationSupervisorEnvironmentはProcess内の同一Subsystemで完結する。
+ * @security N/A: createWindowsHostOperationSupervisorEnvironmentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createWindowsHostOperationSupervisorEnvironmentは共有非同期状態を持たない同期処理である。
+ */
 export function createWindowsHostOperationSupervisorEnvironment() {
   return createInteractiveConsoleReaderEnvironment("win32");
 }
 
+/**
+ * Windows Native Helper Environmentを構築する。
+ *
+ * @responsibility Windows Native Helper Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns createWindowsNativeHelperEnvironmentの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がcreateWindowsNativeHelperEnvironmentの入力契約を満たす。
+ * @postcondition createWindowsNativeHelperEnvironmentの責務を完了した結果だけを返す。
+ * @effect createWindowsNativeHelperEnvironmentは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: createWindowsNativeHelperEnvironmentは独自の失敗分岐を所有しない。
+ * @invariant createWindowsNativeHelperEnvironmentは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: createWindowsNativeHelperEnvironmentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createWindowsNativeHelperEnvironmentは共有非同期状態を持たない同期処理である。
+ */
 export function createWindowsNativeHelperEnvironment() {
   if (process.platform !== "win32") return null;
   const userProfile = observedWindowsUserProfileFromOs();
@@ -150,6 +268,22 @@ export function createWindowsNativeHelperEnvironment() {
   return fixedWindowsEnvironment(Object.freeze({ USERPROFILE: userProfile }));
 }
 
+/**
+ * Windows Docker Desktop Repair Helper Environmentを構築する。
+ *
+ * @responsibility Windows Docker Desktop Repair Helper Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns Readonly< Record<string, string> > | nullを返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がcreateWindowsDockerDesktopRepairHelperEnvironmentの入力契約を満たす。
+ * @postcondition createWindowsDockerDesktopRepairHelperEnvironmentの責務を完了した結果だけを返す。
+ * @effect N/A: createWindowsDockerDesktopRepairHelperEnvironmentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createWindowsDockerDesktopRepairHelperEnvironmentは独自の失敗分岐を所有しない。
+ * @invariant createWindowsDockerDesktopRepairHelperEnvironmentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createWindowsDockerDesktopRepairHelperEnvironmentはProcess内の同一Subsystemで完結する。
+ * @security N/A: createWindowsDockerDesktopRepairHelperEnvironmentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createWindowsDockerDesktopRepairHelperEnvironmentは共有非同期状態を持たない同期処理である。
+ */
 export function createWindowsDockerDesktopRepairHelperEnvironment(): Readonly<
   Record<string, string>
 > | null {
@@ -160,6 +294,22 @@ export function createWindowsDockerDesktopRepairHelperEnvironment(): Readonly<
   return Object.freeze({ ...environment, SYSTEMDRIVE: systemDrive });
 }
 
+/**
+ * Windows Power Shell Authenticode Environmentを構築する。
+ *
+ * @responsibility Windows Power Shell Authenticode Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns Readonly< Record<string, string> > | nullを返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がcreateWindowsPowerShellAuthenticodeEnvironmentの入力契約を満たす。
+ * @postcondition createWindowsPowerShellAuthenticodeEnvironmentの責務を完了した結果だけを返す。
+ * @effect createWindowsPowerShellAuthenticodeEnvironmentは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: createWindowsPowerShellAuthenticodeEnvironmentは独自の失敗分岐を所有しない。
+ * @invariant createWindowsPowerShellAuthenticodeEnvironmentは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: createWindowsPowerShellAuthenticodeEnvironmentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createWindowsPowerShellAuthenticodeEnvironmentは共有非同期状態を持たない同期処理である。
+ */
 export function createWindowsPowerShellAuthenticodeEnvironment(): Readonly<
   Record<string, string>
 > | null {
@@ -184,6 +334,22 @@ export function createWindowsPowerShellAuthenticodeEnvironment(): Readonly<
 
 // Pure path validation; callers must obtain the directory from the OS observer.
 // This does not turn a caller-supplied path into an execution capability.
+/**
+ * derive Windows System Driveを決定する。
+ *
+ * @responsibility derive Windows System Driveの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input windowsDirectory: unknown
+ * @returns deriveWindowsSystemDriveの計算結果を返す。
+ * @precondition 「windowsDirectory: unknown」がderiveWindowsSystemDriveの入力契約を満たす。
+ * @postcondition deriveWindowsSystemDriveの責務を完了した結果だけを返す。
+ * @effect N/A: deriveWindowsSystemDriveは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: deriveWindowsSystemDriveは独自の失敗分岐を所有しない。
+ * @invariant deriveWindowsSystemDriveは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: deriveWindowsSystemDriveはProcess内の同一Subsystemで完結する。
+ * @security N/A: deriveWindowsSystemDriveはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: deriveWindowsSystemDriveは共有非同期状態を持たない同期処理である。
+ */
 export function deriveWindowsSystemDrive(windowsDirectory: unknown) {
   if (
     typeof windowsDirectory !== "string" ||
@@ -195,6 +361,22 @@ export function deriveWindowsSystemDrive(windowsDirectory: unknown) {
   return windowsDirectory.slice(0, 2);
 }
 
+/**
+ * Windows Docker Cli Environmentを構築する。
+ *
+ * @responsibility Windows Docker Cli Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input options: Readonly<{ dockerConfig: string | null; dockerHome: string | null; }>
+ * @returns createWindowsDockerCliEnvironmentの計算結果を返す。
+ * @precondition 「options: Readonly<{ dockerConfig: string | null; dockerHome: string | null; }>」がcreateWindowsDockerCliEnvironmentの入力契約を満たす。
+ * @postcondition createWindowsDockerCliEnvironmentの責務を完了した結果だけを返す。
+ * @effect N/A: createWindowsDockerCliEnvironmentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createWindowsDockerCliEnvironmentは独自の失敗分岐を所有しない。
+ * @invariant createWindowsDockerCliEnvironmentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createWindowsDockerCliEnvironmentはProcess内の同一Subsystemで完結する。
+ * @security N/A: createWindowsDockerCliEnvironmentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createWindowsDockerCliEnvironmentは共有非同期状態を持たない同期処理である。
+ */
 export function createWindowsDockerCliEnvironment(
   options: Readonly<{
     dockerConfig: string | null;
@@ -221,6 +403,22 @@ export function createWindowsDockerCliEnvironment(
   );
 }
 
+/**
+ * Windows Child Environment 契約の公開契約を記述する。
+ *
+ * @responsibility Windows Child Environment 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeWindowsChildEnvironmentContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeWindowsChildEnvironmentContractの入力契約を満たす。
+ * @postcondition describeWindowsChildEnvironmentContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeWindowsChildEnvironmentContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeWindowsChildEnvironmentContractは独自の失敗分岐を所有しない。
+ * @invariant describeWindowsChildEnvironmentContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeWindowsChildEnvironmentContractはProcess内の同一Subsystemで完結する。
+ * @security N/A: describeWindowsChildEnvironmentContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeWindowsChildEnvironmentContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeWindowsChildEnvironmentContract() {
   return Object.freeze({
     contract: WINDOWS_CHILD_ENVIRONMENT_CONTRACT,

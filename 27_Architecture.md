@@ -1,6 +1,6 @@
 # CRDDアーキテクチャ工程
 
-Version: v0.20.1
+Version: v0.21.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.architecture.integrate`
@@ -64,10 +64,10 @@ UI                     = 利用者がどう認識・操作・回復できるか
 
 ## 工程入口契約（Phase Entry Contract）
 
-アーキテクチャは、対象範囲について次を受け取る。
+アーキテクチャの正式入力は、対象範囲についてCanonicalになったUI定義とSPEC定義である。UIとSPECを別々に全数分析してから、同じ責務、状態、失敗境界および変更理由を持つ分析結果をArchitecture定義へ統合する。
 
-- 情報源となるREQ / UX / IAへのトレース
-- 承認済みUI契約、視覚表現方針（Visual Direction）、適用するUIテーマ（UI Theme）/ UI部品（UI Component）/ UI設計パターン（UI Design Pattern）/ [外部視覚成果物（External Visual Artifact）](25_UI.md#external-visual-artifact)、振る舞い仕様と[対応レビュー](24_UI_Behavior_Specification.md#26-exit-and-pair-gate)結果
+- UI定義、視覚表現方針（Visual Direction）、適用するUIテーマ（UI Theme）/ UI部品（UI Component）/ UI設計パターン（UI Design Pattern）/ [外部視覚成果物（External Visual Artifact）](25_UI.md#external-visual-artifact)
+- SPEC定義と[UI／SPEC対応レビュー](24_UI_Behavior_Specification.md#26-exit-and-pair-gate)結果
 - [デザインシステム参照実装（Design System Reference）](25_UI.md#design-system-reference)の改訂版、対象プラットフォームへの変換要否
 - 適用する品質懸念プロファイルと情報源／バージョン／対象範囲、品質、互換性、処理能力、セキュリティ、プライバシー、コンプライアンス、コストの条件
 - 受入基準と検証義務
@@ -78,13 +78,15 @@ UI                     = 利用者がどう認識・操作・回復できるか
 - UI／SPEC→アーキテクチャ工程移行レビュー結果、レビュー済みのUI／SPEC改訂版、または明示された`review_exception`
 - UI／SPEC／対で発火した変更影響の伝播確認結果、情報源の改訂版、または明示された`propagation_exception`
 
+REQ、UXおよびIAは、UI／SPECが示す由来を確認するためのトレースであり、Architectureが不足する意味を直接補完する正式入力ではない。UI定義またはSPEC定義だけでは設計できない場合は、上流文書をArchitecture側で解釈して埋めず、UI／SPEC工程へ戻して正式入力を直す。現行Architectureと実装は、再構築した設計候補が成立済み能力を失っていないかを確認する照合対象であり、望ましい構造を自動決定する入力ではない。
+
 部分引き渡しの場合は、承認された対象範囲、未決事項、暫定制約、リスク、後続担当責任者、人間承認も必要である。上位コンテキストが矛盾する場合はアーキテクチャで都合よく解釈せず、該当決定権限へ戻す。
 
 <a id="transformation-contract"></a>
 
 ## 変換契約（Transformation Contract）
 
-プロダクトコンテキストを、実装と検証に使えるアーキテクチャコンテキストへ変換する。必要に応じて次を定義する。
+プロダクトコンテキストを、実装と検証に使えるアーキテクチャコンテキストへ変換する。次の各項目を評価し、適用する項目を定義する。非該当は理由を、未解決は確認先と再評価契機を残す。
 
 - システム／ドメイン／実行時部品境界
 - データ / インターフェース契約と正本
@@ -105,6 +107,8 @@ UI                     = 利用者がどう認識・操作・回復できるか
 ## 必要な責務の網羅（Required Responsibility Coverage）
 
 対象範囲全体について、次の責務を適用範囲で判定する。
+
+[任意機能と必須評価](03_Documentation.md#mandatory-applicability-evaluation)に従い、Architectureの機能または図が任意でも、Component／Responsibility、Boundary／Interface、State Transition、Sequence、Data／Resource Flow、Failure／Recovery、Implementation Structureおよび項目別の決定権限の適用判断は省略しない。非該当は理由、影響および再評価契機を持ち、情報不足を`N/A`へ畳まない。
 
 | 責務 | アーキテクチャで明らかにすること |
 |---|---|
@@ -133,6 +137,8 @@ UI                     = 利用者がどう認識・操作・回復できるか
 - **ブロック間シーケンスのテキスト図**: 順序に意味がある呼出し、CanonicalなIdentity／Authority／状態の受渡し、応答、取消、逆順cleanupおよびRecovery再入場を時間順に示す。責務または状態定義を複製せず、ブロック表と状態遷移表を参照する。
 - **クラス／型関係のテキスト図**: 非自明なDomain型、公開型、Port、Interfaceおよび実装の継承、実装、所有、多重度と依存関係を示す。全fileまたは全classの一覧にせず、交換可能性と不変条件の理解に必要な型だけを対象にする。
 - **データフロー図（DFD）**: Actor、処理、Data Store、Trust／Process／Repository／Network境界の間で、どの分類のデータが生成、変換、保存または公開されるかを示す。制御順序や状態遷移をDFDへ重ねない。
+- **エンティティ関係図（ER図）**: Domainまたは保存対象に存在するEntity、関係の意味、方向および多重度／任意性を示す。物理field、処理順序、Data FlowまたはSchema責務を重ねない。
+- **スキーマ責務図（Schema Responsibility Map）**: 複数のDomain、Entity、SchemaまたはConsumerにまたがる構造化Dataについて、Canonical Owner、共通領域、Domain固有領域、参照、拡張点、Writer／Readerおよび所有禁止領域を示す。物理field定義、Entity間の全RelationまたはData Flowを重ねない。
 
 図の種類ごとの記法は次を正本とする。これは見た目を一行の機械記法へ限定する規則ではない。枠線、上下左右の配置、余白、字下げおよび日本語の短い表示名を使い、視線の流れとまとまりを理解しやすくしてよい。同じ意味記号を複数行の箱または縦方向の矢印へ展開しても、接続元、接続先、方向およびlabelを一意に復元できなければならない。個別成果物の凡例は参加者名と対象固有のPayload名だけを補足し、矢印や囲みの意味を再定義しない。新しい記号が必要な場合は、既存記法で表せない意味を確認してから本表を更新する。
 
@@ -171,6 +177,17 @@ UI                     = 利用者がどう認識・操作・回復できるか
 | DFD | `[(D1: Store名)]` | Data Storeまたは耐久記録。単なる一時変数や呼出しstackをStoreにしない |
 | DFD | `A -- {分類} データ名 --> B` | AからBへ移動するデータ。データ名と情報分類を省略せず、commandや制御順序を描かない |
 | DFD | `==== 境界名 ====` | Dataが越えるTrust、Process、RepositoryまたはNetwork境界。横断するflowを識別可能にする |
+| ER図 | `[ER1: Entity名]` | 一つの概念Entity。IDは図内で一意とし、表示名は概念モデルまたは用語正本と一致させる |
+| ER図 | `[ER1] [1] -- R1: 関係名 --> [0..*] [ER2]` | ER1から読んだ関係の意味と両端の多重度。`1`、`0..1`、`0..*`、`1..*`の閉集合を使い、矢印はData Flowまたはlifecycle所有を意味しない |
+| ER図 | `[ER3: 関係Entity]` | 独自Identity、lifecycleまたは他Relationを持つ関係をEntityとして表す。線上の説明だけで独立Entityを隠さない |
+| ER図 | `==== Domain／Persistence境界名 ====` | Entity関係が越えるDomain、RepositoryまたはPersistence境界。境界横断によるAuthorityまたは参照方式は別の責務表へ接続する |
+| スキーマ責務図 | `[SR1: 責務領域名]` | Entity、Schemaまたは概念群の責務領域。IDは図内で一意とし、表示名は責務表と一致させる |
+| スキーマ責務図 | `[SR1] owns {概念名}` | SR1が概念またはProperty群のCanonical Ownerであること。物理field名だけで意味を代替しない |
+| スキーマ責務図 | `[SR2] -- references {概念名} --> [SR1]` | SR2がSR1のCanonical概念を複製せず参照すること。参照のIdentityまたはscopeが重要な場合はlabelへ示す |
+| スキーマ責務図 | `[SR1] -- extension {拡張名} --> [SR2]` | SR1が許可した拡張点をSR2がDomain固有責務として具体化すること。継承または所有移転を意味しない |
+| スキーマ責務図 | `[SR1] -x owns {概念名}` | SR1が所有してはならない概念または結果。参照禁止を意味する場合は`-x references`と明記する |
+| スキーマ責務図 | `<<C1: Consumer名>> -- writes／reads {概念名} --> [SR1]` | 既知のWriterまたはReaderがCanonical責務を利用すること。全Consumerの網羅性は実ソース等からの導出と契約試験で別途反証する |
+| スキーマ責務図 | `==== Domain／Schema境界名 ====` | 共通Core、Domain固有領域、RepositoryまたはSchema所有境界。境界を越える参照または拡張を識別可能にする |
 
 矢印の方向だけから同期／非同期、成功、Authority移譲、Effect成立またはcleanup完了を推定しない。これらが必要な場合は`label`または対応する状態遷移表へ明示する。省略記号、色、位置、線種または字下げだけへ安全上重要な意味を持たせない。ただし、位置、枠線、余白および字下げを視覚的な理解のために使うことは推奨する。規則が固定するのは意味の復元可能性であり、読みやすいレイアウトを禁止しない。
 
@@ -184,6 +201,8 @@ UI                     = 利用者がどう認識・操作・回復できるか
 | ブロック間シーケンス図 | 参加者を横に並べ、時間を上から下へ統一する。横幅や参加者数により追跡が難しい場合は、同じIdentityを示して意味の連続する複数panelへ分ける。正常経路と条件分岐、取消、逆順cleanupの間に余白を置く |
 | クラス／型関係図 | 型を複数行の箱で示し、交換契約、実装、所有および主要な多重度が一望できる配置にする。memberを網羅列挙せず、関係線を箱の外へ置き、交差を最小化する |
 | DFD | Actor、処理、Storeを形で区別し、主要なデータ移動を上から下または左から右へ揃える。Trust／Process／Repository／Network境界をflowが横断する位置へ置き、flow名と情報分類を線の近くへ示す。大きい対象は全体図と詳細図へ分け、単一の巨大図にしない |
+| ER図 | Entityを複数行の箱として配置し、関係名と両端の多重度を線の近くへ置く。中心Entityから主要Relationを展開し、交差が増える場合はDomainまたは関係群ごとに分割する。物理Column一覧を箱内へ詰め込まない |
+| スキーマ責務図 | Canonical Coreを起点に、Domain固有領域、参照先、拡張先および主要Consumerを周囲へ配置する。各責務領域は複数行の箱で示し、`owns`、`references`、`extension`、`must not own`を視覚的に分離する。Propertyを網羅列挙せず、判断に必要な概念群へまとめる |
 
 ```text
 公開入口
@@ -239,11 +258,91 @@ UI                     = 利用者がどう認識・操作・回復できるか
 <<E2: 許可された結果利用者>>
 ```
 
-これらは説明用の装飾ではなく、実装所有者、結合単位および検証項目を導出する設計入力である。二重の正本を避けるため、ブロック表は責務と境界、クラス／型関係図は型の静的関係と交換契約、DFDはデータの生成・変換・保存・境界横断、状態遷移表はブロック内部の状態、条件、処置および終了後観測、状態遷移図は同表の主要経路を読み取るための視覚投影、シーケンス図はブロック間の時間順と受渡し、試験カタログは検証項目との対応だけを所有する。状態、遷移、境界および所有者を相互に対応させ、図には存在するが遷移表または実装へ接続しない経路、遷移表には存在するが図または結合試験へ接続しない経路を残さない。図と表が不一致の場合は図から条件を推定せず、固定候補前の設計不整合として停止する。
+```text
+┌─ ER1: Topic ────────────┐
+└─────────────────────────┘
+       [1]
+        │
+        │ R1: 根拠として参照される
+        ▼
+     [0..*]
+┌─ ER2: Communication ────┐
+└─────────────────────────┘
+       [1]
+        │
+        │ R2: 公開候補を持つ
+        ▼
+     [0..*]
+┌─ ER3: Publication ──────┐
+└─────────────────────────┘
+```
+
+```text
+Conceptual Data Model
+「何が存在するか」
+          │ 責務を割り当てる
+          ▼
+┌─ SR1: Communication Core ───────────┐
+│ owns                                │
+│   {Identity} {Purpose} {Source}      │
+│                                     │
+│ extension                           │
+│   {Article} {Publication}            │
+│                                     │
+│ must not own                        │
+│   {Editorial Content} {External Result} │
+└─────────────────────────────────────┘
+          │                         │
+          │ extension {Article}     │ extension {Publication}
+          ▼                         ▼
+┌─ SR2: Article ───────────┐  ┌─ SR3: Publication ────────┐
+│ owns                     │  │ owns                       │
+│   {Editorial Content}    │  │   {Channel}                │
+│   {Candidate State}      │  │   {External Result}        │
+│ must not own             │  │   {Publication State}      │
+│   {External Result}      │  │ references                 │
+└──────────────────────────┘  │   {Communication Identity} │
+                              └────────────────────────────┘
+          │                         │
+          └──────────┬──────────────┘
+                     ▼
+              Physical Schema
+        「具体的にどう表現するか」
+```
+
+これらは説明用の装飾ではなく、実装所有者、結合単位および検証項目を導出する設計入力である。二重の正本を避けるため、ブロック表は責務と境界、クラス／型関係図は型の静的関係と交換契約、DFDはデータの生成・変換・保存・境界横断、ER図は概念EntityとRelation／多重度、スキーマ責務図／表はCanonical Owner、共通／固有領域、参照、拡張および所有禁止、物理Schemaはfield名、型、必須性、制約および保存表現、状態遷移表はブロック内部の状態、条件、処置および終了後観測、状態遷移図は同表の主要経路を読み取るための視覚投影、シーケンス図はブロック間の時間順と受渡し、試験カタログは検証項目との対応だけを所有する。IAのオブジェクト関係図は利用者と業務が認識する情報単位と関係を所有し、技術EntityのER図へ自動変換しない。状態、遷移、境界および所有者を相互に対応させ、図には存在するが表、実装または物理Schemaへ接続しない責務、表には存在するが図、利用側または契約試験へ接続しない責務を残さない。図と表が不一致の場合は図から条件を推定せず、固定候補前の設計不整合として停止する。
+
+設計から必要な検証義務を導出する対象では、図や説明文だけを機械処理の入力にしない。Component、Interface、Data／Resource Flow、State Transition、Sequence、Failure／Recovery等の設計項目を、同じ詳細設計領域内で一意に再識別できる局所的な導出キーへ結び付ける。導出キーはCRDD全体の安定コンテキストIDではなく、設計項目とQualityの検証義務を対応付けるための局所参照である。
+
+| 設計項目 | 最低限保持する意味 | 主に導出する検証義務 |
+|---|---|---|
+| Component | 責務、Owner、入力、出力、依存、所有禁止 | 責務分離、依存方向、局所不変条件 |
+| Interface／Boundary | 提供側、利用側、入力、結果、失敗、Authority、Effect | Contract、拒否、部分故障、境界間伝播 |
+| Data／Resource Flow | 生成、変換、保存、消費、解放、境界横断 | Identity、整合性、所有、cleanup |
+| State Transition | 前状態、契機・条件、処置、後状態、判定不能 | 正常、準正常、異常、取消、回復、禁止遷移 |
+| Sequence | Actor、受渡し、順序、完了条件、失敗点 | 順序、重複、遅延、途中失敗、settlement |
+| Failure／Recovery | 故障点、残存状態、回復Owner、再入場、終了後条件 | Fault、Recovery、再試行、Effect不明、回復不能 |
+
+同じ意味を複数の図表へ重複定義しない。厳密な条件を所有する表または本文節を一つ決め、図は人間が関係を理解するための投影とする。既存の説明的な名称、表の行またはアンカーで一意に参照できる場合は、新しい局所キーを機械的に増やさなくてよい。一方、複数成果物から反復参照する項目を位置や表現だけでは安定して識別できない場合は、局所キーを付与する。
+
+スキーマ責務図を適用する場合、厳密な責務割当は同じ節の責務表が所有する。図はその表を視覚投影し、図だけへ概念、Owner、禁止責務または拡張点を追加しない。
+
+| 項目 | 必須内容 |
+|---|---|
+| Entity／Schema | 対象となる概念、Entity、Schemaまたは責務領域 |
+| Canonical Owner | 同じ意味を一意に所有する責務。未確定なら推測せず未解決とする |
+| Responsibility | 共通CoreまたはDomain固有として所有する概念群 |
+| References／Referenced By | 複製せず参照する対象と、既知の参照元 |
+| Writers／Readers | 既知の生成・更新主体と利用主体。手書き一覧だけを網羅性の根拠にしない |
+| Extension Points | 別Domainが固有責務を追加できる境界と条件 |
+| Must Not Own | 対象が所有、複製または昇格してはならない概念または結果 |
+| Physical Schema | 実際のSchema、Storeまたは表現への参照。物理定義を本表へ複製しない |
+
+新しいPropertyまたは概念を追加するときは、既存の物理Schemaへ先に局所追加しない。意味、lifecycle、変更Authority、利用目的およびConsumerが共通するかを確認し、Canonical Core、Domain固有Property、別Entity／Relationまたは未解決のいずれかへ分類してから物理Schemaへ反映する。Schema変更では、Schema自身だけでなくWriter、Reader、参照Schema、派生物、移行および契約試験へ変更した意味を伝播する。CanonicalなPath、IdentityまたはStateと同様に、ConsumerがCanonicalな概念を別の意味へ再解釈または再構成しない。
 
 隣接ブロックの責務を切り分ける結合では一段、Identity、Authority、状態、Effect、cleanupまたはRecoveryが伝播する場合は一つ先を含む二段までを段階的な結合単位とする。三段を越えて公開機能全体を通る確認は総合試験またはE2Eとして扱う。結合順は、下位境界から原因を局所化する必要がある場合はボトムアップ、公開契約から未接続経路を発見する必要がある場合はトップダウンを選び、選択理由を検証設計へ接続する。単一の局所変換等で順序やlifecycle伝播を持たない対象だけ、理由付き非該当とできる。Mermaid等の特定rendererだけで読める図を唯一の正本にせず、Repository上のplain textで主要構造を復元可能にする。
 
-すべてを全対象範囲へ機械的に記載する必要はない。状態遷移図は複数の正常・待機・取消・失敗・Recovery経路があり、表だけでは主要lifecycleを一望しにくい場合に適用する。クラス／型関係図は複数の型、Portまたは実装の関係が交換可能性や不変条件へ影響する場合、DFDはデータが外部Actor、Trust／Process／Repository／Network境界または耐久Storeをまたぐ場合に適用する。適用しない責務は`Not Applicable`として理由と人間確認を残す。単一図、主要正常パス、技術選定、プロトタイプの完成だけでアーキテクチャ完了としない。
+すべてを全対象範囲へ機械的に記載する必要はない。状態遷移図は複数の正常・待機・取消・失敗・Recovery経路があり、表だけでは主要lifecycleを一望しにくい場合に適用する。クラス／型関係図は複数の型、Portまたは実装の関係が交換可能性や不変条件へ影響する場合、DFDはデータが外部Actor、Trust／Process／Repository／Network境界または耐久Storeをまたぐ場合に適用する。ER図は複数の概念Entityがあり、Relation、多重度、任意性または関係Entityの判断がDomain／保存設計へ影響する場合に適用する。スキーマ責務図は構造化Dataが複数のDomain、Entity、SchemaまたはConsumerへまたがり、Canonical Owner、共通／固有、参照／複製、拡張または変更影響の判断が必要な場合に適用する。単一Entity／Schema内でOwnerと利用側が一意な局所表現変更、または構造化Dataを持たない対象はER図とスキーマ責務図を理由付き非該当とできる。適用可否を判断する情報が不足する場合は`Not Applicable`へ畳まず、未解決事項と確認先を残す。適用しない責務は`Not Applicable`として理由と人間確認を残す。単一図、主要正常パス、技術選定、プロトタイプの完成だけでアーキテクチャ完了としない。
 
 Trust、Authority、Recoveryまたは安全上重要な結果を層間で運ぶAPI、IPC、callback、event、return値、fileまたは永続記録では、producer、搬送、consumerを抽象名だけで示さない。
 
@@ -371,6 +470,21 @@ AIは候補比較、不足、影響、設計案を提示できるが、上位契
 
 ## 2.2. データ・正本・状態遷移
 
+### Gitと通常Operationの境界
+
+v0.21で採用したComponent境界、目的別Port、本番Consumerおよび段階移行は[Version Control境界](06_Architecture/Details/version-control/01_Architecture.md)を正本とする。
+
+Gitは履歴、差分、配布、署名対象、submoduleおよび再現可能なCandidateの正本として利用できる。一方、通常の読取り、編集、Communication、Topic、Meeting、ProjectionまたはWorkbench操作は、対象が未Commitであることだけを理由に拒否してはならない。Dirty Worktreeは異常ではなく、必要に応じて観測・表示する現在状態である。
+
+| 対象 | Commit固定の扱い |
+|---|---|
+| Release、署名、Git Candidate、過去版再現 | 固定Commit／Treeが保証対象であるため必須にできる |
+| 差分確認、履歴表示、回帰選択 | Git機能を利用できるが、業務ObjectのIdentityをCommit SHAで代替しない |
+| 通常のRepository-local Data操作 | 未Commitでも成立させ、保存成功とCommit成功を分ける |
+| Communication／Topic／Meeting／Workbench | Git Logを業務Storeとして扱わず、構造化された現在データを直接利用する |
+
+Commit SHAは来歴や観測時点を補助する識別情報であり、Project、Repository、Workspace、Topic、Meetingその他の業務Identityの代替ではない。Clean WorktreeまたはCommit済み状態を事前条件にする場合は、その操作が要求する不変Snapshotとの関係、非発火例および未Commit作業への代替経路を示す。
+
 データごとに担当責任者、正式な情報源、書き込み側、読み取り側、分類、保持期間、削除、整合性、トランザクション境界を定義する。複数システムを統合する場合、一つのシステム全体を常に正本とせず、意味のある項目または集約単位単位で正本を決める。
 
 複製、キャッシュ、読み取りモデル、派生データ、AIによる推論を正本データと同一視しない。鮮度、古さ、競合、修正、再構築の扱いを定義する。
@@ -450,7 +564,7 @@ Recovery Identityが対象に対して決定論的に確定した後は、排他
 
 不合格終了済みは実行許可、同意、安全、法的制約、不可逆操作等、判定不能時に許可側へ倒すリスクが高い境界へ適用する。一般的な表示状態や低リスクの可用性判定へ無条件に拡張せず、代替動作と利用者・利用側へ返す振る舞いをSPECと整合させる。
 
-高コスト処理、バッチ、外部呼び出しでは、必要に応じて実行前に対象有無、適格性、割当上限を安価に判定する受入判定手順を設ける。対象なしの扱い、ログ / 指標 / UI通知の要否は、運用上可観測性と利用者へのフィードバックを損なわないよう対象範囲ごとに決める。
+高コスト処理、バッチ、外部呼び出しでは、実行前受入判定の適用可否を評価する。対象有無、適格性または割当上限を実行前に安価に判定でき、不要Effectを避けられる場合は受入判定手順を設ける。非該当または未解決には理由を残す。対象なしの扱い、ログ／指標／UI通知も全数評価し、可観測性と利用者へのFeedbackを損なわない処置を定める。
 
 ## 2.6. 品質・処理能力・インフラストラクチャ・運用
 
@@ -476,7 +590,7 @@ API / インターフェースでは破壊的 / 非破壊を分類し、利用�
 
 大規模なRefactor、責務分離または代替実装では、新しいComponent図だけで移行を設計しない。基準版のCapability、その成立を判断したVerification Evidence、置換後の所有者と実装、新しい利用側と実境界検証を対応付ける。設計上の置換完了は、新所有者が存在することではなく、基準版で承認済みの成立条件が新境界で保持されたか、人間の決定権限者が理由と影響を確認して変更した場合に限る。具体的な列挙、Git履歴と過去Evidenceの確認、旧実装の除去条件は[CRDDの保守](19_Maintenance.md#31-tracked-change-execution-contract)に従う。
 
-スキーマ変更は既存データとデプロイ順序を含め、必要に応じて拡張 / 契約、補完処理、二重読み取り / 書き込み、バックアップ、ロールバック、安全な再実行、部分失敗を設計する。
+スキーマ変更は既存データとデプロイ順序を含め、拡張／契約、補完処理、二重読み取り／書き込み、バックアップ、ロールバック、安全な再実行および部分失敗の適用可否を全数評価する。適用する処置を設計し、非該当または未解決には理由を残す。
 
 ライブラリ、実行環境、提供側、プラットフォームの追加・更新は、必要性、保守状況、ライセンス、セキュリティ勧告、支援期間、破壊的変更、移行方法、代替を確認する。
 
@@ -554,6 +668,49 @@ AIを含む対象では、直接・間接プロンプトインジェクション
 ```
 
 コード、構成、移行、開発者テスト、ビルド成果物、およびリンター / フォーマッター / 静的解析ツール等の実行可能な強制手段は実装が所有する。アーキテクチャは具体的なテスト場合を所有せず、テスト可能性を確保する境界、必要環境、失敗 / 負荷 / 移行等の検証義務を渡す。
+
+詳細設計は、実装を局所的な条件分岐と具象型の追加だけで継ぎ足さないため、次の実装構造上の観点を適用判定する。適用する観点は、成立させる構造、局所責務、不変条件、失敗、検証義務へ接続する。非該当は理由を示し、Pattern名を使っていないこと自体を不適合としない。
+
+| 観点 | 確認すること |
+|---|---|
+| Variation | 同じ責務で現在または将来変わり得る軸と、変わらない契約 |
+| Common Contract | 同じ責務の具象実装を交換・追加できる共通契約と、実装固有差分を漏らさない境界 |
+| Creation／Selection | 具象実装を誰が生成・選択し、利用側が選択理由を抱えない境界 |
+| State-dependent Behavior | 状態によって変わる振る舞いと、分岐を所有する責務 |
+| Composition／Recursion | 同じ契約を組み合わせる構造、順序、停止条件および循環防止 |
+| Lifecycle Ownership | 生成、利用、共有、破棄、取消および失敗時cleanupのOwner |
+| External Boundary | 外部実装を交換・隔離するPort、Adapter、Timeout、失敗投影 |
+
+同じ責務へ二つ目の具象実装を追加するときは、単に条件分岐を増やす前に、共通契約、生成・選択Owner、差分軸および利用側への漏出を評価する。共通契約へ昇格しない場合は、二つの実装が同じ責務ではない理由、または局所分岐の方が単純で変更影響が小さい理由を残す。継承、Strategy、Factory、State、Composite、Adapter等のPattern名は説明に使用できるが、採用自体を目的または検証義務にしない。
+
+次の兆候を検出した場合は、実装へ具象型や分岐を追加する前にImplementation Structureを再評価する。
+
+| 観測された構造 | 再評価する設計判断 |
+|---|---|
+| 同一責務の具象実装が二つ以上 | VariationとCommon Contract |
+| Provider、PlatformまたはEnvironmentによる差分 | Common Contract、Adapter、Creation／Selection |
+| 条件による具象実装の選択 | Creation／SelectionとPolicy |
+| 同じ状態判断の複数Fileへの分散 | State ModelとState-dependent BehaviorのOwner |
+| 同型Nodeの入れ子 | Composition／Recursionと循環・停止条件 |
+| 同型処理の連鎖 | Pipeline／Chain相当の共通Contractと停止条件 |
+| 同じRuleまたは具象型switchの反復 | Policy、Polymorphismまたは局所分岐を維持する理由 |
+| Resourceの複数生成・破棄 | Lifecycle Ownership |
+| 外部SDK型やProvider固有型の内部流入 | External BoundaryとAnti-corruption Boundary |
+| Copy & Pasteによる類似実装 | Common Contract候補と差分軸 |
+
+最初のPoC実装では将来の差分を推測した過剰抽象化を要求しない。ただし、二つ目の同一責務実装、同じ分岐・状態判断の再出現、外部SDK利用箇所の増加、Lifecycle Ownerの複数化または巨大な`if`／`switch`の成長を検出した時点で再評価する。単一所有はSingleton Patternの採用を意味せず、Dependency InjectionやApplication Context等で所有者を一意にできる。
+
+Architecture DefinitionからProduction Sourceへの正方向Relationは、責務を持つ名前付きSymbolのSource Headerが実在する`ARCH-*`を`@trace`で参照して所有する。一つの`ARCH-*`を複数Symbolが実現でき、SymbolごとにArchitecture IDを新設しない。名前付きSymbolを既存Architectureへ接続できない場合は、Header省略やFile Pathへの接続で閉じず、Architecture DefinitionまたはDetailsの不足として戻す。Sourceの存在から新しいCanonical意味を逆算しない。
+
+```text
+Architecture Definition
+        ↓
+      ARCH-ID
+        ↓
+Production Named Symbol
+```
+
+TestはこのRelationへ直接混在させず、Qualityが所有するLocal Itemへ接続する。ArchitectureとLocal ItemのRelation、Local ItemとTest SymbolのRelationを別々に保持し、生成した逆方向Viewから全体Traceabilityを投影する。
 
 ### UIと視覚表現の成立方式
 
@@ -715,6 +872,54 @@ UIテーマ、共通UI部品、外部視覚成果物を使用しない対象範�
 
 `06_Architecture/01_Architecture.md`をアーキテクチャ工程の固定入口とする。対象範囲について、次を入口内または入口から辿れる正本成果物で参照可能にする。適用の深さでは入口や基本のファイル分割を変えず、記述、レビュー、根拠の深さを調整する。図、技術規則または外部成果物を分ける場合も、入口から決定権限、改訂版、網羅状態、未解決事項へ到達できるようにする。
 
+個別のArchitecture分析と責務定義が揃っただけでは、Quality工程へ移行しない。Qualityが検証単位、結合境界、状態、資源、故障および実行条件を再構成できるよう、個別定義から次の横断モデルを作成する。ファイル数を増減して意味を隠さず、標準構成では固定入口に加えて5つの横断成果物へ分ける。
+
+| 横断成果物 | 所有する内容 | Qualityへ渡す主な観点 |
+|---|---|---|
+| Component／Responsibility Model | Component、責務、状態Owner、所有禁止、主要Port | 単体・Component検証 |
+| Boundary／Interface Model | Component間、外部System、Platform、Trust境界と交換契約 | 結合・契約・外部境界検証 |
+| Runtime／Data Flow Model | Data、State、Identity、Authorityの流れと整合条件 | 状態・整合性・情報流検証 |
+| Failure／Recovery／Resilience Model | 故障領域、部分故障、取消、Retry、Recovery、cleanup、終了条件 | 故障注入・回復・残存検証 |
+| Deployment／Execution Model | Process、Runtime、配置、実行単位、並行性、Resource | 実行環境・Timing・Resource検証 |
+
+横断モデルは個別定義を置き換える第二の定義集ではない。個別定義間の関係、共同成立条件およびQualityへの引渡しを所有し、個別契約の全文を複製しない。
+
+Architecture工程は`Analysis → Definitions → Details`の三層で構成する。Architecture定義（ARCH-ID）は何をArchitectureとして成立させるかを示す基本設計であり、詳細設計領域はそれをどの構造、境界、Flow、Componentで成立させるかを示す。ARCH-IDと詳細設計領域を同じIdentityにせず、多対多Relationで接続しなければならない。
+
+```text
+UI／SPEC
+   ↓
+Analysis
+   ↓
+Definitions／ARCH-ID（基本設計）
+   ↓
+Details／設計領域（詳細設計）
+   ↓
+Quality／Development
+```
+
+各詳細設計領域は、関連するARCH-ID、領域固有の責務、必要な詳細成果物、Engineering Concern、Qualityへの引渡しおよび現行実装との照合を自己完結して示す。Component、Interface、Data Flow、State、Sequence、Failure／Recovery、Deployment、ObservabilityおよびSecurity Boundaryを全数適用判定し、不要な成果物を形式的に作らない。`Required`は実在する節または成果物へ接続し、`N/A`にはArchitecture上の理由を必須とする。未検討、一般的な説明または存在しない節名を`N/A`や根拠へ使わない。
+
+Engineering Concernは少なくともConcurrency、Timing、Resource Lifecycle、External Boundary、State／Consistency、Failure／Recovery、ObservabilityおよびSecurity／Trustを`PASS`、`N/A`、`OPEN`または`FAIL`で評価する。結果だけのチェックボックスにせず、判断理由と実在するEvidenceまたはRelated IDを保持する。`PASS`は詳細設計上の処置と根拠節が揃った状態であり、実装済みまたは試験済みを意味しない。`N/A`はArchitecture上、そのConcern自体が存在しない状態であり、未検討や後工程送りを意味しない。`OPEN`は未解決の設計事項、`FAIL`は必須設計との矛盾または必要設計の欠落を意味する。`OPEN`または`FAIL`を全体Passへ畳まない。
+
+Architecture Analysis、Architecture DefinitionおよびCanonicalな各詳細設計領域は、成果物種別ごとの可視`## Checklist`を末尾に持つ。AnalysisはUIまたはSPECだけを正式入力としたこと、上流Contractを保持したこと、責務・境界・状態所有・失敗・未確認事項・検証意図を処置したことを確認する。DefinitionはUI／SPEC両分析の多対多統合、基本設計の自己完結性、DetailsおよびQualityへの引渡しを確認する。DetailsはApplicability、Engineering Concern、Qualityへの具体的引渡しおよびReality Audit境界を確認する。Checklistは作成者の自己確認であり、Checkerの構造確認、独立レビューの意味確認または実装・試験結果を代替しない。
+
+Qualityへの引渡しは定型文だけで終えず、領域固有の検証単位ごとに、対象、正常条件、反証する失敗、観測、終了後条件および未確認範囲を示す。Architecture定義から詳細領域への対応表、詳細領域からArchitecture定義への対応、および各領域文書のRelationは同じ多対多集合でなければならない。`Covered`は担当断面の設計が本文で具体化されている場合だけ使用し、補助的な一部処置は`Partial`、設計不足は`Missing`として扱う。
+
+現行Source、Directory構成、既存試験または基準版実装は、Canonicalな横断モデルまたは詳細設計を導く正式入力にしない。これらはCanonical詳細設計を固定した後のReality Auditで、設計との一致、成立済み能力の保持および実装不足を`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類する照合対象とする。
+
+Architecture Readyを表示するには、次をすべて満たさなければならない。
+
+- CanonicalなUI定義とSPEC定義を別々に全数分析し、個別Architecture定義へ統合している。
+- 全個別定義が5つの横断モデルへ含まれ、未接続の責務を残していない。
+- Component、境界、Data／State、故障／回復、配置／実行の各観点を、作成、既存参照、非該当または作成不能へ理由付きで処置している。
+- 全ARCH-IDが一つ以上の詳細設計領域へ明示的に接続され、各領域側にも同じRelationがある。
+- Architecture Analysis、Architecture Definitionおよび詳細設計の可視Checklistに`OPEN`または`FAIL`が残っていない。
+- 各詳細設計領域で必要な詳細成果物とEngineering Concernを評価し、`N/A`に理由があり、必須の`OPEN`または`FAIL`を残していない。
+- QualityがUT／IT／STその他の検証方法を選べるよう、検証対象、反証すべき失敗、必要な実境界および終了後条件を示している。
+- 未確定の物理実装を論理設計へ混ぜず、確認先と後段のReality Audit条件を残している。
+- 基本設計と詳細設計を含む固定改訂版に対するArchitecture独立レビューが完了し、未処置の必須指摘がない。
+
 ```text
 対象範囲 / 網羅範囲要約 / 未解決不足
 情報源となるUI / SPEC / 品質要件 / 制約
@@ -744,6 +949,39 @@ UI / 視覚表現の実現 / UIテーマ・トークン・部品の対応表 / �
 同じ制約下の明確化は既存成果物を更新する。境界、決定権限、データの意味、主要技術、移行方針等を置換する場合は、旧判断を消さず、新しい判断 / 判断理由と成果物参照で履歴を接続する。
 
 アーキテクチャで得た学びがSPECやUIの観測可能な振る舞いを変える場合は、アーキテクチャだけを更新せず、該当工程を再開する。
+
+<a id="44-implementation-knowledge-promotion"></a>
+
+## 4.4. 実装知識の上位還元（Implementation Knowledge Promotion）
+
+実装、試験、運用または障害対応で初めて判明した知識は、Sourceへ残ったという理由だけで実装詳細にしない。別言語、別Frameworkまたは別の内部構造で同じ利用者成果、観測可能な振る舞い、品質、境界および制約を再現する際にも必要かを評価する。
+
+```text
+実装・試験・運用で知識を発見
+            ↓
+別実装でも同じ成果や保証に必要か
+       ┌────┴────┐
+      Yes        No
+       ↓          ↓
+責務を持つ上位正本  実装詳細として保持
+へ変更候補を戻す
+       ↓
+人間の決定権限と変更経路で採否を決定
+```
+
+| 発見した意味 | 責務を持つ主な正本 |
+|---|---|
+| 利用者から観測できる振る舞い、成立条件または失敗 | SPEC。利用者成果や認識も変わる場合はUX／IA／UIも再開する |
+| System境界、責務、状態、順序、所有、並行性、資源Lifecycle、回復または外部契約 | Architectureまたは該当する詳細設計 |
+| 技術選択と、代替案を退けた理由 | Architectureの判断記録。独立した判断記録を採用している場合はそのOwner |
+| 検証で初めて明確になった成立保証または反証条件 | 上流の責務を持つ正本とQualityの検証義務 |
+| 特定言語の構文、Utility分割、Library呼出し等、別実装で変更しても保証が変わらない方式 | 実装詳細 |
+
+AIは差分、Source、試験または障害記録から候補を抽出し、既存正本との差、候補の還元先、保持する保証および実装固有部分を提示できる。AIは候補の発見を採用判断へ読み替えず、上位の意味をSourceから自動確定しない。還元には責務を持つ正本の変更経路、人間の決定権限、影響する利用側、Qualityへの伝播および必要な移行を適用する。
+
+上位へ還元した後は、Sourceを第二の正本として残さない。ArchitectureまたはSPECから新しい実装へ必要な意味を再構成できることを確認し、特定技術のAPI名や内部Symbolを正本へ不必要に固定しない。一方、実環境が提供する意味そのものが成立保証に影響する場合は、[実行環境が提供する意味の確認](#実行環境が提供する意味の確認)に従い、実測と制約を上位契約へ接続する。
+
+実装中に上位不足を検出しても、Source側のHeader、コメントまたは試験だけで補完して完了しない。該当工程を再開し、上位正本を更新し、影響するAnalysis、Definition、Details、Qualityおよび利用側を再確認する。上位へ還元する必要がないと判断した場合も、非自明な候補では別実装で保証が変わらない理由を変更トレースまたはレビュー根拠から取得可能にする。
 
 ---
 

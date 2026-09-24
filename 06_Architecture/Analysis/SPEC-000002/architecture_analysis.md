@@ -1,0 +1,208 @@
+# SPEC-000002のArchitecture分析
+
+成果物種別: Architecture分析（SPEC観点）
+分析単位: `SPEC-000002`
+状態: Canonical
+
+## 1. 正式入力
+
+- SPEC定義: [SPEC-000002 委任範囲と権限を確定して受理する](../../../05_SPEC/Definitions/SPEC-000002/spec_definition.md)
+
+このSPEC定義だけを正式入力とする。反対観点、上流工程、現行Architectureまたは実装から不足する意味を補わない。
+
+## 2. Architectureへ引き継ぐSPEC契約
+
+### 振る舞いの目的
+
+委任範囲と権限を確定して受理する。
+
+### UX観点の分析結果
+
+| UX分析 | 保持する利用者成果 |
+|---|---|
+| [UX-000002](../../../05_SPEC/Analysis/UX-000002/spec_analysis.md) | 委任範囲と権限を理解して任せる |
+| [UX-000005](../../../05_SPEC/Analysis/UX-000005/spec_analysis.md) | 目的と受入条件で節目を委ねる |
+
+### IA観点の分析結果
+
+| IA分析 | 保持する情報構造 |
+|---|---|
+| [IA-000002](../../../05_SPEC/Analysis/IA-000002/spec_analysis.md) | 目的・節目・Task・受入・判断 |
+
+### 両観点の統合判断
+
+目的・受入条件・対象範囲を委任する時、目的、範囲、担い手、決定権限、節目を検証し、実行可能な依頼だけを受理する。
+
+### 契機・事前条件・Authority
+
+| 項目 | 契約 |
+|---|---|
+| 契機 | 目的・受入条件・対象範囲を委任する時、Task完了後にObjectiveを判断する時、またはObjective受入後にMilestoneを判断する時 |
+| 事前条件 | 委任時は目的、受入条件、許可範囲、担い手候補、判断主体を確認できる。Objective判断時は対象Taskの完了根拠とObjective受入条件を、Milestone判断時は対象Objectiveの受入根拠とMilestone受入条件を確認できる |
+| Authority | Project運営者が委任範囲、Objective受入およびMilestone受入を判断する。Runtimeは範囲を拡張せず、Task完了から上位受入を推定しない |
+| 判定不能 | 不足を既定値で補完せず、新しいEffectを発行せず現在状態と未解消義務を保持する |
+
+### 振る舞い・状態・結果
+
+```text
+[提案] --検証--> [受理可能]
+   │                 ├--受理--> [Task作成済み] --状態観測--> [実行中／判断待ち／Task完了]
+   │                 │                                  └--観測不能--> [結果不明]
+   │                 └--明示拒否--> [拒否・Task未発行]
+   └--不足／競合--> [blocked・Effect 0]
+
+[Task完了] --Objective受入判断--> [Objective受入済み／Objective差戻し／Objective判断待ち]
+[Objective受入済み] --Milestone受入判断--> [Milestone受入済み／Milestone差戻し／Milestone判断待ち]
+
+[Objective差戻し] --不足の解消と再確認--> [Task根拠・Objective受入条件の確認]
+[Milestone差戻し] --不足の解消と再確認--> [Objective根拠・Milestone受入条件の確認]
+```
+
+- 振る舞い: 目的、範囲、担い手、決定権限、節目を検証し、実行可能な依頼だけを受理する。
+- 成功条件: 受理結果から実行対象・未委任判断・完了条件を一意に確認でき、Task完了、Objective受入、Milestone受入を別の判断として保持する。
+- 明示拒否、判断待ち、受理後の結果不明を成功や未発行へ丸めない。
+- 結果不明時は元の依頼識別情報を保持し、同じ依頼の状態を再観測する。新しいTaskとして自動再発行しない。
+- 取消の詳細、実行方式および観測方式は後続契約で具体化するが、ここで定義した結果区分を弱めない。
+
+### 失敗・回復・副作用
+
+- 失敗: 不足・競合・未承認範囲はEffect前に停止し、暗黙に補完しない。明示拒否は失敗扱いで再発行せず、判断待ちは未完了として保持する。Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合は契約違反としてEffect 0で停止する。
+- 副作用: 受理前はEffect 0。受理後はTask作成だけを許し、Provider Effectは別状態とする。
+- 受理前の拒否またはblockedは提案へ戻せる。受理後の結果不明は同じ依頼識別情報の再観測へ戻す。Objective差戻しは同じObjectiveのTask根拠と受入条件の確認へ、Milestone差戻しは同じMilestoneのObjective根拠と受入条件の確認へ戻す。判断待ちは対象ObjectiveまたはMilestoneの判断へ戻す。
+
+### 受入条件と検証義務
+
+| 観点 | 受入条件 |
+|---|---|
+| 正常 | 受理結果から実行対象・未委任判断・完了条件を一意に確認できる |
+| 境界 | 委任範囲内／範囲外、判断主体一致／不一致を分け、未委任範囲を受理しない |
+| 失敗 | 不足・競合・未承認範囲、または下位完了から上位受入を推定する要求はEffect前に停止し、暗黙に補完しない |
+| 観測不能 | 受理後の観測不能を`結果不明`として同じ依頼識別情報へ結合し、未発行・完了・新規Taskへ丸めず再観測する |
+| 完成段階 | Task完了、Objective受入、Milestone受入を別の状態・判断として保持し、下位完了から上位受入を推定しない |
+| 対応UI | [UI-000002](../../../04_UI/Definitions/UI-000002/ui_definition.md)の委任範囲・権限・受理結果と契機・結果・失敗が一致する |
+| 対応UI | [UI-000004](../../../04_UI/Definitions/UI-000004/ui_definition.md)のTask根拠、Objective受入判断、Milestone受入判断および三段階の区別が一致する。委任の提案・受付・拒否はUI-000002との対応で確認する |
+
+### 対応するUI
+
+- pairs_with: [UI-000002](../../../04_UI/Definitions/UI-000002/ui_definition.md)、[UI-000004](../../../04_UI/Definitions/UI-000004/ui_definition.md)
+
+### 制約
+
+API、Process、保存方式、画面、部品または実装技術を本定義で確定しない。現行実装は独立した照合対象であり、望ましい振る舞いの根拠として自動採用しない。
+
+### 未確認事項・人間判断・戻り条件
+
+正式入力に残る未確認事項を、解消済みとみなさず次のとおり継承する。
+
+#### UX-000002から継承する確認事項
+
+入力Definitionから継承した確認事項の由来: [UX-000002](../../../02_UX/Definitions/UX-000002/ux_definition.md)
+
+未確認事項は、統合元の要求ごとに次を保持する。
+
+- REQ-000002: プロジェクト運営者／PMが「複数AIへ任せる範囲と権限を理解する」を行う際の判断基準、許容負担、利用環境および失敗後の選択
+- REQ-000003: プロジェクト運営者／PMが「目的と受入条件で節目を委ねる」を行う際の判断基準、許容負担、利用環境および失敗後の選択
+- 現在判定: 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。
+- 確認事項: REQ-000002: プロジェクト運営者／PMが「複数AIへ任せる範囲と権限を理解する」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000003: プロジェクト運営者／PMが「目的と受入条件で節目を委ねる」を行う際の判断基準、許容負担、利用環境および失敗後の選択
+- 判断者: プロジェクト運営者／PMを代表する利用者とQual-Lab。
+- 未確認時の影響: 利用者成果、重要場面、失敗および品質期待を仮説として保持し、定量条件や実現方式を確定しない。
+- Discoveryへ戻す条件: 想定した利用者、問題、望ましい変化または制約が誤っていると判明した場合。
+- UX分析へ戻す条件: 利用場面、目的、得られる結果、重要場面、失敗または品質期待の統合判断が変わる場合。
+
+再評価契機: 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。
+
+#### UX-000005から継承する確認事項
+
+入力Definitionから継承した確認事項の由来: [UX-000005](../../../02_UX/Definitions/UX-000005/ux_definition.md)
+
+未確認事項は、統合元の要求ごとに次を保持する。
+
+- REQ-000003: プロジェクト運営者／PMが「目的と受入条件で節目を委ねる」を行う際の判断基準、許容負担、利用環境および失敗後の選択
+- 現在判定: 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。
+- 確認事項: REQ-000003: プロジェクト運営者／PMが「目的と受入条件で節目を委ねる」を行う際の判断基準、許容負担、利用環境および失敗後の選択
+- 判断者: プロジェクト運営者／PMを代表する利用者とQual-Lab。
+- 未確認時の影響: 利用者成果、重要場面、失敗および品質期待を仮説として保持し、定量条件や実現方式を確定しない。
+- Discoveryへ戻す条件: 想定した利用者、問題、望ましい変化または制約が誤っていると判明した場合。
+- UX分析へ戻す条件: 利用場面、目的、得られる結果、重要場面、失敗または品質期待の統合判断が変わる場合。
+
+再評価契機: 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。
+
+#### IA-000002から継承する確認事項
+
+入力Definitionから継承した確認事項の由来: [IA-000002](../../../03_IA/Definitions/IA-000002/ia_definition.md)
+
+| 入力UX | UXから継承する確認事項 | 判断者 | 現在判定 | 未確認時の影響 |
+|---|---|---|---|---|
+| UX-000002 | REQ-000002: プロジェクト運営者／PMが「複数AIへ任せる範囲と権限を理解する」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000003: プロジェクト運営者／PMが「目的と受入条件で節目を委ねる」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | プロジェクト運営者／PMを代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 利用者成果、重要場面、失敗および品質期待を仮説として保持し、定量条件や実現方式を確定しない。 |
+| UX-000003 | REQ-000002: プロジェクト運営者／PMが「複数AIへ任せる範囲と権限を理解する」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000003: プロジェクト運営者／PMが「目的と受入条件で節目を委ねる」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | プロジェクト運営者／PMを代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 利用者成果、重要場面、失敗および品質期待を仮説として保持し、定量条件や実現方式を確定しない。 |
+| UX-000005 | REQ-000003: プロジェクト運営者／PMが「目的と受入条件で節目を委ねる」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | プロジェクト運営者／PMを代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 利用者成果、重要場面、失敗および品質期待を仮説として保持し、定量条件や実現方式を確定しない。 |
+
+IA固有の追加人間判断はない。これは入力UXの未確認事項が解消済みという意味ではない。正式入力にないObject、情報境界、所有責任または状態を追加する必要が生じた場合は人間の決定権限者へ戻す。UI／SPEC分析またはQuality Analysis / IAで対象・同一性・関係・状態・可視性・時間的な意味の不足または競合が判明した場合はIAを再開する。
+
+再評価契機: 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。
+
+#### SPEC固有の追加判断
+
+現時点で追加の判断事項はない。これは上記の継承事項が解消済みという意味ではない。正式入力の意味、対応関係または成立条件に不足・競合が見つかった場合は、その意味を所有するUX／IAへ戻す。
+
+### 検証意図
+
+正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。
+
+### 補足定義
+
+なし。
+
+この節にあるUX／IA／REQ参照は、正式入力である当該UI／SPEC Definitionが報告する来歴であり、Architectureの追加の正式入力ではない。
+
+## 3. Architecture観点の分析
+
+| 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
+|---|---|---|---|---|
+| [Project実行のArchitecture定義](../../Definitions/ARCH-000004/architecture_definition.md) | 委任受付 | Project運営者が委任範囲を判断する。Runtimeは範囲を拡張しない | 受理前はEffect 0。受理後はTask作成だけを許し、Provider Effectは別状態とする | 不足・競合・未承認範囲はEffect前に停止する。明示拒否は再発行しない。受付後の結果不明は同じRequestを再観測する |
+| [Project・Portfolio状態投影と受入判断記録のArchitecture定義](../../Definitions/ARCH-000005/architecture_definition.md) | Objective／Milestone Acceptance Decision Record | Project運営者がTask根拠からObjective受入を、Objective根拠からMilestone受入を判断する。下位完了から上位受入を推定しない | Objective／Milestoneの受入・差戻し・判断待ちだけを記録する。Task作成やProvider Effectは発行しない | Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合はEffect 0で停止する |
+
+### 観点別評価
+
+| 観点 | 判定 | 根拠・引渡し |
+|---|---|---|
+| Responsibility | 評価済み | 委任の提案・受付・拒否とTask作成は[Project実行のArchitecture定義](../../Definitions/ARCH-000004/architecture_definition.md)へ、Objective／Milestoneの受入・差戻し・判断待ちの記録は[Project・Portfolio状態投影と受入判断記録のArchitecture定義](../../Definitions/ARCH-000005/architecture_definition.md)へ、入力Contractを意味変更せず渡す。 |
+| Boundary／Component／Interface | 評価済み | 委任受付Port、Task作成境界、読取り専用のProject Management Projection Port、Objective／Milestone Acceptance Decision Portを分ける。受入判断PortはTask作成やProvider Effectを発行せず、読取り投影Portは受入判断を記録しない。 |
+| Data／State Ownership | 評価済み | 委任受付、Task、読取り投影、Objective／Milestone Acceptance Decision Recordを別Ownerとし、UI表示、SPEC結果および内部状態を同一視しない。 |
+| Failure／Recovery | 評価済み | 不足・競合・未承認範囲はEffect前に停止し、暗黙に補完しない。明示拒否は失敗扱いで再発行せず、判断待ちは未完了として保持する。Task完了をObjective受入へ、Objective受入をMilestone受入へ推定した場合は契約違反としてEffect 0で停止する。Recoveryは入力定義にある場合だけ保持する。 |
+| Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する。Project運営者の受入判断AuthorityをTask作成、Provider Effectまたは読取り投影へ流用しない。 |
+| Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない。三段階の非推定、読取り投影のEffect 0、受入判断記録からTask作成・Provider Effectが発生しないことを別々に検証可能にする。 |
+| Human Input | 継承あり | REQ-000002: プロジェクト運営者／PMが「複数AIへ任せる範囲と権限を理解する」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000003: プロジェクト運営者／PMが「目的と受入条件で節目を委ねる」を行う際の判断基準、許容負担、利用環境および失敗後の選択。 |
+| Open／Gap | 上流確認を継承 | 現在判定: 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。Architecture固有の追加Gapはない。 |
+| Verification Intent | 評価済み | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+
+Human Inputの判断者は「プロジェクト運営者／PMを代表する利用者とQual-Lab。」。再評価契機は「対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。」。Architectureはこれらを解消済みとせず、入力の意味が変わる場合はOwner工程へ戻す。
+
+## 4. Architecture処置
+
+| Architecture定義候補 | 処置 | 判断理由 |
+|---|---|---|
+| [Project実行](../../Definitions/ARCH-000004/architecture_definition.md) | Same | 委任、状態照会、再試行／回復選別、清掃、引継ぎを同じRequest／Task／Recovery Identityへ結ぶ。ただし受付、実行、Recovery、清掃は独立した状態機械と終了条件を持つ。 |
+| [Project・Portfolio状態投影と受入判断記録](../../Definitions/ARCH-000005/architecture_definition.md) | Same | Task完了、Objective受入、Milestone受入の三段階と、Objective／Milestoneの受入・差戻し・判断待ちを専用のAcceptance Decision Portへ渡す。読取り投影、委任の提案・受付・拒否およびTask作成とは混ぜない。 |
+
+## 5. UI観点との統合時に確認すること
+
+- 対応候補: UI-000002、UI-000004
+- この分析にある状態、操作、Feedback、Authority、Effectの適用／非適用、失敗を、対応UIの契機と結果へ一つずつ照合する。
+- 差分がある場合はArchitectureで推測せず、UI／SPEC対応レビューへ戻す。
+
+## Checklist
+
+- [x] 自分自身のSPEC定義だけを正式入力として処置した
+- [x] 契機、事前条件、Authority、状態、結果およびEffectを保持した
+- [x] Architectureが担う責務と担わない責務を評価した
+- [x] Boundary、主要ComponentおよびInterfaceの必要性を評価した
+- [x] Data／State Ownershipを評価した
+- [x] External Boundaryと終了後観測を評価した
+- [x] Failure BoundaryとRecovery責任を評価した
+- [x] Security／TrustとQuality Constraintを評価した
+- [x] Human Inputの必要性を評価した
+- [x] Open／GapとOwner工程へ戻す条件を明示した
+- [x] Verification Intentを評価した
+- [x] 現行Sourceや実装構造から意味を逆輸入していない
+- [x] UI観点との統合時に確認する事項を明示した

@@ -1,0 +1,98 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "semantic-coverage",
+  "symbols": [
+    {
+      "symbolId": "semantic-coverage.public-entry",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "semantic-coverage.test.integration.bundle-publisher",
+      "kind": "test-suite",
+      "path": "tests/integration/semantic-bundle-publisher.integration.test.ts",
+      "qaIds": [
+        "QA-000004",
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "PPR-IT-018",
+        "RDL-IT-007"
+      ],
+      "verifies": [
+        "semantic-coverage.source.src.infrastructure.filesystem.semantic.bundle.publisher",
+        "version-control.source.src.repository.location"
+      ]
+    },
+    {
+      "symbolId": "semantic-coverage.test.unit.pilot",
+      "kind": "test-suite",
+      "path": "tests/unit/semantic-coverage-pilot.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-UT-016",
+        "PPR-UT-017"
+      ],
+      "verifies": [
+        "crdd-domain-library.source.src.reality.traceability.symbol.manifest.validator",
+        "crdd-domain-library.source.src.repository.observation.reality.symbol.repository.observer",
+        "semantic-coverage.source.src.application.semantic.coverage",
+        "semantic-coverage.source.src.compilation.index",
+        "semantic-coverage.source.src.migrations.legacy.runtime.inventory",
+        "version-control.source.src.repository.location"
+      ]
+    },
+    {
+      "symbolId": "semantic-coverage.test.unit.public-boundary",
+      "kind": "test-suite",
+      "path": "tests/unit/public-boundary.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-014"
+      ],
+      "verifies": [
+        "semantic-coverage.public-entry"
+      ]
+    },
+    {
+      "symbolId": "semantic-coverage.source.src.infrastructure.filesystem.semantic.bundle.publisher",
+      "kind": "file",
+      "path": "src/infrastructure/filesystem-semantic-bundle-publisher.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "semantic-coverage.source.src.application.semantic.coverage",
+      "kind": "file",
+      "path": "src/application/semantic-coverage.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "semantic-coverage.source.src.migrations.legacy.runtime.inventory",
+      "kind": "file",
+      "path": "src/migrations/legacy-runtime-inventory.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "semantic-coverage.source.src.compilation.index",
+      "kind": "file",
+      "path": "src/compilation/index.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    }
+  ]
+}

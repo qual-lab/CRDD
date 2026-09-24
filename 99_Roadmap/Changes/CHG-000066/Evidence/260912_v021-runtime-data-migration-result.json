@@ -1,0 +1,40 @@
+{
+  "contract": "crdd/runtime-data/migration-result/v1",
+  "observedOn": "2026-09-12",
+  "repositoryRevision": "c2e55493",
+  "scope": "repository-local-.crdd-v021-migration",
+  "preMigrationObservation": {
+    "status": "historical-summary-only",
+    "topLevelDirectoryCount": 19,
+    "topLevelFileCount": 150,
+    "descendantFileCount": 120542,
+    "approximateBytes": 3146063872,
+    "movedTopLevelEntryCount": 168,
+    "inventoryIdentityAvailable": false
+  },
+  "effects": {
+    "quarantineWithinRepositoryRuntimeRoot": "reported-completed",
+    "quarantinedEntriesDeleted": "reported-completed",
+    "additionalDeletionAuthorized": false
+  },
+  "postMigrationObservation": {
+    "status": "observed",
+    "topLevelDirectories": ["config", "release", "tests", "tmp", "verification"],
+    "files": [
+      ".crdd/config/external-send-policy.json",
+      ".crdd/config/repository-manifest.json"
+    ],
+    "retiredTopLevelEntriesPresent": false,
+    "temporaryOperationResiduePresent": false
+  },
+  "recovery": {
+    "knownUnresolvedReferenceCount": 0,
+    "historicalReferenceClosureReconstructable": false
+  },
+  "evidenceLimitations": [
+    "The deleted pre-migration population was not captured as an immutable item-level inventory.",
+    "The historical moved/deleted classification and reference closure cannot be independently reconstructed after deletion.",
+    "This record proves the current post-migration observation, not the completeness of the historical deletion selection."
+  ],
+  "completionClaim": "current-retired-path-absence-only"
+}

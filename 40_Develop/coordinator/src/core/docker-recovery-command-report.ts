@@ -1,5 +1,27 @@
+/**
+ * docker-recovery-command-reportに属する責務をまとめる。
+ *
+ * @responsibility plainRecordを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000003
+ */
 import { types as utilTypes } from "node:util";
 
+/**
+ * 記録をPlain Dataとして検証する。
+ *
+ * @responsibility 記録の許可Property、入れ子値、拒否境界を所有する。
+ * @trace ARCH-000003
+ * @input value: unknown
+ * @returns Readonly<Record<string, unknown>> | nullを返す。
+ * @precondition 「value: unknown」がplainRecordの入力契約を満たす。
+ * @postcondition plainRecordの責務を完了した結果だけを返す。
+ * @effect N/A: plainRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: plainRecordは独自の失敗分岐を所有しない。
+ * @invariant plainRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: plainRecordはProcess内の同一Subsystemで完結する。
+ * @security N/A: plainRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: plainRecordは共有非同期状態を持たない同期処理である。
+ */
 function plainRecord(value: unknown): Readonly<Record<string, unknown>> | null {
   if (
     !value ||
@@ -14,10 +36,42 @@ function plainRecord(value: unknown): Readonly<Record<string, unknown>> | null {
     : null;
 }
 
+/**
+ * ArrayをPlain Dataとして検証する。
+ *
+ * @responsibility Arrayの許可Property、入れ子値、拒否境界を所有する。
+ * @trace ARCH-000003
+ * @input value: unknown
+ * @returns readonly unknown[]を返す。
+ * @precondition 「value: unknown」がplainArrayの入力契約を満たす。
+ * @postcondition plainArrayの責務を完了した結果だけを返す。
+ * @effect N/A: plainArrayは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: plainArrayは独自の失敗分岐を所有しない。
+ * @invariant plainArrayは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: plainArrayはProcess内の同一Subsystemで完結する。
+ * @security N/A: plainArrayはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: plainArrayは共有非同期状態を持たない同期処理である。
+ */
 function plainArray(value: unknown): readonly unknown[] {
   return Array.isArray(value) && !utilTypes.isProxy(value) ? value : [];
 }
 
+/**
+ * Docker 回復 Doctor Reportを人間向け表示へ整形する。
+ *
+ * @responsibility Docker 回復 Doctor Reportの入力値、表示規則、機密を含めない出力境界を所有する。
+ * @trace ARCH-000003
+ * @input report: unknown、shouldOutputJson: boolean
+ * @returns renderDockerRecoveryDoctorReportの計算結果を返す。
+ * @precondition 「report: unknown、shouldOutputJson: boolean」がrenderDockerRecoveryDoctorReportの入力契約を満たす。
+ * @postcondition renderDockerRecoveryDoctorReportの責務を完了した結果だけを返す。
+ * @effect N/A: renderDockerRecoveryDoctorReportは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure renderDockerRecoveryDoctorReportは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant renderDockerRecoveryDoctorReportは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: renderDockerRecoveryDoctorReportはProcess内の同一Subsystemで完結する。
+ * @security N/A: renderDockerRecoveryDoctorReportはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: renderDockerRecoveryDoctorReportは共有非同期状態を持たない同期処理である。
+ */
 export function renderDockerRecoveryDoctorReport(
   report: unknown,
   shouldOutputJson: boolean,
@@ -87,6 +141,15 @@ export function renderDockerRecoveryDoctorReport(
     )
       lines.push(`- 復旧ID: ${reportValue.repairId}`);
     lines.push(`- Docker Engineの準備完了: ${tri(reportValue.engineReady)}`);
+    lines.push(
+      `- Docker Engine起動所要時間（参考値）: ${
+        typeof reportValue.engineStartupDurationMs === "number" &&
+        Number.isFinite(reportValue.engineStartupDurationMs) &&
+        reportValue.engineStartupDurationMs >= 0
+          ? `${Math.round(reportValue.engineStartupDurationMs)} ms`
+          : "未計測"
+      }`,
+    );
     lines.push(`- プロセス操作の発行: ${tri(reportValue.processEffectIssued)}`);
     lines.push(
       `- プロセス操作の確認状態: ${

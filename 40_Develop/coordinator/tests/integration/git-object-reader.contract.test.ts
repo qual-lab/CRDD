@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:git-object-reader-contractの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:git-object-reader-contractが所有する検証責務を実行する。
+ * @trace RFD-IT-012
+ * @level IT
+ * @scope git、object、reader
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -9,10 +19,42 @@ import { deflateSync } from "node:zlib";
 import {
   describeGitObjectReaderContract,
   inspectGitCommitTreeCandidate,
-  materializeGitCommitTreeCandidate,
+  materializeGitCommitTreeCandidate as materializeVersionControlTree,
   readGitCommitFileCandidate,
-} from "../../src/security/git-object-reader.ts";
+} from "../../../version-control/src/git/object-reader.ts";
+import { containsRecognizedSecretMaterial } from "../../src/security/secret-material-policy.ts";
 
+/**
+ * materializeGitCommitTreeCandidateのTest準備責務を実行する。
+ *
+ * @responsibility materializeGitCommitTreeCandidateがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RFD-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus materializeGitCommitTreeCandidateを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
+function materializeGitCommitTreeCandidate(candidate: unknown) {
+  return materializeVersionControlTree(
+    candidate,
+    containsRecognizedSecretMaterial,
+  );
+}
+
+/**
+ * temporaryFixtureのTest準備責務を実行する。
+ *
+ * @responsibility temporaryFixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RFD-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus temporaryFixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 function temporaryFixture(t: test.TestContext) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-git-reader-"));
   const commonDirectory = path.join(root, ".git");
@@ -25,6 +67,18 @@ function temporaryFixture(t: test.TestContext) {
   return Object.freeze({ commonDirectory, workspace });
 }
 
+/**
+ * writeObjectのTest準備責務を実行する。
+ *
+ * @responsibility writeObjectがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RFD-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus writeObjectを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 function writeObject(commonDirectory: string, type: string, bytes: Buffer) {
   const framed = Buffer.concat([
     Buffer.from(`${type} ${bytes.byteLength}\0`),
@@ -42,6 +96,18 @@ function writeObject(commonDirectory: string, type: string, bytes: Buffer) {
   return objectId;
 }
 
+/**
+ * treeEntryのTest準備責務を実行する。
+ *
+ * @responsibility treeEntryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RFD-IT-012
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus treeEntryを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 function treeEntry(mode: string, name: string, objectId: string) {
   return Buffer.concat([
     Buffer.from(`${mode} ${name}\0`),
@@ -49,6 +115,18 @@ function treeEntry(mode: string, name: string, objectId: string) {
   ]);
 }
 
+/**
+ * Commit treeはheader先頭だけを採用し本文、欠落、重複と非Tree参照を拒否するを検証する。
+ *
+ * @responsibility Commit treeはheader先頭だけを採用し本文、欠落、重複と非Tree参照を拒否するの合否判定を所有する。
+ * @trace RFD-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Commit treeはheader先頭だけを採用し本文、欠落、重複と非Tree参照を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 test("Commit treeはheader先頭だけを採用し本文、欠落、重複と非Tree参照を拒否する", (t) => {
   const fixture = temporaryFixture(t);
   const treeId = writeObject(fixture.commonDirectory, "tree", Buffer.alloc(0));
@@ -66,6 +144,18 @@ test("Commit treeはheader先頭だけを採用し本文、欠落、重複と非
     "blob",
     Buffer.from("not a tree\n"),
   );
+  /**
+   * inspectのTest準備責務を実行する。
+   *
+   * @responsibility inspectがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace RFD-IT-012
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus inspectを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+   */
   const inspect = (commitBytes: string) =>
     inspectGitCommitTreeCandidate({
       commonDirectory: fixture.commonDirectory,
@@ -99,6 +189,18 @@ test("Commit treeはheader先頭だけを採用し本文、欠落、重複と非
   assert.equal(valid?.tree, treeId);
 });
 
+/**
+ * loose Commit／Tree／BlobをGit CLIなしで隔離workspaceへ再構成するを検証する。
+ *
+ * @responsibility loose Commit／Tree／BlobをGit CLIなしで隔離workspaceへ再構成するの合否判定を所有する。
+ * @trace RFD-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus loose Commit／Tree／BlobをGit CLIなしで隔離workspaceへ再構成するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 test("loose Commit／Tree／BlobをGit CLIなしで隔離workspaceへ再構成する", (t) => {
   const fixture = temporaryFixture(t);
   const readmeId = writeObject(
@@ -169,6 +271,18 @@ test("loose Commit／Tree／BlobをGit CLIなしで隔離workspaceへ再構成�
   );
 });
 
+/**
+ * 明示Read Projectionだけを隔離workspaceへ再構成するを検証する。
+ *
+ * @responsibility 明示Read Projectionだけを隔離workspaceへ再構成するの合否判定を所有する。
+ * @trace RFD-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 明示Read Projectionだけを隔離workspaceへ再構成するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 test("明示Read Projectionだけを隔離workspaceへ再構成する", (t) => {
   const fixture = temporaryFixture(t);
   const visibleId = writeObject(
@@ -233,15 +347,32 @@ test("明示Read Projectionだけを隔離workspaceへ再構成する", (t) => {
   assert.deepEqual(fs.readdirSync(exactDirectoryWorkspace), []);
 });
 
+/**
+ * 未選択の未対応modeだけを除外し、exact・祖先選択と全体展開は拒否するを検証する。
+ *
+ * @responsibility 未選択の未対応modeだけを除外し、exact・祖先選択と全体展開は拒否するの合否判定を所有する。
+ * @trace RFD-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 未選択の未対応modeだけを除外し、exact・祖先選択と全体展開は拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 test("未選択の未対応modeだけを除外し、exact・祖先選択と全体展開は拒否する", (t) => {
   for (const mode of ["120000", "160000", "100664"] as const) {
     const fixture = temporaryFixture(t);
     const policyBytes = Buffer.from('{"policyId":"fixture"}\n');
     const policyId = writeObject(fixture.commonDirectory, "blob", policyBytes);
-    const policyTreeId = writeObject(
+    const configTreeId = writeObject(
       fixture.commonDirectory,
       "tree",
       treeEntry("100644", "external-send-policy.json", policyId),
+    );
+    const policyTreeId = writeObject(
+      fixture.commonDirectory,
+      "tree",
+      treeEntry("40000", "config", configTreeId),
     );
     const unsupportedObjectId =
       mode === "160000"
@@ -274,7 +405,7 @@ test("未選択の未対応modeだけを除外し、exact・祖先選択と全�
     const fixedFile = readGitCommitFileCandidate({
       commonDirectory: fixture.commonDirectory,
       revision: commitId,
-      relativePath: ".crdd/external-send-policy.json",
+      relativePath: ".crdd/config/external-send-policy.json",
     });
     assert.equal(fixedFile?.status, "read");
     assert.deepEqual(fixedFile?.bytes, policyBytes);
@@ -321,6 +452,18 @@ test("未選択の未対応modeだけを除外し、exact・祖先選択と全�
   }
 });
 
+/**
+ * 認識済みSecretを含むPathまたは内容はworkspaceへ書く前に拒否するを検証する。
+ *
+ * @responsibility 認識済みSecretを含むPathまたは内容はworkspaceへ書く前に拒否するの合否判定を所有する。
+ * @trace RFD-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 認識済みSecretを含むPathまたは内容はworkspaceへ書く前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 test("認識済みSecretを含むPathまたは内容はworkspaceへ書く前に拒否する", (t) => {
   for (const scenario of ["path", "content"] as const) {
     const fixture = temporaryFixture(t);
@@ -365,6 +508,18 @@ test("認識済みSecretを含むPathまたは内容はworkspaceへ書く前に�
   }
 });
 
+/**
+ * Secret名を使う通常のSource参照はRead Projectionを誤停止しないを検証する。
+ *
+ * @responsibility Secret名を使う通常のSource参照はRead Projectionを誤停止しないの合否判定を所有する。
+ * @trace RFD-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Secret名を使う通常のSource参照はRead Projectionを誤停止しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 test("Secret名を使う通常のSource参照はRead Projectionを誤停止しない", (t) => {
   const fixture = temporaryFixture(t);
   const source = [
@@ -422,6 +577,18 @@ test("Secret名を使う通常のSource参照はRead Projectionを誤停止し�
   );
 });
 
+/**
+ * 公開env例のplaceholderはRead Projectionを誤停止しないを検証する。
+ *
+ * @responsibility 公開env例のplaceholderはRead Projectionを誤停止しないの合否判定を所有する。
+ * @trace RFD-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開env例のplaceholderはRead Projectionを誤停止しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 test("公開env例のplaceholderはRead Projectionを誤停止しない", (t) => {
   const fixture = temporaryFixture(t);
   const source = `SESSION_TOKEN=placeholder_long_value\nSESSION_TOKEN=${"x".repeat(20)}\n`;
@@ -453,6 +620,18 @@ test("公開env例のplaceholderはRead Projectionを誤停止しない", (t) =>
   );
 });
 
+/**
+ * Source内CommentとStringの認識済みSecretはRead Projection前に拒否するを検証する。
+ *
+ * @responsibility Source内CommentとStringの認識済みSecretはRead Projection前に拒否するの合否判定を所有する。
+ * @trace RFD-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Source内CommentとStringの認識済みSecretはRead Projection前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 test("Source内CommentとStringの認識済みSecretはRead Projection前に拒否する", (t) => {
   for (const source of [
     "// password=Password123!\n",
@@ -497,6 +676,18 @@ test("Source内CommentとStringの認識済みSecretはRead Projection前に拒�
   }
 });
 
+/**
+ * symlink、submodule、Windows case衝突と非empty workspaceを拒否するを検証する。
+ *
+ * @responsibility symlink、submodule、Windows case衝突と非empty workspaceを拒否するの合否判定を所有する。
+ * @trace RFD-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus symlink、submodule、Windows case衝突と非empty workspaceを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 test("symlink、submodule、Windows case衝突と非empty workspaceを拒否する", (t) => {
   for (const scenario of [
     "symlink",
@@ -545,6 +736,18 @@ test("symlink、submodule、Windows case衝突と非empty workspaceを拒否す�
   }
 });
 
+/**
+ * object改変、余分field、SHA-256 Repository IDと動的入力をfail closedにするを検証する。
+ *
+ * @responsibility object改変、余分field、SHA-256 Repository IDと動的入力をfail closedにするの合否判定を所有する。
+ * @trace RFD-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus object改変、余分field、SHA-256 Repository IDと動的入力をfail closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 test("object改変、余分field、SHA-256 Repository IDと動的入力をfail closedにする", (t) => {
   const fixture = temporaryFixture(t);
   const blobId = writeObject(
@@ -584,6 +787,18 @@ test("object改変、余分field、SHA-256 Repository IDと動的入力をfail c
   }
 });
 
+/**
+ * 公開契約は限定Git object readerと非Authority境界を固定するを検証する。
+ *
+ * @responsibility 公開契約は限定Git object readerと非Authority境界を固定するの合否判定を所有する。
+ * @trace RFD-IT-012
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開契約は限定Git object readerと非Authority境界を固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-012=Direct Boundary: 検証済みRoot→Repository Observation Port→regular file／directory
+ */
 test("公開契約は限定Git object readerと非Authority境界を固定する", () => {
   const contract = describeGitObjectReaderContract();
   assert.equal(contract.contractRevision, 4);

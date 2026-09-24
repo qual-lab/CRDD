@@ -1,3 +1,14 @@
+/**
+ * coordinator:integration:coordinator-task-processの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:coordinator-task-processが所有する検証責務を実行する。
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
+ * @level IT
+ * @scope coordinator、task、process
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container / ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+ */
 import assert from "node:assert/strict";
 import { type ChildProcess, spawn } from "node:child_process";
 import fs from "node:fs";
@@ -47,6 +58,18 @@ type Dependencies = Parameters<
   typeof createIsolatedCoordinatorTaskRuntimeCandidate
 >[0];
 
+/**
+ * createDeferredのTest準備責務を実行する。
+ *
+ * @responsibility createDeferredがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus createDeferredを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
   let reject!: (reason?: unknown) => void;
@@ -57,6 +80,18 @@ function createDeferred<T>() {
   return { promise, resolve, reject };
 }
 
+/**
+ * createProcessHarnessのTest準備責務を実行する。
+ *
+ * @responsibility createProcessHarnessがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus createProcessHarnessを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 function createProcessHarness(
   scenario: Scenario,
   controllerCleanupConfirmed?: boolean,
@@ -90,6 +125,18 @@ function createProcessHarness(
   let activeRole: "executor" | "reviewer" = "executor";
   let cleanupCount = 0;
   let isPoisoned = false;
+  /**
+   * capabilityのTest準備責務を実行する。
+   *
+   * @responsibility capabilityがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERB-IT-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus capabilityを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+   */
   const capability = () => Object.freeze({});
   const controllerFixture =
     controllerCleanupConfirmed === undefined
@@ -101,6 +148,18 @@ function createProcessHarness(
           controllerCleanupConfirmed,
         );
   let candidateEffectCount = 0;
+  /**
+   * issueのTest準備責務を実行する。
+   *
+   * @responsibility issueがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERB-IT-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus issueを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+   */
   const issue = () => {
     const controlCapability = capability();
     controls.add(controlCapability);
@@ -108,10 +167,34 @@ function createProcessHarness(
     controlsByUse.set(useCapability, controlCapability);
     return { status: "issued", controlCapability, useCapability };
   };
+  /**
+   * revokeのTest準備責務を実行する。
+   *
+   * @responsibility revokeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERB-IT-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus revokeを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+   */
   const revoke = (control: object) => {
     assert.equal(controls.delete(control), true);
     return { status: "revoked" };
   };
+  /**
+   * consumeのTest準備責務を実行する。
+   *
+   * @responsibility consumeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERB-IT-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus consumeを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+   */
   const consume = (use: object) => {
     const control = controlsByUse.get(use);
     assert.ok(control);
@@ -411,7 +494,19 @@ function createProcessHarness(
 // No OS Ctrl+C delivery or real Docker resource claims: the registered CLI
 // callback traverses Task + Controller + the production-owned Node process tree.
 for (const cleanupConfirmed of [true, false]) {
-  test(`Windows Process Gate: Task→Controller→共有Processの取消結合: Docker回収模擬=${cleanupConfirmed}`, {
+  /**
+   * Host Windows: Task→Controller→共有Processの取消結合: Docker回収模擬=${cleanupConfirmed}を検証する。
+   *
+   * @responsibility Host Windows: Task→Controller→共有Processの取消結合: Docker回収模擬=${cleanupConfirmed}の合否判定を所有する。
+   * @trace ERB-IT-002
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus Host Windows: Task→Controller→共有Processの取消結合: Docker回収模擬=${cleanupConfirmed}の対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
+   */
+  test(`Host Windows: Task→Controller→共有Processの取消結合: Docker回収模擬=${cleanupConfirmed}`, {
     skip: process.platform !== "win32",
     timeout: 20_000,
   }, async (t) => {
@@ -524,6 +619,18 @@ for (const scenario of [
   "close_unknown",
   "cleanup_refused",
 ] as const) {
+  /**
+   * Taskと実子Process・Host領域の結合: ${scenario}を検証する。
+   *
+   * @responsibility Taskと実子Process・Host領域の結合: ${scenario}の合否判定を所有する。
+   * @trace ERB-IT-001
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus Taskと実子Process・Host領域の結合: ${scenario}の対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+   */
   test(`Taskと実子Process・Host領域の結合: ${scenario}`, {
     timeout: 20_000,
   }, async (t) => {

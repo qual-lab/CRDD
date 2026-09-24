@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:development-measurement-constraintsの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:development-measurement-constraintsが所有する検証責務を実行する。
+ * @trace PPR-UT-006
+ * @level UT
+ * @scope development、measurement、constraints
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -11,10 +21,34 @@ const FIRST_SCOPE_HASH =
 const SECOND_SCOPE_HASH =
   "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
 
+/**
+ * observationのTest準備責務を実行する。
+ *
+ * @responsibility observationがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus observationを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 function observation(wallTimeMs = 100, monotonicTimeMs = wallTimeMs) {
   return { bindingSha256: BINDING_HASH, wallTimeMs, monotonicTimeMs };
 }
 
+/**
+ * configurationのTest準備責務を実行する。
+ *
+ * @responsibility configurationがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus configurationを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 function configuration() {
   return {
     bindingSha256: BINDING_HASH,
@@ -26,6 +60,18 @@ function configuration() {
   };
 }
 
+/**
+ * createConstraintsのTest準備責務を実行する。
+ *
+ * @responsibility createConstraintsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus createConstraintsを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 function createConstraints() {
   const constraints = createDevelopmentMeasurementConstraints(
     configuration(),
@@ -35,6 +81,18 @@ function createConstraints() {
   return constraints;
 }
 
+/**
+ * unwrapのTest準備責務を実行する。
+ *
+ * @responsibility unwrapがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus unwrapを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 function unwrap<T>(
   result: { status: "recorded"; value: T } | { status: "blocked" },
 ) {
@@ -43,6 +101,18 @@ function unwrap<T>(
   return result.value;
 }
 
+/**
+ * 2Task各4回、総8回を記録し枠の返却・Task再実行・9回目を拒否するを検証する。
+ *
+ * @responsibility 2Task各4回、総8回を記録し枠の返却・Task再実行・9回目を拒否するの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 2Task各4回、総8回を記録し枠の返却・Task再実行・9回目を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("2Task各4回、総8回を記録し枠の返却・Task再実行・9回目を拒否する", () => {
   const constraints = createConstraints();
   for (const [scope, executor, reviewer] of [
@@ -109,6 +179,18 @@ test("2Task各4回、総8回を記録し枠の返却・Task再実行・9回目�
   });
 });
 
+/**
+ * 準備失敗で起動しなくても予約枠を返却せず、重複並行開始を拒否するを検証する。
+ *
+ * @responsibility 準備失敗で起動しなくても予約枠を返却せず、重複並行開始を拒否するの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 準備失敗で起動しなくても予約枠を返却せず、重複並行開始を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("準備失敗で起動しなくても予約枠を返却せず、重複並行開始を拒否する", () => {
   const constraints = createConstraints();
   const taskToken = unwrap(
@@ -168,6 +250,18 @@ for (const scenario of [
   "clock_regression",
   "invalid",
 ] as const) {
+  /**
+   * 予約後の${scenario}で起動枠消費を拒否し、終了記録だけは可能を検証する。
+   *
+   * @responsibility 予約後の${scenario}で起動枠消費を拒否し、終了記録だけは可能の合否判定を所有する。
+   * @trace PPR-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 予約後の${scenario}で起動枠消費を拒否し、終了記録だけは可能の対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+   */
   test(`予約後の${scenario}で起動枠消費を拒否し、終了記録だけは可能`, () => {
     const constraints = createConstraints();
     const taskToken = unwrap(
@@ -218,6 +312,18 @@ for (const scenario of [
   });
 }
 
+/**
+ * cleanup不明は後続Taskを拒否し、遅延した既存呼出しの終了記録で解除しないを検証する。
+ *
+ * @responsibility cleanup不明は後続Taskを拒否し、遅延した既存呼出しの終了記録で解除しないの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus cleanup不明は後続Taskを拒否し、遅延した既存呼出しの終了記録で解除しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("cleanup不明は後続Taskを拒否し、遅延した既存呼出しの終了記録で解除しない", () => {
   const constraints = createConstraints();
   const taskToken = unwrap(
@@ -240,6 +346,18 @@ test("cleanup不明は後続Taskを拒否し、遅延した既存呼出しの終
   assert.equal(constraints.inspect().stopReason, "cleanup_unknown");
 });
 
+/**
+ * Task・呼出しtokenの偽造、別session、複製、Provider／役割差替えを拒否するを検証する。
+ *
+ * @responsibility Task・呼出しtokenの偽造、別session、複製、Provider／役割差替えを拒否するの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Task・呼出しtokenの偽造、別session、複製、Provider／役割差替えを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("Task・呼出しtokenの偽造、別session、複製、Provider／役割差替えを拒否する", () => {
   const constraints = createConstraints();
   const foreign = createConstraints();
@@ -312,6 +430,18 @@ test("Task・呼出しtokenの偽造、別session、複製、Provider／役割�
   );
 });
 
+/**
+ * 許可外Taskと経路は枠を消費せず拒否するを検証する。
+ *
+ * @responsibility 許可外Taskと経路は枠を消費せず拒否するの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 許可外Taskと経路は枠を消費せず拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("許可外Taskと経路は枠を消費せず拒否する", () => {
   const constraints = createConstraints();
   assert.equal(
@@ -338,6 +468,18 @@ test("許可外Taskと経路は枠を消費せず拒否する", () => {
   assert.equal(constraints.inspect().invocationCount, 0);
 });
 
+/**
+ * constructorはshape、期限、Task数・重複・経路を厳格検証するを検証する。
+ *
+ * @responsibility constructorはshape、期限、Task数・重複・経路を厳格検証するの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus constructorはshape、期限、Task数・重複・経路を厳格検証するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("constructorはshape、期限、Task数・重複・経路を厳格検証する", () => {
   const valid = configuration();
   for (const invalid of [
@@ -371,6 +513,18 @@ test("constructorはshape、期限、Task数・重複・経路を厳格検証す
   );
 });
 
+/**
+ * getter／Proxyを実行せず拒否し、入力の後変更を保持しないを検証する。
+ *
+ * @responsibility getter／Proxyを実行せず拒否し、入力の後変更を保持しないの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus getter／Proxyを実行せず拒否し、入力の後変更を保持しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("getter／Proxyを実行せず拒否し、入力の後変更を保持しない", () => {
   let trapCalls = 0;
   const accessor = Object.defineProperty(configuration(), "expiresAtMs", {
@@ -409,6 +563,18 @@ test("getter／Proxyを実行せず拒否し、入力の後変更を保持しな
   assert.equal(trapCalls, 0);
 });
 
+/**
+ * 単調時計の巻戻り、非有限値、観測getterはsessionを終端化するを検証する。
+ *
+ * @responsibility 単調時計の巻戻り、非有限値、観測getterはsessionを終端化するの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 単調時計の巻戻り、非有限値、観測getterはsessionを終端化するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("単調時計の巻戻り、非有限値、観測getterはsessionを終端化する", () => {
   for (const invalid of [
     observation(101, 99),

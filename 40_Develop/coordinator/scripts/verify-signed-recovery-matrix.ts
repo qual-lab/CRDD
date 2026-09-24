@@ -1,3 +1,9 @@
+/**
+ * verify-signed-recovery-matrixに属する責務をまとめる。
+ *
+ * @responsibility RuntimeRecordを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import type { ChildProcess } from "node:child_process";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -8,12 +14,12 @@ import {
   isSupportedCoordinatorNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
 } from "../src/core/node-runtime-version.ts";
+import { spawnRuntimeLocalTypeScriptChild } from "../src/core/runtime-local-typescript-child-entrypoints.ts";
 import {
   displayVerificationRecording,
   runRecordedVerification,
 } from "../src/core/verification-result-record.ts";
 import { createInteractiveConsoleReaderEnvironment } from "../src/core/windows-child-environment.ts";
-import { spawnRuntimeLocalTypeScriptChild } from "../src/core/runtime-local-typescript-child-entrypoints.ts";
 import {
   createDynamicFakeProviderRecoverableResidue,
   recoverDockerIsolationProbe,
@@ -35,8 +41,33 @@ const CHILD_READY_CONTRACT =
 const CHILD_READY_TIMEOUT_MS = 60_000;
 const CHILD_EXIT_TIMEOUT_MS = 10_000;
 
+/**
+ * verify-signed-recovery-matrixで使用するRuntime 記録の値契約を定義する。
+ *
+ * @responsibility Runtime 記録のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape RuntimeRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeRecordの宣言は外部境界を開かない。
+ * @security N/A: RuntimeRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility RuntimeRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimeRecord = Readonly<Record<string, unknown>>;
 
+/**
+ * RecoveryMatrixFailureが担う状態と操作を提供する。
+ *
+ * @responsibility RecoveryMatrixFailureに属する状態と操作の所有境界をまとめる。
+ * @trace ARCH-000008
+ * @construction RecoveryMatrixFailureの生成に必要な依存と初期状態をConstructor契約で固定する。
+ * @lifecycle RecoveryMatrixFailureが所有する状態と資源を生成から終了まで同じInstanceで管理する。
+ * @effect N/A: RecoveryMatrixFailureの宣言自体は実行時Effectを発行しない。
+ * @failure N/A: RecoveryMatrixFailureの宣言自体は実行時失敗を所有しない。
+ * @invariant RecoveryMatrixFailureで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RecoveryMatrixFailureの宣言は外部境界を開かない。
+ * @security N/A: RecoveryMatrixFailureはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: RecoveryMatrixFailureは共有非同期状態を持たない同期処理である。
+ */
 class RecoveryMatrixFailure extends Error {
   readonly recoveryId: string | null;
   readonly manualRecoveryRequired: boolean;
@@ -52,6 +83,22 @@ class RecoveryMatrixFailure extends Error {
   }
 }
 
+/**
+ * verify-signed-recovery-matrixを停止結果として構築する。
+ *
+ * @responsibility verify-signed-recovery-matrixの停止理由、未発行Effect、公開結果境界を所有する。
+ * @trace ARCH-000008
+ * @input reason: string、extra: RuntimeRecord
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: string、extra: RuntimeRecord」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
+ * @security N/A: blockedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(reason: string, extra: RuntimeRecord = Object.freeze({})) {
   return Object.freeze({
     contract: SIGNED_RECOVERY_MATRIX_CONTRACT,
@@ -67,6 +114,22 @@ function blocked(reason: string, extra: RuntimeRecord = Object.freeze({})) {
   });
 }
 
+/**
+ * Signed Package Prerequisiteを検証する。
+ *
+ * @responsibility Signed Package Prerequisiteの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns verifySignedPackagePrerequisiteの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がverifySignedPackagePrerequisiteの入力契約を満たす。
+ * @postcondition verifySignedPackagePrerequisiteの責務を完了した結果だけを返す。
+ * @effect verifySignedPackagePrerequisiteは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure verifySignedPackagePrerequisiteは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifySignedPackagePrerequisiteは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: verifySignedPackagePrerequisiteはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: verifySignedPackagePrerequisiteは共有非同期状態を持たない同期処理である。
+ */
 function verifySignedPackagePrerequisite() {
   if (!isSupportedCoordinatorNodeRuntime(process.versions.node))
     return Object.freeze({
@@ -107,6 +170,22 @@ function verifySignedPackagePrerequisite() {
   }
 }
 
+/**
+ * recovery Completedを決定する。
+ *
+ * @responsibility recovery Completedの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input result: RuntimeRecord | null
+ * @returns recoveryCompletedの計算結果を返す。
+ * @precondition 「result: RuntimeRecord | null」がrecoveryCompletedの入力契約を満たす。
+ * @postcondition recoveryCompletedの責務を完了した結果だけを返す。
+ * @effect N/A: recoveryCompletedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: recoveryCompletedは独自の失敗分岐を所有しない。
+ * @invariant recoveryCompletedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recoveryCompletedはProcess内の同一Subsystemで完結する。
+ * @security N/A: recoveryCompletedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: recoveryCompletedは共有非同期状態を持たない同期処理である。
+ */
 function recoveryCompleted(result: RuntimeRecord | null) {
   return (
     result?.status === "recovered" &&
@@ -115,6 +194,22 @@ function recoveryCompleted(result: RuntimeRecord | null) {
   );
 }
 
+/**
+ * 回復 Matrix Child Environmentを構築する。
+ *
+ * @responsibility 回復 Matrix Child Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns NodeJS.ProcessEnv | nullを返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がcreateRecoveryMatrixChildEnvironmentの入力契約を満たす。
+ * @postcondition createRecoveryMatrixChildEnvironmentの責務を完了した結果だけを返す。
+ * @effect createRecoveryMatrixChildEnvironmentはFilesystemの読取りまたは書込みを実行する。
+ * @failure createRecoveryMatrixChildEnvironmentは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createRecoveryMatrixChildEnvironmentは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: createRecoveryMatrixChildEnvironmentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createRecoveryMatrixChildEnvironmentは共有非同期状態を持たない同期処理である。
+ */
 function createRecoveryMatrixChildEnvironment(): NodeJS.ProcessEnv | null {
   const observedEnvironment = createInteractiveConsoleReaderEnvironment();
   if (!observedEnvironment || process.platform !== "win32") return null;
@@ -140,6 +235,22 @@ function createRecoveryMatrixChildEnvironment(): NodeJS.ProcessEnv | null {
   }
 }
 
+/**
+ * For Child Readyを完了まで待機する。
+ *
+ * @responsibility For Child Readyの待機条件、完了観測、Timeout境界を所有する。
+ * @trace ARCH-000008
+ * @input child: ChildProcess
+ * @returns Promise<RuntimeRecord>を返す。
+ * @precondition 「child: ChildProcess」がwaitForChildReadyの入力契約を満たす。
+ * @postcondition waitForChildReadyの責務を完了した結果だけを返す。
+ * @effect N/A: waitForChildReadyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure waitForChildReadyは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant waitForChildReadyは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: waitForChildReadyはProcess内の同一Subsystemで完結する。
+ * @security N/A: waitForChildReadyはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency waitForChildReadyは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function waitForChildReady(child: ChildProcess): Promise<RuntimeRecord> {
   return new Promise((resolve, reject) => {
     let output = "";
@@ -178,6 +289,22 @@ function waitForChildReady(child: ChildProcess): Promise<RuntimeRecord> {
   });
 }
 
+/**
+ * For Child Exitを完了まで待機する。
+ *
+ * @responsibility For Child Exitの待機条件、完了観測、Timeout境界を所有する。
+ * @trace ARCH-000008
+ * @input child: ChildProcess
+ * @returns Promise<boolean>を返す。
+ * @precondition 「child: ChildProcess」がwaitForChildExitの入力契約を満たす。
+ * @postcondition waitForChildExitの責務を完了した結果だけを返す。
+ * @effect N/A: waitForChildExitは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: waitForChildExitは独自の失敗分岐を所有しない。
+ * @invariant waitForChildExitは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: waitForChildExitはProcess内の同一Subsystemで完結する。
+ * @security N/A: waitForChildExitはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency waitForChildExitは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function waitForChildExit(child: ChildProcess): Promise<boolean> {
   if (child.exitCode !== null || child.signalCode !== null)
     return Promise.resolve(true);
@@ -190,6 +317,22 @@ function waitForChildExit(child: ChildProcess): Promise<boolean> {
   });
 }
 
+/**
+ * Parent Loss Then Recoverを検証する。
+ *
+ * @responsibility Parent Loss Then Recoverの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns verifyParentLossThenRecoverの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がverifyParentLossThenRecoverの入力契約を満たす。
+ * @postcondition verifyParentLossThenRecoverの責務を完了した結果だけを返す。
+ * @effect verifyParentLossThenRecoverは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure verifyParentLossThenRecoverは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyParentLossThenRecoverは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: verifyParentLossThenRecoverはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency verifyParentLossThenRecoverは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function verifyParentLossThenRecover() {
   const childEnvironment = createRecoveryMatrixChildEnvironment();
   if (!childEnvironment)
@@ -268,6 +411,22 @@ async function verifyParentLossThenRecover() {
   }
 }
 
+/**
+ * 清掃 Unknown Then Recoverを検証する。
+ *
+ * @responsibility 清掃 Unknown Then Recoverの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns verifyCleanupUnknownThenRecoverの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がverifyCleanupUnknownThenRecoverの入力契約を満たす。
+ * @postcondition verifyCleanupUnknownThenRecoverの責務を完了した結果だけを返す。
+ * @effect verifyCleanupUnknownThenRecoverは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure verifyCleanupUnknownThenRecoverは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyCleanupUnknownThenRecoverは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: verifyCleanupUnknownThenRecoverはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency verifyCleanupUnknownThenRecoverは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function verifyCleanupUnknownThenRecover() {
   const childEnvironment = createRecoveryMatrixChildEnvironment();
   if (!childEnvironment)
@@ -322,6 +481,22 @@ async function verifyCleanupUnknownThenRecover() {
   });
 }
 
+/**
+ * Internal Residue Childを実行する。
+ *
+ * @responsibility Internal Residue Childの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input shouldWaitForTermination: boolean
+ * @returns runInternalResidueChildの計算結果を返す。
+ * @precondition 「shouldWaitForTermination: boolean」がrunInternalResidueChildの入力契約を満たす。
+ * @postcondition runInternalResidueChildの責務を完了した結果だけを返す。
+ * @effect runInternalResidueChildは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: runInternalResidueChildは独自の失敗分岐を所有しない。
+ * @invariant runInternalResidueChildは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: runInternalResidueChildはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency runInternalResidueChildは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function runInternalResidueChild(shouldWaitForTermination: boolean) {
   const prerequisite = verifySignedPackagePrerequisite();
   if (prerequisite.status !== "verified") {
@@ -352,6 +527,22 @@ async function runInternalResidueChild(shouldWaitForTermination: boolean) {
   }
 }
 
+/**
+ * Signed 回復 Matrix Verificationを実行する。
+ *
+ * @responsibility Signed 回復 Matrix Verificationの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns runSignedRecoveryMatrixVerificationの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がrunSignedRecoveryMatrixVerificationの入力契約を満たす。
+ * @postcondition runSignedRecoveryMatrixVerificationの責務を完了した結果だけを返す。
+ * @effect N/A: runSignedRecoveryMatrixVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure runSignedRecoveryMatrixVerificationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runSignedRecoveryMatrixVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runSignedRecoveryMatrixVerificationはProcess内の同一Subsystemで完結する。
+ * @security N/A: runSignedRecoveryMatrixVerificationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency runSignedRecoveryMatrixVerificationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function runSignedRecoveryMatrixVerification() {
   const prerequisite = verifySignedPackagePrerequisite();
   if (prerequisite.status !== "verified") return blocked(prerequisite.reason);
@@ -415,6 +606,22 @@ export async function runSignedRecoveryMatrixVerification() {
   }
 }
 
+/**
+ * Signed 回復 Matrix 契約の公開契約を記述する。
+ *
+ * @responsibility Signed 回復 Matrix 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeSignedRecoveryMatrixContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeSignedRecoveryMatrixContractの入力契約を満たす。
+ * @postcondition describeSignedRecoveryMatrixContractの責務を完了した結果だけを返す。
+ * @effect describeSignedRecoveryMatrixContractは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: describeSignedRecoveryMatrixContractは独自の失敗分岐を所有しない。
+ * @invariant describeSignedRecoveryMatrixContractは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: describeSignedRecoveryMatrixContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeSignedRecoveryMatrixContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeSignedRecoveryMatrixContract() {
   return Object.freeze({
     contract: SIGNED_RECOVERY_MATRIX_CONTRACT,
@@ -439,6 +646,22 @@ export function describeSignedRecoveryMatrixContract() {
   });
 }
 
+/**
+ * verify-signed-recovery-matrixのCommand処理を開始する。
+ *
+ * @responsibility verify-signed-recovery-matrixの引数受付、終了Code、診断出力境界を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns mainの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がmainの入力契約を満たす。
+ * @postcondition mainの責務を完了した結果だけを返す。
+ * @effect mainは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure mainは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant mainは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: mainはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency mainは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function main() {
   const args = process.argv.slice(2);
   if (args.length === 1 && args[0] === INTERNAL_CHILD_ARGUMENT) {

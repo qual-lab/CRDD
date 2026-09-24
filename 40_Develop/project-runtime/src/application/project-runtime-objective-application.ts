@@ -1,3 +1,9 @@
+/**
+ * project-runtime-objective-applicationに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimeObjectiveApplicationDependenciesを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import type { ProjectRuntimePersistencePorts } from "../ports/state-port.ts";
 import {
   runProjectRuntimeOperation,
@@ -18,7 +24,7 @@ import {
   type ProjectDockerRecoveryAcknowledgement,
   type ProjectRuntimeState,
 } from "../core/project-runtime-state.ts";
-import { snapshotPlainRecord } from "../internal/plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../boundary/plain-data-snapshot.ts";
 import {
   createProjectRuntimeObjectiveResult,
   createProjectRuntimeTaskExecutionSet,
@@ -27,6 +33,17 @@ import {
 } from "./project-runtime-objective-intake.ts";
 import type { ProjectRuntimeObjectiveRequest } from "../public-contract/objective-request.ts";
 
+/**
+ * project-runtime-objective-applicationで使用するProject Runtime Objective Application Dependenciesの値契約を定義する。
+ *
+ * @responsibility Project Runtime Objective Application DependenciesのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimeObjectiveApplicationDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimeObjectiveApplicationDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimeObjectiveApplicationDependenciesの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimeObjectiveApplicationDependenciesはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimeObjectiveApplicationDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimeObjectiveApplicationDependencies = Readonly<{
   authenticatedPrincipalId: string;
   repositoryBindingId: string;
@@ -52,6 +69,22 @@ export type ProjectRuntimeObjectiveApplicationDependencies = Readonly<{
   >;
 }>;
 
+/**
+ * recovery Application Idを決定する。
+ *
+ * @responsibility recovery Application Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input projectId: string、queueId: string、state: ProjectRuntimeState、clockIdentity: ProjectRuntimeClockIdentityPort
+ * @returns recoveryApplicationIdの計算結果を返す。
+ * @precondition 「projectId: string、queueId: string、state: ProjectRuntimeState、clockIdentity: ProjectRuntimeClockIdentityPort」がrecoveryApplicationIdの入力契約を満たす。
+ * @postcondition recoveryApplicationIdの責務を完了した結果だけを返す。
+ * @effect N/A: recoveryApplicationIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: recoveryApplicationIdは独自の失敗分岐を所有しない。
+ * @invariant recoveryApplicationIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recoveryApplicationIdはProcess内の同一Subsystemで完結する。
+ * @security N/A: recoveryApplicationIdはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: recoveryApplicationIdは共有非同期状態を持たない同期処理である。
+ */
 function recoveryApplicationId(
   projectId: string,
   queueId: string,
@@ -74,6 +107,22 @@ function recoveryApplicationId(
       ]);
 }
 
+/**
+ * 回復 Completedが完全一致するか判定する。
+ *
+ * @responsibility 回復 Completedの比較対象、完全一致条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns exactRecoveryCompletedの計算結果を返す。
+ * @precondition 「value: unknown」がexactRecoveryCompletedの入力契約を満たす。
+ * @postcondition exactRecoveryCompletedの責務を完了した結果だけを返す。
+ * @effect N/A: exactRecoveryCompletedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: exactRecoveryCompletedは独自の失敗分岐を所有しない。
+ * @invariant exactRecoveryCompletedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: exactRecoveryCompletedはProcess内の同一Subsystemで完結する。
+ * @security N/A: exactRecoveryCompletedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: exactRecoveryCompletedは共有非同期状態を持たない同期処理である。
+ */
 function exactRecoveryCompleted(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Readonly<Record<string, unknown>>;
@@ -84,6 +133,22 @@ function exactRecoveryCompleted(value: unknown) {
   );
 }
 
+/**
+ * 回復 Correlation Bindingsを観測する。
+ *
+ * @responsibility 回復 Correlation Bindingsの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、correlationIds: readonly string[]
+ * @returns inspectRecoveryCorrelationBindingsの計算結果を返す。
+ * @precondition 「value: unknown、correlationIds: readonly string[]」がinspectRecoveryCorrelationBindingsの入力契約を満たす。
+ * @postcondition inspectRecoveryCorrelationBindingsの責務を完了した結果だけを返す。
+ * @effect N/A: inspectRecoveryCorrelationBindingsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectRecoveryCorrelationBindingsは独自の失敗分岐を所有しない。
+ * @invariant inspectRecoveryCorrelationBindingsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectRecoveryCorrelationBindingsはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectRecoveryCorrelationBindingsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectRecoveryCorrelationBindingsは共有非同期状態を持たない同期処理である。
+ */
 function inspectRecoveryCorrelationBindings(
   value: unknown,
   correlationIds: readonly string[],
@@ -133,6 +198,22 @@ function inspectRecoveryCorrelationBindings(
     : null;
 }
 
+/**
+ * Idが有効か判定する。
+ *
+ * @responsibility Idの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidIdの入力契約を満たす。
+ * @postcondition validIdの責務を完了した結果だけを返す。
+ * @effect N/A: validIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validIdは独自の失敗分岐を所有しない。
+ * @invariant validIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validIdはProcess内の同一Subsystemで完結する。
+ * @security N/A: validIdはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validIdは共有非同期状態を持たない同期処理である。
+ */
 function validId(value: unknown): value is string {
   return (
     typeof value === "string" &&
@@ -142,6 +223,22 @@ function validId(value: unknown): value is string {
   );
 }
 
+/**
+ * project-runtime-objective-applicationを停止結果として構築する。
+ *
+ * @responsibility project-runtime-objective-applicationの停止理由、未発行Effect、公開結果境界を所有する。
+ * @trace ARCH-000004
+ * @input request: ProjectRuntimeObjectiveRequest、reason: string、options: Readonly<{ queueId?: string | null; projection?: ReturnType<typeof projectProjectRuntimeState> | null; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryObligation["kind"]; recoveryId: string; }>[]; effectState?: "no_effect" | "settled" | "unknown"; }>
+ * @returns blockedの計算結果を返す。
+ * @precondition 「request: ProjectRuntimeObjectiveRequest、reason: string、options: Readonly<{ queueId?: string | null; projection?: ReturnType<typeof projectProjectRuntimeState> | null; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryObligation["kind"]; recoveryId: string; }>[]; effectState?: "no_effect" | "settled" | "unknown"; }>」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
+ * @security N/A: blockedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(
   request: ProjectRuntimeObjectiveRequest,
   reason: string,
@@ -166,7 +263,22 @@ function blocked(
   });
 }
 
-/** Coordinate one validated Objective through the Project Runtime lifecycle. */
+/**
+ * Coordinate one validated Objective through the Project Runtime lifecycle.
+ *
+ * @responsibility Project Runtime Objective Applicationの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input dependencies: ProjectRuntimeObjectiveApplicationDependencies、request: ProjectRuntimeObjectiveRequest、cancellationSignal: AbortSignal
+ * @returns runProjectRuntimeObjectiveApplicationの計算結果を返す。
+ * @precondition 「dependencies: ProjectRuntimeObjectiveApplicationDependencies、request: ProjectRuntimeObjectiveRequest、cancellationSignal: AbortSignal」がrunProjectRuntimeObjectiveApplicationの入力契約を満たす。
+ * @postcondition runProjectRuntimeObjectiveApplicationの責務を完了した結果だけを返す。
+ * @effect N/A: runProjectRuntimeObjectiveApplicationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure runProjectRuntimeObjectiveApplicationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runProjectRuntimeObjectiveApplicationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runProjectRuntimeObjectiveApplicationはProcess内の同一Subsystemで完結する。
+ * @security N/A: runProjectRuntimeObjectiveApplicationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency runProjectRuntimeObjectiveApplicationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function runProjectRuntimeObjectiveApplication(
   dependencies: ProjectRuntimeObjectiveApplicationDependencies,
   request: ProjectRuntimeObjectiveRequest,
@@ -1157,6 +1269,22 @@ export async function runProjectRuntimeObjectiveApplication(
   });
 }
 
+/**
+ * Project Runtime Objective Intake 契約の公開契約を記述する。
+ *
+ * @responsibility Project Runtime Objective Intake 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProjectRuntimeObjectiveIntakeContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProjectRuntimeObjectiveIntakeContractの入力契約を満たす。
+ * @postcondition describeProjectRuntimeObjectiveIntakeContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeProjectRuntimeObjectiveIntakeContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProjectRuntimeObjectiveIntakeContractは独自の失敗分岐を所有しない。
+ * @invariant describeProjectRuntimeObjectiveIntakeContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeProjectRuntimeObjectiveIntakeContractはProcess内の同一Subsystemで完結する。
+ * @security N/A: describeProjectRuntimeObjectiveIntakeContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeProjectRuntimeObjectiveIntakeContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeProjectRuntimeObjectiveIntakeContract() {
   return Object.freeze({
     contract: PROJECT_RUNTIME_OBJECTIVE_INTAKE_CONTRACT,

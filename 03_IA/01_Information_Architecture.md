@@ -1,90 +1,127 @@
-# CRDD内部ツールの情報構造
+# CRDD／CROSの情報アーキテクチャ
 
-状態: Stable（v0.19.0）
+状態: 引き渡し可能（v0.21.0、公開済みの基準版: v0.20.1）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-05
-工程規則: [情報アーキテクチャ](../23_IA.md)
+最終更新日: 2026-09-14
+工程規則: [IA](../23_IA.md)
 
-## 1. 対象と結論
+## 1. 何を分かりやすくするか
 
-[利用体験](../02_UX/01_User_Experience.md)の導入、設定、依頼、待機、結果、復旧を、利用者が扱う対象と導線へ変換する。Runtime内部のクラスやファイル配置を利用者の情報分類にしない。§2～§5は既存ツール、§6はv0.19.0で公開したProject Runtimeの情報構造を扱う。
+利用者は、内部のファイル、Process、通信方式を覚えるのではなく、いま扱っている対象、現在状態、根拠、判断が必要な箇所、次の安全な行動を理解する必要がある。IAは、[32件の利用者成果](../02_UX/01_User_Experience.md#22-要求を利用者成果へまとめた結果)を、利用者が見分けて辿れる情報の単位、関係、状態、導線へ変換する。
 
-## 2. 扱う対象・関係・責任
+```text
+32件のUX定義
+      │
+      ▼
+UXごとのIA分析
+      │
+      ▼
+          IA定義
+    （現在有効な意味の正本）
+               │
+      ┌────────┼────────┐
+      ▼        ▼        ▼
+  情報構造   Navigation  状態・責任
+               │
+               ▼
+        ┌──────┴────────┐
+        ▼               ▼
+     UI／SPEC    Quality Analysis / IA
+```
 
-| 対象 | 利用者にとっての意味・識別 | 関係と所有責任 |
+画面、API、DB、Class、Folderを先に決めない。現行実装との比較はCanonical IA完成後のReality Auditで行い、IA Candidateを導く正式入力にはしない。
+
+## 2. 入力と網羅状況
+
+| 入力 | 件数 | 現在の処置 |
+|---|---:|---|
+| UX定義 | 32 | 全件を`Analysis/UX-*/ia_analysis.md`で個別分析する |
+| IA分析 | 32 | 対象、識別、関係、状態、可視性、時間的な意味、優先度、まとまり、見つけ方、責任をUX Definitionから抽出する |
+| IA定義 | 22 | 複数UXで共有する意味を統合し、独立して変更・検証できる利用者向け情報単位へIDを発行する |
+| Reality Audit参考情報 | 32 | 現行文書・実装との比較候補を正式入力から分離して保持し、Canonical IA完成後に照合する |
+
+個別分析は[Analysis](Analysis/)に、現在有効な意味定義は[Definitions](Definitions/)に置く。個別分析から複数のIA定義が生じる場合も、複数分析を一つのIA定義へまとめる場合もある。
+
+## 3. IA定義台帳
+
+| IA | 利用者が見分ける情報 | 主な入力UX |
 |---|---|---|
-| Repositoryと改訂版 | どのProjectの、どの時点を扱うか | 人間が対象を許可しRuntimeが検証。単なる現在Directory名で代用しない |
-| 配布物・開発候補 | 何を実行しているか | Source Commit、配布Identity、署名を区別。公式署名は配布担当者のみ |
-| 利用境界・認証状態 | 誰のSessionで、どこへ何を送れるか | 人間の同意とProviderの公式認証は別。認証済みでも操作許可とは限らない |
-| 依頼と実行 | 何を達成したいか／今回何を実行したか | 呼出し元が目的・範囲を構成、RuntimeがOperationを所有。再試行を同じ結果へ上書きしない |
-| 実行者・確認者 | 誰が作業し、誰が独立確認するか | 選定理由と役割を表示。Provider名だけを独立性の証明にしない |
-| 候補成果物 | まだ正本へ採用していない結果 | Candidate ID、対象Revision、期限、検証を結合。exportと採用は別 |
-| 回復対象 | どの未回収資源を処置するか | Runtimeが発行したexact IDだけを使用。IDなしの不明状態も保持 |
-| 検査結果 | どの範囲を何で確認したか | Checkerの指摘・未確認と専門レビューを分離。0件≠全品質合格 |
+| [IA-000001](Definitions/IA-000001/ia_definition.md) | 検査対象・条件・指摘 | `UX-000001` |
+| [IA-000002](Definitions/IA-000002/ia_definition.md) | 目的・節目・Task・受入・判断 | `UX-000002`、`UX-000003`、`UX-000005` |
+| [IA-000003](Definitions/IA-000003/ia_definition.md) | 実行・失敗・外部作用・回復 | `UX-000003`、`UX-000004`、`UX-000021`、`UX-000022` |
+| [IA-000004](Definitions/IA-000004/ia_definition.md) | 実行事実・観測・評価 | `UX-000006` |
+| [IA-000005](Definitions/IA-000005/ia_definition.md) | 成立済み能力・契約・利用側・置換根拠 | `UX-000007` |
+| [IA-000006](Definitions/IA-000006/ia_definition.md) | Project・Repository・Binding・Projection | `UX-000009`、`UX-000011`、`UX-000015` |
+| [IA-000007](Definitions/IA-000007/ia_definition.md) | 手元の情報源と横断情報源 | `UX-000010` |
+| [IA-000008](Definitions/IA-000008/ia_definition.md) | 公開受付・通信方式・結果 | `UX-000012` |
+| [IA-000009](Definitions/IA-000009/ia_definition.md) | 接続資格・作業領域・公開範囲 | `UX-000013` |
+| [IA-000010](Definitions/IA-000010/ia_definition.md) | Meeting・Topic・候補・採否 | `UX-000014` |
+| [IA-000011](Definitions/IA-000011/ia_definition.md) | Tool能力・利用可否・配布根拠 | `UX-000016` |
+| [IA-000012](Definitions/IA-000012/ia_definition.md) | 実行時データ・保持・清掃 | `UX-000017`、`UX-000022` |
+| [IA-000013](Definitions/IA-000013/ia_definition.md) | AIモデル構成・選択・再選定 | `UX-000018` |
+| [IA-000014](Definitions/IA-000014/ia_definition.md) | 受け渡す情報・Task・結果・帰還 | `UX-000019`、`UX-000021`、`UX-000024` |
+| [IA-000015](Definitions/IA-000015/ia_definition.md) | 準拠・改ざん有無・配布者・信頼方針 | `UX-000020`、`UX-000031` |
+| [IA-000016](Definitions/IA-000016/ia_definition.md) | 変更・指摘・是正・試験・品質 | `UX-000023`、`UX-000026`、`UX-000029` |
+| [IA-000017](Definitions/IA-000017/ia_definition.md) | 外部送信先・目的・分類・同意・候補 | `UX-000024` |
+| [IA-000018](Definitions/IA-000018/ia_definition.md) | 物語・構造・図・引き渡す意図 | `UX-000027`、`UX-000028` |
+| [IA-000019](Definitions/IA-000019/ia_definition.md) | 公式素材・由来・権利・用途 | `UX-000030` |
+| [IA-000020](Definitions/IA-000020/ia_definition.md) | 実行基盤の故障箇所と利用可能範囲 | `UX-000008` |
+| [IA-000021](Definitions/IA-000021/ia_definition.md) | 過去の判断と現在有効な意図 | `UX-000025` |
+| [IA-000022](Definitions/IA-000022/ia_definition.md) | 実行記録の作成・公開状態 | `UX-000032` |
 
-一つの実行に複数の回復対象があり得る。候補なし、回復IDなし、記録読取り不能を、成功・不存在と同義にしない。機械キーは仕様の表記を維持し、人間向け説明では「候補」「回復」「再起動」を別の意味として扱う。
+## 4. 全体の情報構造
 
-## 3. 情報の順序と導線
+```text
+[O: 利用者の仕事]
+   │ --目的を定める-->
+   ▼
+[O: Project／変更／実行]
+   │
+   ├─ --対象を特定--> [O: Repository／Binding／改訂版]
+   ├─ --状態を示す--> [O: 現在状態／不足／競合／観測時点]
+   ├─ --根拠へ戻る--> [O: 情報源／試験／Evidence]
+   ├─ --判断を求める--> [O: 選択肢／決定権限／次の行動]
+   └─ --失敗後に戻る--> [O: 結果／残存物／回復対象]
 
-通常利用者の起動案内は[共通起動入口](../19_Workflows/01_Coordinator_Runtime.md#common-launch-entry)の`interactive`へ統一し、自動化担当だけが`automation`を使用する。署名と正式検証は開発・配布担当の導線へ分け、起動用途の選択を追加の実行権限や上位モードと扱わない。
+入口
+├ [N: Repository内の文書・CLI]
+├ [N: MCP]
+└ [N: Workbench]
+       │
+       └─ 入口は違っても同じ対象・状態・根拠・判断へ到達する
+```
 
-| 場面 | 最初に必要な情報 | 詳細・根拠へ進む先 |
-|---|---|---|
-| 導入判断 | できること、準備、制限、現在の品質 | [README](../README.md)→[仕様](../05_SPEC/01_Behavior_Specification.md)・[品質状態](../07_Quality/01_Quality_Center.md) |
-| 依頼・待機 | 対象、現在の段階、人間入力の要否 | [操作・表示](../04_UI/01_User_Interface.md)→[作業手順](../19_Workflows/01_Coordinator_Runtime.md) |
-| 結果 | 完了／停止、候補の有無、次に必要な行動 | 候補ID・期限・検証、回復・再起動の各条件 |
-| 復旧 | 通常実行を止める理由、回復対象、操作可能者 | exact ID→対応手順。内部Pathの推測や任意清掃へ誘導しない |
-| 保守・配布 | 開発候補か正式配布か、検証範囲と未完了 | [設計](../06_Architecture/01_Architecture.md)、[検証設計](../07_Quality/03_Verification_Design.md)、変更トレース |
-| Checker | 対象範囲、エラー・警告・未確認 | [Checker手順](../19_Workflows/02_Checker.md)→指摘位置→所有文書→再検査。全体と限定検査を識別 |
-| Windows内部部品の停止 | 利用者への影響、回収・再起動の要否 | Coordinatorの診断／結果／復旧→[内部部品の設計](../06_Architecture/platform-access/01_Architecture.md)。内部protocolを通常操作の入口にしない |
+詳細は[情報オブジェクトと関係](02_Object_and_Relation_Model.md)、[情報のまとまりと導線](03_Information_Structure_and_Navigation.md)、[状態・可視性・責任](04_State_Visibility_and_Responsibility.md)に投影する。
 
-現在結果を主情報、理由・次操作を補助情報、識別子・契約改訂版・履歴を追跡情報として扱う。ただし重大リスクや回復不明を詳細へ隠さない。この優先度は設計意図であり、現行CLIがすべて実現したとは主張しない。
+## 5. 基本図の処置
 
-## 4. 共有文脈・時間・設定
+| 基本図 | 処置 | 現行図 | 未確認範囲 |
+|---|---|---|---|
+| オブジェクト／関係図 | 作成 | [情報オブジェクトと関係](02_Object_and_Relation_Model.md) | 実利用者が同じ単位で対象を見分けるか |
+| 情報階層図 | 作成 | [情報のまとまり](03_Information_Structure_and_Navigation.md#2-情報のまとまり) | Workbenchの具体的な表示量 |
+| Navigation図 | 作成 | [入口から根拠・次の行動まで](03_Information_Structure_and_Navigation.md#3-入口から根拠次の行動まで) | Prototypeでの到達しやすさ |
+| 可視性／状態概念図 | 作成 | [状態と可視性](04_State_Visibility_and_Responsibility.md) | 支援技術、端末差、認知負荷 |
 
-依頼から結果・回復まで、Repository、開始Revision、実行対象、選択ユーザー、許可境界を維持する。同じ対象の人間表示とJSONは投影の違いであり、別の成功判定を持たない。
+## 6. 現在状態と次工程
 
-| 意味の範囲 | 含めるもの | 混同しないもの |
-|---|---|---|
-| 永続する利用境界 | Repository Policy、選択ユーザーに結合した有効な同意 | 個々のTaskを無条件に許可するものではない |
-| 一回の実行 | 目的、読取り／変更範囲、改訂版、選定、取消 | 次回実行の許可・進捗へ流用しない |
-| 期限付き候補 | Candidate ID、利用期限、処置状態 | 通常の正本ファイルや永続採用済み成果物ではない |
-| 履歴 | 固定版の検証結果、過去の判断 | 最新版の利用可否ではない |
+IAは32件のUX定義から対象・識別・関係・状態・可視性・導線・責任を再導出し、入力固有の意味を失わない22件のIA定義へ統合した。以前の独立レビュー後に記録作成側のGapを検出したため、UX-000032からIA-000022を追加し、更新範囲は再レビュー待ちである。UI部品、画面遷移、API、保存形式、状態実値は未確定であり、下流工程が本IAを満たす方法を比較する。
 
-通常利用、開発検証、公式署名、復旧は作業モードとして区別する。上位モードほど権限が自動的に強くなる設計ではない。モデル選択や速度・費用方針は既存Policyと仕様が所有し、新しい個人設定や組織継承を本書で追加しない。現在値・実効値・情報源を表示する責務はUI、適用条件・失効・取消はSPECへ渡す。
+工程完了には、全32分析と22定義の独立再レビュー、UXだけからの再導出結果と現行文書・実装からの照合結果の分離、基本図の意味確認が必要である。IA-000020とIA-000021への分割は、人間の決定権限者が2026-09-15に採用した。
 
-## 5. 検証義務と未解決事項
+正式な後続接続は、UX DefinitionとIA Definitionの双方を入力とするUI／SPEC、およびIA工程に伴走するQuality Analysis / IAである。ArchitectureやSourceへ直接引き渡さない。
 
-- 初見の利用者が導入、通常Task、開発署名、復旧を取り違えずに辿れること。
-- 同じ依頼の結果・候補・回復対象を結び付け、別Repositoryや過去Revisionへ操作しないこと。
-- 「認証済み／許可済み」「生成済み／確認済み／採用済み」「失敗／回収不明／再起動必要」を区別できること。
-- Checkerの限定結果や過去Evidenceを全体・現版の合格へ読み替えないこと。
+## 7. 補足分析
 
-確認方法は[検証設計](../07_Quality/03_Verification_Design.md#tool-user-experience-verification)へ接続する。対象全体を覆う設計候補を整理し、未取得値・意味説明・候補操作の限定再確認と、今回のPowerShellでの入力・表示確認を終えた。初見利用者の導線理解、別環境、支援技術などの[UI未評価範囲](../04_UI/01_User_Interface.md#open-issues)と専門確認が残るため、工程網羅状態は`Blocked`を維持する。この候補をUI・SPECの照合に使うことを、通常工程移行の承認としない。内容と工程移行の決定権限者はQual-Lab。新しい安定ID、権限、設定継承または業務オブジェクトは採用していない。
-## 6. Project Runtimeの情報階層
+なし。工程全体の正本、横断投影、現在状態および次工程との関係は前節までに保持する。
 
-本節はv0.19.0で公開したProject Runtimeの情報構造を定義する。任意Projectの一覧・検索や複数Repositoryの横断管理は含まない。
+## Checklist
 
-v0.19のProject Runtimeは、`Project → Milestone／Version → Objective → Task`を基本階層とする。ProjectとRepositoryを同一語にせず、v0.19では一つのProjectが一つの明示Binding済みRepositoryを使用する。MCP要求、実行Operation、Provider SessionおよびCandidateはこの階層の正本ではなく、対象を参照する実行・搬送情報である。
-
-[Milestoneを委ねる利用体験](../02_UX/01_User_Experience.md#6-milestoneを委ねる利用体験)の認知意図を成立させるため、最初にMilestoneの成立状況、人間判断の有無、重大なBlocker／Risk、Quality／Integration StateおよびNext Actionを同じ判断文脈で取得可能にする。ObjectiveとTaskの詳細、Dependency、Provider、Operation、CandidateおよびRecoveryは、主表示の根拠へ追跡できる段階的な情報とする。ただし、重大な停止、回収不明、Risk受容または現在必要な人間判断を詳細へ隠さない。
-
-進捗、品質および判断待ちは別の意味である。`Objective 4 / 10`、`Integration Pending`、`Human Decision 1`を同時に表現できる構造とし、一つの割合や色へ畳み込まない。これにより、利用者が「作業量は進んでいるが、Milestoneはまだ受入可能でない」と比較・判断できる根拠を保持する。
-
-| 対象 | 主な意味 | 主な関係 |
-|---|---|---|
-| Project | 継続して達成する活動と正本Contextの境界 | 一つのRepository Bindingを持ち、複数Milestoneを順に扱う |
-| Milestone／Version | 人間が委ね、受入を判断する到達点 | 複数ObjectiveとMilestone Acceptanceを持つ |
-| Objective | Milestoneを成立させる目的単位 | Task GraphとObjective Acceptanceを持つ |
-| Task | Single Task Runtimeへ渡せる実行単位 | Dependency、状態、入出力、対象範囲、結果を持つ |
-| Project State | 現在の進行・品質・判断を説明する投影 | Milestone、Objective、Task、Blocker、Risk、Decision、Critical Pathを集約する |
-
-Task状態は少なくともReady、Running、Waiting Dependency、Blocked、Completed、Failedを区別する。Taskの完了、Objectiveの受入、Milestoneの受入を同じ状態へ畳み込まない。進捗投影は現在状態から再構成でき、履歴、変更トレース、EvidenceまたはRoadmapを第二の実行状態Storeにしない。
-
-同じRepositoryへ複数の起動要求が到着する場合は、実行要求の耐久キュー、実行所有権、隔離Workspace、正本採用権を別の情報として保持する。人間可読なMDを排他の正本にせず、Repository-local `.crdd`の機械可読状態をRuntime所有の実行情報とし、必要な要約だけを人間表示へ投影する。対話起点とスケジュール起点を区別しつつ、優先度だけで既に発行済みのEffectやRecovery義務を奪わない。
-
-MCPとCLIは同じObjective IntakeとProject State投影へ接続する。入口から渡されたPath、Project名またはTask状態をAuthorityとして採用せず、Repository Binding、Project Identity、現在Revisionおよび許可境界をRuntimeが再確認する。
-
-人間判断は、判断理由、影響、選択肢、推奨、保留時の扱いに加え、decision ID、対象Project／Milestone、発行世代・改訂版、現在性を一つの情報単位として持つ。利用者向け表示は機械IDや継続Capabilityを主役にしないが、`crdd.submit_decision`が古い判断、期限切れ、消費済み、別主体または別対象への誤適用を拒否できるよう、表示した判断単位、Client内部のCapability dispositionおよび送信値を追跡可能にする。判断適用は同じdecision application IDとProject State snapshotで関連付け、DecisionとMilestoneを同じProject世代へ一括適用する。Queueは両保存先の照合完了後に別途Leaseするため、Project State適用済み・Queue未Leaseの正当な中間状態を「判断受理済み・安全に再開待ち」として表現できるようにする。Queue未Leaseを実行中として表示せず、内部の部分Recordを相互に矛盾する現在値として並べない。
-
-v0.19の状態再取得は、同じ`crdd.run_objective` request identityに結合したProject Operation内だけで行う。初回開始、冪等再送、切断後再接続を同じ情報単位として扱い、再送時は最新Project State、pending decisionまたは終端結果へ解決する。任意Projectを一覧・検索する`crdd.get_project_state`とは分け、後者はv0.20以降の保留候補とする。
+- [x] 全UX DefinitionをIA Analysisへ一件ずつ対応付けた
+- [x] 全IA AnalysisをIA Definitionへ処置した
+- [x] IA台帳とAnalysis／Definitionsの関係が一致する
+- [x] 全体の情報構造を個別定義の第二の正本にしていない
+- [x] 基本図を作成・既存参照・非該当・作成不能のいずれかへ処置した
+- [x] 未確認事項、人間判断、IAへ戻す条件を明示した
+- [x] UI／SPECとQuality Analysis / IAへの接続を区別した
+- [x] Architecture／Sourceへの直接Handoffを作っていない
+- [x] 補足分析へ必須情報を退避していない

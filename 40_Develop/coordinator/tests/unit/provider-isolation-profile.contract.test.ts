@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:provider-isolation-profileの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:provider-isolation-profileが所有する検証責務を実行する。
+ * @trace AIT-UT-005
+ * @level UT
+ * @scope provider、isolation、profile
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -20,6 +30,18 @@ type ProfileFixture = Record<string, unknown> & {
   egress: { origins: string[] };
 };
 
+/**
+ * candidateのTest準備責務を実行する。
+ *
+ * @responsibility candidateがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-UT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus candidateを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 function candidate(overrides: Record<string, unknown> = {}): ProfileFixture {
   return {
     contract: PROVIDER_ISOLATION_CONTRACT,
@@ -47,6 +69,18 @@ function candidate(overrides: Record<string, unknown> = {}): ProfileFixture {
   };
 }
 
+/**
+ * 限定参照だけを含むProfileをAuthority確認待ち候補として固定するを検証する。
+ *
+ * @responsibility 限定参照だけを含むProfileをAuthority確認待ち候補として固定するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 限定参照だけを含むProfileをAuthority確認待ち候補として固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("限定参照だけを含むProfileをAuthority確認待ち候補として固定する", () => {
   const result = validateProviderIsolationProfile(candidate());
   assert.equal(result.status, "candidate");
@@ -70,6 +104,18 @@ test("限定参照だけを含むProfileをAuthority確認待ち候補として�
   );
 });
 
+/**
+ * Profile契約はCRDD版ごとに分岐しないを検証する。
+ *
+ * @responsibility Profile契約はCRDD版ごとに分岐しないの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Profile契約はCRDD版ごとに分岐しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Profile契約はCRDD版ごとに分岐しない", () => {
   const contract = describeProviderIsolationContract();
   assert.equal(contract.crddVersionSpecific, false);
@@ -88,6 +134,18 @@ test("Profile契約はCRDD版ごとに分岐しない", () => {
   );
 });
 
+/**
+ * 秘密値らしいfieldをProfileへ混入できないを検証する。
+ *
+ * @responsibility 秘密値らしいfieldをProfileへ混入できないの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 秘密値らしいfieldをProfileへ混入できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("秘密値らしいfieldをProfileへ混入できない", () => {
   const result = validateProviderIsolationProfile(
     candidate({ apiKey: "secret" }),
@@ -102,6 +160,18 @@ test("秘密値らしいfieldをProfileへ混入できない", () => {
   );
 });
 
+/**
+ * Profile入力budgetの境界と超過をfail closedにするを検証する。
+ *
+ * @responsibility Profile入力budgetの境界と超過をfail closedにするの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Profile入力budgetの境界と超過をfail closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Profile入力budgetの境界と超過をfail closedにする", () => {
   const maximum = candidate({
     profileId: `PROFILE-${"1".repeat(PROVIDER_INPUT_LIMITS.identifierLength - "PROFILE-".length)}`,
@@ -165,6 +235,18 @@ test("Profile入力budgetの境界と超過をfail closedにする", () => {
   );
 });
 
+/**
+ * Profile入口はtop、nested、array accessorを実行しないを検証する。
+ *
+ * @responsibility Profile入口はtop、nested、array accessorを実行しないの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Profile入口はtop、nested、array accessorを実行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Profile入口はtop、nested、array accessorを実行しない", () => {
   for (const location of ["top", "nested", "array"]) {
     let calls = 0;
@@ -205,6 +287,18 @@ test("Profile入口はtop、nested、array accessorを実行しない", () => {
   }
 });
 
+/**
+ * Provider tokenらしい値をAuthority参照へ偽装できないを検証する。
+ *
+ * @responsibility Provider tokenらしい値をAuthority参照へ偽装できないの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Provider tokenらしい値をAuthority参照へ偽装できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Provider tokenらしい値をAuthority参照へ偽装できない", () => {
   const values = [
     "sk-proj-example",
@@ -223,6 +317,18 @@ test("Provider tokenらしい値をAuthority参照へ偽装できない", () => 
   }
 });
 
+/**
+ * 自己申告の承認内容と旧時刻fieldをProfileへ保持できないを検証する。
+ *
+ * @responsibility 自己申告の承認内容と旧時刻fieldをProfileへ保持できないの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 自己申告の承認内容と旧時刻fieldをProfileへ保持できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("自己申告の承認内容と旧時刻fieldをProfileへ保持できない", () => {
   const value = candidate();
   value.authority.approvedBy = "Qual-Lab";
@@ -234,6 +340,18 @@ test("自己申告の承認内容と旧時刻fieldをProfileへ保持できな�
   );
 });
 
+/**
+ * Authority参照へ動的Mount Grant namespaceを流用できないを検証する。
+ *
+ * @responsibility Authority参照へ動的Mount Grant namespaceを流用できないの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Authority参照へ動的Mount Grant namespaceを流用できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Authority参照へ動的Mount Grant namespaceを流用できない", () => {
   const authority = candidate();
   authority.authority.grantRef = "PHMGRANT-000001";
@@ -243,6 +361,18 @@ test("Authority参照へ動的Mount Grant namespaceを流用できない", () =>
   );
 });
 
+/**
+ * 旧revisionとgeneric Credential fieldをOAuth Profileへ混在できないを検証する。
+ *
+ * @responsibility 旧revisionとgeneric Credential fieldをOAuth Profileへ混在できないの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 旧revisionとgeneric Credential fieldをOAuth Profileへ混在できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("旧revisionとgeneric Credential fieldをOAuth Profileへ混在できない", () => {
   assert.equal(
     validateProviderIsolationProfile(candidate({ contractRevision: 1 })).reason,
@@ -260,6 +390,18 @@ test("旧revisionとgeneric Credential fieldをOAuth Profileへ混在できな�
   );
 });
 
+/**
+ * Mount GrantはProvider、ProfileおよびOperationへ完全結合するを検証する。
+ *
+ * @responsibility Mount GrantはProvider、ProfileおよびOperationへ完全結合するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Mount GrantはProvider、ProfileおよびOperationへ完全結合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Mount GrantはProvider、ProfileおよびOperationへ完全結合する", () => {
   for (const [field, value] of [
     ["provider", "claude"],
@@ -276,6 +418,18 @@ test("Mount GrantはProvider、ProfileおよびOperationへ完全結合する", 
   }
 });
 
+/**
+ * 署名Profileへ動的Grant refまたは未検証状態を保持できないを検証する。
+ *
+ * @responsibility 署名Profileへ動的Grant refまたは未検証状態を保持できないの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 署名Profileへ動的Grant refまたは未検証状態を保持できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("署名Profileへ動的Grant refまたは未検証状態を保持できない", () => {
   const dynamicReference = candidate();
   dynamicReference.providerHomeMountGrant.grantRef = "PHMGRANT-000001";
@@ -298,6 +452,18 @@ test("署名Profileへ動的Grant refまたは未検証状態を保持できな�
   }
 });
 
+/**
+ * wildcard、平文HTTP、Path付き送信先を拒否するを検証する。
+ *
+ * @responsibility wildcard、平文HTTP、Path付き送信先を拒否するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus wildcard、平文HTTP、Path付き送信先を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("wildcard、平文HTTP、Path付き送信先を拒否する", () => {
   for (const origin of [
     "https://*.example.test",
@@ -312,6 +478,18 @@ test("wildcard、平文HTTP、Path付き送信先を拒否する", () => {
   }
 });
 
+/**
+ * 空Origin集合を固定reasonへ閉じるを検証する。
+ *
+ * @responsibility 空Origin集合を固定reasonへ閉じるの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 空Origin集合を固定reasonへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("空Origin集合を固定reasonへ閉じる", () => {
   const empty = candidate();
   empty.egress.origins = [];
@@ -321,6 +499,18 @@ test("空Origin集合を固定reasonへ閉じる", () => {
   );
 });
 
+/**
+ * 未知Authority Registryと未対応Providerをfail closedにするを検証する。
+ *
+ * @responsibility 未知Authority Registryと未対応Providerをfail closedにするの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 未知Authority Registryと未対応Providerをfail closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("未知Authority Registryと未対応Providerをfail closedにする", () => {
   const unknown = candidate();
   unknown.authority.registryId = "registry-from-agent";
@@ -334,6 +524,18 @@ test("未知Authority Registryと未対応Providerをfail closedにする", () =
   );
 });
 
+/**
+ * 同じ意味のProfileはorigin順序に依存しないHashを持つを検証する。
+ *
+ * @responsibility 同じ意味のProfileはorigin順序に依存しないHashを持つの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 同じ意味のProfileはorigin順序に依存しないHashを持つの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("同じ意味のProfileはorigin順序に依存しないHashを持つ", () => {
   const left = candidate();
   left.egress.origins = ["https://b.example.test", "https://a.example.test"];

@@ -1,3 +1,13 @@
+/**
+ * coordinator:system:dynamic-fake-provider-cancellation-verificationの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:system:dynamic-fake-provider-cancellation-verificationが所有する検証責務を実行する。
+ * @trace PRL-ST-003
+ * @level ST
+ * @scope dynamic、fake、provider、cancellation、verification
+ * @boundary PRL-ST-003=System/E2E: 公開入口→Runtime→Provider・Process→資源Observer
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -28,6 +38,18 @@ const EXACT_EXECUTION = Object.freeze({
   stderr: "",
 });
 
+/**
+ * 取消verificationは固定image・network none・固定SIGTERM handlerだけを構成するを検証する。
+ *
+ * @responsibility 取消verificationは固定image・network none・固定SIGTERM handlerだけを構成するの合否判定を所有する。
+ * @trace PRL-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 取消verificationは固定image・network none・固定SIGTERM handlerだけを構成するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-003=System/E2E: 公開入口→Runtime→Provider・Process→資源Observer
+ */
 test("取消verificationは固定image・network none・固定SIGTERM handlerだけを構成する", () => {
   const args = dockerCreateArgumentsForCancellationVerificationFixture(MOUNTS);
   assert.equal(args.includes("--pull=never"), true);
@@ -47,6 +69,18 @@ test("取消verificationは固定image・network none・固定SIGTERM handlerだ
   assert.equal(verifyDynamicFakeProviderCancellation.length, 0);
 });
 
+/**
+ * plain cancellation観測はcandidateに留まりrepository実行なしでverifiedにならないを検証する。
+ *
+ * @responsibility plain cancellation観測はcandidateに留まりrepository実行なしでverifiedにならないの合否判定を所有する。
+ * @trace PRL-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus plain cancellation観測はcandidateに留まりrepository実行なしでverifiedにならないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-003=System/E2E: 公開入口→Runtime→Provider・Process→資源Observer
+ */
 test("plain cancellation観測はcandidateに留まりrepository実行なしでverifiedにならない", () => {
   const result = normalizeDynamicFakeProviderCancellationForFixture(
     EXACT_EXECUTION,
@@ -66,6 +100,18 @@ test("plain cancellation観測はcandidateに留まりrepository実行なしでv
   assert.equal(result.realProviderReadiness, false);
 });
 
+/**
+ * Host attach process ownerは全固定異常scenarioで終了要求exact 1回とcloseを確認するを検証する。
+ *
+ * @responsibility Host attach process ownerは全固定異常scenarioで終了要求exact 1回とcloseを確認するの合否判定を所有する。
+ * @trace PRL-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host attach process ownerは全固定異常scenarioで終了要求exact 1回とcloseを確認するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-003=System/E2E: 公開入口→Runtime→Provider・Process→資源Observer
+ */
 test("Host attach process ownerは全固定異常scenarioで終了要求exact 1回とcloseを確認する", async () => {
   assert.deepEqual(OWNED_ATTACH_TERMINATION_FIXTURE_SCENARIOS, [
     "never_ready",
@@ -88,6 +134,18 @@ test("Host attach process ownerは全固定異常scenarioで終了要求exact 1�
   }
 });
 
+/**
+ * 取消観測は要求・grace・ack・終了envelopeの差をfail closedにするを検証する。
+ *
+ * @responsibility 取消観測は要求・grace・ack・終了envelopeの差をfail closedにするの合否判定を所有する。
+ * @trace PRL-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 取消観測は要求・grace・ack・終了envelopeの差をfail closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-003=System/E2E: 公開入口→Runtime→Provider・Process→資源Observer
+ */
 test("取消観測は要求・grace・ack・終了envelopeの差をfail closedにする", () => {
   assert.equal(
     normalizeDynamicFakeProviderCancellationForFixture(

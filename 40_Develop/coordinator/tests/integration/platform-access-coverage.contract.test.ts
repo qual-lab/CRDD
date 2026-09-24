@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:platform-access-coverageの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:platform-access-coverageが所有する検証責務を実行する。
+ * @trace ERB-IT-001
+ * @level IT
+ * @scope platform、access、coverage
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -8,6 +18,18 @@ import {
   createCoverageRunRoot,
 } from "../../scripts/platform-access-coverage-path.ts";
 
+/**
+ * withTemporaryRootのTest準備責務を実行する。
+ *
+ * @responsibility withTemporaryRootがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus withTemporaryRootを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 function withTemporaryRoot(runTest: (temporaryRoot: string) => void): void {
   const temporaryRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-coverage-boundary-"),
@@ -19,6 +41,18 @@ function withTemporaryRoot(runTest: (temporaryRoot: string) => void): void {
   }
 }
 
+/**
+ * coverage runは実crate直下のtargetへ専用Directoryを作るを検証する。
+ *
+ * @responsibility coverage runは実crate直下のtargetへ専用Directoryを作るの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus coverage runは実crate直下のtargetへ専用Directoryを作るの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("coverage runは実crate直下のtargetへ専用Directoryを作る", () => {
   withTemporaryRoot((temporaryRoot) => {
     const crateRoot = path.join(temporaryRoot, "platform-access");
@@ -31,6 +65,18 @@ test("coverage runは実crate直下のtargetへ専用Directoryを作る", () => 
   });
 });
 
+/**
+ * coverage runはtargetのfileとjunctionを変更せず拒否するを検証する。
+ *
+ * @responsibility coverage runはtargetのfileとjunctionを変更せず拒否するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus coverage runはtargetのfileとjunctionを変更せず拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("coverage runはtargetのfileとjunctionを変更せず拒否する", () => {
   withTemporaryRoot((temporaryRoot) => {
     const fileCrateRoot = path.join(temporaryRoot, "file-crate");
@@ -58,6 +104,18 @@ test("coverage runはtargetのfileとjunctionを変更せず拒否する", () =>
   });
 });
 
+/**
+ * coverage runはcrate Rootのjunctionを拒否するを検証する。
+ *
+ * @responsibility coverage runはcrate Rootのjunctionを拒否するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus coverage runはcrate Rootのjunctionを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("coverage runはcrate Rootのjunctionを拒否する", () => {
   withTemporaryRoot((temporaryRoot) => {
     const destination = path.join(temporaryRoot, "crate-destination");
@@ -68,6 +126,18 @@ test("coverage runはcrate Rootのjunctionを拒否する", () => {
   });
 });
 
+/**
+ * coverage runはtargetまたはrun Directoryの同名置換を拒否するを検証する。
+ *
+ * @responsibility coverage runはtargetまたはrun Directoryの同名置換を拒否するの合否判定を所有する。
+ * @trace ERB-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus coverage runはtargetまたはrun Directoryの同名置換を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
+ */
 test("coverage runはtargetまたはrun Directoryの同名置換を拒否する", () => {
   withTemporaryRoot((temporaryRoot) => {
     const targetReplacementCrate = path.join(

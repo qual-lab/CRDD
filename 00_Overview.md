@@ -2,7 +2,7 @@
 
 # CRDD概要（Overview）
 
-Version: v0.20.1
+Version: v0.21.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-09-06
@@ -85,7 +85,7 @@ CRDD準拠は、対象範囲と改訂版に適用される基準および根拠�
 | `19_Workflows` | リポジトリ固有の反復可能な作業手順、運用手順、引き渡し | [作業手順](14_Workflow.md) |
 | `40_Develop` | コード、構成、移行、ビルド、開発者テスト等の実装成果物 | [実装](28_Implementation.md) |
 | `80_Communication` | Discoveryで管理される市場・採用仮説を該当時に参照し、外部へ伝える目的、受け手、表現、到達、反応測定、学びの還流、主張と根拠、公開済み記録を管理する。必要なRepositoryだけで使用する | [外部コミュニケーション](17_Communication.md) |
-| `90_Release` | 変更トレース、リリース記録、CHANGELOG、配布物参照、リリース検証 | [変更](12_Change.md)、[リリース](13_Release.md) |
+| `99_Roadmap` | Roadmap、Change／Releaseの案内、Change Aggregate、Release Evidence | [変更](12_Change.md)、[リリース](13_Release.md) |
 | `99_Roadmap` | 未完了の作業、課題、アイデア、変更候補、是正事項を横断する登録簿 | [文書化](03_Documentation.md#33-discovery-and-roadmap) |
 
 UIと振る舞い仕様は直列工程ではない。両者は[`24_UI_Behavior_Specification.md`](24_UI_Behavior_Specification.md)を共有契約として、相互参照しながら並行して具体化する。
@@ -131,7 +131,7 @@ UIと振る舞い仕様は直列工程ではない。両者は[`24_UI_Behavior_S
 | `05_Autonomous_Operation.md` | 能動的な再評価と自律Operation候補の全体像、責務境界、実行契約、安全、Operation健全性、人間接続および将来互換性 |
 | `10_Agent.md` | エージェント共通入力 / 出力、決定権限、委譲、サブエージェント統合、レビュー |
 | `11_Skill.md` | スキル共通状態遷移、専門探索・収束、視覚制作・材質／空間表現、外部調査・接続ツール実行、経路、中断・再開、レビュー、引き渡し、Git / Markdownの実行プロファイル |
-| `12_Change.md` | `90_Release/Changes/CHG-*.md`による契機、変更意図、想定／実際の影響、実装、検証、終了のトレース |
+| `12_Change.md` | `99_Roadmap/Changes/<CHG-ID>/change.md`による契機、変更意図、想定／実際の影響、実装、検証、終了のトレース |
 | `13_Release.md` | プロダクトリリースの最小契約、人間のリリース決定権限、リリース記録、CHANGELOG、リリース検証 |
 | `14_Workflow.md` | `19_Workflows`へ置くリポジトリ固有の反復可能な作業手順と引き渡し |
 | `15_Progress.md` | 進捗管理の最小対象、共通の進捗情報、算出階層、健全性、集約単位、開発方式の接続 |
@@ -181,10 +181,10 @@ UIと振る舞い仕様は直列工程ではない。両者は[`24_UI_Behavior_S
 | `.github/pull_request_template.md` | 変更分類、根拠、決定権限、影響、移行、監査を確認するプルリクエスト入口 |
 | `CHANGELOG.md` | CRDD標準自体のバージョン間変更履歴。プロダクト固有のCHANGELOGとは別に扱う |
 | `template/` | プロジェクトへCRDDを導入するためのひな型とAI入口ファイル |
-| `template/tools/crdd-check.ts` | 採用プロジェクトへ配布する軽量チェッカーの正本。全体確認を既定とし、親AIエージェントがレビュー／監査前の共通事前確認と参照関係の把握に使用する |
+| `template/tools/crdd-check.ts` | 現行の採用プロジェクト向けChecker配布正本。v0.21では[CHG-000076](99_Roadmap/Changes/CHG-000076/change.md)により、自身が属する検証済みCRDD基準版Rootの`40_Develop/checker`へ接続する薄い起動入口へ移行する |
 | `template/tools/crdd-coordinator.ts` | clone／submodule利用者向けの安定したCoordinator起動入口。実行編成、診断、候補およびProject RuntimeのCLI操作へ接続する |
 | `template/tools/crdd-mcp.ts` | clone／submodule利用者向けの安定したMCP Server起動入口。stdioまたはlocalhost HTTPをProject Runtime公開契約へ接続する |
-| `40_Develop/checker/crdd-check.ts` | CRDD標準リポジトリのprivate checker packageから配布用チェッカー正本を呼び出す入口。配布正本は`template/tools/crdd-check.ts`であり、監査または準拠判定の正本ではない |
+| `40_Develop/checker/bin/crdd-check.ts` | Checker公開Use Caseを呼び出すCRDD標準リポジトリ用の薄いCLI入口。実装正本は`40_Develop/checker/src`に置く |
 | `06_Architecture/99_Coding_Standards.md` | CRDD公式Repositoryの内部ツールに適用するファイル、フォルダ、TypeScript／Rust識別子、試験名および機械識別子（machine identifier）の命名正本 |
 | `40_Develop/platform-access/` | OS固有の読み取り専用アクセス観測だけを所有するprivate Rust crate。CRDD本体・CLI・Policy・契約はTypeScriptに保持し、単独配布または公開CLIにしない |
 
@@ -305,7 +305,7 @@ CRDDのプロダクト変換、変更、ロードマップ、リリース、学�
                                              │  人間による            ロードマップ / CHG
                                              │  リリース判断
                                              │     ↓
-                                             │  13 / 90_Release
+                                             │  13 / 99_Roadmap/Releases
                                              └──┬──┘
                                                 ↓
                                 詳細固有情報を正本・CHG・結果へ移管
@@ -357,7 +357,7 @@ CRDDのプロダクト変換、変更、ロードマップ、リリース、学�
 | 用途 | 経路 |
 |---|---|
 | 未採用で今は分析しない入力を、再検討可能な形で保持する | [課題探索・要求形成の任意の候補保持](21_Discovery.md#24-optional-candidate-holding)を必要な場合だけ使用する |
-| 変更契機から影響・実装・検証・終了を追跡する | [変更](12_Change.md)に従い、必要な`CHG-*`を`90_Release/Changes/`へ置く |
+| 変更契機から影響・実装・検証・終了を追跡する | [変更](12_Change.md)に従い、必要なChange Aggregateを`99_Roadmap/Changes/`へ置く |
 | リポジトリ固有の反復作業を定義する | [作業手順](14_Workflow.md)に従い、`19_Workflows`へ置く |
 | 開発方式を問わず進捗と健全性を把握する | [進捗管理](15_Progress.md)に従い、ライフサイクル単位ごとに対応状態、責務別進捗、根拠を取得可能にする |
 | 品質保証の計画、実績、現在状態を横断して把握する | [品質保証](16_Quality_Assurance.md)に従い、各工程の検証義務と検証設計を育て、`07_Quality/01_Quality_Center.md`から現在状態と詳細参照へ到達できるようにする。外部ツールを使っても品質保証記録はリポジトリ内で理解・再確認できるようにする。単体試験が適用される場合は分岐網羅率`100%`を既定目標とし、未達または除外の理由と残るリスクを明示する |
@@ -372,7 +372,7 @@ CRDDのプロダクト変換、変更、ロードマップ、リリース、学�
 | 工程移行前に契約と、工程または対象共有契約固有の専門品質を独立レビューし、指摘事項を修正・再確認する | [エージェントの工程移行レビュー](10_Agent.md#72-phase-transition-review-and-remediation-loop)、送信・受信工程の工程実行契約、対象共有契約 |
 | CRDD標準自体を変更する | [保守](19_Maintenance.md) |
 
-リリースは課題探索・要求形成から検証までと同じ設計工程ではない。検証の後に常に`90_Release`へ進むのではなく、配布・有効化を行うプロジェクトで必要な場合にだけ、人間によるリリース判断を経て使用する。
+リリースは課題探索・要求形成から検証までと同じ設計工程ではない。検証の後に常にRelease Aggregateを作るのではなく、配布・有効化を行うプロジェクトで必要な場合にだけ、人間によるリリース判断を経て`99_Roadmap/Releases/`を使用する。
 
 <a id="44-change-route-selection"></a>
 

@@ -1,6 +1,10 @@
+/**
+ * project-runtime-integrationに属する責務をまとめる。
+ *
+ * @responsibility IntegrationInputを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import {
-  recordMilestoneIntegration,
-  recordObjectiveIntegration,
   requestProjectRuntimeHumanDecision,
   type ProjectRuntimeState,
 } from "../core/project-runtime-state.ts";
@@ -15,12 +19,23 @@ import { PROJECT_RUNTIME_INTEGRATION_CONTRACT } from "../public-contract/integra
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../internal/plain-data-snapshot.ts";
+} from "../boundary/plain-data-snapshot.ts";
 import {
   normalizeRepositoryRelativePath,
   repositoryPathWithin,
-} from "../internal/repository-relative-path.ts";
+} from "../boundary/repository-relative-path.ts";
 
+/**
+ * project-runtime-integrationで使用するIntegration 入力の値契約を定義する。
+ *
+ * @responsibility Integration 入力のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape IntegrationInputが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant IntegrationInputで宣言した値と責務の対応を維持する。
+ * @boundary N/A: IntegrationInputの宣言は外部境界を開かない。
+ * @security N/A: IntegrationInputはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility IntegrationInputの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type IntegrationInput = Readonly<{
   projectId: string;
   milestoneId: string;
@@ -30,12 +45,39 @@ type IntegrationInput = Readonly<{
   adoptionAuthorized: boolean;
 }>;
 
+/**
+ * project-runtime-integrationで使用するIntegration Dependenciesの値契約を定義する。
+ *
+ * @responsibility Integration DependenciesのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape IntegrationDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant IntegrationDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: IntegrationDependenciesの宣言は外部境界を開かない。
+ * @security N/A: IntegrationDependenciesはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility IntegrationDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type IntegrationDependencies = Readonly<{
   candidate: ProjectRuntimeCandidatePort;
   records: ProjectRuntimeIntegrationRecordPort;
   persistence: ProjectRuntimePersistencePorts;
 }>;
 
+/**
+ * Idが有効か判定する。
+ *
+ * @responsibility Idの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、maximum
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown、maximum」がvalidIdの入力契約を満たす。
+ * @postcondition validIdの責務を完了した結果だけを返す。
+ * @effect N/A: validIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validIdは独自の失敗分岐を所有しない。
+ * @invariant validIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validIdはProcess内の同一Subsystemで完結する。
+ * @security N/A: validIdはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validIdは共有非同期状態を持たない同期処理である。
+ */
 function validId(value: unknown, maximum = 512): value is string {
   return (
     typeof value === "string" &&
@@ -45,18 +87,82 @@ function validId(value: unknown, maximum = 512): value is string {
   );
 }
 
+/**
+ * Revisionが有効か判定する。
+ *
+ * @responsibility Revisionの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidRevisionの入力契約を満たす。
+ * @postcondition validRevisionの責務を完了した結果だけを返す。
+ * @effect N/A: validRevisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validRevisionは独自の失敗分岐を所有しない。
+ * @invariant validRevisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validRevisionはProcess内の同一Subsystemで完結する。
+ * @security N/A: validRevisionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validRevisionは共有非同期状態を持たない同期処理である。
+ */
 function validRevision(value: unknown): value is string {
   return typeof value === "string" && /^[0-9a-f]{40,64}$/u.test(value);
 }
 
+/**
+ * Hashが有効か判定する。
+ *
+ * @responsibility Hashの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidHashの入力契約を満たす。
+ * @postcondition validHashの責務を完了した結果だけを返す。
+ * @effect N/A: validHashは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validHashは独自の失敗分岐を所有しない。
+ * @invariant validHashは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validHashはProcess内の同一Subsystemで完結する。
+ * @security N/A: validHashはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validHashは共有非同期状態を持たない同期処理である。
+ */
 function validHash(value: unknown): value is string {
   return typeof value === "string" && /^[0-9a-f]{64}$/u.test(value);
 }
 
+/**
+ * Pathが有効か判定する。
+ *
+ * @responsibility Pathの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidPathの入力契約を満たす。
+ * @postcondition validPathの責務を完了した結果だけを返す。
+ * @effect N/A: validPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validPathは独自の失敗分岐を所有しない。
+ * @invariant validPathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validPathはProcess内の同一Subsystemで完結する。
+ * @security N/A: validPathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validPathは共有非同期状態を持たない同期処理である。
+ */
 function validPath(value: unknown): value is string {
   return normalizeRepositoryRelativePath(value) !== null;
 }
 
+/**
+ * string Arrayを決定する。
+ *
+ * @responsibility string Arrayの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、validator
+ * @returns stringArrayの計算結果を返す。
+ * @precondition 「value: unknown、validator」がstringArrayの入力契約を満たす。
+ * @postcondition stringArrayの責務を完了した結果だけを返す。
+ * @effect N/A: stringArrayは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: stringArrayは独自の失敗分岐を所有しない。
+ * @invariant stringArrayは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: stringArrayはProcess内の同一Subsystemで完結する。
+ * @security N/A: stringArrayはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: stringArrayは共有非同期状態を持たない同期処理である。
+ */
 function stringArray(value: unknown, validator = validId) {
   const snapshot = snapshotPlainArray(value, 1024);
   return snapshot.status === "ok" &&
@@ -65,6 +171,22 @@ function stringArray(value: unknown, validator = validId) {
     : null;
 }
 
+/**
+ * 候補を観測する。
+ *
+ * @responsibility 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown、state: ProjectRuntimeState
+ * @returns ProjectRuntimeIntegrationCandidate | nullを返す。
+ * @precondition 「raw: unknown、state: ProjectRuntimeState」がinspectCandidateの入力契約を満たす。
+ * @postcondition inspectCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectCandidateは独自の失敗分岐を所有しない。
+ * @invariant inspectCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectCandidateはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectCandidateはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectCandidateは共有非同期状態を持たない同期処理である。
+ */
 function inspectCandidate(
   raw: unknown,
   state: ProjectRuntimeState,
@@ -130,6 +252,22 @@ function inspectCandidate(
   });
 }
 
+/**
+ * Repositoryを観測する。
+ *
+ * @responsibility Repositoryの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown
+ * @returns inspectRepositoryの計算結果を返す。
+ * @precondition 「raw: unknown」がinspectRepositoryの入力契約を満たす。
+ * @postcondition inspectRepositoryの責務を完了した結果だけを返す。
+ * @effect N/A: inspectRepositoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectRepositoryは独自の失敗分岐を所有しない。
+ * @invariant inspectRepositoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectRepositoryはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectRepositoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectRepositoryは共有非同期状態を持たない同期処理である。
+ */
 function inspectRepository(raw: unknown) {
   const value = snapshotPlainRecord(
     raw,
@@ -156,6 +294,72 @@ function inspectRepository(raw: unknown) {
     : null;
 }
 
+/**
+ * 候補 Port Blockedを観測する。
+ *
+ * @responsibility 候補 Port Blockedの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown
+ * @returns inspectCandidatePortBlockedの計算結果を返す。
+ * @precondition 「raw: unknown」がinspectCandidatePortBlockedの入力契約を満たす。
+ * @postcondition inspectCandidatePortBlockedの責務を完了した結果だけを返す。
+ * @effect N/A: inspectCandidatePortBlockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectCandidatePortBlockedは独自の失敗分岐を所有しない。
+ * @invariant inspectCandidatePortBlockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectCandidatePortBlockedはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectCandidatePortBlockedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectCandidatePortBlockedは共有非同期状態を持たない同期処理である。
+ */
+function inspectCandidatePortBlocked(raw: unknown) {
+  const value = snapshotPlainRecord(
+    raw,
+    new Set([
+      "status",
+      "reason",
+      "effectIssued",
+      "effectStateUnknown",
+      "cleanupConfirmed",
+      "retryAllowed",
+      "recoveryReference",
+    ] as const),
+  );
+  if (
+    value?.status !== "blocked" ||
+    typeof value.reason !== "string" ||
+    typeof value.effectIssued !== "boolean" ||
+    typeof value.effectStateUnknown !== "boolean" ||
+    typeof value.cleanupConfirmed !== "boolean" ||
+    typeof value.retryAllowed !== "boolean" ||
+    (value.recoveryReference !== null &&
+      typeof value.recoveryReference !== "string")
+  )
+    return null;
+  return Object.freeze({
+    reason: value.reason,
+    effectIssued: value.effectIssued,
+    effectStateUnknown: value.effectStateUnknown,
+    cleanupConfirmed: value.cleanupConfirmed,
+    retryAllowed: value.retryAllowed,
+    recoveryReference: value.recoveryReference as string | null,
+  });
+}
+
+/**
+ * Receiptを観測する。
+ *
+ * @responsibility Receiptの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown
+ * @returns ProjectRuntimeCandidateAdoptionReceipt | nullを返す。
+ * @precondition 「raw: unknown」がinspectReceiptの入力契約を満たす。
+ * @postcondition inspectReceiptの責務を完了した結果だけを返す。
+ * @effect N/A: inspectReceiptは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectReceiptは独自の失敗分岐を所有しない。
+ * @invariant inspectReceiptは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectReceiptはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectReceiptはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectReceiptは共有非同期状態を持たない同期処理である。
+ */
 function inspectReceipt(
   raw: unknown,
 ): ProjectRuntimeCandidateAdoptionReceipt | null {
@@ -191,10 +395,42 @@ function inspectReceipt(
     : null;
 }
 
+/**
+ * path Within Allowedを決定する。
+ *
+ * @responsibility path Within Allowedの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input candidate: string、allowedPaths: readonly string[]
+ * @returns pathWithinAllowedの計算結果を返す。
+ * @precondition 「candidate: string、allowedPaths: readonly string[]」がpathWithinAllowedの入力契約を満たす。
+ * @postcondition pathWithinAllowedの責務を完了した結果だけを返す。
+ * @effect N/A: pathWithinAllowedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: pathWithinAllowedは独自の失敗分岐を所有しない。
+ * @invariant pathWithinAllowedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: pathWithinAllowedはProcess内の同一Subsystemで完結する。
+ * @security N/A: pathWithinAllowedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: pathWithinAllowedは共有非同期状態を持たない同期処理である。
+ */
 function pathWithinAllowed(candidate: string, allowedPaths: readonly string[]) {
   return repositoryPathWithin(candidate, allowedPaths);
 }
 
+/**
+ * responseを決定する。
+ *
+ * @responsibility responseの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input input: IntegrationInput、status: "completed" | "blocked"、reason: string、state: ProjectRuntimeState | null、options: Readonly<{ candidateId?: string | null; receiptId?: string | null; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; recoveryIds?: readonly string[]; effectIssued?: boolean; effectStateUnknown?: boolean; retryAllowed?: boolean; }>
+ * @returns responseの計算結果を返す。
+ * @precondition 「input: IntegrationInput、status: "completed" | "blocked"、reason: string、state: ProjectRuntimeState | null、options: Readonly<{ candidateId?: string | null; receiptId?: string | null; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; recoveryIds?: readonly string[]; effectIssued?: boolean; effectStateUnknown?: boolean; retryAllowed?: boolean; }>」がresponseの入力契約を満たす。
+ * @postcondition responseの責務を完了した結果だけを返す。
+ * @effect N/A: responseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: responseは独自の失敗分岐を所有しない。
+ * @invariant responseは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: responseはProcess内の同一Subsystemで完結する。
+ * @security N/A: responseはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: responseは共有非同期状態を持たない同期処理である。
+ */
 function response(
   input: IntegrationInput,
   status: "completed" | "blocked",
@@ -206,6 +442,9 @@ function response(
     cleanupConfirmed?: boolean;
     manualRecoveryRequired?: boolean;
     recoveryIds?: readonly string[];
+    effectIssued?: boolean;
+    effectStateUnknown?: boolean;
+    retryAllowed?: boolean;
   }> = {},
 ) {
   return Object.freeze({
@@ -221,13 +460,31 @@ function response(
     cleanupConfirmed: options.cleanupConfirmed ?? true,
     manualRecoveryRequired: options.manualRecoveryRequired ?? false,
     recoveryIds: Object.freeze([...(options.recoveryIds ?? [])]),
+    ...(options.effectIssued === undefined
+      ? {}
+      : {
+          effectIssued: options.effectIssued,
+          effectStateUnknown: options.effectStateUnknown ?? false,
+          retryAllowed: options.retryAllowed ?? false,
+        }),
   });
 }
 
 /**
  * Integrate terminal Task candidates and, when explicitly authorized, adopt
- * the fixed result.  Candidate creation and canonical adoption are separate
- * effects; neither runs while a Project State mutation lock is held.
+ *
+ * @responsibility project-runtime-integrationの入力からintegrate Project Runtime Operationを導く規則と結果境界を所有する。
+ * @trace ARCH-000004
+ * @input dependencies: IntegrationDependencies、input: IntegrationInput
+ * @returns integrateProjectRuntimeOperationの計算結果を返す。
+ * @precondition 「dependencies: IntegrationDependencies、input: IntegrationInput」がintegrateProjectRuntimeOperationの入力契約を満たす。
+ * @postcondition integrateProjectRuntimeOperationの責務を完了した結果だけを返す。
+ * @effect N/A: integrateProjectRuntimeOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure integrateProjectRuntimeOperationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant integrateProjectRuntimeOperationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: integrateProjectRuntimeOperationはProcess内の同一Subsystemで完結する。
+ * @security N/A: integrateProjectRuntimeOperationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency integrateProjectRuntimeOperationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 export async function integrateProjectRuntimeOperation(
   dependencies: IntegrationDependencies,
@@ -332,23 +589,6 @@ export async function integrateProjectRuntimeOperation(
       (entry) => entry.state === "integration_pending",
     );
     if (objective) {
-      const rejected = recordObjectiveIntegration(
-        state,
-        state.generation,
-        objective.definition.id,
-        {
-          accepted: false,
-          criterionEvidenceIds:
-            candidate.objectiveEvidence[objective.definition.id] ?? [],
-        },
-      );
-      if (rejected.status === "completed") {
-        const written = dependencies.persistence.state.writeState(
-          rejected.state,
-          state.generation,
-        );
-        if (written.status === "completed") state = rejected.state;
-      }
       const decision = requestProjectRuntimeHumanDecision(
         state,
         state.generation,
@@ -432,12 +672,29 @@ export async function integrateProjectRuntimeOperation(
       reason: string;
       cleanupConfirmed: boolean;
       manualRecoveryRequired: boolean;
+      recoveryReference?: string | null;
+      effectIssued?: boolean;
+      effectStateUnknown?: boolean;
+      retryAllowed?: boolean;
     }> | null = null;
     try {
-      const observed = inspectRepository(
-        dependencies.candidate.observeCanonicalRepository(),
-      );
-      if (
+      const rawObservation =
+        dependencies.candidate.observeCanonicalRepository();
+      const observationBlocked = inspectCandidatePortBlocked(rawObservation);
+      const observed = inspectRepository(rawObservation);
+      if (observationBlocked) {
+        adoptionFailure = Object.freeze({
+          reason: observationBlocked.reason,
+          cleanupConfirmed: observationBlocked.cleanupConfirmed,
+          effectIssued: observationBlocked.effectIssued,
+          effectStateUnknown: observationBlocked.effectStateUnknown,
+          retryAllowed: observationBlocked.retryAllowed,
+          manualRecoveryRequired:
+            observationBlocked.effectStateUnknown ||
+            !observationBlocked.cleanupConfirmed,
+          recoveryReference: observationBlocked.recoveryReference,
+        });
+      } else if (
         !observed ||
         observed.repositoryRevision !== candidate.baseRevision ||
         observed.dirty ||
@@ -458,8 +715,22 @@ export async function integrateProjectRuntimeOperation(
         } catch {
           rawReceipt = null;
         }
+        const adoptionBlocked = inspectCandidatePortBlocked(rawReceipt);
         receipt = inspectReceipt(rawReceipt);
-        if (
+        if (adoptionBlocked) {
+          adoptionFailure = Object.freeze({
+            reason: adoptionBlocked.reason,
+            cleanupConfirmed: adoptionBlocked.cleanupConfirmed,
+            effectIssued: adoptionBlocked.effectIssued,
+            effectStateUnknown: adoptionBlocked.effectStateUnknown,
+            retryAllowed: adoptionBlocked.retryAllowed,
+            manualRecoveryRequired:
+              adoptionBlocked.effectStateUnknown ||
+              !adoptionBlocked.cleanupConfirmed,
+            recoveryReference: adoptionBlocked.recoveryReference,
+          });
+          receipt = null;
+        } else if (
           !receipt ||
           receipt.beforeRevision !== candidate.baseRevision ||
           receipt.changedPaths.length !== candidate.changedPaths.length ||
@@ -504,71 +775,15 @@ export async function integrateProjectRuntimeOperation(
         candidateId: candidate.candidateId,
         cleanupConfirmed: adoptionFailure.cleanupConfirmed,
         manualRecoveryRequired: adoptionFailure.manualRecoveryRequired,
+        effectIssued: adoptionFailure.effectIssued ?? false,
+        effectStateUnknown: adoptionFailure.effectStateUnknown ?? false,
+        retryAllowed: adoptionFailure.retryAllowed ?? false,
+        ...(adoptionFailure.recoveryReference
+          ? { recoveryIds: Object.freeze([adoptionFailure.recoveryReference]) }
+          : {}),
       });
   }
 
-  for (const objective of state.objectives.filter(
-    (entry) => entry.state === "integration_pending",
-  )) {
-    const integrated = recordObjectiveIntegration(
-      state,
-      state.generation,
-      objective.definition.id,
-      {
-        accepted: true,
-        criterionEvidenceIds:
-          candidate.objectiveEvidence[objective.definition.id] ?? [],
-      },
-    );
-    if (integrated.status !== "completed")
-      return response(input, "blocked", integrated.reason, state, {
-        candidateId: candidate.candidateId,
-        receiptId: receipt?.receiptId ?? null,
-      });
-    const written = dependencies.persistence.state.writeState(
-      integrated.state,
-      state.generation,
-    );
-    if (written.status !== "completed")
-      return response(input, "blocked", written.reason, state, {
-        candidateId: candidate.candidateId,
-        receiptId: receipt?.receiptId ?? null,
-        cleanupConfirmed: false,
-        manualRecoveryRequired: true,
-      });
-    state = integrated.state;
-  }
-  const milestone =
-    state.milestone.state === "accepted"
-      ? Object.freeze({
-          status: "completed" as const,
-          reason: "project_runtime_milestone_already_accepted",
-          state,
-          taskIds: Object.freeze([]),
-        })
-      : recordMilestoneIntegration(
-          state,
-          state.generation,
-          candidate.milestoneEvidence,
-        );
-  if (milestone.status !== "completed")
-    return response(input, "blocked", milestone.reason, state, {
-      candidateId: candidate.candidateId,
-      receiptId: receipt?.receiptId ?? null,
-    });
-  if (milestone.state.generation !== state.generation) {
-    const milestoneWrite = dependencies.persistence.state.writeState(
-      milestone.state,
-      state.generation,
-    );
-    if (milestoneWrite.status !== "completed")
-      return response(input, "blocked", milestoneWrite.reason, state, {
-        candidateId: candidate.candidateId,
-        receiptId: receipt?.receiptId ?? null,
-        cleanupConfirmed: false,
-        manualRecoveryRequired: true,
-      });
-  }
   const completedQueue = dependencies.persistence.state.updateQueue(
     input.queueId,
     queue.generation,
@@ -580,7 +795,7 @@ export async function integrateProjectRuntimeOperation(
     },
   );
   if (completedQueue.status !== "completed")
-    return response(input, "blocked", completedQueue.reason, milestone.state, {
+    return response(input, "blocked", completedQueue.reason, state, {
       candidateId: candidate.candidateId,
       receiptId: receipt?.receiptId ?? null,
       cleanupConfirmed: false,
@@ -589,8 +804,8 @@ export async function integrateProjectRuntimeOperation(
   return response(
     input,
     "completed",
-    "project_runtime_milestone_accepted",
-    milestone.state,
+    "project_runtime_acceptance_decision_required",
+    state,
     {
       candidateId: candidate.candidateId,
       receiptId: receipt?.receiptId ?? null,
@@ -598,6 +813,22 @@ export async function integrateProjectRuntimeOperation(
   );
 }
 
+/**
+ * Project Runtime Integration 契約の公開契約を記述する。
+ *
+ * @responsibility Project Runtime Integration 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProjectRuntimeIntegrationContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProjectRuntimeIntegrationContractの入力契約を満たす。
+ * @postcondition describeProjectRuntimeIntegrationContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeProjectRuntimeIntegrationContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProjectRuntimeIntegrationContractは独自の失敗分岐を所有しない。
+ * @invariant describeProjectRuntimeIntegrationContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeProjectRuntimeIntegrationContractはProcess内の同一Subsystemで完結する。
+ * @security N/A: describeProjectRuntimeIntegrationContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeProjectRuntimeIntegrationContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeProjectRuntimeIntegrationContract() {
   return Object.freeze({
     contract: PROJECT_RUNTIME_INTEGRATION_CONTRACT,

@@ -1,3 +1,8 @@
+//! Platform Access Native Workerのbinary protocolを定義する。
+//!
+//! @responsibility request／responseのrevision、上限、decode、encodeおよびPath受理集合を固定する。
+//! @trace ARCH-000008
+
 use std::io::{self, Read, Write};
 
 pub const PROTOCOL_REVISION: u16 = 3;
@@ -32,6 +37,15 @@ pub const PROVIDER_HOME_WRITERS_RESTRICTED: u32 = 1 << 6;
 pub const PROVIDER_HOME_SELECTED_USER_FULL_CONTROL: u32 = 1 << 7;
 pub const PROVIDER_HOME_SYSTEM_FULL_CONTROL: u32 = 1 << 8;
 
+/// 固定Binary Protocolで使用するRootRole契約を表す。
+///
+/// @responsibility RootRoleが保持する固定Binary Protocolの値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape enumとして固定Binary Protocolのfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum RootRole {
@@ -39,6 +53,15 @@ pub enum RootRole {
     Authority = 2,
 }
 
+/// 固定Binary Protocolで使用するProvider契約を表す。
+///
+/// @responsibility Providerが保持する固定Binary Protocolの値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape enumとして固定Binary Protocolのfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Provider {
@@ -49,6 +72,20 @@ pub enum Provider {
 }
 
 impl Provider {
+    /// 固定Binary Protocolのparse責務を実行する。
+    ///
+    /// @responsibility 固定Binary Protocolのparse責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+    /// @trace ARCH-000008
+    /// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+    /// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+    /// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+    /// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+    /// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+    /// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+    /// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+    /// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+    /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+    /// @concurrency N/A: 共有可変状態を持たない同期処理である。
     fn parse(value: u8) -> Option<Self> {
         match value {
             1 => Some(Self::Codex),
@@ -59,6 +96,20 @@ impl Provider {
         }
     }
 
+    /// 固定Binary Protocolのdirectory name責務を実行する。
+    ///
+    /// @responsibility 固定Binary Protocolのdirectory name責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+    /// @trace ARCH-000008
+    /// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+    /// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+    /// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+    /// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+    /// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+    /// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+    /// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+    /// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+    /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+    /// @concurrency N/A: 共有可変状態を持たない同期処理である。
     pub fn directory_name(self) -> &'static str {
         match self {
             Self::Codex => "codex",
@@ -70,6 +121,20 @@ impl Provider {
 }
 
 impl RootRole {
+    /// 固定Binary Protocolのparse責務を実行する。
+    ///
+    /// @responsibility 固定Binary Protocolのparse責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+    /// @trace ARCH-000008
+    /// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+    /// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+    /// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+    /// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+    /// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+    /// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+    /// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+    /// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+    /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+    /// @concurrency N/A: 共有可変状態を持たない同期処理である。
     fn parse(value: u8) -> Option<Self> {
         match value {
             1 => Some(Self::Runtime),
@@ -79,6 +144,15 @@ impl RootRole {
     }
 }
 
+/// 固定Binary Protocolで使用するFileIdentity契約を表す。
+///
+/// @responsibility FileIdentityが保持する固定Binary Protocolの値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape structとして固定Binary Protocolのfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct FileIdentity {
     pub volume_serial_number: u32,
@@ -86,6 +160,15 @@ pub struct FileIdentity {
     pub file_index_low: u32,
 }
 
+/// 固定Binary Protocolで使用するRequest契約を表す。
+///
+/// @responsibility Requestが保持する固定Binary Protocolの値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape structとして固定Binary Protocolのfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 #[derive(Debug, Eq, PartialEq)]
 pub struct Request {
     pub root_role: RootRole,
@@ -94,6 +177,15 @@ pub struct Request {
     pub path: String,
 }
 
+/// 固定Binary Protocolで使用するProviderHomeRequest契約を表す。
+///
+/// @responsibility ProviderHomeRequestが保持する固定Binary Protocolの値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape structとして固定Binary Protocolのfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ProviderHomeRequest {
     pub provider: Provider,
@@ -102,6 +194,15 @@ pub struct ProviderHomeRequest {
     pub mount_source_hash: [u8; 32],
 }
 
+/// 固定Binary Protocolで使用するReason契約を表す。
+///
+/// @responsibility Reasonが保持する固定Binary Protocolの値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape enumとして固定Binary Protocolのfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u16)]
 pub enum Reason {
@@ -117,6 +218,15 @@ pub enum Reason {
     ObservationCandidate = 100,
 }
 
+/// 固定Binary Protocolで使用するProviderHomeReason契約を表す。
+///
+/// @responsibility ProviderHomeReasonが保持する固定Binary Protocolの値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape enumとして固定Binary Protocolのfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u16)]
 pub enum ProviderHomeReason {
@@ -139,6 +249,15 @@ pub enum ProviderHomeReason {
     ObservationCandidate = 100,
 }
 
+/// 固定Binary Protocolで使用するResponse契約を表す。
+///
+/// @responsibility Responseが保持する固定Binary Protocolの値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape structとして固定Binary Protocolのfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Response {
     pub root_role: RootRole,
@@ -150,6 +269,15 @@ pub struct Response {
     pub principal_observation_flags: u32,
 }
 
+/// 固定Binary Protocolで使用するProviderHomeResponse契約を表す。
+///
+/// @responsibility ProviderHomeResponseが保持する固定Binary Protocolの値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape structとして固定Binary Protocolのfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ProviderHomeResponse {
     pub provider: Provider,
@@ -164,18 +292,60 @@ pub struct ProviderHomeResponse {
     pub stable_logical_home_binding_hash: [u8; 32],
 }
 
+/// u16を上限付きで読み取る。
+///
+/// @responsibility u16を上限付きで読み取る責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn read_u16(bytes: &[u8], offset: usize) -> Option<u16> {
     Some(u16::from_le_bytes(
         bytes.get(offset..offset + 2)?.try_into().ok()?,
     ))
 }
 
+/// u32を上限付きで読み取る。
+///
+/// @responsibility u32を上限付きで読み取る責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn read_u32(bytes: &[u8], offset: usize) -> Option<u32> {
     Some(u32::from_le_bytes(
         bytes.get(offset..offset + 4)?.try_into().ok()?,
     ))
 }
 
+/// 固定Binary Protocolのlimited uppercase units責務を実行する。
+///
+/// @responsibility 固定Binary Protocolのlimited uppercase units責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn limited_uppercase_units(character: char) -> &'static [char] {
     match character {
         'a' => &['A'],
@@ -218,6 +388,20 @@ fn limited_uppercase_units(character: char) -> &'static [char] {
     }
 }
 
+/// 固定Binary Protocolのlimited uppercase equals責務を実行する。
+///
+/// @responsibility 固定Binary Protocolのlimited uppercase equals責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn limited_uppercase_equals(value: &str, expected: &str) -> bool {
     let mut expected = expected.chars();
     for character in value.chars() {
@@ -237,6 +421,20 @@ fn limited_uppercase_equals(value: &str, expected: &str) -> bool {
     expected.next().is_none()
 }
 
+/// 固定Binary Protocolのreserved windows basename責務を実行する。
+///
+/// @responsibility 固定Binary Protocolのreserved windows basename責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn reserved_windows_basename(segment: &str) -> bool {
     let basename = segment
         .split('.')
@@ -252,6 +450,20 @@ fn reserved_windows_basename(segment: &str) -> bool {
     .any(|expected| limited_uppercase_equals(basename, expected))
 }
 
+/// is supported windows pathの成立可否を判定する。
+///
+/// @responsibility is supported windows pathの成立可否を判定する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn is_supported_windows_path(path: &str) -> bool {
     let bytes = path.as_bytes();
     bytes.len() >= 3
@@ -275,6 +487,20 @@ fn is_supported_windows_path(path: &str) -> bool {
             }))
 }
 
+/// requestを検証済みの値へ変換する。
+///
+/// @responsibility requestを検証済みの値へ変換する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 pub fn parse_request(bytes: &[u8]) -> Option<Request> {
     if bytes.len() < REQUEST_HEADER_BYTES
         || bytes.len() > MAXIMUM_REQUEST_BYTES
@@ -312,6 +538,20 @@ pub fn parse_request(bytes: &[u8]) -> Option<Request> {
     })
 }
 
+/// provider home requestを検証済みの値へ変換する。
+///
+/// @responsibility provider home requestを検証済みの値へ変換する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 pub fn parse_provider_home_request(bytes: &[u8]) -> Option<ProviderHomeRequest> {
     if bytes.len() != PROVIDER_HOME_REQUEST_BYTES
         || bytes.get(..8)? != PROVIDER_HOME_REQUEST_MAGIC
@@ -338,6 +578,20 @@ pub fn parse_provider_home_request(bytes: &[u8]) -> Option<ProviderHomeRequest> 
     .then_some(request)
 }
 
+/// responseを固定Protocolへ符号化する。
+///
+/// @responsibility responseを固定Protocolへ符号化する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 pub fn encode_response(response: Response) -> [u8; RESPONSE_BYTES] {
     let mut bytes = [0_u8; RESPONSE_BYTES];
     bytes[..8].copy_from_slice(RESPONSE_MAGIC);
@@ -352,6 +606,20 @@ pub fn encode_response(response: Response) -> [u8; RESPONSE_BYTES] {
     bytes
 }
 
+/// provider home responseを固定Protocolへ符号化する。
+///
+/// @responsibility provider home responseを固定Protocolへ符号化する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 pub fn encode_provider_home_response(
     response: ProviderHomeResponse,
 ) -> [u8; PROVIDER_HOME_RESPONSE_BYTES] {
@@ -371,6 +639,20 @@ pub fn encode_provider_home_response(
     bytes
 }
 
+/// request fromを上限付きで読み取る。
+///
+/// @responsibility request fromを上限付きで読み取る責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 pub fn read_request_from(reader: &mut impl Read) -> io::Result<Vec<u8>> {
     let mut bytes = Vec::new();
     reader
@@ -385,6 +667,20 @@ pub fn read_request_from(reader: &mut impl Read) -> io::Result<Vec<u8>> {
     Ok(bytes)
 }
 
+/// framed request fromを上限付きで読み取る。
+///
+/// @responsibility framed request fromを上限付きで読み取る責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 pub fn read_framed_request_from(reader: &mut impl Read) -> io::Result<Vec<u8>> {
     let mut bytes = vec![0_u8; REQUEST_HEADER_BYTES];
     reader.read_exact(&mut bytes)?;
@@ -405,10 +701,38 @@ pub fn read_framed_request_from(reader: &mut impl Read) -> io::Result<Vec<u8>> {
     Ok(bytes)
 }
 
+/// response toを固定形式で書き込む。
+///
+/// @responsibility response toを固定形式で書き込む責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 pub fn write_response_to(writer: &mut impl Write, response: Response) -> io::Result<()> {
     writer.write_all(&encode_response(response))
 }
 
+/// provider home response toを固定形式で書き込む。
+///
+/// @responsibility provider home response toを固定形式で書き込む責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input N/A: 呼出し引数を持たない。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 固定Build／Runtime構成が成立している。
+/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
+/// @effect N/A: 局所変換だけを行い、外部または共有Effectを発行しない。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary TypeScript Adapter→固定Binary Protocol→Native Worker。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency N/A: 共有可変状態を持たない同期処理である。
 pub fn write_provider_home_response_to(
     writer: &mut impl Write,
     response: ProviderHomeResponse,
@@ -445,6 +769,16 @@ mod tests {
         bytes
     }
 
+    /// parses_exact_requestを検証する。
+    ///
+    /// @responsibility parses_exact_requestの合否判定を所有する。
+    /// @trace RCM-UT-016
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus parses_exact_requestの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
     #[test]
     fn parses_exact_request() {
         let request = parse_request(&request_bytes(b"C:\\root")).unwrap();
@@ -456,6 +790,16 @@ mod tests {
         assert_eq!(request.path, "C:\\root");
     }
 
+    /// rejects_exact_revision_two_request_without_aliasingを検証する。
+    ///
+    /// @responsibility rejects_exact_revision_two_request_without_aliasingの合否判定を所有する。
+    /// @trace RCM-UT-016
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus rejects_exact_revision_two_request_without_aliasingの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
     #[test]
     fn rejects_exact_revision_two_request_without_aliasing() {
         let mut legacy = request_bytes(b"C:\\root");
@@ -464,6 +808,16 @@ mod tests {
         assert!(parse_request(&legacy).is_none());
     }
 
+    /// rejects_unsupported_or_oversized_request_framingを検証する。
+    ///
+    /// @responsibility rejects_unsupported_or_oversized_request_framingの合否判定を所有する。
+    /// @trace RCM-UT-016
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus rejects_unsupported_or_oversized_request_framingの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
     #[test]
     fn rejects_unsupported_or_oversized_request_framing() {
         let mut trailing = request_bytes(b"C:\\root");
@@ -509,6 +863,16 @@ mod tests {
         assert!(parse_request(&request_bytes("C:\\CONSOLE".as_bytes())).is_some());
     }
 
+    /// response_is_fixed_size_and_does_not_echo_pathを検証する。
+    ///
+    /// @responsibility response_is_fixed_size_and_does_not_echo_pathの合否判定を所有する。
+    /// @trace RCM-UT-016
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus response_is_fixed_size_and_does_not_echo_pathの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
     #[test]
     fn response_is_fixed_size_and_does_not_echo_path() {
         let response = encode_response(Response {
@@ -531,6 +895,16 @@ mod tests {
         assert!(!response.windows(3).any(|window| window == b"C:\\"));
     }
 
+    /// blocked_response_has_zero_status_reason_and_access_maskを検証する。
+    ///
+    /// @responsibility blocked_response_has_zero_status_reason_and_access_maskの合否判定を所有する。
+    /// @trace RCM-UT-016
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus blocked_response_has_zero_status_reason_and_access_maskの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
     #[test]
     fn blocked_response_has_zero_status_reason_and_access_mask() {
         let response = encode_response(Response {
@@ -551,6 +925,16 @@ mod tests {
         assert_eq!(&response[82..86], &[0_u8; 4]);
     }
 
+    /// provider_home_request_accepts_only_fixed_provider_and_frameを検証する。
+    ///
+    /// @responsibility provider_home_request_accepts_only_fixed_provider_and_frameの合否判定を所有する。
+    /// @trace RCM-UT-016
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus provider_home_request_accepts_only_fixed_provider_and_frameの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
     #[test]
     fn provider_home_request_accepts_only_fixed_provider_and_frame() {
         let request = parse_provider_home_request(&provider_home_request_bytes(2)).unwrap();
@@ -589,6 +973,16 @@ mod tests {
         assert!(parse_provider_home_request(&zero_source).is_none());
     }
 
+    /// provider_home_response_is_fixed_and_discloses_no_pathを検証する。
+    ///
+    /// @responsibility provider_home_response_is_fixed_and_discloses_no_pathの合否判定を所有する。
+    /// @trace RCM-UT-016
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus provider_home_response_is_fixed_and_discloses_no_pathの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
     #[test]
     fn provider_home_response_is_fixed_and_discloses_no_path() {
         let response = encode_provider_home_response(ProviderHomeResponse {

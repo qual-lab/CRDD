@@ -1,5 +1,7 @@
-//! A bounded child lifetime primitive. Caller owns executable trust and authority.
-//! This module does not launch Docker or issue restart authority.
+//! Windows Job Objectで子Process lifetimeを限定するprimitiveを提供する。
+//!
+//! @responsibility callerが検証・許可した実行物だけをbounded childとして起動し、終了時にhandleと子Processを回収する。
+//! @trace ARCH-000008
 
 use std::ffi::OsStr;
 use std::mem::size_of;
@@ -29,15 +31,61 @@ use windows_sys::Win32::System::Threading::{
     UpdateProcThreadAttribute, WaitForSingleObject,
 };
 
+/// Windows Owned Childで使用するHandle契約を表す。
+///
+/// @responsibility Handleが保持するWindows Owned Childの値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape structとしてWindows Owned Childのfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Coordinator→Windows Job Object→Owned Child Process。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 struct Handle(HANDLE);
+/// Windows Owned Childで使用するAttributeList契約を表す。
+///
+/// @responsibility AttributeListが保持するWindows Owned Childの値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape structとしてWindows Owned Childのfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Coordinator→Windows Job Object→Owned Child Process。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 struct AttributeList(LPPROC_THREAD_ATTRIBUTE_LIST);
 impl Drop for AttributeList {
+    /// Windows Owned Childが所有するNative Resourceを解放する。
+    ///
+    /// @responsibility 一意に所有するOS HandleまたはNative Contextを一回だけ解放する。
+    /// @trace ARCH-000008
+    /// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+    /// @returns N/A: 戻り値を公開せず、終了状態またはProcess exitで結果を示す。
+    /// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+    /// @postcondition 完了または拒否後に、所有するResourceの状態を観測可能な形へ確定する。
+    /// @effect 対象のNative ResourceまたはProcessだけへ限定Effectを発行する。
+    /// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+    /// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+    /// @boundary Coordinator→Windows Job Object→Owned Child Process。
+    /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+    /// @concurrency 所有Handleと終了観測を同じ呼出しlifecycleへ限定し、競合時は安全側に失敗する。
     fn drop(&mut self) {
         // SAFETY: list was successfully initialized; backing allocation outlives this guard.
         unsafe { DeleteProcThreadAttributeList(self.0) };
     }
 }
 impl Drop for Handle {
+    /// Windows Owned Childが所有するNative Resourceを解放する。
+    ///
+    /// @responsibility 一意に所有するOS HandleまたはNative Contextを一回だけ解放する。
+    /// @trace ARCH-000008
+    /// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+    /// @returns N/A: 戻り値を公開せず、終了状態またはProcess exitで結果を示す。
+    /// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+    /// @postcondition 完了または拒否後に、所有するResourceの状態を観測可能な形へ確定する。
+    /// @effect 対象のNative ResourceまたはProcessだけへ限定Effectを発行する。
+    /// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+    /// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+    /// @boundary Coordinator→Windows Job Object→Owned Child Process。
+    /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+    /// @concurrency 所有Handleと終了観測を同じ呼出しlifecycleへ限定し、競合時は安全側に失敗する。
     fn drop(&mut self) {
         if !self.0.is_null() && self.0 != INVALID_HANDLE_VALUE {
             // SAFETY: uniquely owned handle, never inherited by the child.
@@ -46,6 +94,15 @@ impl Drop for Handle {
     }
 }
 
+/// Windows Owned Childで使用するCompletion契約を表す。
+///
+/// @responsibility Completionが保持するWindows Owned Childの値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape enumとしてWindows Owned Childのfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Coordinator→Windows Job Object→Owned Child Process。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Completion {
     Exited(u32),
@@ -54,24 +111,65 @@ pub(crate) enum Completion {
     ObservationFailed,
 }
 
+/// Windows Owned Childで使用するOutcome契約を表す。
+///
+/// @responsibility Outcomeが保持するWindows Owned Childの値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape structとしてWindows Owned Childのfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Coordinator→Windows Job Object→Owned Child Process。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct Outcome {
     pub(crate) completion: Completion,
     pub(crate) cleanup_confirmed: bool,
 }
 
+/// Windows Owned Childで使用するStartFailure契約を表す。
+///
+/// @responsibility StartFailureが保持するWindows Owned Childの値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape structとしてWindows Owned Childのfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Coordinator→Windows Job Object→Owned Child Process。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct StartFailure {
     pub(crate) process_created: bool,
     pub(crate) cleanup_confirmed: bool,
 }
 
+/// Windows Owned Childで使用するOwnedChild契約を表す。
+///
+/// @responsibility OwnedChildが保持するWindows Owned Childの値、状態または分類境界を定義する。
+/// @trace ARCH-000008
+/// @shape structとしてWindows Owned Childのfield、variantまたはRelationを保持する。
+/// @invariant 不正、未観測および確定済みの状態を同一値へ畳まない。
+/// @boundary Coordinator→Windows Job Object→Owned Child Process。
+/// @security 秘密またはAuthorityを暗黙に保持せず、公開可能な値だけを表す。
+/// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 pub(crate) struct OwnedChild {
     // Closing this handle kills only this job and its non-breakaway descendants.
     job: Option<Handle>,
     process: Handle,
 }
 
+/// Windows Owned Childのterminated cleanup責務を実行する。
+///
+/// @responsibility Windows Owned Childのterminated cleanup責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+/// @trace ARCH-000008
+/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+/// @postcondition 完了または拒否後に、所有するResourceの状態を観測可能な形へ確定する。
+/// @effect 対象のNative ResourceまたはProcessだけへ限定Effectを発行する。
+/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+/// @boundary Coordinator→Windows Job Object→Owned Child Process。
+/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+/// @concurrency 所有Handleと終了観測を同じ呼出しlifecycleへ限定し、競合時は安全側に失敗する。
 fn terminated_cleanup(process: &Handle) -> bool {
     // SAFETY: exact handle returned by CreateProcessW, still owned by this scope.
     unsafe {
@@ -82,6 +180,19 @@ fn terminated_cleanup(process: &Handle) -> bool {
 
 impl OwnedChild {
     /// The supplied environment must be an explicit double-NUL Unicode block.
+    ///
+    /// @responsibility spawnを検証済み入力から生成する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+    /// @trace ARCH-000008
+    /// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
+    /// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+    /// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
+    /// @postcondition 完了または拒否後に、所有するResourceの状態を観測可能な形へ確定する。
+    /// @effect 対象のNative ResourceまたはProcessだけへ限定Effectを発行する。
+    /// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+    /// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+    /// @boundary Coordinator→Windows Job Object→Owned Child Process。
+    /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+    /// @concurrency 所有Handleと終了観測を同じ呼出しlifecycleへ限定し、競合時は安全側に失敗する。
     pub(crate) fn spawn(
         executable: &Path,
         command_line: &OsStr,
@@ -232,6 +343,19 @@ impl OwnedChild {
     }
 
     /// Cancellation asks only this child to end; it does not undo a requested external effect.
+    ///
+    /// @responsibility Windows Owned Childのwait責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
+    /// @trace ARCH-000008
+    /// @input N/A: 呼出し引数を持たない。
+    /// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
+    /// @precondition 固定Build／Runtime構成が成立している。
+    /// @postcondition 完了または拒否後に、所有するResourceの状態を観測可能な形へ確定する。
+    /// @effect 対象のNative ResourceまたはProcessだけへ限定Effectを発行する。
+    /// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
+    /// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
+    /// @boundary Coordinator→Windows Job Object→Owned Child Process。
+    /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
+    /// @concurrency 所有Handleと終了観測を同じ呼出しlifecycleへ限定し、競合時は安全側に失敗する。
     pub(crate) fn wait(
         mut self,
         timeout: Duration,
@@ -316,6 +440,16 @@ mod tests {
         )
         .unwrap_or_else(|failure| panic!("{failure:?}"))
     }
+    /// same_child_success_and_nonzero_exit_are_distinctを検証する。
+    ///
+    /// @responsibility same_child_success_and_nonzero_exit_are_distinctの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus same_child_success_and_nonzero_exit_are_distinctの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     fn same_child_success_and_nonzero_exit_are_distinct() {
         assert_eq!(
@@ -333,6 +467,16 @@ mod tests {
             }
         );
     }
+    /// timeout_kills_owned_child_and_observes_exitを検証する。
+    ///
+    /// @responsibility timeout_kills_owned_child_and_observes_exitの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus timeout_kills_owned_child_and_observes_exitの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     fn timeout_kills_owned_child_and_observes_exit() {
         assert_eq!(
@@ -343,6 +487,16 @@ mod tests {
             }
         );
     }
+    /// cancellation_kills_owned_child_and_observes_exitを検証する。
+    ///
+    /// @responsibility cancellation_kills_owned_child_and_observes_exitの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus cancellation_kills_owned_child_and_observes_exitの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     fn cancellation_kills_owned_child_and_observes_exit() {
         assert_eq!(
@@ -353,6 +507,16 @@ mod tests {
             }
         );
     }
+    /// closing_owner_job_handle_terminates_child_without_stdin_cooperationを検証する。
+    ///
+    /// @responsibility closing_owner_job_handle_terminates_child_without_stdin_cooperationの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus closing_owner_job_handle_terminates_child_without_stdin_cooperationの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     fn closing_owner_job_handle_terminates_child_without_stdin_cooperation() {
         let OwnedChild { job, process } = child("sleep_child");
@@ -363,6 +527,16 @@ mod tests {
             WAIT_OBJECT_0
         );
     }
+    /// invalid_executable_is_unissuedを検証する。
+    ///
+    /// @responsibility invalid_executable_is_unissuedの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus invalid_executable_is_unissuedの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     fn invalid_executable_is_unissued() {
         let result = OwnedChild::spawn(
@@ -379,16 +553,46 @@ mod tests {
             })
         ));
     }
+    /// Rust Test Caseを検証する。
+    ///
+    /// @responsibility Rust Test Caseの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus Rust Test Caseの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     #[ignore]
     fn exit_zero() {
         std::process::exit(0);
     }
+    /// Rust Test Caseを検証する。
+    ///
+    /// @responsibility Rust Test Caseの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus Rust Test Caseの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     #[ignore]
     fn exit_seven() {
         std::process::exit(7);
     }
+    /// Rust Test Caseを検証する。
+    ///
+    /// @responsibility Rust Test Caseの合否判定を所有する。
+    /// @trace RDL-UT-005
+    /// @precondition Test moduleが構築するfixtureと入力を使用する。
+    /// @stimulus Rust Test Caseの対象操作を実行する。
+    /// @observation 結果、状態、Effectおよび終了後条件を観測する。
+    /// @oracle Test本文のassertionが期待条件を満たす。
+    /// @cleanup Test本文またはDrop実装が作成資源を清掃する。
+    /// @boundary N/A: Path分類、保持、清掃、回復判定規則は外部実行境界を持たない。
     #[test]
     #[ignore]
     fn sleep_child() {

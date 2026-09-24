@@ -1,0 +1,41 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "project-operation",
+  "symbols": [
+    {
+      "symbolId": "project-operation.public-api",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": ["ARCH-000005", "ARCH-000016"]
+    },
+    {
+      "symbolId": "project-operation.domain.project-projection",
+      "kind": "file",
+      "path": "src/project-operation.ts",
+      "archIds": ["ARCH-000005", "ARCH-000016"]
+    },
+    {
+      "symbolId": "project-operation.domain.candidate-lifecycle",
+      "kind": "file",
+      "path": "src/project-operation.ts",
+      "archIds": ["ARCH-000016"]
+    },
+    {
+      "symbolId": "project-operation.test.integration.project-projection",
+      "kind": "test-suite",
+      "path": "tests/integration/project-projection.contract.test.ts",
+      "qaIds": ["QA-000004"],
+      "localTestIds": ["PPR-IT-002"],
+      "verifies": ["project-operation.domain.project-projection"]
+    },
+    {
+      "symbolId": "project-operation.test.integration.candidate-adoption",
+      "kind": "test-suite",
+      "path": "tests/integration/candidate-adoption.contract.test.ts",
+      "qaIds": ["QA-000005"],
+      "localTestIds": ["CPR-IT-004", "CPR-IT-006"],
+      "verifies": ["project-operation.domain.candidate-lifecycle"]
+    }
+  ]
+}

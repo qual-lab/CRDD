@@ -1,7 +1,19 @@
+/**
+ * project-runtime:unit:stateの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility project-runtime:unit:stateが所有する検証責務を実行する。
+ * @trace PRL-UT-006
+ * @trace PRL-UT-007
+ * @level UT
+ * @scope project、runtime、state
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。 / PRL-UT-007=N/A: Objective／Milestone Acceptance Decision状態遷移は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   acknowledgeProjectDockerRecoveryObligation,
+  applyProjectRuntimeAcceptanceDecision,
   applyProjectRuntimePartialReplan,
   createProjectRuntimeState,
   describeProjectRuntimeStateContract,
@@ -9,8 +21,6 @@ import {
   observeProjectTaskStarted,
   prepareProjectTaskHandoff,
   projectProjectRuntimeState,
-  recordMilestoneIntegration,
-  recordObjectiveIntegration,
   recordProjectTaskOwnerLossRecoveries,
   retrySettledProjectTaskRecoveries,
   reserveProjectTaskStart,
@@ -23,6 +33,18 @@ import {
 
 const revision = "a".repeat(40);
 
+/**
+ * taskのTest準備責務を実行する。
+ *
+ * @responsibility taskがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus taskを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 function task(
   id: string,
   dependencies: readonly string[] = [],
@@ -38,6 +60,18 @@ function task(
   });
 }
 
+/**
+ * stateForのTest準備責務を実行する。
+ *
+ * @responsibility stateForがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus stateForを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 function stateFor(
   tasks: readonly ProjectTaskDefinition[],
   maximumConcurrency = 5,
@@ -62,6 +96,18 @@ function stateFor(
   return result.state;
 }
 
+/**
+ * startのTest準備責務を実行する。
+ *
+ * @responsibility startがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus startを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 function start(
   state: ProjectRuntimeState,
   taskId: string,
@@ -98,6 +144,18 @@ function start(
 }
 
 describe("Project Runtime state contract", () => {
+  /**
+   * Hostが有効なowner generationを供給しない場合は状態を作らないを検証する。
+   *
+   * @responsibility Hostが有効なowner generationを供給しない場合は状態を作らないの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus Hostが有効なowner generationを供給しない場合は状態を作らないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("Hostが有効なowner generationを供給しない場合は状態を作らない", () => {
     const state = createProjectRuntimeState({
       projectId: "crdd",
@@ -117,6 +175,18 @@ describe("Project Runtime state contract", () => {
     assert.equal(state.state, null);
   });
 
+  /**
+   * 受入条件の説明文をPathとして正規化しないを検証する。
+   *
+   * @responsibility 受入条件の説明文をPathとして正規化しないの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 受入条件の説明文をPathとして正規化しないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("受入条件の説明文をPathとして正規化しない", () => {
     const state = createProjectRuntimeState({
       projectId: "crdd",
@@ -145,6 +215,18 @@ describe("Project Runtime state contract", () => {
     );
   });
 
+  /**
+   * Task定義のRepository外Pathを状態へ取り込まないを検証する。
+   *
+   * @responsibility Task定義のRepository外Pathを状態へ取り込まないの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus Task定義のRepository外Pathを状態へ取り込まないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("Task定義のRepository外Pathを状態へ取り込まない", () => {
     for (const pathValue of ["C:\\outside", "/outside", "../outside"]) {
       const state = createProjectRuntimeState({
@@ -165,6 +247,18 @@ describe("Project Runtime state contract", () => {
     }
   });
 
+  /**
+   * 7件の独立Taskから最大5件だけを選ぶを検証する。
+   *
+   * @responsibility 7件の独立Taskから最大5件だけを選ぶの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 7件の独立Taskから最大5件だけを選ぶの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("7件の独立Taskから最大5件だけを選ぶ", () => {
     const state = stateFor(
       Array.from({ length: 7 }, (_unused, index) => task(`task-${index + 1}`)),
@@ -178,6 +272,18 @@ describe("Project Runtime state contract", () => {
     ]);
   });
 
+  /**
+   * Dependency完了後だけ後続Taskをreadyへ進めるを検証する。
+   *
+   * @responsibility Dependency完了後だけ後続Taskをreadyへ進めるの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus Dependency完了後だけ後続Taskをreadyへ進めるの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("Dependency完了後だけ後続Taskをreadyへ進める", () => {
     let state = stateFor([task("task-a"), task("task-b", ["task-a"])]);
     assert.deepEqual(selectSchedulableProjectTasks(state), ["task-a"]);
@@ -197,6 +303,18 @@ describe("Project Runtime state contract", () => {
     assert.deepEqual(selectSchedulableProjectTasks(settled.state), ["task-b"]);
   });
 
+  /**
+   * 同じPathまたはConflict keyのTaskを同時に選ばないを検証する。
+   *
+   * @responsibility 同じPathまたはConflict keyのTaskを同時に選ばないの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 同じPathまたはConflict keyのTaskを同時に選ばないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("同じPathまたはConflict keyのTaskを同時に選ばない", () => {
     const state = stateFor([
       task("task-a", [], ["shared/file.txt"]),
@@ -210,6 +328,18 @@ describe("Project Runtime state contract", () => {
     ]);
   });
 
+  /**
+   * 親Directoryと子Pathを競合として扱うを検証する。
+   *
+   * @responsibility 親Directoryと子Pathを競合として扱うの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 親Directoryと子Pathを競合として扱うの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("親Directoryと子Pathを競合として扱う", () => {
     const state = stateFor([
       task("task-a", [], ["src"]),
@@ -222,6 +352,18 @@ describe("Project Runtime state contract", () => {
     ]);
   });
 
+  /**
+   * cleanup不明のTaskを空き枠へ補正しないを検証する。
+   *
+   * @responsibility cleanup不明のTaskを空き枠へ補正しないの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus cleanup不明のTaskを空き枠へ補正しないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("cleanup不明のTaskを空き枠へ補正しない", () => {
     let state = stateFor([task("task-a"), task("task-b")], 1);
     state = start(state, "task-a");
@@ -240,6 +382,18 @@ describe("Project Runtime state contract", () => {
     assert.deepEqual(selectSchedulableProjectTasks(settled.state), []);
   });
 
+  /**
+   * 取消済みTaskをObjectiveとMilestoneの取消へ同じ世代で投影するを検証する。
+   *
+   * @responsibility 取消済みTaskをObjectiveとMilestoneの取消へ同じ世代で投影するの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 取消済みTaskをObjectiveとMilestoneの取消へ同じ世代で投影するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task取消の上位状態投影は外部実行境界を持たない。
+   */
   it("取消済みTaskをObjectiveとMilestoneの取消へ同じ世代で投影する", () => {
     let state = stateFor([task("task-a")], 1);
     state = start(state, "task-a");
@@ -262,6 +416,18 @@ describe("Project Runtime state contract", () => {
     assert.equal(projection.nextAction, "wait_for_task");
   });
 
+  /**
+   * Recovery中はcleanup後も競合予約を維持するを検証する。
+   *
+   * @responsibility Recovery中はcleanup後も競合予約を維持するの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus Recovery中はcleanup後も競合予約を維持するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("Recovery中はcleanup後も競合予約を維持する", () => {
     let state = stateFor([
       task("task-a", [], ["shared/file.txt"]),
@@ -290,6 +456,18 @@ describe("Project Runtime state contract", () => {
     assert.deepEqual(selectSchedulableProjectTasks(settled.state), ["task-c"]);
   });
 
+  /**
+   * 古い世代と別attemptの結果を反映しないを検証する。
+   *
+   * @responsibility 古い世代と別attemptの結果を反映しないの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 古い世代と別attemptの結果を反映しないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("古い世代と別attemptの結果を反映しない", () => {
     const initial = stateFor([task("task-a")]);
     const state = start(initial, "task-a");
@@ -308,6 +486,18 @@ describe("Project Runtime state contract", () => {
     );
   });
 
+  /**
+   * cycleと欠落DependencyをEffect前に拒否するを検証する。
+   *
+   * @responsibility cycleと欠落DependencyをEffect前に拒否するの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus cycleと欠落DependencyをEffect前に拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("cycleと欠落DependencyをEffect前に拒否する", () => {
     for (const tasks of [
       [task("task-a", ["task-b"]), task("task-b", ["task-a"])],
@@ -334,6 +524,18 @@ describe("Project Runtime state contract", () => {
     }
   });
 
+  /**
+   * Task完了だけではObjectiveまたはMilestoneを受け入れないを検証する。
+   *
+   * @responsibility Task完了だけではObjectiveまたはMilestoneを受け入れないの合否判定を所有する。
+   * @trace PRL-UT-007
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus Task完了だけではObjectiveまたはMilestoneを受け入れないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-007=N/A: Objective／Milestone Acceptance Decision状態遷移は外部実行境界を持たない。
+   */
   it("Task完了だけではObjectiveまたはMilestoneを受け入れない", () => {
     let state = stateFor([task("task-a")]);
     state = start(state, "task-a");
@@ -361,6 +563,7 @@ describe("Project Runtime state contract", () => {
         executing: 0,
         integration_pending: 1,
         accepted: 0,
+        returned: 0,
         blocked: 0,
         cancelled: 0,
       },
@@ -404,6 +607,18 @@ describe("Project Runtime state contract", () => {
     });
   });
 
+  /**
+   * ObjectiveとMilestoneを別々の統合Evidenceで受け入れるを検証する。
+   *
+   * @responsibility ObjectiveとMilestoneを別々の統合Evidenceで受け入れるの合否判定を所有する。
+   * @trace PRL-UT-007
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus ObjectiveとMilestoneを別々の統合Evidenceで受け入れるの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-007=N/A: Objective／Milestone Acceptance Decision状態遷移は外部実行境界を持たない。
+   */
   it("ObjectiveとMilestoneを別々の統合Evidenceで受け入れる", () => {
     let state = stateFor([task("task-a")]);
     state = start(state, "task-a");
@@ -418,11 +633,39 @@ describe("Project Runtime state contract", () => {
       recoveryUnresolved: false,
     });
     assert.ok(settled.state);
-    const objective = recordObjectiveIntegration(
+    const waitingObjective = applyProjectRuntimeAcceptanceDecision(
       settled.state,
       settled.state.generation,
-      "objective-1",
-      { accepted: true, criterionEvidenceIds: ["evidence-objective-1"] },
+      {
+        target: "objective",
+        targetId: "objective-1",
+        decision: "wait",
+        criterionEvidenceIds: [],
+      },
+    );
+    assert.equal(waitingObjective.status, "completed");
+    assert.equal(waitingObjective.state, settled.state);
+    const returnedObjective = applyProjectRuntimeAcceptanceDecision(
+      settled.state,
+      settled.state.generation,
+      {
+        target: "objective",
+        targetId: "objective-1",
+        decision: "return",
+        criterionEvidenceIds: ["evidence-objective-return"],
+      },
+    );
+    assert.equal(returnedObjective.status, "completed");
+    assert.equal(returnedObjective.state.objectives[0]?.state, "returned");
+    const objective = applyProjectRuntimeAcceptanceDecision(
+      settled.state,
+      settled.state.generation,
+      {
+        target: "objective",
+        targetId: "objective-1",
+        decision: "accept",
+        criterionEvidenceIds: ["evidence-objective-1"],
+      },
     );
     assert.equal(objective.status, "completed");
     assert.ok(objective.state);
@@ -432,10 +675,43 @@ describe("Project Runtime state contract", () => {
       projectProjectRuntimeState(objective.state).nextAction,
       "verify_milestone_integration",
     );
-    const milestone = recordMilestoneIntegration(
+    const waitingMilestone = applyProjectRuntimeAcceptanceDecision(
       objective.state,
       objective.state.generation,
-      ["evidence-milestone-1"],
+      {
+        target: "milestone",
+        targetId: "v0.19",
+        decision: "wait",
+        criterionEvidenceIds: [],
+      },
+    );
+    assert.equal(waitingMilestone.status, "completed");
+    assert.equal(waitingMilestone.state, objective.state);
+    const returnedMilestone = applyProjectRuntimeAcceptanceDecision(
+      objective.state,
+      objective.state.generation,
+      {
+        target: "milestone",
+        targetId: "v0.19",
+        decision: "return",
+        criterionEvidenceIds: ["evidence-milestone-return"],
+      },
+    );
+    assert.equal(returnedMilestone.status, "completed");
+    assert.equal(returnedMilestone.state.milestone.state, "returned");
+    assert.equal(
+      projectProjectRuntimeState(returnedMilestone.state).nextAction,
+      "human_decision",
+    );
+    const milestone = applyProjectRuntimeAcceptanceDecision(
+      objective.state,
+      objective.state.generation,
+      {
+        target: "milestone",
+        targetId: "v0.19",
+        decision: "accept",
+        criterionEvidenceIds: ["evidence-milestone-1"],
+      },
     );
     assert.equal(milestone.status, "completed");
     assert.ok(milestone.state);
@@ -446,6 +722,77 @@ describe("Project Runtime state contract", () => {
     );
   });
 
+  /**
+   * Task完了だけではObjective受入またはMilestone判断を許可しないことを検証する。
+   *
+   * @responsibility 下位完了から上位受入を推定しないAcceptance Decision境界の合否判定を所有する。
+   * @trace PRL-UT-007
+   * @precondition 完了Taskを持つがObjectiveの明示受入前である状態を使用する。
+   * @stimulus Objective受入前のMilestone判断と古い世代のObjective判断を要求する。
+   * @observation 理由code、状態同一性およびTask ID列を観測する。
+   * @oracle 両入力を理由付きで拒否し、状態とTask集合を変更しない。
+   * @cleanup N/A: Process内の不変値だけを使用する。
+   * @boundary PRL-UT-007=N/A: Objective／Milestone Acceptance Decision状態遷移は外部実行境界を持たない。
+   */
+  it("Task完了だけではObjective受入またはMilestone判断を許可しない", () => {
+    let state = stateFor([task("task-a")]);
+    state = start(state, "task-a");
+    const settled = settleProjectTask(state, state.generation, {
+      taskId: "task-a",
+      attemptId: "attempt-task-a",
+      operationId: "operation-task-a",
+      authorityBindingId: "authority-task-a",
+      outcome: "completed",
+      cleanupConfirmed: true,
+      recoveryObligations: [],
+      recoveryUnresolved: false,
+    });
+    assert.ok(settled.state);
+    const milestone = applyProjectRuntimeAcceptanceDecision(
+      settled.state,
+      settled.state.generation,
+      {
+        target: "milestone",
+        targetId: "v0.19",
+        decision: "accept",
+        criterionEvidenceIds: ["evidence-milestone-1"],
+      },
+    );
+    assert.equal(
+      milestone.reason,
+      "project_runtime_acceptance_decision_mismatch",
+    );
+    assert.equal(milestone.state, settled.state);
+    const staleObjective = applyProjectRuntimeAcceptanceDecision(
+      settled.state,
+      settled.state.generation - 1,
+      {
+        target: "objective",
+        targetId: "objective-1",
+        decision: "accept",
+        criterionEvidenceIds: ["evidence-objective-1"],
+      },
+    );
+    assert.equal(
+      staleObjective.reason,
+      "project_runtime_acceptance_decision_mismatch",
+    );
+    assert.equal(staleObjective.state, settled.state);
+    assert.deepEqual(staleObjective.taskIds, []);
+  });
+
+  /**
+   * 依存されない失敗Taskの部分再計画は旧履歴を保持したまま最終受入へ到達するを検証する。
+   *
+   * @responsibility 依存されない失敗Taskの部分再計画は旧履歴を保持したまま最終受入へ到達するの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 依存されない失敗Taskの部分再計画は旧履歴を保持したまま最終受入へ到達するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("依存されない失敗Taskの部分再計画は旧履歴を保持したまま最終受入へ到達する", () => {
     let state = stateFor([task("task-a")]);
     state = start(state, "task-a");
@@ -495,17 +842,26 @@ describe("Project Runtime state contract", () => {
       projectProjectRuntimeState(completed.state).workProgress,
       "tasks_complete",
     );
-    const objective = recordObjectiveIntegration(
+    const objective = applyProjectRuntimeAcceptanceDecision(
       completed.state,
       completed.state.generation,
-      "objective-1",
-      { accepted: true, criterionEvidenceIds: ["evidence-objective-replan"] },
+      {
+        target: "objective",
+        targetId: "objective-1",
+        decision: "accept",
+        criterionEvidenceIds: ["evidence-objective-replan"],
+      },
     );
     assert.ok(objective.state);
-    const milestone = recordMilestoneIntegration(
+    const milestone = applyProjectRuntimeAcceptanceDecision(
       objective.state,
       objective.state.generation,
-      ["evidence-milestone-replan"],
+      {
+        target: "milestone",
+        targetId: "v0.19",
+        decision: "accept",
+        criterionEvidenceIds: ["evidence-milestone-replan"],
+      },
     );
     assert.ok(milestone.state);
     const projection = projectProjectRuntimeState(milestone.state);
@@ -514,6 +870,18 @@ describe("Project Runtime state contract", () => {
     assert.equal(projection.qualityState, "accepted");
   });
 
+  /**
+   * 生存する依存Taskを持つ失敗Taskの部分再計画は暗黙に依存を付け替えないを検証する。
+   *
+   * @responsibility 生存する依存Taskを持つ失敗Taskの部分再計画は暗黙に依存を付け替えないの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 生存する依存Taskを持つ失敗Taskの部分再計画は暗黙に依存を付け替えないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("生存する依存Taskを持つ失敗Taskの部分再計画は暗黙に依存を付け替えない", () => {
     let state = stateFor([task("task-a"), task("task-b", ["task-a"])]);
     state = start(state, "task-a");
@@ -547,23 +915,52 @@ describe("Project Runtime state contract", () => {
     assert.deepEqual(rejected.taskIds, []);
   });
 
+  /**
+   * 古い世代と統合待ち前の受入を拒否するを検証する。
+   *
+   * @responsibility 古い世代と統合待ち前の受入を拒否するの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 古い世代と統合待ち前の受入を拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("古い世代と統合待ち前の受入を拒否する", () => {
     const state = stateFor([task("task-a")]);
     assert.equal(
-      recordObjectiveIntegration(state, state.generation, "objective-1", {
-        accepted: true,
+      applyProjectRuntimeAcceptanceDecision(state, state.generation, {
+        target: "objective",
+        targetId: "objective-1",
+        decision: "accept",
         criterionEvidenceIds: ["evidence-objective-1"],
       }).reason,
-      "project_runtime_objective_integration_mismatch",
+      "project_runtime_acceptance_decision_mismatch",
     );
     assert.equal(
-      recordMilestoneIntegration(state, state.generation - 1, [
-        "evidence-milestone-1",
-      ]).reason,
-      "project_runtime_milestone_integration_mismatch",
+      applyProjectRuntimeAcceptanceDecision(state, state.generation - 1, {
+        target: "milestone",
+        targetId: "v0.19",
+        decision: "accept",
+        criterionEvidenceIds: ["evidence-milestone-1"],
+      }).reason,
+      "project_runtime_acceptance_decision_mismatch",
     );
   });
 
+  /**
+   * 受入条件ごとのEvidenceが不足する場合は受入を拒否するを検証する。
+   *
+   * @responsibility 受入条件ごとのEvidenceが不足する場合は受入を拒否するの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 受入条件ごとのEvidenceが不足する場合は受入を拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("受入条件ごとのEvidenceが不足する場合は受入を拒否する", () => {
     const created = createProjectRuntimeState({
       projectId: "crdd",
@@ -594,16 +991,32 @@ describe("Project Runtime state contract", () => {
     });
     assert.ok(settled.state);
     assert.equal(
-      recordObjectiveIntegration(
+      applyProjectRuntimeAcceptanceDecision(
         settled.state,
         settled.state.generation,
-        "objective-1",
-        { accepted: true, criterionEvidenceIds: ["evidence-only-one"] },
+        {
+          target: "objective",
+          targetId: "objective-1",
+          decision: "accept",
+          criterionEvidenceIds: ["evidence-only-one"],
+        },
       ).reason,
-      "project_runtime_objective_integration_mismatch",
+      "project_runtime_acceptance_decision_mismatch",
     );
   });
 
+  /**
+   * Recoveryを進捗や品質の成功へ補正しないを検証する。
+   *
+   * @responsibility Recoveryを進捗や品質の成功へ補正しないの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus Recoveryを進捗や品質の成功へ補正しないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("Recoveryを進捗や品質の成功へ補正しない", () => {
     let state = stateFor([task("task-a")]);
     state = start(state, "task-a");
@@ -631,6 +1044,18 @@ describe("Project Runtime state contract", () => {
     assert.equal(projection.nextAction, "recover");
   });
 
+  /**
+   * owner lossはAuthority発行前のstartingをEffect 0でreadyへ戻すを検証する。
+   *
+   * @responsibility owner lossはAuthority発行前のstartingをEffect 0でreadyへ戻すの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus owner lossはAuthority発行前のstartingをEffect 0でreadyへ戻すの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("owner lossはAuthority発行前のstartingをEffect 0でreadyへ戻す", () => {
     const state = stateFor([task("task-a")]);
     const reserved = reserveProjectTaskStart(
@@ -653,6 +1078,18 @@ describe("Project Runtime state contract", () => {
     assert.equal(recovered.state?.milestone.state, "executing");
   });
 
+  /**
+   * owner lossは開始済みTaskをexact Runtime Recoveryへ結合するを検証する。
+   *
+   * @responsibility owner lossは開始済みTaskをexact Runtime Recoveryへ結合するの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus owner lossは開始済みTaskをexact Runtime Recoveryへ結合するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("owner lossは開始済みTaskをexact Runtime Recoveryへ結合する", () => {
     const running = start(stateFor([task("task-a")]), "task-a");
     const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
@@ -675,6 +1112,18 @@ describe("Project Runtime state contract", () => {
     assert.equal(recovered.state?.milestone.state, "recovery_required");
   });
 
+  /**
+   * handoff準備済みTaskは排他下の不存在確認後だけEffect 0でreadyへ戻すを検証する。
+   *
+   * @responsibility handoff準備済みTaskは排他下の不存在確認後だけEffect 0でreadyへ戻すの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus handoff準備済みTaskは排他下の不存在確認後だけEffect 0でreadyへ戻すの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("handoff準備済みTaskは排他下の不存在確認後だけEffect 0でreadyへ戻す", () => {
     const initial = stateFor([task("task-a")]);
     const reserved = reserveProjectTaskStart(
@@ -709,6 +1158,18 @@ describe("Project Runtime state contract", () => {
     assert.deepEqual(recovered.state?.tasks[0]?.recoveryObligations, []);
   });
 
+  /**
+   * running Taskを不存在観測だけでreadyへ戻さないを検証する。
+   *
+   * @responsibility running Taskを不存在観測だけでreadyへ戻さないの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus running Taskを不存在観測だけでreadyへ戻さないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("running Taskを不存在観測だけでreadyへ戻さない", () => {
     const running = start(stateFor([task("task-a")]), "task-a");
     const recovered = recordProjectTaskOwnerLossRecoveries(
@@ -726,6 +1187,18 @@ describe("Project Runtime state contract", () => {
     assert.equal(recovered.state?.tasks[0]?.state, "running");
   });
 
+  /**
+   * 複数種のRecoveryを項目ごとの受領状態で保持するを検証する。
+   *
+   * @responsibility 複数種のRecoveryを項目ごとの受領状態で保持するの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 複数種のRecoveryを項目ごとの受領状態で保持するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("複数種のRecoveryを項目ごとの受領状態で保持する", () => {
     let state = start(stateFor([task("task-a")]), "task-a");
     const dockerId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
@@ -807,6 +1280,18 @@ describe("Project Runtime state contract", () => {
     );
   });
 
+  /**
+   * Process再起動済みでも外部Effect未解決のTaskをreadyへ戻さないを検証する。
+   *
+   * @responsibility Process再起動済みでも外部Effect未解決のTaskをreadyへ戻さないの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus Process再起動済みでも外部Effect未解決のTaskをreadyへ戻さないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("Process再起動済みでも外部Effect未解決のTaskをreadyへ戻さない", () => {
     let state = start(stateFor([task("task-a")]), "task-a");
     const runtimeProcessId = `runtime-process.11111111-1111-4111-8111-111111111111.restart-${"a".repeat(40)}`;
@@ -836,6 +1321,18 @@ describe("Project Runtime state contract", () => {
     assert.equal(retry.state?.tasks[0]?.state, "recovery_required");
   });
 
+  /**
+   * Lockとstale resultの保持条件を説明するを検証する。
+   *
+   * @responsibility Lockとstale resultの保持条件を説明するの合否判定を所有する。
+   * @trace PRL-UT-006
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus Lockとstale resultの保持条件を説明するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+   */
   it("Lockとstale resultの保持条件を説明する", () => {
     assert.deepEqual(describeProjectRuntimeStateContract(), {
       contract: "crdd-coordinator/project-runtime-state/v1",

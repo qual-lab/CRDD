@@ -2,7 +2,7 @@
 
 # CRDD外部コミュニケーション（Communication）
 
-Version: v0.20.1
+Version: v0.21.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-09-06

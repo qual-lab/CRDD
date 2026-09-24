@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:runtime-process-safety-stateの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:runtime-process-safety-stateが所有する検証責務を実行する。
+ * @trace PRL-IT-005
+ * @level IT
+ * @scope runtime、process、safety、state
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import path from "node:path";
@@ -17,6 +27,18 @@ import { startRuntimeOwnedCoordinatorTask } from "../../src/security/coordinator
 import { requestRuntimeOwnedExternalSendGrant } from "../../src/security/external-send-grant-runtime.ts";
 import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src/security/platform-provisioner-package-filesystem.ts";
 
+/**
+ * 対話cleanup不明は同一Process stateを不可逆にpoisonするを検証する。
+ *
+ * @responsibility 対話cleanup不明は同一Process stateを不可逆にpoisonするの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 対話cleanup不明は同一Process stateを不可逆にpoisonするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("対話cleanup不明は同一Process stateを不可逆にpoisonする", () => {
   const firstProcess = createIsolatedRuntimeProcessSafetyStateCandidate();
   const restartedProcess = createIsolatedRuntimeProcessSafetyStateCandidate();
@@ -28,6 +50,18 @@ test("対話cleanup不明は同一Process stateを不可逆にpoisonする", () 
   assert.equal(restartedProcess.isPoisoned(), false);
 });
 
+/**
+ * runtime_process回復Identityはattemptとoperationへ結合されfresh Processだけを識別するを検証する。
+ *
+ * @responsibility runtime_process回復Identityはattemptとoperationへ結合されfresh Processだけを識別するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus runtime_process回復Identityはattemptとoperationへ結合されfresh Processだけを識別するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("runtime_process回復Identityはattemptとoperationへ結合されfresh Processだけを識別する", () => {
   const attemptId = "attempt-a";
   const operationId = "operation-a";
@@ -80,6 +114,18 @@ test("runtime_process回復Identityはattemptとoperationへ結合されfresh Pr
   );
 });
 
+/**
+ * Host failure drainは所有tokenだけで解除でき既存poisonを消さないを検証する。
+ *
+ * @responsibility Host failure drainは所有tokenだけで解除でき既存poisonを消さないの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host failure drainは所有tokenだけで解除でき既存poisonを消さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("Host failure drainは所有tokenだけで解除でき既存poisonを消さない", () => {
   const state = createIsolatedRuntimeProcessSafetyStateCandidate();
   const drain = state.beginDrain();
@@ -96,6 +142,18 @@ test("Host failure drainは所有tokenだけで解除でき既存poisonを消さ
   assert.equal(state.isEffectBlocked(), true);
 });
 
+/**
+ * Process poison契約は同期不可逆Gateとfresh Process境界を固定するを検証する。
+ *
+ * @responsibility Process poison契約は同期不可逆Gateとfresh Process境界を固定するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Process poison契約は同期不可逆Gateとfresh Process境界を固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("Process poison契約は同期不可逆Gateとfresh Process境界を固定する", () => {
   assert.deepEqual(describeRuntimeProcessSafetyStateContract(), {
     contract: "crdd-coordinator/runtime-process-safety-state",
@@ -121,6 +179,18 @@ test("Process poison契約は同期不可逆Gateとfresh Process境界を固定�
   });
 });
 
+/**
+ * Host failure drain中はTask／Package／External SendをEffect前に一時拒否し解除後はrestart要求しないを検証する。
+ *
+ * @responsibility Host failure drain中はTask／Package／External SendをEffect前に一時拒否し解除後はrestart要求しないの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Host failure drain中はTask／Package／External SendをEffect前に一時拒否し解除後はrestart要求しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("Host failure drain中はTask／Package／External SendをEffect前に一時拒否し解除後はrestart要求しない", async () => {
   const drain = beginRuntimeProcessEffectDrain();
   const packageOutcome = issueRuntimeOwnedVerifiedCoordinatorPackageCapability(
@@ -165,6 +235,18 @@ test("Host failure drain中はTask／Package／External SendをEffect前に一�
   );
 });
 
+/**
+ * 全cleanup起点のproduction process poisonは保留cleanup中から全入口を停止するを検証する。
+ *
+ * @responsibility 全cleanup起点のproduction process poisonは保留cleanup中から全入口を停止するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 全cleanup起点のproduction process poisonは保留cleanup中から全入口を停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("全cleanup起点のproduction process poisonは保留cleanup中から全入口を停止する", () => {
   const fixture = path.join(
     import.meta.dirname,

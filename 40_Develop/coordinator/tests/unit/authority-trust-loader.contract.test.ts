@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:authority-trust-loaderの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:authority-trust-loaderが所有する検証責務を実行する。
+ * @trace AIT-UT-005
+ * @level UT
+ * @scope authority、trust、loader
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -19,6 +29,18 @@ import {
 } from "../../src/security/provider-isolation-profile.ts";
 import { assertPresent, canonicalJson } from "../support/test-support.ts";
 
+/**
+ * profileのTest準備責務を実行する。
+ *
+ * @responsibility profileがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-UT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus profileを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 function profile() {
   return {
     contract: PROVIDER_ISOLATION_CONTRACT,
@@ -40,6 +62,18 @@ function profile() {
   };
 }
 
+/**
+ * registryのTest準備責務を実行する。
+ *
+ * @responsibility registryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-UT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus registryを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 function registry() {
   return {
     contract: AUTHORITY_REGISTRY_CONTRACT,
@@ -73,6 +107,18 @@ function registry() {
   };
 }
 
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-UT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 function fixture() {
   const validated = validateAuthorityRegistryCandidate(registry());
   assert.equal(validated.status, "candidate");
@@ -91,6 +137,18 @@ function fixture() {
   return { validated, bytes, policy };
 }
 
+/**
+ * canonical Registry byte列と完全一致Policyから信頼候補を作るを検証する。
+ *
+ * @responsibility canonical Registry byte列と完全一致Policyから信頼候補を作るの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus canonical Registry byte列と完全一致Policyから信頼候補を作るの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("canonical Registry byte列と完全一致Policyから信頼候補を作る", () => {
   const { bytes, policy } = fixture();
   const result = loadAuthorityRegistryTrustCandidate(bytes, policy);
@@ -100,6 +158,18 @@ test("canonical Registry byte列と完全一致Policyから信頼候補を作る
   assert.match(result.trustPolicyHash, /^[a-f0-9]{64}$/u);
 });
 
+/**
+ * 非canonical、BOM、不正UTF-8およびbyte上限超過をfail closedにするを検証する。
+ *
+ * @responsibility 非canonical、BOM、不正UTF-8およびbyte上限超過をfail closedにするの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 非canonical、BOM、不正UTF-8およびbyte上限超過をfail closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("非canonical、BOM、不正UTF-8およびbyte上限超過をfail closedにする", () => {
   const { bytes, policy } = fixture();
   const duplicateKey = Buffer.from(
@@ -126,6 +196,18 @@ test("非canonical、BOM、不正UTF-8およびbyte上限超過をfail closedに
   );
 });
 
+/**
+ * Policyの状態、Registry Identity、Hashおよびshape差を拒否するを検証する。
+ *
+ * @responsibility Policyの状態、Registry Identity、Hashおよびshape差を拒否するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Policyの状態、Registry Identity、Hashおよびshape差を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Policyの状態、Registry Identity、Hashおよびshape差を拒否する", () => {
   const { bytes, policy } = fixture();
   for (const changed of [
@@ -142,6 +224,18 @@ test("Policyの状態、Registry Identity、Hashおよびshape差を拒否する
   }
 });
 
+/**
+ * Policy accessorとProxyを実行せずblockedへ閉じるを検証する。
+ *
+ * @responsibility Policy accessorとProxyを実行せずblockedへ閉じるの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Policy accessorとProxyを実行せずblockedへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Policy accessorとProxyを実行せずblockedへ閉じる", () => {
   const { bytes, policy } = fixture();
   let getterCalls = 0;
@@ -173,6 +267,18 @@ test("Policy accessorとProxyを実行せずblockedへ閉じる", () => {
   assert.equal(proxyCalls, 0);
 });
 
+/**
+ * Registry Bufferの上書きpropertyを参照せずRuntime所有copyを使うを検証する。
+ *
+ * @responsibility Registry Bufferの上書きpropertyを参照せずRuntime所有copyを使うの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Registry Bufferの上書きpropertyを参照せずRuntime所有copyを使うの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Registry Bufferの上書きpropertyを参照せずRuntime所有copyを使う", () => {
   const { bytes, policy } = fixture();
   let calls = 0;
@@ -196,6 +302,18 @@ test("Registry Bufferの上書きpropertyを参照せずRuntime所有copyを使�
   assert.equal(calls, 0);
 });
 
+/**
+ * Trust Policy byte列も所有copy、canonical形式および独立上限を要求するを検証する。
+ *
+ * @responsibility Trust Policy byte列も所有copy、canonical形式および独立上限を要求するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Trust Policy byte列も所有copy、canonical形式および独立上限を要求するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Trust Policy byte列も所有copy、canonical形式および独立上限を要求する", () => {
   const { policy } = fixture();
   const bytes = Buffer.from(canonicalJson(policy), "utf8");
@@ -239,6 +357,18 @@ test("Trust Policy byte列も所有copy、canonical形式および独立上限�
   }
 });
 
+/**
+ * Loader Core候補はcaller PolicyをAuthority Capabilityへ昇格しないを検証する。
+ *
+ * @responsibility Loader Core候補はcaller PolicyをAuthority Capabilityへ昇格しないの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Loader Core候補はcaller PolicyをAuthority Capabilityへ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Loader Core候補はcaller PolicyをAuthority Capabilityへ昇格しない", () => {
   const contract = describeAuthorityTrustLoaderContract();
   assert.equal(contract.canonicalRegistryByteLoader, "implemented_candidate");

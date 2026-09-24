@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:platform-access-adapterの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:platform-access-adapterが所有する検証責務を実行する。
+ * @trace PRL-UT-014
+ * @level UT
+ * @scope platform、access、adapter
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -7,6 +17,18 @@ import {
   inspectWindowsPlatformAccessCandidate,
 } from "../../src/security/platform-access-adapter.ts";
 
+/**
+ * responseのTest準備責務を実行する。
+ *
+ * @responsibility responseがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-014
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus responseを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 function response(
   nonce: Buffer,
   role = 2,
@@ -26,6 +48,18 @@ function response(
   return bytes;
 }
 
+/**
+ * assertFullyBlockedのTest準備責務を実行する。
+ *
+ * @responsibility assertFullyBlockedがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-014
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus assertFullyBlockedを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 function assertFullyBlocked(
   result: ReturnType<typeof evaluatePlatformAccessResponseCandidate>,
 ) {
@@ -59,6 +93,18 @@ function assertFullyBlocked(
   });
 }
 
+/**
+ * Rust platform access responseを安全要約へ限定するを検証する。
+ *
+ * @responsibility Rust platform access responseを安全要約へ限定するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Rust platform access responseを安全要約へ限定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Rust platform access responseを安全要約へ限定する", () => {
   const nonce = Buffer.alloc(32, 7);
   const rawResponse = response(nonce);
@@ -114,6 +160,18 @@ test("Rust platform access responseを安全要約へ限定する", () => {
   }
 });
 
+/**
+ * protocol nonce role length unknown bitの不一致をfail closedにするを検証する。
+ *
+ * @responsibility protocol nonce role length unknown bitの不一致をfail closedにするの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus protocol nonce role length unknown bitの不一致をfail closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("protocol nonce role length unknown bitの不一致をfail closedにする", () => {
   const nonce = Buffer.alloc(32, 5);
   const legacyRevisionTwo = Buffer.alloc(82);
@@ -159,6 +217,18 @@ test("protocol nonce role length unknown bitの不一致をfail closedにする"
   }
 });
 
+/**
+ * local interactive selected user以外のprincipalをfail closedにするを検証する。
+ *
+ * @responsibility local interactive selected user以外のprincipalをfail closedにするの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus local interactive selected user以外のprincipalをfail closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("local interactive selected user以外のprincipalをfail closedにする", () => {
   const nonce = Buffer.alloc(32, 9);
   for (const principalMask of [
@@ -180,6 +250,18 @@ test("local interactive selected user以外のprincipalをfail closedにする",
   }
 });
 
+/**
+ * 全access bitを固定した限定名へ一対一で写像するを検証する。
+ *
+ * @responsibility 全access bitを固定した限定名へ一対一で写像するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 全access bitを固定した限定名へ一対一で写像するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("全access bitを固定した限定名へ一対一で写像する", () => {
   const nonce = Buffer.alloc(32, 3);
   const names = [
@@ -209,6 +291,18 @@ test("全access bitを固定した限定名へ一対一で写像する", () => {
   }
 });
 
+/**
+ * Release binary結合前は入力へ触れずprocess起動前にblockedにするを検証する。
+ *
+ * @responsibility Release binary結合前は入力へ触れずprocess起動前にblockedにするの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Release binary結合前は入力へ触れずprocess起動前にblockedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Release binary結合前は入力へ触れずprocess起動前にblockedにする", () => {
   let trapCalls = 0;
   const trap = new Proxy(
@@ -235,6 +329,18 @@ test("Release binary結合前は入力へ触れずprocess起動前にblockedに�
   assert.equal(trapCalls, 0);
 });
 
+/**
+ * Rust componentとproduction停止境界を同時に投影するを検証する。
+ *
+ * @responsibility Rust componentとproduction停止境界を同時に投影するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Rust componentとproduction停止境界を同時に投影するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=N/A: Project Runtime Application Portは外部実行境界を持たない。
+ */
 test("Rust componentとproduction停止境界を同時に投影する", () => {
   const contract = describePlatformAccessAdapterContract();
   assert.equal(contract.implementationLanguage, "rust");

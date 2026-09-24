@@ -1,12 +1,61 @@
+/**
+ * unambiguous-json-documentに属する責務をまとめる。
+ *
+ * @responsibility Scanを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000012
+ */
 const WHITESPACE = new Set([" ", "\t", "\r", "\n"]);
 const HEX = /^[0-9a-f]$/iu;
+/**
+ * unambiguous-json-documentで使用するScanの値契約を定義する。
+ *
+ * @responsibility ScanのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000012
+ * @shape Scanが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Scanで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Scanの宣言は外部境界を開かない。
+ * @security N/A: ScanはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility Scanの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Scan = Readonly<{ nextIndex: number; hasDuplicateKey: boolean }>;
 
+/**
+ * unambiguous-json-documentを読み飛ばして次位置を返す。
+ *
+ * @responsibility unambiguous-json-documentの対象文字、走査上限、次位置境界を所有する。
+ * @trace ARCH-000012
+ * @input raw: string、start: number
+ * @returns skipの計算結果を返す。
+ * @precondition 「raw: string、start: number」がskipの入力契約を満たす。
+ * @postcondition skipの責務を完了した結果だけを返す。
+ * @effect N/A: skipは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: skipは独自の失敗分岐を所有しない。
+ * @invariant skipは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: skipはProcess内の同一Subsystemで完結する。
+ * @security N/A: skipはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: skipは共有非同期状態を持たない同期処理である。
+ */
 function skip(raw: string, start: number) {
   let index = start;
   while (index < raw.length && WHITESPACE.has(raw[index] ?? "")) index += 1;
   return index;
 }
+/**
+ * Stringを構文単位として走査する。
+ *
+ * @responsibility Stringの走査開始点、終了点、不正文法の拒否境界を所有する。
+ * @trace ARCH-000012
+ * @input raw: string、start: number
+ * @returns scanStringの計算結果を返す。
+ * @precondition 「raw: string、start: number」がscanStringの入力契約を満たす。
+ * @postcondition scanStringの責務を完了した結果だけを返す。
+ * @effect N/A: scanStringは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: scanStringは独自の失敗分岐を所有しない。
+ * @invariant scanStringは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: scanStringはProcess内の同一Subsystemで完結する。
+ * @security N/A: scanStringはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: scanStringは共有非同期状態を持たない同期処理である。
+ */
 function scanString(raw: string, start: number) {
   if (raw[start] !== '"') return null;
   let index = start + 1;
@@ -34,6 +83,22 @@ function scanString(raw: string, start: number) {
   }
   return null;
 }
+/**
+ * Arrayを構文単位として走査する。
+ *
+ * @responsibility Arrayの走査開始点、終了点、不正文法の拒否境界を所有する。
+ * @trace ARCH-000012
+ * @input raw: string、start: number
+ * @returns Scan | nullを返す。
+ * @precondition 「raw: string、start: number」がscanArrayの入力契約を満たす。
+ * @postcondition scanArrayの責務を完了した結果だけを返す。
+ * @effect N/A: scanArrayは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: scanArrayは独自の失敗分岐を所有しない。
+ * @invariant scanArrayは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: scanArrayはProcess内の同一Subsystemで完結する。
+ * @security N/A: scanArrayはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: scanArrayは共有非同期状態を持たない同期処理である。
+ */
 function scanArray(raw: string, start: number): Scan | null {
   let index = skip(raw, start + 1);
   let hasDuplicate = false;
@@ -51,6 +116,22 @@ function scanArray(raw: string, start: number): Scan | null {
   }
   return null;
 }
+/**
+ * Objectを構文単位として走査する。
+ *
+ * @responsibility Objectの走査開始点、終了点、不正文法の拒否境界を所有する。
+ * @trace ARCH-000012
+ * @input raw: string、start: number
+ * @returns Scan | nullを返す。
+ * @precondition 「raw: string、start: number」がscanObjectの入力契約を満たす。
+ * @postcondition scanObjectの責務を完了した結果だけを返す。
+ * @effect N/A: scanObjectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure scanObjectは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant scanObjectは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: scanObjectはProcess内の同一Subsystemで完結する。
+ * @security N/A: scanObjectはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: scanObjectは共有非同期状態を持たない同期処理である。
+ */
 function scanObject(raw: string, start: number): Scan | null {
   const keys = new Set<string>();
   let index = skip(raw, start + 1);
@@ -81,6 +162,22 @@ function scanObject(raw: string, start: number): Scan | null {
   }
   return null;
 }
+/**
+ * Valueを構文単位として走査する。
+ *
+ * @responsibility Valueの走査開始点、終了点、不正文法の拒否境界を所有する。
+ * @trace ARCH-000012
+ * @input raw: string、start: number
+ * @returns Scan | nullを返す。
+ * @precondition 「raw: string、start: number」がscanValueの入力契約を満たす。
+ * @postcondition scanValueの責務を完了した結果だけを返す。
+ * @effect N/A: scanValueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: scanValueは独自の失敗分岐を所有しない。
+ * @invariant scanValueは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: scanValueはProcess内の同一Subsystemで完結する。
+ * @security N/A: scanValueはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: scanValueは共有非同期状態を持たない同期処理である。
+ */
 function scanValue(raw: string, start: number): Scan | null {
   const index = skip(raw, start);
   if (raw[index] === "{") return scanObject(raw, index);
@@ -99,6 +196,22 @@ function scanValue(raw: string, start: number): Scan | null {
     ? { nextIndex: index + (number[0]?.length ?? 0), hasDuplicateKey: false }
     : null;
 }
+/**
+ * Unambiguous Json Documentを構造化値へ解析する。
+ *
+ * @responsibility Unambiguous Json Documentの入力文法、解析結果、不正文法の拒否境界を所有する。
+ * @trace ARCH-000012
+ * @input raw: string
+ * @returns parseUnambiguousJsonDocumentの計算結果を返す。
+ * @precondition 「raw: string」がparseUnambiguousJsonDocumentの入力契約を満たす。
+ * @postcondition parseUnambiguousJsonDocumentの責務を完了した結果だけを返す。
+ * @effect N/A: parseUnambiguousJsonDocumentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure parseUnambiguousJsonDocumentは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant parseUnambiguousJsonDocumentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseUnambiguousJsonDocumentはProcess内の同一Subsystemで完結する。
+ * @security N/A: parseUnambiguousJsonDocumentはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: parseUnambiguousJsonDocumentは共有非同期状態を持たない同期処理である。
+ */
 export function parseUnambiguousJsonDocument(raw: string) {
   if (raw.length === 0 || raw.charCodeAt(0) === 0xfeff) return null;
   const scanned = scanValue(raw, 0);

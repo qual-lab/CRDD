@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:repository-workspace-runtimeの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:repository-workspace-runtimeが所有する検証責務を実行する。
+ * @trace RFD-IT-013
+ * @level IT
+ * @scope repository、workspace、runtime
+ * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+ */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -24,6 +34,18 @@ import {
   verifyRuntimeOwnedCandidateRevision,
 } from "../../src/security/repository-workspace-runtime.ts";
 
+/**
+ * writeObjectのTest準備責務を実行する。
+ *
+ * @responsibility writeObjectがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RFD-IT-013
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus writeObjectを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+ */
 function writeObject(
   commonDirectory: string,
   objectType: string,
@@ -45,6 +67,18 @@ function writeObject(
   return objectId;
 }
 
+/**
+ * treeEntryのTest準備責務を実行する。
+ *
+ * @responsibility treeEntryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RFD-IT-013
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus treeEntryを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+ */
 function treeEntry(mode: string, name: string, objectId: string) {
   return Buffer.concat([
     Buffer.from(`${mode} ${name}\0`),
@@ -52,6 +86,18 @@ function treeEntry(mode: string, name: string, objectId: string) {
   ]);
 }
 
+/**
+ * repositoryのTest準備責務を実行する。
+ *
+ * @responsibility repositoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RFD-IT-013
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus repositoryを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+ */
 function repository(t: TestContext) {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-workspace-repository-"),
@@ -111,6 +157,18 @@ function repository(t: TestContext) {
   return Object.freeze({ root, commonDirectory, commitId });
 }
 
+/**
+ * snapshotRepositoryFilesのTest準備責務を実行する。
+ *
+ * @responsibility snapshotRepositoryFilesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RFD-IT-013
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus snapshotRepositoryFilesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+ */
 function snapshotRepositoryFiles(root: string) {
   return fs
     .readdirSync(root, { recursive: true, encoding: "utf8" })
@@ -126,6 +184,18 @@ function snapshotRepositoryFiles(root: string) {
     }));
 }
 
+/**
+ * operationのTest準備責務を実行する。
+ *
+ * @responsibility operationがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RFD-IT-013
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus operationを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+ */
 function operation(t: TestContext, repositoryRoot: string) {
   const owned = createOwnedOperationDirectories();
   t.after(() => cleanupOwnedOperationDirectories(owned));
@@ -154,6 +224,18 @@ function operation(t: TestContext, repositoryRoot: string) {
 
 // Only inventory observations inside this owned workspace are virtualized.
 // Real descriptors retain bounded ownership; bytes, size and identity agree.
+/**
+ * virtualInventoryのTest準備責務を実行する。
+ *
+ * @responsibility virtualInventoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace RFD-IT-013
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus virtualInventoryを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+ */
 function virtualInventory(
   t: TestContext,
   workspace: string,
@@ -183,6 +265,18 @@ function virtualInventory(
   const descriptors = new Map<number, { byteLength: number; index: number }>();
   const openedIndices: number[] = [];
   let readByteCount = 0;
+  /**
+   * fileMetadataのTest準備責務を実行する。
+   *
+   * @responsibility fileMetadataがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace RFD-IT-013
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus fileMetadataを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+   */
   const fileMetadata = (file: { byteLength: number; index: number }) =>
     Object.assign(Object.create(Object.getPrototypeOf(metadata)), metadata, {
       size: BigInt(file.byteLength),
@@ -248,6 +342,18 @@ function virtualInventory(
   };
 }
 
+/**
+ * 変更path上限1000件を受理し1001件は候補を発行しないを検証する。
+ *
+ * @responsibility 変更path上限1000件を受理し1001件は候補を発行しないの合否判定を所有する。
+ * @trace RFD-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 変更path上限1000件を受理し1001件は候補を発行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+ */
 test("変更path上限1000件を受理し1001件は候補を発行しない", (t) => {
   const source = repository(t);
   const beforeFiles = snapshotRepositoryFiles(source.root);
@@ -264,6 +370,18 @@ test("変更path上限1000件を受理し1001件は候補を発行しない", (t
       "a",
     );
   }
+  /**
+   * captureのTest準備責務を実行する。
+   *
+   * @responsibility captureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace RFD-IT-013
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus captureを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+   */
   const capture = () =>
     captureRuntimeOwnedCandidateRevision(
       materialized?.workspaceCapability,
@@ -284,6 +402,18 @@ test("変更path上限1000件を受理し1001件は候補を発行しない", (t
 });
 
 for (const scenario of ["file_count", "total_bytes"] as const) {
+  /**
+   * workspace ${scenario}の境界到達と超過停止を後段guardから区別するを検証する。
+   *
+   * @responsibility workspace ${scenario}の境界到達と超過停止を後段guardから区別するの合否判定を所有する。
+   * @trace RFD-IT-013
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus workspace ${scenario}の境界到達と超過停止を後段guardから区別するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+   */
   test(`workspace ${scenario}の境界到達と超過停止を後段guardから区別する`, (t) => {
     const source = repository(t);
     const beforeFiles = snapshotRepositoryFiles(source.root);
@@ -345,6 +475,18 @@ for (const scenario of ["file_count", "total_bytes"] as const) {
   });
 }
 
+/**
+ * 候補内容16MiBだけがStore方針検証へ到達し1byte超過は保存前に拒否するを検証する。
+ *
+ * @responsibility 候補内容16MiBだけがStore方針検証へ到達し1byte超過は保存前に拒否するの合否判定を所有する。
+ * @trace RFD-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 候補内容16MiBだけがStore方針検証へ到達し1byte超過は保存前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+ */
 test("候補内容16MiBだけがStore方針検証へ到達し1byte超過は保存前に拒否する", (t) => {
   const source = repository(t);
   const beforeFiles = snapshotRepositoryFiles(source.root);
@@ -402,6 +544,18 @@ test("候補内容16MiBだけがStore方針検証へ到達し1byte超過は保�
   assert.deepEqual(snapshotRepositoryFiles(source.root), beforeFiles);
 });
 
+/**
+ * HEAD Treeから隔離workspaceを作り許可pathだけをCandidate Revisionへ固定するを検証する。
+ *
+ * @responsibility HEAD Treeから隔離workspaceを作り許可pathだけをCandidate Revisionへ固定するの合否判定を所有する。
+ * @trace RFD-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus HEAD Treeから隔離workspaceを作り許可pathだけをCandidate Revisionへ固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+ */
 test("HEAD Treeから隔離workspaceを作り許可pathだけをCandidate Revisionへ固定する", (t) => {
   const source = repository(t);
   const runtime = operation(t, source.root);
@@ -441,6 +595,18 @@ test("HEAD Treeから隔離workspaceを作り許可pathだけをCandidate Revisi
   assert.equal(verified?.patchHash, candidate?.patchHash);
 });
 
+/**
+ * 許可外変更、重複allowed path、Revision変化とCandidate後差替えを拒否するを検証する。
+ *
+ * @responsibility 許可外変更、重複allowed path、Revision変化とCandidate後差替えを拒否するの合否判定を所有する。
+ * @trace RFD-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 許可外変更、重複allowed path、Revision変化とCandidate後差替えを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+ */
 test("許可外変更、重複allowed path、Revision変化とCandidate後差替えを拒否する", (t) => {
   const source = repository(t);
   const first = operation(t, source.root);
@@ -538,6 +704,18 @@ for (const [scenario, label] of [
   ["file_size", "単一file容量超過"],
   ["junction", "junction entry"],
 ] as const) {
+  /**
+   * 実行後workspaceの${label}をCandidateへ昇格せず元Repositoryを保持するを検証する。
+   *
+   * @responsibility 実行後workspaceの${label}をCandidateへ昇格せず元Repositoryを保持するの合否判定を所有する。
+   * @trace RFD-IT-013
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 実行後workspaceの${label}をCandidateへ昇格せず元Repositoryを保持するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+   */
   test(`実行後workspaceの${label}をCandidateへ昇格せず元Repositoryを保持する`, (t) => {
     if (scenario === "junction" && process.platform !== "win32") {
       t.skip("Windows junction boundary only");
@@ -601,6 +779,18 @@ for (const [scenario, label] of [
   });
 }
 
+/**
+ * 偽Capabilityと動的allowed pathをFilesystem Effectへ昇格しないを検証する。
+ *
+ * @responsibility 偽Capabilityと動的allowed pathをFilesystem Effectへ昇格しないの合否判定を所有する。
+ * @trace RFD-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 偽Capabilityと動的allowed pathをFilesystem Effectへ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+ */
 test("偽Capabilityと動的allowed pathをFilesystem Effectへ昇格しない", (t) => {
   const source = repository(t);
   const runtime = operation(t, source.root);
@@ -637,6 +827,18 @@ test("偽Capabilityと動的allowed pathをFilesystem Effectへ昇格しない",
   );
 });
 
+/**
+ * Executorが生成した認識済みSecretをCandidate Capabilityへ昇格しないを検証する。
+ *
+ * @responsibility Executorが生成した認識済みSecretをCandidate Capabilityへ昇格しないの合否判定を所有する。
+ * @trace RFD-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Executorが生成した認識済みSecretをCandidate Capabilityへ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+ */
 test("Executorが生成した認識済みSecretをCandidate Capabilityへ昇格しない", (t) => {
   for (const scenario of ["path", "nested-path", "content"] as const) {
     const source = repository(t);
@@ -686,6 +888,18 @@ test("Executorが生成した認識済みSecretをCandidate Capabilityへ昇格�
   }
 });
 
+/**
+ * 公開契約は隔離workspaceと5要素Candidate Revisionを固定するを検証する。
+ *
+ * @responsibility 公開契約は隔離workspaceと5要素Candidate Revisionを固定するの合否判定を所有する。
+ * @trace RFD-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開契約は隔離workspaceと5要素Candidate Revisionを固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+ */
 test("公開契約は隔離workspaceと5要素Candidate Revisionを固定する", () => {
   const contract = describeRepositoryWorkspaceRuntimeContract();
   assert.equal(contract.contractRevision, 6);
@@ -703,6 +917,18 @@ test("公開契約は隔離workspaceと5要素Candidate Revisionを固定する"
   assert.equal(contract.completeSecretAbsenceVerified, false);
 });
 
+/**
+ * Reviewer向け内容投影をCandidate Identityへ結合し差替えを拒否するを検証する。
+ *
+ * @responsibility Reviewer向け内容投影をCandidate Identityへ結合し差替えを拒否するの合否判定を所有する。
+ * @trace RFD-IT-013
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Reviewer向け内容投影をCandidate Identityへ結合し差替えを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
+ */
 test("Reviewer向け内容投影をCandidate Identityへ結合し差替えを拒否する", (t) => {
   const source = repository(t);
   const runtime = operation(t, source.root);

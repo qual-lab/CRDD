@@ -1,6 +1,6 @@
 # CRDD実装工程（Implementation）
 
-Version: v0.20.1
+Version: v0.21.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.implementation.realize`
@@ -94,6 +94,8 @@ Related:
 
 対象範囲について次の責務を適用範囲で判定する。
 
+[任意機能と必須評価](03_Documentation.md#mandatory-applicability-evaluation)に従い、Design Patternの採用自体は必須にしないが、Variation Point、Common Contract、Creation／Selection、State-dependent Behavior、Composition／Recursion、Lifecycle OwnershipおよびExternal Boundaryの適用判断は省略しない。非該当は理由を示し、未検討または情報不足を`Not Applicable`へ畳まない。
+
 | 責務 | 実装で明らかにすること |
 |---|---|
 | 対象範囲とトレース | 変更トレース、UI / SPEC、アーキテクチャ、受入条件、変更対象へのトレース |
@@ -119,6 +121,26 @@ Related:
 各実装義務を、`Complete for Scope`、`Partial — Human Authorized`、`Blocked`、`Not Started`、`Not Applicable`で追跡する。
 
 対象範囲にはコードだけでなく、構成、データ、移行、生成成果物、依存関係、テスト、利用側、環境を含める。変更していない層も、影響を受けるなら網羅範囲対象である。
+
+<a id="implementation-diagram-profile"></a>
+
+## 実装Block対応の処置と記法
+
+実装工程は説明用Markdownを`40_Develop`へ機械的に追加しない。Architectureの基本図とSource、Package、Build、設定および試験配置の対応を、Architecture固定入口または責務を持つ詳細設計から一意に辿れるようにする。複数Package、Build成果物、外部境界、旧Capabilityの置換または非自明なLifecycleを実装する場合は、Source／Package／Build Block対応と必要な実装Sequenceを`作成`または`既存参照`として処置する。一つの既存Block内で所有者・依存・Lifecycleが変わらない局所修正は、理由を示して非該当にできる。根拠不足は非該当へ畳まない。
+
+```text
+[A1: Architecture Block]
+      | realized by
+      v
+[S1: Source／Package Block] --> [B1: Build／Runtime Artifact]
+      | tested by                    | loaded by
+      v                              v
+[T1: UT／IT]                   [R1: Runtime Entry]
+```
+
+`[A:]`はArchitecture上の所有Block、`[S:]`はSourceまたはPackageのまとまり、`[B:]`はBuild成果物、`[T:]`は実在する試験、`[R:]`は公開または内部Runtime入口を表す。ファイルを一つずつ箱にせず、責務と変更理由が同じまとまりをBlockにする。図は実装Source、Package Manifest、Build設定またはArchitectureの代替正本ではない。
+
+工程出口では、新設・変更・削除した各BlockをArchitecture、利用側、Build、試験および実境界検証へ接続する。大規模Refactorまたは責務移動では基準版Capabilityの置換先を明示し、図で露出した旧入口、未接続Consumer、未試験境界または成果物不一致を解消するまで実装完了としない。
 
 <a id="human-decisions"></a>
 
@@ -210,7 +232,7 @@ AIまたは実装担当は実装案、規則案、テスト、逸脱、影響を
 
 変更前に、直接変更する成果物と、影響を受けるモジュール、論理画面、利用側、データ、インターフェース、構成、移行、テスト、操作を特定する。共有UI部品または実行環境部品、スキーマ、API、規則の変更は、局所変更として扱わない。
 
-実装は最小の差分量ではなく、意味的に閉じた最小変更集合を作る。変更集合には必要に応じて、コード、構成、生成規則、移行、開発者テスト、利用側、文書および検証手段を含める。一部だけを小さく変更して契約を未成立にしない。
+実装は最小の差分量ではなく、意味的に閉じた最小変更集合を作る。コード、構成、生成規則、移行、開発者テスト、利用側、文書および検証手段の影響を全数評価し、適用する要素を変更集合へ含める。非該当は理由を、未解決は確認先と再評価契機を残し、一部だけを小さく変更して契約を未成立にしない。
 
 実装前後で、少なくとも次を説明できるようにする。
 

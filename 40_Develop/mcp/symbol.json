@@ -1,0 +1,123 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "mcp",
+  "symbols": [
+    {
+      "symbolId": "mcp.public-api",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": [
+        "ARCH-000005",
+        "ARCH-000012",
+        "ARCH-000013",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "mcp.test.integration.transport-lifecycle",
+      "kind": "test-suite",
+      "path": "tests/integration/transport-lifecycle.contract.test.ts",
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-IT-001",
+        "EST-IT-002"
+      ],
+      "verifies": [
+        "mcp.source.src.adapters.project.runtime.adapter",
+        "mcp.source.src.transports.stdio.transport",
+        "mcp.source.src.transports.streamable.http.transport"
+      ]
+    },
+    {
+      "symbolId": "mcp.test.system.stdio",
+      "kind": "test-suite",
+      "path": "tests/system/stdio-transport.integration.test.ts",
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-ST-012"
+      ],
+      "verifies": [
+        "mcp.source.src.transports.stdio.transport"
+      ]
+    },
+    {
+      "symbolId": "mcp.test.system.streamable-http",
+      "kind": "test-suite",
+      "path": "tests/system/streamable-http-transport.integration.test.ts",
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-ST-003"
+      ],
+      "verifies": [
+        "mcp.source.src.adapters.project.runtime.adapter",
+        "mcp.source.src.protocol.project.runtime.protocol",
+        "mcp.source.src.transports.process.signal.shutdown",
+        "mcp.source.src.transports.streamable.http.transport"
+      ]
+    },
+    {
+      "symbolId": "mcp.test.unit.project-runtime",
+      "kind": "test-suite",
+      "path": "tests/unit/project-runtime-adapter.contract.test.ts",
+      "qaIds": [
+        "QA-000003",
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-UT-006",
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "mcp.source.src.adapters.project.runtime.adapter",
+        "mcp.source.src.protocol.project.runtime.protocol"
+      ]
+    },
+    {
+      "symbolId": "mcp.source.src.adapters.project.runtime.adapter",
+      "kind": "file",
+      "path": "src/adapters/project-runtime-adapter.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "mcp.source.src.protocol.project.runtime.protocol",
+      "kind": "file",
+      "path": "src/protocol/project-runtime-protocol.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "mcp.source.src.transports.stdio.transport",
+      "kind": "file",
+      "path": "src/transports/stdio-transport.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "mcp.source.src.transports.streamable.http.transport",
+      "kind": "file",
+      "path": "src/transports/streamable-http-transport.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "mcp.source.src.transports.process.signal.shutdown",
+      "kind": "file",
+      "path": "src/transports/process-signal-shutdown.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    }
+  ]
+}

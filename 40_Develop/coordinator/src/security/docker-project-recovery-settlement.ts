@@ -1,6 +1,23 @@
-import { readProjectRuntimeState } from "./project-runtime-durable-foundation.ts";
+/**
+ * docker-project-recovery-settlementに属する責務をまとめる。
+ *
+ * @responsibility ProjectSettledDockerRecoveryを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import { readProjectRuntimeState } from "./project-runtime-durable-foundation.ts";
 
+/**
+ * docker-project-recovery-settlementで使用するProject Settled Docker 回復の値契約を定義する。
+ *
+ * @responsibility Project Settled Docker 回復のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape ProjectSettledDockerRecoveryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectSettledDockerRecoveryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectSettledDockerRecoveryの宣言は外部境界を開かない。
+ * @security ProjectSettledDockerRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ProjectSettledDockerRecoveryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectSettledDockerRecovery = Readonly<{
   workingDirectory: string;
   repositoryBindingId: string;
@@ -16,8 +33,19 @@ export type ProjectSettledDockerRecovery = Readonly<{
 
 /**
  * Internal production composition. The public facade supplies the Runtime-owned
- * acknowledgement boundary; tests may supply the same boundary against an
- * isolated verified Runtime State Root without exposing deletion authority.
+ *
+ * @responsibility Project Settled Docker 回復 With Runtime Boundaryの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input rawSettlement: ProjectSettledDockerRecovery、acknowledge: (recoveryId: string) => T
+ * @returns consumeProjectSettledDockerRecoveryWithRuntimeBoundaryの計算結果を返す。
+ * @precondition 「rawSettlement: ProjectSettledDockerRecovery、acknowledge: (recoveryId: string) => T」がconsumeProjectSettledDockerRecoveryWithRuntimeBoundaryの入力契約を満たす。
+ * @postcondition consumeProjectSettledDockerRecoveryWithRuntimeBoundaryの責務を完了した結果だけを返す。
+ * @effect N/A: consumeProjectSettledDockerRecoveryWithRuntimeBoundaryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: consumeProjectSettledDockerRecoveryWithRuntimeBoundaryは独自の失敗分岐を所有しない。
+ * @invariant consumeProjectSettledDockerRecoveryWithRuntimeBoundaryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: consumeProjectSettledDockerRecoveryWithRuntimeBoundaryはProcess内の同一Subsystemで完結する。
+ * @security consumeProjectSettledDockerRecoveryWithRuntimeBoundaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: consumeProjectSettledDockerRecoveryWithRuntimeBoundaryは共有非同期状態を持たない同期処理である。
  */
 export function consumeProjectSettledDockerRecoveryWithRuntimeBoundary<T>(
   rawSettlement: ProjectSettledDockerRecovery,

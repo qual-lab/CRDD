@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:external-send-grant-runtimeの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:external-send-grant-runtimeが所有する検証責務を実行する。
+ * @trace PRL-UT-006
+ * @level UT
+ * @scope external、send、grant、runtime
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -16,16 +26,52 @@ const SCOPE = Object.freeze({
   readPaths: Object.freeze(["fixture.txt", "README.md"]),
 });
 
+/**
+ * resolveDeferredBooleanのTest準備責務を実行する。
+ *
+ * @responsibility resolveDeferredBooleanがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus resolveDeferredBooleanを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 function resolveDeferredBoolean(resolver: unknown, isResolved: boolean) {
   assert.equal(typeof resolver, "function");
   (resolver as (isSuccessful: boolean) => void)(isResolved);
 }
 
+/**
+ * resolveDeferredLineのTest準備責務を実行する。
+ *
+ * @responsibility resolveDeferredLineがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus resolveDeferredLineを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 function resolveDeferredLine(resolver: unknown, line: string | null) {
   assert.equal(typeof resolver, "function");
   (resolver as (resolvedLine: string | null) => void)(line);
 }
 
+/**
+ * 承認失敗は公開値を含まないbounded outcomeへ分類するを検証する。
+ *
+ * @responsibility 承認失敗は公開値を含まないbounded outcomeへ分類するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 承認失敗は公開値を含まないbounded outcomeへ分類するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("承認失敗は公開値を含まないbounded outcomeへ分類する", async () => {
   for (const status of [
     "cancelled",
@@ -102,6 +148,18 @@ test("承認失敗は公開値を含まないbounded outcomeへ分類する", as
   }
 });
 
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-UT-006
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 function fixture(
   shouldConfirm:
     | boolean
@@ -239,6 +297,18 @@ function fixture(
   };
 }
 
+/**
+ * 承認表示完了後だけchallengeを読み最終表示完了後だけ成功するを検証する。
+ *
+ * @responsibility 承認表示完了後だけchallengeを読み最終表示完了後だけ成功するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 承認表示完了後だけchallengeを読み最終表示完了後だけ成功するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("承認表示完了後だけchallengeを読み最終表示完了後だけ成功する", async () => {
   const challenge = "123456";
   const controller = new AbortController();
@@ -281,6 +351,18 @@ test("承認表示完了後だけchallengeを読み最終表示完了後だけ�
   assert.equal(await confirmation, true);
 });
 
+/**
+ * cleanup不明はProcess再起動要求だけをbounded結果へ返すを検証する。
+ *
+ * @responsibility cleanup不明はProcess再起動要求だけをbounded結果へ返すの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus cleanup不明はProcess再起動要求だけをbounded結果へ返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("cleanup不明はProcess再起動要求だけをbounded結果へ返す", async () => {
   const current = fixture(Object.freeze({ status: "cleanup_unknown" }));
   const result = await current.runtime.request(
@@ -301,6 +383,18 @@ test("cleanup不明はProcess再起動要求だけをbounded結果へ返す", as
   });
 });
 
+/**
+ * External Sendの7対話状態はGrant・手動回復・Recovery ID境界へ完全投影するを検証する。
+ *
+ * @responsibility External Sendの7対話状態はGrant・手動回復・Recovery ID境界へ完全投影するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus External Sendの7対話状態はGrant・手動回復・Recovery ID境界へ完全投影するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("External Sendの7対話状態はGrant・手動回復・Recovery ID境界へ完全投影する", async () => {
   for (const status of [
     "confirmed",
@@ -339,6 +433,18 @@ test("External Sendの7対話状態はGrant・手動回復・Recovery ID境界�
   }
 });
 
+/**
+ * 承認表示・入力・最終表示の各失敗をGrant候補へ進めないを検証する。
+ *
+ * @responsibility 承認表示・入力・最終表示の各失敗をGrant候補へ進めないの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 承認表示・入力・最終表示の各失敗をGrant候補へ進めないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("承認表示・入力・最終表示の各失敗をGrant候補へ進めない", async () => {
   const handles = Object.freeze({ input: 11, output: 12 });
   const cancellationSignal = new AbortController().signal;
@@ -387,6 +493,18 @@ test("承認表示・入力・最終表示の各失敗をGrant候補へ進めな
   }
 });
 
+/**
+ * 取消状態を承認表示開始から最終表示完了まで保持するを検証する。
+ *
+ * @responsibility 取消状態を承認表示開始から最終表示完了まで保持するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 取消状態を承認表示開始から最終表示完了まで保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("取消状態を承認表示開始から最終表示完了まで保持する", async () => {
   const handles = Object.freeze({ input: 11, output: 12 });
 
@@ -495,6 +613,18 @@ test("取消状態を承認表示開始から最終表示完了まで保持す�
   }
 });
 
+/**
+ * 開始前に取消済みの要求は表示とGrant発行を0にするを検証する。
+ *
+ * @responsibility 開始前に取消済みの要求は表示とGrant発行を0にするの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 開始前に取消済みの要求は表示とGrant発行を0にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("開始前に取消済みの要求は表示とGrant発行を0にする", async () => {
   const current = fixture();
   const controller = new AbortController();
@@ -533,6 +663,18 @@ test("開始前に取消済みの要求は表示とGrant発行を0にする", as
   assert.equal(wasAccessorExecuted, false);
 });
 
+/**
+ * Local Userの対話確認をRevision・Scope・Provider・Roleへ結合するを検証する。
+ *
+ * @responsibility Local Userの対話確認をRevision・Scope・Provider・Roleへ結合するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Local Userの対話確認をRevision・Scope・Provider・Roleへ結合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Local Userの対話確認をRevision・Scope・Provider・Roleへ結合する", async () => {
   const current = fixture();
   const issued = await current.runtime.request(
@@ -598,6 +740,18 @@ test("Local Userの対話確認をRevision・Scope・Provider・Roleへ結合す
   );
 });
 
+/**
+ * 拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ昇格しないを検証する。
+ *
+ * @responsibility 拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ昇格しないの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ昇格しない", async () => {
   const denied = fixture(false);
   assert.deepEqual(
@@ -649,6 +803,18 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
   }
 });
 
+/**
+ * 公開契約はcaller文字列ではなく短命の対話Grantを固定するを検証する。
+ *
+ * @responsibility 公開契約はcaller文字列ではなく短命の対話Grantを固定するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開契約はcaller文字列ではなく短命の対話Grantを固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("公開契約はcaller文字列ではなく短命の対話Grantを固定する", () => {
   const contract = describeExternalSendGrantRuntimeContract();
   assert.equal(contract.contractRevision, 16);
@@ -702,6 +868,18 @@ test("公開契約はcaller文字列ではなく短命の対話Grantを固定す
   ]);
 });
 
+/**
+ * 同じRuntime-owned初期同意境界では対話を繰り返さず短命Operation Grantだけを発行するを検証する。
+ *
+ * @responsibility 同じRuntime-owned初期同意境界では対話を繰り返さず短命Operation Grantだけを発行するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 同じRuntime-owned初期同意境界では対話を繰り返さず短命Operation Grantだけを発行するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("同じRuntime-owned初期同意境界では対話を繰り返さず短命Operation Grantだけを発行する", async () => {
   const reused = fixture(false, "confirmed");
   const issued = await reused.runtime.request(
@@ -749,6 +927,18 @@ test("同じRuntime-owned初期同意境界では対話を繰り返さず短命O
   assert.equal(unknown.notices.length, 0);
 });
 
+/**
+ * Repository revisionとTask scope変更は永続同意を拡張せず各Operation Grantへ再結合するを検証する。
+ *
+ * @responsibility Repository revisionとTask scope変更は永続同意を拡張せず各Operation Grantへ再結合するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Repository revisionとTask scope変更は永続同意を拡張せず各Operation Grantへ再結合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("Repository revisionとTask scope変更は永続同意を拡張せず各Operation Grantへ再結合する", async () => {
   const current = fixture(false, "confirmed");
   const first = await current.runtime.request(
@@ -778,6 +968,18 @@ test("Repository revisionとTask scope変更は永続同意を拡張せず各Ope
   assert.equal(current.notices.length, 0);
 });
 
+/**
+ * 配列境界を含むScope Hashは一意で、承認表示に全送信fieldを安全に含めるを検証する。
+ *
+ * @responsibility 配列境界を含むScope Hashは一意で、承認表示に全送信fieldを安全に含めるの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 配列境界を含むScope Hashは一意で、承認表示に全送信fieldを安全に含めるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("配列境界を含むScope Hashは一意で、承認表示に全送信fieldを安全に含める", async () => {
   const left = {
     objective: "Update fixture.\nDo not widen scope.\u202e",
@@ -820,6 +1022,18 @@ test("配列境界を含むScope Hashは一意で、承認表示に全送信fiel
   assert.doesNotMatch(notice, /\u202e/u);
 });
 
+/**
+ * 認識済みSecretをTask scopeへ含むGrantは発行しないを検証する。
+ *
+ * @responsibility 認識済みSecretをTask scopeへ含むGrantは発行しないの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 認識済みSecretをTask scopeへ含むGrantは発行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("認識済みSecretをTask scopeへ含むGrantは発行しない", async () => {
   const current = fixture();
   const secretScope = {

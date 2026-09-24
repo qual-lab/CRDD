@@ -1,11 +1,17 @@
-import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "./plain-data-snapshot.ts";
+/**
+ * docker-recovery-public-projectionに属する責務をまとめる。
+ *
+ * @responsibility publicDockerRecoveryStartReasonを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import {
   isSha256Hex,
   parseDockerTaskRecoveryId,
 } from "./docker-recovery-identity.ts";
+import {
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "./plain-data-snapshot.ts";
 
 const recoveryObservationKeys = new Set([
   "status",
@@ -96,6 +102,22 @@ const BLOCKED_REASONS_WITH_INVENTORY = new Set([
   "docker_task_runtime_state_lock_release_unconfirmed",
 ]);
 
+/**
+ * public Docker 回復 Start Reasonを決定する。
+ *
+ * @responsibility public Docker 回復 Start Reasonの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input reason: unknown
+ * @returns publicDockerRecoveryStartReasonの計算結果を返す。
+ * @precondition 「reason: unknown」がpublicDockerRecoveryStartReasonの入力契約を満たす。
+ * @postcondition publicDockerRecoveryStartReasonの責務を完了した結果だけを返す。
+ * @effect N/A: publicDockerRecoveryStartReasonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: publicDockerRecoveryStartReasonは独自の失敗分岐を所有しない。
+ * @invariant publicDockerRecoveryStartReasonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: publicDockerRecoveryStartReasonはProcess内の同一Subsystemで完結する。
+ * @security publicDockerRecoveryStartReasonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: publicDockerRecoveryStartReasonは共有非同期状態を持たない同期処理である。
+ */
 export function publicDockerRecoveryStartReason(reason: unknown) {
   if (typeof reason === "string") {
     const classified = recoveryStartReasonClass.get(reason);
@@ -104,10 +126,42 @@ export function publicDockerRecoveryStartReason(reason: unknown) {
   return "docker_process_controller_recovery_unavailable";
 }
 
+/**
+ * public Verified Docker 回復 Idを決定する。
+ *
+ * @responsibility public Verified Docker 回復 Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns publicVerifiedDockerRecoveryIdの計算結果を返す。
+ * @precondition 「value: unknown」がpublicVerifiedDockerRecoveryIdの入力契約を満たす。
+ * @postcondition publicVerifiedDockerRecoveryIdの責務を完了した結果だけを返す。
+ * @effect N/A: publicVerifiedDockerRecoveryIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: publicVerifiedDockerRecoveryIdは独自の失敗分岐を所有しない。
+ * @invariant publicVerifiedDockerRecoveryIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: publicVerifiedDockerRecoveryIdはProcess内の同一Subsystemで完結する。
+ * @security publicVerifiedDockerRecoveryIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: publicVerifiedDockerRecoveryIdは共有非同期状態を持たない同期処理である。
+ */
 export function publicVerifiedDockerRecoveryId(value: unknown) {
   return parseDockerTaskRecoveryId(value)?.token ?? null;
 }
 
+/**
+ * Docker 回復 Admissionを公開結果へ投影する。
+ *
+ * @responsibility Docker 回復 Admissionの公開field、秘匿境界、投影不能時の結果境界を所有する。
+ * @trace ARCH-000008
+ * @input rawObservation: unknown
+ * @returns projectDockerRecoveryAdmissionの計算結果を返す。
+ * @precondition 「rawObservation: unknown」がprojectDockerRecoveryAdmissionの入力契約を満たす。
+ * @postcondition projectDockerRecoveryAdmissionの責務を完了した結果だけを返す。
+ * @effect N/A: projectDockerRecoveryAdmissionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: projectDockerRecoveryAdmissionは独自の失敗分岐を所有しない。
+ * @invariant projectDockerRecoveryAdmissionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: projectDockerRecoveryAdmissionはProcess内の同一Subsystemで完結する。
+ * @security projectDockerRecoveryAdmissionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: projectDockerRecoveryAdmissionは共有非同期状態を持たない同期処理である。
+ */
 export function projectDockerRecoveryAdmission(rawObservation: unknown) {
   const observation = snapshotPlainRecord(
     rawObservation,

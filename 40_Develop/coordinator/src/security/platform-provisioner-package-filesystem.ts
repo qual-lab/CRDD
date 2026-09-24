@@ -1,3 +1,9 @@
+/**
+ * platform-provisioner-package-filesystemに属する責務をまとめる。
+ *
+ * @responsibility VerifiedPackageIdentityを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { builtinModules } from "node:module";
@@ -96,6 +102,17 @@ const CANONICAL_TEXT_FILE_SUFFIXES = Object.freeze([
   ".txt",
 ]);
 const VERIFIED_PACKAGE_CAPABILITY_LIFETIME_MS = 5_000;
+/**
+ * platform-provisioner-package-filesystemで使用するVerified Package Identityの値契約を定義する。
+ *
+ * @responsibility Verified Package IdentityのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape VerifiedPackageIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant VerifiedPackageIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: VerifiedPackageIdentityの宣言は外部境界を開かない。
+ * @security VerifiedPackageIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility VerifiedPackageIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type VerifiedPackageIdentity = Readonly<{
   manifestHash: string;
   releaseSequence: number;
@@ -103,6 +120,22 @@ type VerifiedPackageIdentity = Readonly<{
   interactiveConsoleReaderArtifactSha256: string;
 }>;
 
+/**
+ * Verified Package Identityが同一かを判定する。
+ *
+ * @responsibility Verified Package Identityの同一性Propertyと一致／不一致境界を所有する。
+ * @trace ARCH-000014
+ * @input left: VerifiedPackageIdentity、right: VerifiedPackageIdentity
+ * @returns sameVerifiedPackageIdentityの計算結果を返す。
+ * @precondition 「left: VerifiedPackageIdentity、right: VerifiedPackageIdentity」がsameVerifiedPackageIdentityの入力契約を満たす。
+ * @postcondition sameVerifiedPackageIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: sameVerifiedPackageIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameVerifiedPackageIdentityは独自の失敗分岐を所有しない。
+ * @invariant sameVerifiedPackageIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security sameVerifiedPackageIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameVerifiedPackageIdentityは共有非同期状態を持たない同期処理である。
+ */
 function sameVerifiedPackageIdentity(
   left: VerifiedPackageIdentity,
   right: VerifiedPackageIdentity,
@@ -117,6 +150,22 @@ function sameVerifiedPackageIdentity(
   );
 }
 
+/**
+ * Verified Package Capability 状態を構築する。
+ *
+ * @responsibility Verified Package Capability 状態の構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns createVerifiedPackageCapabilityStateの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がcreateVerifiedPackageCapabilityStateの入力契約を満たす。
+ * @postcondition createVerifiedPackageCapabilityStateの責務を完了した結果だけを返す。
+ * @effect N/A: createVerifiedPackageCapabilityStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createVerifiedPackageCapabilityStateは独自の失敗分岐を所有しない。
+ * @invariant createVerifiedPackageCapabilityStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security createVerifiedPackageCapabilityStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createVerifiedPackageCapabilityStateは共有非同期状態を持たない同期処理である。
+ */
 function createVerifiedPackageCapabilityState() {
   const capabilities = new WeakMap<
     object,
@@ -157,6 +206,22 @@ function createVerifiedPackageCapabilityState() {
 
 const verifiedPackageCapabilityState = createVerifiedPackageCapabilityState();
 
+/**
+ * Isolated Verified Package Capability 状態 候補を構築する。
+ *
+ * @responsibility Isolated Verified Package Capability 状態 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns createIsolatedVerifiedPackageCapabilityStateCandidateの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がcreateIsolatedVerifiedPackageCapabilityStateCandidateの入力契約を満たす。
+ * @postcondition createIsolatedVerifiedPackageCapabilityStateCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: createIsolatedVerifiedPackageCapabilityStateCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createIsolatedVerifiedPackageCapabilityStateCandidateは独自の失敗分岐を所有しない。
+ * @invariant createIsolatedVerifiedPackageCapabilityStateCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security createIsolatedVerifiedPackageCapabilityStateCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createIsolatedVerifiedPackageCapabilityStateCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function createIsolatedVerifiedPackageCapabilityStateCandidate() {
   const state = createVerifiedPackageCapabilityState();
   return Object.freeze({
@@ -167,6 +232,17 @@ export function createIsolatedVerifiedPackageCapabilityStateCandidate() {
   });
 }
 
+/**
+ * platform-provisioner-package-filesystemで使用するEntity Identityの値契約を定義する。
+ *
+ * @responsibility Entity IdentityのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape EntityIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant EntityIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: EntityIdentityの宣言は外部境界を開かない。
+ * @security EntityIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility EntityIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type EntityIdentity = Readonly<{
   dev: bigint;
   ino: bigint;
@@ -179,18 +255,56 @@ type EntityIdentity = Readonly<{
   ctimeNs: bigint;
 }>;
 
+/**
+ * platform-provisioner-package-filesystemで使用するObserved Fileの値契約を定義する。
+ *
+ * @responsibility Observed FileのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape ObservedFileが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ObservedFileで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ObservedFileの宣言は外部境界を開かない。
+ * @security ObservedFileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ObservedFileの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ObservedFile = Readonly<{
   path: string;
   byteLength: number;
   sha256: string;
 }>;
 
+/**
+ * platform-provisioner-package-filesystemで使用するPackage Observationの値契約を定義する。
+ *
+ * @responsibility Package ObservationのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape PackageObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant PackageObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: PackageObservationの宣言は外部境界を開かない。
+ * @security PackageObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility PackageObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type PackageObservation = Readonly<{
   packageName: string;
   packageVersion: string;
   files: readonly ObservedFile[];
 }>;
 
+/**
+ * platform-provisioner-package-filesystemを停止結果として構築する。
+ *
+ * @responsibility platform-provisioner-package-filesystemの停止理由、未発行Effect、公開結果境界を所有する。
+ * @trace ARCH-000014
+ * @input reason: string
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: string」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(reason: string) {
   return Object.freeze({
     status: "blocked" as const,
@@ -215,6 +329,22 @@ function blocked(reason: string) {
   });
 }
 
+/**
+ * identityを決定する。
+ *
+ * @responsibility identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input metadata: fs.BigIntStats、expectedType: "file" | "directory"
+ * @returns identityの計算結果を返す。
+ * @precondition 「metadata: fs.BigIntStats、expectedType: "file" | "directory"」がidentityの入力契約を満たす。
+ * @postcondition identityの責務を完了した結果だけを返す。
+ * @effect N/A: identityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure identityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant identityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security identityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: identityは共有非同期状態を持たない同期処理である。
+ */
 function identity(
   metadata: fs.BigIntStats,
   expectedType: "file" | "directory",
@@ -243,6 +373,22 @@ function identity(
   });
 }
 
+/**
+ * Identityが同一かを判定する。
+ *
+ * @responsibility Identityの同一性Propertyと一致／不一致境界を所有する。
+ * @trace ARCH-000014
+ * @input left: EntityIdentity、right: EntityIdentity
+ * @returns sameIdentityの計算結果を返す。
+ * @precondition 「left: EntityIdentity、right: EntityIdentity」がsameIdentityの入力契約を満たす。
+ * @postcondition sameIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: sameIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameIdentityは独自の失敗分岐を所有しない。
+ * @invariant sameIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security sameIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameIdentityは共有非同期状態を持たない同期処理である。
+ */
 function sameIdentity(left: EntityIdentity, right: EntityIdentity) {
   return (
     left.dev === right.dev &&
@@ -257,6 +403,22 @@ function sameIdentity(left: EntityIdentity, right: EntityIdentity) {
   );
 }
 
+/**
+ * directory Identityを決定する。
+ *
+ * @responsibility directory Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input target: string
+ * @returns directoryIdentityの計算結果を返す。
+ * @precondition 「target: string」がdirectoryIdentityの入力契約を満たす。
+ * @postcondition directoryIdentityの責務を完了した結果だけを返す。
+ * @effect directoryIdentityはFilesystemの読取りまたは書込みを実行する。
+ * @failure directoryIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant directoryIdentityは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security directoryIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: directoryIdentityは共有非同期状態を持たない同期処理である。
+ */
 function directoryIdentity(target: string) {
   const resolved = path.resolve(target);
   const before = identity(
@@ -271,6 +433,22 @@ function directoryIdentity(target: string) {
   return Object.freeze({ realPath: real, identity: before });
 }
 
+/**
+ * Directoryを検証する。
+ *
+ * @responsibility Directoryの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input snapshot: Readonly<{ realPath: string; identity: EntityIdentity }>
+ * @returns N/A: verifyDirectoryは戻り値を返さない。
+ * @precondition 「snapshot: Readonly<{ realPath: string; identity: EntityIdentity }>」がverifyDirectoryの入力契約を満たす。
+ * @postcondition verifyDirectoryの責務を完了して呼出し元へ制御を戻す。
+ * @effect verifyDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure verifyDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security verifyDirectoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function verifyDirectory(
   snapshot: Readonly<{ realPath: string; identity: EntityIdentity }>,
 ) {
@@ -286,11 +464,38 @@ function verifyDirectory(
   }
 }
 
+/**
+ * platform-provisioner-package-filesystemで使用するDirectory Entry Snapshotの値契約を定義する。
+ *
+ * @responsibility Directory Entry SnapshotのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape DirectoryEntrySnapshotが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DirectoryEntrySnapshotで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DirectoryEntrySnapshotの宣言は外部境界を開かない。
+ * @security DirectoryEntrySnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DirectoryEntrySnapshotの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type DirectoryEntrySnapshot = Readonly<{
   name: string;
   type: "directory" | "file";
 }>;
 
+/**
+ * Directory Entry Snapshotを読み取る。
+ *
+ * @responsibility Directory Entry Snapshotの読取り元、上限、読取不能時の結果境界を所有する。
+ * @trace ARCH-000014
+ * @input target: string
+ * @returns readDirectoryEntrySnapshotの計算結果を返す。
+ * @precondition 「target: string」がreadDirectoryEntrySnapshotの入力契約を満たす。
+ * @postcondition readDirectoryEntrySnapshotの責務を完了した結果だけを返す。
+ * @effect N/A: readDirectoryEntrySnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure readDirectoryEntrySnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readDirectoryEntrySnapshotは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security readDirectoryEntrySnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readDirectoryEntrySnapshotは共有非同期状態を持たない同期処理である。
+ */
 function readDirectoryEntrySnapshot(target: string) {
   const dirents = fs
     .readdirSync(target, { withFileTypes: true })
@@ -315,6 +520,22 @@ function readDirectoryEntrySnapshot(target: string) {
   });
 }
 
+/**
+ * Directory Entriesが同一かを判定する。
+ *
+ * @responsibility Directory Entriesの同一性Propertyと一致／不一致境界を所有する。
+ * @trace ARCH-000014
+ * @input leftEntries: readonly DirectoryEntrySnapshot[]、rightEntries: readonly DirectoryEntrySnapshot[]
+ * @returns sameDirectoryEntriesの計算結果を返す。
+ * @precondition 「leftEntries: readonly DirectoryEntrySnapshot[]、rightEntries: readonly DirectoryEntrySnapshot[]」がsameDirectoryEntriesの入力契約を満たす。
+ * @postcondition sameDirectoryEntriesの責務を完了した結果だけを返す。
+ * @effect N/A: sameDirectoryEntriesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameDirectoryEntriesは独自の失敗分岐を所有しない。
+ * @invariant sameDirectoryEntriesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security sameDirectoryEntriesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameDirectoryEntriesは共有非同期状態を持たない同期処理である。
+ */
 function sameDirectoryEntries(
   leftEntries: readonly DirectoryEntrySnapshot[],
   rightEntries: readonly DirectoryEntrySnapshot[],
@@ -329,6 +550,22 @@ function sameDirectoryEntries(
   );
 }
 
+/**
+ * Stable Fileを読み取る。
+ *
+ * @responsibility Stable Fileの読取り元、上限、読取不能時の結果境界を所有する。
+ * @trace ARCH-000014
+ * @input target: string、maximumBytes: number
+ * @returns readStableFileの計算結果を返す。
+ * @precondition 「target: string、maximumBytes: number」がreadStableFileの入力契約を満たす。
+ * @postcondition readStableFileの責務を完了した結果だけを返す。
+ * @effect readStableFileはFilesystemの読取りまたは書込みを実行する。
+ * @failure readStableFileは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readStableFileは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security readStableFileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readStableFileは共有非同期状態を持たない同期処理である。
+ */
 function readStableFile(target: string, maximumBytes: number) {
   const pathBefore = identity(fs.lstatSync(target, { bigint: true }), "file");
   if (pathBefore.size < 0n || pathBefore.size > BigInt(maximumBytes)) {
@@ -378,12 +615,44 @@ function readStableFile(target: string, maximumBytes: number) {
   }
 }
 
+/**
+ * Canonical Text Package Pathかを判定する。
+ *
+ * @responsibility Canonical Text Package Pathの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string
+ * @returns isCanonicalTextPackagePathの計算結果を返す。
+ * @precondition 「relativePath: string」がisCanonicalTextPackagePathの入力契約を満たす。
+ * @postcondition isCanonicalTextPackagePathの責務を完了した結果だけを返す。
+ * @effect N/A: isCanonicalTextPackagePathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isCanonicalTextPackagePathは独自の失敗分岐を所有しない。
+ * @invariant isCanonicalTextPackagePathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security isCanonicalTextPackagePathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isCanonicalTextPackagePathは共有非同期状態を持たない同期処理である。
+ */
 function isCanonicalTextPackagePath(relativePath: string) {
   return CANONICAL_TEXT_FILE_SUFFIXES.some((suffix) =>
     relativePath.endsWith(suffix),
   );
 }
 
+/**
+ * canonical Package File Contentを決定する。
+ *
+ * @responsibility canonical Package File Contentの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、bytes: Buffer
+ * @returns canonicalPackageFileContentの計算結果を返す。
+ * @precondition 「relativePath: string、bytes: Buffer」がcanonicalPackageFileContentの入力契約を満たす。
+ * @postcondition canonicalPackageFileContentの責務を完了した結果だけを返す。
+ * @effect N/A: canonicalPackageFileContentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: canonicalPackageFileContentは独自の失敗分岐を所有しない。
+ * @invariant canonicalPackageFileContentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security canonicalPackageFileContentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: canonicalPackageFileContentは共有非同期状態を持たない同期処理である。
+ */
 function canonicalPackageFileContent(relativePath: string, bytes: Buffer) {
   if (!isCanonicalTextPackagePath(relativePath)) return bytes;
   let crlfCount = 0;
@@ -401,6 +670,17 @@ function canonicalPackageFileContent(relativePath: string, bytes: Buffer) {
   return canonical;
 }
 
+/**
+ * platform-provisioner-package-filesystemで使用するSource Tokenの値契約を定義する。
+ *
+ * @responsibility Source TokenのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape SourceTokenが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SourceTokenで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SourceTokenの宣言は外部境界を開かない。
+ * @security SourceTokenはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility SourceTokenの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type SourceToken = Readonly<{
   kind: "identifier" | "string" | "punctuation" | "number";
   value: string;
@@ -421,14 +701,62 @@ const canonicalNodeModuleSpecifiers = Object.freeze(
   ),
 );
 
+/**
+ * Identifier Startかを判定する。
+ *
+ * @responsibility Identifier Startの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000014
+ * @input character: string | undefined
+ * @returns isIdentifierStartの計算結果を返す。
+ * @precondition 「character: string | undefined」がisIdentifierStartの入力契約を満たす。
+ * @postcondition isIdentifierStartの責務を完了した結果だけを返す。
+ * @effect N/A: isIdentifierStartは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isIdentifierStartは独自の失敗分岐を所有しない。
+ * @invariant isIdentifierStartは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security isIdentifierStartはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isIdentifierStartは共有非同期状態を持たない同期処理である。
+ */
 function isIdentifierStart(character: string | undefined) {
   return character !== undefined && /[A-Za-z_$]/u.test(character);
 }
 
+/**
+ * Identifier Partかを判定する。
+ *
+ * @responsibility Identifier Partの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000014
+ * @input character: string | undefined
+ * @returns isIdentifierPartの計算結果を返す。
+ * @precondition 「character: string | undefined」がisIdentifierPartの入力契約を満たす。
+ * @postcondition isIdentifierPartの責務を完了した結果だけを返す。
+ * @effect N/A: isIdentifierPartは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isIdentifierPartは独自の失敗分岐を所有しない。
+ * @invariant isIdentifierPartは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security isIdentifierPartはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isIdentifierPartは共有非同期状態を持たない同期処理である。
+ */
 function isIdentifierPart(character: string | undefined) {
   return character !== undefined && /[A-Za-z0-9_$]/u.test(character);
 }
 
+/**
+ * can Start Regular Expressionを決定する。
+ *
+ * @responsibility can Start Regular Expressionの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input previous: SourceToken | undefined
+ * @returns canStartRegularExpressionの計算結果を返す。
+ * @precondition 「previous: SourceToken | undefined」がcanStartRegularExpressionの入力契約を満たす。
+ * @postcondition canStartRegularExpressionの責務を完了した結果だけを返す。
+ * @effect N/A: canStartRegularExpressionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure canStartRegularExpressionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant canStartRegularExpressionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security canStartRegularExpressionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency canStartRegularExpressionは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function canStartRegularExpression(previous: SourceToken | undefined) {
   if (!previous) return true;
   if (
@@ -456,6 +784,22 @@ function canStartRegularExpression(previous: SourceToken | undefined) {
   return ![")", "]", "}", "++", "--"].includes(previous.value);
 }
 
+/**
+ * Static String Literalを検証済み値へ復号する。
+ *
+ * @responsibility Static String Literalの入力形式、復号結果、不正byte列の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input raw: string
+ * @returns decodeStaticStringLiteralの計算結果を返す。
+ * @precondition 「raw: string」がdecodeStaticStringLiteralの入力契約を満たす。
+ * @postcondition decodeStaticStringLiteralの責務を完了した結果だけを返す。
+ * @effect N/A: decodeStaticStringLiteralは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: decodeStaticStringLiteralは独自の失敗分岐を所有しない。
+ * @invariant decodeStaticStringLiteralは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security decodeStaticStringLiteralはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: decodeStaticStringLiteralは共有非同期状態を持たない同期処理である。
+ */
 function decodeStaticStringLiteral(raw: string) {
   return raw
     .replace(
@@ -488,6 +832,22 @@ function decodeStaticStringLiteral(raw: string) {
     .replace(/\\([^0-9xu])/gu, "$1");
 }
 
+/**
+ * tokenize Type Script Module Syntaxを決定する。
+ *
+ * @responsibility tokenize Type Script Module Syntaxの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input source: string
+ * @returns tokenizeTypeScriptModuleSyntaxの計算結果を返す。
+ * @precondition 「source: string」がtokenizeTypeScriptModuleSyntaxの入力契約を満たす。
+ * @postcondition tokenizeTypeScriptModuleSyntaxの責務を完了した結果だけを返す。
+ * @effect N/A: tokenizeTypeScriptModuleSyntaxは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure tokenizeTypeScriptModuleSyntaxは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant tokenizeTypeScriptModuleSyntaxは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security tokenizeTypeScriptModuleSyntaxはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: tokenizeTypeScriptModuleSyntaxは共有非同期状態を持たない同期処理である。
+ */
 function tokenizeTypeScriptModuleSyntax(source: string) {
   const tokens: SourceToken[] = [];
   let hasLineBreakBeforeNextToken = false;
@@ -689,6 +1049,17 @@ function tokenizeTypeScriptModuleSyntax(source: string) {
   return Object.freeze(tokens);
 }
 
+/**
+ * platform-provisioner-package-filesystemで使用するModule Declaration Bindingの値契約を定義する。
+ *
+ * @responsibility Module Declaration BindingのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape ModuleDeclarationBindingが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ModuleDeclarationBindingで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ModuleDeclarationBindingの宣言は外部境界を開かない。
+ * @security ModuleDeclarationBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ModuleDeclarationBindingの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ModuleDeclarationBinding = Readonly<{
   imported: string;
   local: string;
@@ -696,6 +1067,17 @@ type ModuleDeclarationBinding = Readonly<{
   localTokenIndex: number;
 }>;
 
+/**
+ * platform-provisioner-package-filesystemで使用するModule Declarationの値契約を定義する。
+ *
+ * @responsibility Module DeclarationのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape ModuleDeclarationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ModuleDeclarationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ModuleDeclarationの宣言は外部境界を開かない。
+ * @security ModuleDeclarationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ModuleDeclarationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ModuleDeclaration = Readonly<{
   kind:
     | "static_import"
@@ -710,6 +1092,22 @@ type ModuleDeclaration = Readonly<{
   bindings: readonly ModuleDeclarationBinding[];
 }>;
 
+/**
+ * matching Token Indexを決定する。
+ *
+ * @responsibility matching Token Indexの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、openingIndex: number、opening: string、closing: string
+ * @returns matchingTokenIndexの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]、openingIndex: number、opening: string、closing: string」がmatchingTokenIndexの入力契約を満たす。
+ * @postcondition matchingTokenIndexの責務を完了した結果だけを返す。
+ * @effect N/A: matchingTokenIndexは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure matchingTokenIndexは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant matchingTokenIndexは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security matchingTokenIndexはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: matchingTokenIndexは共有非同期状態を持たない同期処理である。
+ */
 function matchingTokenIndex(
   tokens: readonly SourceToken[],
   openingIndex: number,
@@ -729,6 +1127,22 @@ function matchingTokenIndex(
   throw new Error("platform_provisioner_runtime_dependency_parse_failed");
 }
 
+/**
+ * named Module Bindingsを決定する。
+ *
+ * @responsibility named Module Bindingsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、openingBrace: number、closingBrace: number、isWholeTypeOnly: boolean
+ * @returns namedModuleBindingsの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]、openingBrace: number、closingBrace: number、isWholeTypeOnly: boolean」がnamedModuleBindingsの入力契約を満たす。
+ * @postcondition namedModuleBindingsの責務を完了した結果だけを返す。
+ * @effect N/A: namedModuleBindingsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure namedModuleBindingsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant namedModuleBindingsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security namedModuleBindingsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: namedModuleBindingsは共有非同期状態を持たない同期処理である。
+ */
 function namedModuleBindings(
   tokens: readonly SourceToken[],
   openingBrace: number,
@@ -768,6 +1182,22 @@ function namedModuleBindings(
   return Object.freeze(bindings);
 }
 
+/**
+ * module Declarations From Tokensを決定する。
+ *
+ * @responsibility module Declarations From Tokensの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]
+ * @returns moduleDeclarationsFromTokensの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]」がmoduleDeclarationsFromTokensの入力契約を満たす。
+ * @postcondition moduleDeclarationsFromTokensの責務を完了した結果だけを返す。
+ * @effect N/A: moduleDeclarationsFromTokensは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure moduleDeclarationsFromTokensは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant moduleDeclarationsFromTokensは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security moduleDeclarationsFromTokensはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: moduleDeclarationsFromTokensは共有非同期状態を持たない同期処理である。
+ */
 function moduleDeclarationsFromTokens(tokens: readonly SourceToken[]) {
   const declarations: ModuleDeclaration[] = [];
   for (let index = 0; index < tokens.length; index += 1) {
@@ -921,6 +1351,22 @@ function moduleDeclarationsFromTokens(tokens: readonly SourceToken[]) {
   return Object.freeze(declarations);
 }
 
+/**
+ * Exact Real Provider Verification Dynamic Importかを判定する。
+ *
+ * @responsibility Exact Real Provider Verification Dynamic Importの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、tokens: readonly SourceToken[]、declaration: ModuleDeclaration
+ * @returns isExactRealProviderVerificationDynamicImportの計算結果を返す。
+ * @precondition 「relativePath: string、tokens: readonly SourceToken[]、declaration: ModuleDeclaration」がisExactRealProviderVerificationDynamicImportの入力契約を満たす。
+ * @postcondition isExactRealProviderVerificationDynamicImportの責務を完了した結果だけを返す。
+ * @effect N/A: isExactRealProviderVerificationDynamicImportは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isExactRealProviderVerificationDynamicImportは独自の失敗分岐を所有しない。
+ * @invariant isExactRealProviderVerificationDynamicImportは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security isExactRealProviderVerificationDynamicImportはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isExactRealProviderVerificationDynamicImportは共有非同期状態を持たない同期処理である。
+ */
 function isExactRealProviderVerificationDynamicImport(
   relativePath: string,
   tokens: readonly SourceToken[],
@@ -954,6 +1400,22 @@ function isExactRealProviderVerificationDynamicImport(
   );
 }
 
+/**
+ * Loader Capability Boundaryを表明どおりか検査する。
+ *
+ * @responsibility Loader Capability Boundaryの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、tokens: readonly SourceToken[]、declarations: readonly ModuleDeclaration[]
+ * @returns N/A: assertLoaderCapabilityBoundaryは戻り値を返さない。
+ * @precondition 「relativePath: string、tokens: readonly SourceToken[]、declarations: readonly ModuleDeclaration[]」がassertLoaderCapabilityBoundaryの入力契約を満たす。
+ * @postcondition assertLoaderCapabilityBoundaryの責務を完了して呼出し元へ制御を戻す。
+ * @effect assertLoaderCapabilityBoundaryは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure assertLoaderCapabilityBoundaryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertLoaderCapabilityBoundaryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertLoaderCapabilityBoundaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency assertLoaderCapabilityBoundaryは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function assertLoaderCapabilityBoundary(
   relativePath: string,
   tokens: readonly SourceToken[],
@@ -1105,6 +1567,22 @@ function assertLoaderCapabilityBoundary(
   }
 }
 
+/**
+ * module Specifiers From Tokensを決定する。
+ *
+ * @responsibility module Specifiers From Tokensの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、tokens: readonly SourceToken[]
+ * @returns moduleSpecifiersFromTokensの計算結果を返す。
+ * @precondition 「relativePath: string、tokens: readonly SourceToken[]」がmoduleSpecifiersFromTokensの入力契約を満たす。
+ * @postcondition moduleSpecifiersFromTokensの責務を完了した結果だけを返す。
+ * @effect N/A: moduleSpecifiersFromTokensは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure moduleSpecifiersFromTokensは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant moduleSpecifiersFromTokensは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security moduleSpecifiersFromTokensはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: moduleSpecifiersFromTokensは共有非同期状態を持たない同期処理である。
+ */
 function moduleSpecifiersFromTokens(
   relativePath: string,
   tokens: readonly SourceToken[],
@@ -1138,6 +1616,22 @@ function moduleSpecifiersFromTokens(
   );
 }
 
+/**
+ * token Sequence Matchesを決定する。
+ *
+ * @responsibility token Sequence Matchesの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、start: number、values: readonly string[]
+ * @returns tokenSequenceMatchesの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]、start: number、values: readonly string[]」がtokenSequenceMatchesの入力契約を満たす。
+ * @postcondition tokenSequenceMatchesの責務を完了した結果だけを返す。
+ * @effect N/A: tokenSequenceMatchesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: tokenSequenceMatchesは独自の失敗分岐を所有しない。
+ * @invariant tokenSequenceMatchesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security tokenSequenceMatchesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: tokenSequenceMatchesは共有非同期状態を持たない同期処理である。
+ */
 function tokenSequenceMatches(
   tokens: readonly SourceToken[],
   start: number,
@@ -1148,6 +1642,22 @@ function tokenSequenceMatches(
   );
 }
 
+/**
+ * script Child Target From Tokensを決定する。
+ *
+ * @responsibility script Child Target From Tokensの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、tokens: readonly SourceToken[]、start: number
+ * @returns scriptChildTargetFromTokensの計算結果を返す。
+ * @precondition 「relativePath: string、tokens: readonly SourceToken[]、start: number」がscriptChildTargetFromTokensの入力契約を満たす。
+ * @postcondition scriptChildTargetFromTokensの責務を完了した結果だけを返す。
+ * @effect N/A: scriptChildTargetFromTokensは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure scriptChildTargetFromTokensは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant scriptChildTargetFromTokensは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security scriptChildTargetFromTokensはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: scriptChildTargetFromTokensは共有非同期状態を持たない同期処理である。
+ */
 function scriptChildTargetFromTokens(
   relativePath: string,
   tokens: readonly SourceToken[],
@@ -1194,11 +1704,38 @@ function scriptChildTargetFromTokens(
   throw new Error("platform_provisioner_runtime_dependency_child_unbound");
 }
 
+/**
+ * platform-provisioner-package-filesystemで使用するSelected Script Process Bindingsの値契約を定義する。
+ *
+ * @responsibility Selected Script Process BindingsのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape SelectedScriptProcessBindingsが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SelectedScriptProcessBindingsで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SelectedScriptProcessBindingsの宣言は外部境界を開かない。
+ * @security SelectedScriptProcessBindingsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility SelectedScriptProcessBindingsの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type SelectedScriptProcessBindings = Readonly<{
   bindings: ReadonlyMap<string, string>;
   declarationTokenIndices: ReadonlySet<number>;
 }>;
 
+/**
+ * selected Script Process Bindingsを決定する。
+ *
+ * @responsibility selected Script Process Bindingsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、shouldIncludeWorkerThreads
+ * @returns SelectedScriptProcessBindingsを返す。
+ * @precondition 「tokens: readonly SourceToken[]、shouldIncludeWorkerThreads」がselectedScriptProcessBindingsの入力契約を満たす。
+ * @postcondition selectedScriptProcessBindingsの責務を完了した結果だけを返す。
+ * @effect selectedScriptProcessBindingsは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure selectedScriptProcessBindingsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant selectedScriptProcessBindingsは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security selectedScriptProcessBindingsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: selectedScriptProcessBindingsは共有非同期状態を持たない同期処理である。
+ */
 function selectedScriptProcessBindings(
   tokens: readonly SourceToken[],
   shouldIncludeWorkerThreads = true,
@@ -1246,6 +1783,22 @@ function selectedScriptProcessBindings(
   return Object.freeze({ bindings, declarationTokenIndices });
 }
 
+/**
+ * Protected Module Specifier Positionsを表明どおりか検査する。
+ *
+ * @responsibility Protected Module Specifier Positionsの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、protectedSpecifiers: ReadonlySet<string>、canonicalSpecifier: string、reason: string
+ * @returns assertProtectedModuleSpecifierPositionsの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]、protectedSpecifiers: ReadonlySet<string>、canonicalSpecifier: string、reason: string」がassertProtectedModuleSpecifierPositionsの入力契約を満たす。
+ * @postcondition assertProtectedModuleSpecifierPositionsの責務を完了した結果だけを返す。
+ * @effect N/A: assertProtectedModuleSpecifierPositionsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure assertProtectedModuleSpecifierPositionsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertProtectedModuleSpecifierPositionsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertProtectedModuleSpecifierPositionsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertProtectedModuleSpecifierPositionsは共有非同期状態を持たない同期処理である。
+ */
 function assertProtectedModuleSpecifierPositions(
   tokens: readonly SourceToken[],
   protectedSpecifiers: ReadonlySet<string>,
@@ -1282,6 +1835,22 @@ function assertProtectedModuleSpecifierPositions(
   }
 }
 
+/**
+ * Child Process Module Boundaryを表明どおりか検査する。
+ *
+ * @responsibility Child Process Module Boundaryの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]
+ * @returns N/A: assertChildProcessModuleBoundaryは戻り値を返さない。
+ * @precondition 「tokens: readonly SourceToken[]」がassertChildProcessModuleBoundaryの入力契約を満たす。
+ * @postcondition assertChildProcessModuleBoundaryの責務を完了して呼出し元へ制御を戻す。
+ * @effect assertChildProcessModuleBoundaryは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: assertChildProcessModuleBoundaryは独自の失敗分岐を所有しない。
+ * @invariant assertChildProcessModuleBoundaryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertChildProcessModuleBoundaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertChildProcessModuleBoundaryは共有非同期状態を持たない同期処理である。
+ */
 function assertChildProcessModuleBoundary(tokens: readonly SourceToken[]) {
   assertProtectedModuleSpecifierPositions(
     tokens,
@@ -1291,6 +1860,17 @@ function assertChildProcessModuleBoundary(tokens: readonly SourceToken[]) {
   );
 }
 
+/**
+ * platform-provisioner-package-filesystemで使用するRuntime External Process Callsiteの値契約を定義する。
+ *
+ * @responsibility Runtime External Process CallsiteのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape RuntimeExternalProcessCallsiteが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeExternalProcessCallsiteで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeExternalProcessCallsiteの宣言は外部境界を開かない。
+ * @security RuntimeExternalProcessCallsiteはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimeExternalProcessCallsiteの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimeExternalProcessCallsite = Readonly<{
   source: string;
   containingFunction: string;
@@ -1432,7 +2012,14 @@ const runtimeExternalProcessCallsites = Object.freeze(
       ["[", "-NoLogo"],
     ],
     [
-      "src/security/docker-desktop-repair-native-helper.ts",
+      "src/security/claude-subscription-authentication.ts",
+      "runDockerCommandWithAuthority",
+      "spawn",
+      ["executable"],
+      ["command", ".", "argv"],
+    ],
+    [
+      "src/security/docker-desktop-repair-native-process.ts",
       "acquireRuntimeOwnedDockerDesktopNativeHelper",
       "spawn",
       ["executablePath"],
@@ -1559,13 +2146,6 @@ const runtimeExternalProcessCallsites = Object.freeze(
       ],
       ["["],
     ],
-    [
-      "40_Develop/execution-intelligence/src/store/verified-repository-root.ts",
-      "observeExactRepositoryRoot",
-      "execFileSync",
-      ["git"],
-      ["[", "-C"],
-    ],
   ].map(
     ([
       source,
@@ -1589,7 +2169,29 @@ const runtimeExternalProcessCallsites = Object.freeze(
   ),
 );
 
+/**
+ * platform-provisioner-package-filesystemで使用するRuntime Capability Graph Kindの値契約を定義する。
+ *
+ * @responsibility Runtime Capability Graph KindのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape RuntimeCapabilityGraphKindが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeCapabilityGraphKindで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeCapabilityGraphKindの宣言は外部境界を開かない。
+ * @security RuntimeCapabilityGraphKindはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimeCapabilityGraphKindの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimeCapabilityGraphKind = "runtime" | "verification_tool";
+/**
+ * platform-provisioner-package-filesystemで使用するExact External Process Call Graphの値契約を定義する。
+ *
+ * @responsibility Exact External Process Call GraphのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape ExactExternalProcessCallGraphが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ExactExternalProcessCallGraphで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ExactExternalProcessCallGraphの宣言は外部境界を開かない。
+ * @security ExactExternalProcessCallGraphはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ExactExternalProcessCallGraphの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ExactExternalProcessCallGraph = Readonly<{
   graph: RuntimeCapabilityGraphKind;
   source: string;
@@ -1745,7 +2347,17 @@ const exactExternalProcessCalls = Object.freeze(
     ],
     [
       "runtime",
-      "src/security/docker-desktop-repair-native-helper.ts",
+      "src/security/claude-subscription-authentication.ts",
+      "runDockerCommandWithAuthority",
+      "spawn",
+      1,
+      "cdc88c0549a2aead74bd1ff0f27eed114bed26257c88e5a613267bd39aad8a52",
+      "febd7cf3e75e0b6c4dc8c4872bc99716cfc07daccfbb3a7bc64ab2e823cd0402",
+      "child",
+    ],
+    [
+      "runtime",
+      "src/security/docker-desktop-repair-native-process.ts",
       "acquireRuntimeOwnedDockerDesktopNativeHelper",
       "spawn",
       1,
@@ -1833,16 +2445,6 @@ const exactExternalProcessCalls = Object.freeze(
       "75fe97d4efe1f052b606a12290adddb94cb7fb12eb7c53e3165fcd2803fb3c88",
       "execution",
     ],
-    [
-      "runtime",
-      "40_Develop/execution-intelligence/src/store/verified-repository-root.ts",
-      "observeExactRepositoryRoot",
-      "execFileSync",
-      1,
-      "5e0d844c15465eab569ee204969466e374ea4bfbca4f49da5f9826e9fd5b843a",
-      "2dd92e2d79454613468b1879a97bce06a43c3100f14a1c65b6afb3c01e369d7d",
-      "observed",
-    ],
   ].map(
     ([
       graph,
@@ -1867,6 +2469,17 @@ const exactExternalProcessCalls = Object.freeze(
   ),
 );
 
+/**
+ * platform-provisioner-package-filesystemで使用するExact Audited Function Flowの値契約を定義する。
+ *
+ * @responsibility Exact Audited Function FlowのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape ExactAuditedFunctionFlowが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ExactAuditedFunctionFlowで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ExactAuditedFunctionFlowの宣言は外部境界を開かない。
+ * @security ExactAuditedFunctionFlowはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ExactAuditedFunctionFlowの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ExactAuditedFunctionFlow = Readonly<{
   graph: RuntimeCapabilityGraphKind;
   source: string;
@@ -1896,7 +2509,7 @@ const exactAuditedFunctionFlows = Object.freeze(
     ],
     [
       "runtime",
-      "src/security/docker-desktop-repair-native-helper.ts",
+      "src/security/docker-desktop-repair-native-process.ts",
       "acquireRuntimeOwnedDockerDesktopNativeHelper",
       "cf76fcbdb58e59faf7b42ec759376e5763d51f19110ec12e99f1d5d4b526d334",
     ],
@@ -1988,19 +2601,19 @@ const exactAuditedFunctionFlows = Object.freeze(
       "runtime",
       "scripts/sign-release-manifest.ts",
       "prepareReleaseManifestCandidate",
-      "d435a8bd72965a4d6b862ddea43bc5677f47167949547574a535a1b40dbf1fee",
+      "52bd24303463c4db8c0dbcd1f416a8c883c620ad4f0c05d4ef3ad47b4005583b",
     ],
     [
       "runtime",
       "scripts/sign-release-manifest.ts",
       "preflightReleaseManifest",
-      "d757f5d1f0d233d8853fd3153180a54ffed32b0467bcb5ee5b3022972f45bfaf",
+      "7ffb2f6feed9e261caf4ca6e5a61c99c3885f5d15a5ffd309250af8ada44c20b",
     ],
     [
       "runtime",
       "scripts/sign-release-manifest.ts",
       "signReleaseManifest",
-      "cb3755246ade4c1a7e8358e5973909c3720f8c145587b037ae0fcf639c75b7c6",
+      "bf4e97c6accd81902196c51b1fb7847a8eaae264d184e7c46fb56932a1deeb67",
     ],
     [
       "runtime",
@@ -2012,7 +2625,7 @@ const exactAuditedFunctionFlows = Object.freeze(
       "verification_tool",
       "scripts/verify-project-runtime-real-providers.ts",
       "main",
-      "4d5a581c4d3731b94ec6e0ddb34672e3f014f69dc1715f0187f1a1755a611a23",
+      "5f42ec998ea0143a97d29cd3087cf1e71bf085588aa9ef6f2ba29d6292976fd2",
     ],
   ].map(
     ([graph, source, functionName, bodySha256]) =>
@@ -2040,8 +2653,8 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
       "0cb9a47490a153066b41d87d8b9393bfb6654e677b1f0b3887f3c1e897eb1013",
     ],
     [
-      "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopNativeHelper",
-      "ab2c10133248652d19939052c86e0833034431d5c0671746f7a0c6c6f7685ff9",
+      "src/security/docker-desktop-repair-native-process.ts\0acquireRuntimeOwnedDockerDesktopNativeHelper",
+      "20c863df21d1ca6b13e5ab8999f6018a96ee86b1af5878e21c0ad433e631bd03",
     ],
     [
       "src/security/docker-effect-runtime.ts\0startCommand",
@@ -2101,15 +2714,15 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "scripts/sign-release-manifest.ts\0prepareReleaseManifestCandidate",
-      "043dc60de9e69bb97db94a8c16200deeb1918f59f77a4827313c536376cc8541",
+      "1e88f4c1b799a3d3f93c635772fc654d963ef6231837e1246ec79fc3d240bb39",
     ],
     [
       "scripts/sign-release-manifest.ts\0preflightReleaseManifest",
-      "31f5effed8c7b876655a6c548c335eeb1275e674e3b9008c326616ce58f65937",
+      "b5a423a1d634901420ee5b6dca3e9f429166e63de9039a6a32d6dbadfd7810a7",
     ],
     [
       "scripts/sign-release-manifest.ts\0signReleaseManifest",
-      "5827d31d0a7be10358138cba862b6fbdaca73b97ac5255f37364eec384b48e5e",
+      "84a0c1ade0611b63497658744b3aeb7bcc6c904ea52caa1da4755592b3523868",
     ],
     [
       "scripts/sign-release-manifest.ts\0main",
@@ -2117,7 +2730,7 @@ const exactAuditedSemanticGraphSha256 = Object.freeze(
     ],
     [
       "scripts/verify-project-runtime-real-providers.ts\0main",
-      "b0cce4c45b1b6d4c89f6febba4ccc5daca391a249c5786dfc665661e7e5eaaa5",
+      "8580c037efc3dcc61d56a696993a9abc97f0a80ea6c28177425909bb7aebda10",
     ],
   ]),
 );
@@ -2147,6 +2760,17 @@ const auditedFunctionLexicalParents = Object.freeze(
   ]),
 );
 
+/**
+ * platform-provisioner-package-filesystemで使用するAsync Process Ownershipの値契約を定義する。
+ *
+ * @responsibility Async Process OwnershipのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape AsyncProcessOwnershipが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant AsyncProcessOwnershipで宣言した値と責務の対応を維持する。
+ * @boundary N/A: AsyncProcessOwnershipの宣言は外部境界を開かない。
+ * @security AsyncProcessOwnershipはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility AsyncProcessOwnershipの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type AsyncProcessOwnership = Readonly<{
   classification: "wrapper_return" | "immediate_owner" | "lifecycle_transfer";
   proofs: readonly (readonly string[])[];
@@ -2169,7 +2793,7 @@ const exactAsyncProcessOwnership = Object.freeze(
       }),
     ],
     [
-      "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopNativeHelper",
+      "src/security/docker-desktop-repair-native-process.ts\0acquireRuntimeOwnedDockerDesktopNativeHelper",
       Object.freeze({
         classification: "lifecycle_transfer",
         proofs: Object.freeze([
@@ -2191,6 +2815,16 @@ const exactAsyncProcessOwnership = Object.freeze(
         classification: "immediate_owner",
         proofs: Object.freeze([
           Object.freeze(["child", ".", "once", "(", "spawn"]),
+          Object.freeze(["child", ".", "once", "(", "error"]),
+          Object.freeze(["child", ".", "once", "(", "close"]),
+        ]),
+      }),
+    ],
+    [
+      "src/security/claude-subscription-authentication.ts\0runDockerCommandWithAuthority",
+      Object.freeze({
+        classification: "immediate_owner",
+        proofs: Object.freeze([
           Object.freeze(["child", ".", "once", "(", "error"]),
           Object.freeze(["child", ".", "once", "(", "close"]),
         ]),
@@ -2220,6 +2854,17 @@ const exactAsyncProcessOwnership = Object.freeze(
   ]),
 );
 
+/**
+ * platform-provisioner-package-filesystemで使用するExecutable Provenanceの値契約を定義する。
+ *
+ * @responsibility Executable ProvenanceのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape ExecutableProvenanceが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ExecutableProvenanceで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ExecutableProvenanceの宣言は外部境界を開かない。
+ * @security ExecutableProvenanceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ExecutableProvenanceの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ExecutableProvenance = Readonly<{
   classification:
     | "node_self"
@@ -2336,7 +2981,7 @@ const exactExecutableProvenance = Object.freeze(
         [["beginPlatformAccessArtifactSigningObservation", "("]],
       ],
       [
-        "src/security/docker-desktop-repair-native-helper.ts\0acquireRuntimeOwnedDockerDesktopNativeHelper",
+        "src/security/docker-desktop-repair-native-process.ts\0acquireRuntimeOwnedDockerDesktopNativeHelper",
         [["beginPlatformAccessArtifactSigningObservation", "("]],
       ],
       [
@@ -2392,6 +3037,7 @@ const exactExecutableProvenance = Object.freeze(
     ...[
       "src/security/docker-owned-process.ts\0startOwnedProcess",
       "src/security/docker-isolation.ts\0startOwnedAttachedProcess",
+      "src/security/claude-subscription-authentication.ts\0runDockerCommandWithAuthority",
     ].map(
       (identity) =>
         [
@@ -2412,7 +3058,6 @@ const exactExecutableProvenance = Object.freeze(
     ...[
       "src/security/docker-owned-process.ts\0terminateAndWait",
       "scripts/verify-signed-recovery-matrix.ts\0verifyParentLossThenRecover",
-      "40_Develop/execution-intelligence/src/store/verified-repository-root.ts\0observeExactRepositoryRoot",
     ].map(
       (identity) =>
         [
@@ -2438,6 +3083,22 @@ for (const callsite of runtimeExternalProcessCallsites) {
   runtimeChildProcessOwnerPrimitives.set(callsite.source, primitives);
 }
 
+/**
+ * coordinator Relative Source Pathを決定する。
+ *
+ * @responsibility coordinator Relative Source Pathの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string
+ * @returns coordinatorRelativeSourcePathの計算結果を返す。
+ * @precondition 「relativePath: string」がcoordinatorRelativeSourcePathの入力契約を満たす。
+ * @postcondition coordinatorRelativeSourcePathの責務を完了した結果だけを返す。
+ * @effect N/A: coordinatorRelativeSourcePathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: coordinatorRelativeSourcePathは独自の失敗分岐を所有しない。
+ * @invariant coordinatorRelativeSourcePathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security coordinatorRelativeSourcePathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: coordinatorRelativeSourcePathは共有非同期状態を持たない同期処理である。
+ */
 function coordinatorRelativeSourcePath(relativePath: string) {
   const prefix = "40_Develop/coordinator/";
   return relativePath.startsWith(prefix)
@@ -2445,6 +3106,22 @@ function coordinatorRelativeSourcePath(relativePath: string) {
     : relativePath;
 }
 
+/**
+ * Fixed Taskkill Invocationかを判定する。
+ *
+ * @responsibility Fixed Taskkill Invocationの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、start: number
+ * @returns isFixedTaskkillInvocationの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]、start: number」がisFixedTaskkillInvocationの入力契約を満たす。
+ * @postcondition isFixedTaskkillInvocationの責務を完了した結果だけを返す。
+ * @effect N/A: isFixedTaskkillInvocationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isFixedTaskkillInvocationは独自の失敗分岐を所有しない。
+ * @invariant isFixedTaskkillInvocationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security isFixedTaskkillInvocationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isFixedTaskkillInvocationは共有非同期状態を持たない同期処理である。
+ */
 function isFixedTaskkillInvocation(
   tokens: readonly SourceToken[],
   start: number,
@@ -2478,6 +3155,22 @@ function isFixedTaskkillInvocation(
   return tokenSequenceMatches(tokens, closingParenthesis, [")", ","]);
 }
 
+/**
+ * selected Script Child Module Targetsを決定する。
+ *
+ * @responsibility selected Script Child Module Targetsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、tokens: readonly SourceToken[]
+ * @returns selectedScriptChildModuleTargetsの計算結果を返す。
+ * @precondition 「relativePath: string、tokens: readonly SourceToken[]」がselectedScriptChildModuleTargetsの入力契約を満たす。
+ * @postcondition selectedScriptChildModuleTargetsの責務を完了した結果だけを返す。
+ * @effect selectedScriptChildModuleTargetsは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure selectedScriptChildModuleTargetsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant selectedScriptChildModuleTargetsは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security selectedScriptChildModuleTargetsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: selectedScriptChildModuleTargetsは共有非同期状態を持たない同期処理である。
+ */
 function selectedScriptChildModuleTargets(
   relativePath: string,
   tokens: readonly SourceToken[],
@@ -2563,6 +3256,22 @@ function selectedScriptChildModuleTargets(
   return Object.freeze(targets);
 }
 
+/**
+ * canonical Relative Module Targetを決定する。
+ *
+ * @responsibility canonical Relative Module Targetの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、specifier: string
+ * @returns canonicalRelativeModuleTargetの計算結果を返す。
+ * @precondition 「relativePath: string、specifier: string」がcanonicalRelativeModuleTargetの入力契約を満たす。
+ * @postcondition canonicalRelativeModuleTargetの責務を完了した結果だけを返す。
+ * @effect N/A: canonicalRelativeModuleTargetは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure canonicalRelativeModuleTargetは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant canonicalRelativeModuleTargetは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security canonicalRelativeModuleTargetはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: canonicalRelativeModuleTargetは共有非同期状態を持たない同期処理である。
+ */
 function canonicalRelativeModuleTarget(
   relativePath: string,
   specifier: string,
@@ -2597,6 +3306,22 @@ function canonicalRelativeModuleTarget(
   );
 }
 
+/**
+ * declared Local Type Script Child Targetsを決定する。
+ *
+ * @responsibility declared Local Type Script Child Targetsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、tokens: readonly SourceToken[]
+ * @returns declaredLocalTypeScriptChildTargetsの計算結果を返す。
+ * @precondition 「relativePath: string、tokens: readonly SourceToken[]」がdeclaredLocalTypeScriptChildTargetsの入力契約を満たす。
+ * @postcondition declaredLocalTypeScriptChildTargetsの責務を完了した結果だけを返す。
+ * @effect declaredLocalTypeScriptChildTargetsは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure declaredLocalTypeScriptChildTargetsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant declaredLocalTypeScriptChildTargetsは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security declaredLocalTypeScriptChildTargetsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: declaredLocalTypeScriptChildTargetsは共有非同期状態を持たない同期処理である。
+ */
 function declaredLocalTypeScriptChildTargets(
   relativePath: string,
   tokens: readonly SourceToken[],
@@ -2682,6 +3407,22 @@ const localTypeScriptChildObserverPaths = Object.freeze(
 const LOCAL_TYPESCRIPT_CHILD_REGISTRY_SNAPSHOT_NAME =
   "runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver";
 
+/**
+ * direct Call Argument Startsを決定する。
+ *
+ * @responsibility direct Call Argument Startsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、openingParenthesis: number
+ * @returns directCallArgumentStartsの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]、openingParenthesis: number」がdirectCallArgumentStartsの入力契約を満たす。
+ * @postcondition directCallArgumentStartsの責務を完了した結果だけを返す。
+ * @effect N/A: directCallArgumentStartsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure directCallArgumentStartsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant directCallArgumentStartsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security directCallArgumentStartsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: directCallArgumentStartsは共有非同期状態を持たない同期処理である。
+ */
 function directCallArgumentStarts(
   tokens: readonly SourceToken[],
   openingParenthesis: number,
@@ -2710,8 +3451,35 @@ function directCallArgumentStarts(
   throw new Error("platform_provisioner_runtime_dependency_parse_failed");
 }
 
+/**
+ * platform-provisioner-package-filesystemで使用するDirect Call Argument Rangeの値契約を定義する。
+ *
+ * @responsibility Direct Call Argument RangeのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape DirectCallArgumentRangeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DirectCallArgumentRangeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DirectCallArgumentRangeの宣言は外部境界を開かない。
+ * @security DirectCallArgumentRangeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DirectCallArgumentRangeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type DirectCallArgumentRange = Readonly<{ start: number; end: number }>;
 
+/**
+ * direct Call Argument Rangesを決定する。
+ *
+ * @responsibility direct Call Argument Rangesの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、openingParenthesis: number
+ * @returns directCallArgumentRangesの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]、openingParenthesis: number」がdirectCallArgumentRangesの入力契約を満たす。
+ * @postcondition directCallArgumentRangesの責務を完了した結果だけを返す。
+ * @effect N/A: directCallArgumentRangesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure directCallArgumentRangesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant directCallArgumentRangesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security directCallArgumentRangesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: directCallArgumentRangesは共有非同期状態を持たない同期処理である。
+ */
 function directCallArgumentRanges(
   tokens: readonly SourceToken[],
   openingParenthesis: number,
@@ -2743,6 +3511,22 @@ function directCallArgumentRanges(
   throw new Error("platform_provisioner_runtime_dependency_parse_failed");
 }
 
+/**
+ * Expression Matchesが完全一致するか判定する。
+ *
+ * @responsibility Expression Matchesの比較対象、完全一致条件、判定結果境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、range: DirectCallArgumentRange | undefined、expectedTokens: readonly string[]
+ * @returns exactExpressionMatchesの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]、range: DirectCallArgumentRange | undefined、expectedTokens: readonly string[]」がexactExpressionMatchesの入力契約を満たす。
+ * @postcondition exactExpressionMatchesの責務を完了した結果だけを返す。
+ * @effect N/A: exactExpressionMatchesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: exactExpressionMatchesは独自の失敗分岐を所有しない。
+ * @invariant exactExpressionMatchesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security exactExpressionMatchesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: exactExpressionMatchesは共有非同期状態を持たない同期処理である。
+ */
 function exactExpressionMatches(
   tokens: readonly SourceToken[],
   range: DirectCallArgumentRange | undefined,
@@ -2755,6 +3539,22 @@ function exactExpressionMatches(
   );
 }
 
+/**
+ * expression Contains Top Level Alternativeを決定する。
+ *
+ * @responsibility expression Contains Top Level Alternativeの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、range: DirectCallArgumentRange
+ * @returns expressionContainsTopLevelAlternativeの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]、range: DirectCallArgumentRange」がexpressionContainsTopLevelAlternativeの入力契約を満たす。
+ * @postcondition expressionContainsTopLevelAlternativeの責務を完了した結果だけを返す。
+ * @effect N/A: expressionContainsTopLevelAlternativeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: expressionContainsTopLevelAlternativeは独自の失敗分岐を所有しない。
+ * @invariant expressionContainsTopLevelAlternativeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security expressionContainsTopLevelAlternativeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: expressionContainsTopLevelAlternativeは共有非同期状態を持たない同期処理である。
+ */
 function expressionContainsTopLevelAlternative(
   tokens: readonly SourceToken[],
   range: DirectCallArgumentRange,
@@ -2779,6 +3579,22 @@ function expressionContainsTopLevelAlternative(
   return false;
 }
 
+/**
+ * prefixed Array Expression Matchesを決定する。
+ *
+ * @responsibility prefixed Array Expression Matchesの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、range: DirectCallArgumentRange | undefined、expectedPrefixTokens: readonly string[]
+ * @returns prefixedArrayExpressionMatchesの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]、range: DirectCallArgumentRange | undefined、expectedPrefixTokens: readonly string[]」がprefixedArrayExpressionMatchesの入力契約を満たす。
+ * @postcondition prefixedArrayExpressionMatchesの責務を完了した結果だけを返す。
+ * @effect N/A: prefixedArrayExpressionMatchesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: prefixedArrayExpressionMatchesは独自の失敗分岐を所有しない。
+ * @invariant prefixedArrayExpressionMatchesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security prefixedArrayExpressionMatchesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: prefixedArrayExpressionMatchesは共有非同期状態を持たない同期処理である。
+ */
 function prefixedArrayExpressionMatches(
   tokens: readonly SourceToken[],
   range: DirectCallArgumentRange | undefined,
@@ -2796,6 +3612,22 @@ function prefixedArrayExpressionMatches(
   return range.end - range.start === expectedPrefixTokens.length;
 }
 
+/**
+ * used Local Type Script Child Role Kindsを決定する。
+ *
+ * @responsibility used Local Type Script Child Role Kindsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、tokens: readonly SourceToken[]
+ * @returns usedLocalTypeScriptChildRoleKindsの計算結果を返す。
+ * @precondition 「relativePath: string、tokens: readonly SourceToken[]」がusedLocalTypeScriptChildRoleKindsの入力契約を満たす。
+ * @postcondition usedLocalTypeScriptChildRoleKindsの責務を完了した結果だけを返す。
+ * @effect usedLocalTypeScriptChildRoleKindsは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure usedLocalTypeScriptChildRoleKindsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant usedLocalTypeScriptChildRoleKindsは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security usedLocalTypeScriptChildRoleKindsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: usedLocalTypeScriptChildRoleKindsは共有非同期状態を持たない同期処理である。
+ */
 function usedLocalTypeScriptChildRoleKinds(
   relativePath: string,
   tokens: readonly SourceToken[],
@@ -2877,6 +3709,22 @@ function usedLocalTypeScriptChildRoleKinds(
   return Object.freeze(uses);
 }
 
+/**
+ * No Undeclared Local Type Script Import Meta Urlを表明どおりか検査する。
+ *
+ * @responsibility No Undeclared Local Type Script Import Meta Urlの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、tokens: readonly SourceToken[]
+ * @returns N/A: assertNoUndeclaredLocalTypeScriptImportMetaUrlは戻り値を返さない。
+ * @precondition 「relativePath: string、tokens: readonly SourceToken[]」がassertNoUndeclaredLocalTypeScriptImportMetaUrlの入力契約を満たす。
+ * @postcondition assertNoUndeclaredLocalTypeScriptImportMetaUrlの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: assertNoUndeclaredLocalTypeScriptImportMetaUrlは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure assertNoUndeclaredLocalTypeScriptImportMetaUrlは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertNoUndeclaredLocalTypeScriptImportMetaUrlは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertNoUndeclaredLocalTypeScriptImportMetaUrlはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertNoUndeclaredLocalTypeScriptImportMetaUrlは共有非同期状態を持たない同期処理である。
+ */
 function assertNoUndeclaredLocalTypeScriptImportMetaUrl(
   relativePath: string,
   tokens: readonly SourceToken[],
@@ -2959,6 +3807,17 @@ function assertNoUndeclaredLocalTypeScriptImportMetaUrl(
   }
 }
 
+/**
+ * platform-provisioner-package-filesystemで使用するInternal Lifecycle Callの値契約を定義する。
+ *
+ * @responsibility Internal Lifecycle CallのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape InternalLifecycleCallが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant InternalLifecycleCallで宣言した値と責務の対応を維持する。
+ * @boundary N/A: InternalLifecycleCallの宣言は外部境界を開かない。
+ * @security InternalLifecycleCallはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility InternalLifecycleCallの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type InternalLifecycleCall = Readonly<{
   symbol: string;
   containingFunction: string;
@@ -3085,9 +3944,9 @@ const internalLifecycleConsumers = Object.freeze(
       }),
     ],
     [
-      "src/security/docker-desktop-repair-native-helper-lifecycle-internal.ts",
+      "src/security/docker-desktop-repair-native-process-lifecycle.ts",
       Object.freeze({
-        leaf: "src/security/docker-desktop-repair-native-helper.ts",
+        leaf: "src/security/docker-desktop-repair-native-process.ts",
         calls: Object.freeze([
           Object.freeze({
             symbol: "createDockerDesktopRepairNativeHelperLifecycle",
@@ -3119,10 +3978,22 @@ const internalLifecycleConsumers = Object.freeze(
   ]),
 );
 
+/**
+ * platform-provisioner-package-filesystemで使用するProcess Wrapper Useの値契約を定義する。
+ *
+ * @responsibility Process Wrapper UseのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape ProcessWrapperUseが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProcessWrapperUseで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProcessWrapperUseの宣言は外部境界を開かない。
+ * @security ProcessWrapperUseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ProcessWrapperUseの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ProcessWrapperUse = Readonly<{
   source: string;
   containingFunction: string | null;
   prefix: readonly string[];
+  dominatingProofs?: readonly (readonly string[])[];
 }>;
 
 const processWrapperConsumers = Object.freeze(
@@ -3134,6 +4005,111 @@ const processWrapperConsumers = Object.freeze(
       uses: readonly ProcessWrapperUse[];
     }>
   >([
+    [
+      "runDockerCommandWithAuthority",
+      Object.freeze({
+        target: "src/security/claude-subscription-authentication.ts",
+        exported: true,
+        uses: Object.freeze([
+          Object.freeze({
+            source: "src/security/claude-subscription-authentication.ts",
+            containingFunction: "run",
+            prefix: Object.freeze([
+              "runDockerCommandWithAuthority",
+              "(",
+              "executable",
+              ",",
+              "command",
+              ",",
+              "environment",
+              ",",
+              "workingDirectory",
+              ",",
+              "authorityLive",
+              ",",
+              ")",
+            ]),
+            dominatingProofs: Object.freeze([
+              Object.freeze([
+                "const",
+                "executable",
+                "=",
+                "verifyTrustedDockerCliSnapshot",
+                "(",
+                "dockerCli",
+                ")",
+              ]),
+              Object.freeze([
+                "const",
+                "environment",
+                "=",
+                "createDockerProcessEnvironment",
+                "(",
+                ")",
+              ]),
+              Object.freeze([
+                "const",
+                "systemRoot",
+                "=",
+                "environment",
+                ".",
+                "SystemRoot",
+              ]),
+              Object.freeze([
+                "if",
+                "(",
+                "!",
+                "systemRoot",
+                ")",
+                "throw",
+                "new",
+                "Error",
+                "(",
+                "docker_effect_working_directory_unavailable",
+                ")",
+              ]),
+              Object.freeze([
+                "const",
+                "workingDirectory",
+                "=",
+                "path",
+                ".",
+                "win32",
+                ".",
+                "join",
+                "(",
+                "systemRoot",
+                ",",
+                "System32",
+                ")",
+              ]),
+              Object.freeze([
+                "if",
+                "(",
+                "!",
+                "fs",
+                ".",
+                "statSync",
+                "(",
+                "workingDirectory",
+                ")",
+                ".",
+                "isDirectory",
+                "(",
+                ")",
+                ")",
+                "throw",
+                "new",
+                "Error",
+                "(",
+                "docker_effect_working_directory_unavailable",
+                ")",
+              ]),
+            ]),
+          }),
+        ]),
+      }),
+    ],
     [
       "startOwnedProcess",
       Object.freeze({
@@ -3242,6 +4218,22 @@ const processWrapperConsumers = Object.freeze(
   ]),
 );
 
+/**
+ * containing Named Functionを決定する。
+ *
+ * @responsibility containing Named Functionの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、tokenIndex: number
+ * @returns containingNamedFunctionの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]、tokenIndex: number」がcontainingNamedFunctionの入力契約を満たす。
+ * @postcondition containingNamedFunctionの責務を完了した結果だけを返す。
+ * @effect N/A: containingNamedFunctionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure containingNamedFunctionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant containingNamedFunctionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security containingNamedFunctionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: containingNamedFunctionは共有非同期状態を持たない同期処理である。
+ */
 function containingNamedFunction(
   tokens: readonly SourceToken[],
   tokenIndex: number,
@@ -3365,6 +4357,22 @@ function containingNamedFunction(
   );
 }
 
+/**
+ * argument Matches Prefixを決定する。
+ *
+ * @responsibility argument Matches Prefixの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、argumentStart: number | undefined、prefixTokens: readonly string[]
+ * @returns argumentMatchesPrefixの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]、argumentStart: number | undefined、prefixTokens: readonly string[]」がargumentMatchesPrefixの入力契約を満たす。
+ * @postcondition argumentMatchesPrefixの責務を完了した結果だけを返す。
+ * @effect N/A: argumentMatchesPrefixは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: argumentMatchesPrefixは独自の失敗分岐を所有しない。
+ * @invariant argumentMatchesPrefixは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security argumentMatchesPrefixはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: argumentMatchesPrefixは共有非同期状態を持たない同期処理である。
+ */
 function argumentMatchesPrefix(
   tokens: readonly SourceToken[],
   argumentStart: number | undefined,
@@ -3376,6 +4384,22 @@ function argumentMatchesPrefix(
   );
 }
 
+/**
+ * token Sequence Exists Betweenを決定する。
+ *
+ * @responsibility token Sequence Exists Betweenの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、start: number、end: number、sequenceTokens: readonly string[]
+ * @returns tokenSequenceExistsBetweenの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]、start: number、end: number、sequenceTokens: readonly string[]」がtokenSequenceExistsBetweenの入力契約を満たす。
+ * @postcondition tokenSequenceExistsBetweenの責務を完了した結果だけを返す。
+ * @effect N/A: tokenSequenceExistsBetweenは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: tokenSequenceExistsBetweenは独自の失敗分岐を所有しない。
+ * @invariant tokenSequenceExistsBetweenは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security tokenSequenceExistsBetweenはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: tokenSequenceExistsBetweenは共有非同期状態を持たない同期処理である。
+ */
 function tokenSequenceExistsBetween(
   tokens: readonly SourceToken[],
   start: number,
@@ -3388,6 +4412,22 @@ function tokenSequenceExistsBetween(
   return false;
 }
 
+/**
+ * token Sequence Indices Betweenを決定する。
+ *
+ * @responsibility token Sequence Indices Betweenの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、start: number、end: number、sequenceTokens: readonly string[]
+ * @returns tokenSequenceIndicesBetweenの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]、start: number、end: number、sequenceTokens: readonly string[]」がtokenSequenceIndicesBetweenの入力契約を満たす。
+ * @postcondition tokenSequenceIndicesBetweenの責務を完了した結果だけを返す。
+ * @effect N/A: tokenSequenceIndicesBetweenは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: tokenSequenceIndicesBetweenは独自の失敗分岐を所有しない。
+ * @invariant tokenSequenceIndicesBetweenは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security tokenSequenceIndicesBetweenはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: tokenSequenceIndicesBetweenは共有非同期状態を持たない同期処理である。
+ */
 function tokenSequenceIndicesBetween(
   tokens: readonly SourceToken[],
   start: number,
@@ -3402,6 +4442,22 @@ function tokenSequenceIndicesBetween(
   return Object.freeze(indices);
 }
 
+/**
+ * containing Block Pathを決定する。
+ *
+ * @responsibility containing Block Pathの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、tokenIndex: number
+ * @returns containingBlockPathの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]、tokenIndex: number」がcontainingBlockPathの入力契約を満たす。
+ * @postcondition containingBlockPathの責務を完了した結果だけを返す。
+ * @effect N/A: containingBlockPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: containingBlockPathは独自の失敗分岐を所有しない。
+ * @invariant containingBlockPathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security containingBlockPathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: containingBlockPathは共有非同期状態を持たない同期処理である。
+ */
 function containingBlockPath(
   tokens: readonly SourceToken[],
   tokenIndex: number,
@@ -3414,6 +4470,22 @@ function containingBlockPath(
   return Object.freeze(stackTokens);
 }
 
+/**
+ * block Path Dominatesを決定する。
+ *
+ * @responsibility block Path Dominatesの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input proofPathTokens: readonly number[]、consumerPathTokens: readonly number[]
+ * @returns blockPathDominatesの計算結果を返す。
+ * @precondition 「proofPathTokens: readonly number[]、consumerPathTokens: readonly number[]」がblockPathDominatesの入力契約を満たす。
+ * @postcondition blockPathDominatesの責務を完了した結果だけを返す。
+ * @effect N/A: blockPathDominatesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockPathDominatesは独自の失敗分岐を所有しない。
+ * @invariant blockPathDominatesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security blockPathDominatesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: blockPathDominatesは共有非同期状態を持たない同期処理である。
+ */
 function blockPathDominates(
   proofPathTokens: readonly number[],
   consumerPathTokens: readonly number[],
@@ -3426,6 +4498,22 @@ function blockPathDominates(
   );
 }
 
+/**
+ * Unique Dominating Proofが存在するかを判定する。
+ *
+ * @responsibility Unique Dominating Proofの存在条件とtrue／false境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、consumerIndex: number、sequenceTokens: readonly string[]
+ * @returns hasUniqueDominatingProofの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]、consumerIndex: number、sequenceTokens: readonly string[]」がhasUniqueDominatingProofの入力契約を満たす。
+ * @postcondition hasUniqueDominatingProofの責務を完了した結果だけを返す。
+ * @effect N/A: hasUniqueDominatingProofは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hasUniqueDominatingProofは独自の失敗分岐を所有しない。
+ * @invariant hasUniqueDominatingProofは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security hasUniqueDominatingProofはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hasUniqueDominatingProofは共有非同期状態を持たない同期処理である。
+ */
 function hasUniqueDominatingProof(
   tokens: readonly SourceToken[],
   consumerIndex: number,
@@ -3449,6 +4537,22 @@ function hasUniqueDominatingProof(
   );
 }
 
+/**
+ * Dominating Proofが存在するかを判定する。
+ *
+ * @responsibility Dominating Proofの存在条件とtrue／false境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、consumerIndex: number、sequenceTokens: readonly string[]
+ * @returns hasDominatingProofの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]、consumerIndex: number、sequenceTokens: readonly string[]」がhasDominatingProofの入力契約を満たす。
+ * @postcondition hasDominatingProofの責務を完了した結果だけを返す。
+ * @effect N/A: hasDominatingProofは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hasDominatingProofは独自の失敗分岐を所有しない。
+ * @invariant hasDominatingProofは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security hasDominatingProofはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hasDominatingProofは共有非同期状態を持たない同期処理である。
+ */
 function hasDominatingProof(
   tokens: readonly SourceToken[],
   consumerIndex: number,
@@ -3471,6 +4575,22 @@ function hasDominatingProof(
   });
 }
 
+/**
+ * Internal Lifecycle Consumer Boundaryを表明どおりか検査する。
+ *
+ * @responsibility Internal Lifecycle Consumer Boundaryの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、tokens: readonly SourceToken[]、shouldEnforceDeclaredGraph: boolean
+ * @returns assertInternalLifecycleConsumerBoundaryの計算結果を返す。
+ * @precondition 「relativePath: string、tokens: readonly SourceToken[]、shouldEnforceDeclaredGraph: boolean」がassertInternalLifecycleConsumerBoundaryの入力契約を満たす。
+ * @postcondition assertInternalLifecycleConsumerBoundaryの責務を完了した結果だけを返す。
+ * @effect N/A: assertInternalLifecycleConsumerBoundaryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure assertInternalLifecycleConsumerBoundaryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertInternalLifecycleConsumerBoundaryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertInternalLifecycleConsumerBoundaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertInternalLifecycleConsumerBoundaryは共有非同期状態を持たない同期処理である。
+ */
 function assertInternalLifecycleConsumerBoundary(
   relativePath: string,
   tokens: readonly SourceToken[],
@@ -3609,6 +4729,22 @@ function assertInternalLifecycleConsumerBoundary(
   }
 }
 
+/**
+ * Process Wrapper Consumer Boundaryを表明どおりか検査する。
+ *
+ * @responsibility Process Wrapper Consumer Boundaryの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、tokens: readonly SourceToken[]、shouldEnforceDeclaredGraph: boolean
+ * @returns assertProcessWrapperConsumerBoundaryの計算結果を返す。
+ * @precondition 「relativePath: string、tokens: readonly SourceToken[]、shouldEnforceDeclaredGraph: boolean」がassertProcessWrapperConsumerBoundaryの入力契約を満たす。
+ * @postcondition assertProcessWrapperConsumerBoundaryの責務を完了した結果だけを返す。
+ * @effect assertProcessWrapperConsumerBoundaryは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure assertProcessWrapperConsumerBoundaryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertProcessWrapperConsumerBoundaryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertProcessWrapperConsumerBoundaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertProcessWrapperConsumerBoundaryは共有非同期状態を持たない同期処理である。
+ */
 function assertProcessWrapperConsumerBoundary(
   relativePath: string,
   tokens: readonly SourceToken[],
@@ -3665,10 +4801,13 @@ function assertProcessWrapperConsumerBoundary(
         continue;
       if (importedIndices.get(symbol)?.has(index)) continue;
       if (tokens[index - 1]?.value === "function") {
+        const isExportedDeclaration =
+          tokens[index - 2]?.value === "export" ||
+          (tokens[index - 2]?.value === "async" &&
+            tokens[index - 3]?.value === "export");
         if (
           sourcePath !== capability.target ||
-          (capability.exported && tokens[index - 2]?.value !== "export") ||
-          (!capability.exported && tokens[index - 2]?.value === "export")
+          capability.exported !== isExportedDeclaration
         )
           throw new Error(
             "platform_provisioner_runtime_dependency_child_process_unbound",
@@ -3691,6 +4830,15 @@ function assertProcessWrapperConsumerBoundary(
           "platform_provisioner_runtime_dependency_child_process_unbound",
         );
       const matched = matchingTokens[0] as ProcessWrapperUse;
+      if (
+        matched.dominatingProofs?.some(
+          (proofTokens) =>
+            !hasUniqueDominatingProof(tokens, index, proofTokens),
+        )
+      )
+        throw new Error(
+          "platform_provisioner_runtime_dependency_child_process_unbound",
+        );
       observed.set(matched, (observed.get(matched) ?? 0) + 1);
     }
     const expectedUses = capability.uses.filter(
@@ -3787,6 +4935,22 @@ function assertProcessWrapperConsumerBoundary(
   }
 }
 
+/**
+ * Worker Creation Import Boundaryを表明どおりか検査する。
+ *
+ * @responsibility Worker Creation Import Boundaryの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、tokens: readonly SourceToken[]
+ * @returns N/A: assertWorkerCreationImportBoundaryは戻り値を返さない。
+ * @precondition 「relativePath: string、tokens: readonly SourceToken[]」がassertWorkerCreationImportBoundaryの入力契約を満たす。
+ * @postcondition assertWorkerCreationImportBoundaryの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: assertWorkerCreationImportBoundaryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure assertWorkerCreationImportBoundaryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertWorkerCreationImportBoundaryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertWorkerCreationImportBoundaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertWorkerCreationImportBoundaryは共有非同期状態を持たない同期処理である。
+ */
 function assertWorkerCreationImportBoundary(
   relativePath: string,
   tokens: readonly SourceToken[],
@@ -3861,6 +5025,22 @@ function assertWorkerCreationImportBoundary(
   }
 }
 
+/**
+ * No Unbound Runtime Child Processを表明どおりか検査する。
+ *
+ * @responsibility No Unbound Runtime Child Processの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、tokens: readonly SourceToken[]、shouldEnforceDeclaredGraph: boolean
+ * @returns assertNoUnboundRuntimeChildProcessの計算結果を返す。
+ * @precondition 「relativePath: string、tokens: readonly SourceToken[]、shouldEnforceDeclaredGraph: boolean」がassertNoUnboundRuntimeChildProcessの入力契約を満たす。
+ * @postcondition assertNoUnboundRuntimeChildProcessの責務を完了した結果だけを返す。
+ * @effect assertNoUnboundRuntimeChildProcessは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure assertNoUnboundRuntimeChildProcessは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertNoUnboundRuntimeChildProcessは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertNoUnboundRuntimeChildProcessはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency assertNoUnboundRuntimeChildProcessは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function assertNoUnboundRuntimeChildProcess(
   relativePath: string,
   tokens: readonly SourceToken[],
@@ -4081,6 +5261,22 @@ function assertNoUnboundRuntimeChildProcess(
     );
 }
 
+/**
+ * runtime Named Function Graph Snapshot For Verificationを決定する。
+ *
+ * @responsibility runtime Named Function Graph Snapshot For Verificationの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、source: string | readonly SourceToken[]、names: readonly string[]
+ * @returns runtimeNamedFunctionGraphSnapshotForVerificationの計算結果を返す。
+ * @precondition 「relativePath: string、source: string | readonly SourceToken[]、names: readonly string[]」がruntimeNamedFunctionGraphSnapshotForVerificationの入力契約を満たす。
+ * @postcondition runtimeNamedFunctionGraphSnapshotForVerificationの責務を完了した結果だけを返す。
+ * @effect N/A: runtimeNamedFunctionGraphSnapshotForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure runtimeNamedFunctionGraphSnapshotForVerificationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runtimeNamedFunctionGraphSnapshotForVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security runtimeNamedFunctionGraphSnapshotForVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency runtimeNamedFunctionGraphSnapshotForVerificationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export function runtimeNamedFunctionGraphSnapshotForVerification(
   relativePath: string,
   source: string | readonly SourceToken[],
@@ -4266,6 +5462,22 @@ export function runtimeNamedFunctionGraphSnapshotForVerification(
   return Object.freeze(functions);
 }
 
+/**
+ * audited Function Semantic Graph For Verificationを決定する。
+ *
+ * @responsibility audited Function Semantic Graph For Verificationの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、source: string
+ * @returns auditedFunctionSemanticGraphForVerificationの計算結果を返す。
+ * @precondition 「relativePath: string、source: string」がauditedFunctionSemanticGraphForVerificationの入力契約を満たす。
+ * @postcondition auditedFunctionSemanticGraphForVerificationの責務を完了した結果だけを返す。
+ * @effect N/A: auditedFunctionSemanticGraphForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: auditedFunctionSemanticGraphForVerificationは独自の失敗分岐を所有しない。
+ * @invariant auditedFunctionSemanticGraphForVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security auditedFunctionSemanticGraphForVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: auditedFunctionSemanticGraphForVerificationは共有非同期状態を持たない同期処理である。
+ */
 export function auditedFunctionSemanticGraphForVerification(
   relativePath: string,
   source: string,
@@ -4285,6 +5497,7 @@ const protectedPreBodyEffectSymbols = Object.freeze(
     "readHiddenLine",
     "readFileSync",
     "createPrivateKey",
+    "signEd25519Payload",
     "sign",
     "spawn",
     "spawnSync",
@@ -4294,6 +5507,22 @@ const protectedPreBodyEffectSymbols = Object.freeze(
   ]),
 );
 
+/**
+ * No Audited Pre Body Effectsを表明どおりか検査する。
+ *
+ * @responsibility No Audited Pre Body Effectsの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、functionNames: ReadonlySet<string>
+ * @returns N/A: assertNoAuditedPreBodyEffectsは戻り値を返さない。
+ * @precondition 「tokens: readonly SourceToken[]、functionNames: ReadonlySet<string>」がassertNoAuditedPreBodyEffectsの入力契約を満たす。
+ * @postcondition assertNoAuditedPreBodyEffectsの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: assertNoAuditedPreBodyEffectsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure assertNoAuditedPreBodyEffectsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertNoAuditedPreBodyEffectsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertNoAuditedPreBodyEffectsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertNoAuditedPreBodyEffectsは共有非同期状態を持たない同期処理である。
+ */
 function assertNoAuditedPreBodyEffects(
   tokens: readonly SourceToken[],
   functionNames: ReadonlySet<string>,
@@ -4328,6 +5557,22 @@ function assertNoAuditedPreBodyEffects(
   }
 }
 
+/**
+ * Exact Audited Function Flowsを表明どおりか検査する。
+ *
+ * @responsibility Exact Audited Function Flowsの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、tokens: readonly SourceToken[]、shouldEnforceDeclaredGraph: boolean
+ * @returns assertExactAuditedFunctionFlowsの計算結果を返す。
+ * @precondition 「relativePath: string、tokens: readonly SourceToken[]、shouldEnforceDeclaredGraph: boolean」がassertExactAuditedFunctionFlowsの入力契約を満たす。
+ * @postcondition assertExactAuditedFunctionFlowsの責務を完了した結果だけを返す。
+ * @effect N/A: assertExactAuditedFunctionFlowsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure assertExactAuditedFunctionFlowsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertExactAuditedFunctionFlowsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertExactAuditedFunctionFlowsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertExactAuditedFunctionFlowsは共有非同期状態を持たない同期処理である。
+ */
 function assertExactAuditedFunctionFlows(
   relativePath: string,
   tokens: readonly SourceToken[],
@@ -4365,6 +5610,22 @@ function assertExactAuditedFunctionFlows(
   // contracts above and the protected-path checks below.
 }
 
+/**
+ * Exact Capability Graph Source Universeを表明どおりか検査する。
+ *
+ * @responsibility Exact Capability Graph Source Universeの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input graph: RuntimeCapabilityGraphKind、sources: ReadonlySet<string>
+ * @returns N/A: assertExactCapabilityGraphSourceUniverseは戻り値を返さない。
+ * @precondition 「graph: RuntimeCapabilityGraphKind、sources: ReadonlySet<string>」がassertExactCapabilityGraphSourceUniverseの入力契約を満たす。
+ * @postcondition assertExactCapabilityGraphSourceUniverseの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: assertExactCapabilityGraphSourceUniverseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure assertExactCapabilityGraphSourceUniverseは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertExactCapabilityGraphSourceUniverseは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertExactCapabilityGraphSourceUniverseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertExactCapabilityGraphSourceUniverseは共有非同期状態を持たない同期処理である。
+ */
 function assertExactCapabilityGraphSourceUniverse(
   graph: RuntimeCapabilityGraphKind,
   sources: ReadonlySet<string>,
@@ -4415,6 +5676,22 @@ function assertExactCapabilityGraphSourceUniverse(
     );
 }
 
+/**
+ * Verification Tool Capability Graph For Verificationを表明どおりか検査する。
+ *
+ * @responsibility Verification Tool Capability Graph For Verificationの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input sources: Readonly<Record<string, string>>
+ * @returns N/A: assertVerificationToolCapabilityGraphForVerificationは戻り値を返さない。
+ * @precondition 「sources: Readonly<Record<string, string>>」がassertVerificationToolCapabilityGraphForVerificationの入力契約を満たす。
+ * @postcondition assertVerificationToolCapabilityGraphForVerificationの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: assertVerificationToolCapabilityGraphForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure assertVerificationToolCapabilityGraphForVerificationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertVerificationToolCapabilityGraphForVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertVerificationToolCapabilityGraphForVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertVerificationToolCapabilityGraphForVerificationは共有非同期状態を持たない同期処理である。
+ */
 export function assertVerificationToolCapabilityGraphForVerification(
   sources: Readonly<Record<string, string>>,
 ) {
@@ -4435,6 +5712,22 @@ export function assertVerificationToolCapabilityGraphForVerification(
   assertExactCapabilityGraphSourceUniverse("verification_tool", new Set(paths));
 }
 
+/**
+ * Allowed Exec Path Useかを判定する。
+ *
+ * @responsibility Allowed Exec Path Useの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、tokens: readonly SourceToken[]、index: number
+ * @returns isAllowedExecPathUseの計算結果を返す。
+ * @precondition 「relativePath: string、tokens: readonly SourceToken[]、index: number」がisAllowedExecPathUseの入力契約を満たす。
+ * @postcondition isAllowedExecPathUseの責務を完了した結果だけを返す。
+ * @effect N/A: isAllowedExecPathUseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isAllowedExecPathUseは独自の失敗分岐を所有しない。
+ * @invariant isAllowedExecPathUseは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security isAllowedExecPathUseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isAllowedExecPathUseは共有非同期状態を持たない同期処理である。
+ */
 function isAllowedExecPathUse(
   relativePath: string,
   tokens: readonly SourceToken[],
@@ -4505,6 +5798,22 @@ function isAllowedExecPathUse(
   return false;
 }
 
+/**
+ * No Unbound Runtime Exec Pathを表明どおりか検査する。
+ *
+ * @responsibility No Unbound Runtime Exec Pathの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、tokens: readonly SourceToken[]
+ * @returns N/A: assertNoUnboundRuntimeExecPathは戻り値を返さない。
+ * @precondition 「relativePath: string、tokens: readonly SourceToken[]」がassertNoUnboundRuntimeExecPathの入力契約を満たす。
+ * @postcondition assertNoUnboundRuntimeExecPathの責務を完了して呼出し元へ制御を戻す。
+ * @effect assertNoUnboundRuntimeExecPathは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure assertNoUnboundRuntimeExecPathは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertNoUnboundRuntimeExecPathは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertNoUnboundRuntimeExecPathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertNoUnboundRuntimeExecPathは共有非同期状態を持たない同期処理である。
+ */
 function assertNoUnboundRuntimeExecPath(
   relativePath: string,
   tokens: readonly SourceToken[],
@@ -4546,6 +5855,17 @@ const runtimePackageCapabilityExports = Object.freeze(
   ]),
 );
 
+/**
+ * platform-provisioner-package-filesystemで使用するRuntime Package Capability Consumerの値契約を定義する。
+ *
+ * @responsibility Runtime Package Capability ConsumerのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape RuntimePackageCapabilityConsumerが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimePackageCapabilityConsumerで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimePackageCapabilityConsumerの宣言は外部境界を開かない。
+ * @security RuntimePackageCapabilityConsumerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimePackageCapabilityConsumerの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimePackageCapabilityConsumer = Readonly<{
   source: string;
   symbol: string;
@@ -4554,6 +5874,22 @@ type RuntimePackageCapabilityConsumer = Readonly<{
   occurrence: number;
 }>;
 
+/**
+ * runtime Package Capability Consumersを決定する。
+ *
+ * @responsibility runtime Package Capability Consumersの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、tokens: readonly SourceToken[]
+ * @returns runtimePackageCapabilityConsumersの計算結果を返す。
+ * @precondition 「relativePath: string、tokens: readonly SourceToken[]」がruntimePackageCapabilityConsumersの入力契約を満たす。
+ * @postcondition runtimePackageCapabilityConsumersの責務を完了した結果だけを返す。
+ * @effect N/A: runtimePackageCapabilityConsumersは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure runtimePackageCapabilityConsumersは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runtimePackageCapabilityConsumersは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security runtimePackageCapabilityConsumersはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: runtimePackageCapabilityConsumersは共有非同期状態を持たない同期処理である。
+ */
 function runtimePackageCapabilityConsumers(
   relativePath: string,
   tokens: readonly SourceToken[],
@@ -4621,6 +5957,22 @@ function runtimePackageCapabilityConsumers(
   return Object.freeze(resultTokens);
 }
 
+/**
+ * runtime Package Capability Consumer Graph For Verificationを決定する。
+ *
+ * @responsibility runtime Package Capability Consumer Graph For Verificationの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input sources: Readonly<Record<string, string>>
+ * @returns runtimePackageCapabilityConsumerGraphForVerificationの計算結果を返す。
+ * @precondition 「sources: Readonly<Record<string, string>>」がruntimePackageCapabilityConsumerGraphForVerificationの入力契約を満たす。
+ * @postcondition runtimePackageCapabilityConsumerGraphForVerificationの責務を完了した結果だけを返す。
+ * @effect N/A: runtimePackageCapabilityConsumerGraphForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: runtimePackageCapabilityConsumerGraphForVerificationは独自の失敗分岐を所有しない。
+ * @invariant runtimePackageCapabilityConsumerGraphForVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security runtimePackageCapabilityConsumerGraphForVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: runtimePackageCapabilityConsumerGraphForVerificationは共有非同期状態を持たない同期処理である。
+ */
 export function runtimePackageCapabilityConsumerGraphForVerification(
   sources: Readonly<Record<string, string>>,
 ) {
@@ -4802,12 +6154,44 @@ const exactRuntimePackageCapabilityConsumers = Object.freeze(
   ),
 );
 
+/**
+ * runtime Package Capability Consumer Identityを決定する。
+ *
+ * @responsibility runtime Package Capability Consumer Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input consumer: RuntimePackageCapabilityConsumer
+ * @returns runtimePackageCapabilityConsumerIdentityの計算結果を返す。
+ * @precondition 「consumer: RuntimePackageCapabilityConsumer」がruntimePackageCapabilityConsumerIdentityの入力契約を満たす。
+ * @postcondition runtimePackageCapabilityConsumerIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: runtimePackageCapabilityConsumerIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: runtimePackageCapabilityConsumerIdentityは独自の失敗分岐を所有しない。
+ * @invariant runtimePackageCapabilityConsumerIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security runtimePackageCapabilityConsumerIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: runtimePackageCapabilityConsumerIdentityは共有非同期状態を持たない同期処理である。
+ */
 function runtimePackageCapabilityConsumerIdentity(
   consumer: RuntimePackageCapabilityConsumer,
 ) {
   return `${consumer.source}\0${consumer.symbol}\0${consumer.owner}\0${consumer.use}\0${consumer.occurrence}`;
 }
 
+/**
+ * Runtime Package Capability Handoff Closureを表明どおりか検査する。
+ *
+ * @responsibility Runtime Package Capability Handoff Closureの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input sources: Readonly<Record<string, string>>
+ * @returns assertRuntimePackageCapabilityHandoffClosureの計算結果を返す。
+ * @precondition 「sources: Readonly<Record<string, string>>」がassertRuntimePackageCapabilityHandoffClosureの入力契約を満たす。
+ * @postcondition assertRuntimePackageCapabilityHandoffClosureの責務を完了した結果だけを返す。
+ * @effect N/A: assertRuntimePackageCapabilityHandoffClosureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure assertRuntimePackageCapabilityHandoffClosureは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertRuntimePackageCapabilityHandoffClosureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertRuntimePackageCapabilityHandoffClosureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertRuntimePackageCapabilityHandoffClosureは共有非同期状態を持たない同期処理である。
+ */
 function assertRuntimePackageCapabilityHandoffClosure(
   sources: Readonly<Record<string, string>>,
 ) {
@@ -5016,6 +6400,22 @@ function assertRuntimePackageCapabilityHandoffClosure(
     throw new Error("consumer_handoff:coordinator_dominance");
 }
 
+/**
+ * Release Assurance Consumer Closureを表明どおりか検査する。
+ *
+ * @responsibility Release Assurance Consumer Closureの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input sources: Readonly<Record<string, string>>
+ * @returns assertReleaseAssuranceConsumerClosureの計算結果を返す。
+ * @precondition 「sources: Readonly<Record<string, string>>」がassertReleaseAssuranceConsumerClosureの入力契約を満たす。
+ * @postcondition assertReleaseAssuranceConsumerClosureの責務を完了した結果だけを返す。
+ * @effect N/A: assertReleaseAssuranceConsumerClosureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure assertReleaseAssuranceConsumerClosureは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertReleaseAssuranceConsumerClosureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertReleaseAssuranceConsumerClosureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertReleaseAssuranceConsumerClosureは共有非同期状態を持たない同期処理である。
+ */
 function assertReleaseAssuranceConsumerClosure(
   sources: Readonly<Record<string, string>>,
 ) {
@@ -5136,6 +6536,22 @@ function assertReleaseAssuranceConsumerClosure(
   );
 }
 
+/**
+ * Exact Runtime Package Capability Consumer Graphを表明どおりか検査する。
+ *
+ * @responsibility Exact Runtime Package Capability Consumer Graphの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input sources: Readonly<Record<string, string>>、scope: "repository" | "runtime_distribution"
+ * @returns N/A: assertExactRuntimePackageCapabilityConsumerGraphは戻り値を返さない。
+ * @precondition 「sources: Readonly<Record<string, string>>、scope: "repository" | "runtime_distribution"」がassertExactRuntimePackageCapabilityConsumerGraphの入力契約を満たす。
+ * @postcondition assertExactRuntimePackageCapabilityConsumerGraphの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: assertExactRuntimePackageCapabilityConsumerGraphは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure assertExactRuntimePackageCapabilityConsumerGraphは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertExactRuntimePackageCapabilityConsumerGraphは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertExactRuntimePackageCapabilityConsumerGraphはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertExactRuntimePackageCapabilityConsumerGraphは共有非同期状態を持たない同期処理である。
+ */
 function assertExactRuntimePackageCapabilityConsumerGraph(
   sources: Readonly<Record<string, string>>,
   scope: "repository" | "runtime_distribution",
@@ -5176,6 +6592,22 @@ function assertExactRuntimePackageCapabilityConsumerGraph(
   }
 }
 
+/**
+ * runtime Package Capability Consumer Graph Diagnostic For Verificationを決定する。
+ *
+ * @responsibility runtime Package Capability Consumer Graph Diagnostic For Verificationの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input sources: Readonly<Record<string, string>>
+ * @returns ProtectedPathDiagnosticを返す。
+ * @precondition 「sources: Readonly<Record<string, string>>」がruntimePackageCapabilityConsumerGraphDiagnosticForVerificationの入力契約を満たす。
+ * @postcondition runtimePackageCapabilityConsumerGraphDiagnosticForVerificationの責務を完了した結果だけを返す。
+ * @effect N/A: runtimePackageCapabilityConsumerGraphDiagnosticForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure runtimePackageCapabilityConsumerGraphDiagnosticForVerificationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runtimePackageCapabilityConsumerGraphDiagnosticForVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security runtimePackageCapabilityConsumerGraphDiagnosticForVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: runtimePackageCapabilityConsumerGraphDiagnosticForVerificationは共有非同期状態を持たない同期処理である。
+ */
 export function runtimePackageCapabilityConsumerGraphDiagnosticForVerification(
   sources: Readonly<Record<string, string>>,
 ): ProtectedPathDiagnostic {
@@ -5201,6 +6633,22 @@ export function runtimePackageCapabilityConsumerGraphDiagnosticForVerification(
   }
 }
 
+/**
+ * Runtime Package Capability Consumer Graph For Verificationを表明どおりか検査する。
+ *
+ * @responsibility Runtime Package Capability Consumer Graph For Verificationの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input sources: Readonly<Record<string, string>>
+ * @returns N/A: assertRuntimePackageCapabilityConsumerGraphForVerificationは戻り値を返さない。
+ * @precondition 「sources: Readonly<Record<string, string>>」がassertRuntimePackageCapabilityConsumerGraphForVerificationの入力契約を満たす。
+ * @postcondition assertRuntimePackageCapabilityConsumerGraphForVerificationの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: assertRuntimePackageCapabilityConsumerGraphForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure assertRuntimePackageCapabilityConsumerGraphForVerificationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertRuntimePackageCapabilityConsumerGraphForVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertRuntimePackageCapabilityConsumerGraphForVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertRuntimePackageCapabilityConsumerGraphForVerificationは共有非同期状態を持たない同期処理である。
+ */
 export function assertRuntimePackageCapabilityConsumerGraphForVerification(
   sources: Readonly<Record<string, string>>,
 ) {
@@ -5212,6 +6660,22 @@ export function assertRuntimePackageCapabilityConsumerGraphForVerification(
     );
 }
 
+/**
+ * Public Runtime Observation Consumer Closureを表明どおりか検査する。
+ *
+ * @responsibility Public Runtime Observation Consumer Closureの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、tokens: readonly SourceToken[]、shouldEnforceDeclaredGraph: boolean
+ * @returns assertPublicRuntimeObservationConsumerClosureの計算結果を返す。
+ * @precondition 「relativePath: string、tokens: readonly SourceToken[]、shouldEnforceDeclaredGraph: boolean」がassertPublicRuntimeObservationConsumerClosureの入力契約を満たす。
+ * @postcondition assertPublicRuntimeObservationConsumerClosureの責務を完了した結果だけを返す。
+ * @effect N/A: assertPublicRuntimeObservationConsumerClosureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure assertPublicRuntimeObservationConsumerClosureは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertPublicRuntimeObservationConsumerClosureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertPublicRuntimeObservationConsumerClosureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertPublicRuntimeObservationConsumerClosureは共有非同期状態を持たない同期処理である。
+ */
 function assertPublicRuntimeObservationConsumerClosure(
   relativePath: string,
   tokens: readonly SourceToken[],
@@ -5227,6 +6691,11 @@ function assertPublicRuntimeObservationConsumerClosure(
     [
       "observeRuntimeDistribution",
       "inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate",
+      ["distributionRoot"],
+    ],
+    [
+      "observeRuntimeDistribution",
+      "diagnoseRuntimeDistributionFilesystemForVerification",
       ["distributionRoot"],
     ],
     [
@@ -5336,6 +6805,17 @@ function assertPublicRuntimeObservationConsumerClosure(
     );
 }
 
+/**
+ * platform-provisioner-package-filesystemで使用するProtected Path Diagnosticの値契約を定義する。
+ *
+ * @responsibility Protected Path DiagnosticのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape ProtectedPathDiagnosticが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProtectedPathDiagnosticで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProtectedPathDiagnosticの宣言は外部境界を開かない。
+ * @security ProtectedPathDiagnosticはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ProtectedPathDiagnosticの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ProtectedPathDiagnostic = Readonly<{
   status: "accepted" | "blocked";
   phase: string;
@@ -5344,6 +6824,22 @@ type ProtectedPathDiagnostic = Readonly<{
   runtimeExecution: "not_performed";
 }>;
 
+/**
+ * named Function Body Rangeを決定する。
+ *
+ * @responsibility named Function Body Rangeの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、functionName: string
+ * @returns namedFunctionBodyRangeの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]、functionName: string」がnamedFunctionBodyRangeの入力契約を満たす。
+ * @postcondition namedFunctionBodyRangeの責務を完了した結果だけを返す。
+ * @effect N/A: namedFunctionBodyRangeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure namedFunctionBodyRangeは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant namedFunctionBodyRangeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security namedFunctionBodyRangeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: namedFunctionBodyRangeは共有非同期状態を持たない同期処理である。
+ */
 function namedFunctionBodyRange(
   tokens: readonly SourceToken[],
   functionName: string,
@@ -5374,6 +6870,22 @@ function namedFunctionBodyRange(
   return matches[0] as Readonly<{ opening: number; closing: number }>;
 }
 
+/**
+ * direct Protected Callを決定する。
+ *
+ * @responsibility direct Protected Callの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input tokens: readonly SourceToken[]、symbol: string、owner: string、prefixTokens: readonly string[]、argumentShapes: readonly (readonly string[])[]
+ * @returns directProtectedCallの計算結果を返す。
+ * @precondition 「tokens: readonly SourceToken[]、symbol: string、owner: string、prefixTokens: readonly string[]、argumentShapes: readonly (readonly string[])[]」がdirectProtectedCallの入力契約を満たす。
+ * @postcondition directProtectedCallの責務を完了した結果だけを返す。
+ * @effect N/A: directProtectedCallは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure directProtectedCallは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant directProtectedCallは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security directProtectedCallはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: directProtectedCallは共有非同期状態を持たない同期処理である。
+ */
 function directProtectedCall(
   tokens: readonly SourceToken[],
   symbol: string,
@@ -5415,16 +6927,43 @@ function directProtectedCall(
   return matches[0] as number;
 }
 
+/**
+ * Release Signing Protected Pathを表明どおりか検査する。
+ *
+ * @responsibility Release Signing Protected Pathの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input source: string
+ * @returns assertReleaseSigningProtectedPathの計算結果を返す。
+ * @precondition 「source: string」がassertReleaseSigningProtectedPathの入力契約を満たす。
+ * @postcondition assertReleaseSigningProtectedPathの責務を完了した結果だけを返す。
+ * @effect N/A: assertReleaseSigningProtectedPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure assertReleaseSigningProtectedPathは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertReleaseSigningProtectedPathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertReleaseSigningProtectedPathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency assertReleaseSigningProtectedPathは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function assertReleaseSigningProtectedPath(source: string) {
   const tokens = tokenizeTypeScriptModuleSyntax(source);
   const protectedImports = Object.freeze(
     new Map<string, readonly string[]>([
-      ["node:crypto", ["createPrivateKey", "createPublicKey", "sign"]],
       [
-        "../src/security/git-object-reader.ts",
-        ["inspectGitCommitTreeCandidate"],
+        "../../artifact-signing/src/index.ts",
+        [
+          "preflightPrivateKeyReference",
+          "readHiddenLine",
+          "readPrivateKeyReferenceFromEnvironmentFile",
+          "signEd25519Payload",
+        ],
       ],
-      ["./generate-release-key.ts", ["readHiddenLine"]],
+      [
+        "../../version-control/src/git/fixed-snapshot-adapter.ts",
+        ["inspectRepositoryFixedSnapshot"],
+      ],
+      [
+        "../../version-control/src/repository-location.ts",
+        ["verifyRepositoryRoot"],
+      ],
       [
         "./release-staging-manifest.ts",
         [
@@ -5502,18 +7041,6 @@ function assertReleaseSigningProtectedPath(source: string) {
     ?.localTokenIndex as number;
   const filesystemMethodsByOwner = new Map<string, ReadonlySet<string>>([
     [
-      "stableExternalFile",
-      new Set([
-        "lstatSync",
-        "realpathSync",
-        "constants",
-        "openSync",
-        "fstatSync",
-        "readSync",
-        "closeSync",
-      ]),
-    ],
-    [
       "repositoryLocalDistributionRoot",
       new Set(["lstatSync", "realpathSync", "existsSync"]),
     ],
@@ -5547,7 +7074,8 @@ function assertReleaseSigningProtectedPath(source: string) {
       "inspectPlatformProvisionerReleaseIdentityCandidate",
       new Set(["prepareReleaseManifestCandidate"]),
     ],
-    ["inspectGitCommitTreeCandidate", new Set(["verifyCommitTreeBinding"])],
+    ["inspectRepositoryFixedSnapshot", new Set(["verifyCommitTreeBinding"])],
+    ["verifyRepositoryRoot", new Set(["verifyCommitTreeBinding"])],
     [
       "getPlatformProvisionerPolicyIdentity",
       new Set(["prepareReleaseManifestCandidate"]),
@@ -5569,8 +7097,12 @@ function assertReleaseSigningProtectedPath(source: string) {
       new Set(["prepareReleaseManifestCandidate", "signReleaseManifest"]),
     ],
     ["readHiddenLine", new Set(["main"])],
-    ["createPrivateKey", new Set(["signReleaseManifest"])],
-    ["createPublicKey", new Set(["signReleaseManifest"])],
+    ["preflightPrivateKeyReference", new Set(["preflightReleaseManifest"])],
+    [
+      "readPrivateKeyReferenceFromEnvironmentFile",
+      new Set(["readReleasePrivateKeyPathFromEnvironmentFile"]),
+    ],
+    ["signEd25519Payload", new Set(["signReleaseManifest"])],
     [
       "getPinnedPlatformProvisionerReleaseSignerSpkiDer",
       new Set(["signReleaseManifest"]),
@@ -5579,24 +7111,24 @@ function assertReleaseSigningProtectedPath(source: string) {
       "canonicalizeProvisioningJsonValueCandidate",
       new Set(["signReleaseManifest"]),
     ],
-    ["sign", new Set(["signReleaseManifest"])],
     ["placeReleaseStagingManifestCandidate", new Set(["signReleaseManifest"])],
   ]);
   const expectedProtectedImportUseCount = new Map<string, number>([
     ["inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate", 1],
     ["inspectPlatformProvisionerReleaseIdentityCandidate", 1],
-    ["inspectGitCommitTreeCandidate", 1],
+    ["inspectRepositoryFixedSnapshot", 1],
+    ["verifyRepositoryRoot", 1],
     ["getPlatformProvisionerPolicyIdentity", 1],
     ["calculateRuntimeExecutionIdentityCandidate", 1],
     ["compilePlatformProvisionerManifestPayloadCandidate", 1],
     ["beginReleaseStagingManifestSession", 1],
     ["verifyReleaseStagingManifestSession", 1],
     ["readHiddenLine", 1],
-    ["createPrivateKey", 1],
-    ["createPublicKey", 1],
+    ["preflightPrivateKeyReference", 1],
+    ["readPrivateKeyReferenceFromEnvironmentFile", 1],
+    ["signEd25519Payload", 1],
     ["getPinnedPlatformProvisionerReleaseSignerSpkiDer", 1],
     ["canonicalizeProvisioningJsonValueCandidate", 1],
-    ["sign", 1],
     ["placeReleaseStagingManifestCandidate", 1],
   ]);
   for (const [symbol, bindingIndex] of protectedBindings) {
@@ -5733,26 +7265,15 @@ function assertReleaseSigningProtectedPath(source: string) {
     "prepareReleaseManifestCandidate",
     ["const", "compiled", "="],
   );
-  const keyRead = directProtectedCall(
-    tokens,
-    "stableExternalFile",
-    "signReleaseManifest",
-    ["privateKeyBytes", "="],
-    [["options", ".", "privateKeyPath"], ["MAXIMUM_PRIVATE_KEY_BYTES"]],
+  const keyPreflight = uniqueOwnedCallIndex(
+    "preflightPrivateKeyReference",
+    "preflightReleaseManifest",
+    ["privateKeyAuthorization", "="],
   );
-  const passphrase = directProtectedCall(
-    tokens,
-    "signingPassphrase",
+  const signature = uniqueOwnedCallIndex(
+    "signEd25519Payload",
     "signReleaseManifest",
-    ["const", "passphrase", "="],
-    [["rawPassphrase"]],
-  );
-  const signature = directProtectedCall(
-    tokens,
-    "sign",
-    "signReleaseManifest",
-    ["const", "signature", "="],
-    [["null"], ["compiled", ".", "message"], ["privateKey"]],
+    ["const", "signature", "=", "validateArtifactSignatureResult", "("],
   );
   const pinnedSigner = directProtectedCall(
     tokens,
@@ -5784,10 +7305,9 @@ function assertReleaseSigningProtectedPath(source: string) {
       commitTree < stagingVerification &&
       policyIdentity < runtimeIdentity &&
       runtimeIdentity < compiledPayload &&
-      sPrepare < passphrase &&
-      passphrase < keyRead &&
-      keyRead < pinnedSigner &&
-      keyRead < signature &&
+      pPrepare < keyPreflight &&
+      sPrepare < pinnedSigner &&
+      pinnedSigner < signature &&
       signature < canonicalEnvelope &&
       canonicalEnvelope < placement &&
       signature < placement
@@ -5799,8 +7319,6 @@ function assertReleaseSigningProtectedPath(source: string) {
     ["preflightReleaseManifest", new Set([p])],
     ["signReleaseManifest", new Set([s])],
     ["prepareReleaseManifestCandidate", new Set([pPrepare, sPrepare])],
-    ["stableExternalFile", new Set([keyRead])],
-    ["signingPassphrase", new Set([passphrase])],
     ["verifyCommitTreeBinding", new Set([commitTree])],
     ["main", new Set([mainInvocation])],
   ]);
@@ -5919,7 +7437,7 @@ function assertReleaseSigningProtectedPath(source: string) {
     ],
     [
       "signature_to_envelope",
-      ["signature", ":", "signature", ".", "toString", "(", "base64url", ")"],
+      ["signature", ":", "signature", ".", "signature"],
     ],
   ] as const)
     requireSingleFieldEdge(signingRange, sequence, name);
@@ -5931,6 +7449,22 @@ function assertReleaseSigningProtectedPath(source: string) {
   );
 }
 
+/**
+ * Signing Protected Path Diagnostic For Verificationを解放する。
+ *
+ * @responsibility Signing Protected Path Diagnostic For Verificationの所有権、解放条件、終了後不存在の確認境界を所有する。
+ * @trace ARCH-000014
+ * @input source: string
+ * @returns ProtectedPathDiagnosticを返す。
+ * @precondition 「source: string」がreleaseSigningProtectedPathDiagnosticForVerificationの入力契約を満たす。
+ * @postcondition releaseSigningProtectedPathDiagnosticForVerificationの責務を完了した結果だけを返す。
+ * @effect N/A: releaseSigningProtectedPathDiagnosticForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure releaseSigningProtectedPathDiagnosticForVerificationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant releaseSigningProtectedPathDiagnosticForVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security releaseSigningProtectedPathDiagnosticForVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: releaseSigningProtectedPathDiagnosticForVerificationは共有非同期状態を持たない同期処理である。
+ */
 export function releaseSigningProtectedPathDiagnosticForVerification(
   source: string,
 ): ProtectedPathDiagnostic {
@@ -5957,6 +7491,22 @@ export function releaseSigningProtectedPathDiagnosticForVerification(
   }
 }
 
+/**
+ * Release Signing Consumer Closure For Verificationを表明どおりか検査する。
+ *
+ * @responsibility Release Signing Consumer Closure For Verificationの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input source: string
+ * @returns N/A: assertReleaseSigningConsumerClosureForVerificationは戻り値を返さない。
+ * @precondition 「source: string」がassertReleaseSigningConsumerClosureForVerificationの入力契約を満たす。
+ * @postcondition assertReleaseSigningConsumerClosureForVerificationの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: assertReleaseSigningConsumerClosureForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure assertReleaseSigningConsumerClosureForVerificationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertReleaseSigningConsumerClosureForVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertReleaseSigningConsumerClosureForVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertReleaseSigningConsumerClosureForVerificationは共有非同期状態を持たない同期処理である。
+ */
 export function assertReleaseSigningConsumerClosureForVerification(
   source: string,
 ) {
@@ -5968,6 +7518,22 @@ export function assertReleaseSigningConsumerClosureForVerification(
     );
 }
 
+/**
+ * static Relative Module Targetsを決定する。
+ *
+ * @responsibility static Relative Module Targetsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、bytes: Buffer、shouldEnforceDeclaredGraph
+ * @returns staticRelativeModuleTargetsの計算結果を返す。
+ * @precondition 「relativePath: string、bytes: Buffer、shouldEnforceDeclaredGraph」がstaticRelativeModuleTargetsの入力契約を満たす。
+ * @postcondition staticRelativeModuleTargetsの責務を完了した結果だけを返す。
+ * @effect N/A: staticRelativeModuleTargetsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure staticRelativeModuleTargetsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant staticRelativeModuleTargetsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security staticRelativeModuleTargetsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: staticRelativeModuleTargetsは共有非同期状態を持たない同期処理である。
+ */
 function staticRelativeModuleTargets(
   relativePath: string,
   bytes: Buffer,
@@ -6032,6 +7598,22 @@ function staticRelativeModuleTargets(
   return Object.freeze(targets);
 }
 
+/**
+ * Runtime Source Module Boundary For Verificationを表明どおりか検査する。
+ *
+ * @responsibility Runtime Source Module Boundary For Verificationの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、source: string
+ * @returns N/A: assertRuntimeSourceModuleBoundaryForVerificationは戻り値を返さない。
+ * @precondition 「relativePath: string、source: string」がassertRuntimeSourceModuleBoundaryForVerificationの入力契約を満たす。
+ * @postcondition assertRuntimeSourceModuleBoundaryForVerificationの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: assertRuntimeSourceModuleBoundaryForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: assertRuntimeSourceModuleBoundaryForVerificationは独自の失敗分岐を所有しない。
+ * @invariant assertRuntimeSourceModuleBoundaryForVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertRuntimeSourceModuleBoundaryForVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertRuntimeSourceModuleBoundaryForVerificationは共有非同期状態を持たない同期処理である。
+ */
 export function assertRuntimeSourceModuleBoundaryForVerification(
   relativePath: string,
   source: string,
@@ -6039,6 +7621,22 @@ export function assertRuntimeSourceModuleBoundaryForVerification(
   staticRelativeModuleTargets(relativePath, Buffer.from(source, "utf8"), false);
 }
 
+/**
+ * Runtime Source Declared Graph Boundary For Verificationを表明どおりか検査する。
+ *
+ * @responsibility Runtime Source Declared Graph Boundary For Verificationの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、source: string
+ * @returns N/A: assertRuntimeSourceDeclaredGraphBoundaryForVerificationは戻り値を返さない。
+ * @precondition 「relativePath: string、source: string」がassertRuntimeSourceDeclaredGraphBoundaryForVerificationの入力契約を満たす。
+ * @postcondition assertRuntimeSourceDeclaredGraphBoundaryForVerificationの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: assertRuntimeSourceDeclaredGraphBoundaryForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: assertRuntimeSourceDeclaredGraphBoundaryForVerificationは独自の失敗分岐を所有しない。
+ * @invariant assertRuntimeSourceDeclaredGraphBoundaryForVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertRuntimeSourceDeclaredGraphBoundaryForVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertRuntimeSourceDeclaredGraphBoundaryForVerificationは共有非同期状態を持たない同期処理である。
+ */
 export function assertRuntimeSourceDeclaredGraphBoundaryForVerification(
   relativePath: string,
   source: string,
@@ -6046,6 +7644,22 @@ export function assertRuntimeSourceDeclaredGraphBoundaryForVerification(
   staticRelativeModuleTargets(relativePath, Buffer.from(source, "utf8"), true);
 }
 
+/**
+ * Launcher Entry Bindingsを検証する。
+ *
+ * @responsibility Launcher Entry Bindingsの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input packageRoot: string
+ * @returns N/A: verifyLauncherEntryBindingsは戻り値を返さない。
+ * @precondition 「packageRoot: string」がverifyLauncherEntryBindingsの入力契約を満たす。
+ * @postcondition verifyLauncherEntryBindingsの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: verifyLauncherEntryBindingsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyLauncherEntryBindingsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyLauncherEntryBindingsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security verifyLauncherEntryBindingsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyLauncherEntryBindingsは共有非同期状態を持たない同期処理である。
+ */
 function verifyLauncherEntryBindings(packageRoot: string) {
   const observed = readStableFile(
     path.join(packageRoot, ...RUNTIME_EXECUTION_LAUNCHER_PATH.split("/")),
@@ -6080,7 +7694,49 @@ function verifyLauncherEntryBindings(packageRoot: string) {
     throw new Error("platform_provisioner_launch_entry_invalid");
 }
 
-function collectRuntimeExecutionScriptPaths(packageRoot: string) {
+/**
+ * Coordinator Sibling Runtime Targetかを判定する。
+ *
+ * @responsibility Coordinator Sibling Runtime Targetの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000014
+ * @input target: string
+ * @returns isCoordinatorSiblingRuntimeTargetの計算結果を返す。
+ * @precondition 「target: string」がisCoordinatorSiblingRuntimeTargetの入力契約を満たす。
+ * @postcondition isCoordinatorSiblingRuntimeTargetの責務を完了した結果だけを返す。
+ * @effect N/A: isCoordinatorSiblingRuntimeTargetは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isCoordinatorSiblingRuntimeTargetは独自の失敗分岐を所有しない。
+ * @invariant isCoordinatorSiblingRuntimeTargetは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security isCoordinatorSiblingRuntimeTargetはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isCoordinatorSiblingRuntimeTargetは共有非同期状態を持たない同期処理である。
+ */
+function isCoordinatorSiblingRuntimeTarget(target: string) {
+  return RUNTIME_SIBLING_COMPONENTS.some((component) => {
+    const coordinatorRelativePrefix = `../${component.sourcePrefix.slice("40_Develop/".length)}`;
+    return target.startsWith(coordinatorRelativePrefix);
+  });
+}
+
+/**
+ * Runtime Execution Script Pathsを収集する。
+ *
+ * @responsibility Runtime Execution Script Pathsの収集範囲、重複排除、欠落時の結果境界を所有する。
+ * @trace ARCH-000014
+ * @input packageRoot: string、isSiblingRuntimeTargetAllowed
+ * @returns collectRuntimeExecutionScriptPathsの計算結果を返す。
+ * @precondition 「packageRoot: string、isSiblingRuntimeTargetAllowed」がcollectRuntimeExecutionScriptPathsの入力契約を満たす。
+ * @postcondition collectRuntimeExecutionScriptPathsの責務を完了した結果だけを返す。
+ * @effect collectRuntimeExecutionScriptPathsはFilesystemの読取りまたは書込みを実行する。
+ * @failure collectRuntimeExecutionScriptPathsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant collectRuntimeExecutionScriptPathsは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security collectRuntimeExecutionScriptPathsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: collectRuntimeExecutionScriptPathsは共有非同期状態を持たない同期処理である。
+ */
+function collectRuntimeExecutionScriptPaths(
+  packageRoot: string,
+  isSiblingRuntimeTargetAllowed = false,
+) {
   const shouldEnforceDeclaredGraph = fs.existsSync(
     path.join(
       packageRoot,
@@ -6103,7 +7759,14 @@ function collectRuntimeExecutionScriptPaths(packageRoot: string) {
       }
       const rootSegment = target.split("/")[0];
       if (rootSegment === "scripts") pendingItems.push(target);
-      else if (!rootSegment || !runtimeExecutionDirectories.has(rootSegment)) {
+      else if (
+        !rootSegment ||
+        (!runtimeExecutionDirectories.has(rootSegment) &&
+          !(
+            isSiblingRuntimeTargetAllowed &&
+            isCoordinatorSiblingRuntimeTarget(target)
+          ))
+      ) {
         throw new Error(
           "platform_provisioner_runtime_dependency_outside_execution_set",
         );
@@ -6147,7 +7810,14 @@ function collectRuntimeExecutionScriptPaths(packageRoot: string) {
     )) {
       const rootSegment = target.split("/")[0];
       if (rootSegment === "scripts") pendingItems.push(target);
-      else if (!rootSegment || !runtimeExecutionDirectories.has(rootSegment)) {
+      else if (
+        !rootSegment ||
+        (!runtimeExecutionDirectories.has(rootSegment) &&
+          !(
+            isSiblingRuntimeTargetAllowed &&
+            isCoordinatorSiblingRuntimeTarget(target)
+          ))
+      ) {
         throw new Error(
           "platform_provisioner_runtime_dependency_outside_execution_set",
         );
@@ -6157,6 +7827,22 @@ function collectRuntimeExecutionScriptPaths(packageRoot: string) {
   return Object.freeze(scriptPaths);
 }
 
+/**
+ * Static Runtime Module Boundaryを検証する。
+ *
+ * @responsibility Static Runtime Module Boundaryの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、bytes: Buffer、scriptPaths: ReadonlySet<string>、shouldEnforceDeclaredGraph: boolean
+ * @returns N/A: verifyStaticRuntimeModuleBoundaryは戻り値を返さない。
+ * @precondition 「relativePath: string、bytes: Buffer、scriptPaths: ReadonlySet<string>、shouldEnforceDeclaredGraph: boolean」がverifyStaticRuntimeModuleBoundaryの入力契約を満たす。
+ * @postcondition verifyStaticRuntimeModuleBoundaryの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: verifyStaticRuntimeModuleBoundaryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyStaticRuntimeModuleBoundaryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyStaticRuntimeModuleBoundaryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security verifyStaticRuntimeModuleBoundaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyStaticRuntimeModuleBoundaryは共有非同期状態を持たない同期処理である。
+ */
 function verifyStaticRuntimeModuleBoundary(
   relativePath: string,
   bytes: Buffer,
@@ -6183,10 +7869,30 @@ function verifyStaticRuntimeModuleBoundary(
   }
 }
 
+/**
+ * package Entriesを決定する。
+ *
+ * @responsibility package Entriesの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input root: Readonly<{ realPath: string; identity: EntityIdentity }>、isSiblingRuntimeTargetAllowed
+ * @returns packageEntriesの計算結果を返す。
+ * @precondition 「root: Readonly<{ realPath: string; identity: EntityIdentity }>、isSiblingRuntimeTargetAllowed」がpackageEntriesの入力契約を満たす。
+ * @postcondition packageEntriesの責務を完了した結果だけを返す。
+ * @effect packageEntriesはFilesystemの読取りまたは書込みを実行する。
+ * @failure packageEntriesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant packageEntriesは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security packageEntriesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: packageEntriesは共有非同期状態を持たない同期処理である。
+ */
 function packageEntries(
   root: Readonly<{ realPath: string; identity: EntityIdentity }>,
+  isSiblingRuntimeTargetAllowed = false,
 ) {
-  const scriptPaths = collectRuntimeExecutionScriptPaths(root.realPath);
+  const scriptPaths = collectRuntimeExecutionScriptPaths(
+    root.realPath,
+    isSiblingRuntimeTargetAllowed,
+  );
   const shouldEnforceDeclaredGraph = fs.existsSync(
     path.join(
       root.realPath,
@@ -6255,6 +7961,22 @@ function packageEntries(
   });
 }
 
+/**
+ * package Metadataを決定する。
+ *
+ * @responsibility package Metadataの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input bytes: Buffer | null
+ * @returns packageMetadataの計算結果を返す。
+ * @precondition 「bytes: Buffer | null」がpackageMetadataの入力契約を満たす。
+ * @postcondition packageMetadataの責務を完了した結果だけを返す。
+ * @effect N/A: packageMetadataは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure packageMetadataは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant packageMetadataは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security packageMetadataはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: packageMetadataは共有非同期状態を持たない同期処理である。
+ */
 function packageMetadata(bytes: Buffer | null) {
   if (!bytes) throw new Error("platform_provisioner_package_metadata_invalid");
   const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
@@ -6294,6 +8016,22 @@ function packageMetadata(bytes: Buffer | null) {
   });
 }
 
+/**
+ * Packageを観測する。
+ *
+ * @responsibility Packageの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input packageRoot: string
+ * @returns observePackageの計算結果を返す。
+ * @precondition 「packageRoot: string」がobservePackageの入力契約を満たす。
+ * @postcondition observePackageの責務を完了した結果だけを返す。
+ * @effect observePackageは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure observePackageは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observePackageは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security observePackageはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observePackageは共有非同期状態を持たない同期処理である。
+ */
 function observePackage(packageRoot: string) {
   const root = directoryIdentity(packageRoot);
   const inventory = packageEntries(root);
@@ -6383,6 +8121,11 @@ function observePackage(packageRoot: string) {
 
 const RUNTIME_SIBLING_COMPONENTS = Object.freeze([
   Object.freeze({
+    sourcePrefix: "40_Develop/artifact-signing/src/",
+    packagePath: "40_Develop/artifact-signing/package.json",
+    packageName: "@qual-lab/crdd-artifact-signing",
+  }),
+  Object.freeze({
     sourcePrefix: "40_Develop/mcp/src/",
     packagePath: "40_Develop/mcp/package.json",
     packageName: "@qual-lab/crdd-mcp",
@@ -6397,11 +8140,37 @@ const RUNTIME_SIBLING_COMPONENTS = Object.freeze([
     packagePath: "40_Develop/execution-intelligence/package.json",
     packageName: "@qual-lab/crdd-execution-intelligence",
   }),
+  Object.freeze({
+    sourcePrefix: "40_Develop/runtime-data/src/",
+    packagePath: "40_Develop/runtime-data/package.json",
+    packageName: "@qual-lab/crdd-runtime-data",
+  }),
+  Object.freeze({
+    sourcePrefix: "40_Develop/version-control/src/",
+    packagePath: "40_Develop/version-control/package.json",
+    packageName: "@qual-lab/crdd-version-control",
+  }),
 ]);
 const runtimeDistributionEntrypoints = Object.freeze(
   new Set(["template/tools/crdd-coordinator.ts", "template/tools/crdd-mcp.ts"]),
 );
 
+/**
+ * runtime Local Node Child Targetsを決定する。
+ *
+ * @responsibility runtime Local Node Child Targetsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input observedFiles: ReadonlyMap< string, Readonly<{ byteLength: number; sha256: string; identity: EntityIdentity; bytes: Buffer; }> >
+ * @returns runtimeLocalNodeChildTargetsの計算結果を返す。
+ * @precondition 「observedFiles: ReadonlyMap< string, Readonly<{ byteLength: number; sha256: string; identity: EntityIdentity; bytes: Buffer; }> >」がruntimeLocalNodeChildTargetsの入力契約を満たす。
+ * @postcondition runtimeLocalNodeChildTargetsの責務を完了した結果だけを返す。
+ * @effect runtimeLocalNodeChildTargetsは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure runtimeLocalNodeChildTargetsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runtimeLocalNodeChildTargetsは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security runtimeLocalNodeChildTargetsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: runtimeLocalNodeChildTargetsは共有非同期状態を持たない同期処理である。
+ */
 function runtimeLocalNodeChildTargets(
   observedFiles: ReadonlyMap<
     string,
@@ -6445,12 +8214,44 @@ function runtimeLocalNodeChildTargets(
   return Object.freeze({ declarations, usedRoleKinds });
 }
 
+/**
+ * String Setが同一かを判定する。
+ *
+ * @responsibility String Setの同一性Propertyと一致／不一致境界を所有する。
+ * @trace ARCH-000014
+ * @input left: ReadonlySet<string>、right: ReadonlySet<string>
+ * @returns sameStringSetの計算結果を返す。
+ * @precondition 「left: ReadonlySet<string>、right: ReadonlySet<string>」がsameStringSetの入力契約を満たす。
+ * @postcondition sameStringSetの責務を完了した結果だけを返す。
+ * @effect N/A: sameStringSetは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameStringSetは独自の失敗分岐を所有しない。
+ * @invariant sameStringSetは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security sameStringSetはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameStringSetは共有非同期状態を持たない同期処理である。
+ */
 function sameStringSet(left: ReadonlySet<string>, right: ReadonlySet<string>) {
   return (
     left.size === right.size && [...left].every((value) => right.has(value))
   );
 }
 
+/**
+ * coordinator Package Relative Pathを決定する。
+ *
+ * @responsibility coordinator Package Relative Pathの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input distributionRelativePath: string
+ * @returns coordinatorPackageRelativePathの計算結果を返す。
+ * @precondition 「distributionRelativePath: string」がcoordinatorPackageRelativePathの入力契約を満たす。
+ * @postcondition coordinatorPackageRelativePathの責務を完了した結果だけを返す。
+ * @effect N/A: coordinatorPackageRelativePathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure coordinatorPackageRelativePathは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant coordinatorPackageRelativePathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security coordinatorPackageRelativePathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: coordinatorPackageRelativePathは共有非同期状態を持たない同期処理である。
+ */
 function coordinatorPackageRelativePath(distributionRelativePath: string) {
   if (!distributionRelativePath.startsWith(COORDINATOR_DISTRIBUTION_PREFIX))
     throw new Error("platform_provisioner_runtime_required_artifact_invalid");
@@ -6466,6 +8267,22 @@ function coordinatorPackageRelativePath(distributionRelativePath: string) {
   return packageRelativePath;
 }
 
+/**
+ * Runtime Distribution Required Artifactsを一意に解決する。
+ *
+ * @responsibility Runtime Distribution Required Artifactsの候補集合、解決規則、曖昧時の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input observedFiles: ReadonlyMap< string, Readonly<{ byteLength: number; sha256: string; identity: EntityIdentity; bytes: Buffer; }> >
+ * @returns resolveRuntimeDistributionRequiredArtifactsの計算結果を返す。
+ * @precondition 「observedFiles: ReadonlyMap< string, Readonly<{ byteLength: number; sha256: string; identity: EntityIdentity; bytes: Buffer; }> >」がresolveRuntimeDistributionRequiredArtifactsの入力契約を満たす。
+ * @postcondition resolveRuntimeDistributionRequiredArtifactsの責務を完了した結果だけを返す。
+ * @effect N/A: resolveRuntimeDistributionRequiredArtifactsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure resolveRuntimeDistributionRequiredArtifactsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant resolveRuntimeDistributionRequiredArtifactsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security resolveRuntimeDistributionRequiredArtifactsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resolveRuntimeDistributionRequiredArtifactsは共有非同期状態を持たない同期処理である。
+ */
 function resolveRuntimeDistributionRequiredArtifacts(
   observedFiles: ReadonlyMap<
     string,
@@ -6547,6 +8364,22 @@ function resolveRuntimeDistributionRequiredArtifacts(
   });
 }
 
+/**
+ * Bundled Runtime Execution Pathかを判定する。
+ *
+ * @responsibility Bundled Runtime Execution Pathの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、coordinatorPaths: ReadonlySet<string>、reachedComponentMetadata: ReadonlySet<string>
+ * @returns isBundledRuntimeExecutionPathの計算結果を返す。
+ * @precondition 「relativePath: string、coordinatorPaths: ReadonlySet<string>、reachedComponentMetadata: ReadonlySet<string>」がisBundledRuntimeExecutionPathの入力契約を満たす。
+ * @postcondition isBundledRuntimeExecutionPathの責務を完了した結果だけを返す。
+ * @effect N/A: isBundledRuntimeExecutionPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isBundledRuntimeExecutionPathは独自の失敗分岐を所有しない。
+ * @invariant isBundledRuntimeExecutionPathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security isBundledRuntimeExecutionPathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isBundledRuntimeExecutionPathは共有非同期状態を持たない同期処理である。
+ */
 function isBundledRuntimeExecutionPath(
   relativePath: string,
   coordinatorPaths: ReadonlySet<string>,
@@ -6562,12 +8395,44 @@ function isBundledRuntimeExecutionPath(
   );
 }
 
+/**
+ * runtime Sibling Component For Sourceを決定する。
+ *
+ * @responsibility runtime Sibling Component For Sourceの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string
+ * @returns runtimeSiblingComponentForSourceの計算結果を返す。
+ * @precondition 「relativePath: string」がruntimeSiblingComponentForSourceの入力契約を満たす。
+ * @postcondition runtimeSiblingComponentForSourceの責務を完了した結果だけを返す。
+ * @effect N/A: runtimeSiblingComponentForSourceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: runtimeSiblingComponentForSourceは独自の失敗分岐を所有しない。
+ * @invariant runtimeSiblingComponentForSourceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security runtimeSiblingComponentForSourceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: runtimeSiblingComponentForSourceは共有非同期状態を持たない同期処理である。
+ */
 function runtimeSiblingComponentForSource(relativePath: string) {
   return RUNTIME_SIBLING_COMPONENTS.find((component) =>
     relativePath.startsWith(component.sourcePrefix),
   );
 }
 
+/**
+ * Runtime Sibling Package Metadataを検証する。
+ *
+ * @responsibility Runtime Sibling Package Metadataの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input relativePath: string、bytes: Buffer
+ * @returns N/A: verifyRuntimeSiblingPackageMetadataは戻り値を返さない。
+ * @precondition 「relativePath: string、bytes: Buffer」がverifyRuntimeSiblingPackageMetadataの入力契約を満たす。
+ * @postcondition verifyRuntimeSiblingPackageMetadataの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: verifyRuntimeSiblingPackageMetadataは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyRuntimeSiblingPackageMetadataは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyRuntimeSiblingPackageMetadataは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security verifyRuntimeSiblingPackageMetadataはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyRuntimeSiblingPackageMetadataは共有非同期状態を持たない同期処理である。
+ */
 function verifyRuntimeSiblingPackageMetadata(
   relativePath: string,
   bytes: Buffer,
@@ -6600,8 +8465,19 @@ function verifyRuntimeSiblingPackageMetadata(
 
 /**
  * Observe the real execution closure after Runtime responsibility separation.
- * The Coordinator remains the primary package, while sibling components are
- * included only when they are reached by canonical static imports.
+ *
+ * @responsibility Runtime Distributionの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input distributionRootPath: string
+ * @returns observeRuntimeDistributionの計算結果を返す。
+ * @precondition 「distributionRootPath: string」がobserveRuntimeDistributionの入力契約を満たす。
+ * @postcondition observeRuntimeDistributionの責務を完了した結果だけを返す。
+ * @effect N/A: observeRuntimeDistributionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure observeRuntimeDistributionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeRuntimeDistributionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security observeRuntimeDistributionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeRuntimeDistributionは共有非同期状態を持たない同期処理である。
  */
 function observeRuntimeDistribution(distributionRootPath: string) {
   const distributionRoot = directoryIdentity(distributionRootPath);
@@ -6611,7 +8487,7 @@ function observeRuntimeDistribution(distributionRootPath: string) {
   const coordinatorRoot = directoryIdentity(
     path.join(developRoot.realPath, "coordinator"),
   );
-  const coordinatorInventory = packageEntries(coordinatorRoot);
+  const coordinatorInventory = packageEntries(coordinatorRoot, true);
   const coordinatorPaths = new Set(
     coordinatorInventory.files.map(
       (relative) => `40_Develop/coordinator/${relative}`,
@@ -6780,6 +8656,22 @@ function observeRuntimeDistribution(distributionRootPath: string) {
   });
 }
 
+/**
+ * public Observationを決定する。
+ *
+ * @responsibility public Observationの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input observed: ReturnType<typeof observePackage>、isRuntimeOwnedPackageRoot: boolean
+ * @returns publicObservationの計算結果を返す。
+ * @precondition 「observed: ReturnType<typeof observePackage>、isRuntimeOwnedPackageRoot: boolean」がpublicObservationの入力契約を満たす。
+ * @postcondition publicObservationの責務を完了した結果だけを返す。
+ * @effect N/A: publicObservationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: publicObservationは独自の失敗分岐を所有しない。
+ * @invariant publicObservationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security publicObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: publicObservationは共有非同期状態を持たない同期処理である。
+ */
 function publicObservation(
   observed: ReturnType<typeof observePackage>,
   isRuntimeOwnedPackageRoot: boolean,
@@ -6810,6 +8702,22 @@ function publicObservation(
   });
 }
 
+/**
+ * Platform Provisioner Package Filesystem 候補を観測する。
+ *
+ * @responsibility Platform Provisioner Package Filesystem 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input packageRoot: unknown
+ * @returns inspectPlatformProvisionerPackageFilesystemCandidateの計算結果を返す。
+ * @precondition 「packageRoot: unknown」がinspectPlatformProvisionerPackageFilesystemCandidateの入力契約を満たす。
+ * @postcondition inspectPlatformProvisionerPackageFilesystemCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectPlatformProvisionerPackageFilesystemCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectPlatformProvisionerPackageFilesystemCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectPlatformProvisionerPackageFilesystemCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security inspectPlatformProvisionerPackageFilesystemCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectPlatformProvisionerPackageFilesystemCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectPlatformProvisionerPackageFilesystemCandidate(
   packageRoot: unknown,
 ) {
@@ -6823,6 +8731,22 @@ export function inspectPlatformProvisionerPackageFilesystemCandidate(
   }
 }
 
+/**
+ * Platform Provisioner Runtime Distribution Filesystem 候補を観測する。
+ *
+ * @responsibility Platform Provisioner Runtime Distribution Filesystem 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input distributionRoot: unknown
+ * @returns inspectPlatformProvisionerRuntimeDistributionFilesystemCandidateの計算結果を返す。
+ * @precondition 「distributionRoot: unknown」がinspectPlatformProvisionerRuntimeDistributionFilesystemCandidateの入力契約を満たす。
+ * @postcondition inspectPlatformProvisionerRuntimeDistributionFilesystemCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectPlatformProvisionerRuntimeDistributionFilesystemCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectPlatformProvisionerRuntimeDistributionFilesystemCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectPlatformProvisionerRuntimeDistributionFilesystemCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security inspectPlatformProvisionerRuntimeDistributionFilesystemCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectPlatformProvisionerRuntimeDistributionFilesystemCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate(
   distributionRoot: unknown,
 ) {
@@ -6844,6 +8768,72 @@ export function inspectPlatformProvisionerRuntimeDistributionFilesystemCandidate
   }
 }
 
+/**
+ * Closed diagnostic for contract tests; never returns paths or source bytes.
+ *
+ * @responsibility platform-provisioner-package-filesystemの入力からdiagnose Runtime Distribution Filesystem For Verificationを導く規則と結果境界を所有する。
+ * @trace ARCH-000014
+ * @input distributionRoot: unknown
+ * @returns diagnoseRuntimeDistributionFilesystemForVerificationの計算結果を返す。
+ * @precondition 「distributionRoot: unknown」がdiagnoseRuntimeDistributionFilesystemForVerificationの入力契約を満たす。
+ * @postcondition diagnoseRuntimeDistributionFilesystemForVerificationの責務を完了した結果だけを返す。
+ * @effect N/A: diagnoseRuntimeDistributionFilesystemForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure diagnoseRuntimeDistributionFilesystemForVerificationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant diagnoseRuntimeDistributionFilesystemForVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security diagnoseRuntimeDistributionFilesystemForVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: diagnoseRuntimeDistributionFilesystemForVerificationは共有非同期状態を持たない同期処理である。
+ */
+export function diagnoseRuntimeDistributionFilesystemForVerification(
+  distributionRoot: unknown,
+) {
+  try {
+    if (
+      typeof distributionRoot !== "string" ||
+      distributionRoot.length === 0 ||
+      !path.isAbsolute(distributionRoot) ||
+      path.normalize(distributionRoot) !== distributionRoot
+    )
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "platform_provisioner_distribution_root_invalid" as const,
+      });
+    observeRuntimeDistribution(distributionRoot);
+    return Object.freeze({
+      status: "candidate" as const,
+      reason: "platform_provisioner_distribution_observed" as const,
+    });
+  } catch (error) {
+    const reason =
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ENOENT"
+        ? "platform_provisioner_required_artifact_missing"
+        : error instanceof Error &&
+            /^platform_provisioner_[a-z_]+$/u.test(error.message)
+          ? error.message
+          : "platform_provisioner_distribution_filesystem_invalid";
+    return Object.freeze({ status: "blocked" as const, reason });
+  }
+}
+
+/**
+ * Bundled Coordinator Package Filesystem 候補を観測する。
+ *
+ * @responsibility Bundled Coordinator Package Filesystem 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns inspectBundledCoordinatorPackageFilesystemCandidateの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がinspectBundledCoordinatorPackageFilesystemCandidateの入力契約を満たす。
+ * @postcondition inspectBundledCoordinatorPackageFilesystemCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectBundledCoordinatorPackageFilesystemCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectBundledCoordinatorPackageFilesystemCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectBundledCoordinatorPackageFilesystemCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security inspectBundledCoordinatorPackageFilesystemCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectBundledCoordinatorPackageFilesystemCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectBundledCoordinatorPackageFilesystemCandidate() {
   try {
     return publicObservation(
@@ -6855,7 +8845,22 @@ export function inspectBundledCoordinatorPackageFilesystemCandidate() {
   }
 }
 
-/** Read-only identity evidence; caller-supplied expectations are not authority. */
+/**
+ * Read-only identity evidence; caller-supplied expectations are not authority.
+ *
+ * @responsibility Fixed Development Coordinator Package 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input rawInput: unknown
+ * @returns inspectFixedDevelopmentCoordinatorPackageCandidateの計算結果を返す。
+ * @precondition 「rawInput: unknown」がinspectFixedDevelopmentCoordinatorPackageCandidateの入力契約を満たす。
+ * @postcondition inspectFixedDevelopmentCoordinatorPackageCandidateの責務を完了した結果だけを返す。
+ * @effect inspectFixedDevelopmentCoordinatorPackageCandidateはFilesystemの読取りまたは書込みを実行する。
+ * @failure inspectFixedDevelopmentCoordinatorPackageCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectFixedDevelopmentCoordinatorPackageCandidateは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security inspectFixedDevelopmentCoordinatorPackageCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectFixedDevelopmentCoordinatorPackageCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectFixedDevelopmentCoordinatorPackageCandidate(
   rawInput: unknown,
 ) {
@@ -6943,6 +8948,22 @@ export function inspectFixedDevelopmentCoordinatorPackageCandidate(
   }
 }
 
+/**
+ * Bundled Coordinator Package 候補を検証する。
+ *
+ * @responsibility Bundled Coordinator Package 候補の検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input rawInput: unknown
+ * @returns verifyBundledCoordinatorPackageCandidateの計算結果を返す。
+ * @precondition 「rawInput: unknown」がverifyBundledCoordinatorPackageCandidateの入力契約を満たす。
+ * @postcondition verifyBundledCoordinatorPackageCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: verifyBundledCoordinatorPackageCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyBundledCoordinatorPackageCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyBundledCoordinatorPackageCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security verifyBundledCoordinatorPackageCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyBundledCoordinatorPackageCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function verifyBundledCoordinatorPackageCandidate(rawInput: unknown) {
   try {
     const input = snapshotPlainRecord(rawInput, VERIFY_KEYS);
@@ -6989,6 +9010,22 @@ export function verifyBundledCoordinatorPackageCandidate(rawInput: unknown) {
   }
 }
 
+/**
+ * 所有 Bundled Manifestを検証する。
+ *
+ * @responsibility 所有 Bundled Manifestの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input manifestEnvelope: unknown、evaluationTime: unknown
+ * @returns verifyOwnedBundledManifestの計算結果を返す。
+ * @precondition 「manifestEnvelope: unknown、evaluationTime: unknown」がverifyOwnedBundledManifestの入力契約を満たす。
+ * @postcondition verifyOwnedBundledManifestの責務を完了した結果だけを返す。
+ * @effect N/A: verifyOwnedBundledManifestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyOwnedBundledManifestは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyOwnedBundledManifestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security verifyOwnedBundledManifestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyOwnedBundledManifestは共有非同期状態を持たない同期処理である。
+ */
 function verifyOwnedBundledManifest(
   manifestEnvelope: unknown,
   evaluationTime: unknown,
@@ -7013,6 +9050,22 @@ function verifyOwnedBundledManifest(
   return Object.freeze({ observed, verification });
 }
 
+/**
+ * Bundled Coordinator Package From Fixed Manifest 候補を検証する。
+ *
+ * @responsibility Bundled Coordinator Package From Fixed Manifest 候補の検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input rawInput: unknown
+ * @returns verifyBundledCoordinatorPackageFromFixedManifestCandidateの計算結果を返す。
+ * @precondition 「rawInput: unknown」がverifyBundledCoordinatorPackageFromFixedManifestCandidateの入力契約を満たす。
+ * @postcondition verifyBundledCoordinatorPackageFromFixedManifestCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: verifyBundledCoordinatorPackageFromFixedManifestCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyBundledCoordinatorPackageFromFixedManifestCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyBundledCoordinatorPackageFromFixedManifestCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security verifyBundledCoordinatorPackageFromFixedManifestCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyBundledCoordinatorPackageFromFixedManifestCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function verifyBundledCoordinatorPackageFromFixedManifestCandidate(
   rawInput: unknown,
 ) {
@@ -7067,6 +9120,22 @@ export function verifyBundledCoordinatorPackageFromFixedManifestCandidate(
   }
 }
 
+/**
+ * verified Fixed Package 記録を決定する。
+ *
+ * @responsibility verified Fixed Package 記録の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input result: ReturnType< typeof verifyBundledCoordinatorPackageFromFixedManifestCandidate >
+ * @returns verifiedFixedPackageRecordの計算結果を返す。
+ * @precondition 「result: ReturnType< typeof verifyBundledCoordinatorPackageFromFixedManifestCandidate >」がverifiedFixedPackageRecordの入力契約を満たす。
+ * @postcondition verifiedFixedPackageRecordの責務を完了した結果だけを返す。
+ * @effect N/A: verifiedFixedPackageRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: verifiedFixedPackageRecordは独自の失敗分岐を所有しない。
+ * @invariant verifiedFixedPackageRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security verifiedFixedPackageRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifiedFixedPackageRecordは共有非同期状態を持たない同期処理である。
+ */
 function verifiedFixedPackageRecord(
   result: ReturnType<
     typeof verifyBundledCoordinatorPackageFromFixedManifestCandidate
@@ -7093,6 +9162,22 @@ function verifiedFixedPackageRecord(
   });
 }
 
+/**
+ * Runtime 所有 Verified Coordinator Package Capabilityを発行する。
+ *
+ * @responsibility Runtime 所有 Verified Coordinator Package Capabilityの発行条件、Identity、非発行時のEffect 0境界を所有する。
+ * @trace ARCH-000014
+ * @input rawInput: unknown
+ * @returns issueRuntimeOwnedVerifiedCoordinatorPackageCapabilityの計算結果を返す。
+ * @precondition 「rawInput: unknown」がissueRuntimeOwnedVerifiedCoordinatorPackageCapabilityの入力契約を満たす。
+ * @postcondition issueRuntimeOwnedVerifiedCoordinatorPackageCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: issueRuntimeOwnedVerifiedCoordinatorPackageCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: issueRuntimeOwnedVerifiedCoordinatorPackageCapabilityは独自の失敗分岐を所有しない。
+ * @invariant issueRuntimeOwnedVerifiedCoordinatorPackageCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security issueRuntimeOwnedVerifiedCoordinatorPackageCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: issueRuntimeOwnedVerifiedCoordinatorPackageCapabilityは共有非同期状態を持たない同期処理である。
+ */
 export function issueRuntimeOwnedVerifiedCoordinatorPackageCapability(
   rawInput: unknown,
 ) {
@@ -7126,6 +9211,22 @@ export function issueRuntimeOwnedVerifiedCoordinatorPackageCapability(
   return Object.freeze({ verification, capability });
 }
 
+/**
+ * Runtime 所有 Verified Coordinator Package Capabilityを一回限りで消費する。
+ *
+ * @responsibility Runtime 所有 Verified Coordinator Package Capabilityの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input capability: unknown
+ * @returns consumeRuntimeOwnedVerifiedCoordinatorPackageCapabilityの計算結果を返す。
+ * @precondition 「capability: unknown」がconsumeRuntimeOwnedVerifiedCoordinatorPackageCapabilityの入力契約を満たす。
+ * @postcondition consumeRuntimeOwnedVerifiedCoordinatorPackageCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: consumeRuntimeOwnedVerifiedCoordinatorPackageCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: consumeRuntimeOwnedVerifiedCoordinatorPackageCapabilityは独自の失敗分岐を所有しない。
+ * @invariant consumeRuntimeOwnedVerifiedCoordinatorPackageCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security consumeRuntimeOwnedVerifiedCoordinatorPackageCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: consumeRuntimeOwnedVerifiedCoordinatorPackageCapabilityは共有非同期状態を持たない同期処理である。
+ */
 export function consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(
   capability: unknown,
 ) {
@@ -7141,12 +9242,44 @@ export function consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(
   );
 }
 
+/**
+ * Runtime 所有 Verified Coordinator Package Capabilityを失効させる。
+ *
+ * @responsibility Runtime 所有 Verified Coordinator Package Capabilityの失効Authority、対象Identity、再利用防止境界を所有する。
+ * @trace ARCH-000014
+ * @input capability: unknown
+ * @returns revokeRuntimeOwnedVerifiedCoordinatorPackageCapabilityの計算結果を返す。
+ * @precondition 「capability: unknown」がrevokeRuntimeOwnedVerifiedCoordinatorPackageCapabilityの入力契約を満たす。
+ * @postcondition revokeRuntimeOwnedVerifiedCoordinatorPackageCapabilityの責務を完了した結果だけを返す。
+ * @effect N/A: revokeRuntimeOwnedVerifiedCoordinatorPackageCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: revokeRuntimeOwnedVerifiedCoordinatorPackageCapabilityは独自の失敗分岐を所有しない。
+ * @invariant revokeRuntimeOwnedVerifiedCoordinatorPackageCapabilityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security revokeRuntimeOwnedVerifiedCoordinatorPackageCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: revokeRuntimeOwnedVerifiedCoordinatorPackageCapabilityは共有非同期状態を持たない同期処理である。
+ */
 export function revokeRuntimeOwnedVerifiedCoordinatorPackageCapability(
   capability: unknown,
 ) {
   return verifiedPackageCapabilityState.revoke(capability);
 }
 
+/**
+ * Installed Coordinator Package 候補を検証する。
+ *
+ * @responsibility Installed Coordinator Package 候補の検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input rawInput: unknown
+ * @returns verifyInstalledCoordinatorPackageCandidateの計算結果を返す。
+ * @precondition 「rawInput: unknown」がverifyInstalledCoordinatorPackageCandidateの入力契約を満たす。
+ * @postcondition verifyInstalledCoordinatorPackageCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: verifyInstalledCoordinatorPackageCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyInstalledCoordinatorPackageCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyInstalledCoordinatorPackageCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security verifyInstalledCoordinatorPackageCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyInstalledCoordinatorPackageCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {
   try {
     const input = snapshotPlainRecord(rawInput, VERIFY_INSTALLED_KEYS);
@@ -7233,6 +9366,22 @@ export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {
   }
 }
 
+/**
+ * Native Artifactが同一かを判定する。
+ *
+ * @responsibility Native Artifactの同一性Propertyと一致／不一致境界を所有する。
+ * @trace ARCH-000014
+ * @input expected: unknown、observed: unknown、revisionKey: "protocolRevision" | "entrypointContractRevision"
+ * @returns sameNativeArtifactの計算結果を返す。
+ * @precondition 「expected: unknown、observed: unknown、revisionKey: "protocolRevision" | "entrypointContractRevision"」がsameNativeArtifactの入力契約を満たす。
+ * @postcondition sameNativeArtifactの責務を完了した結果だけを返す。
+ * @effect N/A: sameNativeArtifactは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameNativeArtifactは独自の失敗分岐を所有しない。
+ * @invariant sameNativeArtifactは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security sameNativeArtifactはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameNativeArtifactは共有非同期状態を持たない同期処理である。
+ */
 function sameNativeArtifact(
   expected: unknown,
   observed: unknown,
@@ -7255,7 +9404,22 @@ function sameNativeArtifact(
   );
 }
 
-/** Verifies a separate signed native distribution without executing it. */
+/**
+ * Verifies a separate signed native distribution without executing it.
+ *
+ * @responsibility Verified Native Distribution 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input rawInput: unknown
+ * @returns inspectVerifiedNativeDistributionCandidateの計算結果を返す。
+ * @precondition 「rawInput: unknown」がinspectVerifiedNativeDistributionCandidateの入力契約を満たす。
+ * @postcondition inspectVerifiedNativeDistributionCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectVerifiedNativeDistributionCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectVerifiedNativeDistributionCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectVerifiedNativeDistributionCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security inspectVerifiedNativeDistributionCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectVerifiedNativeDistributionCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectVerifiedNativeDistributionCandidate(rawInput: unknown) {
   try {
     const input = snapshotPlainRecord(rawInput, VERIFY_INSTALLED_KEYS);
@@ -7327,6 +9491,22 @@ export function inspectVerifiedNativeDistributionCandidate(rawInput: unknown) {
   }
 }
 
+/**
+ * Platform Provisioner Package Filesystem 契約の公開契約を記述する。
+ *
+ * @responsibility Platform Provisioner Package Filesystem 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000014
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describePlatformProvisionerPackageFilesystemContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribePlatformProvisionerPackageFilesystemContractの入力契約を満たす。
+ * @postcondition describePlatformProvisionerPackageFilesystemContractの責務を完了した結果だけを返す。
+ * @effect N/A: describePlatformProvisionerPackageFilesystemContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describePlatformProvisionerPackageFilesystemContractは独自の失敗分岐を所有しない。
+ * @invariant describePlatformProvisionerPackageFilesystemContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security describePlatformProvisionerPackageFilesystemContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describePlatformProvisionerPackageFilesystemContractは共有非同期状態を持たない同期処理である。
+ */
 export function describePlatformProvisionerPackageFilesystemContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-package-filesystem",

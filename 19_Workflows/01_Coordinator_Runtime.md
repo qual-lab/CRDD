@@ -1,6 +1,6 @@
 # Coordinator Runtimeの利用・検証・発行手順
 
-Status: Stable (v0.20.1)
+Status: Stable (v0.21.0)
 Owner: Qual-Lab
 Last Updated: 2026-09-11
 
@@ -37,7 +37,7 @@ Last Updated: 2026-09-11
 
 ### 検証画面を閉じた後の結果確認
 
-結果保存に対応した配布物の4経路／復旧検証では、対象Repositoryの`.crdd/verification-results/<UUID>/`を確認する。`started.json`、`result.json`、`complete.json`のID・種別・開始時刻が一致し、全てをJSONとして読み取れ、完了記録の`resultSha256`と結果fileのSHA-256が一致することを確認する。開始時Repository改訂版を実行配布版と取り違えず、終了記録が保持する検証結果の版情報と対象を照合する。完了記録なし、部分書込み、組合せ／hash不一致、未知値や不完全表示があれば、その範囲は未確認のまま残す。
+結果保存に対応した配布物の4経路／復旧検証では、対象Repositoryの`.crdd/verification/<UUID>/`を確認する。`started.json`、`result.json`、`complete.json`のID・種別・開始時刻が一致し、全てをJSONとして読み取れ、完了記録の`resultSha256`と結果fileのSHA-256が一致することを確認する。開始時Repository改訂版を実行配布版と取り違えず、終了記録が保持する検証結果の版情報と対象を照合する。完了記録なし、部分書込み、組合せ／hash不一致、未知値や不完全表示があれば、その範囲は未確認のまま残す。
 
 この記録には会話、確認コード、passphrase、Provider生出力は残らない。未知の停止理由は`unknown`となるため、完全な調査ログの代替ではない。自動的な再実行・回復・署名承認に使わない。不要になった記録は対象を確認した担当者が明示的に清掃するまで保持し、Runtimeは容量超過時にも古い記録を削除しない。Gitは非追跡とし、正式Evidenceへ採用する際は別途対象版と根拠を確認する。旧署名配布物にはこの保存機能を継ぎ足さない。
 
@@ -95,7 +95,7 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 & "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\scripts\revoke-external-send-consent.ts"
 ```
 
-`<absolute-preverified-node-24.12+-executable>`は、絶対Path、version 24.12.0以上および実体を直前に確認したNode実行ファイルで置き換える。PATH上の裸の`node`、version判定不能または未対応Nodeを使用しない。Runner自身はNode versionをPackage／Release検証とTask開始より前に再確認する。独立したconsole availability preflightは行わず、初回同意が必要な場合だけTask Runtimeが[設計に定める単一Console lifecycle](../06_Architecture/coordinator/01_Architecture.md#14-consoletask内部搬送回収の実装契約)を実行する。有効な同意の再利用時はconsoleを要求しない。
+`<absolute-preverified-node-24.12+-executable>`は、絶対Path、version 24.12.0以上および実体を直前に確認したNode実行ファイルで置き換える。PATH上の裸の`node`、version判定不能または未対応Nodeを使用しない。Runner自身はNode versionをPackage／Release検証とTask開始より前に再確認する。独立したconsole availability preflightは行わず、初回同意が必要な場合だけTask Runtimeが[設計に定める単一Console lifecycle](../06_Architecture/Details/coordinator/01_Architecture.md#14-consoletask内部搬送回収の実装契約)を実行する。有効な同意の再利用時はconsoleを要求しない。
 
 
 ### 正式署名Recovery Matrixの固定検証
@@ -111,10 +111,29 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 
 対話境界を、PowerShellのtext pipeline、`ConvertTo-Json`、一時request file、長い`Start-Process ... -Command`または入れ子Shellへ再構成してはならない。Windows PowerShell 5.1とPowerShell 7ではprocess標準入力API、既定encodingおよび引数再構成が異なり、正しいTaskが実行前に壊れるためである。Release鍵生成／署名は既存のdirect TTY command、外部送信承認はRuntime所有のconsole challenge、OAuth bootstrapは公式Provider CLIと外部system browserをそれぞれ唯一の対話入口とする。対話端末を取得できない場合は別搬送へfallbackせず停止する。
 
+## Claude Max専用Provider Homeを再認証するとき
+
+通常Taskが`provider_subscription_auth_not_confirmed`またはClaude認証Probeの固定失敗理由で停止し、専用Provider HomeのOAuth失効を人が確認した場合だけ使用する。通常Taskから自動起動せず、署名済み配布Rootの共通Launcherをdirect TTYから実行する。
+
+```powershell
+& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\launch.ts" authenticate-claude
+```
+
+1. 表示された公式Claude認証手順を外部system browserで完了する。
+2. PowerShellにcode貼付けを求める表示が出た場合、貼付けた文字は画面に表示されない。一度だけ貼り付けてEnterを押し、結果が出るまで再入力しない。
+3. `status: completed`、`authenticationConfirmed: true`、`cleanupConfirmed: true`を同じ結果で確認する。
+4. 認証用URL、code、tokenまたはProvider Home実Pathを記録・貼付しない。
+5. `blocked`でも`recoveryId`が返った場合は、そのIDを保持する。資源状態が不明なまま記録を手動削除・改名しない。
+6. Process loss後は同じ入口をfresh Processから一度起動する。耐久Command世代が`idle`なら、同じProvider Home Identityから同じRecovery IDを導き、旧資源のexact cleanupを認証Effectより先に行う。
+7. 耐久Command世代が`in_flight`なら、旧Docker Commandの終了を推定してcleanupまたは新規認証を行わない。同じRecovery IDと`manualRecoveryRequired: true`を保持し、Runtime運用担当者へ移送する。
+8. `blocked`、事後Probe不成立、cleanup不明または`manualRecoveryRequired: true`では自動再試行せず、固定理由を保持する。
+
+この入口はClaude Max専用であり、Codex、API key、Console API課金、Repository、Workspaceまたは外部送信Taskを扱わない。同じProvider Homeへの別Process実行はKernel LockでEffect前に拒否し、対話実行中のLock喪失でも後続Effectを止める。各Docker CommandはEffect前に`in_flight`、子Process close後にだけ`idle`へ耐久遷移するため、fresh Processは終了不明な旧Command世代を越えてEffectを発行しない。Docker EffectはRepository cwdを継承せず、同名資源はCRDD所有Labelが一致する場合だけ削除する。Docker daemon停止、権限不足またはTransport障害を資源不存在として扱わない。正常完了時の耐久記録は削除せず`settled`として保持し、Lock解放不明では同じRecovery IDを返す。
+
 
 ## 正常なDockerで作成結果不明のTaskを回復するとき
 
-この経路はv0.20.0で正式4経路E2EとRecovery Matrixを完了し、公式tagへ収載した。利用時は署名済み配布物、同じexact Recovery Identity、現在のDocker状態および下表の段階的完了を再確認する。全Docker Desktop版、全OSおよび任意の破損状態を一般保証せず、観測不能または契約外の状態ではEffect 0で停止する。状態と必要な観測は[取消と回復の設計](../06_Architecture/coordinator/01_Architecture.md#7-cleanup依存順)を参照する。
+この経路はv0.20.0で正式4経路E2EとRecovery Matrixを完了し、公式tagへ収載した。利用時は署名済み配布物、同じexact Recovery Identity、現在のDocker状態および下表の段階的完了を再確認する。全Docker Desktop版、全OSおよび任意の破損状態を一般保証せず、観測不能または契約外の状態ではEffect 0で停止する。状態と必要な観測は[取消と回復の設計](../06_Architecture/Details/coordinator/01_Architecture.md#7-cleanup依存順)を参照する。
 
 | 順序 | 操作 | 完了の意味 |
 |---|---|---|
@@ -130,7 +149,13 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 
 ## Docker Desktopの旧復旧記録を扱うとき
 
-Docker Desktop最終復旧の起動環境と旧記録の処置は、[専用のHome・作業Directoryと検証境界](../06_Architecture/coordinator/01_Architecture.md#22-docker-desktop最終復旧時の起動環境)に従う。署名配布Rootを作業Directoryとして継承させない。旧版の復旧記録は、対象IDと、その修復IDを発行した署名済み配布Rootを明示する`doctor --adopt-docker-desktop-repair <repair-id> --repair-release-root <absolute-root>`で由来を検証し、既存ID・記録・退避物を保持して引き継ぐ。これはDocker Taskの生成元Rootを指定する引数でも、過去の停止・起動・移動を再実行するコマンドでもない。現在の正常状態を確認後、既存の明示closeコマンドで履歴を保持したまま終了する。開発実装の試験と、実機の中断記録への適用・正式E2Eは別に確認する。
+Docker Desktop最終復旧の起動環境と旧記録の処置は、[専用のHome・作業Directoryと検証境界](../06_Architecture/Details/coordinator/01_Architecture.md#22-docker-desktop最終復旧時の起動環境)に従う。署名配布Rootを作業Directoryとして継承させない。旧版の復旧記録は、対象IDと、その修復IDを発行した署名済み配布Rootを明示する`doctor --adopt-docker-desktop-repair <repair-id> --repair-release-root <absolute-root>`で由来を検証し、既存ID・記録・退避物を保持して引き継ぐ。これはDocker Taskの生成元Rootを指定する引数でも、過去の停止・起動・移動を再実行するコマンドでもない。
+
+旧記録のsettledな起動Effectが新しい失敗世代を作っている場合は、現在の署名版が同じ修復IDへ追記専用の継続記録を作る。対象は`Docker/run`と`docker-secrets-engine`の既知2領域だけであり、各領域のIdentityとlockを別々に確認する。個別socketを削除せず、各Directoryを同一親へ段階退避し、両方の結果を耐久化した後にDesktopを一回だけ再起動する。
+
+各退避と再起動の直前には、Engine停止、Docker Desktop Process不在、対象Identity、lock、退避先不存在および先行Effectの結果をfreshに再確認する。意図記録後にDockerが再起動した場合もEffectを発行しない。途中で閉じた端末、intent後中断、部分退避または起動結果不明では、同じコマンドの反復でEffectを盲目的に再発行せず、同じ修復IDと停止理由を保持する。
+
+回復済み表示と明示closeでは、現在Releaseへ結合した継続記録、3 Effectのconfirmed settlement、両領域の退避済み旧世代と別Identityの新世代、Engine readyおよびProcess安全性を再確認する。一領域の新世代欠落、部分記録、改変または別Release結合ではcloseしない。すべて成立した後だけ既存の明示closeコマンドで履歴を保持したまま終了する。開発実装の試験と、実機の中断記録への適用・正式E2Eは別に確認する。
 
 Docker資源の作成要求を耐久化した後、結果を受け取る前にProcessを失ったTaskは、空のDocker一覧だけでは回復済みにしない。そのTaskより後に開始され、署名済みの元配布から由来を確認でき、Process世代を切る停止とEngine再起動を完了して明示終了したDocker Desktop復旧記録がある場合だけ、上記の専用形を使える。RuntimeはTaskと復旧の順序、同じ選択ユーザー・保護Root・Policy、終了済み復旧記録および対象名のexactな不存在を再確認し、不存在確認をTask自身の耐久記録へ残してから通常回復を続ける。これは元Taskの自動再実行、旧配布への実行Authority付与、任意のDocker再起動による義務消去または保護記録の手動削除を許可しない。
 
@@ -149,12 +174,33 @@ CRDDへ取り込むのは`crdd-release-v1-public.spki.der`だけである。`crd
 
 この節は公式配布担当者向けである。入力は凍結したCommit／Tree、その内容から作ったstaging、既存の暗号化秘密鍵と発行情報。期待結果は同じ配布内容へ結合した署名manifestの生成であり、Release公開そのものではない。配布Root・Treeの不一致ならstagingの作成元へ戻り、復号失敗なら秘密入力だけを確認する。失敗原因を区別せず秘密鍵を作り直したり、日常開発のたびに署名したりしない。
 
+### `.env`と`.env-crdd`の使い分け
+
+| File | 用途 | 署名処理での扱い |
+|---|---|---|
+| `.env` | 採用Repositoryの一般的なLocal開発設定。用途とOwnerは各Projectが決める | 公式Release署名は読まない。鍵参照、鍵内容、passphraseを置かない |
+| `.env.example` | 一般的なLocal開発設定のGit管理可能な記入例 | 実値や秘密を置かず、署名設定を定義しない |
+| `.env-crdd` | CRDD公式RepositoryのRelease担当者だけが使うLocal署名設定 | `CRDD_RELEASE_PRIVATE_KEY_PATH`という絶対Path参照を一件だけ置ける |
+| `.env-crdd.example` | 値を持たない記入例 | Git管理できる。実在Path、秘密またはpassphraseを置かない |
+
+`.env.example`は、一般的なLocal設定の名称、用途および安全な記入形式を示す文書用sampleである。CRDD標準Toolが暗黙に同fileを読込む契約ではない。利用するLauncherまたはWorkflowが要求する項目だけをGit管理外の`.env`へ写し、実際のtoken等をsampleへ戻さない。現在のsampleは、任意のCoordinator RootとLocal MCP HTTP起動時のBearer Tokenを例示する。
+
+`.env-crdd`の書式は次の一行を基本とする。引用符はPathに空白がある場合に使用できる。未知の項目はSignerへAuthorityを追加せず、`CRDD_RELEASE_PRIVATE_KEY_PATH`の重複、相対Path、改行またはNULを拒否する。
+
+```dotenv
+CRDD_RELEASE_PRIVATE_KEY_PATH=C:\absolute\path\to\crdd-release-v1-private.pem
+```
+
+`.env-crdd`はRepository Root直下にだけ置き、Git管理しない。これは鍵の所在を毎回入力しないための参照であって、署名許可または秘密Storeではない。鍵内容とpassphraseは保存せず、passphraseは正式署名ごとにdirect TTYから一度入力する。SignerはCLIの`--private-key`と`.env-crdd`のどちらを選んでも同じ鍵参照preflightを秘密入力前に行い、秘密入力後にFile Identityを再観測する。CLIが明示された場合は`.env-crdd`を読まない。
+
+鍵参照、秘密入力および暗号署名Primitiveの責務は[成果物署名](../06_Architecture/Details/artifact-signing/01_Architecture.md)、Runtime Manifestの構築、固定Publisher Policy、P／S順序および配置は[Coordinator](../06_Architecture/Details/coordinator/01_Architecture.md#9-署名済み配布物)が所有する。
+
 署名済みRelease manifestは自己参照を避けながらGitだけで配布できるよう、署名Source A、manifest carrier B、最終Release Commit Cを分けて生成する。Cは署名後に確定する検証結果だけを取り込む文書Commitであり、Runtime実行集合を変更しない。
 
-1. Release候補Commit Aへ、Source、文書、試験および固定Pathの単一Native Runtime成果物`crdd-platform-access.exe`を含め、`template/tools/coordinator/coordinator-package-manifest.json`は含めない。Local Personal v1の通常buildはall-zeroのpublisher digestでAuthenticodeを明示的に非必須とし、固定publisher digestを指定したbuildだけ追加のAuthenticode検証を必須にする。
-2. Commit Aのblob byteを変換せず、Repository-localの`<repository>/.crdd/release-staging/<candidate-id>`へ展開する。`<candidate-id>`は小文字英数字とhyphenからなる単一Directory名に固定し、Repository直下、`.crdd`直下、別用途の`.crdd`領域、入れ子Path、別Repository、Repository外Root、linkまたはGit metadataを持つRootを受理しない。
+1. Release候補Commit Aへ、Source、文書、試験および`40_Develop/platform-access/artifacts/windows-x64/crdd-platform-access.exe`を含め、生成前の`template/tools/coordinator/coordinator-package-manifest.json`は含めない。Local Personal v1の通常buildはall-zeroのpublisher digestでAuthenticodeを明示的に非必須とし、固定publisher digestを指定したbuildだけ追加のAuthenticode検証を必須にする。manifestは実装、署名、昇格および検証が共有するこの固定Pathだけを使用し、別Pathへ複製しない。
+2. Commit Aのblob byteを変換せず、Repository-localの`<repository>/.crdd/release/<candidate-id>`へ展開する。`<candidate-id>`は小文字英数字とhyphenからなる単一Directory名に固定し、Repository直下、`.crdd`直下、別用途の`.crdd`領域、入れ子Path、別Repository、Repository外Root、linkまたはGit metadataを持つRootを受理しない。
 3. Commit A／Tree Aと`crdd-platform-access.exe`を照合し、stagingの固定Pathへmanifestを生成する。生成commandは既存manifest、固定公開鍵と一致しない秘密鍵、非canonical時刻または不正なIdentityを拒否する。秘密鍵のpassphraseは対話端末でだけ入力し、標準出力へ出さない。
-4. 生成したmanifestは編集可能なJSONとして扱わず、不透明なbyte列のまま、署名済みstaging内にある共通Launcher自身の`promote-release`でRepositoryの固定Pathへ昇格する。作業Checkout内の未署名Launcherへstaging Pathを引数で渡して代替してはならない。入口は、実行中のコードが現在のRepository直下`.crdd/release-staging/<候補ID>`にある署名対象の配布物自身であること、署名、Source AのCommit／Tree、閉じたRuntime実行集合、Policy、Native成果物、現在HEAD、配置先の明示的な不存在、昇格前後のbyte数とSHA-256を一つの実行で再確認する。作業Checkoutに存在するGit管理外の依存物や一時物はSource AのCommit／Tree同一性へ混入させず、実行集合の完全性は署名済みstagingから確認する。手動コピー、Editor、整形、JSONの再serialize、Shellのtext pipelineまたは末尾改行追加で代替しない。最終Pathへ段階writeせず、同一Filesystem上の排他的hard linkで完成済みfileだけを公開する。開始時sourceと公開後の二名が同じfile objectであることを確認し、staging側の名前はこの公開Effectでは削除しない。中断後は同じcommandがsourceのみ、同一file objectの二名、明示破棄後のdestinationのみを識別して再開する。別Identity、内容変化または観測不能では削除や上書きを行わず、Commitせずに人間へ移送する。成功結果が`retained_for_explicit_staging_discard`を返した場合は、Commit Bと検証が完了した後、Repository-local stagingの所有範囲を再確認する明示破棄で後片付けする。成功後にmanifestだけをCommitしてBを作り、`git diff <Commit-A>..<Commit-B> --name-only`がmanifest 1件だけでなければReleaseへ進めない。
+4. 生成したmanifestは編集可能なJSONとして扱わず、不透明なbyte列のまま、署名済みstaging内にある共通Launcher自身の`promote-release`でRepositoryの固定Pathへ昇格する。作業Checkout内の未署名Launcherへstaging Pathを引数で渡して代替してはならない。入口は、実行中のコードが現在のRepository直下`.crdd/release/<候補ID>`にある署名対象の配布物自身であること、署名、Source AのCommit／Tree、閉じたRuntime実行集合、Policy、Native成果物、現在HEAD、配置先の明示的な不存在、昇格前後のbyte数とSHA-256を一つの実行で再確認する。作業Checkoutに存在するGit管理外の依存物や一時物はSource AのCommit／Tree同一性へ混入させず、実行集合の完全性は署名済みstagingから確認する。手動コピー、Editor、整形、JSONの再serialize、Shellのtext pipelineまたは末尾改行追加で代替しない。最終Pathへ段階writeせず、同一Filesystem上の排他的hard linkで完成済みfileだけを公開する。開始時sourceと公開後の二名が同じfile objectであることを確認し、staging側の名前はこの公開Effectでは削除しない。中断後は同じcommandがsourceのみ、同一file objectの二名、明示破棄後のdestinationのみを識別して再開する。別Identity、内容変化または観測不能では削除や上書きを行わず、Commitせずに人間へ移送する。成功結果が`retained_for_explicit_staging_discard`を返した場合は、Commit Bと検証が完了した後、Repository-local stagingの所有範囲を再確認する明示破棄で後片付けする。成功後にmanifestだけをCommitしてBを作り、`git diff <Commit-A>..<Commit-B> --name-only`がmanifest 1件だけでなければReleaseへ進めない。
 5. Bの署名済みRuntimeに対する検証後、結果と現在状態を反映するCommit Cを作る。BからCに変更できるのは、Release候補固定時に宣言した文書の閉集合だけである。Releaseごとの閉集合はこの節でexact Pathとして列挙し、wildcard、Directory単位または「関連文書」等の開いた指定を使わない。manifest、Runtime実行集合、Policy、Native成果物または宣言外Pathが変わった場合はCとして受理せず、新しいSource Aへ戻る。
 6. Cで同梱manifestをbyte-for-byte再照合し、Package content rootとRuntime実行IdentityがBの検証時と一致することを確認する。AがBの親、BがCの祖先であり、AからBはmanifest一件だけ、BからCは上記閉集合だけであることも確認する。公式tagとReleaseはCommit Cへ付ける。CのCommit／Treeは署名対象文書へ自己参照させず、tagと結合した公式Release記録へ保存する。manifest内の`crddCommit`／`crddTree`はCommit A／Tree Aを示し、Bはそのmanifestを運ぶ祖先として保持する。RuntimeはCの内容からRuntime実行集合とmanifestを検証し、`crdd-platform-access.exe`を同じIdentityへ結合する。cloneまたはsubmoduleに存在するRoot直下のexact `.git` metadataは、non-linkのfileまたはdirectoryであることを確認して署名対象Treeから除外する。
 7. 一般Taskは配布A／B／Cとは別に、実行直前の作業対象RepositoryのExecution Commit／Treeを独立観測し、隔離Candidateのbase RevisionをそのExecution Revisionへ照合する。manifest内のA、manifest carrier Bまたは公式Release Cを、採用RepositoryのCandidate baseとして要求しない。Task終了後に同じExecution Revisionを再観測できない、またはCommit／Treeが変わった場合は、Candidateを回収して成功扱いにしない。CRDD自身を作業対象にする場合だけExecution Revisionが公式Release Cと一致し得る。
@@ -163,11 +209,11 @@ CRDDへ取り込むのは`crdd-release-v1-public.spki.der`だけである。`crd
 
 v0.19.0では、Bの署名済みRuntimeに対する最終E2Eと人間のRelease判断後、次のexact PathだけをCommit Cで変更できる。新規検証結果2件は、Provider生出力、確認値、秘密、Host PathまたはRecovery Authorityを保存せず、閉じた結果と根拠Hashだけを記録する。
 
-- 最終E2E記録: `07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.md`、`07_Quality/Verification_Results/2026-09-03_Project_Runtime_Final_Signed_E2E.json`
-- 公開入口と履歴: `README.md`、`CHANGELOG.md`、`90_Release/Changes/README.md`、`99_Roadmap/01_Product_Roadmap.md`
+- 最終E2E記録: `99_Roadmap/Releases/v0.19.0/Evidence/260903_project-runtime-final-signed-e2e.md`、`99_Roadmap/Releases/v0.19.0/Evidence/260903_project-runtime-final-signed-e2e.json`
+- 公開入口と履歴: `README.md`、`CHANGELOG.md`、`99_Roadmap/02_Changes.md`、`99_Roadmap/01_Roadmap.md`
 - 品質・手順: `07_Quality/01_Quality_Center.md`、`07_Quality/03_Verification_Design.md`、`19_Workflows/01_Coordinator_Runtime.md`
-- Project Runtimeの利用・設計表示: `02_UX/01_User_Experience.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/project-runtime/01_Architecture.md`
-- Release対象CHG: `90_Release/Changes/CHG-000057_Minimum_AI_Native_Project_Runtime.md`、`90_Release/Changes/CHG-000058_Reasoning_Context_and_Design_Intent.md`、`90_Release/Changes/CHG-000059_Dogfooding_Assurance_Route_and_Readability.md`、`90_Release/Changes/CHG-000060_CRDD_Brand_Icon_Adoption.md`
+- Project Runtimeの利用・設計表示: `02_UX/01_User_Experience.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/Details/project-runtime/01_Architecture.md`
+- Release対象CHG: `99_Roadmap/Changes/CHG-000057/change.md`、`99_Roadmap/Changes/CHG-000058/change.md`、`99_Roadmap/Changes/CHG-000059/change.md`、`99_Roadmap/Changes/CHG-000060/change.md`
 - v0.19.0のCandidateからStableへ機械的に遷移するCRDD正本: `00_Overview.md`、`01_Principles.md`、`02_Terminology.md`、`03_Documentation.md`、`04_Agent_Organization.md`、`05_Autonomous_Operation.md`、`10_Agent.md`、`11_Skill.md`、`12_Change.md`、`13_Release.md`、`14_Workflow.md`、`15_Progress.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`18_Context_Dependency.md`、`19_Maintenance.md`、`21_Discovery.md`、`22_UX.md`、`23_IA.md`、`24_UI_Behavior_Specification.md`、`25_UI.md`、`26_Behavior_Specification.md`、`27_Architecture.md`、`28_Implementation.md`、`29_Verification.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
 
 正本の機械的遷移は`Status: Candidate`を`Status: Stable`へ変え、`Released Baseline`行を削除し、Release日だけを更新する。Project Runtime固有文書はCandidate／未実装表示をStable／利用可能範囲の表示へ変える。CHGは`Released`と対象tagへ、Roadmapは完了項目の除去と残件だけの表示へ、CHANGELOGとREADMEは候補表示から公開版・公開日へ変える。ここにない本文変更、規範追加、実装変更または新しい成果物はCommit Cへ含めない。
@@ -179,11 +225,26 @@ v0.20.0では、Bの署名済みRuntimeに対する最終E2Eと人間のRelease�
 - 最終E2E結果: `07_Quality/Verification_Results/2026-09-06_V020_Final_Signed_E2E.md`、`07_Quality/Verification_Results/2026-09-06_V020_Final_Signed_E2E.json`
 - 品質と手順: `07_Quality/01_Quality_Center.md`、`07_Quality/03_Verification_Design.md`、`19_Workflows/01_Coordinator_Runtime.md`
 - v0.20の候補からStableへ機械的に遷移するCRDD正本: `00_Overview.md`、`01_Principles.md`、`02_Terminology.md`、`03_Documentation.md`、`04_Agent_Organization.md`、`05_Autonomous_Operation.md`、`10_Agent.md`、`11_Skill.md`、`12_Change.md`、`13_Release.md`、`14_Workflow.md`、`15_Progress.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`18_Context_Dependency.md`、`19_Maintenance.md`、`21_Discovery.md`、`22_UX.md`、`23_IA.md`、`24_UI_Behavior_Specification.md`、`25_UI.md`、`26_Behavior_Specification.md`、`27_Architecture.md`、`28_Implementation.md`、`29_Verification.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
-- v0.20のTool表示: `04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/01_Architecture.md`、`06_Architecture/99_Coding_Standards.md`、`06_Architecture/coordinator/01_Architecture.md`、`06_Architecture/coordinator/02_Threat_Model.md`、`06_Architecture/execution-intelligence/01_Architecture.md`、`06_Architecture/mcp/01_Architecture.md`、`06_Architecture/platform-access/01_Architecture.md`、`06_Architecture/project-runtime/01_Architecture.md`
-- Release対象CHG: `90_Release/Changes/CHG-000061_Test_Levels_and_Automated_Regression.md`、`90_Release/Changes/CHG-000062_Execution_Intelligence.md`、`90_Release/Changes/CHG-000063_Runtime_Responsibility_Separation.md`、`90_Release/Changes/CHG-000064_Project_State_and_Local_MCP_HTTP.md`、`90_Release/Changes/CHG-000065_Structured_First_Documentation.md`
-- 公開案内と残件: `README.md`、`CHANGELOG.md`、`90_Release/Changes/README.md`、`99_Roadmap/01_Product_Roadmap.md`
+- v0.20のTool表示: `04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/01_Architecture.md`、`06_Architecture/99_Coding_Standards.md`、`06_Architecture/Details/coordinator/01_Architecture.md`、`06_Architecture/Details/coordinator/02_Threat_Model.md`、`06_Architecture/Details/execution-intelligence/01_Architecture.md`、`06_Architecture/Details/mcp/01_Architecture.md`、`06_Architecture/Details/platform-access/01_Architecture.md`、`06_Architecture/Details/project-runtime/01_Architecture.md`
+- Release対象CHG: `99_Roadmap/Changes/CHG-000061/change.md`、`99_Roadmap/Changes/CHG-000062/change.md`、`99_Roadmap/Changes/CHG-000063/change.md`、`99_Roadmap/Changes/CHG-000064/change.md`、`99_Roadmap/Changes/CHG-000065/change.md`
+- 公開案内と残件: `README.md`、`CHANGELOG.md`、`99_Roadmap/02_Changes.md`、`99_Roadmap/01_Roadmap.md`
 
 正本とTool表示の機械的遷移はCandidate表示をStableへ変え、`Released Baseline`を除去し、Release日または最終更新日だけを更新する。CHGは`Released`と対象tagへ、Roadmapはv0.20完了項目を除去してv0.21以降の残件だけへ、CHANGELOGとREADMEは候補表示から公開版・公開日へ変える。ここにない本文変更、規範追加、実装変更、manifest変更、Runtime実行集合変更または新しい成果物はCommit Cへ含めない。
+
+### v0.21.0のCommit C許可Path
+
+v0.21.0では、Bの署名済みRuntimeに対する最終Recovery Matrix、4経路E2E、独立レビューおよび人間による最終Release候補Cの作成許可後、次のexact PathだけをCommit Cで変更できる。Cを作成・監査してfeature branchからmainへ統合し、main上のexact Identityと全Release Gateを確認した後に、人間が最終Release判断を行い、同じIdentityへtagを付ける。C作成前の許可やBに対する判断を、Cの最終Release判断へ流用しない。検証結果はProvider生出力、OAuth URL、認証code、秘密、Host PathまたはRecovery Authorityを保存せず、固定結果、件数、公開可能なIdentityおよび根拠Hashだけを記録する。
+
+- 最終E2E記録: `99_Roadmap/Releases/v0.21.0/Evidence/260923_engineering-completeness-final-signed-e2e.md`、`99_Roadmap/Releases/v0.21.0/Evidence/260923_engineering-completeness-final-signed-e2e.json`
+- 公開入口と履歴: `README.md`、`CHANGELOG.md`、`99_Roadmap/01_Roadmap.md`、`99_Roadmap/02_Changes.md`、`99_Roadmap/03_Releases.md`
+- 品質とReality Audit: `07_Quality/01_Quality_Center.md`、`07_Quality/02_Quality_Strategy.md`、`07_Quality/03_Verification_Design.md`、`07_Quality/05_Current_Implementation_Reality_Audit.md`
+- 利用・検証手順: `19_Workflows/01_Coordinator_Runtime.md`、`19_Workflows/04_MCP_Server.md`
+- 工程の候補表示: `02_UX/01_User_Experience.md`、`02_UX/02_Personas.md`、`02_UX/03_Experience_Map.md`、`02_UX/04_Service_Blueprint.md`、`02_UX/05_Quality_Expectations.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`
+- v0.21の候補からStableへ機械的に遷移するCRDD正本: `00_Overview.md`、`01_Principles.md`、`02_Terminology.md`、`03_Documentation.md`、`04_Agent_Organization.md`、`05_Autonomous_Operation.md`、`10_Agent.md`、`11_Skill.md`、`12_Change.md`、`13_Release.md`、`14_Workflow.md`、`15_Progress.md`、`16_Quality_Assurance.md`、`17_Communication.md`、`18_Context_Dependency.md`、`19_Maintenance.md`、`21_Discovery.md`、`22_UX.md`、`23_IA.md`、`24_UI_Behavior_Specification.md`、`25_UI.md`、`26_Behavior_Specification.md`、`27_Architecture.md`、`28_Implementation.md`、`29_Verification.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
+- v0.21の候補表示を持つ工程成果物: `04_UI/06_Current_Interface_Reference.md`、`05_SPEC/07_Current_Behavior_Reference.md`、`06_Architecture/01_Architecture.md`、`06_Architecture/02_Component_and_Responsibility_Model.md`、`06_Architecture/03_Boundary_and_Interface_Model.md`、`06_Architecture/04_Runtime_and_Data_Flow_Model.md`、`06_Architecture/05_Failure_Recovery_and_Resilience_Model.md`、`06_Architecture/06_Deployment_and_Execution_Model.md`、`06_Architecture/99_Coding_Standards.md`、`06_Architecture/Details/coordinator/02_Threat_Model.md`、`06_Architecture/Details/crdd-domain-library/01_Architecture.md`、`06_Architecture/Details/runtime-data/02_Current_Path_Reality_Audit.md`
+- Release対象CHG: `99_Roadmap/Changes/CHG-000066/change.md`、`99_Roadmap/Changes/CHG-000068/change.md`、`99_Roadmap/Changes/CHG-000070/change.md`、`99_Roadmap/Changes/CHG-000071/change.md`、`99_Roadmap/Changes/CHG-000072/change.md`、`99_Roadmap/Changes/CHG-000073/change.md`、`99_Roadmap/Changes/CHG-000074/change.md`、`99_Roadmap/Changes/CHG-000075/change.md`、`99_Roadmap/Changes/CHG-000076/change.md`、`99_Roadmap/Changes/CHG-000077/change.md`、`99_Roadmap/Changes/CHG-000078/change.md`、`99_Roadmap/Changes/CHG-000079/change.md`、`99_Roadmap/Changes/CHG-000080/change.md`
+
+正本と工程成果物の機械的遷移は、v0.21.0のCandidate表示をStableへ変え、`Released Baseline`を除去し、Release日または最終更新日だけを更新する。CHGは`Released`と対象tagへ、Roadmapはv0.21完了項目を除去してv0.22以降の残件だけへ、CHANGELOGとREADMEは候補表示から公開版・公開日へ変える。QualityとReality Auditは、実行済みEvidenceへ接続した項目、未観測のまま残す項目およびv0.22へ移管した項目を分け、未実行項目をPassへ変更しない。ここにない本文変更、規範追加、実装変更、manifest変更、Runtime実行集合変更または新しい成果物はCommit Cへ含めない。
 
 ### リリース状態の利用側閉包
 
@@ -195,7 +256,7 @@ exact Path一覧は変更許可の上限であり、状態利用側の完全な�
 | 現行Markdown入口 | 同じVersionの`Candidate`表示なし |
 | README | 正本と同じVersion、Candidate／Released Baseline表示なし |
 | CHANGELOG | 英日両区分に同じVersionと同じ公開日の日付付き見出しがある |
-| 対象CHG | `Released`、対象tagおよび公開日へ接続する |
+| 対象CHG | Commit Cの監査時は`Ready for Release Handoff`。main統合・最終Release判断・tag付与後の公開状態投影でだけ`Released`、対象tagおよび公開日へ接続する |
 | Quality Center | Release Gate完了と未評価範囲を区別する |
 | Roadmap | 公開済み項目を未完了作業として残さない |
 
@@ -206,7 +267,7 @@ v0.20.0ではこの機械的遷移を実行しないまま公式tagを作成し�
 これにより、公式tagへ固定したcloneまたはsubmoduleは別archiveを取得せず通常Runtimeを利用できる。GitHub Releaseへ同じ内容の独自ZIPを追加しない。GitHubが自動生成するSource archiveもRuntime配布契約または検証対象にしない。
 
 ```powershell
-& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\scripts\sign-release-manifest.ts" --distribution-root "<absolute-staging-root>" --private-key "<approved-absolute-private-key-file>" --crdd-version <vX.Y.Z> --release-sequence <positive-safe-integer> --crdd-commit <commit-id> --crdd-tree <tree-id> --issued-at <canonical-utc> --expires-at <canonical-utc>
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\scripts\sign-release-manifest.ts" --distribution-root "<absolute-staging-root>" --crdd-version <vX.Y.Z> --release-sequence <positive-safe-integer> --crdd-commit <commit-id> --crdd-tree <tree-id> --issued-at <canonical-utc> --expires-at <canonical-utc>
 Set-Location "<absolute-crdd-source-root>"
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-staging-root>\40_Develop\coordinator\bin\launch.ts" promote-release
 ```
@@ -215,7 +276,7 @@ Set-Location "<absolute-crdd-source-root>"
 
 上の例は期間限定の検証配布である。期限なしの正式配布では`--expires-at <canonical-utc>`を`--no-expiry`へ置き換える。どちらか一方だけが必須であり、未指定・両方指定・重複・不正日時は秘密入力前に停止する。新規署名はmanifest／envelope revision 5を使用し、期限なしは署名payload内の`expiresAt: null`に結合する。旧revision 2／3／4を編集、延長または現行候補へ流用しない。一般利用者は署名済み配布物を検証するだけで、公式鍵やpassphraseを入力しない。配布物の期限なし指定を、同意・Grant・準備記録の無期限化と混同しない。
 
-配布Identityと成果物の結合条件は[署名と内部成果物の設計](../06_Architecture/coordinator/01_Architecture.md#release-artifact-binding)に従う。手順から固定Path・検査・停止条件を変更しない。
+配布Identityと成果物の結合条件は[署名と内部成果物の設計](../06_Architecture/Details/coordinator/01_Architecture.md#release-artifact-binding)に従う。手順から固定Path・検査・停止条件を変更しない。
 
 
 ## 開発者確認
@@ -224,7 +285,7 @@ Set-Location "<absolute-crdd-source-root>"
 
 ### 端末の表示・入力を確認する
 
-[UIの確認範囲](../04_UI/01_User_Interface.md#4-現行表示の参照と表現方針)に従い、既に開いているWindows Terminal／PowerShellで、検証したリポジトリRootから次を実行する。これは秘密入力・署名・外部送信・実行許可を伴わない参照であり、製品Taskの成功を証明するものではない。
+[UIの確認範囲](../04_UI/06_Current_Interface_Reference.md#4-現行表示の参照と表現方針)に従い、既に開いているWindows Terminal／PowerShellで、検証したリポジトリRootから次を実行する。これは秘密入力・署名・外部送信・実行許可を伴わない参照であり、製品Taskの成功を証明するものではない。
 
 ```shell
 node 40_Develop/coordinator/tests/fixtures/terminal-interaction-probe.ts match
@@ -239,7 +300,7 @@ node 40_Develop/coordinator/tests/fixtures/terminal-interaction-probe.ts cancel
 
 ### 自動試験と開発確認
 
-以下は検証済みリポジトリRootから実行する。試験前に、実行Processの`TEMP`と`TMP`をそのRoot直下の`.crdd/test-tmp`へ設定し、通常の実Directoryであることを確認する。未設定またはRootを確認できない状態では試験を開始しない。OS全体や永続ユーザー環境の値は変更しない。
+以下は検証済みリポジトリRootから実行する。試験Runnerが一時領域を必要とする場合は、Repository-localの`.crdd/tests/<execution-unit>/<run-id>/`を所有し、入力・出力・診断をRun単位で分離して全終端経路で清掃する。呼出し元が旧共通一時Directoryへ`TEMP`／`TMP`をまとめて上書きせず、OS全体や永続ユーザー環境の値も変更しない。
 
 ```shell
 npm test --prefix 40_Develop/coordinator
@@ -256,11 +317,9 @@ LintとFormatterの版、設定および依存境界は[内部ツール・コー
 Checkerの実装配置と配布境界は[内部ツール・コーディング規約](../06_Architecture/99_Coding_Standards.md)に従う。Checker packageの開発確認は次を使用する。
 
 ```shell
-npm run check --prefix 40_Develop/checker
 npm run test --prefix 40_Develop/checker
-npm run --silent verify:repository --prefix 40_Develop/checker
 ```
 
-`check`は型、Lint、Formatter、`test`はChecker回帰試験、`verify:repository`はpackage rootから`../..`を明示してCRDD公式Repository全体を確認するprivateな保守入口である。採用Repositoryの実行方法、外部package配布、CRDD準拠条件またはRelease手順ではない。
+Checkerの`test`はFormatter確認、型検査、Lint、package rootから`../..`を明示するCRDD公式Repository全体Checker、Checker回帰試験本体をこの順に実行する。個別の`check`、`verify:repository`、`test:run`は原因を限定する内部入口であり、単独結果を全回帰完了としない。採用Repositoryの実行方法、外部package配布、CRDD準拠条件またはRelease手順ではない。
 
 Rust packageを移設した後は、旧配置から持ち越した`target`を検証の根拠に使わない。コンパイル時に埋め込まれた絶対Pathが残り、コードを変更していなくても試験用binaryを起動できない場合がある。検証したcrate Rootの`target`配下に新しい実行専用Directoryを選び、そのProcessの`CARGO_TARGET_DIR`へ設定して、固定toolchain・`--frozen --offline`で再ビルドと試験を行う。既存キャッシュや署名配布物の削除は必要ない。生成物はGit非追跡のまま保持し、同じPathの古い試験結果を新配置の合格へ流用しない。

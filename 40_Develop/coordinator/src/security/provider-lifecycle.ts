@@ -1,3 +1,9 @@
+/**
+ * provider-lifecycleに属する責務をまとめる。
+ *
+ * @responsibility isMemberを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -91,6 +97,22 @@ const AUTH_POLICIES = Object.freeze({
   }),
 });
 
+/**
+ * Memberかを判定する。
+ *
+ * @responsibility Memberの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000004
+ * @input values: T、value: unknown
+ * @returns value is T[number]を返す。
+ * @precondition 「values: T、value: unknown」がisMemberの入力契約を満たす。
+ * @postcondition isMemberの責務を完了した結果だけを返す。
+ * @effect N/A: isMemberは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isMemberは独自の失敗分岐を所有しない。
+ * @invariant isMemberは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isMemberはProcess内の同一Subsystemで完結する。
+ * @security isMemberはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isMemberは共有非同期状態を持たない同期処理である。
+ */
 function isMember<const T extends readonly string[]>(
   values: T,
   value: unknown,
@@ -98,6 +120,22 @@ function isMember<const T extends readonly string[]>(
   return typeof value === "string" && values.some((item) => item === value);
 }
 
+/**
+ * Bounded Integerかを判定する。
+ *
+ * @responsibility Bounded Integerの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、maximum: number
+ * @returns value is numberを返す。
+ * @precondition 「value: unknown、maximum: number」がisBoundedIntegerの入力契約を満たす。
+ * @postcondition isBoundedIntegerの責務を完了した結果だけを返す。
+ * @effect N/A: isBoundedIntegerは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isBoundedIntegerは独自の失敗分岐を所有しない。
+ * @invariant isBoundedIntegerは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isBoundedIntegerはProcess内の同一Subsystemで完結する。
+ * @security isBoundedIntegerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isBoundedIntegerは共有非同期状態を持たない同期処理である。
+ */
 function isBoundedInteger(value: unknown, maximum: number): value is number {
   return (
     typeof value === "number" &&
@@ -107,6 +145,22 @@ function isBoundedInteger(value: unknown, maximum: number): value is number {
   );
 }
 
+/**
+ * provider-lifecycleを停止結果として構築する。
+ *
+ * @responsibility provider-lifecycleの停止理由、未発行Effect、公開結果境界を所有する。
+ * @trace ARCH-000004
+ * @input reason: string
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: string」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect blockedは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(reason: string) {
   return Object.freeze({
     status: "blocked",
@@ -124,6 +178,22 @@ function blocked(reason: string) {
   });
 }
 
+/**
+ * plan Provider Lifecycleを決定する。
+ *
+ * @responsibility plan Provider Lifecycleの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input candidate: unknown
+ * @returns planProviderLifecycleの計算結果を返す。
+ * @precondition 「candidate: unknown」がplanProviderLifecycleの入力契約を満たす。
+ * @postcondition planProviderLifecycleの責務を完了した結果だけを返す。
+ * @effect N/A: planProviderLifecycleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: planProviderLifecycleは独自の失敗分岐を所有しない。
+ * @invariant planProviderLifecycleは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: planProviderLifecycleはProcess内の同一Subsystemで完結する。
+ * @security planProviderLifecycleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: planProviderLifecycleは共有非同期状態を持たない同期処理である。
+ */
 export function planProviderLifecycle(candidate: unknown) {
   const value = snapshotPlainRecord(candidate, PLAN_KEYS);
   if (!value) return blocked("provider_lifecycle_plan_shape_invalid");
@@ -154,6 +224,22 @@ export function planProviderLifecycle(candidate: unknown) {
   });
 }
 
+/**
+ * synthetic Fake Observation Internalを決定する。
+ *
+ * @responsibility synthetic Fake Observation Internalの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input candidate: unknown
+ * @returns syntheticFakeObservationInternalの計算結果を返す。
+ * @precondition 「candidate: unknown」がsyntheticFakeObservationInternalの入力契約を満たす。
+ * @postcondition syntheticFakeObservationInternalの責務を完了した結果だけを返す。
+ * @effect syntheticFakeObservationInternalは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: syntheticFakeObservationInternalは独自の失敗分岐を所有しない。
+ * @invariant syntheticFakeObservationInternalは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security syntheticFakeObservationInternalはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: syntheticFakeObservationInternalは共有非同期状態を持たない同期処理である。
+ */
 function syntheticFakeObservationInternal(candidate: unknown) {
   const value = snapshotPlainRecord(candidate, OBSERVATION_KEYS);
   if (!value) return blocked("provider_lifecycle_observation_shape_invalid");
@@ -260,12 +346,44 @@ function syntheticFakeObservationInternal(candidate: unknown) {
   });
 }
 
+/**
+ * Synthetic Fake Provider Observation 候補を評価する。
+ *
+ * @responsibility Synthetic Fake Provider Observation 候補の評価入力、判定規則、判断不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input candidate: unknown
+ * @returns evaluateSyntheticFakeProviderObservationCandidateの計算結果を返す。
+ * @precondition 「candidate: unknown」がevaluateSyntheticFakeProviderObservationCandidateの入力契約を満たす。
+ * @postcondition evaluateSyntheticFakeProviderObservationCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: evaluateSyntheticFakeProviderObservationCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: evaluateSyntheticFakeProviderObservationCandidateは独自の失敗分岐を所有しない。
+ * @invariant evaluateSyntheticFakeProviderObservationCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: evaluateSyntheticFakeProviderObservationCandidateはProcess内の同一Subsystemで完結する。
+ * @security evaluateSyntheticFakeProviderObservationCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: evaluateSyntheticFakeProviderObservationCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function evaluateSyntheticFakeProviderObservationCandidate(
   candidate: unknown,
 ) {
   return syntheticFakeObservationInternal(candidate);
 }
 
+/**
+ * Provider Lifecycle 契約の公開契約を記述する。
+ *
+ * @responsibility Provider Lifecycle 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProviderLifecycleContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProviderLifecycleContractの入力契約を満たす。
+ * @postcondition describeProviderLifecycleContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeProviderLifecycleContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProviderLifecycleContractは独自の失敗分岐を所有しない。
+ * @invariant describeProviderLifecycleContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeProviderLifecycleContractはProcess内の同一Subsystemで完結する。
+ * @security describeProviderLifecycleContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeProviderLifecycleContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeProviderLifecycleContract() {
   return Object.freeze({
     contract: PROVIDER_LIFECYCLE_CONTRACT,

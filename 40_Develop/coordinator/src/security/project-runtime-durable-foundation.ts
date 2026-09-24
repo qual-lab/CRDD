@@ -1,3 +1,9 @@
+/**
+ * project-runtime-durable-foundationに属する責務をまとめる。
+ *
+ * @responsibility StoreResultを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -12,18 +18,54 @@ import type {
   ProjectRuntimeLeasePort,
   ProjectRuntimePersistencePorts,
   ProjectRuntimePortResult,
-  ProjectRuntimeStatePort,
   ProjectRuntimeState,
+  ProjectRuntimeStatePort,
   ProjectTaskRecoveryObligation,
 } from "../../../project-runtime/src/index.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "./repository-root-resolution.ts";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../runtime-data/src/index.ts";
 
 export const PROJECT_RUNTIME_DURABLE_FOUNDATION_CONTRACT =
   "crdd-coordinator/project-runtime-durable-foundation/v1" as const;
 
+/**
+ * project-runtime-durable-foundationで使用するStore 結果の値契約を定義する。
+ *
+ * @responsibility Store 結果のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape StoreResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant StoreResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: StoreResultの宣言は外部境界を開かない。
+ * @security StoreResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility StoreResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type StoreResult<T> = ProjectRuntimePortResult<T>;
+/**
+ * project-runtime-durable-foundationで使用するLease Kindの値契約を定義する。
+ *
+ * @responsibility Lease KindのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape LeaseKindが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant LeaseKindで宣言した値と責務の対応を維持する。
+ * @boundary N/A: LeaseKindの宣言は外部境界を開かない。
+ * @security LeaseKindはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility LeaseKindの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type LeaseKind = ProjectRuntimeLeaseKind;
 
+/**
+ * project-runtime-durable-foundationで使用するActive Leaseの値契約を定義する。
+ *
+ * @responsibility Active LeaseのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ActiveLeaseが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ActiveLeaseで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ActiveLeaseの宣言は外部境界を開かない。
+ * @security ActiveLeaseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ActiveLeaseの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ActiveLease = Readonly<{
   repositoryRoot: string;
   repositoryBindingId: string;
@@ -41,6 +83,17 @@ type ActiveLease = Readonly<{
 
 const activeLeases = new WeakMap<ProjectRuntimeLease, ActiveLease>();
 
+/**
+ * project-runtime-durable-foundationで使用するEnvelopeの値契約を定義する。
+ *
+ * @responsibility EnvelopeのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape Envelopeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Envelopeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Envelopeの宣言は外部境界を開かない。
+ * @security EnvelopeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Envelopeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Envelope = Readonly<{
   schema: typeof PROJECT_RUNTIME_DURABLE_FOUNDATION_CONTRACT;
   schemaRevision: 1;
@@ -70,12 +123,44 @@ const PROJECT_QUEUE_STATES = new Set<ProjectQueueState>([
   "cancelled",
 ]);
 
+/**
+ * error Codeを決定する。
+ *
+ * @responsibility error Codeの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input error: unknown
+ * @returns errorCodeの計算結果を返す。
+ * @precondition 「error: unknown」がerrorCodeの入力契約を満たす。
+ * @postcondition errorCodeの責務を完了した結果だけを返す。
+ * @effect N/A: errorCodeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: errorCodeは独自の失敗分岐を所有しない。
+ * @invariant errorCodeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: errorCodeはProcess内の同一Subsystemで完結する。
+ * @security errorCodeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: errorCodeは共有非同期状態を持たない同期処理である。
+ */
 function errorCode(error: unknown) {
   return error && typeof error === "object" && "code" in error
     ? String(error.code)
     : null;
 }
 
+/**
+ * Keysが完全一致するか判定する。
+ *
+ * @responsibility Keysの比較対象、完全一致条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: object、keys: readonly string[]
+ * @returns exactKeysの計算結果を返す。
+ * @precondition 「value: object、keys: readonly string[]」がexactKeysの入力契約を満たす。
+ * @postcondition exactKeysの責務を完了した結果だけを返す。
+ * @effect N/A: exactKeysは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: exactKeysは独自の失敗分岐を所有しない。
+ * @invariant exactKeysは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: exactKeysはProcess内の同一Subsystemで完結する。
+ * @security exactKeysはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: exactKeysは共有非同期状態を持たない同期処理である。
+ */
 function exactKeys(value: object, keys: readonly string[]) {
   const actualValues = Object.keys(value).sort();
   const expectedValues = [...keys].sort();
@@ -85,6 +170,22 @@ function exactKeys(value: object, keys: readonly string[]) {
   );
 }
 
+/**
+ * ObjectをPlain Dataとして検証する。
+ *
+ * @responsibility Objectの許可Property、入れ子値、拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is Record<string, unknown>を返す。
+ * @precondition 「value: unknown」がplainObjectの入力契約を満たす。
+ * @postcondition plainObjectの責務を完了した結果だけを返す。
+ * @effect N/A: plainObjectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: plainObjectは独自の失敗分岐を所有しない。
+ * @invariant plainObjectは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: plainObjectはProcess内の同一Subsystemで完結する。
+ * @security plainObjectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: plainObjectは共有非同期状態を持たない同期処理である。
+ */
 function plainObject(value: unknown): value is Record<string, unknown> {
   return (
     value !== null &&
@@ -94,6 +195,22 @@ function plainObject(value: unknown): value is Record<string, unknown> {
   );
 }
 
+/**
+ * string Arrayを決定する。
+ *
+ * @responsibility string Arrayの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、maximum
+ * @returns value is readonly string[]を返す。
+ * @precondition 「value: unknown、maximum」がstringArrayの入力契約を満たす。
+ * @postcondition stringArrayの責務を完了した結果だけを返す。
+ * @effect N/A: stringArrayは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: stringArrayは独自の失敗分岐を所有しない。
+ * @invariant stringArrayは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: stringArrayはProcess内の同一Subsystemで完結する。
+ * @security stringArrayはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: stringArrayは共有非同期状態を持たない同期処理である。
+ */
 function stringArray(
   value: unknown,
   maximum = 128,
@@ -108,10 +225,42 @@ function stringArray(
   );
 }
 
+/**
+ * nullable Idを決定する。
+ *
+ * @responsibility nullable Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns nullableIdの計算結果を返す。
+ * @precondition 「value: unknown」がnullableIdの入力契約を満たす。
+ * @postcondition nullableIdの責務を完了した結果だけを返す。
+ * @effect N/A: nullableIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: nullableIdは独自の失敗分岐を所有しない。
+ * @invariant nullableIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: nullableIdはProcess内の同一Subsystemで完結する。
+ * @security nullableIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: nullableIdは共有非同期状態を持たない同期処理である。
+ */
 function nullableId(value: unknown) {
   return value === null || validId(value);
 }
 
+/**
+ * nullable 候補 Idを決定する。
+ *
+ * @responsibility nullable 候補 Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns nullableCandidateIdの計算結果を返す。
+ * @precondition 「value: unknown」がnullableCandidateIdの入力契約を満たす。
+ * @postcondition nullableCandidateIdの責務を完了した結果だけを返す。
+ * @effect N/A: nullableCandidateIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: nullableCandidateIdは独自の失敗分岐を所有しない。
+ * @invariant nullableCandidateIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: nullableCandidateIdはProcess内の同一Subsystemで完結する。
+ * @security nullableCandidateIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: nullableCandidateIdは共有非同期状態を持たない同期処理である。
+ */
 function nullableCandidateId(value: unknown) {
   return (
     value === null ||
@@ -122,6 +271,22 @@ function nullableCandidateId(value: unknown) {
   );
 }
 
+/**
+ * nullable 回復 Idを決定する。
+ *
+ * @responsibility nullable 回復 Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns nullableRecoveryIdの計算結果を返す。
+ * @precondition 「value: unknown」がnullableRecoveryIdの入力契約を満たす。
+ * @postcondition nullableRecoveryIdの責務を完了した結果だけを返す。
+ * @effect N/A: nullableRecoveryIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: nullableRecoveryIdは独自の失敗分岐を所有しない。
+ * @invariant nullableRecoveryIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: nullableRecoveryIdはProcess内の同一Subsystemで完結する。
+ * @security nullableRecoveryIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: nullableRecoveryIdは共有非同期状態を持たない同期処理である。
+ */
 function nullableRecoveryId(value: unknown) {
   return (
     value === null ||
@@ -132,6 +297,22 @@ function nullableRecoveryId(value: unknown) {
   );
 }
 
+/**
+ * recovery Obligationsを決定する。
+ *
+ * @responsibility recovery Obligationsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is readonly ProjectTaskRecoveryObligation[]を返す。
+ * @precondition 「value: unknown」がrecoveryObligationsの入力契約を満たす。
+ * @postcondition recoveryObligationsの責務を完了した結果だけを返す。
+ * @effect N/A: recoveryObligationsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: recoveryObligationsは独自の失敗分岐を所有しない。
+ * @invariant recoveryObligationsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recoveryObligationsはProcess内の同一Subsystemで完結する。
+ * @security recoveryObligationsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recoveryObligationsは共有非同期状態を持たない同期処理である。
+ */
 function recoveryObligations(
   value: unknown,
 ): value is readonly ProjectTaskRecoveryObligation[] {
@@ -221,6 +402,22 @@ function recoveryObligations(
 // Queue results may carry an exact opaque candidate or recovery reference.
 // These references use the same closed character set as stable IDs, but can
 // exceed the 128-character limit of ordinary project-local identifiers.
+/**
+ * 結果 Referenceが有効か判定する。
+ *
+ * @responsibility 結果 Referenceの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidResultReferenceの入力契約を満たす。
+ * @postcondition validResultReferenceの責務を完了した結果だけを返す。
+ * @effect N/A: validResultReferenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validResultReferenceは独自の失敗分岐を所有しない。
+ * @invariant validResultReferenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validResultReferenceはProcess内の同一Subsystemで完結する。
+ * @security validResultReferenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validResultReferenceは共有非同期状態を持たない同期処理である。
+ */
 function validResultReference(value: unknown): value is string {
   return (
     typeof value === "string" &&
@@ -230,10 +427,42 @@ function validResultReference(value: unknown): value is string {
   );
 }
 
+/**
+ * nullable 結果 Referenceを決定する。
+ *
+ * @responsibility nullable 結果 Referenceの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns nullableResultReferenceの計算結果を返す。
+ * @precondition 「value: unknown」がnullableResultReferenceの入力契約を満たす。
+ * @postcondition nullableResultReferenceの責務を完了した結果だけを返す。
+ * @effect N/A: nullableResultReferenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: nullableResultReferenceは独自の失敗分岐を所有しない。
+ * @invariant nullableResultReferenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: nullableResultReferenceはProcess内の同一Subsystemで完結する。
+ * @security nullableResultReferenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: nullableResultReferenceは共有非同期状態を持たない同期処理である。
+ */
 function nullableResultReference(value: unknown) {
   return value === null || validResultReference(value);
 }
 
+/**
+ * Task Lifecycle Tupleが有効か判定する。
+ *
+ * @responsibility Task Lifecycle Tupleの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input task: ProjectRuntimeState["tasks"][number]
+ * @returns validTaskLifecycleTupleの計算結果を返す。
+ * @precondition 「task: ProjectRuntimeState["tasks"][number]」がvalidTaskLifecycleTupleの入力契約を満たす。
+ * @postcondition validTaskLifecycleTupleの責務を完了した結果だけを返す。
+ * @effect N/A: validTaskLifecycleTupleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validTaskLifecycleTupleは独自の失敗分岐を所有しない。
+ * @invariant validTaskLifecycleTupleは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validTaskLifecycleTupleはProcess内の同一Subsystemで完結する。
+ * @security validTaskLifecycleTupleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validTaskLifecycleTupleは共有非同期状態を持たない同期処理である。
+ */
 function validTaskLifecycleTuple(task: ProjectRuntimeState["tasks"][number]) {
   const isAttempt = task.attemptId !== null;
   const isOperation = task.operationId !== null;
@@ -266,6 +495,22 @@ function validTaskLifecycleTuple(task: ProjectRuntimeState["tasks"][number]) {
   return false;
 }
 
+/**
+ * Project Runtime 状態が有効か判定する。
+ *
+ * @responsibility Project Runtime 状態の有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is ProjectRuntimeStateを返す。
+ * @precondition 「value: unknown」がvalidProjectRuntimeStateの入力契約を満たす。
+ * @postcondition validProjectRuntimeStateの責務を完了した結果だけを返す。
+ * @effect N/A: validProjectRuntimeStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validProjectRuntimeStateは独自の失敗分岐を所有しない。
+ * @invariant validProjectRuntimeStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validProjectRuntimeStateはProcess内の同一Subsystemで完結する。
+ * @security validProjectRuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validProjectRuntimeStateは共有非同期状態を持たない同期処理である。
+ */
 function validProjectRuntimeState(
   value: unknown,
 ): value is ProjectRuntimeState {
@@ -313,6 +558,7 @@ function validProjectRuntimeState(
       "human_decision_required",
       "recovery_required",
       "accepted",
+      "returned",
       "cancelled",
     ]).has(String(value.milestone.state)) ||
     !Array.isArray(value.objectives) ||
@@ -340,6 +586,7 @@ function validProjectRuntimeState(
         "executing",
         "integration_pending",
         "accepted",
+        "returned",
         "blocked",
         "cancelled",
       ]).has(String(objective.state))
@@ -443,6 +690,22 @@ function validProjectRuntimeState(
   return dependencies.every((items) => items.every((id) => taskIds.has(id)));
 }
 
+/**
+ * Queue Entryが有効か判定する。
+ *
+ * @responsibility Queue Entryの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is ProjectQueueEntryを返す。
+ * @precondition 「value: unknown」がvalidQueueEntryの入力契約を満たす。
+ * @postcondition validQueueEntryの責務を完了した結果だけを返す。
+ * @effect N/A: validQueueEntryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validQueueEntryは独自の失敗分岐を所有しない。
+ * @invariant validQueueEntryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validQueueEntryはProcess内の同一Subsystemで完結する。
+ * @security validQueueEntryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validQueueEntryは共有非同期状態を持たない同期処理である。
+ */
 function validQueueEntry(value: unknown): value is ProjectQueueEntry {
   return (
     plainObject(value) &&
@@ -479,6 +742,22 @@ function validQueueEntry(value: unknown): value is ProjectQueueEntry {
   );
 }
 
+/**
+ * Lease Evidenceが有効か判定する。
+ *
+ * @responsibility Lease Evidenceの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns validLeaseEvidenceの計算結果を返す。
+ * @precondition 「value: unknown」がvalidLeaseEvidenceの入力契約を満たす。
+ * @postcondition validLeaseEvidenceの責務を完了した結果だけを返す。
+ * @effect N/A: validLeaseEvidenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validLeaseEvidenceは独自の失敗分岐を所有しない。
+ * @invariant validLeaseEvidenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validLeaseEvidenceはProcess内の同一Subsystemで完結する。
+ * @security validLeaseEvidenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validLeaseEvidenceは共有非同期状態を持たない同期処理である。
+ */
 function validLeaseEvidence(value: unknown) {
   return (
     plainObject(value) &&
@@ -501,10 +780,42 @@ function validLeaseEvidence(value: unknown) {
   );
 }
 
+/**
+ * completedを決定する。
+ *
+ * @responsibility completedの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input reason: string、value: T
+ * @returns StoreResult<T>を返す。
+ * @precondition 「reason: string、value: T」がcompletedの入力契約を満たす。
+ * @postcondition completedの責務を完了した結果だけを返す。
+ * @effect N/A: completedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: completedは独自の失敗分岐を所有しない。
+ * @invariant completedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: completedはProcess内の同一Subsystemで完結する。
+ * @security completedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: completedは共有非同期状態を持たない同期処理である。
+ */
 function completed<T>(reason: string, value: T): StoreResult<T> {
   return Object.freeze({ status: "completed", reason, value });
 }
 
+/**
+ * project-runtime-durable-foundationを停止結果として構築する。
+ *
+ * @responsibility project-runtime-durable-foundationの停止理由、未発行Effect、公開結果境界を所有する。
+ * @trace ARCH-000004
+ * @input reason: string、manualRecoveryRequired、recoveryId: string | null
+ * @returns StoreResult<T>を返す。
+ * @precondition 「reason: string、manualRecoveryRequired、recoveryId: string | null」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
+ * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked<T>(
   reason: string,
   manualRecoveryRequired = false,
@@ -519,6 +830,17 @@ function blocked<T>(
   });
 }
 
+/**
+ * project-runtime-durable-foundationで使用するLease Acquisition Markerの値契約を定義する。
+ *
+ * @responsibility Lease Acquisition MarkerのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape LeaseAcquisitionMarkerが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant LeaseAcquisitionMarkerで宣言した値と責務の対応を維持する。
+ * @boundary N/A: LeaseAcquisitionMarkerの宣言は外部境界を開かない。
+ * @security LeaseAcquisitionMarkerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility LeaseAcquisitionMarkerの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type LeaseAcquisitionMarker = Readonly<{
   kind: LeaseKind;
   queueId: string;
@@ -527,6 +849,22 @@ type LeaseAcquisitionMarker = Readonly<{
   recoveryId: string;
 }>;
 
+/**
+ * lease Acquisition 回復 Idを決定する。
+ *
+ * @responsibility lease Acquisition 回復 Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind
+ * @returns leaseAcquisitionRecoveryIdの計算結果を返す。
+ * @precondition 「repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind」がleaseAcquisitionRecoveryIdの入力契約を満たす。
+ * @postcondition leaseAcquisitionRecoveryIdの責務を完了した結果だけを返す。
+ * @effect N/A: leaseAcquisitionRecoveryIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: leaseAcquisitionRecoveryIdは独自の失敗分岐を所有しない。
+ * @invariant leaseAcquisitionRecoveryIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: leaseAcquisitionRecoveryIdはProcess内の同一Subsystemで完結する。
+ * @security leaseAcquisitionRecoveryIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: leaseAcquisitionRecoveryIdは共有非同期状態を持たない同期処理である。
+ */
 function leaseAcquisitionRecoveryId(
   repositoryBindingId: string,
   projectId: string,
@@ -542,6 +880,22 @@ function leaseAcquisitionRecoveryId(
   return `lease-acquisition-${digest(identityInput).slice(0, 40)}`;
 }
 
+/**
+ * lease Identityを決定する。
+ *
+ * @responsibility lease Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind
+ * @returns leaseIdentityの計算結果を返す。
+ * @precondition 「repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind」がleaseIdentityの入力契約を満たす。
+ * @postcondition leaseIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: leaseIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: leaseIdentityは独自の失敗分岐を所有しない。
+ * @invariant leaseIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: leaseIdentityはProcess内の同一Subsystemで完結する。
+ * @security leaseIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: leaseIdentityは共有非同期状態を持たない同期処理である。
+ */
 function leaseIdentity(
   repositoryBindingId: string,
   projectId: string,
@@ -555,10 +909,42 @@ function leaseIdentity(
       : `${kind}-${projectId}-${queueId}`;
 }
 
+/**
+ * lease Acquisition Temporary Prefixを決定する。
+ *
+ * @responsibility lease Acquisition Temporary Prefixの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input identity: string
+ * @returns leaseAcquisitionTemporaryPrefixの計算結果を返す。
+ * @precondition 「identity: string」がleaseAcquisitionTemporaryPrefixの入力契約を満たす。
+ * @postcondition leaseAcquisitionTemporaryPrefixの責務を完了した結果だけを返す。
+ * @effect N/A: leaseAcquisitionTemporaryPrefixは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: leaseAcquisitionTemporaryPrefixは独自の失敗分岐を所有しない。
+ * @invariant leaseAcquisitionTemporaryPrefixは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: leaseAcquisitionTemporaryPrefixはProcess内の同一Subsystemで完結する。
+ * @security leaseAcquisitionTemporaryPrefixはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: leaseAcquisitionTemporaryPrefixは共有非同期状態を持たない同期処理である。
+ */
 function leaseAcquisitionTemporaryPrefix(identity: string) {
   return `.pending-${identity}-acquisition-`;
 }
 
+/**
+ * lease Acquisition Temporary Filesを決定する。
+ *
+ * @responsibility lease Acquisition Temporary Filesの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input directory: string、identity: string
+ * @returns leaseAcquisitionTemporaryFilesの計算結果を返す。
+ * @precondition 「directory: string、identity: string」がleaseAcquisitionTemporaryFilesの入力契約を満たす。
+ * @postcondition leaseAcquisitionTemporaryFilesの責務を完了した結果だけを返す。
+ * @effect N/A: leaseAcquisitionTemporaryFilesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure leaseAcquisitionTemporaryFilesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant leaseAcquisitionTemporaryFilesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: leaseAcquisitionTemporaryFilesはProcess内の同一Subsystemで完結する。
+ * @security leaseAcquisitionTemporaryFilesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: leaseAcquisitionTemporaryFilesは共有非同期状態を持たない同期処理である。
+ */
 function leaseAcquisitionTemporaryFiles(directory: string, identity: string) {
   assertDirectory(directory);
   const prefix = leaseAcquisitionTemporaryPrefix(identity);
@@ -570,6 +956,22 @@ function leaseAcquisitionTemporaryFiles(directory: string, identity: string) {
   return Object.freeze(names);
 }
 
+/**
+ * path Confirmed Absentを決定する。
+ *
+ * @responsibility path Confirmed Absentの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input candidate: string
+ * @returns pathConfirmedAbsentの計算結果を返す。
+ * @precondition 「candidate: string」がpathConfirmedAbsentの入力契約を満たす。
+ * @postcondition pathConfirmedAbsentの責務を完了した結果だけを返す。
+ * @effect pathConfirmedAbsentはFilesystemの読取りまたは書込みを実行する。
+ * @failure pathConfirmedAbsentは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant pathConfirmedAbsentは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security pathConfirmedAbsentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: pathConfirmedAbsentは共有非同期状態を持たない同期処理である。
+ */
 function pathConfirmedAbsent(candidate: string) {
   try {
     fs.lstatSync(candidate);
@@ -580,6 +982,22 @@ function pathConfirmedAbsent(candidate: string) {
   }
 }
 
+/**
+ * lease Acquisition Footprint Absentを決定する。
+ *
+ * @responsibility lease Acquisition Footprint Absentの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input directory: string、identity: string、paths: readonly string[]
+ * @returns leaseAcquisitionFootprintAbsentの計算結果を返す。
+ * @precondition 「directory: string、identity: string、paths: readonly string[]」がleaseAcquisitionFootprintAbsentの入力契約を満たす。
+ * @postcondition leaseAcquisitionFootprintAbsentの責務を完了した結果だけを返す。
+ * @effect N/A: leaseAcquisitionFootprintAbsentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: leaseAcquisitionFootprintAbsentは独自の失敗分岐を所有しない。
+ * @invariant leaseAcquisitionFootprintAbsentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: leaseAcquisitionFootprintAbsentはProcess内の同一Subsystemで完結する。
+ * @security leaseAcquisitionFootprintAbsentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: leaseAcquisitionFootprintAbsentは共有非同期状態を持たない同期処理である。
+ */
 function leaseAcquisitionFootprintAbsent(
   directory: string,
   identity: string,
@@ -591,6 +1009,22 @@ function leaseAcquisitionFootprintAbsent(
   );
 }
 
+/**
+ * Lease Acquisition Markerを読み取る。
+ *
+ * @responsibility Lease Acquisition Markerの読取り元、上限、読取不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input marker: string
+ * @returns LeaseAcquisitionMarkerを返す。
+ * @precondition 「marker: string」がreadLeaseAcquisitionMarkerの入力契約を満たす。
+ * @postcondition readLeaseAcquisitionMarkerの責務を完了した結果だけを返す。
+ * @effect readLeaseAcquisitionMarkerはFilesystemの読取りまたは書込みを実行する。
+ * @failure readLeaseAcquisitionMarkerは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readLeaseAcquisitionMarkerは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security readLeaseAcquisitionMarkerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readLeaseAcquisitionMarkerは共有非同期状態を持たない同期処理である。
+ */
 function readLeaseAcquisitionMarker(marker: string): LeaseAcquisitionMarker {
   const parsed: unknown = JSON.parse(fs.readFileSync(marker, "utf8"));
   if (
@@ -620,6 +1054,22 @@ function readLeaseAcquisitionMarker(marker: string): LeaseAcquisitionMarker {
   });
 }
 
+/**
+ * Lease Acquisition Markerを構築する。
+ *
+ * @responsibility Lease Acquisition Markerの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input directory: string、identity: string、value: LeaseAcquisitionMarker
+ * @returns N/A: createLeaseAcquisitionMarkerは戻り値を返さない。
+ * @precondition 「directory: string、identity: string、value: LeaseAcquisitionMarker」がcreateLeaseAcquisitionMarkerの入力契約を満たす。
+ * @postcondition createLeaseAcquisitionMarkerの責務を完了して呼出し元へ制御を戻す。
+ * @effect createLeaseAcquisitionMarkerはFilesystemの読取りまたは書込みを実行する。
+ * @failure createLeaseAcquisitionMarkerは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createLeaseAcquisitionMarkerは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security createLeaseAcquisitionMarkerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createLeaseAcquisitionMarkerは共有非同期状態を持たない同期処理である。
+ */
 function createLeaseAcquisitionMarker(
   directory: string,
   identity: string,
@@ -692,6 +1142,22 @@ function createLeaseAcquisitionMarker(
     throw new Error("project_runtime_lease_acquisition_marker_mismatch");
 }
 
+/**
+ * Lease Lock Ownership Markerを構築する。
+ *
+ * @responsibility Lease Lock Ownership Markerの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input marker: string、value: LeaseAcquisitionMarker
+ * @returns N/A: createLeaseLockOwnershipMarkerは戻り値を返さない。
+ * @precondition 「marker: string、value: LeaseAcquisitionMarker」がcreateLeaseLockOwnershipMarkerの入力契約を満たす。
+ * @postcondition createLeaseLockOwnershipMarkerの責務を完了して呼出し元へ制御を戻す。
+ * @effect createLeaseLockOwnershipMarkerはFilesystemの読取りまたは書込みを実行する。
+ * @failure createLeaseLockOwnershipMarkerは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createLeaseLockOwnershipMarkerは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security createLeaseLockOwnershipMarkerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createLeaseLockOwnershipMarkerは共有非同期状態を持たない同期処理である。
+ */
 function createLeaseLockOwnershipMarker(
   marker: string,
   value: LeaseAcquisitionMarker,
@@ -718,14 +1184,62 @@ function createLeaseLockOwnershipMarker(
     throw new Error("project_runtime_lease_lock_ownership_marker_mismatch");
 }
 
+/**
+ * project-runtime-durable-foundationのHashを算出する。
+ *
+ * @responsibility project-runtime-durable-foundationの入力byte列、Hash algorithm、算出結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: string
+ * @returns digestの計算結果を返す。
+ * @precondition 「value: string」がdigestの入力契約を満たす。
+ * @postcondition digestの責務を完了した結果だけを返す。
+ * @effect N/A: digestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: digestは独自の失敗分岐を所有しない。
+ * @invariant digestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: digestはProcess内の同一Subsystemで完結する。
+ * @security digestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: digestは共有非同期状態を持たない同期処理である。
+ */
 function digest(value: string) {
   return createHash("sha256").update(value, "utf8").digest("hex");
 }
 
+/**
+ * Idが有効か判定する。
+ *
+ * @responsibility Idの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidIdの入力契約を満たす。
+ * @postcondition validIdの責務を完了した結果だけを返す。
+ * @effect N/A: validIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validIdは独自の失敗分岐を所有しない。
+ * @invariant validIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validIdはProcess内の同一Subsystemで完結する。
+ * @security validIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validIdは共有非同期状態を持たない同期処理である。
+ */
 function validId(value: unknown): value is string {
   return typeof value === "string" && ID.test(value);
 }
 
+/**
+ * Directoryを表明どおりか検査する。
+ *
+ * @responsibility Directoryの必須条件と違反時の停止境界を所有する。
+ * @trace ARCH-000004
+ * @input directory: string
+ * @returns N/A: assertDirectoryは戻り値を返さない。
+ * @precondition 「directory: string」がassertDirectoryの入力契約を満たす。
+ * @postcondition assertDirectoryの責務を完了して呼出し元へ制御を戻す。
+ * @effect assertDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure assertDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant assertDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security assertDirectoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: assertDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function assertDirectory(directory: string) {
   const metadata = fs.lstatSync(directory);
   if (
@@ -737,6 +1251,22 @@ function assertDirectory(directory: string) {
   }
 }
 
+/**
+ * Directoryが成立する状態を確保する。
+ *
+ * @responsibility Directoryの成立条件、作成または再利用、失敗時の非成立境界を所有する。
+ * @trace ARCH-000004
+ * @input parent: string、name: string
+ * @returns ensureDirectoryの計算結果を返す。
+ * @precondition 「parent: string、name: string」がensureDirectoryの入力契約を満たす。
+ * @postcondition ensureDirectoryの責務を完了した結果だけを返す。
+ * @effect ensureDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure ensureDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant ensureDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security ensureDirectoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: ensureDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function ensureDirectory(parent: string, name: string) {
   if (!/^[A-Za-z0-9._-]{1,128}$/u.test(name) || name === "." || name === "..")
     throw new Error("project_runtime_storage_identity_invalid");
@@ -760,15 +1290,93 @@ function ensureDirectory(parent: string, name: string) {
   return target;
 }
 
+/**
+ * storage Rootを決定する。
+ *
+ * @responsibility storage Rootの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input workingDirectory: string
+ * @returns storageRootの計算結果を返す。
+ * @precondition 「workingDirectory: string」がstorageRootの入力契約を満たす。
+ * @postcondition storageRootの責務を完了した結果だけを返す。
+ * @effect N/A: storageRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: storageRootは独自の失敗分岐を所有しない。
+ * @invariant storageRootは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: storageRootはProcess内の同一Subsystemで完結する。
+ * @security storageRootはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: storageRootは共有非同期状態を持たない同期処理である。
+ */
 function storageRoot(workingDirectory: string) {
-  const repositoryRoot =
-    resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
+  const area = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+      workingDirectory,
+      "project-runtime",
+    ),
+    "project_runtime_repository_root_invalid",
+  );
+  const repositoryRoot = area.repositoryRoot;
   assertDirectory(repositoryRoot);
-  const crdd = ensureDirectory(repositoryRoot, ".crdd");
-  const runtime = ensureDirectory(crdd, "project-runtime");
+  const runtime = area.directory;
+  assertDirectory(runtime);
   return Object.freeze({ repositoryRoot, runtime });
 }
 
+/**
+ * lock Rootを決定する。
+ *
+ * @responsibility lock Rootの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input runtime: string
+ * @returns lockRootの計算結果を返す。
+ * @precondition 「runtime: string」がlockRootの入力契約を満たす。
+ * @postcondition lockRootの責務を完了した結果だけを返す。
+ * @effect N/A: lockRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: lockRootは独自の失敗分岐を所有しない。
+ * @invariant lockRootは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: lockRootはProcess内の同一Subsystemで完結する。
+ * @security lockRootはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: lockRootは共有非同期状態を持たない同期処理である。
+ */
+function lockRoot(runtime: string) {
+  return ensureDirectory(ensureDirectory(runtime, "work"), "locks");
+}
+
+/**
+ * lease Evidence Rootを決定する。
+ *
+ * @responsibility lease Evidence Rootの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input runtime: string
+ * @returns leaseEvidenceRootの計算結果を返す。
+ * @precondition 「runtime: string」がleaseEvidenceRootの入力契約を満たす。
+ * @postcondition leaseEvidenceRootの責務を完了した結果だけを返す。
+ * @effect N/A: leaseEvidenceRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: leaseEvidenceRootは独自の失敗分岐を所有しない。
+ * @invariant leaseEvidenceRootは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: leaseEvidenceRootはProcess内の同一Subsystemで完結する。
+ * @security leaseEvidenceRootはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: leaseEvidenceRootは共有非同期状態を持たない同期処理である。
+ */
+function leaseEvidenceRoot(runtime: string) {
+  return ensureDirectory(ensureDirectory(runtime, "recovery"), "leases");
+}
+
+/**
+ * Lease Is Observedが有効な状態か判定する。
+ *
+ * @responsibility Lease Is Observedの有効状態条件と判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input activeLease: ActiveLease
+ * @returns activeLeaseIsObservedの計算結果を返す。
+ * @precondition 「activeLease: ActiveLease」がactiveLeaseIsObservedの入力契約を満たす。
+ * @postcondition activeLeaseIsObservedの責務を完了した結果だけを返す。
+ * @effect activeLeaseIsObservedはFilesystemの読取りまたは書込みを実行する。
+ * @failure activeLeaseIsObservedは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant activeLeaseIsObservedは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security activeLeaseIsObservedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: activeLeaseIsObservedは共有非同期状態を持たない同期処理である。
+ */
 function activeLeaseIsObserved(activeLease: ActiveLease) {
   try {
     assertDirectory(activeLease.lock);
@@ -778,6 +1386,22 @@ function activeLeaseIsObserved(activeLease: ActiveLease) {
   }
 }
 
+/**
+ * envelopeを決定する。
+ *
+ * @responsibility envelopeの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input recordKind: Envelope["recordKind"]、repositoryBindingId: string、projectId: string、createdGeneration: number、updatedGeneration: number、content: unknown
+ * @returns Envelopeを返す。
+ * @precondition 「recordKind: Envelope["recordKind"]、repositoryBindingId: string、projectId: string、createdGeneration: number、updatedGeneration: number、content: unknown」がenvelopeの入力契約を満たす。
+ * @postcondition envelopeの責務を完了した結果だけを返す。
+ * @effect N/A: envelopeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure envelopeは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant envelopeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: envelopeはProcess内の同一Subsystemで完結する。
+ * @security envelopeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: envelopeは共有非同期状態を持たない同期処理である。
+ */
 function envelope(
   recordKind: Envelope["recordKind"],
   repositoryBindingId: string,
@@ -807,6 +1431,22 @@ function envelope(
   return record;
 }
 
+/**
+ * storage Bytesを決定する。
+ *
+ * @responsibility storage Bytesの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: Envelope
+ * @returns storageBytesの計算結果を返す。
+ * @precondition 「value: Envelope」がstorageBytesの入力契約を満たす。
+ * @postcondition storageBytesの責務を完了した結果だけを返す。
+ * @effect N/A: storageBytesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure storageBytesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant storageBytesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: storageBytesはProcess内の同一Subsystemで完結する。
+ * @security storageBytesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: storageBytesは共有非同期状態を持たない同期処理である。
+ */
 function storageBytes(value: Envelope) {
   const bytes = `${JSON.stringify(value)}\n`;
   if (Buffer.byteLength(bytes, "utf8") > MAX_RECORD_BYTES)
@@ -814,6 +1454,22 @@ function storageBytes(value: Envelope) {
   return bytes;
 }
 
+/**
+ * atomic Create And Read Backを決定する。
+ *
+ * @responsibility atomic Create And Read Backの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input directory: string、name: string、value: Envelope
+ * @returns N/A: atomicCreateAndReadBackは戻り値を返さない。
+ * @precondition 「directory: string、name: string、value: Envelope」がatomicCreateAndReadBackの入力契約を満たす。
+ * @postcondition atomicCreateAndReadBackの責務を完了して呼出し元へ制御を戻す。
+ * @effect atomicCreateAndReadBackはFilesystemの読取りまたは書込みを実行する。
+ * @failure atomicCreateAndReadBackは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant atomicCreateAndReadBackは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security atomicCreateAndReadBackはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: atomicCreateAndReadBackは共有非同期状態を持たない同期処理である。
+ */
 function atomicCreateAndReadBack(
   directory: string,
   name: string,
@@ -846,6 +1502,22 @@ function atomicCreateAndReadBack(
   }
 }
 
+/**
+ * Envelope Fileを読み取る。
+ *
+ * @responsibility Envelope Fileの読取り元、上限、読取不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input directory: string、name: string
+ * @returns Envelopeを返す。
+ * @precondition 「directory: string、name: string」がreadEnvelopeFileの入力契約を満たす。
+ * @postcondition readEnvelopeFileの責務を完了した結果だけを返す。
+ * @effect readEnvelopeFileはFilesystemの読取りまたは書込みを実行する。
+ * @failure readEnvelopeFileは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readEnvelopeFileは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security readEnvelopeFileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readEnvelopeFileは共有非同期状態を持たない同期処理である。
+ */
 function readEnvelopeFile(directory: string, name: string): Envelope {
   const location = path.join(directory, name);
   const metadata = fs.lstatSync(location);
@@ -905,6 +1577,22 @@ function readEnvelopeFile(directory: string, name: string): Envelope {
   return parsed;
 }
 
+/**
+ * Envelopesを読み取る。
+ *
+ * @responsibility Envelopesの読取り元、上限、読取不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input directory: string、prefix: string
+ * @returns readonly Envelope[]を返す。
+ * @precondition 「directory: string、prefix: string」がreadEnvelopesの入力契約を満たす。
+ * @postcondition readEnvelopesの責務を完了した結果だけを返す。
+ * @effect readEnvelopesはFilesystemの読取りまたは書込みを実行する。
+ * @failure readEnvelopesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readEnvelopesは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security readEnvelopesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readEnvelopesは共有非同期状態を持たない同期処理である。
+ */
 function readEnvelopes(directory: string, prefix: string): readonly Envelope[] {
   if (!fs.existsSync(directory)) return Object.freeze([]);
   assertDirectory(directory);
@@ -942,6 +1630,17 @@ function readEnvelopes(directory: string, prefix: string): readonly Envelope[] {
   return Object.freeze(records);
 }
 
+/**
+ * project-runtime-durable-foundationで使用するLease Evidence Contentの値契約を定義する。
+ *
+ * @responsibility Lease Evidence ContentのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape LeaseEvidenceContentが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant LeaseEvidenceContentで宣言した値と責務の対応を維持する。
+ * @boundary N/A: LeaseEvidenceContentの宣言は外部境界を開かない。
+ * @security LeaseEvidenceContentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility LeaseEvidenceContentの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type LeaseEvidenceContent = Readonly<{
   kind: LeaseKind;
   queueId: string;
@@ -950,9 +1649,36 @@ type LeaseEvidenceContent = Readonly<{
   disposition: "acquired" | "released" | "recovered_after_owner_loss";
 }>;
 
+/**
+ * project-runtime-durable-foundationで使用するLease Evidence Envelopeの値契約を定義する。
+ *
+ * @responsibility Lease Evidence EnvelopeのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape LeaseEvidenceEnvelopeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant LeaseEvidenceEnvelopeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: LeaseEvidenceEnvelopeの宣言は外部境界を開かない。
+ * @security LeaseEvidenceEnvelopeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility LeaseEvidenceEnvelopeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type LeaseEvidenceEnvelope = Envelope &
   Readonly<{ recordKind: "lease-evidence"; content: LeaseEvidenceContent }>;
 
+/**
+ * Exact Lease Evidenceを読み取る。
+ *
+ * @responsibility Exact Lease Evidenceの読取り元、上限、読取不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input directory: string、expected: Readonly<{ repositoryBindingId: string; projectId: string; queueId: string; kind: LeaseKind; identity: string; ownerGeneration: string; }>
+ * @returns Readonly<{ acquired: LeaseEvidenceEnvelope; released: LeaseEvidenceEnvelope | null; recovered: LeaseEvidenceEnvelope | null; }>を返す。
+ * @precondition 「directory: string、expected: Readonly<{ repositoryBindingId: string; projectId: string; queueId: string; kind: LeaseKind; identity: string; ownerGeneration: string; }>」がreadExactLeaseEvidenceの入力契約を満たす。
+ * @postcondition readExactLeaseEvidenceの責務を完了した結果だけを返す。
+ * @effect readExactLeaseEvidenceはFilesystemの読取りまたは書込みを実行する。
+ * @failure readExactLeaseEvidenceは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readExactLeaseEvidenceは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security readExactLeaseEvidenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readExactLeaseEvidenceは共有非同期状態を持たない同期処理である。
+ */
 function readExactLeaseEvidence(
   directory: string,
   expected: Readonly<{
@@ -1035,8 +1761,35 @@ function readExactLeaseEvidence(
   return Object.freeze({ acquired, released, recovered });
 }
 
+/**
+ * project-runtime-durable-foundationで使用するQueue Envelopeの値契約を定義する。
+ *
+ * @responsibility Queue EnvelopeのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape QueueEnvelopeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant QueueEnvelopeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: QueueEnvelopeの宣言は外部境界を開かない。
+ * @security QueueEnvelopeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility QueueEnvelopeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type QueueEnvelope = Envelope & Readonly<{ content: ProjectQueueEntry }>;
 
+/**
+ * validated Queue Historyを決定する。
+ *
+ * @responsibility validated Queue Historyの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input records: readonly Envelope[]、repositoryBindingId: string、queueId: string、expectedProjectId: string
+ * @returns readonly QueueEnvelope[] | nullを返す。
+ * @precondition 「records: readonly Envelope[]、repositoryBindingId: string、queueId: string、expectedProjectId: string」がvalidatedQueueHistoryの入力契約を満たす。
+ * @postcondition validatedQueueHistoryの責務を完了した結果だけを返す。
+ * @effect N/A: validatedQueueHistoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validatedQueueHistoryは独自の失敗分岐を所有しない。
+ * @invariant validatedQueueHistoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validatedQueueHistoryはProcess内の同一Subsystemで完結する。
+ * @security validatedQueueHistoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validatedQueueHistoryは共有非同期状態を持たない同期処理である。
+ */
 function validatedQueueHistory(
   records: readonly Envelope[],
   repositoryBindingId: string,
@@ -1066,12 +1819,28 @@ function validatedQueueHistory(
   return Object.freeze(resultItems);
 }
 
+/**
+ * with Mutation Lockを決定する。
+ *
+ * @responsibility with Mutation Lockの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input runtime: string、identity: string、operation: () => StoreResult<T>
+ * @returns withMutationLockの計算結果を返す。
+ * @precondition 「runtime: string、identity: string、operation: () => StoreResult<T>」がwithMutationLockの入力契約を満たす。
+ * @postcondition withMutationLockの責務を完了した結果だけを返す。
+ * @effect withMutationLockはFilesystemの読取りまたは書込みを実行する。
+ * @failure withMutationLockは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant withMutationLockは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security withMutationLockはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: withMutationLockは共有非同期状態を持たない同期処理である。
+ */
 function withMutationLock<T>(
   runtime: string,
   identity: string,
   operation: () => StoreResult<T>,
 ) {
-  const locks = ensureDirectory(runtime, "locks");
+  const locks = lockRoot(runtime);
   const lock = path.join(locks, `${identity}.lock`);
   try {
     fs.mkdirSync(lock, { mode: 0o700 });
@@ -1097,6 +1866,22 @@ function withMutationLock<T>(
   return result;
 }
 
+/**
+ * Project Runtime 状態を書き込む。
+ *
+ * @responsibility Project Runtime 状態の書込み先、確定条件、部分書込みの失敗境界を所有する。
+ * @trace ARCH-000004
+ * @input workingDirectory: string、repositoryBindingId: string、state: ProjectRuntimeState、expectedGeneration: number
+ * @returns StoreResult<ProjectRuntimeState>を返す。
+ * @precondition 「workingDirectory: string、repositoryBindingId: string、state: ProjectRuntimeState、expectedGeneration: number」がwriteProjectRuntimeStateの入力契約を満たす。
+ * @postcondition writeProjectRuntimeStateの責務を完了した結果だけを返す。
+ * @effect N/A: writeProjectRuntimeStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure writeProjectRuntimeStateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant writeProjectRuntimeStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: writeProjectRuntimeStateはProcess内の同一Subsystemで完結する。
+ * @security writeProjectRuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: writeProjectRuntimeStateは共有非同期状態を持たない同期処理である。
+ */
 export function writeProjectRuntimeState(
   workingDirectory: string,
   repositoryBindingId: string,
@@ -1111,7 +1896,7 @@ export function writeProjectRuntimeState(
     )
       return blocked("project_runtime_state_generation_mismatch");
     const { runtime } = storageRoot(workingDirectory);
-    const states = ensureDirectory(runtime, "states");
+    const states = ensureDirectory(runtime, "state");
     const project = ensureDirectory(states, state.projectId);
     return withMutationLock(runtime, `state-${state.projectId}`, () => {
       const existingItems = readEnvelopes(project, "generation-");
@@ -1141,6 +1926,22 @@ export function writeProjectRuntimeState(
   }
 }
 
+/**
+ * Project Runtime 状態を読み取る。
+ *
+ * @responsibility Project Runtime 状態の読取り元、上限、読取不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input workingDirectory: string、repositoryBindingId: string、projectId: string
+ * @returns StoreResult<ProjectRuntimeState | null>を返す。
+ * @precondition 「workingDirectory: string、repositoryBindingId: string、projectId: string」がreadProjectRuntimeStateの入力契約を満たす。
+ * @postcondition readProjectRuntimeStateの責務を完了した結果だけを返す。
+ * @effect N/A: readProjectRuntimeStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure readProjectRuntimeStateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readProjectRuntimeStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: readProjectRuntimeStateはProcess内の同一Subsystemで完結する。
+ * @security readProjectRuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readProjectRuntimeStateは共有非同期状態を持たない同期処理である。
+ */
 export function readProjectRuntimeState(
   workingDirectory: string,
   repositoryBindingId: string,
@@ -1150,7 +1951,7 @@ export function readProjectRuntimeState(
     if (!validId(repositoryBindingId) || !validId(projectId))
       return blocked("project_runtime_state_identity_invalid");
     const { runtime } = storageRoot(workingDirectory);
-    const project = path.join(runtime, "states", projectId);
+    const project = path.join(runtime, "state", projectId);
     const records = readEnvelopes(project, "generation-");
     if (records.length === 0)
       return completed("project_runtime_state_absent", null);
@@ -1182,6 +1983,22 @@ export function readProjectRuntimeState(
   }
 }
 
+/**
+ * enqueue Project Operationを決定する。
+ *
+ * @responsibility enqueue Project Operationの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input workingDirectory: string、repositoryBindingId: string、input: Omit< ProjectQueueEntry, | "state" | "generation" | "ownerGeneration" | "resumeCondition" | "resultReference" >
+ * @returns StoreResult<ProjectQueueEntry>を返す。
+ * @precondition 「workingDirectory: string、repositoryBindingId: string、input: Omit< ProjectQueueEntry, | "state" | "generation" | "ownerGeneration" | "resumeCondition" | "resultReference" >」がenqueueProjectOperationの入力契約を満たす。
+ * @postcondition enqueueProjectOperationの責務を完了した結果だけを返す。
+ * @effect N/A: enqueueProjectOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure enqueueProjectOperationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant enqueueProjectOperationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: enqueueProjectOperationはProcess内の同一Subsystemで完結する。
+ * @security enqueueProjectOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: enqueueProjectOperationは共有非同期状態を持たない同期処理である。
+ */
 export function enqueueProjectOperation(
   workingDirectory: string,
   repositoryBindingId: string,
@@ -1206,7 +2023,7 @@ export function enqueueProjectOperation(
     )
       return blocked("project_runtime_queue_input_invalid");
     const { runtime } = storageRoot(workingDirectory);
-    const queue = ensureDirectory(runtime, "queue");
+    const queue = ensureDirectory(runtime, "queues");
     const entryDirectory = ensureDirectory(queue, input.queueId);
     return withMutationLock(runtime, "queue-mutation", () => {
       const observedItems = readEnvelopes(entryDirectory, "generation-");
@@ -1265,6 +2082,22 @@ export function enqueueProjectOperation(
   }
 }
 
+/**
+ * Project Operation Queue 状態を読み取る。
+ *
+ * @responsibility Project Operation Queue 状態の読取り元、上限、読取不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input workingDirectory: string、repositoryBindingId: string、queueId: string
+ * @returns StoreResult<ProjectQueueEntry>を返す。
+ * @precondition 「workingDirectory: string、repositoryBindingId: string、queueId: string」がreadProjectOperationQueueStateの入力契約を満たす。
+ * @postcondition readProjectOperationQueueStateの責務を完了した結果だけを返す。
+ * @effect N/A: readProjectOperationQueueStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure readProjectOperationQueueStateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readProjectOperationQueueStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: readProjectOperationQueueStateはProcess内の同一Subsystemで完結する。
+ * @security readProjectOperationQueueStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readProjectOperationQueueStateは共有非同期状態を持たない同期処理である。
+ */
 export function readProjectOperationQueueState(
   workingDirectory: string,
   repositoryBindingId: string,
@@ -1274,7 +2107,7 @@ export function readProjectOperationQueueState(
     if (!validId(repositoryBindingId) || !validId(queueId))
       return blocked("project_runtime_queue_input_invalid");
     const { runtime } = storageRoot(workingDirectory);
-    const entryDirectory = path.join(runtime, "queue", queueId);
+    const entryDirectory = path.join(runtime, "queues", queueId);
     const existingItems = validatedQueueHistory(
       readEnvelopes(entryDirectory, "generation-"),
       repositoryBindingId,
@@ -1301,7 +2134,22 @@ export function readProjectOperationQueueState(
   }
 }
 
-/** Select the next unowned operation without preempting active work. */
+/**
+ * Select the next unowned operation without preempting active work.
+ *
+ * @responsibility Next Project Operationの候補集合、選択理由、選択不能時の境界を所有する。
+ * @trace ARCH-000004
+ * @input workingDirectory: string、repositoryBindingId: string
+ * @returns StoreResult<ProjectQueueEntry | null>を返す。
+ * @precondition 「workingDirectory: string、repositoryBindingId: string」がselectNextProjectOperationの入力契約を満たす。
+ * @postcondition selectNextProjectOperationの責務を完了した結果だけを返す。
+ * @effect selectNextProjectOperationはFilesystemの読取りまたは書込みを実行する。
+ * @failure selectNextProjectOperationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant selectNextProjectOperationは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security selectNextProjectOperationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: selectNextProjectOperationは共有非同期状態を持たない同期処理である。
+ */
 export function selectNextProjectOperation(
   workingDirectory: string,
   repositoryBindingId: string,
@@ -1310,7 +2158,7 @@ export function selectNextProjectOperation(
     if (!validId(repositoryBindingId))
       return blocked("project_runtime_queue_selection_invalid");
     const { runtime } = storageRoot(workingDirectory);
-    const queueRoot = path.join(runtime, "queue");
+    const queueRoot = path.join(runtime, "queues");
     if (!fs.existsSync(queueRoot))
       return completed("project_runtime_queue_empty", null);
     assertDirectory(queueRoot);
@@ -1488,6 +2336,22 @@ const QUEUE_TRANSITIONS = Object.freeze({
   cancelled: Object.freeze([]),
 } satisfies Record<ProjectQueueState, readonly ProjectQueueState[]>);
 
+/**
+ * Project Operation Queue 状態を更新する。
+ *
+ * @responsibility Project Operation Queue 状態の更新対象、競合条件、更新結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input workingDirectory: string、repositoryBindingId: string、queueId: string、expectedGeneration: number、next: Readonly<{ state: ProjectQueueState; lease: ProjectRuntimeLease | null; resumeCondition: string | null; resultReference: string | null; }>
+ * @returns StoreResult<ProjectQueueEntry>を返す。
+ * @precondition 「workingDirectory: string、repositoryBindingId: string、queueId: string、expectedGeneration: number、next: Readonly<{ state: ProjectQueueState; lease: ProjectRuntimeLease | null; resumeCondition: string | null; resultReference: string | null; }>」がupdateProjectOperationQueueStateの入力契約を満たす。
+ * @postcondition updateProjectOperationQueueStateの責務を完了した結果だけを返す。
+ * @effect N/A: updateProjectOperationQueueStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure updateProjectOperationQueueStateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant updateProjectOperationQueueStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: updateProjectOperationQueueStateはProcess内の同一Subsystemで完結する。
+ * @security updateProjectOperationQueueStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: updateProjectOperationQueueStateは共有非同期状態を持たない同期処理である。
+ */
 export function updateProjectOperationQueueState(
   workingDirectory: string,
   repositoryBindingId: string,
@@ -1516,7 +2380,7 @@ export function updateProjectOperationQueueState(
     )
       return blocked("project_runtime_queue_result_reference_invalid");
     const { repositoryRoot, runtime } = storageRoot(workingDirectory);
-    const entryDirectory = path.join(runtime, "queue", queueId);
+    const entryDirectory = path.join(runtime, "queues", queueId);
     return withMutationLock(runtime, "queue-mutation", () => {
       const existingItems = validatedQueueHistory(
         readEnvelopes(entryDirectory, "generation-"),
@@ -1625,8 +2489,19 @@ export function updateProjectOperationQueueState(
 
 /**
  * Resume a Queue only after its exact Runtime-owned recovery reference has
- * been settled. The generic Queue transition API deliberately cannot perform
- * this transition.
+ *
+ * @responsibility Project Operation Queue 回復の確定条件、最終状態、未解決義務の境界を所有する。
+ * @trace ARCH-000004
+ * @input workingDirectory: string、repositoryBindingId: string、queueId: string、expectedGeneration: number、recoveryId: string
+ * @returns StoreResult<ProjectQueueEntry>を返す。
+ * @precondition 「workingDirectory: string、repositoryBindingId: string、queueId: string、expectedGeneration: number、recoveryId: string」がsettleProjectOperationQueueRecoveryの入力契約を満たす。
+ * @postcondition settleProjectOperationQueueRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: settleProjectOperationQueueRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure settleProjectOperationQueueRecoveryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant settleProjectOperationQueueRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: settleProjectOperationQueueRecoveryはProcess内の同一Subsystemで完結する。
+ * @security settleProjectOperationQueueRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: settleProjectOperationQueueRecoveryは共有非同期状態を持たない同期処理である。
  */
 export function settleProjectOperationQueueRecovery(
   workingDirectory: string,
@@ -1645,7 +2520,7 @@ export function settleProjectOperationQueueRecovery(
     )
       return blocked("project_runtime_queue_recovery_settlement_invalid");
     const { runtime } = storageRoot(workingDirectory);
-    const entryDirectory = path.join(runtime, "queue", queueId);
+    const entryDirectory = path.join(runtime, "queues", queueId);
     return withMutationLock(runtime, "queue-mutation", () => {
       const historyEntries = validatedQueueHistory(
         readEnvelopes(entryDirectory, "generation-"),
@@ -1694,6 +2569,22 @@ export function settleProjectOperationQueueRecovery(
   }
 }
 
+/**
+ * Project Runtime Leaseを取得する。
+ *
+ * @responsibility Project Runtime Leaseの取得条件、所有権、失敗時の非取得境界を所有する。
+ * @trace ARCH-000004
+ * @input workingDirectory: string、repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind
+ * @returns StoreResult<ProjectRuntimeLease>を返す。
+ * @precondition 「workingDirectory: string、repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind」がacquireProjectRuntimeLeaseの入力契約を満たす。
+ * @postcondition acquireProjectRuntimeLeaseの責務を完了した結果だけを返す。
+ * @effect acquireProjectRuntimeLeaseはFilesystemの読取りまたは書込みを実行する。
+ * @failure acquireProjectRuntimeLeaseは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant acquireProjectRuntimeLeaseは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security acquireProjectRuntimeLeaseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: acquireProjectRuntimeLeaseは共有非同期状態を持たない同期処理である。
+ */
 export function acquireProjectRuntimeLease(
   workingDirectory: string,
   repositoryBindingId: string,
@@ -1713,7 +2604,7 @@ export function acquireProjectRuntimeLease(
     if (![repositoryBindingId, projectId, queueId].every(validId))
       return blocked("project_runtime_lease_identity_invalid");
     const { repositoryRoot, runtime } = storageRoot(workingDirectory);
-    const locks = ensureDirectory(runtime, "locks");
+    const locks = lockRoot(runtime);
     const identity = leaseIdentity(
       repositoryBindingId,
       projectId,
@@ -1743,7 +2634,7 @@ export function acquireProjectRuntimeLease(
     if (fs.existsSync(lockOwnershipMarker))
       return blocked("project_runtime_lease_unavailable");
     const ownerGeneration = randomUUID();
-    const evidence = ensureDirectory(runtime, "leases");
+    const evidence = leaseEvidenceRoot(runtime);
     try {
       createLeaseAcquisitionMarker(
         locks,
@@ -2015,6 +2906,22 @@ export function acquireProjectRuntimeLease(
   }
 }
 
+/**
+ * Project Runtime Lease Acquisition 所有者を観測する。
+ *
+ * @responsibility Project Runtime Lease Acquisition 所有者の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input workingDirectory: string、repositoryBindingId: string
+ * @returns StoreResult< Readonly<{ acquisition: ProjectRuntimeLeaseAcquisitionResolution | null }> >を返す。
+ * @precondition 「workingDirectory: string、repositoryBindingId: string」がinspectProjectRuntimeLeaseAcquisitionOwnerの入力契約を満たす。
+ * @postcondition inspectProjectRuntimeLeaseAcquisitionOwnerの責務を完了した結果だけを返す。
+ * @effect inspectProjectRuntimeLeaseAcquisitionOwnerはFilesystemの読取りまたは書込みを実行する。
+ * @failure inspectProjectRuntimeLeaseAcquisitionOwnerは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectProjectRuntimeLeaseAcquisitionOwnerは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security inspectProjectRuntimeLeaseAcquisitionOwnerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectProjectRuntimeLeaseAcquisitionOwnerは共有非同期状態を持たない同期処理である。
+ */
 export function inspectProjectRuntimeLeaseAcquisitionOwner(
   workingDirectory: string,
   repositoryBindingId: string,
@@ -2033,7 +2940,7 @@ export function inspectProjectRuntimeLeaseAcquisitionOwner(
     if (!validId(repositoryBindingId))
       return blocked("project_runtime_lease_recovery_input_invalid");
     const { runtime } = storageRoot(workingDirectory);
-    const locks = ensureDirectory(runtime, "locks");
+    const locks = lockRoot(runtime);
     const identity = leaseIdentity(
       repositoryBindingId,
       "inspection",
@@ -2097,7 +3004,7 @@ export function inspectProjectRuntimeLeaseAcquisitionOwner(
         true,
         recoveryId,
       );
-    const queueDirectory = path.join(runtime, "queue", first.queueId);
+    const queueDirectory = path.join(runtime, "queues", first.queueId);
     let historyEntries: readonly QueueEnvelope[] | null;
     try {
       historyEntries = validatedQueueHistory(
@@ -2142,6 +3049,22 @@ export function inspectProjectRuntimeLeaseAcquisitionOwner(
   }
 }
 
+/**
+ * Project Operation Queue Lease Releaseを終端状態へ確定する。
+ *
+ * @responsibility Project Operation Queue Lease Releaseの確定条件、最終状態、未解決義務の境界を所有する。
+ * @trace ARCH-000004
+ * @input workingDirectory: string、repositoryBindingId: string、queueId: string、expectedGeneration: number、ownerGeneration: string
+ * @returns StoreResult<ProjectQueueEntry>を返す。
+ * @precondition 「workingDirectory: string、repositoryBindingId: string、queueId: string、expectedGeneration: number、ownerGeneration: string」がsettleProjectOperationQueueLeaseReleaseの入力契約を満たす。
+ * @postcondition settleProjectOperationQueueLeaseReleaseの責務を完了した結果だけを返す。
+ * @effect settleProjectOperationQueueLeaseReleaseはFilesystemの読取りまたは書込みを実行する。
+ * @failure settleProjectOperationQueueLeaseReleaseは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant settleProjectOperationQueueLeaseReleaseは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security settleProjectOperationQueueLeaseReleaseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: settleProjectOperationQueueLeaseReleaseは共有非同期状態を持たない同期処理である。
+ */
 export function settleProjectOperationQueueLeaseRelease(
   workingDirectory: string,
   repositoryBindingId: string,
@@ -2160,7 +3083,7 @@ export function settleProjectOperationQueueLeaseRelease(
       return blocked("project_runtime_queue_release_settlement_input_invalid");
     const { runtime } = storageRoot(workingDirectory);
     return withMutationLock(runtime, "queue-mutation", () => {
-      const entryDirectory = path.join(runtime, "queue", queueId);
+      const entryDirectory = path.join(runtime, "queues", queueId);
       const historyEntries = validatedQueueHistory(
         readEnvelopes(entryDirectory, "generation-"),
         repositoryBindingId,
@@ -2186,7 +3109,7 @@ export function settleProjectOperationQueueLeaseRelease(
         queueId,
         "project-operation",
       );
-      const locks = ensureDirectory(runtime, "locks");
+      const locks = lockRoot(runtime);
       if (
         fs.existsSync(path.join(locks, `${identity}.lock`)) ||
         fs.existsSync(path.join(locks, `${identity}.release-unknown`)) ||
@@ -2197,7 +3120,7 @@ export function settleProjectOperationQueueLeaseRelease(
           "project_runtime_queue_release_settlement_resource_present",
           true,
         );
-      const evidence = ensureDirectory(runtime, "leases");
+      const evidence = leaseEvidenceRoot(runtime);
       const leaseEvidence = readExactLeaseEvidence(evidence, {
         repositoryBindingId,
         projectId: current.projectId,
@@ -2235,6 +3158,17 @@ export function settleProjectOperationQueueLeaseRelease(
   }
 }
 
+/**
+ * project-runtime-durable-foundationで使用するLease 所有者 Observerの値契約を定義する。
+ *
+ * @responsibility Lease 所有者 ObserverのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape LeaseOwnerObserverが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant LeaseOwnerObserverで宣言した値と責務の対応を維持する。
+ * @boundary N/A: LeaseOwnerObserverの宣言は外部境界を開かない。
+ * @security LeaseOwnerObserverはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility LeaseOwnerObserverの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type LeaseOwnerObserver = (
   owner: Readonly<{
     ownerProcessId: number;
@@ -2242,6 +3176,22 @@ type LeaseOwnerObserver = (
   }>,
 ) => unknown;
 
+/**
+ * reconcile Unbound Lease Acquisitionを決定する。
+ *
+ * @responsibility reconcile Unbound Lease Acquisitionの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input runtime: string、repositoryBindingId: string、projectId: string、requestedQueueId: string、kind: LeaseKind、observeOwner: LeaseOwnerObserver、shouldRetainAcquisitionMarkerForCaller
+ * @returns StoreResult<Readonly<{ recoveryId: string }>>を返す。
+ * @precondition 「runtime: string、repositoryBindingId: string、projectId: string、requestedQueueId: string、kind: LeaseKind、observeOwner: LeaseOwnerObserver、shouldRetainAcquisitionMarkerForCaller」がreconcileUnboundLeaseAcquisitionの入力契約を満たす。
+ * @postcondition reconcileUnboundLeaseAcquisitionの責務を完了した結果だけを返す。
+ * @effect reconcileUnboundLeaseAcquisitionはFilesystemの読取りまたは書込みを実行する。
+ * @failure reconcileUnboundLeaseAcquisitionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant reconcileUnboundLeaseAcquisitionは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security reconcileUnboundLeaseAcquisitionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: reconcileUnboundLeaseAcquisitionは共有非同期状態を持たない同期処理である。
+ */
 function reconcileUnboundLeaseAcquisition(
   runtime: string,
   repositoryBindingId: string,
@@ -2263,7 +3213,7 @@ function reconcileUnboundLeaseAcquisition(
     requestedQueueId,
     kind,
   );
-  const locks = ensureDirectory(runtime, "locks");
+  const locks = lockRoot(runtime);
   const lock = path.join(locks, `${identity}.lock`);
   const releaseMarker = path.join(locks, `${identity}.release-unknown`);
   const acquisitionMarker = path.join(locks, `${identity}.acquire-pending`);
@@ -2504,7 +3454,7 @@ function reconcileUnboundLeaseAcquisition(
   if (fs.existsSync(lock))
     throw new Error("project_runtime_lease_lock_release_unknown");
 
-  const evidence = ensureDirectory(runtime, "leases");
+  const evidence = leaseEvidenceRoot(runtime);
   const base = `${identity}-${pending.ownerGeneration}`;
   const acquiredPath = path.join(evidence, `${base}.json`);
   const releasedPath = path.join(evidence, `${base}-released.json`);
@@ -2577,6 +3527,22 @@ function reconcileUnboundLeaseAcquisition(
   );
 }
 
+/**
+ * reconcile Canonical Adoption Lease Acquisition 所有者 Lossを決定する。
+ *
+ * @responsibility reconcile Canonical Adoption Lease Acquisition 所有者 Lossの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input workingDirectory: string、repositoryBindingId: string、projectId: string、observeOwner: LeaseOwnerObserver
+ * @returns StoreResult<Readonly<{ recoveryId: string | null }>>を返す。
+ * @precondition 「workingDirectory: string、repositoryBindingId: string、projectId: string、observeOwner: LeaseOwnerObserver」がreconcileCanonicalAdoptionLeaseAcquisitionOwnerLossの入力契約を満たす。
+ * @postcondition reconcileCanonicalAdoptionLeaseAcquisitionOwnerLossの責務を完了した結果だけを返す。
+ * @effect N/A: reconcileCanonicalAdoptionLeaseAcquisitionOwnerLossは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure reconcileCanonicalAdoptionLeaseAcquisitionOwnerLossは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant reconcileCanonicalAdoptionLeaseAcquisitionOwnerLossは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: reconcileCanonicalAdoptionLeaseAcquisitionOwnerLossはProcess内の同一Subsystemで完結する。
+ * @security reconcileCanonicalAdoptionLeaseAcquisitionOwnerLossはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: reconcileCanonicalAdoptionLeaseAcquisitionOwnerLossは共有非同期状態を持たない同期処理である。
+ */
 export function reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss(
   workingDirectory: string,
   repositoryBindingId: string,
@@ -2610,7 +3576,7 @@ export function reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss(
           "canonical",
           "canonical-adoption",
         );
-        const locks = ensureDirectory(runtime, "locks");
+        const locks = lockRoot(runtime);
         if (
           leaseAcquisitionFootprintAbsent(
             locks,
@@ -2646,6 +3612,22 @@ export function reconcileCanonicalAdoptionLeaseAcquisitionOwnerLoss(
   }
 }
 
+/**
+ * reconcile Project Runtime Lease 所有者 Lossを決定する。
+ *
+ * @responsibility reconcile Project Runtime Lease 所有者 Lossの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input workingDirectory: string、repositoryBindingId: string、projectId: string、queueId: string、observeOwner: LeaseOwnerObserver
+ * @returns StoreResult<ProjectQueueEntry>を返す。
+ * @precondition 「workingDirectory: string、repositoryBindingId: string、projectId: string、queueId: string、observeOwner: LeaseOwnerObserver」がreconcileProjectRuntimeLeaseOwnerLossの入力契約を満たす。
+ * @postcondition reconcileProjectRuntimeLeaseOwnerLossの責務を完了した結果だけを返す。
+ * @effect reconcileProjectRuntimeLeaseOwnerLossはFilesystemの読取りまたは書込みを実行する。
+ * @failure reconcileProjectRuntimeLeaseOwnerLossは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant reconcileProjectRuntimeLeaseOwnerLossは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security reconcileProjectRuntimeLeaseOwnerLossはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: reconcileProjectRuntimeLeaseOwnerLossは共有非同期状態を持たない同期処理である。
+ */
 export function reconcileProjectRuntimeLeaseOwnerLoss(
   workingDirectory: string,
   repositoryBindingId: string,
@@ -2669,7 +3651,7 @@ export function reconcileProjectRuntimeLeaseOwnerLoss(
       return blocked("project_runtime_lease_recovery_input_invalid");
     const { runtime } = storageRoot(workingDirectory);
     return withMutationLock(runtime, "queue-mutation", () => {
-      const entryDirectory = path.join(runtime, "queue", queueId);
+      const entryDirectory = path.join(runtime, "queues", queueId);
       const historyEntries = validatedQueueHistory(
         readEnvelopes(entryDirectory, "generation-"),
         repositoryBindingId,
@@ -2686,7 +3668,7 @@ export function reconcileProjectRuntimeLeaseOwnerLoss(
         queueId,
         "project-operation",
       );
-      const locks = ensureDirectory(runtime, "locks");
+      const locks = lockRoot(runtime);
       const lock = path.join(locks, `${identity}.lock`);
       const recoveryMarker = path.join(locks, `${identity}.release-unknown`);
       const acquisitionMarker = path.join(locks, `${identity}.acquire-pending`);
@@ -2802,7 +3784,7 @@ export function reconcileProjectRuntimeLeaseOwnerLoss(
           "project_runtime_lease_recovery_evidence_mismatch",
           true,
         );
-      const evidence = ensureDirectory(runtime, "leases");
+      const evidence = leaseEvidenceRoot(runtime);
       const leaseEvidence = readExactLeaseEvidence(evidence, {
         repositoryBindingId,
         projectId,
@@ -3056,7 +4038,19 @@ export function reconcileProjectRuntimeLeaseOwnerLoss(
 
 /**
  * Bind repository-local infrastructure once at the composition root. Project
- * Runtime receives only the resulting capability and never an OS Path.
+ *
+ * @responsibility Project Runtime Persistence Portsの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input workingDirectory: string、repositoryBindingId: string
+ * @returns ProjectRuntimePersistencePortsを返す。
+ * @precondition 「workingDirectory: string、repositoryBindingId: string」がcreateProjectRuntimePersistencePortsの入力契約を満たす。
+ * @postcondition createProjectRuntimePersistencePortsの責務を完了した結果だけを返す。
+ * @effect N/A: createProjectRuntimePersistencePortsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createProjectRuntimePersistencePortsは独自の失敗分岐を所有しない。
+ * @invariant createProjectRuntimePersistencePortsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createProjectRuntimePersistencePortsはProcess内の同一Subsystemで完結する。
+ * @security createProjectRuntimePersistencePortsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createProjectRuntimePersistencePortsは共有非同期状態を持たない同期処理である。
  */
 export function createProjectRuntimePersistencePorts(
   workingDirectory: string,
@@ -3150,6 +4144,22 @@ export function createProjectRuntimePersistencePorts(
   });
 }
 
+/**
+ * Project Runtime Durable Foundationの公開契約を記述する。
+ *
+ * @responsibility Project Runtime Durable Foundationの公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProjectRuntimeDurableFoundationの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProjectRuntimeDurableFoundationの入力契約を満たす。
+ * @postcondition describeProjectRuntimeDurableFoundationの責務を完了した結果だけを返す。
+ * @effect N/A: describeProjectRuntimeDurableFoundationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProjectRuntimeDurableFoundationは独自の失敗分岐を所有しない。
+ * @invariant describeProjectRuntimeDurableFoundationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeProjectRuntimeDurableFoundationはProcess内の同一Subsystemで完結する。
+ * @security describeProjectRuntimeDurableFoundationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeProjectRuntimeDurableFoundationは共有非同期状態を持たない同期処理である。
+ */
 export function describeProjectRuntimeDurableFoundation() {
   return Object.freeze({
     contract: PROJECT_RUNTIME_DURABLE_FOUNDATION_CONTRACT,

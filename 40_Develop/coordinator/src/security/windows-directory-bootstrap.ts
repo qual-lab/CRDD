@@ -1,10 +1,16 @@
+/**
+ * windows-directory-bootstrapに属する責務をまとめる。
+ *
+ * @responsibility observeSystemWindowsDirectoryを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   beginPlatformAccessArtifactSigningObservation,
-  verifyPlatformAccessArtifactSigningObservation,
   PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
+  verifyPlatformAccessArtifactSigningObservation,
 } from "./platform-access-release.ts";
 
 // Bootstrap trust binds the shipped helper, not a caller-observed executable.
@@ -15,6 +21,22 @@ const distributionRoot = fileURLToPath(
   new URL("../../../../", import.meta.url),
 );
 
+/**
+ * System Windows Directoryを観測する。
+ *
+ * @responsibility System Windows Directoryの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns observeSystemWindowsDirectoryの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がobserveSystemWindowsDirectoryの入力契約を満たす。
+ * @postcondition observeSystemWindowsDirectoryの責務を完了した結果だけを返す。
+ * @effect observeSystemWindowsDirectoryは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure observeSystemWindowsDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeSystemWindowsDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security observeSystemWindowsDirectoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeSystemWindowsDirectoryは共有非同期状態を持たない同期処理である。
+ */
 export function observeSystemWindowsDirectory() {
   if (process.platform !== "win32") return null;
   try {

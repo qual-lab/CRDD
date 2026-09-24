@@ -58,6 +58,8 @@
 
 AIは経路を提案・更新できるが、表示した経路だけから保護対象変更、リスク受容、工程移行またはリリースの承認を推定しない。
 
+Discoveryで深掘り、再Discoveryまたは認識合わせを行い、AIが既存Contextから課題、必要性、望ましい成果または重要な対象外を再構成する場合は、`00_CRDD/21_Discovery.md`の人間理解の確認に従う。Repositoryから回答できることを人間の問題認識まで理解した根拠にせず、重要な理解と暗黙の前提を必要最小限で人間へ返す。理解確認と要求・方針の採用判断を分け、一意な構造化や意味を変えない更新へ質問を追加しない。
+
 計画時は、選んだ主な経路、理由、予定する検証、および判断上重要だが選ばなかった主な経路と理由を既存の計画、Issueまたは変更トレースから取得可能にする。完了時は、実際の経路、計画との差、その理由、追加・削除した検証および有効だった検証を既存記録へ戻す。計画と実績の差だけを失敗としない。
 
 非自明な変更では、初回編集前に`00_CRDD/10_Agent.md`の着手前整合確認を行い、親エージェントが計画を現在の正本と軽量に照合する。同節の省略条件に該当する場合だけ簡潔化または省略できる。親エージェントだけでは必要な専門観点を確認できない場合、または複数正本、複数工程、決定権限、移行、重大リスクへ波及し得る場合だけ、不足する観点を読み取り専用の確認者へ委譲して全結果を計画へ一括統合する。着手前整合確認を完成後の独立レビューまたは監査として扱わない。
@@ -112,15 +114,17 @@ CRDDのタグ、コミット、サブモジュール参照、`00_CRDD/`の配布
 ## リポジトリ構成規則
 
 - リポジトリ構造、成果物記法、根拠、判断／判断理由、安定コンテキストID、成果物参照、追跡可能性は`00_CRDD/03_Documentation.md`に従う。
-- 安定コンテキストIDは`REQ`、`UX`、`IA`、`UI`、`SPEC`だけに使用する。文書番号、`CHG-*`、アーキテクチャ、判断、根拠、実装、テスト、検証へ流用しない。
+- 安定コンテキストIDは`REQ`、`UX`、`IA`、`UI`、`SPEC`、`ARCH`の長期追跡する意味単位に使用する。文書番号、`CHG-*`、判断、根拠、実装、テスト、検証へ流用しない。
 - 根拠は利用する成果物内または最も近い親フォルダの`Evidence/`へ置く。リポジトリルートに中央根拠フォルダを作らない。
 - 判断の結果は結果となる正本成果物へ反映し、理由、根拠、代替案、履歴を同成果物へ残す。リポジトリルートに中央判断フォルダを作らない。
 - `01_Discovery`は新しい根拠、不確実性、要求の入口とする。未採用で今は分析しない入力は、必要な場合だけ同工程内で候補として保持できるが、保持だけから採用、優先順位、実行許可を推定しない。`99_Roadmap`は未完了作業の登録簿とし、アイデア、延期した要求、不具合、技術負債、移行、未解決の監査指摘、進行中の変更トレースの存在、現在状態、参照先を索引する。意味、根拠、判断理由、確定結果は責務を持つ正本成果物へ残し、登録簿へ複製しない。登録簿への登録だけから採用、優先順位、実行許可を推定せず、ロードマップ項目へCRDD安定コンテキストIDを付与しない。候補保持、登録対象と登録義務、判断状態と対応状態、主要表示／詳細、再評価、着手、完了、整理は`00_CRDD/21_Discovery.md`を正本とする。
-- 変更トレースは`90_Release/Changes/CHG-*.md`へ置く。`CHG-*`は変更トレースの成果物IDであり、安定コンテキストIDではない。
+- 変更トレースは`99_Roadmap/Changes/<CHG-ID>/change.md`へ置く。`CHG-*`は変更トレースの成果物IDであり、安定コンテキストIDではない。
+- Communication、Topic、Meeting、Commercial等の通常データを成立済み契約に従って追加・編集・削除するだけならCHGを作らない。構造、Schema、関係、Lifecycle、Authority、Tool／Runtime挙動または移行規則を変える場合だけ、変更の意味をCHGで追跡する。配置場所やファイル数だけでCHG要否を決めない。
 - `19_Workflows`にはリポジトリ固有の反復可能な作業手順を置き、変更トレースやリリース記録を置かない。
 - `08`〜`18`は将来の工程横断成果物または共通運用領域のための予約であり、CRDD標準の基本フォルダとして作成しない。プロジェクト固有で使用する場合は、標準構造と誤認させず、責務、決定権限、参照元、移行影響を示す。
 - `01_Discovery/01_Product_Discovery.md`、`02_UX/01_User_Experience.md`、`03_IA/01_Information_Architecture.md`、`04_UI/01_User_Interface.md`、`05_SPEC/01_Behavior_Specification.md`、`06_Architecture/01_Architecture.md`を各工程の固定入口とする。固定入口をリンクだけの索引にせず、対象範囲、網羅状態、主要な結論と判断、検証義務、未解決事項、次工程への義務を本文から直接理解できるようにする。適用の深さで入口名や基本のファイル分割を変えず、記述、レビュー、根拠の深さを調整する。詳細成果物や外部成果物を使う場合も、入口から決定権限、改訂版、現在状態へ到達できるようにし、詳細内容を第二の正本として複製しない。
-- `07_Quality`には`01_Quality_Center.md`、`02_Quality_Strategy.md`、`03_Verification_Design.md`、`Verification_Results/`を置く。適用の深さでファイル構成を変えず、記述、レビュー、根拠の深さを調整する。検証義務と根拠を中央へ複製しない。
+- Architectureの正式入力はCanonicalなUI定義とSPEC定義とし、両系列を別々に全数分析してから責務単位のArchitecture定義へ統合する。REQ、UX、IA、現行Architectureまたは実装を正式入力の不足補完に使わず、不足時はUI／SPEC工程へ戻す。現行Architectureと実装は、成立済み能力、移行対象および未接続範囲の照合にだけ使う。
+- `07_Quality`には`01_Quality_Center.md`、`02_Quality_Strategy.md`、`03_Verification_Design.md`、`04_Quality_Integration.md`、`05_Current_Implementation_Reality_Audit.md`、`Analysis/`および`Definitions/`を置く。各工程はDefinition作成と並行して`Analysis/REQ|UX|IA|UI|SPEC|ARCH/quality_analysis.md`の該当Canonical IDを全件処置し、成功の意味、失敗またはRisk、検証義務およびQA候補を説明できる状態を工程Readyに含める。個別処置をID別文書の作成と同一視しない。`04_Quality_Integration.md`は工程別義務を`Same／New／Merge`し、独立した品質の意味、成功・失敗境界および検証戦略を持つ`QA-*`へ統合する。`Definitions/QA-*/quality_definition.md`は`Source ID → QA-ID → 試験段階 → Local Item`と`Architecture詳細設計領域 → QA-ID`を保持し、工程別Analysisと導出集合を完全一致させる。各DefinitionはUT／IT／ST／UATとRT／PT／LTを省略せず`Required`、`Conditional`または理由付き`N/A`で判断する。外部境界は直接境界、隣接1 block、関連2 blocks、System／E2E、利用者受入へ段階的に設計する。PT／LTは設計・実装済みでも、人間が対象、環境、時間・反復、費用／Credit、Provider呼出し、中止条件およびcleanupを明示しない限り実行しない。未指示の非実行だけで通常監査を停止せず、明示した受入条件またはRelease Gateに必要な場合は未確認として扱う。`05_Current_Implementation_Reality_Audit.md`はCanonical設計固定後に現行Source、Test、Evidenceを照合する。機械可読なCatalogやTraceabilityがTool利用に必要な場合だけ`Registry/`へ置き、人間可読な設計正本や実行Evidenceとして扱わない。
 - 外部コミュニケーションを扱う場合だけ`80_Communication/01_Communication.md`を入口として使用する。受け手、目的、主張と根拠、公開状態、未決事項を入口から理解できるようにし、媒体別の詳細ファイルは必要時だけ分ける。
 
 外部コミュニケーションから市場・採用探索を追加するのは、次の2条件が両方成立する場合である。
@@ -151,7 +155,7 @@ CRDDのタグ、コミット、サブモジュール参照、`00_CRDD/`の配布
 
 外部AIへの委譲では、ソース本文を指示文へ無条件に貼り付けず、利用可能な実行環境では検証したRepository、Revisionおよび明示した読取り投影として分離する。Password、秘密鍵、Session Token、API Keyその他のシークレット値をPrompt、検索語、Task Packet、添付、ログまたは読取り投影へ直接含めない。認識済みSecretの拒否を未知のSecret不存在証明として扱わず、安全に分離できなければ外部Effect前に停止する。
 
-Coordinator Runtimeを使う場合も、Repository内容やexample Policyだけから外部送信Authorityを推定しない。`.crdd/external-send-policy.json`は、同梱の`.crdd/external-send-policy.example.json`を参考に、人間の決定権限者がRepository固有の情報分類、Provider Session境界、Subscription、Provider Terms／SettingsをRuntimeが検証できない範囲、Candidate保存可否、export可能時間および`candidatePhysicalDeletion`が示す物理削除時点を確認してCommit固定し、`enabled: true`へした場合だけ候補になる。期限到達時はexportを拒否するが、常駐serviceを持たないため物理削除は明示discardまたは次回の安全なRuntime／Candidate入口で行い、期限瞬間の削除を保証しない。exampleはfail closedの`enabled: false`であり、CRDD本体または別RepositoryのPolicyを流用しない。各Taskの端末安全な外部送信確認は別Authorityであり、Policyの存在だけでは送信しない。
+Coordinator Runtimeを使う場合も、Repository内容やexample Policyだけから外部送信Authorityを推定しない。`.crdd/config/external-send-policy.json`は、同梱の`.crdd/config/external-send-policy.example.json`を参考に、人間の決定権限者がRepository固有の情報分類、Provider Session境界、Subscription、Provider Terms／SettingsをRuntimeが検証できない範囲、Candidate保存可否、export可能時間および`candidatePhysicalDeletion`が示す物理削除時点を確認してCommit固定し、`enabled: true`へした場合だけ候補になる。期限到達時はexportを拒否するが、常駐serviceを持たないため物理削除は明示discardまたは次回の安全なRuntime／Candidate入口で行い、期限瞬間の削除を保証しない。exampleはfail closedの`enabled: false`であり、CRDD本体または別RepositoryのPolicyを流用しない。各Taskの端末安全な外部送信確認は別Authorityであり、Policyの存在だけでは送信しない。
 
 Coordinator Runtimeで通常の依頼を実行するときは、公式Release tagへ固定した完全な`00_CRDD` clone／submoduleから`node 00_CRDD/template/tools/crdd-coordinator.ts task --request-stdin --json`を使用する。Local Personalには永続的なRuntime有効化やPlatform Provisioningの利用者操作はない。利用可能な入口を調べる場合は`node 00_CRDD/template/tools/crdd-coordinator.ts automation capabilities --json`を使い、存在しない準備commandを推測しない。MCP Clientを接続する場合は`node 00_CRDD/template/tools/crdd-mcp.ts --stdio`またはlocalhost限定の`--http --port <port>`を使用し、Coordinatorのsubcommandとして起動しない。外部送信Policy、署名、Repository、Authority、Provider、CandidateおよびRecoveryの各Gateは省略しない。
 

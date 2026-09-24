@@ -1,6 +1,13 @@
+/**
+ * verify-signed-route-matrixに属する責務をまとめる。
+ *
+ * @responsibility emptyArrayを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/repository-location.ts";
 import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
@@ -9,12 +16,12 @@ import {
   displayVerificationRecording,
   runRecordedVerification,
 } from "../src/core/verification-result-record.ts";
+import { SIGNED_ROUTE_MATRIX_REASONS } from "../src/core/verification-result-reasons.ts";
 import { snapshotPlainArray } from "../src/security/plain-data-snapshot.ts";
 import {
   isCanonicalCrddVersion,
   isSupportedCrddRuntimeGitObjectId,
 } from "../src/security/release-identity-grammar.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
 import {
   evaluateSignedRunnerSafetyObservation,
   salvageSignedRunnerRecoveryPair,
@@ -108,11 +115,43 @@ const EXPECTED = Object.freeze({
   }),
 });
 
+/**
+ * empty Arrayを決定する。
+ *
+ * @responsibility empty Arrayの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns emptyArrayの計算結果を返す。
+ * @precondition 「value: unknown」がemptyArrayの入力契約を満たす。
+ * @postcondition emptyArrayの責務を完了した結果だけを返す。
+ * @effect N/A: emptyArrayは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: emptyArrayは独自の失敗分岐を所有しない。
+ * @invariant emptyArrayは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: emptyArrayはProcess内の同一Subsystemで完結する。
+ * @security N/A: emptyArrayはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: emptyArrayは共有非同期状態を持たない同期処理である。
+ */
 function emptyArray(value: unknown) {
   const snapshot = snapshotPlainArray(value, 0);
   return snapshot.status === "ok" && snapshot.value.length === 0;
 }
 
+/**
+ * Changed Pathが完全一致するか判定する。
+ *
+ * @responsibility Changed Pathの比較対象、完全一致条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns exactChangedPathの計算結果を返す。
+ * @precondition 「value: unknown」がexactChangedPathの入力契約を満たす。
+ * @postcondition exactChangedPathの責務を完了した結果だけを返す。
+ * @effect N/A: exactChangedPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: exactChangedPathは独自の失敗分岐を所有しない。
+ * @invariant exactChangedPathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: exactChangedPathはProcess内の同一Subsystemで完結する。
+ * @security N/A: exactChangedPathはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: exactChangedPathは共有非同期状態を持たない同期処理である。
+ */
 function exactChangedPath(value: unknown) {
   const snapshot = snapshotPlainArray<unknown>(value, 1);
   return (
@@ -122,6 +161,22 @@ function exactChangedPath(value: unknown) {
   );
 }
 
+/**
+ * Route 記録を所有Snapshotへ変換する。
+ *
+ * @responsibility Route 記録の取得範囲、plain-data制約、拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns snapshotRouteRecordの計算結果を返す。
+ * @precondition 「value: unknown」がsnapshotRouteRecordの入力契約を満たす。
+ * @postcondition snapshotRouteRecordの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotRouteRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure snapshotRouteRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant snapshotRouteRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: snapshotRouteRecordはProcess内の同一Subsystemで完結する。
+ * @security N/A: snapshotRouteRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: snapshotRouteRecordは共有非同期状態を持たない同期処理である。
+ */
 function snapshotRouteRecord(value: unknown) {
   try {
     if (
@@ -154,6 +209,22 @@ function snapshotRouteRecord(value: unknown) {
   }
 }
 
+/**
+ * Release Identityが有効か判定する。
+ *
+ * @responsibility Release Identityの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input result: Readonly<Record<string, unknown>>
+ * @returns validReleaseIdentityの計算結果を返す。
+ * @precondition 「result: Readonly<Record<string, unknown>>」がvalidReleaseIdentityの入力契約を満たす。
+ * @postcondition validReleaseIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: validReleaseIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validReleaseIdentityは独自の失敗分岐を所有しない。
+ * @invariant validReleaseIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validReleaseIdentityはProcess内の同一Subsystemで完結する。
+ * @security N/A: validReleaseIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validReleaseIdentityは共有非同期状態を持たない同期処理である。
+ */
 function validReleaseIdentity(result: Readonly<Record<string, unknown>>) {
   return (
     typeof result.manifestHash === "string" &&
@@ -170,6 +241,22 @@ function validReleaseIdentity(result: Readonly<Record<string, unknown>>) {
   );
 }
 
+/**
+ * Identityを解放する。
+ *
+ * @responsibility Identityの所有権、解放条件、終了後不存在の確認境界を所有する。
+ * @trace ARCH-000004
+ * @input result: Readonly<Record<string, unknown>>
+ * @returns releaseIdentityの計算結果を返す。
+ * @precondition 「result: Readonly<Record<string, unknown>>」がreleaseIdentityの入力契約を満たす。
+ * @postcondition releaseIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: releaseIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: releaseIdentityは独自の失敗分岐を所有しない。
+ * @invariant releaseIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: releaseIdentityはProcess内の同一Subsystemで完結する。
+ * @security N/A: releaseIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: releaseIdentityは共有非同期状態を持たない同期処理である。
+ */
 function releaseIdentity(result: Readonly<Record<string, unknown>>) {
   return JSON.stringify([
     result.manifestHash,
@@ -182,6 +269,22 @@ function releaseIdentity(result: Readonly<Record<string, unknown>>) {
   ]);
 }
 
+/**
+ * Execution Identityが有効か判定する。
+ *
+ * @responsibility Execution Identityの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input result: Readonly<Record<string, unknown>>
+ * @returns validExecutionIdentityの計算結果を返す。
+ * @precondition 「result: Readonly<Record<string, unknown>>」がvalidExecutionIdentityの入力契約を満たす。
+ * @postcondition validExecutionIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: validExecutionIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validExecutionIdentityは独自の失敗分岐を所有しない。
+ * @invariant validExecutionIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validExecutionIdentityはProcess内の同一Subsystemで完結する。
+ * @security N/A: validExecutionIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validExecutionIdentityは共有非同期状態を持たない同期処理である。
+ */
 function validExecutionIdentity(result: Readonly<Record<string, unknown>>) {
   return (
     isSupportedCrddRuntimeGitObjectId(result.executionCommit) &&
@@ -189,10 +292,42 @@ function validExecutionIdentity(result: Readonly<Record<string, unknown>>) {
   );
 }
 
+/**
+ * execution Identityを決定する。
+ *
+ * @responsibility execution Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input result: Readonly<Record<string, unknown>>
+ * @returns executionIdentityの計算結果を返す。
+ * @precondition 「result: Readonly<Record<string, unknown>>」がexecutionIdentityの入力契約を満たす。
+ * @postcondition executionIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: executionIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: executionIdentityは独自の失敗分岐を所有しない。
+ * @invariant executionIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: executionIdentityはProcess内の同一Subsystemで完結する。
+ * @security N/A: executionIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: executionIdentityは共有非同期状態を持たない同期処理である。
+ */
 function executionIdentity(result: Readonly<Record<string, unknown>>) {
   return JSON.stringify([result.executionCommit, result.executionTree]);
 }
 
+/**
+ * Runtime Process Poisonedが成立する状態を確保する。
+ *
+ * @responsibility Runtime Process Poisonedの成立条件、作成または再利用、失敗時の非成立境界を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns N/A: ensureRuntimeProcessPoisonedは戻り値を返さない。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がensureRuntimeProcessPoisonedの入力契約を満たす。
+ * @postcondition ensureRuntimeProcessPoisonedの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: ensureRuntimeProcessPoisonedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure ensureRuntimeProcessPoisonedは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant ensureRuntimeProcessPoisonedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ensureRuntimeProcessPoisonedはProcess内の同一Subsystemで完結する。
+ * @security N/A: ensureRuntimeProcessPoisonedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: ensureRuntimeProcessPoisonedは共有非同期状態を持たない同期処理である。
+ */
 function ensureRuntimeProcessPoisoned() {
   poisonRuntimeProcessAfterCleanupUnknown();
   if (!isRuntimeProcessPoisoned())
@@ -222,6 +357,22 @@ const RECOVERY_PAIRS = Object.freeze([
   }),
 ]);
 
+/**
+ * sanitized Route 回復を決定する。
+ *
+ * @responsibility sanitized Route 回復の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input result: Readonly<Record<string, unknown>>
+ * @returns Readonly<Record<string, unknown>>を返す。
+ * @precondition 「result: Readonly<Record<string, unknown>>」がsanitizedRouteRecoveryの入力契約を満たす。
+ * @postcondition sanitizedRouteRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: sanitizedRouteRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sanitizedRouteRecoveryは独自の失敗分岐を所有しない。
+ * @invariant sanitizedRouteRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sanitizedRouteRecoveryはProcess内の同一Subsystemで完結する。
+ * @security N/A: sanitizedRouteRecoveryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: sanitizedRouteRecoveryは共有非同期状態を持たない同期処理である。
+ */
 function sanitizedRouteRecovery(
   result: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> {
@@ -243,6 +394,22 @@ function sanitizedRouteRecovery(
   });
 }
 
+/**
+ * empty Route 回復を決定する。
+ *
+ * @responsibility empty Route 回復の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input isAmbiguous
+ * @returns emptyRouteRecoveryの計算結果を返す。
+ * @precondition 「isAmbiguous」がemptyRouteRecoveryの入力契約を満たす。
+ * @postcondition emptyRouteRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: emptyRouteRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: emptyRouteRecoveryは独自の失敗分岐を所有しない。
+ * @invariant emptyRouteRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: emptyRouteRecoveryはProcess内の同一Subsystemで完結する。
+ * @security N/A: emptyRouteRecoveryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: emptyRouteRecoveryは共有非同期状態を持たない同期処理である。
+ */
 function emptyRouteRecovery(isAmbiguous = false) {
   return Object.freeze({
     hostRecoveryId: null,
@@ -257,6 +424,22 @@ function emptyRouteRecovery(isAmbiguous = false) {
   });
 }
 
+/**
+ * failed Route 結果を決定する。
+ *
+ * @responsibility failed Route 結果の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input route: SignedGeneralTaskRouteProfile、observed: Readonly<Record<string, unknown>> | null
+ * @returns failedRouteResultの計算結果を返す。
+ * @precondition 「route: SignedGeneralTaskRouteProfile、observed: Readonly<Record<string, unknown>> | null」がfailedRouteResultの入力契約を満たす。
+ * @postcondition failedRouteResultの責務を完了した結果だけを返す。
+ * @effect N/A: failedRouteResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: failedRouteResultは独自の失敗分岐を所有しない。
+ * @invariant failedRouteResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: failedRouteResultはProcess内の同一Subsystemで完結する。
+ * @security N/A: failedRouteResultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: failedRouteResultは共有非同期状態を持たない同期処理である。
+ */
 function failedRouteResult(
   route: SignedGeneralTaskRouteProfile,
   observed: Readonly<Record<string, unknown>> | null = null,
@@ -266,7 +449,7 @@ function failedRouteResult(
     : emptyRouteRecovery(true);
   return Object.freeze({
     status: "blocked" as const,
-    reason: "signed_route_matrix_route_runner_failed_closed",
+    reason: SIGNED_ROUTE_MATRIX_REASONS.routeRunnerFailedClosed,
     requestedRouteProfile: route,
     cleanupConfirmed: false,
     manualRecoveryRequired: true,
@@ -280,6 +463,22 @@ function failedRouteResult(
   });
 }
 
+/**
+ * Route 回復を集約する。
+ *
+ * @responsibility Route 回復の集約入力、重複処理、集約結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input results: readonly Readonly<Record<string, unknown>>[]
+ * @returns aggregateRouteRecoveryの計算結果を返す。
+ * @precondition 「results: readonly Readonly<Record<string, unknown>>[]」がaggregateRouteRecoveryの入力契約を満たす。
+ * @postcondition aggregateRouteRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: aggregateRouteRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: aggregateRouteRecoveryは独自の失敗分岐を所有しない。
+ * @invariant aggregateRouteRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: aggregateRouteRecoveryはProcess内の同一Subsystemで完結する。
+ * @security N/A: aggregateRouteRecoveryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: aggregateRouteRecoveryは共有非同期状態を持たない同期処理である。
+ */
 function aggregateRouteRecovery(
   results: readonly Readonly<Record<string, unknown>>[],
 ) {
@@ -307,12 +506,28 @@ function aggregateRouteRecovery(
   });
 }
 
+/**
+ * process Restart Required 結果を決定する。
+ *
+ * @responsibility process Restart Required 結果の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns processRestartRequiredResultの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がprocessRestartRequiredResultの入力契約を満たす。
+ * @postcondition processRestartRequiredResultの責務を完了した結果だけを返す。
+ * @effect N/A: processRestartRequiredResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: processRestartRequiredResultは独自の失敗分岐を所有しない。
+ * @invariant processRestartRequiredResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: processRestartRequiredResultはProcess内の同一Subsystemで完結する。
+ * @security N/A: processRestartRequiredResultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: processRestartRequiredResultは共有非同期状態を持たない同期処理である。
+ */
 function processRestartRequiredResult() {
   return Object.freeze({
     contract: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT,
     contractRevision: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION,
     status: "blocked" as const,
-    reason: "signed_route_matrix_process_restart_required",
+    reason: SIGNED_ROUTE_MATRIX_REASONS.processRestartRequired,
     requestedRoutes: ROUTES,
     attemptedRouteCount: 0,
     completedRouteCount: 0,
@@ -332,6 +547,22 @@ function processRestartRequiredResult() {
   });
 }
 
+/**
+ * Exact Signed Route 結果かを判定する。
+ *
+ * @responsibility Exact Signed Route 結果の判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000004
+ * @input route: SignedGeneralTaskRouteProfile、result: Readonly<Record<string, unknown>>、expectedAuthorizationMode: | "interactive_initial_consent" | "reused_initial_consent"
+ * @returns isExactSignedRouteResultの計算結果を返す。
+ * @precondition 「route: SignedGeneralTaskRouteProfile、result: Readonly<Record<string, unknown>>、expectedAuthorizationMode: | "interactive_initial_consent" | "reused_initial_consent"」がisExactSignedRouteResultの入力契約を満たす。
+ * @postcondition isExactSignedRouteResultの責務を完了した結果だけを返す。
+ * @effect N/A: isExactSignedRouteResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isExactSignedRouteResultは独自の失敗分岐を所有しない。
+ * @invariant isExactSignedRouteResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isExactSignedRouteResultはProcess内の同一Subsystemで完結する。
+ * @security N/A: isExactSignedRouteResultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isExactSignedRouteResultは共有非同期状態を持たない同期処理である。
+ */
 export function isExactSignedRouteResult(
   route: SignedGeneralTaskRouteProfile,
   result: Readonly<Record<string, unknown>>,
@@ -381,6 +612,22 @@ export function isExactSignedRouteResult(
   );
 }
 
+/**
+ * Safe Retryable Route 結果かを判定する。
+ *
+ * @responsibility Safe Retryable Route 結果の判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000004
+ * @input result: Readonly<Record<string, unknown>>
+ * @returns isSafeRetryableRouteResultの計算結果を返す。
+ * @precondition 「result: Readonly<Record<string, unknown>>」がisSafeRetryableRouteResultの入力契約を満たす。
+ * @postcondition isSafeRetryableRouteResultの責務を完了した結果だけを返す。
+ * @effect N/A: isSafeRetryableRouteResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isSafeRetryableRouteResultは独自の失敗分岐を所有しない。
+ * @invariant isSafeRetryableRouteResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isSafeRetryableRouteResultはProcess内の同一Subsystemで完結する。
+ * @security N/A: isSafeRetryableRouteResultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isSafeRetryableRouteResultは共有非同期状態を持たない同期処理である。
+ */
 function isSafeRetryableRouteResult(result: Readonly<Record<string, unknown>>) {
   return (
     result.status === "blocked" &&
@@ -410,6 +657,22 @@ function isSafeRetryableRouteResult(result: Readonly<Record<string, unknown>>) {
   );
 }
 
+/**
+ * Signed Route Matrix Verificationを実行する。
+ *
+ * @responsibility Signed Route Matrix Verificationの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input repositoryRoot: string、routeRun: typeof runSignedGeneralTaskVerification
+ * @returns runSignedRouteMatrixVerificationの計算結果を返す。
+ * @precondition 「repositoryRoot: string、routeRun: typeof runSignedGeneralTaskVerification」がrunSignedRouteMatrixVerificationの入力契約を満たす。
+ * @postcondition runSignedRouteMatrixVerificationの責務を完了した結果だけを返す。
+ * @effect N/A: runSignedRouteMatrixVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure runSignedRouteMatrixVerificationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runSignedRouteMatrixVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runSignedRouteMatrixVerificationはProcess内の同一Subsystemで完結する。
+ * @security N/A: runSignedRouteMatrixVerificationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency runSignedRouteMatrixVerificationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function runSignedRouteMatrixVerification(
   repositoryRoot: string,
   routeRun: typeof runSignedGeneralTaskVerification = runSignedGeneralTaskVerification,
@@ -522,8 +785,8 @@ export async function runSignedRouteMatrixVerification(
     contractRevision: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION,
     status: isCompleted ? ("completed" as const) : ("blocked" as const),
     reason: isCompleted
-      ? "signed_route_matrix_completed"
-      : "signed_route_matrix_incomplete",
+      ? SIGNED_ROUTE_MATRIX_REASONS.completed
+      : SIGNED_ROUTE_MATRIX_REASONS.incomplete,
     requestedRoutes: ROUTES,
     attemptedRouteCount: results.length,
     completedRouteCount: verifiedRouteCount,
@@ -556,6 +819,22 @@ export async function runSignedRouteMatrixVerification(
   });
 }
 
+/**
+ * Signed Route Matrix Verification 契約の公開契約を記述する。
+ *
+ * @responsibility Signed Route Matrix Verification 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeSignedRouteMatrixVerificationContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeSignedRouteMatrixVerificationContractの入力契約を満たす。
+ * @postcondition describeSignedRouteMatrixVerificationContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeSignedRouteMatrixVerificationContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeSignedRouteMatrixVerificationContractは独自の失敗分岐を所有しない。
+ * @invariant describeSignedRouteMatrixVerificationContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeSignedRouteMatrixVerificationContractはProcess内の同一Subsystemで完結する。
+ * @security N/A: describeSignedRouteMatrixVerificationContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeSignedRouteMatrixVerificationContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeSignedRouteMatrixVerificationContract() {
   return Object.freeze({
     contract: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT,
@@ -594,6 +873,22 @@ export function describeSignedRouteMatrixVerificationContract() {
   });
 }
 
+/**
+ * Signed Route Matrix Cli 失敗 結果を構築する。
+ *
+ * @responsibility Signed Route Matrix Cli 失敗 結果の構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input validationFailure: "arguments_invalid" | "runner_exception"
+ * @returns createSignedRouteMatrixCliFailureResultの計算結果を返す。
+ * @precondition 「validationFailure: "arguments_invalid" | "runner_exception"」がcreateSignedRouteMatrixCliFailureResultの入力契約を満たす。
+ * @postcondition createSignedRouteMatrixCliFailureResultの責務を完了した結果だけを返す。
+ * @effect N/A: createSignedRouteMatrixCliFailureResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createSignedRouteMatrixCliFailureResultは独自の失敗分岐を所有しない。
+ * @invariant createSignedRouteMatrixCliFailureResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createSignedRouteMatrixCliFailureResultはProcess内の同一Subsystemで完結する。
+ * @security N/A: createSignedRouteMatrixCliFailureResultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createSignedRouteMatrixCliFailureResultは共有非同期状態を持たない同期処理である。
+ */
 export function createSignedRouteMatrixCliFailureResult(
   validationFailure: "arguments_invalid" | "runner_exception",
 ) {
@@ -604,8 +899,8 @@ export function createSignedRouteMatrixCliFailureResult(
     status: "blocked" as const,
     reason:
       validationFailure === "arguments_invalid"
-        ? "signed_route_matrix_arguments_invalid"
-        : "signed_route_matrix_failed_closed",
+        ? SIGNED_ROUTE_MATRIX_REASONS.argumentsInvalid
+        : SIGNED_ROUTE_MATRIX_REASONS.failedClosed,
     requestedRoutes: ROUTES,
     attemptedRouteCount: 0,
     completedRouteCount: 0,
@@ -625,6 +920,22 @@ export function createSignedRouteMatrixCliFailureResult(
   });
 }
 
+/**
+ * verify-signed-route-matrixのCommand処理を開始する。
+ *
+ * @responsibility verify-signed-route-matrixの引数受付、終了Code、診断出力境界を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns mainの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がmainの入力契約を満たす。
+ * @postcondition mainの責務を完了した結果だけを返す。
+ * @effect mainは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: mainは独自の失敗分岐を所有しない。
+ * @invariant mainは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: mainはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency mainは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function main() {
   if (process.argv.length !== 2) {
     process.stdout.write(

@@ -9,7 +9,7 @@
 検証済みNode.jsと対象Repositoryの絶対Pathを使う。次は公式CRDD Repositoryの例であり、採用先では配布済みの`tools/crdd-check.ts`を指定する。
 
 ```powershell
-& "C:\Program Files\nodejs\node.exe" "C:\project\CRDD\40_Develop\checker\crdd-check.ts" --root "C:\project\CRDD" --json --summary
+& "C:\Program Files\nodejs\node.exe" "C:\project\CRDD\40_Develop\checker\bin\crdd-check.ts" --root "C:\project\CRDD" --json --summary
 ```
 
 `--root`を省略すると起動Directoryが対象になる。subdirectoryからの起動をRepository全体確認と誤認しない。通常Checkerは文書を書き換えず、Providerへ送信しない。
@@ -29,8 +29,18 @@
 | 引数拒否・exit 2 | 引数を直す。`--help`は現行未対応 |
 | JSONが途中／例外／中断 | 完全な結果として採用しない。原因を確認して再実行 |
 
-Gitを使えずFilesystem探索へ移った場合は理由と除外を読む。リンク境界や固定履歴の不整合を、リンク先が存在するだけで無視しない。
+Gitを使えずFilesystem探索へ移った場合は理由と除外を読む。Root外、symbolic link／junction、Gitlinkまたは除外された対象を、リンク先が存在するだけで確認済みにしない。
+
+通常のChange記録とWork Lifecycle Evidence内部のリンクはCheckerで検査する。本文を変更できない固定履歴の参照は、CRDD Official Current Profileが承認済み移行表を使って機械的に解決する。固定原文Identity、過去Git object、移行表およびRelease主張の真正性は、Checkerではなく対象を固定した独立監査で確認する。固定履歴の扱いを現行正本、案内、ひな型または改変可能なChange／Evidenceのリンク切れへ流用しない。
 
 ## 開発試験は別の操作
 
-`40_Develop/checker`の型・命名・契約試験は通常Checkerとは別で、一時fixtureと子Processを使う。試験時は検証したRepository-local `.crdd/test-tmp`を子Processの`TEMP`／`TMP`へ指定し、終了後を確認する。OS全体の環境変数を変更しない。詳細は[設計](../06_Architecture/checker/01_Architecture.md)と[コーディング規約](../06_Architecture/99_Coding_Standards.md)。
+`40_Develop/checker`の型・命名・契約試験は通常Checkerとは別で、一時fixtureと子Processを使う。一時物はRepository-local `.crdd/tests/checker/<run-id>/`等の実行単位で所有し、子Processへ渡す場合もそのRunだけへ限定して終了後の不存在を確認する。OS全体の環境変数を変更しない。詳細は[設計](../06_Architecture/Details/checker/01_Architecture.md)と[コーディング規約](../06_Architecture/99_Coding_Standards.md)。
+
+通常の全回帰は次の単一入口を使う。
+
+```powershell
+npm test --prefix 40_Develop/checker
+```
+
+この入口は`format:check`、`typecheck`、`lint`、Repository全体Checker、Checker試験本体の順にFail Fastで実行する。前段が失敗した場合、後段の試験本体は開始しない。`format:check`が失敗した場合だけ、差分を確認して`npm run format --prefix 40_Develop/checker`を明示実行し、同じ全回帰入口を最初から再実行する。原因確認のため`test:run`を直接使う場合は、同じ固定改訂版で静的段階が成功済みであることを前提とし、その結果だけを全回帰完了としない。

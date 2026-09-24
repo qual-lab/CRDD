@@ -1,3 +1,9 @@
+/**
+ * platform-contractに属する責務をまとめる。
+ *
+ * @responsibility ProjectRuntimePlatformBoundaryを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000004
+ */
 import { types as utilTypes } from "node:util";
 
 export const PROJECT_RUNTIME_PLATFORM_CONTRACT =
@@ -20,6 +26,17 @@ export const PROJECT_RUNTIME_PLATFORM_BOUNDARIES = Object.freeze([
   "runtime_root_recovery",
 ] as const);
 
+/**
+ * platform-contractで使用するProject Runtime Platform Boundaryの値契約を定義する。
+ *
+ * @responsibility Project Runtime Platform BoundaryのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimePlatformBoundaryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimePlatformBoundaryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimePlatformBoundaryの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimePlatformBoundaryはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimePlatformBoundaryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimePlatformBoundary =
   (typeof PROJECT_RUNTIME_PLATFORM_BOUNDARIES)[number];
 
@@ -93,9 +110,31 @@ export const PROJECT_RUNTIME_PLATFORM_BOUNDARY_GUARANTEES = Object.freeze({
   Record<ProjectRuntimePlatformBoundary, readonly string[]>
 >);
 
+/**
+ * platform-contractで使用するProject Runtime Platform Guaranteeの値契約を定義する。
+ *
+ * @responsibility Project Runtime Platform GuaranteeのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimePlatformGuaranteeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimePlatformGuaranteeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimePlatformGuaranteeの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimePlatformGuaranteeはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimePlatformGuaranteeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimePlatformGuarantee =
   (typeof PROJECT_RUNTIME_PLATFORM_BOUNDARY_GUARANTEES)[ProjectRuntimePlatformBoundary][number];
 
+/**
+ * platform-contractで使用するProject Runtime Platform Adapter Descriptionの値契約を定義する。
+ *
+ * @responsibility Project Runtime Platform Adapter DescriptionのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimePlatformAdapterDescriptionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimePlatformAdapterDescriptionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimePlatformAdapterDescriptionの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimePlatformAdapterDescriptionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimePlatformAdapterDescriptionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimePlatformAdapterDescription = Readonly<{
   contract: typeof PROJECT_RUNTIME_PLATFORM_CONTRACT;
   contractRevision: number;
@@ -113,6 +152,17 @@ export type ProjectRuntimePlatformAdapterDescription = Readonly<{
   unsupportedPlatformFallback: "none";
 }>;
 
+/**
+ * platform-contractで使用するProject Runtime Platform Adapterの値契約を定義する。
+ *
+ * @responsibility Project Runtime Platform AdapterのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimePlatformAdapterが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimePlatformAdapterで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimePlatformAdapterの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimePlatformAdapterはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimePlatformAdapterの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimePlatformAdapter = Readonly<{
   describe: () => ProjectRuntimePlatformAdapterDescription;
   operations: Readonly<
@@ -120,6 +170,17 @@ export type ProjectRuntimePlatformAdapter = Readonly<{
   >;
 }>;
 
+/**
+ * platform-contractで使用するProject Runtime Platform Resolutionの値契約を定義する。
+ *
+ * @responsibility Project Runtime Platform ResolutionのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape ProjectRuntimePlatformResolutionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProjectRuntimePlatformResolutionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProjectRuntimePlatformResolutionの宣言は外部境界を開かない。
+ * @security N/A: ProjectRuntimePlatformResolutionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ProjectRuntimePlatformResolutionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ProjectRuntimePlatformResolution =
   | Readonly<{ status: "resolved"; adapter: ProjectRuntimePlatformAdapter }>
   | Readonly<{
@@ -139,6 +200,17 @@ const boundarySet: ReadonlySet<string> = new Set(
   PROJECT_RUNTIME_PLATFORM_BOUNDARIES,
 );
 
+/**
+ * platform-contractで使用するAdapter Snapshotの値契約を定義する。
+ *
+ * @responsibility Adapter SnapshotのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape AdapterSnapshotが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant AdapterSnapshotで宣言した値と責務の対応を維持する。
+ * @boundary N/A: AdapterSnapshotの宣言は外部境界を開かない。
+ * @security N/A: AdapterSnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility AdapterSnapshotの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type AdapterSnapshot = Readonly<{
   platformFamily: string;
   supportedBoundaries: ReadonlySet<ProjectRuntimePlatformBoundary>;
@@ -148,6 +220,22 @@ type AdapterSnapshot = Readonly<{
   >;
 }>;
 
+/**
+ * platform-contractを停止結果として構築する。
+ *
+ * @responsibility platform-contractの停止理由、未発行Effect、公開結果境界を所有する。
+ * @trace ARCH-000004
+ * @input reason: | "platform_request_invalid" | "platform_identity_unknown" | "platform_adapter_unavailable" | "platform_adapter_conflict" | "platform_boundary_unsupported"、unsupportedBoundaries: readonly ProjectRuntimePlatformBoundary[]
+ * @returns ProjectRuntimePlatformResolutionを返す。
+ * @precondition 「reason: | "platform_request_invalid" | "platform_identity_unknown" | "platform_adapter_unavailable" | "platform_adapter_conflict" | "platform_boundary_unsupported"、unsupportedBoundaries: readonly ProjectRuntimePlatformBoundary[]」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
+ * @security N/A: blockedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(
   reason:
     | "platform_request_invalid"
@@ -166,6 +254,22 @@ function blocked(
   });
 }
 
+/**
+ * Platform Familyが有効か判定する。
+ *
+ * @responsibility Platform Familyの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がvalidPlatformFamilyの入力契約を満たす。
+ * @postcondition validPlatformFamilyの責務を完了した結果だけを返す。
+ * @effect N/A: validPlatformFamilyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validPlatformFamilyは独自の失敗分岐を所有しない。
+ * @invariant validPlatformFamilyは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validPlatformFamilyはProcess内の同一Subsystemで完結する。
+ * @security N/A: validPlatformFamilyはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validPlatformFamilyは共有非同期状態を持たない同期処理である。
+ */
 function validPlatformFamily(value: unknown): value is string {
   return (
     typeof value === "string" &&
@@ -177,9 +281,19 @@ function validPlatformFamily(value: unknown): value is string {
 
 /**
  * Read one own data property exactly once. Accessor properties, prototype
- * lookups and repeated reads are rejected so a hostile object cannot return a
- * validated value first and a different value later (single-read discipline
- * shared with plain-data-snapshot.ts).
+ *
+ * @responsibility platform-contractの入力からown Data Propertyを導く規則と結果境界を所有する。
+ * @trace ARCH-000004
+ * @input container: object、key: string
+ * @returns unknownを返す。
+ * @precondition 「container: object、key: string」がownDataPropertyの入力契約を満たす。
+ * @postcondition ownDataPropertyの責務を完了した結果だけを返す。
+ * @effect N/A: ownDataPropertyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: ownDataPropertyは独自の失敗分岐を所有しない。
+ * @invariant ownDataPropertyは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ownDataPropertyはProcess内の同一Subsystemで完結する。
+ * @security N/A: ownDataPropertyはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: ownDataPropertyは共有非同期状態を持たない同期処理である。
  */
 function ownDataProperty(container: object, key: string): unknown {
   const descriptor = Object.getOwnPropertyDescriptor(container, key);
@@ -193,6 +307,22 @@ function ownDataProperty(container: object, key: string): unknown {
   return descriptor.value;
 }
 
+/**
+ * Plain Containerかを判定する。
+ *
+ * @responsibility Plain Containerの判定条件とtrue／false境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown
+ * @returns value is objectを返す。
+ * @precondition 「value: unknown」がisPlainContainerの入力契約を満たす。
+ * @postcondition isPlainContainerの責務を完了した結果だけを返す。
+ * @effect N/A: isPlainContainerは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure isPlainContainerは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant isPlainContainerは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isPlainContainerはProcess内の同一Subsystemで完結する。
+ * @security N/A: isPlainContainerはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isPlainContainerは共有非同期状態を持たない同期処理である。
+ */
 function isPlainContainer(value: unknown): value is object {
   try {
     if (
@@ -211,9 +341,19 @@ function isPlainContainer(value: unknown): value is object {
 
 /**
  * Call describe() exactly once and validate the returned description into a
- * local snapshot. Every adapter-derived access is caught and mapped to null so
- * a throwing or shape-shifting adapter resolves to a closed blocked result,
- * never to an escaping exception.
+ *
+ * @responsibility platform-contractの入力からdescribed Adapter Snapshotを導く規則と結果境界を所有する。
+ * @trace ARCH-000004
+ * @input candidate: unknown
+ * @returns AdapterSnapshot | nullを返す。
+ * @precondition 「candidate: unknown」がdescribedAdapterSnapshotの入力契約を満たす。
+ * @postcondition describedAdapterSnapshotの責務を完了した結果だけを返す。
+ * @effect N/A: describedAdapterSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure describedAdapterSnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant describedAdapterSnapshotは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describedAdapterSnapshotはProcess内の同一Subsystemで完結する。
+ * @security N/A: describedAdapterSnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describedAdapterSnapshotは共有非同期状態を持たない同期処理である。
  */
 function describedAdapterSnapshot(candidate: unknown): AdapterSnapshot | null {
   try {
@@ -292,9 +432,19 @@ function describedAdapterSnapshot(candidate: unknown): AdapterSnapshot | null {
 
 /**
  * A boundary is supported only when the snapshot declares it AND the adapter
- * binds exactly the closed operation-name population of this contract
- * revision as own data-property functions. A family whose required set is
- * empty is unresolvable by construction.
+ *
+ * @responsibility platform-contractの入力からsupports Boundaryを導く規則と結果境界を所有する。
+ * @trace ARCH-000004
+ * @input adapter: ProjectRuntimePlatformAdapter、snapshot: AdapterSnapshot、boundary: ProjectRuntimePlatformBoundary
+ * @returns booleanを返す。
+ * @precondition 「adapter: ProjectRuntimePlatformAdapter、snapshot: AdapterSnapshot、boundary: ProjectRuntimePlatformBoundary」がsupportsBoundaryの入力契約を満たす。
+ * @postcondition supportsBoundaryの責務を完了した結果だけを返す。
+ * @effect N/A: supportsBoundaryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure supportsBoundaryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant supportsBoundaryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: supportsBoundaryはProcess内の同一Subsystemで完結する。
+ * @security N/A: supportsBoundaryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: supportsBoundaryは共有非同期状態を持たない同期処理である。
  */
 function supportsBoundary(
   adapter: ProjectRuntimePlatformAdapter,
@@ -336,6 +486,22 @@ function supportsBoundary(
   }
 }
 
+/**
+ * resolved Adapter Snapshotを決定する。
+ *
+ * @responsibility resolved Adapter Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input adapter: ProjectRuntimePlatformAdapter、snapshot: AdapterSnapshot、resolvedBoundaries: readonly ProjectRuntimePlatformBoundary[]
+ * @returns ProjectRuntimePlatformAdapter | nullを返す。
+ * @precondition 「adapter: ProjectRuntimePlatformAdapter、snapshot: AdapterSnapshot、resolvedBoundaries: readonly ProjectRuntimePlatformBoundary[]」がresolvedAdapterSnapshotの入力契約を満たす。
+ * @postcondition resolvedAdapterSnapshotの責務を完了した結果だけを返す。
+ * @effect N/A: resolvedAdapterSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure resolvedAdapterSnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant resolvedAdapterSnapshotは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolvedAdapterSnapshotはProcess内の同一Subsystemで完結する。
+ * @security N/A: resolvedAdapterSnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: resolvedAdapterSnapshotは共有非同期状態を持たない同期処理である。
+ */
 function resolvedAdapterSnapshot(
   adapter: ProjectRuntimePlatformAdapter,
   snapshot: AdapterSnapshot,
@@ -388,10 +554,19 @@ function resolvedAdapterSnapshot(
 
 /**
  * Fail-closed adapter resolution for IF-PLATFORM. There is no fallback path:
- * an unknown platform family, a missing adapter, an ambiguous registry or an
- * unsupported required boundary each returns a closed blocked result and the
- * caller must not start any Project, Task or Provider effect (PR-A-07,
- * INV-PLATFORM-NO-FALLBACK).
+ *
+ * @responsibility Project Runtime Platform Adapterの候補集合、解決規則、曖昧時の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input observedPlatformFamily: unknown、registeredAdapters: readonly ProjectRuntimePlatformAdapter[]、requiredBoundaries: readonly ProjectRuntimePlatformBoundary[]
+ * @returns ProjectRuntimePlatformResolutionを返す。
+ * @precondition 「observedPlatformFamily: unknown、registeredAdapters: readonly ProjectRuntimePlatformAdapter[]、requiredBoundaries: readonly ProjectRuntimePlatformBoundary[]」がresolveProjectRuntimePlatformAdapterの入力契約を満たす。
+ * @postcondition resolveProjectRuntimePlatformAdapterの責務を完了した結果だけを返す。
+ * @effect N/A: resolveProjectRuntimePlatformAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveProjectRuntimePlatformAdapterは独自の失敗分岐を所有しない。
+ * @invariant resolveProjectRuntimePlatformAdapterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveProjectRuntimePlatformAdapterはProcess内の同一Subsystemで完結する。
+ * @security N/A: resolveProjectRuntimePlatformAdapterはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: resolveProjectRuntimePlatformAdapterは共有非同期状態を持たない同期処理である。
  */
 export function resolveProjectRuntimePlatformAdapter(
   observedPlatformFamily: unknown,
@@ -434,6 +609,22 @@ export function resolveProjectRuntimePlatformAdapter(
   return Object.freeze({ status: "resolved" as const, adapter });
 }
 
+/**
+ * Project Runtime Platform 契約の公開契約を記述する。
+ *
+ * @responsibility Project Runtime Platform 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000004
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeProjectRuntimePlatformContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProjectRuntimePlatformContractの入力契約を満たす。
+ * @postcondition describeProjectRuntimePlatformContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeProjectRuntimePlatformContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeProjectRuntimePlatformContractは独自の失敗分岐を所有しない。
+ * @invariant describeProjectRuntimePlatformContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeProjectRuntimePlatformContractはProcess内の同一Subsystemで完結する。
+ * @security N/A: describeProjectRuntimePlatformContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeProjectRuntimePlatformContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeProjectRuntimePlatformContract() {
   return Object.freeze({
     contract: PROJECT_RUNTIME_PLATFORM_CONTRACT,

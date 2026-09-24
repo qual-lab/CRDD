@@ -2,7 +2,7 @@
 
 # CRDD不足・影響監査（Gap and Impact Audit）
 
-Version: v0.20.1
+Version: v0.21.0
 Status: Stable
 Owner: Qual-Lab
 エージェントID: `agent.gap_impact.audit`

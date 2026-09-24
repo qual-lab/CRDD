@@ -1,6 +1,6 @@
 # CRDDエージェント（Agent）
 
-Version: v0.20.1
+Version: v0.21.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-09-06
@@ -62,7 +62,7 @@ agent_contract:
   invoked_by: Change Trace Owner
   purpose: IAとUXの意図をUI契約へ変換する
   scope:
-    change_trace: 90_Release/Changes/CHG-000004_Topic_Detail.md
+    change_trace: 99_Roadmap/Changes/CHG-000004/change.md
     feature: Important Topic Review
   input:
     revision: active
@@ -379,7 +379,7 @@ Rootを一意に検証できない、または途中に不正・曖昧なReposit
 | 拒否（Reject） | 現在の依頼条件では安全または正当に実行できないと判断する |
 | 上位判断への移送（Escalate） | 必要な判断、リスク受容、専門判断を適切な決定権限へ戻す |
 
-次の場合は停止または限定し、必要に応じて拒否または上位判断へ移送する。
+次の場合は停止または限定し、拒否で閉じられるか、人間または専門家の判断が必要かを評価する。判断が必要な場合は上位判断へ移送し、単に未処置のまま継続しない。
 
 ```text
 対象範囲、改訂版、決定権限が不明
@@ -683,7 +683,7 @@ delegation:
 
 意味的な波及探索には`agent.gap_impact.audit`を使用できる。文書品質と直接伝播の確認には、`agent.document.audit`を限定子タスクとして使用できる。
 
-表記上の好みだけを理由に通常引き渡しを止めない。一方、可読性の不足によって対象範囲、人間の判断、義務、例外、リスク、受信側入口を誤解する可能性がある場合は、移行に影響する指摘事項として責務工程へ戻す。必要に応じて`agent.document.audit`または同等の独立確認者が修正後改訂版を再評価する。
+表記上の好みだけを理由に通常引き渡しを止めない。一方、可読性の不足によって対象範囲、人間の判断、義務、例外、リスク、受信側入口を誤解する可能性がある場合は、移行に影響する指摘事項として責務工程へ戻す。非自明な文書構造、決定権限、用語境界または工程間引き渡しを変更した場合は`agent.document.audit`または同等の独立確認者が修正後改訂版を再評価し、軽微な表記修正だけなら理由を示して非適用とする。
 
 工程移行の標準は、次の二段階とする。
 

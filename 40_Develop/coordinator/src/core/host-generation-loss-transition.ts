@@ -1,8 +1,41 @@
+/**
+ * host-generation-loss-transitionに属する責務をまとめる。
+ *
+ * @responsibility HostGenerationLossEventを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
+/**
+ * host-generation-loss-transitionで使用するHost Generation Loss Eventの値契約を定義する。
+ *
+ * @responsibility Host Generation Loss EventのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape HostGenerationLossEventが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant HostGenerationLossEventで宣言した値と責務の対応を維持する。
+ * @boundary N/A: HostGenerationLossEventの宣言は外部境界を開かない。
+ * @security N/A: HostGenerationLossEventはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility HostGenerationLossEventの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type HostGenerationLossEvent =
   | "failure_detected"
   | "cleanup_confirmed_failure"
   | "cleanup_unknown";
 
+/**
+ * reduce Host Generation Loss Transitionを決定する。
+ *
+ * @responsibility reduce Host Generation Loss Transitionの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input event: HostGenerationLossEvent
+ * @returns reduceHostGenerationLossTransitionの計算結果を返す。
+ * @precondition 「event: HostGenerationLossEvent」がreduceHostGenerationLossTransitionの入力契約を満たす。
+ * @postcondition reduceHostGenerationLossTransitionの責務を完了した結果だけを返す。
+ * @effect N/A: reduceHostGenerationLossTransitionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: reduceHostGenerationLossTransitionは独自の失敗分岐を所有しない。
+ * @invariant reduceHostGenerationLossTransitionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: reduceHostGenerationLossTransitionはProcess内の同一Subsystemで完結する。
+ * @security N/A: reduceHostGenerationLossTransitionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: reduceHostGenerationLossTransitionは共有非同期状態を持たない同期処理である。
+ */
 export function reduceHostGenerationLossTransition(
   event: HostGenerationLossEvent,
 ) {

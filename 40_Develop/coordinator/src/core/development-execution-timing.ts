@@ -1,3 +1,9 @@
+/**
+ * development-execution-timingに属する責務をまとめる。
+ *
+ * @responsibility Intervalを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000018
+ */
 import { writeSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 
@@ -22,12 +28,38 @@ const STATE_LABELS = Object.freeze({
   "STATE-OPERATOR-TRANSFER-REQUIRED": "停止結果の記録（人間への引渡しが必要）",
 });
 
+/**
+ * development-execution-timingで使用するIntervalの値契約を定義する。
+ *
+ * @responsibility IntervalのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000018
+ * @shape Intervalが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Intervalで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Intervalの宣言は外部境界を開かない。
+ * @security N/A: IntervalはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility Intervalの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type Interval = Readonly<{
   state: string;
   elapsedMs: number | null;
 }>;
 
-/** Passive diagnostics only: no authority clock, timer, listener or capability. */
+/**
+ * Passive diagnostics only: no authority clock, timer, listener or capability.
+ *
+ * @responsibility Development Execution Timingの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000018
+ * @input now: () => number、writeProgress: (text: string) => boolean
+ * @returns createDevelopmentExecutionTimingの計算結果を返す。
+ * @precondition 「now: () => number、writeProgress: (text: string) => boolean」がcreateDevelopmentExecutionTimingの入力契約を満たす。
+ * @postcondition createDevelopmentExecutionTimingの責務を完了した結果だけを返す。
+ * @effect N/A: createDevelopmentExecutionTimingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createDevelopmentExecutionTimingは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createDevelopmentExecutionTimingは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createDevelopmentExecutionTimingはProcess内の同一Subsystemで完結する。
+ * @security N/A: createDevelopmentExecutionTimingはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createDevelopmentExecutionTimingは共有非同期状態を持たない同期処理である。
+ */
 export function createDevelopmentExecutionTiming(
   now: () => number = () => performance.now(),
   writeProgress?: (text: string) => boolean,
@@ -45,6 +77,22 @@ export function createDevelopmentExecutionTiming(
   let identityMeasurementComplete = true;
   const intervals: Interval[] = [];
 
+  /**
+   * Timeを読み取る。
+   *
+   * @responsibility Timeの読取り元、上限、読取不能時の結果境界を所有する。
+   * @trace ARCH-000018
+   * @input N/A: 実行時引数を受け取らない。
+   * @returns readTimeの計算結果を返す。
+   * @precondition 「N/A: 実行時引数を受け取らない。」がreadTimeの入力契約を満たす。
+   * @postcondition readTimeの責務を完了した結果だけを返す。
+   * @effect N/A: readTimeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @failure readTimeは入力不正または下位処理の失敗を呼出し側へ返す。
+   * @invariant readTimeは入力から導いた結果以外の共有状態を変更しない。
+   * @boundary N/A: readTimeはProcess内の同一Subsystemで完結する。
+   * @security N/A: readTimeはAuthority、秘密値または信頼判断を扱わない。
+   * @concurrency N/A: readTimeは共有非同期状態を持たない同期処理である。
+   */
   function readTime() {
     try {
       const value = now();
@@ -65,6 +113,22 @@ export function createDevelopmentExecutionTiming(
   }
   const startedAt = readTime();
 
+  /**
+   * Intervalを終了する。
+   *
+   * @responsibility Intervalの終了条件、資源解放、終了不能時の境界を所有する。
+   * @trace ARCH-000018
+   * @input time: number | null
+   * @returns closeIntervalの計算結果を返す。
+   * @precondition 「time: number | null」がcloseIntervalの入力契約を満たす。
+   * @postcondition closeIntervalの責務を完了した結果だけを返す。
+   * @effect N/A: closeIntervalは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @failure N/A: closeIntervalは独自の失敗分岐を所有しない。
+   * @invariant closeIntervalは入力から導いた結果以外の共有状態を変更しない。
+   * @boundary N/A: closeIntervalはProcess内の同一Subsystemで完結する。
+   * @security N/A: closeIntervalはAuthority、秘密値または信頼判断を扱わない。
+   * @concurrency N/A: closeIntervalは共有非同期状態を持たない同期処理である。
+   */
   function closeInterval(time: number | null) {
     if (currentState === null) return;
     intervals.push(
@@ -79,6 +143,22 @@ export function createDevelopmentExecutionTiming(
   }
 
   return Object.freeze({
+    /**
+     * Lifecycle 状態を観測する。
+     *
+     * @responsibility Lifecycle 状態の観測対象、取得根拠、観測不能結果の境界を所有する。
+     * @trace ARCH-000018
+     * @input state: string
+     * @returns observeLifecycleStateの計算結果を返す。
+     * @precondition 「state: string」がobserveLifecycleStateの入力契約を満たす。
+     * @postcondition observeLifecycleStateの責務を完了した結果だけを返す。
+     * @effect N/A: observeLifecycleStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure observeLifecycleStateは入力不正または下位処理の失敗を呼出し側へ返す。
+     * @invariant observeLifecycleStateは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: observeLifecycleStateはProcess内の同一Subsystemで完結する。
+     * @security N/A: observeLifecycleStateはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: observeLifecycleStateは共有非同期状態を持たない同期処理である。
+     */
     observeLifecycleState(state: string) {
       if (isFinished || state === currentState) return;
       if (!Object.hasOwn(STATE_LABELS, state) || intervals.length >= 31) {
@@ -101,6 +181,22 @@ export function createDevelopmentExecutionTiming(
         }
       }
     },
+    /**
+     * measure Identityを決定する。
+     *
+     * @responsibility measure Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
+     * @trace ARCH-000018
+     * @input observe: () => Result
+     * @returns Resultを返す。
+     * @precondition 「observe: () => Result」がmeasureIdentityの入力契約を満たす。
+     * @postcondition measureIdentityの責務を完了した結果だけを返す。
+     * @effect N/A: measureIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: measureIdentityは独自の失敗分岐を所有しない。
+     * @invariant measureIdentityは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: measureIdentityはProcess内の同一Subsystemで完結する。
+     * @security N/A: measureIdentityはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: measureIdentityは共有非同期状態を持たない同期処理である。
+     */
     measureIdentity<Result>(observe: () => Result): Result {
       if (isFinished) return observe();
       const before = readTime();
@@ -116,6 +212,22 @@ export function createDevelopmentExecutionTiming(
         }
       }
     },
+    /**
+     * development-execution-timingを終了状態へ収束させる。
+     *
+     * @responsibility development-execution-timingの終了条件、最終状態、残存義務の境界を所有する。
+     * @trace ARCH-000018
+     * @input N/A: 実行時引数を受け取らない。
+     * @returns finishの計算結果を返す。
+     * @precondition 「N/A: 実行時引数を受け取らない。」がfinishの入力契約を満たす。
+     * @postcondition finishの責務を完了した結果だけを返す。
+     * @effect N/A: finishは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: finishは独自の失敗分岐を所有しない。
+     * @invariant finishは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: finishはProcess内の同一Subsystemで完結する。
+     * @security N/A: finishはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: finishは共有非同期状態を持たない同期処理である。
+     */
     finish() {
       if (isFinished) return;
       finishedAt = readTime();
@@ -123,6 +235,22 @@ export function createDevelopmentExecutionTiming(
       currentState = null;
       isFinished = true;
     },
+    /**
+     * development-execution-timingを所有Snapshotへ変換する。
+     *
+     * @responsibility development-execution-timingの取得範囲、plain-data制約、拒否境界を所有する。
+     * @trace ARCH-000018
+     * @input N/A: 実行時引数を受け取らない。
+     * @returns snapshotの計算結果を返す。
+     * @precondition 「N/A: 実行時引数を受け取らない。」がsnapshotの入力契約を満たす。
+     * @postcondition snapshotの責務を完了した結果だけを返す。
+     * @effect N/A: snapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+     * @failure N/A: snapshotは独自の失敗分岐を所有しない。
+     * @invariant snapshotは入力から導いた結果以外の共有状態を変更しない。
+     * @boundary N/A: snapshotはProcess内の同一Subsystemで完結する。
+     * @security N/A: snapshotはAuthority、秘密値または信頼判断を扱わない。
+     * @concurrency N/A: snapshotは共有非同期状態を持たない同期処理である。
+     */
     snapshot() {
       return Object.freeze({
         measurementComplete,
@@ -147,7 +275,22 @@ export function createDevelopmentExecutionTiming(
   });
 }
 
-/** Only fixed labels generated above reach this bounded best-effort sink. */
+/**
+ * Only fixed labels generated above reach this bounded best-effort sink.
+ *
+ * @responsibility Development Measurement Progressの書込み先、確定条件、部分書込みの失敗境界を所有する。
+ * @trace ARCH-000018
+ * @input text: string
+ * @returns writeDevelopmentMeasurementProgressの計算結果を返す。
+ * @precondition 「text: string」がwriteDevelopmentMeasurementProgressの入力契約を満たす。
+ * @postcondition writeDevelopmentMeasurementProgressの責務を完了した結果だけを返す。
+ * @effect N/A: writeDevelopmentMeasurementProgressは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure writeDevelopmentMeasurementProgressは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant writeDevelopmentMeasurementProgressは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: writeDevelopmentMeasurementProgressはProcess内の同一Subsystemで完結する。
+ * @security N/A: writeDevelopmentMeasurementProgressはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: writeDevelopmentMeasurementProgressは共有非同期状態を持たない同期処理である。
+ */
 export function writeDevelopmentMeasurementProgress(text: string) {
   try {
     if (

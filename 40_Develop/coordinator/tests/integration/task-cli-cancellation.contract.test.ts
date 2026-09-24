@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:task-cli-cancellationの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:task-cli-cancellationが所有する検証責務を実行する。
+ * @trace ERB-IT-003
+ * @level IT
+ * @scope task、cli、cancellation
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { EventEmitter } from "node:events";
@@ -35,6 +45,18 @@ import {
   projectTaskCliCancellationFailure,
 } from "../../src/core/task-cli-cancellation.ts";
 
+/**
+ * CLI取消latchは重複signalを同じPromiseと一つのobserverへ収束するを検証する。
+ *
+ * @responsibility CLI取消latchは重複signalを同じPromiseと一つのobserverへ収束するの合否判定を所有する。
+ * @trace ERB-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CLI取消latchは重複signalを同じPromiseと一つのobserverへ収束するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ */
 test("CLI取消latchは重複signalを同じPromiseと一つのobserverへ収束する", async () => {
   let cancelEffects = 0;
   const receipt = Object.freeze({ status: "requested" });
@@ -50,6 +72,18 @@ test("CLI取消latchは重複signalを同じPromiseと一つのobserverへ収束
   assert.equal(latch.observerCount(), 1);
 });
 
+/**
+ * CLI取消latchは同期throwと非同期rejectを未処理rejectionへ流さないを検証する。
+ *
+ * @responsibility CLI取消latchは同期throwと非同期rejectを未処理rejectionへ流さないの合否判定を所有する。
+ * @trace ERB-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CLI取消latchは同期throwと非同期rejectを未処理rejectionへ流さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ */
 test("CLI取消latchは同期throwと非同期rejectを未処理rejectionへ流さない", async () => {
   for (const requestCancellation of [
     () => {
@@ -66,6 +100,18 @@ test("CLI取消latchは同期throwと非同期rejectを未処理rejectionへ流�
   }
 });
 
+/**
+ * CLI取消latchはnever receiptも重複Effectなしで保持するを検証する。
+ *
+ * @responsibility CLI取消latchはnever receiptも重複Effectなしで保持するの合否判定を所有する。
+ * @trace ERB-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CLI取消latchはnever receiptも重複Effectなしで保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ */
 test("CLI取消latchはnever receiptも重複Effectなしで保持する", () => {
   let cancelEffects = 0;
   const never = new Promise<never>(() => undefined);
@@ -79,6 +125,18 @@ test("CLI取消latchはnever receiptも重複Effectなしで保持する", () =>
   assert.equal(latch.observerCount(), 1);
 });
 
+/**
+ * CLI signal bindingは同一listenerを両signalへ結合して冪等に解除するを検証する。
+ *
+ * @responsibility CLI signal bindingは同一listenerを両signalへ結合して冪等に解除するの合否判定を所有する。
+ * @trace ERB-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CLI signal bindingは同一listenerを両signalへ結合して冪等に解除するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ */
 test("CLI signal bindingは同一listenerを両signalへ結合して冪等に解除する", () => {
   const emitter = new EventEmitter();
   const registrations: Array<readonly [string, () => void]> = [];
@@ -124,6 +182,18 @@ test("CLI signal bindingは同一listenerを両signalへ結合して冪等に解
   assert.equal(cancellationEffects, 1);
 });
 
+/**
+ * CLI signal bindingは登録中signalも単一取消Effectへ収束するを検証する。
+ *
+ * @responsibility CLI signal bindingは登録中signalも単一取消Effectへ収束するの合否判定を所有する。
+ * @trace ERB-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CLI signal bindingは登録中signalも単一取消Effectへ収束するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ */
 test("CLI signal bindingは登録中signalも単一取消Effectへ収束する", () => {
   let cancellationEffects = 0;
   let firstListener: (() => void) | null = null;
@@ -151,6 +221,18 @@ test("CLI signal bindingは登録中signalも単一取消Effectへ収束する",
   assert.equal(binding.unbind().status, "released");
 });
 
+/**
+ * CLI signal bindingは各登録失敗を取消と登録済みlistenerのrollbackへ閉じるを検証する。
+ *
+ * @responsibility CLI signal bindingは各登録失敗を取消と登録済みlistenerのrollbackへ閉じるの合否判定を所有する。
+ * @trace ERB-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CLI signal bindingは各登録失敗を取消と登録済みlistenerのrollbackへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ */
 test("CLI signal bindingは各登録失敗を取消と登録済みlistenerのrollbackへ閉じる", () => {
   for (const failAt of [1, 2]) {
     const removals: string[] = [];
@@ -177,6 +259,18 @@ test("CLI signal bindingは各登録失敗を取消と登録済みlistenerのrol
   }
 });
 
+/**
+ * CLI signal bindingはrollback・解除の片側失敗でも全signalを試行し非成功を保持するを検証する。
+ *
+ * @responsibility CLI signal bindingはrollback・解除の片側失敗でも全signalを試行し非成功を保持するの合否判定を所有する。
+ * @trace ERB-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CLI signal bindingはrollback・解除の片側失敗でも全signalを試行し非成功を保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ */
 test("CLI signal bindingはrollback・解除の片側失敗でも全signalを試行し非成功を保持する", () => {
   const rollbackAttempts: string[] = [];
   let registrations = 0;
@@ -215,6 +309,18 @@ test("CLI signal bindingはrollback・解除の片側失敗でも全signalを試
   assert.deepEqual(releaseAttempts, ["SIGINT", "SIGTERM"]);
 });
 
+/**
+ * CLI signal failure投影はRuntimeの全安全観測とRecovery Evidenceを単調保持するを検証する。
+ *
+ * @responsibility CLI signal failure投影はRuntimeの全安全観測とRecovery Evidenceを単調保持するの合否判定を所有する。
+ * @trace ERB-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CLI signal failure投影はRuntimeの全安全観測とRecovery Evidenceを単調保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ */
 test("CLI signal failure投影はRuntimeの全安全観測とRecovery Evidenceを単調保持する", () => {
   const digestA = "a".repeat(64);
   const digestB = "b".repeat(64);
@@ -273,6 +379,18 @@ test("CLI signal failure投影はRuntimeの全安全観測とRecovery Evidence�
   }
 });
 
+/**
+ * CLI signal failure投影はcleanup確認済み対照へRecoveryを捏造しないを検証する。
+ *
+ * @responsibility CLI signal failure投影はcleanup確認済み対照へRecoveryを捏造しないの合否判定を所有する。
+ * @trace ERB-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CLI signal failure投影はcleanup確認済み対照へRecoveryを捏造しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ */
 test("CLI signal failure投影はcleanup確認済み対照へRecoveryを捏造しない", () => {
   const projected = projectTaskCliCancellationFailure(
     Object.freeze({
@@ -301,6 +419,18 @@ test("CLI signal failure投影はcleanup確認済み対照へRecoveryを捏造�
   assert.match(human, /手動回復の必要性: なし/u);
 });
 
+/**
+ * CLI相当のvoid取消はstrict独立Processで未処理rejectionを作らないを検証する。
+ *
+ * @responsibility CLI相当のvoid取消はstrict独立Processで未処理rejectionを作らないの合否判定を所有する。
+ * @trace ERB-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CLI相当のvoid取消はstrict独立Processで未処理rejectionを作らないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ */
 test("CLI相当のvoid取消はstrict独立Processで未処理rejectionを作らない", () => {
   const fixture = path.join(
     import.meta.dirname,
@@ -335,7 +465,31 @@ test("CLI相当のvoid取消はstrict独立Processで未処理rejectionを作ら
   }
 });
 
+/**
+ * visitTreeのTest準備責務を実行する。
+ *
+ * @responsibility visitTreeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-003
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus visitTreeを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ */
 function visitTree(root: Node, visitor: (node: Node) => void) {
+  /**
+   * visitのTest準備責務を実行する。
+   *
+   * @responsibility visitがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERB-IT-003
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus visitを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+   */
   const visit = (node: Node) => {
     visitor(node);
     node.forEachChild(visit);
@@ -343,6 +497,18 @@ function visitTree(root: Node, visitor: (node: Node) => void) {
   visit(root);
 }
 
+/**
+ * namedImportIdentifierのTest準備責務を実行する。
+ *
+ * @responsibility namedImportIdentifierがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-003
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus namedImportIdentifierを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ */
 function namedImportIdentifier(
   sourceFile: SourceFile,
   importedName: string,
@@ -366,6 +532,18 @@ function namedImportIdentifier(
   return matches;
 }
 
+/**
+ * callPropertyNameのTest準備責務を実行する。
+ *
+ * @responsibility callPropertyNameがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-003
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus callPropertyNameを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ */
 function callPropertyName(call: CallExpression) {
   return isPropertyAccessExpression(call.expression) &&
     isIdentifier(call.expression.name)
@@ -373,6 +551,18 @@ function callPropertyName(call: CallExpression) {
     : null;
 }
 
+/**
+ * inspectTaskCliCancellationWiringのTest準備責務を実行する。
+ *
+ * @responsibility inspectTaskCliCancellationWiringがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-003
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus inspectTaskCliCancellationWiringを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ */
 function inspectTaskCliCancellationWiring(
   project: Project,
   sourceFile: SourceFile,
@@ -559,6 +749,18 @@ function inspectTaskCliCancellationWiring(
   return Object.freeze(failures);
 }
 
+/**
+ * projectSourceFileのTest準備責務を実行する。
+ *
+ * @responsibility projectSourceFileがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERB-IT-003
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus projectSourceFileを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ */
 function projectSourceFile(project: Project, fileName: string) {
   const normalized = path.resolve(fileName).replaceAll("\\", "/");
   const sourceFile = project.program.getSourceFile(normalized);
@@ -566,6 +768,18 @@ function projectSourceFile(project: Project, fileName: string) {
   return sourceFile;
 }
 
+/**
+ * 公開CLIはproduction helperの単一bindingとfinally解除をAST・symbolで固定するを検証する。
+ *
+ * @responsibility 公開CLIはproduction helperの単一bindingとfinally解除をAST・symbolで固定するの合否判定を所有する。
+ * @trace ERB-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開CLIはproduction helperの単一bindingとfinally解除をAST・symbolで固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ */
 test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symbolで固定する", () => {
   const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
   const api = new API({ cwd: coordinatorRoot });
@@ -592,6 +806,18 @@ test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symb
   }
 });
 
+/**
+ * CLI AST契約はshadow・二重binding・直接signal・finally外解除・guard前returnを拒否するを検証する。
+ *
+ * @responsibility CLI AST契約はshadow・二重binding・直接signal・finally外解除・guard前returnを拒否するの合否判定を所有する。
+ * @trace ERB-IT-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CLI AST契約はshadow・二重binding・直接signal・finally外解除・guard前returnを拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-IT-003=Related 2 Blocks: Task Runtime→Controller→外部Runtime→Recovery
+ */
 test("CLI AST契約はshadow・二重binding・直接signal・finally外解除・guard前returnを拒否する", () => {
   const original = fs.readFileSync(
     path.join(import.meta.dirname, "..", "..", "bin", "coordinator.ts"),

@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:plain-data-snapshotの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:plain-data-snapshotが所有する検証責務を実行する。
+ * @trace PPR-UT-006
+ * @level UT
+ * @scope plain、data、snapshot
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -7,6 +17,18 @@ import {
 } from "../../src/security/plain-data-snapshot.ts";
 import { assertPresent } from "../support/test-support.ts";
 
+/**
+ * record snapshotはdata descriptorだけを一度固定するを検証する。
+ *
+ * @responsibility record snapshotはdata descriptorだけを一度固定するの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus record snapshotはdata descriptorだけを一度固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("record snapshotはdata descriptorだけを一度固定する", () => {
   const raw = { left: "before", right: 1 };
   const snapshot = snapshotPlainRecord(raw, new Set(["left", "right"]));
@@ -32,6 +54,18 @@ test("record snapshotはdata descriptorだけを一度固定する", () => {
   assert.equal(frozenSnapshot.left, "frozen");
 });
 
+/**
+ * record snapshotはaccessor、symbol、extra、custom prototypeを拒否しgetterを呼ばないを検証する。
+ *
+ * @responsibility record snapshotはaccessor、symbol、extra、custom prototypeを拒否しgetterを呼ばないの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus record snapshotはaccessor、symbol、extra、custom prototypeを拒否しgetterを呼ばないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("record snapshotはaccessor、symbol、extra、custom prototypeを拒否しgetterを呼ばない", () => {
   let calls = 0;
   const accessor = { right: 1 };
@@ -65,6 +99,18 @@ test("record snapshotはaccessor、symbol、extra、custom prototypeを拒否し
   );
 });
 
+/**
+ * array snapshotはhole、accessor、extra、symbolを拒否し元配列の変更を受けないを検証する。
+ *
+ * @responsibility array snapshotはhole、accessor、extra、symbolを拒否し元配列の変更を受けないの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus array snapshotはhole、accessor、extra、symbolを拒否し元配列の変更を受けないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("array snapshotはhole、accessor、extra、symbolを拒否し元配列の変更を受けない", () => {
   const rawValues = ["before", "stable"];
   const result = snapshotPlainArray(rawValues, 2);
@@ -99,6 +145,18 @@ test("array snapshotはhole、accessor、extra、symbolを拒否し元配列の�
   assert.equal(snapshotPlainArray(customValues, 1).status, "blocked");
 });
 
+/**
+ * Proxyはreflection trapを実行する前に拒否するを検証する。
+ *
+ * @responsibility Proxyはreflection trapを実行する前に拒否するの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Proxyはreflection trapを実行する前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("Proxyはreflection trapを実行する前に拒否する", () => {
   const calls = { ownKeys: 0, descriptor: 0, prototype: 0 };
   const proxy = new Proxy(
@@ -138,6 +196,18 @@ test("Proxyはreflection trapを実行する前に拒否する", () => {
   assert.deepEqual(calls, { ownKeys: 0, descriptor: 0, prototype: 0 });
 });
 
+/**
+ * reflection APIの失敗はrecordとarrayの固定reasonへ閉じるを検証する。
+ *
+ * @responsibility reflection APIの失敗はrecordとarrayの固定reasonへ閉じるの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus reflection APIの失敗はrecordとarrayの固定reasonへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("reflection APIの失敗はrecordとarrayの固定reasonへ閉じる", () => {
   const original = Object.getOwnPropertyDescriptors;
   const record = { left: "value", right: 1 };
@@ -154,6 +224,18 @@ test("reflection APIの失敗はrecordとarrayの固定reasonへ閉じる", () =
   }
 });
 
+/**
+ * array lengthの欠落と上限超過を固定reasonで拒否するを検証する。
+ *
+ * @responsibility array lengthの欠落と上限超過を固定reasonで拒否するの合否判定を所有する。
+ * @trace PPR-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus array lengthの欠落と上限超過を固定reasonで拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
+ */
 test("array lengthの欠落と上限超過を固定reasonで拒否する", () => {
   const original = Object.getOwnPropertyDescriptor;
   const values = ["value"];

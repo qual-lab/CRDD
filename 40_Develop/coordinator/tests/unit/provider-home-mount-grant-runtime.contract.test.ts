@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:provider-home-mount-grant-runtimeの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:provider-home-mount-grant-runtimeが所有する検証責務を実行する。
+ * @trace AIT-UT-005
+ * @level UT
+ * @scope provider、home、mount、grant、runtime
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -30,6 +40,18 @@ type Observation = Readonly<{
   providerHomeMountSourceCapability: object;
 }>;
 
+/**
+ * harnessのTest準備責務を実行する。
+ *
+ * @responsibility harnessがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-UT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus harnessを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 function harness() {
   const managementCapability = Object.freeze({});
   const otherManagementCapability = Object.freeze({});
@@ -41,6 +63,18 @@ function harness() {
   let randomValue = 0n;
   let failingDependency: "none" | "clock" | "random" | "observation" = "none";
 
+  /**
+   * observeのTest準備責務を実行する。
+   *
+   * @responsibility observeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace AIT-UT-005
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus observeを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+   */
   function observe(overrides: Partial<Observation> = {}) {
     const capability = Object.freeze({});
     const providerHomeMountSourceCapability = Object.freeze({});
@@ -136,6 +170,18 @@ function harness() {
   };
 }
 
+/**
+ * issueのTest準備責務を実行する。
+ *
+ * @responsibility issueがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-UT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus issueを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 function issue(h: ReturnType<typeof harness>) {
   const result = h.runtime.issue(
     h.managementCapability,
@@ -149,6 +195,18 @@ function issue(h: ReturnType<typeof harness>) {
   return result;
 }
 
+/**
+ * Runtime-owned Mount Grantはopaque Operationと観測を一回限りの別aliasへbindingするを検証する。
+ *
+ * @responsibility Runtime-owned Mount Grantはopaque Operationと観測を一回限りの別aliasへbindingするの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Runtime-owned Mount Grantはopaque Operationと観測を一回限りの別aliasへbindingするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Runtime-owned Mount Grantはopaque Operationと観測を一回限りの別aliasへbindingする", () => {
   const h = harness();
   const result = issue(h);
@@ -176,6 +234,18 @@ test("Runtime-owned Mount Grantはopaque Operationと観測を一回限りの別
   );
 });
 
+/**
+ * fresh観測でconsumeし、productionから隔離されたMount Authorizationをrevokeするを検証する。
+ *
+ * @responsibility fresh観測でconsumeし、productionから隔離されたMount Authorizationをrevokeするの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus fresh観測でconsumeし、productionから隔離されたMount Authorizationをrevokeするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("fresh観測でconsumeし、productionから隔離されたMount Authorizationをrevokeする", () => {
   const h = harness();
   const issued = issue(h);
@@ -283,6 +353,18 @@ test("fresh観測でconsumeし、productionから隔離されたMount Authorizat
   );
 });
 
+/**
+ * issuedのままでもcontrol aliasから全aliasを失効できるを検証する。
+ *
+ * @responsibility issuedのままでもcontrol aliasから全aliasを失効できるの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus issuedのままでもcontrol aliasから全aliasを失効できるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("issuedのままでもcontrol aliasから全aliasを失効できる", () => {
   const h = harness();
   const issued = issue(h);
@@ -298,6 +380,18 @@ test("issuedのままでもcontrol aliasから全aliasを失効できる", () =>
 });
 
 for (const failure of ["expired", "source_removed"] as const) {
+  /**
+   * consume後activate前の${failure}はactive Mountを発行せず次のGrantを妨げないを検証する。
+   *
+   * @responsibility consume後activate前の${failure}はactive Mountを発行せず次のGrantを妨げないの合否判定を所有する。
+   * @trace AIT-UT-005
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus consume後activate前の${failure}はactive Mountを発行せず次のGrantを妨げないの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+   */
   test(`consume後activate前の${failure}はactive Mountを発行せず次のGrantを妨げない`, () => {
     const h = harness();
     const issued = issue(h);
@@ -365,8 +459,32 @@ for (const failure of ["expired", "source_removed"] as const) {
   });
 }
 
+/**
+ * 古いGrantのrevokeは同じlogical Homeの現active ownerを解除しないを検証する。
+ *
+ * @responsibility 古いGrantのrevokeは同じlogical Homeの現active ownerを解除しないの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 古いGrantのrevokeは同じlogical Homeの現active ownerを解除しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("古いGrantのrevokeは同じlogical Homeの現active ownerを解除しない", () => {
   const h = harness();
+  /**
+   * activateのTest準備責務を実行する。
+   *
+   * @responsibility activateがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace AIT-UT-005
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus activateを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+   */
   const activate = (issued: ReturnType<typeof issue>) => {
     h.advance(1_000);
     const consumed = h.runtime.consume(
@@ -421,6 +539,18 @@ test("古いGrantのrevokeは同じlogical Homeの現active ownerを解除しな
   );
 });
 
+/**
+ * profile、Operation、観測bindingの不一致をEffect前に拒否するを検証する。
+ *
+ * @responsibility profile、Operation、観測bindingの不一致をEffect前に拒否するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus profile、Operation、観測bindingの不一致をEffect前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("profile、Operation、観測bindingの不一致をEffect前に拒否する", () => {
   const h = harness();
   const reusableObservation = h.observe();
@@ -476,6 +606,18 @@ test("profile、Operation、観測bindingの不一致をEffect前に拒否する
   );
 });
 
+/**
+ * wall／monotonic期限、rollback、依存例外を固定blockedへ閉じるを検証する。
+ *
+ * @responsibility wall／monotonic期限、rollback、依存例外を固定blockedへ閉じるの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus wall／monotonic期限、rollback、依存例外を固定blockedへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("wall／monotonic期限、rollback、依存例外を固定blockedへ閉じる", () => {
   for (const time of [
     { wall: PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS, mono: 1 },
@@ -525,6 +667,18 @@ test("wall／monotonic期限、rollback、依存例外を固定blockedへ閉じ�
   }
 });
 
+/**
+ * 不正capability、全観測hash差分、参照衝突とproduction入口をfail closedにするを検証する。
+ *
+ * @responsibility 不正capability、全観測hash差分、参照衝突とproduction入口をfail closedにするの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 不正capability、全観測hash差分、参照衝突とproduction入口をfail closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("不正capability、全観測hash差分、参照衝突とproduction入口をfail closedにする", () => {
   const invalid = harness();
   for (const profileId of [null, 1, "PROFILE-x", `PROFILE-${"1".repeat(65)}`]) {
@@ -613,6 +767,18 @@ test("不正capability、全観測hash差分、参照衝突とproduction入口�
     monotonicNow: () => 1,
     randomBytes: () => Buffer.alloc(8, 7),
   });
+  /**
+   * collisionObservationのTest準備責務を実行する。
+   *
+   * @responsibility collisionObservationがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace AIT-UT-005
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus collisionObservationを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+   */
   function collisionObservation() {
     const capability = Object.freeze({});
     observations.set(capability, {
@@ -658,6 +824,18 @@ test("不正capability、全観測hash差分、参照衝突とproduction入口�
   );
 });
 
+/**
+ * Mount Grant Runtime契約はprocess-local storeと非Effect境界を公開するを検証する。
+ *
+ * @responsibility Mount Grant Runtime契約はprocess-local storeと非Effect境界を公開するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Mount Grant Runtime契約はprocess-local storeと非Effect境界を公開するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Mount Grant Runtime契約はprocess-local storeと非Effect境界を公開する", () => {
   const contract = describeProviderHomeMountGrantRuntimeContract();
   assert.equal(contract.contract, PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT);

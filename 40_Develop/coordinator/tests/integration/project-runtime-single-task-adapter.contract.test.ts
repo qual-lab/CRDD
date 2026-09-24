@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:project-runtime-single-task-adapterの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:project-runtime-single-task-adapterが所有する検証責務を実行する。
+ * @trace PRL-IT-005
+ * @level IT
+ * @scope project、runtime、single、task、adapter
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -18,6 +28,18 @@ const AUTHORITY_BINDING_ID = "authority-0001";
 const repositoryRevisionValue = "a".repeat(40);
 const dockerRecoveryId = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
 
+/**
+ * completionRecordのTest準備責務を実行する。
+ *
+ * @responsibility completionRecordがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus completionRecordを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 function completionRecord(
   overrides: Readonly<Record<string, unknown>> = Object.freeze({}),
 ): Readonly<Record<string, unknown>> {
@@ -37,6 +59,18 @@ function completionRecord(
   });
 }
 
+/**
+ * harnessのTest準備責務を実行する。
+ *
+ * @responsibility harnessがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus harnessを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 function harness(
   overrides: Readonly<{
     startTask?: ProjectRuntimeSingleTaskDependencies["startTask"];
@@ -75,6 +109,18 @@ function harness(
   });
 }
 
+/**
+ * validInputのTest準備責務を実行する。
+ *
+ * @responsibility validInputがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PRL-IT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus validInputを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 function validInput(
   overrides: Readonly<Record<string, unknown>> = Object.freeze({}),
 ) {
@@ -91,6 +137,18 @@ function validInput(
   }) as Parameters<typeof runProjectRuntimeSingleTaskAttempt>[1];
 }
 
+/**
+ * 正常完了はattemptと固定Revisionへ結合した閉結果で返るを検証する。
+ *
+ * @responsibility 正常完了はattemptと固定Revisionへ結合した閉結果で返るの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 正常完了はattemptと固定Revisionへ結合した閉結果で返るの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("正常完了はattemptと固定Revisionへ結合した閉結果で返る", async () => {
   const { dependencies, startCalls } = harness();
   const attempt = await runProjectRuntimeSingleTaskAttempt(
@@ -120,6 +178,18 @@ test("正常完了はattemptと固定Revisionへ結合した閉結果で返る",
   assert.equal(startArguments[1], "C:\\repository");
 });
 
+/**
+ * 実行元が返した実効Executor Providerだけを閉結果へ保持するを検証する。
+ *
+ * @responsibility 実行元が返した実効Executor Providerだけを閉結果へ保持するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実行元が返した実効Executor Providerだけを閉結果へ保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("実行元が返した実効Executor Providerだけを閉結果へ保持する", async () => {
   const { dependencies } = harness({
     completion: Promise.resolve(
@@ -134,6 +204,18 @@ test("実行元が返した実効Executor Providerだけを閉結果へ保持す
   assert.equal(attempt.executorProvider, "claude");
 });
 
+/**
+ * 入力不正はTask Effect 0の入力拒否として閉じるを検証する。
+ *
+ * @responsibility 入力不正はTask Effect 0の入力拒否として閉じるの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 入力不正はTask Effect 0の入力拒否として閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("入力不正はTask Effect 0の入力拒否として閉じる", async () => {
   const { dependencies, startCalls } = harness();
   const invalidInputs = [
@@ -170,6 +252,18 @@ test("入力不正はTask Effect 0の入力拒否として閉じる", async () =
   assert.equal(startCalls.length, 0);
 });
 
+/**
+ * 開始前の取消はTask Effect 0のcancelledとして閉じるを検証する。
+ *
+ * @responsibility 開始前の取消はTask Effect 0のcancelledとして閉じるの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 開始前の取消はTask Effect 0のcancelledとして閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("開始前の取消はTask Effect 0のcancelledとして閉じる", async () => {
   const { dependencies, startCalls } = harness();
   const controller = new AbortController();
@@ -184,6 +278,18 @@ test("開始前の取消はTask Effect 0のcancelledとして閉じる", async (
   assert.equal(startCalls.length, 0);
 });
 
+/**
+ * 既知のEffect前拒否はEffect 0のblockedへ写像するを検証する。
+ *
+ * @responsibility 既知のEffect前拒否はEffect 0のblockedへ写像するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 既知のEffect前拒否はEffect 0のblockedへ写像するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("既知のEffect前拒否はEffect 0のblockedへ写像する", async () => {
   for (const [message, processRestartRequired] of [
     ["coordinator_task_process_restart_required", true],
@@ -218,6 +324,18 @@ test("既知のEffect前拒否はEffect 0のblockedへ写像する", async () =>
   }
 });
 
+/**
+ * 未知の開始例外はEffect不明としてfail closedするを検証する。
+ *
+ * @responsibility 未知の開始例外はEffect不明としてfail closedするの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 未知の開始例外はEffect不明としてfail closedするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("未知の開始例外はEffect不明としてfail closedする", async () => {
   const { dependencies } = harness({
     startTask: () => {
@@ -235,6 +353,18 @@ test("未知の開始例外はEffect不明としてfail closedする", async () 
   assert.equal(attempt.manualRecoveryRequired, true);
 });
 
+/**
+ * 開始結果の形不一致はEffect不明としてfail closedするを検証する。
+ *
+ * @responsibility 開始結果の形不一致はEffect不明としてfail closedするの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 開始結果の形不一致はEffect不明としてfail closedするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("開始結果の形不一致はEffect不明としてfail closedする", async () => {
   for (const started of [
     null,
@@ -257,6 +387,18 @@ test("開始結果の形不一致はEffect不明としてfail closedする", asy
   }
 });
 
+/**
+ * 完了結果の観測不能・形不一致は成功へ補正せずfail closedするを検証する。
+ *
+ * @responsibility 完了結果の観測不能・形不一致は成功へ補正せずfail closedするの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 完了結果の観測不能・形不一致は成功へ補正せずfail closedするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("完了結果の観測不能・形不一致は成功へ補正せずfail closedする", async () => {
   const getterSwappedReason = Object.defineProperty(
     { ...completionRecord() },
@@ -313,6 +455,18 @@ test("完了結果の観測不能・形不一致は成功へ補正せずfail clo
   }
 });
 
+/**
+ * Recovery Identityは種類横断で重複なく保持されるを検証する。
+ *
+ * @responsibility Recovery Identityは種類横断で重複なく保持されるの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Recovery Identityは種類横断で重複なく保持されるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("Recovery Identityは種類横断で重複なく保持される", async () => {
   const { dependencies } = harness({
     completion: Promise.resolve(
@@ -345,6 +499,18 @@ test("Recovery Identityは種類横断で重複なく保持される", async () 
   ]);
 });
 
+/**
+ * Project Stateへ保存できないRecovery Identityは閉結果へ取り込まないを検証する。
+ *
+ * @responsibility Project Stateへ保存できないRecovery Identityは閉結果へ取り込まないの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Project Stateへ保存できないRecovery Identityは閉結果へ取り込まないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("Project Stateへ保存できないRecovery Identityは閉結果へ取り込まない", async () => {
   for (const recoveryId of ["recovery/a", "recovery id", "recovery\u0001id"]) {
     const { dependencies } = harness({
@@ -369,6 +535,18 @@ test("Project Stateへ保存できないRecovery Identityは閉結果へ取り�
   }
 });
 
+/**
+ * cleanup未確認またはRecovery義務をsettledへ補正しないを検証する。
+ *
+ * @responsibility cleanup未確認またはRecovery義務をsettledへ補正しないの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus cleanup未確認またはRecovery義務をsettledへ補正しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("cleanup未確認またはRecovery義務をsettledへ補正しない", async () => {
   for (const completion of [
     completionRecord({
@@ -399,6 +577,18 @@ test("cleanup未確認またはRecovery義務をsettledへ補正しない", asyn
   }
 });
 
+/**
+ * 成功表示とRecovery義務が競合する完了Recordをblockedへ単調化するを検証する。
+ *
+ * @responsibility 成功表示とRecovery義務が競合する完了Recordをblockedへ単調化するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 成功表示とRecovery義務が競合する完了Recordをblockedへ単調化するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("成功表示とRecovery義務が競合する完了Recordをblockedへ単調化する", async () => {
   for (const [completion, expectedReason, expectedRecoveryIds] of [
     [
@@ -435,6 +625,18 @@ test("成功表示とRecovery義務が競合する完了Recordをblockedへ単�
   }
 });
 
+/**
+ * 実行中の取消はexactなcontrolへ一度だけ転送し完了観測を保持するを検証する。
+ *
+ * @responsibility 実行中の取消はexactなcontrolへ一度だけ転送し完了観測を保持するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実行中の取消はexactなcontrolへ一度だけ転送し完了観測を保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("実行中の取消はexactなcontrolへ一度だけ転送し完了観測を保持する", async () => {
   const controller = new AbortController();
   let settleCompletion: ((value: unknown) => void) | null = null;
@@ -464,6 +666,18 @@ test("実行中の取消はexactなcontrolへ一度だけ転送し完了観測�
   assert.deepEqual(cancelCalls, [controlCapability]);
 });
 
+/**
+ * 取消入口の例外は完了観測を切り離さないを検証する。
+ *
+ * @responsibility 取消入口の例外は完了観測を切り離さないの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 取消入口の例外は完了観測を切り離さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("取消入口の例外は完了観測を切り離さない", async () => {
   const controller = new AbortController();
   let settleCompletion: ((value: unknown) => void) | null = null;
@@ -494,6 +708,18 @@ test("取消入口の例外は完了観測を切り離さない", async () => {
   assert.equal(attempt.effectState, "settled");
 });
 
+/**
+ * 取消入口の非同期失敗は未処理rejectionにせず完了観測を保持するを検証する。
+ *
+ * @responsibility 取消入口の非同期失敗は未処理rejectionにせず完了観測を保持するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 取消入口の非同期失敗は未処理rejectionにせず完了観測を保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("取消入口の非同期失敗は未処理rejectionにせず完了観測を保持する", async () => {
   const controller = new AbortController();
   let settleCompletion: ((value: unknown) => void) | null = null;
@@ -501,6 +727,18 @@ test("取消入口の非同期失敗は未処理rejectionにせず完了観測�
     settleCompletion = resolve;
   });
   const unhandledRejections: unknown[] = [];
+  /**
+   * captureRejectionのTest準備責務を実行する。
+   *
+   * @responsibility captureRejectionがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace PRL-IT-005
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus captureRejectionを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+   */
   const captureRejection = (reason: unknown) => {
     unhandledRejections.push(reason);
   };
@@ -534,6 +772,18 @@ test("取消入口の非同期失敗は未処理rejectionにせず完了観測�
   }
 });
 
+/**
+ * startTask実行中の同期abortも一度だけ転送されるを検証する。
+ *
+ * @responsibility startTask実行中の同期abortも一度だけ転送されるの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus startTask実行中の同期abortも一度だけ転送されるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("startTask実行中の同期abortも一度だけ転送される", async () => {
   const controller = new AbortController();
   const cancelCalls: unknown[] = [];
@@ -568,6 +818,18 @@ test("startTask実行中の同期abortも一度だけ転送される", async () 
   assert.deepEqual(cancelCalls, [controlCapability]);
 });
 
+/**
+ * 取消と同時に観測した通常失敗はcancelledへ丸めないを検証する。
+ *
+ * @responsibility 取消と同時に観測した通常失敗はcancelledへ丸めないの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 取消と同時に観測した通常失敗はcancelledへ丸めないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("取消と同時に観測した通常失敗はcancelledへ丸めない", async () => {
   const controller = new AbortController();
   let settleCompletion: ((value: unknown) => void) | null = null;
@@ -592,6 +854,18 @@ test("取消と同時に観測した通常失敗はcancelledへ丸めない", as
   assert.equal(attempt.reason, "provider_process_exit_nonzero");
 });
 
+/**
+ * 回復義務を伴う取消結果はcancelledへ丸めないを検証する。
+ *
+ * @responsibility 回復義務を伴う取消結果はcancelledへ丸めないの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 回復義務を伴う取消結果はcancelledへ丸めないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("回復義務を伴う取消結果はcancelledへ丸めない", async () => {
   const controller = new AbortController();
   let settleCompletion: ((value: unknown) => void) | null = null;
@@ -620,6 +894,18 @@ test("回復義務を伴う取消結果はcancelledへ丸めない", async () =>
   assert.deepEqual(attempt.recoveryIds, [dockerRecoveryId]);
 });
 
+/**
+ * 開始観測はaccessorやProxyの開始Recordをfail closedで拒否するを検証する。
+ *
+ * @responsibility 開始観測はaccessorやProxyの開始Recordをfail closedで拒否するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 開始観測はaccessorやProxyの開始Recordをfail closedで拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("開始観測はaccessorやProxyの開始Recordをfail closedで拒否する", async () => {
   const accessorControl = Object.defineProperty(
     {
@@ -649,6 +935,18 @@ test("開始観測はaccessorやProxyの開始Recordをfail closedで拒否す�
   }
 });
 
+/**
+ * 契約表示はProject状態・後続Task・受入の非所有を宣言するを検証する。
+ *
+ * @responsibility 契約表示はProject状態・後続Task・受入の非所有を宣言するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 契約表示はProject状態・後続Task・受入の非所有を宣言するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("契約表示はProject状態・後続Task・受入の非所有を宣言する", () => {
   assert.deepEqual(describeProjectRuntimeSingleTaskAdapterContract(), {
     contract: CONTRACT,
@@ -663,6 +961,18 @@ test("契約表示はProject状態・後続Task・受入の非所有を宣言す
   });
 });
 
+/**
+ * Effect前拒否母集団はv0.18 Runtimeの実throw経路と一致するを検証する。
+ *
+ * @responsibility Effect前拒否母集団はv0.18 Runtimeの実throw経路と一致するの合否判定を所有する。
+ * @trace PRL-IT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Effect前拒否母集団はv0.18 Runtimeの実throw経路と一致するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
+ */
 test("Effect前拒否母集団はv0.18 Runtimeの実throw経路と一致する", () => {
   assert.deepEqual(PROJECT_RUNTIME_SINGLE_TASK_PRE_EFFECT_REJECTIONS, [
     "coordinator_task_process_restart_required",

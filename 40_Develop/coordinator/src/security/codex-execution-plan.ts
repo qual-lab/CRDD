@@ -1,3 +1,9 @@
+/**
+ * codex-execution-planに属する責務をまとめる。
+ *
+ * @responsibility blockedを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000010
+ */
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { describeProviderBillingPolicyContract } from "./provider-billing-policy.ts";
 
@@ -72,6 +78,22 @@ const distributionBinding = Object.freeze({
 });
 const billingPolicy = describeProviderBillingPolicyContract();
 
+/**
+ * codex-execution-planを停止結果として構築する。
+ *
+ * @responsibility codex-execution-planの停止理由、未発行Effect、公開結果境界を所有する。
+ * @trace ARCH-000010
+ * @input reason: string
+ * @returns blockedの計算結果を返す。
+ * @precondition 「reason: string」がblockedの入力契約を満たす。
+ * @postcondition blockedの責務を完了した結果だけを返す。
+ * @effect blockedは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: blockedは独自の失敗分岐を所有しない。
+ * @invariant blockedは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
+ */
 function blocked(reason: string) {
   return Object.freeze({
     status: "blocked" as const,
@@ -83,6 +105,22 @@ function blocked(reason: string) {
   });
 }
 
+/**
+ * plan Codex Read Only Probeを決定する。
+ *
+ * @responsibility plan Codex Read Only Probeの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000010
+ * @input candidate: unknown
+ * @returns planCodexReadOnlyProbeの計算結果を返す。
+ * @precondition 「candidate: unknown」がplanCodexReadOnlyProbeの入力契約を満たす。
+ * @postcondition planCodexReadOnlyProbeの責務を完了した結果だけを返す。
+ * @effect planCodexReadOnlyProbeは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: planCodexReadOnlyProbeは独自の失敗分岐を所有しない。
+ * @invariant planCodexReadOnlyProbeは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security planCodexReadOnlyProbeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: planCodexReadOnlyProbeは共有非同期状態を持たない同期処理である。
+ */
 export function planCodexReadOnlyProbe(candidate: unknown) {
   const value = snapshotPlainRecord(candidate, PLAN_KEYS);
   if (!value) return blocked("codex_execution_plan_shape_invalid");
@@ -148,6 +186,22 @@ export function planCodexReadOnlyProbe(candidate: unknown) {
   });
 }
 
+/**
+ * plan Codex Isolated Taskを決定する。
+ *
+ * @responsibility plan Codex Isolated Taskの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000010
+ * @input candidate: unknown
+ * @returns planCodexIsolatedTaskの計算結果を返す。
+ * @precondition 「candidate: unknown」がplanCodexIsolatedTaskの入力契約を満たす。
+ * @postcondition planCodexIsolatedTaskの責務を完了した結果だけを返す。
+ * @effect planCodexIsolatedTaskは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: planCodexIsolatedTaskは独自の失敗分岐を所有しない。
+ * @invariant planCodexIsolatedTaskは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security planCodexIsolatedTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: planCodexIsolatedTaskは共有非同期状態を持たない同期処理である。
+ */
 export function planCodexIsolatedTask(candidate: unknown) {
   const value = snapshotPlainRecord(candidate, TASK_PLAN_KEYS);
   if (!value) return blocked("codex_task_execution_plan_shape_invalid");
@@ -270,6 +324,22 @@ export function planCodexIsolatedTask(candidate: unknown) {
   });
 }
 
+/**
+ * Codex Execution Plan 契約の公開契約を記述する。
+ *
+ * @responsibility Codex Execution Plan 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000010
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeCodexExecutionPlanContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeCodexExecutionPlanContractの入力契約を満たす。
+ * @postcondition describeCodexExecutionPlanContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeCodexExecutionPlanContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeCodexExecutionPlanContractは独自の失敗分岐を所有しない。
+ * @invariant describeCodexExecutionPlanContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeCodexExecutionPlanContractはProcess内の同一Subsystemで完結する。
+ * @security describeCodexExecutionPlanContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeCodexExecutionPlanContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeCodexExecutionPlanContract() {
   return Object.freeze({
     contract: CODEX_EXECUTION_PLAN_CONTRACT,

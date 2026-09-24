@@ -1,11 +1,11 @@
 # MCP Serverの利用手順
 
-状態: Stable（v0.20.1）
+状態: Stable（v0.21.0）
 担当責任者: Qual-Lab
 
 ## 目的と責務
 
-本書は、CRDD配布物に含まれるMCP Serverをstdioまたはlocalhost HTTPで起動する反復手順を所有する。Protocol、Transport lifecycle、認証、Authorityおよび完成条件は[MCP Transportアーキテクチャ](../06_Architecture/mcp/01_Architecture.md)が所有し、本書で再定義しない。
+本書は、CRDD配布物に含まれるMCP Serverをstdioまたはlocalhost HTTPで起動する反復手順を所有する。Protocol、Transport lifecycle、認証、Authorityおよび完成条件は[MCP Transportアーキテクチャ](../06_Architecture/Details/mcp/01_Architecture.md)が所有し、本書で再定義しない。
 
 MCPはCoordinatorのsubcommandではない。Project RuntimeやPlatform Accessには独立した利用者向けProcess入口がないため、MCPと同じ形のWorkflowを機械的に追加しない。
 
@@ -31,4 +31,4 @@ MCPはCoordinatorのsubcommandではない。Project RuntimeやPlatform Access�
 
 ## 開発確認
 
-MCP packageの型、Lint、Formatおよび試験は`40_Develop/mcp`の`package.json`が所有する入口から実行する。公開入口からProject Runtimeまでの総合確認、実Provider、正式署名またはRelease判断を、package単体試験の成功から推定しない。実行対象と必要な試験は[検証設計](../07_Quality/03_Verification_Design.md)と[試験カタログ](../07_Quality/04_Test_Catalog.json)から選ぶ。
+MCP packageの型、Lint、Formatおよび試験は`40_Develop/mcp`の`package.json`が所有する入口から実行する。公開入口からProject Runtimeまでの総合確認、実Provider、正式署名またはRelease判断を、package単体試験の成功から推定しない。実行対象と必要な試験は[検証設計](../07_Quality/03_Verification_Design.md)と[試験カタログ](../07_Quality/Registry/test-catalog.json)から選ぶ。

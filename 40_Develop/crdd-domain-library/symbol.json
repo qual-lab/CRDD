@@ -1,0 +1,216 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "crdd-domain-library",
+  "symbols": [
+    {
+      "symbolId": "crdd-domain-library.common-outcome-entry",
+      "kind": "module",
+      "path": "src/outcome.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.artifact-entry",
+      "kind": "module",
+      "path": "src/artifact/index.ts",
+      "archIds": [
+        "ARCH-000001"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.reality-traceability-entry",
+      "kind": "module",
+      "path": "src/reality-traceability/index.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.repository-entry",
+      "kind": "module",
+      "path": "src/repository-observation/index.ts",
+      "archIds": [
+        "ARCH-000009"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.filesystem-store-root-entry",
+      "kind": "module",
+      "path": "src/filesystem-store-root/index.ts",
+      "archIds": [
+        "ARCH-000009"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.filesystem-store-kernel-lock-worker",
+      "kind": "module",
+      "path": "src/filesystem-store-root/filesystem-store-kernel-lock-worker.ts",
+      "archIds": [
+        "ARCH-000009"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.quality-change-control-entry",
+      "kind": "module",
+      "path": "src/quality-change-control/index.ts",
+      "archIds": [
+        "ARCH-000003"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.test.unit.public-boundary",
+      "kind": "test-suite",
+      "path": "tests/unit/public-boundary.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-014",
+        "RCM-UT-016"
+      ],
+      "verifies": [
+        "crdd-domain-library.artifact-entry",
+        "crdd-domain-library.reality-traceability-entry",
+        "crdd-domain-library.repository-entry",
+        "crdd-domain-library.source.src.index"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.test.integration.reality-repository",
+      "kind": "test-suite",
+      "path": "tests/integration/reality-repository.integration.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-012"
+      ],
+      "verifies": [
+        "crdd-domain-library.source.src.reality.traceability.symbol.graph",
+        "crdd-domain-library.source.src.reality.traceability.symbol.manifest.validator",
+        "version-control.source.src.repository.location"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.test.integration.quality-change-control",
+      "kind": "test-suite",
+      "path": "tests/integration/quality-change-control.contract.test.ts",
+      "qaIds": [
+        "QA-000002"
+      ],
+      "localTestIds": [
+        "CQS-IT-002",
+        "CQS-IT-003",
+        "CQS-IT-004",
+        "CQS-IT-008",
+        "CQS-IT-009"
+      ],
+      "verifies": [
+        "crdd-domain-library.source.src.quality.change.control.quality.gate"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.test.system.quality-change-control",
+      "kind": "test-suite",
+      "path": "tests/system/quality-change-control.contract.test.ts",
+      "qaIds": [
+        "QA-000002"
+      ],
+      "localTestIds": [
+        "CQS-ST-005",
+        "CQS-ST-008",
+        "CQS-ST-009"
+      ],
+      "verifies": [
+        "crdd-domain-library.quality-change-control-entry",
+        "crdd-domain-library.source.src.quality.change.control.quality.gate"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.test.unit.repository-observation",
+      "kind": "test-suite",
+      "path": "tests/unit/repository-observation.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-UT-011"
+      ],
+      "verifies": [
+        "crdd-domain-library.source.src.repository.observation.filesystem.repository.observer"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.test.unit.filesystem-store-root",
+      "kind": "test-suite",
+      "path": "tests/unit/filesystem-store-root.contract.test.ts",
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-UT-006"
+      ],
+      "verifies": [
+        "crdd-domain-library.filesystem-store-root-entry"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.source.src.index",
+      "kind": "file",
+      "path": "src/index.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.source.src.quality.change.control.quality.gate",
+      "kind": "file",
+      "path": "src/quality-change-control/quality-gate.ts",
+      "archIds": [
+        "ARCH-000003"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.source.src.repository.observation.filesystem.repository.observer",
+      "kind": "file",
+      "path": "src/repository-observation/filesystem-repository-observer.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.source.src.reality.traceability.symbol.manifest.model",
+      "kind": "file",
+      "path": "src/reality-traceability/symbol-manifest-model.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.source.src.reality.traceability.symbol.graph",
+      "kind": "file",
+      "path": "src/reality-traceability/symbol-graph.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.source.src.reality.traceability.symbol.manifest.validator",
+      "kind": "file",
+      "path": "src/reality-traceability/symbol-manifest-validator.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "crdd-domain-library.source.src.repository.observation.reality.symbol.repository.observer",
+      "kind": "file",
+      "path": "src/repository-observation/reality-symbol-repository-observer.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    }
+  ]
+}

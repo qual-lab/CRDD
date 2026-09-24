@@ -2,7 +2,7 @@
 
 # 自律Operation（Autonomous Operation）
 
-Version: v0.20.1
+Version: v0.21.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-09-06
@@ -13,7 +13,7 @@ Related:
 - [11_Skill.md](11_Skill.md)
 - [16_Quality_Assurance.md](16_Quality_Assurance.md)
 - [18_Context_Dependency.md](18_Context_Dependency.md)
-- [99_Roadmap/01_Product_Roadmap.md](99_Roadmap/01_Product_Roadmap.md)
+- [99_Roadmap/01_Roadmap.md](./99_Roadmap/01_Roadmap.md)
 
 > 本書は自律Operationの目的と全体像を保持する非規範のArchitecture Candidateである。将来の規範化候補を評価できる正本資料だが、現在の規範要件ではない。候補の存在だけから、採用側の有効化、決定権限、Capability、準拠またはReleaseを成立させない。
 
@@ -98,7 +98,7 @@ Layer 1はCRDDが意味を所有する。Layer 2はCRDDとRuntimeの境界を定
 
 自律Operationは、人間を排除する構想ではない。AIが状況収集、差分把握、再評価候補、根拠整理を担い、人間が価値、方向、優先順位、重要判断、リスク受容へ集中できる状態を目指す。
 
-候補正本、実行実装、採用側の有効化、決定権限、準拠およびReleaseを分離する。同じbranchまたはCommitに含まれること、候補を表現できること、PoCや試験が成功したことから、Capabilityの有効化またはAuthority Grantを推定しない。採用する場合は、変更トレース、対象Version、移行、準拠影響、専門確認および人間判断を必要とする。統合前の候補資料と文書移管の来歴は[CHG-000014](90_Release/Changes/CHG-000014_V018_Architecture_Candidate_Integration.md)で再構成できる。
+候補正本、実行実装、採用側の有効化、決定権限、準拠およびReleaseを分離する。同じbranchまたはCommitに含まれること、候補を表現できること、PoCや試験が成功したことから、Capabilityの有効化またはAuthority Grantを推定しない。採用する場合は、変更トレース、対象Version、移行、準拠影響、専門確認および人間判断を必要とする。統合前の候補資料と文書移管の来歴は[CHG-000014](./99_Roadmap/Changes/CHG-000014/change.md)で再構成できる。
 
 ---
 
@@ -271,7 +271,7 @@ AIがCRDD Coreを自己変更することとは分離する。Core変更は、�
 
 CRDDの基礎契約は「AIとプロダクトを作る」ための安定した土台を目指す。本候補は、その土台の上で「AIとプロダクトを継続的に育てる」運用を検証する。
 
-未完了の実証候補は[Product Roadmap](99_Roadmap/01_Product_Roadmap.md)に置く。
+未完了の実証候補は[Product Roadmap](./99_Roadmap/01_Roadmap.md)に置く。
 
 ---
 
@@ -948,7 +948,7 @@ Current Revision == A ?
 - 人間、利用者、事業への影響
 - 一定期間の累積Effect
 
-BudgetはRun単位に加え、必要に応じて日、週、Release等の期間で累積する。一つずつは許可範囲でも、累積するとDirectionや運用を実質変更するEffectを検出する。
+BudgetはRun単位で必ず評価する。反復実行または複数Runの累積EffectがDirectionや運用を実質変更し得る場合は、日、週、Release等の期間Budgetも`Applicable`として定義する。累積しない場合は理由付き`N/A`、判断に必要な情報が不足する場合は理由・確認先・再評価契機付き`OPEN`とする。
 
 固定値をCRDD Coreへ埋め込まない。Activation Profile、Operation、対象環境、既存Policyに応じてRuntimeが上限を強制し、超過時は停止またはHuman Decisionへ戻す。
 
@@ -993,7 +993,7 @@ Circuit Breakerは停止範囲、原因、未確定Effect、封じ込め、再�
 - 決定論的検証がEffect全体を証明できる場合は、その証明範囲を明示する。
 - 意味、Authority、外部影響、重大Risk等の機械検証外は独立確認またはHuman Gateへ戻す。
 - Checker成功を意味、準拠、公開、Security、安全なPromotionへ流用しない。
-- Rollback可能という主張だけで可逆とみなさず、必要に応じてRecoveryを演習する。
+- Rollback可能という主張だけで可逆とみなさず、Recovery演習の適用可否を評価する。不可逆Effect、部分成功、外部状態または残存資源を持つ場合は演習を`Applicable`とし、非該当または未解決には理由を残す。
 - 外部伝播を完全に戻せない場合は、Compensating Action、通知、Credential失効、封じ込めを扱う。
 - Promotion、Reject、Recoverの結果をRun IdentityとEffect Manifestへ接続する。
 
@@ -1453,7 +1453,7 @@ CRDD共通の不変条件は次のとおりである。
 - AI、Runtime、ToolまたはInstance自身がIdentity Policyを自己確定しない。
 - IdentityまたはCanonical Instanceを判定できない場合は、対象Effectを停止する。
 
-採用側のIdentity Policyは、既存のRepository設定、組織Policyまたは採用記録から取得できればよく、新しい専用成果物を要求しない。少なくとも必要に応じて次を決める。
+採用側のIdentity Policyは、既存のRepository設定、組織Policyまたは採用記録から取得できればよく、新しい専用成果物を要求しない。次の各項目を評価し、適用内容、理由付き`N/A`または理由・確認先・再評価契機付き`OPEN`へ処置する。
 
 - Canonical RepositoryまたはCanonical Instance
 - clone、mirror、worktree等を同じLogical RepositoryのInstanceとする条件

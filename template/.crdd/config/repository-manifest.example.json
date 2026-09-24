@@ -1,0 +1,11 @@
+{
+  "schema": "crdd/repository-manifest/v1",
+  "projectId": "replace-with-stable-project-id",
+  "displayName": "Replace with project display name",
+  "repositoryRole": "crdd-adopted",
+  "capabilities": [],
+  "contextSurfaces": [
+    "crdd-context"
+  ],
+  "externalSendPolicy": "config/external-send-policy.json"
+}

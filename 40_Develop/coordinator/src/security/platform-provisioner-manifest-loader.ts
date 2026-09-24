@@ -1,3 +1,9 @@
+/**
+ * platform-provisioner-manifest-loaderに属する責務をまとめる。
+ *
+ * @responsibility stableManifestBytesを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000014
+ */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -11,6 +17,22 @@ export const HISTORICAL_V2_PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH =
 
 export const PLATFORM_PROVISIONER_MANIFEST_MAXIMUM_BYTES = 128 * 1024;
 
+/**
+ * Manifest Bytesを安定Identityへ変換する。
+ *
+ * @responsibility Manifest Bytesの正規化条件、一意性、変換不能時の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input target: string
+ * @returns stableManifestBytesの計算結果を返す。
+ * @precondition 「target: string」がstableManifestBytesの入力契約を満たす。
+ * @postcondition stableManifestBytesの責務を完了した結果だけを返す。
+ * @effect stableManifestBytesはFilesystemの読取りまたは書込みを実行する。
+ * @failure stableManifestBytesは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant stableManifestBytesは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security stableManifestBytesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: stableManifestBytesは共有非同期状態を持たない同期処理である。
+ */
 function stableManifestBytes(target: string) {
   const before = fs.lstatSync(target, { bigint: true });
   if (
@@ -74,6 +96,22 @@ function stableManifestBytes(target: string) {
   }
 }
 
+/**
+ * manifest Pathを決定する。
+ *
+ * @responsibility manifest Pathの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input distributionRoot: string、relativePath: string
+ * @returns manifestPathの計算結果を返す。
+ * @precondition 「distributionRoot: string、relativePath: string」がmanifestPathの入力契約を満たす。
+ * @postcondition manifestPathの責務を完了した結果だけを返す。
+ * @effect manifestPathはFilesystemの読取りまたは書込みを実行する。
+ * @failure manifestPathは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant manifestPathは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security manifestPathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: manifestPathは共有非同期状態を持たない同期処理である。
+ */
 function manifestPath(distributionRoot: string, relativePath: string) {
   if (
     typeof distributionRoot !== "string" ||
@@ -95,6 +133,22 @@ function manifestPath(distributionRoot: string, relativePath: string) {
   return path.join(resolved, ...relativePath.split("/"));
 }
 
+/**
+ * Manifest At Relative Pathを読み込む。
+ *
+ * @responsibility Manifest At Relative Pathの読取り元、Schema検証、読取不能時の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input distributionRoot: string、relativePath: string
+ * @returns loadManifestAtRelativePathの計算結果を返す。
+ * @precondition 「distributionRoot: string、relativePath: string」がloadManifestAtRelativePathの入力契約を満たす。
+ * @postcondition loadManifestAtRelativePathの責務を完了した結果だけを返す。
+ * @effect N/A: loadManifestAtRelativePathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure loadManifestAtRelativePathは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant loadManifestAtRelativePathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: loadManifestAtRelativePathはProcess内の同一Subsystemで完結する。
+ * @security loadManifestAtRelativePathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: loadManifestAtRelativePathは共有非同期状態を持たない同期処理である。
+ */
 function loadManifestAtRelativePath(
   distributionRoot: string,
   relativePath: string,
@@ -125,6 +179,22 @@ function loadManifestAtRelativePath(
   });
 }
 
+/**
+ * Platform Provisioner Manifest Envelope For Verificationを読み込む。
+ *
+ * @responsibility Platform Provisioner Manifest Envelope For Verificationの読取り元、Schema検証、読取不能時の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input distributionRoot: string
+ * @returns loadPlatformProvisionerManifestEnvelopeForVerificationの計算結果を返す。
+ * @precondition 「distributionRoot: string」がloadPlatformProvisionerManifestEnvelopeForVerificationの入力契約を満たす。
+ * @postcondition loadPlatformProvisionerManifestEnvelopeForVerificationの責務を完了した結果だけを返す。
+ * @effect N/A: loadPlatformProvisionerManifestEnvelopeForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: loadPlatformProvisionerManifestEnvelopeForVerificationは独自の失敗分岐を所有しない。
+ * @invariant loadPlatformProvisionerManifestEnvelopeForVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: loadPlatformProvisionerManifestEnvelopeForVerificationはProcess内の同一Subsystemで完結する。
+ * @security loadPlatformProvisionerManifestEnvelopeForVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: loadPlatformProvisionerManifestEnvelopeForVerificationは共有非同期状態を持たない同期処理である。
+ */
 export function loadPlatformProvisionerManifestEnvelopeForVerification(
   distributionRoot: string,
 ) {
@@ -134,6 +204,22 @@ export function loadPlatformProvisionerManifestEnvelopeForVerification(
   );
 }
 
+/**
+ * Historical V2 Platform Provisioner Manifest Envelope For Verificationを読み込む。
+ *
+ * @responsibility Historical V2 Platform Provisioner Manifest Envelope For Verificationの読取り元、Schema検証、読取不能時の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input distributionRoot: string
+ * @returns loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerificationの計算結果を返す。
+ * @precondition 「distributionRoot: string」がloadHistoricalV2PlatformProvisionerManifestEnvelopeForVerificationの入力契約を満たす。
+ * @postcondition loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerificationの責務を完了した結果だけを返す。
+ * @effect N/A: loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerificationは独自の失敗分岐を所有しない。
+ * @invariant loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerificationはProcess内の同一Subsystemで完結する。
+ * @security loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerificationは共有非同期状態を持たない同期処理である。
+ */
 export function loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerification(
   distributionRoot: string,
 ) {
@@ -143,6 +229,22 @@ export function loadHistoricalV2PlatformProvisionerManifestEnvelopeForVerificati
   );
 }
 
+/**
+ * manifest Entry Existsを決定する。
+ *
+ * @responsibility manifest Entry Existsの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input distributionRoot: string、relativePath: string
+ * @returns manifestEntryExistsの計算結果を返す。
+ * @precondition 「distributionRoot: string、relativePath: string」がmanifestEntryExistsの入力契約を満たす。
+ * @postcondition manifestEntryExistsの責務を完了した結果だけを返す。
+ * @effect manifestEntryExistsはFilesystemの読取りまたは書込みを実行する。
+ * @failure manifestEntryExistsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant manifestEntryExistsは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security manifestEntryExistsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: manifestEntryExistsは共有非同期状態を持たない同期処理である。
+ */
 function manifestEntryExists(distributionRoot: string, relativePath: string) {
   try {
     fs.lstatSync(manifestPath(distributionRoot, relativePath));
@@ -161,8 +263,19 @@ function manifestEntryExists(distributionRoot: string, relativePath: string) {
 
 /**
  * Loads exactly one signed manifest layout for historical recovery. This is
- * not a general fallback: an ambiguous root containing both layouts is
- * rejected before either manifest can be used.
+ *
+ * @responsibility Historical Release Manifest Envelope For Verificationの読取り元、Schema検証、読取不能時の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input distributionRoot: string
+ * @returns loadHistoricalReleaseManifestEnvelopeForVerificationの計算結果を返す。
+ * @precondition 「distributionRoot: string」がloadHistoricalReleaseManifestEnvelopeForVerificationの入力契約を満たす。
+ * @postcondition loadHistoricalReleaseManifestEnvelopeForVerificationの責務を完了した結果だけを返す。
+ * @effect N/A: loadHistoricalReleaseManifestEnvelopeForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure loadHistoricalReleaseManifestEnvelopeForVerificationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant loadHistoricalReleaseManifestEnvelopeForVerificationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: loadHistoricalReleaseManifestEnvelopeForVerificationはProcess内の同一Subsystemで完結する。
+ * @security loadHistoricalReleaseManifestEnvelopeForVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: loadHistoricalReleaseManifestEnvelopeForVerificationは共有非同期状態を持たない同期処理である。
  */
 export function loadHistoricalReleaseManifestEnvelopeForVerification(
   distributionRoot: string,
@@ -184,6 +297,22 @@ export function loadHistoricalReleaseManifestEnvelopeForVerification(
       );
 }
 
+/**
+ * Platform Provisioner Manifest File 候補を観測する。
+ *
+ * @responsibility Platform Provisioner Manifest File 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input distributionRoot: unknown
+ * @returns inspectPlatformProvisionerManifestFileCandidateの計算結果を返す。
+ * @precondition 「distributionRoot: unknown」がinspectPlatformProvisionerManifestFileCandidateの入力契約を満たす。
+ * @postcondition inspectPlatformProvisionerManifestFileCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectPlatformProvisionerManifestFileCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectPlatformProvisionerManifestFileCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectPlatformProvisionerManifestFileCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectPlatformProvisionerManifestFileCandidateはProcess内の同一Subsystemで完結する。
+ * @security inspectPlatformProvisionerManifestFileCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectPlatformProvisionerManifestFileCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectPlatformProvisionerManifestFileCandidate(
   distributionRoot: unknown,
 ) {
@@ -222,6 +351,22 @@ export function inspectPlatformProvisionerManifestFileCandidate(
   }
 }
 
+/**
+ * Platform Provisioner Manifest Loader 契約の公開契約を記述する。
+ *
+ * @responsibility Platform Provisioner Manifest Loader 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000014
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describePlatformProvisionerManifestLoaderContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribePlatformProvisionerManifestLoaderContractの入力契約を満たす。
+ * @postcondition describePlatformProvisionerManifestLoaderContractの責務を完了した結果だけを返す。
+ * @effect N/A: describePlatformProvisionerManifestLoaderContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describePlatformProvisionerManifestLoaderContractは独自の失敗分岐を所有しない。
+ * @invariant describePlatformProvisionerManifestLoaderContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describePlatformProvisionerManifestLoaderContractはProcess内の同一Subsystemで完結する。
+ * @security describePlatformProvisionerManifestLoaderContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describePlatformProvisionerManifestLoaderContractは共有非同期状態を持たない同期処理である。
+ */
 export function describePlatformProvisionerManifestLoaderContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-manifest-loader",

@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:platform-provisioner-trust-coreの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:platform-provisioner-trust-coreが所有する検証責務を実行する。
+ * @trace AIT-UT-005
+ * @level UT
+ * @scope platform、provisioner、trust、core
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import test from "node:test";
@@ -16,6 +26,18 @@ import {
 } from "../../src/security/platform-provisioner-trust-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../../src/security/provisioning-signature-primitives.ts";
 
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace AIT-UT-005
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 function fixture() {
   const signer = generateKeyPairSync("ed25519");
   const spki = signer.publicKey.export({ type: "spki", format: "der" });
@@ -89,6 +111,18 @@ function fixture() {
   };
 }
 
+/**
+ * revision 5 manifestは閉じた実行集合とPlatform Access成果物を署名境界へ含めるを検証する。
+ *
+ * @responsibility revision 5 manifestは閉じた実行集合とPlatform Access成果物を署名境界へ含めるの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus revision 5 manifestは閉じた実行集合とPlatform Access成果物を署名境界へ含めるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("revision 5 manifestは閉じた実行集合とPlatform Access成果物を署名境界へ含める", () => {
   const result = verifyPlatformProvisionerManifestCandidate(fixture());
   assert.equal(result.status, "candidate");
@@ -99,6 +133,18 @@ test("revision 5 manifestは閉じた実行集合とPlatform Access成果物を�
   assert.equal(result.runtimeCapabilityIssued, false);
 });
 
+/**
+ * 旧revision 2署名は履歴由来の確認だけに受理し現在の実行Authorityへ昇格しないを検証する。
+ *
+ * @responsibility 旧revision 2署名は履歴由来の確認だけに受理し現在の実行Authorityへ昇格しないの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 旧revision 2署名は履歴由来の確認だけに受理し現在の実行Authorityへ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("旧revision 2署名は履歴由来の確認だけに受理し現在の実行Authorityへ昇格しない", () => {
   const signer = generateKeyPairSync("ed25519");
   const spki = signer.publicKey.export({ type: "spki", format: "der" });
@@ -175,6 +221,18 @@ test("旧revision 2署名は履歴由来の確認だけに受理し現在の実�
   );
 });
 
+/**
+ * 削除済みnative supervisor fieldと旧revisionを受理しないを検証する。
+ *
+ * @responsibility 削除済みnative supervisor fieldと旧revisionを受理しないの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 削除済みnative supervisor fieldと旧revisionを受理しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("削除済みnative supervisor fieldと旧revisionを受理しない", () => {
   for (const mutate of [
     (value: ReturnType<typeof fixture>) => {
@@ -199,6 +257,18 @@ test("削除済みnative supervisor fieldと旧revisionを受理しない", () =
   }
 });
 
+/**
+ * 署名・package内容・有効期間の差をfail closedにするを検証する。
+ *
+ * @responsibility 署名・package内容・有効期間の差をfail closedにするの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 署名・package内容・有効期間の差をfail closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("署名・package内容・有効期間の差をfail closedにする", () => {
   const mutations: Array<(value: ReturnType<typeof fixture>) => void> = [
     (value) => {
@@ -225,6 +295,18 @@ test("署名・package内容・有効期間の差をfail closedにする", () =>
   }
 });
 
+/**
+ * package内容Rootは順序をexactに検証するを検証する。
+ *
+ * @responsibility package内容Rootは順序をexactに検証するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus package内容Rootは順序をexactに検証するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("package内容Rootは順序をexactに検証する", () => {
   const value = fixture();
   assert.equal(
@@ -242,6 +324,18 @@ test("package内容Rootは順序をexactに検証する", () => {
   );
 });
 
+/**
+ * Runtime Execution IdentityはRelease provenanceから独立し、Policy・Native差を検出するを検証する。
+ *
+ * @responsibility Runtime Execution IdentityはRelease provenanceから独立し、Policy・Native差を検出するの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Runtime Execution IdentityはRelease provenanceから独立し、Policy・Native差を検出するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Runtime Execution IdentityはRelease provenanceから独立し、Policy・Native差を検出する", () => {
   const value = fixture();
   const payload = value.manifestEnvelope.payload;
@@ -287,6 +381,18 @@ test("Runtime Execution IdentityはRelease provenanceから独立し、Policy・
   );
 });
 
+/**
+ * Trust Coreの説明は単一Native成果物と非権限性を示すを検証する。
+ *
+ * @responsibility Trust Coreの説明は単一Native成果物と非権限性を示すの合否判定を所有する。
+ * @trace AIT-UT-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Trust Coreの説明は単一Native成果物と非権限性を示すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ */
 test("Trust Coreの説明は単一Native成果物と非権限性を示す", () => {
   const contract = describePlatformProvisionerTrustCoreContract();
   assert.equal(contract.contractRevision, 5);

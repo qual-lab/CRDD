@@ -1,3 +1,13 @@
+/**
+ * coordinator:integration:docker-desktop-repair-record-storeの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:integration:docker-desktop-repair-record-storeが所有する検証責務を実行する。
+ * @trace ERP-IT-001
+ * @level IT
+ * @scope docker、desktop、repair、record、store
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -23,6 +33,18 @@ import {
 } from "../../src/security/docker-desktop-repair-record-store.ts";
 import { inspectDockerRecoveryRootSnapshotWithLock } from "../../src/security/docker-recovery-runtime-internal.ts";
 
+/**
+ * fixtureのTest準備責務を実行する。
+ *
+ * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERP-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus fixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 function fixture(t: TestContext) {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-docker-repair-record-"),
@@ -61,6 +83,18 @@ function fixture(t: TestContext) {
   return Object.freeze({ boundary, ledger, runtimeStateRoot });
 }
 
+/**
+ * Desktop修復の実Store記録はDocker Task inventoryと共存し原記録を保持するを検証する。
+ *
+ * @responsibility Desktop修復の実Store記録はDocker Task inventoryと共存し原記録を保持するの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Desktop修復の実Store記録はDocker Task inventoryと共存し原記録を保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("Desktop修復の実Store記録はDocker Task inventoryと共存し原記録を保持する", (t) => {
   const base = fixture(t);
   const operation = createDockerDesktopRepairOperation(
@@ -75,6 +109,18 @@ test("Desktop修復の実Store記録はDocker Task inventoryと共存し原記�
     base.ledger,
   );
   assert.ok(saved);
+  /**
+   * snapshotのTest準備責務を実行する。
+   *
+   * @responsibility snapshotがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERP-IT-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus snapshotを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+   */
   const snapshot = () =>
     fs.readdirSync(saved.operationDirectory).map((name) => {
       const target = path.join(saved.operationDirectory, name);
@@ -106,6 +152,18 @@ test("Desktop修復の実Store記録はDocker Task inventoryと共存し原記�
   );
 });
 
+/**
+ * Desktop修復Directory名は正規の閉集合だけを認識するを検証する。
+ *
+ * @responsibility Desktop修復Directory名は正規の閉集合だけを認識するの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Desktop修復Directory名は正規の閉集合だけを認識するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("Desktop修復Directory名は正規の閉集合だけを認識する", () => {
   assert.equal(
     parseDockerDesktopRepairDirectoryName(
@@ -125,6 +183,18 @@ test("Desktop修復Directory名は正規の閉集合だけを認識する", () =
   }
 });
 
+/**
+ * ledgerForRecordのTest準備責務を実行する。
+ *
+ * @responsibility ledgerForRecordがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERP-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus ledgerForRecordを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 function ledgerForRecord(ledger: DockerDesktopRepairOperation["ledger"]) {
   const lastRecordWriteIndex = ledger.filesystemEffects.findLastIndex(
     (entry) => entry.action === "record_write",
@@ -155,6 +225,18 @@ function ledgerForRecord(ledger: DockerDesktopRepairOperation["ledger"]) {
   });
 }
 
+/**
+ * persistRecordのTest準備責務を実行する。
+ *
+ * @responsibility persistRecordがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERP-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus persistRecordを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 function persistRecord(
   boundary: Parameters<typeof persistDockerDesktopRepairStage>[0],
   operation: Parameters<typeof persistDockerDesktopRepairStage>[1],
@@ -169,6 +251,18 @@ function persistRecord(
   );
 }
 
+/**
+ * historyFixtureのTest準備責務を実行する。
+ *
+ * @responsibility historyFixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERP-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus historyFixtureを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 function historyFixture(t: TestContext) {
   const base = fixture(t);
   const created = createDockerDesktopRepairOperation(
@@ -193,6 +287,18 @@ function historyFixture(t: TestContext) {
   const adoptingManifest = { fixture: "adopting" };
   // Crypto is tested with real Ed25519 envelopes in trust-core tests. This
   // verifier seam limits the store tests to already-verified release tuples.
+  /**
+   * verifyHistoryのTest準備責務を実行する。
+   *
+   * @responsibility verifyHistoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERP-IT-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus verifyHistoryを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+   */
   const verifyHistory: DockerDesktopRepairHistoryVerifier = (value) => {
     const target =
       JSON.stringify(value) === JSON.stringify(originManifest)
@@ -220,6 +326,18 @@ function historyFixture(t: TestContext) {
   };
 }
 
+/**
+ * historyPreparationPathのTest準備責務を実行する。
+ *
+ * @responsibility historyPreparationPathがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERP-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus historyPreparationPathを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 function historyPreparationPath(
   operationDirectory: string,
   targetName: string,
@@ -230,6 +348,18 @@ function historyPreparationPath(
   );
 }
 
+/**
+ * leaveHistoryPublicationStateのTest準備責務を実行する。
+ *
+ * @responsibility leaveHistoryPublicationStateがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERP-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus leaveHistoryPublicationStateを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 function leaveHistoryPublicationState(
   operationDirectory: string,
   targetName: string,
@@ -243,6 +373,18 @@ function leaveHistoryPublicationState(
   return { target, preparation };
 }
 
+/**
+ * revision 4の終了前修復記録は署名済み旧releaseの履歴としてのみ再構成できるを検証する。
+ *
+ * @responsibility revision 4の終了前修復記録は署名済み旧releaseの履歴としてのみ再構成できるの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus revision 4の終了前修復記録は署名済み旧releaseの履歴としてのみ再構成できるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("revision 4の終了前修復記録は署名済み旧releaseの履歴としてのみ再構成できる", (t) => {
   const base = fixture(t);
   const created = createDockerDesktopRepairOperation(
@@ -279,6 +421,18 @@ test("revision 4の終了前修復記録は署名済み旧releaseの履歴とし
     runtimeExecutionIdentitySha256: "d".repeat(64),
   };
   const originManifest = { release: "v0.18.0" };
+  /**
+   * verifyHistoryのTest準備責務を実行する。
+   *
+   * @responsibility verifyHistoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERP-IT-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus verifyHistoryを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+   */
   const verifyHistory: DockerDesktopRepairHistoryVerifier = (value) =>
     value === originManifest
       ? {
@@ -303,6 +457,18 @@ test("revision 4の終了前修復記録は署名済み旧releaseの履歴とし
   assert.equal(inspected?.stage, "prepared");
 });
 
+/**
+ * historical adoption keeps original bytes, ID and stage; ordinary current-version inventory stays strictを検証する。
+ *
+ * @responsibility historical adoption keeps original bytes, ID and stage; ordinary current-version inventory stays strictの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus historical adoption keeps original bytes, ID and stage; ordinary current-version inventory stays strictの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("historical adoption keeps original bytes, ID and stage; ordinary current-version inventory stays strict", (t) => {
   const value = historyFixture(t);
   const originalPath = path.join(
@@ -366,6 +532,18 @@ test("historical adoption keeps original bytes, ID and stage; ordinary current-v
 });
 
 for (const state of ["prepare_only", "published_residue"] as const) {
+  /**
+   * 修復履歴adoptionは公開途中の${state}から同じID・byteへ再入場するを検証する。
+   *
+   * @responsibility 修復履歴adoptionは公開途中の${state}から同じID・byteへ再入場するの合否判定を所有する。
+   * @trace ERP-IT-001
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 修復履歴adoptionは公開途中の${state}から同じID・byteへ再入場するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+   */
   test(`修復履歴adoptionは公開途中の${state}から同じID・byteへ再入場する`, (t) => {
     const value = historyFixture(t);
     const adopted = persistDockerDesktopRepairHistoricalAdoption(
@@ -409,6 +587,18 @@ for (const state of ["prepare_only", "published_residue"] as const) {
   });
 }
 
+/**
+ * 修復履歴adoptionはbyteが同じでも別fileのprepareを削除せず拒否するを検証する。
+ *
+ * @responsibility 修復履歴adoptionはbyteが同じでも別fileのprepareを削除せず拒否するの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 修復履歴adoptionはbyteが同じでも別fileのprepareを削除せず拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("修復履歴adoptionはbyteが同じでも別fileのprepareを削除せず拒否する", (t) => {
   const value = historyFixture(t);
   const adopted = persistDockerDesktopRepairHistoricalAdoption(
@@ -451,6 +641,18 @@ test("修復履歴adoptionはbyteが同じでも別fileのprepareを削除せず
 });
 
 for (const mutation of ["partial", "directory", "unknown_name"] as const) {
+  /**
+   * 修復履歴は不正prepareを変更せず拒否する: ${mutation}を検証する。
+   *
+   * @responsibility 修復履歴は不正prepareを変更せず拒否する: ${mutation}の合否判定を所有する。
+   * @trace ERP-IT-001
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 修復履歴は不正prepareを変更せず拒否する: ${mutation}の対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+   */
   test(`修復履歴は不正prepareを変更せず拒否する: ${mutation}`, (t) => {
     const value = historyFixture(t);
     const adopted = persistDockerDesktopRepairHistoricalAdoption(
@@ -494,6 +696,18 @@ for (const mutation of ["partial", "directory", "unknown_name"] as const) {
   });
 }
 
+/**
+ * historical inspection preserves the recorded origin policy and binds adoption to the current policyを検証する。
+ *
+ * @responsibility historical inspection preserves the recorded origin policy and binds adoption to the current policyの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus historical inspection preserves the recorded origin policy and binds adoption to the current policyの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("historical inspection preserves the recorded origin policy and binds adoption to the current policy", (t) => {
   const value = historyFixture(t);
   const nextPolicyBoundary = {
@@ -551,6 +765,18 @@ test("historical inspection preserves the recorded origin policy and binds adopt
   );
 });
 
+/**
+ * historical inspection refuses changed host/user/protection bindings and future releasesを検証する。
+ *
+ * @responsibility historical inspection refuses changed host/user/protection bindings and future releasesの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus historical inspection refuses changed host/user/protection bindings and future releasesの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("historical inspection refuses changed host/user/protection bindings and future releases", (t) => {
   const value = historyFixture(t);
   for (const field of [
@@ -623,6 +849,18 @@ for (const mutation of [
   "original-bytes",
   "extra-record",
 ] as const) {
+  /**
+   * historical receipt or chain mutation fails closed: ${mutation}を検証する。
+   *
+   * @responsibility historical receipt or chain mutation fails closed: ${mutation}の合否判定を所有する。
+   * @trace ERP-IT-001
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus historical receipt or chain mutation fails closed: ${mutation}の対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+   */
   test(`historical receipt or chain mutation fails closed: ${mutation}`, (t) => {
     const value = historyFixture(t);
     const adopted = persistDockerDesktopRepairHistoricalAdoption(
@@ -679,6 +917,18 @@ for (const mutation of [
   });
 }
 
+/**
+ * historical closure is a separate exact receipt and never changes the original ledgerを検証する。
+ *
+ * @responsibility historical closure is a separate exact receipt and never changes the original ledgerの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus historical closure is a separate exact receipt and never changes the original ledgerの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("historical closure is a separate exact receipt and never changes the original ledger", (t) => {
   const value = historyFixture(t);
   const adopted = persistDockerDesktopRepairHistoricalAdoption(
@@ -740,6 +990,18 @@ test("historical closure is a separate exact receipt and never changes the origi
   );
 });
 
+/**
+ * 終了済み引継ぎ履歴は同一ユーザーの再ログオン後も読めるが旧操作を再開しないを検証する。
+ *
+ * @responsibility 終了済み引継ぎ履歴は同一ユーザーの再ログオン後も読めるが旧操作を再開しないの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 終了済み引継ぎ履歴は同一ユーザーの再ログオン後も読めるが旧操作を再開しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("終了済み引継ぎ履歴は同一ユーザーの再ログオン後も読めるが旧操作を再開しない", (t) => {
   const value = historyFixture(t);
   const adopted = persistDockerDesktopRepairHistoricalAdoption(
@@ -770,6 +1032,18 @@ test("終了済み引継ぎ履歴は同一ユーザーの再ログオン後も�
     value.verifyHistory,
   );
   assert.ok(closed);
+  /**
+   * snapshotのTest準備責務を実行する。
+   *
+   * @responsibility snapshotがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERP-IT-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus snapshotを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+   */
   const snapshot = () =>
     fs
       .readdirSync(closed.operationDirectory)
@@ -828,6 +1102,18 @@ test("終了済み引継ぎ履歴は同一ユーザーの再ログオン後も�
   assert.deepEqual(snapshot(), beforeEntries);
 });
 
+/**
+ * 終了済みv1履歴は原記録のポリシーで検証し、ポリシー更新後も再開不能Evidenceとして読めるを検証する。
+ *
+ * @responsibility 終了済みv1履歴は原記録のポリシーで検証し、ポリシー更新後も再開不能Evidenceとして読めるの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 終了済みv1履歴は原記録のポリシーで検証し、ポリシー更新後も再開不能Evidenceとして読めるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("終了済みv1履歴は原記録のポリシーで検証し、ポリシー更新後も再開不能Evidenceとして読める", (t) => {
   const value = historyFixture(t);
   const adopted = persistDockerDesktopRepairHistoricalAdoption(
@@ -885,6 +1171,18 @@ test("終了済みv1履歴は原記録のポリシーで検証し、ポリシー
   });
 });
 
+/**
+ * 修復履歴のsession handoffは8件で閉じ、9件目を記録せず拒否するを検証する。
+ *
+ * @responsibility 修復履歴のsession handoffは8件で閉じ、9件目を記録せず拒否するの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 修復履歴のsession handoffは8件で閉じ、9件目を記録せず拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("修復履歴のsession handoffは8件で閉じ、9件目を記録せず拒否する", (t) => {
   const value = historyFixture(t);
   let operation = persistDockerDesktopRepairHistoricalAdoption(
@@ -936,6 +1234,18 @@ test("修復履歴のsession handoffは8件で閉じ、9件目を記録せず拒
 
 for (const targetKind of ["handoff", "closure"] as const) {
   for (const state of ["prepare_only", "published_residue"] as const) {
+    /**
+     * 修復履歴${targetKind}は公開途中の${state}からexact receiptへ収束するを検証する。
+     *
+     * @responsibility 修復履歴${targetKind}は公開途中の${state}からexact receiptへ収束するの合否判定を所有する。
+     * @trace ERP-IT-001
+     * @precondition Test Fileが構築するfixtureと入力を使用する。
+     * @stimulus 修復履歴${targetKind}は公開途中の${state}からexact receiptへ収束するの対象操作を実行する。
+     * @observation 結果、状態、Effectおよび終了後条件を観測する。
+     * @oracle Test本文のassertionが期待条件を満たす。
+     * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+     * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+     */
     test(`修復履歴${targetKind}は公開途中の${state}からexact receiptへ収束する`, (t) => {
       const value = historyFixture(t);
       const adopted = persistDockerDesktopRepairHistoricalAdoption(
@@ -1019,6 +1329,18 @@ for (const targetKind of ["handoff", "closure"] as const) {
   }
 }
 
+/**
+ * 修復履歴の公開済みtargetと同一fileの準備残存は対象限定persistだけが収束するを検証する。
+ *
+ * @responsibility 修復履歴の公開済みtargetと同一fileの準備残存は対象限定persistだけが収束するの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 修復履歴の公開済みtargetと同一fileの準備残存は対象限定persistだけが収束するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("修復履歴の公開済みtargetと同一fileの準備残存は対象限定persistだけが収束する", (t) => {
   const value = historyFixture(t);
   const adopted = persistDockerDesktopRepairHistoricalAdoption(
@@ -1052,6 +1374,18 @@ test("修復履歴の公開済みtargetと同一fileの準備残存は対象限�
   assert.equal(fs.existsSync(publication.preparation), false);
 });
 
+/**
+ * 本番の回復可能な公開は実行時のfs差替えを注入面にせず固定依存で残存を収束するを検証する。
+ *
+ * @responsibility 本番の回復可能な公開は実行時のfs差替えを注入面にせず固定依存で残存を収束するの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 本番の回復可能な公開は実行時のfs差替えを注入面にせず固定依存で残存を収束するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("本番の回復可能な公開は実行時のfs差替えを注入面にせず固定依存で残存を収束する", (t) => {
   const value = historyFixture(t);
   const adopted = persistDockerDesktopRepairHistoricalAdoption(
@@ -1096,6 +1430,18 @@ test("本番の回復可能な公開は実行時のfs差替えを注入面にせ
 });
 
 for (const mutation of ["self", "cycle", "branch", "skip"] as const) {
+  /**
+   * 修復履歴session handoffは${mutation}連鎖を拒否するを検証する。
+   *
+   * @responsibility 修復履歴session handoffは${mutation}連鎖を拒否するの合否判定を所有する。
+   * @trace ERP-IT-001
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 修復履歴session handoffは${mutation}連鎖を拒否するの対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+   */
   test(`修復履歴session handoffは${mutation}連鎖を拒否する`, (t) => {
     const value = historyFixture(t);
     const adopted = persistDockerDesktopRepairHistoricalAdoption(
@@ -1171,6 +1517,18 @@ for (const mutation of [
   "handoff_same_sequence_different_release",
   "closure_downgrade",
 ] as const) {
+  /**
+   * 修復履歴はRelease単調性違反を拒否する: ${mutation}を検証する。
+   *
+   * @responsibility 修復履歴はRelease単調性違反を拒否する: ${mutation}の合否判定を所有する。
+   * @trace ERP-IT-001
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 修復履歴はRelease単調性違反を拒否する: ${mutation}の対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+   */
   test(`修復履歴はRelease単調性違反を拒否する: ${mutation}`, (t) => {
     const value = historyFixture(t);
     const release3Manifest = { fixture: "release-3" };
@@ -1219,6 +1577,18 @@ for (const mutation of [
         },
       ],
     ]);
+    /**
+     * verifyHistoryのTest準備責務を実行する。
+     *
+     * @responsibility verifyHistoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+     * @trace ERP-IT-001
+     * @precondition 呼出し元Test Caseが必要な入力を渡す。
+     * @stimulus verifyHistoryを呼び出す。
+     * @observation 返却値、生成fixtureまたは観測値を取得する。
+     * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+     * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+     * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+     */
     const verifyHistory: DockerDesktopRepairHistoryVerifier = (manifest) =>
       releases.get(JSON.stringify(manifest)) ?? null;
     const adopted = persistDockerDesktopRepairHistoricalAdoption(
@@ -1310,6 +1680,18 @@ for (const mutation of [
   "later-login-different",
   "mixed-pending",
 ] as const) {
+  /**
+   * 再ログオン後の終了履歴読取りは不正・未終了状態を拒否する: ${mutation}を検証する。
+   *
+   * @responsibility 再ログオン後の終了履歴読取りは不正・未終了状態を拒否する: ${mutation}の合否判定を所有する。
+   * @trace ERP-IT-001
+   * @precondition Test Fileが構築するfixtureと入力を使用する。
+   * @stimulus 再ログオン後の終了履歴読取りは不正・未終了状態を拒否する: ${mutation}の対象操作を実行する。
+   * @observation 結果、状態、Effectおよび終了後条件を観測する。
+   * @oracle Test本文のassertionが期待条件を満たす。
+   * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+   * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+   */
   test(`再ログオン後の終了履歴読取りは不正・未終了状態を拒否する: ${mutation}`, (t) => {
     const value = historyFixture(t);
     const original = persistHostEffect(
@@ -1416,6 +1798,18 @@ for (const mutation of [
   });
 }
 
+/**
+ * persistHostEffectのTest準備責務を実行する。
+ *
+ * @responsibility persistHostEffectがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERP-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus persistHostEffectを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 function persistHostEffect(
   boundary: Parameters<typeof persistDockerDesktopRepairStage>[0],
   operation: DockerDesktopRepairOperation,
@@ -1502,6 +1896,18 @@ function persistHostEffect(
   return settled;
 }
 
+/**
+ * persistNativeKnownAbsentのTest準備責務を実行する。
+ *
+ * @responsibility persistNativeKnownAbsentがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace ERP-IT-001
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus persistNativeKnownAbsentを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 function persistNativeKnownAbsent(
   boundary: Parameters<typeof persistDockerDesktopRepairStage>[0],
   operation: DockerDesktopRepairOperation,
@@ -1530,6 +1936,18 @@ function persistNativeKnownAbsent(
   return observed;
 }
 
+/**
+ * repair recordは順序・hash chain・境界identityを保持して再構成できるを検証する。
+ *
+ * @responsibility repair recordは順序・hash chain・境界identityを保持して再構成できるの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus repair recordは順序・hash chain・境界identityを保持して再構成できるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("repair recordは順序・hash chain・境界identityを保持して再構成できる", (t) => {
   const { boundary, ledger } = fixture(t);
   let operation: DockerDesktopRepairOperation =
@@ -1640,6 +2058,18 @@ test("repair recordは順序・hash chain・境界identityを保持して再構�
   };
   const originManifest = { release: "origin" };
   const adoptingManifest = { release: "current" };
+  /**
+   * verifyHistoryのTest準備責務を実行する。
+   *
+   * @responsibility verifyHistoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+   * @trace ERP-IT-001
+   * @precondition 呼出し元Test Caseが必要な入力を渡す。
+   * @stimulus verifyHistoryを呼び出す。
+   * @observation 返却値、生成fixtureまたは観測値を取得する。
+   * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+   * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+   * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+   */
   const verifyHistory: DockerDesktopRepairHistoryVerifier = (value) => {
     const selected =
       JSON.stringify(value) === JSON.stringify(originManifest)
@@ -1723,6 +2153,18 @@ test("repair recordは順序・hash chain・境界identityを保持して再構�
   );
 });
 
+/**
+ * renamed後の自然回復はlaunch発行を捏造せずactual Storeへ保存するを検証する。
+ *
+ * @responsibility renamed後の自然回復はlaunch発行を捏造せずactual Storeへ保存するの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus renamed後の自然回復はlaunch発行を捏造せずactual Storeへ保存するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("renamed後の自然回復はlaunch発行を捏造せずactual Storeへ保存する", (t) => {
   const { boundary, ledger } = fixture(t);
   const created = createDockerDesktopRepairOperation(
@@ -1806,6 +2248,18 @@ test("renamed後の自然回復はlaunch発行を捏造せずactual Storeへ保�
   );
 });
 
+/**
+ * 改ざん・欠落・foreign entryはinventory unknownとしてFail Closedにするを検証する。
+ *
+ * @responsibility 改ざん・欠落・foreign entryはinventory unknownとしてFail Closedにするの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 改ざん・欠落・foreign entryはinventory unknownとしてFail Closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("改ざん・欠落・foreign entryはinventory unknownとしてFail Closedにする", (t) => {
   const { boundary, ledger, runtimeStateRoot } = fixture(t);
   const operation = createDockerDesktopRepairOperation(
@@ -1833,6 +2287,18 @@ test("改ざん・欠落・foreign entryはinventory unknownとしてFail Closed
   );
 });
 
+/**
+ * record storeは削除せず明示close後もEvidenceを保持するを検証する。
+ *
+ * @responsibility record storeは削除せず明示close後もEvidenceを保持するの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus record storeは削除せず明示close後もEvidenceを保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("record storeは削除せず明示close後もEvidenceを保持する", () => {
   const contract = describeDockerDesktopRepairRecordStoreContract();
   assert.equal(contract.staleDirectoryDeletion, false);
@@ -1840,6 +2306,18 @@ test("record storeは削除せず明示close後もEvidenceを保持する", () =
   assert.equal(contract.unfinishedOperationBlocksNewRepair, true);
 });
 
+/**
+ * record／operation容量はEffectや65件目directoryの前に判定できるを検証する。
+ *
+ * @responsibility record／operation容量はEffectや65件目directoryの前に判定できるの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus record／operation容量はEffectや65件目directoryの前に判定できるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("record／operation容量はEffectや65件目directoryの前に判定できる", (t) => {
   const { boundary, ledger } = fixture(t);
   const operation = createDockerDesktopRepairOperation(
@@ -1899,6 +2377,18 @@ test("record／operation容量はEffectや65件目directoryの前に判定でき
   assert.equal(fs.existsSync(sixtyFifth.operationDirectory), false);
 });
 
+/**
+ * Effect ledgerは既知のissued事実を後退させず旧rev2／rev3を暗黙移行しないを検証する。
+ *
+ * @responsibility Effect ledgerは既知のissued事実を後退させず旧rev2／rev3を暗黙移行しないの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Effect ledgerは既知のissued事実を後退させず旧rev2／rev3を暗黙移行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("Effect ledgerは既知のissued事実を後退させず旧rev2／rev3を暗黙移行しない", (t) => {
   const { boundary, ledger } = fixture(t);
   const created = createDockerDesktopRepairOperation(
@@ -1943,6 +2433,18 @@ test("Effect ledgerは既知のissued事実を後退させず旧rev2／rev3を�
   }
 });
 
+/**
+ * 既知Effect後の自然回復は発行済み事実を保持したno-stale stageへ接続するを検証する。
+ *
+ * @responsibility 既知Effect後の自然回復は発行済み事実を保持したno-stale stageへ接続するの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 既知Effect後の自然回復は発行済み事実を保持したno-stale stageへ接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("既知Effect後の自然回復は発行済み事実を保持したno-stale stageへ接続する", (t) => {
   const { boundary, ledger } = fixture(t);
   const created = createDockerDesktopRepairOperation(
@@ -2007,6 +2509,18 @@ test("既知Effect後の自然回復は発行済み事実を保持したno-stale
   );
 });
 
+/**
+ * writerはreader非互換Effectを永続化しないを検証する。
+ *
+ * @responsibility writerはreader非互換Effectを永続化しないの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus writerはreader非互換Effectを永続化しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("writerはreader非互換Effectを永続化しない", (t) => {
   const { boundary, ledger } = fixture(t);
   const created = createDockerDesktopRepairOperation(
@@ -2035,6 +2549,18 @@ test("writerはreader非互換Effectを永続化しない", (t) => {
   assert.equal(fs.existsSync(created.operationDirectory), false);
 });
 
+/**
+ * validatorはHost Effect初出settled・不足stage・rename二系列を拒否するを検証する。
+ *
+ * @responsibility validatorはHost Effect初出settled・不足stage・rename二系列を拒否するの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus validatorはHost Effect初出settled・不足stage・rename二系列を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("validatorはHost Effect初出settled・不足stage・rename二系列を拒否する", (t) => {
   const { boundary, ledger } = fixture(t);
   const created = createDockerDesktopRepairOperation(
@@ -2242,6 +2768,18 @@ test("validatorはHost Effect初出settled・不足stage・rename二系列を拒
   );
 });
 
+/**
+ * K/Nは非発行settlementとunknown reconciliationを単一Recordへ固定するを検証する。
+ *
+ * @responsibility K/Nは非発行settlementとunknown reconciliationを単一Recordへ固定するの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus K/Nは非発行settlementとunknown reconciliationを単一Recordへ固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("K/Nは非発行settlementとunknown reconciliationを単一Recordへ固定する", (t) => {
   const { boundary, ledger } = fixture(t);
   const created = createDockerDesktopRepairOperation(
@@ -2407,6 +2945,18 @@ test("K/Nは非発行settlementとunknown reconciliationを単一Recordへ固定
   );
 });
 
+/**
+ * unknown Host Effectはknown recovery stageへ昇格せずhistorical stageだけへ閉じるを検証する。
+ *
+ * @responsibility unknown Host Effectはknown recovery stageへ昇格せずhistorical stageだけへ閉じるの合否判定を所有する。
+ * @trace ERP-IT-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus unknown Host Effectはknown recovery stageへ昇格せずhistorical stageだけへ閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+ */
 test("unknown Host Effectはknown recovery stageへ昇格せずhistorical stageだけへ閉じる", async (t) => {
   for (const unknownAction of [
     "official_shutdown",
@@ -2510,6 +3060,18 @@ test("unknown Host Effectはknown recovery stageへ昇格せずhistorical stage�
       const recordPaths = fs
         .readdirSync(closed.operationDirectory)
         .filter((name) => name.endsWith(".json"));
+      /**
+       * snapshotのTest準備責務を実行する。
+       *
+       * @responsibility snapshotがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+       * @trace ERP-IT-001
+       * @precondition 呼出し元Test Caseが必要な入力を渡す。
+       * @stimulus snapshotを呼び出す。
+       * @observation 返却値、生成fixtureまたは観測値を取得する。
+       * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+       * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+       * @boundary ERP-IT-001=Related 2 Blocks: Producer→Writer→Store→Reader
+       */
       const snapshot = () =>
         recordPaths.map((name) =>
           fs

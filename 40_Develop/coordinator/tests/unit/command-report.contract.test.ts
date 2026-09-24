@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:command-reportの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:command-reportが所有する検証責務を実行する。
+ * @trace RCM-UT-016
+ * @level UT
+ * @scope command、report
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -9,6 +19,18 @@ import {
 const digestA = "a".repeat(64);
 const digestB = "b".repeat(64);
 
+/**
+ * 人間向けTask結果はCandidate、期限、全Recovery IDと手動回復要否を保持するを検証する。
+ *
+ * @responsibility 人間向けTask結果はCandidate、期限、全Recovery IDと手動回復要否を保持するの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 人間向けTask結果はCandidate、期限、全Recovery IDと手動回復要否を保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("人間向けTask結果はCandidate、期限、全Recovery IDと手動回復要否を保持する", () => {
   const rendered = renderSafeHumanCommandReport({
     command: "task",
@@ -43,6 +65,18 @@ test("人間向けTask結果はCandidate、期限、全Recovery IDと手動回�
   assert.match(rendered, /手動回復の必要性: あり/u);
 });
 
+/**
+ * 人間向け投影は未知値、Path、Credentialらしい値と不正IDを出力しないを検証する。
+ *
+ * @responsibility 人間向け投影は未知値、Path、Credentialらしい値と不正IDを出力しないの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 人間向け投影は未知値、Path、Credentialらしい値と不正IDを出力しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("人間向け投影は未知値、Path、Credentialらしい値と不正IDを出力しない", () => {
   const rendered = renderSafeHumanCommandReport({
     command: "task",
@@ -66,6 +100,18 @@ test("人間向け投影は未知値、Path、Credentialらしい値と不正ID�
   );
 });
 
+/**
+ * cleanup確認済みprotocol失敗の人間表示はHost Recoveryを要求しないを検証する。
+ *
+ * @responsibility cleanup確認済みprotocol失敗の人間表示はHost Recoveryを要求しないの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus cleanup確認済みprotocol失敗の人間表示はHost Recoveryを要求しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("cleanup確認済みprotocol失敗の人間表示はHost Recoveryを要求しない", () => {
   const rendered = renderSafeHumanCommandReport({
     command: "task",
@@ -79,6 +125,18 @@ test("cleanup確認済みprotocol失敗の人間表示はHost Recoveryを要求�
   assert.doesNotMatch(rendered, /Host回復ID|Coordinator Runtimeを再起動/u);
 });
 
+/**
+ * cleanup不明でactionable IDがない場合も再起動とoperator移送を表示するを検証する。
+ *
+ * @responsibility cleanup不明でactionable IDがない場合も再起動とoperator移送を表示するの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus cleanup不明でactionable IDがない場合も再起動とoperator移送を表示するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("cleanup不明でactionable IDがない場合も再起動とoperator移送を表示する", () => {
   const rendered = renderSafeHumanCommandReport({
     command: "task",
@@ -92,6 +150,18 @@ test("cleanup不明でactionable IDがない場合も再起動とoperator移送�
   assert.match(rendered, /手動回復の必要性: あり/u);
 });
 
+/**
+ * Process再起動案内はRecovery IDと直交しruntime-owned booleanだけに従うを検証する。
+ *
+ * @responsibility Process再起動案内はRecovery IDと直交しruntime-owned booleanだけに従うの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Process再起動案内はRecovery IDと直交しruntime-owned booleanだけに従うの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("Process再起動案内はRecovery IDと直交しruntime-owned booleanだけに従う", () => {
   const dockerRecoveryId = `docker-task.${digestA}.${digestB}.${digestA}`;
   const poisoned = renderSafeHumanCommandReport({
@@ -116,6 +186,18 @@ test("Process再起動案内はRecovery IDと直交しruntime-owned booleanだ�
   assert.doesNotMatch(recoverable, /Coordinator Runtimeを再起動/u);
 });
 
+/**
+ * cleanup確認済みの再起動だけの表示はoperator移送やRecoveryを要求しないを検証する。
+ *
+ * @responsibility cleanup確認済みの再起動だけの表示はoperator移送やRecoveryを要求しないの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus cleanup確認済みの再起動だけの表示はoperator移送やRecoveryを要求しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("cleanup確認済みの再起動だけの表示はoperator移送やRecoveryを要求しない", () => {
   const rendered = renderSafeHumanCommandReport({
     command: "task",
@@ -150,6 +232,18 @@ test("cleanup確認済みの再起動だけの表示はoperator移送やRecovery
   assert.doesNotMatch(completed, /実行担当者へ引き渡して|回復ID/u);
 });
 
+/**
+ * 未取得と否定観測は区別し、未知の文字列を表示しないを検証する。
+ *
+ * @responsibility 未取得と否定観測は区別し、未知の文字列を表示しないの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 未取得と否定観測は区別し、未知の文字列を表示しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("未取得と否定観測は区別し、未知の文字列を表示しない", () => {
   const rendered = renderSafeHumanCommandReport({
     command: "C:\\private",
@@ -163,6 +257,18 @@ test("未取得と否定観測は区別し、未知の文字列を表示しな�
   assert.doesNotMatch(rendered, /private|sk-test|\u001b/u);
 });
 
+/**
+ * 候補操作の案内は完了・回収済み・再起動不要のTaskだけに限定するを検証する。
+ *
+ * @responsibility 候補操作の案内は完了・回収済み・再起動不要のTaskだけに限定するの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 候補操作の案内は完了・回収済み・再起動不要のTaskだけに限定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("候補操作の案内は完了・回収済み・再起動不要のTaskだけに限定する", () => {
   const base = {
     command: "task",
@@ -205,6 +311,18 @@ test("候補操作の案内は完了・回収済み・再起動不要のTaskだ�
   }
 });
 
+/**
+ * 候補操作の成功を未取得理由から失敗表示にしないを検証する。
+ *
+ * @responsibility 候補操作の成功を未取得理由から失敗表示にしないの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 候補操作の成功を未取得理由から失敗表示にしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("候補操作の成功を未取得理由から失敗表示にしない", () => {
   for (const [command, status] of [
     ["candidate export", "exported"],
@@ -221,6 +339,18 @@ test("候補操作の成功を未取得理由から失敗表示にしない", ()
   }
 });
 
+/**
+ * 全形式の回復IDを重複なく保持し、再起動案内を候補操作より先に置くを検証する。
+ *
+ * @responsibility 全形式の回復IDを重複なく保持し、再起動案内を候補操作より先に置くの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 全形式の回復IDを重複なく保持し、再起動案内を候補操作より先に置くの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("全形式の回復IDを重複なく保持し、再起動案内を候補操作より先に置く", () => {
   const oldDockerId = `docker.crdd-coordinator-doctor-test.${"a".repeat(36)}.${"b".repeat(36)}.${digestA}`;
   const rendered = renderSafeHumanCommandReport({
@@ -245,6 +375,18 @@ test("全形式の回復IDを重複なく保持し、再起動案内を候補操
   assert.doesNotMatch(rendered, /coordinator candidate export/u);
 });
 
+/**
+ * Date範囲外の期限は例外や誤った期限ではなく未確認になるを検証する。
+ *
+ * @responsibility Date範囲外の期限は例外や誤った期限ではなく未確認になるの合否判定を所有する。
+ * @trace RCM-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Date範囲外の期限は例外や誤った期限ではなく未確認になるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
+ */
 test("Date範囲外の期限は例外や誤った期限ではなく未確認になる", () => {
   for (const expiresAtMs of [Number.MAX_SAFE_INTEGER, -1, NaN, Infinity]) {
     assert.match(

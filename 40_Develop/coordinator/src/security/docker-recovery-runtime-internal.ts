@@ -1,3 +1,9 @@
+/**
+ * docker-recovery-runtime-internalに属する責務をまとめる。
+ *
+ * @responsibility ProductionPlanを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
@@ -116,6 +122,17 @@ const CREATE_PURPOSES = new Set([
 const DOCKER_ENGINE = "npipe:////./pipe/dockerDesktopLinuxEngine";
 let recoveryDockerCliSnapshot: DockerCliTrustSnapshot | null = null;
 
+/**
+ * docker-recovery-runtime-internalで使用するProduction Planの値契約を定義する。
+ *
+ * @responsibility Production PlanのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape ProductionPlanが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProductionPlanで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProductionPlanの宣言は外部境界を開かない。
+ * @security ProductionPlanはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ProductionPlanの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type ProductionPlan = Readonly<{
   provider: "codex" | "claude";
   operationId: string;
@@ -138,6 +155,17 @@ type ProductionPlan = Readonly<{
   workspaceMountMode: "read_write" | "read_only" | null;
 }>;
 
+/**
+ * docker-recovery-runtime-internalで使用するDurable 記録の値契約を定義する。
+ *
+ * @responsibility Durable 記録のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DurableRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DurableRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DurableRecordの宣言は外部境界を開かない。
+ * @security DurableRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DurableRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type DurableRecord = Readonly<{
   rootPath: string;
   runtimeStateIdentityHash: string;
@@ -163,6 +191,17 @@ type DurableRecord = Readonly<{
   observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null;
 }>;
 
+/**
+ * docker-recovery-runtime-internalで使用するVerified Runtime 状態 Rootの値契約を定義する。
+ *
+ * @responsibility Verified Runtime 状態 RootのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape VerifiedRuntimeStateRootが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant VerifiedRuntimeStateRootで宣言した値と責務の対応を維持する。
+ * @boundary N/A: VerifiedRuntimeStateRootの宣言は外部境界を開かない。
+ * @security VerifiedRuntimeStateRootはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility VerifiedRuntimeStateRootの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type VerifiedRuntimeStateRoot = Readonly<{
   rootPath: string;
   runtimeStateIdentityHash: string;
@@ -171,6 +210,17 @@ type VerifiedRuntimeStateRoot = Readonly<{
   stableLogicalHomeBindingHash: string;
 }>;
 
+/**
+ * docker-recovery-runtime-internalで使用するVerified Provider Homeの値契約を定義する。
+ *
+ * @responsibility Verified Provider HomeのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape VerifiedProviderHomeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant VerifiedProviderHomeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: VerifiedProviderHomeの宣言は外部境界を開かない。
+ * @security VerifiedProviderHomeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility VerifiedProviderHomeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type VerifiedProviderHome = Readonly<{
   providerHomeIdentityHash: string;
   providerHomeProtectionHash: string;
@@ -178,6 +228,17 @@ type VerifiedProviderHome = Readonly<{
   stableLogicalHomeBindingHash: string;
 }>;
 
+/**
+ * docker-recovery-runtime-internalで使用するRuntime 状態 Binding Evidenceの値契約を定義する。
+ *
+ * @responsibility Runtime 状態 Binding EvidenceのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape RuntimeStateBindingEvidenceが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeStateBindingEvidenceで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeStateBindingEvidenceの宣言は外部境界を開かない。
+ * @security RuntimeStateBindingEvidenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimeStateBindingEvidenceの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimeStateBindingEvidence = Readonly<{
   runtimeStateIdentityHash: string;
   runtimeStateProtectionHash: string;
@@ -188,6 +249,17 @@ type RuntimeStateBindingEvidence = Readonly<{
 const durableRecords = new WeakMap<object, DurableRecord>();
 const dockerHostCleanupCapabilities = new WeakMap<object, object>();
 const releasedLogicalHomeLeases = new WeakSet<object>();
+/**
+ * docker-recovery-runtime-internalで使用するDocker Restart Preparationの値契約を定義する。
+ *
+ * @responsibility Docker Restart PreparationのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerRestartPreparationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerRestartPreparationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerRestartPreparationの宣言は外部境界を開かない。
+ * @security DockerRestartPreparationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerRestartPreparationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type DockerRestartPreparation = Readonly<{
   root: VerifiedRuntimeStateRoot;
   directory: string;
@@ -213,6 +285,17 @@ const dockerRestartPreparations = new WeakMap<
   object,
   DockerRestartPreparation
 >();
+/**
+ * docker-recovery-runtime-internalで使用するVerified Docker Engine Restart Fenceの値契約を定義する。
+ *
+ * @responsibility Verified Docker Engine Restart FenceのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape VerifiedDockerEngineRestartFenceが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant VerifiedDockerEngineRestartFenceで宣言した値と責務の対応を維持する。
+ * @boundary N/A: VerifiedDockerEngineRestartFenceの宣言は外部境界を開かない。
+ * @security VerifiedDockerEngineRestartFenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility VerifiedDockerEngineRestartFenceの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type VerifiedDockerEngineRestartFence =
   | Readonly<{
       recoveryId: string;
@@ -226,10 +309,42 @@ type VerifiedDockerEngineRestartFence =
       pendingSubmissionSha256: string;
     }>;
 
+/**
+ * canonicalを決定する。
+ *
+ * @responsibility canonicalの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns canonicalの計算結果を返す。
+ * @precondition 「value: unknown」がcanonicalの入力契約を満たす。
+ * @postcondition canonicalの責務を完了した結果だけを返す。
+ * @effect N/A: canonicalは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: canonicalは独自の失敗分岐を所有しない。
+ * @invariant canonicalは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: canonicalはProcess内の同一Subsystemで完結する。
+ * @security canonicalはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: canonicalは共有非同期状態を持たない同期処理である。
+ */
 function canonical(value: unknown) {
   return `${JSON.stringify(value)}\n`;
 }
 
+/**
+ * runtime 状態 Binding Evidenceを決定する。
+ *
+ * @responsibility runtime 状態 Binding Evidenceの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input root: VerifiedRuntimeStateRoot
+ * @returns RuntimeStateBindingEvidenceを返す。
+ * @precondition 「root: VerifiedRuntimeStateRoot」がruntimeStateBindingEvidenceの入力契約を満たす。
+ * @postcondition runtimeStateBindingEvidenceの責務を完了した結果だけを返す。
+ * @effect N/A: runtimeStateBindingEvidenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: runtimeStateBindingEvidenceは独自の失敗分岐を所有しない。
+ * @invariant runtimeStateBindingEvidenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runtimeStateBindingEvidenceはProcess内の同一Subsystemで完結する。
+ * @security runtimeStateBindingEvidenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: runtimeStateBindingEvidenceは共有非同期状態を持たない同期処理である。
+ */
 function runtimeStateBindingEvidence(
   root: VerifiedRuntimeStateRoot,
 ): RuntimeStateBindingEvidence {
@@ -241,6 +356,22 @@ function runtimeStateBindingEvidence(
   });
 }
 
+/**
+ * Runtime 状態 Binding Evidenceが有効か判定する。
+ *
+ * @responsibility Runtime 状態 Binding Evidenceの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns value is RuntimeStateBindingEvidenceを返す。
+ * @precondition 「value: unknown」がvalidRuntimeStateBindingEvidenceの入力契約を満たす。
+ * @postcondition validRuntimeStateBindingEvidenceの責務を完了した結果だけを返す。
+ * @effect N/A: validRuntimeStateBindingEvidenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validRuntimeStateBindingEvidenceは独自の失敗分岐を所有しない。
+ * @invariant validRuntimeStateBindingEvidenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validRuntimeStateBindingEvidenceはProcess内の同一Subsystemで完結する。
+ * @security validRuntimeStateBindingEvidenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validRuntimeStateBindingEvidenceは共有非同期状態を持たない同期処理である。
+ */
 function validRuntimeStateBindingEvidence(
   value: unknown,
 ): value is RuntimeStateBindingEvidence {
@@ -257,6 +388,22 @@ function validRuntimeStateBindingEvidence(
   );
 }
 
+/**
+ * Directory Mutation Boundaryを確定する。
+ *
+ * @responsibility Directory Mutation Boundaryの確定条件、不可逆Effect、失敗時の未確定境界を所有する。
+ * @trace ARCH-000008
+ * @input directory: string
+ * @returns commitDirectoryMutationBoundaryの計算結果を返す。
+ * @precondition 「directory: string」がcommitDirectoryMutationBoundaryの入力契約を満たす。
+ * @postcondition commitDirectoryMutationBoundaryの責務を完了した結果だけを返す。
+ * @effect commitDirectoryMutationBoundaryはFilesystemの読取りまたは書込みを実行する。
+ * @failure commitDirectoryMutationBoundaryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant commitDirectoryMutationBoundaryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security commitDirectoryMutationBoundaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: commitDirectoryMutationBoundaryは共有非同期状態を持たない同期処理である。
+ */
 function commitDirectoryMutationBoundary(directory: string) {
   if (process.platform === "win32") {
     // Node.js 24 opens a Windows directory but fsyncSync returns EPERM. The
@@ -276,6 +423,22 @@ function commitDirectoryMutationBoundary(directory: string) {
   }
 }
 
+/**
+ * move Durable Fileを決定する。
+ *
+ * @responsibility move Durable Fileの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input source: string、target: string、expected: Readonly<{ serialized: string; hash: string; identity: Readonly<{ dev: bigint; ino: bigint; birthtimeNs: bigint }>; identityText: string; logicalKey: string; target: string; commit: string; value: unknown; }>
+ * @returns moveDurableFileの計算結果を返す。
+ * @precondition 「source: string、target: string、expected: Readonly<{ serialized: string; hash: string; identity: Readonly<{ dev: bigint; ino: bigint; birthtimeNs: bigint }>; identityText: string; logicalKey: string; target: string; commit: string; value: unknown; }>」がmoveDurableFileの入力契約を満たす。
+ * @postcondition moveDurableFileの責務を完了した結果だけを返す。
+ * @effect N/A: moveDurableFileは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure moveDurableFileは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant moveDurableFileは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: moveDurableFileはProcess内の同一Subsystemで完結する。
+ * @security moveDurableFileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: moveDurableFileは共有非同期状態を持たない同期処理である。
+ */
 function moveDurableFile(
   source: string,
   target: string,
@@ -295,6 +458,22 @@ function moveDurableFile(
   return moveCommittedDockerRecoveryJson(expected, target);
 }
 
+/**
+ * Durable Jsonを書き込む。
+ *
+ * @responsibility Durable Jsonの書込み先、確定条件、部分書込みの失敗境界を所有する。
+ * @trace ARCH-000008
+ * @input directory: string、name: string、value: unknown、logicalKey
+ * @returns writeDurableJsonの計算結果を返す。
+ * @precondition 「directory: string、name: string、value: unknown、logicalKey」がwriteDurableJsonの入力契約を満たす。
+ * @postcondition writeDurableJsonの責務を完了した結果だけを返す。
+ * @effect N/A: writeDurableJsonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: writeDurableJsonは独自の失敗分岐を所有しない。
+ * @invariant writeDurableJsonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: writeDurableJsonはProcess内の同一Subsystemで完結する。
+ * @security writeDurableJsonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: writeDurableJsonは共有非同期状態を持たない同期処理である。
+ */
 function writeDurableJson(
   directory: string,
   name: string,
@@ -311,18 +490,66 @@ function writeDurableJson(
   return record;
 }
 
+/**
+ * completed Docker 回復 Receipt Nameを決定する。
+ *
+ * @responsibility completed Docker 回復 Receipt Nameの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input recoveryId: string
+ * @returns completedDockerRecoveryReceiptNameの計算結果を返す。
+ * @precondition 「recoveryId: string」がcompletedDockerRecoveryReceiptNameの入力契約を満たす。
+ * @postcondition completedDockerRecoveryReceiptNameの責務を完了した結果だけを返す。
+ * @effect N/A: completedDockerRecoveryReceiptNameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: completedDockerRecoveryReceiptNameは独自の失敗分岐を所有しない。
+ * @invariant completedDockerRecoveryReceiptNameは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: completedDockerRecoveryReceiptNameはProcess内の同一Subsystemで完結する。
+ * @security completedDockerRecoveryReceiptNameはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: completedDockerRecoveryReceiptNameは共有非同期状態を持たない同期処理である。
+ */
 function completedDockerRecoveryReceiptName(recoveryId: string) {
   return `completed-docker-recovery-${createHash("sha256")
     .update(recoveryId)
     .digest("hex")}.json`;
 }
 
+/**
+ * acknowledged Docker 回復 Receipt Nameを決定する。
+ *
+ * @responsibility acknowledged Docker 回復 Receipt Nameの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input recoveryId: string
+ * @returns acknowledgedDockerRecoveryReceiptNameの計算結果を返す。
+ * @precondition 「recoveryId: string」がacknowledgedDockerRecoveryReceiptNameの入力契約を満たす。
+ * @postcondition acknowledgedDockerRecoveryReceiptNameの責務を完了した結果だけを返す。
+ * @effect N/A: acknowledgedDockerRecoveryReceiptNameは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: acknowledgedDockerRecoveryReceiptNameは独自の失敗分岐を所有しない。
+ * @invariant acknowledgedDockerRecoveryReceiptNameは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: acknowledgedDockerRecoveryReceiptNameはProcess内の同一Subsystemで完結する。
+ * @security acknowledgedDockerRecoveryReceiptNameはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: acknowledgedDockerRecoveryReceiptNameは共有非同期状態を持たない同期処理である。
+ */
 function acknowledgedDockerRecoveryReceiptName(recoveryId: string) {
   return `acknowledged-docker-recovery-${createHash("sha256")
     .update(recoveryId)
     .digest("hex")}.json`;
 }
 
+/**
+ * Acknowledged Docker 回復 Receiptを観測する。
+ *
+ * @responsibility Acknowledged Docker 回復 Receiptの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input rootPath: string、recoveryId: string
+ * @returns inspectAcknowledgedDockerRecoveryReceiptの計算結果を返す。
+ * @precondition 「rootPath: string、recoveryId: string」がinspectAcknowledgedDockerRecoveryReceiptの入力契約を満たす。
+ * @postcondition inspectAcknowledgedDockerRecoveryReceiptの責務を完了した結果だけを返す。
+ * @effect N/A: inspectAcknowledgedDockerRecoveryReceiptは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectAcknowledgedDockerRecoveryReceiptは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectAcknowledgedDockerRecoveryReceiptは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectAcknowledgedDockerRecoveryReceiptはProcess内の同一Subsystemで完結する。
+ * @security inspectAcknowledgedDockerRecoveryReceiptはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectAcknowledgedDockerRecoveryReceiptは共有非同期状態を持たない同期処理である。
+ */
 function inspectAcknowledgedDockerRecoveryReceipt(
   rootPath: string,
   recoveryId: string,
@@ -359,6 +586,22 @@ function inspectAcknowledgedDockerRecoveryReceipt(
   });
 }
 
+/**
+ * Completed Docker 回復 Receiptを観測する。
+ *
+ * @responsibility Completed Docker 回復 Receiptの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input rootPath: string、recoveryId: string
+ * @returns inspectCompletedDockerRecoveryReceiptの計算結果を返す。
+ * @precondition 「rootPath: string、recoveryId: string」がinspectCompletedDockerRecoveryReceiptの入力契約を満たす。
+ * @postcondition inspectCompletedDockerRecoveryReceiptの責務を完了した結果だけを返す。
+ * @effect N/A: inspectCompletedDockerRecoveryReceiptは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectCompletedDockerRecoveryReceiptは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectCompletedDockerRecoveryReceiptは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectCompletedDockerRecoveryReceiptはProcess内の同一Subsystemで完結する。
+ * @security inspectCompletedDockerRecoveryReceiptはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectCompletedDockerRecoveryReceiptは共有非同期状態を持たない同期処理である。
+ */
 function inspectCompletedDockerRecoveryReceipt(
   rootPath: string,
   recoveryId: string,
@@ -384,6 +627,22 @@ function inspectCompletedDockerRecoveryReceipt(
   });
 }
 
+/**
+ * Completed Docker 回復 Receiptが成立する状態を確保する。
+ *
+ * @responsibility Completed Docker 回復 Receiptの成立条件、作成または再利用、失敗時の非成立境界を所有する。
+ * @trace ARCH-000008
+ * @input rootPath: string、recoveryId: string、runtimeStateBinding: RuntimeStateBindingEvidence
+ * @returns ensureCompletedDockerRecoveryReceiptの計算結果を返す。
+ * @precondition 「rootPath: string、recoveryId: string、runtimeStateBinding: RuntimeStateBindingEvidence」がensureCompletedDockerRecoveryReceiptの入力契約を満たす。
+ * @postcondition ensureCompletedDockerRecoveryReceiptの責務を完了した結果だけを返す。
+ * @effect N/A: ensureCompletedDockerRecoveryReceiptは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure ensureCompletedDockerRecoveryReceiptは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant ensureCompletedDockerRecoveryReceiptは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ensureCompletedDockerRecoveryReceiptはProcess内の同一Subsystemで完結する。
+ * @security ensureCompletedDockerRecoveryReceiptはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: ensureCompletedDockerRecoveryReceiptは共有非同期状態を持たない同期処理である。
+ */
 function ensureCompletedDockerRecoveryReceipt(
   rootPath: string,
   recoveryId: string,
@@ -412,18 +671,61 @@ function ensureCompletedDockerRecoveryReceipt(
   inspectCompletedDockerRecoveryReceipt(rootPath, recoveryId);
 }
 
+/**
+ * docker-recovery-runtime-internalで使用するDocker Task Session Handoff 状態の値契約を定義する。
+ *
+ * @responsibility Docker Task Session Handoff 状態のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape DockerTaskSessionHandoffStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DockerTaskSessionHandoffStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DockerTaskSessionHandoffStateの宣言は外部境界を開かない。
+ * @security DockerTaskSessionHandoffStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DockerTaskSessionHandoffStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type DockerTaskSessionHandoffState = Readonly<{
   currentLocalUserBindingHash: string;
   tipSha256: string;
   count: number;
 }>;
 
+/**
+ * docker Task Session Handoff Prefixを決定する。
+ *
+ * @responsibility docker Task Session Handoff Prefixの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input recoveryId: string
+ * @returns dockerTaskSessionHandoffPrefixの計算結果を返す。
+ * @precondition 「recoveryId: string」がdockerTaskSessionHandoffPrefixの入力契約を満たす。
+ * @postcondition dockerTaskSessionHandoffPrefixの責務を完了した結果だけを返す。
+ * @effect N/A: dockerTaskSessionHandoffPrefixは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: dockerTaskSessionHandoffPrefixは独自の失敗分岐を所有しない。
+ * @invariant dockerTaskSessionHandoffPrefixは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: dockerTaskSessionHandoffPrefixはProcess内の同一Subsystemで完結する。
+ * @security dockerTaskSessionHandoffPrefixはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: dockerTaskSessionHandoffPrefixは共有非同期状態を持たない同期処理である。
+ */
 function dockerTaskSessionHandoffPrefix(recoveryId: string) {
   return `docker-task-session-handoff-${createHash("sha256")
     .update(recoveryId)
     .digest("hex")}-`;
 }
 
+/**
+ * Docker Task Session Handoffsを観測する。
+ *
+ * @responsibility Docker Task Session Handoffsの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input rootPath: string、recoveryId: string、durableBinding: RuntimeStateBindingEvidence
+ * @returns DockerTaskSessionHandoffStateを返す。
+ * @precondition 「rootPath: string、recoveryId: string、durableBinding: RuntimeStateBindingEvidence」がinspectDockerTaskSessionHandoffsの入力契約を満たす。
+ * @postcondition inspectDockerTaskSessionHandoffsの責務を完了した結果だけを返す。
+ * @effect N/A: inspectDockerTaskSessionHandoffsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectDockerTaskSessionHandoffsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectDockerTaskSessionHandoffsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectDockerTaskSessionHandoffsはProcess内の同一Subsystemで完結する。
+ * @security inspectDockerTaskSessionHandoffsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectDockerTaskSessionHandoffsは共有非同期状態を持たない同期処理である。
+ */
 function inspectDockerTaskSessionHandoffs(
   rootPath: string,
   recoveryId: string,
@@ -500,6 +802,22 @@ function inspectDockerTaskSessionHandoffs(
   });
 }
 
+/**
+ * Docker Task Session Handoffが成立する状態を確保する。
+ *
+ * @responsibility Docker Task Session Handoffの成立条件、作成または再利用、失敗時の非成立境界を所有する。
+ * @trace ARCH-000008
+ * @input root: VerifiedRuntimeStateRoot、recoveryId: string、durableBinding: RuntimeStateBindingEvidence
+ * @returns ensureDockerTaskSessionHandoffの計算結果を返す。
+ * @precondition 「root: VerifiedRuntimeStateRoot、recoveryId: string、durableBinding: RuntimeStateBindingEvidence」がensureDockerTaskSessionHandoffの入力契約を満たす。
+ * @postcondition ensureDockerTaskSessionHandoffの責務を完了した結果だけを返す。
+ * @effect N/A: ensureDockerTaskSessionHandoffは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure ensureDockerTaskSessionHandoffは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant ensureDockerTaskSessionHandoffは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ensureDockerTaskSessionHandoffはProcess内の同一Subsystemで完結する。
+ * @security ensureDockerTaskSessionHandoffはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: ensureDockerTaskSessionHandoffは共有非同期状態を持たない同期処理である。
+ */
 function ensureDockerTaskSessionHandoff(
   root: VerifiedRuntimeStateRoot,
   recoveryId: string,
@@ -542,6 +860,22 @@ function ensureDockerTaskSessionHandoff(
   return rebound;
 }
 
+/**
+ * Production Planが有効か判定する。
+ *
+ * @responsibility Production Planの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000008
+ * @input plan: ProductionPlan
+ * @returns validProductionPlanの計算結果を返す。
+ * @precondition 「plan: ProductionPlan」がvalidProductionPlanの入力契約を満たす。
+ * @postcondition validProductionPlanの責務を完了した結果だけを返す。
+ * @effect N/A: validProductionPlanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validProductionPlanは独自の失敗分岐を所有しない。
+ * @invariant validProductionPlanは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validProductionPlanはProcess内の同一Subsystemで完結する。
+ * @security validProductionPlanはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validProductionPlanは共有非同期状態を持たない同期処理である。
+ */
 function validProductionPlan(plan: ProductionPlan) {
   return (
     (plan.provider === "codex" || plan.provider === "claude") &&
@@ -572,6 +906,22 @@ function validProductionPlan(plan: ProductionPlan) {
   );
 }
 
+/**
+ * expected Host Successorを決定する。
+ *
+ * @responsibility expected Host Successorの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input currentToken: string、nextState: string
+ * @returns expectedHostSuccessorの計算結果を返す。
+ * @precondition 「currentToken: string、nextState: string」がexpectedHostSuccessorの入力契約を満たす。
+ * @postcondition expectedHostSuccessorの責務を完了した結果だけを返す。
+ * @effect N/A: expectedHostSuccessorは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: expectedHostSuccessorは独自の失敗分岐を所有しない。
+ * @invariant expectedHostSuccessorは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: expectedHostSuccessorはProcess内の同一Subsystemで完結する。
+ * @security expectedHostSuccessorはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: expectedHostSuccessorは共有非同期状態を持たない同期処理である。
+ */
 function expectedHostSuccessor(currentToken: string, nextState: string) {
   const loaded = loadHostRecoveryRecordByToken(currentToken);
   const serialized = canonical({ ...loaded.record, state: nextState });
@@ -587,6 +937,22 @@ function expectedHostSuccessor(currentToken: string, nextState: string) {
   });
 }
 
+/**
+ * Host Transition Lineageの契約を検証する。
+ *
+ * @responsibility Host Transition Lineageの必須Property、拒否条件、検証結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input intent: Record<string, unknown>、requiredNextState: string
+ * @returns validateHostTransitionLineageの計算結果を返す。
+ * @precondition 「intent: Record<string, unknown>、requiredNextState: string」がvalidateHostTransitionLineageの入力契約を満たす。
+ * @postcondition validateHostTransitionLineageの責務を完了した結果だけを返す。
+ * @effect N/A: validateHostTransitionLineageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validateHostTransitionLineageは独自の失敗分岐を所有しない。
+ * @invariant validateHostTransitionLineageは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateHostTransitionLineageはProcess内の同一Subsystemで完結する。
+ * @security validateHostTransitionLineageはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateHostTransitionLineageは共有非同期状態を持たない同期処理である。
+ */
 function validateHostTransitionLineage(
   intent: Record<string, unknown>,
   requiredNextState?: string,
@@ -594,6 +960,22 @@ function validateHostTransitionLineage(
   return validateDockerHostTransitionLineage(intent, requiredNextState);
 }
 
+/**
+ * host 回復 Identityを決定する。
+ *
+ * @responsibility host 回復 Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input token: string
+ * @returns hostRecoveryIdentityの計算結果を返す。
+ * @precondition 「token: string」がhostRecoveryIdentityの入力契約を満たす。
+ * @postcondition hostRecoveryIdentityの責務を完了した結果だけを返す。
+ * @effect hostRecoveryIdentityはFilesystemの読取りまたは書込みを実行する。
+ * @failure hostRecoveryIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant hostRecoveryIdentityは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security hostRecoveryIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hostRecoveryIdentityは共有非同期状態を持たない同期処理である。
+ */
 function hostRecoveryIdentity(token: string) {
   const loaded = loadHostRecoveryRecordByToken(token);
   const directory = fs.lstatSync(loaded.directory, { bigint: true });
@@ -614,6 +996,22 @@ function hostRecoveryIdentity(token: string) {
   });
 }
 
+/**
+ * Host Marker Transitionを分類する。
+ *
+ * @responsibility Host Marker Transitionの分類条件、相互排他的な結果、判断不能境界を所有する。
+ * @trace ARCH-000008
+ * @input intent: Record<string, unknown>、expectedRoot: string、expectedNonce: string
+ * @returns classifyHostMarkerTransitionの計算結果を返す。
+ * @precondition 「intent: Record<string, unknown>、expectedRoot: string、expectedNonce: string」がclassifyHostMarkerTransitionの入力契約を満たす。
+ * @postcondition classifyHostMarkerTransitionの責務を完了した結果だけを返す。
+ * @effect N/A: classifyHostMarkerTransitionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure classifyHostMarkerTransitionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant classifyHostMarkerTransitionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: classifyHostMarkerTransitionはProcess内の同一Subsystemで完結する。
+ * @security classifyHostMarkerTransitionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: classifyHostMarkerTransitionは共有非同期状態を持たない同期処理である。
+ */
 function classifyHostMarkerTransition(
   intent: Record<string, unknown>,
   expectedRoot: string,
@@ -666,8 +1064,20 @@ function classifyHostMarkerTransition(
 }
 
 /**
- * @internal Package-private engine. The production wrapper is the only
  * caller that derives these candidates from native Windows observation.
+ *
+ * @responsibility Runtime 所有 Docker 回復 From Verified Candidates Internalの開始条件、初期状態、開始失敗境界を所有する。
+ * @trace ARCH-000008
+ * @input plan: ProductionPlan、managementCapability: unknown、providerHome: VerifiedProviderHome、root: VerifiedRuntimeStateRoot、afterPendingBaseCommit: ((recoveryId: string) => void) | null、beforeHostBeginEffect: ((recoveryId: string) => void) | null、observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null
+ * @returns beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternalの計算結果を返す。
+ * @precondition 「plan: ProductionPlan、managementCapability: unknown、providerHome: VerifiedProviderHome、root: VerifiedRuntimeStateRoot、afterPendingBaseCommit: ((recoveryId: string) => void) | null、beforeHostBeginEffect: ((recoveryId: string) => void) | null、observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null」がbeginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternalの入力契約を満たす。
+ * @postcondition beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternalの責務を完了した結果だけを返す。
+ * @effect beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternalはFilesystemの読取りまたは書込みを実行する。
+ * @failure beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternalは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternalは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternalはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternalは共有非同期状態を持たない同期処理である。
  */
 function beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternal(
   plan: ProductionPlan,
@@ -1000,6 +1410,22 @@ function beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternal(
   }
 }
 
+/**
+ * Runtime 所有 Docker 回復 From Verified Candidatesを開始する。
+ *
+ * @responsibility Runtime 所有 Docker 回復 From Verified Candidatesの開始条件、初期状態、開始失敗境界を所有する。
+ * @trace ARCH-000008
+ * @input plan: ProductionPlan、managementCapability: unknown、providerHome: VerifiedProviderHome、root: VerifiedRuntimeStateRoot
+ * @returns beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesの計算結果を返す。
+ * @precondition 「plan: ProductionPlan、managementCapability: unknown、providerHome: VerifiedProviderHome、root: VerifiedRuntimeStateRoot」がbeginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesの入力契約を満たす。
+ * @postcondition beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesの責務を完了した結果だけを返す。
+ * @effect N/A: beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesは独自の失敗分岐を所有しない。
+ * @invariant beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesはProcess内の同一Subsystemで完結する。
+ * @security beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesは共有非同期状態を持たない同期処理である。
+ */
 function beginRuntimeOwnedDockerRecoveryFromVerifiedCandidates(
   plan: ProductionPlan,
   managementCapability: unknown,
@@ -1017,7 +1443,22 @@ function beginRuntimeOwnedDockerRecoveryFromVerifiedCandidates(
   );
 }
 
-/** @internal Package-private process-crash contract seam. */
+/**
+ * Runtime 所有 Docker 回復 With Host Begin Observerを開始する。
+ *
+ * @responsibility Runtime 所有 Docker 回復 With Host Begin Observerの開始条件、初期状態、開始失敗境界を所有する。
+ * @trace ARCH-000008
+ * @input plan: ProductionPlan、managementCapability: unknown、providerHome: VerifiedProviderHome、root: VerifiedRuntimeStateRoot、beforeHostBeginEffect: (recoveryId: string) => void、observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null
+ * @returns beginRuntimeOwnedDockerRecoveryWithHostBeginObserverの計算結果を返す。
+ * @precondition 「plan: ProductionPlan、managementCapability: unknown、providerHome: VerifiedProviderHome、root: VerifiedRuntimeStateRoot、beforeHostBeginEffect: (recoveryId: string) => void、observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null」がbeginRuntimeOwnedDockerRecoveryWithHostBeginObserverの入力契約を満たす。
+ * @postcondition beginRuntimeOwnedDockerRecoveryWithHostBeginObserverの責務を完了した結果だけを返す。
+ * @effect N/A: beginRuntimeOwnedDockerRecoveryWithHostBeginObserverは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: beginRuntimeOwnedDockerRecoveryWithHostBeginObserverは独自の失敗分岐を所有しない。
+ * @invariant beginRuntimeOwnedDockerRecoveryWithHostBeginObserverは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: beginRuntimeOwnedDockerRecoveryWithHostBeginObserverはProcess内の同一Subsystemで完結する。
+ * @security beginRuntimeOwnedDockerRecoveryWithHostBeginObserverはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: beginRuntimeOwnedDockerRecoveryWithHostBeginObserverは共有非同期状態を持たない同期処理である。
+ */
 export function beginRuntimeOwnedDockerRecoveryWithHostBeginObserver(
   plan: ProductionPlan,
   managementCapability: unknown,
@@ -1037,7 +1478,22 @@ export function beginRuntimeOwnedDockerRecoveryWithHostBeginObserver(
   );
 }
 
-/** @internal Package-private earliest process-crash contract seam. */
+/**
+ * Runtime 所有 Docker 回復 With Pending Base Observerを開始する。
+ *
+ * @responsibility Runtime 所有 Docker 回復 With Pending Base Observerの開始条件、初期状態、開始失敗境界を所有する。
+ * @trace ARCH-000008
+ * @input plan: ProductionPlan、managementCapability: unknown、providerHome: VerifiedProviderHome、root: VerifiedRuntimeStateRoot、afterPendingBaseCommit: (recoveryId: string) => void、observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null
+ * @returns beginRuntimeOwnedDockerRecoveryWithPendingBaseObserverの計算結果を返す。
+ * @precondition 「plan: ProductionPlan、managementCapability: unknown、providerHome: VerifiedProviderHome、root: VerifiedRuntimeStateRoot、afterPendingBaseCommit: (recoveryId: string) => void、observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null」がbeginRuntimeOwnedDockerRecoveryWithPendingBaseObserverの入力契約を満たす。
+ * @postcondition beginRuntimeOwnedDockerRecoveryWithPendingBaseObserverの責務を完了した結果だけを返す。
+ * @effect N/A: beginRuntimeOwnedDockerRecoveryWithPendingBaseObserverは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: beginRuntimeOwnedDockerRecoveryWithPendingBaseObserverは独自の失敗分岐を所有しない。
+ * @invariant beginRuntimeOwnedDockerRecoveryWithPendingBaseObserverは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: beginRuntimeOwnedDockerRecoveryWithPendingBaseObserverはProcess内の同一Subsystemで完結する。
+ * @security beginRuntimeOwnedDockerRecoveryWithPendingBaseObserverはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: beginRuntimeOwnedDockerRecoveryWithPendingBaseObserverは共有非同期状態を持たない同期処理である。
+ */
 export function beginRuntimeOwnedDockerRecoveryWithPendingBaseObserver(
   plan: ProductionPlan,
   managementCapability: unknown,
@@ -1057,7 +1513,22 @@ export function beginRuntimeOwnedDockerRecoveryWithPendingBaseObserver(
   );
 }
 
-/** @internal Package-private native-boundary contract seam. */
+/**
+ * Runtime 所有 Docker 回復 With Runtime 状態 Observerを開始する。
+ *
+ * @responsibility Runtime 所有 Docker 回復 With Runtime 状態 Observerの開始条件、初期状態、開始失敗境界を所有する。
+ * @trace ARCH-000008
+ * @input plan: ProductionPlan、managementCapability: unknown、providerHome: VerifiedProviderHome、root: VerifiedRuntimeStateRoot、observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null
+ * @returns beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserverの計算結果を返す。
+ * @precondition 「plan: ProductionPlan、managementCapability: unknown、providerHome: VerifiedProviderHome、root: VerifiedRuntimeStateRoot、observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null」がbeginRuntimeOwnedDockerRecoveryWithRuntimeStateObserverの入力契約を満たす。
+ * @postcondition beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserverの責務を完了した結果だけを返す。
+ * @effect N/A: beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserverは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserverは独自の失敗分岐を所有しない。
+ * @invariant beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserverは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserverはProcess内の同一Subsystemで完結する。
+ * @security beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserverはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserverは共有非同期状態を持たない同期処理である。
+ */
 export function beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
   plan: ProductionPlan,
   managementCapability: unknown,
@@ -1076,6 +1547,22 @@ export function beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
   );
 }
 
+/**
+ * Production 回復を開始する。
+ *
+ * @responsibility Production 回復の開始条件、初期状態、開始失敗境界を所有する。
+ * @trace ARCH-000008
+ * @input plan: ProductionPlan、managementCapability: unknown
+ * @returns beginProductionRecoveryの計算結果を返す。
+ * @precondition 「plan: ProductionPlan、managementCapability: unknown」がbeginProductionRecoveryの入力契約を満たす。
+ * @postcondition beginProductionRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: beginProductionRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: beginProductionRecoveryは独自の失敗分岐を所有しない。
+ * @invariant beginProductionRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: beginProductionRecoveryはProcess内の同一Subsystemで完結する。
+ * @security beginProductionRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: beginProductionRecoveryは共有非同期状態を持たない同期処理である。
+ */
 function beginProductionRecovery(
   plan: ProductionPlan,
   managementCapability: unknown,
@@ -1123,12 +1610,44 @@ function beginProductionRecovery(
   );
 }
 
+/**
+ * durable 記録を決定する。
+ *
+ * @responsibility durable 記録の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input capability: unknown
+ * @returns durableRecordの計算結果を返す。
+ * @precondition 「capability: unknown」がdurableRecordの入力契約を満たす。
+ * @postcondition durableRecordの責務を完了した結果だけを返す。
+ * @effect N/A: durableRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: durableRecordは独自の失敗分岐を所有しない。
+ * @invariant durableRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: durableRecordはProcess内の同一Subsystemで完結する。
+ * @security durableRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: durableRecordは共有非同期状態を持たない同期処理である。
+ */
 function durableRecord(capability: unknown) {
   return capability && typeof capability === "object"
     ? (durableRecords.get(capability) ?? null)
     : null;
 }
 
+/**
+ * Runtime 所有 Docker 回復 Bindingを検証する。
+ *
+ * @responsibility Runtime 所有 Docker 回復 Bindingの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input recoveryCapability: unknown、recoveryId: unknown、managementCapability: unknown、stableLogicalHomeBindingHash: unknown
+ * @returns verifyRuntimeOwnedDockerRecoveryBindingの計算結果を返す。
+ * @precondition 「recoveryCapability: unknown、recoveryId: unknown、managementCapability: unknown、stableLogicalHomeBindingHash: unknown」がverifyRuntimeOwnedDockerRecoveryBindingの入力契約を満たす。
+ * @postcondition verifyRuntimeOwnedDockerRecoveryBindingの責務を完了した結果だけを返す。
+ * @effect N/A: verifyRuntimeOwnedDockerRecoveryBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: verifyRuntimeOwnedDockerRecoveryBindingは独自の失敗分岐を所有しない。
+ * @invariant verifyRuntimeOwnedDockerRecoveryBindingは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyRuntimeOwnedDockerRecoveryBindingはProcess内の同一Subsystemで完結する。
+ * @security verifyRuntimeOwnedDockerRecoveryBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyRuntimeOwnedDockerRecoveryBindingは共有非同期状態を持たない同期処理である。
+ */
 export function verifyRuntimeOwnedDockerRecoveryBinding(
   recoveryCapability: unknown,
   recoveryId: unknown,
@@ -1146,6 +1665,22 @@ export function verifyRuntimeOwnedDockerRecoveryBinding(
   );
 }
 
+/**
+ * with Durable Runtime 状態 Lockを決定する。
+ *
+ * @responsibility with Durable Runtime 状態 Lockの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input record: DurableRecord、operation: () => T
+ * @returns withDurableRuntimeStateLockの計算結果を返す。
+ * @precondition 「record: DurableRecord、operation: () => T」がwithDurableRuntimeStateLockの入力契約を満たす。
+ * @postcondition withDurableRuntimeStateLockの責務を完了した結果だけを返す。
+ * @effect withDurableRuntimeStateLockはFilesystemの読取りまたは書込みを実行する。
+ * @failure withDurableRuntimeStateLockは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant withDurableRuntimeStateLockは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security withDurableRuntimeStateLockはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: withDurableRuntimeStateLockは共有非同期状態を持たない同期処理である。
+ */
 function withDurableRuntimeStateLock<T>(
   record: DurableRecord,
   operation: () => T,
@@ -1184,6 +1719,22 @@ function withDurableRuntimeStateLock<T>(
   return operationResult as T;
 }
 
+/**
+ * Runtime 状態 Root From Windowsを観測する。
+ *
+ * @responsibility Runtime 状態 Root From Windowsの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input developmentContext: unknown
+ * @returns observeRuntimeStateRootFromWindowsの計算結果を返す。
+ * @precondition 「developmentContext: unknown」がobserveRuntimeStateRootFromWindowsの入力契約を満たす。
+ * @postcondition observeRuntimeStateRootFromWindowsの責務を完了した結果だけを返す。
+ * @effect N/A: observeRuntimeStateRootFromWindowsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: observeRuntimeStateRootFromWindowsは独自の失敗分岐を所有しない。
+ * @invariant observeRuntimeStateRootFromWindowsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observeRuntimeStateRootFromWindowsはProcess内の同一Subsystemで完結する。
+ * @security observeRuntimeStateRootFromWindowsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeRuntimeStateRootFromWindowsは共有非同期状態を持たない同期処理である。
+ */
 function observeRuntimeStateRootFromWindows(developmentContext?: unknown) {
   const observation = inspectRuntimeOwnedWindowsRuntimeState(
     false,
@@ -1196,6 +1747,22 @@ function observeRuntimeStateRootFromWindows(developmentContext?: unknown) {
   return observation.status === "candidate" && current ? current : null;
 }
 
+/**
+ * Observed Runtime 状態 Mutation Boundaryを検証する。
+ *
+ * @responsibility Observed Runtime 状態 Mutation Boundaryの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input expected: Readonly<{ rootPath: string; runtimeStateIdentityHash: string; runtimeStateProtectionHash: string; localUserBindingHash: string; runtimeStateBindingHash: string; }>、recoveryId: string、current: VerifiedRuntimeStateRoot | null
+ * @returns N/A: verifyObservedRuntimeStateMutationBoundaryは戻り値を返さない。
+ * @precondition 「expected: Readonly<{ rootPath: string; runtimeStateIdentityHash: string; runtimeStateProtectionHash: string; localUserBindingHash: string; runtimeStateBindingHash: string; }>、recoveryId: string、current: VerifiedRuntimeStateRoot | null」がverifyObservedRuntimeStateMutationBoundaryの入力契約を満たす。
+ * @postcondition verifyObservedRuntimeStateMutationBoundaryの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: verifyObservedRuntimeStateMutationBoundaryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyObservedRuntimeStateMutationBoundaryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyObservedRuntimeStateMutationBoundaryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyObservedRuntimeStateMutationBoundaryはProcess内の同一Subsystemで完結する。
+ * @security verifyObservedRuntimeStateMutationBoundaryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyObservedRuntimeStateMutationBoundaryは共有非同期状態を持たない同期処理である。
+ */
 function verifyObservedRuntimeStateMutationBoundary(
   expected: Readonly<{
     rootPath: string;
@@ -1227,6 +1794,22 @@ function verifyObservedRuntimeStateMutationBoundary(
     throw new Error("docker_task_runtime_state_audit_failed");
 }
 
+/**
+ * with Fresh Home And Runtime 状態 Lockを決定する。
+ *
+ * @responsibility with Fresh Home And Runtime 状態 Lockの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input record: DurableRecord、operation: () => T
+ * @returns withFreshHomeAndRuntimeStateLockの計算結果を返す。
+ * @precondition 「record: DurableRecord、operation: () => T」がwithFreshHomeAndRuntimeStateLockの入力契約を満たす。
+ * @postcondition withFreshHomeAndRuntimeStateLockの責務を完了した結果だけを返す。
+ * @effect N/A: withFreshHomeAndRuntimeStateLockは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure withFreshHomeAndRuntimeStateLockは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant withFreshHomeAndRuntimeStateLockは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: withFreshHomeAndRuntimeStateLockはProcess内の同一Subsystemで完結する。
+ * @security withFreshHomeAndRuntimeStateLockはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: withFreshHomeAndRuntimeStateLockは共有非同期状態を持たない同期処理である。
+ */
 function withFreshHomeAndRuntimeStateLock<T>(
   record: DurableRecord,
   operation: () => T,
@@ -1251,6 +1834,22 @@ function withFreshHomeAndRuntimeStateLock<T>(
   return operationResult as T;
 }
 
+/**
+ * mark Runtime 所有 Docker Resource Submissionを決定する。
+ *
+ * @responsibility mark Runtime 所有 Docker Resource Submissionの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input recoveryCapability: unknown、purpose: unknown
+ * @returns markRuntimeOwnedDockerResourceSubmissionの計算結果を返す。
+ * @precondition 「recoveryCapability: unknown、purpose: unknown」がmarkRuntimeOwnedDockerResourceSubmissionの入力契約を満たす。
+ * @postcondition markRuntimeOwnedDockerResourceSubmissionの責務を完了した結果だけを返す。
+ * @effect N/A: markRuntimeOwnedDockerResourceSubmissionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure markRuntimeOwnedDockerResourceSubmissionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant markRuntimeOwnedDockerResourceSubmissionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: markRuntimeOwnedDockerResourceSubmissionはProcess内の同一Subsystemで完結する。
+ * @security markRuntimeOwnedDockerResourceSubmissionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: markRuntimeOwnedDockerResourceSubmissionは共有非同期状態を持たない同期処理である。
+ */
 export function markRuntimeOwnedDockerResourceSubmission(
   recoveryCapability: unknown,
   purpose: unknown,
@@ -1276,6 +1875,22 @@ export function markRuntimeOwnedDockerResourceSubmission(
   }
 }
 
+/**
+ * record Runtime 所有 Docker Resource Receiptを決定する。
+ *
+ * @responsibility record Runtime 所有 Docker Resource Receiptの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input recoveryCapability: unknown、purpose: unknown、rawDockerId: unknown
+ * @returns recordRuntimeOwnedDockerResourceReceiptの計算結果を返す。
+ * @precondition 「recoveryCapability: unknown、purpose: unknown、rawDockerId: unknown」がrecordRuntimeOwnedDockerResourceReceiptの入力契約を満たす。
+ * @postcondition recordRuntimeOwnedDockerResourceReceiptの責務を完了した結果だけを返す。
+ * @effect N/A: recordRuntimeOwnedDockerResourceReceiptは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure recordRuntimeOwnedDockerResourceReceiptは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant recordRuntimeOwnedDockerResourceReceiptは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recordRuntimeOwnedDockerResourceReceiptはProcess内の同一Subsystemで完結する。
+ * @security recordRuntimeOwnedDockerResourceReceiptはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recordRuntimeOwnedDockerResourceReceiptは共有非同期状態を持たない同期処理である。
+ */
 export function recordRuntimeOwnedDockerResourceReceipt(
   recoveryCapability: unknown,
   purpose: unknown,
@@ -1331,6 +1946,22 @@ export function recordRuntimeOwnedDockerResourceReceipt(
   }
 }
 
+/**
+ * Runtime 所有 Docker Resource Receiptsを観測する。
+ *
+ * @responsibility Runtime 所有 Docker Resource Receiptsの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input recoveryCapability: unknown
+ * @returns inspectRuntimeOwnedDockerResourceReceiptsの計算結果を返す。
+ * @precondition 「recoveryCapability: unknown」がinspectRuntimeOwnedDockerResourceReceiptsの入力契約を満たす。
+ * @postcondition inspectRuntimeOwnedDockerResourceReceiptsの責務を完了した結果だけを返す。
+ * @effect N/A: inspectRuntimeOwnedDockerResourceReceiptsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectRuntimeOwnedDockerResourceReceiptsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectRuntimeOwnedDockerResourceReceiptsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectRuntimeOwnedDockerResourceReceiptsはProcess内の同一Subsystemで完結する。
+ * @security inspectRuntimeOwnedDockerResourceReceiptsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectRuntimeOwnedDockerResourceReceiptsは共有非同期状態を持たない同期処理である。
+ */
 export function inspectRuntimeOwnedDockerResourceReceipts(
   recoveryCapability: unknown,
 ) {
@@ -1388,6 +2019,22 @@ export function inspectRuntimeOwnedDockerResourceReceipts(
   }
 }
 
+/**
+ * record Runtime 所有 Docker Absenceを決定する。
+ *
+ * @responsibility record Runtime 所有 Docker Absenceの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input recoveryCapability: unknown
+ * @returns recordRuntimeOwnedDockerAbsenceの計算結果を返す。
+ * @precondition 「recoveryCapability: unknown」がrecordRuntimeOwnedDockerAbsenceの入力契約を満たす。
+ * @postcondition recordRuntimeOwnedDockerAbsenceの責務を完了した結果だけを返す。
+ * @effect N/A: recordRuntimeOwnedDockerAbsenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure recordRuntimeOwnedDockerAbsenceは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant recordRuntimeOwnedDockerAbsenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recordRuntimeOwnedDockerAbsenceはProcess内の同一Subsystemで完結する。
+ * @security recordRuntimeOwnedDockerAbsenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recordRuntimeOwnedDockerAbsenceは共有非同期状態を持たない同期処理である。
+ */
 export function recordRuntimeOwnedDockerAbsence(recoveryCapability: unknown) {
   try {
     const record = durableRecord(recoveryCapability);
@@ -1409,6 +2056,22 @@ export function recordRuntimeOwnedDockerAbsence(recoveryCapability: unknown) {
   }
 }
 
+/**
+ * record Runtime 所有 Normal Mount Completionを決定する。
+ *
+ * @responsibility record Runtime 所有 Normal Mount Completionの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input recoveryCapability: unknown
+ * @returns recordRuntimeOwnedNormalMountCompletionの計算結果を返す。
+ * @precondition 「recoveryCapability: unknown」がrecordRuntimeOwnedNormalMountCompletionの入力契約を満たす。
+ * @postcondition recordRuntimeOwnedNormalMountCompletionの責務を完了した結果だけを返す。
+ * @effect N/A: recordRuntimeOwnedNormalMountCompletionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure recordRuntimeOwnedNormalMountCompletionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant recordRuntimeOwnedNormalMountCompletionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recordRuntimeOwnedNormalMountCompletionはProcess内の同一Subsystemで完結する。
+ * @security recordRuntimeOwnedNormalMountCompletionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recordRuntimeOwnedNormalMountCompletionは共有非同期状態を持たない同期処理である。
+ */
 export function recordRuntimeOwnedNormalMountCompletion(
   recoveryCapability: unknown,
 ) {
@@ -1432,6 +2095,22 @@ export function recordRuntimeOwnedNormalMountCompletion(
   }
 }
 
+/**
+ * Production 回復を完了状態へ遷移させる。
+ *
+ * @responsibility Production 回復の完了条件、終了後状態、未完了境界を所有する。
+ * @trace ARCH-000008
+ * @input recoveryCapability: unknown、managementCapability: unknown
+ * @returns completeProductionRecoveryの計算結果を返す。
+ * @precondition 「recoveryCapability: unknown、managementCapability: unknown」がcompleteProductionRecoveryの入力契約を満たす。
+ * @postcondition completeProductionRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: completeProductionRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure completeProductionRecoveryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant completeProductionRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: completeProductionRecoveryはProcess内の同一Subsystemで完結する。
+ * @security completeProductionRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: completeProductionRecoveryは共有非同期状態を持たない同期処理である。
+ */
 function completeProductionRecovery(
   recoveryCapability: unknown,
   managementCapability: unknown,
@@ -1549,6 +2228,22 @@ function completeProductionRecovery(
   }
 }
 
+/**
+ * finalize Runtime 所有 Docker 回復を決定する。
+ *
+ * @responsibility finalize Runtime 所有 Docker 回復の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input recoveryFinalizationCapability: unknown
+ * @returns finalizeRuntimeOwnedDockerRecoveryの計算結果を返す。
+ * @precondition 「recoveryFinalizationCapability: unknown」がfinalizeRuntimeOwnedDockerRecoveryの入力契約を満たす。
+ * @postcondition finalizeRuntimeOwnedDockerRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: finalizeRuntimeOwnedDockerRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure finalizeRuntimeOwnedDockerRecoveryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant finalizeRuntimeOwnedDockerRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: finalizeRuntimeOwnedDockerRecoveryはProcess内の同一Subsystemで完結する。
+ * @security finalizeRuntimeOwnedDockerRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: finalizeRuntimeOwnedDockerRecoveryは共有非同期状態を持たない同期処理である。
+ */
 export function finalizeRuntimeOwnedDockerRecovery(
   recoveryFinalizationCapability: unknown,
 ) {
@@ -1597,6 +2292,22 @@ export function finalizeRuntimeOwnedDockerRecovery(
   }
 }
 
+/**
+ * Runtime 所有 Docker Host 清掃を実行前候補として準備する。
+ *
+ * @responsibility Runtime 所有 Docker Host 清掃の準備条件、候補Identity、Effect前の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input recoveryFinalizationCapability: unknown
+ * @returns prepareRuntimeOwnedDockerHostCleanupの計算結果を返す。
+ * @precondition 「recoveryFinalizationCapability: unknown」がprepareRuntimeOwnedDockerHostCleanupの入力契約を満たす。
+ * @postcondition prepareRuntimeOwnedDockerHostCleanupの責務を完了した結果だけを返す。
+ * @effect N/A: prepareRuntimeOwnedDockerHostCleanupは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure prepareRuntimeOwnedDockerHostCleanupは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant prepareRuntimeOwnedDockerHostCleanupは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: prepareRuntimeOwnedDockerHostCleanupはProcess内の同一Subsystemで完結する。
+ * @security prepareRuntimeOwnedDockerHostCleanupはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: prepareRuntimeOwnedDockerHostCleanupは共有非同期状態を持たない同期処理である。
+ */
 export function prepareRuntimeOwnedDockerHostCleanup(
   recoveryFinalizationCapability: unknown,
 ) {
@@ -1654,6 +2365,22 @@ export function prepareRuntimeOwnedDockerHostCleanup(
   }
 }
 
+/**
+ * record Runtime 所有 Docker Host 清掃 Receiptを決定する。
+ *
+ * @responsibility record Runtime 所有 Docker Host 清掃 Receiptの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input recoveryFinalizationCapability: unknown
+ * @returns recordRuntimeOwnedDockerHostCleanupReceiptの計算結果を返す。
+ * @precondition 「recoveryFinalizationCapability: unknown」がrecordRuntimeOwnedDockerHostCleanupReceiptの入力契約を満たす。
+ * @postcondition recordRuntimeOwnedDockerHostCleanupReceiptの責務を完了した結果だけを返す。
+ * @effect N/A: recordRuntimeOwnedDockerHostCleanupReceiptは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure recordRuntimeOwnedDockerHostCleanupReceiptは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant recordRuntimeOwnedDockerHostCleanupReceiptは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recordRuntimeOwnedDockerHostCleanupReceiptはProcess内の同一Subsystemで完結する。
+ * @security recordRuntimeOwnedDockerHostCleanupReceiptはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recordRuntimeOwnedDockerHostCleanupReceiptは共有非同期状態を持たない同期処理である。
+ */
 export function recordRuntimeOwnedDockerHostCleanupReceipt(
   recoveryFinalizationCapability: unknown,
 ) {
@@ -1707,6 +2434,22 @@ export function recordRuntimeOwnedDockerHostCleanupReceipt(
   }
 }
 
+/**
+ * abandon Runtime 所有 Docker 回復を決定する。
+ *
+ * @responsibility abandon Runtime 所有 Docker 回復の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input recoveryCapability: unknown
+ * @returns abandonRuntimeOwnedDockerRecoveryの計算結果を返す。
+ * @precondition 「recoveryCapability: unknown」がabandonRuntimeOwnedDockerRecoveryの入力契約を満たす。
+ * @postcondition abandonRuntimeOwnedDockerRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: abandonRuntimeOwnedDockerRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: abandonRuntimeOwnedDockerRecoveryは独自の失敗分岐を所有しない。
+ * @invariant abandonRuntimeOwnedDockerRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: abandonRuntimeOwnedDockerRecoveryはProcess内の同一Subsystemで完結する。
+ * @security abandonRuntimeOwnedDockerRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: abandonRuntimeOwnedDockerRecoveryは共有非同期状態を持たない同期処理である。
+ */
 export function abandonRuntimeOwnedDockerRecovery(recoveryCapability: unknown) {
   const record = durableRecord(recoveryCapability);
   if (!record) return false;
@@ -1717,6 +2460,22 @@ export function abandonRuntimeOwnedDockerRecovery(recoveryCapability: unknown) {
   return released;
 }
 
+/**
+ * Exact Jsonを読み取る。
+ *
+ * @responsibility Exact Jsonの読取り元、上限、読取不能時の結果境界を所有する。
+ * @trace ARCH-000008
+ * @input file: string、logicalKey
+ * @returns readExactJsonの計算結果を返す。
+ * @precondition 「file: string、logicalKey」がreadExactJsonの入力契約を満たす。
+ * @postcondition readExactJsonの責務を完了した結果だけを返す。
+ * @effect N/A: readExactJsonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: readExactJsonは独自の失敗分岐を所有しない。
+ * @invariant readExactJsonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: readExactJsonはProcess内の同一Subsystemで完結する。
+ * @security readExactJsonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readExactJsonは共有非同期状態を持たない同期処理である。
+ */
 function readExactJson(file: string, logicalKey = path.basename(file)) {
   const record = readCommittedDockerRecoveryJson(file, logicalKey);
   return Object.freeze({
@@ -1725,6 +2484,22 @@ function readExactJson(file: string, logicalKey = path.basename(file)) {
   });
 }
 
+/**
+ * 記録 Keysが完全一致するか判定する。
+ *
+ * @responsibility 記録 Keysの比較対象、完全一致条件、判定結果境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、keys: readonly string[]
+ * @returns exactRecordKeysの計算結果を返す。
+ * @precondition 「value: unknown、keys: readonly string[]」がexactRecordKeysの入力契約を満たす。
+ * @postcondition exactRecordKeysの責務を完了した結果だけを返す。
+ * @effect N/A: exactRecordKeysは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: exactRecordKeysは独自の失敗分岐を所有しない。
+ * @invariant exactRecordKeysは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: exactRecordKeysはProcess内の同一Subsystemで完結する。
+ * @security exactRecordKeysはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: exactRecordKeysは共有非同期状態を持たない同期処理である。
+ */
 function exactRecordKeys(value: unknown, keys: readonly string[]) {
   return (
     value !== null &&
@@ -1740,6 +2515,22 @@ function exactRecordKeys(value: unknown, keys: readonly string[]) {
 const OPERATION_RECORD_NAME =
   /^(?:base|base-commit|engine-restart-0[0-4]|engine-handoff-0[0-7]|engine-continuation-0[0-4]|host-(?:begin|complete|crash-absence|cleanup)-(?:intent|receipt)|host-precleanup-finalization-intent|submission-(?:create_subscription_auth_probe|create_internal_network|create_egress_network|create_proxy|create_provider)|receipt-(?:create_subscription_auth_probe|create_internal_network|create_egress_network|create_proxy|create_provider)|restart-fence-(?:create_subscription_auth_probe|create_internal_network|create_egress_network|create_proxy|create_provider)|docker-absence(?:-crash)?|mount-(?:completion|crash-absence)|lease-release-receipt|normal-run-complete)\.json$/u;
 
+/**
+ * Host Snapshotの契約を検証する。
+ *
+ * @responsibility Host Snapshotの必須Property、拒否条件、検証結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、initialToken: string
+ * @returns validateHostSnapshotの計算結果を返す。
+ * @precondition 「value: unknown、initialToken: string」がvalidateHostSnapshotの入力契約を満たす。
+ * @postcondition validateHostSnapshotの責務を完了した結果だけを返す。
+ * @effect N/A: validateHostSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validateHostSnapshotは独自の失敗分岐を所有しない。
+ * @invariant validateHostSnapshotは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateHostSnapshotはProcess内の同一Subsystemで完結する。
+ * @security validateHostSnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateHostSnapshotは共有非同期状態を持たない同期処理である。
+ */
 function validateHostSnapshot(value: unknown, initialToken: string) {
   if (
     !exactRecordKeys(value, [
@@ -1807,6 +2598,22 @@ function validateHostSnapshot(value: unknown, initialToken: string) {
   );
 }
 
+/**
+ * Docker 回復 Baseの契約を検証する。
+ *
+ * @responsibility Docker 回復 Baseの必須Property、拒否条件、検証結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、nonce: string
+ * @returns validateDockerRecoveryBaseの計算結果を返す。
+ * @precondition 「value: unknown、nonce: string」がvalidateDockerRecoveryBaseの入力契約を満たす。
+ * @postcondition validateDockerRecoveryBaseの責務を完了した結果だけを返す。
+ * @effect N/A: validateDockerRecoveryBaseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure validateDockerRecoveryBaseは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant validateDockerRecoveryBaseは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateDockerRecoveryBaseはProcess内の同一Subsystemで完結する。
+ * @security validateDockerRecoveryBaseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateDockerRecoveryBaseは共有非同期状態を持たない同期処理である。
+ */
 function validateDockerRecoveryBase(value: unknown, nonce: string) {
   const record = value as Record<string, unknown>;
   const baseKeys = [
@@ -1899,6 +2706,22 @@ function validateDockerRecoveryBase(value: unknown, nonce: string) {
   );
 }
 
+/**
+ * Docker 回復 Base Commitの契約を検証する。
+ *
+ * @responsibility Docker 回復 Base Commitの必須Property、拒否条件、検証結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、nonce: string、baseHash: string、recoveryId: string
+ * @returns validateDockerRecoveryBaseCommitの計算結果を返す。
+ * @precondition 「value: unknown、nonce: string、baseHash: string、recoveryId: string」がvalidateDockerRecoveryBaseCommitの入力契約を満たす。
+ * @postcondition validateDockerRecoveryBaseCommitの責務を完了した結果だけを返す。
+ * @effect N/A: validateDockerRecoveryBaseCommitは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validateDockerRecoveryBaseCommitは独自の失敗分岐を所有しない。
+ * @invariant validateDockerRecoveryBaseCommitは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateDockerRecoveryBaseCommitはProcess内の同一Subsystemで完結する。
+ * @security validateDockerRecoveryBaseCommitはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateDockerRecoveryBaseCommitは共有非同期状態を持たない同期処理である。
+ */
 function validateDockerRecoveryBaseCommit(
   value: unknown,
   nonce: string,
@@ -1931,6 +2754,22 @@ function validateDockerRecoveryBaseCommit(
   );
 }
 
+/**
+ * Operation 記録の契約を検証する。
+ *
+ * @responsibility Operation 記録の必須Property、拒否条件、検証結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input name: string、value: unknown、recoveryId: string、nonce: string、baseHash: string
+ * @returns validateOperationRecordの計算結果を返す。
+ * @precondition 「name: string、value: unknown、recoveryId: string、nonce: string、baseHash: string」がvalidateOperationRecordの入力契約を満たす。
+ * @postcondition validateOperationRecordの責務を完了した結果だけを返す。
+ * @effect N/A: validateOperationRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validateOperationRecordは独自の失敗分岐を所有しない。
+ * @invariant validateOperationRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateOperationRecordはProcess内の同一Subsystemで完結する。
+ * @security validateOperationRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateOperationRecordは共有非同期状態を持たない同期処理である。
+ */
 function validateOperationRecord(
   name: string,
   value: unknown,
@@ -2181,6 +3020,22 @@ function validateOperationRecord(
   return false;
 }
 
+/**
+ * inventory Operation Directoryを決定する。
+ *
+ * @responsibility inventory Operation Directoryの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input operationDirectory: string、recoveryId: string、nonce: string、baseHash: string、splitMoveRecords: ReadonlyMap< string, Readonly<{ value: unknown }> >
+ * @returns inventoryOperationDirectoryの計算結果を返す。
+ * @precondition 「operationDirectory: string、recoveryId: string、nonce: string、baseHash: string、splitMoveRecords: ReadonlyMap< string, Readonly<{ value: unknown }> >」がinventoryOperationDirectoryの入力契約を満たす。
+ * @postcondition inventoryOperationDirectoryの責務を完了した結果だけを返す。
+ * @effect inventoryOperationDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure inventoryOperationDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inventoryOperationDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security inventoryOperationDirectoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inventoryOperationDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function inventoryOperationDirectory(
   operationDirectory: string,
   recoveryId: string,
@@ -2361,7 +3216,22 @@ function inventoryOperationDirectory(
   return Object.freeze([...dataNames].sort());
 }
 
-/** Select unresolved submission data records from an already validated inventory. */
+/**
+ * Select unresolved submission data records from an already validated inventory.
+ *
+ * @responsibility Pending Docker Submission Names From Inventoryの候補集合、選択理由、選択不能時の境界を所有する。
+ * @trace ARCH-000008
+ * @input names: readonly string[]
+ * @returns selectPendingDockerSubmissionNamesFromInventoryの計算結果を返す。
+ * @precondition 「names: readonly string[]」がselectPendingDockerSubmissionNamesFromInventoryの入力契約を満たす。
+ * @postcondition selectPendingDockerSubmissionNamesFromInventoryの責務を完了した結果だけを返す。
+ * @effect N/A: selectPendingDockerSubmissionNamesFromInventoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: selectPendingDockerSubmissionNamesFromInventoryは独自の失敗分岐を所有しない。
+ * @invariant selectPendingDockerSubmissionNamesFromInventoryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: selectPendingDockerSubmissionNamesFromInventoryはProcess内の同一Subsystemで完結する。
+ * @security selectPendingDockerSubmissionNamesFromInventoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: selectPendingDockerSubmissionNamesFromInventoryは共有非同期状態を持たない同期処理である。
+ */
 export function selectPendingDockerSubmissionNamesFromInventory(
   names: readonly string[],
 ) {
@@ -2376,6 +3246,22 @@ export function selectPendingDockerSubmissionNamesFromInventory(
   );
 }
 
+/**
+ * Host 清掃 Receiptが成立する状態を確保する。
+ *
+ * @responsibility Host 清掃 Receiptの成立条件、作成または再利用、失敗時の非成立境界を所有する。
+ * @trace ARCH-000008
+ * @input operationDirectory: string、recoveryId: string、hostPaths: Readonly<{ root: string; marker: string }>
+ * @returns ensureHostCleanupReceiptの計算結果を返す。
+ * @precondition 「operationDirectory: string、recoveryId: string、hostPaths: Readonly<{ root: string; marker: string }>」がensureHostCleanupReceiptの入力契約を満たす。
+ * @postcondition ensureHostCleanupReceiptの責務を完了した結果だけを返す。
+ * @effect N/A: ensureHostCleanupReceiptは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure ensureHostCleanupReceiptは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant ensureHostCleanupReceiptは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: ensureHostCleanupReceiptはProcess内の同一Subsystemで完結する。
+ * @security ensureHostCleanupReceiptはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: ensureHostCleanupReceiptは共有非同期状態を持たない同期処理である。
+ */
 function ensureHostCleanupReceipt(
   operationDirectory: string,
   recoveryId: string,
@@ -2416,6 +3302,22 @@ function ensureHostCleanupReceipt(
   });
 }
 
+/**
+ * 回復 Reasonを安全条件の下で処理する。
+ *
+ * @responsibility 回復 Reasonの安全条件、拒否条件、終了結果境界を所有する。
+ * @trace ARCH-000008
+ * @input error: unknown、fallback: string
+ * @returns safeRecoveryReasonの計算結果を返す。
+ * @precondition 「error: unknown、fallback: string」がsafeRecoveryReasonの入力契約を満たす。
+ * @postcondition safeRecoveryReasonの責務を完了した結果だけを返す。
+ * @effect N/A: safeRecoveryReasonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: safeRecoveryReasonは独自の失敗分岐を所有しない。
+ * @invariant safeRecoveryReasonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: safeRecoveryReasonはProcess内の同一Subsystemで完結する。
+ * @security safeRecoveryReasonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: safeRecoveryReasonは共有非同期状態を持たない同期処理である。
+ */
 function safeRecoveryReason(error: unknown, fallback: string) {
   const message = error instanceof Error ? error.message : "";
   return /^(?:docker_task|host_recovery)_[a-z0-9_]{1,120}$/u.test(message)
@@ -2423,6 +3325,22 @@ function safeRecoveryReason(error: unknown, fallback: string) {
     : fallback;
 }
 
+/**
+ * host Paths From Baseを決定する。
+ *
+ * @responsibility host Paths From Baseの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input base: Record<string, unknown>
+ * @returns hostPathsFromBaseの計算結果を返す。
+ * @precondition 「base: Record<string, unknown>」がhostPathsFromBaseの入力契約を満たす。
+ * @postcondition hostPathsFromBaseの責務を完了した結果だけを返す。
+ * @effect N/A: hostPathsFromBaseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure hostPathsFromBaseは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant hostPathsFromBaseは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: hostPathsFromBaseはProcess内の同一Subsystemで完結する。
+ * @security hostPathsFromBaseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hostPathsFromBaseは共有非同期状態を持たない同期処理である。
+ */
 function hostPathsFromBase(base: Record<string, unknown>) {
   const paths = base.hostPaths;
   if (
@@ -2443,6 +3361,22 @@ function hostPathsFromBase(base: Record<string, unknown>) {
   return Object.freeze({ root, marker });
 }
 
+/**
+ * management Directory Name From Baseを決定する。
+ *
+ * @responsibility management Directory Name From Baseの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input base: Record<string, unknown>
+ * @returns managementDirectoryNameFromBaseの計算結果を返す。
+ * @precondition 「base: Record<string, unknown>」がmanagementDirectoryNameFromBaseの入力契約を満たす。
+ * @postcondition managementDirectoryNameFromBaseの責務を完了した結果だけを返す。
+ * @effect N/A: managementDirectoryNameFromBaseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure managementDirectoryNameFromBaseは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant managementDirectoryNameFromBaseは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: managementDirectoryNameFromBaseはProcess内の同一Subsystemで完結する。
+ * @security managementDirectoryNameFromBaseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: managementDirectoryNameFromBaseは共有非同期状態を持たない同期処理である。
+ */
 function managementDirectoryNameFromBase(base: Record<string, unknown>) {
   const snapshot = base.initialHostRecovery as Record<string, unknown>;
   const hostRecord = snapshot?.record as Record<string, unknown>;
@@ -2461,6 +3395,22 @@ function managementDirectoryNameFromBase(base: Record<string, unknown>) {
   return name;
 }
 
+/**
+ * expected Host Active Bindingを決定する。
+ *
+ * @responsibility expected Host Active Bindingの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input recoveryId: string、baseHash: string、operationNonce: string
+ * @returns expectedHostActiveBindingの計算結果を返す。
+ * @precondition 「recoveryId: string、baseHash: string、operationNonce: string」がexpectedHostActiveBindingの入力契約を満たす。
+ * @postcondition expectedHostActiveBindingの責務を完了した結果だけを返す。
+ * @effect N/A: expectedHostActiveBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: expectedHostActiveBindingは独自の失敗分岐を所有しない。
+ * @invariant expectedHostActiveBindingは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: expectedHostActiveBindingはProcess内の同一Subsystemで完結する。
+ * @security expectedHostActiveBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: expectedHostActiveBindingは共有非同期状態を持たない同期処理である。
+ */
 function expectedHostActiveBinding(
   recoveryId: string,
   baseHash: string,
@@ -2474,6 +3424,22 @@ function expectedHostActiveBinding(
   });
 }
 
+/**
+ * Host Active Bindingの契約を検証する。
+ *
+ * @responsibility Host Active Bindingの必須Property、拒否条件、検証結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、expected: ReturnType<typeof expectedHostActiveBinding>
+ * @returns N/A: validateHostActiveBindingは戻り値を返さない。
+ * @precondition 「value: unknown、expected: ReturnType<typeof expectedHostActiveBinding>」がvalidateHostActiveBindingの入力契約を満たす。
+ * @postcondition validateHostActiveBindingの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: validateHostActiveBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure validateHostActiveBindingは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant validateHostActiveBindingは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateHostActiveBindingはProcess内の同一Subsystemで完結する。
+ * @security validateHostActiveBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateHostActiveBindingは共有非同期状態を持たない同期処理である。
+ */
 function validateHostActiveBinding(
   value: unknown,
   expected: ReturnType<typeof expectedHostActiveBinding>,
@@ -2494,6 +3460,22 @@ function validateHostActiveBinding(
     throw new Error("docker_task_recovery_active_run_mismatch");
 }
 
+/**
+ * Active Lease Pointerの契約を検証する。
+ *
+ * @responsibility Active Lease Pointerの必須Property、拒否条件、検証結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、expected: Readonly<{ stableLogicalHomeBindingHash: string; operationNonce: string; recoveryId: string; baseHash: string; }>
+ * @returns N/A: validateActiveLeasePointerは戻り値を返さない。
+ * @precondition 「value: unknown、expected: Readonly<{ stableLogicalHomeBindingHash: string; operationNonce: string; recoveryId: string; baseHash: string; }>」がvalidateActiveLeasePointerの入力契約を満たす。
+ * @postcondition validateActiveLeasePointerの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: validateActiveLeasePointerは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure validateActiveLeasePointerは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant validateActiveLeasePointerは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validateActiveLeasePointerはProcess内の同一Subsystemで完結する。
+ * @security validateActiveLeasePointerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validateActiveLeasePointerは共有非同期状態を持たない同期処理である。
+ */
 function validateActiveLeasePointer(
   value: unknown,
   expected: Readonly<{
@@ -2523,6 +3505,22 @@ function validateActiveLeasePointer(
     throw new Error("docker_task_recovery_pointer_mismatch");
 }
 
+/**
+ * 回復 Pathを観測する。
+ *
+ * @responsibility 回復 Pathの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input target: string
+ * @returns observeRecoveryPathの計算結果を返す。
+ * @precondition 「target: string」がobserveRecoveryPathの入力契約を満たす。
+ * @postcondition observeRecoveryPathの責務を完了した結果だけを返す。
+ * @effect observeRecoveryPathはFilesystemの読取りまたは書込みを実行する。
+ * @failure observeRecoveryPathは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeRecoveryPathは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security observeRecoveryPathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeRecoveryPathは共有非同期状態を持たない同期処理である。
+ */
 function observeRecoveryPath(target: string) {
   try {
     return fs.lstatSync(target, { bigint: true });
@@ -2533,10 +3531,42 @@ function observeRecoveryPath(target: string) {
   }
 }
 
+/**
+ * recovery Path Presentを決定する。
+ *
+ * @responsibility recovery Path Presentの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input target: string
+ * @returns recoveryPathPresentの計算結果を返す。
+ * @precondition 「target: string」がrecoveryPathPresentの入力契約を満たす。
+ * @postcondition recoveryPathPresentの責務を完了した結果だけを返す。
+ * @effect N/A: recoveryPathPresentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: recoveryPathPresentは独自の失敗分岐を所有しない。
+ * @invariant recoveryPathPresentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recoveryPathPresentはProcess内の同一Subsystemで完結する。
+ * @security recoveryPathPresentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recoveryPathPresentは共有非同期状態を持たない同期処理である。
+ */
 function recoveryPathPresent(target: string) {
   return observeRecoveryPath(target) !== null;
 }
 
+/**
+ * 回復 Fileを観測する。
+ *
+ * @responsibility 回復 Fileの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input target: string
+ * @returns observeRecoveryFileの計算結果を返す。
+ * @precondition 「target: string」がobserveRecoveryFileの入力契約を満たす。
+ * @postcondition observeRecoveryFileの責務を完了した結果だけを返す。
+ * @effect N/A: observeRecoveryFileは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure observeRecoveryFileは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeRecoveryFileは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observeRecoveryFileはProcess内の同一Subsystemで完結する。
+ * @security observeRecoveryFileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeRecoveryFileは共有非同期状態を持たない同期処理である。
+ */
 function observeRecoveryFile(target: string) {
   const metadata = observeRecoveryPath(target);
   if (metadata === null) return false;
@@ -2545,6 +3575,22 @@ function observeRecoveryFile(target: string) {
   return true;
 }
 
+/**
+ * Active Binding And Pointer Closureを検証する。
+ *
+ * @responsibility Active Binding And Pointer Closureの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input activeBindingPath: string、pointerPath: string、expectedActive: ReturnType<typeof expectedHostActiveBinding>、expectedPointer: Readonly<{ stableLogicalHomeBindingHash: string; operationNonce: string; recoveryId: string; baseHash: string; }>
+ * @returns verifyActiveBindingAndPointerClosureの計算結果を返す。
+ * @precondition 「activeBindingPath: string、pointerPath: string、expectedActive: ReturnType<typeof expectedHostActiveBinding>、expectedPointer: Readonly<{ stableLogicalHomeBindingHash: string; operationNonce: string; recoveryId: string; baseHash: string; }>」がverifyActiveBindingAndPointerClosureの入力契約を満たす。
+ * @postcondition verifyActiveBindingAndPointerClosureの責務を完了した結果だけを返す。
+ * @effect verifyActiveBindingAndPointerClosureはFilesystemの読取りまたは書込みを実行する。
+ * @failure verifyActiveBindingAndPointerClosureは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyActiveBindingAndPointerClosureは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security verifyActiveBindingAndPointerClosureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyActiveBindingAndPointerClosureは共有非同期状態を持たない同期処理である。
+ */
 function verifyActiveBindingAndPointerClosure(
   activeBindingPath: string,
   pointerPath: string,
@@ -2604,6 +3650,22 @@ function verifyActiveBindingAndPointerClosure(
   });
 }
 
+/**
+ * 回復 Operation Directoryを除去する。
+ *
+ * @responsibility 回復 Operation Directoryの対象Identity、除去条件、終了後状態の境界を所有する。
+ * @trace ARCH-000008
+ * @input operationDirectory: string、recoveryId: string、nonce: string、baseHash: string、stableLogicalHomeBindingHash: string、runtimeStateBinding: RuntimeStateBindingEvidence、shouldPersistCompletionReceipt
+ * @returns removeRecoveryOperationDirectoryの計算結果を返す。
+ * @precondition 「operationDirectory: string、recoveryId: string、nonce: string、baseHash: string、stableLogicalHomeBindingHash: string、runtimeStateBinding: RuntimeStateBindingEvidence、shouldPersistCompletionReceipt」がremoveRecoveryOperationDirectoryの入力契約を満たす。
+ * @postcondition removeRecoveryOperationDirectoryの責務を完了した結果だけを返す。
+ * @effect removeRecoveryOperationDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure removeRecoveryOperationDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant removeRecoveryOperationDirectoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security removeRecoveryOperationDirectoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: removeRecoveryOperationDirectoryは共有非同期状態を持たない同期処理である。
+ */
 function removeRecoveryOperationDirectory(
   operationDirectory: string,
   recoveryId: string,
@@ -2688,6 +3750,22 @@ function removeRecoveryOperationDirectory(
   );
 }
 
+/**
+ * 回復 清掃 Manifestを検証する。
+ *
+ * @responsibility 回復 清掃 Manifestの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input cleanupDirectory: string、recoveryId: string
+ * @returns verifyRecoveryCleanupManifestの計算結果を返す。
+ * @precondition 「cleanupDirectory: string、recoveryId: string」がverifyRecoveryCleanupManifestの入力契約を満たす。
+ * @postcondition verifyRecoveryCleanupManifestの責務を完了した結果だけを返す。
+ * @effect verifyRecoveryCleanupManifestはFilesystemの読取りまたは書込みを実行する。
+ * @failure verifyRecoveryCleanupManifestは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyRecoveryCleanupManifestは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security verifyRecoveryCleanupManifestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyRecoveryCleanupManifestは共有非同期状態を持たない同期処理である。
+ */
 function verifyRecoveryCleanupManifest(
   cleanupDirectory: string,
   recoveryId: string,
@@ -2786,6 +3864,22 @@ function verifyRecoveryCleanupManifest(
   });
 }
 
+/**
+ * inventory 回復 清掃 Tombstoneを決定する。
+ *
+ * @responsibility inventory 回復 清掃 Tombstoneの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input cleanupDirectory: string、recoveryId: string
+ * @returns inventoryRecoveryCleanupTombstoneの計算結果を返す。
+ * @precondition 「cleanupDirectory: string、recoveryId: string」がinventoryRecoveryCleanupTombstoneの入力契約を満たす。
+ * @postcondition inventoryRecoveryCleanupTombstoneの責務を完了した結果だけを返す。
+ * @effect N/A: inventoryRecoveryCleanupTombstoneは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inventoryRecoveryCleanupTombstoneは独自の失敗分岐を所有しない。
+ * @invariant inventoryRecoveryCleanupTombstoneは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inventoryRecoveryCleanupTombstoneはProcess内の同一Subsystemで完結する。
+ * @security inventoryRecoveryCleanupTombstoneはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inventoryRecoveryCleanupTombstoneは共有非同期状態を持たない同期処理である。
+ */
 function inventoryRecoveryCleanupTombstone(
   cleanupDirectory: string,
   recoveryId: string,
@@ -2793,6 +3887,22 @@ function inventoryRecoveryCleanupTombstone(
   return verifyRecoveryCleanupManifest(cleanupDirectory, recoveryId);
 }
 
+/**
+ * 回復 清掃 Tombstoneを除去する。
+ *
+ * @responsibility 回復 清掃 Tombstoneの対象Identity、除去条件、終了後状態の境界を所有する。
+ * @trace ARCH-000008
+ * @input cleanupDirectory: string、recoveryId: string
+ * @returns removeRecoveryCleanupTombstoneの計算結果を返す。
+ * @precondition 「cleanupDirectory: string、recoveryId: string」がremoveRecoveryCleanupTombstoneの入力契約を満たす。
+ * @postcondition removeRecoveryCleanupTombstoneの責務を完了した結果だけを返す。
+ * @effect N/A: removeRecoveryCleanupTombstoneは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: removeRecoveryCleanupTombstoneは独自の失敗分岐を所有しない。
+ * @invariant removeRecoveryCleanupTombstoneは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: removeRecoveryCleanupTombstoneはProcess内の同一Subsystemで完結する。
+ * @security removeRecoveryCleanupTombstoneはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: removeRecoveryCleanupTombstoneは共有非同期状態を持たない同期処理である。
+ */
 function removeRecoveryCleanupTombstone(
   cleanupDirectory: string,
   recoveryId: string,
@@ -2806,6 +3916,22 @@ function removeRecoveryCleanupTombstone(
   );
 }
 
+/**
+ * host 回復 Inventory Readyを決定する。
+ *
+ * @responsibility host 回復 Inventory Readyの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input runtimeStateRoot: string、hostRoot: string、targetOperationDirectory: string
+ * @returns hostRecoveryInventoryReadyの計算結果を返す。
+ * @precondition 「runtimeStateRoot: string、hostRoot: string、targetOperationDirectory: string」がhostRecoveryInventoryReadyの入力契約を満たす。
+ * @postcondition hostRecoveryInventoryReadyの責務を完了した結果だけを返す。
+ * @effect hostRecoveryInventoryReadyはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: hostRecoveryInventoryReadyは独自の失敗分岐を所有しない。
+ * @invariant hostRecoveryInventoryReadyは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security hostRecoveryInventoryReadyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hostRecoveryInventoryReadyは共有非同期状態を持たない同期処理である。
+ */
 function hostRecoveryInventoryReady(
   runtimeStateRoot: string,
   hostRoot: string,
@@ -2855,6 +3981,22 @@ function hostRecoveryInventoryReady(
   return true;
 }
 
+/**
+ * current Host 回復 Token For Inventoryを決定する。
+ *
+ * @responsibility current Host 回復 Token For Inventoryの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input runtimeStateRoot: string、hostRoot: string
+ * @returns currentHostRecoveryTokenForInventoryの計算結果を返す。
+ * @precondition 「runtimeStateRoot: string、hostRoot: string」がcurrentHostRecoveryTokenForInventoryの入力契約を満たす。
+ * @postcondition currentHostRecoveryTokenForInventoryの責務を完了した結果だけを返す。
+ * @effect currentHostRecoveryTokenForInventoryはFilesystemの読取りまたは書込みを実行する。
+ * @failure currentHostRecoveryTokenForInventoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant currentHostRecoveryTokenForInventoryは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security currentHostRecoveryTokenForInventoryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: currentHostRecoveryTokenForInventoryは共有非同期状態を持たない同期処理である。
+ */
 function currentHostRecoveryTokenForInventory(
   runtimeStateRoot: string,
   hostRoot: string,
@@ -2897,6 +4039,22 @@ function currentHostRecoveryTokenForInventory(
   return currentRecoveryIds.length === 1 ? currentRecoveryIds[0] : null;
 }
 
+/**
+ * 回復 Docker Cliを検証する。
+ *
+ * @responsibility 回復 Docker Cliの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns N/A: verifyRecoveryDockerCliは戻り値を返さない。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がverifyRecoveryDockerCliの入力契約を満たす。
+ * @postcondition verifyRecoveryDockerCliの責務を完了して呼出し元へ制御を戻す。
+ * @effect N/A: verifyRecoveryDockerCliは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyRecoveryDockerCliは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyRecoveryDockerCliは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyRecoveryDockerCliはProcess内の同一Subsystemで完結する。
+ * @security verifyRecoveryDockerCliはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyRecoveryDockerCliは共有非同期状態を持たない同期処理である。
+ */
 function verifyRecoveryDockerCli() {
   try {
     if (recoveryDockerCliSnapshot === null) {
@@ -2909,6 +4067,22 @@ function verifyRecoveryDockerCli() {
   }
 }
 
+/**
+ * recovery Config Identityを決定する。
+ *
+ * @responsibility recovery Config Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input configDirectory: string
+ * @returns recoveryConfigIdentityの計算結果を返す。
+ * @precondition 「configDirectory: string」がrecoveryConfigIdentityの入力契約を満たす。
+ * @postcondition recoveryConfigIdentityの責務を完了した結果だけを返す。
+ * @effect recoveryConfigIdentityはFilesystemの読取りまたは書込みを実行する。
+ * @failure recoveryConfigIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant recoveryConfigIdentityは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security recoveryConfigIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recoveryConfigIdentityは共有非同期状態を持たない同期処理である。
+ */
 function recoveryConfigIdentity(configDirectory: string) {
   const metadata = fs.lstatSync(configDirectory, { bigint: true });
   if (
@@ -2921,6 +4095,22 @@ function recoveryConfigIdentity(configDirectory: string) {
   return `${metadata.dev}:${metadata.ino}:${metadata.birthtimeNs}`;
 }
 
+/**
+ * 回復 Dockerを実行する。
+ *
+ * @responsibility 回復 Dockerの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input configDirectory: string、configIdentity: string、argv: readonly string[]
+ * @returns runRecoveryDockerの計算結果を返す。
+ * @precondition 「configDirectory: string、configIdentity: string、argv: readonly string[]」がrunRecoveryDockerの入力契約を満たす。
+ * @postcondition runRecoveryDockerの責務を完了した結果だけを返す。
+ * @effect runRecoveryDockerは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure runRecoveryDockerは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runRecoveryDockerは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security runRecoveryDockerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: runRecoveryDockerは共有非同期状態を持たない同期処理である。
+ */
 function runRecoveryDocker(
   configDirectory: string,
   configIdentity: string,
@@ -2955,6 +4145,17 @@ function runRecoveryDocker(
   });
 }
 
+/**
+ * docker-recovery-runtime-internalで使用する回復 Docker 結果の値契約を定義する。
+ *
+ * @responsibility 回復 Docker 結果のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape RecoveryDockerResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RecoveryDockerResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RecoveryDockerResultの宣言は外部境界を開かない。
+ * @security RecoveryDockerResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RecoveryDockerResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RecoveryDockerResult = Readonly<{
   status: number | null;
   signal: NodeJS.Signals | null;
@@ -2963,7 +4164,22 @@ type RecoveryDockerResult = Readonly<{
   error: Error | null;
 }>;
 
-/** @internal Package-private exact resource verifier used by production recovery. */
+/**
+ * recover Exact Docker Resource With Runnerを決定する。
+ *
+ * @responsibility recover Exact Docker Resource With Runnerの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input runDocker: (argv: readonly string[]) => RecoveryDockerResult、kind: "container" | "network"、dockerId: string、expectedName: string、ownershipLabel: string、expectedImage: string | null、shouldBeInternal: boolean | null、purpose: string、expectedNetworks: readonly string[]、operationMode: "boolean_probe" | "isolated_task"、workspaceMountMode: "read_write" | "read_only" | null、options: Readonly<{ allowAlreadyAbsent?: boolean; removeAfterVerification?: boolean; }>
+ * @returns recoverExactDockerResourceWithRunnerの計算結果を返す。
+ * @precondition 「runDocker: (argv: readonly string[]) => RecoveryDockerResult、kind: "container" | "network"、dockerId: string、expectedName: string、ownershipLabel: string、expectedImage: string | null、shouldBeInternal: boolean | null、purpose: string、expectedNetworks: readonly string[]、operationMode: "boolean_probe" | "isolated_task"、workspaceMountMode: "read_write" | "read_only" | null、options: Readonly<{ allowAlreadyAbsent?: boolean; removeAfterVerification?: boolean; }>」がrecoverExactDockerResourceWithRunnerの入力契約を満たす。
+ * @postcondition recoverExactDockerResourceWithRunnerの責務を完了した結果だけを返す。
+ * @effect N/A: recoverExactDockerResourceWithRunnerは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure recoverExactDockerResourceWithRunnerは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant recoverExactDockerResourceWithRunnerは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recoverExactDockerResourceWithRunnerはProcess内の同一Subsystemで完結する。
+ * @security recoverExactDockerResourceWithRunnerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recoverExactDockerResourceWithRunnerは共有非同期状態を持たない同期処理である。
+ */
 export function recoverExactDockerResourceWithRunner(
   runDocker: (argv: readonly string[]) => RecoveryDockerResult,
   kind: "container" | "network",
@@ -3200,14 +4416,19 @@ export function recoverExactDockerResourceWithRunner(
 
 /**
  * Resolve the crash window after an exact create submission was durably
- * recorded but before Docker's returned ID could be persisted. The
- * operation-owned name and operation-unique ownership label must identify the
- * same single resource. Empty observations do not settle an already submitted
- * create because the original Docker CLI or daemon request may still complete
- * after the observation. A foreign, ambiguous, partially observed, or absent
- * resource is never adopted or removed.
  *
- * @internal Package-private verifier used by production recovery.
+ * @responsibility docker-recovery-runtime-internalの入力からrecover Unknown Docker Create Outcome With Runnerを導く規則と結果境界を所有する。
+ * @trace ARCH-000008
+ * @input runDocker: (argv: readonly string[]) => RecoveryDockerResult、kind: "container" | "network"、expectedName: string、ownershipLabel: string、expectedImage: string | null、shouldBeInternal: boolean | null、purpose: string、expectedNetworks: readonly string[]、operationMode: "boolean_probe" | "isolated_task"、workspaceMountMode: "read_write" | "read_only" | null
+ * @returns recoverUnknownDockerCreateOutcomeWithRunnerの計算結果を返す。
+ * @precondition 「runDocker: (argv: readonly string[]) => RecoveryDockerResult、kind: "container" | "network"、expectedName: string、ownershipLabel: string、expectedImage: string | null、shouldBeInternal: boolean | null、purpose: string、expectedNetworks: readonly string[]、operationMode: "boolean_probe" | "isolated_task"、workspaceMountMode: "read_write" | "read_only" | null」がrecoverUnknownDockerCreateOutcomeWithRunnerの入力契約を満たす。
+ * @postcondition recoverUnknownDockerCreateOutcomeWithRunnerの責務を完了した結果だけを返す。
+ * @effect N/A: recoverUnknownDockerCreateOutcomeWithRunnerは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: recoverUnknownDockerCreateOutcomeWithRunnerは独自の失敗分岐を所有しない。
+ * @invariant recoverUnknownDockerCreateOutcomeWithRunnerは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recoverUnknownDockerCreateOutcomeWithRunnerはProcess内の同一Subsystemで完結する。
+ * @security recoverUnknownDockerCreateOutcomeWithRunnerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recoverUnknownDockerCreateOutcomeWithRunnerは共有非同期状態を持たない同期処理である。
  */
 export function recoverUnknownDockerCreateOutcomeWithRunner(
   runDocker: (argv: readonly string[]) => RecoveryDockerResult,
@@ -3291,6 +4512,22 @@ export function recoverUnknownDockerCreateOutcomeWithRunner(
     : null;
 }
 
+/**
+ * Submitted Docker Resource Absent With Runnerを観測する。
+ *
+ * @responsibility Submitted Docker Resource Absent With Runnerの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input runDocker: (argv: readonly string[]) => RecoveryDockerResult、kind: "container" | "network"、expectedName: string、ownershipLabel: string
+ * @returns observeSubmittedDockerResourceAbsentWithRunnerの計算結果を返す。
+ * @precondition 「runDocker: (argv: readonly string[]) => RecoveryDockerResult、kind: "container" | "network"、expectedName: string、ownershipLabel: string」がobserveSubmittedDockerResourceAbsentWithRunnerの入力契約を満たす。
+ * @postcondition observeSubmittedDockerResourceAbsentWithRunnerの責務を完了した結果だけを返す。
+ * @effect N/A: observeSubmittedDockerResourceAbsentWithRunnerは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: observeSubmittedDockerResourceAbsentWithRunnerは独自の失敗分岐を所有しない。
+ * @invariant observeSubmittedDockerResourceAbsentWithRunnerは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: observeSubmittedDockerResourceAbsentWithRunnerはProcess内の同一Subsystemで完結する。
+ * @security observeSubmittedDockerResourceAbsentWithRunnerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeSubmittedDockerResourceAbsentWithRunnerは共有非同期状態を持たない同期処理である。
+ */
 function observeSubmittedDockerResourceAbsentWithRunner(
   runDocker: (argv: readonly string[]) => RecoveryDockerResult,
   kind: "container" | "network",
@@ -3333,6 +4570,22 @@ function observeSubmittedDockerResourceAbsentWithRunner(
   );
 }
 
+/**
+ * recover Exact Docker Resourceを決定する。
+ *
+ * @responsibility recover Exact Docker Resourceの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input configDirectory: string、configIdentity: string、kind: "container" | "network"、dockerId: string、expectedName: string、ownershipLabel: string、expectedImage: string | null、shouldBeInternal: boolean | null、purpose: string、expectedNetworks: readonly string[]、operationMode: "boolean_probe" | "isolated_task"、workspaceMountMode: "read_write" | "read_only" | null
+ * @returns recoverExactDockerResourceの計算結果を返す。
+ * @precondition 「configDirectory: string、configIdentity: string、kind: "container" | "network"、dockerId: string、expectedName: string、ownershipLabel: string、expectedImage: string | null、shouldBeInternal: boolean | null、purpose: string、expectedNetworks: readonly string[]、operationMode: "boolean_probe" | "isolated_task"、workspaceMountMode: "read_write" | "read_only" | null」がrecoverExactDockerResourceの入力契約を満たす。
+ * @postcondition recoverExactDockerResourceの責務を完了した結果だけを返す。
+ * @effect N/A: recoverExactDockerResourceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: recoverExactDockerResourceは独自の失敗分岐を所有しない。
+ * @invariant recoverExactDockerResourceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recoverExactDockerResourceはProcess内の同一Subsystemで完結する。
+ * @security recoverExactDockerResourceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recoverExactDockerResourceは共有非同期状態を持たない同期処理である。
+ */
 function recoverExactDockerResource(
   configDirectory: string,
   configIdentity: string,
@@ -3362,6 +4615,22 @@ function recoverExactDockerResource(
   );
 }
 
+/**
+ * 回復 Host Bindingを探索する。
+ *
+ * @responsibility 回復 Host Bindingの探索Root、対象母集団、未観測境界を所有する。
+ * @trace ARCH-000008
+ * @input rootPath: string、parsed: NonNullable<ReturnType<typeof parseDockerTaskRecoveryId>>
+ * @returns discoverRecoveryHostBindingの計算結果を返す。
+ * @precondition 「rootPath: string、parsed: NonNullable<ReturnType<typeof parseDockerTaskRecoveryId>>」がdiscoverRecoveryHostBindingの入力契約を満たす。
+ * @postcondition discoverRecoveryHostBindingの責務を完了した結果だけを返す。
+ * @effect N/A: discoverRecoveryHostBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure discoverRecoveryHostBindingは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant discoverRecoveryHostBindingは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: discoverRecoveryHostBindingはProcess内の同一Subsystemで完結する。
+ * @security discoverRecoveryHostBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: discoverRecoveryHostBindingは共有非同期状態を持たない同期処理である。
+ */
 function discoverRecoveryHostBinding(
   rootPath: string,
   parsed: NonNullable<ReturnType<typeof parseDockerTaskRecoveryId>>,
@@ -3412,6 +4681,22 @@ function discoverRecoveryHostBinding(
   });
 }
 
+/**
+ * 回復 Runtime 状態 Bindingを探索する。
+ *
+ * @responsibility 回復 Runtime 状態 Bindingの探索Root、対象母集団、未観測境界を所有する。
+ * @trace ARCH-000008
+ * @input rootPath: string、parsed: NonNullable<ReturnType<typeof parseDockerTaskRecoveryId>>
+ * @returns discoverRecoveryRuntimeStateBindingの計算結果を返す。
+ * @precondition 「rootPath: string、parsed: NonNullable<ReturnType<typeof parseDockerTaskRecoveryId>>」がdiscoverRecoveryRuntimeStateBindingの入力契約を満たす。
+ * @postcondition discoverRecoveryRuntimeStateBindingの責務を完了した結果だけを返す。
+ * @effect N/A: discoverRecoveryRuntimeStateBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure discoverRecoveryRuntimeStateBindingは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant discoverRecoveryRuntimeStateBindingは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: discoverRecoveryRuntimeStateBindingはProcess内の同一Subsystemで完結する。
+ * @security discoverRecoveryRuntimeStateBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: discoverRecoveryRuntimeStateBindingは共有非同期状態を持たない同期処理である。
+ */
 function discoverRecoveryRuntimeStateBinding(
   rootPath: string,
   parsed: NonNullable<ReturnType<typeof parseDockerTaskRecoveryId>>,
@@ -3483,8 +4768,20 @@ function discoverRecoveryRuntimeStateBinding(
 }
 
 /**
- * @internal Package-private engine. The production wrapper supplies the native
  * observer; contract tests may supply an exact fixed observation.
+ *
+ * @responsibility docker-recovery-runtime-internalの入力からrecover Runtime 所有 Docker Task From Verified Root With Observerを導く規則と結果境界を所有する。
+ * @trace ARCH-000008
+ * @input token: unknown、root: VerifiedRuntimeStateRoot、observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null、recoveryDockerRunner: | ((argv: readonly string[]) => RecoveryDockerResult) | null、restartFence: VerifiedDockerEngineRestartFence | null
+ * @returns recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserverの計算結果を返す。
+ * @precondition 「token: unknown、root: VerifiedRuntimeStateRoot、observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null、recoveryDockerRunner: | ((argv: readonly string[]) => RecoveryDockerResult) | null、restartFence: VerifiedDockerEngineRestartFence | null」がrecoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserverの入力契約を満たす。
+ * @postcondition recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserverの責務を完了した結果だけを返す。
+ * @effect recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserverはFilesystemの読取りまたは書込みを実行する。
+ * @failure recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserverは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserverは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserverはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserverは共有非同期状態を持たない同期処理である。
  */
 export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
   token: unknown,
@@ -5157,7 +6454,22 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
   }
 }
 
-/** @internal Package-private engine; production supplies native observation. */
+/**
+ * recover Runtime 所有 Docker Task From Verified Rootを決定する。
+ *
+ * @responsibility recover Runtime 所有 Docker Task From Verified Rootの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input token: unknown、root: VerifiedRuntimeStateRoot、developmentContext: unknown
+ * @returns recoverRuntimeOwnedDockerTaskFromVerifiedRootの計算結果を返す。
+ * @precondition 「token: unknown、root: VerifiedRuntimeStateRoot、developmentContext: unknown」がrecoverRuntimeOwnedDockerTaskFromVerifiedRootの入力契約を満たす。
+ * @postcondition recoverRuntimeOwnedDockerTaskFromVerifiedRootの責務を完了した結果だけを返す。
+ * @effect N/A: recoverRuntimeOwnedDockerTaskFromVerifiedRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: recoverRuntimeOwnedDockerTaskFromVerifiedRootは独自の失敗分岐を所有しない。
+ * @invariant recoverRuntimeOwnedDockerTaskFromVerifiedRootは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recoverRuntimeOwnedDockerTaskFromVerifiedRootはProcess内の同一Subsystemで完結する。
+ * @security recoverRuntimeOwnedDockerTaskFromVerifiedRootはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recoverRuntimeOwnedDockerTaskFromVerifiedRootは共有非同期状態を持たない同期処理である。
+ */
 function recoverRuntimeOwnedDockerTaskFromVerifiedRoot(
   token: unknown,
   root: VerifiedRuntimeStateRoot,
@@ -5170,6 +6482,22 @@ function recoverRuntimeOwnedDockerTaskFromVerifiedRoot(
   );
 }
 
+/**
+ * recover Runtime 所有 Docker Task Internalを決定する。
+ *
+ * @responsibility recover Runtime 所有 Docker Task Internalの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input token: unknown、developmentContext: unknown
+ * @returns recoverRuntimeOwnedDockerTaskInternalの計算結果を返す。
+ * @precondition 「token: unknown、developmentContext: unknown」がrecoverRuntimeOwnedDockerTaskInternalの入力契約を満たす。
+ * @postcondition recoverRuntimeOwnedDockerTaskInternalの責務を完了した結果だけを返す。
+ * @effect N/A: recoverRuntimeOwnedDockerTaskInternalは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: recoverRuntimeOwnedDockerTaskInternalは独自の失敗分岐を所有しない。
+ * @invariant recoverRuntimeOwnedDockerTaskInternalは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recoverRuntimeOwnedDockerTaskInternalはProcess内の同一Subsystemで完結する。
+ * @security recoverRuntimeOwnedDockerTaskInternalはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recoverRuntimeOwnedDockerTaskInternalは共有非同期状態を持たない同期処理である。
+ */
 function recoverRuntimeOwnedDockerTaskInternal(
   token: unknown,
   developmentContext?: unknown,
@@ -5202,6 +6530,22 @@ function recoverRuntimeOwnedDockerTaskInternal(
   );
 }
 
+/**
+ * recover Runtime 所有 Docker Task After Verified Docker Desktop Restartを決定する。
+ *
+ * @responsibility recover Runtime 所有 Docker Task After Verified Docker Desktop Restartの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input token: unknown、repairId: unknown、repairReleaseRoot: unknown、developmentContext: unknown
+ * @returns recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestartの計算結果を返す。
+ * @precondition 「token: unknown、repairId: unknown、repairReleaseRoot: unknown、developmentContext: unknown」がrecoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestartの入力契約を満たす。
+ * @postcondition recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestartの責務を完了した結果だけを返す。
+ * @effect recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestartはFilesystemの読取りまたは書込みを実行する。
+ * @failure recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestartは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestartは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestartはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestartは共有非同期状態を持たない同期処理である。
+ */
 export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
   token: unknown,
   repairId: unknown,
@@ -5378,6 +6722,22 @@ export function recoverRuntimeOwnedDockerTaskAfterVerifiedDockerDesktopRestart(
   }
 }
 
+/**
+ * restart Path Identityを決定する。
+ *
+ * @responsibility restart Path Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input target: string
+ * @returns restartPathIdentityの計算結果を返す。
+ * @precondition 「target: string」がrestartPathIdentityの入力契約を満たす。
+ * @postcondition restartPathIdentityの責務を完了した結果だけを返す。
+ * @effect restartPathIdentityはFilesystemの読取りまたは書込みを実行する。
+ * @failure restartPathIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant restartPathIdentityは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security restartPathIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: restartPathIdentityは共有非同期状態を持たない同期処理である。
+ */
 function restartPathIdentity(target: string) {
   const value = fs.lstatSync(target, { bigint: true });
   if (
@@ -5389,7 +6749,22 @@ function restartPathIdentity(target: string) {
   return `${value.dev}:${value.ino}:${value.birthtimeNs}`;
 }
 
-/** Owns the three existing kernel domains until explicit release; no Docker effect. */
+/**
+ * Owns the three existing kernel domains until explicit release; no Docker effect.
+ *
+ * @responsibility Runtime 所有 Docker Restartの準備条件、候補Identity、Effect前の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input token: unknown、originReleaseRoot: unknown、developmentContext: unknown
+ * @returns prepareRuntimeOwnedDockerRestartの計算結果を返す。
+ * @precondition 「token: unknown、originReleaseRoot: unknown、developmentContext: unknown」がprepareRuntimeOwnedDockerRestartの入力契約を満たす。
+ * @postcondition prepareRuntimeOwnedDockerRestartの責務を完了した結果だけを返す。
+ * @effect N/A: prepareRuntimeOwnedDockerRestartは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure prepareRuntimeOwnedDockerRestartは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant prepareRuntimeOwnedDockerRestartは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: prepareRuntimeOwnedDockerRestartはProcess内の同一Subsystemで完結する。
+ * @security prepareRuntimeOwnedDockerRestartはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: prepareRuntimeOwnedDockerRestartは共有非同期状態を持たない同期処理である。
+ */
 export function prepareRuntimeOwnedDockerRestart(
   token: unknown,
   originReleaseRoot?: unknown,
@@ -5656,6 +7031,22 @@ export function prepareRuntimeOwnedDockerRestart(
   }
 }
 
+/**
+ * Runtime 所有 Docker Restart Preparationを検証する。
+ *
+ * @responsibility Runtime 所有 Docker Restart Preparationの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input capability: unknown
+ * @returns booleanを返す。
+ * @precondition 「capability: unknown」がverifyRuntimeOwnedDockerRestartPreparationの入力契約を満たす。
+ * @postcondition verifyRuntimeOwnedDockerRestartPreparationの責務を完了した結果だけを返す。
+ * @effect N/A: verifyRuntimeOwnedDockerRestartPreparationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure verifyRuntimeOwnedDockerRestartPreparationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyRuntimeOwnedDockerRestartPreparationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: verifyRuntimeOwnedDockerRestartPreparationはProcess内の同一Subsystemで完結する。
+ * @security verifyRuntimeOwnedDockerRestartPreparationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyRuntimeOwnedDockerRestartPreparationは共有非同期状態を持たない同期処理である。
+ */
 export function verifyRuntimeOwnedDockerRestartPreparation(
   capability: unknown,
 ): boolean {
@@ -5727,6 +7118,22 @@ export function verifyRuntimeOwnedDockerRestartPreparation(
   }
 }
 
+/**
+ * Runtime 所有 Docker Restart Phaseを耐久保存する。
+ *
+ * @responsibility Runtime 所有 Docker Restart Phaseの保存Identity、確定条件、部分書込みの失敗境界を所有する。
+ * @trace ARCH-000008
+ * @input capability: unknown、phase: DockerRestartPhase
+ * @returns booleanを返す。
+ * @precondition 「capability: unknown、phase: DockerRestartPhase」がpersistRuntimeOwnedDockerRestartPhaseの入力契約を満たす。
+ * @postcondition persistRuntimeOwnedDockerRestartPhaseの責務を完了した結果だけを返す。
+ * @effect N/A: persistRuntimeOwnedDockerRestartPhaseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure persistRuntimeOwnedDockerRestartPhaseは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant persistRuntimeOwnedDockerRestartPhaseは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: persistRuntimeOwnedDockerRestartPhaseはProcess内の同一Subsystemで完結する。
+ * @security persistRuntimeOwnedDockerRestartPhaseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: persistRuntimeOwnedDockerRestartPhaseは共有非同期状態を持たない同期処理である。
+ */
 export function persistRuntimeOwnedDockerRestartPhase(
   capability: unknown,
   phase: DockerRestartPhase,
@@ -5772,7 +7179,22 @@ export function persistRuntimeOwnedDockerRestartPhase(
   }
 }
 
-/** Composition-only historical adoption. Does not authorize any host effect. */
+/**
+ * Composition-only historical adoption. Does not authorize any host effect.
+ *
+ * @responsibility Runtime 所有 Docker Restart Handoffの確定条件、不可逆Effect、失敗時の未確定境界を所有する。
+ * @trace ARCH-000008
+ * @input capability: unknown
+ * @returns booleanを返す。
+ * @precondition 「capability: unknown」がcommitRuntimeOwnedDockerRestartHandoffの入力契約を満たす。
+ * @postcondition commitRuntimeOwnedDockerRestartHandoffの責務を完了した結果だけを返す。
+ * @effect N/A: commitRuntimeOwnedDockerRestartHandoffは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure commitRuntimeOwnedDockerRestartHandoffは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant commitRuntimeOwnedDockerRestartHandoffは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: commitRuntimeOwnedDockerRestartHandoffはProcess内の同一Subsystemで完結する。
+ * @security commitRuntimeOwnedDockerRestartHandoffはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: commitRuntimeOwnedDockerRestartHandoffは共有非同期状態を持たない同期処理である。
+ */
 export function commitRuntimeOwnedDockerRestartHandoff(
   capability: unknown,
 ): boolean {
@@ -5803,6 +7225,22 @@ export function commitRuntimeOwnedDockerRestartHandoff(
   }
 }
 
+/**
+ * Runtime 所有 Docker Restart Preparationを解放する。
+ *
+ * @responsibility Runtime 所有 Docker Restart Preparationの所有権、解放条件、終了後不存在の確認境界を所有する。
+ * @trace ARCH-000008
+ * @input capability: unknown
+ * @returns booleanを返す。
+ * @precondition 「capability: unknown」がreleaseRuntimeOwnedDockerRestartPreparationの入力契約を満たす。
+ * @postcondition releaseRuntimeOwnedDockerRestartPreparationの責務を完了した結果だけを返す。
+ * @effect N/A: releaseRuntimeOwnedDockerRestartPreparationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure releaseRuntimeOwnedDockerRestartPreparationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant releaseRuntimeOwnedDockerRestartPreparationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: releaseRuntimeOwnedDockerRestartPreparationはProcess内の同一Subsystemで完結する。
+ * @security releaseRuntimeOwnedDockerRestartPreparationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: releaseRuntimeOwnedDockerRestartPreparationは共有非同期状態を持たない同期処理である。
+ */
 export function releaseRuntimeOwnedDockerRestartPreparation(
   capability: unknown,
 ): boolean {
@@ -5821,7 +7259,22 @@ export function releaseRuntimeOwnedDockerRestartPreparation(
   return confirmed;
 }
 
-/** A settled protected chain is evidence, never a caller-supplied authority. */
+/**
+ * A settled protected chain is evidence, never a caller-supplied authority.
+ *
+ * @responsibility docker-recovery-runtime-internalの入力からrecover Runtime 所有 Docker Task After Recorded Engine Restartを導く規則と結果境界を所有する。
+ * @trace ARCH-000008
+ * @input token: unknown、developmentContext: unknown
+ * @returns recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestartの計算結果を返す。
+ * @precondition 「token: unknown、developmentContext: unknown」がrecoverRuntimeOwnedDockerTaskAfterRecordedEngineRestartの入力契約を満たす。
+ * @postcondition recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestartの責務を完了した結果だけを返す。
+ * @effect N/A: recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestartは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestartは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestartは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestartはProcess内の同一Subsystemで完結する。
+ * @security recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestartはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestartは共有非同期状態を持たない同期処理である。
+ */
 export function recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart(
   token: unknown,
   developmentContext?: unknown,
@@ -5970,6 +7423,22 @@ export function recoverRuntimeOwnedDockerTaskAfterRecordedEngineRestart(
   }
 }
 
+/**
+ * Runtime 所有 Docker 回復 Evidenceを分類する。
+ *
+ * @responsibility Runtime 所有 Docker 回復 Evidenceの分類条件、相互排他的な結果、判断不能境界を所有する。
+ * @trace ARCH-000008
+ * @input inventory: unknown、recoveryId: string
+ * @returns classifyRuntimeOwnedDockerRecoveryEvidenceの計算結果を返す。
+ * @precondition 「inventory: unknown、recoveryId: string」がclassifyRuntimeOwnedDockerRecoveryEvidenceの入力契約を満たす。
+ * @postcondition classifyRuntimeOwnedDockerRecoveryEvidenceの責務を完了した結果だけを返す。
+ * @effect N/A: classifyRuntimeOwnedDockerRecoveryEvidenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: classifyRuntimeOwnedDockerRecoveryEvidenceは独自の失敗分岐を所有しない。
+ * @invariant classifyRuntimeOwnedDockerRecoveryEvidenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: classifyRuntimeOwnedDockerRecoveryEvidenceはProcess内の同一Subsystemで完結する。
+ * @security classifyRuntimeOwnedDockerRecoveryEvidenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: classifyRuntimeOwnedDockerRecoveryEvidenceは共有非同期状態を持たない同期処理である。
+ */
 export function classifyRuntimeOwnedDockerRecoveryEvidence(
   inventory: unknown,
   recoveryId: string,
@@ -5984,6 +7453,22 @@ export function classifyRuntimeOwnedDockerRecoveryEvidence(
     : ("not_preserved" as const);
 }
 
+/**
+ * recover Runtime 所有 Docker Taskを決定する。
+ *
+ * @responsibility recover Runtime 所有 Docker Taskの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input token: unknown、developmentContext: unknown
+ * @returns recoverRuntimeOwnedDockerTaskの計算結果を返す。
+ * @precondition 「token: unknown、developmentContext: unknown」がrecoverRuntimeOwnedDockerTaskの入力契約を満たす。
+ * @postcondition recoverRuntimeOwnedDockerTaskの責務を完了した結果だけを返す。
+ * @effect N/A: recoverRuntimeOwnedDockerTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure recoverRuntimeOwnedDockerTaskは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant recoverRuntimeOwnedDockerTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recoverRuntimeOwnedDockerTaskはProcess内の同一Subsystemで完結する。
+ * @security recoverRuntimeOwnedDockerTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: recoverRuntimeOwnedDockerTaskは共有非同期状態を持たない同期処理である。
+ */
 export function recoverRuntimeOwnedDockerTask(
   token: unknown,
   developmentContext?: unknown,
@@ -6026,7 +7511,22 @@ export function recoverRuntimeOwnedDockerTask(
  * closes that resource lifecycle and prevents the bounded Runtime root from
  * filling with already-consumed fences.
  */
-/** @internal Testable engine; caller must already own a verified Runtime root. */
+/**
+ * Runtime 所有 Docker 回復 Completion From Verified Rootを確認済みとして記録する。
+ *
+ * @responsibility Runtime 所有 Docker 回復 Completion From Verified Rootの確認入力、状態遷移、重複処理境界を所有する。
+ * @trace ARCH-000008
+ * @input token: unknown、root: VerifiedRuntimeStateRoot
+ * @returns acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRootの計算結果を返す。
+ * @precondition 「token: unknown、root: VerifiedRuntimeStateRoot」がacknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRootの入力契約を満たす。
+ * @postcondition acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRootの責務を完了した結果だけを返す。
+ * @effect N/A: acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRootは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRootは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRootはProcess内の同一Subsystemで完結する。
+ * @security acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRootはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRootは共有非同期状態を持たない同期処理である。
+ */
 export function acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
   token: unknown,
   root: VerifiedRuntimeStateRoot,
@@ -6159,7 +7659,22 @@ export function acknowledgeRuntimeOwnedDockerRecoveryCompletionFromVerifiedRoot(
   }
 }
 
-/** @internal GC engine. The public facade must first verify Project ack state. */
+/**
+ * finalize Runtime 所有 Docker 回復 Acknowledgement From Verified Rootを決定する。
+ *
+ * @responsibility finalize Runtime 所有 Docker 回復 Acknowledgement From Verified Rootの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input token: unknown、acknowledgement: unknown、root: VerifiedRuntimeStateRoot
+ * @returns finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRootの計算結果を返す。
+ * @precondition 「token: unknown、acknowledgement: unknown、root: VerifiedRuntimeStateRoot」がfinalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRootの入力契約を満たす。
+ * @postcondition finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRootの責務を完了した結果だけを返す。
+ * @effect N/A: finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRootは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRootは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRootはProcess内の同一Subsystemで完結する。
+ * @security finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRootはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRootは共有非同期状態を持たない同期処理である。
+ */
 export function finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoot(
   token: unknown,
   acknowledgement: unknown,
@@ -6243,6 +7758,22 @@ export function finalizeRuntimeOwnedDockerRecoveryAcknowledgementFromVerifiedRoo
   }
 }
 
+/**
+ * Runtime 所有 Docker 回復 Completionを確認済みとして記録する。
+ *
+ * @responsibility Runtime 所有 Docker 回復 Completionの確認入力、状態遷移、重複処理境界を所有する。
+ * @trace ARCH-000008
+ * @input token: unknown
+ * @returns acknowledgeRuntimeOwnedDockerRecoveryCompletionの計算結果を返す。
+ * @precondition 「token: unknown」がacknowledgeRuntimeOwnedDockerRecoveryCompletionの入力契約を満たす。
+ * @postcondition acknowledgeRuntimeOwnedDockerRecoveryCompletionの責務を完了した結果だけを返す。
+ * @effect N/A: acknowledgeRuntimeOwnedDockerRecoveryCompletionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure acknowledgeRuntimeOwnedDockerRecoveryCompletionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant acknowledgeRuntimeOwnedDockerRecoveryCompletionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: acknowledgeRuntimeOwnedDockerRecoveryCompletionはProcess内の同一Subsystemで完結する。
+ * @security acknowledgeRuntimeOwnedDockerRecoveryCompletionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: acknowledgeRuntimeOwnedDockerRecoveryCompletionは共有非同期状態を持たない同期処理である。
+ */
 export function acknowledgeRuntimeOwnedDockerRecoveryCompletion(
   token: unknown,
 ) {
@@ -6288,6 +7819,22 @@ export function acknowledgeRuntimeOwnedDockerRecoveryCompletion(
   }
 }
 
+/**
+ * finalize Runtime 所有 Docker 回復 Acknowledgementを決定する。
+ *
+ * @responsibility finalize Runtime 所有 Docker 回復 Acknowledgementの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input token: unknown、acknowledgement: unknown
+ * @returns finalizeRuntimeOwnedDockerRecoveryAcknowledgementの計算結果を返す。
+ * @precondition 「token: unknown、acknowledgement: unknown」がfinalizeRuntimeOwnedDockerRecoveryAcknowledgementの入力契約を満たす。
+ * @postcondition finalizeRuntimeOwnedDockerRecoveryAcknowledgementの責務を完了した結果だけを返す。
+ * @effect N/A: finalizeRuntimeOwnedDockerRecoveryAcknowledgementは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure finalizeRuntimeOwnedDockerRecoveryAcknowledgementは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant finalizeRuntimeOwnedDockerRecoveryAcknowledgementは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: finalizeRuntimeOwnedDockerRecoveryAcknowledgementはProcess内の同一Subsystemで完結する。
+ * @security finalizeRuntimeOwnedDockerRecoveryAcknowledgementはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: finalizeRuntimeOwnedDockerRecoveryAcknowledgementは共有非同期状態を持たない同期処理である。
+ */
 export function finalizeRuntimeOwnedDockerRecoveryAcknowledgement(
   token: unknown,
   acknowledgement: unknown,
@@ -6336,6 +7883,22 @@ export function finalizeRuntimeOwnedDockerRecoveryAcknowledgement(
   }
 }
 
+/**
+ * Docker 回復 Root Snapshotを観測する。
+ *
+ * @responsibility Docker 回復 Root Snapshotの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input rootPath: unknown
+ * @returns inspectDockerRecoveryRootSnapshotの計算結果を返す。
+ * @precondition 「rootPath: unknown」がinspectDockerRecoveryRootSnapshotの入力契約を満たす。
+ * @postcondition inspectDockerRecoveryRootSnapshotの責務を完了した結果だけを返す。
+ * @effect inspectDockerRecoveryRootSnapshotはFilesystemの読取りまたは書込みを実行する。
+ * @failure inspectDockerRecoveryRootSnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectDockerRecoveryRootSnapshotは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security inspectDockerRecoveryRootSnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectDockerRecoveryRootSnapshotは共有非同期状態を持たない同期処理である。
+ */
 function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
   try {
     if (typeof rootPath !== "string" || !path.isAbsolute(rootPath))
@@ -6443,12 +8006,45 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
         throw error;
       }
     };
+    /**
+     * docker-recovery-runtime-internalで使用するBootstrap 記録の値契約を定義する。
+     *
+     * @responsibility Bootstrap 記録のProperty、Identity、状態制約を型境界として所有する。
+     * @trace ARCH-000008
+     * @shape BootstrapRecordが表すProperty、識別子およびRelationを型として固定する。
+     * @invariant BootstrapRecordで宣言した値と責務の対応を維持する。
+     * @boundary N/A: BootstrapRecordの宣言は外部境界を開かない。
+     * @security BootstrapRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @compatibility BootstrapRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+     */
     type BootstrapRecord = ReturnType<typeof readRootRecord>;
+    /**
+     * docker-recovery-runtime-internalで使用するBootstrap Pair 状態の値契約を定義する。
+     *
+     * @responsibility Bootstrap Pair 状態のProperty、Identity、状態制約を型境界として所有する。
+     * @trace ARCH-000008
+     * @shape BootstrapPairStateが表すProperty、識別子およびRelationを型として固定する。
+     * @invariant BootstrapPairStateで宣言した値と責務の対応を維持する。
+     * @boundary N/A: BootstrapPairStateの宣言は外部境界を開かない。
+     * @security BootstrapPairStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @compatibility BootstrapPairStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+     */
     type BootstrapPairState =
       | "absent"
       | "move_content"
       | "move_commit"
       | "complete";
+    /**
+     * docker-recovery-runtime-internalで使用するBootstrap Pair Inspectionの値契約を定義する。
+     *
+     * @responsibility Bootstrap Pair InspectionのProperty、Identity、状態制約を型境界として所有する。
+     * @trace ARCH-000008
+     * @shape BootstrapPairInspectionが表すProperty、識別子およびRelationを型として固定する。
+     * @invariant BootstrapPairInspectionで宣言した値と責務の対応を維持する。
+     * @boundary N/A: BootstrapPairInspectionの宣言は外部境界を開かない。
+     * @security BootstrapPairInspectionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+     * @compatibility BootstrapPairInspectionの利用側は宣言済みPropertyと型制約だけへ依存する。
+     */
     type BootstrapPairInspection = Readonly<{
       state: BootstrapPairState;
       hasIntent: boolean;
@@ -7160,7 +8756,22 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
   }
 }
 
-/** @internal Closed contract engine; production supplies the kernel lock. */
+/**
+ * Docker 回復 Root Snapshot With Lockを観測する。
+ *
+ * @responsibility Docker 回復 Root Snapshot With Lockの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input root: VerifiedRuntimeStateRoot、acquireRuntimeStateLock: (runtimeStateBindingHash: string) => Readonly<{ release: () => boolean; }> | null
+ * @returns inspectDockerRecoveryRootSnapshotWithLockの計算結果を返す。
+ * @precondition 「root: VerifiedRuntimeStateRoot、acquireRuntimeStateLock: (runtimeStateBindingHash: string) => Readonly<{ release: () => boolean; }> | null」がinspectDockerRecoveryRootSnapshotWithLockの入力契約を満たす。
+ * @postcondition inspectDockerRecoveryRootSnapshotWithLockの責務を完了した結果だけを返す。
+ * @effect N/A: inspectDockerRecoveryRootSnapshotWithLockは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectDockerRecoveryRootSnapshotWithLockは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectDockerRecoveryRootSnapshotWithLockは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectDockerRecoveryRootSnapshotWithLockはProcess内の同一Subsystemで完結する。
+ * @security inspectDockerRecoveryRootSnapshotWithLockはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectDockerRecoveryRootSnapshotWithLockは共有非同期状態を持たない同期処理である。
+ */
 export function inspectDockerRecoveryRootSnapshotWithLock(
   root: VerifiedRuntimeStateRoot,
   acquireRuntimeStateLock: (runtimeStateBindingHash: string) => Readonly<{
@@ -7216,6 +8827,22 @@ export function inspectDockerRecoveryRootSnapshotWithLock(
   }
 }
 
+/**
+ * Runtime 所有 Docker Task 回復 状態を観測する。
+ *
+ * @responsibility Runtime 所有 Docker Task 回復 状態の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input developmentContext: unknown
+ * @returns inspectRuntimeOwnedDockerTaskRecoveryStateの計算結果を返す。
+ * @precondition 「developmentContext: unknown」がinspectRuntimeOwnedDockerTaskRecoveryStateの入力契約を満たす。
+ * @postcondition inspectRuntimeOwnedDockerTaskRecoveryStateの責務を完了した結果だけを返す。
+ * @effect N/A: inspectRuntimeOwnedDockerTaskRecoveryStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure inspectRuntimeOwnedDockerTaskRecoveryStateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectRuntimeOwnedDockerTaskRecoveryStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectRuntimeOwnedDockerTaskRecoveryStateはProcess内の同一Subsystemで完結する。
+ * @security inspectRuntimeOwnedDockerTaskRecoveryStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectRuntimeOwnedDockerTaskRecoveryStateは共有非同期状態を持たない同期処理である。
+ */
 export function inspectRuntimeOwnedDockerTaskRecoveryState(
   developmentContext?: unknown,
 ) {
@@ -7255,9 +8882,19 @@ export function inspectRuntimeOwnedDockerTaskRecoveryState(
 
 /**
  * Resolve Project-owned correlation identities to exact Runtime-owned Docker
- * recovery identifiers. Correlation is durable in the signed Docker base
- * record and is not a Recovery Authority. Ambiguous or missing matches never
- * fall back to inventory order or a caller-provided identifier.
+ *
+ * @responsibility Runtime 所有 Docker Task 回復 Correlations From Verified Root With Observerの候補集合、解決規則、曖昧時の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input correlationIds: readonly string[]、root: VerifiedRuntimeStateRoot、observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null
+ * @returns resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserverの計算結果を返す。
+ * @precondition 「correlationIds: readonly string[]、root: VerifiedRuntimeStateRoot、observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null」がresolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserverの入力契約を満たす。
+ * @postcondition resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserverの責務を完了した結果だけを返す。
+ * @effect N/A: resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserverは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserverは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserverは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserverはProcess内の同一Subsystemで完結する。
+ * @security resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserverはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserverは共有非同期状態を持たない同期処理である。
  */
 export function resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRootWithObserver(
   correlationIds: readonly string[],
@@ -7422,6 +9059,22 @@ export function resolveRuntimeOwnedDockerTaskRecoveryCorrelationsFromVerifiedRoo
   }
 }
 
+/**
+ * Runtime 所有 Docker Task 回復 Correlationsを一意に解決する。
+ *
+ * @responsibility Runtime 所有 Docker Task 回復 Correlationsの候補集合、解決規則、曖昧時の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input correlationIds: readonly string[]、developmentContext: unknown
+ * @returns resolveRuntimeOwnedDockerTaskRecoveryCorrelationsの計算結果を返す。
+ * @precondition 「correlationIds: readonly string[]、developmentContext: unknown」がresolveRuntimeOwnedDockerTaskRecoveryCorrelationsの入力契約を満たす。
+ * @postcondition resolveRuntimeOwnedDockerTaskRecoveryCorrelationsの責務を完了した結果だけを返す。
+ * @effect N/A: resolveRuntimeOwnedDockerTaskRecoveryCorrelationsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure resolveRuntimeOwnedDockerTaskRecoveryCorrelationsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant resolveRuntimeOwnedDockerTaskRecoveryCorrelationsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveRuntimeOwnedDockerTaskRecoveryCorrelationsはProcess内の同一Subsystemで完結する。
+ * @security resolveRuntimeOwnedDockerTaskRecoveryCorrelationsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resolveRuntimeOwnedDockerTaskRecoveryCorrelationsは共有非同期状態を持たない同期処理である。
+ */
 export function resolveRuntimeOwnedDockerTaskRecoveryCorrelations(
   correlationIds: readonly string[],
   developmentContext?: unknown,
@@ -7456,11 +9109,33 @@ export function resolveRuntimeOwnedDockerTaskRecoveryCorrelations(
   }
 }
 
+/**
+ * docker-recovery-runtime-internalで使用する回復 記録の値契約を定義する。
+ *
+ * @responsibility 回復 記録のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape RecoveryRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RecoveryRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RecoveryRecordの宣言は外部境界を開かない。
+ * @security RecoveryRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RecoveryRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RecoveryRecord = Readonly<{
   managementCapability: object;
   operationId: string;
   recoveryId: string;
 }>;
+/**
+ * docker-recovery-runtime-internalで使用するRuntime Dependenciesの値契約を定義する。
+ *
+ * @responsibility Runtime DependenciesのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape RuntimeDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeDependenciesの宣言は外部境界を開かない。
+ * @security RuntimeDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimeDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimeDependencies = Readonly<{
   verifyOperation: (
     managementCapability: unknown,
@@ -7474,11 +9149,38 @@ type RuntimeDependencies = Readonly<{
     recoveryId: unknown,
   ) => string;
 }>;
+/**
+ * docker-recovery-runtime-internalで使用するRuntime 状態の値契約を定義する。
+ *
+ * @responsibility Runtime 状態のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape RuntimeStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeStateの宣言は外部境界を開かない。
+ * @security RuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimeStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type RuntimeState = Readonly<{
   dependencies: RuntimeDependencies;
   records: WeakMap<object, RecoveryRecord>;
 }>;
 
+/**
+ * Runtime 状態を構築する。
+ *
+ * @responsibility Runtime 状態の構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RuntimeDependencies
+ * @returns RuntimeStateを返す。
+ * @precondition 「dependencies: RuntimeDependencies」がcreateRuntimeStateの入力契約を満たす。
+ * @postcondition createRuntimeStateの責務を完了した結果だけを返す。
+ * @effect N/A: createRuntimeStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createRuntimeStateは独自の失敗分岐を所有しない。
+ * @invariant createRuntimeStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createRuntimeStateはProcess内の同一Subsystemで完結する。
+ * @security createRuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createRuntimeStateは共有非同期状態を持たない同期処理である。
+ */
 function createRuntimeState(dependencies: RuntimeDependencies): RuntimeState {
   return Object.freeze({
     dependencies: Object.freeze(dependencies),
@@ -7486,6 +9188,22 @@ function createRuntimeState(dependencies: RuntimeDependencies): RuntimeState {
   });
 }
 
+/**
+ * 回復を開始する。
+ *
+ * @responsibility 回復の開始条件、初期状態、開始失敗境界を所有する。
+ * @trace ARCH-000008
+ * @input state: RuntimeState、plan: Readonly<{ operationId: string }>、managementCapability: unknown
+ * @returns beginRecoveryの計算結果を返す。
+ * @precondition 「state: RuntimeState、plan: Readonly<{ operationId: string }>、managementCapability: unknown」がbeginRecoveryの入力契約を満たす。
+ * @postcondition beginRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: beginRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: beginRecoveryは独自の失敗分岐を所有しない。
+ * @invariant beginRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: beginRecoveryはProcess内の同一Subsystemで完結する。
+ * @security beginRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: beginRecoveryは共有非同期状態を持たない同期処理である。
+ */
 function beginRecovery(
   state: RuntimeState,
   plan: Readonly<{ operationId: string }>,
@@ -7517,6 +9235,22 @@ function beginRecovery(
   return Object.freeze({ recoveryId, recoveryCapability });
 }
 
+/**
+ * 回復を完了状態へ遷移させる。
+ *
+ * @responsibility 回復の完了条件、終了後状態、未完了境界を所有する。
+ * @trace ARCH-000008
+ * @input state: RuntimeState、recoveryCapability: unknown、managementCapability: unknown
+ * @returns completeRecoveryの計算結果を返す。
+ * @precondition 「state: RuntimeState、recoveryCapability: unknown、managementCapability: unknown」がcompleteRecoveryの入力契約を満たす。
+ * @postcondition completeRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: completeRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: completeRecoveryは独自の失敗分岐を所有しない。
+ * @invariant completeRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: completeRecoveryはProcess内の同一Subsystemで完結する。
+ * @security completeRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: completeRecoveryは共有非同期状態を持たない同期処理である。
+ */
 function completeRecovery(
   state: RuntimeState,
   recoveryCapability: unknown,
@@ -7545,6 +9279,22 @@ function completeRecovery(
   return Object.freeze({ status: "completed" as const });
 }
 
+/**
+ * Runtime 所有 Docker 回復を開始する。
+ *
+ * @responsibility Runtime 所有 Docker 回復の開始条件、初期状態、開始失敗境界を所有する。
+ * @trace ARCH-000008
+ * @input plan: ProductionPlan、managementCapability: unknown
+ * @returns beginRuntimeOwnedDockerRecoveryの計算結果を返す。
+ * @precondition 「plan: ProductionPlan、managementCapability: unknown」がbeginRuntimeOwnedDockerRecoveryの入力契約を満たす。
+ * @postcondition beginRuntimeOwnedDockerRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: beginRuntimeOwnedDockerRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure beginRuntimeOwnedDockerRecoveryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant beginRuntimeOwnedDockerRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: beginRuntimeOwnedDockerRecoveryはProcess内の同一Subsystemで完結する。
+ * @security beginRuntimeOwnedDockerRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: beginRuntimeOwnedDockerRecoveryは共有非同期状態を持たない同期処理である。
+ */
 export function beginRuntimeOwnedDockerRecovery(
   plan: ProductionPlan,
   managementCapability: unknown,
@@ -7564,6 +9314,22 @@ export function beginRuntimeOwnedDockerRecovery(
   }
 }
 
+/**
+ * Runtime 所有 Docker 回復を完了状態へ遷移させる。
+ *
+ * @responsibility Runtime 所有 Docker 回復の完了条件、終了後状態、未完了境界を所有する。
+ * @trace ARCH-000008
+ * @input recoveryCapability: unknown、managementCapability: unknown
+ * @returns completeRuntimeOwnedDockerRecoveryの計算結果を返す。
+ * @precondition 「recoveryCapability: unknown、managementCapability: unknown」がcompleteRuntimeOwnedDockerRecoveryの入力契約を満たす。
+ * @postcondition completeRuntimeOwnedDockerRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: completeRuntimeOwnedDockerRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure completeRuntimeOwnedDockerRecoveryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant completeRuntimeOwnedDockerRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: completeRuntimeOwnedDockerRecoveryはProcess内の同一Subsystemで完結する。
+ * @security completeRuntimeOwnedDockerRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: completeRuntimeOwnedDockerRecoveryは共有非同期状態を持たない同期処理である。
+ */
 export function completeRuntimeOwnedDockerRecovery(
   recoveryCapability: unknown,
   managementCapability: unknown,
@@ -7575,6 +9341,22 @@ export function completeRuntimeOwnedDockerRecovery(
   }
 }
 
+/**
+ * Isolated Docker 回復 Runtime 候補を構築する。
+ *
+ * @responsibility Isolated Docker 回復 Runtime 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input dependencies: RuntimeDependencies
+ * @returns createIsolatedDockerRecoveryRuntimeCandidateの計算結果を返す。
+ * @precondition 「dependencies: RuntimeDependencies」がcreateIsolatedDockerRecoveryRuntimeCandidateの入力契約を満たす。
+ * @postcondition createIsolatedDockerRecoveryRuntimeCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: createIsolatedDockerRecoveryRuntimeCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createIsolatedDockerRecoveryRuntimeCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createIsolatedDockerRecoveryRuntimeCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createIsolatedDockerRecoveryRuntimeCandidateはProcess内の同一Subsystemで完結する。
+ * @security createIsolatedDockerRecoveryRuntimeCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createIsolatedDockerRecoveryRuntimeCandidateは共有非同期状態を持たない同期処理である。
+ */
 export function createIsolatedDockerRecoveryRuntimeCandidate(
   dependencies: RuntimeDependencies,
 ) {
@@ -7605,6 +9387,22 @@ export function createIsolatedDockerRecoveryRuntimeCandidate(
   });
 }
 
+/**
+ * Docker 回復 Runtime 契約の公開契約を記述する。
+ *
+ * @responsibility Docker 回復 Runtime 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeDockerRecoveryRuntimeContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeDockerRecoveryRuntimeContractの入力契約を満たす。
+ * @postcondition describeDockerRecoveryRuntimeContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeDockerRecoveryRuntimeContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeDockerRecoveryRuntimeContractは独自の失敗分岐を所有しない。
+ * @invariant describeDockerRecoveryRuntimeContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeDockerRecoveryRuntimeContractはProcess内の同一Subsystemで完結する。
+ * @security describeDockerRecoveryRuntimeContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeDockerRecoveryRuntimeContractは共有非同期状態を持たない同期処理である。
+ */
 export function describeDockerRecoveryRuntimeContract() {
   return Object.freeze({
     contract: DOCKER_RECOVERY_RUNTIME_CONTRACT,

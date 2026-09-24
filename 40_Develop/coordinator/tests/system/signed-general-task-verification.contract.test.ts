@@ -1,3 +1,17 @@
+/**
+ * coordinator:system:signed-general-task-verificationの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:system:signed-general-task-verificationが所有する検証責務を実行する。
+ * @trace EST-ST-003
+ * @trace ERB-ST-005
+ * @trace PRL-ST-003
+ * @trace PRL-ST-001
+ * @trace PRL-ST-004
+ * @level ST
+ * @scope signed、general、task、verification
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還 / PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -52,6 +66,18 @@ const patchHash = createHash("sha256")
 
 const NONLITERAL_DYNAMIC_IMPORT = "<nonliteral-dynamic-import>";
 
+/**
+ * importedModuleSpecifiersのTest準備責務を実行する。
+ *
+ * @responsibility importedModuleSpecifiersがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace EST-ST-003
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus importedModuleSpecifiersを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 function importedModuleSpecifiers(source: string) {
   const scanner = createScanner(true, undefined, source);
   const tokens: Array<Readonly<{ kind: SyntaxKind; value: string }>> = [];
@@ -107,6 +133,18 @@ function importedModuleSpecifiers(source: string) {
   return specifiers;
 }
 
+/**
+ * resolvesToForbiddenWindowsAsciiModuleのTest準備責務を実行する。
+ *
+ * @responsibility resolvesToForbiddenWindowsAsciiModuleがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace EST-ST-003
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus resolvesToForbiddenWindowsAsciiModuleを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 function resolvesToForbiddenWindowsAsciiModule(
   importerPath: string,
   moduleSpecifier: string,
@@ -123,6 +161,18 @@ function resolvesToForbiddenWindowsAsciiModule(
   return observed === forbidden;
 }
 
+/**
+ * releaseのTest準備責務を実行する。
+ *
+ * @responsibility releaseがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace EST-ST-003
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus releaseを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 function release(overrides: Record<string, unknown> = {}) {
   return Object.freeze({
     status: "candidate",
@@ -144,6 +194,18 @@ function release(overrides: Record<string, unknown> = {}) {
   });
 }
 
+/**
+ * taskResultのTest準備責務を実行する。
+ *
+ * @responsibility taskResultがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace EST-ST-003
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus taskResultを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 function taskResult(overrides: Record<string, unknown> = {}) {
   return Object.freeze({
     status: "completed",
@@ -182,6 +244,18 @@ function taskResult(overrides: Record<string, unknown> = {}) {
   });
 }
 
+/**
+ * candidateのTest準備責務を実行する。
+ *
+ * @responsibility candidateがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace EST-ST-003
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus candidateを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 function candidate(content = EXPECTED_CONTENT) {
   const bytes = Buffer.from(content, "utf8");
   return Object.freeze({
@@ -209,6 +283,18 @@ function candidate(content = EXPECTED_CONTENT) {
   });
 }
 
+/**
+ * dependenciesのTest準備責務を実行する。
+ *
+ * @responsibility dependenciesがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace EST-ST-003
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus dependenciesを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 function dependencies(
   options: {
     release?: Readonly<Record<string, unknown>>;
@@ -346,6 +432,18 @@ function dependencies(
   });
 }
 
+/**
+ * 固定公開Taskをprocess内で構成しShell搬送を契約から除外するを検証する。
+ *
+ * @responsibility 固定公開Taskをprocess内で構成しShell搬送を契約から除外するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定公開Taskをprocess内で構成しShell搬送を契約から除外するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("固定公開Taskをprocess内で構成しShell搬送を契約から除外する", () => {
   const verificationFixture = fs.readFileSync(
     path.join(coordinatorRoot, "runtime/general-task-verification.txt"),
@@ -372,7 +470,10 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
       `The visible file content is exactly the single line ${JSON.stringify(EXPECTED_CONTENT.trimEnd())}, with no additional text. Review this visible content and the bounded replacement; exact UTF-8 bytes, trailing LF, byte length and SHA-256 are separate checks owned by the route verification runner, not proof requested from the reviewer. Do not claim those separate checks have run.`,
     ],
     allowedPaths: [TARGET_PATH],
-    readPaths: ["06_Architecture/coordinator/01_Architecture.md", TARGET_PATH],
+    readPaths: [
+      "06_Architecture/Details/coordinator/01_Architecture.md",
+      TARGET_PATH,
+    ],
     workClass: "bounded_implementation",
     planState: "complete",
     risk: "low",
@@ -496,6 +597,18 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   );
 });
 
+/**
+ * CLIは余分argvを単一JSONとexit 2でEffect前に拒否するを検証する。
+ *
+ * @responsibility CLIは余分argvを単一JSONとexit 2でEffect前に拒否するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CLIは余分argvを単一JSONとexit 2でEffect前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("CLIは余分argvを単一JSONとexit 2でEffect前に拒否する", () => {
   const script = path.join(
     coordinatorRoot,
@@ -519,6 +632,18 @@ test("CLIは余分argvを単一JSONとexit 2でEffect前に拒否する", () => 
   assert.equal(parsed.canonicalRepositoryChanged, false);
 });
 
+/**
+ * CLIのRoute grammarは引数なしと三つのexact profileだけを許可するを検証する。
+ *
+ * @responsibility CLIのRoute grammarは引数なしと三つのexact profileだけを許可するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CLIのRoute grammarは引数なしと三つのexact profileだけを許可するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("CLIのRoute grammarは引数なしと三つのexact profileだけを許可する", () => {
   const script = path.join(
     coordinatorRoot,
@@ -550,6 +675,18 @@ test("CLIのRoute grammarは引数なしと三つのexact profileだけを許可
   }
 });
 
+/**
+ * Node GateとPackage GateはTask前に拒否しavailability-only Console Effectを持たないを検証する。
+ *
+ * @responsibility Node GateとPackage GateはTask前に拒否しavailability-only Console Effectを持たないの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Node GateとPackage GateはTask前に拒否しavailability-only Console Effectを持たないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("Node GateとPackage GateはTask前に拒否しavailability-only Console Effectを持たない", async () => {
   for (const fixture of [
     dependencies({ runtimeVersion: "24.11.9" }),
@@ -566,6 +703,18 @@ test("Node GateとPackage GateはTask前に拒否しavailability-only Console Ef
   }
 });
 
+/**
+ * 初回同意のConsole不成立はTask所有Gateの結果としてFail Closedに伝播するを検証する。
+ *
+ * @responsibility 初回同意のConsole不成立はTask所有Gateの結果としてFail Closedに伝播するの合否判定を所有する。
+ * @trace EST-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 初回同意のConsole不成立はTask所有Gateの結果としてFail Closedに伝播するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
+ */
 test("初回同意のConsole不成立はTask所有Gateの結果としてFail Closedに伝播する", async () => {
   const fixture = dependencies({
     result: taskResult({
@@ -587,6 +736,18 @@ test("初回同意のConsole不成立はTask所有Gateの結果としてFail Clo
   assert.deepEqual(fixture.calls.events, ["node", "package", "task"]);
 });
 
+/**
+ * 署名Release不成立時はTaskを開始しないを検証する。
+ *
+ * @responsibility 署名Release不成立時はTaskを開始しないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 署名Release不成立時はTaskを開始しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("署名Release不成立時はTaskを開始しない", async () => {
   const fixture = dependencies({
     release: release({ runtimeOwnedReleaseTrustConfirmed: false }),
@@ -606,6 +767,18 @@ test("署名Release不成立時はTaskを開始しない", async () => {
   assert.deepEqual(fixture.calls.events, ["node", "package"]);
 });
 
+/**
+ * SHA-256 CRDD Release Identityはv1能力外としてTask Effect前に明示拒否するを検証する。
+ *
+ * @responsibility SHA-256 CRDD Release Identityはv1能力外としてTask Effect前に明示拒否するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus SHA-256 CRDD Release Identityはv1能力外としてTask Effect前に明示拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("SHA-256 CRDD Release Identityはv1能力外としてTask Effect前に明示拒否する", async () => {
   const fixture = dependencies({
     release: release({
@@ -630,6 +803,18 @@ test("SHA-256 CRDD Release Identityはv1能力外としてTask Effect前に明�
   assert.deepEqual(fixture.calls.events, ["node", "package"]);
 });
 
+/**
+ * 固定基準byteのCRLF変換・欠落・読取失敗はProvider Effect前に停止するを検証する。
+ *
+ * @responsibility 固定基準byteのCRLF変換・欠落・読取失敗はProvider Effect前に停止するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定基準byteのCRLF変換・欠落・読取失敗はProvider Effect前に停止するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("固定基準byteのCRLF変換・欠落・読取失敗はProvider Effect前に停止する", async () => {
   for (const baseContent of [
     "CRDD_COORDINATOR_GENERAL_TASK_BASE\r\n",
@@ -661,6 +846,18 @@ test("固定基準byteのCRLF変換・欠落・読取失敗はProvider Effect前
   assert.equal(unreadable.calls.starts, 0);
 });
 
+/**
+ * Claude実装、Codex独立Review、exact Candidate、discardを一つのPassへ結合するを検証する。
+ *
+ * @responsibility Claude実装、Codex独立Review、exact Candidate、discardを一つのPassへ結合するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Claude実装、Codex独立Review、exact Candidate、discardを一つのPassへ結合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPassへ結合する", async () => {
   const fixture = dependencies();
   const result = await runSignedGeneralTaskVerification(
@@ -691,6 +888,18 @@ test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPa
   assert.equal(fixture.calls.repositoryRevisionObservations, 2);
 });
 
+/**
+ * 署名配布Sourceと作業対象Execution Revisionを分離し候補を後者へ結合するを検証する。
+ *
+ * @responsibility 署名配布Sourceと作業対象Execution Revisionを分離し候補を後者へ結合するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 署名配布Sourceと作業対象Execution Revisionを分離し候補を後者へ結合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("署名配布Sourceと作業対象Execution Revisionを分離し候補を後者へ結合する", async () => {
   const fixture = dependencies({
     release: release({
@@ -711,6 +920,18 @@ test("署名配布Sourceと作業対象Execution Revisionを分離し候補を�
   assert.equal(fixture.calls.discards, 1);
 });
 
+/**
+ * 候補が作業対象Revisionでなく署名配布Sourceをbaseにした場合は破棄して拒否するを検証する。
+ *
+ * @responsibility 候補が作業対象Revisionでなく署名配布Sourceをbaseにした場合は破棄して拒否するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 候補が作業対象Revisionでなく署名配布Sourceをbaseにした場合は破棄して拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("候補が作業対象Revisionでなく署名配布Sourceをbaseにした場合は破棄して拒否する", async () => {
   const fixture = dependencies({
     release: release({
@@ -738,6 +959,18 @@ test("候補が作業対象Revisionでなく署名配布Sourceをbaseにした�
   assert.equal(result.cleanupConfirmed, true);
 });
 
+/**
+ * 実行中にCanonical RepositoryのCommitが変化した場合は候補破棄後に拒否するを検証する。
+ *
+ * @responsibility 実行中にCanonical RepositoryのCommitが変化した場合は候補破棄後に拒否するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実行中にCanonical RepositoryのCommitが変化した場合は候補破棄後に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("実行中にCanonical RepositoryのCommitが変化した場合は候補破棄後に拒否する", async () => {
   const fixture = dependencies({
     repositoryRevisions: Object.freeze([
@@ -775,6 +1008,18 @@ test("実行中にCanonical RepositoryのCommitが変化した場合は候補破
   assert.equal(fixture.calls.repositoryRevisionObservations, 2);
 });
 
+/**
+ * Task後の作業対象Revision観測不能は候補回収後も状態不明を保持するを検証する。
+ *
+ * @responsibility Task後の作業対象Revision観測不能は候補回収後も状態不明を保持するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Task後の作業対象Revision観測不能は候補回収後も状態不明を保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("Task後の作業対象Revision観測不能は候補回収後も状態不明を保持する", async () => {
   const fixture = dependencies({
     repositoryRevisions: Object.freeze([
@@ -805,6 +1050,18 @@ test("Task後の作業対象Revision観測不能は候補回収後も状態不�
   assert.equal(result.effectStateUnknown, true);
 });
 
+/**
+ * 安全なTask拒否より作業対象Revision変化を優先して再試行可能にしないを検証する。
+ *
+ * @responsibility 安全なTask拒否より作業対象Revision変化を優先して再試行可能にしないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 安全なTask拒否より作業対象Revision変化を優先して再試行可能にしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("安全なTask拒否より作業対象Revision変化を優先して再試行可能にしない", async () => {
   const fixture = dependencies({
     result: taskResult({
@@ -843,6 +1100,18 @@ test("安全なTask拒否より作業対象Revision変化を優先して再試�
   assert.equal(result.effectStateUnknown, false);
 });
 
+/**
+ * 候補破棄失敗と作業対象Revision観測不能を別軸で保持するを検証する。
+ *
+ * @responsibility 候補破棄失敗と作業対象Revision観測不能を別軸で保持するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 候補破棄失敗と作業対象Revision観測不能を別軸で保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("候補破棄失敗と作業対象Revision観測不能を別軸で保持する", async () => {
   const fixture = dependencies({
     discardThrows: true,
@@ -869,6 +1138,18 @@ test("候補破棄失敗と作業対象Revision観測不能を別軸で保持す
   assert.equal(result.executionTree, baseTree);
 });
 
+/**
+ * 実行Repository RevisionをTask前に観測できなければProvider Effectを発行しないを検証する。
+ *
+ * @responsibility 実行Repository RevisionをTask前に観測できなければProvider Effectを発行しないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 実行Repository RevisionをTask前に観測できなければProvider Effectを発行しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("実行Repository RevisionをTask前に観測できなければProvider Effectを発行しない", async () => {
   const fixture = dependencies({
     repositoryRevisions: Object.freeze([null]),
@@ -887,6 +1168,18 @@ test("実行Repository RevisionをTask前に観測できなければProvider Eff
   assert.equal(fixture.calls.discards, 0);
 });
 
+/**
+ * 一回是正後の同じ独立Reviewer承認もexact Candidate成功として保持するを検証する。
+ *
+ * @responsibility 一回是正後の同じ独立Reviewer承認もexact Candidate成功として保持するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 一回是正後の同じ独立Reviewer承認もexact Candidate成功として保持するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("一回是正後の同じ独立Reviewer承認もexact Candidate成功として保持する", async () => {
   const fixture = dependencies({
     result: taskResult({ remediationPerformed: true }),
@@ -903,6 +1196,18 @@ test("一回是正後の同じ独立Reviewer承認もexact Candidate成功とし
   assert.equal(result.canonicalRepositoryChanged, false);
 });
 
+/**
+ * 安全な業務拒否は空Recoveryを曖昧化せず再実行可否を判定可能にするを検証する。
+ *
+ * @responsibility 安全な業務拒否は空Recoveryを曖昧化せず再実行可否を判定可能にするの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 安全な業務拒否は空Recoveryを曖昧化せず再実行可否を判定可能にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("安全な業務拒否は空Recoveryを曖昧化せず再実行可否を判定可能にする", async () => {
   const fixture = dependencies({
     result: taskResult({
@@ -965,6 +1270,18 @@ test("安全な業務拒否は空Recoveryを曖昧化せず再実行可否を判
   assert.equal(fixture.calls.discards, 0);
 });
 
+/**
+ * Reviewer投影の既知byte差をProvider本文なしで固定分類するを検証する。
+ *
+ * @responsibility Reviewer投影の既知byte差をProvider本文なしで固定分類するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Reviewer投影の既知byte差をProvider本文なしで固定分類するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("Reviewer投影の既知byte差をProvider本文なしで固定分類する", async () => {
   const missingLf = EXPECTED_CONTENT.trimEnd();
   const fixture = dependencies({
@@ -1001,6 +1318,18 @@ test("Reviewer投影の既知byte差をProvider本文なしで固定分類する
   assert.equal(result.reviewerProjectedTargetClassification, "missing_lf");
 });
 
+/**
+ * Candidate整合性不成立はReviewer拒否へ畳まずSigned結果へ伝播するを検証する。
+ *
+ * @responsibility Candidate整合性不成立はReviewer拒否へ畳まずSigned結果へ伝播するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Candidate整合性不成立はReviewer拒否へ畳まずSigned結果へ伝播するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("Candidate整合性不成立はReviewer拒否へ畳まずSigned結果へ伝播する", async () => {
   const fixture = dependencies({
     result: taskResult({
@@ -1022,6 +1351,18 @@ test("Candidate整合性不成立はReviewer拒否へ畳まずSigned結果へ伝
   assert.equal(result.effectStateUnknown, false);
 });
 
+/**
+ * exact Candidate破棄後の内容不一致は候補Recoveryを残存扱いしないを検証する。
+ *
+ * @responsibility exact Candidate破棄後の内容不一致は候補Recoveryを残存扱いしないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus exact Candidate破棄後の内容不一致は候補Recoveryを残存扱いしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("exact Candidate破棄後の内容不一致は候補Recoveryを残存扱いしない", async () => {
   const fixture = dependencies({ candidate: candidate("different\n") });
   const result = await runSignedGeneralTaskVerification(
@@ -1049,6 +1390,18 @@ test("exact Candidate破棄後の内容不一致は候補Recoveryを残存扱い
   assert.equal(fixture.calls.discards, 1);
 });
 
+/**
+ * 公開fixtureの改行・終端・未置換差はbyteを出さず固定分類するを検証する。
+ *
+ * @responsibility 公開fixtureの改行・終端・未置換差はbyteを出さず固定分類するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 公開fixtureの改行・終端・未置換差はbyteを出さず固定分類するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("公開fixtureの改行・終端・未置換差はbyteを出さず固定分類する", async () => {
   for (const [content, expectedMismatch] of [
     ["CRDD_COORDINATOR_GENERAL_TASK_OK\r\n", "candidate_content_crlf"],
@@ -1075,6 +1428,18 @@ test("公開fixtureの改行・終端・未置換差はbyteを出さず固定分
   }
 });
 
+/**
+ * Reviewer承認済みでもRunnerがbyte長・digestの不一致を独立拒否するを検証する。
+ *
+ * @responsibility Reviewer承認済みでもRunnerがbyte長・digestの不一致を独立拒否するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Reviewer承認済みでもRunnerがbyte長・digestの不一致を独立拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("Reviewer承認済みでもRunnerがbyte長・digestの不一致を独立拒否する", async () => {
   for (const [field, value, expectedMismatch] of [
     ["byteLength", 32, "candidate_byte_length"],
@@ -1103,6 +1468,18 @@ test("Reviewer承認済みでもRunnerがbyte長・digestの不一致を独立�
   }
 });
 
+/**
+ * 変更Pathの最終Authorityは複製Resultでなくexact Candidate Bundleに固定するを検証する。
+ *
+ * @responsibility 変更Pathの最終Authorityは複製Resultでなくexact Candidate Bundleに固定するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 変更Pathの最終Authorityは複製Resultでなくexact Candidate Bundleに固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("変更Pathの最終Authorityは複製Resultでなくexact Candidate Bundleに固定する", async () => {
   const fixture = dependencies({
     result: taskResult({
@@ -1129,6 +1506,18 @@ test("変更Pathの最終Authorityは複製Resultでなくexact Candidate Bundle
   assert.equal(fixture.calls.discards, 1);
 });
 
+/**
+ * 正常候補の契約差はProvider本文を出さず固定field名だけで診断するを検証する。
+ *
+ * @responsibility 正常候補の契約差はProvider本文を出さず固定field名だけで診断するの合否判定を所有する。
+ * @trace ERB-ST-005
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 正常候補の契約差はProvider本文を出さず固定field名だけで診断するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary ERB-ST-005=System/E2E: 公開入口→外部Runtime→結果・終了後診断
+ */
 test("正常候補の契約差はProvider本文を出さず固定field名だけで診断する", async () => {
   const fixture = dependencies({
     result: taskResult({
@@ -1155,6 +1544,18 @@ test("正常候補の契約差はProvider本文を出さず固定field名だけ�
   assert.equal(result.credentialReported, false);
 });
 
+/**
+ * 是正履歴の欠落または型差を成功へ昇格しないを検証する。
+ *
+ * @responsibility 是正履歴の欠落または型差を成功へ昇格しないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 是正履歴の欠落または型差を成功へ昇格しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("是正履歴の欠落または型差を成功へ昇格しない", async () => {
   for (const remediationPerformed of [undefined, null, "true", 1]) {
     const fixture = dependencies({
@@ -1170,6 +1571,18 @@ test("是正履歴の欠落または型差を成功へ昇格しない", async ()
   }
 });
 
+/**
+ * Claude Front、Codex実装、Claude独立Reviewを同じ署名Runner契約へ結合するを検証する。
+ *
+ * @responsibility Claude Front、Codex実装、Claude独立Reviewを同じ署名Runner契約へ結合するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Claude Front、Codex実装、Claude独立Reviewを同じ署名Runner契約へ結合するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("Claude Front、Codex実装、Claude独立Reviewを同じ署名Runner契約へ結合する", async () => {
   const fixture = dependencies({
     result: taskResult({
@@ -1212,6 +1625,18 @@ test("Claude Front、Codex実装、Claude独立Reviewを同じ署名Runner契約
   }
 });
 
+/**
+ * 明示Codex制約の検証はCodex Executorと独立Claude Reviewへ固定するを検証する。
+ *
+ * @responsibility 明示Codex制約の検証はCodex Executorと独立Claude Reviewへ固定するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 明示Codex制約の検証はCodex Executorと独立Claude Reviewへ固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("明示Codex制約の検証はCodex Executorと独立Claude Reviewへ固定する", async () => {
   const fixture = dependencies({
     result: taskResult({
@@ -1237,6 +1662,18 @@ test("明示Codex制約の検証はCodex Executorと独立Claude Reviewへ固定
   assert.deepEqual(fixture.calls.passedRequest, request);
 });
 
+/**
+ * 明示Claude制約の検証はClaude Executorと独立Codex Reviewへ固定するを検証する。
+ *
+ * @responsibility 明示Claude制約の検証はClaude Executorと独立Codex Reviewへ固定するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 明示Claude制約の検証はClaude Executorと独立Codex Reviewへ固定するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("明示Claude制約の検証はClaude Executorと独立Codex Reviewへ固定する", async () => {
   const fixture = dependencies({
     result: taskResult({
@@ -1262,6 +1699,18 @@ test("明示Claude制約の検証はClaude Executorと独立Codex Reviewへ固�
   assert.deepEqual(fixture.calls.passedRequest, request);
 });
 
+/**
+ * 関数境界も未知Route ProfileをEffect前に拒否するを検証する。
+ *
+ * @responsibility 関数境界も未知Route ProfileをEffect前に拒否するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 関数境界も未知Route ProfileをEffect前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("関数境界も未知Route ProfileをEffect前に拒否する", async () => {
   const fixture = dependencies();
   const result = await runSignedGeneralTaskVerification(
@@ -1278,6 +1727,18 @@ test("関数境界も未知Route ProfileをEffect前に拒否する", async () =
   assert.equal(fixture.calls.starts, 0);
 });
 
+/**
+ * Route、cleanup、RecoveryまたはCandidate byte差をFail Closedにするを検証する。
+ *
+ * @responsibility Route、cleanup、RecoveryまたはCandidate byte差をFail Closedにするの合否判定を所有する。
+ * @trace PRL-ST-004
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Route、cleanup、RecoveryまたはCandidate byte差をFail Closedにするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-004=System/E2E: 公開入口→Runtime→耐久Store→回復再入場
+ */
 test("Route、cleanup、RecoveryまたはCandidate byte差をFail Closedにする", async () => {
   const cases = [
     dependencies({ result: taskResult({ executorProvider: "codex" }) }),
@@ -1319,6 +1780,18 @@ test("Route、cleanup、RecoveryまたはCandidate byte差をFail Closedにす�
   assert.equal(cases[2]?.calls.discards, 1);
 });
 
+/**
+ * ReleaseとCandidate RevisionのIdentity欠落・差を拒否しCandidateをdiscardするを検証する。
+ *
+ * @responsibility ReleaseとCandidate RevisionのIdentity欠落・差を拒否しCandidateをdiscardするの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus ReleaseとCandidate RevisionのIdentity欠落・差を拒否しCandidateをdiscardするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("ReleaseとCandidate RevisionのIdentity欠落・差を拒否しCandidateをdiscardする", async () => {
   const exportedCandidate = candidate();
   const exportedBundle = exportedCandidate.bundle as Readonly<
@@ -1359,6 +1832,18 @@ test("ReleaseとCandidate RevisionのIdentity欠落・差を拒否しCandidate�
   }
 });
 
+/**
+ * Task開始後のrestart矛盾・結果不明は独立Processでpoisonし全入口を閉じるを検証する。
+ *
+ * @responsibility Task開始後のrestart矛盾・結果不明は独立Processでpoisonし全入口を閉じるの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Task開始後のrestart矛盾・結果不明は独立Processでpoisonし全入口を閉じるの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし全入口を閉じる", () => {
   const scenarios = [
     "completed_true",
@@ -1492,6 +1977,18 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
   }
 });
 
+/**
+ * 安全観測がexactな業務不適合は共有Processをpoisonしないを検証する。
+ *
+ * @responsibility 安全観測がexactな業務不適合は共有Processをpoisonしないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 安全観測がexactな業務不適合は共有Processをpoisonしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("安全観測がexactな業務不適合は共有Processをpoisonしない", async () => {
   const fixture = dependencies({
     result: taskResult({ executorProvider: "codex" }),
@@ -1505,6 +2002,18 @@ test("安全観測がexactな業務不適合は共有Processをpoisonしない",
   assert.equal(result.manualRecoveryRequired, false);
 });
 
+/**
+ * 取消、Candidate Store例外をPassへ流さないを検証する。
+ *
+ * @responsibility 取消、Candidate Store例外をPassへ流さないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 取消、Candidate Store例外をPassへ流さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("取消、Candidate Store例外をPassへ流さない", async () => {
   const cancelled = dependencies({ cancellationRequested: true });
   const cancelledResult = await runSignedGeneralTaskVerification(
@@ -1529,6 +2038,18 @@ test("取消、Candidate Store例外をPassへ流さない", async () => {
   }
 });
 
+/**
+ * production grace内の遅延取消receiptを短い旧上限で誤poisonしないを検証する。
+ *
+ * @responsibility production grace内の遅延取消receiptを短い旧上限で誤poisonしないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus production grace内の遅延取消receiptを短い旧上限で誤poisonしないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("production grace内の遅延取消receiptを短い旧上限で誤poisonしない", async () => {
   for (const cancelDelayMs of [1_500, 4_900]) {
     const fixture = dependencies({
@@ -1550,6 +2071,18 @@ test("production grace内の遅延取消receiptを短い旧上限で誤poisonし
   }
 });
 
+/**
+ * 終了未観測receiptはexact cleanupだけで既知取消へ収束するを検証する。
+ *
+ * @responsibility 終了未観測receiptはexact cleanupだけで既知取消へ収束するの合否判定を所有する。
+ * @trace PRL-ST-003
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 終了未観測receiptはexact cleanupだけで既知取消へ収束するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-003=System/E2E: 公開入口→Runtime→Provider・Process→資源Observer
+ */
 test("終了未観測receiptはexact cleanupだけで既知取消へ収束する", async () => {
   const receipt = Object.freeze({
     status: "requested",
@@ -1588,6 +2121,18 @@ test("終了未観測receiptはexact cleanupだけで既知取消へ収束する
   assert.equal(unknown.poisoned, true);
 });
 
+/**
+ * Candidate discard不成立は残存0とせず手動処置対象を返すを検証する。
+ *
+ * @responsibility Candidate discard不成立は残存0とせず手動処置対象を返すの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Candidate discard不成立は残存0とせず手動処置対象を返すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("Candidate discard不成立は残存0とせず手動処置対象を返す", async () => {
   const fixture = dependencies({
     discard: Object.freeze({
@@ -1614,6 +2159,18 @@ test("Candidate discard不成立は残存0とせず手動処置対象を返す",
   );
 });
 
+/**
+ * Taskとdiscardの複合Recoveryは全IDを保持し競合を明示するを検証する。
+ *
+ * @responsibility Taskとdiscardの複合Recoveryは全IDを保持し競合を明示するの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Taskとdiscardの複合Recoveryは全IDを保持し競合を明示するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("Taskとdiscardの複合Recoveryは全IDを保持し競合を明示する", async () => {
   const fixture = dependencies({
     result: taskResult({
@@ -1661,6 +2218,18 @@ test("Taskとdiscardの複合Recoveryは全IDを保持し競合を明示する",
   assert.equal(fixture.calls.discards, 1);
 });
 
+/**
+ * SIGINT／SIGTERMはrequested latchだけをexact onceにしunbind後は不発火にするを検証する。
+ *
+ * @responsibility SIGINT／SIGTERMはrequested latchだけをexact onceにしunbind後は不発火にするの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus SIGINT／SIGTERMはrequested latchだけをexact onceにしunbind後は不発火にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("SIGINT／SIGTERMはrequested latchだけをexact onceにしunbind後は不発火にする", async () => {
   const signals = new EventEmitter();
   const controlCapability = Object.freeze({});
@@ -1685,6 +2254,18 @@ test("SIGINT／SIGTERMはrequested latchだけをexact onceにしunbind後は不
   assert.equal(cancellations, 0);
 });
 
+/**
+ * 二本目Signal登録失敗は一本目をrollbackしlistenerを残さないを検証する。
+ *
+ * @responsibility 二本目Signal登録失敗は一本目をrollbackしlistenerを残さないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 二本目Signal登録失敗は一本目をrollbackしlistenerを残さないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("二本目Signal登録失敗は一本目をrollbackしlistenerを残さない", () => {
   const signals = new EventEmitter();
   const originalOn = signals.on.bind(signals);
@@ -1705,6 +2286,18 @@ test("二本目Signal登録失敗は一本目をrollbackしlistenerを残さな�
   assert.equal(signals.listenerCount("SIGTERM"), 0);
 });
 
+/**
+ * completion確定とunbindの間のsignal latchを成功へ取り逃がさないを検証する。
+ *
+ * @responsibility completion確定とunbindの間のsignal latchを成功へ取り逃がさないの合否判定を所有する。
+ * @trace PRL-ST-001
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus completion確定とunbindの間のsignal latchを成功へ取り逃がさないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Project Runtime→Execution→受入
+ */
 test("completion確定とunbindの間のsignal latchを成功へ取り逃がさない", () => {
   const probe = spawnSync(
     process.execPath,

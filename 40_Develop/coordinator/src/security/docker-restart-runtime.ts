@@ -1,5 +1,11 @@
+/**
+ * docker-restart-runtimeに属する責務をまとめる。
+ *
+ * @responsibility restartRuntimeOwnedDockerForRecoveryを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import { executeDockerRestart } from "../core/docker-restart-execution.ts";
-import { acquireRuntimeOwnedDockerDesktopRestartNativeHelper } from "./docker-desktop-repair-native-helper.ts";
+import { acquireRuntimeOwnedDockerDesktopRestartNativeHelper } from "./docker-desktop-repair-native-process.ts";
 import {
   commitRuntimeOwnedDockerRestartHandoff,
   persistRuntimeOwnedDockerRestartPhase,
@@ -9,7 +15,22 @@ import {
 } from "./docker-recovery-runtime-internal.ts";
 import { createDockerRestartMachine } from "./docker-restart-machine.ts";
 
-/** Package-internal composition. Task recovery remains a separate operation. */
+/**
+ * Package-internal composition. Task recovery remains a separate operation.
+ *
+ * @responsibility docker-restart-runtimeの入力からrestart Runtime 所有 Docker For 回復を導く規則と結果境界を所有する。
+ * @trace ARCH-000008
+ * @input recoveryId: unknown、signal: AbortSignal、originReleaseRoot: unknown、developmentContext: unknown
+ * @returns restartRuntimeOwnedDockerForRecoveryの計算結果を返す。
+ * @precondition 「recoveryId: unknown、signal: AbortSignal、originReleaseRoot: unknown、developmentContext: unknown」がrestartRuntimeOwnedDockerForRecoveryの入力契約を満たす。
+ * @postcondition restartRuntimeOwnedDockerForRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: restartRuntimeOwnedDockerForRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure restartRuntimeOwnedDockerForRecoveryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant restartRuntimeOwnedDockerForRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: restartRuntimeOwnedDockerForRecoveryはProcess内の同一Subsystemで完結する。
+ * @security restartRuntimeOwnedDockerForRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency restartRuntimeOwnedDockerForRecoveryは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function restartRuntimeOwnedDockerForRecovery(
   recoveryId: unknown,
   signal: AbortSignal,

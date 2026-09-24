@@ -1,3 +1,9 @@
+/**
+ * interactive-console-readerに属する責務をまとめる。
+ *
+ * @responsibility ReaderInputを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000008
+ */
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -7,6 +13,17 @@ export const INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION = 7;
 export const INTERACTIVE_CONSOLE_READER_MAXIMUM_BYTES = 64;
 export const INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS = 120_000;
 
+/**
+ * interactive-console-readerで使用するReader 入力の値契約を定義する。
+ *
+ * @responsibility Reader 入力のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape ReaderInputが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ReaderInputで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ReaderInputの宣言は外部境界を開かない。
+ * @security N/A: ReaderInputはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility ReaderInputの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type ReaderInput = Readonly<{
   isTTY?: boolean;
   destroyed: boolean;
@@ -24,6 +41,17 @@ export type ReaderInput = Readonly<{
   resume: () => unknown;
 }>;
 
+/**
+ * interactive-console-readerで使用する所有 Reader Adapterの値契約を定義する。
+ *
+ * @responsibility 所有 Reader AdapterのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape OwnedReaderAdapterが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant OwnedReaderAdapterで宣言した値と責務の対応を維持する。
+ * @boundary N/A: OwnedReaderAdapterの宣言は外部境界を開かない。
+ * @security N/A: OwnedReaderAdapterはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility OwnedReaderAdapterの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 type OwnedReaderAdapter = Readonly<{
   open: (device: string, flags: "r") => number;
   close: (descriptor: number) => void;
@@ -37,12 +65,39 @@ type OwnedReaderAdapter = Readonly<{
   ) => unknown;
 }>;
 
+/**
+ * interactive-console-readerで使用する所有 Interactive Console Read Outcomeの値契約を定義する。
+ *
+ * @responsibility 所有 Interactive Console Read OutcomeのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape OwnedInteractiveConsoleReadOutcomeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant OwnedInteractiveConsoleReadOutcomeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: OwnedInteractiveConsoleReadOutcomeの宣言は外部境界を開かない。
+ * @security N/A: OwnedInteractiveConsoleReadOutcomeはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility OwnedInteractiveConsoleReadOutcomeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
 export type OwnedInteractiveConsoleReadOutcome = Readonly<{
   status: "completed" | "cancelled" | "reader_failed";
   line: string | null;
   descriptorCloseConfirmed: boolean;
 }>;
 
+/**
+ * Interactive Console Lineを構造化値へ解析する。
+ *
+ * @responsibility Interactive Console Lineの入力文法、解析結果、不正文法の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input bytes: Uint8Array
+ * @returns parseInteractiveConsoleLineの計算結果を返す。
+ * @precondition 「bytes: Uint8Array」がparseInteractiveConsoleLineの入力契約を満たす。
+ * @postcondition parseInteractiveConsoleLineの責務を完了した結果だけを返す。
+ * @effect N/A: parseInteractiveConsoleLineは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure parseInteractiveConsoleLineは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant parseInteractiveConsoleLineは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: parseInteractiveConsoleLineはProcess内の同一Subsystemで完結する。
+ * @security N/A: parseInteractiveConsoleLineはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: parseInteractiveConsoleLineは共有非同期状態を持たない同期処理である。
+ */
 export function parseInteractiveConsoleLine(bytes: Uint8Array) {
   if (
     bytes.byteLength === 0 ||
@@ -69,6 +124,22 @@ export function parseInteractiveConsoleLine(bytes: Uint8Array) {
   return /^[0-9]{6}$/u.test(line) ? line : null;
 }
 
+/**
+ * Interactive Console Line From Streamを読み取る。
+ *
+ * @responsibility Interactive Console Line From Streamの読取り元、上限、読取不能時の結果境界を所有する。
+ * @trace ARCH-000008
+ * @input stream: ReaderInput、cancellationSignal: AbortSignal
+ * @returns Promise<string | null>を返す。
+ * @precondition 「stream: ReaderInput、cancellationSignal: AbortSignal」がreadInteractiveConsoleLineFromStreamの入力契約を満たす。
+ * @postcondition readInteractiveConsoleLineFromStreamの責務を完了した結果だけを返す。
+ * @effect N/A: readInteractiveConsoleLineFromStreamは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure readInteractiveConsoleLineFromStreamは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readInteractiveConsoleLineFromStreamは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: readInteractiveConsoleLineFromStreamはProcess内の同一Subsystemで完結する。
+ * @security N/A: readInteractiveConsoleLineFromStreamはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency readInteractiveConsoleLineFromStreamは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export function readInteractiveConsoleLineFromStream(
   stream: ReaderInput,
   cancellationSignal: AbortSignal,
@@ -155,6 +226,22 @@ export function readInteractiveConsoleLineFromStream(
   });
 }
 
+/**
+ * 所有 Interactive Console Line Outcome Using Adapterを読み取る。
+ *
+ * @responsibility 所有 Interactive Console Line Outcome Using Adapterの読取り元、上限、読取不能時の結果境界を所有する。
+ * @trace ARCH-000008
+ * @input platform: NodeJS.Platform、cancellationSignal: AbortSignal、adapter: OwnedReaderAdapter
+ * @returns Promise<OwnedInteractiveConsoleReadOutcome>を返す。
+ * @precondition 「platform: NodeJS.Platform、cancellationSignal: AbortSignal、adapter: OwnedReaderAdapter」がreadOwnedInteractiveConsoleLineOutcomeUsingAdapterの入力契約を満たす。
+ * @postcondition readOwnedInteractiveConsoleLineOutcomeUsingAdapterの責務を完了した結果だけを返す。
+ * @effect N/A: readOwnedInteractiveConsoleLineOutcomeUsingAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure readOwnedInteractiveConsoleLineOutcomeUsingAdapterは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readOwnedInteractiveConsoleLineOutcomeUsingAdapterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: readOwnedInteractiveConsoleLineOutcomeUsingAdapterはProcess内の同一Subsystemで完結する。
+ * @security N/A: readOwnedInteractiveConsoleLineOutcomeUsingAdapterはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency readOwnedInteractiveConsoleLineOutcomeUsingAdapterは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 export async function readOwnedInteractiveConsoleLineOutcomeUsingAdapter(
   platform: NodeJS.Platform,
   cancellationSignal: AbortSignal,
@@ -243,6 +330,22 @@ export async function readOwnedInteractiveConsoleLineOutcomeUsingAdapter(
       });
 }
 
+/**
+ * 結果を書き込む。
+ *
+ * @responsibility 結果の書込み先、確定条件、部分書込みの失敗境界を所有する。
+ * @trace ARCH-000008
+ * @input status: "completed" | "blocked"、line: string | null、cancellationSignal: AbortSignal
+ * @returns Promise<boolean>を返す。
+ * @precondition 「status: "completed" | "blocked"、line: string | null、cancellationSignal: AbortSignal」がwriteResultの入力契約を満たす。
+ * @postcondition writeResultの責務を完了した結果だけを返す。
+ * @effect writeResultは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure writeResultは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant writeResultは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: writeResultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency writeResultは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 function writeResult(
   status: "completed" | "blocked",
   line: string | null,
@@ -292,6 +395,22 @@ function writeResult(
   });
 }
 
+/**
+ * interactive-console-readerのCommand処理を開始する。
+ *
+ * @responsibility interactive-console-readerの引数受付、終了Code、診断出力境界を所有する。
+ * @trace ARCH-000008
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns mainの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がmainの入力契約を満たす。
+ * @postcondition mainの責務を完了した結果だけを返す。
+ * @effect mainはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: mainは独自の失敗分岐を所有しない。
+ * @invariant mainは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: mainはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency mainは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
 async function main() {
   process.exitCode = 2;
   const controller = new AbortController();

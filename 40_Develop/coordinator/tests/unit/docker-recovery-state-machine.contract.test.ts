@@ -1,3 +1,13 @@
+/**
+ * coordinator:unit:docker-recovery-state-machineの検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility coordinator:unit:docker-recovery-state-machineが所有する検証責務を実行する。
+ * @trace PRL-UT-006
+ * @level UT
+ * @scope docker、recovery、state、machine
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -9,6 +19,18 @@ import {
   releaseRecoverySynchronizations,
 } from "../../src/security/docker-recovery-state-machine.ts";
 
+/**
+ * delete state machineは到達可能3状態だけを回復するを検証する。
+ *
+ * @responsibility delete state machineは到達可能3状態だけを回復するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus delete state machineは到達可能3状態だけを回復するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("delete state machineは到達可能3状態だけを回復する", () => {
   assert.equal(classifyCommittedPairDeleteState(true, true), "remove_content");
   assert.equal(classifyCommittedPairDeleteState(false, true), "remove_commit");
@@ -16,6 +38,18 @@ test("delete state machineは到達可能3状態だけを回復する", () => {
   assert.equal(classifyCommittedPairDeleteState(true, false), "third_state");
 });
 
+/**
+ * move state machineは16組合せ中3状態だけを回復するを検証する。
+ *
+ * @responsibility move state machineは16組合せ中3状態だけを回復するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus move state machineは16組合せ中3状態だけを回復するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("move state machineは16組合せ中3状態だけを回復する", () => {
   const known = new Map([
     ["1100", "move_content"],
@@ -38,6 +72,18 @@ test("move state machineは16組合せ中3状態だけを回復する", () => {
   }
 });
 
+/**
+ * cleanup state machineは安全な完全削除とEvidence保持を分離するを検証する。
+ *
+ * @responsibility cleanup state machineは安全な完全削除とEvidence保持を分離するの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus cleanup state machineは安全な完全削除とEvidence保持を分離するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("cleanup state machineは安全な完全削除とEvidence保持を分離する", () => {
   assert.equal(
     classifyCleanupDirectoryState(true, false, false, 2),
@@ -68,6 +114,18 @@ test("cleanup state machineは安全な完全削除とEvidence保持を分離す
   });
 });
 
+/**
+ * lock release state machineは失敗後も全同期境界の解放を試すを検証する。
+ *
+ * @responsibility lock release state machineは失敗後も全同期境界の解放を試すの合否判定を所有する。
+ * @trace PRL-UT-006
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus lock release state machineは失敗後も全同期境界の解放を試すの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ */
 test("lock release state machineは失敗後も全同期境界の解放を試す", () => {
   const attempts: string[] = [];
   assert.equal(
