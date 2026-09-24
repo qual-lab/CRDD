@@ -17,7 +17,7 @@ Related:
 |---|---|---|
 | 公開済みBaseline | `v0.20.1` | [現在のCRDD](../00_Overview.md)、[CHANGELOG](../CHANGELOG.md) |
 | 次の対象 | `v0.21.0` | [Roadmap](./01_Roadmap.md) |
-| 現在の作業状態 | Featureで設計・実装・検証中 | [Roadmap](./01_Roadmap.md) |
+| 現在の作業状態 | v0.21.0のStable遷移計画を固定。最終候補化前 | [Roadmap](./01_Roadmap.md) |
 | リリース判断 | 未実施 | [リリース規則](../13_Release.md) |
 
 ## 2. Evidence Navigation
@@ -36,6 +36,12 @@ Related:
 | `v0.18.1` | [Runtime Identity](./Releases/v0.18.1/Evidence/260901_coordinator-v0181-runtime-identity.md) |
 | `v0.19.0` | [最終署名済みE2E](./Releases/v0.19.0/Evidence/260903_project-runtime-final-signed-e2e.md)、[機械結果](./Releases/v0.19.0/Evidence/260903_project-runtime-final-signed-e2e.json) |
 | `v0.20.0` | [公開Runtime・限定統合検証](./Releases/v0.20.0/Evidence/260906_v020-public-runtime-and-bounded-integration-verification.md) |
+
+### 次のRelease候補
+
+| Release | Evidence |
+|---|---|
+| `v0.21.0` | [Release準備記録](./Releases/v0.21.0/Evidence/260924_release-readiness.md) |
 
 ## 3. 更新規則
 
