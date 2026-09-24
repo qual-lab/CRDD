@@ -1,7 +1,7 @@
 # Engineering Design／Implementation／Verificationの完全性
 
 変更ID: `CHG-000080`
-状態: `In Progress`
+状態: `Completed`
 決定権限: Qual-Lab
 対象版: `v0.21.0`
 変更分類: `engineering_completeness_contract_extension`
@@ -10,13 +10,13 @@
 
 | 項目 | 現在値 |
 |---|---|
-| 現在の変更状態 | Human-only再認証Lifecycle、Command世代Barrier、署名前Runtime能力Graph、Proxy port `8080`統一、Docker不存在`inspect`の明示stderr＋空配列`[]`受理、および秘密code非表示・一回入力の事前案内を実装した。署名済み実境界で検出した、同一Session内のRelease更新がContinuation Authorityへ入らない欠落と、現行署名版が新規作成したDocker修復から複数Runtime領域の段階処置へ入れない欠落を是正した。Docker冷間起動は、個別Probe Timeoutと最大180秒の全体起動期限を分離し、Host Effectを再発行せず同一実行で再観測する。検証入口もPortableとHost Windowsへ分け、既定回帰が既知の実環境制限へ入らないようにした。直前の署名済み候補で確認したClaude Max認証、Recovery Matrixおよび4経路E2Eは新しいSource Aへ流用せず、最終Identityで再実行する段階である |
+| 現在の変更状態 | Human-only再認証Lifecycle、Command世代Barrier、署名前Runtime能力Graph、Proxy port `8080`統一、Docker不存在`inspect`の明示stderr＋空配列`[]`受理、および秘密code非表示・一回入力の事前案内を実装した。署名済み実境界で検出した、同一Session内のRelease更新がContinuation Authorityへ入らない欠落と、現行署名版が新規作成したDocker修復から複数Runtime領域の段階処置へ入れない欠落を是正した。Docker冷間起動は、個別Probe Timeoutと最大180秒の全体起動期限を分離し、Host Effectを再発行せず同一実行で再観測する。検証入口もPortableとHost Windowsへ分け、既定回帰が既知の実環境制限へ入らないようにした。最終Source A、Manifest carrier B、署名済みRecovery Matrixおよび4経路E2Eを同じRuntime Identityで固定し、CHGの技術Gateを完了した |
 | Phase／Gate適用判断 | `Applicable`: Architecture、実装、Quality、MigrationおよびReality Auditを一括変更せず、局所Gateで成立確認する必要がある |
-| 現在Phase | `Phase 9 — Signed E2E／Release Gate`: Phase 2／4／7／8の独立再レビューはBlocking Finding 0でPassした。Canonical設計集合156件のうちv0.21対象130件とv0.22移管26件を分け、Automated Gapは閉じた。Hybrid／Manual義務は既存の独立レビュー、実境界観測および人間確認へ対応付け、未実施項目をPassへ畳まず最終Release Evidenceで現在判定を固定する。移管26件は既存Prototype Relation 10件と未観測16件を区別し、新Capabilityの完成へ読み替えない |
-| 現在Gate | `Passed: Gate 0〜8`。`In Progress: Gate 9`。Docker冷間起動是正と実行Profile分離後の現在ツリーで、形式・型・Lint、Runtime能力Graph、設計追跡、Repository Checker、Coordinator Portable全回帰2,041件中2,033 Pass・失敗0・8 Explicit Skip、およびHost Windows 10／10を確認した。既定`npm test`は公開`test:run`を経てPortable閉集合だけを実行し、実環境試験は明示入口へ分離した。実行Profile閉集合の独立レビュー指摘を是正し、再レビューはBlocking／Non-blocking Finding 0でPassした。最終署名IdentityのE2Eは未完了であり、以前の結果を流用しない |
-| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 156件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 225件の責務別Local Item接続、Optionality Audit全数処置。Docker冷間起動の再観測契約、起動所要時間の非Authority診断、Portable／Host Windowsの実行Profile契約、およびHost Windows 10／10を確認した。Claude再認証の局所単体試験14件と別Process回復結合試験2件もPassし、本番認証関数のEffect前`in_flight`耐久化、Command保留中の実Kernel Lock喪失、fresh Effect 0、正常close後だけの`idle`復帰を固定した |
-| 未成立 | 最終Source A／manifest carrier Bの固定、同じ最終Runtime Identityに対するRecovery Matrixと4経路E2E、Release EvidenceへのLocal Item対応、Commit Cの機械確認・独立監査およびmain統合後の人間による最終Release判断。v0.22移管26件は同版の実装・実境界・人間受入で再開する |
-| 次のGate | manifestを除く新しいSource Aを固定し、Coordinatorだけを再署名してmanifest-only Bを作成する。同じIdentityで実在Repair IDの再入場、Recovery Matrixと4経路E2Eを再実行し、Release Evidence、Commit Cの機械確認・監査およびmain統合後のexact Identity確認を経て最終Release判断へ渡す |
+| 現在Phase | `Phase 9 — Signed E2E／Release Gate: Completed`。Canonical設計集合156件のうちv0.21対象130件とv0.22移管26件を分け、Automated Gapを閉じた。Hybrid／Manual義務は独立レビュー、実境界観測および人間確認へ対応付け、未実施項目をPassへ畳まずRelease Evidenceへ現在判定を固定した。移管26件は既存Prototype Relation 10件と未観測16件を区別し、新Capabilityの完成へ読み替えない |
+| 現在Gate | `Passed: Gate 0〜9`。Source A `01eb00a63dcab09b4b32a41bf142bab70897cd8c`、Manifest carrier B `7362268eecbbc744fc08f809a3a0976fe16ac805`およびRuntime Execution Identity `9850722655b50fcf3d9e70064801729280ab1d0202a6f0472af590535df26f54`を固定した。Recovery Matrixは7シナリオ、署名4経路E2Eは4／4を同じIdentityで完了した。以前の署名結果は流用していない |
+| 成立済み | Architecture Detailsの実装構造観点、試験段階付きLocal Item 156件、日本語の条件区分、UAT／IT Pilot、Production Headerの構造Gate、Test Catalog 225件の責務別Local Item接続、Optionality Audit全数処置。Coordinator Portable回帰2,041件中2,033 Pass・失敗0・明示Skip 8、Host Windows 10／10、Checker 363／363、Repository Checker error 0／warning 0、独立再レビューFinding 0を確認した。最終署名IdentityではRecovery Matrixの記録`8a651704-41ca-4290-948b-521f63008253`と4経路E2Eの記録`d7aa9851-0054-4d47-b021-1afb5d65b14d`を固定した |
+| 未成立 | CHGの技術Gateに未成立事項はない。main統合、統合後のexact Identity確認、Release採用およびtag付与は人間の最終Release判断が所有する。v0.22移管26件は同版の実装・実境界・人間受入で再開する |
+| 次のGate | Evidence Commit Cの機械確認と独立監査を完了し、main統合後のexact Identity確認と人間の最終Release判断へ渡す。CHG完了をv0.21.0の公開済み状態へ読み替えない |
 
 ## 1. 変更の目的
 
@@ -67,7 +67,7 @@ Architecture Details／実装構造 ──→ UT Obligation
 | 根拠の主張軸（観測基盤） | Applicable | 静的解析、Checker、Runner、実境界では観測可能範囲が異なる | 検証結果ごとに取得範囲を記録する |
 | 根拠の主張軸（成果物Identity） | Applicable | Canonical ID、ARCH-ID、QA Local Item、SymbolおよびEvidenceの対応が必要である | Semantic CoverageとReality Auditで照合する |
 | 根拠の主張軸（lifecycle） | Applicable | 定義、実装、実行、回復および終了後状態を一つの成功へ畳まない | Quality CenterとE2Eで確認する |
-| 未解消の不一致 | OPEN | Production Header、RelationおよびReality Auditの独立レビュー指摘は解消し、再レビューをPassした。Test Header、OptionalityおよびRequired Verification差分も解消済みである。署名E2Eと人間受入を必要とするEvidence義務だけが残る | Gate 9の署名E2E後に再確認する |
+| 未解消の不一致 | OPEN | CHGが所有するProduction Header、Relation、Optionality、Required Verification、自動回帰および最終署名E2Eは完了した。Quality正本にはv0.21対象のHybrid 12件・Manual 10件を未観測として保持し、Release採用等の人間判断を未完了のまま残す | 未観測22件を本E2Eの一括成功でPassへ変更せず、Quality CenterとReality Auditから最終Release判断へ渡す |
 
 ## 3. 採用する責務境界
 
@@ -138,7 +138,7 @@ PhaseはCHGを分割する別Identityではなく、一つの変更意図を安�
 | Phase 6: Optionality Audit | 重要評価の未記載をなくす | CRDD全体のOptional表現、Format、Checker | A〜F全数分類、理由付きN/A／OPEN、負例 | A〜F分類とC〜Fの必須評価化、理由なしN/A／OPEN 0件 | Passed |
 | Phase 7: CRDD Self Migration | 新ContractをCRDD自身へ適用する | Architecture、Source、Test、Quality、Traceability | 契約母集団と利用側母集団の全数照合 | Ruleと現実の未移行0件 | Passed |
 | Phase 8: Reality Audit | CanonicalからEvidenceまで照合する | Design→Obligation→Local Item→Test→Execution→Evidence | 欠落、矛盾、Orphan、Freshnessを全数判定 | 欠落・矛盾・Orphanを全数処置する | Passed |
-| Phase 9: Independent Review／Release Gate | 独立反証とRelease Readinessを閉じる | 必須監査、全回帰、署名E2E | 固定改訂版への独立レビュー、監査、署名E2E | Blocking Finding 0、必要な署名E2E Pass、人間のRelease判断へ引渡し可能 | In Progress |
+| Phase 9: Independent Review／Release Gate | 独立反証とRelease Readinessを閉じる | 必須監査、全回帰、署名E2E | 固定改訂版への独立レビュー、監査、署名E2E | Blocking Finding 0、必要な署名E2E Pass、人間のRelease判断へ引渡し可能 | Completed |
 
 ### 途中拡張の記録
 
@@ -628,4 +628,8 @@ Production母集団へGateを適用した初回観測では、`artifact-signing`
 - [x] 現在ツリーでCoordinator／Checker全回帰を再実行した。Coordinatorは2,041件中2,033 Pass・失敗0・明示Skip 8、Checkerは363／363 Passであり、Host Windows専用試験も10／10 Passした。Source Aで非該当のManifest昇格System試験3件は、Manifest-only Commit Bで実行する。
 - [x] Production Header、Relation、Reality Auditおよび実装境界の独立再レビューを完了し、Blocking Finding 0を確認した。
 - [x] 実行Profile閉集合の独立レビュー指摘を是正し、`unit`／`integration`／`system`全体のHost試験Source集合を許可3ファイルへexact固定した。再レビューはBlocking／Non-blocking Finding 0でPassした。
-- [ ] OPEN: 署名E2Eと、人間受入を必要とするEvidence義務を完了する。理由: Phase 2／4／7／8はPassし、Phase 9だけが署名E2EとRelease判断待ちである。
+- [x] 最終Source A／Manifest carrier Bを固定し、同じ署名IdentityでRecovery Matrixと4経路E2Eを完了した。人間のRelease判断はCHGの技術完了と分離した。
+
+## 9. 最終署名検証
+
+[Engineering Completeness最終署名E2E](Evidence/260924-1930_signed-e2e.md)に、Source A、Manifest carrier B、署名Identity、Recovery Matrix、4経路E2E、終了後状態およびQuality Local Itemとの対応を記録した。実行時の詳細はRepository-local `.crdd`が所有し、本変更には非秘密のIdentityと集約結果だけを残す。
