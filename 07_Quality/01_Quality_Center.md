@@ -21,6 +21,7 @@ Quality設計は13定義、156 Local Itemまで拡張した。Test Symbol Relati
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|
 | Canonical入力 | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18を全件Mapping済み | [Quality Integration](04_Quality_Integration.md) |
+| UI／SPEC Detail | OPEN: v0.22で導入したDetail Contractに対するSCR／PRT／Interaction／BHVは未発行。v0.21の157 Canonical入力Coverageへ遡及加算せず、Detail固定後にRequired Verificationを再導出する | [UI Detail](../04_UI/Details/01_UI_Detail.md)、[SPEC Detail](../05_SPEC/Details/01_SPEC_Detail.md) |
 | Quality Analysis | 6工程の全入力を、Source固有条件付きで13検証目標へ接続し独立レビュー済み | Reality Auditではこの設計集合を変更せず、現行実装との対応を照合する |
 | Quality Definitions | 13定義、156 Local ItemをCanonical化済み | Test Relation 122件、完成Evidence算入118件、非完成Relation 4件、Relationなし34件。品質判定上は118件観測済み、38件未観測。v0.21対象130件は108件観測済み、Hybrid／Manual 22件未観測。v0.22移管26件はPrototype Relation 10件と未観測16件を区別し、完成済みへ読み替えない |
 | Architecture詳細設計 | 18領域を適用判定済み | 実装OwnerのないCapability、現実との不一致およびTest未接続をReality Auditで処置する |
@@ -66,6 +67,7 @@ Coordinator／Project Runtimeの17意味Pilotに加えて全Subsystemへ照合�
 
 - [x] 現在の品質状態と結論を履歴より先に示した
 - [x] Canonical入力、検証目標およびLocal Itemの現在数を説明できる
+- [x] 既存Canonical入力Coverageと新規UI／SPEC DetailのOPENを区別した
 - [x] Designed、Implemented、Executed、PassedおよびEvidenceの状態を区別した
 - [x] 未成立、停止、要再確認および観測不能を正常へ畳んでいない
 - [x] Quality ReadyとReality Audit開始条件を過大表示していない

@@ -717,9 +717,9 @@ Canonical Definition／Architecture Model Item
 | Level不一致 | 必要な観測境界とLocal Itemの試験段階が違う | 同じ意味でも観測境界ごとにLocal Itemを分ける |
 | Relation不明 | Source、設計項目または検証目標へ一意に戻れない | 推測で接続せずGapとする |
 
-REQ／UX／IAはUAT専用のLocal Itemや新しい安定IDを所有しない。要求の受入条件、UXの利用者成果・重要場面・失敗、IAの情報発見・理解・関連付けをQuality Analysisが受入検証義務へ変換し、Quality DefinitionがUAT Local Itemを所有する。UI／SPECからは主にSystemとして観測する成立条件を、Architectureからは主にComponent・Boundary・State・Sequence・Failure／Recoveryの結合条件を、Architecture Detailsと実装構造からは主に局所責務・分岐・不変条件・Error処置を導出する。この対応は試験段階の固定割当ではなく、同じ条件が複数の観測境界を必要とする場合は複数段階へ展開する。
+REQ／UX／IAはUAT専用のLocal Itemや新しい安定IDを所有しない。要求の受入条件、UXの利用者成果・重要場面・失敗、IAの情報発見・理解・関連付けをQuality Analysisが受入検証義務へ変換し、Quality DefinitionがUAT Local Itemを所有する。UI／SPEC Definitionからは主にSystemとして観測する成立条件を、UI／SPEC DetailからはScreen、Part、Interaction、State、VisualおよびDetailed Behaviorの具体的な観測条件を、Architectureからは主にComponent・Boundary・State・Sequence・Failure／Recoveryの結合条件を、Architecture Detailsと実装構造からは主に局所責務・分岐・不変条件・Error処置を導出する。この対応は試験段階の固定割当ではなく、同じ条件が複数の観測境界を必要とする場合は複数段階へ展開する。
 
-品質工程は直前のArchitectureだけを正式入力としない。各工程は異なる種類の成立条件を所有するため、要求は課題解決、UXは利用者成果、IAは情報の理解・識別・追跡、UIは認識・操作・Feedback、SPECは振る舞い契約、Architectureは構造・境界・故障・回復の観点から横断分析する。試験段階は情報源となる工程へ固定対応させず、検証義務と観測境界から判断する。
+品質工程は直前のArchitectureだけを正式入力としない。各工程は異なる種類の成立条件を所有するため、要求は課題解決、UXは利用者成果、IAは情報の理解・識別・追跡、UI Definitionは認識・操作・Feedback、UI Detailは具体的なScreen・Part・Interaction・State・Visual、SPEC Definitionは振る舞い契約、SPEC DetailはBHVの詳細条件・結果・失敗・回復、Architectureは構造・境界・故障・回復の観点から横断分析する。Detail Artifactが増えたことだけを理由にQuality Analysis文書やLocal Itemを機械的に増殖させず、既存のRequired Verification ObligationへSame／New／Mergeで統合する。試験段階は情報源となる工程へ固定対応させず、検証義務と観測境界から判断する。
 
 根拠は、対象成果物内または最も近い親フォルダの`Evidence/`に置く。実装コード、テストコード、構成、再現手順等は、それぞれの通常配置を正本とし、検証結果とQuality Centerから参照する。根拠を`07_Quality`へ集め直さない。
 

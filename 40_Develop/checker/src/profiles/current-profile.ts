@@ -1355,10 +1355,111 @@ export function runCurrentProfileChecker(
       "補足定義へ必須情報を退避していない",
     ];
 
+    const uiDetailIndexChecklistItemTexts = [
+      "対象UI Definitionを全件処置した",
+      "UI Areaごとの目的とArea Design Guideを示した",
+      "Logical ScreenをRouteやFigma Frameと混同していない",
+      "Screen PartをHTML要素やLayout wrapperへ過剰発行していない",
+      "Interaction、StateおよびVariantを評価した",
+      "Screen Inventory／Flowの後にHero Screenを選定した",
+      "複数Visual DirectionのIntentとTrade-offを比較した",
+      "Human Direction Decisionを記録した",
+      "Visual SourceとRendered Viewを区別した",
+      "Secondary Screenへ展開してからPatternを評価した",
+      "CMPへの昇格または理由付き非昇格を記録した",
+      "SCR／PRT／InteractionとBHVの双方向Coverageを評価した",
+      "N/Aに理由、OPENにOwner・影響・戻り条件を記録した",
+      "Detailで上流の意味やSystem Behaviorを創作していない",
+    ];
+
+    const uiAreaChecklistItemTexts = [
+      "Areaの目的、利用者成果、対象UI Definitionを説明できる",
+      "情報構造と優先順位を示した",
+      "Screen InventoryとFlowを示した",
+      "Area共通のCompositionを示した",
+      "Interaction、State、FailureおよびRecoveryの原則を示した",
+      "Product Visual Baselineを複製せず、適用と例外を分けた",
+      "Pattern／CMPの利用規則と非適用条件を評価した",
+      "Accessibilityを全項目評価した",
+      "避ける表現を明示した",
+      "N/Aに理由、OPENにOwner・影響・戻り条件を記録した",
+    ];
+
+    const uiScreenChecklistItemTexts = [
+      "ScreenをRoute、URLまたはFigma Frameだけで定義していない",
+      "利用者の目的、入口、終了条件を明示した",
+      "対象UI DefinitionとAreaへ接続した",
+      "意味あるPRTを全件示した",
+      "Interaction、Feedback、StateおよびVariantを評価した",
+      "System Behaviorを伴うInteractionをBHVへ接続した",
+      "Failure、Unknown、PendingおよびRecoveryの表示を評価した",
+      "Visual BaselineとArea Design Guideの適用を示した",
+      "Accessibilityを評価した",
+      "Pattern／CMP昇格を反復根拠から判断した",
+      "N/Aに理由、OPENにOwner・影響・戻り条件を記録した",
+    ];
+
+    const uiComponentChecklistItemTexts = [
+      "複数Screen／Areaで反復した根拠がある",
+      "共通責務と個別差分を分けた",
+      "Input、State、Interaction、Feedbackを定義した",
+      "Failure／RecoveryとAccessibilityを評価した",
+      "利用規則と非適用条件を示した",
+      "BHV対応を評価した",
+      "実装FrameworkやClassをComponent Identityにしていない",
+      "N/Aに理由、OPENにOwner・影響・戻り条件を記録した",
+    ];
+
+    const uiVisualBaselineChecklistItemTexts = [
+      "Screen Inventory／Flowの後にHeroを選定した",
+      "複数DirectionのIntentとTrade-offを比較した",
+      "AI提案とHuman Direction Decisionを区別した",
+      "採用理由と再探索条件を示した",
+      "Baselineの全観点を評価した",
+      "Visual SourceとRendered Viewを区別した",
+      "Secondary Screenへ展開して成立を確認した",
+      "Screenshotだけを正本にしていない",
+      "N/Aに理由、OPENにOwner・影響・戻り条件を記録した",
+    ];
+
+    const specDetailIndexChecklistItemTexts = [
+      "対象SPEC Definitionを全件処置した",
+      "BHVの発行基準を満たすDetailed Behaviorだけを採番した",
+      "各BHVからSource SPECへ逆引きできる",
+      "Trigger、Result、FailureおよびRecoveryのCoverageを確認した",
+      "UI Detailとの双方向Coverageを評価した",
+      "Architecture方式やSource実装を先取りしていない",
+      "N/Aに理由、OPENにOwner・影響・戻り条件を記録した",
+    ];
+
+    const specBehaviorChecklistItemTexts = [
+      "独立したTriggerまたはResultを持つ",
+      "Source SPECへ接続した",
+      "TriggerからRecoveryまで全観点を評価した",
+      "N/Aに理由、OPENにOwner・影響・戻り条件を記録した",
+      "Normal、Boundary、Failure、UnknownおよびRecoveryを評価した",
+      "UI認識が必要な結果をUI Detailへ接続した",
+      "Architecture方式やSource実装を先取りしていない",
+      "新しいUX Outcome、IA Object、UI PresentationまたはAuthorityを創作していない",
+    ];
+
+    const uiSpecDetailCorrespondenceChecklistItemTexts = [
+      "Definition対応とDetail対応を分けた",
+      "UIからBHVへのCoverageを全件評価した",
+      "BHVからUIへのCoverageを全件評価した",
+      "直接UIを持たないBHVを理由付きN/Aへ処置した",
+      "Detail Gapを対応表だけで補完せずOwner工程へ戻した",
+      "N/Aに理由、OPENにOwner・影響・戻り条件を記録した",
+      "Architecture／Qualityへ未解決事項を含めて引き渡した",
+    ];
+
     const uiSpecHandoffChecklistItemTexts = [
       "UIとSPECの共通正式入力を明示した",
       "UIとSPECの責任境界を区別した",
       "UI別に渡す操作・状態・Feedbackを明示した",
+      "Definition対応とDetail対応を区別した",
+      "SCR／PRT／InteractionとBHVのCoverageを明示した",
+      "既存の引き渡し結果と新Detail契約のOPENを区別した",
       "共通Variantを全UIへ一律適用していない",
       "UI側の引き渡し完了条件を明示した",
       "対応レビュー結果の正本をSPEC側の対応文書へ一本化した",
@@ -1384,6 +1485,8 @@ export function runCurrentProfileChecker(
       "UI／SPEC独自の第三仕様を作っていない",
       "対象Definition集合のSHA-256を固定し、再レビュー入力を再構成できる",
       "組別Evidenceの理由を対象UI／SPECの具体的契約事実で説明した",
+      "Definition対応とDetail対応を区別した",
+      "Detail未発行をDefinition対応のPassで代替していない",
       "未決事項をAI推測で補完していない",
     ];
 
@@ -1436,6 +1539,13 @@ export function runCurrentProfileChecker(
       "上流の観測可能な振る舞いをArchitectureで変更していない",
     ];
 
+    const architectureDefinitionTemplateChecklistItemTexts = [
+      "UI／SPEC Definitionの意味統合と、適用するUI／SPEC Detailの配置制約を区別した",
+      "UI ContractとSPEC Contractを入力別に保持した",
+      "SCR／PRT／Interaction／BHVのN:N Relation、CoverageおよびGapを保持した",
+      ...architectureDefinitionChecklistItemTexts.slice(2),
+    ];
+
     const architectureDetailChecklistItemTexts = [
       "関連するARCH-IDと担当する責務断面を明示した",
       "10種類の詳細成果物を全数Applicability判定した",
@@ -1454,9 +1564,16 @@ export function runCurrentProfileChecker(
       "Source構造をCanonical詳細設計へ逆輸入していない",
     ];
 
+    const architectureDetailTemplateChecklistItemTexts = [
+      architectureDetailChecklistItemTexts[0],
+      "適用するUI／SPEC Detailと担当構造の逆引きを保持した",
+      ...architectureDetailChecklistItemTexts.slice(1),
+    ];
+
     const qualityCenterChecklistItemTexts = [
       "現在の品質状態と結論を履歴より先に示した",
       "Canonical入力、検証目標およびLocal Itemの現在数を説明できる",
+      "既存Canonical入力Coverageと新規UI／SPEC DetailのOPENを区別した",
       "Designed、Implemented、Executed、PassedおよびEvidenceの状態を区別した",
       "未成立、停止、要再確認および観測不能を正常へ畳んでいない",
       "Quality ReadyとReality Audit開始条件を過大表示していない",
@@ -1490,6 +1607,7 @@ export function runCurrentProfileChecker(
     const qualityIntegrationChecklistItemTexts = [
       "全Canonical IDを一件以上のQuality Analysis行で処置した",
       "Source固有の成功、失敗、Riskおよび未確認事項を保持した",
+      "UI／SPEC Definition由来とDetail由来の検証義務を区別して統合した",
       "Source ID、検証目標、試験段階およびLocal Itemを一意に接続した",
       "5横断モデルと全Architecture詳細設計領域を処置した",
       "Quality Integrationだけで第三の要求・設計・検証契約を作っていない",
@@ -1533,6 +1651,13 @@ export function runCurrentProfileChecker(
       "上流の未確認事項をUAT、OPEN義務または上流再開へ処置した",
       "現行Source、TestまたはEvidenceから検証義務を逆算していない",
       "未解決事項、判断者および再評価契機を明示した",
+    ];
+
+    const qualityAnalysisDetailTemplateChecklistItemTexts = [
+      qualityAnalysisTemplateChecklistItemTexts[0],
+      qualityAnalysisTemplateChecklistItemTexts[1],
+      "Definition由来の成立条件とDetail由来の具体的観測条件を区別した",
+      ...qualityAnalysisTemplateChecklistItemTexts.slice(2),
     ];
 
     const qualityDefinitionTemplateChecklistItemTexts = [
@@ -3466,6 +3591,60 @@ export function runCurrentProfileChecker(
         ),
         path.join(root, "template", "04_UI", "05_UI_SPEC_Handoff.md"),
       ];
+      const uiDetailTemplates = [
+        [
+          path.join(root, "template", "04_UI", "Details", "01_UI_Detail.md"),
+          uiDetailIndexChecklistItemTexts,
+        ],
+        [
+          path.join(
+            root,
+            "template",
+            "04_UI",
+            "Details",
+            "Areas",
+            "AREA-NAME",
+            "area.md",
+          ),
+          uiAreaChecklistItemTexts,
+        ],
+        [
+          path.join(
+            root,
+            "template",
+            "04_UI",
+            "Details",
+            "Areas",
+            "AREA-NAME",
+            "SCR-XXXXXX",
+            "screen.md",
+          ),
+          uiScreenChecklistItemTexts,
+        ],
+        [
+          path.join(
+            root,
+            "template",
+            "04_UI",
+            "Details",
+            "Components",
+            "CMP-XXXXXX",
+            "component.md",
+          ),
+          uiComponentChecklistItemTexts,
+        ],
+        [
+          path.join(
+            root,
+            "template",
+            "04_UI",
+            "Details",
+            "Visual",
+            "visual_baseline.md",
+          ),
+          uiVisualBaselineChecklistItemTexts,
+        ],
+      ] as const;
       for (const templatePath of uiProjectionTemplates)
         if (!lstatIfPresent(templatePath)?.isFile())
           add(
@@ -3482,6 +3661,28 @@ export function runCurrentProfileChecker(
             relative(templatePath),
             "The official UI profile must include separate UX-view and IA-view analysis templates plus the integrated UI definition template.",
           );
+      for (const [templatePath, checklistItems] of uiDetailTemplates) {
+        if (!lstatIfPresent(templatePath)?.isFile()) {
+          add(
+            "error",
+            "ui-detail-template-missing",
+            relative(templatePath),
+            "The official UI profile must include the complete UI Detail template set.",
+          );
+          continue;
+        }
+        const error = templateVisibleChecklistError(
+          read(templatePath),
+          checklistItems,
+        );
+        if (error)
+          add(
+            "error",
+            "ui-detail-template-checklist-invalid",
+            relative(templatePath),
+            `Every UI Detail template must expose one exact unevaluated checklist (${error}).`,
+          );
+      }
       for (const [templatePath, checklistItems] of [
         [requiredTemplates[0], uiAnalysisUxChecklistItemTexts],
         [requiredTemplates[1], uiAnalysisIaChecklistItemTexts],
@@ -3600,6 +3801,51 @@ export function runCurrentProfileChecker(
           registryIaUiKeys.push(key);
           registryIaUi.add(key);
         }
+      }
+
+      const uiDetailIndexPath = path.join(
+        root,
+        "04_UI",
+        "Details",
+        "01_UI_Detail.md",
+      );
+      if (!lstatIfPresent(uiDetailIndexPath)?.isFile()) {
+        add(
+          "error",
+          "ui-detail-current-artifact-missing",
+          relative(uiDetailIndexPath),
+          "The official repository must keep the current UI Detail migration projection.",
+        );
+      } else {
+        const detailSource = visibleMarkdownStructure(read(uiDetailIndexPath));
+        const detailRows = detailSource
+          .split(/\r?\n/u)
+          .map((line) => markdownTableCells(line))
+          .filter((cells): cells is string[] =>
+            Boolean(cells?.[0]?.match(/^UI-[0-9]{6}$/u)),
+          );
+        const detailIds = detailRows.map((cells) => cells[0]);
+        if (
+          detailRows.some(
+            (cells) =>
+              cells.length !== 6 ||
+              cells[2] !== "OPEN" ||
+              cells[3] !== "未決定" ||
+              cells[4] !== "未発行" ||
+              cells[5].trim().length === 0,
+          ) ||
+          detailIds.length !== new Set(detailIds).size ||
+          detailIds.length !== registryUiIds.size ||
+          detailIds.some((id) => !registryUiIds.has(id)) ||
+          [...registryUiIds].some((id) => !detailIds.includes(id)) ||
+          /\|\s*(?:Covered|N\/A)\s*\|/u.test(detailSource)
+        )
+          add(
+            "error",
+            "ui-detail-current-coverage-invalid",
+            relative(uiDetailIndexPath),
+            "Every current UI definition must appear exactly once as OPEN with unissued Detail identities; Definition completion must not substitute for Detail coverage.",
+          );
       }
 
       const analysisUxIds = new Set<string>();
@@ -3991,6 +4237,39 @@ export function runCurrentProfileChecker(
         ),
         path.join(root, "template", "05_SPEC", "06_UI_SPEC_Correspondence.md"),
       ];
+      const specDetailTemplates = [
+        [
+          path.join(
+            root,
+            "template",
+            "05_SPEC",
+            "Details",
+            "01_SPEC_Detail.md",
+          ),
+          specDetailIndexChecklistItemTexts,
+        ],
+        [
+          path.join(
+            root,
+            "template",
+            "05_SPEC",
+            "Details",
+            "BHV-XXXXXX",
+            "behavior.md",
+          ),
+          specBehaviorChecklistItemTexts,
+        ],
+        [
+          path.join(
+            root,
+            "template",
+            "05_SPEC",
+            "Details",
+            "02_UI_SPEC_Detail_Correspondence.md",
+          ),
+          uiSpecDetailCorrespondenceChecklistItemTexts,
+        ],
+      ] as const;
       for (const templatePath of specProjectionTemplates)
         if (!lstatIfPresent(templatePath)?.isFile())
           add(
@@ -4007,6 +4286,28 @@ export function runCurrentProfileChecker(
             relative(templatePath),
             "The official SPEC profile must include separate UX-view and IA-view analyses plus the integrated SPEC definition template.",
           );
+      for (const [templatePath, checklistItems] of specDetailTemplates) {
+        if (!lstatIfPresent(templatePath)?.isFile()) {
+          add(
+            "error",
+            "spec-detail-template-missing",
+            relative(templatePath),
+            "The official SPEC profile must include the complete SPEC Detail template set.",
+          );
+          continue;
+        }
+        const error = templateVisibleChecklistError(
+          read(templatePath),
+          checklistItems,
+        );
+        if (error)
+          add(
+            "error",
+            "spec-detail-template-checklist-invalid",
+            relative(templatePath),
+            `Every SPEC Detail template must expose one exact unevaluated checklist (${error}).`,
+          );
+      }
       for (const [templatePath, checklistItems] of [
         [requiredTemplates[0], specAnalysisUxChecklistItemTexts],
         [requiredTemplates[1], specAnalysisIaChecklistItemTexts],
@@ -4394,6 +4695,87 @@ export function runCurrentProfileChecker(
               `Each canonical SPEC definition must expose one completed checklist (${checklistError}).`,
             );
         }
+
+      const specDetailIndexPath = path.join(
+        root,
+        "05_SPEC",
+        "Details",
+        "01_SPEC_Detail.md",
+      );
+      if (!lstatIfPresent(specDetailIndexPath)?.isFile()) {
+        add(
+          "error",
+          "spec-detail-current-artifact-missing",
+          relative(specDetailIndexPath),
+          "The official repository must keep the current SPEC Detail migration projection.",
+        );
+      } else {
+        const detailSource = visibleMarkdownStructure(
+          read(specDetailIndexPath),
+        );
+        const detailRows = detailSource
+          .split(/\r?\n/u)
+          .map((line) => markdownTableCells(line))
+          .filter((cells): cells is string[] =>
+            Boolean(cells?.[0]?.match(/^SPEC-[0-9]{6}$/u)),
+          );
+        const detailIds = detailRows.map((cells) => cells[0]);
+        if (
+          detailRows.some(
+            (cells) =>
+              cells.length !== 5 ||
+              cells[2] !== "OPEN" ||
+              cells[3] !== "未発行" ||
+              cells[4].trim().length === 0,
+          ) ||
+          detailIds.length !== new Set(detailIds).size ||
+          detailIds.length !== actualIds.size ||
+          detailIds.some((id) => !actualIds.has(id)) ||
+          [...actualIds].some((id) => !detailIds.includes(id)) ||
+          /\|\s*(?:Covered|N\/A)\s*\|/u.test(detailSource)
+        )
+          add(
+            "error",
+            "spec-detail-current-coverage-invalid",
+            relative(specDetailIndexPath),
+            "Every current SPEC definition must appear exactly once as OPEN with unissued BHV identities; Definition completion must not substitute for Detail coverage.",
+          );
+      }
+
+      const specDetailCorrespondencePath = path.join(
+        root,
+        "05_SPEC",
+        "Details",
+        "02_UI_SPEC_Detail_Correspondence.md",
+      );
+      if (!lstatIfPresent(specDetailCorrespondencePath)?.isFile()) {
+        add(
+          "error",
+          "ui-spec-detail-correspondence-missing",
+          relative(specDetailCorrespondencePath),
+          "The official repository must keep UI/SPEC Detail correspondence separate from Definition correspondence.",
+        );
+      } else {
+        const detailCorrespondence = visibleMarkdownStructure(
+          read(specDetailCorrespondencePath),
+        );
+        if (
+          !detailCorrespondence.includes("状態: OPEN") ||
+          !detailCorrespondence.includes(
+            "Definition対応とDetail対応を分けた",
+          ) ||
+          !detailCorrespondence.includes(
+            "Detail未発行をCoverage済みへ畳んでいない",
+          ) ||
+          /状態:\s*(?:Reviewed|Canonical)/u.test(detailCorrespondence)
+        )
+          add(
+            "error",
+            "ui-spec-detail-correspondence-state-invalid",
+            relative(specDetailCorrespondencePath),
+            "Unissued UI/SPEC Detail identities must remain explicitly OPEN and separate from completed Definition correspondence.",
+          );
+      }
 
       if (
         hasDuplicate(definitionRelationOccurrences) ||
@@ -4833,7 +5215,7 @@ export function runCurrentProfileChecker(
             "ARCH-XXXXXX",
             "architecture_definition.md",
           ),
-          architectureDefinitionChecklistItemTexts,
+          architectureDefinitionTemplateChecklistItemTexts,
         ],
         [
           path.join(
@@ -4844,7 +5226,7 @@ export function runCurrentProfileChecker(
             "area",
             "01_Architecture.md",
           ),
-          architectureDetailChecklistItemTexts,
+          architectureDetailTemplateChecklistItemTexts,
         ],
       ] as const) {
         if (!lstatIfPresent(templatePath)?.isFile()) continue;
@@ -4858,6 +5240,57 @@ export function runCurrentProfileChecker(
             "architecture-template-checklist-contract-invalid",
             relative(templatePath),
             `Each Architecture template must expose one visible artifact-specific Checklist with unevaluated items and result guidance (${checklistError}).`,
+          );
+      }
+
+      const architectureDefinitionTemplatePath = path.join(
+        root,
+        "template",
+        "06_Architecture",
+        "Definitions",
+        "ARCH-XXXXXX",
+        "architecture_definition.md",
+      );
+      const architectureDetailTemplatePath = path.join(
+        root,
+        "template",
+        "06_Architecture",
+        "Details",
+        "area",
+        "01_Architecture.md",
+      );
+      if (lstatIfPresent(architectureDefinitionTemplatePath)?.isFile()) {
+        const source = visibleMarkdownStructure(
+          read(architectureDefinitionTemplatePath),
+        );
+        if (
+          !source.includes("### 4.1 UI／SPEC Detailの配置制約") ||
+          !source.includes(
+            "| Detail Source | Source Definition | SCR／PRT／Interaction／BHV | Relation／N:N | Coverage | 未解決Gap／戻し先 |",
+          )
+        )
+          add(
+            "error",
+            "architecture-detail-relation-contract-missing",
+            relative(architectureDefinitionTemplatePath),
+            "Architecture definitions must distinguish Definition meaning from UI/SPEC Detail placement constraints and preserve the N:N relation, coverage, and gap.",
+          );
+      }
+      if (lstatIfPresent(architectureDetailTemplatePath)?.isFile()) {
+        const source = visibleMarkdownStructure(
+          read(architectureDetailTemplatePath),
+        );
+        if (
+          !source.includes("## 上流UI／SPEC Detailとの関係") ||
+          !source.includes(
+            "| Detail Source | UI／SPEC Definition | この領域が担当するSCR／PRT／Interaction／BHV | Relation状態 | 未解決Gap／戻し先 |",
+          )
+        )
+          add(
+            "error",
+            "architecture-detail-owner-mapping-missing",
+            relative(architectureDetailTemplatePath),
+            "Architecture Details must map applicable UI/SPEC Detail identities to the structure owned by each detail area.",
           );
       }
 
@@ -6059,7 +6492,7 @@ export function runCurrentProfileChecker(
       );
       const qualityAnalysisTemplateError = templateVisibleChecklistError(
         read(qualityAnalysisTemplatePath),
-        qualityAnalysisTemplateChecklistItemTexts,
+        qualityAnalysisDetailTemplateChecklistItemTexts,
       );
       if (qualityAnalysisTemplateError)
         add(
@@ -6068,6 +6501,42 @@ export function runCurrentProfileChecker(
           relative(qualityAnalysisTemplatePath),
           `The Quality Analysis template must keep one unevaluated visible Checklist with result guidance and the canonical item set (${qualityAnalysisTemplateError}).`,
         );
+      if (lstatIfPresent(qualityAnalysisTemplatePath)?.isFile()) {
+        const source = visibleMarkdownStructure(
+          read(qualityAnalysisTemplatePath),
+        );
+        if (
+          !source.includes("Source Layer") ||
+          !source.includes("Definition／Detail") ||
+          !source.includes("導出元／Relation")
+        )
+          add(
+            "error",
+            "quality-source-layer-contract-missing",
+            relative(qualityAnalysisTemplatePath),
+            "Quality Analysis must distinguish Definition-derived success conditions from Detail-derived observation conditions and preserve their relation.",
+          );
+      }
+      const qualityIntegrationTemplatePath = path.join(
+        templateQualityRoot,
+        "04_Quality_Integration.md",
+      );
+      if (lstatIfPresent(qualityIntegrationTemplatePath)?.isFile()) {
+        const source = visibleMarkdownStructure(
+          read(qualityIntegrationTemplatePath),
+        );
+        if (
+          !source.includes("## 3. Definition／Detail入力の統合") ||
+          !source.includes("Source Layer") ||
+          !source.includes("Same／New／Merge")
+        )
+          add(
+            "error",
+            "quality-detail-integration-contract-missing",
+            relative(qualityIntegrationTemplatePath),
+            "Quality Integration must preserve the source layer and the Same/New/Merge rationale for Definition and Detail obligations.",
+          );
+      }
       for (const phaseAnalysisPath of phaseAnalysisPaths) {
         const checklistError = completedVisibleChecklistError(
           read(phaseAnalysisPath),

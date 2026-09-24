@@ -29,6 +29,7 @@
 | 対象改訂版 | |
 | 情報源となるUX、IA | |
 | 対象となる`UI-*`／成果物参照 | |
+| UI Detail／対象SCR・PRT・CMP | |
 | 網羅状態 | |
 | 未解決事項 | |
 
@@ -73,6 +74,14 @@
 | 対応する振る舞い仕様 | |
 | 共同レビュー、工程移行レビュー結果、専門観点、確認者、能力根拠、指摘事項の処置 | |
 
+## UI Detailへの接続
+
+| UI Definition | Detail適用 | UI Area | SCR／PRT／CMP | 状態／理由 |
+|---|---|---|---|---|
+| | `Applicable／N/A／OPEN` | | | |
+
+詳細は[`Details/01_UI_Detail.md`](Details/01_UI_Detail.md)を正本とする。本節へScreenやVisual Baselineの内容を複製しない。
+
 ## 補足分析
 
 [なし／必要な補足]
@@ -90,4 +99,6 @@
 - [ ] 基本図を全件処置した
 - [ ] Human Input、Open・Gapおよび戻り条件を明示した
 - [ ] UI契約Ready、UI／SPEC対応レビュー入力Ready、UI工程Exitを区別した
+- [ ] 全UI DefinitionをUI DetailでApplicable／N/A／OPENへ処置した
+- [ ] UI Contract Ready、UI Detail Ready、UI Phase Exit Pending、UI Readyを区別した
 - [ ] ArchitectureまたはSourceから意味を逆輸入していない

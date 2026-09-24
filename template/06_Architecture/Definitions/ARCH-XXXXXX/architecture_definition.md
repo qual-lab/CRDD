@@ -37,6 +37,14 @@ UI上の約束とSPEC上の振る舞いを、どの責務、状態所有、Port�
 | UI-XXXXXX | UI | | | | | |
 | SPEC-XXXXXX | SPEC | | | | | |
 
+### 4.1 UI／SPEC Detailの配置制約
+
+UI／SPEC Definitionが定める意味と、適用対象として評価済みのDetailが定める配置・操作・状態・観測の制約を分けて示す。Detailは要求源またはDefinition不足の補完に使わない。
+
+| Detail Source | Source Definition | SCR／PRT／Interaction／BHV | Relation／N:N | Coverage | 未解決Gap／戻し先 |
+|---|---|---|---|---|---|
+| `<UI Detail／SPEC DetailへのLink>` | `UI-XXXXXX／SPEC-XXXXXX` | | | `Covered／Partial／OPEN／N/A: 理由` | |
+
 ## 5. 構造と依存方向
 
 入力ごとのSibling blockと、対象に必要な全体／内部ブロック図を示す。前のblockのAuthority、Effectまたはlifecycleを次のblockへ暗黙に継承しない。
@@ -101,8 +109,9 @@ Architecture固有の追加判断とGapを、入力から継承した事項と�
 
 結果は`[x]`、未評価は`[ ]`、未完了は`OPEN: 理由`、不適合は`FAIL: 理由`、非該当は`N/A: 理由`で記録する。
 
-- [ ] UI分析とSPEC分析だけを正式入力として統合した
+- [ ] UI／SPEC Definitionの意味統合と、適用するUI／SPEC Detailの配置制約を区別した
 - [ ] UI ContractとSPEC Contractを入力別に保持した
+- [ ] SCR／PRT／Interaction／BHVのN:N Relation、CoverageおよびGapを保持した
 - [ ] 独立したArchitecture Responsibilityを説明できる
 - [ ] 所有する責務、所有しない責務およびBoundaryを明示した
 - [ ] Major Component、Interfaceおよび依存方向を明示した

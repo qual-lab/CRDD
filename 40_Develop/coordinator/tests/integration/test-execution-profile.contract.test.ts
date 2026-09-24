@@ -13,7 +13,7 @@ import fs from "node:fs";
 import test from "node:test";
 
 const HOST_WINDOWS_PREFIX = "Host Windows:";
-const PORTABLE_TEST_DIRECTORIES = ["unit", "integration", "system"] as const;
+const portableTestDirectories = ["unit", "integration", "system"] as const;
 const gateFiles = [
   {
     file: "integration/coordinator-task-process.integration.test.ts",
@@ -112,7 +112,7 @@ test("Portable試験とHost Windows試験は同じ10件の閉集合を重複な�
 
   let gateCount = 0;
   const testsRoot = new URL("../", import.meta.url);
-  const allTestFiles = PORTABLE_TEST_DIRECTORIES.flatMap((directory) =>
+  const allTestFiles = portableTestDirectories.flatMap((directory) =>
     fs
       .readdirSync(new URL(`${directory}/`, testsRoot))
       .filter((file) => file.endsWith(".test.ts"))

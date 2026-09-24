@@ -24,19 +24,27 @@ Source固有条件をLocal Itemへ接続
 
 同じQuality Contractへ統合しても、Source IDごとの成功の意味、失敗、制約、必要な試験段階および対応Local Itemを消さない。
 
-## 3. Architecture横断モデルの処置
+## 3. Definition／Detail入力の統合
+
+| Source ID | Source Layer | 導出する意味 | Relation | 統合判断 | QA-ID／Local Item | Gap／戻し先 |
+|---|---|---|---|---|---|---|
+| `<Canonical IDまたはDetail IDへのLink>` | `Definition／Detail` | `<成立条件／具体的観測条件>` | `<DefinitionとDetailの対応>` | `Same／New／Merge` | | |
+
+Definition由来の成立条件とDetail由来の具体的観測条件を同じものとして重複登録せず、Relationと統合理由を保持する。DetailがDefinitionにない意味を要求している場合は、Qualityで補完せずOwner工程へ戻す。
+
+## 4. Architecture横断モデルの処置
 
 | QA-ID | Component／責務 | 境界／Interface | Runtime／Data Flow | 故障／回復 | 配置／実行 |
 |---|---|---|---|---|---|
 | `<QA-IDへのLink>` | `<Required／理由付きN/A>` | `<Required／理由付きN/A>` | `<Required／理由付きN/A>` | `<Required／理由付きN/A>` | `<Required／理由付きN/A>` |
 
-## 4. Architecture詳細設計領域の処置
+## 5. Architecture詳細設計領域の処置
 
 | 詳細設計領域 | 接続するQA-ID | Qualityで受け取る成立条件 |
 |---|---|---|
 | `<Architecture DetailへのLink>` | `<QA-IDへのLink>` | `<境界、状態、故障、観測、終了後条件>` |
 
-## 5. 検証項目の閉包
+## 6. 検証項目の閉包
 
 | QA-ID | Local Item集合 | 入力Coverage | Architecture入力 |
 |---|---|---|---|
@@ -48,6 +56,7 @@ Source固有条件をLocal Itemへ接続
 
 - [ ] 全Canonical IDを一件以上のQuality Analysis行で処置した
 - [ ] Source固有の成功、失敗、Riskおよび未確認事項を保持した
+- [ ] UI／SPEC Definition由来とDetail由来の検証義務を区別して統合した
 - [ ] Source ID、検証目標、試験段階およびLocal Itemを一意に接続した
 - [ ] 5横断モデルと全Architecture詳細設計領域を処置した
 - [ ] Quality Integrationだけで第三の要求・設計・検証契約を作っていない

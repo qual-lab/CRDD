@@ -36,7 +36,7 @@ Related:
 
 # 1. 目的と適用範囲（Purpose and Boundary）
 
-振る舞い仕様は、要求、UX / IAの意図、機能、ユースケース、利用者操作、業務規則を、検証可能な条件、システム状態、システムの振る舞い、結果、例外、受入条件へ変換する工程である。
+振る舞い仕様は、要求、UX / IAの意図、機能、ユースケース、利用者操作、業務規則を、検証可能な条件、システム状態、システムの振る舞い、結果、例外、受入条件へ変換する工程である。SPEC工程は`Analysis → Definition → Detail`の三層で意味を具体化し、SPEC DefinitionをFunction、Endpoint、Classまたは画面操作へ読み替えない。
 
 ```text
 どの条件で
@@ -105,6 +105,20 @@ UX DefinitionとIA Definitionが持つ振る舞い上の義務、検証上の義
 
 SPECは利用側または利用者から観測可能な契約を定義し、実行時部品構成、サーバー台数、キュー規模、自動スケーリング、DB接続、キャッシュ、提供側選択等の成立方式を決めない。
 
+```text
+UX Definition ─┐
+               ├─→ SPEC Analysis → SPEC Definition → SPEC Detail（BHV-*）
+IA Definition ─┘                            │                 │
+                                           │                 ├ Trigger／Precondition
+                                           │                 ├ Authority／Input／Validation
+                                           │                 ├ State／Transition／Sequence
+                                           │                 └ Effect／Output／Failure／Recovery
+                                           │
+                                           └ 何をSystem Behaviorとして成立させるか
+```
+
+SPEC Detailは、SPEC Definitionを実装可能な詳細挙動へ落とす。Detailで新しい利用者成果、情報責務、業務規則またはAuthorityが必要と判明した場合は、Definitionまたは上流工程を再開し、Detail内で暗黙に追加しない。
+
 状態遷移、権限、例外、回復、副作用、受入条件を観測可能な検証義務へ具体化し、期待する結果と失敗条件を[品質保証](16_Quality_Assurance.md)の検証設計へ渡す。個別のテスト実装または独立検証の手順は本工程で先取りしない。
 
 ### UX観点・IA観点の分離と統合
@@ -127,9 +141,9 @@ IA定義 ── 対象・状態・関係 ───→ IA観点のSPEC分析 ─�
 
 ### 成果物上の自己確認
 
-SPECの各Analysis、Definitionおよび横断成果物は、末尾に可視の`## Checklist`を持ち、その成果物の責務に応じた確認結果を記録する。`[x]`は処置済み、`N/A`は理由付き非該当、`OPEN`は未完了、`FAIL`は不適合を表す。Checklistは工程移行レビューの代替ではなく、`Authoring Checklist → Checker → Independent Phase Audit`の第一層である。
+SPECの各Analysis、Definition、Detailおよび横断成果物は、末尾に可視の`## Checklist`を持ち、その成果物の責務に応じた確認結果を記録する。`[x]`は処置済み、`N/A`は理由付き非該当、`OPEN`は未完了、`FAIL`は不適合を表す。Checklistは工程移行レビューの代替ではなく、`Authoring Checklist → Checker → Independent Phase Audit`の第一層である。
 
-SPECはUIと独立して`SPEC Ready`へ到達できる。UI／SPEC対応レビューは両工程がReadyになった後に行い、片側をもう片側の正式入力へ変更しない。
+SPECはUIと独立して`SPEC Contract Ready`および`SPEC Detail Ready`へ到達できる。UI／SPEC対応レビューは両側のDefinitionまたはDetailが対応レビュー可能になった後に行い、片側をもう片側の正式入力へ変更しない。直接UIを持つ対象では、対応レビューと人間の工程移行判断が完了するまで`SPEC Ready`へ進めない。
 
 <a id="required-responsibility-coverage"></a>
 
@@ -151,6 +165,7 @@ SPECはUIと独立して`SPEC Ready`へ到達できる。UI／SPEC対応レビ�
 | 構成と方針 | 許可された選択肢 / 範囲、既定値の情報源、実効値、対象範囲、継承 / 上書き、権限、妥当性確認、適用時点、副作用、リセット / ロールバック、失敗 / 回復、監査。UIテーマを選択・自動適用する場合は優先順位、永続化、未対応の組み合わせ、代替動作とUIテーマとの対 |
 | 投影（Projection）同期・作業モード・可視性・一時的 / 永続的な意味 | IAが所有する共有すべき選択コンテキストの同期発火条件 / 同期対象 / 失敗時の振る舞い、作業モードの切替条件 / 保存 / 未保存変更 / 権限、情報の一時的 / 永続的な意味に対応する保存義務、可視性の義務に対応する表示 / 非表示条件と権限による表示差と、それぞれのUIとの対 |
 | 受入条件とトレース | 受入基準、検証義務、検証意図、期待結果、失敗条件、環境差分、検証観点、UI／利用側対、網羅範囲／未解決事項 |
+| SPEC Detail | SPEC DefinitionとのRelation、BHVのTrigger、Precondition、Authority、Input、Validation、State／Transition、Sequence、Effect、Output、Failure、RecoveryおよびUI Detailとの対応 |
 
 すべての責務を全振る舞いへ機械的に記載する必要はない。適用しない責務は`Not Applicable`として理由と人間確認を残す。
 
@@ -414,6 +429,67 @@ EARSは振る舞い、例外、受入基準を曖昧なく表すための任意�
 全段落、全受入条件、根拠、判断、テスト、アーキテクチャ節、実装処理へ機械的にSPEC IDを発行しない。SPECは情報源となる`REQ-*` / `UX-*` / `IA-*`、`pairs_with UI-*`、アーキテクチャ、検証と関係で接続する。
 
 SPEC固有の根拠を別ファイルにする場合は、所有する`SPEC-*`フォルダ内へ置く。複数SPECまたは実行改訂版を横断する検証結果は、変更またはReleaseのEvidenceとして所有させる。工程直下へ所有者不明の共通`Evidence/`を作らない。業務規則、決定権限、操作権限、不可逆処理、代替動作、互換性破壊、リスク受容の決定は、結果となるSPECの正本成果物の`Decision / Rationale`へ理由、根拠、代替、影響を残す。
+
+## 2.9. SPEC Detailの責務とRepository Pattern
+
+SPEC Detailは、SPEC DefinitionをDetailed Behaviorへ具体化する。
+
+```text
+SPEC Definition群
+       ↓
+Detailed Behavior（BHV-*）
+       ├ Trigger
+       ├ Precondition
+       ├ Authority
+       ├ Input／Validation
+       ├ State／Transition／Sequence
+       ├ Effect／Output
+       └ Failure／Recovery
+```
+
+推奨する最小構造は次である。
+
+```text
+05_SPEC/Details/
+├ 01_SPEC_Detail.md
+├ 02_UI_SPEC_Detail_Correspondence.md
+└ BHV-XXXXXX/
+   └ behavior.md
+```
+
+`BHV-*`は次をすべて満たすDetailed Behavior候補へ発行する。
+
+- 独立したTriggerまたは観測可能な結果を持つ。
+- State Transition、Effect、FailureまたはRecoveryを他のDetailと分けて変更できる。
+- 独立した検証義務へ接続できる。
+- 複数UIから利用されても同じBehavior Meaningを保てる。
+
+表示文言、CSS状態、単一の入力Event、実装Function、EndpointまたはClassだけには発行しない。一つのSPEC Definitionは複数BHVへ具体化でき、一つのBHVは複数SPEC Definitionを実現できる。Relationと多重度を明示し、番号一致を要求しない。
+
+## 2.10. SPEC Detailの必須評価と完了条件
+
+各BHVではTrigger、Precondition、Authority、Input、Validation、State／Transition、Sequence、Effect、Output、FailureおよびRecoveryを必ず評価する。非該当は理由付き`N/A`、未確定はOwner・影響・戻り条件付き`OPEN`とし、未記載を非該当と解釈しない。
+
+SPEC Detailは次をすべて満たした場合だけ対象範囲で完了する。
+
+- 対象SPEC Definitionを全件処置し、各BHVからDefinitionへ逆引きできる。
+- Normal、Boundary、Failure、UnknownおよびRecoveryの適用を評価した。
+- Authority、Effect、State OwnershipおよびExternal BoundaryをArchitecture方式へ先走らず観測可能な契約として定義した。
+- UIから発火するBHVは、対応するSCR／PRT／Interactionへ接続した。
+- 利用者認識が必要なResult、Failure、Pending、RejectおよびRecoveryにUI表現がある。
+- SPEC Detailだけで新しいUX Outcome、IA ObjectまたはUI Presentationを創作していない。
+- 可視Checklistに未処置の`OPEN`／`FAIL`が残る場合、工程完了へ畳んでいない。
+
+## 2.11. DefinitionとDetailの状態
+
+| 状態 | 意味 | 許可する接続 |
+|---|---|---|
+| `SPEC Contract Ready` | UX・IAから導いたSPEC Definitionが全数処置された | SPEC Detail、Definition対応レビュー、Quality Analysis / SPEC |
+| `SPEC Detail Ready` | 対象Definitionを具体化するBHVと適用観点が全数処置された | Detail対応レビュー、Quality Analysis / SPEC Detail |
+| `SPEC Phase Exit Pending` | DefinitionとDetailは成立したが、UI／SPEC対応レビューまたは人間の工程移行判断が未完了 | 通常のArchitecture Handoffは不可 |
+| `SPEC Ready` | 適用する対応レビュー、専門確認、人間の工程移行判断を含む工程Exitが完了した | Architectureへの通常Handoff |
+
+`SPEC Contract Ready`または`SPEC Detail Ready`を`SPEC Ready`や工程完了と表示しない。直接UIを持たない対象でも、UI Detail対応を理由付き`N/A`へ処置し、利用側契約または運用Feedbackを確認する。
 
 ---
 

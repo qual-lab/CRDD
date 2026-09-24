@@ -13,6 +13,14 @@
 
 Relation状態はこの領域が担当する責務断面に対する状態である。複数領域で同じARCH-IDを実現する場合は、各断面を合成して基本設計全体を閉じる。
 
+## 上流UI／SPEC Detailとの関係
+
+| Detail Source | UI／SPEC Definition | この領域が担当するSCR／PRT／Interaction／BHV | Relation状態 | 未解決Gap／戻し先 |
+|---|---|---|---|---|
+| `<UI Detail／SPEC DetailへのLink>` | `UI-XXXXXX／SPEC-XXXXXX` | | `Covered／Partial／OPEN／N/A: 理由` | |
+
+上流Detailは配置・操作・状態・観測の制約として扱う。Definitionの意味を変更する必要がある場合はArchitecture内で補完せず、UI／SPEC工程へ戻す。
+
 ## 詳細成果物の適用判断
 
 | 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
@@ -119,6 +127,7 @@ Trust、Authority、秘密、情報開示、許可されたEffectと拒否時Eff
 結果は`[x]`、未評価は`[ ]`、未完了は`OPEN: 理由`、不適合は`FAIL: 理由`、非該当は`N/A: 理由`で記録する。
 
 - [ ] 関連するARCH-IDと担当する責務断面を明示した
+- [ ] 適用するUI／SPEC Detailと担当構造の逆引きを保持した
 - [ ] 10種類の詳細成果物を全数Applicability判定した
 - [ ] Requiredを実在する節または成果物へ接続した
 - [ ] N/AにArchitecture上の理由を記録した

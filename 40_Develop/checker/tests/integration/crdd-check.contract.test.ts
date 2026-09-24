@@ -4210,6 +4210,70 @@ test("UI分析・定義とひな型は成果物別の可視Checklistを必要と
 });
 
 /**
+ * UI Detailのひな型と現在成果物は欠落できないことを検証する。
+ *
+ * @responsibility UI Detailの必須成果物集合をCheckerが拒否できることを確認する。
+ * @trace AUH-IT-003
+ * @precondition UI再構築fixtureがUI Detailのひな型と現在成果物を含む。
+ * @stimulus ひな型または現在成果物を削除してCheckerを実行する。
+ * @observation UI Detail固有の欠落Findingを観測する。
+ * @oracle 各欠落に対応するFinding codeが返る。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
+ */
+test("UI Detailのひな型と現在成果物は欠落できない", () => {
+  const templateRoot = uiReconstructionFixtureRoot();
+  fs.rmSync(
+    path.join(templateRoot, "template/04_UI/Details/Areas/AREA-NAME/area.md"),
+  );
+  let result = runChecker(templateRoot);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ui-detail-template-missing",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+
+  const artifactRoot = uiReconstructionFixtureRoot();
+  fs.rmSync(path.join(artifactRoot, "04_UI/Details/01_UI_Detail.md"));
+  result = runChecker(artifactRoot);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ui-detail-current-artifact-missing",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Definition完了は未発行UI DetailのCoverageを代替できないことを検証する。
+ *
+ * @responsibility UI Detail移行台帳のOPEN境界をCheckerが強制することを確認する。
+ * @trace AUH-IT-003
+ * @precondition UI再構築fixtureが未発行DetailをOPENで保持する。
+ * @stimulus OPENをCoveredへ変更してCheckerを実行する。
+ * @observation UI Detail Coverageの不正Findingを観測する。
+ * @oracle ui-detail-current-coverage-invalidが返る。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
+ */
+test("Definition完了は未発行UI DetailのCoverageを代替できない", () => {
+  const root = uiReconstructionFixtureRoot();
+  const detailPath = path.join(root, "04_UI/Details/01_UI_Detail.md");
+  write(
+    detailPath,
+    fs.readFileSync(detailPath, "utf8").replace("| OPEN |", "| Covered |"),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ui-detail-current-coverage-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
  * UIからSPECへの引き渡しは可視Checklistを必要とするを検証する。
  *
  * @responsibility UIからSPECへの引き渡しは可視Checklistを必要とするの合否判定を所有する。
@@ -4482,6 +4546,38 @@ test("SPEC分析・定義とひな型は成果物別の可視Checklistを必要�
       result.report.findings.some(
         (finding) =>
           finding.code === expectedCode && finding.path === relativePath,
+      ),
+      `${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * 未発行SPEC DetailをCoveredまたは理由なしN/Aへ畳めないことを検証する。
+ *
+ * @responsibility SPEC Detail移行台帳のOPEN境界と理由付き評価をCheckerが強制することを確認する。
+ * @trace AUH-IT-003
+ * @precondition SPEC再構築fixtureが未発行BHVをOPENで保持する。
+ * @stimulus OPENをCoveredまたは理由なしN/Aへ変更してCheckerを実行する。
+ * @observation SPEC Detail Coverageの不正Findingを観測する。
+ * @oracle spec-detail-current-coverage-invalidが各変形で返る。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
+ */
+test("未発行SPEC DetailをCoveredまたは理由なしN/Aへ畳めない", () => {
+  for (const replacement of ["Covered", "N/A"]) {
+    const root = specReconstructionFixtureRoot();
+    const detailPath = path.join(root, "05_SPEC/Details/01_SPEC_Detail.md");
+    write(
+      detailPath,
+      fs
+        .readFileSync(detailPath, "utf8")
+        .replace("| OPEN |", `| ${replacement} |`),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some(
+        (finding) => finding.code === "spec-detail-current-coverage-invalid",
       ),
       `${result.stdout}\n${result.stderr}`,
     );
@@ -5350,6 +5446,76 @@ test("Architecture成果物は責務別の可視Checklistを必要とする", ()
       result.report.findings.some((finding) =>
         finding.code.startsWith("architecture-"),
       ),
+      `${relativePath}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * ArchitectureとQualityのひな型はUI／SPEC Detail Relationを保持することを検証する。
+ *
+ * @responsibility DefinitionとDetailを分けた工程間Relationの必須構造をCheckerが強制することを確認する。
+ * @trace AUH-IT-003
+ * @precondition Architecture再構築fixtureと現行Quality成果物が有効なDetail Relation構造を含む。
+ * @stimulus ArchitectureまたはQualityひな型からDetail Relation構造を削除してCheckerを実行する。
+ * @observation 工程別のRelation欠落Findingを観測する。
+ * @oracle Architecture定義、Architecture詳細、Quality分析、Quality統合の各欠落が拒否される。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
+ */
+test("ArchitectureとQualityのひな型はUI／SPEC Detail Relationを保持する", () => {
+  for (const [relativePath, removedText, expectedCode] of [
+    [
+      "template/06_Architecture/Definitions/ARCH-XXXXXX/architecture_definition.md",
+      "### 4.1 UI／SPEC Detailの配置制約",
+      "architecture-detail-relation-contract-missing",
+    ],
+    [
+      "template/06_Architecture/Details/area/01_Architecture.md",
+      "## 上流UI／SPEC Detailとの関係",
+      "architecture-detail-owner-mapping-missing",
+    ],
+  ] as const) {
+    const root = architectureReconstructionFixtureRoot();
+    const target = path.join(root, relativePath);
+    write(target, fs.readFileSync(target, "utf8").replaceAll(removedText, ""));
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some((finding) => finding.code === expectedCode),
+      `${relativePath}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+
+  for (const [relativePath, removedText, expectedCode] of [
+    [
+      "template/07_Quality/Analysis/PHASE/quality_analysis.md",
+      "Source Layer",
+      "quality-source-layer-contract-missing",
+    ],
+    [
+      "template/07_Quality/04_Quality_Integration.md",
+      "## 3. Definition／Detail入力の統合",
+      "quality-detail-integration-contract-missing",
+    ],
+  ] as const) {
+    const root = architectureReconstructionFixtureRoot();
+    fs.cpSync(
+      path.join(repositoryRoot, "07_Quality"),
+      path.join(root, "07_Quality"),
+      {
+        recursive: true,
+      },
+    );
+    fs.cpSync(
+      path.join(repositoryRoot, "template/07_Quality"),
+      path.join(root, "template/07_Quality"),
+      { recursive: true },
+    );
+    const target = path.join(root, relativePath);
+    write(target, fs.readFileSync(target, "utf8").replaceAll(removedText, ""));
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some((finding) => finding.code === expectedCode),
       `${relativePath}\n${result.stdout}\n${result.stderr}`,
     );
   }
@@ -6467,6 +6633,28 @@ function checklistItemsFromTemplate(relativePath: string): string[] {
 }
 
 /**
+ * checklistItemsFromEvaluatedArtifactのTest準備責務を実行する。
+ *
+ * @responsibility 基準版で評価済みの成果物Checklistから、移行前契約を再現するFixture用の項目集合を取得する。
+ * @trace AUH-IT-002
+ * @precondition 指定PathがRepository内の評価済みCanonical Markdown成果物を指す。
+ * @stimulus checklistItemsFromEvaluatedArtifactを呼び出す。
+ * @observation 評価済みChecklistの項目本文だけを取得する。
+ * @oracle 新ひな型の項目集合を基準版成果物へ誤適用せず、両契約を別々に検証できる。
+ * @cleanup N/A: 読取りだけで資源を作成しないため。
+ * @boundary AUH-IT-002=N/A: Repository内の固定Fixture入力だけを読む。
+ */
+function checklistItemsFromEvaluatedArtifact(relativePath: string): string[] {
+  return fs
+    .readFileSync(path.join(repositoryRoot, relativePath), "utf8")
+    .split(/\r?\n/u)
+    .flatMap((line) => {
+      const item = /^- \[x\] (?<text>\S.*)$/u.exec(line)?.groups?.text;
+      return item ? [item] : [];
+    });
+}
+
+/**
  * discoveryDefinitionのTest準備責務を実行する。
  *
  * @responsibility discoveryDefinitionがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
@@ -6726,6 +6914,10 @@ function uiReconstructionFixtureRoot(): string {
     `# UIとSPECの引き渡し\n\nUI側の責任境界を示す。\n\n${completedChecklist("template/04_UI/05_UI_SPEC_Handoff.md")}`,
   );
   write(
+    path.join(root, "04_UI", "Details", "01_UI_Detail.md"),
+    "# UI Detail\n\n状態: OPEN\n\n| UI ID | UI Definition | Detail適用 | UI Area | SCR／PRT／CMP | 理由／戻り条件 |\n|---|---|---|---|---|---|\n| `UI-000001` | 試験用 | OPEN | 未決定 | 未発行 | Definition固定後に再評価する |\n",
+  );
+  write(
     path.join(
       root,
       "template",
@@ -6782,6 +6974,11 @@ function uiReconstructionFixtureRoot(): string {
     "template/04_UI/03_Interaction_and_State_Model.md",
     "template/04_UI/04_Visual_and_Accessibility_Direction.md",
     "template/04_UI/05_UI_SPEC_Handoff.md",
+    "template/04_UI/Details/01_UI_Detail.md",
+    "template/04_UI/Details/Areas/AREA-NAME/area.md",
+    "template/04_UI/Details/Areas/AREA-NAME/SCR-XXXXXX/screen.md",
+    "template/04_UI/Details/Components/CMP-XXXXXX/component.md",
+    "template/04_UI/Details/Visual/visual_baseline.md",
   ])
     write(
       path.join(root, relativePath),
@@ -6925,6 +7122,19 @@ function specReconstructionFixtureRoot(): string {
       .replace("__FINGERPRINT__", fixtureFingerprint),
   );
   write(
+    path.join(root, "05_SPEC", "Details", "01_SPEC_Detail.md"),
+    "# SPEC Detail\n\n状態: OPEN\n\n| SPEC ID | SPEC Definition | Detail適用 | BHV | 理由／戻り条件 |\n|---|---|---|---|---|\n| `SPEC-000001` | 試験用 | OPEN | 未発行 | Definition固定後に再評価する |\n",
+  );
+  write(
+    path.join(
+      root,
+      "05_SPEC",
+      "Details",
+      "02_UI_SPEC_Detail_Correspondence.md",
+    ),
+    "# UI／SPEC Detail対応\n\n状態: OPEN\n\n## Checklist\n\n- [x] Definition対応とDetail対応を分けた\n- [x] Detail未発行をCoverage済みへ畳んでいない\n",
+  );
+  write(
     path.join(
       root,
       "template",
@@ -6982,6 +7192,9 @@ function specReconstructionFixtureRoot(): string {
     "template/05_SPEC/04_Actor_System_Sequence.md",
     "template/05_SPEC/05_Error_Effect_and_Recovery.md",
     "template/05_SPEC/06_UI_SPEC_Correspondence.md",
+    "template/05_SPEC/Details/01_SPEC_Detail.md",
+    "template/05_SPEC/Details/BHV-XXXXXX/behavior.md",
+    "template/05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md",
   ])
     write(
       path.join(root, relativePath),
@@ -7071,7 +7284,7 @@ Architecture固有の追加人間判断はない。入力契約が変わる場�
   const uiAnalysis = `# UI-000001のArchitecture分析\n\n成果物種別: Architecture分析（UI観点）\n分析単位: \`UI-000001\`\n\n## 1. 正式入力\n\n- UI定義: [UI-000001](../../../04_UI/Definitions/UI-000001/ui_definition.md)\n\n## 2. Architectureへ引き継ぐUI契約\n\n利用者が結果と不完全性を区別し、安全な次の行動を選べること。\n\n## 3. Architecture観点の分析\n\n状態Owner、Authority、Effect、失敗境界を分ける。\n\n## 4. Architecture処置\n\n| 定義 | 処置 | 理由 |\n|---|---|---|\n| [試験責務](../../Definitions/ARCH-000001/architecture_definition.md) | New | 利用者向け状態を独立して成立させる責務 |\n\n## 5. SPEC観点との統合時に確認すること\n\n状態差と結果契約を照合する。\n\n${evaluatedChecklist(checklistItemsFromTemplate("template/06_Architecture/Analysis/UI-XXXXXX/architecture_analysis.md"))}\n`;
   const specAnalysis = `# SPEC-000001のArchitecture分析\n\n成果物種別: Architecture分析（SPEC観点）\n分析単位: \`SPEC-000001\`\n\n## 1. 正式入力\n\n- SPEC定義: [SPEC-000001](../../../05_SPEC/Definitions/SPEC-000001/spec_definition.md)\n\n## 2. Architectureへ引き継ぐSPEC契約\n\n契機、事前条件、Authority、結果、副作用、検証義務を保持する。\n\n## 3. Architecture観点の分析\n\n状態Owner、Authority、Effect、失敗境界を分ける。\n\n## 4. Architecture処置\n\n| 定義 | 処置 | 理由 |\n|---|---|---|\n| [試験責務](../../Definitions/ARCH-000001/architecture_definition.md) | New | 振る舞い契約を独立して成立させる責務 |\n\n## 5. UI観点との統合時に確認すること\n\n結果契約と利用者が認識する状態差を照合する。\n\n${evaluatedChecklist(checklistItemsFromTemplate("template/06_Architecture/Analysis/SPEC-XXXXXX/architecture_analysis.md"))}\n`;
   const definition = `# 試験責務のArchitecture定義\n\n成果物種別: Architecture定義\nArchitecture ID: \`ARCH-000001\`\n\n## 1. 責務と境界\n\n利用者へ根拠付き状態を返し、表示と状態更新を分離する。\n\n| 観点 | 契約 |\n|---|---|\n| 状態Owner | 試験Core |\n| 所有する責務 | 状態の読取りと根拠付き結果 |\n| 所有しない責務 | UI表示と外部Effect |\n| 主な外部境界 | 状態Sourceと利用側 |\n\n## 2. UI観点の入力\n\n[UI-000001](../../Analysis/UI-000001/architecture_analysis.md)\n\n## 3. SPEC観点の入力\n\n[SPEC-000001](../../Analysis/SPEC-000001/architecture_analysis.md)\n\n## 4. 両観点の統合判断\n\n| 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |\n|---|---|---|---|---|---|---|\n| UI-000001 | UI | 試験Core | Authorityを発行しない | 表示だけ | 不完全性を隠さない | 確認→判断 |\n| SPEC-000001 | SPEC | 試験Core | 閲覧Authority | 読取りだけ | 欠測を補完しない | 要求→読取り→結果 |\n\n## 5. 構造と依存方向\n\n\`\`\`text\n[利用側] -> [試験Core] -> [状態Source]\n\`\`\`\n\n## 6. データ・状態・Interface\n\n| 入力 | State Owner | Authority | Effect／非該当 |\n|---|---|---|---|\n| UI-000001 | 試験Core | なし | 表示だけ |\n| SPEC-000001 | 試験Core | 閲覧 | 読取りだけ |\n\n## 7. 失敗・回復・観測\n\n欠測と観測不能を分け、入力固有の失敗理由を返す。\n\n## 8. 品質・保護・運用\n\n| 入力 | 保護する失敗境界 | 検証可能性 |\n|---|---|---|\n| UI-000001 | 不完全性の隠蔽 | 状態差を確認 |\n| SPEC-000001 | 欠測の補完 | Effect 0を確認 |\n\n## 9. 互換性・移行・成立済み能力\n\n| 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |\n|---|---|---|---|---|---|\n| 基準版なし | なし | 試験Core | 新規 | 未作成 | 実装待ち |\n\n## 10. 実装と検証への引き渡し\n\n入力ごとのAuthority、Effect、失敗理由および終了状態を理由別に反証する。\n\n## 11. 情報源と現行照合\n\n正式入力は第2節と第3節の分析であり、現行実装は能力比較だけに使う。\n`;
-  const definitionWithChecklist = `${withArchitectureDefinitionContracts(definition)}\n${evaluatedChecklist(checklistItemsFromTemplate("template/06_Architecture/Definitions/ARCH-XXXXXX/architecture_definition.md"))}\n`;
+  const definitionWithChecklist = `${withArchitectureDefinitionContracts(definition)}\n${evaluatedChecklist(checklistItemsFromEvaluatedArtifact("06_Architecture/Definitions/ARCH-000001/architecture_definition.md"))}\n`;
   write(
     path.join(root, "06_Architecture", "01_Architecture.md"),
     "# Architecture\n\nStatus: Candidate\n\n## Architecture定義台帳\n\n| Architecture定義 | 責務 | UI入力 | SPEC入力 |\n|---|---|---|---|\n| [試験責務](Definitions/ARCH-000001/architecture_definition.md) | 試験 | UI-000001 | SPEC-000001 |\n\n## Architecture横断モデル\n\n| 成果物 |\n|---|\n| [Component](02_Component_and_Responsibility_Model.md) |\n| [Boundary](03_Boundary_and_Interface_Model.md) |\n| [Flow](04_Runtime_and_Data_Flow_Model.md) |\n| [Failure](05_Failure_Recovery_and_Resilience_Model.md) |\n| [Deployment](06_Deployment_and_Execution_Model.md) |\n",
@@ -7138,7 +7351,7 @@ Architecture固有の追加人間判断はない。入力契約が変わる場�
       .replace(
         "\n## Qualityへの引渡し",
         "\n結果語彙は次の意味に限定する。\n\n- `PASS`: 詳細設計上の処置と根拠節が揃った状態。実装済み・試験済みを意味しない。\n- `N/A`: Architecture上、そのConcern自体が存在しない状態。未検討や後工程送りを意味しない。\n- `OPEN`: 未解決の設計事項が残る状態。\n- `FAIL`: 必須設計と矛盾する、または必要な設計が未充足の状態。\n\n## Qualityへの引渡し",
-      )}\n${evaluatedChecklist(checklistItemsFromTemplate("template/06_Architecture/Details/area/01_Architecture.md"))}\n`,
+      )}\n${evaluatedChecklist(checklistItemsFromEvaluatedArtifact("06_Architecture/Details/artifact-signing/01_Architecture.md"))}\n`,
   );
   for (const model of [
     "02_Component_and_Responsibility_Model.md",
@@ -7353,8 +7566,8 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
           "なし",
           "",
           evaluatedChecklist(
-            checklistItemsFromTemplate(
-              "template/07_Quality/Analysis/PHASE/quality_analysis.md",
+            checklistItemsFromEvaluatedArtifact(
+              "07_Quality/Analysis/REQ/quality_analysis.md",
             ),
           ),
           "",

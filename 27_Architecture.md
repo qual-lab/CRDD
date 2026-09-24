@@ -64,10 +64,13 @@ UI                     = 利用者がどう認識・操作・回復できるか
 
 ## 工程入口契約（Phase Entry Contract）
 
-アーキテクチャの正式入力は、対象範囲についてCanonicalになったUI定義とSPEC定義である。UIとSPECを別々に全数分析してから、同じ責務、状態、失敗境界および変更理由を持つ分析結果をArchitecture定義へ統合する。
+アーキテクチャの正式入力は、対象範囲についてCanonicalになったUI Definition、SPEC Definition、および適用するUI Detail／SPEC Detailである。UIとSPECのDefinitionを別々に全数分析してから、同じ責務、状態、失敗境界および変更理由を持つ分析結果をArchitecture Definitionへ統合する。Detailは具体的なScreen、Part、InteractionおよびDetailed Behaviorを実行構造へ配置する制約として使用し、Definition不足を補う別の要求源にはしない。
 
 - UI定義、視覚表現方針（Visual Direction）、適用するUIテーマ（UI Theme）/ UI部品（UI Component）/ UI設計パターン（UI Design Pattern）/ [外部視覚成果物（External Visual Artifact）](25_UI.md#external-visual-artifact)
 - SPEC定義と[UI／SPEC対応レビュー](24_UI_Behavior_Specification.md#26-exit-and-pair-gate)結果
+- UI DetailのUI Area、SCR、PRT、Interaction、State／Variant、Visual BaselineおよびCMP適用結果
+- SPEC DetailのBHV、Trigger、Precondition、Authority、Input／Validation、State／Transition／Sequence、Effect／Output、Failure／Recovery
+- UI／SPEC Detailの双方向Coverage、理由付きN/A、未解決Gapおよび部分引き渡し判断
 - [デザインシステム参照実装（Design System Reference）](25_UI.md#design-system-reference)の改訂版、対象プラットフォームへの変換要否
 - 適用する品質懸念プロファイルと情報源／バージョン／対象範囲、品質、互換性、処理能力、セキュリティ、プライバシー、コンプライアンス、コストの条件
 - 受入基準と検証義務
@@ -78,7 +81,7 @@ UI                     = 利用者がどう認識・操作・回復できるか
 - UI／SPEC→アーキテクチャ工程移行レビュー結果、レビュー済みのUI／SPEC改訂版、または明示された`review_exception`
 - UI／SPEC／対で発火した変更影響の伝播確認結果、情報源の改訂版、または明示された`propagation_exception`
 
-REQ、UXおよびIAは、UI／SPECが示す由来を確認するためのトレースであり、Architectureが不足する意味を直接補完する正式入力ではない。UI定義またはSPEC定義だけでは設計できない場合は、上流文書をArchitecture側で解釈して埋めず、UI／SPEC工程へ戻して正式入力を直す。現行Architectureと実装は、再構築した設計候補が成立済み能力を失っていないかを確認する照合対象であり、望ましい構造を自動決定する入力ではない。
+REQ、UXおよびIAは、UI／SPECが示す由来を確認するためのトレースであり、Architectureが不足する意味を直接補完する正式入力ではない。UI／SPEC Definitionまたは適用するDetailだけでは設計できない場合は、上流文書、WIPまたは現行SourceをArchitecture側で解釈して埋めず、意味のOwnerであるUI／SPEC工程へ戻して正式入力を直す。現行Architectureと実装は、再構築した設計候補が成立済み能力を失っていないかを確認する照合対象であり、望ましい構造を自動決定する入力ではない。
 
 部分引き渡しの場合は、承認された対象範囲、未決事項、暫定制約、リスク、後続担当責任者、人間承認も必要である。上位コンテキストが矛盾する場合はアーキテクチャで都合よく解釈せず、該当決定権限へ戻す。
 
@@ -910,7 +913,9 @@ Qualityへの引渡しは定型文だけで終えず、領域固有の検証単�
 
 Architecture Readyを表示するには、次をすべて満たさなければならない。
 
-- CanonicalなUI定義とSPEC定義を別々に全数分析し、個別Architecture定義へ統合している。
+- CanonicalなUI DefinitionとSPEC Definitionを別々に全数分析し、個別Architecture Definitionへ統合している。
+- 適用するUI／SPEC Detailを、Definitionの意味を変更せずArchitecture Definition／Detailsへ接続している。
+- SCR／PRT／InteractionとBHVの未解決CoverageをArchitecture方式で黙って補完していない。
 - 全個別定義が5つの横断モデルへ含まれ、未接続の責務を残していない。
 - Component、境界、Data／State、故障／回復、配置／実行の各観点を、作成、既存参照、非該当または作成不能へ理由付きで処置している。
 - 全ARCH-IDが一つ以上の詳細設計領域へ明示的に接続され、各領域側にも同じRelationがある。

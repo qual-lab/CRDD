@@ -227,6 +227,10 @@ UIが存在しない振る舞い、実振る舞いを持たないプロトタイ
 - 片側の実装都合による情報源となるUX／IAの意図の無断変更
 - 対応関係の網羅範囲、未解決事項、人間レビュー、例外理由、検証対応の欠落
 - UIと振る舞い仕様の検証義務、検証項目または評価規則が片側だけにあり、一方の専門家レビュー、利用者評価またはテスト結果だけで対全体を確認済みとしている状態
+- UI／SPEC Definitionの対応だけを根拠にDetail対応を確認済みとした状態、またはSCR／PRT／InteractionとBHVの対応だけからDefinitionの意味成立を推定した状態
+- System Behaviorを伴うInteractionにBHVがない状態、または利用者認識が必要なBHVの結果・失敗・待機・拒否・不明・回復にUI表現がない状態
+- UI Areaのデザインガイドライン、Product全体のVisual Baseline、個別Screen、Reusable Componentの責務を重複させた状態
+- Hero ScreenをScreen Inventory／Flowより先に選び、他のScreenへ展開していない具体一枚をVisual BaselineまたはDesign Systemとした状態
 - 対応関係に関する判断、制約、学習、根拠、指摘事項に対する上流・同層探索、両側の正本反映、下流再探索、再監査の欠落
 - 本共有契約の専門品質確認、またはUI・振る舞い仕様の両工程に必要な専門観点の確認が未実施でないか。片側だけのレビュー、共有契約と個別工程のレビューの相互流用、旧改訂版のレビュー流用、指摘事項未修正の持ち越し、監査実行完了を対応レビュー合格とみなしていないか
 
@@ -272,9 +276,31 @@ UIとSPECが同じ懸念を扱う場合も、項目の決定権限は分離す�
 
 一つのUI操作が複数振る舞いを協調させる場合や、一つの振る舞いを複数画面領域から利用する場合があるため、対は一対一に限定しない。多重度と責務を関係として説明する。
 
+## 3.2.1. Definition対応とDetail対応
+
+UI／SPEC対応レビューは、抽象度の異なる二層を分ける。
+
+```text
+Definition対応
+UI-* ⇄ SPEC-*
+「必要な認識・操作とSystem Behaviorの意味が対応するか」
+
+Detail対応
+SCR-*／PRT-*／Interaction ⇄ BHV-*
+「具体的な画面・操作・状態と詳細挙動が対応するか」
+```
+
+Definition対応をDetail対応で代替せず、Detailの存在からDefinitionの意味が成立したと推定しない。Detail対応はN:N Relationを許可し、番号一致を要求しない。
+
+UIからBHVへの確認では、System Behaviorを伴うInteractionに対応BHVがあることを確認する。BHVからUIへの確認では、利用者が認識または判断する必要があるResult、Failure、Pending、Reject、UnknownおよびRecoveryにUI表現があることを確認する。直接UIを持たないBHVは、利用側契約または運用Feedbackと理由付き`N/A`を保持する。
+
+DetailでDefinition不足を発見した場合、対応表だけへ意味を追加せず、UI Definition、SPEC Definitionまたは上流工程を再開する。
+
 ## 3.3. 安定コンテキストと成果物の境界
 
 対は既存の`UI-*`と`SPEC-*`を`pairs_with`等の意味ある関係で接続する。対そのもの、対応付けマトリクス、レビュー結果へ新しいCRDD標準安定コンテキストIDを発行しない。文書番号やファイル名へUI / SPEC IDを埋め込まない。
+
+Detailでは、Logical Screenへ`SCR-*`、意味あるConcreteなScreen Partへ`PRT-*`、実証済みReusable Componentへ`CMP-*`、Detailed Behaviorへ`BHV-*`を使用できる。これらはUI／SPEC Definitionの代替ではなく、各DefinitionとのRelationを必要とする。InteractionはまずPart配下Local Keyを用い、Pilotで独立Identityの必要性が実証されるまで全体IDを追加しない。
 
 対応付けマトリクスはレビュー表示であり、UI契約または振る舞い仕様本文の代替正本ではない。単純な対象では同一成果物へUIとSPECを併記してよいが、項目の決定権限、安定コンテキスト、改訂版、網羅範囲を区別する。
 

@@ -1,8 +1,8 @@
 # UIとSPECの引き渡し
 
-状態: [UI分析中／UI契約Ready／UI工程Exit待ち／UI工程Exit済み]
+状態: [UI分析中／UI契約Ready／UI Detail Ready／UI工程Exit待ち／UI工程Exit済み]
 
-UI契約ReadyはUI／SPEC対応レビューへ入力できることを表す。Prototype／実画面評価と人間判断を含むUI工程Exit、またはArchitectureへの通常Handoffとは区別する。
+UI契約ReadyはDefinition対応レビューとUI Detailへ入力できることを表す。UI Detail ReadyはDetail対応レビューへ入力できることを表す。いずれも、人間判断を含むUI工程ExitまたはArchitectureへの通常Handoffとは区別する。
 
 ## 1. 共通の正式入力
 
@@ -22,6 +22,12 @@ UX定義 + IA定義
 
 [UI別の操作、表示状態、Feedback、非表示情報、検証意図を示す。]
 
+### Detailの引き渡し
+
+| SCR／PRT／Interaction | UI Definition | BHV | Coverage | 未解決事項 |
+|---|---|---|---|---|
+| | | | `Covered／N/A／OPEN／Gap` | |
+
 ## 4. 未確認事項・戻り条件
 
 [なし／UI・SPEC・IA・UXへ戻す事項]
@@ -37,6 +43,9 @@ UX定義 + IA定義
 - [ ] UIとSPECの共通正式入力を明示した
 - [ ] UIとSPECの責任境界を区別した
 - [ ] UI別に渡す操作・状態・Feedbackを明示した
+- [ ] Definition対応とDetail対応を区別した
+- [ ] SCR／PRT／InteractionとBHVのCoverageを明示した
+- [ ] 既存の引き渡し結果と新Detail契約のOPENを区別した
 - [ ] 共通Variantを全UIへ一律適用していない
 - [ ] UI側の引き渡し完了条件を明示した
 - [ ] 対応レビュー結果の正本をSPEC側の対応文書へ一本化した

@@ -56,6 +56,7 @@
 | `CHG-000078` | Canonical設計と現行実装のReality Audit | [本文](./Changes/CHG-000078/change.md) |
 | `CHG-000079` | Source責務命名と設計由来Documentation | [本文](./Changes/CHG-000079/change.md) |
 | `CHG-000080` | Engineering Design／Implementation／Verificationの完全性 | [本文](./Changes/CHG-000080/change.md) |
+| `CHG-000081` | UI／SPEC Detail工程契約 | [本文](./Changes/CHG-000081/change.md) |
 
 <!-- crdd-change-aggregate-index:end -->
 

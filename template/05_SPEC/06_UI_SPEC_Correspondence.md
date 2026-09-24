@@ -10,6 +10,7 @@
 | 対象関係 | [件数] |
 | 判定単位 | UI／SPECの組ごとにShared Contextと8観点を確認する |
 | 工程境界 | 対応PassとUI工程Exitを区別する |
+| 対応層 | Definition対応。本書だけでDetail対応Passを主張しない |
 
 ## 2. 対応関係と個別レビュー結果
 
@@ -50,6 +51,8 @@
 
 [なし／UI・SPEC・IA・UXへ戻す事項]
 
+Detail対応は[`Details/02_UI_SPEC_Detail_Correspondence.md`](Details/02_UI_SPEC_Detail_Correspondence.md)で別に評価する。Detailの存在から本書のDefinition対応を推定せず、本書のPassからDetail対応を推定しない。
+
 ## 6. 補足分析
 
 [なし／必要な補足]
@@ -74,4 +77,6 @@
 - [ ] UI／SPEC独自の第三仕様を作っていない
 - [ ] 対象Definition集合のSHA-256を固定し、再レビュー入力を再構成できる
 - [ ] 組別Evidenceの理由を対象UI／SPECの具体的契約事実で説明した
+- [ ] Definition対応とDetail対応を区別した
+- [ ] Detail未発行をDefinition対応のPassで代替していない
 - [ ] 未決事項をAI推測で補完していない

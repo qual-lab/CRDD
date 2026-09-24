@@ -14,6 +14,8 @@ Last Updated: 2026-09-19
 
 Architectureの正式入力はCanonicalな20件のUI定義と29件のSPEC定義である。UIとSPECを別々に全数分析し、同じ上位責務境界へ属する結果を18件のArchitecture定義へ統合した。
 
+v0.22でUI／SPEC Detailが新しい正式入力へ追加されたが、現在のSCR／PRT／Interaction／BHVは未発行である。v0.21 Architectureは当時のDefinition入力から成立したCanonical成果物として維持し、新DetailをSource、WIPまたは既存Architectureから遡及補完しない。v0.22のDetail対応レビュー後に、新しいArchitecture入力として再分析する。
+
 ```text
 UI定義 20件 ──→ UI観点のArchitecture分析 20件 ──┐
                                                      ├─→ Architecture定義 18件

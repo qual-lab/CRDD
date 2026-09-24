@@ -9,7 +9,7 @@
 
 個別分析と責務定義が揃った後、Qualityが検証単位を導けるよう、`02`から`06`の横断モデルを作成する。続いてARCH-IDを`07_Detail_Architecture_Map.md`で一つ以上の詳細設計領域へ接続し、`Details/`で実装可能な粒度へ具体化する。横断モデルと詳細設計は個別定義の代替ではない。現行Sourceと既存試験は正式入力にせず、Canonical詳細設計を固定した後のReality Auditで照合する。
 
-正式入力はCanonicalなUI定義とSPEC定義である。`Analysis/UI-*/architecture_analysis.md`と`Analysis/SPEC-*/architecture_analysis.md`で両系列を別々に全数分析し、責務単位の`Definitions/<responsibility>/architecture_definition.md`へ統合する。REQ、UX、IA、現行Architectureおよび実装で入力不足を補わない。上流は由来確認、現行構造は成立済み能力との照合にだけ使用する。
+正式入力はCanonicalなUI Definition、SPEC Definition、および適用するUI Detail／SPEC Detailである。`Analysis/UI-*/architecture_analysis.md`と`Analysis/SPEC-*/architecture_analysis.md`でDefinitionを別々に全数分析し、責務単位の`Definitions/<responsibility>/architecture_definition.md`へ統合する。DetailはScreen、Part、InteractionおよびDetailed Behaviorを実行構造へ配置する制約として接続し、Definition不足を補う要求源にしない。REQ、UX、IA、現行Architecture、WIPおよび実装で入力不足を補わない。上流は由来確認、現行構造は成立済み能力との照合にだけ使用する。
 
 部品、依存、契約、Authority、Effect、状態遷移および失敗は、Component Matrix、テキスト図、状態表またはFailure Matrixを優先する。図の意味記法と凡例は工程規則へ従い、視覚的な配置や日本語ラベルを損なわない。以下の説明文は記入項目の案内であり、文章形式を要求しない。
 
@@ -54,6 +54,8 @@
 |---|---:|---:|---:|---|
 | UI定義 | | | | |
 | SPEC定義 | | | | |
+| UI Detail | | | | |
+| SPEC Detail | | | | |
 
 | Architecture定義 | 所有する責務 | 主な入力UI | 主な入力SPEC | 現行構造との照合 |
 |---|---|---|---|---|

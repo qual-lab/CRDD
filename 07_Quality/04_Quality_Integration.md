@@ -128,10 +128,18 @@ Source IDごとの検証義務は各工程の`Analysis/<工程>/quality_analysis
 | [実行記録の公開と再利用](Definitions/QA-000012/quality_definition.md) | `ERP-IT-001`、`ERP-IT-002`、`ERP-IT-003`、`ERP-ST-004`、`ERP-IT-005`、`ERP-UT-006`、`ERP-UAT-007` | 6工程のAnalysis §3 | 本書§2／§3とexecution-intelligence |
 | [成果物の理解と工程引継ぎ](Definitions/QA-000013/quality_definition.md) | `AUH-UAT-001`、`AUH-IT-002`、`AUH-IT-003`、`AUH-ST-004`、`AUH-ST-005`、`AUH-ST-006` | 6工程のAnalysis §3 | 本書§2／§3とchecker／crdd-domain-library／cros |
 
+## 5. UI／SPEC Detail入力の現在状態
+
+| Source Layer | 対象 | 現在状態 | Qualityでの処置 | 戻り条件 |
+|---|---|---|---|---|
+| Definition | v0.21のUI／SPEC Definition | Covered | 既存Quality AnalysisとQA Definitionへ統合済み | N/A: v0.21契約で閉包済み |
+| Detail | SCR／PRT／Interaction／BHV | OPEN | 未発行を既存Definition Coverageへ畳まない | v0.22でCanonical Detailを発行し、具体的観測条件を再分析する |
+
 ## Checklist
 
 - [x] 全Canonical IDを一件以上のQuality Analysis行で処置した
 - [x] Source固有の成功、失敗、Riskおよび未確認事項を保持した
+- [x] UI／SPEC Definition由来とDetail由来の検証義務を区別して統合した
 - [x] Source ID、検証目標、試験段階およびLocal Itemを一意に接続した
 - [x] 5横断モデルと全Architecture詳細設計領域を処置した
 - [x] Quality Integrationだけで第三の要求・設計・検証契約を作っていない

@@ -14,6 +14,8 @@ UX定義 ─→ UX観点のSPEC分析 ─┐
 IA定義 ─→ IA観点のSPEC分析 ─┘
 
 UI定義 ───── pairs_with ───── SPEC定義
+
+SPEC定義 ─→ SPEC Detail（BHV-*）
 ```
 
 ## 2. 入力と網羅状況
@@ -24,6 +26,7 @@ UI定義 ───── pairs_with ───── SPEC定義
 | IA定義 | | 全件を`Analysis/IA-*/spec_analysis.md`で分析する |
 | SPEC分析 | | UX観点とIA観点を混ぜずに保持する |
 | SPEC定義 | | 独立して条件・状態・結果を変更／検証できる単位へ統合する |
+| SPEC Detail | | 全SPEC Definitionを`Applicable／N/A／OPEN`へ処置し、BHVへ具体化する |
 | UI定義 | | 多対多の`pairs_with`で対応づける |
 
 ## 3. SPEC定義台帳
@@ -52,6 +55,8 @@ UI定義 ───── pairs_with ───── SPEC定義
 
 網羅範囲、独立レビュー、UI／SPEC対応レビュー、未解決事項、Architecture／Verificationへ渡す義務を示す。
 
+Detailの全体状態は[`Details/01_SPEC_Detail.md`](Details/01_SPEC_Detail.md)、UI Detailとの対応は[`Details/02_UI_SPEC_Detail_Correspondence.md`](Details/02_UI_SPEC_Detail_Correspondence.md)を正本とする。
+
 ## 補足分析
 
 [なし／必要な補足]
@@ -69,4 +74,6 @@ UI定義 ───── pairs_with ───── SPEC定義
 - [ ] 基本図を全件処置した
 - [ ] Human Input、Open・Gapおよび戻り条件を明示した
 - [ ] SPEC ReadyとUI／SPEC対応レビューを区別した
+- [ ] 全SPEC DefinitionをSPEC DetailでApplicable／N/A／OPENへ処置した
+- [ ] SPEC Contract Ready、SPEC Detail Ready、SPEC Phase Exit Pending、SPEC Readyを区別した
 - [ ] ArchitectureまたはSourceから意味を逆輸入していない
