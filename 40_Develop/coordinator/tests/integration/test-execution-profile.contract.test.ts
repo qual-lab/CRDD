@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
-const GATE_PREFIX = "Windows Process Gate:";
+const HOST_WINDOWS_PREFIX = "Host Windows:";
 const gateFiles = [
   {
     file: "coordinator-task-process.integration.test.ts",
@@ -22,8 +22,8 @@ const gateFiles = [
   },
   {
     file: "docker-owned-process.integration.test.ts",
-    prefixOccurrences: 3,
-    expandedCases: 4,
+    prefixOccurrences: 5,
+    expandedCases: 6,
     expansion: /for \(const mode of \["stdout-limit", "stderr-limit"\]\)/,
   },
   {
@@ -73,37 +73,40 @@ function discoverGateFiles(
   return files.filter(
     (file) =>
       file !== "test-execution-profile.contract.test.ts" &&
-      executableTestSource(read(file)).includes(GATE_PREFIX),
+      executableTestSource(read(file)).includes(HOST_WINDOWS_PREFIX),
   );
 }
 
 /**
- * 制限Process用試験と実Windows Process Gateは同じ8件の閉集合を所有するを検証する。
+ * Portable試験とHost Windows試験は同じ10件の閉集合を重複なく所有するを検証する。
  *
- * @responsibility 制限Process用試験と実Windows Process Gateは同じ8件の閉集合を所有するの合否判定を所有する。
+ * @responsibility Portable試験とHost Windows試験は同じ10件の閉集合を重複なく所有するの合否判定を所有する。
  * @trace CQS-IT-011
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 制限Process用試験と実Windows Process Gateは同じ8件の閉集合を所有するの対象操作を実行する。
+ * @stimulus Portable試験とHost Windows試験は同じ10件の閉集合を重複なく所有するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
  */
-test("制限Process用試験と実Windows Process Gateは同じ8件の閉集合を所有する", () => {
+test("Portable試験とHost Windows試験は同じ10件の閉集合を重複なく所有する", () => {
   const scripts = packageJson.scripts ?? {};
   assert.match(
-    scripts["test:restricted-process"] ?? "",
-    /--test-skip-pattern=\^Windows Process Gate:/,
+    scripts["test:portable"] ?? "",
+    /--test-skip-pattern=\^Host Windows:/,
   );
   assert.match(
-    scripts["test:windows-process"] ?? "",
-    /--test-name-pattern=\^Windows Process Gate:/,
+    scripts["test:host-windows"] ?? "",
+    /--test-name-pattern=\^Host Windows:/,
   );
-  assert.equal(scripts.test, "npm run check && npm run test:run");
+  assert.equal(scripts.test, "npm run check && npm run test:portable");
+  assert.equal(scripts["test:run"], "npm run test:portable");
   assert.equal(
-    scripts["test:run"],
-    "npm run test:windows-process && npm run test:restricted-process",
+    scripts["test:all"],
+    "npm run check && npm run test:portable && npm run test:host-windows",
   );
+  assert.doesNotMatch(scripts.test ?? "", /test:host-windows/);
+  assert.doesNotMatch(scripts["test:run"] ?? "", /test:host-windows/);
   assert.doesNotMatch(scripts.test ?? "", /test-(?:skip|name)-pattern/);
 
   let gateCount = 0;
@@ -124,35 +127,35 @@ test("制限Process用試験と実Windows Process Gateは同じ8件の閉集合�
   } of gateFiles) {
     const source = fs.readFileSync(new URL(file, import.meta.url), "utf8");
     const occurrences =
-      executableTestSource(source).split(GATE_PREFIX).length - 1;
+      executableTestSource(source).split(HOST_WINDOWS_PREFIX).length - 1;
     assert.equal(occurrences, prefixOccurrences);
     assert.match(source, expansion);
     gateCount += expandedCases;
-    assert.match(scripts["test:windows-process"] ?? "", new RegExp(file));
+    assert.match(scripts["test:host-windows"] ?? "", new RegExp(file));
   }
-  assert.equal(gateCount, 8);
+  assert.equal(gateCount, 10);
 });
 
 /**
- * 未分類のWindows Process Gateを別試験ファイルへ追加すると閉集合が不一致になるを検証する。
+ * 未分類のHost Windows試験を別試験ファイルへ追加すると閉集合が不一致になるを検証する。
  *
- * @responsibility 未分類のWindows Process Gateを別試験ファイルへ追加すると閉集合が不一致になるの合否判定を所有する。
+ * @responsibility 未分類のHost Windows試験を別試験ファイルへ追加すると閉集合が不一致になるの合否判定を所有する。
  * @trace CQS-IT-011
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 未分類のWindows Process Gateを別試験ファイルへ追加すると閉集合が不一致になるの対象操作を実行する。
+ * @stimulus 未分類のHost Windows試験を別試験ファイルへ追加すると閉集合が不一致になるの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary CQS-IT-011=Adjacent 1 Block: Test Catalog→Owner Runner
  */
-test("未分類のWindows Process Gateを別試験ファイルへ追加すると閉集合が不一致になる", () => {
+test("未分類のHost Windows試験を別試験ファイルへ追加すると閉集合が不一致になる", () => {
   const files = [
     "test-execution-profile.contract.test.ts",
     ...gateFiles.map(({ file }) => file),
     "unclassified-process.test.ts",
   ];
   const discoveredItems = discoverGateFiles(files, (file) =>
-    file === "unclassified-process.test.ts" ? GATE_PREFIX : "",
+    file === "unclassified-process.test.ts" ? HOST_WINDOWS_PREFIX : "",
   );
   assert.deepEqual(discoveredItems, ["unclassified-process.test.ts"]);
   assert.notDeepEqual(

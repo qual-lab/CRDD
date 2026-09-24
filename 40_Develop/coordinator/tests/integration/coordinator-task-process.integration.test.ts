@@ -495,18 +495,18 @@ function createProcessHarness(
 // callback traverses Task + Controller + the production-owned Node process tree.
 for (const cleanupConfirmed of [true, false]) {
   /**
-   * Windows Process Gate: Task→Controller→共有Processの取消結合: Docker回収模擬=${cleanupConfirmed}を検証する。
+   * Host Windows: Task→Controller→共有Processの取消結合: Docker回収模擬=${cleanupConfirmed}を検証する。
    *
-   * @responsibility Windows Process Gate: Task→Controller→共有Processの取消結合: Docker回収模擬=${cleanupConfirmed}の合否判定を所有する。
+   * @responsibility Host Windows: Task→Controller→共有Processの取消結合: Docker回収模擬=${cleanupConfirmed}の合否判定を所有する。
    * @trace ERB-IT-002
    * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus Windows Process Gate: Task→Controller→共有Processの取消結合: Docker回収模擬=${cleanupConfirmed}の対象操作を実行する。
+   * @stimulus Host Windows: Task→Controller→共有Processの取消結合: Docker回収模擬=${cleanupConfirmed}の対象操作を実行する。
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
    * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
    */
-  test(`Windows Process Gate: Task→Controller→共有Processの取消結合: Docker回収模擬=${cleanupConfirmed}`, {
+  test(`Host Windows: Task→Controller→共有Processの取消結合: Docker回収模擬=${cleanupConfirmed}`, {
     skip: process.platform !== "win32",
     timeout: 20_000,
   }, async (t) => {

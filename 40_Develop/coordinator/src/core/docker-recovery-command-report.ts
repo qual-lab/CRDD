@@ -141,6 +141,15 @@ export function renderDockerRecoveryDoctorReport(
     )
       lines.push(`- 復旧ID: ${reportValue.repairId}`);
     lines.push(`- Docker Engineの準備完了: ${tri(reportValue.engineReady)}`);
+    lines.push(
+      `- Docker Engine起動所要時間（参考値）: ${
+        typeof reportValue.engineStartupDurationMs === "number" &&
+        Number.isFinite(reportValue.engineStartupDurationMs) &&
+        reportValue.engineStartupDurationMs >= 0
+          ? `${Math.round(reportValue.engineStartupDurationMs)} ms`
+          : "未計測"
+      }`,
+    );
     lines.push(`- プロセス操作の発行: ${tri(reportValue.processEffectIssued)}`);
     lines.push(
       `- プロセス操作の確認状態: ${

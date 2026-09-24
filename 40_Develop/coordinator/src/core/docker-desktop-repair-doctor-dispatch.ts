@@ -80,6 +80,7 @@ function failedClosedReport(): DockerDesktopRuntimeRepairReport {
     filesystemEffectIssued: null,
     filesystemEffectConfirmation: "unknown",
     engineReady: null,
+    engineStartupDurationMs: null,
     staleRuntimeDirectory: "unknown",
     evidenceState: "unknown",
     disposition: "unknown",

@@ -401,7 +401,7 @@ test("固定子: 元子がcloseしてもtaskkill補助子のclose不明を成功
  * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test(
-  "本番共通process: UTF-8標準入力と正常/非0終了を実観測",
+  "Host Windows: 本番共通process: UTF-8標準入力と正常/非0終了を実観測",
   windowsOnly,
   async (t) => {
     for (const mode of ["echo", "nonzero"]) {
@@ -428,18 +428,18 @@ test(
 );
 
 /**
- * Windows Process Gate: Codex Executor SandboxはWorkspaceだけを書込み可能にするを検証する。
+ * Host Windows: Codex Executor SandboxはWorkspaceだけを書込み可能にするを検証する。
  *
- * @responsibility Windows Process Gate: Codex Executor SandboxはWorkspaceだけを書込み可能にするの合否判定を所有する。
+ * @responsibility Host Windows: Codex Executor SandboxはWorkspaceだけを書込み可能にするの合否判定を所有する。
  * @trace ERB-IT-002
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Windows Process Gate: Codex Executor SandboxはWorkspaceだけを書込み可能にするの対象操作を実行する。
+ * @stimulus Host Windows: Codex Executor SandboxはWorkspaceだけを書込み可能にするの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
-test("Windows Process Gate: Codex Executor SandboxはWorkspaceだけを書込み可能にする", {
+test("Host Windows: Codex Executor SandboxはWorkspaceだけを書込み可能にする", {
   skip: process.platform !== "win32",
   timeout: 60_000,
 }, (t) => {
@@ -570,7 +570,7 @@ test("Windows Process Gate: Codex Executor SandboxはWorkspaceだけを書込み
  * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test(
-  "Windows Process Gate: 本番共通process: 待機期限は取消ではなく、重複取消後に実子孫とcloseを確認",
+  "Host Windows: 本番共通process: 待機期限は取消ではなく、重複取消後に実子孫とcloseを確認",
   windowsOnly,
   async (t) => {
     const fixture = createOwnedProcessTreeFixture();
@@ -605,7 +605,7 @@ for (const mode of ["stdout-limit", "stderr-limit"]) {
    * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
    */
   test(
-    `Windows Process Gate: 本番共通process: ${mode}は実processを終了し出力保持を制限`,
+    `Host Windows: 本番共通process: ${mode}は実processを終了し出力保持を制限`,
     windowsOnly,
     async (t) => {
       const handle = startOwnedProcess(
@@ -641,7 +641,7 @@ for (const mode of ["stdout-limit", "stderr-limit"]) {
  * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 test(
-  "本番共通process: 起動失敗はerror結果とcloseを区別して観測",
+  "Host Windows: 本番共通process: 起動失敗はerror結果とcloseを区別して観測",
   windowsOnly,
   async (t) => {
     const handle = startOwnedProcess(

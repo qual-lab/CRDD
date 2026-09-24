@@ -533,7 +533,9 @@ Task受付・境界検証
 
 新しい再起動記録を既存の修復記録v4へ偽装しない。旧修復履歴のrun生成時刻条件は保持し、新記録には停止完了の独立した根拠を要求する。各記録をそれぞれ検証した後だけ、Task復旧が使用する検証済み停止・再起動の根拠へ接続する。
 
-検証付き再起動と障害修復は、公式Path、Docker Incの有効な署名および同一操作中の実体Identity／Hash固定を共通のNative Trust境界として使用する。Dockerの版または過去操作のHashを次の操作へ固定せず、正規Updaterによる更新を再署名や再設定なしで受理する一方、署名不明、Path差、操作中の差替えまたは必要実体の欠落ではEffect 0とする。正常再起動は公式Desktop pluginの`S`停止を使用し、run Directoryを変更しない。正常起動が既知socket障害で成立しない場合は、同じ起動Effectを盲目的に再発行せず、正常再起動を終了してから既存の障害修復Lifecycleへ移る。障害修復だけが`K`停止、Docker WSL停止およびrun世代退避を所有する。子Job・EOF取消・応答の責務は[Native設計](../platform-access/01_Architecture.md#5-状態資源回復)を参照する。TypeScriptから渡したPathやHashだけをNative操作Authorityにしない。停止CLIのexit 0の後にも管理Process・CLI不存在、Linux Engineの既知停止およびWSL停止を確認する。起動後は信頼済みCLIによるLinux Engine応答を別に確認し、選択されたDocker backendの実装詳細であるWSL Distributionの`running`状態をEngine Readyの必須条件にしない。Engine観測は`ready`、`known_unavailable`、`unknown`を区別し、失敗やTimeoutを既知停止へ畳まない。Engine named pipeも`present`、`absent`、`unknown`で観測し、明示的な`ENOENT`だけを`absent`とする。権限・資源不足、一般エラーまたはopen後のclose失敗は観測不能として`unknown`を維持する。open後のclose失敗はEngine状態だけでなく資源回収状態にも保持し、Native helperのreleaseが成功しても上位のcleanupを確認済みにしない。
+検証付き再起動と障害修復は、公式Path、Docker Incの有効な署名および同一操作中の実体Identity／Hash固定を共通のNative Trust境界として使用する。Dockerの版または過去操作のHashを次の操作へ固定せず、正規Updaterによる更新を再署名や再設定なしで受理する一方、署名不明、Path差、操作中の差替えまたは必要実体の欠落ではEffect 0とする。正常再起動は公式Desktop pluginの`S`停止を使用し、run Directoryを変更しない。正常起動が既知socket障害で成立しない場合は、同じ起動Effectを盲目的に再発行せず、正常再起動を終了してから既存の障害修復Lifecycleへ移る。障害修復だけが`K`停止、Docker WSL停止およびrun世代退避を所有する。子Job・EOF取消・応答の責務は[Native設計](../platform-access/01_Architecture.md#5-状態資源回復)を参照する。TypeScriptから渡したPathやHashだけをNative操作Authorityにしない。停止CLIのexit 0の後にも管理Process・CLI不存在、Linux Engineの既知停止およびWSL停止を確認する。起動後は信頼済みCLIによるLinux Engine応答を別に確認し、選択されたDocker backendの実装詳細であるWSL Distributionの`running`状態をEngine Readyの必須条件にしない。
+
+Engine観測は`ready`、`known_unavailable`、起動直後のCLI Probe Timeoutである`transient_unavailable`、全体起動期限を超えた`startup_timeout`および`unknown`を区別する。再起動Effectがconfirmedになった後だけ、`known_unavailable`と`transient_unavailable`をHost Effectなしの読取り再観測へ接続し、冷間起動を考慮した180秒の全体期限まで待機する。単一ProbeのTimeoutを状態不明として即時終了せず、同じ起動Effectを再発行しない。全体期限超過は専用理由で停止し、取消、Trust変化、権限・資源不足および分類不能な一般エラーは待機対象へ広げず`unknown`で即時停止する。Engine Readyを同一実行内で確認できた場合は、起動要求直前からReadyまでの単調時計による所要時間を診断用の参考値として公開結果とEvidenceへ残す。再入場をまたいで開始時点を観測していない場合は推測せず未計測とし、この値をAuthority、成功条件または将来の固定Timeout根拠にしない。Engine named pipeも`present`、`absent`、`unknown`で観測し、明示的な`ENOENT`だけを`absent`とする。open後のclose失敗はEngine状態だけでなく資源回収状態にも保持し、Native helperのreleaseが成功しても上位のcleanupを確認済みにしない。
 
 #### 保存状態からの限定再入場
 
@@ -604,6 +606,12 @@ ProviderとDockerの外部境界は、一般Architectureの[外部境界の診�
 ## 13. 検証接続
 
 固定候補では、単体試験だけでなく次を確認する。
+
+### 実行環境別の試験プロファイル
+
+試験段階と実行環境を同一視しない。Unit／Integration／Systemは検証する境界の深さを表し、Portable／Host Windowsは試験を安全に実行できる環境を表す。既定の`npm test`と`test:portable`は、Repository内のfixture、隔離した一時領域および置換可能なAdapterだけで完結し、実Docker Engine、Windowsの実子Process終了、Named PipeまたはHost権限を必要とする試験を開始しない。
+
+実Host境界を必要とする試験は`Host Windows:`の閉じた分類へ所属させ、`test:host-windows`からだけ実行する。Release前の全回帰は`test:all`を明示し、Portable試験を完了した後、Host権限を持つ実行環境でHost Windows試験を実行する。Sandboxや権限不足による拒否を実装失敗へ畳まず、逆にPortable試験の失敗をHost環境差として除外しない。新しい実環境試験を追加する場合は、Host分類、Owner Runner、必要環境、cleanupおよび終了後条件を同じ変更で閉集合へ追加する。
 
 - 公開CLI閉集合と`capabilities --json`
 - manifest revision 5、閉じたRuntime実行集合、Policy、単一Native成果物、改変・欠落・旧Schema拒否

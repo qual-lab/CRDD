@@ -42,10 +42,11 @@
     "repository-operation-runtime:coverage": "node --experimental-test-coverage --test ./tests/integration/repository-operation-runtime.contract.test.ts ./tests/integration/docker-process-controller.contract.test.ts",
     "runtime-traceability:check": "node ./scripts/check-runtime-traceability.ts",
     "runtime-capability-graph:check": "node ./scripts/check-runtime-capability-graph.ts",
-    "test": "npm run check && npm run test:run",
-    "test:run": "npm run test:windows-process && npm run test:restricted-process",
-    "test:restricted-process": "node --test --test-concurrency=1 \"--test-skip-pattern=^Windows Process Gate:\" ./tests/unit/*.test.ts ./tests/integration/*.test.ts ./tests/system/*.test.ts",
-    "test:windows-process": "node --test --test-concurrency=1 \"--test-name-pattern=^Windows Process Gate:\" ./tests/integration/coordinator-task-process.integration.test.ts ./tests/integration/docker-owned-process.integration.test.ts ./tests/integration/docker-process-controller.contract.test.ts",
+    "test": "npm run check && npm run test:portable",
+    "test:run": "npm run test:portable",
+    "test:portable": "node --test --test-concurrency=1 \"--test-skip-pattern=^Host Windows:\" ./tests/unit/*.test.ts ./tests/integration/*.test.ts ./tests/system/*.test.ts",
+    "test:host-windows": "node --test --test-concurrency=1 \"--test-name-pattern=^Host Windows:\" ./tests/integration/coordinator-task-process.integration.test.ts ./tests/integration/docker-owned-process.integration.test.ts ./tests/integration/docker-process-controller.contract.test.ts",
+    "test:all": "npm run check && npm run test:portable && npm run test:host-windows",
     "typecheck": "tsc -p ./tsconfig.strict.json && tsc -p ./tsconfig.tests.json"
   },
   "engines": {

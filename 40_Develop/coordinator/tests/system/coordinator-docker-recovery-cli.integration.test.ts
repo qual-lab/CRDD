@@ -275,7 +275,7 @@ test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じre
   const repairId = `docker-desktop-repair.${"b".repeat(32)}`;
   const terminal = Object.freeze({
     contract: "crdd-coordinator/docker-desktop-runtime-repair",
-    contractRevision: 6,
+    contractRevision: 7,
     status: "closed_retained",
     reason: "docker_desktop_repair_evidence_retention_closed",
     repairId,
@@ -286,6 +286,7 @@ test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じre
     filesystemEffectIssued: true,
     filesystemEffectConfirmation: "confirmed",
     engineReady: true,
+    engineStartupDurationMs: null,
     staleRuntimeDirectory: "retained",
     evidenceState: "preserved",
     disposition: "retained_by_human_decision",

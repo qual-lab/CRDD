@@ -39,6 +39,7 @@ import {
 } from "../../src/security/docker-desktop-repair-record-store.ts";
 import {
   adoptWindowsDockerDesktopRepairUsingDependencies,
+  awaitDockerDesktopEngineUsing,
   classifyDockerDesktopRepairHistoricalAdoptionRoute,
   closeWindowsDockerDesktopRepairUsingDependencies,
   describeDockerDesktopRuntimeRepairContract,
@@ -165,7 +166,12 @@ test("Docker停止時の空行またはJSON nullはCLI失敗とpipe不存在の�
       "28.1.1",
       () => assert.fail("判定不能なCLI応答からpipe確認へ進まない"),
     );
-    assert.equal(result, "unknown");
+    assert.equal(
+      result,
+      "error" in overrides && overrides.error?.code === "ETIMEDOUT"
+        ? "transient_unavailable"
+        : "unknown",
+    );
   }
   assert.equal(
     observeDockerDesktopEngineResult(
@@ -188,6 +194,79 @@ test("Docker停止時の空行またはJSON nullはCLI失敗とpipe不存在の�
       "unknown",
     );
   }
+});
+
+/**
+ * Docker初回起動中のCLI TimeoutはHost操作を再発行せず期限内で再観測するを検証する。
+ *
+ * @responsibility Docker初回起動中の一時Timeout、期限超過、取消の待機契約を検証する。
+ * @trace ERB-ST-009
+ * @precondition 決定論的な時計、待機、Engine観測を使用する。
+ * @stimulus awaitDockerDesktopEngineUsingを実行する。
+ * @observation 観測回数、待機時間および最終状態を取得する。
+ * @oracle 一時Timeoutは再観測され、全体期限超過と取消は別の状態へ収束する。
+ * @cleanup N/A: 外部資源を作成しない。
+ * @boundary ERB-ST-009=System/E2E: 署名済み公開入口→Docker Desktop復旧→再観測
+ */
+test("Docker初回起動中のCLI TimeoutはHost操作を再発行せず期限内で再観測する", async () => {
+  let now = 0;
+  let observations = 0;
+  const neverStops = new Promise<void>(() => undefined);
+  const ready = await awaitDockerDesktopEngineUsing(
+    () => {
+      observations += 1;
+      return observations < 3 ? "transient_unavailable" : "ready";
+    },
+    () => false,
+    neverStops,
+    {
+      now: () => now,
+      sleep: async (milliseconds) => {
+        now += milliseconds;
+      },
+      timeoutMs: 180_000,
+      pollIntervalMs: 1_000,
+    },
+  );
+  assert.equal(ready, "ready");
+  assert.equal(observations, 3);
+  assert.equal(now, 2_000);
+
+  now = 0;
+  observations = 0;
+  const timedOut = await awaitDockerDesktopEngineUsing(
+    () => {
+      observations += 1;
+      return "transient_unavailable";
+    },
+    () => false,
+    neverStops,
+    {
+      now: () => now,
+      sleep: async (milliseconds) => {
+        now += milliseconds;
+      },
+      timeoutMs: 3_000,
+      pollIntervalMs: 1_000,
+    },
+  );
+  assert.equal(timedOut, "startup_timeout");
+  assert.equal(observations, 4);
+
+  let stopped = false;
+  const cancelled = await awaitDockerDesktopEngineUsing(
+    () => "known_unavailable",
+    () => stopped,
+    neverStops,
+    {
+      now: () => 0,
+      sleep: async () => {
+        stopped = true;
+      },
+      timeoutMs: 180_000,
+    },
+  );
+  assert.equal(cancelled, "unknown");
 });
 
 /**
@@ -5296,6 +5375,49 @@ test("WSL未確認とEngine再起動失敗は成功へ昇格しない", async ()
   assert.equal(engine.status, "blocked");
   assert.equal(engine.reason, "docker_desktop_engine_restart_unconfirmed");
   assert.equal(engine.manualRecoveryRequired, true);
+
+  const startupTimeout =
+    await repairWindowsDockerDesktopRuntimeUsingDependencies(
+      fixture({ awaitEngine: async () => "startup_timeout" as const })
+        .dependencies,
+    );
+  assert.equal(startupTimeout.status, "blocked");
+  assert.equal(startupTimeout.reason, "docker_desktop_engine_start_timeout");
+});
+
+/**
+ * 同一実行でEngine起動を確認した場合だけ起動所要時間を参考値として返すを検証する。
+ *
+ * @responsibility Docker Desktop起動所要時間の計測範囲と非Authority性を検証する。
+ * @trace ERB-ST-009
+ * @precondition 単調時計とEngine待機を決定論的に差し替える。
+ * @stimulus 同一実行で起動する修復と、起動前に停止する修復を実行する。
+ * @observation 構造化結果のengineStartupDurationMsを取得する。
+ * @oracle 同一実行で起動した場合だけ実測値を返し、起動を観測していない場合は推測しない。
+ * @cleanup fixtureが作成した一時資源を各Test終了時に清掃する。
+ * @boundary ERB-ST-009=System/E2E: 署名済み公開入口→Docker Desktop復旧→再観測
+ */
+test("同一実行でEngine起動を確認した場合だけ起動所要時間を参考値として返す", async () => {
+  let now = 1_000;
+  const measured = await repairWindowsDockerDesktopRuntimeUsingDependencies(
+    fixture({
+      monotonicNow: () => now,
+      awaitEngine: async () => {
+        now = 7_421;
+        return "ready" as const;
+      },
+    }).dependencies,
+  );
+  assert.equal(measured.status, "recovered_pending_close");
+  assert.equal(measured.engineStartupDurationMs, 6_421);
+
+  const notMeasured = await repairWindowsDockerDesktopRuntimeUsingDependencies(
+    fixture({
+      monotonicNow: () => 50_000,
+      observeEngine: () => "unknown" as const,
+    }).dependencies,
+  );
+  assert.equal(notMeasured.engineStartupDurationMs, null);
 });
 
 /**
@@ -6429,6 +6551,7 @@ test("人間表示はtri-stateと明示closeを示しPathを報告しない", ()
       repairId,
       manualRecoveryRequired: false,
       engineReady: true,
+      engineStartupDurationMs: 6_421,
       processEffectIssued: true,
       filesystemEffectIssued: true,
       staleRuntimeDirectory: "retained",
@@ -6438,6 +6561,10 @@ test("人間表示はtri-stateと明示closeを示しPathを報告しない", ()
   );
   assert.equal(rendered.exitCode, 2);
   assert.match(rendered.stdout, /Docker Engineの準備完了: はい/u);
+  assert.match(
+    rendered.stdout,
+    /Docker Engine起動所要時間（参考値）: 6421 ms/u,
+  );
   assert.match(rendered.stdout, /退避した実行時フォルダの状態: retained/u);
   assert.match(
     rendered.stdout,

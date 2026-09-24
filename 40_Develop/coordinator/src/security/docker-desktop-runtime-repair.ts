@@ -70,7 +70,7 @@ import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "./pla
 
 export const DOCKER_DESKTOP_RUNTIME_REPAIR_CONTRACT =
   "crdd-coordinator/docker-desktop-runtime-repair";
-export const DOCKER_DESKTOP_RUNTIME_REPAIR_CONTRACT_REVISION = 6;
+export const DOCKER_DESKTOP_RUNTIME_REPAIR_CONTRACT_REVISION = 7;
 
 const DOCKER_ENGINE = "npipe:////./pipe/dockerDesktopLinuxEngine";
 const DOCKER_ENGINE_PIPE = "\\\\.\\pipe\\dockerDesktopLinuxEngine";
@@ -83,7 +83,8 @@ const knownSocketErrorCodes = Object.freeze(
   new Set(["EACCES", "EBUSY", "EPERM"]),
 );
 const MAXIMUM_RUNTIME_DIRECTORY_ENTRIES = 64;
-const ENGINE_WAIT_ATTEMPTS = 60;
+const ENGINE_STARTUP_WAIT_MS = 180_000;
+const ENGINE_POLL_INTERVAL_MS = 1_000;
 const HOST_EFFECT_ACTION_NAMES = new Set<DockerDesktopRepairEffectAction>([
   "official_shutdown",
   "native_termination",
@@ -103,7 +104,12 @@ const HOST_EFFECT_ACTION_NAMES = new Set<DockerDesktopRepairEffectAction>([
  * @security EngineObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility EngineObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-type EngineObservation = "ready" | "known_unavailable" | "unknown";
+type EngineObservation =
+  | "ready"
+  | "known_unavailable"
+  | "transient_unavailable"
+  | "startup_timeout"
+  | "unknown";
 /**
  * docker-desktop-runtime-repairで使用するPath Observationの値契約を定義する。
  *
@@ -191,6 +197,7 @@ type MutableLedger = {
   filesystemEffectIssued: boolean | null;
   filesystemEffectConfirmation: DockerDesktopRepairEffectConfirmation;
   engineReady: boolean | null;
+  engineStartupDurationMs: number | null;
   staleState: DockerDesktopRepairStaleState;
   hostSafety: DockerDesktopRepairHostSafety;
   evidenceState: DockerDesktopRepairEvidenceState;
@@ -235,6 +242,7 @@ export type DockerDesktopRuntimeRepairReport = Readonly<{
   filesystemEffectIssued: boolean | null;
   filesystemEffectConfirmation: DockerDesktopRepairEffectConfirmation;
   engineReady: boolean | null;
+  engineStartupDurationMs: number | null;
   staleRuntimeDirectory: DockerDesktopRepairStaleState;
   evidenceState: DockerDesktopRepairEvidenceState;
   disposition:
@@ -311,6 +319,7 @@ export type RepairDependencies = Readonly<{
   identityAt: (target: string) => DockerDesktopRepairDirectoryIdentity | null;
   observePath?: (target: string) => PathObservation;
   registerCancellation?: (listener: () => void) => () => void;
+  monotonicNow?: () => number;
 }>;
 
 /**
@@ -338,6 +347,7 @@ function initialLedger(): MutableLedger {
     filesystemEffectIssued: false,
     filesystemEffectConfirmation: "not_issued",
     engineReady: null,
+    engineStartupDurationMs: null,
     staleState: "absent",
     hostSafety: "safe",
     evidenceState: "not_preserved",
@@ -367,6 +377,7 @@ function ledgerFrom(operation: DockerDesktopRepairOperation): MutableLedger {
     ...operation.ledger,
     processEffects: [...operation.ledger.processEffects],
     filesystemEffects: [...operation.ledger.filesystemEffects],
+    engineStartupDurationMs: null,
   };
   const last = ledger.filesystemEffects.at(-1);
   if (
@@ -404,7 +415,9 @@ function restoreLedger(
   target: MutableLedger,
   operation: DockerDesktopRepairOperation,
 ) {
+  const engineStartupDurationMs = target.engineStartupDurationMs;
   Object.assign(target, ledgerFrom(operation));
+  target.engineStartupDurationMs = engineStartupDurationMs;
 }
 
 /**
@@ -426,8 +439,9 @@ function restoreLedger(
 function snapshotLedger(
   ledger: MutableLedger,
 ): DockerDesktopRepairLedgerSnapshot {
+  const { engineStartupDurationMs: _diagnosticOnly, ...durableLedger } = ledger;
   return Object.freeze({
-    ...ledger,
+    ...durableLedger,
     processEffects: Object.freeze([...ledger.processEffects]),
     filesystemEffects: Object.freeze([...ledger.filesystemEffects]),
   });
@@ -738,6 +752,7 @@ function report(
     filesystemEffectIssued: ledger.filesystemEffectIssued,
     filesystemEffectConfirmation: ledger.filesystemEffectConfirmation,
     engineReady: ledger.engineReady,
+    engineStartupDurationMs: ledger.engineStartupDurationMs,
     staleRuntimeDirectory: ledger.staleState,
     evidenceState: ledger.evidenceState,
     disposition: ledger.disposition,
@@ -1141,6 +1156,11 @@ function observeDockerDesktopUnavailableResult(
   }>,
   probeEnginePipe: () => void,
 ): EngineObservation {
+  const errorCode =
+    result.error && typeof result.error === "object" && "code" in result.error
+      ? String(result.error.code)
+      : "";
+  if (errorCode === "ETIMEDOUT") return "transient_unavailable";
   if (
     result.pid === undefined ||
     result.error ||
@@ -1201,6 +1221,11 @@ export function observeDockerDesktopEngineResult(
     result.stdout.trim() === expectedEngineVersion
   )
     return "ready";
+  const errorCode =
+    result.error && typeof result.error === "object" && "code" in result.error
+      ? String(result.error.code)
+      : "";
+  if (errorCode === "ETIMEDOUT") return "transient_unavailable";
   if (
     result.pid === undefined ||
     result.error ||
@@ -1677,20 +1702,61 @@ async function awaitEngine(
   shouldStop: () => boolean,
   stopDetected: Promise<void>,
 ): Promise<EngineObservation> {
-  for (let attempt = 0; attempt < ENGINE_WAIT_ATTEMPTS; attempt += 1) {
+  return awaitDockerDesktopEngineUsing(
+    () => observeEngine(boundary),
+    shouldStop,
+    stopDetected,
+  );
+}
+
+/**
+ * Docker Desktop Engineを、Host操作を再発行せず期限まで再観測する。
+ *
+ * @responsibility 起動直後の一時的なCLI Timeoutと既知の未起動状態を、状態不明と区別して期限付きで再観測する。
+ * @trace ARCH-000008
+ * @input observe: Engine観測、shouldStop: 取消判定、stopDetected: 取消通知、options: 時計・待機・期限の試験差替え
+ * @returns 最終的なEngine観測結果を返す。
+ * @precondition observeは信頼済みDocker CLI境界の読取り観測だけを行う。
+ * @postcondition ready、startup_timeout、unknownのいずれかへ期限内に収束する。
+ * @effect N/A: 読取り観測とProcess内待機だけを行い、Host操作を発行しない。
+ * @failure 観測不能または取消はunknown、期限超過はstartup_timeoutとして返す。
+ * @invariant 再観測中にDocker Desktopの起動、停止、改名その他のHost Effectを再発行しない。
+ * @boundary 信頼済みDocker CLI観測とProcess内待機の境界。
+ * @security 信頼境界の変化または分類不能な失敗を一時的な未起動へ畳まない。
+ * @concurrency 取消通知と待機完了を競合させ、取消後の再観測を行わない。
+ */
+export async function awaitDockerDesktopEngineUsing(
+  observe: () => EngineObservation,
+  shouldStop: () => boolean,
+  stopDetected: Promise<void>,
+  options: Readonly<{
+    now?: () => number;
+    sleep?: (milliseconds: number) => Promise<void>;
+    timeoutMs?: number;
+    pollIntervalMs?: number;
+  }> = {},
+): Promise<EngineObservation> {
+  const now = options.now ?? (() => performance.now());
+  const sleep =
+    options.sleep ??
+    ((milliseconds: number) =>
+      new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
+  const timeoutMs = options.timeoutMs ?? ENGINE_STARTUP_WAIT_MS;
+  const pollIntervalMs = options.pollIntervalMs ?? ENGINE_POLL_INTERVAL_MS;
+  const deadline = now() + timeoutMs;
+  for (;;) {
     if (shouldStop()) return "unknown";
-    const observed = observeEngine(boundary);
+    const observed = observe();
     if (observed === "ready") return "ready";
     if (observed === "unknown") return "unknown";
+    const remaining = deadline - now();
+    if (remaining <= 0) return "startup_timeout";
     await Promise.race([
-      new Promise<void>((resolve) => {
-        setTimeout(resolve, 1_000);
-      }),
+      sleep(Math.min(pollIntervalMs, remaining)),
       stopDetected,
     ]);
     if (shouldStop()) return "unknown";
   }
-  return "known_unavailable";
 }
 
 /**
@@ -3715,6 +3781,8 @@ async function continueFailedDockerDesktopLaunch(
   operation: DockerDesktopRepairOperation,
 ) {
   const ledger = ledgerFrom(operation);
+  const monotonicNow = dependencies.monotonicNow ?? (() => performance.now());
+  let launchStartedAt: number | null = null;
   const continuationState = inspectDockerDesktopRepairContinuation(
     boundary,
     operation,
@@ -4164,6 +4232,7 @@ async function continueFailedDockerDesktopLaunch(
         operation,
       };
     }
+    launchStartedAt = monotonicNow();
     const started = await session.launchDesktop();
     const outcome: TaggedEffect = Object.freeze({
       issued: started !== "not_started",
@@ -4221,6 +4290,11 @@ async function continueFailedDockerDesktopLaunch(
     cancellation.shouldStop,
     cancellation.stopDetected,
   );
+  if (engine === "ready" && launchStartedAt !== null)
+    ledger.engineStartupDurationMs = Math.max(
+      0,
+      Math.round(monotonicNow() - launchStartedAt),
+    );
   const fresh = await observeFreshRuntimeState(
     dependencies,
     boundary,
@@ -4244,9 +4318,11 @@ async function continueFailedDockerDesktopLaunch(
     return {
       status: "blocked" as const,
       reason:
-        engine === "known_unavailable"
-          ? "docker_desktop_engine_restart_unconfirmed"
-          : "docker_desktop_engine_state_unknown",
+        engine === "startup_timeout"
+          ? "docker_desktop_engine_start_timeout"
+          : engine === "known_unavailable"
+            ? "docker_desktop_engine_restart_unconfirmed"
+            : "docker_desktop_engine_state_unknown",
       ledger,
       operation,
     };
@@ -4375,6 +4451,8 @@ async function executeRepair(
   );
   let status: DockerDesktopRuntimeRepairReport["status"] = "blocked";
   let reason = "docker_desktop_repair_failed_closed";
+  const monotonicNow = dependencies.monotonicNow ?? (() => performance.now());
+  let launchStartedAt: number | null = null;
   let isDurableEffectBoundaryEntered = operation !== null;
   try {
     if (cancellation.shouldStop()) {
@@ -5921,6 +5999,7 @@ async function executeRepair(
           reason = "docker_desktop_repair_cancelled_before_host_effect";
           return { status, reason, ledger, operation };
         }
+        launchStartedAt = monotonicNow();
         const started = await session.launchDesktop();
         const launchEffect: TaggedEffect = Object.freeze({
           issued:
@@ -5974,11 +6053,18 @@ async function executeRepair(
         if (engine === "unknown") markUnknown(ledger);
         else ledger.hostSafety = "manual_recovery_required";
         reason =
-          engine === "known_unavailable"
-            ? "docker_desktop_engine_restart_unconfirmed"
-            : "docker_desktop_engine_state_unknown";
+          engine === "startup_timeout"
+            ? "docker_desktop_engine_start_timeout"
+            : engine === "known_unavailable"
+              ? "docker_desktop_engine_restart_unconfirmed"
+              : "docker_desktop_engine_state_unknown";
         return { status, reason, ledger, operation };
       }
+      if (launchStartedAt !== null)
+        ledger.engineStartupDurationMs = Math.max(
+          0,
+          Math.round(monotonicNow() - launchStartedAt),
+        );
       const fresh = await observeFreshRuntimeState(
         dependencies,
         boundary,
@@ -7026,7 +7112,11 @@ export function describeDockerDesktopRuntimeRepairContract() {
     invocation: "explicit_doctor_only",
     purpose: "windows_known_failure_last_resort_only",
     automaticFallback: false,
-    engineObservation: "ready_known_unavailable_unknown",
+    engineObservation:
+      "ready_known_unavailable_transient_unavailable_startup_timeout_unknown",
+    engineStartupWaitMilliseconds: ENGINE_STARTUP_WAIT_MS,
+    engineStartupDuration:
+      "same_invocation_monotonic_reference_only_or_null_when_not_measured",
     selectedUserAndKnownFolder:
       "native_runtime_state_binding_then_fixed_local_app_data_derivation",
     lockAndPackageExclusion:
