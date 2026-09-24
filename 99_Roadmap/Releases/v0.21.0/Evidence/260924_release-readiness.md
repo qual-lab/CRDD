@@ -132,7 +132,7 @@ Release決定権限者は、対象範囲がGroup Aへ限定されること、未
 
 ### 5.1. 人間の最終Release判断へ渡す明示例外候補
 
-未観測22件を残してReleaseする場合は、次の`propagation_exception`候補を、人間の決定権限者がmain統合後のexact Commit／Treeに対して承認する必要がある。未承認の候補を例外成立またはRelease承認として扱わない。
+未観測22件を残してReleaseする場合は、次の明示的な品質例外候補を、人間の決定権限者がmain統合後のexact Commit／Treeに対してRelease判断と同時に承認する必要がある。変更影響の伝播確認は完了済みであり、本候補を`propagation_exception`として扱わない。未承認の候補を例外成立またはRelease承認として扱わず、例外承認だけをRelease承認へ読み替えない。
 
 | 項目 | 候補内容 |
 |---|---|
@@ -152,7 +152,7 @@ Release決定権限者は、対象範囲がGroup Aへ限定されること、未
 3. PR head SHA／Treeを不変な外部記録へ固定し、branch protection、必須CIおよび統合権限を確認する。
 4. PRを`main`へ統合し、統合前後のCommit／Tree、公開済みv0.20.1からの全Release差分、対象CHGおよび宣言外差分を再固定する。
 5. CommitとTreeが不変でもbranch protection、必須CIおよび統合状態を確認する。Identityが変化した場合は新候補へCheckerと必要な監査を再実行する。
-6. すべてのGateが成立したmain上のexact Commit／Treeに対して、人間の決定権限者が未観測22件を含む残存リスクを確認し、Release／延期／例外承認を一度だけ判断する。
+6. すべてのGateが成立したmain上のexact Commit／Treeに対して、人間の決定権限者が未観測22件を含む残存リスクを確認し、Release（未観測22件を残す場合は同時に明示的な品質例外を承認する）／延期を一度だけ判断する。
 7. 判断後からtag付与までにHEADまたはIdentityが変化した場合は停止し、再固定と必要な確認へ戻る。
 8. Release承認済みの同じIdentityへ`v0.21.0`tagを付け、tagが承認済みIdentityを指すことを軽量確認する。
 9. tag後はtagged Commitを変更せず、CHG-000066～080の対象tag／公開日付き`Released`遷移、Releases Projectionの公開済みBaseline、実際の時刻・対象環境・結果、Roadmapのv0.22以降の残件を、公開後状態の新しい改訂版へ反映する。
