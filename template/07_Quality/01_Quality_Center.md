@@ -116,7 +116,7 @@
 
 - [ ] 現在の品質状態と結論を履歴より先に示した
 - [ ] Canonical入力、検証目標およびLocal Itemの現在数を説明できる
-- [ ] 既存Canonical入力Coverageと新規UI／SPEC DetailのOPENを区別した
+- [ ] 既存Canonical入力CoverageとUI／SPEC Detail由来の具体的観測条件を区別して全数接続した
 - [ ] Designed、Implemented、Executed、PassedおよびEvidenceの状態を区別した
 - [ ] 未成立、停止、要再確認および観測不能を正常へ畳んでいない
 - [ ] Quality ReadyとReality Audit開始条件を過大表示していない

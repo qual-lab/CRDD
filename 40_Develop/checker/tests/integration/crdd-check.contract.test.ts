@@ -4246,23 +4246,25 @@ test("UI Detailのひな型と現在成果物は欠落できない", () => {
 });
 
 /**
- * Definition完了は未発行UI DetailのCoverageを代替できないことを検証する。
+ * 発行済みUI DetailをOPENへ戻せないことを検証する。
  *
- * @responsibility UI Detail移行台帳のOPEN境界をCheckerが強制することを確認する。
+ * @responsibility UI Detail移行台帳のCanonical CoverageをCheckerが強制することを確認する。
  * @trace AUH-IT-003
- * @precondition UI再構築fixtureが未発行DetailをOPENで保持する。
- * @stimulus OPENをCoveredへ変更してCheckerを実行する。
+ * @precondition UI再構築fixtureが発行済みDetailをCoveredで保持する。
+ * @stimulus CoveredをOPENへ変更してCheckerを実行する。
  * @observation UI Detail Coverageの不正Findingを観測する。
  * @oracle ui-detail-current-coverage-invalidが返る。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
  */
-test("Definition完了は未発行UI DetailのCoverageを代替できない", () => {
+test("発行済みUI DetailをOPENへ戻せない", () => {
   const root = uiReconstructionFixtureRoot();
   const detailPath = path.join(root, "04_UI/Details/01_UI_Detail.md");
   write(
     detailPath,
-    fs.readFileSync(detailPath, "utf8").replace("| OPEN |", "| Covered |"),
+    fs
+      .readFileSync(detailPath, "utf8")
+      .replace("| Applicable／Covered |", "| OPEN |"),
   );
   const result = runChecker(root);
   assert.ok(
@@ -4553,26 +4555,27 @@ test("SPEC分析・定義とひな型は成果物別の可視Checklistを必要�
 });
 
 /**
- * 未発行SPEC DetailをCoveredまたは理由なしN/Aへ畳めないことを検証する。
+ * 発行済みSPEC DetailからBHVまたはCoverageを欠落できないことを検証する。
  *
- * @responsibility SPEC Detail移行台帳のOPEN境界と理由付き評価をCheckerが強制することを確認する。
+ * @responsibility SPEC Detail移行台帳のCanonical CoverageをCheckerが強制することを確認する。
  * @trace AUH-IT-003
- * @precondition SPEC再構築fixtureが未発行BHVをOPENで保持する。
- * @stimulus OPENをCoveredまたは理由なしN/Aへ変更してCheckerを実行する。
+ * @precondition SPEC再構築fixtureが発行済みBHVをCoveredで保持する。
+ * @stimulus CoveredをOPENへ変更するかBHVを未発行へ戻してCheckerを実行する。
  * @observation SPEC Detail Coverageの不正Findingを観測する。
  * @oracle spec-detail-current-coverage-invalidが各変形で返る。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
  */
-test("未発行SPEC DetailをCoveredまたは理由なしN/Aへ畳めない", () => {
-  for (const replacement of ["Covered", "N/A"]) {
+test("発行済みSPEC DetailからBHVまたはCoverageを欠落できない", () => {
+  for (const [from, replacement] of [
+    ["Applicable／Covered", "OPEN"],
+    ["[BHV-000001](BHV-000001/behavior.md)", "未発行"],
+  ] as const) {
     const root = specReconstructionFixtureRoot();
     const detailPath = path.join(root, "05_SPEC/Details/01_SPEC_Detail.md");
     write(
       detailPath,
-      fs
-        .readFileSync(detailPath, "utf8")
-        .replace("| OPEN |", `| ${replacement} |`),
+      fs.readFileSync(detailPath, "utf8").replace(from, replacement),
     );
     const result = runChecker(root);
     assert.ok(
@@ -4582,6 +4585,217 @@ test("未発行SPEC DetailをCoveredまたは理由なしN/Aへ畳めない", ()
       `${result.stdout}\n${result.stderr}`,
     );
   }
+});
+
+/**
+ * UI／SPEC Detail Relationの組合せと下流Ownerを完全一致で検査する。
+ *
+ * @responsibility Canonical index、Interaction、Area、下流Ownerおよび行一意性の同数誤差し替えを拒否する。
+ * @trace AUH-IT-003
+ * @precondition Detail Relation閉包fixtureが正しいRelationと下流Ownerを保持する。
+ * @stimulus Relation tupleまたは下流Ownerを同数の別値へ差し替える。
+ * @observation 専用のRelationまたは下流Coverage Findingを観測する。
+ * @oracle 各誤差し替えが対応するFinding codeで拒否される。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
+ */
+test("UI／SPEC Detail Relationは同数の誤差し替えを拒否する", () => {
+  for (const [relativePath, from, replacement, expectedCode] of [
+    [
+      "05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md",
+      "BHV-000001 | UI-000001",
+      "BHV-000002 | UI-000001",
+      "ui-spec-detail-correspondence-state-invalid",
+    ],
+    [
+      "04_UI/Details/01_UI_Detail.md",
+      "SCR-000001／PRT-000001",
+      "SCR-000002／PRT-000002",
+      "ui-spec-detail-correspondence-state-invalid",
+    ],
+    [
+      "05_SPEC/Details/01_SPEC_Detail.md",
+      "BHV-000001",
+      "BHV-000002",
+      "ui-spec-detail-correspondence-state-invalid",
+    ],
+    [
+      "05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md",
+      "PRT-000001.spec-000001",
+      "PRT-000001.spec-000002",
+      "ui-spec-detail-correspondence-state-invalid",
+    ],
+    [
+      "06_Architecture/08_UI_SPEC_Detail_Traceability.md",
+      "ARCH-000001 | Single",
+      "ARCH-000002 | Single",
+      "ui-spec-detail-downstream-coverage-invalid",
+    ],
+    [
+      "06_Architecture/08_UI_SPEC_Detail_Traceability.md",
+      "Single | checker | Covered",
+      "Single | fake-area | Covered",
+      "ui-spec-detail-downstream-coverage-invalid",
+    ],
+    [
+      "06_Architecture/08_UI_SPEC_Detail_Traceability.md",
+      "| `PRT-000001.spec-000001` | BHV-000001 | ARCH-000001 | Single | checker | Covered |",
+      "| `PRT-000001.spec-000001` | BHV-000001 | ARCH-000001 | Single | checker | Covered |\n| `PRT-000001.spec-000001` | BHV-000001 | ARCH-000001 | Single | checker | Covered |",
+      "ui-spec-detail-downstream-coverage-invalid",
+    ],
+    [
+      "07_Quality/Analysis/Detail/quality_analysis.md",
+      "QA-000001 | Single",
+      "QA-000002 | Single",
+      "ui-spec-detail-downstream-coverage-invalid",
+    ],
+  ] as const) {
+    const root = detailRelationClosureFixtureRoot();
+    const targetPath = path.join(root, relativePath);
+    write(
+      targetPath,
+      fs.readFileSync(targetPath, "utf8").replace(from, replacement),
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some((finding) => finding.code === expectedCode),
+      `${relativePath}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+});
+
+/**
+ * Screenと対応表を同時に誤変更してもCanonical indexとの差を検出する。
+ *
+ * @responsibility 二つの派生成果物が同じ誤BHVを申告しても自己整合だけで受理しない。
+ * @trace AUH-IT-003
+ * @precondition Detail Relation閉包fixtureのCanonical SPEC DetailはBHV-000001を所有する。
+ * @stimulus ScreenとUI／SPEC Detail対応表のBHVをともにBHV-000002へ変更する。
+ * @observation UI／SPEC Detail対応状態のFindingを観測する。
+ * @oracle Canonical SPEC Detailから導出した期待値との差により拒否される。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
+ */
+test("Screenと対応表の協調した誤BHV変更を拒否する", () => {
+  const root = detailRelationClosureFixtureRoot();
+  for (const relativePath of [
+    "04_UI/Details/Areas/operation/SCR-000001/screen.md",
+    "05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md",
+  ]) {
+    const targetPath = path.join(root, relativePath);
+    write(
+      targetPath,
+      fs
+        .readFileSync(targetPath, "utf8")
+        .replaceAll("BHV-000001", "BHV-000002"),
+    );
+  }
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "ui-spec-detail-correspondence-state-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * UI／SPEC Detail対応表の重複行を検査する。
+ *
+ * @responsibility 同じtupleを二重記録してもSet化で欠陥を隠さない。
+ * @trace AUH-IT-003
+ * @precondition Detail Relation閉包fixtureが一件の正しい対応行を保持する。
+ * @stimulus 同じ対応行を複製する。
+ * @observation UI／SPEC Detail対応状態のFindingを観測する。
+ * @oracle 生行数と一意tuple数の差により拒否される。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
+ */
+test("UI／SPEC Detail対応表の重複行を拒否する", () => {
+  const root = detailRelationClosureFixtureRoot();
+  const targetPath = path.join(
+    root,
+    "05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md",
+  );
+  const row =
+    "| SCR-000001／PRT-000001.spec-000001 | BHV-000001 | UI-000001 | SPEC-000001 | Covered | 同じContext |";
+  write(
+    targetPath,
+    fs.readFileSync(targetPath, "utf8").replace(row, `${row}\n${row}`),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "ui-spec-detail-correspondence-state-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * 正しいUI／SPEC Detail Relation閉包を受理する。
+ *
+ * @responsibility Interaction、BHV、ArchitectureおよびQualityの正しいtupleが専用Findingを出さないことを確認する。
+ * @trace AUH-IT-003
+ * @precondition Detail Relation閉包fixtureが一件の完全なRelationを保持する。
+ * @stimulus Checkerを実行する。
+ * @observation Detail Relation専用Findingを観測する。
+ * @oracle Relation組合せと下流CoverageのFindingが0件である。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
+ */
+test("UI／SPEC Detail Relationの完全な閉包を受理する", () => {
+  const result = runChecker(detailRelationClosureFixtureRoot());
+  assert.ok(
+    !result.report.findings.some((finding) =>
+      [
+        "ui-spec-detail-correspondence-state-invalid",
+        "ui-spec-detail-downstream-traceability-missing",
+        "ui-spec-detail-downstream-coverage-invalid",
+      ].includes(finding.code),
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * 複数の共通Ownerが同じRelationを所有する閉包を検査する。
+ *
+ * @responsibility UI側とBHV側に共通するOwnerが複数ある場合をSharedとして受理する。
+ * @trace AUH-IT-003
+ * @precondition Detail Relation閉包fixtureがQA-000001によるSingle所有を保持する。
+ * @stimulus QA-000002を両端のOwnerへ追加し、中央投影をSharedへ更新する。
+ * @observation Detail Relation専用Findingを観測する。
+ * @oracle 複数の共通Owner集合と局所投影が一致すればFindingが0件である。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-003=N/A: Repository内成果物検査であり外部実行境界を持たない。
+ */
+test("UI／SPEC Detail RelationのShared Owner閉包を受理する", () => {
+  const root = detailRelationClosureFixtureRoot();
+  const centralPath = path.join(
+    root,
+    "07_Quality/Analysis/Detail/quality_analysis.md",
+  );
+  write(
+    centralPath,
+    fs
+      .readFileSync(centralPath, "utf8")
+      .replace("QA-000001 | Single", "QA-000001、QA-000002 | Shared"),
+  );
+  write(
+    path.join(root, "07_Quality/Definitions/QA-000002/quality_definition.md"),
+    "# QA-000002 試験用\n\n| Detail Source | Source Definition | 追加する観測条件 | 処置 |\n|---|---|---|---|\n| SCR-000001／PRT-000001 | UI-000001 | 観測する | Mapped |\n| BHV-000001 | SPEC-000001 | 観測する | Mapped |\n\n担当Interaction Relation: `PRT-000001.spec-000001`\n",
+  );
+  const result = runChecker(root);
+  assert.ok(
+    !result.report.findings.some(
+      (finding) =>
+        finding.code === "ui-spec-detail-downstream-coverage-invalid",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
 });
 
 /**
@@ -6915,7 +7129,7 @@ function uiReconstructionFixtureRoot(): string {
   );
   write(
     path.join(root, "04_UI", "Details", "01_UI_Detail.md"),
-    "# UI Detail\n\n状態: OPEN\n\n| UI ID | UI Definition | Detail適用 | UI Area | SCR／PRT／CMP | 理由／戻り条件 |\n|---|---|---|---|---|---|\n| `UI-000001` | 試験用 | OPEN | 未決定 | 未発行 | Definition固定後に再評価する |\n",
+    "# UI Detail\n\n状態: Canonical\n\n| UI ID | UI Definition | Detail適用 | UI Area | SCR／PRT／CMP | 理由／戻り条件 |\n|---|---|---|---|---|---|\n| `UI-000001` | 試験用 | Applicable／Covered | [operation](Areas/operation/area.md) | [SCR-000001／PRT-000001](Areas/operation/SCR-000001/screen.md) | Canonical Definitionから導出 |\n",
   );
   write(
     path.join(
@@ -7123,7 +7337,7 @@ function specReconstructionFixtureRoot(): string {
   );
   write(
     path.join(root, "05_SPEC", "Details", "01_SPEC_Detail.md"),
-    "# SPEC Detail\n\n状態: OPEN\n\n| SPEC ID | SPEC Definition | Detail適用 | BHV | 理由／戻り条件 |\n|---|---|---|---|---|\n| `SPEC-000001` | 試験用 | OPEN | 未発行 | Definition固定後に再評価する |\n",
+    "# SPEC Detail\n\n状態: Canonical\n\n| SPEC ID | SPEC Definition | Detail適用 | BHV | 理由／戻り条件 |\n|---|---|---|---|---|\n| `SPEC-000001` | 試験用 | Applicable／Covered | [BHV-000001](BHV-000001/behavior.md) | Canonical Definitionから導出 |\n",
   );
   write(
     path.join(
@@ -7132,7 +7346,7 @@ function specReconstructionFixtureRoot(): string {
       "Details",
       "02_UI_SPEC_Detail_Correspondence.md",
     ),
-    "# UI／SPEC Detail対応\n\n状態: OPEN\n\n## Checklist\n\n- [x] Definition対応とDetail対応を分けた\n- [x] Detail未発行をCoverage済みへ畳んでいない\n",
+    "# UI／SPEC Detail対応\n\n状態: Pass\n\n| SCR／PRT／Interaction | BHV | Source UI | Source SPEC | 判定 | 保持する対応 |\n|---|---|---|---|---|---|\n| SCR-000001／PRT-000001.spec-000001 | BHV-000001 | UI-000001 | SPEC-000001 | Covered | 同じContext |\n\n## Checklist\n\n- [x] Definition対応とDetail対応を分けた\n- [x] UIからBHVへのCoverageを全件評価した\n- [x] BHVからUIへのCoverageを全件評価した\n",
   );
   write(
     path.join(
@@ -7200,6 +7414,73 @@ function specReconstructionFixtureRoot(): string {
       path.join(root, relativePath),
       fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8"),
     );
+  return root;
+}
+
+/**
+ * detailRelationClosureFixtureRootのTest準備責務を実行する。
+ *
+ * @responsibility UI／SPEC Detail RelationとArchitecture／Quality Ownerが完全に閉じた最小fixtureを構築する。
+ * @trace AUH-IT-002
+ * @precondition SPEC再構築fixtureが一件のUI／SPEC Definition対応を保持する。
+ * @stimulus Screen、Architecture、QualityのRelation投影と局所Ownerを追加する。
+ * @observation 呼出し元Test CaseがRelation tupleと下流Ownerを変形できるRootを返す。
+ * @oracle 正しいfixtureではDetail Relation専用Findingが発生しない。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary AUH-IT-002=N/A: Repository内fixture生成であり外部実行境界を持たない。
+ */
+function detailRelationClosureFixtureRoot(): string {
+  const root = specReconstructionFixtureRoot();
+  write(
+    path.join(
+      root,
+      "04_UI",
+      "Details",
+      "Areas",
+      "operation",
+      "SCR-000001",
+      "screen.md",
+    ),
+    "# SCR-000001 試験用\n\nScreen ID: `SCR-000001`\n\n- 対象UI Definition: [UI-000001](../../../../Definitions/UI-000001/ui_definition.md)\n\n## 3. InteractionとBHV対応\n\n| Interaction Key | PRT | 利用者の意図 | Feedback | BHV | Coverage |\n|---|---|---|---|---|---|\n| `PRT-000001.spec-000001` | PRT-000001 | 実行する | 結果を示す | [BHV-000001](../../../../../05_SPEC/Details/BHV-000001/behavior.md) | Covered |\n",
+  );
+  write(
+    path.join(root, "06_Architecture", "08_UI_SPEC_Detail_Traceability.md"),
+    "# UI／SPEC Detail Architecture Traceability\n\n| UI Detail | Source UI | Architecture定義 | 詳細設計領域 | Coverage |\n|---|---|---|---|---|\n| SCR-000001／PRT-000001 | UI-000001 | ARCH-000001 | checker | Covered |\n\n| SPEC Detail | Source SPEC | Architecture定義 | 詳細設計領域 | Coverage |\n|---|---|---|---|---|\n| BHV-000001 | SPEC-000001 | ARCH-000001 | checker | Covered |\n\n| Interaction Relation | BHV | Architecture Relation Owner | Owner Mode | 詳細設計領域 | Coverage |\n|---|---|---|---|---|---|\n| `PRT-000001.spec-000001` | BHV-000001 | ARCH-000001 | Single | checker | Covered |\n",
+  );
+  write(
+    path.join(
+      root,
+      "06_Architecture",
+      "Definitions",
+      "ARCH-000001",
+      "architecture_definition.md",
+    ),
+    "# ARCH-000001 試験用\n\n| Detail Source | Source Definition | SCR／PRT／Interaction／BHV | Relation／N:N | Coverage | 未解決Gap／戻し先 |\n|---|---|---|---|---|---|\n| SCR-000001／PRT-000001 | UI-000001 | Screen | Direct | Covered | なし |\n| BHV-000001 | SPEC-000001 | Behavior | Direct | Covered | なし |\n\n担当Interaction Relation: `PRT-000001.spec-000001`\n",
+  );
+  write(
+    path.join(
+      root,
+      "06_Architecture",
+      "Details",
+      "checker",
+      "01_Architecture.md",
+    ),
+    "# checker\n\n| Detail Source | UI／SPEC Definition | この領域が担当するSCR／PRT／Interaction／BHV | Relation状態 | 未解決Gap／戻し先 |\n|---|---|---|---|---|\n| [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000001のSource Definition | 全Detail | Covered | なし |\n\n担当Interaction Relation: `PRT-000001.spec-000001`\n",
+  );
+  write(
+    path.join(root, "07_Quality", "Analysis", "Detail", "quality_analysis.md"),
+    "# UI／SPEC DetailのQuality分析\n\n| Detail ID | Source UI | 観測する意味 | 統合先QA | 処置 |\n|---|---|---|---|---|\n| SCR-000001／PRT-000001 | UI-000001 | 観測する | QA-000001 | Mapped |\n\n| Detail ID | Source SPEC | 観測する意味 | 統合先QA | 処置 |\n|---|---|---|---|---|\n| BHV-000001 | SPEC-000001 | 観測する | QA-000001 | Mapped |\n\n| Interaction Relation | BHV | Quality Relation Owner | Owner Mode | Coverage |\n|---|---|---|---|---|\n| `PRT-000001.spec-000001` | BHV-000001 | QA-000001 | Single | Mapped |\n",
+  );
+  write(
+    path.join(
+      root,
+      "07_Quality",
+      "Definitions",
+      "QA-000001",
+      "quality_definition.md",
+    ),
+    "# QA-000001 試験用\n\n| Detail Source | Source Definition | 追加する観測条件 | 処置 |\n|---|---|---|---|\n| SCR-000001／PRT-000001 | UI-000001 | 観測する | Mapped |\n| BHV-000001 | SPEC-000001 | 観測する | Mapped |\n\n担当Interaction Relation: `PRT-000001.spec-000001`\n",
+  );
   return root;
 }
 

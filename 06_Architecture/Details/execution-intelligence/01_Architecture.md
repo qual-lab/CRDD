@@ -204,6 +204,16 @@ Record PortとQueryはTypeScript APIとして同じ契約を公開し、CLI、MC
 
 同じ責務へ二つ目の具象実装を追加する場合は、共通契約へ昇格するかを評価する。昇格しない場合は、同じ責務ではない、または局所分岐の方が単純で影響が小さい理由を記録する。特定のDesign Pattern名は必須にしない。
 
+## 上流UI／SPEC Detailとの関係
+
+| Detail Source | UI／SPEC Definition | この領域が担当するSCR／PRT／Interaction／BHV | Relation状態 | 未解決Gap／戻し先 |
+|---|---|---|---|---|
+| [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000007、ARCH-000016、ARCH-000018のSource Definition | 同Traceability表で上記ARCH-IDへ接続された全Detail ID | Covered | Detailの意味変更はUI／SPECへ、配置責務の変更は該当ARCH定義へ戻す |
+
+担当Interaction Relation: `PRT-000005.spec-000008`、`PRT-000017.spec-000022`、`PRT-000020.spec-000030`
+
+本領域は上記Relationの配置責務を局所所有する。Detailを新しい要求として解釈せず、対応ARCH-IDが所有する配置・境界・状態・観測の制約として実現する。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した

@@ -97,6 +97,24 @@ Quality ID: `QA-000001`
 | `RCM-IT-015` | 正常 | IT | Source Layout | Package Rootと`src`配下の責務配置 | N/A | 許可構造、Root直下Source、汎用`internal`、Owner不明配置 | Directory責務とSource配置を検査する | Directory、Source、Owner、違反理由を記録する | Sourceが責務Directoryに属し、禁止配置が0である | Directory一覧、違反Path、判定 | Source変更0 | Automated |
 | `RCM-UT-016` | 境界 | UT | Domain Result | Domain Outcome／IssueとSurface Adapter | N/A | complete、partial、invalid、unobservableの固定Domain結果 | 各結果をAdapterへ渡し公開結果へ変換する | Domain結果、Adapter結果、severity／code／exitのOwnerを記録する | DomainがSurface固有値を所有せず全Domain状態が欠落なく変換される | 入出力、Owner、変換結果、判定 | Source変更0 | Automated |
 
+## 5.1 UI／SPEC Detailからの観測条件
+
+Source Definition由来の検証義務を維持し、Detailは具体的な観測境界として同じ検証目標へ統合する。
+
+| Detail Source | Source Definition | 追加する観測条件 | 処置 |
+|---|---|---|---|
+| [SCR-000001／PRT-000001](../../../04_UI/Details/Areas/operation/SCR-000001/screen.md) | UI-000001 | 情報、操作、Feedback、状態、失敗、Unknownおよび回復をScreen／Part境界で観測する | Mapped |
+| [SCR-000006／PRT-000006](../../../04_UI/Details/Areas/project-context/SCR-000006/screen.md) | UI-000006 | 情報、操作、Feedback、状態、失敗、Unknownおよび回復をScreen／Part境界で観測する | Mapped |
+| [SCR-000010／PRT-000010](../../../04_UI/Details/Areas/configuration-trust/SCR-000010/screen.md) | UI-000010 | 情報、操作、Feedback、状態、失敗、Unknownおよび回復をScreen／Part境界で観測する | Mapped |
+| [SCR-000014／PRT-000014](../../../04_UI/Details/Areas/governance/SCR-000014/screen.md) | UI-000014 | 情報、操作、Feedback、状態、失敗、Unknownおよび回復をScreen／Part境界で観測する | Mapped |
+| [BHV-000001](../../../05_SPEC/Details/BHV-000001/behavior.md) | SPEC-000001 | Trigger、Authority、Validation、State、Effect、Result、FailureおよびRecoveryをBehavior境界で観測する | Mapped |
+| [BHV-000014](../../../05_SPEC/Details/BHV-000014/behavior.md) | SPEC-000014 | Trigger、Authority、Validation、State、Effect、Result、FailureおよびRecoveryをBehavior境界で観測する | Mapped |
+| [BHV-000019](../../../05_SPEC/Details/BHV-000019/behavior.md) | SPEC-000019 | Trigger、Authority、Validation、State、Effect、Result、FailureおよびRecoveryをBehavior境界で観測する | Mapped |
+
+担当Interaction Relation: `PRT-000001.spec-000001`、`PRT-000010.spec-000014`、`PRT-000014.spec-000019`
+
+全数Coverageと試験段階の扱いは[UI／SPEC DetailのQuality分析](../../Analysis/Detail/quality_analysis.md)を中央統合投影とし、本定義は上記Relationの検証責務を局所所有する。
+
 ## 6. 評価と根拠
 
 Passは、集合の完全一致、全Consumerごとの契約試験、旧契約の不在検査およびEffect 0を同じ固定改訂版で確認した場合だけとする。Evidenceは対象改訂版、導出方法、集合Hash、差分、Local IDごとの結果と未確認範囲を保持する。

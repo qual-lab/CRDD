@@ -1459,7 +1459,8 @@ export function runCurrentProfileChecker(
       "UI別に渡す操作・状態・Feedbackを明示した",
       "Definition対応とDetail対応を区別した",
       "SCR／PRT／InteractionとBHVのCoverageを明示した",
-      "既存の引き渡し結果と新Detail契約のOPENを区別した",
+      "既存のDefinition引き渡し結果と新Detail移行結果を区別した",
+      "対象改訂版で発行済みのSCR／PRT／BHVとDetail Relationを全件確認した",
       "共通Variantを全UIへ一律適用していない",
       "UI側の引き渡し完了条件を明示した",
       "対応レビュー結果の正本をSPEC側の対応文書へ一本化した",
@@ -1486,7 +1487,7 @@ export function runCurrentProfileChecker(
       "対象Definition集合のSHA-256を固定し、再レビュー入力を再構成できる",
       "組別Evidenceの理由を対象UI／SPECの具体的契約事実で説明した",
       "Definition対応とDetail対応を区別した",
-      "Detail未発行をDefinition対応のPassで代替していない",
+      "対象Detail RelationをDefinition対応のPassで代替せず独立確認した",
       "未決事項をAI推測で補完していない",
     ];
 
@@ -1573,7 +1574,7 @@ export function runCurrentProfileChecker(
     const qualityCenterChecklistItemTexts = [
       "現在の品質状態と結論を履歴より先に示した",
       "Canonical入力、検証目標およびLocal Itemの現在数を説明できる",
-      "既存Canonical入力Coverageと新規UI／SPEC DetailのOPENを区別した",
+      "既存Canonical入力CoverageとUI／SPEC Detail由来の具体的観測条件を区別して全数接続した",
       "Designed、Implemented、Executed、PassedおよびEvidenceの状態を区別した",
       "未成立、停止、要再確認および観測不能を正常へ畳んでいない",
       "Quality ReadyとReality Audit開始条件を過大表示していない",
@@ -3825,26 +3826,37 @@ export function runCurrentProfileChecker(
             Boolean(cells?.[0]?.match(/^UI-[0-9]{6}$/u)),
           );
         const detailIds = detailRows.map((cells) => cells[0]);
+        const screenIds = new Set<string>();
+        const partIds = new Set<string>();
+        for (const cells of detailRows) {
+          const screenId = cells[4]?.match(/SCR-[0-9]{6}/u)?.[0];
+          const partId = cells[4]?.match(/PRT-[0-9]{6}/u)?.[0];
+          if (screenId) screenIds.add(screenId);
+          if (partId) partIds.add(partId);
+        }
         if (
           detailRows.some(
             (cells) =>
               cells.length !== 6 ||
-              cells[2] !== "OPEN" ||
-              cells[3] !== "未決定" ||
-              cells[4] !== "未発行" ||
+              cells[2] !== "Applicable／Covered" ||
+              cells[3].trim().length === 0 ||
+              !/SCR-[0-9]{6}/u.test(cells[4]) ||
+              !/PRT-[0-9]{6}/u.test(cells[4]) ||
               cells[5].trim().length === 0,
           ) ||
           detailIds.length !== new Set(detailIds).size ||
           detailIds.length !== registryUiIds.size ||
           detailIds.some((id) => !registryUiIds.has(id)) ||
           [...registryUiIds].some((id) => !detailIds.includes(id)) ||
-          /\|\s*(?:Covered|N\/A)\s*\|/u.test(detailSource)
+          screenIds.size !== registryUiIds.size ||
+          partIds.size !== registryUiIds.size ||
+          !detailSource.includes("状態: Canonical")
         )
           add(
             "error",
             "ui-detail-current-coverage-invalid",
             relative(uiDetailIndexPath),
-            "Every current UI definition must appear exactly once as OPEN with unissued Detail identities; Definition completion must not substitute for Detail coverage.",
+            "Every current UI definition must appear exactly once with one canonical SCR and PRT, a responsible Area, and a derivation reason.",
           );
       }
 
@@ -4193,6 +4205,26 @@ export function runCurrentProfileChecker(
       if (!lstatIfPresent(specIndexPath)?.isFile()) return;
       const specAnalysisRoot = path.join(root, "05_SPEC", "Analysis");
       const specDefinitionsRoot = path.join(root, "05_SPEC", "Definitions");
+      const canonicalUiDetailByUi = new Map<
+        string,
+        Readonly<{ scr: string; prt: string }>
+      >();
+      const uiDetailIndexPath = path.join(
+        root,
+        "04_UI",
+        "Details",
+        "01_UI_Detail.md",
+      );
+      if (lstatIfPresent(uiDetailIndexPath)?.isFile())
+        for (const line of visibleMarkdownStructure(
+          read(uiDetailIndexPath),
+        ).split(/\r?\n/u)) {
+          const cells = markdownTableCells(line);
+          const ui = cells?.[0]?.match(/^UI-[0-9]{6}$/u)?.[0];
+          const scr = cells?.[4]?.match(/SCR-[0-9]{6}/u)?.[0];
+          const prt = cells?.[4]?.match(/PRT-[0-9]{6}/u)?.[0];
+          if (ui && scr && prt) canonicalUiDetailByUi.set(ui, { scr, prt });
+        }
       const requiredTemplates = [
         path.join(
           root,
@@ -4702,6 +4734,7 @@ export function runCurrentProfileChecker(
         "Details",
         "01_SPEC_Detail.md",
       );
+      const canonicalBhvBySpec = new Map<string, string>();
       if (!lstatIfPresent(specDetailIndexPath)?.isFile()) {
         add(
           "error",
@@ -4720,25 +4753,32 @@ export function runCurrentProfileChecker(
             Boolean(cells?.[0]?.match(/^SPEC-[0-9]{6}$/u)),
           );
         const detailIds = detailRows.map((cells) => cells[0]);
+        const behaviorIds = new Set<string>();
+        for (const cells of detailRows) {
+          const behaviorId = cells[3]?.match(/BHV-[0-9]{6}/u)?.[0];
+          if (behaviorId) behaviorIds.add(behaviorId);
+          if (behaviorId) canonicalBhvBySpec.set(cells[0], behaviorId);
+        }
         if (
           detailRows.some(
             (cells) =>
               cells.length !== 5 ||
-              cells[2] !== "OPEN" ||
-              cells[3] !== "未発行" ||
+              cells[2] !== "Applicable／Covered" ||
+              !/BHV-[0-9]{6}/u.test(cells[3]) ||
               cells[4].trim().length === 0,
           ) ||
           detailIds.length !== new Set(detailIds).size ||
           detailIds.length !== actualIds.size ||
           detailIds.some((id) => !actualIds.has(id)) ||
           [...actualIds].some((id) => !detailIds.includes(id)) ||
-          /\|\s*(?:Covered|N\/A)\s*\|/u.test(detailSource)
+          behaviorIds.size !== actualIds.size ||
+          !detailSource.includes("状態: Canonical")
         )
           add(
             "error",
             "spec-detail-current-coverage-invalid",
             relative(specDetailIndexPath),
-            "Every current SPEC definition must appear exactly once as OPEN with unissued BHV identities; Definition completion must not substitute for Detail coverage.",
+            "Every current SPEC definition must appear exactly once with one canonical BHV and a derivation reason.",
           );
       }
 
@@ -4748,6 +4788,79 @@ export function runCurrentProfileChecker(
         "Details",
         "02_UI_SPEC_Detail_Correspondence.md",
       );
+      const expectedDetailRelations = new Map<
+        string,
+        Readonly<{ bhv: string; ui: string; spec: string; scr: string }>
+      >();
+      for (const pair of definitionUiPairOccurrences) {
+        const [ui, spec] = pair.split("|");
+        const uiDetail = canonicalUiDetailByUi.get(ui);
+        const bhv = canonicalBhvBySpec.get(spec);
+        if (!uiDetail || !bhv) continue;
+        expectedDetailRelations.set(`${uiDetail.prt}.spec-${spec.slice(-6)}`, {
+          bhv,
+          ui,
+          spec,
+          scr: uiDetail.scr,
+        });
+      }
+      const screenRelationTuples: string[] = [];
+      const uiDetailAreasRoot = path.join(root, "04_UI", "Details", "Areas");
+      if (lstatIfPresent(uiDetailAreasRoot)?.isDirectory())
+        for (const areaEntry of fs.readdirSync(uiDetailAreasRoot, {
+          withFileTypes: true,
+        })) {
+          if (!areaEntry.isDirectory()) continue;
+          const areaPath = path.join(uiDetailAreasRoot, areaEntry.name);
+          for (const screenEntry of fs.readdirSync(areaPath, {
+            withFileTypes: true,
+          })) {
+            if (
+              !screenEntry.isDirectory() ||
+              !/^SCR-[0-9]{6}$/u.test(screenEntry.name)
+            )
+              continue;
+            const screenPath = path.join(
+              areaPath,
+              screenEntry.name,
+              "screen.md",
+            );
+            if (!lstatIfPresent(screenPath)?.isFile()) continue;
+            const screenSource = visibleMarkdownStructure(read(screenPath));
+            const sourceUi = screenSource.match(
+              /対象UI Definition:\s*\[?(UI-[0-9]{6})/u,
+            )?.[1];
+            if (!sourceUi) continue;
+            for (const line of screenSource.split(/\r?\n/u)) {
+              const cells = markdownTableCells(line);
+              if (!cells) continue;
+              const relationKey = cells[0]?.match(
+                /PRT-[0-9]{6}\.spec-[0-9]{6}/u,
+              )?.[0];
+              const bhv = cells[4]?.match(/BHV-[0-9]{6}/u)?.[0];
+              if (!relationKey || !bhv) continue;
+              screenRelationTuples.push(
+                `${relationKey}|${bhv}|${sourceUi}|SPEC-${relationKey.slice(-6)}|${screenEntry.name}`,
+              );
+            }
+          }
+        }
+      const expectedCorrespondenceTuples = new Set(
+        [...expectedDetailRelations].map(
+          ([relationKey, value]) =>
+            `${relationKey}|${value.bhv}|${value.ui}|${value.spec}|${value.scr}`,
+        ),
+      );
+      const screenRelationTupleSet = new Set(screenRelationTuples);
+      const hasScreenRelationMismatch =
+        screenRelationTuples.length !== screenRelationTupleSet.size ||
+        screenRelationTupleSet.size !== expectedCorrespondenceTuples.size ||
+        [...screenRelationTupleSet].some(
+          (tuple) => !expectedCorrespondenceTuples.has(tuple),
+        ) ||
+        [...expectedCorrespondenceTuples].some(
+          (tuple) => !screenRelationTupleSet.has(tuple),
+        );
       if (!lstatIfPresent(specDetailCorrespondencePath)?.isFile()) {
         add(
           "error",
@@ -4759,21 +4872,482 @@ export function runCurrentProfileChecker(
         const detailCorrespondence = visibleMarkdownStructure(
           read(specDetailCorrespondencePath),
         );
+        const correspondenceTupleRows: string[] = [];
+        for (const line of detailCorrespondence.split(/\r?\n/u)) {
+          const cells = markdownTableCells(line);
+          if (!cells) continue;
+          const scr = cells[0]?.match(/SCR-[0-9]{6}/u)?.[0];
+          const relationKey = cells[0]?.match(
+            /PRT-[0-9]{6}\.spec-[0-9]{6}/u,
+          )?.[0];
+          const bhv = cells[1]?.match(/BHV-[0-9]{6}/u)?.[0];
+          const ui = cells[2]?.match(/UI-[0-9]{6}/u)?.[0];
+          const spec = cells[3]?.match(/SPEC-[0-9]{6}/u)?.[0];
+          if (scr && relationKey && bhv && ui && spec)
+            correspondenceTupleRows.push(
+              `${relationKey}|${bhv}|${ui}|${spec}|${scr}`,
+            );
+        }
+        const correspondenceTuples = new Set(correspondenceTupleRows);
         if (
-          !detailCorrespondence.includes("状態: OPEN") ||
+          !detailCorrespondence.includes("状態: Pass") ||
           !detailCorrespondence.includes(
             "Definition対応とDetail対応を分けた",
           ) ||
           !detailCorrespondence.includes(
-            "Detail未発行をCoverage済みへ畳んでいない",
+            "UIからBHVへのCoverageを全件評価した",
           ) ||
-          /状態:\s*(?:Reviewed|Canonical)/u.test(detailCorrespondence)
+          !detailCorrespondence.includes(
+            "BHVからUIへのCoverageを全件評価した",
+          ) ||
+          hasScreenRelationMismatch ||
+          correspondenceTupleRows.length !== correspondenceTuples.size ||
+          correspondenceTuples.size !== expectedCorrespondenceTuples.size ||
+          [...correspondenceTuples].some(
+            (tuple) => !expectedCorrespondenceTuples.has(tuple),
+          ) ||
+          [...expectedCorrespondenceTuples].some(
+            (tuple) => !correspondenceTuples.has(tuple),
+          ) ||
+          expectedDetailRelations.size !==
+            new Set(definitionUiPairOccurrences).size
         )
           add(
             "error",
             "ui-spec-detail-correspondence-state-invalid",
             relative(specDetailCorrespondencePath),
-            "Unissued UI/SPEC Detail identities must remain explicitly OPEN and separate from completed Definition correspondence.",
+            "UI/SPEC Detail correspondence must remain Pass with one unique interaction-to-BHV relation for every Definition pair and bidirectional coverage.",
+          );
+      }
+
+      const architectureDetailTracePath = path.join(
+        root,
+        "06_Architecture",
+        "08_UI_SPEC_Detail_Traceability.md",
+      );
+      const qualityDetailAnalysisPath = path.join(
+        root,
+        "07_Quality",
+        "Analysis",
+        "Detail",
+        "quality_analysis.md",
+      );
+      if (
+        !lstatIfPresent(architectureDetailTracePath)?.isFile() ||
+        !lstatIfPresent(qualityDetailAnalysisPath)?.isFile()
+      ) {
+        add(
+          "error",
+          "ui-spec-detail-downstream-traceability-missing",
+          relative(
+            !lstatIfPresent(architectureDetailTracePath)?.isFile()
+              ? architectureDetailTracePath
+              : qualityDetailAnalysisPath,
+          ),
+          "Issued UI/SPEC Detail identities must have canonical Architecture and Quality downstream traceability.",
+        );
+      } else {
+        const architectureDetailTrace = visibleMarkdownStructure(
+          read(architectureDetailTracePath),
+        );
+        const qualityDetailAnalysis = visibleMarkdownStructure(
+          read(qualityDetailAnalysisPath),
+        );
+        const issuedScreenIds = new Set(
+          [...architectureDetailTrace.matchAll(/SCR-[0-9]{6}/gu)].map(
+            (match) => match[0],
+          ),
+        );
+        const issuedPartIds = new Set(
+          [...architectureDetailTrace.matchAll(/PRT-[0-9]{6}/gu)].map(
+            (match) => match[0],
+          ),
+        );
+        const issuedBehaviorIds = new Set(
+          [...architectureDetailTrace.matchAll(/BHV-[0-9]{6}/gu)].map(
+            (match) => match[0],
+          ),
+        );
+        const qualityScreenIds = new Set(
+          [...qualityDetailAnalysis.matchAll(/SCR-[0-9]{6}/gu)].map(
+            (match) => match[0],
+          ),
+        );
+        const qualityPartIds = new Set(
+          [...qualityDetailAnalysis.matchAll(/PRT-[0-9]{6}/gu)].map(
+            (match) => match[0],
+          ),
+        );
+        const qualityBehaviorIds = new Set(
+          [...qualityDetailAnalysis.matchAll(/BHV-[0-9]{6}/gu)].map(
+            (match) => match[0],
+          ),
+        );
+        const architectureDefinitionsCombined = fs
+          .readdirSync(path.join(root, "06_Architecture", "Definitions"), {
+            withFileTypes: true,
+          })
+          .filter(
+            (entry) =>
+              entry.isDirectory() && /^ARCH-[0-9]{6}$/u.test(entry.name),
+          )
+          .map((entry) =>
+            visibleMarkdownStructure(
+              read(
+                path.join(
+                  root,
+                  "06_Architecture",
+                  "Definitions",
+                  entry.name,
+                  "architecture_definition.md",
+                ),
+              ),
+            ),
+          )
+          .join("\n");
+        const qualityDefinitionsCombined = fs
+          .readdirSync(path.join(root, "07_Quality", "Definitions"), {
+            withFileTypes: true,
+          })
+          .filter(
+            (entry) => entry.isDirectory() && /^QA-[0-9]{6}$/u.test(entry.name),
+          )
+          .map((entry) =>
+            visibleMarkdownStructure(
+              read(
+                path.join(
+                  root,
+                  "07_Quality",
+                  "Definitions",
+                  entry.name,
+                  "quality_definition.md",
+                ),
+              ),
+            ),
+          )
+          .join("\n");
+        const extractIds = (value: string, pattern: RegExp): Set<string> =>
+          new Set([...value.matchAll(pattern)].map((match) => match[0]));
+        const sameSet = (left: Set<string>, right: Set<string>): boolean =>
+          left.size === right.size &&
+          [...left].every((item) => right.has(item));
+        const addOwner = (
+          target: Map<string, Set<string>>,
+          key: string,
+          owner: string,
+        ): void => {
+          const owners = target.get(key) ?? new Set<string>();
+          owners.add(owner);
+          target.set(key, owners);
+        };
+        const architectureUiOwners = new Map<string, Set<string>>();
+        const architectureSpecOwners = new Map<string, Set<string>>();
+        const architectureRelationOwners = new Map<string, Set<string>>();
+        const architectureAreaOwners = new Map<string, Set<string>>();
+        let architectureRelationAssignmentRows = 0;
+        let architectureAreaAssignmentRows = 0;
+        let qualityRelationAssignmentRows = 0;
+        let hasDuplicateRelationAssignment = false;
+        const architectureDefinitionsRoot = path.join(
+          root,
+          "06_Architecture",
+          "Definitions",
+        );
+        for (const entry of fs.readdirSync(architectureDefinitionsRoot, {
+          withFileTypes: true,
+        })) {
+          if (!entry.isDirectory() || !/^ARCH-[0-9]{6}$/u.test(entry.name))
+            continue;
+          const source = visibleMarkdownStructure(
+            read(
+              path.join(
+                architectureDefinitionsRoot,
+                entry.name,
+                "architecture_definition.md",
+              ),
+            ),
+          );
+          for (const line of source.split(/\r?\n/u)) {
+            const cells = markdownTableCells(line);
+            if (cells) {
+              const ui = cells[1]?.match(/UI-[0-9]{6}/u)?.[0];
+              const spec = cells[1]?.match(/SPEC-[0-9]{6}/u)?.[0];
+              if (ui && /SCR-[0-9]{6}/u.test(cells[0] ?? ""))
+                addOwner(architectureUiOwners, ui, entry.name);
+              if (spec && /BHV-[0-9]{6}/u.test(cells[0] ?? ""))
+                addOwner(architectureSpecOwners, spec, entry.name);
+            }
+            if (!line.startsWith("担当Interaction Relation:")) continue;
+            const relationKeys = [
+              ...line.matchAll(/PRT-[0-9]{6}\.spec-[0-9]{6}/gu),
+            ].map((match) => match[0]);
+            architectureRelationAssignmentRows += relationKeys.length;
+            if (relationKeys.length !== new Set(relationKeys).size)
+              hasDuplicateRelationAssignment = true;
+            for (const relationKey of relationKeys)
+              addOwner(architectureRelationOwners, relationKey, entry.name);
+          }
+        }
+        const architectureDetailsRoot = path.join(
+          root,
+          "06_Architecture",
+          "Details",
+        );
+        const areasByArchitecture = new Map<string, Set<string>>();
+        for (const entry of fs.readdirSync(architectureDetailsRoot, {
+          withFileTypes: true,
+        })) {
+          if (!entry.isDirectory()) continue;
+          const detailPath = path.join(
+            architectureDetailsRoot,
+            entry.name,
+            "01_Architecture.md",
+          );
+          if (!lstatIfPresent(detailPath)?.isFile()) continue;
+          const source = visibleMarkdownStructure(read(detailPath));
+          const ownerLine = source
+            .split(/\r?\n/u)
+            .find((line) =>
+              line.includes("[UI／SPEC Detail Architecture Traceability]"),
+            );
+          for (const architectureId of extractIds(
+            ownerLine ?? "",
+            /ARCH-[0-9]{6}/gu,
+          ))
+            addOwner(areasByArchitecture, architectureId, entry.name);
+          for (const line of source.split(/\r?\n/u)) {
+            if (!line.startsWith("担当Interaction Relation:")) continue;
+            const relationKeys = [
+              ...line.matchAll(/PRT-[0-9]{6}\.spec-[0-9]{6}/gu),
+            ].map((match) => match[0]);
+            architectureAreaAssignmentRows += relationKeys.length;
+            if (relationKeys.length !== new Set(relationKeys).size)
+              hasDuplicateRelationAssignment = true;
+            for (const relationKey of relationKeys)
+              addOwner(architectureAreaOwners, relationKey, entry.name);
+          }
+        }
+        const qualityUiOwners = new Map<string, Set<string>>();
+        const qualitySpecOwners = new Map<string, Set<string>>();
+        const qualityRelationOwners = new Map<string, Set<string>>();
+        const qualityDefinitionsRoot = path.join(
+          root,
+          "07_Quality",
+          "Definitions",
+        );
+        for (const entry of fs.readdirSync(qualityDefinitionsRoot, {
+          withFileTypes: true,
+        })) {
+          if (!entry.isDirectory() || !/^QA-[0-9]{6}$/u.test(entry.name))
+            continue;
+          const source = visibleMarkdownStructure(
+            read(
+              path.join(
+                qualityDefinitionsRoot,
+                entry.name,
+                "quality_definition.md",
+              ),
+            ),
+          );
+          for (const line of source.split(/\r?\n/u)) {
+            const cells = markdownTableCells(line);
+            if (cells) {
+              const ui = cells[1]?.match(/UI-[0-9]{6}/u)?.[0];
+              const spec = cells[1]?.match(/SPEC-[0-9]{6}/u)?.[0];
+              if (ui && /SCR-[0-9]{6}/u.test(cells[0] ?? ""))
+                addOwner(qualityUiOwners, ui, entry.name);
+              if (spec && /BHV-[0-9]{6}/u.test(cells[0] ?? ""))
+                addOwner(qualitySpecOwners, spec, entry.name);
+            }
+            if (!line.startsWith("担当Interaction Relation:")) continue;
+            const relationKeys = [
+              ...line.matchAll(/PRT-[0-9]{6}\.spec-[0-9]{6}/gu),
+            ].map((match) => match[0]);
+            qualityRelationAssignmentRows += relationKeys.length;
+            if (relationKeys.length !== new Set(relationKeys).size)
+              hasDuplicateRelationAssignment = true;
+            for (const relationKey of relationKeys)
+              addOwner(qualityRelationOwners, relationKey, entry.name);
+          }
+        }
+        const architectureCentralRelations = new Map<
+          string,
+          Readonly<{
+            bhv: string;
+            owners: Set<string>;
+            mode: string;
+            areas: Set<string>;
+          }>
+        >();
+        let architectureCentralRelationRows = 0;
+        let qualityCentralRelationRows = 0;
+        let hasDuplicateCentralRelation = false;
+        for (const line of architectureDetailTrace.split(/\r?\n/u)) {
+          const cells = markdownTableCells(line);
+          const relationKey = cells?.[0]?.match(
+            /PRT-[0-9]{6}\.spec-[0-9]{6}/u,
+          )?.[0];
+          const bhv = cells?.[1]?.match(/BHV-[0-9]{6}/u)?.[0];
+          if (!cells || !relationKey || !bhv || cells.length !== 6) continue;
+          architectureCentralRelationRows += 1;
+          const ownerRows = [...cells[2].matchAll(/ARCH-[0-9]{6}/gu)].map(
+            (match) => match[0],
+          );
+          const areaRows = cells[4].split("、").map((item) => item.trim());
+          if (
+            architectureCentralRelations.has(relationKey) ||
+            ownerRows.length !== new Set(ownerRows).size ||
+            areaRows.length !== new Set(areaRows).size
+          )
+            hasDuplicateCentralRelation = true;
+          architectureCentralRelations.set(relationKey, {
+            bhv,
+            owners: new Set(ownerRows),
+            mode: cells[3],
+            areas: new Set(areaRows),
+          });
+        }
+        const qualityCentralRelations = new Map<
+          string,
+          Readonly<{ bhv: string; owners: Set<string>; mode: string }>
+        >();
+        for (const line of qualityDetailAnalysis.split(/\r?\n/u)) {
+          const cells = markdownTableCells(line);
+          const relationKey = cells?.[0]?.match(
+            /PRT-[0-9]{6}\.spec-[0-9]{6}/u,
+          )?.[0];
+          const bhv = cells?.[1]?.match(/BHV-[0-9]{6}/u)?.[0];
+          if (!cells || !relationKey || !bhv || cells.length !== 5) continue;
+          qualityCentralRelationRows += 1;
+          const ownerRows = [...cells[2].matchAll(/QA-[0-9]{6}/gu)].map(
+            (match) => match[0],
+          );
+          if (
+            qualityCentralRelations.has(relationKey) ||
+            ownerRows.length !== new Set(ownerRows).size
+          )
+            hasDuplicateCentralRelation = true;
+          qualityCentralRelations.set(relationKey, {
+            bhv,
+            owners: new Set(ownerRows),
+            mode: cells[3],
+          });
+        }
+        const ownerAssignmentCount = (
+          assignments: Map<string, Set<string>>,
+        ): number =>
+          [...assignments.values()].reduce(
+            (total, owners) => total + owners.size,
+            0,
+          );
+        let hasRelationClosureMismatch = false;
+        for (const [relationKey, relation] of expectedDetailRelations) {
+          const uiArchitecture =
+            architectureUiOwners.get(relation.ui) ?? new Set();
+          const specArchitecture =
+            architectureSpecOwners.get(relation.spec) ?? new Set();
+          const commonArchitecture = new Set(
+            [...uiArchitecture].filter((owner) => specArchitecture.has(owner)),
+          );
+          const expectedArchitectureOwners = commonArchitecture.size
+            ? commonArchitecture
+            : new Set([...uiArchitecture, ...specArchitecture]);
+          const expectedArchitectureMode =
+            commonArchitecture.size === 0
+              ? "Joint"
+              : commonArchitecture.size === 1
+                ? "Single"
+                : "Shared";
+          const expectedAreas = new Set<string>();
+          for (const owner of expectedArchitectureOwners)
+            for (const area of areasByArchitecture.get(owner) ?? [])
+              expectedAreas.add(area);
+          const architectureCentral =
+            architectureCentralRelations.get(relationKey);
+          const uiQuality = qualityUiOwners.get(relation.ui) ?? new Set();
+          const specQuality = qualitySpecOwners.get(relation.spec) ?? new Set();
+          const commonQuality = new Set(
+            [...uiQuality].filter((owner) => specQuality.has(owner)),
+          );
+          const expectedQualityOwners = commonQuality.size
+            ? commonQuality
+            : new Set([...uiQuality, ...specQuality]);
+          const expectedQualityMode =
+            commonQuality.size === 0
+              ? "Joint"
+              : commonQuality.size === 1
+                ? "Single"
+                : "Shared";
+          const qualityCentral = qualityCentralRelations.get(relationKey);
+          if (
+            !architectureCentral ||
+            architectureCentral.bhv !== relation.bhv ||
+            architectureCentral.mode !== expectedArchitectureMode ||
+            !sameSet(architectureCentral.owners, expectedArchitectureOwners) ||
+            !sameSet(architectureCentral.areas, expectedAreas) ||
+            !sameSet(
+              architectureRelationOwners.get(relationKey) ?? new Set(),
+              expectedArchitectureOwners,
+            ) ||
+            !sameSet(
+              architectureAreaOwners.get(relationKey) ?? new Set(),
+              expectedAreas,
+            ) ||
+            !qualityCentral ||
+            qualityCentral.bhv !== relation.bhv ||
+            qualityCentral.mode !== expectedQualityMode ||
+            !sameSet(qualityCentral.owners, expectedQualityOwners) ||
+            !sameSet(
+              qualityRelationOwners.get(relationKey) ?? new Set(),
+              expectedQualityOwners,
+            )
+          )
+            hasRelationClosureMismatch = true;
+        }
+        const currentUiDefinitionCount = fs
+          .readdirSync(path.join(root, "04_UI", "Definitions"), {
+            withFileTypes: true,
+          })
+          .filter(
+            (entry) => entry.isDirectory() && /^UI-[0-9]{6}$/u.test(entry.name),
+          ).length;
+        const allIssuedIds = [
+          ...issuedScreenIds,
+          ...issuedPartIds,
+          ...issuedBehaviorIds,
+        ];
+        if (
+          issuedScreenIds.size !== currentUiDefinitionCount ||
+          issuedPartIds.size !== currentUiDefinitionCount ||
+          issuedBehaviorIds.size !== actualIds.size ||
+          qualityScreenIds.size !== issuedScreenIds.size ||
+          qualityPartIds.size !== issuedPartIds.size ||
+          qualityBehaviorIds.size !== issuedBehaviorIds.size ||
+          allIssuedIds.some(
+            (id) =>
+              !architectureDefinitionsCombined.includes(id) ||
+              !qualityDefinitionsCombined.includes(id),
+          ) ||
+          architectureCentralRelations.size !== expectedDetailRelations.size ||
+          qualityCentralRelations.size !== expectedDetailRelations.size ||
+          architectureCentralRelationRows !==
+            architectureCentralRelations.size ||
+          qualityCentralRelationRows !== qualityCentralRelations.size ||
+          architectureRelationAssignmentRows !==
+            ownerAssignmentCount(architectureRelationOwners) ||
+          architectureAreaAssignmentRows !==
+            ownerAssignmentCount(architectureAreaOwners) ||
+          qualityRelationAssignmentRows !==
+            ownerAssignmentCount(qualityRelationOwners) ||
+          hasDuplicateRelationAssignment ||
+          hasDuplicateCentralRelation ||
+          hasRelationClosureMismatch
+        )
+          add(
+            "error",
+            "ui-spec-detail-downstream-coverage-invalid",
+            relative(architectureDetailTracePath),
+            "All issued SCR, PRT, and BHV identities must be covered by Architecture definitions and Quality definitions without set loss.",
           );
       }
 

@@ -78,5 +78,5 @@ Detail対応は[`Details/02_UI_SPEC_Detail_Correspondence.md`](Details/02_UI_SPE
 - [ ] 対象Definition集合のSHA-256を固定し、再レビュー入力を再構成できる
 - [ ] 組別Evidenceの理由を対象UI／SPECの具体的契約事実で説明した
 - [ ] Definition対応とDetail対応を区別した
-- [ ] Detail未発行をDefinition対応のPassで代替していない
+- [ ] 対象Detail RelationをDefinition対応のPassで代替せず独立確認した
 - [ ] 未決事項をAI推測で補完していない

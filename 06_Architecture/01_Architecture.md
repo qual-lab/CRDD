@@ -14,12 +14,14 @@ Last Updated: 2026-09-19
 
 Architectureの正式入力はCanonicalな20件のUI定義と29件のSPEC定義である。UIとSPECを別々に全数分析し、同じ上位責務境界へ属する結果を18件のArchitecture定義へ統合した。
 
-v0.22でUI／SPEC Detailが新しい正式入力へ追加されたが、現在のSCR／PRT／Interaction／BHVは未発行である。v0.21 Architectureは当時のDefinition入力から成立したCanonical成果物として維持し、新DetailをSource、WIPまたは既存Architectureから遡及補完しない。v0.22のDetail対応レビュー後に、新しいArchitecture入力として再分析する。
+UI／SPEC Detailは、v0.21のDefinition入力を置き換えず、その意味を実現する配置・操作・状態・観測の具体的制約として追加した。20 SCR、20 PRT、31 Interactionおよび29 BHVを18 Architecture定義へ全数接続し、詳細設計領域への配置を[UI／SPEC Detail Architecture Traceability](08_UI_SPEC_Detail_Traceability.md)で固定した。Source、WIPまたは既存Architectureから意味を遡及補完していない。
 
 ```text
 UI定義 20件 ──→ UI観点のArchitecture分析 20件 ──┐
                                                      ├─→ Architecture定義 18件
 SPEC定義 29件 → SPEC観点のArchitecture分析 29件 ─┘
+                                                              ↑
+                 UI／SPEC Detail（20 SCR・20 PRT・31 Interaction・29 BHV）
                                                               │
                                                               ▼
                                                    Architecture横断モデル

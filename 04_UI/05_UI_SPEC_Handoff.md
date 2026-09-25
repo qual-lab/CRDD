@@ -65,7 +65,7 @@ SPECはこれらを再定義せず、同じUX／IAから観測可能な条件、
 
 なし。
 
-Definition対応のv0.21結果は[UI／SPEC対応](../05_SPEC/06_UI_SPEC_Correspondence.md)を維持する。新しいDetail対応は[UI／SPEC Detail対応](../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)で別に扱い、現在は`OPEN`である。
+Definition対応のv0.21結果は[UI／SPEC対応](../05_SPEC/06_UI_SPEC_Correspondence.md)を維持する。新しいDetail対応は[UI／SPEC Detail対応](../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)で別に扱い、31 Relationを双方向に全件確認して`Pass`としている。
 
 ## Checklist
 
@@ -74,7 +74,8 @@ Definition対応のv0.21結果は[UI／SPEC対応](../05_SPEC/06_UI_SPEC_Corresp
 - [x] UI別に渡す操作・状態・Feedbackを明示した
 - [x] Definition対応とDetail対応を区別した
 - [x] SCR／PRT／InteractionとBHVのCoverageを明示した
-- [x] 既存の引き渡し結果と新Detail契約のOPENを区別した
+- [x] 既存のDefinition引き渡し結果と新Detail移行結果を区別した
+- [x] 対象改訂版で発行済みのSCR／PRT／BHVとDetail Relationを全件確認した
 - [x] 共通Variantを全UIへ一律適用していない
 - [x] UI側の引き渡し完了条件を明示した
 - [x] 対応レビュー結果の正本をSPEC側の対応文書へ一本化した

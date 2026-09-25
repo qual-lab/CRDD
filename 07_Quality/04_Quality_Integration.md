@@ -133,7 +133,7 @@ Source IDごとの検証義務は各工程の`Analysis/<工程>/quality_analysis
 | Source Layer | 対象 | 現在状態 | Qualityでの処置 | 戻り条件 |
 |---|---|---|---|---|
 | Definition | v0.21のUI／SPEC Definition | Covered | 既存Quality AnalysisとQA Definitionへ統合済み | N/A: v0.21契約で閉包済み |
-| Detail | SCR／PRT／Interaction／BHV | OPEN | 未発行を既存Definition Coverageへ畳まない | v0.22でCanonical Detailを発行し、具体的観測条件を再分析する |
+| Detail | 20 SCR、20 PRT、31 Interaction、29 BHV | Covered | [Detail Quality分析](Analysis/Detail/quality_analysis.md)で全数処置し、Source Definition由来の既存QAへ具体的観測条件として統合する | Product固有Visual／CMPを発行した時に再分析する |
 
 ## Checklist
 

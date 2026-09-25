@@ -45,7 +45,8 @@ UX定義 + IA定義
 - [ ] UI別に渡す操作・状態・Feedbackを明示した
 - [ ] Definition対応とDetail対応を区別した
 - [ ] SCR／PRT／InteractionとBHVのCoverageを明示した
-- [ ] 既存の引き渡し結果と新Detail契約のOPENを区別した
+- [ ] 既存のDefinition引き渡し結果と新Detail移行結果を区別した
+- [ ] 対象改訂版で発行済みのSCR／PRT／BHVとDetail Relationを全件確認した
 - [ ] 共通Variantを全UIへ一律適用していない
 - [ ] UI側の引き渡し完了条件を明示した
 - [ ] 対応レビュー結果の正本をSPEC側の対応文書へ一本化した

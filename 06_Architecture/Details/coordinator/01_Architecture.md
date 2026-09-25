@@ -829,6 +829,16 @@ CoordinatorはProject状態を再定義せず、Project RuntimeはProvider、OS�
 
 CodexとClaude、複数のProcess Controller、通常実行とRecovery等、同じ責務の具象実装が既に複数あるため共通契約への昇格はRequiredである。共通契約はProviderやOS固有情報を消すためではなく、Authority、結果、診断およびcleanupの不変条件を各具象実装へ強制するために用いる。
 
+## 上流UI／SPEC Detailとの関係
+
+| Detail Source | UI／SPEC Definition | この領域が担当するSCR／PRT／Interaction／BHV | Relation状態 | 未解決Gap／戻し先 |
+|---|---|---|---|---|
+| [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000004、ARCH-000008、ARCH-000010、ARCH-000014、ARCH-000015のSource Definition | 同Traceability表で上記ARCH-IDへ接続された全Detail ID | Covered | Detailの意味変更はUI／SPECへ、配置責務の変更は該当ARCH定義へ戻す |
+
+担当Interaction Relation: `PRT-000002.spec-000002`、`PRT-000002.spec-000003`、`PRT-000002.spec-000028`、`PRT-000002.spec-000029`、`PRT-000003.spec-000004`、`PRT-000003.spec-000005`、`PRT-000005.spec-000009`、`PRT-000010.spec-000014`、`PRT-000010.spec-000015`、`PRT-000011.spec-000005`、`PRT-000012.spec-000017`、`PRT-000013.spec-000018`、`PRT-000016.spec-000021`、`PRT-000016.spec-000026`、`PRT-000016.spec-000027`
+
+本領域は上記Relationの配置責務を局所所有する。Detailを新しい要求として解釈せず、対応ARCH-IDが所有する配置・境界・状態・観測の制約として実現する。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した

@@ -1,6 +1,6 @@
 # ユーザーインターフェース
 
-状態: UI契約Ready／UI工程Exit待ち（v0.21.0、公開済みの基準版: v0.20.1）
+状態: UI Detail Ready／UI工程Exit待ち（v0.21.0 DefinitionのDetail移行完了）
 担当責任者: Qual-Lab
 対象版: v0.21.0
 工程規則: [UI](../25_UI.md)、[UIと振る舞い仕様の対応レビュー](../24_UI_Behavior_Specification.md)
@@ -90,14 +90,14 @@ Repository / CLI / MCP / Workbench
 
 ## 6. 現在状態と次工程
 
-v0.21.0のUI Definition 20件は当時の契約でCanonical化されている。v0.22で追加したUI Detail契約に対する現在状態は[UI Detail](Details/01_UI_Detail.md)を正本とし、全20件を`OPEN`へ処置している。これはv0.21 Releaseの成立を遡及して変更するものではない。
+v0.21.0のUI Definition 20件は当時の契約でCanonical化されている。新しいUI Detail契約に対して、4 Area Design Guide、20 SCR、20 PRTおよび31 Interaction Relationへ全件移行した。現在状態は[UI Detail](Details/01_UI_Detail.md)を正本とする。
 
 ```text
 v0.21 UI Definition: Canonical
         ↓
-v0.22 UI Detail適用: OPEN
+v0.21 UI Detail移行: Complete
         ↓
-Discovery後のCanonical Definitionから再導出
+v0.22固有変更はDiscoveryから別途追加
 ```
 
 32件のUX定義と22件のIA定義を別々の正式入力として全数分析し、20件のUI定義へ統合した。REQはUXを介して追跡するが、UIの直接入力にはしない。以前の独立レビュー後に記録作成側のGapを検出したため、UX-000032とIA-000022からUI-000020を追加した。全54分析と20定義は成果物別Checklistを完了し、UI契約はUI／SPEC対応レビューへ渡せる状態である。一方、[表示面ごとの視覚評価](04_Visual_and_Accessibility_Direction.md#5-表示面ごとの現在状態)と人間による工程Exit判断は未完了であり、Architectureへの通常Handoffを許可する完全な`UI Ready`ではない。
@@ -111,11 +111,12 @@ Discovery後のCanonical Definitionから再導出
 - [x] 全UX DefinitionとIA DefinitionをUI分析へ一件ずつ対応付けた
 - [x] 全UI分析をUI Definitionへ処置した
 - [x] UI台帳とAnalysis・Definitionsの関係が一致する
-- [x] 新UI Detail契約に対する全20 UI Definitionの現在状態を処置した
-- [x] v0.21 Release成立とv0.22 Detail OPENを区別した
+- [x] 新UI Detail契約に対する全20 UI DefinitionをSCR／PRT／Interactionへ移行した
+- [x] v0.21移行結果とv0.22固有Detailを区別した
 - [x] 横断成果物を個別UI定義の第二の正本にしていない
 - [x] 基本図を全件処置した
 - [x] Human Input、Open・Gapおよび戻り条件を明示した
 - [x] UI契約Ready、UI／SPEC対応レビュー入力Ready、UI工程Exitを区別した
-- OPEN: Prototype／実画面の視覚・Accessibility評価と人間による工程Exit判断。未完了のためArchitectureへの通常Handoffは行わない
+- [x] v0.21の非視覚Surfaceを含むVisual／Accessibility契約を全20 SCRで評価した
+- OPEN: v0.22 Product固有GUIのPrototype／実画面評価と人間による工程Exit判断。v0.21移行のArchitecture／Quality伝播は完了している
 - [x] ArchitectureまたはSourceから意味を逆輸入していない

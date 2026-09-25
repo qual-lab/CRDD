@@ -111,6 +111,24 @@ Passは、各項目の値とその出所／不完全性が同じ相関で返り�
 | LT | N/A | 現在のQuality Contractに長時間成立条件がないため非該当 | N/A | 未実行をPassへ読み替えず、明示的なRelease条件でない限り通常監査を停止しない |
 
 
+## UI／SPEC Detailからの観測条件
+
+Source Definition由来の検証義務を維持し、Detailは具体的な観測境界として同じ検証目標へ統合する。
+
+| Detail Source | Source Definition | 追加する観測条件 | 処置 |
+|---|---|---|---|
+| [SCR-000004／PRT-000004](../../../04_UI/Details/Areas/project-context/SCR-000004/screen.md) | UI-000004 | 情報、操作、Feedback、状態、失敗、Unknownおよび回復をScreen／Part境界で観測する | Mapped |
+| [SCR-000005／PRT-000005](../../../04_UI/Details/Areas/operation/SCR-000005/screen.md) | UI-000005 | 情報、操作、Feedback、状態、失敗、Unknownおよび回復をScreen／Part境界で観測する | Mapped |
+| [SCR-000017／PRT-000017](../../../04_UI/Details/Areas/project-context/SCR-000017/screen.md) | UI-000017 | 情報、操作、Feedback、状態、失敗、Unknownおよび回復をScreen／Part境界で観測する | Mapped |
+| [BHV-000006](../../../05_SPEC/Details/BHV-000006/behavior.md) | SPEC-000006 | Trigger、Authority、Validation、State、Effect、Result、FailureおよびRecoveryをBehavior境界で観測する | Mapped |
+| [BHV-000007](../../../05_SPEC/Details/BHV-000007/behavior.md) | SPEC-000007 | Trigger、Authority、Validation、State、Effect、Result、FailureおよびRecoveryをBehavior境界で観測する | Mapped |
+| [BHV-000008](../../../05_SPEC/Details/BHV-000008/behavior.md) | SPEC-000008 | Trigger、Authority、Validation、State、Effect、Result、FailureおよびRecoveryをBehavior境界で観測する | Mapped |
+| [BHV-000022](../../../05_SPEC/Details/BHV-000022/behavior.md) | SPEC-000022 | Trigger、Authority、Validation、State、Effect、Result、FailureおよびRecoveryをBehavior境界で観測する | Mapped |
+
+担当Interaction Relation: `PRT-000004.spec-000002`、`PRT-000004.spec-000006`、`PRT-000004.spec-000007`、`PRT-000005.spec-000008`、`PRT-000017.spec-000022`
+
+全数Coverageと試験段階の扱いは[UI／SPEC DetailのQuality分析](../../Analysis/Detail/quality_analysis.md)を中央統合投影とし、本定義は上記Relationの検証責務を局所所有する。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

@@ -565,7 +565,7 @@
 
 ## 7. ArchitectureとQualityへの接続
 
-本書はv0.21のDefinition対応を所有する。新しいDetail対応は[UI／SPEC Detail対応](Details/02_UI_SPEC_Detail_Correspondence.md)を正本とし、SCR／PRT／InteractionおよびBHVが未発行の現在は`OPEN`である。本書のPassをDetail対応のPassへ読み替えない。
+本書はDefinition対応を所有する。Detail対応は[UI／SPEC Detail対応](Details/02_UI_SPEC_Detail_Correspondence.md)を正本とし、20 SCR、20 PRT、31 Interactionおよび29 BHVを全数確認して`Pass`とした。本書のPassだけをDetail対応のPassへ読み替えず、両方の対応結果を独立して維持する。
 
 - Architectureの正式入力はUI DefinitionとSPEC Definitionである。この対応レビューは両入力の対応Closureを示すEvidenceであり、第三の仕様ではない。UI工程Exitが未完了の間はArchitectureへの通常Handoffを許可しない。
 - UIとSPECはそれぞれQuality Analysisへ入力を渡す。対応レビューから新しいQuality Contractを発明しない。
@@ -593,5 +593,5 @@
 - [x] 対象Definition集合のSHA-256を固定し、再レビュー入力を再構成できる
 - [x] 組別Evidenceの理由を対象UI／SPECの具体的契約事実で説明した
 - [x] Definition対応とDetail対応を区別した
-- [x] Detail未発行をDefinition対応のPassで代替していない
+- [x] 対象Detail RelationをDefinition対応のPassで代替せず独立確認した
 - [x] 未決事項をAI推測で補完していない

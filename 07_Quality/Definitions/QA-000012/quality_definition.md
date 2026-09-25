@@ -75,6 +75,19 @@ Execution Identity、Source Identity、Observed At、観測状態、記録先の
 | LT | Conditional | 対象、継続時間、資源／費用上限、中止条件および清掃条件を事前に固定した場合だけ設計する | Human Explicit Authorization | 未実行をPassへ読み替えず、明示的なRelease条件でない限り通常監査を停止しない |
 
 
+## UI／SPEC Detailからの観測条件
+
+Source Definition由来の検証義務を維持し、Detailは具体的な観測境界として同じ検証目標へ統合する。
+
+| Detail Source | Source Definition | 追加する観測条件 | 処置 |
+|---|---|---|---|
+| [SCR-000020／PRT-000020](../../../04_UI/Details/Areas/operation/SCR-000020/screen.md) | UI-000020 | 情報、操作、Feedback、状態、失敗、Unknownおよび回復をScreen／Part境界で観測する | Mapped |
+| [BHV-000030](../../../05_SPEC/Details/BHV-000030/behavior.md) | SPEC-000030 | Trigger、Authority、Validation、State、Effect、Result、FailureおよびRecoveryをBehavior境界で観測する | Mapped |
+
+担当Interaction Relation: `PRT-000020.spec-000030`
+
+全数Coverageと試験段階の扱いは[UI／SPEC DetailのQuality分析](../../Analysis/Detail/quality_analysis.md)を中央統合投影とし、本定義は上記Relationの検証責務を局所所有する。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

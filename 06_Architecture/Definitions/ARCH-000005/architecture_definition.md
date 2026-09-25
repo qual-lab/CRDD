@@ -115,6 +115,21 @@ Project／Portfolioの状態を根拠と不完全性付きで読む責務と、T
 
 Architecture固有の追加人間判断はない。これは入力の未確認事項を解消済みとする意味ではない。入力の利用者成果、振る舞い、Authority、Effectまたは失敗境界を変える必要が生じた場合は、その意味を所有するUI／SPEC工程へ戻す。
 
+### 4.1 UI／SPEC Detailの配置制約
+
+Detailは第2・3節のDefinition入力を置き換えず、その意味を実現する配置・操作・状態・観測の具体的制約として扱う。
+
+| Detail Source | Source Definition | SCR／PRT／Interaction／BHV | Relation／N:N | Coverage | 未解決Gap／戻し先 |
+|---|---|---|---|---|---|
+| [SCR-000004／PRT-000004](../../../04_UI/Details/Areas/project-context/SCR-000004/screen.md) | UI-000004 | Screen／Partの配置、情報優先度、操作、FeedbackおよびState | Source UIとの直接Relation | Covered | v0.22固有LayoutはUI Detailへ戻す |
+| [BHV-000002](../../../05_SPEC/Details/BHV-000002/behavior.md) | SPEC-000002 | Trigger、Authority、Validation、State、Effect、Result、FailureおよびRecovery | Source SPECとの直接Relation | Covered | Behavior意味の変更はSPEC Detailへ戻す |
+| [BHV-000006](../../../05_SPEC/Details/BHV-000006/behavior.md) | SPEC-000006 | Trigger、Authority、Validation、State、Effect、Result、FailureおよびRecovery | Source SPECとの直接Relation | Covered | Behavior意味の変更はSPEC Detailへ戻す |
+| [BHV-000007](../../../05_SPEC/Details/BHV-000007/behavior.md) | SPEC-000007 | Trigger、Authority、Validation、State、Effect、Result、FailureおよびRecovery | Source SPECとの直接Relation | Covered | Behavior意味の変更はSPEC Detailへ戻す |
+
+担当Interaction Relation: `PRT-000004.spec-000002`、`PRT-000004.spec-000006`、`PRT-000004.spec-000007`
+
+全体の逆引きと詳細設計領域への配置は[UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md)を中央統合投影とし、本定義は上記RelationのArchitecture責務を局所所有する。
+
 ## 9. 互換性・移行・成立済み能力
 
 | 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |

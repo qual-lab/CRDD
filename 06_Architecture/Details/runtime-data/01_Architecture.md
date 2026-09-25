@@ -385,6 +385,16 @@ Consumer集合は手書き一覧だけを正本としない。実Sourceからraw
 
 同じ責務へ二つ目の具象実装を追加する場合は、共通契約へ昇格するかを評価する。昇格しない場合は、同じ責務ではない、または局所分岐の方が単純で影響が小さい理由を記録する。特定のDesign Pattern名は必須にしない。
 
+## 上流UI／SPEC Detailとの関係
+
+| Detail Source | UI／SPEC Definition | この領域が担当するSCR／PRT／Interaction／BHV | Relation状態 | 未解決Gap／戻し先 |
+|---|---|---|---|---|
+| [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000009、ARCH-000011、ARCH-000013、ARCH-000016のSource Definition | 同Traceability表で上記ARCH-IDへ接続された全Detail ID | Covered | Detailの意味変更はUI／SPECへ、配置責務の変更は該当ARCH定義へ戻す |
+
+担当Interaction Relation: `PRT-000006.spec-000010`、`PRT-000008.spec-000012`、`PRT-000011.spec-000005`、`PRT-000011.spec-000016`、`PRT-000017.spec-000022`
+
+本領域は上記Relationの配置責務を局所所有する。Detailを新しい要求として解釈せず、対応ARCH-IDが所有する配置・境界・状態・観測の制約として実現する。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した

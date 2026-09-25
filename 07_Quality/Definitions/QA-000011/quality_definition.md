@@ -67,6 +67,19 @@ Quality ID: `QA-000011`
 | PT | N/A | 現在のQuality Contractに性能成立条件がないため非該当 | N/A | 未実行をPassへ読み替えず、明示的なRelease条件でない限り通常監査を停止しない |
 | LT | N/A | 現在のQuality Contractに長時間成立条件がないため非該当 | N/A | 未実行をPassへ読み替えず、明示的なRelease条件でない限り通常監査を停止しない |
 
+## UI／SPEC Detailからの観測条件
+
+Source Definition由来の検証義務を維持し、Detailは具体的な観測境界として同じ検証目標へ統合する。
+
+| Detail Source | Source Definition | 追加する観測条件 | 処置 |
+|---|---|---|---|
+| [SCR-000019／PRT-000019](../../../04_UI/Details/Areas/project-context/SCR-000019/screen.md) | UI-000019 | 情報、操作、Feedback、状態、失敗、Unknownおよび回復をScreen／Part境界で観測する | Mapped |
+| [BHV-000024](../../../05_SPEC/Details/BHV-000024/behavior.md) | SPEC-000024 | Trigger、Authority、Validation、State、Effect、Result、FailureおよびRecoveryをBehavior境界で観測する | Mapped |
+
+担当Interaction Relation: `PRT-000019.spec-000024`
+
+全数Coverageと試験段階の扱いは[UI／SPEC DetailのQuality分析](../../Analysis/Detail/quality_analysis.md)を中央統合投影とし、本定義は上記Relationの検証責務を局所所有する。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

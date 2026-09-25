@@ -96,6 +96,21 @@ Quality ID: `QA-000005`
 | LT | N/A | 現在のQuality Contractに長時間成立条件がないため非該当 | N/A | 未実行をPassへ読み替えず、明示的なRelease条件でない限り通常監査を停止しない |
 
 
+## UI／SPEC Detailからの観測条件
+
+Source Definition由来の検証義務を維持し、Detailは具体的な観測境界として同じ検証目標へ統合する。
+
+| Detail Source | Source Definition | 追加する観測条件 | 処置 |
+|---|---|---|---|
+| [SCR-000009／PRT-000009](../../../04_UI/Details/Areas/project-context/SCR-000009/screen.md) | UI-000009 | 情報、操作、Feedback、状態、失敗、Unknownおよび回復をScreen／Part境界で観測する | Mapped |
+| [SCR-000016／PRT-000016](../../../04_UI/Details/Areas/operation/SCR-000016/screen.md) | UI-000016 | 情報、操作、Feedback、状態、失敗、Unknownおよび回復をScreen／Part境界で観測する | Mapped |
+| [BHV-000013](../../../05_SPEC/Details/BHV-000013/behavior.md) | SPEC-000013 | Trigger、Authority、Validation、State、Effect、Result、FailureおよびRecoveryをBehavior境界で観測する | Mapped |
+| [BHV-000027](../../../05_SPEC/Details/BHV-000027/behavior.md) | SPEC-000027 | Trigger、Authority、Validation、State、Effect、Result、FailureおよびRecoveryをBehavior境界で観測する | Mapped |
+
+担当Interaction Relation: `PRT-000009.spec-000013`、`PRT-000016.spec-000027`
+
+全数Coverageと試験段階の扱いは[UI／SPEC DetailのQuality分析](../../Analysis/Detail/quality_analysis.md)を中央統合投影とし、本定義は上記Relationの検証責務を局所所有する。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
