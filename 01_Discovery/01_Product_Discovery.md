@@ -52,6 +52,14 @@ UXへ引き渡す
 | [EXP-000026 AIモデル更新で中核を書き換えない](Analysis/EXP-000026/exploration.md) | モデル情報と接続部／中核の一連の状態変化が結合している | 要求採用 |
 | [EXP-000027 プロジェクトを越えて情報を受け渡す](Analysis/EXP-000027/exploration.md) | 横断時に出所、許可、結果の帰り先を失い得る | 要求採用 |
 | [EXP-000028 公式署名と利用者の信頼判断を分ける](Analysis/EXP-000028/exploration.md) | 公式配布の証明と、forkを信頼する判断が混ざる | 要求採用 |
+| [EXP-000029 Projectの現在地を知る入口は何がよいか](Analysis/EXP-000029/exploration.md) | Project確認の再探索負担とConsumer間の回答差があり、共通Contextと複数入口の分担が必要 | 要求採用・入口構成確認済み |
+| [EXP-000030 Definitionから具体的な画面と振る舞いへどう進むか](Analysis/EXP-000030/exploration.md) | Definitionと実装の間にある具体設計と人間判断の過程が未実証 | 工程仮説採用・Workbench Pilot待ち |
+| [EXP-000031 期限がなければ日程リスクを正確に判断できない](Analysis/EXP-000031/exploration.md) | 期限の未設定と確認漏れを区別できず、日程を基準にScopeやリスクを判断できない | 要求採用 |
+| [EXP-000032 TopicとMeetingをどの入口からも同じように扱う](Analysis/EXP-000032/exploration.md) | 閲覧だけでは日常操作が直接編集へ戻り、入口ごとに登録・編集・削除の意味と結果が分かれ得る | 要求採用 |
+| [EXP-000033 Project情報と作業ツリーを一つの入口で扱う](Analysis/EXP-000033/exploration.md) | Project情報とVersion Controlが分かれ、利用者が状況・差分・次の仕事を頭の中で結び直している | 要求採用 |
+| [EXP-000034 10月3日までにv0.22として何を成立させるか](Analysis/EXP-000034/exploration.md) | 設定済みの目標日に対し、Repository内、Project横断、AI利用構成、自動実行の候補範囲と完成条件が未分離 | Repository内＋Project横断＋AI利用構成を採用。自律Operationは後続へ分離 |
+| [EXP-000035 Project横断には二つの異なる見方がある](Analysis/EXP-000035/exploration.md) | 同じProjectの複数Repository統合と複数Project比較を一つの横断機能へ畳むと、単位とAuthorityが混ざる | 既存要求を維持。Federation後に読み取り専用Portfolioを投影 |
+| [EXP-000036 ユーザー管理なしでRemote CROSの利用範囲を分ける](Analysis/EXP-000036/exploration.md) | 個人別の接続申請とCredential管理はCROSを重いUser管理製品にする | Role別共有Credentialを採用。User／Principal管理は対象外 |
 
 本台帳は探索の版別対象範囲や実装順を分類しない。まだ探索を始めない長期候補は[将来候補一覧](02_Product_Candidates.md)、版と作業状態は[Roadmap](../99_Roadmap/01_Roadmap.md)が所有する。
 
@@ -99,6 +107,11 @@ UXへ引き渡す
 | [REQ-000034](Definitions/REQ-000034/requirement.md) | リポジトリ固定Commitから使える標準ツール | [EXP-000005](Analysis/EXP-000005/exploration.md) | 要求採用 | ツール、Template、リリース |
 | [REQ-000035](Definitions/REQ-000035/requirement.md) | 公式視覚素材の権利・用途・追跡 | [EXP-000012](Analysis/EXP-000012/exploration.md) | 要求採用 | Communication、リリース |
 | [REQ-000036](Definitions/REQ-000036/requirement.md) | 差し替え可能な履歴管理境界 | [EXP-000014](Analysis/EXP-000014/exploration.md) | 要求採用 | Architecture、全ツール |
+| [REQ-000037](Definitions/REQ-000037/requirement.md) | 任意期限を使った日程リスク分析 | [EXP-000031](Analysis/EXP-000031/exploration.md) | 要求採用 | Roadmap、Project Context、Front AI |
+| [REQ-000038](Definitions/REQ-000038/requirement.md) | Consumerに依存しない標準Project Context Projection | [EXP-000029](Analysis/EXP-000029/exploration.md) | 要求採用 | UX、IA、Documentation、Front AI、MCP、CROS、Workbench |
+| [REQ-000039](Definitions/REQ-000039/requirement.md) | TopicとMeetingの共通操作 | [EXP-000032](Analysis/EXP-000032/exploration.md) | 要求採用 | UX、IA、UI／SPEC、Architecture、MCP、Workbench |
+| [REQ-000040](Definitions/REQ-000040/requirement.md) | Project情報と作業ツリーをつなぐWorkbench | [EXP-000033](Analysis/EXP-000033/exploration.md) | 要求採用 | UX、IA、UI／SPEC Detail、Architecture、Version Control、Workbench |
+| [REQ-000041](Definitions/REQ-000041/requirement.md) | Role別共有CredentialによるRemote CROS利用 | [EXP-000036](Analysis/EXP-000036/exploration.md) | 要求採用 | UX、Threat、SPEC、Architecture、Remote MCP、Workbench |
 
 <a id="current-discovery-relations"></a>
 
@@ -125,6 +138,18 @@ AI実行基盤の変更 ────┼→ 変化しても入口と実行契約�
 
 この関係はUXへ渡す仮説であり、構成要素構成やサービス提供の流れの正本ではない。
 
+## 再Discovery時の入力境界
+
+Roadmap、既存ArchitectureおよびWIPは、探索対象を見落とさないための情報源であり、解決案の採用根拠ではない。既存の要求をすべて破棄するのでも、Roadmap上の項目をそのまま再承認するのでもなく、次の三つに分けて扱う。
+
+| 区分 | 対象 | 現在の扱い | 次の処置 |
+|---|---|---|---|
+| 維持する成立条件 | 単一リポジトリ作業、出典・欠測保持、Project／Repository／基点フォルダの識別情報分離、入口間の意味共有、信頼要素の分離 | v0.21までに採用した要求として保持する | 新しい根拠が反証する場合だけ該当探索を再開する |
+| 価値と利用状況を再確認する仮説 | Workbench、Topic／Meeting、複数Project比較、Remote共有、Tool／AI構成、自律Operation | Solution名を外して再Discoveryする | 誰が、どの状況で、何に困り、どの変化を望むかを探索単位ごとに確認する |
+| 移行・運用義務 | 旧Runtime Traceability Projection移行、正式検証のHeadless出力 | Product価値仮説と混ぜない | 成立済みCapability、利用側、置換、復旧、検証義務としてCHG／Maintenanceで扱う |
+
+再Discoveryでは、既存WIPを現在の困りごとの証拠へ読み替えない。Canonicalな要求と設計を成立させた後に、WIPがCovered、Partial、Legacy、GapのどれかをReality Auditで判定する。
+
 ## 基本図の処置
 
 基本図は、対象となる問題と業務過程がある個別探索で作成する。本表は図を一か所へ再集約せず、CRDD標準自身の全探索を横断した現在の処置を示す。
@@ -132,7 +157,7 @@ AI実行基盤の変更 ────┼→ 変化しても入口と実行契約�
 | 基本図 | 対象 | 目的 | 処置 | 現行図／一意な参照／理由 | 投影元改訂版 | 現在状態 | 未確認範囲 | 次の処置・再評価契機 |
 |---|---|---|---|---|---|---|---|---|
 | 課題・根拠・機会の関係 | 各`EXP-*` | 問題、根拠、仮説および採用要求の因果 | `既存参照` | [探索台帳](#探索台帳)から各`exploration.md`の因果説明・図へ進む | 各探索の記載根拠 | 現行 | 遡及再構成した探索の当時の未観測範囲 | 新しい根拠が仮説または要求を変える時 |
-| 業務範囲／入出力（SIPOC） | 業務過程を扱う`EXP-*` | 対象境界と入出力 | `作成不能` | 全28探索を一つの業務過程へ畳めない。対象探索で必要になった時に作成する | 各探索 | 対象別 | 現在は横断SIPOCの共通Supplier／Outputを定義していない | 業務過程を持つ探索の開始・再Discovery時 |
+| 業務範囲／入出力（SIPOC） | 業務過程を扱う`EXP-*` | 対象境界と入出力 | `作成不能` | 全36探索を一つの業務過程へ畳めない。対象探索で必要になった時に作成する | 各探索 | 対象別 | 現在は横断SIPOCの共通Supplier／Outputを定義していない | 業務過程を持つ探索の開始・再Discovery時 |
 | 担い手別の仕事の流れ（Swimlane） | 担い手同士の受け渡しを扱う`EXP-*` | 活動、判断および受け渡し | `作成不能` | 探索全体に単一の担い手列を置くと、後工程の完成システム像を先取りする | 各探索 | 対象別 | 採用した要求を統合した担い手同士の体験 | UXの[サービス提供の流れ](../02_UX/04_Service_Blueprint.md)で統合する |
 | 価値が届くまでの流れ | 待機・滞留・手戻りを扱う`EXP-*` | 処理、待機、滞留および手戻り | `作成不能` | 全探索共通の処理時間・待機・流量は観測していない | 各探索 | 対象別 | 時間・頻度・手戻り量 | 実運用で対象値を観測した時 |
 | 現状／変更後 | 各`EXP-*` | 現状の困りごとと望ましい変化 | `既存参照` | [探索台帳](#探索台帳)から各記録の問題、仮説、選択へ進む | 各探索 | 現行 | 実利用での変化量 | UXのExperience Changeと実測で具体化する |
@@ -142,7 +167,21 @@ AI実行基盤の変更 ────┼→ 変化しても入口と実行契約�
 
 ## 人間理解の確認
 
-本書の28探索と36要求は、既存CHG、根拠、公開記録および保守対話から2026-09-13に再構成し、人間が課題、要求、対象外およびUXへの移行を確認した。理解確認の具体的な問題・仮説・修正は各`exploration.md`が所有し、本書へ複製しない。新しい探索では、AIが課題認識を再構成した場合に該当記録へ確認内容を残し、要求採用とは別に扱う。
+本書のEXP-000001〜EXP-000028と36要求は、既存CHG、根拠、公開記録および保守対話から2026-09-13に再構成し、人間が課題、要求、対象外およびUXへの移行を確認した。EXP-000029以降のv0.22再Discoveryでは、既存WIPへ結論を合わせず、AIが再構成した問題認識を要求採用とは別に人間へ返す。理解確認の具体的な問題・仮説・修正は各`exploration.md`が所有し、本書へ複製しない。
+
+| 探索 | AIの事前理解 | 人間による主な修正 | 代替・反証との突き合わせ | 確認後の現在理解 |
+|---|---|---|---|---|
+| [EXP-000025](Analysis/EXP-000025/exploration.md) | Capability Registryで標準Toolを登録する | 能力の意味と組織・Repository固有実装をAdapterで分ける | Launcher命名、Directory走査、任意Shell登録 | 明示Capability Contractと検証済みAdapterを採用 |
+| [EXP-000026](Analysis/EXP-000026/exploration.md) | Model一覧と実行環境を外部設定する | 安定した仕事Profileを追加可能にし、Provider AdapterとModelを分ける | 中核列挙、任意Executable設定、自動Fallback | ローカル／Server設定から一つの有効構成へ決定論的に解決する |
+| [EXP-000028](Analysis/EXP-000028/exploration.md) | 利用者所有Trust Policyをv0.22で具体化する | 現在版には入れず、将来の独立CapabilityとしてAdapter経由で利用する | 既存Runtimeへの埋込み、署名検証の廃止 | 信頼要素分離と既存署名検証を維持し、本格Policy管理は将来版へ分離 |
+| [EXP-000029](Analysis/EXP-000029/exploration.md) | Workbench等の入口価値を比較する | 先に標準Project Contextを成立させ、その後にMCP、Workbench、Git Clientとの分担を決める | 都度AI探索、事実だけの静的View、Workbench専用Store | 標準Project Contextと、MCP・Workbench・既存Toolを併用する入口構成を採用 |
+| [EXP-000030](Analysis/EXP-000030/exploration.md) | Detail工程契約を追加してWorkbenchで試す | v0.21 Detail伝播を先に閉じ、v0.22では良い具体から抽象化する過程を検証する | 直接実装、部品先行、全画面同時設計 | Design Process仮説を採用し、具体画面とVisual DirectionはPilotで人間判断する |
+| [EXP-000031](Analysis/EXP-000031/exploration.md) | Version期限か項目期限のどちらかを選ぶ | 両方を独立して設定可能とし、どちらも任意にする | 全期限必須、期限確認自体も任意 | 開始時の確認は必須、期限値は任意 |
+| [EXP-000032](Analysis/EXP-000032/exploration.md) | Topic／Meetingは読取り中心でよい | 登録、編集、削除、一覧、取得を各入口で同じ意味にする | Markdown直接編集、入口別実装、無条件物理削除 | 共通Application CapabilityとRelation影響確認付き削除を採用 |
+| [EXP-000033](Analysis/EXP-000033/exploration.md) | WorkbenchはProject Contextと定型操作を表示する | MCP能力に加えてTree、Diff、Stage、Commit、通常Pushまで一つの仕事へ接続する | Chat Agentのみ、Git Clientのみ、Project Context Viewer、フルIDE | Project仕事と簡易Version ControlをつなぐWorkbenchを採用 |
+| [EXP-000034](Analysis/EXP-000034/exploration.md) | v0.22候補を一括して閉じる | Repository内、Project横断、AI利用構成までとし、自律Operationは後続へ分離する | Repository内だけ、全候補一括、自律Operation込み | B+ Scopeと2026-10-03目標を採用 |
+| [EXP-000035](Analysis/EXP-000035/exploration.md) | Project横断を一つの統合機能として扱う | 同一ProjectのRepository Federationと複数ProjectのPortfolioを分ける | 中央Project正本、Repository直接比較、自動優先順位付け | Federation後のLogical Project Contextを読み取り専用Portfolioへ投影する |
+| [EXP-000036](Analysis/EXP-000036/exploration.md) | Credentialごとに接続主体とGrantを管理する | Userを管理せず、Remote CROSだけRole別共有Credentialを使う | User Account、Principal、Credential別Grant | Repository単体はCredential不要、Remote CROSは三RoleとAccess Recoveryを採用 |
 
 <a id="current-discovery-decisions"></a>
 
@@ -151,12 +190,16 @@ AI実行基盤の変更 ────┼→ 変化しても入口と実行契約�
 | UXで扱うこと | Discoveryから渡す条件 | まだ証明できていないこと |
 |---|---|---|
 | リポジトリ内の普段の作業 | CROSやWorkbenchを使わなくても成立する | 横断機能追加後も負担が増えないか |
-| プロジェクトの現在地確認 | 出典、観測時点、欠測、制限、競合を失わない | WorkbenchがAIや静的報告より役立つか |
-| 複数リポジトリのプロジェクト | リポジトリ分割を普段は意識させず、不足は隠さない | 代表構成以外でも理解できるか |
-| TopicとMeeting | 候補、確認、採用、正本更新を区別する | 実Meetingで転記漏れと確認負担が減るか |
+| プロジェクトの現在地確認 | 現在事実、共有分析、追加推論、根拠、欠測、制限および競合を分け、一つの確認で現在地・Risk・判断待ち・理由・次候補を取得できる | 各AI、MCPおよびWorkbenchで同じ回答品質になるか |
+| 期限と日程リスク | Version期限と個別項目期限を独立して任意設定でき、未設定と確認漏れを区別する | 実計画でどの分析と提案が判断を改善するか |
+| 複数リポジトリのプロジェクト | 単一Repositoryでも成立し、分離時はOwnerと開示境界を保ってLogical Projectへ束ね、不足を隠さない | 代表構成以外でも理解できるか |
+| TopicとMeeting | 即時に閉じる問い合わせ／TODOをTopic化せず、継続論点を追跡する。Meetingは記録確認とOutcome全件処置で閉じ、Action完了をClose条件にしない | 実Meetingで転記漏れと確認負担が減るか |
 | 複数プロジェクトの一覧 | 読取り専用とし、根拠プロジェクトへ戻れる | PM／経営・管理層に必要な情報が足りるか |
-| 人とAIの入口 | Workbench、MCP、CLIは同じ公開契約を使う | 各入口で同じ意味と結果になるか |
-| リモート利用 | 認証、作業領域範囲、部分取得、応答喪失後の再取得を扱う | 実Networkと長期接続単位で成立するか |
+| 人とAIの入口 | Workbench、MCP、CLIは同じApplication Capabilityを使い、入口固有の正本を作らない | 各入口で同じ意味と結果になるか |
+| Workbench | Project情報、Topic／Meeting、Attention、関係・経緯、作業Tree、Diff、Stage、Commitおよび確認付き通常Pushを一つの仕事へ接続する | Chat Agent＋MCPまたは既存Git Clientより判断負担を減らせるか |
+| リモート利用 | Repository単体利用へCredentialを要求せず、Remote CROSだけRole別共有Credential、非開示、失効、再発行およびServerローカルRecoveryを扱う | 実Networkと長期接続単位で成立するか |
+| AI利用構成 | 安定した仕事Profileを、登録済みProvider Adapter、Modelおよび推論設定へ決定論的に解決し、ローカル設定とServer設定のOwnerを分ける | 追加Profileと複数の検証済み実行環境で運用負担が許容できるか |
+| UI／SPEC Detail | Definitionから画面・具体領域・詳しい振る舞いを導き、良い具体を人間が選んだ後に反復からPattern／Componentを見つける | Workbench PilotでVisual Quality、成果物負担および双方向Coverageが成立するか |
 
 個別探索で採用した要求と検証義務は、UXで都合よく統合、弱化、追加しない。新しい課題や必要性が分かった場合は、該当する探索へ戻すか、新しい`EXP-*`を発行してDiscoveryで判断する。
 
@@ -189,4 +232,5 @@ UXは、ここで渡した課題と仮説を利用者の仕事として深掘り
 - [x] 基本図を現行図、既存参照、理由付き非該当または作成不能として処置した。
 - [x] UXその他へ渡す現在の判断、保持条件およびDiscoveryへ戻す条件が分かる。
 - [x] 人間理解の確認が必要な探索について、理解確認と要求採用を区別した。
+- [x] 発火した理解確認について、AIの事前理解、人間の修正、有力な代替または反証、および確認後の現在理解を個別探索から辿れる。
 - [x] 補足情報や台帳が個別探索・要求定義の第二の正本になっていない。

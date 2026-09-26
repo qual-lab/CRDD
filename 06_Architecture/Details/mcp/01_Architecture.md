@@ -8,7 +8,7 @@
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
-| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | 読取り専用のProject／Portfolio ProjectionをMCP DTOへ写し、欠測・制限・根拠を失わず返す。TransportはObjective／Milestone受入判断Authorityを生成しない。 | Partial |
+| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | 標準Project Contextから得た読取り専用のProject／Portfolio ProjectionをMCP DTOへ写し、五つの観点、欠測・制限・根拠を失わず返す。Transportは独自のProject状態StoreやObjective／Milestone受入判断Authorityを生成しない。 | Partial |
 | [ARCH-000012](../../Definitions/ARCH-000012/architecture_definition.md) | stdioとHTTPを同じPublic Application Contractへ接続し、Transport間の意味同一性を保つ。 | Covered |
 | [ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md) | 認証済みRequest Access ContextだけをApplicationへ渡し、Workspace範囲をTransportで拡張しない。 | Partial |
 | [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | 外部情報の入力・結果をMCP wireへ運ぶが、送信許可や候補採用Authorityは所有しない。 | Partial |
@@ -101,7 +101,7 @@ v0.20の責務分離では既存MCP stdioを独立packageへ移し、MCP Streama
 ```
 
 - `protocol`はMCP version、閉じたJSON-RPC Envelope／ID／metadata、method／tool名、Protocol response／errorおよび完全な単一JSON文書の判定を所有する。JSON-RPC error envelopeの構成もProtocolだけが所有し、stdio／HTTP Transportは同じ公開constructorを使用して独自のerror objectを再定義しない。Project RuntimeやCoordinatorへ依存しない。
-- `adapters`はMCP入力をProject Runtime公開要求へ変換し、公開結果をMCP結果へ投影する。
+- `adapters`はMCP入力をProject Runtime公開要求へ変換し、公開結果をMCP結果へ投影する。Project Context参照では固定Markdownの意味契約を利用し、MCP固有の状態要約を正本化しない。
 - `transports`はstdio、localhost HTTP等のbyte framing、fatal UTF-8、容量、header、socketおよびSession lifecycleを所有する。
 - `src/index.ts`を唯一の公開入口とし、利用側は内部Pathを参照しない。
 - `template/tools/crdd-mcp.ts`は配布・起動の構成Rootであり、MCP ProtocolやProject Runtimeの意味を再定義しない。
@@ -139,6 +139,8 @@ Project Runtime【別package】
 MCPはProject Runtime packageの公開入口だけへ依存する。Coordinator、Provider、Candidate Store、Windows Adapter、実行知StoreまたはProject Runtime内部Pathをimportしない。
 
 Project Runtimeの状態、Identity、Recovery、判断または結果fieldをMCP Schemaで独立再定義しない。MCP固有Envelopeは保持するが、そのpayloadはProject Runtimeのcanonicalな公開契約を一つの変換規則で投影する。公開契約変更時はMCP利用側試験を変更影響型runnerが必ず選択する。
+
+Project Contextを返す場合も同じ原則を適用する。MCPは現在地、Risk・停止要因、人間の判断待ち、理由・根拠および次の一手を一つの結果として搬送できるが、Repository内正本、共有分析および対話時の追加推論を混同しない。Repository Role外のContextを補完せず、項目別`Observed At`やLive環境状態をMCPだけの都合で追加しない。
 
 ## 4. Authorityと情報境界
 

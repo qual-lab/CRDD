@@ -488,6 +488,40 @@ CRDDは特定の開発方式を要求せず、外部の開発方式、フレー�
 
 進捗情報のためにCRDD標準の恒久フォルダを追加しない。進捗情報は、[未完了作業の登録簿](21_Discovery.md#62-registry-scope-and-registration)、変更トレース、各工程の正本成果物、検証・リリース記録、または外部の課題管理・進捗管理ツールから取得可能にする。外部ツールを使う場合は、場所、対象、対象時点、アクセス方法、正本成果物へ戻る経路を辿れるようにする。
 
+<a id="repository-project-context"></a>
+
+## 10.1. Repository Project Context
+
+各Repositoryは、ルートの`PROJECT_CONTEXT.md`に、そのRepositoryが現在所有・観測できる範囲のProject Contextを投影する。このファイルは進捗、Risk、判断または履歴の正本ではなく、人間、Local AI、MCP、CROSおよびWorkbenchが同じ現在理解へ到達するための人間可読かつ機械可読な入口である。
+
+`PROJECT_CONTEXT.md`は次のIdentityを先頭に持つ。
+
+| 項目 | 意味 | 未確定時の扱い |
+|---|---|---|
+| `Project ID` | 複数Repositoryを束ねるLogical Project | 推測せず`OPEN: 理由` |
+| `Repository ID` | Project IDと独立したRepository Identity | 推測せず`OPEN: 理由` |
+| `Repository Role` | このRepositoryが投影責任を持つ範囲 | 推測せず`OPEN: 理由` |
+
+この三つのIdentityの正本は、Git管理された非秘密設定`.crdd/config/repository-manifest.json`である。`PROJECT_CONTEXT.md`は同じ値を表示用に投影し、独自の値を所有しない。Manifestが未作成または移行中でIdentityを確定できない場合だけ、理由付き`OPEN`を使用する。ManifestとProject Contextの値が競合する場合はManifestを優先し、Project Contextを現在値として利用せず再投影する。
+
+本文は次の五場面をこの順序で保持する。
+
+1. 今どうなっているか
+2. 何が危ない、または止まっているか
+3. 今、人間が決めることは何か
+4. なぜこの状態・判断になったか
+5. 次に何をすべきか
+
+各場面は結論を先に示し、現在事実と複数正本から導いた共有分析を区別する。正本が存在する内容は必要最小限の要約とOwner Relationだけを置き、本文、状態履歴またはEvidenceを複製しない。複数正本から導いたProject固有の共有分析は、Source Relationとともに投影できる。継続管理、独立した判断、変更または検証が必要になった共有分析は、CHG、Topic、Decision、Qualityその他の適切なOwner Artifactへ昇格する。
+
+Project Context固有の安定ID、項目単位の閲覧権限および項目単位の観測時刻を追加しない。Repositoryを取得できる主体はファイル全体を読めるため、Repository自体を情報境界とする。表示されていないContextまたはRepositoryの存在・不存在を推測させない。CI、Runtime、Deploy先またはInfrastructureのLive状態は扱わない。
+
+空欄を正常、非該当または不存在へ読み替えない。確認済みで該当がない場合は`なし（確認済み）`、Owner不足、競合または確認不能が残る場合は`不明: 理由`または`OPEN: 理由`とする。
+
+更新要否はCommit数やファイル数ではなく、五場面が伝える意味で判断する。現在Version、Scope、重要な作業、Risk、判断事項、現在有効な理由、Owner Relationまたは次候補が変わった場合は再投影する。誤字、整形、意味を変えないLink修正、結論を変えないEvidence追加または内部実装だけの変更では再投影を要求しない。少なくともChange、工程またはReleaseのGateを閉じる前に再投影要否を評価する。
+
+Owner Artifactと競合するProject Contextは現在値として使わず、Owner Artifactを優先して再投影する。再投影できない場合は競合範囲とOwnerへの導線を示し、AIは古い投影を根拠に追加提案を行わない。Front AIが対話時に追加推論した提案は、保存済みの次候補と分けて説明する。採用された提案はOwner Artifactへ反映してからProject Contextへ再投影する。
+
 次を避け、監査対象とする。
 
 - 根拠のない進捗率、または取得できない進捗を観測値のように示している

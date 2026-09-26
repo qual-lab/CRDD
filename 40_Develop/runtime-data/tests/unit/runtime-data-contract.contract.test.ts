@@ -30,8 +30,9 @@ import {
  */
 test("Repository ManifestはIdentityと宣言だけを受理する", () => {
   const manifest = inspectRepositoryManifest({
-    schema: "crdd/repository-manifest/v1",
+    schema: "crdd/repository-manifest/v2",
     projectId: "qual-lab.crdd",
+    repositoryId: "qual-lab.crdd-standard",
     displayName: "CRDD",
     repositoryRole: "crdd-standard",
     capabilities: ["project-runtime", "coordinator"],
@@ -39,8 +40,60 @@ test("Repository ManifestはIdentityと宣言だけを受理する", () => {
     externalSendPolicy: "config/external-send-policy.json",
   });
   assert.equal(manifest?.projectId, "qual-lab.crdd");
+  assert.equal(manifest?.repositoryId, "qual-lab.crdd-standard");
   assert.equal(
     inspectRepositoryManifest({ ...manifest, repositoryRoot: "C:\\secret" }),
+    null,
+  );
+});
+
+/**
+ * Repository ManifestはProject IDとRepository IDの混同を拒否することを検証する。
+ *
+ * @responsibility Manifest v2のIdentity分離とv1移行境界の合否判定を所有する。
+ * @trace RDL-UT-005
+ * @precondition v1、Repository ID欠落および同値Identityの入力を使用する。
+ * @stimulus 各入力をinspectRepositoryManifestへ渡す。
+ * @observation Manifestの受理または拒否結果を観測する。
+ * @oracle v1、欠落および同値Identityをすべて拒否する。
+ * @cleanup N/A: 永続資源を作成しない。
+ * @boundary RDL-UT-005=N/A: Plain Dataの契約検査であり外部実行境界を持たない。
+ */
+test("Repository ManifestはProject IDとRepository IDの混同を拒否する", () => {
+  const base = {
+    projectId: "qual-lab.crdd",
+    repositoryId: "qual-lab.crdd-standard",
+    displayName: "CRDD",
+    repositoryRole: "crdd-standard",
+    capabilities: [],
+    contextSurfaces: ["crdd-context"],
+    externalSendPolicy: null,
+  };
+  assert.equal(
+    inspectRepositoryManifest({
+      ...base,
+      schema: "crdd/repository-manifest/v1",
+    }),
+    null,
+  );
+  assert.equal(
+    inspectRepositoryManifest({
+      schema: "crdd/repository-manifest/v2",
+      projectId: base.projectId,
+      displayName: base.displayName,
+      repositoryRole: base.repositoryRole,
+      capabilities: base.capabilities,
+      contextSurfaces: base.contextSurfaces,
+      externalSendPolicy: base.externalSendPolicy,
+    }),
+    null,
+  );
+  assert.equal(
+    inspectRepositoryManifest({
+      ...base,
+      schema: "crdd/repository-manifest/v2",
+      repositoryId: base.projectId,
+    }),
     null,
   );
 });

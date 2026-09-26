@@ -148,6 +148,7 @@ Git履歴は差分と時系列の根拠であり、判断理由そのものを�
 以下は工程成果物の基本構造である。
 
 ```text
+PROJECT_CONTEXT.md
 00_CRDD
 01_Discovery
 02_UX
@@ -162,6 +163,8 @@ Git履歴は差分と時系列の根拠であり、判断理由そのものを�
 80_Communication（外部コミュニケーションを扱う場合だけ作成）
 99_Roadmap
 ```
+
+`PROJECT_CONTEXT.md`はRepositoryルートに一つ置く現在投影である。工程成果物やProject情報の正本ではなく、そのRepositoryが現在主張できるProjectの状態、Risk、判断、理由および次候補を、Owner Artifactへ戻れる形で案内する。固定構造、更新条件、情報境界および競合時の処置は[Repository Project Context](15_Progress.md#repository-project-context)を正本とする。`20_Project`、`.crdd`または特定工程Folderの存在を前提にせず、別のPathへ同じ投影を複製しない。
 
 | フォルダ | プロダクトコンテキストの責務 | 工程／処理の決定権限 |
 |---|---|---|

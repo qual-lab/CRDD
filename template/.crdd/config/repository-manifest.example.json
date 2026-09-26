@@ -1,6 +1,7 @@
 {
-  "schema": "crdd/repository-manifest/v1",
+  "schema": "crdd/repository-manifest/v2",
   "projectId": "replace-with-stable-project-id",
+  "repositoryId": "replace-with-stable-repository-id",
   "displayName": "Replace with project display name",
   "repositoryRole": "crdd-adopted",
   "capabilities": [],

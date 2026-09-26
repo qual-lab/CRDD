@@ -8,7 +8,7 @@
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
-| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | Project／Portfolioの運営状態を複数正本から根拠付きRead Modelへ統合する。Objective／Milestone受入判断の書込みPortは所有しない。 | Covered |
+| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | Project／Portfolioの運営状態を複数正本から根拠付きRead Modelへ統合し、Repository単位の標準Project Contextを固定Markdownとして提供する。Objective／Milestone受入判断の書込みPortは所有しない。 | Covered |
 | [ARCH-000006](../../Definitions/ARCH-000006/architecture_definition.md) | Meeting、Topic、Decision候補と所有正本への昇格関係をRepository上で具体化する。 | Covered |
 | [ARCH-000016](../../Definitions/ARCH-000016/architecture_definition.md) | 発生時点、採用時点、観測時点、現行性を分け、過去を現在値へ上書きしない。 | Covered |
 
@@ -309,6 +309,41 @@ Canonical Sources
 | 非集約Authority | 複数Repositoryを読めても、書込み、Credential、Recoveryまたは人間判断Authorityを統合しない |
 | 分離した尺度 | 進捗、品質、判断待ち、Risk、RecoveryおよびRelease Readinessを単一Scoreへ畳まない |
 | 操作境界 | UI／MCP操作は所有正本へのCommandまたはCandidateを生成し、Projectionを直接変更しない |
+
+### 7.1. Repository Project Context
+
+Repository Project Contextは、各Repositoryが自らの責任範囲から投影する、人間可読かつ機械可読な現在状態の入口である。新しいProject正本ではなく、Owner ArtifactへのRelationと、複数正本を横断して初めて分かる共有分析を、一つの固定Markdownへまとめる。
+
+```text
+Owner Artifacts
+├ Roadmap／CHG／Decision
+├ Topic／Meeting
+├ Quality／Release
+└ Project固有の正本
+          │
+          ▼
+Repository Project Context（固定Markdown）
+├ 現在地
+├ Risk／停止要因
+├ 人間の判断待ち
+├ 理由／根拠
+└ 次の一手
+          │
+          ├→ Human／Local AI
+          └→ MCP／CROS／Workbench
+```
+
+| 観点 | 契約 |
+|---|---|
+| Identity | Project Context内の項目へ独自の安定IDを発行しない。Owner ArtifactのIDとRelationを使う |
+| 現在事実 | 正本が所有する値は短い結論と参照だけを投影し、本文を複製しない |
+| 共有分析 | 複数正本から導いたRisk、矛盾、判断待ちまたは次の一手は、導出根拠とともにProject Contextへ保持できる |
+| 追加推論 | 対話時のAI推論は記録済み事実・共有分析と区別し、Project Contextの確定値へ無言で昇格しない |
+| 時点 | Repository内正本のLive状態や項目別`Observed At`を重複保持しない。正本変更が未反映なら古さではなく競合・未反映として扱う |
+| Coverage | Repository Roleが示す責任範囲だけを投影し、範囲外Contextの存在または不存在を列挙・推測しない |
+| 更新 | 意味のある状態変化で再投影する。微小な編集だけを理由に機械的な更新履歴を蓄積しない |
+
+CI、稼働環境、Deploy先、外部Serviceその他のLive状態はProject Contextの共通契約に含めない。それらを扱う必要がある製品は、固有の監視・運用正本で管理し、Project Contextからは必要な場合だけOwner Artifactへ参照する。
 
 ## 8. 任意Repository構造
 

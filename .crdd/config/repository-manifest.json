@@ -1,6 +1,7 @@
 {
-  "schema": "crdd/repository-manifest/v1",
+  "schema": "crdd/repository-manifest/v2",
   "projectId": "qual-lab.crdd",
+  "repositoryId": "qual-lab.crdd-standard",
   "displayName": "CRDD",
   "repositoryRole": "crdd-standard",
   "capabilities": [

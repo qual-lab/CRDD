@@ -1,6 +1,7 @@
 # CLAUDE.md
 
 @AGENTS.md
+@PROJECT_CONTEXT.md
 @00_CRDD/00_Overview.md
 @00_CRDD/01_Principles.md
 @00_CRDD/02_Terminology.md

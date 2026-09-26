@@ -8,7 +8,7 @@
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
-| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | 利用可能Repository集合から読取り専用のProject／Portfolio Projectionを組み立て、欠測とSource Coverageを保持する。Objective／Milestone受入判断の書込みPortは所有しない。 | Covered |
+| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | 利用可能Repository集合の標準Project Contextを読み、読取り専用のProject／Portfolio Projectionを組み立てる。Repository Role外を推測せず、開示可能な欠測とSource Coverageだけを保持する。Objective／Milestone受入判断の書込みPortは所有しない。 | Covered |
 | [ARCH-000006](../../Definitions/ARCH-000006/architecture_definition.md) | Meeting由来の候補をSource relation付きで所有先へ搬送し、採否Authorityを生成しない。 | Covered |
 | [ARCH-000009](../../Definitions/ARCH-000009/architecture_definition.md) | Project ID、Repository ID、Binding IDを分け、検証済みRootだけをFederationへ渡す。 | Covered |
 | [ARCH-000010](../../Definitions/ARCH-000010/architecture_definition.md) | Repositoryが公開するCapability／Model構成を現在のWorkspace範囲で解決する。 | Partial |
@@ -75,11 +75,11 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 - [Project Operation Context](../project-operation/01_Architecture.md)
 - [Runtime Dataの目標Architecture](../runtime-data/01_Architecture.md)
 - [MCP Architecture](../mcp/01_Architecture.md)
-- [v0.22 Roadmap](../../../99_Roadmap/01_Roadmap.md#12-v0220--project運営信頼複数repository)
+- [v0.22 Roadmap](../../../99_Roadmap/01_Roadmap.md#12-v0220--project運営複数repository)
 
 ## 1. 結論と対象
 
-CROSは、Personal環境とShared Server環境で別のProject Modelを作らない。両者とも、現在の実行主体が利用できるRepository集合を確定し、その集合だけをProject FederationとProjectionへ渡す。
+CROSは、Personal環境とShared Server環境で別のProject Modelを作らない。両者とも、現在の実行主体が利用できるRepository集合を確定し、その集合が提供する標準Project ContextだけをProject FederationとProjectionへ渡す。CROS固有のProject状態Storeを第二の正本として作らない。
 
 ```text
 利用可能なRepository集合
@@ -301,7 +301,7 @@ MCP／CLI／Workbench
         │ {Verified Available Repository Set}
         ▼
 [Project Federation]
-        │ {Source-aware Context}
+        │ {Repository Project Context＋Source Relation}
         ▼
 [Projection Builder]
         │
@@ -309,7 +309,7 @@ MCP／CLI／Workbench
 許可されたProject／Portfolio Projection
 ```
 
-Caller由来のFilesystem PathをRepository Resolverの代替として受理しない。内部Adapterも、Canonical Resolverを迂回してRepository Poolを直接読む入口を公開しない。Projectionは利用できないRepositoryの内容、Artifact ID、件数または推定値を補完しない。
+Caller由来のFilesystem PathをRepository Resolverの代替として受理しない。内部Adapterも、Canonical Resolverを迂回してRepository Poolを直接読む入口を公開しない。各Repositoryの固定Project Contextを共通交換契約として使用し、Consumerごとの要約Storeを作らない。Projectionは利用できないRepositoryの内容、Artifact ID、件数または推定値を補完しない。
 
 ## 7. Connection CredentialとRequest Access Context
 

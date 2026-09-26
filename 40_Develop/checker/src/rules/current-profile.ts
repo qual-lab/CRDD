@@ -18,6 +18,7 @@ import type { CheckerRule } from "./rule-registry.ts";
  * @compatibility CurrentProfileRuleCallbacksの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type CurrentProfileRuleCallbacks = Readonly<{
+  projectContext: () => void;
   workLifecycle: () => void;
   discovery: () => void;
   ux: () => void;
@@ -49,15 +50,16 @@ export function currentProfileRules(
   callbacks: CurrentProfileRuleCallbacks,
 ): readonly CheckerRule[] {
   const orderedRules: ReadonlyArray<readonly [string, () => void]> = [
-    ["01-work-lifecycle", callbacks.workLifecycle],
-    ["02-discovery", callbacks.discovery],
-    ["03-ux", callbacks.ux],
-    ["04-ia", callbacks.ia],
-    ["05-ui", callbacks.ui],
-    ["06-spec", callbacks.spec],
-    ["07-architecture", callbacks.architecture],
-    ["08-quality", callbacks.quality],
-    ["09-phase-diagrams", callbacks.phaseDiagrams],
+    ["01-project-context", callbacks.projectContext],
+    ["02-work-lifecycle", callbacks.workLifecycle],
+    ["03-discovery", callbacks.discovery],
+    ["04-ux", callbacks.ux],
+    ["05-ia", callbacks.ia],
+    ["06-ui", callbacks.ui],
+    ["07-spec", callbacks.spec],
+    ["08-architecture", callbacks.architecture],
+    ["09-quality", callbacks.quality],
+    ["10-phase-diagrams", callbacks.phaseDiagrams],
   ];
   return orderedRules.map(([id, executeRule]) => ({
     id: `current-profile.${id}`,

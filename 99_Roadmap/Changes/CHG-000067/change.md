@@ -603,7 +603,7 @@ UIとSPECは直列化せず、共有する対応契約を介して並行に具�
 | CROS利用境界 | [CROS Federationと利用境界](../../../06_Architecture/Details/cros/01_Architecture.md) |
 | Runtime Data基準 | [Runtime Dataの目標Architecture](../../../06_Architecture/Details/runtime-data/01_Architecture.md) |
 | Communication | [CRDD外部コミュニケーション](../../../17_Communication.md) |
-| Roadmap | [v0.22未完了作業](../../01_Roadmap.md#12-v0220--project運営信頼複数repository) |
+| Roadmap | [v0.22未完了作業](../../01_Roadmap.md#12-v0220--project運営複数repository) |
 
 ## 8. 次のGate
 

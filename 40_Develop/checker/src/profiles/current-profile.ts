@@ -23,6 +23,8 @@ import {
   readFixedSnapshotText,
   resolveRevisionIdentity,
 } from "../../../version-control/src/checker-observation/index.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/repository-identity/index.ts";
+import { resolveRepositoryRuntimeDataPaths } from "../../../runtime-data/src/index.ts";
 import { runCheckerPipeline } from "../pipeline/checker-pipeline.ts";
 import { RuleRegistry } from "../rules/rule-registry.ts";
 import { qualityDesignCanonicalStateRule } from "../rules/quality-design-state.ts";
@@ -652,6 +654,189 @@ export function runCurrentProfileChecker(
     const read = (file: string) => fs.readFileSync(file, "utf8");
 
     /**
+     * Repository Project Contextの固定構造を検査する。
+     *
+     * @responsibility Project Contextの配置、Identity、五場面および可視Checklistの機械判定可能な境界を所有する。
+     * @trace ARCH-000005
+     * @input N/A: 実行時引数を受け取らない。
+     * @returns voidを返す。
+     * @precondition Repository Modeと検査Rootが確定している。
+     * @postcondition 検査対象ごとの構造違反をFindingへ追加する。
+     * @effect checkProjectContextProjectionはFilesystemの読取りを実行する。
+     * @failure 読取り可能な通常Fileでない場合は構造検査を行わずFindingを返す。
+     * @invariant Project Context本文の意味妥当性を機械判定へ拡張しない。
+     * @boundary Filesystem上のRepository RootとChecker Profileの境界。
+     * @security Project Contextに存在しないRepositoryまたはContextを推測しない。
+     * @concurrency N/A: 共有非同期状態を持たない同期検査である。
+     */
+    function checkProjectContextProjection(): void {
+      if (repositoryMode === "generic") return;
+      const repositoryProjectionPath = path.join(root, "PROJECT_CONTEXT.md");
+      const templateProjectionPath = path.join(
+        root,
+        "template",
+        "PROJECT_CONTEXT.md",
+      );
+      const hasRepositoryProjection = Boolean(
+        lstatIfPresent(repositoryProjectionPath),
+      );
+      const hasTemplateProjection = Boolean(
+        lstatIfPresent(templateProjectionPath),
+      );
+      if (repositoryMode === "adopter" && !hasRepositoryProjection) return;
+      if (
+        repositoryMode === "official" &&
+        !hasRepositoryProjection &&
+        !hasTemplateProjection
+      )
+        return;
+      const targets =
+        repositoryMode === "official"
+          ? [
+              { file: repositoryProjectionPath, template: false },
+              {
+                file: templateProjectionPath,
+                template: true,
+              },
+            ]
+          : [{ file: repositoryProjectionPath, template: false }];
+      const headings = [
+        "## 1. 今どうなっているか",
+        "## 2. 何が危ない、または止まっているか",
+        "## 3. 今、人間が決めることは何か",
+        "## 4. なぜこの状態・判断になったか",
+        "## 5. 次に何をすべきか",
+        "## Checklist",
+      ];
+      const checklistItems = [
+        "Project ID、Repository IDおよびRepository Roleを評価した。",
+        "三つのIdentityがRepository Manifestと一致している。",
+        "五場面を省略せず、結論を先に示した。",
+        "現在事実と共有分析を区別した。",
+        "正本が存在する内容をOwner Relationへ接続した。",
+        "Project Context固有の安定IDを追加していない。",
+        "項目単位の閲覧権限、観測時刻およびLive運用状態を追加していない。",
+        "確認済みの該当なし、不明およびOPENを空欄へ畳んでいない。",
+        "Owner Artifactとの競合時はProject Contextを現在値として使わない。",
+        "保存済みの次候補と対話時の追加提案を区別できる。",
+        "Gateを閉じる前に再投影要否を評価する。",
+      ];
+      for (const target of targets) {
+        const stat = lstatIfPresent(target.file);
+        if (!stat?.isFile() || pathContainsSymbolicLink(target.file)) {
+          add(
+            "error",
+            "project-context-projection-missing",
+            relative(target.file),
+            "Repository Project Context must exist as a regular file at the repository root.",
+          );
+          continue;
+        }
+        const content = read(target.file);
+        const lines = content.split(/\r?\n/u);
+        const identityLabels = [
+          "Project ID",
+          "Repository ID",
+          "Repository Role",
+        ];
+        const isIdentityInvalid = identityLabels.some((label) => {
+          const matches = lines.filter((line) => line.startsWith(`${label}: `));
+          return (
+            matches.length !== 1 ||
+            matches[0].slice(label.length + 2).trim() === ""
+          );
+        });
+        const headingPositions = headings.map((heading) =>
+          lines.indexOf(heading),
+        );
+        const isHeadingOrderInvalid =
+          headingPositions.some((position) => position < 0) ||
+          headingPositions.some(
+            (position, index) =>
+              index > 0 && position <= headingPositions[index - 1],
+          ) ||
+          headings.some(
+            (heading) => lines.filter((line) => line === heading).length !== 1,
+          );
+        const isChecklistInvalid = checklistItems.some((item) => {
+          const expected = target.template ? `- [ ] ${item}` : `- [x] ${item}`;
+          return !lines.includes(expected);
+        });
+        if (isIdentityInvalid || isHeadingOrderInvalid || isChecklistInvalid) {
+          add(
+            "error",
+            "project-context-projection-contract-invalid",
+            relative(target.file),
+            "Project Context must keep the three identity fields, the five ordered scenes, and the complete visible Checklist.",
+          );
+        }
+        if (!target.template) {
+          const verifiedRoot = verifyRepositoryRoot(root);
+          const runtimePaths =
+            verifiedRoot.status === "completed"
+              ? resolveRepositoryRuntimeDataPaths(verifiedRoot.capability)
+              : null;
+          const manifestPath = runtimePaths?.repositoryManifest;
+          if (!manifestPath) {
+            add(
+              "error",
+              "project-context-repository-root-unverified",
+              ".",
+              "Project Context identity verification requires a verified Repository Root and its named Repository Manifest path.",
+            );
+            continue;
+          }
+          const manifestStat = lstatIfPresent(manifestPath);
+          if (
+            !manifestStat?.isFile() ||
+            pathContainsSymbolicLink(manifestPath)
+          ) {
+            add(
+              "error",
+              "project-context-manifest-missing",
+              relative(manifestPath),
+              "A repository with PROJECT_CONTEXT.md must keep its Repository Manifest as a regular file.",
+            );
+            continue;
+          }
+          try {
+            const manifest = JSON.parse(read(manifestPath)) as Record<
+              string,
+              unknown
+            >;
+            const identityValues = new Map(
+              identityLabels.map((label) => {
+                const line = lines.find((candidate) =>
+                  candidate.startsWith(`${label}: `),
+                );
+                return [label, line?.match(/`([^`]+)`/u)?.[1] ?? ""];
+              }),
+            );
+            const isManifestIdentityInvalid =
+              manifest.schema !== "crdd/repository-manifest/v2" ||
+              identityValues.get("Project ID") !== manifest.projectId ||
+              identityValues.get("Repository ID") !== manifest.repositoryId ||
+              identityValues.get("Repository Role") !== manifest.repositoryRole;
+            if (isManifestIdentityInvalid)
+              add(
+                "error",
+                "project-context-manifest-identity-mismatch",
+                relative(target.file),
+                "Project Context identity fields must exactly match the v2 Repository Manifest.",
+              );
+          } catch {
+            add(
+              "error",
+              "project-context-manifest-invalid",
+              relative(manifestPath),
+              "Repository Manifest must be valid JSON before Project Context identity can be verified.",
+            );
+          }
+        }
+      }
+    }
+
+    /**
      * Work Lifecycle Navigationを検査する。
      *
      * @responsibility Work Lifecycle Navigationの検査条件、違反分類、検査結果境界を所有する。
@@ -1015,11 +1200,17 @@ export function runCurrentProfileChecker(
       "基本図を現行図、既存参照、理由付き非該当または作成不能として処置した。",
       "UXその他へ渡す現在の判断、保持条件およびDiscoveryへ戻す条件が分かる。",
       "人間理解の確認が必要な探索について、理解確認と要求採用を区別した。",
+      "発火した理解確認について、AIの事前理解、人間の修正、有力な代替または反証、および確認後の現在理解を個別探索から辿れる。",
       "補足情報や台帳が個別探索・要求定義の第二の正本になっていない。",
     ];
 
     const discoveryExplorationChecklistItemTexts = [
       "情報源と、情報源から確認できる範囲を示した。",
+      "事前入力からAIが意味を再構成した場合、AIの事前理解、人間の修正および確認後の現在理解を区別した。",
+      "現在案を変え得る有力な代替または反証を人間と突き合わせるか、該当する案がない理由を示した。",
+      "人間理解の確認と、要求・方針の採用判断を分けた。",
+      "人間が抽象的な問題や要求を言語化できることを前提にせず、具体的な出来事、行動、迷い、回避策または比較から問題仮説を引き出した。",
+      "発言の少なさ、回答不能または沈黙を、同意、問題不存在または要求採用へ読み替えていない。",
       "確認できた事実と、そこから導いた解釈・仮説を区別した。",
       "解決策ではなく、本質的な問題を説明した。",
       "技術名称を除いても、誰が何に困っているか理解できる。",
@@ -12588,6 +12779,7 @@ export function runCurrentProfileChecker(
     )
       currentProfileRegistry.register(realitySymbolGraphRule(root));
     for (const rule of currentProfileRules({
+      projectContext: checkProjectContextProjection,
       workLifecycle: checkWorkLifecycleNavigation,
       discovery: checkDiscoveryIdentityLinkOwnership,
       ux: checkUxRequirementAnalysis,

@@ -5,7 +5,7 @@
  * @trace ARCH-000011
  */
 export const REPOSITORY_MANIFEST_SCHEMA =
-  "crdd/repository-manifest/v1" as const;
+  "crdd/repository-manifest/v2" as const;
 export const CROS_TRUST_POLICY_SCHEMA = "cros/trust-policy/v1" as const;
 
 const ID = /^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$/u;
@@ -26,8 +26,9 @@ const CAPABILITY = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
 export type RepositoryManifest = Readonly<{
   schema: typeof REPOSITORY_MANIFEST_SCHEMA;
   projectId: string;
+  repositoryId: string;
   displayName: string;
-  repositoryRole: "crdd-standard" | "crdd-adopted" | "cros-host";
+  repositoryRole: string;
   capabilities: readonly string[];
   contextSurfaces: readonly string[];
   externalSendPolicy: "config/external-send-policy.json" | null;
@@ -167,18 +168,21 @@ export function inspectRepositoryManifest(
       "displayName",
       "externalSendPolicy",
       "projectId",
+      "repositoryId",
       "repositoryRole",
       "schema",
     ]) ||
     record.schema !== REPOSITORY_MANIFEST_SCHEMA ||
     typeof record.projectId !== "string" ||
     !ID.test(record.projectId) ||
+    typeof record.repositoryId !== "string" ||
+    !ID.test(record.repositoryId) ||
+    record.repositoryId === record.projectId ||
     typeof record.displayName !== "string" ||
     record.displayName.length < 1 ||
     record.displayName.length > 160 ||
-    !["crdd-standard", "crdd-adopted", "cros-host"].includes(
-      String(record.repositoryRole),
-    ) ||
+    typeof record.repositoryRole !== "string" ||
+    !ID.test(record.repositoryRole) ||
     ![null, "config/external-send-policy.json"].includes(
       record.externalSendPolicy as null | string,
     )
@@ -190,9 +194,9 @@ export function inspectRepositoryManifest(
   return Object.freeze({
     schema: REPOSITORY_MANIFEST_SCHEMA,
     projectId: record.projectId,
+    repositoryId: record.repositoryId,
     displayName: record.displayName,
-    repositoryRole:
-      record.repositoryRole as RepositoryManifest["repositoryRole"],
+    repositoryRole: record.repositoryRole,
     capabilities,
     contextSurfaces,
     externalSendPolicy:

@@ -6693,11 +6693,17 @@ const discoveryRootChecklistTestItems = [
   "基本図を現行図、既存参照、理由付き非該当または作成不能として処置した。",
   "UXその他へ渡す現在の判断、保持条件およびDiscoveryへ戻す条件が分かる。",
   "人間理解の確認が必要な探索について、理解確認と要求採用を区別した。",
+  "発火した理解確認について、AIの事前理解、人間の修正、有力な代替または反証、および確認後の現在理解を個別探索から辿れる。",
   "補足情報や台帳が個別探索・要求定義の第二の正本になっていない。",
 ];
 
 const discoveryExplorationChecklistTestItems = [
   "情報源と、情報源から確認できる範囲を示した。",
+  "事前入力からAIが意味を再構成した場合、AIの事前理解、人間の修正および確認後の現在理解を区別した。",
+  "現在案を変え得る有力な代替または反証を人間と突き合わせるか、該当する案がない理由を示した。",
+  "人間理解の確認と、要求・方針の採用判断を分けた。",
+  "人間が抽象的な問題や要求を言語化できることを前提にせず、具体的な出来事、行動、迷い、回避策または比較から問題仮説を引き出した。",
+  "発言の少なさ、回答不能または沈黙を、同意、問題不存在または要求採用へ読み替えていない。",
   "確認できた事実と、そこから導いた解釈・仮説を区別した。",
   "解決策ではなく、本質的な問題を説明した。",
   "技術名称を除いても、誰が何に困っているか理解できる。",
@@ -9417,6 +9423,145 @@ function runChecker(root: string, ...extraArguments: string[]): CheckerRun {
     report: parseCheckerReport(result.stdout),
   };
 }
+
+/**
+ * Repository Project Contextの固定構造を受理することを検証する。
+ *
+ * @responsibility Identity、五場面および可視Checklistを持つ公式投影とひな型の受理判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition CRDD公式Repositoryを識別できる最小Fixtureを使用する。
+ * @stimulus 現行のPROJECT_CONTEXT.mdと配布ひな型を配置してCheckerを実行する。
+ * @observation Project Context契約に関するFindingを観測する。
+ * @oracle Project Context契約Findingが0件である。
+ * @cleanup Test後にFixture Rootを削除する。
+ * @boundary AUH-IT-003=N/A: Repository内Markdownの構造検査であり外部実行境界を持たない。
+ */
+test("Repository Project Contextの固定構造を受理する", () => {
+  const root = fixture();
+  initializeGit(root);
+  write(path.join(root, "01_Principles.md"), "# Principles\n");
+  write(
+    path.join(root, ".crdd", "config", "repository-manifest.json"),
+    fs.readFileSync(
+      path.join(repositoryRoot, ".crdd", "config", "repository-manifest.json"),
+      "utf8",
+    ),
+  );
+  write(
+    path.join(root, "PROJECT_CONTEXT.md"),
+    fs.readFileSync(path.join(repositoryRoot, "PROJECT_CONTEXT.md"), "utf8"),
+  );
+  write(
+    path.join(root, "template", "PROJECT_CONTEXT.md"),
+    fs.readFileSync(
+      path.join(repositoryRoot, "template", "PROJECT_CONTEXT.md"),
+      "utf8",
+    ),
+  );
+  const result = runChecker(root);
+  assert.equal(result.report.repository_mode, "official");
+  assert.equal(
+    result.report.findings.some((finding) =>
+      finding.code.startsWith("project-context-projection-"),
+    ),
+    false,
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Repository Project Contextの五場面欠落を拒否することを検証する。
+ *
+ * @responsibility Project Contextの固定場面が欠落した場合の拒否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition CRDD公式Repositoryを識別できる最小Fixtureを使用する。
+ * @stimulus 正式投影から人間判断の場面を除去してCheckerを実行する。
+ * @observation Project Context契約Findingを観測する。
+ * @oracle 欠落した正式投影へproject-context-projection-contract-invalidを返す。
+ * @cleanup Test後にFixture Rootを削除する。
+ * @boundary AUH-IT-003=N/A: Repository内Markdownの構造検査であり外部実行境界を持たない。
+ */
+test("Repository Project Contextの五場面欠落を拒否する", () => {
+  const root = fixture();
+  initializeGit(root);
+  write(path.join(root, "01_Principles.md"), "# Principles\n");
+  write(
+    path.join(root, ".crdd", "config", "repository-manifest.json"),
+    fs.readFileSync(
+      path.join(repositoryRoot, ".crdd", "config", "repository-manifest.json"),
+      "utf8",
+    ),
+  );
+  write(
+    path.join(root, "PROJECT_CONTEXT.md"),
+    fs
+      .readFileSync(path.join(repositoryRoot, "PROJECT_CONTEXT.md"), "utf8")
+      .replace("## 3. 今、人間が決めることは何か", "## 判断事項"),
+  );
+  write(
+    path.join(root, "template", "PROJECT_CONTEXT.md"),
+    fs.readFileSync(
+      path.join(repositoryRoot, "template", "PROJECT_CONTEXT.md"),
+      "utf8",
+    ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "project-context-projection-contract-invalid" &&
+        finding.path === "PROJECT_CONTEXT.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
+
+/**
+ * Project ContextとRepository ManifestのIdentity競合を拒否することを検証する。
+ *
+ * @responsibility 表示用投影がManifestと異なるRepository Identityを所有する状態の拒否判定を所有する。
+ * @trace AUH-IT-003
+ * @precondition v2 Manifestと固定構造を満たすProject Contextを使用する。
+ * @stimulus Project ContextのRepository IDだけをManifestと異なる値へ変更してCheckerを実行する。
+ * @observation Project ContextとManifestのIdentity照合Findingを観測する。
+ * @oracle project-context-manifest-identity-mismatchを返す。
+ * @cleanup Test後にFixture Rootを削除する。
+ * @boundary AUH-IT-003=N/A: Repository内の二つの追跡成果物を比較し、外部実行境界を持たない。
+ */
+test("Project ContextとRepository ManifestのIdentity競合を拒否する", () => {
+  const root = fixture();
+  initializeGit(root);
+  write(path.join(root, "01_Principles.md"), "# Principles\n");
+  write(
+    path.join(root, ".crdd", "config", "repository-manifest.json"),
+    fs.readFileSync(
+      path.join(repositoryRoot, ".crdd", "config", "repository-manifest.json"),
+      "utf8",
+    ),
+  );
+  write(
+    path.join(root, "PROJECT_CONTEXT.md"),
+    fs
+      .readFileSync(path.join(repositoryRoot, "PROJECT_CONTEXT.md"), "utf8")
+      .replace("`qual-lab.crdd-standard`", "`qual-lab.other-repository`"),
+  );
+  write(
+    path.join(root, "template", "PROJECT_CONTEXT.md"),
+    fs.readFileSync(
+      path.join(repositoryRoot, "template", "PROJECT_CONTEXT.md"),
+      "utf8",
+    ),
+  );
+  const result = runChecker(root);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "project-context-manifest-identity-mismatch" &&
+        finding.path === "PROJECT_CONTEXT.md",
+    ),
+    `${result.stdout}\n${result.stderr}`,
+  );
+});
 
 /**
  * Canonical案内文書の名称移行後に旧表題を残さないを検証する。
@@ -13349,6 +13494,11 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
   fs.cpSync(
     path.join(repositoryRoot, "40_Develop", "version-control", "src"),
     path.join(source, "40_Develop", "version-control", "src"),
+    { recursive: true },
+  );
+  fs.cpSync(
+    path.join(repositoryRoot, "40_Develop", "runtime-data", "src"),
+    path.join(source, "40_Develop", "runtime-data", "src"),
     { recursive: true },
   );
   assert.equal(

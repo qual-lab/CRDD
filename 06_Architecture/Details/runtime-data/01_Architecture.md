@@ -279,10 +279,14 @@ Recovery記録は、状態遷移、再入場および解消を所有するCompon
 
 | 設定 | 所有するもの | 所有しないもの |
 |---|---|---|
-| `repository-manifest.json` | 安定したProject ID、表示名、Repositoryの役割、提供Capability、Context Surface、Policy参照 | Secret、絶対Path、現在状態、実行Authority |
+| `repository-manifest.json` | 安定したProject ID、Project IDと異なるRepository ID、表示名、Repositoryの役割、提供Capability、Context Surface、Policy参照 | Secret、絶対Path、現在状態、実行Authority |
 | `external-send-policy.json` | 許可対象Provider、情報分類、目的、Session境界、候補保持条件 | Project Identity、Capability実装、送信実行の個別Authority |
 
 実効的な許可はManifestの宣言だけでは成立しない。
+
+Manifest v2では`projectId`と`repositoryId`を必須とし、同じ値を拒否する。`projectId`は複数Repositoryを束ねるLogical Projectを、`repositoryId`は一つのRepositoryを識別する。`repositoryRole`はAuthorityや固定Role階層ではなく、そのRepositoryがProject Contextを投影する責任範囲を表す安定した宣言であり、Project固有の値を許容する。v1にはRepository IDがないためv2として扱わず、利用側は値を推測して補完しない。
+
+ManifestはRepository Identityの正本であり、非秘密の共有設定としてGit管理する。Repositoryルートの`PROJECT_CONTEXT.md`は`projectId`、`repositoryId`および`repositoryRole`を表示用に投影し、Manifestと異なるIdentityを所有しない。Consumerは両者の不一致を一方の値で暗黙補完せず、現在投影の競合として拒否する。
 
 ```text
 Repository Manifestの宣言
