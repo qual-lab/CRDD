@@ -41,6 +41,7 @@ Quality ID: `QA-000009`
 | [cros](../../../06_Architecture/Details/cros/01_Architecture.md) | Repository横断解決、Grant、投影、外部接続、候補処置 |
 | [mcp](../../../06_Architecture/Details/mcp/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
 | [project-runtime](../../../06_Architecture/Details/project-runtime/01_Architecture.md) | Objective、Task、判断、取消、回復、公開結果 |
+| [workbench](../../../06_Architecture/Details/workbench/01_Architecture.md) | Repository単体／Local CROS／Remote CROSの入口差とAI依頼の外部送信境界 |
 
 ## 2. 試験段階と外部境界の適用
 

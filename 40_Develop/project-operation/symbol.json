@@ -16,6 +16,18 @@
       "archIds": ["ARCH-000005", "ARCH-000016"]
     },
     {
+      "symbolId": "project-operation.domain.repository-project-context",
+      "kind": "file",
+      "path": "src/repository-project-context.ts",
+      "archIds": ["ARCH-000005"]
+    },
+    {
+      "symbolId": "project-operation.domain.topic-meeting-record",
+      "kind": "file",
+      "path": "src/topic-meeting.ts",
+      "archIds": ["ARCH-000006"]
+    },
+    {
       "symbolId": "project-operation.domain.candidate-lifecycle",
       "kind": "file",
       "path": "src/project-operation.ts",
@@ -28,6 +40,22 @@
       "qaIds": ["QA-000004"],
       "localTestIds": ["PPR-IT-002"],
       "verifies": ["project-operation.domain.project-projection"]
+    },
+    {
+      "symbolId": "project-operation.test.integration.repository-project-context",
+      "kind": "test-suite",
+      "path": "tests/integration/repository-project-context.contract.test.ts",
+      "qaIds": ["QA-000004"],
+      "localTestIds": ["PPR-IT-019"],
+      "verifies": ["project-operation.domain.repository-project-context"]
+    },
+    {
+      "symbolId": "project-operation.test.integration.topic-meeting-record",
+      "kind": "test-suite",
+      "path": "tests/integration/topic-meeting-record.contract.test.ts",
+      "qaIds": ["QA-000005"],
+      "localTestIds": ["CPR-IT-008"],
+      "verifies": ["project-operation.domain.topic-meeting-record"]
     },
     {
       "symbolId": "project-operation.test.integration.candidate-adoption",

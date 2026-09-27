@@ -24,8 +24,8 @@
 
 | 項目 | 対象 |
 |---|---|
-| 対象改訂版 | UI／SPEC Definition集合 SHA-256: `2af1c97ce37ec2c50170ef3add766c0cfdf89c1c300a023532c7eb48bf695b2e` |
-| 対象関係 | 31組 |
+| 対象改訂版 | UI／SPEC Definition集合 SHA-256: `e11a86a6b7f439e08f088c468e54fdf59eafc43d4cd21459dcf0f0efb068f0cb` |
+| 対象関係 | 32組 |
 | 判定単位 | UI／SPECの組ごとに、Shared Contextと8観点を確認する |
 | 工程境界 | 対応PassはUI契約とSPEC契約の対応Closureを示す。Prototype／実画面評価を含むUI工程ExitまたはArchitectureへの通常Handoffは別Gate |
 
@@ -41,14 +41,15 @@
 | [UI-000003](../04_UI/Definitions/UI-000003/ui_definition.md) | [SPEC-000004](Definitions/SPEC-000004/spec_definition.md) | UX-000004／UX-000022／IA-000003／IA-000012 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし。差異検出時はUI／SPECのOwner工程へ戻す | [組別Evidence](#ui-000003spec-000004) |
 | [UI-000003](../04_UI/Definitions/UI-000003/ui_definition.md) | [SPEC-000005](Definitions/SPEC-000005/spec_definition.md) | UX-000022／IA-000003／IA-000012 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし。差異検出時はUI／SPECのOwner工程へ戻す | [組別Evidence](#ui-000003spec-000005) |
 | [UI-000004](../04_UI/Definitions/UI-000004/ui_definition.md) | [SPEC-000002](Definitions/SPEC-000002/spec_definition.md) | UX-000005／IA-000002 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし。差異検出時はUI／SPECのOwner工程へ戻す | [組別Evidence](#ui-000004spec-000002) |
-| [UI-000004](../04_UI/Definitions/UI-000004/ui_definition.md) | [SPEC-000006](Definitions/SPEC-000006/spec_definition.md) | UX-000005／UX-000009／IA-000002／IA-000006／IA-000023 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし。差異検出時はUI／SPECのOwner工程へ戻す | [組別Evidence](#ui-000004spec-000006) |
+| [UI-000004](../04_UI/Definitions/UI-000004/ui_definition.md) | [SPEC-000006](Definitions/SPEC-000006/spec_definition.md) | UX-000005／UX-000009／UX-000034／IA-000002／IA-000006／IA-000023 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし。差異検出時はUI／SPECのOwner工程へ戻す | [組別Evidence](#ui-000004spec-000006) |
 | [UI-000004](../04_UI/Definitions/UI-000004/ui_definition.md) | [SPEC-000007](Definitions/SPEC-000007/spec_definition.md) | UX-000015／IA-000006 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし。差異検出時はUI／SPECのOwner工程へ戻す | [組別Evidence](#ui-000004spec-000007) |
 | [UI-000005](../04_UI/Definitions/UI-000005/ui_definition.md) | [SPEC-000008](Definitions/SPEC-000008/spec_definition.md) | UX-000006／IA-000004 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし。差異検出時はUI／SPECのOwner工程へ戻す | [組別Evidence](#ui-000005spec-000008) |
 | [UI-000005](../04_UI/Definitions/UI-000005/ui_definition.md) | [SPEC-000009](Definitions/SPEC-000009/spec_definition.md) | UX-000008／IA-000020 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし。差異検出時はUI／SPECのOwner工程へ戻す | [組別Evidence](#ui-000005spec-000009) |
-| [UI-000006](../04_UI/Definitions/UI-000006/ui_definition.md) | [SPEC-000010](Definitions/SPEC-000010/spec_definition.md) | UX-000010／UX-000011／IA-000006／IA-000007 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし。差異検出時はUI／SPECのOwner工程へ戻す | [組別Evidence](#ui-000006spec-000010) |
+| [UI-000006](../04_UI/Definitions/UI-000006/ui_definition.md) | [SPEC-000010](Definitions/SPEC-000010/spec_definition.md) | UX-000010／UX-000011／UX-000034／IA-000006／IA-000007 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし。差異検出時はUI／SPECのOwner工程へ戻す | [組別Evidence](#ui-000006spec-000010) |
+| [UI-000006](../04_UI/Definitions/UI-000006/ui_definition.md) | [SPEC-000031](Definitions/SPEC-000031/spec_definition.md) | UX-000034／IA-000007 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし。差異検出時はUI／SPECのOwner工程へ戻す | [組別Evidence](#ui-000006spec-000031) |
 | [UI-000007](../04_UI/Definitions/UI-000007/ui_definition.md) | [SPEC-000011](Definitions/SPEC-000011/spec_definition.md) | UX-000012／IA-000008／IA-000023 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし。差異検出時はUI／SPECのOwner工程へ戻す | [組別Evidence](#ui-000007spec-000011) |
-| [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md) | UX-000013／IA-000009 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし。差異検出時はUI／SPECのOwner工程へ戻す | [組別Evidence](#ui-000008spec-000012) |
-| [UI-000009](../04_UI/Definitions/UI-000009/ui_definition.md) | [SPEC-000013](Definitions/SPEC-000013/spec_definition.md) | UX-000014／IA-000010 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし。差異検出時はUI／SPECのOwner工程へ戻す | [組別Evidence](#ui-000009spec-000013) |
+| [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md) | UX-000013／UX-000035／IA-000009 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし。差異検出時はUI／SPECのOwner工程へ戻す | [組別Evidence](#ui-000008spec-000012) |
+| [UI-000009](../04_UI/Definitions/UI-000009/ui_definition.md) | [SPEC-000013](Definitions/SPEC-000013/spec_definition.md) | UX-000014／UX-000033／IA-000010 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし。差異検出時はUI／SPECのOwner工程へ戻す | [組別Evidence](#ui-000009spec-000013) |
 | [UI-000010](../04_UI/Definitions/UI-000010/ui_definition.md) | [SPEC-000014](Definitions/SPEC-000014/spec_definition.md) | UX-000016／IA-000011 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし。差異検出時はUI／SPECのOwner工程へ戻す | [組別Evidence](#ui-000010spec-000014) |
 | [UI-000010](../04_UI/Definitions/UI-000010/ui_definition.md) | [SPEC-000015](Definitions/SPEC-000015/spec_definition.md) | UX-000018／IA-000013 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし。差異検出時はUI／SPECのOwner工程へ戻す | [組別Evidence](#ui-000010spec-000015) |
 | [UI-000011](../04_UI/Definitions/UI-000011/ui_definition.md) | [SPEC-000005](Definitions/SPEC-000005/spec_definition.md) | UX-000017／UX-000022／IA-000012／IA-000003 | Shared | 8観点の組別Evidenceを確認 | 作成者確認済み | Gapなし。差異検出時はUI／SPECのOwner工程へ戻す | [組別Evidence](#ui-000011spec-000005) |
@@ -189,7 +190,7 @@
 
 ### UI-000004／SPEC-000006
 
-共有Context: UX-000005、UX-000009、IA-000002、IA-000006、IA-000023
+共有Context: UX-000005、UX-000009、UX-000034、IA-000002、IA-000006、IA-000023
 
 | 観点 | UI側の根拠 | SPEC側の根拠 | 判定 | 理由 |
 |---|---|---|---|---|
@@ -249,7 +250,7 @@
 
 ### UI-000006／SPEC-000010
 
-共有Context: UX-000010、UX-000011、IA-000006、IA-000007
+共有Context: UX-000010、UX-000011、UX-000034、IA-000006、IA-000007
 
 | 観点 | UI側の根拠 | SPEC側の根拠 | 判定 | 理由 |
 |---|---|---|---|---|
@@ -261,6 +262,21 @@
 | Authority | [UI-000006](../04_UI/Definitions/UI-000006/ui_definition.md#制約) | [SPEC-000010](Definitions/SPEC-000010/spec_definition.md#契機事前条件authority) | 一致 | UI事実（UI-000006）「現在リポジトリだけで日常作業を完結する／プロジェクト・リポジトリ・基点フォルダを区別して対象を確認する。UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。」／SPEC事実（SPEC-000010）「現在Repositoryで作業する主体。別RepositoryへのAuthorityは発行しない」／対応: 検証済みBindingの範囲だけを利用し、UIからFilesystem権限を拡張しない。 |
 | Visibility | [UI-000006](../04_UI/Definitions/UI-000006/ui_definition.md#表示面と情報の優先順位) | [SPEC-000010](Definitions/SPEC-000010/spec_definition.md#受入条件と検証義務) | 一致 | UI事実（UI-000006）「プロジェクト（Project）: 論理的な案件・活動／リポジトリ（Repository）: Projectの一部を所有する正本境界／結合情報（Binding）: Repositoryと検証済みRootの結合／プロジェクト項目: リポジトリが正本として所有する文書その他の項目／読取り投影（Projection）: 正本から導出した読取りView／対象範囲（Coverage）: 投影が扱えた範囲／手元の情報（Local Context）: 現在Repositoryが所有する正本／手元の作業（Local Work）: 手元で開始・完了できる仕事／リポジトリ横断情報源（Cross-repository Source）: CROSから得る追加情報／履歴管理能力（Version Control Capability）: 履歴を扱う差替可能な能力」／SPEC事実（SPEC-000010）「正常: 横断機能やCommit済み状態がなくてもRepository-local作業を開始できる／境界: 検証済みRoot／隣接Root、Binding一意／曖昧を分け、別Repositoryを選ばない／観測不能: 不明を正常・不存在・完了へ丸めず、実際の副作用「対象解決は読取り専用で、Repository・worktree・Git状態を変更しない」と矛盾する結果を返さない」／対応: Repository ID、Root、Binding状態、境界違反を表示する。 |
 | Constraint | [UI-000006](../04_UI/Definitions/UI-000006/ui_definition.md#制約) | [SPEC-000010](Definitions/SPEC-000010/spec_definition.md#制約) | 一致 | UI事実（UI-000006）「UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。／表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。／視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。」／SPEC事実（SPEC-000010）「API、Process、保存方式、画面、部品または実装技術を本定義で確定しない。現行実装は独立した照合対象であり、望ましい振る舞いの根拠として自動採用しない。」／対応: Path表示をIdentityの代替にせず、解決方式を特定UIへ固定しない。 |
+
+### UI-000006／SPEC-000031
+
+共有Context: UX-000034、IA-000007
+
+| 観点 | UI側の根拠 | SPEC側の根拠 | 判定 | 理由 |
+|---|---|---|---|---|
+| State | [UI-000006](../04_UI/Definitions/UI-000006/ui_definition.md#状態と表示差) | [SPEC-000031](Definitions/SPEC-000031/spec_definition.md#振る舞い状態結果) | 一致 | UI事実（UI-000006）「Staged／Unstaged／Untracked／Conflict、Commit作成済み／Push受理／Push拒否／結果不明」／SPEC事実（SPEC-000031）「Staged、Unstaged、Untracked、Conflictを区別する。」／対応: 作業差分、Local Commit、Push結果を別状態として表示する。 |
+| Trigger | [UI-000006](../04_UI/Definitions/UI-000006/ui_definition.md#操作とfeedback) | [SPEC-000031](Definitions/SPEC-000031/spec_definition.md#契機事前条件authority) | 一致 | UI事実（UI-000006）「利用者が共有する差分を選び、Stage、Commit、Pushを順に実行する」／SPEC事実（SPEC-000031）「利用者が作業差分を確認して共有を選ぶ時」／対応: 利用者が対象を選んだ時だけ変更公開を開始する。 |
+| Result | [UI-000006](../04_UI/Definitions/UI-000006/ui_definition.md#操作とfeedback) | [SPEC-000031](Definitions/SPEC-000031/spec_definition.md#振る舞い状態結果) | 一致 | UI事実（UI-000006）「Remote、Branch、送信Commit、各Effectの結果を別々に示す」／SPEC事実（SPEC-000031）「Commit作成とRemote反映を同一視しない。」／対応: LocalとRemoteの各Effectを同じ完了へ畳まず示す。 |
+| Failure | [UI-000006](../04_UI/Definitions/UI-000006/ui_definition.md#操作とfeedback) | [SPEC-000031](Definitions/SPEC-000031/spec_definition.md#失敗回復副作用) | 一致 | UI事実（UI-000006）「Conflict、Push拒否、認証失敗、通信断、結果不明を成功へ畳む」／SPEC事実（SPEC-000031）「失敗: Conflict、無効な差分選択、Commit失敗、Push拒否、認証失敗、Remote結果不明。」／対応: 誤対象へ送らず、失敗段階と結果不明を保つ。 |
+| Recovery | [UI-000006](../04_UI/Definitions/UI-000006/ui_definition.md#状態と表示差) | [SPEC-000031](Definitions/SPEC-000031/spec_definition.md#失敗回復副作用) | 一致 | UI事実（UI-000006）「既知のTreeとCommitを保ち、再観測先と次の選択を示す」／SPEC事実（SPEC-000031）「既知のTreeとCommitを保持し、再観測後に利用者が再試行または別入口を選べるようにする。」／対応: 同じ対象を再観測し、自動再送せず人間の選択へ戻す。 |
+| Authority | [UI-000006](../04_UI/Definitions/UI-000006/ui_definition.md#制約) | [SPEC-000031](Definitions/SPEC-000031/spec_definition.md#契機事前条件authority) | 一致 | UI事実（UI-000006）「UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。」／SPEC事実（SPEC-000031）「Stage、Unstage、Commit、Pushは人間の選択に基づく。Pushは送信対象の明示確認を必要とする」／対応: UIは確認結果を渡すだけでAuthorityを拡張しない。 |
+| Visibility | [UI-000006](../04_UI/Definitions/UI-000006/ui_definition.md#表示面と情報の優先順位) | [SPEC-000031](Definitions/SPEC-000031/spec_definition.md#受入条件と検証義務) | 一致 | UI事実（UI-000006）「外部共有対象: Push前に確認するRemote、Branch、Commit集合」／SPEC事実（SPEC-000031）「境界: 空変更、Untracked、Conflict、Upstreamなし、Remote差分ありを区別する」／対応: 送信前後に対象と状態差を確認できる。 |
+| Constraint | [UI-000006](../04_UI/Definitions/UI-000006/ui_definition.md#制約) | [SPEC-000031](Definitions/SPEC-000031/spec_definition.md#制約) | 一致 | UI事実（UI-000006）「Force Push、Branch作成、Merge、RebaseおよびRemote設定管理を暗黙に追加せず、履歴管理実装をGit CLIへ固定しない。」／SPEC事実（SPEC-000031）「Force Push、Branch作成、Merge、RebaseおよびRemote設定管理は対象外とする。」／対応: 対象外操作をUIから暗黙に追加せず、実装境界も固定しない。 |
 
 ### UI-000007／SPEC-000011
 
@@ -279,33 +295,33 @@
 
 ### UI-000008／SPEC-000012
 
-共有Context: UX-000013、IA-000009
+共有Context: UX-000013、UX-000035、IA-000009
 
 | 観点 | UI側の根拠 | SPEC側の根拠 | 判定 | 理由 |
 |---|---|---|---|---|
-| State | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#状態と表示差) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#振る舞い状態結果) | 一致 | UI事実（UI-000008）「利用可能（available）／接続資格が必要（credential_required）／開示制限（restricted）／利用不能（unavailable）／不明（unknown）」／SPEC事実（SPEC-000012）「接続資格を検証し、現在有効なWorkspace GrantとRepository Exposureから利用可能範囲を確定する。／System管理能力と内容閲覧権限を別に判定する。」／対応: 接続資格必要・利用可能・開示制限・利用不能・不明を、Credentialから導出したWorkspace Grantへ対応させる。 |
-| Trigger | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#操作とfeedback) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#契機事前条件authority) | 一致 | UI事実（UI-000008）「許可された作業領域だけへ接続する」／SPEC事実（SPEC-000012）「リモート接続を開始または再接続する時／事前条件: 接続資格を検証でき、WorkspaceとRepository Exposureが現行である」／対応: 接続時にCredentialを検証し、Granted Workspaceを確定できる場合だけ利用Sessionを作る。 |
-| Result | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#操作とfeedback) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#振る舞い状態結果) | 一致 | UI事実（UI-000008）「現在の利用許可範囲（Grant）だけを開示し不足を補完しない」／SPEC事実（SPEC-000012）「System管理能力と内容閲覧権限を別に判定する。」／対応: 利用可能WorkspaceとRepository Exposureの交差だけをUIへ返す。 |
-| Failure | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#操作とfeedback) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#失敗回復副作用) | 一致 | UI事実（UI-000008）「利用不能なリポジトリの存在や内容を推測表示する」／SPEC事実（SPEC-000012）「未許可対象の存在を漏らさず、古いGrantや一律Unlockを受理しない。」／対応: 非許可WorkspaceやRepositoryの存在を漏らさず、不明を利用可能へ丸めない。 |
-| Recovery | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#状態と表示差) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#失敗回復副作用) | 一致 | UI事実（UI-000008）「接続→接続単位→許可された作業領域→公開されたリポジトリ→情報源」／SPEC事実（SPEC-000012）「本SPEC固有の回復経路は設けず、失敗理由と安全な戻り先を返す。」／対応: SPECが返す失敗理由と安全な戻り先を、UIのCredential→Session→Workspace Grant→Workspace→Exposure→Sourceの導線へ接続する。再認証や管理者確認を新しい回復契約にしない。 |
-| Authority | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#制約) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#契機事前条件authority) | 一致 | UI事実（UI-000008）「許可された作業領域だけへ接続する。UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。」／SPEC事実（SPEC-000012）「Credential発行時に固定されたWorkspace Grant。管理Capabilityと内容Grantを分離する」／対応: Credential発行時に固定されたWorkspace GrantだけをSessionへ反映し、System CapabilityとContent Grantを分離する。UIは正本・決定権限・独自Storeを持たない。 |
-| Visibility | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#表示面と情報の優先順位) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#受入条件と検証義務) | 一致 | UI事実（UI-000008）「接続資格（Connection Credential）: 接続を認証する資格／接続中の作業単位（Session）: 一回の接続文脈／利用可能領域（Workspace Grant）: 接続中の作業単位（Session）が利用できる作業領域集合／作業領域（Workspace）: Repository公開のまとまり／公開関係（Exposure）: RepositoryをWorkspaceへ公開する関係／管理能力（System Capability）: サーバー（Server）の管理能力」／SPEC事実（SPEC-000012）「正常: System管理能力と内容閲覧権限を別に判定する／境界: 有効／期限切れCredential、Exposureあり／なしを分け、非開示対象の存在を返さない／観測不能: 不明を正常・不存在・完了へ丸めず、実際の副作用「認証済みSessionとGrantを作成・更新する。未Exposure Repositoryへ読取りEffect 0」と矛盾する結果を返さない」／対応: UIのCredential、Session、Workspace Grant、Workspace、Exposure、System Capabilityを、SPECの有効／期限切れCredential、Exposureあり／なし、管理能力／内容閲覧権限の区別に沿って示す。 |
-| Constraint | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#制約) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#制約) | 一致 | UI事実（UI-000008）「UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。／表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。／視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。」／SPEC事実（SPEC-000012）「API、Process、保存方式、画面、部品または実装技術を本定義で確定しない。現行実装は独立した照合対象であり、望ましい振る舞いの根拠として自動採用しない。」／対応: System Capabilityと内容Grantの分離を維持し、UIは正本・決定権限・業務ロジック・独自Storeを持たない。SPECはAPI・Process・保存方式・画面・部品・実装技術を固定しない。 |
+| State | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#状態と表示差) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#振る舞い状態結果) | 一致 | UI事実（UI-000008）「active／expired／revoked／rotating／unknown、確認待ち／進行中／blocked／completed」／SPEC事実（SPEC-000012）「administrator、management、developerのRole別Credentialを管理し、認証時は現在有効なRole GrantとRepository Roleから利用可能範囲を確定する。」／対応: Credential状態とRecovery状態を、Role Grantによる利用範囲とは別軸で表示する。 |
+| Trigger | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#操作とfeedback) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#契機事前条件authority) | 一致 | UI事実（UI-000008）「Credentialを発行・失効・ローテーションする／Accessを回復する」／SPEC事実（SPEC-000012）「Remote接続、Credential発行・失効・ローテーション、またはAccess Recoveryを開始する時」／対応: 通常資格管理とHost Recoveryの開始契機を区別する。 |
+| Result | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#操作とfeedback) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#振る舞い状態結果) | 一致 | UI事実（UI-000008）「失効対象、保持するProduct Data、Recovery IDおよびBootstrap再入場先を示す」／SPEC事実（SPEC-000012）「Secretは発行時に一度だけ返し、System管理能力、Management内容Access、Development内容Accessを別に判定する。」／対応: 発行結果とRecovery結果を秘密値保存なしで示す。 |
+| Failure | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#操作とfeedback) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#失敗回復副作用) | 一致 | UI事実（UI-000008）「Remote認証へ依存する／Secretを再表示・保存する／Product Dataを削除する」／SPEC事実（SPEC-000012）「無効・期限切れ・失効Credential、Role不整合、Secret再表示要求、全Administrator喪失、認可状態破損、Recovery途中失敗を区別する。」／対応: SecretとProduct Dataを守り、失敗地点を隠さない。 |
+| Recovery | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#状態と表示差) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#失敗回復副作用) | 一致 | UI事実（UI-000008）「Role→Credential→処置。通常管理不能時はHost確認→Recovery→Bootstrap再入場」／SPEC事実（SPEC-000012）「最初の失敗から同じRecovery IDを保持し、失効対象・保持対象・終了後状態を再観測してBootstrap Credentialから通常管理へ戻す。」／対応: 同一Recoveryの現在地と通常管理への再入場を示す。 |
+| Authority | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#制約) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#契機事前条件authority) | 一致 | UI事実（UI-000008）「Administrator能力から内容Accessを推定しない。」／SPEC事実（SPEC-000012）「通常管理はAdministrator能力、内容AccessはRole別Grant、全喪失RecoveryはServer Host Authorityに限定する」／対応: 管理能力、内容Access、Host RecoveryのAuthorityを分離する。 |
+| Visibility | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#表示面と情報の優先順位) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#受入条件と検証義務) | 一致 | UI事実（UI-000008）「接続資格状態: 発行・有効・期限切れ・失効・ローテーションを区別する状態」／SPEC事実（SPEC-000012）「境界: active／expired／revoked／rotating／unknown、三Role、Repository単体利用、通常管理／Host Recoveryを分ける」／対応: Role、資格状態、利用範囲、Recoveryを独立表示する。 |
+| Constraint | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#制約) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#制約) | 一致 | UI事実（UI-000008）「Repository単体利用へCROS Role、CredentialまたはServer登録を要求しない。」／SPEC事実（SPEC-000012）「Repository単体利用へCROS Credentialを要求しない。」／対応: Remote CROSの資格管理をLocal Repository利用へ波及させない。 |
 
 ### UI-000009／SPEC-000013
 
-共有Context: UX-000014、IA-000010
+共有Context: UX-000014、UX-000033、IA-000010
 
 | 観点 | UI側の根拠 | SPEC側の根拠 | 判定 | 理由 |
 |---|---|---|---|---|
-| State | [UI-000009](../04_UI/Definitions/UI-000009/ui_definition.md#状態と表示差) | [SPEC-000013](Definitions/SPEC-000013/spec_definition.md#振る舞い状態結果) | 一致 | UI事実（UI-000009）「観測済み（observed）／候補（candidate）／採用（adopted）／却下（rejected）。会話と正本を分ける」／SPEC事実（SPEC-000013）「観察・仮説・候補・決定を区別し、既存Topicとの関係と採否を記録して所有正本へ反映する。／候補の出所、判断者、採否、反映先を辿れる。」／対応: 観測済み・候補・採用・却下を、Meeting内容から所有正本へのPromotion段階へ対応させる。 |
-| Trigger | [UI-000009](../04_UI/Definitions/UI-000009/ui_definition.md#操作とfeedback) | [SPEC-000013](Definitions/SPEC-000013/spec_definition.md#契機事前条件authority) | 一致 | UI事実（UI-000009）「会議の内容を候補として整理し正本へつなぐ」／SPEC事実（SPEC-000013）「Meetingの項目を継続論点または決定候補として扱う時／事前条件: Meeting Item、出所、候補種別、所有正本、判断主体を確認できる」／対応: UIのMeeting内容の候補化は、SPECが確認するMeeting Item、出所、候補種別、所有正本、判断主体を対象にする。正本にないProject確認を追加しない。 |
-| Result | [UI-000009](../04_UI/Definitions/UI-000009/ui_definition.md#操作とfeedback) | [SPEC-000013](Definitions/SPEC-000013/spec_definition.md#振る舞い状態結果) | 一致 | UI事実（UI-000009）「候補・判断・反映結果を区別する」／SPEC事実（SPEC-000013）「候補の出所、判断者、採否、反映先を辿れる。」／対応: 候補Identity、出所、採否、昇格先をUIへ返す。 |
-| Failure | [UI-000009](../04_UI/Definitions/UI-000009/ui_definition.md#操作とfeedback) | [SPEC-000013](Definitions/SPEC-000013/spec_definition.md#失敗回復副作用) | 一致 | UI事実（UI-000009）「会議記録が自動的に正本へ昇格する」／SPEC事実（SPEC-000013）「文字列一致だけで統合・分割せず、会話を自動採用しない。」／対応: 会議記録を自動で決定・Topic・要求へ昇格せず、却下を削除として隠さない。 |
-| Recovery | [UI-000009](../04_UI/Definitions/UI-000009/ui_definition.md#状態と表示差) | [SPEC-000013](Definitions/SPEC-000013/spec_definition.md#失敗回復副作用) | 一致 | UI事実（UI-000009）「Meeting→Item→候補→既存Topic比較→採否→所有正本」／SPEC事実（SPEC-000013）「本SPEC固有の回復経路は設けず、失敗理由と安全な戻り先を返す。」／対応: SPECが返す失敗理由と安全な戻り先を、UIのMeeting→Item→候補→既存Topic比較→採否→所有正本の導線へ接続する。重複昇格の新しい規則は追加しない。 |
-| Authority | [UI-000009](../04_UI/Definitions/UI-000009/ui_definition.md#制約) | [SPEC-000013](Definitions/SPEC-000013/spec_definition.md#契機事前条件authority) | 一致 | UI事実（UI-000009）「会議の内容を候補として整理し正本へつなぐ。UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。」／SPEC事実（SPEC-000013）「候補作成と採否判断を分け、正本更新は所有者の採用Authorityを必要とする」／対応: 候補作成と正式採用のAuthorityを分け、UIやAIが採用を自己決定しない。 |
-| Visibility | [UI-000009](../04_UI/Definitions/UI-000009/ui_definition.md#表示面と情報の優先順位) | [SPEC-000013](Definitions/SPEC-000013/spec_definition.md#受入条件と検証義務) | 一致 | UI事実（UI-000009）「会議（Meeting）: 時間境界を持つ対話／会議項目（Meeting Item）: 会議内の観察・問い・判断候補／候補（Candidate）: 正本更新前の提案／論点（Topic）: 継続して扱う論点／関係（Relation）: 同一・関連・派生等の判断／判断（Decision）: 採用・却下・保留」／SPEC事実（SPEC-000013）「正常: 候補の出所、判断者、採否、反映先を辿れる／境界: 新規候補／既存候補、採用／却下／保留を分け、未採用候補で正本を変更しない／観測不能: 不明を正常・不存在・完了へ丸めず、実際の副作用「候補記録を作成し、採用時だけ所有正本を更新する。却下時は正本Effect 0」と矛盾する結果を返さない」／対応: 元発言、解釈、候補種別、採否、所有正本を区別して示す。 |
-| Constraint | [UI-000009](../04_UI/Definitions/UI-000009/ui_definition.md#制約) | [SPEC-000013](Definitions/SPEC-000013/spec_definition.md#制約) | 一致 | UI事実（UI-000009）「UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。／表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。／視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。」／SPEC事実（SPEC-000013）「API、Process、保存方式、画面、部品または実装技術を本定義で確定しない。現行実装は独立した照合対象であり、望ましい振る舞いの根拠として自動採用しない。」／対応: 媒体名で意味分類せず、Promotion先の正本契約をUI都合で変更しない。 |
+| State | [UI-000009](../04_UI/Definitions/UI-000009/ui_definition.md#状態と表示差) | [SPEC-000013](Definitions/SPEC-000013/spec_definition.md#振る舞い状態結果) | 一致 | UI事実（UI-000009）「継続／終了／撤回／訂正、削除候補／確認待ち／削除済み、完了／部分成功／競合／不明」／SPEC事実（SPEC-000013）「Topicの現在状態とMeetingの時点記録を区別し、入口を変えても同じLifecycleと終了後状態を返す。」／対応: 履歴Lifecycle、削除Lifecycle、操作結果を別軸で示す。 |
+| Trigger | [UI-000009](../04_UI/Definitions/UI-000009/ui_definition.md#操作とfeedback) | [SPEC-000013](Definitions/SPEC-000013/spec_definition.md#契機事前条件authority) | 一致 | UI事実（UI-000009）「登録する／編集する／一覧・取得する／終了・訂正する」／SPEC事実（SPEC-000013）「Topic／Meetingの登録・変更・参照・終了・訂正・削除、またはMeeting Outcomeの処置を選ぶ時」／対応: 日常操作とOutcome処置を同じ対象Lifecycleへ接続する。 |
+| Result | [UI-000009](../04_UI/Definitions/UI-000009/ui_definition.md#操作とfeedback) | [SPEC-000013](Definitions/SPEC-000013/spec_definition.md#振る舞い状態結果) | 一致 | UI事実（UI-000009）「参照元・参照先、失われる内容、Relation処置、復旧可能性を示す」／SPEC事実（SPEC-000013）「Meeting候補を全件処置し、未完了Actionは担当・期限・完了条件・追跡先を確定してMeetingを閉じられる。」／対応: 処置先と削除影響を結果から追跡できる。 |
+| Failure | [UI-000009](../04_UI/Definitions/UI-000009/ui_definition.md#操作とfeedback) | [SPEC-000013](Definitions/SPEC-000013/spec_definition.md#失敗回復副作用) | 一致 | UI事実（UI-000009）「正当な履歴、関連対象またはRelation整合性を失う」／SPEC事実（SPEC-000013）「競合改訂版、権限不足、部分更新、Relation不整合、削除結果不明を成功へ畳まない。」／対応: 履歴とRelationを保ち、部分成功を隠さない。 |
+| Recovery | [UI-000009](../04_UI/Definitions/UI-000009/ui_definition.md#状態と表示差) | [SPEC-000013](Definitions/SPEC-000013/spec_definition.md#失敗回復副作用) | 一致 | UI事実（UI-000009）「削除時は影響→確認→結果→回復」／SPEC事実（SPEC-000013）「部分成功では本文・Relation・処置結果の既知状態を返し、同じ対象を再観測する。」／対応: 同じ対象とRelationを再観測して次の処置へ戻す。 |
+| Authority | [UI-000009](../04_UI/Definitions/UI-000009/ui_definition.md#制約) | [SPEC-000013](Definitions/SPEC-000013/spec_definition.md#契機事前条件authority) | 一致 | UI事実（UI-000009）「確認なしの連鎖削除またはDangling Relationを許さない。」／SPEC事実（SPEC-000013）「通常更新、候補採否、物理削除を分ける。削除は影響表示後の人間による明示確認を必要とする」／対応: 更新、採否、削除のAuthorityを分離する。 |
+| Visibility | [UI-000009](../04_UI/Definitions/UI-000009/ui_definition.md#表示面と情報の優先順位) | [SPEC-000013](Definitions/SPEC-000013/spec_definition.md#受入条件と検証義務) | 一致 | UI事実（UI-000009）「削除影響: 失われる内容、Relation処置、復旧可能性」／SPEC事実（SPEC-000013）「境界: Topic／Meeting、時点記録／現在状態、終了／撤回／訂正／削除、未完了Action／未処置Outcomeを分ける」／対応: 対象種別、時間、Lifecycle、処置状態を独立表示する。 |
+| Constraint | [UI-000009](../04_UI/Definitions/UI-000009/ui_definition.md#制約) | [SPEC-000013](Definitions/SPEC-000013/spec_definition.md#制約) | 一致 | UI事実（UI-000009）「正当な履歴の終了・撤回・訂正と誤登録の物理削除を区別し」／SPEC事実（SPEC-000013）「物理削除では対象以外を連鎖削除しない。」／対応: 終了と削除を混同せず、対象外へEffectを広げない。 |
 
 ### UI-000010／SPEC-000014
 
@@ -558,14 +574,14 @@
 
 | 区分 | 意味 | 現在の処置 |
 |---|---|---|
-| Shared | UIの認識・操作・FeedbackとSPECの契機・状態・結果を対応させる | 上記31組を全件確認済み |
+| Shared | UIの認識・操作・FeedbackとSPECの契機・状態・結果を対応させる | 上記32組を全件確認済み |
 | UI-only | 視覚順、色以外の識別、Keyboard、読上げ等 | UI定義で保持し、SPECへ振る舞いを発明しない |
 | SPEC-only | 直接UIを持たない振る舞い、内部で完結する契約 | 理由、運用Feedback、人間確認をSPEC定義に残す |
 | Gap | 片側または上流のCanonical Contractが不足する | UI／SPEC／IA／UXのOwner工程へ戻す。現在の未解消Gapはない |
 
 ## 7. ArchitectureとQualityへの接続
 
-本書はDefinition対応を所有する。Detail対応は[UI／SPEC Detail対応](Details/02_UI_SPEC_Detail_Correspondence.md)を正本とし、20 SCR、20 PRT、31 Interactionおよび29 BHVを全数確認して`Pass`とした。本書のPassだけをDetail対応のPassへ読み替えず、両方の対応結果を独立して維持する。
+本書はDefinition対応を所有する。Detail対応は[UI／SPEC Detail対応](Details/02_UI_SPEC_Detail_Correspondence.md)を正本とし、現在の20 SCR、20 PRT、32 Interactionおよび30 BHVを全数確認して`Pass`とした。v0.21固定時の値は29 BHV／31 Interactionであり、現在値へ読み替えない。本書のPassだけをDetail対応のPassへ読み替えず、両方の対応結果を独立して維持する。
 
 - Architectureの正式入力はUI DefinitionとSPEC Definitionである。この対応レビューは両入力の対応Closureを示すEvidenceであり、第三の仕様ではない。UI工程Exitが未完了の間はArchitectureへの通常Handoffを許可しない。
 - UIとSPECはそれぞれQuality Analysisへ入力を渡す。対応レビューから新しいQuality Contractを発明しない。

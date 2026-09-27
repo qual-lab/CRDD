@@ -20,7 +20,7 @@ CRDDはv0.21.0を公開済みで、v0.22.0のDiscoveryを進めている。v0.22
 | 現在事実 | Project Context | Repository投影、Manifest v2 Identity照合およびMarkdown／Codex確認が成立。MCP以降の入口比較は未完了 | [REQ-000038](01_Discovery/Definitions/REQ-000038/requirement.md)、[入口比較](01_Discovery/Analysis/EXP-000029/consumer_comparison.md) |
 | 現在事実 | 情報入口 | Project ContextをOverviewとし、Topic、Meeting、Roadmap、Quality、DocumentationおよびRuntime Stateを各Ownerから読む能力地図を整理済み | [能力地図](01_Discovery/Analysis/EXP-000029/capability_map.md) |
 | 現在事実 | Topic／Meeting操作 | 登録・編集・削除・一覧・取得を要求採用。Relationを持つ誤登録も、影響表示と人間確認後に対象だけを削除する | [REQ-000039](01_Discovery/Definitions/REQ-000039/requirement.md) |
-| 現在事実 | Workbench | MCPで扱うProject情報、Attention等の横断投影、およびTree／Diff／Stage／Commit／通常Pushを一つの入口で扱う要求を採用。具体的な画面は未決 | [REQ-000040](01_Discovery/Definitions/REQ-000040/requirement.md)、[能力地図](01_Discovery/Analysis/EXP-000029/capability_map.md) |
+| 現在事実 | Workbench | Repository Workを完了しConnection／AI Surfaceへ移行。Remote CROS向けCredential Core、不変Registryおよび任意構成のWorkbench管理Surfaceまで成立。Repository単体利用はCredential不要のまま維持し、Remote Transport、Host RecoveryとAI依頼は未完了 | [CHG-000082](99_Roadmap/Changes/CHG-000082/change.md)、[CROS Architecture](06_Architecture/Details/cros/01_Architecture.md) |
 | 現在事実 | 品質 | v0.21設計はReady、全体Quality Readyは未成立 | [Quality Center](07_Quality/01_Quality_Center.md) |
 
 ## 2. 何が危ない、または止まっているか
@@ -42,13 +42,13 @@ CRDDはv0.21.0を公開済みで、v0.22.0のDiscoveryを進めている。v0.22
 
 ### 結論
 
-現在のDiscovery整理を閉じるために必要な人間判断はない。v0.22.0のScopeとWorkbench要求は確認済みである。Repository IDの正式固定とVisual Directionは、各契約の固定時に改めて人間が判断する。
+現在のDiscovery整理とWorkbenchの読取り接続を進めるために必要な人間判断はない。v0.22.0のScope、Workbench要求およびDirection Aは確認済みである。Repository IDの正式固定は、Project Context契約の固定時に改めて人間が判断する。
 
 | 判断 | 判断する人 | 選択肢・影響 | Owner Relation |
 |---|---|---|---|
 | なし（確認済み） | Qual-Lab | v0.22はRepository内＋Project横断＋AI利用構成を扱い、Workbench要求も採用済み。Discovery整理を閉じて次工程へ進める | [Scope探索](01_Discovery/Analysis/EXP-000034/exploration.md)、[REQ-000040](01_Discovery/Definitions/REQ-000040/requirement.md) |
 | CRDD標準RepositoryのRepository IDを正式固定するか | Qual-Lab | 現在判断ではない。v0.22では`qual-lab.crdd-standard`を暫定採用し、Project Context契約固定時に維持または変更を判断する | [REQ-000038](01_Discovery/Definitions/REQ-000038/requirement.md)、[Runtime Data Architecture](06_Architecture/Details/runtime-data/01_Architecture.md#5-configとrepository-identity) |
-| WorkbenchのVisual Directionをどれにするか | Qual-Lab | 現在判断ではない。Screen InventoryとHero候補を作った後、複数案から採用・組合せ・再探索を判断する | [UI／SPEC Detail探索](01_Discovery/Analysis/EXP-000030/exploration.md) |
+| なし（確認済み） | Qual-Lab | WorkbenchはDirection Aを採用し、公式CRDDロゴとNoto Sans CJK系Fontを使う | [Visual Baseline](04_UI/Details/Visual/workbench-hero/visual-baseline.md)、[CHG-000081](99_Roadmap/Changes/CHG-000081/change.md) |
 
 ## 4. なぜこの状態・判断になったか
 
@@ -59,7 +59,7 @@ Workbenchを先に作るのではなく、どのConsumerでも同じProject理�
 | 現在の結論 | 理由 | Owner Relation |
 |---|---|---|
 | Project Context Projectionを第一段階とする | AIや媒体ごとの再探索と回答差を先に解消するため | [EXP-000029](01_Discovery/Analysis/EXP-000029/exploration.md)、[REQ-000038](01_Discovery/Definitions/REQ-000038/requirement.md) |
-| Workbench要求を採用し、具体画面は未決とする | Project Contextだけでは日常操作とVersion Controlを一つの仕事として扱えない一方、既存WIPから画面を逆算してはならないため | [EXP-000029](01_Discovery/Analysis/EXP-000029/exploration.md)、[REQ-000040](01_Discovery/Definitions/REQ-000040/requirement.md) |
+| WorkbenchはDirection Aと15 Screen ArchitectureからProduction化する | Project Contextだけでは日常操作とVersion Controlを一つの仕事として扱えず、Screen Inventory、Hero探索、Secondary展開と人間判断を経て具体化したため | [UI Detail](04_UI/Details/01_UI_Detail.md)、[CHG-000081](99_Roadmap/Changes/CHG-000081/change.md)、[CHG-000082](99_Roadmap/Changes/CHG-000082/change.md) |
 | Deadlineは任意だが開始時に確認する | 未設定と確認漏れを区別し、設定済み期限をRisk分析へ使うため | [EXP-000031](01_Discovery/Analysis/EXP-000031/exploration.md)、[REQ-000037](01_Discovery/Definitions/REQ-000037/requirement.md) |
 | UI／SPEC Detail契約はv0.21成果物へ伝播済み | v0.22固有設計前に既存Canonical Chainを閉じるため | [CHG-000081](99_Roadmap/Changes/CHG-000081/change.md) |
 
@@ -72,7 +72,7 @@ Workbenchを先に作るのではなく、どのConsumerでも同じProject理�
 | REQ-000037〜041をUX以降へ全数伝播する | 任意期限、Project Context、Topic／Meeting、WorkbenchおよびRemote CROSの利用者成果を設計へ渡すため | [Discovery台帳](01_Discovery/01_Product_Discovery.md) |
 | 同じProject ContextをMCPから読める最小境界を評価する | Markdown直接確認だけでなく、構造化Consumerでも意味を変えず取得できることを確認するため | [入口比較](01_Discovery/Analysis/EXP-000029/consumer_comparison.md)、[MCP Architecture](06_Architecture/Details/mcp/01_Architecture.md) |
 | Topic／Meetingの共通操作を具体化する | 単一RepositoryとDEV／MGMT分離の両方で、Owner Repositoryを越えず同じ契約を使えるようにするため | [REQ-000039](01_Discovery/Definitions/REQ-000039/requirement.md) |
-| WorkbenchのScreen InventoryとHero候補を作る | 採用済み要求を、既存WIPに拘束されずUI／SPEC Detailへ具体化するため | [REQ-000040](01_Discovery/Definitions/REQ-000040/requirement.md)、[EXP-000030](01_Discovery/Analysis/EXP-000030/exploration.md) |
+| WorkbenchのConnection／AI Surfaceへ進む | Repository WorkのGateが通過したため、Repository単体利用を維持しながら、Remote CROSだけにRole CredentialとSession Grantを接続する | [CHG-000082](99_Roadmap/Changes/CHG-000082/change.md)、[CROS Architecture](06_Architecture/Details/cros/01_Architecture.md) |
 | 次工程Gateでv0.22.0の日程Riskを再評価する | Scopeは確認済みだが、2026-10-03までの残作業と検証費用は工程進行に合わせて更新する必要があるため | [Roadmap](99_Roadmap/01_Roadmap.md)、[REQ-000037](01_Discovery/Definitions/REQ-000037/requirement.md) |
 
 ## Checklist

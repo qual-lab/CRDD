@@ -1,6 +1,6 @@
 # Workbench Secondary Screen Expansion
 
-状態: Reviewed Draft — G5 Actual Browser Zoom OPEN
+状態: Reviewed Draft — G5 Passed
 
 Related:
 - [Workbench Screen Architecture](02_Workbench_Screen_Architecture.md)
@@ -103,7 +103,7 @@ PatternはProduct固有のVisual／Information Ruleであり、直ちに共通Co
 | Font Binary同梱 | OPEN | Architecture／Distribution | Visual BaselineはFont Stackで成立。配布物の再現性は未確定 | Workbench実装方式とOffline要件の決定時 |
 | CMP発行 | OPEN | UI Detail | Patternは利用可能。共通Component Contractは未確定 | Secondary ScreenのSPEC Detail完成時 |
 | 狭幅表示 | 解決済み | UI Detail／Quality | 320〜1920 CSS pxで3画面を含む5画面を再表示し、横Overflow、12px未満文字、32px未満操作対象はいずれも0件 | Breakpointまたは画面Compositionを変更した時 |
-| 実Browser Zoom | OPEN | UI Detail／Quality | 狭幅結果を200%／400% Zoomの代替にしない | 実効CSS Viewportを信頼して観測できるBrowser環境で再実行する |
+| 実Browser Zoom | 解決済み | UI Detail／Quality | 5画面×100%／200%／400%で実倍率、画像読込、横Overflow、文字下限、操作対象、Focus順および終了後資源を確認した | Source、CSS、Composition、Browser Profile契約または検証器を変更した時 |
 | 正式SCR／PRT採番 | OPEN | UI Detail | Screen候補とVisual Patternは確認済み | Detail Contract Freeze時 |
 
 ## Checklist

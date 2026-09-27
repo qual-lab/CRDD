@@ -51,16 +51,20 @@ Workspace接続と利用可能範囲
 | IA-000009 | 作業領域（Workspace） | Repository公開のまとまり | 作業領域識別子（Workspace ID） |
 | IA-000009 | 公開関係（Exposure） | RepositoryをWorkspaceへ公開する関係 | Workspace＋Repository |
 | IA-000009 | 管理能力（System Capability） | サーバー（Server）の管理能力 | 接続中の作業単位（Session）へ別途結合 |
+| IA-000009 | 接続資格状態 | 発行・有効・期限切れ・失効・ローテーションを区別する状態 | Credential ID＋状態改訂版 |
+| IA-000009 | Secret表示境界 | 発行時だけ秘密値を受け取る一時境界 | 発行Attempt。永続Identityにしない |
+| IA-000009 | Access Recovery | 通常管理不能時にHostから管理資格だけを再構成する処置 | Recovery ID＋対象Role／Credential |
 
 同じ画面や応答へ置く場合も、上表の独立軸を一つの成功・信頼・完了へ畳まない。重要な不足、制限、判断要否は詳細へ隠さない。
 
 ## 操作とFeedback
 
-主要な操作・判断: 接続する／Workspaceを選ぶ／再認証する。
+主要な操作・判断: 接続する／Workspaceを選ぶ／再認証する／Credentialを発行・失効・ローテーションする／Accessを回復する。
 
 | UX分析 | 利用者が行う判断・行動 | 重要な場面 | 必要なFeedback | 避ける失敗 |
 |---|---|---|---|---|
 | UX-000013 | 許可された作業領域だけへ接続する | 利用可能情報を表示する時 | 現在の利用許可範囲（Grant）だけを開示し不足を補完しない | 利用不能なリポジトリの存在や内容を推測表示する |
+| UX-000035 | Role別Credentialを維持しAccessだけを回復する | 全Administrator Credentialを失った時 | 失効対象、保持するProduct Data、Recovery IDおよびBootstrap再入場先を示す | Remote認証へ依存する／Secretを再表示・保存する／Product Dataを削除する |
 
 UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IAの状態・導線と対応付けて表示する。
 
@@ -69,6 +73,7 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 | UX／IAの対応 | 区別する状態 | 状態から進む導線 |
 |---|---|---|
 | UX-000013／IA-000009 | 利用可能（available）／接続資格が必要（credential_required）／開示制限（restricted）／利用不能（unavailable）／不明（unknown） | 接続→接続単位→許可された作業領域→公開されたリポジトリ→情報源 |
+| UX-000035／IA-000009 | active／expired／revoked／rotating／unknown、確認待ち／進行中／blocked／completed | Role→Credential→処置。通常管理不能時はHost確認→Recovery→Bootstrap再入場 |
 
 上表にない処理中、取消、回復その他の状態を一律に追加しない。値なし、未観測、古い値、競合、開示制限または結果不明は、該当するIA定義が要求する場合にだけ別状態として示す。
 
@@ -84,6 +89,8 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。
 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。
 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。
+- 生Secretまたは受信可能な同等値を再表示・永続化せず、Administrator能力から内容Accessを推定しない。
+- Repository単体利用へCROS Role、CredentialまたはServer登録を要求しない。
 
 ## UI／SPEC対応レビューへ渡す項目
 

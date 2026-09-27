@@ -278,6 +278,7 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       /\b(?:verifyRepositoryRoot|verifyRepositoryRootFromWorkingDirectory|resolveVerifiedRepositoryRootFromWorkingDirectory|describeRepositoryLocationContract)\b/u,
     ),
     [
+      "40_Develop/checker/src/profiles/current-profile.ts",
       "40_Develop/checker/src/rules/reality-symbol-graph.ts",
       "40_Develop/coordinator/bin/coordinator.ts",
       "40_Develop/coordinator/scripts/measure-development-providers.ts",
@@ -301,6 +302,10 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/runtime-data/src/platform/runtime-data-path-resolver.ts",
       "40_Develop/semantic-coverage/bin/compile-semantic-coverage-pilot.ts",
       "40_Develop/verification-runner/src/execution/regression-execution.ts",
+      "40_Develop/visual-preview/src/browser-zoom-verifier.ts",
+      "40_Develop/visual-preview/src/preview-server.ts",
+      "40_Develop/workbench/src/project-surface.ts",
+      "40_Develop/workbench/src/workbench-server.ts",
     ],
   );
   assert.deepEqual(
@@ -480,6 +485,7 @@ test("Local Change Setと狭いVersion Control公開入口のConsumer集合が�
     .sort();
   assert.deepEqual(localChangeSetConsumers, [
     "40_Develop/verification-runner/src/execution/regression-execution.ts",
+    "40_Develop/workbench/src/project-surface.ts",
   ]);
 
   const checkerObservationConsumers = sources
@@ -501,6 +507,7 @@ test("Local Change Setと狭いVersion Control公開入口のConsumer集合が�
   assert.deepEqual(repositoryIdentityConsumers, [
     "40_Develop/checker/src/adapters/reality-test-catalog.ts",
     "40_Develop/checker/src/adapters/reality-traceability.ts",
+    "40_Develop/checker/src/profiles/current-profile.ts",
     "40_Develop/checker/src/rules/reality-symbol-graph.ts",
     "40_Develop/crdd-domain-library/src/repository-observation/index.ts",
     "40_Develop/crdd-domain-library/src/repository-observation/reality-symbol-repository-observer.ts",

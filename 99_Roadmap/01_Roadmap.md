@@ -72,8 +72,8 @@ Workbenchは後付けのUIではない。[入口再探索](../01_Discovery/Analy
 | v0.22 Topic／Project Attention | 要求採用 | UX引き渡し待ち | [TopicとMeetingの探索](../01_Discovery/Analysis/EXP-000023/exploration.md)、[REQ-000039](../01_Discovery/Definitions/REQ-000039/requirement.md) | 登録・編集・削除・一覧・取得、Relation影響確認、終了・撤回・訂正をUX以降で具体化する |
 | v0.22 Meeting／Context Promotion | 要求採用 | UX引き渡し待ち | [TopicとMeetingの探索](../01_Discovery/Analysis/EXP-000023/exploration.md)、[REQ-000039](../01_Discovery/Definitions/REQ-000039/requirement.md) | 時点記録を保つ登録・編集・削除・一覧・取得と、候補処置をUX以降で具体化する |
 | v0.22 複数Projectの読み取り専用Portfolio投影 | 要求維持 | UX引き渡し待ち | [Portfolio理解の探索](../01_Discovery/Analysis/EXP-000024/exploration.md)、[Project横断の再確認](../01_Discovery/Analysis/EXP-000035/exploration.md) | 同じProjectのRepository Federation後に、許可された複数Logical Projectを欠測・制限・根拠付きで比較する体験を具体化する |
-| v0.22 CROS Workbenchの利用体験・公開契約 | 要求採用 | UX引き渡し待ち | [入口再探索](../01_Discovery/Analysis/EXP-000029/exploration.md)、[REQ-000040](../01_Discovery/Definitions/REQ-000040/requirement.md) | Project情報、横断ProjectionおよびVersion Controlを一つの入口で扱う体験をUX以降で具体化する。既存WIPはCanonical Inputにしない |
-| v0.22 UI／SPEC DetailのProduct Design実証 | 工程仮説採用 | Workbench Pilot待ち | [具体設計過程の探索](../01_Discovery/Analysis/EXP-000030/exploration.md)、[UI／SPEC Detail工程契約](Changes/CHG-000081/change.md) | Definitionから画面一覧・具体領域・詳しい振る舞いを再導出し、代表画面の探索、人間による方向判断、画面展開、反復からの部品発見、UIとBHVの双方向Coverageを実Productで検証する |
+| v0.22 CROS Workbenchの利用体験・公開契約 | 要求採用 | Detail契約固定候補／Reality Audit待ち | [入口再探索](../01_Discovery/Analysis/EXP-000029/exploration.md)、[REQ-000040](../01_Discovery/Definitions/REQ-000040/requirement.md)、[UI／SPEC Detail工程契約](Changes/CHG-000081/change.md) | Project情報、横断ProjectionおよびVersion Controlを一つの入口で扱う体験をUI／SPEC Detail、Architecture、Qualityまで伝播した。次に既存Realityとの一致とProduction実装範囲を確認する |
+| v0.22 UI／SPEC DetailのProduct Design実証 | 工程仮説採用 | Workbench Pilot完了／固定候補 | [具体設計過程の探索](../01_Discovery/Analysis/EXP-000030/exploration.md)、[UI／SPEC Detail工程契約](Changes/CHG-000081/change.md) | G1〜G5、Direction A、Secondary Screen展開、実Browser検証および独立レビューFinding 0まで完了した。実装反復からPattern／CMP昇格の根拠を評価する |
 | v0.22 旧Runtime Traceability Projection移行 | Adopted | Planned — Retained until Equivalent | [CHG-000078](Changes/CHG-000078/change.md)、[Reality Audit](../07_Quality/05_Current_Implementation_Reality_Audit.md) | 旧2 JSON固有の状態・資源・検証caseをCanonical設計から決定論的に生成し、全Consumerを新入口へ移行する。同等性検査、Capability保持およびConsumer 0を独立確認するまで旧Projectionを削除しない |
 
 #### Group C: CROSのFederation・公開接続
@@ -89,7 +89,7 @@ Workbenchは後付けのUIではない。[入口再探索](../01_Discovery/Analy
 
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
-| v0.22 CROS Workbenchの最小実装 | 要求採用 | 停止中 — UX以降の設計が必要 | [REQ-000040](../01_Discovery/Definitions/REQ-000040/requirement.md)、[Workbench工程Gate](Changes/CHG-000067/change.md#41-cros-workbenchの工程gate) | UXからUI／SPEC Detail、ArchitectureおよびQualityまで閉じた場合だけ実装を開始する。既存WIPの存在を実装許可にしない |
+| v0.22 CROS Workbenchの最小実装 | 要求採用 | 実装前Reality Audit開始可 | [REQ-000040](../01_Discovery/Definitions/REQ-000040/requirement.md)、[Workbench工程Gate](Changes/CHG-000067/change.md#41-cros-workbenchの工程gate)、[UI／SPEC Detail工程契約](Changes/CHG-000081/change.md) | Detail Contract固定候補と独立レビューFinding 0を入口に、既存Realityを正解とせず照合する。未実装Capability、実境界および利用側を確認してからProduction実装へ進む |
 | v0.22 AI Runtime Registry／モデルProfile外部構成 | 要求採用 | UX引き渡し待ち | [AI Runtime変更容易性の探索](../01_Discovery/Analysis/EXP-000026/exploration.md)、[REQ-000016](../01_Discovery/Definitions/REQ-000016/requirement.md)、[REQ-000023](../01_Discovery/Definitions/REQ-000023/requirement.md) | 追加可能な安定Profileを、Repository単体のローカル設定またはCROS Server設定から登録済みProvider Adapter、Modelおよび推論設定へ解決する体験を具体化する。自動Fallbackと任意Executable設定は対象外 |
 
 ### 1.3. v0.23.0 — 常設CROS運用・耐久Operation

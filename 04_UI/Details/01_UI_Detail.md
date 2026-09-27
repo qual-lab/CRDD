@@ -15,7 +15,7 @@ v0.21.0でCanonical化した20件のUI Definitionを、新しいUI Detail契約�
       ↓
 20 SCR + 20 PRT + Interaction
       ↓
-29 BHVとの31 Detail Relation
+30 BHVとの32 Detail Relation
       ↓
 Architecture／Quality
 ```
@@ -111,7 +111,7 @@ G1〜G5は通過した。Workbench固有のPattern候補とVisual Baselineを[Se
 
 ## 5. UI／SPEC Detail対応
 
-[UI／SPEC Detail対応](../../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)で31 Relationを双方向に全件評価した。全Interactionは対応BHVを持ち、全BHVは一つ以上のSCR／PRTから利用者が認識できる。
+[UI／SPEC Detail対応](../../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)で32 Relationを双方向に全件評価した。全Interactionは対応BHVを持ち、全BHVは一つ以上のSCR／PRTから利用者が認識できる。
 
 ## 6. Architecture／Qualityへの引き渡し
 
@@ -123,7 +123,8 @@ G1〜G5は通過した。Workbench固有のPattern候補とVisual Baselineを[Se
 
 | 項目 | 現在状態 | 判断者／Owner | 影響 | 戻り条件／再評価契機 |
 |---|---|---|---|---|
-| v0.22 Product固有Visual | OPEN | Qual-Lab | v0.21移行には影響しない | v0.22でGUI解決形を採用した時 |
+| v0.22 Workbench Pilot Visual Baseline | 解決済み | Qual-Lab | Direction AをPilotの基準として採用済み | Product代表性またはSecondary Screenで成立しない反証が出た時 |
+| Production Final Visual | OPEN | Qual-Lab | PilotをProduction実装完成とはみなさない | 実装画面と実DataでVisual／Accessibilityを再評価する時 |
 | CMP発行 | OPEN | UI工程Owner | Reusable Componentは未発行 | 複数の実画面で反復を確認した時 |
 
 ## 補足分析

@@ -1,4 +1,4 @@
-# Meeting候補と正本への引渡しのArchitecture定義
+# Topic・Meeting Lifecycleと正本への引渡しのArchitecture定義
 
 成果物種別: Architecture定義
 Architecture ID: `ARCH-000006`
@@ -7,13 +7,13 @@ Architecture ID: `ARCH-000006`
 
 ## 1. 責務と境界
 
-Meeting内の観測、候補、採用、却下を区別し、候補作成と正本更新のAuthorityを分ける。媒体ではなく項目の目的で候補種別を決める。
+Topicの現在状態とMeetingの時点記録を分け、CRUD・終了・訂正・Outcome処置・安全な削除を一つのLifecycleで成立させる。候補作成・採否・所有正本更新・物理削除のAuthorityを分ける。
 
 | 区分 | 内容 |
 |---|---|
 | 状態Owner | Project Operation Context |
-| 所有する責務 | Meeting ItemからTopic／Decision候補を作り、出所と採否を追跡するLifecycle |
-| 所有しない責務 | Meeting本文の意味決定、候補の自動採用、各所有正本の内部規則 |
+| 所有する責務 | Topic／MeetingのIdentity・改訂版・Relation・Lifecycle、Meeting Outcome処置、Action追跡先、安全な物理削除 |
+| 所有しない責務 | Meeting本文の意味決定、候補の自動採用、各所有正本の内部規則、正当な履歴の物理削除 |
 | 主な外部境界 | Meeting正本、Topic／Decision等の所有正本、人間判断 |
 
 ## 2. UI観点の入力
@@ -26,7 +26,7 @@ Meeting内の観測、候補、採用、却下を区別し、候補作成と正�
 
 | SPEC分析 | 守る振る舞い契約 |
 |---|---|
-| [SPEC-000013](../../Analysis/SPEC-000013/architecture_analysis.md) | Meeting内容を候補化し所有正本へ昇格する |
+| [SPEC-000013](../../Analysis/SPEC-000013/architecture_analysis.md) | Meeting・Topicを維持し候補を所有正本へ昇格する |
 
 ## 4. 両観点の統合判断
 
@@ -34,17 +34,17 @@ Meeting内の観測、候補、採用、却下を区別し、候補作成と正�
 
 | 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |
 |---|---|---|---|---|---|---|
-| UI-000009 | UI | Project Operation Context | UI契約はAuthorityを発行しない。利用者操作: 候補化する／比較する／採用・却下する。 | UI契約はEffectを定義しない | 会議記録が自動的に正本へ昇格する | 観測済み（observed）／候補（candidate）／採用（adopted）／却下（rejected）。会話と正本を分ける / Meeting→Item→候補→既存Topic比較→採否→所有正本 /  |
-| SPEC-000013 | SPEC | Project Operation Context | 候補作成と採否判断を分け、正本更新は所有者の採用Authorityを必要とする | 候補記録を作成し、採用時だけ所有正本を更新する。却下時は正本Effect 0。 | 文字列一致だけで統合・分割せず、会話を自動採用しない。 | [観察／会話] -> [候補]   ├ 採用 -> [所有正本更新]   ├ 却下 -> [候補履歴]   └ 保留 -> [判断待ち] |
+| UI-000009 | UI | Project Operation Context | UI契約はAuthorityを発行しない。利用者操作: 登録／編集／一覧・取得／終了・訂正／候補化／採否／誤登録削除。 | UI契約はEffectを定義しない | 正当な履歴、関連対象またはRelation整合性を失う | 継続／終了／撤回／訂正、削除候補／確認待ち／削除済み、完了／部分成功／競合／不明 |
+| SPEC-000013 | SPEC | Project Operation Context | 通常更新、候補採否、物理削除を分け、削除は影響表示後の人間による明示確認を必要とする | Topic／Meeting本文、Relation、候補処置、Action状態を更新し得る。物理削除では対象以外を連鎖削除しない | 競合改訂版、権限不足、部分更新、Relation不整合、削除結果不明を成功へ畳まない | Topic／Meeting→CRUD／Outcome処置／Action移管→終了後状態。正当な履歴は終了・撤回・訂正、誤登録だけ影響確認後に削除 |
 
 ## 5. 構造と依存方向
 
 ```text
 [Architecture Responsibility]
 ├─ UI-000009 (UI)
-   観測済み（observed）／候補（candidate）／採用（adopted）／却下（rejected）。会話と正本を分ける / Meeting→Item→候補→既存Topic比較→採否→所有正本 / 
+   Topic／Meeting→関係・経緯→処置。削除時は影響→確認→結果→回復
 └─ SPEC-000013 (SPEC)
-   [観察／会話] -> [候補]   ├ 採用 -> [所有正本更新]   ├ 却下 -> [候補履歴]   └ 保留 -> [判断待ち]
+   Topic／Meeting→CRUD／Outcome処置／Action移管→終了後状態
 ```
 
 各入力はSibling contractであり、前の入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。UI契約は利用者へ認識・操作・Feedbackを提供するが、AuthorityやEffectを発行しない。
@@ -109,9 +109,9 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 
 ## 10. 実装と検証への引き渡し
 
-- 実装は「Meeting ItemからTopic／Decision候補を作り、出所と採否を追跡するLifecycle」を所有するCoreと、外部境界を扱うPort／Adapterを分ける。
+- 実装はTopic／Meeting本文、改訂版、Relation、Outcome処置および削除結果を一つの整合境界で扱うCoreと、Repository I/Oや外部入口を扱うPort／Adapterを分ける。
 - 観測→候補→判断→採用時だけ所有正本へ引渡しを段階的な結合試験で確認する。
-- Meeting本文のコピー、出所喪失、自動採用、対象Owner不明を理由別に反証する。
+- Meeting本文のコピー、出所喪失、自動採用、未処置OutcomeのままのClose、確認なし削除、暗黙の連鎖削除、dangling relationを理由別に反証する。
 - Process Recoveryは非該当。引渡し失敗は候補状態を保持して再判断可能にする。
 
 ## 11. 情報源と現行照合

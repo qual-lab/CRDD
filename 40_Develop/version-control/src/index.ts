@@ -39,6 +39,22 @@ export {
 } from "./git/fixed-snapshot-adapter.ts";
 export { gitLocalChangeSetAdapter } from "./git/local-change-set-adapter.ts";
 export {
+  createGitChangePublicationAdapter,
+  createGitChangePublicationTargetObservationAdapter,
+  gitChangePublicationAdapter,
+  gitChangePublicationTargetObservationAdapter,
+  type ChangePublicationCommandRunner,
+} from "./git/change-publication-adapter.ts";
+export {
+  type ChangePublicationAdapter,
+  type ChangePublicationRequest,
+  type ChangePublicationResult,
+  type ChangePublicationTargetObservation,
+  type ChangePublicationTargetObservationAdapter,
+  executeChangePublication,
+  observeChangePublicationTarget,
+} from "./change-publication.ts";
+export {
   inspectMigrationSystemClosure,
   type MigrationConsumerObservation,
 } from "./migration-closure.ts";

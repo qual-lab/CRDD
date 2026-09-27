@@ -12,16 +12,16 @@ Last Updated: 2026-09-19
 
 ## 2. 工程入力と再構築方法
 
-Architectureの正式入力はCanonicalな20件のUI定義と29件のSPEC定義である。UIとSPECを別々に全数分析し、同じ上位責務境界へ属する結果を18件のArchitecture定義へ統合した。
+Architectureの正式入力はCanonicalな20件のUI定義と30件のSPEC定義である。UIとSPECを別々に全数分析し、同じ上位責務境界へ属する結果を18件のArchitecture定義へ統合した。
 
-UI／SPEC Detailは、v0.21のDefinition入力を置き換えず、その意味を実現する配置・操作・状態・観測の具体的制約として追加した。20 SCR、20 PRT、31 Interactionおよび29 BHVを18 Architecture定義へ全数接続し、詳細設計領域への配置を[UI／SPEC Detail Architecture Traceability](08_UI_SPEC_Detail_Traceability.md)で固定した。Source、WIPまたは既存Architectureから意味を遡及補完していない。
+UI／SPEC DetailはDefinition入力を置き換えず、その意味を実現する配置・操作・状態・観測の具体的制約として追加した。20 SCR、20 PRT、32 Interactionおよび30 BHVを18 Architecture定義へ全数接続し、詳細設計領域への配置を[UI／SPEC Detail Architecture Traceability](08_UI_SPEC_Detail_Traceability.md)で固定した。Source、WIPまたは既存Architectureから意味を遡及補完していない。
 
 ```text
 UI定義 20件 ──→ UI観点のArchitecture分析 20件 ──┐
                                                      ├─→ Architecture定義 18件
-SPEC定義 29件 → SPEC観点のArchitecture分析 29件 ─┘
+SPEC定義 30件 → SPEC観点のArchitecture分析 30件 ─┘
                                                               ↑
-                 UI／SPEC Detail（20 SCR・20 PRT・31 Interaction・29 BHV）
+                 UI／SPEC Detail（20 SCR・20 PRT・32 Interaction・30 BHV）
                                                               │
                                                               ▼
                                                    Architecture横断モデル
@@ -38,7 +38,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | 入力種別 | 対象数 | 分析済み | 未分析 | 状態 |
 |---|---:|---:|---:|---|
 | UI定義 | 20 | 20 | 0 | 全数分析済み |
-| SPEC定義 | 29 | 29 | 0 | 全数分析済み |
+| SPEC定義 | 30 | 30 | 0 | 全数分析済み |
 
 ## Architecture定義台帳
 
@@ -49,14 +49,14 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | [変更・監査・試験・品質の閉包](Definitions/ARCH-000003/architecture_definition.md) | 同じ改訂版に対する指摘、是正、Evidence、未確認範囲、現在Gateの統合 | UI-000015 | SPEC-000020 | Quality Centerと変更追跡 |
 | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Objective／Task受付、Project状態、判断待ち、取消、Recovery、再入場、結果 | UI-000002、UI-000003、UI-000012 | SPEC-000002、SPEC-000003、SPEC-000004、SPEC-000005、SPEC-000017、SPEC-000028、SPEC-000029 | Project Runtime |
 | [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | Project Contextを含むProject／Milestone／Objective／Task状態と複数Project比較の読取り投影、およびObjective／Milestoneの受入・差戻し・判断待ちの限定記録 | UI-000004、UI-000007 | SPEC-000002、SPEC-000006、SPEC-000007、SPEC-000011 | Project Management Projection／Objective・Milestone Acceptance Decision Record |
-| [Meeting候補と正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | Meeting ItemからTopic／Decision候補を作り、出所と採否を追跡する | UI-000009 | SPEC-000013 | Project Operation Context |
+| [Topic・Meeting Lifecycleと正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | Topic／Meetingの日常操作、Outcome処置、Action移管、Relation整合および安全な削除を成立させる | UI-000009 | SPEC-000013 | Project Operation Context |
 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md) | 実行記録の解決、欠測を保つ読取り集約、非Authority評価候補 | UI-000005 | SPEC-000008 | 実行記録読取りProjection |
 | [実行境界の診断](Definitions/ARCH-000008/architecture_definition.md) | 外部境界の到達、受理、開始、結果搬送、終了状態の観測 | UI-000005 | SPEC-000009 | Platform Access診断Port |
-| [Repository境界とBinding](Definitions/ARCH-000009/architecture_definition.md) | Repository Root検証、Repository／Project Identity、実行対象Binding | UI-000006 | SPEC-000010 | Version Control PortとRepository Binding Resolver |
+| [Repository境界とBinding](Definitions/ARCH-000009/architecture_definition.md) | Repository Root検証、Repository／Project Identity、実行対象Binding、選択差分のCommitと確認済み通常Push | UI-000006 | SPEC-000010、SPEC-000031 | Version Control PortとRepository Binding Resolver |
 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | Tool能力の発見、AIモデル構成の検証・選択理由 | UI-000010 | SPEC-000014、SPEC-000015 | Capability RegistryとModel Configuration Resolver |
 | [Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | `.crdd`とOS管理Runtime Rootの用途、Owner、耐久性、保持、清掃 | UI-000011 | SPEC-000016 | Runtime Data Contract |
 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | decode／encode、接続Lifecycle、公開Application Contractへの搬送 | UI-000007 | SPEC-000011 | MCP／CLI Transport Adapter |
-| [Workspace利用範囲とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | Session Grant、Workspace、Repository Exposure、Federation | UI-000008 | SPEC-000012 | CROS Session／Workspace Resolver |
+| [Workspace利用範囲とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | Role別Credential Lifecycle、Session Grant、Workspace Exposure、FederationおよびHost Access Recovery | UI-000008 | SPEC-000012 | CROS Session／Workspace Resolver |
 | [Runtime Artifactの信頼評価](Definitions/ARCH-000014/architecture_definition.md) | 準拠、完全性、Publisher、Trust Policy、公式識別の独立評価 | UI-000013 | SPEC-000018 | Runtime Trust Evaluator |
 | [外部送信・結果帰還・候補採用](Definitions/ARCH-000015/architecture_definition.md) | 送信同意、最小化送信、結果帰還、候補隔離、採否 | UI-000016 | SPEC-000021、SPEC-000026、SPEC-000027 | External Information Boundary |
 | [過去情報と現在有効な意図](Definitions/ARCH-000016/architecture_definition.md) | 出所、発生時点、対象改訂版、現在／履歴／置換済み／不明の解決 | UI-000017 | SPEC-000022 | Context Provenance Resolver |
@@ -103,7 +103,7 @@ ARCH-IDは全体の基本設計Identityであり、詳細設計領域のIdentity
 
 | 条件 | 現在状態 | 根拠／次の処置 |
 |---|---|---|
-| UI／SPEC全数分析 | Pass | 20 UI、29 SPEC、未分析0。現行UI／SPEC Contractを再転記し、Source固有の観点評価と未確認事項を追加した |
+| UI／SPEC全数分析 | Pass | 20 UI、30 SPEC、未分析0。現行UI／SPEC Contractを再転記し、Source固有の観点評価と未確認事項を追加した |
 | 個別責務定義 | Pass | 18定義、台帳と完全一致。現行49分析からAuthority、Effect、Lifecycle、失敗および未確認事項を再統合した |
 | 5横断モデル | Pass | 現行分析／定義の変更影響を再確認し、責務、境界、状態、故障および配置をCanonical化した |
 | Qualityへの検証観点 | Pass | 15詳細領域の検証対象、反証する失敗、観測、終了後条件、未確認範囲を再照合した |

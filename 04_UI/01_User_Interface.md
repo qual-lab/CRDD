@@ -86,11 +86,11 @@ Repository / CLI / MCP / Workbench
 | 画面／操作Flow | 作成 | [操作と表示状態](03_Interaction_and_State_Model.md) | Prototypeでの到達性 |
 | 表示状態／Variant図 | 作成 | [操作と表示状態](03_Interaction_and_State_Model.md#3-表示状態の共通variant) | 実端末・GUI差 |
 | 主要Component関係図 | 作成 | [表示面と領域](02_Surface_and_Region_Model.md#3-表示責任のブロック) | 実装Componentとの対応 |
-| UI／SPEC対応図 | 作成 | [UIとSPECの引き渡し](05_UI_SPEC_Handoff.md) | 31組の対応レビュー済み。独立再レビュー待ち |
+| UI／SPEC対応図 | 作成 | [UIとSPECの引き渡し](05_UI_SPEC_Handoff.md) | v0.21固定時の31組と、v0.22で追加した1組を区別してレビュー済み |
 
 ## 6. 現在状態と次工程
 
-v0.21.0のUI Definition 20件は当時の契約でCanonical化されている。新しいUI Detail契約に対して、4 Area Design Guide、20 SCR、20 PRTおよび31 Interaction Relationへ全件移行した。現在状態は[UI Detail](Details/01_UI_Detail.md)を正本とする。
+v0.21.0のUI Definition 20件は当時の契約でCanonical化され、4 Area Design Guide、20 SCR、20 PRTおよび31 Interaction Relationへ移行した。v0.22ではProject Context操作を追加し、現在は20 SCR、20 PRTおよび32 Interaction Relationである。現在状態は[UI Detail](Details/01_UI_Detail.md)を正本とする。
 
 ```text
 v0.21 UI Definition: Canonical

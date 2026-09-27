@@ -7,7 +7,7 @@ Screen ID: `SCR-000008`
 
 ## 1. Screenの目的と入口・終了条件
 
-- 利用者の作業・認識目的: 接続資格で許可されたWorkspaceだけを利用できる。
+- 利用者の作業・認識目的: Role別Credentialの状態と利用範囲を理解し、発行・失効・ローテーションまたはAccess Recoveryを安全に行う。
 - 対象UI Definition: [UI-000008](../../../../Definitions/UI-000008/ui_definition.md)
 - Area: [configuration-trust](../area.md)
 - 入口: 利用者が「Workspace接続と利用可能範囲」を必要とし、対象Contextを識別できた時
@@ -25,13 +25,13 @@ Screen ID: `SCR-000008`
 
 | PRT | 意味／責務 | 情報 | 操作 | State／Variant |
 |---|---|---|---|---|
-| `PRT-000008` | 接続資格で許可されたWorkspaceだけを利用できる。 | 対象、状態、根拠、不足、観測時点、次行動 | 接続する／Workspaceを選ぶ／再認証する。 | ready／pending／blocked／unknown／restricted |
+| `PRT-000008` | Role別CredentialとAccess Recoveryを扱う。 | Role、Credential状態、利用範囲、Secret表示境界、Recovery状態、次行動 | 発行する／失効する／ローテーションする／再認証する／Accessを回復する | active／expired／revoked／rotating／recovering／unknown／restricted |
 
 ## 3. InteractionとBHV対応
 
 | Interaction Key | PRT | 利用者の意図 | Feedback | BHV | Coverage |
 |---|---|---|---|---|---|
-| `PRT-000008.spec-000012` | PRT-000008 | 接続する／Workspaceを選ぶ／再認証する。 | 受付、結果、失敗、判断不能および安全な次行動を区別する | [BHV-000012](../../../../../05_SPEC/Details/BHV-000012/behavior.md) | Covered |
+| `PRT-000008.spec-000012` | PRT-000008 | Role別Credentialを発行・失効・ローテーションし、必要時にHost AuthorityからAccessだけを回復する | Secretの一度表示、現在の利用範囲、失効結果、同じRecovery ID、Product Data非変更を区別する | [BHV-000012](../../../../../05_SPEC/Details/BHV-000012/behavior.md) | Covered |
 
 ## 4. State／Variant
 

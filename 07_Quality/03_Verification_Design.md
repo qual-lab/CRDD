@@ -35,7 +35,7 @@ Quality Integration
 
 ## 3. 対象と入口
 
-REQ 38、UX 32、IA 23、UI 20、SPEC 29、ARCH 18の計160 Canonical IDを正式入力とする。工程別Analysisが全IDを処置し、Quality Integrationが13のQuality Contractへ統合する。
+REQ 41、UX 35、IA 23、UI 20、SPEC 30、ARCH 18の計167 Canonical IDを正式入力とする。工程別Analysisが全IDを処置し、Quality Integrationが13のQuality Contractへ統合する。
 
 | 入口 | 本書で確認すること | 詳細の所有者 |
 |---|---|---|

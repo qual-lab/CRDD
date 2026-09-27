@@ -30,7 +30,8 @@
     "version-control": "node_test",
     "platform-access": "cargo_test",
     "verification-runner": "node_test",
-    "visual-preview": "node_test"
+    "visual-preview": "node_test",
+    "workbench": "node_test"
   },
   "integrationBlocks": [
     {
@@ -50,8 +51,8 @@
       "responsibilities": ["workspace_access", "repository_federation", "context_handoff", "tool_registry", "surface_contract", "result_return"],
       "externalBoundaries": ["credential_verifier", "repository_binding", "source_runtime", "destination_runtime", "tool_surface"],
       "lifecycleProfile": "durable_operation",
-      "testIds": ["cros:integration:core", "cros:integration:surface-contract", "cros:integration:tool-registry", "cros:system:context-handoff", "cros:system:result-return", "cros:system:session-access"],
-      "postconditions": ["grant_outside_repository_not_disclosed", "closed_session_access_absent", "handoff_authority_not_expanded", "tool_cancellation_resources_absent"]
+      "testIds": ["cros:integration:core", "cros:integration:connection-credential", "cros:integration:credential-registry-file-adapter", "cros:integration:project-federation", "cros:integration:surface-contract", "cros:integration:tool-registry", "cros:system:context-handoff", "cros:system:result-return", "cros:system:session-access"],
+      "postconditions": ["grant_outside_repository_not_disclosed", "credential_secret_not_stored", "credential_registry_revision_immutable", "closed_session_access_absent", "handoff_authority_not_expanded", "tool_cancellation_resources_absent"]
     },
     {
       "id": "semantic-coverage:meaning-to-bundle",
@@ -90,8 +91,8 @@
       "responsibilities": ["project_projection", "candidate_decision", "owner_revision_conflict"],
       "externalBoundaries": ["source_reader", "candidate_store", "owner_writer"],
       "lifecycleProfile": "pure_component",
-      "testIds": ["project-operation:integration:project-projection", "project-operation:integration:candidate-adoption"],
-      "postconditions": ["partial_state_preserved", "restricted_source_not_disclosed", "invalid_authority_effect_zero", "revision_conflict_effect_zero"]
+      "testIds": ["project-operation:integration:project-projection", "project-operation:integration:repository-project-context", "project-operation:integration:topic-meeting-record", "project-operation:integration:candidate-adoption"],
+      "postconditions": ["partial_state_preserved", "restricted_source_not_disclosed", "project_context_five_scenes_exact", "topic_meeting_record_distinct", "pending_outcome_blocks_meeting_close", "invalid_authority_effect_zero", "revision_conflict_effect_zero"]
     },
     {
       "id": "version-control:repository-observation",
@@ -122,6 +123,16 @@
       "lifecycleProfile": "durable_operation",
       "testIds": ["version-control:integration:fixed-revision-and-ignore"],
       "postconditions": ["revision_identity_fixed", "ignore_update_read_back", "unknown_effect_not_reported_complete"]
+    },
+    {
+      "id": "version-control:change-publication",
+      "owner": "version-control",
+      "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#3-目的別port",
+      "responsibilities": ["selected_change_preparation", "local_revision_creation", "confirmed_normal_publication"],
+      "externalBoundaries": ["repository_index", "local_revision_store", "confirmed_remote_branch"],
+      "lifecycleProfile": "durable_operation",
+      "testIds": ["version-control:integration:change-publication"],
+      "postconditions": ["selected_changes_only", "confirmed_revision_published", "automatic_retry_absent", "force_publication_absent"]
     },
     {
       "id": "runtime-data:repository-storage",
@@ -162,6 +173,26 @@
       "lifecycleProfile": "read_only_boundary",
       "testIds": ["visual-preview:integration:preview-server"],
       "postconditions": ["repository_content_unchanged", "listener_absent", "connection_absent"]
+    },
+    {
+      "id": "visual-preview:browser-lifecycle-observation",
+      "owner": "visual-preview",
+      "architectureAnchor": "06_Architecture/Details/visual-preview/01_Architecture.md#5-lifecycle",
+      "responsibilities": ["listener_state_classification", "graceful_browser_exit_wait", "forced_exit_classification"],
+      "externalBoundaries": ["localhost_tcp", "node_child_process"],
+      "lifecycleProfile": "external_effect_operation",
+      "testIds": ["visual-preview:integration:browser-lifecycle"],
+      "postconditions": ["listener_state_not_collapsed", "browser_exit_mode_exact", "owned_process_absent"]
+    },
+    {
+      "id": "workbench:production-shell",
+      "owner": "workbench",
+      "architectureAnchor": "06_Architecture/Details/workbench/01_Architecture.md#6-interfaceとinteraction境界",
+      "responsibilities": ["loopback_shell_delivery", "official_logo_delivery", "project_context_read_model", "unconfigured_capability_classification", "credential_administration", "one_time_secret_display", "route_allowlist", "listener_cleanup"],
+      "externalBoundaries": ["repository_filesystem", "localhost_http", "browser_consumer", "credential_registry"],
+      "lifecycleProfile": "read_only_boundary",
+      "testIds": ["workbench:integration:production-shell", "workbench:integration:project-surface"],
+      "postconditions": ["repository_content_unchanged", "official_logo_exact", "project_context_five_scenes_exact", "unconfigured_capability_not_zero", "credential_secret_not_stored", "credential_secret_displayed_once", "repository_mode_credential_optional", "listener_absent", "connection_absent"]
     },
     {
       "id": "project-runtime:objective-task-lifecycle",
@@ -333,7 +364,7 @@
       "id": "cros:federation-to-project-operation",
       "architectureAnchor": "06_Architecture/Details/cros/01_Architecture.md#6-canonicalな読取り経路",
       "blockPath": ["cros:workspace-federation-and-handoff", "project-operation:projection-and-candidate"],
-      "testIds": ["cros:system:session-access", "cros:system:context-handoff", "project-operation:integration:project-projection"],
+      "testIds": ["cros:integration:project-federation", "cros:system:session-access", "cros:system:context-handoff", "project-operation:integration:project-projection"],
       "postconditions": ["authorized_repository_set_preserved", "partial_state_not_completed", "non_disclosure_preserved"]
     },
     {
@@ -563,6 +594,45 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "cros:integration:connection-credential",
+      "owner": "cros",
+      "path": "40_Develop/cros/tests/integration/connection-credential.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["credential", "authentication", "workspace", "revocation", "rotation"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["credential_secret_not_stored", "profile_not_authority_hierarchy", "revocation_applies_next_request", "rotation_replay_absent"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "cros:integration:credential-registry-file-adapter",
+      "owner": "cros",
+      "path": "40_Develop/cros/tests/integration/credential-registry-file-adapter.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["credential", "runtime-data", "immutable-publication", "revision-conflict"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["credential_secret_not_stored", "credential_registry_revision_immutable", "conflicting_publish_effect_zero"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "cros:integration:project-federation",
+      "owner": "cros",
+      "path": "40_Develop/cros/tests/integration/project-federation.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["project-context", "portfolio", "coverage", "non-disclosure"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["authorized_repositories_only", "missing_source_preserved", "projection_not_source_of_truth"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "cros:integration:surface-contract",
       "owner": "cros",
       "path": "40_Develop/cros/tests/integration/surface-contract.contract.test.ts",
@@ -774,6 +844,32 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "project-operation:integration:repository-project-context",
+      "owner": "project-operation",
+      "path": "40_Develop/project-operation/tests/integration/repository-project-context.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["project", "project-context", "markdown", "consumer-reader"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["project_context_identity_exact", "project_context_five_scenes_exact", "missing_scene_not_inferred"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "project-operation:integration:topic-meeting-record",
+      "owner": "project-operation",
+      "path": "40_Develop/project-operation/tests/integration/topic-meeting-record.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["project", "topic", "meeting", "outcome", "close"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["topic_meeting_record_distinct", "pending_outcome_blocks_meeting_close", "repository_content_unchanged"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "version-control:integration:repository-location",
       "owner": "version-control",
       "path": "40_Develop/version-control/tests/integration/repository-location.integration.test.ts",
@@ -797,6 +893,19 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": ["change_classes_distinct", "partial_observation_not_published"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "version-control:integration:change-publication",
+      "owner": "version-control",
+      "path": "40_Develop/version-control/tests/integration/change-publication.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["version-control", "change-publication", "normal-push", "external-effect"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["selected_changes_only", "confirmed_revision_published", "automatic_retry_absent", "force_publication_absent"],
       "mandatoryByDefault": true
     },
     {
@@ -4382,6 +4491,71 @@
         "listener_absent",
         "connection_absent"
       ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "visual-preview:integration:browser-lifecycle",
+      "owner": "visual-preview",
+      "path": "40_Develop/visual-preview/tests/integration/browser-lifecycle.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "visual-preview",
+        "localhost",
+        "listener-observation",
+        "browser-process",
+        "cleanup"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "listener_state_not_collapsed",
+        "browser_exit_mode_exact",
+        "owned_process_absent"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "workbench:integration:production-shell",
+      "owner": "workbench",
+      "path": "40_Develop/workbench/tests/integration/workbench-server.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "workbench",
+        "localhost",
+        "official-logo",
+        "credential-administration",
+        "one-time-secret",
+        "route-allowlist",
+        "cleanup"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "repository_content_unchanged",
+        "official_logo_exact",
+        "credential_secret_not_stored",
+        "credential_secret_displayed_once",
+        "repository_mode_credential_optional",
+        "listener_absent",
+        "connection_absent"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "workbench:integration:project-surface",
+      "owner": "workbench",
+      "path": "40_Develop/workbench/tests/integration/project-surface.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["workbench", "project-context", "topic", "meeting", "read-model"],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["project_context_five_scenes_exact", "unconfigured_capability_not_zero", "repository_content_unchanged"],
       "mandatoryByDefault": true
     },
     {

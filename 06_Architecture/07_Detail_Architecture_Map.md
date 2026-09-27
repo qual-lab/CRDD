@@ -43,6 +43,7 @@ Quality／Development
 | [verification-runner](Details/verification-runner/01_Architecture.md) | ARCH-000003 | Test Catalog、変更影響からの試験選択、段階実行、Authority確認および結果集約 | Canonical |
 | [visual-preview](Details/visual-preview/01_Architecture.md) | ARCH-000003 | Repository内Visual成果物のlocalhost限定・読取り専用Preview | Canonical |
 | [version-control](Details/version-control/01_Architecture.md) | ARCH-000002、ARCH-000009、ARCH-000014、ARCH-000016 | Repository Root、履歴境界、Binding、完全性入力、差替可能なPort | Canonical |
+| [workbench](Details/workbench/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000009、ARCH-000010、ARCH-000012、ARCH-000013、ARCH-000015、ARCH-000016、ARCH-000017 | Project運営、Repository作業、AI依頼および接続設定を既存公開契約から表示・操作するLocal Web Surface | Candidate |
 
 ## 3. Architecture定義の閉包
 
@@ -52,19 +53,19 @@ Quality／Development
 | ARCH-000002 | [契約移行と利用側閉包](Definitions/ARCH-000002/architecture_definition.md) | contract-migration、checker、version-control、crdd-domain-library |
 | ARCH-000003 | [変更・監査・試験・品質の閉包](Definitions/ARCH-000003/architecture_definition.md) | quality-change-control、verification-runner、visual-preview |
 | ARCH-000004 | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | project-runtime、coordinator、platform-access |
-| ARCH-000005 | [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | project-runtime、project-operation、cros、mcp |
-| ARCH-000006 | [Meeting候補と正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | project-operation、cros |
+| ARCH-000005 | [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | project-runtime、project-operation、cros、mcp、workbench |
+| ARCH-000006 | [Topic・Meeting Lifecycleと正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | project-operation、cros、workbench |
 | ARCH-000007 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md) | execution-intelligence、project-runtime |
 | ARCH-000008 | [実行境界の診断](Definitions/ARCH-000008/architecture_definition.md) | coordinator、platform-access、crdd-domain-library、semantic-coverage |
-| ARCH-000009 | [Repository境界とBinding](Definitions/ARCH-000009/architecture_definition.md) | version-control、runtime-data、cros、crdd-domain-library |
-| ARCH-000010 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | coordinator、cros |
+| ARCH-000009 | [Repository境界とBinding](Definitions/ARCH-000009/architecture_definition.md) | version-control、runtime-data、cros、crdd-domain-library、workbench |
+| ARCH-000010 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | coordinator、cros、workbench |
 | ARCH-000011 | [Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | runtime-data、platform-access |
-| ARCH-000012 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | mcp、project-runtime |
-| ARCH-000013 | [Workspace利用範囲とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | cros、mcp、runtime-data |
+| ARCH-000012 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | mcp、project-runtime、workbench |
+| ARCH-000013 | [Workspace利用範囲とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | cros、mcp、runtime-data、workbench |
 | ARCH-000014 | [Runtime Artifactの信頼評価](Definitions/ARCH-000014/architecture_definition.md) | runtime-trust、artifact-signing、coordinator、version-control |
-| ARCH-000015 | [外部送信・結果帰還・候補採用](Definitions/ARCH-000015/architecture_definition.md) | coordinator、cros、mcp |
-| ARCH-000016 | [過去情報と現在有効な意図](Definitions/ARCH-000016/architecture_definition.md) | project-operation、execution-intelligence、cros、runtime-data、version-control |
-| ARCH-000017 | [公式素材の権利・用途確認](Definitions/ARCH-000017/architecture_definition.md) | official-asset-governance |
+| ARCH-000015 | [外部送信・結果帰還・候補採用](Definitions/ARCH-000015/architecture_definition.md) | coordinator、cros、mcp、workbench |
+| ARCH-000016 | [過去情報と現在有効な意図](Definitions/ARCH-000016/architecture_definition.md) | project-operation、execution-intelligence、cros、runtime-data、version-control、workbench |
+| ARCH-000017 | [公式素材の権利・用途確認](Definitions/ARCH-000017/architecture_definition.md) | official-asset-governance、workbench |
 | ARCH-000018 | [実行事実の記録](Definitions/ARCH-000018/architecture_definition.md) | execution-intelligence |
 
 Architecture定義と詳細設計領域は同じIdentityではない。新しい詳細領域を作る場合は本表と個別領域のRelationを同じ変更で更新し、どのARCH-IDも未接続または暗黙接続にしない。

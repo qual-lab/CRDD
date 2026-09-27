@@ -1,10 +1,12 @@
 # Workbench Visual Baseline
 
-状態: G5 Revalidation OPEN — Actual Browser Zoom
+状態: G5 Revalidation PASS
 
 ## 1. 結論
 
 Workbenchは`A — Decision Rail`をVisual Baselineとする。暗色、高密度、判断優先の基調を用い、左Navigation、中央作業面、右Evidence Railで構成する。
+
+Workbench左上のBrand表示は、文字で作った代替Markを用いず、[CRDD公式ブランドアイコン](../../../assets/brand/crdd-brand-icon-512x512.jpg)の原本を縮小表示する。画像byte、色、形状および図柄をWorkbench側で改変しない。
 
 ## 2. Typography
 
@@ -14,6 +16,14 @@ Workbenchは`A — Decision Rail`をVisual Baselineとする。暗色、高密�
 | 見出し | UI全体と同じ | N/A: Product内でSerif／明朝を混在させない |
 | ID／数値 | UI全体と同じ＋tabular numerals | 固定幅が意味成立に必要なCode EditorだけDetailで再評価する |
 | Font synthesis | 無効 | N/A: 存在しないWeightをBrowserへ合成させない |
+
+### Brand Asset
+
+| 項目 | Baseline | 例外／禁止 |
+|---|---|---|
+| 左上アイコン | `04_UI/assets/brand/crdd-brand-icon-512x512.jpg` | 別の文字Mark、CSSによる代替描画、色改変を行わない |
+| 表示 | 33×33 CSS px、比率1:1、`object-fit: cover` | 非比例拡大縮小、切抜きの変更を行わない |
+| アクセシブル名 | `CRDD` | 装飾画像として無名にしない |
 
 ### Type Scale
 
@@ -64,7 +74,7 @@ G5でDecision Rail Shell、Screen Context Header、Attention Treatment、Evidenc
 | Spacing Rhythm | PASS | 4／8／12／16／24px Token | 既存Fixtureの個別余白は実装化時にTokenへ完全移行する |
 | Color非依存の状態識別 | PASS | Label、Border、位置、説明を色と併用 | Icon System確定時に再確認する |
 | 長文／大量情報／Overflow | PASS | Search、Filter、継続読込、Tree遅延展開を画面責務化 | 実Data Stress FixtureはSPEC Detail後に実行する |
-| 200%拡大／狭幅 | OPEN | localhost Previewを用い、5画面を899／900／901／1024／1119／1120／1121／1280 CSS pxで実Browser再表示した。固定最小幅を廃止し、1120px付近で一列化する | 全40条件で横Overflow 0件、12px未満0件。実Browserの200%／400% Zoomは入力後の実効Viewport変化を観測できず、狭幅結果から代替PASSにしない |
+| 200%／400%拡大と狭幅 | PASS | localhost Previewと専用Chrome Profileを用い、5画面を100%／200%／400%で実測した。1280px Windowの実効CSS幅が1258／629／314pxへ変化し、全15条件で指定倍率を観測した | 横Overflow、12px未満、32px未満操作対象および正の`tabindex`はいずれも0件。狭幅Sampling 40条件とは別結果として保持する |
 | Reading Order／Keyboard Focus | PASS | 5画面で正の`tabindex` 0件。DOM順をNavigation→Current Work→Evidenceへ揃え、`:focus-visible`を2px Outlineで明示 | Dialog等のFocus Returnは該当Interactionの実装時に再評価する |
 
 ### 実測サマリー
@@ -73,6 +83,7 @@ G5でDecision Rail Shell、Screen Context Header、Attention Treatment、Evidenc
 |---|---|---:|---:|---:|---:|---:|
 | 通常幅 1280〜1440px | Hero 2案＋Secondary 3画面 | 12px未満 0件 | 4.5:1未満 0件 | 32px未満 0件 | 0件 | 正の`tabindex` 0件 |
 | Sampling: 320／360／412／768／1024／1280／1440／1920 CSS px | 同じ5画面 | 12px未満 0件 | 4.5:1未満 0件 | 32px未満 0件 | 0件 | 正の`tabindex` 0件 |
+| 実Browser Zoom: 100%／200%／400% | 同じ5画面・15条件 | 12px未満 0件 | N/A: Contrastは同じComputed Colorを維持 | 32px未満 0件 | 0件 | 正の`tabindex` 0件 |
 
 上記は端末Profileではなく、現在のVisual Fixtureに対するSampling Evidenceである。実Browser Zoomとは扱わない。計測はRendered DOMのComputed StyleとBounding Rectangleを対象とし、目視だけでPASSへしなかった。localhost Preview導入後に旧900px境界の横Overflowを検出し、固定最小幅を廃止したうえで新しい1120px境界の前後を再評価した。
 
@@ -81,8 +92,8 @@ G5でDecision Rail Shell、Screen Context Header、Attention Treatment、Evidenc
 | Profile | 条件 | 技術結果 | 人間判断 | Evidence／Gap／再評価条件 |
 |---|---|---|---|---|
 | `REFLOW-320` | 320 CSS px幅 | PASS | Accepted | 5画面で横Overflow、12px未満文字、4.5:1未満文字、32px未満操作対象および正の`tabindex`が0件 |
-| `ZOOM-200` | 実Browserの200% Zoom | OPEN | Pending | 現在の自動実行環境では実効Viewportの変化を信頼して観測できない。実Browser環境で再実行する |
-| `ZOOM-400` | 実Browserの400% Zoom | OPEN | Pending | 320 CSS pxのReflowはPASSしているが、実Zoomの代替にはしない |
+| `ZOOM-200` | 実Browserの200% Zoom | PASS | Accepted | 5画面すべてでDPR 2、実効幅629pxを観測し、横Overflow、12px未満、32px未満操作対象および正の`tabindex`が0件 |
+| `ZOOM-400` | 実Browserの400% Zoom | PASS | Accepted | 5画面すべてでDPR 4、実効幅314pxを観測し、横Overflow、12px未満、32px未満操作対象および正の`tabindex`が0件 |
 | `RANGE-SAMPLING` | 360／412／768／1024／1280／1440／1920 CSS px | PASS | Accepted | 5画面40条件のComputed Style／Bounding Rectangle計測 |
 | `PRODUCT-BASELINE` | 1440 × 960 | PASS | Accepted | Direction比較とSecondary ScreenのRendered View |
 | `BREAKPOINT-BOUNDARY` | 899／900／901px、および1119／1120／1121px | PASS | Accepted | localhost Preview上の5画面30条件で横Overflow 0件、12px未満0件。旧900px境界で検出した反例を固定最小幅廃止と1120px付近の一列化へ反映した |
@@ -94,11 +105,13 @@ G5でDecision Rail Shell、Screen Context Header、Attention Treatment、Evidenc
 - [Repository Worktree](repository-worktree.png)
 - [Project Portfolio](project-portfolio.png)
 - [Secondary Screen Expansion](../../05_Workbench_Secondary_Expansion.md)
+- [実Browser Zoom検証](../../../../99_Roadmap/Changes/CHG-000081/Evidence/260927-1323_visual-browser-zoom.md)
 
 ## Checklist
 
 - [x] Human Direction Decisionと一致している
 - [x] Typographyを一つのFont Family系統へ統一した
+- [x] Workbench左上は代替MarkではなくCRDD公式ロゴ画像の原本を参照した
 - [x] Compositionと画面固有Layoutを区別した
 - [x] Attention、根拠、不完全性、次行動のVisual順序を定義した
 - [x] PatternとCMPを同一視していない
@@ -109,7 +122,7 @@ G5でDecision Rail Shell、Screen Context Header、Attention Treatment、Evidenc
 - [x] Contrast、操作対象、状態識別、内容増加および狭幅を評価した
 - [x] Pointer／Touch Targetの寸法と間隔を評価した
 - [x] 色だけに依存せず状態を識別できるようにした
-- OPEN: 実Browserの200%／400% Zoomは実行環境を変えて再評価する。狭幅、長文、大量情報およびKeyboard Focusは評価済み
+- [x] 実Browserの200%／400% Zoomを専用Profileで観測し、狭幅Viewportと分離して評価した
 - [x] 固定端末一覧ではなくReflow、Layout区間およびProduct Baselineとして記録した
 - [x] 実Browser Zoomと狭幅Viewportの結果を同一視していない
 - [x] DOM順と視覚順を揃え、Keyboard Focusを色だけに依存しないOutlineで表示した

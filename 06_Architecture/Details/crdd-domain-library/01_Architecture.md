@@ -323,7 +323,7 @@ MCPとWorkbenchは将来Consumer候補であり、現在接続済みとは表示
 |---|---|---|---|---|
 | [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000001、ARCH-000002、ARCH-000008、ARCH-000009のSource Definition | 同Traceability表で上記ARCH-IDへ接続された全Detail ID | Covered | Detailの意味変更はUI／SPECへ、配置責務の変更は該当ARCH定義へ戻す |
 
-担当Interaction Relation: `PRT-000001.spec-000001`、`PRT-000005.spec-000009`、`PRT-000006.spec-000010`、`PRT-000014.spec-000019`、`PRT-000018.spec-000023`
+担当Interaction Relation: `PRT-000001.spec-000001`、`PRT-000005.spec-000009`、`PRT-000006.spec-000010`、`PRT-000006.spec-000031`、`PRT-000014.spec-000019`、`PRT-000018.spec-000023`
 
 本領域は上記Relationの配置責務を局所所有する。Detailを新しい要求として解釈せず、対応ARCH-IDが所有する配置・境界・状態・観測の制約として実現する。
 

@@ -69,8 +69,16 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 現行Sourceと既存試験は本詳細設計の正式入力ではない。本設計候補を固定した後、成立済み能力を失わないよう`Covered`、`Partial`、`Missing`、`Legacy`または`Implementation Detail`へ分類する。
 
+| 実装領域 | 判定 | 現在の成立範囲 | 残るGap |
+|---|---|---|---|
+| `src/project-federation.ts` | Partial | 許可済みRepository ProjectionのProject／Portfolio統合 | 永続Binding／Exposure RegistryとRemote入口 |
+| `src/connection-credential.ts` | Partial | 固定三Profile、明示Grant、Token非保存、発行・照合・失効・不可分ローテーション、競合拒否 | Bootstrap／Access Recovery、Remote Request接続 |
+| `src/credential-registry-file-adapter.ts` | Covered | OS管理Runtime Root、不変Revision Snapshot、完全検証、競合時Effect 0 | DB等の別Adapterは現在不要 |
+| Workbench Credential管理 | Partial | 管理Context注入時だけ一覧・発行・Grant更新・失効・ローテーションを公開し、生Tokenを一度表示する | Remote CROS認証から管理Contextを構成するTransport入口 |
+| `src/runtime.ts` | Partial | Session snapshot、Repository非開示、Context Package、Handoff | Bearer認証結果からのRemote Request接続と現在Registry再検証 |
+
 担当責任者: Qual-Lab
-最終更新日: 2026-09-12
+最終更新日: 2026-09-27
 関連:
 - [Project Operation Context](../project-operation/01_Architecture.md)
 - [Runtime Dataの目標Architecture](../runtime-data/01_Architecture.md)
@@ -162,7 +170,7 @@ Trust Domain
 | Connection Credential | Token照合用Verifier、利用可能なWorkspace ID集合、管理可否および失効状態 | Human Identity、組織Role、Project Relation、Operation Authority |
 | Request Access Context | 現在のRequestで検証したCredential ID、Workspace ID集合および`system_admin` | 永続Session、Contentの正本、Repository Effect Authority |
 
-Developer、PM、Management、`general`、`privileged`等は利用者像または配置先の表示名として使用できるが、CROS Coreの固定Role階層にしない。`system_admin`をContent Accessの上位Classにせず、管理可否からMGMT／Commercial Repositoryの閲覧権限を生成しない。
+`administrator`、`management`、`developer`は、発行時の選択と運用表示を揃える固定Credential Profileとして扱う。これらをHuman Identity、User Accountまたは大小関係を持つ権限階層として扱わない。実効権限はCredential Recordへ明示した`workspace_ids[]`と`system_admin`だけから決まり、Profile名から推定しない。`system_admin`をContent Accessの上位Classにせず、管理可否からMGMT／Commercial Repositoryの閲覧権限を生成しない。
 
 ## 3. PersonalとShared Serverの共通モデル
 
@@ -206,7 +214,7 @@ Workspace ExposureはCROS Application内の公開境界である。Host UserがR
 
 ## 4. CredentialにWorkspace集合を結合する理由
 
-v0.22候補では、`general < privileged < administrator`というグローバルなAccess ClassをCoreへ固定しない。
+v0.22では、`administrator`、`management`、`developer`を発行時の固定Credential Profileとして用いるが、`developer < management < administrator`というグローバルなAccess Classへはしない。
 
 | 構造 | 判断 |
 |---|---|
@@ -233,7 +241,7 @@ Credential C
 
 ### 4.1. Workspace集合を設定する主体
 
-Workspace集合の元は、CROS Serverが所有するConnection Credential Recordである。固定Role名から推定せず、現在のRequestで検証したCredentialが`system_admin: true`の場合だけ設定できる。
+Workspace集合の元は、CROS Serverが所有するConnection Credential Recordである。発行時は固定Credential Profileから推奨初期値を提示できるが、保存後の実効権限はProfile名から再推定せず、Recordへ明示した現在値だけを使用する。現在のRequestで検証したCredentialが`system_admin: true`の場合だけ設定できる。
 
 ```text
 [管理Request]
@@ -274,10 +282,9 @@ Shared Serverで一つのRepository Bindingを利用可能とするのは、次�
 
 ```text
 Bindingが検証済み
-  AND Trust PolicyがRepository／Publisher／Revisionを許可
   AND WorkspaceがBindingを明示Exposure
   AND 現在のCredentialがWorkspace IDを保持
-  AND 既存Manifest／Trust／Binding契約の明示Constraintに違反しない
+  AND 既存Manifest／Binding契約の明示Constraintに違反しない
   AND Operationを伴う場合は対象CapabilityのAuthorityが別途成立
 ```
 
@@ -313,7 +320,7 @@ Caller由来のFilesystem PathをRepository Resolverの代替として受理し�
 
 ## 7. Connection CredentialとRequest Access Context
 
-v0.22のShared Serverは、Remote MCPの認証方式をBearer Tokenへ固定する。一般的な認証Provider Interface、User Directory、Principal、Group、MFA、SSO、Refresh Tokenまたは永続認証SessionをCROS Coreへ追加しない。
+v0.22のShared Serverは、Remote MCPの認証方式をBearer Tokenへ固定する。一般的な認証Provider Interface、User Directory、Principal、Group、MFA、SSO、Refresh Tokenまたは永続認証SessionをCROS Coreへ追加しない。CROSが扱うRoleは`administrator`、`management`、`developer`のCredential Profileであり、User Accountではない。
 
 ```text
 Authorization: Bearer <token>
@@ -335,6 +342,7 @@ Request Access Context
 |---|---|---|
 | `credential_id` | Yes | SecretではないServer内の安定識別子 |
 | `token_hash` | Yes | 生Tokenを保存せず照合するVerifier |
+| `role` | Yes | `administrator`、`management`、`developer`のいずれか。Human Identityではない |
 | `workspace_ids[]` | Yes | Content Accessに利用できるWorkspace集合。空集合を許す |
 | `system_admin` | Yes | CROS Server設定を変更できるか。Content Accessを生成しない |
 | `revoked` | Yes | `true`ならRequestを拒否する |
@@ -343,7 +351,7 @@ Request Access Context
 
 CredentialのWorkspace集合は独立したGrant Entity、Grant RegistryまたはGrant Revisionにしない。Credential Recordの現在値をRequestごとに読み、変更または失効を次のRequestから反映する。設定競合を防ぐStore Revisionや不変PublicationはRuntime Dataの永続化契約として持てるが、認証上のGrant Lifecycleへ昇格させない。
 
-Token生値はRepository、Repository-local `.crdd`、Project Workspace、Prompt、logまたはProjectionへ保存しない。Server側は照合可能なHash／Verifierだけを保持し、Client側での安全な保存はMCP Clientが所有する。CROSはPassword Manager、Password Database、Password ResetまたはCredential rotation frameworkを実装しない。新しいCredentialへの切替が必要な場合は、新規発行と旧Credentialの明示失効を使用する。
+Token生値はRepository、Repository-local `.crdd`、Project Workspace、Prompt、logまたはProjectionへ保存しない。Server側は照合可能なHash／Verifierだけを保持し、Client側での安全な保存はMCP Clientが所有する。CROSはPassword Manager、Password DatabaseまたはUser Password Resetを実装しない。Credentialローテーションは、新規発行、Client切替、旧Credentialの明示失効を一つの利用者操作として調整するが、同じSecretの更新や再表示として扱わない。
 
 ```text
 cros server init
@@ -358,7 +366,7 @@ cros server init
 以後は通常の管理Credentialとして使用
 ```
 
-既存のServer初期化を再実行して別のAdmin Credentialを暗黙追加しない。初期Credentialを失った場合は、Host所有者が既存Credential状態を確認したうえで専用の回復操作を実行する。Bootstrap専用Capability、Bootstrap SessionまたはPromotion Lifecycleは作らない。
+既存のServer初期化を再実行して別のAdmin Credentialを暗黙追加しない。初期Credentialを失った場合は、Host所有者が既存Credential状態を確認したうえで専用の回復操作を実行する。回復は最初の失敗から同じRecovery IDを保持し、Accessだけを再構成してRepository、Project Contextその他のProduct Dataを変更しない。恒久的な裏口、User AccountまたはPassword Reset経路は作らない。
 
 Personal Modeには本Credential機構を要求せず、Local User、Local Filesystemおよび明示登録済みVerified Bindingを利用境界とする。
 
@@ -486,7 +494,7 @@ Secret value -x Repository／.crdd／Prompt／Projection
 | Exposureあり、現在CredentialのWorkspace集合に含まれない | 内容・件数を返さず`restricted`または非開示 |
 | Credential有効だがBinding不明／競合 | `unknown`／`conflicting`、Effect 0 |
 | Manifestが制約を緩和 | Server Policyを維持し、差分を拒否または再確認待ち |
-| WorkspaceまたはTrust Policy改訂 | 次Requestで現在値を使い、旧設定から新規Read／Operationを発行しない |
+| Workspace、ExposureまたはCredential改訂 | 次Requestで現在値を使い、旧設定から新規Read／Operationを発行しない |
 | Credential失効 | 次Requestを拒否する。実行中Operationは固有の取消・Recovery契約に従う |
 | CredentialのWorkspace集合を縮小 | 次Requestから縮小後の集合だけを使う |
 | Projection Sourceの一部取得不能 | 完全なProject回答にせず、開示可能なSource Coverageを返す |
@@ -515,15 +523,15 @@ Secret value -x Repository／.crdd／Prompt／Projection
 - 独立したInformation Classification System、汎用Policy EngineまたはGlobal Operation Permission RegistryをCROS Coreへ追加しない。
 - Read-only Projection、Repository内容を使うOperationおよびServer管理の必要条件を混同せず、各Capabilityが所有する既存AuthorityをCROSが代替発行しない。
 - 最小WorkbenchがCROS／Project Operationの公開契約からProject／PortfolioとSource Coverageを表示し、既存Command／Candidate入口への定型操作を一つ以上縦断する。
-- 単一Repository、Personal複数Repository、Shared DEV Credential、Shared MGMT Credential、Admin-only Credential、Credential失効、Workspace集合変更およびPolicy改訂を結合試験で反証する。
+- 単一Repository、Personal複数Repository、Shared Developer Credential、Shared Management Credential、Admin-only Credential、Credential失効、Workspace集合変更およびExposure改訂を結合試験で反証する。
 
-## 14. 後段で選択する物理詳細
+## 14. 物理詳細と差替え境界
 
 次は意味契約を変更しない実装選択、または現在Scope外である。未確定だから安全条件を推測してよいという意味ではない。
 
 | 項目 | 固定した意味 | 後段で選べる範囲 |
 |---|---|---|
-| Registry保存形式 | §15のfield、revision、排他、不変publishを保持する | JSON、DB等の物理形式 |
+| Registry保存形式 | v0.22はOS管理Runtime Rootの不変JSON Revision Snapshotを採用し、§15のfield、完全検証、競合拒否、不変publishを保持する | DB等へ差し替える場合も同じRegistry Portと失敗意味を維持する |
 | Credential任意field | `credential_id`、Verifier、Workspace集合、管理可否、失効は必須 | 表示名、作成時点、有効期限 |
 | Operating Context wire | 正本Revision、適用根拠、Capability、Decision境界を保持する | MCP Tool名、JSON field配置 |
 | Handoff transport | §8.2の意味契約を保持する | 利用するTransportとAgent製品 |
@@ -599,7 +607,7 @@ Workspace GrantはHost Shell、OS Accountまたは敵対的tenant間の強制隔
 |---|---|---|---|---|
 | [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000005、ARCH-000006、ARCH-000009、ARCH-000010、ARCH-000013、ARCH-000015、ARCH-000016のSource Definition | 同Traceability表で上記ARCH-IDへ接続された全Detail ID | Covered | Detailの意味変更はUI／SPECへ、配置責務の変更は該当ARCH定義へ戻す |
 
-担当Interaction Relation: `PRT-000004.spec-000002`、`PRT-000004.spec-000006`、`PRT-000004.spec-000007`、`PRT-000006.spec-000010`、`PRT-000008.spec-000012`、`PRT-000009.spec-000013`、`PRT-000010.spec-000014`、`PRT-000010.spec-000015`、`PRT-000016.spec-000021`、`PRT-000016.spec-000026`、`PRT-000016.spec-000027`、`PRT-000017.spec-000022`
+担当Interaction Relation: `PRT-000004.spec-000002`、`PRT-000004.spec-000006`、`PRT-000004.spec-000007`、`PRT-000006.spec-000010`、`PRT-000006.spec-000031`、`PRT-000008.spec-000012`、`PRT-000009.spec-000013`、`PRT-000010.spec-000014`、`PRT-000010.spec-000015`、`PRT-000016.spec-000021`、`PRT-000016.spec-000026`、`PRT-000016.spec-000027`、`PRT-000017.spec-000022`
 
 本領域は上記Relationの配置責務を局所所有する。Detailを新しい要求として解釈せず、対応ARCH-IDが所有する配置・境界・状態・観測の制約として実現する。
 

@@ -67,6 +67,7 @@
 | BHV-000028 | SPEC-000028 | Trigger、Precondition、Authority、Validation、State、Effect、Result、FailureおよびRecoveryがSource SPECの意味を保持する | QA-000003 | Mapped |
 | BHV-000029 | SPEC-000029 | Trigger、Precondition、Authority、Validation、State、Effect、Result、FailureおよびRecoveryがSource SPECの意味を保持する | QA-000003 | Mapped |
 | BHV-000030 | SPEC-000030 | Trigger、Precondition、Authority、Validation、State、Effect、Result、FailureおよびRecoveryがSource SPECの意味を保持する | QA-000012 | Mapped |
+| BHV-000031 | SPEC-000031 | Tree、差分選択、Stage、Commit、Push確認、Remote結果および再観測がSource SPECの意味を保持する | QA-000007 | Mapped |
 
 ## 4. Interaction Coverage
 
@@ -87,6 +88,7 @@
 | `PRT-000005.spec-000008` | BHV-000008 | QA-000004 | Single | Mapped |
 | `PRT-000005.spec-000009` | BHV-000009 | QA-000006 | Single | Mapped |
 | `PRT-000006.spec-000010` | BHV-000010 | QA-000007 | Single | Mapped |
+| `PRT-000006.spec-000031` | BHV-000031 | QA-000007 | Single | Mapped |
 | `PRT-000007.spec-000011` | BHV-000011 | QA-000009 | Single | Mapped |
 | `PRT-000008.spec-000012` | BHV-000012 | QA-000007 | Single | Mapped |
 | `PRT-000009.spec-000013` | BHV-000013 | QA-000005 | Single | Mapped |
@@ -132,13 +134,13 @@
 |---|---|---|
 | CMP固有検証 | N/A | CMP未発行。複数実画面で反復を確認しCMPへ昇格した時に再分析する |
 | Product固有GUIのVisual回帰 | OPEN | v0.22でHuman DirectionとVisual Baselineを採用した時に追加する |
-| v0.21 Detailの意味Coverage | Covered | 20 SCR、20 PRT、29 BHV、31 Interactionを既存QAへ接続した |
+| 現行Detailの意味Coverage | Covered | 20 SCR、20 PRT、30 BHV、32 Interactionを既存QAへ接続した |
 
 ## Checklist
 
 - [x] 全20 SCRと20 PRTを処置した
-- [x] 全29 BHVを処置した
-- [x] 全31 Interaction Relationを個別にQuality Relation Ownerへ接続した
+- [x] 全30 BHVを処置した
+- [x] 全32 Interaction Relationを個別にQuality Relation Ownerへ接続した
 - [x] 各発行済みDetailを一件以上のQA-IDへ接続した
 - [x] Detailごとに重複QA-IDを機械発行していない
 - [x] UI／SPEC Definition由来の意味とDetail由来の観測条件を区別した

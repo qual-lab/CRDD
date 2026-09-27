@@ -6,14 +6,14 @@
 
 ## 1. 目的と移行境界
 
-v0.21.0でCanonical化した29件のSPEC Definitionを、新しいSPEC Detail契約へ全件移行した。BHVはSource、ArchitectureまたはWIPから逆算せず、各SPEC DefinitionのTrigger、Precondition、Authority、State、Effect、Result、FailureおよびRecoveryから導出した。
+Canonical化した30件のSPEC Definitionを、SPEC Detail契約へ全件移行した。BHVはSource、ArchitectureまたはWIPから逆算せず、各SPEC DefinitionのTrigger、Precondition、Authority、State、Effect、Result、FailureおよびRecoveryから導出した。
 
 ```text
-29 SPEC Definition
+30 SPEC Definition
        ↓ 全件処置
-29 BHV
+30 BHV
        ↓
-31 UI Detail Relation
+32 UI Detail Relation
        ↓
 18 ARCH責務 + 13 Quality検証目標
 ```
@@ -51,6 +51,7 @@ v0.21.0でCanonical化した29件のSPEC Definitionを、新しいSPEC Detail契
 | `SPEC-000028` | Taskの取消と終了確認 | Applicable／Covered | [BHV-000028](BHV-000028/behavior.md) | Canonical Definitionから導出 |
 | `SPEC-000029` | 判断待ちTaskへの判断返却 | Applicable／Covered | [BHV-000029](BHV-000029/behavior.md) | Canonical Definitionから導出 |
 | `SPEC-000030` | 実行事実を同じ契約で記録する | Applicable／Covered | [BHV-000030](BHV-000030/behavior.md) | Canonical Definitionから導出 |
+| `SPEC-000031` | Repository差分を選びCommit・通常Pushする | Applicable／Covered | [BHV-000031](BHV-000031/behavior.md) | Canonical Definitionから導出 |
 
 ## 3. BHV Inventory
 
@@ -85,12 +86,13 @@ v0.21.0でCanonical化した29件のSPEC Definitionを、新しいSPEC Detail契
 | [BHV-000028](BHV-000028/behavior.md) | Taskの取消と終了確認 | [SPEC-000028](../Definitions/SPEC-000028/spec_definition.md) | Covered |
 | [BHV-000029](BHV-000029/behavior.md) | 判断待ちTaskへの判断返却 | [SPEC-000029](../Definitions/SPEC-000029/spec_definition.md) | Covered |
 | [BHV-000030](BHV-000030/behavior.md) | 実行事実を同じ契約で記録する | [SPEC-000030](../Definitions/SPEC-000030/spec_definition.md) | Covered |
+| [BHV-000031](BHV-000031/behavior.md) | Repository差分を選びCommit・通常Pushする | [SPEC-000031](../Definitions/SPEC-000031/spec_definition.md) | Covered |
 
 各BHVは一つのSource SPECを詳細化する。複数SPECが同じArchitectureまたはQuality目標へ収束しても、Trigger、Authority、Effect、FailureまたはResultが独立して変更・検証できるためBHVを統合しない。
 
 ## 4. UI／SPEC Detail対応
 
-[UI／SPEC Detail対応](02_UI_SPEC_Detail_Correspondence.md)で31 Relationを双方向に全件評価した。UIを必要としないBHVはなく、全BHVが一つ以上のSCR／PRT／Interactionへ接続されている。
+[UI／SPEC Detail対応](02_UI_SPEC_Detail_Correspondence.md)で32 Relationを双方向に全件評価した。UIを必要としないBHVはなく、全BHVが一つ以上のSCR／PRT／Interactionへ接続されている。
 
 ## 5. Architecture／Qualityへの引き渡し
 
@@ -102,17 +104,17 @@ v0.21.0でCanonical化した29件のSPEC Definitionを、新しいSPEC Detail契
 
 | 項目 | 現在状態 | 判断者／Owner | 影響 | 戻り条件／再評価契機 |
 |---|---|---|---|---|
-| v0.22固有BHV | OPEN | SPEC工程Owner | v0.21移行には影響しない | v0.22の新しいSPEC Definitionを固定した時 |
+| 追加のv0.22固有BHV | N/A: 現在のCanonical Definition 30件はBHV-000031を含め全件詳細化済み | SPEC工程Owner | 現在のDetail成立に未処置はない | 新しいSPEC Definitionを追加した時 |
 | 実装との一致 | OPEN | Reality Audit Owner | Canonical Detailの成立には影響しない | v0.22 Reality Auditで照合する時 |
 
 ## 補足分析
 
-本移行はv0.21 SPEC Definitionの意味を変更しない。v0.22固有のDetailed Behaviorは新しいCanonical Definitionから別途追加する。
+本移行はv0.21 SPEC Definitionの意味を変更しない。v0.22ではBHV-000031を追加済みであり、現在のCanonical Definition 30件はすべてDetailed Behaviorへ接続した。今後の追加は、新しいCanonical Definitionを先に固定してから行う。
 
 ## Checklist
 
-- [x] v0.21のSPEC Definition 29件を全数処置した
-- [x] 29 BHVをSource SPECから導出した
+- [x] 現行SPEC Definition 30件を全数処置した
+- [x] 30 BHVをSource SPECから導出した
 - [x] Trigger、Precondition、Authority、Input、Validation、State、Sequence、Effect、Output、FailureおよびRecoveryを全件評価した
 - [x] UI Detailとの双方向Coverageを評価した
 - [x] ArchitectureとQualityへの伝播先を示した

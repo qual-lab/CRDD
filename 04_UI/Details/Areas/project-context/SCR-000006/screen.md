@@ -25,19 +25,22 @@ Screen ID: `SCR-000006`
 
 | PRT | 意味／責務 | 情報 | 操作 | State／Variant |
 |---|---|---|---|---|
-| `PRT-000006` | 普段のRepository作業を保ちながら、対象の取り違えを防げる。 | 対象、状態、根拠、不足、観測時点、次行動 | 対象を選ぶ／Rootを確認する／正本を開く。 | ready／pending／blocked／unknown／restricted |
+| `PRT-000006` | 普段のRepository作業を保ちながら、対象の取り違えを防げる。 | 対象、Tree、Diff、Stage状態、Branch、Remote、送信Commit、操作結果、根拠、不足、次行動 | 対象を選ぶ／Rootを確認する／差分を選ぶ／Stage・Unstageする／Commitする／送信対象を確認して通常Pushする。 | ready／dirty／staged／conflict／pending／blocked／unknown／restricted |
 
 ## 3. InteractionとBHV対応
 
 | Interaction Key | PRT | 利用者の意図 | Feedback | BHV | Coverage |
 |---|---|---|---|---|---|
 | `PRT-000006.spec-000010` | PRT-000006 | 対象を選ぶ／Rootを確認する／正本を開く。 | 受付、結果、失敗、判断不能および安全な次行動を区別する | [BHV-000010](../../../../../05_SPEC/Details/BHV-000010/behavior.md) | Covered |
+| `PRT-000006.spec-000031` | PRT-000006 | TreeとDiffから共有する差分を選び、Commitして確認済みUpstreamへ通常Pushする。 | Stage、Commit、Pushの各結果、拒否、失敗、判断不能および再観測先を区別する | [BHV-000031](../../../../../05_SPEC/Details/BHV-000031/behavior.md) | Covered |
 
 ## 4. State／Variant
 
 | State／Variant | 発生条件 | 表示する意味 | 操作 | 回復／次の状態 |
 |---|---|---|---|---|
 | ready | 必要情報とAuthorityを確認できる | 安全に主要操作へ進める | 対象を選ぶ／Rootを確認する／正本を開く。 | 結果を同じContextで確認 |
+| dirty／staged | 作業差分または選択済み変更がある | Unstaged、Staged、Untrackedを分け、Commit対象を確認できる | Stage／Unstage／Commit | Commit後に送信対象を確認 |
+| conflict | Conflictが存在する | Commit／Pushへ進めない理由と対象を示す | 差分確認／別入口で解消 | 解消後にTreeを再観測 |
 | pending | 外部処理または人間判断を待つ | 未完了とOwnerを示す | 待機／取消／判断 | 同じIdentityで再観測 |
 | blocked | 前提、権限または入力が不足 | 理由と影響範囲を示す | 修正／再確認 | readyへ戻る |
 | unknown／stale | 現在状態を断定できない | 正常・不存在と区別する | 再観測 | 根拠取得後に再判定 |

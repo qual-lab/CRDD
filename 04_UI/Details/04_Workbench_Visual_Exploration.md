@@ -3,7 +3,7 @@
 成果物種別: UI Detail — Visual Exploration
 対象Product: CROS Workbench
 対象Hero: Project Workspace
-状態: Revalidated — G3／G4 Passed・G5 Actual Zoom OPEN
+状態: Revalidated — G3／G4／G5 Passed
 維持責任者: Qual-Lab
 
 ## 1. 目的
@@ -75,7 +75,7 @@ G2で採用したProject Workspaceについて、同じ情報責務と表示条�
 | 日本語本文 | FAIL: 10〜12px中心 | PASS | 本文14px、補助情報12pxを下限とした |
 | Contrast | OPEN: 見た目だけで判定 | PASS | 通常幅5画面の可視文字351要素を測定し、4.5:1未満0件。明暗両SurfaceのFocus Outlineも3:1以上 |
 | 操作対象 | FAIL: 24px前後のButtonがあった | PASS | 通常幅・720px幅の各75操作要素で32px未満0件 |
-| 狭幅／実Browser Zoom | FAIL: `min-width: 1180px`で横Scrollのみ | 狭幅PASS／Zoom OPEN | 5画面を320〜1920 CSS pxで表示し横Overflow 0件。実Browserの200%／400% Zoomは別Profileとして再評価する |
+| 狭幅／実Browser Zoom | FAIL: `min-width: 1180px`で横Scrollのみ | PASS | 5画面を320〜1920 CSS pxで再配置し、さらに専用Chrome Profileで100%／200%／400%を実測した。全条件で横Overflow 0件、12px未満0件 |
 | Keyboard Focus | OPEN | PASS | 5画面で正の`tabindex` 0件。DOM順と視覚順を揃え、`:focus-visible`を2px Outlineで明示した |
 
 是正後のA／Bは同じFont Stack、Type Scaleおよび操作対象下限で再描画した。G4のDirection A採用はVisual Tasteの判断として維持できる。

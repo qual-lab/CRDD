@@ -57,6 +57,7 @@ Architecture Detail Area
 | [BHV-000008](../05_SPEC/Details/BHV-000008/behavior.md) | SPEC-000008 | ARCH-000007 | execution-intelligence、project-runtime | Covered |
 | [BHV-000009](../05_SPEC/Details/BHV-000009/behavior.md) | SPEC-000009 | ARCH-000008 | coordinator、platform-access、crdd-domain-library、semantic-coverage | Covered |
 | [BHV-000010](../05_SPEC/Details/BHV-000010/behavior.md) | SPEC-000010 | ARCH-000009 | version-control、runtime-data、cros、crdd-domain-library | Covered |
+| [BHV-000031](../05_SPEC/Details/BHV-000031/behavior.md) | SPEC-000031 | ARCH-000009 | version-control、project-runtime | Covered |
 | [BHV-000011](../05_SPEC/Details/BHV-000011/behavior.md) | SPEC-000011 | ARCH-000012 | mcp、project-runtime | Covered |
 | [BHV-000012](../05_SPEC/Details/BHV-000012/behavior.md) | SPEC-000012 | ARCH-000013 | cros、mcp、runtime-data | Covered |
 | [BHV-000013](../05_SPEC/Details/BHV-000013/behavior.md) | SPEC-000013 | ARCH-000006 | project-operation、cros | Covered |
@@ -96,6 +97,7 @@ Architecture Detail Area
 | `PRT-000005.spec-000008` | BHV-000008 | ARCH-000007 | Single | execution-intelligence、project-runtime | Covered |
 | `PRT-000005.spec-000009` | BHV-000009 | ARCH-000008 | Single | coordinator、platform-access、crdd-domain-library、semantic-coverage | Covered |
 | `PRT-000006.spec-000010` | BHV-000010 | ARCH-000009 | Single | version-control、runtime-data、cros、crdd-domain-library | Covered |
+| `PRT-000006.spec-000031` | BHV-000031 | ARCH-000009 | Single | version-control、runtime-data、cros、crdd-domain-library | Covered |
 | `PRT-000007.spec-000011` | BHV-000011 | ARCH-000012 | Single | mcp、project-runtime | Covered |
 | `PRT-000008.spec-000012` | BHV-000012 | ARCH-000013 | Single | cros、mcp、runtime-data | Covered |
 | `PRT-000009.spec-000013` | BHV-000013 | ARCH-000006 | Single | project-operation、cros | Covered |
@@ -120,16 +122,16 @@ Architecture Detail Area
 ## 5. 配置判断
 
 - 20件のSCRと20件のPRTは、Source UI Definitionを所有するARCH-IDへ接続した。
-- 29件のBHVは、Source SPEC Definitionを所有するARCH-IDへ接続した。
-- InteractionとBHVの31件の対応は[UI／SPEC Detail対応](../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)を正本とし、本書はその全RelationのArchitecture責務を統合投影する。
+- 30件のBHVは、Source SPEC Definitionを所有するARCH-IDへ接続した。
+- InteractionとBHVの32件の対応は[UI／SPEC Detail対応](../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)を正本とし、本書はその全RelationのArchitecture責務を統合投影する。
 - 一つのDefinitionが複数ARCH-IDへ接続される場合、そのDetailも同じ複数責務へ接続する。どの詳細設計領域へ物理配置するかは各ARCH-IDの詳細設計対応表に従う。
 - CMPは反復する実画面を未観測のため未発行であり、Architectureへ架空のComponentを作らない。
 
 ## Checklist
 
 - [x] 全20 UI Definition由来のSCR／PRTを処置した
-- [x] 全29 SPEC Definition由来のBHVを処置した
-- [x] 31 Interaction Relationを個別にArchitecture Relation Ownerへ接続した
+- [x] 全30 SPEC Definition由来のBHVを処置した
+- [x] 32 Interaction Relationを個別にArchitecture Relation Ownerへ接続した
 - [x] 各Detailを一件以上のARCH-IDへ接続した
 - [x] 各ARCH-IDを一件以上の詳細設計領域へ接続した
 - [x] CMP未発行をArchitecture Component不存在の証明へ読み替えていない

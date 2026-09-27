@@ -7,7 +7,7 @@ Screen ID: `SCR-000009`
 
 ## 1. Screenの目的と入口・終了条件
 
-- 利用者の作業・認識目的: 会議内容から継続論点や候補を見つけ、採否へ進める。
+- 利用者の作業・認識目的: TopicとMeetingを登録・編集・参照・終了・訂正し、Outcomeを後続へ接続して、誤登録だけを安全に削除する。
 - 対象UI Definition: [UI-000009](../../../../Definitions/UI-000009/ui_definition.md)
 - Area: [project-context](../area.md)
 - 入口: 利用者が「Meeting・Topic・候補の処置」を必要とし、対象Contextを識別できた時
@@ -25,13 +25,13 @@ Screen ID: `SCR-000009`
 
 | PRT | 意味／責務 | 情報 | 操作 | State／Variant |
 |---|---|---|---|---|
-| `PRT-000009` | 会議内容から継続論点や候補を見つけ、採否へ進める。 | 対象、状態、根拠、不足、観測時点、次行動 | 候補化する／比較する／採用・却下する。 | ready／pending／blocked／unknown／restricted |
+| `PRT-000009` | TopicとMeetingのLifecycleおよびOutcome処置を扱う。 | Topic現在状態、Meeting時点記録、Outcome、Action、Relation、削除影響、次行動 | 登録／編集／取得／一覧／終了／訂正／候補処置／削除 | active／closed／corrected／pending-outcome／deletion-review／unknown／restricted |
 
 ## 3. InteractionとBHV対応
 
 | Interaction Key | PRT | 利用者の意図 | Feedback | BHV | Coverage |
 |---|---|---|---|---|---|
-| `PRT-000009.spec-000013` | PRT-000009 | 候補化する／比較する／採用・却下する。 | 受付、結果、失敗、判断不能および安全な次行動を区別する | [BHV-000013](../../../../../05_SPEC/Details/BHV-000013/behavior.md) | Covered |
+| `PRT-000009.spec-000013` | PRT-000009 | Topic／Meetingを維持し、Outcomeを完了・Action・Topic・CHG・所有正本へ接続する | 各処置結果、未完了Actionの追跡先、Relation整合、削除影響と明示確認を区別する | [BHV-000013](../../../../../05_SPEC/Details/BHV-000013/behavior.md) | Covered |
 
 ## 4. State／Variant
 

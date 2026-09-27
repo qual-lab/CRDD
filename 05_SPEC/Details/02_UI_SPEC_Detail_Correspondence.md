@@ -6,12 +6,12 @@
 
 ## 1. 対象と判定境界
 
-- UI Detail改訂版: 20 SCR、20 PRT、31 Interaction
-- SPEC Detail改訂版: 29 BHV
-- Definition対応: [UI／SPEC対応](../06_UI_SPEC_Correspondence.md)の31組
+- UI Detail改訂版: 20 SCR、20 PRT、32 Interaction
+- SPEC Detail改訂版: 30 BHV
+- Definition対応: [UI／SPEC対応](../06_UI_SPEC_Correspondence.md)の32組
 - 判定境界: UI DetailからBHVへの操作Coverageと、BHVからUI Detailへの結果・失敗・回復Coverage
 
-Definition対応の意味を再定義せず、同じ31組をDetailへ具体化する。
+Definition対応の意味を再定義せず、同じ32組をDetailへ具体化する。
 
 ## 2. UIからBHVへのCoverage
 
@@ -30,6 +30,7 @@ Definition対応の意味を再定義せず、同じ31組をDetailへ具体化�
 | [SCR-000005／PRT-000005.spec-000008](../../04_UI/Details/Areas/operation/SCR-000005/screen.md) | [BHV-000008](BHV-000008/behavior.md) | [UI-000005](../../04_UI/Definitions/UI-000005/ui_definition.md) | [SPEC-000008](../Definitions/SPEC-000008/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
 | [SCR-000005／PRT-000005.spec-000009](../../04_UI/Details/Areas/operation/SCR-000005/screen.md) | [BHV-000009](BHV-000009/behavior.md) | [UI-000005](../../04_UI/Definitions/UI-000005/ui_definition.md) | [SPEC-000009](../Definitions/SPEC-000009/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
 | [SCR-000006／PRT-000006.spec-000010](../../04_UI/Details/Areas/project-context/SCR-000006/screen.md) | [BHV-000010](BHV-000010/behavior.md) | [UI-000006](../../04_UI/Definitions/UI-000006/ui_definition.md) | [SPEC-000010](../Definitions/SPEC-000010/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
+| [SCR-000006／PRT-000006.spec-000031](../../04_UI/Details/Areas/project-context/SCR-000006/screen.md) | [BHV-000031](BHV-000031/behavior.md) | [UI-000006](../../04_UI/Definitions/UI-000006/ui_definition.md) | [SPEC-000031](../Definitions/SPEC-000031/spec_definition.md) | Covered | Tree、差分選択、Stage、Commit、Push確認、結果不明および再観測を同じContextで確認 |
 | [SCR-000007／PRT-000007.spec-000011](../../04_UI/Details/Areas/operation/SCR-000007/screen.md) | [BHV-000011](BHV-000011/behavior.md) | [UI-000007](../../04_UI/Definitions/UI-000007/ui_definition.md) | [SPEC-000011](../Definitions/SPEC-000011/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
 | [SCR-000008／PRT-000008.spec-000012](../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md) | [BHV-000012](BHV-000012/behavior.md) | [UI-000008](../../04_UI/Definitions/UI-000008/ui_definition.md) | [SPEC-000012](../Definitions/SPEC-000012/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
 | [SCR-000009／PRT-000009.spec-000013](../../04_UI/Details/Areas/project-context/SCR-000009/screen.md) | [BHV-000013](BHV-000013/behavior.md) | [UI-000009](../../04_UI/Definitions/UI-000009/ui_definition.md) | [SPEC-000013](../Definitions/SPEC-000013/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
@@ -49,14 +50,14 @@ Definition対応の意味を再定義せず、同じ31組をDetailへ具体化�
 | [SCR-000019／PRT-000019.spec-000024](../../04_UI/Details/Areas/project-context/SCR-000019/screen.md) | [BHV-000024](BHV-000024/behavior.md) | [UI-000019](../../04_UI/Definitions/UI-000019/ui_definition.md) | [SPEC-000024](../Definitions/SPEC-000024/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
 | [SCR-000020／PRT-000020.spec-000030](../../04_UI/Details/Areas/operation/SCR-000020/screen.md) | [BHV-000030](BHV-000030/behavior.md) | [UI-000020](../../04_UI/Definitions/UI-000020/ui_definition.md) | [SPEC-000030](../Definitions/SPEC-000030/spec_definition.md) | Covered | 状態、操作、結果、失敗、判断不能および回復を同じContextで確認 |
 
-全31 Interactionに対応BHVが存在する。表示だけで完了するInteractionや、対応Behaviorを暗黙に実装へ委ねたInteractionはない。
+全32 Interactionに対応BHVが存在する。表示だけで完了するInteractionや、対応Behaviorを暗黙に実装へ委ねたInteractionはない。
 
 ## 3. BHVからUIへのCoverage
 
 | 集合 | Canonical件数 | UI Detailへ接続済み | 欠落 |
 |---|---:|---:|---:|
-| BHV | 29 | 29 | 0 |
-| UI Interaction Relation | 31 | 31 | 0 |
+| BHV | 30 | 30 | 0 |
+| UI Interaction Relation | 32 | 32 | 0 |
 
 全BHVについて、Success、Reject、Failure、UnknownまたはRecoveryのうち利用者認識が必要な結果を、対応SCR／PRTのState／VariantとFeedbackへ接続した。
 
@@ -64,9 +65,9 @@ Definition対応の意味を再定義せず、同じ31組をDetailへ具体化�
 
 ```text
 20 UI Definition → 20 SCR／20 PRT
-          │ 31 Interaction Relations
+          │ 32 Interaction Relations
           ▼
-       29 BHV
+       30 BHV
           │
           ▼
 18 ARCH責務／13 Quality検証目標
@@ -85,7 +86,7 @@ Definition対応の意味を再定義せず、同じ31組をDetailへ具体化�
 
 ## 6. Architecture／Qualityへの引き渡し
 
-- Architectureは31 Relationを配置制約として扱い、UI／SPEC Definitionの意味を変更しない。
+- Architectureは32 Relationを配置制約として扱い、UI／SPEC Definitionの意味を変更しない。
 - Qualityは各Relationの操作、Feedback、状態、結果、失敗および回復を既存検証義務へ統合する。
 - 実装との一致はReality Auditで別に判定する。
 
@@ -94,7 +95,7 @@ Definition対応の意味を再定義せず、同じ31組をDetailへ具体化�
 - [x] Definition対応とDetail対応を分けた
 - [x] UIからBHVへのCoverageを全件評価した
 - [x] BHVからUIへのCoverageを全件評価した
-- [x] 31 RelationをN:Nのまま保持した
+- [x] 32 RelationをN:Nのまま保持した
 - [x] Result、Failure、Pending、Reject、UnknownおよびRecoveryの利用者認識を評価した
 - [x] UIまたはSPECの不足をDetail内で創作していない
 - [x] ArchitectureとQualityへの引き渡しを明示した

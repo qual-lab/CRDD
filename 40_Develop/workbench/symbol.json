@@ -1,0 +1,63 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "workbench",
+  "symbols": [
+    {
+      "symbolId": "workbench.public-api",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": ["ARCH-000012"]
+    },
+    {
+      "symbolId": "workbench.server",
+      "kind": "file",
+      "path": "src/workbench-server.ts",
+      "archIds": ["ARCH-000005", "ARCH-000012", "ARCH-000017"]
+    },
+    {
+      "symbolId": "workbench.application.project-surface",
+      "kind": "file",
+      "path": "src/project-surface.ts",
+      "archIds": ["ARCH-000005", "ARCH-000012"]
+    },
+    {
+      "symbolId": "workbench.application.credential-administration",
+      "kind": "file",
+      "path": "src/credential-administration.ts",
+      "archIds": ["ARCH-000013"]
+    },
+    {
+      "symbolId": "workbench.cli",
+      "kind": "file",
+      "path": "bin/workbench.ts",
+      "archIds": ["ARCH-000012"]
+    },
+    {
+      "symbolId": "workbench.test.integration.production-shell",
+      "kind": "test-suite",
+      "path": "tests/integration/workbench-server.contract.test.ts",
+      "qaIds": ["QA-000004", "QA-000006", "QA-000007"],
+      "localTestIds": [
+        "PPR-IT-002",
+        "ERB-IT-021",
+        "RFD-IT-005",
+        "RFD-IT-014",
+        "RFD-IT-013",
+        "RFD-ST-015"
+      ],
+      "verifies": [
+        "workbench.server",
+        "workbench.application.credential-administration"
+      ]
+    },
+    {
+      "symbolId": "workbench.test.integration.project-surface",
+      "kind": "test-suite",
+      "path": "tests/integration/project-surface.contract.test.ts",
+      "qaIds": ["QA-000004", "QA-000005", "QA-000007"],
+      "localTestIds": ["PPR-IT-019", "CPR-IT-008", "RFD-IT-005"],
+      "verifies": ["workbench.application.project-surface"]
+    }
+  ]
+}

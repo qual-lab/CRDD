@@ -272,6 +272,43 @@ Source／予定
 
 Meeting Recordは時点付き記録であり、後から判明した現在状態で当時の内容を上書きしない。誤りは訂正履歴または後続記録で扱う。生Transcript、録音またはConnector payloadはSource／Evidenceであり、Meeting Recordそのものと同一視しない。
 
+### Topic／Meetingの操作と削除境界
+
+TopicとMeetingは、登録、編集、取得、一覧、終了および訂正を同じApplication Capabilityから扱う。Topicは現在の論点状態、Meetingは開催時点の記録を所有し、入口やSurfaceごとに別の正本を作らない。
+
+Meetingを閉じる前に、Decision、Action、Topic更新候補その他のOutcomeを、完了、追跡先への移管、所有正本への昇格または不採用へ全件処置する。未完了Actionは担当、期限、完了条件および追跡先を確定すればMeetingから分離できる。継続的な調査・判断はTopicへ、採用済み変更はCHGへ接続する。
+
+正当な履歴は終了、撤回または訂正で扱い、物理削除しない。物理削除は誤登録に限定し、削除前に参照Relation、影響先および残存する履歴を表示して、人間の明示確認を必要とする。対象以外の連鎖削除、dangling relationおよび結果不明の完了扱いを禁止する。
+
+### 6.1. Topic／MeetingのRepository保存契約
+
+Topic／Meetingを扱うRepositoryだけが、次の固定入口を持つ。扱わないRepositoryへ空Directoryまたは空成果物を作らない。
+
+```text
+22_Topics/
+└ TOPIC-xxxxxx/
+   └ topic.md
+
+23_Meetings/
+└ MTG-xxxxxx/
+   └ meeting.md
+```
+
+Directory名のIDと本文Identityは一致しなければならない。6桁IDはProject内の正本Identityであり、Workbench、MCPまたはCROSごとに別IDを作らない。表示名をDirectory名へ複製せず、名称変更でPath Identityを変えない。
+
+| 正本 | 固定Metadata | 本文で保持する意味 | 保持しない意味 |
+|---|---|---|---|
+| Topic | Topic ID、Project ID、状態、改訂、維持責任者 | 現在の論点、継続理由、望ましいOutcome、根拠・経緯、Relation、次の行動、終了・昇格 | Meeting本文、CHG本文、Requirement本文の複製 |
+| Meeting | Meeting ID、Project ID、状態、開催日時、改訂、維持責任者 | 目的と要約、参加主体・Source、確認事項、Outcome、Action移管、Close判定、訂正 | 生Transcript、録音、後から変化したTopic現在状態 |
+
+Topic状態は`open`、`waiting`、`promoted`、`closed`を固定値とする。Meeting状態は`recorded`、`closed`、`corrected`を固定値とする。作成途中はRepository正本へ公開せず、候補または作業中状態としてRuntime境界に保持する。
+
+Meeting OutcomeはMeeting内で一意なLocal Identityを持ち、少なくとも種別、内容、状態、Owner、期限または再評価契機、および追跡先を保持する。状態は`pending`、`completed`、`transferred`、`promoted`、`rejected`を固定値とする。Meetingを`closed`にする時、`pending` Outcomeが0件であり、未完了Actionは追跡先へ`transferred`されていなければならない。
+
+Readerは固定Metadata、固定見出し、表構造および統制語彙を検査する。Directoryが存在しない場合は`not_configured`、Directoryは存在するが該当Itemがない場合だけ`empty`、読取り不能は`unknown`または`restricted`として区別する。不正な1件を黙って除外して残りを完全一覧として返さない。
+
+書込みは一時Fileへ完全内容を生成し、Identity、期待改訂およびRelationを再確認してから同一Repository内で置換する。物理削除は誤登録と人間の明示確認を必要とし、参照Relationが未処置ならEffect 0で拒否する。
+
 ## 7. Project Management Projection
 
 ```text

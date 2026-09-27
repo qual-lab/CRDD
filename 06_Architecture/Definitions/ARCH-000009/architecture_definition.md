@@ -12,8 +12,8 @@ verified／unverified／ambiguous／unavailableを分け、local／cross-source�
 | 区分 | 内容 |
 |---|---|
 | 状態Owner | Version Control PortとRepository Binding Resolver |
-| 所有する責務 | 開始PathからのRepository Root検証、Repository／Project Identity、実行対象Binding |
-| 所有しない責務 | Git commitを成立条件にすること、Tool選択、Runtime Data清掃 |
+| 所有する責務 | 開始PathからのRepository Root検証、Repository／Project Identity、実行対象Binding、選択差分のStage／Unstage、Commit、確認済み通常Push |
+| 所有しない責務 | 通常作業全体へCommitを要求すること、Force Push、Branch作成、Merge、Rebase、Remote設定管理、Tool選択、Runtime Data清掃 |
 | 主な外部境界 | Version Control、Filesystem、Repository Manifest |
 
 ## 2. UI観点の入力
@@ -27,6 +27,7 @@ verified／unverified／ambiguous／unavailableを分け、local／cross-source�
 | SPEC分析 | 守る振る舞い契約 |
 |---|---|
 | [SPEC-000010](../../Analysis/SPEC-000010/architecture_analysis.md) | Repositoryと実行対象のBindingを解決する |
+| [SPEC-000031](../../Analysis/SPEC-000031/architecture_analysis.md) | Repository差分を選びCommit・通常Pushする |
 
 ## 4. 両観点の統合判断
 
@@ -36,6 +37,7 @@ verified／unverified／ambiguous／unavailableを分け、local／cross-source�
 |---|---|---|---|---|---|---|
 | UI-000006 | UI | Version Control PortとRepository Binding Resolver | UI契約はAuthorityを発行しない。利用者操作: 対象を選ぶ／Rootを確認する／正本を開く。 | UI契約はEffectを定義しない | CROS未設定で手元作業まで止まる／同名や近いパスを同じ対象と誤認する | 確認済み（verified）／未確認（unverified）／曖昧（ambiguous）／利用不能（unavailable） / Project→Repository→Binding→検証済みRoot / ；手元で利用可能（local available）／横断情報源を利用不能（cross-source unavailable）でも継続可能 / Repository→手元の正本→作業、必要時だけCROS /  |
 | SPEC-000010 | SPEC | Version Control PortとRepository Binding Resolver | 現在Repositoryで作業する主体。別RepositoryへのAuthorityは発行しない | 対象解決は読取り専用で、Repository・worktree・Git状態を変更しない。 | 名前やPath類似から別Repositoryを選ばず、曖昧時はEffect 0で停止する。 | [開始Path] -> [Repository Root検証] -> [Repository／Project／Binding解決]   └--曖昧／不正--> [Effect 0] |
+| SPEC-000031 | SPEC | Version Control PortとRepository Binding Resolver | Stage、Unstage、Commit、Pushは人間の選択に基づき、Push対象を明示確認する | Stage領域、Local Commit、Remote Branchを順に変更し得る。各Effectを別々に観測する | Conflict、Commit失敗、Push拒否、認証失敗、通信断、結果不明を成功へ畳まず、自動再送しない | Tree観測→差分選択→Stage／Unstage→Commit→Push確認→通常Push→終了後観測 |
 
 ## 5. 構造と依存方向
 
@@ -45,6 +47,8 @@ verified／unverified／ambiguous／unavailableを分け、local／cross-source�
    確認済み（verified）／未確認（unverified）／曖昧（ambiguous）／利用不能（unavailable） / Project→Repository→Binding→検証済みRoot / ；手元で利用可能（local available）／横断情報源を利用不能（cross-source unavailable）でも継続可能 / Repository→手元の正本→作業、必要時だけCROS / 
 └─ SPEC-000010 (SPEC)
    [開始Path] -> [Repository Root検証] -> [Repository／Project／Binding解決]   └--曖昧／不正--> [Effect 0]
+└─ SPEC-000031 (SPEC)
+   Tree観測 -> 差分選択 -> Stage／Unstage -> Commit -> Push確認 -> 通常Push -> 終了後観測
 ```
 
 各入力はSibling contractであり、前の入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。UI契約は利用者へ認識・操作・Feedbackを提供するが、AuthorityやEffectを発行しない。
@@ -57,6 +61,7 @@ verified／unverified／ambiguous／unavailableを分け、local／cross-source�
 |---|---|---|---|
 | UI-000006 | Version Control PortとRepository Binding Resolver | UI契約はAuthorityを発行しない。利用者操作: 対象を選ぶ／Rootを確認する／正本を開く。 | UI契約はEffectを定義しない |
 | SPEC-000010 | Version Control PortとRepository Binding Resolver | 現在Repositoryで作業する主体。別RepositoryへのAuthorityは発行しない | 対象解決は読取り専用で、Repository・worktree・Git状態を変更しない。 |
+| SPEC-000031 | Version Control PortとRepository Binding Resolver | Stage、Unstage、Commit、Pushは人間の選択に基づき、Push直前にRemote・Branch・送信Commitを確認する | Stage領域、Local Commit、Remote Branchを順に変更し得る。各Effectを個別に観測する |
 
 公開Interfaceは入力IDと対応する契約を保持し、別入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。
 
@@ -64,6 +69,7 @@ verified／unverified／ambiguous／unavailableを分け、local／cross-source�
 
 - UI-000006: CROS未設定で手元作業まで止まる／同名や近いパスを同じ対象と誤認する Effect: UI契約はEffectを定義しない
 - SPEC-000010: 名前やPath類似から別Repositoryを選ばず、曖昧時はEffect 0で停止する。 Effect: 対象解決は読取り専用で、Repository・worktree・Git状態を変更しない。
+- SPEC-000031: Conflict、Commit失敗、Push拒否、認証失敗、通信断および結果不明を成功へ畳まない。Effect: Stage、Commit、Remote反映を別々に観測し、結果不明時は自動再送しない。
 
 - 入力が固有Recoveryを定義しない場合、Architectureから追加しない。
 - 結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める。
@@ -74,6 +80,7 @@ verified／unverified／ambiguous／unavailableを分け、local／cross-source�
 |---|---|---|
 | UI-000006 | CROS未設定で手元作業まで止まる／同名や近いパスを同じ対象と誤認する | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
 | SPEC-000010 | 名前やPath類似から別Repositoryを選ばず、曖昧時はEffect 0で停止する。 | 正常、境界、失敗、判断不能および対応関係を、具体的な試験手順を先取りせず観測可能な意味で確認する。 |
+| SPEC-000031 | 誤対象を送らず、部分成立とPush結果不明を成功表示しない。 | Tree、差分選択、Stage、Commit、Push受理、Remote反映および終了後状態を別々に観測する。 |
 
 共通品質を理由に、入力固有の失敗、非該当Effectまたは終了条件を一つの成功状態へまとめない。
 
@@ -83,6 +90,7 @@ verified／unverified／ambiguous／unavailableを分け、local／cross-source�
 |---|---|---|---|---|
 | UI-000006 | REQ-000008: 開発者が「現在リポジトリだけで日常作業を完結する」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000036: 開発者が「日常作業をCommit SHAや特定Git実装から切り離す」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000009: プロジェクト運営者／PMが「プロジェクト・リポジトリ・基点フォルダを区別して対象を確認する」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000020: プロジェクト運営者／PMが「複数リポジトリを不完全性付きで一つのプロジェクトとして見る」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000024: プロジェクト運営者／PMが「境界を越えた結果を同じタスクへ受け取る」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | 開発者を代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。 |
 | SPEC-000010 | REQ-000008: 開発者が「現在リポジトリだけで日常作業を完結する」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000036: 開発者が「日常作業をCommit SHAや特定Git実装から切り離す」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000009: プロジェクト運営者／PMが「プロジェクト・リポジトリ・基点フォルダを区別して対象を確認する」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000020: プロジェクト運営者／PMが「複数リポジトリを不完全性付きで一つのプロジェクトとして見る」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000024: プロジェクト運営者／PMが「境界を越えた結果を同じタスクへ受け取る」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | 開発者を代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 対象利用者による実利用確認、前提変更、または後続工程でこの未確認事項が成立条件へ影響すると判明した時。 |
+| SPEC-000031 | 部分Stage、Large Repository、認証失敗時の負担、既存Toolとの比較価値および通常Pushの確認負担 | 開発者、Project運営者／PM、Qual-Lab | Workbench Pilotでの実利用確認が必要。Architecture責務のCanonical化を止める事項ではない。 | Workbench Pilot、前提変更、またはForce Push・Merge・Rebase等の対象外操作が必要になった時 |
 
 Architecture固有の追加人間判断はない。これは入力の未確認事項を解消済みとする意味ではない。入力の利用者成果、振る舞い、Authority、Effectまたは失敗境界を変える必要が生じた場合は、その意味を所有するUI／SPEC工程へ戻す。
 
@@ -94,8 +102,9 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 |---|---|---|---|---|---|
 | [SCR-000006／PRT-000006](../../../04_UI/Details/Areas/project-context/SCR-000006/screen.md) | UI-000006 | Screen／Partの配置、情報優先度、操作、FeedbackおよびState | Source UIとの直接Relation | Covered | v0.22固有LayoutはUI Detailへ戻す |
 | [BHV-000010](../../../05_SPEC/Details/BHV-000010/behavior.md) | SPEC-000010 | Trigger、Authority、Validation、State、Effect、Result、FailureおよびRecovery | Source SPECとの直接Relation | Covered | Behavior意味の変更はSPEC Detailへ戻す |
+| [BHV-000031](../../../05_SPEC/Details/BHV-000031/behavior.md) | SPEC-000031 | Tree、差分選択、Stage、Commit、Push確認、結果不明および再観測 | Source SPECとの直接Relation | Covered | 高度な履歴操作が必要ならDiscovery／SPECへ戻す |
 
-担当Interaction Relation: `PRT-000006.spec-000010`
+担当Interaction Relation: `PRT-000006.spec-000010`、`PRT-000006.spec-000031`
 
 全体の逆引きと詳細設計領域への配置は[UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md)を中央統合投影とし、本定義は上記RelationのArchitecture責務を局所所有する。
 
@@ -109,10 +118,10 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 
 ## 10. 実装と検証への引き渡し
 
-- 実装は「開始PathからのRepository Root検証、Repository／Project Identity、実行対象Binding」を所有するCoreと、外部境界を扱うPort／Adapterを分ける。
+- 実装は「開始PathからのRepository Root検証、Repository／Project Identity、実行対象Binding、選択差分のStage／Commit／確認済み通常Push」を所有するCoreと、外部境界を扱うPort／Adapterを分ける。
 - 開始Path→Root検証→Manifest照合→Binding返却を段階的な結合試験で確認する。
 - 偽装.git、worktree／submodule誤認、親Repositoryへの逸脱、Commit SHAへの過剰依存を理由別に反証する。
-- Task Recoveryは非該当。境界不明時はEffect 0で停止する。
+- Binding境界不明時はEffect 0で停止する。Push結果不明時は自動再送せず、同じRepositoryとCommitを再観測して人間判断へ戻す。
 
 ## 11. 情報源と現行照合
 

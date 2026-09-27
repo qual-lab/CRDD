@@ -12,6 +12,7 @@
     "format:check": "biome format .",
     "lint": "biome lint . --error-on-warnings",
     "preview": "node ./bin/visual-preview.ts",
+    "verify:zoom": "node ./bin/visual-preview.ts verify-zoom",
     "test": "npm run check && npm run test:run",
     "test:run": "node --test --test-concurrency=1 ./tests/integration/*.test.ts",
     "typecheck": "tsc -p ./tsconfig.json"

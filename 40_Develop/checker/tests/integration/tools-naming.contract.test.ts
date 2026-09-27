@@ -445,7 +445,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     relativePath: "40_Develop/visual-preview/src/index.ts",
     expectedTrace: "ARCH-000003",
     requiredTags: ["boundary", "effect", "security"],
-    exportedModules: ["./preview-server.ts"],
+    exportedModules: ["./browser-zoom-verifier.ts", "./preview-server.ts"],
   },
   {
     relativePath: "40_Develop/version-control/src/index.ts",

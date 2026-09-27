@@ -47,6 +47,9 @@ UX工程が定義した成立条件を全件処置し、成功の意味、失敗
 | [UX-000030](../../../02_UX/Definitions/UX-000030/ux_definition.md) | 公式素材を権利と用途を確認して使う | 利用者が「公式素材を権利と用途を確認して使う」を達成でき、重要な失敗を正常状態と誤認しないことを確認する | [公式AssetのGovernance](../../Definitions/QA-000011/quality_definition.md) | UAT | Governance／Rights Review | Mapped |
 | [UX-000031](../../../02_UX/Definitions/UX-000031/ux_definition.md) | 公式の識別と保証を混同せず見分ける | 利用者が「公式の識別と保証を混同せず見分ける」を達成でき、重要な失敗を正常状態と誤認しないことを確認する | [成果物IntegrityとTrust](../../Definitions/QA-000010/quality_definition.md) | UT／IT／ST／UAT | Integrity／Security | Mapped |
 | [UX-000032](../../../02_UX/Definitions/UX-000032/ux_definition.md) | 実行事実を安全に記録して結果を確かめる | 記録する側が一度の依頼で記録結果を見分け、重複・上書き・許可外記録を起こさず再観測または次の処置へ進めることを確認する | [実行記録の公開と再利用](../../Definitions/QA-000012/quality_definition.md) | IT／ST／UAT | Persistence／Concurrency／Recovery／Information | Mapped |
+| [UX-000033](../../../02_UX/Definitions/UX-000033/ux_definition.md) | 論点と会議記録を安全に維持する | Topic／Meetingを一通り扱い、正当な履歴を保ちながら候補・Actionを後続へ渡し、誤登録だけを影響確認後に削除できる | [候補の昇格](../../Definitions/QA-000005/quality_definition.md) | IT／ST／UAT | Lifecycle／Authority／Relation／Deletion | Mapped |
+| [UX-000034](../../../02_UX/Definitions/UX-000034/ux_definition.md) | Projectの意味と作業差分を一つの流れで扱う | Projectの現在地から次の仕事、差分、Commit、確認済み通常Pushまで進み、誤対象と結果不明を見分けられる | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | IT／ST／UAT | Workbench／Version Control／Acceptance | Mapped |
+| [UX-000035](../../../02_UX/Definitions/UX-000035/ux_definition.md) | User管理なしでRemote Accessを維持・回復する | Role別Credentialを維持し、全Administrator喪失または認可破損からProduct Dataを失わず通常管理へ戻れる | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | IT／ST／UAT | Authentication／Recovery／Non-disclosure | Mapped |
 
 ## 3. 検証目標への統合
 
@@ -88,10 +91,13 @@ UX工程が定義した成立条件を全件処置し、成功の意味、失敗
 | [UX-000030](../../../02_UX/Definitions/UX-000030/ux_definition.md) | `ux-000030.qa-000011` | UX Definition（利用者成果・重要場面・重要な失敗） | [公式AssetのGovernance](../../Definitions/QA-000011/quality_definition.md) | 公式素材の出所・原本・派生物・利用条件を確認し、許可された用途で安心して収載・再利用できる。重要場面「公式用途へ採用する直前」で、避ける失敗を利用者が正常状態や完了として誤認しない。入口、実装または利用主体が変わっても、この利用者成果の意味を維持する。見た目からの信頼保証推定、権利不明素材の収載および用途外再配布を反証する | UAT | UAT: User Acceptance | `OAG-UAT-001`、`OAG-UAT-004` |
 | [UX-000031](../../../02_UX/Definitions/UX-000031/ux_definition.md) | `ux-000031.qa-000010` | UX Definition（利用者成果・重要場面・重要な失敗） | [成果物IntegrityとTrust](../../Definitions/QA-000010/quality_definition.md) | 公式入口や素材を識別でき、同時に署名・準拠・品質・発行元への信頼の根拠は別に確認できる。重要場面「公式表示を信頼判断へ用いる直前」で、視覚的な公式らしさを保証の証明と誤認しない。表示媒体や入口が変わっても、識別用途と保証根拠の境界を維持する。公式／非公式表示、保証根拠の欠落、見た目だけの信頼推定および識別不能な入口を反証する | UT／IT／ST／UAT | UT: N/A<br>IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `AIT-IT-001`、`AIT-ST-004`、`AIT-UT-005`、`AIT-UAT-006` |
 | [UX-000032](../../../02_UX/Definitions/UX-000032/ux_definition.md) | `ux-000032.qa-000012` | UX Definition（利用者成果・重要場面・重要な失敗） | [実行記録の公開と再利用](../../Definitions/QA-000012/quality_definition.md) | 作成側が同じ実行、情報源、観測時点、観測状態および記録試行を対応付けて一度だけ依頼する。複数作成側、再送、並行書込みまたは途中失敗でも誤統合せず、結果不明では同じ実行と試行を再観測する。生出力、秘密情報または不要な個人情報を無条件に含めない | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `ERP-IT-001`、`ERP-IT-002`、`ERP-IT-003`、`ERP-ST-004`、`ERP-IT-005`、`ERP-UAT-007` |
+| [UX-000033](../../../02_UX/Definitions/UX-000033/ux_definition.md) | `ux-000033.qa-000005` | UX Definition（利用者成果・重要場面・重要な失敗） | [候補の昇格](../../Definitions/QA-000005/quality_definition.md) | TopicとMeetingを登録・編集・取得・一覧・終了・訂正でき、Meeting候補を全件処置して未完了Actionを追跡先へ渡せる。誤登録削除の直前に損失・Relation・復旧可能性を理解し、正当な履歴や関連対象を失わない | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `CPR-IT-006`、`CPR-IT-008`、`CPR-ST-005`、`CPR-UAT-007` |
+| [UX-000034](../../../02_UX/Definitions/UX-000034/ux_definition.md) | `ux-000034.qa-000007` | UX Definition（利用者成果・重要場面・重要な失敗） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | Projectの状況から作業対象へ進み、差分を選んでCommitし、Remote・Branch・送信Commitを確認して通常Pushする。Workbench以外の経路も維持し、拒否・通信断・結果不明時に既知状態と次行動を理解できる | IT／ST／UAT | IT: Related 2 Blocks<br>ST: System/E2E<br>UAT: User Acceptance | `RFD-IT-014`、`RFD-ST-015`、`RFD-UAT-007` |
+| [UX-000035](../../../02_UX/Definitions/UX-000035/ux_definition.md) | `ux-000035.qa-000007` | UX Definition（利用者成果・重要場面・重要な失敗） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | CROS管理者がUser AccountなしでRole別Credentialを発行・失効・ローテーションし、Server Host運用者が全喪失時にProduct Dataを保持してAccessだけを再構成する。Secret再表示と管理能力からの内容Access推定を防ぐ | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `RFD-IT-013`、`RFD-ST-003`、`RFD-ST-004`、`RFD-UAT-007`、`RFD-ST-016` |
 
 ## 4. 継承した未確認事項の処置
 
-全32件のUX定義が保持する「後続の実利用確認が必要」という未確認事項は、Definition本文に残すだけで完了にしない。次の利用者受入Local Itemへ接続し、実行前は未確認のまま、実行後にだけ利用者成果の成立を評価する。複数の検証目標へまたがるUXは、それぞれの境界で確認する。
+全35件のUX定義が保持する「後続の実利用確認が必要」という未確認事項は、Definition本文に残すだけで完了にしない。次の利用者受入Local Itemへ接続し、実行前は未確認のまま、実行後にだけ利用者成果の成立を評価する。複数の検証目標へまたがるUXは、それぞれの境界で確認する。
 
 | 利用者受入Local Item | 対象UX | 確認する利用者成果 |
 |---|---|---|

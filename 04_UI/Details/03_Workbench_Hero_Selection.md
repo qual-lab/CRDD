@@ -2,7 +2,7 @@
 
 成果物種別: UI Detail — Hero Screen選定
 対象Product: CROS Workbench
-状態: Human Selected — G2 Passed／G3 In Progress
+状態: G2時点記録 — Human Selected／現在はG3〜G5 Passed
 維持責任者: Qual-Lab
 
 ## 1. 結論
@@ -131,9 +131,9 @@ Current Projectを選択
 | 項目 | 状態 | Owner | 現在の影響 | 戻り条件／再評価契機 |
 |---|---|---|---|---|
 | Hero採用 | 解決済み | Qual-Lab | G3開始可能 | Product代表性または利用者成果を保持できない反証が出た時 |
-| Project WorkspaceとAIへの依頼面の関係 | OPEN | Qual-Lab | Composition候補に影響 | G3でPanel／Side Panel／外部入口を同一条件で比較する |
-| 五場面の視覚的優先順位 | OPEN | Qual-Lab | Dashboard化のRisk | G3でAttention起点と全体Overview起点を比較する |
-| Secondary Screen順序 | OPEN | Qual-Lab | G5計画に影響 | Hero採用後に代表性と例外検証力から決める |
+| Project WorkspaceとAIへの依頼面の関係 | 解決済み | Qual-Lab | AIへの依頼を補助入口とし、Heroの主役にしない | Provider利用の主経路を変更する時 |
+| 五場面の視覚的優先順位 | 解決済み | Qual-Lab | Attentionから根拠、判断、次の一手へ読む | Direction Aで情報階層が成立しない反証が出た時 |
+| Secondary Screen順序 | 解決済み | Qual-Lab | Topic Detail、Repository Worktree、Project Portfolioの順で展開済み | Product代表性または例外検証力を変更する時 |
 
 Hero候補のいずれも上流UX／IAを保持できないと判明した場合はG1へ戻る。Visualの好みだけでScreen目的または情報Ownerを変更しない。
 
@@ -146,5 +146,5 @@ Hero候補のいずれも上流UX／IAを保持できないと判明した場合
 - [x] AI推奨と人間判断を区別した
 - [x] G3で比較する表示条件を固定した
 - [x] Qual-LabによるHero Screenの確認を取得した
-- OPEN: Hero採用後に決めるため — G3のVisual Directionを作成した
+- [x] G3のVisual Directionを作成し、G4で人間がDirection Aを採用した
 - [x] G2未通過の状態でVisual Baseline、SCR／PRT／CMPまたは下流Handoffを確定していない

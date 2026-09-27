@@ -65,7 +65,7 @@ SPECはこれらを再定義せず、同じUX／IAから観測可能な条件、
 
 なし。
 
-Definition対応のv0.21結果は[UI／SPEC対応](../05_SPEC/06_UI_SPEC_Correspondence.md)を維持する。新しいDetail対応は[UI／SPEC Detail対応](../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)で別に扱い、31 Relationを双方向に全件確認して`Pass`としている。
+Definition対応のv0.21固定時点では29 BHV／31 Relationを[UI／SPEC対応](../05_SPEC/06_UI_SPEC_Correspondence.md)で確認した。v0.22ではBHV-000031とRelationを1件追加し、現在は30 BHV／32 Relationを[UI／SPEC Detail対応](../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)で双方向に全件確認して`Pass`としている。
 
 ## Checklist
 

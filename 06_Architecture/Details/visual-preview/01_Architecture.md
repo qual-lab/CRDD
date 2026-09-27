@@ -8,9 +8,9 @@
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
-| [ARCH-000003](../../Definitions/ARCH-000003/architecture_definition.md) | UIのVisual成果物を実Browserで確認できるよう、Repository内の許可Rootをlocalhostへ読取り専用で配信する。 | Covered |
+| [ARCH-000003](../../Definitions/ARCH-000003/architecture_definition.md) | UIのVisual成果物を実Browserで確認できるよう、Repository内の許可Rootをlocalhostへ読取り専用で配信し、専用Browser Profileで実Zoomを決定論的に観測する。 | Covered |
 
-本領域はPreview用HTTP境界だけを所有する。Visual品質の評価、合否判定、Evidence保存、一般用途のWeb HostingおよびRemote共有は所有しない。
+本領域はPreview用HTTP境界と、固定されたVisual品質条件を実Browserで機械観測する境界を所有する。Visual Directionの採否、人間による審美判断、Evidenceの正本保存、一般用途のWeb HostingおよびRemote共有は所有しない。
 
 ## 詳細成果物の適用判断
 
@@ -54,6 +54,8 @@
 | 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|---|---|---|
 | `visual-preview.local-read-only-preview` | Boundary／Resource Lifecycle | Repository内Visual Root→localhost Listener→Browser相当Consumer | Linkでない許可Rootの通常FileだけをGET／HEADで返す | 外部Bind、Path越境、Link追跡、Directory一覧、書込みMethod受理、close後Listener残存 | IT | Direct Boundary | Status、Header、本文、拒否理由、Health、close後Connection | Listener 0、Connection 0、Repository書込み0 | 実BrowserのZoom／Breakpoint評価はUI Visual Gateで確認 |
+| `visual-preview.browser-lifecycle-observation` | Boundary／Resource Lifecycle | localhost Listener／所有Browser Process→終了後観測 | Listenerの存在・不存在・観測不能と、Browserの正常終了・SIGTERM・SIGKILL・観測不能を分離する | 応答停止やtimeoutを不存在へ畳む、正常終了待機前のSignal、強制終了を正常終了と表示する | IT | Direct Boundary | TCP接続結果、Process終了Event、送信Signal、終了経路 | 接続拒否だけを不存在とし、実際の終了経路を一意に返す。観測不能をPassにしない | 実Browser全体の表示品質と資源0はSystem/E2Eで確認 |
+| `visual-preview.actual-browser-zoom` | Boundary／Visual Verification／Resource Lifecycle | localhost Preview→専用Chrome Profile→Rendered DOM観測 | 指定した全画面・全倍率で実Zoomと画像読込を観測し、横Overflow、文字下限、操作対象およびFocus順を評価する | CSS狭幅の代替利用、倍率未反映、画像404、部分画面だけの確認、通常Profile利用、一時Profile・Process Tree・DevTools・Listener残存、timeoutを不存在へ畳む誤判定 | ST | System/E2E | DPR、実効Viewport、Scroll幅、Computed Font Size、操作対象寸法、`tabindex`、画像数・読込成功・失敗、正常終了受理、実終了経路、強制終了Fallback、Process Tree、DevTools、Profile、Preview Listener | Browser Process Tree 0、DevTools Listener 0、専用Profile 0、Preview Listener 0、Repository書込み0。Listenerは接続拒否だけを不存在とし、timeoutまたは分類不能は観測不能としてPassにしない | N/A: 固定Visual Gateを機械観測できる。審美判断はHuman Authorityが所有する |
 
 ## 現行実装との照合
 
@@ -79,7 +81,8 @@ Repository内Visual成果物
 visual-preview/
 ├ src/index.ts           公開API
 ├ src/preview-server.ts  Root検証・HTTP配信・Listener Owner
-├ bin/visual-preview.ts  CLI引数・状態表示・Signal終了
+├ src/browser-zoom-verifier.ts 専用Profile・Chrome・DevTools・測定・清掃
+├ bin/visual-preview.ts  Preview／Zoom検証のCLI入口
 └ tests/                 localhost直接境界の契約試験
 
 template/tools/
@@ -94,6 +97,16 @@ template/tools/
 | CLI | `--root`、`--port` | ready／closed／blockedのJSON | Absolute Path表示、Browser起動 |
 | HTTP | GET／HEADとRoot内File Path | Fileまたは固定拒否結果 | POST、一覧、CORS、Credential |
 | Health | 固定Path | Contract、ready、host、read-only | Root Path、Repository Identity |
+| Zoom検証 | Root、HTML一覧、倍率一覧、Window寸法、任意Chrome Path | 実倍率、実効Viewport、画像、文字・操作対象・Overflow・Focusおよび資源別cleanupの構造化結果 | Human Direction、通常Browser Profile、Browser拡張、外部Network |
+
+### 公開Export Allowlist
+
+`src/index.ts`は利用側の唯一の公開入口とし、次のModuleだけを明示的に公開する。Browser Zoom検証はVisual Previewの設計済みCapabilityであり、利用側に内部Pathの直接参照を求めない。
+
+| 公開Module | 公開する責務 |
+|---|---|
+| `./preview-server.ts` | Repository内の許可Rootをlocalhostへ読取り専用で配信する。 |
+| `./browser-zoom-verifier.ts` | 専用Chrome Profileで実ZoomとVisual品質条件を観測し、所有資源を清掃する。 |
 
 ## 4. Flow
 
@@ -115,6 +128,16 @@ template/tools/
           ├ Path／Link／Directory不許可 → [404]
           ▼
 [通常Fileをread onlyで搬送]
+          │
+          ▼
+[条件ごとの専用Chrome Profile]
+          │ 実Browser Zoom
+          ▼
+[Rendered DOMをDevToolsで観測]
+          │
+          ├ 閾値未達 ─────────→ [failed]
+          ▼
+[正常終了を要求し、Process Tree・DevTools・Profile・Preview Listenerを個別観測]
 ```
 
 ## 5. Lifecycle
@@ -125,6 +148,8 @@ template/tools/
 | ready | Bind完了後 | GET／HEAD、Health、close | Listenerが所有されている |
 | closing | close開始後 | 新しい業務操作なし | 所有Connectionを終了する |
 | closed | Server close完了後 | 冪等なclose | Listener 0、Connection 0 |
+| measuring | 専用Profile作成後 | 対象URLの表示と読取り観測 | 同じ条件のProcessとProfileを所有する |
+| measured | 一条件の観測と終了後確認完了後 | 結果集約、次条件開始 | 前条件のProcess Tree 0、DevTools Listener 0、Profile 0 |
 
 CLIはSIGINT／SIGTERMの競合を一回のcloseへ畳む。Library Handleのcloseも冪等とする。
 
@@ -137,6 +162,8 @@ CLIはSIGINT／SIGTERMの競合を一回のcloseへ畳む。Library Handleのclo
 - GET／HEAD以外を拒否し、Filesystemへ書き込まない。
 - CORS許可を付けず、Cache、MIME推測、Referrer、Frame埋込みを制限する。
 - 公開結果、HealthおよびErrorへAbsolute Pathを含めない。
+- Zoom検証は通常Browser Profile、Browser拡張、外部Networkおよび`file://`を使用しない。
+- DevTools Portは専用Browserが一時発行したlocalhost Endpointだけを使用し、結果へ公開しない。
 
 ## 7. 失敗と終了後条件
 
@@ -148,18 +175,23 @@ CLIはSIGINT／SIGTERMの競合を一回のcloseへ畳む。Library Handleのclo
 | 不許可Method | 固定405とAllow Header | Filesystem Effect 0 |
 | File読取り失敗 | 固定失敗または接続終了 | 別FileへのFallback 0 |
 | close | Listenerと所有Connectionを終了 | Listener 0、Connection 0 |
+| Browser起動・Navigation失敗 | 同じ条件を成功へ畳まずblocked | 所有Browser Process Tree 0、DevTools Listener 0、専用Profile 0 |
+| 画像読込失敗 | `complete`と自然幅・高さを観測しfailed | alt文字や壊れた画像表示を成功へ畳まない |
+| Navigation中のContext破棄 | 同じURL・期限内だけ再観測 | 別URLへのFallback 0、重複Profile残存0 |
+| Zoom未反映・Visual閾値未達 | 測定値と理由をfailedで返す | 他条件のPassによる上書き0 |
+| cleanup不能 | 全体をPASSにしない | 対象Identityを不明なまま不存在へ畳まない |
 
 ## 8. Implementation Structure
 
 | 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
 |---|---|---|---|---|---|---|
 | Variation | N/A | 配信方式、Host、Root Authorityに複数具象を持たせない。 | 単一のlocalhost HTTP実装 | 別方式を暗黙追加しない | 必要になった時点で別Capabilityとして再評価 | `visual-preview.local-read-only-preview` |
-| Common Contract | Required | Library、CLI、HTTPが同じRootとread-only条件を共有する。 | 公開APIとServer Contract | CLIで検証を再実装しない | 新入口は同じContractへ接続する | `visual-preview.local-read-only-preview` |
-| Creation／Selection | Required | Root検証後だけListenerを作る。 | Root Resolver→Server Bind | 不明時Effect 0 | Root選択変更はSecurityへ波及 | `visual-preview.local-read-only-preview` |
-| State-dependent Behavior | Required | ready前、ready、closing、closedで操作可能性が異なる。 | Handle Lifecycle | ready前にURLを返さない | 状態追加はclose試験へ波及 | `visual-preview.local-read-only-preview` |
+| Common Contract | Required | Library、CLI、HTTPが同じRootとread-only条件を共有し、Zoom検証も同じPreview契約を使用する。 | 公開API、Server Contract、Zoom Verification Contract | CLIでRoot検証や測定を再実装しない | 新入口は同じContractへ接続する | `visual-preview.local-read-only-preview`、`visual-preview.actual-browser-zoom` |
+| Creation／Selection | Required | Root検証後だけListenerを作り、条件ごとの専用ProfileだけでBrowserを起動する。 | Root Resolver→Server Bind→専用Profile→Chrome | 不明時Effect 0、通常Profile非利用 | Root／Browser選択変更はSecurityへ波及 | `visual-preview.local-read-only-preview`、`visual-preview.actual-browser-zoom` |
+| State-dependent Behavior | Required | ready前、ready、measuring、measured、closing、closedで操作可能性が異なる。 | Handle／Measurement Lifecycle | ready前にURLを返さず、観測前に条件をPassへしない | 状態追加はclose／cleanup試験へ波及 | `visual-preview.local-read-only-preview`、`visual-preview.actual-browser-zoom` |
 | Composition／Recursion | N/A | 再帰的なSubsystem合成を行わない。 | 単一Listener | 上位完成を所有しない | N/A | `visual-preview.local-read-only-preview` |
-| Lifecycle Ownership | Required | ListenerとConnectionを確実に回収する必要がある。 | Handleが資源Owner | close後残存0 | 取消経路変更はITへ波及 | `visual-preview.local-read-only-preview` |
-| External Boundary | Required | FilesystemとHTTPを扱う。 | Root検証、HTTP Method、Response Header | 要求とFile Effectを分ける | 境界変更はSecurityとITへ波及 | `visual-preview.local-read-only-preview` |
+| Lifecycle Ownership | Required | Listener、Connection、Browser Process Tree、DevToolsおよび専用Profileを確実に回収する必要がある。 | Preview Handleと条件別Measurementが各資源Owner | close後Listener／Connection 0、条件後Process Tree／DevTools／Profile 0 | 取消経路変更はIT／STへ波及 | `visual-preview.local-read-only-preview`、`visual-preview.actual-browser-zoom` |
+| External Boundary | Required | Filesystem、HTTP、Chromium Profile、Browser ProcessおよびDevToolsを扱う。 | Root検証、HTTP Method、Response Header、専用Profile→Headless Chrome→DevTools測定 | 要求とFile Effectを分け、通常Profile非利用、実DPR一致、全条件処置を維持する | 境界変更はSecurity、IT、ST、Visual Gateへ波及 | `visual-preview.local-read-only-preview`、`visual-preview.actual-browser-zoom` |
 
 ## Checklist
 

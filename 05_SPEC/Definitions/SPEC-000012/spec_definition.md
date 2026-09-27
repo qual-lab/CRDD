@@ -7,7 +7,7 @@ SPEC ID: `SPEC-000012`
 
 ## 振る舞いの目的
 
-接続資格からWorkspace利用範囲を確定する。
+Role別Credentialを発行・失効・ローテーションし、接続時の利用範囲を確定する。通常管理不能時はServer HostのAuthorityからAccessだけを再構成し、Product Dataを変更せず通常管理へ戻す。
 
 ## UX観点の分析結果
 
@@ -30,37 +30,41 @@ SPEC ID: `SPEC-000012`
 
 | 項目 | 契約 |
 |---|---|
-| 契機 | リモート接続を開始または再接続する時 |
-| 事前条件 | 接続資格を検証でき、WorkspaceとRepository Exposureが現行である |
-| Authority | Credential発行時に固定されたWorkspace Grant。管理Capabilityと内容Grantを分離する |
+| 契機 | Remote接続、Credential発行・失効・ローテーション、またはAccess Recoveryを開始する時 |
+| 事前条件 | 通常操作では有効なAdministrator Credential、RecoveryではServer Host上の対話Authorityと処置対象を確認できる |
+| Authority | 通常管理はAdministrator能力、内容AccessはRole別Grant、全喪失RecoveryはServer Host Authorityに限定する |
 | 判定不能 | 不足を既定値で補完せず、新しいEffectを発行せず現在状態と未解消義務を保持する |
 
 ## 振る舞い・状態・結果
 
 ```text
-[未認証] -> [Credential検証] -> [Session＋Workspace Grant]
-  ├ current -> [利用可能範囲]
-  └ stale／invalid -> [拒否・存在非開示]
+[Role選択] -> [Credential発行] -> [Secret一度表示] -> [active]
+                                      │
+                                      ├ revoke／rotate -> [revoked／active(new)]
+                                      └ authenticate -> [Session＋Role Grant]
+
+[全Administrator喪失／認可破損]
+        -> [Host確認] -> [Recovery ID] -> [Accessだけ再構成] -> [Bootstrap再入場]
 ```
 
-- 振る舞い: 接続資格を検証し、現在有効なWorkspace GrantとRepository Exposureから利用可能範囲を確定する。
-- 成功条件: System管理能力と内容閲覧権限を別に判定する。
-- ここにない取消、再試行、回復または状態値を架空に追加しない。
+- 振る舞い: `administrator`、`management`、`developer`のRole別Credentialを管理し、認証時は現在有効なRole GrantとRepository Roleから利用可能範囲を確定する。
+- 成功条件: Secretは発行時に一度だけ返し、System管理能力、Management内容Access、Development内容Accessを別に判定する。
+- Repository単体利用へCROS Credentialを要求しない。
 
 ## 失敗・回復・副作用
 
-- 失敗: 未許可対象の存在を漏らさず、古いGrantや一律Unlockを受理しない。
-- 副作用: 認証済みSessionとGrantを作成・更新する。未Exposure Repositoryへ読取りEffect 0。
-- 本SPEC固有の回復経路は設けず、失敗理由と安全な戻り先を返す。
+- 失敗: 無効・期限切れ・失効Credential、Role不整合、Secret再表示要求、全Administrator喪失、認可状態破損、Recovery途中失敗を区別する。
+- 副作用: Credential Metadata、Digest、Session Grant、失効状態、Recovery記録を作成・更新し得る。生Secret、Repository、Project Contextその他のProduct DataをRecovery記録へ複製しない。
+- 回復: 最初の失敗から同じRecovery IDを保持し、失効対象・保持対象・終了後状態を再観測してBootstrap Credentialから通常管理へ戻す。途中失敗後に別Recoveryを重ねない。
 
 ## 受入条件と検証義務
 
 | 観点 | 受入条件 |
 |---|---|
-| 正常 | System管理能力と内容閲覧権限を別に判定する |
-| 境界 | 有効／期限切れCredential、Exposureあり／なしを分け、非開示対象の存在を返さない |
-| 失敗 | 未許可対象の存在を漏らさず、古いGrantや一律Unlockを受理しない |
-| 観測不能 | 不明を正常・不存在・完了へ丸めず、実際の副作用「認証済みSessionとGrantを作成・更新する。未Exposure Repositoryへ読取りEffect 0」と矛盾する結果を返さない |
+| 正常 | Role別Credentialの発行・認証・失効・ローテーションが成立し、管理能力と内容Accessを別に判定する |
+| 境界 | active／expired／revoked／rotating／unknown、三Role、Repository単体利用、通常管理／Host Recoveryを分ける |
+| 失敗 | Secretを再表示・保存せず、管理能力から内容Accessを推定せず、RecoveryでProduct Dataを削除しない |
+| 観測不能 | 不明を完了へ丸めず同じRecovery IDと既知状態を返し、新しい資格・Session・内容Effectを発行しない |
 | 対応UI | [UI-000008](../../../04_UI/Definitions/UI-000008/ui_definition.md)の操作・Feedbackと契機・結果・失敗が一致する |
 
 ## 対応するUI
@@ -69,7 +73,8 @@ SPEC ID: `SPEC-000012`
 
 ## 制約
 
-API、Process、保存方式、画面、部品または実装技術を本定義で確定しない。現行実装は独立した照合対象であり、望ましい振る舞いの根拠として自動採用しない。
+- Repository単体利用へCROS Credentialを要求しない。
+- API、Process、保存方式、画面、部品または実装技術を本定義で確定しない。現行実装は独立した照合対象であり、望ましい振る舞いの根拠として自動採用しない。
 
 ## 未確認事項・人間判断・戻り条件
 

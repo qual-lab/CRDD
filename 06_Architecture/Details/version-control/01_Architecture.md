@@ -9,7 +9,7 @@
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
 | [ARCH-000002](../../Definitions/ARCH-000002/architecture_definition.md) | 契約移行時に旧／新Consumerを検索できるSnapshotと差分Portを提供する。 | Partial |
-| [ARCH-000009](../../Definitions/ARCH-000009/architecture_definition.md) | 起点Pathから正確なRepository Root／worktree種別を検証してBinding入力を返す。 | Covered |
+| [ARCH-000009](../../Definitions/ARCH-000009/architecture_definition.md) | 起点Pathから正確なRepository Root／worktree種別を検証し、選択差分のStage／Commit／確認済み通常Pushを目的別Portで扱う。 | Covered |
 | [ARCH-000014](../../Definitions/ARCH-000014/architecture_definition.md) | Runtime Artifactの完全性評価へ単一Snapshotとrevisionを提供する。Trust判断は所有しない。 | Partial |
 | [ARCH-000016](../../Definitions/ARCH-000016/architecture_definition.md) | 履歴、Working Tree、観測時点を分け、Git commitを現在状態の必須条件にしない。 | Partial |
 
@@ -58,6 +58,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 |---|---|---|---|---|---|---|---|---|---|
 | `version-control.root-capability` | Interface／Security Boundary | 起点Path | exact Repository Root | fake .git、nested、submodule、link | IT | Direct Boundary | root kindとreason | process／handle 0 | Windows/Linux実境界 |
 | `version-control.snapshot-port` | Interface／Consistency | working tree／revision | 単一snapshotの結果 | 観測間変更、commit前情報欠落 | IT | Direct Boundary | snapshot identityとobserved_at | 一時出力0 | 代替VCS Adapter未実装 |
+| `version-control.change-publication` | Interface／External Effect | 選択差分、Stage領域、Local Commit、確認済みUpstream | 選択差分だけをCommitし、確認したRemote・Branch・Commitを通常Pushして終了後状態を返す | 誤対象、Conflict、Commit失敗、Push拒否、認証失敗、通信断、結果不明の成功化、自動再送 | IT／ST | System/E2E | Tree、差分集合、各Effect発行・確認、Remote結果、終了後状態 | 結果不明時の暗黙再送0、Force Push 0、Process／handle 0 | 部分Stageと大規模Repositoryの操作負担はWorkbench Pilotで確認 |
 | `version-control.contract-migration-closure` | Flow／Consistency | 旧／新Owner、Producer、全Consumer、派生物、公開入口、署名・Release | 単一Snapshot上で移行集合が完全一致 | Consumer取り残し、別Snapshot混入、Canonical Path／Identity／State再解釈 | IT／ST | Related 2 Blocks | snapshot identity、集合差分、旧参照 | 全Consumer移行前の旧処理削除0 | 意味妥当性と移行採用は独立レビュー |
 
 導出キーは本領域内でQualityが同じ設計項目を反復参照するための局所参照であり、CRDD全体の安定コンテキストIDではない。
@@ -108,6 +109,7 @@ Release／Signing ──────┘                 ▼
 |---|---|---|---|---|
 | Repository Location | 起点Directory | 検証済みの最寄り／exact Repository RootとRepository形態 | いいえ | Runtime Data、Execution Intelligence、Checker |
 | Local Change Set Observation | 検証済みRoot、必要な比較基準 | Revision差、準備済み差分、作業中差分、未登録Pathと観測状態 | いいえ | Checker、回帰選択、Workbench |
+| Change Publication | 検証済みRoot、選択差分、Commit内容、確認済みRemote・Branch・送信Commit、人間Authority | Stage／Unstage、Commit、通常Pushの各結果と終了後状態 | いいえ | Workbench |
 | Fixed Snapshot Read | 検証済みRoot、明示Revision、対象Path | Revision／Snapshot Identity付きの固定内容または観測不能 | はい | 固定履歴、外部送信Policy、候補生成 |
 | Candidate Materialization | 固定Snapshot、許可Path、空で安定した出力Directoryから発行したopaque Capability | 隔離された候補と内容Identity。失敗時は部分生成の不存在またはcleanup観測不能 | はい | Coordinator、Project Runtime統合 |
 | Fixed Revision Identity | 検証済みRoot、固定候補 | Revision／Snapshot／Object FormatのIdentity | はい | 署名、Release準備 |
@@ -140,11 +142,13 @@ Release Identity、Runtime Execution Identity、署名対象集合およびRelea
 | Fixed Revision Git Adapter | `gitFixedRevisionIdentityAdapter`、`gitRepositoryFormatAdapter`、`gitRepositoryRevisionAdapter` |
 | Fixed Snapshot Git Adapter | `gitFixedSnapshotAdapter`、`inspectRepositoryFixedSnapshot` |
 | Local Change Set Git Adapter | `gitLocalChangeSetAdapter` |
+| Change Publication Git Adapter | `ChangePublicationCommandRunner`、`createGitChangePublicationAdapter`、`gitChangePublicationAdapter`、`createGitChangePublicationTargetObservationAdapter`、`gitChangePublicationTargetObservationAdapter` |
 | Migration System Closure | `MigrationConsumerObservation`、`inspectMigrationSystemClosure` |
 | Checker Repository Observation | `RepositoryEntryObservation`、`observeDeclaredNestedRepositoryPaths`、`observeNestedRepository`、`observeRepositoryEntries`、`readFixedSnapshotText`、`resolveRevisionIdentity` |
 | Repository Layout Git Adapter | `describeGitRepositoryLayoutAdapterContract`、`GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT`、`GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT_REVISION`、`inspectGitRepositoryLayoutCandidate` |
 | Repository-local Ignore Git Adapter | `gitRepositoryLocalIgnoreAdapter` |
 | Local Change Set | `changedPaths`、`LOCAL_CHANGE_SET_CONTRACT`、`LOCAL_CHANGE_SET_CONTRACT_REVISION`、`LocalChangeSet`、`LocalChangeSetAdapter`、`LocalChangeSetObservation`、`observeLocalChangeSet` |
+| Change Publication | `ChangePublicationAdapter`、`ChangePublicationRequest`、`ChangePublicationResult`、`ChangePublicationTargetObservation`、`ChangePublicationTargetObservationAdapter`、`executeChangePublication`、`observeChangePublicationTarget` |
 | Repository-local Ignore | `REPOSITORY_LOCAL_IGNORE_CONTRACT`、`REPOSITORY_LOCAL_IGNORE_CONTRACT_REVISION`、`RepositoryLocalIgnoreAdapter`、`RepositoryLocalIgnoreAdapterResult`、`registerRepositoryLocalIgnore` |
 | Repository Location | `describeRepositoryLocationContract`、`REPOSITORY_LOCATION_CONTRACT`、`REPOSITORY_LOCATION_CONTRACT_REVISION`、`resolveVerifiedRepositoryRoot`、`resolveVerifiedRepositoryRootFromWorkingDirectory`、`VerifiedRepositoryRoot`、`verifyRepositoryRoot`、`verifyRepositoryRootFromWorkingDirectory` |
 | Repository Revision | `inspectRepositoryFormat`、`observeRepositoryRevision`、`RepositoryFormatAdapter`、`RepositoryRevisionAdapter`、`RepositoryRevisionObservation` |
@@ -289,15 +293,15 @@ v0.21 Phase 4では、`template/tools/crdd-check.ts`が同じCRDD基準版Root�
 - Git以外のAdapter実装はv0.21の必須範囲にしない。ただしPortはGit固有語彙を公開しない。
 - Git操作全般を提供する汎用Libraryや、任意Command実行入口は作らない。
 - Git履歴が不要なRuntime DataをVersion Control Componentへ移さない。
-- Remote Repository Hosting、認証、push／pullおよびServer側Git管理は本変更へ含めない。
+- Remote Repository Hosting、認証情報管理、Pull、Force Push、Branch作成、Merge、RebaseおよびServer側Git管理は対象外とする。通常Pushは確認済みUpstreamへの限定Effectとして扱う。
 - Object Format差、submoduleおよびlinked worktreeで保持すべき既存Capabilityは、段階移行の実測で再確認する。
 
 ## Implementation Structure
 
 | 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
 |---|---|---|---|---|---|---|
-| Variation | Required | この観点を成立させる構造と責務が存在するため。 | Qualityへの引渡しで責務差を別の設計項目として固定する。 | 具象差を一つの分岐へ畳まず、各導出キーの正常条件と反証条件を保つ。 | 新しい具象を追加した場合、対応する導出キーと利用側の再確認が必要になる。 | `version-control.root-capability`<br>`version-control.snapshot-port`<br>`version-control.contract-migration-closure` |
-| Common Contract | Required | この観点を成立させる構造と責務が存在するため。 | Repository Root、Snapshot、差分とHistory観測を、Git具象へ交換可能なVersion Control Port契約へ揃える。 | 利用側はCommit必須を仮定せず、未Commit状態を含む観測対象IdentityとCapabilityを利用する。 | Git固有OIDやCommand結果がDomainへ漏れ、同等機能への差替えやdirty状態の扱いが破綻する。 | `version-control.root-capability`<br>`version-control.snapshot-port`<br>`version-control.contract-migration-closure` |
+| Variation | Required | この観点を成立させる構造と責務が存在するため。 | Qualityへの引渡しで責務差を別の設計項目として固定する。 | 具象差を一つの分岐へ畳まず、各導出キーの正常条件と反証条件を保つ。 | 新しい具象を追加した場合、対応する導出キーと利用側の再確認が必要になる。 | `version-control.root-capability`<br>`version-control.snapshot-port`<br>`version-control.change-publication`<br>`version-control.contract-migration-closure` |
+| Common Contract | Required | この観点を成立させる構造と責務が存在するため。 | Repository Root、Snapshot、差分観測と変更公開を、Git具象へ交換可能なVersion Control Port契約へ揃える。 | 利用側は通常作業全体へCommitを要求せず、変更公開時だけ選択差分と確認済み送信対象を渡す。 | Git固有OIDやCommand結果がDomainへ漏れ、同等機能への差替えやdirty状態の扱いが破綻する。 | `version-control.root-capability`<br>`version-control.snapshot-port`<br>`version-control.change-publication`<br>`version-control.contract-migration-closure` |
 | Creation／Selection | Required | この観点を成立させる構造と責務が存在するため。 | Authority、入力または配置条件を満たした後にだけ具象・処理経路を選ぶ。 | 選択前の検証と選択後のIdentityを分け、未確認時はEffect 0とする。 | 選択条件の変更はTrust、Authorityまたは利用側契約へ波及する。 | `version-control.root-capability` |
 | State-dependent Behavior | Required | この観点を成立させる構造と責務が存在するため。 | 入力・処理中・完了・失敗・観測不能を区別して振る舞いを決める。 | 状態を空値や成功へ畳まず、同じIdentityで終了条件まで追跡する。 | 状態追加・統合はRecoveryと観測契約へ波及する。 | `version-control.root-capability` |
 | Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | 複数の局所責務を公開結果へ合成し、部分成立と全体成立を分ける。 | 各局所結果を保持し、必要な全要素が揃うまで上位完成を表示しない。 | 構成要素の追加時は完成条件と全Consumerを再確認する。 | `version-control.root-capability`<br>`version-control.snapshot-port`<br>`version-control.contract-migration-closure` |
@@ -312,7 +316,7 @@ v0.21 Phase 4では、`template/tools/crdd-check.ts`が同じCRDD基準版Root�
 |---|---|---|---|---|
 | [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000002、ARCH-000009、ARCH-000014、ARCH-000016のSource Definition | 同Traceability表で上記ARCH-IDへ接続された全Detail ID | Covered | Detailの意味変更はUI／SPECへ、配置責務の変更は該当ARCH定義へ戻す |
 
-担当Interaction Relation: `PRT-000006.spec-000010`、`PRT-000013.spec-000018`、`PRT-000014.spec-000019`、`PRT-000017.spec-000022`
+担当Interaction Relation: `PRT-000006.spec-000010`、`PRT-000006.spec-000031`、`PRT-000013.spec-000018`、`PRT-000014.spec-000019`、`PRT-000017.spec-000022`
 
 本領域は上記Relationの配置責務を局所所有する。Detailを新しい要求として解釈せず、対応ARCH-IDが所有する配置・境界・状態・観測の制約として実現する。
 

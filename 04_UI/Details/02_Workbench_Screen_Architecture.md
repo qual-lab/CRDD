@@ -2,7 +2,7 @@
 
 成果物種別: UI Detail — Screen Architecture
 対象Product: CROS Workbench
-状態: Draft — G1 Passed／G2以降OPEN
+状態: G1時点記録 — 現在はG1〜G5 Passed
 維持責任者: Qual-Lab
 
 ## 1. 結論
@@ -252,16 +252,16 @@ Workbenchが所有するのは、選択中Contextを既存AI Runtimeへ渡す依
 | 具体的な取得・整合・権限・部分失敗契約をSPEC Detailへ分離した | PASS | §4.1 |
 | Hero、Composition、Visual Directionを先取りしていない | PASS | §2〜§3 |
 
-G1を通過する。G2は未着手であり、Hero Screen、Visual Direction、Visual Baseline、Secondary Screen、PatternおよびCMPを確定してはならない。G2以降が通過するまで、Workbench固有UI DetailをSPEC Detail、ArchitectureまたはQualityへ通常引き渡ししない。
+G1通過時点では、Hero Screen、Visual Direction、Visual Baseline、Secondary Screen、PatternおよびCMPを確定してはならず、Workbench固有UI Detailの通常引き渡しも禁止した。その後、G2〜G5を順に通過し、現在は[Hero選定](03_Workbench_Hero_Selection.md)、[Visual探索](04_Workbench_Visual_Exploration.md)および[Secondary展開](05_Workbench_Secondary_Expansion.md)へ判断結果を接続している。CMPは反復だけで発行せず、現在も理由付き未発行である。
 
 ## 12. 未確認事項・戻り条件
 
 | 項目 | 現在状態 | Owner | 影響 | 戻り条件／再評価契機 |
 |---|---|---|---|---|
-| Project WorkspaceとAIへの依頼面の分離 | OPEN | Qual-Lab | Hero候補、常設Panel、独立表示および外部AI入口の判断に影響 | G2で同一Screen、Side Panel、独立表示およびContext付き外部入口を比較する |
-| Project Plan、Quality、Documentationの独立Screen粒度 | OPEN | Qual-Lab | Navigation深度と情報密度に影響 | HeroおよびSecondary Screenの具体化で一つのScreen内Sectionが適切と分かった時 |
-| Topic／MeetingのListとDetail分離 | OPEN | Topic／Meeting利用者、Qual-Lab | 日常操作回数に影響 | Prototypeで一覧内編集の方が意味と安全性を保てると確認した時 |
-| Access AdministrationのWorkbench範囲 | OPEN | CROS Administrator、Qual-Lab | 通常管理とCLI境界に影響 | Credential配布負担と通常管理のDogfood時 |
+| Project WorkspaceとAIへの依頼面の分離 | 解決済み | Qual-Lab | AIへの依頼は補助入口とし、会話履歴の正本にしない | Provider利用の主経路を変更する時 |
+| Project Plan、Quality、Documentationの独立Screen粒度 | 解決済み | Qual-Lab | Project Workspaceの到達先として維持し、Heroで均等Card化しない | 実DataでNavigation過多が観測された時 |
+| Topic／MeetingのListとDetail分離 | 解決済み | Topic／Meeting利用者、Qual-Lab | 一覧とDetailを分け、一覧内操作は安全な定型処置に限定する | Dogfoodで往復負担が利用者成果を阻害した時 |
+| Access AdministrationのWorkbench範囲 | 解決済み | CROS Administrator、Qual-Lab | 通常の発行・失効・ローテーションを扱い、全管理者喪失はServer local CLIへ戻す | Credential運用で通常／Recovery境界が成立しない時 |
 
 これらはG1のScreen候補を固定実装へ昇格する前にG2〜G5で検証する。利用者成果、Owner、Authorityまたは情報境界が誤っていると判明した場合はUI Detail内で調整せず、該当するUI／UX／IAへ戻す。
 
@@ -282,9 +282,9 @@ G1を通過する。G2は未着手であり、Hero Screen、Visual Direction、V
 - [x] G1: 検索・絞り込み・並び順・継続読込・遅延展開・仮想表示・内容分割の適用を処置した
 - [x] G1: 取得上限、Continuation、整合、権限境界および部分失敗をSPEC Detailへ引き渡した
 - [x] G1: Visual Direction、Heroの採用、PatternまたはCMPを先取りしていない
-- OPEN: G2でHero候補を比較し、人間が代表性と偏りを確認する必要があるため — G2: G1通過後にHero候補を比較し、代表性と偏りを記録した
-- OPEN: G3はG2後に実行するため — G3: Heroについて2案以上のRendered View、Intent、Trade-offおよび保持するUX／IAを比較した
-- OPEN: G4はVisual案比較後の人間判断であるため — G4: AI提案と人間の方向性判断を分け、採用理由と再探索条件を記録した
+- [x] G2: G1通過後にHero候補を比較し、代表性と偏りを記録した
+- [x] G3: Heroについて2案以上のRendered View、Intent、Trade-offおよび保持するUX／IAを比較した
+- [x] G4: AI提案と人間の方向性判断を分け、採用理由と再探索条件を記録した
 - [x] G5: 採用DirectionをTopic Detail、Repository Worktree、Project Portfolioへ展開してからPatternを評価した
 - [x] G5: CMP候補を個別評価し、早期昇格を避ける理由と再評価条件を記録した
 - [x] 未通過Gateより後の成果物をCanonical、完了または下流引き渡し可能と表示していない

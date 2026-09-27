@@ -37,6 +37,7 @@ const expectedAreaConsumers = [
   "40_Develop/coordinator/src/security/project-runtime-decision-recovery-store.ts",
   "40_Develop/coordinator/src/security/project-runtime-durable-foundation.ts",
   "40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts",
+  "40_Develop/visual-preview/src/browser-zoom-verifier.ts",
 ] as const;
 const PUBLIC_PROJECT_RUNTIME_BOUNDARY =
   "40_Develop/coordinator/src/composition/project-runtime-composition-root.ts";
@@ -269,8 +270,10 @@ function violations(sources: SourceSet): string[] {
     findings.push(`runtime-area-consumers:${actualAreaConsumers.join(",")}`);
   for (const item of actualAreaConsumers) {
     const source = sources.get(item) ?? "";
-    const doesPreserveBlockedResult = PROJECT_RUNTIME_STORE_CONSUMERS.has(item)
-      ? source.includes("requireReadyRepositoryRuntimeDataArea")
+    const doesPreserveBlockedResult = source.includes(
+      "requireReadyRepositoryRuntimeDataArea",
+    )
+      ? true
       : item === EXECUTION_INTELLIGENCE_CONSUMER
         ? source.includes("readExecutionIntelligenceWithRuntimeDataArea") &&
           source.includes("RepositoryRuntimeDataAreaBlockedError") &&

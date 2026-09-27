@@ -87,7 +87,7 @@ UI定義 ───── pairs_with ───── SPEC定義
 
 ## 6. 現在状態と次工程
 
-v0.21.0のSPEC Definition 29件は当時の契約でCanonical化されている。新しいSPEC Detail契約に対して29 BHVへ全件移行し、31 UI Detail Relationを双方向に確認した。現在状態は[SPEC Detail](Details/01_SPEC_Detail.md)を正本とする。
+v0.21.0のSPEC Definition 29件は当時の契約でCanonical化され、29 BHVと31 UI Detail Relationへ移行した。v0.22ではSPEC-000031／BHV-000031と1 Relationを追加し、現在は30 SPEC Definition、30 BHVおよび32 UI Detail Relationである。現在状態は[SPEC Detail](Details/01_SPEC_Detail.md)を正本とする。
 
 ```text
 v0.21 SPEC Definition: Canonical
@@ -97,7 +97,7 @@ v0.21 SPEC Detail移行: Complete
 v0.22固有BHVはDiscovery後のCanonical Definitionから追加
 ```
 
-32件のUX定義と22件のIA定義を別々に分析し、29件の振る舞い仕様へ統合した。Quality分析でREQ-000004の記録側成立条件が取得契約へ縮退していたGapを検出し、記録する側のUX-000032、IA-000022、UI-000020を通して、取得とは別のState Owner、Effect、失敗を持つSPEC-000030へ再導出した。現行実装との比較は[現行振る舞い参照](07_Current_Behavior_Reference.md)で行い、分析の不足を現行コードから補完していない。全54分析と29定義は成果物別Checklistを完了した。独立レビューで検出した上流未確認事項の情報劣化、外部送信Effect境界およびUI／SPEC対応根拠を是正した固定改訂版の再レビュー完了後に、SPEC工程Readyと対応レビュー結果を確定する。
+32件のUX定義と22件のIA定義を別々に分析し、v0.21では29件の振る舞い仕様へ統合した。Quality分析でREQ-000004の記録側成立条件が取得契約へ縮退していたGapを検出し、記録する側のUX-000032、IA-000022、UI-000020を通して、取得とは別のState Owner、Effect、失敗を持つSPEC-000030へ再導出した。v0.22ではProject Context操作をSPEC-000031へ追加した。現行実装との比較は[現行振る舞い参照](07_Current_Behavior_Reference.md)で行い、分析の不足を現行コードから補完していない。現在の30 DefinitionとDetail対応は成果物別Checklistを完了し、未実装CapabilityはQualityで未観測のまま保持する。
 
 ## 補足分析
 
@@ -108,8 +108,8 @@ v0.22固有BHVはDiscovery後のCanonical Definitionから追加
 - [x] 全UX DefinitionとIA DefinitionをSPEC分析へ一件ずつ対応付けた
 - [x] 全SPEC分析をSPEC Definitionへ処置した
 - [x] SPEC台帳とAnalysis・Definitionsの関係が一致する
-- [x] 全29 SPEC DefinitionをBHVへ具体化し、Source DefinitionとのRelationを保持した
-- [x] 29 BHVと31 UI Detail InteractionをArchitecture／Qualityへ伝播した
+- [x] v0.21の29件とv0.22で追加した1件を分け、全30 SPEC DefinitionをBHVへ具体化した
+- [x] 現在の30 BHVと32 UI Detail InteractionをArchitecture／Qualityへ伝播した
 - [x] 横断成果物を個別SPEC定義の第二の正本にしていない
 - [x] 基本図を全件処置した
 - [x] Human Input、Open・Gapおよび戻り条件を明示した

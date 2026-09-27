@@ -28,6 +28,7 @@ export {
   resolveRepositoryRuntimeDataPaths,
   resolveRepositoryRuntimeDataPathsFromWorkingDirectory,
   type RepositoryRuntimeArea,
+  type CrosRootInput,
 } from "./platform/runtime-data-path-resolver.ts";
 export {
   createTemporaryOperation,

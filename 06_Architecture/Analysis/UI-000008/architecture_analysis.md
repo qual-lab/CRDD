@@ -156,7 +156,7 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Workspace利用範囲とRepository FederationのArchitecture定義](../../Definitions/ARCH-000013/architecture_definition.md) | CROS Session／Workspace Resolver | UI契約はAuthorityを発行しない。利用者操作: 接続する／Workspaceを選ぶ／再認証する。 | UI契約はEffectを定義しない。状態・導線: 利用可能（available）／接続資格が必要（credential_required）／開示制限（restricted）／利用不能（unavailable）／不明（unknown） / 接続→接続単位→許可された作業領域→公開されたリポジトリ→情報源 /  | 利用不能なリポジトリの存在や内容を推測表示する |
+| [Workspace利用範囲とRepository FederationのArchitecture定義](../../Definitions/ARCH-000013/architecture_definition.md) | CROS Session／Workspace Resolver | UI契約はAuthorityを発行しない。利用者操作: 接続／Workspace選択／再認証／Credential発行・失効・ローテーション／Access Recovery。 | UI契約はEffectを定義しない。Credential状態、Role別Grant、内容Access、Host Recoveryを別軸で表示する | Remote認証への依存、Secret再表示・保存、RecoveryによるProduct Data変更 |
 
 ### 観点別評価
 
@@ -165,7 +165,7 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 | Responsibility | 評価済み | [Workspace利用範囲とRepository FederationのArchitecture定義](../../Definitions/ARCH-000013/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
 | Boundary／Component／Interface | 評価済み | 状態OwnerはCROS Session／Workspace Resolver。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
 | Data／State Ownership | 評価済み | CROS Session／Workspace ResolverをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
-| Failure／Recovery | 評価済み | 利用不能なリポジトリの存在や内容を推測表示する。Recoveryは入力定義にある場合だけ保持する。 |
+| Failure／Recovery | 評価済み | Remote認証への依存、Secret再表示・保存、RecoveryによるProduct Data変更を防ぎ、同じRecovery IDで通常管理へ戻る導線を保持する。 |
 | Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する。 |
 | Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない。 |
 | Human Input | 継承あり | REQ-000011: プロジェクト運営者／PMが「許可された作業領域だけへ接続する」を行う際の判断基準、許容負担、利用環境および失敗後の選択。 |
@@ -178,7 +178,7 @@ Human Inputの判断者は「プロジェクト運営者／PMを代表する利�
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Workspace利用範囲とRepository Federation](../../Definitions/ARCH-000013/architecture_definition.md) | New | credential_required／restricted／unavailable／unknownを区別し、Credential→Session→Workspace Grant→Exposure→Repositoryの順で利用範囲を決める。 |
+| [Workspace利用範囲とRepository Federation](../../Definitions/ARCH-000013/architecture_definition.md) | New | Role別Credential Lifecycle、Session Grant、Workspace Exposure、FederationおよびHost Access Recoveryを分け、管理能力から内容Accessを生成しない。 |
 
 ## 5. SPEC観点との統合時に確認すること
 

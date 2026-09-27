@@ -1,4 +1,4 @@
-# BHV-000013 Meeting内容を候補化し所有正本へ昇格する
+# BHV-000013 TopicとMeetingを維持し後続へ接続する
 
 成果物種別: SPEC Detail
 Behavior ID: `BHV-000013`
@@ -7,7 +7,7 @@ Behavior ID: `BHV-000013`
 
 ## 1. 目的とSource Definition
 
-- 目的: Meeting内容を候補化し所有正本へ昇格する。
+- 目的: Topic／Meetingの一通りの操作、Outcome処置、終了・訂正および影響確認付き削除を同じLifecycleで成立させる。
 - Source SPEC: [SPEC-000013](../../Definitions/SPEC-000013/spec_definition.md)
 - 対象利用側: UI-000009
 - 対象外: Source SPECにない画面、実装技術、追加Authorityまたは新しい利用者成果
@@ -16,32 +16,25 @@ Behavior ID: `BHV-000013`
 
 | 観点 | 判定 | 契約／理由 |
 |---|---|---|
-| Trigger | Applicable | Meetingの項目を継続論点または決定候補として扱う時 |
-| Precondition | Applicable | Meeting Item、出所、候補種別、所有正本、判断主体を確認できる |
-| Authority | Applicable | 候補作成と採否判断を分け、正本更新は所有者の採用Authorityを必要とする |
-| Input | Applicable | Meeting内容を候補化し所有正本へ昇格するに必要な対象Identity、入力値、出所および観測時点 |
+| Trigger | Applicable | 登録・編集・取得・一覧・終了・訂正・削除、またはMeeting Outcome処置を選ぶ時 |
+| Precondition | Applicable | 対象Identity、Owner Repository、現在改訂版、Relation、操作Authorityを確認できる |
+| Authority | Applicable | 通常更新、候補採否、物理削除を分け、削除前に人間の明示確認を得る |
+| Input | Applicable | Topic／Meeting本文、記録時点、Relation、Decision／Action／候補、削除影響 |
 | Validation | Applicable | 前提条件、Authority、対象Identity、入力完全性および現在性をEffect前に確認する |
-| State／Transition | Applicable | 観察・仮説・候補・決定を区別し、既存Topicとの関係と採否を記録して所有正本へ反映する。 |
+| State／Transition | Applicable | 継続／終了／撤回／訂正、候補処置、Action追跡、削除候補／確認待ち／削除済みを区別する |
 | Sequence | Applicable | Trigger→Precondition／Authority／Validation→State／Effect→Resultの順を保つ |
-| Effect | Applicable | 候補記録を作成し、採用時だけ所有正本を更新する。却下時は正本Effect 0。 |
-| Output | Applicable | 候補の出所、判断者、採否、反映先を辿れる。 |
-| Failure | Applicable | 文字列一致だけで統合・分割せず、会話を自動採用しない。 |
-| Recovery | Applicable | 失敗理由と安全な戻り先を返す。 |
+| Effect | Applicable | Topic／Meeting、Relation、候補処置、Action状態を更新し得る。削除対象外は連鎖削除しない |
+| Output | Applicable | Owner、現在状態、時点記録、Relation、処置結果、終了後状態を返す |
+| Failure | Applicable | 競合・権限不足・部分成功・Relation不整合・結果不明を成功へ畳まない |
+| Recovery | Applicable | 既知の本文・Relation・処置状態を返し、同じ対象を再観測する |
 
 ## 3. Behavior Flow
 
 ```text
-Meetingの項目を継続論点または決定候補として扱う時
-  ↓
-Meeting Item、出所、候補種別、所有正本、判断主体を確認できる
-  ↓
-Authority・対象Identity・入力を検証
-  ├─ 不足／不一致 → Effect 0で理由と戻り先
-  └─ 成立
-       ↓
-観察・仮説・候補・決定を区別し、既存Topicとの関係と採否を記録して所有正本へ反映する。
-       ↓
-Success／Reject／Failure／Unknownを同じContextで返す
+[Topic／Meeting] -> [登録／編集／取得／一覧]
+       ├ [Outcome全件処置] -> [Meeting Close＋Action追跡]
+       ├ [終了／撤回／訂正]
+       └ [誤登録] -> [影響表示] -> [明示確認] -> [Relation整合＋削除]
 ```
 
 判定不能時: 不足を既定値で補完せず、新しいEffectを発行せず現在状態と未解消義務を保持する
@@ -56,11 +49,11 @@ Success／Reject／Failure／Unknownを同じContextで返す
 
 | Condition | 観測可能な成立／不成立 | Qualityへの引き渡し |
 |---|---|---|
-| Normal | 候補の出所、判断者、採否、反映先を辿れる。 | Source SPECと同じ正常義務へ統合 |
-| Boundary | 対象、Authority、現在性または入力の境界を越えず、対象外へEffectを発行しない | 境界条件を独立観測する |
-| Failure | 文字列一致だけで統合・分割せず、会話を自動採用しない。 | 失敗を成功・未実行・不存在へ畳まない |
+| Normal | 一通りの操作とOutcome処置が同じ正本・Lifecycleへ到達する | Source SPECと同じ正常義務へ統合 |
+| Boundary | 時点記録／現在状態、終了／撤回／訂正／削除、未完了Action／未処置Outcomeを区別する | 境界条件を独立観測する |
+| Failure | 競合、部分成功、Relation不整合、確認なし削除を防ぐ | 失敗を成功・未実行・不存在へ畳まない |
 | Unknown | 不足を既定値で補完せず、新しいEffectを発行せず現在状態と未解消義務を保持する | 観測不能を正常値へ畳まず再観測可能にする |
-| Recovery | 失敗理由と安全な戻り先を返す。 | Recoveryが非該当の場合も安全な戻り先を確認する |
+| Recovery | 既知の本文・Relation・処置状態と再観測先を返す | Relation整合と終了後状態を確認する |
 
 ## 6. Architectureへの引き渡し
 

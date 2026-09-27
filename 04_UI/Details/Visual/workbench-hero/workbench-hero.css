@@ -111,14 +111,13 @@ body.direction-a {
   margin-bottom: 30px;
 }
 
-.direction-a .brand-mark {
-  display: grid;
+.direction-a .brand-logo {
+  display: block;
   width: 33px;
   height: 33px;
-  place-items: center;
-  border: 1px solid #51b6a7;
-  color: #75d2c3;
-  font-weight: 800;
+  border: 1px solid #334248;
+  border-radius: 7px;
+  object-fit: cover;
 }
 
 .direction-a .brand strong {

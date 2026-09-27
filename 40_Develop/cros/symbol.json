@@ -28,12 +28,38 @@
       "archIds": ["ARCH-000010", "ARCH-000015"]
     },
     {
+      "symbolId": "cros.project-federation",
+      "kind": "file",
+      "path": "src/project-federation.ts",
+      "archIds": ["ARCH-000005", "ARCH-000013"]
+    },
+    {
+      "symbolId": "cros.connection-credential",
+      "kind": "file",
+      "path": "src/connection-credential.ts",
+      "archIds": ["ARCH-000013"]
+    },
+    {
+      "symbolId": "cros.credential-registry-file-adapter",
+      "kind": "file",
+      "path": "src/credential-registry-file-adapter.ts",
+      "archIds": ["ARCH-000011", "ARCH-000013"]
+    },
+    {
       "symbolId": "cros.test.integration.core",
       "kind": "test-suite",
       "path": "tests/integration/cros-core.contract.test.ts",
       "qaIds": ["QA-000007"],
       "localTestIds": ["RFD-IT-009", "RFD-IT-011"],
       "verifies": ["cros.runtime"]
+    },
+    {
+      "symbolId": "cros.test.integration.project-federation",
+      "kind": "test-suite",
+      "path": "tests/integration/project-federation.contract.test.ts",
+      "qaIds": ["QA-000004"],
+      "localTestIds": ["PPR-IT-002"],
+      "verifies": ["cros.project-federation"]
     },
     {
       "symbolId": "cros.test.integration.tool-registry",
@@ -50,6 +76,22 @@
       "qaIds": ["QA-000007"],
       "localTestIds": ["RFD-ST-003", "RFD-ST-004"],
       "verifies": ["cros.runtime"]
+    },
+    {
+      "symbolId": "cros.test.integration.connection-credential",
+      "kind": "test-suite",
+      "path": "tests/integration/connection-credential.contract.test.ts",
+      "qaIds": ["QA-000007"],
+      "localTestIds": ["RFD-IT-013"],
+      "verifies": ["cros.connection-credential"]
+    },
+    {
+      "symbolId": "cros.test.integration.credential-registry-file-adapter",
+      "kind": "test-suite",
+      "path": "tests/integration/credential-registry-file-adapter.contract.test.ts",
+      "qaIds": ["QA-000007"],
+      "localTestIds": ["RFD-IT-013"],
+      "verifies": ["cros.credential-registry-file-adapter"]
     },
     {
       "symbolId": "cros.test.system.context-handoff",

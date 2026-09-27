@@ -6,7 +6,7 @@
 
 ## 1. 正式入力
 
-- SPEC定義: [SPEC-000012 接続資格からWorkspace利用範囲を確定する](../../../05_SPEC/Definitions/SPEC-000012/spec_definition.md)
+- SPEC定義: [SPEC-000012 Role別Credentialから利用範囲を確定しAccessを回復する](../../../05_SPEC/Definitions/SPEC-000012/spec_definition.md)
 
 このSPEC定義だけを正式入力とする。反対観点、上流工程、現行Architectureまたは実装から不足する意味を補わない。
 
@@ -14,13 +14,14 @@
 
 ### 振る舞いの目的
 
-接続資格からWorkspace利用範囲を確定する。
+Role別Credentialを維持し、接続時の利用範囲を確定し、通常管理不能時にはProduct Dataを変えずAccessだけを回復する。
 
 ### UX観点の分析結果
 
 | UX分析 | 保持する利用者成果 |
 |---|---|
 | [UX-000013](../../../05_SPEC/Analysis/UX-000013/spec_analysis.md) | 許可された作業領域だけをリモート利用する |
+| [UX-000035](../../../05_SPEC/Analysis/UX-000035/spec_analysis.md) | User管理なしでRole別Credentialを維持しAccessだけを回復する |
 
 ### IA観点の分析結果
 
@@ -30,43 +31,46 @@
 
 ### 両観点の統合判断
 
-リモート接続を開始または再接続する時、接続資格を検証し、現在有効なWorkspace GrantとRepository Exposureから利用可能範囲を確定する。
+Role別Credentialの発行・失効・ローテーションと接続時の利用範囲確定を同じCredential Lifecycleとして扱う。全Administrator喪失または認可状態破損時だけ、Server Host Authorityから同じRecovery IDでAccessを再構成し、RepositoryやProject Contextを変更しない。
 
 ### 契機・事前条件・Authority
 
 | 項目 | 契約 |
 |---|---|
-| 契機 | リモート接続を開始または再接続する時 |
-| 事前条件 | 接続資格を検証でき、WorkspaceとRepository Exposureが現行である |
-| Authority | Credential発行時に固定されたWorkspace Grant。管理Capabilityと内容Grantを分離する |
+| 契機 | Remote接続、Credential発行・失効・ローテーション、またはAccess Recoveryを開始する時 |
+| 事前条件 | 通常操作では有効なAdministrator Credential、RecoveryではServer Host上の対話Authorityと処置対象を確認できる |
+| Authority | 通常管理はAdministrator能力、内容AccessはRole別Grant、全喪失RecoveryはServer Host Authorityに限定する |
 | 判定不能 | 不足を既定値で補完せず、新しいEffectを発行せず現在状態と未解消義務を保持する |
 
 ### 振る舞い・状態・結果
 
 ```text
-[未認証] -> [Credential検証] -> [Session＋Workspace Grant]
-  ├ current -> [利用可能範囲]
-  └ stale／invalid -> [拒否・存在非開示]
+[Role選択] -> [Credential発行] -> [Secret一度表示] -> [active]
+       ├ revoke／rotate -> [revoked／active(new)]
+       └ authenticate -> [Session＋Role Grant]
+
+[全Administrator喪失／認可破損]
+       -> [Host確認] -> [Recovery ID] -> [Accessだけ再構成] -> [通常管理]
 ```
 
-- 振る舞い: 接続資格を検証し、現在有効なWorkspace GrantとRepository Exposureから利用可能範囲を確定する。
-- 成功条件: System管理能力と内容閲覧権限を別に判定する。
-- ここにない取消、再試行、回復または状態値を架空に追加しない。
+- 振る舞い: 三RoleのCredentialを管理し、認証時は現在有効なRole GrantとRepository Roleから利用可能範囲を確定する。
+- 成功条件: Secretは発行時に一度だけ返し、System管理能力と内容Accessを分け、Repository単体利用へCROS Credentialを要求しない。
+- Recoveryは最初の失敗から同じRecovery IDを保持し、新しいRecoveryを重ねない。
 
 ### 失敗・回復・副作用
 
-- 失敗: 未許可対象の存在を漏らさず、古いGrantや一律Unlockを受理しない。
-- 副作用: 認証済みSessionとGrantを作成・更新する。未Exposure Repositoryへ読取りEffect 0。
-- 本SPEC固有の回復経路は設けず、失敗理由と安全な戻り先を返す。
+- 失敗: 無効・期限切れ・失効Credential、Role不整合、Secret再表示要求、全Administrator喪失、認可状態破損、Recovery途中失敗を区別する。
+- 副作用: Credential Metadata、Digest、Session Grant、失効状態、Recovery記録を更新し得る。生SecretとProduct Dataを複製しない。
+- 回復: 失効対象・保持対象・終了後状態を再観測し、Bootstrap Credentialから通常管理へ戻す。
 
 ### 受入条件と検証義務
 
 | 観点 | 受入条件 |
 |---|---|
-| 正常 | System管理能力と内容閲覧権限を別に判定する |
-| 境界 | 有効／期限切れCredential、Exposureあり／なしを分け、非開示対象の存在を返さない |
-| 失敗 | 未許可対象の存在を漏らさず、古いGrantや一律Unlockを受理しない |
-| 観測不能 | 不明を正常・不存在・完了へ丸めず、実際の副作用「認証済みSessionとGrantを作成・更新する。未Exposure Repositoryへ読取りEffect 0」と矛盾する結果を返さない |
+| 正常 | Role別Credentialの発行・認証・失効・ローテーションが成立し、管理能力と内容Accessを別に判定する |
+| 境界 | active／expired／revoked／rotating／unknown、三Role、Repository単体利用、通常管理／Host Recoveryを分ける |
+| 失敗 | Secretを再表示・保存せず、管理能力から内容Accessを推定せず、RecoveryでProduct Dataを削除しない |
+| 観測不能 | 不明を完了へ丸めず同じRecovery IDと既知状態を返し、新しい資格・Session・内容Effectを発行しない |
 | 対応UI | [UI-000008](../../../04_UI/Definitions/UI-000008/ui_definition.md)の操作・Feedbackと契機・結果・失敗が一致する |
 
 ### 対応するUI
@@ -127,7 +131,7 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Workspace利用範囲とRepository FederationのArchitecture定義](../../Definitions/ARCH-000013/architecture_definition.md) | CROS Session／Workspace Resolver | Credential発行時に固定されたWorkspace Grant。管理Capabilityと内容Grantを分離する | 認証済みSessionとGrantを作成・更新する。未Exposure Repositoryへ読取りEffect 0。 | 未許可対象の存在を漏らさず、古いGrantや一律Unlockを受理しない。 |
+| [Workspace利用範囲とRepository FederationのArchitecture定義](../../Definitions/ARCH-000013/architecture_definition.md) | CROS Session／Workspace Resolver | 通常管理はAdministrator能力、内容AccessはRole別Grant、全喪失RecoveryはServer Host Authorityに限定する | Credential Metadata、Digest、Session Grant、失効状態、Recovery記録を作成・更新し得る。生SecretとProduct Dataを複製・変更しない | 無効・失効Credential、Role不整合、Secret再表示要求、全Administrator喪失、認可破損、Recovery途中失敗を区別する |
 
 ### 観点別評価
 
@@ -136,7 +140,7 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 | Responsibility | 評価済み | [Workspace利用範囲とRepository FederationのArchitecture定義](../../Definitions/ARCH-000013/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
 | Boundary／Component／Interface | 評価済み | 状態OwnerはCROS Session／Workspace Resolver。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
 | Data／State Ownership | 評価済み | CROS Session／Workspace ResolverをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
-| Failure／Recovery | 評価済み | 未許可対象の存在を漏らさず、古いGrantや一律Unlockを受理しない。Recoveryは入力定義にある場合だけ保持する。 |
+| Failure／Recovery | 評価済み | 同じRecovery IDでAccessだけを再構成し、Product Data不変と通常管理への再入場を確認する。途中失敗後に別Recoveryを重ねない。 |
 | Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する。 |
 | Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない。 |
 | Human Input | 継承あり | REQ-000011: プロジェクト運営者／PMが「許可された作業領域だけへ接続する」を行う際の判断基準、許容負担、利用環境および失敗後の選択。 |
@@ -149,7 +153,7 @@ Human Inputの判断者は「プロジェクト運営者／PMを代表する利�
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Workspace利用範囲とRepository Federation](../../Definitions/ARCH-000013/architecture_definition.md) | Same | credential_required／restricted／unavailable／unknownを区別し、Credential→Session→Workspace Grant→Exposure→Repositoryの順で利用範囲を決める。 |
+| [Workspace利用範囲とRepository Federation](../../Definitions/ARCH-000013/architecture_definition.md) | Same | Role別Credential Lifecycle、Session Grant、Workspace Exposure、FederationおよびHost Access Recoveryを分け、管理能力から内容Accessを生成しない。 |
 
 ## 5. UI観点との統合時に確認すること
 

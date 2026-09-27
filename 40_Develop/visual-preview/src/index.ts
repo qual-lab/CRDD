@@ -13,3 +13,10 @@ export {
   type VisualPreviewRequest,
   startVisualPreview,
 } from "./preview-server.ts";
+export {
+  type BrowserWindowSize,
+  type BrowserZoomMeasurement,
+  type BrowserZoomVerificationRequest,
+  type BrowserZoomVerificationResult,
+  verifyBrowserZoom,
+} from "./browser-zoom-verifier.ts";

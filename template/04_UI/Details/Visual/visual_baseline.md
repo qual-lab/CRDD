@@ -120,6 +120,8 @@ Breakpointごとに`直前／一致／直後`、各Layout区間に少なくと�
 
 Screenshotだけを唯一の正本にしない。
 
+実Browser Zoomを自動観測する場合は、`node 00_CRDD/template/tools/crdd-visual-preview.ts verify-zoom --root <Repository相対Visual Root> --documents <HTML相対Path一覧> --zooms 1,2,4 --width 1280 --height 960`を使用できる。技術結果とHuman Direction Decisionを分け、専用Profile、Browser ProcessおよびPreview Listenerのcleanup結果もEvidenceへ含める。
+
 ## 7. Secondary Screenでの検証
 
 | SCR | Baseline適用結果 | 発見したPattern | 例外／Gap |

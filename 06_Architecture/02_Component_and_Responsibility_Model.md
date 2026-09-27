@@ -52,12 +52,12 @@ Last Updated: 2026-09-15
 | Component | 含むArchitecture定義 | 状態Owner | 所有すること | 所有しないこと |
 |---|---|---|---|---|
 | 公開入口 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | MCP／CLI Transport Adapter | decode／encode、接続、Application Contractへの搬送 | 業務意味、Provider実行、Authority追加 |
-| 利用範囲 | [Workspace利用範囲とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | CROS Session／Workspace Resolver | CredentialからSession Grant、Exposure、Source-aware Federation | User Role階層、Repository内部ACL |
+| 利用範囲 | [Workspace利用範囲とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | CROS Session／Workspace Resolver | Role別Credential Lifecycle、Session Grant、Exposure、Source-aware Federation、Host Access Recovery | User Account・個人別Role割当、Repository内部ACL |
 | 利用能力 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | Capability Registry、Model Configuration Resolver | Tool候補、構成検証、選択理由 | Tool実行、利用可能性の捏造 |
 | Project Application | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Project Runtime | Objective／Task、判断待ち、取消、Recovery、結果 | Provider選定、Transport、OS操作、人間判断 |
 | Project状態投影／受入判断記録 | [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | Project Management Projection<br>Objective／Milestone Acceptance Decision Record | 投影: 正本を変えない現在状態・比較View<br>判断記録: Project運営者が明示したObjective／Milestoneの受入・差戻し・判断待ちの限定記録 | 投影: 受入判断の記録、その他の正本更新、優先順位の自動決定<br>判断記録: Task作成、Provider Effect、下位完了からの上位受入推定、読取りProjectionからのAuthority生成 |
 | 実行観測 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md)<br>[実行境界の診断](Definitions/ARCH-000008/architecture_definition.md)<br>[実行事実の記録](Definitions/ARCH-000018/architecture_definition.md) | 実行記録Writer／Store、読取りProjection、Platform Access診断Port | Canonical記録、不変公開、欠測を保つ事実取得、境界別診断 | Task更新、Provider実行、修復、評価採用 |
-| 運用Context | [Meeting候補と正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | Project Operation Context | 候補作成、出所、採否Lifecycle | Meeting本文の意味決定、自動採用 |
+| 運用Context | [Topic・Meeting Lifecycleと正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | Project Operation Context | Topic／Meeting CRUD、Outcome処置、Action移管、Relation整合、安全な削除 | Meeting本文の意味決定、自動採用、正当な履歴の物理削除 |
 | Repository／Runtime基盤 | [Repository境界とBinding](Definitions/ARCH-000009/architecture_definition.md)<br>[Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | Binding Resolver、Runtime Data Contract | Root／Identity／Binding、配置・保持・清掃 | Tool選択、任意Path書込み、由来不明残存の削除 |
 | Trust | [Runtime Artifactの信頼評価](Definitions/ARCH-000014/architecture_definition.md)<br>[公式素材の権利・用途確認](Definitions/ARCH-000017/architecture_definition.md) | Runtime Trust Evaluator、素材収載判断 | 完全性・Publisher・利用者Policy・権利記録 | 利用者に代わる信頼判断、法的判断自動化 |
 | 外部情報 | [外部送信・結果帰還・候補採用](Definitions/ARCH-000015/architecture_definition.md) | External Information Boundary | 送信同意、最小化、相関、候補隔離、採否 | 送信同意からの採用権限生成 |

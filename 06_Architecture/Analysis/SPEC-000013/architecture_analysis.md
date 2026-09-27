@@ -6,7 +6,7 @@
 
 ## 1. 正式入力
 
-- SPEC定義: [SPEC-000013 Meeting内容を候補化し所有正本へ昇格する](../../../05_SPEC/Definitions/SPEC-000013/spec_definition.md)
+- SPEC定義: [SPEC-000013 Meeting・Topicを維持し候補を所有正本へ昇格する](../../../05_SPEC/Definitions/SPEC-000013/spec_definition.md)
 
 このSPEC定義だけを正式入力とする。反対観点、上流工程、現行Architectureまたは実装から不足する意味を補わない。
 
@@ -14,13 +14,14 @@
 
 ### 振る舞いの目的
 
-Meeting内容を候補化し所有正本へ昇格する。
+TopicとMeetingを維持し、Meeting Outcomeを後続へ接続し、正当な履歴を保ったまま誤登録だけを安全に削除する。
 
 ### UX観点の分析結果
 
 | UX分析 | 保持する利用者成果 |
 |---|---|
 | [UX-000014](../../../05_SPEC/Analysis/UX-000014/spec_analysis.md) | Meeting内容を候補化し採否を判断する |
+| [UX-000033](../../../05_SPEC/Analysis/UX-000033/spec_analysis.md) | TopicとMeetingを一通り扱い、正当な履歴を残して誤登録だけを安全に除く |
 
 ### IA観点の分析結果
 
@@ -30,44 +31,44 @@ Meeting内容を候補化し所有正本へ昇格する。
 
 ### 両観点の統合判断
 
-Meetingの項目を継続論点または決定候補として扱う時、観察・仮説・候補・決定を区別し、既存Topicとの関係と採否を記録して所有正本へ反映する。
+Topicの現在状態とMeetingの時点記録を区別してCRUD・終了・訂正を行い、Meeting Outcomeを完了・Action・Topic・CHG・所有正本へ処置する。物理削除は誤登録だけに限定し、Relation影響を表示して人間が明示確認する。
 
 ### 契機・事前条件・Authority
 
 | 項目 | 契約 |
 |---|---|
-| 契機 | Meetingの項目を継続論点または決定候補として扱う時 |
-| 事前条件 | Meeting Item、出所、候補種別、所有正本、判断主体を確認できる |
-| Authority | 候補作成と採否判断を分け、正本更新は所有者の採用Authorityを必要とする |
+| 契機 | Topic／Meetingの登録・変更・参照・終了・訂正・削除、またはMeeting Outcomeの処置を選ぶ時 |
+| 事前条件 | 対象Identity、Owner Repository、現在改訂版、Relation、操作Authorityを確認できる |
+| Authority | 通常更新、候補採否、物理削除を分ける。削除は影響表示後の人間による明示確認を必要とする |
 | 判定不能 | 不足を既定値で補完せず、新しいEffectを発行せず現在状態と未解消義務を保持する |
 
 ### 振る舞い・状態・結果
 
 ```text
-[観察／会話] -> [候補]
-  ├ 採用 -> [所有正本更新]
-  ├ 却下 -> [候補履歴]
-  └ 保留 -> [判断待ち]
+[Topic／Meeting] -> [登録／編集／取得／一覧]
+       ├ Meeting Outcome -> [完了／Action／Topic／CHG／Owner正本／不採用]
+       ├ 正当な履歴 -> [終了／撤回／訂正]
+       └ 誤登録 -> [影響表示] -> [明示確認] -> [Relation整合＋物理削除]
 ```
 
-- 振る舞い: 観察・仮説・候補・決定を区別し、既存Topicとの関係と採否を記録して所有正本へ反映する。
-- 成功条件: 候補の出所、判断者、採否、反映先を辿れる。
-- ここにない取消、再試行、回復または状態値を架空に追加しない。
+- 振る舞い: Topicの現在状態とMeetingの時点記録を区別し、入口を変えても同じLifecycleと終了後状態を返す。
+- 成功条件: Outcomeを全件処置し、未完了Actionの担当・期限・完了条件・追跡先を確定してMeetingを閉じられる。
+- 継続調査・判断はTopicへ、採用済み変更はCHGへ接続し、Meeting当時の記録を現在状態で上書きしない。
 
 ### 失敗・回復・副作用
 
-- 失敗: 文字列一致だけで統合・分割せず、会話を自動採用しない。
-- 副作用: 候補記録を作成し、採用時だけ所有正本を更新する。却下時は正本Effect 0。
-- 本SPEC固有の回復経路は設けず、失敗理由と安全な戻り先を返す。
+- 失敗: 競合改訂版、権限不足、部分更新、Relation不整合、削除結果不明を成功へ畳まない。
+- 副作用: Topic／Meeting本文、Relation、候補処置、Action状態を更新し得る。物理削除では対象以外を連鎖削除しない。
+- 回復: 部分成功では既知状態と再観測先を返し、削除前後のRelation整合を確認できなければ完了にしない。
 
 ### 受入条件と検証義務
 
 | 観点 | 受入条件 |
 |---|---|
-| 正常 | 候補の出所、判断者、採否、反映先を辿れる |
-| 境界 | 新規候補／既存候補、採用／却下／保留を分け、未採用候補で正本を変更しない |
-| 失敗 | 文字列一致だけで統合・分割せず、会話を自動採用しない |
-| 観測不能 | 不明を正常・不存在・完了へ丸めず、実際の副作用「候補記録を作成し、採用時だけ所有正本を更新する。却下時は正本Effect 0」と矛盾する結果を返さない |
+| 正常 | Topic／Meetingの全操作とOutcome処置を同じ正本・Lifecycleで行い、Ownerと終了後状態を辿れる |
+| 境界 | Topic／Meeting、時点記録／現在状態、終了／撤回／訂正／削除、未完了Action／未処置Outcomeを分ける |
+| 失敗 | 競合・権限不足・部分成功・Relation不整合を隠さず、確認なしの物理削除と暗黙の連鎖削除を行わない |
+| 観測不能 | 結果不明を完了へ丸めず既知の本文・Relation・処置状態と再観測先を返す |
 | 対応UI | [UI-000009](../../../04_UI/Definitions/UI-000009/ui_definition.md)の操作・Feedbackと契機・結果・失敗が一致する |
 
 ### 対応するUI
@@ -128,16 +129,16 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 | 責務候補 | 状態Owner | 決定権限 | Effect／非該当 | 主な失敗境界 |
 |---|---|---|---|---|
-| [Meeting候補と正本への引渡しのArchitecture定義](../../Definitions/ARCH-000006/architecture_definition.md) | Project Operation Context | 候補作成と採否判断を分け、正本更新は所有者の採用Authorityを必要とする | 候補記録を作成し、採用時だけ所有正本を更新する。却下時は正本Effect 0。 | 文字列一致だけで統合・分割せず、会話を自動採用しない。 |
+| [Topic・Meeting Lifecycleと正本への引渡しのArchitecture定義](../../Definitions/ARCH-000006/architecture_definition.md) | Project Operation Context | 通常更新、候補採否、物理削除を分け、削除は影響表示後の人間による明示確認を必要とする | Topic／Meeting本文、Relation、候補処置、Action状態を更新し得る。対象外を連鎖削除しない | 競合改訂版、権限不足、部分更新、Relation不整合、削除結果不明を成功へ畳まない |
 
 ### 観点別評価
 
 | 観点 | 判定 | 根拠・引渡し |
 |---|---|---|
-| Responsibility | 評価済み | [Meeting候補と正本への引渡しのArchitecture定義](../../Definitions/ARCH-000006/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
+| Responsibility | 評価済み | [Topic・Meeting Lifecycleと正本への引渡しのArchitecture定義](../../Definitions/ARCH-000006/architecture_definition.md)へ入力Contractを意味変更せず渡す。 |
 | Boundary／Component／Interface | 評価済み | 状態OwnerはProject Operation Context。公開境界は入力定義のAuthority・Effect・制約を越えない。 |
 | Data／State Ownership | 評価済み | Project Operation ContextをOwner候補とし、UI表示またはSPEC結果と内部状態を同一視しない。 |
-| Failure／Recovery | 評価済み | 文字列一致だけで統合・分割せず、会話を自動採用しない。Recoveryは入力定義にある場合だけ保持する。 |
+| Failure／Recovery | 評価済み | 部分成功では本文・Relation・処置結果の既知状態を返し、同じ対象を再観測する。削除前後のRelation整合を確認できなければ完了にしない。 |
 | Security／Trust | 評価済み | 入力定義のAuthority、開示、Effect 0および非推定条件を保持する。 |
 | Quality Constraint | 評価済み | 未観測・不明・制限・失敗を成功または不存在へ丸めない。 |
 | Human Input | 継承あり | REQ-000012: プロジェクト運営者／PMが「会議の内容を候補として整理し正本へつなぐ」を行う際の判断基準、許容負担、利用環境および失敗後の選択。 |
@@ -150,7 +151,7 @@ Human Inputの判断者は「プロジェクト運営者／PMを代表する利�
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Meeting候補と正本への引渡し](../../Definitions/ARCH-000006/architecture_definition.md) | Same | Meeting内の観測、候補、採用、却下を区別し、候補作成と正本更新のAuthorityを分ける。媒体ではなく項目の目的で候補種別を決める。 |
+| [Topic・Meeting Lifecycleと正本への引渡し](../../Definitions/ARCH-000006/architecture_definition.md) | Same | Topic／Meeting CRUD、Outcome処置、Action移管、Relation整合および安全な削除を同じLifecycleで成立させる。 |
 
 ## 5. UI観点との統合時に確認すること
 

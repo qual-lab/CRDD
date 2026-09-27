@@ -7,13 +7,13 @@ Architecture ID: `ARCH-000013`
 
 ## 1. 責務と境界
 
-credential_required／restricted／unavailable／unknownを区別し、Credential→Session→Workspace Grant→Exposure→Repositoryの順で利用範囲を決める。
+Role別Credentialの発行・失効・ローテーション、Credential→Session→Workspace Grant→Exposure→Repositoryの利用範囲確定、およびServer Host AuthorityによるAccess Recoveryを分ける。管理能力から内容Accessを生成せず、RecoveryでProduct Dataを変更しない。
 
 | 区分 | 内容 |
 |---|---|
 | 状態Owner | CROS Session／Workspace Resolver |
-| 所有する責務 | CredentialからのSession Grant、Workspace、Repository Exposure、Source-aware Federation |
-| 所有しない責務 | User Role階層、Repository内部ACL、System AdminからContent Accessの推定 |
+| 所有する責務 | Role別Credential Lifecycle、Session Grant、Workspace、Repository Exposure、Source-aware Federation、全管理資格喪失時のAccess Recovery |
+| 所有しない責務 | User Accountまたは個人別Role割当、Repository内部ACL、System AdminからContent Accessの推定 |
 | 主な外部境界 | Remote Client、Credential Store、複数Repository |
 
 ## 2. UI観点の入力
@@ -26,7 +26,7 @@ credential_required／restricted／unavailable／unknownを区別し、Credentia
 
 | SPEC分析 | 守る振る舞い契約 |
 |---|---|
-| [SPEC-000012](../../Analysis/SPEC-000012/architecture_analysis.md) | 接続資格からWorkspace利用範囲を確定する |
+| [SPEC-000012](../../Analysis/SPEC-000012/architecture_analysis.md) | Role別Credentialから利用範囲を確定しAccessを回復する |
 
 ## 4. 両観点の統合判断
 
@@ -34,17 +34,17 @@ credential_required／restricted／unavailable／unknownを区別し、Credentia
 
 | 入力 | 観点 | State Owner | Authority | Effect／非該当 | Failure Boundary | Lifecycle |
 |---|---|---|---|---|---|---|
-| UI-000008 | UI | CROS Session／Workspace Resolver | UI契約はAuthorityを発行しない。利用者操作: 接続する／Workspaceを選ぶ／再認証する。 | UI契約はEffectを定義しない | 利用不能なリポジトリの存在や内容を推測表示する | 利用可能（available）／接続資格が必要（credential_required）／開示制限（restricted）／利用不能（unavailable）／不明（unknown） / 接続→接続単位→許可された作業領域→公開されたリポジトリ→情報源 /  |
-| SPEC-000012 | SPEC | CROS Session／Workspace Resolver | Credential発行時に固定されたWorkspace Grant。管理Capabilityと内容Grantを分離する | 認証済みSessionとGrantを作成・更新する。未Exposure Repositoryへ読取りEffect 0。 | 未許可対象の存在を漏らさず、古いGrantや一律Unlockを受理しない。 | [未認証] -> [Credential検証] -> [Session＋Workspace Grant]   ├ current -> [利用可能範囲]   └ stale／invalid -> [拒否・存在非開示] |
+| UI-000008 | UI | CROS Session／Workspace Resolver | UI契約はAuthorityを発行しない。利用者操作: 接続／Workspace選択／再認証／Credential発行・失効・ローテーション／Access Recovery。 | UI契約はEffectを定義しない | Remote認証への依存、Secret再表示・保存、RecoveryによるProduct Data変更 | 利用可能／credential_required／restricted／unavailable／unknownと、active／expired／revoked／rotating／unknown、Recoveryの確認待ち／進行中／blocked／completedを分ける |
+| SPEC-000012 | SPEC | CROS Session／Workspace Resolver | 通常管理はAdministrator能力、内容AccessはRole別Grant、全喪失RecoveryはServer Host Authorityに限定する | Credential Metadata、Digest、Session Grant、失効状態、Recovery記録を作成・更新し得る。生SecretとProduct Dataを複製・変更しない | 無効・期限切れ・失効Credential、Role不整合、Secret再表示要求、全Administrator喪失、認可状態破損、Recovery途中失敗を区別する | Role選択→Credential Lifecycle→Session＋Role Grant。全Administrator喪失時はHost確認→同じRecovery ID→Accessだけ再構成→Bootstrap再入場 |
 
 ## 5. 構造と依存方向
 
 ```text
 [Architecture Responsibility]
 ├─ UI-000008 (UI)
-   利用可能（available）／接続資格が必要（credential_required）／開示制限（restricted）／利用不能（unavailable）／不明（unknown） / 接続→接続単位→許可された作業領域→公開されたリポジトリ→情報源 / 
+   Role→Credential→処置。通常管理不能時はHost確認→Recovery→Bootstrap再入場
 └─ SPEC-000012 (SPEC)
-   [未認証] -> [Credential検証] -> [Session＋Workspace Grant]   ├ current -> [利用可能範囲]   └ stale／invalid -> [拒否・存在非開示]
+   Role選択→Credential Lifecycle→Session＋Role Grant／Host確認→同じRecovery ID→Access再構成
 ```
 
 各入力はSibling contractであり、前の入力のAuthority、EffectまたはLifecycleを暗黙に継承しない。UI契約は利用者へ認識・操作・Feedbackを提供するが、AuthorityやEffectを発行しない。
@@ -109,7 +109,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 
 ## 10. 実装と検証への引き渡し
 
-- 実装は「CredentialからのSession Grant、Workspace、Repository Exposure、Source-aware Federation」を所有するCoreと、外部境界を扱うPort／Adapterを分ける。
+- 実装はCredential Metadata・Digest・Role Grant・失効・Recovery Identityを所有するCoreと、Secret表示、Server Host Authority、Repository Exposureおよび外部入口を扱うPort／Adapterを分ける。
 - 接続→認証→Grant確定→Exposure照合→Repository解決→切断時失効を段階的な結合試験で確認する。
 - 接続成功からの過剰Grant、Repo名・Pathの漏洩、stale Exposure、管理者への暗黙Content Accessを理由別に反証する。
 - Project Task Recoveryは非該当。Session切断後のTaskはProject Runtimeの再取得契約へ渡す。

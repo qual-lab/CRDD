@@ -441,7 +441,7 @@ export function resolveRepositoryRuntimeDataPathsFromWorkingDirectory(
  * @security N/A: CrosRootInputはAuthority、秘密値または信頼判断を扱わない。
  * @compatibility CrosRootInputの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-type CrosRootInput = Readonly<{
+export type CrosRootInput = Readonly<{
   platform: "win32" | "linux";
   trustDomainId: string;
   publisher: string;

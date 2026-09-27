@@ -16,12 +16,26 @@
       "archIds": ["ARCH-000003"]
     },
     {
+      "symbolId": "visual-preview.browser-zoom-verifier",
+      "kind": "file",
+      "path": "src/browser-zoom-verifier.ts",
+      "archIds": ["ARCH-000003"]
+    },
+    {
       "symbolId": "visual-preview.test.integration.preview-server",
       "kind": "test-suite",
       "path": "tests/integration/visual-preview-server.contract.test.ts",
       "qaIds": ["QA-000006"],
       "localTestIds": ["ERB-IT-018"],
       "verifies": ["visual-preview.server"]
+    },
+    {
+      "symbolId": "visual-preview.test.integration.browser-lifecycle",
+      "kind": "test-suite",
+      "path": "tests/integration/browser-lifecycle.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-020"],
+      "verifies": ["visual-preview.browser-zoom-verifier"]
     }
   ]
 }

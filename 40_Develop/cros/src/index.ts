@@ -26,6 +26,13 @@ export {
   type CrosSession,
 } from "./runtime.ts";
 export {
+  createPortfolioProjection,
+  resolveAuthorizedRepositories,
+  type FederatedProjectProjection,
+  type FederatedProjectSource,
+  type PortfolioProjection,
+} from "./project-federation.ts";
+export {
   executeRegisteredTool,
   inspectRegisteredTool,
   type RegisteredTool,
@@ -44,3 +51,29 @@ export {
   type SurfaceOperationRequest,
   type SurfaceOperationResult,
 } from "./application-contract.ts";
+export {
+  authenticateConnectionCredential,
+  createMemoryConnectionCredentialRegistry,
+  issueConnectionCredential,
+  listConnectionCredentials,
+  resolveCredentialProfileDefaults,
+  revokeConnectionCredential,
+  rotateConnectionCredential,
+  updateConnectionCredentialAccess,
+  type ConnectionCredentialAuthenticationResult,
+  type ConnectionCredentialChangeResult,
+  type ConnectionCredentialIssueResult,
+  type ConnectionCredentialListResult,
+  type ConnectionCredentialMetadata,
+  type ConnectionCredentialProfile,
+  type ConnectionCredentialRecord,
+  type ConnectionCredentialRegistry,
+  type ConnectionCredentialRegistrySnapshot,
+  type ConnectionCredentialRotationResult,
+  type CredentialRandomBytes,
+  type RequestAccessContext,
+} from "./connection-credential.ts";
+export {
+  createCredentialRegistryFileAdapter,
+  type CredentialRegistryFileAdapterResult,
+} from "./credential-registry-file-adapter.ts";

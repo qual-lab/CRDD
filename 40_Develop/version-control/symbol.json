@@ -15,6 +15,29 @@
       ]
     },
     {
+      "symbolId": "version-control.change-publication",
+      "kind": "file",
+      "path": "src/change-publication.ts",
+      "archIds": ["ARCH-000009"]
+    },
+    {
+      "symbolId": "version-control.git-change-publication-adapter",
+      "kind": "file",
+      "path": "src/git/change-publication-adapter.ts",
+      "archIds": ["ARCH-000009"]
+    },
+    {
+      "symbolId": "version-control.test.integration.change-publication",
+      "kind": "test-suite",
+      "path": "tests/integration/change-publication.integration.test.ts",
+      "qaIds": ["QA-000007"],
+      "localTestIds": ["RFD-IT-014", "RFD-ST-015"],
+      "verifies": [
+        "version-control.change-publication",
+        "version-control.git-change-publication-adapter"
+      ]
+    },
+    {
       "symbolId": "version-control.checker-repository-observation-adapter",
       "kind": "module",
       "path": "src/git/checker-repository-observation-adapter.ts",

@@ -58,6 +58,11 @@ Project→Repository→Binding→検証済みRoot／Repository→手元の正本
 | IA-000007 | 手元の作業（Local Work） | 手元で開始・完了できる仕事 | 対象Repositoryへ結合 |
 | IA-000007 | リポジトリ横断情報源（Cross-repository Source） | CROSから得る追加情報 | 情報源（Source）とAccess State |
 | IA-000007 | 履歴管理能力（Version Control Capability） | 履歴を扱う差替可能な能力 | 接続口（Port）／利用能力（Capability）で識別 |
+| IA-000007 | 作業ツリー状態 | 共有前の変更と競合を見分ける現在状態 | Repository＋Path＋観測改訂版 |
+| IA-000007 | 変更差分 | Stage／Commitへ進める変更内容 | Repository＋Path＋比較基準 |
+| IA-000007 | 変更集合 | Commitへ含めるStaged集合 | Staged集合＋Message |
+| IA-000007 | 外部共有対象 | Push前に確認するRemote、Branch、Commit集合 | Repository＋Remote＋Branch＋Commit集合 |
+| IA-000007 | 履歴管理操作結果 | Stage、Commit、Pushの要求・受理・終了後状態 | 操作Identity＋要求／受理／終了後観測 |
 
 同じ画面や応答へ置く場合も、上表の独立軸を一つの成功・信頼・完了へ畳まない。重要な不足、制限、判断要否は詳細へ隠さない。
 
@@ -69,6 +74,7 @@ Project→Repository→Binding→検証済みRoot／Repository→手元の正本
 |---|---|---|---|---|
 | UX-000010 | 現在リポジトリだけで日常作業を完結する | 横断利用へ切り替える判断 | 手元を既定にし横断を任意に保つ | CROS未設定で手元作業まで止まる |
 | UX-000011 | プロジェクト・リポジトリ・基点フォルダを区別して対象を確認する | 外部作用（Effect）対象を確定する直前 | 各識別情報と物理基点フォルダの結合を明示する | 同名や近いパスを同じ対象と誤認する |
+| UX-000034 | 利用者が共有する差分を選び、Stage、Commit、Pushを順に実行する | 外部へPushする直前 | Remote、Branch、送信Commit、各Effectの結果を別々に示す | Conflict、Push拒否、認証失敗、通信断、結果不明を成功へ畳む |
 
 UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IAの状態・導線と対応付けて表示する。
 
@@ -78,6 +84,7 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 |---|---|---|
 | UX-000011／IA-000006 | 確認済み（verified）／未確認（unverified）／曖昧（ambiguous）／利用不能（unavailable） | Project→Repository→Binding→検証済みRoot |
 | UX-000010／IA-000007 | 手元で利用可能（local available）／横断情報源を利用不能（cross-source unavailable）でも継続可能 | Repository→手元の正本→作業、必要時だけCROS |
+| UX-000034／IA-000007 | Staged／Unstaged／Untracked／Conflict、Commit作成済み／Push受理／Push拒否／結果不明 | 既知のTreeとCommitを保ち、再観測先と次の選択を示す |
 
 上表にない処理中、取消、回復その他の状態を一律に追加しない。値なし、未観測、古い値、競合、開示制限または結果不明は、該当するIA定義が要求する場合にだけ別状態として示す。
 
@@ -93,6 +100,7 @@ UI部品や通信方式はここで固定しない。各UX行のFeedbackを、IA
 - UIだけに正本、決定権限、業務ロジックまたは独自状態Storeを作らない。
 - 表示の都合でUX成果、IAの独立軸、状態、根拠、対象範囲または開示境界を弱めない。
 - 視覚詳細はPrototypeで評価し、未評価の候補を完成表示しない。
+- Force Push、Branch作成、Merge、RebaseおよびRemote設定管理を暗黙に追加せず、履歴管理実装をGit CLIへ固定しない。
 
 ## UI／SPEC対応レビューへ渡す項目
 

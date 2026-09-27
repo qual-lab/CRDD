@@ -10,14 +10,14 @@
 
 | 項目 | 記載内容 |
 |---|---|
-| 現在の変更状態 | v0.21成果物へUI／SPEC Detail IDを発行し、Architecture／Qualityまでの全数伝播を実施中 |
+| 現在の変更状態 | Workbench PilotのG1〜G5、Visual実測、新MeaningのArchitecture／Qualityまでの伝播およびPhase 6独立レビューを完了し、Detail Contract固定候補を成立させた |
 | 対象改訂版 | v0.21.0を基準版とするv0.22作業ブランチ |
 | 成立済み | UI／SPEC Definition、N:N対応レビュー、可視Checklist、Architecture／Qualityへの引き渡し |
-| 未成立 | v0.22 Discoveryによる課題・仮説の再構成、Workbench等の実Product Pilot後の契約固定 |
+| 未成立 | 未実装CapabilityのReality Audit／実装／Evidence、反復根拠に基づくCMP発行 |
 | Phase／Gate適用判断 | `Applicable`: 規則、ひな型、自己適用、独立レビューを分けて確認する |
-| 現在Phase | `Phase 6 — Workbench Pilot` |
-| 現在Gate | `G5 Expansion Passed／Detail Contract Freeze Ready` |
-| 次のGate | G1〜G5のDogfood結果からUI／SPEC Detail Contractの不足・過剰を再評価し、正式採番と下流伝播の固定候補を作る |
+| 現在Phase | `Phase 6 — Detail Contract Freeze Passed` |
+| 現在Gate | `Detail Contract固定候補／独立レビューFinding 0` |
+| 次のGate | 未実装Capabilityを未観測のままReality Audit／実装へ渡し、Secondary Screenの実装反復からPattern／CMP昇格の根拠を評価する |
 
 ## 契機 / 起点
 
@@ -37,7 +37,7 @@
 
 UI／SPECへ`Analysis → Definition → Detail`を導入し、UI Area、Logical Screen、Screen Part、Reusable Component、Visual BaselineおよびDetailed Behaviorを、Definitionの意味を失わず具体化できるようにする。
 
-WorkbenchのWIP、画面案または既存実装を正解として逆算しない。まず一般工程契約をDraft化し、v0.21成果物へ適用評価した後、独立レビューを通過させる。その後にv0.22の各アイテムをDiscoveryで再構成し、WorkbenchをPilotとして契約を検証する。
+WorkbenchのWIP、画面案または既存実装を正解として逆算しない。一般工程契約をDraft化し、v0.21成果物への適用評価と独立レビューを完了した後、v0.22 Discoveryで採用した意味だけをWorkbench Pilotへ入力した。PilotではG1〜G5を順に通過し、Direction A、画面構成およびDetail Relationを契約固定候補として検証した。これらはPilot Designの採用であり、Production実装完成の主張ではない。
 
 ## 現在状態と構造変更
 
@@ -55,6 +55,52 @@ WorkbenchのWIP、画面案または既存実装を正解として逆算しな�
 <details>
 <summary>全ファイルを表示</summary>
 
+- [`04_UI/Details/Visual/workbench-hero/direction-a.html`](../../../04_UI/Details/Visual/workbench-hero/direction-a.html)
+- [`04_UI/Details/Visual/workbench-hero/direction-a.png`](../../../04_UI/Details/Visual/workbench-hero/direction-a.png)
+- [`04_UI/Details/Visual/workbench-hero/project-portfolio.html`](../../../04_UI/Details/Visual/workbench-hero/project-portfolio.html)
+- [`04_UI/Details/Visual/workbench-hero/project-portfolio.png`](../../../04_UI/Details/Visual/workbench-hero/project-portfolio.png)
+- [`04_UI/Details/Visual/workbench-hero/repository-worktree.html`](../../../04_UI/Details/Visual/workbench-hero/repository-worktree.html)
+- [`04_UI/Details/Visual/workbench-hero/repository-worktree.png`](../../../04_UI/Details/Visual/workbench-hero/repository-worktree.png)
+- [`04_UI/Details/Visual/workbench-hero/topic-detail.html`](../../../04_UI/Details/Visual/workbench-hero/topic-detail.html)
+- [`04_UI/Details/Visual/workbench-hero/topic-detail.png`](../../../04_UI/Details/Visual/workbench-hero/topic-detail.png)
+- [`04_UI/Definitions/UI-000006/ui_definition.md`](../../../04_UI/Definitions/UI-000006/ui_definition.md)
+- [`04_UI/Definitions/UI-000008/ui_definition.md`](../../../04_UI/Definitions/UI-000008/ui_definition.md)
+- [`04_UI/Definitions/UI-000009/ui_definition.md`](../../../04_UI/Definitions/UI-000009/ui_definition.md)
+- [`04_UI/Details/05_Workbench_Secondary_Expansion.md`](../../../04_UI/Details/05_Workbench_Secondary_Expansion.md)
+- [`04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md`](../../../04_UI/Details/Areas/configuration-trust/SCR-000008/screen.md)
+- [`04_UI/Details/Areas/project-context/SCR-000006/screen.md`](../../../04_UI/Details/Areas/project-context/SCR-000006/screen.md)
+- [`04_UI/Details/Areas/project-context/SCR-000009/screen.md`](../../../04_UI/Details/Areas/project-context/SCR-000009/screen.md)
+- [`05_SPEC/Definitions/SPEC-000012/spec_definition.md`](../../../05_SPEC/Definitions/SPEC-000012/spec_definition.md)
+- [`05_SPEC/Definitions/SPEC-000013/spec_definition.md`](../../../05_SPEC/Definitions/SPEC-000013/spec_definition.md)
+- [`05_SPEC/Details/BHV-000012/behavior.md`](../../../05_SPEC/Details/BHV-000012/behavior.md)
+- [`05_SPEC/Details/BHV-000013/behavior.md`](../../../05_SPEC/Details/BHV-000013/behavior.md)
+- [`05_SPEC/Details/BHV-000031/behavior.md`](../../../05_SPEC/Details/BHV-000031/behavior.md)
+- [`06_Architecture/02_Component_and_Responsibility_Model.md`](../../../06_Architecture/02_Component_and_Responsibility_Model.md)
+- [`06_Architecture/08_UI_SPEC_Detail_Traceability.md`](../../../06_Architecture/08_UI_SPEC_Detail_Traceability.md)
+- [`06_Architecture/Analysis/SPEC-000012/architecture_analysis.md`](../../../06_Architecture/Analysis/SPEC-000012/architecture_analysis.md)
+- [`06_Architecture/Analysis/SPEC-000013/architecture_analysis.md`](../../../06_Architecture/Analysis/SPEC-000013/architecture_analysis.md)
+- [`06_Architecture/Analysis/SPEC-000031/architecture_analysis.md`](../../../06_Architecture/Analysis/SPEC-000031/architecture_analysis.md)
+- [`06_Architecture/Analysis/UI-000008/architecture_analysis.md`](../../../06_Architecture/Analysis/UI-000008/architecture_analysis.md)
+- [`06_Architecture/Analysis/UI-000009/architecture_analysis.md`](../../../06_Architecture/Analysis/UI-000009/architecture_analysis.md)
+- [`06_Architecture/Definitions/ARCH-000006/architecture_definition.md`](../../../06_Architecture/Definitions/ARCH-000006/architecture_definition.md)
+- [`06_Architecture/Definitions/ARCH-000009/architecture_definition.md`](../../../06_Architecture/Definitions/ARCH-000009/architecture_definition.md)
+- [`06_Architecture/Definitions/ARCH-000013/architecture_definition.md`](../../../06_Architecture/Definitions/ARCH-000013/architecture_definition.md)
+- [`06_Architecture/Details/crdd-domain-library/01_Architecture.md`](../../../06_Architecture/Details/crdd-domain-library/01_Architecture.md)
+- [`06_Architecture/Details/cros/01_Architecture.md`](../../../06_Architecture/Details/cros/01_Architecture.md)
+- [`06_Architecture/Details/project-operation/01_Architecture.md`](../../../06_Architecture/Details/project-operation/01_Architecture.md)
+- [`06_Architecture/Details/version-control/01_Architecture.md`](../../../06_Architecture/Details/version-control/01_Architecture.md)
+- [`07_Quality/03_Verification_Design.md`](../../../07_Quality/03_Verification_Design.md)
+- [`07_Quality/05_Current_Implementation_Reality_Audit.md`](../../../07_Quality/05_Current_Implementation_Reality_Audit.md)
+- [`07_Quality/Analysis/ARCH/quality_analysis.md`](../../../07_Quality/Analysis/ARCH/quality_analysis.md)
+- [`07_Quality/Analysis/Detail/quality_analysis.md`](../../../07_Quality/Analysis/Detail/quality_analysis.md)
+- [`07_Quality/Analysis/REQ/quality_analysis.md`](../../../07_Quality/Analysis/REQ/quality_analysis.md)
+- [`07_Quality/Analysis/SPEC/quality_analysis.md`](../../../07_Quality/Analysis/SPEC/quality_analysis.md)
+- [`07_Quality/Analysis/UI/quality_analysis.md`](../../../07_Quality/Analysis/UI/quality_analysis.md)
+- [`07_Quality/Analysis/UX/quality_analysis.md`](../../../07_Quality/Analysis/UX/quality_analysis.md)
+- [`07_Quality/Definitions/QA-000005/quality_definition.md`](../../../07_Quality/Definitions/QA-000005/quality_definition.md)
+- [`07_Quality/Definitions/QA-000007/quality_definition.md`](../../../07_Quality/Definitions/QA-000007/quality_definition.md)
+- [`40_Develop/visual-preview/src/browser-zoom-verifier.ts`](../../../40_Develop/visual-preview/src/browser-zoom-verifier.ts)
+- [`99_Roadmap/Changes/CHG-000081/Evidence/260927-1323_visual-browser-zoom.md`](Evidence/260927-1323_visual-browser-zoom.md)
 - [`24_UI_Behavior_Specification.md`](../../../24_UI_Behavior_Specification.md)
 - [`03_Documentation.md`](../../../03_Documentation.md)
 - [`15_Progress.md`](../../../15_Progress.md)
@@ -125,6 +171,7 @@ WorkbenchのWIP、画面案または既存実装を正解として逆算しな�
 - [`40_Develop/visual-preview/symbol.json`](../../../40_Develop/visual-preview/symbol.json)
 - [`40_Develop/visual-preview/tsconfig.json`](../../../40_Develop/visual-preview/tsconfig.json)
 - [`40_Develop/visual-preview/tests/integration/visual-preview-server.contract.test.ts`](../../../40_Develop/visual-preview/tests/integration/visual-preview-server.contract.test.ts)
+- [`40_Develop/visual-preview/tests/integration/browser-lifecycle.contract.test.ts`](../../../40_Develop/visual-preview/tests/integration/browser-lifecycle.contract.test.ts)
 - [`template/tools/crdd-visual-preview.ts`](../../../template/tools/crdd-visual-preview.ts)
 - [`template/04_UI/01_User_Interface.md`](../../../template/04_UI/01_User_Interface.md)
 - [`template/04_UI/05_UI_SPEC_Handoff.md`](../../../template/04_UI/05_UI_SPEC_Handoff.md)
@@ -164,7 +211,9 @@ WorkbenchのWIP、画面案または既存実装を正解として逆算しな�
 
 ## 対象外 / 変更してはならないこと
 
-- 対象外: Workbenchの要求、画面構成、Visual Direction、実装の確定
+- 着手時の対象外: Workbenchの要求、画面構成およびVisual Directionの先取り
+- 現在も対象外: Workbench Production実装の完成、未実装Capabilityの成立主張、CMPの根拠なき発行
+- 現在の対象: v0.22 Discoveryで採用済みの意味を用いたWorkbench Pilotの画面構成、Direction AおよびUI／SPEC Detail Contractの固定可否
 - 変更してはならないこと: v0.21 Releaseの成立状態、既存`UI-*`／`SPEC-*`の意味、WIPをCanonical入力へ昇格しない境界
 
 ## 固定前の収束確認
@@ -172,7 +221,7 @@ WorkbenchのWIP、画面案または既存実装を正解として逆算しな�
 | 評価対象 | 判定 | 内容／理由 | 参照／再評価契機 |
 |---|---|---|---|
 | 非自明な変更としての収束確認 | Applicable | 複数工程、ひな型、既存成果物へ影響する | 独立レビュー前に再確認 |
-| 変更する契約母集団 | Applicable | UI／SPEC正本、ひな型、UI 20件、SPEC 29件 | 適用台帳で全数確認 |
+| 変更する契約母集団 | Applicable | UI／SPEC正本、ひな型、UI 20件、現在のSPEC 30件 | 適用台帳で全数確認 |
 | 既知の利用側母集団と対象別の予定処置 | Applicable | Architecture、Quality、採用Repository | 引き渡し契約とひな型を更新 |
 | 安全上重要な層間搬送 | N/A | UI／SPECの設計コンテキストだけを変更し、Runtime搬送を変更しない | Scope変更時に再評価 |
 | 保護対象Effect／Recoveryの耐久Authority | N/A | 外部EffectやAuthorityを変更しない | Scope変更時に再評価 |
@@ -184,7 +233,7 @@ WorkbenchのWIP、画面案または既存実装を正解として逆算しな�
 | 根拠の主張軸（観測基盤） | Applicable | Markdown構造、視覚Source、Renderを区別する | Pilotで再評価 |
 | 根拠の主張軸（成果物Identity） | Applicable | UI／SPECとSCR／PRT／CMP／BHVの境界を定義する | Pilotで再評価 |
 | 根拠の主張軸（lifecycle） | Applicable | Draft、Human Decision、Baseline、Expansion、Componentizationを区別する | Pilotで再評価 |
-| 未解消の不一致 | OPEN | Detail ID体系と成果物粒度はPilot前のDraftである | Workbench Pilot後にContract Freeze |
+| 未解消の不一致 | N/A | 現在の未解消事項はない。初回のロゴ配信、終了後観測および現在状態の競合を是正し、Browser Lifecycleを`ERB-IT-020`へ分離した。Quality算術の再集計後、最終文書／不足影響レビューはFinding 0 | Detail Contract固定候補として次Gateへ渡す。Production完成、Quality ReadyまたはRelease採用は主張しない |
 
 ## 変更経路の計画
 
@@ -192,7 +241,7 @@ WorkbenchのWIP、画面案または既存実装を正解として逆算しな�
 - 計画した主な工程 / 共通責務: UI、SPEC、対応レビュー、Architecture／Quality引き渡し、文書監査、不足影響監査
 - 選択理由: Definitionと実装の間にある設計責務を正本化するため
 - 予定する検証: Checker、リンク確認、全Definition適用評価、独立レビュー
-- 判断上重要だが選ばなかった主な経路と理由: Product Discoveryは本契約を固定してから別途開始する。WIP Reality AuditはCanonical Design成立後まで実施しない
+- 判断上重要だが選ばなかった主な経路と理由: Product DiscoveryはPhase 5で実施済みであり、未採用WIPから意味を逆輸入しない。Production Reality AuditはCanonical Detail固定後まで実施しない
 
 ## Phase／Gateと途中拡張
 
@@ -211,7 +260,7 @@ WorkbenchのWIP、画面案または既存実装を正解として逆算しな�
 | Phase 3 | 独立レビュー | Phase 1〜2固定候補 | 文書・不足影響・工程契約レビュー | Finding 0 | Passed |
 | Phase 4 | v0.21 Detail Migration and Downstream Propagation | 20 UI、29 SPEC、Architecture、Quality、Checker | Detail全数Coverageと下流Relation | 発行済みIDが全下流工程へ接続されFinding 0になる | Passed |
 | Phase 5 | v0.22 Discovery Handoff | v0.22未完了項目 | WIP非依存と入力境界確認 | Discoveryが解決案を前提にせず開始できる | Passed |
-| Phase 6 | Workbench Pilot後の契約固定 | Detail Contract | G1〜G5、Dogfood結果、人間判断 | ID・粒度・Visual工程を固定できる | In Progress — G5 Passed／Contract Freeze Ready |
+| Phase 6 | Workbench Pilot後の契約固定 | Detail Contract | G1〜G5、Dogfood結果、人間判断、独立レビュー | ID・粒度・Visual工程を固定できる | Passed — 最終独立レビューFinding 0 |
 
 ### 途中拡張の記録
 
@@ -235,8 +284,10 @@ WorkbenchのWIP、画面案または既存実装を正解として逆算しな�
 | `AI Work`がWorkbench固有のAI機能・履歴所有に見える | Workbenchの責務はProject Contextを既存AI Runtimeへ渡す依頼面であり、CodexやClaude Codeの代替または会話履歴の正本ではない | AIへの依頼、現在Session、Provider側履歴、共有成果物への反映 | 表示名を`AIへの依頼`へ改め、会話全文を正本化せず、継続結果だけを既存Owner Artifactへ反映する境界をG1へ追加する | Qual-LabがAI履歴の所有に違和感を示し、依頼面としての整理を採用した | G2でProject Workspace内Panel、Side Panel、独立表示、Context付き外部AI入口を比較する |
 | 一覧・Tree・履歴の大量化がG1で未評価だった | Screen Inventoryだけでは全件取得・全件描画をAIが暗黙採用でき、実利用時の重さと権限境界が後発する | Project、Topic、Meeting、Quality、Relation、Runtime、Repository、CredentialのCollection表示 | 大量化し得る表示面、検索・絞り込み・継続読込・遅延展開・仮想表示・内容分割をG1で必須評価し、取得契約をSPEC Detailへ渡す | Qual-Labが一覧を一気に表示した場合の重さとページング考慮を確認した | `25_UI.md`、UI Detailひな型、Workbench G1成果物へRule／Format／Checklistを反映した |
 | G4でDirection AとFont統一を採用 | HeroだけでVisual Tasteを決めると、作業・Git・Portfolioで成立しない基調や書体混在を固定し得る | Decision Rail、Noto Sans CJK系Font Stack、3 Secondary Screen、Pattern／CMP評価 | 同じViewportでTopic Detail、Repository Worktree、Project Portfolioへ展開し、反復と例外をG5で確認する | Qual-LabがAのテイストとFont統一を選択した | G5を通過し、Pattern候補を記録。CMPはBehavior／Accessibility Contract不足のため理由付き保留 |
-| G5後の確認で8〜11pxの文字と未構造のDesign Principleを検出 | Font Familyの統一とVisual Tasteの選定だけでは、可読性、操作可能性、Contrast、拡大および内容増加の成立を保証できなかった | G3候補適格性、Type Scale、Contrast、Target Size、Spacing、状態識別、狭幅、Keyboard Focus | G3前に各案の原則適合を必須化し、G5でSecondary Screenへ再適用する | Qual-LabがHeroを作ってもDesign Principle未適用では意味がないと指摘した | Rule、Template、Checker Checklistへ還元し、Workbenchを12px下限／14px本文とTokenへ是正。5画面を320〜1920 CSS pxで実測し、文字Contrast、操作対象、横OverflowおよびFocus順の未処置0件を確認。実Browser Zoomは狭幅と分離してOPENを維持 |
-| `file://`がBrowser検証境界で拒否され、実Zoom／Breakpoint境界を再現できない | Visual確認を特定BrowserのLocal File許可へ依存すると、G5の検証手段を別実行者が再現できない | `visual-preview`専用Subsystem、localhost読取り専用配信、薄い配布CLI、直接境界IT | 実Browser確認前にRoot越境、Link、書込みMethod、外部BindおよびListener残存を拒否し、Preview Toolへ評価・合否・Evidence責務を持たせない | Qual-Labが汎用Verification Runnerへの統合より、Visual確認だけへ絞った単純なToolを採用した | `40_Develop/visual-preview`と`template/tools/crdd-visual-preview.ts`を追加し、Architecture、Quality、Test CatalogおよびSymbol Relationへ接続。実Browserで旧900px境界の横Overflowを検出し、固定最小幅を廃止して5画面の新旧境界40条件を再確認した。実Zoomは環境上の実効値を観測できずOPENを維持する |
+| Workbench左上のBrand表示を確定 | Visual Fixtureは文字`C`で代替Markを描画しており、収載済みの公式ロゴ原本と一致していなかった | Direction AとSecondary 3画面の左上Brand表示、Visual Baseline、再描画Evidence | 公式ロゴ画像をRepository内Pathから読み、画像byteや図柄を改変せず全展開画面で使用する | Qual-Labが左上にアイコンを表示する場合はロゴ画像を使うと判断した | `crdd-brand-icon-512x512.jpg`へ置換し、`04_UI`を公開Rootとする再描画と15条件の画像読込確認を実施 |
+| G5後の確認で8〜11pxの文字と未構造のDesign Principleを検出 | Font Familyの統一とVisual Tasteの選定だけでは、可読性、操作可能性、Contrast、拡大および内容増加の成立を保証できなかった | G3候補適格性、Type Scale、Contrast、Target Size、Spacing、状態識別、狭幅、Keyboard Focus | G3前に各案の原則適合を必須化し、G5でSecondary Screenへ再適用する | Qual-LabがHeroを作ってもDesign Principle未適用では意味がないと指摘した | Rule、Template、Checker Checklistへ還元し、Workbenchを12px下限／14px本文とTokenへ是正。5画面を320〜1920 CSS pxで実測し、文字Contrast、操作対象、横OverflowおよびFocus順の未処置0件を確認。実Browser Zoomも別の15条件として全数PASSで閉じた |
+| `file://`がBrowser検証境界で拒否され、実Zoom／Breakpoint境界を再現できない | Visual確認を特定BrowserのLocal File許可へ依存すると、G5の検証手段を別実行者が再現できない | `visual-preview`専用Subsystem、localhost読取り専用配信、専用Chrome Profileによる実Zoom観測、薄い配布CLI、直接境界IT／System検証 | 実Browser確認前にRoot越境、Link、書込みMethod、外部BindおよびListener残存を拒否する。Visual検証では通常Browser Profileや拡張を使わず、操作所有のProcessとProfileだけを使用・清掃する | Qual-Labが汎用Verification Runnerへの統合より、Visual確認だけへ絞った単純なToolを採用した | `40_Develop/visual-preview`と`template/tools/crdd-visual-preview.ts`を追加し、Architecture、Quality、Test CatalogおよびSymbol Relationへ接続。旧900px境界の横Overflowを是正後、5画面の狭幅40条件に加え、100%／200%／400%の実Browser Zoom 15条件を確認し、未処置0件で閉じた |
+| Phase 5で採用したPush、Topic／Meeting Lifecycle、Role Credential RecoveryのMeaningをDetailへ反映 | Discovery採用だけでPhase 6を固定すると、v0.21由来のUI／SPEC Detailと新しいv0.22 Meaningが分断される | 1 BHV、2 Screen Detail、UI／SPEC対応レビュー、Architecture Analysis／Definition／Detail、Quality Analysis／Definition／Integration | 新MeaningをUI／SPECからQuality Local Itemまで一方向に伝播し、対応レビューとQuality ClosureをCheckerで全数確認する | N/A: 採用済みREQ／UX／UI／SPECの意味を下流へ伝える一意な処置 | `BHV-000031`、`RFD-IT-014`、`RFD-ST-015`、`RFD-ST-016`を追加し、Topic／MeetingとCredentialの既存Detailを拡張。Quality 164 Local Itemと167工程入力のClosureを確認した |
 
 ### 途中見直しの記録
 
@@ -248,6 +299,10 @@ WorkbenchのWIP、画面案または既存実装を正解として逆算しな�
 | Phase 4独立レビュー | 端点のSCR／PRT／BHVを個別に下流接続すればInteraction Relationも復元できると判断していた | 31 Relationを一次キーとしてArchitecture／Qualityの統合責務と局所Ownerを明示する | exact tuple検査、誤BHV／誤ARCH／誤QAの同数差し替え試験、全回帰、文書・不足影響再レビュー | 20 SCR、20 PRT、29 BHV、31 Relation、Definition意味、v0.22非先取り境界 | 是正・再レビュー完了。Finding 0 |
 | Phase 4独立再レビュー | Screenと対応表の申告から期待Relationを作ると、両方を同時に誤変更した場合に自己整合で通過し得た | UI／SPEC Definition対応とUI／SPEC Detail台帳から期待Relationを決定論的に導出する | 協調誤BHV、台帳の同数差し替え、誤Interaction、誤Area、重複行、全回帰、文書再レビュー | 発行済みIDと31 Relation、Architecture／Quality Owner、v0.22非先取り境界 | 是正・再レビュー完了。Finding 0 |
 | Phase 4不足影響再レビュー | 共通Owner集合が複数でも`Single`と表示し、Owner数とMode名が一致しなかった | Owner集合を維持したまま`Single`／`Shared`／`Joint`をOwner集合の形で区別する | 複数共通Ownerの正例、全回帰、不足影響再レビュー | 31 Relation、BHV、ARCH／QA Owner集合、局所Owner、Definition意味 | 是正・再レビュー完了。Finding 0 |
+| Phase 6初回独立レビュー | HTMLのロゴ参照がPreview Root外となり、壊れた画像とalt表示を画像成功としていた | `04_UI`を公開Rootとし、画像完了・自然寸法・失敗数をVisual Oracleへ追加する | 公開CLIから5画面×3倍率を再実行し、公式ロゴ表示画面の画像成功と全15条件の失敗0を確認する | 公式ロゴ原本、Direction A、他のVisual構成 | 4画面を再描画し、公式ロゴ画面12条件でloaded 1／failed 0、Direction B 3条件で0／0を確認 |
+| Phase 6初回独立レビュー | cleanupを一時Root不存在だけで代表し、正常終了、Fallback、Process Tree、DevToolsおよびPreview Listenerを区別していなかった | 資源別の終了後観測と現在候補の入力ManifestをERB-ST-019へ追加する | 正常終了受理、強制Fallback、Process Tree、DevTools、Profile、Preview Listenerおよび一時Rootを全条件で確認する | 通常Profile非利用、外部Network 0、他Browser非操作 | 15条件で正常終了受理、Process Tree 0、DevTools 0、Profile 0、Preview Listener 0を確認。入力SHA-256とBrowser版をEvidenceへ固定 |
+| Phase 6初回独立レビュー | G1／G2時点のOPENと初期計画が、G3〜G5およびPhase 5／6の現在状態と同じ欄に残っていた | Gate時点の履歴と現在状態を分け、30 BHV／32 Relationを工程入口まで反映する | 01→02→03→04→05、UI／SPEC入口、CHGを順読し、状態逆行と現在件数の競合0を確認する | 当時未通過だった事実、v0.21の29 BHV／31 Relation | G1／G2を時点記録として明記し、解決済み判断と現在30 BHV／32 Relationへ更新 |
+| Phase 6独立再レビュー | Listener／Process局所反例試験を実Browser STへ直接Traceし、Quality RelationとCHG影響一覧へ未収載だった | Browser Lifecycle観測を独立した直接境界IT `ERB-IT-020`として追加し、実Browser STの完成根拠と分離する | Local Item段階、Test Symbol、Catalog、Reality算術、全回帰および実Browser 15条件を再確認する | `ERB-ST-019`のSystem/E2E境界と15条件Evidence | `ERB-IT-020`、Test Symbol、Catalog、Reality投影および影響一覧へ接続し、局所IT単独で実Browser STを完成扱いしない |
 
 ## 判断 / 承認の参照
 
@@ -267,10 +322,10 @@ WorkbenchのWIP、画面案または既存実装を正解として逆算しな�
   - Project Context局所契約試験: 3件Pass／0件Fail
   - Runtime Data契約試験: 36件Pass／0件Fail
   - Relation閉包の対象試験: 7件Pass／0件Fail
-  - `git diff --cached --check`: Pass
+  - `git diff --check`: Pass
   - UI Definition適用台帳: 20件
-  - SPEC Definition適用台帳: 29件
-- 独立レビュー対象: staged diff hash `9aa908918a8a759d6a821627e42628204dc789d3`
+  - SPEC Definition適用台帳: 30件
+- Phase 6独立レビュー対象: G1〜G5成果物、Visual Preview実装、新Meaning伝播、Quality Closureおよび現行差分の全件
 - 独立レビュー結果:
   - Phase 3文書監査: Pass／Finding 0
   - Phase 3不足影響・工程契約監査: Pass／Finding 0
@@ -278,7 +333,11 @@ WorkbenchのWIP、画面案または既存実装を正解として逆算しな�
   - Phase 4初回不足影響・工程契約監査: Fail／Major 2件。Relation単位の下流Ownerと負例不足を是正済み
   - Phase 4最終文書再レビュー: Pass／Finding 0
   - Phase 4最終不足影響・工程契約再レビュー: Pass／Finding 0
-- Quality Center: Detail Contract固定後にRequired Verificationへの導出を追加する
+  - Phase 6初回独立レビュー: Fail。ロゴ配信／画像Oracle、Browser終了後観測、工程状態・件数の現在性を是正した
+  - Phase 6独立再レビュー: Fail。局所Browser Lifecycle試験を`ERB-IT-020`へ分離し、Quality Relationと影響一覧へ接続した
+  - Phase 6最終独立文書再レビュー: Pass／Finding 0
+  - Phase 6最終不足影響・工程契約再レビュー: Pass／Finding 0
+- Quality Center: UI／SPEC Detailと新しいv0.22 MeaningからRequired Verificationへの導出を反映済み。未実装CapabilityのEvidenceは未観測のまま保持する
 
 ## リリース
 
@@ -288,10 +347,10 @@ WorkbenchのWIP、画面案または既存実装を正解として逆算しな�
 
 ## 既知の制限 / 残るリスク
 
-- SCR／PRT／BHVはv0.21成果物へCanonical IDとして発行した。CMPは実画面の反復根拠がないため理由付き未発行とし、Workbench Pilotで再評価する。
+- SCR／PRT／BHVは現在のCanonical成果物へ20 SCR、20 PRT、30 BHV、32 Relationとして発行した。CMPは実画面の反復根拠とBehavior／Accessibility Contractが不足するため理由付き未発行とし、実装後に再評価する。
 - Visual Source形式はPilotで比較し、Screenshotだけを正本にしない。
 - v0.21成果物のDetail伝播は過去Releaseの成立条件を変更せず、新契約へ現在のCanonical Contextを移行する。
 
 ## 後続対応 / ロードマップ
 
-独立レビュー通過後、v0.22の各アイテムをDiscoveryで再構成する。WorkbenchはDetail ContractのDogfood対象候補だが、Discovery前にSolutionとして確定しない。
+Phase 6の独立レビューはFinding 0で通過し、UI／SPEC Detail Contract固定候補が成立した。Workbenchはv0.22 Discoveryの採用済み意味を用いたDogfood対象であり、Pilot DesignとProduction実装を区別する。次のGateでは、未実装Capabilityを未観測のまま保持してReality Audit／実装へ進み、Secondary Screenの実装反復からPattern／CMP昇格の根拠を評価する。PilotだけからProduction完成を主張しない。
