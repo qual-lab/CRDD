@@ -30,6 +30,7 @@
 |---|---|
 | [IA-000002](../../../04_UI/Analysis/IA-000002/ui_analysis.md) | 内部Taskを逐次操作せず、何をどこまで誰へ任せ、何をもって受け入れるか理解する。 |
 | [IA-000006](../../../04_UI/Analysis/IA-000006/ui_analysis.md) | 論理Projectを一つに見ながら、情報源、物理Root、不完全性を取り違えず現在地を判断する。 |
+| [IA-000023](../../../04_UI/Analysis/IA-000023/ui_analysis.md) | 固定Project Contextから五つの観点、現在事実、共有分析、不完全性、期限状態およびOwner Relationを見分ける。 |
 
 ### 両観点の統合判断
 
@@ -249,7 +250,7 @@ Human Inputの判断者は「プロジェクト運営者／PMを代表する利�
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Project・Portfolio状態投影と受入判断記録](../../Definitions/ARCH-000005/architecture_definition.md) | New | Task完了、Objective受入、Milestone受入を分け、complete／partial／restricted／stale／conflicting／unknownを項目ごとに保つ。Portfolio比較でも不足を一つの健康度へ隠さない。 |
+| [Project・Portfolio状態投影と受入判断記録](../../Definitions/ARCH-000005/architecture_definition.md) | New | Task完了、Objective受入、Milestone受入を分ける。固定Project Contextでは五つの観点、現在事実、共有分析、不完全性、期限状態およびOwner Relationを保持し、項目別観測時点やLive状態を追加しない。Portfolio比較でも不足を一つの健康度へ隠さない。 |
 
 ## 5. SPEC観点との統合時に確認すること
 

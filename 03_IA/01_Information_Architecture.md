@@ -7,10 +7,10 @@
 
 ## 1. 何を分かりやすくするか
 
-利用者は、内部のファイル、Process、通信方式を覚えるのではなく、いま扱っている対象、現在状態、根拠、判断が必要な箇所、次の安全な行動を理解する必要がある。IAは、[32件の利用者成果](../02_UX/01_User_Experience.md#22-要求を利用者成果へまとめた結果)を、利用者が見分けて辿れる情報の単位、関係、状態、導線へ変換する。
+利用者は、内部のファイル、Process、通信方式を覚えるのではなく、いま扱っている対象、現在状態、根拠、判断が必要な箇所、次の安全な行動を理解する必要がある。IAは、[35件の利用者成果](../02_UX/01_User_Experience.md#22-要求を利用者成果へまとめた結果)を、利用者が見分けて辿れる情報の単位、関係、状態、導線へ変換する。
 
 ```text
-32件のUX定義
+35件のUX定義
       │
       ▼
 UXごとのIA分析
@@ -35,10 +35,10 @@ UXごとのIA分析
 
 | 入力 | 件数 | 現在の処置 |
 |---|---:|---|
-| UX定義 | 32 | 全件を`Analysis/UX-*/ia_analysis.md`で個別分析する |
-| IA分析 | 32 | 対象、識別、関係、状態、可視性、時間的な意味、優先度、まとまり、見つけ方、責任をUX Definitionから抽出する |
-| IA定義 | 22 | 複数UXで共有する意味を統合し、独立して変更・検証できる利用者向け情報単位へIDを発行する |
-| Reality Audit参考情報 | 32 | 現行文書・実装との比較候補を正式入力から分離して保持し、Canonical IA完成後に照合する |
+| UX定義 | 35 | 全件を`Analysis/UX-*/ia_analysis.md`で個別分析する |
+| IA分析 | 35 | 対象、識別、関係、状態、可視性、時間的な意味、優先度、まとまり、見つけ方、責任をUX Definitionから抽出する |
+| IA定義 | 23 | 複数UXで共有する意味を統合し、独立して変更・検証できる利用者向け情報単位へIDを発行する |
+| Reality Audit参考情報 | 35 | 現行文書・実装との比較候補を正式入力から分離して保持し、Canonical IA完成後に照合する |
 
 個別分析は[Analysis](Analysis/)に、現在有効な意味定義は[Definitions](Definitions/)に置く。個別分析から複数のIA定義が生じる場合も、複数分析を一つのIA定義へまとめる場合もある。
 
@@ -51,11 +51,11 @@ UXごとのIA分析
 | [IA-000003](Definitions/IA-000003/ia_definition.md) | 実行・失敗・外部作用・回復 | `UX-000003`、`UX-000004`、`UX-000021`、`UX-000022` |
 | [IA-000004](Definitions/IA-000004/ia_definition.md) | 実行事実・観測・評価 | `UX-000006` |
 | [IA-000005](Definitions/IA-000005/ia_definition.md) | 成立済み能力・契約・利用側・置換根拠 | `UX-000007` |
-| [IA-000006](Definitions/IA-000006/ia_definition.md) | Project・Repository・Binding・Projection | `UX-000009`、`UX-000011`、`UX-000015` |
-| [IA-000007](Definitions/IA-000007/ia_definition.md) | 手元の情報源と横断情報源 | `UX-000010` |
+| [IA-000006](Definitions/IA-000006/ia_definition.md) | Project・Repository・Binding・Projection | `UX-000009`、`UX-000011`、`UX-000015`、`UX-000034` |
+| [IA-000007](Definitions/IA-000007/ia_definition.md) | 手元の情報源と横断情報源 | `UX-000010`、`UX-000034` |
 | [IA-000008](Definitions/IA-000008/ia_definition.md) | 公開受付・通信方式・結果 | `UX-000012` |
-| [IA-000009](Definitions/IA-000009/ia_definition.md) | 接続資格・作業領域・公開範囲 | `UX-000013` |
-| [IA-000010](Definitions/IA-000010/ia_definition.md) | Meeting・Topic・候補・採否 | `UX-000014` |
+| [IA-000009](Definitions/IA-000009/ia_definition.md) | Role別接続資格・Repository範囲・Access Recovery | `UX-000013`、`UX-000035` |
+| [IA-000010](Definitions/IA-000010/ia_definition.md) | Meeting・Topic・候補・採否 | `UX-000014`、`UX-000033` |
 | [IA-000011](Definitions/IA-000011/ia_definition.md) | Tool能力・利用可否・配布根拠 | `UX-000016` |
 | [IA-000012](Definitions/IA-000012/ia_definition.md) | 実行時データ・保持・清掃 | `UX-000017`、`UX-000022` |
 | [IA-000013](Definitions/IA-000013/ia_definition.md) | AIモデル構成・選択・再選定 | `UX-000018` |
@@ -68,6 +68,7 @@ UXごとのIA分析
 | [IA-000020](Definitions/IA-000020/ia_definition.md) | 実行基盤の故障箇所と利用可能範囲 | `UX-000008` |
 | [IA-000021](Definitions/IA-000021/ia_definition.md) | 過去の判断と現在有効な意図 | `UX-000025` |
 | [IA-000022](Definitions/IA-000022/ia_definition.md) | 実行記録の作成・公開状態 | `UX-000032` |
+| [IA-000023](Definitions/IA-000023/ia_definition.md) | 標準Project Context・現在事実・共有分析・五場面 | `UX-000009`、`UX-000012`、`UX-000034` |
 
 ## 4. 全体の情報構造
 
@@ -104,9 +105,9 @@ UXごとのIA分析
 
 ## 6. 現在状態と次工程
 
-IAは32件のUX定義から対象・識別・関係・状態・可視性・導線・責任を再導出し、入力固有の意味を失わない22件のIA定義へ統合した。以前の独立レビュー後に記録作成側のGapを検出したため、UX-000032からIA-000022を追加し、更新範囲は再レビュー待ちである。UI部品、画面遷移、API、保存形式、状態実値は未確定であり、下流工程が本IAを満たす方法を比較する。
+IAは35件のUX定義から対象・識別・関係・状態・可視性・導線・責任を再導出し、入力固有の意味を失わない23件のIA定義へ統合した。標準Project ContextはIA-000023、Topic／Meetingの安全な維持はIA-000010、Project情報と作業差分の接続はIA-000006／007／023へ統合した。Role別Remote AccessとAccess RecoveryはIA-000009へ統合し、旧Workspace Grant方式をCanonicalな入力にしない。Workbench固有の情報正本は作らない。UI部品、画面遷移、API、保存形式、状態実値は未確定であり、下流工程が本IAを満たす方法を比較する。
 
-工程完了には、全32分析と22定義の独立再レビュー、UXだけからの再導出結果と現行文書・実装からの照合結果の分離、基本図の意味確認が必要である。IA-000020とIA-000021への分割は、人間の決定権限者が2026-09-15に採用した。
+工程完了には、全35分析と23定義の独立再レビュー、UXだけからの再導出結果と現行文書・実装からの照合結果の分離、基本図の意味確認が必要である。IA-000020とIA-000021への分割は、人間の決定権限者が2026-09-15に採用した。
 
 正式な後続接続は、UX DefinitionとIA Definitionの双方を入力とするUI／SPEC、およびIA工程に伴走するQuality Analysis / IAである。ArchitectureやSourceへ直接引き渡さない。
 

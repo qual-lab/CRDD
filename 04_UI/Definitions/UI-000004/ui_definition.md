@@ -16,6 +16,7 @@ UI ID: `UI-000004`
 | [UX-000005](../../Analysis/UX-000005/ui_analysis.md) | 内部タスクを逐次操作せず、目的・受入条件・統合状態から節目の完成と必要な判断を理解できる |
 | [UX-000009](../../Analysis/UX-000009/ui_analysis.md) | 物理構成を意識せずプロジェクトの現在地を理解し、欠測・制限・競合・古さと情報源へ戻れる |
 | [UX-000015](../../Analysis/UX-000015/ui_analysis.md) | 許可されたプロジェクトの重要差を比較し、網羅範囲と根拠を保ったまま必要なプロジェクトだけを掘り下げられる |
+| [UX-000034](../../Analysis/UX-000034/ui_analysis.md) | Projectの現在地、Owner、次の仕事から対象Repositoryの作業へ進める |
 
 ## IA観点の分析結果
 
@@ -23,6 +24,7 @@ UI ID: `UI-000004`
 |---|---|
 | [IA-000002](../../Analysis/IA-000002/ui_analysis.md) | 内部Taskを逐次操作せず、何をどこまで誰へ任せ、何をもって受け入れるか理解する。 |
 | [IA-000006](../../Analysis/IA-000006/ui_analysis.md) | 論理Projectを一つに見ながら、情報源、物理Root、不完全性を取り違えず現在地を判断する。 |
+| [IA-000023](../../Analysis/IA-000023/ui_analysis.md) | 固定Project Contextから五場面、現在事実、共有分析、不完全性、期限状態およびOwner Relationを見分ける。 |
 
 ## 両観点の統合判断
 
@@ -31,6 +33,7 @@ UI ID: `UI-000004`
 | [UX-000005](../../Analysis/UX-000005/ui_analysis.md) | 内部タスクを追わず統合済みの完成を判断できる | [IA-000002](../../Analysis/IA-000002/ui_analysis.md) | プロジェクト（Project）、節目（Milestone）、目的（Objective）、作業（Task）、受入条件、統合状態、品質を見分ける。状態は「Task完了／Objective受入／Milestone受入を別にする」。導線は「Milestone→目的と受入条件→Task根拠→受入判断」 |
 | [UX-000009](../../Analysis/UX-000009/ui_analysis.md) | 物理構成を意識せずプロジェクトの現在地を理解し、欠測・制限・競合・古さと情報源へ戻れる | [IA-000006](../../Analysis/IA-000006/ui_analysis.md) | プロジェクト（Project）、プロジェクト項目、読取り投影（Projection）、情報源（Source）、改訂版（Revision）、観測時点（Observed At）、対象範囲（Coverage）、競合を見分ける。状態は「complete／partial／開示制限（restricted）／stale／競合あり（conflicting）／不明（unknown）」。導線は「プロジェクト→現在投影→不足・競合→情報源→次の判断」 |
 | [UX-000015](../../Analysis/UX-000015/ui_analysis.md) | 重要差分から必要なプロジェクトだけを掘り下げられる | [IA-000006](../../Analysis/IA-000006/ui_analysis.md) | プロジェクト概要（Project Summary）、比較軸、対象範囲（Coverage）、観測時点（Observed At）、公開関係（Exposure）、情報源（Source）を見分ける。状態は「complete／partial／開示制限（restricted）／stale／競合あり（conflicting）」。導線は「Portfolio→差→対象範囲（Coverage）→Project→情報源（Source）」 |
+| [UX-000034](../../Analysis/UX-000034/ui_analysis.md) | Projectの意味から次の仕事と対象Repositoryへ進める | [IA-000023](../../Analysis/IA-000023/ui_analysis.md) | 現在地、Owner Relation、共有分析、次の一手、不完全性を見分け、Repository作業へ接続する |
 
 UIはUX側の目的だけでも、IA側の対象一覧だけでも成立しない。各行の利用者成果を、対応する情報・状態・関係・導線で判断可能にした時だけ、このUIの意味が成立する。
 
@@ -212,23 +215,27 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 ## 補足定義
 
-なし。
+Repository内のProject Contextでは、現在地、Risk・停止、判断待ち、理由・根拠および次の一手を一つの状況確認として示す。現在事実、共有分析、対話時の追加推論を分け、期限未設定を日程リスク未評価として示す。項目別観測時点、CI、Runtime、Deploy先およびInfrastructureのLive状態は表示対象にしない。Owner Artifactの変更未反映はCurrentでなく競合として示す。
 
 ## 正式入力と変換根拠
 
 - 正式入力: [UX-000005](../../../02_UX/Definitions/UX-000005/ux_definition.md)
 - 正式入力: [UX-000009](../../../02_UX/Definitions/UX-000009/ux_definition.md)
 - 正式入力: [UX-000015](../../../02_UX/Definitions/UX-000015/ux_definition.md)
+- 正式入力: [UX-000034](../../../02_UX/Definitions/UX-000034/ux_definition.md)
 - 正式入力: [IA-000002](../../../03_IA/Definitions/IA-000002/ia_definition.md)
 - 正式入力: [IA-000006](../../../03_IA/Definitions/IA-000006/ia_definition.md)
+- 正式入力: [IA-000023](../../../03_IA/Definitions/IA-000023/ia_definition.md)
 
 次の分析記録は正式入力をこの工程の観点へ変換した根拠であり、正式入力そのものではない。
 
 - 変換根拠: [UX-000005のUI分析](../../Analysis/UX-000005/ui_analysis.md)
 - 変換根拠: [UX-000009のUI分析](../../Analysis/UX-000009/ui_analysis.md)
 - 変換根拠: [UX-000015のUI分析](../../Analysis/UX-000015/ui_analysis.md)
+- 変換根拠: [UX-000034のUI分析](../../Analysis/UX-000034/ui_analysis.md)
 - 変換根拠: [IA-000002のUI分析](../../Analysis/IA-000002/ui_analysis.md)
 - 変換根拠: [IA-000006のUI分析](../../Analysis/IA-000006/ui_analysis.md)
+- 変換根拠: [IA-000023のUI分析](../../Analysis/IA-000023/ui_analysis.md)
 ## Checklist
 
 - [x] UX DefinitionとIA Definitionを正式入力とし、各分析記録を変換根拠として処置した

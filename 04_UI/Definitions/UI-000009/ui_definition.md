@@ -14,6 +14,7 @@ UI ID: `UI-000009`
 | UX分析 | このUIで保持する利用者成果 |
 |---|---|
 | [UX-000014](../../Analysis/UX-000014/ui_analysis.md) | 会話・観察・仮説・候補・決定を区別し、既存Topicとの関係を根拠付きで判断して所有正本へ戻せる |
+| [UX-000033](../../Analysis/UX-000033/ui_analysis.md) | TopicとMeetingを一通り扱い、正当な履歴を残して誤登録だけを安全に除ける |
 
 ## IA観点の分析結果
 
@@ -26,6 +27,7 @@ UI ID: `UI-000009`
 | UX分析 | 利用者が得たい結果 | 対応するIA分析 | UIで成立させる対応 |
 |---|---|---|---|
 | [UX-000014](../../Analysis/UX-000014/ui_analysis.md) | 会話と採用判断を混同せず仕事を継続できる | [IA-000010](../../Analysis/IA-000010/ui_analysis.md) | 会議（Meeting）、会議項目（Meeting Item）、候補（Candidate）、論点（Topic）、関係（Relation）、判断（Decision）、責任者（Owner）を見分ける。状態は「観測済み（observed）／候補（candidate）／採用（adopted）／却下（rejected）。会話と正本を分ける」。導線は「Meeting→Item→候補→既存Topic比較→採否→所有正本」 |
+| [UX-000033](../../Analysis/UX-000033/ui_analysis.md) | 正当な履歴を保って登録・更新・終了・訂正・削除を行う | [IA-000010](../../Analysis/IA-000010/ui_analysis.md) | Topic、Meeting、記録時点、Relation、Lifecycle処置、削除影響、操作結果を見分け、削除前に損失と復旧可能性を示す |
 
 UIはUX側の目的だけでも、IA側の対象一覧だけでも成立しない。各行の利用者成果を、対応する情報・状態・関係・導線で判断可能にした時だけ、このUIの意味が成立する。
 
@@ -146,11 +148,13 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 ## 正式入力と変換根拠
 
 - 正式入力: [UX-000014](../../../02_UX/Definitions/UX-000014/ux_definition.md)
+- 正式入力: [UX-000033](../../../02_UX/Definitions/UX-000033/ux_definition.md)
 - 正式入力: [IA-000010](../../../03_IA/Definitions/IA-000010/ia_definition.md)
 
 次の分析記録は正式入力をこの工程の観点へ変換した根拠であり、正式入力そのものではない。
 
 - 変換根拠: [UX-000014のUI分析](../../Analysis/UX-000014/ui_analysis.md)
+- 変換根拠: [UX-000033のUI分析](../../Analysis/UX-000033/ui_analysis.md)
 - 変換根拠: [IA-000010のUI分析](../../Analysis/IA-000010/ui_analysis.md)
 ## Checklist
 

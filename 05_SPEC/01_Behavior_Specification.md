@@ -21,10 +21,10 @@ UI定義 ───── pairs_with ───── SPEC定義
 
 | 入力／成果 | 件数 | 現在の処置 |
 |---|---:|---|
-| UX定義 | 32 | 全件を`Analysis/UX-*/spec_analysis.md`で個別分析する |
-| IA定義 | 22 | 全件を`Analysis/IA-*/spec_analysis.md`で個別分析する |
-| SPEC分析 | 54 | UX観点とIA観点を混ぜずに保持する |
-| SPEC定義 | 29 | 独立して条件・状態・結果を変更／検証できる振る舞い単位へ統合する |
+| UX定義 | 35 | 全件を`Analysis/UX-*/spec_analysis.md`で個別分析する |
+| IA定義 | 23 | 全件を`Analysis/IA-*/spec_analysis.md`で個別分析する |
+| SPEC分析 | 58 | UX観点とIA観点を混ぜずに保持する |
+| SPEC定義 | 30 | 独立して条件・状態・結果を変更／検証できる振る舞い単位へ統合する |
 | UI定義 | 20 | 多対多の`pairs_with`で操作・Feedbackと対応づける |
 
 ## 3. SPEC定義台帳
@@ -36,14 +36,14 @@ UI定義 ───── pairs_with ───── SPEC定義
 | [SPEC-000003](Definitions/SPEC-000003/spec_definition.md) | 委任した仕事の状態と判断要否を返す | `UX-000003` | `IA-000002`、`IA-000003` | `UI-000002` |
 | [SPEC-000004](Definitions/SPEC-000004/spec_definition.md) | 失敗後の再試行と回復を安全に選別する | `UX-000004`、`UX-000022` | `IA-000003`、`IA-000012` | `UI-000003` |
 | [SPEC-000005](Definitions/SPEC-000005/spec_definition.md) | 残存資源を清掃し終了後を確認する | `UX-000017`、`UX-000022` | `IA-000003`、`IA-000012` | `UI-000003`、`UI-000011` |
-| [SPEC-000006](Definitions/SPEC-000006/spec_definition.md) | Projectと節目の現在状態を投影する | `UX-000005`、`UX-000009` | `IA-000002`、`IA-000006` | `UI-000004` |
+| [SPEC-000006](Definitions/SPEC-000006/spec_definition.md) | Projectと節目の現在状態を投影する | `UX-000005`、`UX-000009`、`UX-000034` | `IA-000002`、`IA-000006`、`IA-000023` | `UI-000004` |
 | [SPEC-000007](Definitions/SPEC-000007/spec_definition.md) | 複数Projectを比較可能な投影へ統合する | `UX-000015` | `IA-000006` | `UI-000004` |
 | [SPEC-000008](Definitions/SPEC-000008/spec_definition.md) | 実行事実と評価を区別して取得する | `UX-000006` | `IA-000004` | `UI-000005` |
 | [SPEC-000009](Definitions/SPEC-000009/spec_definition.md) | 実行基盤の故障境界と利用可能範囲を診断する | `UX-000008` | `IA-000020` | `UI-000005` |
-| [SPEC-000010](Definitions/SPEC-000010/spec_definition.md) | Repositoryと実行対象のBindingを解決する | `UX-000010`、`UX-000011` | `IA-000006`、`IA-000007` | `UI-000006` |
-| [SPEC-000011](Definitions/SPEC-000011/spec_definition.md) | 複数入口で同じ依頼・結果契約を保つ | `UX-000012` | `IA-000008` | `UI-000007` |
-| [SPEC-000012](Definitions/SPEC-000012/spec_definition.md) | 接続資格からWorkspace利用範囲を確定する | `UX-000013` | `IA-000009` | `UI-000008` |
-| [SPEC-000013](Definitions/SPEC-000013/spec_definition.md) | Meeting内容を候補化し所有正本へ昇格する | `UX-000014` | `IA-000010` | `UI-000009` |
+| [SPEC-000010](Definitions/SPEC-000010/spec_definition.md) | Repositoryと実行対象のBindingを解決する | `UX-000010`、`UX-000011`、`UX-000034` | `IA-000006`、`IA-000007` | `UI-000006` |
+| [SPEC-000011](Definitions/SPEC-000011/spec_definition.md) | 複数入口で同じ依頼・結果契約を保つ | `UX-000012` | `IA-000008`、`IA-000023` | `UI-000007` |
+| [SPEC-000012](Definitions/SPEC-000012/spec_definition.md) | Role別Credentialから利用範囲を確定しAccessを回復する | `UX-000013`、`UX-000035` | `IA-000009` | `UI-000008` |
+| [SPEC-000013](Definitions/SPEC-000013/spec_definition.md) | Meeting・Topicを維持し候補を所有正本へ昇格する | `UX-000014`、`UX-000033` | `IA-000010` | `UI-000009` |
 | [SPEC-000014](Definitions/SPEC-000014/spec_definition.md) | Repositoryに適合する標準Toolを解決する | `UX-000016` | `IA-000011` | `UI-000010` |
 | [SPEC-000015](Definitions/SPEC-000015/spec_definition.md) | AIモデル構成を検証し実効選択を決める | `UX-000018` | `IA-000013` | `UI-000010` |
 | [SPEC-000016](Definitions/SPEC-000016/spec_definition.md) | 実行時データの配置・保持・清掃を制御する | `UX-000017`、`UX-000022` | `IA-000012`、`IA-000003` | `UI-000011` |
@@ -60,6 +60,7 @@ UI定義 ───── pairs_with ───── SPEC定義
 | [SPEC-000028](Definitions/SPEC-000028/spec_definition.md) | Taskの取消を要求し終了状態を確認する | `UX-000003` | `IA-000003` | `UI-000002` |
 | [SPEC-000029](Definitions/SPEC-000029/spec_definition.md) | 判断待ちTaskへ判断を返し再開可能にする | `UX-000003` | `IA-000002` | `UI-000002` |
 | [SPEC-000030](Definitions/SPEC-000030/spec_definition.md) | 実行事実を同じ契約で記録する | `UX-000032` | `IA-000022` | `UI-000020` |
+| [SPEC-000031](Definitions/SPEC-000031/spec_definition.md) | Repository差分を選びCommit・通常Pushする | `UX-000034` | `IA-000007` | `UI-000006` |
 
 ## 4. 振る舞いの種類
 

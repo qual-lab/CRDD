@@ -35,7 +35,7 @@ Quality Integration
 
 ## 3. 対象と入口
 
-REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18の計157 Canonical IDを正式入力とする。工程別Analysisが全IDを処置し、Quality Integrationが13のQuality Contractへ統合する。
+REQ 38、UX 32、IA 23、UI 20、SPEC 29、ARCH 18の計160 Canonical IDを正式入力とする。工程別Analysisが全IDを処置し、Quality Integrationが13のQuality Contractへ統合する。
 
 | 入口 | 本書で確認すること | 詳細の所有者 |
 |---|---|---|
@@ -111,7 +111,7 @@ Release／採用判断
 
 ## 7. 網羅と完了条件
 
-- 157 Canonical IDが工程別Analysisで全数処置されている。
+- 160 Canonical IDが工程別Analysisで全数処置されている。
 - Source固有条件がQuality IntegrationからQuality DefinitionのLocal Itemまで追跡できる。
 - すべてのQuality DefinitionがUT／IT／ST／UATとRT／PT／LTの適用を判断している。
 - 外部境界を含むLocal Itemが段階的な到達範囲、観測および終了後条件を持つ。

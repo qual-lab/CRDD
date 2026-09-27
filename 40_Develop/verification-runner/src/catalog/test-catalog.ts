@@ -75,7 +75,8 @@ export type TestCatalogEntry = Readonly<{
     | "semantic-coverage"
     | "version-control"
     | "platform-access"
-    | "verification-runner";
+    | "verification-runner"
+    | "visual-preview";
   path: string;
   level: TestLevel;
   kind: (typeof testKinds)[number];
@@ -121,6 +122,7 @@ export type TestCatalog = Readonly<{
     "version-control": "node_test";
     "platform-access": "cargo_test";
     "verification-runner": "node_test";
+    "visual-preview": "node_test";
   }>;
   integrationBlocks: readonly Readonly<{
     id: string;
@@ -169,6 +171,7 @@ const RUNNER_SUPPORTED_OWNERS = new Set([
   "version-control",
   "platform-access",
   "verification-runner",
+  "visual-preview",
 ]);
 const RUNNER_PROFILES = Object.freeze({
   "artifact-signing": "node_test",
@@ -186,6 +189,7 @@ const RUNNER_PROFILES = Object.freeze({
   "version-control": "node_test",
   "platform-access": "cargo_test",
   "verification-runner": "node_test",
+  "visual-preview": "node_test",
 });
 const validExecutionProfiles = new Set(executionProfiles);
 const validIntegrationLifecycleProfiles = new Set(integrationLifecycleProfiles);
@@ -351,6 +355,7 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
     "semantic-coverage",
     "version-control",
     "verification-runner",
+    "visual-preview",
   ].flatMap((owner) =>
     walkFiles(
       repositoryRoot,
@@ -409,7 +414,7 @@ function isTestLevel(value: unknown): value is TestLevel {
  */
 function expectedNodeLevel(entryPath: string): string | null {
   return (
-    /^40_Develop\/(?:artifact-signing|checker|coordinator|crdd-domain-library|cros|execution-intelligence|mcp|official-asset-governance|project-operation|project-runtime|runtime-data|semantic-coverage|verification-runner|version-control)\/tests\/([^/]+)\//u.exec(
+    /^40_Develop\/(?:artifact-signing|checker|coordinator|crdd-domain-library|cros|execution-intelligence|mcp|official-asset-governance|project-operation|project-runtime|runtime-data|semantic-coverage|verification-runner|version-control|visual-preview)\/tests\/([^/]+)\//u.exec(
       entryPath,
     )?.[1] ?? null
   );
@@ -1039,6 +1044,8 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
   if (changedPath.startsWith("40_Develop/checker/")) return "checker";
   if (changedPath.startsWith("40_Develop/verification-runner/"))
     return "verification-runner";
+  if (changedPath.startsWith("40_Develop/visual-preview/"))
+    return "visual-preview";
   if (changedPath.startsWith("40_Develop/crdd-domain-library/"))
     return "crdd-domain-library";
   if (changedPath.startsWith("40_Develop/cros/")) return "cros";

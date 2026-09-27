@@ -1,4 +1,4 @@
-# SPEC-000013 Meeting内容を候補化し所有正本へ昇格する
+# SPEC-000013 Meeting・Topicを維持し候補を所有正本へ昇格する
 
 成果物種別: SPEC定義
 SPEC ID: `SPEC-000013`
@@ -14,6 +14,7 @@ Meeting内容を候補化し所有正本へ昇格する。
 | UX分析 | 保持する利用者成果 |
 |---|---|
 | [UX-000014](../../Analysis/UX-000014/spec_analysis.md) | Meeting内容を候補化し採否を判断する |
+| [UX-000033](../../Analysis/UX-000033/spec_analysis.md) | TopicとMeetingを一通り扱い、正当な履歴を残して誤登録だけを安全に除く |
 
 ## IA観点の分析結果
 
@@ -118,11 +119,13 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 ## 正式入力と変換根拠
 
 - 正式入力: [UX-000014](../../../02_UX/Definitions/UX-000014/ux_definition.md)
+- 正式入力: [UX-000033](../../../02_UX/Definitions/UX-000033/ux_definition.md)
 - 正式入力: [IA-000010](../../../03_IA/Definitions/IA-000010/ia_definition.md)
 
 次の分析記録は正式入力をこの工程の観点へ変換した根拠であり、正式入力そのものではない。
 
 - 変換根拠: [UX-000014のSPEC分析](../../Analysis/UX-000014/spec_analysis.md)
+- 変換根拠: [UX-000033のSPEC分析](../../Analysis/UX-000033/spec_analysis.md)
 - 変換根拠: [IA-000010のSPEC分析](../../Analysis/IA-000010/spec_analysis.md)
 ## Checklist
 

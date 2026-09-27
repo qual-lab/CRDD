@@ -33,11 +33,11 @@
 
 | 利用の流れ | 主な想定利用者 | 起点 | 望む結果 | 関係する主なREQ |
 |---|---|---|---|---|
-| リポジトリで日常作業を進める | 開発者 | 対象リポジトリで仕事を始める | 横断機能を強制されず、入口が変わっても同じ正本と判断を使い、必要時だけCROSへ進める | `REQ-000006`、`REQ-000008`、`REQ-000010`、`REQ-000014`、`REQ-000028`、`REQ-000036` |
-| プロジェクトの現在地を判断する | プロジェクト運営者／PM | プロジェクト全体を確認する必要がある | 状態、欠測、競合、根拠、判断待ちを理解して次へ進める | `REQ-000003`、`REQ-000007`、`REQ-000009`、`REQ-000012`、`REQ-000020` |
+| リポジトリで日常作業を進める | 開発者 | 対象リポジトリで仕事を始める | 横断機能を強制されず、入口が変わっても同じ正本と判断を使い、必要時だけCROSへ進める | `REQ-000006`、`REQ-000008`、`REQ-000010`、`REQ-000014`、`REQ-000028`、`REQ-000036`、`REQ-000040` |
+| プロジェクトの現在地を判断する | プロジェクト運営者／PM | プロジェクト全体を確認する必要がある | 状態、期限、欠測、競合、根拠、判断待ちを理解し、Topic／Meetingや作業差分へ進める | `REQ-000003`、`REQ-000007`、`REQ-000009`、`REQ-000012`、`REQ-000020`、`REQ-000037`、`REQ-000038`、`REQ-000039`、`REQ-000040` |
 | 複数プロジェクトを比較する | 経営・管理層 | 複数プロジェクトの一覧上の注意対象を見つける | 許可範囲と網羅範囲を失わず、プロジェクトの根拠へ戻れる | `REQ-000013` |
 | 対話と構築を往復する | 依頼者、対話AI、コーディングAI | 合意した仕事を構築へ渡す | 会話全文を転記せず、同じタスクへ判断と結果が戻る | `REQ-000002`、`REQ-000017`、`REQ-000029` |
-| リモートで情報と結果へ戻る | リモート利用者 | 別Hostからプロジェクトへ接続する | 現在の作業領域範囲だけを使い、応答喪失後も同じ依頼へ戻れる | `REQ-000011`、`REQ-000021` |
+| リモートで情報と結果へ戻る | リモート利用者、CROS管理者 | 別Hostからプロジェクトへ接続する、または接続資格を維持する | Role範囲だけを使い、応答喪失後も同じ依頼へ戻り、管理不能時はHostから通常管理へ再入場できる | `REQ-000011`、`REQ-000021`、`REQ-000041` |
 | 実行基盤を導入・更新・回復する | 実行環境の導入・運用者 | 配布物を利用または停止後に再開する | 信頼要素、現在状態、残存、再試行、回復を取り違えない | `REQ-000004`、`REQ-000005`、`REQ-000015`、`REQ-000016`、`REQ-000018`、`REQ-000022`、`REQ-000023`、`REQ-000025`、`REQ-000034` |
 | 外部情報を送受信する | 外部へ渡す情報の所有者 | 外部利用の候補が生じる | 許可範囲だけを送り、同じタスクへ出所付き結果を戻す | `REQ-000017`、`REQ-000024`、`REQ-000027` |
 | 標準を変更・検証・公開する | CRDD作成者・保守者 | 課題または変更を受け取る | 意図、利用側、検証、根拠、公開状態を閉じる | `REQ-000001`、`REQ-000019`、`REQ-000026`、`REQ-000030`、`REQ-000031`、`REQ-000032`、`REQ-000033`、`REQ-000035` |
@@ -123,10 +123,10 @@
 | [UX-000006](Definitions/UX-000006/ux_definition.md) | 実行結果を振り返る時 | 推測と事実を混ぜず改善候補を判断できる | [REQ-000004](Analysis/REQ-000004/ux_analysis.md) |
 | [UX-000007](Definitions/UX-000007/ux_definition.md) | 責務・契約・接続部または実行環境の構成を変更する時 | 責務・契約・接続部の変更後も、維持・変更・廃止された能力を理解し、取り残しのない結果を安全に利用・公開できる | [REQ-000005](Analysis/REQ-000005/ux_analysis.md)、[REQ-000019](Analysis/REQ-000019/ux_analysis.md)、[REQ-000023](Analysis/REQ-000023/ux_analysis.md) |
 | [UX-000008](Definitions/UX-000008/ux_definition.md) | AI実行環境の導入または利用が止まった時 | AI実行環境の認証・起動・取消・結果取得・回復のどこに違いがあり、故障時に何が利用可能かを理解できる | [REQ-000023](Analysis/REQ-000023/ux_analysis.md) |
-| [UX-000009](Definitions/UX-000009/ux_definition.md) | プロジェクト状況を確認する時 | 物理構成を意識せずプロジェクトの現在地を理解し、欠測・制限・競合・古さと情報源へ戻れる | [REQ-000007](Analysis/REQ-000007/ux_analysis.md)、[REQ-000020](Analysis/REQ-000020/ux_analysis.md) |
+| [UX-000009](Definitions/UX-000009/ux_definition.md) | プロジェクト状況を確認する時 | 物理構成を意識せずプロジェクトの現在地を理解し、期限・欠測・制限・競合・未反映と情報源へ戻れる | [REQ-000007](Analysis/REQ-000007/ux_analysis.md)、[REQ-000020](Analysis/REQ-000020/ux_analysis.md)、[REQ-000037](Analysis/REQ-000037/ux_analysis.md)、[REQ-000038](Analysis/REQ-000038/ux_analysis.md) |
 | [UX-000010](Definitions/UX-000010/ux_definition.md) | リポジトリで作業を始める時 | 横断機能、Commit済み状態または特定の履歴実装を前提にせず、現在リポジトリで日常作業を開始・継続できる | [REQ-000008](Analysis/REQ-000008/ux_analysis.md)、[REQ-000036](Analysis/REQ-000036/ux_analysis.md) |
 | [UX-000011](Definitions/UX-000011/ux_definition.md) | 参照または操作対象を選ぶ時 | 論理プロジェクトを一つに見ながら、参照・実行・回復の対象リポジトリと基点フォルダを取り違えずに選べる | [REQ-000009](Analysis/REQ-000009/ux_analysis.md)、[REQ-000020](Analysis/REQ-000020/ux_analysis.md)、[REQ-000024](Analysis/REQ-000024/ux_analysis.md) |
-| [UX-000012](Definitions/UX-000012/ux_definition.md) | ローカルMCPの通信方式を選ぶ時 | stdio MCPとlocalhost HTTPのどちらでも、同じ入力・権限・状態・結果で仕事を続けられる | [REQ-000006](Analysis/REQ-000006/ux_analysis.md)、[REQ-000010](Analysis/REQ-000010/ux_analysis.md)、[REQ-000028](Analysis/REQ-000028/ux_analysis.md) |
+| [UX-000012](Definitions/UX-000012/ux_definition.md) | 接続方式またはProject理解の入口を選ぶ時 | 入口を変えても同じ入力・権限・状態・結果・Project Contextで仕事を続けられる | [REQ-000006](Analysis/REQ-000006/ux_analysis.md)、[REQ-000010](Analysis/REQ-000010/ux_analysis.md)、[REQ-000028](Analysis/REQ-000028/ux_analysis.md)、[REQ-000038](Analysis/REQ-000038/ux_analysis.md) |
 | [UX-000013](Definitions/UX-000013/ux_definition.md) | リモート接続を開始・再接続する時 | 場所が変わっても開示範囲を理解して安全に使える | [REQ-000011](Analysis/REQ-000011/ux_analysis.md) |
 | [UX-000014](Definitions/UX-000014/ux_definition.md) | Meeting後に決定・Topic・Actionを整理する時 | 会話と採用判断を混同せず仕事を継続できる | [REQ-000012](Analysis/REQ-000012/ux_analysis.md) |
 | [UX-000015](Definitions/UX-000015/ux_definition.md) | 複数プロジェクトの一覧の優先度を判断する時 | 重要差分から必要なプロジェクトだけを掘り下げられる | [REQ-000013](Analysis/REQ-000013/ux_analysis.md) |
@@ -147,6 +147,9 @@
 | [UX-000030](Definitions/UX-000030/ux_definition.md) | ブランド素材を追加または利用する時 | 公式識別へ安心して収載・派生利用できる | [REQ-000035](Analysis/REQ-000035/ux_analysis.md) |
 | [UX-000031](Definitions/UX-000031/ux_definition.md) | 公式らしい入口や視覚素材を見つけた時 | 見た目だけを信頼根拠にせず適切な入口を選べる | [REQ-000035](Analysis/REQ-000035/ux_analysis.md) |
 | [UX-000032](Definitions/UX-000032/ux_definition.md) | AIまたはToolの観測可能な実行段階が確定し、事実を後から比較できる形で残す時 | 記録の成否と不明状態を見分け、重複記録や別実行の上書きを起こさず次の処置を選べる | [REQ-000004](Analysis/REQ-000004/ux_analysis.md) |
+| [UX-000033](Definitions/UX-000033/ux_definition.md) | 論点や会議記録を扱う時、誤登録を見つけた時 | 入口を変えても同じ記録を扱い、正当な履歴を残して誤登録だけを安全に除ける | [REQ-000039](Analysis/REQ-000039/ux_analysis.md) |
+| [UX-000034](Definitions/UX-000034/ux_definition.md) | Projectの状況から次の仕事を選び、変更を確認・共有する時 | Projectの意味と作業差分を結び、状況理解から通常Pushまで一続きで進める | [REQ-000040](Analysis/REQ-000040/ux_analysis.md) |
+| [UX-000035](Definitions/UX-000035/ux_definition.md) | Credentialを発行・失効・回復する時 | User管理なしでRole別Credentialを維持し、管理不能時も安全に再入場できる | [REQ-000041](Analysis/REQ-000041/ux_analysis.md) |
 
 ## 4. 体験をまたぐ分岐
 

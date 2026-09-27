@@ -26,6 +26,11 @@ IA ID: `IA-000007`
 | UX-000010: 手元の情報 | 手元の情報 | Same | Repository内で直接利用できるContextを保持する |
 | UX-000010: 日常作業 | 手元の作業 | Rename | Repository内で完結する作業として保持する |
 | UX-000010: 履歴管理能力 | 履歴管理能力 | Same | Git等へ交換可能な履歴境界として保持する |
+| UX-000034: 作業ツリー状態 | 履歴管理状態 | Rename | 差替可能な履歴管理能力の現在状態として保持する |
+| UX-000034: 差分 | 変更差分 | Rename | Pathと比較基準に結び付く変更として保持する |
+| UX-000034: Commit候補 | 変更集合 | Rename | Staged集合とMessageに結び付く共有前単位として保持する |
+| UX-000034: Push対象 | 外部共有対象 | Rename | Remote、Branch、Commit集合を確認対象として保持する |
+| UX-000034: 操作結果 | 履歴管理操作結果 | Rename | 要求、受理、拒否、終了後状態を区別する |
 | UX-000010: リポジトリ横断情報源 | リポジトリ横断情報源 | Same | 手元の情報で不足するときだけ参照する別情報源を保持する |
 
 `Same`は意味を維持した名称統一、`Rename`は意味を変えないCanonical表示、`Merge`は同一の利用者成果を支える情報の統合、`Split`は一つの分析候補に含まれていた別Identityの分離を表す。正式入力から導けない`New`はここで追加せず、該当IA分析を再開する。
@@ -37,6 +42,11 @@ IA ID: `IA-000007`
 | UX-000010: 手元の情報 | 検証済みリポジトリの基点フォルダ（Repository Root） | 手元の情報 | 検証済みリポジトリの基点フォルダ（Repository Root） | Same。Repository内で直接利用できるContextを保持する |
 | UX-000010: 日常作業 | 対象Repositoryへ結ぶ | 手元の作業 | 対象Repositoryへ結ぶ | Rename。Repository内で完結する作業として表示を明確にする |
 | UX-000010: 履歴管理能力 | 接続口（Port）／利用能力（Capability）で識別 | 履歴管理能力 | 接続口（Port）／利用能力（Capability）で識別 | Same。Git等へ交換可能な履歴境界として保持する |
+| UX-000034: 作業ツリー状態 | Repository＋Path＋観測改訂版 | 履歴管理状態 | Repository＋Path＋観測改訂版 | Rename。現在状態と観測時点を保持する |
+| UX-000034: 差分 | Repository＋Path＋比較基準 | 変更差分 | Repository＋Path＋比較基準 | Rename。比較対象を失わない |
+| UX-000034: Commit候補 | 選択したStaged集合とMessage | 変更集合 | Staged集合＋Message | Rename。共有前に選んだ変更を保持する |
+| UX-000034: Push対象 | Repository＋Remote＋Branch＋送信対象Commit | 外部共有対象 | Repository＋Remote＋Branch＋Commit集合 | Rename。人間確認する送信対象を保持する |
+| UX-000034: 操作結果 | 操作Identityと終了後観測 | 履歴管理操作結果 | 操作Identity＋要求／受理／終了後観測 | Rename。要求発行とRemote反映を区別する |
 | UX-000010: リポジトリ横断情報源 | 情報源Identityと許可範囲で識別する | リポジトリ横断情報源 | 情報源Identityと許可範囲で識別し、Access Stateを保持する | Same。手元の情報で不足するときだけ参照する別情報源を保持する |
 
 Object名だけでなく、同じものと別のものを区別するIdentity、およびObject間のRelationがAnalysisからどう変換されたかを明示する。CanonicalなIdentityまたはRelationを利用側で再解釈しない。
@@ -47,11 +57,21 @@ Object名だけでなく、同じものと別のものを区別するIdentity、
 | 手元の作業（Local Work） | 手元で開始・完了できる仕事 | 対象Repositoryへ結合 |
 | リポジトリ横断情報源（Cross-repository Source） | CROSから得る追加情報 | 情報源Identityと許可範囲で識別し、Access Stateを保持する |
 | 履歴管理能力（Version Control Capability） | 履歴を扱う差替可能な能力 | 接続口（Port）／利用能力（Capability）で識別 |
+| 履歴管理状態 | Staged、Unstaged、Untracked、Conflict等の現在状態 | Repository＋Path＋観測改訂版 |
+| 変更差分 | 変更前後の内容 | Repository＋Path＋比較基準 |
+| 変更集合 | Commit候補として選ばれた変更 | Staged集合＋Message |
+| 外部共有対象 | Remoteへ送るBranchとCommit集合 | Repository＋Remote＋Branch＋Commit集合 |
+| 履歴管理操作結果 | 要求、受理、拒否および終了後状態 | 操作Identity＋終了後観測 |
 
 ```text
 [O: 手元の情報（Local Context）] --支える--> [O: 手元の作業（Local Work）]
 [O: 手元の作業（Local Work）] --要求する場合がある--> [O: リポジトリ横断情報源（Cross-repository Source）]
 [O: 手元の情報（Local Context）] --利用する場合がある--> [O: 履歴管理能力（Version Control Capability）]
+[O: 履歴管理能力（Version Control Capability）] --観測する--> [O: 履歴管理状態]
+[O: 履歴管理状態] --比較して示す--> [O: 変更差分]
+[O: 変更差分] --選択してまとめる--> [O: 変更集合]
+[O: 変更集合] --送信対象にする--> [O: 外部共有対象]
+[O: 外部共有対象] --結果を返す--> [O: 履歴管理操作結果]
 ```
 
 上表は複数の入力UXを横断して利用する中心対象を示す。入力固有の対象は「利用場面」の対応表にも保持し、中心対象へ統合できない意味を欠落として扱う。
@@ -80,6 +100,7 @@ Object名だけでなく、同じものと別のものを区別するIdentity、
 | 入力UX | 情報を作成・更新・提供する責任 | 意味・状態・次の行動を決める権限 |
 |---|---|---|
 | UX-000010 | Repository正本を管理する主体が手元の正本を保ち、許可された横断情報源を提供する責任が許可された横断情報源を提供し、履歴を運ぶ責任が履歴を運ぶ | 利用者が横断参照の要否を選び、Repository正本を管理する主体が外部公開可能範囲を決める |
+| UX-000034 | 履歴管理能力が現在状態・差分・操作結果を提供する | 利用者がStage、CommitおよびPush対象を決め、接続CredentialだけからAuthorityを生成しない |
 
 責任と判断権限が同じ主体に属する場合も、情報を正確に保つ責任と、意味・状態・次の行動を確定する権限を同一視しない。各利用場面の導線は「利用場面」の対応表を正とし、結果なし、判断待ち、失敗、状態不明の場合も、根拠または安全な戻り先へ接続する。
 
@@ -101,6 +122,7 @@ Object名だけでなく、同じものと別のものを区別するIdentity、
 | 入力UX | 重要場面 | 避ける失敗 | 品質期待 |
 |---|---|---|---|
 | UX-000010 | 横断利用へ切り替える判断 | CROS未設定で手元作業まで止まる | 手元を既定にし横断を任意に保つ |
+| UX-000034 | 外部へPushする直前 | 誤ったRemote、BranchまたはCommitを送り、失敗状態を隠す | 送信対象を示し、人間確認と終了後状態を保つ |
 
 各利用場面で、重要な失敗を避けながら品質期待を満たせることを確認する。具体的な試験項目と実行方法はQuality工程で設計する。
 
@@ -109,6 +131,7 @@ Object名だけでなく、同じものと別のものを区別するIdentity、
 | 入力UX | UXから継承する確認事項 | 判断者 | 現在判定 | 未確認時の影響 |
 |---|---|---|---|---|
 | UX-000010 | REQ-000008: 開発者が「現在リポジトリだけで日常作業を完結する」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000036: 開発者が「日常作業をCommit SHAや特定Git実装から切り離す」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | 開発者を代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 利用者成果、重要場面、失敗および品質期待を仮説として保持し、定量条件や実現方式を確定しない。 |
+| UX-000034 | 役割別情報量、部分Stage、Large Repository、認証失敗時の負担、既存Toolとの比較価値 | 開発者、Project運営者／PMおよびQual-Lab | 後続確認が必要 | Screen、Visual、性能条件および高度な操作を確定しない |
 
 IA固有の追加人間判断はない。これは入力UXの未確認事項が解消済みという意味ではない。正式入力にないObject、情報境界、所有責任または状態を追加する必要が生じた場合は人間の決定権限者へ戻す。UI／SPEC分析またはQuality Analysis / IAで対象・同一性・関係・状態・可視性・時間的な意味の不足または競合が判明した場合はIAを再開する。
 
@@ -125,6 +148,7 @@ ArchitectureやSourceへ直接引き渡さない。UI／SPECはUX DefinitionとI
 ## 情報源
 
 - [UX-000010のIA分析](../../Analysis/UX-000010/ia_analysis.md)
+- [UX-000034のIA分析](../../Analysis/UX-000034/ia_analysis.md)
 
 ## 補足分析
 

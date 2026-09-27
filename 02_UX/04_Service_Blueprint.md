@@ -82,6 +82,9 @@
 | [UX-000030](Definitions/UX-000030/ux_definition.md) | 情報を選ぶ | ブランド素材を追加または利用する時 |
 | [UX-000031](Definitions/UX-000031/ux_definition.md) | 情報を選ぶ | 公式らしい入口や視覚素材を見つけた時 |
 | [UX-000032](Definitions/UX-000032/ux_definition.md) | 実行・待機する | AIまたはToolの観測可能な実行段階が確定し、事実を後から比較できる形で残す時 |
+| [UX-000033](Definitions/UX-000033/ux_definition.md) | 候補を反映する | 論点や会議記録を維持し、終了・訂正・誤登録削除を判断する時 |
+| [UX-000034](Definitions/UX-000034/ux_definition.md) | 情報を選ぶ／候補を反映する | Projectの意味から次の仕事と作業差分を確認し、共有対象を決める時 |
+| [UX-000035](Definitions/UX-000035/ux_definition.md) | 導入を判断する／停止後に回復する | Role別Credentialを維持し、全喪失または認可破損から通常管理へ戻る時 |
 
 ## 4. AI同士の引き渡し
 

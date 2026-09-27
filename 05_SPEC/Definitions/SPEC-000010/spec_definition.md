@@ -15,6 +15,7 @@ Repositoryと実行対象のBindingを解決する。
 |---|---|
 | [UX-000010](../../Analysis/UX-000010/spec_analysis.md) | リポジトリ単独で日常作業を続ける |
 | [UX-000011](../../Analysis/UX-000011/spec_analysis.md) | プロジェクト・リポジトリ・基点フォルダを区別して対象を選ぶ |
+| [UX-000034](../../Analysis/UX-000034/spec_analysis.md) | Project判断に対応するRepositoryと作業対象を解決する |
 
 ## IA観点の分析結果
 
@@ -152,6 +153,7 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 - 正式入力: [UX-000010](../../../02_UX/Definitions/UX-000010/ux_definition.md)
 - 正式入力: [UX-000011](../../../02_UX/Definitions/UX-000011/ux_definition.md)
+- 正式入力: [UX-000034](../../../02_UX/Definitions/UX-000034/ux_definition.md)
 - 正式入力: [IA-000006](../../../03_IA/Definitions/IA-000006/ia_definition.md)
 - 正式入力: [IA-000007](../../../03_IA/Definitions/IA-000007/ia_definition.md)
 
@@ -159,6 +161,7 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 - 変換根拠: [UX-000010のSPEC分析](../../Analysis/UX-000010/spec_analysis.md)
 - 変換根拠: [UX-000011のSPEC分析](../../Analysis/UX-000011/spec_analysis.md)
+- 変換根拠: [UX-000034のSPEC分析](../../Analysis/UX-000034/spec_analysis.md)
 - 変換根拠: [IA-000006のSPEC分析](../../Analysis/IA-000006/spec_analysis.md)
 - 変換根拠: [IA-000007のSPEC分析](../../Analysis/IA-000007/spec_analysis.md)
 ## Checklist

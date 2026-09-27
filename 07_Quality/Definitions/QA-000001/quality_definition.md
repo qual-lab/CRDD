@@ -48,7 +48,7 @@ Quality ID: `QA-000001`
 |---|---|---|
 | [ARCH-000001](../../../06_Architecture/Definitions/ARCH-000001/architecture_definition.md) | 機械判定と意味判断の分離、同一入力への決定性 | `RCM-UT-001`、`RCM-UT-002` |
 | [ARCH-000002](../../../06_Architecture/Definitions/ARCH-000002/architecture_definition.md) | 旧／新Owner、Producer、全Consumer、派生物、公開／Release／Recovery経路の閉包 | `RCM-IT-003`、`RCM-IT-004`、`RCM-IT-005` |
-| [Quality Integration](../../04_Quality_Integration.md) | 全157 Canonical定義、5横断モデル、15 Canonical詳細設計領域と1 Candidate詳細設計領域から導いた検証範囲 | 全項目 |
+| [Quality Integration](../../04_Quality_Integration.md) | 全160 Canonical定義、5横断モデル、15 Canonical詳細設計領域と1 Candidate詳細設計領域から導いた検証範囲 | 全項目 |
 
 ## 3. 試験段階と外部境界の適用
 

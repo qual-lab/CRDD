@@ -15,6 +15,7 @@ UI ID: `UI-000006`
 |---|---|
 | [UX-000010](../../Analysis/UX-000010/ui_analysis.md) | 横断機能、Commit済み状態または特定の履歴実装を前提にせず、現在リポジトリで日常作業を開始・継続できる |
 | [UX-000011](../../Analysis/UX-000011/ui_analysis.md) | 論理プロジェクトを一つに見ながら、参照・実行・回復の対象リポジトリと基点フォルダを取り違えずに選べる |
+| [UX-000034](../../Analysis/UX-000034/ui_analysis.md) | Projectの次の仕事に対応するTreeとDiffを確認し、Stage・Commit・通常Pushまで安全に進める |
 
 ## IA観点の分析結果
 
@@ -29,6 +30,7 @@ UI ID: `UI-000006`
 |---|---|---|---|
 | [UX-000010](../../Analysis/UX-000010/ui_analysis.md) | 横断機能、Commit済み状態または特定の履歴実装を前提にせず、現在リポジトリで日常作業を開始・継続できる | [IA-000007](../../Analysis/IA-000007/ui_analysis.md) | Repository-local 情報源（Source）、日常作業、横断情報源、履歴管理能力を見分ける。状態は「手元で利用可能（local available）／横断情報源を利用不能（cross-source unavailable）でも継続可能」。導線は「Repository→手元の正本→作業、必要時だけCROS」 |
 | [UX-000011](../../Analysis/UX-000011/ui_analysis.md) | 論理プロジェクトを一つに見ながら、参照・実行・回復の対象リポジトリと基点フォルダを取り違えずに選べる | [IA-000006](../../Analysis/IA-000006/ui_analysis.md) | プロジェクト（Project）、リポジトリ（Repository）、リポジトリの基点フォルダ（Repository Root）、結合情報（Binding）を見分ける。状態は「確認済み（verified）／未確認（unverified）／曖昧（ambiguous）／利用不能（unavailable）」。導線は「Project→Repository→Binding→検証済みRoot」 |
+| [UX-000034](../../Analysis/UX-000034/ui_analysis.md) | 作業差分と外部共有対象を取り違えず進める | [IA-000007](../../Analysis/IA-000007/ui_analysis.md) | Repository、Branch、HEAD、Tree、Diff、Staged集合、Commit候補、Remote、Push対象、操作結果を見分ける。導線は「Repository→Tree→Diff→Stage→Commit→Push確認→終了後状態」 |
 
 UIはUX側の目的だけでも、IA側の対象一覧だけでも成立しない。各行の利用者成果を、対応する情報・状態・関係・導線で判断可能にした時だけ、このUIの意味が成立する。
 
@@ -105,7 +107,7 @@ SPECはこの表の結論を転記せず、UX観点とIA観点を別々に分析
 
 ## 対応するSPEC
 
-- pairs_with: [SPEC-000010](../../../05_SPEC/Definitions/SPEC-000010/spec_definition.md)
+- pairs_with: [SPEC-000010](../../../05_SPEC/Definitions/SPEC-000010/spec_definition.md)、[SPEC-000031](../../../05_SPEC/Definitions/SPEC-000031/spec_definition.md)
 
 UIは認識・操作・Feedbackを所有し、SPECの条件・状態・結果をこの節で再定義しない。
 
@@ -190,6 +192,7 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 - 正式入力: [UX-000010](../../../02_UX/Definitions/UX-000010/ux_definition.md)
 - 正式入力: [UX-000011](../../../02_UX/Definitions/UX-000011/ux_definition.md)
+- 正式入力: [UX-000034](../../../02_UX/Definitions/UX-000034/ux_definition.md)
 - 正式入力: [IA-000006](../../../03_IA/Definitions/IA-000006/ia_definition.md)
 - 正式入力: [IA-000007](../../../03_IA/Definitions/IA-000007/ia_definition.md)
 
@@ -197,6 +200,7 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 - 変換根拠: [UX-000010のUI分析](../../Analysis/UX-000010/ui_analysis.md)
 - 変換根拠: [UX-000011のUI分析](../../Analysis/UX-000011/ui_analysis.md)
+- 変換根拠: [UX-000034のUI分析](../../Analysis/UX-000034/ui_analysis.md)
 - 変換根拠: [IA-000006のUI分析](../../Analysis/IA-000006/ui_analysis.md)
 - 変換根拠: [IA-000007のUI分析](../../Analysis/IA-000007/ui_analysis.md)
 ## Checklist

@@ -228,6 +228,7 @@ const sourceOwnershipRoots = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "semantic-coverage"),
   path.join(repositoryRoot, "40_Develop", "verification-runner"),
   path.join(repositoryRoot, "40_Develop", "version-control"),
+  path.join(repositoryRoot, "40_Develop", "visual-preview"),
   path.join(repositoryRoot, "template", "tools"),
 ]);
 type PublicIndexProfile = Readonly<{
@@ -441,6 +442,12 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     exportedModules: ["./application/regression-runner.ts"],
   },
   {
+    relativePath: "40_Develop/visual-preview/src/index.ts",
+    expectedTrace: "ARCH-000003",
+    requiredTags: ["boundary", "effect", "security"],
+    exportedModules: ["./preview-server.ts"],
+  },
+  {
     relativePath: "40_Develop/version-control/src/index.ts",
     expectedTrace: "ARCH-000002",
     requiredTags: ["boundary", "effect"],
@@ -515,6 +522,7 @@ const projectConfigs = Object.freeze([
     "tsconfig.json",
   ),
   path.join(repositoryRoot, "40_Develop", "version-control", "tsconfig.json"),
+  path.join(repositoryRoot, "40_Develop", "visual-preview", "tsconfig.json"),
 ]);
 
 /**

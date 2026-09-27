@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CROS Workbench — Direction A: Decision Rail</title>
+    <link rel="stylesheet" href="workbench-hero.css?v=platform-profiles" />
+  </head>
+  <body class="direction-a">
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">C</div>
+          <div><strong>CROS</strong><span>PROJECT WORKBENCH</span></div>
+        </div>
+        <div class="project-switcher">
+          <small>Current project</small>
+          <b>CRDD Standard</b>
+        </div>
+        <nav aria-label="Project navigation">
+          <h3>Understand</h3>
+          <a class="active" href="#"><i>◆</i>Project workspace</a>
+          <a href="#"><i>⌁</i>Plan and milestones</a>
+          <a href="#"><i>!</i>Quality and evidence</a>
+          <h3>Continue work</h3>
+          <a href="#"><i>○</i>Topics</a>
+          <a href="#"><i>□</i>Meetings</a>
+          <a href="#"><i>↗</i>Runtime activity</a>
+          <h3>Build</h3>
+          <a href="#"><i>⌘</i>Repository worktree</a>
+          <a href="#"><i>✦</i>AIへの依頼</a>
+        </nav>
+        <div class="sidebar-foot">Visual fixture<br />Development projection</div>
+      </aside>
+
+      <main class="main">
+        <div class="topbar">
+          <div class="breadcrumbs">Portfolio / CRDD Standard / Current</div>
+          <button class="ask-ai">✦ このProjectについてAIへ依頼</button>
+        </div>
+
+        <header class="project-head">
+          <div>
+            <div class="eyebrow" style="color: #75d2c3">v0.22 · Design completeness</div>
+            <h1>Projectの現在地から、次の判断へ。</h1>
+            <p>確認済み事実、保存済み分析、今回の追加推論を分けて扱います。</p>
+          </div>
+          <div class="deadline">
+            <span>Release target</span>
+            <b>10 / 03</b>
+            <span>6 days remaining · schedule attention</span>
+          </div>
+        </header>
+
+        <section class="signal">
+          <div class="signal-label">現在</div>
+          <div class="signal-content">
+            <h2>G2 Hero Selectionを完了し、Visual Explorationへ進行中</h2>
+            <p>Project WorkspaceをHeroとして採用。正式なSCR／PRTはVisual展開後に発行します。</p>
+          </div>
+        </section>
+
+        <section class="signal primary">
+          <div class="signal-label">判断が必要</div>
+          <div class="signal-content">
+            <h2>WorkbenchのVisual Directionを比較する</h2>
+            <p>Decision RailとContext Canvasを、同じProject状態・欠測・操作条件で比較します。</p>
+            <div class="inline-actions">
+              <button class="primary">比較を開く</button>
+              <button>根拠を見る</button>
+              <button>Topicへ継続</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="signal">
+          <div class="signal-label">重要</div>
+          <div class="signal-content">
+            <h2>Release目標に対して、Visual Gateと下流伝播が未完了</h2>
+            <p>G3〜G5を飛ばさず、Architecture／Qualityの11件の現行Gapも別の成立条件として扱います。</p>
+          </div>
+        </section>
+
+        <section class="signal">
+          <div class="signal-label">変化</div>
+          <div class="signal-content">
+            <h2>Screen Architectureと大量情報の表示責務を追加</h2>
+            <p>Project、Topic、Meeting、Evidence、Relation、Runtime、Repository Treeを全件取得しない契約へ更新しました。</p>
+          </div>
+        </section>
+
+        <section class="signal">
+          <div class="signal-label">次の一手</div>
+          <div class="signal-content">
+            <h2>Human Direction Decision後、Topic Detailへ展開</h2>
+            <p>採用Directionを具体作業面へ適用し、反復した構造だけをPattern／CMP候補として評価します。</p>
+            <div class="inline-actions"><button>Topicを確認</button><button>未Commit差分を見る</button></div>
+          </div>
+        </section>
+      </main>
+
+      <aside class="right-rail">
+        <section class="rail-section">
+          <h2>Project signals</h2>
+          <div class="rail-row"><span>Schedule</span><b style="color: #f2d18c">Attention</b></div>
+          <div class="rail-row"><span>Quality</span><b>375 pass</b></div>
+          <div class="rail-row"><span>Current gaps</span><b>11 open</b></div>
+          <div class="rail-row"><span>Working tree</span><b>Changes present</b></div>
+        </section>
+
+        <section class="rail-section">
+          <h2>Observation boundary</h2>
+          <div class="rail-row"><span><i class="dot" style="background: #62b9a9"></i>Development</span><b>Observed</b></div>
+          <div class="rail-row"><span><i class="dot" style="background: #62b9a9"></i>Quality</span><b>Observed</b></div>
+          <div class="rail-note">宣言されたCoverage外のContextについて、存在または不存在を推測しません。</div>
+        </section>
+
+        <section class="rail-section">
+          <h2>Continue</h2>
+          <div class="rail-row"><span>Open topics</span><b>12</b></div>
+          <div class="rail-row"><span>Meeting actions</span><b>3</b></div>
+          <div class="rail-row"><span>Decision waiting</span><b style="color: #f2d18c">1</b></div>
+        </section>
+
+        <section class="rail-section">
+          <h2>Owner sources</h2>
+          <a class="source-link" href="#">PROJECT_CONTEXT.md</a>
+          <a class="source-link" href="#">99_Roadmap / v0.22</a>
+          <a class="source-link" href="#">CHG-000081 / current gate</a>
+          <a class="source-link" href="#">Quality Center / open gaps</a>
+        </section>
+      </aside>
+    </div>
+    <div class="direction-label">DIRECTION A · DECISION RAIL · VISUAL FIXTURE</div>
+  </body>
+</html>

@@ -35,6 +35,7 @@ Quality ID: `QA-000006`
 | [cros](../../../06_Architecture/Details/cros/01_Architecture.md) | Repository横断解決、Grant、投影、外部接続、候補処置 |
 | [platform-access](../../../06_Architecture/Details/platform-access/01_Architecture.md) | OS資源、Process Effect、観測、cleanup、回復 |
 | [verification-runner](../../../06_Architecture/Details/verification-runner/01_Architecture.md) | 外部境界試験の段階適用、子Process結果および観測不能時の停止 |
+| [visual-preview](../../../06_Architecture/Details/visual-preview/01_Architecture.md) | Repository内Visual Root、localhost HTTP、読取り専用配信およびListener清掃 |
 
 ## 2. Lifecycle全体
 
@@ -64,7 +65,7 @@ Quality ID: `QA-000006`
 | 条件区分 | 適用 | 対応Local Item | 判断理由 |
 |---|---|---|---|
 | 正常 | Required | ERB-IT-001、ERB-UT-016 | 通常の成立経路を独立して確認する。 |
-| 境界 | Required | ERB-IT-002、ERB-IT-006、ERB-UAT-007、ERB-IT-008、ERB-IT-010、ERB-ST-015 | 値、Authority、情報、責務または利用者判断の境界を確認する。 |
+| 境界 | Required | ERB-IT-002、ERB-IT-006、ERB-UAT-007、ERB-IT-008、ERB-IT-010、ERB-ST-015、ERB-IT-018 | 値、Authority、情報、責務、localhost配信範囲または利用者判断の境界を確認する。 |
 | 準正常 | Required | ERB-IT-004、ERB-ST-005 | 継続可能な分岐、保留、観測不能または診断状態を成功へ畳まない。 |
 | 異常 | N/A | - | 独立した異常条件を持たない。 |
 | 回復 | Required | ERB-IT-003、ERB-ST-009、ERB-ST-011、ERB-IT-012、ERB-ST-013、ERB-IT-014、ERB-IT-017 | 失敗・取消後に同じIdentityと義務で安全に再入場できることを確認する。 |
@@ -104,6 +105,7 @@ Quality ID: `QA-000006`
 | `ERB-ST-015` | 境界 | ST | Boundary Progression | 局所Gate→直接境界→Lifecycle→公開入口 | System/E2E | 段階別結果と下位未Pass／未実行反例 | 下位Gate成立時だけ次の境界を実行する | 各段階の開始条件、結果、未開始理由を記録する | 下位未成立のまま上位境界を開始せず公開入口まで順序を保つ | 段階結果、実行順、判定 | 禁止上位Effect 0 | Automated |
 | `ERB-UT-016` | 正常 | UT | Authentication／Lifecycle Contract | Claude再認証Plan→Provider Home排他→耐久Intent／Command世代→認証Probe→exact cleanup | N/A | 固定Provider Home Identity、正常・途中失敗・観測不能・競合・既存Intentの各固定入力 | 再認証Lifecycleを依存差替え境界で実行する | mount、実行順、秘密入力非表示案内、内部Proxy alias／port、Probe、資源不存在、`idle`／`in_flight`、回復Identity、後発Effect件数を記録する | Repository／Workspace／API keyを接続せず、秘密入力をCRDDが反響せず非表示・一回入力を事前案内し、内部Proxy接続が実装の固定待受port `8080`と一致し、Probeと全資源不存在が揃った場合だけ完了する。不存在時の空stdoutと`[]`は明示stderrとの組合せだけ受理する。別port、任意stdout、競合、観測不能、旧Command in-flightでは追加Effect 0または安全な失敗として同じ回復Identityを保持する | ERB-UT-016、固定入力、実行順、固定Proxy port、結果理由、Command世代、回復Identity、Effect件数および終了後資源状態を保存する。Path、Credential、Secret、生Provider出力は保存しない | 正常時は所有資源不存在かつ耐久記録settled。未確認時は同じ回復Identityを保持 | Automated |
 | `ERB-IT-017` | 回復 | IT | Authentication／Durable Recovery | 子Process→Provider Home Kernel Lock→耐久Intent／Command世代→fresh Process再入場 | Direct Boundary | 固定Provider Home Identity、active Intent、`idle`または`in_flight`、所有資源、不意のProcess終了 | Lockとactive Intentを持つProcessを終了し、fresh Processで同じ再認証を開始する | Process終了、Lock再取得、Recovery ID、Command世代、資源所有権、Intent状態、後続Effect順序を記録する | `idle`では所有資源不存在の確認後だけ再入場してsettledへ閉じる。`in_flight`では旧Command終了を推定せずDocker Effect 0で同じRecovery IDを保持する | ERB-IT-017、固定Identity、子終了、Lock再取得、Intent／Command世代遷移、Docker Effect列、Oracleおよび終了後状態を保存する。Path、Credential、Secret、生Provider出力は保存しない | idle回復後は所有Docker資源0、耐久記録settled、Kernel Lock解放確認。in-flightではactive記録と手動回復義務を保持 | Automated |
+| `ERB-IT-018` | 境界 | IT | Local HTTP／Read-only Preview | Repository内Visual Root→localhost HTTP Listener→Browser相当Consumer | Direct Boundary | LinkでないRepository相対Root、HTML／CSS、Directory、Traversal、Encode済みSeparator、Junction、不許可Methodおよびclose | Previewを一時Portで開始し、GET／HEAD／Healthと拒否入力を要求して終了する | Bind Address、Status、Header、本文、拒否結果、Health、close後Connectionを記録する | `127.0.0.1`だけへBindし、通常FileのGET／HEADだけを返す。Path越境、Link、Directory、書込みMethodを拒否し、内部Absolute Pathを公開しない | ERB-IT-018、固定Fixture分類、Request分類、Status、Security Header、read-only判定、close後Connection拒否およびOracle判定を保存する。Absolute PathとFile内容全量は保存しない | Repository書込み0、Listener 0、Connection 0 | Automated |
 
 初回起動期限後にDocker Processが残存する実環境反例では、`ERB-ST-009`は停止前のEngine Probe TimeoutをEngine停止と同一視せず、既知2領域のexact lockとProcess集合を継続入口で確認する。同じRepair ID内で停止意図を耐久化し、停止Effectを一回だけ発行して、Engine既知停止とProcess不存在をfreshに確認した後にだけ二領域退避へ進む。既に不存在なら停止Effectは`not_issued`で閉じる。Engine状態不明、部分停止、観測不能、取消またはIdentity不一致ではrenameと再起動を0件にし、条件別理由と同じ回復義務を保持する。旧形式の3 Effect継続記録は、成立済み段階を再発行せず現行の4 Effectモデルへ読取り投影できることも検証する。
 

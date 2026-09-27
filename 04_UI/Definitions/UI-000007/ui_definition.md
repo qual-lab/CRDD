@@ -20,6 +20,7 @@ CLI、MCP、Workbenchの入口を変えても同じ依頼と結果を扱える�
 | IA分析 | このUIで保持する情報構造 |
 |---|---|
 | [IA-000008](../../Analysis/IA-000008/ui_analysis.md) | 入口を変えても同じ要求、権限判断、状態、結果へ到達する。 |
+| [IA-000023](../../Analysis/IA-000023/ui_analysis.md) | 人間、複数AI、MCPおよびWorkbenchが同じProject Contextの範囲・根拠・不完全性を取得する。 |
 
 ## 両観点の統合判断
 
@@ -142,17 +143,19 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 ## 補足定義
 
-なし。
+通信方式だけでなく、人間がMarkdownを読む入口、複数AI、MCPおよびWorkbench候補の間でもProject Contextの意味を変えない。Consumer固有Storeを作らず、現在事実、共有分析、不完全性、Owner RelationおよびRepository Roleを同じ契約から取得する。
 
 ## 正式入力と変換根拠
 
 - 正式入力: [UX-000012](../../../02_UX/Definitions/UX-000012/ux_definition.md)
 - 正式入力: [IA-000008](../../../03_IA/Definitions/IA-000008/ia_definition.md)
+- 正式入力: [IA-000023](../../../03_IA/Definitions/IA-000023/ia_definition.md)
 
 次の分析記録は正式入力をこの工程の観点へ変換した根拠であり、正式入力そのものではない。
 
 - 変換根拠: [UX-000012のUI分析](../../Analysis/UX-000012/ui_analysis.md)
 - 変換根拠: [IA-000008のUI分析](../../Analysis/IA-000008/ui_analysis.md)
+- 変換根拠: [IA-000023のUI分析](../../Analysis/IA-000023/ui_analysis.md)
 ## Checklist
 
 - [x] UX DefinitionとIA Definitionを正式入力とし、各分析記録を変換根拠として処置した

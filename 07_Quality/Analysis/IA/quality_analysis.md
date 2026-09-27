@@ -37,6 +37,7 @@ IA工程が定義した成立条件を全件処置し、成功の意味、失敗
 | [IA-000020](../../../03_IA/Definitions/IA-000020/ia_definition.md) | 実行基盤の故障箇所と利用可能範囲 | 「実行基盤の故障箇所と利用可能範囲」に必要な対象・状態・関係・導線を識別し追跡できることを確認する | [外部Runtime境界](../../Definitions/QA-000006/quality_definition.md) | IT | External Boundary／Fault | Mapped |
 | [IA-000021](../../../03_IA/Definitions/IA-000021/ia_definition.md) | 過去の判断と現在有効な意図 | 「過去の判断と現在有効な意図」に必要な対象・状態・関係・導線を識別し追跡できることを確認する | [変更と品質状態](../../Definitions/QA-000002/quality_definition.md)<br>[投影と出所](../../Definitions/QA-000004/quality_definition.md) | IT／ST／UAT | Governance／Traceability／Information／State | Mapped |
 | [IA-000022](../../../03_IA/Definitions/IA-000022/ia_definition.md) | 実行記録の作成・公開状態 | 実行、情報源、観測、記録試行、公開結果と回復先を区別し、結果不明を未記録へ畳まず追跡できることを確認する | [実行記録の公開と再利用](../../Definitions/QA-000012/quality_definition.md) | IT／ST | Persistence／State／Recovery | Mapped |
+| [IA-000023](../../../03_IA/Definitions/IA-000023/ia_definition.md) | 標準Project Context | 五つの観点、現在事実、共有分析、期限状態、不完全性およびOwner Relationを固定Markdownから同じ意味で再構成できることを確認する | [投影と出所](../../Definitions/QA-000004/quality_definition.md)<br>[RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md)<br>[成果物の理解と工程引継ぎ](../../Definitions/QA-000013/quality_definition.md) | IT／ST／UAT | Information／State／Identity／Security／Handoff | Mapped |
 
 ## 3. 検証目標への統合
 
@@ -68,6 +69,9 @@ IA工程が定義した成立条件を全件処置し、成功の意味、失敗
 | [IA-000021](../../../03_IA/Definitions/IA-000021/ia_definition.md) | `ia-000021.qa-000002` | IA Definition（情報・関係・状態・見つけ方） | [変更と品質状態](../../Definitions/QA-000002/quality_definition.md) | 過去の仮説・判断・学びと現在有効な意図を区別し、古い前提を現在値として利用せず、いま必要な情報を選ぶ。UX-000025: 現在有効（current）／履歴（historical）／置換済み（superseded）／不明（unknown） | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `CQS-IT-001`、`CQS-IT-002`、`CQS-ST-005`、`CQS-UAT-006` |
 | [IA-000021](../../../03_IA/Definitions/IA-000021/ia_definition.md) | `ia-000021.qa-000004` | IA Definition（情報・関係・状態・見つけ方） | [投影と出所](../../Definitions/QA-000004/quality_definition.md) | 過去の仮説・判断・学びと現在有効な意図を区別し、古い前提を現在値として利用せず、いま必要な情報を選ぶ。UX-000025: 現在有効（current）／履歴（historical）／置換済み（superseded）／不明（unknown） | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `PPR-IT-001`、`PPR-IT-003`、`PPR-ST-005`、`PPR-UAT-009` |
 | [IA-000022](../../../03_IA/Definitions/IA-000022/ia_definition.md) | `ia-000022.qa-000012` | IA Definition（情報・関係・状態・見つけ方） | [実行記録の公開と再利用](../../Definitions/QA-000012/quality_definition.md) | 実行、情報源、観測、記録試行、公開結果を別対象として結び、prepared／publishing／recorded／not_recorded／unknownを区別する。unknownでは同じExecution IDとAttempt IDを保持して再観測し、許可外内容を診断へ複製しない | IT／ST | IT: Direct Boundary<br>ST: System/E2E | `ERP-IT-001`、`ERP-IT-002`、`ERP-IT-003`、`ERP-ST-004`、`ERP-IT-005` |
+| [IA-000023](../../../03_IA/Definitions/IA-000023/ia_definition.md) | `ia-000023.qa-000004` | IA Definition（情報・関係・状態・見つけ方） | [投影と出所](../../Definitions/QA-000004/quality_definition.md) | 固定Project Contextから五つの観点を一つの回答として再構成し、現在事実、共有分析、追加推論、期限状態、Owner Relationおよび不完全性を区別する。Project Context固有ID、項目別観測時点およびLive状態を持たず、正本変更の未反映を競合として扱う | IT／UAT | IT: Direct Boundary<br>UAT: User Acceptance | `PPR-IT-019`、`PPR-UAT-020` |
+| [IA-000023](../../../03_IA/Definitions/IA-000023/ia_definition.md) | `ia-000023.qa-000007` | IA Definition（情報・関係・状態・見つけ方） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | Project ID、Repository ID、Repository Roleで投影範囲を定め、Role外Contextを推測表示せず、Principalが参照可能なRepositoryだけをFederationする。人間、AI、MCPおよびWorkbenchが同じRepository Contextを利用する | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `RFD-IT-011`、`RFD-ST-010`、`RFD-UAT-007` |
+| [IA-000023](../../../03_IA/Definitions/IA-000023/ia_definition.md) | `ia-000023.qa-000013` | IA Definition（情報・関係・状態・見つけ方） | [成果物の理解と工程引継ぎ](../../Definitions/QA-000013/quality_definition.md) | 人間可読かつ機械可読な固定Markdownだけから、異なる利用者・AIが五つの観点、根拠、不完全性および次の判断を同じ意味で説明できる。結論を先に示し、詳細はOwner Relationへ辿れる | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `AUH-IT-002`、`AUH-ST-006`、`AUH-UAT-001` |
 
 ## 4. 必要義務と定義済み項目の差分
 
@@ -80,7 +84,7 @@ IA工程が定義した成立条件を全件処置し、成功の意味、失敗
 
 ## 5. 未解決事項
 
-現在のCanonical集合は全件処置済み。誤った対応を除いた意味レビュー母集団は187対応行である。上流定義から合否を組み立てられない場合はQuality側で補完せず、該当工程を再開する。
+現在のCanonical集合は全件処置済み。誤った対応を除いた意味レビュー母集団は198対応行である。上流定義から合否を組み立てられない場合はQuality側で補完せず、該当工程を再開する。
 
 ## Checklist
 

@@ -78,6 +78,7 @@ test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉�
       "semantic-coverage",
       "verification-runner",
       "version-control",
+      "visual-preview",
     ],
   );
   for (const block of catalog.integrationBlocks) {

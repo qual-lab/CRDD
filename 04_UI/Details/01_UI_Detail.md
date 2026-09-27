@@ -95,6 +95,20 @@ AreaごとのComposition、Interaction、状態、Accessibilityおよび避け�
 | Pattern発見 | Completed | 状態・根拠・次行動の意味Patternを確認 |
 | CMP昇格判断 | N/A | 実画面の反復根拠がないため未発行 |
 
+### v0.22 Workbench Pilot
+
+[Workbench Screen Architecture](02_Workbench_Screen_Architecture.md)でG1を評価し、[Workbench Hero Screen Selection](03_Workbench_Hero_Selection.md)でG2候補を比較した。
+
+| Gate | 判定 | Evidence／次の処置 |
+|---|---|---|
+| G1 Screen Architecture | PASS | 15 ScreenのInventory、正常・分岐・戻る・失敗・回復Flow、大量情報の表示責務を記録した |
+| G2 Hero Selection | PASS | 4候補を比較し、Qual-LabがProject WorkspaceをHeroとして採用した |
+| G3 Visual Exploration | PASS | 同じHero条件でDecision RailとContext Canvasを1440×960へ描画し、Design Principle不足を是正後に再比較した |
+| G4 Human Direction | PASS | Qual-LabがA — Decision RailをWorkbenchのVisual Tasteとして採用した |
+| G5 Expansion | PASS | Aの基調をTopic Detail、Repository Worktree、Project Portfolioへ展開し、12px下限／14px本文、32px操作対象、狭幅再配置を含めてPattern候補とCMP保留条件を評価した |
+
+G1〜G5は通過した。Workbench固有のPattern候補とVisual Baselineを[Secondary Screen Expansion](05_Workbench_Secondary_Expansion.md)へ記録した。正式SCR／PRT採番、CMP発行、SPEC Detail、ArchitectureおよびQualityへの通常引き渡しはDetail Contract Freeze後に行う。v0.21移行済みDetailのCanonical状態は変更しない。
+
 ## 5. UI／SPEC Detail対応
 
 [UI／SPEC Detail対応](../../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)で31 Relationを双方向に全件評価した。全Interactionは対応BHVを持ち、全BHVは一つ以上のSCR／PRTから利用者が認識できる。

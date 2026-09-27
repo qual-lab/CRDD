@@ -1,4 +1,4 @@
-# SPEC-000012 接続資格からWorkspace利用範囲を確定する
+# SPEC-000012 Role別Credentialから利用範囲を確定しAccessを回復する
 
 成果物種別: SPEC定義
 SPEC ID: `SPEC-000012`
@@ -14,6 +14,7 @@ SPEC ID: `SPEC-000012`
 | UX分析 | 保持する利用者成果 |
 |---|---|
 | [UX-000013](../../Analysis/UX-000013/spec_analysis.md) | 許可された作業領域だけをリモート利用する |
+| [UX-000035](../../Analysis/UX-000035/spec_analysis.md) | User管理なしでRole別Credentialを維持しAccessだけを回復する |
 
 ## IA観点の分析結果
 
@@ -117,11 +118,13 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 ## 正式入力と変換根拠
 
 - 正式入力: [UX-000013](../../../02_UX/Definitions/UX-000013/ux_definition.md)
+- 正式入力: [UX-000035](../../../02_UX/Definitions/UX-000035/ux_definition.md)
 - 正式入力: [IA-000009](../../../03_IA/Definitions/IA-000009/ia_definition.md)
 
 次の分析記録は正式入力をこの工程の観点へ変換した根拠であり、正式入力そのものではない。
 
 - 変換根拠: [UX-000013のSPEC分析](../../Analysis/UX-000013/spec_analysis.md)
+- 変換根拠: [UX-000035のSPEC分析](../../Analysis/UX-000035/spec_analysis.md)
 - 変換根拠: [IA-000009のSPEC分析](../../Analysis/IA-000009/spec_analysis.md)
 ## Checklist
 

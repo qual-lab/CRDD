@@ -27,6 +27,7 @@ CLI、MCP、Workbenchの入口を変えても同じ依頼と結果を扱える�
 | IA分析 | このUIで保持する情報構造 |
 |---|---|
 | [IA-000008](../../../04_UI/Analysis/IA-000008/ui_analysis.md) | 入口を変えても同じ要求、権限判断、状態、結果へ到達する。 |
+| [IA-000023](../../../04_UI/Analysis/IA-000023/ui_analysis.md) | 人間、複数AI、MCPおよびWorkbenchが同じProject Contextの範囲、根拠、不完全性および共有分析を利用する。 |
 
 ### 両観点の統合判断
 
@@ -180,6 +181,7 @@ Human Inputの判断者は「開発者を代表する利用者とQual-Lab。」�
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
 | [公開Transportの意味同一性](../../Definitions/ARCH-000012/architecture_definition.md) | New | 受付前／受付済／Effect前後の失敗／結果ありを入口間で同じ意味に保つ。Transport固有Schemaを公開意味契約として再定義しない。 |
+| [Project・Portfolio状態投影と受入判断記録](../../Definitions/ARCH-000005/architecture_definition.md) | Same | Consumer固有Storeを作らず、人間、AI、MCPおよびWorkbenchへ同じRepository Project Contextの範囲、根拠、不完全性、共有分析およびOwner Relationを提供する。 |
 
 ## 5. SPEC観点との統合時に確認すること
 

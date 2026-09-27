@@ -29,6 +29,7 @@ Projectと節目の現在状態を投影する。
 |---|---|
 | [IA-000002](../../../05_SPEC/Analysis/IA-000002/spec_analysis.md) | 目的・節目・Task・受入・判断 |
 | [IA-000006](../../../05_SPEC/Analysis/IA-000006/spec_analysis.md) | Project・Repository・Binding・読取り投影（Projection） |
+| [IA-000023](../../../05_SPEC/Analysis/IA-000023/spec_analysis.md) | 標準Project Context、現在事実、共有分析、五つの観点、期限状態およびOwner Relation |
 
 ### 両観点の統合判断
 
@@ -183,7 +184,7 @@ Human Inputの判断者は「プロジェクト運営者／PMを代表する利�
 
 | Architecture定義候補 | 処置 | 判断理由 |
 |---|---|---|
-| [Project・Portfolio状態投影と受入判断記録](../../Definitions/ARCH-000005/architecture_definition.md) | Same | Task完了、Objective受入、Milestone受入を分け、complete／partial／restricted／stale／conflicting／unknownを項目ごとに保つ。Portfolio比較でも不足を一つの健康度へ隠さない。 |
+| [Project・Portfolio状態投影と受入判断記録](../../Definitions/ARCH-000005/architecture_definition.md) | Same | Project Contextの固定構造、五つの観点、現在事実、共有分析、期限状態、Owner Relation、再投影および競合をProject Management Projectionへ統合する。Project Context固有ID、項目別観測時点およびLive状態を追加しない。 |
 
 ## 5. UI観点との統合時に確認すること
 

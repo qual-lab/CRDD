@@ -1,4 +1,4 @@
-# UI-000008 Workspace接続と利用可能範囲
+# UI-000008 Role別接続資格とAccess回復
 
 成果物種別: UI定義
 UI ID: `UI-000008`
@@ -14,6 +14,7 @@ UI ID: `UI-000008`
 | UX分析 | このUIで保持する利用者成果 |
 |---|---|
 | [UX-000013](../../Analysis/UX-000013/ui_analysis.md) | 接続元や接続資格情報が変わっても、現在許可された作業領域だけを利用し、利用不能理由と管理能力を内容閲覧から区別できる |
+| [UX-000035](../../Analysis/UX-000035/ui_analysis.md) | User管理なしでRole別Credentialを維持し、全喪失または認可破損から通常管理へ戻れる |
 
 ## IA観点の分析結果
 
@@ -26,6 +27,7 @@ UI ID: `UI-000008`
 | UX分析 | 利用者が得たい結果 | 対応するIA分析 | UIで成立させる対応 |
 |---|---|---|---|
 | [UX-000013](../../Analysis/UX-000013/ui_analysis.md) | 場所が変わっても開示範囲を理解して安全に使える | [IA-000009](../../Analysis/IA-000009/ui_analysis.md) | 接続資格、接続中の作業単位（Session）、利用可能領域（Workspace Grant）、公開関係（Exposure）、リポジトリの利用可否、管理能力（System Capability）を見分ける。状態は「利用可能（available）／接続資格が必要（credential_required）／開示制限（restricted）／利用不能（unavailable）／不明（unknown）」。導線は「接続→接続単位→許可された作業領域→公開されたリポジトリ→情報源」 |
+| [UX-000035](../../Analysis/UX-000035/ui_analysis.md) | Role別Credentialを維持しAccessだけを回復できる | [IA-000009](../../Analysis/IA-000009/ui_analysis.md) | Role、Credential状態、Secret表示境界、管理能力、Recovery対象、保持対象、結果を見分ける。導線は「Role→Credential→処置」または「Host確認→Recovery→Bootstrap再入場」 |
 
 UIはUX側の目的だけでも、IA側の対象一覧だけでも成立しない。各行の利用者成果を、対応する情報・状態・関係・導線で判断可能にした時だけ、このUIの意味が成立する。
 
@@ -146,11 +148,13 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 ## 正式入力と変換根拠
 
 - 正式入力: [UX-000013](../../../02_UX/Definitions/UX-000013/ux_definition.md)
+- 正式入力: [UX-000035](../../../02_UX/Definitions/UX-000035/ux_definition.md)
 - 正式入力: [IA-000009](../../../03_IA/Definitions/IA-000009/ia_definition.md)
 
 次の分析記録は正式入力をこの工程の観点へ変換した根拠であり、正式入力そのものではない。
 
 - 変換根拠: [UX-000013のUI分析](../../Analysis/UX-000013/ui_analysis.md)
+- 変換根拠: [UX-000035のUI分析](../../Analysis/UX-000035/ui_analysis.md)
 - 変換根拠: [IA-000009のUI分析](../../Analysis/IA-000009/ui_analysis.md)
 ## Checklist
 

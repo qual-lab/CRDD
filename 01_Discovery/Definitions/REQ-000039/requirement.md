@@ -77,6 +77,8 @@ Project運営者、Meeting参加者、Topic責任者およびFront AIが、継�
 - 競合、権限不足、観測不能または一部更新失敗を成功へ畳まず、終了後状態と必要な回復を確認できる。
 - 情報境界を分ける必要がないProjectでは、単一RepositoryだけでTopic／Meetingの全操作が成立する。
 - Repository分離を使うProjectでは、各Topic／MeetingからOwner Repositoryを一意に特定でき、操作はそのRepositoryへ帰還する。
+- 標準のDEV／MGMT分離では、全員が共通認識すべきProject情報をDEV Repository、Commercial情報をMGMT Repositoryが所有し、Project本文をMGMTへ複製しない。
+- DEV／MGMTの両Repositoryは同じTopic／Meeting契約を使用し、それぞれの開示範囲に属する項目だけを所有する。
 - CROSで複数RepositoryのTopic／Meetingを表示しても、Owner、Identityおよび開示境界を失わない。
 
 ## 失敗・リスク・制約

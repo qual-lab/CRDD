@@ -25,10 +25,10 @@ REQ
 
 | 入力 | 件数 | 現在の処置 |
 |---|---:|---|
-| UX定義 | 32 | 全件を`Analysis/UX-*/ui_analysis.md`で個別分析する |
-| IA定義 | 22 | 全件を`Analysis/IA-*/ui_analysis.md`で情報設計観点から個別分析する |
-| UI分析（UX観点） | 32 | 全UXを一件ずつ分析し、利用者成果、認識、操作、Feedback、体験差を導く |
-| UI分析（IA観点） | 22 | 全IAを一件ずつ分析し、情報、状態、関係、可視性、優先順位、導線を導く |
+| UX定義 | 35 | 全件を`Analysis/UX-*/ui_analysis.md`で個別分析する |
+| IA定義 | 23 | 全件を`Analysis/IA-*/ui_analysis.md`で情報設計観点から個別分析する |
+| UI分析（UX観点） | 35 | 全UXを一件ずつ分析し、利用者成果、認識、操作、Feedback、体験差を導く |
+| UI分析（IA観点） | 23 | 全IAを一件ずつ分析し、情報、状態、関係、可視性、優先順位、導線を導く |
 | UI定義 | 20 | 独立して変更・検証するUI契約へ統合する |
 
 ## 3. UI定義台帳
@@ -38,12 +38,12 @@ REQ
 | [UI-000001](Definitions/UI-000001/ui_definition.md) | 事前検査と意味レビューへの案内 | `UX-000001` | `IA-000001` |
 | [UI-000002](Definitions/UI-000002/ui_definition.md) | 委任・実行状態・判断 | `UX-000002`、`UX-000003` | `IA-000002`、`IA-000003` |
 | [UI-000003](Definitions/UI-000003/ui_definition.md) | 失敗後の再試行・回復・清掃 | `UX-000004`、`UX-000022` | `IA-000003`、`IA-000012` |
-| [UI-000004](Definitions/UI-000004/ui_definition.md) | Project・節目・Portfolioの状況把握 | `UX-000005`、`UX-000009`、`UX-000015` | `IA-000002`、`IA-000006` |
+| [UI-000004](Definitions/UI-000004/ui_definition.md) | Project・節目・Portfolioの状況把握 | `UX-000005`、`UX-000009`、`UX-000015`、`UX-000034` | `IA-000002`、`IA-000006`、`IA-000023` |
 | [UI-000005](Definitions/UI-000005/ui_definition.md) | 実行事実と故障境界の診断 | `UX-000006`、`UX-000008` | `IA-000004`、`IA-000020` |
-| [UI-000006](Definitions/UI-000006/ui_definition.md) | Repository内作業と対象選択 | `UX-000010`、`UX-000011` | `IA-000006`、`IA-000007` |
-| [UI-000007](Definitions/UI-000007/ui_definition.md) | 入口をまたぐ共通依頼・結果 | `UX-000012` | `IA-000008` |
-| [UI-000008](Definitions/UI-000008/ui_definition.md) | Workspace接続と利用可能範囲 | `UX-000013` | `IA-000009` |
-| [UI-000009](Definitions/UI-000009/ui_definition.md) | Meeting・Topic・候補の処置 | `UX-000014` | `IA-000010` |
+| [UI-000006](Definitions/UI-000006/ui_definition.md) | Repository内作業と対象選択 | `UX-000010`、`UX-000011`、`UX-000034` | `IA-000006`、`IA-000007` |
+| [UI-000007](Definitions/UI-000007/ui_definition.md) | 入口をまたぐ共通依頼・結果 | `UX-000012` | `IA-000008`、`IA-000023` |
+| [UI-000008](Definitions/UI-000008/ui_definition.md) | Role別接続資格とAccess回復 | `UX-000013`、`UX-000035` | `IA-000009` |
+| [UI-000009](Definitions/UI-000009/ui_definition.md) | Meeting・Topic・候補の処置 | `UX-000014`、`UX-000033` | `IA-000010` |
 | [UI-000010](Definitions/UI-000010/ui_definition.md) | Tool・AIモデル構成の選択 | `UX-000016`、`UX-000018` | `IA-000011`、`IA-000013` |
 | [UI-000011](Definitions/UI-000011/ui_definition.md) | 実行時データの保持・清掃 | `UX-000017`、`UX-000022` | `IA-000012`、`IA-000003` |
 | [UI-000012](Definitions/UI-000012/ui_definition.md) | Agent間の情報引継ぎと再接続 | `UX-000019`、`UX-000021` | `IA-000014`、`IA-000003` |

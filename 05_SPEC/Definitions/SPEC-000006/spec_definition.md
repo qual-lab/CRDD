@@ -15,6 +15,7 @@ Projectと節目の現在状態を投影する。
 |---|---|
 | [UX-000005](../../Analysis/UX-000005/spec_analysis.md) | 目的と受入条件で節目を委ねる |
 | [UX-000009](../../Analysis/UX-000009/spec_analysis.md) | プロジェクトの現在地を根拠と不完全性付きで理解する |
+| [UX-000034](../../Analysis/UX-000034/spec_analysis.md) | Projectの現在地から次の仕事と対象Repositoryへ進む |
 
 ## IA観点の分析結果
 
@@ -22,6 +23,7 @@ Projectと節目の現在状態を投影する。
 |---|---|
 | [IA-000002](../../Analysis/IA-000002/spec_analysis.md) | 目的・節目・Task・受入・判断 |
 | [IA-000006](../../Analysis/IA-000006/spec_analysis.md) | Project・Repository・Binding・読取り投影（Projection） |
+| [IA-000023](../../Analysis/IA-000023/spec_analysis.md) | 標準Project Context・現在事実・共有分析・五場面・期限状態 |
 
 ## 両観点の統合判断
 
@@ -146,21 +148,25 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 ## 補足定義
 
-なし。
+Owner Artifactから固定Markdownへ現在事実、共有分析、不完全性、期限状態およびOwner Relationを投影する。五場面を一つのProject Statusとして返し、意味が変わる正本変更またはGate前に再投影要否を判定する。項目別観測時点とLive状態を追加せず、Owner Artifactとの競合時はCurrentを返さない。
 
 ## 正式入力と変換根拠
 
 - 正式入力: [UX-000005](../../../02_UX/Definitions/UX-000005/ux_definition.md)
 - 正式入力: [UX-000009](../../../02_UX/Definitions/UX-000009/ux_definition.md)
+- 正式入力: [UX-000034](../../../02_UX/Definitions/UX-000034/ux_definition.md)
 - 正式入力: [IA-000002](../../../03_IA/Definitions/IA-000002/ia_definition.md)
 - 正式入力: [IA-000006](../../../03_IA/Definitions/IA-000006/ia_definition.md)
+- 正式入力: [IA-000023](../../../03_IA/Definitions/IA-000023/ia_definition.md)
 
 次の分析記録は正式入力をこの工程の観点へ変換した根拠であり、正式入力そのものではない。
 
 - 変換根拠: [UX-000005のSPEC分析](../../Analysis/UX-000005/spec_analysis.md)
 - 変換根拠: [UX-000009のSPEC分析](../../Analysis/UX-000009/spec_analysis.md)
+- 変換根拠: [UX-000034のSPEC分析](../../Analysis/UX-000034/spec_analysis.md)
 - 変換根拠: [IA-000002のSPEC分析](../../Analysis/IA-000002/spec_analysis.md)
 - 変換根拠: [IA-000006のSPEC分析](../../Analysis/IA-000006/spec_analysis.md)
+- 変換根拠: [IA-000023のSPEC分析](../../Analysis/IA-000023/spec_analysis.md)
 ## Checklist
 
 - [x] UX DefinitionとIA Definitionを正式入力とし、各分析記録を変換根拠として処置した

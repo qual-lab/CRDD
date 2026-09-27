@@ -10,23 +10,23 @@
 
 | 項目 | 件数 |
 |---|---:|
-| Canonical入力 | 157 |
+| Canonical入力 | 160 |
 | Quality検証目標 | 13 |
-| Local Item数 | 156 |
+| Local Item数 | 159 |
 
 ## 結論
 
-Quality設計は13定義、156 Local Itemまで拡張した。Test Symbol Relationは122件に存在し、完成Evidenceへ算入できるのは118件である。残る4件は対象Relationを保持したまま非完成・非Evidenceと判定し、Relationなし34件と合わせて品質判定上の未観測38件とする。このうちv0.21.0のRelease対象はGroup Aに属する130件で、108件が観測済み、22件が未観測（Hybrid 12件、Manual 10件）であり、機械化可能な既知Gapは0件である。Project Operation、Workbench、CROS、複数Repositoryおよび利用者所有Trustに属する26件はv0.22.0へ移管した。移管範囲には既存PrototypeとのRelationが10件あるが、新Capabilityの完成Evidenceへ読み替えず、未観測16件と合わせてv0.22で実装・実境界・人間受入を再評価する。
+Quality設計は13定義、159 Local Itemまで拡張した。Test Symbol Relationは123件に存在し、完成Evidenceへ算入できるのは118件である。残る5件は対象Relationを保持したまま非完成・非Evidenceと判定し、Relationなし36件と合わせて品質判定上の未観測41件とする。このうちv0.21.0のRelease対象はGroup Aに属する130件で、108件が観測済み、22件が未観測（Hybrid 12件、Manual 10件）であり、機械化可能な既知Gapは0件である。Project Operation、Workbench、CROS、複数Repository、利用者所有TrustおよびVisual Previewに属する29件はv0.22.0へ移管した。移管範囲にはTest Symbol Relationが11件あるが、新Capabilityの完成Evidenceへ読み替えず、未観測19件を含めてv0.22で実装・実境界・人間受入を再評価する。
 
 | 対象 | 現在状態 | 根拠・次の処置 |
 |---|---|---|
-| Canonical入力 | REQ 36、UX 32、IA 22、UI 20、SPEC 29、ARCH 18を全件Mapping済み | [Quality Integration](04_Quality_Integration.md) |
+| Canonical入力 | REQ 38、UX 32、IA 23、UI 20、SPEC 29、ARCH 18を全件Mapping済み | [Quality Integration](04_Quality_Integration.md) |
 | UI／SPEC Detail | Covered: 20 SCR、20 PRT、31 Interaction、29 BHVを全数処置し、Source Definition由来の既存検証目標へ具体的観測条件として統合した | [UI／SPEC DetailのQuality分析](Analysis/Detail/quality_analysis.md) |
 | Quality Analysis | 6工程の全入力を、Source固有条件付きで13検証目標へ接続し独立レビュー済み | Reality Auditではこの設計集合を変更せず、現行実装との対応を照合する |
-| Quality Definitions | 13定義、156 Local ItemをCanonical化済み | Test Relation 122件、完成Evidence算入118件、非完成Relation 4件、Relationなし34件。品質判定上は118件観測済み、38件未観測。v0.21対象130件は108件観測済み、Hybrid／Manual 22件未観測。v0.22移管26件はPrototype Relation 10件と未観測16件を区別し、完成済みへ読み替えない |
+| Quality Definitions | 13定義、159 Local ItemをCanonical化済み | Test Relation 123件、完成Evidence算入118件、非完成Relation 5件、Relationなし36件。品質判定上は118件観測済み、41件未観測。v0.21対象130件は108件観測済み、Hybrid／Manual 22件未観測。v0.22移管29件はTest Relation 11件と未観測19件を区別し、完成済みへ読み替えない |
 | Architecture詳細設計 | 18領域を適用判定済み | 実装OwnerのないCapability、現実との不一致およびTest未接続をReality Auditで処置する |
 | Checker | Repository検査と全契約試験がPass | 1,704 file、963 Markdown、16,295 link、1,965 anchorをError 0／Warning 0で検査し、Checker契約試験363／363 Passを確認した |
-| Reality Audit | 現在結果固定済み — Hybrid／Manual Evidence Pending | skipのEvidence誤算入と実境界未観測を是正し、v0.21に残るHybrid 12件とManual 10件を未観測のまま固定した。最終署名E2Eは`AIT-ST-010`と`ERB-IT-014`の限定範囲へ接続し、残る義務を一括してPassへ変更していない。v0.22移管26件は同版で再開する |
+| Reality Audit | 現在結果固定済み — Hybrid／Manual Evidence Pending | skipのEvidence誤算入と実境界未観測を是正し、v0.21に残るHybrid 12件とManual 10件を未観測のまま固定した。最終署名E2Eは`AIT-ST-010`と`ERB-IT-014`の限定範囲へ接続し、残る義務を一括してPassへ変更していない。v0.22移管29件は同版で再開する |
 
 ## 現在の品質投影
 

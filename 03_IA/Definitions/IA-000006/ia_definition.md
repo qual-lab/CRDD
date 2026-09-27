@@ -16,6 +16,7 @@ IA ID: `IA-000006`
 | [UX-000009](../../Analysis/UX-000009/ia_analysis.md) | プロジェクト運営者／PM／プロジェクト状況を確認する時 | プロジェクト（Project）、プロジェクト項目、読取り投影（Projection）、情報源（Source）、改訂版（Revision）、観測時点（Observed At）、対象範囲（Coverage）、競合 | complete／partial／開示制限（restricted）／stale／競合あり（conflicting）／不明（unknown） | プロジェクト→現在投影→不足・競合→情報源→次の判断 |
 | [UX-000011](../../Analysis/UX-000011/ia_analysis.md) | プロジェクト運営者／PM／参照または操作対象を選ぶ時 | プロジェクト（Project）、リポジトリ（Repository）、リポジトリの基点フォルダ（Repository Root）、結合情報（Binding） | 確認済み（verified）／未確認（unverified）／曖昧（ambiguous）／利用不能（unavailable） | Project→Repository→Binding→検証済みRoot |
 | [UX-000015](../../Analysis/UX-000015/ia_analysis.md) | 経営・管理層／複数プロジェクトの一覧の優先度を判断する時 | プロジェクト概要（Project Summary）、比較軸、対象範囲（Coverage）、観測時点（Observed At）、公開関係（Exposure）、情報源（Source） | complete／partial／開示制限（restricted）／stale／競合あり（conflicting） | Portfolio→差→対象範囲（Coverage）→Project→情報源（Source） |
+| [UX-000034](../../Analysis/UX-000034/ia_analysis.md) | 開発者／Project運営者／Projectの状況から作業対象へ進む時 | リポジトリ（Repository） | 確認済み／未確認／利用不能 | Project Context→次の仕事→Repository→作業状態 |
 
 この表は入力UXごとの意味保持先である。共有定義へ統合しても、各行の対象・状態・導線を共通語だけへ丸めない。
 
@@ -35,6 +36,7 @@ IA ID: `IA-000006`
 | UX-000015: プロジェクト | プロジェクト | Same | 同じ論理Projectの識別を保持する |
 | UX-000015: 読取り投影 | 読取り投影 | Same | 比較に使う要約をRead Modelとして保持する |
 | UX-000015: 網羅範囲 | 対象範囲 | Rename | 投影が含む／含まない範囲を保持する |
+| UX-000034: Repository | リポジトリ | Same | Project判断に対応する作業対象Repositoryとして保持する |
 
 `Same`は意味を維持した名称統一、`Rename`は意味を変えないCanonical表示、`Merge`は同一の利用者成果を支える情報の統合、`Split`は一つの分析候補に含まれていた別Identityの分離を表す。正式入力から導けない`New`はここで追加せず、該当IA分析を再開する。
 
@@ -52,6 +54,7 @@ IA ID: `IA-000006`
 | UX-000015: プロジェクト | プロジェクト識別子（Project ID） | プロジェクト | プロジェクト識別子（Project ID） | Same。同じ論理Projectの識別を保持する |
 | UX-000015: 読取り投影 | Project ID＋対象範囲＋観測時点で識別する | 読取り投影 | Project ID＋対象範囲＋観測時点で識別し、各情報源（Source）と改訂版（Revision）へ結ぶ | Same。比較に使う要約をRead Modelとして保持する |
 | UX-000015: 網羅範囲 | 対象、判定時点、情報源で識別し、不明を正常へ丸めない | 対象範囲 | 対象、判定時点、情報源で識別し、情報源（Source）集合と状態を保持する | Rename。投影が含む／含まない範囲を保持する |
+| UX-000034: Repository | Repository IDと検証済みRoot | リポジトリ | リポジトリ識別子（Repository ID）＋検証済みRoot | Same。Project判断と作業対象を結ぶ |
 
 Object名だけでなく、同じものと別のものを区別するIdentity、およびObject間のRelationがAnalysisからどう変換されたかを明示する。CanonicalなIdentityまたはRelationを利用側で再解釈しない。
 
@@ -102,6 +105,7 @@ Object名だけでなく、同じものと別のものを区別するIdentity、
 | UX-000009 | Repository正本を管理する主体がRepositoryとBindingを保ち、プロジェクト運営主体がProject項目を更新し、読取り投影を生成する責任が投影を作る | 論理プロジェクトの結合を確定する主体が論理Projectへの結合を、Repository正本を管理する主体が公開可能範囲を確定する |
 | UX-000011 | Repository正本を管理する主体がRepositoryとBindingを保ち、プロジェクト運営主体がProject項目を更新し、読取り投影を生成する責任が投影を作る | 論理プロジェクトの結合を確定する主体が論理Projectへの結合を、Repository正本を管理する主体が公開可能範囲を確定する |
 | UX-000015 | Repository正本を管理する主体がRepositoryとBindingを保ち、プロジェクト運営主体がProject項目を更新し、読取り投影を生成する責任が投影を作る | 論理プロジェクトの結合を確定する主体が論理Projectへの結合を、Repository正本を管理する主体が公開可能範囲を確定する |
+| UX-000034 | Repository正本を管理する主体が作業対象のIdentityと検証済みRootを保つ | 利用者が作業対象を選び、Repository Ownerが対象範囲を確定する |
 
 責任と判断権限が同じ主体に属する場合も、情報を正確に保つ責任と、意味・状態・次の行動を確定する権限を同一視しない。各利用場面の導線は「利用場面」の対応表を正とし、結果なし、判断待ち、失敗、状態不明の場合も、根拠または安全な戻り先へ接続する。
 
@@ -127,6 +131,7 @@ Object名だけでなく、同じものと別のものを区別するIdentity、
 | UX-000009 | 現在の表示を信じる直前 | 欠測や古い値を完全な現在値と誤認する | 根拠、不完全性、観測時点を同時に示す |
 | UX-000011 | 外部作用（Effect）対象を確定する直前 | 同名や近いパスを同じ対象と誤認する | 各識別情報と物理基点フォルダの結合を明示する |
 | UX-000015 | 要約から優先判断へ進む直前 | 単一Scoreや欠測した集計で健全性を断定する | 比較値から根拠・古さ・不足へ戻れる |
+| UX-000034 | Project上の次の仕事から作業対象へ進む時 | 別RepositoryのTreeや差分を同じ作業として扱う | ProjectとRepositoryを区別して対象を選べる |
 
 各利用場面で、重要な失敗を避けながら品質期待を満たせることを確認する。具体的な試験項目と実行方法はQuality工程で設計する。
 
@@ -137,6 +142,7 @@ Object名だけでなく、同じものと別のものを区別するIdentity、
 | UX-000009 | REQ-000007: プロジェクト運営者／PMが「プロジェクトの現在地を根拠と不完全性付きで理解する」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000020: プロジェクト運営者／PMが「複数リポジトリを不完全性付きで一つのプロジェクトとして見る」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | プロジェクト運営者／PMを代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 利用者成果、重要場面、失敗および品質期待を仮説として保持し、定量条件や実現方式を確定しない。 |
 | UX-000011 | REQ-000009: プロジェクト運営者／PMが「プロジェクト・リポジトリ・基点フォルダを区別して対象を確認する」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000020: プロジェクト運営者／PMが「複数リポジトリを不完全性付きで一つのプロジェクトとして見る」を行う際の判断基準、許容負担、利用環境および失敗後の選択／REQ-000024: プロジェクト運営者／PMが「境界を越えた結果を同じタスクへ受け取る」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | プロジェクト運営者／PMを代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 利用者成果、重要場面、失敗および品質期待を仮説として保持し、定量条件や実現方式を確定しない。 |
 | UX-000015 | REQ-000013: 経営・管理層が「複数プロジェクトを根拠付きで比較する」を行う際の判断基準、許容負担、利用環境および失敗後の選択 | 経営・管理層を代表する利用者とQual-Lab。 | 後続の実利用確認が必要。現在のUX定義をCanonical化する判断を止める事項ではない。 | 利用者成果、重要場面、失敗および品質期待を仮説として保持し、定量条件や実現方式を確定しない。 |
+| UX-000034 | 役割別情報量、対象Repository選択および既存Toolとの比較価値 | 開発者、Project運営者／PMおよびQual-Lab | 後続確認が必要 | Screen、Navigationおよび自動選択方式を確定しない |
 
 IA固有の追加人間判断はない。これは入力UXの未確認事項が解消済みという意味ではない。正式入力にないObject、情報境界、所有責任または状態を追加する必要が生じた場合は人間の決定権限者へ戻す。UI／SPEC分析またはQuality Analysis / IAで対象・同一性・関係・状態・可視性・時間的な意味の不足または競合が判明した場合はIAを再開する。
 
@@ -155,6 +161,7 @@ ArchitectureやSourceへ直接引き渡さない。UI／SPECはUX DefinitionとI
 - [UX-000009のIA分析](../../Analysis/UX-000009/ia_analysis.md)
 - [UX-000011のIA分析](../../Analysis/UX-000011/ia_analysis.md)
 - [UX-000015のIA分析](../../Analysis/UX-000015/ia_analysis.md)
+- [UX-000034のIA分析](../../Analysis/UX-000034/ia_analysis.md)
 
 ## 補足分析
 

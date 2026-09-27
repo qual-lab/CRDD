@@ -51,6 +51,8 @@
 | [REQ-000034](../../../01_Discovery/Definitions/REQ-000034/requirement.md) | リポジトリ固定Commitから使える標準ツール | 「リポジトリ固定Commitから使える標準ツール」の課題解決と成立条件を利用目的に対する結果で確認する | [Repositoryと契約移行](../../Definitions/QA-000001/quality_definition.md)<br>[成果物IntegrityとTrust](../../Definitions/QA-000010/quality_definition.md) | UT／IT／UAT | Contract／Traceability／Integrity／Security | Mapped |
 | [REQ-000035](../../../01_Discovery/Definitions/REQ-000035/requirement.md) | 公式視覚素材の権利・用途・追跡 | 「公式視覚素材の権利・用途・追跡」の課題解決と成立条件を利用目的に対する結果で確認する | [公式AssetのGovernance](../../Definitions/QA-000011/quality_definition.md) | ST／UAT | Governance／Rights Review | Mapped |
 | [REQ-000036](../../../01_Discovery/Definitions/REQ-000036/requirement.md) | 差し替え可能な履歴管理境界 | 「差し替え可能な履歴管理境界」の課題解決と成立条件を利用目的に対する結果で確認する | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | UT／IT | Adapter／Compatibility | Mapped |
+| [REQ-000037](../../../01_Discovery/Definitions/REQ-000037/requirement.md) | 任意期限を使った日程リスク分析 | 期限の設定有無を確認し、設定済みなら残る仕事と合わせて日程リスクを説明し、未設定なら未評価として扱う | [投影と出所](../../Definitions/QA-000004/quality_definition.md) | IT／UAT | Information／Schedule Risk／Acceptance | Mapped |
+| [REQ-000038](../../../01_Discovery/Definitions/REQ-000038/requirement.md) | Consumerに依存しない標準Project Context | 固定Markdownから五つの利用場面を同じ範囲・根拠・不完全性で再構成し、Repository境界と正本関係を越えない | [投影と出所](../../Definitions/QA-000004/quality_definition.md)<br>[RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md)<br>[成果物の理解と工程引継ぎ](../../Definitions/QA-000013/quality_definition.md) | IT／ST／UAT | Projection／Identity／Non-disclosure／Reconstruction | Mapped |
 
 ## 3. 検証目標への統合
 
@@ -102,6 +104,10 @@
 | [REQ-000034](../../../01_Discovery/Definitions/REQ-000034/requirement.md) | `req-000034.qa-000010` | Requirement Definition（成立条件・失敗・検証意図） | [成果物IntegrityとTrust](../../Definitions/QA-000010/quality_definition.md) | clone／submodule取得した固定Commitから標準入口を発見できる。同梱Manifestと実行基盤が対象Commit／配布集合へ整合する。別リリースの手動DownloadやVersion推測なしに代表ツールを起動できる。fresh clone、submodule、版不一致、欠落実行基盤、改ざんManifestを用い、発見、拒否、代表起動を観測する | UT／IT | UT: N/A<br>IT: Direct Boundary | `AIT-IT-002`、`AIT-IT-003`、`AIT-UT-005` |
 | [REQ-000035](../../../01_Discovery/Definitions/REQ-000035/requirement.md) | `req-000035.qa-000011` | Requirement Definition（成立条件・失敗・検証意図） | [公式AssetのGovernance](../../Definitions/QA-000011/quality_definition.md) | 素材の識別用途と、署名・準拠・品質保証を明確に分ける。収載、公開、再配布の権利確認と判断主体を追跡できる。原本と利用向け派生物の責任者、生成関係を確認できる。公式／非公式表示、権利記録欠落、派生物追加、保証表現を確認し、識別と誤認防止を観測する | ST／UAT | ST: System/E2E<br>UAT: User Acceptance | `OAG-UAT-001`、`OAG-ST-003` |
 | [REQ-000036](../../../01_Discovery/Definitions/REQ-000036/requirement.md) | `req-000036.qa-000007` | Requirement Definition（成立条件・失敗・検証意図） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | 本番ツールのGit利用箇所が履歴管理 Port経由になっている。通常の読取り、編集、Communication操作が未Commit状態でも成立する。CommitやTreeが必要なリリース／根拠境界だけ明示的に改訂版を要求する。未Commit、別Branch、Git 接続部置換、リポジトリ境界不明、リリース固定改訂版を用い、各機能と拒否を観測する | UT／IT | UT: N/A<br>IT: Direct Boundary | `RFD-IT-002`、`RFD-IT-005`、`RFD-UT-006` |
+| [REQ-000037](../../../01_Discovery/Definitions/REQ-000037/requirement.md) | `req-000037.qa-000004` | Requirement Definition（成立条件・失敗・検証意図） | [投影と出所](../../Definitions/QA-000004/quality_definition.md) | Version期限とRoadmap項目期限を独立して設定または未設定にできる。期限がある場合は設定者・根拠・残るScope・依存・判断待ち・検証・移行・Release作業から日程リスクを説明する。未設定は未評価とし、リスクなしへ畳まない。両方設定、一方だけ設定、両方未設定および期限変更を与え、表示と人間判断境界を観測する | IT／UAT | IT: Direct Boundary<br>UAT: User Acceptance | `PPR-IT-019`、`PPR-UAT-020` |
+| [REQ-000038](../../../01_Discovery/Definitions/REQ-000038/requirement.md) | `req-000038.qa-000004` | Requirement Definition（成立条件・失敗・検証意図） | [投影と出所](../../Definitions/QA-000004/quality_definition.md) | Owner Artifactの現在事実、共有分析、対話時推論を分け、固定Markdownから現在地、Risk・停止、判断待ち、理由・根拠、次の一手を一つの回答として再構成する。Project Context固有ID、Live状態および項目別観測時点を重複保持せず、正本変更が未反映なら競合として扱う | IT／UAT | IT: Direct Boundary<br>UAT: User Acceptance | `PPR-IT-019`、`PPR-UAT-020` |
+| [REQ-000038](../../../01_Discovery/Definitions/REQ-000038/requirement.md) | `req-000038.qa-000007` | Requirement Definition（成立条件・失敗・検証意図） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | Project ID、Repository ID、Repository Roleを分け、Repository Projectionは自らのRole内だけを表す。範囲外Contextを存在開示権限なしに列挙せず、Federationは現在のPrincipalが参照可能なRepositoryだけを対象にする。人間・複数AI・MCP・Workbenchが同じRepository Contextへ到達できることを確認する | IT／ST／UAT | IT: Related 2 Blocks<br>ST: System/E2E<br>UAT: User Acceptance | `RFD-IT-011`、`RFD-ST-010`、`RFD-UAT-007` |
+| [REQ-000038](../../../01_Discovery/Definitions/REQ-000038/requirement.md) | `req-000038.qa-000013` | Requirement Definition（成立条件・失敗・検証意図） | [成果物の理解と工程引継ぎ](../../Definitions/QA-000013/quality_definition.md) | 人間可読かつ機械可読な固定Markdownだけから、異なる利用者・AIが五つの利用場面、根拠、不完全性および次の判断を同じ意味で説明できる。固定見出し・表・統制語彙を保ちつつ、結論を先に平易に示す | IT／ST／UAT | IT: N/A<br>ST: N/A<br>UAT: User Acceptance | `AUH-IT-002`、`AUH-ST-006`、`AUH-UAT-001` |
 
 ## 4. 必要義務と定義済み項目の差分
 
@@ -114,7 +120,7 @@
 
 ## 5. 未解決事項
 
-現在のCanonical集合は全件処置済み。誤った対応を除いた意味レビュー母集団は187対応行である。上流定義から合否を組み立てられない場合はQuality側で補完せず、該当工程を再開する。
+現在のCanonical集合は全件処置済み。誤った対応を除いた意味レビュー母集団は198対応行である。上流定義から合否を組み立てられない場合はQuality側で補完せず、該当工程を再開する。
 
 ## Checklist
 

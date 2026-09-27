@@ -126,10 +126,13 @@ stdio MCPとlocalhost HTTPで入力・権限判断・状態・結果が変わる
 |---|---|---|
 | REQ-000010 | プロジェクト運営者／PMがWorkbench・MCP・CLIを選ぶ場面で、共通の公開アプリケーション契約へ要求する | 入口ごとの業務ロジックや結果契約の差を反証する |
 | REQ-000028 | 開発者が複数のAI入口を選ぶ場面で、AI固有入口を第二のCRDD標準にしない | 入口ごとに複製した規則と判断境界の不一致を反証する |
+| REQ-000038 | 人間、複数AI、MCPおよびWorkbench候補が同じProject Contextを使い、現在事実、共有分析、不完全性およびOwner Relationを同じ意味で取得する | Consumer固有Store、Role外推測および追加推論の事実化を反証する |
+| REQ-000039 | Chat Agent、MCP、Workbenchその他の入口から同じTopic／Meetingの正本、状態、関係および削除結果へ到達する | 入口ごとのLifecycle、関係処置および削除結果差を反証する |
+| REQ-000040 | Workbench、MCP、AI、CLIが同じApplication Capability、Identity、状態語彙、Authorityおよび結果を使う | Workbench固有Store、入口固有の操作意味および結果差を反証する |
 
 ## 関係
 
-- 元の要求分析: [REQ-000006](../../Analysis/REQ-000006/ux_analysis.md)、[REQ-000010](../../Analysis/REQ-000010/ux_analysis.md)、[REQ-000028](../../Analysis/REQ-000028/ux_analysis.md)
+- 元の要求分析: [REQ-000006](../../Analysis/REQ-000006/ux_analysis.md)、[REQ-000010](../../Analysis/REQ-000010/ux_analysis.md)、[REQ-000028](../../Analysis/REQ-000028/ux_analysis.md)、[REQ-000038](../../Analysis/REQ-000038/ux_analysis.md)、[REQ-000039](../../Analysis/REQ-000039/ux_analysis.md)、[REQ-000040](../../Analysis/REQ-000040/ux_analysis.md)
 - 製品全体の整理: [想定利用者](../../02_Personas.md)、[利用体験の全体像](../../03_Experience_Map.md)、[サービス提供の流れ](../../04_Service_Blueprint.md)、[体験品質として守ること](../../05_Quality_Expectations.md)
 
 ## Checklist

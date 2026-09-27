@@ -20,6 +20,7 @@ SPEC ID: `SPEC-000011`
 | IA分析 | 保持する情報構造 |
 |---|---|
 | [IA-000008](../../Analysis/IA-000008/spec_analysis.md) | 公開受付・通信方式・結果 |
+| [IA-000023](../../Analysis/IA-000023/spec_analysis.md) | Consumer間で共用する標準Project Contextの情報契約 |
 
 ## 両観点の統合判断
 
@@ -113,17 +114,19 @@ IA固有の追加人間判断はない。これは入力UXの未確認事項が�
 
 ## 補足定義
 
-なし。
+人間、複数AI、MCPおよびWorkbench候補が同じRepository Project Contextを利用する場合、Consumer固有Storeや独自の現在状態を作らず、同じ範囲、根拠、不完全性、共有分析およびOwner Relationを返す。Repository Role外のContextを推測または開示しない。
 
 ## 正式入力と変換根拠
 
 - 正式入力: [UX-000012](../../../02_UX/Definitions/UX-000012/ux_definition.md)
 - 正式入力: [IA-000008](../../../03_IA/Definitions/IA-000008/ia_definition.md)
+- 正式入力: [IA-000023](../../../03_IA/Definitions/IA-000023/ia_definition.md)
 
 次の分析記録は正式入力をこの工程の観点へ変換した根拠であり、正式入力そのものではない。
 
 - 変換根拠: [UX-000012のSPEC分析](../../Analysis/UX-000012/spec_analysis.md)
 - 変換根拠: [IA-000008のSPEC分析](../../Analysis/IA-000008/spec_analysis.md)
+- 変換根拠: [IA-000023のSPEC分析](../../Analysis/IA-000023/spec_analysis.md)
 ## Checklist
 
 - [x] UX DefinitionとIA Definitionを正式入力とし、各分析記録を変換根拠として処置した

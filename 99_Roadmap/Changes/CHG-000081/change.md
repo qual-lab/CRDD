@@ -13,11 +13,11 @@
 | 現在の変更状態 | v0.21成果物へUI／SPEC Detail IDを発行し、Architecture／Qualityまでの全数伝播を実施中 |
 | 対象改訂版 | v0.21.0を基準版とするv0.22作業ブランチ |
 | 成立済み | UI／SPEC Definition、N:N対応レビュー、可視Checklist、Architecture／Qualityへの引き渡し |
-| 未成立 | Detail伝播のChecker／独立レビュー、v0.22 Discoveryによる課題・仮説の再構成、Workbench Pilot後の契約固定 |
+| 未成立 | v0.22 Discoveryによる課題・仮説の再構成、Workbench等の実Product Pilot後の契約固定 |
 | Phase／Gate適用判断 | `Applicable`: 規則、ひな型、自己適用、独立レビューを分けて確認する |
-| 現在Phase | `Phase 5 — v0.22 Discovery Handoff` |
-| 現在Gate | `Phase 4 Passed — v0.22固有修正未着手` |
-| 次のGate | v0.22の課題・仮説・対象外をWIP非依存でDiscoveryへ引き渡せる |
+| 現在Phase | `Phase 6 — Workbench Pilot` |
+| 現在Gate | `G5 Expansion Passed／Detail Contract Freeze Ready` |
+| 次のGate | G1〜G5のDogfood結果からUI／SPEC Detail Contractの不足・過剰を再評価し、正式採番と下流伝播の固定候補を作る |
 
 ## 契機 / 起点
 
@@ -57,16 +57,46 @@ WorkbenchのWIP、画面案または既存実装を正解として逆算しな�
 
 - [`24_UI_Behavior_Specification.md`](../../../24_UI_Behavior_Specification.md)
 - [`03_Documentation.md`](../../../03_Documentation.md)
+- [`15_Progress.md`](../../../15_Progress.md)
+- [`PROJECT_CONTEXT.md`](../../../PROJECT_CONTEXT.md)
+- [`01_Discovery/Analysis/EXP-000029/consumer_comparison.md`](../../../01_Discovery/Analysis/EXP-000029/consumer_comparison.md)
+- [`01_Discovery/Analysis/EXP-000029/capability_map.md`](../../../01_Discovery/Analysis/EXP-000029/capability_map.md)
+- [`01_Discovery/Analysis/EXP-000032/exploration.md`](../../../01_Discovery/Analysis/EXP-000032/exploration.md)
+- [`01_Discovery/Definitions/REQ-000039/requirement.md`](../../../01_Discovery/Definitions/REQ-000039/requirement.md)
+- [`01_Discovery/Analysis/EXP-000033/exploration.md`](../../../01_Discovery/Analysis/EXP-000033/exploration.md)
+- [`01_Discovery/Definitions/REQ-000040/requirement.md`](../../../01_Discovery/Definitions/REQ-000040/requirement.md)
+- [`02_UX/01_User_Experience.md`](../../../02_UX/01_User_Experience.md)
+- [`02_UX/02_Personas.md`](../../../02_UX/02_Personas.md)
+- [`02_UX/03_Experience_Map.md`](../../../02_UX/03_Experience_Map.md)
+- [`02_UX/04_Service_Blueprint.md`](../../../02_UX/04_Service_Blueprint.md)
+- [`02_UX/05_Quality_Expectations.md`](../../../02_UX/05_Quality_Expectations.md)
+- [`02_UX/Analysis/REQ-000039/ux_analysis.md`](../../../02_UX/Analysis/REQ-000039/ux_analysis.md)
+- [`02_UX/Analysis/REQ-000040/ux_analysis.md`](../../../02_UX/Analysis/REQ-000040/ux_analysis.md)
+- [`02_UX/Definitions/UX-000033/ux_definition.md`](../../../02_UX/Definitions/UX-000033/ux_definition.md)
+- [`02_UX/Definitions/UX-000034/ux_definition.md`](../../../02_UX/Definitions/UX-000034/ux_definition.md)
+- [`03_IA/01_Information_Architecture.md`](../../../03_IA/01_Information_Architecture.md)
+- [`03_IA/Analysis/UX-000033/ia_analysis.md`](../../../03_IA/Analysis/UX-000033/ia_analysis.md)
+- [`03_IA/Analysis/UX-000034/ia_analysis.md`](../../../03_IA/Analysis/UX-000034/ia_analysis.md)
+- [`03_IA/Definitions/IA-000006/ia_definition.md`](../../../03_IA/Definitions/IA-000006/ia_definition.md)
+- [`03_IA/Definitions/IA-000007/ia_definition.md`](../../../03_IA/Definitions/IA-000007/ia_definition.md)
+- [`03_IA/Definitions/IA-000010/ia_definition.md`](../../../03_IA/Definitions/IA-000010/ia_definition.md)
+- [`03_IA/Definitions/IA-000023/ia_definition.md`](../../../03_IA/Definitions/IA-000023/ia_definition.md)
+- [`AGENTS.md`](../../../AGENTS.md)
+- [`CLAUDE.md`](../../../CLAUDE.md)
 - [`25_UI.md`](../../../25_UI.md)
 - [`26_Behavior_Specification.md`](../../../26_Behavior_Specification.md)
 - [`04_UI/01_User_Interface.md`](../../../04_UI/01_User_Interface.md)
 - [`04_UI/05_UI_SPEC_Handoff.md`](../../../04_UI/05_UI_SPEC_Handoff.md)
 - [`04_UI/Details/01_UI_Detail.md`](../../../04_UI/Details/01_UI_Detail.md)
+- [`04_UI/Details/02_Workbench_Screen_Architecture.md`](../../../04_UI/Details/02_Workbench_Screen_Architecture.md)
+- [`04_UI/Details/03_Workbench_Hero_Selection.md`](../../../04_UI/Details/03_Workbench_Hero_Selection.md)
+- [`04_UI/Details/04_Workbench_Visual_Exploration.md`](../../../04_UI/Details/04_Workbench_Visual_Exploration.md)
 - [`05_SPEC/01_Behavior_Specification.md`](../../../05_SPEC/01_Behavior_Specification.md)
 - [`05_SPEC/06_UI_SPEC_Correspondence.md`](../../../05_SPEC/06_UI_SPEC_Correspondence.md)
 - [`05_SPEC/Details/01_SPEC_Detail.md`](../../../05_SPEC/Details/01_SPEC_Detail.md)
 - [`05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md`](../../../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)
 - [`06_Architecture/01_Architecture.md`](../../../06_Architecture/01_Architecture.md)
+- [`06_Architecture/Details/runtime-data/01_Architecture.md`](../../../06_Architecture/Details/runtime-data/01_Architecture.md)
 - [`07_Quality/01_Quality_Center.md`](../../../07_Quality/01_Quality_Center.md)
 - [`07_Quality/04_Quality_Integration.md`](../../../07_Quality/04_Quality_Integration.md)
 - [`16_Quality_Assurance.md`](../../../16_Quality_Assurance.md)
@@ -74,6 +104,28 @@ WorkbenchのWIP、画面案または既存実装を正解として逆算しな�
 - [`40_Develop/checker/src/profiles/current-profile.ts`](../../../40_Develop/checker/src/profiles/current-profile.ts)
 - [`40_Develop/checker/tests/integration/crdd-check.contract.test.ts`](../../../40_Develop/checker/tests/integration/crdd-check.contract.test.ts)
 - [`40_Develop/coordinator/tests/integration/test-execution-profile.contract.test.ts`](../../../40_Develop/coordinator/tests/integration/test-execution-profile.contract.test.ts)
+- [`40_Develop/runtime-data/src/core/runtime-data-contract.ts`](../../../40_Develop/runtime-data/src/core/runtime-data-contract.ts)
+- [`40_Develop/runtime-data/tests/unit/runtime-data-contract.contract.test.ts`](../../../40_Develop/runtime-data/tests/unit/runtime-data-contract.contract.test.ts)
+- [`00_Overview.md`](../../../00_Overview.md)
+- [`04_UI/Details/Visual/workbench-hero/workbench-hero.css`](../../../04_UI/Details/Visual/workbench-hero/workbench-hero.css)
+- [`04_UI/Details/Visual/workbench-hero/visual-baseline.md`](../../../04_UI/Details/Visual/workbench-hero/visual-baseline.md)
+- [`06_Architecture/07_Detail_Architecture_Map.md`](../../../06_Architecture/07_Detail_Architecture_Map.md)
+- [`06_Architecture/Details/visual-preview/01_Architecture.md`](../../../06_Architecture/Details/visual-preview/01_Architecture.md)
+- [`07_Quality/Registry/test-catalog.json`](../../../07_Quality/Registry/test-catalog.json)
+- [`07_Quality/Definitions/QA-000006/quality_definition.md`](../../../07_Quality/Definitions/QA-000006/quality_definition.md)
+- [`40_Develop/checker/template-tools-tsconfig.json`](../../../40_Develop/checker/template-tools-tsconfig.json)
+- [`40_Develop/checker/tests/integration/tools-naming.contract.test.ts`](../../../40_Develop/checker/tests/integration/tools-naming.contract.test.ts)
+- [`40_Develop/verification-runner/src/catalog/test-catalog.ts`](../../../40_Develop/verification-runner/src/catalog/test-catalog.ts)
+- [`40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts`](../../../40_Develop/verification-runner/tests/unit/test-catalog.contract.test.ts)
+- [`40_Develop/visual-preview/bin/visual-preview.ts`](../../../40_Develop/visual-preview/bin/visual-preview.ts)
+- [`40_Develop/visual-preview/package.json`](../../../40_Develop/visual-preview/package.json)
+- [`40_Develop/visual-preview/package-lock.json`](../../../40_Develop/visual-preview/package-lock.json)
+- [`40_Develop/visual-preview/src/index.ts`](../../../40_Develop/visual-preview/src/index.ts)
+- [`40_Develop/visual-preview/src/preview-server.ts`](../../../40_Develop/visual-preview/src/preview-server.ts)
+- [`40_Develop/visual-preview/symbol.json`](../../../40_Develop/visual-preview/symbol.json)
+- [`40_Develop/visual-preview/tsconfig.json`](../../../40_Develop/visual-preview/tsconfig.json)
+- [`40_Develop/visual-preview/tests/integration/visual-preview-server.contract.test.ts`](../../../40_Develop/visual-preview/tests/integration/visual-preview-server.contract.test.ts)
+- [`template/tools/crdd-visual-preview.ts`](../../../template/tools/crdd-visual-preview.ts)
 - [`template/04_UI/01_User_Interface.md`](../../../template/04_UI/01_User_Interface.md)
 - [`template/04_UI/05_UI_SPEC_Handoff.md`](../../../template/04_UI/05_UI_SPEC_Handoff.md)
 - [`template/04_UI/Details/01_UI_Detail.md`](../../../template/04_UI/Details/01_UI_Detail.md)
@@ -93,6 +145,10 @@ WorkbenchのWIP、画面案または既存実装を正解として逆算しな�
 - [`template/07_Quality/04_Quality_Integration.md`](../../../template/07_Quality/04_Quality_Integration.md)
 - [`template/07_Quality/Analysis/PHASE/quality_analysis.md`](../../../template/07_Quality/Analysis/PHASE/quality_analysis.md)
 - [`template/AGENTS.md`](../../../template/AGENTS.md)
+- [`template/CLAUDE.md`](../../../template/CLAUDE.md)
+- [`template/PROJECT_CONTEXT.md`](../../../template/PROJECT_CONTEXT.md)
+- [`.crdd/config/repository-manifest.json`](../../../.crdd/config/repository-manifest.json)
+- [`template/.crdd/config/repository-manifest.example.json`](../../../template/.crdd/config/repository-manifest.example.json)
 - [`99_Roadmap/02_Changes.md`](../../02_Changes.md)
 - [`99_Roadmap/Changes/CHG-000081/change.md`](change.md)
 
@@ -154,8 +210,8 @@ WorkbenchのWIP、画面案または既存実装を正解として逆算しな�
 | Phase 2 | v0.21成果物への適用評価 | UI 20件、SPEC 29件、対応成果物 | 全数Coverage | 全件がApplicable／N/A／OPENへ処置される | Passed |
 | Phase 3 | 独立レビュー | Phase 1〜2固定候補 | 文書・不足影響・工程契約レビュー | Finding 0 | Passed |
 | Phase 4 | v0.21 Detail Migration and Downstream Propagation | 20 UI、29 SPEC、Architecture、Quality、Checker | Detail全数Coverageと下流Relation | 発行済みIDが全下流工程へ接続されFinding 0になる | Passed |
-| Phase 5 | v0.22 Discovery Handoff | v0.22未完了項目 | WIP非依存と入力境界確認 | Discoveryが解決案を前提にせず開始できる | Planned |
-| Phase 6 | Workbench Pilot後の契約固定 | Detail Contract | Dogfood結果と人間判断 | ID・粒度・Visual工程を固定できる | Planned |
+| Phase 5 | v0.22 Discovery Handoff | v0.22未完了項目 | WIP非依存と入力境界確認 | Discoveryが解決案を前提にせず開始できる | Passed |
+| Phase 6 | Workbench Pilot後の契約固定 | Detail Contract | G1〜G5、Dogfood結果、人間判断 | ID・粒度・Visual工程を固定できる | In Progress — G5 Passed／Contract Freeze Ready |
 
 ### 途中拡張の記録
 
@@ -166,6 +222,21 @@ WorkbenchのWIP、画面案または既存実装を正解として逆算しな�
 | 独立レビューで配布ひな型の固定母集団を検出 | 公式自己適用の件数を採用Repositoryへ要求しないことは同じDetail契約の配布境界である | UI／SPEC引き渡しひな型とChecker Checklist契約 | 件数非依存の全数確認が1件・複数件の母集団で成立することをPhase 4 Gateへ追加する | N/A: 公式v0.21の20 SCR／20 PRT／29 BHV／31 Relationは変更しない | ひな型を対象改訂版の実母集団へ一般化し、公式件数は現行本文に維持して再レビューPass |
 | 独立再レビューでCheckerの期待値自己導出を検出 | Canonical DefinitionからDetailと下流工程まで一方向に伝播させる同じIntentの検査不足である | Definition対応、UI Detail台帳、SPEC Detail台帳を期待値OwnerとするRelation閉包検査 | 派生成果物を同時に誤変更しても受理せず、重複行をSet化で隠さないことをPhase 4 Gateへ追加する | N/A: 発行済みID、Relation、Ownerの意味は変更しない | Canonical台帳から期待tupleを導出し、協調誤変更、同数差し替え、誤Area、重複行の反例を追加して再レビューPass |
 | 全回帰で新ひな型と基準版成果物のChecklist境界不足を検出 | 新契約のひな型とv0.21基準版成果物を同時に検証する同じIntentのFixture不足である | Checker契約試験のFixture入力境界 | 両Checklist契約を別々に検証し、全回帰Passを要求する | N/A: 製品成果物とCheckerの合否条件は変更しない | 評価済み成果物から基準版項目を取得し、新ひな型項目との混在を解消 |
+| v0.22 DiscoveryでConsumer共通のProject Context交換契約を確認 | UI／SPEC DetailをWorkbenchで検証する前に、比較対象となる共通入力を成立させる同じPhase 5の目的である | Repositoryルート投影、進捗・配置規則、AI入口、ひな型、Checker | Project Contextを第二の正本にせず、3 Identity、五場面、可視Checklistを決定論的に確認できることをPhase 5 Gateへ追加する | N/A: 既に採用したREQ-000038を正式なRepository成果物へ一意に反映する | `PROJECT_CONTEXT.md`をCurrent Projectionとして正式化し、Repository IDはv0.22の試行値として暫定採用 |
+| v0.22候補範囲と10月3日の目標日を照合 | Phase 5で個別要求を採用しても、Releaseとして閉じる利用者成果と後続へ分離する能力が未確定だった | Repository内の仕事、Project横断の仕事、AI利用構成、実行自動化のScope比較 | Scope確定前に追加の下流展開を止め、完成条件と日程Riskを同時に判断することをPhase 5 Gateへ追加する | Qual-LabがRepository内＋Project横断＋AI利用構成をv0.22の完成範囲として選択した | [EXP-000034](../../../01_Discovery/Analysis/EXP-000034/exploration.md)でB+を採用し、自律Operationを後続へ分離 |
+| Project横断の二つの利用目的を再確認 | FederationとPortfolioを一つの横断機能へ畳むと、RepositoryとProjectの単位およびAuthorityが混ざる | 同一Logical ProjectのRepository Federation、複数Logical Projectの読み取り専用Portfolio | Federation後のLogical Project ContextだけをPortfolio比較へ使い、Project間の自動判断を対象外とすることをPhase 5 Gateへ追加する | Qual-Labが二つともv0.22に含むことを確認した | [EXP-000035](../../../01_Discovery/Analysis/EXP-000035/exploration.md)で既存REQ-000013／017／024／038を維持 |
+| Remote認可をRole別共有Credentialへ簡素化 | 接続申請と個人別CredentialはUser管理Workflowとなり、v0.22の導入・管理負担を増やす | 三Role、Role別共有Credential、Bearer Secret、発行・保存・失効・ローテーション | User／Principalを作らず、Secret非保存と非開示を守ることをPhase 5 Gateへ追加する | Qual-LabがRole別Credentialをv0.22の最小方式として採用した | [EXP-000036](../../../01_Discovery/Analysis/EXP-000036/exploration.md)と[REQ-000041](../../../01_Discovery/Definitions/REQ-000041/requirement.md)へ固定 |
+| Remote認可のReset経路を追加 | Administrator Credential喪失または認可状態破損時に、通常のRemote認証だけでは管理へ戻れない | Administrator Recovery、Full Access Reset、Bootstrap再発行、耐久Recovery記録 | Serverローカル対話CLI、人間確認、Product Data非削除および再入場をPhase 5 Gateへ追加する | Qual-Labがv0.22にReset機構を含めると判断した | REQ-000041へ通常ローテーションと緊急Recoveryを分けて反映 |
+| 本格Trust Policyをv0.22から分離 | 既存RuntimeやCROS認可へ信頼方針管理を直接組み込むと、現在必要なProject運営とRemote接続に対して過剰になる | v0.22では信頼要素分離と既存署名検証を維持し、Trust Policy管理は将来の独立Capabilityへ移す | v0.22 GateからTrust Policy管理を外し、将来導入時にAdapter経由で局所反映する境界を追加する | Qual-Labが現在版には入れないと判断した | [EXP-000028](../../../01_Discovery/Analysis/EXP-000028/exploration.md)へ版境界と将来の所有形を記録 |
+| Repository CapabilityをAdapterで組織固有実装へ接続 | Registryだけでは標準能力と組織固有Commandの関係が曖昧になり、中核改造か任意Shell登録へ寄りやすい | Capability Contract、明示Adapter、Repository単体利用、CROS投影 | 同じ能力契約を標準・組織固有Adapterで満たし、Directory走査と任意Code読込みを許さないことをPhase 5 Gateへ追加する | Qual-LabがAdapter分離による組織固有改造を確認した | [EXP-000025](../../../01_Discovery/Analysis/EXP-000025/exploration.md)と[REQ-000014](../../../01_Discovery/Definitions/REQ-000014/requirement.md)へ反映 |
+| AI Runtimeを追加可能な安定Profileへ分離 | Model名と実行環境を中核へ直接結合すると、新Modelや組織固有構成のたびに改修が必要になる | 仕事Profile、Provider Adapter、Model、推論設定、ローカル／Server設定Owner | Claude Code等の実行環境とgpt-6-astra等のModelを分け、Profileを設定追加できることをPhase 5 Gateへ追加する | Qual-LabがProfile方式と追加可能性を確認した | [EXP-000026](../../../01_Discovery/Analysis/EXP-000026/exploration.md)と[REQ-000016](../../../01_Discovery/Definitions/REQ-000016/requirement.md)へ反映 |
+| 正式投影への自己適用でManifest v1にRepository IDがないことを確認 | REQ-000038のProject／Repository Identity分離を成立させる同じIntentの実装不足である | Runtime Data Architecture、Manifest v2、配布例、契約試験 | Project IDと異なるRepository IDを必須化し、固定Role階層をProject固有の投影責任として扱えることをPhase 5 Gateへ追加する | `qual-lab.crdd-standard`をv0.22で暫定採用し、正式固定は契約固定時に再評価する | v1を推測移行せず拒否するv2契約を追加し、公式RepositoryのローカルManifestへ暫定IDを自己適用 |
+| WorkbenchのVisual工程を飛ばして下流伝播へ進みかけた | Visual DesignをUI Detailの構成要素ではなく後続装飾として扱える余地がGateとChecklistに残っていた | G1 Screen ArchitectureからG5 Expansionまでの順序、Evidence、進行禁止、N/A条件 | Workbench PilotではG1〜G5を可視Checklistで評価し、G4は人間判断、G5前は下流へ通常引き渡ししない | Qual-LabがGateだけでなくAI間で揺れないChecklist化を要求した | `25_UI.md`とUI Detail／Visual Baselineひな型を強化し、Workbenchで自己適用する |
+| `AI Work`がWorkbench固有のAI機能・履歴所有に見える | Workbenchの責務はProject Contextを既存AI Runtimeへ渡す依頼面であり、CodexやClaude Codeの代替または会話履歴の正本ではない | AIへの依頼、現在Session、Provider側履歴、共有成果物への反映 | 表示名を`AIへの依頼`へ改め、会話全文を正本化せず、継続結果だけを既存Owner Artifactへ反映する境界をG1へ追加する | Qual-LabがAI履歴の所有に違和感を示し、依頼面としての整理を採用した | G2でProject Workspace内Panel、Side Panel、独立表示、Context付き外部AI入口を比較する |
+| 一覧・Tree・履歴の大量化がG1で未評価だった | Screen Inventoryだけでは全件取得・全件描画をAIが暗黙採用でき、実利用時の重さと権限境界が後発する | Project、Topic、Meeting、Quality、Relation、Runtime、Repository、CredentialのCollection表示 | 大量化し得る表示面、検索・絞り込み・継続読込・遅延展開・仮想表示・内容分割をG1で必須評価し、取得契約をSPEC Detailへ渡す | Qual-Labが一覧を一気に表示した場合の重さとページング考慮を確認した | `25_UI.md`、UI Detailひな型、Workbench G1成果物へRule／Format／Checklistを反映した |
+| G4でDirection AとFont統一を採用 | HeroだけでVisual Tasteを決めると、作業・Git・Portfolioで成立しない基調や書体混在を固定し得る | Decision Rail、Noto Sans CJK系Font Stack、3 Secondary Screen、Pattern／CMP評価 | 同じViewportでTopic Detail、Repository Worktree、Project Portfolioへ展開し、反復と例外をG5で確認する | Qual-LabがAのテイストとFont統一を選択した | G5を通過し、Pattern候補を記録。CMPはBehavior／Accessibility Contract不足のため理由付き保留 |
+| G5後の確認で8〜11pxの文字と未構造のDesign Principleを検出 | Font Familyの統一とVisual Tasteの選定だけでは、可読性、操作可能性、Contrast、拡大および内容増加の成立を保証できなかった | G3候補適格性、Type Scale、Contrast、Target Size、Spacing、状態識別、狭幅、Keyboard Focus | G3前に各案の原則適合を必須化し、G5でSecondary Screenへ再適用する | Qual-LabがHeroを作ってもDesign Principle未適用では意味がないと指摘した | Rule、Template、Checker Checklistへ還元し、Workbenchを12px下限／14px本文とTokenへ是正。5画面を320〜1920 CSS pxで実測し、文字Contrast、操作対象、横OverflowおよびFocus順の未処置0件を確認。実Browser Zoomは狭幅と分離してOPENを維持 |
+| `file://`がBrowser検証境界で拒否され、実Zoom／Breakpoint境界を再現できない | Visual確認を特定BrowserのLocal File許可へ依存すると、G5の検証手段を別実行者が再現できない | `visual-preview`専用Subsystem、localhost読取り専用配信、薄い配布CLI、直接境界IT | 実Browser確認前にRoot越境、Link、書込みMethod、外部BindおよびListener残存を拒否し、Preview Toolへ評価・合否・Evidence責務を持たせない | Qual-Labが汎用Verification Runnerへの統合より、Visual確認だけへ絞った単純なToolを採用した | `40_Develop/visual-preview`と`template/tools/crdd-visual-preview.ts`を追加し、Architecture、Quality、Test CatalogおよびSymbol Relationへ接続。実Browserで旧900px境界の横Overflowを検出し、固定最小幅を廃止して5画面の新旧境界40条件を再確認した。実Zoomは環境上の実効値を観測できずOPENを維持する |
 
 ### 途中見直しの記録
 
@@ -192,7 +263,9 @@ WorkbenchのWIP、画面案または既存実装を正解として逆算しな�
 - 決定論的確認:
   - Repository Checker: 構造・Coverage Error 0／Warning 0。featureブランチのため既知の`stable-release-tag-identity-mismatch` 1件
   - Format／Typecheck／Lint: Pass
-  - Checker回帰: 372件Pass／0件Fail
+  - Checker回帰: 375件Pass／0件Fail
+  - Project Context局所契約試験: 3件Pass／0件Fail
+  - Runtime Data契約試験: 36件Pass／0件Fail
   - Relation閉包の対象試験: 7件Pass／0件Fail
   - `git diff --cached --check`: Pass
   - UI Definition適用台帳: 20件

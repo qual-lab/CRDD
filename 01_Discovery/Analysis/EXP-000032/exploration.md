@@ -131,13 +131,15 @@ TopicとMeetingの契約は、DEV用とMGMT用で別の仕組みにしない。�
 
 Repository分離は必須ではない。開示範囲を分ける必要がなく、一つのRepositoryでProjectを運営できる場合は、DEV／MGMTという物理分離を作らず、そのRepository内でTopicとMeetingを成立させてよい。複数Repositoryを使う場合も、各Topic／MeetingのOwner Repositoryは一つとし、CROSは現在の主体が参照できる項目を統合表示するだけで、別の正本を作らない。
 
+標準のDEV／MGMT分離では、全Project参加者が共通認識すべき案件の安定情報をDEV Repositoryが所有し、CommercialはMGMT Repositoryが所有する。Management利用者は両Repositoryを参照し、CROSはDEV側のProjectとMGMT側のCommercialを同じLogical Projectへ統合する。Project本文をMGMT側へ複製しない。TopicとMeetingはDEV／MGMTの双方が同じ契約を使うが、各Repositoryは自身の開示範囲に属する項目だけを所有する。
+
 ```text
 単一Repository Project
 └ Topic／Meetingを同じRepositoryで保持
 
 Repository分離Project
-├ DEV  ─ Topic／Meeting（開発範囲）
-└ MGMT ─ Topic／Meeting（管理範囲）
+├ DEV  ─ Project／Topic／Meeting（共通・開発範囲）
+└ MGMT ─ Commercial／Topic／Meeting（管理範囲）
           ↓
    CROSは許可された範囲だけ投影
 ```

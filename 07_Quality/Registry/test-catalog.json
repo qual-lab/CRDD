@@ -29,7 +29,8 @@
     "semantic-coverage": "node_test",
     "version-control": "node_test",
     "platform-access": "cargo_test",
-    "verification-runner": "node_test"
+    "verification-runner": "node_test",
+    "visual-preview": "node_test"
   },
   "integrationBlocks": [
     {
@@ -151,6 +152,16 @@
       "lifecycleProfile": "external_effect_operation",
       "testIds": ["verification-runner:integration:regression-runner", "verification-runner:unit:test-catalog"],
       "postconditions": ["child_process_absent", "fixture_cleanup_classified", "partial_result_not_reported_complete"]
+    },
+    {
+      "id": "visual-preview:local-read-only-preview",
+      "owner": "visual-preview",
+      "architectureAnchor": "06_Architecture/Details/visual-preview/01_Architecture.md#4-flow",
+      "responsibilities": ["repository_root_validation", "loopback_read_only_delivery", "listener_cleanup"],
+      "externalBoundaries": ["repository_filesystem", "localhost_http", "browser_consumer"],
+      "lifecycleProfile": "read_only_boundary",
+      "testIds": ["visual-preview:integration:preview-server"],
+      "postconditions": ["repository_content_unchanged", "listener_absent", "connection_absent"]
     },
     {
       "id": "project-runtime:objective-task-lifecycle",
@@ -359,6 +370,13 @@
       "blockPath": ["version-control:repository-observation", "verification-runner:regression-runner"],
       "testIds": ["version-control:integration:local-change-set", "verification-runner:integration:regression-runner"],
       "postconditions": ["canonical_change_set_preserved", "partial_observation_not_used", "selection_input_complete"]
+    },
+    {
+      "id": "version-control:repository-to-visual-preview",
+      "architectureAnchor": "06_Architecture/Details/visual-preview/01_Architecture.md#4-flow",
+      "blockPath": ["version-control:repository-observation", "visual-preview:local-read-only-preview"],
+      "testIds": ["version-control:integration:repository-location", "visual-preview:integration:preview-server"],
+      "postconditions": ["repository_root_identity_preserved", "repository_content_unchanged", "listener_absent"]
     },
     {
       "id": "runtime-data:repository-to-consumers",
@@ -4340,6 +4358,29 @@
       "postconditions": [
         "execution_plan_observed",
         "unauthorized_effect_absent"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "visual-preview:integration:preview-server",
+      "owner": "visual-preview",
+      "path": "40_Develop/visual-preview/tests/integration/visual-preview-server.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "visual-preview",
+        "localhost",
+        "read-only",
+        "path-boundary",
+        "cleanup"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "repository_content_unchanged",
+        "listener_absent",
+        "connection_absent"
       ],
       "mandatoryByDefault": true
     },

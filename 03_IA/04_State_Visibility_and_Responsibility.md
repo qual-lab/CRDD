@@ -84,7 +84,7 @@ Architecture／Provider／Platform
 | [IA-000006](Definitions/IA-000006/ia_definition.md) | 適用 | 利用可能／一部利用可能／制限／古い／競合／不明を区別し、正本Ownerと投影生成責任を分ける |
 | [IA-000007](Definitions/IA-000007/ia_definition.md) | 適用 | 手元で完結／横断参照が必要／横断先なし／制限／不明を区別する |
 | [IA-000008](Definitions/IA-000008/ia_definition.md) | 適用 | 未受付／受付済み／作用未発行／作用済み／結果搬送済み／不明を区別する |
-| [IA-000009](Definitions/IA-000009/ia_definition.md) | 適用 | 利用可能／資格要求／制限／利用不能／不明を区別し、管理能力を内容閲覧へ流用しない |
+| [IA-000009](Definitions/IA-000009/ia_definition.md) | 適用 | 利用可能／資格要求／制限／利用不能／不明、Credentialの有効／期限切れ／失効／ローテーション中、Recoveryの確認待ち／進行中／blocked／completedを区別し、管理能力を内容閲覧へ流用しない |
 | [IA-000010](Definitions/IA-000010/ia_definition.md) | 適用 | 記録済み／候補／検討中／採用／却下／保留を区別する |
 | [IA-000011](Definitions/IA-000011/ia_definition.md) | 適用 | 利用可能／未導入／不一致／権限不足／不明を区別する |
 | [IA-000012](Definitions/IA-000012/ia_definition.md) | 適用 | 一時／耐久／回復必要／削除可能／清掃済み／不明を区別する |
@@ -98,6 +98,7 @@ Architecture／Provider／Platform
 | [IA-000020](Definitions/IA-000020/ia_definition.md) | 適用 | 利用可能／一部利用可能／故障／回復中／観測不能を境界ごとに区別する |
 | [IA-000021](Definitions/IA-000021/ia_definition.md) | 適用 | 現在有効／履歴／置換済み／有効性不明を区別する |
 | [IA-000022](Definitions/IA-000022/ia_definition.md) | 適用 | 未記録／記録中／完成／衝突／回復必要／公開不能／不明を区別する |
+| [IA-000023](Definitions/IA-000023/ia_definition.md) | 適用 | current／conflicting／incomplete／unknown、期限のset／not_set、事実／共有分析／追加推論を区別し、Repository Role外を推測表示しない |
 
 ## 補足分析
 

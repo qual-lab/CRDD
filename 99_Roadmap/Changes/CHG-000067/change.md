@@ -39,13 +39,13 @@ Project Operation Context
 2026-09-12の利用者対話で、次を決定した。
 
 - `Project ID`と`Repository ID`を分け、一つの論理Projectが複数Repositoryを持てるようにする。
-- `20_Project`は案件の安定情報だけを所有し、CHG、Quality、Roadmap、Git、実行状態、Topic、MeetingまたはCommercialを複製しない。
+- `20_Project`は全Project参加者が共通認識すべき案件の安定情報だけを所有し、CHG、Quality、Roadmap、Git、実行状態、Topic、MeetingまたはCommercialを複製しない。標準のDEV／MGMT分離ではDEV Repositoryに置き、MGMTへ本文を複製しない。
 - Project Management Projectionは読取り専用の派生Viewであり、正本または独立Project管理Databaseにしない。
 - Project、Commercial、Topics、MeetingsおよびCommunicationを別責務とし、安定IDとRelationで接続する。
 - Commercialだけを特別扱いせず、Project、Topics、Meetings、Communicationその他の大きな責務領域も、同一Repositoryへの同居と領域単位の別Repository分離を選べるようにする。
 - Repositoryを単一Roleへ固定せず、所有するContext Responsibilityの集合を宣言する。既存のTool／Runtime Capabilityとは別fieldで扱う。
 - Meeting、TopicおよびCommunicationは使用サービスではなく目的と意味で分類する。
-- `20_Project`、`21_Commercial`、`22_Topics`および`23_Meetings`は、使用するRepositoryだけに置く任意領域とする。
+- `20_Project`、`21_Commercial`、`22_Topics`および`23_Meetings`は、使用するRepositoryだけに置く領域とする。標準分離ではDEVが`20_Project`、MGMTが`21_Commercial`を所有し、`22_Topics`／`23_Meetings`は両者が自身の開示範囲に限って所有できる。単一Repositoryでは必要な領域を同居できる。
 - CommercialはProjectとの分離境界だけをv0.22で固定し、会計・請求・税・通貨等の完全Schemaを作らない。
 - 情報アクセス差はRepository分離、既存Git／OSの権限およびShared CROS ServerのWorkspace Exposureで表現し、CROSを独自IAM、Password Storeまたは暗号化製品にしない。
 - Workbench等のUnlock操作は外部所有の認証処理への入口に限定し、同じOS Userが読める内容の表示ロックを強い情報境界とみなさない。

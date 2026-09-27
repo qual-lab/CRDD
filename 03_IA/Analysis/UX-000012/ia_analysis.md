@@ -27,6 +27,7 @@
 | 公開契約 | 入力と結果の意味 | Contract ID＋改訂版（Revision） |
 | 通信方式 | 公開契約を運ぶ通信手段 | 通信方式種別（Transport Kind）で識別する |
 | 外部作用の発行状態 | 依頼から外部作用が発行されたかを示す状態 | 依頼（Request）／試行（Attempt）へ結合し、判定時点を保持する |
+| Project Context | 人間、複数AI、MCPおよびWorkbenchが同じ意味で取得するRepositoryの現在投影 | Project ID＋Repository ID＋Repository Roleで範囲を定め、固定見出し・表・統制語彙を共有する |
 
 
 ```text
@@ -39,6 +40,8 @@
                                     │ 作用の有無を明示する
                                     ▼
                          [O: 外部作用の発行状態]
+
+[O: Project Context] ──同じ意味で読む──▶ [人間／AI／MCP／Workbench]
 ```
 
 図中の`[O:]`は情報Objectだけを表す。利用者、判断行為、利用者成果はObjectへ置き換えない。関係名と向きは、同じ対象を追跡し、誤った統合を避けるための情報上の関係であり、画面遷移や実装依存を表さない。
@@ -52,6 +55,7 @@
 | IA-000008 | 公開契約 | 公開契約 | Same | 公開入口が守るApplication Contractとして保持する |
 | IA-000008 | 通信方式 | 通信手段 | Rename | 契約を運ぶTransportとして分離する |
 | IA-000008 | 外部作用の発行状態 | 作用状態 | Rename | 要求受付とEffect成立を分けて保持する |
+| IA-000023 | Project Context | Project Context Projection | Same | Consumer固有Storeを作らず、同じRepository内投影を共用する |
 
 この対応は分析結果からCanonical定義を再構築するための候補である。`Split`または`Merge`でも元の利用者向け意味を失わず、正式入力にないObjectを追加しない。
 
@@ -100,7 +104,7 @@
 
 ## 5. IA処置
 
-[IA-000008](../../Definitions/IA-000008/ia_definition.md)へ接続する。上記7軸を接続先へ保持し、複数UXを統合する場合も対象固有の状態、失敗、導線を消さない。UXから継承する未確認事項を、判断者と影響を含めて接続先へ保持する。
+[IA-000008](../../Definitions/IA-000008/ia_definition.md)と[IA-000023](../../Definitions/IA-000023/ia_definition.md)へ接続する。IA-000008は通信方式と公開結果の意味同値性を、IA-000023はConsumerが共用するProject Contextの情報構造を所有する。上記7軸を接続先へ保持し、複数UXを統合する場合も対象固有の状態、失敗、導線を消さない。UXから継承する未確認事項を、判断者と影響を含めて接続先へ保持する。
 
 ## 6. 後続工程が保持する意味
 

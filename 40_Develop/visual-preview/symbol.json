@@ -1,0 +1,27 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "visual-preview",
+  "symbols": [
+    {
+      "symbolId": "visual-preview.public-api",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": ["ARCH-000003"]
+    },
+    {
+      "symbolId": "visual-preview.server",
+      "kind": "file",
+      "path": "src/preview-server.ts",
+      "archIds": ["ARCH-000003"]
+    },
+    {
+      "symbolId": "visual-preview.test.integration.preview-server",
+      "kind": "test-suite",
+      "path": "tests/integration/visual-preview-server.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-018"],
+      "verifies": ["visual-preview.server"]
+    }
+  ]
+}

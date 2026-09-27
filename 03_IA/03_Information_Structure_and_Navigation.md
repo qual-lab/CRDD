@@ -76,7 +76,7 @@ Primary、Secondary、Referenceは情報上の優先度であり、画面の位�
 | [IA-000006](Definitions/IA-000006/ia_definition.md) | 適用 | ProjectからBindingでRepositoryへ進み、投影からSource・Revision・Observed At・Coverageへ戻る |
 | [IA-000007](Definitions/IA-000007/ia_definition.md) | 適用 | まず手元の情報と作業へ進み、不足時だけ横断情報源へ移り、履歴の詳細はAdapter経由で辿る |
 | [IA-000008](Definitions/IA-000008/ia_definition.md) | 適用 | 公開依頼から契約・作用状態・公開結果へ進み、通信手段が変わっても同じ結果根拠へ辿る |
-| [IA-000009](Definitions/IA-000009/ia_definition.md) | 適用 | CredentialからSession・Workspace Grantへ進み、WorkspaceとExposureを介して利用可能Repositoryだけへ辿る |
+| [IA-000009](Definitions/IA-000009/ia_definition.md) | 適用 | 通常利用はCredential→Role→Repository、通常管理はRole→Credential→状態、緊急時はHost確認→Recovery→Bootstrap再入場へ辿る |
 | [IA-000010](Definitions/IA-000010/ia_definition.md) | 適用 | MeetingからMeeting Item・Candidateへ進み、関係するTopicと採否判断へ辿る |
 | [IA-000011](Definitions/IA-000011/ia_definition.md) | 適用 | やりたい仕事からCapability・Availabilityへ進み、必要時にDistribution・Manifest・Runtime Bindingへ辿る |
 | [IA-000012](Definitions/IA-000012/ia_definition.md) | 適用 | Runtime RootからData Item・Durability・Retentionへ進み、残存時はRecovery Obligation・Cleanup Evidenceへ辿る |
@@ -90,6 +90,7 @@ Primary、Secondary、Referenceは情報上の優先度であり、画面の位�
 | [IA-000020](Definitions/IA-000020/ia_definition.md) | 適用 | Runtimeから故障Boundaryへ絞り込み、利用可能CapabilityとRecovery Pathへ進む |
 | [IA-000021](Definitions/IA-000021/ia_definition.md) | 適用 | Current IntentからSelection Reasonへ進み、必要時にReasoning Context・Historical Value・置換先へ戻る |
 | [IA-000022](Definitions/IA-000022/ia_definition.md) | 適用 | ExecutionからSource・Observation・Record Attempt・Publication Resultへ進み、衝突時はRecovery先へ辿る |
+| [IA-000023](Definitions/IA-000023/ia_definition.md) | 適用 | Project／Repository Identityから現在地、Risk・停止、判断待ち、根拠、共有分析・次の一手、不完全性へ進み、詳細はOwner Relationへ辿る |
 
 ## 補足分析
 

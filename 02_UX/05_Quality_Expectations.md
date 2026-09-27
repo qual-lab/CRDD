@@ -72,6 +72,9 @@
 | [UX-000030](Definitions/UX-000030/ux_definition.md) | 由来・権利・用途を追跡する |
 | [UX-000031](Definitions/UX-000031/ux_definition.md) | 識別表示と検証可能な信頼根拠を別に示す |
 | [UX-000032](Definitions/UX-000032/ux_definition.md) | 同じ識別情報で再観測し、結果不明を保つ |
+| [UX-000033](Definitions/UX-000033/ux_definition.md) | 当時記録と現在状態、終了・訂正と誤登録削除を分け、削除影響と復旧可能性を示す |
+| [UX-000034](Definitions/UX-000034/ux_definition.md) | 結論からOwnerと作業差分へ戻り、外部Effect前に送信対象を確認する |
+| [UX-000035](Definitions/UX-000035/ux_definition.md) | Userを管理せず、Secret・管理能力・内容Access・Recovery範囲を混同しない |
 
 ## 4. 利用の流れの中の重要場面
 
