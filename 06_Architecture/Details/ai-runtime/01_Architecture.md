@@ -111,7 +111,9 @@ CROS Server設定 ──────┼─→ 設定Adapter ─→ AI Runtime Pr
 | Availability Observation | 実行環境Observer | 再観測またはSession終了 |
 | Provider Execution | Coordinator／Provider Adapter | AI Runtimeの責務外 |
 
-現在の実装は既定Catalog、閉じた検証、一意解決、利用可能性評価、Owner別の耐久Snapshot採用、Repository／CROS WorkbenchのProfile限定管理、Coordinator互換解決、Workbench表示およびWorkbench AI依頼Portまで成立している。Workbenchが選んだProfile IDは、同じCatalog SnapshotのAdapter、Model、ReasoningとCatalog Revisionへ解決され、読取り助言のTask HashおよびProviderとともに一回送信境界までexactに保持される。CROSでは`systemAdmin`を持たないCredentialへCatalogの内容・件数を開示しない。Production Compositionは専用Dispatch、Provider別の固定Adapter選択、Repository非共有の読取り助言専用Execution Plan、固定配布物へ接続するProvider Command Plan、Provider出力抽出およびLifecycle判定を行うExecutor Coreまで接続した。Executor Coreから署名Runtimeへ渡す入力は、Operation、Profile、Task／Projection Hash、PromptおよびCommand Hashを結合した一回消費Packetへ固定し、再利用、別Owner消費、取消後利用および共有境界の拡張を拒否する。Codex／Claude Adapter、Docker Effect、Process ControllerおよびRecoveryは`workbench_advice`を独立Modeとして受理し、Provider HomeとOperation一時領域だけを共有し、助言Promptをstdinだけへ渡し、Provider Envelopeを助言JSONへ縮約してcleanup後に返す。Coordinatorの署名済みRuntimeは実行時に到達する`catalog.ts`／`types.ts`だけをCatalog Coreとして消費し、Store／管理Surfaceを暗黙に署名閉包へ含めない。未成立なのは、Workbench ExecutorからOperation生成・Model Selection・Mount Grant・Packet発行・Process Controllerを編成するProduction Composition、署名済み配布物および実Provider E2Eであり、局所Mode成立を実Provider利用可能とは表示しない。
+永続Snapshotが一件もない正常なOwner Storeは、Schema検証済みの既定Catalogを`revision 0`として返す。これは採用済みFileの代替ではなく、最初の採用で`expectedRevision: 0`を照合し、成功時にだけ`revision 1`を公開するための初期Snapshotである。Coordinatorは同じSnapshotからProfileを解決し、Profile ID、Adapter、Model、ReasoningおよびCatalog RevisionをExecution Planまで変更せず搬送する。DirectoryまたはSnapshotを観測できない場合、Revision列が不連続な場合、Envelope／Schemaが破損している場合は例外で停止し、`revision 0`へ縮退しない。
+
+現在の実装は既定Catalog、閉じた検証、一意解決、利用可能性評価、Owner別の耐久Snapshot採用、Repository／CROS WorkbenchのProfile限定管理、Coordinator互換解決、Workbench表示およびWorkbench AI依頼Portまで成立している。Workbenchが選んだProfile IDは、同じCatalog SnapshotのAdapter、Model、ReasoningとCatalog Revisionへ解決され、読取り助言のTask HashおよびProviderとともに一回送信境界までexactに保持される。CROSでは`systemAdmin`を持たないCredentialへCatalogの内容・件数を開示しない。Production Compositionは専用Dispatch、Provider別の固定Adapter選択、Repository非共有の読取り助言専用Execution Plan、固定配布物へ接続するProvider Command Plan、Provider出力抽出およびLifecycle判定を行うExecutor Coreまで接続した。Executor Coreから署名Runtimeへ渡す入力は、Operation、Profile、Task／Projection Hash、PromptおよびCommand Hashを結合した一回消費Packetへ固定し、再利用、別Owner消費、取消後利用および共有境界の拡張を拒否する。Codex／Claude Adapter、Docker Effect、Process ControllerおよびRecoveryは`workbench_advice`を独立Modeとして受理し、Provider HomeとOperation一時領域だけを共有し、助言Promptをstdinだけへ渡し、Provider Envelopeを助言JSONへ縮約してcleanup後に返す。Coordinatorの署名済みRuntimeは実行時に到達する`catalog.ts`／`types.ts`だけをCatalog Coreとして消費し、Store／管理Surfaceを暗黙に署名閉包へ含めない。Production CompositionはOperation生成、Model Selection、Mount Grant、Packet発行およびProcess Controllerまで成立済みである。未確認は今回の是正を含む署名済み配布物の再固定・直接起動と実Provider E2Eであり、局所Mode成立を実Provider利用可能とは表示しない。
 
 ## 6. Failureと回復
 
@@ -120,6 +122,7 @@ CROS Server設定 ──────┼─→ 設定Adapter ─→ AI Runtime Pr
 | Schema不正／未知Property | Effect 0で拒否 | Candidateを修正し再検証 |
 | Adapter／Model不一致 | Effect 0で拒否 | 登録済み構成へ戻す |
 | 解決結果0件／複数件 | 暗黙Fallbackせず未解決 | 選択条件またはCatalogを修正 |
+| Store／Snapshot観測不能・破損 | 例外で停止し、既定CatalogまたはRevision 0へ縮退しない | Owner Storeを復旧し同じ入口から再観測 |
 | Host／認証／Authority未観測 | `unknown` | 対応Ownerが再観測 |
 | 一軸でも利用不可 | `unavailable` | 失敗軸を解消後に再観測 |
 | 採用後のProvider失敗 | Provider境界の結果として保持 | Coordinatorの回復契約へ渡す |
@@ -140,8 +143,8 @@ CROS Server設定 ──────┼─→ 設定Adapter ─→ AI Runtime Pr
 | 対象 | 現在状態 | 分類 | 次の処置 |
 |---|---|---|---|
 | `40_Develop/ai-runtime` | Catalog Schema、既定Catalog、解決、Availability、Owner別File Adapterを所有 | Covered | Consumer追加時も同じ公開入口を使う |
-| Coordinator Profile解決 | Repository Ownerの採用済みCatalog Snapshotを依頼ごとに一回観測し、選択IDを同じSnapshotのAdapter、Model、Reasoningへ解決してCatalog Revisionとともに読取り助言Dispatchへ渡す。未登録または非Coordinator ProfileはDispatch前に拒否する | Covered | 実Provider Executorへ同じIdentityを接続する |
-| Workbench読取り助言Dispatch | 一依頼の明示確認をTask Hash、Catalog Revision、Profile ID、Providerへ結合して一回消費し、取消、Effect、cleanup、結果Schemaを分離して判定する。Provider Adapterはexact ProfileをCodex／Claudeの一方へだけ渡し、Execution PlanとProvider Command Planでstdin搬送、Repository／Tool／Session非共有およびfallback禁止を固定する。Executor CoreはProvider固有出力を助言JSONだけへ抽出し、Tool Eventやcleanup不明を拒否する | Covered | 署名Coordinatorの専用Docker lifecycleと実E2Eを接続する |
+| Coordinator Profile解決 | Repository Ownerの採用済みCatalog Snapshotを依頼ごとに一回観測し、選択IDを同じSnapshotのAdapter、Model、Reasoningへ解決してCatalog Revisionとともに読取り助言Dispatchへ渡す。未登録または非Coordinator ProfileはDispatch前に拒否する | Covered | 再署名した候補の直接起動と実Provider E2Eで同じIdentityの搬送を確認する |
+| Workbench読取り助言Dispatch | 一依頼の明示確認をTask Hash、Catalog Revision、Profile ID、Providerへ結合して一回消費し、取消、Effect、cleanup、結果Schemaを分離して判定する。Provider Adapterはexact ProfileをCodex／Claudeの一方へだけ渡し、Execution PlanとProvider Command Planでstdin搬送、Repository／Tool／Session非共有およびfallback禁止を固定する。Executor CoreはProvider固有出力を助言JSONだけへ抽出し、Tool Eventやcleanup不明を拒否する | Covered | 是正後の候補を再署名・直接起動し、Codex／Claudeの実Provider E2Eを閉じる |
 | Workbench AI Profiles | 設定と四軸の未観測状態を表示し、Repository OwnerとCROS Ownerを分離したProfile限定管理を接続 | Partial | 実Observerを接続する |
 | Repository／CROS設定 | 同一SchemaをOwner別の不変Snapshot列へ保存。RepositoryはLocal Store、CROSは`systemAdmin`限定Remote管理入口へ接続 | Covered | 実Provider注入時もOwnerを混合しない |
 

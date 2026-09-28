@@ -1,23 +1,17 @@
 /**
- * WorkbenchのOwner Artifact読取り投影。
+ * WorkbenchのOwner Artifact読取りApplication。
  *
  * @packageDocumentation
  * @responsibility Project Contextが明示するOwner Relationと固定Root Artifactを、Repository越境なしの読取りCatalogへ変換する。
  * @trace ARCH-000005
  * @trace ARCH-000012
  * @trace ARCH-000016
- * @boundary Repository MarkdownとWorkbench Owner Artifact表示の境界。
+ * @boundary Repository MarkdownとWorkbench Client Modelの境界。
  * @effect 検証済みRepository内の宣言済みMarkdownだけを読取る。
  * @security 任意Path、外部URL、親参照、Symlink／Junction越境およびCatalog外Documentを拒否する。
  */
 import { lstat, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
-import { createElement, type ReactElement } from "react";
-
-import {
-  EmptyState,
-  WorkbenchPanel,
-} from "./presentation/workbench-components.ts";
 
 const MAX_ARTIFACT_BYTES = 512 * 1_024;
 const FIXED_OWNER_ARTIFACTS = Object.freeze([
@@ -201,141 +195,6 @@ export async function readWorkbenchChangeArtifact(
   ).catch(() => null);
 }
 
-/**
- * Owner Artifact CatalogをQualityおよびDocumentationへ投影する。
- *
- * @responsibility 固定Owner ArtifactとProject Context Relationを第二正本化せずQualityと参照先へ分けて表示する。
- * @trace ARCH-000005
- * @trace ARCH-000012
- * @trace ARCH-000016
- * @input catalogに起動時の検証済みOwner Artifact Snapshotを受け取る。
- * @returns Browserが描画するReact要素を返す。
- * @precondition availableのartifactは全てRepository内通常Markdownである。
- * @postcondition Quality、Roadmap詳細およびRelationを同じ原文Routeへ接続する。
- * @effect N/A: React要素の構築だけを行う。
- * @failure unknownは空一覧へ畳まず、二つの面を観測不能として表示する。
- * @invariant Artifact内容、IdentityまたはRelationをWorkbenchへ複製しない。
- * @boundary Owner Artifact CatalogとBrowser表示の境界。
- * @security titleとPathはReactのText escapingを使用し、URLはCatalog内Pathだけから生成する。
- * @concurrency 起動時Catalog一件だけを同期描画する。
- */
-export function renderWorkbenchOwnerArtifacts(
-  catalog: WorkbenchOwnerArtifactCatalog,
-  query = "",
-): ReactElement {
-  if (catalog.state !== "available") {
-    return createElement(
-      WorkbenchPanel,
-      {
-        id: "documentation",
-        eyebrow: "Owner artifact",
-        title: "Documentation and Relations",
-        status: "Unknown",
-      },
-      createElement(
-        EmptyState,
-        null,
-        "Owner Artifactを完全に観測できません。空または該当なしとして扱いません。",
-      ),
-    );
-  }
-  const normalizedQuery = query.trim().toLocaleLowerCase("ja");
-  const relationSources = catalog.artifacts.filter(
-    (artifact) =>
-      artifact.category === "relation" || artifact.category === "project_plan",
-  );
-  const relations = relationSources.filter(
-    (artifact) =>
-      normalizedQuery.length === 0 ||
-      artifact.title.toLocaleLowerCase("ja").includes(normalizedQuery) ||
-      artifact.relativePath.toLocaleLowerCase("ja").includes(normalizedQuery),
-  );
-  return createElement(
-    WorkbenchPanel,
-    {
-      id: "documentation",
-      eyebrow: "Owner relations",
-      title: "Documentation and Relations",
-      status: `${relations.length} / ${relationSources.length} sources`,
-      className: "owner-artifact-panel",
-    },
-    createElement(
-      "p",
-      { className: "scene-summary" },
-      "Project Contextが現在明示するOwner RelationとProject Planの詳細正本だけを表示します。検索は起動時に検証済みのCatalog内だけで行い、Repository全体を探索しません。",
-    ),
-    createElement(
-      "form",
-      { className: "document-search", method: "get", action: "/" },
-      createElement(
-        "label",
-        null,
-        "TitleまたはPathで検索",
-        createElement("input", {
-          type: "search",
-          name: "documentQuery",
-          defaultValue: query,
-          maxLength: 200,
-        }),
-      ),
-      createElement("button", { type: "submit" }, "Search"),
-    ),
-    relations.length === 0
-      ? createElement(
-          EmptyState,
-          null,
-          normalizedQuery.length === 0
-            ? "現在のOwner Relationは0件です。"
-            : "検索条件に一致する検証済みOwner Relationはありません。",
-        )
-      : createElement(
-          "ul",
-          { className: "owner-artifact-list" },
-          ...relations.map((artifact) =>
-            createElement(
-              "li",
-              { key: artifact.relativePath },
-              createElement(
-                "a",
-                {
-                  href: `/owner-artifact?path=${encodeURIComponent(artifact.relativePath)}`,
-                },
-                createElement("strong", null, artifact.title),
-                createElement(
-                  "small",
-                  null,
-                  createElement("code", null, artifact.relativePath),
-                ),
-                createElement(
-                  "small",
-                  null,
-                  artifact.origin === "fixed"
-                    ? "Fixed owner entry"
-                    : `Project Context: ${artifact.sourceSection ?? "Section unknown"}`,
-                ),
-              ),
-            ),
-          ),
-        ),
-  );
-}
-
-/**
- * Project Contextに明示された相対Markdown Relationを抽出する。
- *
- * @responsibility Markdown Linkから許可候補と起点H2だけを抽出し、外部・絶対・親参照を除外する。
- * @trace ARCH-000016
- * @input markdownに検証対象のProject Context本文を受け取る。
- * @returns 構文上安全な相対Markdown Path候補と起点Sectionを入力順で返す。
- * @precondition markdownを信頼済みPath一覧と仮定しない。
- * @postcondition 戻り値は`.md`終端で、Scheme、絶対Path、Backslashおよび`..`を含まない。
- * @effect N/A: 入力文字列だけを解析する。
- * @failure 不適格Linkを結果へ含めず、例外でFilesystem Effectを誘発しない。
- * @invariant Link TextまたはFragmentをPath Identityへ含めず、再帰Relationを生成しない。
- * @boundary Project Context MarkdownとOwner Artifact Path候補の境界。
- * @security URLやPathのAuthorityを生成せず、候補は後段で実Path検証する。
- * @concurrency N/A: 共有状態を持たない同期処理である。
- */
 function extractMarkdownRelations(markdown: string): readonly Readonly<{
   relativePath: string;
   origin: "project_context";
@@ -436,7 +295,7 @@ async function readVerifiedOwnerArtifact(
  * @failure H1欠落をPath表示へ安全に縮退する。
  * @invariant H2以下をtitleとして採用しない。
  * @boundary Markdown本文とWorkbench表示名の境界。
- * @security titleをHTMLとして信頼せず、ReactのText escapingを使用する。
+ * @security titleをHTMLとして信頼せず、BrowserのText escapingを使用する。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 function extractTitle(markdown: string, relativePath: string): string {

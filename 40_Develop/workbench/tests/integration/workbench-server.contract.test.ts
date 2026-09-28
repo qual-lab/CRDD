@@ -364,6 +364,29 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
     );
     assert.ok(model.surface.ownerArtifacts.artifacts.length > 0);
 
+    assert.equal(model.aiProfileAdministration.snapshot?.revision, 0);
+    assert.doesNotThrow(() =>
+      inspectWorkbenchClientModel(structuredClone(model)),
+    );
+    for (const invalidRevision of [-1, 0.5]) {
+      const invalidCatalogRevision = structuredClone(model) as unknown as {
+        aiProfileAdministration: {
+          snapshot: { revision: number } | null;
+        };
+      };
+      assert.notEqual(
+        invalidCatalogRevision.aiProfileAdministration.snapshot,
+        null,
+      );
+      if (invalidCatalogRevision.aiProfileAdministration.snapshot !== null)
+        invalidCatalogRevision.aiProfileAdministration.snapshot.revision =
+          invalidRevision;
+      assert.throws(
+        () => inspectWorkbenchClientModel(invalidCatalogRevision),
+        /workbench_client_model_invalid/u,
+      );
+    }
+
     const invalidQuality = structuredClone(model) as unknown as {
       surface: {
         quality: {
@@ -3024,6 +3047,28 @@ test("Workbenchは登録済みAdapterだけでAI Profileを作成し確認付き
       "profile_created",
     );
     assert.equal(afterCreate.aiProfileAdministration.snapshot?.revision, 1);
+    assert.equal(
+      afterCreate.aiProfileAdministration.result?.snapshot.revision,
+      1,
+    );
+    for (const invalidRevision of [-1, 0.5]) {
+      const invalidResultRevision = structuredClone(afterCreate) as unknown as {
+        aiProfileAdministration: {
+          result: { snapshot: { revision: number } } | null;
+        };
+      };
+      assert.notEqual(
+        invalidResultRevision.aiProfileAdministration.result,
+        null,
+      );
+      if (invalidResultRevision.aiProfileAdministration.result !== null)
+        invalidResultRevision.aiProfileAdministration.result.snapshot.revision =
+          invalidRevision;
+      assert.throws(
+        () => inspectWorkbenchClientModel(invalidResultRevision),
+        /workbench_client_model_invalid/u,
+      );
+    }
     assert.ok(
       afterCreate.aiProfiles.catalog.profiles.some(
         (profile) => profile.profileId === "PROFILE-300001",

@@ -1033,6 +1033,8 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
     (snapshot === null ||
       (isRecord(snapshot) &&
         typeof snapshot.revision === "number" &&
+        Number.isSafeInteger(snapshot.revision) &&
+        snapshot.revision >= 0 &&
         catalogIsValid(snapshot.catalog))) &&
     (aiAdministration.result === null ||
       (isRecord(aiAdministration.result) &&
@@ -1042,6 +1044,8 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
         typeof aiAdministration.result.reason === "string" &&
         isRecord(aiAdministration.result.snapshot) &&
         typeof aiAdministration.result.snapshot.revision === "number" &&
+        Number.isSafeInteger(aiAdministration.result.snapshot.revision) &&
+        aiAdministration.result.snapshot.revision >= 0 &&
         catalogIsValid(aiAdministration.result.snapshot.catalog))) &&
     isRecord(value.aiRequest) &&
     typeof value.aiRequest.configured === "boolean" &&

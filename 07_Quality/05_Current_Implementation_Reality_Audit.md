@@ -143,7 +143,7 @@ v0.20.1の実行知はEvent生成、Repository-local Storeへの不変保存、�
 | Test Source Contract | 16／16 Pass | 197 File、2,125 Case、Helper、Manifest Relation和集合、Local Item実在および試験段階一致を確認 |
 | Symbol Graph Contract | 11／11 Pass | Test Relation、未知Symbol、未知Local Item、Catalog owner／pathをFail Closedで確認 |
 | Semantic Coverage Pilot | 17意味を全数生成。実装観測16、自動Test観測15、手動確認待ち1 | Runtime Trustの実装・Test不足と手動UAT待ちを空Relationのまま保持し、旧Relationや近似Testで補完していない |
-| Repository Checker | 1,906 files、1,102 Markdown、17,893 links、2,032 anchors、1 expected error、0 warning | 現在のv0.22 Feature候補を検査した。Error 1件は公開済みv0.21.0 tagと作業HEADの不一致であり、構造・Relationの破損ではない |
+| Repository Checker | 今回差分由来のFinding 0、1 expected error、0 warning | 現在のv0.22 Feature候補の固定Treeを検査した。Error 1件は公開済みv0.21.0 tagと作業HEADの不一致であり、構造・Relationの破損ではない。実行ごとに変わるファイル、Markdown、LinkおよびAnchorの件数は複製せず、固定Treeから再現する |
 
 Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Process終了を猶予内に観測できなかった。同じ2条件を通常ユーザー境界で再実行すると2／2 Passしたため、製品回帰ではなく実行環境の不一致として分類する。Process／OS境界の成立は、必要な権限を持つ本番同等境界で確認し、Sandbox内の失敗も消さずに実行条件とともに残す。
 
@@ -181,11 +181,11 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 | 実装を持つ12領域のformat／type／lintまたはRust build | 全てPass | 静的成立を確認 |
 | 12 TypeScript library／runtime package | 358 Pass、1 Explicit Skip | artifact-signing、domain library、CROS、execution intelligence、MCP、official asset governance、project operation、project runtime、runtime data、semantic coverage、verification runner、version control。Skip 1件は人間入力を要するUAT計画 |
 | Platform Access | 29 Pass、8 Explicit Ignore | 8件はinstalled Docker等の明示実環境観測であり、未実行をPassへ畳まない |
-| Checker Repository検査 | 1,899 files、1,100 Markdown、17,886 links、2,032 anchors、1 expected error、0 warning | 現在のv0.22 Feature候補に対する同一検査結果。Error 1件は公開済みv0.21.0 tagと作業HEADの不一致であり、現行Repository構造、版移管およびRelation更新の破損ではない。v0.22 Release候補固定後にtag identityを再評価する |
+| Checker Repository検査 | 今回差分由来のFinding 0、1 expected error、0 warning | 現在のv0.22 Feature候補の固定Treeに対する同一検査結果。Error 1件は公開済みv0.21.0 tagと作業HEADの不一致であり、現行Repository構造、版移管およびRelation更新の破損ではない。実行ごとに変わるInventory件数は固定Treeから再現し、この総括へ複製しない。v0.22 Release候補固定後にtag identityを再評価する |
 | Checker全試験 | 375／375 Pass | Current Profile、工程契約、Source／Test Header、Symbol GraphおよびReality Relationを同じ候補で確認した |
 | Coordinator静的確認 | Format／Type／Lint／3 Traceability GateすべてPass | Runtime Capability Graph、Coordinator Runtime Traceability、Project Runtime Design Traceabilityを確認した |
-| Coordinator Windows Process Gate | 現候補は7／8 Pass、1 Blocked | Windows Process、取消、出力上限およびDocker cleanup模擬の7件は実境界で確認した。Codex Executor Sandboxの1件はDocker EngineのNamed Pipe不存在により未観測であり、失敗またはPassへ畳まない。EngineのNamed Pipeが利用可能になった後、同じ候補で8件すべてを再実行する。以前の固定候補で得た8／8 Passは履歴Evidenceとして保持するが、現候補の成立根拠へ流用しない |
-| Coordinator全回帰 | 2,037件中2,029 Pass、失敗0、8 Explicit Skip | Skip 3件はRelease manifestを保持しないSource Aでは非該当であり、Manifest-only Commit Bで必須実行する昇格System試験である。残り5件は明示実環境試験である。いずれもPassまたはEvidenceへ畳まず、Group AのSource A自動回帰に既知の失敗は残っていない |
+| Coordinator Windows Process Gate | 現在の未署名固定Treeでは未実施 | 以前のv0.22候補の7／8 Pass・1 Blockedとv0.21固定候補の8／8 Passは履歴Evidenceとして保持するが、現在Treeの成立根拠へ流用しない。再署名後の実境界Gateで再観測する |
+| Coordinator全回帰 | 2,110件中2,105 Pass、失敗0、5 Explicit Skip | 現在の未署名固定Treeで実行した。Skip 5件は明示実環境試験であり、PassまたはEvidenceへ畳まない。再署名、候補直接起動、実Provider E2Eおよび必要な四経路E2Eは未実施 |
 
 ## 11. 旧Runtime Traceability JSONの移行判定
 
@@ -351,7 +351,7 @@ v0.22では、旧Snapshotで未完成としていたShared Serverについて、
 | Hybrid | 12 | 自動部分と人間判断・実境界部分を分離し、自動部分だけのPassを全体成立へ畳まない |
 | Manual | 10 | skipまたは自動Test SymbolをEvidenceにせず、参加条件、入力、判断、未判断範囲およびEvidenceを固定して実施する |
 
-Automated Gapを閉じ、Manual／Hybrid項目の実施条件と現在Releaseへの影響を固定した。skip EvidenceのChecker搬送、既存Hash Chain復元および版境界を是正した同一候補で再実行し、Coordinatorは2,037件中2,029 Pass・失敗0・明示Skip 8、Checkerは375／375 Passとなった。Windows Process Gateの現候補再実行は7／8 Passで、Codex Executor Sandboxの1件はDocker EngineのNamed Pipe不存在により未観測である。Engine利用可能後に同じ候補で8件すべてを再実行するまで、以前の固定候補に対する8／8 Passを現候補のEvidenceへ流用しない。Skip 8件のうち3件はSource Aで非該当、Manifest-only Commit Bで必須実行する昇格System試験であり、残り5件は明示実環境試験である。いずれも未実行をPassまたはEvidenceへ畳まない。Phase 8の独立再レビューでは各件のOwner、処置、再評価契機および現在Releaseへの影響を確認し、Blocking Finding 0でPassした。Reality Auditは未実装Capabilityや未実行の手動評価を自分で補完せず、対応するQuality Mappingから再評価する。
+Automated Gapを閉じ、Manual／Hybrid項目の実施条件と現在Releaseへの影響を固定した。v0.21の署名候補で得た回帰、Windows Process Gate、Recovery Matrixおよび4経路E2Eは履歴Evidenceとして維持し、v0.22の現在候補へ流用しない。v0.22の未署名固定TreeではCoordinator 2,110件中2,105 Pass・失敗0・明示Skip 5、Workbench 20／20 Pass、Checker 375／375 Passである。Skip 5件は明示実環境試験であり、未実施をPassまたはEvidenceへ畳まない。現在候補の再署名、署名候補の直接起動、Codex／Claude実Provider E2Eおよび必要な四経路E2Eが完了するまでQuality Readyへ昇格しない。Reality Auditは未実装Capabilityや未実行の手動評価を自分で補完せず、対応するQuality Mappingから再評価する。
 
 ### 13.3 Hybrid項目の実施条件
 

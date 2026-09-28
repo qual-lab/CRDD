@@ -397,10 +397,15 @@ function currentSignedSourceIdentity() {
   }
   const crddCommit = Reflect.get(payload, "crddCommit");
   const crddTree = Reflect.get(payload, "crddTree");
-  if (typeof crddCommit !== "string" || typeof crddTree !== "string") {
+  const crddVersion = Reflect.get(payload, "crddVersion");
+  if (
+    typeof crddCommit !== "string" ||
+    typeof crddTree !== "string" ||
+    typeof crddVersion !== "string"
+  ) {
     throw new Error("test_release_manifest_source_identity_invalid");
   }
-  return Object.freeze({ crddCommit, crddTree });
+  return Object.freeze({ crddCommit, crddTree, crddVersion });
 }
 
 /**
@@ -1545,7 +1550,7 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
   const archive = path.join(parent, "release-tree.tar");
   const privateKeyPath = path.join(parent, "crdd-release-v1-private.pem");
   try {
-    const { crddCommit, crddTree } = currentSignedSourceIdentity();
+    const { crddCommit, crddTree, crddVersion } = currentSignedSourceIdentity();
     execFileSync(
       "git",
       [
@@ -1576,7 +1581,7 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
     const preflight = preflightReleaseManifest({
       distributionRoot,
       privateKeyPath,
-      crddVersion: "v0.21.0",
+      crddVersion,
       releaseSequence: 20,
       crddCommit,
       crddTree,

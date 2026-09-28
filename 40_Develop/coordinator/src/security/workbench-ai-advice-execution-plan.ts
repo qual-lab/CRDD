@@ -145,7 +145,7 @@ export function prepareWorkbenchAiAdviceExecutionPlan(
     keys.length !== EXECUTION_INPUT_KEYS.length ||
     !keys.every((key, index) => key === EXECUTION_INPUT_KEYS[index]) ||
     !Number.isSafeInteger(input.catalogRevision) ||
-    input.catalogRevision < 1 ||
+    input.catalogRevision < 0 ||
     input.providerPrompt.trim().length === 0 ||
     !SHA256.test(input.taskHash) ||
     !SHA256.test(input.projectionHash)

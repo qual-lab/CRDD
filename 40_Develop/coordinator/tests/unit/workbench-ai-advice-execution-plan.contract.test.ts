@@ -27,10 +27,10 @@ const projectionHash = "b".repeat(64);
  *
  * @responsibility 各反例が一項目だけを変更できる基準入力を提供する。
  * @trace ERB-UT-023
- * @input profile: Catalogから解決済みのProfile Identity。
+ * @input profile: Catalogから解決済みのProfile Identity、catalogRevision: 実行入力へ設定するCatalog改訂（既定値1）。
  * @returns Workbench助言実行計画の正常入力。
- * @precondition profileはcoordinator Roleを持つ。
- * @postcondition Hash、Prompt、Catalog改訂を含む全Propertyが埋まる。
+ * @precondition profileはcoordinator Roleを持ち、catalogRevisionは0以上のsafe integerであり、0は検証済み既定Catalogを表す。
+ * @postcondition Hash、Prompt、指定されたCatalog改訂を含む全Propertyが埋まる。
  * @effect N/A: 固定Fixtureを生成するだけである。
  * @failure N/A: 入力を一意に写像するだけである。
  * @invariant ProfileのProvider、Model、推論強度、Offeringを変更しない。
@@ -44,9 +44,10 @@ const projectionHash = "b".repeat(64);
  */
 function executionInput(
   profile: ResolvedAiProfileIdentity,
+  catalogRevision = 1,
 ): WorkbenchAiProviderExecutionInput {
   return Object.freeze({
-    catalogRevision: 1,
+    catalogRevision,
     provider: profile.provider,
     providerPrompt: "固定投影だけを根拠に現在状態を説明する",
     taskHash: taskHash,
@@ -57,6 +58,32 @@ function executionInput(
     offering: profile.offering,
   });
 }
+
+/**
+ * 永続Snapshot未作成の既定Catalog revision 0を実行計画へ受理する。
+ *
+ * @responsibility 解決済みProfileとRevision 0を変更せず実行計画へ固定する回帰保証を所有する。
+ * @trace ERB-UT-023
+ * @precondition 検証済み既定CatalogのCoordinator Profileを使用する。
+ * @stimulus catalogRevision 0で実行計画を生成する。
+ * @observation 生成状態と計画内revisionを観測する。
+ * @oracle preparedとなり、revision 0が変更されず保持される。
+ * @cleanup N/A: Process外資源を生成しない局所検証である。
+ * @boundary ERB-UT-023=Direct Boundary: 解決済みAI Profile／Catalog Revision→助言実行計画
+ */
+test("既定Catalog revision 0を助言実行計画へ受理する", () => {
+  const profile = resolveAiProfileById(
+    DEFAULT_AI_PROFILE_CATALOG,
+    "PROFILE-100001",
+  );
+  assert.notEqual(profile, null);
+  const result = prepareWorkbenchAiAdviceExecutionPlan(
+    executionInput(profile as ResolvedAiProfileIdentity, 0),
+    profile as ResolvedAiProfileIdentity,
+  );
+  assert.equal(result.status, "prepared");
+  assert.equal(result.executionPlan?.catalogRevision, 0);
+});
 
 for (const profileId of ["PROFILE-100001", "PROFILE-200001"] as const) {
   /**
@@ -142,6 +169,14 @@ for (const [name, candidate] of [
   ["Model不一致", { ...executionInput(codexProfile), exactModelId: "opus" }],
   ["Provider不一致", { ...executionInput(codexProfile), provider: "claude" }],
   ["Task Hash不正", { ...executionInput(codexProfile), taskHash: "invalid" }],
+  [
+    "負のCatalog revision",
+    { ...executionInput(codexProfile), catalogRevision: -1 },
+  ],
+  [
+    "小数のCatalog revision",
+    { ...executionInput(codexProfile), catalogRevision: 0.5 },
+  ],
   [
     "未知Property混入",
     { ...executionInput(codexProfile), command: "arbitrary-command" },

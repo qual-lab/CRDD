@@ -15,27 +15,23 @@ export type {
 export {
   createDefaultWorkbenchAiProfileSurface,
   createWorkbenchAiProfileSurface,
-  renderWorkbenchAiProfileAdministration,
-  renderWorkbenchAiProfiles,
   type WorkbenchAiProfileObservation,
   type WorkbenchAiProfileSurface,
 } from "./ai-profile-surface.ts";
-export {
-  renderWorkbenchAiRequest,
-  type WorkbenchAiRequestApplication,
-  type WorkbenchAiRequestCommand,
-  type WorkbenchAiRequestMode,
-  type WorkbenchAiResultItem,
-  type WorkbenchAiRequestSnapshot,
-  type WorkbenchAiRequestStartResult,
-  type WorkbenchCandidateActionResult,
-  type WorkbenchCandidateApplication,
-  type WorkbenchCandidateReview,
-  type WorkbenchCandidateReviewResult,
+export type {
+  WorkbenchAiRequestApplication,
+  WorkbenchAiRequestCommand,
+  WorkbenchAiRequestMode,
+  WorkbenchAiResultItem,
+  WorkbenchAiRequestSnapshot,
+  WorkbenchAiRequestStartResult,
+  WorkbenchCandidateActionResult,
+  WorkbenchCandidateApplication,
+  WorkbenchCandidateReview,
+  WorkbenchCandidateReviewResult,
 } from "./ai-request.ts";
 export {
   createRepositoryWorkbenchRuntimeActivityApplication,
-  renderWorkbenchRuntimeActivity,
   type WorkbenchRuntimeActivityApplication,
   type WorkbenchRuntimeActivityObservation,
   type WorkbenchRuntimeActivityPageRequest,
@@ -45,18 +41,11 @@ export {
 export {
   readWorkbenchOwnerArtifact,
   readWorkbenchOwnerArtifactCatalog,
-  renderWorkbenchOwnerArtifacts,
   type WorkbenchOwnerArtifact,
   type WorkbenchOwnerArtifactCatalog,
 } from "./owner-artifact-surface.ts";
-export {
-  renderWorkbenchProjectPlan,
-  type WorkbenchProjectPlanObservation,
-} from "./project-plan-surface.ts";
-export {
-  renderWorkbenchQuality,
-  type WorkbenchQualityObservation,
-} from "./quality-surface.ts";
+export type { WorkbenchProjectPlanObservation } from "./project-plan-surface.ts";
+export type { WorkbenchQualityObservation } from "./quality-surface.ts";
 export {
   type WorkbenchHandle,
   type WorkbenchStartRequest,

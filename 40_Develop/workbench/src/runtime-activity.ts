@@ -1,13 +1,13 @@
 /**
- * WorkbenchのRuntime Activity SurfaceとApplication Port。
+ * WorkbenchのRuntime Activity Application Port。
  *
  * @packageDocumentation
- * @responsibility Project Runtimeの現在投影を、未接続・状態なし・観測不能と区別して表示する。
+ * @responsibility Project Runtimeの現在投影を、未接続・状態なし・観測不能と区別して取得する。
  * @trace ARCH-000004
  * @trace ARCH-000007
  * @trace ARCH-000012
- * @boundary Workbench BrowserとProject Runtime状態Query Adapterの境界。
- * @effect 描画はEffect 0。観測は注入されたApplicationへだけ委譲する。
+ * @boundary Workbench Client ModelとProject Runtime状態Query Adapterの境界。
+ * @effect Read Model生成はEffect 0。観測は注入されたApplicationへだけ委譲する。
  * @security Recovery Authority、Credential、Host Pathまたは非開示Task内容を入力契約へ含めない。
  */
 import { runProjectRuntimePublicStateQuery } from "../../coordinator/src/index.ts";
@@ -20,12 +20,6 @@ import { inspectProjectRuntimeStateQueryResult } from "../../project-runtime/src
 import { observeChangePublicationTarget } from "../../version-control/src/change-publication.ts";
 import { gitChangePublicationTargetObservationAdapter } from "../../version-control/src/git/change-publication-adapter.ts";
 import { verifyRepositoryRoot } from "../../version-control/src/repository-location.ts";
-import { createElement, type ReactElement, type ReactNode } from "react";
-
-import {
-  EmptyState,
-  WorkbenchPanel,
-} from "./presentation/workbench-components.ts";
 
 /**
  * Workbenchが表示するProject Runtime現在投影の値契約。
@@ -393,209 +387,4 @@ export function createRepositoryWorkbenchRuntimeActivityApplication(
       });
     },
   });
-}
-
-/**
- * Runtime Activityを現在の一投影から描画する。
- *
- * @responsibility Objective／Task、判断待ち、Recovery要否および次処置を同じ表示へ投影する。
- * @trace ARCH-000004
- * @trace ARCH-000012
- * @input observationにApplication Adapterの現在観測を、undefinedに未接続を受け取る。
- * @returns Browserが描画するReact要素を返す。
- * @precondition observedではprojectionが存在し、absent／unknownではnullである。
- * @postcondition 未接続、状態なし、観測不能および観測済みを異なる表示にする。
- * @effect N/A: React要素の構築だけを行う。
- * @failure 不整合な観測は観測不能として表示し、空または成功へ畳まない。
- * @invariant Workbench独自のTask、状態遷移、判断またはRecovery Identityを生成しない。
- * @boundary Runtime Activity Read ModelとBrowser表示の境界。
- * @security ReactのText escapingを使用し、内部PathまたはAuthorityを表示しない。
- * @concurrency 一回の観測Snapshotだけを同期描画する。
- */
-export function renderWorkbenchRuntimeActivity(
-  observation: WorkbenchRuntimeActivityObservation | undefined,
-): ReactElement {
-  if (observation === undefined)
-    return createElement(
-      WorkbenchPanel,
-      {
-        id: "runtime-activity",
-        eyebrow: "Runtime activity",
-        title: "実行状況",
-        status: "Not connected",
-      },
-      createElement(
-        EmptyState,
-        null,
-        "Project Runtime状態Queryが未接続です。実行中Objectiveがないとは判断しません。",
-      ),
-    );
-  const eventHistory: ReactNode = createElement(
-    "section",
-    null,
-    createElement("h3", null, "Event履歴"),
-    observation.eventState === "unknown"
-      ? createElement(
-          EmptyState,
-          null,
-          `Event Storeを完全に観測できません。0件とは判断しません。理由: ${observation.eventReason}`,
-        )
-      : observation.events.length === 0
-        ? createElement(EmptyState, null, "このProjectのEventは0件です。")
-        : createElement(
-            "ul",
-            null,
-            ...observation.events.map((event) =>
-              createElement(
-                "li",
-                { key: event.eventId },
-                createElement("strong", null, event.taskId),
-                createElement("p", null, `${event.status} / ${event.reason}`),
-                createElement(
-                  "small",
-                  null,
-                  `${event.occurredAt} · ${event.objectiveId} · ${event.attemptId} · cleanup ${event.cleanupConfirmed ? "confirmed" : "unconfirmed"}${event.manualRecoveryRequired ? " · recovery required" : ""}`,
-                ),
-              ),
-            ),
-          ),
-    observation.eventContinuation === null
-      ? null
-      : createElement(
-          "p",
-          null,
-          createElement(
-            "a",
-            {
-              href: `/?runtimeCursor=${encodeURIComponent(observation.eventContinuation)}#runtime-activity`,
-            },
-            "以前のEventを読む",
-          ),
-        ),
-  );
-  if (observation.state === "absent")
-    return createElement(
-      WorkbenchPanel,
-      {
-        id: "runtime-activity",
-        eyebrow: "Runtime activity",
-        title: "実行状況",
-        status: "Absent",
-      },
-      createElement(
-        EmptyState,
-        null,
-        `現在のProject Runtime状態はありません。理由: ${observation.reason}`,
-      ),
-      eventHistory,
-    );
-  if (observation.state !== "observed" || observation.projection === null)
-    return createElement(
-      WorkbenchPanel,
-      {
-        id: "runtime-activity",
-        eyebrow: "Runtime activity",
-        title: "実行状況",
-        status: "Unknown",
-      },
-      createElement(
-        EmptyState,
-        null,
-        `Project Runtimeの現在状態を完全に観測できません。直前値をCurrentとして表示しません。理由: ${observation.reason}`,
-      ),
-      eventHistory,
-    );
-
-  const projection = observation.projection;
-  const countRows = [
-    ["Objective", projection.objectiveCounts],
-    ["Task", projection.taskCounts],
-  ] as const;
-  return createElement(
-    WorkbenchPanel,
-    {
-      id: "runtime-activity",
-      eyebrow: "Runtime activity",
-      title: "実行状況",
-      status: `Generation ${projection.generation}`,
-    },
-    createElement(
-      "p",
-      { className: "scene-summary" },
-      `Milestone ${projection.milestoneId} / ${projection.milestoneState}。次の処置は ${projection.nextAction} です。`,
-    ),
-    createElement(
-      "dl",
-      null,
-      ...[
-        ["進捗", projection.workProgress],
-        ["品質状態", projection.qualityState],
-        ["人間判断", projection.humanDecisionRequired ? "必要" : "不要"],
-        ["回復", projection.recoveryRequired ? "必要" : "不要"],
-      ].map(([label, value]) =>
-        createElement(
-          "div",
-          { key: label },
-          createElement("dt", null, label),
-          createElement("dd", null, value),
-        ),
-      ),
-    ),
-    createElement(
-      "div",
-      { className: "table-scroll" },
-      createElement(
-        "table",
-        null,
-        createElement(
-          "thead",
-          null,
-          createElement(
-            "tr",
-            null,
-            createElement("th", null, "対象"),
-            createElement("th", null, "状態"),
-            createElement("th", null, "件数"),
-          ),
-        ),
-        createElement(
-          "tbody",
-          null,
-          ...countRows.flatMap(([kind, counts]) =>
-            Object.entries(counts).map(([state, count]) =>
-              createElement(
-                "tr",
-                { key: `${kind}-${state}` },
-                createElement("td", null, kind),
-                createElement("td", null, state),
-                createElement("td", null, count),
-              ),
-            ),
-          ),
-        ),
-      ),
-    ),
-    projection.objectiveTaskSummaries.length === 0
-      ? createElement(EmptyState, null, "Objective要約は0件です。")
-      : createElement(
-          "ul",
-          null,
-          ...projection.objectiveTaskSummaries.map((summary) =>
-            createElement(
-              "li",
-              { key: summary.objectiveId },
-              createElement("strong", null, summary.objectiveId),
-              createElement("p", null, summary.objectiveState),
-              createElement(
-                "small",
-                null,
-                Object.entries(summary.taskCounts)
-                  .map(([state, count]) => `${state}: ${count}`)
-                  .join(" / "),
-              ),
-            ),
-          ),
-        ),
-    eventHistory,
-  );
 }

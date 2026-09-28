@@ -16,7 +16,7 @@ import {
   useState,
 } from "react";
 
-import { renderWorkbenchAiRequest } from "../src/ai-request.ts";
+import { renderWorkbenchAiRequest } from "./workbench-ai-request-panel.tsx";
 import { WorkbenchShell } from "../src/presentation/workbench-shell.ts";
 import {
   ActionTokenInput,
@@ -30,8 +30,10 @@ import type {
   WorkbenchRecordDocumentView,
   WorkbenchRecordDetailViewModel,
 } from "../src/presentation/workbench-client-model.ts";
-import { renderWorkbenchProjectPlan } from "../src/project-plan-surface.ts";
-import { renderWorkbenchQuality } from "../src/quality-surface.ts";
+import {
+  renderWorkbenchProjectPlan,
+  renderWorkbenchQuality,
+} from "./workbench-projection-panels.tsx";
 
 /**
  * Project Contextの一場面を表示する。
