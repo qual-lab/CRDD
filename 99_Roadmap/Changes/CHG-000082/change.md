@@ -34,7 +34,7 @@
 
 ## 主な変更意図
 
-Workbenchを、独自の正本やAuthorityを持たない薄い利用面として実装する。最初のProduction形態はTypeScriptのローカルWeb UIとし、localhost限定ServerからBrowserへ提供する。同じ画面契約を将来のRemote CROSでも再利用できるようにし、Electron等のDesktop包装は現在の成立条件へ含めない。
+Workbenchを、独自の正本やAuthorityを持たない薄い利用面として実装する。Production形態はTypeScriptのNode localhost ServerとReact Browser UIとし、ViteはBrowser BundleのBuildだけを所有する。同じ画面契約を将来のRemote CROSでも再利用できるようにし、Next.js等のFull-stack FrameworkやElectron等のDesktop包装は現在の成立条件へ含めない。
 
 左上のブランド表示には、[CRDD公式ロゴ](../../../04_UI/assets/brand/crdd-brand-icon-512x512.jpg)を使用する。文字、仮図形、絵文字または類似アイコンで代替しない。
 
@@ -44,7 +44,7 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 |---|---|---|
 | Workbench実体 | Visual FixtureとCanonical UI／SPEC Detailだけが存在する | `40_Develop/workbench`がProduction Web Surfaceを所有する |
 | Application意味 | CROS、Project Operation、Version Control等に分散した公開契約がある | Workbench Adapterが既存公開契約を利用し、意味やAuthorityを作らない |
-| 実行面 | FrameworkとProcess配置が未決 | localhost限定のTypeScript Server＋Browser UIを第一実装とする |
+| 実行面 | FrameworkとProcess配置が未決 | localhost限定のNode Server＋React Browser UIとし、ViteはBrowser Buildに限定する |
 | Branding | Visual Fixtureが公式ロゴを参照する | Production Shellも同じ公式Asset Identityを使用する |
 | Desktop包装 | 未定 | 対象外。OS統合上の必要性が実証された場合に別判断する |
 
@@ -106,7 +106,9 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - [`40_Develop/workbench/package.json`](../../../40_Develop/workbench/package.json)
 - [`40_Develop/workbench/package-lock.json`](../../../40_Develop/workbench/package-lock.json)
 - [`40_Develop/workbench/tsconfig.json`](../../../40_Develop/workbench/tsconfig.json)
+- [`40_Develop/workbench/vite.config.ts`](../../../40_Develop/workbench/vite.config.ts)
 - [`40_Develop/workbench/symbol.json`](../../../40_Develop/workbench/symbol.json)
+- [`40_Develop/workbench/client/entry-client.ts`](../../../40_Develop/workbench/client/entry-client.ts)
 - [`40_Develop/workbench/bin/workbench.ts`](../../../40_Develop/workbench/bin/workbench.ts)
 - [`40_Develop/workbench/src/index.ts`](../../../40_Develop/workbench/src/index.ts)
 - [`40_Develop/workbench/src/ai-profile-surface.ts`](../../../40_Develop/workbench/src/ai-profile-surface.ts)
@@ -116,6 +118,7 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - [`40_Develop/workbench/src/runtime-activity.ts`](../../../40_Develop/workbench/src/runtime-activity.ts)
 - [`40_Develop/workbench/src/owner-artifact-surface.ts`](../../../40_Develop/workbench/src/owner-artifact-surface.ts)
 - [`40_Develop/workbench/src/workbench-server.ts`](../../../40_Develop/workbench/src/workbench-server.ts)
+- [`40_Develop/workbench/src/presentation/workbench-shell.ts`](../../../40_Develop/workbench/src/presentation/workbench-shell.ts)
 - [`40_Develop/workbench/tests/integration/project-surface.contract.test.ts`](../../../40_Develop/workbench/tests/integration/project-surface.contract.test.ts)
 - [`40_Develop/workbench/tests/integration/workbench-server.contract.test.ts`](../../../40_Develop/workbench/tests/integration/workbench-server.contract.test.ts)
 - [`40_Develop/cros/src/project-federation.ts`](../../../40_Develop/cros/src/project-federation.ts)
@@ -260,6 +263,7 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 | Finding／契機 | 同じIntentと判断した理由 | 追加Phase／範囲 | Gate・完了条件への影響 | 追加確認／人間判断 | 処置 |
 |---|---|---|---|---|---|
 | 署名済み実境界で障害修復Protocolが意図的に返す公式停止の未発行を上位Runtimeが失敗扱いした | Workbench AI実Provider E2Eを成立させるDocker境界のProduction Closureであり、同じIntent内の実境界Gapである | Phase 5へ障害修復の`not_issued`受理契約是正を追加 | Repairでは公式停止を発行せず、上位Runtimeが`false / not_issued`だけを正常分岐として受理する局所契約試験、署名済み修復、Host Windows回帰を追加 | 既存の修復ID・耐久記録・Trust・削除禁止を維持し、`true / unknown`を成功へ補正しない | 対応中 |
+| Workbenchの将来展開を踏まえ、表示層をReact＋Viteへ固定する人間判断を得た | Project Context、Topic／Meeting、Repository、AIおよびShared Serverを一つのWorkbenchへ展開する同じProduction Intentであり、別Capabilityではない | Phase 5へReact Shell、Vite Build、固定Asset配信および既存15画面の段階移行境界を追加 | Node側のAuthorityとHTTP操作契約を維持し、React SSR／Hydration、CSP、allowlist、既存IT、実Browser Visualを再確認する。全画面Component化前を移行完了と表示しない | React＋Vite採用は本対話で確認済み。Next.js、Electron、業務AuthorityのClient移動は対象外 | 対応中 |
 
 ### 途中見直しの記録
 
@@ -298,6 +302,8 @@ Workbenchを、独自の正本やAuthorityを持たない薄い利用面とし�
 - 追加結果参照: [Phase 5 `workbench_advice` Docker境界](./Evidence/260928-0600_phase5-workbench-advice-docker-boundary.md)
 - 追加結果参照: [Phase 5 読取り助言Production Runtime](./Evidence/260928-0635_phase5-workbench-advice-production-runtime.md)、[Phase 5 Workbench変更候補Production Runtime](./Evidence/260928-0715_phase5-workbench-change-candidate-runtime.md)、[Phase 5 AI二画面の現在Reality Audit](./Evidence/260928-0725_phase5-ai-screen-reality-audit.md)、[Phase 5 AI Runtime Package Closure](./Evidence/260928-0750_phase5-ai-runtime-package-closure.md)、[Phase 5 変更候補の採否境界](./Evidence/260928-0911_phase5-candidate-disposition.md)
 - 追加結果参照: [Phase 5 Workbench実Browser Visual Gate](./Evidence/260928-1028_phase5-workbench-actual-browser-visual.md)
+- 追加結果参照: [Phase 5 React＋Vite Shell移行](./Evidence/260928-1535_phase5-react-vite-shell-migration.md)
+- 追加結果参照: [Phase 5 Docker Process終了全体期限](./Evidence/260928-1543_phase5-docker-process-termination-budget.md)
 - Quality Center: `RFD-IT-014`と`RFD-ST-015`を、Workbench→Version Control→実Git／bare Remote、実Browser確認、故障分類および再観測のEvidenceとして観測済みにした。`ERB-ST-022`も15画面、Desktop／Tablet／Mobile、100%／200%／400%の27条件と終了後資源0のEvidenceへ接続した
 
 ## 実際の影響 / 逸脱

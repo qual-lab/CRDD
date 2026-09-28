@@ -20,6 +20,7 @@ import {
 } from "node:http";
 import type { Socket } from "node:net";
 import path from "node:path";
+import { renderToString } from "react-dom/server";
 
 import {
   createTopicMeetingApplication,
@@ -109,11 +110,13 @@ import {
   type RemoteTopicMeetingAction,
   type WorkbenchTopicMeetingDocumentReader,
 } from "./remote-topic-meeting.ts";
+import { WorkbenchShell } from "./presentation/workbench-shell.ts";
 
 const HOST = "127.0.0.1";
 const CONTRACT = "crdd/workbench/v1";
 const HEALTH_PATH = "/.well-known/crdd-workbench-health";
 const LOGO_PATH = "/assets/crdd-brand-icon.jpg";
+const CLIENT_ASSET_PATH = "/assets/workbench-client.js";
 
 export type WorkbenchStartRequest = Readonly<{
   workingDirectory: string;
@@ -943,54 +946,24 @@ function renderShell(
       : collection.state === "not_configured"
         ? "Not configured"
         : "Unknown";
-  return `<!doctype html>
-<html lang="ja">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CROS Workbench</title>
-  <link rel="stylesheet" href="/workbench.css">
-</head>
-<body>
-  <div class="app-shell">
-    <header class="topbar">
-      <a class="brand" href="/" aria-label="CROS Workbench home">
-        <img src="${LOGO_PATH}" alt="CRDD" width="36" height="36">
-        <span><strong>CROS</strong><small>Workbench</small></span>
-      </a>
-      <div class="project-switcher" aria-label="Current project"><span>Project</span><strong>${escapeHtml(context.projectId)}</strong></div>
-      <div class="connection"><span class="status-dot" aria-hidden="true"></span><span class="connection-label">${connectionState === "repository" ? (credentialAdministration === undefined ? "Repository mode" : "CROS administration") : connectionState === "cros_available" ? "Remote CROS connected" : "Remote CROS unavailable"}</span></div>
-    </header>
-    <aside class="sidebar" aria-label="Primary navigation">
-      <nav>
-        <a class="active" href="#overview">Overview</a>
-        <a href="#topics">Topics</a>
-        <a href="#meetings">Meetings</a>
-        <a href="#decision">Decisions</a>
-        <a href="#project-plan">Plan</a>
-        <a href="#quality">Quality</a>
-        <a href="#documentation">Docs</a>
-        <a href="#runtime-activity">Runtime</a>
-        <a href="#repository">Repository</a>
-        <a href="#connection">Connection</a>
-        <a href="#credential-administration">Credentials</a>
-        <a href="#ai-profiles">AI Profiles</a>
-        <a href="#ai-request">AI Request</a>
-      </nav>
-    </aside>
-    <main id="overview">
-      <section class="page-heading">
-        <div><p class="eyebrow">Current project</p><h1>Project Workspace</h1><p>${escapeHtml(context.repositoryId)} / ${escapeHtml(context.repositoryRole)} の固定Project Contextから、今の状況、判断待ち、理由、次に取る一手を確認します。</p></div>
-        ${remoteConnection !== undefined ? `<form method="post" action="/connection/action"><input type="hidden" name="actionToken" value="${escapeHtml(actionToken)}"><button name="operation" value="refresh" type="submit">Refresh projection</button></form>` : '<button type="button" disabled>Refresh projection</button>'}
-      </section>
-      <section class="summary-grid" aria-label="Project summary">
-        <article><span>Project</span><strong>${escapeHtml(context.projectId)}</strong><small>${escapeHtml(context.repositoryId)}</small></article>
-        <article><span>Repository role</span><strong>${escapeHtml(context.repositoryRole)}</strong><small>Declared coverage</small></article>
-        <article><span>Topics</span><strong>${capabilityLabel(topicCollection)}</strong><small>${selectedRepositoryId === undefined ? "未構成と0件を区別します" : escapeHtml(selectedRepositoryId)}</small></article>
-        <article><span>Meetings</span><strong>${capabilityLabel(meetingCollection)}</strong><small>${selectedRepositoryId === undefined ? "未構成と0件を区別します" : escapeHtml(selectedRepositoryId)}</small></article>
-      </section>
-      <section class="workspace-grid">
-        ${renderPortfolio(portfolio, context, connectionState, portfolioQuery.query, portfolioQuery.state, portfolioQuery.cursor)}
+  const connectionLabel =
+    connectionState === "repository"
+      ? credentialAdministration === undefined
+        ? "Repository mode"
+        : "CROS administration"
+      : connectionState === "cros_available"
+        ? "Remote CROS connected"
+        : "Remote CROS unavailable";
+  const topicsDetail =
+    selectedRepositoryId === undefined
+      ? "未構成と0件を区別します"
+      : selectedRepositoryId;
+  const meetingsDetail = topicsDetail;
+  const refreshHtml =
+    remoteConnection !== undefined
+      ? `<form method="post" action="/connection/action"><input type="hidden" name="actionToken" value="${escapeHtml(actionToken)}"><button name="operation" value="refresh" type="submit">Refresh projection</button></form>`
+      : '<button type="button" disabled>Refresh projection</button>';
+  const contentHtml = `${renderPortfolio(portfolio, context, connectionState, portfolioQuery.query, portfolioQuery.state, portfolioQuery.cursor)}
         ${context.scenes.map(renderScene).join("")}
         ${renderTopics(topicCollection, topicPage, topicMeeting, actionToken, topicMeetingResult, topicQuery, selectedRepositoryId)}
         ${renderMeetings(meetingCollection, meetingPage, topicMeeting, actionToken, topicMeetingResult, meetingQuery, selectedRepositoryId)}
@@ -1003,10 +976,33 @@ function renderShell(
         ${renderCredentialAdministration(credentialAdministration, actionToken, credentialResult)}
         ${renderWorkbenchAiProfiles(aiProfiles)}
         ${renderWorkbenchAiProfileAdministration(aiProfileAdministrationSnapshot, aiProfileAdministrationOwner, actionToken, aiProfileAdministrationResult)}
-        ${renderWorkbenchAiRequest(actionToken, aiProfiles, aiRequestApplication, aiRequestSnapshot, candidateApplication, candidateReview, candidateAction, aiRequestNotice)}
-      </section>
-    </main>
-  </div>
+        ${renderWorkbenchAiRequest(actionToken, aiProfiles, aiRequestApplication, aiRequestSnapshot, candidateApplication, candidateReview, candidateAction, aiRequestNotice)}`;
+  const shell = renderToString(
+    WorkbenchShell({
+      projectId: context.projectId,
+      repositoryId: context.repositoryId,
+      repositoryRole: context.repositoryRole,
+      connectionLabel,
+      topicsLabel: capabilityLabel(topicCollection),
+      topicsDetail,
+      meetingsLabel: capabilityLabel(meetingCollection),
+      meetingsDetail,
+      logoPath: LOGO_PATH,
+      refreshHtml,
+      contentHtml,
+    }),
+  );
+  return `<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CROS Workbench</title>
+  <link rel="stylesheet" href="/workbench.css">
+</head>
+<body>
+  <div data-workbench-react-root>${shell}</div>
+  <script type="module" src="${CLIENT_ASSET_PATH}"></script>
 </body>
 </html>`;
 }
@@ -1045,7 +1041,7 @@ function setCommonHeaders(response: ServerResponse): void {
   response.setHeader("Cache-Control", "no-store");
   response.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; img-src 'self'; style-src 'self'; script-src 'none'; frame-ancestors 'none'",
+    "default-src 'self'; img-src 'self'; style-src 'self'; script-src 'self'; frame-ancestors 'none'",
   );
   response.setHeader("Referrer-Policy", "no-referrer");
   response.setHeader("X-Content-Type-Options", "nosniff");
@@ -1252,6 +1248,18 @@ export async function startWorkbench(
   );
   const logo = await readFile(logoPath).catch(() => null);
   if (logo === null) throw new Error("workbench_official_logo_unavailable");
+  const clientAsset = await readFile(
+    path.join(
+      import.meta.dirname,
+      "..",
+      "dist",
+      "client",
+      "assets",
+      "workbench-client.js",
+    ),
+  ).catch(() => null);
+  if (clientAsset === null)
+    throw new Error("workbench_client_asset_unavailable");
   const verification = verifyRepositoryRoot(repositoryRoot);
   if (verification.status !== "completed")
     throw new Error("workbench_repository_root_invalid");
@@ -2230,6 +2238,9 @@ export async function startWorkbench(
       } else if (requestPath === LOGO_PATH) {
         body = logo;
         contentType = "image/jpeg";
+      } else if (requestPath === CLIENT_ASSET_PATH) {
+        body = clientAsset;
+        contentType = "text/javascript; charset=utf-8";
       } else if (requestPath === HEALTH_PATH) {
         body = JSON.stringify({
           contract: CONTRACT,

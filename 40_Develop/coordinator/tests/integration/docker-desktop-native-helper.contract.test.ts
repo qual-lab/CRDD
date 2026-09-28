@@ -276,6 +276,51 @@ test("native helperはPIDでなく同じkernel handleを停止authorityにする
 });
 
 /**
+ * Native終了待機はCoordinatorの応答期限より短い全体期限へ収束することを検証する。
+ *
+ * @responsibility Process数に応じた逐次待機が外側Protocol期限を超え、Effect完了後の結果だけを不明化しないことを検証する。
+ * @trace ERB-IT-001
+ * @precondition Native HelperとCoordinator LifecycleのSourceが同じ配布候補に含まれる。
+ * @stimulus 両Sourceで宣言したProcess終了全体期限とCommand応答期限を読み取る。
+ * @observation Native側の全体期限と外側Command期限の大小関係を観測する。
+ * @oracle Native側の全体期限が正数であり、CoordinatorのCommand期限より短い。
+ * @cleanup N/A: Sourceを読取るだけで資源を作成しない。
+ * @boundary ERB-IT-001=Direct Boundary: Native Process待機→Coordinator Protocol応答期限
+ */
+test("Native終了待機はCoordinatorの応答期限より短い全体期限へ収束する", () => {
+  const nativeSource = fs.readFileSync(
+    new URL("../../../platform-access/src/docker_repair.rs", import.meta.url),
+    "utf8",
+  );
+  const lifecycleSource = fs.readFileSync(
+    new URL(
+      "../../src/security/docker-desktop-repair-native-process-lifecycle.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const nativeBudget = nativeSource.match(
+    /PROCESS_TERMINATION_TOTAL_WAIT_MS:\s*u32\s*=\s*([\d_]+);/,
+  );
+  const commandBudget = lifecycleSource.match(
+    /COMMAND_TIMEOUT_MS\s*=\s*([\d_]+);/,
+  );
+  assert.ok(nativeBudget);
+  assert.ok(commandBudget);
+  const nativeBudgetMs = Number((nativeBudget[1] ?? "").replaceAll("_", ""));
+  const commandBudgetMs = Number(
+    (commandBudget[1] ?? "").replaceAll("_", ""),
+  );
+  assert.equal(nativeBudgetMs > 0, true);
+  assert.equal(nativeBudgetMs < commandBudgetMs, true);
+  assert.match(
+    nativeSource,
+    /termination_started\.elapsed\(\)\.as_millis\(\)/,
+  );
+  assert.match(nativeSource, /\.min\(PROCESS_WAIT_MS\)/);
+});
+
+/**
  * 現在の障害修復と再起動はDocker更新を許容し操作中の実体だけを固定するを検証する。
  *
  * @responsibility 現在の障害修復と再起動はDocker更新を許容し操作中の実体だけを固定するの合否判定を所有する。

@@ -205,6 +205,7 @@ test("Workbench 15 Logical Screenを全表示Profileと実Browser Zoomで確認�
             "connection",
             "credential-administration",
             "ai-profiles",
+            "workbench-client-ready",
           ]),
         }),
         Object.freeze({

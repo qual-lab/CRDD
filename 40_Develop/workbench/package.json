@@ -7,14 +7,18 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "build": "vite build",
     "check": "npm run format:check && npm run typecheck && npm run lint",
+    "dev:client": "vite build --watch",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "lint": "biome lint . --error-on-warnings",
+    "prestart": "npm run build",
+    "pretest": "npm run build",
     "start": "node ./bin/workbench.ts",
     "test": "npm run check && npm run test:run",
     "test:run": "node --test --test-concurrency=1 ./tests/integration/*.test.ts",
-    "test:visual": "node --test --test-concurrency=1 ./tests/system/workbench-visual.system.test.ts",
+    "test:visual": "node --test --test-concurrency=1 ./tests/system/workbench-visual.integration.test.ts",
     "typecheck": "tsc -p ./tsconfig.json"
   },
   "engines": {
@@ -23,6 +27,14 @@
   "devDependencies": {
     "@biomejs/biome": "2.5.6",
     "@types/node": "22.18.0",
-    "typescript": "7.0.2"
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "typescript": "7.0.2",
+    "vite": "8.3.1"
+  },
+  "dependencies": {
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   }
 }

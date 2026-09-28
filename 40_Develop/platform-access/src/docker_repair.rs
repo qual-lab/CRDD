@@ -12,7 +12,7 @@ use std::os::windows::fs::OpenOptionsExt;
 use std::os::windows::io::AsRawHandle;
 use std::path::PathBuf;
 use std::ptr::{null, null_mut};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use windows_sys::Win32::System::Console::{GetStdHandle, STD_INPUT_HANDLE};
 use windows_sys::Win32::System::Pipes::PeekNamedPipe;
 
@@ -44,6 +44,7 @@ const RESPONSE_BYTES: usize = 41;
 const MAXIMUM_ARTIFACT_BYTES: u64 = 512 * 1024 * 1024;
 const MAXIMUM_PROCESS_ENTRIES: usize = 4_096;
 const PROCESS_WAIT_MS: u32 = 10_000;
+const PROCESS_TERMINATION_TOTAL_WAIT_MS: u32 = 45_000;
 const SYNCHRONIZE_ACCESS: u32 = 0x0010_0000;
 const RESTART_POLICY: &[u8] = b"CRDD_DOCKER_RESTART_TRUST_V1|official-fixed-paths|Docker Inc|cache-only|deny-write-delete|optional-dev-envs";
 const RESTART_RESPONSE_MAGIC: &[u8; 8] = b"CRDDDS01";
@@ -921,6 +922,7 @@ fn terminate_processes(artifacts: &[LockedArtifact]) -> u8 {
         ProcessInventory::Unknown => return b'N',
     };
     let mut effect_issued = false;
+    let termination_started = Instant::now();
     for process in &processes {
         if process_creation(process.handle.0) != Some(process.creation) {
             return if effect_issued { b'P' } else { b'N' };
@@ -937,8 +939,16 @@ fn terminate_processes(artifacts: &[LockedArtifact]) -> u8 {
             return if effect_issued { b'P' } else { b'N' };
         }
         effect_issued = true;
+        let elapsed_ms = termination_started.elapsed().as_millis();
+        let total_wait_ms = u128::from(PROCESS_TERMINATION_TOTAL_WAIT_MS);
+        if elapsed_ms >= total_wait_ms {
+            return b'P';
+        }
+        let remaining_wait_ms = u32::try_from(total_wait_ms - elapsed_ms)
+            .unwrap_or(PROCESS_TERMINATION_TOTAL_WAIT_MS)
+            .min(PROCESS_WAIT_MS);
         // SAFETY: handle has synchronize access and remains valid.
-        if unsafe { WaitForSingleObject(process.handle.0, PROCESS_WAIT_MS) } != WAIT_OBJECT_0 {
+        if unsafe { WaitForSingleObject(process.handle.0, remaining_wait_ms) } != WAIT_OBJECT_0 {
             return b'P';
         }
         // Process ID is retained only as identity evidence; it is never reused as kill authority.

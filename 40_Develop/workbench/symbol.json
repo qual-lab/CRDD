@@ -23,6 +23,24 @@
       ]
     },
     {
+      "symbolId": "workbench.presentation.react-shell",
+      "kind": "file",
+      "path": "src/presentation/workbench-shell.ts",
+      "archIds": [
+        "ARCH-000005",
+        "ARCH-000012",
+        "ARCH-000017"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.browser-client",
+      "kind": "file",
+      "path": "client/entry-client.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
       "symbolId": "workbench.application.project-surface",
       "kind": "file",
       "path": "src/project-surface.ts",

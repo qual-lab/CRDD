@@ -11,3 +11,6 @@
 
 # Tool package dependencies are restored from their lockfiles.
 **/node_modules/
+
+# Browser bundles are deterministic build outputs restored from package sources.
+/40_Develop/workbench/dist/

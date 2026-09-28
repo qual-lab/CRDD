@@ -73,7 +73,7 @@
 
 CROS Workbenchは、Project Context、Topic、Meeting、Quality、正本Relation、AI依頼およびRepository作業へ進む人間向けの薄い利用面である。Workbench専用の業務正本、Authority、Access判定またはGit実装を持たず、既存の公開Application Contractを画面へ適合する。
 
-最初のProduction実装は、TypeScriptで実装するlocalhost限定HTTP ServerとBrowser UIの組合せとする。同じView ModelとInteraction Contractを将来のRemote CROS接続でも使用できるようにし、Electron等のDesktop包装は現在の成立条件にしない。
+最初のProduction実装は、TypeScriptで実装するlocalhost限定Node HTTP Serverと、Reactで構成するBrowser UIの組合せとする。ViteはBrowser Clientの決定論的なBuildだけを所有し、認証、Server Action、正本読取りまたは業務Effectを所有しない。同じView ModelとInteraction Contractを将来のRemote CROS接続でも使用できるようにし、Next.js等のFull-stack FrameworkやElectron等のDesktop包装は現在の成立条件にしない。
 
 左上のブランド表示は[CRDD公式ロゴ](../../../04_UI/assets/brand/crdd-brand-icon-512x512.jpg)を使用する。文字、仮図形、絵文字または独自の類似画像へ置換しない。
 
@@ -95,8 +95,8 @@ CROS Workbenchは、Project Context、Topic、Meeting、Quality、正本Relation
 
 ```text
 Browser
-└ Workbench Web UI
-   ├ Application Shell
+└ Workbench React UI
+   ├ React Application Shell
    ├ Screen Router
    ├ View Model Renderer
    └ Interaction Adapter
@@ -116,7 +116,8 @@ Browser
 
 | Component | 所有する責務 | 所有しない責務 |
 |---|---|---|
-| Application Shell | Global Navigation、現在Project、表示領域、左上の公式ロゴ | Project状態、認証判定、Git状態 |
+| React Application Shell | Global Navigation、現在Project、表示領域、左上の公式ロゴ、Server描画とBrowser Hydrationの同一Component | Project状態、認証判定、Git状態 |
+| Vite Build Adapter | Browser Clientの依存解決、最小化および固定配布Asset生成 | Runtime Authority、Server Routing、業務状態、Secret注入 |
 | Screen Router | SCRと選択ContextのNavigation | Business Lifecycle、正本Relationの生成 |
 | View Model Renderer | 公開結果をVisual Stateへ変換 | 欠測、制限、結果不明の推測補完 |
 | Interaction Adapter | 利用者操作を既存Application Requestへ変換 | Authority、Retry許可、Effect成功の生成 |
@@ -127,18 +128,24 @@ Browser
 
 ```text
 [Local Repository Mode]
-Browser ── localhost ── Workbench Server ── Repository-local Ports
+React Browser UI ── localhost ── Node Workbench Server ── Repository-local Ports
 
 [Remote CROS Mode]
-Browser ── Workbench Surface ── authenticated CROS Transport
+React Browser UI ── Workbench Surface ── authenticated CROS Transport
                                   └ granted Workspace only
+
+[Build]
+React／TypeScript Source ── Vite ── fixed Browser Bundle
+                                      └ Node Serverがexact allowlist配信
 ```
 
 - Local Serverはloopbackだけで待ち受け、任意Interfaceへ公開しない。
 - Repository単体利用はCROS Credentialを要求しない。
 - Remote CROS利用時だけ、既存CredentialとSession Grantを接続へ渡す。
+- Browser BundleはViteで生成する派生物であり正本にしない。Build不能、Asset欠落またはallowlist外Asset要求では起動または配信を拒否する。
+- Node Serverが初期HTMLをReactでServer描画し、Browser Clientが同じComponentをHydrationする。移行中の既存画面FragmentはServer生成・escape済みの内部境界だけで受け取り、利用者入力をRaw HTMLとして受け取らない。
 - Browserを閉じたことだけでServer終了を推定しない。明示shutdownまたはOwner Process終了でlistenerと進行中requestを回収する。
-- Desktop wrapper、OS tray、auto update、installerは`N/A`: 現在の利用者成果に必要な根拠がない。
+- Next.js／Server Action、Desktop wrapper、OS tray、auto update、installerは`N/A`: 現在の利用者成果に必要な根拠がなく、Node側の既存Authority境界と責務が重複する。
 
 ## 5. Dataと状態
 
@@ -201,6 +208,7 @@ WorkbenchはCurrent Projectionを独自Databaseへ複製しない。将来Cache�
 | Runtime状態未接続／観測不能 | Project Contextと観測理由 | Objective 0件、完了または直前値への畳込み | State Query Adapter接続、再観測 |
 | Owner Artifact欠落／越境／過大 | Project ContextとCatalog観測理由 | 部分Catalog公開、任意Path探索 | Catalog全体をunknownとしOwner側を確認する |
 | Logo／CSS取得失敗 | Application request状態 | 代替Brandの創作 | Asset経路診断、再取得 |
+| React Client Bundle欠落／不一致 | Server起動前のBuild結果 | HTMLだけを完全なReact移行として表示、任意Asset配信 | Vite Buildを再実行し、固定Assetの存在とHTTP契約を再確認 |
 
 ## Implementation Structure
 
@@ -210,7 +218,7 @@ WorkbenchはCurrent Projectionを独自Databaseへ複製しない。将来Cache�
 | Common Contract | Required | 複数入口で同じView StateとInteraction Resultを使う。 | 共通View Model／Result Contract | Surface固有語彙をDomain結果へ逆流させない。 | 契約変更は全Adapterと画面へ波及する。 | `workbench.component-boundary`<br>`workbench.view-state` |
 | Creation／Selection | Required | Project、Mode、Connection、AI Profileを明示選択する。 | Selection Service／Screen Context | 利用不能対象を暗黙選択しない。 | 選択規則変更はNavigationとAuthorityへ波及する。 | `workbench.mode-variation` |
 | State-dependent Behavior | Required | loading、partial、unknown、Effect前後で許可操作が異なる。 | View State Machine／Interaction State | unknown時に成功や再実行を既定にしない。 | 状態追加は全Screenと試験へ波及する。 | `workbench.view-state`<br>`workbench.interaction-sequence` |
-| Composition／Recursion | Required | 15 Screenと反復PartからProduct固有Patternを発見する。 | SCR／PRT Composition、後段CMP昇格 | Heroを先に抽象化せず反復根拠から昇格する。 | CMP追加時はScreen Coverageを再評価する。 | `workbench.screen-composition` |
+| Composition／Recursion | Required | 15 Screenと反復PartからProduct固有Patternを発見する。 | React Shell、SCR／PRT Composition、後段CMP昇格 | Heroを先に抽象化せず反復根拠から昇格する。移行中のServer Fragmentを恒久Component境界として固定しない。 | React ComponentまたはCMP追加時はScreen Coverageを再評価する。 | `workbench.screen-composition` |
 | Lifecycle Ownership | Required | Server、request、session、child processを所有する。 | Runtime Owner／Shutdown Coordinator | 終了後に所有資源を残さない。 | lifecycle変更はIT／STへ波及する。 | `workbench.resource-flow` |
 | External Boundary | Required | Git、Remote CROS、AI Provider、Filesystemを扱う。 | 境界別Port／Adapter | 一境界の成功を他境界へ流用しない。 | 境界追加はAuthorityとE2Eへ波及する。 | `workbench.interface-boundary`<br>`workbench.failure-recovery` |
 
@@ -218,7 +226,7 @@ WorkbenchはCurrent Projectionを独自Databaseへ複製しない。将来Cache�
 
 | 対象 | 現在状態 | 分類 | 処置 |
 |---|---|---|---|
-| Production Workbench package | `40_Develop/workbench`にlocalhost Shell、Project Surface、Repository Work、Topic／Meeting CRUDとMeeting Outcome処置、Credential管理Surface、Remote接続入力、Portfolioの検索・状態絞込み・Query拘束継続読込・Project別Source表示、Owner分離したRepository／CROS AI Profile管理、選択Profile IDと依頼種別付きの現在Session AI依頼Port、変更候補の確認・採用・破棄SurfaceおよびRuntime Activity Portが存在する。Repository単体Compositionは読取り助言を署名済み`workbench_advice` Runtimeへ、変更候補を明示許可Path付きの署名済みProject Runtime Single Taskへ接続する。候補はStoreから再読取りした安全なMetadataを表示し、別確認とProject Runtime Leaseを通った場合だけ採用する。Commit／Pushは行わない。15画面のProduction DOMは3表示Profile×3 Zoomで全数観測済みである | Partial | Codex／Claudeの実Provider E2Eを検証する。Visual Closureを同じ未確認へ戻さない |
+| Production Workbench package | `40_Develop/workbench`にReact Application Shell、Vite Browser Build、localhost Node Server、Project Surface、Repository Work、Topic／Meeting CRUDとMeeting Outcome処置、Credential管理Surface、Remote接続入力、Portfolioの検索・状態絞込み・Query拘束継続読込・Project別Source表示、Owner分離したRepository／CROS AI Profile管理、選択Profile IDと依頼種別付きの現在Session AI依頼Port、変更候補の確認・採用・破棄SurfaceおよびRuntime Activity Portが存在する。React移行はShellのServer描画／Hydrationまで成立し、既存15画面本体はServer Rendererを互換境界として内包する段階である。Repository単体Compositionは読取り助言を署名済み`workbench_advice` Runtimeへ、変更候補を明示許可Path付きの署名済みProject Runtime Single Taskへ接続する。候補はStoreから再読取りした安全なMetadataを表示し、別確認とProject Runtime Leaseを通った場合だけ採用する。Commit／Pushは行わない | Partial | React移行後の実Browser Visualを再確認し、画面単位のReact Component移行とCodex／Claudeの実Provider E2Eを閉じる。旧Visual Closureをそのまま流用しない |
 | Runtime Activity | Repository単体では現在RevisionとProject IDを既存Project Runtime State QueryおよびExecution Intelligence Storeへ接続する。Remote CROSではRequestごとにCredentialとExposureを再検証し、許可済みRepositoryだけをRuntime Activity Readerへ渡す。現在状態とEvent観測不能を独立表示し、Project限定Eventを新しい順・Cursor付きで継続読込する | Covered | Repository EventのProject分離・順序・Continuation、Remote CROSのGrant分離、Credential失効後の直前値非表示を結合試験で確認した。Runtime正本、Event正本またはRecovery AuthorityはWorkbenchへ移さない |
 | Project Plan | 固定Current Release Projectionを共通ReaderでVersion、期限、Risk、Scope、依存および判断へ変換し、Roadmap詳細と同じOwner Artifact Routeへ接続する | Covered | Projection構造を第二正本化せず、Roadmap／CHG更新時の同時更新契約を維持する |
 | Quality | 固定Current Quality Projectionを共通Readerで状態、Coverage、Gap、次Gateおよび人間判断へ変換し、Quality Center原文へ接続する | Covered | Quality Center更新時のProjection整合を維持し、Evidence自体をWorkbenchへ複製しない |
@@ -234,6 +242,7 @@ WorkbenchはCurrent Projectionを独自Databaseへ複製しない。将来Cache�
 
 - localhostだけにbindし、任意Interfaceへ公開しない。
 - 公開入口から公式ロゴを含むDirection A Shellを表示できる。
+- React Server RenderingとBrowser Hydrationが同じShellを生成し、Vite Bundleを同一Originの固定Pathだけから取得できる。
 - Local／Remoteの入口差でApplication意味、状態語彙、失敗分類を変えない。
 - 欠測、非開示、部分成功、結果不明を完全・空・失敗へ畳まない。
 - Effectを伴う操作ではAuthority、要求、受理、Effect、結果、終了後状態を分ける。

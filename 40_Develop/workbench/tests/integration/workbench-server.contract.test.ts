@@ -221,11 +221,37 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
     assert.match(shell.body.toString("utf8"), /Documentation and Relations/u);
     assert.match(shell.body.toString("utf8"), /TitleまたはPathで検索/u);
     assert.match(shell.body.toString("utf8"), /Project Context:/u);
+    assert.match(shell.body.toString("utf8"), /data-workbench-react-root/u);
+    assert.match(
+      shell.body.toString("utf8"),
+      /<script type="module" src="\/assets\/workbench-client\.js"><\/script>/u,
+    );
     assert.equal(shell.headers["content-type"], "text/html; charset=utf-8");
     assert.match(
       String(shell.headers["content-security-policy"]),
       /default-src 'self'/u,
     );
+    assert.match(
+      String(shell.headers["content-security-policy"]),
+      /script-src 'self'/u,
+    );
+
+    const client = await requestRaw(
+      handle.baseUrl,
+      "/assets/workbench-client.js",
+    );
+    assert.equal(client.status, 200);
+    assert.equal(
+      client.headers["content-type"],
+      "text/javascript; charset=utf-8",
+    );
+    assert.match(client.body.toString("utf8"), /hydrateRoot/u);
+
+    const unlistedClientAsset = await requestRaw(
+      handle.baseUrl,
+      "/assets/other-client.js",
+    );
+    assert.equal(unlistedClientAsset.status, 404);
 
     const css = await requestRaw(handle.baseUrl, "/workbench.css");
     assert.equal(css.status, 200);
